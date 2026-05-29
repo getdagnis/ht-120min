@@ -12,10 +12,16 @@
   }
 }
 
-.mode {
+.description {
   color: var(--text);
   font-size: 0.95rem;
   margin: 0;
+  max-width: 700px;
+  line-height: 1.6;
+
+  strong {
+    color: var(--text-h);
+  }
 }
 
 .tabs {

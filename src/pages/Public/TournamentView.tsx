@@ -67,9 +67,19 @@ export const TournamentView: React.FC = () => {
     <div className={styles.view}>
       <header className={styles.header}>
         <h1>{tournament.name}</h1>
-        <p className={styles.mode}>
-          Mode: {tournament.scoring_mode === '120m' ? '120 Minute Training' : 'Victory Points'}
-        </p>
+        <div className={styles.description}>
+          {tournament.scoring_mode === '120m' ? (
+            <p>
+              <strong>120m Training Mode:</strong> Teams compete primarily on matches where 120 minutes of training was achieved. 
+              Standings are ranked by <strong>120m Achievements</strong>. Ties are settled by standard victory points, goal difference, and goals scored.
+            </p>
+          ) : (
+            <p>
+              <strong>Victory Points Mode:</strong> Standard competitive tournament. 
+              Teams earn 3 points for a win and 1 point for a draw. Standings are ranked by <strong>Total Points</strong>, then goal difference and goals scored.
+            </p>
+          )}
+        </div>
       </header>
 
       <div className={styles.tabs}>
