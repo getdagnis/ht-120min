@@ -16,7 +16,7 @@
 }
 
 .primary {
-  background-color: var(--accent);
+  background-color: var(--primary-bg);
   color: white;
   &:hover:not(:disabled) {
     opacity: 0.9;
