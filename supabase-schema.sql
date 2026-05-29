@@ -57,6 +57,7 @@ CREATE TABLE matches (
   away_goals INTEGER,
   went_120 BOOLEAN DEFAULT FALSE,
   completed BOOLEAN DEFAULT FALSE,
+  venue_type TEXT DEFAULT 'home_away',
   created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 

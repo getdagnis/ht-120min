@@ -37,16 +37,12 @@ export const TournamentView: React.FC = () => {
 
       const { data: roundsData } = await supabase
         .from('rounds')
-        .select(`
-          *,
-          home_team:teams!matches_home_team_id_fkey(name, ht_team_id, logo_url, country_name),
-          away_team:teams!matches_away_team_id_fkey(name, ht_team_id, logo_url, country_name)
-        `)
+        .select('*')
         .eq('tournament_id', tournamentData.id)
         .order('round_number', { ascending: true });
 
       // Note: Supabase nested joins can be tricky with our specific foreign keys.
-      // If the above query fails to get nested matches correctly, we fetch them separately.
+      // We fetch matches separately for the selected rounds.
       const { data: matchesData } = await supabase
         .from('matches')
         .select(`
@@ -56,7 +52,7 @@ export const TournamentView: React.FC = () => {
         `)
         .in('round_id', (roundsData || []).map(r => r.id));
 
-      if (teamsData && roundsData) {
+      if (teamsData) {
         const matchesWithTeams = matchesData || [];
         const calculated = calculateStandings(
           teamsData.map(t => ({ 
@@ -71,12 +67,14 @@ export const TournamentView: React.FC = () => {
         );
         setStandings(calculated);
         
-        // Attach matches to rounds
-        const roundsWithMatches = roundsData.map(r => ({
-          ...r,
-          matches: matchesWithTeams.filter(m => m.round_id === r.id)
-        }));
-        setRounds(roundsWithMatches);
+        if (roundsData) {
+          // Attach matches to rounds
+          const roundsWithMatches = roundsData.map(r => ({
+            ...r,
+            matches: matchesWithTeams.filter(m => m.round_id === r.id)
+          }));
+          setRounds(roundsWithMatches);
+        }
       }
     }
     setLoading(false);
