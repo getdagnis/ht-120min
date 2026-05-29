@@ -5,11 +5,12 @@ interface CardProps {
   children: React.ReactNode;
   title?: string;
   className?: string;
+  variant?: 'classic' | 'hero' | 'classy';
 }
 
-export const Card: React.FC<CardProps> = ({ children, title, className = '' }) => {
+export const Card: React.FC<CardProps> = ({ children, title, className = '', variant = 'classic' }) => {
   return (
-    <div className={`${styles.card} ${className}`}>
+    <div className={`${styles.card} ${styles[variant]} ${className}`}>
       {title && <h3 className={styles.title}>{title}</h3>}
       <div className={styles.content}>{children}</div>
     </div>

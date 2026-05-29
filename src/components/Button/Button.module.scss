@@ -38,8 +38,9 @@
 
 .outline {
   background-color: transparent;
-  color: var(--accent);
-  border-color: var(--accent);
+  color: white;
+  border-color: white;
+  background-color: var(--accent-bg);
   &:hover:not(:disabled) {
     background-color: var(--accent-bg);
     color: white;

@@ -41,8 +41,6 @@ export const TournamentView: React.FC = () => {
         .eq('tournament_id', tournamentData.id)
         .order('round_number', { ascending: true });
 
-      // Note: Supabase nested joins can be tricky with our specific foreign keys.
-      // We fetch matches separately for the selected rounds.
       const { data: matchesData } = await supabase
         .from('matches')
         .select(`
@@ -68,7 +66,6 @@ export const TournamentView: React.FC = () => {
         setStandings(calculated);
         
         if (roundsData) {
-          // Attach matches to rounds
           const roundsWithMatches = roundsData.map(r => ({
             ...r,
             matches: matchesWithTeams.filter(m => m.round_id === r.id)
@@ -84,8 +81,8 @@ export const TournamentView: React.FC = () => {
     window.location.href = `/api/auth/init?tournamentId=${tournament.id}`;
   };
 
-  if (loading) return <div>Loading...</div>;
-  if (!tournament) return <div>Tournament not found</div>;
+  if (loading) return <div className={styles.loading}>Loading...</div>;
+  if (!tournament) return <div className={styles.loading}>Tournament not found</div>;
 
   const isGenerated = rounds.length > 0;
 
@@ -131,7 +128,7 @@ export const TournamentView: React.FC = () => {
       </div>
 
       {activeTab === 'standings' ? (
-        <Card title="Standings">
+        <Card title="Standings" variant="classy">
           <div className={styles.tableWrapper}>
             <table>
               <thead>
@@ -187,7 +184,7 @@ export const TournamentView: React.FC = () => {
       ) : (
         <div className={styles.rounds}>
           {rounds.map(round => (
-            <Card key={round.id} title={`Round ${round.round_number}`}>
+            <Card key={round.id} title={`Round ${round.round_number}`} variant="classy">
               <div className={styles.matches}>
                 {round.matches.map((match: any) => (
                   <div key={match.id} className={styles.match}>

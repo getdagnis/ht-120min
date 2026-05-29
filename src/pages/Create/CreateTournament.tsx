@@ -124,7 +124,7 @@ export const CreateTournament: React.FC = () => {
   if (step === 'info') {
     return (
       <div className={styles.container}>
-        <Card>
+        <Card variant="hero">
           <h1>Create Tournament</h1>
           <img src="/create.png" alt="HT-120min" />
           <form onSubmit={handleContinue} className={styles.form}>
@@ -169,7 +169,7 @@ export const CreateTournament: React.FC = () => {
             </div>
 
             <div className={styles.actions}>
-              <Button type="submit" fullWidth disabled={checkingSlug}>
+              <Button type="submit" fullWidth disabled={checkingSlug} variant="secondary">
                 {checkingSlug ? 'Checking URL...' : 'Continue'} <ArrowRight size={18} />
               </Button>
             </div>
@@ -181,10 +181,10 @@ export const CreateTournament: React.FC = () => {
 
   return (
     <div className={styles.container}>
-      <h1>Add Teams</h1>
-      <p className={styles.subtitle}>{formData.name}</p>
-
-      <Card title="Register Teams">
+      <Card variant="hero">
+        <h1>Add Teams</h1>
+        <p className={styles.subtitle}>{formData.name}</p>
+        <img src="/bus1.png" alt="Add Teams" />
         <p className={styles.subtitle}>Add at least two teams. You can add more later.</p>
         <form onSubmit={addLocalTeam} className={styles.teamForm}>
           <div className={styles.inputGroup}>
@@ -227,7 +227,7 @@ export const CreateTournament: React.FC = () => {
 
         <div className={styles.genActions}>
           <Button
-            variant="primary"
+            variant="secondary"
             size="lg"
             fullWidth
             onClick={handleFinalSubmit}
@@ -235,7 +235,13 @@ export const CreateTournament: React.FC = () => {
           >
             <Save size={18} /> {loading ? 'Creating...' : 'Create Tournament'}
           </Button>
-          <Button variant="outline" size="sm" onClick={() => setStep('info')} disabled={loading}>
+          <Button
+            variant="secondary"
+            size="sm"
+            onClick={() => setStep('info')}
+            disabled={loading}
+            style={{ opacity: 0.8 }}
+          >
             Go Back
           </Button>
         </div>

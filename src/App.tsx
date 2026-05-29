@@ -4,10 +4,12 @@ import { Home } from './pages/Home/Home';
 import { CreateTournament } from './pages/Create/CreateTournament';
 import { TournamentAdmin } from './pages/Admin/TournamentAdmin';
 import { TournamentView } from './pages/Public/TournamentView';
+import { ScrollToTop } from './components/ScrollToTop';
 
 function App() {
   return (
     <BrowserRouter>
+      <ScrollToTop />
       <Layout>
         <Routes>
           <Route path="/" element={<Home />} />

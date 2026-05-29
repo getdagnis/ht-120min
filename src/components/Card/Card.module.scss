@@ -1,18 +1,54 @@
 .card {
-  background: var(--accent-bg);
-  border: 1px solid var(--border);
-  border-radius: 8px;
   margin-bottom: 24px;
   overflow: hidden;
   text-align: left;
 }
 
+.classic {
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  color: var(--text);
+
+  .title {
+    color: var(--text-h);
+    border-bottom: 1px solid var(--border);
+    background-color: var(--code-bg);
+  }
+}
+
+.hero {
+  background: var(--accent-bg);
+  border: 1px solid var(--border);
+  border-radius: 1rem;
+  color: white;
+
+  .title {
+    color: white;
+  }
+}
+
+.classy {
+  background: rgba(0, 0, 0, 0.05); // 10% darker approx (subtle bg)
+  border: 1px solid var(--border);
+  border-radius: 0; // square corners
+  color: var(--text);
+
+  .title {
+    color: var(--text-h);
+    border-bottom: 1px solid var(--border);
+    font-weight: 600;
+  }
+}
+
+:global(.dark) .classy {
+  background: rgba(0, 0, 0, 0.3); // even darker for dark mode
+}
+
 .title {
   padding: 16px 24px;
   margin: 0;
-  border-bottom: 1px solid var(--border);
   font-size: 1.25rem;
-  background-color: var(--code-bg);
 }
 
 .content {

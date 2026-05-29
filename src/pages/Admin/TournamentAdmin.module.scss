@@ -1,5 +1,12 @@
 .admin {
   text-align: left;
+  max-width: 100%;
+  padding: 1rem;
+}
+
+.loading {
+  padding: 2rem;
+  text-align: center;
 }
 
 .auth {
@@ -48,7 +55,7 @@
   code {
     background: var(--code-bg);
     padding: 2px 8px;
-    border-radius: 4px;
+    border-radius: 0.1rem;
     color: var(--accent);
   }
 }
@@ -103,7 +110,7 @@
 
 .inactiveTeam {
   opacity: 0.6;
-  background-color: var(--code-bg);
+  background-color: rgba(0, 0, 0, 0.02);
   padding-left: 8px !important;
   padding-right: 8px !important;
 }
@@ -129,7 +136,7 @@
   text-transform: uppercase;
   background: var(--border);
   padding: 2px 6px;
-  border-radius: 4px;
+  border-radius: 0.1rem;
   width: fit-content;
 }
 
@@ -156,7 +163,7 @@
   border: none;
   color: #ef4444;
   padding: 4px;
-  border-radius: 4px;
+  border-radius: 0.1rem;
 
   &:hover {
     background: rgba(239, 68, 68, 0.1);
@@ -270,11 +277,10 @@
 
 .badge {
   background: var(--accent-bg);
-  color: var(--accent);
-  border: 1px solid var(--accent-border);
+  color: white;
   font-size: 0.75rem;
   padding: 2px 6px;
-  border-radius: 4px;
+  border-radius: 0.1rem;
   font-weight: 600;
 }
 
@@ -303,4 +309,11 @@
 .editActions {
   display: flex;
   gap: 0.5rem;
+}
+
+.rounds {
+  h2 {
+    margin: 2rem 0 1rem;
+    font-size: 1.5rem;
+  }
 }

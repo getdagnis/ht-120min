@@ -251,13 +251,13 @@ export const TournamentAdmin: React.FC = () => {
     }
   };
 
-  if (loading) return <div>Loading...</div>;
-  if (!tournament) return <div>Tournament not found</div>;
+  if (loading) return <div className={styles.loading}>Loading...</div>;
+  if (!tournament) return <div className={styles.loading}>Tournament not found</div>;
 
   if (!isAuthenticated) {
     return (
       <div className={styles.auth}>
-        <Card title="Admin Login">
+        <Card title="Admin Login" variant="classy">
           <form onSubmit={handleLogin}>
             <div className={styles.field}>
               <label>Admin Password</label>
@@ -283,7 +283,7 @@ export const TournamentAdmin: React.FC = () => {
 
   return (
     <div className={styles.admin}>
-      <div className={styles.header}>
+      <header className={styles.header}>
         <h1>{tournament.name} (Admin)</h1>
         <div className={styles.meta}>
           <div className={styles.metaItem}>
@@ -305,9 +305,9 @@ export const TournamentAdmin: React.FC = () => {
             <code>{tournament.admin_password}</code>
           </div>
         </div>
-      </div>
+      </header>
 
-      <Card title="Manage Teams">
+      <Card title="Manage Teams" variant="classy">
         <form onSubmit={addTeam} className={styles.teamForm}>
           <div className={styles.inputGroup}>
             <input
@@ -405,19 +405,19 @@ export const TournamentAdmin: React.FC = () => {
                 <input
                   type="radio"
                   name="scheduleMode"
-                  checked={scheduleMode === 'single'}
-                  onChange={() => setScheduleMode('single')}
+                  checked={scheduleMode === 'double'}
+                  onChange={() => setScheduleMode('double')}
                 />
-                Play each other once (Neutral stadium)
+                Play each other twice (Home and Away)
               </label>
               <label className={styles.checkboxLabel}>
                 <input
                   type="radio"
                   name="scheduleMode"
-                  checked={scheduleMode === 'double'}
-                  onChange={() => setScheduleMode('double')}
+                  checked={scheduleMode === 'single'}
+                  onChange={() => setScheduleMode('single')}
                 />
-                Play each other twice (Home and Away)
+                Play each other once (Neutral stadium)
               </label>
             </div>
             <Button
@@ -442,7 +442,7 @@ export const TournamentAdmin: React.FC = () => {
         <div className={styles.rounds}>
           <h2>Fixtures & Results</h2>
           {rounds.map((round) => (
-            <Card key={round.id} title={`Round ${round.round_number}`}>
+            <Card key={round.id} title={`Round ${round.round_number}`} variant="classy">
               <div className={styles.matches}>
                 {round.matches.map((match: any) => {
                   return (
