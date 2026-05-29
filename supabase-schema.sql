@@ -17,10 +17,29 @@ CREATE TABLE teams (
   ht_team_name TEXT,
   active BOOLEAN DEFAULT TRUE,
   replacement_for_team_id UUID REFERENCES teams(id) ON DELETE SET NULL,
+  hattrick_user_id BIGINT,
+  oauth_token TEXT,
+  oauth_token_secret TEXT,
+  logo_url TEXT,
+  country_name TEXT,
+  joined_via_oauth BOOLEAN DEFAULT FALSE,
+  oauth_scope TEXT,
+  can_manage_challenges BOOLEAN DEFAULT FALSE,
   manager_name TEXT,
-  hattrick_team_id TEXT, -- Keep for backwards compat if needed, though we use ht_team_id now
+  hattrick_team_id TEXT, -- Legacy
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+  CONSTRAINT unique_tournament_team UNIQUE (tournament_id, ht_team_id)
+);
+
+CREATE TABLE oauth_temp_sessions (
+  oauth_token TEXT PRIMARY KEY,
+  oauth_token_secret TEXT NOT NULL,
+  tournament_id UUID NOT NULL,
   created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
+
+ALTER TABLE oauth_temp_sessions ENABLE ROW LEVEL SECURITY;
+CREATE POLICY "Public Read/Write for MVP" ON oauth_temp_sessions FOR ALL USING (true) WITH CHECK (true);
 
 CREATE TABLE rounds (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),

@@ -2,7 +2,7 @@ import React from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Button } from '../../components/Button/Button';
 import { Trophy, ShieldCheck, Users } from 'lucide-react';
-import styles from './Home.module.scss';
+import styles from './Home.module.sass';
 
 export const Home: React.FC = () => {
   const navigate = useNavigate();
@@ -11,9 +11,11 @@ export const Home: React.FC = () => {
     <div className={styles.home}>
       <section className={styles.hero}>
         <Trophy size={80} className={styles.heroIcon} />
-        <h1>Hattrick Friendly Tournaments</h1>
+        <h1>HT-120min</h1>
         <p className={styles.subtitle}>
-          Organize your training tournaments with ease. Support for 120m achievements and standard victory points.
+          HT-120min is a small community tool for organizing friendly tournaments and recurring friendly matches in
+          Hattrick. The idea started in the tiny Guam based HFI community - we are extra small, just 13 teams, and were
+          looking for a way to achieve regular non-international friendlies.
         </p>
         <Button size="lg" onClick={() => navigate('/create')}>
           Create Tournament
@@ -24,7 +26,10 @@ export const Home: React.FC = () => {
         <div className={styles.feature}>
           <ShieldCheck size={40} />
           <h3>Simple Admin</h3>
-          <p>No accounts needed. Manage everything with a public URL and a password.</p>
+          <p>
+            No accounts needed. Manage everything with a public URL and a password that you can share or keep to
+            yourself.
+          </p>
         </div>
         <div className={styles.feature}>
           <Users size={40} />

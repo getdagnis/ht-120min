@@ -8,7 +8,25 @@
   border-bottom: 1px solid var(--border);
 
   h1 {
-    margin-bottom: 0.5rem;
+    margin-bottom: 0;
+  }
+}
+
+.headerTop {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 2rem;
+  margin-bottom: 1rem;
+
+  @media (max-width: 640px) {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 1rem;
+    
+    button {
+      width: 100%;
+    }
   }
 }
 
@@ -63,9 +81,25 @@
   gap: 2px;
 }
 
+.nameRow {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
 .teamName {
   font-weight: 500;
   color: var(--text-h);
+}
+
+.htLink {
+  color: var(--text);
+  display: flex;
+  align-items: center;
+  
+  &:hover {
+    color: var(--accent);
+  }
 }
 
 .teamId {

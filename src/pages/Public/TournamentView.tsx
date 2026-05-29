@@ -2,8 +2,10 @@ import React, { useState, useEffect } from 'react';
 import { useParams } from 'react-router-dom';
 import { supabase } from '../../lib/supabase';
 import { Card } from '../../components/Card/Card';
+import { Button } from '../../components/Button/Button';
 import { calculateStandings } from '../../utils/standings';
 import type { TeamStanding } from '../../utils/standings';
+import { LogIn, ExternalLink } from 'lucide-react';
 import styles from './TournamentView.module.scss';
 
 export const TournamentView: React.FC = () => {
@@ -37,17 +39,25 @@ export const TournamentView: React.FC = () => {
         .from('rounds')
         .select(`
           *,
-          matches (
-            *,
-            home_team:teams!matches_home_team_id_fkey(name, ht_team_id, active, replacement_for_team_id),
-            away_team:teams!matches_away_team_id_fkey(name, ht_team_id, active, replacement_for_team_id)
-          )
+          home_team:teams!matches_home_team_id_fkey(name, ht_team_id, logo_url, country_name),
+          away_team:teams!matches_away_team_id_fkey(name, ht_team_id, logo_url, country_name)
         `)
         .eq('tournament_id', tournamentData.id)
         .order('round_number', { ascending: true });
 
+      // Note: Supabase nested joins can be tricky with our specific foreign keys.
+      // If the above query fails to get nested matches correctly, we fetch them separately.
+      const { data: matchesData } = await supabase
+        .from('matches')
+        .select(`
+          *,
+          home_team:teams!matches_home_team_id_fkey(name, ht_team_id, logo_url, country_name),
+          away_team:teams!matches_away_team_id_fkey(name, ht_team_id, logo_url, country_name)
+        `)
+        .in('round_id', (roundsData || []).map(r => r.id));
+
       if (teamsData && roundsData) {
-        const allMatches = roundsData.flatMap(r => r.matches);
+        const matchesWithTeams = matchesData || [];
         const calculated = calculateStandings(
           teamsData.map(t => ({ 
             id: t.id, 
@@ -56,23 +66,42 @@ export const TournamentView: React.FC = () => {
             active: t.active,
             replacement_for_team_id: t.replacement_for_team_id
           })),
-          allMatches,
+          matchesWithTeams,
           tournamentData.scoring_mode as any
         );
         setStandings(calculated);
-        setRounds(roundsData);
+        
+        // Attach matches to rounds
+        const roundsWithMatches = roundsData.map(r => ({
+          ...r,
+          matches: matchesWithTeams.filter(m => m.round_id === r.id)
+        }));
+        setRounds(roundsWithMatches);
       }
     }
     setLoading(false);
   };
 
+  const handleJoin = () => {
+    window.location.href = `/api/auth/init?tournamentId=${tournament.id}`;
+  };
+
   if (loading) return <div>Loading...</div>;
   if (!tournament) return <div>Tournament not found</div>;
+
+  const isGenerated = rounds.length > 0;
 
   return (
     <div className={styles.view}>
       <header className={styles.header}>
-        <h1>{tournament.name}</h1>
+        <div className={styles.headerTop}>
+          <h1>{tournament.name}</h1>
+          {!isGenerated && (
+            <Button onClick={handleJoin} variant="primary">
+              <LogIn size={18} /> Join Tournament
+            </Button>
+          )}
+        </div>
         <div className={styles.description}>
           {tournament.scoring_mode === '120m' ? (
             <p>
@@ -126,8 +155,18 @@ export const TournamentView: React.FC = () => {
                     <td>{idx + 1}</td>
                     <td className={styles.teamNameCell}>
                       <div className={styles.teamInfo}>
-                        <span className={styles.teamName}>{s.teamName}</span>
-                        {s.htTeamId && <span className={styles.teamId}>({s.htTeamId})</span>}
+                        <div className={styles.nameRow}>
+                          <span className={styles.teamName}>{s.teamName}</span>
+                          <a 
+                            href={`https://www.hattrick.org/goto.ashx?path=/Club/?TeamID=${s.htTeamId}`} 
+                            target="_blank" 
+                            rel="noopener noreferrer"
+                            className={styles.htLink}
+                          >
+                            <ExternalLink size={12} />
+                          </a>
+                        </div>
+                        {s.htTeamId && <span className={styles.teamId}>ID: {s.htTeamId}</span>}
                       </div>
                     </td>
                     {tournament.scoring_mode === '120m' && (

@@ -18,12 +18,13 @@ export const TournamentAdmin: React.FC = () => {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [newTeamId, setNewTeamId] = useState('');
   const [newTeamName, setNewTeamName] = useState('');
-  const [isFetchingTeam, setIsFetchingTeam] = useState(false);
+  const [isSavingTeam, setIsSavingTeam] = useState(false);
   const [isGenerating, setIsGenerating] = useState(false);
   const [editingMatch, setEditingMatch] = useState<string | null>(null);
   const [matchData, setMatchData] = useState<any>({});
   const [replacingTeamId, setReplacingTeamId] = useState<string | null>(null);
   const [replacementHtId, setReplacementHtId] = useState('');
+  const [replacementName, setReplacementName] = useState('');
 
   useEffect(() => {
     fetchTournament();
@@ -82,37 +83,18 @@ export const TournamentAdmin: React.FC = () => {
     }
   };
 
-  const fetchTeamName = async (id: string) => {
-    const res = await fetch(`/api/fetch-team?teamId=${id}`);
-    if (!res.ok) {
-      const errorData = await res.json();
-      throw new Error(errorData.error || 'Failed to fetch team from Hattrick');
-    }
-    const data = await res.json();
-    return data.teamName;
-  };
-
   const addTeam = async () => {
-    if (!newTeamId.trim()) return;
-    setIsFetchingTeam(true);
+    if (!newTeamName.trim() || !newTeamId.trim()) {
+      alert('Both Team Name and HT ID are required.');
+      return;
+    }
+    setIsSavingTeam(true);
     try {
-      let teamName = newTeamName.trim();
-      
-      if (!teamName) {
-        try {
-          teamName = await fetchTeamName(newTeamId.trim());
-        } catch (e: any) {
-          alert(`Scraper Blocked: ${e.message}\n\nPlease enter the team name manually.`);
-          setIsFetchingTeam(false);
-          return;
-        }
-      }
-
       const { error } = await supabase
         .from('teams')
         .insert([{ 
           tournament_id: tournament.id, 
-          name: teamName, 
+          name: newTeamName.trim(), 
           ht_team_id: parseInt(newTeamId.trim()),
           active: true 
         }]);
@@ -124,26 +106,17 @@ export const TournamentAdmin: React.FC = () => {
     } catch (error: any) {
       alert(error.message);
     } finally {
-      setIsFetchingTeam(false);
+      setIsSavingTeam(false);
     }
   };
 
   const replaceTeam = async (oldTeamId: string) => {
-    if (!replacementHtId.trim()) return;
-    setIsFetchingTeam(true);
+    if (!replacementName.trim() || !replacementHtId.trim()) {
+      alert('Both new Team Name and new HT ID are required.');
+      return;
+    }
+    setIsSavingTeam(true);
     try {
-      let teamName = '';
-      try {
-        teamName = await fetchTeamName(replacementHtId.trim());
-      } catch (e: any) {
-        const manualName = window.prompt(`Scraper Blocked: ${e.message}\n\nPlease enter the new team name manually:`);
-        if (!manualName) {
-          setIsFetchingTeam(false);
-          return;
-        }
-        teamName = manualName;
-      }
-      
       // 1. Deactivate old team
       await supabase.from('teams').update({ active: false }).eq('id', oldTeamId);
 
@@ -152,7 +125,7 @@ export const TournamentAdmin: React.FC = () => {
         .from('teams')
         .insert([{ 
           tournament_id: tournament.id, 
-          name: teamName, 
+          name: replacementName.trim(), 
           ht_team_id: parseInt(replacementHtId.trim()),
           active: true,
           replacement_for_team_id: oldTeamId
@@ -161,11 +134,12 @@ export const TournamentAdmin: React.FC = () => {
       if (error) throw error;
       setReplacingTeamId(null);
       setReplacementHtId('');
+      setReplacementName('');
       fetchDetails(tournament.id);
     } catch (error: any) {
       alert(error.message);
     } finally {
-      setIsFetchingTeam(false);
+      setIsSavingTeam(false);
     }
   };
 
@@ -296,13 +270,13 @@ export const TournamentAdmin: React.FC = () => {
             />
             <input 
               type="text" 
-              placeholder="Team Name (Manual)" 
+              placeholder="Team Name" 
               value={newTeamName} 
               onChange={(e) => setNewTeamName(e.target.value)}
             />
           </div>
-          <Button onClick={addTeam} disabled={isFetchingTeam}>
-            {isFetchingTeam ? 'Saving...' : <><Plus size={18} /> Add Team</>}
+          <Button onClick={addTeam} disabled={isSavingTeam}>
+            {isSavingTeam ? 'Saving...' : <><Plus size={18} /> Add Team</>}
           </Button>
         </div>
         
@@ -326,10 +300,20 @@ export const TournamentAdmin: React.FC = () => {
                           value={replacementHtId}
                           onChange={(e) => setReplacementHtId(e.target.value)}
                         />
-                        <Button size="sm" onClick={() => replaceTeam(team.id)} disabled={isFetchingTeam}>
+                        <input 
+                          type="text" 
+                          placeholder="New Name" 
+                          value={replacementName}
+                          onChange={(e) => setReplacementName(e.target.value)}
+                        />
+                        <Button size="sm" onClick={() => replaceTeam(team.id)} disabled={isSavingTeam}>
                           Confirm
                         </Button>
-                        <Button size="sm" variant="secondary" onClick={() => setReplacingTeamId(null)}>
+                        <Button size="sm" variant="secondary" onClick={() => {
+                          setReplacingTeamId(null);
+                          setReplacementHtId('');
+                          setReplacementName('');
+                        }}>
                           Cancel
                         </Button>
                       </div>
