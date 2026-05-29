@@ -15,7 +15,8 @@ export const Home: React.FC = () => {
         <p className={styles.subtitle}>
           HT-120min is a small community tool for organizing friendly tournaments and recurring friendly matches in
           Hattrick. The idea started in the tiny Guam based HFI community - we are extra small, just 13 teams, and were
-          looking for a way to achieve regular non-international friendlies.
+          looking for a way to achieve regular non-international friendlies. It grew into a 120 min friendly tournament
+          tool.
         </p>
         <Button size="lg" onClick={() => navigate('/create')}>
           Create Tournament
