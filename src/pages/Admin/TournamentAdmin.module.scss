@@ -57,9 +57,31 @@
   display: flex;
   gap: 1rem;
   margin-bottom: 1.5rem;
+  align-items: flex-start;
+
+  @media (max-width: 640px) {
+    flex-direction: column;
+    width: 100%;
+    
+    button {
+      width: 100%;
+    }
+  }
+}
+
+.inputGroup {
+  display: flex;
+  gap: 0.5rem;
+  flex: 1;
 
   input {
     flex: 1;
+    min-width: 0;
+  }
+
+  @media (max-width: 640px) {
+    width: 100%;
+    flex-direction: column;
   }
 }
 

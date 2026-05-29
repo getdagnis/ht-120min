@@ -17,6 +17,7 @@ export const TournamentAdmin: React.FC = () => {
   const [password, setPassword] = useState(location.state?.password || localStorage.getItem(`admin_pw_${slug}`) || '');
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [newTeamId, setNewTeamId] = useState('');
+  const [newTeamName, setNewTeamName] = useState('');
   const [isFetchingTeam, setIsFetchingTeam] = useState(false);
   const [isGenerating, setIsGenerating] = useState(false);
   const [editingMatch, setEditingMatch] = useState<string | null>(null);
@@ -83,7 +84,10 @@ export const TournamentAdmin: React.FC = () => {
 
   const fetchTeamName = async (id: string) => {
     const res = await fetch(`/api/fetch-team?teamId=${id}`);
-    if (!res.ok) throw new Error('Failed to fetch team from Hattrick');
+    if (!res.ok) {
+      const errorData = await res.json();
+      throw new Error(errorData.error || 'Failed to fetch team from Hattrick');
+    }
     const data = await res.json();
     return data.teamName;
   };
@@ -92,7 +96,18 @@ export const TournamentAdmin: React.FC = () => {
     if (!newTeamId.trim()) return;
     setIsFetchingTeam(true);
     try {
-      const teamName = await fetchTeamName(newTeamId.trim());
+      let teamName = newTeamName.trim();
+      
+      if (!teamName) {
+        try {
+          teamName = await fetchTeamName(newTeamId.trim());
+        } catch (e: any) {
+          alert(`Scraper Blocked: ${e.message}\n\nPlease enter the team name manually.`);
+          setIsFetchingTeam(false);
+          return;
+        }
+      }
+
       const { error } = await supabase
         .from('teams')
         .insert([{ 
@@ -104,6 +119,7 @@ export const TournamentAdmin: React.FC = () => {
       
       if (error) throw error;
       setNewTeamId('');
+      setNewTeamName('');
       fetchDetails(tournament.id);
     } catch (error: any) {
       alert(error.message);
@@ -116,7 +132,17 @@ export const TournamentAdmin: React.FC = () => {
     if (!replacementHtId.trim()) return;
     setIsFetchingTeam(true);
     try {
-      const teamName = await fetchTeamName(replacementHtId.trim());
+      let teamName = '';
+      try {
+        teamName = await fetchTeamName(replacementHtId.trim());
+      } catch (e: any) {
+        const manualName = window.prompt(`Scraper Blocked: ${e.message}\n\nPlease enter the new team name manually:`);
+        if (!manualName) {
+          setIsFetchingTeam(false);
+          return;
+        }
+        teamName = manualName;
+      }
       
       // 1. Deactivate old team
       await supabase.from('teams').update({ active: false }).eq('id', oldTeamId);
@@ -261,14 +287,22 @@ export const TournamentAdmin: React.FC = () => {
 
       <Card title="Manage Teams">
         <div className={styles.teamForm}>
-          <input 
-            type="number" 
-            placeholder="Hattrick Team ID" 
-            value={newTeamId} 
-            onChange={(e) => setNewTeamId(e.target.value)}
-          />
+          <div className={styles.inputGroup}>
+            <input 
+              type="number" 
+              placeholder="HT Team ID" 
+              value={newTeamId} 
+              onChange={(e) => setNewTeamId(e.target.value)}
+            />
+            <input 
+              type="text" 
+              placeholder="Team Name (Manual)" 
+              value={newTeamName} 
+              onChange={(e) => setNewTeamName(e.target.value)}
+            />
+          </div>
           <Button onClick={addTeam} disabled={isFetchingTeam}>
-            {isFetchingTeam ? 'Fetching...' : <><Plus size={18} /> Add Team</>}
+            {isFetchingTeam ? 'Saving...' : <><Plus size={18} /> Add Team</>}
           </Button>
         </div>
         
@@ -335,9 +369,6 @@ export const TournamentAdmin: React.FC = () => {
             <Card key={round.id} title={`Round ${round.round_number}`}>
               <div className={styles.matches}>
                 {round.matches.map((match: any) => {
-                  // Find current active names for the teams in this fixture chain
-                  // In inheritance mode, we typically want to show the currently active team name
-                  // even for past matches, as Team B "is" the new identity of that slot.
                   return (
                     <div key={match.id} className={styles.match}>
                       <div className={styles.matchTeams}>
