@@ -5,9 +5,8 @@
 }
 
 .header {
-  border-bottom: 1px solid var(--border);
   padding: 1rem 0;
-  background-color: var(--bg);
+  background: #c6c6c611;
   position: sticky;
   top: 0;
   z-index: 10;
@@ -15,7 +14,6 @@
 
 .container {
   width: 100%;
-  max-width: 800px;
   margin: 0 auto;
   padding: 0 1rem;
   box-sizing: border-box;
@@ -44,8 +42,11 @@
 }
 
 .main {
-  flex: 1;
+  display: flex;
+  justify-self: center;
+  align-items: center;
   padding: 2rem 0;
+  background: #63636311;
 }
 
 .footer {
@@ -54,4 +55,5 @@
   text-align: center;
   color: var(--text);
   font-size: 0.875rem;
+  background: #63636322;
 }

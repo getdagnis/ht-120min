@@ -12,11 +12,12 @@ export const Home: React.FC = () => {
       <section className={styles.hero}>
         <Trophy size={80} className={styles.heroIcon} />
         <h1>HT-120min</h1>
+        <img src="/hero1.png" alt="HT-120min" />
         <p className={styles.subtitle}>
-          HT-120min is a small community tool for organizing friendly tournaments and recurring friendly matches in
-          Hattrick. The idea started in the tiny Guam based HFI community - we are extra small, just 13 teams, and were
-          looking for a way to achieve regular non-international friendlies. It grew into a 120 min friendly tournament
-          tool.
+          <strong>HT-120min</strong> is a small community tool for organizing friendly tournaments and recurring
+          friendly matches in Hattrick. The idea started in the tiny Guam based HFI community - we are just 13 teams and
+          were looking for a way to reliably organize regular non-international friendlies. Step-by-step it grew into a
+          120 min friendly tournament tool.
         </p>
         <Button size="lg" onClick={() => navigate('/create')}>
           Create Tournament

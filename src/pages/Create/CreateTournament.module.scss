@@ -1,17 +1,25 @@
 .container {
-  max-width: 600px;
+  max-width: 800px;
   margin: 0 auto;
   text-align: center;
 
   h1 {
     margin-bottom: 1rem;
   }
+
+  img {
+    width: 90%;
+    margin-bottom: 1rem;
+  }
+}
+
+img .subtitle {
+  font-weight: 600;
+  margin-bottom: 2rem;
 }
 
 .subtitle {
-  color: var(--text);
-  font-weight: 600;
-  margin-bottom: 2rem;
+  color: white;
 }
 
 .form {
@@ -50,7 +58,7 @@
   @media (max-width: 640px) {
     flex-direction: column;
     width: 100%;
-    
+
     button {
       width: 100%;
     }
@@ -115,12 +123,12 @@
   cursor: pointer;
 
   &:hover {
-    background: rgba(239, 68, 68, 0.1);
+    background: rgba(24, 201, 89, 0.701);
   }
 }
 
 .empty {
-  color: var(--text);
+  color: white;
   font-style: italic;
   margin: 2rem 0;
 }

@@ -62,7 +62,7 @@
   @media (max-width: 640px) {
     flex-direction: column;
     width: 100%;
-    
+
     button {
       width: 100%;
     }
@@ -143,7 +143,7 @@
   display: flex;
   align-items: center;
   gap: 0.5rem;
-  
+
   input {
     width: 120px;
     padding: 4px 8px;
@@ -188,7 +188,7 @@
   cursor: pointer;
   color: var(--text-h);
 
-  input[type="radio"] {
+  input[type='radio'] {
     width: 18px;
     height: 18px;
     cursor: pointer;
@@ -239,12 +239,12 @@
 .teamCol {
   display: flex;
   flex-direction: column;
-  
+
   .teamName {
     font-weight: 500;
     color: var(--text-h);
   }
-  
+
   .teamId {
     font-size: 0.75rem;
     color: var(--text);

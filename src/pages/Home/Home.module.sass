@@ -1,16 +1,39 @@
 .home
   text-align: center
+  width: 100%
 
 .hero
-  padding: 4rem 0
+  padding: 1rem 0
+  margin-top: 0.5rem
   border-bottom: 1px solid var(--border)
+  margin: auto
   margin-bottom: 3rem
+  background: var(--accent-bg)
+  border-radius: 1rem
+  color: white
+  width: 100%
+  max-width: 800px
+  padding: 2rem 4rem
+  box-sizing: border-box
 
   h1
     font-size: 3.5rem
-    margin: 1.5rem 0
+    font-weight: 600
+    color: white
+    margin-bottom: 1rem
     @media (max-width: 640px)
       font-size: 2.5rem
+
+  img
+    width: 90%
+    margin-bottom: 1rem
+
+  @media (max-width: 920px)
+    padding: 1rem 2rem
+
+  @media (max-width: 440px)
+    padding: 1rem
+    padding-bottom: 2rem
 
 .heroIcon
   color: var(--accent)
@@ -19,8 +42,11 @@
   font-size: 1.25rem
   max-width: 900px
   margin: 0 auto 2.5rem
-  color: var(--text)
+  color: white
   text-align: left
+
+  @media (max-width: 440px)
+    font-size: 1.1rem
 
 .features
   display: grid

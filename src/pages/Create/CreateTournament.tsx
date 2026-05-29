@@ -23,7 +23,7 @@ export const CreateTournament: React.FC = () => {
     slug: '',
     scoring_mode: '120m',
   });
-  
+
   const [teams, setTeams] = useState<LocalTeam[]>([]);
   const [newTeamId, setNewTeamId] = useState('');
   const [newTeamName, setNewTeamName] = useState('');
@@ -34,43 +34,42 @@ export const CreateTournament: React.FC = () => {
 
     if (formData.slug) {
       setCheckingSlug(true);
-      const { data, error } = await supabase
-        .from('tournaments')
-        .select('slug')
-        .eq('slug', formData.slug)
-        .maybeSingle();
-      
+      const { data, error } = await supabase.from('tournaments').select('slug').eq('slug', formData.slug).maybeSingle();
+
       setCheckingSlug(false);
-      
+
       if (data) {
         alert('This URL slug is already taken. Please choose another one.');
         return;
       }
-      
+
       if (error) {
         console.error('Error checking slug:', error);
       }
     }
-    
+
     setStep('teams');
   };
 
   const addLocalTeam = (e: React.FormEvent) => {
     e.preventDefault();
     if (!newTeamName.trim() || !newTeamId.trim()) return;
-    
-    setTeams([...teams, {
-      tempId: nanoid(),
-      name: newTeamName.trim(),
-      htId: newTeamId.trim()
-    }]);
-    
+
+    setTeams([
+      ...teams,
+      {
+        tempId: nanoid(),
+        name: newTeamName.trim(),
+        htId: newTeamId.trim(),
+      },
+    ]);
+
     setNewTeamId('');
     setNewTeamName('');
   };
 
   const removeLocalTeam = (tempId: string) => {
-    setTeams(teams.filter(t => t.tempId !== tempId));
+    setTeams(teams.filter((t) => t.tempId !== tempId));
   };
 
   const handleFinalSubmit = async () => {
@@ -78,7 +77,7 @@ export const CreateTournament: React.FC = () => {
       alert('At least 2 teams are required to create a tournament.');
       return;
     }
-    
+
     setLoading(true);
     const slug = formData.slug || nanoid(10);
     const adminPassword = nanoid(8);
@@ -104,16 +103,14 @@ export const CreateTournament: React.FC = () => {
     }
 
     // 2. Create teams
-    const teamsToInsert = teams.map(t => ({
+    const teamsToInsert = teams.map((t) => ({
       tournament_id: tournament.id,
       name: t.name,
       ht_team_id: parseInt(t.htId),
-      active: true
+      active: true,
     }));
 
-    const { error: teamsError } = await supabase
-      .from('teams')
-      .insert(teamsToInsert);
+    const { error: teamsError } = await supabase.from('teams').insert(teamsToInsert);
 
     if (teamsError) {
       alert('Tournament created but error adding teams: ' + teamsError.message);
@@ -127,8 +124,9 @@ export const CreateTournament: React.FC = () => {
   if (step === 'info') {
     return (
       <div className={styles.container}>
-        <h1>Create Tournament</h1>
         <Card>
+          <h1>Create Tournament</h1>
+          <img src="/create.png" alt="HT-120min" />
           <form onSubmit={handleContinue} className={styles.form}>
             <div className={styles.field}>
               <label htmlFor="tournament_name">Tournament Name</label>
@@ -139,7 +137,7 @@ export const CreateTournament: React.FC = () => {
                 required
                 value={formData.name}
                 onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                placeholder="e.g. Summer Cup 2026"
+                placeholder="e.g. Guam HFI Season 1"
               />
             </div>
 
@@ -150,8 +148,10 @@ export const CreateTournament: React.FC = () => {
                 name="tournament_slug"
                 type="text"
                 value={formData.slug}
-                onChange={(e) => setFormData({ ...formData, slug: e.target.value.toLowerCase().replace(/[^a-z0-9-]/g, '-') })}
-                placeholder="e.g. summer-cup"
+                onChange={(e) =>
+                  setFormData({ ...formData, slug: e.target.value.toLowerCase().replace(/[^a-z0-9-]/g, '-') })
+                }
+                placeholder="e.g. guam-hfi-s1"
               />
             </div>
 
@@ -183,23 +183,24 @@ export const CreateTournament: React.FC = () => {
     <div className={styles.container}>
       <h1>Add Teams</h1>
       <p className={styles.subtitle}>{formData.name}</p>
-      
+
       <Card title="Register Teams">
+        <p className={styles.subtitle}>Add at least two teams. You can add more later.</p>
         <form onSubmit={addLocalTeam} className={styles.teamForm}>
           <div className={styles.inputGroup}>
-            <input 
+            <input
               name="team_ht_id"
-              type="number" 
-              placeholder="HT Team ID" 
-              value={newTeamId} 
+              type="number"
+              placeholder="HT Team ID"
+              value={newTeamId}
               onChange={(e) => setNewTeamId(e.target.value)}
               required
             />
-            <input 
+            <input
               name="team_name"
-              type="text" 
-              placeholder="Team Name" 
-              value={newTeamName} 
+              type="text"
+              placeholder="Team Name"
+              value={newTeamName}
               onChange={(e) => setNewTeamName(e.target.value)}
               required
             />
@@ -210,7 +211,7 @@ export const CreateTournament: React.FC = () => {
         </form>
 
         <ul className={styles.teamList}>
-          {teams.map(team => (
+          {teams.map((team) => (
             <li key={team.tempId}>
               <div className={styles.teamInfo}>
                 <span className={styles.name}>{team.name}</span>
@@ -225,11 +226,11 @@ export const CreateTournament: React.FC = () => {
         </ul>
 
         <div className={styles.genActions}>
-          <Button 
-            variant="primary" 
-            size="lg" 
+          <Button
+            variant="primary"
+            size="lg"
             fullWidth
-            onClick={handleFinalSubmit} 
+            onClick={handleFinalSubmit}
             disabled={teams.length < 2 || loading}
           >
             <Save size={18} /> {loading ? 'Creating...' : 'Create Tournament'}
