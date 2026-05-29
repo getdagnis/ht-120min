@@ -75,6 +75,57 @@
     display: flex;
     justify-content: space-between;
     align-items: center;
+    gap: 1rem;
+  }
+}
+
+.inactiveTeam {
+  opacity: 0.6;
+  background-color: var(--code-bg);
+  padding-left: 8px !important;
+  padding-right: 8px !important;
+}
+
+.teamInfo {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+
+  .name {
+    font-weight: 600;
+    color: var(--text-h);
+  }
+
+  .id {
+    font-size: 0.8rem;
+    color: var(--text);
+  }
+}
+
+.statusBadge {
+  font-size: 0.7rem;
+  text-transform: uppercase;
+  background: var(--border);
+  padding: 2px 6px;
+  border-radius: 4px;
+  width: fit-content;
+}
+
+.teamActions {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.inlineReplace {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  
+  input {
+    width: 120px;
+    padding: 4px 8px;
+    font-size: 0.85rem;
   }
 }
 
@@ -121,18 +172,28 @@
 .matchTeams {
   display: flex;
   align-items: center;
-  gap: 1rem;
+  gap: 2rem;
   flex: 1;
-
-  .teamName {
-    font-weight: 500;
-    color: var(--text-h);
-  }
 
   .vs {
     font-size: 0.8rem;
     color: var(--text);
     text-transform: uppercase;
+  }
+}
+
+.teamCol {
+  display: flex;
+  flex-direction: column;
+  
+  .teamName {
+    font-weight: 500;
+    color: var(--text-h);
+  }
+  
+  .teamId {
+    font-size: 0.75rem;
+    color: var(--text);
   }
 }
 

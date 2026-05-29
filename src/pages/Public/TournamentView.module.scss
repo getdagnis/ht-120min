@@ -54,8 +54,23 @@
 }
 
 .teamNameCell {
+  padding: 8px 12px !important;
+}
+
+.teamInfo {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.teamName {
   font-weight: 500;
   color: var(--text-h);
+}
+
+.teamId {
+  font-size: 0.75rem;
+  color: var(--text);
 }
 
 .highlight {
@@ -84,15 +99,13 @@
 .matchTeams {
   display: flex;
   align-items: center;
-  gap: 1rem;
-
-  .teamName {
-    font-weight: 500;
-  }
+  gap: 2rem;
+  flex: 1;
 
   .vs {
     font-size: 0.8rem;
     color: var(--text);
+    text-transform: uppercase;
   }
 }
 

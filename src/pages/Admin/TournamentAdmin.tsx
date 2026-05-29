@@ -4,7 +4,7 @@ import { supabase } from '../../lib/supabase';
 import { Button } from '../../components/Button/Button';
 import { Card } from '../../components/Card/Card';
 import { generateRoundRobin } from '../../utils/scheduler';
-import { Trash2, Plus, Play, Save, Copy } from 'lucide-react';
+import { Trash2, Plus, Play, Save, Copy, RefreshCw, XCircle } from 'lucide-react';
 import styles from './TournamentAdmin.module.scss';
 
 export const TournamentAdmin: React.FC = () => {
@@ -16,10 +16,13 @@ export const TournamentAdmin: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [password, setPassword] = useState(location.state?.password || localStorage.getItem(`admin_pw_${slug}`) || '');
   const [isAuthenticated, setIsAuthenticated] = useState(false);
-  const [newTeamName, setNewTeamName] = useState('');
+  const [newTeamId, setNewTeamId] = useState('');
+  const [isFetchingTeam, setIsFetchingTeam] = useState(false);
   const [isGenerating, setIsGenerating] = useState(false);
   const [editingMatch, setEditingMatch] = useState<string | null>(null);
   const [matchData, setMatchData] = useState<any>({});
+  const [replacingTeamId, setReplacingTeamId] = useState<string | null>(null);
+  const [replacementHtId, setReplacementHtId] = useState('');
 
   useEffect(() => {
     fetchTournament();
@@ -57,8 +60,8 @@ export const TournamentAdmin: React.FC = () => {
         *,
         matches (
           *,
-          home_team:teams!matches_home_team_id_fkey(name),
-          away_team:teams!matches_away_team_id_fkey(name)
+          home_team:teams!matches_home_team_id_fkey(name, ht_team_id, active),
+          away_team:teams!matches_away_team_id_fkey(name, ht_team_id, active)
         )
       `)
       .eq('tournament_id', tournamentId)
@@ -78,32 +81,92 @@ export const TournamentAdmin: React.FC = () => {
     }
   };
 
+  const fetchTeamName = async (id: string) => {
+    const res = await fetch(`/api/fetch-team?teamId=${id}`);
+    if (!res.ok) throw new Error('Failed to fetch team from Hattrick');
+    const data = await res.json();
+    return data.teamName;
+  };
+
   const addTeam = async () => {
-    if (!newTeamName.trim()) return;
-    const { error } = await supabase
-      .from('teams')
-      .insert([{ tournament_id: tournament.id, name: newTeamName.trim() }]);
-    
-    if (error) alert(error.message);
-    else {
-      setNewTeamName('');
+    if (!newTeamId.trim()) return;
+    setIsFetchingTeam(true);
+    try {
+      const teamName = await fetchTeamName(newTeamId.trim());
+      const { error } = await supabase
+        .from('teams')
+        .insert([{ 
+          tournament_id: tournament.id, 
+          name: teamName, 
+          ht_team_id: parseInt(newTeamId.trim()),
+          active: true 
+        }]);
+      
+      if (error) throw error;
+      setNewTeamId('');
+      fetchDetails(tournament.id);
+    } catch (error: any) {
+      alert(error.message);
+    } finally {
+      setIsFetchingTeam(false);
+    }
+  };
+
+  const replaceTeam = async (oldTeamId: string) => {
+    if (!replacementHtId.trim()) return;
+    setIsFetchingTeam(true);
+    try {
+      const teamName = await fetchTeamName(replacementHtId.trim());
+      
+      // 1. Deactivate old team
+      await supabase.from('teams').update({ active: false }).eq('id', oldTeamId);
+
+      // 2. Create new team inheriting from old
+      const { error } = await supabase
+        .from('teams')
+        .insert([{ 
+          tournament_id: tournament.id, 
+          name: teamName, 
+          ht_team_id: parseInt(replacementHtId.trim()),
+          active: true,
+          replacement_for_team_id: oldTeamId
+        }]);
+      
+      if (error) throw error;
+      setReplacingTeamId(null);
+      setReplacementHtId('');
+      fetchDetails(tournament.id);
+    } catch (error: any) {
+      alert(error.message);
+    } finally {
+      setIsFetchingTeam(false);
+    }
+  };
+
+  const deactivateTeam = async (id: string) => {
+    if (window.confirm('Are you sure you want to deactivate this team?')) {
+      await supabase.from('teams').update({ active: false }).eq('id', id);
       fetchDetails(tournament.id);
     }
   };
 
   const deleteTeam = async (id: string) => {
-    if (rounds.length > 0) return; // Cannot delete after generation
+    if (rounds.length > 0) {
+      deactivateTeam(id);
+      return;
+    }
     await supabase.from('teams').delete().eq('id', id);
     fetchDetails(tournament.id);
   };
 
   const generateSchedule = async () => {
-    if (teams.length < 2) {
-      alert('Need at least 2 teams');
+    const activeTeams = teams.filter(t => t.active);
+    if (activeTeams.length < 2) {
+      alert('Need at least 2 active teams');
       return;
     }
     setIsGenerating(true);
-    const schedule = generateRoundRobin(teams.map(t => t.id));
+    const schedule = generateRoundRobin(activeTeams.map(t => t.id));
     
     for (const roundInfo of schedule) {
       const { data: round } = await supabase
@@ -196,113 +259,160 @@ export const TournamentAdmin: React.FC = () => {
         </div>
       </div>
 
-      {!isGenerated ? (
-        <Card title="Manage Teams">
-          <div className={styles.teamForm}>
-            <input 
-              type="text" 
-              placeholder="Team name" 
-              value={newTeamName} 
-              onChange={(e) => setNewTeamName(e.target.value)}
-            />
-            <Button onClick={addTeam}><Plus size={18} /> Add</Button>
-          </div>
-          <ul className={styles.teamList}>
-            {teams.map(team => (
-              <li key={team.id}>
-                {team.name}
-                <button onClick={() => deleteTeam(team.id)} className={styles.deleteBtn}>
-                  <Trash2 size={18} />
-                </button>
-              </li>
-            ))}
-          </ul>
+      <Card title="Manage Teams">
+        <div className={styles.teamForm}>
+          <input 
+            type="number" 
+            placeholder="Hattrick Team ID" 
+            value={newTeamId} 
+            onChange={(e) => setNewTeamId(e.target.value)}
+          />
+          <Button onClick={addTeam} disabled={isFetchingTeam}>
+            {isFetchingTeam ? 'Fetching...' : <><Plus size={18} /> Add Team</>}
+          </Button>
+        </div>
+        
+        <ul className={styles.teamList}>
+          {teams.map(team => (
+            <li key={team.id} className={!team.active ? styles.inactiveTeam : ''}>
+              <div className={styles.teamInfo}>
+                <span className={styles.name}>{team.name}</span>
+                {team.ht_team_id && <span className={styles.id}>ID: {team.ht_team_id}</span>}
+                {!team.active && <span className={styles.statusBadge}>Inactive</span>}
+              </div>
+              
+              <div className={styles.teamActions}>
+                {team.active && (
+                  <>
+                    {replacingTeamId === team.id ? (
+                      <div className={styles.inlineReplace}>
+                        <input 
+                          type="number" 
+                          placeholder="New HT ID" 
+                          value={replacementHtId}
+                          onChange={(e) => setReplacementHtId(e.target.value)}
+                        />
+                        <Button size="sm" onClick={() => replaceTeam(team.id)} disabled={isFetchingTeam}>
+                          Confirm
+                        </Button>
+                        <Button size="sm" variant="secondary" onClick={() => setReplacingTeamId(null)}>
+                          Cancel
+                        </Button>
+                      </div>
+                    ) : (
+                      <Button size="sm" variant="outline" onClick={() => setReplacingTeamId(team.id)}>
+                        <RefreshCw size={14} /> Replace
+                      </Button>
+                    )}
+                    <button onClick={() => deleteTeam(team.id)} className={styles.deleteBtn}>
+                      {isGenerated ? <XCircle size={18} /> : <Trash2 size={18} />}
+                    </button>
+                  </>
+                )}
+              </div>
+            </li>
+          ))}
+        </ul>
+
+        {!isGenerated && (
           <div className={styles.genActions}>
             <Button 
               variant="primary" 
               size="lg" 
               onClick={generateSchedule} 
-              disabled={teams.length < 2 || isGenerating}
+              disabled={teams.filter(t => t.active).length < 2 || isGenerating}
             >
               <Play size={18} /> Generate Schedule
             </Button>
-            <p><small>Once generated, you cannot add or remove teams.</small></p>
           </div>
-        </Card>
-      ) : (
+        )}
+      </Card>
+
+      {isGenerated && (
         <div className={styles.rounds}>
           <h2>Fixtures & Results</h2>
           {rounds.map(round => (
             <Card key={round.id} title={`Round ${round.round_number}`}>
               <div className={styles.matches}>
-                {round.matches.map((match: any) => (
-                  <div key={match.id} className={styles.match}>
-                    <div className={styles.matchTeams}>
-                      <span className={styles.teamName}>{match.home_team.name}</span>
-                      <span className={styles.vs}>vs</span>
-                      <span className={styles.teamName}>{match.away_team.name}</span>
-                    </div>
+                {round.matches.map((match: any) => {
+                  // Find current active names for the teams in this fixture chain
+                  // In inheritance mode, we typically want to show the currently active team name
+                  // even for past matches, as Team B "is" the new identity of that slot.
+                  return (
+                    <div key={match.id} className={styles.match}>
+                      <div className={styles.matchTeams}>
+                        <div className={styles.teamCol}>
+                          <span className={styles.teamName}>{match.home_team.name}</span>
+                          <span className={styles.teamId}>({match.home_team.ht_team_id})</span>
+                        </div>
+                        <span className={styles.vs}>vs</span>
+                        <div className={styles.teamCol}>
+                          <span className={styles.teamName}>{match.away_team.name}</span>
+                          <span className={styles.teamId}>({match.away_team.ht_team_id})</span>
+                        </div>
+                      </div>
 
-                    {editingMatch === match.id ? (
-                      <div className={styles.matchEdit}>
-                        <div className={styles.scoreInputs}>
-                          <input 
-                            type="number" 
-                            placeholder="Home" 
-                            value={matchData[match.id]?.home_goals ?? match.home_goals ?? ''} 
-                            onChange={(e) => setMatchData({
-                              ...matchData,
-                              [match.id]: { ...(matchData[match.id] || match), home_goals: e.target.value }
-                            })}
-                          />
-                          <span>-</span>
-                          <input 
-                            type="number" 
-                            placeholder="Away" 
-                            value={matchData[match.id]?.away_goals ?? match.away_goals ?? ''} 
-                            onChange={(e) => setMatchData({
-                              ...matchData,
-                              [match.id]: { ...(matchData[match.id] || match), away_goals: e.target.value }
-                            })}
-                          />
-                        </div>
-                        <label className={styles.checkboxLabel}>
-                          <input 
-                            type="checkbox" 
-                            checked={matchData[match.id]?.went_120 ?? match.went_120 ?? false}
-                            onChange={(e) => setMatchData({
-                              ...matchData,
-                              [match.id]: { ...(matchData[match.id] || match), went_120: e.target.checked }
-                            })}
-                          />
-                          Reached 120m
-                        </label>
-                        <div className={styles.editActions}>
-                          <Button size="sm" onClick={() => updateMatch(match.id)}><Save size={14}/> Save</Button>
-                          <Button size="sm" variant="secondary" onClick={() => setEditingMatch(null)}>Cancel</Button>
-                        </div>
-                      </div>
-                    ) : (
-                      <div className={styles.matchResult}>
-                        {match.completed ? (
-                          <div className={styles.resultInfo}>
-                            <span className={styles.score}>{match.home_goals} - {match.away_goals}</span>
-                            {match.went_120 && <span className={styles.badge}>120m</span>}
-                            <Button size="sm" variant="secondary" onClick={() => {
-                              setEditingMatch(match.id);
-                              setMatchData({ ...matchData, [match.id]: match });
-                            }}>Edit</Button>
+                      {editingMatch === match.id ? (
+                        <div className={styles.matchEdit}>
+                          <div className={styles.scoreInputs}>
+                            <input 
+                              type="number" 
+                              placeholder="Home" 
+                              value={matchData[match.id]?.home_goals ?? match.home_goals ?? ''} 
+                              onChange={(e) => setMatchData({
+                                ...matchData,
+                                [match.id]: { ...(matchData[match.id] || match), home_goals: e.target.value }
+                              })}
+                            />
+                            <span>-</span>
+                            <input 
+                              type="number" 
+                              placeholder="Away" 
+                              value={matchData[match.id]?.away_goals ?? match.away_goals ?? ''} 
+                              onChange={(e) => setMatchData({
+                                ...matchData,
+                                [match.id]: { ...(matchData[match.id] || match), away_goals: e.target.value }
+                              })}
+                            />
                           </div>
-                        ) : (
-                          <Button size="sm" onClick={() => {
-                            setEditingMatch(match.id);
-                            setMatchData({ ...matchData, [match.id]: { ...match, home_goals: '', away_goals: '' } });
-                          }}>Enter Result</Button>
-                        )}
-                      </div>
-                    )}
-                  </div>
-                ))}
+                          <label className={styles.checkboxLabel}>
+                            <input 
+                              type="checkbox" 
+                              checked={matchData[match.id]?.went_120 ?? match.went_120 ?? false}
+                              onChange={(e) => setMatchData({
+                                ...matchData,
+                                [match.id]: { ...(matchData[match.id] || match), went_120: e.target.checked }
+                              })}
+                            />
+                            Reached 120m
+                          </label>
+                          <div className={styles.editActions}>
+                            <Button size="sm" onClick={() => updateMatch(match.id)}><Save size={14}/> Save</Button>
+                            <Button size="sm" variant="secondary" onClick={() => setEditingMatch(null)}>Cancel</Button>
+                          </div>
+                        </div>
+                      ) : (
+                        <div className={styles.matchResult}>
+                          {match.completed ? (
+                            <div className={styles.resultInfo}>
+                              <span className={styles.score}>{match.home_goals} - {match.away_goals}</span>
+                              {match.went_120 && <span className={styles.badge}>120m</span>}
+                              <Button size="sm" variant="secondary" onClick={() => {
+                                setEditingMatch(match.id);
+                                setMatchData({ ...matchData, [match.id]: match });
+                              }}>Edit</Button>
+                            </div>
+                          ) : (
+                            <Button size="sm" onClick={() => {
+                              setEditingMatch(match.id);
+                              setMatchData({ ...matchData, [match.id]: { ...match, home_goals: '', away_goals: '' } });
+                            }}>Enter Result</Button>
+                          )}
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
               </div>
             </Card>
           ))}

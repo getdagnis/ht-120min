@@ -13,8 +13,12 @@ CREATE TABLE teams (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   tournament_id UUID REFERENCES tournaments(id) ON DELETE CASCADE,
   name TEXT NOT NULL,
+  ht_team_id BIGINT,
+  ht_team_name TEXT,
+  active BOOLEAN DEFAULT TRUE,
+  replacement_for_team_id UUID REFERENCES teams(id) ON DELETE SET NULL,
   manager_name TEXT,
-  hattrick_team_id TEXT,
+  hattrick_team_id TEXT, -- Keep for backwards compat if needed, though we use ht_team_id now
   created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 

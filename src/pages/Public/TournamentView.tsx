@@ -39,8 +39,8 @@ export const TournamentView: React.FC = () => {
           *,
           matches (
             *,
-            home_team:teams!matches_home_team_id_fkey(name),
-            away_team:teams!matches_away_team_id_fkey(name)
+            home_team:teams!matches_home_team_id_fkey(name, ht_team_id, active, replacement_for_team_id),
+            away_team:teams!matches_away_team_id_fkey(name, ht_team_id, active, replacement_for_team_id)
           )
         `)
         .eq('tournament_id', tournamentData.id)
@@ -49,7 +49,13 @@ export const TournamentView: React.FC = () => {
       if (teamsData && roundsData) {
         const allMatches = roundsData.flatMap(r => r.matches);
         const calculated = calculateStandings(
-          teamsData.map(t => ({ id: t.id, name: t.name })),
+          teamsData.map(t => ({ 
+            id: t.id, 
+            name: t.name,
+            ht_team_id: t.ht_team_id,
+            active: t.active,
+            replacement_for_team_id: t.replacement_for_team_id
+          })),
           allMatches,
           tournamentData.scoring_mode as any
         );
@@ -118,7 +124,12 @@ export const TournamentView: React.FC = () => {
                 {standings.map((s, idx) => (
                   <tr key={s.teamId}>
                     <td>{idx + 1}</td>
-                    <td className={styles.teamNameCell}>{s.teamName}</td>
+                    <td className={styles.teamNameCell}>
+                      <div className={styles.teamInfo}>
+                        <span className={styles.teamName}>{s.teamName}</span>
+                        {s.htTeamId && <span className={styles.teamId}>({s.htTeamId})</span>}
+                      </div>
+                    </td>
                     {tournament.scoring_mode === '120m' && (
                       <td className={styles.highlight}>{s.achievements120m}</td>
                     )}
@@ -144,9 +155,15 @@ export const TournamentView: React.FC = () => {
                 {round.matches.map((match: any) => (
                   <div key={match.id} className={styles.match}>
                     <div className={styles.matchTeams}>
-                      <span className={styles.teamName}>{match.home_team.name}</span>
+                      <div className={styles.teamInfo}>
+                        <span className={styles.teamName}>{match.home_team.name}</span>
+                        {match.home_team.ht_team_id && <span className={styles.teamId}>({match.home_team.ht_team_id})</span>}
+                      </div>
                       <span className={styles.vs}>vs</span>
-                      <span className={styles.teamName}>{match.away_team.name}</span>
+                      <div className={styles.teamInfo}>
+                        <span className={styles.teamName}>{match.away_team.name}</span>
+                        {match.away_team.ht_team_id && <span className={styles.teamId}>({match.away_team.ht_team_id})</span>}
+                      </div>
                     </div>
                     <div className={styles.result}>
                       {match.completed ? (

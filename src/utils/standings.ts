@@ -10,11 +10,15 @@ export interface Match {
 export interface Team {
   id: string;
   name: string;
+  ht_team_id?: number | string | null;
+  active: boolean;
+  replacement_for_team_id?: string | null;
 }
 
 export interface TeamStanding {
   teamId: string;
   teamName: string;
+  htTeamId: string | null;
   played: number;
   won: number;
   drawn: number;
@@ -28,11 +32,41 @@ export interface TeamStanding {
 
 export function calculateStandings(teams: Team[], matches: Match[], scoringMode: '120m' | 'points'): TeamStanding[] {
   const standingsMap: Record<string, TeamStanding> = {};
+  const teamToRootMap: Record<string, string> = {};
 
-  teams.forEach((team) => {
-    standingsMap[team.id] = {
-      teamId: team.id,
-      teamName: team.name,
+  // 1. Build a map from every team in a chain to its "root" team ID
+  // And find the "active" team for each chain to use its name/ID for display
+  const rootToActiveTeam: Record<string, Team> = {};
+
+  teams.forEach(team => {
+    let rootId = team.id;
+    const chain = [team.id];
+    let current = team;
+    
+    // Trace back to the absolute root of the chain
+    while (current.replacement_for_team_id) {
+      const parent = teams.find(t => t.id === current.replacement_for_team_id);
+      if (!parent || chain.includes(parent.id)) break; // Prevent cycles
+      rootId = parent.id;
+      chain.push(parent.id);
+      current = parent;
+    }
+    
+    teamToRootMap[team.id] = rootId;
+
+    // Keep track of which team is currently active for this root
+    if (team.active || !rootToActiveTeam[rootId]) {
+      rootToActiveTeam[rootId] = team;
+    }
+  });
+
+  // 2. Initialize standings for each root team
+  Object.keys(rootToActiveTeam).forEach((rootId) => {
+    const activeTeam = rootToActiveTeam[rootId];
+    standingsMap[rootId] = {
+      teamId: activeTeam.id,
+      teamName: activeTeam.name,
+      htTeamId: activeTeam.ht_team_id ? String(activeTeam.ht_team_id) : null,
       played: 0,
       won: 0,
       drawn: 0,
@@ -45,11 +79,15 @@ export function calculateStandings(teams: Team[], matches: Match[], scoringMode:
     };
   });
 
+  // 3. Process matches, attributing them to the root of the team's chain
   matches.forEach((match) => {
     if (!match.completed || match.home_goals === null || match.away_goals === null) return;
 
-    const home = standingsMap[match.home_team_id];
-    const away = standingsMap[match.away_team_id];
+    const homeRootId = teamToRootMap[match.home_team_id];
+    const awayRootId = teamToRootMap[match.away_team_id];
+
+    const home = standingsMap[homeRootId];
+    const away = standingsMap[awayRootId];
 
     if (!home || !away) return;
 
@@ -89,23 +127,10 @@ export function calculateStandings(teams: Team[], matches: Match[], scoringMode:
 
   if (scoringMode === '120m') {
     return standings.sort((a, b) => {
-      // Primary: 120m achievements
-      if (b.achievements120m !== a.achievements120m) {
-        return b.achievements120m - a.achievements120m;
-      }
-      // Secondary: Points (3/1/0)
-      if (b.pts !== a.pts) {
-        return b.pts - a.pts;
-      }
-      // Tertiary: Goal Difference
-      if (b.gd !== a.gd) {
-        return b.gd - a.gd;
-      }
-      // Quaternary: Goals For
-      if (b.gf !== a.gf) {
-        return b.gf - a.gf;
-      }
-      // Final: Matches played (fewer is better if tied on everything else)
+      if (b.achievements120m !== a.achievements120m) return b.achievements120m - a.achievements120m;
+      if (b.pts !== a.pts) return b.pts - a.pts;
+      if (b.gd !== a.gd) return b.gd - a.gd;
+      if (b.gf !== a.gf) return b.gf - a.gf;
       return a.played - b.played;
     });
   }
