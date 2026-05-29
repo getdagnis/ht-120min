@@ -11,37 +11,47 @@ export default async function handler(
   }
 
   try {
-    const url = `https://www.hattrick.org/goto.ashx?path=/Club/?TeamID=${teamId}`;
+    // We use the direct Club URL instead of the ashx redirect to minimize hop issues in serverless
+    const url = `https://www.hattrick.org/Club/?TeamID=${teamId}`;
+    
     const res = await fetch(url, {
       headers: {
-        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+        'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,webp,image/apng,*/*;q=0.8',
+        'Accept-Language': 'en-US,en;q=0.9',
+        'Cache-Control': 'no-cache',
+        'Pragma': 'no-cache'
       }
     });
 
     if (!res.ok) {
-      return response.status(500).json({ error: 'Failed to fetch from Hattrick' });
+      // Log specific status to help debugging
+      console.error(`Hattrick fetch failed with status: ${res.status}`);
+      return response.status(res.status).json({ 
+        error: `Hattrick returned error ${res.status}. They might be blocking the request.` 
+      });
     }
 
     const html = await res.text();
     
-    // Try to extract team name from <title> or <h1>
-    // Hattrick title format is usually: "Team Name - Hattrick" or similar
+    // Target the specific div class: <div class="teamNameTitle">Team Name...</div>
     let teamName = '';
-    const titleMatch = html.match(/<title>(.*?)<\/title>/i);
-    if (titleMatch && titleMatch[1]) {
-      teamName = titleMatch[1].split(' - ')[0].trim();
+    const teamNameMatch = html.match(/<div class="teamNameTitle">([\s\S]*?)<a/i);
+    
+    if (teamNameMatch && teamNameMatch[1]) {
+      teamName = teamNameMatch[1].replace(/<[^>]*>?/gm, '').trim();
     }
 
-    if (!teamName || teamName.toLowerCase() === 'hattrick') {
-      // Fallback: search for header with team name
-      const h1Match = html.match(/<h1[^>]*>(.*?)<\/h1>/i);
-      if (h1Match && h1Match[1]) {
-        teamName = h1Match[1].trim();
+    // Fallback to title if the specific div isn't found
+    if (!teamName) {
+      const titleMatch = html.match(/<title>(.*?)<\/title>/i);
+      if (titleMatch && titleMatch[1]) {
+        teamName = titleMatch[1].split(' - ')[0].trim();
       }
     }
 
-    if (!teamName) {
-      return response.status(404).json({ error: 'Team name not found' });
+    if (!teamName || teamName.toLowerCase() === 'hattrick') {
+      return response.status(404).json({ error: 'Could not extract team name from page.' });
     }
 
     return response.status(200).json({
@@ -49,6 +59,6 @@ export default async function handler(
       teamName
     });
   } catch (error: any) {
-    return response.status(500).json({ error: error.message });
+    return response.status(500).json({ error: `Server error: ${error.message}` });
   }
 }
