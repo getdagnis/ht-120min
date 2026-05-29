@@ -1,0 +1,56 @@
+.home {
+  text-align: center;
+}
+
+.hero {
+  padding: 4rem 0;
+  border-bottom: 1px solid var(--border);
+  margin-bottom: 3rem;
+
+  h1 {
+    font-size: 3.5rem;
+    margin: 1.5rem 0;
+    @media (max-width: 640px) {
+      font-size: 2.5rem;
+    }
+  }
+}
+
+.heroIcon {
+  color: var(--accent);
+}
+
+.subtitle {
+  font-size: 1.25rem;
+  max-width: 600px;
+  margin: 0 auto 2.5rem;
+  color: var(--text);
+}
+
+.features {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+  gap: 2rem;
+  text-align: left;
+}
+
+.feature {
+  padding: 1.5rem;
+  background: var(--code-bg);
+  border-radius: 8px;
+  border: 1px solid var(--border);
+
+  svg {
+    color: var(--accent);
+    margin-bottom: 1rem;
+  }
+
+  h3 {
+    margin-bottom: 0.5rem;
+  }
+
+  p {
+    font-size: 0.95rem;
+    line-height: 1.5;
+  }
+}

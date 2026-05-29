@@ -1,0 +1,36 @@
+.container {
+  max-width: 600px;
+  margin: 0 auto;
+  text-align: center;
+
+  h1 {
+    margin-bottom: 2rem;
+  }
+}
+
+.form {
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+  text-align: left;
+}
+
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+
+  label {
+    font-weight: 600;
+    color: var(--text-h);
+  }
+
+  small {
+    color: var(--text);
+    font-size: 0.85rem;
+  }
+}
+
+.actions {
+  margin-top: 1rem;
+}

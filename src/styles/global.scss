@@ -1,0 +1,120 @@
+@use 'variables.module' as vars;
+
+:root {
+  --text: #{vars.$text-light};
+  --text-h: #{vars.$heading-light};
+  --bg: #{vars.$bg-light};
+  --border: #{vars.$border-light};
+  --code-bg: #{vars.$code-bg-light};
+  --accent: #{vars.$accent-light};
+  --accent-bg: rgba(170, 59, 255, 0.1);
+  --accent-border: rgba(170, 59, 255, 0.5);
+
+  --sans: system-ui, 'Segoe UI', Roboto, sans-serif;
+  --heading: system-ui, 'Segoe UI', Roboto, sans-serif;
+  --mono: ui-monospace, Consolas, monospace;
+
+  font: 18px/145% var(--sans);
+  letter-spacing: 0.18px;
+  color-scheme: light dark;
+  color: var(--text);
+  background: var(--bg);
+  font-synthesis: none;
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+
+  @media (max-width: 1024px) {
+    font-size: 16px;
+  }
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --text: #{vars.$text-dark};
+    --text-h: #{vars.$heading-dark};
+    --bg: #{vars.$bg-dark};
+    --border: #{vars.$border-dark};
+    --code-bg: #{vars.$code-bg-dark};
+    --accent: #{vars.$accent-dark};
+    --accent-bg: rgba(192, 132, 252, 0.15);
+    --accent-border: rgba(192, 132, 252, 0.5);
+  }
+}
+
+body {
+  margin: 0;
+  background-color: var(--bg);
+  color: var(--text);
+}
+
+#root {
+  width: 1126px;
+  max-width: 100%;
+  margin: 0 auto;
+  border-inline: 1px solid var(--border);
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  box-sizing: border-box;
+}
+
+h1, h2, h3, h4 {
+  font-family: var(--heading);
+  font-weight: 500;
+  color: var(--text-h);
+  margin-top: 0;
+}
+
+a {
+  color: var(--accent);
+  text-decoration: none;
+  &:hover {
+    text-decoration: underline;
+  }
+}
+
+button {
+  cursor: pointer;
+  font-family: inherit;
+}
+
+input, select {
+  font-family: inherit;
+  font-size: 1rem;
+  padding: 8px 12px;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  background: var(--bg);
+  color: var(--text-h);
+
+  &:focus {
+    outline: none;
+    border-color: var(--accent);
+  }
+}
+
+.card {
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 24px;
+  margin-bottom: 24px;
+}
+
+table {
+  width: 100%;
+  border-collapse: collapse;
+  margin: 1rem 0;
+
+  th, td {
+    text-align: left;
+    padding: 12px;
+    border-bottom: 1px solid var(--border);
+  }
+
+  th {
+    color: var(--text-h);
+    font-weight: 600;
+  }
+}

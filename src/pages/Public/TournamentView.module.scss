@@ -1,0 +1,119 @@
+.view {
+  text-align: left;
+}
+
+.header {
+  margin-bottom: 2rem;
+  padding-bottom: 1rem;
+  border-bottom: 1px solid var(--border);
+
+  h1 {
+    margin-bottom: 0.5rem;
+  }
+}
+
+.mode {
+  color: var(--text);
+  font-size: 0.95rem;
+  margin: 0;
+}
+
+.tabs {
+  display: flex;
+  gap: 1rem;
+  margin-bottom: 2rem;
+
+  button {
+    background: none;
+    border: none;
+    padding: 8px 16px;
+    font-weight: 600;
+    color: var(--text);
+    border-bottom: 2px solid transparent;
+    transition: all 0.2s;
+
+    &:hover {
+      color: var(--text-h);
+    }
+
+    &.active {
+      color: var(--accent);
+      border-bottom-color: var(--accent);
+    }
+  }
+}
+
+.tableWrapper {
+  overflow-x: auto;
+}
+
+.teamNameCell {
+  font-weight: 500;
+  color: var(--text-h);
+}
+
+.highlight {
+  font-weight: 700;
+  color: var(--accent);
+}
+
+.match {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 12px 0;
+  border-bottom: 1px solid var(--border);
+
+  &:last-child {
+    border-bottom: none;
+  }
+
+  @media (max-width: 640px) {
+    flex-direction: column;
+    gap: 0.75rem;
+    text-align: center;
+  }
+}
+
+.matchTeams {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+
+  .teamName {
+    font-weight: 500;
+  }
+
+  .vs {
+    font-size: 0.8rem;
+    color: var(--text);
+  }
+}
+
+.scoreRow {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.score {
+  font-weight: 700;
+  font-size: 1.1rem;
+  color: var(--text-h);
+}
+
+.badge {
+  background: var(--accent-bg);
+  color: var(--accent);
+  border: 1px solid var(--accent-border);
+  font-size: 0.75rem;
+  padding: 2px 6px;
+  border-radius: 4px;
+  font-weight: 600;
+}
+
+.pending {
+  font-size: 0.85rem;
+  color: var(--text);
+  font-style: italic;
+}
