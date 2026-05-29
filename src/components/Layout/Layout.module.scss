@@ -6,10 +6,14 @@
 
 .header {
   padding: 1rem 0;
-  background: #c6c6c611;
+  background: #e5e5e5cc;
   position: sticky;
   top: 0;
   z-index: 10;
+
+  @media (prefers-color-scheme: dark) {
+    background: #e5e5e511;
+  }
 }
 
 .container {
@@ -46,7 +50,7 @@
   justify-self: center;
   align-items: center;
   padding: 2rem 0;
-  background: #63636311;
+  background: #6363631d;
 }
 
 .footer {

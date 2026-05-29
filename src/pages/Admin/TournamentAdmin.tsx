@@ -257,7 +257,7 @@ export const TournamentAdmin: React.FC = () => {
   if (!isAuthenticated) {
     return (
       <div className={styles.auth}>
-        <Card title="Admin Login" variant="classy">
+        <Card title="Admin Login" variant="classic">
           <form onSubmit={handleLogin}>
             <div className={styles.field}>
               <label>Admin Password</label>
@@ -269,7 +269,7 @@ export const TournamentAdmin: React.FC = () => {
                 required
               />
             </div>
-            <Button type="submit" fullWidth>
+            <Button type="submit" fullWidth variant="primary">
               Login
             </Button>
           </form>
@@ -284,11 +284,9 @@ export const TournamentAdmin: React.FC = () => {
   return (
     <div className={styles.admin}>
       <header className={styles.header}>
-        <h1>{tournament.name} (Admin)</h1>
-        <div className={styles.meta}>
-          <div className={styles.metaItem}>
-            <span>Public URL:</span>
-            <code>{publicUrl}</code>
+        <div className={styles.headerTop}>
+          <h1>{tournament.name} (Admin)</h1>
+          <div className={styles.headerActions}>
             <Button
               size="sm"
               variant="secondary"
@@ -297,262 +295,274 @@ export const TournamentAdmin: React.FC = () => {
                 alert('Copied to clipboard!');
               }}
             >
-              <Copy size={14} />
+              <Copy size={16} /> Copy Public URL
             </Button>
           </div>
+        </div>
+        <div className={styles.meta}>
           <div className={styles.metaItem}>
-            <span>Password:</span>
+            <span className={styles.label}>Public URL:</span>
+            <code>{publicUrl}</code>
+          </div>
+          <div className={styles.metaItem}>
+            <span className={styles.label}>Admin Password:</span>
             <code>{tournament.admin_password}</code>
           </div>
         </div>
       </header>
 
-      <Card title="Manage Teams" variant="classy">
-        <form onSubmit={addTeam} className={styles.teamForm}>
-          <div className={styles.inputGroup}>
-            <input
-              name="team_ht_id"
-              type="number"
-              placeholder="HT Team ID"
-              value={newTeamId}
-              onChange={(e) => setNewTeamId(e.target.value)}
-              required
-            />
-            <input
-              name="team_name"
-              type="text"
-              placeholder="Team Name"
-              value={newTeamName}
-              onChange={(e) => setNewTeamName(e.target.value)}
-              required
-            />
-          </div>
-          <Button type="submit" disabled={isSavingTeam}>
-            {isSavingTeam ? (
-              'Saving...'
-            ) : (
-              <>
-                <Plus size={18} /> Add Team
-              </>
-            )}
-          </Button>
-        </form>
-
-        <ul className={styles.teamList}>
-          {teams.map((team) => (
-            <li key={team.id} className={!team.active ? styles.inactiveTeam : ''}>
-              <div className={styles.teamInfo}>
-                <span className={styles.name}>{team.name}</span>
-                {team.ht_team_id && <span className={styles.id}>ID: {team.ht_team_id}</span>}
-                {!team.active && <span className={styles.statusBadge}>Inactive</span>}
-              </div>
-
-              <div className={styles.teamActions}>
-                {team.active && (
-                  <>
-                    {replacingTeamId === team.id ? (
-                      <div className={styles.inlineReplace}>
-                        <input
-                          name={`replace_id_${team.id}`}
-                          type="number"
-                          placeholder="New HT ID"
-                          value={replacementHtId}
-                          onChange={(e) => setReplacementHtId(e.target.value)}
-                          required
-                        />
-                        <input
-                          name={`replace_name_${team.id}`}
-                          type="text"
-                          placeholder="New Name"
-                          value={replacementName}
-                          onChange={(e) => setReplacementName(e.target.value)}
-                          required
-                        />
-                        <Button size="sm" onClick={() => replaceTeam(team.id)} disabled={isSavingTeam}>
-                          Confirm
-                        </Button>
-                        <Button
-                          size="sm"
-                          variant="secondary"
-                          onClick={() => {
-                            setReplacingTeamId(null);
-                            setReplacementHtId('');
-                            setReplacementName('');
-                          }}
-                        >
-                          Cancel
-                        </Button>
-                      </div>
-                    ) : (
-                      <Button size="sm" variant="outline" onClick={() => setReplacingTeamId(team.id)}>
-                        <RefreshCw size={14} /> Replace
-                      </Button>
-                    )}
-                    <button onClick={() => deleteTeam(team.id)} className={styles.deleteBtn}>
-                      {isGenerated ? <XCircle size={18} /> : <Trash2 size={18} />}
-                    </button>
-                  </>
-                )}
-              </div>
-            </li>
-          ))}
-        </ul>
-
-        {!isGenerated ? (
-          <div className={styles.genOptions}>
-            <div className={styles.checkboxGroup}>
-              <label className={styles.checkboxLabel}>
+      <div className={styles.mainGrid}>
+        <section className={styles.teamsSection}>
+          <Card title="Teams Management" variant="classic">
+            <form onSubmit={addTeam} className={styles.teamForm}>
+              <div className={styles.inputGroup}>
                 <input
-                  type="radio"
-                  name="scheduleMode"
-                  checked={scheduleMode === 'double'}
-                  onChange={() => setScheduleMode('double')}
+                  name="team_ht_id"
+                  type="number"
+                  placeholder="HT Team ID"
+                  value={newTeamId}
+                  onChange={(e) => setNewTeamId(e.target.value)}
+                  required
                 />
-                Play each other twice (Home and Away)
-              </label>
-              <label className={styles.checkboxLabel}>
                 <input
-                  type="radio"
-                  name="scheduleMode"
-                  checked={scheduleMode === 'single'}
-                  onChange={() => setScheduleMode('single')}
+                  name="team_name"
+                  type="text"
+                  placeholder="Team Name"
+                  value={newTeamName}
+                  onChange={(e) => setNewTeamName(e.target.value)}
+                  required
                 />
-                Play each other once (Neutral stadium)
-              </label>
-            </div>
-            <Button
-              variant="primary"
-              size="lg"
-              onClick={generateSchedule}
-              disabled={teams.filter((t) => t.active).length < 2 || isGenerating}
-            >
-              <Play size={18} /> Generate Schedule
-            </Button>
-          </div>
-        ) : (
-          <div className={styles.genActions}>
-            <Button variant="outline" onClick={regenerateSchedule} disabled={isGenerating}>
-              <RefreshCw size={18} /> Regenerate Schedule
-            </Button>
-          </div>
-        )}
-      </Card>
+              </div>
+              <Button type="submit" disabled={isSavingTeam} variant="primary">
+                {isSavingTeam ? 'Saving...' : <><Plus size={18} /> Add Team</>}
+              </Button>
+            </form>
 
-      {isGenerated && (
-        <div className={styles.rounds}>
-          <h2>Fixtures & Results</h2>
-          {rounds.map((round) => (
-            <Card key={round.id} title={`Round ${round.round_number}`} variant="classy">
-              <div className={styles.matches}>
-                {round.matches.map((match: any) => {
-                  return (
-                    <div key={match.id} className={styles.match}>
-                      <div className={styles.matchTeams}>
-                        <div className={styles.teamCol}>
-                          <span className={styles.teamName}>{match.home_team.name}</span>
-                          <span className={styles.teamId}>({match.home_team.ht_team_id})</span>
-                        </div>
-                        <span className={styles.vs}>vs</span>
-                        <div className={styles.teamCol}>
-                          <span className={styles.teamName}>{match.away_team.name}</span>
-                          <span className={styles.teamId}>({match.away_team.ht_team_id})</span>
-                        </div>
-                      </div>
+            <ul className={styles.teamList}>
+              {teams.map((team) => (
+                <li key={team.id} className={!team.active ? styles.inactiveTeam : ''}>
+                  <div className={styles.teamInfo}>
+                    <span className={styles.name}>{team.name}</span>
+                    {team.ht_team_id && <span className={styles.id}>ID: {team.ht_team_id}</span>}
+                    {!team.active && <span className={styles.statusBadge}>Inactive</span>}
+                  </div>
 
-                      {editingMatch === match.id ? (
-                        <div className={styles.matchEdit}>
-                          <div className={styles.scoreInputs}>
+                  <div className={styles.teamActions}>
+                    {team.active && (
+                      <>
+                        {replacingTeamId === team.id ? (
+                          <div className={styles.inlineReplace}>
                             <input
-                              name={`score_home_${match.id}`}
+                              name={`replace_id_${team.id}`}
                               type="number"
-                              placeholder="Home"
-                              value={matchData[match.id]?.home_goals ?? match.home_goals ?? ''}
-                              onChange={(e) =>
-                                setMatchData({
-                                  ...matchData,
-                                  [match.id]: { ...(matchData[match.id] || match), home_goals: e.target.value },
-                                })
-                              }
+                              placeholder="New HT ID"
+                              value={replacementHtId}
+                              onChange={(e) => setReplacementHtId(e.target.value)}
+                              required
                             />
-                            <span>-</span>
                             <input
-                              name={`score_away_${match.id}`}
-                              type="number"
-                              placeholder="Away"
-                              value={matchData[match.id]?.away_goals ?? match.away_goals ?? ''}
-                              onChange={(e) =>
-                                setMatchData({
-                                  ...matchData,
-                                  [match.id]: { ...(matchData[match.id] || match), away_goals: e.target.value },
-                                })
-                              }
+                              name={`replace_name_${team.id}`}
+                              type="text"
+                              placeholder="New Name"
+                              value={replacementName}
+                              onChange={(e) => setReplacementName(e.target.value)}
+                              required
                             />
-                          </div>
-                          <label className={styles.checkboxLabel}>
-                            <input
-                              type="checkbox"
-                              checked={matchData[match.id]?.went_120 ?? match.went_120 ?? false}
-                              onChange={(e) =>
-                                setMatchData({
-                                  ...matchData,
-                                  [match.id]: { ...(matchData[match.id] || match), went_120: e.target.checked },
-                                })
-                              }
-                            />
-                            Reached 120m
-                          </label>
-                          <div className={styles.editActions}>
-                            <Button size="sm" onClick={() => updateMatch(match.id)}>
-                              <Save size={14} /> Save
-                            </Button>
-                            <Button size="sm" variant="secondary" onClick={() => setEditingMatch(null)}>
-                              Cancel
-                            </Button>
-                          </div>
-                        </div>
-                      ) : (
-                        <div className={styles.matchResult}>
-                          {match.completed ? (
-                            <div className={styles.resultInfo}>
-                              <span className={styles.score}>
-                                {match.home_goals} - {match.away_goals}
-                              </span>
-                              {match.went_120 && <span className={styles.badge}>120m</span>}
+                            <div className={styles.replaceActions}>
+                              <Button size="sm" onClick={() => replaceTeam(team.id)} disabled={isSavingTeam} variant="primary">
+                                Save
+                              </Button>
                               <Button
                                 size="sm"
                                 variant="secondary"
                                 onClick={() => {
-                                  setEditingMatch(match.id);
-                                  setMatchData({ ...matchData, [match.id]: match });
+                                  setReplacingTeamId(null);
+                                  setReplacementHtId('');
+                                  setReplacementName('');
                                 }}
                               >
-                                Edit
+                                <XCircle size={16} />
                               </Button>
                             </div>
-                          ) : (
-                            <Button
-                              size="sm"
-                              onClick={() => {
-                                setEditingMatch(match.id);
-                                setMatchData({
-                                  ...matchData,
-                                  [match.id]: { ...match, home_goals: '', away_goals: '' },
-                                });
-                              }}
-                            >
-                              Enter Result
-                            </Button>
-                          )}
+                          </div>
+                        ) : (
+                          <Button size="sm" variant="outline" onClick={() => setReplacingTeamId(team.id)}>
+                            <RefreshCw size={14} /> Replace
+                          </Button>
+                        )}
+                        <button onClick={() => deleteTeam(team.id)} className={styles.deleteBtn}>
+                          {isGenerated ? <XCircle size={20} /> : <Trash2 size={20} />}
+                        </button>
+                      </>
+                    )}
+                  </div>
+                </li>
+              ))}
+            </ul>
+
+            <div className={styles.scheduleControl}>
+              {!isGenerated ? (
+                <div className={styles.genOptions}>
+                  <div className={styles.checkboxGroup}>
+                    <label className={styles.checkboxLabel}>
+                      <input
+                        type="radio"
+                        name="scheduleMode"
+                        checked={scheduleMode === 'single'}
+                        onChange={() => setScheduleMode('single')}
+                      />
+                      Single Round Robin (Neutral)
+                    </label>
+                    <label className={styles.checkboxLabel}>
+                      <input
+                        type="radio"
+                        name="scheduleMode"
+                        checked={scheduleMode === 'double'}
+                        onChange={() => setScheduleMode('double')}
+                      />
+                      Double Round Robin (Home/Away)
+                    </label>
+                  </div>
+                  <Button
+                    variant="primary"
+                    size="lg"
+                    fullWidth
+                    onClick={generateSchedule}
+                    disabled={teams.filter((t) => t.active).length < 2 || isGenerating}
+                  >
+                    <Play size={18} /> Generate Schedule
+                  </Button>
+                </div>
+              ) : (
+                <div className={styles.genActions}>
+                  <Button variant="outline" onClick={regenerateSchedule} disabled={isGenerating} fullWidth>
+                    <RefreshCw size={18} /> Regenerate Schedule
+                  </Button>
+                </div>
+              )}
+            </div>
+          </Card>
+        </section>
+
+        {isGenerated && (
+          <section className={styles.fixturesSection}>
+            <div className={styles.fixturesHeader}>
+              <h2>Fixtures & Results</h2>
+            </div>
+            {rounds.map((round) => (
+              <Card key={round.id} title={`Round ${round.round_number}`} variant="classic">
+                <div className={styles.matches}>
+                  {round.matches.map((match: any) => {
+                    return (
+                      <div key={match.id} className={styles.match}>
+                        <div className={styles.matchTeams}>
+                          <div className={styles.teamCol}>
+                            <span className={styles.teamName}>{match.home_team.name}</span>
+                            <span className={styles.teamId}>({match.home_team.ht_team_id})</span>
+                          </div>
+                          <span className={styles.vs}>vs</span>
+                          <div className={styles.teamCol}>
+                            <span className={styles.teamName}>{match.away_team.name}</span>
+                            <span className={styles.teamId}>({match.away_team.ht_team_id})</span>
+                          </div>
                         </div>
-                      )}
-                    </div>
-                  );
-                })}
-              </div>
-            </Card>
-          ))}
-        </div>
-      )}
+
+                        {editingMatch === match.id ? (
+                          <div className={styles.matchEdit}>
+                            <div className={styles.scoreInputs}>
+                              <input
+                                name={`score_home_${match.id}`}
+                                type="number"
+                                placeholder="H"
+                                value={matchData[match.id]?.home_goals ?? match.home_goals ?? ''}
+                                onChange={(e) =>
+                                  setMatchData({
+                                    ...matchData,
+                                    [match.id]: { ...(matchData[match.id] || match), home_goals: e.target.value },
+                                  })
+                                }
+                              />
+                              <span className={styles.divider}>-</span>
+                              <input
+                                name={`score_away_${match.id}`}
+                                type="number"
+                                placeholder="A"
+                                value={matchData[match.id]?.away_goals ?? match.away_goals ?? ''}
+                                onChange={(e) =>
+                                  setMatchData({
+                                    ...matchData,
+                                    [match.id]: { ...(matchData[match.id] || match), away_goals: e.target.value },
+                                  })
+                                }
+                              />
+                            </div>
+                            <label className={styles.went120}>
+                              <input
+                                type="checkbox"
+                                checked={matchData[match.id]?.went_120 ?? match.went_120 ?? false}
+                                onChange={(e) =>
+                                  setMatchData({
+                                    ...matchData,
+                                    [match.id]: { ...(matchData[match.id] || match), went_120: e.target.checked },
+                                  })
+                                }
+                              />
+                              120m
+                            </label>
+                            <div className={styles.editActions}>
+                              <Button size="sm" onClick={() => updateMatch(match.id)} variant="primary">
+                                <Save size={14} />
+                              </Button>
+                              <Button size="sm" variant="secondary" onClick={() => setEditingMatch(null)}>
+                                <XCircle size={14} />
+                              </Button>
+                            </div>
+                          </div>
+                        ) : (
+                          <div className={styles.matchResult}>
+                            {match.completed ? (
+                              <div className={styles.resultInfo}>
+                                <span className={styles.score}>
+                                  {match.home_goals} - {match.away_goals}
+                                </span>
+                                {match.went_120 && <span className={styles.badge}>120m</span>}
+                                <Button
+                                  size="sm"
+                                  variant="secondary"
+                                  onClick={() => {
+                                    setEditingMatch(match.id);
+                                    setMatchData({ ...matchData, [match.id]: match });
+                                  }}
+                                >
+                                  Edit
+                                </Button>
+                              </div>
+                            ) : (
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                onClick={() => {
+                                  setEditingMatch(match.id);
+                                  setMatchData({
+                                    ...matchData,
+                                    [match.id]: { ...match, home_goals: '', away_goals: '' },
+                                  });
+                                }}
+                              >
+                                Enter Result
+                              </Button>
+                            )}
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+              </Card>
+            ))}
+          </section>
+        )}
+      </div>
     </div>
   );
 };

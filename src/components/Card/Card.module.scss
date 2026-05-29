@@ -7,13 +7,16 @@
 .classic {
   background: var(--bg);
   border: 1px solid var(--border);
-  border-radius: 8px;
+  border-radius: 0.75rem;
   color: var(--text);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
 
   .title {
     color: var(--text-h);
     border-bottom: 1px solid var(--border);
-    background-color: var(--code-bg);
+    background-color: var(--table-bg);
+    font-weight: 600;
+    padding: 20px 24px;
   }
 }
 
@@ -25,28 +28,11 @@
 
   .title {
     color: white;
+    padding: 24px 32px 8px;
   }
-}
-
-.classy {
-  background: rgba(0, 0, 0, 0.05); // 10% darker approx (subtle bg)
-  border: 1px solid var(--border);
-  border-radius: 0; // square corners
-  color: var(--text);
-
-  .title {
-    color: var(--text-h);
-    border-bottom: 1px solid var(--border);
-    font-weight: 600;
-  }
-}
-
-:global(.dark) .classy {
-  background: rgba(0, 0, 0, 0.3); // even darker for dark mode
 }
 
 .title {
-  padding: 16px 24px;
   margin: 0;
   font-size: 1.25rem;
 }

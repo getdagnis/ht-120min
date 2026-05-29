@@ -128,26 +128,26 @@ export const TournamentView: React.FC = () => {
       </div>
 
       {activeTab === 'standings' ? (
-        <Card title="Standings" variant="classy">
+        <Card title="Standings" variant="classic">
           <div className={styles.tableWrapper}>
             <table>
               <thead>
                 <tr>
                   <th>#</th>
                   <th>Team</th>
-                  {tournament.scoring_mode === '120m' && <th>120m</th>}
-                  <th>Pld</th>
-                  <th>W</th>
-                  <th>D</th>
-                  <th>L</th>
-                  <th>GD</th>
-                  <th>Pts</th>
+                  {tournament.scoring_mode === '120m' && <th className={styles.center}>120m</th>}
+                  <th className={styles.center}>Pld</th>
+                  <th className={styles.center}>W</th>
+                  <th className={styles.center}>D</th>
+                  <th className={styles.center}>L</th>
+                  <th className={styles.center}>GD</th>
+                  <th className={styles.center}>Pts</th>
                 </tr>
               </thead>
               <tbody>
                 {standings.map((s, idx) => (
                   <tr key={s.teamId}>
-                    <td>{idx + 1}</td>
+                    <td className={styles.muted}>{idx + 1}</td>
                     <td className={styles.teamNameCell}>
                       <div className={styles.teamInfo}>
                         <div className={styles.nameRow}>
@@ -165,14 +165,14 @@ export const TournamentView: React.FC = () => {
                       </div>
                     </td>
                     {tournament.scoring_mode === '120m' && (
-                      <td className={styles.highlight}>{s.achievements120m}</td>
+                      <td className={`${styles.highlight} ${styles.center}`}>{s.achievements120m}</td>
                     )}
-                    <td>{s.played}</td>
-                    <td>{s.won}</td>
-                    <td>{s.drawn}</td>
-                    <td>{s.lost}</td>
-                    <td>{s.gd > 0 ? `+${s.gd}` : s.gd}</td>
-                    <td className={tournament.scoring_mode === 'points' ? styles.highlight : ''}>
+                    <td className={styles.center}>{s.played}</td>
+                    <td className={styles.center}>{s.won}</td>
+                    <td className={styles.center}>{s.drawn}</td>
+                    <td className={styles.center}>{s.lost}</td>
+                    <td className={styles.center}>{s.gd > 0 ? `+${s.gd}` : s.gd}</td>
+                    <td className={`${tournament.scoring_mode === 'points' ? styles.highlight : ''} ${styles.center}`}>
                       {s.pts}
                     </td>
                   </tr>
@@ -184,17 +184,17 @@ export const TournamentView: React.FC = () => {
       ) : (
         <div className={styles.rounds}>
           {rounds.map(round => (
-            <Card key={round.id} title={`Round ${round.round_number}`} variant="classy">
+            <Card key={round.id} title={`Round ${round.round_number}`} variant="classic">
               <div className={styles.matches}>
                 {round.matches.map((match: any) => (
                   <div key={match.id} className={styles.match}>
                     <div className={styles.matchTeams}>
-                      <div className={styles.teamInfo}>
+                      <div className={styles.teamDisplay}>
                         <span className={styles.teamName}>{match.home_team.name}</span>
                         {match.home_team.ht_team_id && <span className={styles.teamId}>({match.home_team.ht_team_id})</span>}
                       </div>
                       <span className={styles.vs}>vs</span>
-                      <div className={styles.teamInfo}>
+                      <div className={styles.teamDisplay}>
                         <span className={styles.teamName}>{match.away_team.name}</span>
                         {match.away_team.ht_team_id && <span className={styles.teamId}>({match.away_team.ht_team_id})</span>}
                       </div>
@@ -206,7 +206,7 @@ export const TournamentView: React.FC = () => {
                           {match.went_120 && <span className={styles.badge}>120m</span>}
                         </div>
                       ) : (
-                        <span className={styles.pending}>Pending</span>
+                        <span className={styles.pending}>Scheduled</span>
                       )}
                     </div>
                   </div>

@@ -1,22 +1,20 @@
 .view {
   text-align: left;
-  max-width: 100%;
-  padding: 1rem;
+  max-width: 1000px;
+  margin: 0 auto;
+  padding: 2rem 1rem;
 }
 
 .loading {
-  padding: 2rem;
+  padding: 3rem;
   text-align: center;
+  font-weight: 500;
 }
 
 .header {
   margin-bottom: 2rem;
-  padding-bottom: 1.5rem;
   border-bottom: 1px solid var(--border);
-
-  h1 {
-    margin-bottom: 0.5rem;
-  }
+  padding-bottom: 2rem;
 }
 
 .headerTop {
@@ -24,7 +22,13 @@
   justify-content: space-between;
   align-items: center;
   gap: 2rem;
-  margin-bottom: 1rem;
+  margin-bottom: 1.5rem;
+
+  h1 {
+    margin: 0;
+    font-size: 2.25rem;
+    font-weight: 700;
+  }
 
   @media (max-width: 640px) {
     flex-direction: column;
@@ -40,51 +44,70 @@
 .description {
   color: var(--text);
   font-size: 1rem;
-  max-width: 900px;
   line-height: 1.6;
+  max-width: 800px;
+
+  p {
+    margin: 0;
+  }
 
   strong {
     color: var(--text-h);
+    font-weight: 700;
   }
 }
 
 .tabs {
   display: flex;
-  gap: 0.5rem;
+  gap: 2rem;
   margin-bottom: 2rem;
-  border-bottom: 1px solid var(--border);
-  padding-bottom: 1px;
+  border-bottom: 2px solid var(--border);
 
   button {
     background: none;
-    border: 1px solid transparent;
-    padding: 10px 20px;
+    border: none;
+    padding: 12px 0;
     font-weight: 600;
     color: var(--text);
-    border-radius: 0.1rem 0.1rem 0 0;
+    position: relative;
+    font-size: 0.95rem;
     transition: all 0.2s;
-    margin-bottom: -1px;
 
     &:hover {
-      color: var(--text-h);
-      background: rgba(0, 0, 0, 0.02);
+      color: var(--accent);
     }
 
     &.active {
       color: var(--accent);
-      background: var(--bg);
-      border-color: var(--border);
-      border-bottom-color: var(--bg);
+      &::after {
+        content: '';
+        position: absolute;
+        bottom: -2px;
+        left: 0;
+        right: 0;
+        height: 2px;
+        background-color: var(--accent);
+      }
     }
   }
 }
 
-.tableWrapper {
-  overflow-x: auto;
+.center {
+  text-align: center !important;
+}
+
+.muted {
+  color: var(--text);
+  opacity: 0.6;
+}
+
+.highlight {
+  font-weight: 700;
+  color: var(--accent);
 }
 
 .teamNameCell {
-  padding: 8px 12px !important;
+  padding: 12px 24px !important;
 }
 
 .teamInfo {
@@ -101,14 +124,15 @@
 
 .teamName {
   font-weight: 600;
+  color: var(--text-h);
 }
 
 .htLink {
   color: var(--text);
+  opacity: 0.4;
   display: flex;
   align-items: center;
-  opacity: 0.6;
-  transition: opacity 0.2s;
+  transition: all 0.2s;
 
   &:hover {
     opacity: 1;
@@ -119,19 +143,14 @@
 .teamId {
   font-size: 0.75rem;
   color: var(--text);
-  opacity: 0.8;
-}
-
-.highlight {
-  font-weight: 700;
-  color: var(--accent);
+  opacity: 0.7;
 }
 
 .match {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  padding: 12px 16px;
+  padding: 16px 0;
   border-bottom: 1px solid var(--border);
 
   &:last-child {
@@ -152,10 +171,25 @@
   flex: 1;
 
   .vs {
-    font-size: 0.8rem;
+    font-size: 0.75rem;
     color: var(--text);
     text-transform: uppercase;
+    font-weight: 700;
+    opacity: 0.5;
+  }
+}
+
+.teamDisplay {
+  display: flex;
+  flex-direction: column;
+  min-width: 120px;
+
+  .teamName {
     font-weight: 600;
+  }
+
+  .teamId {
+    font-size: 0.75rem;
     opacity: 0.6;
   }
 }
@@ -163,33 +197,35 @@
 .scoreRow {
   display: flex;
   align-items: center;
-  gap: 1.5rem;
+  gap: 1rem;
 }
 
 .score {
   font-weight: 700;
   font-size: 1.25rem;
+  color: var(--text-h);
   font-family: var(--mono);
 }
 
 .badge {
-  background: var(--accent-bg);
-  color: white;
+  background: rgba(16, 134, 59, 0.1);
+  color: var(--accent);
+  border: 1px solid rgba(16, 134, 59, 0.2);
   font-size: 0.7rem;
   padding: 2px 8px;
-  border-radius: 0.1rem;
-  font-weight: 600;
+  border-radius: 0.25rem;
+  font-weight: 700;
 }
 
 .pending {
-  font-size: 0.85rem;
+  font-size: 0.875rem;
   color: var(--text);
-  font-style: italic;
+  font-weight: 500;
   opacity: 0.7;
 }
 
 .rounds {
   display: flex;
   flex-direction: column;
-  gap: 1.5rem;
+  gap: 2rem;
 }
