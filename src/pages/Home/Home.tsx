@@ -99,7 +99,10 @@ export const Home: React.FC = () => {
   }, []);
 
   useEffect(() => {
-    fetchTournaments();
+    const timer = setTimeout(() => {
+      fetchTournaments();
+    }, 0);
+    return () => clearTimeout(timer);
   }, [fetchTournaments]);
 
   return (

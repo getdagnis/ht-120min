@@ -108,7 +108,7 @@ export const TournamentAdmin: React.FC = () => {
       .order('round_number', { ascending: true });
 
     setRounds(roundsData || []);
-  }, [tournament?.id]);
+  }, []);
 
   const fetchTournament = useCallback(async () => {
     const { data } = await supabase.from('tournaments').select('*').eq('slug', slug).single();
@@ -127,7 +127,10 @@ export const TournamentAdmin: React.FC = () => {
   }, [slug, password, fetchDetails]);
 
   useEffect(() => {
-    fetchTournament();
+    const timer = setTimeout(() => {
+      fetchTournament();
+    }, 0);
+    return () => clearTimeout(timer);
   }, [fetchTournament]);
 
   const handleLogin = (e: React.FormEvent) => {
@@ -156,8 +159,8 @@ export const TournamentAdmin: React.FC = () => {
 
       if (error) throw error;
       fetchTournament();
-    } catch (error: any) {
-      alert(error.message);
+    } catch (error: unknown) {
+      alert(error instanceof Error ? error.message : 'An error occurred');
     } finally {
       setIsUpdatingSettings(false);
     }
@@ -197,8 +200,8 @@ export const TournamentAdmin: React.FC = () => {
       setNewTeamId('');
       setNewTeamName('');
       fetchDetails(tournament.id);
-    } catch (error: any) {
-      alert(error.message);
+    } catch (error: unknown) {
+      alert(error instanceof Error ? error.message : 'An error occurred');
     } finally {
       setIsSavingTeam(false);
     }
@@ -228,8 +231,8 @@ export const TournamentAdmin: React.FC = () => {
       setReplacementHtId('');
       setReplacementName('');
       fetchDetails(tournament.id);
-    } catch (error: any) {
-      alert(error.message);
+    } catch (error: unknown) {
+      alert(error instanceof Error ? error.message : 'An error occurred');
     } finally {
       setIsSavingTeam(false);
     }
@@ -264,8 +267,8 @@ export const TournamentAdmin: React.FC = () => {
 
       if (error) throw error;
       await fetchDetails(tournament.id);
-    } catch (err: any) {
-      alert('Error regenerating: ' + err.message);
+    } catch (err: unknown) {
+      alert('Error regenerating: ' + (err instanceof Error ? err.message : 'Unknown error'));
     } finally {
       setIsGenerating(false);
     }
@@ -326,8 +329,8 @@ export const TournamentAdmin: React.FC = () => {
         }
       }
       await fetchDetails(tournament.id);
-    } catch (err: any) {
-      alert('Error generating schedule: ' + err.message);
+    } catch (err: unknown) {
+      alert('Error generating schedule: ' + (err instanceof Error ? err.message : 'Unknown error'));
     } finally {
       setIsGenerating(false);
     }
@@ -374,8 +377,8 @@ export const TournamentAdmin: React.FC = () => {
         }
       }
       await fetchDetails(tournament.id);
-    } catch (err: any) {
-      alert('Error generating more rounds: ' + err.message);
+    } catch (err: unknown) {
+      alert('Error generating more rounds: ' + (err instanceof Error ? err.message : 'Unknown error'));
     } finally {
       setIsGenerating(false);
     }
@@ -388,8 +391,10 @@ export const TournamentAdmin: React.FC = () => {
     const { error } = await supabase
       .from('matches')
       .update({
-        home_goals: data.home_goals !== undefined ? parseInt(data.home_goals as any) : null,
-        away_goals: data.away_goals !== undefined ? parseInt(data.away_goals as any) : null,
+        home_goals:
+          data.home_goals !== undefined && data.home_goals !== null ? parseInt(String(data.home_goals)) : null,
+        away_goals:
+          data.away_goals !== undefined && data.away_goals !== null ? parseInt(String(data.away_goals)) : null,
         went_120: data.went_120,
         completed: true,
       })
@@ -717,7 +722,10 @@ export const TournamentAdmin: React.FC = () => {
                                 placeholder="H"
                                 value={matchData[match.id]?.home_goals ?? match.home_goals ?? ''}
                                 onChange={(e) => {
-                                  const updatedMatch = { ...(matchData[match.id] || match), home_goals: e.target.value as any };
+                                  const updatedMatch = {
+                                    ...(matchData[match.id] || match),
+                                    home_goals: e.target.value === '' ? null : Number(e.target.value),
+                                  };
                                   setMatchData({
                                     ...matchData,
                                     [match.id]: updatedMatch,
@@ -731,7 +739,10 @@ export const TournamentAdmin: React.FC = () => {
                                 placeholder="A"
                                 value={matchData[match.id]?.away_goals ?? match.away_goals ?? ''}
                                 onChange={(e) => {
-                                  const updatedMatch = { ...(matchData[match.id] || match), away_goals: e.target.value as any };
+                                  const updatedMatch = {
+                                    ...(matchData[match.id] || match),
+                                    away_goals: e.target.value === '' ? null : Number(e.target.value),
+                                  };
                                   setMatchData({
                                     ...matchData,
                                     [match.id]: updatedMatch,
@@ -744,7 +755,10 @@ export const TournamentAdmin: React.FC = () => {
                                 type="checkbox"
                                 checked={matchData[match.id]?.went_120 ?? match.went_120 ?? false}
                                 onChange={(e) => {
-                                  const updatedMatch = { ...(matchData[match.id] || match), went_120: e.target.checked };
+                                  const updatedMatch = {
+                                    ...(matchData[match.id] || match),
+                                    went_120: e.target.checked,
+                                  };
                                   setMatchData({
                                     ...matchData,
                                     [match.id]: updatedMatch,
@@ -787,7 +801,11 @@ export const TournamentAdmin: React.FC = () => {
                                 variant="outline"
                                 onClick={() => {
                                   setEditingMatch(match.id);
-                                  const resetMatch: Partial<MatchWithTeams> = { ...match, home_goals: '' as any, away_goals: '' as any };
+                                  const resetMatch: Partial<MatchWithTeams> = {
+                                    ...match,
+                                    home_goals: null,
+                                    away_goals: null,
+                                  };
                                   setMatchData({
                                     ...matchData,
                                     [match.id]: resetMatch,

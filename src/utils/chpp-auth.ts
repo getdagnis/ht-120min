@@ -30,34 +30,27 @@ export function generateSignature(
   url: string,
   params: OAuthParams,
   consumerSecret: string,
-  tokenSecret: string = ''
+  tokenSecret: string = '',
 ): string {
   const sortedParams = Object.keys(params)
     .sort()
     .map((key) => `${percentEncode(key)}=${percentEncode(params[key] || '')}`)
     .join('&');
 
-  const baseString = [
-    method.toUpperCase(),
-    percentEncode(url),
-    percentEncode(sortedParams)
-  ].join('&');
+  const baseString = [method.toUpperCase(), percentEncode(url), percentEncode(sortedParams)].join('&');
 
-  const signingKey = [
-    percentEncode(consumerSecret),
-    percentEncode(tokenSecret)
-  ].join('&');
+  const signingKey = [percentEncode(consumerSecret), percentEncode(tokenSecret)].join('&');
 
-  return crypto
-    .createHmac('sha1', signingKey)
-    .update(baseString)
-    .digest('base64');
+  return crypto.createHmac('sha1', signingKey).update(baseString).digest('base64');
 }
 
 export function getAuthHeader(params: OAuthParams, signature: string): string {
   const oauthParams = { ...params, oauth_signature: signature };
-  return 'OAuth ' + Object.keys(oauthParams)
-    .sort()
-    .map((key) => `${percentEncode(key)}="${percentEncode((oauthParams as any)[key])}"`)
-    .join(', ');
+  return (
+    'OAuth ' +
+    Object.keys(oauthParams)
+      .sort()
+      .map((key) => `${percentEncode(key)}="${percentEncode(oauthParams[key as keyof typeof oauthParams] || '')}"`)
+      .join(', ')
+  );
 }

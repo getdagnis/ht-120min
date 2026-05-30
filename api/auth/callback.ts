@@ -1,16 +1,8 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { createClient } from '@supabase/supabase-js';
-import { 
-  generateNonce, 
-  getTimestamp, 
-  generateSignature, 
-  getAuthHeader 
-} from '../../src/utils/chpp-auth';
+import { generateNonce, getTimestamp, generateSignature, getAuthHeader } from '../../src/utils/chpp-auth';
 
-const supabase = createClient(
-  process.env.VITE_SUPABASE_URL || '',
-  process.env.VITE_SUPABASE_PUBLISHABLE_KEY || ''
-);
+const supabase = createClient(process.env.VITE_SUPABASE_URL || '', process.env.VITE_SUPABASE_PUBLISHABLE_KEY || '');
 
 function extractXmlTag(xml: string, tag: string): string {
   const match = xml.match(new RegExp(`<${tag}>([^<]*)</${tag}>`, 'i'));
@@ -45,7 +37,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       oauth_timestamp: getTimestamp(),
       oauth_token: oauth_token as string,
       oauth_verifier: oauth_verifier as string,
-      oauth_version: '1.0'
+      oauth_version: '1.0',
     };
 
     const signature = generateSignature('GET', url, params, consumerSecret!, session.oauth_token_secret);
@@ -53,7 +45,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
     const response = await fetch(url, {
       method: 'GET',
-      headers: { 'Authorization': authHeader }
+      headers: { Authorization: authHeader },
     });
 
     if (!response.ok) {
@@ -74,7 +66,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       oauth_signature_method: 'HMAC-SHA1',
       oauth_timestamp: getTimestamp(),
       oauth_token: accessToken,
-      oauth_version: '1.0'
+      oauth_version: '1.0',
     };
 
     const chppSignature = generateSignature('GET', chppUrl, chppParams, consumerSecret!, accessTokenSecret);
@@ -82,11 +74,11 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
     const teamRes = await fetch(`${chppUrl}?file=teamdetails`, {
       method: 'GET',
-      headers: { 'Authorization': chppAuthHeader }
+      headers: { Authorization: chppAuthHeader },
     });
 
     const xml = await teamRes.text();
-    
+
     // Parse minimal data
     const htUserId = extractXmlTag(xml, 'UserID');
     const htTeamId = extractXmlTag(xml, 'TeamID');
@@ -101,9 +93,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       .eq('id', session.tournament_id)
       .single();
 
-    const { error: upsertError } = await supabase
-      .from('teams')
-      .upsert({
+    const { error: upsertError } = await supabase.from('teams').upsert(
+      {
         tournament_id: session.tournament_id,
         ht_team_id: parseInt(htTeamId),
         name: teamName,
@@ -114,10 +105,12 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         country_name: countryName,
         joined_via_oauth: true,
         active: true,
-        oauth_scope: 'manage_challenges'
-      }, {
-        onConflict: 'tournament_id,ht_team_id'
-      });
+        oauth_scope: 'manage_challenges',
+      },
+      {
+        onConflict: 'tournament_id,ht_team_id',
+      },
+    );
 
     if (upsertError) throw upsertError;
 
@@ -125,9 +118,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     await supabase.from('oauth_temp_sessions').delete().eq('oauth_token', oauth_token);
 
     // Redirect back to tournament
-    return res.redirect(`/t/${tournament.slug}`);
-
-  } catch (error: any) {
-    return res.status(500).json({ error: error.message });
+    return res.redirect(`/t/${tournament?.slug}`);
+  } catch (error: unknown) {
+    return res.status(500).json({ error: error instanceof Error ? error.message : 'An unknown error occurred' });
   }
 }
