@@ -13,7 +13,7 @@ const supabase = createClient(
 );
 
 function extractXmlTag(xml: string, tag: string): string {
-  const match = xml.match(new RegExp(`<${tag}>([^<]*)<\/${tag}>`, 'i'));
+  const match = xml.match(new RegExp(`<${tag}>([^<]*)</${tag}>`, 'i'));
   return match ? match[1].trim() : '';
 }
 

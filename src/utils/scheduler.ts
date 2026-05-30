@@ -57,8 +57,8 @@ export function buildRound(
       shouldSwap = roundIdx % 2 !== 0;
     }
 
-    let home = shouldSwap ? teamB : teamA;
-    let away = shouldSwap ? teamA : teamB;
+    const home = shouldSwap ? teamB : teamA;
+    const away = shouldSwap ? teamA : teamB;
 
     const isBye = home === null || away === null;
     const venueType = options.mode === 'double' ? 'home_away' : (options.neutralInSingle ? 'neutral' : 'home_away');

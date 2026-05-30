@@ -15,10 +15,8 @@
   font-weight: 500;
 }
 
-.header {
+.tHeader {
   margin-bottom: 2rem;
-  border-bottom: 1px solid var(--border);
-  padding-bottom: 2rem;
 }
 
 .headerTop {
@@ -74,6 +72,7 @@
 .description {
   color: var(--text);
   font-size: 1rem;
+  font-weight: 500;
   line-height: 1.6;
   max-width: 800px;
 
@@ -134,8 +133,8 @@
 }
 
 .tournamentDescription {
-  margin-bottom: 2rem;
-  padding-bottom: 2rem;
+  margin-bottom: 1rem;
+  padding-bottom: 1rem;
   border-bottom: 1px dashed var(--border);
 
   p {

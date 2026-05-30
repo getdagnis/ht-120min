@@ -234,7 +234,7 @@ export const CreateTournament: React.FC = () => {
       <Card variant="hero">
         <h1>Add Teams</h1>
         <p className={styles.subtitle}>{formData.name}</p>
-        <img src="/bus4.png" alt="Add Teams" />
+        <img src="/register2.png" alt="Add Teams" />
         <p className={styles.subtitle}>Add at least two teams. You can add more later.</p>
         <form onSubmit={addLocalTeam} className={styles.teamForm}>
           <div className={styles.inputGroup}>

@@ -1,4 +1,5 @@
-import React, { useState, useEffect } from 'react';
+/* eslint-disable @typescript-eslint/no-explicit-any */
+import React, { useState, useEffect, useCallback } from 'react';
 import { useParams, useLocation } from 'react-router-dom';
 import { supabase } from '../../lib/supabase';
 import { Card } from '../../components/Card/Card';
@@ -32,17 +33,46 @@ interface MatchWithTeams {
   away_goals: number | null;
   completed: boolean;
   went_120: boolean;
-  home_team: { name: string; ht_team_id: number; active: boolean };
-  away_team: { name: string; ht_team_id: number; active: boolean };
+  home_team: { name: string; ht_team_id: number; active: boolean; logo_url?: string; country_name?: string };
+  away_team: { name: string; ht_team_id: number; active: boolean; logo_url?: string; country_name?: string };
+}
+
+interface Team {
+  id: string;
+  tournament_id: string;
+  name: string;
+  ht_team_id: number;
+  active: boolean;
+  replacement_for_team_id?: string;
+  created_at: string;
+  logo_url?: string;
+  country_name?: string;
+}
+
+interface Tournament {
+  id: string;
+  slug: string;
+  name: string;
+  admin_password: string;
+  scoring_mode: string;
+  is_private: boolean;
+  description: string | null;
+  show_description: boolean;
+}
+
+interface RoundWithMatches {
+  id: string;
+  round_number: number;
+  matches: MatchWithTeams[];
 }
 
 export const TournamentView: React.FC = () => {
   const { slug } = useParams<{ slug: string }>();
   const location = useLocation();
-  const [tournament, setTournament] = useState<any>(null);
+  const [tournament, setTournament] = useState<Tournament | null>(null);
   const [standings, setStandings] = useState<TeamStanding[]>([]);
-  const [rounds, setRounds] = useState<any[]>([]);
-  const [teams, setTeams] = useState<any[]>([]);
+  const [rounds, setRounds] = useState<RoundWithMatches[]>([]);
+  const [teams, setTeams] = useState<Team[]>([]);
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState<'standings' | 'fixtures' | 'admin'>(
     location.state?.isAdminInit ? 'admin' : 'standings',
@@ -57,7 +87,7 @@ export const TournamentView: React.FC = () => {
   const [isGenerating, setIsGenerating] = useState(false);
   const [scheduleMode, setScheduleMode] = useState<'single' | 'double' | 'recurring'>('double');
   const [editingMatch, setEditingMatch] = useState<string | null>(null);
-  const [matchData, setMatchData] = useState<any>({});
+  const [matchData, setMatchData] = useState<Record<string, Partial<MatchWithTeams>>>({});
   const [replacingTeamId, setReplacingTeamId] = useState<string | null>(null);
   const [replacementHtId, setReplacementHtId] = useState('');
   const [replacementName, setReplacementName] = useState('');
@@ -88,23 +118,7 @@ export const TournamentView: React.FC = () => {
   const [isAddingDescription, setIsAddingDescription] = useState(false);
   const [quickDescription, setQuickDescription] = useState('');
 
-  useEffect(() => {
-    fetchData();
-  }, [slug]);
-
-  useEffect(() => {
-    if (location.state?.isAdminInit) {
-      setActiveTab('admin');
-    }
-  }, [location.state?.isAdminInit]);
-
-  // Reset quick add state when switching tabs
-  useEffect(() => {
-    setIsAddingDescription(false);
-    setQuickDescription('');
-  }, [activeTab]);
-
-  const fetchData = async () => {
+  const fetchData = useCallback(async () => {
     const { data: tournamentData } = await supabase.from('tournaments').select('*').eq('slug', slug).single();
 
     if (tournamentData) {
@@ -170,6 +184,31 @@ export const TournamentView: React.FC = () => {
       }
     }
     setLoading(false);
+  }, [slug, password]);
+
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      fetchData();
+    }, 0);
+    return () => clearTimeout(timer);
+  }, [fetchData]);
+
+  useEffect(() => {
+    if (location.state?.isAdminInit) {
+      // Use a microtask or timeout to avoid synchronous setState during render/effect phase
+      setTimeout(() => {
+        setActiveTab('admin');
+      }, 0);
+      window.history.replaceState({}, document.title);
+    }
+  }, [location.state?.isAdminInit]);
+
+  const handleTabChange = (tab: 'standings' | 'fixtures' | 'admin') => {
+    if (tab !== activeTab) {
+      setIsAddingDescription(false);
+      setQuickDescription('');
+      setActiveTab(tab);
+    }
   };
 
   const handleAdminLogin = (e: React.FormEvent) => {
@@ -192,7 +231,7 @@ export const TournamentView: React.FC = () => {
           show_description: showEditDescription,
           description: editDescription,
         })
-        .eq('id', tournament.id);
+        .eq('id', tournament?.id);
 
       if (error) throw error;
       fetchData();
@@ -213,7 +252,7 @@ export const TournamentView: React.FC = () => {
           description: quickDescription.trim(),
           show_description: true,
         })
-        .eq('id', tournament.id);
+        .eq('id', tournament?.id);
 
       if (error) throw error;
       setIsAddingDescription(false);
@@ -251,7 +290,7 @@ export const TournamentView: React.FC = () => {
     try {
       const { error } = await supabase.from('teams').insert([
         {
-          tournament_id: tournament.id,
+          tournament_id: tournament?.id,
           name: name.trim(),
           ht_team_id: parseInt(htId.trim()),
           active: true,
@@ -285,7 +324,7 @@ export const TournamentView: React.FC = () => {
       await supabase.from('teams').update({ active: false }).eq('id', oldTeamId);
       const { error } = await supabase.from('teams').insert([
         {
-          tournament_id: tournament.id,
+          tournament_id: tournament?.id,
           name: replacementName.trim(),
           ht_team_id: parseInt(replacementHtId.trim()),
           active: true,
@@ -346,7 +385,7 @@ export const TournamentView: React.FC = () => {
       for (const roundInfo of schedule) {
         const { data: round, error: rError } = await supabase
           .from('rounds')
-          .insert([{ tournament_id: tournament.id, round_number: roundInfo.roundNumber }])
+          .insert([{ tournament_id: tournament?.id, round_number: roundInfo.roundNumber }])
           .select()
           .single();
 
@@ -393,7 +432,7 @@ export const TournamentView: React.FC = () => {
       for (const roundInfo of schedule) {
         const { data: round, error: rError } = await supabase
           .from('rounds')
-          .insert([{ tournament_id: tournament.id, round_number: roundInfo.roundNumber }])
+          .insert([{ tournament_id: tournament?.id, round_number: roundInfo.roundNumber }])
           .select()
           .single();
 
@@ -433,7 +472,7 @@ export const TournamentView: React.FC = () => {
     }
     setIsGenerating(true);
     try {
-      await supabase.from('rounds').delete().eq('tournament_id', tournament.id);
+      await supabase.from('rounds').delete().eq('tournament_id', tournament?.id);
       fetchData();
     } catch (err: any) {
       alert('Error regenerating: ' + err.message);
@@ -447,8 +486,10 @@ export const TournamentView: React.FC = () => {
     const { error } = await supabase
       .from('matches')
       .update({
-        home_goals: parseInt(data.home_goals),
-        away_goals: parseInt(data.away_goals),
+        home_goals:
+          data.home_goals !== undefined && data.home_goals !== null ? parseInt(String(data.home_goals)) : null,
+        away_goals:
+          data.away_goals !== undefined && data.away_goals !== null ? parseInt(String(data.away_goals)) : null,
         went_120: data.went_120,
         completed: true,
       })
@@ -473,7 +514,7 @@ export const TournamentView: React.FC = () => {
 
   return (
     <div className={styles.view}>
-      <header className={styles.header}>
+      <div className={styles.tHeader}>
         <div className={styles.headerTop}>
           <h1>{tournament.name}</h1>
           <div className={styles.headerActions}>
@@ -547,9 +588,7 @@ export const TournamentView: React.FC = () => {
 
           {tournament.description && tournament.show_description && (
             <div className={styles.tournamentDescription}>
-              <p>
-                <strong>Description:</strong> {tournament.description}
-              </p>
+              <p>{tournament.description}</p>
             </div>
           )}
           {/* user written descriptions: do not change */}
@@ -591,16 +630,16 @@ export const TournamentView: React.FC = () => {
             </div>
           )}
         </div>
-      </header>
+      </div>
 
       <div className={styles.tabs}>
-        <button className={activeTab === 'standings' ? styles.active : ''} onClick={() => setActiveTab('standings')}>
+        <button className={activeTab === 'standings' ? styles.active : ''} onClick={() => handleTabChange('standings')}>
           Standings
         </button>
-        <button className={activeTab === 'fixtures' ? styles.active : ''} onClick={() => setActiveTab('fixtures')}>
+        <button className={activeTab === 'fixtures' ? styles.active : ''} onClick={() => handleTabChange('fixtures')}>
           Fixtures & Results
         </button>
-        <button className={activeTab === 'admin' ? styles.active : ''} onClick={() => setActiveTab('admin')}>
+        <button className={activeTab === 'admin' ? styles.active : ''} onClick={() => handleTabChange('admin')}>
           Admin
         </button>
       </div>
@@ -730,53 +769,6 @@ export const TournamentView: React.FC = () => {
             </Card>
           ) : (
             <div className={adminStyles.admin}>
-              <div
-                className={adminStyles.header}
-                style={{ borderBottom: 'none', marginBottom: '1.5rem', paddingBottom: '0' }}
-              >
-                <div className={adminStyles.meta}>
-                  <div className={adminStyles.metaItem}>
-                    {!isMobile ? (
-                      <span className={adminStyles.label}>Public URL:</span>
-                    ) : (
-                      <span className={adminStyles.label}>URL:</span>
-                    )}
-                    <a href={publicUrl} target="_blank">
-                      <code>{publicUrlDisplay}</code>
-                    </a>
-                    <Button
-                      size={isMobile ? 'xs' : 'sm'}
-                      variant="outline"
-                      onClick={() => {
-                        navigator.clipboard.writeText(publicUrl);
-                        alert('URL copied!');
-                      }}
-                    >
-                      <Copy size={isMobile ? 10 : 14} />
-                    </Button>
-                  </div>
-                  <div className={adminStyles.metaItem}>
-                    {!isMobile ? (
-                      <span className={adminStyles.label}>Admin Password:</span>
-                    ) : (
-                      <span className={adminStyles.label}>Password:</span>
-                    )}
-
-                    <code>{tournament.admin_password}</code>
-                    <Button
-                      size={isMobile ? 'xs' : 'sm'}
-                      variant="outline"
-                      onClick={() => {
-                        navigator.clipboard.writeText(tournament.admin_password);
-                        alert("Password copied! Don't lose it.");
-                      }}
-                    >
-                      <Copy size={isMobile ? 10 : 14} />
-                    </Button>
-                  </div>
-                </div>
-              </div>
-
               <div className={adminStyles.mainGrid}>
                 <section className={adminStyles.teamsSection}>
                   <Card
@@ -787,6 +779,47 @@ export const TournamentView: React.FC = () => {
                     onToggleCollapse={() => setIsSettingsCollapsed(!isSettingsCollapsed)}
                   >
                     <div className={adminStyles.settingsGroup} style={{ marginBottom: '1.5rem' }}>
+                      <div className={adminStyles.meta}>
+                        <div className={adminStyles.metaItem}>
+                          {!isMobile ? (
+                            <span className={adminStyles.label}>Public URL:</span>
+                          ) : (
+                            <span className={adminStyles.label}>URL:</span>
+                          )}
+                          <a href={publicUrl} target="_blank">
+                            <code>{publicUrlDisplay}</code>
+                          </a>
+                          <Button
+                            size={isMobile ? 'xs' : 'sm'}
+                            variant="outline"
+                            onClick={() => {
+                              navigator.clipboard.writeText(publicUrl);
+                              alert('URL copied!');
+                            }}
+                          >
+                            <Copy size={isMobile ? 10 : 14} />
+                          </Button>
+                        </div>
+                        <div className={adminStyles.metaItem}>
+                          {!isMobile ? (
+                            <span className={adminStyles.label}>Admin Password:</span>
+                          ) : (
+                            <span className={adminStyles.label}>Password:</span>
+                          )}
+
+                          <code>{tournament.admin_password}</code>
+                          <Button
+                            size={isMobile ? 'xs' : 'sm'}
+                            variant="outline"
+                            onClick={() => {
+                              navigator.clipboard.writeText(tournament.admin_password);
+                              alert("Password copied! Don't lose it.");
+                            }}
+                          >
+                            <Copy size={isMobile ? 10 : 14} />
+                          </Button>
+                        </div>
+                      </div>
                       <div className={adminStyles.checkboxField} style={{ marginBottom: '1rem' }}>
                         <label className={adminStyles.checkboxLabel}>
                           <input
@@ -1029,7 +1062,7 @@ export const TournamentView: React.FC = () => {
                                             ...matchData,
                                             [match.id]: {
                                               ...(matchData[match.id] || match),
-                                              home_goals: e.target.value,
+                                              home_goals: e.target.value === '' ? null : Number(e.target.value),
                                             },
                                           })
                                         }
@@ -1045,7 +1078,7 @@ export const TournamentView: React.FC = () => {
                                             ...matchData,
                                             [match.id]: {
                                               ...(matchData[match.id] || match),
-                                              away_goals: e.target.value,
+                                              away_goals: e.target.value === '' ? null : Number(e.target.value),
                                             },
                                           })
                                         }
@@ -1103,7 +1136,11 @@ export const TournamentView: React.FC = () => {
                                           setEditingMatch(match.id);
                                           setMatchData({
                                             ...matchData,
-                                            [match.id]: { ...match, home_goals: '', away_goals: '' },
+                                            [match.id]: {
+                                              ...match,
+                                              home_goals: null,
+                                              away_goals: null,
+                                            } as Partial<MatchWithTeams>,
                                           });
                                         }}
                                       >

@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { supabase } from '../../lib/supabase';
 import { Button } from '../../components/Button/Button';
@@ -6,17 +6,34 @@ import { Card } from '../../components/Card/Card';
 import { Trophy, Users, Calendar, Activity, ChevronRight, DoorOpen } from 'lucide-react';
 import styles from './Home.module.sass';
 
+interface Tournament {
+  id: string;
+  name: string;
+  slug: string;
+  created_at: string;
+  is_private: boolean;
+  rounds: {
+    id: string;
+    matches: {
+      id: string;
+      completed: boolean;
+    }[];
+  }[];
+  teams: {
+    id: string;
+  }[];
+  totalMatches?: number;
+  completedMatches?: number;
+  activityScore?: number;
+  teamCount?: number;
+}
+
 export const Home: React.FC = () => {
   const navigate = useNavigate();
-  const [activeTournaments, setActiveTournaments] = useState<any[]>([]);
-  const [openTournaments, setOpenTournaments] = useState<any[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [activeTournaments, setActiveTournaments] = useState<Tournament[]>([]);
+  const [openTournaments, setOpenTournaments] = useState<Tournament[]>([]);
 
-  useEffect(() => {
-    fetchTournaments();
-  }, []);
-
-  const fetchTournaments = async () => {
+  const fetchTournaments = useCallback(async () => {
     try {
       const oneMonthAgo = new Date();
       oneMonthAgo.setMonth(oneMonthAgo.getMonth() - 1);
@@ -48,13 +65,13 @@ export const Home: React.FC = () => {
       if (tError) throw tError;
 
       if (tournaments) {
-        const active: any[] = [];
-        const open: any[] = [];
+        const active: Tournament[] = [];
+        const open: Tournament[] = [];
 
-        tournaments.forEach((t: any) => {
-          const allMatches = t.rounds.flatMap((r: any) => r.matches);
+        (tournaments as unknown as Tournament[]).forEach((t) => {
+          const allMatches = t.rounds.flatMap((r) => r.matches);
           const totalMatches = allMatches.length;
-          const completedMatches = allMatches.filter((m: any) => m.completed).length;
+          const completedMatches = allMatches.filter((m) => m.completed).length;
           const isClosed = totalMatches > 0 && totalMatches === completedMatches;
           const isGenerated = t.rounds.length > 0;
 
@@ -73,15 +90,17 @@ export const Home: React.FC = () => {
           }
         });
 
-        setActiveTournaments(active.sort((a, b) => b.activityScore - a.activityScore));
-        setOpenTournaments(open.sort((a, b) => b.teamCount - a.teamCount));
+        setActiveTournaments(active.sort((a, b) => (b.activityScore ?? 0) - (a.activityScore ?? 0)));
+        setOpenTournaments(open.sort((a, b) => (b.teamCount ?? 0) - (a.teamCount ?? 0)));
       }
     } catch (err) {
       console.error('Error fetching tournaments:', err);
-    } finally {
-      setLoading(false);
     }
-  };
+  }, []);
+
+  useEffect(() => {
+    fetchTournaments();
+  }, [fetchTournaments]);
 
   return (
     <div className={styles.home}>

@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { useParams, useLocation } from 'react-router-dom';
 import { supabase } from '../../lib/supabase';
 import { Button } from '../../components/Button/Button';
@@ -20,12 +20,38 @@ interface MatchWithTeams {
   away_team: { name: string; ht_team_id: number; active: boolean };
 }
 
+interface Team {
+  id: string;
+  tournament_id: string;
+  name: string;
+  ht_team_id: number;
+  active: boolean;
+  created_at: string;
+}
+
+interface Tournament {
+  id: string;
+  slug: string;
+  name: string;
+  admin_password: string;
+  scoring_mode: string;
+  is_private: boolean;
+  description: string | null;
+  show_description: boolean;
+}
+
+interface RoundWithMatches {
+  id: string;
+  round_number: number;
+  matches: MatchWithTeams[];
+}
+
 export const TournamentAdmin: React.FC = () => {
   const { slug } = useParams<{ slug: string }>();
   const location = useLocation();
-  const [tournament, setTournament] = useState<any>(null);
-  const [teams, setTeams] = useState<any[]>([]);
-  const [rounds, setRounds] = useState<any[]>([]);
+  const [tournament, setTournament] = useState<Tournament | null>(null);
+  const [teams, setTeams] = useState<Team[]>([]);
+  const [rounds, setRounds] = useState<RoundWithMatches[]>([]);
   const [loading, setLoading] = useState(true);
   const [password, setPassword] = useState(location.state?.password || localStorage.getItem(`admin_pw_${slug}`) || '');
   const [isAuthenticated, setIsAuthenticated] = useState(false);
@@ -38,7 +64,7 @@ export const TournamentAdmin: React.FC = () => {
   const [scheduleMode, setScheduleMode] = useState<'single' | 'double' | 'recurring'>('single');
 
   const [editingMatch, setEditingMatch] = useState<string | null>(null);
-  const [matchData, setMatchData] = useState<any>({});
+  const [matchData, setMatchData] = useState<Record<string, Partial<MatchWithTeams>>>({});
 
   const [replacingTeamId, setReplacingTeamId] = useState<string | null>(null);
   const [replacementHtId, setReplacementHtId] = useState('');
@@ -57,27 +83,7 @@ export const TournamentAdmin: React.FC = () => {
     return saved ? JSON.parse(saved) : false;
   });
 
-  useEffect(() => {
-    fetchTournament();
-  }, [slug]);
-
-  const fetchTournament = async () => {
-    const { data } = await supabase.from('tournaments').select('*').eq('slug', slug).single();
-
-    if (data) {
-      setTournament(data);
-      setEditIsPrivate(data.is_private);
-      setShowEditDescription(data.show_description);
-      setEditDescription(data.description || '');
-      if (password === data.admin_password) {
-        setIsAuthenticated(true);
-        fetchDetails(data.id);
-      }
-    }
-    setLoading(false);
-  };
-
-  const fetchDetails = async (tournamentId: string) => {
+  const fetchDetails = useCallback(async (tournamentId: string) => {
     const { data: teamsData } = await supabase
       .from('teams')
       .select('*')
@@ -102,7 +108,27 @@ export const TournamentAdmin: React.FC = () => {
       .order('round_number', { ascending: true });
 
     setRounds(roundsData || []);
-  };
+  }, [tournament?.id]);
+
+  const fetchTournament = useCallback(async () => {
+    const { data } = await supabase.from('tournaments').select('*').eq('slug', slug).single();
+
+    if (data) {
+      setTournament(data);
+      setEditIsPrivate(data.is_private);
+      setShowEditDescription(data.show_description);
+      setEditDescription(data.description || '');
+      if (password === data.admin_password) {
+        setIsAuthenticated(true);
+        fetchDetails(data.id);
+      }
+    }
+    setLoading(false);
+  }, [slug, password, fetchDetails]);
+
+  useEffect(() => {
+    fetchTournament();
+  }, [fetchTournament]);
 
   const handleLogin = (e: React.FormEvent) => {
     e.preventDefault();
@@ -116,6 +142,7 @@ export const TournamentAdmin: React.FC = () => {
   };
 
   const updateSettings = async () => {
+    if (!tournament) return;
     setIsUpdatingSettings(true);
     try {
       const { error } = await supabase
@@ -138,6 +165,7 @@ export const TournamentAdmin: React.FC = () => {
 
   const addTeam = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!tournament) return;
     if (!newTeamName.trim() || !newTeamId.trim()) {
       alert('Both Team Name and HT ID are required.');
       return;
@@ -177,6 +205,7 @@ export const TournamentAdmin: React.FC = () => {
   };
 
   const replaceTeam = async (oldTeamId: string) => {
+    if (!tournament) return;
     if (!replacementName.trim() || !replacementHtId.trim()) {
       alert('Both new Team Name and new HT ID are required.');
       return;
@@ -207,6 +236,7 @@ export const TournamentAdmin: React.FC = () => {
   };
 
   const deactivateTeam = async (id: string) => {
+    if (!tournament) return;
     if (window.confirm('Are you sure you want to deactivate this team?')) {
       await supabase.from('teams').update({ active: false }).eq('id', id);
       fetchDetails(tournament.id);
@@ -214,6 +244,7 @@ export const TournamentAdmin: React.FC = () => {
   };
 
   const deleteTeam = async (id: string) => {
+    if (!tournament) return;
     if (rounds.length > 0) {
       deactivateTeam(id);
       return;
@@ -223,6 +254,7 @@ export const TournamentAdmin: React.FC = () => {
   };
 
   const regenerateSchedule = async () => {
+    if (!tournament) return;
     if (!window.confirm('Are you sure you want to regenerate the schedule? All current results will be lost!')) {
       return;
     }
@@ -240,6 +272,7 @@ export const TournamentAdmin: React.FC = () => {
   };
 
   const generateSchedule = async () => {
+    if (!tournament) return;
     const activeTeams = teams.filter((t) => t.active);
     if (activeTeams.length < 2) {
       alert('Need at least 2 active teams');
@@ -301,6 +334,7 @@ export const TournamentAdmin: React.FC = () => {
   };
 
   const generateMoreRounds = async () => {
+    if (!tournament) return;
     const lastRoundNumber = rounds.length > 0 ? rounds[rounds.length - 1].round_number : 0;
     const activeTeams = teams.filter((t) => t.active);
     setIsGenerating(true);
@@ -348,12 +382,14 @@ export const TournamentAdmin: React.FC = () => {
   };
 
   const updateMatch = async (matchId: string) => {
+    if (!tournament) return;
     const data = matchData[matchId];
+    if (!data) return;
     const { error } = await supabase
       .from('matches')
       .update({
-        home_goals: parseInt(data.home_goals),
-        away_goals: parseInt(data.away_goals),
+        home_goals: data.home_goals !== undefined ? parseInt(data.home_goals as any) : null,
+        away_goals: data.away_goals !== undefined ? parseInt(data.away_goals as any) : null,
         went_120: data.went_120,
         completed: true,
       })
@@ -441,7 +477,13 @@ export const TournamentAdmin: React.FC = () => {
 
       <div className={styles.mainGrid}>
         <section className={styles.teamsSection}>
-          <Card title="Tournament Settings" variant="classic">
+          <Card
+            title="Tournament Settings"
+            variant="classic"
+            collapsible
+            isCollapsed={isSettingsCollapsed}
+            onToggleCollapse={() => setIsSettingsCollapsed(!isSettingsCollapsed)}
+          >
             <div className={styles.settingsGroup} style={{ marginBottom: '1.5rem' }}>
               <div className={styles.checkboxField} style={{ marginBottom: '1rem' }}>
                 <label className={styles.checkboxLabel}>
@@ -477,7 +519,17 @@ export const TournamentAdmin: React.FC = () => {
             </Button>
           </Card>
 
-          <Card title="Teams Management" variant="classic">
+          <Card
+            title="Manage Teams & Schedule"
+            variant="classic"
+            collapsible
+            isCollapsed={isTeamsCollapsed}
+            onToggleCollapse={() => {
+              const newState = !isTeamsCollapsed;
+              setIsTeamsCollapsed(newState);
+              localStorage.setItem(`teams_collapsed_${slug}`, JSON.stringify(newState));
+            }}
+          >
             <form onSubmit={addTeam} className={styles.teamForm}>
               <div className={styles.inputGroup}>
                 <input
@@ -664,12 +716,13 @@ export const TournamentAdmin: React.FC = () => {
                                 type="number"
                                 placeholder="H"
                                 value={matchData[match.id]?.home_goals ?? match.home_goals ?? ''}
-                                onChange={(e) =>
+                                onChange={(e) => {
+                                  const updatedMatch = { ...(matchData[match.id] || match), home_goals: e.target.value as any };
                                   setMatchData({
                                     ...matchData,
-                                    [match.id]: { ...(matchData[match.id] || match), home_goals: e.target.value },
-                                  })
-                                }
+                                    [match.id]: updatedMatch,
+                                  });
+                                }}
                               />
                               <span className={styles.divider}>-</span>
                               <input
@@ -677,24 +730,26 @@ export const TournamentAdmin: React.FC = () => {
                                 type="number"
                                 placeholder="A"
                                 value={matchData[match.id]?.away_goals ?? match.away_goals ?? ''}
-                                onChange={(e) =>
+                                onChange={(e) => {
+                                  const updatedMatch = { ...(matchData[match.id] || match), away_goals: e.target.value as any };
                                   setMatchData({
                                     ...matchData,
-                                    [match.id]: { ...(matchData[match.id] || match), away_goals: e.target.value },
-                                  })
-                                }
+                                    [match.id]: updatedMatch,
+                                  });
+                                }}
                               />
                             </div>
                             <label className={styles.went120}>
                               <input
                                 type="checkbox"
                                 checked={matchData[match.id]?.went_120 ?? match.went_120 ?? false}
-                                onChange={(e) =>
+                                onChange={(e) => {
+                                  const updatedMatch = { ...(matchData[match.id] || match), went_120: e.target.checked };
                                   setMatchData({
                                     ...matchData,
-                                    [match.id]: { ...(matchData[match.id] || match), went_120: e.target.checked },
-                                  })
-                                }
+                                    [match.id]: updatedMatch,
+                                  });
+                                }}
                               />
                               120m
                             </label>
@@ -732,9 +787,10 @@ export const TournamentAdmin: React.FC = () => {
                                 variant="outline"
                                 onClick={() => {
                                   setEditingMatch(match.id);
+                                  const resetMatch: Partial<MatchWithTeams> = { ...match, home_goals: '' as any, away_goals: '' as any };
                                   setMatchData({
                                     ...matchData,
-                                    [match.id]: { ...match, home_goals: '', away_goals: '' },
+                                    [match.id]: resetMatch,
                                   });
                                 }}
                               >
