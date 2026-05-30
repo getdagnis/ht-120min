@@ -67,6 +67,11 @@ export const CreateTournament: React.FC = () => {
     e.preventDefault();
     if (!newTeamName.trim() || !newTeamId.trim()) return;
 
+    if (teams.some((t) => t.htId === newTeamId.trim())) {
+      alert('This Team ID is already in the list.');
+      return;
+    }
+
     setTeams([
       ...teams,
       {
@@ -150,7 +155,7 @@ export const CreateTournament: React.FC = () => {
                 required
                 value={formData.name}
                 onChange={(e) => handleNameChange(e.target.value)}
-                placeholder="e.g. Guam HFI Season 1"
+                placeholder="e.g. Guam HFI Season 1 🇬🇺"
                 autoFocus
               />
             </div>
@@ -177,8 +182,8 @@ export const CreateTournament: React.FC = () => {
                 value={formData.scoring_mode}
                 onChange={(e) => setFormData({ ...formData, scoring_mode: e.target.value })}
               >
-                <option value="120min">120 Minute Training Achievements</option>
-                <option value="points">Standard Victory Points (3/1/0)</option>
+                <option value="120min">⏱ 120 Minute Training Achievements</option>
+                <option value="points">🥇 Standard Victory Points (3/1/0)</option>
               </select>
             </div>
 

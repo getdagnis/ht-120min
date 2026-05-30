@@ -87,6 +87,18 @@
   }
 }
 
+.tournamentDescription {
+  margin-bottom: 2rem;
+  padding-bottom: 2rem;
+  border-bottom: 1px dashed var(--border);
+
+  p {
+    white-space: pre-wrap;
+    font-size: 1.1rem;
+    color: var(--text-h);
+  }
+}
+
 .tabs {
   display: flex;
   gap: 2rem;

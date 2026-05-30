@@ -43,6 +43,12 @@ export const TournamentAdmin: React.FC = () => {
   const [replacementHtId, setReplacementHtId] = useState('');
   const [replacementName, setReplacementName] = useState('');
 
+  // Tournament settings states
+  const [editIsPrivate, setEditIsPrivate] = useState(false);
+  const [showEditDescription, setShowEditDescription] = useState(false);
+  const [editDescription, setEditDescription] = useState('');
+  const [isUpdatingSettings, setIsUpdatingSettings] = useState(false);
+
   useEffect(() => {
     fetchTournament();
   }, [slug]);
@@ -52,6 +58,9 @@ export const TournamentAdmin: React.FC = () => {
 
     if (data) {
       setTournament(data);
+      setEditIsPrivate(data.is_private);
+      setShowEditDescription(!!data.description);
+      setEditDescription(data.description || '');
       if (password === data.admin_password) {
         setIsAuthenticated(true);
         fetchDetails(data.id);
@@ -98,12 +107,39 @@ export const TournamentAdmin: React.FC = () => {
     }
   };
 
+  const updateSettings = async () => {
+    setIsUpdatingSettings(true);
+    try {
+      const { error } = await supabase
+        .from('tournaments')
+        .update({
+          is_private: editIsPrivate,
+          description: showEditDescription ? editDescription : null,
+        })
+        .eq('id', tournament.id);
+
+      if (error) throw error;
+      fetchTournament();
+    } catch (error: any) {
+      alert(error.message);
+    } finally {
+      setIsUpdatingSettings(false);
+    }
+  };
+
   const addTeam = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!newTeamName.trim() || !newTeamId.trim()) {
       alert('Both Team Name and HT ID are required.');
       return;
     }
+
+    const htIdInt = parseInt(newTeamId.trim());
+    if (teams.some((t) => t.ht_team_id === htIdInt)) {
+      alert('This team is already in the tournament.');
+      return;
+    }
+
     setIsSavingTeam(true);
     try {
       const { error } = await supabase.from('teams').insert([
@@ -338,6 +374,46 @@ export const TournamentAdmin: React.FC = () => {
 
       <div className={styles.mainGrid}>
         <section className={styles.teamsSection}>
+          <Card title="Tournament Settings" variant="classic">
+            <div className={styles.settingsGroup} style={{ marginBottom: '1.5rem' }}>
+              <div className={styles.checkboxField} style={{ marginBottom: '1rem' }}>
+                <label className={styles.checkboxLabel}>
+                  <input
+                    type="checkbox"
+                    checked={editIsPrivate}
+                    onChange={(e) => setEditIsPrivate(e.target.checked)}
+                  />
+                  Private Tournament (unlisted on home page)
+                </label>
+              </div>
+
+              <div className={styles.checkboxField}>
+                <label className={styles.checkboxLabel}>
+                  <input
+                    type="checkbox"
+                    checked={showEditDescription}
+                    onChange={(e) => setShowEditDescription(e.target.checked)}
+                  />
+                  Show Description
+                </label>
+              </div>
+
+              {showEditDescription && (
+                <div className={styles.textField} style={{ marginTop: '1rem' }}>
+                  <textarea
+                    value={editDescription}
+                    onChange={(e) => setEditDescription(e.target.value)}
+                    placeholder="Tournament description..."
+                    rows={4}
+                  />
+                </div>
+              )}
+            </div>
+            <Button onClick={updateSettings} disabled={isUpdatingSettings} variant="primary" size="sm">
+              {isUpdatingSettings ? 'Saving...' : 'Save Settings'}
+            </Button>
+          </Card>
+
           <Card title="Teams Management" variant="classic">
             <form onSubmit={addTeam} className={styles.teamForm}>
               <div className={styles.inputGroup}>

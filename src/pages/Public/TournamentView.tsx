@@ -49,6 +49,12 @@ export const TournamentView: React.FC = () => {
   const [replacementHtId, setReplacementHtId] = useState('');
   const [replacementName, setReplacementName] = useState('');
 
+  // Tournament settings states
+  const [editIsPrivate, setEditIsPrivate] = useState(false);
+  const [showEditDescription, setShowEditDescription] = useState(false);
+  const [editDescription, setEditDescription] = useState('');
+  const [isUpdatingSettings, setIsUpdatingSettings] = useState(false);
+
   // Join states
   const [isJoining, setIsJoining] = useState(false);
   const [joinTeamId, setJoinTeamId] = useState('');
@@ -69,6 +75,9 @@ export const TournamentView: React.FC = () => {
 
     if (tournamentData) {
       setTournament(tournamentData);
+      setEditIsPrivate(tournamentData.is_private);
+      setShowEditDescription(!!tournamentData.description);
+      setEditDescription(tournamentData.description || '');
 
       const { data: teamsData } = await supabase
         .from('teams')
@@ -139,6 +148,26 @@ export const TournamentView: React.FC = () => {
     }
   };
 
+  const updateSettings = async () => {
+    setIsUpdatingSettings(true);
+    try {
+      const { error } = await supabase
+        .from('tournaments')
+        .update({
+          is_private: editIsPrivate,
+          description: showEditDescription ? editDescription : null,
+        })
+        .eq('id', tournament.id);
+
+      if (error) throw error;
+      fetchData();
+    } catch (error: any) {
+      alert(error.message);
+    } finally {
+      setIsUpdatingSettings(false);
+    }
+  };
+
   const addTeam = async (e: React.FormEvent, isJoin: boolean = false) => {
     if (e) e.preventDefault();
     const name = isJoin ? joinTeamName : newTeamName;
@@ -146,6 +175,12 @@ export const TournamentView: React.FC = () => {
 
     if (!name.trim() || !htId.trim()) {
       alert('Both Team Name and HT ID are required.');
+      return;
+    }
+
+    const htIdInt = parseInt(htId.trim());
+    if (teams.some((t) => t.ht_team_id === htIdInt)) {
+      alert('This team is already in the tournament.');
       return;
     }
 
@@ -364,6 +399,13 @@ export const TournamentView: React.FC = () => {
         )}
 
         <div className={styles.description}>
+          {tournament.description && (
+            <div className={styles.tournamentDescription}>
+              <p>
+                <strong>Description:</strong> {tournament.description}
+              </p>
+            </div>
+          )}
           {/* user written descriptions: do not change */}
           {is120minMode ? (
             <p>
@@ -559,6 +601,46 @@ export const TournamentView: React.FC = () => {
 
               <div className={adminStyles.mainGrid}>
                 <section className={adminStyles.teamsSection}>
+                  <Card title="Tournament Settings" variant="classic">
+                    <div className={adminStyles.settingsGroup} style={{ marginBottom: '1.5rem' }}>
+                      <div className={adminStyles.checkboxField} style={{ marginBottom: '1rem' }}>
+                        <label className={adminStyles.checkboxLabel}>
+                          <input
+                            type="checkbox"
+                            checked={editIsPrivate}
+                            onChange={(e) => setEditIsPrivate(e.target.checked)}
+                          />
+                          Private Tournament (unlisted on home page)
+                        </label>
+                      </div>
+
+                      <div className={adminStyles.checkboxField}>
+                        <label className={adminStyles.checkboxLabel}>
+                          <input
+                            type="checkbox"
+                            checked={showEditDescription}
+                            onChange={(e) => setShowEditDescription(e.target.checked)}
+                          />
+                          Show Description
+                        </label>
+                      </div>
+
+                      {showEditDescription && (
+                        <div className={adminStyles.textField} style={{ marginTop: '1rem' }}>
+                          <textarea
+                            value={editDescription}
+                            onChange={(e) => setEditDescription(e.target.value)}
+                            placeholder="Tournament description..."
+                            rows={4}
+                          />
+                        </div>
+                      )}
+                    </div>
+                    <Button onClick={updateSettings} disabled={isUpdatingSettings} variant="primary" size="sm">
+                      {isUpdatingSettings ? 'Saving...' : 'Save Settings'}
+                    </Button>
+                  </Card>
+
                   <Card title="Teams Management" variant="classic">
                     <form onSubmit={(e) => addTeam(e, false)} className={adminStyles.teamForm}>
                       <div className={adminStyles.inputGroup}>
