@@ -23,6 +23,9 @@
 
 .hero {
   background: var(--accent-bg);
+  background: url('/grass2.png') repeat repeat center;
+  background-position: center;
+  background-size: 40%;
   border: 1px solid var(--border);
   border-radius: 1rem;
   color: white;
@@ -39,7 +42,9 @@
 }
 
 .content {
+  padding: 0.75rem 1rem;
+
   @media (min-width: 860px) {
-    padding: 1.5rem 3rem;
+    padding: 1.25rem 2rem;
   }
 }

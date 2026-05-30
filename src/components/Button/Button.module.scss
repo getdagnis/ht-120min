@@ -51,6 +51,7 @@
   border: 1px solid var(--accent);
   &:hover:not(:disabled) {
     background-color: rgb(0, 145, 53);
+    color: white;
   }
 }
 

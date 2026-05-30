@@ -5,14 +5,14 @@
 :root {
   --text: #4b5563;
   --text-h: #08090d;
-  --bg: #e0e0e0;
+  --bg: #e9eee5;
   --border: #e5e7eb;
   --code-bg: #f3f4f6;
   --accent: #00ae40;
   --accent-bg: #10863b;
   --accent-border: #0d6e2f;
-  --table-bg: #ced8c6;
-  --table-bg-main: #ebebe9;
+  --table-bg: #cbdfc2;
+  --table-bg-main: #f3f7ef;
   --yellow: rgb(242, 255, 0);
   --orange: rgb(255, 136, 0);
   --sans: 'Raleway', system-ui, 'Segoe UI', Roboto, sans-serif;
@@ -133,14 +133,23 @@ select {
   overflow-x: auto;
 }
 
+.w-100 {
+  width: 100% !important;
+}
+
+.center {
+  text-align: center !important;
+}
+
 table {
   width: 100%;
   border-collapse: collapse;
+  font-size: 1.2rem;
 
   th,
   td {
     text-align: left;
-    padding: 1rem 1.5rem;
+    padding: 0.75rem 1rem;
     border-bottom: 1px solid var(--border);
 
     @media (max-width: 620px) {
@@ -151,12 +160,19 @@ table {
   th {
     color: var(--text-h);
     font-weight: 600;
-    font-size: 0.875rem;
-    text-transform: uppercase;
+    font-size: 1rem;
     letter-spacing: 0.05em;
   }
 
   tr:last-child td {
     border-bottom: none;
+  }
+
+  @media (max-width: 620px) {
+    font-size: 1rem;
+
+    th {
+      font-size: 0.9rem;
+    }
   }
 }

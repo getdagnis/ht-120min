@@ -18,11 +18,13 @@ export const CreateTournament: React.FC = () => {
   const [loading, setLoading] = useState(false);
   const [checkingSlug, setCheckingSlug] = useState(false);
   const [step, setStep] = useState<'info' | 'teams'>('info');
+  const [showDescription, setShowDescription] = useState(false);
   const [formData, setFormData] = useState({
     name: '',
     slug: '',
     scoring_mode: '120min',
     is_private: false,
+    description: '',
   });
 
   const [teams, setTeams] = useState<LocalTeam[]>([]);
@@ -102,6 +104,7 @@ export const CreateTournament: React.FC = () => {
           scoring_mode: formData.scoring_mode,
           admin_password: adminPassword,
           is_private: formData.is_private,
+          description: showDescription ? formData.description : null,
         },
       ])
       .select()
@@ -148,6 +151,7 @@ export const CreateTournament: React.FC = () => {
                 value={formData.name}
                 onChange={(e) => handleNameChange(e.target.value)}
                 placeholder="e.g. Guam HFI Season 1"
+                autoFocus
               />
             </div>
 
@@ -189,6 +193,26 @@ export const CreateTournament: React.FC = () => {
               </label>
             </div>
 
+            <div className={styles.field}>
+              <label className={styles.checkboxLabel}>
+                <input
+                  type="checkbox"
+                  checked={showDescription}
+                  onChange={(e) => setShowDescription(e.target.checked)}
+                />
+                Add Description (optional)
+              </label>
+              {showDescription && (
+                <textarea
+                  value={formData.description}
+                  onChange={(e) => setFormData({ ...formData, description: e.target.value })}
+                  placeholder="Tell participants about the tournament, rules, or prizes..."
+                  rows={4}
+                  className={styles.textarea}
+                />
+              )}
+            </div>
+
             <div className={styles.actions}>
               <Button type="submit" fullWidth disabled={checkingSlug} variant="secondary">
                 {checkingSlug ? 'Checking URL...' : 'Continue'} <ArrowRight size={18} />
@@ -215,9 +239,10 @@ export const CreateTournament: React.FC = () => {
               placeholder="HT Team ID"
               value={newTeamId}
               onChange={(e) => setNewTeamId(e.target.value.replace(/\D/g, ''))}
-              pattern="\d{6}"
-              maxLength={6}
               minLength={6}
+              maxLength={6}
+              onInvalid={(e) => (e.target as HTMLInputElement).setCustomValidity('Please enter a valid Team ID')}
+              onInput={(e) => (e.target as HTMLInputElement).setCustomValidity('')}
               required
             />
             <input

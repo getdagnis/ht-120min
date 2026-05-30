@@ -3,6 +3,10 @@
   max-width: 1100px;
   margin: 0 auto;
   padding: 2rem 1rem;
+
+  @media (max-width: 620px) {
+    padding: 1rem 0.75rem;
+  }
 }
 
 .loading {
@@ -50,7 +54,7 @@
 .joinInputs {
   display: flex;
   gap: 1rem;
-  
+
   input {
     flex: 1;
     min-width: 0;
@@ -118,10 +122,6 @@
   }
 }
 
-.center {
-  text-align: center !important;
-}
-
 .muted {
   color: var(--text);
   opacity: 0.6;
@@ -133,7 +133,12 @@
 }
 
 .teamNameCell {
-  padding: 12px 24px !important;
+  padding: 0.75rem 1.5rem;
+  min-width: 14rem;
+
+  @media (max-width: 620px) {
+    padding: 0.5rem 0.5rem;
+  }
 }
 
 .teamInfo {
@@ -149,8 +154,13 @@
 }
 
 .teamName {
+  font-size: 1.2rem;
   font-weight: 600;
   color: var(--text-h);
+
+  @media (max-width: 620px) {
+    font-size: 1rem;
+  }
 }
 
 .htLink {
@@ -169,7 +179,7 @@
 .teamId {
   font-size: 0.75rem;
   color: var(--text);
-  opacity: 0.7;
+  opacity: 0.8;
 }
 
 .match {
@@ -267,7 +277,7 @@
   display: flex;
   flex-direction: column;
   gap: 0.5rem;
-  
+
   label {
     font-weight: 600;
     color: var(--text-h);

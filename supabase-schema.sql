@@ -7,6 +7,7 @@ CREATE TABLE tournaments (
   admin_password TEXT NOT NULL,
   scoring_mode TEXT NOT NULL, -- '120min' or 'points'
   is_private BOOLEAN DEFAULT FALSE,
+  description TEXT,
   created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 

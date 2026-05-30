@@ -41,6 +41,45 @@
   }
 }
 
+.checkboxLabel {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  font-size: 1rem;
+  font-weight: 600;
+  cursor: pointer;
+  color: white;
+
+  input[type='checkbox'] {
+    width: 20px;
+    height: 20px;
+    cursor: pointer;
+  }
+}
+
+.textarea {
+  width: 100%;
+  box-sizing: border-box;
+  margin-top: 0.5rem;
+  padding: 12px 16px;
+  border-radius: 0.5rem;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  background: rgba(0, 0, 0, 0.2);
+  color: white;
+  font-family: inherit;
+  font-size: 0.95rem;
+  resize: vertical;
+
+  &::placeholder {
+    color: rgba(255, 255, 255, 0.5);
+  }
+
+  &:focus {
+    outline: none;
+    border-color: var(--accent-border);
+  }
+}
+
 .actions {
   margin-top: 1rem;
 }

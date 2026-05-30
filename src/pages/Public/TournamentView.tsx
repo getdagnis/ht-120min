@@ -274,7 +274,9 @@ export const TournamentView: React.FC = () => {
   };
 
   const regenerateSchedule = async () => {
-    if (!window.confirm('Are you sure you want to regenerate the schedule? All current results will be lost!')) {
+    if (
+      !window.confirm('Are you sure you want to re-open registration? All current results and schedule will be lost!')
+    ) {
       return;
     }
     setIsGenerating(true);
@@ -312,6 +314,7 @@ export const TournamentView: React.FC = () => {
 
   const isGenerated = rounds.length > 0;
   const is120minMode = tournament.scoring_mode === '120m' || tournament.scoring_mode === '120min';
+  const publicUrl = `${window.location.origin}/t/${slug}`;
 
   return (
     <div className={styles.view}>
@@ -391,14 +394,15 @@ export const TournamentView: React.FC = () => {
       </div>
 
       {activeTab === 'standings' && (
-        <Card title="Standings" variant="classic">
+        // stop deleting the cup emoji!
+        <Card title="🏆 Standings" variant="classic">
           <div className={styles.tableWrapper}>
             <table>
               <thead>
                 <tr>
                   <th>#</th>
                   <th>Team</th>
-                  {is120minMode && <th className={styles.center}>120min</th>}
+                  {is120minMode && <th className={styles.center}>120m</th>}
                   <th className={styles.center}>Pld</th>
                   <th className={styles.center}>W</th>
                   <th className={styles.center}>D</th>
@@ -444,43 +448,52 @@ export const TournamentView: React.FC = () => {
 
       {activeTab === 'fixtures' && (
         <div className={styles.rounds}>
-          {rounds.map((round) => (
-            <Card key={round.id} title={`Round ${round.round_number}`} variant="classic">
-              <div className={styles.matches}>
-                {round.matches.map((match: any) => (
-                  <div key={match.id} className={styles.match}>
-                    <div className={styles.matchTeams}>
-                      <div className={styles.teamDisplay}>
-                        <span className={styles.teamName}>{match.home_team.name}</span>
-                        {match.home_team.ht_team_id && (
-                          <span className={styles.teamId}>({match.home_team.ht_team_id})</span>
-                        )}
-                      </div>
-                      <span className={styles.vs}>vs</span>
-                      <div className={styles.teamDisplay}>
-                        <span className={styles.teamName}>{match.away_team.name}</span>
-                        {match.away_team.ht_team_id && (
-                          <span className={styles.teamId}>({match.away_team.ht_team_id})</span>
-                        )}
-                      </div>
-                    </div>
-                    <div className={styles.result}>
-                      {match.completed ? (
-                        <div className={styles.scoreRow}>
-                          <span className={styles.score}>
-                            {match.home_goals} - {match.away_goals}
-                          </span>
-                          {match.went_120 && <span className={styles.badge}>120min</span>}
-                        </div>
-                      ) : (
-                        <span className={styles.pending}>Scheduled</span>
-                      )}
-                    </div>
-                  </div>
-                ))}
+          {!isGenerated ? (
+            <Card variant="classic">
+              <div className={styles.openMessage}>
+                <h2>This tournament is still open for teams to join.</h2>
+                <p>Organizer hasn't closed registration and generated fixtures yet.</p>
               </div>
             </Card>
-          ))}
+          ) : (
+            rounds.map((round) => (
+              <Card key={round.id} title={`Round ${round.round_number}`} variant="classic">
+                <div className={styles.matches}>
+                  {round.matches.map((match: any) => (
+                    <div key={match.id} className={styles.match}>
+                      <div className={styles.matchTeams}>
+                        <div className={styles.teamDisplay}>
+                          <span className={styles.teamName}>{match.home_team.name}</span>
+                          {match.home_team.ht_team_id && (
+                            <span className={styles.teamId}>({match.home_team.ht_team_id})</span>
+                          )}
+                        </div>
+                        <span className={styles.vs}>vs</span>
+                        <div className={styles.teamDisplay}>
+                          <span className={styles.teamName}>{match.away_team.name}</span>
+                          {match.away_team.ht_team_id && (
+                            <span className={styles.teamId}>({match.away_team.ht_team_id})</span>
+                          )}
+                        </div>
+                      </div>
+                      <div className={styles.result}>
+                        {match.completed ? (
+                          <div className={styles.scoreRow}>
+                            <span className={styles.score}>
+                              {match.home_goals} - {match.away_goals}
+                            </span>
+                            {match.went_120 && <span className={styles.badge}>120min</span>}
+                          </div>
+                        ) : (
+                          <span className={styles.pending}>Scheduled</span>
+                        )}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </Card>
+            ))
+          )}
         </div>
       )}
 
@@ -506,6 +519,44 @@ export const TournamentView: React.FC = () => {
             </Card>
           ) : (
             <div className={adminStyles.admin}>
+              <div
+                className={adminStyles.header}
+                style={{ borderBottom: 'none', marginBottom: '1.5rem', paddingBottom: '0' }}
+              >
+                <div className={adminStyles.meta}>
+                  <div className={adminStyles.metaItem}>
+                    <span className={adminStyles.label}>Public URL:</span>
+                    <a href={publicUrl} target="_blank">
+                      <code>{publicUrl}</code>
+                    </a>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={() => {
+                        navigator.clipboard.writeText(publicUrl);
+                        alert('URL copied!');
+                      }}
+                    >
+                      <Copy size={14} />
+                    </Button>
+                  </div>
+                  <div className={adminStyles.metaItem}>
+                    <span className={adminStyles.label}>Admin Password:</span>
+                    <code>{tournament.admin_password}</code>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={() => {
+                        navigator.clipboard.writeText(tournament.admin_password);
+                        alert("Password copied! Don't lose it.");
+                      }}
+                    >
+                      <Copy size={14} />
+                    </Button>
+                  </div>
+                </div>
+              </div>
+
               <div className={adminStyles.mainGrid}>
                 <section className={adminStyles.teamsSection}>
                   <Card title="Teams Management" variant="classic">
@@ -638,31 +689,12 @@ export const TournamentView: React.FC = () => {
                           >
                             <Play size={18} /> Generate Schedule
                           </Button>
+                          <p className="center w-100">Generating schedule will also close registration. </p>
                         </div>
                       ) : (
                         <div className={adminStyles.genActions}>
-                          <div className={adminStyles.meta} style={{ marginBottom: '1.5rem' }}>
-                            <div className={adminStyles.metaItem}>
-                              <span className={adminStyles.label}>Public URL:</span>
-                              <code>{publicUrl}</code>
-                              <Button
-                                size="sm"
-                                variant="secondary"
-                                onClick={() => {
-                                  navigator.clipboard.writeText(publicUrl);
-                                  alert('Copied!');
-                                }}
-                              >
-                                <Copy size={14} />
-                              </Button>
-                            </div>
-                            <div className={adminStyles.metaItem}>
-                              <span className={adminStyles.label}>Password:</span>
-                              <code>{tournament.admin_password}</code>
-                            </div>
-                          </div>
                           <Button variant="outline" onClick={regenerateSchedule} disabled={isGenerating} fullWidth>
-                            <RefreshCw size={18} /> Regenerate Schedule
+                            <RefreshCw size={18} /> Re-open Registration
                           </Button>
                         </div>
                       )}
