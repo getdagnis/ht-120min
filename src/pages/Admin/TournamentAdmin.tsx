@@ -3,7 +3,7 @@ import { useParams, useLocation } from 'react-router-dom';
 import { supabase } from '../../lib/supabase';
 import { Button } from '../../components/Button/Button';
 import { Card } from '../../components/Card/Card';
-import { generateRoundRobin } from '../../utils/scheduler';
+import { generateRoundRobin, generateRecurring } from '../../utils/scheduler';
 import { Trash2, Plus, Play, Save, Copy, RefreshCw, XCircle } from 'lucide-react';
 import styles from './TournamentAdmin.module.scss';
 
@@ -34,7 +34,7 @@ export const TournamentAdmin: React.FC = () => {
   const [isSavingTeam, setIsSavingTeam] = useState(false);
 
   const [isGenerating, setIsGenerating] = useState(false);
-  const [scheduleMode, setScheduleMode] = useState<'single' | 'double'>('single');
+  const [scheduleMode, setScheduleMode] = useState<'single' | 'double' | 'recurring'>('single');
 
   const [editingMatch, setEditingMatch] = useState<string | null>(null);
   const [matchData, setMatchData] = useState<any>({});
@@ -233,14 +233,18 @@ export const TournamentAdmin: React.FC = () => {
     }
     setIsGenerating(true);
 
-    // Using the new scheduler
-    const schedule = generateRoundRobin(
-      activeTeams.map((t) => t.id),
-      {
-        mode: scheduleMode,
-        neutralInSingle: true,
-      },
-    );
+    let schedule;
+    if (scheduleMode === 'recurring') {
+      schedule = generateRecurring(activeTeams.map((t) => t.id), 1, 4);
+    } else {
+      schedule = generateRoundRobin(
+        activeTeams.map((t) => t.id),
+        {
+          mode: scheduleMode as 'single' | 'double',
+          neutralInSingle: true,
+        },
+      );
+    }
 
     try {
       for (const roundInfo of schedule) {
@@ -253,18 +257,16 @@ export const TournamentAdmin: React.FC = () => {
         if (rError) throw rError;
 
         if (round) {
-          const matchesToInsert = roundInfo.matches
-            .filter((m) => !m.isBye)
-            .map((m) => ({
-              round_id: round.id,
-              home_team_id: m.home,
-              away_team_id: m.away,
-              home_goals: null,
-              away_goals: null,
-              completed: false,
-              went_120: false,
-              venue_type: m.venueType,
-            }));
+          const matchesToInsert = roundInfo.matches.map((m) => ({
+            round_id: round.id,
+            home_team_id: m.home,
+            away_team_id: m.away,
+            home_goals: null,
+            away_goals: null,
+            completed: false,
+            went_120: false,
+            venue_type: m.venueType,
+          }));
 
           if (matchesToInsert.length > 0) {
             const { error: mError } = await supabase.from('matches').insert(matchesToInsert);
@@ -275,6 +277,49 @@ export const TournamentAdmin: React.FC = () => {
       await fetchDetails(tournament.id);
     } catch (err: any) {
       alert('Error generating schedule: ' + err.message);
+    } finally {
+      setIsGenerating(false);
+    }
+  };
+
+  const generateMoreRounds = async () => {
+    const lastRoundNumber = rounds.length > 0 ? rounds[rounds.length - 1].round_number : 0;
+    const activeTeams = teams.filter((t) => t.active);
+    setIsGenerating(true);
+
+    const schedule = generateRecurring(activeTeams.map((t) => t.id), lastRoundNumber + 1, 4);
+
+    try {
+      for (const roundInfo of schedule) {
+        const { data: round, error: rError } = await supabase
+          .from('rounds')
+          .insert([{ tournament_id: tournament.id, round_number: roundInfo.roundNumber }])
+          .select()
+          .single();
+
+        if (rError) throw rError;
+
+        if (round) {
+          const matchesToInsert = roundInfo.matches.map((m) => ({
+            round_id: round.id,
+            home_team_id: m.home,
+            away_team_id: m.away,
+            home_goals: null,
+            away_goals: null,
+            completed: false,
+            went_120: false,
+            venue_type: m.venueType,
+          }));
+
+          if (matchesToInsert.length > 0) {
+            const { error: mError } = await supabase.from('matches').insert(matchesToInsert);
+            if (mError) throw mError;
+          }
+        }
+      }
+      await fetchDetails(tournament.id);
+    } catch (err: any) {
+      alert('Error generating more rounds: ' + err.message);
     } finally {
       setIsGenerating(false);
     }
@@ -517,15 +562,15 @@ export const TournamentAdmin: React.FC = () => {
                 <div className={styles.genOptions}>
                   <div className={styles.checkboxGroup}>
                     <label className={styles.checkboxLabel}>
-                      <label className={styles.checkboxLabel}>
-                        <input
-                          type="radio"
-                          name="scheduleMode"
-                          checked={scheduleMode === 'double'}
-                          onChange={() => setScheduleMode('double')}
-                        />
-                        Play each other twice (Home and Away)
-                      </label>
+                      <input
+                        type="radio"
+                        name="scheduleMode"
+                        checked={scheduleMode === 'double'}
+                        onChange={() => setScheduleMode('double')}
+                      />
+                      Play each other twice (Home and Away)
+                    </label>
+                    <label className={styles.checkboxLabel}>
                       <input
                         type="radio"
                         name="scheduleMode"
@@ -533,6 +578,15 @@ export const TournamentAdmin: React.FC = () => {
                         onChange={() => setScheduleMode('single')}
                       />
                       Play each other once (Neutral ground)
+                    </label>
+                    <label className={styles.checkboxLabel}>
+                      <input
+                        type="radio"
+                        name="scheduleMode"
+                        checked={scheduleMode === 'recurring'}
+                        onChange={() => setScheduleMode('recurring')}
+                      />
+                      Recurring schedule (Continuous)
                     </label>
                   </div>
                   <Button
@@ -550,6 +604,17 @@ export const TournamentAdmin: React.FC = () => {
                   <Button variant="outline" onClick={regenerateSchedule} disabled={isGenerating} fullWidth>
                     <RefreshCw size={18} /> Regenerate Schedule
                   </Button>
+                  {scheduleMode === 'recurring' && (
+                    <Button
+                      variant="outline"
+                      onClick={generateMoreRounds}
+                      disabled={isGenerating}
+                      fullWidth
+                      style={{ marginTop: '0.5rem' }}
+                    >
+                      {isGenerating ? 'Generating...' : 'Generate more rounds'}
+                    </Button>
+                  )}
                 </div>
               )}
             </div>
@@ -569,13 +634,17 @@ export const TournamentAdmin: React.FC = () => {
                       <div key={match.id} className={styles.match}>
                         <div className={styles.matchTeams}>
                           <div className={styles.teamCol}>
-                            <span className={styles.teamName}>{match.home_team.name}</span>
-                            <span className={styles.teamId}>({match.home_team.ht_team_id})</span>
+                            <span className={styles.teamName}>{match.home_team?.name || 'Free to choose'}</span>
+                            {match.home_team?.ht_team_id && (
+                              <span className={styles.teamId}>({match.home_team.ht_team_id})</span>
+                            )}
                           </div>
                           <span className={styles.vs}>vs</span>
                           <div className={styles.teamCol}>
-                            <span className={styles.teamName}>{match.away_team.name}</span>
-                            <span className={styles.teamId}>({match.away_team.ht_team_id})</span>
+                            <span className={styles.teamName}>{match.away_team?.name || 'Free to choose'}</span>
+                            {match.away_team?.ht_team_id && (
+                              <span className={styles.teamId}>({match.away_team.ht_team_id})</span>
+                            )}
                           </div>
                         </div>
 

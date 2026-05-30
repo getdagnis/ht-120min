@@ -58,39 +58,78 @@ export function calculateStandings(teams: Team[], matches: Match[], scoringMode:
     const home = standingsMap[match.home_team_id];
     const away = standingsMap[match.away_team_id];
 
-    // If one of the teams is no longer in the map (shouldn't happen with valid data)
-    if (!home || !away) return;
-
     const hg = match.home_goals || 0;
     const ag = match.away_goals || 0;
 
-    home.played++;
-    away.played++;
-    home.gf += hg;
-    home.ga += ag;
-    away.gf += ag;
-    away.ga += hg;
-    home.gd = home.gf - home.ga;
-    away.gd = away.gf - away.ga;
+    if (home) {
+      home.played++;
+      home.gf += hg;
+      home.ga += ag;
+      home.gd = home.gf - home.ga;
 
-    if (hg > ag) {
-      home.won++;
-      home.pts += 3;
-      away.lost++;
-    } else if (hg < ag) {
-      away.won++;
-      away.pts += 3;
-      home.lost++;
-    } else {
-      home.drawn++;
-      home.pts += 1;
-      away.drawn++;
-      away.pts += 1;
+      if (away) {
+        // Normal match with two teams in tournament
+        if (hg > ag) {
+          home.won++;
+          home.pts += 3;
+        } else if (hg < ag) {
+          home.lost++;
+        } else {
+          home.drawn++;
+          home.pts += 1;
+        }
+      } else {
+        // "Free to choose" match - against external team
+        // We still award points/results based on the score
+        if (hg > ag) {
+          home.won++;
+          home.pts += 3;
+        } else if (hg < ag) {
+          home.lost++;
+        } else {
+          home.drawn++;
+          home.pts += 1;
+        }
+      }
+      
+      if (match.went_120) {
+        home.achievements120min++;
+      }
     }
 
-    if (match.went_120) {
-      home.achievements120min++;
-      away.achievements120min++;
+    if (away) {
+      away.played++;
+      away.gf += ag;
+      away.ga += hg;
+      away.gd = away.gf - away.ga;
+
+      if (home) {
+        // Normal match (already handled home part)
+        if (ag > hg) {
+          away.won++;
+          away.pts += 3;
+        } else if (ag < hg) {
+          away.lost++;
+        } else {
+          away.drawn++;
+          away.pts += 1;
+        }
+      } else {
+        // "Free to choose" match (away team is in tournament, home is external)
+        if (ag > hg) {
+          away.won++;
+          away.pts += 3;
+        } else if (ag < hg) {
+          away.lost++;
+        } else {
+          away.drawn++;
+          away.pts += 1;
+        }
+      }
+
+      if (match.went_120) {
+        away.achievements120min++;
+      }
     }
   });
 

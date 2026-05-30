@@ -5,7 +5,7 @@ import { Card } from '../../components/Card/Card';
 import { Button } from '../../components/Button/Button';
 import { calculateStandings } from '../../utils/standings';
 import type { TeamStanding } from '../../utils/standings';
-import { generateRoundRobin } from '../../utils/scheduler';
+import { generateRoundRobin, generateRecurring } from '../../utils/scheduler';
 import { LogIn, ExternalLink, Plus, Trash2, RefreshCw, XCircle, Play, Save, Copy, ShieldCheck } from 'lucide-react';
 import styles from './TournamentView.module.scss';
 import adminStyles from '../Admin/TournamentAdmin.module.scss';
@@ -42,7 +42,7 @@ export const TournamentView: React.FC = () => {
   const [newTeamName, setNewTeamName] = useState('');
   const [isSavingTeam, setIsSavingTeam] = useState(false);
   const [isGenerating, setIsGenerating] = useState(false);
-  const [scheduleMode, setScheduleMode] = useState<'single' | 'double'>('double');
+  const [scheduleMode, setScheduleMode] = useState<'single' | 'double' | 'recurring'>('double');
   const [editingMatch, setEditingMatch] = useState<string | null>(null);
   const [matchData, setMatchData] = useState<any>({});
   const [replacingTeamId, setReplacingTeamId] = useState<string | null>(null);
@@ -59,6 +59,9 @@ export const TournamentView: React.FC = () => {
   const [isJoining, setIsJoining] = useState(false);
   const [joinTeamId, setJoinTeamId] = useState('');
   const [joinTeamName, setJoinTeamName] = useState('');
+
+  // Pagination for recurring tournaments
+  const [visibleRoundsCount, setVisibleRoundsCount] = useState(4);
 
   useEffect(() => {
     fetchData();
@@ -262,12 +265,68 @@ export const TournamentView: React.FC = () => {
     }
     setIsGenerating(true);
 
-    const schedule = generateRoundRobin(
+    let schedule;
+    if (scheduleMode === 'recurring') {
+      schedule = generateRecurring(
+        activeTeams.map((t) => t.id),
+        1,
+        4,
+      );
+    } else {
+      schedule = generateRoundRobin(
+        activeTeams.map((t) => t.id),
+        {
+          mode: scheduleMode as 'single' | 'double',
+          neutralInSingle: true,
+        },
+      );
+    }
+
+    try {
+      for (const roundInfo of schedule) {
+        const { data: round, error: rError } = await supabase
+          .from('rounds')
+          .insert([{ tournament_id: tournament.id, round_number: roundInfo.roundNumber }])
+          .select()
+          .single();
+
+        if (rError) throw rError;
+
+        if (round) {
+          const matchesToInsert = roundInfo.matches.map((m) => ({
+            round_id: round.id,
+            home_team_id: m.home,
+            away_team_id: m.away,
+            home_goals: null,
+            away_goals: null,
+            completed: false,
+            went_120: false,
+            venue_type: m.venueType,
+          }));
+
+          if (matchesToInsert.length > 0) {
+            const { error: mError } = await supabase.from('matches').insert(matchesToInsert);
+            if (mError) throw mError;
+          }
+        }
+      }
+      fetchData();
+    } catch (err: any) {
+      alert('Error generating schedule: ' + err.message);
+    } finally {
+      setIsGenerating(false);
+    }
+  };
+
+  const generateMoreRounds = async () => {
+    const lastRoundNumber = rounds.length > 0 ? rounds[rounds.length - 1].round_number : 0;
+    const activeTeams = teams.filter((t) => t.active);
+    setIsGenerating(true);
+
+    const schedule = generateRecurring(
       activeTeams.map((t) => t.id),
-      {
-        mode: scheduleMode,
-        neutralInSingle: true,
-      },
+      lastRoundNumber + 1,
+      4,
     );
 
     try {
@@ -281,18 +340,16 @@ export const TournamentView: React.FC = () => {
         if (rError) throw rError;
 
         if (round) {
-          const matchesToInsert = roundInfo.matches
-            .filter((m) => !m.isBye)
-            .map((m) => ({
-              round_id: round.id,
-              home_team_id: m.home,
-              away_team_id: m.away,
-              home_goals: null,
-              away_goals: null,
-              completed: false,
-              went_120: false,
-              venue_type: m.venueType,
-            }));
+          const matchesToInsert = roundInfo.matches.map((m) => ({
+            round_id: round.id,
+            home_team_id: m.home,
+            away_team_id: m.away,
+            home_goals: null,
+            away_goals: null,
+            completed: false,
+            went_120: false,
+            venue_type: m.venueType,
+          }));
 
           if (matchesToInsert.length > 0) {
             const { error: mError } = await supabase.from('matches').insert(matchesToInsert);
@@ -302,7 +359,7 @@ export const TournamentView: React.FC = () => {
       }
       fetchData();
     } catch (err: any) {
-      alert('Error generating schedule: ' + err.message);
+      alert('Error generating more rounds: ' + err.message);
     } finally {
       setIsGenerating(false);
     }
@@ -498,43 +555,64 @@ export const TournamentView: React.FC = () => {
               </div>
             </Card>
           ) : (
-            rounds.map((round) => (
-              <Card key={round.id} title={`Round ${round.round_number}`} variant="classic">
-                <div className={styles.matches}>
-                  {round.matches.map((match: any) => (
-                    <div key={match.id} className={styles.match}>
-                      <div className={styles.matchTeams}>
-                        <div className={styles.teamDisplay}>
-                          <span className={styles.teamName}>{match.home_team.name}</span>
-                          {match.home_team.ht_team_id && (
-                            <span className={styles.teamId}>({match.home_team.ht_team_id})</span>
-                          )}
-                        </div>
-                        <span className={styles.vs}>vs</span>
-                        <div className={styles.teamDisplay}>
-                          <span className={styles.teamName}>{match.away_team.name}</span>
-                          {match.away_team.ht_team_id && (
-                            <span className={styles.teamId}>({match.away_team.ht_team_id})</span>
-                          )}
-                        </div>
-                      </div>
-                      <div className={styles.result}>
-                        {match.completed ? (
-                          <div className={styles.scoreRow}>
-                            <span className={styles.score}>
-                              {match.home_goals} - {match.away_goals}
-                            </span>
-                            {match.went_120 && <span className={styles.badge}>120min</span>}
+            <>
+              {rounds.slice(0, visibleRoundsCount).map((round) => (
+                <Card key={round.id} title={`Round ${round.round_number}`} variant="classic">
+                  <div className={styles.matches}>
+                    {round.matches.map((match: any) => (
+                      <div key={match.id} className={styles.match}>
+                        <div className={styles.matchTeams}>
+                          <div className={styles.teamDisplay}>
+                            {match.home_team?.name ? (
+                              <span className={styles.teamName}>{match.home_team?.name}</span>
+                            ) : (
+                              <span className={styles.teamNameFree}>Free opponent choice</span>
+                            )}
+                            {match.home_team?.ht_team_id ? (
+                              <span className={styles.teamId}>({match.home_team.ht_team_id})</span>
+                            ) : (
+                              <span className={styles.teamId}>(no tournament opponent due to odd number of teams)</span>
+                            )}
                           </div>
-                        ) : (
-                          <span className={styles.pending}>Scheduled</span>
-                        )}
+                          <span className={styles.vs}>vs</span>
+                          <div className={styles.teamDisplay}>
+                            {match.away_team?.name ? (
+                              <span className={styles.teamName}>{match.away_team?.name}</span>
+                            ) : (
+                              <span className={styles.teamNameFree}>Free opponent choice</span>
+                            )}
+                            {match.away_team?.ht_team_id ? (
+                              <span className={styles.teamId}>({match.away_team.ht_team_id})</span>
+                            ) : (
+                              <span className={styles.teamId}>(no tournament opponent due to odd number of teams)</span>
+                            )}
+                          </div>
+                        </div>
+                        <div className={styles.result}>
+                          {match.completed ? (
+                            <div className={styles.scoreRow}>
+                              <span className={styles.score}>
+                                {match.home_goals} - {match.away_goals}
+                              </span>
+                              {match.went_120 && <span className={styles.badge}>120min</span>}
+                            </div>
+                          ) : (
+                            <span className={styles.pending}>Scheduled</span>
+                          )}
+                        </div>
                       </div>
-                    </div>
-                  ))}
+                    ))}
+                  </div>
+                </Card>
+              ))}
+              {visibleRoundsCount < rounds.length && (
+                <div style={{ marginTop: '1rem', textAlign: 'center' }}>
+                  <Button onClick={() => setVisibleRoundsCount((prev) => prev + 4)} variant="outline">
+                    Show More
+                  </Button>
                 </div>
-              </Card>
-            ))
+              )}
+            </>
           )}
         </div>
       )}
@@ -761,6 +839,15 @@ export const TournamentView: React.FC = () => {
                               />
                               Play each other twice (Home and Away)
                             </label>
+                            <label className={adminStyles.checkboxLabel}>
+                              <input
+                                type="radio"
+                                name="scheduleMode"
+                                checked={scheduleMode === 'recurring'}
+                                onChange={() => setScheduleMode('recurring')}
+                              />
+                              Recurring schedule (Continuous)
+                            </label>
                           </div>
                           <Button
                             variant="primary"
@@ -776,8 +863,20 @@ export const TournamentView: React.FC = () => {
                       ) : (
                         <div className={adminStyles.genActions}>
                           <Button variant="outline" onClick={regenerateSchedule} disabled={isGenerating} fullWidth>
-                            <RefreshCw size={18} /> Re-open Registration
+                            <RefreshCw size={18} />
+                            Reset and Re-open
                           </Button>
+                          {scheduleMode === 'recurring' && (
+                            <Button
+                              variant="outline"
+                              onClick={generateMoreRounds}
+                              disabled={isGenerating}
+                              fullWidth
+                              style={{ marginTop: '0.5rem' }}
+                            >
+                              {isGenerating ? 'Generating...' : 'Generate more rounds'}
+                            </Button>
+                          )}
                         </div>
                       )}
                     </div>
@@ -797,13 +896,21 @@ export const TournamentView: React.FC = () => {
                               <div key={match.id} className={adminStyles.match}>
                                 <div className={adminStyles.matchTeams}>
                                   <div className={adminStyles.teamCol}>
-                                    <span className={adminStyles.teamName}>{match.home_team.name}</span>
-                                    <span className={adminStyles.teamId}>({match.home_team.ht_team_id})</span>
+                                    <span className={adminStyles.teamName}>
+                                      {match.home_team?.name || 'Free to choose'}
+                                    </span>
+                                    {match.home_team?.ht_team_id && (
+                                      <span className={adminStyles.teamId}>({match.home_team.ht_team_id})</span>
+                                    )}
                                   </div>
                                   <span className={adminStyles.vs}>vs</span>
                                   <div className={adminStyles.teamCol}>
-                                    <span className={adminStyles.teamName}>{match.away_team.name}</span>
-                                    <span className={adminStyles.teamId}>({match.away_team.ht_team_id})</span>
+                                    <span className={adminStyles.teamName}>
+                                      {match.away_team?.name || 'Free to choose'}
+                                    </span>
+                                    {match.away_team?.ht_team_id && (
+                                      <span className={adminStyles.teamId}>({match.away_team.ht_team_id})</span>
+                                    )}
                                   </div>
                                 </div>
 

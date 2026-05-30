@@ -126,11 +126,46 @@ export function generateRoundRobin(
   }
 
   // Generate second half (Mirror with reversed venues)
-  // Mirroring the first half rounds in order but swapping home/away
   const secondHalf: ScheduledRound[] = firstHalf.map((round) => ({
     roundNumber: round.roundNumber + numRounds,
     matches: mirrorMatches(round.matches)
   }));
 
   return [...firstHalf, ...secondHalf];
+}
+
+/**
+ * Generates a recurring schedule (weeks 1-4 initially).
+ * Just repeats the same sequence of pairings.
+ */
+export function generateRecurring(
+  teamIds: string[],
+  startRound: number = 1,
+  numWeeks: number = 4
+): ScheduledRound[] {
+  const teams: (string | null)[] = [...teamIds];
+  if (teams.length % 2 !== 0) {
+    teams.push(null);
+  }
+
+  const rounds: ScheduledRound[] = [];
+  let currentTeams: (string | null)[] = [...teams];
+  
+  // To make it deterministic and ensure we don't repeat the same round immediately
+  // if we are continuing, we rotate startRound-1 times.
+  const totalRotation = teams.length - 1;
+  for (let i = 0; i < (startRound - 1) % totalRotation; i++) {
+    currentTeams = rotateTeams(currentTeams);
+  }
+
+  for (let i = 0; i < numWeeks; i++) {
+    const roundIdx = startRound - 1 + i;
+    rounds.push({
+      roundNumber: roundIdx + 1,
+      matches: buildRound(currentTeams, roundIdx, { mode: 'single', neutralInSingle: true })
+    });
+    currentTeams = rotateTeams(currentTeams);
+  }
+
+  return rounds;
 }
