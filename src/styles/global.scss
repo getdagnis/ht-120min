@@ -3,13 +3,15 @@
 @import url('https://fonts.googleapis.com/css2?family=Work+Sans:ital,wght@0,100..900;1,100..900&display=swap');
 
 :root {
-  --text: #4b5563;
+  --text: #292f39;
   --text-h: #08090d;
+  --lines: #858d96a1;
   --bg: #e9eee5;
-  --border: #e5e7eb;
+  --bg-transp: #e9eee5dd;
+  --border: #b5b9c294;
   --code-bg: #f3f4f6;
-  --accent: #00ae40;
-  --accent-bg: #10863b;
+  --accent: #0caf48;
+  --accent-bg: #0c913c;
   --accent-border: #0d6e2f;
   --table-bg: #cbdfc2;
   --table-bg-main: #f3f7ef;
@@ -37,13 +39,14 @@
 
 // Dark theme variables
 @mixin dark-theme {
-  --text: #9ca3af;
+  --text: #cad1de;
   --text-h: #f3f4f6;
   --bg: #111827;
-  --border: #374151;
+  --bg-transp: #111827ee;
+  --border: #3d495b7c;
   --code-bg: #1f2937;
-  --accent: #56d126;
-  --accent-bg: #10863b;
+  --accent: #0fb54c;
+  --accent-bg: #0d9e42;
   --table-bg: #1f2937;
   --table-bg-main: #0d1a2bc8;
 

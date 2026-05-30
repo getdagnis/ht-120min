@@ -50,6 +50,13 @@ export const TournamentAdmin: React.FC = () => {
   const [editDescription, setEditDescription] = useState('');
   const [isUpdatingSettings, setIsUpdatingSettings] = useState(false);
 
+  // Collapsible states
+  const [isSettingsCollapsed, setIsSettingsCollapsed] = useState(true);
+  const [isTeamsCollapsed, setIsTeamsCollapsed] = useState(() => {
+    const saved = localStorage.getItem(`teams_collapsed_${slug}`);
+    return saved ? JSON.parse(saved) : false;
+  });
+
   useEffect(() => {
     fetchTournament();
   }, [slug]);
@@ -60,7 +67,7 @@ export const TournamentAdmin: React.FC = () => {
     if (data) {
       setTournament(data);
       setEditIsPrivate(data.is_private);
-      setShowEditDescription(!!data.description);
+      setShowEditDescription(data.show_description);
       setEditDescription(data.description || '');
       if (password === data.admin_password) {
         setIsAuthenticated(true);
@@ -115,7 +122,8 @@ export const TournamentAdmin: React.FC = () => {
         .from('tournaments')
         .update({
           is_private: editIsPrivate,
-          description: showEditDescription ? editDescription : null,
+          show_description: showEditDescription,
+          description: editDescription,
         })
         .eq('id', tournament.id);
 
@@ -132,6 +140,11 @@ export const TournamentAdmin: React.FC = () => {
     e.preventDefault();
     if (!newTeamName.trim() || !newTeamId.trim()) {
       alert('Both Team Name and HT ID are required.');
+      return;
+    }
+
+    if (!/^\d{1,10}$/.test(newTeamId.trim())) {
+      alert('HT ID must be a valid number.');
       return;
     }
 

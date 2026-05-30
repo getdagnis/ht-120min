@@ -2,7 +2,7 @@
   text-align: left;
   max-width: 1100px;
   margin: 0 auto;
-  padding: 2rem 1rem;
+  padding: 2rem 0;
 }
 
 .loading {
@@ -51,7 +51,7 @@
 
   .label {
     font-weight: 600;
-    min-width: 140px;
+    min-width: fit-content;
     color: var(--text);
   }
 
@@ -59,13 +59,13 @@
     background: var(--code-bg);
     padding: 4px 10px;
     border-radius: 0.25rem;
-    color: var(--accent);
+    color: var(--accent-bg);
     font-family: var(--mono);
     font-weight: 600;
   }
 
   em {
-    color: var(--accent);
+    color: var(--accent-bg);
     font-weight: 600;
     text-decoration: underline dotted;
   }

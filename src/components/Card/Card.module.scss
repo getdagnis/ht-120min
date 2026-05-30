@@ -2,22 +2,59 @@
   margin-bottom: 24px;
   overflow: hidden;
   text-align: left;
-  padding-bottom: 1rem;
+  padding-bottom: 0.75rem;
+
+  &.collapsible {
+    padding-bottom: 0;
+  }
 }
 
 .classic {
   background: var(--table-bg-main);
-  border: 1px solid var(--border);
+  border: 1px solid var(--lines);
   border-radius: 0.75rem;
   color: var(--text);
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
 
-  .title {
-    color: var(--text-h);
-    border-bottom: 1px solid var(--border);
+  .header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
     background-color: var(--table-bg);
-    font-weight: 600;
-    padding: 20px 24px;
+    padding: 0;
+    transition: all 0.2s ease-in;
+    cursor: default;
+
+    .title {
+      color: var(--text-h);
+      font-weight: 600;
+      padding: 20px 24px;
+      margin: 0;
+      border-bottom: none;
+    }
+  }
+
+  &.collapsible .header {
+    cursor: pointer;
+  }
+}
+
+.collapseBtn {
+  background: none;
+  border: none;
+  color: var(--text);
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-right: 24px;
+  cursor: pointer;
+  transition: all 0.1s ease-in;
+
+  &:hover {
+    transform: scale(1.05);
+    transition: all 0.2s ease-in;
   }
 }
 

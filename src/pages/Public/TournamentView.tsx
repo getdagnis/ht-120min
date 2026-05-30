@@ -7,7 +7,19 @@ import { calculateStandings } from '../../utils/standings';
 import type { TeamStanding } from '../../utils/standings';
 import { generateRoundRobin, generateRecurring } from '../../utils/scheduler';
 import { TeamDisplay } from '../../components/TeamDisplay/TeamDisplay';
-import { LogIn, ExternalLink, Plus, Trash2, RefreshCw, XCircle, Play, Save, Copy, ShieldCheck } from 'lucide-react';
+import {
+  LogIn,
+  ExternalLink,
+  Plus,
+  Trash2,
+  RefreshCw,
+  XCircle,
+  Play,
+  Save,
+  Copy,
+  ShieldCheck,
+  CircleHelp,
+} from 'lucide-react';
 import styles from './TournamentView.module.scss';
 import adminStyles from '../Admin/TournamentAdmin.module.scss';
 
@@ -56,6 +68,13 @@ export const TournamentView: React.FC = () => {
   const [editDescription, setEditDescription] = useState('');
   const [isUpdatingSettings, setIsUpdatingSettings] = useState(false);
 
+  // Collapsible states
+  const [isSettingsCollapsed, setIsSettingsCollapsed] = useState(true);
+  const [isTeamsCollapsed, setIsTeamsCollapsed] = useState(() => {
+    const saved = localStorage.getItem(`teams_collapsed_${slug}`);
+    return saved ? JSON.parse(saved) : false;
+  });
+
   // Join states
   const [isJoining, setIsJoining] = useState(false);
   const [joinTeamId, setJoinTeamId] = useState('');
@@ -63,6 +82,11 @@ export const TournamentView: React.FC = () => {
 
   // Pagination for recurring tournaments
   const [visibleRoundsCount, setVisibleRoundsCount] = useState(4);
+
+  // UI state
+  const [showScoringHelp, setShowScoringHelp] = useState(false);
+  const [isAddingDescription, setIsAddingDescription] = useState(false);
+  const [quickDescription, setQuickDescription] = useState('');
 
   useEffect(() => {
     fetchData();
@@ -74,13 +98,19 @@ export const TournamentView: React.FC = () => {
     }
   }, [location.state?.isAdminInit]);
 
+  // Reset quick add state when switching tabs
+  useEffect(() => {
+    setIsAddingDescription(false);
+    setQuickDescription('');
+  }, [activeTab]);
+
   const fetchData = async () => {
     const { data: tournamentData } = await supabase.from('tournaments').select('*').eq('slug', slug).single();
 
     if (tournamentData) {
       setTournament(tournamentData);
       setEditIsPrivate(tournamentData.is_private);
-      setShowEditDescription(!!tournamentData.description);
+      setShowEditDescription(tournamentData.show_description);
       setEditDescription(tournamentData.description || '');
 
       const { data: teamsData } = await supabase
@@ -159,11 +189,35 @@ export const TournamentView: React.FC = () => {
         .from('tournaments')
         .update({
           is_private: editIsPrivate,
-          description: showEditDescription ? editDescription : null,
+          show_description: showEditDescription,
+          description: editDescription,
         })
         .eq('id', tournament.id);
 
       if (error) throw error;
+      fetchData();
+    } catch (error: any) {
+      alert(error.message);
+    } finally {
+      setIsUpdatingSettings(false);
+    }
+  };
+
+  const handleQuickDescriptionAdd = async () => {
+    if (!quickDescription.trim()) return;
+    setIsUpdatingSettings(true);
+    try {
+      const { error } = await supabase
+        .from('tournaments')
+        .update({
+          description: quickDescription.trim(),
+          show_description: true,
+        })
+        .eq('id', tournament.id);
+
+      if (error) throw error;
+      setIsAddingDescription(false);
+      setQuickDescription('');
       fetchData();
     } catch (error: any) {
       alert(error.message);
@@ -179,6 +233,11 @@ export const TournamentView: React.FC = () => {
 
     if (!name.trim() || !htId.trim()) {
       alert('Both Team Name and HT ID are required.');
+      return;
+    }
+
+    if (!/^\d{1,10}$/.test(htId.trim())) {
+      alert('HT ID must be a valid number.');
       return;
     }
 
@@ -407,7 +466,10 @@ export const TournamentView: React.FC = () => {
 
   const isGenerated = rounds.length > 0;
   const is120minMode = tournament.scoring_mode === '120m' || tournament.scoring_mode === '120min';
+
+  const isMobile = window.innerWidth <= 620;
   const publicUrl = `${window.location.origin}/t/${slug}`;
+  const publicUrlDisplay = isMobile ? `.../t/${slug}` : publicUrl;
 
   return (
     <div className={styles.view}>
@@ -447,7 +509,7 @@ export const TournamentView: React.FC = () => {
                   <Button type="submit" variant="secondary" disabled={isSavingTeam}>
                     {isSavingTeam ? 'Joining...' : 'Confirm Join'}
                   </Button>
-                  <Button variant="secondary" onClick={() => setIsJoining(false)} style={{ opacity: 0.8 }}>
+                  <Button variant="outline" onClick={() => setIsJoining(false)} style={{ opacity: 0.8 }}>
                     Cancel
                   </Button>
                 </div>
@@ -457,7 +519,33 @@ export const TournamentView: React.FC = () => {
         )}
 
         <div className={styles.description}>
-          {tournament.description && (
+          {!tournament.description && isAdminAuthenticated && !isAddingDescription && (
+            <button className={styles.addDescBtn} onClick={() => setIsAddingDescription(true)}>
+              + Add description
+            </button>
+          )}
+
+          {isAddingDescription && (
+            <div className={styles.quickAddDesc}>
+              <textarea
+                value={quickDescription}
+                onChange={(e) => setQuickDescription(e.target.value)}
+                placeholder="Add tournament description..."
+                rows={3}
+                autoFocus
+              />
+              <div className={styles.quickAddActions}>
+                <Button size="sm" variant="primary" onClick={handleQuickDescriptionAdd} disabled={isUpdatingSettings}>
+                  {isUpdatingSettings ? 'Adding...' : 'Add'}
+                </Button>
+                <Button size="sm" variant="outline" onClick={() => setIsAddingDescription(false)}>
+                  Cancel
+                </Button>
+              </div>
+            </div>
+          )}
+
+          {tournament.description && tournament.show_description && (
             <div className={styles.tournamentDescription}>
               <p>
                 <strong>Description:</strong> {tournament.description}
@@ -466,17 +554,41 @@ export const TournamentView: React.FC = () => {
           )}
           {/* user written descriptions: do not change */}
           {is120minMode ? (
-            <p>
-              <strong>120min training mode:</strong> Teams in this tournament compete to achieve more 120min training
-              matches achieved. Standings are ranked by <strong>120min achievements</strong>. Ties are settled by
-              standard victory points, goal difference, and goals scored.
-            </p>
+            <div className={styles.scoringHelp}>
+              <p>
+                <strong>120min training mode</strong>{' '}
+                <CircleHelp
+                  size={16}
+                  className={styles.helpIcon}
+                  onClick={() => setShowScoringHelp(!showScoringHelp)}
+                />
+              </p>
+              {showScoringHelp && (
+                <p className={styles.helpContent}>
+                  Teams in this tournament compete to score more 120min training matches achieved than their opponents.
+                  Standings are ranked by <strong>120min achievements</strong> primarly. Only ties are settled by
+                  standard victory points, goal difference, and finally goals scored.
+                </p>
+              )}
+            </div>
           ) : (
-            <p>
-              <strong>Victory points mode:</strong> Standard competitive tournament. Teams earn 3 points for a win and 1
-              point for a draw. Standings are ranked by <strong>Total Points</strong>, then goal difference and goals
-              scored. 120min games mean nothing here.
-            </p>
+            <div className={styles.scoringHelp}>
+              <p>
+                <strong>Victory points mode</strong>{' '}
+                <CircleHelp
+                  size={16}
+                  className={styles.helpIcon}
+                  onClick={() => setShowScoringHelp(!showScoringHelp)}
+                />
+              </p>
+              {showScoringHelp && (
+                <p className={styles.helpContent}>
+                  Standard competitive tournament. Teams earn 3 points for a win and 1 point for a draw. Standings are
+                  ranked by <strong>Total Points</strong>, then goal difference and goals scored. 120min games mean
+                  nothing here.
+                </p>
+              )}
+            </div>
           )}
         </div>
       </header>
@@ -624,33 +736,42 @@ export const TournamentView: React.FC = () => {
               >
                 <div className={adminStyles.meta}>
                   <div className={adminStyles.metaItem}>
-                    <span className={adminStyles.label}>Public URL:</span>
+                    {!isMobile ? (
+                      <span className={adminStyles.label}>Public URL:</span>
+                    ) : (
+                      <span className={adminStyles.label}>URL:</span>
+                    )}
                     <a href={publicUrl} target="_blank">
-                      <code>{publicUrl}</code>
+                      <code>{publicUrlDisplay}</code>
                     </a>
                     <Button
-                      size="sm"
+                      size={isMobile ? 'xs' : 'sm'}
                       variant="outline"
                       onClick={() => {
                         navigator.clipboard.writeText(publicUrl);
                         alert('URL copied!');
                       }}
                     >
-                      <Copy size={14} />
+                      <Copy size={isMobile ? 10 : 14} />
                     </Button>
                   </div>
                   <div className={adminStyles.metaItem}>
-                    <span className={adminStyles.label}>Admin Password:</span>
+                    {!isMobile ? (
+                      <span className={adminStyles.label}>Admin Password:</span>
+                    ) : (
+                      <span className={adminStyles.label}>Password:</span>
+                    )}
+
                     <code>{tournament.admin_password}</code>
                     <Button
-                      size="sm"
+                      size={isMobile ? 'xs' : 'sm'}
                       variant="outline"
                       onClick={() => {
                         navigator.clipboard.writeText(tournament.admin_password);
                         alert("Password copied! Don't lose it.");
                       }}
                     >
-                      <Copy size={14} />
+                      <Copy size={isMobile ? 10 : 14} />
                     </Button>
                   </div>
                 </div>
@@ -658,7 +779,13 @@ export const TournamentView: React.FC = () => {
 
               <div className={adminStyles.mainGrid}>
                 <section className={adminStyles.teamsSection}>
-                  <Card title="Tournament Settings" variant="classic">
+                  <Card
+                    title="Tournament Settings"
+                    variant="classic"
+                    collapsible
+                    isCollapsed={isSettingsCollapsed}
+                    onToggleCollapse={() => setIsSettingsCollapsed(!isSettingsCollapsed)}
+                  >
                     <div className={adminStyles.settingsGroup} style={{ marginBottom: '1.5rem' }}>
                       <div className={adminStyles.checkboxField} style={{ marginBottom: '1rem' }}>
                         <label className={adminStyles.checkboxLabel}>
@@ -698,7 +825,17 @@ export const TournamentView: React.FC = () => {
                     </Button>
                   </Card>
 
-                  <Card title="Teams Management" variant="classic">
+                  <Card
+                    title="Manage Teams & Schedule"
+                    variant="classic"
+                    collapsible
+                    isCollapsed={isTeamsCollapsed}
+                    onToggleCollapse={() => {
+                      const newState = !isTeamsCollapsed;
+                      setIsTeamsCollapsed(newState);
+                      localStorage.setItem(`teams_collapsed_${slug}`, JSON.stringify(newState));
+                    }}
+                  >
                     <form onSubmit={(e) => addTeam(e, false)} className={adminStyles.teamForm}>
                       <div className={adminStyles.inputGroup}>
                         <input

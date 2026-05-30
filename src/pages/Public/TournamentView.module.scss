@@ -87,6 +87,52 @@
   }
 }
 
+.addDescBtn {
+  background: none;
+  border: none;
+  color: var(--accent);
+  font-weight: 600;
+  padding: 0;
+  cursor: pointer;
+  font-size: 0.9rem;
+  margin-bottom: 1rem;
+  opacity: 0.8;
+  transition: opacity 0.2s;
+
+  &:hover {
+    opacity: 1;
+    text-decoration: underline;
+  }
+}
+
+.quickAddDesc {
+  margin-bottom: 1.5rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+
+  textarea {
+    width: 100%;
+    padding: 0.75rem;
+    border-radius: 8px;
+    border: 1px solid var(--lines);
+    color: var(--text);
+    font-family: inherit;
+    font-size: 0.95rem;
+    resize: vertical;
+
+    &:focus {
+      outline: none;
+      border-color: var(--accent);
+    }
+  }
+}
+
+.quickAddActions {
+  display: flex;
+  gap: 0.5rem;
+}
+
 .tournamentDescription {
   margin-bottom: 2rem;
   padding-bottom: 2rem;
@@ -96,6 +142,32 @@
     white-space: pre-wrap;
     font-size: 1.1rem;
     color: var(--text-h);
+  }
+}
+
+.scoringHelp {
+  .helpIcon {
+    vertical-align: middle;
+    cursor: pointer;
+    color: var(--accent);
+    margin-left: 0.25rem;
+    transition: transform 0.2s;
+    opacity: 0.8;
+
+    &:hover {
+      transform: scale(1.2);
+      opacity: 1;
+    }
+  }
+
+  .helpContent {
+    margin-top: 0.5rem;
+    font-size: 0.95rem;
+    color: var(--text);
+    background: rgba(16, 134, 59, 0.05);
+    padding: 0.75rem 1rem;
+    border-radius: 0.5rem;
+    border: 1px solid var(--accent);
   }
 }
 
@@ -120,7 +192,7 @@
     }
 
     &.active {
-      color: var(--accent);
+      color: var(--accent-bg);
       &::after {
         content: '';
         position: absolute;
@@ -128,7 +200,7 @@
         left: 0;
         right: 0;
         height: 2px;
-        background-color: var(--accent);
+        background-color: var(--accent-bg);
       }
     }
   }
