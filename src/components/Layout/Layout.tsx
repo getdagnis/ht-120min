@@ -53,7 +53,16 @@ export const Layout: React.FC<LayoutProps> = ({ children }) => {
 
       <footer className={styles.footer}>
         <div className={styles.container}>
-          <p>&copy; {new Date().getFullYear()} HT-120min - A Hattrick Community Tool</p>
+          <p>
+            © {new Date().getFullYear()}{' '}
+            <a href="http://getdagnis.vercel.app" target="_blank">
+              mr_bots
+            </a>{' '}
+            manager of{' '}
+            <a href="http://www.hattrick.org/Club/?TeamID=681813" target="_blank">
+              This bot team is a bot
+            </a>
+          </p>{' '}
         </div>
       </footer>
     </div>

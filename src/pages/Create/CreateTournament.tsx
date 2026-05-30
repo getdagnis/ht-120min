@@ -28,26 +28,35 @@ export const CreateTournament: React.FC = () => {
   const [newTeamId, setNewTeamId] = useState('');
   const [newTeamName, setNewTeamName] = useState('');
 
+  const handleNameChange = (name: string) => {
+    const slug = name
+      .toLowerCase()
+      .trim()
+      .replace(/[^a-z0-9\s-]/g, '') // Remove invalid chars
+      .replace(/\s+/g, '-') // Replace spaces with dashes
+      .replace(/-+/g, '-'); // Remove duplicate dashes
+
+    setFormData({ ...formData, name, slug });
+  };
+
   const handleContinue = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!formData.name.trim()) return;
 
-    if (formData.slug) {
-      setCheckingSlug(true);
-      const { data, error } = await supabase.from('tournaments').select('slug').eq('slug', formData.slug).maybeSingle();
+    setCheckingSlug(true);
+    let finalSlug = formData.slug || nanoid(10);
 
-      setCheckingSlug(false);
+    // Check for collision
+    const { data } = await supabase.from('tournaments').select('slug').eq('slug', finalSlug).maybeSingle();
 
-      if (data) {
-        alert('This URL slug is already taken. Please choose another one.');
-        return;
-      }
-
-      if (error) {
-        console.error('Error checking slug:', error);
-      }
+    if (data) {
+      // Collision found, append random 3 chars
+      const suffix = nanoid(3).toLowerCase();
+      finalSlug = `${finalSlug}-${suffix}`;
     }
 
+    setFormData((prev) => ({ ...prev, slug: finalSlug }));
+    setCheckingSlug(false);
     setStep('teams');
   };
 
@@ -136,13 +145,13 @@ export const CreateTournament: React.FC = () => {
                 type="text"
                 required
                 value={formData.name}
-                onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                onChange={(e) => handleNameChange(e.target.value)}
                 placeholder="e.g. Guam HFI Season 1"
               />
             </div>
 
             <div className={styles.field}>
-              <label htmlFor="tournament_slug">Custom URL Slug (optional)</label>
+              <label htmlFor="tournament_slug">Custom URL Slug (used to access the tournament)</label>
               <input
                 id="tournament_slug"
                 name="tournament_slug"

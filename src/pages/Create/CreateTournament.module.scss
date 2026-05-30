@@ -1,5 +1,5 @@
 .container {
-  max-width: 800px;
+  max-width: 40rem;
   margin: 0 auto;
   text-align: center;
   h1 {
@@ -9,14 +9,13 @@
 
   img {
     width: 80%;
-    margin: auto;
-    margin-bottom: 1rem;
+    margin: 2rem auto;
   }
 }
 
 img .subtitle {
   font-weight: 600;
-  margin-bottom: 2rem;
+  margin: 2rem auto;
 }
 
 .subtitle {
@@ -37,7 +36,7 @@ img .subtitle {
 
   label {
     font-weight: 600;
-    color: var(--text-h);
+    color: white;
   }
 
   small {
@@ -106,27 +105,29 @@ img .subtitle {
 
   .name {
     font-weight: 600;
-    color: var(--text-h);
+    color: white;
     font-weight: 700;
     font-size: 1.25rem;
   }
 
   .id {
     font-size: 0.8rem;
-    color: var(--text);
+    color: #ffffff99;
   }
 }
 
 .deleteBtn {
   background: none;
   border: none;
-  color: #ef4444;
-  padding: 4px;
+  color: #ffffff99;
+  padding: 0.25rem 0.5rem 0.15rem;
   border-radius: 4px;
   cursor: pointer;
+  transition: all 0.3s ease-in;
 
   &:hover {
-    background: rgba(24, 201, 89, 0.701);
+    color: white;
+    background: crimson;
   }
 }
 
