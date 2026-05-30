@@ -3,6 +3,10 @@
   max-width: 1000px;
   margin: 0 auto;
   padding: 2rem 1rem;
+
+  @media (max-width: 620px) {
+    padding: 0;
+  }
 }
 
 .loading {
@@ -107,7 +111,9 @@
 }
 
 .teamNameCell {
-  padding: 12px 24px !important;
+  padding: 12px 24px;
+  width: 50vw;
+  max-width: 25rem;
 }
 
 .teamInfo {
