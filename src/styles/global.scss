@@ -10,9 +10,7 @@
   --code-bg: #f3f4f6;
   --accent: #10863b;
   --accent-bg: #10863b;
-  --accent-bright: #1db908;
   --accent-border: #0d6e2f;
-  --primary-bg: rgba(0, 81, 33, 0.426);
   --table-bg: #f3f4f6;
 
   --sans: 'Raleway', system-ui, 'Segoe UI', Roboto, sans-serif;
@@ -22,7 +20,7 @@
   font: 1rem var(--sans);
   letter-spacing: 0.1px;
   line-height: 1.5;
-  color-scheme: light dark;
+  color-scheme: light;
   color: var(--text);
   background: var(--bg);
   font-synthesis: none;
@@ -35,16 +33,29 @@
   }
 }
 
+// Dark theme variables
+@mixin dark-theme {
+  --text: #9ca3af;
+  --text-h: #f3f4f6;
+  --bg: #111827;
+  --border: #374151;
+  --code-bg: #1f2937;
+  --accent: #10863b;
+  --accent-bg: #10863b;
+  --table-bg: #1f2937;
+  color-scheme: dark;
+}
+
+// Apply dark theme based on data attribute (manual toggle)
+[data-theme='dark'] {
+  @include dark-theme;
+}
+
+// Handle system preference fallback ONLY if data-theme is not set
+// (Though in our case JS sets it immediately, this is good practice)
 @media (prefers-color-scheme: dark) {
-  :root {
-    --text: #9ca3af;
-    --text-h: #f3f4f6;
-    --bg: #111827;
-    --border: #374151;
-    --code-bg: #1f2937;
-    --accent: #10863b;
-    --accent-bg: #10863b;
-    --table-bg: #1f2937;
+  :root:not([data-theme='light']) {
+    @include dark-theme;
   }
 }
 
@@ -52,6 +63,7 @@ body {
   margin: 0;
   background-color: var(--bg);
   color: var(--text);
+  transition: background-color 0.3s ease, color 0.3s ease;
 }
 
 #root {

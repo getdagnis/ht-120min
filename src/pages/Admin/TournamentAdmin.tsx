@@ -292,7 +292,7 @@ export const TournamentAdmin: React.FC = () => {
               variant="secondary"
               onClick={() => {
                 navigator.clipboard.writeText(publicUrl);
-                alert('Copied to clipboard!');
+                alert('URL copied to clipboard!');
               }}
             >
               <Copy size={16} /> Copy Public URL
@@ -302,10 +302,23 @@ export const TournamentAdmin: React.FC = () => {
         <div className={styles.meta}>
           <div className={styles.metaItem}>
             <span className={styles.label}>Public URL:</span>
-            <code>{publicUrl}</code>
+            <a href={publicUrl} target="_blank">
+              <code>{publicUrl}</code>
+            </a>
           </div>
           <div className={styles.metaItem}>
-            <span className={styles.label}>Admin Password:</span>
+            <span className={styles.label}>
+              Admin Password{' '}
+              <em
+                onClick={() => {
+                  navigator.clipboard.writeText(tournament.admin_password);
+                  alert('Password copied to clipboard!');
+                }}
+                style={{ cursor: 'pointer', textDecoration: 'underline' }}
+              >
+                (save it!)
+              </em>
+            </span>
             <code>{tournament.admin_password}</code>
           </div>
         </div>
@@ -334,7 +347,13 @@ export const TournamentAdmin: React.FC = () => {
                 />
               </div>
               <Button type="submit" disabled={isSavingTeam} variant="primary">
-                {isSavingTeam ? 'Saving...' : <><Plus size={18} /> Add Team</>}
+                {isSavingTeam ? (
+                  'Saving...'
+                ) : (
+                  <>
+                    <Plus size={18} /> Add Team
+                  </>
+                )}
               </Button>
             </form>
 
@@ -369,7 +388,12 @@ export const TournamentAdmin: React.FC = () => {
                               required
                             />
                             <div className={styles.replaceActions}>
-                              <Button size="sm" onClick={() => replaceTeam(team.id)} disabled={isSavingTeam} variant="primary">
+                              <Button
+                                size="sm"
+                                onClick={() => replaceTeam(team.id)}
+                                disabled={isSavingTeam}
+                                variant="primary"
+                              >
                                 Save
                               </Button>
                               <Button
@@ -405,22 +429,22 @@ export const TournamentAdmin: React.FC = () => {
                 <div className={styles.genOptions}>
                   <div className={styles.checkboxGroup}>
                     <label className={styles.checkboxLabel}>
+                      <label className={styles.checkboxLabel}>
+                        <input
+                          type="radio"
+                          name="scheduleMode"
+                          checked={scheduleMode === 'double'}
+                          onChange={() => setScheduleMode('double')}
+                        />
+                        Play each other twice (Home and Away)
+                      </label>
                       <input
                         type="radio"
                         name="scheduleMode"
                         checked={scheduleMode === 'single'}
                         onChange={() => setScheduleMode('single')}
                       />
-                      Single Round Robin (Neutral)
-                    </label>
-                    <label className={styles.checkboxLabel}>
-                      <input
-                        type="radio"
-                        name="scheduleMode"
-                        checked={scheduleMode === 'double'}
-                        onChange={() => setScheduleMode('double')}
-                      />
-                      Double Round Robin (Home/Away)
+                      Play each other once (Neutral ground)
                     </label>
                   </div>
                   <Button

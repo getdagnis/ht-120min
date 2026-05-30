@@ -63,6 +63,12 @@
     font-family: var(--mono);
     font-weight: 600;
   }
+
+  em {
+    color: #a2ef44;
+    font-weight: 600;
+    text-decoration: underline dotted;
+  }
 }
 
 .teamForm {
