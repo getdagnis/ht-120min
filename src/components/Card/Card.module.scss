@@ -38,5 +38,8 @@
 }
 
 .content {
-  padding: 24px;
+  padding: 1rem;
+  @media (min-width: 860px) {
+    padding: 1.5rem 3rem;
+  }
 }

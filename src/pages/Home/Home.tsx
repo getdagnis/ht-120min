@@ -19,7 +19,7 @@ export const Home: React.FC = () => {
           were looking for a way to reliably organize regular non-international friendlies. Step-by-step it grew into a
           120 min friendly tournament tool.
         </p>
-        <Button size="lg" onClick={() => navigate('/create')}>
+        <Button variant="hero" size="lg" onClick={() => navigate('/create')}>
           Create Tournament
         </Button>
       </section>

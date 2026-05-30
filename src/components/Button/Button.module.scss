@@ -15,8 +15,9 @@
   }
 }
 
-.primary {
-  background-color: var(--primary-bg);
+.primary,
+.hero {
+  background-color: var(--accent-bg);
   color: white;
   &:hover:not(:disabled) {
     opacity: 0.9;
@@ -25,6 +26,10 @@
   &:active:not(:disabled) {
     transform: translateY(0);
   }
+}
+
+.hero {
+  background: var(--primary-bg);
 }
 
 .secondary {
