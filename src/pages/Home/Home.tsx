@@ -112,16 +112,20 @@ export const Home: React.FC = () => {
           <h1 className={styles.visuallyHidden}>HT-120min</h1>
           <img src="/hero-logo.png" alt="HT-120min" className={styles.heroImg} />
           <p className={styles.subtitle}>
-            <strong>HT-120min</strong> is a small community tool for organizing friendly tournaments and recurring
-            friendly matches in Hattrick. The idea started in the tiny Guam based HFI community - we are just 13 teams
-            and were looking for a way to reliably organize regular non-international friendlies. In no time it grew
-            into an idea for a 120 min friendly tournament tool.
+            Organize regular or 120min Hattrick friendlies and tournaments with fireworks. No excel tables. No paper
+            hustle. You can now be friendly oriented. At least for 90 minutes.
           </p>
           <Button size="lg" onClick={() => navigate('/create')} variant="secondary">
-            Create Tournament
+            <Trophy size="18" /> Create Tournament
           </Button>
         </section>
       </Card>
+      <p className={styles.subtitle}>
+        <strong>HT-120min</strong> is a small community tool for organizing friendly tournaments and recurring friendly
+        matches in Hattrick. The idea started in the tiny Guam based HFI community - we are just 13 teams and were
+        looking for a way to reliably organize regular non-international friendlies. In no time it grew into an idea for
+        a 120 min friendly tournament tool.
+      </p>
 
       {activeTournaments.length > 0 && (
         <section className={styles.activeSection}>
