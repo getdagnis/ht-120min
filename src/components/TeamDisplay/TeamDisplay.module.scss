@@ -1,0 +1,39 @@
+.teamDisplay {
+  display: flex;
+  flex-direction: column;
+  min-width: 140px;
+  
+  &.home {
+    align-items: flex-end;
+    text-align: right;
+  }
+  
+  &.away {
+    align-items: flex-start;
+    text-align: left;
+  }
+
+  @media (max-width: 640px) {
+    &.home, &.away {
+      align-items: center;
+      text-align: center;
+    }
+  }
+}
+
+.teamName {
+  font-weight: 600;
+  color: var(--text-h);
+}
+
+.teamNameFree {
+  font-weight: 700;
+  color: var(--accent);
+  font-style: italic;
+}
+
+.teamId {
+  font-size: 0.75rem;
+  color: var(--text);
+  opacity: 0.6;
+}

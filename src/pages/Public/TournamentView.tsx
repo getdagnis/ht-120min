@@ -6,6 +6,7 @@ import { Button } from '../../components/Button/Button';
 import { calculateStandings } from '../../utils/standings';
 import type { TeamStanding } from '../../utils/standings';
 import { generateRoundRobin, generateRecurring } from '../../utils/scheduler';
+import { TeamDisplay } from '../../components/TeamDisplay/TeamDisplay';
 import { LogIn, ExternalLink, Plus, Trash2, RefreshCw, XCircle, Play, Save, Copy, ShieldCheck } from 'lucide-react';
 import styles from './TournamentView.module.scss';
 import adminStyles from '../Admin/TournamentAdmin.module.scss';
@@ -562,31 +563,9 @@ export const TournamentView: React.FC = () => {
                     {round.matches.map((match: any) => (
                       <div key={match.id} className={styles.match}>
                         <div className={styles.matchTeams}>
-                          <div className={styles.teamDisplay}>
-                            {match.home_team?.name ? (
-                              <span className={styles.teamName}>{match.home_team?.name}</span>
-                            ) : (
-                              <span className={styles.teamNameFree}>Free opponent choice</span>
-                            )}
-                            {match.home_team?.ht_team_id ? (
-                              <span className={styles.teamId}>({match.home_team.ht_team_id})</span>
-                            ) : (
-                              <span className={styles.teamId}>(no tournament opponent due to odd number of teams)</span>
-                            )}
-                          </div>
+                          <TeamDisplay team={match.home_team} side="home" />
                           <span className={styles.vs}>vs</span>
-                          <div className={styles.teamDisplay}>
-                            {match.away_team?.name ? (
-                              <span className={styles.teamName}>{match.away_team?.name}</span>
-                            ) : (
-                              <span className={styles.teamNameFree}>Free opponent choice</span>
-                            )}
-                            {match.away_team?.ht_team_id ? (
-                              <span className={styles.teamId}>({match.away_team.ht_team_id})</span>
-                            ) : (
-                              <span className={styles.teamId}>(no tournament opponent due to odd number of teams)</span>
-                            )}
-                          </div>
+                          <TeamDisplay team={match.away_team} side="away" />
                         </div>
                         <div className={styles.result}>
                           {match.completed ? (
@@ -895,23 +874,9 @@ export const TournamentView: React.FC = () => {
                             return (
                               <div key={match.id} className={adminStyles.match}>
                                 <div className={adminStyles.matchTeams}>
-                                  <div className={adminStyles.teamCol}>
-                                    <span className={adminStyles.teamName}>
-                                      {match.home_team?.name || 'Free to choose'}
-                                    </span>
-                                    {match.home_team?.ht_team_id && (
-                                      <span className={adminStyles.teamId}>({match.home_team.ht_team_id})</span>
-                                    )}
-                                  </div>
+                                  <TeamDisplay team={match.home_team} side="home" />
                                   <span className={adminStyles.vs}>vs</span>
-                                  <div className={adminStyles.teamCol}>
-                                    <span className={adminStyles.teamName}>
-                                      {match.away_team?.name || 'Free to choose'}
-                                    </span>
-                                    {match.away_team?.ht_team_id && (
-                                      <span className={adminStyles.teamId}>({match.away_team.ht_team_id})</span>
-                                    )}
-                                  </div>
+                                  <TeamDisplay team={match.away_team} side="away" />
                                 </div>
 
                                 {editingMatch === match.id ? (

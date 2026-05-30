@@ -4,6 +4,7 @@ import { supabase } from '../../lib/supabase';
 import { Button } from '../../components/Button/Button';
 import { Card } from '../../components/Card/Card';
 import { generateRoundRobin, generateRecurring } from '../../utils/scheduler';
+import { TeamDisplay } from '../../components/TeamDisplay/TeamDisplay';
 import { Trash2, Plus, Play, Save, Copy, RefreshCw, XCircle } from 'lucide-react';
 import styles from './TournamentAdmin.module.scss';
 
@@ -235,7 +236,11 @@ export const TournamentAdmin: React.FC = () => {
 
     let schedule;
     if (scheduleMode === 'recurring') {
-      schedule = generateRecurring(activeTeams.map((t) => t.id), 1, 4);
+      schedule = generateRecurring(
+        activeTeams.map((t) => t.id),
+        1,
+        4,
+      );
     } else {
       schedule = generateRoundRobin(
         activeTeams.map((t) => t.id),
@@ -287,7 +292,11 @@ export const TournamentAdmin: React.FC = () => {
     const activeTeams = teams.filter((t) => t.active);
     setIsGenerating(true);
 
-    const schedule = generateRecurring(activeTeams.map((t) => t.id), lastRoundNumber + 1, 4);
+    const schedule = generateRecurring(
+      activeTeams.map((t) => t.id),
+      lastRoundNumber + 1,
+      4,
+    );
 
     try {
       for (const roundInfo of schedule) {
@@ -423,11 +432,7 @@ export const TournamentAdmin: React.FC = () => {
             <div className={styles.settingsGroup} style={{ marginBottom: '1.5rem' }}>
               <div className={styles.checkboxField} style={{ marginBottom: '1rem' }}>
                 <label className={styles.checkboxLabel}>
-                  <input
-                    type="checkbox"
-                    checked={editIsPrivate}
-                    onChange={(e) => setEditIsPrivate(e.target.checked)}
-                  />
+                  <input type="checkbox" checked={editIsPrivate} onChange={(e) => setEditIsPrivate(e.target.checked)} />
                   Private Tournament (unlisted on home page)
                 </label>
               </div>
@@ -633,19 +638,9 @@ export const TournamentAdmin: React.FC = () => {
                     return (
                       <div key={match.id} className={styles.match}>
                         <div className={styles.matchTeams}>
-                          <div className={styles.teamCol}>
-                            <span className={styles.teamName}>{match.home_team?.name || 'Free to choose'}</span>
-                            {match.home_team?.ht_team_id && (
-                              <span className={styles.teamId}>({match.home_team.ht_team_id})</span>
-                            )}
-                          </div>
+                          <TeamDisplay team={match.home_team} side="home" />
                           <span className={styles.vs}>vs</span>
-                          <div className={styles.teamCol}>
-                            <span className={styles.teamName}>{match.away_team?.name || 'Free to choose'}</span>
-                            {match.away_team?.ht_team_id && (
-                              <span className={styles.teamId}>({match.away_team.ht_team_id})</span>
-                            )}
-                          </div>
+                          <TeamDisplay team={match.away_team} side="away" />
                         </div>
 
                         {editingMatch === match.id ? (
