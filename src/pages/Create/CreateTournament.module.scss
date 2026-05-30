@@ -3,23 +3,19 @@
   margin: 0 auto;
   text-align: center;
   h1 {
-    margin-bottom: 1rem;
+    margin: 0 auto 0.5rem;
     color: white;
   }
 
   img {
-    width: 80%;
+    width: 100%;
     margin: 2rem auto;
   }
 }
 
-img .subtitle {
-  font-weight: 600;
-  margin: 2rem auto;
-}
-
 .subtitle {
   color: white;
+  margin-bottom: 0.5rem;
 }
 
 .form {

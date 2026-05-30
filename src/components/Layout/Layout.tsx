@@ -53,6 +53,7 @@ export const Layout: React.FC<LayoutProps> = ({ children }) => {
 
       <footer className={styles.footer}>
         <div className={styles.container}>
+          {/* user written content: do not change */}
           <p>
             © {new Date().getFullYear()}{' '}
             <a href="http://getdagnis.vercel.app" target="_blank">

@@ -22,6 +22,7 @@ export const CreateTournament: React.FC = () => {
     name: '',
     slug: '',
     scoring_mode: '120min',
+    is_private: false,
   });
 
   const [teams, setTeams] = useState<LocalTeam[]>([]);
@@ -100,6 +101,7 @@ export const CreateTournament: React.FC = () => {
           slug,
           scoring_mode: formData.scoring_mode,
           admin_password: adminPassword,
+          is_private: formData.is_private,
         },
       ])
       .select()
@@ -123,11 +125,10 @@ export const CreateTournament: React.FC = () => {
 
     if (teamsError) {
       alert('Tournament created but error adding teams: ' + teamsError.message);
-      // Still navigate because tournament exists
     }
 
     localStorage.setItem(`admin_pw_${slug}`, adminPassword);
-    navigate(`/t/${slug}/admin`, { state: { password: adminPassword, isNew: true } });
+    navigate(`/t/${slug}`, { state: { isAdminInit: true } });
   };
 
   if (step === 'info') {
@@ -172,9 +173,20 @@ export const CreateTournament: React.FC = () => {
                 value={formData.scoring_mode}
                 onChange={(e) => setFormData({ ...formData, scoring_mode: e.target.value })}
               >
-                <option value="120m">120 Minute Training Achievements</option>
+                <option value="120min">120 Minute Training Achievements</option>
                 <option value="points">Standard Victory Points (3/1/0)</option>
               </select>
+            </div>
+
+            <div className={styles.field}>
+              <label className={styles.checkboxLabel}>
+                <input
+                  type="checkbox"
+                  checked={formData.is_private}
+                  onChange={(e) => setFormData({ ...formData, is_private: e.target.checked })}
+                />
+                Private Tournament (unlisted on home page)
+              </label>
             </div>
 
             <div className={styles.actions}>
@@ -199,10 +211,13 @@ export const CreateTournament: React.FC = () => {
           <div className={styles.inputGroup}>
             <input
               name="team_ht_id"
-              type="number"
+              type="text"
               placeholder="HT Team ID"
               value={newTeamId}
-              onChange={(e) => setNewTeamId(e.target.value)}
+              onChange={(e) => setNewTeamId(e.target.value.replace(/\D/g, ''))}
+              pattern="\d{6}"
+              maxLength={6}
+              minLength={6}
               required
             />
             <input
@@ -245,7 +260,7 @@ export const CreateTournament: React.FC = () => {
             <Save size={18} /> {loading ? 'Creating...' : 'Create Tournament'}
           </Button>
           <Button
-            variant="secondary"
+            variant="outlineWhite"
             size="sm"
             onClick={() => setStep('info')}
             disabled={loading}

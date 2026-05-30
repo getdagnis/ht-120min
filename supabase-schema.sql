@@ -5,7 +5,8 @@ CREATE TABLE tournaments (
   slug TEXT UNIQUE NOT NULL,
   name TEXT NOT NULL,
   admin_password TEXT NOT NULL,
-  scoring_mode TEXT NOT NULL, -- '120m' or 'points'
+  scoring_mode TEXT NOT NULL, -- '120min' or 'points'
+  is_private BOOLEAN DEFAULT FALSE,
   created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 

@@ -50,7 +50,18 @@
   color: var(--accent);
   border: 1px solid var(--accent);
   &:hover:not(:disabled) {
-    background-color: rgba(16, 134, 59, 0.05);
+    background-color: rgb(0, 145, 53);
+  }
+}
+
+.outlineWhite {
+  color: #ffffffbb;
+  background-color: transparent;
+  border: 1px solid #ffffff99;
+  &:hover:not(:disabled) {
+    background-color: rgba(255, 255, 255, 0.135);
+    color: #ffffff;
+    border: 1px solid #ffffff;
   }
 }
 
