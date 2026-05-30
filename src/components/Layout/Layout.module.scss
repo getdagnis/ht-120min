@@ -5,8 +5,8 @@
 }
 
 .header {
-  border-bottom: 1px solid var(--border);
-  padding: 0.75rem;
+  border-bottom: 0.1rem dotted var(--lines);
+  padding: 0.5rem;
   background-color: var(--bg-transp);
   backdrop-filter: blur(0.1rem);
   position: fixed;
@@ -24,14 +24,25 @@
   box-sizing: border-box;
 
   @media (max-width: 620px) {
-    padding: 0.5rem;
+    padding: 0 0.5rem;
   }
+}
+
+.footer .container {
+  max-width: 760px;
 }
 
 .headerContent {
   display: flex;
   justify-content: space-between;
   align-items: center;
+  max-width: 1000px;
+  box-sizing: border-box;
+  padding: 0 1.5rem 0 0.75rem;
+
+  @media (max-width: 620px) {
+    padding: 0;
+  }
 }
 
 .logo {
@@ -47,14 +58,14 @@
   &:hover {
     text-decoration: none;
     .icon {
-      color: var(--accent);
+      color: var(--text-h);
     }
   }
 }
 
 .icon {
-  color: var(--accent);
-  transition: color 0.2s;
+  color: var(--lines);
+  transition: color 0.3s ease;
 }
 
 .actions {

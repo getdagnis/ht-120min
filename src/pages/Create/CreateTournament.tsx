@@ -245,7 +245,7 @@ export const CreateTournament: React.FC = () => {
               value={newTeamId}
               onChange={(e) => setNewTeamId(e.target.value.replace(/\D/g, ''))}
               minLength={6}
-              maxLength={6}
+              maxLength={7}
               onInvalid={(e) => (e.target as HTMLInputElement).setCustomValidity('Please enter a valid Team ID')}
               onInput={(e) => (e.target as HTMLInputElement).setCustomValidity('')}
               required

@@ -1119,7 +1119,7 @@ export const TournamentView: React.FC = () => {
                                         {match.went_120 && <span className={adminStyles.badge}>120min</span>}
                                         <Button
                                           size="sm"
-                                          variant="secondary"
+                                          variant="outlineWhite"
                                           onClick={() => {
                                             setEditingMatch(match.id);
                                             setMatchData({ ...matchData, [match.id]: match });
@@ -1144,7 +1144,7 @@ export const TournamentView: React.FC = () => {
                                           });
                                         }}
                                       >
-                                        Result
+                                        Enter Result
                                       </Button>
                                     )}
                                   </div>

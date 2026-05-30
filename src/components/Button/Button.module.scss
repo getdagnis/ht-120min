@@ -34,10 +34,11 @@
 .secondary {
   background-color: var(--yellow);
   color: black;
-  transition: all 0.3s ease;
+  transition:
+    background-color 0.3s ease,
+    color 0.3s ease;
   &:hover:not(:disabled) {
-    background-color: var(--accent);
-    color: white;
+    background-color: var(--orange);
     transition: all 0.2s ease;
   }
 }
@@ -82,7 +83,7 @@
 }
 
 .sm {
-  padding: 4px 8px;
+  padding: 6px 8px;
   font-size: 0.875rem;
 }
 

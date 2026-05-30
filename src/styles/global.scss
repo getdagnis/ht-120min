@@ -1,13 +1,14 @@
 @use 'variables.module' as vars;
 @import url('https://fonts.googleapis.com/css2?family=Raleway:ital,wght@0,100..900;1,100..900&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Barlow:ital,wght@0,100;0,200;0,300;0,400;0,500;0,600;0,700;0,800;0,900;1,100;1,200;1,300;1,400;1,500;1,600;1,700;1,800;1,900&display=swap');
 @import url('https://fonts.googleapis.com/css2?family=Barlow+Condensed:ital,wght@0,100;0,200;0,300;0,400;0,500;0,600;0,700;0,800;0,900;1,100;1,200;1,300;1,400;1,500;1,600;1,700;1,800;1,900&display=swap');
 
 :root {
   --text: #292f39;
   --text-h: #08090d;
   --lines: #858d96a1;
-  --bg: #e9eee5;
-  --bg-transp: #e9eee5dd;
+  --bg: url('/bg-3-light.png') repeat repeat fixed;
+  --bg-transp: #e1dfddcc;
   --border: #b5b9c294;
   --code-bg: #f3f4f6;
   --accent: #0caf48;
@@ -16,8 +17,9 @@
   --table-bg: #cbdfc2;
   --table-bg-main: #f3f7ef;
   --yellow: rgb(242, 255, 0);
-  --orange: rgb(255, 136, 0);
-  --sans: 'Raleway', system-ui, 'Segoe UI', Roboto, sans-serif;
+  --orange: rgb(255, 200, 0);
+  --brown: rgb(164, 137, 105);
+  --sans: 'Barlow', system-ui, 'Segoe UI', Roboto, sans-serif;
   --heading: 'Barlow Condensed', 'Raleway', system-ui, 'Segoe UI', Roboto, sans-serif;
   --mono: ui-monospace, Consolas, monospace;
 
@@ -41,7 +43,7 @@
 @mixin dark-theme {
   --text: #cad1de;
   --text-h: #f3f4f6;
-  --bg: #111827;
+  --bg: url('/bg-3.png') repeat repeat fixed;
   --bg-transp: #111827ee;
   --border: #3d495b7c;
   --code-bg: #1f2937;

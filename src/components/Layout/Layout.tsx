@@ -40,7 +40,7 @@ export const Layout: React.FC<LayoutProps> = ({ children }) => {
                 {theme === 'dark' ? <Sun size={20} /> : <Moon size={20} />}
               </button>
               <Button size="sm" onClick={() => navigate('/create')} variant="primary">
-                <Plus size={18} /> <span className={styles.hideMobile}>Create Tournament</span>
+                <Plus size={18} /> <span className={styles.hideMobile}>CREATE TOURNAMENT</span>
               </Button>
             </div>
           </div>
@@ -55,15 +55,20 @@ export const Layout: React.FC<LayoutProps> = ({ children }) => {
         <div className={styles.container}>
           {/* user written content: do not change */}
           <p>
-            © {new Date().getFullYear()}{' '}
+            © {new Date().getFullYear()} All rights... Who needs rights when you can have ice cream? Made by
             <a href="http://getdagnis.vercel.app" target="_blank">
-              mr_bots
+              {' '}
+              mr_bots a.k.a. Dagnis Skurbe 🇱🇻
             </a>{' '}
             manager of{' '}
-            <a href="http://www.hattrick.org/Club/?TeamID=681813" target="_blank">
-              This bot team is a bot
+            <a href="https://www.hattrick.org/goto.ashx?path=/Club/?TeamID=681813" target="_blank">
+              This bot team is a bot 🇱🇻
+            </a>{' '}
+            and{' '}
+            <a href="https://www.hattrick.org/goto.ashx?path=/Club/?TeamID=3220518" target="_blank">
+              Guåhan Goddesses 🇬🇺
             </a>
-          </p>{' '}
+          </p>
         </div>
       </footer>
     </div>
