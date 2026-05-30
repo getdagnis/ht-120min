@@ -7,6 +7,18 @@ import { generateRoundRobin } from '../../utils/scheduler';
 import { Trash2, Plus, Play, Save, Copy, RefreshCw, XCircle } from 'lucide-react';
 import styles from './TournamentAdmin.module.scss';
 
+interface MatchWithTeams {
+  id: string;
+  home_team_id: string;
+  away_team_id: string;
+  home_goals: number | null;
+  away_goals: number | null;
+  completed: boolean;
+  went_120: boolean;
+  home_team: { name: string; ht_team_id: number; active: boolean };
+  away_team: { name: string; ht_team_id: number; active: boolean };
+}
+
 export const TournamentAdmin: React.FC = () => {
   const { slug } = useParams<{ slug: string }>();
   const location = useLocation();
@@ -474,9 +486,9 @@ export const TournamentAdmin: React.FC = () => {
               <h2>Fixtures & Results</h2>
             </div>
             {rounds.map((round) => (
-              <Card key={round.id} title={`Round ${round.round_number}`} variant="classic">
+              <Card key={round.id} title={`⚽️ Round ${round.round_number}`} variant="classic">
                 <div className={styles.matches}>
-                  {round.matches.map((match: any) => {
+                  {round.matches.map((match: MatchWithTeams) => {
                     return (
                       <div key={match.id} className={styles.match}>
                         <div className={styles.matchTeams}>
@@ -552,7 +564,7 @@ export const TournamentAdmin: React.FC = () => {
                                 {match.went_120 && <span className={styles.badge}>120m</span>}
                                 <Button
                                   size="sm"
-                                  variant="secondary"
+                                  variant="outline"
                                   onClick={() => {
                                     setEditingMatch(match.id);
                                     setMatchData({ ...matchData, [match.id]: match });
