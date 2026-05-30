@@ -6,15 +6,17 @@
 .heroCard
   max-width: 800px
   margin: 0 auto 4rem
-  
+
 .hero
-  padding: 1rem 2rem
+  padding: 1rem 2rem 2rem
   text-align: center
 
   h1
-    font-size: 3.5rem
+    visibility: hidden
+    font-size: 0
     font-weight: 600
     margin-bottom: 1rem
+    color: white
     @media (max-width: 640px)
       font-size: 2.5rem
 
@@ -22,7 +24,7 @@
     padding: 1rem
 
 .heroImg
-  width: 90%
+  width: 100%
   margin-bottom: 1.5rem
   border-radius: 0.5rem
 
@@ -52,7 +54,7 @@
   margin-bottom: 1.5rem
   padding-bottom: 0.75rem
   border-bottom: 2px solid var(--border)
-  
+
   h2
     margin: 0
     font-size: 1.5rem
@@ -70,7 +72,7 @@
   text-decoration: none
   color: inherit
   display: block
-  
+
   &:hover
     text-decoration: none
     .tournamentCard
@@ -86,8 +88,9 @@
   justify-content: space-between
   align-items: center
   padding: 1.25rem 1.5rem !important
+  background-color: var(--table-bg-main)
   transition: all 0.2s ease
-  
+
   .content
     padding: 0 !important
     width: 100%
@@ -106,7 +109,7 @@
   gap: 1.5rem
   font-size: 0.875rem
   color: var(--text)
-  
+
   span
     display: flex
     align-items: center
@@ -127,7 +130,8 @@
 
 .feature
   margin-bottom: 0 !important
-  
+  background: var(--table-bg-main)
+
   svg
     color: var(--accent)
     margin-bottom: 1rem

@@ -19,6 +19,8 @@
 .hero {
   background-color: var(--accent-bg);
   color: white;
+  cursor: pointer;
+
   &:hover:not(:disabled) {
     opacity: 0.9;
     transform: translateY(-1px);
@@ -33,11 +35,13 @@
 }
 
 .secondary {
-  background-color: var(--table-bg);
-  color: var(--text-h);
-  border: 1px solid var(--border);
+  background-color: var(--yellow);
+  color: black;
+  transition: all 0.6s ease-in-out;
   &:hover:not(:disabled) {
-    background-color: var(--border);
+    background-color: var(--accent);
+    color: white;
+    transition: all 0.2s ease-in-out;
   }
 }
 

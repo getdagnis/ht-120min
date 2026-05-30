@@ -21,7 +21,7 @@ export const CreateTournament: React.FC = () => {
   const [formData, setFormData] = useState({
     name: '',
     slug: '',
-    scoring_mode: '120m',
+    scoring_mode: '120min',
   });
 
   const [teams, setTeams] = useState<LocalTeam[]>([]);
@@ -184,7 +184,7 @@ export const CreateTournament: React.FC = () => {
       <Card variant="hero">
         <h1>Add Teams</h1>
         <p className={styles.subtitle}>{formData.name}</p>
-        <img src="/bus1.png" alt="Add Teams" />
+        <img src="/bus4.png" alt="Add Teams" />
         <p className={styles.subtitle}>Add at least two teams. You can add more later.</p>
         <form onSubmit={addLocalTeam} className={styles.teamForm}>
           <div className={styles.inputGroup}>

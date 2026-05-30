@@ -6,16 +6,23 @@ import { Card } from '../../components/Card/Card';
 import { Trophy, ShieldCheck, Users, Calendar, Activity, ChevronRight } from 'lucide-react';
 import styles from './Home.module.sass';
 
+interface ActiveTournament {
+  id: string;
+  name: string;
+  slug: string;
+  created_at: string;
+  totalMatches: number;
+  completedMatches: number;
+  isClosed: boolean;
+  activityScore: number;
+}
+
 export const Home: React.FC = () => {
   const navigate = useNavigate();
-  const [activeTournaments, setActiveTournaments] = useState<any[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [activeTournaments, setActiveTournaments] = useState<ActiveTournament[]>([]);
+  const [, setLoading] = useState(true);
 
-  useEffect(() => {
-    fetchActiveTournaments();
-  }, []);
-
-  const fetchActiveTournaments = async () => {
+  const fetchActiveTournaments = React.useCallback(async () => {
     try {
       // 1. Fetch tournaments created in the last month
       const oneMonthAgo = new Date();
@@ -44,8 +51,8 @@ export const Home: React.FC = () => {
 
       if (tournaments) {
         // 2. Process data in JS to filter and sort by activity
-        const processed = tournaments
-          .map((t: any) => {
+        const processed: ActiveTournament[] = tournaments
+          .map((t) => {
             const allMatches = t.rounds.flatMap((r: any) => r.matches);
             const totalMatches = allMatches.length;
             const completedMatches = allMatches.filter((m: any) => m.completed).length;
@@ -69,15 +76,21 @@ export const Home: React.FC = () => {
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
+
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      fetchActiveTournaments();
+    }, 0);
+    return () => clearTimeout(timer);
+  }, [fetchActiveTournaments]);
 
   return (
     <div className={styles.home}>
       <Card variant="hero" className={styles.heroCard}>
         <section className={styles.hero}>
-          <Trophy size={80} className={styles.heroIcon} />
           <h1>HT-120min</h1>
-          <img src="/hero1.png" alt="HT-120min" className={styles.heroImg} />
+          <img src="/hero-logo.png" alt="HT-120min" className={styles.heroImg} />
           <p className={styles.subtitle}>
             <strong>HT-120min</strong> is a small community tool for organizing friendly tournaments and recurring
             friendly matches in Hattrick. The idea started in the tiny Guam based HFI community - we are just 13 teams
@@ -131,12 +144,15 @@ export const Home: React.FC = () => {
         <Card className={styles.feature}>
           <Users size={40} />
           <h3>Round Robin</h3>
-          <p>Automatic schedule generation for any number of teams.</p>
+          <p>
+            Automatic schedule generation for any number of teams. Single or round robin. You can regenerate schedule
+            mid-season.
+          </p>
         </Card>
         <Card className={styles.feature}>
           <Trophy size={40} />
           <h3>Flexible Scoring</h3>
-          <p>Choose between 120m training focus or classic competition.</p>
+          <p>Choose between 120min based competition (who makes more of those 120min games) or classic competition.</p>
         </Card>
       </div>
     </div>
