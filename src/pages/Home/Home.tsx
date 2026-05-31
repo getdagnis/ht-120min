@@ -10,7 +10,6 @@ import {
   CalendarDaysOutlined,
   BeatOutlined,
   ChevronLeftOutlined,
-  EnterOutlined,
   StarFatOutlined,
   FilePencilOutlined,
 } from '@lineiconshq/free-icons';
@@ -192,7 +191,7 @@ export const Home: React.FC = () => {
               <section className={styles.activeSection}>
                 <div className={styles.sectionHeader}>
                   <Lineicons icon={BeatOutlined} className={styles.sectionIcon} size={24} />
-                  <h2>Active Tournaments</h2>
+                  <h2>Tournaments Having a Blast</h2>
                 </div>
                 <div className={styles.tournamentGrid}>
                   {activeTournaments.map((t) => (

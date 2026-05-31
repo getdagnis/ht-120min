@@ -498,6 +498,7 @@ export const TournamentView: React.FC = () => {
             ? parseInt(String(data.away_goals))
             : null,
         went_120: isScrap ? false : data.went_120,
+        total_minutes: isScrap ? 90 : (data.total_minutes || 90),
         completed: isScrap ? false : true,
       })
       .eq('id', matchId);
@@ -664,13 +665,24 @@ export const TournamentView: React.FC = () => {
                 <tr>
                   <th>#</th>
                   <th>Team</th>
-                  {is120minMode && <th className={styles.center}>120m</th>}
-                  <th className={styles.center}>Pld</th>
-                  <th className={styles.center}>W</th>
-                  <th className={styles.center}>D</th>
-                  <th className={styles.center}>L</th>
-                  <th className={styles.center}>GD</th>
-                  <th className={styles.center}>Pts</th>
+                  {is120minMode ? (
+                    <>
+                      <th className={styles.center}>120m</th>
+                      <th className={styles.center}>Mins</th>
+                      <th className={styles.center}>Pld</th>
+                      <th className={styles.center}>GD</th>
+                      <th className={styles.center}>GS</th>
+                    </>
+                  ) : (
+                    <>
+                      <th className={styles.center}>Pld</th>
+                      <th className={styles.center}>W</th>
+                      <th className={styles.center}>D</th>
+                      <th className={styles.center}>L</th>
+                      <th className={styles.center}>GD</th>
+                      <th className={styles.center}>Pts</th>
+                    </>
+                  )}
                 </tr>
               </thead>
               <tbody>
@@ -693,13 +705,24 @@ export const TournamentView: React.FC = () => {
                         {s.htTeamId && <span className={styles.teamId}>ID: {s.htTeamId}</span>}
                       </div>
                     </td>
-                    {is120minMode && <td className={`${styles.highlight} ${styles.center}`}>{s.achievements120min}</td>}
-                    <td className={styles.center}>{s.played}</td>
-                    <td className={styles.center}>{s.won}</td>
-                    <td className={styles.center}>{s.drawn}</td>
-                    <td className={styles.center}>{s.lost}</td>
-                    <td className={styles.center}>{s.gd > 0 ? `+${s.gd}` : s.gd}</td>
-                    <td className={`${!is120minMode ? styles.highlight : ''} ${styles.center}`}>{s.pts}</td>
+                    {is120minMode ? (
+                      <>
+                        <td className={`${styles.highlight} ${styles.center}`}>{s.achievements120min}</td>
+                        <td className={styles.center}>{s.totalMinutes}</td>
+                        <td className={styles.center}>{s.played}</td>
+                        <td className={styles.center}>{s.gd > 0 ? `+${s.gd}` : s.gd}</td>
+                        <td className={styles.center}>{s.gf}</td>
+                      </>
+                    ) : (
+                      <>
+                        <td className={styles.center}>{s.played}</td>
+                        <td className={styles.center}>{s.won}</td>
+                        <td className={styles.center}>{s.drawn}</td>
+                        <td className={styles.center}>{s.lost}</td>
+                        <td className={styles.center}>{s.gd > 0 ? `+${s.gd}` : s.gd}</td>
+                        <td className={`${styles.highlight} ${styles.center}`}>{s.pts}</td>
+                      </>
+                    )}
                   </tr>
                 ))}
               </tbody>
@@ -1109,12 +1132,30 @@ export const TournamentView: React.FC = () => {
                                             [match.id]: {
                                               ...(matchData[match.id] || match),
                                               went_120: e.target.checked,
+                                              total_minutes: e.target.checked ? 120 : (matchData[match.id]?.total_minutes || match.total_minutes || 90)
                                             },
                                           })
                                         }
                                       />
                                       120min
                                     </label>
+                                    <div className={adminStyles.minutesInput}>
+                                      <input
+                                        type="number"
+                                        value={matchData[match.id]?.total_minutes ?? match.total_minutes ?? 90}
+                                        onChange={(e) =>
+                                          setMatchData({
+                                            ...matchData,
+                                            [match.id]: {
+                                              ...(matchData[match.id] || match),
+                                              total_minutes: e.target.value === '' ? 90 : Number(e.target.value),
+                                            },
+                                          })
+                                        }
+                                        placeholder="90"
+                                      />
+                                      <span className={adminStyles.minsLabel}>mins</span>
+                                    </div>
                                     <div className={adminStyles.editActions}>
                                       <Button size="sm" onClick={() => updateMatch(match.id)} variant="primary">
                                         <Lineicons icon={FloppyDisk1Outlined} size={14} />

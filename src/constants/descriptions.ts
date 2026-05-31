@@ -1,5 +1,5 @@
 export const DESCRIPTIONS: string[] = [
-  'This tournament is extra-terrestrial. 👽👾🛸.',
+  'This tournament is extra-terrestrial 👾',
   'Every additional minute is a magnificent chance to regret your match orders.',
   'Every additional minute is a brilliant chance to regret your match orders.',
   'Regret your match orders magnificently.',
@@ -194,10 +194,12 @@ export const DESCRIPTIONS: string[] = [
   'Sun Tzus Art of Not Finishing',
   'Somebody Flew Over The Match Report',
   'No Referee, Our Goal Should Not Count',
+  "You miss 100% of the shots you don't take. So don't take them.",
 ];
 
 export const TOURNAMENT_NAMES: string[] = [
   'Awesome Great Tournament 🤩',
+  'The Neverending Tournament',
   'Got some more of those... minutes?',
   "Friendly Till We're 90",
   'The Battle for Extra Minutes',
@@ -397,8 +399,12 @@ export const TOURNAMENT_NAMES: string[] = [
   'Just A Few Minutes More',
 
   'The Ministry Of Silly Match Orders',
-  'Nobody Expects Extra Time',
+  'Nobody Expected Extra Time',
   'The Knights Who Say Draw',
+  'Extra Time, She Said',
+  '1 minute, 2 minutes, 120 minutes',
+  '120 mins > 90 mins',
+  'My Minutes Are Bigger Than Your Minutes',
 
   'The Weekly Stamina Inspection',
   'The Department Of Draw Affairs',
