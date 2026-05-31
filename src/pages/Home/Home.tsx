@@ -12,15 +12,23 @@ interface Tournament {
   slug: string;
   created_at: string;
   is_private: boolean;
+  thumbnail_index?: number;
   rounds: {
     id: string;
     matches: {
       id: string;
       completed: boolean;
+      home_goals: number | null;
+      away_goals: number | null;
+      went_120: boolean;
+      home_team_id: string;
+      away_team_id: string;
     }[];
   }[];
   teams: {
     id: string;
+    name: string;
+    ht_team_id: number;
   }[];
   totalMatches?: number;
   completedMatches?: number;
@@ -28,70 +36,107 @@ interface Tournament {
   teamCount?: number;
 }
 
+interface TopTeam {
+  name: string;
+  ht_team_id: number;
+  achievements120min: number;
+}
+
+interface TopTournament {
+  name: string;
+  slug: string;
+  completedMatches: number;
+}
+
 export const Home: React.FC = () => {
   const navigate = useNavigate();
   const [activeTournaments, setActiveTournaments] = useState<Tournament[]>([]);
   const [openTournaments, setOpenTournaments] = useState<Tournament[]>([]);
+  const [topTeams, setTopTeams] = useState<TopTeam[]>([]);
+  const [topActiveTournaments, setTopActiveTournaments] = useState<TopTournament[]>([]);
 
   const fetchTournaments = useCallback(async () => {
     try {
-      const oneMonthAgo = new Date();
-      oneMonthAgo.setMonth(oneMonthAgo.getMonth() - 1);
-
       const { data: tournaments, error: tError } = await supabase
         .from('tournaments')
-        .select(
-          `
+        .select(`
           id, 
           name, 
           slug, 
           created_at,
           is_private,
+          thumbnail_index,
           rounds (
             id,
             matches (
               id,
-              completed
+              completed,
+              home_goals,
+              away_goals,
+              went_120,
+              home_team_id,
+              away_team_id
             )
           ),
           teams (
-            id
+            id,
+            name,
+            ht_team_id
           )
-        `,
-        )
-        .eq('is_private', false)
-        .gte('created_at', oneMonthAgo.toISOString());
+        `)
+        .eq('is_private', false);
 
       if (tError) throw tError;
 
       if (tournaments) {
         const active: Tournament[] = [];
         const open: Tournament[] = [];
+        const team120Stats: Record<number, { name: string; count: number }> = {};
 
-        (tournaments as unknown as Tournament[]).forEach((t) => {
-          const allMatches = t.rounds.flatMap((r) => r.matches);
+        (tournaments as any[]).forEach((t) => {
+          const allMatches = t.rounds.flatMap((r: any) => r.matches);
           const totalMatches = allMatches.length;
-          const completedMatches = allMatches.filter((m) => m.completed).length;
+          const completedMatches = allMatches.filter((m: any) => m.completed).length;
           const isClosed = totalMatches > 0 && totalMatches === completedMatches;
           const isGenerated = t.rounds.length > 0;
 
+          allMatches.forEach((m: any) => {
+            if (m.completed && m.went_120) {
+              const homeTeam = t.teams.find((team: any) => team.id === m.home_team_id);
+              const awayTeam = t.teams.find((team: any) => team.id === m.away_team_id);
+              
+              if (homeTeam && homeTeam.ht_team_id) {
+                if (!team120Stats[homeTeam.ht_team_id]) team120Stats[homeTeam.ht_team_id] = { name: homeTeam.name, count: 0 };
+                team120Stats[homeTeam.ht_team_id].count++;
+              }
+              if (awayTeam && awayTeam.ht_team_id) {
+                if (!team120Stats[awayTeam.ht_team_id]) team120Stats[awayTeam.ht_team_id] = { name: awayTeam.name, count: 0 };
+                team120Stats[awayTeam.ht_team_id].count++;
+              }
+            }
+          });
+
           if (isGenerated && !isClosed) {
-            active.push({
-              ...t,
-              totalMatches,
-              completedMatches,
-              activityScore: completedMatches,
-            });
+            active.push({ ...t, totalMatches, completedMatches, activityScore: completedMatches });
           } else if (!isGenerated) {
-            open.push({
-              ...t,
-              teamCount: t.teams.length,
-            });
+            open.push({ ...t, teamCount: t.teams.length });
           }
         });
 
         setActiveTournaments(active.sort((a, b) => (b.activityScore ?? 0) - (a.activityScore ?? 0)));
         setOpenTournaments(open.sort((a, b) => (b.teamCount ?? 0) - (a.teamCount ?? 0)));
+        
+        const topTeamsList = Object.entries(team120Stats)
+          .map(([id, data]) => ({ ht_team_id: parseInt(id), name: data.name, achievements120min: data.count }))
+          .sort((a, b) => b.achievements120min - a.achievements120min)
+          .slice(0, 10);
+        setTopTeams(topTeamsList);
+
+        const topActive = active
+          .map(t => ({ name: t.name, slug: t.slug, completedMatches: t.completedMatches ?? 0 }))
+          .sort((a, b) => b.completedMatches - a.completedMatches)
+          .slice(0, 10);
+        setTopActiveTournaments(topActive);
       }
     } catch (err) {
       console.error('Error fetching tournaments:', err);
@@ -99,10 +144,7 @@ export const Home: React.FC = () => {
   }, []);
 
   useEffect(() => {
-    const timer = setTimeout(() => {
-      fetchTournaments();
-    }, 0);
-    return () => clearTimeout(timer);
+    fetchTournaments();
   }, [fetchTournaments]);
 
   return (
@@ -121,70 +163,123 @@ export const Home: React.FC = () => {
           </Button>
         </section>
       </Card>
+      
       <p className={styles.subtitle}>
         <strong>HT-120min</strong> is a small community tool for organizing friendly tournaments and recurring friendly
         matches in Hattrick. The idea started in the tiny Guam 🇬🇺 based HFI community - we are just 13 teams and were
-        looking for a way to reliably organize regular non-international friendlies. In no time this grew into an idea
-        for a 120 min friendly tournament tool.
+        looking for a way to reliably organize regular non-international friendlies.
       </p>
 
-      {activeTournaments.length > 0 && (
-        <section className={styles.activeSection}>
-          <div className={styles.sectionHeader}>
-            <Activity className={styles.sectionIcon} size={24} />
-            <h2>Active Tournaments</h2>
-          </div>
-          <div className={styles.tournamentGrid}>
-            {activeTournaments.map((t) => (
-              <Link key={t.id} to={`/t/${t.slug}`} className={styles.tournamentLink}>
-                <Card variant="classic" className={styles.tournamentCard}>
-                  <div className={styles.tInfo}>
-                    <h3>{t.name}</h3>
-                    <div className={styles.tMeta}>
-                      <span title="Completed Matches">
-                        <Trophy size={14} /> {t.completedMatches} / {t.totalMatches} matches
-                      </span>
-                      <span title="Creation Date">
-                        <Calendar size={14} /> {new Date(t.created_at).toLocaleDateString()}
-                      </span>
-                    </div>
-                  </div>
-                  <ChevronRight className={styles.tArrow} size={20} />
-                </Card>
-              </Link>
-            ))}
-          </div>
-        </section>
-      )}
+      <div className={styles.mainGrid}>
+        <div className={styles.leftColumn}>
+          {activeTournaments.length > 0 && (
+            <section className={styles.activeSection}>
+              <div className={styles.sectionHeader}>
+                <Activity className={styles.sectionIcon} size={24} />
+                <h2>Active Tournaments</h2>
+              </div>
+              <div className={styles.tournamentGrid}>
+                {activeTournaments.map((t) => (
+                  <Link key={t.id} to={`/t/${t.slug}`} className={styles.tournamentLink}>
+                    <Card variant="classic" className={styles.tournamentCard} thumbnailIndex={t.thumbnail_index}>
+                      <div className={styles.tInfo}>
+                        <div className={styles.tTitleRow}>
+                          <h3 className={styles.tName}>{t.name}</h3>
+                          <ChevronRight className={styles.tArrow} size={18} />
+                        </div>
+                        <div className={styles.tMeta}>
+                          <span title="Completed Matches">
+                            <Trophy size={14} /> {t.completedMatches} / {t.totalMatches} matches
+                          </span>
+                          <span title="Creation Date">
+                            <Calendar size={14} /> {new Date(t.created_at).toLocaleDateString()}
+                          </span>
+                        </div>
+                        <div className={styles.tTeams}>
+                          {t.teams.slice(0, 6).map(team => (
+                            <span key={team.id} className={styles.teamChip}>{team.name}</span>
+                          ))}
+                          {t.teams.length > 6 && <span className={styles.teamChipMore}>+{t.teams.length - 6} more</span>}
+                        </div>
+                      </div>
+                    </Card>
+                  </Link>
+                ))}
+              </div>
+            </section>
+          )}
 
-      {openTournaments.length > 0 && (
-        <section className={styles.activeSection}>
-          <div className={styles.sectionHeader}>
-            <DoorOpen className={styles.sectionIcon} size={24} />
-            <h2>Open for Registration</h2>
-          </div>
-          <div className={styles.tournamentGrid}>
-            {openTournaments.map((t) => (
-              <Link key={t.id} to={`/t/${t.slug}`} className={styles.tournamentLink}>
-                <Card variant="classic" className={styles.tournamentCard}>
-                  <div className={styles.tInfo}>
-                    <h3>{t.name}</h3>
-                    <div className={styles.tMeta}>
-                      <span title="Registered Teams">
-                        <Users size={14} /> {t.teamCount} teams
-                      </span>
-                      <span title="Creation Date">
-                        <Calendar size={14} /> {new Date(t.created_at).toLocaleDateString()}
-                      </span>
+          {openTournaments.length > 0 && (
+            <section className={styles.activeSection}>
+              <div className={styles.sectionHeader}>
+                <DoorOpen className={styles.sectionIcon} size={24} />
+                <h2>Open for Registration</h2>
+              </div>
+              <div className={styles.tournamentGrid}>
+                {openTournaments.map((t) => (
+                  <Link key={t.id} to={`/t/${t.slug}`} className={styles.tournamentLink}>
+                    <Card variant="classic" className={styles.tournamentCard} thumbnailIndex={t.thumbnail_index}>
+                      <div className={styles.tInfo}>
+                        <div className={styles.tTitleRow}>
+                          <h3 className={styles.tName}>{t.name}</h3>
+                          <ChevronRight className={styles.tArrow} size={18} />
+                        </div>
+                        <div className={styles.tMeta}>
+                          <span title="Registered Teams">
+                            <Users size={14} /> {t.teamCount} teams
+                          </span>
+                          <span title="Creation Date">
+                            <Calendar size={14} /> {new Date(t.created_at).toLocaleDateString()}
+                          </span>
+                        </div>
+                        <div className={styles.tTeams}>
+                          {t.teams.slice(0, 6).map(team => (
+                            <span key={team.id} className={styles.teamChip}>{team.name}</span>
+                          ))}
+                          {t.teams.length > 6 && <span className={styles.teamChipMore}>+{t.teams.length - 6} more</span>}
+                        </div>
+                      </div>
+                    </Card>
+                  </Link>
+                ))}
+              </div>
+            </section>
+          )}
+        </div>
+
+        <aside className={styles.rightColumn}>
+          {topTeams.length > 0 && (
+            <Card title="Top 10 Teams (120m)" variant="classic" className={styles.statsCard}>
+              <ol className={styles.statsList}>
+                {topTeams.map((team, idx) => (
+                  <li key={team.ht_team_id}>
+                    <div className={styles.statItem}>
+                      <span className={styles.rank}>{idx + 1}.</span>
+                      <span className={styles.name}>{team.name}</span>
+                      <span className={styles.value}>{team.achievements120min}</span>
                     </div>
-                  </div>
-                  <ChevronRight className={styles.tArrow} size={20} />
-                </Card>
-              </Link>
-            ))}
-          </div>
-        </section>
-      )}
+                  </li>
+                ))}
+              </ol>
+            </Card>
+          )}
+
+          {topActiveTournaments.length > 0 && (
+            <Card title="Most Active" variant="classic" className={styles.statsCard}>
+              <ul className={styles.statsList}>
+                {topActiveTournaments.map((t) => (
+                  <li key={t.slug}>
+                    <div className={styles.statItem}>
+                      <Link to={`/t/${t.slug}`} className={styles.name}>{t.name}</Link>
+                      <span className={styles.value}>{t.completedMatches}</span>
+                    </div>
+                  </li>
+                ))}
+              </ul>
+            </Card>
+          )}
+        </aside>
+      </div>
 
       <div className={styles.features}>
         <Card className={styles.feature}>

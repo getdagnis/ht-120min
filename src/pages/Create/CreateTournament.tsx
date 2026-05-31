@@ -110,6 +110,7 @@ export const CreateTournament: React.FC = () => {
           admin_password: adminPassword,
           is_private: formData.is_private,
           description: showDescription ? formData.description : null,
+          thumbnail_index: Math.floor(Math.random() * 17) + 1,
         },
       ])
       .select()

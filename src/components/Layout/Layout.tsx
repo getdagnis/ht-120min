@@ -55,7 +55,7 @@ export const Layout: React.FC<LayoutProps> = ({ children }) => {
         <div className={styles.container}>
           {/* user written content: do not change */}
           <p>
-            © {new Date().getFullYear()} All rights... Who needs rights when you can have ice cream? Made by
+            © {new Date().getFullYear()}
             <a href="http://getdagnis.vercel.app" target="_blank">
               {' '}
               mr_bots a.k.a. Dagnis Skurbe 🇱🇻
@@ -68,6 +68,8 @@ export const Layout: React.FC<LayoutProps> = ({ children }) => {
             <a href="https://www.hattrick.org/goto.ashx?path=/Club/?TeamID=3220518" target="_blank">
               Guåhan Goddesses 🇬🇺
             </a>
+            <b />
+            <p>Not affiliated with Hattrick.org.</p>
           </p>
         </div>
       </footer>

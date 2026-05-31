@@ -107,6 +107,8 @@ a {
   color: var(--accent);
   text-decoration: none;
   transition: opacity 0.2s;
+  white-space: nowrap !important;
+
   &:hover {
     opacity: 0.8;
   }

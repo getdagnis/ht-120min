@@ -38,6 +38,7 @@ interface Tournament {
   is_private: boolean;
   description: string | null;
   show_description: boolean;
+  thumbnail_index?: number;
 }
 
 interface RoundWithMatches {
@@ -234,7 +235,7 @@ export const TournamentAdmin: React.FC = () => {
     } catch (error: unknown) {
       alert(error instanceof Error ? error.message : 'An error occurred');
     } finally {
-      setIsSavingTeam(false);
+      setIsUpdatingSettings(false);
     }
   };
 
@@ -384,19 +385,25 @@ export const TournamentAdmin: React.FC = () => {
     }
   };
 
-  const updateMatch = async (matchId: string) => {
+  const updateMatch = async (matchId: string, isScrap: boolean = false) => {
     if (!tournament) return;
     const data = matchData[matchId];
-    if (!data) return;
+    if (!data && !isScrap) return;
     const { error } = await supabase
       .from('matches')
       .update({
-        home_goals:
-          data.home_goals !== undefined && data.home_goals !== null ? parseInt(String(data.home_goals)) : null,
-        away_goals:
-          data.away_goals !== undefined && data.away_goals !== null ? parseInt(String(data.away_goals)) : null,
-        went_120: data.went_120,
-        completed: true,
+        home_goals: isScrap
+          ? null
+          : data.home_goals !== undefined && data.home_goals !== null
+            ? parseInt(String(data.home_goals))
+            : null,
+        away_goals: isScrap
+          ? null
+          : data.away_goals !== undefined && data.away_goals !== null
+            ? parseInt(String(data.away_goals))
+            : null,
+        went_120: isScrap ? false : data.went_120,
+        completed: isScrap ? false : true,
       })
       .eq('id', matchId);
 
@@ -436,6 +443,9 @@ export const TournamentAdmin: React.FC = () => {
 
   const isGenerated = rounds.length > 0;
   const publicUrl = `${window.location.origin}/t/${slug}`;
+
+  // Find the first round that is not fully completed
+  const currentRoundId = rounds.find((r) => r.matches.some((m) => !m.completed))?.id;
 
   return (
     <div className={styles.admin}>
@@ -771,6 +781,18 @@ export const TournamentAdmin: React.FC = () => {
                               <Button size="sm" onClick={() => updateMatch(match.id)} variant="primary">
                                 <Save size={14} />
                               </Button>
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                onClick={() => {
+                                  if (window.confirm('Clear result for this match?')) {
+                                    updateMatch(match.id, true);
+                                  }
+                                }}
+                                style={{ color: '#ff4444', borderColor: '#ff4444' }}
+                              >
+                                <Trash2 size={14} />
+                              </Button>
                               <Button size="sm" variant="secondary" onClick={() => setEditingMatch(null)}>
                                 <XCircle size={14} />
                               </Button>
@@ -786,7 +808,7 @@ export const TournamentAdmin: React.FC = () => {
                                 {match.went_120 && <span className={styles.badge}>120m</span>}
                                 <Button
                                   size="sm"
-                                  variant="outline"
+                                  variant="outlineWhite"
                                   onClick={() => {
                                     setEditingMatch(match.id);
                                     setMatchData({ ...matchData, [match.id]: match });
@@ -798,7 +820,7 @@ export const TournamentAdmin: React.FC = () => {
                             ) : (
                               <Button
                                 size="sm"
-                                variant="outline"
+                                variant={round.id === currentRoundId ? 'secondary' : 'outline'}
                                 onClick={() => {
                                   setEditingMatch(match.id);
                                   const resetMatch: Partial<MatchWithTeams> = {

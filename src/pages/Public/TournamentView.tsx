@@ -58,6 +58,7 @@ interface Tournament {
   is_private: boolean;
   description: string | null;
   show_description: boolean;
+  thumbnail_index?: number;
 }
 
 interface RoundWithMatches {
@@ -481,17 +482,23 @@ export const TournamentView: React.FC = () => {
     }
   };
 
-  const updateMatch = async (matchId: string) => {
+  const updateMatch = async (matchId: string, isScrap: boolean = false) => {
     const data = matchData[matchId];
     const { error } = await supabase
       .from('matches')
       .update({
-        home_goals:
-          data.home_goals !== undefined && data.home_goals !== null ? parseInt(String(data.home_goals)) : null,
-        away_goals:
-          data.away_goals !== undefined && data.away_goals !== null ? parseInt(String(data.away_goals)) : null,
-        went_120: data.went_120,
-        completed: true,
+        home_goals: isScrap
+          ? null
+          : data.home_goals !== undefined && data.home_goals !== null
+            ? parseInt(String(data.home_goals))
+            : null,
+        away_goals: isScrap
+          ? null
+          : data.away_goals !== undefined && data.away_goals !== null
+            ? parseInt(String(data.away_goals))
+            : null,
+        went_120: isScrap ? false : data.went_120,
+        completed: isScrap ? false : true,
       })
       .eq('id', matchId);
 
@@ -511,6 +518,9 @@ export const TournamentView: React.FC = () => {
   const isMobile = window.innerWidth <= 620;
   const publicUrl = `${window.location.origin}/t/${slug}`;
   const publicUrlDisplay = isMobile ? `.../t/${slug}` : publicUrl;
+
+  // Find the first round that is not fully completed
+  const currentRoundId = rounds.find((r) => r.matches.some((m) => !m.completed))?.id;
 
   return (
     <div className={styles.view}>
@@ -604,9 +614,9 @@ export const TournamentView: React.FC = () => {
               </p>
               {showScoringHelp && (
                 <p className={styles.helpContent}>
-                  Teams in this tournament compete to score more 120min training matches achieved than their opponents.
-                  Standings are ranked by <strong>120min achievements</strong> primarly. Only ties are settled by
-                  standard victory points, goal difference, and finally goals scored.
+                  Teams in this tournament compete to score more 120min training matches achieved than their
+                  opponents. Standings are ranked by <strong>120min achievements</strong> primarly. Only ties are
+                  settled by standard victory points, goal difference, and finally goals scored.
                 </p>
               )}
             </div>
@@ -645,8 +655,7 @@ export const TournamentView: React.FC = () => {
       </div>
 
       {activeTab === 'standings' && (
-        // stop deleting the cup emoji!
-        <Card title="🏆 Standings" variant="classic">
+        <Card title="🏆 Standings" variant="classic" headerThumbnailIndex={tournament.thumbnail_index}>
           <div className={styles.tableWrapper}>
             <table>
               <thead>
@@ -1104,6 +1113,18 @@ export const TournamentView: React.FC = () => {
                                       <Button size="sm" onClick={() => updateMatch(match.id)} variant="primary">
                                         <Save size={14} />
                                       </Button>
+                                      <Button
+                                        size="sm"
+                                        variant="outline"
+                                        onClick={() => {
+                                          if (window.confirm('Clear result for this match?')) {
+                                            updateMatch(match.id, true);
+                                          }
+                                        }}
+                                        style={{ color: '#ff4444', borderColor: '#ff4444' }}
+                                      >
+                                        <Trash2 size={14} />
+                                      </Button>
                                       <Button size="sm" variant="secondary" onClick={() => setEditingMatch(null)}>
                                         <XCircle size={14} />
                                       </Button>
@@ -1131,7 +1152,7 @@ export const TournamentView: React.FC = () => {
                                     ) : (
                                       <Button
                                         size="sm"
-                                        variant="outline"
+                                        variant={round.id === currentRoundId ? 'secondary' : 'outline'}
                                         onClick={() => {
                                           setEditingMatch(match.id);
                                           setMatchData({
