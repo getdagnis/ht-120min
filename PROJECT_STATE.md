@@ -13,7 +13,7 @@
 - `oauth_temp_sessions`: Temporary storage for CHPP OAuth flow.
 
 ## Completed Features
-- **Tournament Creation:** User can create a tournament with a slug and admin password. Random thumbnail assigned.
+- **Tournament Creation:** User can create a tournament with a slug and admin password. Random thumbnail and witty placeholder description assigned.
 - **Tournament View:**
   - **Standings:** Automatic calculation based on match results. Supports "120min" and "Points" modes. Header features a square tournament thumbnail.
   - **Fixtures:** View rounds and match results.

@@ -5,7 +5,14 @@ import { nanoid } from 'nanoid';
 import { Button } from '../../components/Button/Button';
 import { Card } from '../../components/Card/Card';
 import { Lineicons } from '@lineiconshq/react-lineicons';
-import { Trash3Outlined, PlusOutlined, ArrowRightOutlined, FloppyDisk1Outlined } from '@lineiconshq/free-icons';
+import {
+  Trash3Outlined,
+  PlusOutlined,
+  ArrowRightOutlined,
+  FloppyDisk1Outlined,
+  RefreshCircle1ClockwiseOutlined,
+} from '@lineiconshq/free-icons';
+import { DESCRIPTIONS, TOURNAMENT_NAMES } from '../../constants/descriptions';
 import styles from './CreateTournament.module.sass';
 
 interface LocalTeam {
@@ -14,23 +21,54 @@ interface LocalTeam {
   htId: string;
 }
 
+const getRandomDescription = () => DESCRIPTIONS[Math.floor(Math.random() * DESCRIPTIONS.length)];
+const getRandomName = () => TOURNAMENT_NAMES[Math.floor(Math.random() * TOURNAMENT_NAMES.length)];
+
 export const CreateTournament: React.FC = () => {
   const navigate = useNavigate();
   const [loading, setLoading] = useState(false);
   const [checkingSlug, setCheckingSlug] = useState(false);
   const [step, setStep] = useState<'info' | 'teams'>('info');
-  const [showDescription, setShowDescription] = useState(false);
-  const [formData, setFormData] = useState({
-    name: '',
-    slug: '',
-    scoring_mode: '120min',
-    is_private: false,
-    description: '',
+
+  // Initialize state from localStorage to avoid synchronous setState in useEffect
+  const [formData, setFormData] = useState(() => {
+    const saved = localStorage.getItem('create_tournament_progress');
+    if (saved) {
+      const { formData: savedForm } = JSON.parse(saved);
+      if (savedForm) return savedForm;
+    }
+    return {
+      name: '',
+      slug: '',
+      scoring_mode: '120min',
+      is_private: false,
+      description: getRandomDescription(),
+    };
   });
 
-  const [teams, setTeams] = useState<LocalTeam[]>([]);
+  const [teams, setTeams] = useState<LocalTeam[]>(() => {
+    const saved = localStorage.getItem('create_tournament_progress');
+    return saved ? JSON.parse(saved).teams || [] : [];
+  });
+
+  const [showDescription, setShowDescription] = useState(() => {
+    const saved = localStorage.getItem('create_tournament_progress');
+    return saved ? (JSON.parse(saved).showDescription ?? false) : false;
+  });
+
   const [newTeamId, setNewTeamId] = useState('');
   const [newTeamName, setNewTeamName] = useState('');
+
+  const saveProgress = (updatedForm = formData, updatedTeams = teams, updatedShowDesc = showDescription) => {
+    localStorage.setItem(
+      'create_tournament_progress',
+      JSON.stringify({
+        formData: updatedForm,
+        teams: updatedTeams,
+        showDescription: updatedShowDesc,
+      }),
+    );
+  };
 
   const handleNameChange = (name: string) => {
     const slug = name
@@ -41,6 +79,18 @@ export const CreateTournament: React.FC = () => {
       .replace(/-+/g, '-'); // Remove duplicate dashes
 
     setFormData({ ...formData, name, slug });
+  };
+
+  const regenerateDescription = () => {
+    const newDesc = getRandomDescription();
+    const updatedForm = { ...formData, description: newDesc };
+    setFormData(updatedForm);
+    saveProgress(updatedForm);
+  };
+
+  const regenerateName = () => {
+    const newName = getRandomName();
+    handleNameChange(newName);
   };
 
   const handleContinue = async (e: React.FormEvent) => {
@@ -59,7 +109,9 @@ export const CreateTournament: React.FC = () => {
       finalSlug = `${finalSlug}-${suffix}`;
     }
 
-    setFormData((prev) => ({ ...prev, slug: finalSlug }));
+    const updatedForm = { ...formData, slug: finalSlug };
+    setFormData(updatedForm);
+    saveProgress(updatedForm);
     setCheckingSlug(false);
     setStep('teams');
   };
@@ -73,21 +125,26 @@ export const CreateTournament: React.FC = () => {
       return;
     }
 
-    setTeams([
+    const updatedTeams = [
       ...teams,
       {
         tempId: nanoid(),
         name: newTeamName.trim(),
         htId: newTeamId.trim(),
       },
-    ]);
+    ];
+
+    setTeams(updatedTeams);
+    saveProgress(formData, updatedTeams);
 
     setNewTeamId('');
     setNewTeamName('');
   };
 
   const removeLocalTeam = (tempId: string) => {
-    setTeams(teams.filter((t) => t.tempId !== tempId));
+    const updatedTeams = teams.filter((t) => t.tempId !== tempId);
+    setTeams(updatedTeams);
+    saveProgress(formData, updatedTeams);
   };
 
   const handleFinalSubmit = async () => {
@@ -137,6 +194,7 @@ export const CreateTournament: React.FC = () => {
       alert('Tournament created but error adding teams: ' + teamsError.message);
     }
 
+    localStorage.removeItem('create_tournament_progress');
     localStorage.setItem(`admin_pw_${slug}`, adminPassword);
     navigate(`/t/${slug}`, { state: { isAdminInit: true } });
   };
@@ -149,7 +207,12 @@ export const CreateTournament: React.FC = () => {
           <img src="/create.png" alt="HT-120min" />
           <form onSubmit={handleContinue} className={styles.form}>
             <div className={styles.field}>
-              <label htmlFor="tournament_name">Tournament Name</label>
+              <div className={styles.labelRow}>
+                <label htmlFor="tournament_name">Tournament Name</label>
+                <button type="button" onClick={regenerateName} className={styles.iconBtn} title="Regenerate Name">
+                  <Lineicons icon={RefreshCircle1ClockwiseOutlined} size={20} />
+                </button>
+              </div>
               <input
                 id="tournament_name"
                 name="tournament_name"
@@ -201,18 +264,38 @@ export const CreateTournament: React.FC = () => {
             </div>
 
             <div className={styles.field}>
-              <label className={styles.checkboxLabel}>
-                <input
-                  type="checkbox"
-                  checked={showDescription}
-                  onChange={(e) => setShowDescription(e.target.checked)}
-                />
-                Add Description (optional)
-              </label>
+              <div className={styles.labelRow}>
+                <label className={styles.checkboxLabel}>
+                  <input
+                    type="checkbox"
+                    checked={showDescription}
+                    onChange={(e) => {
+                      const updated = e.target.checked;
+                      setShowDescription(updated);
+                      saveProgress(formData, teams, updated);
+                    }}
+                  />
+                  Add Description (optional)
+                </label>
+                {showDescription && (
+                  <button
+                    type="button"
+                    onClick={regenerateDescription}
+                    className={styles.iconBtn}
+                    title="Regenerate Description"
+                  >
+                    <Lineicons icon={RefreshCircle1ClockwiseOutlined} size={20} />
+                  </button>
+                )}
+              </div>
               {showDescription && (
                 <textarea
                   value={formData.description}
-                  onChange={(e) => setFormData({ ...formData, description: e.target.value })}
+                  onChange={(e) => {
+                    const updatedForm = { ...formData, description: e.target.value };
+                    setFormData(updatedForm);
+                    saveProgress(updatedForm);
+                  }}
                   placeholder="Tell participants about the tournament, rules, or prizes..."
                   rows={4}
                   className={styles.textarea}
@@ -251,6 +334,7 @@ export const CreateTournament: React.FC = () => {
               onInvalid={(e) => (e.target as HTMLInputElement).setCustomValidity('Please enter a valid Team ID')}
               onInput={(e) => (e.target as HTMLInputElement).setCustomValidity('')}
               required
+              autoFocus
             />
             <input
               name="team_name"
