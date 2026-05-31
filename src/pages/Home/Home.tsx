@@ -3,6 +3,7 @@ import { useNavigate, Link } from 'react-router-dom';
 import { supabase } from '../../lib/supabase';
 import { Button } from '../../components/Button/Button';
 import { Card } from '../../components/Card/Card';
+import { MottoWidget } from '../../components/MottoWidget/MottoWidget';
 import { Lineicons } from '@lineiconshq/react-lineicons';
 import {
   Trophy1Outlined,
@@ -11,6 +12,7 @@ import {
   ChevronLeftOutlined,
   EnterOutlined,
   StarFatOutlined,
+  FilePencilOutlined,
 } from '@lineiconshq/free-icons';
 import { TeamsIcon } from '../../components/Icons/TeamsIcon';
 import styles from './Home.module.sass';
@@ -182,11 +184,7 @@ export const Home: React.FC = () => {
           </section>
         </Card>
 
-        {/* <p className={styles.subtitle}>
-        <strong>HT-120min</strong> is a small community tool for organizing friendly tournaments and recurring friendly
-        matches in Hattrick. The idea started in the tiny Guam 🇬🇺 based HFI community - we are just 13 teams and were
-        looking for a way to reliably organize regular non-international friendlies.
-      </p> */}
+        <MottoWidget />
 
         <div className={styles.mainGrid}>
           <div className={styles.leftColumn}>
@@ -236,7 +234,7 @@ export const Home: React.FC = () => {
             {openTournaments.length > 0 && (
               <section className={styles.activeSection}>
                 <div className={styles.sectionHeader}>
-                  <Lineicons icon={EnterOutlined} className={styles.sectionIcon} size={24} />
+                  <Lineicons icon={FilePencilOutlined} className={styles.sectionIcon} size={24} />
                   <h2>Open for Registration</h2>
                 </div>
                 <div className={styles.tournamentGrid}>
