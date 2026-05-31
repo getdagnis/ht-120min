@@ -179,7 +179,7 @@ export const Home: React.FC = () => {
               At least for the first 90 minutes.
             </p>
             <Button size="lg" onClick={() => navigate('/create')} variant="secondary">
-              <Lineicons icon={Trophy1Outlined} size={18} /> Create Tournament
+              <Lineicons icon={Trophy1Outlined} size={18} /> Fancy a tournament?
             </Button>
           </section>
         </Card>
