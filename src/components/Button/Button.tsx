@@ -1,8 +1,8 @@
 import React from 'react';
-import styles from './Button.module.scss';
+import styles from './Button.module.sass';
 
 interface ButtonProps extends React.ButtonHTMLAttributes<HTMLButtonElement> {
-  variant?: 'primary' | 'secondary' | 'outline' | 'outlineWhite' | 'danger' | 'hero';
+  variant?: 'primary' | 'secondary' | 'outline' | 'outlineWhite' | 'danger' | 'hero' | 'zero';
   size?: 'xs' | 'sm' | 'md' | 'lg';
   fullWidth?: boolean;
 }

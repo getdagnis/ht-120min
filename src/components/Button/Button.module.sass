@@ -1,0 +1,112 @@
+.button
+  display: inline-flex
+  align-items: center
+  justify-content: center
+  border-radius: var(--radius-xs)
+  font-weight: 600
+  font-family: var(--mono)
+  transition: background-color 0.5s ease, color 0.5s ease
+  border: 1px solid transparent
+  gap: 0.75rem
+  box-sizing: border-box
+
+  &:disabled
+    background: var(--border)
+    cursor: not-allowed
+    transition: background-color 0.5s ease, color 0.5s ease
+
+.button > *
+  cursor: pointer
+
+.primary,
+.hero
+  background-color: var(--accent-bg)
+  color: white
+
+  &:hover:not(:disabled)
+    background-color: var(--accent)
+
+  &
+    background: var(--primary-bg)
+
+.secondary
+  background-color: #f0ebe4
+  border: 1px solid black
+  color: black
+  &:hover:not(:disabled)
+    background-color: var(--yellow)
+
+.outline
+  background-color: transparent
+  color: var(--accent-bg)
+  border: 1px solid var(--accent-bg)
+
+  &:hover:not(:disabled)
+    background-color: var(--accent-bg)
+    border-color: var(--accent-bg)
+    color: white
+
+  &White
+    color: #ffffffcc
+    background-color: transparent
+    border: 1px solid #ffffffcc
+    cursor: pointer
+
+    &:hover
+      background-color: white
+      color: black
+      border: 1px solid black
+      cursor: pointer
+
+  &:hover:not(:disabled)
+    background-color: rgba(255, 255, 255, 0.135)
+    color: #ffffff
+    border: 1px solid #ffffff
+
+.danger
+  background-color: #fee2e2
+  color: #dc2626
+  border: 1px solid #fecaca
+  &:hover:not(:disabled)
+    background-color: #fef2f2
+    color: #b91c1c
+
+.zero
+  border: 1px solid transparent
+  background-color: transparent
+  color: var(--text-h)
+  border-radius: var(--radius-xs)
+  display: flex
+  align-items: center
+  justify-content: center
+  min-width: 2.75rem
+  padding: 0.15em 0.75rem
+  box-sizing: border-box
+
+  &:hover
+    color: black
+    background-color: white
+    border: 1px solid black
+
+.xs
+  padding: 3px 6px
+  font-size: 0.3rem
+  gap: 0.25rem
+
+.sm
+  padding: 0.25rem 0.75rem
+  font-size: 0.95rem
+  gap: 0.35rem
+
+.md
+  padding: 0.6rem 0.8rem
+  font-size: 1rem
+  gap: 0.25rem
+
+.lg
+  padding: 12px 28px
+  font-size: 1.125rem
+
+.fullWidth
+  display: flex
+  width: 100%

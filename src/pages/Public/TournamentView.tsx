@@ -8,21 +8,21 @@ import { calculateStandings } from '../../utils/standings';
 import type { TeamStanding } from '../../utils/standings';
 import { generateRoundRobin, generateRecurring } from '../../utils/scheduler';
 import { TeamDisplay } from '../../components/TeamDisplay/TeamDisplay';
+import { Lineicons } from '@lineiconshq/react-lineicons';
 import {
-  LogIn,
-  ExternalLink,
-  Plus,
-  Trash2,
-  RefreshCw,
-  XCircle,
-  Play,
-  Save,
-  Copy,
-  ShieldCheck,
-  CircleHelp,
-} from 'lucide-react';
-import styles from './TournamentView.module.scss';
-import adminStyles from '../Admin/TournamentAdmin.module.scss';
+  EnterOutlined,
+  Link2AngularRightOutlined,
+  PlusOutlined,
+  Trash3Outlined,
+  RefreshCircle1ClockwiseOutlined,
+  XmarkCircleOutlined,
+  PlayOutlined,
+  FloppyDisk1Outlined,
+  Shield2CheckOutlined,
+  QuestionMarkCircleOutlined,
+} from '@lineiconshq/free-icons';
+import styles from './TournamentView.module.sass';
+import adminStyles from './TournamentAdmin.module.sass';
 
 interface MatchWithTeams {
   id: string;
@@ -530,7 +530,7 @@ export const TournamentView: React.FC = () => {
           <div className={styles.headerActions}>
             {!isGenerated && !isJoining && (
               <Button onClick={() => setIsJoining(true)} variant="primary">
-                <LogIn size={18} /> Join Tournament
+                <Lineicons icon={EnterOutlined} size={18} /> Join Tournament
               </Button>
             )}
           </div>
@@ -606,7 +606,8 @@ export const TournamentView: React.FC = () => {
             <div className={styles.scoringHelp}>
               <p>
                 <strong>120min training mode</strong>{' '}
-                <CircleHelp
+                <Lineicons
+                  icon={QuestionMarkCircleOutlined}
                   size={16}
                   className={styles.helpIcon}
                   onClick={() => setShowScoringHelp(!showScoringHelp)}
@@ -614,9 +615,9 @@ export const TournamentView: React.FC = () => {
               </p>
               {showScoringHelp && (
                 <p className={styles.helpContent}>
-                  Teams in this tournament compete to score more 120min training matches achieved than their
-                  opponents. Standings are ranked by <strong>120min achievements</strong> primarly. Only ties are
-                  settled by standard victory points, goal difference, and finally goals scored.
+                  Teams in this tournament compete to score more 120min training matches achieved than their opponents.
+                  Standings are ranked by <strong>120min achievements</strong> primarly. Only ties are settled by
+                  standard victory points, goal difference, and finally goals scored.
                 </p>
               )}
             </div>
@@ -624,7 +625,8 @@ export const TournamentView: React.FC = () => {
             <div className={styles.scoringHelp}>
               <p>
                 <strong>Victory points mode</strong>{' '}
-                <CircleHelp
+                <Lineicons
+                  icon={QuestionMarkCircleOutlined}
                   size={16}
                   className={styles.helpIcon}
                   onClick={() => setShowScoringHelp(!showScoringHelp)}
@@ -685,7 +687,7 @@ export const TournamentView: React.FC = () => {
                             rel="noopener noreferrer"
                             className={styles.htLink}
                           >
-                            <ExternalLink size={12} />
+                            <Lineicons icon={Link2AngularRightOutlined} size={12} />
                           </a>
                         </div>
                         {s.htTeamId && <span className={styles.teamId}>ID: {s.htTeamId}</span>}
@@ -772,7 +774,7 @@ export const TournamentView: React.FC = () => {
                   />
                 </div>
                 <Button type="submit" variant="primary">
-                  <ShieldCheck size={18} /> Authenticate
+                  <Lineicons icon={Shield2CheckOutlined} size={18} /> Authenticate
                 </Button>
               </form>
             </Card>
@@ -800,13 +802,13 @@ export const TournamentView: React.FC = () => {
                           </a>
                           <Button
                             size={isMobile ? 'xs' : 'sm'}
-                            variant="outline"
+                            variant="zero"
                             onClick={() => {
                               navigator.clipboard.writeText(publicUrl);
                               alert('URL copied!');
                             }}
                           >
-                            <Copy size={isMobile ? 10 : 14} />
+                            <Lineicons icon={FloppyDisk1Outlined} size={isMobile ? 16 : 22} />
                           </Button>
                         </div>
                         <div className={adminStyles.metaItem}>
@@ -819,13 +821,13 @@ export const TournamentView: React.FC = () => {
                           <code>{tournament.admin_password}</code>
                           <Button
                             size={isMobile ? 'xs' : 'sm'}
-                            variant="outline"
+                            variant="zero"
                             onClick={() => {
                               navigator.clipboard.writeText(tournament.admin_password);
                               alert("Password copied! Don't lose it.");
                             }}
                           >
-                            <Copy size={isMobile ? 10 : 14} />
+                            <Lineicons icon={FloppyDisk1Outlined} size={isMobile ? 16 : 22} />
                           </Button>
                         </div>
                       </div>
@@ -902,7 +904,7 @@ export const TournamentView: React.FC = () => {
                           'Saving...'
                         ) : (
                           <>
-                            <Plus size={18} /> Add Team
+                            <Lineicons icon={PlusOutlined} size={18} /> Add Team
                           </>
                         )}
                       </Button>
@@ -956,17 +958,21 @@ export const TournamentView: React.FC = () => {
                                           setReplacementName('');
                                         }}
                                       >
-                                        <XCircle size={16} />
+                                        <Lineicons icon={XmarkCircleOutlined} size={16} />
                                       </Button>
                                     </div>
                                   </div>
                                 ) : (
                                   <Button size="sm" variant="outline" onClick={() => setReplacingTeamId(team.id)}>
-                                    <RefreshCw size={14} /> Replace
+                                    <Lineicons icon={RefreshCircle1ClockwiseOutlined} size={14} /> Replace
                                   </Button>
                                 )}
                                 <button onClick={() => deleteTeam(team.id)} className={adminStyles.deleteBtn}>
-                                  {isGenerated ? <XCircle size={20} /> : <Trash2 size={20} />}
+                                  {isGenerated ? (
+                                    <Lineicons icon={XmarkCircleOutlined} size={20} />
+                                  ) : (
+                                    <Lineicons icon={Trash3Outlined} size={20} />
+                                  )}
                                 </button>
                               </>
                             )}
@@ -1014,14 +1020,14 @@ export const TournamentView: React.FC = () => {
                             onClick={generateSchedule}
                             disabled={teams.filter((t) => t.active).length < 2 || isGenerating}
                           >
-                            <Play size={18} /> Generate Schedule
+                            <Lineicons icon={PlayOutlined} size={18} /> Generate Schedule
                           </Button>
                           <p className="center w-100">Generating schedule will also close registration. </p>
                         </div>
                       ) : (
                         <div className={adminStyles.genActions}>
                           <Button variant="outline" onClick={regenerateSchedule} disabled={isGenerating} fullWidth>
-                            <RefreshCw size={18} />
+                            <Lineicons icon={RefreshCircle1ClockwiseOutlined} size={18} />
                             Reset and Re-open
                           </Button>
                           {scheduleMode === 'recurring' && (
@@ -1111,7 +1117,7 @@ export const TournamentView: React.FC = () => {
                                     </label>
                                     <div className={adminStyles.editActions}>
                                       <Button size="sm" onClick={() => updateMatch(match.id)} variant="primary">
-                                        <Save size={14} />
+                                        <Lineicons icon={FloppyDisk1Outlined} size={14} />
                                       </Button>
                                       <Button
                                         size="sm"
@@ -1123,10 +1129,10 @@ export const TournamentView: React.FC = () => {
                                         }}
                                         style={{ color: '#ff4444', borderColor: '#ff4444' }}
                                       >
-                                        <Trash2 size={14} />
+                                        <Lineicons icon={Trash3Outlined} size={14} />
                                       </Button>
                                       <Button size="sm" variant="secondary" onClick={() => setEditingMatch(null)}>
-                                        <XCircle size={14} />
+                                        <Lineicons icon={XmarkCircleOutlined} size={14} />
                                       </Button>
                                     </div>
                                   </div>

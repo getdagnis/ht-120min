@@ -1,8 +1,9 @@
 import React, { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { Trophy, Moon, Sun, Plus } from 'lucide-react';
+import { Lineicons } from '@lineiconshq/react-lineicons';
+import { Trophy1Outlined, MoonHalfRight5Outlined, Sun1Outlined, PlusOutlined } from '@lineiconshq/free-icons';
 import { Button } from '../Button/Button';
-import styles from './Layout.module.scss';
+import styles from './Layout.module.sass';
 
 interface LayoutProps {
   children: React.ReactNode;
@@ -31,25 +32,33 @@ export const Layout: React.FC<LayoutProps> = ({ children }) => {
         <div className={styles.container}>
           <div className={styles.headerContent}>
             <Link to="/" className={styles.logo}>
-              <Trophy className={styles.icon} size={28} />
+              <Lineicons icon={Trophy1Outlined} className={styles.icon} size={28} />
               <span>HT-120min</span>
             </Link>
 
             <div className={styles.actions}>
-              <button onClick={toggleTheme} className={styles.themeToggle} aria-label="Toggle theme">
-                {theme === 'dark' ? <Sun size={20} /> : <Moon size={20} />}
-              </button>
-              <Button size="sm" onClick={() => navigate('/create')} variant="primary">
-                <Plus size={18} /> <span className={styles.hideMobile}>CREATE TOURNAMENT</span>
+              <Button
+                size="sm"
+                onClick={toggleTheme}
+                className={styles.themeToggle}
+                aria-label="Toggle theme"
+                variant="zero"
+              >
+                {theme === 'dark' ? (
+                  <Lineicons icon={Sun1Outlined} size={20} />
+                ) : (
+                  <Lineicons icon={MoonHalfRight5Outlined} size={20} />
+                )}
+              </Button>
+              <Button size="sm" onClick={() => navigate('/create')} variant="zero">
+                <Lineicons icon={PlusOutlined} size={18} /> <span className={styles.hideMobile}>CREATE TOURNAMENT</span>
               </Button>
             </div>
           </div>
         </div>
       </header>
 
-      <main className={styles.main}>
-        <div className={styles.container}>{children}</div>
-      </main>
+      <main className={styles.main}>{children}</main>
 
       <footer className={styles.footer}>
         <div className={styles.container}>
@@ -69,8 +78,8 @@ export const Layout: React.FC<LayoutProps> = ({ children }) => {
               Guåhan Goddesses 🇬🇺
             </a>
             <b />
-            <p>Not affiliated with Hattrick.org.</p>
           </p>
+          <p>Not affiliated with Hattrick.org.</p>
         </div>
       </footer>
     </div>

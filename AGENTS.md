@@ -23,11 +23,23 @@ Current positioning:
 
 Not trying to become a general tournament platform.
 
----
+## Primary Users
+
+Typical organizer profile:
+
+- Long-time Hattrick player.
+- Volunteer organizer.
+- Not highly technical.
+- Often manages tournaments via forum posts and spreadsheets.
+- Usually knows all participating teams personally.
+
+Implication:
+
+Optimize for organizer efficiency, not participant customization.
 
 ## Current Stage
 
-Very early MVP.
+Early MVP before Beta.
 
 Priority:
 

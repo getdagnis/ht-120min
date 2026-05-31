@@ -1,0 +1,83 @@
+.main
+  padding: 0 0 2rem
+
+.wrapper
+  display: flex
+  flex-direction: column
+  min-height: 100vh
+
+.header
+  border-bottom: 0.1rem dotted var(--border)
+  padding: 0.5rem
+  background-color: var(--bg-transp)
+  backdrop-filter: blur(0.1rem)
+  position: fixed
+  width: 100vw
+  top: 0
+  left: 0
+  z-index: 100
+  transition: background-color 0.3s ease
+
+.container
+  width: 100%
+  max-width: 1000px
+  margin: 0 auto
+  box-sizing: border-box
+
+  @media (max-width: 620px)
+    padding: 0 0.5rem
+
+.footer .container
+  max-width: 760px
+
+.headerContent
+  display: flex
+  justify-content: space-between
+  align-items: center
+  max-width: 1000px
+  box-sizing: border-box
+  padding: 0 1.5rem 0 0.75rem
+
+  @media (max-width: 620px)
+    padding: 0
+
+.logo
+  display: flex
+  align-items: center
+  gap: 10px
+  font-size: 1.85rem
+  font-weight: 700
+  font-family: var(--heading)
+  color: var(--text-h)
+  text-decoration: none
+
+  &:hover
+    text-decoration: none
+    .icon
+      color: var(--text-h)
+
+.icon
+  color: var(--border)
+  transition: color 0.3s ease
+
+.actions
+  display: flex
+  align-items: center
+  gap: 1rem
+
+.themeToggle
+  background: transparent
+  display: flex
+  align-items: center
+
+.footer
+  border-top: 1px solid var(--border)
+  padding: 2rem 0
+  text-align: center
+  color: var(--text)
+  font-size: 0.875rem
+  opacity: 0.8
+
+.hideMobile
+  @media (max-width: 480px)
+    display: none

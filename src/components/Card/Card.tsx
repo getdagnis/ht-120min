@@ -1,6 +1,7 @@
 import React from 'react';
-import { ChevronDown, ChevronUp, ChevronRight } from 'lucide-react';
-import styles from './Card.module.scss';
+import { Lineicons } from '@lineiconshq/react-lineicons';
+import { ChevronDownOutlined, ChevronUpOutlined } from '@lineiconshq/free-icons';
+import styles from './Card.module.sass';
 
 interface CardProps {
   children: React.ReactNode;
@@ -47,7 +48,11 @@ export const Card: React.FC<CardProps> = ({
             </div>
             {collapsible && (
               <button className={styles.collapseBtn} type="button">
-                {isCollapsed ? <ChevronDown size={20} /> : <ChevronUp size={20} />}
+                {isCollapsed ? (
+                  <Lineicons icon={ChevronDownOutlined} size={20} />
+                ) : (
+                  <Lineicons icon={ChevronUpOutlined} size={20} />
+                )}
               </button>
             )}
           </div>

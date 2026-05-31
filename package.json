@@ -10,9 +10,10 @@
     "preview": "vite preview"
   },
   "dependencies": {
+    "@lineiconshq/free-icons": "^1.0.6",
+    "@lineiconshq/react-lineicons": "^1.0.5",
     "@supabase/supabase-js": "^2.106.2",
     "@vercel/node": "^5.8.8",
-    "lucide-react": "^1.17.0",
     "nanoid": "^5.1.11",
     "react": "^19.2.6",
     "react-dom": "^19.2.6",

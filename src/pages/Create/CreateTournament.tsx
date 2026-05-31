@@ -4,8 +4,9 @@ import { supabase } from '../../lib/supabase';
 import { nanoid } from 'nanoid';
 import { Button } from '../../components/Button/Button';
 import { Card } from '../../components/Card/Card';
-import { Trash2, Plus, ArrowRight, Save } from 'lucide-react';
-import styles from './CreateTournament.module.scss';
+import { Lineicons } from '@lineiconshq/react-lineicons';
+import { Trash3Outlined, PlusOutlined, ArrowRightOutlined, FloppyDisk1Outlined } from '@lineiconshq/free-icons';
+import styles from './CreateTournament.module.sass';
 
 interface LocalTeam {
   tempId: string;
@@ -156,13 +157,13 @@ export const CreateTournament: React.FC = () => {
                 required
                 value={formData.name}
                 onChange={(e) => handleNameChange(e.target.value)}
-                placeholder="e.g. Guam HFI Season 1 🇬🇺"
+                placeholder="e.g. Awesome Great Tournament S1 ⭐️"
                 autoFocus
               />
             </div>
 
             <div className={styles.field}>
-              <label htmlFor="tournament_slug">Custom URL Slug (used to access the tournament)</label>
+              <label htmlFor="tournament_slug">Unique URL Slug</label>
               <input
                 id="tournament_slug"
                 name="tournament_slug"
@@ -221,7 +222,7 @@ export const CreateTournament: React.FC = () => {
 
             <div className={styles.actions}>
               <Button type="submit" fullWidth disabled={checkingSlug} variant="secondary">
-                {checkingSlug ? 'Checking URL...' : 'Continue'} <ArrowRight size={18} />
+                {checkingSlug ? 'Checking URL...' : 'Continue'} <Lineicons icon={ArrowRightOutlined} size={18} />
               </Button>
             </div>
           </form>
@@ -260,8 +261,8 @@ export const CreateTournament: React.FC = () => {
               required
             />
           </div>
-          <Button type="submit" variant="secondary">
-            <Plus size={18} /> Add
+          <Button type="submit" variant="secondary" size="md">
+            <Lineicons icon={PlusOutlined} size={20} /> Add
           </Button>
         </form>
 
@@ -273,7 +274,7 @@ export const CreateTournament: React.FC = () => {
                 <span className={styles.id}>ID: {team.htId}</span>
               </div>
               <button onClick={() => removeLocalTeam(team.tempId)} className={styles.deleteBtn}>
-                <Trash2 size={18} />
+                <Lineicons icon={Trash3Outlined} size={18} />
               </button>
             </li>
           ))}
@@ -288,7 +289,7 @@ export const CreateTournament: React.FC = () => {
             onClick={handleFinalSubmit}
             disabled={teams.length < 2 || loading}
           >
-            <Save size={18} /> {loading ? 'Creating...' : 'Create Tournament'}
+            <Lineicons icon={FloppyDisk1Outlined} size={18} /> {loading ? 'Creating...' : 'Create Tournament'}
           </Button>
           <Button
             variant="outlineWhite"
