@@ -67,7 +67,7 @@ export const Layout: React.FC<LayoutProps> = ({ children }) => {
             © {new Date().getFullYear()}
             <a href="http://getdagnis.vercel.app" target="_blank">
               {' '}
-              mr_bots a.k.a. Dagnis Skurbe 🇱🇻
+              mr_bots a.k.a. getdagnis 🇱🇻
             </a>{' '}
             manager of{' '}
             <a href="https://www.hattrick.org/goto.ashx?path=/Club/?TeamID=681813" target="_blank">
