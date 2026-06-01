@@ -34,11 +34,14 @@ export function useRandomCycle<T>(items: T[], intervalMs: number): T {
   const [queue, setQueue] = useState<T[]>(() => shuffleWithoutImmediateRepeat(items));
   const [index, setIndex] = useState(0);
 
-  useEffect(() => {
-    // Reset if items array changes
+  // Track the previous items to detect changes and reset state during rendering
+  // This is the recommended pattern for "adjusting state when props change"
+  const [prevItems, setPrevItems] = useState(items);
+  if (items !== prevItems) {
+    setPrevItems(items);
     setQueue(shuffleWithoutImmediateRepeat(items));
     setIndex(0);
-  }, [items]);
+  }
 
   useEffect(() => {
     if (items.length === 0) return;

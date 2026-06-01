@@ -18,6 +18,7 @@ import {
   XmarkCircleOutlined,
   PlayOutlined,
   FloppyDisk1Outlined,
+  CopyAiOutlined,
   Shield2CheckOutlined,
   QuestionMarkCircleOutlined,
 } from '@lineiconshq/free-icons';
@@ -33,6 +34,7 @@ interface MatchWithTeams {
   away_goals: number | null;
   completed: boolean;
   went_120: boolean;
+  total_minutes: number;
   home_team: { name: string; ht_team_id: number; active: boolean; logo_url?: string; country_name?: string };
   away_team: { name: string; ht_team_id: number; active: boolean; logo_url?: string; country_name?: string };
 }
@@ -157,7 +159,7 @@ export const TournamentView: React.FC = () => {
         );
 
       if (teamsData) {
-        const matchesWithTeams = matchesData || [];
+        const matchesWithTeams = (matchesData || []) as MatchWithTeams[];
         const calculated = calculateStandings(
           teamsData.map((t) => ({
             id: t.id,
@@ -176,7 +178,7 @@ export const TournamentView: React.FC = () => {
             ...r,
             matches: matchesWithTeams.filter((m) => m.round_id === r.id),
           }));
-          setRounds(roundsWithMatches);
+          setRounds(roundsWithMatches as RoundWithMatches[]);
         }
       }
 
@@ -401,6 +403,7 @@ export const TournamentView: React.FC = () => {
             away_goals: null,
             completed: false,
             went_120: false,
+            total_minutes: 90,
             venue_type: m.venueType,
           }));
 
@@ -448,6 +451,7 @@ export const TournamentView: React.FC = () => {
             away_goals: null,
             completed: false,
             went_120: false,
+            total_minutes: 90,
             venue_type: m.venueType,
           }));
 
@@ -489,16 +493,16 @@ export const TournamentView: React.FC = () => {
       .update({
         home_goals: isScrap
           ? null
-          : data.home_goals !== undefined && data.home_goals !== null
+          : data && data.home_goals !== undefined && data.home_goals !== null
             ? parseInt(String(data.home_goals))
             : null,
         away_goals: isScrap
           ? null
-          : data.away_goals !== undefined && data.away_goals !== null
+          : data && data.away_goals !== undefined && data.away_goals !== null
             ? parseInt(String(data.away_goals))
             : null,
-        went_120: isScrap ? false : data.went_120,
-        total_minutes: isScrap ? 90 : (data.total_minutes || 90),
+        went_120: isScrap ? false : (data?.went_120 ?? false),
+        total_minutes: isScrap ? 90 : data?.total_minutes || 90,
         completed: isScrap ? false : true,
       })
       .eq('id', matchId);
@@ -617,8 +621,10 @@ export const TournamentView: React.FC = () => {
               {showScoringHelp && (
                 <p className={styles.helpContent}>
                   Teams in this tournament compete to score more 120min training matches achieved than their opponents.
-                  Standings are ranked by <strong>120min achievements</strong> primarly. Only ties are settled by
-                  standard victory points, goal difference, and finally goals scored.
+                  Standings are ranked by <strong>120min achievements</strong> primarily. Ties are settled by{' '}
+                  <strong>Total Minutes</strong> (more minutes = more training), then{' '}
+                  <strong>Smaller Goal Difference</strong> (less is more! the closer to a draw, the better), and finally{' '}
+                  <strong>Goals Scored</strong> (what could be better than draws with fireworks!).
                 </p>
               )}
             </div>
@@ -796,7 +802,7 @@ export const TournamentView: React.FC = () => {
                     required
                   />
                 </div>
-                <Button type="submit" variant="primary">
+                <Button type="submit" variant="primary" size="lg">
                   <Lineicons icon={Shield2CheckOutlined} size={18} /> Authenticate
                 </Button>
               </form>
@@ -825,13 +831,13 @@ export const TournamentView: React.FC = () => {
                           </a>
                           <Button
                             size={isMobile ? 'xs' : 'sm'}
-                            variant="zero"
+                            variant="outline"
                             onClick={() => {
                               navigator.clipboard.writeText(publicUrl);
                               alert('URL copied!');
                             }}
                           >
-                            <Lineicons icon={FloppyDisk1Outlined} size={isMobile ? 16 : 22} />
+                            <Lineicons icon={CopyAiOutlined} size={isMobile ? 10 : 14} />
                           </Button>
                         </div>
                         <div className={adminStyles.metaItem}>
@@ -844,13 +850,13 @@ export const TournamentView: React.FC = () => {
                           <code>{tournament.admin_password}</code>
                           <Button
                             size={isMobile ? 'xs' : 'sm'}
-                            variant="zero"
+                            variant="outline"
                             onClick={() => {
                               navigator.clipboard.writeText(tournament.admin_password);
                               alert("Password copied! Don't lose it.");
                             }}
                           >
-                            <Lineicons icon={FloppyDisk1Outlined} size={isMobile ? 16 : 22} />
+                            <Lineicons icon={CopyAiOutlined} size={10} />
                           </Button>
                         </div>
                       </div>
@@ -1132,7 +1138,9 @@ export const TournamentView: React.FC = () => {
                                             [match.id]: {
                                               ...(matchData[match.id] || match),
                                               went_120: e.target.checked,
-                                              total_minutes: e.target.checked ? 120 : (matchData[match.id]?.total_minutes || match.total_minutes || 90)
+                                              total_minutes: e.target.checked
+                                                ? 120
+                                                : (matchData[match.id]?.total_minutes ?? match.total_minutes ?? 90),
                                             },
                                           })
                                         }
@@ -1202,13 +1210,15 @@ export const TournamentView: React.FC = () => {
                                         variant={round.id === currentRoundId ? 'secondary' : 'outline'}
                                         onClick={() => {
                                           setEditingMatch(match.id);
+                                          const resetMatch: Partial<MatchWithTeams> = {
+                                            ...match,
+                                            home_goals: null,
+                                            away_goals: null,
+                                            total_minutes: 90,
+                                          };
                                           setMatchData({
                                             ...matchData,
-                                            [match.id]: {
-                                              ...match,
-                                              home_goals: null,
-                                              away_goals: null,
-                                            } as Partial<MatchWithTeams>,
+                                            [match.id]: resetMatch,
                                           });
                                         }}
                                       >
