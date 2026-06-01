@@ -197,7 +197,7 @@ export const CreateTournament: React.FC = () => {
 
     localStorage.removeItem('create_tournament_progress');
     localStorage.setItem(`admin_pw_${slug}`, adminPassword);
-    navigate(`/t/${slug}`, { state: { isAdminInit: true } });
+    navigate(`/t/${slug}`, { state: { isAdminInit: false } });
   };
 
   if (step === 'info') {

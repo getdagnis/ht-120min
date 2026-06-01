@@ -22,7 +22,7 @@ export const MottoWidget: React.FC<MottoWidgetProps> = ({
   return (
     <Card variant="classic" className={`${styles.mottoCard} ${className}`}>
       <div className={styles.mottoContent}>
-        <Lineicons icon={DoubleQuotesEnd1Outlined} size={20} className={styles.quoteIcon} />
+        <Lineicons icon={DoubleQuotesEnd1Outlined} size={32} className={styles.quoteIcon} />
         <p className={styles.mottoText}>{currentMotto}</p>
       </div>
     </Card>
