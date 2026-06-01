@@ -155,8 +155,9 @@ export const Home: React.FC = () => {
         setTopActiveTournaments(topActive);
       }
     } catch (err: unknown) {
-      console.error('Error fetching tournaments:', err);
+      console.error('Error fetching tournaments:', err instanceof Error ? err.message : 'Unknown error');
     }
+
   }, []);
 
   useEffect(() => {

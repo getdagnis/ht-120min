@@ -21,6 +21,7 @@ import {
   CopyAiOutlined,
   Shield2CheckOutlined,
   QuestionMarkCircleOutlined,
+  HandShakeOutlined,
 } from '@lineiconshq/free-icons';
 import { DESCRIPTIONS, TOURNAMENT_NAMES } from '../../constants/descriptions';
 import styles from './TournamentView.module.sass';
@@ -559,6 +560,38 @@ export const TournamentView: React.FC = () => {
         {isJoining && !isGenerated && (
           <div style={{ marginBottom: '2rem' }}>
             <Card variant="hero" title="Register Your Team">
+              <div style={{ marginBottom: '2rem', textAlign: 'center' }}>
+                <Button
+                  size="lg"
+                  variant="primary"
+                  onClick={() => (window.location.href = `/api/auth/init?tournament_id=${tournament?.id}`)}
+                >
+                  <Lineicons icon={HandShakeOutlined} size={20} /> Connect with Hattrick
+                </Button>
+                <p style={{ marginTop: '1rem', fontSize: '0.9rem', opacity: 0.8 }}>
+                  Recommended: Authorize HT-120min to fetch your team data and results automatically.
+                </p>
+              </div>
+
+              <div style={{ position: 'relative', textAlign: 'center', margin: '2rem 0' }}>
+                <hr style={{ border: '0', borderTop: '1px solid var(--border)', opacity: '0.3' }} />
+                <span
+                  style={{
+                    position: 'absolute',
+                    top: '50%',
+                    left: '50%',
+                    transform: 'translate(-50%, -50%)',
+                    background: 'var(--beige)',
+                    padding: '0 1rem',
+                    fontSize: '0.8rem',
+                    color: 'var(--text)',
+                    opacity: '0.7',
+                  }}
+                >
+                  OR MANUAL ENTRY
+                </span>
+              </div>
+
               <form onSubmit={(e) => addTeam(e, true)} className={styles.joinForm}>
                 <div className={styles.joinInputs}>
                   <input

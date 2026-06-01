@@ -1,7 +1,7 @@
 export const DESCRIPTIONS: string[] = [
   'This tournament is extra-terrestrial 👾',
   'Every additional minute is a magnificent chance to regret your match orders.',
-  'Every additional minute is a brilliant chance to regret your match orders.',
+  'Every additional minute is a prolonged chance to regret your match orders.',
   'Regret your match orders magnificently.',
   'World class ability to not finish on time.',
   'Extra-terrestrial opportunity to not finish on time.',

@@ -9,40 +9,47 @@
 ## Database Schema (Supabase)
 
 - `tournaments`: id, slug, name, admin_password, scoring_mode (120min/points), is_private, description, show_description, thumbnail_index.
-- `teams`: id, tournament_id, name, ht_team_id, active, replacement_for_team_id, hattrick_user_id, oauth_token, logo_url, country_name, joined_via_oauth.
+- `teams`: id, tournament_id, name, ht_team_id, active, replacement_for_team_id, hattrick_user_id, oauth_token, oauth_token_secret, logo_url, country_name, joined_via_oauth.
+- `marketplace_posts`: id, team_name, ht_team_id, message, status, created_at.
 - `rounds`: tournament_id, round_number.
-- `matches`: round_id, home_team_id, away_team_id, home_goals, away_goals, went_120, completed, venue_type.
+- `matches`: round_id, home_team_id, away_team_id, home_goals, away_goals, went_120, completed, total_minutes, venue_type.
 - `oauth_temp_sessions`: Temporary storage for CHPP OAuth flow.
 
 ## Completed Features
 
-- **Tournament Creation:** User can create a tournament with a slug and admin password. Random thumbnail and witty placeholder description assigned.
+- **Tournament Creation:** 
+  - Progressive local storage saving (never lose a draft).
+  - Random witty placeholder descriptions.
+  - Random name generator from curated list.
+  - Random thumbnail assignment.
 - **Tournament View:**
-  - **Standings:** Automatic calculation based on match results. Supports "120min" and "Points" modes. Header features a square tournament thumbnail.
+  - **Standings:** Automatic calculation with custom 120min logic (Achievements > Total Mins > Smaller GD > Goals Scored).
   - **Fixtures:** View rounds and match results.
-  - **Join:** Manual team registration (HT Team ID + Name).
-- **Admin Dashboard:**
-  - **Settings:** Toggle privacy, update description.
-  - **Team Management:** Add teams, deactivate teams, replace teams (during tournament).
-  - **Scheduling:** Round Robin (Single/Double) and Recurring (continuous) modes.
-  - **Result Entry:** Manual goal entry and 120min flag toggle. Scrap result feature added.
-- **UI/UX:**
-  - **Home Page:** Two-column layout (2:1). Tournament cards with thumbnails, team chips, and navigation arrows. Top 10 lists for teams and active tournaments.
-  - **Iconography:** Migrated from Lucide to LineIcons.
+  - **Join:** Manual team registration or **automated Hattrick OAuth join**.
+- **Admin Dashboard (Integrated into View):**
+  - **Settings:** Toggle privacy, update name/description with witty randomizers.
+  - **Team Management:** Add/Replace teams with standardized validation.
+  - **Scheduling:** Round Robin and Recurring modes.
+  - **Result Entry:** Goal entry, 120min toggle, and explicit **Total Minutes** tracking.
+- **Engagment Widgets:**
+  - **Motto of the Moment:** Infinite "random without repetition" rotation of community wisdom.
+  - **Friendly Marketplace:** Global board for teams looking for 120min match partners.
+- **CHPP Integration:**
+  - Secure OAuth 1.0a handshake implemented via Vercel Functions.
+  - HMAC-SHA1 signature utility for all API requests.
 
 ## Pending Tasks
 
-- [ ] **CHPP Validation:** Test OAuth flow once credentials are available.
-- [ ] **CHPP Automation:** Automatic match result retrieval.
-- [ ] **UI/UX Polish:** Improve mobile responsiveness and nostalgic aesthetic.
-- [ ] **Error Handling:** More robust error states for Supabase queries.
+- [ ] **Phase 2:** Implement team selector after OAuth (choose from manager's real teams).
+- [ ] **Phase 3:** Automated result sync (fetch matchdetails from CHPP).
+- [ ] **Phase 4:** Enrich UI with real Hattrick logos and country flags.
+- [ ] **Engagement:** Realtime tournament chat using Supabase.
 
 ## Recent Decisions
 
-- Migrated to LineIcons for a cleaner, consistent visual style.
-- Use 100% height thumbnails for tournament cards on the home page.
-- Implement square thumbnails on the far left of table headers.
-- Support "Scrap Result" in admin to allow clearing accidental entries.
+- **120min Logic:** Victory points are discarded. Ranking prioritizes training achievements and total minutes. Draws are encouraged via "Smaller GD" tie-breaker.
+- **Iconography:** Standardized on `@lineiconshq/free-icons` (Outlined variants).
+- **Backend Architecture:** Secrets are restricted to server-side `/api` functions to ensure CHPP security compliance.
 
 ## OAuth Guide by Hattrick
 
