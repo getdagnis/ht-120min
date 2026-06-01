@@ -201,11 +201,13 @@ export const DESCRIPTIONS: string[] = [
   "You miss 100% of the shots you don't take. So don't take them.",
   'Shiny happy extra minutes holding hands.',
   'Smells like team spirit/',
-  "Don't cry for me normal friendlies...",
+  "Don't cry for me regular friendlies...",
+  'You can now regret setting the wrong match orders fro 30 mins longer!',
 ];
 
 export const TOURNAMENT_NAMES: string[] = [
   'Awesome Great Tournament 🤩',
+  "The Minutes Hungry Gentlemen's Club 🤵‍♂️",
   'The Neverending Tournament',
   'Got some more of those... minutes?',
   "Friendly Till We're 90",
@@ -331,7 +333,7 @@ export const TOURNAMENT_NAMES: string[] = [
   'Training Comes First',
   'The Expected Thirty',
   'My Sweet 120th',
-  "The Last Friendly You'll Take Personally.",
+  "The Last Friendly You'll Take Personally",
   'Extra Time and Other Bad Decisions',
   'The Weekly Celebration of Stamina',
   'One More Match Engine Miracle',

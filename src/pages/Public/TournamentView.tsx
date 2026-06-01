@@ -15,7 +15,7 @@ import {
   PlusOutlined,
   Trash3Outlined,
   RefreshCircle1ClockwiseOutlined,
-  XmarkCircleOutlined,
+  XmarkOutlined,
   PlayOutlined,
   FloppyDisk1Outlined,
   CopyAiOutlined,
@@ -639,7 +639,7 @@ export const TournamentView: React.FC = () => {
                 <strong>120min training mode</strong>{' '}
                 <Lineicons
                   icon={QuestionMarkCircleOutlined}
-                  size={16}
+                  size={19}
                   className={styles.helpIcon}
                   onClick={() => setShowScoringHelp(!showScoringHelp)}
                 />
@@ -966,7 +966,9 @@ export const TournamentView: React.FC = () => {
                           onChange={(e) => setNewTeamId(e.target.value.replace(/\D/g, ''))}
                           minLength={6}
                           maxLength={9}
-                          onInvalid={(e) => (e.target as HTMLInputElement).setCustomValidity('Please enter a valid Team ID')}
+                          onInvalid={(e) =>
+                            (e.target as HTMLInputElement).setCustomValidity('Please enter a valid Team ID')
+                          }
                           onInput={(e) => (e.target as HTMLInputElement).setCustomValidity('')}
                           required
                         />
@@ -1038,22 +1040,34 @@ export const TournamentView: React.FC = () => {
                                           setReplacementName('');
                                         }}
                                       >
-                                        <Lineicons icon={XmarkCircleOutlined} size={16} />
+                                        <Lineicons icon={XmarkOutlined} size={16} />
                                       </Button>
                                     </div>
                                   </div>
                                 ) : (
-                                  <Button size="sm" variant="outline" onClick={() => setReplacingTeamId(team.id)}>
+                                  <Button size="sm" variant="zero" onClick={() => setReplacingTeamId(team.id)}>
                                     <Lineicons icon={RefreshCircle1ClockwiseOutlined} size={14} /> Replace
                                   </Button>
                                 )}
-                                <button onClick={() => deleteTeam(team.id)} className={adminStyles.deleteBtn}>
-                                  {isGenerated ? (
-                                    <Lineicons icon={XmarkCircleOutlined} size={20} />
-                                  ) : (
-                                    <Lineicons icon={Trash3Outlined} size={20} />
-                                  )}
-                                </button>
+                                {isGenerated ? (
+                                  <Button
+                                    size="sm"
+                                    variant="outline"
+                                    onClick={() => deleteTeam(team.id)}
+                                    title="Deactivate Team"
+                                  >
+                                    <Lineicons icon={XmarkOutlined} size={16} />
+                                  </Button>
+                                ) : (
+                                  <Button
+                                    size="sm"
+                                    variant="danger"
+                                    onClick={() => deleteTeam(team.id)}
+                                    title="Delete Team"
+                                  >
+                                    <Lineicons icon={Trash3Outlined} size={16} />
+                                  </Button>
+                                )}
                               </>
                             )}
                           </div>
@@ -1181,6 +1195,7 @@ export const TournamentView: React.FC = () => {
                                     </div>
                                     <label className={adminStyles.went120}>
                                       <input
+                                        title="120min game achieved"
                                         type="checkbox"
                                         checked={matchData[match.id]?.went_120 ?? match.went_120 ?? false}
                                         onChange={(e) =>
@@ -1213,26 +1228,38 @@ export const TournamentView: React.FC = () => {
                                         }
                                         placeholder="90"
                                       />
-                                      <span className={adminStyles.minsLabel}>mins</span>
+                                      <span title="Total match minutes" className={adminStyles.minsLabel}>
+                                        mins
+                                      </span>
                                     </div>
                                     <div className={adminStyles.editActions}>
-                                      <Button size="sm" onClick={() => updateMatch(match.id)} variant="primary">
-                                        <Lineicons icon={FloppyDisk1Outlined} size={14} />
+                                      <Button
+                                        size="xs"
+                                        onClick={() => updateMatch(match.id)}
+                                        variant="primary"
+                                        title="Save"
+                                      >
+                                        <Lineicons icon={FloppyDisk1Outlined} size={18} />
                                       </Button>
                                       <Button
-                                        size="sm"
-                                        variant="outline"
+                                        size="xs"
+                                        variant="danger"
+                                        title="Clear result"
                                         onClick={() => {
                                           if (window.confirm('Clear result for this match?')) {
                                             updateMatch(match.id, true);
                                           }
                                         }}
-                                        style={{ color: '#ff4444', borderColor: '#ff4444' }}
                                       >
-                                        <Lineicons icon={Trash3Outlined} size={14} />
+                                        <Lineicons icon={Trash3Outlined} size={16} />
                                       </Button>
-                                      <Button size="sm" variant="secondary" onClick={() => setEditingMatch(null)}>
-                                        <Lineicons icon={XmarkCircleOutlined} size={14} />
+                                      <Button
+                                        size="xs"
+                                        variant="outline"
+                                        onClick={() => setEditingMatch(null)}
+                                        title="Cancel"
+                                      >
+                                        <Lineicons icon={XmarkOutlined} size={18} />
                                       </Button>
                                     </div>
                                   </div>
@@ -1245,8 +1272,8 @@ export const TournamentView: React.FC = () => {
                                         </span>
                                         {match.went_120 && <span className={adminStyles.badge}>120min</span>}
                                         <Button
-                                          size="sm"
-                                          variant="outlineWhite"
+                                          size="xs"
+                                          variant="outline"
                                           onClick={() => {
                                             setEditingMatch(match.id);
                                             setMatchData({ ...matchData, [match.id]: match });
@@ -1257,7 +1284,7 @@ export const TournamentView: React.FC = () => {
                                       </div>
                                     ) : (
                                       <Button
-                                        size="sm"
+                                        size="xs"
                                         variant={round.id === currentRoundId ? 'secondary' : 'outline'}
                                         onClick={() => {
                                           setEditingMatch(match.id);
