@@ -65,7 +65,7 @@ Frontend:
 
 - Vite
 - React (v19)
-- TypeScript
+- TypeScript (no-explicit-any enabled)
 - React Router (v7)
 
 Backend:

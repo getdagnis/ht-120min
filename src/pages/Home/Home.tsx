@@ -13,6 +13,7 @@ import {
   ChevronLeftOutlined,
   StarFatOutlined,
   FilePencilOutlined,
+  EnterOutlined,
 } from '@lineiconshq/free-icons';
 import { TeamsIcon } from '../../components/Icons/TeamsIcon';
 import styles from './Home.module.sass';
@@ -157,7 +158,6 @@ export const Home: React.FC = () => {
     } catch (err: unknown) {
       console.error('Error fetching tournaments:', err instanceof Error ? err.message : 'Unknown error');
     }
-
   }, []);
 
   useEffect(() => {
@@ -179,9 +179,14 @@ export const Home: React.FC = () => {
               tables. No paper hustle. No awkward conferences silence. You can now be 100% friendly with your HT pals.
               At least for the first 90 minutes.
             </p>
-            <Button size="lg" onClick={() => navigate('/create')} variant="secondary">
-              <Lineicons icon={Trophy1Outlined} size={18} /> Fancy a tournament?
-            </Button>
+            <div className={styles.ctaBtns}>
+              <Button size="lg" onClick={() => navigate('/create')} variant="secondary">
+                <Lineicons icon={Trophy1Outlined} size={18} /> Create Tournament
+              </Button>
+              <Button size="lg" onClick={() => navigate('/create')} variant="secondary">
+                <Lineicons icon={EnterOutlined} size={18} /> Join Tournament
+              </Button>
+            </div>
           </section>
         </Card>
 

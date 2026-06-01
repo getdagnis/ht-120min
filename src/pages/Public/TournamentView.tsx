@@ -681,9 +681,9 @@ export const TournamentView: React.FC = () => {
                 <p className={styles.helpContent}>
                   Teams in this tournament compete to score more 120min training matches achieved than their opponents.
                   Standings are ranked by <strong>120min achievements</strong> primarily. Ties are settled by{' '}
-                  <strong>Total Minutes</strong> (more minutes = more training), then{' '}
-                  <strong>Smaller Goal Difference</strong> (less is more! the closer to a draw, the better), and finally{' '}
-                  <strong>Goals Scored</strong> (what could be better than draws with fireworks!).
+                  <strong>Total Minutes</strong> (means more training minutes achieved), then{' '}
+                  <strong>Smaller Goal Difference</strong> (here closer means better), and finally{' '}
+                  <strong>Goals Scored</strong> (means draws with fireworks).
                 </p>
               )}
             </div>

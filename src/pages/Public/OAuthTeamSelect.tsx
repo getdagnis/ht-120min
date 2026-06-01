@@ -2,9 +2,8 @@ import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { supabase } from '../../lib/supabase';
 import { Card } from '../../components/Card/Card';
-import { Button } from '../../components/Button/Button';
 import { Lineicons } from '@lineiconshq/react-lineicons';
-import { Trophy1Outlined, ChevronRightOutlined } from '@lineiconshq/free-icons';
+import { Trophy1Outlined, ChevronLeftOutlined } from '@lineiconshq/free-icons';
 
 interface ChppTeamOption {
   teamId: number;
@@ -14,12 +13,20 @@ interface ChppTeamOption {
   regionName?: string;
 }
 
+interface PendingJoinData {
+  id: string;
+  tournament_id: string;
+  manager_name: string;
+  selection_token: string;
+  teams_json: ChppTeamOption[];
+}
+
 export const OAuthTeamSelect: React.FC = () => {
   const { token } = useParams<{ token: string }>();
   const navigate = useNavigate();
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
-  const [pendingData, setPendingData] = useState<any>(null);
+  const [pendingData, setPendingData] = useState<PendingJoinData | null>(null);
 
   useEffect(() => {
     const fetchPending = async () => {
@@ -59,8 +66,8 @@ export const OAuthTeamSelect: React.FC = () => {
       if (!response.ok) throw new Error(result.error || 'Failed to complete join');
 
       navigate(`/t/${result.slug}`);
-    } catch (err: any) {
-      alert(err.message);
+    } catch (err) {
+      alert(err instanceof Error ? err.message : 'An unknown error occurred');
       setSubmitting(false);
     }
   };
@@ -71,11 +78,11 @@ export const OAuthTeamSelect: React.FC = () => {
     <div style={{ maxWidth: '40rem', margin: '0 auto', padding: '2rem 1rem' }}>
       <Card variant="hero" title="Choose Your Team">
         <p style={{ marginBottom: '2rem', textAlign: 'center', opacity: 0.9 }}>
-          Welcome, <strong>{pendingData.manager_name}</strong>! Which team should join the tournament?
+          Welcome, <strong>{pendingData?.manager_name}</strong>! Which team should join the tournament?
         </p>
 
         <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-          {pendingData.teams_json.map((team: ChppTeamOption) => (
+          {pendingData?.teams_json.map((team: ChppTeamOption) => (
             <div
               key={team.teamId}
               onClick={() => !submitting && handleSelect(team)}
@@ -103,7 +110,7 @@ export const OAuthTeamSelect: React.FC = () => {
                   </div>
                 </div>
               </div>
-              <Lineicons icon={ChevronRightOutlined} size={20} />
+              <Lineicons icon={ChevronLeftOutlined} size={20} className="r-180" />
             </div>
           ))}
         </div>
