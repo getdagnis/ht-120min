@@ -3,12 +3,7 @@ import { supabase } from '../../lib/supabase';
 import { Button } from '../Button/Button';
 import { Card } from '../Card/Card';
 import { Lineicons } from '@lineiconshq/react-lineicons';
-import {
-  HandShakeOutlined,
-  PlusOutlined,
-  XmarkCircleOutlined,
-  EnterOutlined,
-} from '@lineiconshq/free-icons';
+import { HandShakeOutlined, PlusOutlined, XmarkCircleOutlined, EnterOutlined } from '@lineiconshq/free-icons';
 import styles from './FriendlyMarketplace.module.sass';
 
 interface MarketplacePost {
@@ -76,7 +71,10 @@ export const FriendlyMarketplace: React.FC<FriendlyMarketplaceProps> = ({ classN
   };
 
   useEffect(() => {
-    fetchMarketplace();
+    const timer = setTimeout(() => {
+      fetchMarketplace();
+    }, 0);
+    return () => clearTimeout(timer);
   }, [fetchMarketplace]);
 
   return (
@@ -139,10 +137,7 @@ export const FriendlyMarketplace: React.FC<FriendlyMarketplaceProps> = ({ classN
                   size="xs"
                   variant="outline"
                   onClick={() =>
-                    window.open(
-                      `https://www.hattrick.org/goto.ashx?path=/Club/?TeamID=${post.ht_team_id}`,
-                      '_blank',
-                    )
+                    window.open(`https://www.hattrick.org/goto.ashx?path=/Club/?TeamID=${post.ht_team_id}`, '_blank')
                   }
                 >
                   Apply <Lineicons icon={EnterOutlined} size={12} />
