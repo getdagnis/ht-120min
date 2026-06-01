@@ -311,7 +311,7 @@ export const Home: React.FC = () => {
                 </ul>
               </Card>
             )}
-            <FriendlyMarketplace style={{ marginTop: '2rem' }} />
+            <FriendlyMarketplace className={styles.marketplaceWrapper} />
           </aside>
         </div>
 
