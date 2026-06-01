@@ -4,6 +4,7 @@ import { supabase } from '../../lib/supabase';
 import { Button } from '../../components/Button/Button';
 import { Card } from '../../components/Card/Card';
 import { MottoWidget } from '../../components/MottoWidget/MottoWidget';
+import { FriendlyMarketplace } from '../../components/FriendlyMarketplace/FriendlyMarketplace';
 import { Lineicons } from '@lineiconshq/react-lineicons';
 import {
   Trophy1Outlined,
@@ -153,7 +154,7 @@ export const Home: React.FC = () => {
           .slice(0, 10);
         setTopActiveTournaments(topActive);
       }
-    } catch (err) {
+    } catch (err: unknown) {
       console.error('Error fetching tournaments:', err);
     }
   }, []);
@@ -310,6 +311,7 @@ export const Home: React.FC = () => {
                 </ul>
               </Card>
             )}
+            <FriendlyMarketplace style={{ marginTop: '2rem' }} />
           </aside>
         </div>
 

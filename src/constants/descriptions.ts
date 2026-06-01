@@ -60,7 +60,7 @@ export const DESCRIPTIONS: string[] = [
   'Where every minute counts, but some count more than others.',
   'Here is to Hattrick, to football, to beer and to 30 extra minutes of all that.',
   'Here is to Hattrick, to football, to beer and to 30 extra minutes of all that.',
-  'Only a few things in life are good enough to fight for extra 30 minutes.',
+  'Only a few things in life are good enough to keep fighting for extra 30 minutes.',
   'Winning is disastrous. Not scoring is divine.',
   'Winning is disastrous. Not scoring is divine.',
   'May your stamina be supernatural and your midfield weak.',
@@ -89,7 +89,7 @@ export const DESCRIPTIONS: string[] = [
   "Good luck, have fun, and don't forget to miss your shots.",
   'We want some extra.',
   'This placeholder description is here because nobody wanted to write a real one.',
-  'The greatest tournament system from those in this exact browser tab.',
+  'The greatest tournament system in this exact browser tab.',
   'We like our minutes like we like our food. Hot and tasty.',
   'The finest collection of minute addicts.',
   'The finest collection of minute addicts.',
@@ -199,8 +199,8 @@ export const DESCRIPTIONS: string[] = [
   'Somebody Flew Over The Match Report',
   'No Referee, Our Goal Should Not Count',
   "You miss 100% of the shots you don't take. So don't take them.",
-  'Shiny happy extra minutes',
-  'Smells like team spirit',
+  'Shiny happy extra minutes holding hands.',
+  'Smells like team spirit/',
   "Don't cry for me normal friendlies...",
 ];
 

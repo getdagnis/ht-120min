@@ -22,6 +22,7 @@ import {
   Shield2CheckOutlined,
   QuestionMarkCircleOutlined,
 } from '@lineiconshq/free-icons';
+import { DESCRIPTIONS, TOURNAMENT_NAMES } from '../../constants/descriptions';
 import styles from './TournamentView.module.sass';
 import adminStyles from './TournamentAdmin.module.sass';
 
@@ -96,6 +97,7 @@ export const TournamentView: React.FC = () => {
   const [replacementName, setReplacementName] = useState('');
 
   // Tournament settings states
+  const [editName, setEditName] = useState('');
   const [editIsPrivate, setEditIsPrivate] = useState(false);
   const [showEditDescription, setShowEditDescription] = useState(false);
   const [editDescription, setEditDescription] = useState('');
@@ -121,11 +123,23 @@ export const TournamentView: React.FC = () => {
   const [isAddingDescription, setIsAddingDescription] = useState(false);
   const [quickDescription, setQuickDescription] = useState('');
 
+  const regenerateName = () => {
+    const randomName = TOURNAMENT_NAMES[Math.floor(Math.random() * TOURNAMENT_NAMES.length)];
+    setEditName(randomName);
+  };
+
+  const regenerateDescription = (isQuick: boolean) => {
+    const randomDesc = DESCRIPTIONS[Math.floor(Math.random() * DESCRIPTIONS.length)];
+    if (isQuick) setQuickDescription(randomDesc);
+    else setEditDescription(randomDesc);
+  };
+
   const fetchData = useCallback(async () => {
     const { data: tournamentData } = await supabase.from('tournaments').select('*').eq('slug', slug).single();
 
     if (tournamentData) {
       setTournament(tournamentData);
+      setEditName(tournamentData.name);
       setEditIsPrivate(tournamentData.is_private);
       setShowEditDescription(tournamentData.show_description);
       setEditDescription(tournamentData.description || '');
@@ -230,6 +244,7 @@ export const TournamentView: React.FC = () => {
       const { error } = await supabase
         .from('tournaments')
         .update({
+          name: editName,
           is_private: editIsPrivate,
           show_description: showEditDescription,
           description: editDescription,
@@ -547,10 +562,14 @@ export const TournamentView: React.FC = () => {
               <form onSubmit={(e) => addTeam(e, true)} className={styles.joinForm}>
                 <div className={styles.joinInputs}>
                   <input
-                    type="number"
+                    type="text"
                     placeholder="HT Team ID"
                     value={joinTeamId}
-                    onChange={(e) => setJoinTeamId(e.target.value)}
+                    onChange={(e) => setJoinTeamId(e.target.value.replace(/\D/g, ''))}
+                    minLength={6}
+                    maxLength={9}
+                    onInvalid={(e) => (e.target as HTMLInputElement).setCustomValidity('Please enter a valid Team ID')}
+                    onInput={(e) => (e.target as HTMLInputElement).setCustomValidity('')}
                     required
                   />
                   <input
@@ -583,6 +602,12 @@ export const TournamentView: React.FC = () => {
 
           {isAddingDescription && (
             <div className={styles.quickAddDesc}>
+              <div className={adminStyles.labelRow} style={{ marginBottom: '0.5rem' }}>
+                <label>Add Description</label>
+                <button type="button" onClick={() => regenerateDescription(true)} className={adminStyles.iconBtn}>
+                  <Lineicons icon={RefreshCircle1ClockwiseOutlined} size={16} />
+                </button>
+              </div>
               <textarea
                 value={quickDescription}
                 onChange={(e) => setQuickDescription(e.target.value)}
@@ -590,6 +615,7 @@ export const TournamentView: React.FC = () => {
                 rows={3}
                 autoFocus
               />
+
               <div className={styles.quickAddActions}>
                 <Button size="sm" variant="primary" onClick={handleQuickDescriptionAdd} disabled={isUpdatingSettings}>
                   {isUpdatingSettings ? 'Adding...' : 'Add'}
@@ -819,6 +845,16 @@ export const TournamentView: React.FC = () => {
                     onToggleCollapse={() => setIsSettingsCollapsed(!isSettingsCollapsed)}
                   >
                     <div className={adminStyles.settingsGroup} style={{ marginBottom: '1.5rem' }}>
+                      <div className={adminStyles.field} style={{ marginBottom: '1.5rem' }}>
+                        <div className={adminStyles.labelRow}>
+                          <label>Tournament Name</label>
+                          <button type="button" onClick={regenerateName} className={adminStyles.iconBtn}>
+                            <Lineicons icon={RefreshCircle1ClockwiseOutlined} size={16} />
+                          </button>
+                        </div>
+                        <input type="text" value={editName} onChange={(e) => setEditName(e.target.value)} />
+                      </div>
+
                       <div className={adminStyles.meta}>
                         <div className={adminStyles.metaItem}>
                           {!isMobile ? (
@@ -872,14 +908,25 @@ export const TournamentView: React.FC = () => {
                       </div>
 
                       <div className={adminStyles.checkboxField}>
-                        <label className={adminStyles.checkboxLabel}>
-                          <input
-                            type="checkbox"
-                            checked={showEditDescription}
-                            onChange={(e) => setShowEditDescription(e.target.checked)}
-                          />
-                          Show Description
-                        </label>
+                        <div className={adminStyles.labelRow}>
+                          <label className={adminStyles.checkboxLabel}>
+                            <input
+                              type="checkbox"
+                              checked={showEditDescription}
+                              onChange={(e) => setShowEditDescription(e.target.checked)}
+                            />
+                            Show Description
+                          </label>
+                          {showEditDescription && (
+                            <button
+                              type="button"
+                              onClick={() => regenerateDescription(false)}
+                              className={adminStyles.iconBtn}
+                            >
+                              <Lineicons icon={RefreshCircle1ClockwiseOutlined} size={16} />
+                            </button>
+                          )}
+                        </div>
                       </div>
 
                       {showEditDescription && (
@@ -913,10 +960,14 @@ export const TournamentView: React.FC = () => {
                       <div className={adminStyles.inputGroup}>
                         <input
                           name="team_ht_id"
-                          type="number"
+                          type="text"
                           placeholder="HT Team ID"
                           value={newTeamId}
-                          onChange={(e) => setNewTeamId(e.target.value)}
+                          onChange={(e) => setNewTeamId(e.target.value.replace(/\D/g, ''))}
+                          minLength={6}
+                          maxLength={9}
+                          onInvalid={(e) => (e.target as HTMLInputElement).setCustomValidity('Please enter a valid Team ID')}
+                          onInput={(e) => (e.target as HTMLInputElement).setCustomValidity('')}
                           required
                         />
                         <input
