@@ -1,0 +1,195 @@
+<?xml version="1.0" encoding="utf-8"?>
+<HattrickData>
+  <FileName>teamdetails.xml</FileName>
+  <Version>3.9</Version>
+  <UserID>8777402</UserID>
+  <FetchedDate>2026-06-01 13:22:17</FetchedDate>
+  <User>
+    <UserID>8777402</UserID>
+    <Language>
+      <LanguageID>4</LanguageID>
+      <LanguageName>Italiano</LanguageName>
+    </Language>
+    <SupporterTier>gold</SupporterTier>
+    <Loginname>mr_bots</Loginname>
+    <Name>HIDDEN</Name>
+    <ICQ></ICQ>
+    <SignupDate>2024-01-15 10:39:58</SignupDate>
+    <ActivationDate>2024-01-15 10:40:00</ActivationDate>
+    <LastLoginDate>2026-06-01 13:11:21</LastLoginDate>
+    <HasManagerLicense>True</HasManagerLicense>
+    <NationalTeams />
+  </User>
+  <Teams>
+    <Team>
+      <TeamID>681813</TeamID>
+      <TeamName>This bot team is a bot</TeamName>
+      <ShortTeamName>Bots</ShortTeamName>
+      <IsPrimaryClub>True</IsPrimaryClub>
+      <FoundedDate>2024-01-15 10:40:00</FoundedDate>
+      <IsDeactivated>False</IsDeactivated>
+      <GenderID>1</GenderID>
+      <LeagueSystemID>1</LeagueSystemID>
+      <Arena>
+        <ArenaID>681813</ArenaID>
+        <ArenaName>House of Bots</ArenaName>
+      </Arena>
+      <League>
+        <LeagueID>53</LeagueID>
+        <LeagueName>Latvija</LeagueName>
+      </League>
+      <Country>
+        <CountryID>48</CountryID>
+        <CountryName>Latvija</CountryName>
+      </Country>
+      <Region>
+        <RegionID>1956</RegionID>
+        <RegionName>Talsi</RegionName>
+      </Region>
+      <Trainer>
+        <PlayerID>490703986</PlayerID>
+      </Trainer>
+      <HomePage>https://getdagnis.vercel.app</HomePage>
+      <DressURI>//res.hattrick.org/kits/34/334/3339/3338122/matchKitSmall.png</DressURI>
+      <DressAlternateURI>//res.hattrick.org/kits/34/334/3339/3338899/matchKitSmall.png</DressAlternateURI>
+      <LeagueLevelUnit>
+        <LeagueLevelUnitID>14183</LeagueLevelUnitID>
+        <LeagueLevelUnitName>IV.35</LeagueLevelUnitName>
+        <LeagueLevel>4</LeagueLevel>
+      </LeagueLevelUnit>
+      <BotStatus>
+        <IsBot>False</IsBot>
+      </BotStatus>
+      <Cup>
+        <StillInCup>False</StillInCup>
+      </Cup>
+      <PowerRating>
+        <GlobalRanking>30136</GlobalRanking>
+        <LeagueRanking>222</LeagueRanking>
+        <RegionRanking>9</RegionRanking>
+        <PowerRating>967</PowerRating>
+      </PowerRating>
+      <FriendlyTeamID>419267</FriendlyTeamID>
+      <NumberOfVictories>0</NumberOfVictories>
+      <NumberOfUndefeated>0</NumberOfUndefeated>
+      <TeamRank>230</TeamRank>
+      <Fanclub>
+        <FanclubID>687334</FanclubID>
+        <FanclubName>The Bot Gang</FanclubName>
+        <FanclubSize>2579</FanclubSize>
+      </Fanclub>
+      <LogoURL>https://res.hattrick.org/teamlogo/7/69/682/681813/639157891758572481.png</LogoURL>
+      <Guestbook>
+        <NumberOfGuestbookItems>0</NumberOfGuestbookItems>
+      </Guestbook>
+      <PressAnnouncement>
+        <Subject>This team is a bot</Subject>
+        <Body>This team does not have a human manager. It has been a bot since 15.01.2024.</Body>
+        <SendDate>2024-01-15 11:53:00</SendDate>
+      </PressAnnouncement>
+      <TeamColors>
+        <BackgroundColor>ffffff</BackgroundColor>
+        <Color>6B6B6B</Color>
+      </TeamColors>
+      <YouthTeamID>3095502</YouthTeamID>
+      <YouthTeamName>The MiniBots</YouthTeamName>
+      <NumberOfVisits>1</NumberOfVisits>
+      <TrophyList>
+        <Trophy>
+          <TrophyTypeId>17</TrophyTypeId>
+          <TrophySeason>78</TrophySeason>
+          <LeagueLevel>5</LeagueLevel>
+          <LeagueLevelUnitId>28447</LeagueLevelUnitId>
+          <LeagueLevelUnitName>V.2</LeagueLevelUnitName>
+          <GainedDate>2026-03-20 23:22:00</GainedDate>
+          <ImageUrl>/App_Themes/Standard/Images/Trophies/v.png</ImageUrl>
+          <CupLeagueLevel></CupLeagueLevel>
+          <CupLevel></CupLevel>
+          <CupLevelIndex></CupLevelIndex>
+        </Trophy>
+        <Trophy>
+          <TrophyTypeId>103</TrophyTypeId>
+          <TrophySeason>74</TrophySeason>
+          <LeagueLevel>97</LeagueLevel>
+          <LeagueLevelUnitId>3686841</LeagueLevelUnitId>
+          <LeagueLevelUnitName>5</LeagueLevelUnitName>
+          <GainedDate>2024-12-06 15:33:00</GainedDate>
+          <CupLeagueLevel></CupLeagueLevel>
+          <CupLevel></CupLevel>
+          <CupLevelIndex></CupLevelIndex>
+        </Trophy>
+      </TrophyList>
+      <PossibleToChallengeMidweek>False</PossibleToChallengeMidweek>
+      <PossibleToChallengeWeekend>False</PossibleToChallengeWeekend>
+    </Team>
+    <Team>
+      <TeamID>3220518</TeamID>
+      <TeamName>Guåhan Goddesses</TeamName>
+      <ShortTeamName>Goddesses</ShortTeamName>
+      <IsPrimaryClub>False</IsPrimaryClub>
+      <FoundedDate>2026-03-30 11:32:00</FoundedDate>
+      <IsDeactivated>False</IsDeactivated>
+      <GenderID>2</GenderID>
+      <LeagueSystemID>2</LeagueSystemID>
+      <Arena>
+        <ArenaID>3217261</ArenaID>
+        <ArenaName>Hagåtña Chocolate House</ArenaName>
+      </Arena>
+      <League>
+        <LeagueID>3000</LeagueID>
+        <LeagueName>Hattrick Femme International</LeagueName>
+      </League>
+      <Country>
+        <CountryID>179</CountryID>
+        <CountryName>Guam</CountryName>
+      </Country>
+      <Region>
+        <RegionID>2779</RegionID>
+        <RegionName>Tamuning </RegionName>
+      </Region>
+      <Trainer>
+        <PlayerID>503300504</PlayerID>
+      </Trainer>
+      <HomePage></HomePage>
+      <DressURI>//res.hattrick.org/kits/34/335/3343/3342273/matchKitSmall.png</DressURI>
+      <DressAlternateURI>//res.hattrick.org/kits/34/335/3343/3342274/matchKitSmall.png</DressAlternateURI>
+      <LeagueLevelUnit>
+        <LeagueLevelUnitID>272682</LeagueLevelUnitID>
+        <LeagueLevelUnitName>VII.1026</LeagueLevelUnitName>
+        <LeagueLevel>7</LeagueLevel>
+      </LeagueLevelUnit>
+      <BotStatus>
+        <IsBot>False</IsBot>
+      </BotStatus>
+      <Cup>
+        <StillInCup>False</StillInCup>
+      </Cup>
+      <PowerRating>
+        <GlobalRanking>0</GlobalRanking>
+        <LeagueRanking>0</LeagueRanking>
+        <RegionRanking>0</RegionRanking>
+        <PowerRating>0</PowerRating>
+      </PowerRating>
+      <FriendlyTeamID>3228544</FriendlyTeamID>
+      <NumberOfVictories>1</NumberOfVictories>
+      <NumberOfUndefeated>5</NumberOfUndefeated>
+      <TeamRank>10073</TeamRank>
+      <Fanclub>
+        <FanclubID>709224</FanclubID>
+        <FanclubName>Puti tai Nobio </FanclubName>
+        <FanclubSize>673</FanclubSize>
+      </Fanclub>
+      <LogoURL>https://res.hattrick.org/teamlogo/33/323/3221/3220518/639153040575595115.png</LogoURL>
+      <Guestbook>
+        <NumberOfGuestbookItems>0</NumberOfGuestbookItems>
+      </Guestbook>
+      <TeamColors />
+      <YouthTeamID>3254987</YouthTeamID>
+      <YouthTeamName>Guardians of Guåhan</YouthTeamName>
+      <NumberOfVisits>2</NumberOfVisits>
+      <TrophyList />
+      <PossibleToChallengeMidweek>False</PossibleToChallengeMidweek>
+      <PossibleToChallengeWeekend>False</PossibleToChallengeWeekend>
+    </Team>
+  </Teams>
+</HattrickData>
