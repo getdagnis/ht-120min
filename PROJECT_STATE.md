@@ -17,7 +17,7 @@
 
 ## Completed Features
 
-- **Tournament Creation:** 
+- **Tournament Creation:**
   - Progressive local storage saving (never lose a draft).
   - Random witty placeholder descriptions.
   - Random name generator from curated list.

@@ -22,18 +22,25 @@ export function generateSignature(
   consumerSecret: string,
   tokenSecret = '',
 ): string {
-  const baseString = [
-    method.toUpperCase(),
-    rfc3986(url),
-    rfc3986(
-      Object.keys(params)
-        .sort()
-        .map((key) => `${rfc3986(key)}=${rfc3986(params[key])}`)
-        .join('&'),
-    ),
-  ].join('&');
+  const parameterString = Object.keys(params)
+    .sort()
+    .map((key) => `${rfc3986(key)}=${rfc3986(params[key])}`)
+    .join('&');
+
+  const baseString = [method.toUpperCase(), rfc3986(url), rfc3986(parameterString)].join('&');
 
   const signingKey = `${rfc3986(consumerSecret)}&${rfc3986(tokenSecret)}`;
+
+  if (process.env.NODE_ENV !== 'production') {
+    // DIAGNOSTIC LOGGING (avoid leaking secrets in prod logs)
+    console.log('--- OAUTH SIGNATURE DEBUG ---');
+    console.log('METHOD:', method);
+    console.log('URL:', url);
+    console.log('PARAMS:', params);
+    console.log('BASE STRING:', baseString);
+    console.log('SIGNING KEY:', signingKey);
+    console.log('-----------------------------');
+  }
 
   return crypto.createHmac('sha1', signingKey).update(baseString).digest('base64');
 }
@@ -63,7 +70,7 @@ export function getAuthHeader(
   const signature = generateSignature(method, url, oauthParams, consumerSecret, tokenSecret);
   oauthParams.oauth_signature = signature;
 
-  // Header should only contain oauth_ parameters for maximum compatibility
+  // Header should only contain oauth_ parameters
   return (
     'OAuth ' +
     Object.keys(oauthParams)

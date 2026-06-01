@@ -1,18 +1,9 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
-import { createClient } from '@supabase/supabase-js';
 import { getAuthHeader } from '../../src/utils/chpp-auth';
-
-// Helper to get supabase client safely in serverless functions
-const getSupabase = () => {
-  const url = process.env.VITE_SUPABASE_URL || process.env.SUPABASE_URL;
-  const key =
-    process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.VITE_SUPABASE_PUBLISHABLE_KEY || process.env.SUPABASE_ANON_KEY;
-
-  if (!url || !key) {
-    throw new Error(`Supabase configuration missing. URL: ${!!url}, Key: ${!!key}`);
-  }
-  return createClient(url, key);
-};
+import { parseManagerCompendiumXml } from '../../src/utils/chpp-xml';
+import crypto from 'crypto';
+import { getSupabase } from '../_lib/supabase';
+import { registerOAuthTeam } from '../_lib/chpp-register';
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   const { oauth_token, oauth_verifier } = req.query;
@@ -80,7 +71,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
     // 3. Fetch Manager Details to get User ID and Team ID
     const chppUrl = 'https://chpp.hattrick.org/chppxml.ashx';
-    const chppParams = { file: 'manager' };
+    const chppParams = { file: 'managercompendium' };
     const chppHeader = getAuthHeader(
       'GET',
       chppUrl,
@@ -91,36 +82,27 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       accessTokenSecret,
     );
 
-    const chppRes = await fetch(`${chppUrl}?file=manager`, {
+    const chppRes = await fetch(`${chppUrl}?file=managercompendium`, {
       headers: { Authorization: chppHeader },
     });
 
     const managerXml = await chppRes.text();
-    console.log('Manager XML Length:', managerXml.length);
-    if (managerXml.length < 500) {
-      console.log('Raw XML Response:', managerXml);
+
+    if (!chppRes.ok) {
+      if (process.env.NODE_ENV !== 'production') {
+        console.log('🚨 CHPP status:', chppRes.status);
+        console.log('🚨 CHPP headers:', Object.fromEntries(chppRes.headers.entries()));
+      }
+      return res.status(chppRes.status).json({ error: 'Failed to fetch managercompendium', details: managerXml });
     }
 
-    // Improved XML parsing with case-insensitivity and CDATA awareness
-    const userIdMatch = managerXml.match(/<UserId>(\d+)<\/UserId>/i) || managerXml.match(/<UserID>(\d+)<\/UserID>/i);
-    const loginNameMatch = managerXml.match(/<Loginname>(?:<!\[CDATA\[)?(.*?)(?:\]\]>)?<\/Loginname>/i);
+    console.log(managerXml);
 
-    // Find the first <Team> block inside <Teams>
-    const teamBlockMatch = managerXml.match(/<Team>([\s\S]*?)<\/Team>/i);
-    const teamXml = teamBlockMatch ? teamBlockMatch[1] : '';
+    const parsed = parseManagerCompendiumXml(managerXml);
+    const { hattrickUserId, managerName, teams } = parsed;
 
-    const teamIdMatch = teamXml.match(/<TeamId>(\d+)<\/TeamId>/i) || teamXml.match(/<TeamID>(\d+)<\/TeamID>/i);
-    const teamNameMatch = teamXml.match(/<TeamName>(?:<!\[CDATA\[)?(.*?)(?:\]\]>)?<\/TeamName>/i);
-
-    const hattrick_user_id = userIdMatch ? parseInt(userIdMatch[1]) : null;
-    const manager_name = loginNameMatch ? loginNameMatch[1] : 'Unknown';
-    const ht_team_id = teamIdMatch ? parseInt(teamIdMatch[1]) : null;
-    const ht_team_name = teamNameMatch ? teamNameMatch[1] : 'Unknown';
-
-    console.log('Parsed CHPP Data:', { hattrick_user_id, manager_name, ht_team_id, ht_team_name });
-
-    if (!ht_team_id) {
-      console.error('FAILED TO PARSE TEAM ID. Check XML structure.');
+    if (!teams.length) {
+      return res.status(500).json({ error: 'No teams found in managercompendium response' });
     }
 
     // 4. Upsert Team into Supabase
@@ -130,31 +112,42 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       .eq('id', session.tournament_id)
       .single();
 
-    const { error: tError } = await supabase.from('teams').upsert(
-      {
-        tournament_id: session.tournament_id,
-        ht_team_id,
-        name: ht_team_name, // Default name to HT Team Name
-        ht_team_name,
-        manager_name,
-        hattrick_user_id,
-        oauth_token: accessToken,
-        oauth_token_secret: accessTokenSecret,
-        joined_via_oauth: true,
-        active: true,
-      },
-      { onConflict: 'tournament_id, ht_team_id' },
-    );
+    if (teams.length === 1) {
+      await registerOAuthTeam(supabase, {
+        tournamentId: session.tournament_id,
+        team: teams[0],
+        managerName,
+        hattrickUserId,
+        accessToken,
+        accessTokenSecret,
+      });
 
-    if (tError) {
-      console.error('Team Upsert Error:', tError);
+      // 5. Cleanup
+      await supabase.from('oauth_temp_sessions').delete().eq('oauth_token', oauth_token);
+
+      // Redirect back to tournament
+      return res.redirect(`/t/${tournament?.slug}`);
+    }
+
+    const selectionToken = crypto.randomBytes(16).toString('hex');
+    const { error } = await supabase.from('oauth_pending_joins').insert({
+      selection_token: selectionToken,
+      tournament_id: session.tournament_id,
+      access_token: accessToken,
+      access_token_secret: accessTokenSecret,
+      hattrick_user_id: hattrickUserId,
+      manager_name: managerName,
+      teams_json: teams,
+    });
+
+    if (error) {
+      return res.status(500).json({ error: 'Failed to store pending OAuth join', details: error.message });
     }
 
     // 5. Cleanup
     await supabase.from('oauth_temp_sessions').delete().eq('oauth_token', oauth_token);
 
-    // Redirect back to tournament
-    return res.redirect(`/t/${tournament?.slug}`);
+    return res.redirect(`/oauth/select/${selectionToken}`);
   } catch (error: unknown) {
     console.error('Auth Callback Handler Error:', error);
     return res.status(500).json({ error: error instanceof Error ? error.message : 'An unknown error occurred' });
