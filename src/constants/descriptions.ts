@@ -90,7 +90,7 @@ export const DESCRIPTIONS: string[] = [
   'We want some extra.',
   'This placeholder description is here because nobody wanted to write a real one.',
   'The greatest tournament system from those in this exact browser tab.',
-  'We like our minutes like we like our food. Literally.',
+  'We like our minutes like we like our food. Hot and tasty.',
   'The finest collection of minute addicts.',
   'The finest collection of minute addicts.',
   'Come for the points. Stay for the extra minutes.',

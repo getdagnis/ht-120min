@@ -11,6 +11,7 @@ import {
   ArrowRightOutlined,
   FloppyDisk1Outlined,
   RefreshCircle1ClockwiseOutlined,
+  Link2AngularRightOutlined,
 } from '@lineiconshq/free-icons';
 import { DESCRIPTIONS, TOURNAMENT_NAMES } from '../../constants/descriptions';
 import styles from './CreateTournament.module.sass';
@@ -354,7 +355,18 @@ export const CreateTournament: React.FC = () => {
           {teams.map((team) => (
             <li key={team.tempId}>
               <div className={styles.teamInfo}>
-                <span className={styles.name}>{team.name}</span>
+                <span className={styles.name}>
+                  {team.name}{' '}
+                  <a
+                    href={`https://www.hattrick.org/goto.ashx?path=/Club/?TeamID=${team.htId}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className={styles.htLink}
+                  >
+                    <Lineicons icon={Link2AngularRightOutlined} size={16} />
+                  </a>
+                </span>
+
                 <span className={styles.id}>ID: {team.htId}</span>
               </div>
               <button onClick={() => removeLocalTeam(team.tempId)} className={styles.deleteBtn}>
