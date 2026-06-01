@@ -24,6 +24,8 @@
 .mainContent
   flex: 1
   min-width: 0
+  max-width: 970px
+  box-sizing: border-box
 
 .classic
   background: var(--table-bg-main)
@@ -110,6 +112,10 @@
   color: white
   margin-top: 4.75rem
 
+  @media (max-width: 620px)
+    margin-top: 3.75rem
+    border-radius: 0
+
   .title
     color: white
     padding: 24px 32px 8px
@@ -122,4 +128,4 @@
   padding: 1.25rem 2rem
 
   @media (max-width: 620px)
-    padding: 0.5rem 0.25rem
+    padding: 0.75rem 0.75rem 1.25rem
