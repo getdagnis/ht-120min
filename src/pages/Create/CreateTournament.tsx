@@ -248,8 +248,8 @@ export const CreateTournament: React.FC = () => {
                 value={formData.scoring_mode}
                 onChange={(e) => setFormData({ ...formData, scoring_mode: e.target.value })}
               >
-                <option value="120min">⏱ 120 Minute Training Achievements</option>
-                <option value="points">🥇 Standard Victory Points (3/1/0)</option>
+                <option value="120min">🪫 Rank by 120 minute achievements</option>
+                <option value="points">🥇 Regular 90 min friendlies (3p/1p/0)</option>
               </select>
             </div>
 

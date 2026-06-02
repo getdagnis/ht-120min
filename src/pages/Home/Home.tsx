@@ -6,13 +6,13 @@ import { Card } from '../../components/Card/Card';
 import { MottoWidget } from '../../components/MottoWidget/MottoWidget';
 import { FriendlyMarketplace } from '../../components/FriendlyMarketplace/FriendlyMarketplace';
 import { Lineicons } from '@lineiconshq/react-lineicons';
+import { Link as ScrollTo, Element } from 'react-scroll';
 import {
   Trophy1Outlined,
   CalendarDaysOutlined,
   BeatOutlined,
   ChevronLeftOutlined,
   StarFatOutlined,
-  FilePencilOutlined,
   EnterOutlined,
 } from '@lineiconshq/free-icons';
 import { TeamsIcon } from '../../components/Icons/TeamsIcon';
@@ -175,17 +175,18 @@ export const Home: React.FC = () => {
             <h1 className={styles.hiddenH1}>HT-120min</h1>
             <img src="/hero-logo-2.png" alt="HT-120min" className={styles.heroImg} />
             <p className={styles.subtitle}>
-              Organize 120 min or classic Hattrick friendlies and tournaments using nothing but fireworks🎆. No excel
-              tables. No paper hustle. No awkward conferences silence. You can now be 100% friendly with your HT pals.
-              At least for the first 90 minutes.
+              Organize 120 min tournaments and recurring friendlies with ease by getting together with other like-minded
+              Hattrick managers.
             </p>
             <div className={styles.ctaBtns}>
               <Button size="lg" onClick={() => navigate('/create')} variant="secondary">
                 <Lineicons icon={Trophy1Outlined} size={18} /> Create Tournament
               </Button>
-              <Button size="lg" onClick={() => navigate('/create')} variant="secondary">
-                <Lineicons icon={EnterOutlined} size={18} /> Join Tournament
-              </Button>
+              <ScrollTo to="opentours" smooth={true} duration={600} offset={-80}>
+                <Button size="lg" variant="secondary">
+                  <Lineicons icon={EnterOutlined} size={18} /> Join Tournament
+                </Button>
+              </ScrollTo>
             </div>
           </section>
         </Card>
@@ -239,10 +240,12 @@ export const Home: React.FC = () => {
 
             {openTournaments.length > 0 && (
               <section className={styles.activeSection}>
+                <Element name="opentours" />
                 <div className={styles.sectionHeader}>
-                  <Lineicons icon={FilePencilOutlined} className={styles.sectionIcon} size={24} />
+                  <Lineicons icon={EnterOutlined} className={styles.sectionIcon} size={24} />
                   <h2>Open for Registration</h2>
                 </div>
+
                 <div className={styles.tournamentGrid}>
                   {openTournaments.map((t) => (
                     <Link key={t.id} to={`/t/${t.slug}`} className={styles.tournamentLink}>
