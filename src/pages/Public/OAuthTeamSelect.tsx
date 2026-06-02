@@ -20,6 +20,11 @@ interface PendingJoinData {
   teams_json: ChppTeamOption[];
   tournament_id: string;
   selection_token: string;
+  tournament?: {
+    slug: string;
+    league_type: string;
+    country_limit: string | null;
+  };
 }
 
 export const OAuthTeamSelect: React.FC = () => {

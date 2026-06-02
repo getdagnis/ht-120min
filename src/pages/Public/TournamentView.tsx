@@ -22,6 +22,7 @@ import {
   CheckOutlined,
   QuestionMarkCircleOutlined,
   HandShakeOutlined,
+  Shield2CheckOutlined,
 } from '@lineiconshq/free-icons';
 import { DESCRIPTIONS } from '../../constants/descriptions';
 import styles from './TournamentView.module.sass';
@@ -100,6 +101,7 @@ export const TournamentView: React.FC = () => {
   const [replacingTeamId, setReplacingTeamId] = useState<string | null>(null);
   const [replacementHtId, setReplacementHtId] = useState('');
   const [replacementName, setReplacementName] = useState('');
+  const [isFetchingTeamData, setIsFetchingTeamData] = useState(false);
 
   // Tournament settings states
   const [editName, setEditName] = useState('');
@@ -292,6 +294,41 @@ export const TournamentView: React.FC = () => {
     }
   };
 
+  const fetchTeamData = async (htId: string, isReplacement: boolean) => {
+    if (!htId || htId.length < 6) return;
+    setIsFetchingTeamData(true);
+    try {
+      const res = await fetch(`/api/teams/info?team_id=${htId}`);
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Failed to fetch team data');
+
+      // Validation check
+      const leagueType = tournament?.league_type || 'male';
+      const isFemaleLeague = data.teamName?.includes('Femme') || data.leagueId === 3000;
+      const isMaleLeague = !isFemaleLeague;
+
+      if (leagueType === 'hfi' && !isFemaleLeague) {
+        throw new Error('This tournament only allows Hattrick Femme International teams.');
+      }
+      if (leagueType === 'male' && !isMaleLeague) {
+        throw new Error('This tournament only allows regular male teams.');
+      }
+      if (tournament?.country_limit && data.countryName !== tournament.country_limit) {
+        throw new Error(`This tournament is limited to teams from ${tournament.country_limit}.`);
+      }
+
+      if (isReplacement) {
+        setReplacementName(data.teamName);
+      } else {
+        setNewTeamName(data.teamName);
+      }
+    } catch (error: any) {
+      alert(error.message);
+    } finally {
+      setIsFetchingTeamData(false);
+    }
+  };
+
   const addTeam = async (e: React.FormEvent, isJoin: boolean = false) => {
     if (e) e.preventDefault();
     const name = isJoin ? joinTeamName : newTeamName;
@@ -315,16 +352,50 @@ export const TournamentView: React.FC = () => {
 
     setIsSavingTeam(true);
     try {
-      const { error } = await supabase.from('teams').insert([
-        {
-          tournament_id: tournament?.id,
-          name: name.trim(),
-          ht_team_id: parseInt(htId.trim()),
-          active: true,
-        },
-      ]);
+      let finalTeamId: string | null = null;
+      let oldTeamToReplaceId: string | null = null;
+
+      // If scheduled and there are inactive teams, replace the first one
+      if (isGenerated) {
+        const inactiveTeam = teams.find((t) => !t.active);
+        if (inactiveTeam) {
+          oldTeamToReplaceId = inactiveTeam.id;
+        }
+      }
+
+      // 1. Insert new team
+      const { data: newTeam, error } = await supabase
+        .from('teams')
+        .insert([
+          {
+            tournament_id: tournament?.id,
+            name: name.trim(),
+            ht_team_id: parseInt(htId.trim()),
+            active: true,
+            replacement_for_team_id: oldTeamToReplaceId,
+          },
+        ])
+        .select()
+        .single();
 
       if (error) throw error;
+      finalTeamId = newTeam?.id;
+
+      // 2. If replacement, update matches
+      if (oldTeamToReplaceId && finalTeamId) {
+        await supabase
+          .from('matches')
+          .update({ home_team_id: finalTeamId })
+          .eq('home_team_id', oldTeamToReplaceId)
+          .eq('completed', false);
+
+        await supabase
+          .from('matches')
+          .update({ away_team_id: finalTeamId })
+          .eq('away_team_id', oldTeamToReplaceId)
+          .eq('completed', false);
+      }
+
       if (isJoin) {
         setJoinTeamId('');
         setJoinTeamName('');
@@ -341,25 +412,69 @@ export const TournamentView: React.FC = () => {
     }
   };
 
+  const reviveTeam = async (teamId: string) => {
+    setIsSavingTeam(true);
+    try {
+      const { error } = await supabase.from('teams').update({ active: true }).eq('id', teamId);
+      if (error) throw error;
+      fetchData();
+    } catch (error: any) {
+      alert(error.message);
+    } finally {
+      setIsSavingTeam(false);
+    }
+  };
+
   const replaceTeam = async (oldTeamId: string) => {
     if (!replacementName.trim() || !replacementHtId.trim()) {
       alert('Both new Team Name and new HT ID are required.');
       return;
     }
+
+    const oldTeam = teams.find((t) => t.id === oldTeamId);
+    if (!window.confirm(`Replace ${oldTeam?.name || 'Inactive Team'} with ${replacementName}?`)) {
+      return;
+    }
+
     setIsSavingTeam(true);
     try {
+      // 1. Deactivate old team if not already
       await supabase.from('teams').update({ active: false }).eq('id', oldTeamId);
-      const { error } = await supabase.from('teams').insert([
-        {
-          tournament_id: tournament?.id,
-          name: replacementName.trim(),
-          ht_team_id: parseInt(replacementHtId.trim()),
-          active: true,
-          replacement_for_team_id: oldTeamId,
-        },
-      ]);
 
-      if (error) throw error;
+      // 2. Insert new team
+      const { data: newTeam, error: nError } = await supabase
+        .from('teams')
+        .insert([
+          {
+            tournament_id: tournament?.id,
+            name: replacementName.trim(),
+            ht_team_id: parseInt(replacementHtId.trim()),
+            active: true,
+            replacement_for_team_id: oldTeamId,
+          },
+        ])
+        .select()
+        .single();
+
+      if (nError) throw nError;
+
+      // 3. Update upcoming matches
+      if (newTeam) {
+        const { error: m1Error } = await supabase
+          .from('matches')
+          .update({ home_team_id: newTeam.id })
+          .eq('home_team_id', oldTeamId)
+          .eq('completed', false);
+
+        const { error: m2Error } = await supabase
+          .from('matches')
+          .update({ away_team_id: newTeam.id })
+          .eq('away_team_id', oldTeamId)
+          .eq('completed', false);
+
+        if (m1Error || m2Error) throw new Error('Failed to update matches');
+      }
+
       setReplacingTeamId(null);
       setReplacementHtId('');
       setReplacementName('');
@@ -570,17 +685,36 @@ export const TournamentView: React.FC = () => {
         <div className={styles.headerTop}>
           <h1>{tournament.name}</h1>
           <div className={styles.headerActions}>
-            {!isGenerated && !isJoining && (
-              <Button onClick={() => setIsJoining(true)} variant="primary">
-                <Lineicons icon={EnterOutlined} size={18} /> Join Tournament
-              </Button>
+            {(!isGenerated || teams.some((t) => !t.active) || teams.length % 2 !== 0) && !isJoining && (
+              <div style={{ display: 'flex', gap: '0.5rem' }}>
+                <Button onClick={() => setIsJoining(true)} variant="primary">
+                  <Lineicons icon={EnterOutlined} size={18} /> Join Tournament
+                </Button>
+                {isGenerated && (
+                  <Button
+                    variant="outline"
+                    onClick={() => {
+                      const msg = `Join our tournament "${tournament.name}" on HT-120min! We have an open spot: ${window.location.origin}/t/${tournament.slug}`;
+                      navigator.clipboard.writeText(msg);
+                      alert('Invitation link and message copied to clipboard!');
+                    }}
+                  >
+                    <Lineicons icon={CopyAiOutlined} size={16} /> Invite
+                  </Button>
+                )}
+              </div>
             )}
           </div>
         </div>
 
-        {isJoining && !isGenerated && (
+        {isJoining && (
           <div style={{ marginBottom: '2rem' }}>
             <Card variant="hero" title="Register Your Team">
+              {isGenerated && (
+                <p style={{ textAlign: 'center', fontStyle: 'italic', marginBottom: '1.5rem', opacity: 0.9 }}>
+                  You are joining an ongoing tournament. You will fill an available spot.
+                </p>
+              )}
               <div style={{ marginBottom: '2rem', textAlign: 'center' }}>
                 <Button
                   size="lg"
@@ -969,13 +1103,13 @@ export const TournamentView: React.FC = () => {
                       </div>
 
                       <div className={adminStyles.field}>
-                        <label>Country of team (any by default)</label>
+                        <label>League of team (any by default)</label>
                         <select
                           value={editCountryLimit || ''}
                           onChange={(e) => setEditCountryLimit(e.target.value || null)}
                           style={{ width: '100%', padding: '0.75rem', borderRadius: '6px' }}
                         >
-                          <option value="">Any Hattrick Country</option>
+                          <option value="">Any Hattrick League</option>
                           {(() => {
                             const validatedTeams = teams.filter((t) => t.joined_via_oauth && t.country_name);
                             const countries = Array.from(new Set(validatedTeams.map((t) => t.country_name)));
@@ -987,6 +1121,18 @@ export const TournamentView: React.FC = () => {
                             return null;
                           })()}
                         </select>
+                        {(() => {
+                          const validatedTeams = teams.filter((t) => t.joined_via_oauth && t.country_name);
+                          const countries = Array.from(new Set(validatedTeams.map((t) => t.country_name)));
+                          if (countries.length >= 2) {
+                            return (
+                              <p style={{ fontSize: '0.8rem', marginTop: '0.4rem', opacity: 0.8 }}>
+                                teams from at least 2 leagues already registered
+                              </p>
+                            );
+                          }
+                          return null;
+                        })()}
                       </div>
 
                       <div className={adminStyles.checkboxField}>
@@ -1062,41 +1208,52 @@ export const TournamentView: React.FC = () => {
                       localStorage.setItem(`teams_collapsed_${slug}`, JSON.stringify(newState));
                     }}
                   >
-                    <form onSubmit={(e) => addTeam(e, false)} className={adminStyles.teamForm}>
-                      <div className={adminStyles.inputGroup}>
-                        <input
-                          name="team_ht_id"
-                          type="text"
-                          placeholder="HT Team ID"
-                          value={newTeamId}
-                          onChange={(e) => setNewTeamId(e.target.value.replace(/\D/g, ''))}
-                          minLength={6}
-                          maxLength={9}
-                          onInvalid={(e) =>
-                            (e.target as HTMLInputElement).setCustomValidity('Please enter a valid Team ID')
-                          }
-                          onInput={(e) => (e.target as HTMLInputElement).setCustomValidity('')}
-                          required
-                        />
-                        <input
-                          name="team_name"
-                          type="text"
-                          placeholder="Team Name"
-                          value={newTeamName}
-                          onChange={(e) => setNewTeamName(e.target.value)}
-                          required
-                        />
-                      </div>
-                      <Button type="submit" disabled={isSavingTeam} variant="primary">
-                        {isSavingTeam ? (
-                          'Saving...'
-                        ) : (
-                          <>
-                            <Lineicons icon={PlusOutlined} size={18} /> Add Team
-                          </>
+                    {(!isGenerated || teams.some((t) => !t.active) || teams.length % 2 !== 0) && (
+                      <form onSubmit={(e) => addTeam(e, false)} className={adminStyles.teamForm}>
+                        <div className={adminStyles.inputGroup}>
+                          <input
+                            name="team_ht_id"
+                            type="text"
+                            placeholder="HT Team ID"
+                            value={newTeamId}
+                            onChange={(e) => setNewTeamId(e.target.value.replace(/\D/g, ''))}
+                            minLength={6}
+                            maxLength={9}
+                            required
+                          />
+                          <input
+                            name="team_name"
+                            type="text"
+                            placeholder="Team Name"
+                            value={newTeamName}
+                            readOnly
+                            required
+                          />
+                        </div>
+                        {newTeamId.length >= 6 && !newTeamName && (
+                          <Button
+                            type="button"
+                            onClick={() => fetchTeamData(newTeamId, false)}
+                            disabled={isFetchingTeamData}
+                            variant="primary"
+                          >
+                            <Lineicons icon={HandShakeOutlined} size={18} />{' '}
+                            {isFetchingTeamData ? 'Fetching...' : 'Get team data'}
+                          </Button>
                         )}
-                      </Button>
-                    </form>
+                        {newTeamName && (
+                          <Button type="submit" disabled={isSavingTeam} variant="primary">
+                            {isSavingTeam ? (
+                              'Saving...'
+                            ) : (
+                              <>
+                                <Lineicons icon={PlusOutlined} size={18} /> Add Team
+                              </>
+                            )}
+                          </Button>
+                        )}
+                      </form>
+                    )}
 
                     <ul className={adminStyles.teamList}>
                       {teams.map((team) => (
@@ -1115,7 +1272,7 @@ export const TournamentView: React.FC = () => {
                           </div>
 
                           <div className={adminStyles.teamActions}>
-                            {team.active && (
+                            {team.active ? (
                               <>
                                 {replacingTeamId === team.id ? (
                                   <div className={adminStyles.inlineReplace}>
@@ -1132,18 +1289,30 @@ export const TournamentView: React.FC = () => {
                                       type="text"
                                       placeholder="New Name"
                                       value={replacementName}
-                                      onChange={(e) => setReplacementName(e.target.value)}
+                                      readOnly
                                       required
                                     />
                                     <div className={adminStyles.replaceActions}>
-                                      <Button
-                                        size="sm"
-                                        onClick={() => replaceTeam(team.id)}
-                                        disabled={isSavingTeam}
-                                        variant="primary"
-                                      >
-                                        Save
-                                      </Button>
+                                      {replacementHtId.length >= 6 && !replacementName && (
+                                        <Button
+                                          size="sm"
+                                          onClick={() => fetchTeamData(replacementHtId, true)}
+                                          disabled={isFetchingTeamData}
+                                          variant="primary"
+                                        >
+                                          <Lineicons icon={HandShakeOutlined} size={14} /> Get data
+                                        </Button>
+                                      )}
+                                      {replacementName && (
+                                        <Button
+                                          size="sm"
+                                          onClick={() => replaceTeam(team.id)}
+                                          disabled={isSavingTeam}
+                                          variant="primary"
+                                        >
+                                          Save
+                                        </Button>
+                                      )}
                                       <Button
                                         size="sm"
                                         variant="secondary"
@@ -1176,6 +1345,67 @@ export const TournamentView: React.FC = () => {
                                   <Lineicons icon={Trash3Outlined} size={16} />
                                 </Button>
                               </>
+                            ) : (
+                              <div className={adminStyles.inactiveActions}>
+                                <Button size="sm" variant="primary" onClick={() => reviveTeam(team.id)}>
+                                  Revive
+                                </Button>
+                                {replacingTeamId === team.id ? (
+                                  <div className={adminStyles.inlineReplace}>
+                                    <input
+                                      type="number"
+                                      placeholder="New HT ID"
+                                      value={replacementHtId}
+                                      onChange={(e) => setReplacementHtId(e.target.value)}
+                                      required
+                                    />
+                                    <input
+                                      type="text"
+                                      placeholder="New Name"
+                                      value={replacementName}
+                                      readOnly
+                                      required
+                                    />
+                                    <div className={adminStyles.replaceActions}>
+                                      {replacementHtId.length >= 6 && !replacementName && (
+                                        <Button
+                                          size="sm"
+                                          onClick={() => fetchTeamData(replacementHtId, true)}
+                                          disabled={isFetchingTeamData}
+                                          variant="primary"
+                                        >
+                                          <Lineicons icon={HandShakeOutlined} size={14} /> Get data
+                                        </Button>
+                                      )}
+                                      {replacementName && (
+                                        <Button
+                                          size="sm"
+                                          onClick={() => replaceTeam(team.id)}
+                                          disabled={isSavingTeam}
+                                          variant="primary"
+                                        >
+                                          Save
+                                        </Button>
+                                      )}
+                                      <Button
+                                        size="sm"
+                                        variant="secondary"
+                                        onClick={() => {
+                                          setReplacingTeamId(null);
+                                          setReplacementHtId('');
+                                          setReplacementName('');
+                                        }}
+                                      >
+                                        <Lineicons icon={XmarkOutlined} size={16} />
+                                      </Button>
+                                    </div>
+                                  </div>
+                                ) : (
+                                  <Button size="sm" variant="zero" onClick={() => setReplacingTeamId(team.id)}>
+                                    <Lineicons icon={RefreshCircle1ClockwiseOutlined} size={14} /> Replace
+                                  </Button>
+                                )}
+                              </div>
                             )}
                           </div>
                         </li>

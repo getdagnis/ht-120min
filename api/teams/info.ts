@@ -1,0 +1,72 @@
+import type { VercelRequest, VercelResponse } from '@vercel/node';
+import { getSupabase } from '../_lib/supabase';
+import { getAuthHeader } from '../../src/utils/chpp-auth';
+import { parseManagerCompendiumXml } from '../../src/utils/chpp-xml';
+
+export default async function handler(req: VercelRequest, res: VercelResponse) {
+  const { team_id } = req.query;
+
+  if (!team_id) {
+    return res.status(400).json({ error: 'Missing team_id' });
+  }
+
+  const consumerKey = process.env.CHPP_CONSUMER_KEY;
+  const consumerSecret = process.env.CHPP_CONSUMER_SECRET;
+
+  if (!consumerKey || !consumerSecret) {
+    return res.status(500).json({ error: 'CHPP config missing' });
+  }
+
+  try {
+    const supabase = getSupabase();
+
+    // Find any valid OAuth token to use as a gateway
+    const { data: teamWithToken, error: tError } = await supabase
+      .from('teams')
+      .select('oauth_token, oauth_token_secret')
+      .not('oauth_token', 'is', null)
+      .limit(1)
+      .single();
+
+    if (tError || !teamWithToken) {
+      return res.status(503).json({ error: 'No CHPP gateway available. Please link a team first.' });
+    }
+
+    // Fetch team details using managercompendium (simplest way to get name and league)
+    const url = 'https://chpp.hattrick.org/chppxml.ashx';
+    const params = { file: 'teamdetails', teamID: team_id as string };
+    
+    const authHeader = getAuthHeader(
+      'GET',
+      url,
+      params,
+      consumerKey,
+      consumerSecret,
+      teamWithToken.oauth_token!,
+      teamWithToken.oauth_token_secret!
+    );
+
+    const response = await fetch(`${url}?file=teamdetails&teamID=${team_id}`, {
+      headers: { Authorization: authHeader },
+    });
+
+    const xml = await response.text();
+    if (!response.ok) {
+      return res.status(response.status).json({ error: 'CHPP fetch failed', details: xml });
+    }
+
+    // Surgical XML parsing for name and league info
+    const teamName = xml.match(/<TeamName>(?:<!\[CDATA\[)?([\s\S]*?)(?:\]\]>)?<\/TeamName>/i)?.[1]?.trim() || 'Unknown';
+    const leagueId = xml.match(/<LeagueID>(\d+)<\/LeagueID>/i)?.[1];
+    const countryName = xml.match(/<CountryName>(?:<!\[CDATA\[)?([\s\S]*?)(?:\]\]>)?<\/CountryName>/i)?.[1]?.trim();
+
+    return res.status(200).json({
+      teamId: parseInt(team_id as string),
+      teamName,
+      leagueId: leagueId ? parseInt(leagueId) : undefined,
+      countryName
+    });
+  } catch (error: any) {
+    return res.status(500).json({ error: error.message });
+  }
+}

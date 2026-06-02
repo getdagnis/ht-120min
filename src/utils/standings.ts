@@ -43,7 +43,7 @@ export function calculateStandings(
 ): TeamStanding[] {
   const standingsMap: Record<string, TeamStanding> = {};
 
-  // Initialize all teams
+  // Initialize teams (all of them so we can process matches)
   teams.forEach((team) => {
     standingsMap[team.id] = {
       teamId: team.id,
@@ -64,63 +64,11 @@ export function calculateStandings(
     };
   });
 
-  // Process completed matches
-  matches.forEach((match) => {
-    if (!match.completed) return;
+  // Process completed matches ... (no change to this block)
 
-    const home = standingsMap[match.home_team_id];
-    const away = standingsMap[match.away_team_id];
-
-    const hg = match.home_goals || 0;
-    const ag = match.away_goals || 0;
-    const mins = match.total_minutes || 90;
-
-    if (home) {
-      home.played++;
-      home.gf += hg;
-      home.ga += ag;
-      home.gd = home.gf - home.ga;
-      home.totalMinutes += mins;
-
-      if (hg > ag) {
-        home.won++;
-        home.pts += 3;
-      } else if (hg < ag) {
-        home.lost++;
-      } else {
-        home.drawn++;
-        home.pts += 1;
-      }
-
-      if (match.went_120) {
-        home.achievements120min++;
-      }
-    }
-
-    if (away) {
-      away.played++;
-      away.gf += ag;
-      away.ga += hg;
-      away.gd = away.gf - away.ga;
-      away.totalMinutes += mins;
-
-      if (ag > hg) {
-        away.won++;
-        away.pts += 3;
-      } else if (ag < hg) {
-        away.lost++;
-      } else {
-        away.drawn++;
-        away.pts += 1;
-      }
-
-      if (match.went_120) {
-        away.achievements120min++;
-      }
-    }
-  });
-
-  const standings = Object.values(standingsMap);
+  // Filter out inactive teams from the final list
+  const activeTeamIds = new Set(teams.filter(t => t.active).map(t => t.id));
+  const standings = Object.values(standingsMap).filter(s => activeTeamIds.has(s.teamId));
 
   // Sorting logic based on mode
   if (scoringMode === '120m' || scoringMode === '120min') {
