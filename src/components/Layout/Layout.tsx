@@ -1,4 +1,6 @@
 import React, { useState, useEffect } from 'react';
+import { Analytics } from '@vercel/analytics/react';
+
 import { Link, useNavigate } from 'react-router-dom';
 import { Lineicons } from '@lineiconshq/react-lineicons';
 import { Trophy1Outlined, MoonHalfRight5Outlined, Sun1Outlined, PlusOutlined } from '@lineiconshq/free-icons';
@@ -57,9 +59,7 @@ export const Layout: React.FC<LayoutProps> = ({ children }) => {
           </div>
         </div>
       </header>
-
       <main className={styles.main}>{children}</main>
-
       <footer className={styles.footer}>
         <div className={styles.container}>
           {/* user written content: do not change */}
@@ -82,6 +82,7 @@ export const Layout: React.FC<LayoutProps> = ({ children }) => {
           <p>Not affiliated with Hattrick.org.</p>
         </div>
       </footer>
+      <Analytics />
     </div>
   );
 };
