@@ -19,11 +19,11 @@ import {
   PlayOutlined,
   FloppyDisk1Outlined,
   CopyAiOutlined,
-  Shield2CheckOutlined,
+  CheckOutlined,
   QuestionMarkCircleOutlined,
   HandShakeOutlined,
 } from '@lineiconshq/free-icons';
-import { DESCRIPTIONS, TOURNAMENT_NAMES } from '../../constants/descriptions';
+import { DESCRIPTIONS } from '../../constants/descriptions';
 import styles from './TournamentView.module.sass';
 import adminStyles from './TournamentAdmin.module.sass';
 
@@ -50,6 +50,7 @@ interface Team {
   replacement_for_team_id?: string;
   created_at: string;
   logo_url?: string;
+  joined_via_oauth?: boolean;
   country_name?: string;
 }
 
@@ -63,6 +64,9 @@ interface Tournament {
   description: string | null;
   show_description: boolean;
   thumbnail_index?: number;
+  chpp_only_join: boolean;
+  league_type: string;
+  country_limit: string | null;
 }
 
 interface RoundWithMatches {
@@ -100,6 +104,9 @@ export const TournamentView: React.FC = () => {
   // Tournament settings states
   const [editName, setEditName] = useState('');
   const [editIsPrivate, setEditIsPrivate] = useState(false);
+  const [editChppOnlyJoin, setEditChppOnlyJoin] = useState(true);
+  const [editLeagueType, setEditLeagueType] = useState('male');
+  const [editCountryLimit, setEditCountryLimit] = useState<string | null>(null);
   const [showEditDescription, setShowEditDescription] = useState(false);
   const [editDescription, setEditDescription] = useState('');
   const [isUpdatingSettings, setIsUpdatingSettings] = useState(false);
@@ -124,11 +131,6 @@ export const TournamentView: React.FC = () => {
   const [isAddingDescription, setIsAddingDescription] = useState(false);
   const [quickDescription, setQuickDescription] = useState('');
 
-  const regenerateName = () => {
-    const randomName = TOURNAMENT_NAMES[Math.floor(Math.random() * TOURNAMENT_NAMES.length)];
-    setEditName(randomName);
-  };
-
   const regenerateDescription = (isQuick: boolean) => {
     const randomDesc = DESCRIPTIONS[Math.floor(Math.random() * DESCRIPTIONS.length)];
     if (isQuick) setQuickDescription(randomDesc);
@@ -142,6 +144,9 @@ export const TournamentView: React.FC = () => {
       setTournament(tournamentData);
       setEditName(tournamentData.name);
       setEditIsPrivate(tournamentData.is_private);
+      setEditChppOnlyJoin(tournamentData.chpp_only_join);
+      setEditLeagueType(tournamentData.league_type);
+      setEditCountryLimit(tournamentData.country_limit);
       setShowEditDescription(tournamentData.show_description);
       setEditDescription(tournamentData.description || '');
 
@@ -247,6 +252,9 @@ export const TournamentView: React.FC = () => {
         .update({
           name: editName,
           is_private: editIsPrivate,
+          chpp_only_join: editChppOnlyJoin,
+          league_type: editLeagueType,
+          country_limit: editCountryLimit,
           show_description: showEditDescription,
           description: editDescription,
         })
@@ -363,16 +371,29 @@ export const TournamentView: React.FC = () => {
     }
   };
 
+  const checkArchiveStatus = async (updatedTeams: any[]) => {
+    const validatedCount = updatedTeams.filter((t) => t.active && t.joined_via_oauth).length;
+    if (validatedCount === 0) {
+      await supabase.from('tournaments').update({ is_archived: true }).eq('id', tournament?.id);
+      alert('This tournament has no Hattrick validated teams left and has been archived.');
+    }
+  };
+
   const deleteTeam = async (id: string) => {
+    let updatedTeams;
     if (rounds.length > 0) {
       if (window.confirm('Are you sure you want to deactivate this team?')) {
         await supabase.from('teams').update({ active: false }).eq('id', id);
+        updatedTeams = teams.map((t) => (t.id === id ? { ...t, active: false } : t));
         fetchData();
+        if (updatedTeams) checkArchiveStatus(updatedTeams);
       }
       return;
     }
     await supabase.from('teams').delete().eq('id', id);
+    updatedTeams = teams.filter((t) => t.id !== id);
     fetchData();
+    if (updatedTeams) checkArchiveStatus(updatedTeams);
   };
 
   const generateSchedule = async () => {
@@ -758,6 +779,11 @@ export const TournamentView: React.FC = () => {
                       <div className={styles.teamInfo}>
                         <div className={styles.nameRow}>
                           <span className={styles.teamName}>{s.teamName}</span>
+                          {s.joinedViaOauth && (
+                            <span title="Hattrick Validated Team">
+                              <Lineicons icon={CheckOutlined} size={14} style={{ color: '#0fb54c' }} />
+                            </span>
+                          )}
                           <a
                             href={`https://www.hattrick.org/goto.ashx?path=/Club/?TeamID=${s.htTeamId}`}
                             target="_blank"
@@ -878,7 +904,7 @@ export const TournamentView: React.FC = () => {
                     onToggleCollapse={() => setIsSettingsCollapsed(!isSettingsCollapsed)}
                   >
                     <div className={adminStyles.settingsGroup} style={{ marginBottom: '1.5rem' }}>
-                      <div className={adminStyles.field} style={{ marginBottom: '1.5rem' }}>
+                      {/* <div className={adminStyles.field} style={{ marginBottom: '1.5rem' }}>
                         <div className={adminStyles.labelRow}>
                           <label>Tournament Name</label>
                           <button type="button" onClick={regenerateName} className={adminStyles.iconBtn}>
@@ -886,7 +912,7 @@ export const TournamentView: React.FC = () => {
                           </button>
                         </div>
                         <input type="text" value={editName} onChange={(e) => setEditName(e.target.value)} />
-                      </div>
+                      </div> */}
 
                       <div className={adminStyles.meta}>
                         <div className={adminStyles.metaItem}>
@@ -929,6 +955,51 @@ export const TournamentView: React.FC = () => {
                           </Button>
                         </div>
                       </div>
+
+                      <div className={adminStyles.field}>
+                        <label>League Type</label>
+                        <select
+                          value={editLeagueType}
+                          onChange={(e) => setEditLeagueType(e.target.value)}
+                          style={{ width: '100%', padding: '0.75rem', borderRadius: '6px' }}
+                        >
+                          <option value="male">Regular league (male)</option>
+                          <option value="hfi">Hattrick Femme International (HFI)</option>
+                        </select>
+                      </div>
+
+                      <div className={adminStyles.field}>
+                        <label>Country of team (any by default)</label>
+                        <select
+                          value={editCountryLimit || ''}
+                          onChange={(e) => setEditCountryLimit(e.target.value || null)}
+                          style={{ width: '100%', padding: '0.75rem', borderRadius: '6px' }}
+                        >
+                          <option value="">Any Hattrick Country</option>
+                          {(() => {
+                            const validatedTeams = teams.filter((t) => t.joined_via_oauth && t.country_name);
+                            const countries = Array.from(new Set(validatedTeams.map((t) => t.country_name)));
+                            // If only one country is represented, show it as an option.
+                            // If multiple countries are represented, only "Any..." is valid (already provided above).
+                            if (countries.length === 1) {
+                              return <option value={countries[0]!}>{countries[0]}</option>;
+                            }
+                            return null;
+                          })()}
+                        </select>
+                      </div>
+
+                      <div className={adminStyles.checkboxField}>
+                        <label className={adminStyles.checkboxLabel}>
+                          <input
+                            type="checkbox"
+                            checked={editChppOnlyJoin}
+                            onChange={(e) => setEditChppOnlyJoin(e.target.checked)}
+                          />
+                          Only Hattrick validated teams can join
+                        </label>
+                      </div>
+
                       <div className={adminStyles.checkboxField} style={{ marginBottom: '1rem' }}>
                         <label className={adminStyles.checkboxLabel}>
                           <input
@@ -940,38 +1011,40 @@ export const TournamentView: React.FC = () => {
                         </label>
                       </div>
 
-                      <div className={adminStyles.checkboxField}>
-                        <div className={adminStyles.labelRow}>
-                          <label className={adminStyles.checkboxLabel}>
-                            <input
-                              type="checkbox"
-                              checked={showEditDescription}
-                              onChange={(e) => setShowEditDescription(e.target.checked)}
-                            />
-                            Show Description
-                          </label>
-                          {showEditDescription && (
-                            <button
-                              type="button"
-                              onClick={() => regenerateDescription(false)}
-                              className={adminStyles.iconBtn}
-                            >
-                              <Lineicons icon={RefreshCircle1ClockwiseOutlined} size={16} />
-                            </button>
-                          )}
+                      <div>
+                        <div className={adminStyles.checkboxField}>
+                          <div className={adminStyles.labelRow}>
+                            <label className={adminStyles.checkboxLabel}>
+                              <input
+                                type="checkbox"
+                                checked={showEditDescription}
+                                onChange={(e) => setShowEditDescription(e.target.checked)}
+                              />
+                              Show Description
+                            </label>
+                            {showEditDescription && (
+                              <button
+                                type="button"
+                                onClick={() => regenerateDescription(false)}
+                                className={adminStyles.iconBtn}
+                              >
+                                <Lineicons icon={RefreshCircle1ClockwiseOutlined} size={16} />
+                              </button>
+                            )}
+                          </div>
                         </div>
-                      </div>
 
-                      {showEditDescription && (
-                        <div className={adminStyles.textField} style={{ marginTop: '1rem' }}>
-                          <textarea
-                            value={editDescription}
-                            onChange={(e) => setEditDescription(e.target.value)}
-                            placeholder="Tournament description..."
-                            rows={4}
-                          />
-                        </div>
-                      )}
+                        {showEditDescription && (
+                          <div className={adminStyles.textField} style={{ marginTop: '1rem' }}>
+                            <textarea
+                              value={editDescription}
+                              onChange={(e) => setEditDescription(e.target.value)}
+                              placeholder="Tournament description..."
+                              rows={4}
+                            />
+                          </div>
+                        )}
+                      </div>
                     </div>
                     <Button onClick={updateSettings} disabled={isUpdatingSettings} variant="primary" size="sm">
                       {isUpdatingSettings ? 'Saving...' : 'Save Settings'}
@@ -1029,7 +1102,14 @@ export const TournamentView: React.FC = () => {
                       {teams.map((team) => (
                         <li key={team.id} className={!team.active ? adminStyles.inactiveTeam : ''}>
                           <div className={adminStyles.teamInfo}>
-                            <span className={adminStyles.name}>{team.name}</span>
+                            <div className={styles.nameRow}>
+                              <span className={adminStyles.name}>{team.name}</span>
+                              {team.joined_via_oauth && (
+                                <span title="Hattrick Validated Team">
+                                  <Lineicons icon={CheckOutlined} size={14} style={{ color: '#0fb54c' }} />
+                                </span>
+                              )}
+                            </div>
                             {team.ht_team_id && <span className={adminStyles.id}>ID: {team.ht_team_id}</span>}
                             {!team.active && <span className={adminStyles.statusBadge}>Inactive</span>}
                           </div>
@@ -1082,25 +1162,19 @@ export const TournamentView: React.FC = () => {
                                     <Lineicons icon={RefreshCircle1ClockwiseOutlined} size={14} /> Replace
                                   </Button>
                                 )}
-                                {isGenerated ? (
-                                  <Button
-                                    size="sm"
-                                    variant="outline"
-                                    onClick={() => deleteTeam(team.id)}
-                                    title="Deactivate Team"
-                                  >
-                                    <Lineicons icon={XmarkOutlined} size={16} />
-                                  </Button>
-                                ) : (
-                                  <Button
-                                    size="sm"
-                                    variant="danger"
-                                    onClick={() => deleteTeam(team.id)}
-                                    title="Delete Team"
-                                  >
-                                    <Lineicons icon={Trash3Outlined} size={16} />
-                                  </Button>
-                                )}
+                                <Button
+                                  size="sm"
+                                  variant="danger"
+                                  onClick={() => {
+                                    const action = isGenerated ? 'deactivate' : 'delete';
+                                    if (window.confirm(`Are you sure you want to ${action} this team?`)) {
+                                      deleteTeam(team.id);
+                                    }
+                                  }}
+                                  title={isGenerated ? 'Deactivate Team' : 'Delete Team'}
+                                >
+                                  <Lineicons icon={Trash3Outlined} size={16} />
+                                </Button>
                               </>
                             )}
                           </div>

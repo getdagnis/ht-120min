@@ -16,10 +16,10 @@ interface ChppTeamOption {
 
 interface PendingJoinData {
   id: string;
-  tournament_id: string;
   manager_name: string;
-  selection_token: string;
   teams_json: ChppTeamOption[];
+  tournament_id: string;
+  selection_token: string;
 }
 
 export const OAuthTeamSelect: React.FC = () => {
@@ -73,41 +73,55 @@ export const OAuthTeamSelect: React.FC = () => {
     }
   };
 
-  if (loading) return <div style={{ padding: '4rem', textAlign: 'center' }}>Loading your teams...</div>;
+  if (loading || !pendingData) return <div style={{ padding: '4rem', textAlign: 'center' }}>Loading your teams...</div>;
+
+  // 3. Validation Criteria
+  const tournament = pendingData.tournament;
+  const leagueType = tournament?.league_type || 'male';
+  const countryLimit = tournament?.country_limit;
+
+  const validTeams = pendingData.teams_json.filter((team: any) => {
+    // League Type (male/female) - based on leagueName or similar logic
+    // For now simple check: Hattrick Femme International (HFI) is id 3000
+    const isFemaleLeague = team.leagueName?.includes('Femme') || team.leagueId === 3000;
+    const isMaleLeague = !isFemaleLeague;
+
+    if (leagueType === 'hfi' && !isFemaleLeague) return false;
+    if (leagueType === 'male' && !isMaleLeague) return false;
+
+    // Country Limit
+    if (countryLimit && team.countryName !== countryLimit) return false;
+
+    return true;
+  });
+
+  const criteriaText = `${leagueType === 'hfi' ? 'Hattrick Femme International' : 'male'} teams${
+    countryLimit ? ` from ${countryLimit}` : ' from any country'
+  }`;
 
   return (
-    <div style={{ maxWidth: '40rem', margin: '0 auto', padding: '2rem 1rem' }}>
+    <div className={styles.container}>
       <Card variant="hero" title="Choose Your Team">
-        <img src="/bus4.png" alt="Choose Your Team" className={styles.img} />
-        <p style={{ marginBottom: '2rem', textAlign: 'center', opacity: 0.9 }}>
-          Welcome, <strong>{pendingData?.manager_name}</strong>! Which team should join the tournament?
+        <img src="/register.png" alt="Select Team" style={{ width: '100%', marginBottom: '1.5rem' }} />
+        <p className={styles.welcomeText}>
+          Welcome, <strong>{pendingData.manager_name}</strong>! Which team should join the tournament?
+        </p>
+        <p style={{ textAlign: 'center', fontSize: '0.85rem', marginBottom: '1.5rem', opacity: 0.8 }}>
+          Only {criteriaText} can apply for this tournament.
         </p>
 
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-          {pendingData?.teams_json.map((team: ChppTeamOption) => (
+        <div className={styles.teamList}>
+          {validTeams.map((team: ChppTeamOption) => (
             <div
               key={team.teamId}
               onClick={() => !submitting && handleSelect(team)}
-              style={{
-                padding: '1.25rem',
-                background: 'var(--bg-transp2)',
-                border: '1px solid var(--border)',
-                borderRadius: '0.75rem',
-                cursor: submitting ? 'not-allowed' : 'pointer',
-                display: 'flex',
-                justifyContent: 'space-between',
-                alignItems: 'center',
-                transition: 'all 0.2s ease',
-                opacity: submitting ? 0.6 : 1,
-              }}
-              onMouseEnter={(e) => (e.currentTarget.style.borderColor = 'var(--accent)')}
-              onMouseLeave={(e) => (e.currentTarget.style.borderColor = 'var(--border)')}
+              className={`${styles.teamCard} ${submitting ? styles.submitting : ''}`}
             >
-              <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
-                <Lineicons icon={Trophy1Outlined} size={24} style={{ color: 'var(--accent)' }} />
+              <div className={styles.teamMainInfo}>
+                <Lineicons icon={Trophy1Outlined} size={24} className={styles.teamIcon} />
                 <div>
-                  <div style={{ fontWeight: 700, fontSize: '1.1rem', color: 'var(--text-h)' }}>{team.teamName}</div>
-                  <div style={{ fontSize: '0.85rem', opacity: 0.7 }}>
+                  <div className={styles.teamName}>{team.teamName}</div>
+                  <div className={styles.teamMeta}>
                     {team.leagueLevelUnitName} • {team.regionName}
                   </div>
                 </div>
@@ -115,42 +129,19 @@ export const OAuthTeamSelect: React.FC = () => {
               <Lineicons icon={ChevronLeftOutlined} size={20} className="r-180" />
             </div>
           ))}
-          {pendingData?.teams_json.map((team: ChppTeamOption) => (
-            <div
-              key={team.teamId}
-              onClick={() => !submitting && handleSelect(team)}
-              style={{
-                padding: '1.25rem',
-                background: 'var(--bg-transp2)',
-                border: '1px solid var(--border)',
-                borderRadius: '0.75rem',
-                cursor: submitting ? 'not-allowed' : 'pointer',
-                display: 'flex',
-                justifyContent: 'space-between',
-                alignItems: 'center',
-                transition: 'all 0.2s ease',
-                opacity: submitting ? 0.6 : 1,
-              }}
-              onMouseEnter={(e) => (e.currentTarget.style.borderColor = 'var(--accent)')}
-              onMouseLeave={(e) => (e.currentTarget.style.borderColor = 'var(--border)')}
-            >
-              <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
-                <Lineicons icon={Trophy1Outlined} size={24} style={{ color: 'var(--accent)' }} />
-                <div>
-                  <div style={{ fontWeight: 700, fontSize: '1.1rem', color: 'var(--text-h)' }}>{team.teamName}</div>
-                  <div style={{ fontSize: '0.85rem', opacity: 0.7 }}>
-                    {team.leagueLevelUnitName} • {team.regionName}
-                  </div>
-                </div>
-              </div>
-              <Lineicons icon={ChevronLeftOutlined} size={20} className="r-180" />
-            </div>
-          ))}
+          {validTeams.length === 0 && (
+            <p style={{ textAlign: 'center', padding: '2rem', fontStyle: 'italic' }}>
+              None of your teams meet the criteria for this tournament.
+            </p>
+          )}
         </div>
 
-        {submitting && (
-          <p style={{ marginTop: '2rem', textAlign: 'center', fontStyle: 'italic' }}>Joining tournament...</p>
-        )}
+        <div style={{ marginTop: '2rem', textAlign: 'center', display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+          {submitting && <p className={styles.joiningMessage}>Joining tournament...</p>}
+          <Button variant="outline" onClick={() => navigate(-1)} disabled={submitting}>
+            Cancel and Go Back
+          </Button>
+        </div>
       </Card>
     </div>
   );

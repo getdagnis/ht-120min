@@ -12,6 +12,7 @@ import {
   FloppyDisk1Outlined,
   RefreshCircle1ClockwiseOutlined,
   Link2AngularRightOutlined,
+  HandShakeOutlined,
 } from '@lineiconshq/free-icons';
 import { DESCRIPTIONS, TOURNAMENT_NAMES } from '../../constants/descriptions';
 import styles from './CreateTournament.module.sass';
@@ -315,13 +316,74 @@ export const CreateTournament: React.FC = () => {
     );
   }
 
+  const handleHattrickLink = async () => {
+    setLoading(true);
+    const slug = formData.slug || nanoid(10);
+    const adminPassword = nanoid(8);
+
+    // 1. Create tournament
+    const { data: tournament, error: tError } = await supabase
+      .from('tournaments')
+      .insert([
+        {
+          name: formData.name,
+          slug,
+          scoring_mode: formData.scoring_mode,
+          admin_password: adminPassword,
+          is_private: formData.is_private,
+          description: showDescription ? formData.description : null,
+          thumbnail_index: Math.floor(Math.random() * 17) + 1,
+        },
+      ])
+      .select()
+      .single();
+
+    if (tError) {
+      alert('Error creating tournament: ' + tError.message);
+      setLoading(false);
+      return;
+    }
+
+    // 2. Create teams (manual ones added so far)
+    if (teams.length > 0) {
+      const teamsToInsert = teams.map((t) => ({
+        tournament_id: tournament.id,
+        name: t.name,
+        ht_team_id: parseInt(t.htId),
+        active: true,
+      }));
+      await supabase.from('teams').insert(teamsToInsert);
+    }
+
+    localStorage.removeItem('create_tournament_progress');
+    localStorage.setItem(`admin_pw_${slug}`, adminPassword);
+
+    // 3. Redirect to OAuth
+    window.location.href = `/api/auth/init?tournament_id=${tournament.id}`;
+  };
+
   return (
     <div className={styles.container}>
       <Card variant="hero">
         <h1>Add Teams</h1>
         <p className={styles.subtitle}>{formData.name}</p>
         <img src="/register2.png" alt="Add Teams" />
-        <p className={styles.subtitle}>Add at least two teams. You can add more later.</p>
+        <p className={styles.subtitle}>Add at least one validated team.</p>
+
+        <div style={{ marginBottom: '2rem', textAlign: 'center' }}>
+          <Button
+            size="lg"
+            variant="primary"
+            onClick={handleHattrickLink}
+            disabled={loading}
+          >
+            <Lineicons icon={HandShakeOutlined} size={20} /> Link with Hattrick
+          </Button>
+          <p style={{ marginTop: '0.5rem', fontSize: '0.85rem', opacity: 0.8 }}>
+            (Recommended for automatic results)
+          </p>
+        </div>
+
         <form onSubmit={addLocalTeam} className={styles.teamForm}>
           <div className={styles.inputGroup}>
             <input
@@ -378,15 +440,9 @@ export const CreateTournament: React.FC = () => {
         </ul>
 
         <div className={styles.genActions}>
-          <Button
-            variant="secondary"
-            size="lg"
-            fullWidth
-            onClick={handleFinalSubmit}
-            disabled={teams.length < 2 || loading}
-          >
-            <Lineicons icon={FloppyDisk1Outlined} size={18} /> {loading ? 'Creating...' : 'Create Tournament'}
-          </Button>
+          <p style={{ fontSize: '0.85rem', marginBottom: '1rem', opacity: 0.8, textAlign: 'center' }}>
+            To finish creation, you must link your own team via Hattrick.
+          </p>
           <Button
             variant="outlineWhite"
             size="sm"

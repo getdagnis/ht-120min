@@ -14,6 +14,8 @@ export interface Team {
   ht_team_id: number | null;
   active: boolean;
   replacement_for_team_id: string | null;
+  joined_via_oauth?: boolean;
+  country_name?: string | null;
 }
 
 export interface TeamStanding {
@@ -30,6 +32,8 @@ export interface TeamStanding {
   pts: number;
   achievements120min: number;
   totalMinutes: number;
+  joinedViaOauth: boolean;
+  countryName: string | null;
 }
 
 export function calculateStandings(
@@ -55,6 +59,8 @@ export function calculateStandings(
       pts: 0,
       achievements120min: 0,
       totalMinutes: 0,
+      joinedViaOauth: !!team.joined_via_oauth,
+      countryName: team.country_name || null,
     };
   });
 

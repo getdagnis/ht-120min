@@ -105,17 +105,40 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       return res.status(500).json({ error: 'No teams found in managercompendium response' });
     }
 
-    // 4. Upsert Team into Supabase
-    const { data: tournament } = await supabase
+    // 4. Fetch Tournament Details for filtering
+    const { data: tournament, error: tError } = await supabase
       .from('tournaments')
-      .select('slug')
+      .select('slug, league_type, country_limit')
       .eq('id', session.tournament_id)
       .single();
 
-    if (teams.length === 1) {
+    if (tError || !tournament) {
+      return res.status(404).json({ error: 'Tournament not found' });
+    }
+
+    // Filter teams based on tournament criteria
+    const filteredTeams = teams.filter((team) => {
+      const isFemaleLeague = team.leagueName?.includes('Femme') || team.leagueId === 3000;
+      const isMaleLeague = !isFemaleLeague;
+
+      if (tournament.league_type === 'hfi' && !isFemaleLeague) return false;
+      if (tournament.league_type === 'male' && !isMaleLeague) return false;
+      if (tournament.country_limit && team.countryName !== tournament.country_limit) return false;
+
+      return true;
+    });
+
+    if (filteredTeams.length === 0) {
+      return res.status(400).json({ 
+        error: 'None of your teams meet the criteria for this tournament.',
+        criteria: { league_type: tournament.league_type, country_limit: tournament.country_limit }
+      });
+    }
+
+    if (filteredTeams.length === 1) {
       await registerOAuthTeam(supabase, {
         tournamentId: session.tournament_id,
-        team: teams[0],
+        team: filteredTeams[0],
         managerName,
         hattrickUserId,
         accessToken,
@@ -126,7 +149,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       await supabase.from('oauth_temp_sessions').delete().eq('oauth_token', oauth_token);
 
       // Redirect back to tournament
-      return res.redirect(`/t/${tournament?.slug}`);
+      return res.redirect(`/t/${tournament.slug}`);
     }
 
     const selectionToken = crypto.randomBytes(16).toString('hex');
@@ -137,7 +160,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       access_token_secret: accessTokenSecret,
       hattrick_user_id: hattrickUserId,
       manager_name: managerName,
-      teams_json: teams,
+      teams_json: filteredTeams, // Only store teams that passed initial filter
+      tournament: tournament, // Store tournament details for UI validation text
     });
 
     if (error) {

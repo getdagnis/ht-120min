@@ -238,9 +238,10 @@ export const Home: React.FC = () => {
               </section>
             )}
 
+            <Element name="opentours" />
+
             {openTournaments.length > 0 && (
               <section className={styles.activeSection}>
-                <Element name="opentours" />
                 <div className={styles.sectionHeader}>
                   <Lineicons icon={EnterOutlined} className={styles.sectionIcon} size={24} />
                   <h2>Open for Registration</h2>
