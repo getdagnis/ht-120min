@@ -14,7 +14,7 @@ const getSupabase = () => {
 };
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
-  const { tournament_id } = req.query;
+  const { tournament_id, is_creation } = req.query;
 
   if (!tournament_id) {
     return res.status(400).json({ error: 'tournament_id is required' });
@@ -70,6 +70,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       oauth_token,
       oauth_token_secret,
       tournament_id,
+      is_creation: is_creation === 'true',
     });
 
     if (error) {

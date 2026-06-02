@@ -22,7 +22,7 @@ interface PendingJoinData {
   selection_token: string;
   tournament?: {
     slug: string;
-    league_type: string;
+    league_category: string;
     country_limit: string | null;
   };
 }
@@ -82,7 +82,7 @@ export const OAuthTeamSelect: React.FC = () => {
 
   // 3. Validation Criteria
   const tournament = pendingData.tournament;
-  const leagueType = tournament?.league_type || 'male';
+  const leagueCategory = tournament?.league_category || 'male';
   const countryLimit = tournament?.country_limit;
 
   const validTeams = pendingData.teams_json.filter((team: any) => {
@@ -91,8 +91,8 @@ export const OAuthTeamSelect: React.FC = () => {
     const isFemaleLeague = team.leagueName?.includes('Femme') || team.leagueId === 3000;
     const isMaleLeague = !isFemaleLeague;
 
-    if (leagueType === 'hfi' && !isFemaleLeague) return false;
-    if (leagueType === 'male' && !isMaleLeague) return false;
+    if (leagueCategory === 'hfi' && !isFemaleLeague) return false;
+    if (leagueCategory === 'male' && !isMaleLeague) return false;
 
     // Country Limit
     if (countryLimit && team.countryName !== countryLimit) return false;
@@ -100,7 +100,7 @@ export const OAuthTeamSelect: React.FC = () => {
     return true;
   });
 
-  const criteriaText = `${leagueType === 'hfi' ? 'Hattrick Femme International' : 'male'} teams${
+  const criteriaText = `${leagueCategory === 'hfi' ? 'Hattrick Femme International' : 'male'} teams${
     countryLimit ? ` from ${countryLimit}` : ' from any country'
   }`;
 

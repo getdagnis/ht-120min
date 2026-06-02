@@ -108,7 +108,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     // 4. Fetch Tournament Details for filtering
     const { data: tournament, error: tError } = await supabase
       .from('tournaments')
-      .select('slug, league_type, country_limit')
+      .select('id, slug, league_category, country_limit, registration_type')
       .eq('id', session.tournament_id)
       .single();
 
@@ -116,34 +116,61 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       return res.status(404).json({ error: 'Tournament not found' });
     }
 
+    const isSuperAdmin = req.headers.cookie?.includes('issuperadmin=you%20bet') || req.headers.cookie?.includes('issuperadmin="you bet"');
+
+    // Handle Organizer Linking
+    if (session.is_creation) {
+      await supabase
+        .from('tournaments')
+        .update({
+          organizer_name: managerName,
+        })
+        .eq('id', tournament.id);
+
+      await supabase.from('oauth_temp_sessions').delete().eq('oauth_token', oauth_token);
+      return res.redirect(`/create?step=teams&slug=${tournament.slug}&linked=true`);
+    }
+
     // Filter teams based on tournament criteria
     const filteredTeams = teams.filter((team) => {
       const isFemaleLeague = team.leagueName?.includes('Femme') || team.leagueId === 3000;
       const isMaleLeague = !isFemaleLeague;
 
-      if (tournament.league_type === 'hfi' && !isFemaleLeague) return false;
-      if (tournament.league_type === 'male' && !isMaleLeague) return false;
-      if (tournament.country_limit && team.countryName !== tournament.country_limit) return false;
+      if (tournament.league_category === 'hfi' && !isFemaleLeague) return false;
+      if (tournament.league_category === 'male' && !isMaleLeague) return false;
+      if (!isSuperAdmin && tournament.country_limit && team.countryName !== tournament.country_limit) return false;
 
       return true;
     });
 
     if (filteredTeams.length === 0) {
-      return res.status(400).json({ 
-        error: 'None of your teams meet the criteria for this tournament.',
-        criteria: { league_type: tournament.league_type, country_limit: tournament.country_limit }
-      });
+      const categoryName =
+        tournament.league_category === 'hfi' ? 'Hattrick Femme International (HFI)' : 'Regular league (male)';
+      
+      // Construct a verbose message for at least the first team
+      const team = teams[0];
+      const isFemale = team.leagueName?.includes('Femme') || team.leagueId === 3000;
+      const teamCategory = isFemale ? 'HFI' : 'male league';
+      
+      const verboseError = `Team ID ${team.teamId} "${team.teamName}" (${teamCategory}) is not eligible to play in a ${categoryName}. Please register a ${categoryName} team.`;
+      
+      return res.redirect(`/t/${tournament.slug}?error=${encodeURIComponent(verboseError)}`);
     }
 
     if (filteredTeams.length === 1) {
-      await registerOAuthTeam(supabase, {
-        tournamentId: session.tournament_id,
-        team: filteredTeams[0],
-        managerName,
-        hattrickUserId,
-        accessToken,
-        accessTokenSecret,
-      });
+      try {
+        await registerOAuthTeam(supabase, {
+          tournamentId: session.tournament_id,
+          team: filteredTeams[0],
+          managerName,
+          hattrickUserId,
+          accessToken,
+          accessTokenSecret,
+          skipMembershipCheck: isSuperAdmin,
+        });
+      } catch (err: any) {
+        return res.redirect(`/t/${tournament.slug}?error=${encodeURIComponent(err.message)}`);
+      }
 
       // 5. Cleanup
       await supabase.from('oauth_temp_sessions').delete().eq('oauth_token', oauth_token);

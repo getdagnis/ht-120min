@@ -30,7 +30,16 @@ export const CreateTournament: React.FC = () => {
   const navigate = useNavigate();
   const [loading, setLoading] = useState(false);
   const [checkingSlug, setCheckingSlug] = useState(false);
-  const [step, setStep] = useState<'info' | 'teams'>('info');
+  const [isFetchingTeamData, setIsFetchingTeamData] = useState(false);
+  const [step, setStep] = useState<'info' | 'teams'>(() => {
+    const params = new URLSearchParams(window.location.search);
+    return params.get('step') === 'teams' ? 'teams' : 'info';
+  });
+
+  const [organizerName, setOrganizerName] = useState(() => {
+    const params = new URLSearchParams(window.location.search);
+    return params.get('linked') === 'true' ? 'Linked Organizer' : ''; // We could pass name in redirect
+  });
 
   // Initialize state from localStorage to avoid synchronous setState in useEffect
   const [formData, setFormData] = useState(() => {
@@ -43,6 +52,8 @@ export const CreateTournament: React.FC = () => {
       name: '',
       slug: '',
       scoring_mode: '120min',
+      league_category: 'male',
+      registration_type: 'validated',
       is_private: false,
       description: getRandomDescription(),
     };
@@ -60,6 +71,36 @@ export const CreateTournament: React.FC = () => {
 
   const [newTeamId, setNewTeamId] = useState('');
   const [newTeamName, setNewTeamName] = useState('');
+
+  const fetchTeamData = async (htId: string) => {
+    if (!htId || htId.length < 6) return;
+    setIsFetchingTeamData(true);
+    try {
+      const res = await fetch(`/api/teams/info?team_id=${htId}`);
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Failed to fetch team data');
+
+      // Validation check
+      const category = formData.league_category || 'male';
+      const categoryName = category === 'hfi' ? 'Hattrick Femme International (HFI)' : 'Regular league (male)';
+      const isFemaleLeague = data.teamName?.includes('Femme') || data.leagueId === 3000;
+      const isMaleLeague = !isFemaleLeague;
+      const teamCategory = isFemaleLeague ? 'HFI' : 'male league';
+
+      if (category === 'hfi' && !isFemaleLeague) {
+        throw new Error(`Team ID ${htId} "${data.teamName}" (${teamCategory}) is not eligible to play in a ${categoryName}. Please register a ${categoryName} team or change the tournament category.`);
+      }
+      if (category === 'male' && !isMaleLeague) {
+        throw new Error(`Team ID ${htId} "${data.teamName}" (${teamCategory}) is not eligible to play in a ${categoryName}. Please register a ${categoryName} team or change the tournament category.`);
+      }
+
+      setNewTeamName(data.teamName);
+    } catch (error: any) {
+      alert(error.message);
+    } finally {
+      setIsFetchingTeamData(false);
+    }
+  };
 
   const saveProgress = (updatedForm = formData, updatedTeams = teams, updatedShowDesc = showDescription) => {
     localStorage.setItem(
@@ -167,10 +208,14 @@ export const CreateTournament: React.FC = () => {
           name: formData.name,
           slug,
           scoring_mode: formData.scoring_mode,
+          league_category: formData.league_category,
+          registration_type: formData.registration_type,
           admin_password: adminPassword,
           is_private: formData.is_private,
           description: showDescription ? formData.description : null,
           thumbnail_index: Math.floor(Math.random() * 17) + 1,
+          season: 1,
+          status: 'open',
         },
       ])
       .select()
@@ -239,6 +284,35 @@ export const CreateTournament: React.FC = () => {
                 }
                 placeholder="e.g. guam-hfi-s1"
               />
+            </div>
+
+            <div className={styles.field}>
+              <label htmlFor="league_category">Tournament Category</label>
+              <select
+                id="league_category"
+                value={formData.league_category}
+                onChange={(e) => setFormData({ ...formData, league_category: e.target.value })}
+              >
+                <option value="male">Regular league (male)</option>
+                <option value="hfi">Hattrick Femme International (HFI)</option>
+              </select>
+            </div>
+
+            <div className={styles.field}>
+              <label htmlFor="registration_type">Registration Type</label>
+              <select
+                id="registration_type"
+                value={formData.registration_type}
+                onChange={(e) => setFormData({ ...formData, registration_type: e.target.value })}
+              >
+                <option value="validated">Hattrick Validated (CHPP)</option>
+                <option value="manual">Organizer-Managed</option>
+              </select>
+              <p style={{ fontSize: '0.8rem', marginTop: '0.4rem', opacity: 0.8 }}>
+                {formData.registration_type === 'validated' 
+                  ? 'Only managers themselves can join with their teams.' 
+                  : 'Organizer can add teams, but anyone can still self-register.'}
+              </p>
             </div>
 
             <div className={styles.field}>
@@ -329,10 +403,14 @@ export const CreateTournament: React.FC = () => {
           name: formData.name,
           slug,
           scoring_mode: formData.scoring_mode,
+          league_category: formData.league_category,
+          registration_type: formData.registration_type,
           admin_password: adminPassword,
           is_private: formData.is_private,
           description: showDescription ? formData.description : null,
           thumbnail_index: Math.floor(Math.random() * 17) + 1,
+          season: 1,
+          status: 'open',
         },
       ])
       .select()
@@ -359,7 +437,7 @@ export const CreateTournament: React.FC = () => {
     localStorage.setItem(`admin_pw_${slug}`, adminPassword);
 
     // 3. Redirect to OAuth
-    window.location.href = `/api/auth/init?tournament_id=${tournament.id}`;
+    window.location.href = `/api/auth/init?tournament_id=${tournament.id}&is_creation=true`;
   };
 
   return (
@@ -368,21 +446,33 @@ export const CreateTournament: React.FC = () => {
         <h1>Add Teams</h1>
         <p className={styles.subtitle}>{formData.name}</p>
         <img src="/register2.png" alt="Add Teams" />
-        <p className={styles.subtitle}>Add at least one validated team.</p>
+        
+        {organizerName ? (
+          <div style={{ marginBottom: '2rem', textAlign: 'center', background: 'var(--bg-transp2)', padding: '1rem', borderRadius: '0.75rem' }}>
+            <p style={{ fontSize: '0.9rem', opacity: 0.8, marginBottom: '0.25rem' }}>Organizer:</p>
+            <p style={{ fontWeight: 700, fontSize: '1.25rem', color: 'var(--accent)' }}>{organizerName}</p>
+          </div>
+        ) : (
+          <div style={{ marginBottom: '2rem', textAlign: 'center' }}>
+            <Button
+              size="lg"
+              variant="primary"
+              onClick={handleHattrickLink}
+              disabled={loading}
+            >
+              <Lineicons icon={HandShakeOutlined} size={20} /> Link Organizer Profile
+            </Button>
+            <p style={{ marginTop: '0.5rem', fontSize: '0.85rem', opacity: 0.8 }}>
+              Required to manage and finalize the tournament.
+            </p>
+          </div>
+        )}
 
-        <div style={{ marginBottom: '2rem', textAlign: 'center' }}>
-          <Button
-            size="lg"
-            variant="primary"
-            onClick={handleHattrickLink}
-            disabled={loading}
-          >
-            <Lineicons icon={HandShakeOutlined} size={20} /> Link with Hattrick
-          </Button>
-          <p style={{ marginTop: '0.5rem', fontSize: '0.85rem', opacity: 0.8 }}>
-            (Recommended for automatic results)
-          </p>
-        </div>
+        <p className={styles.subtitle}>
+          {formData.registration_type === 'validated' 
+            ? 'In a self-validated tournament, you must invite teams to join.' 
+            : 'Add teams participating in this season.'}
+        </p>
 
         <form onSubmit={addLocalTeam} className={styles.teamForm}>
           <div className={styles.inputGroup}>
@@ -391,27 +481,50 @@ export const CreateTournament: React.FC = () => {
               type="text"
               placeholder="HT Team ID"
               value={newTeamId}
-              onChange={(e) => setNewTeamId(e.target.value.replace(/\D/g, ''))}
+              onChange={(e) => {
+                setNewTeamId(e.target.value.replace(/\D/g, ''));
+                setNewTeamName('');
+              }}
               minLength={6}
-              maxLength={7}
-              onInvalid={(e) => (e.target as HTMLInputElement).setCustomValidity('Please enter a valid Team ID')}
-              onInput={(e) => (e.target as HTMLInputElement).setCustomValidity('')}
+              maxLength={9}
               required
-              autoFocus
             />
             <input
               name="team_name"
               type="text"
               placeholder="Team Name"
               value={newTeamName}
-              onChange={(e) => setNewTeamName(e.target.value)}
+              readOnly
+              style={{ pointerEvents: 'none', opacity: newTeamName ? 1 : 0.6 }}
               required
             />
           </div>
-          <Button type="submit" variant="secondary" size="md">
-            <Lineicons icon={PlusOutlined} size={20} /> Add
-          </Button>
+          {newTeamId.length >= 6 && !newTeamName && (
+             <Button 
+              type="button" 
+              onClick={() => fetchTeamData(newTeamId)} 
+              disabled={isFetchingTeamData}
+              variant="primary"
+              size="md"
+             >
+              <Lineicons icon={HandShakeOutlined} size={18} /> {isFetchingTeamData ? '...' : 'Get data'}
+            </Button>
+          )}
+          {newTeamName && (
+            <Button type="submit" variant="secondary" size="md">
+              <Lineicons icon={PlusOutlined} size={20} /> {formData.registration_type === 'validated' ? 'Invite' : 'Add'}
+            </Button>
+          )}
         </form>
+
+        <div style={{ marginTop: '2rem', padding: '1rem', background: 'var(--bg-transp2)', borderRadius: '0.75rem', border: '1px dashed var(--border)' }}>
+          <p style={{ fontSize: '0.85rem', fontWeight: 600, marginBottom: '0.5rem', textTransform: 'uppercase' }}>Hattrick Invite Template</p>
+          <textarea
+            readOnly
+            style={{ width: '100%', background: 'rgba(0,0,0,0.2)', border: '1px solid var(--border)', borderRadius: '0.5rem', color: 'var(--text)', padding: '0.5rem', fontSize: '0.85rem', minHeight: '60px', resize: 'none' }}
+            value={`Join our new tournament "${formData.name}" on HT-120min! Register here: ${window.location.origin}/t/${formData.slug}`}
+          />
+        </div>
 
         <ul className={styles.teamList}>
           {teams.map((team) => (
@@ -440,9 +553,18 @@ export const CreateTournament: React.FC = () => {
         </ul>
 
         <div className={styles.genActions}>
-          <p style={{ fontSize: '0.85rem', marginBottom: '1rem', opacity: 0.8, textAlign: 'center' }}>
-            To finish creation, you must link your own team via Hattrick.
-          </p>
+          {organizerName && (
+            <Button
+              variant="secondary"
+              size="lg"
+              fullWidth
+              onClick={handleFinalSubmit}
+              disabled={loading}
+              style={{ marginBottom: '1rem' }}
+            >
+              <Lineicons icon={FloppyDisk1Outlined} size={18} /> Finalize and Create Season 1
+            </Button>
+          )}
           <Button
             variant="outlineWhite"
             size="sm"
@@ -453,6 +575,7 @@ export const CreateTournament: React.FC = () => {
             Go Back
           </Button>
         </div>
+
       </Card>
     </div>
   );

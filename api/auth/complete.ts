@@ -25,6 +25,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       return res.status(404).json({ error: 'Selection session not found or expired' });
     }
 
+    const isSuperAdmin = req.headers.cookie?.includes('issuperadmin=you%20bet') || req.headers.cookie?.includes('issuperadmin="you bet"');
+
     // 2. Register the specific team
     await registerOAuthTeam(supabase, {
       tournamentId: pending.tournament_id,
@@ -36,6 +38,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       hattrickUserId: pending.hattrick_user_id,
       accessToken: pending.access_token,
       accessTokenSecret: pending.access_token_secret,
+      skipMembershipCheck: isSuperAdmin,
     });
 
     // 3. Get tournament slug for redirect
