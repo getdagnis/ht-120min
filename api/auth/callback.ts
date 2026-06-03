@@ -1,15 +1,15 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
-import { getAuthHeader } from '../_lib/chpp-auth';
-import { parseManagerCompendiumXml } from '../_lib/chpp-xml';
+import { getAuthHeader } from '../_lib/chpp-auth.js';
+import { parseManagerCompendiumXml } from '../_lib/chpp-xml.js';
 import {
   filterTeamsForCategory,
   isHfiTeam,
   teamMatchesCategory,
   type LeagueCategory,
-} from '../_lib/team-eligibility';
+} from '../_lib/team-eligibility.js';
 import crypto from 'crypto';
-import { getSupabase } from '../_lib/supabase';
-import { OAUTH_CREATION_TOURNAMENT_ID } from '../_lib/oauth-constants';
+import { getSupabase } from '../_lib/supabase.js';
+import { OAUTH_CREATION_TOURNAMENT_ID } from '../_lib/oauth-constants.js';
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   const { oauth_token, oauth_verifier } = req.query;

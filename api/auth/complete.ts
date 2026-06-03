@@ -1,8 +1,8 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
-import { getSupabase } from '../_lib/supabase';
-import { registerOAuthTeam } from '../_lib/chpp-register';
-import { getAuthHeader } from '../_lib/chpp-auth';
-import { parseTeamDetailsXml } from '../_lib/chpp-xml';
+import { getSupabase } from '../_lib/supabase.js';
+import { registerOAuthTeam } from '../_lib/chpp-register.js';
+import { getAuthHeader } from '../_lib/chpp-auth.js';
+import { parseTeamDetailsXml } from '../_lib/chpp-xml.js';
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });

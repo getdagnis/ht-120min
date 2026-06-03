@@ -1,6 +1,6 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
-import { getAuthHeader } from '../_lib/chpp-auth';
-import { parseTeamDetailsXml } from '../_lib/chpp-xml';
+import { getAuthHeader } from '../_lib/chpp-auth.js';
+import { parseTeamDetailsXml } from '../_lib/chpp-xml.js';
 
 const CHPP_TEAMDETAILS_VERSION = '3.9';
 
