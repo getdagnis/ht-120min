@@ -16,6 +16,7 @@ const getSupabase = () => {
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   const { tournament_id, is_creation, league_category, country_limit } = req.query;
+  console.log('Auth Init - Params:', { tournament_id, is_creation });
 
   if (!tournament_id && is_creation !== 'true') {
     return res.status(400).json({ error: 'tournament_id is required' });
