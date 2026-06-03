@@ -5,6 +5,7 @@ import { Card } from '../../components/Card/Card';
 import { Lineicons } from '@lineiconshq/react-lineicons';
 import { Trophy1Outlined, ChevronLeftOutlined } from '@lineiconshq/free-icons';
 import styles from './OAuthTeamSelect.module.sass';
+import { Button } from '../../components/Button/Button';
 
 interface ChppTeamOption {
   teamId: number;
@@ -12,19 +13,15 @@ interface ChppTeamOption {
   leagueName?: string;
   leagueLevelUnitName?: string;
   regionName?: string;
+  countryName?: string;
 }
 
 interface PendingJoinData {
   id: string;
   manager_name: string;
   teams_json: ChppTeamOption[];
-  tournament_id: string;
+  tournament_id: string | null;
   selection_token: string;
-  tournament?: {
-    slug: string;
-    league_category: string;
-    country_limit: string | null;
-  };
 }
 
 export const OAuthTeamSelect: React.FC = () => {
@@ -33,6 +30,14 @@ export const OAuthTeamSelect: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const [pendingData, setPendingData] = useState<PendingJoinData | null>(null);
+  const [tournamentRules, setTournamentRules] = useState<any>(null);
+  const [redirectUrl, setRedirectUrl] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (redirectUrl) {
+      window.location.href = redirectUrl;
+    }
+  }, [redirectUrl]);
 
   useEffect(() => {
     const fetchPending = async () => {
@@ -49,6 +54,21 @@ export const OAuthTeamSelect: React.FC = () => {
       }
 
       setPendingData(data);
+
+      // Fetch tournament rules if ID exists (joining an existing tournament)
+      if (data.tournament_id) {
+        const { data: tData } = await supabase
+          .from('tournaments')
+          .select('league_category, country_limit')
+          .eq('id', data.tournament_id)
+          .single();
+        setTournamentRules(tData);
+      } else {
+        // In creation mode, rules might not be in DB yet. 
+        // We'll trust the filtered list from the callback or pass defaults.
+        setTournamentRules({ league_category: 'male', country_limit: null });
+      }
+      
       setLoading(false);
     };
 
@@ -71,34 +91,23 @@ export const OAuthTeamSelect: React.FC = () => {
       const result = await response.json();
       if (!response.ok) throw new Error(result.error || 'Failed to complete join');
 
-      navigate(`/t/${result.slug}`);
+      if (result.redirect) {
+        setRedirectUrl(result.redirect);
+      } else {
+        navigate(`/t/${result.slug}`);
+      }
     } catch (err) {
       alert(err instanceof Error ? err.message : 'An unknown error occurred');
       setSubmitting(false);
     }
   };
 
-  if (loading || !pendingData) return <div style={{ padding: '4rem', textAlign: 'center' }}>Loading your teams...</div>;
+  if (loading || !pendingData || !tournamentRules) return <div className={styles.loading}>Loading your teams...</div>;
 
-  // 3. Validation Criteria
-  const tournament = pendingData.tournament;
-  const leagueCategory = tournament?.league_category || 'male';
-  const countryLimit = tournament?.country_limit;
+  const leagueCategory = tournamentRules.league_category || 'male';
+  const countryLimit = tournamentRules.country_limit;
 
-  const validTeams = pendingData.teams_json.filter((team: any) => {
-    // League Type (male/female) - based on leagueName or similar logic
-    // For now simple check: Hattrick Femme International (HFI) is id 3000
-    const isFemaleLeague = team.leagueName?.includes('Femme') || team.leagueId === 3000;
-    const isMaleLeague = !isFemaleLeague;
-
-    if (leagueCategory === 'hfi' && !isFemaleLeague) return false;
-    if (leagueCategory === 'male' && !isMaleLeague) return false;
-
-    // Country Limit
-    if (countryLimit && team.countryName !== countryLimit) return false;
-
-    return true;
-  });
+  const validTeams = pendingData.teams_json; // callback already filters them
 
   const criteriaText = `${leagueCategory === 'hfi' ? 'Hattrick Femme International' : 'male'} teams${
     countryLimit ? ` from ${countryLimit}` : ' from any country'
@@ -107,11 +116,11 @@ export const OAuthTeamSelect: React.FC = () => {
   return (
     <div className={styles.container}>
       <Card variant="hero" title="Choose Your Team">
-        <img src="/register.png" alt="Select Team" style={{ width: '100%', marginBottom: '1.5rem' }} />
+        <img src="/register.png" alt="Select Team" className={styles.heroImg} />
         <p className={styles.welcomeText}>
           Welcome, <strong>{pendingData.manager_name}</strong>! Which team should join the tournament?
         </p>
-        <p style={{ textAlign: 'center', fontSize: '0.85rem', marginBottom: '1.5rem', opacity: 0.8 }}>
+        <p className={styles.criteria}>
           Only {criteriaText} can apply for this tournament.
         </p>
 
@@ -135,13 +144,13 @@ export const OAuthTeamSelect: React.FC = () => {
             </div>
           ))}
           {validTeams.length === 0 && (
-            <p style={{ textAlign: 'center', padding: '2rem', fontStyle: 'italic' }}>
+            <p className={styles.noTeams}>
               None of your teams meet the criteria for this tournament.
             </p>
           )}
         </div>
 
-        <div style={{ marginTop: '2rem', textAlign: 'center', display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+        <div className={styles.footerActions}>
           {submitting && <p className={styles.joiningMessage}>Joining tournament...</p>}
           <Button variant="outline" onClick={() => navigate(-1)} disabled={submitting}>
             Cancel and Go Back

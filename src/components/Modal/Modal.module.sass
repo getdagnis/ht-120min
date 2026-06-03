@@ -1,0 +1,59 @@
+.overlay
+  position: fixed
+  top: 0
+  left: 0
+  right: 0
+  bottom: 0
+  background: rgba(0, 0, 0, 0.75)
+  backdrop-filter: blur(4px)
+  display: flex
+  align-items: center
+  justify-content: center
+  z-index: 1000
+  padding: 1rem
+
+.modal
+  background: #2a8a35 // Grass green
+  border: 1px solid var(--border)
+  border-radius: 1rem
+  width: 100%
+  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.5)
+  animation: modalEnter 0.3s ease-out
+  color: white
+
+.header
+  display: flex
+  justify-content: space-between
+  align-items: center
+  padding: 1.25rem 1.5rem
+  border-bottom: 1px solid var(--border)
+
+.title
+  margin: 0
+  font-size: 1.25rem
+  font-weight: 700
+  color: var(--text-h)
+
+.closeBtn
+  background: none
+  border: none
+  color: var(--text)
+  cursor: pointer
+  padding: 0.5rem
+  margin: -0.5rem
+  opacity: 0.6
+  transition: opacity 0.2s
+
+  &:hover
+    opacity: 1
+
+.content
+  padding: 1.5rem
+
+@keyframes modalEnter
+  from
+    opacity: 0
+    transform: translateY(20px)
+  to
+    opacity: 1
+    transform: translateY(0)

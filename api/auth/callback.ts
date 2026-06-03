@@ -22,7 +22,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   try {
     const supabase = getSupabase();
 
-    // 1. Get temporary secret
+    // 1. Get OAuth session
     const { data: session, error: sError } = await supabase
       .from('oauth_temp_sessions')
       .select('*')
@@ -30,8 +30,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       .single();
 
     if (sError || !session) {
-      return res.status(404).json({ error: 'Session not found or expired' });
+      return res.status(404).json({ error: 'Session not found' });
     }
+    console.log('Callback Session is_creation:', session.is_creation);
+
 
     const url = 'https://chpp.hattrick.org/oauth/access_token.ashx';
     const method = 'GET';
@@ -105,90 +107,65 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       return res.status(500).json({ error: 'No teams found in managercompendium response' });
     }
 
-    // 4. Fetch Tournament Details for filtering
-    const { data: tournament, error: tError } = await supabase
-      .from('tournaments')
-      .select('id, slug, league_category, country_limit, registration_type')
-      .eq('id', session.tournament_id)
-      .single();
+    // 4. Fetch Tournament Details for filtering (if not creating)
+    let tournament = null;
+    if (!session.is_creation) {
+      const { data: tData, error: tError } = await supabase
+        .from('tournaments')
+        .select('id, slug, league_category, country_limit, registration_type')
+        .eq('id', session.tournament_id)
+        .single();
 
-    if (tError || !tournament) {
-      return res.status(404).json({ error: 'Tournament not found' });
+      if (tError || !tData) {
+        return res.status(404).json({ error: 'Tournament not found' });
+      }
+      tournament = tData;
     }
 
     const isSuperAdmin = req.headers.cookie?.includes('issuperadmin=you%20bet') || req.headers.cookie?.includes('issuperadmin="you bet"');
-
-    // Handle Organizer Linking
-    if (session.is_creation) {
-      await supabase
-        .from('tournaments')
-        .update({
-          organizer_name: managerName,
-        })
-        .eq('id', tournament.id);
-
-      await supabase.from('oauth_temp_sessions').delete().eq('oauth_token', oauth_token);
-      return res.redirect(`/create?step=teams&slug=${tournament.slug}&linked=true`);
-    }
 
     // Filter teams based on tournament criteria
     const filteredTeams = teams.filter((team) => {
       const isFemaleLeague = team.leagueName?.includes('Femme') || team.leagueId === 3000;
       const isMaleLeague = !isFemaleLeague;
 
-      if (tournament.league_category === 'hfi' && !isFemaleLeague) return false;
-      if (tournament.league_category === 'male' && !isMaleLeague) return false;
-      if (!isSuperAdmin && tournament.country_limit && team.countryName !== tournament.country_limit) return false;
+      const leagueCategory = tournament?.league_category || 'male';
+      const countryLimit = tournament?.country_limit;
+
+      if (leagueCategory === 'hfi' && !isFemaleLeague) return false;
+      if (leagueCategory === 'male' && !isMaleLeague) return false;
+      if (!isSuperAdmin && countryLimit && team.countryName !== countryLimit) return false;
 
       return true;
     });
 
     if (filteredTeams.length === 0) {
-      const categoryName =
-        tournament.league_category === 'hfi' ? 'Hattrick Femme International (HFI)' : 'Regular league (male)';
+      const leagueCategory = tournament?.league_category || 'male';
+      const categoryName = leagueCategory === 'hfi' ? 'Hattrick Femme International (HFI)' : 'Regular league (male)';
       
-      // Construct a verbose message for at least the first team
       const team = teams[0];
       const isFemale = team.leagueName?.includes('Femme') || team.leagueId === 3000;
       const teamCategory = isFemale ? 'HFI' : 'male league';
       
       const verboseError = `Team ID ${team.teamId} "${team.teamName}" (${teamCategory}) is not eligible to play in a ${categoryName}. Please register a ${categoryName} team.`;
       
-      return res.redirect(`/t/${tournament.slug}?error=${encodeURIComponent(verboseError)}`);
-    }
-
-    if (filteredTeams.length === 1) {
-      try {
-        await registerOAuthTeam(supabase, {
-          tournamentId: session.tournament_id,
-          team: filteredTeams[0],
-          managerName,
-          hattrickUserId,
-          accessToken,
-          accessTokenSecret,
-          skipMembershipCheck: isSuperAdmin,
-        });
-      } catch (err: any) {
-        return res.redirect(`/t/${tournament.slug}?error=${encodeURIComponent(err.message)}`);
+      if (session.is_creation) {
+        return res.redirect(`/create?error=${encodeURIComponent(verboseError)}`);
       }
-
-      // 5. Cleanup
-      await supabase.from('oauth_temp_sessions').delete().eq('oauth_token', oauth_token);
-
-      // Redirect back to tournament
-      return res.redirect(`/t/${tournament.slug}`);
+      return res.redirect(`/t/${tournament?.slug}?error=${encodeURIComponent(verboseError)}`);
     }
 
+    // ALWAYS redirect to selection for creators, or if multiple teams
     const selectionToken = crypto.randomBytes(16).toString('hex');
     const { error } = await supabase.from('oauth_pending_joins').insert({
       selection_token: selectionToken,
-      tournament_id: session.tournament_id,
+      tournament_id: session.is_creation ? null : session.tournament_id,
       access_token: accessToken,
       access_token_secret: accessTokenSecret,
       hattrick_user_id: hattrickUserId,
       manager_name: managerName,
-      teams_json: filteredTeams, // Only store teams that passed initial filter
-      tournament: tournament, // Store tournament details for UI validation text
+      teams_json: filteredTeams,
+      is_creation: session.is_creation,
     });
 
     if (error) {
@@ -197,6 +174,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
     // 5. Cleanup
     await supabase.from('oauth_temp_sessions').delete().eq('oauth_token', oauth_token);
+
+    if (session.is_creation) {
+      return res.redirect(`/create?step=teams&token=${selectionToken}`);
+    }
 
     return res.redirect(`/oauth/select/${selectionToken}`);
   } catch (error: unknown) {

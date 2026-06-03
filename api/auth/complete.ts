@@ -14,6 +14,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   try {
     const supabase = getSupabase();
 
+    const isSuperAdmin = req.headers.cookie?.includes('issuperadmin=you%20bet') || req.headers.cookie?.includes('issuperadmin="you bet"');
+
     // 1. Get pending join data
     const { data: pending, error: pError } = await supabase
       .from('oauth_pending_joins')
@@ -24,12 +26,18 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     if (pError || !pending) {
       return res.status(404).json({ error: 'Selection session not found or expired' });
     }
+    console.log('Complete Pending is_creation:', pending.is_creation);
 
-    const isSuperAdmin = req.headers.cookie?.includes('issuperadmin=you%20bet') || req.headers.cookie?.includes('issuperadmin="you bet"');
+    if (pending.is_creation) {
+      // Return data for creation flow to finalize
+      return res.status(200).json({ 
+        redirect: `/create?step=teams&linked=true&manager=${encodeURIComponent(pending.manager_name)}&teamId=${team_id}&teamName=${encodeURIComponent(team_name)}&token=${selection_token}` 
+      });
+    }
 
-    // 2. Register the specific team
+    // 2. Register the specific team (Standard joining flow)
     await registerOAuthTeam(supabase, {
-      tournamentId: pending.tournament_id,
+      tournamentId: pending.tournament_id!,
       team: {
         teamId: parseInt(team_id),
         teamName: team_name,
@@ -52,6 +60,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     await supabase.from('oauth_pending_joins').delete().eq('selection_token', selection_token);
 
     return res.status(200).json({ slug: tournament?.slug });
+
   } catch (error: unknown) {
     console.error('Auth Complete Handler Error:', error);
     return res.status(500).json({ error: error instanceof Error ? error.message : 'An unknown error occurred' });

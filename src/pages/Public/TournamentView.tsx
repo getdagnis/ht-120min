@@ -70,7 +70,7 @@ interface Tournament {
   league_type: string;
   country_limit: string | null;
   league_category: 'male' | 'hfi';
-  registration_type: 'validated' | 'manual';
+  registration_type: 'Hattrick Validated (CHPP)' | 'Organizer-Managed';
   season: number;
   is_test: boolean;
   status: 'open' | 'active' | 'finished' | 'waiting';
@@ -115,7 +115,7 @@ export const TournamentView: React.FC = () => {
   const [editChppOnlyJoin, setEditChppOnlyJoin] = useState(true);
   const [editLeagueType, setEditLeagueType] = useState('male');
   const [editLeagueCategory, setEditLeagueCategory] = useState<'male' | 'hfi'>('male');
-  const [editRegistrationType, setEditRegistrationType] = useState<'validated' | 'manual'>('validated');
+  const [editRegistrationType, setEditRegistrationType] = useState<'Hattrick Validated (CHPP)' | 'Organizer-Managed'>('Hattrick Validated (CHPP)');
   const [editCountryLimit, setEditCountryLimit] = useState<string | null>(null);
   const [showEditDescription, setShowEditDescription] = useState(false);
   const [editDescription, setEditDescription] = useState('');
@@ -772,7 +772,9 @@ export const TournamentView: React.FC = () => {
             )}
           </div>
           <div className={styles.headerActions}>
-            {/* Join button moved to registration status box */}
+            <div className={styles.imagePlaceholder}>
+              <span>260 x 210 Placeholder</span>
+            </div>
           </div>
         </div>
 
@@ -787,14 +789,14 @@ export const TournamentView: React.FC = () => {
         )}
 
         {isJoining && (
-          <div style={{ marginBottom: '2rem' }}>
+          <div className={styles.registrationFormWrapper}>
             <Card variant="hero" title="Register Your Team">
               {isGenerated && (
-                <p style={{ textAlign: 'center', fontStyle: 'italic', marginBottom: '1.5rem', opacity: 0.9 }}>
+                <p className={styles.registrationIntro}>
                   You are joining an ongoing tournament. You will fill an available spot.
                 </p>
               )}
-              <div style={{ marginBottom: '2rem', textAlign: 'center' }}>
+              <div className={styles.registrationLinkArea}>
                 <Button
                   size="lg"
                   variant="primary"
@@ -802,26 +804,14 @@ export const TournamentView: React.FC = () => {
                 >
                   <Lineicons icon={HandShakeOutlined} size={20} /> Connect with Hattrick
                 </Button>
-                <p style={{ marginTop: '1rem', fontSize: '0.9rem', opacity: 0.8 }}>
+                <p className={styles.registrationLinkNote}>
                   Recommended: Authorize HT-120min to fetch your team data and results automatically.
                 </p>
               </div>
 
-              <div style={{ position: 'relative', textAlign: 'center', margin: '2rem 0' }}>
-                <hr style={{ border: '0', borderTop: '1px solid var(--border)', opacity: '0.3' }} />
-                <span
-                  style={{
-                    position: 'absolute',
-                    top: '50%',
-                    left: '50%',
-                    transform: 'translate(-50%, -50%)',
-                    background: 'var(--beige)',
-                    padding: '0 1rem',
-                    fontSize: '0.8rem',
-                    color: 'var(--text)',
-                    opacity: '0.7',
-                  }}
-                >
+              <div className={styles.dividerWrapper}>
+                <hr className={styles.dividerLine} />
+                <span className={styles.dividerText}>
                   OR MANUAL ENTRY
                 </span>
               </div>
@@ -835,15 +825,14 @@ export const TournamentView: React.FC = () => {
                     onChange={(e) => setJoinTeamId(e.target.value.replace(/\D/g, ''))}
                     minLength={6}
                     maxLength={9}
-                    onInvalid={(e) => (e.target as HTMLInputElement).setCustomValidity('Please enter a valid Team ID')}
-                    onInput={(e) => (e.target as HTMLInputElement).setCustomValidity('')}
                     required
                   />
                   <input
                     type="text"
                     placeholder="Team Name"
                     value={joinTeamName}
-                    onChange={(e) => setJoinTeamName(e.target.value)}
+                    readOnly
+                    className={styles.readOnlyName}
                     required
                   />
                 </div>
@@ -851,7 +840,7 @@ export const TournamentView: React.FC = () => {
                   <Button type="submit" variant="secondary" disabled={isSavingTeam}>
                     {isSavingTeam ? 'Joining...' : 'Confirm Join'}
                   </Button>
-                  <Button variant="outline" onClick={() => setIsJoining(false)} style={{ opacity: 0.8 }}>
+                  <Button variant="outline" onClick={() => setIsJoining(false)} className={styles.mutedAction}>
                     Cancel
                   </Button>
                 </div>
@@ -869,7 +858,7 @@ export const TournamentView: React.FC = () => {
 
           {isAddingDescription && (
             <div className={styles.quickAddDesc}>
-              <div className={adminStyles.labelRow} style={{ marginBottom: '0.5rem' }}>
+              <div className={adminStyles.labelRow}>
                 <label>Add Description</label>
                 <button type="button" onClick={() => regenerateDescription(true)} className={adminStyles.iconBtn}>
                   <Lineicons icon={RefreshCircle1ClockwiseOutlined} size={16} />
@@ -947,14 +936,14 @@ export const TournamentView: React.FC = () => {
               <p>
                 <strong>Registration mode</strong>
               </p>
-              <p className={styles.helpContent}>
-                This tournament is in registration mode, you're free to register.
+              <div className={styles.helpContent}>
+                <p>This tournament is in registration mode, you're free to register.</p>
                 {!isJoining && (
-                  <Button onClick={() => setIsJoining(true)} variant="primary" size="sm" style={{ marginTop: '0.5rem' }}>
+                  <Button onClick={() => setIsJoining(true)} variant="primary" size="sm" className={styles.topSpacing}>
                     <Lineicons icon={EnterOutlined} size={14} /> Join Tournament
                   </Button>
                 )}
-              </p>
+              </div>
             </div>
           )}
         </div>
@@ -974,11 +963,6 @@ export const TournamentView: React.FC = () => {
 
       {activeTab === 'standings' && (
         <Card title="🏆 Standings" variant="classic" headerThumbnailIndex={tournament.thumbnail_index}>
-          <div className={styles.standingsHeader}>
-             <div className={styles.imagePlaceholder}>
-                <span>260 x 210 Placeholder</span>
-             </div>
-          </div>
           <div className={styles.tableWrapper}>
             <table>
               <thead>
@@ -1070,7 +1054,7 @@ export const TournamentView: React.FC = () => {
                       <td className={styles.teamNameCell}>
                         <div className={styles.teamInfo}>
                           <div className={styles.nameRow}>
-                            <Button variant="zero" size="sm" onClick={handleInvite} className={styles.inviteSpotBtn}>
+                            <Button variant="zero" size="sm" onClick={handleInvite} className={styles.inviteSpotBtn} style={{ padding: 0 }}>
                               <Lineicons icon={PlusOutlined} size={14} /> Invite
                             </Button>
                             <span className={styles.spotLabel}>{spot.name}</span>
@@ -1115,17 +1099,6 @@ export const TournamentView: React.FC = () => {
                   'This tournament is still open for registration, you can invite someone to join.'
                 )}
               </p>
-              <Button
-                variant="outline"
-                size="md"
-                onClick={() => {
-                  const msg = `Join our tournament "${tournament.name}" on HT-120min! We have an open spot: ${window.location.origin}/t/${tournament.slug}`;
-                  navigator.clipboard.writeText(msg);
-                  alert('Invitation link and message copied to clipboard!');
-                }}
-              >
-                <Lineicons icon={CopyAiOutlined} size={16} /> Invite someone to join
-              </Button>
             </div>
           )}
         </Card>
@@ -1881,7 +1854,7 @@ export const TournamentView: React.FC = () => {
                                           {match.home_goals} - {match.away_goals}
                                         </span>
                                         {match.went_120 && <span className={adminStyles.badge}>120min</span>}
-                                        {tournament.registration_type === 'manual' && (
+                                        {tournament.registration_type === 'Organizer-Managed' && (
                                           <Button
                                             size="xs"
                                             variant="outline"
@@ -1895,7 +1868,7 @@ export const TournamentView: React.FC = () => {
                                         )}
                                       </div>
                                     ) : (
-                                      tournament.registration_type === 'manual' && (
+                                      tournament.registration_type === 'Organizer-Managed' && (
                                         <Button
                                           size="xs"
                                           variant={round.id === currentRoundId ? 'secondary' : 'outline'}

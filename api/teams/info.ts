@@ -32,7 +32,25 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       return res.status(503).json({ error: 'No CHPP gateway available. Please link a team first.' });
     }
 
-    // Fetch team details using managercompendium (simplest way to get name and league)
+    // 2. Check if team is in another active tournament
+    const isSuperAdmin = req.headers.cookie?.includes('issuperadmin=you%20bet') || req.headers.cookie?.includes('issuperadmin="you bet"');
+
+    if (!isSuperAdmin) {
+      const { data: existing } = await supabase
+        .from('teams')
+        .select('tournament_id, tournaments(name)')
+        .eq('ht_team_id', team_id)
+        .eq('active', true)
+        .maybeSingle();
+
+      if (existing && (existing as any).tournaments?.status !== 'finished') {
+        return res.status(400).json({ 
+          error: `Team ID ${team_id} is already active in another tournament: "${(existing as any).tournaments?.name}". You must leave that tournament first.` 
+        });
+      }
+    }
+
+    // 3. Fetch team details using managercompendium (simplest way to get name and league)
     const url = 'https://chpp.hattrick.org/chppxml.ashx';
     const params = { file: 'teamdetails', teamID: team_id as string };
     

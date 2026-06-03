@@ -234,6 +234,8 @@
   font-size: 1.2rem
   font-weight: 600
   color: var(--text-h)
+  pointer-events: none
+  user-select: text
 
   @media (max-width: 620px)
     font-size: 1rem
@@ -244,6 +246,8 @@
   display: flex
   align-items: center
   transition: all 0.2s
+  cursor: pointer
+  pointer-events: auto
 
   &:hover
     opacity: 1
@@ -275,10 +279,14 @@
 
 .registrationStatus
   @extend .scoringHelp
-  border-color: var(--accent-3)
-  
+  border-color: var(--active-3)
+
   strong
-    color: var(--accent-3)
+    color: var(--active-3)
+
+  .helpContent
+    background: rgba(214, 51, 108, 0.05)
+    border-color: var(--active-3)
 
 .standingsHeader
   display: flex
@@ -298,10 +306,6 @@
   opacity: 0.5
   font-size: 0.85rem
 
-.teamName
-  pointer-events: none
-  user-select: text
-
 .teamNameCell
   .teamInfo
     cursor: default
@@ -320,13 +324,76 @@
     color: var(--accent)
     font-weight: 700
 
-  .match
-    display: flex
-    justify-content: space-between
-    align-items: center
-    padding: 16px 0
-    border-bottom: 1px solid var(--border)
+  .registrationFormWrapper
+    margin-bottom: 2rem
 
+.registrationIntro
+  text-align: center
+  font-style: italic
+  margin-bottom: 1.5rem
+  opacity: 0.9
+
+.registrationLinkArea
+  margin-bottom: 2rem
+  text-align: center
+
+.registrationLinkNote
+  marginTop: 1rem
+  font-size: 0.9rem
+  opacity: 0.8
+
+.dividerWrapper
+  position: relative
+  text-align: center
+  margin: 2rem 0
+
+.dividerLine
+  border: 0
+  border-top: 1px solid var(--border)
+  opacity: 0.3
+
+.dividerText
+  position: absolute
+  top: 50%
+  left: 50%
+  transform: translate(-50%, -50%)
+  background: var(--bg)
+  padding: 0 1rem
+  font-size: 0.8rem
+  color: var(--text)
+  opacity: 0.7
+
+.mutedAction
+  opacity: 0.8
+
+.topSpacing
+  margin-top: 0.75rem
+
+.validatedCheck
+  color: #0fb54c
+
+.noPadding
+  padding: 0 !important
+
+.standingsFooter
+  margin-top: 2rem
+  text-align: center
+
+.standingsFooterNote
+  font-style: italic
+  opacity: 0.8
+  margin-bottom: 1rem
+
+.paginationArea
+  margin-top: 1rem
+  text-align: center
+
+.match
+  display: flex
+  justify-content: space-between
+  align-items: center
+  padding: 16px 0
+  border-bottom: 1px solid var(--border)
   &:last-child
     border-bottom: none
 
