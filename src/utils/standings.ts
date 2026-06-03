@@ -38,7 +38,6 @@ export interface TeamStanding {
 
 export function calculateStandings(
   teams: Team[],
-  matches: Match[],
   scoringMode: '120m' | '120min' | 'points',
 ): TeamStanding[] {
   const standingsMap: Record<string, TeamStanding> = {};

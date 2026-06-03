@@ -24,13 +24,18 @@ interface PendingJoinData {
   selection_token: string;
 }
 
+interface TournamentRules {
+  league_category: 'male' | 'hfi';
+  country_limit: string | null;
+}
+
 export const OAuthTeamSelect: React.FC = () => {
   const { token } = useParams<{ token: string }>();
   const navigate = useNavigate();
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const [pendingData, setPendingData] = useState<PendingJoinData | null>(null);
-  const [tournamentRules, setTournamentRules] = useState<any>(null);
+  const [tournamentRules, setTournamentRules] = useState<TournamentRules | null>(null);
   const [redirectUrl, setRedirectUrl] = useState<string | null>(null);
 
   useEffect(() => {
@@ -61,7 +66,7 @@ export const OAuthTeamSelect: React.FC = () => {
           .from('tournaments')
           .select('league_category, country_limit')
           .eq('id', data.tournament_id)
-          .single();
+          .single() as { data: TournamentRules | null };
         setTournamentRules(tData);
       } else {
         // In creation mode, rules might not be in DB yet. 

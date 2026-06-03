@@ -18,16 +18,17 @@ export async function registerOAuthTeam(
   if (!input.skipMembershipCheck) {
     const { data: existing } = await supabase
       .from('teams')
-      .select('tournament_id, tournaments(name)')
+      .select('tournament_id, tournaments(name, status)')
       .eq('ht_team_id', input.team.teamId)
       .eq('active', true)
       .neq('tournament_id', input.tournamentId)
       .maybeSingle();
 
-    if (existing && (existing as any).tournaments?.status !== 'finished') {
+    const existingData = existing as { tournaments: { name: string; status: string } | null } | null;
+    if (existingData && existingData.tournaments?.status !== 'finished') {
       throw new Error(
         `Team ${input.team.teamName} is already active in another tournament: "${
-          (existing as any).tournaments?.name
+          existingData.tournaments?.name
         }". You must leave that tournament before joining a new one.`,
       );
     }

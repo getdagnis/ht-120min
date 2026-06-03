@@ -71,6 +71,7 @@ interface Tournament {
   country_limit: string | null;
   league_category: 'male' | 'hfi';
   registration_type: 'Hattrick Validated (CHPP)' | 'Organizer-Managed';
+  organizer_name?: string;
   season: number;
   is_test: boolean;
   status: 'open' | 'active' | 'finished' | 'waiting';
@@ -166,6 +167,7 @@ export const TournamentView: React.FC = () => {
   }, [teams]);
 
   const fetchData = useCallback(async () => {
+    setLoading(true);
     const { data: tournamentData } = await supabase.from('tournaments').select('*').eq('slug', slug).single();
 
     if (tournamentData) {
@@ -175,7 +177,7 @@ export const TournamentView: React.FC = () => {
       setEditChppOnlyJoin(tournamentData.chpp_only_join);
       setEditLeagueType(tournamentData.league_type);
       setEditLeagueCategory(tournamentData.league_category || 'male');
-      setEditRegistrationType(tournamentData.registration_type || 'validated');
+      setEditRegistrationType(tournamentData.registration_type || 'Organizer-Managed');
       setEditCountryLimit(tournamentData.country_limit);
       setIsTest(tournamentData.is_test || false);
       setShowEditDescription(tournamentData.show_description);
@@ -212,16 +214,16 @@ export const TournamentView: React.FC = () => {
       if (teamsData) {
         const matchesWithTeams = (matchesData || []) as MatchWithTeams[];
         const calculated = calculateStandings(
-          teamsData.map((t) => ({
-            id: t.id,
-            name: t.name,
-            ht_team_id: t.ht_team_id,
-            active: t.active,
-            replacement_for_team_id: t.replacement_for_team_id,
-          })),
-          matchesWithTeams,
-          tournamentData.scoring_mode as any,
-        );
+           teamsData.map((t) => ({
+             id: t.id,
+             name: t.name,
+             ht_team_id: t.ht_team_id,
+             active: t.active,
+             replacement_for_team_id: t.replacement_for_team_id,
+           })),
+           tournamentData.scoring_mode as any,
+         );
+
         setStandings(calculated);
 
         if (roundsData) {
@@ -241,7 +243,10 @@ export const TournamentView: React.FC = () => {
   }, [slug, password]);
 
   useEffect(() => {
-    fetchData();
+    const init = async () => {
+      await fetchData();
+    };
+    void init();
 
     // Check for error param from OAuth
     const params = new URLSearchParams(window.location.search);
@@ -1391,9 +1396,9 @@ export const TournamentView: React.FC = () => {
                     {(!isGenerated || teams.some((t) => !t.active) || teams.length % 2 !== 0) && (
                       <div className={adminStyles.addTeamSection}>
                         <h3 className={adminStyles.sectionTitle}>
-                          {tournament.registration_type === 'validated' ? 'Invite Team' : 'Add Team'}
+                          {tournament.registration_type === 'Hattrick Validated (CHPP)' ? 'Invite Team' : 'Add Team'}
                         </h3>
-                        {tournament.registration_type === 'validated' && (
+                        {tournament.registration_type === 'Hattrick Validated (CHPP)' && (
                           <p style={{ fontSize: '0.85rem', opacity: 0.8, marginBottom: '1rem' }}>
                             In a self-validated tournament, you can't add teams manually. Use this tool to get team data and then send them an invitation.
                           </p>
@@ -1436,7 +1441,7 @@ export const TournamentView: React.FC = () => {
                           )}
                           {newTeamName && (
                             <>
-                              {tournament.registration_type === 'validated' ? (
+                              {tournament.registration_type === 'Hattrick Validated (CHPP)' ? (
                                 <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem', width: '100%' }}>
                                   <textarea
                                     readOnly

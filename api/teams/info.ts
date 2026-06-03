@@ -1,7 +1,11 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { getSupabase } from '../_lib/supabase';
 import { getAuthHeader } from '../../src/utils/chpp-auth';
-import { parseManagerCompendiumXml } from '../../src/utils/chpp-xml';
+
+interface TeamTournamentCheck {
+  tournament_id: string;
+  tournaments: { name: string; status: string } | null;
+}
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   const { team_id } = req.query;
@@ -38,14 +42,15 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     if (!isSuperAdmin) {
       const { data: existing } = await supabase
         .from('teams')
-        .select('tournament_id, tournaments(name)')
+        .select('tournament_id, tournaments(name, status)')
         .eq('ht_team_id', team_id)
         .eq('active', true)
         .maybeSingle();
 
-      if (existing && (existing as any).tournaments?.status !== 'finished') {
+      const existingData = existing as unknown as TeamTournamentCheck | null;
+      if (existingData && existingData.tournaments?.status !== 'finished') {
         return res.status(400).json({ 
-          error: `Team ID ${team_id} is already active in another tournament: "${(existing as any).tournaments?.name}". You must leave that tournament first.` 
+          error: `Team ID ${team_id} is already active in another tournament: "${existingData.tournaments?.name}". You must leave that tournament first.` 
         });
       }
     }
@@ -84,7 +89,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       leagueId: leagueId ? parseInt(leagueId) : undefined,
       countryName
     });
-  } catch (error: any) {
-    return res.status(500).json({ error: error.message });
+  } catch (error) {
+    return res.status(500).json({ error: error instanceof Error ? error.message : 'An unknown error occurred' });
   }
 }

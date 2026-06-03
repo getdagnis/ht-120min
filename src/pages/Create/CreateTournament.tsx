@@ -39,7 +39,6 @@ const getRandomName = () => TOURNAMENT_NAMES[Math.floor(Math.random() * TOURNAME
 export const CreateTournament: React.FC = () => {
   const navigate = useNavigate();
   const [loading, setLoading] = useState(false);
-  const [checkingSlug, setCheckingSlug] = useState(false);
   const [step, setStep] = useState<'info' | 'teams'>(() => {
     const params = new URLSearchParams(window.location.search);
     return params.get('step') === 'teams' ? 'teams' : 'info';
@@ -101,18 +100,7 @@ export const CreateTournament: React.FC = () => {
     );
   }, [formData, teams, showDescription]);
 
-  useEffect(() => {
-    const params = new URLSearchParams(window.location.search);
-    if (params.get('step') === 'teams') setStep('teams');
-
-    const token = params.get('token');
-    if (token) void fetchPendingSession(token);
-
-    const error = params.get('error');
-    if (error) alert(decodeURIComponent(error));
-  }, []);
-
-  const fetchPendingSession = async (token: string) => {
+  const fetchPendingSession = useCallback(async (token: string) => {
     setShowModal(true);
     setModalLoading(true);
 
@@ -132,7 +120,21 @@ export const CreateTournament: React.FC = () => {
 
     setLinkedManager(data);
     setStep('teams');
-  };
+  }, []);
+
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+
+    const token = params.get('token');
+    if (token) {
+      setTimeout(() => {
+        void fetchPendingSession(token);
+      }, 0);
+    }
+
+    const error = params.get('error');
+    if (error) alert(decodeURIComponent(error));
+  }, [fetchPendingSession]);
 
   const clearPendingJoin = async (selectionToken: string) => {
     await supabase.from('oauth_pending_joins').delete().eq('selection_token', selectionToken);
@@ -244,8 +246,12 @@ export const CreateTournament: React.FC = () => {
       }
 
       setNewTeamName(data.teamName);
-    } catch (error: any) {
-      alert(error.message);
+    } catch (error: unknown) {
+      if (error instanceof Error) {
+        alert(error.message);
+      } else {
+        alert('An unexpected error occurred');
+      }
     } finally {
       setIsFetchingTeamData(false);
     }
@@ -360,8 +366,9 @@ export const CreateTournament: React.FC = () => {
       localStorage.removeItem('create_tournament_progress');
       localStorage.setItem(`admin_pw_${slug}`, adminPassword);
       navigate(`/t/${slug}`, { state: { isAdminInit: true } });
-    } catch (err: any) {
-      alert('Error creating tournament: ' + err.message);
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : 'Unknown error';
+      alert('Error creating tournament: ' + message);
       setLoading(false);
     }
   };
@@ -439,7 +446,7 @@ export const CreateTournament: React.FC = () => {
               )}
             </div>
             <div className={styles.actions}>
-              <Button type="submit" fullWidth disabled={checkingSlug} variant="secondary">
+              <Button type="submit" fullWidth disabled={loading} variant="secondary">
                 Continue <Lineicons icon={ArrowRightOutlined} size={18} />
               </Button>
             </div>

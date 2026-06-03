@@ -10,7 +10,6 @@ import {
 import crypto from 'crypto';
 import { getSupabase } from '../_lib/supabase';
 import { OAUTH_CREATION_TOURNAMENT_ID } from '../_lib/oauth-constants';
-import { registerOAuthTeam } from '../_lib/chpp-register';
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   const { oauth_token, oauth_verifier } = req.query;
