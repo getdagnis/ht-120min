@@ -65,20 +65,20 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     if (!oauth_token || !oauth_token_secret) {
       return res.status(500).json({ error: 'Invalid response from Hattrick', body });
     }
+// Store temporary session
+const supabase = getSupabase();
+const { error } = await supabase.from('oauth_temp_sessions').insert({
+  oauth_token,
+  oauth_token_secret,
+  tournament_id:
+    typeof tournament_id === 'string' && tournament_id
+      ? tournament_id
+      : OAUTH_CREATION_TOURNAMENT_ID,
+  is_creation: is_creation === 'true',
+  league_category: league_category === 'hfi' ? 'hfi' : 'male',
+  country_limit: typeof country_limit === 'string' ? country_limit : null,
+});
 
-    // Store temporary session
-    const supabase = getSupabase();
-    const { error } = await supabase.from('oauth_temp_sessions').insert({
-      oauth_token,
-      oauth_token_secret,
-      tournament_id:
-        typeof tournament_id === 'string' && tournament_id
-          ? tournament_id
-          : OAUTH_CREATION_TOURNAMENT_ID,
-      is_creation: is_creation === 'true',
-      league_category: league_category === 'hfi' ? 'hfi' : 'male',
-      country_limit: typeof country_limit === 'string' ? country_limit : null,
-    });
 
     if (error) {
       return res.status(500).json({ error: 'Failed to store session', details: error.message });
