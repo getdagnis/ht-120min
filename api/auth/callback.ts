@@ -161,7 +161,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
     // ALWAYS redirect to selection for creators, or if multiple teams
     const selectionToken = crypto.randomBytes(16).toString('hex');
-    const { error } = await supabase.from('oauth_pending_joins').insert({
+    const { error } = await supabase.from('oauth_temp_sessions').insert({
       selection_token: selectionToken,
       tournament_id: session.is_creation ? OAUTH_CREATION_TOURNAMENT_ID : session.tournament_id,
       access_token: accessToken,
