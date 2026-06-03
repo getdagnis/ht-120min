@@ -16,6 +16,7 @@ export interface Team {
   replacement_for_team_id: string | null;
   joined_via_oauth?: boolean;
   country_name?: string | null;
+  logo_url?: string | null;
 }
 
 export interface TeamStanding {
@@ -34,15 +35,17 @@ export interface TeamStanding {
   totalMinutes: number;
   joinedViaOauth: boolean;
   countryName: string | null;
+  logoUrl: string | null;
 }
 
 export function calculateStandings(
   teams: Team[],
+  matches: Match[],
   scoringMode: '120m' | '120min' | 'points',
 ): TeamStanding[] {
   const standingsMap: Record<string, TeamStanding> = {};
 
-  // Initialize teams (all of them so we can process matches)
+  // Initialize teams
   teams.forEach((team) => {
     standingsMap[team.id] = {
       teamId: team.id,
@@ -60,13 +63,54 @@ export function calculateStandings(
       totalMinutes: 0,
       joinedViaOauth: !!team.joined_via_oauth,
       countryName: team.country_name || null,
+      logoUrl: team.logo_url || null,
     };
   });
 
-  // Process completed matches ... (no change to this block)
+  // Process completed matches
+  matches.forEach((m) => {
+    if (!m.completed || m.home_goals === null || m.away_goals === null) return;
+
+    const home = standingsMap[m.home_team_id];
+    const away = standingsMap[m.away_team_id];
+
+    if (!home || !away) return;
+
+    home.played++;
+    away.played++;
+    home.gf += m.home_goals;
+    home.ga += m.away_goals;
+    away.gf += m.away_goals;
+    away.ga += m.home_goals;
+    home.gd = home.gf - home.ga;
+    away.gd = away.gf - away.ga;
+
+    if (m.home_goals > m.away_goals) {
+      home.won++;
+      home.pts += 3;
+      away.lost++;
+    } else if (m.home_goals < m.away_goals) {
+      away.won++;
+      away.pts += 3;
+      home.lost++;
+    } else {
+      home.drawn++;
+      away.drawn++;
+      home.pts += 1;
+      away.pts += 1;
+    }
+
+    if (m.went_120) {
+      home.achievements120min++;
+      away.achievements120min++;
+    }
+
+    home.totalMinutes += m.total_minutes || 90;
+    away.totalMinutes += m.total_minutes || 90;
+  });
 
   // Filter out inactive teams from the final list
-  const activeTeamIds = new Set(teams.filter(t => t.active).map(t => t.id));
+  const activeTeamIds = new Set(teams.filter((t) => t.active).map((t) => t.id));
   const standings = Object.values(standingsMap).filter(s => activeTeamIds.has(s.teamId));
 
   // Sorting logic based on mode

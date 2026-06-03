@@ -181,7 +181,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       return res.redirect(`/create?step=teams&token=${selectionToken}`);
     }
 
-    return res.redirect(`/oauth/select/${selectionToken}`);
+    return res.redirect(`/t/${tournament?.slug}?token=${selectionToken}`);
   } catch (error: unknown) {
     console.error('Auth Callback Handler Error:', error);
     return res.status(500).json({ error: error instanceof Error ? error.message : 'An unknown error occurred' });

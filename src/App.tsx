@@ -3,7 +3,6 @@ import { Layout } from './components/Layout/Layout';
 import { Home } from './pages/Home/Home';
 import { CreateTournament } from './pages/Create/CreateTournament';
 import { TournamentView } from './pages/Public/TournamentView';
-import { OAuthTeamSelect } from './pages/Public/OAuthTeamSelect';
 import { ScrollToTop } from './components/ScrollToTop';
 
 function App() {
@@ -15,7 +14,6 @@ function App() {
           <Route path="/" element={<Home />} />
           <Route path="/create" element={<CreateTournament />} />
           <Route path="/t/:slug" element={<TournamentView />} />
-          <Route path="/oauth/select/:token" element={<OAuthTeamSelect />} />
         </Routes>
       </Layout>
     </BrowserRouter>

@@ -2,7 +2,7 @@ import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { getAuthHeader } from '../../src/utils/chpp-auth';
 import { parseTeamDetailsXml } from '../../src/utils/chpp-xml';
 
-const CHPP_TEAMDETAILS_VERSION = '39';
+const CHPP_TEAMDETAILS_VERSION = '3.9';
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   if (req.method !== 'POST') {

@@ -239,7 +239,7 @@ export const CreateTournament: React.FC = () => {
       if (!res.ok) throw new Error(data.error || 'Failed to fetch team data');
 
       const category = (formData.league_category === 'hfi' ? 'hfi' : 'male') as LeagueCategory;
-      if (!teamMatchesCategory({ leagueName: data.teamName, leagueId: data.leagueId }, category)) {
+      if (!teamMatchesCategory(data, category)) {
         throw new Error(
           `Team ID ${htId} "${data.teamName}" is not eligible for ${category === 'hfi' ? 'HFI' : 'Regular male'} based tournament. Please register a matching team or change the tournament category.`,
         );
@@ -362,6 +362,10 @@ export const CreateTournament: React.FC = () => {
 
       const { error: teamsError } = await supabase.from('teams').insert(teamsToInsert);
       if (teamsError) throw teamsError;
+
+      if (creator?.hattrickUserId) {
+        localStorage.setItem('my_ht_user_id', creator.hattrickUserId.toString());
+      }
 
       localStorage.removeItem('create_tournament_progress');
       localStorage.setItem(`admin_pw_${slug}`, adminPassword);

@@ -81,12 +81,16 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     // Surgical XML parsing for name and league info
     const teamName = xml.match(/<TeamName>(?:<!\[CDATA\[)?([\s\S]*?)(?:\]\]>)?<\/TeamName>/i)?.[1]?.trim() || 'Unknown';
     const leagueId = xml.match(/<LeagueID>(\d+)<\/LeagueID>/i)?.[1];
+    const leagueSystemId = xml.match(/<LeagueSystemID>(\d+)<\/LeagueSystemID>/i)?.[1];
+    const leagueName = xml.match(/<LeagueName>(?:<!\[CDATA\[)?([\s\S]*?)(?:\]\]>)?<\/LeagueName>/i)?.[1]?.trim();
     const countryName = xml.match(/<CountryName>(?:<!\[CDATA\[)?([\s\S]*?)(?:\]\]>)?<\/CountryName>/i)?.[1]?.trim();
 
     return res.status(200).json({
       teamId: parseInt(team_id as string),
       teamName,
       leagueId: leagueId ? parseInt(leagueId) : undefined,
+      leagueSystemId: leagueSystemId ? parseInt(leagueSystemId) : undefined,
+      leagueName,
       countryName
     });
   } catch (error) {

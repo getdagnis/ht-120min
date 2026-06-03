@@ -19,16 +19,32 @@
   display: flex
   justify-content: space-between
   align-items: flex-start
-  gap: 2rem
   margin-bottom: 1.5rem
+  margin-top: 1.25rem
   @media (max-width: 620px)
     flex-direction: column
 
 .titleArea
+  @media (max-width: 620px)
+    .h1Wrap
+      display: flex
+      gap: 0.5rem
+      align-items: center
+
+    .h1Img
+      height: 4.5rem
+      aspect-ratio: 4/3
+      background-size: cover !important
+      object-fit: cover
+      border-radius: var(--radius-sm)
+      background: var(--bg-transp)
+
   h1
-    margin: 0
+    margin: 0 0 0.5rem
     font-size: 2.25rem
     font-weight: 700
+    line-height: 1.2
+    text-wrap: pretty
 
   .subtitle
     margin: 0 0 1.5rem
@@ -96,6 +112,7 @@
   font-weight: 500
   line-height: 1.6
   max-width: 800px
+  text-wrap: pretty
 
   p
     margin: 0
@@ -148,6 +165,7 @@
   margin-bottom: 1rem
   padding-bottom: 1rem
   border-bottom: 1px dashed var(--border)
+  text-wrap: pretty
 
   p
     white-space: pre-wrap
@@ -237,6 +255,13 @@
   align-items: center
   gap: 0.5rem
 
+.standingLogo
+  width: 1.5rem
+  height: 1.5rem
+  object-fit: contain
+  border-radius: var(--radius-xs)
+  background: rgba(255, 255, 255, 0.05)
+
 .teamName
   font-family: var(--heading)
   font-size: 1.2rem
@@ -312,30 +337,97 @@
     background: var(--accent-2)
     padding: 0.5rem 1.25rem
 
-.imagePlaceholder
-  order: 1
-  width: 260px
-  min-width: 260px
-  height: 210px
-  margin-top: 1rem
-  background: var(--bg-transp2)
-  border: 1px dashed var(--border)
-  border-radius: 0.5rem
+.joinedNotice
+  background: var(--bg-helpText)
+  border: 1px solid var(--accent)
+  padding: 1rem
+  border-radius: 0.75rem
+  margin-bottom: 2rem
+  display: flex
+  align-items: center
+  justify-content: space-between
+  gap: 1rem
+  font-weight: 600
+  color: var(--text-h)
+  font-size: 0.95rem
+
+.joinedNoticeContent
+  display: flex
+  align-items: center
+  gap: 1rem
+
+.dismissBtn
+  background: transparent
+  border: none
+  color: var(--text)
+  opacity: 0.5
+  cursor: pointer
   display: flex
   align-items: center
   justify-content: center
-  color: var(--text)
-  font-size: 0.85rem
-  @media (max-width: 620px)
-    width: 100%
-    margin-top: 0
+  transition: all 0.2s
+  padding: 4px
 
-  .tournamentImage
+  &:hover
+    opacity: 1
+    color: var(--accent)
+
+.standingsFooter
+  margin-top: 2rem
+  text-align: center
+  display: flex
+  flex-direction: column
+  align-items: center
+
+.standingsFooterNote
+  font-style: italic
+  opacity: 0.8
+  margin-bottom: 0
+
+.footerButtons
+  display: flex
+  gap: 1rem
+  justify-content: center
+  @media (max-width: 620px)
+    flex-direction: column
     width: 100%
-    height: 100%
-    background-size: cover !important
-    object-fit: cover
+    gap: 0.75rem
+
+.myTeamRow
+  background: rgba(16, 134, 59, 0.08) !important
+
+  .teamName
+    color: var(--accent)
+    font-weight: 700
+
+.myTeamBadge
+  font-size: 0.8rem
+  color: var(--accent)
+  font-weight: 600
+  opacity: 0.9
+
+@media (min-width: 621px)
+  .imagePlaceholder
+    order: 1
+    width: 320px
+    aspect-ratio: 3/2
+    height: 210px
+    margin-top: 1rem
+    background: var(--bg-transp2)
+    border: 1px dashed var(--border)
     border-radius: 0.5rem
+    display: flex
+    align-items: center
+    justify-content: center
+    color: var(--text)
+    font-size: 0.85rem
+
+    .tournamentImage
+      width: 100%
+      height: 100%
+      background-size: cover !important
+      object-fit: cover
+      border-radius: 0.5rem
 
 .organizerInfo
   display: flex
@@ -352,8 +444,114 @@
     color: var(--accent)
     font-weight: 700
 
-  .registrationFormWrapper
-    margin-bottom: 2rem
+.registrationFormWrapper
+  margin-bottom: 2rem
+
+.joinHeroImageWrapper
+  position: relative
+  width: 100%
+  height: 200px
+  margin-bottom: 1.5rem
+  border-radius: 0.75rem
+  overflow: hidden
+  background: var(--bg-transp)
+
+.joinHeroImage
+  width: 100%
+  height: 100%
+  object-fit: cover
+  opacity: 0.8
+
+.imageLoaderOverlay
+  position: absolute
+  top: 0
+  left: 0
+  right: 0
+  bottom: 0
+  background: rgba(0, 0, 0, 0.7)
+  display: flex
+  flex-direction: column
+  align-items: center
+  justify-content: center
+  gap: 1rem
+  color: white
+  z-index: 2
+
+  :global(.spin)
+    animation: spin 1.2s linear infinite
+
+  p
+    margin: 0
+    font-weight: 600
+    font-size: 0.9rem
+
+@keyframes spin
+  from
+    transform: rotate(0deg)
+  to
+    transform: rotate(360deg)
+
+.modalContent
+  p
+    margin: 0 0 1rem
+
+.teamOptionsList
+  display: flex
+  flex-direction: column
+  gap: 0.75rem
+  margin-bottom: 1.5rem
+
+.teamOptionCard
+  display: flex
+  justify-content: space-between
+  align-items: center
+  padding: 1rem
+  background: var(--bg-transp)
+  border: 1px solid var(--border)
+  border-radius: 0.75rem
+  cursor: pointer
+  transition: all 0.2s
+
+  &:hover
+    border-color: var(--accent)
+    background: var(--bg-transp2)
+
+  &.disabled
+    opacity: 0.5
+    pointer-events: none
+
+.teamOptionInfo
+  display: flex
+  flex-direction: column
+  gap: 0.25rem
+
+.teamOptionHeader
+  display: flex
+  align-items: center
+  gap: 0.5rem
+
+  strong
+    font-size: 1.1rem
+    color: var(--text-h)
+
+.teamIcon
+  color: var(--accent)
+
+.teamMeta
+  font-size: 0.85rem
+  color: var(--text)
+  opacity: 0.8
+
+.joiningStatus
+  text-align: center
+  font-style: italic
+  color: var(--accent)
+  margin-bottom: 1rem
+
+.modalFooter
+  border-top: 1px solid var(--border)
+  padding-top: 1.5rem
+  margin-top: 1rem
 
 .registrationIntro
   text-align: center
