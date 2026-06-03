@@ -1,8 +1,15 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { getAuthHeader } from '../../src/utils/chpp-auth';
 import { parseManagerCompendiumXml } from '../../src/utils/chpp-xml';
+import {
+  filterTeamsForCategory,
+  isHfiTeam,
+  teamMatchesCategory,
+  type LeagueCategory,
+} from '../../src/utils/team-eligibility';
 import crypto from 'crypto';
 import { getSupabase } from '../_lib/supabase';
+import { OAUTH_CREATION_TOURNAMENT_ID } from '../_lib/oauth-constants';
 import { registerOAuthTeam } from '../_lib/chpp-register';
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
@@ -98,8 +105,6 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       return res.status(chppRes.status).json({ error: 'Failed to fetch managercompendium', details: managerXml });
     }
 
-    console.log(managerXml);
-
     const parsed = parseManagerCompendiumXml(managerXml);
     const { hattrickUserId, managerName, teams } = parsed;
 
@@ -124,28 +129,26 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
     const isSuperAdmin = req.headers.cookie?.includes('issuperadmin=you%20bet') || req.headers.cookie?.includes('issuperadmin="you bet"');
 
-    // Filter teams based on tournament criteria
-    const filteredTeams = teams.filter((team) => {
-      const isFemaleLeague = team.leagueName?.includes('Femme') || team.leagueId === 3000;
-      const isMaleLeague = !isFemaleLeague;
+    const leagueCategory: LeagueCategory = session.is_creation
+      ? session.league_category === 'hfi'
+        ? 'hfi'
+        : 'male'
+      : tournament?.league_category === 'hfi'
+        ? 'hfi'
+        : 'male';
 
-      const leagueCategory = tournament?.league_category || 'male';
-      const countryLimit = tournament?.country_limit;
+    const countryLimit = session.is_creation ? session.country_limit : tournament?.country_limit;
 
-      if (leagueCategory === 'hfi' && !isFemaleLeague) return false;
-      if (leagueCategory === 'male' && !isMaleLeague) return false;
-      if (!isSuperAdmin && countryLimit && team.countryName !== countryLimit) return false;
-
-      return true;
+    const filteredTeams = filterTeamsForCategory(teams, leagueCategory, {
+      countryLimit,
+      skipCountryCheck: isSuperAdmin,
     });
 
     if (filteredTeams.length === 0) {
-      const leagueCategory = tournament?.league_category || 'male';
       const categoryName = leagueCategory === 'hfi' ? 'Hattrick Femme International (HFI)' : 'Regular league (male)';
-      
-      const team = teams[0];
-      const isFemale = team.leagueName?.includes('Femme') || team.leagueId === 3000;
-      const teamCategory = isFemale ? 'HFI' : 'male league';
+
+      const team = teams.find((t) => !teamMatchesCategory(t, leagueCategory)) ?? teams[0];
+      const teamCategory = isHfiTeam(team) ? 'HFI' : 'male league';
       
       const verboseError = `Team ID ${team.teamId} "${team.teamName}" (${teamCategory}) is not eligible to play in a ${categoryName}. Please register a ${categoryName} team.`;
       
@@ -159,7 +162,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     const selectionToken = crypto.randomBytes(16).toString('hex');
     const { error } = await supabase.from('oauth_pending_joins').insert({
       selection_token: selectionToken,
-      tournament_id: session.is_creation ? null : session.tournament_id,
+      tournament_id: session.is_creation ? OAUTH_CREATION_TOURNAMENT_ID : session.tournament_id,
       access_token: accessToken,
       access_token_secret: accessTokenSecret,
       hattrick_user_id: hattrickUserId,

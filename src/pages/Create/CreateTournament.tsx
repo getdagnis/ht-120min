@@ -17,6 +17,7 @@ import {
   ChevronLeftOutlined,
 } from '@lineiconshq/free-icons';
 import { DESCRIPTIONS, TOURNAMENT_NAMES } from '../../constants/descriptions';
+import { filterTeamsForCategory, teamMatchesCategory, type LeagueCategory } from '../../utils/team-eligibility';
 import styles from './CreateTournament.module.sass';
 
 interface LocalTeam {
@@ -28,6 +29,8 @@ interface LocalTeam {
   accessTokenSecret?: string;
   managerName?: string;
   hattrickUserId?: number;
+  logoUrl?: string;
+  countryName?: string;
 }
 
 const getRandomDescription = () => DESCRIPTIONS[Math.floor(Math.random() * DESCRIPTIONS.length)];
@@ -135,6 +138,40 @@ export const CreateTournament: React.FC = () => {
     await supabase.from('oauth_pending_joins').delete().eq('selection_token', selectionToken);
   };
 
+  const goBackToSettings = async () => {
+    const token =
+      linkedManager?.selection_token ?? new URLSearchParams(window.location.search).get('token') ?? undefined;
+    if (token) await clearPendingJoin(token);
+
+    setShowModal(false);
+    setLinkedManager(null);
+    setIsLinked(false);
+    const withoutCreator = teams.filter((t) => !t.isCreator);
+    setTeams(withoutCreator);
+    setStep('info');
+    saveProgress(formData, withoutCreator);
+    window.history.replaceState({}, '', '/create');
+  };
+
+  const fetchTeamLogoFromChpp = async (
+    teamId: number,
+    accessToken: string,
+    accessTokenSecret: string,
+  ): Promise<{ logoUrl?: string; countryName?: string }> => {
+    try {
+      const res = await fetch('/api/chpp/teamdetails', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ team_id: teamId, access_token: accessToken, access_token_secret: accessTokenSecret }),
+      });
+      if (!res.ok) return {};
+      const data = await res.json();
+      return { logoUrl: data.logoUrl ?? undefined, countryName: data.countryName ?? undefined };
+    } catch {
+      return {};
+    }
+  };
+
   const handleCreatorTeamSelect = async (team: {
     teamId: number;
     teamName: string;
@@ -142,6 +179,12 @@ export const CreateTournament: React.FC = () => {
     regionName?: string;
   }) => {
     if (!linkedManager) return;
+
+    const { logoUrl, countryName } = await fetchTeamLogoFromChpp(
+      team.teamId,
+      linkedManager.access_token,
+      linkedManager.access_token_secret,
+    );
 
     const creatorTeam: LocalTeam = {
       tempId: nanoid(),
@@ -152,6 +195,8 @@ export const CreateTournament: React.FC = () => {
       accessTokenSecret: linkedManager.access_token_secret,
       managerName: linkedManager.manager_name,
       hattrickUserId: linkedManager.hattrick_user_id ?? undefined,
+      logoUrl,
+      countryName,
     };
 
     const updatedTeams =
@@ -191,10 +236,11 @@ export const CreateTournament: React.FC = () => {
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || 'Failed to fetch team data');
 
-      const category = formData.league_category || 'male';
-      const isFemaleLeague = data.teamName?.includes('Femme') || data.leagueId === 3000;
-      if ((category === 'hfi' && !isFemaleLeague) || (category === 'male' && isFemaleLeague)) {
-        throw new Error(`Team ID ${htId} "${data.teamName}" is not eligible for ${category === 'hfi' ? 'HFI' : 'Regular male'} based tournament. Please register a matching team or change the tournament category.`);
+      const category = (formData.league_category === 'hfi' ? 'hfi' : 'male') as LeagueCategory;
+      if (!teamMatchesCategory({ leagueName: data.teamName, leagueId: data.leagueId }, category)) {
+        throw new Error(
+          `Team ID ${htId} "${data.teamName}" is not eligible for ${category === 'hfi' ? 'HFI' : 'Regular male'} based tournament. Please register a matching team or change the tournament category.`,
+        );
       }
 
       setNewTeamName(data.teamName);
@@ -251,7 +297,11 @@ export const CreateTournament: React.FC = () => {
 
   const handleHattrickLink = () => {
     saveProgress();
-    window.location.href = `/api/auth/init?is_creation=true`;
+    const params = new URLSearchParams({
+      is_creation: 'true',
+      league_category: formData.league_category === 'hfi' ? 'hfi' : 'male',
+    });
+    window.location.href = `/api/auth/init?${params.toString()}`;
   };
 
   const handleFinalSubmit = async () => {
@@ -298,7 +348,10 @@ export const CreateTournament: React.FC = () => {
         tournament_id: tournament.id, name: t.name, ht_team_id: parseInt(t.htId, 10),
         active: true, joined_via_oauth: !!t.isCreator,
         oauth_token: t.accessToken || null, oauth_token_secret: t.accessTokenSecret || null,
-        manager_name: t.managerName || null, hattrick_user_id: t.hattrickUserId || null,
+        manager_name: t.managerName || null,
+        hattrick_user_id: t.hattrickUserId || null,
+        logo_url: t.logoUrl || null,
+        country_name: t.countryName || null,
       }));
 
       const { error: teamsError } = await supabase.from('teams').insert(teamsToInsert);
@@ -397,17 +450,17 @@ export const CreateTournament: React.FC = () => {
   }
 
   const categoryLabel = formData.league_category === 'hfi' ? 'HFI' : 'Regular male';
+  const leagueCategory = (formData.league_category === 'hfi' ? 'hfi' : 'male') as LeagueCategory;
+  const eligibleTeams = linkedManager
+    ? filterTeamsForCategory(linkedManager.teams_json, leagueCategory)
+    : [];
 
   if (showModal) {
     return (
       <div className={styles.container}>
         <Modal
           isOpen
-          onClose={() => {
-            setShowModal(false);
-            setLinkedManager(null);
-            navigate('/create');
-          }}
+          onClose={() => void goBackToSettings()}
           title={linkedManager ? `Welcome, ${linkedManager.manager_name}!` : 'Linking Hattrick…'}
         >
           <div className={styles.modalContent}>
@@ -420,7 +473,7 @@ export const CreateTournament: React.FC = () => {
                     Join with one of your teams, or organize without playing. You can add other teams on the next
                     screen.
                   </p>
-                ) : linkedManager?.teams_json?.length === 1 ? (
+                ) : eligibleTeams.length === 1 ? (
                   <p>
                     You have one team eligible for a <strong>{categoryLabel}</strong> tournament. Select it to
                     continue.
@@ -432,8 +485,14 @@ export const CreateTournament: React.FC = () => {
                   </p>
                 )}
 
+                {eligibleTeams.length === 0 && !modalLoading && (
+                  <p className={styles.empty}>
+                    None of your teams match this tournament category ({categoryLabel}).
+                  </p>
+                )}
+
                 <div className={styles.teamOptionsList}>
-                  {linkedManager?.teams_json?.map((team) => (
+                  {eligibleTeams.map((team) => (
                     <div
                       key={team.teamId}
                       className={styles.teamOptionCard}
@@ -457,15 +516,7 @@ export const CreateTournament: React.FC = () => {
                 )}
 
                 <div className={styles.modalFooter}>
-                  <Button
-                    variant="outline"
-                    fullWidth
-                    onClick={() => {
-                      setShowModal(false);
-                      setLinkedManager(null);
-                      navigate('/create');
-                    }}
-                  >
+                  <Button variant="outline" fullWidth onClick={() => void goBackToSettings()}>
                     Cancel and change settings
                   </Button>
                 </div>
@@ -502,6 +553,9 @@ export const CreateTournament: React.FC = () => {
           <div className={styles.creatorWelcome}>
             <h2>Ready to create</h2>
             <div className={styles.creatorTeamCard}>
+              {creator.logoUrl && (
+                <img src={creator.logoUrl} alt="" className={styles.creatorTeamLogo} />
+              )}
               <p className={styles.small}>Your team</p>
               <strong>{creator.name}</strong>
               <span>

@@ -1,6 +1,7 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { createClient } from '@supabase/supabase-js';
 import { getAuthHeader } from '../../src/utils/chpp-auth';
+import { OAUTH_CREATION_TOURNAMENT_ID } from '../_lib/oauth-constants';
 
 // Helper to get supabase client safely in serverless functions
 const getSupabase = () => {
@@ -14,8 +15,7 @@ const getSupabase = () => {
 };
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
-  const { tournament_id, is_creation } = req.query;
-  console.log('Init Params:', { tournament_id, is_creation });
+  const { tournament_id, is_creation, league_category, country_limit } = req.query;
 
   if (!tournament_id && is_creation !== 'true') {
     return res.status(400).json({ error: 'tournament_id is required' });
@@ -70,8 +70,13 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     const { error } = await supabase.from('oauth_temp_sessions').insert({
       oauth_token,
       oauth_token_secret,
-      tournament_id: tournament_id || '00000000-0000-0000-0000-000000000000',
+      tournament_id:
+        typeof tournament_id === 'string' && tournament_id
+          ? tournament_id
+          : OAUTH_CREATION_TOURNAMENT_ID,
       is_creation: is_creation === 'true',
+      league_category: league_category === 'hfi' ? 'hfi' : 'male',
+      country_limit: typeof country_limit === 'string' ? country_limit : null,
     });
 
     if (error) {
