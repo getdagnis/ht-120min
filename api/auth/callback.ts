@@ -161,16 +161,19 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
     // ALWAYS redirect to selection for creators, or if multiple teams
     const selectionToken = crypto.randomBytes(16).toString('hex');
-    const { error } = await supabase.from('oauth_temp_sessions').insert({
-      selection_token: selectionToken,
-      tournament_id: session.is_creation ? OAUTH_CREATION_TOURNAMENT_ID : session.tournament_id,
-      access_token: accessToken,
-      access_token_secret: accessTokenSecret,
-      hattrick_user_id: hattrickUserId,
-      manager_name: managerName,
-      teams_json: filteredTeams,
-      is_creation: session.is_creation,
-    });
+    const { error } = await supabase
+      .from('oauth_temp_sessions')
+      .update({
+        selection_token: selectionToken,
+        tournament_id: session.is_creation ? OAUTH_CREATION_TOURNAMENT_ID : session.tournament_id,
+        access_token: accessToken,
+        access_token_secret: accessTokenSecret,
+        hattrick_user_id: hattrickUserId,
+        manager_name: managerName,
+        teams_json: filteredTeams,
+        is_creation: session.is_creation,
+      })
+      .eq('oauth_token', oauth_token);
 
     if (error) {
       return res.status(500).json({ error: 'Failed to store pending OAuth join', details: error.message });
