@@ -1,125 +1,189 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
-import { createClient } from '@supabase/supabase-js';
-import { generateNonce, getTimestamp, generateSignature, getAuthHeader } from '../../src/utils/chpp-auth';
-
-const supabase = createClient(process.env.VITE_SUPABASE_URL || '', process.env.VITE_SUPABASE_PUBLISHABLE_KEY || '');
-
-function extractXmlTag(xml: string, tag: string): string {
-  const match = xml.match(new RegExp(`<${tag}>([^<]*)</${tag}>`, 'i'));
-  return match ? match[1].trim() : '';
-}
+import { getAuthHeader } from '../../src/utils/chpp-auth';
+import { parseManagerCompendiumXml } from '../../src/utils/chpp-xml';
+import {
+  filterTeamsForCategory,
+  isHfiTeam,
+  teamMatchesCategory,
+  type LeagueCategory,
+} from '../../src/utils/team-eligibility';
+import crypto from 'crypto';
+import { getSupabase } from '../_lib/supabase';
+import { OAUTH_CREATION_TOURNAMENT_ID } from '../_lib/oauth-constants';
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
-  const { oauth_token, oauth_verifier, tournamentId } = req.query;
+  const { oauth_token, oauth_verifier } = req.query;
+
+  if (!oauth_token || !oauth_verifier) {
+    return res.status(400).json({ error: 'Missing oauth parameters' });
+  }
+
   const consumerKey = process.env.CHPP_CONSUMER_KEY;
   const consumerSecret = process.env.CHPP_CONSUMER_SECRET;
 
-  if (!oauth_token || !oauth_verifier || !tournamentId) {
-    return res.status(400).json({ error: 'Missing parameters' });
+  if (!consumerKey || !consumerSecret) {
+    return res.status(500).json({ error: 'CHPP Consumer Key or Secret missing in environment' });
   }
 
   try {
-    // 1. Get request token secret
-    const { data: session } = await supabase
+    const supabase = getSupabase();
+
+    // 1. Get OAuth session
+    const { data: session, error: sError } = await supabase
       .from('oauth_temp_sessions')
-      .select('oauth_token_secret, tournament_id')
+      .select('*')
       .eq('oauth_token', oauth_token)
       .single();
 
-    if (!session) return res.status(404).json({ error: 'Session not found' });
+    if (sError || !session) {
+      return res.status(404).json({ error: 'Session not found' });
+    }
+    console.log('Callback Session is_creation:', session.is_creation);
 
-    // 2. Exchange for access token
+
     const url = 'https://chpp.hattrick.org/oauth/access_token.ashx';
-    const params = {
-      oauth_consumer_key: consumerKey!,
-      oauth_nonce: generateNonce(),
-      oauth_signature_method: 'HMAC-SHA1',
-      oauth_timestamp: getTimestamp(),
+    const method = 'GET';
+
+    const params: Record<string, string> = {
       oauth_token: oauth_token as string,
       oauth_verifier: oauth_verifier as string,
-      oauth_version: '1.0',
     };
 
-    const signature = generateSignature('GET', url, params, consumerSecret!, session.oauth_token_secret);
-    const authHeader = getAuthHeader(params, signature);
-
-    const response = await fetch(url, {
-      method: 'GET',
-      headers: { Authorization: authHeader },
-    });
-
-    if (!response.ok) {
-      const text = await response.text();
-      return res.status(response.status).json({ error: `Failed to get access token: ${text}` });
-    }
-
-    const body = await response.text();
-    const data = Object.fromEntries(new URLSearchParams(body));
-    const { oauth_token: accessToken, oauth_token_secret: accessTokenSecret } = data;
-
-    // 3. Fetch Team Details
-    const chppUrl = 'https://chpp.hattrick.org/chppxml.ashx';
-    const chppParams = {
-      file: 'teamdetails',
-      oauth_consumer_key: consumerKey!,
-      oauth_nonce: generateNonce(),
-      oauth_signature_method: 'HMAC-SHA1',
-      oauth_timestamp: getTimestamp(),
-      oauth_token: accessToken,
-      oauth_version: '1.0',
-    };
-
-    const chppSignature = generateSignature('GET', chppUrl, chppParams, consumerSecret!, accessTokenSecret);
-    const chppAuthHeader = getAuthHeader(chppParams, chppSignature);
-
-    const teamRes = await fetch(`${chppUrl}?file=teamdetails`, {
-      method: 'GET',
-      headers: { Authorization: chppAuthHeader },
-    });
-
-    const xml = await teamRes.text();
-
-    // Parse minimal data
-    const htUserId = extractXmlTag(xml, 'UserID');
-    const htTeamId = extractXmlTag(xml, 'TeamID');
-    const teamName = extractXmlTag(xml, 'TeamName');
-    const logoUrl = extractXmlTag(xml, 'LogoURL');
-    const countryName = extractXmlTag(xml, 'CountryName');
-
-    // 4. Upsert into teams table
-    const { data: tournament } = await supabase
-      .from('tournaments')
-      .select('slug')
-      .eq('id', session.tournament_id)
-      .single();
-
-    const { error: upsertError } = await supabase.from('teams').upsert(
-      {
-        tournament_id: session.tournament_id,
-        ht_team_id: parseInt(htTeamId),
-        name: teamName,
-        hattrick_user_id: parseInt(htUserId),
-        oauth_token: accessToken,
-        oauth_token_secret: accessTokenSecret,
-        logo_url: logoUrl,
-        country_name: countryName,
-        joined_via_oauth: true,
-        active: true,
-        oauth_scope: 'manage_challenges',
-      },
-      {
-        onConflict: 'tournament_id,ht_team_id',
-      },
+    const authHeader = getAuthHeader(
+      method,
+      url,
+      params,
+      consumerKey,
+      consumerSecret,
+      oauth_token as string,
+      session.oauth_token_secret,
     );
 
-    if (upsertError) throw upsertError;
+    // 2. Exchange for access token
+    const response = await fetch(url, {
+      method,
+      headers: {
+        Authorization: authHeader,
+      },
+    });
 
-    // 5. Cleanup temp session
+    const body = await response.text();
+    if (!response.ok) {
+      console.error('CHPP Access Token Error:', body);
+      return res.status(response.status).json({ error: 'Failed to exchange access token', details: body });
+    }
+
+    const tokenData = new URLSearchParams(body);
+    const accessToken = tokenData.get('oauth_token')!;
+    const accessTokenSecret = tokenData.get('oauth_token_secret')!;
+
+    // 3. Fetch Manager Details to get User ID and Team ID
+    const chppUrl = 'https://chpp.hattrick.org/chppxml.ashx';
+    const chppParams = { file: 'managercompendium' };
+    const chppHeader = getAuthHeader(
+      'GET',
+      chppUrl,
+      chppParams,
+      consumerKey,
+      consumerSecret,
+      accessToken,
+      accessTokenSecret,
+    );
+
+    const chppRes = await fetch(`${chppUrl}?file=managercompendium`, {
+      headers: { Authorization: chppHeader },
+    });
+
+    const managerXml = await chppRes.text();
+
+    if (!chppRes.ok) {
+      if (process.env.NODE_ENV !== 'production') {
+        console.log('🚨 CHPP status:', chppRes.status);
+        console.log('🚨 CHPP headers:', Object.fromEntries(chppRes.headers.entries()));
+      }
+      return res.status(chppRes.status).json({ error: 'Failed to fetch managercompendium', details: managerXml });
+    }
+
+    const parsed = parseManagerCompendiumXml(managerXml);
+    const { hattrickUserId, managerName, teams } = parsed;
+
+    if (!teams.length) {
+      return res.status(500).json({ error: 'No teams found in managercompendium response' });
+    }
+
+    // 4. Fetch Tournament Details for filtering (if not creating)
+    let tournament = null;
+    if (!session.is_creation) {
+      const { data: tData, error: tError } = await supabase
+        .from('tournaments')
+        .select('id, slug, league_category, country_limit, registration_type')
+        .eq('id', session.tournament_id)
+        .single();
+
+      if (tError || !tData) {
+        return res.status(404).json({ error: 'Tournament not found' });
+      }
+      tournament = tData;
+    }
+
+    const isSuperAdmin = req.headers.cookie?.includes('issuperadmin=you%20bet') || req.headers.cookie?.includes('issuperadmin="you bet"');
+
+    const leagueCategory: LeagueCategory = session.is_creation
+      ? session.league_category === 'hfi'
+        ? 'hfi'
+        : 'male'
+      : tournament?.league_category === 'hfi'
+        ? 'hfi'
+        : 'male';
+
+    const countryLimit = session.is_creation ? session.country_limit : tournament?.country_limit;
+
+    const filteredTeams = filterTeamsForCategory(teams, leagueCategory, {
+      countryLimit,
+      skipCountryCheck: isSuperAdmin,
+    });
+
+    if (filteredTeams.length === 0) {
+      const categoryName = leagueCategory === 'hfi' ? 'Hattrick Femme International (HFI)' : 'Regular league (male)';
+
+      const team = teams.find((t) => !teamMatchesCategory(t, leagueCategory)) ?? teams[0];
+      const teamCategory = isHfiTeam(team) ? 'HFI' : 'male league';
+      
+      const verboseError = `Team ID ${team.teamId} "${team.teamName}" (${teamCategory}) is not eligible to play in a ${categoryName}. Please register a ${categoryName} team.`;
+      
+      if (session.is_creation) {
+        return res.redirect(`/create?error=${encodeURIComponent(verboseError)}`);
+      }
+      return res.redirect(`/t/${tournament?.slug}?error=${encodeURIComponent(verboseError)}`);
+    }
+
+    // ALWAYS redirect to selection for creators, or if multiple teams
+    const selectionToken = crypto.randomBytes(16).toString('hex');
+    const { error } = await supabase.from('oauth_pending_joins').insert({
+      selection_token: selectionToken,
+      tournament_id: session.is_creation ? OAUTH_CREATION_TOURNAMENT_ID : session.tournament_id,
+      access_token: accessToken,
+      access_token_secret: accessTokenSecret,
+      hattrick_user_id: hattrickUserId,
+      manager_name: managerName,
+      teams_json: filteredTeams,
+      is_creation: session.is_creation,
+    });
+
+    if (error) {
+      return res.status(500).json({ error: 'Failed to store pending OAuth join', details: error.message });
+    }
+
+    // 5. Cleanup
     await supabase.from('oauth_temp_sessions').delete().eq('oauth_token', oauth_token);
 
-    // Redirect back to tournament
-    return res.redirect(`/t/${tournament?.slug}`);
+    if (session.is_creation) {
+      return res.redirect(`/create?step=teams&token=${selectionToken}`);
+    }
+
+    return res.redirect(`/t/${tournament?.slug}?token=${selectionToken}`);
   } catch (error: unknown) {
+    console.error('Auth Callback Handler Error:', error);
     return res.status(500).json({ error: error instanceof Error ? error.message : 'An unknown error occurred' });
   }
 }

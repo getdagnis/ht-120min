@@ -13,11 +13,13 @@
     "@lineiconshq/free-icons": "^1.0.6",
     "@lineiconshq/react-lineicons": "^1.0.5",
     "@supabase/supabase-js": "^2.106.2",
+    "@vercel/analytics": "^2.0.1",
     "@vercel/node": "^5.8.8",
     "nanoid": "^5.1.11",
     "react": "^19.2.6",
     "react-dom": "^19.2.6",
     "react-router-dom": "^7.16.0",
+    "react-scroll": "^1.9.3",
     "sass": "^1.100.0"
   },
   "devDependencies": {
@@ -25,6 +27,7 @@
     "@types/node": "^24.12.3",
     "@types/react": "^19.2.14",
     "@types/react-dom": "^19.2.3",
+    "@types/react-scroll": "^1.8.10",
     "@vitejs/plugin-react": "^6.0.1",
     "eslint": "^10.3.0",
     "eslint-plugin-react-hooks": "^7.1.1",

@@ -1,9 +1,12 @@
 .mottoCard
-  margin: 1rem 0.5rem 2rem
+  margin: 1rem 0 2rem
   background-color: var(--bg-transp2)
   border-style: dashed
-  width: calc(100% - 1rem)
   box-sizing: border-box
+
+  @media (max-width: 620px)
+    width: calc(100% - 1rem)
+    margin: 1rem 0.5rem 2rem
 
   :global(.content)
     padding: 1.5rem
@@ -16,8 +19,8 @@
   gap: 0.25rem
 
 .quoteIcon
-  color: var(--accent)
-  opacity: 0.5
+  color: var(--accent-3)
+  opacity: 0.8
   margin-bottom: 0
 
 .mottoText

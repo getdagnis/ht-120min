@@ -1,56 +1,82 @@
 import crypto from 'crypto';
 
-export interface OAuthParams {
-  oauth_consumer_key: string;
-  oauth_nonce: string;
-  oauth_signature_method: string;
-  oauth_timestamp: string;
-  oauth_version: string;
-  oauth_token?: string;
-  oauth_verifier?: string;
-  [key: string]: string | undefined;
+/**
+ * RFC 3986 compliant encoding
+ */
+function rfc3986(str: string): string {
+  return encodeURIComponent(str).replace(/[!'()*]/g, (c) => `%${c.charCodeAt(0).toString(16).toUpperCase()}`);
 }
 
-export function generateNonce(): string {
-  return crypto.randomBytes(16).toString('hex');
+export function generateNonce(length = 32): string {
+  return crypto.randomBytes(length).toString('hex');
 }
 
 export function getTimestamp(): string {
   return Math.floor(Date.now() / 1000).toString();
 }
 
-export function percentEncode(str: string): string {
-  return encodeURIComponent(str)
-    .replace(/[!'()*]/g, (c) => '%' + c.charCodeAt(0).toString(16).toUpperCase())
-    .replace(/%7E/g, '~');
-}
-
 export function generateSignature(
   method: string,
   url: string,
-  params: OAuthParams,
+  params: Record<string, string>,
   consumerSecret: string,
-  tokenSecret: string = '',
+  tokenSecret = '',
 ): string {
-  const sortedParams = Object.keys(params)
+  const parameterString = Object.keys(params)
     .sort()
-    .map((key) => `${percentEncode(key)}=${percentEncode(params[key] || '')}`)
+    .map((key) => `${rfc3986(key)}=${rfc3986(params[key])}`)
     .join('&');
 
-  const baseString = [method.toUpperCase(), percentEncode(url), percentEncode(sortedParams)].join('&');
+  const baseString = [method.toUpperCase(), rfc3986(url), rfc3986(parameterString)].join('&');
 
-  const signingKey = [percentEncode(consumerSecret), percentEncode(tokenSecret)].join('&');
+  const signingKey = `${rfc3986(consumerSecret)}&${rfc3986(tokenSecret)}`;
+
+  if (process.env.NODE_ENV !== 'production') {
+    // DIAGNOSTIC LOGGING (avoid leaking secrets in prod logs)
+    console.log('--- OAUTH SIGNATURE DEBUG ---');
+    console.log('METHOD:', method);
+    console.log('URL:', url);
+    console.log('PARAMS:', params);
+    console.log('BASE STRING:', baseString);
+    console.log('SIGNING KEY:', signingKey);
+    console.log('-----------------------------');
+  }
 
   return crypto.createHmac('sha1', signingKey).update(baseString).digest('base64');
 }
 
-export function getAuthHeader(params: OAuthParams, signature: string): string {
-  const oauthParams = { ...params, oauth_signature: signature };
+export function getAuthHeader(
+  method: string,
+  url: string,
+  params: Record<string, string>,
+  consumerKey: string,
+  consumerSecret: string,
+  token = '',
+  tokenSecret = '',
+): string {
+  const oauthParams: Record<string, string> = {
+    ...params,
+    oauth_consumer_key: consumerKey,
+    oauth_signature_method: 'HMAC-SHA1',
+    oauth_timestamp: getTimestamp(),
+    oauth_nonce: generateNonce(),
+    oauth_version: '1.0',
+  };
+
+  if (token) {
+    oauthParams.oauth_token = token;
+  }
+
+  const signature = generateSignature(method, url, oauthParams, consumerSecret, tokenSecret);
+  oauthParams.oauth_signature = signature;
+
+  // Header should only contain oauth_ parameters
   return (
     'OAuth ' +
     Object.keys(oauthParams)
+      .filter((key) => key.startsWith('oauth_'))
       .sort()
-      .map((key) => `${percentEncode(key)}="${percentEncode(oauthParams[key as keyof typeof oauthParams] || '')}"`)
+      .map((key) => `${rfc3986(key)}="${rfc3986(oauthParams[key])}"`)
       .join(', ')
   );
 }

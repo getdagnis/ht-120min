@@ -9,6 +9,8 @@ CREATE TABLE tournaments (
   is_private BOOLEAN DEFAULT FALSE,
   description TEXT,
   show_description BOOLEAN DEFAULT TRUE,
+  organizer_id BIGINT,
+  image_url TEXT,
   created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 

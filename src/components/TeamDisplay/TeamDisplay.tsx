@@ -15,6 +15,9 @@ export const TeamDisplay: React.FC<TeamDisplayProps> = ({ team, side }) => {
 
   return (
     <div className={`${styles.teamDisplay} ${side ? styles[side] : ''}`}>
+      {team?.logo_url && (
+        <img src={team.logo_url} alt={team.name} className={styles.logo} />
+      )}
       {team?.name ? (
         <span className={styles.teamName}>{team.name}</span>
       ) : (

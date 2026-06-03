@@ -11,7 +11,8 @@
   transition: background-color 0.5s ease-in-out, color 0.5s ease-in-out
 
   &:disabled
-    background: var(--border)
+    background: var(--bg-transp2)
+    color: var(--borderDark)
     cursor: not-allowed
 
   &:hover:not(:disabled)
@@ -29,7 +30,7 @@
     background-color: var(--accent)
 
   &
-    background: var(--accent-bg)
+    background: var(--accent-2)
 
 .secondary
   background-color: #f0ebe4
@@ -49,9 +50,9 @@
     color: var(--theme)
 
   &White
-    color: #ffffffcc
-    background-color: transparent
-    border: 1px solid #ffffffcc
+    color: var(--theme2)
+    background-color: var(--bg-transp2)
+    border: 1px solid var(--theme)
     cursor: pointer
 
     &:hover

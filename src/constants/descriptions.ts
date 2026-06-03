@@ -1,7 +1,7 @@
 export const DESCRIPTIONS: string[] = [
   'This tournament is extra-terrestrial 👾',
   'Every additional minute is a magnificent chance to regret your match orders.',
-  'Every additional minute is a brilliant chance to regret your match orders.',
+  'Every additional minute is a prolonged chance to regret your match orders.',
   'Regret your match orders magnificently.',
   'World class ability to not finish on time.',
   'Extra-terrestrial opportunity to not finish on time.',
@@ -38,14 +38,16 @@ export const DESCRIPTIONS: string[] = [
   'Where legends are made and statistics are born.',
   'Fight against the match engine',
   'No spreadsheets were harmed in the creation of this tournament.',
-  'Mess around, win in 90 and find out.',
-  'Mess around, win in 90 and find out.',
+  'Mess around, win a 120 min battle in regular time and find out.',
+  'Mess around, win in regular time and find out.',
   'Think outside the 90 minutes.',
   'Think outside the 90 minutes.',
-  'The only thing stronger than these teams is our false optimism.',
+  'Regular time is for regulars. We are not regularing here.',
+  'The only thing stronger than my team is my false optimism.',
   "If your stamina isn't solid, your plans are non-existent.",
   "If you're reading this, you're already behind in the standings.",
   'Play fair, have fun, do not win.',
+  'Play fair, have fun, go home.',
   'The grass is virtual, but the sweat is real.',
   'Contains traces of ambition and excessive confidence.',
   'So tell me once again how your best player got injured.',
@@ -202,7 +204,8 @@ export const DESCRIPTIONS: string[] = [
   'Shiny happy extra minutes holding hands.',
   'Smells like team spirit/',
   "Don't cry for me regular friendlies...",
-  'You can now regret setting the wrong match orders fro 30 mins longer!',
+  'You can now regret setting the wrong match orders for 30 more mins!',
+  'The road to hell is paved with winning 120 min battles in regular time.',
 ];
 
 export const TOURNAMENT_NAMES: string[] = [

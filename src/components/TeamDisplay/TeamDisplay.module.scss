@@ -37,3 +37,12 @@
   color: var(--text);
   opacity: 0.6;
 }
+
+.logo {
+  width: 28px;
+  height: 28px;
+  object-fit: contain;
+  margin-bottom: 4px;
+  border-radius: 4px;
+  background: rgba(255, 255, 255, 0.05);
+}

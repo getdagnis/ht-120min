@@ -7,10 +7,11 @@ import { Button } from '../../components/Button/Button';
 import { calculateStandings } from '../../utils/standings';
 import type { TeamStanding } from '../../utils/standings';
 import { generateRoundRobin, generateRecurring } from '../../utils/scheduler';
+import { teamMatchesCategory } from '../../utils/team-eligibility';
 import { TeamDisplay } from '../../components/TeamDisplay/TeamDisplay';
+import { Modal } from '../../components/Modal/Modal';
 import { Lineicons } from '@lineiconshq/react-lineicons';
 import {
-  EnterOutlined,
   Link2AngularRightOutlined,
   PlusOutlined,
   Trash3Outlined,
@@ -18,13 +19,33 @@ import {
   XmarkOutlined,
   PlayOutlined,
   FloppyDisk1Outlined,
-  CopyAiOutlined,
-  Shield2CheckOutlined,
+  Share1CircleOutlined,
+  CheckOutlined,
   QuestionMarkCircleOutlined,
+  HandShakeOutlined,
+  Shield2CheckOutlined,
+  ChevronLeftOutlined,
+  Trophy1Outlined,
 } from '@lineiconshq/free-icons';
-import { DESCRIPTIONS, TOURNAMENT_NAMES } from '../../constants/descriptions';
+import { DESCRIPTIONS } from '../../constants/descriptions';
 import styles from './TournamentView.module.sass';
 import adminStyles from './TournamentAdmin.module.sass';
+
+interface ChppTeamOption {
+  teamId: number;
+  teamName: string;
+  leagueLevelUnitName?: string;
+  regionName?: string;
+  countryName?: string;
+}
+
+interface PendingJoinData {
+  id: string;
+  manager_name: string;
+  teams_json: ChppTeamOption[];
+  tournament_id: string | null;
+  selection_token: string;
+}
 
 interface MatchWithTeams {
   id: string;
@@ -49,7 +70,10 @@ interface Team {
   replacement_for_team_id?: string;
   created_at: string;
   logo_url?: string;
+  joined_via_oauth?: boolean;
   country_name?: string;
+  is_placeholder?: boolean;
+  hattrick_user_id?: number;
 }
 
 interface Tournament {
@@ -62,6 +86,17 @@ interface Tournament {
   description: string | null;
   show_description: boolean;
   thumbnail_index?: number;
+  chpp_only_join: boolean;
+  league_type: string;
+  country_limit: string | null;
+  league_category: 'male' | 'hfi';
+  registration_type: 'Hattrick Validated (CHPP)' | 'Organizer-Managed';
+  organizer_name?: string;
+  organizer_id?: number;
+  image_url?: string;
+  season: number;
+  is_test: boolean;
+  status: 'open' | 'active' | 'finished' | 'waiting';
 }
 
 interface RoundWithMatches {
@@ -95,13 +130,32 @@ export const TournamentView: React.FC = () => {
   const [replacingTeamId, setReplacingTeamId] = useState<string | null>(null);
   const [replacementHtId, setReplacementHtId] = useState('');
   const [replacementName, setReplacementName] = useState('');
+  const [isFetchingTeamData, setIsFetchingTeamData] = useState(false);
 
   // Tournament settings states
   const [editName, setEditName] = useState('');
   const [editIsPrivate, setEditIsPrivate] = useState(false);
+  const [editChppOnlyJoin, setEditChppOnlyJoin] = useState(true);
+  const [editLeagueType, setEditLeagueType] = useState('male');
+  const [editLeagueCategory, setEditLeagueCategory] = useState<'male' | 'hfi'>('male');
+  const [editRegistrationType, setEditRegistrationType] = useState<'Hattrick Validated (CHPP)' | 'Organizer-Managed'>(
+    'Hattrick Validated (CHPP)',
+  );
+  const [editCountryLimit, setEditCountryLimit] = useState<string | null>(null);
   const [showEditDescription, setShowEditDescription] = useState(false);
   const [editDescription, setEditDescription] = useState('');
   const [isUpdatingSettings, setIsUpdatingSettings] = useState(false);
+  const [isTest, setIsTest] = useState(false);
+
+  const isSuperAdmin =
+    document.cookie
+      .split('; ')
+      .find((row) => row.startsWith('issuperadmin='))
+      ?.split('=')[1] === 'you%20bet' ||
+    document.cookie
+      .split('; ')
+      .find((row) => row.startsWith('issuperadmin='))
+      ?.split('=')[1] === 'you bet';
 
   // Collapsible states
   const [isSettingsCollapsed, setIsSettingsCollapsed] = useState(true);
@@ -112,8 +166,14 @@ export const TournamentView: React.FC = () => {
 
   // Join states
   const [isJoining, setIsJoining] = useState(false);
+  const [isConnecting, setIsConnecting] = useState(false);
   const [joinTeamId, setJoinTeamId] = useState('');
   const [joinTeamName, setJoinTeamName] = useState('');
+  const [isInviteExpanded, setIsInviteExpanded] = useState(false);
+  const [showTeamModal, setShowTeamModal] = useState(false);
+  const [modalLoading, setModalLoading] = useState(false);
+  const [pendingJoinData, setPendingJoinData] = useState<PendingJoinData | null>(null);
+  const [submittingJoin, setSubmittingJoin] = useState(false);
 
   // Pagination for recurring tournaments
   const [visibleRoundsCount, setVisibleRoundsCount] = useState(4);
@@ -122,11 +182,9 @@ export const TournamentView: React.FC = () => {
   const [showScoringHelp, setShowScoringHelp] = useState(false);
   const [isAddingDescription, setIsAddingDescription] = useState(false);
   const [quickDescription, setQuickDescription] = useState('');
-
-  const regenerateName = () => {
-    const randomName = TOURNAMENT_NAMES[Math.floor(Math.random() * TOURNAMENT_NAMES.length)];
-    setEditName(randomName);
-  };
+  const [isJoinedNoticeDismissed, setIsJoinedNoticeDismissed] = useState(
+    localStorage.getItem(`joined_notice_dismissed_${slug}`) === 'true',
+  );
 
   const regenerateDescription = (isQuick: boolean) => {
     const randomDesc = DESCRIPTIONS[Math.floor(Math.random() * DESCRIPTIONS.length)];
@@ -134,13 +192,35 @@ export const TournamentView: React.FC = () => {
     else setEditDescription(randomDesc);
   };
 
+  const isHealthQuotaMet = useCallback(() => {
+    if (!teams.length) return true;
+    const totalCount = teams.filter((t) => !t.is_placeholder).length;
+    const inactiveCount = teams.filter((t) => !t.active && !t.is_placeholder).length;
+
+    // Small tournaments (2-3 teams) are exempt as per prompt ("recurring friendlies")
+    if (totalCount <= 3) return true;
+
+    if (totalCount <= 5) return inactiveCount === 0;
+    if (totalCount === 6) return inactiveCount <= 1;
+    if (totalCount === 7) return inactiveCount === 0;
+
+    return inactiveCount / totalCount <= 0.25;
+  }, [teams]);
+
   const fetchData = useCallback(async () => {
+    setLoading(true);
     const { data: tournamentData } = await supabase.from('tournaments').select('*').eq('slug', slug).single();
 
     if (tournamentData) {
       setTournament(tournamentData);
       setEditName(tournamentData.name);
       setEditIsPrivate(tournamentData.is_private);
+      setEditChppOnlyJoin(tournamentData.chpp_only_join);
+      setEditLeagueType(tournamentData.league_type);
+      setEditLeagueCategory(tournamentData.league_category || 'male');
+      setEditRegistrationType(tournamentData.registration_type || 'Organizer-Managed');
+      setEditCountryLimit(tournamentData.country_limit);
+      setIsTest(tournamentData.is_test || false);
       setShowEditDescription(tournamentData.show_description);
       setEditDescription(tournamentData.description || '');
 
@@ -181,10 +261,22 @@ export const TournamentView: React.FC = () => {
             ht_team_id: t.ht_team_id,
             active: t.active,
             replacement_for_team_id: t.replacement_for_team_id,
+            joined_via_oauth: t.joined_via_oauth,
+            country_name: t.country_name,
+            logo_url: t.logo_url,
           })),
-          matchesWithTeams,
+          matchesWithTeams.map((m) => ({
+            home_team_id: m.home_team_id,
+            away_team_id: m.away_team_id,
+            home_goals: m.home_goals,
+            away_goals: m.away_goals,
+            completed: m.completed,
+            went_120: m.went_120,
+            total_minutes: m.total_minutes,
+          })),
           tournamentData.scoring_mode as any,
         );
+
         setStandings(calculated);
 
         if (roundsData) {
@@ -203,12 +295,89 @@ export const TournamentView: React.FC = () => {
     setLoading(false);
   }, [slug, password]);
 
-  useEffect(() => {
-    const timer = setTimeout(() => {
+  const fetchPendingJoinData = useCallback(async (token: string) => {
+    setShowTeamModal(true);
+    setModalLoading(true);
+
+    const { data, error } = await supabase
+      .from('oauth_pending_joins')
+      .select('*')
+      .eq('selection_token', token)
+      .single();
+
+    if (error || !data) {
+      setShowTeamModal(false);
+      alert('Invalid or expired selection session.');
+      const newUrl = window.location.pathname;
+      window.history.replaceState({}, '', newUrl);
+      return;
+    }
+
+    setPendingJoinData(data);
+    setModalLoading(false);
+  }, []);
+
+  const handleTeamSelect = async (team: ChppTeamOption) => {
+    if (!pendingJoinData) return;
+    setSubmittingJoin(true);
+    try {
+      const response = await fetch('/api/auth/complete', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          selection_token: pendingJoinData.selection_token,
+          team_id: team.teamId,
+          team_name: team.teamName,
+        }),
+      });
+
+      const result = await response.json();
+      if (!response.ok) throw new Error(result.error || 'Failed to complete join');
+
+      if (result.hattrick_user_id) {
+        localStorage.setItem('my_ht_user_id', result.hattrick_user_id.toString());
+      }
+
+      setShowTeamModal(false);
+      setPendingJoinData(null);
+
+      alert('Success! You have joined the tournament.');
+      const newUrl = window.location.pathname;
+      window.history.replaceState({}, '', newUrl);
       fetchData();
-    }, 0);
-    return () => clearTimeout(timer);
-  }, [fetchData]);
+    } catch (err) {
+      alert(err instanceof Error ? err.message : 'An unknown error occurred');
+    } finally {
+      setSubmittingJoin(false);
+    }
+  };
+
+  useEffect(() => {
+    const init = async () => {
+      await fetchData();
+    };
+    void init();
+
+    // Check for error, success, or token param from OAuth
+    const params = new URLSearchParams(window.location.search);
+    const errorMsg = params.get('error');
+    const joined = params.get('joined');
+    const token = params.get('token');
+
+    if (errorMsg) {
+      alert(errorMsg);
+      const newUrl = window.location.pathname;
+      window.history.replaceState({}, '', newUrl);
+    } else if (joined) {
+      alert('Success! You have joined the tournament.');
+      const newUrl = window.location.pathname;
+      window.history.replaceState({}, '', newUrl);
+    } else if (token) {
+      setTimeout(() => {
+        void fetchPendingJoinData(token);
+      }, 0);
+    }
+  }, [fetchData, fetchPendingJoinData]);
 
   useEffect(() => {
     if (location.state?.isAdminInit) {
@@ -246,6 +415,12 @@ export const TournamentView: React.FC = () => {
         .update({
           name: editName,
           is_private: editIsPrivate,
+          chpp_only_join: editChppOnlyJoin,
+          league_type: editLeagueType,
+          league_category: editLeagueCategory,
+          registration_type: editRegistrationType,
+          country_limit: editCountryLimit,
+          is_test: isTest,
           show_description: showEditDescription,
           description: editDescription,
         })
@@ -283,6 +458,40 @@ export const TournamentView: React.FC = () => {
     }
   };
 
+  const fetchTeamData = async (htId: string, isReplacement: boolean) => {
+    if (!htId || htId.length < 6) return;
+    setIsFetchingTeamData(true);
+    try {
+      const res = await fetch(`/api/teams/info?team_id=${htId}`);
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Failed to fetch team data');
+
+      // Validation check
+      const category = (tournament?.league_category || 'male') as 'male' | 'hfi';
+      const categoryName = category === 'hfi' ? 'Hattrick Femme International (HFI)' : 'Regular league (male)';
+
+      if (!teamMatchesCategory(data, category)) {
+        const teamCategory = category === 'hfi' ? 'male league' : 'HFI';
+        throw new Error(
+          `Team ID ${htId} "${data.teamName}" (${teamCategory}) is not eligible to play in a ${categoryName}. Please register a ${categoryName} team.`,
+        );
+      }
+      if (!isSuperAdmin && tournament?.country_limit && data.countryName !== tournament.country_limit) {
+        throw new Error(`This team is not from the required league (${tournament.country_limit}).`);
+      }
+
+      if (isReplacement) {
+        setReplacementName(data.teamName);
+      } else {
+        setNewTeamName(data.teamName);
+      }
+    } catch (error: any) {
+      alert(error.message);
+    } finally {
+      setIsFetchingTeamData(false);
+    }
+  };
+
   const addTeam = async (e: React.FormEvent, isJoin: boolean = false) => {
     if (e) e.preventDefault();
     const name = isJoin ? joinTeamName : newTeamName;
@@ -299,23 +508,80 @@ export const TournamentView: React.FC = () => {
     }
 
     const htIdInt = parseInt(htId.trim());
-    if (teams.some((t) => t.ht_team_id === htIdInt)) {
-      alert('This team is already in the tournament.');
+    if (teams.some((t) => t.ht_team_id === htIdInt && t.active)) {
+      alert('This team is already active in the tournament.');
+      return;
+    }
+
+    if (!window.confirm(`Are you sure you want to add ${name} (ID: ${htId})?`)) {
       return;
     }
 
     setIsSavingTeam(true);
     try {
-      const { error } = await supabase.from('teams').insert([
-        {
-          tournament_id: tournament?.id,
-          name: name.trim(),
-          ht_team_id: parseInt(htId.trim()),
-          active: true,
-        },
-      ]);
+      let finalTeamId: string | null = null;
+      let oldTeamToReplaceId: string | null = null;
+
+      // If scheduled and there are inactive teams, replace the first one
+      if (isGenerated) {
+        const inactiveTeam = teams.find((t) => !t.active && !t.is_placeholder);
+        if (inactiveTeam) {
+          oldTeamToReplaceId = inactiveTeam.id;
+        }
+      }
+
+      // 1. Insert new team
+      const { data: newTeam, error } = await supabase
+        .from('teams')
+        .insert([
+          {
+            tournament_id: tournament?.id,
+            name: name.trim(),
+            ht_team_id: parseInt(htId.trim()),
+            active: true,
+            replacement_for_team_id: oldTeamToReplaceId,
+          },
+        ])
+        .select()
+        .single();
 
       if (error) throw error;
+      finalTeamId = newTeam?.id;
+
+      // 2. If replacement, update matches
+      if (oldTeamToReplaceId && finalTeamId) {
+        await supabase
+          .from('matches')
+          .update({ home_team_id: finalTeamId })
+          .eq('home_team_id', oldTeamToReplaceId)
+          .eq('completed', false);
+
+        await supabase
+          .from('matches')
+          .update({ away_team_id: finalTeamId })
+          .eq('away_team_id', oldTeamToReplaceId)
+          .eq('completed', false);
+      } else if (isGenerated && finalTeamId) {
+        // 3. If no inactive team, check for BYE matches
+        const roundIds = rounds.map((r) => r.id);
+        const { data: byeMatches } = await supabase
+          .from('matches')
+          .select('id, home_team_id, away_team_id')
+          .in('round_id', roundIds)
+          .or('home_team_id.is.null,away_team_id.is.null')
+          .eq('completed', false);
+
+        if (byeMatches && byeMatches.length > 0) {
+          for (const match of byeMatches) {
+            if (match.home_team_id === null) {
+              await supabase.from('matches').update({ home_team_id: finalTeamId }).eq('id', match.id);
+            } else if (match.away_team_id === null) {
+              await supabase.from('matches').update({ away_team_id: finalTeamId }).eq('id', match.id);
+            }
+          }
+        }
+      }
+
       if (isJoin) {
         setJoinTeamId('');
         setJoinTeamName('');
@@ -332,25 +598,72 @@ export const TournamentView: React.FC = () => {
     }
   };
 
+  const reviveTeam = async (teamId: string) => {
+    const team = teams.find((t) => t.id === teamId);
+    if (!window.confirm(`Revive ${team?.name}?`)) return;
+
+    setIsSavingTeam(true);
+    try {
+      const { error } = await supabase.from('teams').update({ active: true }).eq('id', teamId);
+      if (error) throw error;
+      fetchData();
+    } catch (error: any) {
+      alert(error.message);
+    } finally {
+      setIsSavingTeam(false);
+    }
+  };
+
   const replaceTeam = async (oldTeamId: string) => {
     if (!replacementName.trim() || !replacementHtId.trim()) {
       alert('Both new Team Name and new HT ID are required.');
       return;
     }
+
+    const oldTeam = teams.find((t) => t.id === oldTeamId);
+    if (!window.confirm(`Replace ${oldTeam?.name || 'Inactive Team'} with ${replacementName}?`)) {
+      return;
+    }
+
     setIsSavingTeam(true);
     try {
+      // 1. Deactivate old team if not already
       await supabase.from('teams').update({ active: false }).eq('id', oldTeamId);
-      const { error } = await supabase.from('teams').insert([
-        {
-          tournament_id: tournament?.id,
-          name: replacementName.trim(),
-          ht_team_id: parseInt(replacementHtId.trim()),
-          active: true,
-          replacement_for_team_id: oldTeamId,
-        },
-      ]);
 
-      if (error) throw error;
+      // 2. Insert new team
+      const { data: newTeam, error: nError } = await supabase
+        .from('teams')
+        .insert([
+          {
+            tournament_id: tournament?.id,
+            name: replacementName.trim(),
+            ht_team_id: parseInt(replacementHtId.trim()),
+            active: true,
+            replacement_for_team_id: oldTeamId,
+          },
+        ])
+        .select()
+        .single();
+
+      if (nError) throw nError;
+
+      // 3. Update upcoming matches
+      if (newTeam) {
+        const { error: m1Error } = await supabase
+          .from('matches')
+          .update({ home_team_id: newTeam.id })
+          .eq('home_team_id', oldTeamId)
+          .eq('completed', false);
+
+        const { error: m2Error } = await supabase
+          .from('matches')
+          .update({ away_team_id: newTeam.id })
+          .eq('away_team_id', oldTeamId)
+          .eq('completed', false);
+
+        if (m1Error || m2Error) throw new Error('Failed to update matches');
+      }
+
       setReplacingTeamId(null);
       setReplacementHtId('');
       setReplacementName('');
@@ -362,24 +675,65 @@ export const TournamentView: React.FC = () => {
     }
   };
 
+  const checkArchiveStatus = async (updatedTeams: any[]) => {
+    const validatedCount = updatedTeams.filter((t) => t.active && t.joined_via_oauth).length;
+    if (validatedCount === 0 && updatedTeams.some((t) => t.active)) {
+      await supabase.from('tournaments').update({ is_archived: true }).eq('id', tournament?.id);
+      alert('This tournament has no Hattrick validated teams left and has been archived.');
+    }
+  };
+
   const deleteTeam = async (id: string) => {
-    if (rounds.length > 0) {
-      if (window.confirm('Are you sure you want to deactivate this team?')) {
+    let updatedTeams;
+    const team = teams.find((t) => t.id === id);
+    if (isGenerated) {
+      if (window.confirm(`Are you sure you want to deactivate ${team?.name}?`)) {
         await supabase.from('teams').update({ active: false }).eq('id', id);
+        updatedTeams = teams.map((t) => (t.id === id ? { ...t, active: false } : t));
         fetchData();
+        checkArchiveStatus(updatedTeams);
       }
       return;
     }
-    await supabase.from('teams').delete().eq('id', id);
-    fetchData();
+
+    if (window.confirm(`Remove ${team?.name} from the tournament?`)) {
+      // If NOT generated, we just destroy the relationship for this season/tournament
+      // Since tournament_id is currently the only link, setting it to null (if schema allowed)
+      // or just deleting from this tournament's team list.
+      // The plan says "DON'T hard delete team from DB", but the current schema
+      // has teams belonging to a tournament. If I delete it here, it's gone from this tournament.
+      // If we had a global teams table, it would be different.
+      // For now, I'll just delete the record as it's specific to this tournament instance.
+      await supabase.from('teams').delete().eq('id', id);
+      updatedTeams = teams.filter((t) => t.id !== id);
+      fetchData();
+      checkArchiveStatus(updatedTeams);
+    }
   };
 
   const generateSchedule = async () => {
-    const activeTeams = teams.filter((t) => t.active);
+    if (!isHealthQuotaMet()) {
+      alert(
+        'Cannot generate schedule: Too many inactive teams. Please replace or revive teams to meet the minimum quota.',
+      );
+      return;
+    }
+
+    const activeTeams = teams.filter((t) => t.active && !t.is_placeholder);
     if (activeTeams.length < 2) {
       alert('Need at least 2 active teams');
       return;
     }
+
+    const isOdd = activeTeams.length % 2 !== 0;
+    let confirmMsg = `Are you sure you want to generate the schedule with ${activeTeams.length} teams?`;
+    if (isOdd) {
+      confirmMsg +=
+        '\n\n⚠️ ODD NUMBER OF TEAMS: Each round one team will have a BYE. BYE rules: teams with a BYE can challenge anyone outside the tournament that round and still get points if they report the result.';
+    }
+
+    if (!window.confirm(confirmMsg)) return;
+
     setIsGenerating(true);
 
     let schedule;
@@ -535,6 +889,9 @@ export const TournamentView: React.FC = () => {
   const isGenerated = rounds.length > 0;
   const is120minMode = tournament.scoring_mode === '120m' || tournament.scoring_mode === '120min';
 
+  const myHtUserId = localStorage.getItem('my_ht_user_id');
+  const hasJoined = teams.some((t) => t.hattrick_user_id === Number(myHtUserId) && t.active);
+
   const isMobile = window.innerWidth <= 620;
   const publicUrl = `${window.location.origin}/t/${slug}`;
   const publicUrlDisplay = isMobile ? `.../t/${slug}` : publicUrl;
@@ -546,49 +903,163 @@ export const TournamentView: React.FC = () => {
     <div className={styles.view}>
       <div className={styles.tHeader}>
         <div className={styles.headerTop}>
-          <h1>{tournament.name}</h1>
-          <div className={styles.headerActions}>
-            {!isGenerated && !isJoining && (
-              <Button onClick={() => setIsJoining(true)} variant="primary">
-                <Lineicons icon={EnterOutlined} size={18} /> Join Tournament
-              </Button>
+          <div className={styles.titleArea}>
+            <div className={styles.h1Wrap}>
+              {tournament?.image_url && (
+                <div
+                  className={styles.h1Img}
+                  style={{ background: `url(${tournament?.image_url}) center center no-repeat` }}
+                />
+              )}
+              <h1>{tournament.name}</h1>
+            </div>
+            <p className={styles.subtitle}>
+              Season {tournament.season}
+              {tournament.status === 'finished' && <span> • Finished</span>}
+            </p>
+            {/* {tournament.organizer_name && (
+              <div className={styles.organizerInfo}>
+                <span className={styles.organizerLabel}>Organizer:</span>
+                <span className={styles.organizerName}>
+                  {tournament.organizer_id && (
+                    <a
+                      href={`https://www.hattrick.org/goto.ashx?path=/Club/Manager/?userId=${tournament.organizer_id}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className={styles.htLink}
+                      style={{ marginLeft: '0.5rem' }}
+                    >
+                      {tournament.organizer_name}
+                      <Lineicons icon={Link2AngularRightOutlined} size={12} />
+                    </a>
+                  )}
+                </span>
+              </div>
+            )} */}
+            {isAddingDescription && (
+              <div className={styles.quickAddDesc}>
+                <div className={adminStyles.labelRow}>
+                  <label>Add Description</label>
+                  <button type="button" onClick={() => regenerateDescription(true)} className={adminStyles.iconBtn}>
+                    <Lineicons icon={RefreshCircle1ClockwiseOutlined} size={16} />
+                  </button>
+                </div>
+
+                <div className={styles.quickAddActions}>
+                  <Button size="sm" variant="primary" onClick={handleQuickDescriptionAdd} disabled={isUpdatingSettings}>
+                    {isUpdatingSettings ? 'Adding...' : 'Add'}
+                  </Button>
+                  <Button size="sm" variant="outline" onClick={() => setIsAddingDescription(false)}>
+                    Cancel
+                  </Button>
+                </div>
+              </div>
+            )}
+
+            {tournament.description && tournament.show_description && (
+              <div className={styles.tournamentDescription}>
+                <p>{tournament.description}</p>
+              </div>
+            )}
+            {/* user written descriptions: do not change */}
+            {is120minMode ? (
+              <div className={styles.scoringHelp}>
+                <p>
+                  <strong>120min training mode</strong>{' '}
+                  <Lineicons
+                    icon={QuestionMarkCircleOutlined}
+                    size={19}
+                    className={styles.helpIcon}
+                    onClick={() => setShowScoringHelp(!showScoringHelp)}
+                  />
+                </p>
+                {showScoringHelp && (
+                  <p className={styles.helpContent}>
+                    Teams in this tournament compete to score more 120min training matches achieved than their
+                    opponents. Standings are ranked by <strong>120min achievements</strong> primarily. Ties are settled
+                    by <strong>Total Minutes</strong> (means more training minutes achieved), then{' '}
+                    <strong>Smaller Goal Difference</strong> (here closer means better), and finally{' '}
+                    <strong>Goals Scored</strong> (means draws with fireworks).
+                  </p>
+                )}
+              </div>
+            ) : (
+              <div className={styles.scoringHelp}>
+                <p>
+                  <strong>Victory points mode</strong>{' '}
+                  <Lineicons
+                    icon={QuestionMarkCircleOutlined}
+                    size={16}
+                    className={styles.helpIcon}
+                    onClick={() => setShowScoringHelp(!showScoringHelp)}
+                  />
+                </p>
+                {showScoringHelp && (
+                  <p className={styles.helpContent}>
+                    Standard competitive tournament. Teams earn 3 points for a win and 1 point for a draw. Standings are
+                    ranked by <strong>Total Points</strong>, then goal difference and goals scored. 120min games mean
+                    nothing here.
+                  </p>
+                )}
+              </div>
+            )}
+          </div>
+          <div className={styles.imagePlaceholder}>
+            {tournament?.image_url && (
+              <div
+                className={styles.tournamentImage}
+                style={{ background: `url(${tournament?.image_url}) center center no-repeat` }}
+              />
             )}
           </div>
         </div>
 
-        {isJoining && !isGenerated && (
-          <div style={{ marginBottom: '2rem' }}>
-            <Card variant="hero" title="Register Your Team">
-              <form onSubmit={(e) => addTeam(e, true)} className={styles.joinForm}>
-                <div className={styles.joinInputs}>
-                  <input
-                    type="text"
-                    placeholder="HT Team ID"
-                    value={joinTeamId}
-                    onChange={(e) => setJoinTeamId(e.target.value.replace(/\D/g, ''))}
-                    minLength={6}
-                    maxLength={9}
-                    onInvalid={(e) => (e.target as HTMLInputElement).setCustomValidity('Please enter a valid Team ID')}
-                    onInput={(e) => (e.target as HTMLInputElement).setCustomValidity('')}
-                    required
-                  />
-                  <input
-                    type="text"
-                    placeholder="Team Name"
-                    value={joinTeamName}
-                    onChange={(e) => setJoinTeamName(e.target.value)}
-                    required
-                  />
-                </div>
-                <div className={styles.joinActions}>
-                  <Button type="submit" variant="secondary" disabled={isSavingTeam}>
-                    {isSavingTeam ? 'Joining...' : 'Confirm Join'}
-                  </Button>
-                  <Button variant="outline" onClick={() => setIsJoining(false)} style={{ opacity: 0.8 }}>
-                    Cancel
-                  </Button>
-                </div>
-              </form>
+        {isGenerated && !isHealthQuotaMet() && (
+          <div className={styles.pauseNotice}>
+            <Lineicons icon={QuestionMarkCircleOutlined} size={24} />
+            <div>
+              <h3>Tournament Paused</h3>
+              <p>
+                More than 25% of teams have become inactive. The tournament is paused until teams are revived or
+                replaced.
+              </p>
+            </div>
+          </div>
+        )}
+
+        {isJoining && (
+          <div className={styles.registrationFormWrapper}>
+            <Card variant="hero" title="Join This Tournament">
+              <div className={styles.joinHeroImageWrapper}>
+                <img src="/register.png" alt="Join Tournament" className={styles.joinHeroImage} />
+                {isConnecting && (
+                  <div className={styles.imageLoaderOverlay}>
+                    <Lineicons icon={RefreshCircle1ClockwiseOutlined} size={40} className="spin" />
+                    <p>Connecting to Hattrick...</p>
+                  </div>
+                )}
+              </div>
+              {isGenerated && (
+                <p className={styles.registrationIntro}>
+                  You are joining an ongoing tournament. You will fill an available spot.
+                </p>
+              )}
+              <div className={styles.registrationLinkArea}>
+                <Button
+                  size="lg"
+                  variant="primary"
+                  disabled={isConnecting}
+                  onClick={() => {
+                    setIsConnecting(true);
+                    window.location.href = `/api/auth/init?tournament_id=${tournament?.id}`;
+                  }}
+                >
+                  <Lineicons icon={HandShakeOutlined} size={20} /> Connect with Hattrick
+                </Button>
+                <p className={styles.registrationLinkNote}>
+                  Authorize HT-120min to fetch your team data and update results automatically.
+                </p>
+              </div>
             </Card>
           </div>
         )}
@@ -599,83 +1070,53 @@ export const TournamentView: React.FC = () => {
               + Add description
             </button>
           )}
-
-          {isAddingDescription && (
-            <div className={styles.quickAddDesc}>
-              <div className={adminStyles.labelRow} style={{ marginBottom: '0.5rem' }}>
-                <label>Add Description</label>
-                <button type="button" onClick={() => regenerateDescription(true)} className={adminStyles.iconBtn}>
-                  <Lineicons icon={RefreshCircle1ClockwiseOutlined} size={16} />
-                </button>
-              </div>
-              <textarea
-                value={quickDescription}
-                onChange={(e) => setQuickDescription(e.target.value)}
-                placeholder="Add tournament description..."
-                rows={3}
-                autoFocus
-              />
-
-              <div className={styles.quickAddActions}>
-                <Button size="sm" variant="primary" onClick={handleQuickDescriptionAdd} disabled={isUpdatingSettings}>
-                  {isUpdatingSettings ? 'Adding...' : 'Add'}
-                </Button>
-                <Button size="sm" variant="outline" onClick={() => setIsAddingDescription(false)}>
-                  Cancel
-                </Button>
-              </div>
-            </div>
-          )}
-
-          {tournament.description && tournament.show_description && (
-            <div className={styles.tournamentDescription}>
-              <p>{tournament.description}</p>
-            </div>
-          )}
-          {/* user written descriptions: do not change */}
-          {is120minMode ? (
-            <div className={styles.scoringHelp}>
-              <p>
-                <strong>120min training mode</strong>{' '}
-                <Lineicons
-                  icon={QuestionMarkCircleOutlined}
-                  size={19}
-                  className={styles.helpIcon}
-                  onClick={() => setShowScoringHelp(!showScoringHelp)}
-                />
-              </p>
-              {showScoringHelp && (
-                <p className={styles.helpContent}>
-                  Teams in this tournament compete to score more 120min training matches achieved than their opponents.
-                  Standings are ranked by <strong>120min achievements</strong> primarily. Ties are settled by{' '}
-                  <strong>Total Minutes</strong> (more minutes = more training), then{' '}
-                  <strong>Smaller Goal Difference</strong> (less is more! the closer to a draw, the better), and finally{' '}
-                  <strong>Goals Scored</strong> (what could be better than draws with fireworks!).
-                </p>
-              )}
-            </div>
-          ) : (
-            <div className={styles.scoringHelp}>
-              <p>
-                <strong>Victory points mode</strong>{' '}
-                <Lineicons
-                  icon={QuestionMarkCircleOutlined}
-                  size={16}
-                  className={styles.helpIcon}
-                  onClick={() => setShowScoringHelp(!showScoringHelp)}
-                />
-              </p>
-              {showScoringHelp && (
-                <p className={styles.helpContent}>
-                  Standard competitive tournament. Teams earn 3 points for a win and 1 point for a draw. Standings are
-                  ranked by <strong>Total Points</strong>, then goal difference and goals scored. 120min games mean
-                  nothing here.
-                </p>
-              )}
-            </div>
-          )}
         </div>
       </div>
+      {!hasJoined &&
+        (!isGenerated ||
+          (isGenerated && (teams.some((t) => !t.active && !t.is_placeholder) || teams.length % 2 !== 0))) && (
+          <div className={styles.registrationStatus}>
+            <div className={styles.helpContent}>
+              <p>
+                {isGenerated
+                  ? 'This tournament is ongoing but has available spots for new teams!'
+                  : 'This tournament is currently open and accepting new team registrations'}
+              </p>
+              {!isJoining && (
+                <Button
+                  onClick={() => {
+                    setIsConnecting(true);
+                    window.location.href = `/api/auth/init?tournament_id=${tournament?.id}`;
+                  }}
+                  variant="primary"
+                  size="sm"
+                  className={styles.joinButton}
+                  disabled={isConnecting}
+                >
+                  <Lineicons icon={HandShakeOutlined} size={22} /> {isGenerated ? 'Fill a Spot' : 'Join with Hattrick'}
+                </Button>
+              )}
+            </div>
+          </div>
+        )}
+
+      {activeTab === 'standings' && hasJoined && !isJoinedNoticeDismissed && (
+        <div className={styles.joinedNotice}>
+          <div className={styles.joinedNoticeContent}>
+            <Lineicons icon={CheckOutlined} size={18} className={styles.validatedCheck} />
+            <span>You are participating in this tournament! Good luck!</span>
+          </div>
+          <button
+            className={styles.dismissBtn}
+            onClick={() => {
+              setIsJoinedNoticeDismissed(true);
+              localStorage.setItem(`joined_notice_dismissed_${slug}`, 'true');
+            }}
+          >
+            <Lineicons icon={XmarkOutlined} size={18} />
+          </button>
+        </div>
+      )}
 
       <div className={styles.tabs}>
         <button className={activeTab === 'standings' ? styles.active : ''} onClick={() => handleTabChange('standings')}>
@@ -718,48 +1159,152 @@ export const TournamentView: React.FC = () => {
                 </tr>
               </thead>
               <tbody>
-                {standings.map((s, idx) => (
-                  <tr key={s.teamId}>
-                    <td className={styles.muted}>{idx + 1}</td>
-                    <td className={styles.teamNameCell}>
-                      <div className={styles.teamInfo}>
-                        <div className={styles.nameRow}>
-                          <span className={styles.teamName}>{s.teamName}</span>
-                          <a
-                            href={`https://www.hattrick.org/goto.ashx?path=/Club/?TeamID=${s.htTeamId}`}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className={styles.htLink}
-                          >
-                            <Lineicons icon={Link2AngularRightOutlined} size={12} />
-                          </a>
+                {standings.map((s, idx) => {
+                  const isMyTeam = s.htTeamId === Number(myHtUserId);
+                  return (
+                    <tr key={s.teamId} className={isMyTeam ? styles.myTeamRow : ''}>
+                      <td className={styles.muted}>{idx + 1}</td>
+                      <td className={styles.teamNameCell}>
+                        <div className={styles.teamInfo}>
+                          <div className={styles.nameRow}>
+                            {s.logoUrl && <img src={s.logoUrl} alt={s.teamName} className={styles.standingLogo} />}
+                            <span className={styles.teamName}>
+                              {s.teamName}
+                              {isMyTeam && <span className={styles.myTeamBadge}> (You)</span>}
+                            </span>
+                            {s.joinedViaOauth && (
+                              <span title="Hattrick Validated Team">
+                                <Lineicons icon={CheckOutlined} size={14} style={{ color: '#0fb54c' }} />
+                              </span>
+                            )}
+                            <a
+                              href={`https://www.hattrick.org/goto.ashx?path=/Club/?TeamID=${s.htTeamId}`}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className={styles.htLink}
+                            >
+                              <Lineicons icon={Link2AngularRightOutlined} size={12} />
+                            </a>
+                          </div>
+                          {s.htTeamId && <span className={styles.teamId}>ID: {s.htTeamId}</span>}
                         </div>
-                        {s.htTeamId && <span className={styles.teamId}>ID: {s.htTeamId}</span>}
-                      </div>
-                    </td>
-                    {is120minMode ? (
-                      <>
-                        <td className={`${styles.highlight} ${styles.center}`}>{s.achievements120min}</td>
-                        <td className={styles.center}>{s.totalMinutes}</td>
-                        <td className={styles.center}>{s.played}</td>
-                        <td className={styles.center}>{s.gd > 0 ? `+${s.gd}` : s.gd}</td>
-                        <td className={styles.center}>{s.gf}</td>
-                      </>
-                    ) : (
-                      <>
-                        <td className={styles.center}>{s.played}</td>
-                        <td className={styles.center}>{s.won}</td>
-                        <td className={styles.center}>{s.drawn}</td>
-                        <td className={styles.center}>{s.lost}</td>
-                        <td className={styles.center}>{s.gd > 0 ? `+${s.gd}` : s.gd}</td>
-                        <td className={`${styles.highlight} ${styles.center}`}>{s.pts}</td>
-                      </>
-                    )}
-                  </tr>
-                ))}
+                      </td>
+                      {is120minMode ? (
+                        <>
+                          <td className={`${styles.highlight} ${styles.center}`}>{s.achievements120min}</td>
+                          <td className={styles.center}>{s.totalMinutes}</td>
+                          <td className={styles.center}>{s.played}</td>
+                          <td className={styles.center}>{s.gd > 0 ? `+${s.gd}` : s.gd}</td>
+                          <td className={styles.center}>{s.gf}</td>
+                        </>
+                      ) : (
+                        <>
+                          <td className={styles.center}>{s.played}</td>
+                          <td className={styles.center}>{s.won}</td>
+                          <td className={styles.center}>{s.drawn}</td>
+                          <td className={styles.center}>{s.lost}</td>
+                          <td className={styles.center}>{s.gd > 0 ? `+${s.gd}` : s.gd}</td>
+                          <td className={`${styles.highlight} ${styles.center}`}>{s.pts}</td>
+                        </>
+                      )}
+                    </tr>
+                  );
+                })}
+
+                {/* Inactive teams / BYE spots */}
+                {(() => {
+                  const inactiveTeams = teams.filter((t) => !t.active && !t.is_placeholder);
+                  const hasBye = teams.length % 2 !== 0 && isGenerated;
+                  const spots = [...inactiveTeams];
+                  if (hasBye) spots.push({ id: 'bye', name: 'BYE Spot', is_placeholder: true } as Team);
+
+                  const handleInvite = () => {
+                    const msg = `Join our tournament "${tournament.name}" on HT-120min! We have an open spot: ${window.location.origin}/t/${tournament.slug}`;
+                    navigator.clipboard.writeText(msg);
+                    alert('Invitation link and message copied to clipboard!');
+                  };
+
+                  return spots.map((spot, idx) => (
+                    <tr key={spot.id} className={styles.inactiveRow}>
+                      <td className={styles.muted}>{standings.length + idx + 1}</td>
+                      <td className={styles.teamNameCell}>
+                        <div className={styles.teamInfo}>
+                          <div className={styles.nameRow}>
+                            <Button
+                              variant="zero"
+                              size="sm"
+                              onClick={handleInvite}
+                              className={styles.inviteSpotBtn}
+                              style={{ padding: 0 }}
+                            >
+                              <Lineicons icon={PlusOutlined} size={14} /> Invite
+                            </Button>
+                            <span className={styles.spotLabel}>{spot.name}</span>
+                          </div>
+                        </div>
+                      </td>
+                      {is120minMode ? (
+                        <>
+                          <td className={styles.center}>-</td>
+                          <td className={styles.center}>-</td>
+                          <td className={styles.center}>-</td>
+                          <td className={styles.center}>-</td>
+                          <td className={styles.center}>-</td>
+                        </>
+                      ) : (
+                        <>
+                          <td className={styles.center}>-</td>
+                          <td className={styles.center}>-</td>
+                          <td className={styles.center}>-</td>
+                          <td className={styles.center}>-</td>
+                          <td className={styles.center}>-</td>
+                          <td className={styles.center}>-</td>
+                        </>
+                      )}
+                    </tr>
+                  ));
+                })()}
               </tbody>
             </table>
           </div>
+
+          {(teams.some((t) => !t.active) || teams.length % 2 !== 0) && (
+            <div className={styles.standingsFooter}>
+              <p className={styles.standingsFooterNote}>
+                {isGenerated
+                  ? teams.some((t) => !t.active)
+                    ? `${
+                        teams.filter((t) => !t.active).length
+                      } team(s) have become inactive and their spots can be filled by another team.`
+                    : "An odd number of teams means there's a BYE spot available for a new team to join."
+                  : 'This tournament is still open for registration, register another team or invite someone'}
+              </p>
+              <div className={styles.footerButtons}>
+                <Button
+                  onClick={() => {
+                    setIsConnecting(true);
+                    window.location.href = `/api/auth/init?tournament_id=${tournament?.id}`;
+                  }}
+                  variant="outlineWhite"
+                  size="sm"
+                  disabled={isConnecting}
+                >
+                  <Lineicons icon={HandShakeOutlined} size={18} /> Join with Hattrick
+                </Button>
+                <Button
+                  onClick={() => {
+                    const msg = `You are invited to join "${tournament.name}" (Season ${tournament.season}) on HT-120min! Register your team here: ${publicUrl}`;
+                    navigator.clipboard.writeText(msg);
+                    alert('Invitation link and message copied to clipboard!');
+                  }}
+                  variant="outlineWhite"
+                  size="sm"
+                >
+                  <Lineicons icon={Share1CircleOutlined} size={16} /> Invite
+                </Button>
+              </div>
+            </div>
+          )}
         </Card>
       )}
 
@@ -768,8 +1313,8 @@ export const TournamentView: React.FC = () => {
           {!isGenerated ? (
             <Card variant="classic">
               <div className={styles.openMessage}>
-                <h2>This tournament is still open for teams to join.</h2>
-                <p>Organizer hasn't closed registration and generated fixtures yet.</p>
+                <h2>Registration Open</h2>
+                <p>This tournament is still open for registration, you can invite someone to join.</p>
               </div>
             </Card>
           ) : (
@@ -845,7 +1390,7 @@ export const TournamentView: React.FC = () => {
                     onToggleCollapse={() => setIsSettingsCollapsed(!isSettingsCollapsed)}
                   >
                     <div className={adminStyles.settingsGroup} style={{ marginBottom: '1.5rem' }}>
-                      <div className={adminStyles.field} style={{ marginBottom: '1.5rem' }}>
+                      {/* <div className={adminStyles.field} style={{ marginBottom: '1.5rem' }}>
                         <div className={adminStyles.labelRow}>
                           <label>Tournament Name</label>
                           <button type="button" onClick={regenerateName} className={adminStyles.iconBtn}>
@@ -853,7 +1398,7 @@ export const TournamentView: React.FC = () => {
                           </button>
                         </div>
                         <input type="text" value={editName} onChange={(e) => setEditName(e.target.value)} />
-                      </div>
+                      </div> */}
 
                       <div className={adminStyles.meta}>
                         <div className={adminStyles.metaItem}>
@@ -873,7 +1418,7 @@ export const TournamentView: React.FC = () => {
                               alert('URL copied!');
                             }}
                           >
-                            <Lineicons icon={CopyAiOutlined} size={isMobile ? 10 : 14} />
+                            <Lineicons icon={Share1CircleOutlined} size={isMobile ? 10 : 14} />
                           </Button>
                         </div>
                         <div className={adminStyles.metaItem}>
@@ -892,10 +1437,95 @@ export const TournamentView: React.FC = () => {
                               alert("Password copied! Don't lose it.");
                             }}
                           >
-                            <Lineicons icon={CopyAiOutlined} size={10} />
+                            <Lineicons icon={Share1CircleOutlined} size={10} />
                           </Button>
                         </div>
                       </div>
+
+                      <div className={adminStyles.field}>
+                        <label>Tournament Category</label>
+                        <select
+                          value={editLeagueCategory}
+                          onChange={(e) => setEditLeagueCategory(e.target.value as any)}
+                          disabled={teams.length > 0 && !isSuperAdmin}
+                          style={{ width: '100%', padding: '0.75rem', borderRadius: '6px' }}
+                        >
+                          <option value="male">Regular league (male)</option>
+                          <option value="hfi">Hattrick Femme International (HFI)</option>
+                        </select>
+                        {teams.length > 0 && !isSuperAdmin && (
+                          <p style={{ fontSize: '0.8rem', marginTop: '0.4rem', opacity: 0.8 }}>
+                            Category is locked once teams have registered.
+                          </p>
+                        )}
+                      </div>
+
+                      <div className={adminStyles.field}>
+                        <label>Registration Type</label>
+                        <select
+                          value={editRegistrationType}
+                          onChange={(e) => setEditRegistrationType(e.target.value as any)}
+                          disabled={teams.length > 0 && !isSuperAdmin}
+                          style={{ width: '100%', padding: '0.75rem', borderRadius: '6px' }}
+                        >
+                          <option value="validated">Hattrick Validated (CHPP)</option>
+                          <option value="manual">Organizer-Managed</option>
+                        </select>
+                      </div>
+
+                      {isSuperAdmin && (
+                        <div className={adminStyles.checkboxField}>
+                          <label className={adminStyles.checkboxLabel}>
+                            <input type="checkbox" checked={isTest} onChange={(e) => setIsTest(e.target.checked)} />
+                            Testing Ground (Super-Admin only)
+                          </label>
+                        </div>
+                      )}
+
+                      <div className={adminStyles.field}>
+                        <label>League of team (any by default)</label>
+                        <select
+                          value={editCountryLimit || ''}
+                          onChange={(e) => setEditCountryLimit(e.target.value || null)}
+                          style={{ width: '100%', padding: '0.75rem', borderRadius: '6px' }}
+                        >
+                          <option value="">Any Hattrick League</option>
+                          {(() => {
+                            const validatedTeams = teams.filter((t) => t.joined_via_oauth && t.country_name);
+                            const countries = Array.from(new Set(validatedTeams.map((t) => t.country_name)));
+                            // If only one country is represented, show it as an option.
+                            // If multiple countries are represented, only "Any..." is valid (already provided above).
+                            if (countries.length === 1) {
+                              return <option value={countries[0]!}>{countries[0]}</option>;
+                            }
+                            return null;
+                          })()}
+                        </select>
+                        {(() => {
+                          const validatedTeams = teams.filter((t) => t.joined_via_oauth && t.country_name);
+                          const countries = Array.from(new Set(validatedTeams.map((t) => t.country_name)));
+                          if (countries.length >= 2) {
+                            return (
+                              <p style={{ fontSize: '0.8rem', marginTop: '0.4rem', opacity: 0.8 }}>
+                                teams from at least 2 leagues already registered
+                              </p>
+                            );
+                          }
+                          return null;
+                        })()}
+                      </div>
+
+                      <div className={adminStyles.checkboxField}>
+                        <label className={adminStyles.checkboxLabel}>
+                          <input
+                            type="checkbox"
+                            checked={editChppOnlyJoin}
+                            onChange={(e) => setEditChppOnlyJoin(e.target.checked)}
+                          />
+                          Only Hattrick validated teams can join
+                        </label>
+                      </div>
+
                       <div className={adminStyles.checkboxField} style={{ marginBottom: '1rem' }}>
                         <label className={adminStyles.checkboxLabel}>
                           <input
@@ -907,38 +1537,40 @@ export const TournamentView: React.FC = () => {
                         </label>
                       </div>
 
-                      <div className={adminStyles.checkboxField}>
-                        <div className={adminStyles.labelRow}>
-                          <label className={adminStyles.checkboxLabel}>
-                            <input
-                              type="checkbox"
-                              checked={showEditDescription}
-                              onChange={(e) => setShowEditDescription(e.target.checked)}
-                            />
-                            Show Description
-                          </label>
-                          {showEditDescription && (
-                            <button
-                              type="button"
-                              onClick={() => regenerateDescription(false)}
-                              className={adminStyles.iconBtn}
-                            >
-                              <Lineicons icon={RefreshCircle1ClockwiseOutlined} size={16} />
-                            </button>
-                          )}
+                      <div>
+                        <div className={adminStyles.checkboxField}>
+                          <div className={adminStyles.labelRow}>
+                            <label className={adminStyles.checkboxLabel}>
+                              <input
+                                type="checkbox"
+                                checked={showEditDescription}
+                                onChange={(e) => setShowEditDescription(e.target.checked)}
+                              />
+                              Show Description
+                            </label>
+                            {showEditDescription && (
+                              <button
+                                type="button"
+                                onClick={() => regenerateDescription(false)}
+                                className={adminStyles.iconBtn}
+                              >
+                                <Lineicons icon={RefreshCircle1ClockwiseOutlined} size={16} />
+                              </button>
+                            )}
+                          </div>
                         </div>
-                      </div>
 
-                      {showEditDescription && (
-                        <div className={adminStyles.textField} style={{ marginTop: '1rem' }}>
-                          <textarea
-                            value={editDescription}
-                            onChange={(e) => setEditDescription(e.target.value)}
-                            placeholder="Tournament description..."
-                            rows={4}
-                          />
-                        </div>
-                      )}
+                        {showEditDescription && (
+                          <div className={adminStyles.textField} style={{ marginTop: '1rem' }}>
+                            <textarea
+                              value={editDescription}
+                              onChange={(e) => setEditDescription(e.target.value)}
+                              placeholder="Tournament description..."
+                              rows={4}
+                            />
+                          </div>
+                        )}
+                      </div>
                     </div>
                     <Button onClick={updateSettings} disabled={isUpdatingSettings} variant="primary" size="sm">
                       {isUpdatingSettings ? 'Saving...' : 'Save Settings'}
@@ -956,62 +1588,134 @@ export const TournamentView: React.FC = () => {
                       localStorage.setItem(`teams_collapsed_${slug}`, JSON.stringify(newState));
                     }}
                   >
-                    <form onSubmit={(e) => addTeam(e, false)} className={adminStyles.teamForm}>
-                      <div className={adminStyles.inputGroup}>
-                        <input
-                          name="team_ht_id"
-                          type="text"
-                          placeholder="HT Team ID"
-                          value={newTeamId}
-                          onChange={(e) => setNewTeamId(e.target.value.replace(/\D/g, ''))}
-                          minLength={6}
-                          maxLength={9}
-                          onInvalid={(e) =>
-                            (e.target as HTMLInputElement).setCustomValidity('Please enter a valid Team ID')
-                          }
-                          onInput={(e) => (e.target as HTMLInputElement).setCustomValidity('')}
-                          required
-                        />
-                        <input
-                          name="team_name"
-                          type="text"
-                          placeholder="Team Name"
-                          value={newTeamName}
-                          onChange={(e) => setNewTeamName(e.target.value)}
-                          required
-                        />
-                      </div>
-                      <Button type="submit" disabled={isSavingTeam} variant="primary">
-                        {isSavingTeam ? (
-                          'Saving...'
-                        ) : (
-                          <>
-                            <Lineicons icon={PlusOutlined} size={18} /> Add Team
-                          </>
+                    {(!isGenerated || teams.some((t) => !t.active) || teams.length % 2 !== 0) && (
+                      <div className={adminStyles.addTeamSection}>
+                        <h3 className={adminStyles.sectionTitle}>
+                          {tournament.registration_type === 'Hattrick Validated (CHPP)' ? 'Invite Team' : 'Add Team'}
+                        </h3>
+                        {tournament.registration_type === 'Hattrick Validated (CHPP)' && (
+                          <p style={{ fontSize: '0.85rem', opacity: 0.8, marginBottom: '1rem' }}>
+                            In a self-validated tournament, you can't add teams manually. Use this tool to get team data
+                            and then send them an invitation.
+                          </p>
                         )}
-                      </Button>
-                    </form>
-
+                        <form onSubmit={(e) => addTeam(e, false)} className={adminStyles.teamForm}>
+                          <div className={adminStyles.inputGroup}>
+                            <input
+                              name="team_ht_id"
+                              type="text"
+                              placeholder="HT Team ID"
+                              value={newTeamId}
+                              onChange={(e) => {
+                                setNewTeamId(e.target.value.replace(/\D/g, ''));
+                                setNewTeamName('');
+                              }}
+                              minLength={6}
+                              maxLength={9}
+                              required
+                            />
+                            <input
+                              name="team_name"
+                              type="text"
+                              placeholder="Team Name"
+                              value={newTeamName}
+                              readOnly
+                              style={{ pointerEvents: 'none', opacity: newTeamName ? 1 : 0.6 }}
+                              required
+                            />
+                          </div>
+                          {newTeamId.length >= 6 && !newTeamName && (
+                            <Button
+                              type="button"
+                              onClick={() => fetchTeamData(newTeamId, false)}
+                              disabled={isFetchingTeamData}
+                              variant="primary"
+                            >
+                              <Lineicons icon={HandShakeOutlined} size={18} />{' '}
+                              {isFetchingTeamData ? 'Fetching...' : 'Get team data'}
+                            </Button>
+                          )}
+                          {newTeamName && (
+                            <>
+                              {tournament.registration_type === 'Hattrick Validated (CHPP)' ? (
+                                <div className={styles.inviteSection}>
+                                  <Button
+                                    variant="secondary"
+                                    size="sm"
+                                    onClick={() => setIsInviteExpanded(!isInviteExpanded)}
+                                    style={{ marginTop: '0.5rem' }}
+                                  >
+                                    {isInviteExpanded ? 'Hide Invitation Template' : 'Invite a Team'}
+                                  </Button>
+                                  {isInviteExpanded && (
+                                    <div className={styles.inviteTemplateWrapper}>
+                                      <textarea
+                                        readOnly
+                                        className={styles.inviteTextarea}
+                                        value={`Join our tournament "${tournament.name}" on HT-120min! We have a spot for ${newTeamName}. Register here: ${publicUrl}`}
+                                      />
+                                      <Button
+                                        type="button"
+                                        variant="secondary"
+                                        className={styles.copyInviteButton}
+                                        onClick={() => {
+                                          navigator.clipboard.writeText(
+                                            `Join our tournament "${tournament.name}" on HT-120min! We have a spot for ${newTeamName}. Register here: ${publicUrl}`,
+                                          );
+                                          alert('Invitation template for ' + newTeamName + ' copied!');
+                                        }}
+                                      >
+                                        <Lineicons icon={Share1CircleOutlined} size={18} /> Copy Invite
+                                      </Button>
+                                    </div>
+                                  )}
+                                </div>
+                              ) : (
+                                <Button type="submit" disabled={isSavingTeam} variant="primary">
+                                  {isSavingTeam ? (
+                                    'Saving...'
+                                  ) : (
+                                    <>
+                                      <Lineicons icon={PlusOutlined} size={18} /> Add {newTeamName}
+                                    </>
+                                  )}
+                                </Button>
+                              )}
+                            </>
+                          )}
+                        </form>
+                      </div>
+                    )}
                     <ul className={adminStyles.teamList}>
                       {teams.map((team) => (
                         <li key={team.id} className={!team.active ? adminStyles.inactiveTeam : ''}>
                           <div className={adminStyles.teamInfo}>
-                            <span className={adminStyles.name}>{team.name}</span>
+                            <div className={styles.nameRow}>
+                              <span className={adminStyles.name}>{team.name}</span>
+                              {team.joined_via_oauth && (
+                                <span title="Hattrick Validated Team">
+                                  <Lineicons icon={CheckOutlined} size={14} style={{ color: '#0fb54c' }} />
+                                </span>
+                              )}
+                            </div>
                             {team.ht_team_id && <span className={adminStyles.id}>ID: {team.ht_team_id}</span>}
                             {!team.active && <span className={adminStyles.statusBadge}>Inactive</span>}
                           </div>
 
                           <div className={adminStyles.teamActions}>
-                            {team.active && (
+                            {team.active ? (
                               <>
                                 {replacingTeamId === team.id ? (
                                   <div className={adminStyles.inlineReplace}>
                                     <input
                                       name={`replace_id_${team.id}`}
-                                      type="number"
+                                      type="text"
                                       placeholder="New HT ID"
                                       value={replacementHtId}
-                                      onChange={(e) => setReplacementHtId(e.target.value)}
+                                      onChange={(e) => {
+                                        setReplacementHtId(e.target.value.replace(/\D/g, ''));
+                                        setReplacementName('');
+                                      }}
                                       required
                                     />
                                     <input
@@ -1019,18 +1723,31 @@ export const TournamentView: React.FC = () => {
                                       type="text"
                                       placeholder="New Name"
                                       value={replacementName}
-                                      onChange={(e) => setReplacementName(e.target.value)}
+                                      readOnly
+                                      style={{ pointerEvents: 'none', opacity: replacementName ? 1 : 0.6 }}
                                       required
                                     />
                                     <div className={adminStyles.replaceActions}>
-                                      <Button
-                                        size="sm"
-                                        onClick={() => replaceTeam(team.id)}
-                                        disabled={isSavingTeam}
-                                        variant="primary"
-                                      >
-                                        Save
-                                      </Button>
+                                      {replacementHtId.length >= 6 && !replacementName && (
+                                        <Button
+                                          size="sm"
+                                          onClick={() => fetchTeamData(replacementHtId, true)}
+                                          disabled={isFetchingTeamData}
+                                          variant="primary"
+                                        >
+                                          <Lineicons icon={HandShakeOutlined} size={14} /> Get data
+                                        </Button>
+                                      )}
+                                      {replacementName && (
+                                        <Button
+                                          size="sm"
+                                          onClick={() => replaceTeam(team.id)}
+                                          disabled={isSavingTeam}
+                                          variant="primary"
+                                        >
+                                          Save
+                                        </Button>
+                                      )}
                                       <Button
                                         size="sm"
                                         variant="secondary"
@@ -1049,31 +1766,122 @@ export const TournamentView: React.FC = () => {
                                     <Lineicons icon={RefreshCircle1ClockwiseOutlined} size={14} /> Replace
                                   </Button>
                                 )}
-                                {isGenerated ? (
-                                  <Button
-                                    size="sm"
-                                    variant="outline"
-                                    onClick={() => deleteTeam(team.id)}
-                                    title="Deactivate Team"
-                                  >
-                                    <Lineicons icon={XmarkOutlined} size={16} />
-                                  </Button>
+                                <Button
+                                  size="sm"
+                                  variant="danger"
+                                  onClick={() => {
+                                    const action = isGenerated ? 'deactivate' : 'delete';
+                                    if (window.confirm(`Are you sure you want to ${action} this team?`)) {
+                                      deleteTeam(team.id);
+                                    }
+                                  }}
+                                  title={isGenerated ? 'Deactivate Team' : 'Delete Team'}
+                                >
+                                  <Lineicons icon={Trash3Outlined} size={16} />
+                                </Button>
+                              </>
+                            ) : (
+                              <div className={adminStyles.inactiveActions}>
+                                <Button size="sm" variant="primary" onClick={() => reviveTeam(team.id)}>
+                                  Revive
+                                </Button>
+                                {replacingTeamId === team.id ? (
+                                  <div className={adminStyles.inlineReplace}>
+                                    <input
+                                      type="text"
+                                      placeholder="New HT ID"
+                                      value={replacementHtId}
+                                      onChange={(e) => {
+                                        setReplacementHtId(e.target.value.replace(/\D/g, ''));
+                                        setReplacementName('');
+                                      }}
+                                      required
+                                    />
+                                    <input
+                                      type="text"
+                                      placeholder="New Name"
+                                      value={replacementName}
+                                      readOnly
+                                      style={{ pointerEvents: 'none', opacity: replacementName ? 1 : 0.6 }}
+                                      required
+                                    />
+                                    <div className={adminStyles.replaceActions}>
+                                      {replacementHtId.length >= 6 && !replacementName && (
+                                        <Button
+                                          size="sm"
+                                          onClick={() => fetchTeamData(replacementHtId, true)}
+                                          disabled={isFetchingTeamData}
+                                          variant="primary"
+                                        >
+                                          <Lineicons icon={HandShakeOutlined} size={14} /> Get data
+                                        </Button>
+                                      )}
+                                      {replacementName && (
+                                        <Button
+                                          size="sm"
+                                          onClick={() => replaceTeam(team.id)}
+                                          disabled={isSavingTeam}
+                                          variant="primary"
+                                        >
+                                          Save
+                                        </Button>
+                                      )}
+                                      <Button
+                                        size="sm"
+                                        variant="secondary"
+                                        onClick={() => {
+                                          setReplacingTeamId(null);
+                                          setReplacementHtId('');
+                                          setReplacementName('');
+                                        }}
+                                      >
+                                        <Lineicons icon={XmarkOutlined} size={16} />
+                                      </Button>
+                                    </div>
+                                  </div>
                                 ) : (
-                                  <Button
-                                    size="sm"
-                                    variant="danger"
-                                    onClick={() => deleteTeam(team.id)}
-                                    title="Delete Team"
-                                  >
-                                    <Lineicons icon={Trash3Outlined} size={16} />
+                                  <Button size="sm" variant="zero" onClick={() => setReplacingTeamId(team.id)}>
+                                    <Lineicons icon={RefreshCircle1ClockwiseOutlined} size={14} /> Replace
                                   </Button>
                                 )}
-                              </>
+                              </div>
                             )}
                           </div>
                         </li>
                       ))}
                     </ul>
+
+                    <div className={adminStyles.inviteTemplate}>
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() => setIsInviteExpanded(!isInviteExpanded)}
+                        className={adminStyles.inviteBtn}
+                      >
+                        {isInviteExpanded ? 'Hide invitation' : 'Invite a Team'}
+                      </Button>
+                      {isInviteExpanded && (
+                        <div className={adminStyles.templateBox}>
+                          <label className={adminStyles.inviteLabel}>Hattrick Invitation Template</label>
+                          <textarea
+                            readOnly
+                            value={`You are invited to join "${tournament.name}" (Season ${tournament.season}) on HT-120min! Register your team here: ${publicUrl}`}
+                          />
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={() => {
+                              navigator.clipboard.writeText(
+                                `You are invited to join "${tournament.name}" (Season ${tournament.season}) on HT-120min! Register your team here: ${publicUrl}`,
+                              );
+                              alert('Invitation copied!');
+                            }}
+                          >
+                            <Lineicons icon={Share1CircleOutlined} size={14} /> Copy
+                          </Button>
+                        </div>
+                      )}
+                    </div>
 
                     <div className={adminStyles.scheduleControl}>
                       {!isGenerated ? (
@@ -1097,15 +1905,17 @@ export const TournamentView: React.FC = () => {
                               />
                               Play each other twice (Home and Away)
                             </label>
-                            <label className={adminStyles.checkboxLabel}>
-                              <input
-                                type="radio"
-                                name="scheduleMode"
-                                checked={scheduleMode === 'recurring'}
-                                onChange={() => setScheduleMode('recurring')}
-                              />
-                              Recurring schedule (Continuous)
-                            </label>
+                            {teams.filter((t) => t.active).length <= 4 && (
+                              <label className={adminStyles.checkboxLabel}>
+                                <input
+                                  type="radio"
+                                  name="scheduleMode"
+                                  checked={scheduleMode === 'recurring'}
+                                  onChange={() => setScheduleMode('recurring')}
+                                />
+                                Recurring schedule (Continuous)
+                              </label>
+                            )}
                           </div>
                           <Button
                             variant="primary"
@@ -1314,10 +2124,93 @@ export const TournamentView: React.FC = () => {
                   </section>
                 )}
               </div>
+
+              <div className={adminStyles.footerActions}>
+                <Button variant="outline" size="sm" onClick={() => window.confirm('Pause this tournament?')}>
+                  Pause Tournament
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => window.confirm('Archive this tournament? (Only if seasons finished)')}
+                >
+                  Archive Tournament
+                </Button>
+                {/* <Button
+                  variant="danger"
+                  size="sm"
+                  onClick={() => window.confirm('Permanently DELETE this tournament? This cannot be undone!')}
+                >
+                  Delete Tournament
+                </Button> */}
+              </div>
             </div>
           )}
         </div>
       )}
+
+      <Modal
+        isOpen={showTeamModal}
+        onClose={() => {
+          setShowTeamModal(false);
+          const newUrl = window.location.pathname;
+          window.history.replaceState({}, '', newUrl);
+        }}
+        title={pendingJoinData ? `Welcome, ${pendingJoinData.manager_name}!` : 'Linking Hattrick…'}
+      >
+        <div className={styles.modalContent}>
+          {modalLoading ? (
+            <p className="center">Loading your teams…</p>
+          ) : (
+            <>
+              <p style={{ marginBottom: '1.5rem', opacity: 0.9 }}>
+                Which team should join <strong>{tournament.name}</strong>?
+              </p>
+
+              <div className={styles.teamOptionsList}>
+                {pendingJoinData?.teams_json.map((team) => (
+                  <div
+                    key={team.teamId}
+                    className={`${styles.teamOptionCard} ${submittingJoin ? styles.disabled : ''}`}
+                    onClick={() => !submittingJoin && handleTeamSelect(team)}
+                  >
+                    <div className={styles.teamOptionInfo}>
+                      <div className={styles.teamOptionHeader}>
+                        <Lineicons icon={Trophy1Outlined} size={20} className={styles.teamIcon} />
+                        <strong>{team.teamName}</strong>
+                      </div>
+                      <span className={styles.teamMeta}>
+                        {[team.leagueLevelUnitName, team.regionName].filter(Boolean).join(' • ')}
+                      </span>
+                    </div>
+                    <Lineicons icon={ChevronLeftOutlined} size={20} className="r-180" />
+                  </div>
+                ))}
+                {pendingJoinData?.teams_json.length === 0 && (
+                  <p className="center">None of your teams are eligible for this tournament.</p>
+                )}
+              </div>
+
+              {submittingJoin && <p className={styles.joiningStatus}>Joining tournament...</p>}
+
+              <div className={styles.modalFooter}>
+                <Button
+                  variant="outline"
+                  fullWidth
+                  onClick={() => {
+                    setShowTeamModal(false);
+                    const newUrl = window.location.pathname;
+                    window.history.replaceState({}, '', newUrl);
+                  }}
+                  disabled={submittingJoin}
+                >
+                  Cancel
+                </Button>
+              </div>
+            </>
+          )}
+        </div>
+      </Modal>
     </div>
   );
 };
