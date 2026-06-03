@@ -300,7 +300,7 @@ export const TournamentView: React.FC = () => {
     setModalLoading(true);
 
     const { data, error } = await supabase
-      .from('oauth_pending_joins')
+      .from('oauth_temp_sessions')
       .select('*')
       .eq('selection_token', token)
       .single();

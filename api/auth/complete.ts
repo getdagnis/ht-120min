@@ -29,7 +29,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
     // 1. Get pending join data
     const { data: pending, error: pError } = await supabase
-      .from('oauth_pending_joins')
+      .from('oauth_temp_sessions')
       .select('*')
       .eq('selection_token', selection_token)
       .single();
@@ -109,7 +109,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       .single();
 
     // 4. Cleanup
-    await supabase.from('oauth_pending_joins').delete().eq('selection_token', selection_token);
+    await supabase.from('oauth_temp_sessions').delete().eq('selection_token', selection_token);
 
     return res.status(200).json({ 
       slug: tournament?.slug, 

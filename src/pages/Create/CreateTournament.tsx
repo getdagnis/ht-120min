@@ -105,7 +105,7 @@ export const CreateTournament: React.FC = () => {
     setModalLoading(true);
 
     const { data, error } = await supabase
-      .from('oauth_pending_joins')
+      .from('oauth_temp_sessions')
       .select('*')
       .eq('selection_token', token)
       .single();
@@ -137,7 +137,7 @@ export const CreateTournament: React.FC = () => {
   }, [fetchPendingSession]);
 
   const clearPendingJoin = async (selectionToken: string) => {
-    await supabase.from('oauth_pending_joins').delete().eq('selection_token', selectionToken);
+    await supabase.from('oauth_temp_sessions').delete().eq('selection_token', selectionToken);
   };
 
   const goBackToSettings = async () => {
