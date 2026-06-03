@@ -179,9 +179,6 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       return res.status(500).json({ error: 'Failed to store pending OAuth join', details: error.message });
     }
 
-    // 5. Cleanup
-    await supabase.from('oauth_temp_sessions').delete().eq('oauth_token', oauth_token);
-
     if (session.is_creation) {
       return res.redirect(`/create?step=teams&token=${selectionToken}`);
     }
