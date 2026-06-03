@@ -39,6 +39,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       return res.status(404).json({ error: 'Session not found' });
     }
     console.log('Callback Session is_creation:', session.is_creation);
+    console.log('Callback Session tournament_id:', session.tournament_id);
 
 
     const url = 'https://chpp.hattrick.org/oauth/access_token.ashx';
@@ -121,6 +122,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         .single();
 
       if (tError || !tData) {
+        console.error('Tournament lookup failed:', { tError, tournament_id: session.tournament_id });
         return res.status(404).json({ error: 'Tournament not found' });
       }
       tournament = tData;
