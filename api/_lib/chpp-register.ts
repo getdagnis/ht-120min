@@ -1,5 +1,5 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
-import type { ChppTeamOption } from './chpp-xml';
+import type { ChppTeamOption } from './chpp-xml.js';
 
 export async function registerOAuthTeam(
   supabase: SupabaseClient,
@@ -25,11 +25,13 @@ export async function registerOAuthTeam(
       .neq('tournament_id', input.tournamentId)
       .maybeSingle();
 
-    const existingData = existing as { tournaments: { name: string; status: string } | null } | null;
-    if (existingData && existingData.tournaments?.status !== 'finished') {
+    const existingData = existing as any;
+    const tournament = Array.isArray(existingData?.tournaments) ? existingData.tournaments[0] : existingData?.tournaments;
+
+    if (tournament && tournament.status !== 'finished') {
       throw new Error(
         `Team ${input.team.teamName} is already active in another tournament: "${
-          existingData.tournaments?.name
+          tournament.name
         }". You must leave that tournament before joining a new one.`,
       );
     }

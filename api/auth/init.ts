@@ -1,7 +1,7 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { createClient } from '@supabase/supabase-js';
-import { getAuthHeader } from '../_lib/chpp-auth';
-import { OAUTH_CREATION_TOURNAMENT_ID } from '../_lib/oauth-constants';
+import { getAuthHeader } from '../_lib/chpp-auth.js';
+import { OAUTH_CREATION_TOURNAMENT_ID } from '../_lib/oauth-constants.js';
 
 // Helper to get supabase client safely in serverless functions
 const getSupabase = () => {
