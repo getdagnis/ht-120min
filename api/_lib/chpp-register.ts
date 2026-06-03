@@ -1,5 +1,5 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
-import type { ChppTeamOption } from '../../src/utils/chpp-xml';
+import type { ChppTeamOption } from './chpp-xml';
 
 export async function registerOAuthTeam(
   supabase: SupabaseClient,

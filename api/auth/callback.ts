@@ -1,12 +1,12 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
-import { getAuthHeader } from '../../src/utils/chpp-auth';
-import { parseManagerCompendiumXml } from '../../src/utils/chpp-xml';
+import { getAuthHeader } from '../_lib/chpp-auth';
+import { parseManagerCompendiumXml } from '../_lib/chpp-xml';
 import {
   filterTeamsForCategory,
   isHfiTeam,
   teamMatchesCategory,
   type LeagueCategory,
-} from '../../src/utils/team-eligibility';
+} from '../_lib/team-eligibility';
 import crypto from 'crypto';
 import { getSupabase } from '../_lib/supabase';
 import { OAUTH_CREATION_TOURNAMENT_ID } from '../_lib/oauth-constants';

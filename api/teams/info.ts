@@ -1,6 +1,6 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { getSupabase } from '../_lib/supabase';
-import { getAuthHeader } from '../../src/utils/chpp-auth';
+import { getAuthHeader } from '../_lib/chpp-auth';
 
 interface TeamTournamentCheck {
   tournament_id: string;
