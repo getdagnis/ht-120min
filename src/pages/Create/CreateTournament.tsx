@@ -477,8 +477,7 @@ export const CreateTournament: React.FC = () => {
               <>
                 {!isValidated ? (
                   <p>
-                    Join with one of your teams, or organize without playing. You can add other teams on the next
-                    screen.
+                    A self-organized cup you can join with one of your teams, or organize it without playing. These teams are eligible for this cup.
                   </p>
                 ) : eligibleTeams.length === 1 ? (
                   <p>
