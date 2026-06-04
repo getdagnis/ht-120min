@@ -86,6 +86,16 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     }
 
     // 3. Register the specific team (Standard joining flow)
+    const { data: tournament } = await supabase
+      .from('tournaments')
+      .select('slug, country_limit')
+      .eq('id', pending.tournament_id)
+      .single();
+
+    if (tournament?.country_limit && countryName !== tournament.country_limit && !isSuperAdmin) {
+      throw new Error(`This team is not from the required league (${tournament.country_limit}).`);
+    }
+
     await registerOAuthTeam(supabase, {
       tournamentId: pending.tournament_id!,
       team: {
