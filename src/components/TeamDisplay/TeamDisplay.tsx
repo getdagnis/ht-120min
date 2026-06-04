@@ -1,4 +1,5 @@
 import React from 'react';
+import { getFlagUrl } from '../../utils/ht-data';
 import styles from './TeamDisplay.module.scss';
 
 interface TeamDisplayProps {
@@ -6,18 +7,25 @@ interface TeamDisplayProps {
     name: string;
     ht_team_id?: number | string;
     logo_url?: string;
+    country_name?: string;
   } | null;
   side?: 'home' | 'away';
 }
 
 export const TeamDisplay: React.FC<TeamDisplayProps> = ({ team, side }) => {
   const isFree = !team?.name;
+  const flagUrl = getFlagUrl(team?.country_name);
 
   return (
     <div className={`${styles.teamDisplay} ${side ? styles[side] : ''}`}>
-      {team?.logo_url && (
-        <img src={team.logo_url} alt={team.name} className={styles.logo} />
-      )}
+      <div className={styles.logoRow}>
+        {team?.logo_url && (
+          <img src={team.logo_url} alt={team.name} className={styles.logo} />
+        )}
+        {flagUrl && (
+          <img src={flagUrl} alt="" className={styles.flag} title={team?.country_name} />
+        )}
+      </div>
       {team?.name ? (
         <span className={styles.teamName}>{team.name}</span>
       ) : (

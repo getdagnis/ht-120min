@@ -5,6 +5,7 @@ import { supabase } from '../../lib/supabase';
 import { Card } from '../../components/Card/Card';
 import { Button } from '../../components/Button/Button';
 import { calculateStandings } from '../../utils/standings';
+import { calculateMatchDate } from '../../utils/ht-data';
 import type { TeamStanding } from '../../utils/standings';
 import { generateRoundRobin, generateRecurring } from '../../utils/scheduler';
 import { teamMatchesCategory } from '../../utils/team-eligibility';
@@ -210,6 +211,32 @@ export const TournamentView: React.FC = () => {
 
     return inactiveCount / totalCount <= 0.25;
   }, [teams]);
+
+  const formatDate = (date: Date) => {
+    return date.toLocaleString('lv-LV', {
+      weekday: 'short',
+      month: 'numeric',
+      day: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit',
+    });
+  };
+
+  const getRoundDateRange = (round: RoundWithMatches) => {
+    if (!round.matches || round.matches.length === 0) return '';
+    const dates = round.matches
+      .map((m) => calculateMatchDate(tournament?.created_at || '', round.round_number, m.home_team?.country_name))
+      .sort((a, b) => a.getTime() - b.getTime());
+
+    const start = dates[0];
+    const end = dates[dates.length - 1];
+
+    if (start.toDateString() === end.toDateString()) {
+      return start.toLocaleDateString('lv-LV', { month: 'numeric', day: 'numeric' });
+    }
+
+    return `${start.toLocaleDateString('lv-LV', { month: 'numeric', day: 'numeric' })} - ${end.toLocaleDateString('lv-LV', { month: 'numeric', day: 'numeric' })}`;
+  };
 
   const fetchData = useCallback(async () => {
     if (!tournament) setLoading(true);
@@ -1381,10 +1408,24 @@ export const TournamentView: React.FC = () => {
           ) : (
             <>
               {rounds.slice(0, visibleRoundsCount).map((round) => (
-                <Card key={round.id} title={`Round ${round.round_number}`} variant="classic">
+                <Card
+                  key={round.id}
+                  title={
+                    <div className={styles.roundHeader}>
+                      <span>Round {round.round_number}</span>
+                      <span className={styles.roundDate}>{getRoundDateRange(round)}</span>
+                    </div>
+                  }
+                  variant="classic"
+                >
                   <div className={styles.matches}>
                     {round.matches.map((match: any) => (
                       <div key={match.id} className={styles.match}>
+                        <div className={styles.matchDate}>
+                          {formatDate(
+                            calculateMatchDate(tournament?.created_at || '', round.round_number, match.home_team?.country_name),
+                          )}
+                        </div>
                         <div className={styles.matchTeams}>
                           <TeamDisplay team={match.home_team} side="home" />
                           <span className={styles.vs}>vs</span>
