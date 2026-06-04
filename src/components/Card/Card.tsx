@@ -13,6 +13,7 @@ interface CardProps {
   onToggleCollapse?: () => void;
   thumbnailIndex?: number;
   headerThumbnailIndex?: number;
+  imageUrl?: string;
 }
 
 export const Card: React.FC<CardProps> = ({
@@ -24,26 +25,21 @@ export const Card: React.FC<CardProps> = ({
   isCollapsed = false,
   onToggleCollapse,
   thumbnailIndex,
-  headerThumbnailIndex,
+  imageUrl,
 }) => {
   return (
     <div
-      className={`${styles.card} ${styles[variant]} ${className} ${collapsible ? styles.collapsible : ''} ${thumbnailIndex ? styles.withThumbnail : ''}`}
+      className={`${styles.card} ${styles[variant]} ${className} ${collapsible ? styles.collapsible : ''} ${thumbnailIndex || imageUrl ? styles.withThumbnail : ''}`}
     >
-      {thumbnailIndex && (
+      {(thumbnailIndex || imageUrl) && (
         <div className={styles.thumbnailWrapper}>
-          <img src={`/thumbs/thumb-${thumbnailIndex}.png`} alt="" className={styles.thumbnail} />
+          <img src={imageUrl ? imageUrl : `/thumbs/thumb-${thumbnailIndex}.png`} alt="" className={styles.thumbnail} />
         </div>
       )}
       <div className={styles.mainContent}>
         {title && (
           <div className={styles.header} onClick={collapsible ? onToggleCollapse : undefined}>
             <div className={styles.headerLeft}>
-              {headerThumbnailIndex && (
-                <div className={styles.headerThumbnail}>
-                  <img src={`/thumbs/thumb-${headerThumbnailIndex}.png`} alt="" />
-                </div>
-              )}
               <h3 className={styles.title}>{title}</h3>
             </div>
             {collapsible && (

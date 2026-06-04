@@ -3,6 +3,10 @@
   text-align: left
   padding-bottom: 0.75rem
   box-sizing: border-box
+  cursor: pointer
+  &:hover .thumbnail
+    filter: saturate(100%)
+    transition: all 0.5s ease
 
   &.collapsible
     padding-bottom: 0
@@ -20,6 +24,8 @@
   height: 100%
   object-fit: cover
   display: block
+  filter: saturate(0%)
+  transition: all 1s ease 0.5s
 
 .mainContent
   flex: 1

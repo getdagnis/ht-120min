@@ -25,6 +25,7 @@ interface Tournament {
   created_at: string;
   is_private: boolean;
   thumbnail_index?: number;
+  image_url?: string;
   rounds: {
     id: string;
     matches: {
@@ -79,6 +80,7 @@ export const Home: React.FC = () => {
           created_at,
           is_private,
           thumbnail_index,
+          image_url,
           rounds (
             id,
             matches (
@@ -204,7 +206,7 @@ export const Home: React.FC = () => {
                 <div className={styles.tournamentGrid}>
                   {activeTournaments.map((t) => (
                     <Link key={t.id} to={`/t/${t.slug}`} className={styles.tournamentLink}>
-                      <Card variant="classic" className={styles.tournamentCard} thumbnailIndex={t.thumbnail_index}>
+                      <Card variant="classic" className={styles.tournamentCard} thumbnailIndex={t.thumbnail_index} imageUrl={t.image_url}>
                         <div className={styles.tInfo}>
                           <div className={styles.tTitleRow}>
                             <h3 className={styles.tName}>{t.name}</h3>
@@ -250,7 +252,7 @@ export const Home: React.FC = () => {
                 <div className={styles.tournamentGrid}>
                   {openTournaments.map((t) => (
                     <Link key={t.id} to={`/t/${t.slug}`} className={styles.tournamentLink}>
-                      <Card variant="classic" className={styles.tournamentCard} thumbnailIndex={t.thumbnail_index}>
+                      <Card variant="classic" className={styles.tournamentCard} thumbnailIndex={t.thumbnail_index} imageUrl={t.image_url}>
                         <div className={styles.tInfo}>
                           <div className={styles.tTitleRow}>
                             <h3 className={styles.tName}>{t.name}</h3>

@@ -161,6 +161,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
     // ALWAYS redirect to selection for creators, or if multiple teams
     const selectionToken = crypto.randomBytes(16).toString('hex');
+    console.log('Callback - Generated Selection Token:', selectionToken);
     const { error } = await supabase
       .from('oauth_temp_sessions')
       .update({

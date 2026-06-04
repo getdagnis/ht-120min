@@ -19,7 +19,7 @@ import {
   XmarkOutlined,
   PlayOutlined,
   FloppyDisk1Outlined,
-  Share1CircleOutlined,
+  Share1Outlined,
   CheckOutlined,
   QuestionMarkCircleOutlined,
   HandShakeOutlined,
@@ -93,7 +93,7 @@ interface Tournament {
   registration_type: 'Hattrick Validated (CHPP)' | 'Organizer-Managed';
   organizer_name?: string;
   organizer_id?: number;
-  image_url?: string;
+  image_url?: string | 42;
   season: number;
   is_test: boolean;
   status: 'open' | 'active' | 'finished' | 'waiting';
@@ -120,6 +120,10 @@ export const TournamentView: React.FC = () => {
   // Admin states
   const [password, setPassword] = useState(localStorage.getItem(`admin_pw_${slug}`) || '');
   const [isAdminAuthenticated, setIsAdminAuthenticated] = useState(false);
+  const [adminAuthError, setAdminAuthError] = useState(false);
+  const [isEditingImage, setIsEditingImage] = useState(false);
+  const [newImageUrl, setNewImageUrl] = useState('');
+  const [isUpdatingImage, setIsUpdatingImage] = useState(false);
   const [newTeamId, setNewTeamId] = useState('');
   const [newTeamName, setNewTeamName] = useState('');
   const [isSavingTeam, setIsSavingTeam] = useState(false);
@@ -208,7 +212,7 @@ export const TournamentView: React.FC = () => {
   }, [teams]);
 
   const fetchData = useCallback(async () => {
-    setLoading(true);
+    if (!tournament) setLoading(true);
     const { data: tournamentData } = await supabase.from('tournaments').select('*').eq('slug', slug).single();
 
     if (tournamentData) {
@@ -287,17 +291,14 @@ export const TournamentView: React.FC = () => {
           setRounds(roundsWithMatches as RoundWithMatches[]);
         }
       }
-
-      if (password === tournamentData.admin_password) {
-        setIsAdminAuthenticated(true);
-      }
     }
     setLoading(false);
-  }, [slug, password]);
+  }, [slug]);
 
   const fetchPendingJoinData = useCallback(async (token: string) => {
     setShowTeamModal(true);
     setModalLoading(true);
+    console.log('TournamentView - Querying Selection Token:', token);
 
     const { data, error } = await supabase
       .from('oauth_temp_sessions')
@@ -353,6 +354,17 @@ export const TournamentView: React.FC = () => {
   };
 
   useEffect(() => {
+    if (tournament && password && password === tournament.admin_password && !isAdminAuthenticated) {
+      const timer = setTimeout(() => {
+        setIsAdminAuthenticated(true);
+        localStorage.setItem(`admin_pw_${slug}`, password);
+        setAdminAuthError(false);
+      }, 0);
+      return () => clearTimeout(timer);
+    }
+  }, [password, tournament, slug, isAdminAuthenticated]);
+
+  useEffect(() => {
     const init = async () => {
       await fetchData();
     };
@@ -402,8 +414,9 @@ export const TournamentView: React.FC = () => {
     if (tournament && password === tournament.admin_password) {
       setIsAdminAuthenticated(true);
       localStorage.setItem(`admin_pw_${slug}`, password);
+      setAdminAuthError(false);
     } else {
-      alert('Invalid password');
+      setAdminAuthError(true);
     }
   };
 
@@ -455,6 +468,25 @@ export const TournamentView: React.FC = () => {
       alert(error.message);
     } finally {
       setIsUpdatingSettings(false);
+    }
+  };
+
+  const handleUpdateImage = async () => {
+    if (!tournament) return;
+    setIsUpdatingImage(true);
+    try {
+      const { error } = await supabase
+        .from('tournaments')
+        .update({ image_url: newImageUrl.trim() || null })
+        .eq('id', tournament.id);
+
+      if (error) throw error;
+      setIsEditingImage(false);
+      fetchData();
+    } catch (error: any) {
+      alert(error.message);
+    } finally {
+      setIsUpdatingImage(false);
     }
   };
 
@@ -905,11 +937,24 @@ export const TournamentView: React.FC = () => {
         <div className={styles.headerTop}>
           <div className={styles.titleArea}>
             <div className={styles.h1Wrap}>
-              {tournament?.image_url && (
+              {tournament?.image_url === 42 && (
                 <div
                   className={styles.h1Img}
                   style={{ background: `url(${tournament?.image_url}) center center no-repeat` }}
-                />
+                  onClick={() => {
+                    if (isAdminAuthenticated) {
+                      setNewImageUrl(typeof tournament?.image_url === 'string' ? tournament.image_url : '');
+                      setIsEditingImage(true);
+                    }
+                  }}
+                >
+                  {isAdminAuthenticated && (
+                    <div className={styles.editOverlay}>
+                      <Lineicons icon={PlusOutlined} size={24} />
+                      <span>Edit</span>
+                    </div>
+                  )}
+                </div>
               )}
               <h1>{tournament.name}</h1>
             </div>
@@ -1004,12 +1049,28 @@ export const TournamentView: React.FC = () => {
               </div>
             )}
           </div>
-          <div className={styles.imagePlaceholder}>
-            {tournament?.image_url && (
+          <div
+            className={styles.imagePlaceholder}
+            onClick={() => {
+              if (isAdminAuthenticated) {
+                setNewImageUrl(typeof tournament.image_url === 'string' ? tournament.image_url : '');
+                setIsEditingImage(true);
+              }
+            }}
+          >
+            {tournament?.image_url ? (
               <div
                 className={styles.tournamentImage}
                 style={{ background: `url(${tournament?.image_url}) center center no-repeat` }}
               />
+            ) : (
+              <div className={styles.placeholderMessage}>Click to add image URL</div>
+            )}
+            {isAdminAuthenticated && (
+              <div className={styles.editOverlay}>
+                <Lineicons icon={PlusOutlined} size={28} />
+                <span>{tournament?.image_url ? 'Edit Image' : 'Add Image'}</span>
+              </div>
             )}
           </div>
         </div>
@@ -1113,7 +1174,7 @@ export const TournamentView: React.FC = () => {
               localStorage.setItem(`joined_notice_dismissed_${slug}`, 'true');
             }}
           >
-            <Lineicons icon={XmarkOutlined} size={18} />
+            <Lineicons icon={XmarkOutlined} size={32} />
           </button>
         </div>
       )}
@@ -1300,7 +1361,7 @@ export const TournamentView: React.FC = () => {
                   variant="outlineWhite"
                   size="sm"
                 >
-                  <Lineicons icon={Share1CircleOutlined} size={16} /> Invite
+                  <Lineicons icon={Share1Outlined} size={18} /> Invite
                 </Button>
               </div>
             </div>
@@ -1368,11 +1429,19 @@ export const TournamentView: React.FC = () => {
                   <input
                     type="password"
                     value={password}
-                    onChange={(e) => setPassword(e.target.value)}
+                    onChange={(e) => {
+                      setPassword(e.target.value);
+                      if (adminAuthError) setAdminAuthError(false);
+                    }}
                     placeholder="Enter admin password"
                     required
                   />
                 </div>
+                {adminAuthError && (
+                  <p style={{ color: 'var(--accent)', fontSize: '0.9rem', marginBottom: '1rem', fontWeight: 600 }}>
+                    Invalid password. Please try again.
+                  </p>
+                )}
                 <Button type="submit" variant="primary" size="lg">
                   <Lineicons icon={Shield2CheckOutlined} size={18} /> Authenticate
                 </Button>
@@ -1418,7 +1487,7 @@ export const TournamentView: React.FC = () => {
                               alert('URL copied!');
                             }}
                           >
-                            <Lineicons icon={Share1CircleOutlined} size={isMobile ? 10 : 14} />
+                            <Lineicons icon={Share1Outlined} size={isMobile ? 14 : 18} />
                           </Button>
                         </div>
                         <div className={adminStyles.metaItem}>
@@ -1437,7 +1506,7 @@ export const TournamentView: React.FC = () => {
                               alert("Password copied! Don't lose it.");
                             }}
                           >
-                            <Lineicons icon={Share1CircleOutlined} size={10} />
+                            <Lineicons icon={Share1Outlined} size={18} />
                           </Button>
                         </div>
                       </div>
@@ -1665,7 +1734,7 @@ export const TournamentView: React.FC = () => {
                                           alert('Invitation template for ' + newTeamName + ' copied!');
                                         }}
                                       >
-                                        <Lineicons icon={Share1CircleOutlined} size={18} /> Copy Invite
+                                        <Lineicons icon={Share1Outlined} size={18} /> Copy Invite
                                       </Button>
                                     </div>
                                   )}
@@ -1877,7 +1946,7 @@ export const TournamentView: React.FC = () => {
                               alert('Invitation copied!');
                             }}
                           >
-                            <Lineicons icon={Share1CircleOutlined} size={14} /> Copy
+                            <Lineicons icon={Share1Outlined} size={18} /> Copy
                           </Button>
                         </div>
                       )}
@@ -2148,6 +2217,35 @@ export const TournamentView: React.FC = () => {
           )}
         </div>
       )}
+
+      <Modal isOpen={isEditingImage} onClose={() => setIsEditingImage(false)} title="Update Tournament Image">
+        <div className={styles.modalContent}>
+          <p>Link to an external image URL (e.g., Imgur, Hattrick logo, etc.)</p>
+          <div className={adminStyles.field}>
+            <label>Image URL</label>
+            <input
+              type="text"
+              value={newImageUrl}
+              onChange={(e) => setNewImageUrl(e.target.value)}
+              placeholder="https://..."
+              className={adminStyles.selectField}
+            />
+          </div>
+          <div className={styles.modalFooter}>
+            <Button variant="primary" fullWidth onClick={handleUpdateImage} disabled={isUpdatingImage}>
+              {isUpdatingImage ? 'Updating...' : 'Save Image'}
+            </Button>
+            <Button
+              variant="outline"
+              fullWidth
+              onClick={() => setIsEditingImage(false)}
+              style={{ marginTop: '0.5rem' }}
+            >
+              Cancel
+            </Button>
+          </div>
+        </div>
+      </Modal>
 
       <Modal
         isOpen={showTeamModal}
