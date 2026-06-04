@@ -213,6 +213,18 @@
   border-radius: 0.5rem
   border: 1px solid var(--accent)
 
+.tableWrapper
+  overflow-x: auto
+  -webkit-overflow-scrolling: touch
+  scrollbar-width: none
+  -ms-overflow-style: none
+  
+  &::-webkit-scrollbar
+    display: none
+
+  table
+    min-width: 650px
+
 .tabs
   display: flex
   gap: 2rem
