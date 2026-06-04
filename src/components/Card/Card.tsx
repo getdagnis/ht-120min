@@ -5,7 +5,7 @@ import styles from './Card.module.sass';
 
 interface CardProps {
   children: React.ReactNode;
-  title?: string;
+  title?: string | React.ReactElement;
   className?: string;
   variant?: 'classic' | 'hero' | 'classy';
   collapsible?: boolean;

@@ -1,6 +1,11 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import type { ChppTeamOption } from './chpp-xml.js';
 
+interface TeamTournamentCheck {
+  tournament_id: string;
+  tournaments: { name: string; status: string } | { name: string; status: string }[] | null;
+}
+
 export async function registerOAuthTeam(
   supabase: SupabaseClient,
   input: {
@@ -25,8 +30,10 @@ export async function registerOAuthTeam(
       .neq('tournament_id', input.tournamentId)
       .maybeSingle();
 
-    const existingData = existing as any;
-    const tournament = Array.isArray(existingData?.tournaments) ? existingData.tournaments[0] : existingData?.tournaments;
+    const existingData = existing as unknown as TeamTournamentCheck | null;
+    const tournament = Array.isArray(existingData?.tournaments)
+      ? existingData.tournaments[0]
+      : existingData?.tournaments;
 
     if (tournament && tournament.status !== 'finished') {
       throw new Error(
@@ -59,17 +66,14 @@ export async function registerOAuthTeam(
         oauth_token_secret: input.accessTokenSecret,
       })
       .eq('id', existingInThis.id);
-    
+
     if (error) throw new Error(error.message);
     return existingInThis.id;
   }
 
   // 3. New team joining. Check if tournament has started (has rounds).
-  const { data: rounds } = await supabase
-    .from('rounds')
-    .select('id')
-    .eq('tournament_id', input.tournamentId);
-  
+  const { data: rounds } = await supabase.from('rounds').select('id').eq('tournament_id', input.tournamentId);
+
   const isGenerated = rounds && rounds.length > 0;
   let replacementForId: string | null = null;
 
@@ -86,9 +90,9 @@ export async function registerOAuthTeam(
       .select('replacement_for_team_id')
       .eq('tournament_id', input.tournamentId)
       .not('replacement_for_team_id', 'is', null);
-    
-    const replacedIds = new Set(replacements?.map(r => r.replacement_for_team_id));
-    const openInactiveTeam = allTeams?.find(t => !t.active && !replacedIds.has(t.id));
+
+    const replacedIds = new Set(replacements?.map((r) => r.replacement_for_team_id));
+    const openInactiveTeam = allTeams?.find((t) => !t.active && !replacedIds.has(t.id));
 
     if (openInactiveTeam) {
       replacementForId = openInactiveTeam.id;
@@ -122,12 +126,20 @@ export async function registerOAuthTeam(
   if (isGenerated && newTeam) {
     if (replacementForId) {
       // Fill inactive team spot
-      await supabase.from('matches').update({ home_team_id: newTeam.id }).eq('home_team_id', replacementForId).eq('completed', false);
-      await supabase.from('matches').update({ away_team_id: newTeam.id }).eq('away_team_id', replacementForId).eq('completed', false);
+      await supabase
+        .from('matches')
+        .update({ home_team_id: newTeam.id })
+        .eq('home_team_id', replacementForId)
+        .eq('completed', false);
+      await supabase
+        .from('matches')
+        .update({ away_team_id: newTeam.id })
+        .eq('away_team_id', replacementForId)
+        .eq('completed', false);
     } else {
       // Try to fill BYE spots (where team_id is null)
-      const roundIds = rounds.map(r => r.id);
-      
+      const roundIds = rounds.map((r) => r.id);
+
       // Find matches with null IDs in any side
       const { data: byeMatches } = await supabase
         .from('matches')

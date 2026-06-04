@@ -81,6 +81,7 @@ interface Tournament {
   id: string;
   slug: string;
   name: string;
+  created_at: string;
   admin_password: string;
   scoring_mode: string;
   is_private: boolean;
@@ -320,7 +321,7 @@ export const TournamentView: React.FC = () => {
       }
     }
     setLoading(false);
-  }, [slug]);
+  }, [slug, tournament]);
 
   const fetchPendingJoinData = useCallback(async (token: string) => {
     setShowTeamModal(true);
@@ -1423,7 +1424,11 @@ export const TournamentView: React.FC = () => {
                       <div key={match.id} className={styles.match}>
                         <div className={styles.matchDate}>
                           {formatDate(
-                            calculateMatchDate(tournament?.created_at || '', round.round_number, match.home_team?.country_name),
+                            calculateMatchDate(
+                              tournament?.created_at || '',
+                              round.round_number,
+                              match.home_team?.country_name,
+                            ),
                           )}
                         </div>
                         <div className={styles.matchTeams}>
