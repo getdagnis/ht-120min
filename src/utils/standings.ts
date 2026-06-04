@@ -36,6 +36,7 @@ export interface TeamStanding {
   joinedViaOauth: boolean;
   countryName: string | null;
   logoUrl: string | null;
+  managerName: string | null;
 }
 
 export function calculateStandings(
@@ -64,6 +65,7 @@ export function calculateStandings(
       joinedViaOauth: !!team.joined_via_oauth,
       countryName: team.country_name || null,
       logoUrl: team.logo_url || null,
+      managerName: team.manager_name || null,
     };
   });
 

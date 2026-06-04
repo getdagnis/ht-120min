@@ -19,6 +19,7 @@ import {
 import { DESCRIPTIONS, TOURNAMENT_NAMES } from '../../constants/descriptions';
 import { filterTeamsForCategory, teamMatchesCategory, type LeagueCategory } from '../../utils/team-eligibility';
 import styles from './CreateTournament.module.sass';
+import { HATTRICK_LEAGUES } from '../../utils/leagues';
 
 interface LocalTeam {
   tempId: string;
@@ -57,6 +58,7 @@ export const CreateTournament: React.FC = () => {
       league_category: 'male',
       registration_type: 'validated',
       is_private: false,
+      country_limit: '',
       description: getRandomDescription(),
     };
   });
@@ -71,7 +73,10 @@ export const CreateTournament: React.FC = () => {
     return saved ? (JSON.parse(saved).showDescription ?? false) : false;
   });
 
-  const [isLinked, setIsLinked] = useState(false);
+  const [showLeagueRestriction, setShowLeagueRestriction] = useState(() => {
+    const saved = localStorage.getItem('create_tournament_progress');
+    return saved ? !!JSON.parse(saved).formData.country_limit : false;
+  });
   const [linkedManager, setLinkedManager] = useState<{
     selection_token: string;
     manager_name: string;
@@ -89,16 +94,19 @@ export const CreateTournament: React.FC = () => {
   const [showModal, setShowModal] = useState(false);
   const [modalLoading, setModalLoading] = useState(false);
 
-  const saveProgress = useCallback((updatedForm = formData, updatedTeams = teams, updatedShowDesc = showDescription) => {
-    localStorage.setItem(
-      'create_tournament_progress',
-      JSON.stringify({
-        formData: updatedForm,
-        teams: updatedTeams,
-        showDescription: updatedShowDesc,
-      }),
-    );
-  }, [formData, teams, showDescription]);
+  const saveProgress = useCallback(
+    (updatedForm = formData, updatedTeams = teams, updatedShowDesc = showDescription) => {
+      localStorage.setItem(
+        'create_tournament_progress',
+        JSON.stringify({
+          formData: updatedForm,
+          teams: updatedTeams,
+          showDescription: updatedShowDesc,
+        }),
+      );
+    },
+    [formData, teams, showDescription],
+  );
 
   const fetchPendingSession = useCallback(async (token: string) => {
     setShowModal(true);
@@ -202,9 +210,7 @@ export const CreateTournament: React.FC = () => {
     };
 
     const updatedTeams =
-      formData.registration_type === 'validated'
-        ? [creatorTeam]
-        : [...teams.filter((t) => !t.isCreator), creatorTeam];
+      formData.registration_type === 'validated' ? [creatorTeam] : [...teams.filter((t) => !t.isCreator), creatorTeam];
 
     setTeams(updatedTeams);
     setIsLinked(true);
@@ -258,7 +264,12 @@ export const CreateTournament: React.FC = () => {
   };
 
   const handleNameChange = (name: string) => {
-    const slug = name.toLowerCase().trim().replace(/[^a-z0-9\s-]/g, '').replace(/\s+/g, '-').replace(/-+/g, '-');
+    const slug = name
+      .toLowerCase()
+      .trim()
+      .replace(/[^a-z0-9\s-]/g, '')
+      .replace(/\s+/g, '-')
+      .replace(/-+/g, '-');
     setFormData({ ...formData, name, slug });
   };
 
@@ -337,23 +348,37 @@ export const CreateTournament: React.FC = () => {
     try {
       const { data: tournament, error: tError } = await supabase
         .from('tournaments')
-        .insert([{
-          name: formData.name, slug, scoring_mode: formData.scoring_mode,
-          league_category: formData.league_category, registration_type: formData.registration_type,
-          admin_password: adminPassword, is_private: formData.is_private,
-          description: showDescription ? formData.description : null,
-          thumbnail_index: Math.floor(Math.random() * 17) + 1,
-          season: 1, status: 'open',
-          organizer_name: isValidated ? null : creator?.managerName || null,
-        }])
-        .select().single();
+        .insert([
+          {
+            name: formData.name,
+            slug,
+            scoring_mode: formData.scoring_mode,
+            league_category: formData.league_category,
+            registration_type: formData.registration_type,
+            admin_password: adminPassword,
+            is_private: formData.is_private,
+            country_limit: formData.country_limit || null,
+            description: showDescription ? formData.description : null,
+            thumbnail_index: Math.floor(Math.random() * 17) + 1,
+
+            season: 1,
+            status: 'open',
+            organizer_name: isValidated ? null : creator?.managerName || null,
+          },
+        ])
+        .select()
+        .single();
 
       if (tError) throw tError;
 
       const teamsToInsert = teams.map((t) => ({
-        tournament_id: tournament.id, name: t.name, ht_team_id: parseInt(t.htId, 10),
-        active: true, joined_via_oauth: !!t.isCreator,
-        oauth_token: t.accessToken || null, oauth_token_secret: t.accessTokenSecret || null,
+        tournament_id: tournament.id,
+        name: t.name,
+        ht_team_id: parseInt(t.htId, 10),
+        active: true,
+        joined_via_oauth: !!t.isCreator,
+        oauth_token: t.accessToken || null,
+        oauth_token_secret: t.accessTokenSecret || null,
         manager_name: t.managerName || null,
         hattrick_user_id: t.hattrickUserId || null,
         logo_url: t.logoUrl || null,
@@ -395,58 +420,131 @@ export const CreateTournament: React.FC = () => {
                   <Lineicons icon={RefreshCircle1ClockwiseOutlined} size={20} />
                 </button>
               </div>
-              <input id="tournament_name" name="tournament_name" type="text" required value={formData.name} onChange={(e) => handleNameChange(e.target.value)} placeholder="e.g. Awesome Great Tournament S1 ⭐️" autoFocus />
+              <input
+                id="tournament_name"
+                name="tournament_name"
+                type="text"
+                required
+                value={formData.name}
+                onChange={(e) => handleNameChange(e.target.value)}
+                placeholder="e.g. Awesome Great Tournament S1 ⭐️"
+                autoFocus
+              />
             </div>
             <div className={styles.field}>
               <label htmlFor="tournament_slug">Unique URL Slug</label>
-              <input id="tournament_slug" name="tournament_slug" type="text" value={formData.slug} onChange={(e) => setFormData({ ...formData, slug: e.target.value.toLowerCase().replace(/[^a-z0-9-]/g, '-') })} placeholder="e.g. guam-hfi-s1" />
+              <input
+                id="tournament_slug"
+                name="tournament_slug"
+                type="text"
+                value={formData.slug}
+                onChange={(e) =>
+                  setFormData({ ...formData, slug: e.target.value.toLowerCase().replace(/[^a-z0-9-]/g, '-') })
+                }
+                placeholder="e.g. guam-hfi-s1"
+              />
             </div>
             <div className={styles.field}>
               <label htmlFor="league_category">Tournament Category</label>
-              <select id="league_category" value={formData.league_category} onChange={(e) => setFormData({ ...formData, league_category: e.target.value })}>
+              <select
+                id="league_category"
+                value={formData.league_category}
+                onChange={(e) => setFormData({ ...formData, league_category: e.target.value })}
+              >
                 <option value="male">Regular league (male)</option>
                 <option value="hfi">Hattrick Femme International (HFI)</option>
               </select>
             </div>
             <div className={styles.field}>
               <label htmlFor="registration_type">Registration Type</label>
-              <select id="registration_type" value={formData.registration_type} onChange={(e) => setFormData({ ...formData, registration_type: e.target.value })}>
+              <select
+                id="registration_type"
+                value={formData.registration_type}
+                onChange={(e) => setFormData({ ...formData, registration_type: e.target.value })}
+              >
                 <option value="validated">Hattrick Validated (CHPP)</option>
                 <option value="manual">Organizer-Managed</option>
               </select>
               <p className={styles.small}>
-                {formData.registration_type === 'validated' 
-                  ? 'Only managers themselves can join with their teams.' 
+                {formData.registration_type === 'validated'
+                  ? 'Only managers themselves can join with their teams.'
                   : 'Organizer can add teams, but anyone can still self-register.'}
               </p>
             </div>
             <div className={styles.field}>
               <label htmlFor="scoring_mode">Scoring Mode</label>
-              <select id="scoring_mode" name="scoring_mode" value={formData.scoring_mode} onChange={(e) => setFormData({ ...formData, scoring_mode: e.target.value })}>
+              <select
+                id="scoring_mode"
+                name="scoring_mode"
+                value={formData.scoring_mode}
+                onChange={(e) => setFormData({ ...formData, scoring_mode: e.target.value })}
+              >
                 <option value="120min">🪫 Rank by 120 minute achievements</option>
                 <option value="points">🥇 Regular 90 min friendlies (3p/1p/0)</option>
               </select>
             </div>
             <div className={styles.field}>
               <label className={styles.checkboxLabel}>
-                <input type="checkbox" checked={formData.is_private} onChange={(e) => setFormData({ ...formData, is_private: e.target.checked })} />
+                <input
+                  type="checkbox"
+                  checked={formData.is_private}
+                  onChange={(e) => setFormData({ ...formData, is_private: e.target.checked })}
+                />
                 Private Tournament (unlisted on home page)
               </label>
             </div>
             <div className={styles.field}>
+              <label className={styles.checkboxLabel}>
+                <input type="checkbox" checked={showLeagueRestriction} onChange={(e) => {
+                  setShowLeagueRestriction(e.target.checked);
+                  if (!e.target.checked) setFormData({ ...formData, country_limit: '' });
+                }} />
+                Add League Restriction (optional)
+              </label>
+              {showLeagueRestriction && (
+                <select
+                  id="tournament_country_limit"
+                  value={formData.country_limit}
+                  onChange={(e) => setFormData({ ...formData, country_limit: e.target.value })}
+                  style={{ marginTop: '0.5rem', width: '100%' }}
+                >
+                  <option value="">Select league...</option>
+                  {Object.values(HATTRICK_LEAGUES).map((league) => (
+                    <option key={league} value={league}>{league}</option>
+                  ))}
+                </select>
+              )}
+            </div>
+
+            <div className={styles.field}>
               <div className={styles.labelRow}>
                 <label className={styles.checkboxLabel}>
-                  <input type="checkbox" checked={showDescription} onChange={(e) => setShowDescription(e.target.checked)} />
+                  <input
+                    type="checkbox"
+                    checked={showDescription}
+                    onChange={(e) => setShowDescription(e.target.checked)}
+                  />
                   Add Description (optional)
                 </label>
                 {showDescription && (
-                  <button type="button" onClick={regenerateDescription} className={styles.iconBtn} title="Regenerate Description">
+                  <button
+                    type="button"
+                    onClick={regenerateDescription}
+                    className={styles.iconBtn}
+                    title="Regenerate Description"
+                  >
                     <Lineicons icon={RefreshCircle1ClockwiseOutlined} size={20} />
                   </button>
                 )}
               </div>
               {showDescription && (
-                <textarea value={formData.description} onChange={(e) => setFormData({ ...formData, description: e.target.value })} placeholder="Tell participants about the tournament..." rows={4} className={styles.textarea} />
+                <textarea
+                  value={formData.description}
+                  onChange={(e) => setFormData({ ...formData, description: e.target.value })}
+                  placeholder="Tell participants about the tournament..."
+                  rows={4}
+                  className={styles.textarea}
+                />
               )}
             </div>
             <div className={styles.actions}>
@@ -462,9 +560,7 @@ export const CreateTournament: React.FC = () => {
 
   const categoryLabel = formData.league_category === 'hfi' ? 'HFI' : 'Regular male';
   const leagueCategory = (formData.league_category === 'hfi' ? 'hfi' : 'male') as LeagueCategory;
-  const eligibleTeams = linkedManager
-    ? filterTeamsForCategory(linkedManager.teams_json, leagueCategory)
-    : [];
+  const eligibleTeams = linkedManager ? filterTeamsForCategory(linkedManager.teams_json, leagueCategory) : [];
 
   if (showModal) {
     return (
@@ -481,12 +577,12 @@ export const CreateTournament: React.FC = () => {
               <>
                 {!isValidated ? (
                   <p>
-                    A self-organized cup you can join with one of your teams, or organize it without playing. These teams are eligible for this cup.
+                    A self-organized cup you can join with one of your teams, or organize it without playing. These
+                    teams are eligible for this cup.
                   </p>
                 ) : eligibleTeams.length === 1 ? (
                   <p>
-                    You have one team eligible for a <strong>{categoryLabel}</strong> tournament. Select it to
-                    continue.
+                    You have one team eligible for a <strong>{categoryLabel}</strong> tournament. Select it to continue.
                   </p>
                 ) : (
                   <p>
@@ -496,9 +592,7 @@ export const CreateTournament: React.FC = () => {
                 )}
 
                 {eligibleTeams.length === 0 && !modalLoading && (
-                  <p className={styles.empty}>
-                    None of your teams match this tournament category ({categoryLabel}).
-                  </p>
+                  <p className={styles.empty}>None of your teams match this tournament category ({categoryLabel}).</p>
                 )}
 
                 <div className={styles.teamOptionsList}>
@@ -563,14 +657,10 @@ export const CreateTournament: React.FC = () => {
           <div className={styles.creatorWelcome}>
             <h2>Ready to create</h2>
             <div className={styles.creatorTeamCard}>
-              {creator.logoUrl && (
-                <img src={creator.logoUrl} alt="" className={styles.creatorTeamLogo} />
-              )}
+              {creator.logoUrl && <img src={creator.logoUrl} alt="" className={styles.creatorTeamLogo} />}
               <p className={styles.small}>Your team</p>
               <strong>{creator.name}</strong>
-              <span>
-                {[creator.managerName, `ID ${creator.htId}`].filter(Boolean).join(' · ')}
-              </span>
+              <span>{[creator.managerName, `ID ${creator.htId}`].filter(Boolean).join(' · ')}</span>
             </div>
             <p className={styles.finalizeNote}>
               Other managers join via the public link after the tournament is created.
@@ -659,7 +749,13 @@ export const CreateTournament: React.FC = () => {
           <Button variant="secondary" size="lg" fullWidth onClick={handleFinalSubmit} disabled={loading || !canCreate}>
             <Lineicons icon={Trophy1Outlined} size={18} /> {loading ? 'Creating...' : 'Create Tournament'}
           </Button>
-          <Button variant="outlineWhite" size="sm" onClick={() => setStep('info')} disabled={loading} style={{ opacity: 0.8 }}>
+          <Button
+            variant="outlineWhite"
+            size="sm"
+            onClick={() => setStep('info')}
+            disabled={loading}
+            style={{ opacity: 0.8 }}
+          >
             Go Back
           </Button>
         </div>
