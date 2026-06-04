@@ -140,6 +140,12 @@ select, textarea
 
 .tableWrapper
   overflow-x: auto
+  -webkit-overflow-scrolling: touch
+  scrollbar-width: none
+  -ms-overflow-style: none
+  
+  &::-webkit-scrollbar
+    display: none
 
 .w-100, .w100
   width: 100% !important
@@ -154,6 +160,7 @@ table
   width: 100%
   border-collapse: collapse
   font-size: 1.2rem
+  min-width: 600px
 
   th,
   td
