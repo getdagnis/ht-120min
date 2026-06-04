@@ -1,5 +1,5 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { useParams, useLocation } from 'react-router-dom';
 import { supabase } from '../../lib/supabase';
 import { Card } from '../../components/Card/Card';
@@ -123,6 +123,7 @@ export const TournamentView: React.FC = () => {
   const [password, setPassword] = useState(localStorage.getItem(`admin_pw_${slug}`) || '');
   const [isAdminAuthenticated, setIsAdminAuthenticated] = useState(false);
   const [adminAuthError, setAdminAuthError] = useState(false);
+  const paramsHandledRef = useRef(false);
   const [isEditingImage, setIsEditingImage] = useState(false);
   const [newImageUrl, setNewImageUrl] = useState('');
   const [isUpdatingImage, setIsUpdatingImage] = useState(false);
@@ -321,7 +322,7 @@ export const TournamentView: React.FC = () => {
       }
     }
     setLoading(false);
-  }, [slug, tournament]);
+  }, [slug]);
 
   const fetchPendingJoinData = useCallback(async (token: string) => {
     setShowTeamModal(true);
@@ -398,24 +399,28 @@ export const TournamentView: React.FC = () => {
     };
     void init();
 
+    if (paramsHandledRef.current) return;
+
     // Check for error, success, or token param from OAuth
     const params = new URLSearchParams(window.location.search);
     const errorMsg = params.get('error');
     const joined = params.get('joined');
     const token = params.get('token');
 
-    if (errorMsg) {
-      alert(errorMsg);
+    if (errorMsg || joined || token) {
+      paramsHandledRef.current = true;
       const newUrl = window.location.pathname;
       window.history.replaceState({}, '', newUrl);
-    } else if (joined) {
-      alert('Success! You have joined the tournament.');
-      const newUrl = window.location.pathname;
-      window.history.replaceState({}, '', newUrl);
-    } else if (token) {
-      setTimeout(() => {
-        void fetchPendingJoinData(token);
-      }, 0);
+
+      if (errorMsg) {
+        alert(errorMsg);
+      } else if (joined) {
+        alert('Success! You have joined the tournament.');
+      } else if (token) {
+        setTimeout(() => {
+          void fetchPendingJoinData(token);
+        }, 0);
+      }
     }
   }, [fetchData, fetchPendingJoinData]);
 
