@@ -3,7 +3,13 @@ import { Analytics } from '@vercel/analytics/react';
 
 import { Link, useNavigate } from 'react-router-dom';
 import { Lineicons } from '@lineiconshq/react-lineicons';
-import { Trophy1Outlined, MoonHalfRight5Outlined, Sun1Outlined, PlusOutlined } from '@lineiconshq/free-icons';
+import {
+  Trophy1Outlined,
+  MoonHalfRight5Outlined,
+  Sun1Outlined,
+  PlusOutlined,
+  User4Outlined,
+} from '@lineiconshq/free-icons';
 import { Button } from '../Button/Button';
 import styles from './Layout.module.sass';
 
@@ -19,14 +25,42 @@ export const Layout: React.FC<LayoutProps> = ({ children }) => {
     return window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
   });
 
+  const [userData, setUserData] = useState(() => ({
+    managerName: localStorage.getItem('my_ht_manager_name'),
+    teamName: localStorage.getItem('my_ht_team_name'),
+  }));
+
   useEffect(() => {
     document.documentElement.setAttribute('data-theme', theme);
     localStorage.setItem('theme', theme);
   }, [theme]);
 
+  // Listen for storage changes to update user data UI
+  useEffect(() => {
+    const handleStorageChange = () => {
+      setUserData({
+        managerName: localStorage.getItem('my_ht_manager_name'),
+        teamName: localStorage.getItem('my_ht_team_name'),
+      });
+    };
+
+    window.addEventListener('storage', handleStorageChange);
+    // Also check on a timer or navigation because storage event only fires for other windows
+    const interval = setInterval(handleStorageChange, 2000);
+
+    return () => {
+      window.removeEventListener('storage', handleStorageChange);
+      clearInterval(interval);
+    };
+  }, []);
+
   const toggleTheme = () => {
     setTheme((prev) => (prev === 'light' ? 'dark' : 'light'));
   };
+
+  const userTooltip = userData.managerName
+    ? `Logged in as ${userData.managerName}${userData.teamName ? ` (${userData.teamName})` : ''}`
+    : 'Not logged in';
 
   return (
     <div className={styles.wrapper}>
@@ -52,7 +86,13 @@ export const Layout: React.FC<LayoutProps> = ({ children }) => {
                   <Lineicons icon={MoonHalfRight5Outlined} size={20} />
                 )}
               </Button>
-              <Button size="sm" onClick={() => navigate('/create')} variant="zero">
+              {/* TODO: reintroduce user indicator */}
+              {/* {userData.managerName && (
+                <div className={styles.userIndicator} title={userTooltip}>
+                  <Lineicons icon={User4Outlined} size={20} />
+                </div>
+              )} */}
+              <Button size="sm" onClick={() => navigate('/create')} variant="zero" className={styles.createBtn}>
                 <Lineicons icon={PlusOutlined} size={18} /> <span className={styles.hideMobile}>CREATE TOURNAMENT</span>
               </Button>
             </div>

@@ -73,6 +73,7 @@ interface Team {
   logo_url?: string;
   joined_via_oauth?: boolean;
   country_name?: string;
+  manager_name?: string;
   is_placeholder?: boolean;
   hattrick_user_id?: number;
 }
@@ -115,9 +116,21 @@ export const TournamentView: React.FC = () => {
   const [rounds, setRounds] = useState<RoundWithMatches[]>([]);
   const [teams, setTeams] = useState<Team[]>([]);
   const [loading, setLoading] = useState(true);
-  const [activeTab, setActiveTab] = useState<'standings' | 'fixtures' | 'admin'>(
+  const [activeTab, setActiveTab] = useState<'standings' | 'fixtures' | 'guestbook' | 'admin' | 'off'>(
     location.state?.isAdminInit ? 'admin' : 'standings',
   );
+
+  // News states
+  const [newsPosts, setNewsPosts] = useState<any[]>([]);
+  const [newNewsTitle, setNewNewsTitle] = useState('');
+  const [newNewsContent, setNewNewsContent] = useState('');
+  const [isPostingNews, setIsPostingNews] = useState(false);
+  const [newsMode, setNewsMode] = useState<'admin' | 'team'>('team');
+
+  // Chat states
+  const [chatMessages, setChatMessages] = useState<any[]>([]);
+  const [newChatContent, setNewChatContent] = useState('');
+  const [isPostingChat, setIsPostingChat] = useState(false);
 
   // Admin states
   const [password, setPassword] = useState(localStorage.getItem(`admin_pw_${slug}`) || '');
@@ -138,6 +151,43 @@ export const TournamentView: React.FC = () => {
   const [replacementHtId, setReplacementHtId] = useState('');
   const [replacementName, setReplacementName] = useState('');
   const [isFetchingTeamData, setIsFetchingTeamData] = useState(false);
+
+  useEffect(() => {
+    if (activeTab === 'standings' && tournament) {
+      const fetchChat = async () => {
+        console.log('Fetching chat for tournament:', tournament.id);
+        const { data, error } = await supabase
+          .from('tournament_chat')
+          .select('*')
+          .eq('tournament_id', tournament.id)
+          .order('created_at', { ascending: true });
+        if (error) console.error('Chat fetch error:', error);
+        console.log('Fetched chat messages:', data);
+        setChatMessages(data || []);
+      };
+      fetchChat();
+
+      const channel = supabase
+        .channel(`chat:${tournament.id}`)
+        .on(
+          'postgres_changes',
+          {
+            event: 'INSERT',
+            schema: 'public',
+            table: 'tournament_chat',
+            filter: `tournament_id=eq.${tournament.id}`,
+          },
+          (payload) => {
+            setChatMessages((prev) => [...prev, payload.new as any]);
+          },
+        )
+        .subscribe();
+
+      return () => {
+        supabase.removeChannel(channel);
+      };
+    }
+  }, [activeTab, tournament]);
 
   // Tournament settings states
   const [editName, setEditName] = useState('');
@@ -237,7 +287,7 @@ export const TournamentView: React.FC = () => {
       return start.toLocaleDateString('lv-LV', { month: 'numeric', day: 'numeric' });
     }
 
-    return `${start.toLocaleDateString('lv-LV', { month: 'numeric', day: 'numeric' })} - ${end.toLocaleDateString('lv-LV', { month: 'numeric', day: 'numeric' })}`;
+    return `${start.toLocaleDateString('lv-LV', { month: 'numeric', day: 'numeric' })} ${end.toLocaleDateString('lv-LV', { month: 'numeric', day: 'numeric' })}`;
   };
 
   const fetchData = useCallback(async () => {
@@ -245,7 +295,7 @@ export const TournamentView: React.FC = () => {
     const { data: tournamentData } = await supabase.from('tournaments').select('*').eq('slug', slug).single();
 
     if (tournamentData) {
-      setTournament(tournamentData);
+      setTournament(tournamentData as any);
       setEditName(tournamentData.name);
       setEditIsPrivate(tournamentData.is_private);
       setEditChppOnlyJoin(tournamentData.chpp_only_join);
@@ -327,7 +377,7 @@ export const TournamentView: React.FC = () => {
   const fetchPendingJoinData = useCallback(async (token: string) => {
     setShowTeamModal(true);
     setModalLoading(true);
-    console.log('TournamentView - Querying Selection Token:', token);
+    console.log('TournamentView Querying Selection Token:', token);
 
     const { data, error } = await supabase
       .from('oauth_temp_sessions')
@@ -366,6 +416,12 @@ export const TournamentView: React.FC = () => {
 
       if (result.hattrick_user_id) {
         localStorage.setItem('my_ht_user_id', result.hattrick_user_id.toString());
+      }
+      if (result.manager_name) {
+        localStorage.setItem('my_ht_manager_name', result.manager_name);
+      }
+      if (result.team_name) {
+        localStorage.setItem('my_ht_team_name', result.team_name);
       }
 
       setShowTeamModal(false);
@@ -434,12 +490,150 @@ export const TournamentView: React.FC = () => {
     }
   }, [location.state?.isAdminInit]);
 
-  const handleTabChange = (tab: 'standings' | 'fixtures' | 'admin') => {
+  useEffect(() => {
+    if (activeTab === 'guestbook' && tournament) {
+      const fetchPosts = async () => {
+        const { data } = await supabase
+          .from('news_posts')
+          .select('*')
+          .eq('tournament_id', tournament.id)
+          .order('created_at', { ascending: false });
+        setNewsPosts(data || []);
+      };
+      fetchPosts();
+
+      const channel = supabase
+        .channel(`news:${tournament.id}`)
+        .on(
+          'postgres_changes',
+          {
+            event: 'INSERT',
+            schema: 'public',
+            table: 'news_posts',
+            filter: `tournament_id=eq.${tournament.id}`,
+          },
+          (payload) => {
+            setNewsPosts((prev) => [payload.new as any, ...prev]);
+          },
+        )
+        .subscribe();
+
+      return () => {
+        supabase.removeChannel(channel);
+      };
+    }
+  }, [activeTab, tournament]);
+
+  const handlePostMessage = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newNewsContent.trim() || !tournament) return;
+
+    setIsPostingNews(true);
+    try {
+      // Try to find current team in this tournament
+      const myHtId = localStorage.getItem('my_ht_user_id');
+      const myTeam = myHtId ? teams.find((t) => t.hattrick_user_id === Number(myHtId)) : null;
+
+      const { error } = await supabase.from('news_posts').insert({
+        tournament_id: tournament.id,
+        title: newNewsTitle.trim(),
+        content: newNewsContent.trim(),
+        author_name: newsMode === 'admin' ? 'Tournament Administration' : myTeam?.name || 'Guest',
+        author_team_id: newsMode === 'admin' ? null : myTeam?.id || null,
+        is_admin: newsMode === 'admin',
+      });
+
+      if (error) throw error;
+      setNewNewsContent('');
+      setNewNewsTitle('');
+    } catch (err: any) {
+      alert(err.message);
+    } finally {
+      setIsPostingNews(false);
+    }
+  };
+
+  const handleTabChange = (tab: 'standings' | 'fixtures' | 'guestbook' | 'admin') => {
     if (tab !== activeTab) {
       setIsAddingDescription(false);
       setQuickDescription('');
       setActiveTab(tab);
     }
+  };
+
+  // Chat scroll ref
+  const chatEndRef = useRef<HTMLDivElement>(null);
+
+  const scrollToBottom = () => {
+    chatEndRef.current?.scrollBy(0, -1000);
+  };
+
+  useEffect(() => {
+    scrollToBottom();
+  }, [chatMessages]);
+
+  useEffect(() => {
+    if (activeTab !== 'standings' || !tournament) return;
+
+    let pollInterval: NodeJS.Timeout;
+
+    const fetchChat = async () => {
+      const { data, error } = await supabase
+        .from('tournament_chat')
+        .select('*')
+        .eq('tournament_id', tournament.id)
+        .order('created_at', { ascending: true });
+
+      if (error) return;
+      setChatMessages(data || []);
+
+      if (data && data.length > 0) {
+        const lastMsg = new Date(data[data.length - 1].created_at);
+        const ageInMinutes = (new Date().getTime() - lastMsg.getTime()) / 60000;
+
+        let interval = 60000; // 1 min
+        if (ageInMinutes < 30)
+          interval = 5000; // 5 secs
+        else if (ageInMinutes < 480) interval = 20000; // 20 secs
+
+        clearInterval(pollInterval);
+        pollInterval = setInterval(fetchChat, interval);
+      }
+    };
+
+    fetchChat();
+    return () => clearInterval(pollInterval);
+  }, [activeTab, tournament]);
+
+  const handlePostChat = async () => {
+    if (!newChatContent.trim() || !tournament) return;
+    setIsPostingChat(true);
+    try {
+      const myHtId = localStorage.getItem('my_ht_user_id');
+      const myTeam = myHtId ? teams.find((t) => t.hattrick_user_id === Number(myHtId)) : null;
+      // Using manager_name if available, fallback to team name
+      const authorName = myTeam?.manager_name || myTeam?.name || 'Guest';
+
+      await supabase.from('tournament_chat').insert({
+        tournament_id: tournament.id,
+        author_name: authorName,
+        content: newChatContent.trim(),
+      });
+      setNewChatContent('');
+    } catch (err: any) {
+      alert(err.message);
+    } finally {
+      setIsPostingChat(false);
+    }
+  };
+  const handleAddReaction = async (postId: string, reaction: string) => {
+    const userId = localStorage.getItem('my_ht_user_id') || 'guest';
+    const { error } = await supabase.from('news_reactions').insert({
+      post_id: postId,
+      user_id: userId,
+      reaction: reaction,
+    });
+    if (error) alert(error.message);
   };
 
   const handleAdminLogin = (e: React.FormEvent) => {
@@ -863,7 +1057,6 @@ export const TournamentView: React.FC = () => {
     const schedule = generateRecurring(
       activeTeams.map((t) => t.id),
       lastRoundNumber + 1,
-      4,
     );
 
     try {
@@ -970,25 +1163,6 @@ export const TournamentView: React.FC = () => {
         <div className={styles.headerTop}>
           <div className={styles.titleArea}>
             <div className={styles.h1Wrap}>
-              {tournament?.image_url === 42 && (
-                <div
-                  className={styles.h1Img}
-                  style={{ background: `url(${tournament?.image_url}) center center no-repeat` }}
-                  onClick={() => {
-                    if (isAdminAuthenticated) {
-                      setNewImageUrl(typeof tournament?.image_url === 'string' ? tournament.image_url : '');
-                      setIsEditingImage(true);
-                    }
-                  }}
-                >
-                  {isAdminAuthenticated && (
-                    <div className={styles.editOverlay}>
-                      <Lineicons icon={PlusOutlined} size={24} />
-                      <span>Edit</span>
-                    </div>
-                  )}
-                </div>
-              )}
               <h1>{tournament.name}</h1>
             </div>
             <p className={styles.subtitle}>
@@ -1219,6 +1393,10 @@ export const TournamentView: React.FC = () => {
         <button className={activeTab === 'fixtures' ? styles.active : ''} onClick={() => handleTabChange('fixtures')}>
           Fixtures & Results
         </button>
+        {/* TODO: reintroduce news tab */}
+        {/* <button className={activeTab === 'guestbook' ? styles.active : ''} onClick={() => handleTabChange('guestbook')}>
+          News
+        </button> */}
         <button className={activeTab === 'admin' ? styles.active : ''} onClick={() => handleTabChange('admin')}>
           Admin
         </button>
@@ -1445,7 +1623,7 @@ export const TournamentView: React.FC = () => {
                           {match.completed ? (
                             <div className={styles.scoreRow}>
                               <span className={styles.score}>
-                                {match.home_goals} - {match.away_goals}
+                                {match.home_goals} {match.away_goals}
                               </span>
                               {match.went_120 && <span className={styles.badge}>120min</span>}
                             </div>
@@ -1467,6 +1645,180 @@ export const TournamentView: React.FC = () => {
               )}
             </>
           )}
+        </div>
+      )}
+
+      {activeTab === 'guestbook' && (
+        <div className={styles.guestbook}>
+          <Card variant="classic" title="News & Announcements">
+            <div className={styles.newsTabs}>
+              <button className={newsMode === 'team' ? styles.active : ''} onClick={() => setNewsMode('team')}>
+                Team News
+              </button>
+              {isAdminAuthenticated && (
+                <button className={newsMode === 'admin' ? styles.active : ''} onClick={() => setNewsMode('admin')}>
+                  Tournament News
+                </button>
+              )}
+            </div>
+
+            {/* Team Branding for Posting */}
+            {newsMode === 'team' && (
+              <div className={styles.postingTeamBranding}>
+                {/* Need to find current manager's team assuming we have teams array */}
+                {(() => {
+                  const myHtId = localStorage.getItem('my_ht_user_id');
+                  const myTeam = teams.find((t) => t.hattrick_user_id === Number(myHtId));
+                  return myTeam ? (
+                    <div className={styles.branding}>
+                      {myTeam.logo_url && <img src={myTeam.logo_url} alt={myTeam.name} />}
+                      <span>
+                        Posting as: <strong>{myTeam.name}</strong>
+                      </span>
+                    </div>
+                  ) : (
+                    <p>You don't have a team in this tournament.</p>
+                  );
+                })()}
+              </div>
+            )}
+
+            <form onSubmit={handlePostMessage} className={styles.postForm}>
+              <div className={styles.newsInputGroup}>
+                <input
+                  type="text"
+                  value={newNewsTitle}
+                  onChange={(e) => setNewNewsTitle(e.target.value)}
+                  placeholder="Article Title..."
+                  className={styles.postTitleInput}
+                />
+                <textarea
+                  value={newNewsContent}
+                  onChange={(e) => setNewNewsContent(e.target.value)}
+                  placeholder={
+                    newsMode === 'admin' ? 'Write a tournament announcement...' : "Share your team's news..."
+                  }
+                  className={styles.postTextarea}
+                  rows={3}
+                />
+              </div>
+              <div className={styles.postActions}>
+                <Button type="submit" variant="primary" disabled={isPostingNews || !newNewsContent.trim()}>
+                  {isPostingNews ? 'Posting...' : 'Post News'}
+                </Button>
+              </div>
+            </form>
+
+            <div className={styles.postsList}>
+              {newsPosts.length === 0 ? (
+                <p className={styles.noPosts}>No news yet.</p>
+              ) : (
+                newsPosts.map((post) => (
+                  <div key={post.id} className={`${styles.post} ${post.is_admin ? styles.adminPost : ''}`}>
+                    <div className={styles.postHeader}>
+                      {/* Team Logo if applicable */}
+                      {post.author_team_id && teams.find((t) => t.id === post.author_team_id)?.logo_url && (
+                        <img
+                          src={teams.find((t) => t.id === post.author_team_id)?.logo_url}
+                          className={styles.postLogo}
+                          alt=""
+                        />
+                      )}
+                      <span className={styles.postAuthor}>{post.author_name}</span>
+                      <span className={styles.postTime}>
+                        {new Date(post.created_at).toLocaleString('lv-LV', {
+                          month: 'short',
+                          day: 'numeric',
+                          hour: '2-digit',
+                          minute: '2-digit',
+                        })}
+                      </span>
+                    </div>
+                    {post.title && <h4 className={styles.postTitle}>{post.title}</h4>}
+                    <div className={styles.postContent}>{post.content}</div>
+
+                    {/* Reaction Bar */}
+                    <div className={styles.reactionBar}>
+                      {['🔥', '💪', '👌', '❤️', '🥶', '😱', '😢', '🏆'].map((emoji) => (
+                        <button
+                          key={emoji}
+                          onClick={() => handleAddReaction(post.id, emoji)}
+                          className={styles.reactionBtn}
+                        >
+                          {emoji}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                ))
+              )}
+            </div>
+          </Card>
+        </div>
+      )}
+
+      {/* TODO: reintroduce main column */}
+      {activeTab === 'off' && (
+        <div className={styles.standingsContainer}>
+          <div className={styles.mainColumn}>
+            <div className={styles.chatSection}>
+              <h3></h3>
+
+              {/* Chat Messages */}
+              <div className={styles.chatMessages}>
+                {chatMessages.map((msg) => {
+                  const date = new Date(msg.created_at);
+                  const now = new Date();
+                  const timeStr =
+                    date.toDateString() === now.toDateString()
+                      ? date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+                      : date.toLocaleDateString();
+
+                  const isOwnMessage =
+                    msg.author_name ===
+                    ((teams.find((t) => t.hattrick_user_id === Number(localStorage.getItem('my_ht_user_id'))) as any)
+                      ?.manager_name ||
+                      teams.find((t) => t.hattrick_user_id === Number(localStorage.getItem('my_ht_user_id')))?.name);
+
+                  return (
+                    <div key={msg.id} className={`${styles.chatMessage} ${isOwnMessage ? styles.ownMessage : ''}`}>
+                      {!isOwnMessage && <span className={styles.chatAuthor}>{msg.author_name}</span>}
+                      <span className={styles.chatContent}>{msg.content}</span>
+                      <span className={styles.chatTime}>{timeStr}</span>
+                    </div>
+                  );
+                })}
+                <div ref={chatEndRef} />
+                {chatMessages.length === 0 && <p className={styles.muted}>No recent messages.</p>}
+              </div>
+
+              {/* Chat Input */}
+              <div className={styles.chatEmojiBar}>
+                {['🔥', '💪', '👌', '❤️', '🥶', '😱', '😢', '🏆'].map((emoji) => (
+                  <button key={emoji} onClick={() => setNewChatContent((prev) => prev + emoji)}>
+                    {emoji}
+                  </button>
+                ))}
+              </div>
+              <div className={styles.chatInputRow}>
+                <input
+                  type="text"
+                  value={newChatContent}
+                  onChange={(e) => setNewChatContent(e.target.value)}
+                  placeholder="Type a message..."
+                  onKeyPress={(e) => e.key === 'Enter' && handlePostChat()}
+                />
+                <Button onClick={handlePostChat} disabled={isPostingChat || !newChatContent.trim()}>
+                  Send
+                </Button>
+              </div>
+            </div>
+          </div>
+          <div className={styles.statsSidebar}>
+            <Card title="Tournament Stats">
+              <p className={styles.muted}>Stats placeholder: cards, injuries, etc.</p>
+            </Card>
+          </div>
         </div>
       )}
 
@@ -1510,7 +1862,8 @@ export const TournamentView: React.FC = () => {
                     onToggleCollapse={() => setIsSettingsCollapsed(!isSettingsCollapsed)}
                   >
                     <div className={adminStyles.settingsGroup} style={{ marginBottom: '1.5rem' }}>
-                      {/* <div className={adminStyles.field} style={{ marginBottom: '1.5rem' }}>
+                      {/* EDIT TOURNAMENT NAME *
+                      <div className={adminStyles.field} style={{ marginBottom: '1.5rem' }}>
                         <div className={adminStyles.labelRow}>
                           <label>Tournament Name</label>
                           <button type="button" onClick={regenerateName} className={adminStyles.iconBtn}>
@@ -2198,7 +2551,7 @@ export const TournamentView: React.FC = () => {
                                     {match.completed ? (
                                       <div className={adminStyles.resultInfo}>
                                         <span className={adminStyles.score}>
-                                          {match.home_goals} - {match.away_goals}
+                                          {match.home_goals} {match.away_goals}
                                         </span>
                                         {match.went_120 && <span className={adminStyles.badge}>120min</span>}
                                         <Button
@@ -2256,7 +2609,8 @@ export const TournamentView: React.FC = () => {
                 >
                   Archive Tournament
                 </Button>
-                {/* <Button
+                {/* PERMANENTLY DELETE TOURNAMENT *
+                <Button
                   variant="danger"
                   size="sm"
                   onClick={() => window.confirm('Permanently DELETE this tournament? This cannot be undone!')}

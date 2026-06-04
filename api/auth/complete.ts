@@ -124,6 +124,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     return res.status(200).json({ 
       slug: tournament?.slug, 
       hattrick_user_id: pending.hattrick_user_id,
+      manager_name: pending.manager_name,
+      team_name: team_name,
       redirect: `/t/${tournament?.slug}?joined=true` 
     });
 

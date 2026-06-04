@@ -94,6 +94,11 @@ export const CreateTournament: React.FC = () => {
   const [showModal, setShowModal] = useState(false);
   const [modalLoading, setModalLoading] = useState(false);
 
+  const [isLinked, setIsLinked] = useState(() => {
+    const saved = localStorage.getItem('create_tournament_progress');
+    return saved ? !!JSON.parse(saved).teams?.some((t: LocalTeam) => t.isCreator) : false;
+  });
+
   const saveProgress = useCallback(
     (updatedForm = formData, updatedTeams = teams, updatedShowDesc = showDescription) => {
       localStorage.setItem(
@@ -391,6 +396,12 @@ export const CreateTournament: React.FC = () => {
       if (creator?.hattrickUserId) {
         localStorage.setItem('my_ht_user_id', creator.hattrickUserId.toString());
       }
+      if (creator?.managerName) {
+        localStorage.setItem('my_ht_manager_name', creator.managerName);
+      }
+      if (creator?.name) {
+        localStorage.setItem('my_ht_team_name', creator.name);
+      }
 
       localStorage.removeItem('create_tournament_progress');
       localStorage.setItem(`admin_pw_${slug}`, adminPassword);
@@ -495,10 +506,14 @@ export const CreateTournament: React.FC = () => {
             </div>
             <div className={styles.field}>
               <label className={styles.checkboxLabel}>
-                <input type="checkbox" checked={showLeagueRestriction} onChange={(e) => {
-                  setShowLeagueRestriction(e.target.checked);
-                  if (!e.target.checked) setFormData({ ...formData, country_limit: '' });
-                }} />
+                <input
+                  type="checkbox"
+                  checked={showLeagueRestriction}
+                  onChange={(e) => {
+                    setShowLeagueRestriction(e.target.checked);
+                    if (!e.target.checked) setFormData({ ...formData, country_limit: '' });
+                  }}
+                />
                 Add League Restriction (optional)
               </label>
               {showLeagueRestriction && (
@@ -510,7 +525,9 @@ export const CreateTournament: React.FC = () => {
                 >
                   <option value="">Select league...</option>
                   {Object.values(HATTRICK_LEAGUES).map((league) => (
-                    <option key={league} value={league}>{league}</option>
+                    <option key={league} value={league}>
+                      {league}
+                    </option>
                   ))}
                 </select>
               )}
@@ -658,9 +675,11 @@ export const CreateTournament: React.FC = () => {
             <h2>Ready to create</h2>
             <div className={styles.creatorTeamCard}>
               {creator.logoUrl && <img src={creator.logoUrl} alt="" className={styles.creatorTeamLogo} />}
-              <p className={styles.small}>Your team</p>
-              <strong>{creator.name}</strong>
-              <span>{[creator.managerName, `ID ${creator.htId}`].filter(Boolean).join(' · ')}</span>
+              <div className={styles.creatorCardContent}>
+                <p className={styles.small}>Your team</p>
+                <strong>{creator.name}</strong>
+                <span>{[creator.managerName, `ID ${creator.htId}`].filter(Boolean).join(' · ')}</span>
+              </div>
             </div>
             <p className={styles.finalizeNote}>
               Other managers join via the public link after the tournament is created.

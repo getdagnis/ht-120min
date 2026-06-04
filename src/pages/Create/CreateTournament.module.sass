@@ -178,27 +178,9 @@
   font-style: italic
   margin: 2rem 0
 
-.creatorTeamCard
-  background: var(--bg-transp)
-  border: 1px solid var(--accent)
-  padding: 1rem
-  border-radius: 0.5rem
-  display: flex
-  flex-direction: column
-  align-items: center
-  gap: 0.25rem
-
-  strong
-    font-size: 1.25rem
-    color: var(--text-h)
-
-  span
-    font-size: 0.9rem
-    opacity: 0.8
-
 .creatorTeamLogo
-  width: 72px
-  height: 72px
+  max-width: 4.5rem
+  height: 4.5rem
   object-fit: contain
   margin-bottom: 0.25rem
 
@@ -278,28 +260,36 @@
 .singleTeamPrompt
   margin-bottom: 1.5rem
   text-align: center
-  
+
   p
     margin-bottom: 1rem
     line-height: 1.5
 
 .multiTeamPrompt
   text-align: center
-  
+
   p
     margin-bottom: 1rem
     line-height: 1.5
 
 .creatorTeamCard
+  display: flex
+  flex: 1
+  justify-content: flex-start
+  align-items: center
+  text-align: left
   background: var(--bg-transp)
   border: 1px solid var(--accent)
-  padding: 1.25rem
+  color: var(--text-h)
+  padding: 1rem 1rem
+  margin: 1rem auto
   border-radius: 0.75rem
-  display: flex
-  flex-direction: column
-  align-items: center
   gap: 0.25rem
-  margin: 1rem 0
+
+  .creatorCardContent
+    display: flex
+    flex-direction: column
+    width: 100%
 
   strong
     font-size: 1.25rem
@@ -381,16 +371,6 @@
 .manualEntry
   margin-bottom: 2rem
 
-.creatorWelcome
-  margin-bottom: 2rem
-  text-align: center
-  background: var(--bg-transp2)
-  padding: 1.25rem
-  border-radius: 0.75rem
-
-  h2
-    margin-bottom: 1rem
-
 .finalizeNote
   margin-top: 1rem
   font-size: 0.9rem
@@ -446,7 +426,7 @@
   margin-bottom: 2rem
   text-align: center
   background: var(--bg-transp2)
-  padding: 1.25rem
+  padding: 1rem
   border-radius: 0.75rem
 
 .readOnlyName

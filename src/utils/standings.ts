@@ -17,6 +17,7 @@ export interface Team {
   joined_via_oauth?: boolean;
   country_name?: string | null;
   logo_url?: string | null;
+  manager_name?: string | null;
 }
 
 export interface TeamStanding {
@@ -113,7 +114,7 @@ export function calculateStandings(
 
   // Filter out inactive teams from the final list
   const activeTeamIds = new Set(teams.filter((t) => t.active).map((t) => t.id));
-  const standings = Object.values(standingsMap).filter(s => activeTeamIds.has(s.teamId));
+  const standings = Object.values(standingsMap).filter((s) => activeTeamIds.has(s.teamId));
 
   // Sorting logic based on mode
   if (scoringMode === '120m' || scoringMode === '120min') {
