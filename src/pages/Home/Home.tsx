@@ -182,11 +182,11 @@ export const Home: React.FC = () => {
             </p>
             <div className={styles.ctaBtns}>
               <Button size="lg" onClick={() => navigate('/create')} variant="secondary">
-                <Lineicons icon={Trophy1Outlined} size={18} /> Create Tournament
+                <Lineicons icon={Trophy1Outlined} size={22} /> Create Tournament
               </Button>
               <ScrollTo to="opentours" smooth={true} duration={600} offset={-80}>
                 <Button size="lg" variant="secondary">
-                  <Lineicons icon={EnterOutlined} size={18} /> Join Tournament
+                  <Lineicons icon={EnterOutlined} size={22} /> Join Tournament
                 </Button>
               </ScrollTo>
             </div>
@@ -206,7 +206,12 @@ export const Home: React.FC = () => {
                 <div className={styles.tournamentGrid}>
                   {activeTournaments.map((t) => (
                     <Link key={t.id} to={`/t/${t.slug}`} className={styles.tournamentLink}>
-                      <Card variant="classic" className={styles.tournamentCard} thumbnailIndex={t.thumbnail_index} imageUrl={t.image_url}>
+                      <Card
+                        variant="classic"
+                        className={styles.tournamentCard}
+                        thumbnailIndex={t.thumbnail_index}
+                        imageUrl={t.image_url}
+                      >
                         <div className={styles.tInfo}>
                           <div className={styles.tTitleRow}>
                             <h3 className={styles.tName}>{t.name}</h3>
@@ -252,7 +257,12 @@ export const Home: React.FC = () => {
                 <div className={styles.tournamentGrid}>
                   {openTournaments.map((t) => (
                     <Link key={t.id} to={`/t/${t.slug}`} className={styles.tournamentLink}>
-                      <Card variant="classic" className={styles.tournamentCard} thumbnailIndex={t.thumbnail_index} imageUrl={t.image_url}>
+                      <Card
+                        variant="classic"
+                        className={styles.tournamentCard}
+                        thumbnailIndex={t.thumbnail_index}
+                        imageUrl={t.image_url}
+                      >
                         <div className={styles.tInfo}>
                           <div className={styles.tTitleRow}>
                             <h3 className={styles.tName}>{t.name}</h3>

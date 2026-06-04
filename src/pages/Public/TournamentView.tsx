@@ -2236,7 +2236,7 @@ export const TournamentView: React.FC = () => {
               {isUpdatingImage ? 'Updating...' : 'Save Image'}
             </Button>
             <Button
-              variant="outline"
+              variant="outlineWhite"
               fullWidth
               onClick={() => setIsEditingImage(false)}
               style={{ marginTop: '0.5rem' }}
