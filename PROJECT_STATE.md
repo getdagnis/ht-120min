@@ -18,3 +18,17 @@
 ### Dev Environment Configuration
 - **vercel.json**: Updated `rewrites` to use the pattern `"/((?!.*\\.).*)"` to correctly distinguish between SPA routes and static assets, preventing local dev server crashes when resolving JS/CSS files.
 - **Git Tracking**: File is tracked to ensure production deployments work (`vercel --prod`), but local changes that would crash the dev server are handled via `git update-index --skip-worktree` or manual management.
+
+## Current Task State
+
+1. [DONE] Define and implement `fixture_warnings` database schema.
+2. [DONE] Update `MatchWithTeams` interface and query to fetch manager data.
+3. [DONE] Finalize `FixtureCard.module.sass` (v3 mockup).
+4. [DONE] Implement `refresh-fixtures.ts` schedule-to-friendly comparison.
+5. [DONE] Integrate `FixtureCard` into `TournamentView.tsx` and implement refresh triggers.
+6. [DONE] Implement intelligent fixture refresh (15m rule) and optimized upcoming round check.
+7. [DONE] Implement Match ID storage for deep-linking.
+8. [DONE] URL-based tab deep-linking.
+9. [DONE] Admin recovery email UI & setup.
+10. [DONE] Image modal for tournament banner.
+11. [TODO] **Live Match Tracking**: Backend polling, status transitions (ongoing), and frontend UI polling. (PENDING - Test target: Wednesday).

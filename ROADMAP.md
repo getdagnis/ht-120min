@@ -21,9 +21,10 @@ This document tracks our transition from a manual tournament tracker to a fully 
 
 ## Phase 3: Automated Result Sync
 
-**Goal:** Zero-effort standings updates.
+**Goal:** Zero-effort standings updates and live match tracking.
 
-- [ ] **Match Details Polling:** Periodically check for completed matches.
+- [x] **Match Details Polling:** Periodically check for completed matches.
+- [ ] **Live Match Tracking:** (PENDING - Test target: Wed) Live score polling, status transitions, and ongoing match UI.
 - [ ] **Auto-Standings:** Detect 120min achievements, total minutes, and goals automatically.
 - [ ] **Sync Action:** Provide a "Sync results from Hattrick" button for tournament admins.
 
