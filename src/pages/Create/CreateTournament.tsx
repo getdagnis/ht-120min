@@ -15,6 +15,7 @@ import {
   HandShakeOutlined,
   Trophy1Outlined,
   ChevronLeftOutlined,
+  XmarkOutlined,
 } from '@lineiconshq/free-icons';
 import { DESCRIPTIONS, TOURNAMENT_NAMES } from '../../constants/descriptions';
 import { filterTeamsForCategory, teamMatchesCategory, type LeagueCategory } from '../../utils/team-eligibility';
@@ -60,6 +61,7 @@ export const CreateTournament: React.FC = () => {
       is_private: false,
       country_limit: '',
       description: getRandomDescription(),
+      admin_email: '',
     };
   });
 
@@ -71,6 +73,11 @@ export const CreateTournament: React.FC = () => {
   const [showDescription, setShowDescription] = useState(() => {
     const saved = localStorage.getItem('create_tournament_progress');
     return saved ? (JSON.parse(saved).showDescription ?? false) : false;
+  });
+
+  const [showEmail, setShowEmail] = useState(() => {
+    const saved = localStorage.getItem('create_tournament_progress');
+    return saved ? (JSON.parse(saved).showEmail ?? false) : false;
   });
 
   const [showLeagueRestriction, setShowLeagueRestriction] = useState(() => {
@@ -100,17 +107,18 @@ export const CreateTournament: React.FC = () => {
   });
 
   const saveProgress = useCallback(
-    (updatedForm = formData, updatedTeams = teams, updatedShowDesc = showDescription) => {
+    (updatedForm = formData, updatedTeams = teams, updatedShowDesc = showDescription, updatedShowEmail = showEmail) => {
       localStorage.setItem(
         'create_tournament_progress',
         JSON.stringify({
           formData: updatedForm,
           teams: updatedTeams,
           showDescription: updatedShowDesc,
+          showEmail: updatedShowEmail,
         }),
       );
     },
-    [formData, teams, showDescription],
+    [formData, teams, showDescription, showEmail],
   );
 
   const fetchPendingSession = useCallback(async (token: string) => {
@@ -364,6 +372,7 @@ export const CreateTournament: React.FC = () => {
             is_private: formData.is_private,
             country_limit: formData.country_limit || null,
             description: showDescription ? formData.description : null,
+            admin_email: showEmail ? formData.admin_email : null,
             thumbnail_index: Math.floor(Math.random() * 17) + 1,
 
             season: 1,
@@ -420,6 +429,11 @@ export const CreateTournament: React.FC = () => {
   if (step === 'info') {
     return (
       <div className={styles.container}>
+        <div className={styles.headerRow}>
+          <button className={styles.closeBtn} onClick={() => navigate('/')}>
+            <Lineicons icon={XmarkOutlined} size={36} />
+          </button>
+        </div>
         <Card variant="hero">
           <h1>Create Tournament</h1>
           <img src="/create.png" alt="HT-120min" />
@@ -564,6 +578,23 @@ export const CreateTournament: React.FC = () => {
                 />
               )}
             </div>
+            <div className={styles.field}>
+              <label className={styles.checkboxLabel}>
+                <input type="checkbox" checked={showEmail} onChange={(e) => setShowEmail(e.target.checked)} />
+                Recovery email address (recommended)
+              </label>
+              {showEmail && (
+                <input
+                  type="email"
+                  value={formData.admin_email}
+                  onChange={(e) => setFormData({ ...formData, admin_email: e.target.value })}
+                  placeholder="In case you forget your admin password..."
+                  className={styles.magicInput}
+                  style={{ marginTop: '0.5rem' }}
+                />
+              )}
+            </div>
+
             <div className={styles.actions}>
               <Button type="submit" fullWidth disabled={loading} variant="secondary">
                 Continue <Lineicons icon={ArrowRightOutlined} size={18} />
@@ -651,6 +682,11 @@ export const CreateTournament: React.FC = () => {
 
   return (
     <div className={styles.container}>
+      <div className={styles.headerRow}>
+        <button className={styles.closeBtn} onClick={() => navigate('/')}>
+          <Lineicons icon={XmarkOutlined} size={36} />
+        </button>
+      </div>
       <Card variant="hero">
         <h1>{isValidated ? 'Confirm your team' : 'Add Teams'}</h1>
         <p className={styles.subtitle}>{formData.name}</p>

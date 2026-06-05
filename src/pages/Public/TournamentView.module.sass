@@ -445,11 +445,6 @@
   position: relative
   cursor: pointer
 
-  &:hover
-    .editOverlay
-      opacity: 1
-      pointer-events: auto
-
   .tournamentImage
     width: 100%
     height: 100%
@@ -459,20 +454,22 @@
 
 .editOverlay
   position: absolute
-  top: 0
-  left: 0
-  right: 0
-  bottom: 0
-  background: rgba(0, 0, 0, 0.4)
+  bottom: 0.5rem
+  right: 0.5rem
+  background: rgba(0, 0, 0, 0.6)
+  border-radius: 0.4rem
   display: flex
-  flex-direction: column
+  flex-direction: row
   align-items: center
   justify-content: center
   color: white
-  opacity: 0
-  transition: opacity 0.2s
-  gap: 0.25rem
+  padding: 0.5rem
+  gap: 0.5rem
   z-index: 5
+  pointer-events: none
+
+  @media (max-width: 620px)
+    display: none
 
   span
     font-size: 0.7rem
@@ -740,7 +737,7 @@
 
 .roundHeader
   display: flex
-  align-items: baseline
+  align-items: center
   gap: 0.75rem
 
 .roundDate
@@ -751,9 +748,7 @@
 .fixturesControls
   display: flex
   justify-content: flex-end
-  margin-top: -3.5rem
   margin-right: 1.5rem
-  margin-bottom: 2rem
   position: relative
   z-index: 10
 
@@ -815,10 +810,25 @@
   to
     transform: rotate(360deg)
 
-.matchesGrid
-  display: flex
-  flex-direction: column
+.imageModalOverlay
+  position: fixed
+  top: 0
+  left: 0
   width: 100%
+  height: 100%
+  background: rgba(0, 0, 0, 0.8)
+  display: flex
+  align-items: center
+  justify-content: center
+  z-index: 1000
+  cursor: pointer
+  padding: 1rem
+
+.imageModalContent
+  max-width: 900px
+  width: 96vw
+  max-height: 90vh
+  object-fit: contain
 
 .matchDate
   font-size: 0.75rem

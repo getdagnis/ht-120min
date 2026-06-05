@@ -1,6 +1,6 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import React, { useState, useEffect, useCallback, useRef } from 'react';
-import { useParams, useLocation } from 'react-router-dom';
+import { useParams, useLocation, useSearchParams } from 'react-router-dom';
 import { supabase } from '../../lib/supabase';
 import { Card } from '../../components/Card/Card';
 import { Button } from '../../components/Button/Button';
@@ -59,7 +59,7 @@ interface MatchWithTeams {
   completed: boolean;
   went_120: boolean;
   total_minutes: number;
-  status: 'not_arranged' | 'arranged' | 'misarranged' | 'finished';
+  status: 'not_arranged' | 'arranged' | 'ongoing' | 'misarranged' | 'finished';
   ht_match_id: number | null;
   home_team: {
     name: string;
@@ -113,11 +113,12 @@ interface Tournament {
   registration_type: 'Hattrick Validated (CHPP)' | 'Organizer-Managed';
   organizer_name?: string;
   organizer_id?: number;
-  image_url?: string | 42;
+  image_url?: string;
   season: number;
   is_test: boolean;
   status: 'open' | 'active' | 'finished' | 'waiting';
   last_fixtures_refresh: string | null;
+  admin_email: string | null;
 }
 
 interface RoundWithMatches {
@@ -129,15 +130,22 @@ interface RoundWithMatches {
 export const TournamentView: React.FC = () => {
   const { slug } = useParams<{ slug: string }>();
   const location = useLocation();
+  const [searchParams, setSearchParams] = useSearchParams();
   const [tournament, setTournament] = useState<Tournament | null>(null);
   const [standings, setStandings] = useState<TeamStanding[]>([]);
   const [rounds, setRounds] = useState<RoundWithMatches[]>([]);
   const [teams, setTeams] = useState<Team[]>([]);
   const [warnings, setWarnings] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
-  const [activeTab, setActiveTab] = useState<'standings' | 'fixtures' | 'guestbook' | 'admin' | 'off'>(
-    location.state?.isAdminInit ? 'admin' : 'standings',
-  );
+
+  // Sync activeTab with URL search param 'tab'
+  const activeTabParam = searchParams.get('tab');
+  const activeTab = ['standings', 'fixtures', 'guestbook', 'admin', 'news'].includes(activeTabParam || '')
+    ? (activeTabParam as any)
+    : location.state?.isAdminInit
+      ? 'admin'
+      : 'standings';
+
   const [isRefreshingFixtures, setIsRefreshingFixtures] = useState(false);
 
   // News states
@@ -156,10 +164,12 @@ export const TournamentView: React.FC = () => {
   const [password, setPassword] = useState(localStorage.getItem(`admin_pw_${slug}`) || '');
   const [isAdminAuthenticated, setIsAdminAuthenticated] = useState(false);
   const [adminAuthError, setAdminAuthError] = useState(false);
+  const [failedLoginAttempt, setFailedLoginAttempt] = useState(false);
   const paramsHandledRef = useRef(false);
   const [isEditingImage, setIsEditingImage] = useState(false);
   const [newImageUrl, setNewImageUrl] = useState('');
   const [isUpdatingImage, setIsUpdatingImage] = useState(false);
+  const [showFullImage, setShowFullImage] = useState(false);
   const [newTeamId, setNewTeamId] = useState('');
   const [newTeamName, setNewTeamName] = useState('');
   const [isSavingTeam, setIsSavingTeam] = useState(false);
@@ -221,6 +231,8 @@ export const TournamentView: React.FC = () => {
   const [editCountryLimit, setEditCountryLimit] = useState<string | null>(null);
   const [showEditDescription, setShowEditDescription] = useState(false);
   const [editDescription, setEditDescription] = useState('');
+  const [showEditEmail, setShowEditEmail] = useState(false);
+  const [editAdminEmail, setEditAdminEmail] = useState('');
   const [isUpdatingSettings, setIsUpdatingSettings] = useState(false);
   const [isTest, setIsTest] = useState(false);
 
@@ -294,10 +306,13 @@ export const TournamentView: React.FC = () => {
     const end = dates[dates.length - 1];
 
     if (start.toDateString() === end.toDateString()) {
-      return start.toLocaleDateString('lv-LV', { month: 'numeric', day: 'numeric' });
+      return start.toLocaleDateString('lv-LV', { day: '2-digit', month: '2-digit', year: 'numeric' });
     }
 
-    return `${start.toLocaleDateString('lv-LV', { month: 'numeric', day: 'numeric' })} ${end.toLocaleDateString('lv-LV', { month: 'numeric', day: 'numeric' })}`;
+    return `${start.toLocaleDateString('lv-LV', { day: '2-digit', month: '2-digit', year: 'numeric' })} - ${end.toLocaleDateString(
+      'lv-LV',
+      { day: '2-digit', month: '2-digit', year: 'numeric' },
+    )}`;
   };
 
   const fetchData = useCallback(async () => {
@@ -316,7 +331,8 @@ export const TournamentView: React.FC = () => {
       setIsTest(tournamentData.is_test || false);
       setShowEditDescription(tournamentData.show_description);
       setEditDescription(tournamentData.description || '');
-
+      setShowEditEmail(!!tournamentData.admin_email);
+      setEditAdminEmail(tournamentData.admin_email || '');
       const { data: teamsData } = await supabase
         .from('teams')
         .select('*')
@@ -392,7 +408,7 @@ export const TournamentView: React.FC = () => {
       }
     }
     setLoading(false);
-  }, [slug]);
+  }, [slug, tournament]);
 
   const fetchPendingJoinData = useCallback(async (token: string) => {
     setShowTeamModal(true);
@@ -504,11 +520,11 @@ export const TournamentView: React.FC = () => {
     if (location.state?.isAdminInit) {
       // Use a microtask or timeout to avoid synchronous setState during render/effect phase
       setTimeout(() => {
-        setActiveTab('admin');
+        activeTab('admin');
       }, 0);
       window.history.replaceState({}, document.title);
     }
-  }, [location.state?.isAdminInit]);
+  }, [activeTab, location.state?.isAdminInit]);
 
   useEffect(() => {
     if (activeTab === 'guestbook' && tournament) {
@@ -573,7 +589,7 @@ export const TournamentView: React.FC = () => {
     }
   };
 
-  const handleRefreshFixtures = async () => {
+  const handleRefreshFixtures = useCallback(async () => {
     if (!tournament || isRefreshingFixtures) return;
     setIsRefreshingFixtures(true);
     try {
@@ -585,7 +601,7 @@ export const TournamentView: React.FC = () => {
     } finally {
       setIsRefreshingFixtures(false);
     }
-  };
+  }, [tournament, isRefreshingFixtures, fetchData]);
 
   useEffect(() => {
     if (activeTab === 'fixtures' && tournament && !isRefreshingFixtures) {
@@ -599,17 +615,19 @@ export const TournamentView: React.FC = () => {
         const hasUnarranged = upcomingRound?.matches.some((m) => m.status === 'not_arranged');
 
         if (hasUnarranged) {
-          handleRefreshFixtures();
+          setTimeout(() => {
+            handleRefreshFixtures();
+          }, 0);
         }
       }
     }
-  }, [activeTab]);
+  }, [activeTab, handleRefreshFixtures, isRefreshingFixtures, rounds, tournament]);
 
   const handleTabChange = (tab: 'standings' | 'fixtures' | 'guestbook' | 'admin') => {
     if (tab !== activeTab) {
       setIsAddingDescription(false);
       setQuickDescription('');
-      setActiveTab(tab);
+      setSearchParams({ tab });
     }
   };
 
@@ -696,6 +714,7 @@ export const TournamentView: React.FC = () => {
       setAdminAuthError(false);
     } else {
       setAdminAuthError(true);
+      setFailedLoginAttempt(true);
     }
   };
 
@@ -715,7 +734,9 @@ export const TournamentView: React.FC = () => {
           is_test: isTest,
           show_description: showEditDescription,
           description: editDescription,
+          admin_email: showEditEmail ? editAdminEmail : null,
         })
+
         .eq('id', tournament?.id);
 
       if (error) throw error;
@@ -1310,9 +1331,8 @@ export const TournamentView: React.FC = () => {
           <div
             className={styles.imagePlaceholder}
             onClick={() => {
-              if (isAdminAuthenticated) {
-                setNewImageUrl(typeof tournament.image_url === 'string' ? tournament.image_url : '');
-                setIsEditingImage(true);
+              if (tournament?.image_url) {
+                setShowFullImage(true);
               }
             }}
           >
@@ -1322,11 +1342,19 @@ export const TournamentView: React.FC = () => {
                 style={{ background: `url(${tournament?.image_url}) center center no-repeat` }}
               />
             ) : (
-              <div className={styles.placeholderMessage}>Click to add image URL</div>
+              isAdminAuthenticated && <div className={styles.placeholderMessage}>Click to add image URL</div>
             )}
             {isAdminAuthenticated && (
-              <div className={styles.editOverlay}>
-                <Lineicons icon={PlusOutlined} size={28} />
+              <div
+                className={styles.editOverlay}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setNewImageUrl(typeof tournament?.image_url === 'string' ? tournament.image_url : '');
+                  setIsEditingImage(true);
+                }}
+                style={{ pointerEvents: 'auto', cursor: 'pointer' }}
+              >
+                <Lineicons icon={PlusOutlined} size={16} />
                 <span>{tournament?.image_url ? 'Edit Image' : 'Add Image'}</span>
               </div>
             )}
@@ -1647,27 +1675,35 @@ export const TournamentView: React.FC = () => {
                   key={round.id}
                   title={
                     <div className={styles.roundHeader}>
-                      <span>Round {round.round_number}</span>
-                      <span className={styles.roundDate}>{getRoundDateRange(round)}</span>
+                      <>
+                        <span>Round {round.round_number}</span>
+                        <span className={styles.roundDate}>{getRoundDateRange(round)}</span>
+                      </>
+                    </div>
+                  }
+                  headerRight={
+                    <div className={styles.fixturesControls}>
+                      {tournament?.last_fixtures_refresh && (
+                        <span className={styles.lastRefresh}>
+                          {isRefreshingFixtures ? 'Checking...' : 'Last checked: '}
+                          {!isRefreshingFixtures &&
+                            new Date(tournament.last_fixtures_refresh).toLocaleTimeString('en-GB', {
+                              hour: '2-digit',
+                              minute: '2-digit',
+                            })}
+                        </span>
+                      )}
+                      <button
+                        className={`${styles.refreshBtn} ${isRefreshingFixtures ? styles.spinning : ''}`}
+                        onClick={handleRefreshFixtures}
+                        disabled={isRefreshingFixtures}
+                      >
+                        <Lineicons icon={RefreshCircle1ClockwiseOutlined} size={18} />
+                      </button>
                     </div>
                   }
                   variant="classic"
                 >
-                  <div className={styles.fixturesControls}>
-                    {tournament?.last_fixtures_refresh && (
-                      <span className={styles.lastRefresh}>
-                        Last refresh: {new Date(tournament.last_fixtures_refresh).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' })}
-                      </span>
-                    )}
-                    <button 
-                      className={`${styles.refreshBtn} ${isRefreshingFixtures ? styles.spinning : ''}`}
-                      onClick={handleRefreshFixtures}
-                      disabled={isRefreshingFixtures}
-                    >
-                      <Lineicons icon={RefreshCircle1ClockwiseOutlined} size={18} />
-                    </button>
-                  </div>
-
                   <div className={styles.matchesGrid}>
                     {round.matches.map((match: MatchWithTeams) => {
                       const matchDate = calculateMatchDate(
@@ -1680,7 +1716,6 @@ export const TournamentView: React.FC = () => {
                       const datePart = matchDate.toLocaleDateString('lv-LV', {
                         day: '2-digit',
                         month: '2-digit',
-                        year: 'numeric',
                       });
                       const timePart = matchDate.toLocaleTimeString('en-GB', {
                         hour: '2-digit',
@@ -1942,6 +1977,21 @@ export const TournamentView: React.FC = () => {
                 <Button type="submit" variant="primary" size="lg">
                   <Lineicons icon={Shield2CheckOutlined} size={18} /> Authenticate
                 </Button>
+
+                <div style={{ marginTop: '1.5rem', textAlign: 'center' }}>
+                  {failedLoginAttempt ? (
+                    <p style={{ fontSize: '0.85rem', opacity: 0.8 }}>
+                      forgot password? let's hope you registered with an email
+                    </p>
+                  ) : (
+                    <a
+                      href="/create"
+                      style={{ fontSize: '0.85rem', opacity: 0.8, color: 'inherit', textDecoration: 'underline' }}
+                    >
+                      want to be an admin? start your own tournament
+                    </a>
+                  )}
+                </div>
               </form>
             </Card>
           ) : (
@@ -2040,15 +2090,6 @@ export const TournamentView: React.FC = () => {
                         </select>
                       </div>
 
-                      {isSuperAdmin && (
-                        <div className={adminStyles.checkboxField}>
-                          <label className={adminStyles.checkboxLabel}>
-                            <input type="checkbox" checked={isTest} onChange={(e) => setIsTest(e.target.checked)} />
-                            Testing Ground (Super-Admin only)
-                          </label>
-                        </div>
-                      )}
-
                       <div className={adminStyles.field}>
                         <label>League of team (any or locked to existing)</label>
                         <select
@@ -2138,6 +2179,41 @@ export const TournamentView: React.FC = () => {
                           </div>
                         )}
                       </div>
+
+                      <div style={{ marginTop: '1rem' }}>
+                        <div className={adminStyles.checkboxField}>
+                          <label className={adminStyles.checkboxLabel}>
+                            <input
+                              type="checkbox"
+                              checked={showEditEmail}
+                              onChange={(e) => setShowEditEmail(e.target.checked)}
+                            />
+                            Recovery email address (recommended)
+                          </label>
+                        </div>
+                        {showEditEmail && (
+                          <div className={adminStyles.textField} style={{ marginTop: '1rem' }}>
+                            <input
+                              type="email"
+                              value={editAdminEmail}
+                              onChange={(e) => setEditAdminEmail(e.target.value)}
+                              placeholder="In case you forget your admin password..."
+                            />
+                          </div>
+                        )}
+                      </div>
+
+                      {isSuperAdmin && (
+                        <div
+                          className={adminStyles.checkboxField}
+                          style={{ marginTop: '2rem', paddingTop: '1.5rem', borderTop: '1px solid var(--border)' }}
+                        >
+                          <label className={adminStyles.checkboxLabel}>
+                            <input type="checkbox" checked={isTest} onChange={(e) => setIsTest(e.target.checked)} />
+                            Testing Ground (Super-Admin only)
+                          </label>
+                        </div>
+                      )}
                     </div>
                     <Button onClick={updateSettings} disabled={isUpdatingSettings} variant="primary" size="sm">
                       {isUpdatingSettings ? 'Saving...' : 'Save Settings'}
@@ -2808,6 +2884,12 @@ export const TournamentView: React.FC = () => {
           )}
         </div>
       </Modal>
+
+      {showFullImage && tournament?.image_url && (
+        <div className={styles.imageModalOverlay} onClick={() => setShowFullImage(false)}>
+          <img src={tournament.image_url} alt="Tournament" className={styles.imageModalContent} />
+        </div>
+      )}
     </div>
   );
 };

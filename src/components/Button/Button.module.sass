@@ -22,19 +22,32 @@
   cursor: pointer
 
 .primary,
-.hero, .primaryInverse
+.hero, .primaryWhite
   background-color: var(--accent-3)
   color: white
 
   &:hover:not(:disabled)
-    background-color: var(--yellow)
+    background-color: var(--accent)
+    border: 1px solid black
 
 .secondary
   background-color: #f0ebe4
   border: 1px solid var(--borderDark)
+  border-color: black
   color: black
   &:hover:not(:disabled)
-    background-color: var(--yellow)
+    background-color: var(--accent-3)
+    border-color: white
+    color: white
+
+.secondaryInverse
+  background-color: var(--yellow)
+  border: 1px solid black
+  color: black
+  &:hover:not(:disabled)
+    background-color: var(--accent-3)
+    border-color: white
+    color: white
 
 .outline
   background-color: transparent

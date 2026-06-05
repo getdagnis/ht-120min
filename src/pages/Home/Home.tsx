@@ -181,7 +181,7 @@ export const Home: React.FC = () => {
               Hattrick managers.
             </p>
             <div className={styles.ctaBtns}>
-              <Button size="lg" onClick={() => navigate('/create')} variant="secondary">
+              <Button size="lg" onClick={() => navigate('/create')} variant="secondaryInverse">
                 <Lineicons icon={Trophy1Outlined} size={22} /> Create Tournament
               </Button>
               <ScrollTo to="opentours" smooth={true} duration={600} offset={-80}>

@@ -6,6 +6,7 @@ import styles from './Card.module.sass';
 interface CardProps {
   children: React.ReactNode;
   title?: string | React.ReactElement;
+  headerRight?: string | React.ReactElement;
   className?: string;
   variant?: 'classic' | 'hero' | 'classy';
   collapsible?: boolean;
@@ -19,6 +20,7 @@ interface CardProps {
 export const Card: React.FC<CardProps> = ({
   children,
   title,
+  headerRight,
   className = '',
   variant = 'classic',
   collapsible = false,
@@ -42,6 +44,7 @@ export const Card: React.FC<CardProps> = ({
             <div className={styles.headerLeft}>
               <h3 className={styles.title}>{title}</h3>
             </div>
+            {headerRight}
             {collapsible && (
               <button className={styles.collapseBtn} type="button">
                 {isCollapsed ? (

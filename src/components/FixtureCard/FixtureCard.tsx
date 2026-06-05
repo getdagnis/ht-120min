@@ -14,7 +14,7 @@ interface TeamProps {
 interface FixtureCardProps {
   homeTeam: TeamProps;
   awayTeam: TeamProps;
-  status: 'arranged' | 'not_arranged' | 'misarranged' | 'finished';
+  status: 'arranged' | 'not_arranged' | 'ongoing' | 'misarranged' | 'finished';
   score?: { home: number; away: number };
   date: string;
   htMatchId?: number;
@@ -22,9 +22,7 @@ interface FixtureCardProps {
 
 export const FixtureCard: React.FC<FixtureCardProps> = ({ homeTeam, awayTeam, status, score, date, htMatchId }) => {
   const badgeContent = (
-    <div className={`${styles.statusBadge} ${styles[status]}`}>
-      {status.replace('_', ' ').toUpperCase()}
-    </div>
+    <div className={`${styles.statusBadge} ${styles[status]}`}>{status.replace('_', ' ').toUpperCase()}</div>
   );
 
   return (
@@ -37,15 +35,15 @@ export const FixtureCard: React.FC<FixtureCardProps> = ({ homeTeam, awayTeam, st
         <div className={styles.teamDetails}>
           <div className={styles.teamName}>{homeTeam.name.toUpperCase()}</div>
           <div className={styles.teamMeta}>
-            <span>
-              {homeTeam.managerName || 'UNKNOWN'} / {homeTeam.htTeamId}
-            </span>
             <a
               href={`https://www.hattrick.org/goto.ashx?path=/Club/?TeamID=${homeTeam.htTeamId}`}
               target="_blank"
               rel="noopener noreferrer"
               className={styles.linkIcon}
             >
+              <span>
+                {homeTeam.managerName || 'UNKNOWN'} / {homeTeam.htTeamId}
+              </span>
               <Lineicons icon={Link2AngularRightOutlined} size={12} />
             </a>
           </div>
