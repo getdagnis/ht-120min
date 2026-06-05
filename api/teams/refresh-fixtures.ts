@@ -1,0 +1,208 @@
+import type { VercelRequest, VercelResponse } from '@vercel/node';
+import { getSupabase } from '../_lib/supabase.js';
+import { getAuthHeader } from '../_lib/chpp-auth.js';
+import { readChppTag } from '../_lib/chpp-xml.js';
+
+// Simplified helper for match date calculation on server
+const COUNTRY_FRIENDLY_TIMES: Record<string, { day: number; time: string }> = {
+  Argentina: { day: 3, time: '23:20' },
+  Australia: { day: 3, time: '04:00' },
+  Austria: { day: 3, time: '09:30' },
+  Belgium: { day: 3, time: '13:30' },
+  Bolivia: { day: 2, time: '22:45' },
+  Brazil: { day: 3, time: '23:55' },
+  Bulgaria: { day: 2, time: '21:15' },
+  Canada: { day: 3, time: '23:00' },
+  Chile: { day: 3, time: '22:50' },
+  China: { day: 3, time: '07:00' },
+  Colombia: { day: 3, time: '23:40' },
+  'Costa Rica': { day: 3, time: '23:45' },
+  Croatia: { day: 3, time: '08:45' },
+  Cyprus: { day: 2, time: '20:15' },
+  'Czech Republic': { day: 3, time: '14:00' },
+  Denmark: { day: 3, time: '16:30' },
+  Ecuador: { day: 2, time: '23:45' },
+  England: { day: 2, time: '21:00' },
+  Estonia: { day: 3, time: '12:15' },
+  Finland: { day: 2, time: '20:05' },
+  France: { day: 3, time: '15:05' },
+  Germany: { day: 2, time: '18:15' },
+  Greece: { day: 3, time: '09:45' },
+  Honduras: { day: 3, time: '21:55' },
+  Hungary: { day: 3, time: '09:45' },
+  Indonesia: { day: 3, time: '07:45' },
+  Ireland: { day: 3, time: '20:15' },
+  Israel: { day: 2, time: '20:30' },
+  Italy: { day: 2, time: '19:05' },
+  Japan: { day: 3, time: '02:30' },
+  Latvia: { day: 3, time: '13:45' },
+  Lithuania: { day: 3, time: '19:20' },
+  Malaysia: { day: 3, time: '05:00' },
+  Mexico: { day: 3, time: '02:30' },
+  Netherlands: { day: 3, time: '17:05' },
+  'New Zealand': { day: 3, time: '04:00' },
+  Norway: { day: 3, time: '16:00' },
+  Paraguay: { day: 2, time: '23:15' },
+  Peru: { day: 3, time: '22:50' },
+  Poland: { day: 3, time: '17:50' },
+  Portugal: { day: 3, time: '21:50' },
+  Romania: { day: 3, time: '10:00' },
+  Russia: { day: 3, time: '08:30' },
+  Scotland: { day: 3, time: '11:30' },
+  Serbia: { day: 3, time: '12:45' },
+  Singapore: { day: 3, time: '04:30' },
+  Slovakia: { day: 2, time: '19:25' },
+  Slovenia: { day: 2, time: '19:30' },
+  'South Africa': { day: 3, time: '21:30' },
+  'South Korea': { day: 3, time: '02:00' },
+  Spain: { day: 3, time: '12:05' },
+  Sweden: { day: 3, time: '19:15' },
+  Switzerland: { day: 3, time: '10:35' },
+  Thailand: { day: 3, time: '05:30' },
+  Turkey: { day: 3, time: '08:00' },
+  Ukraine: { day: 3, time: '08:15' },
+  Uruguay: { day: 3, time: '22:30' },
+  USA: { day: 3, time: '23:25' },
+  Venezuela: { day: 3, time: '23:30' },
+  Wales: { day: 2, time: '21:30' },
+};
+
+function calculateMatchDate(tournamentCreatedAt: string, roundNumber: number, countryName?: string): Date {
+  const settings = COUNTRY_FRIENDLY_TIMES[countryName || ''] || { day: 2, time: '20:00' };
+  const [hours, minutes] = settings.time.split(':').map(Number);
+  const date = new Date(tournamentCreatedAt);
+  // Find next occurrence of settings.day
+  const currentDay = date.getUTCDay();
+  let diff = (settings.day - currentDay + 7) % 7;
+  if (diff === 0 && (date.getUTCHours() > hours || (date.getUTCHours() === hours && date.getUTCMinutes() >= minutes))) diff = 7;
+  date.setUTCDate(date.getUTCDate() + diff);
+  date.setUTCHours(hours - 1, minutes, 0, 0); // Approx HT time to UTC
+  if (roundNumber > 1) date.setUTCDate(date.getUTCDate() + (roundNumber - 1) * 7);
+  return date;
+}
+
+async function fetchTeamFriendlies(teamId: string, oauthToken: string, oauthTokenSecret: string) {
+  const consumerKey = process.env.CHPP_CONSUMER_KEY;
+  const consumerSecret = process.env.CHPP_CONSUMER_SECRET;
+  const url = 'https://chpp.hattrick.org/chppxml.ashx';
+  const params = { file: 'matches', teamID: teamId, matchType: '1' };
+  const authHeader = getAuthHeader('GET', url, params, consumerKey!, consumerSecret!, oauthToken, oauthTokenSecret);
+  const response = await fetch(`${url}?file=matches&teamID=${teamId}&matchType=1`, { headers: { Authorization: authHeader } });
+  if (!response.ok) return [];
+  const xml = await response.text();
+  const friendlies: { homeId: number; awayId: number; date: Date; matchId: number }[] = [];
+  for (const match of xml.matchAll(/<Match>([\s\S]*?)<\/Match>/gi)) {
+    const block = match[1];
+    const homeId = parseInt(readChppTag(block, 'HomeTeamID') || '0', 10);
+    const awayId = parseInt(readChppTag(block, 'AwayTeamID') || '0', 10);
+    const dateStr = readChppTag(block, 'MatchDate');
+    const matchId = parseInt(readChppTag(block, 'MatchID') || '0', 10);
+    if (homeId && awayId && dateStr) friendlies.push({ homeId, awayId, matchId, date: new Date(dateStr.replace(' ', 'T')) });
+  }
+  return friendlies;
+}
+
+export default async function handler(req: VercelRequest, res: VercelResponse) {
+  const { tournament_id } = req.query;
+  if (!tournament_id) return res.status(400).json({ error: 'Missing tournament_id' });
+
+  try {
+    const supabase = getSupabase();
+    const { data: tournament } = await supabase.from('tournaments').select('*').eq('id', tournament_id).single();
+    const { data: rounds } = await supabase.from('rounds').select('*, matches(*)').eq('tournament_id', tournament_id).order('round_number');
+    const { data: teams } = await supabase.from('teams').select('*').eq('tournament_id', tournament_id);
+    const { data: existingWarnings } = await supabase.from('fixture_warnings').select('*').eq('tournament_id', tournament_id);
+
+    if (!tournament || !rounds || !teams) return res.status(404).json({ error: 'Data not found' });
+
+    const teamCache: Record<string, any[]> = {};
+    const getFriendlies = async (team: any) => {
+      if (teamCache[team.id]) return teamCache[team.id];
+      if (!team.oauth_token) return [];
+      const data = await fetchTeamFriendlies(team.ht_team_id.toString(), team.oauth_token, team.oauth_token_secret!);
+      teamCache[team.id] = data;
+      return data;
+    };
+
+    for (const round of rounds) {
+      for (const match of round.matches) {
+        if (match.completed) continue;
+
+        const homeTeam = teams.find(t => t.id === match.home_team_id);
+        const awayTeam = teams.find(t => t.id === match.away_team_id);
+        if (!homeTeam || !awayTeam) continue;
+
+        const targetDate = calculateMatchDate(tournament.created_at, round.round_number, homeTeam.country_name);
+        const homeFriendlies = await getFriendlies(homeTeam);
+        const awayFriendlies = await getFriendlies(awayTeam);
+
+        // Find friendly for this HT week (window +/- 3 days)
+        const isCorrectMatch = (f: any) => 
+          (f.homeId === homeTeam.ht_team_id && f.awayId === awayTeam.ht_team_id) ||
+          (f.homeId === awayTeam.ht_team_id && f.awayId === homeTeam.ht_team_id);
+
+        const isAnyMatch = (f: any) => true;
+
+        const homeMatch = homeFriendlies.find(f => Math.abs(f.date.getTime() - targetDate.getTime()) < 3 * 24 * 60 * 60 * 1000);
+        const awayMatch = awayFriendlies.find(f => Math.abs(f.date.getTime() - targetDate.getTime()) < 3 * 24 * 60 * 60 * 1000);
+
+        let status: 'not_arranged' | 'arranged' | 'misarranged' = 'not_arranged';
+        const homeOffending = homeMatch && !isCorrectMatch(homeMatch);
+        const awayOffending = awayMatch && !isCorrectMatch(awayMatch);
+
+        if (homeMatch && awayMatch && homeMatch.matchId === awayMatch.matchId && isCorrectMatch(homeMatch)) {
+          status = 'arranged';
+        } else if (homeOffending || awayOffending) {
+          status = 'misarranged';
+        }
+
+        // Update match status
+        await supabase.from('matches').update({ status }).eq('id', match.id);
+
+        // Warning Logic Helper
+        const recordWarning = async (teamId: string) => {
+          const alreadyHasWarning = existingWarnings?.some(w => w.round_id === round.id && w.team_id === teamId);
+          if (alreadyHasWarning) return;
+
+          const teamWarnings = existingWarnings?.filter(w => w.team_id === teamId) || [];
+          const isConsecutive = teamWarnings.some(w => {
+            const prevRound = rounds.find(r => r.round_number === round.round_number - 1);
+            return prevRound && w.round_id === prevRound.id;
+          });
+          const type = (isConsecutive || teamWarnings.length >= 2) ? 'red' : 'yellow';
+          
+          await supabase.from('fixture_warnings').insert({
+            tournament_id,
+            round_id: round.id,
+            team_id: teamId,
+            type,
+            reason: 'misarranged'
+          });
+        };
+
+        const homeAlreadyWarned = existingWarnings?.some(w => w.round_id === round.id && w.team_id === homeTeam.id);
+        const awayAlreadyWarned = existingWarnings?.some(w => w.round_id === round.id && w.team_id === awayTeam.id);
+
+        if (homeOffending && awayOffending) {
+          // If NO ONE was caught previously, they both get caught simultaneously.
+          // If ONE was already caught, the other is "free".
+          if (!homeAlreadyWarned && !awayAlreadyWarned) {
+            await recordWarning(homeTeam.id);
+            await recordWarning(awayTeam.id);
+          }
+        } else if (homeOffending) {
+          // Home is currently offending. Safe only if opponent was already caught in a previous refresh.
+          if (!awayAlreadyWarned) await recordWarning(homeTeam.id);
+        } else if (awayOffending) {
+          // Away is currently offending. Safe only if opponent was already caught in a previous refresh.
+          if (!homeAlreadyWarned) await recordWarning(awayTeam.id);
+        }
+      }
+    }
+    
+    return res.status(200).json({ status: 'Refresh successful' });
+  } catch (error) {
+    console.error(error);
+    return res.status(500).json({ error: error instanceof Error ? error.message : 'An unknown error occurred' });
+  }
+}

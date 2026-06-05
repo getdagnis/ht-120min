@@ -31,6 +31,7 @@ import {
 import { DESCRIPTIONS } from '../../constants/descriptions';
 import styles from './TournamentView.module.sass';
 import adminStyles from './TournamentAdmin.module.sass';
+import { FixtureCard } from '../../components/FixtureCard/FixtureCard';
 
 interface ChppTeamOption {
   teamId: number;
@@ -58,8 +59,23 @@ interface MatchWithTeams {
   completed: boolean;
   went_120: boolean;
   total_minutes: number;
-  home_team: { name: string; ht_team_id: number; active: boolean; logo_url?: string; country_name?: string };
-  away_team: { name: string; ht_team_id: number; active: boolean; logo_url?: string; country_name?: string };
+  status: 'not_arranged' | 'arranged' | 'misarranged' | 'finished';
+  home_team: {
+    name: string;
+    ht_team_id: number;
+    active: boolean;
+    logo_url?: string;
+    country_name?: string;
+    manager_name?: string;
+  };
+  away_team: {
+    name: string;
+    ht_team_id: number;
+    active: boolean;
+    logo_url?: string;
+    country_name?: string;
+    manager_name?: string;
+  };
 }
 
 interface Team {
@@ -115,10 +131,12 @@ export const TournamentView: React.FC = () => {
   const [standings, setStandings] = useState<TeamStanding[]>([]);
   const [rounds, setRounds] = useState<RoundWithMatches[]>([]);
   const [teams, setTeams] = useState<Team[]>([]);
+  const [warnings, setWarnings] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState<'standings' | 'fixtures' | 'guestbook' | 'admin' | 'off'>(
     location.state?.isAdminInit ? 'admin' : 'standings',
   );
+  const [isRefreshingFixtures, setIsRefreshingFixtures] = useState(false);
 
   // News states
   const [newsPosts, setNewsPosts] = useState<any[]>([]);
@@ -326,14 +344,23 @@ export const TournamentView: React.FC = () => {
         .select(
           `
           *,
-          home_team:teams!matches_home_team_id_fkey(name, ht_team_id, logo_url, country_name, active),
-          away_team:teams!matches_away_team_id_fkey(name, ht_team_id, logo_url, country_name, active)
+          status,
+          home_team:teams!matches_home_team_id_fkey(name, ht_team_id, logo_url, country_name, active, manager_name),
+          away_team:teams!matches_away_team_id_fkey(name, ht_team_id, logo_url, country_name, active, manager_name)
         `,
         )
         .in(
           'round_id',
           (roundsData || []).map((r) => r.id),
         );
+
+      const { data: warningsData } = await supabase
+        .from('fixture_warnings')
+        .select('*')
+        .eq('tournament_id', tournamentData.id)
+        .eq('active', true);
+
+      setWarnings(warningsData || []);
 
       if (teamsData) {
         const matchesWithTeams = (matchesData || []) as MatchWithTeams[];
@@ -550,6 +577,20 @@ export const TournamentView: React.FC = () => {
       alert(err.message);
     } finally {
       setIsPostingNews(false);
+    }
+  };
+
+  const handleRefreshFixtures = async () => {
+    if (!tournament || isRefreshingFixtures) return;
+    setIsRefreshingFixtures(true);
+    try {
+      const response = await fetch(`/api/teams/refresh-fixtures?tournament_id=${tournament.id}`);
+      if (!response.ok) throw new Error('Failed to refresh fixtures');
+      await fetchData();
+    } catch (err: any) {
+      alert(err.message);
+    } finally {
+      setIsRefreshingFixtures(false);
     }
   };
 
@@ -1007,7 +1048,6 @@ export const TournamentView: React.FC = () => {
         activeTeams.map((t) => t.id),
         {
           mode: scheduleMode as 'single' | 'double',
-          neutralInSingle: true,
         },
       );
     }
@@ -1602,37 +1642,65 @@ export const TournamentView: React.FC = () => {
                   }
                   variant="classic"
                 >
-                  <div className={styles.matches}>
-                    {round.matches.map((match: any) => (
-                      <div key={match.id} className={styles.match}>
-                        <div className={styles.matchDate}>
-                          {formatDate(
-                            calculateMatchDate(
-                              tournament?.created_at || '',
-                              round.round_number,
-                              match.home_team?.country_name,
-                            ),
-                          )}
-                        </div>
-                        <div className={styles.matchTeams}>
-                          <TeamDisplay team={match.home_team} side="home" />
-                          <span className={styles.vs}>vs</span>
-                          <TeamDisplay team={match.away_team} side="away" />
-                        </div>
-                        <div className={styles.result}>
-                          {match.completed ? (
-                            <div className={styles.scoreRow}>
-                              <span className={styles.score}>
-                                {match.home_goals} {match.away_goals}
-                              </span>
-                              {match.went_120 && <span className={styles.badge}>120min</span>}
-                            </div>
-                          ) : (
-                            <span className={styles.pending}>Scheduled</span>
-                          )}
-                        </div>
-                      </div>
-                    ))}
+                  <div className={styles.fixturesControls}>
+                    <button
+                      className={`${styles.refreshBtn} ${isRefreshingFixtures ? styles.spinning : ''}`}
+                      onClick={handleRefreshFixtures}
+                      disabled={isRefreshingFixtures}
+                    >
+                      <Lineicons icon={RefreshCircle1ClockwiseOutlined} size={18} />
+                    </button>
+                  </div>
+                  <div className={styles.matchesGrid}>
+                    {round.matches.map((match: MatchWithTeams) => {
+                      const matchDate = calculateMatchDate(
+                        tournament?.created_at || '',
+                        round.round_number,
+                        match.home_team?.country_name,
+                      );
+
+                      const day = matchDate.toLocaleString('en-GB', { weekday: 'short' }).toUpperCase();
+                      const datePart = matchDate.toLocaleDateString('lv-LV', { day: '2-digit', month: '2-digit', year: 'numeric' });
+                      const timePart = matchDate.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit', hour12: false });
+                      const formattedDate = `${day} / ${datePart} / ${timePart}`;
+
+                      const homeWarning = warnings.find(
+                        (w) => w.team_id === match.home_team_id && w.round_id === round.id,
+                      );
+                      const awayWarning = warnings.find(
+                        (w) => w.team_id === match.away_team_id && w.round_id === round.id,
+                      );
+
+                      // Use status from DB, fallback to simple detection
+                      let status = match.status || 'not_arranged';
+                      if (match.completed) status = 'finished';
+                      else if (homeWarning || awayWarning) status = 'misarranged';
+
+                      return (
+                        <FixtureCard
+                          key={match.id}
+                          date={formattedDate}
+                          status={status}
+                          score={
+                            match.completed ? { home: match.home_goals || 0, away: match.away_goals || 0 } : undefined
+                          }
+                          homeTeam={{
+                            name: match.home_team.name,
+                            managerName: match.home_team.manager_name || 'UNKNOWN',
+                            htTeamId: match.home_team.ht_team_id,
+                            logoUrl: match.home_team.logo_url,
+                            warning: homeWarning?.type,
+                          }}
+                          awayTeam={{
+                            name: match.away_team.name,
+                            managerName: match.away_team.manager_name || 'UNKNOWN',
+                            htTeamId: match.away_team.ht_team_id,
+                            logoUrl: match.away_team.logo_url,
+                            warning: awayWarning?.type,
+                          }}
+                        />
+                      );
+                    })}
                   </div>
                 </Card>
               ))}
@@ -1956,7 +2024,7 @@ export const TournamentView: React.FC = () => {
                       )}
 
                       <div className={adminStyles.field}>
-                        <label>League of team (any by default)</label>
+                        <label>League of team (any or locked to existing)</label>
                         <select
                           value={editCountryLimit || ''}
                           onChange={(e) => setEditCountryLimit(e.target.value || null)}

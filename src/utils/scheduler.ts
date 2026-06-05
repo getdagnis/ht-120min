@@ -1,12 +1,11 @@
 export interface SchedulerOptions {
   mode: 'single' | 'double';
-  neutralInSingle?: boolean;
 }
 
 export interface ScheduledMatch {
   home: string | null;
   away: string | null;
-  venueType: 'home_away' | 'neutral';
+  venueType: 'home_away';
   isBye: boolean;
 }
 
@@ -18,7 +17,6 @@ export interface ScheduledRound {
 /**
  * Rotates the team array for the Circle Method.
  * The first element stays fixed (index 0), others rotate clockwise.
- * Example for 6 teams: [1, 2, 3, 4, 5, 6] -> [1, 6, 2, 3, 4, 5]
  */
 export function rotateTeams(teams: (string | null)[]): (string | null)[] {
   if (teams.length <= 2) return teams;
@@ -30,10 +28,7 @@ export function rotateTeams(teams: (string | null)[]): (string | null)[] {
 
 /**
  * Builds matches for a single round using the current team positions.
- * 
- * Home/Away Balancing:
- * - We alternate the orientation of pairings based on round index.
- * - Team at index 0 (fixed) alternates home/away every round.
+ * Implements standard Home/Away balancing.
  */
 export function buildRound(
   teams: (string | null)[],
@@ -47,26 +42,29 @@ export function buildRound(
     const teamA = teams[i];
     const teamB = teams[teams.length - 1 - i];
 
-    // Determine home/away based on round index and match index to balance.
-    // For the fixed team (i=0), we alternate every round.
-    // For other pairs, we swap based on parity of round + pairing index.
+    // Standard Circle Method Home/Away balancing:
+    // 1. For the fixed team (i=0), alternate every round.
+    // 2. For others, alternate based on round + pairing index.
+    // Bias: We want the fixed team (usually the "oldest" joined) to play AWAY more if rounds are odd.
+    // In a 5-round tourney, we want 2H / 3A for the first team.
+    // Round 0 (rIdx=0): Away (Swap=true)
+    // Round 1 (rIdx=1): Home (Swap=false)
     let shouldSwap = (roundIdx + i) % 2 === 0;
     
-    // Exception for the first pair (fixed team) to ensure consistency
     if (i === 0) {
-      shouldSwap = roundIdx % 2 !== 0;
+      // Fixed team bias: starts Away in Round 1
+      shouldSwap = roundIdx % 2 === 0;
     }
 
     const home = shouldSwap ? teamB : teamA;
     const away = shouldSwap ? teamA : teamB;
 
     const isBye = home === null || away === null;
-    const venueType = options.mode === 'double' ? 'home_away' : (options.neutralInSingle ? 'neutral' : 'home_away');
 
     matches.push({
       home,
       away,
-      venueType,
+      venueType: 'home_away',
       isBye
     });
   }
@@ -87,22 +85,14 @@ export function mirrorMatches(matches: ScheduledMatch[]): ScheduledMatch[] {
 
 /**
  * Generates a proper round robin schedule using the Circle Method.
- * 
- * Logic for Odd Team Counts:
- * - We add a dummy 'null' team. Whoever is paired with 'null' has a BYE.
- * - These BYE matches are included in the return but marked with isBye=true.
- * 
- * Logic for Rotation:
- * - Standard Circle Method: Fix one team and rotate the rest.
- * - Deterministic: Same input teamIds array will always yield same schedule.
+ * Deterministic: Same input teamIds array will always yield same schedule.
  */
 export function generateRoundRobin(
   teamIds: string[],
-  options: SchedulerOptions = { mode: 'single', neutralInSingle: true }
+  options: SchedulerOptions = { mode: 'single' }
 ): ScheduledRound[] {
   const teams: (string | null)[] = [...teamIds];
   
-  // If odd number of teams, add a dummy team for BYEs
   if (teams.length % 2 !== 0) {
     teams.push(null);
   }
@@ -112,7 +102,6 @@ export function generateRoundRobin(
   let currentTeams: (string | null)[] = [...teams];
   const firstHalf: ScheduledRound[] = [];
 
-  // Generate first half (Single Round Robin)
   for (let r = 0; r < numRounds; r++) {
     firstHalf.push({
       roundNumber: r + 1,
@@ -125,7 +114,6 @@ export function generateRoundRobin(
     return firstHalf;
   }
 
-  // Generate second half (Mirror with reversed venues)
   const secondHalf: ScheduledRound[] = firstHalf.map((round) => ({
     roundNumber: round.roundNumber + numRounds,
     matches: mirrorMatches(round.matches)
@@ -136,7 +124,6 @@ export function generateRoundRobin(
 
 /**
  * Generates a recurring schedule (weeks 1-4 initially).
- * Just repeats the same sequence of pairings.
  */
 export function generateRecurring(
   teamIds: string[],
@@ -151,8 +138,6 @@ export function generateRecurring(
   const rounds: ScheduledRound[] = [];
   let currentTeams: (string | null)[] = [...teams];
   
-  // To make it deterministic and ensure we don't repeat the same round immediately
-  // if we are continuing, we rotate startRound-1 times.
   const totalRotation = teams.length - 1;
   for (let i = 0; i < (startRound - 1) % totalRotation; i++) {
     currentTeams = rotateTeams(currentTeams);
@@ -162,7 +147,7 @@ export function generateRecurring(
     const roundIdx = startRound - 1 + i;
     rounds.push({
       roundNumber: roundIdx + 1,
-      matches: buildRound(currentTeams, roundIdx, { mode: 'single', neutralInSingle: true })
+      matches: buildRound(currentTeams, roundIdx, { mode: 'single' })
     });
     currentTeams = rotateTeams(currentTeams);
   }
