@@ -60,6 +60,7 @@ interface MatchWithTeams {
   went_120: boolean;
   total_minutes: number;
   status: 'not_arranged' | 'arranged' | 'misarranged' | 'finished';
+  ht_match_id: number | null;
   home_team: {
     name: string;
     ht_team_id: number;
@@ -116,6 +117,7 @@ interface Tournament {
   season: number;
   is_test: boolean;
   status: 'open' | 'active' | 'finished' | 'waiting';
+  last_fixtures_refresh: string | null;
 }
 
 interface RoundWithMatches {
@@ -335,6 +337,7 @@ export const TournamentView: React.FC = () => {
           `
           *,
           status,
+          ht_match_id,
           home_team:teams!matches_home_team_id_fkey(name, ht_team_id, logo_url, country_name, active, manager_name),
           away_team:teams!matches_away_team_id_fkey(name, ht_team_id, logo_url, country_name, active, manager_name)
         `,
@@ -578,11 +581,29 @@ export const TournamentView: React.FC = () => {
       if (!response.ok) throw new Error('Failed to refresh fixtures');
       await fetchData();
     } catch (err: any) {
-      alert(err.message);
+      console.error(err.message);
     } finally {
       setIsRefreshingFixtures(false);
     }
   };
+
+  useEffect(() => {
+    if (activeTab === 'fixtures' && tournament && !isRefreshingFixtures) {
+      const lastRefresh = tournament.last_fixtures_refresh ? new Date(tournament.last_fixtures_refresh) : null;
+      const now = new Date();
+      const diffMins = lastRefresh ? (now.getTime() - lastRefresh.getTime()) / (1000 * 60) : 999;
+
+      if (diffMins > 15) {
+        // Check if there are matches with 'not_arranged' status in the upcoming round
+        const upcomingRound = rounds.find((r) => r.matches.some((m) => !m.completed));
+        const hasUnarranged = upcomingRound?.matches.some((m) => m.status === 'not_arranged');
+
+        if (hasUnarranged) {
+          handleRefreshFixtures();
+        }
+      }
+    }
+  }, [activeTab]);
 
   const handleTabChange = (tab: 'standings' | 'fixtures' | 'guestbook' | 'admin') => {
     if (tab !== activeTab) {
@@ -1633,7 +1654,12 @@ export const TournamentView: React.FC = () => {
                   variant="classic"
                 >
                   <div className={styles.fixturesControls}>
-                    <button
+                    {tournament?.last_fixtures_refresh && (
+                      <span className={styles.lastRefresh}>
+                        Last refresh: {new Date(tournament.last_fixtures_refresh).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' })}
+                      </span>
+                    )}
+                    <button 
                       className={`${styles.refreshBtn} ${isRefreshingFixtures ? styles.spinning : ''}`}
                       onClick={handleRefreshFixtures}
                       disabled={isRefreshingFixtures}
@@ -1641,6 +1667,7 @@ export const TournamentView: React.FC = () => {
                       <Lineicons icon={RefreshCircle1ClockwiseOutlined} size={18} />
                     </button>
                   </div>
+
                   <div className={styles.matchesGrid}>
                     {round.matches.map((match: MatchWithTeams) => {
                       const matchDate = calculateMatchDate(
@@ -1679,6 +1706,7 @@ export const TournamentView: React.FC = () => {
                           key={match.id}
                           date={formattedDate}
                           status={status}
+                          htMatchId={match.ht_match_id || undefined}
                           score={
                             match.completed ? { home: match.home_goals || 0, away: match.away_goals || 0 } : undefined
                           }

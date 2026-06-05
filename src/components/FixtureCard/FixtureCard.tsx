@@ -17,9 +17,16 @@ interface FixtureCardProps {
   status: 'arranged' | 'not_arranged' | 'misarranged' | 'finished';
   score?: { home: number; away: number };
   date: string;
+  htMatchId?: number;
 }
 
-export const FixtureCard: React.FC<FixtureCardProps> = ({ homeTeam, awayTeam, status, score, date }) => {
+export const FixtureCard: React.FC<FixtureCardProps> = ({ homeTeam, awayTeam, status, score, date, htMatchId }) => {
+  const badgeContent = (
+    <div className={`${styles.statusBadge} ${styles[status]}`}>
+      {status.replace('_', ' ').toUpperCase()}
+    </div>
+  );
+
   return (
     <div className={styles.fixtureCard}>
       {/* Home Team - Left Side */}
@@ -69,7 +76,18 @@ export const FixtureCard: React.FC<FixtureCardProps> = ({ homeTeam, awayTeam, st
             </>
           )}
         </div>
-        <div className={`${styles.statusBadge} ${styles[status]}`}>{status.replace('_', ' ').toUpperCase()}</div>
+        {status === 'arranged' && htMatchId ? (
+          <a
+            href={`https://www.hattrick.org/goto.ashx?path=/Club/Matches/Match.aspx?matchID=${htMatchId}`}
+            target="_blank"
+            rel="noopener noreferrer"
+            className={styles.badgeLink}
+          >
+            {badgeContent}
+          </a>
+        ) : (
+          badgeContent
+        )}
       </div>
 
       {/* Away Team - Right Side */}

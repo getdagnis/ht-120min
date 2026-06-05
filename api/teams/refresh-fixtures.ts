@@ -71,13 +71,11 @@ function calculateMatchDate(tournamentCreatedAt: string, roundNumber: number, co
   const settings = COUNTRY_FRIENDLY_TIMES[countryName || ''] || { day: 2, time: '20:00' };
   const [hours, minutes] = settings.time.split(':').map(Number);
   const date = new Date(tournamentCreatedAt);
-  // Find next occurrence of settings.day
   const currentDay = date.getUTCDay();
   let diff = (settings.day - currentDay + 7) % 7;
-  if (diff === 0 && (date.getUTCHours() > hours || (date.getUTCHours() === hours && date.getUTCMinutes() >= minutes)))
-    diff = 7;
+  if (diff === 0 && (date.getUTCHours() > hours || (date.getUTCHours() === hours && date.getUTCMinutes() >= minutes))) diff = 7;
   date.setUTCDate(date.getUTCDate() + diff);
-  date.setUTCHours(hours - 1, minutes, 0, 0); // Approx HT time to UTC
+  date.setUTCHours(hours - 1, minutes, 0, 0); 
   if (roundNumber > 1) date.setUTCDate(date.getUTCDate() + (roundNumber - 1) * 7);
   return date;
 }
@@ -88,9 +86,7 @@ async function fetchTeamFriendlies(teamId: string, oauthToken: string, oauthToke
   const url = 'https://chpp.hattrick.org/chppxml.ashx';
   const params = { file: 'matches', teamID: teamId, matchType: '1' };
   const authHeader = getAuthHeader('GET', url, params, consumerKey!, consumerSecret!, oauthToken, oauthTokenSecret);
-  const response = await fetch(`${url}?file=matches&teamID=${teamId}&matchType=1`, {
-    headers: { Authorization: authHeader },
-  });
+  const response = await fetch(`${url}?file=matches&teamID=${teamId}&matchType=1`, { headers: { Authorization: authHeader } });
   if (!response.ok) return [];
   const xml = await response.text();
   const friendlies: { homeId: number; awayId: number; date: Date; matchId: number }[] = [];
@@ -100,8 +96,7 @@ async function fetchTeamFriendlies(teamId: string, oauthToken: string, oauthToke
     const awayId = parseInt(readChppTag(block, 'AwayTeamID') || '0', 10);
     const dateStr = readChppTag(block, 'MatchDate');
     const matchId = parseInt(readChppTag(block, 'MatchID') || '0', 10);
-    if (homeId && awayId && dateStr)
-      friendlies.push({ homeId, awayId, matchId, date: new Date(dateStr.replace(' ', 'T')) });
+    if (homeId && awayId && dateStr) friendlies.push({ homeId, awayId, matchId, date: new Date(dateStr.replace(' ', 'T')) });
   }
   return friendlies;
 }
@@ -136,92 +131,100 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
     if (!tournament || !rounds || !teams) return res.status(404).json({ error: 'Data not found' });
 
+    // Identify the closest upcoming round (the first round that has non-completed matches)
+    const upcomingRound = rounds.find((r) => r.matches.some((m) => !m.completed));
+    if (!upcomingRound) return res.status(200).json({ status: 'No upcoming rounds to refresh' });
+
     const teamCache: Record<string, { homeId: number; awayId: number; date: Date; matchId: number }[]> = {};
     const getFriendlies = async (team: TeamWithAuth) => {
       if (teamCache[team.id]) return teamCache[team.id];
       if (!team.oauth_token) return [];
-      const data = await fetchTeamFriendlies(team.ht_team_id.toString(), team.oauth_token, team.oauth_token_secret!);
-      teamCache[team.id] = data;
-      return data;
+      try {
+        const data = await fetchTeamFriendlies(team.ht_team_id.toString(), team.oauth_token, team.oauth_token_secret!);
+        teamCache[team.id] = data;
+        return data;
+      } catch (e) {
+        console.error(`Error fetching friendlies for team ${team.id}:`, e);
+        return [];
+      }
     };
 
-    for (const round of rounds) {
-      for (const match of round.matches) {
-        if (match.completed) continue;
+    // Only process matches in the upcoming round that are still 'not_arranged'
+    for (const match of upcomingRound.matches) {
+      if (match.completed || match.status === 'arranged' || match.status === 'misarranged') continue;
 
-        const homeTeam = teams.find((t) => t.id === match.home_team_id);
-        const awayTeam = teams.find((t) => t.id === match.away_team_id);
-        if (!homeTeam || !awayTeam) continue;
+      const homeTeam = teams.find((t) => t.id === match.home_team_id);
+      const awayTeam = teams.find((t) => t.id === match.away_team_id);
+      if (!homeTeam || !awayTeam) continue;
 
-        const targetDate = calculateMatchDate(tournament.created_at, round.round_number, homeTeam.country_name);
-        const homeFriendlies = await getFriendlies(homeTeam);
-        const awayFriendlies = await getFriendlies(awayTeam);
+      const targetDate = calculateMatchDate(tournament.created_at, upcomingRound.round_number, homeTeam.country_name);
+      const homeFriendlies = await getFriendlies(homeTeam);
+      const awayFriendlies = await getFriendlies(awayTeam);
 
-        // Find friendly for this HT week (window +/- 3 days)
-        const isCorrectMatch = (f: { homeId: number; awayId: number }) =>
-          (f.homeId === homeTeam.ht_team_id && f.awayId === awayTeam.ht_team_id) ||
-          (f.homeId === awayTeam.ht_team_id && f.awayId === homeTeam.ht_team_id);
+      const isCorrectMatch = (f: { homeId: number; awayId: number }) =>
+        (f.homeId === homeTeam.ht_team_id && f.awayId === awayTeam.ht_team_id) ||
+        (f.homeId === awayTeam.ht_team_id && f.awayId === homeTeam.ht_team_id);
 
-        const homeMatch = homeFriendlies.find(
-          (f) => Math.abs(f.date.getTime() - targetDate.getTime()) < 3 * 24 * 60 * 60 * 1000,
-        );
-        const awayMatch = awayFriendlies.find(
-          (f) => Math.abs(f.date.getTime() - targetDate.getTime()) < 3 * 24 * 60 * 60 * 1000,
-        );
+      const homeMatch = homeFriendlies.find(
+        (f) => Math.abs(f.date.getTime() - targetDate.getTime()) < 3 * 24 * 60 * 60 * 1000,
+      );
+      const awayMatch = awayFriendlies.find(
+        (f) => Math.abs(f.date.getTime() - targetDate.getTime()) < 3 * 24 * 60 * 60 * 1000,
+      );
 
-        let status: 'not_arranged' | 'arranged' | 'misarranged' = 'not_arranged';
-        const homeOffending = homeMatch && !isCorrectMatch(homeMatch);
-        const awayOffending = awayMatch && !isCorrectMatch(awayMatch);
+      let status: 'not_arranged' | 'arranged' | 'misarranged' = 'not_arranged';
+      let htMatchId: number | null = null;
+      const homeOffending = homeMatch && !isCorrectMatch(homeMatch);
+      const awayOffending = awayMatch && !isCorrectMatch(awayMatch);
 
-        if (homeMatch && awayMatch && homeMatch.matchId === awayMatch.matchId && isCorrectMatch(homeMatch)) {
-          status = 'arranged';
-        } else if (homeOffending || awayOffending) {
-          status = 'misarranged';
+      if (homeMatch && awayMatch && homeMatch.matchId === awayMatch.matchId && isCorrectMatch(homeMatch)) {
+        status = 'arranged';
+        htMatchId = homeMatch.matchId;
+      } else if (homeOffending || awayOffending) {
+        status = 'misarranged';
+      }
+
+      // Update match status and HT Match ID
+      await supabase.from('matches').update({ status, ht_match_id: htMatchId }).eq('id', match.id);
+
+      // Warning Logic Helper
+      const recordWarning = async (teamId: string) => {
+        const alreadyHasWarning = existingWarnings?.some((w) => w.round_id === upcomingRound.id && w.team_id === teamId);
+        if (alreadyHasWarning) return;
+
+        const teamWarnings = existingWarnings?.filter((w) => w.team_id === teamId) || [];
+        const isConsecutive = teamWarnings.some((w) => {
+          const prevRound = rounds.find((r) => r.round_number === upcomingRound.round_number - 1);
+          return prevRound && w.round_id === prevRound.id;
+        });
+        const type = isConsecutive || teamWarnings.length >= 2 ? 'red' : 'yellow';
+
+        await supabase.from('fixture_warnings').insert({
+          tournament_id,
+          round_id: upcomingRound.id,
+          team_id: teamId,
+          type,
+          reason: 'misarranged',
+        });
+      };
+
+      const homeAlreadyWarned = existingWarnings?.some((w) => w.round_id === upcomingRound.id && w.team_id === homeTeam.id);
+      const awayAlreadyWarned = existingWarnings?.some((w) => w.round_id === upcomingRound.id && w.team_id === awayTeam.id);
+
+      if (homeOffending && awayOffending) {
+        if (!homeAlreadyWarned && !awayAlreadyWarned) {
+          await recordWarning(homeTeam.id);
+          await recordWarning(awayTeam.id);
         }
-
-        // Update match status
-        await supabase.from('matches').update({ status }).eq('id', match.id);
-
-        // Warning Logic Helper
-        const recordWarning = async (teamId: string) => {
-          const alreadyHasWarning = existingWarnings?.some((w) => w.round_id === round.id && w.team_id === teamId);
-          if (alreadyHasWarning) return;
-
-          const teamWarnings = existingWarnings?.filter((w) => w.team_id === teamId) || [];
-          const isConsecutive = teamWarnings.some((w) => {
-            const prevRound = rounds.find((r) => r.round_number === round.round_number - 1);
-            return prevRound && w.round_id === prevRound.id;
-          });
-          const type = isConsecutive || teamWarnings.length >= 2 ? 'red' : 'yellow';
-
-          await supabase.from('fixture_warnings').insert({
-            tournament_id,
-            round_id: round.id,
-            team_id: teamId,
-            type,
-            reason: 'misarranged',
-          });
-        };
-
-        const homeAlreadyWarned = existingWarnings?.some((w) => w.round_id === round.id && w.team_id === homeTeam.id);
-        const awayAlreadyWarned = existingWarnings?.some((w) => w.round_id === round.id && w.team_id === awayTeam.id);
-
-        if (homeOffending && awayOffending) {
-          // If NO ONE was caught previously, they both get caught simultaneously.
-          // If ONE was already caught, the other is "free".
-          if (!homeAlreadyWarned && !awayAlreadyWarned) {
-            await recordWarning(homeTeam.id);
-            await recordWarning(awayTeam.id);
-          }
-        } else if (homeOffending) {
-          // Home is currently offending. Safe only if opponent was already caught in a previous refresh.
-          if (!awayAlreadyWarned) await recordWarning(homeTeam.id);
-        } else if (awayOffending) {
-          // Away is currently offending. Safe only if opponent was already caught in a previous refresh.
-          if (!homeAlreadyWarned) await recordWarning(awayTeam.id);
-        }
+      } else if (homeOffending) {
+        if (!awayAlreadyWarned) await recordWarning(homeTeam.id);
+      } else if (awayOffending) {
+        if (!homeAlreadyWarned) await recordWarning(awayTeam.id);
       }
     }
+
+    // Update tournament refresh timestamp
+    await supabase.from('tournaments').update({ last_fixtures_refresh: new Date().toISOString() }).eq('id', tournament_id);
 
     return res.status(200).json({ status: 'Refresh successful' });
   } catch (error) {

@@ -19,13 +19,15 @@
 .teamContainer
   display: flex
   align-items: center
-  gap: 0.2 5rem 1rem
+  gap: 1rem
   min-width: 0
+  flex: 2 1 0%
 
   @media (max-width: 768px)
     justify-content: center
     gap: 1.5rem
     width: 100%
+    flex: 1 1 auto
 
 .logoWrapper
   position: relative
@@ -135,9 +137,12 @@
   align-items: center
   justify-content: center
   gap: 0.5rem
-  width: fit-content
-  min-width: fit-content
   text-align: center
+  flex: 1 1 0%
+
+  @media (max-width: 768px)
+    flex: 1 1 auto
+    width: 100%
 
 .date
   font-size: 0.8rem
