@@ -282,16 +282,6 @@ export const TournamentView: React.FC = () => {
     return inactiveCount / totalCount <= 0.25;
   }, [teams]);
 
-  const formatDate = (date: Date) => {
-    return date.toLocaleString('lv-LV', {
-      weekday: 'short',
-      month: 'numeric',
-      day: 'numeric',
-      hour: '2-digit',
-      minute: '2-digit',
-    });
-  };
-
   const getRoundDateRange = (round: RoundWithMatches) => {
     if (!round.matches || round.matches.length === 0) return '';
     const dates = round.matches
@@ -1660,8 +1650,16 @@ export const TournamentView: React.FC = () => {
                       );
 
                       const day = matchDate.toLocaleString('en-GB', { weekday: 'short' }).toUpperCase();
-                      const datePart = matchDate.toLocaleDateString('lv-LV', { day: '2-digit', month: '2-digit', year: 'numeric' });
-                      const timePart = matchDate.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit', hour12: false });
+                      const datePart = matchDate.toLocaleDateString('lv-LV', {
+                        day: '2-digit',
+                        month: '2-digit',
+                        year: 'numeric',
+                      });
+                      const timePart = matchDate.toLocaleTimeString('en-GB', {
+                        hour: '2-digit',
+                        minute: '2-digit',
+                        hour12: false,
+                      });
                       const formattedDate = `${day} / ${datePart} / ${timePart}`;
 
                       const homeWarning = warnings.find(

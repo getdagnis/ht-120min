@@ -30,11 +30,7 @@ export function rotateTeams(teams: (string | null)[]): (string | null)[] {
  * Builds matches for a single round using the current team positions.
  * Implements standard Home/Away balancing.
  */
-export function buildRound(
-  teams: (string | null)[],
-  roundIdx: number,
-  options: SchedulerOptions
-): ScheduledMatch[] {
+export function buildRound(teams: (string | null)[], roundIdx: number): ScheduledMatch[] {
   const matches: ScheduledMatch[] = [];
   const half = teams.length / 2;
 
@@ -50,7 +46,7 @@ export function buildRound(
     // Round 0 (rIdx=0): Away (Swap=true)
     // Round 1 (rIdx=1): Home (Swap=false)
     let shouldSwap = (roundIdx + i) % 2 === 0;
-    
+
     if (i === 0) {
       // Fixed team bias: starts Away in Round 1
       shouldSwap = roundIdx % 2 === 0;
@@ -65,7 +61,7 @@ export function buildRound(
       home,
       away,
       venueType: 'home_away',
-      isBye
+      isBye,
     });
   }
 
@@ -76,10 +72,10 @@ export function buildRound(
  * Reverses home/away for a list of matches (used for second half of double round robin).
  */
 export function mirrorMatches(matches: ScheduledMatch[]): ScheduledMatch[] {
-  return matches.map(m => ({
+  return matches.map((m) => ({
     ...m,
     home: m.away,
-    away: m.home
+    away: m.home,
   }));
 }
 
@@ -89,10 +85,10 @@ export function mirrorMatches(matches: ScheduledMatch[]): ScheduledMatch[] {
  */
 export function generateRoundRobin(
   teamIds: string[],
-  options: SchedulerOptions = { mode: 'single' }
+  options: SchedulerOptions = { mode: 'single' },
 ): ScheduledRound[] {
   const teams: (string | null)[] = [...teamIds];
-  
+
   if (teams.length % 2 !== 0) {
     teams.push(null);
   }
@@ -105,7 +101,7 @@ export function generateRoundRobin(
   for (let r = 0; r < numRounds; r++) {
     firstHalf.push({
       roundNumber: r + 1,
-      matches: buildRound(currentTeams, r, options)
+      matches: buildRound(currentTeams, r),
     });
     currentTeams = rotateTeams(currentTeams);
   }
@@ -116,7 +112,7 @@ export function generateRoundRobin(
 
   const secondHalf: ScheduledRound[] = firstHalf.map((round) => ({
     roundNumber: round.roundNumber + numRounds,
-    matches: mirrorMatches(round.matches)
+    matches: mirrorMatches(round.matches),
   }));
 
   return [...firstHalf, ...secondHalf];
@@ -125,11 +121,7 @@ export function generateRoundRobin(
 /**
  * Generates a recurring schedule (weeks 1-4 initially).
  */
-export function generateRecurring(
-  teamIds: string[],
-  startRound: number = 1,
-  numWeeks: number = 4
-): ScheduledRound[] {
+export function generateRecurring(teamIds: string[], startRound: number = 1, numWeeks: number = 4): ScheduledRound[] {
   const teams: (string | null)[] = [...teamIds];
   if (teams.length % 2 !== 0) {
     teams.push(null);
@@ -137,7 +129,7 @@ export function generateRecurring(
 
   const rounds: ScheduledRound[] = [];
   let currentTeams: (string | null)[] = [...teams];
-  
+
   const totalRotation = teams.length - 1;
   for (let i = 0; i < (startRound - 1) % totalRotation; i++) {
     currentTeams = rotateTeams(currentTeams);
@@ -147,7 +139,7 @@ export function generateRecurring(
     const roundIdx = startRound - 1 + i;
     rounds.push({
       roundNumber: roundIdx + 1,
-      matches: buildRound(currentTeams, roundIdx, { mode: 'single' })
+      matches: buildRound(currentTeams, roundIdx),
     });
     currentTeams = rotateTeams(currentTeams);
   }
