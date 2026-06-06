@@ -149,9 +149,12 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       }
     };
 
-    // Only process matches in the upcoming round that are still 'not_arranged'
+    // Only process matches in the upcoming round that are still 'not_arranged' or missing Match ID
     for (const match of upcomingRound.matches) {
-      if (match.completed || match.status === 'arranged' || match.status === 'misarranged') continue;
+      if (match.completed) continue;
+      
+      // If already has ht_match_id, we can skip
+      if (match.status === 'arranged' && match.ht_match_id) continue;
 
       const homeTeam = teams.find((t) => t.id === match.home_team_id);
       const awayTeam = teams.find((t) => t.id === match.away_team_id);

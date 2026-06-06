@@ -1,6 +1,6 @@
 import React from 'react';
 import { Lineicons } from '@lineiconshq/react-lineicons';
-import { Link2AngularRightOutlined } from '@lineiconshq/free-icons';
+import { Link2AngularRightOutlined, ArrowAngularTopRightOutlined } from '@lineiconshq/free-icons';
 import styles from './FixtureCard.module.sass';
 
 interface TeamProps {
@@ -22,7 +22,10 @@ interface FixtureCardProps {
 
 export const FixtureCard: React.FC<FixtureCardProps> = ({ homeTeam, awayTeam, status, score, date, htMatchId }) => {
   const badgeContent = (
-    <div className={`${styles.statusBadge} ${styles[status]}`}>{status.replace('_', ' ').toUpperCase()}</div>
+    <div className={`${styles.statusBadge} ${styles[status]}`}>
+      {status.replace('_', ' ').toUpperCase()}{' '}
+      <Lineicons icon={ArrowAngularTopRightOutlined} size={16} className={styles.statusBadgeIcon} />
+    </div>
   );
 
   return (
@@ -74,7 +77,7 @@ export const FixtureCard: React.FC<FixtureCardProps> = ({ homeTeam, awayTeam, st
             </>
           )}
         </div>
-        {status === 'arranged' && htMatchId ? (
+        {['arranged', 'ongoing', 'finished'].includes(status) && htMatchId ? (
           <a
             href={`https://www.hattrick.org/goto.ashx?path=/Club/Matches/Match.aspx?matchID=${htMatchId}`}
             target="_blank"

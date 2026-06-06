@@ -17,7 +17,11 @@ import {
   ChevronLeftOutlined,
   XmarkOutlined,
 } from '@lineiconshq/free-icons';
-import { DESCRIPTIONS, TOURNAMENT_NAMES } from '../../constants/descriptions';
+import {
+  DESCRIPTIONS,
+  TOURNAMENT_NAMES,
+  UNIVERSAL_TOURNAMENT_NAMES,
+} from '../../constants/descriptions';
 import { filterTeamsForCategory, teamMatchesCategory, type LeagueCategory } from '../../utils/team-eligibility';
 import styles from './CreateTournament.module.sass';
 import { HATTRICK_LEAGUES } from '../../utils/leagues';
@@ -36,7 +40,10 @@ interface LocalTeam {
 }
 
 const getRandomDescription = () => DESCRIPTIONS[Math.floor(Math.random() * DESCRIPTIONS.length)];
-const getRandomName = () => TOURNAMENT_NAMES[Math.floor(Math.random() * TOURNAMENT_NAMES.length)];
+const getRandomName = (mode: string) => {
+  const pool = mode === 'points' ? UNIVERSAL_TOURNAMENT_NAMES : TOURNAMENT_NAMES;
+  return pool[Math.floor(Math.random() * pool.length)];
+};
 
 export const CreateTournament: React.FC = () => {
   const navigate = useNavigate();
@@ -294,7 +301,7 @@ export const CreateTournament: React.FC = () => {
   };
 
   const regenerateName = () => {
-    const newName = getRandomName();
+    const newName = getRandomName(formData.scoring_mode);
     handleNameChange(newName);
   };
 
