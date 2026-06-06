@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { supabase } from '../../lib/supabase';
 import { nanoid } from 'nanoid';
 import { Button } from '../../components/Button/Button';
-import { Card } from '../../components/Card/Card';
+import { HeroCard } from '../../components/Card/HeroCard';
 import { Modal } from '../../components/Modal/Modal';
 import { Lineicons } from '@lineiconshq/react-lineicons';
 import {
@@ -441,7 +441,7 @@ export const CreateTournament: React.FC = () => {
             <Lineicons icon={XmarkOutlined} size={36} />
           </button>
         </div>
-        <Card variant="hero">
+        <HeroCard>
           <h1>Create Tournament</h1>
           <img src="/create.png" alt="HT-120min" />
           <form onSubmit={handleContinue} className={styles.form}>
@@ -542,8 +542,9 @@ export const CreateTournament: React.FC = () => {
                   id="tournament_country_limit"
                   value={formData.country_limit}
                   onChange={(e) => setFormData({ ...formData, country_limit: e.target.value })}
-                  style={{ marginTop: '0.5rem', width: '100%' }}
+                  className={`${styles.mt05} ${styles.w100}`}
                 >
+
                   <option value="">Select league...</option>
                   {Object.values(HATTRICK_LEAGUES).map((league) => (
                     <option key={league} value={league}>
@@ -596,9 +597,9 @@ export const CreateTournament: React.FC = () => {
                   value={formData.admin_email}
                   onChange={(e) => setFormData({ ...formData, admin_email: e.target.value })}
                   placeholder="In case you forget your admin password..."
-                  className={styles.magicInput}
-                  style={{ marginTop: '0.5rem' }}
+                  className={`${styles.magicInput} ${styles.mt05}`}
                 />
+
               )}
             </div>
 
@@ -608,7 +609,7 @@ export const CreateTournament: React.FC = () => {
               </Button>
             </div>
           </form>
-        </Card>
+        </HeroCard>
       </div>
     );
   }
@@ -694,7 +695,7 @@ export const CreateTournament: React.FC = () => {
           <Lineicons icon={XmarkOutlined} size={36} />
         </button>
       </div>
-      <Card variant="hero">
+      <HeroCard>
         <h1>{isValidated ? 'Confirm your team' : 'Add Teams'}</h1>
         <p className={styles.subtitle}>{formData.name}</p>
         <img src="/register2.png" alt="Add Teams" />
@@ -816,12 +817,13 @@ export const CreateTournament: React.FC = () => {
             size="sm"
             onClick={() => setStep('info')}
             disabled={loading}
-            style={{ opacity: 0.8 }}
+            className={styles.opacity08}
           >
+
             Go Back
           </Button>
         </div>
-      </Card>
+      </HeroCard>
     </div>
   );
 };

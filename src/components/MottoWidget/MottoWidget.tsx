@@ -20,7 +20,7 @@ export const MottoWidget: React.FC<MottoWidgetProps> = ({
   const currentMotto = useRandomCycle(items, intervalMs);
 
   return (
-    <Card variant="classic" className={`${styles.mottoCard} ${className}`}>
+    <Card className={`${styles.mottoCard} ${className}`}>
       <div className={styles.mottoContent}>
         <Lineicons icon={DoubleQuotesEnd1Outlined} size={32} className={styles.quoteIcon} />
         <p className={styles.mottoText}>{currentMotto}</p>

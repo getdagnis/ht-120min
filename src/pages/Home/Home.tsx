@@ -3,6 +3,9 @@ import { useNavigate, Link } from 'react-router-dom';
 import { supabase } from '../../lib/supabase';
 import { Button } from '../../components/Button/Button';
 import { Card } from '../../components/Card/Card';
+import { HeroCard } from '../../components/Card/HeroCard';
+import { TournamentCard } from '../../components/Card/TournamentCard';
+import { SectionCard } from '../../components/Card/SectionCard';
 import { MottoWidget } from '../../components/MottoWidget/MottoWidget';
 import { FriendlyMarketplace } from '../../components/FriendlyMarketplace/FriendlyMarketplace';
 import { Lineicons } from '@lineiconshq/react-lineicons';
@@ -172,7 +175,7 @@ export const Home: React.FC = () => {
   return (
     <div className={styles.home}>
       <div className={styles.container}>
-        <Card variant="hero" className={styles.heroCard}>
+        <HeroCard className={styles.heroCard}>
           <section className={styles.hero}>
             <h1 className={styles.hiddenH1}>HT-120min</h1>
             <img src="/hero-logo-2.png" alt="HT-120min" className={styles.heroImg} />
@@ -191,7 +194,7 @@ export const Home: React.FC = () => {
               </ScrollTo>
             </div>
           </section>
-        </Card>
+        </HeroCard>
 
         <MottoWidget />
 
@@ -206,8 +209,7 @@ export const Home: React.FC = () => {
                 <div className={styles.tournamentGrid}>
                   {activeTournaments.map((t) => (
                     <Link key={t.id} to={`/t/${t.slug}`} className={styles.tournamentLink}>
-                      <Card
-                        variant="classic"
+                      <TournamentCard
                         className={styles.tournamentCard}
                         thumbnailIndex={t.thumbnail_index}
                         imageUrl={t.image_url}
@@ -238,7 +240,7 @@ export const Home: React.FC = () => {
                             )}
                           </div>
                         </div>
-                      </Card>
+                      </TournamentCard>
                     </Link>
                   ))}
                 </div>
@@ -257,8 +259,7 @@ export const Home: React.FC = () => {
                 <div className={styles.tournamentGrid}>
                   {openTournaments.map((t) => (
                     <Link key={t.id} to={`/t/${t.slug}`} className={styles.tournamentLink}>
-                      <Card
-                        variant="classic"
+                      <TournamentCard
                         className={styles.tournamentCard}
                         thumbnailIndex={t.thumbnail_index}
                         imageUrl={t.image_url}
@@ -288,7 +289,7 @@ export const Home: React.FC = () => {
                             )}
                           </div>
                         </div>
-                      </Card>
+                      </TournamentCard>
                     </Link>
                   ))}
                 </div>
@@ -302,7 +303,7 @@ export const Home: React.FC = () => {
               <h2>Monthly Best</h2>
             </div>
             {topTeams.length > 0 && (
-              <Card title="Top 10 Teams (120m)" variant="classic" className={styles.statsCard}>
+              <SectionCard title="Top 10 Teams (120m)" className={styles.statsCard}>
                 <ol className={styles.statsList}>
                   {topTeams.map((team, idx) => (
                     <li key={team.ht_team_id}>
@@ -314,11 +315,11 @@ export const Home: React.FC = () => {
                     </li>
                   ))}
                 </ol>
-              </Card>
+              </SectionCard>
             )}
 
             {topActiveTournaments.length > 0 && (
-              <Card title="Most Active" variant="classic" className={styles.statsCard}>
+              <SectionCard title="Most Active" className={styles.statsCard}>
                 <ul className={styles.statsList}>
                   {topActiveTournaments.map((t) => (
                     <li key={t.slug}>
@@ -331,7 +332,7 @@ export const Home: React.FC = () => {
                     </li>
                   ))}
                 </ul>
-              </Card>
+              </SectionCard>
             )}
             <FriendlyMarketplace className={styles.marketplaceWrapper} />
           </aside>

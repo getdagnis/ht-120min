@@ -2,7 +2,8 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { useParams, useLocation, useSearchParams } from 'react-router-dom';
 import { supabase } from '../../lib/supabase';
-import { Card } from '../../components/Card/Card';
+import { HeroCard } from '../../components/Card/HeroCard';
+import { SectionCard } from '../../components/Card/SectionCard';
 import { Button } from '../../components/Button/Button';
 import { calculateStandings } from '../../utils/standings';
 import { calculateMatchDate } from '../../utils/ht-data';
@@ -1242,7 +1243,7 @@ export const TournamentView: React.FC = () => {
               {tournament.status === 'finished' && <span> • Finished</span>}
             </p>
             {/* {tournament.organizer_name && (
-              <div className={styles.organizerInfo}>
+                      <div className={styles.organizerInfo}>
                 <span className={styles.organizerLabel}>Organizer:</span>
                 <span className={styles.organizerName}>
                   {tournament.organizer_id && (
@@ -1250,8 +1251,7 @@ export const TournamentView: React.FC = () => {
                       href={`https://www.hattrick.org/goto.ashx?path=/Club/Manager/?userId=${tournament.organizer_id}`}
                       target="_blank"
                       rel="noopener noreferrer"
-                      className={styles.htLink}
-                      style={{ marginLeft: '0.5rem' }}
+                      className={`${styles.htLink} ${styles.headerBadge}`}
                     >
                       {tournament.organizer_name}
                       <Lineicons icon={Link2AngularRightOutlined} size={12} />
@@ -1337,10 +1337,7 @@ export const TournamentView: React.FC = () => {
             }}
           >
             {tournament?.image_url ? (
-              <div
-                className={styles.tournamentImage}
-                style={{ background: `url(${tournament?.image_url}) center center no-repeat` }}
-              />
+              <div className={styles.tournamentImage} style={{ backgroundImage: `url(${tournament?.image_url})` }} />
             ) : (
               isAdminAuthenticated && <div className={styles.placeholderMessage}>Click to add image URL</div>
             )}
@@ -1352,7 +1349,6 @@ export const TournamentView: React.FC = () => {
                   setNewImageUrl(typeof tournament?.image_url === 'string' ? tournament.image_url : '');
                   setIsEditingImage(true);
                 }}
-                style={{ pointerEvents: 'auto', cursor: 'pointer' }}
               >
                 <Lineicons icon={PlusOutlined} size={16} />
                 <span>{tournament?.image_url ? 'Edit Image' : 'Add Image'}</span>
@@ -1376,7 +1372,8 @@ export const TournamentView: React.FC = () => {
 
         {isJoining && (
           <div className={styles.registrationFormWrapper}>
-            <Card variant="hero" title="Join This Tournament">
+            <HeroCard title="Join This Tournament">
+
               <div className={styles.joinHeroImageWrapper}>
                 <img src="/register.png" alt="Join Tournament" className={styles.joinHeroImage} />
                 {isConnecting && (
@@ -1391,6 +1388,7 @@ export const TournamentView: React.FC = () => {
                   You are joining an ongoing tournament. You will fill an available spot.
                 </p>
               )}
+
               <div className={styles.registrationLinkArea}>
                 <Button
                   size="lg"
@@ -1407,7 +1405,7 @@ export const TournamentView: React.FC = () => {
                   Authorize HT-120min to fetch your team data and update results automatically.
                 </p>
               </div>
-            </Card>
+            </HeroCard>
           </div>
         )}
 
@@ -1482,8 +1480,9 @@ export const TournamentView: React.FC = () => {
       </div>
 
       {activeTab === 'standings' && (
-        <Card title="🏆 Standings" variant="classic" headerThumbnailIndex={tournament.thumbnail_index}>
+        <SectionCard title="🏆 Standings" headerThumbnailIndex={tournament.thumbnail_index}>
           <div className={styles.tableWrapper}>
+
             <table>
               <thead>
                 <tr>
@@ -1525,7 +1524,7 @@ export const TournamentView: React.FC = () => {
                             </span>
                             {s.joinedViaOauth && (
                               <span title="Hattrick Validated Team">
-                                <Lineicons icon={CheckOutlined} size={14} style={{ color: '#0fb54c' }} />
+                                <Lineicons icon={CheckOutlined} size={14} className={styles.validatedIcon} />
                               </span>
                             )}
                             <a
@@ -1585,8 +1584,7 @@ export const TournamentView: React.FC = () => {
                               variant="zero"
                               size="sm"
                               onClick={handleInvite}
-                              className={styles.inviteSpotBtn}
-                              style={{ padding: 0 }}
+                              className={`${styles.inviteSpotBtn} ${styles.noPadding}`}
                             >
                               <Lineicons icon={PlusOutlined} size={14} /> Invite
                             </Button>
@@ -1656,22 +1654,25 @@ export const TournamentView: React.FC = () => {
               </div>
             </div>
           )}
-        </Card>
+        </SectionCard>
+
       )}
 
       {activeTab === 'fixtures' && (
         <div className={styles.rounds}>
           {!isGenerated ? (
-            <Card variant="classic">
+            <SectionCard>
+
               <div className={styles.openMessage}>
                 <h2>Registration Open</h2>
                 <p>This tournament is still open for registration, you can invite someone to join.</p>
               </div>
-            </Card>
+            </SectionCard>
+
           ) : (
             <>
               {rounds.slice(0, visibleRoundsCount).map((round) => (
-                <Card
+                <SectionCard
                   key={round.id}
                   title={
                     <div className={styles.roundHeader}>
@@ -1702,7 +1703,6 @@ export const TournamentView: React.FC = () => {
                       </button>
                     </div>
                   }
-                  variant="classic"
                 >
                   <div className={styles.matchesGrid}>
                     {round.matches.map((match: MatchWithTeams) => {
@@ -1763,10 +1763,10 @@ export const TournamentView: React.FC = () => {
                       );
                     })}
                   </div>
-                </Card>
+                </SectionCard>
               ))}
               {visibleRoundsCount < rounds.length && (
-                <div style={{ marginTop: '1rem', textAlign: 'center' }}>
+                <div className={styles.formActionRow}>
                   <Button onClick={() => setVisibleRoundsCount((prev) => prev + 4)} variant="outline">
                     Show More
                   </Button>
@@ -1779,7 +1779,8 @@ export const TournamentView: React.FC = () => {
 
       {activeTab === 'guestbook' && (
         <div className={styles.guestbook}>
-          <Card variant="classic" title="News & Announcements">
+          <SectionCard title="News & Announcements">
+
             <div className={styles.newsTabs}>
               <button className={newsMode === 'team' ? styles.active : ''} onClick={() => setNewsMode('team')}>
                 Team News
@@ -1882,7 +1883,8 @@ export const TournamentView: React.FC = () => {
                 ))
               )}
             </div>
-          </Card>
+          </SectionCard>
+
         </div>
       )}
 
@@ -1944,9 +1946,11 @@ export const TournamentView: React.FC = () => {
             </div>
           </div>
           <div className={styles.statsSidebar}>
-            <Card title="Tournament Stats">
+            <SectionCard title="Tournament Stats">
+
               <p className={styles.muted}>Stats placeholder: cards, injuries, etc.</p>
-            </Card>
+            </SectionCard>
+
           </div>
         </div>
       )}
@@ -1954,7 +1958,8 @@ export const TournamentView: React.FC = () => {
       {activeTab === 'admin' && (
         <div className={styles.adminSection}>
           {!isAdminAuthenticated ? (
-            <Card variant="classic" title="Admin Access">
+            <SectionCard title="Admin Access">
+
               <form onSubmit={handleAdminLogin} className={styles.adminAuthForm}>
                 <div className={styles.authField}>
                   <label>Tournament Password</label>
@@ -1969,45 +1974,38 @@ export const TournamentView: React.FC = () => {
                     required
                   />
                 </div>
-                {adminAuthError && (
-                  <p style={{ color: 'var(--accent)', fontSize: '0.9rem', marginBottom: '1rem', fontWeight: 600 }}>
-                    Invalid password. Please try again.
-                  </p>
-                )}
+                {adminAuthError && <p className={styles.authError}>Invalid password. Please try again.</p>}
                 <Button type="submit" variant="primary" size="lg">
                   <Lineicons icon={Shield2CheckOutlined} size={18} /> Authenticate
                 </Button>
 
-                <div style={{ marginTop: '1.5rem', textAlign: 'center' }}>
+                <div className={styles.adminAuthFooter}>
                   {failedLoginAttempt ? (
-                    <p style={{ fontSize: '0.85rem', opacity: 0.8 }}>
-                      forgot password? let's hope you registered with an email
-                    </p>
+                    <p className={styles.adminAuthNote}>Forgot password? Recover with a registered email.</p>
                   ) : (
-                    <a
-                      href="/create"
-                      style={{ fontSize: '0.85rem', opacity: 0.8, color: 'inherit', textDecoration: 'underline' }}
-                    >
-                      want to be an admin? start your own tournament
+                    <a href="/create" className={styles.adminAuthLink}>
+                      Want to be an admin? <u>start your own tournament</u>.
                     </a>
                   )}
                 </div>
               </form>
-            </Card>
+            </SectionCard>
+
           ) : (
             <div className={adminStyles.admin}>
               <div className={adminStyles.mainGrid}>
                 <section className={adminStyles.teamsSection}>
-                  <Card
+                  <SectionCard
                     title="Tournament Settings"
-                    variant="classic"
                     collapsible
                     isCollapsed={isSettingsCollapsed}
                     onToggleCollapse={() => setIsSettingsCollapsed(!isSettingsCollapsed)}
                   >
-                    <div className={adminStyles.settingsGroup} style={{ marginBottom: '1.5rem' }}>
-                      {/* EDIT TOURNAMENT NAME *
-                      <div className={adminStyles.field} style={{ marginBottom: '1.5rem' }}>
+
+                    <div className={adminStyles.settingsGroup}>
+                      {/* EDIT TOURNAMENT NAME **
+                      <div className={adminStyles.field}>
+
                         <div className={adminStyles.labelRow}>
                           <label>Tournament Name</label>
                           <button type="button" onClick={regenerateName} className={adminStyles.iconBtn}>
@@ -2065,15 +2063,13 @@ export const TournamentView: React.FC = () => {
                           value={editLeagueCategory}
                           onChange={(e) => setEditLeagueCategory(e.target.value as any)}
                           disabled={teams.length > 0 && !isSuperAdmin}
-                          style={{ width: '100%', padding: '0.75rem', borderRadius: '6px' }}
+                          className={adminStyles.selectField}
                         >
                           <option value="male">Regular league (male)</option>
                           <option value="hfi">Hattrick Femme International (HFI)</option>
                         </select>
                         {teams.length > 0 && !isSuperAdmin && (
-                          <p style={{ fontSize: '0.8rem', marginTop: '0.4rem', opacity: 0.8 }}>
-                            Category is locked once teams have registered.
-                          </p>
+                          <p className={adminStyles.smallNote}>Category is locked once teams have registered.</p>
                         )}
                       </div>
 
@@ -2083,7 +2079,7 @@ export const TournamentView: React.FC = () => {
                           value={editRegistrationType}
                           onChange={(e) => setEditRegistrationType(e.target.value as any)}
                           disabled={teams.length > 0 && !isSuperAdmin}
-                          style={{ width: '100%', padding: '0.75rem', borderRadius: '6px' }}
+                          className={adminStyles.selectField}
                         >
                           <option value="validated">Hattrick Validated (CHPP)</option>
                           <option value="manual">Organizer-Managed</option>
@@ -2095,7 +2091,7 @@ export const TournamentView: React.FC = () => {
                         <select
                           value={editCountryLimit || ''}
                           onChange={(e) => setEditCountryLimit(e.target.value || null)}
-                          style={{ width: '100%', padding: '0.75rem', borderRadius: '6px' }}
+                          className={adminStyles.selectField}
                         >
                           <option value="">Any Hattrick League</option>
                           {(() => {
@@ -2114,9 +2110,7 @@ export const TournamentView: React.FC = () => {
                           const countries = Array.from(new Set(validatedTeams.map((t) => t.country_name)));
                           if (countries.length >= 2) {
                             return (
-                              <p style={{ fontSize: '0.8rem', marginTop: '0.4rem', opacity: 0.8 }}>
-                                teams from at least 2 leagues already registered
-                              </p>
+                              <p className={adminStyles.smallNote}>teams from at least 2 leagues already registered</p>
                             );
                           }
                           return null;
@@ -2134,7 +2128,7 @@ export const TournamentView: React.FC = () => {
                         </label>
                       </div>
 
-                      <div className={adminStyles.checkboxField} style={{ marginBottom: '1rem' }}>
+                      <div className={adminStyles.checkboxField}>
                         <label className={adminStyles.checkboxLabel}>
                           <input
                             type="checkbox"
@@ -2169,7 +2163,7 @@ export const TournamentView: React.FC = () => {
                         </div>
 
                         {showEditDescription && (
-                          <div className={adminStyles.textField} style={{ marginTop: '1rem' }}>
+                          <div className={`${adminStyles.textField} ${styles.mt1}`}>
                             <textarea
                               value={editDescription}
                               onChange={(e) => setEditDescription(e.target.value)}
@@ -2180,7 +2174,7 @@ export const TournamentView: React.FC = () => {
                         )}
                       </div>
 
-                      <div style={{ marginTop: '1rem' }}>
+                      <div className={styles.mt1}>
                         <div className={adminStyles.checkboxField}>
                           <label className={adminStyles.checkboxLabel}>
                             <input
@@ -2192,7 +2186,7 @@ export const TournamentView: React.FC = () => {
                           </label>
                         </div>
                         {showEditEmail && (
-                          <div className={adminStyles.textField} style={{ marginTop: '1rem' }}>
+                          <div className={`${adminStyles.textField} ${styles.mt1}`}>
                             <input
                               type="email"
                               value={editAdminEmail}
@@ -2204,10 +2198,7 @@ export const TournamentView: React.FC = () => {
                       </div>
 
                       {isSuperAdmin && (
-                        <div
-                          className={adminStyles.checkboxField}
-                          style={{ marginTop: '2rem', paddingTop: '1.5rem', borderTop: '1px solid var(--border)' }}
-                        >
+                        <div className={`${adminStyles.checkboxField} ${styles.formDivider}`}>
                           <label className={adminStyles.checkboxLabel}>
                             <input type="checkbox" checked={isTest} onChange={(e) => setIsTest(e.target.checked)} />
                             Testing Ground (Super-Admin only)
@@ -2218,11 +2209,10 @@ export const TournamentView: React.FC = () => {
                     <Button onClick={updateSettings} disabled={isUpdatingSettings} variant="primary" size="sm">
                       {isUpdatingSettings ? 'Saving...' : 'Save Settings'}
                     </Button>
-                  </Card>
+                  </SectionCard>
 
-                  <Card
+                  <SectionCard
                     title="Manage Teams & Schedule"
-                    variant="classic"
                     collapsible
                     isCollapsed={isTeamsCollapsed}
                     onToggleCollapse={() => {
@@ -2231,13 +2221,14 @@ export const TournamentView: React.FC = () => {
                       localStorage.setItem(`teams_collapsed_${slug}`, JSON.stringify(newState));
                     }}
                   >
+
                     {(!isGenerated || teams.some((t) => !t.active) || teams.length % 2 !== 0) && (
                       <div className={adminStyles.addTeamSection}>
                         <h3 className={adminStyles.sectionTitle}>
                           {tournament.registration_type === 'Hattrick Validated (CHPP)' ? 'Invite Team' : 'Add Team'}
                         </h3>
                         {tournament.registration_type === 'Hattrick Validated (CHPP)' && (
-                          <p style={{ fontSize: '0.85rem', opacity: 0.8, marginBottom: '1rem' }}>
+                          <p className={styles.helperText}>
                             In a self-validated tournament, you can't add teams manually. Use this tool to get team data
                             and then send them an invitation.
                           </p>
@@ -2263,7 +2254,7 @@ export const TournamentView: React.FC = () => {
                               placeholder="Team Name"
                               value={newTeamName}
                               readOnly
-                              style={{ pointerEvents: 'none', opacity: newTeamName ? 1 : 0.6 }}
+                              className={!newTeamName ? styles.opacity06 : ''}
                               required
                             />
                           </div>
@@ -2286,7 +2277,7 @@ export const TournamentView: React.FC = () => {
                                     variant="secondary"
                                     size="sm"
                                     onClick={() => setIsInviteExpanded(!isInviteExpanded)}
-                                    style={{ marginTop: '0.5rem' }}
+                                    className={styles.mt05}
                                   >
                                     {isInviteExpanded ? 'Hide Invitation Template' : 'Invite a Team'}
                                   </Button>
@@ -2337,7 +2328,7 @@ export const TournamentView: React.FC = () => {
                               <span className={adminStyles.name}>{team.name}</span>
                               {team.joined_via_oauth && (
                                 <span title="Hattrick Validated Team">
-                                  <Lineicons icon={CheckOutlined} size={14} style={{ color: '#0fb54c' }} />
+                                  <Lineicons icon={CheckOutlined} size={14} className={styles.validatedIcon} />
                                 </span>
                               )}
                             </div>
@@ -2367,7 +2358,7 @@ export const TournamentView: React.FC = () => {
                                       placeholder="New Name"
                                       value={replacementName}
                                       readOnly
-                                      style={{ pointerEvents: 'none', opacity: replacementName ? 1 : 0.6 }}
+                                      className={!replacementName ? styles.opacity06 : ''}
                                       required
                                     />
                                     <div className={adminStyles.replaceActions}>
@@ -2445,7 +2436,7 @@ export const TournamentView: React.FC = () => {
                                       placeholder="New Name"
                                       value={replacementName}
                                       readOnly
-                                      style={{ pointerEvents: 'none', opacity: replacementName ? 1 : 0.6 }}
+                                      className={!replacementName ? styles.opacity06 : ''}
                                       required
                                     />
                                     <div className={adminStyles.replaceActions}>
@@ -2583,7 +2574,7 @@ export const TournamentView: React.FC = () => {
                               onClick={generateMoreRounds}
                               disabled={isGenerating}
                               fullWidth
-                              style={{ marginTop: '0.5rem' }}
+                              className={styles.mt05}
                             >
                               {isGenerating ? 'Generating...' : 'Generate more rounds'}
                             </Button>
@@ -2591,7 +2582,7 @@ export const TournamentView: React.FC = () => {
                         </div>
                       )}
                     </div>
-                  </Card>
+                  </SectionCard>
                 </section>
 
                 {isGenerated && (
@@ -2600,7 +2591,8 @@ export const TournamentView: React.FC = () => {
                       <h2>Results Entry</h2>
                     </div>
                     {rounds.map((round) => (
-                      <Card key={round.id} title={`Round ${round.round_number}`} variant="classic">
+                      <SectionCard key={round.id} title={`Round ${round.round_number}`}>
+
                         <div className={adminStyles.matches}>
                           {round.matches.map((match: MatchWithTeams) => {
                             return (
@@ -2762,7 +2754,7 @@ export const TournamentView: React.FC = () => {
                             );
                           })}
                         </div>
-                      </Card>
+                      </SectionCard>
                     ))}
                   </section>
                 )}

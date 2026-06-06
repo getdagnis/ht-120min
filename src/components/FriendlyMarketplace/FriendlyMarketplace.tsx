@@ -83,7 +83,7 @@ export const FriendlyMarketplace: React.FC<FriendlyMarketplaceProps> = ({ classN
         <Lineicons icon={HandShakeOutlined} className={styles.sectionIcon} size={24} />
         <h2>Marketplace</h2>
       </div>
-      <Card variant="classic" className={styles.marketplaceCard}>
+      <Card className={styles.marketplaceCard}>
         <div className={styles.marketplaceHeader}>
           <p>Looking for a single 120 min friendly partner? Post your request or apply below.</p>
           {!isPosting ? (
