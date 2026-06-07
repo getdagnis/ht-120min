@@ -8,7 +8,7 @@
   border: 1px solid transparent
   gap: 0.75rem
   box-sizing: border-box
-  transition: background-color 0.5s ease-in-out, color 0.5s ease-in-out
+  transition: background-color 0.35s ease-in-out, color 0.5s ease-in-out
 
   &:disabled
     background: var(--bg-transp2)
@@ -16,7 +16,7 @@
     cursor: not-allowed
 
   &:hover:not(:disabled)
-    transition: background-color 0.25s ease-in-out, color 0.25s ease-in-out
+    transition: background-color 0.15s ease-in-out, color 0.25s ease-in-out
 
 .button > *
   cursor: pointer
@@ -31,13 +31,13 @@
     border: 1px solid black
 
 .secondary
-  background-color: #f0ebe4
+  background-color: var(--theme2)
   border: 1px solid var(--borderDark)
   border-color: black
   color: black
   &:hover:not(:disabled)
     background-color: var(--accent-3)
-    border-color: white
+    border-color: black
     color: white
 
 .secondaryInverse
@@ -46,8 +46,17 @@
   color: black
   &:hover:not(:disabled)
     background-color: var(--accent-3)
-    border-color: white
+    border-color: black
     color: white
+
+.secondaryYellow
+  background-color: var(--theme2)
+  border: 1px solid black
+  color: black
+  &:hover:not(:disabled)
+    background-color: var(--yellow)
+    border-color: black
+    color: black
 
 .outline
   background-color: transparent
@@ -60,9 +69,9 @@
     color: var(--theme)
 
   &White
-    color: var(--theme2)
-    background-color: var(--bg-transp2)
-    border: 1px solid var(--theme)
+    color: white
+    background-color: transparent
+    border: 1px solid white
     cursor: pointer
 
     &:hover

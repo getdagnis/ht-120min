@@ -87,7 +87,7 @@ export const FriendlyMarketplace: React.FC<FriendlyMarketplaceProps> = ({ classN
         <div className={styles.marketplaceHeader}>
           <p>Looking for a single 120 min friendly partner? Post your request or apply below.</p>
           {!isPosting ? (
-            <Button size="sm" onClick={() => setIsPosting(true)} variant="secondary" fullWidth>
+            <Button size="sm" onClick={() => setIsPosting(true)} variant="secondaryYellow" fullWidth>
               <Lineicons icon={PlusOutlined} size={16} /> Post Request
             </Button>
           ) : (
@@ -135,7 +135,7 @@ export const FriendlyMarketplace: React.FC<FriendlyMarketplaceProps> = ({ classN
                 {post.message && <p className={styles.marketMsg}>{post.message}</p>}
                 <Button
                   size="xs"
-                  variant="outline"
+                  variant="secondaryYellow"
                   onClick={() =>
                     window.open(`https://www.hattrick.org/goto.ashx?path=/Club/?TeamID=${post.ht_team_id}`, '_blank')
                   }
