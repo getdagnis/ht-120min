@@ -2323,6 +2323,7 @@ export const TournamentView: React.FC = () => {
                                           disabled={isFetchingTeamData}
                                           variant="primary"
                                         >
+                                          Check
                                         </Button>
                                       )}
                                       {replacementName && (
@@ -2344,11 +2345,13 @@ export const TournamentView: React.FC = () => {
                                           setReplacementName('');
                                         }}
                                       >
+                                        Cancel
                                       </Button>
                                     </div>
                                   </div>
                                 ) : (
                                   <Button size="sm" variant="zero" onClick={() => setReplacingTeamId(team.id)}>
+                                    Replace
                                   </Button>
                                 )}
                                 <Button
@@ -2362,6 +2365,7 @@ export const TournamentView: React.FC = () => {
                                   }}
                                   title={isGenerated ? 'Deactivate Team' : 'Delete Team'}
                                 >
+                                  Delete
                                 </Button>
                               </>
                             ) : (
