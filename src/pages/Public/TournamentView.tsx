@@ -1597,7 +1597,7 @@ export const TournamentView: React.FC = () => {
             </SectionCard>
           </div>
           <aside className={styles.statsSidebar}>
-            <MottoWidget items={TOURNAMENT_DEFAULT} />
+            <MottoWidget items={TOURNAMENT_DEFAULT} theme="dark" />
             <SectionCard title="News Feed">
               <ul className={styles.newsFeed}>
                 <li className={styles.feedItem}>
