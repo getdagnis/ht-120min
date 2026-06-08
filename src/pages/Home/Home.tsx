@@ -8,16 +8,15 @@ import { TournamentCard } from '../../components/Card/TournamentCard';
 import { SectionCard } from '../../components/Card/SectionCard';
 import { MottoWidget } from '../../components/MottoWidget/MottoWidget';
 import { FriendlyMarketplace } from '../../components/FriendlyMarketplace/FriendlyMarketplace';
-import { Lineicons } from '@lineiconshq/react-lineicons';
 import { Link as ScrollTo, Element } from 'react-scroll';
 import {
-  Trophy1Outlined,
-  CalendarDaysOutlined,
-  BeatOutlined,
-  ChevronLeftOutlined,
-  StarFatOutlined,
-  EnterOutlined,
-} from '@lineiconshq/free-icons';
+  Trophy,
+  CalendarBlank,
+  Heartbeat,
+  CaretLeft,
+  ArrowRight,
+  Star,
+} from 'phosphor-react';
 import { TeamsIcon } from '../../components/Icons/TeamsIcon';
 import styles from './Home.module.sass';
 
@@ -185,11 +184,11 @@ export const Home: React.FC = () => {
             </p>
             <div className={styles.ctaBtns}>
               <Button size="lg" onClick={() => navigate('/create')} variant="secondaryInverse">
-                <Lineicons icon={Trophy1Outlined} size={22} /> Create Tournament
+                <Trophy size={22} weight="bold" /> Create Tournament
               </Button>
               <ScrollTo to="opentours" smooth={true} duration={600} offset={-80}>
                 <Button size="lg" variant="secondary">
-                  <Lineicons icon={EnterOutlined} size={22} /> Join Tournament
+                  <ArrowRight size={22} weight="bold" /> Join Tournament
                 </Button>
               </ScrollTo>
             </div>
@@ -203,7 +202,7 @@ export const Home: React.FC = () => {
             {activeTournaments.length > 0 && (
               <section className={styles.activeSection}>
                 <div className={styles.sectionHeader}>
-                  <Lineicons icon={BeatOutlined} className={styles.sectionIcon} size={24} />
+                  <Heartbeat size={24} weight="bold" className={styles.sectionIcon} />
                   <h2>Tournaments Having a Blast</h2>
                 </div>
                 <div className={styles.tournamentGrid}>
@@ -217,15 +216,15 @@ export const Home: React.FC = () => {
                         <div className={styles.tInfo}>
                           <div className={styles.tTitleRow}>
                             <h3 className={styles.tName}>{t.name}</h3>
-                            <Lineicons icon={ChevronLeftOutlined} className={styles.tArrow} size={18} />
+                            <CaretLeft size={18} weight="bold" className={styles.tArrow} />
                           </div>
                           <div className={styles.tMeta}>
                             <span title="Completed Matches">
-                              <Lineicons icon={Trophy1Outlined} size={14} /> {t.completedMatches} / {t.totalMatches}{' '}
+                              <Trophy size={14} weight="bold" /> {t.completedMatches} / {t.totalMatches}{' '}
                               matches
                             </span>
                             <span title="Creation Date">
-                              <Lineicons icon={CalendarDaysOutlined} size={14} />{' '}
+                              <CalendarBlank size={14} weight="bold" />{' '}
                               {new Date(t.created_at).toLocaleDateString()}
                             </span>
                           </div>
@@ -252,7 +251,7 @@ export const Home: React.FC = () => {
             {openTournaments.length > 0 && (
               <section className={styles.activeSection}>
                 <div className={styles.sectionHeader}>
-                  <Lineicons icon={EnterOutlined} className={styles.sectionIcon} size={24} />
+                  <ArrowRight size={24} weight="bold" className={styles.sectionIcon} />
                   <h2>Open for Registration</h2>
                 </div>
 
@@ -267,14 +266,14 @@ export const Home: React.FC = () => {
                         <div className={styles.tInfo}>
                           <div className={styles.tTitleRow}>
                             <h3 className={styles.tName}>{t.name}</h3>
-                            <Lineicons icon={ChevronLeftOutlined} className={styles.tArrow} size={18} />
+                            <CaretLeft size={18} weight="bold" className={styles.tArrow} />
                           </div>
                           <div className={styles.tMeta}>
                             <span title="Registered Teams">
                               <TeamsIcon size={14} /> {t.teamCount} teams
                             </span>
                             <span title="Creation Date">
-                              <Lineicons icon={CalendarDaysOutlined} size={14} />{' '}
+                              <CalendarBlank size={14} weight="bold" />{' '}
                               {new Date(t.created_at).toLocaleDateString()}
                             </span>
                           </div>
@@ -299,7 +298,7 @@ export const Home: React.FC = () => {
 
           <aside className={styles.rightColumn}>
             <div className={styles.sectionHeader}>
-              <Lineicons icon={StarFatOutlined} className={styles.sectionIcon} size={24} />
+              <Star size={24} weight="bold" className={styles.sectionIcon} />
               <h2>Monthly Best</h2>
             </div>
             {topTeams.length > 0 && (
@@ -340,7 +339,7 @@ export const Home: React.FC = () => {
 
         <div className={styles.features}>
           <Card className={styles.feature}>
-            <Lineicons icon={Trophy1Outlined} size={40} />
+            <Trophy size={40} weight="bold" />
             <h3>120min scoring</h3>
             <p>
               120min friendlies are not about winning the games! Opting for a 120min tournament will award you for
@@ -348,7 +347,7 @@ export const Home: React.FC = () => {
             </p>
           </Card>
           <Card className={styles.feature}>
-            <Lineicons icon={BeatOutlined} size={40} />
+            <Heartbeat size={40} weight="bold" />
             <h3>Recurring Friendlies</h3>
             <p>
               Don't want to play a full-size tournament? You can also just use HT-120min to schedule and track recurring
@@ -356,7 +355,7 @@ export const Home: React.FC = () => {
             </p>
           </Card>
           <Card className={styles.feature}>
-            <Lineicons icon={BeatOutlined} size={40} />
+            <Heartbeat size={40} weight="bold" />
             <h3>Round Robin</h3>
             <p>Generate schedule automatically. Choose between single, double round robins or recurring schedule!</p>
           </Card>

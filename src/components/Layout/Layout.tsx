@@ -1,9 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Analytics } from '@vercel/analytics/react';
-
 import { Link, useNavigate } from 'react-router-dom';
-import { Lineicons } from '@lineiconshq/react-lineicons';
-import { Trophy1Outlined, MoonHalfRight5Outlined, Sun1Outlined, PlusOutlined } from '@lineiconshq/free-icons';
+import { Trophy, Sun, Moon, Plus } from 'phosphor-react';
 import { Button } from '../Button/Button';
 import styles from './Layout.module.sass';
 
@@ -28,43 +26,13 @@ export const Layout: React.FC<LayoutProps> = ({ children }) => {
     setTheme((prev) => (prev === 'light' ? 'dark' : 'light'));
   };
 
-  // const [userData, setUserData] = useState(() => ({
-  //   managerName: localStorage.getItem('my_ht_manager_name'),
-  //   teamName: localStorage.getItem('my_ht_team_name'),
-  // }));
-
-  // TODO: reintroduce with user icon
-  // Listen for storage changes to update user data UI
-  // useEffect(() => {
-  //   const handleStorageChange = () => {
-  //     setUserData({
-  //       managerName: localStorage.getItem('my_ht_manager_name'),
-  //       teamName: localStorage.getItem('my_ht_team_name'),
-  //     });
-  //   };
-
-  //   window.addEventListener('storage', handleStorageChange);
-  //   // Also check on a timer or navigation because storage event only fires for other windows
-  //   const interval = setInterval(handleStorageChange, 2000);
-
-  //   return () => {
-  //     window.removeEventListener('storage', handleStorageChange);
-  //     clearInterval(interval);
-  //   };
-  // }, []);
-
-  // TODO: reintroduce with user icon
-  // const userTooltip = userData.managerName
-  //   ? `Logged in as ${userData.managerName}${userData.teamName ? ` (${userData.teamName})` : ''}`
-  //   : 'Not logged in';
-
   return (
     <div className={styles.wrapper}>
       <header className={styles.header}>
         <div className={styles.container}>
           <div className={styles.headerContent}>
             <Link to="/" className={styles.logo}>
-              <Lineicons icon={Trophy1Outlined} className={styles.icon} size={28} />
+              <Trophy size={28} weight="bold" className={styles.icon} />
               <span>HT-120min</span>
             </Link>
 
@@ -77,19 +45,13 @@ export const Layout: React.FC<LayoutProps> = ({ children }) => {
                 variant="zero"
               >
                 {theme === 'dark' ? (
-                  <Lineicons icon={Sun1Outlined} size={20} />
+                  <Sun size={20} weight="bold" />
                 ) : (
-                  <Lineicons icon={MoonHalfRight5Outlined} size={20} />
+                  <Moon size={20} weight="bold" />
                 )}
               </Button>
-              {/* TODO: reintroduce user indicator */}
-              {/* {userData.managerName && (
-                <div className={styles.userIndicator} title={userTooltip}>
-                  <Lineicons icon={User4Outlined} size={20} />
-                </div>
-              )} */}
               <Button size="sm" onClick={() => navigate('/create')} variant="zero" className={styles.createBtn}>
-                <Lineicons icon={PlusOutlined} size={18} /> <span className={styles.hideMobile}>CREATE TOURNAMENT</span>
+                <Plus size={18} weight="bold" /> <span className={styles.hideMobile}>CREATE TOURNAMENT</span>
               </Button>
             </div>
           </div>
@@ -98,7 +60,6 @@ export const Layout: React.FC<LayoutProps> = ({ children }) => {
       <main className={styles.main}>{children}</main>
       <footer className={styles.footer}>
         <div className={styles.container}>
-          {/* user written content: do not change */}
           <p>
             © {new Date().getFullYear()}
             <a href="http://getdagnis.vercel.app" target="_blank">

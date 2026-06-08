@@ -5,23 +5,20 @@ import { nanoid } from 'nanoid';
 import { Button } from '../../components/Button/Button';
 import { HeroCard } from '../../components/Card/HeroCard';
 import { Modal } from '../../components/Modal/Modal';
-import { Lineicons } from '@lineiconshq/react-lineicons';
 import {
-  Trash3Outlined,
-  PlusOutlined,
-  ArrowRightOutlined,
-  RefreshCircle1ClockwiseOutlined,
-  Link2AngularRightOutlined,
-  HandShakeOutlined,
-  Trophy1Outlined,
-  ChevronLeftOutlined,
-  XmarkOutlined,
-} from '@lineiconshq/free-icons';
-import {
-  DESCRIPTIONS,
-  TOURNAMENT_NAMES,
-  UNIVERSAL_TOURNAMENT_NAMES,
-} from '../../constants/descriptions';
+  X,
+  ArrowClockwise,
+  ArrowRight,
+  Handshake,
+  Trophy,
+  CaretLeft,
+  Plus,
+  Trash,
+  Link,
+  FolderOpen,
+  Question,
+} from 'phosphor-react';
+import { DESCRIPTIONS, TOURNAMENT_NAMES, UNIVERSAL_TOURNAMENT_NAMES } from '../../constants/descriptions';
 import { filterTeamsForCategory, teamMatchesCategory, type LeagueCategory } from '../../utils/team-eligibility';
 import styles from './CreateTournament.module.sass';
 import { HATTRICK_LEAGUES } from '../../utils/leagues';
@@ -438,7 +435,7 @@ export const CreateTournament: React.FC = () => {
       <div className={styles.container}>
         <div className={styles.headerRow}>
           <button className={styles.closeBtn} onClick={() => navigate('/')}>
-            <Lineicons icon={XmarkOutlined} size={36} />
+            <X size={36} weight="bold" />
           </button>
         </div>
         <HeroCard>
@@ -449,7 +446,7 @@ export const CreateTournament: React.FC = () => {
               <div className={styles.labelRow}>
                 <label htmlFor="tournament_name">Tournament Name</label>
                 <button type="button" onClick={regenerateName} className={styles.iconBtn} title="Regenerate Name">
-                  <Lineicons icon={RefreshCircle1ClockwiseOutlined} size={20} />
+                  <ArrowClockwise size={20} weight="bold" />
                 </button>
               </div>
               <input
@@ -544,7 +541,6 @@ export const CreateTournament: React.FC = () => {
                   onChange={(e) => setFormData({ ...formData, country_limit: e.target.value })}
                   className={`${styles.mt05} ${styles.w100}`}
                 >
-
                   <option value="">Select league...</option>
                   {Object.values(HATTRICK_LEAGUES).map((league) => (
                     <option key={league} value={league}>
@@ -572,7 +568,7 @@ export const CreateTournament: React.FC = () => {
                     className={styles.iconBtn}
                     title="Regenerate Description"
                   >
-                    <Lineicons icon={RefreshCircle1ClockwiseOutlined} size={20} />
+                    <ArrowClockwise size={20} weight="bold" />
                   </button>
                 )}
               </div>
@@ -599,13 +595,12 @@ export const CreateTournament: React.FC = () => {
                   placeholder="In case you forget your admin password..."
                   className={`${styles.magicInput} ${styles.mt05}`}
                 />
-
               )}
             </div>
 
             <div className={styles.actions}>
               <Button type="submit" fullWidth disabled={loading} variant="secondary">
-                Continue <Lineicons icon={ArrowRightOutlined} size={18} />
+                Continue <ArrowRight size={18} weight="bold" />
               </Button>
             </div>
           </form>
@@ -664,7 +659,7 @@ export const CreateTournament: React.FC = () => {
                           {[team.leagueName, team.leagueLevelUnitName, team.regionName].filter(Boolean).join(' • ')}
                         </span>
                       </div>
-                      <Lineicons icon={ChevronLeftOutlined} size={20} className="r-180" />
+                      <CaretLeft size={20} weight="bold" className="r-180" />
                     </div>
                   ))}
                 </div>
@@ -689,141 +684,183 @@ export const CreateTournament: React.FC = () => {
   }
 
   return (
-    <div className={styles.container}>
-      <div className={styles.headerRow}>
-        <button className={styles.closeBtn} onClick={() => navigate('/')}>
-          <Lineicons icon={XmarkOutlined} size={36} />
-        </button>
-      </div>
-      <HeroCard>
-        <h1>{isValidated ? 'Confirm your team' : 'Add Teams'}</h1>
-        <p className={styles.subtitle}>{formData.name}</p>
-        <img src="/register2.png" alt="Add Teams" />
+    <div className={styles.wrapper}>
+      <div className={styles.container}>
+        <div className={styles.headerRow}>
+          <button className={styles.closeBtn} onClick={() => navigate('/')}>
+            <X size={36} weight="bold" />
+          </button>
+        </div>
+        <HeroCard>
+          <h1>{isValidated ? 'Confirm your team' : 'Add Teams'}</h1>
+          <p className={styles.subtitle}>{formData.name}</p>
+          <img src="/register2.png" alt="Add Teams" />
 
-        {!isLinked && (
-          <div className={styles.linkSection}>
-            <Button size="lg" variant="primary" onClick={handleHattrickLink} disabled={loading}>
-              <Lineicons icon={HandShakeOutlined} size={20} />{' '}
-              {isValidated ? 'Link with Hattrick' : 'Link Organizer Profile'}
-            </Button>
-            <p className={styles.linkInstruction}>
-              {isValidated
-                ? 'Link your Hattrick account to register your team for this tournament.'
-                : 'Required to manage the tournament.'}
-            </p>
-          </div>
-        )}
-
-        {isValidated && isLinked && creator && (
-          <div className={styles.creatorWelcome}>
-            <h2>Ready to create</h2>
-            <div className={styles.creatorTeamCard}>
-              {creator.logoUrl && <img src={creator.logoUrl} alt="" className={styles.creatorTeamLogo} />}
-              <div className={styles.creatorCardContent}>
-                <p className={styles.small}>Your team</p>
-                <strong>{creator.name}</strong>
-                <span>{[creator.managerName, `ID ${creator.htId}`].filter(Boolean).join(' · ')}</span>
-              </div>
+          {!isLinked && (
+            <div className={styles.linkSection}>
+              <Button size="lg" variant="primary" onClick={handleHattrickLink} disabled={loading}>
+                <Handshake size={20} weight="bold" /> {isValidated ? 'Link with Hattrick' : 'Link Organizer Profile'}
+              </Button>
+              <p className={styles.linkInstruction}>
+                {isValidated
+                  ? 'Link your Hattrick account to register your team for this tournament.'
+                  : 'Required to manage the tournament.'}
+              </p>
             </div>
-            <p className={styles.finalizeNote}>
-              Other managers join via the public link after the tournament is created.
-            </p>
-          </div>
-        )}
+          )}
 
-        {!isValidated && isLinked && (
-          <div className={styles.manualEntry}>
-            <p className={styles.subtitle}>Add at least two teams. You can add more later.</p>
-            <form onSubmit={addLocalTeam} className={styles.teamForm}>
-              <div className={styles.inputGroup}>
-                <input
-                  name="team_ht_id"
-                  type="text"
-                  placeholder="HT Team ID"
-                  value={newTeamId}
-                  onChange={(e) => {
-                    setNewTeamId(e.target.value.replace(/\D/g, ''));
-                    setNewTeamName('');
-                  }}
-                  minLength={6}
-                  maxLength={9}
-                  required
-                />
-                <input
-                  name="team_name"
-                  type="text"
-                  placeholder="Team Name"
-                  value={newTeamName}
-                  readOnly
-                  className={styles.readOnlyName}
-                  required
-                />
-              </div>
-              {newTeamId.length >= 6 && !newTeamName && (
-                <button
-                  type="button"
-                  onClick={() => fetchTeamData(newTeamId)}
-                  disabled={isFetchingTeamData}
-                  className={styles.fetchIconBtn}
-                  title="Get Team Data"
-                >
-                  <Lineicons icon={HandShakeOutlined} size={20} />
-                </button>
-              )}
-              {newTeamName && (
-                <Button type="submit" variant="secondary" size="md">
-                  <Lineicons icon={PlusOutlined} size={20} /> Add
-                </Button>
-              )}
-            </form>
-          </div>
-        )}
-
-        {!isValidated && (
-          <ul className={styles.teamList}>
-            {teams.map((team) => (
-              <li key={team.tempId} className={team.isCreator ? styles.creatorRow : undefined}>
-                <div className={styles.teamInfo}>
-                  <span className={styles.name}>
-                    {team.name}
-                    <a
-                      href={`https://www.hattrick.org/goto.ashx?path=/Club/?TeamID=${team.htId}`}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className={styles.htLink}
-                    >
-                      <Lineicons icon={Link2AngularRightOutlined} size={16} />
-                    </a>
-                  </span>
-                  <span className={styles.id}>ID: {team.htId}</span>
+          {isValidated && isLinked && creator && (
+            <div className={styles.creatorWelcome}>
+              <h2>Ready to create</h2>
+              <div className={styles.creatorTeamCard}>
+                {creator.logoUrl && <img src={creator.logoUrl} alt="" className={styles.creatorTeamLogo} />}
+                <div className={styles.creatorCardContent}>
+                  <p className={styles.small}>Your team</p>
+                  <strong>{creator.name}</strong>
+                  <span>{[creator.managerName, `ID ${creator.htId}`].filter(Boolean).join(' · ')}</span>
                 </div>
-                {!team.isCreator && (
-                  <button onClick={() => removeLocalTeam(team.tempId)} className={styles.deleteBtn}>
-                    <Lineicons icon={Trash3Outlined} size={18} />
+              </div>
+              <p className={styles.finalizeNote}>
+                Other managers join via the public link after the tournament is created.
+              </p>
+            </div>
+          )}
+
+          {!isValidated && isLinked && (
+            <div className={styles.manualEntry}>
+              <p className={styles.subtitle}>Add at least two teams. You can add more later.</p>
+              <form onSubmit={addLocalTeam} className={styles.teamForm}>
+                <div className={styles.inputGroup}>
+                  <input
+                    name="team_ht_id"
+                    type="text"
+                    placeholder="HT Team ID"
+                    value={newTeamId}
+                    onChange={(e) => {
+                      setNewTeamId(e.target.value.replace(/\D/g, ''));
+                      setNewTeamName('');
+                    }}
+                    minLength={6}
+                    maxLength={9}
+                    required
+                  />
+                  <input
+                    name="team_name"
+                    type="text"
+                    placeholder="Team Name"
+                    value={newTeamName}
+                    readOnly
+                    className={styles.readOnlyName}
+                    required
+                  />
+                </div>
+                {newTeamId.length >= 6 && !newTeamName && (
+                  <button
+                    type="button"
+                    onClick={() => fetchTeamData(newTeamId)}
+                    disabled={isFetchingTeamData}
+                    className={styles.fetchIconBtn}
+                    title="Get Team Data"
+                  >
+                    <Handshake size={20} weight="bold" />
                   </button>
                 )}
-              </li>
-            ))}
-            {teams.length === 0 && <p className={styles.empty}>No teams added yet.</p>}
+                {newTeamName && (
+                  <Button type="submit" variant="secondary" size="md">
+                    <Plus size={20} weight="bold" /> Add
+                  </Button>
+                )}
+              </form>
+            </div>
+          )}
+
+          {!isValidated && (
+            <ul className={styles.teamList}>
+              {teams.map((team) => (
+                <li key={team.tempId} className={team.isCreator ? styles.creatorRow : undefined}>
+                  <div className={styles.teamInfo}>
+                    <span className={styles.name}>
+                      {team.name}
+                      <a
+                        href={`https://www.hattrick.org/goto.ashx?path=/Club/?TeamID=${team.htId}`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className={styles.htLink}
+                      >
+                        <Link size={16} weight="bold" />
+                      </a>
+                    </span>
+                    <span className={styles.id}>ID: {team.htId}</span>
+                  </div>
+                  {!team.isCreator && (
+                    <button onClick={() => removeLocalTeam(team.tempId)} className={styles.deleteBtn}>
+                      <Trash size={18} weight="bold" />
+                    </button>
+                  )}
+                </li>
+              ))}
+              {teams.length === 0 && <p className={styles.empty}>No teams added yet.</p>}
+            </ul>
+          )}
+
+          <div className={styles.genActions}>
+            <Button
+              variant="secondary"
+              size="lg"
+              fullWidth
+              onClick={handleFinalSubmit}
+              disabled={loading || !canCreate}
+            >
+              <Trophy size={18} weight="bold" /> {loading ? 'Creating...' : 'Create Tournament'}
+            </Button>
+            <Button
+              variant="outlineWhite"
+              size="sm"
+              onClick={() => setStep('info')}
+              disabled={loading}
+              className={styles.opacity08}
+            >
+              Go Back
+            </Button>
+          </div>
+        </HeroCard>
+      </div>
+
+      <aside className={styles.sidebar}>
+        <div className={styles.widget}>
+          <h3>
+            <FolderOpen size={20} weight="bold" /> Open Tournaments
+          </h3>
+          <ul className={styles.widgetList}>
+            <li className={styles.widgetItem}>
+              <strong>Guam HFI Season 4</strong>
+              <span>14/16 teams · Starting in 2 days</span>
+            </li>
+            <li className={styles.widgetItem}>
+              <strong>120min World Cup</strong>
+              <span>28/32 teams · Starting next week</span>
+            </li>
+            <li className={styles.widgetItem}>
+              <strong>Latvian Friendly League</strong>
+              <span>6/8 teams · Open registration</span>
+            </li>
           </ul>
-        )}
-
-        <div className={styles.genActions}>
-          <Button variant="secondary" size="lg" fullWidth onClick={handleFinalSubmit} disabled={loading || !canCreate}>
-            <Lineicons icon={Trophy1Outlined} size={18} /> {loading ? 'Creating...' : 'Create Tournament'}
-          </Button>
-          <Button
-            variant="outlineWhite"
-            size="sm"
-            onClick={() => setStep('info')}
-            disabled={loading}
-            className={styles.opacity08}
-          >
-
-            Go Back
-          </Button>
         </div>
-      </HeroCard>
+
+        <div className={styles.widget}>
+          <h3>
+            <Question size={20} weight="bold" /> Creation Tips
+          </h3>
+          <div className={styles.faqItem}>
+            <strong>Registration Types</strong>
+            <p>Validated: Managers join themselves. Manual: You add everyone yourself.</p>
+          </div>
+          <div className={styles.faqItem}>
+            <strong>Team Eligibility</strong>
+            <p>Ensure teams match the tournament category (Male or HFI) before adding.</p>
+          </div>
+        </div>
+      </aside>
     </div>
   );
 };

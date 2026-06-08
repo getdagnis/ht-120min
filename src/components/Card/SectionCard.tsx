@@ -1,6 +1,5 @@
 import React from 'react';
-import { Lineicons } from '@lineiconshq/react-lineicons';
-import { ChevronDownOutlined, ChevronUpOutlined } from '@lineiconshq/free-icons';
+import { CaretDown, CaretUp } from 'phosphor-react';
 import styles from './SectionCard.module.sass';
 
 interface SectionCardProps {
@@ -42,9 +41,9 @@ export const SectionCard: React.FC<SectionCardProps> = ({
           {collapsible && (
             <button className={styles.collapseBtn} type="button">
               {isCollapsed ? (
-                <Lineicons icon={ChevronDownOutlined} size={20} />
+                <CaretDown size={20} weight="bold" />
               ) : (
-                <Lineicons icon={ChevronUpOutlined} size={20} />
+                <CaretUp size={20} weight="bold" />
               )}
             </button>
           )}

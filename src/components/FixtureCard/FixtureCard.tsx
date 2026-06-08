@@ -1,6 +1,5 @@
 import React from 'react';
-import { Lineicons } from '@lineiconshq/react-lineicons';
-import { Link2AngularRightOutlined, ArrowAngularTopRightOutlined } from '@lineiconshq/free-icons';
+import { ArrowRight, ArrowUpRight } from 'phosphor-react';
 import styles from './FixtureCard.module.sass';
 
 interface TeamProps {
@@ -24,7 +23,7 @@ export const FixtureCard: React.FC<FixtureCardProps> = ({ homeTeam, awayTeam, st
   const badgeContent = (
     <div className={`${styles.statusBadge} ${styles[status]}`}>
       {status.replace('_', ' ').toUpperCase()}{' '}
-      <Lineicons icon={ArrowAngularTopRightOutlined} size={16} className={styles.statusBadgeIcon} />
+      <ArrowUpRight size={16} weight="bold" className={styles.statusBadgeIcon} />
     </div>
   );
 
@@ -47,7 +46,7 @@ export const FixtureCard: React.FC<FixtureCardProps> = ({ homeTeam, awayTeam, st
               <span>
                 {homeTeam.managerName || 'UNKNOWN'} / {homeTeam.htTeamId}
               </span>
-              <Lineicons icon={Link2AngularRightOutlined} size={12} />
+              <ArrowRight size={12} weight="bold" />
             </a>
           </div>
           {homeTeam.warning && (
@@ -102,7 +101,7 @@ export const FixtureCard: React.FC<FixtureCardProps> = ({ homeTeam, awayTeam, st
               rel="noopener noreferrer"
               className={styles.linkIcon}
             >
-              <Lineicons icon={Link2AngularRightOutlined} size={12} />
+              <ArrowRight size={12} weight="bold" />
             </a>
             <span>
               {awayTeam.managerName || 'UNKNOWN'} / {awayTeam.htTeamId}

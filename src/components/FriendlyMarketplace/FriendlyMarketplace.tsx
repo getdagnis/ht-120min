@@ -2,8 +2,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { supabase } from '../../lib/supabase';
 import { Button } from '../Button/Button';
 import { Card } from '../Card/Card';
-import { Lineicons } from '@lineiconshq/react-lineicons';
-import { HandShakeOutlined, PlusOutlined, XmarkCircleOutlined, EnterOutlined } from '@lineiconshq/free-icons';
+import { Handshake, Plus, XCircle, ArrowSquareOut } from 'phosphor-react';
 import styles from './FriendlyMarketplace.module.sass';
 
 interface MarketplacePost {
@@ -80,7 +79,7 @@ export const FriendlyMarketplace: React.FC<FriendlyMarketplaceProps> = ({ classN
   return (
     <div className={className}>
       <div className={styles.sectionHeader}>
-        <Lineicons icon={HandShakeOutlined} className={styles.sectionIcon} size={24} />
+        <Handshake size={24} weight="bold" className={styles.sectionIcon} />
         <h2>Marketplace</h2>
       </div>
       <Card className={styles.marketplaceCard}>
@@ -88,7 +87,7 @@ export const FriendlyMarketplace: React.FC<FriendlyMarketplaceProps> = ({ classN
           <p>Looking for a single 120 min friendly partner? Post your request or apply below.</p>
           {!isPosting ? (
             <Button size="sm" onClick={() => setIsPosting(true)} variant="secondaryYellow" fullWidth>
-              <Lineicons icon={PlusOutlined} size={16} /> Post Request
+              <Plus size={16} weight="bold" /> Post Request
             </Button>
           ) : (
             <form onSubmit={handlePostRequest} className={styles.postForm}>
@@ -117,7 +116,7 @@ export const FriendlyMarketplace: React.FC<FriendlyMarketplaceProps> = ({ classN
                   {isSavingPost ? 'Posting...' : 'Post'}
                 </Button>
                 <Button size="sm" variant="secondary" onClick={() => setIsPosting(false)}>
-                  <Lineicons icon={XmarkCircleOutlined} size={16} />
+                  <XCircle size={16} weight="bold" />
                 </Button>
               </div>
             </form>
@@ -140,7 +139,7 @@ export const FriendlyMarketplace: React.FC<FriendlyMarketplaceProps> = ({ classN
                     window.open(`https://www.hattrick.org/goto.ashx?path=/Club/?TeamID=${post.ht_team_id}`, '_blank')
                   }
                 >
-                  Apply <Lineicons icon={EnterOutlined} size={12} />
+                  Apply <ArrowSquareOut size={12} weight="bold" />
                 </Button>
               </div>
             ))

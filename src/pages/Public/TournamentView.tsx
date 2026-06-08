@@ -1373,7 +1373,6 @@ export const TournamentView: React.FC = () => {
         {isJoining && (
           <div className={styles.registrationFormWrapper}>
             <HeroCard title="Join This Tournament">
-
               <div className={styles.joinHeroImageWrapper}>
                 <img src="/register.png" alt="Join Tournament" className={styles.joinHeroImage} />
                 {isConnecting && (
@@ -1482,7 +1481,6 @@ export const TournamentView: React.FC = () => {
       {activeTab === 'standings' && (
         <SectionCard title="🏆 Standings" headerThumbnailIndex={tournament.thumbnail_index}>
           <div className={styles.tableWrapper}>
-
             <table>
               <thead>
                 <tr>
@@ -1655,20 +1653,17 @@ export const TournamentView: React.FC = () => {
             </div>
           )}
         </SectionCard>
-
       )}
 
       {activeTab === 'fixtures' && (
         <div className={styles.rounds}>
           {!isGenerated ? (
             <SectionCard>
-
               <div className={styles.openMessage}>
                 <h2>Registration Open</h2>
                 <p>This tournament is still open for registration, you can invite someone to join.</p>
               </div>
             </SectionCard>
-
           ) : (
             <>
               {rounds.slice(0, visibleRoundsCount).map((round) => (
@@ -1780,7 +1775,6 @@ export const TournamentView: React.FC = () => {
       {activeTab === 'guestbook' && (
         <div className={styles.guestbook}>
           <SectionCard title="News & Announcements">
-
             <div className={styles.newsTabs}>
               <button className={newsMode === 'team' ? styles.active : ''} onClick={() => setNewsMode('team')}>
                 Team News
@@ -1884,7 +1878,6 @@ export const TournamentView: React.FC = () => {
               )}
             </div>
           </SectionCard>
-
         </div>
       )}
 
@@ -1947,10 +1940,8 @@ export const TournamentView: React.FC = () => {
           </div>
           <div className={styles.statsSidebar}>
             <SectionCard title="Tournament Stats">
-
               <p className={styles.muted}>Stats placeholder: cards, injuries, etc.</p>
             </SectionCard>
-
           </div>
         </div>
       )}
@@ -1959,7 +1950,6 @@ export const TournamentView: React.FC = () => {
         <div className={styles.adminSection}>
           {!isAdminAuthenticated ? (
             <SectionCard title="Admin Access">
-
               <form onSubmit={handleAdminLogin} className={styles.adminAuthForm}>
                 <div className={styles.authField}>
                   <label>Tournament Password</label>
@@ -1990,7 +1980,6 @@ export const TournamentView: React.FC = () => {
                 </div>
               </form>
             </SectionCard>
-
           ) : (
             <div className={adminStyles.admin}>
               <div className={adminStyles.mainGrid}>
@@ -2001,7 +1990,6 @@ export const TournamentView: React.FC = () => {
                     isCollapsed={isSettingsCollapsed}
                     onToggleCollapse={() => setIsSettingsCollapsed(!isSettingsCollapsed)}
                   >
-
                     <div className={adminStyles.settingsGroup}>
                       {/* EDIT TOURNAMENT NAME **
                       <div className={adminStyles.field}>
@@ -2221,7 +2209,6 @@ export const TournamentView: React.FC = () => {
                       localStorage.setItem(`teams_collapsed_${slug}`, JSON.stringify(newState));
                     }}
                   >
-
                     {(!isGenerated || teams.some((t) => !t.active) || teams.length % 2 !== 0) && (
                       <div className={adminStyles.addTeamSection}>
                         <h3 className={adminStyles.sectionTitle}>
@@ -2592,7 +2579,6 @@ export const TournamentView: React.FC = () => {
                     </div>
                     {rounds.map((round) => (
                       <SectionCard key={round.id} title={`Round ${round.round_number}`}>
-
                         <div className={adminStyles.matches}>
                           {round.matches.map((match: MatchWithTeams) => {
                             return (

@@ -1,7 +1,6 @@
 import React, { useEffect } from 'react';
 import styles from './Modal.module.sass';
-import { Lineicons } from '@lineiconshq/react-lineicons';
-import { XmarkOutlined } from '@lineiconshq/free-icons';
+import { X } from 'phosphor-react';
 
 interface ModalProps {
   isOpen: boolean;
@@ -35,7 +34,7 @@ export const Modal: React.FC<ModalProps> = ({ isOpen, onClose, title, children, 
         <div className={styles.header}>
           {title && <h2 className={styles.title}>{title}</h2>}
           <button className={styles.closeBtn} onClick={onClose}>
-            <Lineicons icon={XmarkOutlined} size={24} />
+            <X size={24} weight="bold" />
           </button>
         </div>
         <div className={styles.content}>

@@ -16,6 +16,7 @@
     "@vercel/analytics": "^2.0.1",
     "@vercel/node": "^5.8.8",
     "nanoid": "^5.1.11",
+    "phosphor-react": "^1.4.1",
     "react": "^19.2.6",
     "react-dom": "^19.2.6",
     "react-router-dom": "^7.16.0",
