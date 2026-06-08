@@ -240,7 +240,7 @@ export const DESCRIPTIONS: string[] = [
   'We feed on extra minutes',
   'Why settle for 90 min drama when you can have 120+ mins of that?',
   'Why settle for 90 min drama when you can have 120+ mins?',
-  'I know what you did last extra time',
+  'I know what you did overtime',
   'The dark side of the extra time',
   'Everybody bites the extra time',
   'Burning the midnight minutes',
@@ -262,6 +262,7 @@ export const DESCRIPTIONS: string[] = [
   'Want to confuse your date? Ask them out for 120 minutes',
   "I'd date you for 120 minutes any day",
   '120 minutes this wednesday? Sounds like a date to me',
+  'Rage Against the Match Engine',
 ];
 
 export const EXTRA_TIME_TOURNAMENT_NAMES = [
@@ -491,6 +492,29 @@ export const UNIVERSAL_TOURNAMENT_NAMES = [
   'Prestigious Tournament Of Prestige',
   'Absolutely Normal Tournament',
   'Historic Event Since Last Week',
+];
+
+export const TOURNAMENT_DEFAULT_120MIN = [
+  'Winning is weak. Drawing is divine',
+  'Points are passable. Extra 30 minutes are titanic',
+  'Life is short. Matches should be longer',
+  'Think outside the 90 minutes',
+  'Training starts after 90',
+  'Come for the points. Stay for the extra minutes',
+  'Wretched 90 minutes. Utopian 120',
+  'One does not simply finish in 90 minutes',
+  'Life Begins After 90!',
+  'The Fellowship Of The Draw',
+  'Friendlies are temporary. Screenshots of the standings are forever',
+  'The schedule is automatic. The drama is not',
+  'Everyone is friendly until the standings are published',
+  "One man's draw is another man's training",
+  'Give your opponent a point and be rewarded with eternity',
+  'What happens in extra time, stays in extra time',
+  'Start slow, finish late',
+  'The answer is additional minutes. What was the question?',
+  'Some minutes are more important than others',
+  'The Ministry Of Silly Match Orders',
 ];
 
 export const TOURNAMENT_NAMES = [...EXTRA_TIME_TOURNAMENT_NAMES, ...UNIVERSAL_TOURNAMENT_NAMES];

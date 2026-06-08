@@ -12,13 +12,12 @@ import { generateRoundRobin, generateRecurring } from '../../utils/scheduler';
 import { teamMatchesCategory } from '../../utils/team-eligibility';
 import { TeamDisplay } from '../../components/TeamDisplay/TeamDisplay';
 import { Modal } from '../../components/Modal/Modal';
-import { DESCRIPTIONS } from '../../constants/descriptions';
+import { TOURNAMENT_DEFAULT_120MIN } from '../../constants/descriptions';
 import styles from './TournamentView.module.sass';
 import adminStyles from './TournamentAdmin.module.sass';
 import { FixtureCard } from '../../components/FixtureCard/FixtureCard';
 import { MottoWidget } from '../../components/MottoWidget/MottoWidget';
 import { ArrowClockwise, Trash } from 'phosphor-react';
-
 
 interface ChppTeamOption {
   teamId: number;
@@ -263,7 +262,7 @@ export const TournamentView: React.FC = () => {
   );
 
   const regenerateDescription = (isQuick: boolean) => {
-    const randomDesc = DESCRIPTIONS[Math.floor(Math.random() * DESCRIPTIONS.length)];
+    const randomDesc = TOURNAMENT_DEFAULT_120MIN[Math.floor(Math.random() * TOURNAMENT_DEFAULT_120MIN.length)];
     if (isQuick) setQuickDescription(randomDesc);
     else setEditDescription(randomDesc);
   };
@@ -650,9 +649,12 @@ export const TournamentView: React.FC = () => {
         const ageInMinutes = (new Date().getTime() - lastMsg.getTime()) / 60000;
 
         let interval = 60000; // 1 min
-        if (ageInMinutes < 10) interval = 1000; // 1 sec
-        else if (ageInMinutes < 60) interval = 10000; // 10 secs
-        else if (ageInMinutes < 30) interval = 5000; // 5 secs (old rule)
+        if (ageInMinutes < 10)
+          interval = 1000; // 1 sec
+        else if (ageInMinutes < 60)
+          interval = 10000; // 10 secs
+        else if (ageInMinutes < 30)
+          interval = 5000; // 5 secs (old rule)
         else if (ageInMinutes < 480) interval = 20000; // 20 secs
 
         clearInterval(pollInterval);
@@ -1251,8 +1253,11 @@ export const TournamentView: React.FC = () => {
               <div className={styles.quickAddDesc}>
                 <div className={adminStyles.labelRow}>
                   <label>Add Description</label>
-                  <button type="button" onClick={() => regenerateDescription(true)} className={adminStyles.iconBtn}>
-                  </button>
+                  <button
+                    type="button"
+                    onClick={() => regenerateDescription(true)}
+                    className={adminStyles.iconBtn}
+                  ></button>
                 </div>
 
                 <div className={styles.quickAddActions}>
@@ -1368,8 +1373,7 @@ export const TournamentView: React.FC = () => {
                     setIsConnecting(true);
                     window.location.href = `/api/auth/init?tournament_id=${tournament?.id}`;
                   }}
-                >
-                </Button>
+                ></Button>
                 <p className={styles.registrationLinkNote}>
                   Authorize HT-120min to fetch your team data and update results automatically.
                 </p>
@@ -1406,8 +1410,7 @@ export const TournamentView: React.FC = () => {
                   size="sm"
                   className={styles.joinButton}
                   disabled={isConnecting}
-                >
-                </Button>
+                ></Button>
               )}
             </div>
           </div>
@@ -1424,8 +1427,7 @@ export const TournamentView: React.FC = () => {
               setIsJoinedNoticeDismissed(true);
               localStorage.setItem(`joined_notice_dismissed_${slug}`, 'true');
             }}
-          >
-          </button>
+          ></button>
         </div>
       )}
 
@@ -1489,17 +1491,13 @@ export const TournamentView: React.FC = () => {
                                   {s.teamName}
                                   {isMyTeam && <span className={styles.myTeamBadge}> (You)</span>}
                                 </span>
-                                {s.joinedViaOauth && (
-                                  <span title="Hattrick Validated Team">
-                                  </span>
-                                )}
+                                {s.joinedViaOauth && <span title="Hattrick Validated Team"></span>}
                                 <a
                                   href={`https://www.hattrick.org/goto.ashx?path=/Club/?TeamID=${s.htTeamId}`}
                                   target="_blank"
                                   rel="noopener noreferrer"
                                   className={styles.htLink}
-                                >
-                                </a>
+                                ></a>
                               </div>
                               {s.htTeamId && <span className={styles.teamId}>ID: {s.htTeamId}</span>}
                             </div>
@@ -1550,8 +1548,7 @@ export const TournamentView: React.FC = () => {
                                   size="sm"
                                   onClick={handleInvite}
                                   className={`${styles.inviteSpotBtn} ${styles.noPadding}`}
-                                >
-                                </Button>
+                                ></Button>
                                 <span className={styles.spotLabel}>{spot.name}</span>
                               </div>
                             </div>
@@ -1601,8 +1598,7 @@ export const TournamentView: React.FC = () => {
                       variant="outlineWhite"
                       size="sm"
                       disabled={isConnecting}
-                    >
-                    </Button>
+                    ></Button>
                     <Button
                       onClick={() => {
                         const msg = `You are invited to join "${tournament.name}" (Season ${tournament.season}) on HT-120min! Register your team here: ${publicUrl}`;
@@ -1611,8 +1607,7 @@ export const TournamentView: React.FC = () => {
                       }}
                       variant="outlineWhite"
                       size="sm"
-                    >
-                    </Button>
+                    ></Button>
                   </div>
                 </div>
               )}
@@ -1623,8 +1618,7 @@ export const TournamentView: React.FC = () => {
             <SectionCard title="News Feed">
               <ul className={styles.newsFeed}>
                 <li className={styles.feedItem}>
-                  <div className={styles.feedIcon}>
-                  </div>
+                  <div className={styles.feedIcon}></div>
                   <div className={styles.feedContent}>
                     <p>New cup registration is now open!</p>
                     <span>2 hours ago</span>
@@ -1946,8 +1940,7 @@ export const TournamentView: React.FC = () => {
                   />
                 </div>
                 {adminAuthError && <p className={styles.authError}>Invalid password. Please try again.</p>}
-                <Button type="submit" variant="primary" size="lg">
-                </Button>
+                <Button type="submit" variant="primary" size="lg"></Button>
 
                 <div className={styles.adminAuthFooter}>
                   {failedLoginAttempt ? (
@@ -1999,8 +1992,7 @@ export const TournamentView: React.FC = () => {
                               navigator.clipboard.writeText(publicUrl);
                               alert('URL copied!');
                             }}
-                          >
-                          </Button>
+                          ></Button>
                         </div>
                         <div className={adminStyles.metaItem}>
                           {!isMobile ? (
@@ -2017,8 +2009,7 @@ export const TournamentView: React.FC = () => {
                               navigator.clipboard.writeText(tournament.admin_password);
                               alert("Password copied! Don't lose it.");
                             }}
-                          >
-                          </Button>
+                          ></Button>
                         </div>
                       </div>
 
@@ -2120,8 +2111,7 @@ export const TournamentView: React.FC = () => {
                                 type="button"
                                 onClick={() => regenerateDescription(false)}
                                 className={adminStyles.iconBtn}
-                              >
-                              </button>
+                              ></button>
                             )}
                           </div>
                         </div>
@@ -2260,19 +2250,13 @@ export const TournamentView: React.FC = () => {
                                           );
                                           alert('Invitation template for ' + newTeamName + ' copied!');
                                         }}
-                                      >
-                                      </Button>
+                                      ></Button>
                                     </div>
                                   )}
                                 </div>
                               ) : (
                                 <Button type="submit" disabled={isSavingTeam} variant="primary">
-                                  {isSavingTeam ? (
-                                    'Saving...'
-                                  ) : (
-                                    <>
-                                    </>
-                                  )}
+                                  {isSavingTeam ? 'Saving...' : <></>}
                                 </Button>
                               )}
                             </>
@@ -2286,10 +2270,7 @@ export const TournamentView: React.FC = () => {
                           <div className={adminStyles.teamInfo}>
                             <div className={styles.nameRow}>
                               <span className={adminStyles.name}>{team.name}</span>
-                              {team.joined_via_oauth && (
-                                <span title="Hattrick Validated Team">
-                                </span>
-                              )}
+                              {team.joined_via_oauth && <span title="Hattrick Validated Team"></span>}
                             </div>
                             {team.ht_team_id && <span className={adminStyles.id}>ID: {team.ht_team_id}</span>}
                             {!team.active && <span className={adminStyles.statusBadge}>Inactive</span>}
@@ -2405,8 +2386,7 @@ export const TournamentView: React.FC = () => {
                                           onClick={() => fetchTeamData(replacementHtId, true)}
                                           disabled={isFetchingTeamData}
                                           variant="primary"
-                                        >
-                                        </Button>
+                                        ></Button>
                                       )}
                                       {replacementName && (
                                         <Button
@@ -2426,13 +2406,11 @@ export const TournamentView: React.FC = () => {
                                           setReplacementHtId('');
                                           setReplacementName('');
                                         }}
-                                      >
-                                      </Button>
+                                      ></Button>
                                     </div>
                                   </div>
                                 ) : (
-                                  <Button size="sm" variant="zero" onClick={() => setReplacingTeamId(team.id)}>
-                                  </Button>
+                                  <Button size="sm" variant="zero" onClick={() => setReplacingTeamId(team.id)}></Button>
                                 )}
                               </div>
                             )}
@@ -2466,8 +2444,7 @@ export const TournamentView: React.FC = () => {
                               );
                               alert('Invitation copied!');
                             }}
-                          >
-                          </Button>
+                          ></Button>
                         </div>
                       )}
                     </div>
@@ -2512,8 +2489,7 @@ export const TournamentView: React.FC = () => {
                             fullWidth
                             onClick={generateSchedule}
                             disabled={teams.filter((t) => t.active).length < 2 || isGenerating}
-                          >
-                          </Button>
+                          ></Button>
                           <p className="center w-100">Generating schedule will also close registration. </p>
                         </div>
                       ) : (
@@ -2635,8 +2611,7 @@ export const TournamentView: React.FC = () => {
                                         onClick={() => updateMatch(match.id)}
                                         variant="primary"
                                         title="Save"
-                                      >
-                                      </Button>
+                                      ></Button>
                                       <Button
                                         size="xs"
                                         variant="danger"
@@ -2646,15 +2621,13 @@ export const TournamentView: React.FC = () => {
                                             updateMatch(match.id, true);
                                           }
                                         }}
-                                      >
-                                      </Button>
+                                      ></Button>
                                       <Button
                                         size="xs"
                                         variant="outline"
                                         onClick={() => setEditingMatch(null)}
                                         title="Cancel"
-                                      >
-                                      </Button>
+                                      ></Button>
                                     </div>
                                   </div>
                                 ) : (

@@ -514,14 +514,14 @@ export const CreateTournament: React.FC = () => {
                   />
                 </div>
                 <div className={styles.field}>
-                  <label htmlFor="league_category">Tournament Category</label>
+                  <label htmlFor="league_category">Tournament Gender</label>
                   <select
                     id="league_category"
                     value={formData.league_category}
                     onChange={(e) => setFormData({ ...formData, league_category: e.target.value })}
                   >
-                    <option value="male">Regular league (male)</option>
-                    <option value="hfi">Hattrick Femme International (HFI)</option>
+                    <option value="male">Regular league (male) 👨🏻</option>
+                    <option value="hfi">Hattrick Femme International (HFI) 👩🏽‍🦰</option>
                   </select>
                 </div>
                 <div className={styles.field}>
@@ -531,13 +531,13 @@ export const CreateTournament: React.FC = () => {
                     value={formData.registration_type}
                     onChange={(e) => setFormData({ ...formData, registration_type: e.target.value })}
                   >
-                    <option value="validated">Hattrick Validated (CHPP)</option>
-                    <option value="manual">Organizer-Managed</option>
+                    <option value="validated">Hattrick Validated (CHPP) 🔐</option>
+                    <option value="manual">Organizer-Managed 🔓</option>
                   </select>
                   <p className={styles.small}>
                     {formData.registration_type === 'validated'
-                      ? 'Only managers themselves can join with their teams.'
-                      : 'Organizer can add teams, but anyone can still self-register.'}
+                      ? 'Only managers themselves can join with their teams. Automated fixtures and challenges.'
+                      : 'Organizer can add teams with partial data access, and self-updates results.'}
                   </p>
                 </div>
                 <div className={styles.field}>
@@ -548,8 +548,8 @@ export const CreateTournament: React.FC = () => {
                     value={formData.scoring_mode}
                     onChange={(e) => setFormData({ ...formData, scoring_mode: e.target.value })}
                   >
-                    <option value="120min">🪫 Rank by 120 minute achievements</option>
-                    <option value="points">🥇 Regular 90 min friendlies (3p/1p/0)</option>
+                    <option value="120min">Rank by 120 minute achievements ⏱</option>
+                    <option value="points">Regular 90 min friendlies (3p/1p/0) 🥇</option>
                   </select>
                 </div>
                 <div className={styles.field}>
@@ -678,17 +678,20 @@ export const CreateTournament: React.FC = () => {
                       </p>
                     ) : eligibleTeams.length === 1 ? (
                       <p>
-                        You have one team eligible for a <strong>{categoryLabel}</strong> tournament. Select it to continue.
+                        You have one team eligible for a <strong>{categoryLabel}</strong> tournament. Select it to
+                        continue.
                       </p>
                     ) : (
                       <p>
-                        Choose which team will join this <strong>{categoryLabel}</strong> tournament. Other managers join
-                        themselves via the public link later.
+                        Choose which team will join this <strong>{categoryLabel}</strong> tournament. Other managers
+                        join themselves via the public link later.
                       </p>
                     )}
 
                     {eligibleTeams.length === 0 && !modalLoading && (
-                      <p className={styles.empty}>None of your teams match this tournament category ({categoryLabel}).</p>
+                      <p className={styles.empty}>
+                        None of your teams match this tournament category ({categoryLabel}).
+                      </p>
                     )}
 
                     <div className={styles.teamOptionsList}>
