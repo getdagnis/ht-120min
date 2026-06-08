@@ -5,6 +5,7 @@ import styles from './SectionCard.module.sass';
 interface SectionCardProps {
   children: React.ReactNode;
   title?: string | React.ReactElement;
+  subtitle?: string | React.ReactElement;
   headerRight?: string | React.ReactElement;
   className?: string;
   collapsible?: boolean;
@@ -16,6 +17,7 @@ interface SectionCardProps {
 export const SectionCard: React.FC<SectionCardProps> = ({
   children,
   title,
+  subtitle,
   headerRight,
   className = '',
   collapsible = false,
@@ -24,9 +26,7 @@ export const SectionCard: React.FC<SectionCardProps> = ({
   headerThumbnailIndex,
 }) => {
   return (
-    <div
-      className={`${styles.card} ${className} ${collapsible ? styles.collapsible : ''}`}
-    >
+    <div className={`${styles.card} ${className} ${collapsible ? styles.collapsible : ''}`}>
       {title && (
         <div className={styles.header} onClick={collapsible ? onToggleCollapse : undefined}>
           <div className={styles.headerLeft}>
@@ -35,16 +35,12 @@ export const SectionCard: React.FC<SectionCardProps> = ({
                 <img src={`/thumbs/thumb-${headerThumbnailIndex}.png`} alt="" />
               </div>
             )}
-            <h3 className={styles.title}>{title}</h3>
+            <h3 className={styles.title}>{title}</h3> {subtitle}
           </div>
           {headerRight}
           {collapsible && (
             <button className={styles.collapseBtn} type="button">
-              {isCollapsed ? (
-                <CaretDown size={20} weight="bold" />
-              ) : (
-                <CaretUp size={20} weight="bold" />
-              )}
+              {isCollapsed ? <CaretDown size={20} weight="bold" /> : <CaretUp size={20} weight="bold" />}
             </button>
           )}
         </div>

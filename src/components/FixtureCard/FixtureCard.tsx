@@ -23,7 +23,9 @@ export const FixtureCard: React.FC<FixtureCardProps> = ({ homeTeam, awayTeam, st
   const badgeContent = (
     <div className={`${styles.statusBadge} ${styles[status]}`}>
       {status.replace('_', ' ').toUpperCase()}{' '}
-      <ArrowUpRight size={16} weight="bold" className={styles.statusBadgeIcon} />
+      {['arranged', 'ongoing', 'finished'].includes(status) && (
+        <ArrowUpRight size={16} weight="bold" className={styles.statusBadgeIcon} />
+      )}
     </div>
   );
 
@@ -44,9 +46,9 @@ export const FixtureCard: React.FC<FixtureCardProps> = ({ homeTeam, awayTeam, st
               className={styles.linkIcon}
             >
               <span>
-                {homeTeam.managerName || 'UNKNOWN'} / {homeTeam.htTeamId}
+                By {homeTeam.managerName || 'UNKNOWN'} / ID: {homeTeam.htTeamId}
               </span>
-              <ArrowRight size={12} weight="bold" />
+              <ArrowRight size={12} weight="bold" style={{ marginLeft: '0.25rem' }} />
             </a>
           </div>
           {homeTeam.warning && (
@@ -101,11 +103,11 @@ export const FixtureCard: React.FC<FixtureCardProps> = ({ homeTeam, awayTeam, st
               rel="noopener noreferrer"
               className={styles.linkIcon}
             >
-              <ArrowRight size={12} weight="bold" />
+              <span>
+                By {awayTeam.managerName || 'UNKNOWN'} / ID: {awayTeam.htTeamId}
+              </span>
+              <ArrowRight size={12} weight="bold" style={{ marginLeft: '0.25rem' }} />
             </a>
-            <span>
-              {awayTeam.managerName || 'UNKNOWN'} / {awayTeam.htTeamId}
-            </span>
           </div>
           {awayTeam.warning && (
             <div className={styles.warningRow}>

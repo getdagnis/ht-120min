@@ -12,12 +12,12 @@ import { generateRoundRobin, generateRecurring } from '../../utils/scheduler';
 import { teamMatchesCategory } from '../../utils/team-eligibility';
 import { TeamDisplay } from '../../components/TeamDisplay/TeamDisplay';
 import { Modal } from '../../components/Modal/Modal';
-import { TOURNAMENT_DEFAULT_120MIN } from '../../constants/descriptions';
+import { TOURNAMENT_DEFAULT } from '../../constants/descriptions';
 import styles from './TournamentView.module.sass';
 import adminStyles from './TournamentAdmin.module.sass';
 import { FixtureCard } from '../../components/FixtureCard/FixtureCard';
 import { MottoWidget } from '../../components/MottoWidget/MottoWidget';
-import { ArrowClockwise, Trash } from 'phosphor-react';
+import { ArrowClockwise, ArrowUpRight, Trash } from 'phosphor-react';
 
 interface ChppTeamOption {
   teamId: number;
@@ -262,7 +262,7 @@ export const TournamentView: React.FC = () => {
   );
 
   const regenerateDescription = (isQuick: boolean) => {
-    const randomDesc = TOURNAMENT_DEFAULT_120MIN[Math.floor(Math.random() * TOURNAMENT_DEFAULT_120MIN.length)];
+    const randomDesc = TOURNAMENT_DEFAULT[Math.floor(Math.random() * TOURNAMENT_DEFAULT.length)];
     if (isQuick) setQuickDescription(randomDesc);
     else setEditDescription(randomDesc);
   };
@@ -608,6 +608,7 @@ export const TournamentView: React.FC = () => {
         }
       }
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activeTab]);
 
   const handleTabChange = (tab: 'standings' | 'fixtures' | 'guestbook' | 'admin') => {
@@ -1232,23 +1233,6 @@ export const TournamentView: React.FC = () => {
               Season {tournament.season}
               {tournament.status === 'finished' && <span> • Finished</span>}
             </p>
-            {/* {tournament.organizer_name && (
-                      <div className={styles.organizerInfo}>
-                <span className={styles.organizerLabel}>Organizer:</span>
-                <span className={styles.organizerName}>
-                  {tournament.organizer_id && (
-                    <a
-                      href={`https://www.hattrick.org/goto.ashx?path=/Club/Manager/?userId=${tournament.organizer_id}`}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className={`${styles.htLink} ${styles.headerBadge}`}
-                    >
-                      {tournament.organizer_name}
-                    </a>
-                  )}
-                </span>
-              </div>
-            )} */}
             {isAddingDescription && (
               <div className={styles.quickAddDesc}>
                 <div className={adminStyles.labelRow}>
@@ -1276,7 +1260,6 @@ export const TournamentView: React.FC = () => {
                 <p>{tournament.description}</p>
               </div>
             )}
-            {/* user written descriptions: do not change */}
             {is120minMode ? (
               <div className={styles.scoringHelp}>
                 <p>
@@ -1614,7 +1597,7 @@ export const TournamentView: React.FC = () => {
             </SectionCard>
           </div>
           <aside className={styles.statsSidebar}>
-            <MottoWidget />
+            <MottoWidget items={TOURNAMENT_DEFAULT} />
             <SectionCard title="News Feed">
               <ul className={styles.newsFeed}>
                 <li className={styles.feedItem}>
@@ -1924,7 +1907,29 @@ export const TournamentView: React.FC = () => {
       {activeTab === 'admin' && (
         <div className={styles.adminSection}>
           {!isAdminAuthenticated ? (
-            <SectionCard title="Admin Access">
+            <SectionCard
+              title="Admin Access"
+              subtitle={
+                tournament.organizer_name && (
+                  <div className={styles.organizerInfo}>
+                    <span className={styles.organizerLabel}>Organizer: </span>
+                    <span className={styles.organizerName}>
+                      {tournament.organizer_id && (
+                        <a
+                          href={`https://www.hattrick.org/goto.ashx?path=/Club/Manager/?userId=${tournament.organizer_id}`}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className={`${styles.htLink} ${styles.headerBadge}`}
+                        >
+                          {tournament.organizer_name}{' '}
+                          <ArrowUpRight size={16} weight="bold" style={{ marginLeft: '0.25rem' }} />
+                        </a>
+                      )}
+                    </span>
+                  </div>
+                )
+              }
+            >
               <form onSubmit={handleAdminLogin} className={styles.adminAuthForm}>
                 <div className={styles.authField}>
                   <label>Tournament Password</label>
@@ -1947,7 +1952,7 @@ export const TournamentView: React.FC = () => {
                     <p className={styles.adminAuthNote}>Forgot password? Recover with a registered email.</p>
                   ) : (
                     <a href="/create" className={styles.adminAuthLink}>
-                      Want to be an admin? <u>start your own tournament</u>.
+                      Want to be an admin? <u>Start your own tournament</u>.
                     </a>
                   )}
                 </div>
@@ -2231,7 +2236,7 @@ export const TournamentView: React.FC = () => {
                                     onClick={() => setIsInviteExpanded(!isInviteExpanded)}
                                     className={styles.mt05}
                                   >
-                                    {isInviteExpanded ? 'Hide Invitation Template' : 'Invite a Team'}
+                                    {isInviteExpanded ? 'Hide Invitation Template' : 'Show invitation template'}
                                   </Button>
                                   {isInviteExpanded && (
                                     <div className={styles.inviteTemplateWrapper}>
@@ -2426,11 +2431,11 @@ export const TournamentView: React.FC = () => {
                         onClick={() => setIsInviteExpanded(!isInviteExpanded)}
                         className={adminStyles.inviteBtn}
                       >
-                        {isInviteExpanded ? 'Hide invitation' : 'Invite a Team'}
+                        {isInviteExpanded ? 'Invitation template' : 'Invite a Team'}
                       </Button>
                       {isInviteExpanded && (
                         <div className={adminStyles.templateBox}>
-                          <label className={adminStyles.inviteLabel}>Hattrick Invitation Template</label>
+                          <label className={adminStyles.inviteLabel}>Share this with your Hattrick buddies</label>
                           <textarea
                             readOnly
                             value={`You are invited to join "${tournament.name}" (Season ${tournament.season}) on HT-120min! Register your team here: ${publicUrl}`}
