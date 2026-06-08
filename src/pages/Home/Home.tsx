@@ -339,32 +339,30 @@ export const Home: React.FC = () => {
 
         <div className={styles.features}>
           <Card className={styles.feature}>
-            <Trophy size={40} weight="bold" />
-            <h3>120min scoring</h3>
+            <div className={styles.featurePlaceholder} style={{ background: '#ddd', height: '150px' }}>
+              Organizer buried under papers, mascot vacuuming
+            </div>
+            <h3>Run tournaments, not spreadsheets</h3>
             <p>
-              120min friendlies are not about winning the games! Opting for a 120min tournament will award you for
-              achieving just that!
+              Create leagues, cups and recurring competitions in minutes. HT-120min handles schedules, fixtures and administration so you can focus on your community.
             </p>
           </Card>
           <Card className={styles.feature}>
-            <Heartbeat size={40} weight="bold" />
-            <h3>Recurring Friendlies</h3>
+            <div className={styles.featurePlaceholder} style={{ background: '#ddd', height: '150px' }}>
+              Organizer running after 6 managers, traffic controller mascot
+            </div>
+            <h3>Never chase managers again</h3>
             <p>
-              Don't want to play a full-size tournament? You can also just use HT-120min to schedule and track recurring
-              120min or regular friendlies.
+              Automatic scheduling, challenge tracking, live standings and match updates eliminate most of the repetitive work that makes tournament administration painful.
             </p>
           </Card>
           <Card className={styles.feature}>
-            <Heartbeat size={40} weight="bold" />
-            <h3>Round Robin</h3>
-            <p>Generate schedule automatically. Choose between single, double round robins or recurring schedule!</p>
-          </Card>
-          <Card className={styles.feature}>
-            <TeamsIcon size={40} />
-            <h3>Simple Admin</h3>
+            <div className={styles.featurePlaceholder} style={{ background: '#ddd', height: '150px' }}>
+              Two old managers pointing at a "Hall of Fame" wall
+            </div>
+            <h3>Build rivalries, not just fixtures</h3>
             <p>
-              No accounts needed. Manage everything with a public URL and a password that you can share or keep to
-              yourself.
+              Achievements, club profiles, records and community leaderboards turn friendly matches into long-term stories managers actually care about.
             </p>
           </Card>
         </div>

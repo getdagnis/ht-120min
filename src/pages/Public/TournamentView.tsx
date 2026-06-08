@@ -12,27 +12,11 @@ import { generateRoundRobin, generateRecurring } from '../../utils/scheduler';
 import { teamMatchesCategory } from '../../utils/team-eligibility';
 import { TeamDisplay } from '../../components/TeamDisplay/TeamDisplay';
 import { Modal } from '../../components/Modal/Modal';
-import { Lineicons } from '@lineiconshq/react-lineicons';
-import {
-  Link2AngularRightOutlined,
-  PlusOutlined,
-  Trash3Outlined,
-  RefreshCircle1ClockwiseOutlined,
-  XmarkOutlined,
-  PlayOutlined,
-  FloppyDisk1Outlined,
-  Share1Outlined,
-  CheckOutlined,
-  QuestionMarkCircleOutlined,
-  HandShakeOutlined,
-  Shield2CheckOutlined,
-  ChevronLeftOutlined,
-  Trophy1Outlined,
-} from '@lineiconshq/free-icons';
 import { DESCRIPTIONS } from '../../constants/descriptions';
 import styles from './TournamentView.module.sass';
 import adminStyles from './TournamentAdmin.module.sass';
 import { FixtureCard } from '../../components/FixtureCard/FixtureCard';
+import { MottoWidget } from '../../components/MottoWidget/MottoWidget';
 
 interface ChppTeamOption {
   teamId: number;
@@ -269,7 +253,7 @@ export const TournamentView: React.FC = () => {
   const [visibleRoundsCount, setVisibleRoundsCount] = useState(4);
 
   // UI state
-  const [showScoringHelp, setShowScoringHelp] = useState(false);
+  const [showScoringHelp] = useState(false);
   const [isAddingDescription, setIsAddingDescription] = useState(false);
   const [quickDescription, setQuickDescription] = useState('');
   const [isJoinedNoticeDismissed, setIsJoinedNoticeDismissed] = useState(
@@ -1254,7 +1238,6 @@ export const TournamentView: React.FC = () => {
                       className={`${styles.htLink} ${styles.headerBadge}`}
                     >
                       {tournament.organizer_name}
-                      <Lineicons icon={Link2AngularRightOutlined} size={12} />
                     </a>
                   )}
                 </span>
@@ -1265,7 +1248,6 @@ export const TournamentView: React.FC = () => {
                 <div className={adminStyles.labelRow}>
                   <label>Add Description</label>
                   <button type="button" onClick={() => regenerateDescription(true)} className={adminStyles.iconBtn}>
-                    <Lineicons icon={RefreshCircle1ClockwiseOutlined} size={16} />
                   </button>
                 </div>
 
@@ -1289,13 +1271,7 @@ export const TournamentView: React.FC = () => {
             {is120minMode ? (
               <div className={styles.scoringHelp}>
                 <p>
-                  <strong>120min training mode</strong>{' '}
-                  <Lineicons
-                    icon={QuestionMarkCircleOutlined}
-                    size={19}
-                    className={styles.helpIcon}
-                    onClick={() => setShowScoringHelp(!showScoringHelp)}
-                  />
+                  <strong>120min training mode</strong>
                 </p>
                 {showScoringHelp && (
                   <p className={styles.helpContent}>
@@ -1310,13 +1286,7 @@ export const TournamentView: React.FC = () => {
             ) : (
               <div className={styles.scoringHelp}>
                 <p>
-                  <strong>Victory points mode</strong>{' '}
-                  <Lineicons
-                    icon={QuestionMarkCircleOutlined}
-                    size={16}
-                    className={styles.helpIcon}
-                    onClick={() => setShowScoringHelp(!showScoringHelp)}
-                  />
+                  <strong>Victory points mode</strong>
                 </p>
                 {showScoringHelp && (
                   <p className={styles.helpContent}>
@@ -1350,7 +1320,6 @@ export const TournamentView: React.FC = () => {
                   setIsEditingImage(true);
                 }}
               >
-                <Lineicons icon={PlusOutlined} size={16} />
                 <span>{tournament?.image_url ? 'Edit Image' : 'Add Image'}</span>
               </div>
             )}
@@ -1359,7 +1328,6 @@ export const TournamentView: React.FC = () => {
 
         {isGenerated && !isHealthQuotaMet() && (
           <div className={styles.pauseNotice}>
-            <Lineicons icon={QuestionMarkCircleOutlined} size={24} />
             <div>
               <h3>Tournament Paused</h3>
               <p>
@@ -1377,7 +1345,6 @@ export const TournamentView: React.FC = () => {
                 <img src="/register.png" alt="Join Tournament" className={styles.joinHeroImage} />
                 {isConnecting && (
                   <div className={styles.imageLoaderOverlay}>
-                    <Lineicons icon={RefreshCircle1ClockwiseOutlined} size={40} className="spin" />
                     <p>Connecting to Hattrick...</p>
                   </div>
                 )}
@@ -1398,7 +1365,6 @@ export const TournamentView: React.FC = () => {
                     window.location.href = `/api/auth/init?tournament_id=${tournament?.id}`;
                   }}
                 >
-                  <Lineicons icon={HandShakeOutlined} size={20} /> Connect with Hattrick
                 </Button>
                 <p className={styles.registrationLinkNote}>
                   Authorize HT-120min to fetch your team data and update results automatically.
@@ -1437,7 +1403,6 @@ export const TournamentView: React.FC = () => {
                   className={styles.joinButton}
                   disabled={isConnecting}
                 >
-                  <Lineicons icon={HandShakeOutlined} size={22} /> {isGenerated ? 'Fill a Spot' : 'Join with Hattrick'}
                 </Button>
               )}
             </div>
@@ -1447,7 +1412,6 @@ export const TournamentView: React.FC = () => {
       {activeTab === 'standings' && hasJoined && !isJoinedNoticeDismissed && (
         <div className={styles.joinedNotice}>
           <div className={styles.joinedNoticeContent}>
-            <Lineicons icon={CheckOutlined} size={18} className={styles.validatedCheck} />
             <span>You are participating in this tournament! Good luck!</span>
           </div>
           <button
@@ -1457,7 +1421,6 @@ export const TournamentView: React.FC = () => {
               localStorage.setItem(`joined_notice_dismissed_${slug}`, 'true');
             }}
           >
-            <Lineicons icon={XmarkOutlined} size={32} />
           </button>
         </div>
       )}
@@ -1479,180 +1442,194 @@ export const TournamentView: React.FC = () => {
       </div>
 
       {activeTab === 'standings' && (
-        <SectionCard title="🏆 Standings" headerThumbnailIndex={tournament.thumbnail_index}>
-          <div className={styles.tableWrapper}>
-            <table>
-              <thead>
-                <tr>
-                  <th>#</th>
-                  <th>Team</th>
-                  {is120minMode ? (
-                    <>
-                      <th className={styles.center}>120m</th>
-                      <th className={styles.center}>Mins</th>
-                      <th className={styles.center}>Pld</th>
-                      <th className={styles.center}>GD</th>
-                      <th className={styles.center}>GS</th>
-                    </>
-                  ) : (
-                    <>
-                      <th className={styles.center}>Pld</th>
-                      <th className={styles.center}>W</th>
-                      <th className={styles.center}>D</th>
-                      <th className={styles.center}>L</th>
-                      <th className={styles.center}>GD</th>
-                      <th className={styles.center}>Pts</th>
-                    </>
-                  )}
-                </tr>
-              </thead>
-              <tbody>
-                {standings.map((s, idx) => {
-                  const isMyTeam = s.htTeamId === Number(myHtUserId);
-                  return (
-                    <tr key={s.teamId} className={isMyTeam ? styles.myTeamRow : ''}>
-                      <td className={styles.muted}>{idx + 1}</td>
-                      <td className={styles.teamNameCell}>
-                        <div className={styles.teamInfo}>
-                          <div className={styles.nameRow}>
-                            {s.logoUrl && <img src={s.logoUrl} alt={s.teamName} className={styles.standingLogo} />}
-                            <span className={styles.teamName}>
-                              {s.teamName}
-                              {isMyTeam && <span className={styles.myTeamBadge}> (You)</span>}
-                            </span>
-                            {s.joinedViaOauth && (
-                              <span title="Hattrick Validated Team">
-                                <Lineicons icon={CheckOutlined} size={14} className={styles.validatedIcon} />
-                              </span>
-                            )}
-                            <a
-                              href={`https://www.hattrick.org/goto.ashx?path=/Club/?TeamID=${s.htTeamId}`}
-                              target="_blank"
-                              rel="noopener noreferrer"
-                              className={styles.htLink}
-                            >
-                              <Lineicons icon={Link2AngularRightOutlined} size={12} />
-                            </a>
-                          </div>
-                          {s.htTeamId && <span className={styles.teamId}>ID: {s.htTeamId}</span>}
-                        </div>
-                      </td>
+        <div className={styles.standingsContainer}>
+          <div className={styles.mainColumn}>
+            <SectionCard title="🏆 Standings" headerThumbnailIndex={tournament.thumbnail_index}>
+              <div className={styles.tableWrapper}>
+                <table>
+                  <thead>
+                    <tr>
+                      <th>#</th>
+                      <th>Team</th>
                       {is120minMode ? (
                         <>
-                          <td className={`${styles.highlight} ${styles.center}`}>{s.achievements120min}</td>
-                          <td className={styles.center}>{s.totalMinutes}</td>
-                          <td className={styles.center}>{s.played}</td>
-                          <td className={styles.center}>{s.gd > 0 ? `+${s.gd}` : s.gd}</td>
-                          <td className={styles.center}>{s.gf}</td>
+                          <th className={styles.center}>120m</th>
+                          <th className={styles.center}>Mins</th>
+                          <th className={styles.center}>Pld</th>
+                          <th className={styles.center}>GD</th>
+                          <th className={styles.center}>GS</th>
                         </>
                       ) : (
                         <>
-                          <td className={styles.center}>{s.played}</td>
-                          <td className={styles.center}>{s.won}</td>
-                          <td className={styles.center}>{s.drawn}</td>
-                          <td className={styles.center}>{s.lost}</td>
-                          <td className={styles.center}>{s.gd > 0 ? `+${s.gd}` : s.gd}</td>
-                          <td className={`${styles.highlight} ${styles.center}`}>{s.pts}</td>
+                          <th className={styles.center}>Pld</th>
+                          <th className={styles.center}>W</th>
+                          <th className={styles.center}>D</th>
+                          <th className={styles.center}>L</th>
+                          <th className={styles.center}>GD</th>
+                          <th className={styles.center}>Pts</th>
                         </>
                       )}
                     </tr>
-                  );
-                })}
+                  </thead>
+                  <tbody>
+                    {standings.map((s, idx) => {
+                      const isMyTeam = s.htTeamId === Number(myHtUserId);
+                      return (
+                        <tr key={s.teamId} className={isMyTeam ? styles.myTeamRow : ''}>
+                          <td className={styles.muted}>{idx + 1}</td>
+                          <td className={styles.teamNameCell}>
+                            <div className={styles.teamInfo}>
+                              <div className={styles.nameRow}>
+                                {s.logoUrl && <img src={s.logoUrl} alt={s.teamName} className={styles.standingLogo} />}
+                                <span className={styles.teamName}>
+                                  {s.teamName}
+                                  {isMyTeam && <span className={styles.myTeamBadge}> (You)</span>}
+                                </span>
+                                {s.joinedViaOauth && (
+                                  <span title="Hattrick Validated Team">
+                                  </span>
+                                )}
+                                <a
+                                  href={`https://www.hattrick.org/goto.ashx?path=/Club/?TeamID=${s.htTeamId}`}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  className={styles.htLink}
+                                >
+                                </a>
+                              </div>
+                              {s.htTeamId && <span className={styles.teamId}>ID: {s.htTeamId}</span>}
+                            </div>
+                          </td>
+                          {is120minMode ? (
+                            <>
+                              <td className={`${styles.highlight} ${styles.center}`}>{s.achievements120min}</td>
+                              <td className={styles.center}>{s.totalMinutes}</td>
+                              <td className={styles.center}>{s.played}</td>
+                              <td className={styles.center}>{s.gd > 0 ? `+${s.gd}` : s.gd}</td>
+                              <td className={styles.center}>{s.gf}</td>
+                            </>
+                          ) : (
+                            <>
+                              <td className={styles.center}>{s.played}</td>
+                              <td className={styles.center}>{s.won}</td>
+                              <td className={styles.center}>{s.drawn}</td>
+                              <td className={styles.center}>{s.lost}</td>
+                              <td className={styles.center}>{s.gd > 0 ? `+${s.gd}` : s.gd}</td>
+                              <td className={`${styles.highlight} ${styles.center}`}>{s.pts}</td>
+                            </>
+                          )}
+                        </tr>
+                      );
+                    })}
 
-                {/* Inactive teams / BYE spots */}
-                {(() => {
-                  const inactiveTeams = teams.filter((t) => !t.active && !t.is_placeholder);
-                  const hasBye = teams.length % 2 !== 0 && isGenerated;
-                  const spots = [...inactiveTeams];
-                  if (hasBye) spots.push({ id: 'bye', name: 'BYE Spot', is_placeholder: true } as Team);
+                    {/* Inactive teams / BYE spots */}
+                    {(() => {
+                      const inactiveTeams = teams.filter((t) => !t.active && !t.is_placeholder);
+                      const hasBye = teams.length % 2 !== 0 && isGenerated;
+                      const spots = [...inactiveTeams];
+                      if (hasBye) spots.push({ id: 'bye', name: 'BYE Spot', is_placeholder: true } as Team);
 
-                  const handleInvite = () => {
-                    const msg = `Join our tournament "${tournament.name}" on HT-120min! We have an open spot: ${window.location.origin}/t/${tournament.slug}`;
-                    navigator.clipboard.writeText(msg);
-                    alert('Invitation link and message copied to clipboard!');
-                  };
+                      const handleInvite = () => {
+                        const msg = `Join our tournament "${tournament.name}" on HT-120min! We have an open spot: ${window.location.origin}/t/${tournament.slug}`;
+                        navigator.clipboard.writeText(msg);
+                        alert('Invitation link and message copied to clipboard!');
+                      };
 
-                  return spots.map((spot, idx) => (
-                    <tr key={spot.id} className={styles.inactiveRow}>
-                      <td className={styles.muted}>{standings.length + idx + 1}</td>
-                      <td className={styles.teamNameCell}>
-                        <div className={styles.teamInfo}>
-                          <div className={styles.nameRow}>
-                            <Button
-                              variant="zero"
-                              size="sm"
-                              onClick={handleInvite}
-                              className={`${styles.inviteSpotBtn} ${styles.noPadding}`}
-                            >
-                              <Lineicons icon={PlusOutlined} size={14} /> Invite
-                            </Button>
-                            <span className={styles.spotLabel}>{spot.name}</span>
-                          </div>
-                        </div>
-                      </td>
-                      {is120minMode ? (
-                        <>
-                          <td className={styles.center}>-</td>
-                          <td className={styles.center}>-</td>
-                          <td className={styles.center}>-</td>
-                          <td className={styles.center}>-</td>
-                          <td className={styles.center}>-</td>
-                        </>
-                      ) : (
-                        <>
-                          <td className={styles.center}>-</td>
-                          <td className={styles.center}>-</td>
-                          <td className={styles.center}>-</td>
-                          <td className={styles.center}>-</td>
-                          <td className={styles.center}>-</td>
-                          <td className={styles.center}>-</td>
-                        </>
-                      )}
-                    </tr>
-                  ));
-                })()}
-              </tbody>
-            </table>
-          </div>
-
-          {(teams.some((t) => !t.active) || teams.length % 2 !== 0) && (
-            <div className={styles.standingsFooter}>
-              <p className={styles.standingsFooterNote}>
-                {isGenerated
-                  ? teams.some((t) => !t.active)
-                    ? `${
-                        teams.filter((t) => !t.active).length
-                      } team(s) have become inactive and their spots can be filled by another team.`
-                    : "An odd number of teams means there's a BYE spot available for a new team to join."
-                  : 'This tournament is still open for registration, register another team or invite someone'}
-              </p>
-              <div className={styles.footerButtons}>
-                <Button
-                  onClick={() => {
-                    setIsConnecting(true);
-                    window.location.href = `/api/auth/init?tournament_id=${tournament?.id}`;
-                  }}
-                  variant="outlineWhite"
-                  size="sm"
-                  disabled={isConnecting}
-                >
-                  <Lineicons icon={HandShakeOutlined} size={18} /> Join with Hattrick
-                </Button>
-                <Button
-                  onClick={() => {
-                    const msg = `You are invited to join "${tournament.name}" (Season ${tournament.season}) on HT-120min! Register your team here: ${publicUrl}`;
-                    navigator.clipboard.writeText(msg);
-                    alert('Invitation link and message copied to clipboard!');
-                  }}
-                  variant="outlineWhite"
-                  size="sm"
-                >
-                  <Lineicons icon={Share1Outlined} size={18} /> Invite
-                </Button>
+                      return spots.map((spot, idx) => (
+                        <tr key={spot.id} className={styles.inactiveRow}>
+                          <td className={styles.muted}>{standings.length + idx + 1}</td>
+                          <td className={styles.teamNameCell}>
+                            <div className={styles.teamInfo}>
+                              <div className={styles.nameRow}>
+                                <Button
+                                  variant="zero"
+                                  size="sm"
+                                  onClick={handleInvite}
+                                  className={`${styles.inviteSpotBtn} ${styles.noPadding}`}
+                                >
+                                </Button>
+                                <span className={styles.spotLabel}>{spot.name}</span>
+                              </div>
+                            </div>
+                          </td>
+                          {is120minMode ? (
+                            <>
+                              <td className={styles.center}>-</td>
+                              <td className={styles.center}>-</td>
+                              <td className={styles.center}>-</td>
+                              <td className={styles.center}>-</td>
+                              <td className={styles.center}>-</td>
+                            </>
+                          ) : (
+                            <>
+                              <td className={styles.center}>-</td>
+                              <td className={styles.center}>-</td>
+                              <td className={styles.center}>-</td>
+                              <td className={styles.center}>-</td>
+                              <td className={styles.center}>-</td>
+                              <td className={styles.center}>-</td>
+                            </>
+                          )}
+                        </tr>
+                      ));
+                    })()}
+                  </tbody>
+                </table>
               </div>
-            </div>
-          )}
-        </SectionCard>
+
+              {(teams.some((t) => !t.active) || teams.length % 2 !== 0) && (
+                <div className={styles.standingsFooter}>
+                  <p className={styles.standingsFooterNote}>
+                    {isGenerated
+                      ? teams.some((t) => !t.active)
+                        ? `${
+                            teams.filter((t) => !t.active).length
+                          } team(s) have become inactive and their spots can be filled by another team.`
+                        : "An odd number of teams means there's a BYE spot available for a new team to join."
+                      : 'This tournament is still open for registration, register another team or invite someone'}
+                  </p>
+                  <div className={styles.footerButtons}>
+                    <Button
+                      onClick={() => {
+                        setIsConnecting(true);
+                        window.location.href = `/api/auth/init?tournament_id=${tournament?.id}`;
+                      }}
+                      variant="outlineWhite"
+                      size="sm"
+                      disabled={isConnecting}
+                    >
+                    </Button>
+                    <Button
+                      onClick={() => {
+                        const msg = `You are invited to join "${tournament.name}" (Season ${tournament.season}) on HT-120min! Register your team here: ${publicUrl}`;
+                        navigator.clipboard.writeText(msg);
+                        alert('Invitation link and message copied to clipboard!');
+                      }}
+                      variant="outlineWhite"
+                      size="sm"
+                    >
+                    </Button>
+                  </div>
+                </div>
+              )}
+            </SectionCard>
+          </div>
+          <aside className={styles.statsSidebar}>
+            <MottoWidget />
+            <SectionCard title="News Feed">
+              <ul className={styles.newsFeed}>
+                <li className={styles.feedItem}>
+                  <div className={styles.feedIcon}>
+                  </div>
+                  <div className={styles.feedContent}>
+                    <p>New cup registration is now open!</p>
+                    <span>2 hours ago</span>
+                  </div>
+                </li>
+              </ul>
+            </SectionCard>
+          </aside>
+        </div>
       )}
 
       {activeTab === 'fixtures' && (
@@ -1694,7 +1671,6 @@ export const TournamentView: React.FC = () => {
                         onClick={handleRefreshFixtures}
                         disabled={isRefreshingFixtures}
                       >
-                        <Lineicons icon={RefreshCircle1ClockwiseOutlined} size={18} />
                       </button>
                     </div>
                   }
@@ -1966,7 +1942,6 @@ export const TournamentView: React.FC = () => {
                 </div>
                 {adminAuthError && <p className={styles.authError}>Invalid password. Please try again.</p>}
                 <Button type="submit" variant="primary" size="lg">
-                  <Lineicons icon={Shield2CheckOutlined} size={18} /> Authenticate
                 </Button>
 
                 <div className={styles.adminAuthFooter}>
@@ -1997,7 +1972,6 @@ export const TournamentView: React.FC = () => {
                         <div className={adminStyles.labelRow}>
                           <label>Tournament Name</label>
                           <button type="button" onClick={regenerateName} className={adminStyles.iconBtn}>
-                            <Lineicons icon={RefreshCircle1ClockwiseOutlined} size={16} />
                           </button>
                         </div>
                         <input type="text" value={editName} onChange={(e) => setEditName(e.target.value)} />
@@ -2021,7 +1995,6 @@ export const TournamentView: React.FC = () => {
                               alert('URL copied!');
                             }}
                           >
-                            <Lineicons icon={Share1Outlined} size={isMobile ? 14 : 18} />
                           </Button>
                         </div>
                         <div className={adminStyles.metaItem}>
@@ -2040,7 +2013,6 @@ export const TournamentView: React.FC = () => {
                               alert("Password copied! Don't lose it.");
                             }}
                           >
-                            <Lineicons icon={Share1Outlined} size={18} />
                           </Button>
                         </div>
                       </div>
@@ -2144,7 +2116,6 @@ export const TournamentView: React.FC = () => {
                                 onClick={() => regenerateDescription(false)}
                                 className={adminStyles.iconBtn}
                               >
-                                <Lineicons icon={RefreshCircle1ClockwiseOutlined} size={16} />
                               </button>
                             )}
                           </div>
@@ -2252,7 +2223,6 @@ export const TournamentView: React.FC = () => {
                               disabled={isFetchingTeamData}
                               variant="primary"
                             >
-                              <Lineicons icon={HandShakeOutlined} size={18} />{' '}
                               {isFetchingTeamData ? 'Fetching...' : 'Get team data'}
                             </Button>
                           )}
@@ -2286,7 +2256,6 @@ export const TournamentView: React.FC = () => {
                                           alert('Invitation template for ' + newTeamName + ' copied!');
                                         }}
                                       >
-                                        <Lineicons icon={Share1Outlined} size={18} /> Copy Invite
                                       </Button>
                                     </div>
                                   )}
@@ -2297,7 +2266,6 @@ export const TournamentView: React.FC = () => {
                                     'Saving...'
                                   ) : (
                                     <>
-                                      <Lineicons icon={PlusOutlined} size={18} /> Add {newTeamName}
                                     </>
                                   )}
                                 </Button>
@@ -2315,7 +2283,6 @@ export const TournamentView: React.FC = () => {
                               <span className={adminStyles.name}>{team.name}</span>
                               {team.joined_via_oauth && (
                                 <span title="Hattrick Validated Team">
-                                  <Lineicons icon={CheckOutlined} size={14} className={styles.validatedIcon} />
                                 </span>
                               )}
                             </div>
@@ -2356,7 +2323,6 @@ export const TournamentView: React.FC = () => {
                                           disabled={isFetchingTeamData}
                                           variant="primary"
                                         >
-                                          <Lineicons icon={HandShakeOutlined} size={14} /> Get data
                                         </Button>
                                       )}
                                       {replacementName && (
@@ -2378,13 +2344,11 @@ export const TournamentView: React.FC = () => {
                                           setReplacementName('');
                                         }}
                                       >
-                                        <Lineicons icon={XmarkOutlined} size={16} />
                                       </Button>
                                     </div>
                                   </div>
                                 ) : (
                                   <Button size="sm" variant="zero" onClick={() => setReplacingTeamId(team.id)}>
-                                    <Lineicons icon={RefreshCircle1ClockwiseOutlined} size={14} /> Replace
                                   </Button>
                                 )}
                                 <Button
@@ -2398,7 +2362,6 @@ export const TournamentView: React.FC = () => {
                                   }}
                                   title={isGenerated ? 'Deactivate Team' : 'Delete Team'}
                                 >
-                                  <Lineicons icon={Trash3Outlined} size={16} />
                                 </Button>
                               </>
                             ) : (
@@ -2434,7 +2397,6 @@ export const TournamentView: React.FC = () => {
                                           disabled={isFetchingTeamData}
                                           variant="primary"
                                         >
-                                          <Lineicons icon={HandShakeOutlined} size={14} /> Get data
                                         </Button>
                                       )}
                                       {replacementName && (
@@ -2456,13 +2418,11 @@ export const TournamentView: React.FC = () => {
                                           setReplacementName('');
                                         }}
                                       >
-                                        <Lineicons icon={XmarkOutlined} size={16} />
                                       </Button>
                                     </div>
                                   </div>
                                 ) : (
                                   <Button size="sm" variant="zero" onClick={() => setReplacingTeamId(team.id)}>
-                                    <Lineicons icon={RefreshCircle1ClockwiseOutlined} size={14} /> Replace
                                   </Button>
                                 )}
                               </div>
@@ -2498,7 +2458,6 @@ export const TournamentView: React.FC = () => {
                               alert('Invitation copied!');
                             }}
                           >
-                            <Lineicons icon={Share1Outlined} size={18} /> Copy
                           </Button>
                         </div>
                       )}
@@ -2545,14 +2504,12 @@ export const TournamentView: React.FC = () => {
                             onClick={generateSchedule}
                             disabled={teams.filter((t) => t.active).length < 2 || isGenerating}
                           >
-                            <Lineicons icon={PlayOutlined} size={18} /> Generate Schedule
                           </Button>
                           <p className="center w-100">Generating schedule will also close registration. </p>
                         </div>
                       ) : (
                         <div className={adminStyles.genActions}>
                           <Button variant="outline" onClick={regenerateSchedule} disabled={isGenerating} fullWidth>
-                            <Lineicons icon={RefreshCircle1ClockwiseOutlined} size={18} />
                             Reset and Re-open
                           </Button>
                           {scheduleMode === 'recurring' && (
@@ -2670,7 +2627,6 @@ export const TournamentView: React.FC = () => {
                                         variant="primary"
                                         title="Save"
                                       >
-                                        <Lineicons icon={FloppyDisk1Outlined} size={18} />
                                       </Button>
                                       <Button
                                         size="xs"
@@ -2682,7 +2638,6 @@ export const TournamentView: React.FC = () => {
                                           }
                                         }}
                                       >
-                                        <Lineicons icon={Trash3Outlined} size={16} />
                                       </Button>
                                       <Button
                                         size="xs"
@@ -2690,7 +2645,6 @@ export const TournamentView: React.FC = () => {
                                         onClick={() => setEditingMatch(null)}
                                         title="Cancel"
                                       >
-                                        <Lineicons icon={XmarkOutlined} size={18} />
                                       </Button>
                                     </div>
                                   </div>
@@ -2827,14 +2781,12 @@ export const TournamentView: React.FC = () => {
                   >
                     <div className={styles.teamOptionInfo}>
                       <div className={styles.teamOptionHeader}>
-                        <Lineicons icon={Trophy1Outlined} size={20} className={styles.teamIcon} />
                         <strong>{team.teamName}</strong>
                       </div>
                       <span className={styles.teamMeta}>
                         {[team.leagueLevelUnitName, team.regionName].filter(Boolean).join(' • ')}
                       </span>
                     </div>
-                    <Lineicons icon={ChevronLeftOutlined} size={20} className="r-180" />
                   </div>
                 ))}
                 {pendingJoinData?.teams_json.length === 0 && (
