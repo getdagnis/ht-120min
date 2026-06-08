@@ -17,6 +17,8 @@ import styles from './TournamentView.module.sass';
 import adminStyles from './TournamentAdmin.module.sass';
 import { FixtureCard } from '../../components/FixtureCard/FixtureCard';
 import { MottoWidget } from '../../components/MottoWidget/MottoWidget';
+import { ArrowClockwise, Trash } from 'phosphor-react';
+
 
 interface ChppTeamOption {
   teamId: number;
@@ -301,11 +303,12 @@ export const TournamentView: React.FC = () => {
   };
 
   const fetchData = useCallback(async () => {
-    if (!tournament) setLoading(true);
+    setLoading(true);
     const { data: tournamentData } = await supabase.from('tournaments').select('*').eq('slug', slug).single();
 
     if (tournamentData) {
       setTournament(tournamentData as any);
+      // ... (rest of the function, I'll need to include it in the replace call)
       setEditName(tournamentData.name);
       setEditIsPrivate(tournamentData.is_private);
       setEditChppOnlyJoin(tournamentData.chpp_only_join);
@@ -393,7 +396,7 @@ export const TournamentView: React.FC = () => {
       }
     }
     setLoading(false);
-  }, [slug, tournament]);
+  }, [slug]);
 
   const fetchPendingJoinData = useCallback(async (token: string) => {
     setShowTeamModal(true);
@@ -606,7 +609,7 @@ export const TournamentView: React.FC = () => {
         }
       }
     }
-  }, [activeTab, handleRefreshFixtures, isRefreshingFixtures, rounds, tournament]);
+  }, [activeTab]);
 
   const handleTabChange = (tab: 'standings' | 'fixtures' | 'guestbook' | 'admin') => {
     if (tab !== activeTab) {
@@ -647,8 +650,9 @@ export const TournamentView: React.FC = () => {
         const ageInMinutes = (new Date().getTime() - lastMsg.getTime()) / 60000;
 
         let interval = 60000; // 1 min
-        if (ageInMinutes < 30)
-          interval = 5000; // 5 secs
+        if (ageInMinutes < 10) interval = 1000; // 1 sec
+        else if (ageInMinutes < 60) interval = 10000; // 10 secs
+        else if (ageInMinutes < 30) interval = 5000; // 5 secs (old rule)
         else if (ageInMinutes < 480) interval = 20000; // 20 secs
 
         clearInterval(pollInterval);
@@ -1671,6 +1675,7 @@ export const TournamentView: React.FC = () => {
                         onClick={handleRefreshFixtures}
                         disabled={isRefreshingFixtures}
                       >
+                        <ArrowClockwise size={18} />
                       </button>
                     </div>
                   }
@@ -2351,7 +2356,7 @@ export const TournamentView: React.FC = () => {
                                   </div>
                                 ) : (
                                   <Button size="sm" variant="zero" onClick={() => setReplacingTeamId(team.id)}>
-                                    Replace
+                                    <ArrowClockwise size={16} /> Replace
                                   </Button>
                                 )}
                                 <Button
@@ -2365,7 +2370,7 @@ export const TournamentView: React.FC = () => {
                                   }}
                                   title={isGenerated ? 'Deactivate Team' : 'Delete Team'}
                                 >
-                                  Delete
+                                  <Trash size={16} /> Delete
                                 </Button>
                               </>
                             ) : (
