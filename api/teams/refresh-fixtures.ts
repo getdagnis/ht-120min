@@ -140,7 +140,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       if (teamCache[team.id]) return teamCache[team.id];
       if (!team.oauth_token) return [];
       try {
-        const data = await fetchTeamFriendlies(team.ht_team_id.toString(), team.oauth_token, team.oauth_token_secret!);
+        const secret = team.oauth_token_secret || '';
+        const data = await fetchTeamFriendlies(team.ht_team_id.toString(), team.oauth_token, secret);
         teamCache[team.id] = data;
         return data;
       } catch (e) {
