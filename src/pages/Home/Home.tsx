@@ -10,15 +10,7 @@ import { MottoWidget } from '../../components/MottoWidget/MottoWidget';
 import { FriendlyMarketplace } from '../../components/FriendlyMarketplace/FriendlyMarketplace';
 import { Link as ScrollTo, Element } from 'react-scroll';
 import { calculateMatchDate } from '../../utils/ht-data';
-import {
-  Trophy,
-  CalendarBlank,
-  Heartbeat,
-  CaretLeft,
-  ArrowRight,
-  Star,
-  Clock,
-} from 'phosphor-react';
+import { Trophy, CalendarBlank, Heartbeat, CaretLeft, ArrowRight, Star, Clock } from 'phosphor-react';
 import { TeamsIcon } from '../../components/Icons/TeamsIcon';
 import styles from './Home.module.sass';
 
@@ -52,6 +44,7 @@ interface DBTournament {
     id: string;
     name: string;
     ht_team_id: number;
+    joined_via_oauth: boolean;
   }[];
 }
 
@@ -61,6 +54,7 @@ interface DBWarning {
 }
 
 interface Tournament extends DBTournament {
+  validatedTeamCount: number;
   totalMatches: number;
   completedMatches: number;
   activityScore: number;
@@ -137,7 +131,7 @@ export const Home: React.FC = () => {
 
         tournamentsData.forEach((t) => {
           // Count validated teams
-          const validatedTeamCount = (t.teams as any[]).filter(team => team.joined_via_oauth).length;
+          const validatedTeamCount = t.teams.filter((team) => team.joined_via_oauth).length;
 
           const allMatches = t.rounds?.flatMap((r) => r.matches ?? []) ?? [];
           const totalMatches = allMatches.length;
@@ -150,12 +144,16 @@ export const Home: React.FC = () => {
           if (isGenerated && !isClosed && t.rounds) {
             const sortedRounds = [...t.rounds].sort((a, b) => a.round_number - b.round_number);
             for (const round of sortedRounds) {
-              const uncompletedMatches = round.matches?.filter(m => !m.completed) ?? [];
-              const validMatches = uncompletedMatches.filter(m => 
-                !warnings?.some(w => w.round_id === round.id && (w.team_id === m.home_team_id))
+              const uncompletedMatches = round.matches?.filter((m) => !m.completed) ?? [];
+              const validMatches = uncompletedMatches.filter(
+                (m) => !warnings?.some((w) => w.round_id === round.id && w.team_id === m.home_team_id),
               );
               if (validMatches.length > 0) {
-                nextMatchDate = calculateMatchDate(t.created_at, round.round_number, validMatches[0].home_team?.country_name);
+                nextMatchDate = calculateMatchDate(
+                  t.created_at,
+                  round.round_number,
+                  validMatches[0].home_team?.country_name,
+                );
                 break;
               }
             }
@@ -179,12 +177,20 @@ export const Home: React.FC = () => {
             }
           });
 
-          const tournamentObj = { ...t, totalMatches, completedMatches, activityScore: completedMatches, teamCount: t.teams.length, nextMatchDate, validatedTeamCount };
+          const tournamentObj = {
+            ...t,
+            totalMatches,
+            completedMatches,
+            activityScore: completedMatches,
+            teamCount: t.teams.length,
+            nextMatchDate,
+            validatedTeamCount,
+          };
 
           if (isGenerated && !isClosed) {
-            active.push(tournamentObj as any);
+            active.push(tournamentObj as Tournament);
           } else if (!isGenerated) {
-            open.push(tournamentObj as any);
+            open.push(tournamentObj as Tournament);
           }
         });
 
@@ -192,22 +198,24 @@ export const Home: React.FC = () => {
         setActiveTournaments(
           active.sort((a, b) => {
             if (b.validatedTeamCount !== a.validatedTeamCount) {
-                return b.validatedTeamCount - a.validatedTeamCount;
+              return b.validatedTeamCount - a.validatedTeamCount;
             }
             if (!a.nextMatchDate && !b.nextMatchDate) return 0;
             if (!a.nextMatchDate) return 1;
             if (!b.nextMatchDate) return -1;
             return a.nextMatchDate.getTime() - b.nextMatchDate.getTime();
-          })
+          }),
         );
-        
+
         // Sort by validated count first, then team count
-        setOpenTournaments(open.sort((a, b) => {
+        setOpenTournaments(
+          open.sort((a, b) => {
             if (b.validatedTeamCount !== a.validatedTeamCount) {
-                return b.validatedTeamCount - a.validatedTeamCount;
+              return b.validatedTeamCount - a.validatedTeamCount;
             }
             return (b.teamCount ?? 0) - (a.teamCount ?? 0);
-        }));
+          }),
+        );
 
         const topTeamsList = Object.entries(team120Stats)
           .map(([id, data]) => ({ ht_team_id: parseInt(id), name: data.name, achievements120min: data.count }))
@@ -282,8 +290,7 @@ export const Home: React.FC = () => {
                           </div>
                           <div className={styles.tMeta}>
                             <span title="Completed Matches">
-                              <Trophy size={14} weight="bold" /> {t.completedMatches} / {t.totalMatches}{' '}
-                              matches
+                              <Trophy size={14} weight="bold" /> {t.completedMatches} / {t.totalMatches} matches
                             </span>
                             {t.nextMatchDate && (
                               <span title="Next Match" className={styles.nextMatch}>
@@ -342,8 +349,7 @@ export const Home: React.FC = () => {
                               <TeamsIcon size={14} /> {t.teamCount} teams
                             </span>
                             <span title="Creation Date">
-                              <CalendarBlank size={14} weight="bold" />{' '}
-                              {new Date(t.created_at).toLocaleDateString()}
+                              <CalendarBlank size={14} weight="bold" /> {new Date(t.created_at).toLocaleDateString()}
                             </span>
                           </div>
                           <div className={styles.tTeams}>
@@ -413,7 +419,8 @@ export const Home: React.FC = () => {
             </div>
             <h3>Run tournaments, not spreadsheets</h3>
             <p>
-              Create leagues, cups and recurring competitions in minutes. HT-120min handles schedules, fixtures and administration so you can focus on your community.
+              Create leagues, cups and recurring competitions in minutes. HT-120min handles schedules, fixtures and
+              administration so you can focus on your community.
             </p>
           </Card>
           <Card className={styles.feature}>
@@ -422,7 +429,8 @@ export const Home: React.FC = () => {
             </div>
             <h3>Never chase managers again</h3>
             <p>
-              Automatic scheduling, challenge tracking, live standings and match updates eliminate most of the repetitive work that makes tournament administration painful.
+              Automatic scheduling, challenge tracking, live standings and match updates eliminate most of the
+              repetitive work that makes tournament administration painful.
             </p>
           </Card>
           <Card className={styles.feature}>
@@ -431,7 +439,8 @@ export const Home: React.FC = () => {
             </div>
             <h3>Build rivalries, not just fixtures</h3>
             <p>
-              Achievements, club profiles, records and community leaderboards turn friendly matches into long-term stories managers actually care about.
+              Achievements, club profiles, records and community leaderboards turn friendly matches into long-term
+              stories managers actually care about.
             </p>
           </Card>
         </div>

@@ -2,11 +2,6 @@ import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { getSupabase } from '../_lib/supabase.js';
 import { getAuthHeader } from '../_lib/chpp-auth.js';
 
-interface TeamTournamentCheck {
-  tournament_id: string;
-  tournaments: { name: string; status: string } | null;
-}
-
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   const { team_id } = req.query;
 
@@ -37,7 +32,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     }
 
     // 2. Check if team is in another active tournament
-    const isSuperAdmin = req.headers.cookie?.includes('issuperadmin=you%20bet') || req.headers.cookie?.includes('issuperadmin="you bet"');
+    const isSuperAdmin =
+      req.headers.cookie?.includes('issuperadmin=you%20bet') || req.headers.cookie?.includes('issuperadmin="you bet"');
 
     if (!isSuperAdmin) {
       const { data: existing } = await supabase
@@ -47,10 +43,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         .eq('active', true);
 
       if (existing && existing.length > 0) {
-        const activeTournament = existing.find(e => e.tournaments?.status !== 'finished');
+        const activeTournament = existing.find((e) => e.tournaments?.status !== 'finished');
         if (activeTournament) {
-          return res.status(400).json({ 
-            error: `Team ID ${team_id} is already active in another tournament: "${activeTournament.tournaments?.name}". You must leave that tournament first.` 
+          return res.status(400).json({
+            error: `Team ID ${team_id} is already active in another tournament: "${activeTournament.tournaments?.name}". You must leave that tournament first.`,
           });
         }
       }
@@ -59,7 +55,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     // 3. Fetch team details using managercompendium (simplest way to get name and league)
     const url = 'https://chpp.hattrick.org/chppxml.ashx';
     const params = { file: 'teamdetails', teamID: team_id as string };
-    
+
     const authHeader = getAuthHeader(
       'GET',
       url,
@@ -67,7 +63,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       consumerKey,
       consumerSecret,
       teamWithToken.oauth_token!,
-      teamWithToken.oauth_token_secret!
+      teamWithToken.oauth_token_secret!,
     );
 
     const response = await fetch(`${url}?file=teamdetails&teamID=${team_id}`, {
@@ -92,7 +88,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       leagueId: leagueId ? parseInt(leagueId) : undefined,
       leagueSystemId: leagueSystemId ? parseInt(leagueSystemId) : undefined,
       leagueName,
-      countryName
+      countryName,
     });
   } catch (error) {
     return res.status(500).json({ error: error instanceof Error ? error.message : 'An unknown error occurred' });

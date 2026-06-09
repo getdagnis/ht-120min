@@ -275,7 +275,9 @@ export const CreateTournament: React.FC = () => {
       };
 
       const updatedTeams =
-        formData.registration_type === 'validated' ? [creatorTeam] : [...teams.filter((t) => !t.isCreator), creatorTeam];
+        formData.registration_type === 'validated'
+          ? [creatorTeam]
+          : [...teams.filter((t) => !t.isCreator), creatorTeam];
 
       setTeams(updatedTeams);
       setIsLinked(true);
@@ -291,7 +293,6 @@ export const CreateTournament: React.FC = () => {
       setModalLoading(false);
     }
   };
-
 
   const handleOrganizerNoJoin = async () => {
     if (linkedManager?.selection_token) {
@@ -443,7 +444,7 @@ export const CreateTournament: React.FC = () => {
 
       if (tError) {
         // Handle specific Supabase error for unique constraint
-        if ((tError as any).code === '23505') {
+        if (tError.code === '23505') {
           throw new Error('A tournament with this URL slug already exists. Please choose a different slug.');
         }
         throw tError;
