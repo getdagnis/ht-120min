@@ -15,7 +15,7 @@ interface FixtureCardProps {
   awayTeam: TeamProps;
   status: 'arranged' | 'not_arranged' | 'ongoing' | 'misarranged' | 'finished';
   score?: { home: number; away: number };
-  date: string;
+  date?: string;
   htMatchId?: number;
 }
 
@@ -62,7 +62,7 @@ export const FixtureCard: React.FC<FixtureCardProps> = ({ homeTeam, awayTeam, st
 
       {/* Center Section */}
       <div className={styles.centerSection}>
-        <div className={styles.date}>{date}</div>
+        {date && <div className={styles.date}>{date}</div>}
         <div className={styles.vsRow}>
           {status === 'finished' ? (
             <>

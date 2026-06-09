@@ -19,7 +19,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   console.log('Auth Init - Params:', { tournament_id, is_creation });
 
   if (!tournament_id && is_creation !== 'true') {
-    return res.status(400).json({ error: 'tournament_id is required' });
+    // Treat as login only
   }
 
   const consumerKey = process.env.CHPP_CONSUMER_KEY;
@@ -71,14 +71,11 @@ const { error } = await supabase.from('oauth_temp_sessions').insert({
   oauth_token,
   oauth_token_secret,
   tournament_id:
-    typeof tournament_id === 'string' && tournament_id
-      ? tournament_id
-      : OAUTH_CREATION_TOURNAMENT_ID,
+    typeof tournament_id === 'string' && tournament_id ? tournament_id : null,
   is_creation: is_creation === 'true',
   league_category: league_category === 'hfi' ? 'hfi' : 'male',
   country_limit: typeof country_limit === 'string' ? country_limit : null,
 });
-
 
     if (error) {
       return res.status(500).json({ error: 'Failed to store session', details: error.message });

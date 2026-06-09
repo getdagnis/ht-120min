@@ -9,8 +9,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
   const { selection_token, team_id, team_name } = req.body;
 
-  if (!selection_token || !team_id) {
-    return res.status(400).json({ error: 'Missing parameters' });
+  if (!selection_token) {
+    return res.status(400).json({ error: 'Missing selection_token' });
   }
 
   const consumerKey = process.env.CHPP_CONSUMER_KEY;
@@ -38,7 +38,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       return res.status(404).json({ error: 'Selection session not found or expired' });
     }
 
-    if (pending.is_creation) {
+    if (pending.is_creation && pending.tournament_id) {
       // Return data for creation flow to finalize
       return res.status(200).json({
         redirect: `/create?step=teams&linked=true&manager=${encodeURIComponent(
@@ -86,30 +86,36 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     }
 
     // 3. Register the specific team (Standard joining flow)
-    const { data: tournament } = await supabase
-      .from('tournaments')
-      .select('slug, country_limit')
-      .eq('id', pending.tournament_id)
-      .single();
+    let redirectUrl = `/`;
+    
+    if (pending.tournament_id && team_id && team_name) {
+      const { data: tournament } = await supabase
+        .from('tournaments')
+        .select('slug, country_limit')
+        .eq('id', pending.tournament_id)
+        .single();
 
-    if (tournament?.country_limit && countryName !== tournament.country_limit && !isSuperAdmin) {
-      throw new Error(`This team is not from the required league (${tournament.country_limit}).`);
+      if (tournament?.country_limit && countryName !== tournament.country_limit && !isSuperAdmin) {
+        throw new Error(`This team is not from the required league (${tournament.country_limit}).`);
+      }
+
+      await registerOAuthTeam(supabase, {
+        tournamentId: pending.tournament_id!,
+        team: {
+          teamId: parseInt(team_id),
+          teamName: team_name,
+        },
+        managerName: pending.manager_name,
+        hattrickUserId: pending.hattrick_user_id,
+        accessToken: pending.access_token,
+        accessTokenSecret: pending.access_token_secret,
+        logoUrl,
+        countryName,
+        skipMembershipCheck: isSuperAdmin,
+      });
+
+      redirectUrl = `/t/${tournament?.slug}?joined=true`;
     }
-
-    await registerOAuthTeam(supabase, {
-      tournamentId: pending.tournament_id!,
-      team: {
-        teamId: parseInt(team_id),
-        teamName: team_name,
-      },
-      managerName: pending.manager_name,
-      hattrickUserId: pending.hattrick_user_id,
-      accessToken: pending.access_token,
-      accessTokenSecret: pending.access_token_secret,
-      logoUrl,
-      countryName,
-      skipMembershipCheck: isSuperAdmin,
-    });
 
     // 4. Update/Create Profile
     try {
@@ -162,7 +168,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       hattrick_user_id: pending.hattrick_user_id,
       manager_name: pending.manager_name,
       team_name: team_name,
-      redirect: `/t/${tournamentAfter?.slug}?joined=true` 
+      redirect: redirectUrl
     });
 
   } catch (error: unknown) {

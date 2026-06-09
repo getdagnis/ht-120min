@@ -3,6 +3,7 @@ import { Layout } from './components/Layout/Layout';
 import { Home } from './pages/Home/Home';
 import { CreateTournament } from './pages/Create/CreateTournament';
 import { TournamentView } from './pages/Public/TournamentView';
+import { AuthCallback } from './pages/AuthCallback';
 import { ScrollToTop } from './components/ScrollToTop';
 
 function App() {
@@ -14,6 +15,7 @@ function App() {
           <Route path="/" element={<Home />} />
           <Route path="/create" element={<CreateTournament />} />
           <Route path="/t/:slug" element={<TournamentView />} />
+          <Route path="/auth/callback" element={<AuthCallback />} />
         </Routes>
       </Layout>
     </BrowserRouter>

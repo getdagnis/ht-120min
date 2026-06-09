@@ -72,12 +72,8 @@ export const Layout: React.FC<LayoutProps> = ({ children }) => {
   };
 
   const handleLogin = () => {
-    const tid = localStorage.getItem('last_viewed_tournament_id');
-    if (tid) {
-      window.location.href = `/api/auth/init?tournament_id=${tid}`;
-    } else {
-      window.location.href = '/api/auth/init?is_creation=true';
-    }
+    // Pure login: no tournament_id, no is_creation
+    window.location.href = '/api/auth/init';
   };
 
   return (

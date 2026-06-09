@@ -501,11 +501,10 @@ export const TournamentView: React.FC = () => {
   }, [password, tournament, slug, isAdminAuthenticated]);
 
   useEffect(() => {
-    const init = async () => {
-      await fetchData();
-    };
-    void init();
+    void fetchData();
+  }, [fetchData]);
 
+  useEffect(() => {
     if (paramsHandledRef.current) return;
 
     // Check for error, success, or token param from OAuth
@@ -514,7 +513,7 @@ export const TournamentView: React.FC = () => {
     const joined = params.get('joined');
     const token = params.get('token');
 
-    if (errorMsg || joined || token) {
+    if ((errorMsg || joined || token)) {
       paramsHandledRef.current = true;
       const newUrl = window.location.pathname;
       window.history.replaceState({}, '', newUrl);
@@ -529,7 +528,7 @@ export const TournamentView: React.FC = () => {
         }, 0);
       }
     }
-  }, [fetchData, fetchPendingJoinData]);
+  }, [fetchPendingJoinData]);
 
   useEffect(() => {
     if (location.state?.isAdminInit) {
@@ -1751,7 +1750,7 @@ export const TournamentView: React.FC = () => {
                           return (
                             <FixtureCard
                               key={match.id}
-                              date={formattedDate}
+                              date={status === 'misarranged' ? '' : formattedDate}
                               status={status}
                               htMatchId={match.ht_match_id || undefined}
                               score={

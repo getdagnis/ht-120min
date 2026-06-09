@@ -114,7 +114,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
     // 4. Fetch Tournament Details for filtering (if not creating)
     let tournament = null;
-    if (!session.is_creation) {
+    if (!session.is_creation && session.tournament_id) {
       const { data: tData, error: tError } = await supabase
         .from('tournaments')
         .select('id, slug, league_category, country_limit, registration_type')
@@ -184,7 +184,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       return res.redirect(`/create?step=teams&token=${selectionToken}`);
     }
 
-    return res.redirect(`/t/${tournament?.slug}?token=${selectionToken}`);
+    // Redirect to AuthCallback to handle final login
+    return res.redirect(`/auth/callback?token=${selectionToken}`);
   } catch (error: unknown) {
     console.error('Auth Callback Handler Error:', error);
     return res.status(500).json({ error: error instanceof Error ? error.message : 'An unknown error occurred' });
