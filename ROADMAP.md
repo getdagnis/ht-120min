@@ -36,6 +36,7 @@ This document tracks our transition from a manual tournament tracker to a fully 
 - [ ] **Manager Profiles:** Achievements and history across multiple tournaments.
 - [ ] **Tournament Feed:** "Live" activity stream of joins and results.
 - [ ] **Realtime Chat:** Simple per-tournament chat rooms.
+- [ ] **Tournament Join Questionnaire (Priority: Medium):** Segment users during joining flow by gender, training duration (90/120min), and desired activity level (active/social vs. inactive/training-only) to improve tournament quality.
 
 ## Phase 5: Advanced Automation
 

@@ -44,14 +44,15 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         .from('teams')
         .select('tournament_id, tournaments(name, status)')
         .eq('ht_team_id', team_id)
-        .eq('active', true)
-        .maybeSingle();
+        .eq('active', true);
 
-      const existingData = existing as unknown as TeamTournamentCheck | null;
-      if (existingData && existingData.tournaments?.status !== 'finished') {
-        return res.status(400).json({ 
-          error: `Team ID ${team_id} is already active in another tournament: "${existingData.tournaments?.name}". You must leave that tournament first.` 
-        });
+      if (existing && existing.length > 0) {
+        const activeTournament = existing.find(e => e.tournaments?.status !== 'finished');
+        if (activeTournament) {
+          return res.status(400).json({ 
+            error: `Team ID ${team_id} is already active in another tournament: "${activeTournament.tournaments?.name}". You must leave that tournament first.` 
+          });
+        }
       }
     }
 

@@ -246,13 +246,20 @@ export const CreateTournament: React.FC = () => {
 
     setModalLoading(true);
     try {
-      // 1. Check safeguard (already in another tournament?) and get logo/country
+      // 1. Check safeguard (already in another tournament?)
       const res = await fetch(`/api/teams/info?team_id=${team.teamId}`);
       const data = await res.json();
-      
+
       if (!res.ok) {
         throw new Error(data.error || 'Failed to verify team eligibility');
       }
+
+      // 2. Fetch logo
+      const { logoUrl, countryName } = await fetchTeamLogoFromChpp(
+        team.teamId,
+        linkedManager.access_token,
+        linkedManager.access_token_secret,
+      );
 
       const creatorTeam: LocalTeam = {
         tempId: nanoid(),
@@ -263,8 +270,8 @@ export const CreateTournament: React.FC = () => {
         accessTokenSecret: linkedManager.access_token_secret,
         managerName: linkedManager.manager_name,
         hattrickUserId: linkedManager.hattrick_user_id ?? undefined,
-        logoUrl: data.logoUrl || undefined,
-        countryName: data.countryName || undefined,
+        logoUrl: logoUrl || undefined,
+        countryName: countryName || undefined,
       };
 
       const updatedTeams =
@@ -277,13 +284,14 @@ export const CreateTournament: React.FC = () => {
       setLinkedManager(null);
 
       await clearPendingJoin(linkedManager.selection_token);
-      window.history.replaceState({}, '', '/create?step=teams');
+      window.location.reload();
     } catch (err: unknown) {
       alert(err instanceof Error ? err.message : 'An unexpected error occurred during team selection');
     } finally {
       setModalLoading(false);
     }
   };
+
 
   const handleOrganizerNoJoin = async () => {
     if (linkedManager?.selection_token) {
@@ -470,7 +478,7 @@ export const CreateTournament: React.FC = () => {
 
       localStorage.removeItem('create_tournament_progress');
       localStorage.setItem(`admin_pw_${slug}`, adminPassword);
-      navigate(`/t/${slug}?tab=standings`, { state: { isAdminInit: true } });
+      window.location.href = `/t/${slug}?tab=standings`;
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : 'Unknown error';
       alert('Error creating tournament: ' + message);
@@ -864,7 +872,10 @@ export const CreateTournament: React.FC = () => {
                       </span>
                       <span className={styles.id}>ID: {team.htId}</span>
                     </div>
-                    <button onClick={() => (team.isCreator ? goBackToSettings() : removeLocalTeam(team.tempId))} className={styles.deleteBtn}>
+                    <button
+                      onClick={() => (team.isCreator ? goBackToSettings() : removeLocalTeam(team.tempId))}
+                      className={styles.deleteBtn}
+                    >
                       {team.isCreator ? <X size={18} weight="bold" /> : <Trash size={18} weight="bold" />}
                     </button>
                   </li>

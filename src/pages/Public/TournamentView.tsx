@@ -479,9 +479,7 @@ export const TournamentView: React.FC = () => {
       setPendingJoinData(null);
 
       alert('Success! You have joined the tournament.');
-      const newUrl = window.location.pathname;
-      window.history.replaceState({}, '', newUrl);
-      fetchData();
+      window.location.reload();
     } catch (err) {
       alert(err instanceof Error ? err.message : 'An unknown error occurred');
     } finally {
