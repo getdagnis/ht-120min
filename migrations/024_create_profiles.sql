@@ -1,4 +1,4 @@
-CREATE TABLE profiles (
+CREATE TABLE IF NOT EXISTS profiles (
   hattrick_user_id BIGINT PRIMARY KEY,
   manager_name TEXT NOT NULL,
   country_id INTEGER,

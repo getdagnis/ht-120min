@@ -184,6 +184,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       return res.redirect(`/create?step=teams&token=${selectionToken}`);
     }
 
+    if (tournament) {
+      return res.redirect(`/t/${tournament.slug}?token=${selectionToken}`);
+    }
+
     // Redirect to AuthCallback to handle final login
     return res.redirect(`/auth/callback?token=${selectionToken}`);
   } catch (error: unknown) {

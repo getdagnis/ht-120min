@@ -47,42 +47,44 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       });
     }
 
-    // 2. Fetch additional team details (Logo, Country)
+    // 2. Fetch additional team details (Logo, Country) if joining
     let logoUrl: string | undefined;
     let countryName: string | undefined;
 
-    try {
-      const chppUrl = 'https://chpp.hattrick.org/chppxml.ashx';
-      const teamIdStr = String(team_id);
-      const chppParams = {
-        file: 'teamdetails',
-        teamID: teamIdStr,
-        version: '3.9',
-      };
+    if (team_id) {
+      try {
+        const chppUrl = 'https://chpp.hattrick.org/chppxml.ashx';
+        const teamIdStr = String(team_id);
+        const chppParams = {
+          file: 'teamdetails',
+          teamID: teamIdStr,
+          version: '3.9',
+        };
 
-      const authHeader = getAuthHeader(
-        'GET',
-        chppUrl,
-        chppParams,
-        consumerKey,
-        consumerSecret,
-        pending.access_token,
-        pending.access_token_secret,
-      );
+        const authHeader = getAuthHeader(
+          'GET',
+          chppUrl,
+          chppParams,
+          consumerKey,
+          consumerSecret,
+          pending.access_token,
+          pending.access_token_secret,
+        );
 
-      const chppRes = await fetch(`${chppUrl}?file=teamdetails&teamID=${teamIdStr}&version=3.9`, {
-        headers: { Authorization: authHeader },
-      });
+        const chppRes = await fetch(`${chppUrl}?file=teamdetails&teamID=${teamIdStr}&version=3.9`, {
+          headers: { Authorization: authHeader },
+        });
 
-      if (chppRes.ok) {
-        const xml = await chppRes.text();
-        const parsed = parseTeamDetailsXml(xml, parseInt(teamIdStr, 10));
-        logoUrl = parsed.logoUrl;
-        countryName = parsed.countryName;
+        if (chppRes.ok) {
+          const xml = await chppRes.text();
+          const parsed = parseTeamDetailsXml(xml, parseInt(teamIdStr, 10));
+          logoUrl = parsed.logoUrl;
+          countryName = parsed.countryName;
+        }
+      } catch (e) {
+        console.error('Failed to fetch team details during join:', e);
+        // Non-critical, continue registration
       }
-    } catch (e) {
-      console.error('Failed to fetch team details during join:', e);
-      // Non-critical, continue registration
     }
 
     // 3. Register the specific team (Standard joining flow)
@@ -153,18 +155,22 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       console.error('Failed to update profile during login:', e);
     }
 
-    // 5. Get tournament slug for redirect
-    const { data: tournamentAfter } = await supabase
-      .from('tournaments')
-      .select('slug')
-      .eq('id', pending.tournament_id)
-      .single();
+    // 5. Get tournament slug for redirect if we had one
+    let finalSlug = undefined;
+    if (pending.tournament_id) {
+      const { data: tournamentAfter } = await supabase
+        .from('tournaments')
+        .select('slug')
+        .eq('id', pending.tournament_id)
+        .single();
+      finalSlug = tournamentAfter?.slug;
+    }
 
     // 6. Cleanup
     await supabase.from('oauth_temp_sessions').delete().eq('selection_token', selection_token);
 
     return res.status(200).json({ 
-      slug: tournamentAfter?.slug, 
+      slug: finalSlug, 
       hattrick_user_id: pending.hattrick_user_id,
       manager_name: pending.manager_name,
       team_name: team_name,

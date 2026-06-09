@@ -561,7 +561,7 @@ export const TOURNAMENT_DEFAULT = [
   'The road to glory starts with a friendly and ends with statistics',
   'Contains traces of ambition and excessive confidence',
   'The only thing stronger than my team is my false optimism',
-  'The grass is virtual, but the sweat is real',
+  'The grass might be virtual, but the sweat is real',
   'No spreadsheets were harmed in the creation of this tournament',
   'Where every minute counts, but some count more than others',
   'Play fair, collect points, drink beer, make friends',
