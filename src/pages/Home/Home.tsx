@@ -89,6 +89,7 @@ export const Home: React.FC = () => {
 
   const fetchTournaments = useCallback(async () => {
     try {
+      // Fetch tournaments with validated team counts
       const { data: tournaments, error: tError } = await supabase
         .from('tournaments')
         .select(
@@ -113,7 +114,8 @@ export const Home: React.FC = () => {
           teams (
             id,
             name,
-            ht_team_id
+            ht_team_id,
+            joined_via_oauth
           )
         `,
         )
@@ -134,6 +136,9 @@ export const Home: React.FC = () => {
         const tournamentsData = tournaments as unknown as DBTournament[];
 
         tournamentsData.forEach((t) => {
+          // Count validated teams
+          const validatedTeamCount = (t.teams as any[]).filter(team => team.joined_via_oauth).length;
+
           const allMatches = t.rounds?.flatMap((r) => r.matches ?? []) ?? [];
           const totalMatches = allMatches.length;
           const completedMatches = allMatches.filter((m) => m.completed).length;
@@ -174,16 +179,21 @@ export const Home: React.FC = () => {
             }
           });
 
+          const tournamentObj = { ...t, totalMatches, completedMatches, activityScore: completedMatches, teamCount: t.teams.length, nextMatchDate, validatedTeamCount };
+
           if (isGenerated && !isClosed) {
-            active.push({ ...t, totalMatches, completedMatches, activityScore: completedMatches, teamCount: t.teams.length, nextMatchDate });
+            active.push(tournamentObj as any);
           } else if (!isGenerated) {
-            open.push({ ...t, totalMatches, completedMatches, activityScore: completedMatches, teamCount: t.teams.length, nextMatchDate: null });
+            open.push(tournamentObj as any);
           }
         });
 
-        // Sort by next match date (closest first)
+        // Sort by validated count first, then next match date
         setActiveTournaments(
           active.sort((a, b) => {
+            if (b.validatedTeamCount !== a.validatedTeamCount) {
+                return b.validatedTeamCount - a.validatedTeamCount;
+            }
             if (!a.nextMatchDate && !b.nextMatchDate) return 0;
             if (!a.nextMatchDate) return 1;
             if (!b.nextMatchDate) return -1;
@@ -191,7 +201,13 @@ export const Home: React.FC = () => {
           })
         );
         
-        setOpenTournaments(open.sort((a, b) => (b.teamCount ?? 0) - (a.teamCount ?? 0)));
+        // Sort by validated count first, then team count
+        setOpenTournaments(open.sort((a, b) => {
+            if (b.validatedTeamCount !== a.validatedTeamCount) {
+                return b.validatedTeamCount - a.validatedTeamCount;
+            }
+            return (b.teamCount ?? 0) - (a.teamCount ?? 0);
+        }));
 
         const topTeamsList = Object.entries(team120Stats)
           .map(([id, data]) => ({ ht_team_id: parseInt(id), name: data.name, achievements120min: data.count }))

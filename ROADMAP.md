@@ -45,6 +45,13 @@ This document tracks our transition from a manual tournament tracker to a fully 
 - [ ] **Automated Challenges:** Send friendly challenges directly via the app.
 - [ ] **AI Journalist:** Generate short summaries of round highlights and dramatic 120m matches.
 
+## Phase 6: PRO Tournaments (Priority: High)
+
+**Goal:** Monetization and premium features for dedicated organizers.
+
+- [ ] **PRO Status System:** Paid subscription integration.
+- [ ] **Premium Features:** Custom images, advanced polls, Hall of Fame, enhanced statistics, and dedicated tournament chat rooms.
+
 ## Core Technical Mandates
 
 - **Security:** Tokens and secrets stay strictly on the server-side (`/api`).
