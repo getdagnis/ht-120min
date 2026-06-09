@@ -17,6 +17,7 @@ interface DBTeamWithTournament {
   id: string;
   name: string;
   ht_team_id: number;
+  logo_url: string | null;
   tournaments: {
     name: string;
     slug: string;
@@ -27,6 +28,7 @@ interface TeamInfo {
   id: string;
   name: string;
   ht_team_id: number;
+  logo_url: string | null;
   tournament_name: string;
   tournament_slug: string;
 }
@@ -41,7 +43,7 @@ export const ProfileModal: React.FC<ProfileModalProps> = ({ isOpen, onClose, pro
         setLoading(true);
         const { data } = await supabase
           .from('teams')
-          .select('id, name, ht_team_id, tournaments(name, slug)')
+          .select('id, name, ht_team_id, logo_url, tournaments(name, slug)')
           .eq('hattrick_user_id', profile.hattrick_user_id)
           .eq('active', true);
 
@@ -52,9 +54,10 @@ export const ProfileModal: React.FC<ProfileModalProps> = ({ isOpen, onClose, pro
               id: t.id,
               name: t.name,
               ht_team_id: t.ht_team_id,
+              logo_url: t.logo_url,
               tournament_name: t.tournaments?.name || 'Unknown',
               tournament_slug: t.tournaments?.slug || '',
-            }))
+            })),
           );
         }
         setLoading(false);
@@ -72,13 +75,12 @@ export const ProfileModal: React.FC<ProfileModalProps> = ({ isOpen, onClose, pro
   });
 
   return (
-    <Modal isOpen={isOpen} onClose={onClose} title="My Profile">
+    <Modal isOpen={isOpen} onClose={onClose} title="Manager Profile">
       <div className={styles.profileContent}>
         <div className={styles.header}>
-          <Avatar 
-            backgroundImage={profile.avatar_json?.backgroundImage} 
-            layers={profile.avatar_json?.layers} 
-            size={100}
+          <Avatar
+            backgroundImage={profile.avatar_json?.backgroundImage}
+            layers={profile.avatar_json?.layers}
             className={styles.avatar}
           />
           <div className={styles.mainInfo}>
@@ -91,7 +93,7 @@ export const ProfileModal: React.FC<ProfileModalProps> = ({ isOpen, onClose, pro
               {profile.country_name && (
                 <div className={styles.metaItem}>
                   <MapPin size={18} />
-                  <a 
+                  <a
                     href={`https://www.hattrick.org/goto.ashx?path=/World/LeagueDetails/?LeagueID=${profile.country_id}`}
                     target="_blank"
                     rel="noopener noreferrer"
@@ -103,52 +105,60 @@ export const ProfileModal: React.FC<ProfileModalProps> = ({ isOpen, onClose, pro
             </div>
           </div>
         </div>
-
-        <section className={styles.section}>
-          <h3><Trophy size={20} /> Registered Teams on HT-120min</h3>
-          <div className={styles.teamList}>
-            {loading ? (
-              <p>Loading teams...</p>
-            ) : teams.length > 0 ? (
-              teams.map((team) => (
-                <div key={team.id} className={styles.teamItem}>
-                  <div className={styles.teamName}>
-                    <strong>{team.name}</strong>
-                    <span className={styles.htId}>ID: {team.ht_team_id}</span>
+        <div className={styles.body}>
+          <section className={styles.section}>
+            <h3>
+              <Trophy size={20} /> Registered Teams
+            </h3>
+            <div className={styles.teamList}>
+              {loading ? (
+                <p>Loading teams...</p>
+              ) : teams.length > 0 ? (
+                teams.map((team) => (
+                  <div key={team.id} className={styles.teamItem}>
+                    <div className={styles.teamInfo}>
+                      {team.logo_url && <img src={team.logo_url} alt="" className={styles.teamLogo} />}
+                      <div className={styles.teamName}>
+                        <strong>
+                          {team.name} <span className={styles.htId}>({team.ht_team_id})</span>
+                        </strong>
+                        <span className={styles.htTournament}>
+                          Active in: <a href={`/t/${team.tournament_slug}`}>{team.tournament_name}</a>
+                        </span>
+                      </div>
+                    </div>
                   </div>
-                  <div className={styles.tournamentLink}>
-                    <span>Active in: </span>
-                    <a href={`/t/${team.tournament_slug}`}>{team.tournament_name}</a>
-                  </div>
-                </div>
-              ))
-            ) : (
-              <p>No active teams registered yet.</p>
-            )}
-          </div>
-        </section>
-
-        <section className={styles.section}>
-          <h3><Medal size={20} /> Achievements</h3>
-          <div className={styles.achievements}>
-            <div className={styles.achievementItem}>
-              <div className={styles.medalIcon}>🥇</div>
-              <div className={styles.achievementInfo}>
-                <strong>Registered on HT-120min</strong>
-                <span>on {joinDate}</span>
-              </div>
+                ))
+              ) : (
+                <p>No active teams registered yet.</p>
+              )}
             </div>
-            {teams.length > 0 && (
+          </section>
+
+          <section className={styles.section}>
+            <h3>
+              <Medal size={20} /> Achievements
+            </h3>
+            <div className={styles.achievements}>
               <div className={styles.achievementItem}>
-                <div className={styles.medalIcon}>🏆</div>
+                <div className={styles.medalIcon}>🥇</div>
                 <div className={styles.achievementInfo}>
-                  <strong>Took part in first tournament</strong>
-                  <span>{teams[teams.length - 1].tournament_name}</span>
+                  <strong>Registered on HT-120min</strong>
+                  <span>on {joinDate}</span>
                 </div>
               </div>
-            )}
-          </div>
-        </section>
+              {teams.length > 0 && (
+                <div className={styles.achievementItem}>
+                  <div className={styles.medalIcon}>🏆</div>
+                  <div className={styles.achievementInfo}>
+                    <strong>Took part in first tournament</strong>
+                    <span>{teams[teams.length - 1].tournament_name}</span>
+                  </div>
+                </div>
+              )}
+            </div>
+          </section>
+        </div>
       </div>
     </Modal>
   );
