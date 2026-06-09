@@ -501,7 +501,10 @@ export const TournamentView: React.FC = () => {
   }, [password, tournament, slug, isAdminAuthenticated]);
 
   useEffect(() => {
-    void fetchData();
+    const init = async () => {
+      await fetchData();
+    };
+    init();
   }, [fetchData]);
 
   useEffect(() => {
@@ -513,7 +516,7 @@ export const TournamentView: React.FC = () => {
     const joined = params.get('joined');
     const token = params.get('token');
 
-    if ((errorMsg || joined || token)) {
+    if (errorMsg || joined || token) {
       paramsHandledRef.current = true;
       const newUrl = window.location.pathname;
       window.history.replaceState({}, '', newUrl);

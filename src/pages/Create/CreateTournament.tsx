@@ -244,36 +244,45 @@ export const CreateTournament: React.FC = () => {
   }) => {
     if (!linkedManager) return;
 
-    const { logoUrl, countryName } = await fetchTeamLogoFromChpp(
-      team.teamId,
-      linkedManager.access_token,
-      linkedManager.access_token_secret,
-    );
+    setModalLoading(true);
+    try {
+      // 1. Check safeguard (already in another tournament?) and get logo/country
+      const res = await fetch(`/api/teams/info?team_id=${team.teamId}`);
+      const data = await res.json();
+      
+      if (!res.ok) {
+        throw new Error(data.error || 'Failed to verify team eligibility');
+      }
 
-    const creatorTeam: LocalTeam = {
-      tempId: nanoid(),
-      name: team.teamName,
-      htId: String(team.teamId),
-      isCreator: true,
-      accessToken: linkedManager.access_token,
-      accessTokenSecret: linkedManager.access_token_secret,
-      managerName: linkedManager.manager_name,
-      hattrickUserId: linkedManager.hattrick_user_id ?? undefined,
-      logoUrl,
-      countryName,
-    };
+      const creatorTeam: LocalTeam = {
+        tempId: nanoid(),
+        name: team.teamName,
+        htId: String(team.teamId),
+        isCreator: true,
+        accessToken: linkedManager.access_token,
+        accessTokenSecret: linkedManager.access_token_secret,
+        managerName: linkedManager.manager_name,
+        hattrickUserId: linkedManager.hattrick_user_id ?? undefined,
+        logoUrl: data.logoUrl || undefined,
+        countryName: data.countryName || undefined,
+      };
 
-    const updatedTeams =
-      formData.registration_type === 'validated' ? [creatorTeam] : [...teams.filter((t) => !t.isCreator), creatorTeam];
+      const updatedTeams =
+        formData.registration_type === 'validated' ? [creatorTeam] : [...teams.filter((t) => !t.isCreator), creatorTeam];
 
-    setTeams(updatedTeams);
-    setIsLinked(true);
-    saveProgress(formData, updatedTeams);
-    setShowModal(false);
-    setLinkedManager(null);
+      setTeams(updatedTeams);
+      setIsLinked(true);
+      saveProgress(formData, updatedTeams);
+      setShowModal(false);
+      setLinkedManager(null);
 
-    await clearPendingJoin(linkedManager.selection_token);
-    window.history.replaceState({}, '', '/create?step=teams');
+      await clearPendingJoin(linkedManager.selection_token);
+      window.history.replaceState({}, '', '/create?step=teams');
+    } catch (err: unknown) {
+      alert(err instanceof Error ? err.message : 'An unexpected error occurred during team selection');
+    } finally {
+      setModalLoading(false);
+    }
   };
 
   const handleOrganizerNoJoin = async () => {
@@ -424,7 +433,13 @@ export const CreateTournament: React.FC = () => {
         .select()
         .single();
 
-      if (tError) throw tError;
+      if (tError) {
+        // Handle specific Supabase error for unique constraint
+        if ((tError as any).code === '23505') {
+          throw new Error('A tournament with this URL slug already exists. Please choose a different slug.');
+        }
+        throw tError;
+      }
 
       const teamsToInsert = teams.map((t) => ({
         tournament_id: tournament.id,
@@ -764,9 +779,6 @@ export const CreateTournament: React.FC = () => {
               <div className={styles.creatorWelcome}>
                 <div className={styles.welcomeHeader}>
                   <h2>Ready to create</h2>
-                  <button className={styles.removeCreatorBtn} onClick={goBackToSettings} title="Remove team">
-                    <X size={20} weight="bold" />
-                  </button>
                 </div>
                 <div className={styles.creatorTeamCard}>
                   {creator.logoUrl && <img src={creator.logoUrl} alt="" className={styles.creatorTeamLogo} />}
@@ -775,6 +787,9 @@ export const CreateTournament: React.FC = () => {
                     <strong>{creator.name}</strong>
                     <span>{[creator.managerName, `ID ${creator.htId}`].filter(Boolean).join(' · ')}</span>
                   </div>
+                  <button className={styles.removeCreatorBtnInline} onClick={goBackToSettings} title="Remove team">
+                    <X size={20} weight="bold" />
+                  </button>
                 </div>
                 <p className={styles.finalizeNote}>
                   Other managers join via the public link after the tournament is created.
@@ -837,6 +852,7 @@ export const CreateTournament: React.FC = () => {
                     <div className={styles.teamInfo}>
                       <span className={styles.name}>
                         {team.name}
+                        {team.isCreator && <span className={styles.creatorBadge}>(You)</span>}
                         <a
                           href={`https://www.hattrick.org/goto.ashx?path=/Club/?TeamID=${team.htId}`}
                           target="_blank"
@@ -848,11 +864,9 @@ export const CreateTournament: React.FC = () => {
                       </span>
                       <span className={styles.id}>ID: {team.htId}</span>
                     </div>
-                    {!team.isCreator && (
-                      <button onClick={() => removeLocalTeam(team.tempId)} className={styles.deleteBtn}>
-                        <Trash size={18} weight="bold" />
-                      </button>
-                    )}
+                    <button onClick={() => (team.isCreator ? goBackToSettings() : removeLocalTeam(team.tempId))} className={styles.deleteBtn}>
+                      {team.isCreator ? <X size={18} weight="bold" /> : <Trash size={18} weight="bold" />}
+                    </button>
                   </li>
                 ))}
                 {teams.length === 0 && <p className={styles.empty}>No teams added yet.</p>}

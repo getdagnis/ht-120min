@@ -1,12 +1,12 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { createClient } from '@supabase/supabase-js';
 import { getAuthHeader } from '../_lib/chpp-auth.js';
-import { OAUTH_CREATION_TOURNAMENT_ID } from '../_lib/oauth-constants.js';
 
 // Helper to get supabase client safely in serverless functions
 const getSupabase = () => {
   const url = process.env.VITE_SUPABASE_URL || process.env.SUPABASE_URL;
-  const key = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.VITE_SUPABASE_PUBLISHABLE_KEY || process.env.SUPABASE_ANON_KEY;
+  const key =
+    process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.VITE_SUPABASE_PUBLISHABLE_KEY || process.env.SUPABASE_ANON_KEY;
 
   if (!url || !key) {
     throw new Error(`Supabase configuration missing. URL: ${!!url}, Key: ${!!key}`);
@@ -65,17 +65,16 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     if (!oauth_token || !oauth_token_secret) {
       return res.status(500).json({ error: 'Invalid response from Hattrick', body });
     }
-// Store temporary session
-const supabase = getSupabase();
-const { error } = await supabase.from('oauth_temp_sessions').insert({
-  oauth_token,
-  oauth_token_secret,
-  tournament_id:
-    typeof tournament_id === 'string' && tournament_id ? tournament_id : null,
-  is_creation: is_creation === 'true',
-  league_category: league_category === 'hfi' ? 'hfi' : 'male',
-  country_limit: typeof country_limit === 'string' ? country_limit : null,
-});
+    // Store temporary session
+    const supabase = getSupabase();
+    const { error } = await supabase.from('oauth_temp_sessions').insert({
+      oauth_token,
+      oauth_token_secret,
+      tournament_id: typeof tournament_id === 'string' && tournament_id ? tournament_id : null,
+      is_creation: is_creation === 'true',
+      league_category: league_category === 'hfi' ? 'hfi' : 'male',
+      country_limit: typeof country_limit === 'string' ? country_limit : null,
+    });
 
     if (error) {
       return res.status(500).json({ error: 'Failed to store session', details: error.message });

@@ -33,7 +33,7 @@ interface DBTeamMatch {
   id: string;
   completed: boolean;
   home_team_id: string;
-  away_team_id: string; // Added away_team_id
+  away_team_id: string;
   home_team: { country_name: string } | null;
 }
 
@@ -79,6 +79,10 @@ export const useAuth = () => {
 
       if (profileData) {
         setProfile(profileData as UserProfile);
+        if (profileData.manager_name !== managerName) {
+          setManagerName(profileData.manager_name);
+          localStorage.setItem('my_ht_manager_name', profileData.manager_name);
+        }
       }
 
       // 2. Fetch Active Tournaments for the user
@@ -92,6 +96,7 @@ export const useAuth = () => {
             slug, 
             created_at,
             rounds (
+              id,
               round_number,
               matches (
                 id,
@@ -173,7 +178,7 @@ export const useAuth = () => {
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [managerName]);
 
   useEffect(() => {
     const hattrickUserId = localStorage.getItem('my_ht_user_id') ? Number(localStorage.getItem('my_ht_user_id')) : null;
