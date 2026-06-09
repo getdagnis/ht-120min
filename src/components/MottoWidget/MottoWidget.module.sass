@@ -2,13 +2,14 @@
   display: flex
   align-items: center
   background: var(--table-bg)
-  // background-image: url('/grass2.png')
-  // background-position: center
-  // background-repeat: repeat
+  background-image: url('/grass2.png')
+  background-position: center
+  background-repeat: repeat
+  padding-bottom: 1.5rem
   border: none
   border: 1px solid var(--border)
   box-sizing: border-box
-  min-height: 10rem
+  min-height: 11rem
 
   @media (max-width: 620px)
     width: calc(100% - 1rem)
@@ -18,11 +19,12 @@
     padding: 1.5rem
 
   .quoteIcon
-    color: var(--accent-2) !important
+    color: var(--yellow) !important
 
   .mottoText
     color: var(--text)
     text-wrap: pretty
+    font-size: 2rem
 
 .mottoContent
   display: flex
@@ -54,11 +56,14 @@
   display: flex
   align-items: center
   margin: 0
+  background: var(--table-bg)
   border-radius: var(--radius-md)
   font-size: 1.25rem
   font-style: italic
   margin-bottom: 1rem
   min-height: 10rem
+  .quoteIcon
+    color: var(--accent-2) !important
 
   .mottoText
     font-size: 1.5rem

@@ -2008,7 +2008,7 @@ export const TournamentView: React.FC = () => {
                   />
                 </div>
                 {adminAuthError && <p className={styles.authError}>Invalid password. Please try again.</p>}
-                <Button type="submit" variant="primary" size="lg">
+                <Button type="submit" variant="primary" size="md">
                   Login <ArrowRight size={18} weight="bold" />
                 </Button>
 
