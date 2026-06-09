@@ -10,6 +10,7 @@ interface MottoWidgetProps {
   intervalMs?: number;
   className?: string;
   theme?: 'light' | 'dark';
+  variant?: 'default' | 'sidebar';
 }
 
 export const MottoWidget: React.FC<MottoWidgetProps> = ({
@@ -17,13 +18,16 @@ export const MottoWidget: React.FC<MottoWidgetProps> = ({
   intervalMs = 8000,
   className = '',
   theme = 'light',
+  variant = 'default',
 }) => {
   const currentMotto = useRandomCycle(items, intervalMs);
 
   return (
-    <Card className={`${styles.mottoCard} ${className} ${theme === 'dark' ? styles.darkTheme : ''}`}>
+    <Card
+      className={`${styles.mottoCard} ${className} ${theme === 'dark' ? styles.darkTheme : ''} ${variant === 'sidebar' ? styles.sidebarVariant : ''}`}
+    >
       <div className={styles.mottoContent}>
-        <Quotes size={32} weight="bold" className={styles.quoteIcon} />
+        <Quotes size={28} className={styles.quoteIcon} />
         <p className={styles.mottoText}>{currentMotto}</p>
       </div>
     </Card>

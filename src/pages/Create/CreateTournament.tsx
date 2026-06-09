@@ -9,7 +9,6 @@ import {
   X,
   ArrowClockwise,
   ArrowRight,
-  Handshake,
   Trophy,
   CaretLeft,
   Plus,
@@ -751,7 +750,7 @@ export const CreateTournament: React.FC = () => {
             {!isLinked && (
               <div className={styles.linkSection}>
                 <Button size="lg" variant="primary" onClick={handleHattrickLink} disabled={loading}>
-                  <Handshake size={20} weight="bold" /> {isValidated ? 'Link with Hattrick' : 'Link Organizer Profile'}
+                  <ArrowRight size={20} weight="bold" /> {isValidated ? 'Link with Hattrick' : 'Link Organizer Profile'}
                 </Button>
                 <p className={styles.linkInstruction}>
                   {isValidated
@@ -763,7 +762,12 @@ export const CreateTournament: React.FC = () => {
 
             {isValidated && isLinked && creator && (
               <div className={styles.creatorWelcome}>
-                <h2>Ready to create</h2>
+                <div className={styles.welcomeHeader}>
+                  <h2>Ready to create</h2>
+                  <button className={styles.removeCreatorBtn} onClick={goBackToSettings} title="Remove team">
+                    <X size={20} weight="bold" />
+                  </button>
+                </div>
                 <div className={styles.creatorTeamCard}>
                   {creator.logoUrl && <img src={creator.logoUrl} alt="" className={styles.creatorTeamLogo} />}
                   <div className={styles.creatorCardContent}>
@@ -814,7 +818,7 @@ export const CreateTournament: React.FC = () => {
                       className={styles.fetchIconBtn}
                       title="Get Team Data"
                     >
-                      <Handshake size={20} weight="bold" />
+                      <ArrowRight size={20} weight="bold" />
                     </button>
                   )}
                   {newTeamName && (

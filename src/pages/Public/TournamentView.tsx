@@ -17,7 +17,18 @@ import styles from './TournamentView.module.sass';
 import adminStyles from './TournamentAdmin.module.sass';
 import { FixtureCard } from '../../components/FixtureCard/FixtureCard';
 import { MottoWidget } from '../../components/MottoWidget/MottoWidget';
-import { ArrowClockwise, ArrowUpRight, Trash } from 'phosphor-react';
+import {
+  ArrowClockwise,
+  ArrowUpRight,
+  Trash,
+  CopySimple,
+  CaretDown,
+  CaretUp,
+  X,
+  Plus,
+  ShieldCheck,
+  ArrowRight,
+} from 'phosphor-react';
 
 interface ChppTeamOption {
   teamId: number;
@@ -254,8 +265,18 @@ export const TournamentView: React.FC = () => {
   const [visibleRoundsCount, setVisibleRoundsCount] = useState(4);
 
   // UI state
-  const [showScoringHelp] = useState(false);
+  const [showScoringHelp, setShowScoringHelp] = useState(false);
   const [isAddingDescription, setIsAddingDescription] = useState(false);
+  const [expandedRounds, setExpandedRounds] = useState<Record<string, boolean>>(() => {
+    const saved = localStorage.getItem(`expanded_rounds_${slug}`);
+    return saved ? JSON.parse(saved) : {};
+  });
+
+  const toggleRound = (roundId: string) => {
+    const newExpanded = { ...expandedRounds, [roundId]: !expandedRounds[roundId] };
+    setExpandedRounds(newExpanded);
+    localStorage.setItem(`expanded_rounds_${slug}`, JSON.stringify(newExpanded));
+  };
   const [quickDescription, setQuickDescription] = useState('');
   const [isJoinedNoticeDismissed, setIsJoinedNoticeDismissed] = useState(
     localStorage.getItem(`joined_notice_dismissed_${slug}`) === 'true',
@@ -307,6 +328,7 @@ export const TournamentView: React.FC = () => {
 
     if (tournamentData) {
       setTournament(tournamentData as any);
+      localStorage.setItem('last_viewed_tournament_id', tournamentData.id);
       // ... (rest of the function, I'll need to include it in the replace call)
       setEditName(tournamentData.name);
       setEditIsPrivate(tournamentData.is_private);
@@ -417,6 +439,12 @@ export const TournamentView: React.FC = () => {
     }
 
     setPendingJoinData(data);
+    if (data.manager_name) {
+      localStorage.setItem('my_ht_manager_name', data.manager_name);
+    }
+    if (data.hattrick_user_id) {
+      localStorage.setItem('my_ht_user_id', String(data.hattrick_user_id));
+    }
     setModalLoading(false);
   }, []);
 
@@ -1237,11 +1265,9 @@ export const TournamentView: React.FC = () => {
               <div className={styles.quickAddDesc}>
                 <div className={adminStyles.labelRow}>
                   <label>Add Description</label>
-                  <button
-                    type="button"
-                    onClick={() => regenerateDescription(true)}
-                    className={adminStyles.iconBtn}
-                  ></button>
+                  <button type="button" onClick={() => regenerateDescription(true)} className={adminStyles.iconBtn}>
+                    <ArrowClockwise size={20} weight="bold" />
+                  </button>
                 </div>
 
                 <div className={styles.quickAddActions}>
@@ -1262,8 +1288,9 @@ export const TournamentView: React.FC = () => {
             )}
             {is120minMode ? (
               <div className={styles.scoringHelp}>
-                <p>
-                  <strong>120min training mode</strong>
+                <p onClick={() => setShowScoringHelp(!showScoringHelp)} className={styles.helpToggle}>
+                  <strong>120min training mode</strong>{' '}
+                  {showScoringHelp ? <CaretUp size={14} /> : <CaretDown size={14} />}
                 </p>
                 {showScoringHelp && (
                   <p className={styles.helpContent}>
@@ -1277,8 +1304,9 @@ export const TournamentView: React.FC = () => {
               </div>
             ) : (
               <div className={styles.scoringHelp}>
-                <p>
-                  <strong>Victory points mode</strong>
+                <p onClick={() => setShowScoringHelp(!showScoringHelp)} className={styles.helpToggle}>
+                  <strong>Victory points mode</strong>{' '}
+                  {showScoringHelp ? <CaretUp size={14} /> : <CaretDown size={14} />}
                 </p>
                 {showScoringHelp && (
                   <p className={styles.helpContent}>
@@ -1356,7 +1384,9 @@ export const TournamentView: React.FC = () => {
                     setIsConnecting(true);
                     window.location.href = `/api/auth/init?tournament_id=${tournament?.id}`;
                   }}
-                ></Button>
+                >
+                  <ArrowRight size={20} weight="bold" /> Join with Hattrick
+                </Button>
                 <p className={styles.registrationLinkNote}>
                   Authorize HT-120min to fetch your team data and update results automatically.
                 </p>
@@ -1393,7 +1423,9 @@ export const TournamentView: React.FC = () => {
                   size="sm"
                   className={styles.joinButton}
                   disabled={isConnecting}
-                ></Button>
+                >
+                  <ArrowRight size={18} weight="bold" /> Join
+                </Button>
               )}
             </div>
           </div>
@@ -1410,7 +1442,9 @@ export const TournamentView: React.FC = () => {
               setIsJoinedNoticeDismissed(true);
               localStorage.setItem(`joined_notice_dismissed_${slug}`, 'true');
             }}
-          ></button>
+          >
+            <X size={18} weight="bold" />
+          </button>
         </div>
       )}
 
@@ -1474,13 +1508,19 @@ export const TournamentView: React.FC = () => {
                                   {s.teamName}
                                   {isMyTeam && <span className={styles.myTeamBadge}> (You)</span>}
                                 </span>
-                                {s.joinedViaOauth && <span title="Hattrick Validated Team"></span>}
+                                {s.joinedViaOauth && (
+                                  <span title="Hattrick Validated Team">
+                                    <ShieldCheck size={14} weight="bold" className={styles.validatedIcon} />
+                                  </span>
+                                )}
                                 <a
                                   href={`https://www.hattrick.org/goto.ashx?path=/Club/?TeamID=${s.htTeamId}`}
                                   target="_blank"
                                   rel="noopener noreferrer"
                                   className={styles.htLink}
-                                ></a>
+                                >
+                                  <ArrowUpRight size={12} weight="bold" />
+                                </a>
                               </div>
                               {s.htTeamId && <span className={styles.teamId}>ID: {s.htTeamId}</span>}
                             </div>
@@ -1531,7 +1571,9 @@ export const TournamentView: React.FC = () => {
                                   size="sm"
                                   onClick={handleInvite}
                                   className={`${styles.inviteSpotBtn} ${styles.noPadding}`}
-                                ></Button>
+                                >
+                                  <Plus size={14} weight="bold" /> Invite
+                                </Button>
                                 <span className={styles.spotLabel}>{spot.name}</span>
                               </div>
                             </div>
@@ -1581,7 +1623,9 @@ export const TournamentView: React.FC = () => {
                       variant="outlineWhite"
                       size="sm"
                       disabled={isConnecting}
-                    ></Button>
+                    >
+                      <ArrowRight size={18} /> Join with Hattrick
+                    </Button>
                     <Button
                       onClick={() => {
                         const msg = `You are invited to join "${tournament.name}" (Season ${tournament.season}) on HT-120min! Register your team here: ${publicUrl}`;
@@ -1590,14 +1634,16 @@ export const TournamentView: React.FC = () => {
                       }}
                       variant="outlineWhite"
                       size="sm"
-                    ></Button>
+                    >
+                      <CopySimple size={18} /> Copy Invite
+                    </Button>
                   </div>
                 </div>
               )}
             </SectionCard>
           </div>
           <aside className={styles.statsSidebar}>
-            <MottoWidget items={TOURNAMENT_DEFAULT} theme="dark" />
+            <MottoWidget items={TOURNAMENT_DEFAULT} theme="dark" variant="sidebar" />
             <SectionCard title="News Feed">
               <ul className={styles.newsFeed}>
                 <li className={styles.feedItem}>
@@ -1624,100 +1670,117 @@ export const TournamentView: React.FC = () => {
             </SectionCard>
           ) : (
             <>
-              {rounds.slice(0, visibleRoundsCount).map((round) => (
-                <SectionCard
-                  key={round.id}
-                  title={
-                    <div className={styles.roundHeader}>
-                      <>
-                        <span>Round {round.round_number}</span>
-                        <span className={styles.roundDate}>{getRoundDateRange(round)}</span>
-                      </>
-                    </div>
-                  }
-                  headerRight={
-                    <div className={styles.fixturesControls}>
-                      {tournament?.last_fixtures_refresh && (
-                        <span className={styles.lastRefresh}>
-                          {isRefreshingFixtures ? 'Checking...' : 'Last checked: '}
-                          {!isRefreshingFixtures &&
-                            new Date(tournament.last_fixtures_refresh).toLocaleTimeString('en-GB', {
-                              hour: '2-digit',
-                              minute: '2-digit',
-                            })}
-                        </span>
-                      )}
-                      <button
-                        className={`${styles.refreshBtn} ${isRefreshingFixtures ? styles.spinning : ''}`}
-                        onClick={handleRefreshFixtures}
-                        disabled={isRefreshingFixtures}
+              {rounds.slice(0, visibleRoundsCount).map((round) => {
+                const upcomingRound = rounds.find((r) => r.matches.some((m) => !m.completed));
+                const isNextRound = round.id === upcomingRound?.id;
+                const isExpanded = expandedRounds[round.id] ?? isNextRound;
+
+                return (
+                  <SectionCard
+                    key={round.id}
+                    title={
+                      <div
+                        className={styles.roundHeader}
+                        onClick={() => !isNextRound && toggleRound(round.id)}
+                        style={{ cursor: isNextRound ? 'default' : 'pointer' }}
                       >
-                        <ArrowClockwise size={18} />
-                      </button>
-                    </div>
-                  }
-                >
-                  <div className={styles.matchesGrid}>
-                    {round.matches.map((match: MatchWithTeams) => {
-                      const matchDate = calculateMatchDate(
-                        tournament?.created_at || '',
-                        round.round_number,
-                        match.home_team?.country_name,
-                      );
+                        <>
+                          <span>Round {round.round_number}</span>
+                          <span className={styles.roundDate}>{getRoundDateRange(round)}</span>
+                          {!isNextRound && (isExpanded ? <CaretUp size={18} /> : <CaretDown size={18} />)}
+                        </>
+                      </div>
+                    }
+                    headerRight={
+                      isNextRound ? (
+                        <div className={styles.fixturesControls}>
+                          {tournament?.last_fixtures_refresh && (
+                            <span className={styles.lastRefresh}>
+                              {isRefreshingFixtures ? 'Checking...' : 'Last checked: '}
+                              {!isRefreshingFixtures &&
+                                new Date(tournament.last_fixtures_refresh).toLocaleTimeString('en-GB', {
+                                  hour: '2-digit',
+                                  minute: '2-digit',
+                                })}
+                            </span>
+                          )}
+                          <button
+                            className={`${styles.refreshBtn} ${isRefreshingFixtures ? styles.spinning : ''}`}
+                            onClick={handleRefreshFixtures}
+                            disabled={isRefreshingFixtures}
+                          >
+                            <ArrowClockwise size={18} />
+                          </button>
+                        </div>
+                      ) : undefined
+                    }
+                  >
+                    {isExpanded && (
+                      <div className={styles.matchesGrid}>
+                        {round.matches.map((match: MatchWithTeams) => {
+                          const matchDate = calculateMatchDate(
+                            tournament?.created_at || '',
+                            round.round_number,
+                            match.home_team?.country_name,
+                          );
 
-                      const day = matchDate.toLocaleString('en-GB', { weekday: 'short' }).toUpperCase();
-                      const datePart = matchDate.toLocaleDateString('lv-LV', {
-                        day: '2-digit',
-                        month: '2-digit',
-                      });
-                      const timePart = matchDate.toLocaleTimeString('en-GB', {
-                        hour: '2-digit',
-                        minute: '2-digit',
-                        hour12: false,
-                      });
-                      const formattedDate = `${day} / ${datePart} / ${timePart}`;
+                          const day = matchDate.toLocaleString('en-GB', { weekday: 'short' }).toUpperCase();
+                          const datePart = matchDate.toLocaleDateString('lv-LV', {
+                            day: '2-digit',
+                            month: '2-digit',
+                          });
+                          const timePart = matchDate.toLocaleTimeString('en-GB', {
+                            hour: '2-digit',
+                            minute: '2-digit',
+                            hour12: false,
+                          });
+                          const formattedDate = `${day} / ${datePart} / ${timePart}`;
 
-                      const homeWarning = warnings.find(
-                        (w) => w.team_id === match.home_team_id && w.round_id === round.id,
-                      );
-                      const awayWarning = warnings.find(
-                        (w) => w.team_id === match.away_team_id && w.round_id === round.id,
-                      );
+                          const homeWarning = warnings.find(
+                            (w) => w.team_id === match.home_team_id && w.round_id === round.id,
+                          );
+                          const awayWarning = warnings.find(
+                            (w) => w.team_id === match.away_team_id && w.round_id === round.id,
+                          );
 
-                      // Use status from DB, fallback to simple detection
-                      let status = match.status || 'not_arranged';
-                      if (match.completed) status = 'finished';
-                      else if (homeWarning || awayWarning) status = 'misarranged';
+                          // Use status from DB, fallback to simple detection
+                          let status = match.status || 'not_arranged';
+                          if (match.completed) status = 'finished';
+                          else if (homeWarning || awayWarning) status = 'misarranged';
 
-                      return (
-                        <FixtureCard
-                          key={match.id}
-                          date={formattedDate}
-                          status={status}
-                          htMatchId={match.ht_match_id || undefined}
-                          score={
-                            match.completed ? { home: match.home_goals || 0, away: match.away_goals || 0 } : undefined
-                          }
-                          homeTeam={{
-                            name: match.home_team.name,
-                            managerName: match.home_team.manager_name || 'UNKNOWN',
-                            htTeamId: match.home_team.ht_team_id,
-                            logoUrl: match.home_team.logo_url,
-                            warning: homeWarning?.type,
-                          }}
-                          awayTeam={{
-                            name: match.away_team.name,
-                            managerName: match.away_team.manager_name || 'UNKNOWN',
-                            htTeamId: match.away_team.ht_team_id,
-                            logoUrl: match.away_team.logo_url,
-                            warning: awayWarning?.type,
-                          }}
-                        />
-                      );
-                    })}
-                  </div>
-                </SectionCard>
-              ))}
+                          return (
+                            <FixtureCard
+                              key={match.id}
+                              date={formattedDate}
+                              status={status}
+                              htMatchId={match.ht_match_id || undefined}
+                              score={
+                                match.completed
+                                  ? { home: match.home_goals || 0, away: match.away_goals || 0 }
+                                  : undefined
+                              }
+                              homeTeam={{
+                                name: match.home_team.name,
+                                managerName: match.home_team.manager_name || 'UNKNOWN',
+                                htTeamId: match.home_team.ht_team_id,
+                                logoUrl: match.home_team.logo_url,
+                                warning: homeWarning?.type,
+                              }}
+                              awayTeam={{
+                                name: match.away_team.name,
+                                managerName: match.away_team.manager_name || 'UNKNOWN',
+                                htTeamId: match.away_team.ht_team_id,
+                                logoUrl: match.away_team.logo_url,
+                                warning: awayWarning?.type,
+                              }}
+                            />
+                          );
+                        })}
+                      </div>
+                    )}
+                  </SectionCard>
+                );
+              })}
               {visibleRoundsCount < rounds.length && (
                 <div className={styles.formActionRow}>
                   <Button onClick={() => setVisibleRoundsCount((prev) => prev + 4)} variant="outline">
@@ -1945,7 +2008,9 @@ export const TournamentView: React.FC = () => {
                   />
                 </div>
                 {adminAuthError && <p className={styles.authError}>Invalid password. Please try again.</p>}
-                <Button type="submit" variant="primary" size="lg"></Button>
+                <Button type="submit" variant="primary" size="lg">
+                  Login <ArrowRight size={18} weight="bold" />
+                </Button>
 
                 <div className={styles.adminAuthFooter}>
                   {failedLoginAttempt ? (
@@ -1975,6 +2040,7 @@ export const TournamentView: React.FC = () => {
                         <div className={adminStyles.labelRow}>
                           <label>Tournament Name</label>
                           <button type="button" onClick={regenerateName} className={adminStyles.iconBtn}>
+                            <ArrowClockwise size={20} weight="bold" />
                           </button>
                         </div>
                         <input type="text" value={editName} onChange={(e) => setEditName(e.target.value)} />
@@ -1997,7 +2063,9 @@ export const TournamentView: React.FC = () => {
                               navigator.clipboard.writeText(publicUrl);
                               alert('URL copied!');
                             }}
-                          ></Button>
+                          >
+                            <CopySimple size={16} />
+                          </Button>
                         </div>
                         <div className={adminStyles.metaItem}>
                           {!isMobile ? (
@@ -2014,7 +2082,9 @@ export const TournamentView: React.FC = () => {
                               navigator.clipboard.writeText(tournament.admin_password);
                               alert("Password copied! Don't lose it.");
                             }}
-                          ></Button>
+                          >
+                            <CopySimple size={16} />
+                          </Button>
                         </div>
                       </div>
 
@@ -2391,7 +2461,9 @@ export const TournamentView: React.FC = () => {
                                           onClick={() => fetchTeamData(replacementHtId, true)}
                                           disabled={isFetchingTeamData}
                                           variant="primary"
-                                        ></Button>
+                                        >
+                                          <ArrowClockwise size={16} weight="bold" /> Check
+                                        </Button>
                                       )}
                                       {replacementName && (
                                         <Button

@@ -506,10 +506,10 @@
 @media (min-width: 621px)
   .imagePlaceholder
     order: 1
-    width: 320px
     aspect-ratio: 3/2
-    height: 210px
+    width: 21rem
     margin-top: 1rem
+    box-sizing: border-box
 
 @media (max-width: 620px)
   .imagePlaceholder
@@ -691,8 +691,8 @@
 
 .standingsContainer
   display: grid
-  grid-template-columns: 1fr 22rem
-  gap: 2rem
+  grid-template-columns: 1fr 21rem
+  gap: 1rem
   align-items: start
 
   @media (max-width: 1024px)
@@ -707,9 +707,10 @@
 .statsSidebar
   display: flex
   flex-direction: column
-  gap: 2rem
   position: sticky
-  top: 6rem
+
+  .mottoCard
+    margin: 0
 
   @media (max-width: 1024px)
     position: static
@@ -1237,3 +1238,13 @@
   padding: 2rem
   opacity: 0.5
   font-style: italic
+
+.helpToggle
+  cursor: pointer
+  display: flex
+  align-items: center
+  gap: 0.5rem
+  margin: 0
+
+  &:hover
+    opacity: 0.8
