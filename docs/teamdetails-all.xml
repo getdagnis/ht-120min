@@ -1,0 +1,430 @@
+All containers/elements for the selected version and action type are shown.
+<?xml version="1.0" encoding="utf-8"?>
+-<HattrickData>
+-<User>
+<UserID> : unsigned Integer
+The globally unique UserID for the owner of the team. Teams without an owner have UserID = 0.
+</UserID>
+-<Language>
+<LanguageID> : unsigned Integer
+The globally unique LanguageID.
+</LanguageID>
+<LanguageName> : String
+The language name
+</LanguageName>
+</Language>
+<SupporterTier> : supporterTier
+The current level of Hattrick Supporter that the user has (including Diamond). Empty if not a Supporter.
+</SupporterTier>
+<Loginname> : String
+The 'username' or 'nickname' used in Forums and around the site. Not supplied if the team is ownerless.
+</Loginname>
+<Name> : String
+The user's personal name or the value 'HIDDEN' to indicate that the user has chosen to hide it. Not supplied if the team is ownerless.
+</Name>
+<ICQ> : unsigned Integer
+The user's ICQ number (if any). Not supplied if the team is ownerless.
+</ICQ>
+<SignupDate> : DateTime
+The date and time when the user signed up for Hattrick. Not supplied if the team is ownerless.
+</SignupDate>
+<ActivationDate> : DateTime
+The date and time when the user gained control of this team. Not supplied if the team is ownerless.
+</ActivationDate>
+<LastLoginDate> : DateTime
+The date and time when the user last logged on. Not supplied if the team is ownerless.
+</LastLoginDate>
+<HasManagerLicense> : Boolean
+Whether or not the user has received the manager license
+</HasManagerLicense>
+-<NationalTeams>
+-<NationalTeam>
+<NationalTeamStaffType> : NationalTeamStaffType
+The staff type id from the position the user has in the national team
+</NationalTeamStaffType>
+<NationalTeamID> : unsigned Integer
+The globally unique identifier of the national team.
+</NationalTeamID>
+<NationalTeamName> : String
+The name of the national team.
+</NationalTeamName>
+</NationalTeam>
+</NationalTeams>
+</User>
+-<Teams>
+-<Team>
+<TeamID> : unsigned Integer
+The globally unique TeamID.
+</TeamID>
+<TeamName> : String
+The full team name.
+</TeamName>
+<ShortTeamName> : String
+The short team name.
+</ShortTeamName>
+<IsPrimaryClub> : Boolean
+True/false indicating if this team is the user's primary team.
+</IsPrimaryClub>
+<FoundedDate> : DateTime
+Date when club was founded.
+</FoundedDate>
+<IsDeactivated> : Boolean
+Whether or not the team is deactivated and not part of the league system
+</IsDeactivated>
+<GenderID> : GenderID
+The gender of the team.
+</GenderID>
+<LeagueSystemID> : LeagueSystemID
+The system type of the league for this team.
+</LeagueSystemID>
+-<Arena>
+<ArenaID> : unsigned Integer
+The globally unique ArenaID.
+</ArenaID>
+<ArenaName> : String
+The arena name.
+</ArenaName>
+</Arena>
+-<League>
+<LeagueID> : unsigned Integer
+The globally unique LeagueID.
+</LeagueID>
+<LeagueName> : String
+The League name.
+</LeagueName>
+</League>
+-<Country>
+<CountryID> : unsigned Integer
+The globally unique CountryID.
+</CountryID>
+<CountryName> : String
+The Country name.
+</CountryName>
+</Country>
+-<Region>
+<RegionID> : unsigned Integer
+The globally unique RegionID.
+</RegionID>
+<RegionName> : String
+The Region name.
+</RegionName>
+</Region>
+-<Trainer>
+<PlayerID> : unsigned Integer
+The globally unique PlayerID of the player that has the job as trainer of the team.
+</PlayerID>
+</Trainer>
+<HomePage> : URI
+The home page URL that the team has specified.
+</HomePage>
+-<Cup>
+<StillInCup> : Boolean
+Boolean value stating if the team is still in the cup.
+</StillInCup>
+<CupID> : unsigned Integer
+The globally unique CupID of the cup that the team is still in. Only provided if team is still in cup.
+</CupID>
+<CupName> : String
+The name of the cup that the team is still in. Only provided if team is still in cup.
+</CupName>
+<CupLeagueLevel> : unsigned Integer
+LeagueLevel for the cup. 0 = National (LeagueLevel 1-6), 7-9 = Divisional. Only provided if team is still in cup.
+</CupLeagueLevel>
+<CupLevel> : unsigned Integer
+Level of the cup. 1 = National/Divisional, 2 = Challenger, 3 = Consolation. Only provided if team is still in cup.
+</CupLevel>
+<CupLevelIndex> : unsigned Integer
+Index of the cup. Always 1 for National and Consolation cups, for Challenger cup: 1 = Emerald, 2 = Ruby, 3 = Sapphire. Only provided if team is still in cup.
+</CupLevelIndex>
+<MatchRound> : unsigned Integer
+Next round (or current if matches are ongoing). (Note that this is different from WorldDetails!). Only provided if team is still in cup.
+</MatchRound>
+<MatchRoundsLeft> : unsigned Integer
+How many rounds are left of this cup. Only provided if team is still in cup.
+</MatchRoundsLeft>
+</Cup>
+-<PowerRating>
+<GlobalRanking> : unsigned Integer
+The Power Rating team ranking in Global.
+</GlobalRanking>
+<LeagueRanking> : unsigned Integer
+The Power Rating team ranking in the same league.
+</LeagueRanking>
+<RegionRanking> : unsigned Integer
+The Power Rating team ranking in the same region.
+</RegionRanking>
+<PowerRating> : unsigned Integer
+The Power Rating value of the team.
+</PowerRating>
+</PowerRating>
+<FriendlyTeamID> : unsigned Integer
+The team's status about if a friendly is booked. The value is the opponents globally unique teamID if the team has booked a friendly, 0 if not. If the team is playing a match the tag will be empty.
+</FriendlyTeamID>
+-<LeagueLevelUnit>
+<LeagueLevelUnitID> : unsigned Integer
+The globally unique LeagueLevelUnitID.
+</LeagueLevelUnitID>
+<LeagueLevelUnitName> : String
+The name of the LeagueLevelUnit.
+</LeagueLevelUnitName>
+<LeagueLevel> : unsigned Integer
+Integer value stating the relative level of the LeagueLevelUnit, with 1 indicating the league's top series.
+</LeagueLevel>
+</LeagueLevelUnit>
+<NumberOfVictories> : unsigned Integer
+If the team is in a winning streak of at least 2 matches, this integer indicates how many victories in a row it currently has. If the team is playing a match the tag will be empty.
+</NumberOfVictories>
+<NumberOfUndefeated> : unsigned Integer
+If the team is in a streak of at least 2 matches as undefeated, this integer indicates how many matches in a row it is undefeated. If the team is playing a match the tag will be empty.
+</NumberOfUndefeated>
+-<Fanclub>
+<FanclubID> : unsigned Integer
+The globally unique FanclubID.
+</FanclubID>
+<FanclubName> : String
+The name of the fanclub.
+</FanclubName>
+<FanclubSize> : unsigned Integer
+The amount of members in the fanclub.
+</FanclubSize>
+</Fanclub>
+<LogoURL> : URI
+The logo URL that the team has specified.
+</LogoURL>
+-<Guestbook>
+<!-- This container and its elements is only shown if the user has supporter -->
+<NumberOfGuestbookItems> : unsigned Integer
+The number of postings in the team's guestbook.
+</NumberOfGuestbookItems>
+</Guestbook>
+-<PressAnnouncement>
+<!-- This container and its elements is only shown if the user has supporter -->
+<Subject> : String
+The subject text specified for the PressAnnouncement.
+</Subject>
+<Body> : String
+The body of the PressAnnouncement.
+</Body>
+<SendDate> : DateTime
+The time and date when the PressAnnouncement was submitted.
+</SendDate>
+</PressAnnouncement>
+-<TeamColors>
+<!-- This container and its elements is only shown if the user has supporter -->
+<BackgroundColor> : String
+The defined background color from the club theme.
+</BackgroundColor>
+<Color> : String
+The matching text color to the defined background color.
+</Color>
+</TeamColors>
+<DressURI> : URI
+URI to an image representing the dress of the team.
+</DressURI>
+<DressAlternateURI> : URI
+Same as DressURI, except that it shows the alternate dress.
+</DressAlternateURI>
+-<BotStatus>
+<IsBot> : Boolean
+Specifies whether a team is currently a bot or not.
+</IsBot>
+<BotSince> : DateTime
+The date when the team was made a bot, only availble if team is a bot.
+</BotSince>
+</BotStatus>
+<TeamRank> : unsigned Integer
+If the team has an owner, last is the League Rank, a number based on LeagueLevel, postion etc, only counting teams with an owner. If the team is playing a match the tag will be empty.
+</TeamRank>
+<YouthTeamID> : unsigned Integer
+If the Team has a Youth academy the ID is represented here. If not it will be 0.
+</YouthTeamID>
+<YouthTeamName> : String*
+If the Team has a Youth academy the team name is represented here. If not it will be an empty string.
+</YouthTeamName>
+<NumberOfVisits> : unsigned Integer
+The number of visits the team had in the latest day with at least one visit.
+</NumberOfVisits>
+-<Flags>
+-<HomeFlags>
+-<Flag>
+<LeagueID> : unsigned Integer
+The LeagueId for the league a flag belongs to.
+</LeagueID>
+<LeagueName> : String
+The LeagueName for the league a flag belongs to.
+</LeagueName>
+<CountryCode> : String
+The CountryCode for the league a flag belongs to.
+</CountryCode>
+</Flag>
+</HomeFlags>
+-<AwayFlags>
+-<Flag>
+<LeagueID> : unsigned Integer
+The LeagueId for the league a flag belongs to.
+</LeagueID>
+<LeagueName> : String
+The LeagueName for the league a flag belongs to.
+</LeagueName>
+<CountryCode> : String
+The CountryCode for the league a flag belongs to.
+</CountryCode>
+</Flag>
+</AwayFlags>
+</Flags>
+-<TrophyList>
+-<Trophy>
+<TrophyTypeId> : trophyID
+TypeId for the trophy
+</TrophyTypeId>
+<TrophySeason> : unsigned Integer
+The season the trophy was won.
+</TrophySeason>
+<LeagueLevel> : unsigned Integer
+The level the league the user won. For tournament trophies, this act as a "type".
+</LeagueLevel>
+<LeagueLevelUnitId> : String
+The LeagueLevelUnitId of the leaguelevelunit that the user won. For tournaments this is the id of the tournament.
+</LeagueLevelUnitId>
+<LeagueLevelUnitName> : String
+The name of the leaguelevelunit that the user won. For tournaments this is the name of the tournament.
+</LeagueLevelUnitName>
+<GainedDate> : DateTime
+The date when the user gained the trohpy.
+</GainedDate>
+<ImageUrl> : URI
+The url to the trophy image.
+</ImageUrl>
+<CupLeagueLevel> : unsigned Integer
+The league level of the cup. 0 for the main cups, division 1-6. Empty when not a cup trophy (16).
+</CupLeagueLevel>
+<CupLevel> : CupLevel
+The level of the cup. Empty when not a cup trophy (16).
+</CupLevel>
+<CupLevelIndex> : CupLevelIndex
+Which type of challenger cup. Always 1 for national and consolation cups. Empty when not a cup trophy (16).
+</CupLevelIndex>
+</Trophy>
+</TrophyList>
+-<SupportedTeams TotalItems='unsigned Integer' MaxItems='unsigned Integer'>
+-<SupportedTeam>
+<UserId> : unsigned Integer
+The globally unique UserID for the owner of the supported team.
+</UserId>
+<LoginName> : String
+The 'username' or 'nickname' used in Forums and around the site.
+</LoginName>
+<TeamId> : unsigned Integer
+The globally unique TeamID for the supported team.
+</TeamId>
+<TeamName> : String
+The teamname of the supported team.
+</TeamName>
+<LeagueID> : unsigned Integer
+The globally unique LeagueID for the supported team.
+</LeagueID>
+<LeagueName> : String
+The League name.
+</LeagueName>
+<LeagueLevelUnitID> : unsigned Integer
+The globally unique LeagueLevelUnitID for the supported team.
+</LeagueLevelUnitID>
+<LeagueLevelUnitName> : String
+The name of the LeagueLevelUnit.
+</LeagueLevelUnitName>
+-<LastMatch>
+<LastMatchId> : unsigned Integer
+The globally unique matchID.
+</LastMatchId>
+<LastMatchDate> : DateTime
+The matchdate of the last match.
+</LastMatchDate>
+<LastMatchHomeTeamId> : unsigned Integer
+The globally unique TeamID for the home team.
+</LastMatchHomeTeamId>
+<LastMatchHomeTeamName> : String
+The team name of the home team in the match.
+</LastMatchHomeTeamName>
+<LastMatchHomeGoals> : unsigned Integer
+The number of goals scored in the match by the hometeam.
+</LastMatchHomeGoals>
+<LastMatchAwayTeamId> : unsigned Integer
+The globally unique TeamID for the away team.
+</LastMatchAwayTeamId>
+<LastMatchAwayTeamName> : String
+The team name of the away team in the match.
+</LastMatchAwayTeamName>
+<LastMatchAwayGoals> : unsigned Integer
+The number of goals scored in the match by the awayteam.
+</LastMatchAwayGoals>
+</LastMatch>
+-<NextMatch>
+<NextMatchId> : unsigned Integer
+The globally unique matchID.
+</NextMatchId>
+<NextMatchDate> : DateTime
+The matchdate of the next match.
+</NextMatchDate>
+<NextMatchHomeTeamId> : unsigned Integer
+The globally unique TeamID for the home team.
+</NextMatchHomeTeamId>
+<NextMatchHomeTeamName> : String
+The team name of the home team in the match.
+</NextMatchHomeTeamName>
+<NextMatchAwayTeamId> : unsigned Integer
+The globally unique TeamID for the away team.
+</NextMatchAwayTeamId>
+<NextMatchAwayTeamName> : String
+The team name of the away team in the match.
+</NextMatchAwayTeamName>
+</NextMatch>
+-<PressAnnouncement>
+<PressAnnouncementSendDate> : DateTime
+The time and date when the PressAnnouncement was submitted.
+</PressAnnouncementSendDate>
+<PressAnnouncementSubject> : String
+The subject text specified for the PressAnnouncement.
+</PressAnnouncementSubject>
+<PressAnnouncementBody> : String
+The body of the PressAnnouncement.
+</PressAnnouncementBody>
+</PressAnnouncement>
+</SupportedTeam>
+</SupportedTeams>
+-<MySupporters TotalItems='unsigned Integer' MaxItems='unsigned Integer'>
+-<SupporterTeam>
+<UserId> : unsigned Integer
+The globally unique UserID for the owner of the supporter team.
+</UserId>
+<LoginName> : String
+The 'username' or 'nickname' used in Forums and around the site.
+</LoginName>
+<TeamId> : unsigned Integer
+The globally unique TeamID for the supporter team.
+</TeamId>
+<TeamName> : String
+The teamname of the supporter team.
+</TeamName>
+<LeagueID> : unsigned Integer
+The globally unique LeagueID for the supporter team.
+</LeagueID>
+<LeagueName> : String
+The League name.
+</LeagueName>
+<LeagueLevelUnitID> : unsigned Integer
+The globally unique LeagueLevelUnitID for the supported team.
+</LeagueLevelUnitID>
+<LeagueLevelUnitName> : String
+The name of the LeagueLevelUnit.
+</LeagueLevelUnitName>
+</SupporterTeam>
+</MySupporters>
+<PossibleToChallengeMidweek> : Boolean
+Whether or not the team is possible to challenge for a mid-week friendly
+</PossibleToChallengeMidweek>
+<PossibleToChallengeWeekend> : Boolean
+Whether or not the team is possible to challenge for a weekend friendly
+</PossibleToChallengeWeekend>
+</Team>
+</Teams>
+</HattrickData>
