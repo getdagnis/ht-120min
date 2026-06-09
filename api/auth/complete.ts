@@ -111,22 +111,58 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       skipMembershipCheck: isSuperAdmin,
     });
 
-    // 3. Get tournament slug for redirect
-    const { data: tournament } = await supabase
+    // 4. Update/Create Profile
+    try {
+      const chppUrl = 'https://chpp.hattrick.org/chppxml.ashx';
+      const chppParams = {
+        file: 'managercompendium',
+        version: '1.7',
+      };
+      const authHeader = getAuthHeader(
+        'GET',
+        chppUrl,
+        chppParams,
+        consumerKey,
+        consumerSecret,
+        pending.access_token,
+        pending.access_token_secret,
+      );
+      const mRes = await fetch(`${chppUrl}?file=managercompendium&version=1.7`, {
+        headers: { Authorization: authHeader },
+      });
+      if (mRes.ok) {
+        const mXml = await mRes.text();
+        const { parseManagerCompendiumXml } = await import('../_lib/chpp-xml.js');
+        const mParsed = parseManagerCompendiumXml(mXml);
+        
+        await supabase.from('profiles').upsert({
+          hattrick_user_id: pending.hattrick_user_id,
+          manager_name: pending.manager_name,
+          country_id: mParsed.countryId,
+          country_name: mParsed.countryName,
+          avatar_json: mParsed.avatar,
+        });
+      }
+    } catch (e) {
+      console.error('Failed to update profile during login:', e);
+    }
+
+    // 5. Get tournament slug for redirect
+    const { data: tournamentAfter } = await supabase
       .from('tournaments')
       .select('slug')
       .eq('id', pending.tournament_id)
       .single();
 
-    // 4. Cleanup
+    // 6. Cleanup
     await supabase.from('oauth_temp_sessions').delete().eq('selection_token', selection_token);
 
     return res.status(200).json({ 
-      slug: tournament?.slug, 
+      slug: tournamentAfter?.slug, 
       hattrick_user_id: pending.hattrick_user_id,
       manager_name: pending.manager_name,
       team_name: team_name,
-      redirect: `/t/${tournament?.slug}?joined=true` 
+      redirect: `/t/${tournamentAfter?.slug}?joined=true` 
     });
 
   } catch (error: unknown) {

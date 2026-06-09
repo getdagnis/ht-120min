@@ -10,9 +10,23 @@ export interface ChppTeamOption {
   countryName?: string;
 }
 
+export interface AvatarLayer {
+  x?: number;
+  y?: number;
+  image: string;
+}
+
+export interface Avatar {
+  backgroundImage: string;
+  layers: AvatarLayer[];
+}
+
 export interface ParsedManagerCompendium {
   hattrickUserId: number | null;
   managerName: string;
+  countryId?: number;
+  countryName?: string;
+  avatar?: Avatar;
   teams: ChppTeamOption[];
 }
 
@@ -25,6 +39,7 @@ export function readChppTag(block: string, tag: string): string | undefined {
 export function normalizeChppAssetUrl(url: string): string {
   const trimmed = url.trim();
   if (trimmed.startsWith('//')) return `https:${trimmed}`;
+  if (trimmed && !trimmed.startsWith('http')) return `https://www.hattrick.org${trimmed.startsWith('/') ? '' : '/'}${trimmed}`;
   return trimmed;
 }
 
@@ -83,6 +98,35 @@ export function parseManagerCompendiumXml(xml: string): ParsedManagerCompendium 
     xml.match(/<UserId>(\d+)<\/UserId>/i)?.[1] ?? xml.match(/<UserID>(\d+)<\/UserID>/i)?.[1];
   const managerName = readChppTag(xml, 'Loginname') ?? 'Unknown';
 
+  const countryIdRaw = xml.match(/<Country>[\s\S]*?<CountryId>(\d+)<\/CountryId>/i)?.[1];
+  const countryName = xml.match(/<Country>[\s\S]*?<CountryName>([\s\S]*?)<\/CountryName>/i)?.[1];
+
+  // Avatar parsing
+  let avatar: Avatar | undefined;
+  const avatarMatch = xml.match(/<Avatar>([\s\S]*?)<\/Avatar>/i);
+  if (avatarMatch) {
+    const avatarBlock = avatarMatch[1];
+    const backgroundImage = normalizeChppAssetUrl(readChppTag(avatarBlock, 'BackgroundImage') ?? '');
+    const layers: AvatarLayer[] = [];
+
+    for (const lMatch of avatarBlock.matchAll(/<Layer\s+x="(\d+)"\s+y="(\d+)">([\s\S]*?)<\/Layer>/gi)) {
+      const x = parseInt(lMatch[1], 10);
+      const y = parseInt(lMatch[2], 10);
+      const image = normalizeChppAssetUrl(readChppTag(lMatch[3], 'Image') ?? '');
+      if (image) layers.push({ x, y, image });
+    }
+
+    // Some layers might not have x/y attributes or different format
+    if (layers.length === 0) {
+      for (const lMatch of avatarBlock.matchAll(/<Layer>([\s\S]*?)<\/Layer>/gi)) {
+        const image = normalizeChppAssetUrl(readChppTag(lMatch[1], 'Image') ?? '');
+        if (image) layers.push({ image });
+      }
+    }
+
+    avatar = { backgroundImage, layers };
+  }
+
   const teams: ChppTeamOption[] = [];
   for (const match of xml.matchAll(/<Team>([\s\S]*?)<\/Team>/gi)) {
     const block = match[1];
@@ -109,6 +153,9 @@ export function parseManagerCompendiumXml(xml: string): ParsedManagerCompendium 
   return {
     hattrickUserId: userIdRaw ? parseInt(userIdRaw, 10) : null,
     managerName,
+    countryId: countryIdRaw ? parseInt(countryIdRaw, 10) : undefined,
+    countryName,
+    avatar,
     teams,
   };
 }

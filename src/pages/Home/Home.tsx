@@ -9,6 +9,7 @@ import { SectionCard } from '../../components/Card/SectionCard';
 import { MottoWidget } from '../../components/MottoWidget/MottoWidget';
 import { FriendlyMarketplace } from '../../components/FriendlyMarketplace/FriendlyMarketplace';
 import { Link as ScrollTo, Element } from 'react-scroll';
+import { calculateMatchDate } from '../../utils/ht-data';
 import {
   Trophy,
   CalendarBlank,
@@ -16,11 +17,29 @@ import {
   CaretLeft,
   ArrowRight,
   Star,
+  Clock,
 } from 'phosphor-react';
 import { TeamsIcon } from '../../components/Icons/TeamsIcon';
 import styles from './Home.module.sass';
 
-interface Tournament {
+interface DBTeamMatch {
+  id: string;
+  completed: boolean;
+  home_goals: number | null;
+  away_goals: number | null;
+  went_120: boolean;
+  home_team_id: string;
+  away_team_id: string;
+  home_team: { country_name: string } | null;
+}
+
+interface DBRound {
+  id: string;
+  round_number: number;
+  matches: DBTeamMatch[] | null;
+}
+
+interface DBTournament {
   id: string;
   name: string;
   slug: string;
@@ -28,27 +47,25 @@ interface Tournament {
   is_private: boolean;
   thumbnail_index?: number;
   image_url?: string;
-  rounds: {
-    id: string;
-    matches: {
-      id: string;
-      completed: boolean;
-      home_goals: number | null;
-      away_goals: number | null;
-      went_120: boolean;
-      home_team_id: string;
-      away_team_id: string;
-    }[];
-  }[];
+  rounds: DBRound[] | null;
   teams: {
     id: string;
     name: string;
     ht_team_id: number;
   }[];
-  totalMatches?: number;
-  completedMatches?: number;
-  activityScore?: number;
-  teamCount?: number;
+}
+
+interface DBWarning {
+  round_id: string;
+  team_id: string;
+}
+
+interface Tournament extends DBTournament {
+  totalMatches: number;
+  completedMatches: number;
+  activityScore: number;
+  teamCount: number;
+  nextMatchDate: Date | null;
 }
 
 interface TopTeam {
@@ -85,14 +102,12 @@ export const Home: React.FC = () => {
           image_url,
           rounds (
             id,
+            round_number,
             matches (
               id,
               completed,
-              home_goals,
-              away_goals,
-              went_120,
               home_team_id,
-              away_team_id
+              home_team:teams!matches_home_team_id_fkey(country_name)
             )
           ),
           teams (
@@ -107,17 +122,39 @@ export const Home: React.FC = () => {
       if (tError) throw tError;
 
       if (tournaments) {
+        const { data: warningsRaw } = await supabase
+          .from('fixture_warnings')
+          .select('round_id, team_id')
+          .eq('active', true);
+        const warnings = warningsRaw as unknown as DBWarning[] | null;
+
         const active: Tournament[] = [];
         const open: Tournament[] = [];
         const team120Stats: Record<number, { name: string; count: number }> = {};
-        const tournamentsData = tournaments as unknown as Tournament[];
+        const tournamentsData = tournaments as unknown as DBTournament[];
 
         tournamentsData.forEach((t) => {
-          const allMatches = t.rounds.flatMap((r) => r.matches);
+          const allMatches = t.rounds?.flatMap((r) => r.matches ?? []) ?? [];
           const totalMatches = allMatches.length;
           const completedMatches = allMatches.filter((m) => m.completed).length;
           const isClosed = totalMatches > 0 && totalMatches === completedMatches;
-          const isGenerated = t.rounds.length > 0;
+          const isGenerated = (t.rounds?.length ?? 0) > 0;
+
+          // Calculate next match date
+          let nextMatchDate: Date | null = null;
+          if (isGenerated && !isClosed && t.rounds) {
+            const sortedRounds = [...t.rounds].sort((a, b) => a.round_number - b.round_number);
+            for (const round of sortedRounds) {
+              const uncompletedMatches = round.matches?.filter(m => !m.completed) ?? [];
+              const validMatches = uncompletedMatches.filter(m => 
+                !warnings?.some(w => w.round_id === round.id && (w.team_id === m.home_team_id))
+              );
+              if (validMatches.length > 0) {
+                nextMatchDate = calculateMatchDate(t.created_at, round.round_number, validMatches[0].home_team?.country_name);
+                break;
+              }
+            }
+          }
 
           allMatches.forEach((m) => {
             if (m.completed && m.went_120) {
@@ -138,13 +175,22 @@ export const Home: React.FC = () => {
           });
 
           if (isGenerated && !isClosed) {
-            active.push({ ...t, totalMatches, completedMatches, activityScore: completedMatches });
+            active.push({ ...t, totalMatches, completedMatches, activityScore: completedMatches, teamCount: t.teams.length, nextMatchDate });
           } else if (!isGenerated) {
-            open.push({ ...t, teamCount: t.teams.length });
+            open.push({ ...t, totalMatches, completedMatches, activityScore: completedMatches, teamCount: t.teams.length, nextMatchDate: null });
           }
         });
 
-        setActiveTournaments(active.sort((a, b) => (b.activityScore ?? 0) - (a.activityScore ?? 0)));
+        // Sort by next match date (closest first)
+        setActiveTournaments(
+          active.sort((a, b) => {
+            if (!a.nextMatchDate && !b.nextMatchDate) return 0;
+            if (!a.nextMatchDate) return 1;
+            if (!b.nextMatchDate) return -1;
+            return a.nextMatchDate.getTime() - b.nextMatchDate.getTime();
+          })
+        );
+        
         setOpenTournaments(open.sort((a, b) => (b.teamCount ?? 0) - (a.teamCount ?? 0)));
 
         const topTeamsList = Object.entries(team120Stats)
@@ -223,10 +269,17 @@ export const Home: React.FC = () => {
                               <Trophy size={14} weight="bold" /> {t.completedMatches} / {t.totalMatches}{' '}
                               matches
                             </span>
-                            <span title="Creation Date">
-                              <CalendarBlank size={14} weight="bold" />{' '}
-                              {new Date(t.created_at).toLocaleDateString()}
-                            </span>
+                            {t.nextMatchDate && (
+                              <span title="Next Match" className={styles.nextMatch}>
+                                <Clock size={14} weight="bold" /> Next:{' '}
+                                {t.nextMatchDate.toLocaleDateString('lv-LV', {
+                                  day: '2-digit',
+                                  month: '2-digit',
+                                  hour: '2-digit',
+                                  minute: '2-digit',
+                                })}
+                              </span>
+                            )}
                           </div>
                           <div className={styles.tTeams}>
                             {t.teams.slice(0, 6).map((team) => (

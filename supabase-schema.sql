@@ -36,6 +36,15 @@ CREATE TABLE teams (
   CONSTRAINT unique_tournament_team UNIQUE (tournament_id, ht_team_id)
 );
 
+CREATE TABLE profiles (
+  hattrick_user_id BIGINT PRIMARY KEY,
+  manager_name TEXT NOT NULL,
+  country_id INTEGER,
+  country_name TEXT,
+  avatar_json JSONB,
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
 CREATE TABLE oauth_temp_sessions (
   oauth_token TEXT PRIMARY KEY,
   oauth_token_secret TEXT NOT NULL,
@@ -71,11 +80,13 @@ CREATE TABLE matches (
 -- In a real app, you'd use Supabase Auth and more granular RLS.
 ALTER TABLE tournaments ENABLE ROW LEVEL SECURITY;
 ALTER TABLE teams ENABLE ROW LEVEL SECURITY;
+ALTER TABLE profiles ENABLE ROW LEVEL SECURITY;
 ALTER TABLE rounds ENABLE ROW LEVEL SECURITY;
 ALTER TABLE matches ENABLE ROW LEVEL SECURITY;
 
 CREATE POLICY "Public Read" ON tournaments FOR SELECT USING (true);
 CREATE POLICY "Public Read" ON teams FOR SELECT USING (true);
+CREATE POLICY "Public Read" ON profiles FOR SELECT USING (true);
 CREATE POLICY "Public Read" ON rounds FOR SELECT USING (true);
 CREATE POLICY "Public Read" ON matches FOR SELECT USING (true);
 
@@ -83,5 +94,6 @@ CREATE POLICY "Public Read" ON matches FOR SELECT USING (true);
 -- using the anon key. Security is handled by the admin_password check in the UI.
 CREATE POLICY "Allow All for MVP" ON tournaments FOR ALL USING (true) WITH CHECK (true);
 CREATE POLICY "Allow All for MVP" ON teams FOR ALL USING (true) WITH CHECK (true);
+CREATE POLICY "Allow All for MVP" ON profiles FOR ALL USING (true) WITH CHECK (true);
 CREATE POLICY "Allow All for MVP" ON rounds FOR ALL USING (true) WITH CHECK (true);
 CREATE POLICY "Allow All for MVP" ON matches FOR ALL USING (true) WITH CHECK (true);

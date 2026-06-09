@@ -1,6 +1,6 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { getAuthHeader } from '../_lib/chpp-auth.js';
-import { XMLParser } from 'fast-xml-parser';
+import { parseManagerCompendiumXml } from '../_lib/chpp-xml.js';
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   if (req.method !== 'POST') {
@@ -47,27 +47,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       return res.status(response.status).json({ error: 'CHPP fetch failed', details: xml });
     }
 
-    const parser = new XMLParser({
-      ignoreAttributes: false,
-      attributeNamePrefix: '',
-    });
-    const jsonObj = parser.parse(xml);
-    const manager = jsonObj.HattrickData?.Manager;
+    const parsed = parseManagerCompendiumXml(xml);
 
-    if (!manager) {
-      return res.status(400).json({ error: 'Manager data not found in XML' });
-    }
-
-    return res.status(200).json({
-      userId: manager.UserId,
-      loginname: manager.Loginname,
-      country: {
-        id: manager.Country?.CountryId,
-        name: manager.Country?.CountryName,
-      },
-      avatar: manager.Avatar,
-      teams: Array.isArray(manager.Teams?.Team) ? manager.Teams.Team : manager.Teams?.Team ? [manager.Teams.Team] : [],
-    });
+    return res.status(200).json(parsed);
   } catch (error: unknown) {
     return res.status(500).json({ error: error instanceof Error ? error.message : 'Unknown error' });
   }

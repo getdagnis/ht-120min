@@ -1,9 +1,11 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Analytics } from '@vercel/analytics/react';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
-import { Trophy, Sun, Moon, Plus, ArrowRight, User } from 'phosphor-react';
+import { Trophy, Sun, Moon, Plus, ArrowRight, User, CaretDown, IdentificationCard, SignOut, Clock } from 'phosphor-react';
 import { scroller } from 'react-scroll';
 import { Button } from '../Button/Button';
+import { useAuth } from '../../hooks/useAuth';
+import { ProfileModal } from '../ProfileModal/ProfileModal';
 import styles from './Layout.module.sass';
 
 interface LayoutProps {
@@ -13,25 +15,39 @@ interface LayoutProps {
 export const Layout: React.FC<LayoutProps> = ({ children }) => {
   const navigate = useNavigate();
   const location = useLocation();
+  const { managerName, profile, activeTournaments, logout } = useAuth();
+  
   const [theme, setTheme] = useState(() => {
     const saved = localStorage.getItem('theme');
     if (saved) return saved;
     return window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
   });
 
+  const [isUserDropdownOpen, setIsUserDropdownOpen] = useState(false);
+  const [isProfileModalOpen, setIsProfileModalOpen] = useState(false);
+  const dropdownRef = useRef<HTMLDivElement>(null);
+
   useEffect(() => {
     document.documentElement.setAttribute('data-theme', theme);
     localStorage.setItem('theme', theme);
   }, [theme]);
+
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
+        setIsUserDropdownOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
 
   const toggleTheme = () => {
     setTheme((prev) => (prev === 'light' ? 'dark' : 'light'));
   };
 
   const isCreatePage = location.pathname.startsWith('/create');
-  const isTournamentPage = location.pathname.startsWith('/t/');
-  const managerName = localStorage.getItem('my_ht_manager_name');
-
+  
   const handleActionClick = () => {
     if (isCreatePage) {
       if (location.pathname !== '/') {
@@ -50,15 +66,17 @@ export const Layout: React.FC<LayoutProps> = ({ children }) => {
           offset: -100,
         });
       }
-    } else if (isTournamentPage) {
-      const tid = localStorage.getItem('last_viewed_tournament_id');
-      if (tid) {
-        window.location.href = `/api/auth/init?tournament_id=${tid}`;
-      } else {
-        window.location.href = '/api/auth/init?is_creation=true';
-      }
     } else {
       navigate('/create');
+    }
+  };
+
+  const handleLogin = () => {
+    const tid = localStorage.getItem('last_viewed_tournament_id');
+    if (tid) {
+      window.location.href = `/api/auth/init?tournament_id=${tid}`;
+    } else {
+      window.location.href = '/api/auth/init?is_creation=true';
     }
   };
 
@@ -82,32 +100,98 @@ export const Layout: React.FC<LayoutProps> = ({ children }) => {
               >
                 {theme === 'dark' ? <Sun size={20} weight="bold" /> : <Moon size={20} weight="bold" />}
               </Button>
-              <Button size="sm" onClick={handleActionClick} variant="zero" className={styles.createBtn}>
+
+              <Button size="sm" onClick={handleActionClick} variant="zero" className={styles.actionBtn}>
                 {isCreatePage ? (
                   <>
                     <ArrowRight size={18} weight="bold" /> <span className={styles.hideMobile}>JOIN TOURNAMENT</span>
                   </>
-                ) : isTournamentPage ? (
-                  managerName ? (
-                    <>
-                      <User size={18} weight="bold" /> <span className={styles.hideMobile}>{managerName}</span>
-                    </>
-                  ) : (
-                    <>
-                      <ArrowRight size={18} weight="bold" /> <span className={styles.hideMobile}>{'Login (CHPP)'}</span>
-                    </>
-                  )
                 ) : (
                   <>
                     <Plus size={18} weight="bold" /> <span className={styles.hideMobile}>CREATE TOURNAMENT</span>
                   </>
                 )}
               </Button>
+
+              <div className={styles.userContainer} ref={dropdownRef}>
+                {managerName ? (
+                  <>
+                    <Button 
+                      size="sm" 
+                      variant="zero" 
+                      className={styles.userBtn}
+                      onClick={() => setIsUserDropdownOpen(!isUserDropdownOpen)}
+                    >
+                      <User size={18} weight="bold" />
+                      <span className={styles.hideMobile}>{managerName}</span>
+                      <CaretDown size={14} weight="bold" />
+                    </Button>
+                    
+                    {isUserDropdownOpen && (
+                      <div className={styles.dropdown}>
+                        {activeTournaments.length > 0 && (
+                          <div className={styles.dropdownInfo}>
+                            <span>Active in:</span>
+                            <div className={styles.activeTournamentsList}>
+                              {activeTournaments.map(t => (
+                                <div key={t.id} className={styles.tourItem}>
+                                  <Link 
+                                    to={`/t/${t.slug}`} 
+                                    className={styles.dropdownLink}
+                                    onClick={() => setIsUserDropdownOpen(false)}
+                                  >
+                                    {t.name}
+                                  </Link>
+                                  {t.nextMatchDate && (
+                                    <div className={styles.tourNextMatch} title="Next Match">
+                                      <Clock size={12} weight="bold" />
+                                      {t.nextMatchDate.toLocaleDateString('lv-LV', { 
+                                        day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' 
+                                      })}
+                                    </div>
+                                  )}
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+                        )}
+                        <button 
+                          className={styles.dropdownItem}
+                          onClick={() => {
+                            setIsProfileModalOpen(true);
+                            setIsUserDropdownOpen(false);
+                          }}
+                        >
+                          <IdentificationCard size={18} />
+                          My Profile
+                        </button>
+                        <button 
+                          className={styles.dropdownItem}
+                          onClick={() => {
+                            logout();
+                            setIsUserDropdownOpen(false);
+                          }}
+                        >
+                          <SignOut size={18} />
+                          Logout
+                        </button>
+                      </div>
+                    )}
+                  </>
+                ) : (
+                  <Button size="sm" onClick={handleLogin} variant="zero" className={styles.loginBtn}>
+                    <User size={18} weight="bold" />
+                    <span className={styles.hideMobile}>Login (CHPP)</span>
+                  </Button>
+                )}
+              </div>
             </div>
           </div>
         </div>
       </header>
+
       <main className={styles.main}>{children}</main>
+
       <footer className={styles.footer}>
         <div className={styles.container}>
           <p>
@@ -129,6 +213,14 @@ export const Layout: React.FC<LayoutProps> = ({ children }) => {
           <p>Not affiliated with Hattrick.org.</p>
         </div>
       </footer>
+
+      <ProfileModal 
+        isOpen={isProfileModalOpen} 
+        onClose={() => setIsProfileModalOpen(false)} 
+        profile={profile}
+        activeTournaments={activeTournaments}
+      />
+      
       <Analytics />
     </div>
   );

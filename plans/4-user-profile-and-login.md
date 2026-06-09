@@ -58,28 +58,31 @@ This plan outlines the improvements to the login logic, the addition of a user d
     - A component to render the Hattrick avatar using the layer data from CHPP.
 
 ### Phase 3: Layout Updates
-
 1.  **Update `src/components/Layout/Layout.tsx`**:
     - Refactor the header to show:
-      - Logo (left).
-      - Action Button (right):
-        - On Home / Tournament / Other pages: "CREATE TOURNAMENT" (links to `/create`).
-        - On Create page: "JOIN TOURNAMENT" (scrolls to `opentours` on home or redirects to home).
-      - User Button / Login Button (right):
-        - If not logged in: "Login (CHPP)".
-        - If logged in: "[Manager Name]" with a dropdown.
+        - Logo (left).
+        - Action Button (right):
+            - On Home / Tournament / Other pages: "CREATE TOURNAMENT" (links to `/create`).
+            - On Create page: "JOIN TOURNAMENT" (scrolls to `opentours` on home or redirects to home).
+        - User Button / Login Button (right):
+            - If not logged in: "Login (CHPP)".
+            - If logged in: "[Manager Name]" with a dropdown.
     - Ensure both buttons are visible on mobile (icons only if necessary).
     - Implement the User Dropdown:
-      - "Active in: [Tournament Title]" (link to the most recently joined tournament).
-      - "My Profile" (opens the `ProfileModal`).
+        - List **all** ongoing tournaments where the user has a team.
+        - Sort tournaments by **closest next scheduled match**.
+        - Display the next match date for each tournament in the dropdown.
+        - "My Profile" (opens the `ProfileModal`).
     - Trigger `ProfileModal` from the dropdown.
 
 ### Phase 4: Integration
-
 1.  **Wire up the components**:
     - Integrate `useAuth` into `Layout.tsx`.
+    - Implement sorting logic for active tournaments on the **Home Page** (closest next match first).
+    - Add "Next Match" date display to tournament cards on the home page.
     - Pass profile data to `ProfileModal`.
     - Ensure theme toggling still works correctly.
+
 
 ## 4. Verification & Testing
 
