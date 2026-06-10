@@ -35,15 +35,10 @@ export const Layout: React.FC<LayoutProps> = ({ children }) => {
   });
 
   const [isUserDropdownOpen, setIsUserDropdownOpen] = useState(false);
-  const [isProfileModalOpen, setIsProfileModalOpen] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
   const [searchParams] = useSearchParams();
 
-  useEffect(() => {
-    if (searchParams.get('profileId')) {
-      setIsProfileModalOpen(true);
-    }
-  }, [searchParams]);
+  const isProfileModalOpen = !!searchParams.get('profileId');
 
   useEffect(() => {
     document.documentElement.setAttribute('data-theme', theme);
@@ -233,7 +228,7 @@ export const Layout: React.FC<LayoutProps> = ({ children }) => {
 
       <ProfileModal
         isOpen={isProfileModalOpen}
-        onClose={() => setIsProfileModalOpen(false)}
+        onClose={() => navigate(location.pathname, { replace: true })}
         profile={profile}
         activeTournaments={activeTournaments}
       />

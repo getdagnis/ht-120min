@@ -18,7 +18,7 @@ import {
   Question,
 } from 'phosphor-react';
 import { DESCRIPTIONS, TOURNAMENT_NAMES, UNIVERSAL_TOURNAMENT_NAMES } from '../../constants/descriptions';
-import { filterTeamsForCategory, teamMatchesCategory, validateTeamEligibility, type LeagueCategory } from '../../utils/team-eligibility';
+import { filterTeamsForCategory, validateTeamEligibility, type LeagueCategory } from '../../utils/team-eligibility';
 import styles from './CreateTournament.module.sass';
 import { HATTRICK_LEAGUES } from '../../utils/leagues';
 
@@ -318,18 +318,18 @@ export const CreateTournament: React.FC = () => {
 
       // Client-side validation against selected restrictions
       const validation = validateTeamEligibility(
-        { 
-          leagueName: data.leagueName, 
-          leagueId: data.leagueId, 
-          leagueSystemId: data.leagueSystemId, 
-          countryName: data.countryName 
+        {
+          leagueName: data.leagueName,
+          leagueId: data.leagueId,
+          leagueSystemId: data.leagueSystemId,
+          countryName: data.countryName,
         },
-        { 
-          category: formData.league_category as LeagueCategory, 
-          countryLimit: formData.country_limit || null 
-        }
+        {
+          category: formData.league_category as LeagueCategory,
+          countryLimit: formData.country_limit || null,
+        },
       );
-      
+
       if (!validation.eligible) {
         throw new Error(validation.reason);
       }

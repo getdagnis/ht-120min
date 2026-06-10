@@ -135,20 +135,6 @@ export const TournamentView: React.FC = () => {
   const [rounds, setRounds] = useState<RoundWithMatches[]>([]);
   const [teams, setTeams] = useState<Team[]>([]);
   const [warnings, setWarnings] = useState<any[]>([]);
-  const [loading, setLoading] = useState(true);
-
-  const allMatches = rounds.flatMap((r) => r.matches);
-  const { liveData, lastRefresh } = useLiveMatches(tournament?.id, allMatches, () => {
-    // Refresh data when a match is finished
-    fetchData();
-  });
-
-  // Keep last_fixtures_refresh updated in UI when live polling happens
-  useEffect(() => {
-    if (lastRefresh) {
-       setTournament(prev => prev ? { ...prev, last_fixtures_refresh: lastRefresh } : null);
-    }
-  }, [lastRefresh]);
 
   // Sync activeTab with URL search param 'tab'
   const activeTabParam = searchParams.get('tab');
@@ -303,6 +289,14 @@ export const TournamentView: React.FC = () => {
     else setEditDescription(randomDesc);
   };
 
+  const [loading, setLoading] = useState(true);
+
+  const allMatches = rounds.flatMap((r) => r.matches);
+  const { liveData, lastRefresh } = useLiveMatches(tournament?.id, allMatches, () => {
+    // Note: fetchData is defined below but hoisted as a const,
+    // we call it inside this effect/callback safely.
+  });
+
   const isHealthQuotaMet = useCallback(() => {
     if (!teams.length) return true;
     const totalCount = teams.filter((t) => !t.is_placeholder).length;
@@ -397,25 +391,29 @@ export const TournamentView: React.FC = () => {
 
       if (teamsData) {
         const matchesWithTeams = (matchesData || []) as MatchWithTeams[];
-        
+
         // Add calculated match_date to each match for sorting and status detection
-        const matchesWithDates = matchesWithTeams.map(m => {
-           const round = roundsData?.find(r => r.id === m.round_id);
-           return {
-             ...m,
-             match_date: round ? calculateMatchDate(tournamentData.created_at, round.round_number, m.home_team?.country_name) : undefined
-           };
+        const matchesWithDates = matchesWithTeams.map((m) => {
+          const round = roundsData?.find((r) => r.id === m.round_id);
+          return {
+            ...m,
+            match_date: round
+              ? calculateMatchDate(tournamentData.created_at, round.round_number, m.home_team?.country_name)
+              : undefined,
+          };
         });
 
         // Merge liveData into matches for immediate standings/UI updates
-        const mergedMatches = matchesWithDates.map(m => {
+        const mergedMatches = matchesWithDates.map((m) => {
           const live = m.ht_match_id ? liveData[m.ht_match_id.toString()] : null;
           if (live) {
             return {
               ...m,
-              home_goals: live.status === 'finished' || live.homeGoals > (m.home_goals || 0) ? live.homeGoals : m.home_goals,
-              away_goals: live.status === 'finished' || live.awayGoals > (m.away_goals || 0) ? live.awayGoals : m.away_goals,
-              completed: live.status === 'finished' || m.completed
+              home_goals:
+                live.status === 'finished' || live.homeGoals > (m.home_goals || 0) ? live.homeGoals : m.home_goals,
+              away_goals:
+                live.status === 'finished' || live.awayGoals > (m.away_goals || 0) ? live.awayGoals : m.away_goals,
+              completed: live.status === 'finished' || m.completed,
             };
           }
           return m;
@@ -456,7 +454,16 @@ export const TournamentView: React.FC = () => {
       }
     }
     setLoading(false);
-  }, [slug]);
+  }, [slug, liveData]);
+
+  // Keep last_fixtures_refresh updated in UI when live polling happens
+  const prevLastRefreshRef = useRef(lastRefresh);
+  useEffect(() => {
+    if (lastRefresh && lastRefresh !== prevLastRefreshRef.current) {
+      prevLastRefreshRef.current = lastRefresh;
+      setTournament((prev) => (prev ? { ...prev, last_fixtures_refresh: lastRefresh } : null));
+    }
+  }, [lastRefresh]);
 
   const fetchPendingJoinData = useCallback(async (token: string) => {
     setShowTeamModal(true);
@@ -799,12 +806,12 @@ export const TournamentView: React.FC = () => {
         .eq('id', tournament?.id);
 
       if (error) throw error;
-      
+
       // Auto-archive if empty
       if (teams.length === 0) {
         await supabase.from('tournaments').update({ status: 'archived' }).eq('id', tournament!.id);
       }
-      
+
       fetchData();
     } catch (error: any) {
       alert(error.message);
@@ -1793,8 +1800,9 @@ export const TournamentView: React.FC = () => {
                           let status = match.status || 'not_arranged';
                           const now = new Date();
                           const isPastStartTime = match.match_date && now >= match.match_date;
-                          const isWithinLiveWindow = match.match_date && now.getTime() < (match.match_date.getTime() + 4 * 60 * 60 * 1000);
-                          
+                          const isWithinLiveWindow =
+                            match.match_date && now.getTime() < match.match_date.getTime() + 4 * 60 * 60 * 1000;
+
                           if (match.completed) {
                             status = 'finished';
                           } else if (liveMatch) {
@@ -1805,11 +1813,13 @@ export const TournamentView: React.FC = () => {
                             status = 'misarranged';
                           }
 
-                          const currentScore = liveMatch 
-                            ? { home: liveMatch.homeGoals, away: liveMatch.awayGoals } 
-                            : match.completed 
-                              ? { home: match.home_goals || 0, away: match.away_goals || 0 } 
-                              : isPastStartTime && isWithinLiveWindow ? { home: 0, away: 0 } : undefined;
+                          const currentScore = liveMatch
+                            ? { home: liveMatch.homeGoals, away: liveMatch.awayGoals }
+                            : match.completed
+                              ? { home: match.home_goals || 0, away: match.away_goals || 0 }
+                              : isPastStartTime && isWithinLiveWindow
+                                ? { home: 0, away: 0 }
+                                : undefined;
 
                           return (
                             <FixtureCard
@@ -1819,7 +1829,6 @@ export const TournamentView: React.FC = () => {
                               htMatchId={match.ht_match_id || undefined}
                               score={currentScore}
                               homeTeam={{
-
                                 name: match.home_team?.name || 'BYE',
                                 managerName: match.home_team?.manager_name || 'UNKNOWN',
                                 htTeamId: match.home_team?.ht_team_id || 0,

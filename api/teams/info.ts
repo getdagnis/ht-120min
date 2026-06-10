@@ -3,6 +3,14 @@ import { getSupabase } from '../_lib/supabase.js';
 import { getAuthHeader } from '../_lib/chpp-auth.js';
 import { validateTeamEligibility } from '../_lib/eligibility.js';
 
+interface TeamDetails {
+  leagueName?: string;
+  leagueId?: number;
+  leagueSystemId?: number;
+  countryName?: string;
+  genderId?: number;
+}
+
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   const { team_id, tournament_id } = req.query;
 
@@ -44,10 +52,14 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         .eq('active', true);
 
       if (existing && existing.length > 0) {
-        const activeTournament = existing.find((e) => e.tournaments?.status !== 'finished');
+        const activeTournament = existing.find((e) => {
+          const t = e.tournaments as unknown as { status: string } | null;
+          return t && t.status !== 'finished';
+        });
         if (activeTournament) {
+          const t = activeTournament.tournaments as unknown as { name: string };
           return res.status(400).json({
-            error: `Team ID ${team_id} is already active in another tournament: "${activeTournament.tournaments?.name}". You must leave that tournament first.`,
+            error: `Team ID ${team_id} is already active in another tournament: "${t.name}". You must leave that tournament first.`,
           });
         }
       }
@@ -91,11 +103,17 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         .select('scoring_mode, league_category, country_limit')
         .eq('id', tournament_id)
         .single();
-        
+
       if (tournament) {
         const validation = validateTeamEligibility(
-          { leagueName, leagueId: leagueId ? parseInt(leagueId) : undefined, leagueSystemId: leagueSystemId ? parseInt(leagueSystemId) : undefined, countryName, genderId: genderId ? parseInt(genderId) : undefined } as any,
-          { category: tournament.league_category as any, countryLimit: tournament.country_limit }
+          {
+            leagueName,
+            leagueId: leagueId ? parseInt(leagueId) : undefined,
+            leagueSystemId: leagueSystemId ? parseInt(leagueSystemId) : undefined,
+            countryName,
+            genderId: genderId ? parseInt(genderId) : undefined,
+          } as TeamDetails,
+          { category: tournament.league_category as 'male' | 'hfi', countryLimit: tournament.country_limit },
         );
         if (!validation.eligible) {
           return res.status(400).json({ error: validation.reason });

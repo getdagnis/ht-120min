@@ -54,6 +54,8 @@ interface DBWarning {
 }
 
 interface Tournament extends DBTournament {
+  scoring_mode: string | null | undefined;
+  league_category: string | null | undefined;
   country_limit: string | null;
   validatedTeamCount: number;
   totalMatches: number;
@@ -280,7 +282,7 @@ export const Home: React.FC = () => {
                 <div className={styles.tournamentGrid}>
                   {activeTournaments.map((t) => (
                     <Link key={t.id} to={`/t/${t.slug}`} className={styles.tournamentLink}>
-                        <TournamentCard
+                      <TournamentCard
                         className={styles.tournamentCard}
                         thumbnailIndex={t.thumbnail_index}
                         imageUrl={t.image_url}
@@ -339,7 +341,7 @@ export const Home: React.FC = () => {
                 <div className={styles.tournamentGrid}>
                   {openTournaments.map((t) => (
                     <Link key={t.id} to={`/t/${t.slug}`} className={styles.tournamentLink}>
-                        <TournamentCard
+                      <TournamentCard
                         className={styles.tournamentCard}
                         thumbnailIndex={t.thumbnail_index}
                         imageUrl={t.image_url}
