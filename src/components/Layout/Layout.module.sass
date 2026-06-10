@@ -3,20 +3,23 @@
   display: flex
   flex-direction: column
   background: var(--bg-color)
-  color: var(--text-color)
+  color: var(--text)
 
 .header
-  background: var(--card-bg)
+  background: var(--bg-dark)
   border-bottom: 1px solid var(--border-color)
+  backdrop-filter: blur(1rem)
   padding: 0.75rem 0
-  position: sticky
+  position: fixed
+  width: 100vw
   top: 0
+  left: 0
   z-index: 100
 
 .container
   max-width: 1200px
   margin: 0 auto
-  padding: 0 1.5rem
+  padding: 0 2.5rem
 
 .headerContent
   display: flex
@@ -31,7 +34,7 @@
   color: var(--primary-color)
   font-weight: 800
   font-size: 1.25rem
-  
+
   .icon
     color: var(--primary-color)
 
@@ -41,9 +44,19 @@
   gap: 0.5rem
 
 .themeToggle, .actionBtn, .userBtn, .loginBtn
-  color: var(--text-color)
+  color: var(--text)
+  transition: border 0.5s ease, color 0.5s ease
+  border: 1px solid #ffffff22
+  box-sizing: border-box
   &:hover
+    transition-duration: 0.2s
     background: var(--card-bg-hover)
+    border: 1px solid var(--text)
+    color: var(--text)
+
+.userBtn
+  font-family: var(--heading)
+  font-size: 1.1rem
 
 .userContainer
   position: relative
@@ -58,7 +71,9 @@
   position: absolute
   top: calc(100% + 0.5rem)
   right: 0
-  background: var(--card-bg)
+  background: var(--bg-dark)
+  border-bottom: 1px solid var(--border-color)
+  backdrop-filter: blur(1rem)
   border: 1px solid var(--border-color)
   border-radius: 8px
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15)
@@ -76,11 +91,13 @@
 
 .dropdownInfo
   padding: 0.75rem 1rem
+  background: var(--bg-transp)
   border-bottom: 1px solid var(--border-color)
+  backdrop-filter: blur(1rem)
   display: flex
   flex-direction: column
   gap: 0.25rem
-  
+
   span
     font-size: 0.75rem
     color: var(--text-muted)
@@ -113,7 +130,7 @@
   font-size: 0.7rem
   color: var(--text-muted)
   font-weight: 500
-  
+
   svg
     color: var(--primary-color)
     opacity: 0.8
@@ -131,10 +148,10 @@
   cursor: pointer
   text-align: left
   transition: background 0.2s
-  
+
   &:hover
     background: var(--card-bg-hover)
-  
+
   svg
     color: var(--text-muted)
 
@@ -148,7 +165,7 @@
   text-align: center
   color: var(--text-muted)
   font-size: 0.9rem
-  
+
   a
     color: var(--primary-color)
     text-decoration: none
