@@ -8,17 +8,21 @@
   margin-bottom: 1rem
   box-sizing: border-box
   cursor: pointer
+  transition: all 0.7s ease
 
   &:hover
-    border-color: var(--accent)
-    background: crimson
+    scale: 1.01
+    border-color: var(--border)
+    background-color: var(--lighter)
+    box-shadow: 0 0 0.5rem #00000033
+    transition: all 0.3s ease
 
 .thumbnailWrapper
   flex-shrink: 0
   background-size: cover
   background-position: center
   aspect-ratio: 1 / 1
-  width: 10rem
+  width: 12rem
   border-top-left-radius: 0.5rem
   border-bottom-left-radius: 0.5rem
   overflow: hidden

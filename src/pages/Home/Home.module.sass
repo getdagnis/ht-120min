@@ -143,9 +143,6 @@
 
   &:hover
     text-decoration: none
-    .tournamentCard
-      border-color: var(--accent)
-      background-color: var(--table-bg)
     .tArrow
       transform: translateX(0.4rem) rotate(180deg) scale(1.6) translateY(40%)
       transform-origin: center center
@@ -180,7 +177,7 @@
 
 .tName
   margin: 0
-  font-size: 1.25rem
+  font-size: 1.75rem
   color: var(--text-h)
   white-space: nowrap
   overflow: hidden
@@ -207,6 +204,7 @@
   flex-wrap: wrap
   gap: 0.4rem
   margin-top: 0.25rem
+  padding-right: 1.5rem
 
 .teamChip, .teamChipMore
   font-size: 0.7rem
@@ -267,30 +265,40 @@
 .features
   display: grid
   grid-template-columns: repeat(auto-fit, minmax(250px, 1fr))
-  gap: 1.5rem
+  gap: 1rem
   text-align: left
-  margin-top: 2rem
-  padding: 0 0.5rem
+  margin: 2rem auto
+  padding: 0
 
 .feature
   margin-bottom: 0 !important
   background: var(--table-bg-main)
   padding: 1rem 1.5rem
+  transition: scale 0.3s ease
 
   h3
     margin-bottom: 0.75rem
     font-weight: 600
 
-.featurePlaceholder
+  &:hover
+    scale: 1.03
+
+.featureImg1, .featureImg2, .featureImg3
   display: flex
   align-items: center
   justify-content: center
-  text-align: center
-  padding: 1rem
-  font-size: 0.9rem
+  background: url("/feature3.png") center center no-repeat
+  background-size: cover
+  height: 10rem
   color: #555
   border-radius: var(--radius-md)
   margin-bottom: 1rem
+
+.featureImg2
+  background-image: url("/chase4.png")
+
+.featureImg3
+  background-image: url("/trophy2.png")
 
   p
     font-size: 0.9rem

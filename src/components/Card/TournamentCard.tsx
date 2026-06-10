@@ -52,10 +52,10 @@ export const TournamentCard: React.FC<TournamentCardProps> = ({
           )}
           {leagueCategory === 'hfi' && (
             <div className={styles.badge}>
-              <img src={`https://www.hattrick.org/Img/flags/${countryId}.png`} alt="" className={styles.flag} /> HFI
+              <img src={`https://www.hattrick.org/Img/flags/3000.png`} alt="" className={styles.flag} /> HFI 💃🏽
             </div>
           )}
-          {scoringMode === '120min' && <div className={styles.badge}>120 min</div>}
+          {scoringMode === '120min' && <div className={styles.badge}>120-min</div>}
         </div>
       </div>
     </div>

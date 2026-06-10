@@ -137,28 +137,16 @@ export const Home: React.FC = () => {
         const team120Stats: Record<number, { name: string; count: number }> = {};
         const tournamentsData = tournaments as unknown as DBTournament[];
 
-        tournamentsData.forEach((t: any) => {
+        tournamentsData.forEach((t: DBTournament) => {
           // Count validated teams
-          const validatedTeamCount = t.teams.filter((team: any) => team.joined_via_oauth).length;
+          const validatedTeamCount = t.teams.filter((team) => team.joined_via_oauth).length;
 
           const allMatches = t.rounds?.flatMap((r) => r.matches ?? []) ?? [];
           const totalMatches = allMatches.length;
           // Count finished or misarranged as completed
-          const completedMatches = allMatches.filter((m: any) => m.completed || m.status === 'misarranged').length;
+          const completedMatches = allMatches.filter((m) => m.completed || m.status === 'misarranged').length;
           const isClosed = totalMatches > 0 && totalMatches === completedMatches;
           const isGenerated = (t.rounds?.length ?? 0) > 0;
-          
-          const tournament: Tournament = {
-            ...t,
-            validatedTeamCount,
-            totalMatches,
-            completedMatches,
-            scoring_mode: t.scoring_mode,
-            league_category: t.league_category,
-            activityScore: 0, // Placeholder
-            teamCount: t.teams.length,
-            nextMatchDate: null, // Placeholder
-          };
 
           // Calculate next match date
           let nextMatchDate: Date | null = null;
@@ -287,9 +275,7 @@ export const Home: React.FC = () => {
             </div>
           </section>
         </HeroCard>
-
         <MottoWidget />
-
         <div className={styles.mainGrid}>
           <div className={styles.leftColumn}>
             {activeTournaments.length > 0 && (
@@ -440,22 +426,17 @@ export const Home: React.FC = () => {
             <FriendlyMarketplace className={styles.marketplaceWrapper} />
           </aside>
         </div>
-
         <div className={styles.features}>
           <Card className={styles.feature}>
-            <div className={styles.featurePlaceholder} style={{ background: '#ddd', height: '150px' }}>
-              Organizer buried under papers, mascot vacuuming
-            </div>
+            <div className={styles.featureImg1} />
             <h3>Run tournaments, not spreadsheets</h3>
             <p>
-              Create leagues, cups and recurring competitions in minutes. HT-120min handles schedules, fixtures and
-              administration so you can focus on your community.
+              Create or join leagues, cups and recurring competitions in minutes. HT-120min handles schedules, fixtures
+              and administration so you can focus on your community.
             </p>
           </Card>
           <Card className={styles.feature}>
-            <div className={styles.featurePlaceholder} style={{ background: '#ddd', height: '150px' }}>
-              Organizer running after 6 managers, traffic controller mascot
-            </div>
+            <div className={styles.featureImg2} />
             <h3>Never chase managers again</h3>
             <p>
               Automatic scheduling, challenge tracking, live standings and match updates eliminate most of the
@@ -463,15 +444,23 @@ export const Home: React.FC = () => {
             </p>
           </Card>
           <Card className={styles.feature}>
-            <div className={styles.featurePlaceholder} style={{ background: '#ddd', height: '150px' }}>
-              Two old managers pointing at a "Hall of Fame" wall
-            </div>
+            <div className={styles.featureImg3} />
             <h3>Build rivalries, not just fixtures</h3>
             <p>
               Achievements, club profiles, records and community leaderboards turn friendly matches into long-term
               stories managers actually care about.
             </p>
           </Card>
+        </div>{' '}
+        <div className={styles.ctaBtns}>
+          <Button size="lg" onClick={() => navigate('/create')} variant="secondaryInverse">
+            <Trophy size={22} weight="bold" /> Create Tournament
+          </Button>
+          <ScrollTo to="opentours" smooth={true} duration={600} offset={-80}>
+            <Button size="lg" variant="secondary">
+              <ArrowRight size={22} weight="bold" /> Join Tournament
+            </Button>
+          </ScrollTo>
         </div>
       </div>
     </div>
