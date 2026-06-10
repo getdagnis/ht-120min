@@ -16,6 +16,7 @@ import { TOURNAMENT_DEFAULT } from '../../constants/descriptions';
 import styles from './TournamentView.module.sass';
 import adminStyles from './TournamentAdmin.module.sass';
 import { FixtureCard } from '../../components/FixtureCard/FixtureCard';
+import { useLiveMatches } from '../../hooks/useLiveMatches';
 import { MottoWidget } from '../../components/MottoWidget/MottoWidget';
 import {
   ArrowClockwise,
@@ -65,7 +66,7 @@ interface MatchWithTeams {
     logo_url?: string;
     country_name?: string;
     manager_name?: string;
-  };
+  } | null;
   away_team: {
     name: string;
     ht_team_id: number;
@@ -73,7 +74,8 @@ interface MatchWithTeams {
     logo_url?: string;
     country_name?: string;
     manager_name?: string;
-  };
+  } | null;
+  match_date?: Date;
 }
 
 interface Team {
@@ -134,6 +136,19 @@ export const TournamentView: React.FC = () => {
   const [teams, setTeams] = useState<Team[]>([]);
   const [warnings, setWarnings] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+
+  const allMatches = rounds.flatMap((r) => r.matches);
+  const { liveData, lastRefresh } = useLiveMatches(tournament?.id, allMatches, () => {
+    // Refresh data when a match is finished
+    fetchData();
+  });
+
+  // Keep last_fixtures_refresh updated in UI when live polling happens
+  useEffect(() => {
+    if (lastRefresh) {
+       setTournament(prev => prev ? { ...prev, last_fixtures_refresh: lastRefresh } : null);
+    }
+  }, [lastRefresh]);
 
   // Sync activeTab with URL search param 'tab'
   const activeTabParam = searchParams.get('tab');
@@ -382,6 +397,30 @@ export const TournamentView: React.FC = () => {
 
       if (teamsData) {
         const matchesWithTeams = (matchesData || []) as MatchWithTeams[];
+        
+        // Add calculated match_date to each match for sorting and status detection
+        const matchesWithDates = matchesWithTeams.map(m => {
+           const round = roundsData?.find(r => r.id === m.round_id);
+           return {
+             ...m,
+             match_date: round ? calculateMatchDate(tournamentData.created_at, round.round_number, m.home_team?.country_name) : undefined
+           };
+        });
+
+        // Merge liveData into matches for immediate standings/UI updates
+        const mergedMatches = matchesWithDates.map(m => {
+          const live = m.ht_match_id ? liveData[m.ht_match_id.toString()] : null;
+          if (live) {
+            return {
+              ...m,
+              home_goals: live.status === 'finished' || live.homeGoals > (m.home_goals || 0) ? live.homeGoals : m.home_goals,
+              away_goals: live.status === 'finished' || live.awayGoals > (m.away_goals || 0) ? live.awayGoals : m.away_goals,
+              completed: live.status === 'finished' || m.completed
+            };
+          }
+          return m;
+        });
+
         const calculated = calculateStandings(
           teamsData.map((t) => ({
             id: t.id,
@@ -393,7 +432,7 @@ export const TournamentView: React.FC = () => {
             country_name: t.country_name,
             logo_url: t.logo_url,
           })),
-          matchesWithTeams.map((m) => ({
+          mergedMatches.map((m) => ({
             home_team_id: m.home_team_id,
             away_team_id: m.away_team_id,
             home_goals: m.home_goals,
@@ -410,7 +449,7 @@ export const TournamentView: React.FC = () => {
         if (roundsData) {
           const roundsWithMatches = roundsData.map((r) => ({
             ...r,
-            matches: matchesWithTeams.filter((m) => m.round_id === r.id),
+            matches: mergedMatches.filter((m) => m.round_id === r.id),
           }));
           setRounds(roundsWithMatches as RoundWithMatches[]);
         }
@@ -1750,9 +1789,27 @@ export const TournamentView: React.FC = () => {
                           );
 
                           // Use status from DB, fallback to simple detection
+                          const liveMatch = match.ht_match_id ? liveData[match.ht_match_id.toString()] : null;
                           let status = match.status || 'not_arranged';
-                          if (match.completed) status = 'finished';
-                          else if (homeWarning || awayWarning) status = 'misarranged';
+                          const now = new Date();
+                          const isPastStartTime = match.match_date && now >= match.match_date;
+                          const isWithinLiveWindow = match.match_date && now.getTime() < (match.match_date.getTime() + 4 * 60 * 60 * 1000);
+                          
+                          if (match.completed) {
+                            status = 'finished';
+                          } else if (liveMatch) {
+                            status = liveMatch.status;
+                          } else if (isPastStartTime && isWithinLiveWindow && status === 'arranged') {
+                            status = 'ongoing';
+                          } else if (homeWarning || awayWarning) {
+                            status = 'misarranged';
+                          }
+
+                          const currentScore = liveMatch 
+                            ? { home: liveMatch.homeGoals, away: liveMatch.awayGoals } 
+                            : match.completed 
+                              ? { home: match.home_goals || 0, away: match.away_goals || 0 } 
+                              : isPastStartTime && isWithinLiveWindow ? { home: 0, away: 0 } : undefined;
 
                           return (
                             <FixtureCard
@@ -1760,12 +1817,9 @@ export const TournamentView: React.FC = () => {
                               date={status === 'misarranged' ? '' : formattedDate}
                               status={status}
                               htMatchId={match.ht_match_id || undefined}
-                              score={
-                                match.completed
-                                  ? { home: match.home_goals || 0, away: match.away_goals || 0 }
-                                  : undefined
-                              }
+                              score={currentScore}
                               homeTeam={{
+
                                 name: match.home_team?.name || 'BYE',
                                 managerName: match.home_team?.manager_name || 'UNKNOWN',
                                 htTeamId: match.home_team?.ht_team_id || 0,

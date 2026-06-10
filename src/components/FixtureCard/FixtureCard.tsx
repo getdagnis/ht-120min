@@ -64,7 +64,7 @@ export const FixtureCard: React.FC<FixtureCardProps> = ({ homeTeam, awayTeam, st
       <div className={styles.centerSection}>
         {date && <div className={styles.date}>{date}</div>}
         <div className={styles.vsRow}>
-          {status === 'finished' ? (
+          {status === 'finished' || status === 'ongoing' ? (
             <>
               <span className={styles.score}>{score?.home ?? 0}</span>
               <span className={styles.vs}>VS</span>
