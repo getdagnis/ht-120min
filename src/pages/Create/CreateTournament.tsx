@@ -18,7 +18,7 @@ import {
   Question,
 } from 'phosphor-react';
 import { DESCRIPTIONS, TOURNAMENT_NAMES, UNIVERSAL_TOURNAMENT_NAMES } from '../../constants/descriptions';
-import { filterTeamsForCategory, teamMatchesCategory, type LeagueCategory } from '../../utils/team-eligibility';
+import { filterTeamsForCategory, teamMatchesCategory, validateTeamEligibility, type LeagueCategory } from '../../utils/team-eligibility';
 import styles from './CreateTournament.module.sass';
 import { HATTRICK_LEAGUES } from '../../utils/leagues';
 
@@ -316,11 +316,22 @@ export const CreateTournament: React.FC = () => {
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || 'Failed to fetch team data');
 
-      const category = (formData.league_category === 'hfi' ? 'hfi' : 'male') as LeagueCategory;
-      if (!teamMatchesCategory(data, category)) {
-        throw new Error(
-          `Team ID ${htId} "${data.teamName}" is not eligible for ${category === 'hfi' ? 'HFI' : 'Regular male'} based tournament. Please register a matching team or change the tournament category.`,
-        );
+      // Client-side validation against selected restrictions
+      const validation = validateTeamEligibility(
+        { 
+          leagueName: data.leagueName, 
+          leagueId: data.leagueId, 
+          leagueSystemId: data.leagueSystemId, 
+          countryName: data.countryName 
+        },
+        { 
+          category: formData.league_category as LeagueCategory, 
+          countryLimit: formData.country_limit || null 
+        }
+      );
+      
+      if (!validation.eligible) {
+        throw new Error(validation.reason);
       }
 
       setNewTeamName(data.teamName);

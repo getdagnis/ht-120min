@@ -760,6 +760,12 @@ export const TournamentView: React.FC = () => {
         .eq('id', tournament?.id);
 
       if (error) throw error;
+      
+      // Auto-archive if empty
+      if (teams.length === 0) {
+        await supabase.from('tournaments').update({ status: 'archived' }).eq('id', tournament!.id);
+      }
+      
       fetchData();
     } catch (error: any) {
       alert(error.message);

@@ -1,9 +1,10 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { getSupabase } from '../_lib/supabase.js';
 import { getAuthHeader } from '../_lib/chpp-auth.js';
+import { validateTeamEligibility } from '../_lib/eligibility.js';
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
-  const { team_id } = req.query;
+  const { team_id, tournament_id } = req.query;
 
   if (!team_id) {
     return res.status(400).json({ error: 'Missing team_id' });
@@ -52,9 +53,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       }
     }
 
-    // 3. Fetch team details using managercompendium (simplest way to get name and league)
+    // 3. Fetch team details using teamdetails
     const url = 'https://chpp.hattrick.org/chppxml.ashx';
-    const params = { file: 'teamdetails', teamID: team_id as string };
+    const params = { file: 'teamdetails', teamID: team_id as string, version: '3.9' };
 
     const authHeader = getAuthHeader(
       'GET',
@@ -66,7 +67,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       teamWithToken.oauth_token_secret!,
     );
 
-    const response = await fetch(`${url}?file=teamdetails&teamID=${team_id}`, {
+    const response = await fetch(`${url}?file=teamdetails&teamID=${team_id}&version=3.9`, {
       headers: { Authorization: authHeader },
     });
 
@@ -75,12 +76,32 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       return res.status(response.status).json({ error: 'CHPP fetch failed', details: xml });
     }
 
-    // Surgical XML parsing for name and league info
+    // Surgical XML parsing
     const teamName = xml.match(/<TeamName>(?:<!\[CDATA\[)?([\s\S]*?)(?:\]\]>)?<\/TeamName>/i)?.[1]?.trim() || 'Unknown';
     const leagueId = xml.match(/<LeagueID>(\d+)<\/LeagueID>/i)?.[1];
     const leagueSystemId = xml.match(/<LeagueSystemID>(\d+)<\/LeagueSystemID>/i)?.[1];
     const leagueName = xml.match(/<LeagueName>(?:<!\[CDATA\[)?([\s\S]*?)(?:\]\]>)?<\/LeagueName>/i)?.[1]?.trim();
     const countryName = xml.match(/<CountryName>(?:<!\[CDATA\[)?([\s\S]*?)(?:\]\]>)?<\/CountryName>/i)?.[1]?.trim();
+    const genderId = xml.match(/<GenderID>(\d+)<\/GenderID>/i)?.[1];
+
+    // Validation Check
+    if (tournament_id && !isSuperAdmin) {
+      const { data: tournament } = await supabase
+        .from('tournaments')
+        .select('scoring_mode, league_category, country_limit')
+        .eq('id', tournament_id)
+        .single();
+        
+      if (tournament) {
+        const validation = validateTeamEligibility(
+          { leagueName, leagueId: leagueId ? parseInt(leagueId) : undefined, leagueSystemId: leagueSystemId ? parseInt(leagueSystemId) : undefined, countryName, genderId: genderId ? parseInt(genderId) : undefined } as any,
+          { category: tournament.league_category as any, countryLimit: tournament.country_limit }
+        );
+        if (!validation.eligible) {
+          return res.status(400).json({ error: validation.reason });
+        }
+      }
+    }
 
     return res.status(200).json({
       teamId: parseInt(team_id as string),

@@ -54,6 +54,7 @@ interface DBWarning {
 }
 
 interface Tournament extends DBTournament {
+  country_limit: string | null;
   validatedTeamCount: number;
   totalMatches: number;
   completedMatches: number;
@@ -95,6 +96,7 @@ export const Home: React.FC = () => {
           is_private,
           thumbnail_index,
           image_url,
+          country_limit,
           rounds (
             id,
             round_number,
@@ -278,10 +280,13 @@ export const Home: React.FC = () => {
                 <div className={styles.tournamentGrid}>
                   {activeTournaments.map((t) => (
                     <Link key={t.id} to={`/t/${t.slug}`} className={styles.tournamentLink}>
-                      <TournamentCard
+                        <TournamentCard
                         className={styles.tournamentCard}
                         thumbnailIndex={t.thumbnail_index}
                         imageUrl={t.image_url}
+                        countryLimit={t.country_limit}
+                        scoringMode={t.scoring_mode}
+                        leagueCategory={t.league_category}
                       >
                         <div className={styles.tInfo}>
                           <div className={styles.tTitleRow}>
@@ -334,10 +339,13 @@ export const Home: React.FC = () => {
                 <div className={styles.tournamentGrid}>
                   {openTournaments.map((t) => (
                     <Link key={t.id} to={`/t/${t.slug}`} className={styles.tournamentLink}>
-                      <TournamentCard
+                        <TournamentCard
                         className={styles.tournamentCard}
                         thumbnailIndex={t.thumbnail_index}
                         imageUrl={t.image_url}
+                        countryLimit={t.country_limit}
+                        scoringMode={t.scoring_mode}
+                        leagueCategory={t.league_category}
                       >
                         <div className={styles.tInfo}>
                           <div className={styles.tTitleRow}>

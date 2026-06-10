@@ -414,7 +414,7 @@ export const UNIVERSAL_TOURNAMENT_NAMES = [
   'The Sponsors Are Dancing In The Streets Cup',
   'The Fans Are Delirious League',
   'The Fans Are Furious Invitational',
-  'The Fans Are Murderous Cup',
+  'The Fans Are Murderous Cup 🧟‍♂️',
   'The Piece Of Cake Invitational',
   'The Better Not Show Up Cup',
   'We Have The Edge Trophy',

@@ -49,8 +49,6 @@ export const ProfileModal: React.FC<ProfileModalProps> = ({ isOpen, onClose, pro
     onClose();
   };
 
-  console.log('🏜💀👾 profile', profile);
-
   useEffect(() => {
     if (isOpen && profile) {
       const fetchTeams = async () => {
@@ -87,6 +85,9 @@ export const ProfileModal: React.FC<ProfileModalProps> = ({ isOpen, onClose, pro
     month: '2-digit',
     year: 'numeric',
   });
+
+  // TODO: remove
+  console.log('🏜💀👾 profile', profile);
 
   return (
     <Modal isOpen={isOpen} onClose={handleClose} title="Manager Profile">

@@ -1,4 +1,4 @@
-import type { ChppTeamOption } from './chpp-xml';
+import type { ChppTeamOption } from '../_lib/chpp-xml';
 
 export type LeagueCategory = 'male' | 'hfi';
 
@@ -17,21 +17,6 @@ export function teamMatchesCategory(
   category: LeagueCategory,
 ): boolean {
   return category === 'hfi' ? isHfiTeam(team) : !isHfiTeam(team);
-}
-
-export function filterTeamsForCategory<T extends ChppTeamOption>(
-  teams: T[],
-  category: LeagueCategory,
-  options?: { countryLimit?: string | null; skipCountryCheck?: boolean },
-): T[] {
-  const { countryLimit, skipCountryCheck } = options ?? {};
-  return teams.filter((team) => {
-    if (!teamMatchesCategory(team, category)) return false;
-    if (!skipCountryCheck && countryLimit && team.countryName && team.countryName !== countryLimit) {
-      return false;
-    }
-    return true;
-  });
 }
 
 export function validateTeamEligibility(
