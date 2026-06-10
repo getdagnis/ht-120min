@@ -19,6 +19,7 @@
     "react-dom": "^19.2.6",
     "react-router-dom": "^7.16.0",
     "react-scroll": "^1.9.3",
+    "react-tooltip": "^6.0.7",
     "sass": "^1.100.0"
   },
   "devDependencies": {
