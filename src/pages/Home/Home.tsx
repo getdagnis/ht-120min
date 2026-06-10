@@ -139,7 +139,8 @@ export const Home: React.FC = () => {
 
           const allMatches = t.rounds?.flatMap((r) => r.matches ?? []) ?? [];
           const totalMatches = allMatches.length;
-          const completedMatches = allMatches.filter((m) => m.completed).length;
+          // Count finished or misarranged as completed
+          const completedMatches = allMatches.filter((m) => m.completed || m.status === 'misarranged').length;
           const isClosed = totalMatches > 0 && totalMatches === completedMatches;
           const isGenerated = (t.rounds?.length ?? 0) > 0;
 

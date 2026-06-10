@@ -12,12 +12,13 @@ import { generateRoundRobin, generateRecurring } from '../../utils/scheduler';
 import { teamMatchesCategory } from '../../utils/team-eligibility';
 import { TeamDisplay } from '../../components/TeamDisplay/TeamDisplay';
 import { Modal } from '../../components/Modal/Modal';
+import { MottoWidget } from '../../components/MottoWidget/MottoWidget';
 import { TOURNAMENT_DEFAULT } from '../../constants/descriptions';
 import styles from './TournamentView.module.sass';
 import adminStyles from './TournamentAdmin.module.sass';
 import { FixtureCard } from '../../components/FixtureCard/FixtureCard';
 import { useLiveMatches } from '../../hooks/useLiveMatches';
-import { MottoWidget } from '../../components/MottoWidget/MottoWidget';
+import { Tooltip } from 'react-tooltip';
 import {
   ArrowClockwise,
   ArrowUpRight,
@@ -29,6 +30,7 @@ import {
   Plus,
   ShieldCheck,
   ArrowRight,
+  Check,
 } from 'phosphor-react';
 
 interface ChppTeamOption {
@@ -290,6 +292,7 @@ export const TournamentView: React.FC = () => {
   };
 
   const [loading, setLoading] = useState(true);
+  const [copied, setCopied] = useState<Record<string, boolean>>({});
 
   const allMatches = rounds.flatMap((r) => r.matches);
   const { liveData, lastRefresh } = useLiveMatches(tournament?.id, allMatches, () => {
@@ -1722,12 +1725,13 @@ export const TournamentView: React.FC = () => {
             </SectionCard>
           ) : (
             <>
-              {rounds.slice(0, visibleRoundsCount).map((round, index) => {
+              {rounds.slice(0, visibleRoundsCount).map((round) => {
                 const upcomingRoundIndex = rounds.findIndex((r) => r.matches.some((m) => !m.completed));
                 const isNextRound = round.id === rounds[upcomingRoundIndex]?.id;
                 const isOneBefore = upcomingRoundIndex > 0 && round.id === rounds[upcomingRoundIndex - 1].id;
-                const isOneAfter = upcomingRoundIndex < rounds.length - 1 && round.id === rounds[upcomingRoundIndex + 1].id;
-                
+                const isOneAfter =
+                  upcomingRoundIndex < rounds.length - 1 && round.id === rounds[upcomingRoundIndex + 1].id;
+
                 const isExpanded = expandedRounds[round.id] ?? (isNextRound || isOneBefore || isOneAfter);
 
                 return (
@@ -1747,29 +1751,94 @@ export const TournamentView: React.FC = () => {
                         </>
                       </div>
                     }
-                    headerRight={
-                      isNextRound ? (
+                    headerRight={(() => {
+                      const isNextRound = round.id === rounds[upcomingRoundIndex]?.id;
+                      const allFinished = round.matches.every((m) => m.completed || m.status === 'misarranged');
+
+                      if (!allFinished && !isNextRound) return undefined;
+
+                      const nextRound = rounds[rounds.findIndex((r) => r.id === round.id) + 1];
+
+                      const formatMatch = (m: MatchWithTeams, isNext: boolean) =>
+                        `[tr][th]${m.home_team?.name}[/th][td][b]${
+                          isNext
+                            ? calculateMatchDate(
+                                tournament?.created_at || '',
+                                round.round_number,
+                                m.home_team?.country_name,
+                              ).toLocaleDateString('lv-LV', {
+                                day: '2-digit',
+                                month: '2-digit',
+                              })
+                            : m.completed
+                              ? `${m.home_goals} : ${m.away_goals}`
+                              : m.status === 'misarranged'
+                                ? 'DNP'
+                                : '..:..'
+                        }[/b][/td][th]${m.away_team?.name}[/th][/tr]`;
+
+                      const handleCopy = () => {
+                        let table = `[b]${tournament?.name} 🇬🇺[/b]\n[link=http://ht120-min.vercel.app/t/${tournament?.slug}]\n[b]ROUND ${round.round_number}. ${allFinished ? 'Final results:' : 'Fixtures:'}[/b]\n[table]${round.matches.map((m) => formatMatch(m, false)).join(' ')}[/table]`;
+                        if (isNextRound && nextRound) {
+                          table += `\n[b]Next: ROUND ${nextRound.round_number}. Fixtures:[/b]\n[table]${nextRound.matches.map((m) => formatMatch(m, true)).join(' ')}[/table]`;
+                        }
+                        table += `\nFull fixtures: [link=http://ht120-min.vercel.app/t/${tournament?.slug}?tab=fixtures]`;
+                        navigator.clipboard.writeText(table);
+                        setCopied((prev) => ({ ...prev, [round.id]: true }));
+                        setTimeout(() => setCopied((prev) => ({ ...prev, [round.id]: false })), 2000);
+                      };
+
+                      return (
                         <div className={styles.fixturesControls}>
-                          {tournament?.last_fixtures_refresh && (
-                            <span className={styles.lastRefresh}>
-                              {isRefreshingFixtures ? 'Checking...' : 'Last checked: '}
-                              {!isRefreshingFixtures &&
-                                new Date(tournament.last_fixtures_refresh).toLocaleTimeString('en-GB', {
-                                  hour: '2-digit',
-                                  minute: '2-digit',
-                                })}
-                            </span>
+                          {allFinished ? (
+                            <>
+                              <span className={styles.lastRefresh}>Copy for HT forums:</span>
+                              <button
+                                className={styles.refreshBtn}
+                                onClick={handleCopy}
+                                data-tooltip-id={`copy-tooltip-${round.id}`}
+                              >
+                                {copied[round.id] ? <Check size={18} color="green" /> : <CopySimple size={18} />}
+                              </button>
+                              <Tooltip
+                                id={`copy-tooltip-${round.id}`}
+                                content={copied[round.id] ? 'HT forum table copied!' : 'Copy for HT forums'}
+                                className="tooltip"
+                              />
+                            </>
+                          ) : (
+                            <>
+                              {isNextRound && tournament?.last_fixtures_refresh && (
+                                <span className={styles.lastRefresh}>
+                                  {isRefreshingFixtures ? 'Checking...' : 'Last checked: '}
+                                  {!isRefreshingFixtures &&
+                                    new Date(tournament.last_fixtures_refresh).toLocaleTimeString('en-GB', {
+                                      hour: '2-digit',
+                                      minute: '2-digit',
+                                    })}
+                                </span>
+                              )}
+                              <button
+                                className={`${styles.refreshBtn} ${isRefreshingFixtures ? styles.spinning : ''}`}
+                                onClick={handleRefreshFixtures}
+                                disabled={isRefreshingFixtures}
+                                data-tooltip-id="refresh-tooltip"
+                              >
+                                <ArrowClockwise size={18} />
+                              </button>
+                              <Tooltip id="refresh-tooltip" content="Refresh fixtures" />
+                              <button className={styles.refreshBtn} onClick={handleCopy} data-tooltip-id="copy-tooltip">
+                                {copied[round.id] ? <Check size={18} color="green" /> : <CopySimple size={18} />}
+                              </button>
+                              <Tooltip
+                                id="copy-tooltip"
+                                content={copied[round.id] ? 'HT forum table copied!' : 'Copy for HT forums'}
+                              />
+                            </>
                           )}
-                          <button
-                            className={`${styles.refreshBtn} ${isRefreshingFixtures ? styles.spinning : ''}`}
-                            onClick={handleRefreshFixtures}
-                            disabled={isRefreshingFixtures}
-                          >
-                            <ArrowClockwise size={18} />
-                          </button>
                         </div>
-                      ) : undefined
-                    }
+                      );
+                    })()}
                   >
                     {isExpanded && (
                       <div className={styles.matchesGrid}>
@@ -2761,6 +2830,8 @@ export const TournamentView: React.FC = () => {
                                         onClick={() => updateMatch(match.id)}
                                         variant="primary"
                                         title="Save"
+                                        data-tooltip-id="admin-tooltip"
+                                        data-tooltip-content="Save result"
                                       ></Button>
                                       <Button
                                         size="xs"
@@ -2771,12 +2842,16 @@ export const TournamentView: React.FC = () => {
                                             updateMatch(match.id, true);
                                           }
                                         }}
+                                        data-tooltip-id="admin-tooltip"
+                                        data-tooltip-content="Clear result"
                                       ></Button>
                                       <Button
                                         size="xs"
                                         variant="outline"
                                         onClick={() => setEditingMatch(null)}
                                         title="Cancel"
+                                        data-tooltip-id="admin-tooltip"
+                                        data-tooltip-content="Cancel"
                                       ></Button>
                                     </div>
                                   </div>
@@ -2795,6 +2870,8 @@ export const TournamentView: React.FC = () => {
                                             setEditingMatch(match.id);
                                             setMatchData({ ...matchData, [match.id]: match });
                                           }}
+                                          data-tooltip-id="admin-tooltip"
+                                          data-tooltip-content="Edit"
                                         >
                                           Edit
                                         </Button>
@@ -2816,6 +2893,8 @@ export const TournamentView: React.FC = () => {
                                             [match.id]: resetMatch,
                                           });
                                         }}
+                                        data-tooltip-id="admin-tooltip"
+                                        data-tooltip-content="Enter Result"
                                       >
                                         Enter Result
                                       </Button>
@@ -2830,6 +2909,7 @@ export const TournamentView: React.FC = () => {
                     ))}
                   </section>
                 )}
+                <Tooltip id="admin-tooltip" />
               </div>
 
               <div className={adminStyles.footerActions}>
