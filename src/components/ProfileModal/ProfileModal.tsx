@@ -1,9 +1,10 @@
 import React, { useState, useEffect } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { Modal } from '../Modal/Modal';
 import { Avatar } from '../Avatar/Avatar';
 import type { UserProfile, ActiveTournament } from '../../hooks/useAuth';
 import { supabase } from '../../lib/supabase';
-import { Trophy, CalendarBlank, MapPin, Medal, ArrowUpRight } from 'phosphor-react';
+import { Trophy, CalendarBlank, Medal, ArrowUpRight } from 'phosphor-react';
 import styles from './ProfileModal.module.sass';
 
 interface ProfileModalProps {
@@ -36,6 +37,19 @@ interface TeamInfo {
 export const ProfileModal: React.FC<ProfileModalProps> = ({ isOpen, onClose, profile }) => {
   const [teams, setTeams] = useState<TeamInfo[]>([]);
   const [loading, setLoading] = useState(false);
+  const [searchParams, setSearchParams] = useSearchParams();
+
+  const handleClose = () => {
+    if (searchParams.has('profileId')) {
+      const nextParams = new URLSearchParams(searchParams);
+      nextParams.delete('profileId');
+      setSearchParams(nextParams, { replace: true });
+    }
+
+    onClose();
+  };
+
+  console.log('🏜💀👾 profile', profile);
 
   useEffect(() => {
     if (isOpen && profile) {
@@ -75,7 +89,7 @@ export const ProfileModal: React.FC<ProfileModalProps> = ({ isOpen, onClose, pro
   });
 
   return (
-    <Modal isOpen={isOpen} onClose={onClose} title="Manager Profile">
+    <Modal isOpen={isOpen} onClose={handleClose} title="Manager Profile">
       <div className={styles.profileContent}>
         <div className={styles.header}>
           <Avatar
@@ -84,7 +98,15 @@ export const ProfileModal: React.FC<ProfileModalProps> = ({ isOpen, onClose, pro
             className={styles.avatar}
           />
           <div className={styles.mainInfo}>
-            <h2>{profile.manager_name}</h2>
+            <a
+              href={`https://www.hattrick.org/goto.ashx?path=/Club/Manager/?userId=${profile.hattrick_user_id}`}
+              target="_blank"
+              rel="noopener noreferrer"
+            >
+              <h2>
+                {profile.manager_name} <ArrowUpRight size={14} />
+              </h2>
+            </a>
             <div className={styles.meta}>
               <div className={styles.metaItem}>
                 <CalendarBlank size={18} />
@@ -92,9 +114,16 @@ export const ProfileModal: React.FC<ProfileModalProps> = ({ isOpen, onClose, pro
               </div>
               {profile.country_name && (
                 <div className={styles.metaItem}>
-                  <MapPin size={18} />
+                  {profile.country_id && (
+                    <img
+                      // some strange artefact with latvia (now id 53) reported as 48 by API with slightly wrong flag
+                      src={`https://www.hattrick.org/Img/flags/${profile.country_id == 48 ? 53 : profile.country_id}.png`}
+                      alt={profile.country_name}
+                      className={styles.flag}
+                    />
+                  )}
                   <a
-                    href={`https://www.hattrick.org/goto.ashx?path=/World/LeagueDetails/?LeagueID=${profile.country_id}`}
+                    href={`https://www.hattrick.org/goto.ashx?path=/World/Leagues/League.aspx?LeagueID=${profile.country_id}`}
                     target="_blank"
                     rel="noopener noreferrer"
                   >
@@ -119,9 +148,13 @@ export const ProfileModal: React.FC<ProfileModalProps> = ({ isOpen, onClose, pro
                     <div className={styles.teamInfo}>
                       {team.logo_url && <img src={team.logo_url} alt="" className={styles.teamLogo} />}
                       <div className={styles.teamName}>
-                        <strong>
+                        <a
+                          href={`https://www.hattrick.org/goto.ashx?path=/Club/?TeamId=${team.ht_team_id}`}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                        >
                           {team.name} <span className={styles.htId}>({team.ht_team_id})</span>
-                        </strong>
+                        </a>
                         <span className={styles.htTournament}>
                           Active in: <a href={`/t/${team.tournament_slug}`}>{team.tournament_name}</a>
                         </span>

@@ -1,7 +1,18 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Analytics } from '@vercel/analytics/react';
-import { Link, useNavigate, useLocation } from 'react-router-dom';
-import { Trophy, Sun, Moon, Plus, ArrowRight, User, CaretDown, IdentificationCard, SignOut, Clock } from 'phosphor-react';
+import { Link, useNavigate, useLocation, useSearchParams } from 'react-router-dom';
+import {
+  Trophy,
+  Sun,
+  Moon,
+  Plus,
+  ArrowRight,
+  User,
+  CaretDown,
+  IdentificationCard,
+  SignOut,
+  Clock,
+} from 'phosphor-react';
 import { scroller } from 'react-scroll';
 import { Button } from '../Button/Button';
 import { useAuth } from '../../hooks/useAuth';
@@ -16,7 +27,7 @@ export const Layout: React.FC<LayoutProps> = ({ children }) => {
   const navigate = useNavigate();
   const location = useLocation();
   const { managerName, profile, activeTournaments, logout } = useAuth();
-  
+
   const [theme, setTheme] = useState(() => {
     const saved = localStorage.getItem('theme');
     if (saved) return saved;
@@ -26,6 +37,13 @@ export const Layout: React.FC<LayoutProps> = ({ children }) => {
   const [isUserDropdownOpen, setIsUserDropdownOpen] = useState(false);
   const [isProfileModalOpen, setIsProfileModalOpen] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
+  const [searchParams] = useSearchParams();
+
+  useEffect(() => {
+    if (searchParams.get('profileId')) {
+      setIsProfileModalOpen(true);
+    }
+  }, [searchParams]);
 
   useEffect(() => {
     document.documentElement.setAttribute('data-theme', theme);
@@ -47,7 +65,7 @@ export const Layout: React.FC<LayoutProps> = ({ children }) => {
   };
 
   const isCreatePage = location.pathname.startsWith('/create');
-  
+
   const handleActionClick = () => {
     if (isCreatePage) {
       if (location.pathname !== '/') {
@@ -112,9 +130,9 @@ export const Layout: React.FC<LayoutProps> = ({ children }) => {
               <div className={styles.userContainer} ref={dropdownRef}>
                 {managerName ? (
                   <>
-                    <Button 
-                      size="sm" 
-                      variant="zero" 
+                    <Button
+                      size="sm"
+                      variant="zero"
                       className={styles.userBtn}
                       onClick={() => setIsUserDropdownOpen(!isUserDropdownOpen)}
                     >
@@ -122,17 +140,17 @@ export const Layout: React.FC<LayoutProps> = ({ children }) => {
                       <span className={styles.hideMobile}>{managerName}</span>
                       <CaretDown size={14} weight="bold" />
                     </Button>
-                    
+
                     {isUserDropdownOpen && (
                       <div className={styles.dropdown}>
                         {activeTournaments.length > 0 && (
                           <div className={styles.dropdownInfo}>
                             <span>Active in:</span>
                             <div className={styles.activeTournamentsList}>
-                              {activeTournaments.map(t => (
+                              {activeTournaments.map((t) => (
                                 <div key={t.id} className={styles.tourItem}>
-                                  <Link 
-                                    to={`/t/${t.slug}`} 
+                                  <Link
+                                    to={`/t/${t.slug}`}
                                     className={styles.dropdownLink}
                                     onClick={() => setIsUserDropdownOpen(false)}
                                   >
@@ -141,8 +159,11 @@ export const Layout: React.FC<LayoutProps> = ({ children }) => {
                                   {t.nextMatchDate && (
                                     <div className={styles.tourNextMatch} title="Next Match">
                                       <Clock size={12} weight="bold" />
-                                      {t.nextMatchDate.toLocaleDateString('lv-LV', { 
-                                        day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' 
+                                      {t.nextMatchDate.toLocaleDateString('lv-LV', {
+                                        day: '2-digit',
+                                        month: '2-digit',
+                                        hour: '2-digit',
+                                        minute: '2-digit',
                                       })}
                                     </div>
                                   )}
@@ -151,17 +172,17 @@ export const Layout: React.FC<LayoutProps> = ({ children }) => {
                             </div>
                           </div>
                         )}
-                        <button 
+                        <button
                           className={styles.dropdownItem}
                           onClick={() => {
-                            setIsProfileModalOpen(true);
+                            navigate(`?profileId=${profile?.hattrick_user_id}`);
                             setIsUserDropdownOpen(false);
                           }}
                         >
                           <IdentificationCard size={18} />
                           My Profile
                         </button>
-                        <button 
+                        <button
                           className={styles.dropdownItem}
                           onClick={() => {
                             logout();
@@ -210,13 +231,13 @@ export const Layout: React.FC<LayoutProps> = ({ children }) => {
         </div>
       </footer>
 
-      <ProfileModal 
-        isOpen={isProfileModalOpen} 
-        onClose={() => setIsProfileModalOpen(false)} 
+      <ProfileModal
+        isOpen={isProfileModalOpen}
+        onClose={() => setIsProfileModalOpen(false)}
         profile={profile}
         activeTournaments={activeTournaments}
       />
-      
+
       <Analytics />
     </div>
   );
