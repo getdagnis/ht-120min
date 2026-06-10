@@ -35,4 +35,6 @@
 9. [DONE] Admin recovery email UI & setup.
 10. [DONE] Image modal for tournament banner.
 11. [DONE] Isolate Join and Login OAuth flows, implement tournament participation safeguard, fix UI refresh on join, and reintroduce team logo fetching in creation flow.
-12. [TODO] **Live Match Tracking**: Backend polling, status transitions (ongoing), and frontend UI polling. (PENDING - Test target: Wednesday).
+12. [DONE] **Live Match Tracking**: Backend polling, robust finish detection via Event 599, and automated UI state synchronization.
+13. [DONE] **Fixtures Tab Refinements**: Smart auto-expanding rounds (next, before, after), border highlight for upcoming round, forum-ready copy functionality (including next round), and result entry tooltips.
+14. [DONE] **Share on Hattrick**: Automated copy-paste table designed specifically for publishing on Hattrick tournaments with current round, next round results/fixtures and links to the tournament view.

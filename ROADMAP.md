@@ -15,39 +15,42 @@ This document tracks our transition from a manual tournament tracker to a fully 
 
 **Goal:** One-click verified tournament entry.
 
-- [ ] **Multi-team Support:** Allow managers to choose which team joins a specific tournament.
-- [ ] **Metadata Fetching:** Store logo URLs, country IDs, and league names.
-- [ ] **CHPP Join Flow:** Replace manual HT ID entry with a "Select your team" picker.
+- [x] **Multi-team Support:** Allow managers to choose which team joins a specific tournament.
+- [x] **Metadata Fetching:** Store logo URLs, country IDs, and league names.
+- [x] **CHPP Join Flow:** Replace manual HT ID entry with a "Select your team" picker.
 
 ## Phase 3: Automated Result Sync
 
 **Goal:** Zero-effort standings updates and live match tracking.
 
 - [x] **Match Details Polling:** Periodically check for completed matches.
-- [ ] **Live Match Tracking:** (PENDING - Test target: Wed) Live score polling, status transitions, and ongoing match UI.
-- [ ] **Auto-Standings:** Detect 120min achievements, total minutes, and goals automatically.
+- [x] **Live Match Tracking:** Live score polling, status transitions, and ongoing match UI.
+- [x] **Auto-Standings:** Detect 120min achievements, total minutes, and goals automatically.
 - [ ] **Sync Action:** Provide a "Sync results from Hattrick" button for tournament admins.
 
 ## Phase 4: Identity & Social
 
 **Goal:** Make the platform feel like a real part of the Hattrick ecosystem.
 
-- [ ] **Visual Identity:** Real team logos and country flags in tables.
+- [x] **Visual Identity:** Real team logos and country flags in tables.
 - [ ] **Manager Profiles:** Achievements and history across multiple tournaments.
 - [ ] **Tournament Feed:** "Live" activity stream of joins and results.
-- [ ] **Realtime Chat:** Simple per-tournament chat rooms.
+- [ ] **Realtime Chat:** Simple per-tournament chat rooms. Partly done (functionality implemented, UI needs improvements).
+- [ ] **Live Chat Room Match action:** While matches are ongoing, chatroom gets live key event announcements (goals, injuries, cards, half-time summary).
+- [ ] **Weekly Tournament Updates/Stats** Key players, most interesting match events in a separate weekly updated standings page widget.
+- [ ] **Team/Tournament Announcements:** A separate tab in TournamentView that allows users to share/read "offical" team and tournament updates. Same as chat functionality implemented, currently hidden from UI waiting for UI/UX finalization.
 - [ ] **Tournament Join Questionnaire (Priority: Medium):** Segment users during joining flow by gender, training duration (90/120min), and desired activity level (active/social vs. inactive/training-only) to improve tournament quality.
 
 ## Phase 5: Advanced Automation
 
 **Goal:** High-level management.
 
-- [ ] **Automated Challenges:** Send friendly challenges directly via the app.
+- [ ] **Automated Challenges:** Send friendly challenges directly via the app. _IMPORTANT!_
 - [ ] **AI Journalist:** Generate short summaries of round highlights and dramatic 120m matches.
 
 ## Phase 6: PRO Tournaments (Priority: High)
 
-**Goal:** Monetization and premium features for dedicated organizers.
+**Long Term Goal:** Monetization and premium features for dedicated organizers and users. Unlimited social/statistics/planning features for Pro tournaments, can select one or two features for regular tournaments.
 
 - [ ] **PRO Status System:** Paid subscription integration.
 - [ ] **Premium Features:** Custom images, advanced polls, Hall of Fame, enhanced statistics, and dedicated tournament chat rooms.
