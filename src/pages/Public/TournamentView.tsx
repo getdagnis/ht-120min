@@ -1722,24 +1722,28 @@ export const TournamentView: React.FC = () => {
             </SectionCard>
           ) : (
             <>
-              {rounds.slice(0, visibleRoundsCount).map((round) => {
-                const upcomingRound = rounds.find((r) => r.matches.some((m) => !m.completed));
-                const isNextRound = round.id === upcomingRound?.id;
-                const isExpanded = expandedRounds[round.id] ?? isNextRound;
+              {rounds.slice(0, visibleRoundsCount).map((round, index) => {
+                const upcomingRoundIndex = rounds.findIndex((r) => r.matches.some((m) => !m.completed));
+                const isNextRound = round.id === rounds[upcomingRoundIndex]?.id;
+                const isOneBefore = upcomingRoundIndex > 0 && round.id === rounds[upcomingRoundIndex - 1].id;
+                const isOneAfter = upcomingRoundIndex < rounds.length - 1 && round.id === rounds[upcomingRoundIndex + 1].id;
+                
+                const isExpanded = expandedRounds[round.id] ?? (isNextRound || isOneBefore || isOneAfter);
 
                 return (
                   <SectionCard
                     key={round.id}
+                    className={isNextRound ? styles.upcomingRound : ''}
                     title={
                       <div
                         className={styles.roundHeader}
-                        onClick={() => !isNextRound && toggleRound(round.id)}
-                        style={{ cursor: isNextRound ? 'default' : 'pointer' }}
+                        onClick={() => toggleRound(round.id)}
+                        style={{ cursor: 'pointer' }}
                       >
                         <>
                           <span>Round {round.round_number}</span>
                           <span className={styles.roundDate}>{getRoundDateRange(round)}</span>
-                          {!isNextRound && (isExpanded ? <CaretUp size={18} /> : <CaretDown size={18} />)}
+                          {isExpanded ? <CaretUp size={18} /> : <CaretDown size={18} />}
                         </>
                       </div>
                     }
