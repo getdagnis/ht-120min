@@ -1759,12 +1759,12 @@ export const TournamentView: React.FC = () => {
 
                       const nextRound = rounds[rounds.findIndex((r) => r.id === round.id) + 1];
 
-                      const formatMatch = (m: MatchWithTeams, isNext: boolean) =>
-                        `[tr][th]${m.home_team?.name}[/th][td][b]${
+                      const formatMatch = (m: MatchWithTeams, isNext: boolean, roundNum: number) =>
+                        `[tr][td]${m.home_team?.name}[/td][td][b]${
                           isNext
                             ? calculateMatchDate(
                                 tournament?.created_at || '',
-                                round.round_number,
+                                roundNum,
                                 m.home_team?.country_name,
                               ).toLocaleDateString('lv-LV', {
                                 day: '2-digit',
@@ -1775,12 +1775,12 @@ export const TournamentView: React.FC = () => {
                               : m.status === 'misarranged'
                                 ? 'DNP'
                                 : '..:..'
-                        }[/b][/td][th]${m.away_team?.name}[/th][/tr]`;
+                        }[/b][/td][td]${m.away_team?.name}[/td][/tr]`;
 
                       const handleCopy = () => {
-                        let table = `[b]${tournament?.name} 🇬🇺[/b]\n[link=http://ht120-min.vercel.app/t/${tournament?.slug}]\n[b]ROUND ${round.round_number}. ${allFinished ? 'Final results:' : 'Fixtures:'}[/b]\n[table]${round.matches.map((m) => formatMatch(m, false)).join(' ')}[/table]`;
+                        let table = `[b]${tournament?.name}[/b]\n[link=http://ht120-min.vercel.app/t/${tournament?.slug}]\n\n[b]ROUND ${round.round_number}, ${allFinished ? 'final results:[/b]' : 'Fixtures:[/b]'}\n[table]${round.matches.map((m) => formatMatch(m, false, round.round_number)).join(' ')}[/table]`;
                         if (isNextRound && nextRound) {
-                          table += `\n[b]Next: ROUND ${nextRound.round_number}. Fixtures:[/b]\n[table]${nextRound.matches.map((m) => formatMatch(m, true)).join(' ')}[/table]`;
+                          table += `\n[b]Next: ROUND ${nextRound.round_number}, fixtures:[/b]\n[table]${nextRound.matches.map((m) => formatMatch(m, true, nextRound.round_number)).join(' ')}[/table]`;
                         }
                         table += `\nFull fixtures: [link=http://ht120-min.vercel.app/t/${tournament?.slug}?tab=fixtures]`;
                         navigator.clipboard.writeText(table);
