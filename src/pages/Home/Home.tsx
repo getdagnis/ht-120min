@@ -20,6 +20,7 @@ interface DBTeamMatch {
   home_goals: number | null;
   away_goals: number | null;
   went_120: boolean;
+  status: 'not_arranged' | 'arranged' | 'ongoing' | 'misarranged' | 'finished';
   home_team_id: string;
   away_team_id: string;
   home_team: { country_name: string } | null;
@@ -105,6 +106,7 @@ export const Home: React.FC = () => {
             matches (
               id,
               completed,
+              status,
               home_team_id,
               home_team:teams!matches_home_team_id_fkey(country_name)
             )
