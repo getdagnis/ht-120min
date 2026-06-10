@@ -1,22 +1,31 @@
 .teamDisplay {
   display: flex;
-  flex-direction: column;
-  min-width: 140px;
+  flex-direction: row;
+  align-items: center;
+  gap: 12px;
+  min-width: 0;
+  flex: 1 1 0;
   
   &.home {
     align-items: flex-end;
     text-align: right;
+    justify-content: flex-end;
   }
   
   &.away {
     align-items: flex-start;
     text-align: left;
+    justify-content: flex-start;
   }
 
   @media (max-width: 640px) {
+    flex-direction: column;
+    gap: 4px;
+
     &.home, &.away {
       align-items: center;
       text-align: center;
+      justify-content: center;
     }
   }
 }
@@ -25,7 +34,7 @@
   display: flex;
   align-items: center;
   gap: 8px;
-  margin-bottom: 4px;
+  flex-shrink: 0;
 
   .home & {
     flex-direction: row-reverse;
@@ -35,6 +44,7 @@
 .teamName {
   font-weight: 600;
   color: var(--text-h);
+  line-height: 1.15;
 }
 
 .teamNameFree {
@@ -44,22 +54,23 @@
 }
 
 .teamId {
-  font-size: 0.75rem;
+  font-size: 0.85rem;
   color: var(--text);
   opacity: 0.6;
+  line-height: 1.1;
 }
 
 .logo {
-  width: 28px;
-  height: 28px;
+  width: 34px;
+  height: 34px;
   object-fit: contain;
   border-radius: 4px;
   background: rgba(255, 255, 255, 0.05);
 }
 
 .flag {
-  width: 20px;
-  height: 14px;
+  width: 24px;
+  height: 16px;
   object-fit: cover;
   border-radius: 2px;
   box-shadow: 0 1px 3px rgba(0,0,0,0.1);

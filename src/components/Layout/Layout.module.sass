@@ -2,7 +2,6 @@
   min-height: 100vh
   display: flex
   flex-direction: column
-  background: var(--bg-color)
   color: var(--text)
 
 .header
@@ -20,6 +19,9 @@
   max-width: 1200px
   margin: 0 auto
   padding: 0 2.5rem
+
+  @media (max-width: 620px)
+    padding: 0 1rem
 
 .headerContent
   display: flex
@@ -92,7 +94,7 @@
 .dropdownInfo
   padding: 0.75rem 1rem
   background: var(--bg-transp)
-  border-bottom: 1px solid var(--border-color)
+  border-bottom: 1px solid var(--border)
   backdrop-filter: blur(1rem)
   display: flex
   flex-direction: column
@@ -142,7 +144,7 @@
   align-items: center
   gap: 0.75rem
   border: none
-  background: transparent
+  background: var(--bg-color)
   color: var(--text-color)
   font-size: 0.9rem
   cursor: pointer
@@ -150,7 +152,7 @@
   transition: background 0.2s
 
   &:hover
-    background: var(--card-bg-hover)
+    background: var(--theme)
 
   svg
     color: var(--text-muted)

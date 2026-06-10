@@ -11,7 +11,7 @@
 
   &:hover
     border-color: var(--accent)
-    background-color: var(--table-bg)
+    background: crimson
 
 .thumbnailWrapper
   flex-shrink: 0
@@ -34,9 +34,10 @@
   margin: 0.5rem 0
 
 .badge
-  background: var(--table-bg-hover)
+  background: var(--lighter)
   color: var(--text-color)
-  padding: 0.25rem 0.5rem
+  padding: 0.15rem 0.5rem
+  margin-top: 0.5rem
   border-radius: 0.25rem
   font-size: 0.85rem
   font-weight: 500
@@ -50,6 +51,7 @@
   object-fit: contain
 
 .mainContent
+  position: relative
   flex: 1
   min-width: 0
   box-sizing: border-box

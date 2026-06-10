@@ -86,9 +86,6 @@ export const ProfileModal: React.FC<ProfileModalProps> = ({ isOpen, onClose, pro
     year: 'numeric',
   });
 
-  // TODO: remove
-  console.log('🏜💀👾 profile', profile);
-
   return (
     <Modal isOpen={isOpen} onClose={handleClose} title="Manager Profile">
       <div className={styles.profileContent}>

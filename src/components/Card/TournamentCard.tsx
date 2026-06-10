@@ -22,9 +22,6 @@ export const TournamentCard: React.FC<TournamentCardProps> = ({
   thumbnailIndex,
   imageUrl,
   isActiveInviting = false,
-  scoringSystem,
-  matchesPlayed,
-  nextMatch,
   countryLimit,
   scoringMode,
   leagueCategory,
@@ -32,37 +29,35 @@ export const TournamentCard: React.FC<TournamentCardProps> = ({
   const bgImage = imageUrl ? imageUrl : `/thumbs/thumb-${thumbnailIndex}.png`;
   const countryId = countryLimit ? getLeagueIdByName(countryLimit) : undefined;
 
+  console.log('🏜💀👾 leagueCategory', leagueCategory);
+  console.log('🏜💀👾 scoringMode', scoringMode);
+
   return (
     <div className={`${styles.card} ${className}`}>
       {(thumbnailIndex !== undefined || imageUrl) && (
-        <div 
-          className={styles.thumbnailWrapper}
-          style={{ backgroundImage: `url(${bgImage})` }}
-        >
+        <div className={styles.thumbnailWrapper} style={{ backgroundImage: `url(${bgImage})` }}>
           {isActiveInviting && <div className={styles.invitingBadge}>Actively Inviting</div>}
         </div>
       )}
       <div className={styles.mainContent}>
         {children}
         <div className={styles.badges}>
-           {countryLimit && (
-             <div className={styles.badge}>
-               {countryId && <img src={`https://www.hattrick.org/Img/flags/${countryId}.png`} alt="" className={styles.flag} />}
-               {countryLimit}
-             </div>
-           )}
-           {leagueCategory === 'hfi' && (
-             <div className={styles.badge}>HFI</div>
-           )}
-           {scoringMode === '120min' && <div className={styles.badge}>120 min</div>}
-        </div>
-        <div className={styles.meta}>
-          <span>{scoringSystem}</span>
-          <span>{matchesPlayed} matches</span>
-          {nextMatch && <span>Next: {nextMatch}</span>}
+          {countryLimit && (
+            <div className={styles.badge}>
+              {countryId && (
+                <img src={`https://www.hattrick.org/Img/flags/${countryId}.png`} alt="" className={styles.flag} />
+              )}
+              {countryLimit} Only
+            </div>
+          )}
+          {leagueCategory === 'hfi' && (
+            <div className={styles.badge}>
+              <img src={`https://www.hattrick.org/Img/flags/${countryId}.png`} alt="" className={styles.flag} /> HFI
+            </div>
+          )}
+          {scoringMode === '120min' && <div className={styles.badge}>120 min</div>}
         </div>
       </div>
     </div>
   );
 };
-

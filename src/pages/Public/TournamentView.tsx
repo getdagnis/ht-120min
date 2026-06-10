@@ -24,13 +24,17 @@ import {
   ArrowUpRight,
   Trash,
   CopySimple,
-  CaretDown,
-  CaretUp,
   X,
   Plus,
   ShieldCheck,
   ArrowRight,
   Check,
+  FloppyDisk,
+  Eraser,
+  XCircle,
+  PencilSimple,
+  PlusCircle,
+  Info,
 } from 'phosphor-react';
 
 interface ChppTeamOption {
@@ -247,11 +251,21 @@ export const TournamentView: React.FC = () => {
       ?.split('=')[1] === 'you bet';
 
   // Collapsible states
-  const [isSettingsCollapsed, setIsSettingsCollapsed] = useState(true);
-  const [isTeamsCollapsed, setIsTeamsCollapsed] = useState(() => {
-    const saved = localStorage.getItem(`teams_collapsed_${slug}`);
-    return saved ? JSON.parse(saved) : false;
-  });
+  const [isSettingsCollapsed, setIsSettingsCollapsed] = useState(() =>
+    JSON.parse(localStorage.getItem(`settings_collapsed_${slug}`) || 'false'),
+  );
+  const [isTeamsCollapsed, setIsTeamsCollapsed] = useState(() =>
+    JSON.parse(localStorage.getItem(`teams_collapsed_${slug}`) || 'false'),
+  );
+  const [isResultsCollapsed, setIsResultsCollapsed] = useState(() =>
+    JSON.parse(localStorage.getItem(`results_collapsed_${slug}`) || 'false'),
+  );
+
+  // Helper to persist toggle
+  const togglePanel = (key: string, state: boolean, setter: React.Dispatch<React.SetStateAction<boolean>>) => {
+    setter(state);
+    localStorage.setItem(`${key}_collapsed_${slug}`, JSON.stringify(state));
+  };
 
   // Join states
   const [isJoining, setIsJoining] = useState(false);
@@ -1344,8 +1358,7 @@ export const TournamentView: React.FC = () => {
             {is120minMode ? (
               <div className={styles.scoringHelp}>
                 <p onClick={() => setShowScoringHelp(!showScoringHelp)} className={styles.helpToggle}>
-                  <strong>120min training mode</strong>{' '}
-                  {showScoringHelp ? <CaretUp size={14} /> : <CaretDown size={14} />}
+                  <strong>120min training mode</strong> {showScoringHelp ? <X size={18} /> : <Info size={18} />}
                 </p>
                 {showScoringHelp && (
                   <p className={styles.helpContent}>
@@ -1360,8 +1373,7 @@ export const TournamentView: React.FC = () => {
             ) : (
               <div className={styles.scoringHelp}>
                 <p onClick={() => setShowScoringHelp(!showScoringHelp)} className={styles.helpToggle}>
-                  <strong>Victory points mode</strong>{' '}
-                  {showScoringHelp ? <CaretUp size={14} /> : <CaretDown size={14} />}
+                  <strong>Victory points mode</strong> {showScoringHelp ? <X size={18} /> : <Info size={18} />}
                 </p>
                 {showScoringHelp && (
                   <p className={styles.helpContent}>
@@ -1747,7 +1759,7 @@ export const TournamentView: React.FC = () => {
                         <>
                           <span>Round {round.round_number}</span>
                           <span className={styles.roundDate}>{getRoundDateRange(round)}</span>
-                          {isExpanded ? <CaretUp size={18} /> : <CaretDown size={18} />}
+                          {isExpanded ? <X size={18} /> : <Info size={18} />}
                         </>
                       </div>
                     }
@@ -2173,7 +2185,7 @@ export const TournamentView: React.FC = () => {
                     title="Tournament Settings"
                     collapsible
                     isCollapsed={isSettingsCollapsed}
-                    onToggleCollapse={() => setIsSettingsCollapsed(!isSettingsCollapsed)}
+                    onToggleCollapse={() => togglePanel('settings', !isSettingsCollapsed, setIsSettingsCollapsed)}
                   >
                     <div className={adminStyles.settingsGroup}>
                       {/* EDIT TOURNAMENT NAME **
@@ -2386,11 +2398,7 @@ export const TournamentView: React.FC = () => {
                     title="Manage Teams & Schedule"
                     collapsible
                     isCollapsed={isTeamsCollapsed}
-                    onToggleCollapse={() => {
-                      const newState = !isTeamsCollapsed;
-                      setIsTeamsCollapsed(newState);
-                      localStorage.setItem(`teams_collapsed_${slug}`, JSON.stringify(newState));
-                    }}
+                    onToggleCollapse={() => togglePanel('teams', !isTeamsCollapsed, setIsTeamsCollapsed)}
                   >
                     {(!isGenerated || teams.some((t) => !t.active) || teams.length % 2 !== 0) && (
                       <div className={adminStyles.addTeamSection}>
@@ -2735,178 +2743,195 @@ export const TournamentView: React.FC = () => {
 
                 {isGenerated && (
                   <section className={adminStyles.fixturesSection}>
-                    <div className={adminStyles.fixturesHeader}>
-                      <h2>Results Entry</h2>
-                    </div>
-                    {rounds.map((round) => (
-                      <SectionCard key={round.id} title={`Round ${round.round_number}`}>
-                        <div className={adminStyles.matches}>
-                          {round.matches.map((match: MatchWithTeams) => {
-                            return (
-                              <div key={match.id} className={adminStyles.match}>
-                                <div className={adminStyles.matchTeams}>
-                                  <TeamDisplay team={match.home_team} side="home" />
-                                  <span className={adminStyles.vs}>vs</span>
-                                  <TeamDisplay team={match.away_team} side="away" />
-                                </div>
-
-                                {editingMatch === match.id ? (
-                                  <div className={adminStyles.matchEdit}>
-                                    <div className={adminStyles.scoreInputs}>
-                                      <input
-                                        name={`score_home_${match.id}`}
-                                        type="number"
-                                        placeholder="H"
-                                        value={matchData[match.id]?.home_goals ?? match.home_goals ?? ''}
-                                        onChange={(e) =>
-                                          setMatchData({
-                                            ...matchData,
-                                            [match.id]: {
-                                              ...(matchData[match.id] || match),
-                                              home_goals: e.target.value === '' ? null : Number(e.target.value),
-                                            },
-                                          })
-                                        }
-                                      />
-                                      <span className={adminStyles.divider}>-</span>
-                                      <input
-                                        name={`score_away_${match.id}`}
-                                        type="number"
-                                        placeholder="A"
-                                        value={matchData[match.id]?.away_goals ?? match.away_goals ?? ''}
-                                        onChange={(e) =>
-                                          setMatchData({
-                                            ...matchData,
-                                            [match.id]: {
-                                              ...(matchData[match.id] || match),
-                                              away_goals: e.target.value === '' ? null : Number(e.target.value),
-                                            },
-                                          })
-                                        }
-                                      />
-                                    </div>
-                                    <label className={adminStyles.went120}>
-                                      <input
-                                        title="120min game achieved"
-                                        type="checkbox"
-                                        checked={matchData[match.id]?.went_120 ?? match.went_120 ?? false}
-                                        onChange={(e) =>
-                                          setMatchData({
-                                            ...matchData,
-                                            [match.id]: {
-                                              ...(matchData[match.id] || match),
-                                              went_120: e.target.checked,
-                                              total_minutes: e.target.checked
-                                                ? 120
-                                                : (matchData[match.id]?.total_minutes ?? match.total_minutes ?? 90),
-                                            },
-                                          })
-                                        }
-                                      />
-                                      120min
-                                    </label>
-                                    <div className={adminStyles.minutesInput}>
-                                      <input
-                                        type="number"
-                                        value={matchData[match.id]?.total_minutes ?? match.total_minutes ?? 90}
-                                        onChange={(e) =>
-                                          setMatchData({
-                                            ...matchData,
-                                            [match.id]: {
-                                              ...(matchData[match.id] || match),
-                                              total_minutes: e.target.value === '' ? 90 : Number(e.target.value),
-                                            },
-                                          })
-                                        }
-                                        placeholder="90"
-                                      />
-                                      <span title="Total match minutes" className={adminStyles.minsLabel}>
-                                        mins
-                                      </span>
-                                    </div>
-                                    <div className={adminStyles.editActions}>
-                                      <Button
-                                        size="xs"
-                                        onClick={() => updateMatch(match.id)}
-                                        variant="primary"
-                                        title="Save"
-                                        data-tooltip-id="admin-tooltip"
-                                        data-tooltip-content="Save result"
-                                      ></Button>
-                                      <Button
-                                        size="xs"
-                                        variant="danger"
-                                        title="Clear result"
-                                        onClick={() => {
-                                          if (window.confirm('Clear result for this match?')) {
-                                            updateMatch(match.id, true);
-                                          }
-                                        }}
-                                        data-tooltip-id="admin-tooltip"
-                                        data-tooltip-content="Clear result"
-                                      ></Button>
-                                      <Button
-                                        size="xs"
-                                        variant="outline"
-                                        onClick={() => setEditingMatch(null)}
-                                        title="Cancel"
-                                        data-tooltip-id="admin-tooltip"
-                                        data-tooltip-content="Cancel"
-                                      ></Button>
-                                    </div>
+                    <SectionCard
+                      title="Results Entry"
+                      collapsible
+                      isCollapsed={isResultsCollapsed}
+                      onToggleCollapse={() => togglePanel('results', !isResultsCollapsed, setIsResultsCollapsed)}
+                    >
+                      <div className={adminStyles.matches}>
+                        {rounds.map((round) => (
+                          <div key={round.id} className={adminStyles.roundResults}>
+                            <h3 className={adminStyles.sectionTitle}>Round {round.round_number}</h3>
+                            {round.matches.map((match: MatchWithTeams) => {
+                              return (
+                                <div key={match.id} className={adminStyles.match}>
+                                  <div className={adminStyles.matchTeams}>
+                                    <TeamDisplay team={match.home_team} side="home" />
+                                    <span className={adminStyles.vs}>vs</span>
+                                    <TeamDisplay team={match.away_team} side="away" />
                                   </div>
-                                ) : (
-                                  <div className={adminStyles.matchResult}>
-                                    {match.completed ? (
-                                      <div className={adminStyles.resultInfo}>
-                                        <span className={adminStyles.score}>
-                                          {match.home_goals} {match.away_goals}
+
+                                  {editingMatch === match.id ? (
+                                    <div className={adminStyles.matchEdit}>
+                                      <div className={adminStyles.scoreInputs}>
+                                        <input
+                                          name={`score_home_${match.id}`}
+                                          type="number"
+                                          placeholder="H"
+                                          value={matchData[match.id]?.home_goals ?? match.home_goals ?? ''}
+                                          onChange={(e) =>
+                                            setMatchData({
+                                              ...matchData,
+                                              [match.id]: {
+                                                ...(matchData[match.id] || match),
+                                                home_goals: e.target.value === '' ? null : Number(e.target.value),
+                                              },
+                                            })
+                                          }
+                                        />
+                                        <span className={adminStyles.divider}>-</span>
+                                        <input
+                                          name={`score_away_${match.id}`}
+                                          type="number"
+                                          placeholder="A"
+                                          value={matchData[match.id]?.away_goals ?? match.away_goals ?? ''}
+                                          onChange={(e) =>
+                                            setMatchData({
+                                              ...matchData,
+                                              [match.id]: {
+                                                ...(matchData[match.id] || match),
+                                                away_goals: e.target.value === '' ? null : Number(e.target.value),
+                                              },
+                                            })
+                                          }
+                                        />
+                                      </div>
+                                      <label className={adminStyles.went120}>
+                                        <input
+                                          title="120min game achieved"
+                                          type="checkbox"
+                                          checked={matchData[match.id]?.went_120 ?? match.went_120 ?? false}
+                                          onChange={(e) =>
+                                            setMatchData({
+                                              ...matchData,
+                                              [match.id]: {
+                                                ...(matchData[match.id] || match),
+                                                went_120: e.target.checked,
+                                                total_minutes: e.target.checked
+                                                  ? 120
+                                                  : (matchData[match.id]?.total_minutes ?? match.total_minutes ?? 90),
+                                              },
+                                            })
+                                          }
+                                        />
+                                        120min
+                                      </label>
+                                      <div className={adminStyles.minutesInput}>
+                                        <input
+                                          type="number"
+                                          value={matchData[match.id]?.total_minutes ?? match.total_minutes ?? 90}
+                                          onChange={(e) =>
+                                            setMatchData({
+                                              ...matchData,
+                                              [match.id]: {
+                                                ...(matchData[match.id] || match),
+                                                total_minutes: e.target.value === '' ? 90 : Number(e.target.value),
+                                              },
+                                            })
+                                          }
+                                          placeholder="90"
+                                        />
+                                        <span title="Total match minutes" className={adminStyles.minsLabel}>
+                                          mins
                                         </span>
-                                        {match.went_120 && <span className={adminStyles.badge}>120min</span>}
+                                      </div>
+                                      <div className={adminStyles.editActions}>
+                                        <Button
+                                          size="xs"
+                                          onClick={() => updateMatch(match.id)}
+                                          variant="primary"
+                                          title="Save"
+                                          data-tooltip-id="admin-tooltip"
+                                          data-tooltip-content="Save result"
+                                        >
+                                          <FloppyDisk size={16} />
+                                        </Button>
+                                        <Button
+                                          size="xs"
+                                          variant="danger"
+                                          title={match.completed ? 'Restore original' : 'Clear result'}
+                                          onClick={() => {
+                                            if (
+                                              window.confirm(
+                                                match.completed
+                                                  ? 'Restore original result?'
+                                                  : 'Clear result for this match?',
+                                              )
+                                            ) {
+                                              updateMatch(match.id, true);
+                                            }
+                                          }}
+                                          data-tooltip-id="admin-tooltip"
+                                          data-tooltip-content={match.completed ? 'Restore original' : 'Clear result'}
+                                        >
+                                          <Eraser size={16} />
+                                        </Button>
                                         <Button
                                           size="xs"
                                           variant="outline"
-                                          onClick={() => {
-                                            setEditingMatch(match.id);
-                                            setMatchData({ ...matchData, [match.id]: match });
-                                          }}
+                                          onClick={() => setEditingMatch(null)}
+                                          title="Cancel"
                                           data-tooltip-id="admin-tooltip"
-                                          data-tooltip-content="Edit"
+                                          data-tooltip-content="Cancel"
                                         >
-                                          Edit
+                                          <XCircle size={16} />
                                         </Button>
                                       </div>
-                                    ) : (
-                                      <Button
-                                        size="xs"
-                                        variant={round.id === currentRoundId ? 'secondary' : 'outline'}
-                                        onClick={() => {
-                                          setEditingMatch(match.id);
-                                          const resetMatch: Partial<MatchWithTeams> = {
-                                            ...match,
-                                            home_goals: null,
-                                            away_goals: null,
-                                            total_minutes: 90,
-                                          };
-                                          setMatchData({
-                                            ...matchData,
-                                            [match.id]: resetMatch,
-                                          });
-                                        }}
-                                        data-tooltip-id="admin-tooltip"
-                                        data-tooltip-content="Enter Result"
-                                      >
-                                        Enter Result
-                                      </Button>
-                                    )}
-                                  </div>
-                                )}
-                              </div>
-                            );
-                          })}
-                        </div>
-                      </SectionCard>
-                    ))}
+                                    </div>
+                                  ) : (
+                                    <div className={adminStyles.matchResult}>
+                                      {match.completed ? (
+                                        <div className={adminStyles.resultInfo}>
+                                          <span className={adminStyles.score}>
+                                            {match.home_goals} {match.away_goals}
+                                          </span>
+                                          {match.went_120 && <span className={adminStyles.badge}>120min</span>}
+                                          <Button
+                                            size="xs"
+                                            variant="outline"
+                                            onClick={() => {
+                                              setEditingMatch(match.id);
+                                              setMatchData({ ...matchData, [match.id]: match });
+                                            }}
+                                            data-tooltip-id="admin-tooltip"
+                                            data-tooltip-content="Edit"
+                                          >
+                                            <PencilSimple size={16} />
+                                          </Button>
+                                        </div>
+                                      ) : (
+                                        <Button
+                                          size="xs"
+                                          variant={round.id === currentRoundId ? 'secondary' : 'outline'}
+                                          onClick={() => {
+                                            setEditingMatch(match.id);
+                                            const resetMatch: Partial<MatchWithTeams> = {
+                                              ...match,
+                                              home_goals: null,
+                                              away_goals: null,
+                                              total_minutes: 90,
+                                            };
+                                            setMatchData({
+                                              ...matchData,
+                                              [match.id]: resetMatch,
+                                            });
+                                          }}
+                                          data-tooltip-id="admin-tooltip"
+                                          data-tooltip-content="Enter Result"
+                                        >
+                                          <PlusCircle size={16} /> Enter
+                                        </Button>
+                                      )}
+                                    </div>
+                                  )}
+                                </div>
+                              );
+                            })}
+                          </div>
+                        ))}
+                      </div>
+                    </SectionCard>
                   </section>
                 )}
                 <Tooltip id="admin-tooltip" />

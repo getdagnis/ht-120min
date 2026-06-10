@@ -100,6 +100,8 @@ export const Home: React.FC = () => {
           thumbnail_index,
           image_url,
           country_limit,
+          scoring_mode,
+          league_category,
           rounds (
             id,
             round_number,
@@ -135,16 +137,28 @@ export const Home: React.FC = () => {
         const team120Stats: Record<number, { name: string; count: number }> = {};
         const tournamentsData = tournaments as unknown as DBTournament[];
 
-        tournamentsData.forEach((t) => {
+        tournamentsData.forEach((t: any) => {
           // Count validated teams
-          const validatedTeamCount = t.teams.filter((team) => team.joined_via_oauth).length;
+          const validatedTeamCount = t.teams.filter((team: any) => team.joined_via_oauth).length;
 
           const allMatches = t.rounds?.flatMap((r) => r.matches ?? []) ?? [];
           const totalMatches = allMatches.length;
           // Count finished or misarranged as completed
-          const completedMatches = allMatches.filter((m) => m.completed || m.status === 'misarranged').length;
+          const completedMatches = allMatches.filter((m: any) => m.completed || m.status === 'misarranged').length;
           const isClosed = totalMatches > 0 && totalMatches === completedMatches;
           const isGenerated = (t.rounds?.length ?? 0) > 0;
+          
+          const tournament: Tournament = {
+            ...t,
+            validatedTeamCount,
+            totalMatches,
+            completedMatches,
+            scoring_mode: t.scoring_mode,
+            league_category: t.league_category,
+            activityScore: 0, // Placeholder
+            teamCount: t.teams.length,
+            nextMatchDate: null, // Placeholder
+          };
 
           // Calculate next match date
           let nextMatchDate: Date | null = null;
@@ -247,6 +261,8 @@ export const Home: React.FC = () => {
     }, 0);
     return () => clearTimeout(timer);
   }, [fetchTournaments]);
+
+  console.log('🏜💀👾 activeTournaments', activeTournaments);
 
   return (
     <div className={styles.home}>
