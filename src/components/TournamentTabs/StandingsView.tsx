@@ -32,8 +32,8 @@ export const StandingsView: React.FC<StandingsViewProps> = ({ standings, is120mi
                     <th className={styles.center}>120m</th>
                     <th className={styles.center}>Mins</th>
                     <th className={styles.center}>Pld</th>
-                    <th className={styles.center}>GD</th>
-                    <th className={styles.center}>GS</th>
+                    <th className={styles.center}>Dif</th>
+                    <th className={styles.center}>Goals</th>
                   </>
                 ) : (
                   <>

@@ -17,10 +17,12 @@ interface ChatViewProps {
 
 export const ChatView: React.FC<ChatViewProps> = ({ messages, onSendMessage, myHtUserId }) => {
   const [newChatContent, setNewChatContent] = useState('');
-  const chatEndRef = useRef<HTMLDivElement>(null);
+  const chatContainerRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    chatEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+    if (chatContainerRef.current) {
+      chatContainerRef.current.scrollTop = chatContainerRef.current.scrollHeight;
+    }
   }, [messages]);
 
   const handleSubmit = (e: React.FormEvent) => {
@@ -32,7 +34,7 @@ export const ChatView: React.FC<ChatViewProps> = ({ messages, onSendMessage, myH
 
   return (
     <div className={styles.chatSection}>
-      <div className={styles.chatMessages}>
+      <div className={styles.chatMessages} ref={chatContainerRef}>
         {messages.map((msg) => {
           const isOwnMessage = msg.author_ht_id === myHtUserId;
           return (
@@ -55,7 +57,6 @@ export const ChatView: React.FC<ChatViewProps> = ({ messages, onSendMessage, myH
             </div>
           );
         })}
-        <div ref={chatEndRef} />
       </div>
       <form onSubmit={handleSubmit} className={styles.chatInputArea}>
         <input

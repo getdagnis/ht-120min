@@ -147,9 +147,15 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         if (!response.ok) continue;
         const xml = await response.text();
 
-        const finished = readChppTag(xml, 'FinishedDate') !== undefined || xml.includes('<EventKey>599</EventKey>');
+        const finished = readChppTag(xml, 'FinishedDate') !== undefined || xml.includes('<MatchStatus>2</MatchStatus>');
         const homeGoals = parseInt(readChppTag(xml, 'HomeGoals') || '0', 10);
         const awayGoals = parseInt(readChppTag(xml, 'AwayGoals') || '0', 10);
+        const addedMinutes = parseInt(readChppTag(xml, 'AddedMinutes') || '0', 10);
+        
+        // MatchPart >= 3 (First half extra time) indicates the match went to Extra Time
+        const isExtraTime = xml.includes('<MatchPart>3</MatchPart>') || xml.includes('<MatchPart>4</MatchPart>');
+        const baseMinutes = isExtraTime ? 120 : 90;
+        const totalMinutes = baseMinutes + addedMinutes;
 
         results[htMatchId] = {
           status: finished ? 'finished' : 'ongoing',
@@ -160,7 +166,14 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         if (finished) {
           await supabase
             .from('matches')
-            .update({ home_goals: homeGoals, away_goals: awayGoals, completed: true, status: 'finished' })
+            .update({ 
+              home_goals: homeGoals, 
+              away_goals: awayGoals, 
+              completed: true, 
+              status: 'finished',
+              total_minutes: totalMinutes,
+              went_120: isExtraTime
+            })
             .eq('ht_match_id', parseInt(htMatchId, 10));
         }
       }

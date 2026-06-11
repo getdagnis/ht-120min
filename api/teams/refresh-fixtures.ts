@@ -71,32 +71,79 @@ function calculateMatchDate(tournamentCreatedAt: string, roundNumber: number, co
   const settings = COUNTRY_FRIENDLY_TIMES[countryName || ''] || { day: 2, time: '20:00' };
   const [hours, minutes] = settings.time.split(':').map(Number);
   const date = new Date(tournamentCreatedAt);
-  const currentDay = date.getUTCDay();
-  let diff = (settings.day - currentDay + 7) % 7;
-  if (diff === 0 && (date.getUTCHours() > hours || (date.getUTCHours() === hours && date.getUTCMinutes() >= minutes))) diff = 7;
+  
+  // Hattrick Time (Europe/Stockholm) is CET (UTC+1) or CEST (UTC+2)
+  // We use the Intl API to find the offset for the given date in Stockholm
+  const getHTOffset = (d: Date) => {
+    const stockholmDate = new Intl.DateTimeFormat('en-GB', {
+      timeZone: 'Europe/Stockholm',
+      year: 'numeric',
+      month: 'numeric',
+      day: 'numeric',
+      hour: 'numeric',
+      minute: 'numeric',
+      second: 'numeric',
+      hour12: false
+    }).formatToParts(d);
+    
+    const parts: any = {};
+    stockholmDate.forEach(p => parts[p.type] = p.value);
+    
+    const wallClockHT = Date.UTC(parts.year, parts.month - 1, parts.day, parts.hour, parts.minute, parts.second);
+    return Math.round((wallClockHT - d.getTime()) / 60000);
+  };
+
+  let currentOffset = getHTOffset(date);
+  const htDate = new Date(date.getTime() + currentOffset * 60000);
+  const currentHTDay = htDate.getUTCDay();
+  
+  let diff = (settings.day - currentHTDay + 7) % 7;
+  if (diff === 0 && (htDate.getUTCHours() > hours || (htDate.getUTCHours() === hours && htDate.getUTCMinutes() >= minutes))) {
+    diff = 7;
+  }
+  
   date.setUTCDate(date.getUTCDate() + diff);
-  date.setUTCHours(hours - 1, minutes, 0, 0); 
-  if (roundNumber > 1) date.setUTCDate(date.getUTCDate() + (roundNumber - 1) * 7);
-  return date;
+  
+  // Re-calculate target UTC hours based on HT offset at the target date
+  const targetDate = new Date(date.getTime());
+  const targetOffset = getHTOffset(targetDate);
+  targetDate.setUTCHours(hours - (targetOffset / 60), minutes, 0, 0);
+  
+  if (roundNumber > 1) {
+    targetDate.setUTCDate(targetDate.getUTCDate() + (roundNumber - 1) * 7);
+    // Adjust for potential DST change across weeks
+    const finalOffset = getHTOffset(targetDate);
+    targetDate.setUTCHours(hours - (finalOffset / 60), minutes, 0, 0);
+  }
+  
+  return targetDate;
 }
 
 async function fetchTeamFriendlies(teamId: string, oauthToken: string, oauthTokenSecret: string) {
   const consumerKey = process.env.CHPP_CONSUMER_KEY;
   const consumerSecret = process.env.CHPP_CONSUMER_SECRET;
   const url = 'https://chpp.hattrick.org/chppxml.ashx';
-  const params = { file: 'matches', teamID: teamId, matchType: '1' };
+  // matchType omitted to get all matches for the team
+  const params = { file: 'matches', teamID: teamId };
   const authHeader = getAuthHeader('GET', url, params, consumerKey!, consumerSecret!, oauthToken, oauthTokenSecret);
-  const response = await fetch(`${url}?file=matches&teamID=${teamId}&matchType=1`, { headers: { Authorization: authHeader } });
+  const response = await fetch(`${url}?file=matches&teamID=${teamId}`, { headers: { Authorization: authHeader } });
   if (!response.ok) return [];
   const xml = await response.text();
   const friendlies: { homeId: number; awayId: number; date: Date; matchId: number }[] = [];
   for (const match of xml.matchAll(/<Match>([\s\S]*?)<\/Match>/gi)) {
     const block = match[1];
-    const homeId = parseInt(readChppTag(block, 'HomeTeamID') || '0', 10);
-    const awayId = parseInt(readChppTag(block, 'AwayTeamID') || '0', 10);
-    const dateStr = readChppTag(block, 'MatchDate');
-    const matchId = parseInt(readChppTag(block, 'MatchID') || '0', 10);
-    if (homeId && awayId && dateStr) friendlies.push({ homeId, awayId, matchId, date: new Date(dateStr.replace(' ', 'T')) });
+    const matchType = parseInt(readChppTag(block, 'MatchType') || '0', 10);
+    // Valid friendlies: 4=Normal, 5=Cup, 8=Int. Normal, 9=Int. Cup
+    if ([4, 5, 8, 9].includes(matchType)) {
+      const status = readChppTag(block, 'Status');
+      if (status === 'FINISHED' || status === 'UPCOMING') {
+        const homeId = parseInt(readChppTag(block, 'HomeTeamID') || '0', 10);
+        const awayId = parseInt(readChppTag(block, 'AwayTeamID') || '0', 10);
+        const dateStr = readChppTag(block, 'MatchDate');
+        const matchId = parseInt(readChppTag(block, 'MatchID') || '0', 10);
+        if (homeId && awayId && dateStr) friendlies.push({ homeId, awayId, matchId, date: new Date(dateStr.replace(' ', 'T')) });
+      }
+    }
   }
   return friendlies;
 }
@@ -131,8 +178,19 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
     if (!tournament || !rounds || !teams) return res.status(404).json({ error: 'Data not found' });
 
-    // Identify the closest upcoming round (the first round that has non-completed matches)
-    const upcomingRound = rounds.find((r) => r.matches.some((m) => !m.completed));
+    // Identify the closest upcoming round (the first round that has non-resolved matches)
+    const now = new Date();
+    const upcomingRound = rounds.find((r) => {
+      return r.matches.some((m) => {
+        if (m.completed) return false;
+        if (m.status === 'misarranged') {
+          // If misarranged but the match time has already passed, consider it "resolved" for refresh purposes
+          const matchDate = calculateMatchDate(tournament.created_at, r.round_number, teams[0].country_name); // Estimate
+          if (now > matchDate) return false;
+        }
+        return true;
+      });
+    });
     if (!upcomingRound) return res.status(200).json({ status: 'No upcoming rounds to refresh' });
 
     const teamCache: Record<string, { homeId: number; awayId: number; date: Date; matchId: number }[]> = {};

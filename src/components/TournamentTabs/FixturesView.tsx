@@ -82,14 +82,17 @@ export const FixturesView: React.FC<FixturesViewProps> = ({
     <div className={styles.rounds}>
       {rounds.slice(0, visibleRoundsCount).map((round) => {
         const isNextRound = round.id === rounds[upcomingRoundIndex]?.id;
-        const isOneBefore = upcomingRoundIndex > 0 && round.id === rounds[upcomingRoundIndex - 1].id;
         const isOneAfter = upcomingRoundIndex < rounds.length - 1 && round.id === rounds[upcomingRoundIndex + 1].id;
 
-        const isExpanded = expandedRounds[round.id] ?? (isNextRound || isOneBefore || isOneAfter);
+        const isExpanded = expandedRounds[round.id] ?? (isNextRound || isOneAfter);
 
         const allFinished = round.matches.every((m) => m.completed || m.status === 'misarranged');
 
         const nextRound = rounds[rounds.findIndex((r) => r.id === round.id) + 1];
+
+        const roundDate = round.matches[0]
+          ? calculateMatchDate(tournament?.created_at || '', round.round_number, round.matches[0].home_team?.country_name)
+          : null;
 
         const formatMatch = (m: FixtureMatch, isNext: boolean, roundNum: number) =>
           `[tr][td]${m.home_team?.name}[/td][td][b]${
@@ -128,7 +131,11 @@ export const FixturesView: React.FC<FixturesViewProps> = ({
               <div className={styles.roundHeader} onClick={() => toggleRound(round.id)} style={{ cursor: 'pointer' }}>
                 <>
                   <span>Round {round.round_number}</span>
-                  <span className={styles.roundDate}>{/* getRoundDateRange(round) */}</span>
+                  {roundDate && (
+                    <span className={styles.roundDate}>
+                      {roundDate.toLocaleDateString('lv-LV', { day: '2-digit', month: '2-digit', year: 'numeric' })}
+                    </span>
+                  )}
                   {isExpanded ? <CaretUp size={18} /> : <CaretDown size={18} />}
                 </>
               </div>
