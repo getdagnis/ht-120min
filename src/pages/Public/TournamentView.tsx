@@ -16,7 +16,7 @@ import { MottoWidget } from '../../components/MottoWidget/MottoWidget';
 import { TOURNAMENT_DEFAULT } from '../../constants/descriptions';
 import styles from './TournamentView.module.sass';
 import adminStyles from './TournamentAdmin.module.sass';
-import { FixtureCard } from '../../components/FixtureCard/FixtureCard';
+import { ChatView } from '../../components/TournamentTabs/ChatView';
 import { useLiveMatches } from '../../hooks/useLiveMatches';
 import { Tooltip } from 'react-tooltip';
 import {
@@ -36,6 +36,7 @@ import {
   PlusCircle,
   Info,
 } from 'phosphor-react';
+import { FixtureCard } from '../../components/FixtureCard/FixtureCard';
 
 interface ChppTeamOption {
   teamId: number;
@@ -2057,61 +2058,20 @@ export const TournamentView: React.FC = () => {
       )}
 
       {/* TODO: reintroduce main column */}
-      {activeTab === 'off' && (
+      {activeTab === 'standings' && (
         <div className={styles.standingsContainer}>
           <div className={styles.mainColumn}>
-            <div className={styles.chatSection}>
-              <h3></h3>
-
-              {/* Chat Messages */}
-              <div className={styles.chatMessages}>
-                {chatMessages.map((msg) => {
-                  const date = new Date(msg.created_at);
-                  const now = new Date();
-                  const timeStr =
-                    date.toDateString() === now.toDateString()
-                      ? date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
-                      : date.toLocaleDateString();
-
-                  const isOwnMessage =
-                    msg.author_name ===
-                    ((teams.find((t) => t.hattrick_user_id === Number(localStorage.getItem('my_ht_user_id'))) as any)
-                      ?.manager_name ||
-                      teams.find((t) => t.hattrick_user_id === Number(localStorage.getItem('my_ht_user_id')))?.name);
-
-                  return (
-                    <div key={msg.id} className={`${styles.chatMessage} ${isOwnMessage ? styles.ownMessage : ''}`}>
-                      {!isOwnMessage && <span className={styles.chatAuthor}>{msg.author_name}</span>}
-                      <span className={styles.chatContent}>{msg.content}</span>
-                      <span className={styles.chatTime}>{timeStr}</span>
-                    </div>
-                  );
-                })}
-                <div ref={chatEndRef} />
-                {chatMessages.length === 0 && <p className={styles.muted}>No recent messages.</p>}
-              </div>
-
-              {/* Chat Input */}
-              <div className={styles.chatEmojiBar}>
-                {['🔥', '💪', '👌', '❤️', '🥶', '😱', '😢', '🏆'].map((emoji) => (
-                  <button key={emoji} onClick={() => setNewChatContent((prev) => prev + emoji)}>
-                    {emoji}
-                  </button>
-                ))}
-              </div>
-              <div className={styles.chatInputRow}>
-                <input
-                  type="text"
-                  value={newChatContent}
-                  onChange={(e) => setNewChatContent(e.target.value)}
-                  placeholder="Type a message..."
-                  onKeyPress={(e) => e.key === 'Enter' && handlePostChat()}
-                />
-                <Button onClick={handlePostChat} disabled={isPostingChat || !newChatContent.trim()}>
-                  Send
-                </Button>
-              </div>
-            </div>
+            <ChatView
+              messages={chatMessages.map((msg) => ({
+                id: msg.id,
+                author_name: msg.author_name,
+                content: msg.content,
+                created_at: msg.created_at,
+                author_ht_id: msg.author_ht_id, // Needs to be added to chat messages table?
+              }))}
+              onSendMessage={handlePostChat}
+              myHtUserId={Number(localStorage.getItem('my_ht_user_id'))}
+            />
           </div>
           <div className={styles.statsSidebar}>
             <SectionCard title="Tournament Stats">

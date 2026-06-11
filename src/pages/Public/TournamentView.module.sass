@@ -766,35 +766,60 @@
 .chatMessages
   display: flex
   flex-direction: column
-  gap: 0.5rem
+  gap: 1rem
   margin-bottom: 1rem
-  max-height: 300px
+  max-height: 500px
   overflow-y: auto
-  padding: 0.5rem
-  background: rgba(0, 0, 0, 0.1)
-  border-radius: 0.5rem
+  padding: 1rem
+  background: rgba(0, 0, 0, 0.05)
+  border-radius: 0.75rem
 
 .chatMessage
-  font-size: 0.9rem
+  display: flex
+  flex-direction: column
+  max-width: 80%
+
+  &.ownMessage
+    align-self: flex-end
+    align-items: flex-end
+    
+    .chatBubble
+      background: var(--accent)
+      color: white
 
 .chatAuthor
   font-weight: 700
   color: var(--accent)
+  font-size: 0.85rem
+  margin-bottom: 0.25rem
+  text-decoration: none
+  &:hover
+    text-decoration: underline
+
+.chatBubble
+  background: var(--bg-transp2)
+  padding: 0.75rem 1rem
+  border-radius: 1rem
+  font-size: 0.95rem
+  line-height: 1.4
 
 .chatTime
   font-size: 0.75rem
-  opacity: 0.4
-  margin-left: 0.5rem
+  opacity: 0.5
+  margin-top: 0.25rem
+
+.chatInputArea
   display: flex
   gap: 0.5rem
+  margin-top: 1rem
 
-  input
-    flex: 1
-    background: var(--bg-transp)
-    border: 1px solid var(--border)
-    border-radius: 0.5rem
-    padding: 0.5rem
-    color: var(--text)
+.sendBtn
+  background: var(--accent)
+  color: white
+  border: none
+  padding: 0.5rem 1rem
+  border-radius: 0.5rem
+  cursor: pointer
 
 .paginationArea
   margin-top: 1rem
