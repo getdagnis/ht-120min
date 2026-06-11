@@ -85,6 +85,7 @@ export const Layout: React.FC<LayoutProps> = ({ children }) => {
   };
 
   const handleLogin = () => {
+    // Pure login: no tournament_id, no is_creation
     window.location.href = '/api/auth/init';
   };
 
@@ -109,13 +110,7 @@ export const Layout: React.FC<LayoutProps> = ({ children }) => {
                 {theme === 'dark' ? <Sun size={20} weight="bold" /> : <Moon size={20} weight="bold" />}
               </Button>
 
-              {!managerName && (
-                <Button size="sm" onClick={handleLogin} variant="zero" className={styles.loginBtn}>
-                  <User size={18} weight="bold" /> <span className={styles.hideMobile}>{'Login (CHPP)'}</span>
-                </Button>
-              )}
-
-              <Button size="sm" onClick={handleActionClick} variant="zero" className={styles.createBtn}>
+              <Button size="sm" onClick={handleActionClick} variant="zero" className={styles.actionBtn}>
                 {isCreatePage ? (
                   <>
                     <ArrowRight size={18} weight="bold" /> <span className={styles.hideMobile}>JOIN TOURNAMENT</span>

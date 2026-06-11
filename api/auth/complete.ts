@@ -24,8 +24,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     const supabase = getSupabase();
 
     const isSuperAdmin =
-      req.headers.cookie?.includes('issuperadmin=you%20bet') ||
-      req.headers.cookie?.includes('issuperadmin="you bet"');
+      req.headers.cookie?.includes('issuperadmin=you%20bet') || req.headers.cookie?.includes('issuperadmin="you bet"');
 
     // 1. Get pending join data
     const { data: pending, error: pError } = await supabase
@@ -38,11 +37,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       return res.status(404).json({ error: 'Selection session not found or expired' });
     }
 
-<<<<<<< Updated upstream
-    if (pending.is_creation && pending.tournament_id) {
-=======
     if (pending.is_creation && team_id && team_name) {
->>>>>>> Stashed changes
       // Return data for creation flow to finalize
       return res.status(200).json({
         redirect: `/create?step=teams&linked=true&manager=${encodeURIComponent(
@@ -51,19 +46,11 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       });
     }
 
-<<<<<<< Updated upstream
-    // 2. Fetch additional team details (Logo, Country) if joining
-    let logoUrl: string | undefined;
-    let countryName: string | undefined;
-
-    if (team_id) {
-=======
     // 2. Fetch additional team details (Logo, Country) - ONLY IF JOINING
     let logoUrl: string | undefined;
     let countryName: string | undefined;
 
     if (pending.tournament_id && team_id && team_name) {
->>>>>>> Stashed changes
       try {
         const chppUrl = 'https://chpp.hattrick.org/chppxml.ashx';
         const teamIdStr = String(team_id);
@@ -94,38 +81,25 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
           countryName = parsed.countryName;
         }
       } catch (e) {
-<<<<<<< Updated upstream
-        console.error('Failed to fetch team details during join:', e);
-        // Non-critical, continue registration
-=======
         console.error('Failed to fetch team details:', e);
->>>>>>> Stashed changes
       }
     }
 
     // 3. Register the specific team (Standard joining flow)
     let redirectUrl = `/`;
-    
+
     if (pending.tournament_id && team_id && team_name) {
-<<<<<<< Updated upstream
-      const { data: tournament } = await supabase
-=======
       const { data: tournament, error: tErr } = await supabase
->>>>>>> Stashed changes
         .from('tournaments')
         .select('slug, country_limit')
         .eq('id', pending.tournament_id)
         .single();
 
-<<<<<<< Updated upstream
-      if (tournament?.country_limit && countryName !== tournament.country_limit && !isSuperAdmin) {
-=======
       if (tErr || !tournament) {
         throw new Error('Tournament not found');
       }
 
       if (tournament.country_limit && countryName !== tournament.country_limit && !isSuperAdmin) {
->>>>>>> Stashed changes
         throw new Error(`This team is not from the required league (${tournament.country_limit}).`);
       }
 
@@ -144,11 +118,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         skipMembershipCheck: isSuperAdmin,
       });
 
-<<<<<<< Updated upstream
-      redirectUrl = `/t/${tournament?.slug}?joined=true`;
-=======
       redirectUrl = `/t/${tournament.slug}?joined=true`;
->>>>>>> Stashed changes
     }
 
     // 4. Update/Create Profile
@@ -174,7 +144,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         const mXml = await mRes.text();
         const { parseManagerCompendiumXml } = await import('../_lib/chpp-xml.js');
         const mParsed = parseManagerCompendiumXml(mXml);
-        
+
         await supabase.from('profiles').upsert({
           hattrick_user_id: pending.hattrick_user_id,
           manager_name: pending.manager_name,
@@ -187,37 +157,14 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       console.error('Failed to update profile during login:', e);
     }
 
-<<<<<<< Updated upstream
-    // 5. Get tournament slug for redirect if we had one
-    let finalSlug = undefined;
-    if (pending.tournament_id) {
-      const { data: tournamentAfter } = await supabase
-        .from('tournaments')
-        .select('slug')
-        .eq('id', pending.tournament_id)
-        .single();
-      finalSlug = tournamentAfter?.slug;
-    }
-
-    // 6. Cleanup
-    await supabase.from('oauth_temp_sessions').delete().eq('selection_token', selection_token);
-
-    return res.status(200).json({ 
-      slug: finalSlug, 
-      hattrick_user_id: pending.hattrick_user_id,
-      manager_name: pending.manager_name,
-      team_name: team_name,
-=======
     // 5. Cleanup
     await supabase.from('oauth_temp_sessions').delete().eq('selection_token', selection_token);
 
-    return res.status(200).json({ 
+    return res.status(200).json({
       hattrick_user_id: pending.hattrick_user_id,
       manager_name: pending.manager_name,
->>>>>>> Stashed changes
-      redirect: redirectUrl
+      redirect: redirectUrl,
     });
-
   } catch (error: unknown) {
     console.error('Auth Complete Handler Error:', error);
     return res.status(500).json({ error: error instanceof Error ? error.message : 'An unknown error occurred' });
