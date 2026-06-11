@@ -1,42 +1,44 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
-import React, { useState, useEffect, useCallback, useRef } from 'react';
-import { useParams, useLocation, useSearchParams } from 'react-router-dom';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
+import { useLocation, useParams, useSearchParams } from 'react-router-dom';
 import { supabase } from '../../lib/supabase';
+
+import adminStyles from './TournamentAdmin.module.sass';
+import styles from './TournamentView.module.sass';
+import { calculateMatchDate } from '../../utils/ht-data';
+import { calculateStandings } from '../../utils/standings';
+import type { TeamStanding } from '../../utils/standings';
+import { generateRecurring, generateRoundRobin } from '../../utils/scheduler';
+import { teamMatchesCategory } from '../../utils/team-eligibility';
+import { useLiveMatches } from '../../hooks/useLiveMatches';
+
+import { Tooltip } from 'react-tooltip';
+import { Button } from '../../components/Button/Button';
 import { HeroCard } from '../../components/Card/HeroCard';
 import { SectionCard } from '../../components/Card/SectionCard';
-import { Button } from '../../components/Button/Button';
-import { calculateStandings } from '../../utils/standings';
-import { calculateMatchDate } from '../../utils/ht-data';
-import type { TeamStanding } from '../../utils/standings';
-import { generateRoundRobin, generateRecurring } from '../../utils/scheduler';
-import { teamMatchesCategory } from '../../utils/team-eligibility';
-import { TeamDisplay } from '../../components/TeamDisplay/TeamDisplay';
+import { ChatView } from '../../components/TournamentTabs/ChatView';
+import { FixtureCard } from '../../components/FixtureCard/FixtureCard';
+import { FixturesView } from '../../components/TournamentTabs/FixturesView';
 import { Modal } from '../../components/Modal/Modal';
 import { MottoWidget } from '../../components/MottoWidget/MottoWidget';
+import { StandingsView } from '../../components/TournamentTabs/StandingsView';
+import { TeamDisplay } from '../../components/TeamDisplay/TeamDisplay';
 import { TOURNAMENT_DEFAULT } from '../../constants/descriptions';
-import styles from './TournamentView.module.sass';
-import adminStyles from './TournamentAdmin.module.sass';
-import { ChatView } from '../../components/TournamentTabs/ChatView';
-import { useLiveMatches } from '../../hooks/useLiveMatches';
-import { Tooltip } from 'react-tooltip';
 import {
   ArrowClockwise,
-  ArrowUpRight,
-  Trash,
-  CopySimple,
-  X,
-  Plus,
-  ShieldCheck,
   ArrowRight,
+  ArrowUpRight,
   Check,
-  FloppyDisk,
+  CopySimple,
   Eraser,
-  XCircle,
+  FloppyDisk,
+  Info,
   PencilSimple,
   PlusCircle,
-  Info,
+  Trash,
+  X,
+  XCircle,
 } from 'phosphor-react';
-import { FixtureCard } from '../../components/FixtureCard/FixtureCard';
 
 interface ChppTeamOption {
   teamId: number;
@@ -162,8 +164,6 @@ export const TournamentView: React.FC = () => {
 
   // Chat states
   const [chatMessages, setChatMessages] = useState<any[]>([]);
-  const [newChatContent, setNewChatContent] = useState('');
-  const [isPostingChat, setIsPostingChat] = useState(false);
 
   // Admin states
   const [password, setPassword] = useState(localStorage.getItem(`admin_pw_${slug}`) || '');
@@ -186,43 +186,6 @@ export const TournamentView: React.FC = () => {
   const [replacementHtId, setReplacementHtId] = useState('');
   const [replacementName, setReplacementName] = useState('');
   const [isFetchingTeamData, setIsFetchingTeamData] = useState(false);
-
-  useEffect(() => {
-    if (activeTab === 'standings' && tournament) {
-      const fetchChat = async () => {
-        console.log('Fetching chat for tournament:', tournament.id);
-        const { data, error } = await supabase
-          .from('tournament_chat')
-          .select('*')
-          .eq('tournament_id', tournament.id)
-          .order('created_at', { ascending: true });
-        if (error) console.error('Chat fetch error:', error);
-        console.log('Fetched chat messages:', data);
-        setChatMessages(data || []);
-      };
-      fetchChat();
-
-      const channel = supabase
-        .channel(`chat:${tournament.id}`)
-        .on(
-          'postgres_changes',
-          {
-            event: 'INSERT',
-            schema: 'public',
-            table: 'tournament_chat',
-            filter: `tournament_id=eq.${tournament.id}`,
-          },
-          (payload) => {
-            setChatMessages((prev) => [...prev, payload.new as any]);
-          },
-        )
-        .subscribe();
-
-      return () => {
-        supabase.removeChannel(channel);
-      };
-    }
-  }, [activeTab, tournament]);
 
   // Tournament settings states
   const [editName, setEditName] = useState('');
@@ -605,8 +568,10 @@ export const TournamentView: React.FC = () => {
     }
   }, [activeTab, location.state?.isAdminInit]);
 
+  const isNewsTab = activeTab === 'guestbook' || activeTab === 'news';
+
   useEffect(() => {
-    if (activeTab === 'guestbook' && tournament) {
+    if (isNewsTab && tournament) {
       const fetchPosts = async () => {
         const { data } = await supabase
           .from('news_posts')
@@ -637,7 +602,7 @@ export const TournamentView: React.FC = () => {
         supabase.removeChannel(channel);
       };
     }
-  }, [activeTab, tournament]);
+  }, [activeTab, isNewsTab, tournament]);
 
   const handlePostMessage = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -703,7 +668,7 @@ export const TournamentView: React.FC = () => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activeTab]);
 
-  const handleTabChange = (tab: 'standings' | 'fixtures' | 'guestbook' | 'admin') => {
+  const handleTabChange = (tab: 'standings' | 'fixtures' | 'guestbook' | 'news' | 'admin') => {
     if (tab !== activeTab) {
       setIsAddingDescription(false);
       setQuickDescription('');
@@ -711,21 +676,8 @@ export const TournamentView: React.FC = () => {
     }
   };
 
-  // Chat scroll ref
-  const chatEndRef = useRef<HTMLDivElement>(null);
-
-  const scrollToBottom = () => {
-    chatEndRef.current?.scrollBy(0, -1000);
-  };
-
-  useEffect(() => {
-    scrollToBottom();
-  }, [chatMessages]);
-
   useEffect(() => {
     if (activeTab !== 'standings' || !tournament) return;
-
-    let pollInterval: NodeJS.Timeout;
 
     const fetchChat = async () => {
       const { data, error } = await supabase
@@ -736,50 +688,49 @@ export const TournamentView: React.FC = () => {
 
       if (error) return;
       setChatMessages(data || []);
-
-      if (data && data.length > 0) {
-        const lastMsg = new Date(data[data.length - 1].created_at);
-        const ageInMinutes = (new Date().getTime() - lastMsg.getTime()) / 60000;
-
-        let interval = 60000; // 1 min
-        if (ageInMinutes < 10)
-          interval = 1000; // 1 sec
-        else if (ageInMinutes < 60)
-          interval = 10000; // 10 secs
-        else if (ageInMinutes < 30)
-          interval = 5000; // 5 secs (old rule)
-        else if (ageInMinutes < 480) interval = 20000; // 20 secs
-
-        clearInterval(pollInterval);
-        pollInterval = setInterval(fetchChat, interval);
-      }
     };
 
     fetchChat();
-    return () => clearInterval(pollInterval);
+
+    const channel = supabase
+      .channel(`chat:${tournament.id}`)
+      .on(
+        'postgres_changes',
+        {
+          event: 'INSERT',
+          schema: 'public',
+          table: 'tournament_chat',
+          filter: `tournament_id=eq.${tournament.id}`,
+        },
+        (payload) => {
+          setChatMessages((prev) => [...prev, payload.new as any]);
+        },
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
   }, [activeTab, tournament]);
 
-  const handlePostChat = async () => {
-    if (!newChatContent.trim() || !tournament) return;
-    setIsPostingChat(true);
+  const handlePostChat = async (content: string) => {
+    // Accept content here
+    if (!content.trim() || !tournament) return;
     try {
       const myHtId = localStorage.getItem('my_ht_user_id');
       const myTeam = myHtId ? teams.find((t) => t.hattrick_user_id === Number(myHtId)) : null;
-      // Using manager_name if available, fallback to team name
       const authorName = myTeam?.manager_name || myTeam?.name || 'Guest';
 
       await supabase.from('tournament_chat').insert({
         tournament_id: tournament.id,
         author_name: authorName,
-        content: newChatContent.trim(),
+        content: content.trim(),
       });
-      setNewChatContent('');
     } catch (err: any) {
       alert(err.message);
-    } finally {
-      setIsPostingChat(false);
     }
   };
+
   const handleAddReaction = async (postId: string, reaction: string) => {
     const userId = localStorage.getItem('my_ht_user_id') || 'guest';
     const { error } = await supabase.from('news_reactions').insert({
@@ -1523,432 +1474,33 @@ export const TournamentView: React.FC = () => {
         <button className={activeTab === 'fixtures' ? styles.active : ''} onClick={() => handleTabChange('fixtures')}>
           Fixtures & Results
         </button>
-        {/* TODO: reintroduce news tab */}
-        {/* <button className={activeTab === 'guestbook' ? styles.active : ''} onClick={() => handleTabChange('guestbook')}>
+        <button className={isNewsTab ? styles.active : ''} onClick={() => handleTabChange('news')}>
           News
-        </button> */}
+        </button>
         <button className={activeTab === 'admin' ? styles.active : ''} onClick={() => handleTabChange('admin')}>
           Admin
         </button>
       </div>
 
-      {activeTab === 'standings' && (
-        <div className={styles.standingsContainer}>
-          <div className={styles.mainColumn}>
-            <SectionCard title="🏆 Standings" headerThumbnailIndex={tournament.thumbnail_index}>
-              <div className={styles.tableWrapper}>
-                <table>
-                  <thead>
-                    <tr>
-                      <th>#</th>
-                      <th>Team</th>
-                      {is120minMode ? (
-                        <>
-                          <th className={styles.center}>120m</th>
-                          <th className={styles.center}>Mins</th>
-                          <th className={styles.center}>Pld</th>
-                          <th className={styles.center}>GD</th>
-                          <th className={styles.center}>GS</th>
-                        </>
-                      ) : (
-                        <>
-                          <th className={styles.center}>Pld</th>
-                          <th className={styles.center}>W</th>
-                          <th className={styles.center}>D</th>
-                          <th className={styles.center}>L</th>
-                          <th className={styles.center}>GD</th>
-                          <th className={styles.center}>Pts</th>
-                        </>
-                      )}
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {standings.map((s, idx) => {
-                      const isMyTeam = s.htTeamId === Number(myHtUserId);
-                      return (
-                        <tr key={s.teamId} className={isMyTeam ? styles.myTeamRow : ''}>
-                          <td className={styles.muted}>{idx + 1}</td>
-                          <td className={styles.teamNameCell}>
-                            <div className={styles.teamInfo}>
-                              <div className={styles.nameRow}>
-                                {s.logoUrl && <img src={s.logoUrl} alt={s.teamName} className={styles.standingLogo} />}
-                                <span className={styles.teamName}>
-                                  {s.teamName}
-                                  {isMyTeam && <span className={styles.myTeamBadge}> (You)</span>}
-                                </span>
-                                {s.joinedViaOauth && (
-                                  <span title="Hattrick Validated Team">
-                                    <ShieldCheck size={14} weight="bold" className={styles.validatedIcon} />
-                                  </span>
-                                )}
-                                <a
-                                  href={`https://www.hattrick.org/goto.ashx?path=/Club/?TeamID=${s.htTeamId}`}
-                                  target="_blank"
-                                  rel="noopener noreferrer"
-                                  className={styles.htLink}
-                                >
-                                  <ArrowUpRight size={12} weight="bold" />
-                                </a>
-                              </div>
-                              {s.htTeamId && <span className={styles.teamId}>ID: {s.htTeamId}</span>}
-                            </div>
-                          </td>
-                          {is120minMode ? (
-                            <>
-                              <td className={`${styles.highlight} ${styles.center}`}>{s.achievements120min}</td>
-                              <td className={styles.center}>{s.totalMinutes}</td>
-                              <td className={styles.center}>{s.played}</td>
-                              <td className={styles.center}>{s.gd > 0 ? `+${s.gd}` : s.gd}</td>
-                              <td className={styles.center}>{s.gf}</td>
-                            </>
-                          ) : (
-                            <>
-                              <td className={styles.center}>{s.played}</td>
-                              <td className={styles.center}>{s.won}</td>
-                              <td className={styles.center}>{s.drawn}</td>
-                              <td className={styles.center}>{s.lost}</td>
-                              <td className={styles.center}>{s.gd > 0 ? `+${s.gd}` : s.gd}</td>
-                              <td className={`${styles.highlight} ${styles.center}`}>{s.pts}</td>
-                            </>
-                          )}
-                        </tr>
-                      );
-                    })}
-
-                    {/* Inactive teams / BYE spots */}
-                    {(() => {
-                      const inactiveTeams = teams.filter((t) => !t.active && !t.is_placeholder);
-                      const hasBye = teams.length % 2 !== 0 && isGenerated;
-                      const spots = [...inactiveTeams];
-                      if (hasBye) spots.push({ id: 'bye', name: 'BYE Spot', is_placeholder: true } as Team);
-
-                      const handleInvite = () => {
-                        const msg = `Join our tournament "${tournament.name}" on HT-120min! We have an open spot: ${window.location.origin}/t/${tournament.slug}`;
-                        navigator.clipboard.writeText(msg);
-                        alert('Invitation link and message copied to clipboard!');
-                      };
-
-                      return spots.map((spot, idx) => (
-                        <tr key={spot.id} className={styles.inactiveRow}>
-                          <td className={styles.muted}>{standings.length + idx + 1}</td>
-                          <td className={styles.teamNameCell}>
-                            <div className={styles.teamInfo}>
-                              <div className={styles.nameRow}>
-                                <Button
-                                  variant="zero"
-                                  size="sm"
-                                  onClick={handleInvite}
-                                  className={`${styles.inviteSpotBtn} ${styles.noPadding}`}
-                                >
-                                  <Plus size={14} weight="bold" /> Invite
-                                </Button>
-                                <span className={styles.spotLabel}>{spot.name}</span>
-                              </div>
-                            </div>
-                          </td>
-                          {is120minMode ? (
-                            <>
-                              <td className={styles.center}>-</td>
-                              <td className={styles.center}>-</td>
-                              <td className={styles.center}>-</td>
-                              <td className={styles.center}>-</td>
-                              <td className={styles.center}>-</td>
-                            </>
-                          ) : (
-                            <>
-                              <td className={styles.center}>-</td>
-                              <td className={styles.center}>-</td>
-                              <td className={styles.center}>-</td>
-                              <td className={styles.center}>-</td>
-                              <td className={styles.center}>-</td>
-                              <td className={styles.center}>-</td>
-                            </>
-                          )}
-                        </tr>
-                      ));
-                    })()}
-                  </tbody>
-                </table>
-              </div>
-
-              {(teams.some((t) => !t.active) || teams.length % 2 !== 0) && (
-                <div className={styles.standingsFooter}>
-                  <p className={styles.standingsFooterNote}>
-                    {isGenerated
-                      ? teams.some((t) => !t.active)
-                        ? `${
-                            teams.filter((t) => !t.active).length
-                          } team(s) have become inactive and their spots can be filled by another team.`
-                        : "An odd number of teams means there's a BYE spot available for a new team to join."
-                      : 'This tournament is still open for registration, register another team or invite someone'}
-                  </p>
-                  <div className={styles.footerButtons}>
-                    <Button
-                      onClick={() => {
-                        setIsConnecting(true);
-                        window.location.href = `/api/auth/init?tournament_id=${tournament?.id}`;
-                      }}
-                      variant="outlineWhite"
-                      size="sm"
-                      disabled={isConnecting}
-                    >
-                      <ArrowRight size={18} /> Join with Hattrick
-                    </Button>
-                    <Button
-                      onClick={() => {
-                        const msg = `You are invited to join "${tournament.name}" (Season ${tournament.season}) on HT-120min! Register your team here: ${publicUrl}`;
-                        navigator.clipboard.writeText(msg);
-                        alert('Invitation link and message copied to clipboard!');
-                      }}
-                      variant="outlineWhite"
-                      size="sm"
-                    >
-                      <CopySimple size={18} /> Copy Invite
-                    </Button>
-                  </div>
-                </div>
-              )}
-            </SectionCard>
-          </div>
-          <aside className={styles.statsSidebar}>
-            <MottoWidget items={TOURNAMENT_DEFAULT} theme="dark" variant="sidebar" />
-            <SectionCard title="News Feed">
-              <ul className={styles.newsFeed}>
-                <li className={styles.feedItem}>
-                  <div className={styles.feedIcon}></div>
-                  <div className={styles.feedContent}>
-                    <p>New cup registration is now open!</p>
-                    <span>2 hours ago</span>
-                  </div>
-                </li>
-              </ul>
-            </SectionCard>
-          </aside>
-        </div>
-      )}
-
       {activeTab === 'fixtures' && (
-        <div className={styles.rounds}>
-          {!isGenerated ? (
-            <SectionCard>
-              <div className={styles.openMessage}>
-                <h2>Registration Open</h2>
-                <p>This tournament is still open for registration, you can invite someone to join.</p>
-              </div>
-            </SectionCard>
-          ) : (
-            <>
-              {rounds.slice(0, visibleRoundsCount).map((round) => {
-                const upcomingRoundIndex = rounds.findIndex((r) => r.matches.some((m) => !m.completed));
-                const isNextRound = round.id === rounds[upcomingRoundIndex]?.id;
-                const isOneBefore = upcomingRoundIndex > 0 && round.id === rounds[upcomingRoundIndex - 1].id;
-                const isOneAfter =
-                  upcomingRoundIndex < rounds.length - 1 && round.id === rounds[upcomingRoundIndex + 1].id;
-
-                const isExpanded = expandedRounds[round.id] ?? (isNextRound || isOneBefore || isOneAfter);
-
-                return (
-                  <SectionCard
-                    key={round.id}
-                    className={isNextRound ? styles.upcomingRound : ''}
-                    title={
-                      <div
-                        className={styles.roundHeader}
-                        onClick={() => toggleRound(round.id)}
-                        style={{ cursor: 'pointer' }}
-                      >
-                        <>
-                          <span>Round {round.round_number}</span>
-                          <span className={styles.roundDate}>{getRoundDateRange(round)}</span>
-                          {isExpanded ? <X size={18} /> : <Info size={18} />}
-                        </>
-                      </div>
-                    }
-                    headerRight={(() => {
-                      const isNextRound = round.id === rounds[upcomingRoundIndex]?.id;
-                      const allFinished = round.matches.every((m) => m.completed || m.status === 'misarranged');
-
-                      if (!allFinished && !isNextRound) return undefined;
-
-                      const nextRound = rounds[rounds.findIndex((r) => r.id === round.id) + 1];
-
-                      const formatMatch = (m: MatchWithTeams, isNext: boolean, roundNum: number) =>
-                        `[tr][td]${m.home_team?.name}[/td][td][b]${
-                          isNext
-                            ? calculateMatchDate(
-                                tournament?.created_at || '',
-                                roundNum,
-                                m.home_team?.country_name,
-                              ).toLocaleDateString('lv-LV', {
-                                day: '2-digit',
-                                month: '2-digit',
-                              })
-                            : m.completed
-                              ? `${m.home_goals} : ${m.away_goals}`
-                              : m.status === 'misarranged'
-                                ? 'DNP'
-                                : '..:..'
-                        }[/b][/td][td]${m.away_team?.name}[/td][/tr]`;
-
-                      const handleCopy = () => {
-                        let table = `[b]${tournament?.name}[/b]\n[link=http://ht120-min.vercel.app/t/${tournament?.slug}]\n\n[b]ROUND ${round.round_number}, ${allFinished ? 'final results:[/b]' : 'Fixtures:[/b]'}\n[table]${round.matches.map((m) => formatMatch(m, false, round.round_number)).join(' ')}[/table]`;
-                        if (isNextRound && nextRound) {
-                          table += `\n[b]Next: ROUND ${nextRound.round_number}, fixtures:[/b]\n[table]${nextRound.matches.map((m) => formatMatch(m, true, nextRound.round_number)).join(' ')}[/table]`;
-                        }
-                        table += `\nFull fixtures: [link=http://ht120-min.vercel.app/t/${tournament?.slug}?tab=fixtures]`;
-                        navigator.clipboard.writeText(table);
-                        setCopied((prev) => ({ ...prev, [round.id]: true }));
-                        setTimeout(() => setCopied((prev) => ({ ...prev, [round.id]: false })), 2000);
-                      };
-
-                      return (
-                        <div className={styles.fixturesControls}>
-                          {allFinished ? (
-                            <>
-                              <span className={styles.lastRefresh}>Copy for HT forums:</span>
-                              <button
-                                className={styles.refreshBtn}
-                                onClick={handleCopy}
-                                data-tooltip-id={`copy-tooltip-${round.id}`}
-                              >
-                                {copied[round.id] ? <Check size={18} color="green" /> : <CopySimple size={18} />}
-                              </button>
-                              <Tooltip
-                                id={`copy-tooltip-${round.id}`}
-                                content={copied[round.id] ? 'HT forum table copied!' : 'Copy for HT forums'}
-                                className="tooltip"
-                              />
-                            </>
-                          ) : (
-                            <>
-                              {isNextRound && tournament?.last_fixtures_refresh && (
-                                <span className={styles.lastRefresh}>
-                                  {isRefreshingFixtures ? 'Checking...' : 'Last checked: '}
-                                  {!isRefreshingFixtures &&
-                                    new Date(tournament.last_fixtures_refresh).toLocaleTimeString('en-GB', {
-                                      hour: '2-digit',
-                                      minute: '2-digit',
-                                    })}
-                                </span>
-                              )}
-                              <button
-                                className={`${styles.refreshBtn} ${isRefreshingFixtures ? styles.spinning : ''}`}
-                                onClick={handleRefreshFixtures}
-                                disabled={isRefreshingFixtures}
-                                data-tooltip-id="refresh-tooltip"
-                              >
-                                <ArrowClockwise size={18} />
-                              </button>
-                              <Tooltip id="refresh-tooltip" content="Refresh fixtures" />
-                              <button className={styles.refreshBtn} onClick={handleCopy} data-tooltip-id="copy-tooltip">
-                                {copied[round.id] ? <Check size={18} color="green" /> : <CopySimple size={18} />}
-                              </button>
-                              <Tooltip
-                                id="copy-tooltip"
-                                content={copied[round.id] ? 'HT forum table copied!' : 'Copy for HT forums'}
-                              />
-                            </>
-                          )}
-                        </div>
-                      );
-                    })()}
-                  >
-                    {isExpanded && (
-                      <div className={styles.matchesGrid}>
-                        {round.matches.map((match: MatchWithTeams) => {
-                          const matchDate = calculateMatchDate(
-                            tournament?.created_at || '',
-                            round.round_number,
-                            match.home_team?.country_name,
-                          );
-
-                          const day = matchDate.toLocaleString('en-GB', { weekday: 'short' }).toUpperCase();
-                          const datePart = matchDate.toLocaleDateString('lv-LV', {
-                            day: '2-digit',
-                            month: '2-digit',
-                          });
-                          const timePart = matchDate.toLocaleTimeString('en-GB', {
-                            hour: '2-digit',
-                            minute: '2-digit',
-                            hour12: false,
-                          });
-                          const formattedDate = `${day} / ${datePart} / ${timePart}`;
-
-                          const homeWarning = warnings.find(
-                            (w) => w.team_id === match.home_team_id && w.round_id === round.id,
-                          );
-                          const awayWarning = warnings.find(
-                            (w) => w.team_id === match.away_team_id && w.round_id === round.id,
-                          );
-
-                          // Use status from DB, fallback to simple detection
-                          const liveMatch = match.ht_match_id ? liveData[match.ht_match_id.toString()] : null;
-                          let status = match.status || 'not_arranged';
-                          const now = new Date();
-                          const isPastStartTime = match.match_date && now >= match.match_date;
-                          const isWithinLiveWindow =
-                            match.match_date && now.getTime() < match.match_date.getTime() + 4 * 60 * 60 * 1000;
-
-                          if (match.completed) {
-                            status = 'finished';
-                          } else if (liveMatch) {
-                            status = liveMatch.status;
-                          } else if (isPastStartTime && isWithinLiveWindow && status === 'arranged') {
-                            status = 'ongoing';
-                          } else if (homeWarning || awayWarning) {
-                            status = 'misarranged';
-                          }
-
-                          const currentScore = liveMatch
-                            ? { home: liveMatch.homeGoals, away: liveMatch.awayGoals }
-                            : match.completed
-                              ? { home: match.home_goals || 0, away: match.away_goals || 0 }
-                              : isPastStartTime && isWithinLiveWindow
-                                ? { home: 0, away: 0 }
-                                : undefined;
-
-                          return (
-                            <FixtureCard
-                              key={match.id}
-                              date={status === 'misarranged' ? '' : formattedDate}
-                              status={status}
-                              htMatchId={match.ht_match_id || undefined}
-                              score={currentScore}
-                              homeTeam={{
-                                name: match.home_team?.name || 'BYE',
-                                managerName: match.home_team?.manager_name || 'UNKNOWN',
-                                htTeamId: match.home_team?.ht_team_id || 0,
-                                logoUrl: match.home_team?.logo_url,
-                                warning: homeWarning?.type,
-                              }}
-                              awayTeam={{
-                                name: match.away_team?.name || 'BYE',
-                                managerName: match.away_team?.manager_name || 'UNKNOWN',
-                                htTeamId: match.away_team?.ht_team_id || 0,
-                                logoUrl: match.away_team?.logo_url,
-                                warning: awayWarning?.type,
-                              }}
-                            />
-                          );
-                        })}
-                      </div>
-                    )}
-                  </SectionCard>
-                );
-              })}
-              {visibleRoundsCount < rounds.length && (
-                <div className={styles.formActionRow}>
-                  <Button onClick={() => setVisibleRoundsCount((prev) => prev + 4)} variant="outline">
-                    Show More
-                  </Button>
-                </div>
-              )}
-            </>
-          )}
-        </div>
+        <FixturesView
+          rounds={rounds}
+          visibleRoundsCount={visibleRoundsCount}
+          setVisibleRoundsCount={setVisibleRoundsCount}
+          upcomingRoundIndex={rounds.findIndex((r) => r.matches.some((m) => !m.completed))}
+          expandedRounds={expandedRounds}
+          toggleRound={toggleRound}
+          tournament={tournament}
+          isRefreshingFixtures={isRefreshingFixtures}
+          handleRefreshFixtures={handleRefreshFixtures}
+          copied={copied}
+          setCopied={setCopied}
+          warnings={warnings}
+          liveData={liveData}
+        />
       )}
 
-      {activeTab === 'guestbook' && (
+      {isNewsTab && (
         <div className={styles.guestbook}>
           <SectionCard title="News & Announcements">
             <div className={styles.newsTabs}>
@@ -2057,27 +1609,22 @@ export const TournamentView: React.FC = () => {
         </div>
       )}
 
-      {/* TODO: reintroduce main column */}
       {activeTab === 'standings' && (
         <div className={styles.standingsContainer}>
-          <div className={styles.mainColumn}>
+          <StandingsView
+            standings={standings}
+            is120minMode={is120minMode}
+            myHtUserId={myHtUserId}
+            tournament={tournament}
+          />
+          <aside className={styles.statsSidebar}>
+            <MottoWidget items={TOURNAMENT_DEFAULT} theme="dark" variant="sidebar" />
             <ChatView
-              messages={chatMessages.map((msg) => ({
-                id: msg.id,
-                author_name: msg.author_name,
-                content: msg.content,
-                created_at: msg.created_at,
-                author_ht_id: msg.author_ht_id, // Needs to be added to chat messages table?
-              }))}
+              messages={chatMessages}
               onSendMessage={handlePostChat}
-              myHtUserId={Number(localStorage.getItem('my_ht_user_id'))}
+              myHtUserId={myHtUserId ? Number(myHtUserId) : null}
             />
-          </div>
-          <div className={styles.statsSidebar}>
-            <SectionCard title="Tournament Stats">
-              <p className={styles.muted}>Stats placeholder: cards, injuries, etc.</p>
-            </SectionCard>
-          </div>
+          </aside>
         </div>
       )}
 

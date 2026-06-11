@@ -10,7 +10,7 @@ interface MottoWidgetProps {
   intervalMs?: number;
   className?: string;
   theme?: 'light' | 'dark';
-  variant?: 'default' | 'sidebar';
+  variant?: 'default' | 'sidebar' | 'standings';
 }
 
 export const MottoWidget: React.FC<MottoWidgetProps> = ({
@@ -24,7 +24,7 @@ export const MottoWidget: React.FC<MottoWidgetProps> = ({
 
   return (
     <Card
-      className={`${styles.mottoCard} ${className} ${theme === 'dark' ? styles.darkTheme : ''} ${variant === 'sidebar' ? styles.sidebarVariant : ''}`}
+      className={`${styles.mottoCard} ${className} ${theme === 'dark' ? styles.darkTheme : ''} ${variant === 'sidebar' ? styles.sidebarVariant : variant === 'standings' ? styles.sidebarStandings : ''}`}
     >
       <div className={styles.mottoContent}>
         <Quotes size={28} className={styles.quoteIcon} />

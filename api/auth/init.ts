@@ -19,7 +19,11 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   console.log('Auth Init - Params:', { tournament_id, is_creation });
 
   if (!tournament_id && is_creation !== 'true') {
+<<<<<<< Updated upstream
     // Treat as login only
+=======
+    // Treat as login only - no tournament_id required
+>>>>>>> Stashed changes
   }
 
   const consumerKey = process.env.CHPP_CONSUMER_KEY;
@@ -65,6 +69,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     if (!oauth_token || !oauth_token_secret) {
       return res.status(500).json({ error: 'Invalid response from Hattrick', body });
     }
+<<<<<<< Updated upstream
     // Store temporary session
     const supabase = getSupabase();
     const { error } = await supabase.from('oauth_temp_sessions').insert({
@@ -75,6 +80,20 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       league_category: league_category === 'hfi' ? 'hfi' : 'male',
       country_limit: typeof country_limit === 'string' ? country_limit : null,
     });
+=======
+// Store temporary session
+const supabase = getSupabase();
+const { error } = await supabase.from('oauth_temp_sessions').insert({
+  oauth_token,
+  oauth_token_secret,
+  tournament_id:
+    typeof tournament_id === 'string' && tournament_id ? tournament_id : null,
+  is_creation: is_creation === 'true',
+  league_category: league_category === 'hfi' ? 'hfi' : 'male',
+  country_limit: typeof country_limit === 'string' ? country_limit : null,
+});
+
+>>>>>>> Stashed changes
 
     if (error) {
       return res.status(500).json({ error: 'Failed to store session', details: error.message });

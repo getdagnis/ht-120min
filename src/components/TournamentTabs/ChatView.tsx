@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
-import styles from '../TournamentView.module.sass';
+import styles from '../../pages/Public/TournamentView.module.sass';
 
 interface ChatMessage {
   id: string;
@@ -38,14 +38,20 @@ export const ChatView: React.FC<ChatViewProps> = ({ messages, onSendMessage, myH
           return (
             <div key={msg.id} className={`${styles.chatMessage} ${isOwnMessage ? styles.ownMessage : ''}`}>
               {!isOwnMessage && (
-                <a href={`https://www.hattrick.org/goto.ashx?path=/Club/Manager/Default.aspx?userId=${msg.author_ht_id}`} target="_blank" className={styles.chatAuthor}>
+                <a
+                  href={`https://www.hattrick.org/goto.ashx?path=/Club/Manager/Default.aspx?userId=${msg.author_ht_id}`}
+                  target="_blank"
+                  className={styles.chatAuthor}
+                >
                   {msg.author_name}
                 </a>
               )}
               <div className={styles.chatBubble}>
                 <span className={styles.chatContent}>{msg.content}</span>
               </div>
-              <span className={styles.chatTime}>{new Date(msg.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
+              <span className={styles.chatTime}>
+                {new Date(msg.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+              </span>
             </div>
           );
         })}
@@ -59,7 +65,9 @@ export const ChatView: React.FC<ChatViewProps> = ({ messages, onSendMessage, myH
           placeholder="Type a message..."
           className={styles.postTextarea}
         />
-        <button type="submit" className={styles.sendBtn}>Send</button>
+        <button type="submit" className={styles.sendBtn}>
+          Send
+        </button>
       </form>
     </div>
   );
