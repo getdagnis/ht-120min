@@ -59,6 +59,13 @@ Choose the simplest solution that allows organizers to run a tournament.
 
 ---
 
+## CHPP Knowledge Base
+
+For technical implementation details regarding Hattrick CHPP API:
+- [AGENTS_CHPP_INTEGRATION.md](docs/AGENTS_CHPP_INTEGRATION.md) - **Mandatory reading** for any CHPP-related task. Covers Swedish Time rules, Match Types, and Weekly Cycles.
+
+---
+
 ## Tech Stack
 
 Frontend:
