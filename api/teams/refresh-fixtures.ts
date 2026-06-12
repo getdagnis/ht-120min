@@ -137,7 +137,7 @@ async function fetchTeamFriendlies(teamId: string, oauthToken: string, oauthToke
   const response = await fetch(`${url}?file=matches&teamID=${teamId}`, { headers: { Authorization: authHeader } });
   if (!response.ok) return [];
   const xml = await response.text();
-  const friendlies: { homeId: number; awayId: number; date: Date; matchId: number }[] = [];
+  const friendlies: { homeId: number; awayId: number; date: Date; matchId: number; matchType: number }[] = [];
   for (const match of xml.matchAll(/<Match>([\s\S]*?)<\/Match>/gi)) {
     const block = match[1];
     const matchType = parseInt(readChppTag(block, 'MatchType') || '0', 10);
@@ -149,7 +149,7 @@ async function fetchTeamFriendlies(teamId: string, oauthToken: string, oauthToke
         const awayId = parseInt(readChppTag(block, 'AwayTeamID') || '0', 10);
         const dateStr = readChppTag(block, 'MatchDate');
         const matchId = parseInt(readChppTag(block, 'MatchID') || '0', 10);
-        if (homeId && awayId && dateStr) friendlies.push({ homeId, awayId, matchId, date: new Date(dateStr.replace(' ', 'T')) });
+        if (homeId && awayId && dateStr) friendlies.push({ homeId, awayId, matchId, date: new Date(dateStr.replace(' ', 'T')), matchType });
       }
     }
   }
@@ -201,7 +201,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     });
     if (!upcomingRound) return res.status(200).json({ status: 'No upcoming rounds to refresh' });
 
-    const teamCache: Record<string, { homeId: number; awayId: number; date: Date; matchId: number }[]> = {};
+    const teamCache: Record<string, { homeId: number; awayId: number; date: Date; matchId: number; matchType: number }[]> = {};
     const getFriendlies = async (team: TeamWithAuth) => {
       if (teamCache[team.id]) return teamCache[team.id];
       if (!team.oauth_token) return [];
@@ -220,8 +220,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     for (const match of upcomingRound.matches) {
       if (match.completed) continue;
       
-      // If already has ht_match_id, we can skip
-      if (match.status === 'arranged' && match.ht_match_id) continue;
+      // If already has ht_match_id and match_type, we can skip
+      if (match.status === 'arranged' && match.ht_match_id && match.match_type) continue;
 
       const homeTeam = teams.find((t) => t.id === match.home_team_id);
       const awayTeam = teams.find((t) => t.id === match.away_team_id);
@@ -255,7 +255,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       }
 
       // Update match status and HT Match ID
-      await supabase.from('matches').update({ status, ht_match_id: htMatchId }).eq('id', match.id);
+      await supabase.from('matches').update({ status, ht_match_id: htMatchId, match_type: htMatchId ? homeMatch?.matchType : null }).eq('id', match.id);
 
       // Warning Logic Helper
       const recordWarning = async (teamId: string) => {

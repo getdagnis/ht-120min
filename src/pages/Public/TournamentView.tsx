@@ -327,6 +327,7 @@ export const TournamentView: React.FC = () => {
           *,
           status,
           ht_match_id,
+          match_type,
           home_team:teams!matches_home_team_id_fkey(name, ht_team_id, logo_url, country_name, active, manager_name),
           away_team:teams!matches_away_team_id_fkey(name, ht_team_id, logo_url, country_name, active, manager_name)
         `,

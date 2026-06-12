@@ -16,6 +16,7 @@ interface FixtureMatch {
   completed: boolean;
   status: 'not_arranged' | 'arranged' | 'ongoing' | 'misarranged' | 'finished';
   ht_match_id: number | null;
+  match_type: number | null;
   match_date?: Date;
   home_team: {
     name: string;
@@ -244,28 +245,30 @@ export const FixturesView: React.FC<FixturesViewProps> = ({
                         : undefined;
 
                   return (
-                    <FixtureCard
-                      key={match.id}
-                      date={status === 'misarranged' ? '' : formattedDate}
-                      status={status}
-                      htMatchId={match.ht_match_id || undefined}
-                      score={currentScore}
-                      homeTeam={{
-                        name: match.home_team?.name || 'BYE',
-                        managerName: match.home_team?.manager_name || 'UNKNOWN',
-                        htTeamId: match.home_team?.ht_team_id || 0,
-                        logoUrl: match.home_team?.logo_url,
-                        warning: homeWarning?.type,
-                      }}
-                      awayTeam={{
-                        name: match.away_team?.name || 'BYE',
-                        managerName: match.away_team?.manager_name || 'UNKNOWN',
-                        htTeamId: match.away_team?.ht_team_id || 0,
-                        logoUrl: match.away_team?.logo_url,
-                        warning: awayWarning?.type,
-                      }}
-                    />
+                  <FixtureCard
+                  key={match.id}
+                  date={status === 'misarranged' ? '' : formattedDate}
+                  status={status}
+                  htMatchId={match.ht_match_id || undefined}
+                  score={currentScore}
+                  matchType={match.match_type || undefined}
+                  homeTeam={{
+                    name: match.home_team?.name || 'BYE',
+                    managerName: match.home_team?.manager_name || 'UNKNOWN',
+                    htTeamId: match.home_team?.ht_team_id || 0,
+                    logoUrl: match.home_team?.logo_url,
+                    warning: homeWarning?.type,
+                  }}
+                  awayTeam={{
+                    name: match.away_team?.name || 'BYE',
+                    managerName: match.away_team?.manager_name || 'UNKNOWN',
+                    htTeamId: match.away_team?.ht_team_id || 0,
+                    logoUrl: match.away_team?.logo_url,
+                    warning: awayWarning?.type,
+                  }}
+                  />
                   );
+
                 })}
               </div>
             )}

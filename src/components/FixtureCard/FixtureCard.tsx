@@ -1,5 +1,6 @@
 import React from 'react';
-import { ArrowRight, ArrowUpRight } from 'phosphor-react';
+import { ArrowRight, ArrowUpRight, Info } from 'phosphor-react';
+import { Tooltip } from 'react-tooltip';
 import styles from './FixtureCard.module.sass';
 
 interface TeamProps {
@@ -17,9 +18,17 @@ interface FixtureCardProps {
   score?: { home: number; away: number };
   date?: string;
   htMatchId?: number;
+  matchType?: number;
 }
 
-export const FixtureCard: React.FC<FixtureCardProps> = ({ homeTeam, awayTeam, status, score, date, htMatchId }) => {
+const MATCH_TYPES: Record<number, { initials: string; description: string }> = {
+  4: { initials: 'NF', description: 'Normal 90\' Friendly' },
+  5: { initials: 'CR', description: 'Cup Rules Friendly' },
+  8: { initials: 'IF', description: 'International 90\' Friendly' },
+  9: { initials: 'ICR', description: 'International Cup Rules Friendly' },
+};
+
+export const FixtureCard: React.FC<FixtureCardProps> = ({ homeTeam, awayTeam, status, score, date, htMatchId, matchType }) => {
   const badgeContent = (
     <div className={`${styles.statusBadge} ${styles[status]}`}>
       {status.replace('_', ' ').toUpperCase()}{' '}
@@ -28,6 +37,8 @@ export const FixtureCard: React.FC<FixtureCardProps> = ({ homeTeam, awayTeam, st
       )}
     </div>
   );
+
+  const matchTypeInfo = matchType ? MATCH_TYPES[matchType] : null;
 
   return (
     <div className={styles.fixtureCard}>
@@ -62,7 +73,19 @@ export const FixtureCard: React.FC<FixtureCardProps> = ({ homeTeam, awayTeam, st
 
       {/* Center Section */}
       <div className={styles.centerSection}>
-        {date && <div className={styles.date}>{date}</div>}
+        {date && (
+          <div className={styles.dateRow}>
+            <div className={styles.date}>{date}</div>
+            {matchTypeInfo && (
+              <>
+                <span className={styles.matchTypeIndicator} data-tooltip-id={`match-type-${htMatchId}`}>
+                  {matchTypeInfo.initials} <Info size={12} />
+                </span>
+                <Tooltip id={`match-type-${htMatchId}`} content={matchTypeInfo.description} />
+              </>
+            )}
+          </div>
+        )}
         <div className={styles.vsRow}>
           {status === 'finished' || status === 'ongoing' ? (
             <>

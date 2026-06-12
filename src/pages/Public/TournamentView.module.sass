@@ -859,6 +859,7 @@
     text-decoration: underline
 
 .chatBubble
+  background: var(--beige)
   padding: 0.75rem 1rem
   border-radius: var(--radius-md)
   font-size: 0.95rem
@@ -888,20 +889,22 @@
   margin-top: 1rem
 
 .sendBtn
-  background: var(--accent-3)
+  background: var(--accent-2)
   color: white
   border: none
-  padding: 0.15rem 1rem 0.15rem 0.9rem
-  border-radius: var(--radius-md)
-  cursor: pointer
+  padding: 0.35rem 1rem
+  border-radius: 0.5rem
   box-sizing: border-box
-  transition: background 0.2s ease
+  cursor: pointer
   display: flex
   align-items: center
+  gap: 0.5rem
   font-weight: 600
+  transition: 0.5s
 
   &:hover
-    background: var(--accent-2)
+    background: var(--accent)
+    transition: 0.15s
 
 .paginationArea
   margin-top: 1rem
