@@ -492,6 +492,7 @@ export const TOURNAMENT_DEFAULT: string[] = [
   'Where Brilliant planning meets Random game events',
   'For Extra-Terrestrial managers time is merely a concept',
   // gems
+  "Sure I will not field my technical against your head player. Until min 90' that is",
   'Winning is weak. Drawing is divine',
   'Points are passable. Extra 30 minutes are titanic',
   'The schedule is automatic. The drama is not',
@@ -529,6 +530,7 @@ export const TOURNAMENT_DEFAULT: string[] = [
   "When opponent's Pressing matters just as much as yours, rivals turn into friends",
   "If Pressing, 5-5-0 and all defensive doesn't help, try Hope",
   "If Pressing, 5-5-0 and all defensive doesn't help, try Hope",
+  'It is fun to think reverse as of "how to score the least goals" — CCalm',
 ];
 
 export const TOURNAMENT_NAMES = [...EXTRA_TIME_TOURNAMENT_NAMES, ...UNIVERSAL_TOURNAMENT_NAMES];
