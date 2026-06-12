@@ -63,7 +63,7 @@ export const ChatView: React.FC<ChatViewProps> = ({ messages, onSendMessage, myH
           type="text"
           value={newChatContent}
           onChange={(e) => setNewChatContent(e.target.value)}
-          placeholder="Type a message..."
+          placeholder="Say something..."
           className={styles.postTextarea}
         />
         <button type="submit" className={styles.sendBtn}>
