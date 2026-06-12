@@ -531,6 +531,7 @@ export const TOURNAMENT_DEFAULT: string[] = [
   "If Pressing, 5-5-0 and all defensive doesn't help, try Hope",
   "If Pressing, 5-5-0 and all defensive doesn't help, try Hope",
   'It is fun to think reverse as of "how to score the least goals" — CCalm',
+  'It is fun to think reverse as of "how to score the least goals" — CCalm',
 ];
 
 export const TOURNAMENT_NAMES = [...EXTRA_TIME_TOURNAMENT_NAMES, ...UNIVERSAL_TOURNAMENT_NAMES];
