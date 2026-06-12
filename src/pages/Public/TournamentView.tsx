@@ -662,7 +662,7 @@ export const TournamentView: React.FC = () => {
     const fetchChat = async () => {
       const { data, error } = await supabase
         .from('tournament_chat')
-        .select('*')
+        .select('*, profiles(avatar_json)')
         .eq('tournament_id', tournament.id)
         .order('created_at', { ascending: true });
 
@@ -682,8 +682,17 @@ export const TournamentView: React.FC = () => {
           table: 'tournament_chat',
           filter: `tournament_id=eq.${tournament.id}`,
         },
-        (payload) => {
-          setChatMessages((prev) => [...prev, payload.new as any]);
+        async (payload) => {
+          const newMessage = payload.new as any;
+          
+          // Fetch the profile for the author to get the avatar immediately
+          const { data: profile } = await supabase
+            .from('profiles')
+            .select('avatar_json')
+            .eq('hattrick_user_id', newMessage.author_ht_id)
+            .single();
+
+          setChatMessages((prev) => [...prev, { ...newMessage, profiles: profile }]);
         },
       )
       .subscribe();
@@ -699,12 +708,13 @@ export const TournamentView: React.FC = () => {
     try {
       const myHtId = localStorage.getItem('my_ht_user_id');
       const myTeam = myHtId ? teams.find((t) => t.hattrick_user_id === Number(myHtId)) : null;
-      const authorName = myTeam?.manager_name || myTeam?.name || 'Guest';
+      const authorName = myTeam?.manager_name || myTeam?.name || localStorage.getItem('my_ht_manager_name') || 'Guest';
 
       await supabase.from('tournament_chat').insert({
         tournament_id: tournament.id,
         author_name: authorName,
         content: content.trim(),
+        author_ht_id: myHtId ? parseInt(myHtId) : null,
       });
     } catch (err: any) {
       alert(err.message);
@@ -1605,6 +1615,7 @@ export const TournamentView: React.FC = () => {
               messages={chatMessages}
               onSendMessage={handlePostChat}
               myHtUserId={myHtUserId ? Number(myHtUserId) : null}
+              leagueManagerIds={teams.map((t) => t.hattrick_user_id).filter((id): id is number => !!id)}
             />
           </aside>
         </div>

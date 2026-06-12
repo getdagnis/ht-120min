@@ -1,6 +1,6 @@
 import React from 'react';
 import { SectionCard } from '../../components/Card/SectionCard';
-import { ShieldCheck, ArrowUpRight } from 'phosphor-react';
+import { Check, ArrowUpRight } from 'phosphor-react';
 
 import type { TeamStanding } from '../../utils/standings';
 // import { MottoWidget } from '../../components/MottoWidget/MottoWidget';
@@ -63,7 +63,7 @@ export const StandingsView: React.FC<StandingsViewProps> = ({ standings, is120mi
                           </span>
                           {s.joinedViaOauth && (
                             <span title="Hattrick Validated Team">
-                              <ShieldCheck size={14} weight="bold" className={styles.validatedIcon} />
+                              <Check size={14} weight="bold" className={styles.validatedIcon} />
                             </span>
                           )}
                           <a
