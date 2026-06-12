@@ -113,7 +113,7 @@ export const Layout: React.FC<LayoutProps> = ({ children }) => {
               <Button size="sm" onClick={handleActionClick} variant="zero" className={styles.actionBtn}>
                 {isCreatePage ? (
                   <>
-                    <ArrowRight size={18} weight="bold" /> <span className={styles.hideMobile}>JOIN TOURNAMENT</span>
+                    <ArrowRight size={18} weight="bold" /> <span className={styles.hideMobile}>JOIN A TOURNAMENT</span>
                   </>
                 ) : (
                   <>

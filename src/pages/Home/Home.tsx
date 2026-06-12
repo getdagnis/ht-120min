@@ -268,7 +268,7 @@ export const Home: React.FC = () => {
                 <Trophy size={22} weight="bold" /> Create Tournament
               </Button>
               <ScrollTo to="opentours" smooth={true} duration={600} offset={-80}>
-                <Button size="lg" variant="secondary">
+                <Button size="lg" variant="secondaryHero">
                   <ArrowRight size={22} weight="bold" /> Join Tournament
                 </Button>
               </ScrollTo>
@@ -457,7 +457,7 @@ export const Home: React.FC = () => {
             <Trophy size={22} weight="bold" /> Create Tournament
           </Button>
           <ScrollTo to="opentours" smooth={true} duration={600} offset={-80}>
-            <Button size="lg" variant="secondary">
+            <Button size="lg" variant="secondaryHero">
               <ArrowRight size={22} weight="bold" /> Join Tournament
             </Button>
           </ScrollTo>

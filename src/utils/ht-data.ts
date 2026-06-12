@@ -312,7 +312,7 @@ export function getFlagUrl(countryName?: string) {
   if (!countryName) return null;
   const iso = COUNTRY_TO_ISO[countryName];
   if (!iso) return null;
-  return `https://flagcdn.com/w20/${iso.toLowerCase()}.png`;
+  return `https://flagcdn.com/w80/${iso.toLowerCase()}.png`;
 }
 
 /**

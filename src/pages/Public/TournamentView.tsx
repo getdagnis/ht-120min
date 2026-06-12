@@ -22,21 +22,15 @@ import { AdminResults } from '../../components/TournamentTabs/Admin/AdminResults
 import { Modal } from '../../components/Modal/Modal';
 import { MottoWidget } from '../../components/MottoWidget/MottoWidget';
 import { StandingsView } from '../../components/TournamentTabs/StandingsView';
-import { TeamDisplay } from '../../components/TeamDisplay/TeamDisplay';
 import { TOURNAMENT_DEFAULT } from '../../constants/descriptions';
 import {
   ArrowClockwise,
   ArrowRight,
   ArrowUpRight,
   CopySimple,
-  Eraser,
-  FloppyDisk,
   Info,
-  PencilSimple,
-  PlusCircle,
   Trash,
   X,
-  XCircle,
 } from 'phosphor-react';
 
 interface ChppTeamOption {
@@ -2247,7 +2241,7 @@ export const TournamentView: React.FC = () => {
                       setIsResultsCollapsed={setIsResultsCollapsed}
                       togglePanel={togglePanel}
                       matchData={matchData}
-                      setMatchData={setMatchData}
+                      setMatchData={setMatchData as any}
                       currentRoundId={currentRoundId}
                     />
                   </section>

@@ -208,7 +208,7 @@ export const AdminResults: React.FC<AdminResultsProps> = ({
                           </div>
                           <Button
                             size="xs"
-                            variant="ghost"
+                            variant="zero"
                             onClick={() => {
                               setEditingMatch(match.id);
                               setMatchData({ ...matchData, [match.id]: match });

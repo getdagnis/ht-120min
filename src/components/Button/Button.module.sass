@@ -34,23 +34,21 @@
     color: white
 
 .secondary
-  background-color: white
+  background-color: var(--theme)
   border: 1px solid var(--borderDark)
   border-color: black
-  color: black
+  color: var(--text)
   &:hover:not(:disabled)
-    background-color: var(--accent-3)
+    background-color: var(--yellow)
     border-color: black
-    color: white
+    color: black
 
 .secondaryInverse
   background-color: var(--yellow)
   border: 1px solid black
   color: black
   &:hover:not(:disabled)
-    background-color: var(--accent-3)
-    border-color: black
-    color: white
+    background-color: var(--brown-transp)
 
 .secondaryYellow
   background-color: var(--theme2)
@@ -60,6 +58,13 @@
     background-color: var(--yellow)
     border-color: black
     color: black
+
+.secondaryHero
+  background-color: white
+  border: 1px solid black
+  color: black
+  &:hover:not(:disabled)
+    background-color: var(--brown-transp)
 
 .outline
   background-color: transparent

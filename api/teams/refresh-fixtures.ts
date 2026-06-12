@@ -4,6 +4,10 @@ import { getAuthHeader } from '../_lib/chpp-auth.js';
 import { readChppTag } from '../_lib/chpp-xml.js';
 
 // Simplified helper for match date calculation on server
+// Compare with docs/global-match-time.json before actual implementation
+// Or other more detailed source of truth.
+// Main issue: large HT leagues (Spain, Germany, Netherlands etc.) have
+// multiple start times for weekly friendlies
 const COUNTRY_FRIENDLY_TIMES: Record<string, { day: number; time: string }> = {
   Argentina: { day: 3, time: '23:20' },
   Australia: { day: 3, time: '04:00' },
@@ -86,14 +90,18 @@ function calculateMatchDate(tournamentCreatedAt: string, roundNumber: number, co
       hour12: false
     }).formatToParts(d);
     
-    const parts: any = {};
-    stockholmDate.forEach(p => parts[p.type] = p.value);
+    const parts: Record<string, number> = {};
+    stockholmDate.forEach((p) => {
+      if (p.type !== 'literal') {
+        parts[p.type] = parseInt(p.value, 10);
+      }
+    });
     
     const wallClockHT = Date.UTC(parts.year, parts.month - 1, parts.day, parts.hour, parts.minute, parts.second);
     return Math.round((wallClockHT - d.getTime()) / 60000);
   };
 
-  let currentOffset = getHTOffset(date);
+  const currentOffset = getHTOffset(date);
   const htDate = new Date(date.getTime() + currentOffset * 60000);
   const currentHTDay = htDate.getUTCDay();
   
@@ -181,7 +189,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     // Identify the closest upcoming round (the first round that has non-resolved matches)
     const now = new Date();
     const upcomingRound = rounds.find((r) => {
-      return r.matches.some((m) => {
+      return r.matches.some((m: { completed: boolean; status: string; }) => {
         if (m.completed) return false;
         if (m.status === 'misarranged') {
           // If misarranged but the match time has already passed, consider it "resolved" for refresh purposes

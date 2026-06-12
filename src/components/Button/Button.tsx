@@ -6,6 +6,7 @@ interface ButtonProps extends React.ButtonHTMLAttributes<HTMLButtonElement> {
     | 'primary'
     | 'secondary'
     | 'secondaryInverse'
+    | 'secondaryHero'
     | 'secondaryYellow'
     | 'outline'
     | 'outlineWhite'
