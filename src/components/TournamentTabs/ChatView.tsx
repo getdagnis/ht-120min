@@ -25,12 +25,7 @@ interface ChatViewProps {
   leagueManagerIds: number[];
 }
 
-export const ChatView: React.FC<ChatViewProps> = ({
-  messages,
-  onSendMessage,
-  myHtUserId,
-  leagueManagerIds,
-}) => {
+export const ChatView: React.FC<ChatViewProps> = ({ messages, onSendMessage, myHtUserId, leagueManagerIds }) => {
   const [newChatContent, setNewChatContent] = useState('');
   const [searchParams, setSearchParams] = useSearchParams();
   const chatContainerRef = useRef<HTMLDivElement>(null);
@@ -52,31 +47,32 @@ export const ChatView: React.FC<ChatViewProps> = ({
     setSearchParams({ ...Object.fromEntries(searchParams.entries()), profileId: htId.toString() });
   };
 
+  const showAvatar = false;
+
   return (
     <div className={styles.chatSection}>
       <div className={styles.chatMessages} ref={chatContainerRef}>
         {messages.map((msg) => {
           const isOwnMessage = msg.author_ht_id === myHtUserId;
           const isLeagueManager = leagueManagerIds.includes(msg.author_ht_id);
-          
+
           return (
             <div
               key={msg.id}
               className={`${styles.chatMessage} ${isOwnMessage ? styles.ownMessage : styles.otherMessage} ${!isLeagueManager && !isOwnMessage ? styles.externalManager : ''}`}
             >
-              <div className={styles.chatAvatarWrapper}>
-                <Avatar
-                  backgroundImage={msg.profiles?.avatar_json?.backgroundImage}
-                  layers={msg.profiles?.avatar_json?.layers}
-                  className={styles.chatAvatar}
-                />
-              </div>
+              {showAvatar && (
+                <div className={styles.chatAvatarWrapper}>
+                  <Avatar
+                    backgroundImage={msg.profiles?.avatar_json?.backgroundImage}
+                    layers={msg.profiles?.avatar_json?.layers}
+                    className={styles.chatAvatar}
+                  />
+                </div>
+              )}
 
               <div className={styles.chatMessageContent}>
-                <button
-                  onClick={() => handleOpenProfile(msg.author_ht_id)}
-                  className={styles.chatAuthor}
-                >
+                <button onClick={() => handleOpenProfile(msg.author_ht_id)} className={styles.chatAuthor}>
                   {msg.author_name}
                 </button>
                 <div className={styles.chatBubble}>
