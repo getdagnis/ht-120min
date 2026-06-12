@@ -11,7 +11,10 @@ interface ChatMessage {
   created_at: string;
   author_ht_id: number;
   profiles?: {
-    avatar_json: unknown;
+    avatar_json: {
+      backgroundImage?: string;
+      layers?: { image: string; x: number; y: number }[];
+    } | null;
   };
 }
 
