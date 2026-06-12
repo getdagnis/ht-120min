@@ -834,12 +834,18 @@
   margin-top: 1rem
 
 .sendBtn
-  background: var(--accent)
+  background: var(--accent-3)
   color: white
   border: none
-  padding: 0.5rem 1rem
-  border-radius: 0.5rem
+  padding: 0.15rem 1rem
+  border-radius: var(--radius-md)
   cursor: pointer
+  box-sizing: border-box
+  transition: background 0.5s ease
+
+  &:hover
+    background: var(--accent-2)
+    transition: background 0.1s ease
 
 .paginationArea
   margin-top: 1rem

@@ -1,4 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
+import { PaperPlaneTilt } from 'phosphor-react';
 import styles from '../../pages/Public/TournamentView.module.sass';
 
 interface ChatMessage {
@@ -67,7 +68,7 @@ export const ChatView: React.FC<ChatViewProps> = ({ messages, onSendMessage, myH
           className={styles.postTextarea}
         />
         <button type="submit" className={styles.sendBtn}>
-          Send
+          <PaperPlaneTilt size={20} weight="bold" />
         </button>
       </form>
     </div>
