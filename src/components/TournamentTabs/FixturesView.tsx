@@ -1,7 +1,7 @@
 import React from 'react';
 import { SectionCard } from '../../components/Card/SectionCard';
 import { FixtureCard } from '../../components/FixtureCard/FixtureCard';
-import { ArrowClockwise, CopySimple, CaretDown, CaretUp, Check } from 'phosphor-react';
+import { ArrowClockwise, CopySimple, Check } from 'phosphor-react';
 import { Tooltip } from 'react-tooltip';
 import { calculateMatchDate } from '../../utils/ht-data';
 import styles from '../../pages/Public/TournamentView.module.sass';
