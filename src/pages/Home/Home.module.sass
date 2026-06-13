@@ -5,6 +5,7 @@
   padding: 0
   margin: 0 auto
   background: var(--bg)
+  overflow-x: clip
 
 .toast
   position: fixed
@@ -20,17 +21,23 @@
   text-align: center
 
 .heroCard
-  top: 0
-  left: 0
-  padding: 0
-  margin: 3rem 0 1.5rem
+  padding-bottom: 1rem
+  margin: 0 auto
+  width: 100%
+  max-width: 100%
+
+.heroBand
   width: 100vw
-  max-width: 100vw
   margin-left: calc(50% - 50vw)
   margin-right: calc(50% - 50vw)
-  border-radius: 0
+  margin-top: 3rem
+  margin-bottom: 1.5rem
+  background: var(--accent-2)
+  background-image: url('/grass2.png')
+  background-repeat: repeat
+  background-position: center
+  background-size: 30%
   overflow: hidden
-  z-index: -1
 
 .hero
   padding: 2rem 0 1rem
@@ -48,11 +55,11 @@
 
 .heroImg
   display: block
-  width: 100%
-  max-width: none
+  width: auto
+  max-width: 100%
   height: auto
   max-height: 48vh
-  margin: 0 0 0.5rem
+  margin: 0 auto 0.5rem
 
 .heroIcon
   color: white

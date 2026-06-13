@@ -255,26 +255,28 @@ export const Home: React.FC = () => {
   return (
     <div className={styles.home}>
       <div className={styles.container}>
-        <HeroCard className={styles.heroCard}>
-          <section className={styles.hero}>
-            <h1 className={styles.hiddenH1}>HT-120min</h1>
-            <img src="/hero-logo-2.png" alt="HT-120min" className={styles.heroImg} />
-            <p className={styles.subtitle}>
-              Organize 120 min tournaments and recurring friendlies with ease by getting together with other like-minded
-              Hattrick managers.
-            </p>
-            <div className={styles.ctaBtns}>
-              <Button size="lg" onClick={() => navigate('/create')} variant="secondaryInverse">
-                <Trophy size={22} weight="bold" /> Create Tournament
-              </Button>
-              <ScrollTo to="opentours" smooth={true} duration={600} offset={-80}>
-                <Button size="lg" variant="secondaryHero">
-                  <ArrowRight size={22} weight="bold" /> Join Tournament
+        <div className={styles.heroBand}>
+          <HeroCard className={styles.heroCard}>
+            <section className={styles.hero}>
+              <h1 className={styles.hiddenH1}>HT-120min</h1>
+              <img src="/hero-logo-2.png" alt="HT-120min" className={styles.heroImg} />
+              <p className={styles.subtitle}>
+                Organize 120 min tournaments and recurring friendlies with ease by getting together with other like-minded
+                Hattrick managers.
+              </p>
+              <div className={styles.ctaBtns}>
+                <Button size="lg" onClick={() => navigate('/create')} variant="secondaryInverse">
+                  <Trophy size={22} weight="bold" /> Create Tournament
                 </Button>
-              </ScrollTo>
-            </div>
-          </section>
-        </HeroCard>
+                <ScrollTo to="opentours" smooth={true} duration={600} offset={-80}>
+                  <Button size="lg" variant="secondaryHero">
+                    <ArrowRight size={22} weight="bold" /> Join Tournament
+                  </Button>
+                </ScrollTo>
+              </div>
+            </section>
+          </HeroCard>
+        </div>
         <MottoWidget />
         <div className={styles.mainGrid}>
           <div className={styles.leftColumn}>
