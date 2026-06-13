@@ -7,24 +7,14 @@
   background: var(--bg)
   overflow-x: clip
 
-.toast
-  position: fixed
-  top: 80px
-  left: 50%
-  transform: translateX(-50%)
-  background: var(--primary-color)
-  color: white
-  padding: 1rem 2rem
-  border-radius: 8px
-  z-index: 1000
-  box-shadow: 0 4px 12px rgba(0,0,0,0.2)
-  text-align: center
-
 .heroCard
   padding-bottom: 1rem
   margin: 0 auto
   width: 100%
   max-width: 100%
+  border-radius: 0
+  background: none
+  border: none
 
 .heroBand
   width: 100vw
@@ -102,9 +92,10 @@
   max-width: 1150px
   margin: 0 auto
   box-sizing: border-box
-
+  @media (max-width: 1150px)
+    padding: 0 0.5rem
   @media (max-width: 620px)
-    padding: 0
+    padding: 0 0.25rem
 
 .mainGrid
   display: grid
@@ -114,11 +105,11 @@
   text-align: left
   margin-bottom: 4rem
   margin-top: 2rem
+  padding: 0 0.5rem
 
   @media (max-width: 920px)
     grid-template-columns: 1fr
     gap: 3rem
-    padding: 0 0.5rem
 
 .leftColumn
   min-width: 0
@@ -316,6 +307,8 @@
   background: var(--table-bg-main)
   padding: 1rem 1.5rem
   transition: scale 0.3s ease
+  @media (max-width: 1150px)
+    padding: 1rem
 
   h3
     margin-bottom: 0.75rem
