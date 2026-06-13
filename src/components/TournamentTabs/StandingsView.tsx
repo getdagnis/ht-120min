@@ -1,6 +1,6 @@
 import React from 'react';
 import { SectionCard } from '../../components/Card/SectionCard';
-import { ArrowUpRight, ShieldCheck } from 'phosphor-react';
+import { ShieldCheck } from 'phosphor-react';
 import { TeamByline } from '../TeamByline/TeamByline';
 
 import type { TeamStanding } from '../../utils/standings';
@@ -19,15 +19,13 @@ interface StandingsViewProps {
 }
 
 export const StandingsView: React.FC<StandingsViewProps> = ({ standings, is120minMode, myHtUserId, tournament }) => {
-  console.log('🏜💀👾 myHtUserId', myHtUserId);
-  console.log('🏜💀👾 standings', standings);
   return (
     <div className={styles.mainColumn}>
       <SectionCard title="🏆 Standings" headerThumbnailIndex={tournament?.thumbnail_index}>
         <div className={styles.tableWrapper}>
           <table>
             <thead>
-              <tr>
+              <tr className={styles.muted}>
                 <th>#</th>
                 <th>Team</th>
                 {is120minMode ? (
@@ -70,14 +68,6 @@ export const StandingsView: React.FC<StandingsViewProps> = ({ standings, is120mi
                                 <ShieldCheck size={14} weight="bold" className={styles.validatedIcon} />
                               </span>
                             )}
-                            <a
-                              href={`https://www.hattrick.org/goto.ashx?path=/Club/?TeamID=${s.htTeamId}`}
-                              target="_blank"
-                              rel="noopener noreferrer"
-                              className={styles.htLink}
-                            >
-                              <ArrowUpRight size={12} weight="bold" />
-                            </a>
                           </div>
                           <TeamByline
                             countryName={s.countryName}
