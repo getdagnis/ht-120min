@@ -66,16 +66,19 @@
   color: black
   border: 1px solid black
 
-  &:hover
-    background: white !important
-
 .loginBtn
-  background: white !important
-  color: black
-  border: 1px solid black
+  display: flex
+  background: transparent
+  color: var(--text-h)
+  border: 1px solid #ffffff22
+
+  span
+    display: flex
+
   &:hover
     border: 1px solid black !important
     background: var(--yellow) !important
+    color: black
 
 .userContainer
   position: relative
@@ -85,6 +88,8 @@
   align-items: center
   gap: 0.5rem
   font-weight: 600
+  color: var(--text-h)
+  border: 1px solid #ffffff22
 
 .dropdown
   position: absolute
@@ -109,7 +114,7 @@
     transform: translateY(0)
 
 .dropdownInfo
-  padding: 0.75rem 1rem
+  padding: 0.75rem 0
   background: var(--bg-transp)
   border-bottom: 1px solid var(--border)
   backdrop-filter: blur(1rem)
@@ -119,6 +124,7 @@
 
   span
     font-size: 0.75rem
+    padding: 0 1rem
     color: var(--text-muted)
     text-transform: uppercase
     letter-spacing: 0.05em
@@ -134,13 +140,16 @@
 .activeTournamentsList
   display: flex
   flex-direction: column
-  gap: 0.75rem
   margin-top: 0.5rem
 
 .tourItem
   display: flex
   flex-direction: column
+  padding: 0.5rem 1rem
   gap: 0.15rem
+
+  &:hover
+    background: var(--theme)
 
 .tourNextMatch
   display: flex

@@ -196,7 +196,8 @@ export const Layout: React.FC<LayoutProps> = ({ children }) => {
                 ) : (
                   <Button size="sm" onClick={handleLogin} variant="zero" className={styles.loginBtn}>
                     <User size={18} weight="bold" />
-                    <span className={styles.hideMobile}>Login (CHPP)</span>
+                    <span className={styles.hideMobile}>Login (CHPP)</span>{' '}
+                    <ArrowRight size={18} className="hideOnTable" />
                   </Button>
                 )}
               </div>

@@ -23,15 +23,7 @@ import { Modal } from '../../components/Modal/Modal';
 import { MottoWidget } from '../../components/MottoWidget/MottoWidget';
 import { StandingsView } from '../../components/TournamentTabs/StandingsView';
 import { TOURNAMENT_DEFAULT } from '../../constants/descriptions';
-import {
-  ArrowClockwise,
-  ArrowRight,
-  ArrowUpRight,
-  CopySimple,
-  Info,
-  Trash,
-  X,
-} from 'phosphor-react';
+import { ArrowClockwise, ArrowRight, ArrowUpRight, CopySimple, Info, Trash, X } from 'phosphor-react';
 
 interface ChppTeamOption {
   teamId: number;
@@ -318,20 +310,18 @@ export const TournamentView: React.FC = () => {
         .order('created_at', { ascending: true });
 
       const teamsData = teamsDataRaw || [];
-      
+
       // Fetch profiles to get country_id and up-to-date manager_name
       let profileMap: Record<number, { country_id: number; manager_name: string }> = {};
       if (teamsData.length > 0) {
-        const userIds = teamsData.map(t => t.hattrick_user_id).filter(Boolean);
+        const userIds = teamsData.map((t) => t.hattrick_user_id).filter(Boolean);
         if (userIds.length > 0) {
           const { data: profilesData } = await supabase
             .from('profiles')
             .select('hattrick_user_id, country_id, manager_name')
             .in('hattrick_user_id', userIds);
           if (profilesData) {
-            profileMap = Object.fromEntries(
-              profilesData.map(p => [Number(p.hattrick_user_id), p as any])
-            );
+            profileMap = Object.fromEntries(profilesData.map((p) => [Number(p.hattrick_user_id), p as any]));
           }
         }
       }
@@ -362,18 +352,26 @@ export const TournamentView: React.FC = () => {
         );
 
       // Enrich matches with profile data
-      const matchesData = (matchesDataRaw || []).map(m => ({
+      const matchesData = (matchesDataRaw || []).map((m) => ({
         ...m,
-        home_team: m.home_team ? {
-          ...m.home_team,
-          country_id: m.home_team.hattrick_user_id ? profileMap[m.home_team.hattrick_user_id]?.country_id : null,
-          manager_name: m.home_team.hattrick_user_id ? profileMap[m.home_team.hattrick_user_id]?.manager_name || m.home_team.manager_name : m.home_team.manager_name
-        } : null,
-        away_team: m.away_team ? {
-          ...m.away_team,
-          country_id: m.away_team.hattrick_user_id ? profileMap[m.away_team.hattrick_user_id]?.country_id : null,
-          manager_name: m.away_team.hattrick_user_id ? profileMap[m.away_team.hattrick_user_id]?.manager_name || m.away_team.manager_name : m.away_team.manager_name
-        } : null
+        home_team: m.home_team
+          ? {
+              ...m.home_team,
+              country_id: m.home_team.hattrick_user_id ? profileMap[m.home_team.hattrick_user_id]?.country_id : null,
+              manager_name: m.home_team.hattrick_user_id
+                ? profileMap[m.home_team.hattrick_user_id]?.manager_name || m.home_team.manager_name
+                : m.home_team.manager_name,
+            }
+          : null,
+        away_team: m.away_team
+          ? {
+              ...m.away_team,
+              country_id: m.away_team.hattrick_user_id ? profileMap[m.away_team.hattrick_user_id]?.country_id : null,
+              manager_name: m.away_team.hattrick_user_id
+                ? profileMap[m.away_team.hattrick_user_id]?.manager_name || m.away_team.manager_name
+                : m.away_team.manager_name,
+            }
+          : null,
       }));
 
       const { data: warningsData } = await supabase
@@ -426,7 +424,9 @@ export const TournamentView: React.FC = () => {
             country_name: t.country_name,
             country_id: t.hattrick_user_id ? profileMap[t.hattrick_user_id]?.country_id : null,
             logo_url: t.logo_url,
-            manager_name: t.hattrick_user_id ? profileMap[t.hattrick_user_id]?.manager_name || t.manager_name : t.manager_name,
+            manager_name: t.hattrick_user_id
+              ? profileMap[t.hattrick_user_id]?.manager_name || t.manager_name
+              : t.manager_name,
           })),
           mergedMatches.map((m) => ({
             home_team_id: m.home_team_id,
@@ -727,7 +727,7 @@ export const TournamentView: React.FC = () => {
         },
         async (payload) => {
           const newMessage = payload.new as any;
-          
+
           // Fetch the profile for the author to get the avatar immediately
           const { data: profile } = await supabase
             .from('profiles')
@@ -1463,7 +1463,7 @@ export const TournamentView: React.FC = () => {
               <p>
                 {isGenerated
                   ? 'This tournament is ongoing but has available spots for new teams!'
-                  : 'This tournament is currently open and accepting new team registrations'}
+                  : 'This tournament is currently open and accepting new participants!'}
               </p>
               {!isJoining && (
                 <Button
@@ -1476,7 +1476,7 @@ export const TournamentView: React.FC = () => {
                   className={styles.joinButton}
                   disabled={isConnecting}
                 >
-                  <ArrowRight size={18} weight="bold" /> Join
+                  <ArrowRight size={18} weight="bold" /> Join with Hattrick
                 </Button>
               )}
             </div>
@@ -1505,7 +1505,7 @@ export const TournamentView: React.FC = () => {
           Standings
         </button>
         <button className={activeTab === 'fixtures' ? styles.active : ''} onClick={() => handleTabChange('fixtures')}>
-          Fixtures & Results
+          Fixtures <span className="hideOnMobile">& Results</span>
         </button>
         <button className={isNewsTab ? styles.active : ''} onClick={() => handleTabChange('news')}>
           News
