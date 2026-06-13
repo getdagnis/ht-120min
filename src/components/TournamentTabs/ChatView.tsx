@@ -1,5 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { useSearchParams } from 'react-router-dom';
+import { Tooltip } from 'react-tooltip';
 import styles from '../../pages/Public/TournamentView.module.sass';
 import { Avatar } from '../Avatar/Avatar';
 import { PaperPlaneTilt } from 'phosphor-react';
@@ -23,9 +24,16 @@ interface ChatViewProps {
   onSendMessage: (content: string) => void;
   myHtUserId: number | null;
   leagueManagerIds: number[];
+  teamNames: Record<number, string>;
 }
 
-export const ChatView: React.FC<ChatViewProps> = ({ messages, onSendMessage, myHtUserId, leagueManagerIds }) => {
+export const ChatView: React.FC<ChatViewProps> = ({
+  messages,
+  onSendMessage,
+  myHtUserId,
+  leagueManagerIds,
+  teamNames,
+}) => {
   const [newChatContent, setNewChatContent] = useState('');
   const [searchParams, setSearchParams] = useSearchParams();
   const chatContainerRef = useRef<HTMLDivElement>(null);
@@ -47,8 +55,6 @@ export const ChatView: React.FC<ChatViewProps> = ({ messages, onSendMessage, myH
     setSearchParams({ ...Object.fromEntries(searchParams.entries()), profileId: htId.toString() });
   };
 
-  const showAvatar = false;
-
   return (
     <div className={styles.chatSection}>
       <div className={styles.chatMessages} ref={chatContainerRef}>
@@ -61,20 +67,24 @@ export const ChatView: React.FC<ChatViewProps> = ({ messages, onSendMessage, myH
               key={msg.id}
               className={`${styles.chatMessage} ${isOwnMessage ? styles.ownMessage : styles.otherMessage} ${!isLeagueManager && !isOwnMessage ? styles.externalManager : ''}`}
             >
-              {showAvatar && (
-                <div className={styles.chatAvatarWrapper}>
-                  <Avatar
-                    backgroundImage={msg.profiles?.avatar_json?.backgroundImage}
-                    layers={msg.profiles?.avatar_json?.layers}
-                    className={styles.chatAvatar}
-                  />
-                </div>
-              )}
-
               <div className={styles.chatMessageContent}>
-                <button onClick={() => handleOpenProfile(msg.author_ht_id)} className={styles.chatAuthor}>
+                <button
+                  onClick={() => handleOpenProfile(msg.author_ht_id)}
+                  className={styles.chatAuthor}
+                  data-tooltip-id={`author-tooltip-${msg.id}`}
+                >
                   {msg.author_name}
                 </button>
+                <Tooltip id={`author-tooltip-${msg.id}`} className={styles.chatAuthorTooltip}>
+                  <div className={styles.tooltipAvatar}>
+                    <Avatar
+                      backgroundImage={msg.profiles?.avatar_json?.backgroundImage}
+                      layers={msg.profiles?.avatar_json?.layers}
+                      className={styles.tooltipAvatarImg}
+                    />
+                  </div>
+                  <span className={styles.tooltipTeamName}>{teamNames[msg.author_ht_id] || 'Guest'}</span>
+                </Tooltip>
                 <div className={styles.chatBubble}>
                   <span className={styles.chatContent}>{msg.content}</span>
                 </div>

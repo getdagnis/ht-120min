@@ -12,10 +12,12 @@ export interface Team {
   id: string;
   name: string;
   ht_team_id: number | null;
+  hattrick_user_id: number | null;
   active: boolean;
   replacement_for_team_id: string | null;
   joined_via_oauth?: boolean;
   country_name?: string | null;
+  country_id?: number | null;
   logo_url?: string | null;
   manager_name?: string | null;
 }
@@ -24,6 +26,7 @@ export interface TeamStanding {
   teamId: string;
   teamName: string;
   htTeamId: number | null;
+  hattrickUserId: number | null;
   played: number;
   won: number;
   drawn: number;
@@ -36,6 +39,7 @@ export interface TeamStanding {
   totalMinutes: number;
   joinedViaOauth: boolean;
   countryName: string | null;
+  countryId: number | null;
   logoUrl: string | null;
   managerName: string | null;
 }
@@ -53,6 +57,7 @@ export function calculateStandings(
       teamId: team.id,
       teamName: team.name,
       htTeamId: team.ht_team_id,
+      hattrickUserId: team.hattrick_user_id,
       played: 0,
       won: 0,
       drawn: 0,
@@ -65,6 +70,7 @@ export function calculateStandings(
       totalMinutes: 0,
       joinedViaOauth: !!team.joined_via_oauth,
       countryName: team.country_name || null,
+      countryId: team.country_id || null,
       logoUrl: team.logo_url || null,
       managerName: team.manager_name || null,
     };

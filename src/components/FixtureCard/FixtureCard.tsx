@@ -1,14 +1,18 @@
 import React from 'react';
 import { ArrowRight, ArrowUpRight, Info } from 'phosphor-react';
 import { Tooltip } from 'react-tooltip';
+import { TeamByline } from '../TeamByline/TeamByline';
 import styles from './FixtureCard.module.sass';
 
 interface TeamProps {
   name: string;
   managerName?: string;
+  managerHtId?: number;
   htTeamId: number;
   logoUrl?: string;
   warning?: 'yellow' | 'red';
+  countryName?: string;
+  countryId?: number;
 }
 
 interface FixtureCardProps {
@@ -19,16 +23,26 @@ interface FixtureCardProps {
   date?: string;
   htMatchId?: number;
   matchType?: number;
+  is120minMode?: boolean;
 }
 
 const MATCH_TYPES: Record<number, { initials: string; description: string }> = {
-  4: { initials: 'NF', description: 'Normal 90\' Friendly' },
+  4: { initials: 'NF', description: "Normal 90' Friendly" },
   5: { initials: 'CR', description: 'Cup Rules Friendly' },
-  8: { initials: 'IF', description: 'International 90\' Friendly' },
+  8: { initials: 'IF', description: "International 90' Friendly" },
   9: { initials: 'ICR', description: 'International Cup Rules Friendly' },
 };
 
-export const FixtureCard: React.FC<FixtureCardProps> = ({ homeTeam, awayTeam, status, score, date, htMatchId, matchType }) => {
+export const FixtureCard: React.FC<FixtureCardProps> = ({
+  homeTeam,
+  awayTeam,
+  status,
+  score,
+  date,
+  htMatchId,
+  matchType,
+  is120minMode,
+}) => {
   const badgeContent = (
     <div className={`${styles.statusBadge} ${styles[status]}`}>
       {status.replace('_', ' ').toUpperCase()}{' '}
@@ -39,46 +53,48 @@ export const FixtureCard: React.FC<FixtureCardProps> = ({ homeTeam, awayTeam, st
   );
 
   const matchTypeInfo = matchType ? MATCH_TYPES[matchType] : null;
+  const isWrongType = is120minMode && matchType && [4, 7].includes(matchType);
+
+  const renderTeamInfo = (team: TeamProps, isRight?: boolean) => (
+    <>
+      <div className={styles.teamName}>{team.name.toUpperCase()}</div>
+      <TeamByline
+        countryName={team.countryName}
+        countryId={team.countryId}
+        teamId={team.htTeamId}
+        managerName={team.managerName}
+        managerHtId={team.managerHtId}
+        mode="fixtures"
+        isRight={isRight}
+      />
+      {team.warning && (
+        <div className={styles.warningRow}>
+          <img src="/warn-red.png" alt="Warning" className={styles.warnIcon} />
+          <span className={styles.warn}>Warning issued!</span>
+        </div>
+      )}
+    </>
+  );
 
   return (
     <div className={styles.fixtureCard}>
-      {/* Home Team - Left Side */}
       <div className={styles.teamContainer}>
         <div className={styles.logoWrapper}>
           <img src={homeTeam.logoUrl || '/hero-logo-2.png'} alt={homeTeam.name} className={styles.logo} />
         </div>
-        <div className={styles.teamDetails}>
-          <div className={styles.teamName}>{homeTeam.name.toUpperCase()}</div>
-          <div className={styles.teamMeta}>
-            <a
-              href={`https://www.hattrick.org/goto.ashx?path=/Club/?TeamID=${homeTeam.htTeamId}`}
-              target="_blank"
-              rel="noopener noreferrer"
-              className={styles.linkIcon}
-            >
-              <span>
-                By {homeTeam.managerName || 'UNKNOWN'} / ID: {homeTeam.htTeamId}
-              </span>
-              <ArrowRight size={12} weight="bold" style={{ marginLeft: '0.25rem' }} />
-            </a>
-          </div>
-          {homeTeam.warning && (
-            <div className={styles.warningRow}>
-              <img src="/warn-red.png" alt="Warning" className={styles.warnIcon} />
-              <span className={styles.warn}>Warning issued!</span>
-            </div>
-          )}
-        </div>
+        <div className={styles.teamDetails}>{renderTeamInfo(homeTeam)}</div>
       </div>
 
-      {/* Center Section */}
       <div className={styles.centerSection}>
         {date && (
           <div className={styles.dateRow}>
             <div className={styles.date}>{date}</div>
             {matchTypeInfo && (
               <>
-                <span className={styles.matchTypeIndicator} data-tooltip-id={`match-type-${htMatchId}`}>
+                <span
+                  className={`${styles.matchTypeIndicator} ${isWrongType ? styles.wrong : ''}`}
+                  data-tooltip-id={`match-type-${htMatchId}`}
+                >
                   {matchTypeInfo.initials} <Info size={12} />
                 </span>
                 <Tooltip id={`match-type-${htMatchId}`} content={matchTypeInfo.description} />
@@ -115,30 +131,8 @@ export const FixtureCard: React.FC<FixtureCardProps> = ({ homeTeam, awayTeam, st
         )}
       </div>
 
-      {/* Away Team - Right Side */}
       <div className={`${styles.teamContainer} ${styles.right}`}>
-        <div className={`${styles.teamDetails} ${styles.right}`}>
-          <div className={styles.teamName}>{awayTeam.name.toUpperCase()}</div>
-          <div className={styles.teamMeta}>
-            <a
-              href={`https://www.hattrick.org/goto.ashx?path=/Club/?TeamID=${awayTeam.htTeamId}`}
-              target="_blank"
-              rel="noopener noreferrer"
-              className={styles.linkIcon}
-            >
-              <span>
-                By {awayTeam.managerName || 'UNKNOWN'} / ID: {awayTeam.htTeamId}
-              </span>
-              <ArrowRight size={12} weight="bold" style={{ marginLeft: '0.25rem' }} />
-            </a>
-          </div>
-          {awayTeam.warning && (
-            <div className={styles.warningRow}>
-              <img src="/warn-red.png" alt="Team issued a warning!" className={styles.warnIcon} />{' '}
-              <span className={styles.warn}>Warning issued!</span>
-            </div>
-          )}
-        </div>
+        <div className={`${styles.teamDetails} ${styles.right}`}>{renderTeamInfo(awayTeam, true)}</div>
         <div className={styles.logoWrapper}>
           <img src={awayTeam.logoUrl || '/hero-logo-2.png'} alt={awayTeam.name} className={styles.logo} />
         </div>

@@ -61,13 +61,16 @@ interface MatchWithTeams {
   total_minutes: number;
   status: 'not_arranged' | 'arranged' | 'ongoing' | 'misarranged' | 'finished';
   ht_match_id: number | null;
+  match_type: number | null;
   home_team: {
     name: string;
     ht_team_id: number;
     active: boolean;
     logo_url?: string;
     country_name?: string;
+    country_id?: number;
     manager_name?: string;
+    hattrick_user_id?: number;
   } | null;
   away_team: {
     name: string;
@@ -75,7 +78,9 @@ interface MatchWithTeams {
     active: boolean;
     logo_url?: string;
     country_name?: string;
+    country_id?: number;
     manager_name?: string;
+    hattrick_user_id?: number;
   } | null;
   match_date?: Date;
 }
@@ -306,13 +311,32 @@ export const TournamentView: React.FC = () => {
       setEditDescription(tournamentData.description || '');
       setShowEditEmail(!!tournamentData.admin_email);
       setEditAdminEmail(tournamentData.admin_email || '');
-      const { data: teamsData } = await supabase
+      const { data: teamsDataRaw } = await supabase
         .from('teams')
         .select('*')
         .eq('tournament_id', tournamentData.id)
         .order('created_at', { ascending: true });
 
-      setTeams(teamsData || []);
+      const teamsData = teamsDataRaw || [];
+      
+      // Fetch profiles to get country_id and up-to-date manager_name
+      let profileMap: Record<number, { country_id: number; manager_name: string }> = {};
+      if (teamsData.length > 0) {
+        const userIds = teamsData.map(t => t.hattrick_user_id).filter(Boolean);
+        if (userIds.length > 0) {
+          const { data: profilesData } = await supabase
+            .from('profiles')
+            .select('hattrick_user_id, country_id, manager_name')
+            .in('hattrick_user_id', userIds);
+          if (profilesData) {
+            profileMap = Object.fromEntries(
+              profilesData.map(p => [Number(p.hattrick_user_id), p as any])
+            );
+          }
+        }
+      }
+
+      setTeams(teamsData);
 
       const { data: roundsData } = await supabase
         .from('rounds')
@@ -320,7 +344,7 @@ export const TournamentView: React.FC = () => {
         .eq('tournament_id', tournamentData.id)
         .order('round_number', { ascending: true });
 
-      const { data: matchesData } = await supabase
+      const { data: matchesDataRaw } = await supabase
         .from('matches')
         .select(
           `
@@ -328,14 +352,29 @@ export const TournamentView: React.FC = () => {
           status,
           ht_match_id,
           match_type,
-          home_team:teams!matches_home_team_id_fkey(name, ht_team_id, logo_url, country_name, active, manager_name),
-          away_team:teams!matches_away_team_id_fkey(name, ht_team_id, logo_url, country_name, active, manager_name)
+          home_team:teams!matches_home_team_id_fkey(name, ht_team_id, logo_url, country_name, active, manager_name, hattrick_user_id),
+          away_team:teams!matches_away_team_id_fkey(name, ht_team_id, logo_url, country_name, active, manager_name, hattrick_user_id)
         `,
         )
         .in(
           'round_id',
           (roundsData || []).map((r) => r.id),
         );
+
+      // Enrich matches with profile data
+      const matchesData = (matchesDataRaw || []).map(m => ({
+        ...m,
+        home_team: m.home_team ? {
+          ...m.home_team,
+          country_id: m.home_team.hattrick_user_id ? profileMap[m.home_team.hattrick_user_id]?.country_id : null,
+          manager_name: m.home_team.hattrick_user_id ? profileMap[m.home_team.hattrick_user_id]?.manager_name || m.home_team.manager_name : m.home_team.manager_name
+        } : null,
+        away_team: m.away_team ? {
+          ...m.away_team,
+          country_id: m.away_team.hattrick_user_id ? profileMap[m.away_team.hattrick_user_id]?.country_id : null,
+          manager_name: m.away_team.hattrick_user_id ? profileMap[m.away_team.hattrick_user_id]?.manager_name || m.away_team.manager_name : m.away_team.manager_name
+        } : null
+      }));
 
       const { data: warningsData } = await supabase
         .from('fixture_warnings')
@@ -346,7 +385,7 @@ export const TournamentView: React.FC = () => {
       setWarnings(warningsData || []);
 
       if (teamsData) {
-        const matchesWithTeams = (matchesData || []) as MatchWithTeams[];
+        const matchesWithTeams = matchesData as unknown as MatchWithTeams[];
 
         // Add calculated match_date to each match for sorting and status detection
         const matchesWithDates = matchesWithTeams.map((m) => {
@@ -380,11 +419,14 @@ export const TournamentView: React.FC = () => {
             id: t.id,
             name: t.name,
             ht_team_id: t.ht_team_id,
+            hattrick_user_id: t.hattrick_user_id,
             active: t.active,
             replacement_for_team_id: t.replacement_for_team_id,
             joined_via_oauth: t.joined_via_oauth,
             country_name: t.country_name,
+            country_id: t.hattrick_user_id ? profileMap[t.hattrick_user_id]?.country_id : null,
             logo_url: t.logo_url,
+            manager_name: t.hattrick_user_id ? profileMap[t.hattrick_user_id]?.manager_name || t.manager_name : t.manager_name,
           })),
           mergedMatches.map((m) => ({
             home_team_id: m.home_team_id,
@@ -1617,6 +1659,7 @@ export const TournamentView: React.FC = () => {
               onSendMessage={handlePostChat}
               myHtUserId={myHtUserId ? Number(myHtUserId) : null}
               leagueManagerIds={teams.map((t) => t.hattrick_user_id).filter((id): id is number => !!id)}
+              teamNames={teams.reduce((acc, t) => ({ ...acc, [t.hattrick_user_id || 0]: t.name }), {})}
             />
           </aside>
         </div>

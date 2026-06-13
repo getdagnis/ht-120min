@@ -1,6 +1,7 @@
 import React from 'react';
 import { SectionCard } from '../../components/Card/SectionCard';
-import { Check, ArrowUpRight } from 'phosphor-react';
+import { ArrowUpRight, ShieldCheck } from 'phosphor-react';
+import { TeamByline } from '../TeamByline/TeamByline';
 
 import type { TeamStanding } from '../../utils/standings';
 // import { MottoWidget } from '../../components/MottoWidget/MottoWidget';
@@ -18,6 +19,8 @@ interface StandingsViewProps {
 }
 
 export const StandingsView: React.FC<StandingsViewProps> = ({ standings, is120minMode, myHtUserId, tournament }) => {
+  console.log('🏜💀👾 myHtUserId', myHtUserId);
+  console.log('🏜💀👾 standings', standings);
   return (
     <div className={styles.mainColumn}>
       <SectionCard title="🏆 Standings" headerThumbnailIndex={tournament?.thumbnail_index}>
@@ -55,27 +58,36 @@ export const StandingsView: React.FC<StandingsViewProps> = ({ standings, is120mi
                     <td className={styles.muted}>{idx + 1}</td>
                     <td className={styles.teamNameCell}>
                       <div className={styles.teamInfo}>
-                        <div className={styles.nameRow}>
-                          {s.logoUrl && <img src={s.logoUrl} alt={s.teamName} className={styles.standingLogo} />}
-                          <span className={styles.teamName}>
-                            {s.teamName}
-                            {isMyTeam && <span className={styles.myTeamBadge}> (You)</span>}
-                          </span>
-                          {s.joinedViaOauth && (
-                            <span title="Hattrick Validated Team">
-                              <Check size={14} weight="bold" className={styles.validatedIcon} />
+                        {s.logoUrl && <img src={s.logoUrl} alt={s.teamName} className={styles.standingLogo} />}
+                        <div className={styles.teamTextContainer}>
+                          <div className={styles.nameRow}>
+                            <span className={styles.teamName}>
+                              {s.teamName}
+                              {isMyTeam && <span className={styles.myTeamBadge}> (You)</span>}
                             </span>
-                          )}
-                          <a
-                            href={`https://www.hattrick.org/goto.ashx?path=/Club/?TeamID=${s.htTeamId}`}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className={styles.htLink}
-                          >
-                            <ArrowUpRight size={12} weight="bold" />
-                          </a>
+                            {s.joinedViaOauth && (
+                              <span title="Hattrick Validated Team">
+                                <ShieldCheck size={14} weight="bold" className={styles.validatedIcon} />
+                              </span>
+                            )}
+                            <a
+                              href={`https://www.hattrick.org/goto.ashx?path=/Club/?TeamID=${s.htTeamId}`}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className={styles.htLink}
+                            >
+                              <ArrowUpRight size={12} weight="bold" />
+                            </a>
+                          </div>
+                          <TeamByline
+                            countryName={s.countryName}
+                            countryId={s.countryId}
+                            teamId={s.htTeamId}
+                            managerName={s.managerName}
+                            managerHtId={s.hattrickUserId}
+                            mode="standings"
+                          />
                         </div>
-                        {s.htTeamId && <span className={styles.teamId}>ID: {s.htTeamId}</span>}
                       </div>
                     </td>
                     {is120minMode ? (

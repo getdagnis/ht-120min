@@ -8,10 +8,11 @@ import { Trophy, CalendarBlank, Medal, ArrowUpRight } from 'phosphor-react';
 import styles from './ProfileModal.module.sass';
 
 interface ProfileModalProps {
+  activeTournaments: ActiveTournament[];
   isOpen: boolean;
   onClose: () => void;
+  maxWidth?: string;
   profile: UserProfile | null;
-  activeTournaments: ActiveTournament[];
 }
 
 interface DBTeamWithTournament {
@@ -34,7 +35,7 @@ interface TeamInfo {
   tournament_slug: string;
 }
 
-export const ProfileModal: React.FC<ProfileModalProps> = ({ isOpen, onClose, profile }) => {
+export const ProfileModal: React.FC<ProfileModalProps> = ({ isOpen, maxWidth, onClose, profile }) => {
   const [teams, setTeams] = useState<TeamInfo[]>([]);
   const [loading, setLoading] = useState(false);
   const [searchParams, setSearchParams] = useSearchParams();
@@ -87,7 +88,7 @@ export const ProfileModal: React.FC<ProfileModalProps> = ({ isOpen, onClose, pro
   });
 
   return (
-    <Modal isOpen={isOpen} onClose={handleClose} title="Manager Profile">
+    <Modal isOpen={isOpen} onClose={handleClose} title="Manager Profile" maxWidth={maxWidth}>
       <div className={styles.profileContent}>
         <div className={styles.header}>
           <Avatar

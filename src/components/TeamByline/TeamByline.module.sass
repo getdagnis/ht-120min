@@ -1,0 +1,45 @@
+.teamExtraInfo
+  display: flex
+  align-items: center
+  gap: 0.4rem
+  font-family: var(--heading)
+  font-size: 0.75rem
+  color: var(--text60)
+  margin-top: 0.1rem
+  opacity: 0.8
+  letter-spacing: 0.02em
+
+  &.right
+    justify-content: flex-end
+
+.separator
+  opacity: 0.5
+  font-weight: 300
+  padding: 0 0.1rem
+
+.flagLink, .idLink, .managerLink, .managerNameLink
+  text-decoration: none !important
+  padding: 0 !important
+  color: inherit !important
+  display: flex
+  align-items: center
+  transition: opacity 0.2s, color 0.2s
+
+  &:hover
+    opacity: 1
+    color: var(--accent) !important
+
+.flagIcon
+  width: 16px
+  height: auto
+  object-fit: contain
+
+.managerNameLink
+  background: none
+  border: none
+  font: inherit
+  cursor: pointer
+  text-transform: uppercase
+
+.idLink, .managerLink
+  text-transform: uppercase

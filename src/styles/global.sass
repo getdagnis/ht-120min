@@ -13,6 +13,7 @@
   --borderWeak: #00000066
   --lighter: #ffffff77
   --darker: #291f1b11
+  --warning: rgb(245, 159, 0)
 
   --text: #292f39
   --text-h: #08090d
@@ -126,14 +127,14 @@ h4
   margin-top: 0
 
 a
-  color: var(--accent-2)
-  text-decoration: none
+  color: var(--text)
+  text-decoration: underline
+  text-decoration-style: dotted
+  text-decoration-color: var(--borderDark)
   transition: color 0.2s ease
   white-space: nowrap !important
-  padding: 0 0.25rem
-
   &:hover
-    color: var(--accent-2)
+    text-decoration: none
 
 button
   cursor: pointer
@@ -205,11 +206,12 @@ table
       font-size: 0.9rem
 
 .tooltip
-  background: #756f68e6 !important
-  color: #white !important
+  background: #5c5853 !important
+  color: white !important
+  opacity: 1 !important
 
   @media (prefers-color-scheme: dark)
     background: #1f2739 !important
 
   :global([data-theme='dark']) &
-    background: #060b19e6 !important
+    background: #060b19 !important

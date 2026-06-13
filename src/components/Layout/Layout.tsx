@@ -210,13 +210,14 @@ export const Layout: React.FC<LayoutProps> = ({ children }) => {
             © {new Date().getFullYear()}
             <a href="http://getdagnis.vercel.app" target="_blank">
               {' '}
-              mr_bots a.k.a. getdagnis 🇱🇻
-            </a>{' '}
+              mr_bots a.k.a. getdagnis
+            </a>
+            <span style={{ marginRight: '0.5rem' }}>🇱🇻</span>
             manager of{' '}
             <a href="https://www.hattrick.org/goto.ashx?path=/Club/?TeamID=681813" target="_blank">
-              This bot team is a bot 🇱🇻
-            </a>{' '}
-            and{' '}
+              This bot team is a bot
+            </a>
+            <span style={{ marginRight: '0.5rem' }}>🇱🇻</span> and{' '}
             <a href="https://www.hattrick.org/goto.ashx?path=/Club/?TeamID=3220518" target="_blank">
               Guåhan Goddesses 🇬🇺
             </a>
@@ -231,6 +232,7 @@ export const Layout: React.FC<LayoutProps> = ({ children }) => {
         onClose={() => navigate(location.pathname, { replace: true })}
         profile={profile}
         activeTournaments={activeTournaments}
+        maxWidth="620px"
       />
 
       <Analytics />
