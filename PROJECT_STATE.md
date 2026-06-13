@@ -1,43 +1,40 @@
 # Project State - HT-120 Tournament Manager
 
-## Technical Implementation Details
+## Core Platform Functionality
 
-### Data Fetching & Egress Optimization
+### 1. Identity & Hattrick Integration
 
-- **Egress Reduction**: Re-factored all `supabase.from(...).select('*')` queries in `TournamentView.tsx` to explicitly select only necessary fields. This drastically reduces the payload size and egress costs.
-- **Polling Strategy**: Implemented intelligent polling for the tournament chat. It fetches data on load, then uses `setInterval` with dynamic intervals (5s, 20s, or 60s) based on message activity (message age), balancing "live" feel with bandwidth efficiency.
+- **CHPP OAuth 1.0a**: Fully functional handshake flow (Request -> Authorize -> Access Token).
+- **Manager Profiles**: Centralized `profiles` table syncing manager names, home leagues, and Hattrick avatars.
+- **Global Profile Viewing**: Internal `ProfileModal` for inspecting any manager's Hattrick identity and registered teams.
 
-### UI/UX Refinement
+### 2. Tournament Management
 
-- **Standings Table**:
-  - Now displays `manager_name` for teams, fetched from the `teams` table.
-  - Uses a CSS Grid layout (2/3 main, 1/3 sidebar) to organize tournament data.
-- **Tournament Chat**:
-  - **UX**: Messages are aligned right (for current user, name hidden) and left (for others, name shown).
-  - **Emoji Detection**: Messages containing only 1-5 emojis (detected via `Intl.Segmenter`) are displayed with double font size (3rem).
-  - **System Messages**: Special rendering for administrative/system messages (`author_ht_id === 0`), which are centered and visually distinct (dashed border, centered text).
-  - **Performance**: Messages are container-scrollable (not page-scrollable) with `flex: 1` and `overflow-y: auto`.
-  - **Stability**: Fixed double-posting bug by relying exclusively on Supabase Realtime for state synchronization.
+- **Automated Participation**: Managers join tournaments by selecting from their real Hattrick teams (multi-team support).
+- **Flexible Scheduling**: Admin tools to generate Round Robin (Single/Double) or Recurring schedules.
+- **Fixture Warnings**: Automated detection of misarranged or missing friendlies by comparing Hattrick schedules with tournament fixtures.
 
-### Dev Environment Configuration
+### 3. Live Experience
 
-- **Live Match Simulator**: Added a playground section in the Admin tab to simulate match events (goals, cards, injuries, final score) in the tournament chat, preparing for automated live updates.
-- **vercel.json**: Updated `rewrites` to use the pattern `"/((?!.*\\.).*)"` to correctly distinguish between SPA routes and static assets, preventing local dev server crashes when resolving JS/CSS files.
-- **Git Tracking**: File is tracked to ensure production deployments work (`vercel --prod`), but local changes that would crash the dev server are handled via `git update-index --skip-worktree` or manual management.
+- **Live Match Tracking**: Real-time polling of ongoing matches with event detection (Goals, Cards, Injuries) and automated "Match Finished" transitions.
+- **Tournament Chat**: Per-tournament real-time communication with specialized "System Messages" for administrative reporting and match event simulation.
+- **News & Announcements**: Dedicated tab for official tournament updates and team-specific news posts.
 
-## Current Task State
+### 4. Administrative Controls
 
-1. [DONE] Define and implement `fixture_warnings` database schema.
-2. [DONE] Update `MatchWithTeams` interface and query to fetch manager data.
-3. [DONE] Finalize `FixtureCard.module.sass` (v3 mockup).
-4. [DONE] Implement `refresh-fixtures.ts` schedule-to-friendly comparison.
-5. [DONE] Integrate `FixtureCard` into `TournamentView.tsx` and implement refresh triggers.
-6. [DONE] Implement intelligent fixture refresh (15m rule) and optimized upcoming round check.
-7. [DONE] Implement Match ID storage for deep-linking.
-8. [DONE] URL-based tab deep-linking.
-9. [DONE] Admin recovery email UI & setup.
-10. [DONE] Image modal for tournament banner.
-11. [DONE] Isolate Join and Login OAuth flows, implement tournament participation safeguard, fix UI refresh on join, and reintroduce team logo fetching in creation flow.
-12. [DONE] **Live Match Tracking**: Backend polling, robust finish detection via Event 599, and automated UI state synchronization.
-13. [DONE] **Fixtures Tab Refinements**: Smart auto-expanding rounds (next, before, after), border highlight for upcoming round, forum-ready copy functionality (including next round), and result entry tooltips.
-14. [DONE] **Share on Hattrick**: Automated copy-paste table designed specifically for publishing on Hattrick tournaments with current round, next round results/fixtures and links to the tournament view.
+- **Admin Dashboard**: Full control over tournament settings, team registration, and manual result entry.
+- **Match Simulator**: Playground for admins to broadcast simulated match events to the community chat.
+- **Egress Optimization**: Precision data fetching (explicit field selection) to minimize bandwidth and egress costs.
+
+## Missing / In-Progress Functionality
+
+- **LeagueID Discrepancy**: Standardizing byline links to use the specific team's LeagueID instead of the manager's home league.
+- **Automated Challenges**: Implementation of `challenges.xml` to send friendly invites directly from the platform (requires CHPP write-access verification).
+- **Advanced Statistics**: Weekly round highlights, "120m Specialist" leaderboards, and historical performance tracking.
+- **Monetization (PRO)**: Infrastructure for premium tournament features and custom branding.
+
+## Recent Architectural Updates
+
+- **Chat Evolution**: Standardized `author_ht_id` tracking in `tournament_chat` to support both real managers and system-level administrative reporting (HT_ID 0).
+- **UI Unification**: Migrated metadata display to the `TeamByline` component for system-wide consistency in logo, flag, and link rendering.
+- **Constraint Refinement**: Decoupled chat authorship from strict profile foreign keys to allow for non-user system messages and improved stability during live updates.
