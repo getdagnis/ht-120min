@@ -1,5 +1,6 @@
 import React from 'react';
 import { SectionCard } from '../../components/Card/SectionCard';
+import { Button } from '../../components/Button/Button';
 import { FixtureCard } from '../../components/FixtureCard/FixtureCard';
 import { ArrowClockwise, CopySimple, Check } from 'phosphor-react';
 import { Tooltip } from 'react-tooltip';
@@ -298,9 +299,9 @@ export const FixturesView: React.FC<FixturesViewProps> = ({
       })}
       {visibleRoundsCount < rounds.length && (
         <div className={styles.formActionRow}>
-          <button onClick={() => setVisibleRoundsCount((prev: number) => prev + 4)} className={styles.refreshBtn}>
+          <Button variant="outline" onClick={() => setVisibleRoundsCount((prev: number) => prev + 4)}>
             Show More
-          </button>
+          </Button>
         </div>
       )}
     </div>

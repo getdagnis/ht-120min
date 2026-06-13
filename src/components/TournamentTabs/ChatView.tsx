@@ -56,12 +56,13 @@ export const ChatView: React.FC<ChatViewProps> = ({
   const [newChatContent, setNewChatContent] = useState('');
   const [searchParams, setSearchParams] = useSearchParams();
   const chatContainerRef = useRef<HTMLDivElement>(null);
+  const [visibleMessageCount, setVisibleMessageCount] = useState(20);
 
   useEffect(() => {
     if (chatContainerRef.current) {
       chatContainerRef.current.scrollTop = chatContainerRef.current.scrollHeight;
     }
-  }, [messages]);
+  }, [messages, visibleMessageCount]);
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -77,7 +78,15 @@ export const ChatView: React.FC<ChatViewProps> = ({
   return (
     <div className={styles.chatSection}>
       <div className={styles.chatMessages} ref={chatContainerRef}>
-        {messages.map((msg) => {
+        {messages.length > visibleMessageCount && (
+          <button 
+            className={styles.loadMoreBtn} 
+            onClick={() => setVisibleMessageCount(prev => prev + 20)}
+          >
+            Load More
+          </button>
+        )}
+        {messages.slice(-visibleMessageCount).map((msg) => {
           const isOwnMessage = msg.author_ht_id === myHtUserId;
           const isLeagueManager = leagueManagerIds.includes(msg.author_ht_id);
           const isSystem = msg.author_ht_id === 0;
