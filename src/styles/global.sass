@@ -9,6 +9,7 @@
   --brown: #e4ded6
   --brown-transp: #e4dcd09f
   --border: #a7a097d8
+  --border-transp: #a7a09755
   --borderDark: #29211d
   --borderWeak: #00000066
   --lighter: #ffffff77
@@ -71,6 +72,7 @@
   --bg-transp3: #0d172c50
   --bg-dark: #10132390
   --border: #3d495b7c
+  --border-transp: #3d495b33
   --borderDark: #e3e7edc6
   --borderWeak: #ffffff22
   --theme: #213552
@@ -128,7 +130,7 @@ h4
 
 a
   color: var(--text)
-  text-decoration: underline
+  text-decoration: none
   text-decoration-style: dotted
   text-decoration-color: var(--borderDark)
   transition: color 0.2s ease
@@ -206,12 +208,12 @@ table
       font-size: 0.9rem
 
 .tooltip
-  background: #5c5853 !important
+  background-color: #5c5853 !important
   color: white !important
   opacity: 1 !important
 
   @media (prefers-color-scheme: dark)
-    background: #1f2739 !important
+    background-color: #1f2739 !important
 
   :global([data-theme='dark']) &
     background: #060b19 !important

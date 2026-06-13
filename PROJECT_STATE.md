@@ -14,11 +14,14 @@
   - Uses a CSS Grid layout (2/3 main, 1/3 sidebar) to organize tournament data.
 - **Tournament Chat**:
   - **UX**: Messages are aligned right (for current user, name hidden) and left (for others, name shown).
+  - **Emoji Detection**: Messages containing only 1-5 emojis (detected via `Intl.Segmenter`) are displayed with double font size (3rem).
+  - **System Messages**: Special rendering for administrative/system messages (`author_ht_id === 0`), which are centered and visually distinct (dashed border, centered text).
   - **Performance**: Messages are container-scrollable (not page-scrollable) with `flex: 1` and `overflow-y: auto`.
   - **Stability**: Fixed double-posting bug by relying exclusively on Supabase Realtime for state synchronization.
 
 ### Dev Environment Configuration
 
+- **Live Match Simulator**: Added a playground section in the Admin tab to simulate match events (goals, cards, injuries, final score) in the tournament chat, preparing for automated live updates.
 - **vercel.json**: Updated `rewrites` to use the pattern `"/((?!.*\\.).*)"` to correctly distinguish between SPA routes and static assets, preventing local dev server crashes when resolving JS/CSS files.
 - **Git Tracking**: File is tracked to ensure production deployments work (`vercel --prod`), but local changes that would crash the dev server are handled via `git update-index --skip-worktree` or manual management.
 

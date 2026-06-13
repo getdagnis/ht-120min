@@ -137,8 +137,11 @@ export const FixturesView: React.FC<FixturesViewProps> = ({
           <SectionCard
             key={round.id}
             className={isNextRound ? styles.upcomingRound : ''}
+            collapsible
+            isCollapsed={!isExpanded}
+            onToggleCollapse={() => toggleRound(round.id)}
             title={
-              <div className={styles.roundHeader} onClick={() => toggleRound(round.id)} style={{ cursor: 'pointer' }}>
+              <div className={styles.roundHeader}>
                 <>
                   <span>Round {round.round_number}</span>
                   {roundDate && (
@@ -146,16 +149,17 @@ export const FixturesView: React.FC<FixturesViewProps> = ({
                       {roundDate.toLocaleDateString('lv-LV', { day: '2-digit', month: '2-digit', year: 'numeric' })}
                     </span>
                   )}
-                  {isExpanded ? <CaretUp size={18} /> : <CaretDown size={18} />}
                 </>
               </div>
             }
             headerRight={
               allFinished || isNextRound ? (
-                <div className={styles.fixturesControls}>
+                <div className={styles.fixturesControls} onClick={(e) => e.stopPropagation()}>
                   {allFinished ? (
                     <>
-                      <span className={styles.lastRefresh}>Copy for HT forums:</span>
+                      <span className={styles.lastRefresh}>
+                        <div className="hideOnMobile">Copy for HT forums:</div>
+                      </span>
                       <button
                         className={styles.refreshBtn}
                         onClick={handleCopy}
@@ -172,13 +176,15 @@ export const FixturesView: React.FC<FixturesViewProps> = ({
                   ) : (
                     <>
                       {isNextRound && tournament?.last_fixtures_refresh && (
-                        <span className={styles.lastRefresh}>
-                          {isRefreshingFixtures ? 'Checking...' : 'Last checked: '}
-                          {!isRefreshingFixtures &&
-                            new Date(tournament.last_fixtures_refresh).toLocaleTimeString('en-GB', {
-                              hour: '2-digit',
-                              minute: '2-digit',
-                            })}
+                        <span className="hideOnMobile">
+                          <span className={styles.lastRefresh}>
+                            {isRefreshingFixtures ? 'Checking...' : 'Last checked: '}
+                            {!isRefreshingFixtures &&
+                              new Date(tournament.last_fixtures_refresh).toLocaleTimeString('en-GB', {
+                                hour: '2-digit',
+                                minute: '2-digit',
+                              })}
+                          </span>
                         </span>
                       )}
                       <button

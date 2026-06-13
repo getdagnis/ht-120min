@@ -212,22 +212,22 @@ export const Layout: React.FC<LayoutProps> = ({ children }) => {
         <div className={styles.container}>
           <p>
             © {new Date().getFullYear()}
+            <span className="mr-sm" />
             <a href="http://getdagnis.vercel.app" target="_blank">
-              {' '}
               mr_bots a.k.a. getdagnis
             </a>
-            <span style={{ marginRight: '0.5rem' }}>🇱🇻</span>
+            <span style={{ marginRight: '0.25rem' }}>🇱🇻</span>
             manager of{' '}
             <a href="https://www.hattrick.org/goto.ashx?path=/Club/?TeamID=681813" target="_blank">
               This bot team is a bot
             </a>
-            <span style={{ marginRight: '0.5rem' }}>🇱🇻</span> and{' '}
+            <span style={{ marginRight: '0.25rem' }}>🇱🇻</span> and{' '}
             <a href="https://www.hattrick.org/goto.ashx?path=/Club/?TeamID=3220518" target="_blank">
               Guåhan Goddesses 🇬🇺
             </a>
             <b />
           </p>
-          <p>Not affiliated with Hattrick.org.</p>
+          <p>Not affiliated with Hattrick Ltd.</p>
         </div>
       </footer>
 

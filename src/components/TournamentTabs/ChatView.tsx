@@ -27,6 +27,25 @@ interface ChatViewProps {
   teamNames: Record<number, string>;
 }
 
+const isBigEmojiMessage = (content: string): boolean => {
+  const trimmed = content.trim();
+  if (!trimmed) return false;
+
+  // Use Intl.Segmenter to split the string into actual visual "characters" (graphemes)
+  // This correctly handles ZWJ sequences (families) and skin tone modifiers as 1 unit.
+  const segments = Array.from(new Intl.Segmenter('en', { granularity: 'grapheme' }).segment(trimmed));
+
+  // Filter out whitespace
+  const nonSpaceSegments = segments.filter((s) => s.segment.trim().length > 0);
+
+  // Check: Must have 1-5 segments, and every segment must be an emoji
+  return (
+    nonSpaceSegments.length > 0 &&
+    nonSpaceSegments.length <= 5 &&
+    nonSpaceSegments.every((s) => /\p{Extended_Pictographic}/u.test(s.segment))
+  );
+};
+
 export const ChatView: React.FC<ChatViewProps> = ({
   messages,
   onSendMessage,
@@ -61,6 +80,21 @@ export const ChatView: React.FC<ChatViewProps> = ({
         {messages.map((msg) => {
           const isOwnMessage = msg.author_ht_id === myHtUserId;
           const isLeagueManager = leagueManagerIds.includes(msg.author_ht_id);
+          const isSystem = msg.author_ht_id === 0;
+          const isBigEmoji = isBigEmojiMessage(msg.content);
+
+          if (isSystem) {
+            return (
+              <div key={msg.id} className={styles.systemMessage}>
+                <div className={styles.systemMessageContent}>
+                  <span className={styles.chatContent}>{msg.content}</span>
+                  <span className={styles.chatTime}>
+                    {new Date(msg.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                  </span>
+                </div>
+              </div>
+            );
+          }
 
           return (
             <div
@@ -68,25 +102,31 @@ export const ChatView: React.FC<ChatViewProps> = ({
               className={`${styles.chatMessage} ${isOwnMessage ? styles.ownMessage : styles.otherMessage} ${!isLeagueManager && !isOwnMessage ? styles.externalManager : ''}`}
             >
               <div className={styles.chatMessageContent}>
-                <button
-                  onClick={() => handleOpenProfile(msg.author_ht_id)}
-                  className={styles.chatAuthor}
-                  data-tooltip-id={`author-tooltip-${msg.id}`}
-                >
-                  {msg.author_name}
-                </button>
-                <Tooltip id={`author-tooltip-${msg.id}`} className={styles.chatAuthorTooltip}>
-                  <div className={styles.tooltipAvatar}>
-                    <Avatar
-                      backgroundImage={msg.profiles?.avatar_json?.backgroundImage}
-                      layers={msg.profiles?.avatar_json?.layers}
-                      className={styles.tooltipAvatarImg}
-                    />
-                  </div>
-                  <span className={styles.tooltipTeamName}>{teamNames[msg.author_ht_id] || 'Guest'}</span>
-                </Tooltip>
-                <div className={styles.chatBubble}>
-                  <span className={styles.chatContent}>{msg.content}</span>
+                {!isOwnMessage && (
+                  <>
+                    <button
+                      onClick={() => handleOpenProfile(msg.author_ht_id)}
+                      className={styles.chatAuthor}
+                      data-tooltip-id={`author-tooltip-${msg.id}`}
+                    >
+                      {msg.author_name}
+                    </button>
+                    <Tooltip id={`author-tooltip-${msg.id}`} className={styles.chatAuthorTooltip}>
+                      <div className={styles.tooltipAvatar}>
+                        <Avatar
+                          backgroundImage={msg.profiles?.avatar_json?.backgroundImage}
+                          layers={msg.profiles?.avatar_json?.layers}
+                          className={styles.tooltipAvatarImg}
+                        />
+                      </div>
+                      <span className={styles.tooltipTeamName}>{teamNames[msg.author_ht_id] || 'Guest'}</span>
+                    </Tooltip>
+                  </>
+                )}
+                <div className={`${styles.chatBubble} ${isBigEmoji ? styles.bigEmojiBubble : ''}`}>
+                  <span className={`${styles.chatContent} ${isBigEmoji ? styles.bigEmoji : ''}`}>
+                    {msg.content}
+                  </span>
                 </div>
                 <span className={styles.chatTime}>
                   {new Date(msg.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}

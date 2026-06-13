@@ -151,6 +151,7 @@ export const TournamentView: React.FC = () => {
   const [newNewsContent, setNewNewsContent] = useState('');
   const [isPostingNews, setIsPostingNews] = useState(false);
   const [newsMode, setNewsMode] = useState<'admin' | 'team'>('team');
+  const [adminChatContent, setAdminChatContent] = useState('');
 
   // Chat states
   const [chatMessages, setChatMessages] = useState<any[]>([]);
@@ -759,6 +760,21 @@ export const TournamentView: React.FC = () => {
         content: content.trim(),
         author_ht_id: myHtId ? parseInt(myHtId) : null,
       });
+    } catch (err: any) {
+      alert(err.message);
+    }
+  };
+
+  const handlePostAdminChat = async (content: string) => {
+    if (!content.trim() || !tournament) return;
+    try {
+      await supabase.from('tournament_chat').insert({
+        tournament_id: tournament.id,
+        author_name: 'Tournament Administration',
+        content: content.trim(),
+        author_ht_id: 0, // Special ID for system/admin messages
+      });
+      setAdminChatContent('');
     } catch (err: any) {
       alert(err.message);
     }
@@ -2304,7 +2320,65 @@ export const TournamentView: React.FC = () => {
                 <Tooltip id="admin-tooltip" />
               </div>
 
+              <div className={adminStyles.simulatorSection}>
+                <h3 className={adminStyles.sectionTitle}>Live Match Simulator (Playground)</h3>
+                <p className={adminStyles.smallNote}>
+                  Send simulated match event messages as "Tournament Administration" to the chat.
+                </p>
+
+                <div className={adminStyles.simulatorGrid}>
+                  <div className={adminStyles.simulatorActions}>
+                    <Button
+                      variant="secondary"
+                      size="sm"
+                      onClick={() => handlePostAdminChat('⚽ GOAL! Team A scores against Team B! (1-0)')}
+                    >
+                      ⚽ Goal
+                    </Button>
+                    <Button
+                      variant="secondary"
+                      size="sm"
+                      onClick={() => handlePostAdminChat('🟨 Yellow Card for Player X (Team A)')}
+                    >
+                      🟨 Card
+                    </Button>
+                    <Button
+                      variant="secondary"
+                      size="sm"
+                      onClick={() => handlePostAdminChat('🏥 Injury: Player Y (Team B) has been stretched off.')}
+                    >
+                      🏥 Injury
+                    </Button>
+                    <Button
+                      variant="secondary"
+                      size="sm"
+                      onClick={() => handlePostAdminChat('🏁 FINAL SCORE: Team A 2 - 1 Team B')}
+                    >
+                      🏁 Final
+                    </Button>
+                  </div>
+
+                  <div className={adminStyles.customSim}>
+                    <input
+                      type="text"
+                      value={adminChatContent}
+                      onChange={(e) => setAdminChatContent(e.target.value)}
+                      placeholder="Custom event message..."
+                      className={adminStyles.simInput}
+                    />
+                    <Button
+                      variant="primary"
+                      size="sm"
+                      onClick={() => handlePostAdminChat(adminChatContent)}
+                    >
+                      Send
+                    </Button>
+                  </div>
+                </div>
+              </div>
+
               <div className={adminStyles.footerActions}>
+
                 <Button variant="outline" size="sm" onClick={() => window.confirm('Pause this tournament?')}>
                   Pause Tournament
                 </Button>
@@ -2331,7 +2405,10 @@ export const TournamentView: React.FC = () => {
 
       <Modal isOpen={isEditingImage} onClose={() => setIsEditingImage(false)} title="Update Tournament Image">
         <div className={styles.modalContent}>
-          <p>Link to an external image URL (e.g., Imgur, Hattrick logo, etc.)</p>
+          <p>
+            Link to an external image URL (e.g., Imgur, Hattrick logo, etc.). Make sure it's the address of image itself
+            (right click + copy image address)
+          </p>
           <div className={adminStyles.field}>
             <label>Image URL</label>
             <input
