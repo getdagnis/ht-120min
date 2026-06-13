@@ -530,7 +530,7 @@ export const TOURNAMENT_DEFAULT: string[] = [
   'Fielding strikers is for 90 min friendlies people',
   'The road to 120 starts with 5-5-0, defensive and Pressing',
   'Just pressing the 120 mins out of this cup rule friendly',
-  "When opponent's Pressing matters just as much as yours, rivals turn into friends",
+  'When opponent tactics matter as much as yours, rivals become friends',
   'Pressing, 5-5-0 and all defensive is the new dresscode',
   "If Pressing, 5-5-0 and all defensive doesn't help, try Hope",
   '"It is fun to think in reverse, as in "how to score the least goals." — CCalm',

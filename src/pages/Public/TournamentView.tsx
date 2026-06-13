@@ -704,14 +704,35 @@ export const TournamentView: React.FC = () => {
     if (activeTab !== 'standings' || !tournament) return;
 
     const fetchChat = async () => {
-      const { data, error } = await supabase
+      const { data: chatData, error: chatError } = await supabase
         .from('tournament_chat')
-        .select('*, profiles(avatar_json)')
+        .select('*')
         .eq('tournament_id', tournament.id)
         .order('created_at', { ascending: true });
 
-      if (error) return;
-      setChatMessages(data || []);
+      if (chatError || !chatData) return;
+
+      const authorIds = [...new Set(chatData.map((m) => m.author_ht_id).filter((id) => id && id !== 0))];
+
+      if (authorIds.length > 0) {
+        const { data: profileData } = await supabase
+          .from('profiles')
+          .select('hattrick_user_id, avatar_json')
+          .in('hattrick_user_id', authorIds);
+
+        const profileMap = Object.fromEntries(
+          (profileData || []).map((p) => [p.hattrick_user_id, { avatar_json: p.avatar_json }]),
+        );
+
+        setChatMessages(
+          chatData.map((m) => ({
+            ...m,
+            profiles: m.author_ht_id ? profileMap[m.author_ht_id] : null,
+          })),
+        );
+      } else {
+        setChatMessages(chatData);
+      }
     };
 
     fetchChat();
