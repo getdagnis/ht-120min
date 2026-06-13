@@ -20,9 +20,16 @@
   text-align: center
 
 .heroCard
-  padding-bottom: 1rem
-  margin-bottom: 1.5rem
-  width: 100%
+  top: 0
+  left: 0
+  padding: 0
+  margin: 3rem 0 1.5rem
+  width: 100vw
+  max-width: 100vw
+  margin-left: calc(50% - 50vw)
+  margin-right: calc(50% - 50vw)
+  border-radius: 0
+  overflow: hidden
   z-index: -1
 
 .hero
@@ -40,9 +47,12 @@
     color: white
 
 .heroImg
+  display: block
+  width: 100%
+  max-width: none
+  height: auto
   max-height: 48vh
-  max-width: 96vw
-  margin-bottom: .5rem
+  margin: 0 0 0.5rem
 
 .heroIcon
   color: white
@@ -164,6 +174,11 @@
   transition: all 0.2s ease
   padding-bottom: 0
 
+  @media (max-width: 620px)
+    display: flex
+    flex-direction: row
+    align-items: stretch
+
 .tInfo
   display: flex
   flex-direction: column
@@ -175,6 +190,11 @@
   align-items: center
   gap: 1rem
 
+  @media (max-width: 620px)
+    flex-direction: column
+    align-items: flex-start
+    gap: 0.25rem
+
 .tName
   margin: 0
   font-size: 1.75rem
@@ -182,6 +202,11 @@
   white-space: nowrap
   overflow: hidden
   text-overflow: ellipsis
+
+  @media (max-width: 620px)
+    white-space: normal
+    font-size: 1.3rem
+    line-height: 1.05
 
 .tMeta
   display: flex
@@ -195,6 +220,11 @@
     align-items: center
     gap: 0.4rem
 
+  @media (max-width: 620px)
+    flex-direction: column
+    gap: 0.35rem
+    font-size: 0.75rem
+
 .nextMatch
   color: var(--accent)
   font-weight: 600
@@ -205,6 +235,9 @@
   gap: 0.4rem
   margin-top: 0.25rem
   padding-right: 1.5rem
+
+  @media (max-width: 620px)
+    display: none
 
 .teamChip, .teamChipMore
   font-size: 0.7rem

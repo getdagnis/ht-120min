@@ -7,11 +7,11 @@ import {
   Moon,
   Plus,
   ArrowRight,
-  User,
   CaretDown,
   IdentificationCard,
   SignOut,
   Clock,
+  User,
 } from 'phosphor-react';
 import { scroller } from 'react-scroll';
 import { Button } from '../Button/Button';
@@ -110,17 +110,20 @@ export const Layout: React.FC<LayoutProps> = ({ children }) => {
                 {theme === 'dark' ? <Sun size={20} weight="bold" /> : <Moon size={20} weight="bold" />}
               </Button>
 
-              <Button size="sm" onClick={handleActionClick} variant="zero" className={styles.actionBtn}>
-                {isCreatePage ? (
-                  <>
-                    <ArrowRight size={18} weight="bold" /> <span className={styles.hideMobile}>JOIN A TOURNAMENT</span>
-                  </>
-                ) : (
-                  <>
-                    <Plus size={18} weight="bold" /> <span className={styles.hideMobile}>CREATE TOURNAMENT</span>
-                  </>
-                )}
-              </Button>
+              <div className="hideOnMobile">
+                <Button size="sm" onClick={handleActionClick} variant="zero" className={styles.actionBtn}>
+                  {isCreatePage ? (
+                    <>
+                      <ArrowRight size={18} weight="bold" />{' '}
+                      <span className={styles.hideMobile}>JOIN A TOURNAMENT</span>
+                    </>
+                  ) : (
+                    <>
+                      <Plus size={18} weight="bold" /> <span className={styles.hideMobile}>CREATE TOURNAMENT</span>
+                    </>
+                  )}
+                </Button>
+              </div>
 
               <div className={styles.userContainer} ref={dropdownRef}>
                 {managerName ? (
