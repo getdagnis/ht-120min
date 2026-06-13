@@ -1,5 +1,5 @@
 import React from 'react';
-import { ArrowRight, ArrowUpRight, Info } from 'phosphor-react';
+import { ArrowUpRight, Info } from 'phosphor-react';
 import { Tooltip } from 'react-tooltip';
 import { TeamByline } from '../TeamByline/TeamByline';
 import styles from './FixtureCard.module.sass';
@@ -24,6 +24,7 @@ interface FixtureCardProps {
   htMatchId?: number;
   matchType?: number;
   is120minMode?: boolean;
+  scoring_mode?: string;
 }
 
 const MATCH_TYPES: Record<number, { initials: string; description: string }> = {

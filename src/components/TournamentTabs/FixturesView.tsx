@@ -51,6 +51,7 @@ interface FixturesViewProps {
   toggleRound: (roundId: string) => void;
   tournament: {
     id: string;
+    scoring_mode?: string;
     name: string;
     slug: string;
     created_at: string;
@@ -96,7 +97,11 @@ export const FixturesView: React.FC<FixturesViewProps> = ({
         const nextRound = rounds[rounds.findIndex((r) => r.id === round.id) + 1];
 
         const roundDate = round.matches[0]
-          ? calculateMatchDate(tournament?.created_at || '', round.round_number, round.matches[0].home_team?.country_name)
+          ? calculateMatchDate(
+              tournament?.created_at || '',
+              round.round_number,
+              round.matches[0].home_team?.country_name,
+            )
           : null;
 
         const formatMatch = (m: FixtureMatch, isNext: boolean, roundNum: number) =>
@@ -249,38 +254,36 @@ export const FixturesView: React.FC<FixturesViewProps> = ({
                         : undefined;
 
                   return (
-                  <FixtureCard
-                  key={match.id}
-                  date={status === 'misarranged' ? '' : formattedDate}
-                  status={status}
-                  htMatchId={match.ht_match_id || undefined}
-                  score={currentScore}
-                  matchType={match.match_type || undefined}
-                  is120minMode={tournament?.scoring_mode === '120min'}
-                  homeTeam={{
-                    name: match.home_team?.name || 'BYE',
-                    managerName: match.home_team?.manager_name || 'UNKNOWN',
-                    managerHtId: match.home_team?.hattrick_user_id,
-                    htTeamId: match.home_team?.ht_team_id || 0,
-                    logoUrl: match.home_team?.logo_url,
-                    warning: homeWarning?.type,
-                    countryName: match.home_team?.country_name,
-                    countryId: match.home_team?.country_id,
-                  }}
-                  awayTeam={{
-                    name: match.away_team?.name || 'BYE',
-                    managerName: match.away_team?.manager_name || 'UNKNOWN',
-                    managerHtId: match.away_team?.hattrick_user_id,
-                    htTeamId: match.away_team?.ht_team_id || 0,
-                    logoUrl: match.away_team?.logo_url,
-                    warning: awayWarning?.type,
-                    countryName: match.away_team?.country_name,
-                    countryId: match.away_team?.country_id,
-                  }}
-                  />
-
+                    <FixtureCard
+                      key={match.id}
+                      date={status === 'misarranged' ? '' : formattedDate}
+                      status={status}
+                      htMatchId={match.ht_match_id || undefined}
+                      score={currentScore}
+                      matchType={match.match_type || undefined}
+                      is120minMode={tournament?.scoring_mode === '120min'}
+                      homeTeam={{
+                        name: match.home_team?.name || 'BYE',
+                        managerName: match.home_team?.manager_name || 'UNKNOWN',
+                        managerHtId: match.home_team?.hattrick_user_id,
+                        htTeamId: match.home_team?.ht_team_id || 0,
+                        logoUrl: match.home_team?.logo_url,
+                        warning: homeWarning?.type,
+                        countryName: match.home_team?.country_name,
+                        countryId: match.home_team?.country_id,
+                      }}
+                      awayTeam={{
+                        name: match.away_team?.name || 'BYE',
+                        managerName: match.away_team?.manager_name || 'UNKNOWN',
+                        managerHtId: match.away_team?.hattrick_user_id,
+                        htTeamId: match.away_team?.ht_team_id || 0,
+                        logoUrl: match.away_team?.logo_url,
+                        warning: awayWarning?.type,
+                        countryName: match.away_team?.country_name,
+                        countryId: match.away_team?.country_id,
+                      }}
+                    />
                   );
-
                 })}
               </div>
             )}
