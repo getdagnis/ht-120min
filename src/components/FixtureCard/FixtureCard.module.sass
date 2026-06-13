@@ -243,5 +243,11 @@
     background-color: crimson
     color: white
   &.finished
-    background-color: #605f5d
-    color: #fff
+    background-color: transparent
+    color: var(--text-h)
+    border: 0.1rem solid var(--text-h)
+    transition: all 0.3s ease
+    &:hover
+      background: white
+      color: black
+      border: 0.1rem solid black

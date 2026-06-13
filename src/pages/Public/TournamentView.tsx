@@ -2366,7 +2366,7 @@ export const TournamentView: React.FC = () => {
                     <Button
                       variant="secondary"
                       size="sm"
-                      onClick={() => handlePostAdminChat('🏥 Injury: Player Y (Team B) has been stretched off.')}
+                      onClick={() => handlePostAdminChat('💥🥊 Injury: Player Y (Team B) has been stretched off.')}
                     >
                       🏥 Injury
                     </Button>
@@ -2387,11 +2387,7 @@ export const TournamentView: React.FC = () => {
                       placeholder="Custom event message..."
                       className={adminStyles.simInput}
                     />
-                    <Button
-                      variant="primary"
-                      size="sm"
-                      onClick={() => handlePostAdminChat(adminChatContent)}
-                    >
+                    <Button variant="primary" size="sm" onClick={() => handlePostAdminChat(adminChatContent)}>
                       Send
                     </Button>
                   </div>
@@ -2399,7 +2395,6 @@ export const TournamentView: React.FC = () => {
               </div>
 
               <div className={adminStyles.footerActions}>
-
                 <Button variant="outline" size="sm" onClick={() => window.confirm('Pause this tournament?')}>
                   Pause Tournament
                 </Button>
