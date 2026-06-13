@@ -32,9 +32,12 @@
 - **Automated Challenges**: Implementation of `challenges.xml` to send friendly invites directly from the platform (requires CHPP write-access verification).
 - **Advanced Statistics**: Weekly round highlights, "120m Specialist" leaderboards, and historical performance tracking.
 - **Monetization (PRO)**: Infrastructure for premium tournament features and custom branding.
+- **Tournament roles**: Participants should be able to apply and with admin's accept fill specific tournament roles, such as "press secretary" and more (needs a list)
 
 ## Recent Architectural Updates
 
 - **Chat Evolution**: Standardized `author_ht_id` tracking in `tournament_chat` to support both real managers and system-level administrative reporting (HT_ID 0).
 - **UI Unification**: Migrated metadata display to the `TeamByline` component for system-wide consistency in logo, flag, and link rendering.
 - **Constraint Refinement**: Decoupled chat authorship from strict profile foreign keys to allow for non-user system messages and improved stability during live updates.
+- **API documentation**: Structured API documentation added to the project, including Hattrick match types and schedules
+- **Manual site-wide UI responsiveness updates by user**: Making sure the features already present look great on every type of screen

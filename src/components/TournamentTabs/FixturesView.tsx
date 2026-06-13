@@ -177,8 +177,8 @@ export const FixturesView: React.FC<FixturesViewProps> = ({
                   ) : (
                     <>
                       {isNextRound && tournament?.last_fixtures_refresh && (
-                        <span className="hideOnMobile">
-                          <span className={styles.lastRefresh}>
+                        <span className={styles.lastRefresh}>
+                          <span className="hideOnMobile">
                             {isRefreshingFixtures ? 'Checking...' : 'Last checked: '}
                             {!isRefreshingFixtures &&
                               new Date(tournament.last_fixtures_refresh).toLocaleTimeString('en-GB', {

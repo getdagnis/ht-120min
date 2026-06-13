@@ -6,6 +6,7 @@ import { supabase } from '../../lib/supabase';
 import adminStyles from './TournamentAdmin.module.sass';
 import styles from './TournamentView.module.sass';
 import { calculateMatchDate } from '../../utils/ht-data';
+import { getTournamentBackgroundStyle } from '../../utils/visuals';
 import { calculateStandings } from '../../utils/standings';
 import type { TeamStanding } from '../../utils/standings';
 import { generateRecurring, generateRoundRobin } from '../../utils/scheduler';
@@ -1415,10 +1416,12 @@ export const TournamentView: React.FC = () => {
               }
             }}
           >
-            {tournament?.image_url ? (
-              <div className={styles.tournamentImage} style={{ backgroundImage: `url(${tournament?.image_url})` }} />
-            ) : (
-              isAdminAuthenticated && <div className={styles.placeholderMessage}>Click to add image URL</div>
+            <div
+              className={styles.tournamentImage}
+              style={getTournamentBackgroundStyle(tournament?.id || '', tournament?.image_url)}
+            />
+            {!tournament?.image_url && isAdminAuthenticated && (
+              <div className={styles.placeholderMessage}>Click to add image URL</div>
             )}
             {isAdminAuthenticated && (
               <div

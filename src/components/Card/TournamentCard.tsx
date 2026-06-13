@@ -1,8 +1,10 @@
 import React from 'react';
 import styles from './TournamentCard.module.sass';
 import { getLeagueIdByName } from '../../utils/leagues';
+import { getTournamentBackgroundStyle } from '../../utils/visuals';
 
 interface TournamentCardProps {
+  id: string;
   children: React.ReactNode;
   className?: string;
   thumbnailIndex?: number;
@@ -17,6 +19,7 @@ interface TournamentCardProps {
 }
 
 export const TournamentCard: React.FC<TournamentCardProps> = ({
+  id,
   children,
   className = '',
   thumbnailIndex,
@@ -26,19 +29,14 @@ export const TournamentCard: React.FC<TournamentCardProps> = ({
   scoringMode,
   leagueCategory,
 }) => {
-  const bgImage = imageUrl ? imageUrl : `/thumbs/thumb-${thumbnailIndex}.png`;
+  const bgStyle = getTournamentBackgroundStyle(id, imageUrl);
   const countryId = countryLimit ? getLeagueIdByName(countryLimit) : undefined;
-
-  console.log('🏜💀👾 leagueCategory', leagueCategory);
-  console.log('🏜💀👾 scoringMode', scoringMode);
 
   return (
     <div className={`${styles.card} ${className}`}>
-      {(thumbnailIndex !== undefined || imageUrl) && (
-        <div className={styles.thumbnailWrapper} style={{ backgroundImage: `url(${bgImage})` }}>
-          {isActiveInviting && <div className={styles.invitingBadge}>Actively Inviting</div>}
-        </div>
-      )}
+      <div className={styles.thumbnailWrapper} style={bgStyle}>
+        {isActiveInviting && <div className={styles.invitingBadge}>Actively Inviting</div>}
+      </div>
       <div className={styles.mainContent}>
         {children}
         <div className={styles.badges}>
