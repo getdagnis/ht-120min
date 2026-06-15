@@ -593,7 +593,7 @@ export const CreateTournament: React.FC = () => {
                       checked={formData.is_private}
                       onChange={(e) => setFormData({ ...formData, is_private: e.target.checked })}
                     />
-                    Private or Test Tournament (unlisted on home page)
+                    Private or "just testing" tournament (unlisted on home page)
                   </label>
                 </div>
                 <div className={styles.field}>

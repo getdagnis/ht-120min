@@ -1,6 +1,9 @@
 # Engineering Standards
 
 - **Strict Typing**: NEVER use `any` as a type. Always define proper interfaces or use specific types (including `unknown` with type guards if necessary) to ensure type safety and successful builds.
+- **NO ANY types**: Read the rule above.
+- **NO unused variables**: they cause build errors and forbid deploys.
+- **No synchronysed setState updates**: watch out for errors such as "Error: Calling setState synchronously within an effect can trigger cascading renders. Effects are intended to synchronize state between React and external systems such as manually updating the DOM, state management libraries, or other platform APIs. Calling setState synchronously within an effect body causes cascading renders that can hurt performance and even exhaust available Supabase Esgress traffic allowance.
 - **Testing**: Always add or update tests for any code changes.
 - **Validation**: Exhaustive verification is mandatory.
 - **User Added Content**: Try to not use `write_file` - opt for surgical edits instead. If absolutely required to use it, ask user first and do a full check of the latest file version for potential user modified content first.

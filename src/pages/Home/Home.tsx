@@ -7,7 +7,7 @@ import { HeroCard } from '../../components/Card/HeroCard';
 import { TournamentCard } from '../../components/Card/TournamentCard';
 import { SectionCard } from '../../components/Card/SectionCard';
 import { MottoWidget } from '../../components/MottoWidget/MottoWidget';
-import { FriendlyMarketplace } from '../../components/FriendlyMarketplace/FriendlyMarketplace';
+import { MatchmakerTeaser } from '../../components/FriendlyHub/MatchmakerTeaser';
 import { Link as ScrollTo, Element } from 'react-scroll';
 import { calculateMatchDate } from '../../utils/ht-data';
 import { Trophy, CalendarBlank, Heartbeat, CaretLeft, ArrowRight, Star, Clock } from 'phosphor-react';
@@ -261,16 +261,16 @@ export const Home: React.FC = () => {
               <h1 className={styles.hiddenH1}>HT-120min</h1>
               <img src="/hero-logo-2.png" alt="HT-120min" className={styles.heroImg} />
               <p className={styles.subtitle}>
-                Organize 120 min tournaments and recurring friendlies with ease by getting together with other like-minded
-                Hattrick managers.
+                Organize 120 min tournaments and recurring friendlies with ease by getting together with other
+                like-minded Hattrick managers.
               </p>
               <div className={styles.ctaBtns}>
-                <Button size="lg" onClick={() => navigate('/create')} variant="secondaryInverse">
-                  <Trophy size={22} weight="bold" /> Create Tournament
+                <Button size="lg" onClick={() => navigate('/create')} variant="secondaryYellow">
+                  <Trophy size={22} weight="regular" /> Create Tournament
                 </Button>
                 <ScrollTo to="opentours" smooth={true} duration={600} offset={-80}>
                   <Button size="lg" variant="secondaryHero">
-                    <ArrowRight size={22} weight="bold" /> Join Tournament
+                    <ArrowRight size={22} weight="regular" /> Join Tournament
                   </Button>
                 </ScrollTo>
               </div>
@@ -283,7 +283,7 @@ export const Home: React.FC = () => {
             {activeTournaments.length > 0 && (
               <section className={styles.activeSection}>
                 <div className={styles.sectionHeader}>
-                  <Heartbeat size={24} weight="bold" className={styles.sectionIcon} />
+                  <Heartbeat size={24} weight="regular" className={styles.sectionIcon} />
                   <h2>Tournaments Having a Blast</h2>
                 </div>
                 <div className={styles.tournamentGrid}>
@@ -301,15 +301,15 @@ export const Home: React.FC = () => {
                         <div className={styles.tInfo}>
                           <div className={styles.tTitleRow}>
                             <h3 className={styles.tName}>{t.name}</h3>
-                            <CaretLeft size={18} weight="bold" className={styles.tArrow} />
+                            <CaretLeft size={18} weight="regular" className={styles.tArrow} />
                           </div>
                           <div className={styles.tMeta}>
                             <span title="Completed Matches">
-                              <Trophy size={14} weight="bold" /> {t.completedMatches} / {t.totalMatches} matches
+                              <Trophy size={14} weight="regular" /> {t.completedMatches} / {t.totalMatches} matches
                             </span>
                             {t.nextMatchDate && (
                               <span title="Next Match" className={styles.nextMatch}>
-                                <Clock size={14} weight="bold" /> Next:{' '}
+                                <Clock size={14} weight="regular" /> Next:{' '}
                                 {t.nextMatchDate.toLocaleDateString('lv-LV', {
                                   day: '2-digit',
                                   month: '2-digit',
@@ -342,7 +342,7 @@ export const Home: React.FC = () => {
             {openTournaments.length > 0 && (
               <section className={styles.activeSection}>
                 <div className={styles.sectionHeader}>
-                  <ArrowRight size={24} weight="bold" className={styles.sectionIcon} />
+                  <ArrowRight size={24} weight="regular" className={styles.sectionIcon} />
                   <h2>Open for Registration</h2>
                 </div>
 
@@ -361,14 +361,14 @@ export const Home: React.FC = () => {
                         <div className={styles.tInfo}>
                           <div className={styles.tTitleRow}>
                             <h3 className={styles.tName}>{t.name}</h3>
-                            <CaretLeft size={18} weight="bold" className={styles.tArrow} />
+                            <CaretLeft size={18} weight="regular" className={styles.tArrow} />
                           </div>
                           <div className={styles.tMeta}>
                             <span title="Registered Teams">
                               <TeamsIcon size={14} /> {t.teamCount} teams
                             </span>
                             <span title="Creation Date">
-                              <CalendarBlank size={14} weight="bold" /> {new Date(t.created_at).toLocaleDateString()}
+                              <CalendarBlank size={14} weight="regular" /> {new Date(t.created_at).toLocaleDateString()}
                             </span>
                           </div>
                           <div className={styles.tTeams}>
@@ -392,7 +392,7 @@ export const Home: React.FC = () => {
 
           <aside className={styles.rightColumn}>
             <div className={styles.sectionHeader}>
-              <Star size={24} weight="bold" className={styles.sectionIcon} />
+              <Star size={24} weight="regular" className={styles.sectionIcon} />
               <h2>Monthly Best</h2>
             </div>
             {topTeams.length > 0 && (
@@ -427,7 +427,7 @@ export const Home: React.FC = () => {
                 </ul>
               </SectionCard>
             )}
-            <FriendlyMarketplace className={styles.marketplaceWrapper} />
+            <MatchmakerTeaser className={styles.marketplaceWrapper} />
           </aside>
         </div>
         <div className={styles.features}>
@@ -457,12 +457,12 @@ export const Home: React.FC = () => {
           </Card>
         </div>{' '}
         <div className={styles.ctaBtns}>
-          <Button size="lg" onClick={() => navigate('/create')} variant="secondaryInverse">
-            <Trophy size={22} weight="bold" /> Create Tournament
+          <Button size="lg" onClick={() => navigate('/create')} variant="secondaryYellow">
+            <Trophy size={22} weight="regular" /> Create Tournament
           </Button>
           <ScrollTo to="opentours" smooth={true} duration={600} offset={-80}>
             <Button size="lg" variant="secondaryHero">
-              <ArrowRight size={22} weight="bold" /> Join Tournament
+              <ArrowRight size={22} weight="regular" /> Join Tournament
             </Button>
           </ScrollTo>
         </div>

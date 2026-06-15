@@ -13,12 +13,20 @@ export interface Avatar {
   layers: AvatarLayer[];
 }
 
+export interface HattrickTeam {
+  teamId: number;
+  teamName: string;
+  countryName: string;
+  leagueId: number;
+}
+
 export interface UserProfile {
   hattrick_user_id: number;
   manager_name: string;
   country_id?: number;
   country_name?: string;
   avatar_json?: Avatar;
+  teams_json?: HattrickTeam[];
   created_at: string;
 }
 
@@ -114,14 +122,17 @@ export const useAuth = () => {
       const teamsData = teamsDataRaw as unknown as DBTeamJoin[] | null;
 
       if (teamsData) {
-        const tournamentIds = teamsData.map(t => t.tournament_id);
-        const { data: warningsRaw } = await supabase
-          .from('fixture_warnings')
-          .select('round_id, team_id')
-          .in('tournament_id', tournamentIds)
-          .eq('active', true);
-        
-        const warnings = warningsRaw as unknown as DBWarning[] | null;
+        const tournamentIds = Array.from(new Set(teamsData.map((t) => t.tournament_id).filter(Boolean)));
+        let warnings: DBWarning[] | null = null;
+        if (tournamentIds.length > 0) {
+          const { data: warningsRaw } = await supabase
+            .from('fixture_warnings')
+            .select('round_id, team_id')
+            .in('tournament_id', tournamentIds)
+            .eq('active', true);
+
+          warnings = warningsRaw as unknown as DBWarning[] | null;
+        }
 
         const toursMap = new Map<string, ActiveTournament>();
 

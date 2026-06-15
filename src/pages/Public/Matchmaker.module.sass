@@ -1,0 +1,469 @@
+.view
+  text-align: left
+  max-width: 1150px
+  margin: 0 auto
+  padding: 5rem 1rem 2rem
+
+  @media (max-width: 620px)
+    padding: 4.5rem 0.75rem 1rem
+
+.hero
+  text-align: center
+  margin-bottom: 3rem
+  padding: 3rem 1rem
+  background: var(--bg-transp)
+  border-radius: var(--radius-lg)
+  border: 1px solid var(--border)
+
+  h1
+    font-size: 3rem
+    margin: 0 0 1rem
+    font-weight: 800
+    color: var(--text-h)
+
+  p
+    font-size: 1.25rem
+    opacity: 0.8
+    max-width: 600px
+    margin: 0 auto 2rem
+
+.stats
+  font-weight: 700
+  color: var(--accent)
+  margin-bottom: 1rem
+  display: block
+
+.tabs
+  display: flex
+  gap: 2rem
+  margin-bottom: 2rem
+  border-bottom: 2px solid var(--border)
+  justify-content: center
+
+  button
+    background: transparent
+    border: none
+    padding: 12px 0
+    font-weight: 600
+    color: var(--text)
+    position: relative
+    font-size: 1.1rem
+    cursor: pointer
+    transition: all 0.2s
+
+    &:hover
+      color: var(--accent)
+
+    &.active
+      color: var(--accent-2)
+      &::after
+        content: ''
+        position: absolute
+        bottom: -2px
+        left: 0
+        right: 0
+        height: 2px
+        background-color: var(--accent-2)
+
+.browserContainer
+  display: flex
+  flex-direction: column
+  align-items: center
+  gap: 2rem
+  padding: 1rem
+
+.tinderCard
+  width: 100%
+  max-width: 450px
+  background: var(--table-bg-main)
+  border: 1px solid var(--border)
+  border-radius: var(--radius-lg)
+  overflow: hidden
+  box-shadow: 0 10px 30px rgba(0,0,0,0.1)
+  position: relative
+  display: flex
+  flex-direction: column
+
+.cardHeader
+  padding: 2rem
+  text-align: center
+  background: var(--bg-transp)
+  border-bottom: 1px solid var(--border)
+
+.cardLogoWrapper
+  width: 120px
+  height: 120px
+  margin: 0 auto 1.5rem
+  background: white
+  border-radius: var(--radius-md)
+  padding: 1rem
+  box-shadow: 0 4px 12px rgba(0,0,0,0.05)
+  display: flex
+  align-items: center
+  justify-content: center
+
+  img
+    max-width: 100%
+    max-height: 100%
+    object-fit: contain
+
+.teamName
+  font-size: 1.75rem
+  font-weight: 800
+  margin: 0 0 0.5rem
+  color: var(--text-h)
+
+.location
+  display: flex
+  align-items: center
+  justify-content: center
+  gap: 0.5rem
+  font-weight: 600
+  opacity: 0.7
+
+  img
+    width: 20px
+
+.cardBody
+  padding: 2rem
+  display: flex
+  flex-direction: column
+  gap: 1.5rem
+
+.infoGrid
+  display: grid
+  grid-template-columns: 1fr 1fr
+  gap: 1rem
+
+.infoItem
+  display: flex
+  flex-direction: column
+  gap: 0.25rem
+
+  span:first-child
+    font-size: 0.8rem
+    text-transform: uppercase
+    letter-spacing: 0.05em
+    opacity: 0.5
+    font-weight: 700
+
+  span:last-child
+    font-weight: 600
+    font-size: 1.1rem
+
+.message
+  font-style: italic
+  background: var(--bg-transp2)
+  padding: 1rem
+  border-radius: var(--radius-sm)
+  border-left: 3px solid var(--accent)
+  margin: 0
+
+.cardActions
+  display: flex
+  padding: 2rem
+  gap: 1.5rem
+  justify-content: center
+  border-top: 1px solid var(--border)
+
+.skipBtn
+  flex: 1
+  border: 2px solid #ff4b2b
+  background: transparent
+  color: #ff4b2b
+  padding: 1rem
+  border-radius: var(--radius-md)
+  font-weight: 800
+  cursor: pointer
+  display: flex
+  align-items: center
+  justify-content: center
+  gap: 0.5rem
+  transition: all 0.2s
+
+  &:hover
+    background: #ff4b2b
+    color: white
+
+.acceptBtn
+  flex: 2
+  background: #00d2ff
+  background: linear-gradient(to right, #3a7bd5, #00d2ff)
+  color: white
+  border: none
+  padding: 1rem
+  border-radius: var(--radius-md)
+  font-weight: 800
+  cursor: pointer
+  display: flex
+  align-items: center
+  justify-content: center
+  gap: 0.5rem
+  transition: all 0.2s
+  box-shadow: 0 4px 15px rgba(58, 123, 213, 0.3)
+
+  &:hover
+    transform: translateY(-2px)
+    box-shadow: 0 6px 20px rgba(58, 123, 213, 0.4)
+
+.emptyState
+  text-align: center
+  padding: 4rem 2rem
+  opacity: 0.5
+
+  h3
+    margin-bottom: 1rem
+
+.loading
+  padding: 5rem
+  text-align: center
+  font-weight: 700
+  font-size: 1.25rem
+
+.successOverlay
+  position: absolute
+  top: 0
+  left: 0
+  right: 0
+  bottom: 0
+  background: rgba(16, 134, 59, 0.95)
+  display: flex
+  flex-direction: column
+  align-items: center
+  justify-content: center
+  padding: 2rem
+  color: white
+  text-align: center
+  z-index: 10
+
+  h2
+    font-size: 2.5rem
+    margin-bottom: 1rem
+
+  p
+    font-size: 1.2rem
+    margin-bottom: 2rem
+
+.postModal
+  display: flex
+  flex-direction: column
+  gap: 1.5rem
+
+.formGroup
+  display: flex
+  flex-direction: column
+  gap: 0.5rem
+
+  label
+    font-weight: 700
+    color: var(--text-h)
+
+  select, input, textarea
+    background: var(--bg-transp)
+    border: 1px solid var(--border)
+    border-radius: var(--radius-sm)
+    padding: 0.75rem
+    color: var(--text)
+    font-family: inherit
+    font-size: 1rem
+
+.checkboxGroup
+  display: flex
+  gap: 1.5rem
+  flex-wrap: wrap
+
+.checkboxLabel
+  display: flex
+  align-items: center
+  gap: 0.5rem
+  cursor: pointer
+
+  input
+    width: 18px
+    height: 18px
+
+.teamSelector
+  display: flex
+  flex-direction: column
+  gap: 0.75rem
+
+.teamOption
+  display: flex
+  align-items: center
+  gap: 1rem
+  padding: 1rem
+  border: 2px solid var(--border)
+  border-radius: var(--radius-md)
+  cursor: pointer
+  transition: all 0.2s
+
+  &.selected
+    border-color: var(--accent)
+    background: var(--bg-helpText)
+
+  &.disabled
+    cursor: not-allowed
+    background: var(--bg-transp2)
+    border-color: var(--danger)
+
+  &:hover:not(.selected):not(.disabled)
+    border-color: var(--warning)
+
+.warningText
+  color: #ff722b
+  font-size: 0.9rem
+  font-weight: 600
+  display: flex
+  align-items: center
+  gap: 0.5rem
+  margin-top: 0.5rem
+
+.noTeamsMessage
+  padding: 1rem 3rem
+  background: var(--bg-transp2)
+  border: 1px dashed var(--border)
+  border-radius: var(--radius-md)
+  text-align: center
+  display: flex
+  flex-direction: column
+  align-items: center
+  gap: 1rem
+  color: var(--text-h)
+
+  p
+    margin: 0
+    font-size: 1rem
+    line-height: 1.5
+
+    strong
+      color: var(--accent)
+
+.teamOptionInfo
+  display: flex
+  flex-direction: column
+  flex: 1
+
+  strong
+    font-size: 1.1rem
+
+  span
+    font-size: 0.95rem
+    opacity: 0.7
+
+.teamStatus
+  font-size: 0.72rem
+  font-weight: 800
+  padding: 0.35rem 0.6rem
+  border-radius: 999px
+  text-transform: uppercase
+  letter-spacing: 0.04em
+  white-space: nowrap
+
+  &.available
+    color: white
+    background: var(--accent-3)
+
+  &.booked
+    color: white
+    background: var(--danger)
+
+  &.unknown
+    color: white
+    background: var(--warning)
+
+.teamMeta
+  font-size: 0.85rem
+  opacity: 0.7
+
+.myRequests
+  padding: 1rem
+
+.requestGrid
+  display: grid
+  grid-template-columns: repeat(auto-fill, minmax(300px, 1fr))
+  gap: 1.5rem
+
+.myRequestCard
+  background: var(--table-bg-main)
+  border: 1px solid var(--border)
+  border-radius: var(--radius-md)
+  padding: 1.5rem
+  display: flex
+  flex-direction: column
+  gap: 1rem
+
+  &.matched
+    border-color: var(--accent)
+    background: var(--bg-helpText)
+
+.requestHeader
+  display: flex
+  justify-content: space-between
+  align-items: center
+
+.requestTeamInfo
+  display: flex
+  align-items: center
+  gap: 0.5rem
+  font-size: 1.1rem
+  color: var(--text-h)
+
+.smallFlag
+  width: 16px
+
+.statusBadge
+  font-size: 0.7rem
+  font-weight: 800
+  padding: 0.25rem 0.5rem
+  border-radius: 4px
+  background: var(--bg-transp)
+
+  &.open
+    color: var(--accent)
+    background: rgba(16, 134, 59, 0.1)
+
+  &.matched
+    color: white
+    background: #ff4b2b
+
+.requestBody
+  display: flex
+  flex-direction: column
+  gap: 0.5rem
+
+.reqDetail
+  display: flex
+  align-items: center
+  gap: 0.5rem
+  font-size: 0.9rem
+  opacity: 0.8
+
+.matchNotice
+  margin-top: 0.5rem
+  padding: 1rem
+  background: white
+  border-radius: var(--radius-sm)
+  display: flex
+  flex-direction: column
+  align-items: center
+  gap: 0.5rem
+  text-align: center
+  box-shadow: 0 2px 8px rgba(0,0,0,0.05)
+
+  span
+    font-size: 0.9rem
+    color: var(--text-h)
+
+.requestFooter
+  margin-top: auto
+  display: flex
+  justify-content: flex-end
+
+.cancelBtn
+  color: var(--text)
+  opacity: 0.6
+  font-size: 0.85rem
+  &:hover
+    color: #ff4b2b
+    opacity: 1
+    text-decoration: underline

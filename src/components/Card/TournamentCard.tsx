@@ -22,7 +22,6 @@ export const TournamentCard: React.FC<TournamentCardProps> = ({
   id,
   children,
   className = '',
-  thumbnailIndex,
   imageUrl,
   isActiveInviting = false,
   countryLimit,

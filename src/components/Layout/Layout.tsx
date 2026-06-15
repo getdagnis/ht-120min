@@ -12,6 +12,7 @@ import {
   SignOut,
   Clock,
   User,
+  Handshake,
 } from 'phosphor-react';
 import { scroller } from 'react-scroll';
 import { Button } from '../Button/Button';
@@ -173,6 +174,16 @@ export const Layout: React.FC<LayoutProps> = ({ children }) => {
                         <button
                           className={styles.dropdownItem}
                           onClick={() => {
+                            navigate('/matchmaker');
+                            setIsUserDropdownOpen(false);
+                          }}
+                        >
+                          <Handshake size={18} />
+                          120 min Tinder
+                        </button>
+                        <button
+                          className={styles.dropdownItem}
+                          onClick={() => {
                             navigate(`?profileId=${profile?.hattrick_user_id}`);
                             setIsUserDropdownOpen(false);
                           }}
@@ -227,7 +238,12 @@ export const Layout: React.FC<LayoutProps> = ({ children }) => {
             </a>
             <b />
           </p>
-          <p>Not affiliated with Hattrick Ltd.</p>
+          Stop dancing in the streets and{' '}
+          <a href="https://stage.hattrick.org/MyHattrick/Inbox/?actionType=newMail&userId=8777402" target="_blank">
+            send me a love poem!
+          </a>{' '}
+          💌
+          <p className={styles.affiliated}>Not affiliated with Hattrick Ltd.</p>
         </div>
       </footer>
 

@@ -1,0 +1,97 @@
+.wrapper
+  margin-top: 1rem
+
+.sectionHeader
+  display: flex
+  align-items: center
+  gap: 0.75rem
+  margin-bottom: 1rem
+
+  h2
+    margin: 0
+    font-size: 1.25rem
+    font-weight: 700
+    color: var(--text-h)
+
+.sectionIcon
+  color: var(--accent-2)
+
+.teaserCard
+  padding: 1.5rem !important
+  display: flex
+  flex-direction: column
+  gap: 1rem
+
+.pulse
+  display: flex
+  align-items: center
+  gap: 0.75rem
+  font-size: 0.95rem
+  color: var(--text-h)
+
+.pulseDot
+  width: 10px
+  height: 10px
+  background-color: #ff4b2b
+  border-radius: 50%
+  box-shadow: 0 0 0 0 rgba(255, 75, 43, 0.7)
+  animation: pulse 2s infinite
+
+@keyframes pulse
+  0%
+    transform: scale(0.95)
+    box-shadow: 0 0 0 0 rgba(255, 75, 43, 0.7)
+  70%
+    transform: scale(1)
+    box-shadow: 0 0 0 10px rgba(255, 75, 43, 0)
+  100%
+    transform: scale(0.95)
+    box-shadow: 0 0 0 0 rgba(255, 75, 43, 0)
+
+.description
+  font-size: 0.95rem
+  opacity: 0.8
+  line-height: 1.4
+  margin: 0
+
+.recentList
+  margin-top: 0.5rem
+  display: flex
+  flex-direction: column
+  gap: 0.75rem
+  padding-top: 1rem
+  border-top: 1px solid var(--border)
+
+.recentLabel
+  font-size: 0.8rem
+  text-transform: uppercase
+  font-weight: 700
+  letter-spacing: 0.05em
+  opacity: 0.5
+
+.recentItem
+  display: flex
+  flex-direction: column
+  gap: 0.25rem
+
+.teamLine
+  display: flex
+  align-items: center
+  gap: 0.5rem
+  font-size: 0.9rem
+  color: var(--text-h)
+
+.flag
+  width: 16px
+  height: auto
+
+.meta
+  font-size: 0.75rem
+  opacity: 0.6
+  font-weight: 600
+  text-transform: capitalize
+
+.cta
+  font-weight: 800 !important
+  letter-spacing: 0.02em
+  text-transform: uppercase

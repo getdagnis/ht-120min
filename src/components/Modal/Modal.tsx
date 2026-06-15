@@ -10,7 +10,7 @@ interface ModalProps {
   maxWidth?: string;
 }
 
-export const Modal: React.FC<ModalProps> = ({ isOpen, onClose, title, children, maxWidth = '500px' }) => {
+export const Modal: React.FC<ModalProps> = ({ isOpen, onClose, title, children, maxWidth = '600px' }) => {
   useEffect(() => {
     if (isOpen) {
       document.body.style.overflow = 'hidden';

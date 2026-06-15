@@ -14,6 +14,7 @@ interface StandingsViewProps {
   is120minMode: boolean;
   myHtUserId: string | null;
   tournament: {
+    id?: string;
     thumbnail_index?: number;
   } | null;
 }
@@ -21,10 +22,7 @@ interface StandingsViewProps {
 export const StandingsView: React.FC<StandingsViewProps> = ({ standings, is120minMode, myHtUserId, tournament }) => {
   return (
     <div className={styles.mainColumn}>
-      <SectionCard 
-        title="🏆 Standings" 
-        thumbnailSeed={tournament?.id}
-      >
+      <SectionCard title="🏆 Standings" thumbnailSeed={tournament?.id}>
         <div className={styles.tableWrapper}>
           <table>
             <thead>

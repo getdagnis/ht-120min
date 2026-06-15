@@ -31,16 +31,16 @@ export function generateSignature(
 
   const signingKey = `${rfc3986(consumerSecret)}&${rfc3986(tokenSecret)}`;
 
-  if (process.env.NODE_ENV !== 'production') {
-    // DIAGNOSTIC LOGGING (avoid leaking secrets in prod logs)
-    console.log('--- OAUTH SIGNATURE DEBUG ---');
-    console.log('METHOD:', method);
-    console.log('URL:', url);
-    console.log('PARAMS:', params);
-    console.log('BASE STRING:', baseString);
-    console.log('SIGNING KEY:', signingKey);
-    console.log('-----------------------------');
-  }
+  // if (process.env.NODE_ENV !== 'production') {
+  //   // DIAGNOSTIC LOGGING (avoid leaking secrets in prod logs)
+  //   console.log('--- OAUTH SIGNATURE DEBUG ---');
+  //   console.log('METHOD:', method);
+  //   console.log('URL:', url);
+  //   console.log('PARAMS:', params);
+  //   console.log('BASE STRING:', baseString);
+  //   console.log('SIGNING KEY:', signingKey);
+  //   console.log('-----------------------------');
+  // }
 
   return crypto.createHmac('sha1', signingKey).update(baseString).digest('base64');
 }

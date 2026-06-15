@@ -123,6 +123,11 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
     // 4. Update/Create Profile
     try {
+      let countryId: number | undefined;
+      let countryName: string | undefined;
+      let avatar = null;
+      let teamsJson = pending.teams_json;
+
       const chppUrl = 'https://chpp.hattrick.org/chppxml.ashx';
       const chppParams = {
         file: 'managercompendium',
@@ -144,15 +149,25 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         const mXml = await mRes.text();
         const { parseManagerCompendiumXml } = await import('../_lib/chpp-xml.js');
         const mParsed = parseManagerCompendiumXml(mXml);
-
-        await supabase.from('profiles').upsert({
-          hattrick_user_id: pending.hattrick_user_id,
-          manager_name: pending.manager_name,
-          country_id: mParsed.countryId,
-          country_name: mParsed.countryName,
-          avatar_json: mParsed.avatar,
-        });
+        countryId = mParsed.countryId;
+        countryName = mParsed.countryName;
+        avatar = mParsed.avatar ?? null;
+        teamsJson = mParsed.teams;
+      } else {
+        console.warn('Failed to refresh managercompendium during login, using cached teams_json:', mRes.status);
       }
+
+      await supabase.from('profiles').upsert({
+        hattrick_user_id: pending.hattrick_user_id,
+        manager_name: pending.manager_name,
+        country_id: countryId ?? null,
+        country_name: countryName ?? null,
+        avatar_json: avatar,
+        teams_json: teamsJson,
+        oauth_token: pending.access_token,
+        oauth_token_secret: pending.access_token_secret,
+        chpp_synced_at: new Date().toISOString(),
+      });
     } catch (e) {
       console.error('Failed to update profile during login:', e);
     }

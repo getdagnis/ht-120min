@@ -35,6 +35,9 @@ export const TeamByline: React.FC<TeamBylineProps> = ({
     }
   };
 
+  console.log('🏜💀👾 getFlagUrl(countryName)', getFlagUrl(countryName || undefined));
+  console.log('🏜💀👾 countryName', countryName);
+
   return (
     <div className={`${styles.teamExtraInfo} ${isRight ? styles.right : ''}`}>
       {countryName && (
@@ -46,7 +49,7 @@ export const TeamByline: React.FC<TeamBylineProps> = ({
             className={styles.flagLink}
             data-tooltip-id={`${tooltipIdBase}-flag`}
           >
-            <img src={getFlagUrl(countryName) || ''} alt={countryName} className={styles.flagIcon} />
+            <img src={getFlagUrl(countryName || undefined) || ''} alt={countryName} className={styles.flagIcon} />
           </a>
           <Tooltip id={`${tooltipIdBase}-flag`} content={countryName} />
           <span className={styles.separator}>|</span>

@@ -159,3 +159,34 @@ export function parseManagerCompendiumXml(xml: string): ParsedManagerCompendium 
     teams,
   };
 }
+
+export interface ParsedMatch {
+  matchId: number;
+  matchDate: string;
+  matchType: number;
+  homeTeamId: number;
+  awayTeamId: number;
+  status: string;
+}
+
+export function parseMatchesXml(xml: string): ParsedMatch[] {
+  const matches: ParsedMatch[] = [];
+  for (const match of xml.matchAll(/<Match>([\s\S]*?)<\/Match>/gi)) {
+    const block = match[1];
+    const matchId = parseInt(block.match(/<MatchID>(\d+)<\/MatchID>/i)?.[1] || '0', 10);
+    const matchDate = readChppTag(block, 'MatchDate') || '';
+    const matchType = parseInt(block.match(/<MatchType>(\d+)<\/MatchType>/i)?.[1] || '0', 10);
+    const homeTeamId =
+      parseInt(block.match(/<HomeTeamID>(\d+)<\/HomeTeamID>/i)?.[1] || '0', 10) ||
+      parseInt(block.match(/<HomeTeam>[\s\S]*?<TeamID>(\d+)<\/TeamID>/i)?.[1] || '0', 10);
+    const awayTeamId =
+      parseInt(block.match(/<AwayTeamID>(\d+)<\/AwayTeamID>/i)?.[1] || '0', 10) ||
+      parseInt(block.match(/<AwayTeam>[\s\S]*?<TeamID>(\d+)<\/TeamID>/i)?.[1] || '0', 10);
+    const status = readChppTag(block, 'Status') || '';
+
+    if (matchId > 0) {
+      matches.push({ matchId, matchDate, matchType, homeTeamId, awayTeamId, status });
+    }
+  }
+  return matches;
+}
