@@ -34,8 +34,18 @@
 - **Monetization (PRO)**: Infrastructure for premium tournament features and custom branding.
 - **Tournament roles**: Participants should be able to apply and with admin's accept fill specific tournament roles, such as "press secretary" and more (needs a list)
 
+### 4. 120min Matchmaker (Tinder)
+
+- **Team Availability Tracking**: Real-time CHPP checks to identify which manager teams are available for friendlies on upcoming matchup dates.
+- **Request Posting**: Managers can post friendly requests with specific preferences (Location, Venue, Match Type).
+- **Instant Matching**: Swipe-style browsing of opponents with one-click acceptance and automatic Hattrick challenge linking.
+- **Developer Scenarios**: Mock data layer for testing diverse UX states without relying on real Hattrick schedules.
+
 ## Recent Architectural Updates
 
+- **Matchmaker Logic Fixes**: Corrected inverted team selection logic, fixed Supabase query typos, and eliminated redundant UI fragments.
+- **Improved Accept Flow**: Enhanced the match acceptance process to require explicit team selection when a manager has multiple available teams, preventing accidental bookings.
+- **Developer Test Mode**: Integrated `DEV_MATCHMAKER_TEST_MODE` to allow testing of the Matchmaker flow with mock teams.
 - **Chat Evolution**: Standardized `author_ht_id` tracking in `tournament_chat` to support both real managers and system-level administrative reporting (HT_ID 0).
 - **UI Unification**: Migrated metadata display to the `TeamByline` component for system-wide consistency in logo, flag, and link rendering.
 - **Constraint Refinement**: Decoupled chat authorship from strict profile foreign keys to allow for non-user system messages and improved stability during live updates.

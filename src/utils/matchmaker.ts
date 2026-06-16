@@ -7,7 +7,7 @@ export interface MatchmakerRequest {
   team_id: string;
   manager_ht_id: number;
   match_type: '120min' | '90min_acceptable';
-  opponent_location: 'domestic' | 'international' | 'any';
+  opponent_location: 'domestic' | 'international' | 'international_only' | 'any';
   home_away: 'home' | 'away' | 'any';
   match_day: string;
   time_window: string | null;
@@ -17,6 +17,9 @@ export interface MatchmakerRequest {
   matched_at: string | null;
   expires_at: string;
   created_at: string;
+  is_back_and_forth: boolean;
+  is_long_term: boolean;
+  gender_id: number;
   // Joined fields
   team?: {
     name: string;
@@ -24,10 +27,17 @@ export interface MatchmakerRequest {
     logo_url: string | null;
     country_name: string | null;
     league_id: number | null;
+    gender_id: number;
+    fanclub_size: number | null;
+    arena_id: number | null;
+    arena_size: number | null;
+    arena_image_url: string | null;
   };
   profile?: {
     manager_name: string;
     avatar_json: Avatar | null;
+    country_name: string | null;
+    league_id: number | null;
   };
   matched_team?: {
     name: string;

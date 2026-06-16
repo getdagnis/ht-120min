@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { supabase } from '../../lib/supabase';
 import { Button } from '../Button/Button';
 import { Card } from '../Card/Card';
-import { Handshake, ArrowRight, Heart, HeartBreak } from 'phosphor-react';
+import { ArrowRight, HeartBreak } from 'phosphor-react';
 import styles from './MatchmakerTeaser.module.sass';
 
 interface MatchmakerTeaserProps {

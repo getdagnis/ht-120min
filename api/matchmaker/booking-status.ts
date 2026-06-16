@@ -5,7 +5,7 @@ import { fetchTeamBookingStatus, getManagerChppCredentials } from '../_lib/match
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   const { teamId, managerId } = req.query;
 
-  if (!teamId) {
+  if (!teamId || Array.isArray(teamId)) {
     return res.status(400).json({ error: 'Missing teamId' });
   }
 
@@ -31,13 +31,11 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       isBooked: booking.isBooked,
       match: booking.match,
     });
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error('Booking status error:', error);
     return res.status(503).json({
       error:
-        error instanceof Error
-          ? error.message
-          : 'Could not verify whether this team already has a booked friendly.',
+        error instanceof Error ? error.message : 'Could not verify whether this team already has a booked friendly.',
     });
   }
 }

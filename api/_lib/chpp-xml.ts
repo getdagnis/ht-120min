@@ -26,6 +26,7 @@ export interface ParsedManagerCompendium {
   managerName: string;
   countryId?: number;
   countryName?: string;
+  leagueId?: number;
   avatar?: Avatar;
   teams: ChppTeamOption[];
 }
@@ -48,6 +49,9 @@ export interface ParsedTeamDetails {
   teamName?: string;
   countryName?: string;
   logoUrl?: string;
+  genderId?: number;
+  arenaId?: number;
+  fanclubSize?: number;
   errorCode?: number;
 }
 
@@ -69,11 +73,18 @@ export function parseTeamDetailsXml(xml: string, teamId: number): ParsedTeamDeta
         ? normalizeChppAssetUrl(dressRaw)
         : undefined;
 
+    const arenaIdRaw = block.match(/<Arena>[\s\S]*?<ArenaID>(\d+)<\/ArenaID>/i)?.[1];
+    const fanclubSizeRaw = block.match(/<Fanclub>[\s\S]*?<FanclubSize>(\d+)<\/FanclubSize>/i)?.[1];
+    const genderIdRaw = block.match(/<GenderID>(\d+)<\/GenderID>/i)?.[1];
+
     return {
       teamId,
       teamName: readChppTag(block, 'TeamName'),
       countryName: readChppTag(block, 'CountryName'),
       logoUrl,
+      arenaId: arenaIdRaw ? parseInt(arenaIdRaw, 10) : undefined,
+      fanclubSize: fanclubSizeRaw ? parseInt(fanclubSizeRaw, 10) : undefined,
+      genderId: genderIdRaw ? parseInt(genderIdRaw, 10) : undefined,
     };
   };
 
@@ -91,6 +102,35 @@ export function parseTeamDetailsXml(xml: string, teamId: number): ParsedTeamDeta
   }
 
   return { teamId };
+}
+
+export interface ParsedArenaDetails {
+  arenaId: number;
+  arenaName?: string;
+  capacity?: number;
+  arenaImageUrl?: string;
+  errorCode?: number;
+}
+
+export function parseArenaDetailsXml(xml: string): ParsedArenaDetails {
+  const errorCodeRaw = xml.match(/<ErrorCode>(\d+)<\/ErrorCode>/i)?.[1];
+  if (errorCodeRaw) {
+    const errorCode = parseInt(errorCodeRaw, 10);
+    if (errorCode !== 0) {
+      return { arenaId: 0, errorCode };
+    }
+  }
+
+  const arenaIdRaw = xml.match(/<ArenaID>(\d+)<\/ArenaID>/i)?.[1];
+  const capacityRaw = xml.match(/<Capacity>(\d+)<\/Capacity>/i)?.[1];
+  const arenaImageUrl = readChppTag(xml, 'ArenaImage');
+
+  return {
+    arenaId: arenaIdRaw ? parseInt(arenaIdRaw, 10) : 0,
+    arenaName: readChppTag(xml, 'ArenaName'),
+    capacity: capacityRaw ? parseInt(capacityRaw, 10) : undefined,
+    arenaImageUrl: arenaImageUrl ? normalizeChppAssetUrl(arenaImageUrl) : undefined,
+  };
 }
 
 export function parseManagerCompendiumXml(xml: string): ParsedManagerCompendium {
@@ -155,6 +195,7 @@ export function parseManagerCompendiumXml(xml: string): ParsedManagerCompendium 
     managerName,
     countryId: countryIdRaw ? parseInt(countryIdRaw, 10) : undefined,
     countryName,
+    leagueId: teams[0]?.leagueId,
     avatar,
     teams,
   };

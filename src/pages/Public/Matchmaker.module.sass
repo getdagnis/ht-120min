@@ -85,18 +85,81 @@
   flex-direction: column
 
 .cardHeader
-  padding: 2rem
-  text-align: center
+  padding: 1.5rem 2rem
   background: var(--bg-transp)
   border-bottom: 1px solid var(--border)
+  display: flex
+  flex-direction: column
+  gap: 1.5rem
+  position: relative
+  overflow: hidden
+
+.arenaBg
+  position: absolute
+  top: 0
+  left: 0
+  right: 0
+  bottom: 0
+  background-size: cover
+  background-position: center
+  opacity: 0.15
+  z-index: 0
+  pointer-events: none
+  filter: grayscale(0.5)
+
+.managerInfo, .teamBrand
+  position: relative
+  z-index: 1
+
+.hfiSubtitle
+  font-size: 0.9rem
+  color: var(--accent)
+  font-weight: 700
+  margin-top: -1.5rem
+  margin-bottom: 1rem
+
+.managerAvatar
+  width: 55px
+  height: 55px
+  border-radius: 100%
+  overflow: hidden
+  border: 2px solid white
+  background: var(--bg-transp2)
+  display: flex
+  align-items: center
+  justify-content: center
+  position: relative
+
+.managerMeta
+  display: flex
+  flex-direction: column
+
+.managerName
+  font-weight: 700
+  color: var(--text-h)
+  font-size: 0.95rem
+
+.managerCountry
+  display: flex
+  align-items: center
+  gap: 0.35rem
+  font-size: 0.8rem
+  opacity: 0.7
+  font-weight: 600
+
+.miniFlag
+  width: 14px
+
+.teamBrand
+  text-align: center
 
 .cardLogoWrapper
-  width: 120px
-  height: 120px
-  margin: 0 auto 1.5rem
+  width: 100px
+  height: 100px
+  margin: 0 auto 1rem
   background: white
   border-radius: var(--radius-md)
-  padding: 1rem
+  padding: 0.75rem
   box-shadow: 0 4px 12px rgba(0,0,0,0.05)
   display: flex
   align-items: center
@@ -108,9 +171,9 @@
     object-fit: contain
 
 .teamName
-  font-size: 1.75rem
+  font-size: 1.5rem
   font-weight: 800
-  margin: 0 0 0.5rem
+  margin: 0
   color: var(--text-h)
 
 .location
@@ -125,15 +188,28 @@
     width: 20px
 
 .cardBody
-  padding: 2rem
+  padding: 1.5rem 2rem
   display: flex
   flex-direction: column
-  gap: 1.5rem
+  gap: 1.25rem
+
+.matchBadge
+  display: flex
+  align-items: center
+  gap: 0.5rem
+  background: var(--bg-helpText)
+  color: var(--accent)
+  padding: 0.4rem 0.8rem
+  border-radius: 999px
+  font-size: 0.85rem
+  font-weight: 800
+  width: fit-content
+  align-self: center
 
 .infoGrid
   display: grid
   grid-template-columns: 1fr 1fr
-  gap: 1rem
+  gap: 1.25rem
 
 .infoItem
   display: flex
@@ -141,15 +217,15 @@
   gap: 0.25rem
 
   span:first-child
-    font-size: 0.8rem
+    font-size: 0.75rem
     text-transform: uppercase
     letter-spacing: 0.05em
     opacity: 0.5
     font-weight: 700
 
   span:last-child
-    font-weight: 600
-    font-size: 1.1rem
+    font-weight: 700
+    font-size: 1rem
 
 .message
   font-style: italic
@@ -158,11 +234,12 @@
   border-radius: var(--radius-sm)
   border-left: 3px solid var(--accent)
   margin: 0
+  font-size: 0.95rem
 
 .cardActions
   display: flex
-  padding: 2rem
-  gap: 1.5rem
+  padding: 1.5rem 2rem
+  gap: 1.25rem
   justify-content: center
   border-top: 1px solid var(--border)
 
@@ -171,7 +248,7 @@
   border: 2px solid #ff4b2b
   background: transparent
   color: #ff4b2b
-  padding: 1rem
+  padding: 0.85rem
   border-radius: var(--radius-md)
   font-weight: 800
   cursor: pointer
@@ -180,6 +257,7 @@
   justify-content: center
   gap: 0.5rem
   transition: all 0.2s
+  font-size: 0.9rem
 
   &:hover
     background: #ff4b2b
@@ -191,7 +269,7 @@
   background: linear-gradient(to right, #3a7bd5, #00d2ff)
   color: white
   border: none
-  padding: 1rem
+  padding: 0.85rem
   border-radius: var(--radius-md)
   font-weight: 800
   cursor: pointer
@@ -201,6 +279,7 @@
   gap: 0.5rem
   transition: all 0.2s
   box-shadow: 0 4px 15px rgba(58, 123, 213, 0.3)
+  font-size: 0.9rem
 
   &:hover
     transform: translateY(-2px)
@@ -237,12 +316,12 @@
   z-index: 10
 
   h2
-    font-size: 2.5rem
+    font-size: 2.2rem
     margin-bottom: 1rem
 
   p
-    font-size: 1.2rem
-    margin-bottom: 2rem
+    font-size: 1.1rem
+    margin-bottom: 0.5rem
 
 .postModal
   display: flex
@@ -266,6 +345,12 @@
     color: var(--text)
     font-family: inherit
     font-size: 1rem
+
+.helpText
+  font-size: 0.85rem
+  opacity: 0.6
+  margin: -0.25rem 0 0
+  font-style: italic
 
 .checkboxGroup
   display: flex
@@ -377,6 +462,43 @@
 
 .myRequests
   padding: 1rem
+
+.myAdsHeader
+  text-align: center
+  margin-bottom: 2rem
+  padding: 2rem
+  background: var(--bg-transp)
+  border-radius: var(--radius-md)
+  border: 1px dashed var(--border)
+
+  h3
+    font-size: 1.5rem
+    margin-bottom: 0.5rem
+    color: var(--text-h)
+
+  p
+    opacity: 0.7
+    font-size: 1.1rem
+
+.unavailableToggleSection
+  margin-top: 1rem
+  border-top: 1px solid var(--border)
+  padding-top: 1.5rem
+
+.toggleBtn
+  background: transparent
+  border: none
+  color: var(--accent)
+  font-weight: 700
+  cursor: pointer
+  display: flex
+  align-items: center
+  gap: 0.5rem
+  padding: 0.5rem 0
+  font-size: 0.95rem
+
+  &:hover
+    text-decoration: underline
 
 .requestGrid
   display: grid

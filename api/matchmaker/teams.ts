@@ -42,6 +42,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
           return {
             teamId: team.teamId,
             availabilityStatus: booking.isBooked ? 'booked' : 'available',
+            availabilityReason: booking.isBooked ? 'Friendly already booked' : undefined,
             bookedMatch: booking.match,
           } as const;
         } catch (error) {
@@ -72,12 +73,32 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       };
     });
 
+    // Developer Test Mode
+    if (true) {
+      teams.push(
+        {
+          teamId: 999001,
+          teamName: 'FC Testing United (Mock)',
+          countryName: 'Latvia',
+          availabilityStatus: 'available',
+        },
+        {
+          teamId: 999002,
+          teamName: 'Bug Hunters FC (Mock)',
+          countryName: 'England',
+          availabilityStatus: 'booked',
+          availabilityReason: 'Friendly already booked (Mock)',
+        },
+      );
+    }
+
     await supabase
       .from('profiles')
       .update({
         manager_name: snapshot.managerName,
         country_id: snapshot.countryId ?? null,
         country_name: snapshot.countryName ?? null,
+        league_id: snapshot.leagueId ?? null,
         avatar_json: snapshot.avatar ?? null,
         teams_json: snapshot.teams,
       })

@@ -3,6 +3,8 @@ import { getSupabase } from '../_lib/supabase.js';
 import {
   fetchManagerTeamsFromChpp,
   fetchTeamBookingStatus,
+  fetchTeamDetailsFromChpp,
+  fetchArenaDetailsFromChpp,
   getManagerChppCredentials,
 } from '../_lib/matchmaker.js';
 
@@ -23,7 +25,18 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     return res.status(405).json({ error: 'Method not allowed' });
   }
 
-  const { managerId, teamId, matchType, opponentLocation, homeAway, message } = req.body ?? {};
+  const {
+    managerId,
+    teamId,
+    matchType,
+    opponentLocation,
+    homeAway,
+    message,
+    matchDay,
+    timeWindow,
+    isBackAndForth,
+    isLongTerm,
+  } = req.body ?? {};
   const parsedManagerId = Number(managerId);
   const parsedTeamId = Number(teamId);
 
@@ -48,7 +61,21 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     }
 
     const snapshot = await fetchManagerTeamsFromChpp(consumerKey, consumerSecret, credentials);
-    const selectedTeam = snapshot.teams.find((team) => team.teamId === parsedTeamId);
+    let selectedTeam = snapshot.teams.find((team) => team.teamId === parsedTeamId);
+    let isMockTeam = false;
+    let extraDetails = null;
+    let arenaDetails = null;
+
+    // Developer Test Mode
+    if (true) {
+      if (parsedTeamId === 999001) {
+        selectedTeam = { teamId: 999001, teamName: 'FC Testing United (Mock)', countryName: 'Latvia', leagueId: 53, genderId: 1 };
+        isMockTeam = true;
+      } else if (parsedTeamId === 999002) {
+        selectedTeam = { teamId: 999002, teamName: 'Bug Hunters FC (Mock)', countryName: 'England', leagueId: 2, genderId: 1 };
+        isMockTeam = true;
+      }
+    }
 
     if (!selectedTeam) {
       return res.status(403).json({
@@ -56,14 +83,49 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       });
     }
 
-    const booking = await fetchTeamBookingStatus(consumerKey, consumerSecret, credentials, parsedTeamId);
-    if (booking.isBooked) {
-      const bookingDate = booking.match?.matchDate ? new Date(booking.match.matchDate) : null;
-      const when = bookingDate && Number.isFinite(bookingDate.getTime()) ? ` on ${bookingDate.toLocaleString()}` : '';
+    if (!isMockTeam) {
+      const [booking, details] = await Promise.all([
+        fetchTeamBookingStatus(consumerKey, consumerSecret, credentials, parsedTeamId),
+        fetchTeamDetailsFromChpp(consumerKey, consumerSecret, credentials, parsedTeamId),
+      ]);
+
+      if (booking.isBooked) {
+        const bookingDate = booking.match?.matchDate ? new Date(booking.match.matchDate) : null;
+        const when = bookingDate && Number.isFinite(bookingDate.getTime()) ? ` on ${bookingDate.toLocaleString()}` : '';
+        return res.status(409).json({
+          error: `This team already has a booked friendly${when}. Please choose a different team.`,
+        });
+      }
+      extraDetails = details;
+
+      if (details.arenaId) {
+        try {
+          arenaDetails = await fetchArenaDetailsFromChpp(consumerKey, consumerSecret, credentials, details.arenaId);
+        } catch (e) {
+          console.error('Failed to fetch arena details:', e);
+        }
+      }
+    } else if (parsedTeamId === 999002) {
+      // Specifically test a "booked" mock team if it somehow gets through
       return res.status(409).json({
-        error: `This team already has a booked friendly${when}. Please choose a different team.`,
+        error: `This team already has a booked friendly on next matchup dates (Mock).`,
       });
     }
+
+    const teamData = {
+      name: selectedTeam.teamName,
+      ht_team_name: selectedTeam.teamName,
+      hattrick_user_id: parsedManagerId,
+      manager_name: credentials.manager_name,
+      country_name: selectedTeam.countryName ?? null,
+      league_id: selectedTeam.leagueId ?? null,
+      gender_id: extraDetails?.genderId ?? selectedTeam.genderId ?? 1,
+      fanclub_size: extraDetails?.fanclubSize ?? null,
+      arena_id: extraDetails?.arenaId ?? null,
+      arena_size: arenaDetails?.capacity ?? null,
+      arena_image_url: arenaDetails?.arenaImageUrl ?? null,
+      active: true,
+    };
 
     const { data: existingTeam, error: existingTeamError } = await supabase
       .from('teams')
@@ -80,14 +142,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     if (teamId) {
       const { error: updateTeamError } = await supabase
         .from('teams')
-        .update({
-          name: selectedTeam.teamName,
-          ht_team_name: selectedTeam.teamName,
-          hattrick_user_id: parsedManagerId,
-          manager_name: credentials.manager_name,
-          country_name: selectedTeam.countryName ?? null,
-          active: true,
-        })
+        .update(teamData)
         .eq('id', teamId);
 
       if (updateTeamError) {
@@ -99,14 +154,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       const { data: insertedTeam, error: insertTeamError } = await supabase
         .from('teams')
         .insert({
+          ...teamData,
           ht_team_id: parsedTeamId,
-          name: selectedTeam.teamName,
-          ht_team_name: selectedTeam.teamName,
-          hattrick_user_id: parsedManagerId,
-          manager_name: credentials.manager_name,
-          country_name: selectedTeam.countryName ?? null,
           tournament_id: null,
-          active: true,
         })
         .select('id')
         .single();
@@ -139,7 +189,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       });
     }
 
-    const { data: request, error: requestError } = await supabase
+    const { data: request, requestError } = (await supabase
       .from('matchmaker_requests')
       .insert({
         manager_ht_id: parsedManagerId,
@@ -147,15 +197,20 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         match_type: matchType ?? '120min',
         opponent_location: opponentLocation ?? 'any',
         home_away: homeAway ?? 'any',
+        match_day: matchDay ?? null,
+        time_window: timeWindow ?? null,
         message: typeof message === 'string' && message.trim() ? message.trim() : null,
         expires_at: calculateMatchmakerExpiry().toISOString(),
+        is_back_and_forth: !!isBackAndForth,
+        is_long_term: !!isLongTerm,
+        gender_id: teamData.gender_id,
       })
       .select('id')
-      .single();
+      .single()) as any;
 
     if (requestError || !request) {
       return res.status(500).json({
-        error: 'Could not create your Matchmaker request right now. Please try again.',
+        error: requestError?.message || 'Could not create your Matchmaker request right now. Please try again.',
       });
     }
 
@@ -165,6 +220,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         manager_name: snapshot.managerName,
         country_id: snapshot.countryId ?? null,
         country_name: snapshot.countryName ?? null,
+        league_id: snapshot.leagueId ?? null,
         avatar_json: snapshot.avatar ?? null,
         teams_json: snapshot.teams,
         chpp_synced_at: new Date().toISOString(),

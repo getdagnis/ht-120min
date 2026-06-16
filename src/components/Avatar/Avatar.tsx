@@ -7,47 +7,68 @@ interface AvatarLayer {
   image: string;
 }
 
-interface AvatarProps {
-  backgroundImage?: string;
+interface AvatarData {
+  backgroundImage: string;
   layers?: AvatarLayer[];
-  size?: 'lg' | 'md' | 'sm' | 'xs';
+}
+
+interface AvatarProps {
+  avatar: AvatarData | null;
+  variant: 'circle' | 'rect';
+  size?: number; // Size for the container
   className?: string;
 }
 
-export const Avatar: React.FC<AvatarProps> = ({ backgroundImage, layers, size = 'lg', className }) => {
-  const sizeMap = {
-    lg: 1,
-    md: 0.8,
-    sm: 0.6,
-    xs: 0.3,
-  };
-  const sizeInt = sizeMap[size];
-
-  if (!backgroundImage && (!layers || layers.length === 0)) {
+export const Avatar: React.FC<AvatarProps> = ({ avatar, variant, size = 120, className }) => {
+  if (!avatar || !avatar.backgroundImage) {
     return (
-      <div className={`${styles.avatarPlaceholder} ${className}`} style={{ scale: sizeInt }}>
+      <div
+        className={`${styles.container} ${styles[variant]} ${className}`}
+        style={{ width: size, height: size, display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+      >
         ?
       </div>
     );
   }
 
+  // Hattrick avatar base size is typically around 100-120px depending on the assets
+  const width = 120;
+  const height = 138;
+  const scale = size / width;
+
   return (
-    <div className={`${styles.avatarWrapper} ${className}`} style={{ scale: sizeInt, position: 'relative' }}>
-      {backgroundImage && (
-        <img src={backgroundImage} alt="Avatar Background" className={styles.layer} style={{ left: 0, top: 0 }} />
-      )}
-      {layers?.map((layer, index) => (
-        <img
-          key={index}
-          src={layer.image.startsWith('http') ? layer.image : `https://www.hattrick.org${layer.image}`}
-          alt={`Avatar Layer ${index}`}
-          className={styles.layer}
-          style={{
-            left: `${layer.x || 0}px`,
-            top: `${layer.y || 0}px`,
-          }}
-        />
-      ))}
+    <div
+      className={`${styles.container} ${styles[variant]} ${className}`}
+      style={{ width: width, height: height, position: 'relative', overflow: 'hidden' }}
+    >
+      <div
+        style={{
+          position: 'absolute',
+          // Simple center with a slight Y offset
+          left: '50%',
+          top: '55%',
+          transform: `translate(-50%, -50%) scale(${scale})`,
+          transformOrigin: 'center center',
+        }}
+      >
+        {/* Background Image */}
+        <img src={avatar.backgroundImage} alt="Avatar Background" />
+
+        {/* Layers */}
+        {avatar.layers?.map((layer, idx) => (
+          <img
+            key={idx}
+            src={layer.image}
+            alt={`Layer ${idx}`}
+            className={styles.layer}
+            style={{
+              position: 'absolute',
+              left: `${layer.x ?? 0}px`,
+              top: `${layer.y ?? 0}px`,
+            }}
+          />
+        ))}
+      </div>
     </div>
   );
 };

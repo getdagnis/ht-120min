@@ -1,22 +1,20 @@
-.avatarWrapper
+.container
   position: relative
   overflow: hidden
-  width: 120px
-  height: 138px
-
-.layer
-  position: absolute
-  object-fit: contain
-
-.avatarPlaceholder
   display: flex
   align-items: center
   justify-content: center
-  background: var(--card-bg-hover)
-  border: 1px solid var(--border-color)
-  border-radius: 4px
-  font-size: 2rem
-  font-weight: bold
-  color: var(--text-muted)
-  width: 120px
-  height: 138px
+  // Ensure we don't have clashing backgrounds
+  background: transparent 
+
+.circle
+  border-radius: 999px
+
+.rect
+  border-radius: var(--radius-sm)
+
+.layer
+  position: absolute
+  top: 0
+  left: 0
+  display: block

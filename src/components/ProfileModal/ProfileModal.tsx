@@ -87,15 +87,13 @@ export const ProfileModal: React.FC<ProfileModalProps> = ({ isOpen, maxWidth, on
     year: 'numeric',
   });
 
+  console.log('Profile Avatar Data:', profile?.avatar_json);
+
   return (
     <Modal isOpen={isOpen} onClose={handleClose} title="Manager Profile" maxWidth={maxWidth}>
       <div className={styles.profileContent}>
         <div className={styles.header}>
-          <Avatar
-            backgroundImage={profile.avatar_json?.backgroundImage}
-            layers={profile.avatar_json?.layers}
-            className={styles.avatar}
-          />
+          <Avatar avatar={profile.avatar_json || null} variant="rect" className={styles.avatar} />
           <div className={styles.mainInfo}>
             <a
               href={`https://www.hattrick.org/goto.ashx?path=/Club/Manager/?userId=${profile.hattrick_user_id}`}

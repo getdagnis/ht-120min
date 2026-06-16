@@ -3,8 +3,12 @@ import { getAuthHeader } from './chpp-auth.js';
 import {
   parseManagerCompendiumXml,
   parseMatchesXml,
+  parseTeamDetailsXml,
+  parseArenaDetailsXml,
   type ChppTeamOption,
   type ParsedMatch,
+  type ParsedTeamDetails,
+  type ParsedArenaDetails,
 } from './chpp-xml.js';
 
 export type MatchmakerAvailabilityStatus = 'available' | 'booked' | 'unknown';
@@ -80,6 +84,66 @@ export async function getManagerChppCredentials(
     oauth_token_secret: teamAuth.oauth_token_secret,
     teams_json: null,
   };
+}
+
+export async function fetchTeamDetailsFromChpp(
+  consumerKey: string,
+  consumerSecret: string,
+  credentials: Pick<ManagerChppCredentials, 'oauth_token' | 'oauth_token_secret'>,
+  teamId: number,
+): Promise<ParsedTeamDetails> {
+  const url = 'https://chpp.hattrick.org/chppxml.ashx';
+  const params = { file: 'teamdetails', version: '3.9', teamID: String(teamId) };
+  const authHeader = getAuthHeader(
+    'GET',
+    url,
+    params,
+    consumerKey,
+    consumerSecret,
+    credentials.oauth_token,
+    credentials.oauth_token_secret,
+  );
+
+  const response = await fetch(`${url}?file=teamdetails&version=3.9&teamID=${teamId}`, {
+    headers: { Authorization: authHeader },
+  });
+
+  const xml = await response.text();
+  if (!response.ok) {
+    throw new Error(`CHPP teamdetails failed (${response.status})`);
+  }
+
+  return parseTeamDetailsXml(xml, teamId);
+}
+
+export async function fetchArenaDetailsFromChpp(
+  consumerKey: string,
+  consumerSecret: string,
+  credentials: Pick<ManagerChppCredentials, 'oauth_token' | 'oauth_token_secret'>,
+  arenaId: number,
+): Promise<ParsedArenaDetails> {
+  const url = 'https://chpp.hattrick.org/chppxml.ashx';
+  const params = { file: 'arenadetails', version: '1.2', arenaID: String(arenaId) };
+  const authHeader = getAuthHeader(
+    'GET',
+    url,
+    params,
+    consumerKey,
+    consumerSecret,
+    credentials.oauth_token,
+    credentials.oauth_token_secret,
+  );
+
+  const response = await fetch(`${url}?file=arenadetails&version=1.2&arenaID=${arenaId}`, {
+    headers: { Authorization: authHeader },
+  });
+
+  const xml = await response.text();
+  if (!response.ok) {
+    throw new Error(`CHPP arenadetails failed (${response.status})`);
+  }
+
+  return parseArenaDetailsXml(xml);
 }
 
 export async function fetchManagerTeamsFromChpp(
