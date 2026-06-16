@@ -1,0 +1,123 @@
+.beerCard
+  max-width: 1200px
+  width: 100%
+  margin: 0 auto 3rem
+  background-color: var(--accent-3)
+  background-image: url('/grass2.png')
+  background-position: center
+  background-repeat: repeat
+  border: 1px solid var(--border)
+  color: white
+  overflow: hidden
+  min-height: fit-content
+  display: flex
+  padding: 0 !important // Remove default card padding to let image be full height
+
+[data-theme='dark'] .beerCard
+  background-color: var(--bg-transp3)
+  background-image: url('/grass2.png')
+  .title
+    color: white
+  .subtitle
+    color: rgba(255, 255, 255, 0.8)
+
+.bannerImageWrapper
+  position: relative
+  flex-shrink: 0
+  width: 33.33%
+  min-width: 250px
+  background: url("/buy-me-beer2.png") center center no-repeat
+  background-size: 120%
+  background-position: 20%
+  border-radius: var(--radius-md) 0 0 var(--radius-md)
+
+.content
+  display: flex
+  flex: 1
+  align-items: center
+  justify-content: space-between
+  gap: 2rem
+  padding: 2rem
+
+.left
+  display: flex
+  flex-direction: column
+  align-items: flex-start
+  text-align: left
+
+.title
+  font-size: 2.5rem
+  font-family: var(--heading)
+  font-weight: 800
+  margin: 0 0 0.5rem
+  color: white
+  text-shadow: 1px 1px 5px rgba(0,0,0,0.5)
+
+.subtitle
+  font-size: 1.1rem
+  line-height: 1.5
+  margin: 0 0 2rem
+  color: rgba(255, 255, 255, 0.9)
+  max-width: 450px
+  text-shadow: 1px 1px 3px rgba(0,0,0,0.3)
+
+.tipBtn
+  font-weight: 700
+  min-width: 160px
+
+.right
+  flex-shrink: 0
+
+.qrCode
+  width: 10rem
+  height: 10rem
+  border-radius: var(--radius-sm)
+  display: block
+  box-shadow: 0 4px 12px rgba(0,0,0,0.2)
+  background: white
+  padding: 0.25rem
+
+  @media (max-width: 620px)
+    display: none
+
+@media (max-width: 1024px)
+  .content
+    padding: 2rem
+
+  .title
+    font-size: 2rem
+
+@media (max-width: 768px)
+  .beerCard
+    flex-direction: column
+    width: 100%
+    margin-bottom: 2rem
+
+  .bannerImageWrapper
+    width: 100%
+    min-width: 0
+    height: 200px
+
+  .bannerImage
+    border-radius: var(--radius-md) var(--radius-md) 0 0
+
+  .content
+    flex-direction: column
+    text-align: center
+    gap: 2rem
+    padding: 1.5rem
+
+  .left
+    align-items: center
+    text-align: center
+
+  .subtitle
+    max-width: 100%
+    margin-bottom: 1.5rem
+
+  .right
+    order: 2
+
+  .qrCode
+    width: 120px
+    height: 120px

@@ -18,6 +18,7 @@ import { scroller } from 'react-scroll';
 import { Button } from '../Button/Button';
 import { useAuth } from '../../hooks/useAuth';
 import { ProfileModal } from '../ProfileModal/ProfileModal';
+import { BeerBanner } from '../BeerBanner/BeerBanner';
 import styles from './Layout.module.sass';
 
 interface LayoutProps {
@@ -221,6 +222,7 @@ export const Layout: React.FC<LayoutProps> = ({ children }) => {
 
       <footer className={styles.footer}>
         <div className={styles.container}>
+          <BeerBanner />
           <p>
             © {new Date().getFullYear()}
             <span className="mr-sm" />
@@ -239,7 +241,7 @@ export const Layout: React.FC<LayoutProps> = ({ children }) => {
             <b />
           </p>
           <a href="https://stage.hattrick.org/MyHattrick/Inbox/?actionType=newMail&userId=8777402" target="_blank">
-            Send me a love poem!
+            Send me a HT love poem!
           </a>{' '}
           💌
           <p className={styles.affiliated}>Not affiliated with Hattrick Ltd.</p>
