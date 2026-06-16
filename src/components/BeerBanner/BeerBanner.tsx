@@ -13,9 +13,9 @@ export const BeerBanner: React.FC = () => {
       <div className={styles.bannerImageWrapper} />
       <div className={styles.content}>
         <div className={styles.left}>
-          <h2 className={styles.title}>Buy me a beer!</h2>
+          <h2 className={styles.title}>Buy me a beer! 🍺</h2>
           <p className={styles.subtitle}>
-            Programming boring stuff requires coffee. Programming cool stuff demands beer! 🍺
+            Programming boring stuff requires coffee. Programming fun stuff demands beer!
           </p>
           <Button variant="secondaryYellow" size="md" className={styles.tipBtn} onClick={handleTip}>
             Tip me a pint!
