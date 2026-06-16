@@ -7,7 +7,7 @@ import { HeroCard } from '../../components/Card/HeroCard';
 import { TournamentCard } from '../../components/Card/TournamentCard';
 import { SectionCard } from '../../components/Card/SectionCard';
 import { MottoWidget } from '../../components/MottoWidget/MottoWidget';
-import { MatchmakerTeaser } from '../../components/FriendlyHub/MatchmakerTeaser';
+import { TinderWidget } from '../../components/TinderWidget/TinderWidget';
 import { Link as ScrollTo, Element } from 'react-scroll';
 import { calculateMatchDate } from '../../utils/ht-data';
 import { Trophy, CalendarBlank, Heartbeat, CaretLeft, ArrowRight, Star, Clock } from 'phosphor-react';
@@ -391,6 +391,7 @@ export const Home: React.FC = () => {
           </div>
 
           <aside className={styles.rightColumn}>
+            <TinderWidget className={styles.marketplaceWrapper} />
             <div className={styles.sectionHeader}>
               <Star size={24} weight="regular" className={styles.sectionIcon} />
               <h2>Monthly Best</h2>
@@ -427,7 +428,6 @@ export const Home: React.FC = () => {
                 </ul>
               </SectionCard>
             )}
-            <MatchmakerTeaser className={styles.marketplaceWrapper} />
           </aside>
         </div>
         <div className={styles.features}>

@@ -33,7 +33,7 @@ Create a new migration for the matchmaker system using existing identity tables.
 
 ## 2. UI Components
 
-### Homepage Teaser (`src/components/FriendlyHub/MatchmakerTeaser.tsx`)
+### Homepage Teaser (`src/components/TinderWidget/TinderWidget.tsx`)
 
 - High-impact CTA: "🔥 23 teams are searching for a 120 minute friendly".
 - "Find My Match →" button.

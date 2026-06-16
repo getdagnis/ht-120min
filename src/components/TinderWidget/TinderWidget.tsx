@@ -4,7 +4,7 @@ import { supabase } from '../../lib/supabase';
 import { Button } from '../Button/Button';
 import { Card } from '../Card/Card';
 import { ArrowRight, HeartBreak } from 'phosphor-react';
-import styles from './MatchmakerTeaser.module.sass';
+import styles from './TinderWidget.module.sass';
 
 interface MatchmakerTeaserProps {
   className?: string;
@@ -21,7 +21,7 @@ interface RecentRequest {
   } | null;
 }
 
-export const MatchmakerTeaser: React.FC<MatchmakerTeaserProps> = ({ className = '' }) => {
+export const TinderWidget: React.FC<MatchmakerTeaserProps> = ({ className = '' }) => {
   const navigate = useNavigate();
   const [activeCount, setActiveCount] = useState(0);
   const [recentRequests, setRecentRequests] = useState<RecentRequest[]>([]);
@@ -72,7 +72,7 @@ export const MatchmakerTeaser: React.FC<MatchmakerTeaserProps> = ({ className = 
           </span>
         </div>
 
-        <p className={styles.description}>Find your next 120 minute training partner the contemporary way.</p>
+        <p className={styles.description}>Find your next 120 minute training partner the modern way.</p>
 
         <Button variant="primary" fullWidth onClick={() => navigate('/matchmaker')} className={styles.cta}>
           Find My Match <ArrowRight size={18} weight="bold" />
