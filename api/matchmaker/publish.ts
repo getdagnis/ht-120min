@@ -67,12 +67,24 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     let arenaDetails = null;
 
     // Developer Test Mode
-    if (true) {
+    if (process.env.NODE_ENV === 'development') {
       if (parsedTeamId === 999001) {
-        selectedTeam = { teamId: 999001, teamName: 'FC Testing United (Mock)', countryName: 'Latvia', leagueId: 53, genderId: 1 };
+        selectedTeam = {
+          teamId: 999001,
+          teamName: 'FC Testing United (Mock)',
+          countryName: 'Latvia',
+          leagueId: 53,
+          genderId: 1,
+        };
         isMockTeam = true;
       } else if (parsedTeamId === 999002) {
-        selectedTeam = { teamId: 999002, teamName: 'Bug Hunters FC (Mock)', countryName: 'England', leagueId: 2, genderId: 1 };
+        selectedTeam = {
+          teamId: 999002,
+          teamName: 'Bug Hunters FC (Mock)',
+          countryName: 'England',
+          leagueId: 2,
+          genderId: 1,
+        };
         isMockTeam = true;
       }
     }
@@ -140,10 +152,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
     let teamId = existingTeam?.id;
     if (teamId) {
-      const { error: updateTeamError } = await supabase
-        .from('teams')
-        .update(teamData)
-        .eq('id', teamId);
+      const { error: updateTeamError } = await supabase.from('teams').update(teamData).eq('id', teamId);
 
       if (updateTeamError) {
         return res.status(500).json({
@@ -163,9 +172,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
       if (insertTeamError || !insertedTeam) {
         return res.status(500).json({
-          error:
-            insertTeamError?.message ||
-            'Could not save your team details right now. Please try again.',
+          error: insertTeamError?.message || 'Could not save your team details right now. Please try again.',
         });
       }
 
@@ -189,7 +196,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       });
     }
 
-    const { data: request, requestError } = (await supabase
+    const { data: request, error: requestError } = await supabase
       .from('matchmaker_requests')
       .insert({
         manager_ht_id: parsedManagerId,
@@ -206,7 +213,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         gender_id: teamData.gender_id,
       })
       .select('id')
-      .single()) as any;
+      .single();
 
     if (requestError || !request) {
       return res.status(500).json({
@@ -238,9 +245,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     console.error('Matchmaker publish error:', error);
     return res.status(503).json({
       error:
-        error instanceof Error
-          ? error.message
-          : 'Could not publish this request right now. Please try again later.',
+        error instanceof Error ? error.message : 'Could not publish this request right now. Please try again later.',
     });
   }
 }

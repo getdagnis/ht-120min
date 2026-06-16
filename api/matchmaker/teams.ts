@@ -68,13 +68,14 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       return {
         ...team,
         availabilityStatus: availability?.availabilityStatus ?? 'unknown',
-        availabilityReason: availability && 'availabilityReason' in availability ? availability.availabilityReason : undefined,
+        availabilityReason:
+          availability && 'availabilityReason' in availability ? availability.availabilityReason : undefined,
         bookedMatch: availability && 'bookedMatch' in availability ? availability.bookedMatch : null,
       };
     });
 
     // Developer Test Mode
-    if (true) {
+    if (process.env.NODE_ENV === 'development') {
       teams.push(
         {
           teamId: 999001,
@@ -111,10 +112,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   } catch (error) {
     console.error('Matchmaker teams error:', error);
     return res.status(503).json({
-      error:
-        error instanceof Error
-          ? error.message
-          : 'Could not refresh your Hattrick teams right now.',
+      error: error instanceof Error ? error.message : 'Could not refresh your Hattrick teams right now.',
     });
   }
 }

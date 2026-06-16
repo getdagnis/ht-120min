@@ -13,7 +13,7 @@ interface ChatMessage {
   author_ht_id: number;
   profiles?: {
     avatar_json: {
-      backgroundImage?: string;
+      backgroundImage: string;
       layers?: { image: string; x: number; y: number }[];
     } | null;
   };
@@ -79,10 +79,7 @@ export const ChatView: React.FC<ChatViewProps> = ({
     <div className={styles.chatSection}>
       <div className={styles.chatMessages} ref={chatContainerRef}>
         {messages.length > visibleMessageCount && (
-          <button 
-            className={styles.loadMoreBtn} 
-            onClick={() => setVisibleMessageCount(prev => prev + 20)}
-          >
+          <button className={styles.loadMoreBtn} onClick={() => setVisibleMessageCount((prev) => prev + 20)}>
             Load More
           </button>
         )}
@@ -123,9 +120,9 @@ export const ChatView: React.FC<ChatViewProps> = ({
                     <Tooltip id={`author-tooltip-${msg.id}`} className={styles.chatAuthorTooltip}>
                       <div className={styles.tooltipAvatar}>
                         <Avatar
-                          backgroundImage={msg.profiles?.avatar_json?.backgroundImage}
-                          layers={msg.profiles?.avatar_json?.layers}
                           className={styles.tooltipAvatarImg}
+                          avatar={msg.profiles?.avatar_json || null}
+                          variant="circle"
                         />
                       </div>
                       <span className={styles.tooltipTeamName}>{teamNames[msg.author_ht_id] || 'Guest'}</span>
@@ -133,9 +130,7 @@ export const ChatView: React.FC<ChatViewProps> = ({
                   </>
                 )}
                 <div className={`${styles.chatBubble} ${isBigEmoji ? styles.bigEmojiBubble : ''}`}>
-                  <span className={`${styles.chatContent} ${isBigEmoji ? styles.bigEmoji : ''}`}>
-                    {msg.content}
-                  </span>
+                  <span className={`${styles.chatContent} ${isBigEmoji ? styles.bigEmoji : ''}`}>{msg.content}</span>
                 </div>
                 <span className={styles.chatTime}>
                   {new Date(msg.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
