@@ -3,6 +3,13 @@
   max-width: 1150px
   margin: 0 auto
   padding: 5rem 1rem 2rem
+  min-height: 100vh
+  background-color: var(--tinder-bg)
+  background-image: url('/grass2.png')
+  background-position: center
+  background-repeat: repeat
+  background-blend-mode: multiply
+  color: white
 
   @media (max-width: 620px)
     padding: 4.5rem 0.75rem 1rem
@@ -10,60 +17,78 @@
 .hero
   text-align: center
   margin-bottom: 3rem
-  padding: 3rem 1rem
-  background: var(--bg-transp)
+  padding: 4rem 1.5rem
+  background: rgba(0,0,0,0.3)
   border-radius: var(--radius-lg)
-  border: 1px solid var(--border)
+  border: 1px solid rgba(255,255,255,0.1)
+  backdrop-filter: blur(10px)
 
   h1
-    font-size: 3rem
+    font-size: 4rem
     margin: 0 0 1rem
-    font-weight: 800
-    color: var(--text-h)
+    font-weight: 900
+    color: white
+    text-shadow: 0 0 20px rgba(255, 75, 43, 0.5)
 
   p
-    font-size: 1.25rem
-    opacity: 0.8
-    max-width: 600px
-    margin: 0 auto 2rem
+    font-size: 1.4rem
+    opacity: 0.9
+    max-width: 700px
+    margin: 0 auto 2.5rem
+    line-height: 1.4
+
+.tinderMainBtn
+  background: linear-gradient(45deg, var(--tinder), #ff4b2b) !important
+  border: none !important
+  font-weight: 800 !important
+  padding: 1rem 2.5rem !important
+  font-size: 1.25rem !important
+  box-shadow: 0 4px 20px rgba(174, 10, 54, 0.4) !important
+  &:hover
+    transform: translateY(-2px)
+    box-shadow: 0 6px 25px rgba(174, 10, 54, 0.6) !important
 
 .stats
-  font-weight: 700
-  color: var(--accent)
-  margin-bottom: 1rem
+  font-weight: 800
+  color: #ff4b2b
+  margin-bottom: 1.5rem
   display: block
+  font-size: 1.1rem
+  text-transform: uppercase
+  letter-spacing: 0.05em
 
 .tabs
   display: flex
-  gap: 2rem
-  margin-bottom: 2rem
-  border-bottom: 2px solid var(--border)
+  gap: 2.5rem
+  margin-bottom: 3rem
+  border-bottom: 2px solid rgba(255,255,255,0.1)
   justify-content: center
 
   button
     background: transparent
     border: none
-    padding: 12px 0
-    font-weight: 600
-    color: var(--text)
+    padding: 15px 0
+    font-weight: 700
+    color: rgba(255,255,255,0.6)
     position: relative
-    font-size: 1.1rem
+    font-size: 1.2rem
     cursor: pointer
-    transition: all 0.2s
+    transition: all 0.3s
 
     &:hover
-      color: var(--accent)
+      color: white
 
     &.active
-      color: var(--accent-2)
+      color: #ff4b2b
       &::after
         content: ''
         position: absolute
         bottom: -2px
         left: 0
         right: 0
-        height: 2px
-        background-color: var(--accent-2)
+        height: 3px
+        background-color: #ff4b2b
+        box-shadow: 0 0 10px rgba(255, 75, 43, 0.5)
 
 .browserContainer
   display: flex
@@ -74,20 +99,20 @@
 
 .tinderCard
   width: 100%
-  max-width: 450px
-  background: var(--table-bg-main)
-  border: 1px solid var(--border)
-  border-radius: var(--radius-lg)
+  max-width: 480px
+  background: #1a0208
+  border: 1px solid rgba(255,255,255,0.1)
+  border-radius: 2rem
   overflow: hidden
-  box-shadow: 0 10px 30px rgba(0,0,0,0.1)
+  box-shadow: 0 20px 50px rgba(0,0,0,0.5)
   position: relative
   display: flex
   flex-direction: column
 
 .cardHeader
-  padding: 1.5rem 2rem
-  background: var(--bg-transp)
-  border-bottom: 1px solid var(--border)
+  padding: 2rem
+  background: linear-gradient(to bottom, rgba(174, 10, 54, 0.3), transparent)
+  border-bottom: 1px solid rgba(255,255,255,0.05)
   display: flex
   flex-direction: column
   gap: 1.5rem
@@ -102,29 +127,30 @@
   bottom: 0
   background-size: cover
   background-position: center
-  opacity: 0.15
+  opacity: 0.2
   z-index: 0
   pointer-events: none
-  filter: grayscale(0.5)
+  filter: grayscale(0.5) contrast(1.2)
 
 .managerInfo, .teamBrand
   position: relative
   z-index: 1
 
 .hfiSubtitle
-  font-size: 0.9rem
-  color: var(--accent)
-  font-weight: 700
+  font-size: 1rem
+  color: #ff4b2b
+  font-weight: 800
   margin-top: -1.5rem
-  margin-bottom: 1rem
+  margin-bottom: 1.5rem
+  text-transform: uppercase
 
 .managerAvatar
-  width: 55px
-  height: 55px
+  width: 65px
+  height: 65px
   border-radius: 100%
   overflow: hidden
-  border: 2px solid white
-  background: var(--bg-transp2)
+  border: 3px solid rgba(255,255,255,0.2)
+  background: rgba(255,255,255,0.05)
   display: flex
   align-items: center
   justify-content: center
@@ -135,32 +161,32 @@
   flex-direction: column
 
 .managerName
-  font-weight: 700
-  color: var(--text-h)
-  font-size: 0.95rem
+  font-weight: 800
+  color: white
+  font-size: 1.1rem
 
 .managerCountry
   display: flex
   align-items: center
   gap: 0.35rem
-  font-size: 0.8rem
-  opacity: 0.7
+  font-size: 0.9rem
+  opacity: 0.8
   font-weight: 600
 
 .miniFlag
-  width: 14px
+  width: 16px
 
 .teamBrand
   text-align: center
 
 .cardLogoWrapper
-  width: 100px
-  height: 100px
-  margin: 0 auto 1rem
+  width: 120px
+  height: 120px
+  margin: 0 auto 1.5rem
   background: white
-  border-radius: var(--radius-md)
-  padding: 0.75rem
-  box-shadow: 0 4px 12px rgba(0,0,0,0.05)
+  border-radius: 1.5rem
+  padding: 1rem
+  box-shadow: 0 8px 25px rgba(0,0,0,0.3)
   display: flex
   align-items: center
   justify-content: center
@@ -171,85 +197,93 @@
     object-fit: contain
 
 .teamName
-  font-size: 1.5rem
-  font-weight: 800
+  font-size: 2.2rem
+  font-weight: 900
   margin: 0
-  color: var(--text-h)
+  color: white
+  line-height: 1.1
+  letter-spacing: -0.02em
 
 .location
   display: flex
   align-items: center
   justify-content: center
   gap: 0.5rem
-  font-weight: 600
-  opacity: 0.7
+  font-weight: 700
+  opacity: 0.8
+  margin-top: 0.5rem
 
   img
-    width: 20px
+    width: 22px
 
 .cardBody
-  padding: 1.5rem 2rem
+  padding: 2rem
   display: flex
   flex-direction: column
-  gap: 1.25rem
+  gap: 1.5rem
 
 .matchBadge
   display: flex
   align-items: center
   gap: 0.5rem
-  background: var(--bg-helpText)
-  color: var(--accent)
-  padding: 0.4rem 0.8rem
+  background: rgba(255, 75, 43, 0.15)
+  color: #ff4b2b
+  padding: 0.5rem 1rem
   border-radius: 999px
-  font-size: 0.85rem
+  font-size: 0.9rem
   font-weight: 800
   width: fit-content
   align-self: center
+  border: 1px solid rgba(255, 75, 43, 0.2)
 
 .infoGrid
   display: grid
   grid-template-columns: 1fr 1fr
-  gap: 1.25rem
+  gap: 1.5rem
 
 .infoItem
   display: flex
   flex-direction: column
-  gap: 0.25rem
+  gap: 0.35rem
 
   span:first-child
-    font-size: 0.75rem
+    font-size: 0.8rem
     text-transform: uppercase
-    letter-spacing: 0.05em
+    letter-spacing: 0.1em
     opacity: 0.5
-    font-weight: 700
+    font-weight: 800
+    color: #ff4b2b
 
   span:last-child
     font-weight: 700
-    font-size: 1rem
+    font-size: 1.1rem
+    color: white
 
 .message
   font-style: italic
-  background: var(--bg-transp2)
-  padding: 1rem
-  border-radius: var(--radius-sm)
-  border-left: 3px solid var(--accent)
+  background: rgba(255,255,255,0.03)
+  padding: 1.25rem
+  border-radius: var(--radius-md)
+  border-left: 4px solid var(--tinder)
   margin: 0
-  font-size: 0.95rem
+  font-size: 1.1rem
+  line-height: 1.4
+  color: rgba(255,255,255,0.9)
 
 .cardActions
   display: flex
-  padding: 1.5rem 2rem
-  gap: 1.25rem
+  padding: 2rem
+  gap: 1.5rem
   justify-content: center
-  border-top: 1px solid var(--border)
+  background: rgba(0,0,0,0.2)
 
 .skipBtn
   flex: 1
-  border: 2px solid #ff4b2b
+  border: 2px solid rgba(255,255,255,0.2)
   background: transparent
-  color: #ff4b2b
-  padding: 0.85rem
-  border-radius: var(--radius-md)
+  color: white
+  padding: 1rem
+  border-radius: 1rem
   font-weight: 800
   cursor: pointer
   display: flex
@@ -257,47 +291,54 @@
   justify-content: center
   gap: 0.5rem
   transition: all 0.2s
-  font-size: 0.9rem
+  font-size: 1.1rem
 
   &:hover
-    background: #ff4b2b
-    color: white
+    background: rgba(255,255,255,0.1)
+    border-color: white
 
 .acceptBtn
   flex: 2
-  background: #00d2ff
-  background: linear-gradient(to right, #3a7bd5, #00d2ff)
+  background: linear-gradient(45deg, var(--tinder), #ff4b2b)
   color: white
   border: none
-  padding: 0.85rem
-  border-radius: var(--radius-md)
-  font-weight: 800
+  padding: 1rem
+  border-radius: 1rem
+  font-weight: 900
   cursor: pointer
   display: flex
   align-items: center
   justify-content: center
   gap: 0.5rem
   transition: all 0.2s
-  box-shadow: 0 4px 15px rgba(58, 123, 213, 0.3)
-  font-size: 0.9rem
+  box-shadow: 0 10px 20px rgba(174, 10, 54, 0.3)
+  font-size: 1.1rem
+  text-transform: uppercase
+  letter-spacing: 0.05em
 
   &:hover
-    transform: translateY(-2px)
-    box-shadow: 0 6px 20px rgba(58, 123, 213, 0.4)
+    transform: scale(1.05)
+    box-shadow: 0 15px 30px rgba(174, 10, 54, 0.5)
 
 .emptyState
   text-align: center
-  padding: 4rem 2rem
-  opacity: 0.5
+  padding: 6rem 2rem
+  opacity: 0.7
 
   h3
+    font-size: 1.8rem
     margin-bottom: 1rem
+    color: white
+
+  p
+    font-size: 1.2rem
 
 .loading
-  padding: 5rem
+  padding: 8rem
   text-align: center
-  font-weight: 700
-  font-size: 1.25rem
+  font-weight: 800
+  font-size: 1.5rem
+  color: #ff4b2b
 
 .successOverlay
   position: absolute
@@ -305,7 +346,7 @@
   left: 0
   right: 0
   bottom: 0
-  background: rgba(16, 134, 59, 0.95)
+  background: linear-gradient(to bottom, #7f0122, #ae0a36)
   display: flex
   flex-direction: column
   align-items: center
@@ -314,19 +355,31 @@
   color: white
   text-align: center
   z-index: 10
+  animation: slideUp 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275)
 
+@keyframes slideUp
+  from
+    transform: translateY(100%)
+  to
+    transform: translateY(0)
+
+.successOverlay
   h2
-    font-size: 2.2rem
-    margin-bottom: 1rem
+    font-size: 3rem
+    margin-bottom: 1.5rem
+    font-weight: 900
+    text-shadow: 0 0 20px rgba(0,0,0,0.3)
 
   p
-    font-size: 1.1rem
-    margin-bottom: 0.5rem
+    font-size: 1.3rem
+    margin-bottom: 1rem
+    opacity: 0.9
 
 .postModal
   display: flex
   flex-direction: column
   gap: 1.5rem
+  color: var(--text) // Form should remain readable
 
 .formGroup
   display: flex
@@ -381,6 +434,7 @@
   border-radius: var(--radius-md)
   cursor: pointer
   transition: all 0.2s
+  color: var(--text)
 
   &.selected
     border-color: var(--accent)
@@ -404,7 +458,7 @@
   margin-top: 0.5rem
 
 .noTeamsMessage
-  padding: 1rem 3rem
+  padding: 2rem 3rem
   background: var(--bg-transp2)
   border: 1px dashed var(--border)
   border-radius: var(--radius-md)
@@ -419,9 +473,6 @@
     margin: 0
     font-size: 1rem
     line-height: 1.5
-
-    strong
-      color: var(--accent)
 
 .teamOptionInfo
   display: flex
@@ -462,61 +513,66 @@
 
 .myRequests
   padding: 1rem
+  background: rgba(0,0,0,0.2)
+  border-radius: 2rem
+  margin-top: 2rem
 
 .myAdsHeader
   text-align: center
-  margin-bottom: 2rem
-  padding: 2rem
-  background: var(--bg-transp)
-  border-radius: var(--radius-md)
-  border: 1px dashed var(--border)
+  margin-bottom: 3rem
+  padding: 3rem
+  background: rgba(255,255,255,0.05)
+  border-radius: 2rem
+  border: 2px dashed rgba(255,255,255,0.1)
 
   h3
-    font-size: 1.5rem
+    font-size: 2rem
     margin-bottom: 0.5rem
-    color: var(--text-h)
+    color: white
+    font-weight: 900
 
   p
-    opacity: 0.7
-    font-size: 1.1rem
+    opacity: 0.8
+    font-size: 1.2rem
 
 .unavailableToggleSection
-  margin-top: 1rem
-  border-top: 1px solid var(--border)
+  margin-top: 2rem
+  border-top: 1px solid rgba(255,255,255,0.1)
   padding-top: 1.5rem
 
 .toggleBtn
   background: transparent
   border: none
-  color: var(--accent)
-  font-weight: 700
+  color: #ff4b2b
+  font-weight: 800
   cursor: pointer
   display: flex
   align-items: center
   gap: 0.5rem
   padding: 0.5rem 0
-  font-size: 0.95rem
+  font-size: 1.1rem
 
   &:hover
     text-decoration: underline
 
 .requestGrid
   display: grid
-  grid-template-columns: repeat(auto-fill, minmax(300px, 1fr))
-  gap: 1.5rem
+  grid-template-columns: repeat(auto-fill, minmax(320px, 1fr))
+  gap: 2rem
 
 .myRequestCard
-  background: var(--table-bg-main)
-  border: 1px solid var(--border)
-  border-radius: var(--radius-md)
-  padding: 1.5rem
+  background: #1a0208
+  border: 1px solid rgba(255,255,255,0.1)
+  border-radius: 1.5rem
+  padding: 2rem
   display: flex
   flex-direction: column
-  gap: 1rem
+  gap: 1.5rem
+  box-shadow: 0 10px 30px rgba(0,0,0,0.3)
 
   &.matched
-    border-color: var(--accent)
-    background: var(--bg-helpText)
+    border-color: #ff4b2b
+    background: linear-gradient(to bottom, #1a0208, rgba(174, 10, 54, 0.2))
 
 .requestHeader
   display: flex
@@ -526,55 +582,60 @@
 .requestTeamInfo
   display: flex
   align-items: center
-  gap: 0.5rem
-  font-size: 1.1rem
-  color: var(--text-h)
+  gap: 0.75rem
+  font-size: 1.3rem
+  color: white
+  font-weight: 800
 
 .smallFlag
-  width: 16px
+  width: 20px
 
 .statusBadge
-  font-size: 0.7rem
+  font-size: 0.8rem
   font-weight: 800
-  padding: 0.25rem 0.5rem
-  border-radius: 4px
-  background: var(--bg-transp)
+  padding: 0.4rem 0.8rem
+  border-radius: 999px
+  background: rgba(255,255,255,0.1)
 
   &.open
-    color: var(--accent)
-    background: rgba(16, 134, 59, 0.1)
+    color: #ff4b2b
+    background: rgba(255, 75, 43, 0.1)
+    border: 1px solid rgba(255, 75, 43, 0.2)
 
   &.matched
     color: white
     background: #ff4b2b
+    box-shadow: 0 0 15px rgba(255, 75, 43, 0.4)
 
 .requestBody
   display: flex
   flex-direction: column
-  gap: 0.5rem
+  gap: 0.75rem
 
 .reqDetail
   display: flex
   align-items: center
-  gap: 0.5rem
-  font-size: 0.9rem
-  opacity: 0.8
+  gap: 0.75rem
+  font-size: 1rem
+  opacity: 0.9
+  color: white
 
 .matchNotice
-  margin-top: 0.5rem
-  padding: 1rem
+  margin-top: 1rem
+  padding: 1.5rem
   background: white
-  border-radius: var(--radius-sm)
+  border-radius: 1rem
   display: flex
   flex-direction: column
   align-items: center
-  gap: 0.5rem
+  gap: 0.75rem
   text-align: center
-  box-shadow: 0 2px 8px rgba(0,0,0,0.05)
+  box-shadow: 0 8px 25px rgba(0,0,0,0.2)
+  color: #08090d
 
   span
-    font-size: 0.9rem
-    color: var(--text-h)
+    font-size: 1rem
+    font-weight: 700
 
 .requestFooter
   margin-top: auto
@@ -582,10 +643,9 @@
   justify-content: flex-end
 
 .cancelBtn
-  color: var(--text)
-  opacity: 0.6
-  font-size: 0.85rem
+  color: rgba(255,255,255,0.4)
+  font-weight: 700
+  font-size: 0.95rem
   &:hover
     color: #ff4b2b
-    opacity: 1
     text-decoration: underline

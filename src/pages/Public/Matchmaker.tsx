@@ -450,13 +450,12 @@ export const Matchmaker: React.FC = () => {
     <div className={styles.view}>
       <section className={styles.hero}>
         <span className={styles.stats}>🤝 120min Friendly Matcher</span>
-        <h1>120 min Tinder</h1>
+        <h1>🔥 120min Tinder</h1>
         <p>
-          Find your next training partner. Find your next 120 minute training opponent in seconds. No forums, no
-          waiting.
+          Looking for a long-term training relationship? No awkward forum posts. No ghosting. Just swipe and challenge.
         </p>
         <Button size="lg" variant="primary" onClick={() => setIsPosting(true)}>
-          Post a Request
+          Create My Profile
         </Button>
       </section>
 
@@ -556,28 +555,28 @@ export const Matchmaker: React.FC = () => {
 
                     <div className={styles.infoGrid}>
                       <div className={styles.infoItem}>
-                        <span>Match Type</span>
-                        <span>{currentRequest.match_type === '120min' ? '⚔️ 120 min' : '⚽ 90 min OK'}</span>
+                        <span>❤️ Looking for:</span>
+                        <span>{currentRequest.match_type === '120min' ? '120 minute cup rules' : '⚽ 90 minute OK'}</span>
                       </div>
                       <div className={styles.infoItem}>
-                        <span>Country</span>
+                        <span>🌎 Will travel:</span>
                         <span>
-                          {currentRequest.opponent_location === 'domestic' && `🏠 ${currentRequest.team?.country_name}`}
-                          {currentRequest.opponent_location === 'international_only' && '🌍 International Only'}
+                          {currentRequest.opponent_location === 'domestic' && `🏠 my country only`}
+                          {currentRequest.opponent_location === 'international_only' && '🌍 Anywhere'}
                           {currentRequest.opponent_location === 'any' && '🗺 Anywhere'}
                         </span>
                       </div>
                       <div className={styles.infoItem}>
-                        <span>Venue</span>
+                        <span>🏟️ Venue:</span>
                         <span>
-                          {currentRequest.home_away === 'home' && '🏟 my place'}
-                          {currentRequest.home_away === 'away' && '🚌 your place'}
-                          {currentRequest.home_away === 'any' && '🤝 your place or my place'}
+                          {currentRequest.home_away === 'home' && 'my place'}
+                          {currentRequest.home_away === 'away' && 'your place'}
+                          {currentRequest.home_away === 'any' && 'anywhere'}
                         </span>
                       </div>
                       {currentRequest.time_window && (
                         <div className={styles.infoItem}>
-                          <span>Time</span>
+                          <span>🕒 Time:</span>
                           <span>
                             {currentRequest.match_day} {currentRequest.time_window}
                           </span>
@@ -585,42 +584,27 @@ export const Matchmaker: React.FC = () => {
                       )}
                       {(currentRequest.is_back_and_forth || currentRequest.is_long_term) && (
                         <div className={styles.infoItem}>
-                          <span>Options</span>
+                          <span>💘 Extras:</span>
                           <span style={{ fontSize: '0.85rem' }}>
                             {currentRequest.is_back_and_forth && '🔄 Back-and-forth OK'}
                             {currentRequest.is_back_and_forth && currentRequest.is_long_term && <br />}
-                            {currentRequest.is_long_term && '🗓 Looking for long term'}
+                            {currentRequest.is_long_term && '🗓 Long term training'}
                           </span>
                         </div>
                       )}
-                      {(currentRequest.home_away === 'home' || currentRequest.home_away === 'any') && (
-                        <>
-                          <div className={styles.infoItem}>
-                            <span>Arena Size</span>
-                            <span>
-                              {currentRequest.team?.arena_size
-                                ? currentRequest.team.arena_size.toLocaleString()
-                                : 'N/A'}
-                            </span>
-                          </div>
-                          <div className={styles.infoItem}>
-                            <span>Fanclub</span>
-                            <span>
-                              {currentRequest.team?.fanclub_size
-                                ? currentRequest.team.fanclub_size.toLocaleString()
-                                : 'N/A'}
-                            </span>
-                          </div>
-                        </>
-                      )}
                     </div>
 
-                    {currentRequest.message && <p className={styles.message}>"{currentRequest.message}"</p>}
+                    {currentRequest.message && (
+                      <div className={styles.infoItem}>
+                        <span>💬 About us:</span>
+                        <p className={styles.message}>"{currentRequest.message}"</p>
+                      </div>
+                    )}
                   </div>
 
                   <div className={styles.cardActions}>
                     <button className={styles.skipBtn} onClick={handleSkip} disabled={isSaving}>
-                      <X size={24} weight="bold" /> PASS
+                      <X size={24} weight="bold" /> NOPE
                     </button>
                     <button
                       className={styles.acceptBtn}
