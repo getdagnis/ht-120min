@@ -8,6 +8,7 @@ import { TournamentCard } from '../../components/Card/TournamentCard';
 import { SectionCard } from '../../components/Card/SectionCard';
 import { MottoWidget } from '../../components/MottoWidget/MottoWidget';
 import { TinderWidget } from '../../components/TinderWidget/TinderWidget';
+import { SupportersWall } from '../../components/SupportersWall/SupportersWall';
 import { Link as ScrollTo, Element } from 'react-scroll';
 import { calculateMatchDate } from '../../utils/ht-data';
 import { Trophy, CalendarBlank, Heartbeat, CaretLeft, ArrowRight, Star, Clock } from 'phosphor-react';
@@ -392,6 +393,7 @@ export const Home: React.FC = () => {
 
           <aside className={styles.rightColumn}>
             <TinderWidget className={styles.marketplaceWrapper} />
+            <SupportersWall />
             <div className={styles.sectionHeader}>
               <Star size={24} weight="regular" className={styles.sectionIcon} />
               <h2>Monthly Best</h2>
