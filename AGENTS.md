@@ -62,6 +62,7 @@ Choose the simplest solution that allows organizers to run a tournament.
 ## CHPP Knowledge Base
 
 For technical implementation details regarding Hattrick CHPP API:
+
 - [AGENTS_CHPP_INTEGRATION.md](docs/AGENTS_CHPP_INTEGRATION.md) - **Mandatory reading** for any CHPP-related task. Covers Swedish Time rules, Match Types, and Weekly Cycles.
 
 ---
@@ -250,3 +251,10 @@ Phase 3:
 - Enhanced community features
 
 Always prioritize Phase 1 work before later phases.
+
+## Before you start
+
+please familiarize yourself with the project, key files, global styles, package.json, all agent docs (agents.md,
+   project_state.md and especially the docs folder, we will have to use hattrick chpp api interfaces a lot) -
+   docs/AGENTS_CHPP_INTEGRATION.md, docs/# CHPP Files help.md, docs/auth-flow.md, docs/match-event-types.md etc. until you're confident
+   you've learned everything there was to learn.

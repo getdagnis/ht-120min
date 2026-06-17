@@ -15,6 +15,7 @@ interface FixtureMatch {
   home_goals: number | null;
   away_goals: number | null;
   completed: boolean;
+  went_120: boolean;
   status: 'not_arranged' | 'arranged' | 'ongoing' | 'misarranged' | 'finished';
   ht_match_id: number | null;
   match_type: number | null;
@@ -262,14 +263,16 @@ export const FixturesView: React.FC<FixturesViewProps> = ({
 
                   return (
                     <FixtureCard
-                      key={match.id}
-                      date={status === 'misarranged' ? '' : formattedDate}
-                      status={status}
-                      htMatchId={match.ht_match_id || undefined}
-                      score={currentScore}
-                      matchType={match.match_type || undefined}
-                      is120minMode={tournament?.scoring_mode === '120min'}
-                      homeTeam={{
+                    key={match.id}
+                    date={status === 'misarranged' ? '' : formattedDate}
+                    status={status}
+                    htMatchId={match.ht_match_id || undefined}
+                    score={currentScore}
+                    matchType={match.match_type || undefined}
+                    is120minMode={tournament?.scoring_mode === '120min'}
+                    went_120={match.went_120}
+                    completed={match.completed}
+                    homeTeam={{
                         name: match.home_team?.name || 'BYE',
                         managerName: match.home_team?.manager_name || 'UNKNOWN',
                         managerHtId: match.home_team?.hattrick_user_id,

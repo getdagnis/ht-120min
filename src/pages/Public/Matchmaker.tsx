@@ -10,7 +10,6 @@ import { AdminTestPanel } from '../../components/Admin/AdminTestPanel';
 import { Avatar } from '../../components/Avatar/Avatar';
 import { Handshake, X, Heart, Clock, Info, Warning } from 'phosphor-react';
 import styles from './Matchmaker.module.sass';
-import globalMatchTimes from '../../utils/global-match-times.json';
 
 interface ChppTeamOption {
   teamId: number;
@@ -51,14 +50,17 @@ export const Matchmaker: React.FC = () => {
   const [isSelectingTeam, setIsSelectingTeam] = useState(false);
   const [selectingTeamPurpose, setSelectingTeamPurpose] = useState<'challenge' | 'post'>('post');
   const [targetRequestId, setTargetRequestId] = useState<string | null>(null);
+  const [impersonatedManagerId] = useState<string>('');
+
+  const effectiveManagerId = (isDev && impersonatedManagerId) || profile?.hattrick_user_id;
 
   // Form State
   const [selectedHtTeamId, setSelectedHtTeamId] = useState<number>(0);
   const [matchType, setMatchType] = useState<'120min' | '90min_acceptable'>('120min');
   const [location, setLocation] = useState<'domestic' | 'international_only' | 'any'>('any');
   const [homeAway, setHomeAway] = useState<'home' | 'away' | 'any'>('any');
-  const [matchDay, setMatchDay] = useState<string>('');
-  const [timeWindow, setTimeWindow] = useState<string>('');
+  const [matchDay] = useState<string>('');
+  const [timeWindow] = useState<string>('');
   const [message, setMessage] = useState('');
   const [isBackAndForth, setIsBackAndForth] = useState(false);
   const [isLongTerm, setIsLongTerm] = useState(false);
@@ -125,15 +127,16 @@ export const Matchmaker: React.FC = () => {
     setMyRequests((data as unknown as MatchmakerRequest[]) || []);
   }, [profile]);
 
-  const refreshMyTeams = useCallback(async () => {
-    if (!profile?.hattrick_user_id) return;
+  const refreshMyTeams = useCallback(async (managerIdOverride?: string) => {
+    const targetManagerId = managerIdOverride || profile?.hattrick_user_id;
+    if (!targetManagerId) return;
 
     setTeamsLoading(true);
     setTeamsError(null);
     setTeamsWarning(null);
 
     try {
-      const res = await fetch(`/api/matchmaker/teams?managerId=${profile.hattrick_user_id}`);
+      const res = await fetch(`/api/matchmaker/teams?managerId=${targetManagerId}`);
       const data = await res.json();
 
       if (!res.ok) {
@@ -318,7 +321,7 @@ export const Matchmaker: React.FC = () => {
 
   const handleCreateRequest = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!profile?.hattrick_user_id || !selectedHtTeamId) return;
+    if (!effectiveManagerId || !selectedHtTeamId) return;
 
     setIsSaving(true);
     setPublishError(null);
@@ -331,8 +334,10 @@ export const Matchmaker: React.FC = () => {
       const res = await fetch('/api/matchmaker/publish', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
         body: JSON.stringify({
-          managerId: profile.hattrick_user_id,
+          managerId: effectiveManagerId,
+          adminManagerId: isDev && impersonatedManagerId ? impersonatedManagerId : undefined,
           teamId: selectedHtTeamId,
           matchType,
           opponentLocation: location,
@@ -370,15 +375,6 @@ export const Matchmaker: React.FC = () => {
 
   const selectedTeam = myTeams.find((team) => team.teamId === selectedHtTeamId);
   const canPublish = !teamsLoading && !!selectedTeam && selectedTeam.availabilityStatus === 'available' && !isSaving;
-
-  const getAvailableTimes = () => {
-    if (!selectedTeam?.leagueId) return [];
-    const league = globalMatchTimes.leagues.find((l) => l.leagueId === selectedTeam.leagueId);
-    if (!league) return [];
-    return league.entries.filter((e) => e.label.includes('Friendly') || e.label.includes('Fr.'));
-  };
-
-  const availableTimes = getAvailableTimes();
 
   return (
     <div className={styles.view}>
@@ -802,7 +798,7 @@ export const Matchmaker: React.FC = () => {
               <div className={styles.noTeamsMessage}>
                 <Warning size={20} weight="bold" />
                 <p>Hattrick doesn't seem to be telling us about your clubs. Please try again in a moment.</p>
-                <Button variant="zero" onClick={refreshMyTeams} disabled={teamsLoading}>
+                <Button variant="zero" onClick={() => refreshMyTeams()} disabled={teamsLoading}>
                   Retry
                 </Button>
               </div>
@@ -868,29 +864,6 @@ export const Matchmaker: React.FC = () => {
               <option value="home">my place</option>
             </select>
           </div>
-
-          {homeAway === 'home' && (
-            <div className={styles.formGroup}>
-              <label>Match Time</label>
-              <select
-                value={`${matchDay}|${timeWindow}`}
-                onChange={(e) => {
-                  const [day, time] = e.target.value.split('|');
-                  setMatchDay(day);
-                  setTimeWindow(time);
-                }}
-                required
-              >
-                <option value="">Select a time...</option>
-                {availableTimes.map((entry, idx) => (
-                  <option key={idx} value={`${entry.day}|${entry.time}`}>
-                    {entry.day} {entry.time} ({entry.label})
-                  </option>
-                ))}
-              </select>
-              <p className={styles.helpText}>Available friendly times in {selectedTeam?.countryName}</p>
-            </div>
-          )}
 
           <div className={styles.checkboxGroup}>
             <label className={styles.checkboxLabel}>

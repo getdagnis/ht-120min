@@ -25,6 +25,8 @@ interface FixtureCardProps {
   matchType?: number;
   is120minMode?: boolean;
   scoring_mode?: string;
+  went_120?: boolean;
+  completed?: boolean;
 }
 
 const MATCH_TYPES: Record<number, { initials: string; description: string }> = {
@@ -43,6 +45,8 @@ export const FixtureCard: React.FC<FixtureCardProps> = ({
   htMatchId,
   matchType,
   is120minMode,
+  went_120,
+  completed,
 }) => {
   const badgeContent = (
     <div className={`${styles.statusBadge} ${styles[status]}`}>
@@ -53,7 +57,12 @@ export const FixtureCard: React.FC<FixtureCardProps> = ({
     </div>
   );
 
-  const matchTypeInfo = matchType ? MATCH_TYPES[matchType] : null;
+  const matchTypeInfo = matchType ? { ...MATCH_TYPES[matchType] } : null;
+  if (matchTypeInfo && matchType === 5 && completed && went_120) {
+    matchTypeInfo.initials = '120m';
+    matchTypeInfo.description = '120 Minute Cup Rules Match';
+  }
+
   const isWrongType = is120minMode && matchType && [4, 7].includes(matchType);
 
   const renderTeamInfo = (team: TeamProps, isRight?: boolean) => (

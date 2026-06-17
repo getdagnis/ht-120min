@@ -409,6 +409,9 @@ export const TournamentView: React.FC = () => {
               away_goals:
                 live.status === 'finished' || live.awayGoals > (m.away_goals || 0) ? live.awayGoals : m.away_goals,
               completed: live.status === 'finished' || m.completed,
+              status: live.status === 'finished' ? 'finished' : (live.status || m.status),
+              went_120: live.went_120 ?? m.went_120,
+              total_minutes: live.total_minutes ?? m.total_minutes,
             };
           }
           return m;
@@ -452,7 +455,8 @@ export const TournamentView: React.FC = () => {
               .sort((a, b) => {
                 const aDate = a.match_date?.getTime() || 0;
                 const bDate = b.match_date?.getTime() || 0;
-                return aDate - bDate;
+                if (aDate !== bDate) return aDate - bDate;
+                return a.id.localeCompare(b.id);
               }),
           }));
           setRounds(roundsWithMatches as RoundWithMatches[]);
@@ -662,15 +666,31 @@ export const TournamentView: React.FC = () => {
     if (!tournament || isRefreshingFixtures) return;
     setIsRefreshingFixtures(true);
     try {
+      // 1. Refresh fixtures (detect arranged matches, warnings etc.)
       const response = await fetch(`/api/teams/refresh-fixtures?tournament_id=${tournament.id}`);
       if (!response.ok) throw new Error('Failed to refresh fixtures');
+
+      // 2. Also trigger a live check for any arranged/ongoing matches to get latest scores/status
+      //    And include completed matches that might be missing extra-time achievements data
+      const matchesToSync = allMatches.filter(m => 
+        m.ht_match_id && (
+          ['arranged', 'ongoing'].includes(m.status) || 
+          (m.completed && !m.went_120)
+        )
+      );
+      
+      if (matchesToSync.length > 0) {
+        const ids = matchesToSync.map(m => m.ht_match_id).join(',');
+        await fetch(`/api/chpp/live-matches?tournament_id=${tournament.id}&match_ids=${ids}`);
+      }
+
       await fetchData();
     } catch (err: any) {
       console.error(err.message);
     } finally {
       setIsRefreshingFixtures(false);
     }
-  }, [tournament, isRefreshingFixtures, fetchData]);
+  }, [tournament, isRefreshingFixtures, fetchData, allMatches]);
 
   useEffect(() => {
     if (activeTab === 'fixtures' && tournament && !isRefreshingFixtures) {

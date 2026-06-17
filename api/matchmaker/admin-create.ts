@@ -18,7 +18,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     cookies: req.cookies,
     devMode: process.env.MATCHMAKER_DEV_MODE,
   });
-  const isAdmin = req.cookies.issuperadmin === 'you bet' || process.env.MATCHMAKER_DEV_MODE === 'true';
+  const isAdmin = req.cookies.issuperadmin === 'you bet' || req.cookies.issuperadmin === 'youbet' || process.env.MATCHMAKER_DEV_MODE === 'true';
   if (!isAdmin) {
     return res.status(403).json({ error: 'Unauthorized' });
   }

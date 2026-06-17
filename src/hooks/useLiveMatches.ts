@@ -4,6 +4,8 @@ export interface LiveMatchData {
   status: 'ongoing' | 'finished';
   homeGoals: number;
   awayGoals: number;
+  total_minutes?: number;
+  went_120?: boolean;
 }
 
 interface Match {
