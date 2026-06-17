@@ -74,7 +74,7 @@ export const TinderWidget: React.FC<MatchmakerTeaserProps> = ({ className = '' }
 
         <p className={styles.description}>Find your next 120 minute training partner the modern way.</p>
 
-        <Button variant="primary" fullWidth onClick={() => navigate('/matchmaker')} className={styles.cta}>
+        <Button variant="primary" fullWidth onClick={() => navigate('/tinder')} className={styles.cta}>
           Find My Match <ArrowRight size={18} weight="bold" />
         </Button>
 

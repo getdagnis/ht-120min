@@ -53,18 +53,18 @@ export interface MatchmakerRequest {
  */
 export const calculateMatchmakerExpiry = (now = new Date()): Date => {
   const expiry = new Date(now);
-  
+
   // Set to Tuesday
   const day = expiry.getUTCDay();
-  const diff = (day <= 2) ? (2 - day) : (9 - day);
+  const diff = day <= 2 ? 2 - day : 9 - day;
   expiry.setUTCDate(expiry.getUTCDate() + diff);
-  
+
   // Tuesday 06:00 UTC
   expiry.setUTCHours(6, 0, 0, 0);
-  
+
   if (expiry.getTime() <= now.getTime()) {
     expiry.setUTCDate(expiry.getUTCDate() + 7);
   }
-  
+
   return expiry;
 };

@@ -1,0 +1,61 @@
+.container
+  display: flex
+  flex-direction: column
+  gap: 1.5rem
+  padding: 0.5rem
+
+.grid
+  display: grid
+  grid-template-columns: 1fr
+  gap: 0.75rem
+
+.teamBtn
+  display: flex
+  align-items: center
+  gap: 1rem
+  padding: 1rem
+  background: var(--bg-transp2)
+  border: 2px solid var(--border)
+  border-radius: var(--radius-md)
+  text-align: left
+  cursor: pointer
+  transition: all 0.2s
+  color: var(--text)
+  width: 100%
+
+  &:hover:not(.disabled)
+    border-color: var(--tinder-bg)
+    background: var(--bg-transp)
+
+  &.disabled
+    opacity: 0.5
+    cursor: not-allowed
+    background: var(--bg-dark)
+
+.iconWrapper
+  color: var(--text-h)
+  opacity: 0.7
+
+.info
+  display: flex
+  flex-direction: column
+  flex: 1
+
+.name
+  font-weight: 800
+  font-size: 1.1rem
+  color: var(--text-h)
+
+.country
+  font-size: 0.9rem
+  opacity: 0.7
+
+.status
+  font-size: 0.75rem
+  font-weight: 700
+  color: var(--danger)
+  text-transform: uppercase
+  margin-top: 0.25rem
+
+.footer
+  margin-top: 0.5rem

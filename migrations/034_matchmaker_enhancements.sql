@@ -20,3 +20,5 @@ ALTER TABLE matchmaker_requests ADD COLUMN IF NOT EXISTS gender_id INTEGER DEFAU
 
 -- Add league_id to profiles for flags
 ALTER TABLE profiles ADD COLUMN IF NOT EXISTS league_id INTEGER;
+
+-- DONE!

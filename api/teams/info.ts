@@ -42,7 +42,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
     // 2. Check if team is in another active tournament
     const isSuperAdmin =
-      req.headers.cookie?.includes('issuperadmin=you%20bet') || req.headers.cookie?.includes('issuperadmin="you bet"');
+      req.headers.cookie?.includes('issuperadmin=youbet') || req.headers.cookie?.includes('issuperadmin="you bet"');
 
     if (!isSuperAdmin) {
       const { data: existing } = await supabase

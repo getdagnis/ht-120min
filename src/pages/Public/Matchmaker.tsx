@@ -1,9 +1,11 @@
 import React, { useState, useEffect, useCallback } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { supabase } from '../../lib/supabase';
 import { useAuth } from '../../hooks/useAuth';
 import type { MatchmakerRequest } from '../../utils/matchmaker';
 import { Button } from '../../components/Button/Button';
 import { Modal } from '../../components/Modal/Modal';
+import { TeamSelectorModal } from '../../components/TeamSelectorModal/TeamSelectorModal';
 import { Avatar } from '../../components/Avatar/Avatar';
 import { Handshake, X, Heart, Clock, Info, Warning } from 'phosphor-react';
 import styles from './Matchmaker.module.sass';
@@ -29,6 +31,7 @@ const normalizeTeamList = (teams: ChppTeamOption[]) =>
   }));
 
 export const Matchmaker: React.FC = () => {
+  const navigate = useNavigate();
   const { profile } = useAuth();
   const [activeTab, setActiveTab] = useState<'browse' | 'my-requests' | 'hfi'>('browse');
   const [requests, setRequests] = useState<MatchmakerRequest[]>([]);
@@ -44,6 +47,9 @@ export const Matchmaker: React.FC = () => {
   const [teamsError, setTeamsError] = useState<string | null>(null);
   const [teamsWarning, setTeamsWarning] = useState<string | null>(null);
   const [myTeams, setMyTeams] = useState<ChppTeamOption[]>([]);
+  const [isSelectingTeam, setIsSelectingTeam] = useState(false);
+  const [selectingTeamPurpose, setSelectingTeamPurpose] = useState<'challenge' | 'post'>('post');
+  const [targetRequestId, setTargetRequestId] = useState<string | null>(null);
 
   // Form State
   const [selectedHtTeamId, setSelectedHtTeamId] = useState<number>(0);
@@ -90,94 +96,7 @@ export const Matchmaker: React.FC = () => {
       const { data, error } = await query.order('created_at', { ascending: false });
       if (error) throw error;
 
-      let finalRequests = (data as unknown as MatchmakerRequest[]) || [];
-
-      // Priority 6: Inject fake requests in dev mode
-      if (isDev && finalRequests.length < 5) {
-        const mockRequests: Partial<MatchmakerRequest>[] = [
-          {
-            id: 'mock-1',
-            match_type: '120min',
-            opponent_location: 'international',
-            home_away: 'any',
-            message: 'Looking for a tough international challenge! 🌍',
-            status: 'open',
-            team: {
-              name: 'Red Devils',
-              ht_team_id: 12345,
-              country_name: 'England',
-              league_id: 3,
-              logo_url: null,
-              gender_id: 1,
-              fanclub_size: null,
-              arena_id: null,
-              arena_size: null,
-              arena_image_url: null,
-            },
-            profile: {
-              manager_name: 'SirAlex',
-              avatar_json: null,
-              country_name: 'England',
-              league_id: 3,
-            },
-          },
-          {
-            id: 'mock-2',
-            match_type: '90min_acceptable',
-            opponent_location: 'domestic',
-            home_away: 'home',
-            message: 'Testing young talents. 90min is fine too.',
-            status: 'open',
-            team: {
-              name: 'Young Talents FC',
-              ht_team_id: 67890,
-              country_name: 'Germany',
-              league_id: 5,
-              logo_url: null,
-              gender_id: 1,
-              fanclub_size: null,
-              arena_id: null,
-              arena_size: null,
-              arena_image_url: null,
-            },
-            profile: {
-              manager_name: 'Kloppo',
-              avatar_json: null,
-              country_name: 'Germany',
-              league_id: 5,
-            },
-          },
-          {
-            id: 'mock-3',
-            match_type: '120min',
-            opponent_location: 'any',
-            home_away: 'away',
-            message: 'Boca Juniors Youth on tour!',
-            status: 'open',
-            team: {
-              name: 'Boca Juniors Youth',
-              ht_team_id: 11223,
-              country_name: 'Argentina',
-              league_id: 48,
-              logo_url: null,
-              gender_id: 1,
-              fanclub_size: null,
-              arena_id: null,
-              arena_size: null,
-              arena_image_url: null,
-            },
-            profile: {
-              manager_name: 'DiegoM',
-              avatar_json: null,
-              country_name: 'Argentina',
-              league_id: 48,
-            },
-          },
-        ];
-        finalRequests = [...finalRequests, ...(mockRequests as MatchmakerRequest[])];
-      }
-
-      setRequests(finalRequests);
+      setRequests((data as unknown as MatchmakerRequest[]) || []);
     } catch (err) {
       console.error('Error fetching requests:', err);
     } finally {
@@ -268,19 +187,15 @@ export const Matchmaker: React.FC = () => {
   }, [profile?.hattrick_user_id, refreshMyTeams]);
 
   const handleSkip = async () => {
-    if (!profile?.hattrick_user_id || !requests[currentIndex]) return;
+    if (!requests[currentIndex]) return;
 
-    // Don't save skip for mock requests
-    if (requests[currentIndex].id.toString().startsWith('mock-')) {
-      setCurrentIndex((prev) => prev + 1);
-      return;
+    if (profile?.hattrick_user_id) {
+      await supabase.from('matchmaker_views').insert({
+        manager_ht_id: profile.hattrick_user_id,
+        request_id: requests[currentIndex].id,
+        decision: 'skipped',
+      });
     }
-
-    await supabase.from('matchmaker_views').insert({
-      manager_ht_id: profile.hattrick_user_id,
-      request_id: requests[currentIndex].id,
-      decision: 'skipped',
-    });
 
     setCurrentIndex((prev) => prev + 1);
   };
@@ -289,14 +204,8 @@ export const Matchmaker: React.FC = () => {
   const [acceptingRequestId, setAcceptingRequestId] = useState<string | null>(null);
 
   const handleAccept = async (requestId: string, teamIdOverride?: number) => {
-    if (!profile?.hattrick_user_id) return;
-
-    // Priority 6: Mock acceptance for mock requests
-    if (requestId.toString().startsWith('mock-')) {
-      const request = requests.find((r) => r.id === requestId);
-      if (request) {
-        setMatchedRequest(request);
-      }
+    if (!profile?.hattrick_user_id) {
+      alert('Please sign in to challenge teams.');
       return;
     }
 
@@ -304,8 +213,8 @@ export const Matchmaker: React.FC = () => {
     if (!request) return;
 
     if (myTeams.length === 0) {
-      alert('You need a verified team to accept matches.');
-      return;
+      // Trigger team refresh if empty
+      await refreshMyTeams();
     }
 
     const availableTeams = myTeams.filter((t) => t.availabilityStatus === 'available');
@@ -315,10 +224,11 @@ export const Matchmaker: React.FC = () => {
       return;
     }
 
-    // If multiple available teams and no specific team selected yet, show selector
-    if (availableTeams.length > 1 && !teamIdOverride) {
-      setAcceptingRequestId(requestId);
-      setIsAccepting(true);
+    // JIT Team Selection
+    if (!teamIdOverride && availableTeams.length > 1) {
+      setTargetRequestId(requestId);
+      setSelectingTeamPurpose('challenge');
+      setIsSelectingTeam(true);
       return;
     }
 
@@ -372,13 +282,39 @@ export const Matchmaker: React.FC = () => {
       });
 
       setMatchedRequest(request);
-      setIsAccepting(false);
-      setAcceptingRequestId(null);
+      setIsSelectingTeam(false);
+      setTargetRequestId(null);
     } catch (err) {
       console.error('Error accepting match:', err);
       alert('Failed to accept match. It might have been taken by someone else.');
     } finally {
       setIsSaving(false);
+    }
+  };
+
+  const handleStartPosting = async () => {
+    if (!profile?.hattrick_user_id) {
+      alert('Please sign in to create a Matchmaker profile.');
+      return;
+    }
+
+    if (myTeams.length === 0) {
+      await refreshMyTeams();
+    }
+
+    const availableTeams = myTeams.filter((t) => t.availabilityStatus === 'available');
+
+    if (availableTeams.length === 0) {
+      alert('None of your teams are currently available for a friendly.');
+      return;
+    }
+
+    if (availableTeams.length > 1) {
+      setSelectingTeamPurpose('post');
+      setIsSelectingTeam(true);
+    } else {
+      setSelectedHtTeamId(availableTeams[0].teamId);
+      setIsPosting(true);
     }
   };
 
@@ -448,31 +384,51 @@ export const Matchmaker: React.FC = () => {
 
   return (
     <div className={styles.view}>
-      <section className={styles.hero}>
-        <span className={styles.stats}>🤝 120min Friendly Matcher</span>
-        <h1>🔥 120min Tinder</h1>
-        <p>
-          Looking for a long-term training relationship? No awkward forum posts. No ghosting. Just swipe and challenge.
-        </p>
-        <Button size="lg" variant="primary" onClick={() => setIsPosting(true)}>
-          Create My Profile
-        </Button>
-      </section>
+      <header className={styles.headerContainer}>
+        <div className={styles.tinderHeroCard}>
+          <div className={styles.heroTopBar}>
+            <span>Instant 120 min Friendly Matcher</span>
+            <button className={styles.closeBtn} onClick={() => navigate('/')}>
+              <X size={24} weight="bold" />
+            </button>
+          </div>
 
-      <div className={styles.tabs}>
-        <button className={activeTab === 'browse' ? styles.active : ''} onClick={() => setActiveTab('browse')}>
-          🔥 Find Match
-        </button>
-        <button className={activeTab === 'hfi' ? styles.active : ''} onClick={() => setActiveTab('hfi')}>
-          👩 HFI Only
-        </button>
-        <button
-          className={activeTab === 'my-requests' ? styles.active : ''}
-          onClick={() => setActiveTab('my-requests')}
-        >
-          📣 My Ads
-        </button>
-      </div>
+          <div className={styles.heroImageContainer}>
+            <img src="/tinder-date3.png" alt="Tinder Date" className={styles.heroImage} />
+            <div className={styles.heroBranding}>
+              <h1>
+                <span>HT-120min</span>
+                <span>TINDER</span>
+              </h1>
+            </div>
+          </div>
+
+          <div className={styles.heroActions}>
+            <p className={styles.heroSubtitle}>
+              Find your next training partner. No awkward forum posts. No ghosting. Just swipe and challenge.
+            </p>
+            <Button size="lg" variant="secondary" onClick={handleStartPosting}>
+             Create My Profile
+            </Button>
+
+          </div>
+        </div>
+
+        <div className={styles.tabs}>
+          <button className={activeTab === 'browse' ? styles.active : ''} onClick={() => setActiveTab('browse')}>
+            Find Match
+          </button>
+          <button className={activeTab === 'hfi' ? styles.active : ''} onClick={() => setActiveTab('hfi')}>
+            HFI Only
+          </button>
+          <button
+            className={activeTab === 'my-requests' ? styles.active : ''}
+            onClick={() => setActiveTab('my-requests')}
+          >
+            My Ads
+          </button>
+        </div>
+      </header>
 
       {activeTab === 'browse' || activeTab === 'hfi' ? (
         <div className={styles.browserContainer}>
@@ -556,7 +512,9 @@ export const Matchmaker: React.FC = () => {
                     <div className={styles.infoGrid}>
                       <div className={styles.infoItem}>
                         <span>❤️ Looking for:</span>
-                        <span>{currentRequest.match_type === '120min' ? '120 minute cup rules' : '⚽ 90 minute OK'}</span>
+                        <span>
+                          {currentRequest.match_type === '120min' ? '120 minute cup rules' : '⚽ 90 minute OK'}
+                        </span>
                       </div>
                       <div className={styles.infoItem}>
                         <span>🌎 Will travel:</span>
@@ -603,46 +561,19 @@ export const Matchmaker: React.FC = () => {
                   </div>
 
                   <div className={styles.cardActions}>
-                    <button className={styles.skipBtn} onClick={handleSkip} disabled={isSaving}>
-                      <X size={24} weight="bold" /> NOPE
-                    </button>
-                    <button
-                      className={styles.acceptBtn}
+                    <Button variant="outline" onClick={handleSkip} disabled={isSaving} fullWidth>
+                      <X size={20} weight="bold" /> NOPE
+                    </Button>
+                    <Button
+                      variant="primary"
                       onClick={() => handleAccept(currentRequest.id)}
                       disabled={isSaving}
+                      fullWidth
+                      style={{ background: 'var(--tinder-bg)', borderColor: 'var(--borderDark)' }}
                     >
-                      <Heart size={24} weight="fill" /> CHALLENGE
-                    </button>
+                      <Heart size={20} weight="fill" /> CHALLENGE
+                    </Button>
                   </div>
-
-                  {matchedRequest?.id === currentRequest.id && (
-                    <div className={styles.successOverlay}>
-                      <h2>🎉 It's a Match!</h2>
-                      <p>
-                        You matched with <strong>{currentRequest.team?.name}</strong>!
-                      </p>
-                      <Button
-                        variant="primary"
-                        onClick={() =>
-                          window.open(
-                            `https://www.hattrick.org/goto.ashx?path=/Club/?TeamID=${currentRequest.team?.ht_team_id}`,
-                            '_blank',
-                          )
-                        }
-                      >
-                        Send Challenge on Hattrick
-                      </Button>
-                      <Button
-                        variant="zero"
-                        onClick={() => {
-                          setMatchedRequest(null);
-                          setCurrentIndex((prev) => prev + 1);
-                        }}
-                      >
-                        Continue Browsing
-                      </Button>
-                    </div>
-                  )}
 
                   {showSuccessOverlay && (
                     <div className={styles.successOverlay} style={{ background: 'rgba(58, 123, 213, 0.95)' }}>
@@ -668,7 +599,7 @@ export const Matchmaker: React.FC = () => {
                         </div>
                       )}
                       <p>You will be notified when another manager accepts your match.</p>
-                      <Button variant="primary" onClick={() => setShowSuccessOverlay(false)}>
+                      <Button variant="tinder" onClick={() => setShowSuccessOverlay(false)}>
                         Awesome!
                       </Button>
                     </div>
@@ -992,56 +923,62 @@ export const Matchmaker: React.FC = () => {
         </form>
       </Modal>
 
-      {/* Acceptance Team Selection Modal */}
-      <Modal
-        isOpen={isAccepting}
-        onClose={() => {
-          setIsAccepting(false);
-          setAcceptingRequestId(null);
-        }}
-        title="Select Team to Accept Match"
-      >
-        <div className={styles.postModal}>
-          <div className={styles.formGroup}>
-            <p>You have multiple available teams. Which one would you like to use for this match?</p>
-            <div className={styles.teamSelector}>
-              {myTeams
-                .filter((t) => t.availabilityStatus === 'available')
-                .map((t) => (
-                  <div
-                    key={t.teamId}
-                    className={styles.teamOption}
-                    onClick={() => {
-                      if (acceptingRequestId) {
-                        void handleAccept(acceptingRequestId, t.teamId);
-                      }
-                    }}
-                  >
-                    <div className={styles.teamOptionInfo}>
-                      <strong>{t.teamName}</strong>
-                      <span className={styles.teamMeta}>{t.countryName}</span>
-                    </div>
-                    <span className={`${styles.teamStatus} ${styles.available}`}>
-                      <span className="mr-sm">👍</span> Available!
-                    </span>
-                  </div>
-                ))}
+      {matchedRequest && (
+        <Modal
+          isOpen={!!matchedRequest}
+          onClose={() => {
+            setMatchedRequest(null);
+            setCurrentIndex((prev) => prev + 1);
+          }}
+          title="It's a Match!"
+        >
+          <div className={styles.matchOverlay}>
+            <h2>🎉 Boom!</h2>
+            <p>
+              You matched with <strong>{matchedRequest.team?.name}</strong>!
+            </p>
+            <div className={styles.matchActions}>
+              <Button
+                variant="primary"
+                style={{ background: 'var(--tinder-bg)', borderColor: 'var(--borderDark)' }}
+                onClick={() =>
+                  window.open(
+                    `https://www.hattrick.org/goto.ashx?path=/Club/?TeamID=${matchedRequest.team?.ht_team_id}`,
+                    '_blank',
+                  )
+                }
+              >
+                Send Challenge on Hattrick
+              </Button>
+              <Button
+                variant="outline"
+                onClick={() => {
+                  setMatchedRequest(null);
+                  setCurrentIndex((prev) => prev + 1);
+                }}
+              >
+                Awesome!
+              </Button>
             </div>
           </div>
-          <div className={styles.postActions}>
-            <Button
-              variant="zero"
-              fullWidth
-              onClick={() => {
-                setIsAccepting(false);
-                setAcceptingRequestId(null);
-              }}
-            >
-              Cancel
-            </Button>
-          </div>
-        </div>
-      </Modal>
+        </Modal>
+      )}
+
+      <TeamSelectorModal
+        isOpen={isSelectingTeam}
+        onClose={() => setIsSelectingTeam(false)}
+        teams={myTeams.filter((t) => t.availabilityStatus === 'available')}
+        title={selectingTeamPurpose === 'post' ? 'Which team is posting?' : 'Select Challenging Team'}
+        onSelect={(teamId) => {
+          if (selectingTeamPurpose === 'challenge') {
+            void handleAccept(targetRequestId!, teamId);
+          } else {
+            setSelectedHtTeamId(teamId);
+            setIsSelectingTeam(false);
+            setIsPosting(true);
+          }
+        }}
+      />
     </div>
   );
 };

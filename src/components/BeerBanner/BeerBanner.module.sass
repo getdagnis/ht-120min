@@ -26,7 +26,7 @@
   flex-shrink: 0
   width: 33.33%
   min-width: 250px
-  background: url("/buy-me-beer2.png") center center no-repeat
+  background: url("/buy-me-beer3.jpg") center center no-repeat
   background-size: 120%
   background-position: 20%
   border-radius: var(--radius-md) 0 0 var(--radius-md)
@@ -62,9 +62,30 @@
   text-shadow: 1px 1px 3px rgba(0,0,0,0.3)
 
 .tipBtn
+  position: relative
   font-weight: 700
   min-width: 160px
   margin-bottom: 1rem
+  padding-right: 4rem
+  background-color: var(--warning) !important
+
+  &:hover
+    background-color: var(--yellow) !important
+
+    & > .btnBeer
+      font-size: 4rem
+      rotate: 15deg
+      transform: translate(1rem, -0.25rem)
+
+    &:active
+      background-color: var(--warning) !important
+
+.btnBeer
+  position: absolute
+  right: 0
+  font-family: var(--emoji)
+  font-size: 3rem
+  text-shadow: 0 0 0.5rem #32241aaa
 
 .right
   flex-shrink: 0
@@ -97,7 +118,7 @@
   .bannerImageWrapper
     width: 100%
     min-width: 0
-    height: 200px
+    height: 220px
 
   .bannerImage
     border-radius: var(--radius-md) var(--radius-md) 0 0

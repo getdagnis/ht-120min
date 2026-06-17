@@ -150,9 +150,14 @@ export async function fetchManagerTeamsFromChpp(
   consumerKey: string,
   consumerSecret: string,
   credentials: Pick<ManagerChppCredentials, 'oauth_token' | 'oauth_token_secret'>,
+  managerId?: number | string,
 ) {
   const url = 'https://chpp.hattrick.org/chppxml.ashx';
-  const params = { file: 'managercompendium', version: '1.7' };
+  const params: Record<string, string> = { file: 'managercompendium', version: '1.7' };
+  if (managerId) {
+    params.userID = String(managerId);
+  }
+  
   const authHeader = getAuthHeader(
     'GET',
     url,
@@ -163,7 +168,8 @@ export async function fetchManagerTeamsFromChpp(
     credentials.oauth_token_secret,
   );
 
-  const response = await fetch(`${url}?file=managercompendium&version=1.7`, {
+  const query = new URLSearchParams(params);
+  const response = await fetch(`${url}?${query.toString()}`, {
     headers: { Authorization: authHeader },
   });
 

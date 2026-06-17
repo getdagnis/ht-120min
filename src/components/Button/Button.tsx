@@ -12,6 +12,8 @@ interface ButtonProps extends React.ButtonHTMLAttributes<HTMLButtonElement> {
     | 'outlineWhite'
     | 'danger'
     | 'hero'
+    | 'tinder'
+    | 'tinderOutline'
     | 'zero';
   size?: 'xs' | 'sm' | 'md' | 'lg';
   fullWidth?: boolean;

@@ -175,7 +175,7 @@ export const Layout: React.FC<LayoutProps> = ({ children }) => {
                         <button
                           className={styles.dropdownItem}
                           onClick={() => {
-                            navigate('/matchmaker');
+                            navigate('/tinder');
                             setIsUserDropdownOpen(false);
                           }}
                         >

@@ -128,7 +128,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       tournament = tData;
     }
 
-    const isSuperAdmin = req.headers.cookie?.includes('issuperadmin=you%20bet') || req.headers.cookie?.includes('issuperadmin="you bet"');
+    const isSuperAdmin = req.headers.cookie?.includes('issuperadmin=youbet') || req.headers.cookie?.includes('issuperadmin="you bet"');
 
     const leagueCategory: LeagueCategory = session.is_creation
       ? session.league_category === 'hfi'

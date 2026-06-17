@@ -24,7 +24,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     const supabase = getSupabase();
 
     const isSuperAdmin =
-      req.headers.cookie?.includes('issuperadmin=you%20bet') || req.headers.cookie?.includes('issuperadmin="you bet"');
+      req.headers.cookie?.includes('issuperadmin=youbet') || req.headers.cookie?.includes('issuperadmin="you bet"');
 
     // 1. Get pending join data
     const { data: pending, error: pError } = await supabase
