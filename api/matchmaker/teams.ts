@@ -75,7 +75,11 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     });
 
     // Developer Test Mode
-    if (process.env.NODE_ENV === 'development') {
+    if (process.env.MATCHMAKER_DEV_MODE === 'true') {
+      teams.forEach((t) => {
+        t.availabilityStatus = 'available';
+        t.availabilityReason = undefined;
+      });
       teams.push(
         {
           teamId: 999001,

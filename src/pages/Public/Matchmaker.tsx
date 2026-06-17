@@ -6,6 +6,7 @@ import type { MatchmakerRequest } from '../../utils/matchmaker';
 import { Button } from '../../components/Button/Button';
 import { Modal } from '../../components/Modal/Modal';
 import { TeamSelectorModal } from '../../components/TeamSelectorModal/TeamSelectorModal';
+import { AdminTestPanel } from '../../components/Admin/AdminTestPanel';
 import { Avatar } from '../../components/Avatar/Avatar';
 import { Handshake, X, Heart, Clock, Info, Warning } from 'phosphor-react';
 import styles from './Matchmaker.module.sass';
@@ -35,7 +36,7 @@ export const Matchmaker: React.FC = () => {
   const { profile } = useAuth();
   const [activeTab, setActiveTab] = useState<'browse' | 'my-requests' | 'hfi'>('browse');
   const [requests, setRequests] = useState<MatchmakerRequest[]>([]);
-  const isDev = import.meta.env.VITE_DEV_MATCHMAKER_TEST_MODE === 'true' || window.location.hostname === 'localhost';
+  const isDev = import.meta.env.VITE_MATCHMAKER_DEV_MODE === 'true' || window.location.hostname === 'localhost';
   const [currentIndex, setCurrentIndex] = useState(0);
   const [loading, setLoading] = useState(true);
   const [myRequests, setMyRequests] = useState<MatchmakerRequest[]>([]);
@@ -199,9 +200,6 @@ export const Matchmaker: React.FC = () => {
 
     setCurrentIndex((prev) => prev + 1);
   };
-
-  const [isAccepting, setIsAccepting] = useState(false);
-  const [acceptingRequestId, setAcceptingRequestId] = useState<string | null>(null);
 
   const handleAccept = async (requestId: string, teamIdOverride?: number) => {
     if (!profile?.hattrick_user_id) {
@@ -408,9 +406,8 @@ export const Matchmaker: React.FC = () => {
               Find your next training partner. No awkward forum posts. No ghosting. Just swipe and challenge.
             </p>
             <Button size="lg" variant="secondary" onClick={handleStartPosting}>
-             Create My Profile
+              Create My Profile
             </Button>
-
           </div>
         </div>
 
@@ -432,6 +429,7 @@ export const Matchmaker: React.FC = () => {
 
       {activeTab === 'browse' || activeTab === 'hfi' ? (
         <div className={styles.browserContainer}>
+          {(isDev || document.cookie.includes('issuperadmin=you bet')) && <AdminTestPanel />}
           {activeTab === 'hfi' && <div className={styles.hfiSubtitle}>Only female partners.</div>}
           {loading ? (
             <div className={styles.loading}>Finding teams...</div>

@@ -19,18 +19,18 @@
   background: none
   border: none
   padding: 0
-  
+
   .header
     text-align: center
     margin-bottom: 4rem
     border: none
-    
+
   .titleGroup
     justify-content: center
     h2
       font-size: 4rem
       letter-spacing: -0.02em
-      
+
   .grid
     grid-template-columns: repeat(auto-fill, minmax(280px, 1fr))
     gap: 3rem 2rem
@@ -43,6 +43,7 @@
 .titleGroup
   display: flex
   align-items: center
+  justify-content: center
   gap: 0.75rem
   margin-bottom: 0.5rem
 
@@ -56,9 +57,9 @@
   color: var(--orange)
 
 .intro
-  font-size: 1.1rem
-  opacity: 0.8
+  font-size: 1rem
   font-style: italic
+  text-align: center
 
 .grid
   display: grid
@@ -68,14 +69,14 @@
 
 .supporterCard
   position: relative
-  background: white
+  background: #00000033
   padding: 6px
   box-shadow: 0 8px 15px rgba(0,0,0,0.1)
   transform: rotate(-0.5deg)
   transition: all 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275)
   display: flex
   flex-direction: column
-  
+
   &:nth-child(even)
     transform: rotate(0.8deg)
 
@@ -113,7 +114,7 @@
 
 .cardFrame
   border: 1px solid #eee
-  padding: 1.5rem 1rem 1rem
+  padding: 1rem 1rem 0.5rem
   background: #fdfdfd
   display: flex
   flex-direction: column
@@ -168,7 +169,7 @@
 @media (max-width: 620px)
   .grid
     grid-template-columns: 1fr 1fr
-  
+
   .wallWrapper
     padding: 1.5rem 0.75rem
 

@@ -16,18 +16,8 @@ export interface Supporter {
 }
 
 const MESSAGES = {
-  founding: [
-    'Thank you for supporting the project when it mattered the most - at the beginning.',
-    'Your contribution helped turn this coffee-fueled idea into a real Hattrick tool.',
-    'A true believer in the 120-minute dream. Cheers to you!',
-    'One of the very few who saw the potential before anyone else did.',
-  ],
-  pioneer: [
-    'Thank you for being a brave tester of the first ever HT-120min tournament.',
-    "An early manager who wasn't afraid of a few bugs to build something great.",
-    'Pioneered the 120-minute movement. You were here since day one.',
-    'Helped test and refine the tools that managers now use every day.',
-  ],
+  founding: ['Supported HT-120min when it matters most — in the beginning! 🍺💪'],
+  pioneer: ['Thank you for helping build the project by being an early part of it!'],
 };
 
 const DATA: Supporter[] = [
@@ -42,22 +32,13 @@ const DATA: Supporter[] = [
     message: MESSAGES.pioneer[0],
   },
   {
-    id: '3220518',
-    name: 'mr_bots',
-    team: 'Guåhan Goddesses',
-    country: 'Guam',
-    flag: '🇬🇺',
-    type: 'pioneer',
-    message: MESSAGES.pioneer[1],
-  },
-  {
     id: '3220504',
     name: 'NinoMed',
     team: "'Nduje Amaranto",
     country: 'Guam',
     flag: '🇬🇺',
     type: 'pioneer',
-    message: MESSAGES.pioneer[2],
+    message: MESSAGES.pioneer[0],
   },
   {
     id: '3220508',
@@ -66,7 +47,7 @@ const DATA: Supporter[] = [
     country: 'Guam',
     flag: '🇬🇺',
     type: 'pioneer',
-    message: MESSAGES.pioneer[3],
+    message: MESSAGES.pioneer[0],
   },
   {
     id: '3220514',
@@ -84,68 +65,18 @@ const DATA: Supporter[] = [
     country: 'Guam',
     flag: '🇬🇺',
     type: 'pioneer',
-    message: MESSAGES.pioneer[1],
+    message: MESSAGES.pioneer[0],
   },
 
   // Founding Supporters (Dummy data)
   {
     id: 'f1',
-    name: 'HattrickMaster',
-    team: 'The Champions',
-    country: 'Sweden',
-    flag: '🇸🇪',
-    type: 'founding',
-    message: MESSAGES.founding[0],
-    beers: 3,
-  },
-  {
-    id: 'f2',
-    name: 'GoalScorer',
-    team: 'Striker United',
+    name: 'AntiFragole',
+    team: 'SC Strikers Unlimited',
     country: 'Italy',
     flag: '🇮🇹',
     type: 'founding',
-    message: MESSAGES.founding[1],
-    beers: 2,
-  },
-  {
-    id: 'f3',
-    name: 'MidfieldGeneral',
-    team: 'Tactical Masters',
-    country: 'Germany',
-    flag: '🇩🇪',
-    type: 'founding',
-    message: MESSAGES.founding[2],
-    beers: 5,
-  },
-  {
-    id: 'f4',
-    name: 'DefenseWall',
-    team: 'The Fortress',
-    country: 'England',
-    flag: '🏴󠁧󠁢󠁥󠁮󠁧󠁿',
-    type: 'founding',
-    message: MESSAGES.founding[3],
-    beers: 1,
-  },
-  {
-    id: 'f5',
-    name: 'CupWinner',
-    team: 'Silverware FC',
-    country: 'Spain',
-    flag: '🇪🇸',
-    type: 'founding',
     message: MESSAGES.founding[0],
-    beers: 4,
-  },
-  {
-    id: 'f6',
-    name: 'Tactician',
-    team: 'Brainstorm XI',
-    country: 'France',
-    flag: '🇫🇷',
-    type: 'founding',
-    message: MESSAGES.founding[1],
     beers: 2,
   },
 ];
@@ -156,7 +87,7 @@ interface SupportersWallProps {
 
 export const SupportersWall: React.FC<SupportersWallProps> = ({ variant = 'compact' }) => {
   const navigate = useNavigate();
-  const [shuffleSeed, setShuffleSeed] = useState(0);
+  const [, setShuffleSeed] = useState(0);
 
   const displayedSupporters = useMemo(() => {
     if (variant === 'full') return DATA;
@@ -167,7 +98,7 @@ export const SupportersWall: React.FC<SupportersWallProps> = ({ variant = 'compa
     const pioneers = shuffle(DATA.filter((s) => s.type === 'pioneer')).slice(0, 3);
 
     return [...founding, ...pioneers];
-  }, [variant, shuffleSeed]);
+  }, [variant]);
 
   return (
     <div className={`${styles.wallWrapper} ${variant === 'full' ? styles.fullPage : ''}`}>
@@ -176,7 +107,7 @@ export const SupportersWall: React.FC<SupportersWallProps> = ({ variant = 'compa
           <Trophy size={28} className={styles.mainIcon} />
           <h2>Supporters Wall</h2>
         </div>
-        <p className={styles.intro}>{DATA.length} managers helped build HT-120min from the very beginning.</p>
+        <p className={styles.intro}>Big thanks to the {DATA.length} managers so far who have helped build HT-120min!</p>
       </div>
 
       <div className={styles.grid}>
@@ -187,7 +118,7 @@ export const SupportersWall: React.FC<SupportersWallProps> = ({ variant = 'compa
           >
             <div className={styles.badge}>
               {s.type === 'founding' ? <Trophy size={14} weight="bold" /> : <BeerBottle size={14} weight="bold" />}
-              {s.type === 'founding' ? 'Founding Manager' : 'Pioneer'}
+              {s.type === 'founding' ? 'Early Supporter' : 'Pioneer User'}
             </div>
             <div className={styles.cardFrame}>
               <div className={styles.name}>{s.name}</div>
@@ -195,15 +126,6 @@ export const SupportersWall: React.FC<SupportersWallProps> = ({ variant = 'compa
                 {s.team} {s.flag}
               </div>
               <p className={styles.thankYou}>"{s.message}"</p>
-              {s.beers && (
-                <div className={styles.beers}>
-                  {Array.from({ length: s.beers }).map((_, i) => (
-                    <span key={i} title="Beers contributed">
-                      🍺
-                    </span>
-                  ))}
-                </div>
-              )}
             </div>
           </div>
         ))}
