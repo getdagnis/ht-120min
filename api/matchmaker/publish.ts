@@ -36,13 +36,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     timeWindow,
     isBackAndForth,
     isLongTerm,
-    adminManagerId,
   } = req.body ?? {};
 
-  // Allow admin override of managerId if authorized
-  const isAdmin = req.cookies.issuperadmin === 'you bet' || process.env.MATCHMAKER_DEV_MODE === 'true';
-  const effectiveManagerId = isAdmin && adminManagerId ? Number(adminManagerId) : Number(managerId);
-  const parsedManagerId = effectiveManagerId;
+  const parsedManagerId = Number(managerId);
   const parsedTeamId = Number(teamId);
 
   if (!Number.isFinite(parsedManagerId) || !Number.isFinite(parsedTeamId)) {
@@ -216,7 +212,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         is_back_and_forth: !!isBackAndForth,
         is_long_term: !!isLongTerm,
         gender_id: teamData.gender_id,
-        created_by_admin: isAdmin && !!adminManagerId,
+        created_by_admin: false,
       })
       .select('id')
       .single();
@@ -239,6 +235,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         chpp_synced_at: new Date().toISOString(),
       })
       .eq('hattrick_user_id', parsedManagerId);
+
 
     return res.status(200).json({
       request,

@@ -223,10 +223,15 @@ export const CreateTournament: React.FC = () => {
     accessTokenSecret: string,
   ): Promise<{ logoUrl?: string; countryName?: string }> => {
     try {
-      const res = await fetch('/api/chpp/teamdetails', {
+      const res = await fetch('/api/chpp/proxy', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ team_id: teamId, access_token: accessToken, access_token_secret: accessTokenSecret }),
+        body: JSON.stringify({ 
+          file: 'teamdetails',
+          teamID: teamId, 
+          access_token: accessToken, 
+          access_token_secret: accessTokenSecret 
+        }),
       });
       if (!res.ok) return {};
       const data = await res.json();

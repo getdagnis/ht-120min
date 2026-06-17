@@ -40,8 +40,13 @@ export const Matchmaker: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [myRequests, setMyRequests] = useState<MatchmakerRequest[]>([]);
   const [isPosting, setIsPosting] = useState(false);
+  const [showLoginModal, setShowLoginModal] = useState(false);
   const [showSuccessOverlay, setShowSuccessOverlay] = useState(false);
+  const [bookingRequest, setBookingRequest] = useState<{ request: MatchmakerRequest; team: ChppTeamOption } | null>(
+    null,
+  );
   const [matchedRequest, setMatchedRequest] = useState<MatchmakerRequest | null>(null);
+  const [notification, setNotification] = useState<{ title: string; message: string } | null>(null);
   const [publishError, setPublishError] = useState<string | null>(null);
   const [teamsLoading, setTeamsLoading] = useState(false);
   const [teamsError, setTeamsError] = useState<string | null>(null);
@@ -127,48 +132,51 @@ export const Matchmaker: React.FC = () => {
     setMyRequests((data as unknown as MatchmakerRequest[]) || []);
   }, [profile]);
 
-  const refreshMyTeams = useCallback(async (managerIdOverride?: string) => {
-    const targetManagerId = managerIdOverride || profile?.hattrick_user_id;
-    if (!targetManagerId) return;
+  const refreshMyTeams = useCallback(
+    async (managerIdOverride?: string) => {
+      const targetManagerId = managerIdOverride || profile?.hattrick_user_id;
+      if (!targetManagerId) return;
 
-    setTeamsLoading(true);
-    setTeamsError(null);
-    setTeamsWarning(null);
+      setTeamsLoading(true);
+      setTeamsError(null);
+      setTeamsWarning(null);
 
-    try {
-      const res = await fetch(`/api/matchmaker/teams?managerId=${targetManagerId}`);
-      const data = await res.json();
+      try {
+        const res = await fetch(`/api/matchmaker/teams?managerId=${targetManagerId}`);
+        const data = await res.json();
 
-      if (!res.ok) {
-        throw new Error(data.error || 'Could not refresh your teams from Hattrick.');
+        if (!res.ok) {
+          throw new Error(data.error || 'Could not refresh your teams from Hattrick.');
+        }
+
+        const teams = normalizeTeamList((data.teams as ChppTeamOption[]) || []);
+        setMyTeams(teams);
+
+        setSelectedHtTeamId((current) => {
+          if (current && teams.some((team) => team.teamId === current && team.availabilityStatus === 'available'))
+            return current;
+          const availableTeam = teams.find((team) => team.availabilityStatus === 'available');
+          return availableTeam?.teamId || teams[0]?.teamId || 0;
+        });
+
+        if (data.warning) {
+          setTeamsWarning(data.warning);
+        }
+      } catch (error) {
+        console.error('Error refreshing matchmaker teams:', error);
+        setMyTeams([]);
+        setSelectedHtTeamId(0);
+        setTeamsError(
+          error instanceof Error
+            ? error.message
+            : 'Could not refresh your Hattrick teams right now. Please try again shortly.',
+        );
+      } finally {
+        setTeamsLoading(false);
       }
-
-      const teams = normalizeTeamList((data.teams as ChppTeamOption[]) || []);
-      setMyTeams(teams);
-
-      setSelectedHtTeamId((current) => {
-        if (current && teams.some((team) => team.teamId === current && team.availabilityStatus === 'available'))
-          return current;
-        const availableTeam = teams.find((team) => team.availabilityStatus === 'available');
-        return availableTeam?.teamId || teams[0]?.teamId || 0;
-      });
-
-      if (data.warning) {
-        setTeamsWarning(data.warning);
-      }
-    } catch (error) {
-      console.error('Error refreshing matchmaker teams:', error);
-      setMyTeams([]);
-      setSelectedHtTeamId(0);
-      setTeamsError(
-        error instanceof Error
-          ? error.message
-          : 'Could not refresh your Hattrick teams right now. Please try again shortly.',
-      );
-    } finally {
-      setTeamsLoading(false);
-    }
-  }, [profile]);
+    },
+    [profile],
+  );
 
   useEffect(() => {
     let isMounted = true;
@@ -206,7 +214,7 @@ export const Matchmaker: React.FC = () => {
 
   const handleAccept = async (requestId: string, teamIdOverride?: number) => {
     if (!profile?.hattrick_user_id) {
-      alert('Please sign in to challenge teams.');
+      setShowLoginModal(true);
       return;
     }
 
@@ -221,7 +229,10 @@ export const Matchmaker: React.FC = () => {
     const availableTeams = myTeams.filter((t) => t.availabilityStatus === 'available');
 
     if (availableTeams.length === 0) {
-      alert('None of your teams are currently available for a friendly on next matchup dates.');
+      setNotification({
+        title: 'No teams available',
+        message: 'None of your teams are currently available for a friendly on next matchup dates.',
+      });
       return;
     }
 
@@ -236,10 +247,9 @@ export const Matchmaker: React.FC = () => {
     const selectedTeam = teamIdOverride ? myTeams.find((t) => t.teamId === teamIdOverride) : availableTeams[0];
 
     if (!selectedTeam || selectedTeam.availabilityStatus === 'booked') {
-      alert('Selected team is not available.');
+      setNotification({ title: 'Team unavailable', message: 'Selected team is not available.' });
       return;
     }
-
     setIsSaving(true);
     try {
       // Get or create general team record for acceptor (atomically)
@@ -287,15 +297,17 @@ export const Matchmaker: React.FC = () => {
       setTargetRequestId(null);
     } catch (err) {
       console.error('Error accepting match:', err);
-      alert('Failed to accept match. It might have been taken by someone else.');
-    } finally {
+      setNotification({
+        title: 'Acceptance failed',
+        message: 'Failed to accept match. It might have been taken by someone else.',
+      });
       setIsSaving(false);
     }
   };
 
   const handleStartPosting = async () => {
     if (!profile?.hattrick_user_id) {
-      alert('Please sign in to create a Matchmaker profile.');
+      setShowLoginModal(true);
       return;
     }
 
@@ -305,8 +317,11 @@ export const Matchmaker: React.FC = () => {
 
     const availableTeams = myTeams.filter((t) => t.availabilityStatus === 'available');
 
-    if (availableTeams.length === 0) {
-      alert('None of your teams are currently available for a friendly.');
+    if (available.length === 0) {
+      setNotification({
+        title: 'No teams available',
+        message: 'None of your teams are currently available for a friendly.',
+      });
       return;
     }
 
@@ -388,21 +403,21 @@ export const Matchmaker: React.FC = () => {
           </div>
 
           <div className={styles.heroImageContainer}>
-            <img src="/tinder-date3.png" alt="Tinder Date" className={styles.heroImage} />
+            <img src="/tinder-date-long-transp.png" alt="Tinder Date" className={styles.heroImage} />
             <div className={styles.heroBranding}>
               <h1>
-                <span>HT-120min</span>
-                <span>TINDER</span>
+                <span>HT-120min Tinder</span>
               </h1>
             </div>
           </div>
 
           <div className={styles.heroActions}>
             <p className={styles.heroSubtitle}>
-              Find your next training partner. No awkward forum posts. No ghosting. Just swipe and challenge.
+              Find your next 120 min training partner. No awkard concept explanations — we all know what we're here for.
+              Pick and challenge.
             </p>
-            <Button size="lg" variant="secondary" onClick={handleStartPosting}>
-              Create My Profile
+            <Button size="lg" variant="tinder" onClick={handleStartPosting}>
+              Post an Ad
             </Button>
           </div>
         </div>
@@ -441,163 +456,190 @@ export const Matchmaker: React.FC = () => {
                 return (
                   <div className={styles.emptyState}>
                     <Handshake size={64} opacity={0.2} />
-                    <h3>No requests found in this category</h3>
-                    <p>Try checking back later or post your own ad!</p>
+                    <h3>No teams available right now.</h3>
+                    <p>Be the first manager available for next week's 120-minute friendlies.</p>
+                    <div style={{ display: 'flex', gap: '10px', marginTop: '1rem' }}>
+                      <Button variant="primary" onClick={() => setIsPosting(true)}>
+                        Post Team
+                      </Button>
+                      <Button variant="outline" onClick={() => setCurrentIndex(0)}>
+                        Start over
+                      </Button>
+                    </div>
                   </div>
                 );
               }
 
               return (
-                <div className={styles.tinderCard}>
-                  <div className={styles.cardHeader}>
-                    {currentRequest.team?.arena_image_url && (
-                      <div
-                        className={styles.arenaBg}
-                        style={{ backgroundImage: `url(${currentRequest.team.arena_image_url})` }}
-                      />
-                    )}
-                    <div className={styles.managerInfo}>
-                      <div className={styles.managerAvatar}>
-                        <Avatar avatar={currentRequest.profile?.avatar_json || null} variant="circle" size={70} />
+                <div className={styles.cardWrapper}>
+                  <button
+                    className={styles.navArrow}
+                    style={{ left: '-60px' }}
+                    onClick={() => setCurrentIndex((prev) => Math.max(0, prev - 1))}
+                    disabled={currentIndex === 0}
+                  >
+                    ←
+                  </button>
+                  <div className={styles.tinderCard}>
+                    {/* Card Content ... */}
+                    <div className={styles.cardHeader}>
+                      {currentRequest.team?.arena_image_url && (
+                        <div
+                          className={styles.arenaBg}
+                          style={{ backgroundImage: `url(${currentRequest.team.arena_image_url})` }}
+                        />
+                      )}
+                      <div className={styles.managerInfo}>
+                        <div className={styles.managerAvatar}>
+                          <Avatar avatar={currentRequest.profile?.avatar_json || null} variant="circle" size={70} />
+                        </div>
+                        <div className={styles.managerMeta}>
+                          <span className={styles.managerName}>{currentRequest.profile?.manager_name}</span>
+                          <div className={styles.managerCountry}>
+                            {currentRequest.profile?.league_id && (
+                              <img
+                                src={`https://www.hattrick.org/Img/flags/${currentRequest.profile.league_id}.png`}
+                                alt=""
+                                className={styles.miniFlag}
+                              />
+                            )}
+                            {currentRequest.profile?.country_name && <span>{currentRequest.profile.country_name}</span>}
+                          </div>
+                        </div>
                       </div>
-                      <div className={styles.managerMeta}>
-                        <span className={styles.managerName}>{currentRequest.profile?.manager_name}</span>
-                        <div className={styles.managerCountry}>
-                          {currentRequest.profile?.league_id && (
+
+                      <div className={styles.teamBrand}>
+                        <div className={styles.cardLogoWrapper}>
+                          {currentRequest.team?.logo_url ? (
+                            <img src={currentRequest.team.logo_url} alt="" />
+                          ) : (
+                            <Handshake size={64} opacity={0.2} />
+                          )}
+                        </div>
+                        <h2 className={styles.teamName}>{currentRequest.team?.name}</h2>
+                        <div className={styles.location}>
+                          {currentRequest.team?.league_id && (
                             <img
-                              src={`https://www.hattrick.org/Img/flags/${currentRequest.profile.league_id}.png`}
+                              src={`https://www.hattrick.org/Img/flags/${currentRequest.team.league_id}.png`}
                               alt=""
                               className={styles.miniFlag}
                             />
                           )}
-                          {currentRequest.profile?.country_name && <span>{currentRequest.profile.country_name}</span>}
+                          <span>{currentRequest.team?.country_name}</span>
                         </div>
                       </div>
                     </div>
 
-                    <div className={styles.teamBrand}>
-                      <div className={styles.cardLogoWrapper}>
-                        {currentRequest.team?.logo_url ? (
-                          <img src={currentRequest.team.logo_url} alt="" />
-                        ) : (
-                          <Handshake size={64} opacity={0.2} />
-                        )}
+                    <div className={styles.cardBody}>
+                      <div className={styles.matchBadge}>
+                        <Clock size={16} />
+                        <span>how long: 120 min</span>
                       </div>
-                      <h2 className={styles.teamName}>{currentRequest.team?.name}</h2>
-                      <div className={styles.location}>
-                        {currentRequest.team?.league_id && (
-                          <img
-                            src={`https://www.hattrick.org/Img/flags/${currentRequest.team.league_id}.png`}
-                            alt=""
-                            className={styles.miniFlag}
-                          />
-                        )}
-                        <span>{currentRequest.team?.country_name}</span>
-                      </div>
-                    </div>
-                  </div>
 
-                  <div className={styles.cardBody}>
-                    <div className={styles.matchBadge}>
-                      <Clock size={16} />
-                      <span>how long: 120 min</span>
-                    </div>
-
-                    <div className={styles.infoGrid}>
-                      <div className={styles.infoItem}>
-                        <span>❤️ Looking for:</span>
-                        <span>
-                          {currentRequest.match_type === '120min' ? '120 minute cup rules' : '⚽ 90 minute OK'}
-                        </span>
-                      </div>
-                      <div className={styles.infoItem}>
-                        <span>🌎 Will travel:</span>
-                        <span>
-                          {currentRequest.opponent_location === 'domestic' && `🏠 my country only`}
-                          {currentRequest.opponent_location === 'international_only' && '🌍 Anywhere'}
-                          {currentRequest.opponent_location === 'any' && '🗺 Anywhere'}
-                        </span>
-                      </div>
-                      <div className={styles.infoItem}>
-                        <span>🏟️ Venue:</span>
-                        <span>
-                          {currentRequest.home_away === 'home' && 'my place'}
-                          {currentRequest.home_away === 'away' && 'your place'}
-                          {currentRequest.home_away === 'any' && 'anywhere'}
-                        </span>
-                      </div>
-                      {currentRequest.time_window && (
+                      <div className={styles.infoGrid}>
                         <div className={styles.infoItem}>
-                          <span>🕒 Time:</span>
+                          <span>❤️ Looking for:</span>
                           <span>
-                            {currentRequest.match_day} {currentRequest.time_window}
+                            {currentRequest.match_type === '120min' ? '120 minute cup rules' : '⚽ 90 minute OK'}
                           </span>
                         </div>
-                      )}
-                      {(currentRequest.is_back_and_forth || currentRequest.is_long_term) && (
                         <div className={styles.infoItem}>
-                          <span>💘 Extras:</span>
-                          <span style={{ fontSize: '0.85rem' }}>
-                            {currentRequest.is_back_and_forth && '🔄 Back-and-forth OK'}
-                            {currentRequest.is_back_and_forth && currentRequest.is_long_term && <br />}
-                            {currentRequest.is_long_term && '🗓 Long term training'}
+                          <span>🌎 Will travel:</span>
+                          <span>
+                            {currentRequest.opponent_location === 'domestic' && `🏠 my country only`}
+                            {currentRequest.opponent_location === 'international_only' && '🌍 Anywhere'}
+                            {currentRequest.opponent_location === 'any' && '🗺 Anywhere'}
                           </span>
+                        </div>
+                        <div className={styles.infoItem}>
+                          <span>🏟️ Venue:</span>
+                          <span>
+                            {currentRequest.home_away === 'home' && 'my place'}
+                            {currentRequest.home_away === 'away' && 'your place'}
+                            {currentRequest.home_away === 'any' && 'anywhere'}
+                          </span>
+                        </div>
+                        {currentRequest.time_window && (
+                          <div className={styles.infoItem}>
+                            <span>🕒 Time:</span>
+                            <span>
+                              {currentRequest.match_day} {currentRequest.time_window}
+                            </span>
+                          </div>
+                        )}
+                        {(currentRequest.is_back_and_forth || currentRequest.is_long_term) && (
+                          <div className={styles.infoItem}>
+                            <span>💘 Extras:</span>
+                            <span style={{ fontSize: '0.85rem' }}>
+                              {currentRequest.is_back_and_forth && '🔄 Back-and-forth OK'}
+                              {currentRequest.is_back_and_forth && currentRequest.is_long_term && <br />}
+                              {currentRequest.is_long_term && '🗓 Long term training'}
+                            </span>
+                          </div>
+                        )}
+                      </div>
+
+                      {currentRequest.message && (
+                        <div className={styles.infoItem}>
+                          <span>💬 About us:</span>
+                          <p className={styles.message}>"{currentRequest.message}"</p>
                         </div>
                       )}
                     </div>
 
-                    {currentRequest.message && (
-                      <div className={styles.infoItem}>
-                        <span>💬 About us:</span>
-                        <p className={styles.message}>"{currentRequest.message}"</p>
+                    <div className={styles.cardActions}>
+                      <Button variant="outline" onClick={handleSkip} disabled={isSaving} fullWidth>
+                        <X size={20} weight="bold" /> NOPE
+                      </Button>
+                      <Button
+                        variant="primary"
+                        onClick={() => handleAccept(currentRequest.id)}
+                        disabled={isSaving}
+                        fullWidth
+                        style={{ background: 'var(--tinder-bg)', borderColor: 'var(--borderDark)' }}
+                      >
+                        <Heart size={20} weight="fill" /> BOOK MATCH
+                      </Button>
+                    </div>
+
+                    {showSuccessOverlay && (
+                      <div className={styles.successOverlay} style={{ background: 'rgba(58, 123, 213, 0.95)' }}>
+                        <h2>✅ Your request is live</h2>
+                        {selectedTeam && (
+                          <div style={{ marginBottom: '2rem' }}>
+                            <p style={{ fontWeight: 800, fontSize: '1.5rem', marginBottom: '0.5rem' }}>
+                              {selectedTeam.teamName}
+                            </p>
+                            <p>{matchType === '120min' ? '⚔️ 120 minute cup rules' : '⚽ 90 minute OK'}</p>
+                            <p>
+                              {location === 'domestic'
+                                ? `🏠 my country only (${selectedTeam.countryName})`
+                                : location === 'international_only'
+                                  ? '🌍 will travel'
+                                  : '🗺 Anywhere'}
+                            </p>
+                            {homeAway === 'home' && matchDay && timeWindow && (
+                              <p>
+                                🏟 my place: {matchDay} {timeWindow}
+                              </p>
+                            )}
+                          </div>
+                        )}
+                        <p>You will be notified when another manager accepts your match.</p>
+                        <Button variant="tinder" onClick={() => setShowSuccessOverlay(false)}>
+                          Awesome!
+                        </Button>
                       </div>
                     )}
                   </div>
-
-                  <div className={styles.cardActions}>
-                    <Button variant="outline" onClick={handleSkip} disabled={isSaving} fullWidth>
-                      <X size={20} weight="bold" /> NOPE
-                    </Button>
-                    <Button
-                      variant="primary"
-                      onClick={() => handleAccept(currentRequest.id)}
-                      disabled={isSaving}
-                      fullWidth
-                      style={{ background: 'var(--tinder-bg)', borderColor: 'var(--borderDark)' }}
-                    >
-                      <Heart size={20} weight="fill" /> CHALLENGE
-                    </Button>
-                  </div>
-
-                  {showSuccessOverlay && (
-                    <div className={styles.successOverlay} style={{ background: 'rgba(58, 123, 213, 0.95)' }}>
-                      <h2>✅ Your request is live</h2>
-                      {selectedTeam && (
-                        <div style={{ marginBottom: '2rem' }}>
-                          <p style={{ fontWeight: 800, fontSize: '1.5rem', marginBottom: '0.5rem' }}>
-                            {selectedTeam.teamName}
-                          </p>
-                          <p>{matchType === '120min' ? '⚔️ 120 minute cup rules' : '⚽ 90 minute OK'}</p>
-                          <p>
-                            {location === 'domestic'
-                              ? `🏠 my country only (${selectedTeam.countryName})`
-                              : location === 'international_only'
-                                ? '🌍 will travel'
-                                : '🗺 Anywhere'}
-                          </p>
-                          {homeAway === 'home' && matchDay && timeWindow && (
-                            <p>
-                              🏟 my place: {matchDay} {timeWindow}
-                            </p>
-                          )}
-                        </div>
-                      )}
-                      <p>You will be notified when another manager accepts your match.</p>
-                      <Button variant="tinder" onClick={() => setShowSuccessOverlay(false)}>
-                        Awesome!
-                      </Button>
-                    </div>
-                  )}
+                  <button
+                    className={styles.navArrow}
+                    style={{ right: '-60px' }}
+                    onClick={() => setCurrentIndex((prev) => Math.min(filteredRequests.length - 1, prev + 1))}
+                    disabled={currentIndex === filteredRequests.length - 1}
+                  >
+                    →
+                  </button>
                 </div>
               );
             })()
@@ -606,8 +648,8 @@ export const Matchmaker: React.FC = () => {
       ) : (
         <div className={styles.myRequests}>
           <div className={styles.myAdsHeader}>
-            <h3>Your active requests</h3>
-            <p>You will be notified when another manager accepts your match.</p>
+            <h3>Your teams</h3>
+            <p>You will be notified when another manager books a match with your team.</p>
           </div>
           {myRequests.length > 0 ? (
             <div className={styles.requestGrid}>
@@ -624,7 +666,13 @@ export const Matchmaker: React.FC = () => {
                       )}
                       <strong>{req.team?.name}</strong>
                     </div>
-                    <span className={`${styles.statusBadge} ${styles[req.status]}`}>{req.status.toUpperCase()}</span>
+                    <span className={`${styles.statusBadge} ${styles[req.status]}`}>
+                      {req.status === 'open'
+                        ? 'AVAILABLE'
+                        : req.status === 'matched'
+                          ? 'BOOKED'
+                          : req.status.toUpperCase()}
+                    </span>
                   </div>
 
                   <div className={styles.requestBody}>
@@ -703,9 +751,9 @@ export const Matchmaker: React.FC = () => {
             </div>
           ) : (
             <div className={styles.emptyState}>
-              <p>You haven't posted any requests this week.</p>
+              <p>You haven't posted any teams this week.</p>
               <Button variant="primary" onClick={() => setIsPosting(true)}>
-                Post Your First Request
+                Post Your First Team
               </Button>
             </div>
           )}
@@ -950,6 +998,23 @@ export const Matchmaker: React.FC = () => {
           }
         }}
       />
+      <Modal isOpen={!!notification} onClose={() => setNotification(null)} title={notification?.title}>
+        <p>{notification?.message}</p>
+        <Button variant="primary" onClick={() => setNotification(null)} style={{ marginTop: '1rem' }}>
+          OK
+        </Button>
+      </Modal>
+      <Modal isOpen={showLoginModal} onClose={() => setShowLoginModal(false)} title="Sign in required">
+        <p style={{ marginBottom: '1rem' }}>To book or publish friendlies you need a connected Hattrick account.</p>
+        <div style={{ display: 'flex', gap: '10px' }}>
+          <Button variant="primary" onClick={() => navigate('/auth/login')}>
+            Login with Hattrick
+          </Button>
+          <Button variant="outline" onClick={() => setShowLoginModal(false)}>
+            Close
+          </Button>
+        </div>
+      </Modal>
     </div>
   );
 };

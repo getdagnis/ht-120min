@@ -1,12 +1,18 @@
 .panel
+  position: fixed
+  bottom: 1rem
+  right: 1rem
+  z-index: 1000
   padding: 1rem
   background: var(--bg-dark)
   border: 1px solid var(--danger)
   border-radius: var(--radius-md)
-  margin-bottom: 1rem
   display: flex
   flex-direction: column
   gap: 0.5rem
+
+  @media (max-width: 768px)
+    display: none
 
   input, textarea
     padding: 0.5rem

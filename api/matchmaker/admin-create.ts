@@ -78,7 +78,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     let selectedTeam = null;
     if (targetTeamId) {
       selectedTeam = managerSnapshot.teams.find((t) => t.teamId === targetTeamId);
-    } else if (managerSnapshot.teams.length === 1) {
+    } else if (managerSnapshot.teams.length >= 1) {
       selectedTeam = managerSnapshot.teams[0];
     }
 
@@ -117,10 +117,41 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       { onConflict: 'hattrick_user_id' },
     );
 
-    const { data: teamRec, error: teamErr } = await supabase
+    // Try to find existing team first
+    const { data: existingTeam } = await supabase
       .from('teams')
-      .upsert(
-        {
+      .select('id')
+      .eq('ht_team_id', selectedTeam.teamId)
+      .is('tournament_id', null)
+      .maybeSingle();
+
+    let teamRec;
+    if (existingTeam) {
+      const { data, error: teamErr } = await supabase
+        .from('teams')
+        .update({
+          name: selectedTeam.teamName,
+          ht_team_name: selectedTeam.teamName,
+          hattrick_user_id: targetManagerId,
+          manager_name: managerSnapshot.managerName,
+          country_name: selectedTeam.countryName ?? teamDetails.countryName ?? null,
+          league_id: selectedTeam.leagueId ?? null,
+          gender_id: teamDetails.genderId ?? selectedTeam.genderId ?? 1,
+          fanclub_size: teamDetails.fanclubSize ?? null,
+          arena_id: teamDetails.arenaId ?? null,
+          arena_size: finalArenaDetails?.capacity ?? null,
+          arena_image_url: finalArenaDetails?.arenaImageUrl ?? null,
+          active: true,
+        })
+        .eq('id', existingTeam.id)
+        .select('id')
+        .single();
+      teamRec = data;
+      if (teamErr) throw new Error(teamErr.message);
+    } else {
+      const { data, error: teamErr } = await supabase
+        .from('teams')
+        .insert({
           ht_team_id: selectedTeam.teamId,
           name: selectedTeam.teamName,
           ht_team_name: selectedTeam.teamName,
@@ -134,13 +165,13 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
           arena_size: finalArenaDetails?.capacity ?? null,
           arena_image_url: finalArenaDetails?.arenaImageUrl ?? null,
           active: true,
-        },
-        { onConflict: 'ht_team_id' },
-      )
-      .select('id')
-      .single();
-
-    if (teamErr || !teamRec) throw new Error(teamErr?.message || 'Failed to cache team');
+          tournament_id: null,
+        })
+        .select('id')
+        .single();
+      teamRec = data;
+      if (teamErr) throw new Error(teamErr.message);
+    }
 
     // 5. Create Request
     const { data: request, error: requestErr } = await supabase

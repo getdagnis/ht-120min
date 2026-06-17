@@ -24,9 +24,9 @@ export const Avatar: React.FC<AvatarProps> = ({ avatar, variant, size = 120, cla
     return (
       <div
         className={`${styles.container} ${styles[variant]} ${className}`}
-        style={{ width: size, height: size, display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+        style={{ width: size, height: size, backgroundColor: 'var(--borderWeak)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
       >
-        ?
+        <span style={{ fontSize: `${size / 2}px`, color: 'var(--text60)' }}>👤</span>
       </div>
     );
   }
