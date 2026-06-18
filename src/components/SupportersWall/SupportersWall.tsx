@@ -134,10 +134,15 @@ export const SupportersWall: React.FC<SupportersWallProps> = ({ variant = 'compa
 
       {variant === 'compact' && (
         <div className={styles.actions}>
-          <Button variant="zero" size="sm" onClick={() => setShuffleSeed((s) => s + 1)} className={styles.actionBtn}>
+          <Button
+            variant="outlineWhite"
+            size="sm"
+            onClick={() => setShuffleSeed((s) => s + 1)}
+            className={styles.actionBtn}
+          >
             <ArrowClockwise size={18} /> Refresh
           </Button>
-          <Button variant="zero" size="sm" onClick={() => navigate('/supporters')} className={styles.actionBtn}>
+          <Button variant="outlineWhite" size="sm" onClick={() => navigate('/supporters')} className={styles.actionBtn}>
             <ArrowsOut size={18} /> Show All
           </Button>
         </div>
