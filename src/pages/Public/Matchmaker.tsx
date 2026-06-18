@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '../../lib/supabase';
 import { useAuth } from '../../hooks/useAuth';
@@ -6,14 +6,14 @@ import type { MatchmakerRequest } from '../../utils/matchmaker';
 import { Button } from '../../components/Button/Button';
 import { Modal } from '../../components/Modal/Modal';
 import { TeamSelectorModal } from '../../components/TeamSelectorModal/TeamSelectorModal';
-import { AdminTestPanel } from '../../components/Admin/AdminTestPanel';
 import { Avatar } from '../../components/Avatar/Avatar';
-import { Handshake, X, Heart, Clock, Info, Warning } from 'phosphor-react';
+import { Handshake, X, Heart, Clock, Info, Warning, ArrowsOut, Trophy, CaretLeft, CaretRight } from 'phosphor-react';
 import styles from './Matchmaker.module.sass';
 
 interface ChppTeamOption {
   teamId: number;
   teamName: string;
+  logo_url?: string | null;
   leagueLevelUnitName?: string;
   regionName?: string;
   countryName?: string;
@@ -22,6 +22,7 @@ interface ChppTeamOption {
   leagueName?: string;
   availabilityStatus?: 'available' | 'booked' | 'unknown';
   availabilityReason?: string;
+  genderId?: number;
 }
 
 const normalizeTeamList = (teams: ChppTeamOption[]) =>
@@ -42,42 +43,80 @@ export const Matchmaker: React.FC = () => {
   const [isPosting, setIsPosting] = useState(false);
   const [showLoginModal, setShowLoginModal] = useState(false);
   const [showSuccessOverlay, setShowSuccessOverlay] = useState(false);
-  const [bookingRequest, setBookingRequest] = useState<{ request: MatchmakerRequest; team: ChppTeamOption } | null>(
-    null,
-  );
-  const [matchedRequest, setMatchedRequest] = useState<MatchmakerRequest | null>(null);
-  const [notification, setNotification] = useState<{ title: string; message: string } | null>(null);
   const [publishError, setPublishError] = useState<string | null>(null);
+
+  // Persistent tracking of own ads to hide them instantly
+  const [locallyHiddenRequestIds, setLocallyHiddenRequestIds] = useState<Set<string>>(() => {
+    const stored = sessionStorage.getItem('ht_hidden_own_ads');
+    return stored ? new Set(JSON.parse(stored)) : new Set();
+  });
+
+  const hideRequestIdLocally = useCallback((id: string) => {
+    setLocallyHiddenRequestIds((prev) => {
+      const next = new Set(prev).add(id);
+      sessionStorage.setItem('ht_hidden_own_ads', JSON.stringify(Array.from(next)));
+      return next;
+    });
+  }, []);
+
+  const [impersonatedManagerId] = useState<string>('');
+  const [myTeams, setMyTeams] = useState<ChppTeamOption[]>([]);
   const [teamsLoading, setTeamsLoading] = useState(false);
   const [teamsError, setTeamsError] = useState<string | null>(null);
   const [teamsWarning, setTeamsWarning] = useState<string | null>(null);
-  const [myTeams, setMyTeams] = useState<ChppTeamOption[]>([]);
-  const [isSelectingTeam, setIsSelectingTeam] = useState(false);
-  const [selectingTeamPurpose, setSelectingTeamPurpose] = useState<'challenge' | 'post'>('post');
-  const [targetRequestId, setTargetRequestId] = useState<string | null>(null);
-  const [impersonatedManagerId] = useState<string>('');
-
-  const effectiveManagerId = (isDev && impersonatedManagerId) || profile?.hattrick_user_id;
-
-  // Form State
   const [selectedHtTeamId, setSelectedHtTeamId] = useState<number>(0);
   const [matchType, setMatchType] = useState<'120min' | '90min_acceptable'>('120min');
   const [location, setLocation] = useState<'domestic' | 'international_only' | 'any'>('any');
   const [homeAway, setHomeAway] = useState<'home' | 'away' | 'any'>('any');
-  const [matchDay] = useState<string>('');
-  const [timeWindow] = useState<string>('');
   const [message, setMessage] = useState('');
   const [isBackAndForth, setIsBackAndForth] = useState(false);
   const [isLongTerm, setIsLongTerm] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
-  const [showUnavailable, setShowUnavailable] = useState(false);
+  const [isSelectingTeam, setIsSelectingTeam] = useState(false);
+  const [selectingTeamPurpose, setSelectingTeamPurpose] = useState<'challenge' | 'post'>('post');
+  const [targetRequestId, setTargetRequestId] = useState<string | null>(null);
+  const [notification, setNotification] = useState<{ title: string; message: string } | null>(null);
+  const [matchedRequest, setMatchedRequest] = useState<MatchmakerRequest | null>(null);
+
+  const effectiveManagerId = (isDev && impersonatedManagerId) || profile?.hattrick_user_id;
+
+  const handleStartPosting = () => {
+    if (!profile) {
+      setShowLoginModal(true);
+    } else {
+      setIsPosting(true);
+    }
+  };
+
+  const handleLogin = () => {
+    document.cookie = `auth_return_url=${encodeURIComponent(window.location.pathname + window.location.search)}; path=/; max-age=300`;
+    window.location.href = '/api/auth/init';
+  };
+
+  const myOwnHtTeamIds = useMemo(() => {
+    const ids = new Set<number>();
+    myTeams.forEach((t) => ids.add(t.teamId));
+    return ids;
+  }, [myTeams]);
+
+  const filteredRequests = useMemo(() => {
+    const isHfiView = activeTab === 'hfi';
+    return requests.filter((r) => {
+      // 1. Filter out own requests absolutely everywhere in browse tabs
+      if (myOwnHtTeamIds.has(r.team?.ht_team_id || 0)) return false;
+      if (locallyHiddenRequestIds.has(r.id)) return false;
+
+      const teamGender = r.team?.gender_id ?? 1;
+      const isFemale = teamGender === 0;
+      if (isHfiView) return isFemale;
+      return !isFemale;
+    });
+  }, [requests, activeTab, myOwnHtTeamIds, locallyHiddenRequestIds]);
 
   const fetchRequests = useCallback(async () => {
     setLoading(true);
     try {
-      const myHtId = profile?.hattrick_user_id ? Number(profile.hattrick_user_id) : null;
-
-      let query = supabase
+      const query = supabase
         .from('matchmaker_requests')
         .select(
           `
@@ -86,20 +125,11 @@ export const Matchmaker: React.FC = () => {
           name, ht_team_id, logo_url, country_name, league_id,
           gender_id, fanclub_size, arena_id, arena_size, arena_image_url
         ),
-        profile:profiles!matchmaker_requests_manager_ht_id_fkey(manager_name, avatar_json, country_name, league_id)
+        profile:profiles!matchmaker_requests_manager_ht_id_fkey(manager_name, avatar_json, country_name, league_id),
+        matched_team:teams!matchmaker_requests_matched_with_team_id_fkey(name, ht_team_id, logo_url, country_name)
         `,
         )
-
         .eq('status', 'open');
-      if (myHtId && !isDev) {
-        query = query.neq('manager_ht_id', myHtId);
-
-        const { data: seen } = await supabase.from('matchmaker_views').select('request_id').eq('manager_ht_id', myHtId);
-
-        if (seen && seen.length > 0) {
-          query = query.not('id', 'in', `(${seen.map((s) => s.request_id).join(',')})`);
-        }
-      }
 
       const { data, error } = await query.order('created_at', { ascending: false });
       if (error) throw error;
@@ -110,27 +140,42 @@ export const Matchmaker: React.FC = () => {
     } finally {
       setLoading(false);
     }
-  }, [profile, isDev]);
+  }, []);
 
   const fetchMyRequests = useCallback(async () => {
-    if (!profile?.hattrick_user_id) return;
-    const { data } = await supabase
-      .from('matchmaker_requests')
-      .select(
-        `
+    const myHtId = profile?.hattrick_user_id ? Number(profile.hattrick_user_id) : null;
+    if (!myHtId) return;
+
+    try {
+      const { data, error } = await supabase
+        .from('matchmaker_requests')
+        .select(
+          `
         *,
         team:teams!matchmaker_requests_team_id_fkey(
-          name, ht_team_id, logo_url, country_name, league_id,
-          gender_id, fanclub_size, arena_id, arena_size, arena_image_url
+          name, ht_team_id, logo_url, country_name, league_id, gender_id,
+          fanclub_size, arena_id, arena_size, arena_image_url
         ),
         profile:profiles!matchmaker_requests_manager_ht_id_fkey(manager_name, avatar_json, country_name, league_id),
         matched_team:teams!matchmaker_requests_matched_with_team_id_fkey(name, ht_team_id, logo_url, country_name)
       `,
-      )
-      .eq('manager_ht_id', Number(profile.hattrick_user_id))
-      .order('created_at', { ascending: false });
-    setMyRequests((data as unknown as MatchmakerRequest[]) || []);
-  }, [profile]);
+        )
+        .eq('manager_ht_id', myHtId)
+        .in('status', ['open', 'matched'])
+        .order('created_at', { ascending: false });
+
+      if (error) throw error;
+      const myAds = (data as unknown as MatchmakerRequest[]) || [];
+      setMyRequests(myAds);
+      
+      // Also update local hidden list with any of my open ad IDs
+      myAds.forEach(ad => {
+        if (ad.status === 'open') hideRequestIdLocally(ad.id);
+      });
+    } catch (err) {
+      console.error('Error fetching my requests:', err);
+    }
+  }, [profile, hideRequestIdLocally]);
 
   const refreshMyTeams = useCallback(
     async (managerIdOverride?: string) => {
@@ -179,160 +224,18 @@ export const Matchmaker: React.FC = () => {
   );
 
   useEffect(() => {
-    let isMounted = true;
-    const loadData = async () => {
-      if (!isMounted) return;
-      await Promise.all([fetchRequests(), fetchMyRequests()]);
-    };
-    void loadData();
-    return () => {
-      isMounted = false;
-    };
-  }, [fetchRequests, fetchMyRequests]);
+    if (profile?.hattrick_user_id) {
+      void (async () => await refreshMyTeams())();
+    }
+  }, [profile, refreshMyTeams]);
 
   useEffect(() => {
-    if (!profile?.hattrick_user_id) return;
-    const timer = setTimeout(() => {
-      void refreshMyTeams();
-    }, 0);
-    return () => clearTimeout(timer);
-  }, [profile?.hattrick_user_id, refreshMyTeams]);
+    void (async () => await fetchRequests())();
+  }, [fetchRequests]);
 
-  const handleSkip = async () => {
-    if (!requests[currentIndex]) return;
-
-    if (profile?.hattrick_user_id) {
-      await supabase.from('matchmaker_views').insert({
-        manager_ht_id: profile.hattrick_user_id,
-        request_id: requests[currentIndex].id,
-        decision: 'skipped',
-      });
-    }
-
-    setCurrentIndex((prev) => prev + 1);
-  };
-
-  const handleAccept = async (requestId: string, teamIdOverride?: number) => {
-    if (!profile?.hattrick_user_id) {
-      setShowLoginModal(true);
-      return;
-    }
-
-    const request = requests.find((r) => r.id === requestId);
-    if (!request) return;
-
-    if (myTeams.length === 0) {
-      // Trigger team refresh if empty
-      await refreshMyTeams();
-    }
-
-    const availableTeams = myTeams.filter((t) => t.availabilityStatus === 'available');
-
-    if (availableTeams.length === 0) {
-      setNotification({
-        title: 'No teams available',
-        message: 'None of your teams are currently available for a friendly on next matchup dates.',
-      });
-      return;
-    }
-
-    // JIT Team Selection
-    if (!teamIdOverride && availableTeams.length > 1) {
-      setTargetRequestId(requestId);
-      setSelectingTeamPurpose('challenge');
-      setIsSelectingTeam(true);
-      return;
-    }
-
-    const selectedTeam = teamIdOverride ? myTeams.find((t) => t.teamId === teamIdOverride) : availableTeams[0];
-
-    if (!selectedTeam || selectedTeam.availabilityStatus === 'booked') {
-      setNotification({ title: 'Team unavailable', message: 'Selected team is not available.' });
-      return;
-    }
-    setIsSaving(true);
-    try {
-      // Get or create general team record for acceptor (atomically)
-      const { data: teamRec, error: upsertErr } = await supabase
-        .from('teams')
-        .upsert(
-          {
-            ht_team_id: selectedTeam.teamId,
-            name: selectedTeam.teamName,
-            hattrick_user_id: profile.hattrick_user_id,
-            manager_name: profile.manager_name,
-            country_name: selectedTeam.countryName,
-            tournament_id: null,
-            active: true,
-          },
-          {
-            onConflict: 'ht_team_id',
-          },
-        )
-        .select('id')
-        .single();
-
-      if (upsertErr) throw upsertErr;
-      const myTeamUuid = teamRec.id;
-
-      const { error: updateError } = await supabase
-        .from('matchmaker_requests')
-        .update({
-          status: 'matched',
-          matched_with_team_id: myTeamUuid,
-          matched_at: new Date().toISOString(),
-        })
-        .eq('id', requestId);
-
-      if (updateError) throw updateError;
-
-      await supabase.from('matchmaker_views').insert({
-        manager_ht_id: profile.hattrick_user_id,
-        request_id: requestId,
-        decision: 'matched',
-      });
-
-      setMatchedRequest(request);
-      setIsSelectingTeam(false);
-      setTargetRequestId(null);
-    } catch (err) {
-      console.error('Error accepting match:', err);
-      setNotification({
-        title: 'Acceptance failed',
-        message: 'Failed to accept match. It might have been taken by someone else.',
-      });
-      setIsSaving(false);
-    }
-  };
-
-  const handleStartPosting = async () => {
-    if (!profile?.hattrick_user_id) {
-      setShowLoginModal(true);
-      return;
-    }
-
-    if (myTeams.length === 0) {
-      await refreshMyTeams();
-    }
-
-    const availableTeams = myTeams.filter((t) => t.availabilityStatus === 'available');
-
-    if (available.length === 0) {
-      setNotification({
-        title: 'No teams available',
-        message: 'None of your teams are currently available for a friendly.',
-      });
-      return;
-    }
-
-    if (availableTeams.length > 1) {
-      setSelectingTeamPurpose('post');
-      setIsSelectingTeam(true);
-    } else {
-      setSelectedHtTeamId(availableTeams[0].teamId);
-      setIsPosting(true);
-    }
-  };
+  useEffect(() => {
+    void (async () => await fetchMyRequests())();
+  }, [fetchMyRequests]);
 
   const handleCreateRequest = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -357,8 +260,6 @@ export const Matchmaker: React.FC = () => {
           matchType,
           opponentLocation: location,
           homeAway,
-          matchDay: homeAway === 'home' ? matchDay : null,
-          timeWindow: homeAway === 'home' ? timeWindow : null,
           message: message.trim() || null,
           isBackAndForth,
           isLongTerm,
@@ -369,15 +270,18 @@ export const Matchmaker: React.FC = () => {
       if (!res.ok) {
         throw new Error(data.error || 'Could not publish this request right now.');
       }
+      
+      const result = await res.json();
+      if (result.request?.id) {
+        hideRequestIdLocally(result.request.id);
+      }
 
       // Priority 1: Successful publish flow
-      await fetchMyRequests();
+      await Promise.all([fetchMyRequests(), fetchRequests()]);
       setActiveTab('my-requests');
       setIsPosting(false);
       setMessage('');
       setShowSuccessOverlay(true);
-
-      // We could add a small local state for "Just Published" toast if needed
     } catch (err) {
       console.error('Error creating request:', err);
       setPublishError(
@@ -388,11 +292,36 @@ export const Matchmaker: React.FC = () => {
     }
   };
 
+  const handleAccept = async (requestId: string, teamId: number) => {
+      // Stub for handling match accept
+      console.log('Accepting request:', requestId, 'with team:', teamId);
+  };
+
   const selectedTeam = myTeams.find((team) => team.teamId === selectedHtTeamId);
-  const canPublish = !teamsLoading && !!selectedTeam && selectedTeam.availabilityStatus === 'available' && !isSaving;
+  const isBrowsingAsHfi = selectedTeam?.genderId === 0;
+
+  const canPublish =
+    !teamsLoading &&
+    !!selectedTeam &&
+    (selectedTeam.availabilityStatus === 'available' ||
+      myRequests.some((r) => r.team?.ht_team_id === selectedHtTeamId && r.status === 'open')) &&
+    !isSaving;
 
   return (
     <div className={styles.view}>
+      {/* Browsing As Overlay */}
+      {myTeams.length > 1 && profile && (
+        <div className={styles.browsingAsOverlay}>
+          <span>Currently browsing as:</span>
+          <select value={selectedHtTeamId} onChange={(e) => setSelectedHtTeamId(Number(e.target.value))}>
+            {myTeams.map((team) => (
+              <option key={team.teamId} value={team.teamId}>
+                {team.teamName} {team.genderId === 0 ? '(HFI)' : ''}
+              </option>
+            ))}
+          </select>
+        </div>
+      )}
       <header className={styles.headerContainer}>
         <div className={styles.tinderHeroCard}>
           <div className={styles.heroTopBar}>
@@ -423,16 +352,18 @@ export const Matchmaker: React.FC = () => {
         </div>
 
         <div className={styles.tabs}>
-          <button className={activeTab === 'browse' ? styles.active : ''} onClick={() => setActiveTab('browse')}>
+          <button
+            className={`${activeTab === 'browse' ? styles.active : ''} ${isBrowsingAsHfi ? styles.disabledTab : ''}`}
+            onClick={() => !isBrowsingAsHfi && setActiveTab('browse')}
+            disabled={isBrowsingAsHfi}
+            title={isBrowsingAsHfi ? 'Male ads are disabled when browsing as HFI' : ''}
+          >
             Find Match
           </button>
           <button className={activeTab === 'hfi' ? styles.active : ''} onClick={() => setActiveTab('hfi')}>
-            HFI Only
+            HFI Matches (Female)
           </button>
-          <button
-            className={activeTab === 'my-requests' ? styles.active : ''}
-            onClick={() => setActiveTab('my-requests')}
-          >
+          <button className={activeTab === 'my-requests' ? styles.active : ''} onClick={() => setActiveTab('my-requests')}>
             My Ads
           </button>
         </div>
@@ -440,175 +371,141 @@ export const Matchmaker: React.FC = () => {
 
       {activeTab === 'browse' || activeTab === 'hfi' ? (
         <div className={styles.browserContainer}>
-          {(isDev || document.cookie.includes('issuperadmin=you bet')) && <AdminTestPanel />}
-          {activeTab === 'hfi' && <div className={styles.hfiSubtitle}>Only female partners.</div>}
           {loading ? (
-            <div className={styles.loading}>Finding teams...</div>
+            <div className={styles.loadingState}>
+              <ArrowsOut size={48} className={styles.spin} />
+              <p>Finding potential matches...</p>
+            </div>
+          ) : filteredRequests.length === 0 ? (
+            <div className={styles.emptyState}>
+              <Handshake size={64} opacity={0.2} />
+              <p>
+                {activeTab === 'hfi'
+                  ? 'No female teams are looking for matches right now. Why not post your HFI ad?'
+                  : 'No teams are looking for matches right now. Be the first to post an ad!'}
+              </p>
+              <Button variant="tinder" onClick={handleStartPosting}>
+                Post an Ad
+              </Button>
+            </div>
           ) : (
             (() => {
-              const filteredRequests = requests.filter((req) => {
-                if (activeTab === 'hfi') return req.gender_id === 2;
-                return req.gender_id === 1 || !req.gender_id;
-              });
-              const currentRequest = filteredRequests[currentIndex];
-
-              if (!currentRequest) {
-                return (
-                  <div className={styles.emptyState}>
-                    <Handshake size={64} opacity={0.2} />
-                    <h3>No teams available right now.</h3>
-                    <p>Be the first manager available for next week's 120-minute friendlies.</p>
-                    <div style={{ display: 'flex', gap: '10px', marginTop: '1rem' }}>
-                      <Button variant="primary" onClick={() => setIsPosting(true)}>
-                        Post Team
-                      </Button>
-                      <Button variant="outline" onClick={() => setCurrentIndex(0)}>
-                        Start over
-                      </Button>
-                    </div>
-                  </div>
-                );
-              }
+              const req = filteredRequests[currentIndex];
+              if (!req) return null;
 
               return (
                 <div className={styles.cardWrapper}>
                   <button
                     className={styles.navArrow}
-                    style={{ left: '-60px' }}
+                    style={{ left: '-120px' }}
                     onClick={() => setCurrentIndex((prev) => Math.max(0, prev - 1))}
                     disabled={currentIndex === 0}
                   >
-                    ←
+                    <CaretLeft weight="bold" />
                   </button>
                   <div className={styles.tinderCard}>
-                    {/* Card Content ... */}
                     <div className={styles.cardHeader}>
-                      {currentRequest.team?.arena_image_url && (
-                        <div
-                          className={styles.arenaBg}
-                          style={{ backgroundImage: `url(${currentRequest.team.arena_image_url})` }}
+                      {req.team?.arena_image_url && (
+                        <div 
+                          className={styles.arenaBackground} 
+                          style={{ backgroundImage: `url(${req.team.arena_image_url})` }} 
                         />
                       )}
-                      <div className={styles.managerInfo}>
-                        <div className={styles.managerAvatar}>
-                          <Avatar avatar={currentRequest.profile?.avatar_json || null} variant="circle" size={70} />
-                        </div>
-                        <div className={styles.managerMeta}>
-                          <span className={styles.managerName}>{currentRequest.profile?.manager_name}</span>
-                          <div className={styles.managerCountry}>
-                            {currentRequest.profile?.league_id && (
-                              <img
-                                src={`https://www.hattrick.org/Img/flags/${currentRequest.profile.league_id}.png`}
-                                alt=""
-                                className={styles.miniFlag}
-                              />
-                            )}
-                            {currentRequest.profile?.country_name && <span>{currentRequest.profile.country_name}</span>}
+                      <div className={styles.teamInfo}>
+                        <div className={styles.teamMain}>
+                          {req.team?.logo_url ? (
+                            <img src={req.team.logo_url} alt="" className={styles.teamLogo} />
+                          ) : (
+                            <Handshake size={48} className={styles.teamPlaceholder} />
+                          )}
+                          <div className={styles.teamText}>
+                            <h2 className={styles.teamName}>
+                              {req.team?.name} {req.team?.gender_id === 0 ? '(HFI)' : ''}
+                            </h2>
+                            <div className={styles.teamMeta}>
+                              {req.team?.league_id && (
+                                <img
+                                  src={`https://www.hattrick.org/Img/flags/${req.team.league_id}.png`}
+                                  alt=""
+                                  className={styles.flag}
+                                />
+                              )}
+                              <span>{req.team?.country_name}</span>
+                            </div>
                           </div>
                         </div>
                       </div>
-
-                      <div className={styles.teamBrand}>
-                        <div className={styles.cardLogoWrapper}>
-                          {currentRequest.team?.logo_url ? (
-                            <img src={currentRequest.team.logo_url} alt="" />
-                          ) : (
-                            <Handshake size={64} opacity={0.2} />
-                          )}
-                        </div>
-                        <h2 className={styles.teamName}>{currentRequest.team?.name}</h2>
-                        <div className={styles.location}>
-                          {currentRequest.team?.league_id && (
-                            <img
-                              src={`https://www.hattrick.org/Img/flags/${currentRequest.team.league_id}.png`}
-                              alt=""
-                              className={styles.miniFlag}
-                            />
-                          )}
-                          <span>{currentRequest.team?.country_name}</span>
+                      <div className={styles.managerInfo}>
+                        <span className={styles.managerName}>{req.profile?.manager_name}</span>
+                        <div className={styles.managerAvatar}>
+                          <Avatar avatar={req.profile?.avatar_json || null} variant="circle" size={48} />
                         </div>
                       </div>
                     </div>
 
-                    <div className={styles.cardBody}>
-                      <div className={styles.matchBadge}>
-                        <Clock size={16} />
-                        <span>how long: 120 min</span>
+                    <div className={styles.cardBody} style={{ paddingTop: '2.5rem' }}>
+                      <div className={styles.matchSettings}>
+                        <div className={styles.settingItem}>
+                          <Trophy size={20} weight="fill" color="var(--tinder-bg)" />
+                          <span>{req.match_type === '120min' ? '120 min Cup Rules' : '90 min OK'}</span>
+                        </div>
+                        <div className={styles.settingItem}>
+                          <Clock size={20} weight="fill" color="var(--tinder-bg)" />
+                          <span>
+                            {req.home_away === 'home' && 'At my place'}
+                            {req.home_away === 'away' && 'At your place'}
+                            {req.home_away === 'any' && 'Home or Away'}
+                          </span>
+                        </div>
+                        <div className={styles.settingItem}>
+                          <ArrowsOut size={20} weight="fill" color="var(--tinder-bg)" />
+                          <span>
+                            {req.opponent_location === 'domestic' && 'Domestic only'}
+                            {req.opponent_location === 'international_only' && 'Will travel'}
+                            {req.opponent_location === 'any' && 'Anywhere'}
+                          </span>
+                        </div>
                       </div>
 
-                      <div className={styles.infoGrid}>
-                        <div className={styles.infoItem}>
-                          <span>❤️ Looking for:</span>
-                          <span>
-                            {currentRequest.match_type === '120min' ? '120 minute cup rules' : '⚽ 90 minute OK'}
-                          </span>
-                        </div>
-                        <div className={styles.infoItem}>
-                          <span>🌎 Will travel:</span>
-                          <span>
-                            {currentRequest.opponent_location === 'domestic' && `🏠 my country only`}
-                            {currentRequest.opponent_location === 'international_only' && '🌍 Anywhere'}
-                            {currentRequest.opponent_location === 'any' && '🗺 Anywhere'}
-                          </span>
-                        </div>
-                        <div className={styles.infoItem}>
-                          <span>🏟️ Venue:</span>
-                          <span>
-                            {currentRequest.home_away === 'home' && 'my place'}
-                            {currentRequest.home_away === 'away' && 'your place'}
-                            {currentRequest.home_away === 'any' && 'anywhere'}
-                          </span>
-                        </div>
-                        {currentRequest.time_window && (
-                          <div className={styles.infoItem}>
-                            <span>🕒 Time:</span>
-                            <span>
-                              {currentRequest.match_day} {currentRequest.time_window}
-                            </span>
-                          </div>
-                        )}
-                        {(currentRequest.is_back_and_forth || currentRequest.is_long_term) && (
-                          <div className={styles.infoItem}>
-                            <span>💘 Extras:</span>
-                            <span style={{ fontSize: '0.85rem' }}>
-                              {currentRequest.is_back_and_forth && '🔄 Back-and-forth OK'}
-                              {currentRequest.is_back_and_forth && currentRequest.is_long_term && <br />}
-                              {currentRequest.is_long_term && '🗓 Long term training'}
-                            </span>
-                          </div>
-                        )}
-                      </div>
+                      {req.message && <div className={styles.message}>"{req.message}"</div>}
 
-                      {currentRequest.message && (
-                        <div className={styles.infoItem}>
-                          <span>💬 About us:</span>
-                          <p className={styles.message}>"{currentRequest.message}"</p>
-                        </div>
-                      )}
+                      <div className={styles.badges}>
+                        {req.is_long_term && <span className={styles.badge}>🗓 Long Term</span>}
+                        {req.is_back_and_forth && <span className={styles.badge}>🔄 Back-and-forth</span>}
+                      </div>
                     </div>
 
                     <div className={styles.cardActions}>
-                      <Button variant="outline" onClick={handleSkip} disabled={isSaving} fullWidth>
-                        <X size={20} weight="bold" /> NOPE
-                      </Button>
-                      <Button
-                        variant="primary"
-                        onClick={() => handleAccept(currentRequest.id)}
-                        disabled={isSaving}
-                        fullWidth
-                        style={{ background: 'var(--tinder-bg)', borderColor: 'var(--borderDark)' }}
+                      <button
+                        className={styles.dislikeBtn}
+                        onClick={() => setCurrentIndex((prev) => Math.min(filteredRequests.length - 1, prev + 1))}
                       >
-                        <Heart size={20} weight="fill" /> BOOK MATCH
-                      </Button>
+                        <X size={32} weight="bold" />
+                      </button>
+                      <button
+                        className={styles.likeBtn}
+                        onClick={() => {
+                          if (!profile) {
+                            setShowLoginModal(true);
+                          } else {
+                            setIsSelectingTeam(true);
+                            setSelectingTeamPurpose('challenge');
+                            setTargetRequestId(req.id);
+                          }
+                        }}
+                      >
+                        <Heart size={32} weight="fill" />
+                      </button>
                     </div>
 
                     {showSuccessOverlay && (
-                      <div className={styles.successOverlay} style={{ background: 'rgba(58, 123, 213, 0.95)' }}>
-                        <h2>✅ Your request is live</h2>
+                      <div className={styles.successOverlay}>
+                        <Heart size={80} weight="fill" color="#fff" />
+                        <h2>Published!</h2>
                         {selectedTeam && (
                           <div style={{ marginBottom: '2rem' }}>
                             <p style={{ fontWeight: 800, fontSize: '1.5rem', marginBottom: '0.5rem' }}>
-                              {selectedTeam.teamName}
+                              {selectedTeam.teamName} {selectedTeam.genderId === 0 ? '(HFI)' : ''}
                             </p>
                             <p>{matchType === '120min' ? '⚔️ 120 minute cup rules' : '⚽ 90 minute OK'}</p>
                             <p>
@@ -618,14 +515,8 @@ export const Matchmaker: React.FC = () => {
                                   ? '🌍 will travel'
                                   : '🗺 Anywhere'}
                             </p>
-                            {homeAway === 'home' && matchDay && timeWindow && (
-                              <p>
-                                🏟 my place: {matchDay} {timeWindow}
-                              </p>
-                            )}
                           </div>
                         )}
-                        <p>You will be notified when another manager accepts your match.</p>
                         <Button variant="tinder" onClick={() => setShowSuccessOverlay(false)}>
                           Awesome!
                         </Button>
@@ -634,11 +525,11 @@ export const Matchmaker: React.FC = () => {
                   </div>
                   <button
                     className={styles.navArrow}
-                    style={{ right: '-60px' }}
+                    style={{ right: '-120px' }}
                     onClick={() => setCurrentIndex((prev) => Math.min(filteredRequests.length - 1, prev + 1))}
                     disabled={currentIndex === filteredRequests.length - 1}
                   >
-                    →
+                    <CaretRight weight="bold" />
                   </button>
                 </div>
               );
@@ -654,97 +545,121 @@ export const Matchmaker: React.FC = () => {
           {myRequests.length > 0 ? (
             <div className={styles.requestGrid}>
               {myRequests.map((req) => (
-                <div key={req.id} className={`${styles.myRequestCard} ${styles[req.status]}`}>
-                  <div className={styles.requestHeader}>
-                    <div className={styles.requestTeamInfo}>
-                      {req.team?.league_id && (
-                        <img
-                          src={`https://www.hattrick.org/Img/flags/${req.team.league_id}.png`}
-                          alt=""
-                          className={styles.smallFlag}
-                        />
-                      )}
-                      <strong>{req.team?.name}</strong>
-                    </div>
-                    <span className={`${styles.statusBadge} ${styles[req.status]}`}>
-                      {req.status === 'open'
-                        ? 'AVAILABLE'
-                        : req.status === 'matched'
-                          ? 'BOOKED'
-                          : req.status.toUpperCase()}
-                    </span>
-                  </div>
-
-                  <div className={styles.requestBody}>
-                    <div className={styles.reqDetail}>
-                      <div className={styles.reqDetail}>
-                        {req.opponent_location === 'domestic' && '🏠 Domestic'}
-                        {req.opponent_location === 'international_only' && '🌍 International Only'}
-                        {req.opponent_location === 'any' && '🗺 Anywhere'}
-                      </div>
-                      {req.is_long_term && <div className={styles.reqDetail}>🗓 Long term</div>}
-                      {req.is_back_and_forth && <div className={styles.reqDetail}>🔄 Back-and-forth</div>}
-                    </div>
-
-                    <div className={styles.reqDetail}>
-                      <Handshake size={16} />{' '}
-                      <span>
-                        {req.home_away === 'home' && '🏟 my place'}
-                        {req.home_away === 'away' && '🚌 your place'}
-                        {req.home_away === 'any' && '🤝 your place or my place'}
-                      </span>
-                    </div>
-                    {req.time_window && (
-                      <div className={styles.reqDetail}>
-                        <Clock size={16} />{' '}
-                        <span>
-                          {req.match_day} {req.time_window}
-                        </span>
-                      </div>
-                    )}
-                    <div className={styles.reqDetail}>
-                      <Clock size={16} opacity={0.5} />{' '}
-                      <span>Expires: {new Date(req.expires_at).toLocaleDateString()}</span>
-                    </div>
-
-                    {req.status === 'matched' && req.matched_with_team_id && (
-                      <div className={styles.matchNotice}>
-                        <Heart size={16} weight="fill" color="#ff4b2b" />
-                        <span>
-                          Matched with <strong>{req.matched_team?.name}</strong>
-                        </span>
-                        <Button
-                          size="xs"
-                          variant="outline"
-                          onClick={() =>
-                            window.open(
-                              `https://www.hattrick.org/goto.ashx?path=/Club/?TeamID=${req.matched_team?.ht_team_id}`,
-                              '_blank',
-                            )
-                          }
-                        >
-                          View Team
-                        </Button>
-                      </div>
-                    )}
-                  </div>
-
-                  <div className={styles.requestFooter}>
-                    {req.status === 'open' && (
+                <div key={req.id} className={`${styles.myRequestCard} ${styles[req.status]}`} style={{ padding: 0 }}>
+                  {req.status === 'open' && (
+                    <div className={styles.cardEditOverlay}>
                       <Button
                         size="sm"
-                        variant="zero"
-                        className={styles.cancelBtn}
+                        variant="tinder"
+                        onClick={() => {
+                          setSelectedHtTeamId(req.team?.ht_team_id || 0);
+                          setIsPosting(true);
+                        }}
+                      >
+                        Edit Ad
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        style={{ color: 'white', borderColor: 'white' }}
                         onClick={async () => {
-                          if (confirm('Cancel this request?')) {
-                            await supabase.from('matchmaker_requests').update({ status: 'cancelled' }).eq('id', req.id);
-                            fetchMyRequests();
+                          if (confirm('Delete this friendly ad?')) {
+                            const { error } = await supabase.from('matchmaker_requests').delete().eq('id', req.id);
+                            if (!error) {
+                              void fetchMyRequests();
+                              void fetchRequests();
+                            }
                           }
                         }}
                       >
-                        Cancel Request
+                        Delete
                       </Button>
-                    )}
+                    </div>
+                  )}
+
+                  <div
+                    className={styles.tinderCard}
+                    style={{ margin: 0, border: 'none', background: 'transparent', boxShadow: 'none' }}
+                  >
+                    <div className={styles.cardHeader}>
+                      {req.team?.arena_image_url && (
+                        <div 
+                          className={styles.arenaBackground} 
+                          style={{ backgroundImage: `url(${req.team.arena_image_url})` }} 
+                        />
+                      )}
+                      <div className={styles.teamInfo} style={{ width: '100%' }}>
+                        <div className={styles.teamMain}>
+                          {req.team?.logo_url ? (
+                            <img src={req.team.logo_url} alt="" className={styles.teamLogo} />
+                          ) : (
+                            <Handshake size={48} className={styles.teamPlaceholder} />
+                          )}
+                          <div className={styles.teamText}>
+                            <h2 className={styles.teamName} style={{ fontSize: '1.4rem' }}>
+                              {req.team?.name} {req.team?.gender_id === 0 ? '(HFI)' : ''}
+                            </h2>
+                            <div className={styles.teamMeta}>
+                              {req.team?.league_id && (
+                                <img
+                                  src={`https://www.hattrick.org/Img/flags/${req.team.league_id}.png`}
+                                  alt=""
+                                  className={styles.flag}
+                                />
+                              )}
+                              <span>{req.team?.country_name}</span>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                      <span className={`${styles.statusBadge} ${styles[req.status]}`} style={{ position: 'absolute', top: '1rem', right: '1rem', zIndex: 5 }}>
+                        {req.status === 'open'
+                          ? 'AVAILABLE'
+                          : req.status === 'matched'
+                            ? 'BOOKED'
+                            : req.status.toUpperCase()}
+                      </span>
+                    </div>
+
+                    <div className={styles.cardBody} style={{ padding: '1.5rem' }}>
+                      <div className={styles.matchSettings}>
+                        <div className={styles.settingItem}>
+                          <Trophy size={18} weight="fill" color="var(--tinder-bg)" />
+                          <span>{req.match_type === '120min' ? '120 min Cup Rules' : '90 min OK'}</span>
+                        </div>
+                        <div className={styles.settingItem}>
+                          <Clock size={18} weight="fill" color="var(--tinder-bg)" />
+                          <span>
+                            {req.home_away === 'home' && 'At my place'}
+                            {req.home_away === 'away' && 'At your place'}
+                            {req.home_away === 'any' && 'Home or Away'}
+                          </span>
+                        </div>
+                        <div className={styles.settingItem}>
+                          <ArrowsOut size={18} weight="fill" color="var(--tinder-bg)" />
+                          <span>
+                            {req.opponent_location === 'domestic' && 'Domestic only'}
+                            {req.opponent_location === 'international_only' && 'Will travel'}
+                            {req.opponent_location === 'any' && 'Anywhere'}
+                          </span>
+                        </div>
+                      </div>
+
+                      {req.message && (
+                        <div className={styles.message} style={{ fontSize: '0.85rem', padding: '0.75rem' }}>
+                          "{req.message}"
+                        </div>
+                      )}
+
+                      {req.status === 'matched' && req.matched_with_team_id && (
+                        <div className={styles.matchNotice} style={{ marginTop: '1rem' }}>
+                          <Heart size={16} weight="fill" color="#ff4b2b" />
+                          <span>
+                            Matched with <strong>{req.matched_team?.name}</strong>
+                          </span>
+                        </div>
+                      )}
+                    </div>
                   </div>
                 </div>
               ))}
@@ -752,7 +667,7 @@ export const Matchmaker: React.FC = () => {
           ) : (
             <div className={styles.emptyState}>
               <p>You haven't posted any teams this week.</p>
-              <Button variant="primary" onClick={() => setIsPosting(true)}>
+              <Button variant="primary" onClick={handleStartPosting}>
                 Post Your First Team
               </Button>
             </div>
@@ -767,81 +682,59 @@ export const Matchmaker: React.FC = () => {
           setIsPosting(false);
           setPublishError(null);
         }}
-        title="Post a Friendly Request"
+        title={
+          myRequests.some((r) => r.team?.ht_team_id === selectedHtTeamId && r.status === 'open')
+            ? 'Edit Friendly Request'
+            : 'Post a Friendly Request'
+        }
       >
         <form onSubmit={handleCreateRequest} className={styles.postModal}>
           <div className={styles.formGroup}>
-            <label>Select Team</label>
+            <label>Team</label>
             {teamsLoading ? (
               <div className={styles.noTeamsMessage}>
                 <p>Let's check on your teams first...</p>
               </div>
             ) : myTeams.length > 0 ? (
-              <>
-                <div className={styles.teamSelector}>
-                  {myTeams
-                    .filter((t) => t.availabilityStatus === 'available')
-                    .map((t) => (
-                      <div
-                        key={t.teamId}
-                        className={`${styles.teamOption} ${selectedHtTeamId === t.teamId ? styles.selected : ''}`}
-                        onClick={() => setSelectedHtTeamId(t.teamId)}
-                      >
-                        <div className={styles.teamOptionInfo}>
-                          <strong>{t.teamName}</strong>
-                          <span className={styles.teamMeta}>{t.countryName}</span>
-                        </div>
-                        <span className={`${styles.teamStatus} ${styles.available}`}>
-                          <span className="mr-sm">👍</span> Available!
-                        </span>
-                      </div>
-                    ))}
-                </div>
-
-                {myTeams.some((t) => t.availabilityStatus !== 'available') && (
-                  <div className={styles.unavailableToggleSection}>
-                    <button
-                      type="button"
-                      className={styles.toggleBtn}
-                      onClick={() => setShowUnavailable(!showUnavailable)}
-                    >
-                      {showUnavailable ? 'Hide' : 'Show'} unavailable teams (
-                      {myTeams.filter((t) => t.availabilityStatus !== 'available').length})
-                    </button>
-
-                    {showUnavailable && (
-                      <div className={styles.teamSelector}>
-                        {myTeams
-                          .filter((t) => t.availabilityStatus !== 'available')
-                          .map((t) => (
-                            <div key={t.teamId} className={`${styles.teamOption} ${styles.disabled}`}>
-                              <div className={styles.teamOptionInfo}>
-                                <strong>{t.teamName}</strong>
-                                <span className={styles.teamMeta}>{t.countryName}</span>
-                                {t.availabilityReason && (
-                                  <span className={styles.teamMeta}>{t.availabilityReason}</span>
-                                )}
-                              </div>
-                              <span
-                                className={`${styles.teamStatus} ${
-                                  t.availabilityStatus === 'booked' ? styles.booked : styles.unknown
-                                }`}
-                              >
-                                {t.availabilityStatus === 'booked' ? (
-                                  <>
-                                    <span className="mr-sm">⛔️</span> Not Available
-                                  </>
-                                ) : (
-                                  'Status unknown'
-                                )}
-                              </span>
-                            </div>
-                          ))}
-                      </div>
-                    )}
-                  </div>
+              <select
+                value={selectedHtTeamId}
+                onChange={(e) => setSelectedHtTeamId(Number(e.target.value))}
+                className={styles.teamDropdown}
+              >
+                <option value={0}>Select a team</option>
+                {/* Group 1: Available */}
+                {myTeams
+                  .filter((t) => t.availabilityStatus === 'available')
+                  .length > 0 && (
+                  <optgroup label="Available">
+                    {myTeams
+                      .filter((t) => t.availabilityStatus === 'available')
+                      .map((t) => (
+                        <option key={t.teamId} value={t.teamId}>
+                          {t.teamName} {t.genderId === 0 ? '(HFI)' : ''}{' '}
+                          {myRequests.some((r) => r.team?.ht_team_id === t.teamId && r.status === 'open')
+                            ? '(Update)'
+                            : ''}
+                        </option>
+                      ))}
+                  </optgroup>
                 )}
-              </>
+                {/* Group 2: Unavailable/Booked */}
+                {myTeams
+                  .filter((t) => t.availabilityStatus !== 'available')
+                  .length > 0 && (
+                  <optgroup label="Unavailable">
+                    {myTeams
+                      .filter((t) => t.availabilityStatus !== 'available')
+                      .map((t) => (
+                        <option key={t.teamId} value={t.teamId}>
+                          {t.teamName} {t.genderId === 0 ? '(HFI)' : ''} -{' '}
+                          {t.availabilityStatus === 'booked' ? 'Booked' : 'Unknown'}
+                        </option>
+                      ))}
+                  </optgroup>
+                )}
+              </select>
             ) : (
               <div className={styles.noTeamsMessage}>
                 <Warning size={20} weight="bold" />
@@ -936,7 +829,11 @@ export const Matchmaker: React.FC = () => {
 
           <div className={styles.postActions}>
             <Button type="submit" variant="primary" fullWidth disabled={!canPublish}>
-              {isSaving ? 'Publishing...' : 'Publish Request'}
+              {isSaving
+                ? 'Publishing...'
+                : myRequests.some((r) => r.team?.ht_team_id === selectedHtTeamId && r.status === 'open')
+                  ? 'Update Ad'
+                  : 'Publish Request'}
             </Button>
           </div>
         </form>
@@ -951,33 +848,40 @@ export const Matchmaker: React.FC = () => {
           }}
           title="It's a Match!"
         >
-          <div className={styles.matchOverlay}>
-            <h2>🎉 Boom!</h2>
-            <p>
-              You matched with <strong>{matchedRequest.team?.name}</strong>!
-            </p>
-            <div className={styles.matchActions}>
-              <Button
-                variant="primary"
-                style={{ background: 'var(--tinder-bg)', borderColor: 'var(--borderDark)' }}
-                onClick={() =>
-                  window.open(
-                    `https://www.hattrick.org/goto.ashx?path=/Club/?TeamID=${matchedRequest.team?.ht_team_id}`,
-                    '_blank',
-                  )
-                }
-              >
-                Send Challenge on Hattrick
-              </Button>
-              <Button
-                variant="outline"
-                onClick={() => {
-                  setMatchedRequest(null);
-                  setCurrentIndex((prev) => prev + 1);
-                }}
-              >
-                Awesome!
-              </Button>
+          <div className={styles.matchModal}>
+            <div className={styles.matchCelebration}>
+              <Heart size={64} weight="fill" color="#ff4b2b" className={styles.heartPop} />
+              <h2>Ready for Kickoff?</h2>
+              <p>
+                <strong>{matchedRequest.team?.name}</strong> has accepted your challenge!
+              </p>
+            </div>
+
+            <div className={styles.matchInstructions}>
+              <p>To finalize the friendly, one of you needs to send the official challenge on Hattrick.</p>
+              <div className={styles.matchActionButtons}>
+                <Button
+                  variant="primary"
+                  style={{ background: 'var(--tinder-bg)', borderColor: 'var(--borderDark)' }}
+                  onClick={() =>
+                    window.open(
+                      `https://www.hattrick.org/goto.ashx?path=/Club/?TeamID=${matchedRequest.team?.ht_team_id}`,
+                      '_blank',
+                    )
+                  }
+                >
+                  Send Challenge on Hattrick
+                </Button>
+                <Button
+                  variant="outline"
+                  onClick={() => {
+                    setMatchedRequest(null);
+                    setCurrentIndex((prev) => prev + 1);
+                  }}
+                >
+                  Awesome!
+                </Button>
+              </div>
             </div>
           </div>
         </Modal>
@@ -1007,7 +911,7 @@ export const Matchmaker: React.FC = () => {
       <Modal isOpen={showLoginModal} onClose={() => setShowLoginModal(false)} title="Sign in required">
         <p style={{ marginBottom: '1rem' }}>To book or publish friendlies you need a connected Hattrick account.</p>
         <div style={{ display: 'flex', gap: '10px' }}>
-          <Button variant="primary" onClick={() => navigate('/auth/login')}>
+          <Button variant="primary" onClick={handleLogin}>
             Login with Hattrick
           </Button>
           <Button variant="outline" onClick={() => setShowLoginModal(false)}>

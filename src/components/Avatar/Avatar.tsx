@@ -37,14 +37,15 @@ export const Avatar: React.FC<AvatarProps> = ({ avatar, variant, size = 120, cla
   const scale = size / width;
 
   return (
-    <div
-      className={`${styles.container} ${styles[variant]} ${className}`}
-      style={{ width: width, height: height, position: 'relative', overflow: 'hidden' }}
+    <div 
+      className={`${styles.container} ${styles[variant]} ${className}`} 
+      style={{ width: size, height: size, overflow: 'hidden', position: 'relative' }}
     >
       <div
         style={{
+          width: width,
+          height: height,
           position: 'absolute',
-          // Simple center with a slight Y offset
           left: '50%',
           top: '55%',
           transform: `translate(-50%, -50%) scale(${scale})`,

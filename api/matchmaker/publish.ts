@@ -192,8 +192,33 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     }
 
     if (existingOpen) {
-      return res.status(409).json({
-        error: 'This team already has an open Matchmaker request.',
+      const { data: request, error: updateError } = await supabase
+        .from('matchmaker_requests')
+        .update({
+          match_type: matchType ?? '120min',
+          opponent_location: opponentLocation ?? 'any',
+          home_away: homeAway ?? 'any',
+          match_day: matchDay ?? null,
+          time_window: timeWindow ?? null,
+          message: typeof message === 'string' && message.trim() ? message.trim() : null,
+          is_back_and_forth: !!isBackAndForth,
+          is_long_term: !!isLongTerm,
+          gender_id: teamData.gender_id,
+        })
+        .eq('id', existingOpen.id)
+        .select('id')
+        .single();
+
+      if (updateError) {
+        throw updateError;
+      }
+
+      return res.status(200).json({
+        request,
+        team: {
+          teamId: selectedTeam.teamId,
+          teamName: selectedTeam.teamName,
+        },
       });
     }
 

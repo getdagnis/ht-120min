@@ -180,16 +180,25 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       return res.status(500).json({ error: 'Failed to store pending OAuth join', details: error.message });
     }
 
+    // Redirect to AuthCallback to handle final login
+    const returnUrl = req.cookies?.auth_return_url ? decodeURIComponent(req.cookies.auth_return_url) : null;
+    
+    let redirectPath = `/auth/callback?token=${selectionToken}`;
+    if (returnUrl) {
+      // Clear cookie
+      res.setHeader('Set-Cookie', 'auth_return_url=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT');
+      redirectPath += `&returnUrl=${encodeURIComponent(returnUrl)}`;
+    }
+    
     if (session.is_creation) {
       return res.redirect(`/create?step=teams&token=${selectionToken}`);
     }
 
     if (tournament) {
-      return res.redirect(`/t/${tournament.slug}?token=${selectionToken}`);
+      return res.redirect(`/t/${tournament.slug}?token=${selectionToken}${returnUrl ? `&returnUrl=${encodeURIComponent(returnUrl)}` : ''}`);
     }
 
-    // Redirect to AuthCallback to handle final login
-    return res.redirect(`/auth/callback?token=${selectionToken}`);
+    return res.redirect(redirectPath);
   } catch (error: unknown) {
     console.error('Auth Callback Handler Error:', error);
     return res.status(500).json({ error: error instanceof Error ? error.message : 'An unknown error occurred' });

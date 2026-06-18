@@ -76,6 +76,7 @@
   transition: all 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275)
   display: flex
   flex-direction: column
+  animation: shake 0.5s ease-in-out
 
   &:nth-child(even)
     transform: rotate(0.8deg)
@@ -84,6 +85,13 @@
     transform: scale(1.08) rotate(0)
     z-index: 10
     box-shadow: 0 15px 30px rgba(0,0,0,0.2)
+@keyframes shake
+  0%, 100%
+    transform: translateX(0)
+  25%
+    transform: translateX(-5px)
+  75%
+    transform: translateX(5px)
 
 .badge
   position: absolute

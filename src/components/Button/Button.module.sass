@@ -97,12 +97,12 @@
     color: white
 
 .tinder
-  background: linear-gradient(45deg, var(--tinder), #ff4b2b)
-  border: none
+  background: var(--tinder-dark)
+  border: 1px solid white
   color: white
   box-shadow: 0 4px 15px rgba(174, 10, 54, 0.3)
   &:hover:not(:disabled)
-    background: linear-gradient(-45deg, var(--tinder), #ff4b2b)
+    background: var(--tinder-bright)
     box-shadow: 0 6px 20px rgba(174, 10, 54, 0.4)
 
 .tinderOutline
@@ -146,7 +146,8 @@
   gap: 0.25rem
 
 .lg
-  padding: 12px 28px
+  padding: 12px 2rem
+  min-width: 12rem
   font-size: 1.125rem
 
 .fullWidth

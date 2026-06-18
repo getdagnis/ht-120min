@@ -87,7 +87,7 @@ interface SupportersWallProps {
 
 export const SupportersWall: React.FC<SupportersWallProps> = ({ variant = 'compact' }) => {
   const navigate = useNavigate();
-  const [, setShuffleSeed] = useState(0);
+  const [shuffleSeed, setShuffleSeed] = useState(0);
 
   const displayedSupporters = useMemo(() => {
     if (variant === 'full') return DATA;
@@ -113,8 +113,9 @@ export const SupportersWall: React.FC<SupportersWallProps> = ({ variant = 'compa
       <div className={styles.grid}>
         {displayedSupporters.map((s, idx) => (
           <div
-            key={`${s.id}-${idx}`}
+            key={`${s.id}-${shuffleSeed}`}
             className={`${styles.supporterCard} ${styles[s.type]} ${variant === 'full' ? styles.largeCard : ''}`}
+            style={{ animationDelay: `${idx * 0.1}s` }}
           >
             <div className={styles.badge}>
               {s.type === 'founding' ? <Trophy size={14} weight="bold" /> : <BeerBottle size={14} weight="bold" />}

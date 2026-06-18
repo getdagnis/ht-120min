@@ -7,6 +7,7 @@ import styles from './TeamSelectorModal.module.sass';
 interface TeamOption {
   teamId: number;
   teamName: string;
+  logo_url?: string | null;
   countryName?: string;
   availabilityStatus?: 'available' | 'booked' | 'unknown';
 }
@@ -38,7 +39,11 @@ export const TeamSelectorModal: React.FC<TeamSelectorModalProps> = ({
               disabled={team.availabilityStatus === 'booked'}
             >
               <div className={styles.iconWrapper}>
-                <TeamsIcon size={24} />
+                {team.logo_url ? (
+                  <img src={team.logo_url} alt="" className={styles.teamLogo} />
+                ) : (
+                  <TeamsIcon size={24} />
+                )}
               </div>
               <div className={styles.info}>
                 <span className={styles.name}>{team.teamName}</span>

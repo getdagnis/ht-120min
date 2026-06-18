@@ -88,6 +88,7 @@ export const Layout: React.FC<LayoutProps> = ({ children }) => {
 
   const handleLogin = () => {
     // Pure login: no tournament_id, no is_creation
+    document.cookie = `auth_return_url=${encodeURIComponent(location.pathname + location.search)}; path=/; max-age=300`;
     window.location.href = '/api/auth/init';
   };
 
@@ -197,6 +198,7 @@ export const Layout: React.FC<LayoutProps> = ({ children }) => {
                           onClick={() => {
                             logout();
                             setIsUserDropdownOpen(false);
+                            window.location.reload();
                           }}
                         >
                           <SignOut size={18} />

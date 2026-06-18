@@ -63,7 +63,56 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       availabilityMap.set(result.teamId, result);
     }
 
-    const teams: MatchmakerTeamOption[] = snapshot.teams.map((team) => {
+    // Create a map to track DB state
+    const { data: dbTeams } = await supabase
+      .from('teams')
+      .select('ht_team_id, logo_url, arena_id, arena_image_url')
+      .in('ht_team_id', snapshot.teams.map((t) => t.teamId))
+      .is('tournament_id', null);
+
+    const dbTeamMap = new Map(dbTeams?.map((t) => [t.ht_team_id, t]));
+
+    // Fetch and update missing assets
+    const enrichedTeams = await Promise.all(
+      snapshot.teams.map(async (team) => {
+        const dbEntry = dbTeamMap.get(team.teamId);
+        let logoUrl = dbEntry?.logo_url;
+        let arenaImageUrl = dbEntry?.arena_image_url;
+        let arenaId = dbEntry?.arena_id;
+
+        // Fetch if missing
+        if (!logoUrl || !arenaImageUrl) {
+          try {
+            const details = await fetchTeamDetailsFromChpp(consumerKey, consumerSecret, credentials, team.teamId);
+            logoUrl = logoUrl || details.logoUrl;
+            arenaId = arenaId || details.arenaId;
+
+            if (arenaId) {
+              const arena = await fetchArenaDetailsFromChpp(consumerKey, consumerSecret, credentials, arenaId);
+              arenaImageUrl = arenaImageUrl || arena.arenaImageUrl;
+            }
+
+            // Update DB permanently
+            await supabase
+              .from('teams')
+              .update({
+                logo_url: logoUrl,
+                arena_image_url: arenaImageUrl,
+                arena_id: arenaId,
+              })
+              .eq('ht_team_id', team.teamId)
+              .is('tournament_id', null);
+          } catch (e) {
+            console.error(`Failed to fetch assets for team ${team.teamId}:`, e);
+          }
+        }
+
+        return { ...team, logo_url: logoUrl, arena_image_url: arenaImageUrl };
+      })
+    );
+
+    // Enriched teams with booking status
+    const teams: MatchmakerTeamOption[] = enrichedTeams.map((team) => {
       const availability = availabilityMap.get(team.teamId);
       return {
         ...team,

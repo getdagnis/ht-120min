@@ -138,6 +138,12 @@
         height: 2px
         background-color: var(--tinder-bg)
 
+.disabledTab
+  opacity: 0.4
+  cursor: not-allowed !important
+  &:hover
+    color: var(--text60) !important
+
 .browserContainer
   width: 100%
   max-width: 1200px
@@ -157,50 +163,140 @@
   position: absolute
   top: 50%
   transform: translateY(-50%)
-  background: var(--bg-transp2)
-  border: 1px solid var(--border)
-  border-radius: 50%
-  width: 45px
-  height: 45px
+  background: transparent
+  border: none
+  width: auto
+  height: 12rem
   display: flex
   align-items: center
   justify-content: center
-  font-size: 1.5rem
   cursor: pointer
   color: var(--text-h)
   z-index: 10
-  transition: all 0.2s
+  transition: all 0.3s
+  opacity: 0.15
+  padding: 0 1rem
+
+  svg
+    width: 4rem
+    height: 8rem
 
   &:hover:not(:disabled)
-    background: var(--tinder-bg)
-    color: white
+    opacity: 0.6
+    color: var(--tinder-bg)
 
   &:disabled
-    opacity: 0.3
+    opacity: 0.05
     cursor: not-allowed
 
   @media (max-width: 768px)
     display: none
 
+.tinderCard
+  background: var(--bg)
+  border: 1px solid var(--border)
+  border-radius: var(--radius-lg)
+  overflow: hidden
+  box-shadow: var(--shadow-lg)
+  position: relative
+
 .cardHeader
   padding: 1.5rem
-  background: var(--bg-transp2)
-  border-bottom: 1px solid var(--border)
+  position: relative
+  min-height: 12rem
   display: flex
   flex-direction: column
+  justify-content: flex-end
+  overflow: hidden
+  color: white
+
+.arenaBackground
+  position: absolute
+  top: 0
+  left: 0
+  right: 0
+  bottom: 0
+  background-size: cover
+  background-position: center
+  z-index: 0
+  &::after
+    content: ''
+    position: absolute
+    top: 0
+    left: 0
+    right: 0
+    bottom: 0
+    background: linear-gradient(to bottom, rgba(0,0,0,0.2) 0%, rgba(0,0,0,0.8) 100%)
+
+.teamInfo
+  position: relative
+  z-index: 1
+  width: 100%
+
+.teamMain
+  display: flex
+  align-items: center
   gap: 1rem
+
+.teamLogo
+  width: 4.5rem
+  height: 4.5rem
+  object-fit: contain
+  background: rgba(255,255,255,0.1)
+  border-radius: var(--radius-sm)
+  padding: 0.25rem
+  backdrop-filter: blur(4px)
+
+.teamText
+  display: flex
+  flex-direction: column
+  gap: 0.25rem
+
+.teamName
+  font-size: 1.6rem !important
+  font-weight: 900
+  line-height: 1.1
+  margin: 0
+  text-shadow: 0 2px 4px rgba(0,0,0,0.5)
+
+.teamMeta
+  display: flex
+  align-items: center
+  gap: 0.5rem
+  font-size: 0.95rem
+  opacity: 0.9
+  font-weight: 600
+
+.flag
+  height: 14px
+  border: 1px solid rgba(255,255,255,0.2)
+
+.managerInfo
+  position: absolute
+  bottom: 0
+  right: 1.5rem
+  display: flex
+  align-items: center
+  gap: 0.75rem
+  z-index: 2
+  transform: translateY(50%)
 
 .managerName
   font-weight: 700
-  font-size: 1.1rem
+  font-size: 0.9rem
   color: var(--text-h)
+  background: var(--bg)
+  padding: 0.25rem 0.75rem
+  border-radius: 100px
+  border: 1px solid var(--border)
+  box-shadow: var(--shadow-sm)
 
-.teamName
-  font-size: 1.8rem
-  font-weight: 900
-  color: var(--text-h)
-  line-height: 1.1
-  font-family: var(--heading)
+.managerAvatar
+  border: 3px solid var(--bg)
+  border-radius: 50%
+  background: var(--bg)
+  box-shadow: var(--shadow-md)
+  flex-shrink: 0
 
 .cardBody
   padding: 1.5rem
@@ -221,11 +317,260 @@
   background: var(--bg-transp2)
   border-top: 1px solid var(--border)
 
-@media (max-width: 768px)
-  .heroBranding h1
-    font-size: 2.5rem
-    span:last-child
-      font-size: 3.5rem
+.postModal
+  display: flex
+  flex-direction: column
+  gap: 1.5rem
+  padding: 1rem
 
-  .view
-    padding-top: 4.5rem
+.formGroup
+  display: flex
+  flex-direction: column
+  gap: 0.5rem
+
+  label
+    font-weight: 700
+    color: var(--text-h)
+
+.teamSelector
+  display: flex
+  flex-direction: column
+  gap: 0.5rem
+
+.teamOption
+  padding: 0.75rem
+  border: 1px solid var(--border)
+  border-radius: var(--radius-sm)
+  cursor: pointer
+  display: flex
+  justify-content: space-between
+  align-items: center
+
+  &.selected
+    border-color: var(--tinder-bg)
+    background: var(--bg-helpText)
+
+  &.disabled
+    opacity: 0.6
+    cursor: not-allowed
+
+.teamOptionInfo
+  display: flex
+  flex-direction: column
+
+.teamMeta
+  font-size: 0.85rem
+  color: var(--text60)
+
+.teamStatus
+  font-size: 0.85rem
+  font-weight: 700
+
+  &.available
+    color: var(--accent)
+  &.booked
+    color: var(--danger)
+  &.unknown
+    color: var(--text60)
+
+.checkboxGroup
+  display: flex
+  gap: 1rem
+
+.checkboxLabel
+  display: flex
+  align-items: center
+  gap: 0.5rem
+  cursor: pointer
+  font-weight: 500
+
+.postActions
+  margin-top: 1rem
+
+.teamDropdown
+  width: 100%
+  padding: 0.75rem
+  border: 1px solid var(--border)
+  border-radius: var(--radius-sm)
+  background: var(--bg)
+  color: var(--text-h)
+  font-size: 1rem
+
+.browsingAsOverlay
+  position: fixed
+  bottom: 1rem
+  right: 1rem
+  z-index: 1000
+  background: var(--bg-transp2)
+  padding: 0.75rem 1rem
+  border-radius: var(--radius-lg)
+  border: 1px solid var(--border)
+  display: flex
+  align-items: center
+  gap: 0.5rem
+  box-shadow: var(--shadow-md)
+
+  span
+    font-size: 0.85rem
+    color: var(--text60)
+
+  select
+    background: transparent
+    border: none
+    font-weight: 700
+    color: var(--text-h)
+    cursor: pointer
+    padding: 0.25rem 0.5rem
+    border-radius: var(--radius-sm)
+    &:hover
+      background: var(--bg-transp)
+
+.myRequests
+  width: 100%
+  max-width: 1000px
+  margin: 0 auto
+
+.myAdsHeader
+  text-align: center
+  margin-bottom: 3rem
+  
+  h3
+    font-size: 2rem
+    margin-bottom: 0.5rem
+    font-family: var(--heading)
+  
+  p
+    color: var(--text60)
+
+.requestGrid
+  display: grid
+  grid-template-columns: repeat(auto-fill, minmax(300px, 1fr))
+  gap: 1.5rem
+
+.myRequestCard
+  background: var(--bg-transp2)
+  border: 1px solid var(--border)
+  border-radius: var(--radius-md)
+  padding: 1.5rem
+  display: flex
+  flex-direction: column
+  gap: 1.25rem
+  transition: all 0.2s
+  position: relative
+  overflow: hidden
+  
+  &:hover
+    transform: translateY(-4px)
+    border-color: var(--tinder-bg)
+    box-shadow: var(--shadow-md)
+
+.cardEditOverlay
+  position: absolute
+  top: 0
+  left: 0
+  right: 0
+  bottom: 0
+  background: rgba(0, 0, 0, 0.5)
+  backdrop-filter: blur(2px)
+  display: flex
+  flex-direction: column
+  align-items: center
+  justify-content: center
+  gap: 1rem
+  opacity: 0
+  pointer-events: none
+  transition: all 0.2s
+  z-index: 10
+
+.myRequestCard:hover .cardEditOverlay
+  opacity: 1
+  pointer-events: auto
+
+.requestHeader
+  display: flex
+  justify-content: space-between
+  align-items: flex-start
+
+.requestTeamInfo
+  display: flex
+  align-items: center
+  gap: 0.75rem
+  
+  .smallFlag
+    height: 14px
+    border: 1px solid var(--borderWeak)
+
+.statusBadge
+  font-size: 0.75rem
+  font-weight: 800
+  padding: 0.25rem 0.6rem
+  border-radius: 100px
+  letter-spacing: 0.05em
+  
+  &.open
+    background: var(--bg-success)
+    color: var(--accent)
+  &.matched
+    background: rgba(255, 75, 43, 0.1)
+    color: #ff4b2b
+
+.requestBody
+  display: flex
+  flex-direction: column
+  gap: 0.75rem
+
+.reqDetail
+  display: flex
+  align-items: center
+  gap: 0.5rem
+  font-size: 0.95rem
+  color: var(--text60)
+  
+  span
+    color: var(--text-h)
+    font-weight: 500
+
+.matchNotice
+  margin-top: 0.5rem
+  padding: 0.75rem
+  background: var(--bg-transp)
+  border-radius: var(--radius-sm)
+  display: flex
+  align-items: center
+  gap: 0.75rem
+  font-size: 0.9rem
+
+.requestFooter
+  margin-top: auto
+  padding-top: 1.25rem
+  border-top: 1px solid var(--border)
+
+.footerActions
+  display: flex
+  gap: 0.5rem
+  justify-content: space-between
+
+.cancelBtn
+  color: var(--text40)
+  &:hover
+    color: var(--danger)
+
+.editBtn
+  color: var(--tinder-bg)
+  font-weight: 700
+  &:hover
+    color: white
+    background: var(--tinder-bg)
+
+.emptyState
+  text-align: center
+  padding: 4rem 2rem
+  background: var(--bg-transp2)
+  border-radius: var(--radius-lg)
+  border: 1px dashed var(--border)
+  
+  p
+    margin-bottom: 1.5rem
+    color: var(--text60)
+    font-size: 1.1rem
+

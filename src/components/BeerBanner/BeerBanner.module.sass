@@ -6,7 +6,7 @@
   background-image: url('/grass2.png')
   background-position: center
   background-repeat: repeat
-  border: 1px solid var(--border)
+  border: 1px solid var(--bg)
   color: white
   overflow: hidden
   min-height: fit-content
@@ -26,10 +26,15 @@
   flex-shrink: 0
   width: 33.33%
   min-width: 250px
-  background: url("/buy-me-beer3.jpg") center center no-repeat
+  background: url("/buy-me-beer3.png") center center no-repeat
   background-size: 130%
   background-position: 30%
   border-radius: var(--radius-md) 0 0 var(--radius-md)
+  transition: background-size 0.8s ease, background-position 0.8s ease
+  &:hover
+    background-size: 140%
+    background-position: 50%
+    transition: background-size 0.3s ease, background-position 0.3s ease
 
 .content
   display: flex
@@ -67,10 +72,13 @@
   min-width: 160px
   margin-bottom: 1rem
   padding-right: 4rem
-  background-color: var(--warning) !important
+  cursor: pointer
+  background-color: var(--yellow)
+  & > *
+    cursor: pointer
 
   &:hover
-    background-color: var(--yellow) !important
+    cursor: pointer
 
     & > .btnBeer
       font-size: 4rem
@@ -79,6 +87,9 @@
 
     &:active
       background-color: var(--warning) !important
+
+.btnBeer
+  transition: all 0.5s ease
 
 .btnBeer
   position: absolute
