@@ -167,9 +167,9 @@ export const Matchmaker: React.FC = () => {
       if (error) throw error;
       const myAds = (data as unknown as MatchmakerRequest[]) || [];
       setMyRequests(myAds);
-      
+
       // Also update local hidden list with any of my open ad IDs
-      myAds.forEach(ad => {
+      myAds.forEach((ad) => {
         if (ad.status === 'open') hideRequestIdLocally(ad.id);
       });
     } catch (err) {
@@ -270,7 +270,7 @@ export const Matchmaker: React.FC = () => {
       if (!res.ok) {
         throw new Error(data.error || 'Could not publish this request right now.');
       }
-      
+
       const result = await res.json();
       if (result.request?.id) {
         hideRequestIdLocally(result.request.id);
@@ -293,8 +293,8 @@ export const Matchmaker: React.FC = () => {
   };
 
   const handleAccept = async (requestId: string, teamId: number) => {
-      // Stub for handling match accept
-      console.log('Accepting request:', requestId, 'with team:', teamId);
+    // Stub for handling match accept
+    console.log('Accepting request:', requestId, 'with team:', teamId);
   };
 
   const selectedTeam = myTeams.find((team) => team.teamId === selectedHtTeamId);
@@ -361,9 +361,12 @@ export const Matchmaker: React.FC = () => {
             Find Match
           </button>
           <button className={activeTab === 'hfi' ? styles.active : ''} onClick={() => setActiveTab('hfi')}>
-            HFI Matches (Female)
+            Female Only Zone
           </button>
-          <button className={activeTab === 'my-requests' ? styles.active : ''} onClick={() => setActiveTab('my-requests')}>
+          <button
+            className={activeTab === 'my-requests' ? styles.active : ''}
+            onClick={() => setActiveTab('my-requests')}
+          >
             My Ads
           </button>
         </div>
@@ -406,9 +409,9 @@ export const Matchmaker: React.FC = () => {
                   <div className={styles.tinderCard}>
                     <div className={styles.cardHeader}>
                       {req.team?.arena_image_url && (
-                        <div 
-                          className={styles.arenaBackground} 
-                          style={{ backgroundImage: `url(${req.team.arena_image_url})` }} 
+                        <div
+                          className={styles.arenaBackground}
+                          style={{ backgroundImage: `url(${req.team.arena_image_url})` }}
                         />
                       )}
                       <div className={styles.teamInfo}>
@@ -583,9 +586,9 @@ export const Matchmaker: React.FC = () => {
                   >
                     <div className={styles.cardHeader}>
                       {req.team?.arena_image_url && (
-                        <div 
-                          className={styles.arenaBackground} 
-                          style={{ backgroundImage: `url(${req.team.arena_image_url})` }} 
+                        <div
+                          className={styles.arenaBackground}
+                          style={{ backgroundImage: `url(${req.team.arena_image_url})` }}
                         />
                       )}
                       <div className={styles.teamInfo} style={{ width: '100%' }}>
@@ -612,7 +615,10 @@ export const Matchmaker: React.FC = () => {
                           </div>
                         </div>
                       </div>
-                      <span className={`${styles.statusBadge} ${styles[req.status]}`} style={{ position: 'absolute', top: '1rem', right: '1rem', zIndex: 5 }}>
+                      <span
+                        className={`${styles.statusBadge} ${styles[req.status]}`}
+                        style={{ position: 'absolute', top: '1rem', right: '1rem', zIndex: 5 }}
+                      >
                         {req.status === 'open'
                           ? 'AVAILABLE'
                           : req.status === 'matched'
@@ -703,9 +709,7 @@ export const Matchmaker: React.FC = () => {
               >
                 <option value={0}>Select a team</option>
                 {/* Group 1: Available */}
-                {myTeams
-                  .filter((t) => t.availabilityStatus === 'available')
-                  .length > 0 && (
+                {myTeams.filter((t) => t.availabilityStatus === 'available').length > 0 && (
                   <optgroup label="Available">
                     {myTeams
                       .filter((t) => t.availabilityStatus === 'available')
@@ -720,9 +724,7 @@ export const Matchmaker: React.FC = () => {
                   </optgroup>
                 )}
                 {/* Group 2: Unavailable/Booked */}
-                {myTeams
-                  .filter((t) => t.availabilityStatus !== 'available')
-                  .length > 0 && (
+                {myTeams.filter((t) => t.availabilityStatus !== 'available').length > 0 && (
                   <optgroup label="Unavailable">
                     {myTeams
                       .filter((t) => t.availabilityStatus !== 'available')
