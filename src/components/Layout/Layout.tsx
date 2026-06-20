@@ -25,10 +25,33 @@ interface LayoutProps {
   children: React.ReactNode;
 }
 
+const VISIT_COUNT_KEY = 'visitCount';
+const LAST_VISIT_DAY_KEY = 'visitCountLastDay';
+
+function getTodayKey(date = new Date()) {
+  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
+}
+
+function getVisitCount() {
+  const todayKey = getTodayKey();
+  const storedCount = Number(localStorage.getItem(VISIT_COUNT_KEY) || '0');
+  const lastVisitDay = localStorage.getItem(LAST_VISIT_DAY_KEY);
+
+  if (lastVisitDay !== todayKey) {
+    const nextCount = storedCount + 1;
+    localStorage.setItem(VISIT_COUNT_KEY, String(nextCount));
+    localStorage.setItem(LAST_VISIT_DAY_KEY, todayKey);
+    return nextCount;
+  }
+
+  return storedCount;
+}
+
 export const Layout: React.FC<LayoutProps> = ({ children }) => {
   const navigate = useNavigate();
   const location = useLocation();
   const { managerName, profile, activeTournaments, logout } = useAuth();
+  const [visitCount] = useState(() => getVisitCount());
 
   const [theme, setTheme] = useState(() => {
     const saved = localStorage.getItem('theme');
@@ -224,7 +247,7 @@ export const Layout: React.FC<LayoutProps> = ({ children }) => {
 
       <footer className={styles.footer}>
         <div className={styles.container}>
-          <BeerBanner />
+          {visitCount >= 5 && <BeerBanner />}
           <p>
             © {new Date().getFullYear()}
             <span className="mr-sm" />

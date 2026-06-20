@@ -68,7 +68,7 @@ interface FixturesViewProps {
     round_id: string;
     type?: 'yellow' | 'red';
   }[];
-  liveData: Record<string, { status: 'arranged' | 'ongoing' | 'finished'; homeGoals: number; awayGoals: number }>;
+  liveData: Record<string, { status: 'arranged' | 'ongoing' | 'finished'; homeGoals: number; awayGoals: number; venue_mismatch?: boolean }>;
 }
 
 export const FixturesView: React.FC<FixturesViewProps> = ({

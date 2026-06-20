@@ -125,19 +125,13 @@ export function calculateStandings(
   // Sorting logic based on mode
   if (scoringMode === '120m' || scoringMode === '120min') {
     return standings.sort((a, b) => {
-      // 1. Primary: 120min achievements
+      // 1. Primary: 120-minute matches achieved (descending)
       if (b.achievements120min !== a.achievements120min) return b.achievements120min - a.achievements120min;
 
-      // 2. Tie settler 1: Total minutes achieved
-      if (b.totalMinutes !== a.totalMinutes) return b.totalMinutes - a.totalMinutes;
+      // 2. Tie settler 1: Goal difference (descending – higher is better)
+      if (b.gd !== a.gd) return b.gd - a.gd;
 
-      // 3. Tie settler 2: Smaller goal difference (closer to 0 is better)
-      // We use absolute value for smaller GD comparison
-      const absGDa = Math.abs(a.gd);
-      const absGDb = Math.abs(b.gd);
-      if (absGDa !== absGDb) return absGDa - absGDb;
-
-      // 4. Tie settler 3: Number of goals scored
+      // 3. Tie settler 2: Goals scored (descending)
       if (b.gf !== a.gf) return b.gf - a.gf;
 
       return a.played - b.played;

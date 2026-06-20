@@ -6,6 +6,7 @@ export interface LiveMatchData {
   awayGoals: number;
   total_minutes?: number;
   went_120?: boolean;
+  venue_mismatch?: boolean;
 }
 
 interface Match {

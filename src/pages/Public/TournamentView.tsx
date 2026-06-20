@@ -670,12 +670,12 @@ export const TournamentView: React.FC = () => {
       const response = await fetch(`/api/teams/refresh-fixtures?tournament_id=${tournament.id}`);
       if (!response.ok) throw new Error('Failed to refresh fixtures');
 
-      // 2. Also trigger a live check for any arranged/ongoing matches to get latest scores/status
-      //    And include completed matches that might be missing extra-time achievements data
+      // 2. Also trigger a live check for arranged/ongoing matches and any completed matches.
+      //    Completed matches are included so venue reversals and other stale result data can be re-synced.
       const matchesToSync = allMatches.filter(m => 
         m.ht_match_id && (
           ['arranged', 'ongoing'].includes(m.status) || 
-          (m.completed && !m.went_120)
+          m.completed
         )
       );
       
