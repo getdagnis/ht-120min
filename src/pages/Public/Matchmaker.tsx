@@ -47,6 +47,7 @@ const normalizeJoinedTeam = (team?: JoinedTeamRow | null): MatchmakerRequest['te
 const normalizeMatchmakerRequest = (request: JoinedRequestRow): MatchmakerRequest => ({
   ...request,
   team: normalizeJoinedTeam(request.team),
+  profile: request.profile || undefined,
 });
 
 const availabilityPriority: Record<NonNullable<MatchmakerTeamOption['availabilityStatus']>, number> = {
@@ -1315,14 +1316,6 @@ export const Matchmaker: React.FC = () => {
                             {req.home_away === 'home' && 'At my place'}
                             {req.home_away === 'away' && 'At your place'}
                             {req.home_away === 'any' && 'Home or Away'}
-                          </span>
-                        </div>
-                        <div className={styles.settingItem}>
-                          <ArrowsOut size={18} weight="fill" color="var(--tinder-bg)" />
-                          <span>
-                            {req.opponent_location === 'domestic' && 'Domestic only'}
-                            {req.opponent_location === 'international_only' && 'Will travel'}
-                            {req.opponent_location === 'any' && 'Anywhere'}
                           </span>
                         </div>
                       </div>
