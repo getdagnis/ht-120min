@@ -98,7 +98,7 @@ export const SupportersWall: React.FC<SupportersWallProps> = ({ variant = 'compa
     const pioneers = shuffle(DATA.filter((s) => s.type === 'pioneer')).slice(0, 3);
 
     return [...founding, ...pioneers];
-  }, [variant]);
+  }, [variant, shuffleSeed]);
 
   return (
     <div className={`${styles.wallWrapper} ${variant === 'full' ? styles.fullPage : ''}`}>
