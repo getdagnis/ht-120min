@@ -71,6 +71,7 @@ interface LocalTeam {
   hattrickUserId?: number;
   logoUrl?: string;
   countryName?: string;
+  countryId?: number;
 }
 
 const getRandomDescription = () => DESCRIPTIONS[Math.floor(Math.random() * DESCRIPTIONS.length)];
@@ -221,7 +222,7 @@ export const CreateTournament: React.FC = () => {
     teamId: number,
     accessToken: string,
     accessTokenSecret: string,
-  ): Promise<{ logoUrl?: string; countryName?: string }> => {
+  ): Promise<{ logoUrl?: string; countryName?: string; countryId?: number }> => {
     try {
       const res = await fetch('/api/chpp/proxy', {
         method: 'POST',
@@ -235,7 +236,11 @@ export const CreateTournament: React.FC = () => {
       });
       if (!res.ok) return {};
       const data = await res.json();
-      return { logoUrl: data.logoUrl ?? undefined, countryName: data.countryName ?? undefined };
+      return {
+        logoUrl: data.logoUrl ?? undefined,
+        countryName: data.countryName ?? undefined,
+        countryId: data.countryId ?? undefined,
+      };
     } catch {
       return {};
     }
@@ -260,7 +265,7 @@ export const CreateTournament: React.FC = () => {
       }
 
       // 2. Fetch logo
-      const { logoUrl, countryName } = await fetchTeamLogoFromChpp(
+      const { logoUrl, countryName, countryId } = await fetchTeamLogoFromChpp(
         team.teamId,
         linkedManager.access_token,
         linkedManager.access_token_secret,
@@ -276,6 +281,7 @@ export const CreateTournament: React.FC = () => {
         managerName: linkedManager.manager_name,
         hattrickUserId: linkedManager.hattrick_user_id ?? undefined,
         logoUrl: logoUrl || undefined,
+        countryId,
         countryName: countryName || undefined,
       };
 
@@ -327,6 +333,7 @@ export const CreateTournament: React.FC = () => {
           leagueName: data.leagueName,
           leagueId: data.leagueId,
           leagueSystemId: data.leagueSystemId,
+          countryId: data.countryId,
           countryName: data.countryName,
         },
         {
@@ -477,6 +484,7 @@ export const CreateTournament: React.FC = () => {
         manager_name: t.managerName || null,
         hattrick_user_id: t.hattrickUserId || null,
         logo_url: t.logoUrl || null,
+        country_id: t.countryId ?? null,
         country_name: t.countryName || null,
       }));
 
@@ -621,8 +629,8 @@ export const CreateTournament: React.FC = () => {
                       className={`${styles.mt05} ${styles.w100}`}
                     >
                       <option value="">Select league...</option>
-                      {Object.values(HATTRICK_LEAGUES).map((league) => (
-                        <option key={league} value={league}>
+                      {Object.entries(HATTRICK_LEAGUES).map(([leagueId, league]) => (
+                        <option key={leagueId} value={leagueId}>
                           {league}
                         </option>
                       ))}

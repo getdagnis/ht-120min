@@ -3,6 +3,7 @@ import { getSupabase } from '../_lib/supabase.js';
 import { registerOAuthTeam } from '../_lib/chpp-register.js';
 import { getAuthHeader } from '../_lib/chpp-auth.js';
 import { parseTeamDetailsXml } from '../_lib/chpp-xml.js';
+import { validateTeamEligibility } from '../_lib/eligibility.js';
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
@@ -48,7 +49,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
     // 2. Fetch additional team details (Logo, Country) - ONLY IF JOINING
     let logoUrl: string | undefined;
+    let countryId: number | undefined;
     let countryName: string | undefined;
+    let teamDetails: ReturnType<typeof parseTeamDetailsXml> | undefined;
 
     if (pending.tournament_id && team_id && team_name) {
       try {
@@ -76,9 +79,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
         if (chppRes.ok) {
           const xml = await chppRes.text();
-          const parsed = parseTeamDetailsXml(xml, parseInt(teamIdStr, 10));
-          logoUrl = parsed.logoUrl;
-          countryName = parsed.countryName;
+          teamDetails = parseTeamDetailsXml(xml, parseInt(teamIdStr, 10));
+          logoUrl = teamDetails.logoUrl;
+          countryId = teamDetails.countryId;
+          countryName = teamDetails.countryName;
         }
       } catch (e) {
         console.error('Failed to fetch team details:', e);
@@ -91,7 +95,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     if (pending.tournament_id && team_id && team_name) {
       const { data: tournament, error: tErr } = await supabase
         .from('tournaments')
-        .select('slug, country_limit')
+        .select('slug, country_limit, league_category')
         .eq('id', pending.tournament_id)
         .single();
 
@@ -99,7 +103,18 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         throw new Error('Tournament not found');
       }
 
-      if (tournament.country_limit && countryName !== tournament.country_limit && !isSuperAdmin) {
+      const eligibility = validateTeamEligibility(
+        {
+          leagueName: teamDetails?.leagueName,
+          leagueId: teamDetails?.leagueId,
+          leagueSystemId: teamDetails?.leagueSystemId,
+          countryId,
+          countryName,
+          genderId: teamDetails?.genderId,
+        },
+        { category: tournament.league_category === 'hfi' ? 'hfi' : 'male', countryLimit: tournament.country_limit },
+      );
+      if (!eligibility.eligible && !isSuperAdmin) {
         throw new Error(`This team is not from the required league (${tournament.country_limit}).`);
       }
 
@@ -114,6 +129,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         accessToken: pending.access_token,
         accessTokenSecret: pending.access_token_secret,
         logoUrl,
+        countryId,
         countryName,
         skipMembershipCheck: isSuperAdmin,
       });

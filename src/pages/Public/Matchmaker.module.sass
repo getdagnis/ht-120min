@@ -8,6 +8,50 @@
   flex-direction: column
   align-items: center
 
+.mockBanner
+  width: 100%
+  max-width: 1200px
+  margin: 0 auto 1rem
+  padding: 1rem 1.25rem
+  border-radius: var(--radius-lg)
+  border: 2px solid rgba(255, 75, 43, 0.5)
+  background: linear-gradient(135deg, rgba(255, 75, 43, 0.18), rgba(18, 18, 24, 0.92))
+  color: white
+  box-shadow: var(--shadow-lg)
+  display: flex
+  flex-wrap: wrap
+  justify-content: space-between
+  gap: 1rem
+
+.mockBannerCopy
+  display: flex
+  flex-direction: column
+  gap: 0.25rem
+
+.mockBannerKicker
+  font-size: 0.75rem
+  font-weight: 900
+  letter-spacing: 0.12em
+  text-transform: uppercase
+  color: #ffd0c8
+
+.mockStats
+  display: flex
+  flex-wrap: wrap
+  justify-content: flex-end
+  gap: 0.5rem
+
+  span
+    display: inline-flex
+    align-items: center
+    padding: 0.35rem 0.65rem
+    border-radius: 999px
+    background: rgba(255, 255, 255, 0.12)
+    border: 1px solid rgba(255, 255, 255, 0.14)
+    font-size: 0.82rem
+    font-weight: 800
+    white-space: nowrap
+
 .headerContainer
   width: 100%
   margin: 0 auto
@@ -153,6 +197,34 @@
   flex-direction: column
   align-items: center
   gap: 2rem
+
+.loadingState
+  width: 100%
+  min-height: 28rem
+  display: flex
+  flex-direction: column
+  align-items: center
+  justify-content: center
+  gap: 1rem
+  border-radius: var(--radius-lg)
+  border: 1px dashed var(--border)
+  background: var(--bg-transp2)
+  color: var(--text-h)
+
+  p
+    margin: 0
+    font-size: 1rem
+    font-weight: 700
+    letter-spacing: 0.02em
+
+.spin
+  animation: spin 1.1s linear infinite
+
+@keyframes spin
+  from
+    transform: rotate(0deg)
+  to
+    transform: rotate(360deg)
 
 .cardWrapper
   position: relative
@@ -355,6 +427,46 @@
     background: rgba(255, 75, 43, 0.16)
     border: 1px solid rgba(255, 75, 43, 0.38)
     color: #ffd0c8
+
+.stateBadge,
+.mockBadge
+  display: inline-flex
+  align-items: center
+  border-radius: 999px
+  padding: 0.35rem 0.7rem
+  font-size: 0.8rem
+  font-weight: 800
+  letter-spacing: 0.04em
+  text-transform: uppercase
+  white-space: nowrap
+
+.stateBadge
+  border: 1px solid transparent
+
+  &.available
+    background: rgba(46, 204, 113, 0.18)
+    border-color: rgba(46, 204, 113, 0.38)
+    color: #d6ffe5
+
+  &.booked
+    background: rgba(255, 193, 7, 0.16)
+    border-color: rgba(255, 193, 7, 0.34)
+    color: #ffe9a8
+
+  &.unknown
+    background: rgba(255, 255, 255, 0.08)
+    border-color: rgba(255, 255, 255, 0.16)
+    color: #f0f0f0
+
+  &.unavailable
+    background: rgba(255, 75, 43, 0.16)
+    border-color: rgba(255, 75, 43, 0.38)
+    color: #ffd0c8
+
+.mockBadge
+  background: rgba(255, 255, 255, 0.9)
+  border: 1px solid rgba(0, 0, 0, 0.12)
+  color: #111
 
 .newBadge
   display: inline-flex
@@ -667,6 +779,12 @@
     color: var(--text60)
     font-size: 1.1rem
 
+.endActions
+  display: flex
+  flex-wrap: wrap
+  justify-content: center
+  gap: 0.75rem
+
 .matchCelebration
   text-align: center
   display: flex
@@ -698,3 +816,26 @@
   text-transform: uppercase
   color: var(--text60)
   margin-bottom: 0.25rem
+.successOverlay
+  position: absolute
+  inset: 0
+  z-index: 30
+  display: flex
+  flex-direction: column
+  align-items: center
+  justify-content: center
+  padding: 2rem
+  text-align: center
+  gap: 1rem
+  background: linear-gradient(180deg, rgba(12, 12, 16, 0.94), rgba(0, 0, 0, 0.98))
+  color: white
+
+  h2
+    margin: 0
+    font-size: 2rem
+    font-family: var(--heading)
+
+.matchModal
+  display: flex
+  flex-direction: column
+  gap: 1.5rem

@@ -20,6 +20,7 @@ export interface MatchmakerTeamOption extends ChppTeamOption {
   friendlyTeamId?: number | null;
   possibleToChallengeMidweek?: boolean;
   possibleToChallengeWeekend?: boolean;
+  is_mock?: boolean;
 }
 
 export interface ManagerChppCredentials {
@@ -53,21 +54,22 @@ export function classifyTeamAvailability(
     ParsedTeamDetails,
     'friendlyTeamId' | 'possibleToChallengeMidweek' | 'possibleToChallengeWeekend'
   > | null,
+  bookingResult?: MatchmakerBookingResult | null,
 ): {
   availabilityStatus: MatchmakerAvailabilityStatus;
   availabilityReason?: string;
 } {
+  if (bookingResult?.isBooked) {
+    return {
+      availabilityStatus: 'booked',
+      availabilityReason: 'Friendly already scheduled.',
+    };
+  }
+
   if (!teamDetails) {
     return {
       availabilityStatus: 'unknown',
       availabilityReason: 'CHPP team details were not available.',
-    };
-  }
-
-  if ((teamDetails.friendlyTeamId ?? 0) > 0) {
-    return {
-      availabilityStatus: 'booked',
-      availabilityReason: 'Friendly already scheduled.',
     };
   }
 
@@ -78,6 +80,13 @@ export function classifyTeamAvailability(
     return {
       availabilityStatus: 'unavailable',
       availabilityReason: 'This team cannot be challenged right now.',
+    };
+  }
+
+  if ((teamDetails.friendlyTeamId ?? 0) > 0) {
+    return {
+      availabilityStatus: 'booked',
+      availabilityReason: 'Friendly already scheduled.',
     };
   }
 
@@ -171,7 +180,7 @@ export async function fetchArenaDetailsFromChpp(
   arenaId: number,
 ): Promise<ParsedArenaDetails> {
   const url = 'https://chpp.hattrick.org/chppxml.ashx';
-  const params = { file: 'arenadetails', version: '1.2', arenaID: String(arenaId) };
+  const params = { file: 'arenadetails', version: '1.7', StatsType: '', arenaID: String(arenaId) };
   const authHeader = getAuthHeader(
     'GET',
     url,
@@ -182,7 +191,7 @@ export async function fetchArenaDetailsFromChpp(
     credentials.oauth_token_secret,
   );
 
-  const response = await fetch(`${url}?file=arenadetails&version=1.2&arenaID=${arenaId}`, {
+  const response = await fetch(`${url}?file=arenadetails&version=1.7&StatsType=&arenaID=${arenaId}`, {
     headers: { Authorization: authHeader },
   });
 
@@ -191,7 +200,11 @@ export async function fetchArenaDetailsFromChpp(
     throw new Error(`CHPP arenadetails failed (${response.status})`);
   }
 
-  return parseArenaDetailsXml(xml);
+  const parsed = parseArenaDetailsXml(xml);
+  return {
+    ...parsed,
+    arenaImageUrl: parsed.arenaImageUrl || parsed.arenaFallbackImageUrl,
+  };
 }
 
 export async function fetchManagerTeamsFromChpp(
@@ -242,7 +255,7 @@ export async function fetchTeamBookingStatus(
 ): Promise<MatchmakerBookingResult> {
   const url = 'https://chpp.hattrick.org/chppxml.ashx';
   const teamIdString = String(teamId);
-  const params = { file: 'matches', teamID: teamIdString };
+  const params = { file: 'matches', version: '2.9', teamID: teamIdString };
   const authHeader = getAuthHeader(
     'GET',
     url,
@@ -253,7 +266,7 @@ export async function fetchTeamBookingStatus(
     credentials.oauth_token_secret,
   );
 
-  const response = await fetch(`${url}?file=matches&teamID=${teamIdString}`, {
+  const response = await fetch(`${url}?file=matches&version=2.9&teamID=${teamIdString}`, {
     headers: { Authorization: authHeader },
   });
 

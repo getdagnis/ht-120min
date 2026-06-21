@@ -2,6 +2,23 @@ import type { Avatar } from '../hooks/useAuth';
 
 export type MatchmakerStatus = 'open' | 'matched' | 'expired' | 'cancelled';
 
+export interface MatchmakerTeamOption {
+  teamId: number;
+  teamName: string;
+  logo_url?: string | null;
+  leagueLevelUnitName?: string;
+  regionName?: string;
+  countryId?: number | null;
+  countryName?: string | null;
+  leagueId?: number | null;
+  leagueSystemId?: number | null;
+  leagueName?: string | null;
+  availabilityStatus?: 'available' | 'booked' | 'unavailable' | 'unknown';
+  availabilityReason?: string;
+  genderId?: number | null;
+  is_mock?: boolean;
+}
+
 export interface MatchmakerRequest {
   id: string;
   team_id: string;
@@ -20,23 +37,28 @@ export interface MatchmakerRequest {
   is_back_and_forth: boolean;
   is_long_term: boolean;
   gender_id: number;
+  is_mock?: boolean;
   // Joined fields
   team?: {
     name: string;
     ht_team_id: number;
     logo_url: string | null;
     country_name: string | null;
+    country_id?: number | null;
     league_id: number | null;
     gender_id: number;
     fanclub_size: number | null;
     arena_id: number | null;
     arena_size: number | null;
     arena_image_url: string | null;
+    availabilityStatus?: 'available' | 'booked' | 'unavailable' | 'unknown';
+    availabilityReason?: string;
   };
   profile?: {
     manager_name: string;
     avatar_json: Avatar | null;
     country_name: string | null;
+    country_id?: number | null;
     league_id: number | null;
   };
   matched_team?: {
@@ -68,3 +90,6 @@ export const calculateMatchmakerExpiry = (now = new Date()): Date => {
 
   return expiry;
 };
+
+export const getDisplayTeamName = (teamName: string, genderId?: number | null) =>
+  genderId === 0 ? `${teamName} (HFI)` : teamName;

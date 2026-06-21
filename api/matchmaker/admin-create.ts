@@ -1,6 +1,12 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { getSupabase } from '../_lib/supabase.js';
-import { fetchManagerTeamsFromChpp, fetchTeamDetailsFromChpp, fetchArenaDetailsFromChpp } from '../_lib/matchmaker.js';
+import {
+  classifyTeamAvailability,
+  fetchManagerTeamsFromChpp,
+  fetchTeamBookingStatus,
+  fetchTeamDetailsFromChpp,
+  fetchArenaDetailsFromChpp,
+} from '../_lib/matchmaker.js';
 
 const calculateMatchmakerExpiry = (now = new Date()): Date => {
   const expiry = new Date(now);
@@ -93,6 +99,13 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     const [teamDetails] = await Promise.all([
       fetchTeamDetailsFromChpp(consumerKey, consumerSecret, credentials, selectedTeam.teamId),
     ]);
+    const bookingStatus = await fetchTeamBookingStatus(consumerKey, consumerSecret, credentials, selectedTeam.teamId).catch(
+      (error) => {
+        console.error('Failed to fetch booking status:', error);
+        return null;
+      },
+    );
+    const availability = classifyTeamAvailability(teamDetails, bookingStatus);
     // Arena fetch needs arenaId from teamDetails, so we do it after
 
     let finalArenaDetails = null;
@@ -134,13 +147,16 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
           ht_team_name: selectedTeam.teamName,
           hattrick_user_id: targetManagerId,
           manager_name: managerSnapshot.managerName,
-          country_name: selectedTeam.countryName ?? teamDetails.countryName ?? null,
+          country_name: teamDetails.countryName ?? selectedTeam.countryName ?? managerSnapshot.countryName ?? null,
+          country_id: teamDetails.countryId ?? managerSnapshot.countryId ?? null,
           league_id: selectedTeam.leagueId ?? null,
           gender_id: teamDetails.genderId ?? selectedTeam.genderId ?? 1,
           fanclub_size: teamDetails.fanclubSize ?? null,
           arena_id: teamDetails.arenaId ?? null,
           arena_size: finalArenaDetails?.capacity ?? null,
           arena_image_url: finalArenaDetails?.arenaImageUrl ?? null,
+          availability_status: availability.availabilityStatus,
+          availability_reason: availability.availabilityReason ?? null,
           active: true,
         })
         .eq('id', existingTeam.id)
@@ -157,13 +173,16 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
           ht_team_name: selectedTeam.teamName,
           hattrick_user_id: targetManagerId,
           manager_name: managerSnapshot.managerName,
-          country_name: selectedTeam.countryName ?? teamDetails.countryName ?? null,
+          country_name: teamDetails.countryName ?? selectedTeam.countryName ?? managerSnapshot.countryName ?? null,
+          country_id: teamDetails.countryId ?? managerSnapshot.countryId ?? null,
           league_id: selectedTeam.leagueId ?? null,
           gender_id: teamDetails.genderId ?? selectedTeam.genderId ?? 1,
           fanclub_size: teamDetails.fanclubSize ?? null,
           arena_id: teamDetails.arenaId ?? null,
           arena_size: finalArenaDetails?.capacity ?? null,
           arena_image_url: finalArenaDetails?.arenaImageUrl ?? null,
+          availability_status: availability.availabilityStatus,
+          availability_reason: availability.availabilityReason ?? null,
           active: true,
           tournament_id: null,
         })

@@ -12,6 +12,20 @@ export function isHfiTeam(
   return false;
 }
 
+function countryLimitMatches(
+  team: Pick<ChppTeamOption, 'countryId' | 'countryName'>,
+  countryLimit?: string | null,
+): boolean {
+  if (!countryLimit) return true;
+
+  const countryLimitId = Number(countryLimit);
+  if (Number.isFinite(countryLimitId) && `${countryLimitId}` === countryLimit) {
+    return team.countryId === countryLimitId;
+  }
+
+  return team.countryName === countryLimit;
+}
+
 export function teamMatchesCategory(
   team: Pick<ChppTeamOption, 'leagueName' | 'leagueId' | 'leagueSystemId' | 'genderId'>,
   category: LeagueCategory,
@@ -20,7 +34,7 @@ export function teamMatchesCategory(
 }
 
 export function validateTeamEligibility(
-  team: Pick<ChppTeamOption, 'leagueName' | 'leagueId' | 'leagueSystemId' | 'genderId' | 'countryName'>,
+  team: Pick<ChppTeamOption, 'leagueName' | 'leagueId' | 'leagueSystemId' | 'genderId' | 'countryId' | 'countryName'>,
   options: { category: LeagueCategory; countryLimit?: string | null },
 ): { eligible: boolean; reason?: string } {
   const { category, countryLimit } = options;
@@ -29,7 +43,7 @@ export function validateTeamEligibility(
     return { eligible: false, reason: `Team is not eligible for ${category === 'hfi' ? 'HFI' : 'Regular male'} category.` };
   }
   
-  if (countryLimit && team.countryName && team.countryName !== countryLimit) {
+  if (!countryLimitMatches(team, countryLimit)) {
     return { eligible: false, reason: `Team is not from the required league (${countryLimit}).` };
   }
   

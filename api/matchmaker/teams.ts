@@ -3,11 +3,89 @@ import { getSupabase } from '../_lib/supabase.js';
 import {
   fetchManagerTeamsFromChpp,
   fetchTeamDetailsFromChpp,
+  fetchTeamBookingStatus,
   fetchArenaDetailsFromChpp,
   classifyTeamAvailability,
   getManagerChppCredentials,
   type MatchmakerTeamOption,
 } from '../_lib/matchmaker.js';
+
+async function backfillOpenMatchmakerTeams(
+  supabase: ReturnType<typeof getSupabase>,
+  consumerKey: string,
+  consumerSecret: string,
+) {
+  const { data: openRequests } = await supabase
+    .from('matchmaker_requests')
+    .select(
+      `
+      id,
+      team:teams!matchmaker_requests_team_id_fkey(
+        id, ht_team_id, oauth_token, oauth_token_secret,
+        name, logo_url, arena_id, arena_image_url, country_id, country_name, availability_status, availability_reason
+      )
+    `,
+    )
+    .eq('status', 'open')
+    .not('team.oauth_token', 'is', null);
+
+  const uniqueTeams = new Map<
+    number,
+    NonNullable<(typeof openRequests)[number]['team']>
+  >();
+
+  for (const request of openRequests ?? []) {
+    if (request.team?.ht_team_id) {
+      uniqueTeams.set(request.team.ht_team_id, request.team);
+    }
+  }
+
+  for (const team of uniqueTeams.values()) {
+    try {
+      const credentials = {
+        oauth_token: team.oauth_token!,
+        oauth_token_secret: team.oauth_token_secret!,
+      };
+
+      const details = await fetchTeamDetailsFromChpp(consumerKey, consumerSecret, credentials, team.ht_team_id);
+      let bookingResult = null;
+      try {
+        bookingResult = await fetchTeamBookingStatus(consumerKey, consumerSecret, credentials, team.ht_team_id);
+      } catch (bookingError) {
+        console.error(`Backfill booking fetch failed for team ${team.ht_team_id}:`, bookingError);
+      }
+      const arenaId = details.arenaId ?? team.arena_id ?? null;
+      let arenaImageUrl = team.arena_image_url ?? null;
+      const availability = classifyTeamAvailability(details, bookingResult);
+
+      if (arenaId) {
+        try {
+          const arena = await fetchArenaDetailsFromChpp(consumerKey, consumerSecret, credentials, arenaId);
+          arenaImageUrl = arena.arenaImageUrl ?? arena.arenaFallbackImageUrl ?? arenaImageUrl;
+        } catch (arenaError) {
+          console.error(`Backfill arena fetch failed for team ${team.ht_team_id}:`, arenaError);
+        }
+      }
+
+      await supabase
+        .from('teams')
+        .update({
+          logo_url: details.logoUrl ?? team.logo_url ?? null,
+          arena_id: arenaId,
+          arena_image_url: arenaImageUrl,
+          country_id: details.countryId ?? team.country_id ?? null,
+          country_name: details.countryName ?? team.country_name ?? null,
+          gender_id: details.genderId ?? null,
+          fanclub_size: details.fanclubSize ?? null,
+          availability_status: availability.availabilityStatus,
+          availability_reason: availability.availabilityReason ?? null,
+        })
+        .eq('id', team.id);
+    } catch (error) {
+      console.error(`Backfill failed for team ${team.ht_team_id}:`, error);
+    }
+  }
+}
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   if (req.method !== 'GET') {
@@ -53,6 +131,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         let logoUrl = dbEntry?.logo_url;
         let arenaImageUrl = dbEntry?.arena_image_url;
         let arenaId = dbEntry?.arena_id;
+        let bookingResult = null;
         let teamDetails: Awaited<ReturnType<typeof fetchTeamDetailsFromChpp>> | null = null;
 
         try {
@@ -80,12 +159,47 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
           console.error(`Failed to fetch details for team ${team.teamId}:`, e);
         }
 
-        const availability = classifyTeamAvailability(teamDetails);
+        try {
+          bookingResult = await fetchTeamBookingStatus(consumerKey, consumerSecret, credentials, team.teamId);
+        } catch (e) {
+          console.error(`Failed to fetch booking status for team ${team.teamId}:`, e);
+        }
+
+        const availability = classifyTeamAvailability(teamDetails, bookingResult);
+        if (
+          dbEntry ||
+          logoUrl ||
+          arenaImageUrl ||
+          arenaId ||
+          teamDetails?.countryId ||
+          teamDetails?.countryName ||
+          availability.availabilityStatus ||
+          availability.availabilityReason
+        ) {
+          await supabase
+            .from('teams')
+            .update({
+              logo_url: logoUrl || team.logo_url || null,
+              arena_image_url: arenaImageUrl || team.arena_image_url || null,
+              arena_id: arenaId || null,
+              country_id: teamDetails?.countryId ?? team.countryId ?? null,
+              country_name: teamDetails?.countryName ?? team.countryName ?? null,
+              availability_status: availability.availabilityStatus,
+              availability_reason: availability.availabilityReason ?? null,
+              gender_id: teamDetails?.genderId ?? team.genderId ?? null,
+              fanclub_size: teamDetails?.fanclubSize ?? null,
+            })
+            .eq('ht_team_id', team.teamId)
+            .is('tournament_id', null);
+        }
+
         const finalTeam = {
           ...team,
           genderId: teamDetails?.genderId ?? team.genderId,
           logo_url: logoUrl || team.logo_url,
           arena_image_url: arenaImageUrl || team.arena_image_url,
+          countryId: teamDetails?.countryId ?? team.countryId,
+          countryName: teamDetails?.countryName ?? team.countryName,
           availabilityStatus: availability.availabilityStatus,
           availabilityReason: availability.availabilityReason,
           friendlyTeamId: teamDetails?.friendlyTeamId ?? null,
@@ -109,25 +223,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
     const teams: MatchmakerTeamOption[] = enrichedTeams.map((team) => team);
 
-    // Developer Test Mode
-    if (process.env.MATCHMAKER_DEV_MODE === 'true') {
-      console.warn('[matchmaker/teams] MATCHMAKER_DEV_MODE is enabled; adding mock teams only.');
-      teams.push(
-        {
-          teamId: 999001,
-          teamName: 'FC Testing United (Mock)',
-          countryName: 'Latvia',
-          availabilityStatus: 'available',
-        },
-        {
-          teamId: 999002,
-          teamName: 'Bug Hunters FC (Mock)',
-          countryName: 'England',
-          availabilityStatus: 'booked',
-          availabilityReason: 'Friendly already scheduled (Mock)',
-        },
-      );
-    }
+    await backfillOpenMatchmakerTeams(supabase, consumerKey, consumerSecret);
 
     await supabase
       .from('profiles')

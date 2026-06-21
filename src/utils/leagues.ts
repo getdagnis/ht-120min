@@ -167,3 +167,8 @@ export const LEAGUE_NAMES = Object.values(HATTRICK_LEAGUES);
 export const getLeagueIdByName = (name: string): string | undefined => {
   return Object.keys(HATTRICK_LEAGUES).find(key => HATTRICK_LEAGUES[key] === name);
 };
+
+export const getLeagueNameById = (id?: number | string | null): string | undefined => {
+  if (id === undefined || id === null || id === '') return undefined;
+  return HATTRICK_LEAGUES[String(id)];
+};

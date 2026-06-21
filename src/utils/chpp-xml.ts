@@ -1,3 +1,5 @@
+import { getLeagueNameById } from './leagues';
+
 export interface ChppTeamOption {
   teamId: number;
   teamName: string;
@@ -7,6 +9,7 @@ export interface ChppTeamOption {
   leagueId?: number;
   leagueLevelUnitName?: string;
   regionName?: string;
+  countryId?: number;
   countryName?: string;
 }
 
@@ -31,6 +34,10 @@ export function normalizeChppAssetUrl(url: string): string {
 export interface ParsedTeamDetails {
   teamId: number;
   teamName?: string;
+  leagueId?: number;
+  leagueSystemId?: number;
+  leagueName?: string;
+  countryId?: number;
   countryName?: string;
   logoUrl?: string;
   errorCode?: number;
@@ -57,7 +64,21 @@ export function parseTeamDetailsXml(xml: string, teamId: number): ParsedTeamDeta
     return {
       teamId,
       teamName: readChppTag(block, 'TeamName'),
-      countryName: readChppTag(block, 'CountryName'),
+      leagueId: block.match(/<League>[\s\S]*?<LeagueID>(\d+)<\/LeagueID>/i)?.[1]
+        ? parseInt(block.match(/<League>[\s\S]*?<LeagueID>(\d+)<\/LeagueID>/i)![1], 10)
+        : undefined,
+      leagueSystemId: block.match(/<LeagueSystemID>(\d+)<\/LeagueSystemID>/i)?.[1]
+        ? parseInt(block.match(/<LeagueSystemID>(\d+)<\/LeagueSystemID>/i)![1], 10)
+        : undefined,
+      leagueName: readChppTag(block, 'LeagueName'),
+      countryId: block.match(/<Country>[\s\S]*?<CountryID>(\d+)<\/CountryID>/i)?.[1]
+        ? parseInt(block.match(/<Country>[\s\S]*?<CountryID>(\d+)<\/CountryID>/i)![1], 10)
+        : undefined,
+      countryName: getLeagueNameById(
+        block.match(/<League>[\s\S]*?<LeagueID>(\d+)<\/LeagueID>/i)?.[1]
+          ? parseInt(block.match(/<League>[\s\S]*?<LeagueID>(\d+)<\/LeagueID>/i)![1], 10)
+          : undefined,
+      ) ?? readChppTag(block, 'CountryName'),
       logoUrl,
     };
   };
@@ -92,6 +113,7 @@ export function parseManagerCompendiumXml(xml: string): ParsedManagerCompendium 
     const leagueIdRaw = block.match(/<LeagueId>(\d+)<\/LeagueId>/i)?.[1];
     const genderIdRaw = block.match(/<GenderID>(\d+)<\/GenderID>/i)?.[1];
     const leagueSystemIdRaw = block.match(/<LeagueSystemID>(\d+)<\/LeagueSystemID>/i)?.[1];
+    const countryIdRaw = block.match(/<CountryID>(\d+)<\/CountryID>/i)?.[1];
 
     teams.push({
       teamId: parseInt(teamIdRaw, 10),
@@ -102,7 +124,8 @@ export function parseManagerCompendiumXml(xml: string): ParsedManagerCompendium 
       leagueId: leagueIdRaw ? parseInt(leagueIdRaw, 10) : undefined,
       leagueLevelUnitName: readChppTag(block, 'LeagueLevelUnitName'),
       regionName: readChppTag(block, 'RegionName'),
-      countryName: readChppTag(block, 'CountryName'),
+      countryId: countryIdRaw ? parseInt(countryIdRaw, 10) : undefined,
+      countryName: getLeagueNameById(leagueIdRaw ? parseInt(leagueIdRaw, 10) : undefined) ?? readChppTag(block, 'CountryName'),
     });
   }
 

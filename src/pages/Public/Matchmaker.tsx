@@ -2,50 +2,72 @@ import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '../../lib/supabase';
 import { useAuth } from '../../hooks/useAuth';
-import type { MatchmakerRequest } from '../../utils/matchmaker';
+import type { MatchmakerRequest, MatchmakerTeamOption } from '../../utils/matchmaker';
 import { Button } from '../../components/Button/Button';
 import { Modal } from '../../components/Modal/Modal';
 import { TeamSelectorModal } from '../../components/TeamSelectorModal/TeamSelectorModal';
 import { Avatar } from '../../components/Avatar/Avatar';
+import { getDisplayTeamName } from '../../utils/matchmaker';
+import { getLeagueNameById } from '../../utils/leagues';
+import {
+  getMockMatchmakerRequests,
+  getMockMatchmakerTeams,
+  isMatchmakerMockDataEnabled,
+} from '../../mock/matchmaker';
 import { Handshake, X, Heart, Clock, Info, Warning, ArrowsOut, Trophy, CaretLeft, CaretRight } from 'phosphor-react';
 import styles from './Matchmaker.module.sass';
 
-interface ChppTeamOption {
-  teamId: number;
-  teamName: string;
-  logo_url?: string | null;
-  leagueLevelUnitName?: string;
-  regionName?: string;
-  countryName?: string;
-  leagueId?: number;
-  leagueSystemId?: number;
-  leagueName?: string;
-  availabilityStatus?: 'available' | 'booked' | 'unavailable' | 'unknown';
-  availabilityReason?: string;
-  genderId?: number;
-}
+type ChppTeamOption = MatchmakerTeamOption;
 
-const normalizeTeamList = (teams: ChppTeamOption[]) =>
+const normalizeTeamList = (teams: MatchmakerTeamOption[]) =>
   teams.map((team) => ({
     ...team,
     availabilityStatus: team.availabilityStatus ?? 'unknown',
   }));
 
-const availabilityPriority: Record<NonNullable<ChppTeamOption['availabilityStatus']>, number> = {
+type JoinedTeamRow = NonNullable<MatchmakerRequest['team']> & {
+  availability_status?: MatchmakerTeamOption['availabilityStatus'] | null;
+  availability_reason?: string | null;
+};
+
+type JoinedRequestRow = Omit<MatchmakerRequest, 'team' | 'matched_team' | 'profile'> & {
+  team?: JoinedTeamRow | null;
+  matched_team?: MatchmakerRequest['matched_team'] | null;
+  profile?: MatchmakerRequest['profile'] | null;
+};
+
+const normalizeJoinedTeam = (team?: JoinedTeamRow | null): MatchmakerRequest['team'] | undefined => {
+  if (!team) return undefined;
+
+  const { availability_status, availability_reason, ...rest } = team;
+
+  return {
+    ...rest,
+    availabilityStatus: team.availabilityStatus ?? availability_status ?? 'unknown',
+    availabilityReason: team.availabilityReason ?? availability_reason ?? undefined,
+  };
+};
+
+const normalizeMatchmakerRequest = (request: JoinedRequestRow): MatchmakerRequest => ({
+  ...request,
+  team: normalizeJoinedTeam(request.team),
+});
+
+const availabilityPriority: Record<NonNullable<MatchmakerTeamOption['availabilityStatus']>, number> = {
   available: 0,
   booked: 1,
   unavailable: 2,
   unknown: 3,
 };
 
-const getAvailabilityGroupLabel = (status: NonNullable<ChppTeamOption['availabilityStatus']>) => {
+const getAvailabilityGroupLabel = (status: NonNullable<MatchmakerTeamOption['availabilityStatus']>) => {
   if (status === 'available') return 'Available Now';
   if (status === 'booked') return 'Booked';
   if (status === 'unknown') return 'Unknown';
   return 'Unavailable';
 };
 
-const getAvailabilityStatusLabel = (team: ChppTeamOption) => {
+const getAvailabilityStatusLabel = (team: MatchmakerTeamOption) => {
   if (team.availabilityStatus === 'available') return 'Available now';
   if (team.availabilityStatus === 'booked') return 'Booked';
   if (team.availabilityStatus === 'unknown') return 'Unknown';
@@ -102,7 +124,7 @@ const getFreshnessLabel = (request: MatchmakerRequest, nowMs: number) => {
   }
 
   return {
-    label: 'Older listing',
+    label: 'Posted recently',
     tone: 'bad' as const,
   };
 };
@@ -111,8 +133,10 @@ const isVenueComplementary = (a: MatchmakerRequest['home_away'], b: MatchmakerRe
   (a === 'home' && b === 'away') || (a === 'away' && b === 'home') || a === 'any' || b === 'any';
 
 const isLocationCompatible = (a: MatchmakerRequest, b: MatchmakerRequest) => {
-  const sameCountry = !!a.team?.country_name && a.team.country_name === b.team?.country_name;
-  const differentCountry = !!a.team?.country_name && !!b.team?.country_name && !sameCountry;
+  const aCountry = a.team?.country_id ?? a.team?.league_id ?? null;
+  const bCountry = b.team?.country_id ?? b.team?.league_id ?? null;
+  const sameCountry = aCountry !== null && aCountry === bCountry;
+  const differentCountry = aCountry !== null && bCountry !== null && !sameCountry;
 
   if (a.opponent_location === 'any' || b.opponent_location === 'any') return true;
   if (a.opponent_location === 'domestic' && b.opponent_location === 'domestic') return sameCountry;
@@ -186,8 +210,9 @@ const getTeamFitScore = (selectedTeam: ChppTeamOption | undefined, target: Match
     labels.push('90 min acceptable');
   }
 
-  if (selectedTeam.countryName && target.team?.country_name) {
-    const sameCountry = selectedTeam.countryName === target.team.country_name;
+  if ((selectedTeam.countryId ?? selectedTeam.leagueId) && (target.team?.country_id ?? target.team?.league_id)) {
+    const sameCountry =
+      (selectedTeam.countryId ?? selectedTeam.leagueId) === (target.team?.country_id ?? target.team?.league_id);
     const differentCountry = !sameCountry;
 
     if (target.opponent_location === 'domestic' && sameCountry) {
@@ -204,7 +229,7 @@ const getTeamFitScore = (selectedTeam: ChppTeamOption | undefined, target: Match
 
   if (selectedTeam.genderId === target.gender_id) {
     score += 15;
-    labels.push(selectedTeam.genderId === 0 ? 'HFI compatible' : 'Male compatible');
+    labels.push('Category compatible');
   }
 
   if (target.is_long_term) {
@@ -224,6 +249,27 @@ export const Matchmaker: React.FC = () => {
   const navigate = useNavigate();
   const { profile } = useAuth();
   const [nowMs] = useState(() => Date.now());
+  const mockDataEnabled = isMatchmakerMockDataEnabled();
+  const mockTeams = useMemo(() => (mockDataEnabled ? getMockMatchmakerTeams() : []), [mockDataEnabled]);
+  const mockRequests = useMemo(
+    () => (mockDataEnabled ? getMockMatchmakerRequests(new Date(nowMs)) : []),
+    [mockDataEnabled, nowMs],
+  );
+  const mockStats = useMemo(() => {
+    const availableTeams = mockTeams.filter((team) => team.availabilityStatus === 'available').length;
+    const bookedTeams = mockTeams.filter((team) => team.availabilityStatus === 'booked').length;
+    const femaleTeams = mockTeams.filter((team) => team.genderId === 0).length;
+    const internationalListings = mockRequests.filter((request) => request.team?.league_id !== 53).length;
+
+    return {
+      availableTeams,
+      bookedTeams,
+      femaleTeams,
+      internationalListings,
+      totalTeams: mockTeams.length,
+      totalRequests: mockRequests.length,
+    };
+  }, [mockTeams, mockRequests]);
   const [activeTab, setActiveTab] = useState<'browse' | 'my-requests' | 'hfi'>('browse');
   const [requests, setRequests] = useState<MatchmakerRequest[]>([]);
   const isDev = import.meta.env.VITE_MATCHMAKER_DEV_MODE === 'true' || window.location.hostname === 'localhost';
@@ -251,7 +297,7 @@ export const Matchmaker: React.FC = () => {
 
   const [impersonatedManagerId] = useState<string>('');
   const [myTeams, setMyTeams] = useState<ChppTeamOption[]>([]);
-  const [teamsLoading, setTeamsLoading] = useState(false);
+  const [teamsLoading, setTeamsLoading] = useState(mockDataEnabled);
   const [teamsError, setTeamsError] = useState<string | null>(null);
   const [teamsWarning, setTeamsWarning] = useState<string | null>(null);
   const [selectedHtTeamId, setSelectedHtTeamId] = useState<number>(0);
@@ -266,6 +312,7 @@ export const Matchmaker: React.FC = () => {
   const [selectingTeamPurpose, setSelectingTeamPurpose] = useState<'challenge' | 'post'>('post');
   const [targetRequestId, setTargetRequestId] = useState<string | null>(null);
   const [notification, setNotification] = useState<{ title: string; message: string } | null>(null);
+  const [mockBrowseScope, setMockBrowseScope] = useState<'available' | 'booked' | 'all'>('available');
   const [pendingMatch, setPendingMatch] = useState<{
     request: MatchmakerRequest;
     team: ChppTeamOption;
@@ -274,6 +321,11 @@ export const Matchmaker: React.FC = () => {
   const effectiveManagerId = (isDev && impersonatedManagerId) || profile?.hattrick_user_id;
 
   const handleStartPosting = () => {
+    if (mockDataEnabled) {
+      setIsPosting(true);
+      return;
+    }
+
     if (!profile) {
       setShowLoginModal(true);
     } else {
@@ -292,18 +344,21 @@ export const Matchmaker: React.FC = () => {
     return ids;
   }, [myTeams]);
 
+  const displayRequests = useMemo(() => requests, [requests]);
+
   const filteredRequests = useMemo(() => {
     const isHfiView = activeTab === 'hfi';
-    return requests.filter((r) => {
-      // Keep browse wide open; only hide your own ads and explicitly hidden items.
-      if (myOwnHtTeamIds.has(r.team?.ht_team_id || 0)) return false;
-      if (locallyHiddenRequestIds.has(r.id)) return false;
 
-      const teamGender = r.team?.gender_id ?? 1;
-      const isFemale = teamGender === 0;
-      return isHfiView ? isFemale : true;
+    return displayRequests.filter((request) => {
+      if (!mockDataEnabled) {
+        if (myOwnHtTeamIds.has(request.team?.ht_team_id || 0)) return false;
+        if (locallyHiddenRequestIds.has(request.id)) return false;
+      }
+
+      const teamGender = request.team?.gender_id ?? 1;
+      return isHfiView ? teamGender === 0 : true;
     });
-  }, [requests, activeTab, myOwnHtTeamIds, locallyHiddenRequestIds]);
+  }, [displayRequests, activeTab, mockDataEnabled, myOwnHtTeamIds, locallyHiddenRequestIds]);
 
   const myOpenRequest = useMemo(() => {
     const selectedTeam = myTeams.find((team) => team.teamId === selectedHtTeamId);
@@ -312,14 +367,19 @@ export const Matchmaker: React.FC = () => {
   }, [myRequests, myTeams, selectedHtTeamId]);
 
   const selectedChallengeRequest = useMemo(
-    () => (targetRequestId ? requests.find((request) => request.id === targetRequestId) ?? null : null),
-    [requests, targetRequestId],
+    () => (targetRequestId ? displayRequests.find((request) => request.id === targetRequestId) ?? null : null),
+    [displayRequests, targetRequestId],
   );
 
   const selectedTeamContext = useMemo(
     () => myTeams.find((team) => team.teamId === selectedHtTeamId),
     [myTeams, selectedHtTeamId],
   );
+
+  const getDisplayCountryName = (requestTeam?: MatchmakerRequest['team'] | null) => {
+    if (!requestTeam) return undefined;
+    return getLeagueNameById(requestTeam.country_id ?? requestTeam.league_id) || requestTeam.country_name || undefined;
+  };
 
   const challengeTeams = useMemo(() => {
     if (selectingTeamPurpose !== 'challenge') return myTeams;
@@ -331,25 +391,56 @@ export const Matchmaker: React.FC = () => {
   const postingTeamGroups = useMemo(() => groupTeamsByAvailability(myTeams), [myTeams]);
 
   const scoredRequests = useMemo(() => {
+    const byCreatedAtDesc = (a: MatchmakerRequest, b: MatchmakerRequest) =>
+      new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
+
+    if (mockDataEnabled) {
+      const available = filteredRequests
+        .filter((request) => request.team?.availabilityStatus === 'available')
+        .sort(byCreatedAtDesc);
+      const booked = filteredRequests
+        .filter((request) => request.team?.availabilityStatus === 'booked')
+        .sort(byCreatedAtDesc);
+      const unavailable = filteredRequests
+        .filter((request) => request.team?.availabilityStatus === 'unavailable')
+        .sort(byCreatedAtDesc);
+      const unknown = filteredRequests
+        .filter((request) => request.team?.availabilityStatus === 'unknown')
+        .sort(byCreatedAtDesc);
+
+      const visibleRequests =
+        mockBrowseScope === 'available'
+          ? available
+          : mockBrowseScope === 'booked'
+            ? booked
+            : [...available, ...booked, ...unavailable, ...unknown];
+
+      return visibleRequests.map((request) => ({
+        request,
+        compatibility: { score: 0, labels: [] as string[] },
+        freshness: getFreshnessLabel(request, nowMs),
+      }));
+    }
+
     return filteredRequests
       .map((request) => {
         const compatibility = myOpenRequest
           ? getCompatibilityScore(myOpenRequest, request)
           : getTeamFitScore(selectedTeamContext, request);
         const freshness = getFreshnessLabel(request, nowMs);
-        const isNew = (nowMs - new Date(request.created_at).getTime()) / (1000 * 60 * 60) < 24;
         return {
           request,
           compatibility,
           freshness,
-          isNew,
         };
       })
       .sort((a, b) => {
         if (b.compatibility.score !== a.compatibility.score) return b.compatibility.score - a.compatibility.score;
         return new Date(b.request.created_at).getTime() - new Date(a.request.created_at).getTime();
       });
-  }, [filteredRequests, myOpenRequest, selectedTeamContext, nowMs]);
+  }, [filteredRequests, mockDataEnabled, mockBrowseScope, myOpenRequest, selectedTeamContext, nowMs]);
+
+  const mockBrowseEndReached = mockDataEnabled && currentIndex >= scoredRequests.length;
 
   useEffect(() => {
     if (!import.meta.env.DEV || myTeams.length === 0) return;
@@ -362,7 +453,7 @@ export const Matchmaker: React.FC = () => {
         availabilityReason: team.availabilityReason || '',
       })),
     );
-  }, [myTeams]);
+  }, [mockDataEnabled, myTeams]);
 
   useEffect(() => {
     if (!import.meta.env.DEV || !isSelectingTeam) return;
@@ -375,7 +466,7 @@ export const Matchmaker: React.FC = () => {
         availabilityReason: team.availabilityReason || '',
       })),
     );
-  }, [challengeTeams, isSelectingTeam]);
+  }, [mockDataEnabled, challengeTeams, isSelectingTeam]);
 
   useEffect(() => {
     if (!import.meta.env.DEV || scoredRequests.length === 0) return;
@@ -391,7 +482,7 @@ export const Matchmaker: React.FC = () => {
         availabilityReason: current.freshness.label,
       },
     ]);
-  }, [currentIndex, scoredRequests]);
+  }, [mockDataEnabled, currentIndex, scoredRequests]);
 
   useEffect(() => {
     setTimeout(() => {
@@ -399,8 +490,15 @@ export const Matchmaker: React.FC = () => {
     }, 0);
   }, [scoredRequests.length]);
 
-  const fetchRequests = useCallback(async () => {
-    setLoading(true);
+  const fetchRequests = useCallback(async (options?: { silent?: boolean }) => {
+    if (mockDataEnabled) {
+      setRequests(mockRequests);
+      return;
+    }
+
+    if (!options?.silent) {
+      setLoading(true);
+    }
     try {
       const query = supabase
         .from('matchmaker_requests')
@@ -408,11 +506,11 @@ export const Matchmaker: React.FC = () => {
           `
         *,
         team:teams!matchmaker_requests_team_id_fkey(
-          name, ht_team_id, logo_url, country_name, league_id,
-          gender_id, fanclub_size, arena_id, arena_size, arena_image_url
+          name, ht_team_id, logo_url, country_name, country_id, league_id,
+          gender_id, fanclub_size, arena_id, arena_size, arena_image_url, availability_status, availability_reason
         ),
-        profile:profiles!matchmaker_requests_manager_ht_id_fkey(manager_name, avatar_json, country_name, league_id),
-        matched_team:teams!matchmaker_requests_matched_with_team_id_fkey(name, ht_team_id, logo_url, country_name)
+        profile:profiles!matchmaker_requests_manager_ht_id_fkey(manager_name, avatar_json, country_name, country_id, league_id),
+        matched_team:teams!matchmaker_requests_matched_with_team_id_fkey(name, ht_team_id, logo_url, country_name, country_id, league_id)
         `,
         )
         .eq('status', 'open');
@@ -420,15 +518,22 @@ export const Matchmaker: React.FC = () => {
       const { data, error } = await query.order('created_at', { ascending: false });
       if (error) throw error;
 
-      setRequests((data as unknown as MatchmakerRequest[]) || []);
+      setRequests(((data ?? []) as JoinedRequestRow[]).map((request) => normalizeMatchmakerRequest(request)));
     } catch (err) {
       console.error('Error fetching requests:', err);
     } finally {
-      setLoading(false);
+      if (!options?.silent) {
+        setLoading(false);
+      }
     }
-  }, []);
+  }, [mockDataEnabled, mockRequests]);
 
   const fetchMyRequests = useCallback(async () => {
+    if (mockDataEnabled) {
+      setMyRequests(mockRequests.slice(0, 4));
+      return;
+    }
+
     const myHtId = profile?.hattrick_user_id ? Number(profile.hattrick_user_id) : null;
     if (!myHtId) return;
 
@@ -439,11 +544,11 @@ export const Matchmaker: React.FC = () => {
           `
         *,
         team:teams!matchmaker_requests_team_id_fkey(
-          name, ht_team_id, logo_url, country_name, league_id, gender_id,
-          fanclub_size, arena_id, arena_size, arena_image_url
+          name, ht_team_id, logo_url, country_name, country_id, league_id, gender_id,
+          fanclub_size, arena_id, arena_size, arena_image_url, availability_status, availability_reason
         ),
-        profile:profiles!matchmaker_requests_manager_ht_id_fkey(manager_name, avatar_json, country_name, league_id),
-        matched_team:teams!matchmaker_requests_matched_with_team_id_fkey(name, ht_team_id, logo_url, country_name)
+        profile:profiles!matchmaker_requests_manager_ht_id_fkey(manager_name, avatar_json, country_name, country_id, league_id),
+        matched_team:teams!matchmaker_requests_matched_with_team_id_fkey(name, ht_team_id, logo_url, country_name, country_id, league_id)
       `,
         )
         .eq('manager_ht_id', myHtId)
@@ -451,7 +556,7 @@ export const Matchmaker: React.FC = () => {
         .order('created_at', { ascending: false });
 
       if (error) throw error;
-      const myAds = (data as unknown as MatchmakerRequest[]) || [];
+      const myAds = ((data ?? []) as JoinedRequestRow[]).map((request) => normalizeMatchmakerRequest(request));
       setMyRequests(myAds);
 
       // Also update local hidden list with any of my open ad IDs
@@ -461,10 +566,26 @@ export const Matchmaker: React.FC = () => {
     } catch (err) {
       console.error('Error fetching my requests:', err);
     }
-  }, [profile, hideRequestIdLocally]);
+  }, [profile, hideRequestIdLocally, mockDataEnabled, mockRequests]);
 
   const refreshMyTeams = useCallback(
     async (managerIdOverride?: string) => {
+      if (mockDataEnabled) {
+        const nextTeams = normalizeTeamList(mockTeams);
+        setMyTeams(nextTeams);
+        setSelectedHtTeamId((current) => {
+          if (current && nextTeams.some((team) => team.teamId === current && team.availabilityStatus === 'available')) {
+            return current;
+          }
+          const availableTeam = nextTeams.find((team) => team.availabilityStatus === 'available');
+          return availableTeam?.teamId || 0;
+        });
+        setTeamsLoading(false);
+        setTeamsError(null);
+        setTeamsWarning(null);
+        return;
+      }
+
       const targetManagerId = managerIdOverride || profile?.hattrick_user_id;
       if (!targetManagerId) return;
 
@@ -481,11 +602,13 @@ export const Matchmaker: React.FC = () => {
         }
 
         const teams = normalizeTeamList((data.teams as ChppTeamOption[]) || []);
-        setMyTeams(teams);
+        const combinedTeams = [...teams, ...mockTeams];
+        const uniqueTeams = Array.from(new Map(combinedTeams.map((team) => [team.teamId, team])).values());
+        setMyTeams(uniqueTeams);
 
         if (import.meta.env.DEV) {
           console.table(
-            teams.map((team) => ({
+            uniqueTeams.map((team) => ({
               teamId: team.teamId,
               teamName: team.teamName,
               genderId: team.genderId,
@@ -496,9 +619,9 @@ export const Matchmaker: React.FC = () => {
         }
 
         setSelectedHtTeamId((current) => {
-          if (current && teams.some((team) => team.teamId === current && team.availabilityStatus === 'available'))
+          if (current && uniqueTeams.some((team) => team.teamId === current && team.availabilityStatus === 'available'))
             return current;
-          const availableTeam = teams.find((team) => team.availabilityStatus === 'available');
+          const availableTeam = uniqueTeams.find((team) => team.availabilityStatus === 'available');
           return availableTeam?.teamId || 0;
         });
 
@@ -518,26 +641,43 @@ export const Matchmaker: React.FC = () => {
         setTeamsLoading(false);
       }
     },
-    [profile],
+    [profile, mockTeams, mockDataEnabled],
   );
 
   useEffect(() => {
-    if (profile?.hattrick_user_id) {
-      void (async () => await refreshMyTeams())();
-    }
-  }, [profile, refreshMyTeams]);
+    if (mockDataEnabled) return;
 
-  useEffect(() => {
-    void (async () => await fetchRequests())();
-  }, [fetchRequests]);
+    let cancelled = false;
 
-  useEffect(() => {
-    void (async () => await fetchMyRequests())();
-  }, [fetchMyRequests]);
+    void (async () => {
+      setLoading(true);
+
+      try {
+        if (profile?.hattrick_user_id) {
+          await refreshMyTeams();
+        }
+
+        if (cancelled) return;
+
+        await fetchRequests({ silent: true });
+        if (cancelled) return;
+
+        await fetchMyRequests();
+      } finally {
+        if (!cancelled) {
+          setLoading(false);
+        }
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [mockDataEnabled, profile?.hattrick_user_id, refreshMyTeams, fetchRequests, fetchMyRequests]);
 
   const handleCreateRequest = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!effectiveManagerId || !selectedHtTeamId) return;
+    if (!selectedHtTeamId || (!mockDataEnabled && !effectiveManagerId)) return;
 
     setIsSaving(true);
     setPublishError(null);
@@ -545,6 +685,62 @@ export const Matchmaker: React.FC = () => {
       const selectedTeam = myTeams.find((t) => t.teamId === selectedHtTeamId);
       if (!selectedTeam) {
         throw new Error('Please refresh your Hattrick clubs and select a current team.');
+      }
+
+      if (mockDataEnabled) {
+        const now = new Date();
+        const requestId = `mock-publish-${now.getTime()}`;
+        const publishedRequest: MatchmakerRequest = {
+          id: requestId,
+          team_id: `mock-team-${selectedTeam.teamId}`,
+          manager_ht_id: selectedTeam.teamId,
+          match_type: matchType,
+          opponent_location: location,
+          home_away: homeAway,
+          match_day: 'Wednesday',
+          time_window: null,
+          message: message.trim() || null,
+          status: 'open',
+          matched_with_team_id: null,
+          matched_at: null,
+          expires_at: now.toISOString(),
+          created_at: now.toISOString(),
+          is_back_and_forth: isBackAndForth,
+          is_long_term: isLongTerm,
+          gender_id: selectedTeam.genderId ?? 1,
+          is_mock: true,
+          team: {
+            name: selectedTeam.teamName,
+            ht_team_id: selectedTeam.teamId,
+            logo_url: selectedTeam.logo_url ?? null,
+            country_name: selectedTeam.countryName ?? null,
+            country_id: selectedTeam.leagueId ?? null,
+            league_id: selectedTeam.leagueId ?? null,
+            gender_id: selectedTeam.genderId ?? 1,
+            fanclub_size: null,
+            arena_id: null,
+            arena_size: null,
+            arena_image_url: null,
+            availabilityStatus: selectedTeam.availabilityStatus,
+            availabilityReason: selectedTeam.availabilityReason,
+          },
+          profile: {
+            manager_name: 'Mock Manager',
+            avatar_json: null,
+            country_name: selectedTeam.countryName ?? null,
+            country_id: selectedTeam.leagueId ?? null,
+            league_id: selectedTeam.leagueId ?? null,
+          },
+        };
+
+        setRequests((prev) => [publishedRequest, ...prev]);
+        setMyRequests((prev) => [publishedRequest, ...prev]);
+        setActiveTab('my-requests');
+        setIsPosting(false);
+        setMessage('');
+        setShowSuccessOverlay(true);
+        setIsSaving(false);
+        return;
       }
 
       const res = await fetch('/api/matchmaker/publish', {
@@ -617,22 +813,80 @@ export const Matchmaker: React.FC = () => {
     ]);
   }, [selectedTeam]);
 
+  useEffect(() => {
+    if (!mockDataEnabled) return;
+
+    const timer = window.setTimeout(() => {
+      setRequests(mockRequests);
+      setMyRequests(mockRequests.slice(0, 4));
+      setMyTeams(mockTeams);
+      setSelectedHtTeamId(mockTeams.find((team) => team.availabilityStatus === 'available')?.teamId || mockTeams[0]?.teamId || 0);
+      setCurrentIndex(0);
+      setMockBrowseScope('available');
+      setTeamsLoading(false);
+      setLoading(false);
+      console.table(
+        mockTeams.map((team) => ({
+          teamId: team.teamId,
+          teamName: team.teamName,
+          genderId: team.genderId,
+          availabilityStatus: team.availabilityStatus,
+          availabilityReason: team.availabilityReason || '',
+        })),
+      );
+      console.table([
+        {
+          availableTeams: mockStats.availableTeams,
+          bookedTeams: mockStats.bookedTeams,
+          femaleTeams: mockStats.femaleTeams,
+          internationalListings: mockStats.internationalListings,
+          totalTeams: mockStats.totalTeams,
+          totalRequests: mockStats.totalRequests,
+        },
+      ]);
+    }, 1700);
+
+    return () => window.clearTimeout(timer);
+  }, [mockDataEnabled, mockRequests, mockTeams, mockStats]);
+
   const canPublish =
     !teamsLoading &&
     !!selectedTeam &&
     selectedTeam.availabilityStatus === 'available' &&
     !isSaving;
 
+  const mockBrowseEndMessage =
+    mockBrowseScope === 'available'
+      ? "You've seen all currently available teams."
+      : mockBrowseScope === 'booked'
+        ? "You've seen all booked teams."
+        : "You've seen all listings.";
+
   return (
     <div className={styles.view}>
+      {mockDataEnabled && (
+        <div className={styles.mockBanner}>
+          <div className={styles.mockBannerCopy}>
+            <span className={styles.mockBannerKicker}>TEST ENVIRONMENT</span>
+            <strong>Using mock teams and mock friendlies.</strong>
+            <span>Local demo mode is isolated from production data.</span>
+          </div>
+          <div className={styles.mockStats}>
+            <span>{mockStats.availableTeams} Available Teams</span>
+            <span>{mockStats.bookedTeams} Booked Teams</span>
+            <span>{mockStats.femaleTeams} Female Teams</span>
+            <span>{mockStats.internationalListings} International Listings</span>
+          </div>
+        </div>
+      )}
       {/* Browsing As Overlay */}
-      {myTeams.length > 1 && profile && (
+      {myTeams.length > 1 && (profile || mockDataEnabled) && (
         <div className={styles.browsingAsOverlay}>
           <span>Selected team for challenge:</span>
           <select value={selectedHtTeamId} onChange={(e) => setSelectedHtTeamId(Number(e.target.value))}>
             {myTeams.map((team) => (
               <option key={team.teamId} value={team.teamId}>
-                {team.teamName} {team.genderId === 0 ? '(HFI)' : ''}
+                {getDisplayTeamName(team.teamName, team.genderId)}{team.is_mock ? ' (Mock)' : ''}
               </option>
             ))}
           </select>
@@ -670,16 +924,28 @@ export const Matchmaker: React.FC = () => {
         <div className={styles.tabs}>
           <button
             className={activeTab === 'browse' ? styles.active : ''}
-            onClick={() => setActiveTab('browse')}
+            onClick={() => {
+              setActiveTab('browse');
+              setCurrentIndex(0);
+            }}
           >
             Find Match
           </button>
-          <button className={activeTab === 'hfi' ? styles.active : ''} onClick={() => setActiveTab('hfi')}>
+          <button
+            className={activeTab === 'hfi' ? styles.active : ''}
+            onClick={() => {
+              setActiveTab('hfi');
+              setCurrentIndex(0);
+            }}
+          >
             Female Only Zone
           </button>
           <button
             className={activeTab === 'my-requests' ? styles.active : ''}
-            onClick={() => setActiveTab('my-requests')}
+            onClick={() => {
+              setActiveTab('my-requests');
+              setCurrentIndex(0);
+            }}
           >
             My Ads
           </button>
@@ -691,7 +957,45 @@ export const Matchmaker: React.FC = () => {
           {loading ? (
             <div className={styles.loadingState}>
               <ArrowsOut size={48} className={styles.spin} />
-              <p>Finding potential matches...</p>
+              <p>
+                {mockDataEnabled
+                  ? 'Synchronising friendly availability...'
+                  : 'Checking team availability and loading listings...'}
+              </p>
+            </div>
+          ) : mockBrowseEndReached ? (
+            <div className={styles.emptyState}>
+              <Handshake size={64} opacity={0.2} />
+              <p>{mockBrowseEndMessage}</p>
+              <div className={styles.endActions}>
+                <Button
+                  variant="tinder"
+                  onClick={() => {
+                    setMockBrowseScope('available');
+                    setCurrentIndex(0);
+                  }}
+                >
+                  Start Again
+                </Button>
+                <Button
+                  variant="outline"
+                  onClick={() => {
+                    setMockBrowseScope('booked');
+                    setCurrentIndex(0);
+                  }}
+                >
+                  Show Booked Teams
+                </Button>
+                <Button
+                  variant="outline"
+                  onClick={() => {
+                    setMockBrowseScope('all');
+                    setCurrentIndex(0);
+                  }}
+                >
+                  Show All Listings
+                </Button>
+              </div>
             </div>
           ) : filteredRequests.length === 0 ? (
             <div className={styles.emptyState}>
@@ -710,15 +1014,6 @@ export const Matchmaker: React.FC = () => {
               const entry = scoredRequests[currentIndex];
               const req = entry?.request;
               if (!req) return null;
-              const compatibilityTitle = myOpenRequest
-                ? [
-                    `Compared with: ${req.team?.name || 'this team'}`,
-                    'Reasons:',
-                    ...(entry.compatibility.labels.length > 0
-                      ? entry.compatibility.labels.map((label) => `✓ ${label}`)
-                      : ['✓ Default match preferences']),
-                  ].join('\n')
-                : 'Match score based on venue, location, match type and partnership preferences.';
 
               return (
                 <div className={styles.cardWrapper}>
@@ -747,7 +1042,7 @@ export const Matchmaker: React.FC = () => {
                           )}
                           <div className={styles.teamText}>
                             <h2 className={styles.teamName}>
-                              {req.team?.name} {req.team?.gender_id === 0 ? '(HFI)' : ''}
+                              {getDisplayTeamName(req.team?.name || '', req.team?.gender_id)}
                             </h2>
                             <div className={styles.teamMeta}>
                               {req.team?.league_id && (
@@ -757,7 +1052,7 @@ export const Matchmaker: React.FC = () => {
                                   className={styles.flag}
                                 />
                               )}
-                              <span>{req.team?.country_name}</span>
+                              <span>{getDisplayCountryName(req.team)}</span>
                             </div>
                           </div>
                         </div>
@@ -772,28 +1067,25 @@ export const Matchmaker: React.FC = () => {
 
                     <div className={styles.cardBody} style={{ paddingTop: '2.5rem' }}>
                       <div className={styles.adMetaRow}>
-                        {myOpenRequest ? (
-                          <span
-                            className={styles.compatibilityBadge}
-                            title={compatibilityTitle}
-                          >
-                            {entry.compatibility.score}% Match
-                          </span>
-                        ) : (
-                          <span
-                            className={styles.compatibilityHint}
-                            title={compatibilityTitle}
-                          >
-                            {entry.compatibility.score}% Match
-                          </span>
-                        )}
                         <span
                           className={`${styles.availabilityBadge} ${styles[entry.freshness.tone]}`}
                           title="Based on how recently the ad was posted."
                         >
                           {entry.freshness.label}
                         </span>
-                        {entry.isNew && <span className={styles.newBadge}>NEW</span>}
+                        <span
+                          className={`${styles.stateBadge} ${styles[req.team?.availabilityStatus || 'unknown']}`}
+                          title={req.team?.availabilityReason || 'Availability from CHPP team details.'}
+                        >
+                          {req.team?.availabilityStatus === 'available'
+                            ? 'Available'
+                            : req.team?.availabilityStatus === 'booked'
+                              ? 'Booked'
+                              : req.team?.availabilityStatus === 'unavailable'
+                                ? 'Unavailable'
+                                : 'Unknown'}
+                        </span>
+                        {req.is_mock && <span className={styles.mockBadge}>Mock</span>}
                       </div>
 
                       <div className={styles.matchSettings}>
@@ -834,7 +1126,7 @@ export const Matchmaker: React.FC = () => {
                           </span>
                           <span className={styles.badge}>
                             {req.opponent_location === 'domestic'
-                              ? `Domestic (${req.team?.country_name || 'same country'})`
+                              ? `Domestic (${getDisplayCountryName(req.team) || 'same country'})`
                               : req.opponent_location === 'international_only'
                                 ? 'International only'
                                 : 'Anywhere'}
@@ -859,7 +1151,7 @@ export const Matchmaker: React.FC = () => {
                       <button
                         className={styles.likeBtn}
                         onClick={() => {
-                          if (!profile) {
+                          if (!profile && !mockDataEnabled) {
                             setShowLoginModal(true);
                           } else {
                             setIsSelectingTeam(true);
@@ -875,16 +1167,16 @@ export const Matchmaker: React.FC = () => {
                     {showSuccessOverlay && (
                       <div className={styles.successOverlay}>
                         <Heart size={80} weight="fill" color="#fff" />
-                        <h2>Published!</h2>
+                        <h2>{mockDataEnabled ? 'Mock publish complete!' : 'Published!'}</h2>
                         {selectedTeam && (
                           <div style={{ marginBottom: '2rem' }}>
                             <p style={{ fontWeight: 800, fontSize: '1.5rem', marginBottom: '0.5rem' }}>
-                              {selectedTeam.teamName} {selectedTeam.genderId === 0 ? '(HFI)' : ''}
+                              {getDisplayTeamName(selectedTeam.teamName, selectedTeam.genderId)}
                             </p>
                             <p>{matchType === '120min' ? '⚔️ 120 minute cup rules' : '⚽ 90 minute OK'}</p>
                             <p>
                               {location === 'domestic'
-                                ? `🏠 my country only (${selectedTeam.countryName})`
+                                ? `🏠 my country only (${getLeagueNameById(selectedTeam.leagueId) || selectedTeam.countryName})`
                                 : location === 'international_only'
                                   ? '🌍 will travel'
                                   : '🗺 Anywhere'}
@@ -937,6 +1229,12 @@ export const Matchmaker: React.FC = () => {
                         variant="outline"
                         style={{ color: 'white', borderColor: 'white' }}
                         onClick={async () => {
+                          if (mockDataEnabled) {
+                            setMyRequests((prev) => prev.filter((item) => item.id !== req.id));
+                            setRequests((prev) => prev.filter((item) => item.id !== req.id));
+                            return;
+                          }
+
                           if (confirm('Delete this friendly ad?')) {
                             const { error } = await supabase.from('matchmaker_requests').delete().eq('id', req.id);
                             if (!error) {
@@ -971,7 +1269,7 @@ export const Matchmaker: React.FC = () => {
                           )}
                           <div className={styles.teamText}>
                             <h2 className={styles.teamName} style={{ fontSize: '1.4rem' }}>
-                              {req.team?.name} {req.team?.gender_id === 0 ? '(HFI)' : ''}
+                              {getDisplayTeamName(req.team?.name || '', req.team?.gender_id)}
                             </h2>
                             <div className={styles.teamMeta}>
                               {req.team?.league_id && (
@@ -981,7 +1279,7 @@ export const Matchmaker: React.FC = () => {
                                   className={styles.flag}
                                 />
                               )}
-                              <span>{req.team?.country_name}</span>
+                              <span>{getDisplayCountryName(req.team)}</span>
                             </div>
                           </div>
                         </div>
@@ -1046,7 +1344,7 @@ export const Matchmaker: React.FC = () => {
                           </span>
                           <span className={styles.badge}>
                             {req.opponent_location === 'domestic'
-                              ? `Domestic (${req.team?.country_name || 'same country'})`
+                              ? `Domestic (${getDisplayCountryName(req.team) || 'same country'})`
                               : req.opponent_location === 'international_only'
                                 ? 'International only'
                                 : 'Anywhere'}
@@ -1078,7 +1376,7 @@ export const Matchmaker: React.FC = () => {
               ))}
             </div>
           ) : (
-            <div className={styles.emptyState}>
+                  <div className={styles.emptyState}>
               <p>You haven't posted any teams this week.</p>
               <Button variant="primary" onClick={handleStartPosting}>
                 Post Your First Team
@@ -1119,7 +1417,10 @@ export const Matchmaker: React.FC = () => {
                   <optgroup key={group.status} label={getAvailabilityGroupLabel(group.status)}>
                     {group.teams.map((team) => {
                       const selectable = team.availabilityStatus === 'available';
-                      const labelParts = [team.teamName, team.genderId === 0 ? '(HFI)' : ''];
+                      const labelParts = [getDisplayTeamName(team.teamName, team.genderId)];
+                      if (team.is_mock) {
+                        labelParts.push('(Mock)');
+                      }
                       if (!selectable) {
                         labelParts.push(`- ${getAvailabilityStatusLabel(team)}`);
                       }
@@ -1258,8 +1559,12 @@ export const Matchmaker: React.FC = () => {
           <div className={styles.matchModal}>
             <div className={styles.matchCelebration}>
               <Heart size={64} weight="fill" color="#ff4b2b" className={styles.heartPop} />
-              <h2>Ready for Kickoff?</h2>
-              <p>This is a manual arrangement flow. No booking has been sent yet.</p>
+              <h2>{mockDataEnabled ? 'Challenge prepared' : 'Ready for Kickoff?'}</h2>
+              <p>
+                {mockDataEnabled
+                  ? 'This is a mock success flow. No booking has been sent and no database changes were made.'
+                  : 'This is a manual arrangement flow. No booking has been sent yet.'}
+              </p>
             </div>
 
             <div className={styles.matchInstructions}>
@@ -1288,17 +1593,23 @@ export const Matchmaker: React.FC = () => {
               </div>
               <div className={styles.matchTeams}>
                 <div>
-                  <span className={styles.matchTeamLabel}>Your team</span>
-                  <strong>{pendingMatch.team.teamName}</strong>
+                  <span className={styles.matchTeamLabel}>Selected team</span>
+                  <strong>{getDisplayTeamName(pendingMatch.team.teamName, pendingMatch.team.genderId)}</strong>
                 </div>
                 <div>
-                  <span className={styles.matchTeamLabel}>Their ad</span>
-                  <strong>{pendingMatch.request.team?.name}</strong>
+                  <span className={styles.matchTeamLabel}>Target team</span>
+                  <strong>{getDisplayTeamName(pendingMatch.request.team?.name || '', pendingMatch.request.team?.gender_id)}</strong>
                 </div>
                 <div>
                   <span className={styles.matchTeamLabel}>HT Team ID</span>
                   <strong>{pendingMatch.request.team?.ht_team_id}</strong>
                 </div>
+                {mockDataEnabled && (
+                  <div>
+                    <span className={styles.matchTeamLabel}>Mock booking reference</span>
+                    <strong>{`MOCK-${pendingMatch.request.id.slice(-6).toUpperCase()}`}</strong>
+                  </div>
+                )}
               </div>
             </div>
           </div>

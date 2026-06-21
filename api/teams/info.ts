@@ -2,11 +2,13 @@ import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { getSupabase } from '../_lib/supabase.js';
 import { getAuthHeader } from '../_lib/chpp-auth.js';
 import { validateTeamEligibility } from '../_lib/eligibility.js';
+import { parseTeamDetailsXml } from '../_lib/chpp-xml.js';
 
 interface TeamDetails {
   leagueName?: string;
   leagueId?: number;
   leagueSystemId?: number;
+  countryId?: number;
   countryName?: string;
   genderId?: number;
 }
@@ -88,13 +90,14 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       return res.status(response.status).json({ error: 'CHPP fetch failed', details: xml });
     }
 
-    // Surgical XML parsing
-    const teamName = xml.match(/<TeamName>(?:<!\[CDATA\[)?([\s\S]*?)(?:\]\]>)?<\/TeamName>/i)?.[1]?.trim() || 'Unknown';
-    const leagueId = xml.match(/<LeagueID>(\d+)<\/LeagueID>/i)?.[1];
-    const leagueSystemId = xml.match(/<LeagueSystemID>(\d+)<\/LeagueSystemID>/i)?.[1];
-    const leagueName = xml.match(/<LeagueName>(?:<!\[CDATA\[)?([\s\S]*?)(?:\]\]>)?<\/LeagueName>/i)?.[1]?.trim();
-    const countryName = xml.match(/<CountryName>(?:<!\[CDATA\[)?([\s\S]*?)(?:\]\]>)?<\/CountryName>/i)?.[1]?.trim();
-    const genderId = xml.match(/<GenderID>(\d+)<\/GenderID>/i)?.[1];
+    const parsed = parseTeamDetailsXml(xml, Number(team_id));
+    const teamName = parsed.teamName || 'Unknown';
+    const leagueId = parsed.leagueId?.toString();
+    const leagueSystemId = parsed.leagueSystemId?.toString();
+    const leagueName = parsed.leagueName;
+    const countryId = parsed.countryId;
+    const countryName = parsed.countryName;
+    const genderId = parsed.genderId?.toString();
 
     // Validation Check
     if (tournament_id && !isSuperAdmin) {
@@ -110,6 +113,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             leagueName,
             leagueId: leagueId ? parseInt(leagueId) : undefined,
             leagueSystemId: leagueSystemId ? parseInt(leagueSystemId) : undefined,
+            countryId,
             countryName,
             genderId: genderId ? parseInt(genderId) : undefined,
           } as TeamDetails,
@@ -127,6 +131,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       leagueId: leagueId ? parseInt(leagueId) : undefined,
       leagueSystemId: leagueSystemId ? parseInt(leagueSystemId) : undefined,
       leagueName,
+      countryId,
       countryName,
     });
   } catch (error) {

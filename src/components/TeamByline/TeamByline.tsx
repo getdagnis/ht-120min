@@ -1,6 +1,7 @@
 import React from 'react';
 import { Tooltip } from 'react-tooltip';
 import { getFlagUrl } from '../../utils/ht-data';
+import { getLeagueNameById } from '../../utils/leagues';
 import styles from './TeamByline.module.sass';
 
 interface TeamBylineProps {
@@ -35,12 +36,12 @@ export const TeamByline: React.FC<TeamBylineProps> = ({
     }
   };
 
-  console.log('🏜💀👾 getFlagUrl(countryName)', getFlagUrl(countryName || undefined));
-  console.log('🏜💀👾 countryName', countryName);
+  const displayCountryName = getLeagueNameById(countryId) || countryName;
+  const flagUrl = getFlagUrl(displayCountryName || undefined);
 
   return (
     <div className={`${styles.teamExtraInfo} ${isRight ? styles.right : ''}`}>
-      {countryName && (
+      {displayCountryName && (
         <>
           <a
             href={`https://www.hattrick.org/goto.ashx?path=/World/Leagues/League.aspx?LeagueID=${countryId || ''}`}
@@ -49,9 +50,9 @@ export const TeamByline: React.FC<TeamBylineProps> = ({
             className={styles.flagLink}
             data-tooltip-id={`${tooltipIdBase}-flag`}
           >
-            <img src={getFlagUrl(countryName || undefined) || ''} alt={countryName} className={styles.flagIcon} />
+            <img src={flagUrl || ''} alt={displayCountryName} className={styles.flagIcon} />
           </a>
-          <Tooltip id={`${tooltipIdBase}-flag`} content={countryName} />
+          <Tooltip id={`${tooltipIdBase}-flag`} content={displayCountryName} />
           <span className={styles.separator}>|</span>
         </>
       )}

@@ -2,8 +2,10 @@ import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { getSupabase } from '../_lib/supabase.js';
 import {
   fetchManagerTeamsFromChpp,
+  fetchTeamBookingStatus,
   fetchTeamDetailsFromChpp,
   fetchArenaDetailsFromChpp,
+  classifyTeamAvailability,
   getManagerChppCredentials,
 } from '../_lib/matchmaker.js';
 
@@ -96,13 +98,14 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     }
 
     if (!isMockTeam) {
-      const details = await fetchTeamDetailsFromChpp(consumerKey, consumerSecret, credentials, parsedTeamId);
-
-      if ((details.friendlyTeamId ?? 0) > 0) {
+      const bookingStatus = await fetchTeamBookingStatus(consumerKey, consumerSecret, credentials, parsedTeamId);
+      if (bookingStatus.isBooked) {
         return res.status(409).json({
           error: 'This team already has a booked friendly. Please choose a different team.',
         });
       }
+
+      const details = await fetchTeamDetailsFromChpp(consumerKey, consumerSecret, credentials, parsedTeamId);
       extraDetails = details;
 
       if (details.arenaId) {
@@ -119,18 +122,23 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       });
     }
 
+    const availability = classifyTeamAvailability(extraDetails, isMockTeam ? null : bookingStatus);
+
     const teamData = {
       name: selectedTeam.teamName,
       ht_team_name: selectedTeam.teamName,
       hattrick_user_id: parsedManagerId,
       manager_name: credentials.manager_name,
-      country_name: selectedTeam.countryName ?? null,
+      country_id: extraDetails?.countryId ?? null,
+      country_name: extraDetails?.countryName ?? selectedTeam.countryName ?? null,
       league_id: selectedTeam.leagueId ?? null,
       gender_id: extraDetails?.genderId ?? selectedTeam.genderId ?? 1,
       fanclub_size: extraDetails?.fanclubSize ?? null,
       arena_id: extraDetails?.arenaId ?? null,
       arena_size: arenaDetails?.capacity ?? null,
       arena_image_url: arenaDetails?.arenaImageUrl ?? null,
+      availability_status: availability.availabilityStatus,
+      availability_reason: availability.availabilityReason ?? null,
       active: true,
     };
 

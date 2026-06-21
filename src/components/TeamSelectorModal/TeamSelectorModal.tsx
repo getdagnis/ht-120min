@@ -2,21 +2,13 @@ import React from 'react';
 import { Modal } from '../Modal/Modal';
 import { Button } from '../Button/Button';
 import { TeamsIcon } from '../Icons/TeamsIcon';
+import { getDisplayTeamName, type MatchmakerTeamOption } from '../../utils/matchmaker';
 import styles from './TeamSelectorModal.module.sass';
-
-interface TeamOption {
-  teamId: number;
-  teamName: string;
-  logo_url?: string | null;
-  countryName?: string;
-  availabilityStatus?: 'available' | 'booked' | 'unavailable' | 'unknown';
-  availabilityReason?: string;
-}
 
 interface TeamSelectorModalProps {
   isOpen: boolean;
   onClose: () => void;
-  teams: TeamOption[];
+  teams: MatchmakerTeamOption[];
   onSelect: (teamId: number) => void;
   title?: string;
 }
@@ -28,7 +20,7 @@ export const TeamSelectorModal: React.FC<TeamSelectorModalProps> = ({
   onSelect,
   title = 'Select Team'
 }) => {
-  const isSelectable = (status?: TeamOption['availabilityStatus']) => status === 'available';
+  const isSelectable = (status?: MatchmakerTeamOption['availabilityStatus']) => status === 'available';
 
   const groupedTeams = [
     {
@@ -53,7 +45,7 @@ export const TeamSelectorModal: React.FC<TeamSelectorModalProps> = ({
     },
   ].filter((group) => group.teams.length > 0);
 
-  const getStatusLabel = (team: TeamOption) => {
+  const getStatusLabel = (team: MatchmakerTeamOption) => {
     if (team.availabilityStatus === 'available') return 'Available now';
     if (team.availabilityStatus === 'booked') return 'Booked';
     if (team.availabilityStatus === 'unknown') return 'Unknown';
@@ -86,7 +78,7 @@ export const TeamSelectorModal: React.FC<TeamSelectorModalProps> = ({
                           )}
                         </div>
                         <div className={styles.info}>
-                          <span className={styles.name}>{team.teamName}</span>
+                          <span className={styles.name}>{getDisplayTeamName(team.teamName, team.genderId)}</span>
                           <span className={styles.country}>{team.countryName}</span>
                           <span className={styles.status}>{getStatusLabel(team)}</span>
                           {team.availabilityReason ? (
@@ -96,6 +88,7 @@ export const TeamSelectorModal: React.FC<TeamSelectorModalProps> = ({
                           ) : (
                             <span className={styles.reason}>This team cannot be used right now.</span>
                           )}
+                          {team.is_mock && <span className={styles.reason}>Mock</span>}
                         </div>
                       </button>
                     );

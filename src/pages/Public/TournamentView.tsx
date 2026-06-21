@@ -10,7 +10,7 @@ import { getTournamentBackgroundStyle } from '../../utils/visuals';
 import { calculateStandings } from '../../utils/standings';
 import type { TeamStanding } from '../../utils/standings';
 import { generateRecurring, generateRoundRobin } from '../../utils/scheduler';
-import { teamMatchesCategory } from '../../utils/team-eligibility';
+import { validateTeamEligibility } from '../../utils/team-eligibility';
 import { useLiveMatches } from '../../hooks/useLiveMatches';
 
 import { Tooltip } from 'react-tooltip';
@@ -932,16 +932,13 @@ export const TournamentView: React.FC = () => {
 
       // Validation check
       const category = (tournament?.league_category || 'male') as 'male' | 'hfi';
-      const categoryName = category === 'hfi' ? 'Hattrick Femme International (HFI)' : 'Regular league (male)';
 
-      if (!teamMatchesCategory(data, category)) {
-        const teamCategory = category === 'hfi' ? 'male league' : 'HFI';
-        throw new Error(
-          `Team ID ${htId} "${data.teamName}" (${teamCategory}) is not eligible to play in a ${categoryName}. Please register a ${categoryName} team.`,
-        );
-      }
-      if (!isSuperAdmin && tournament?.country_limit && data.countryName !== tournament.country_limit) {
-        throw new Error(`This team is not from the required league (${tournament.country_limit}).`);
+      const validation = validateTeamEligibility(data, {
+        category,
+        countryLimit: tournament?.country_limit || null,
+      });
+      if (!validation.eligible) {
+        throw new Error(validation.reason || `Team ID ${htId} "${data.teamName}" is not eligible.`);
       }
 
       if (isReplacement) {
