@@ -9,11 +9,7 @@ import { TeamSelectorModal } from '../../components/TeamSelectorModal/TeamSelect
 import { Avatar } from '../../components/Avatar/Avatar';
 import { getDisplayTeamName } from '../../utils/matchmaker';
 import { getLeagueNameById } from '../../utils/leagues';
-import {
-  getMockMatchmakerRequests,
-  getMockMatchmakerTeams,
-  isMatchmakerMockDataEnabled,
-} from '../../mock/matchmaker';
+import { getMockMatchmakerRequests, getMockMatchmakerTeams, isMatchmakerMockDataEnabled } from '../../mock/matchmaker';
 import { Handshake, X, Heart, Clock, Info, Warning, ArrowsOut, Trophy, CaretLeft, CaretRight } from 'phosphor-react';
 import styles from './Matchmaker.module.sass';
 
@@ -367,7 +363,7 @@ export const Matchmaker: React.FC = () => {
   }, [myRequests, myTeams, selectedHtTeamId]);
 
   const selectedChallengeRequest = useMemo(
-    () => (targetRequestId ? displayRequests.find((request) => request.id === targetRequestId) ?? null : null),
+    () => (targetRequestId ? (displayRequests.find((request) => request.id === targetRequestId) ?? null) : null),
     [displayRequests, targetRequestId],
   );
 
@@ -490,20 +486,21 @@ export const Matchmaker: React.FC = () => {
     }, 0);
   }, [scoredRequests.length]);
 
-  const fetchRequests = useCallback(async (options?: { silent?: boolean }) => {
-    if (mockDataEnabled) {
-      setRequests(mockRequests);
-      return;
-    }
+  const fetchRequests = useCallback(
+    async (options?: { silent?: boolean }) => {
+      if (mockDataEnabled) {
+        setRequests(mockRequests);
+        return;
+      }
 
-    if (!options?.silent) {
-      setLoading(true);
-    }
-    try {
-      const query = supabase
-        .from('matchmaker_requests')
-        .select(
-          `
+      if (!options?.silent) {
+        setLoading(true);
+      }
+      try {
+        const query = supabase
+          .from('matchmaker_requests')
+          .select(
+            `
         *,
         team:teams!matchmaker_requests_team_id_fkey(
           name, ht_team_id, logo_url, country_name, country_id, league_id,
@@ -512,21 +509,23 @@ export const Matchmaker: React.FC = () => {
         profile:profiles!matchmaker_requests_manager_ht_id_fkey(manager_name, avatar_json, country_name, country_id, league_id),
         matched_team:teams!matchmaker_requests_matched_with_team_id_fkey(name, ht_team_id, logo_url, country_name, country_id, league_id)
         `,
-        )
-        .eq('status', 'open');
+          )
+          .eq('status', 'open');
 
-      const { data, error } = await query.order('created_at', { ascending: false });
-      if (error) throw error;
+        const { data, error } = await query.order('created_at', { ascending: false });
+        if (error) throw error;
 
-      setRequests(((data ?? []) as JoinedRequestRow[]).map((request) => normalizeMatchmakerRequest(request)));
-    } catch (err) {
-      console.error('Error fetching requests:', err);
-    } finally {
-      if (!options?.silent) {
-        setLoading(false);
+        setRequests(((data ?? []) as JoinedRequestRow[]).map((request) => normalizeMatchmakerRequest(request)));
+      } catch (err) {
+        console.error('Error fetching requests:', err);
+      } finally {
+        if (!options?.silent) {
+          setLoading(false);
+        }
       }
-    }
-  }, [mockDataEnabled, mockRequests]);
+    },
+    [mockDataEnabled, mockRequests],
+  );
 
   const fetchMyRequests = useCallback(async () => {
     if (mockDataEnabled) {
@@ -820,7 +819,9 @@ export const Matchmaker: React.FC = () => {
       setRequests(mockRequests);
       setMyRequests(mockRequests.slice(0, 4));
       setMyTeams(mockTeams);
-      setSelectedHtTeamId(mockTeams.find((team) => team.availabilityStatus === 'available')?.teamId || mockTeams[0]?.teamId || 0);
+      setSelectedHtTeamId(
+        mockTeams.find((team) => team.availabilityStatus === 'available')?.teamId || mockTeams[0]?.teamId || 0,
+      );
       setCurrentIndex(0);
       setMockBrowseScope('available');
       setTeamsLoading(false);
@@ -849,11 +850,7 @@ export const Matchmaker: React.FC = () => {
     return () => window.clearTimeout(timer);
   }, [mockDataEnabled, mockRequests, mockTeams, mockStats]);
 
-  const canPublish =
-    !teamsLoading &&
-    !!selectedTeam &&
-    selectedTeam.availabilityStatus === 'available' &&
-    !isSaving;
+  const canPublish = !teamsLoading && !!selectedTeam && selectedTeam.availabilityStatus === 'available' && !isSaving;
 
   const mockBrowseEndMessage =
     mockBrowseScope === 'available'
@@ -886,7 +883,8 @@ export const Matchmaker: React.FC = () => {
           <select value={selectedHtTeamId} onChange={(e) => setSelectedHtTeamId(Number(e.target.value))}>
             {myTeams.map((team) => (
               <option key={team.teamId} value={team.teamId}>
-                {getDisplayTeamName(team.teamName, team.genderId)}{team.is_mock ? ' (Mock)' : ''}
+                {getDisplayTeamName(team.teamName, team.genderId)}
+                {team.is_mock ? ' (Mock)' : ''}
               </option>
             ))}
           </select>
@@ -1376,7 +1374,7 @@ export const Matchmaker: React.FC = () => {
               ))}
             </div>
           ) : (
-                  <div className={styles.emptyState}>
+            <div className={styles.emptyState}>
               <p>You haven't posted any teams this week.</p>
               <Button variant="primary" onClick={handleStartPosting}>
                 Post Your First Team
@@ -1598,7 +1596,9 @@ export const Matchmaker: React.FC = () => {
                 </div>
                 <div>
                   <span className={styles.matchTeamLabel}>Target team</span>
-                  <strong>{getDisplayTeamName(pendingMatch.request.team?.name || '', pendingMatch.request.team?.gender_id)}</strong>
+                  <strong>
+                    {getDisplayTeamName(pendingMatch.request.team?.name || '', pendingMatch.request.team?.gender_id)}
+                  </strong>
                 </div>
                 <div>
                   <span className={styles.matchTeamLabel}>HT Team ID</span>
