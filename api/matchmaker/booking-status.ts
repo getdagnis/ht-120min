@@ -1,6 +1,6 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { getSupabase } from '../_lib/supabase.js';
-import { fetchTeamBookingStatus, getManagerChppCredentials } from '../_lib/matchmaker.js';
+import { fetchTeamDetailsFromChpp, getManagerChppCredentials } from '../_lib/matchmaker.js';
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   const { teamId, managerId } = req.query;
@@ -25,11 +25,11 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
     const consumerKey = process.env.CHPP_CONSUMER_KEY!;
     const consumerSecret = process.env.CHPP_CONSUMER_SECRET!;
-    const booking = await fetchTeamBookingStatus(consumerKey, consumerSecret, managerCredentials, teamId);
+    const details = await fetchTeamDetailsFromChpp(consumerKey, consumerSecret, managerCredentials, Number(teamId));
 
     return res.status(200).json({
-      isBooked: booking.isBooked,
-      match: booking.match,
+      isBooked: (details.friendlyTeamId ?? 0) > 0,
+      match: null,
     });
   } catch (error: unknown) {
     console.error('Booking status error:', error);

@@ -11,12 +11,15 @@ import {
   type ParsedArenaDetails,
 } from './chpp-xml.js';
 
-export type MatchmakerAvailabilityStatus = 'available' | 'booked' | 'unknown';
+export type MatchmakerAvailabilityStatus = 'available' | 'booked' | 'unavailable' | 'unknown';
 
 export interface MatchmakerTeamOption extends ChppTeamOption {
   availabilityStatus: MatchmakerAvailabilityStatus;
   availabilityReason?: string;
   bookedMatch?: ParsedMatch | null;
+  friendlyTeamId?: number | null;
+  possibleToChallengeMidweek?: boolean;
+  possibleToChallengeWeekend?: boolean;
 }
 
 export interface ManagerChppCredentials {
@@ -43,6 +46,51 @@ export function isBookedFriendlyMatch(match: ParsedMatch, now = new Date()): boo
 
   const status = match.status.toUpperCase();
   return status !== 'FINISHED' && status !== 'COMPLETED' && status !== 'CANCELLED';
+}
+
+export function classifyTeamAvailability(
+  teamDetails?: Pick<
+    ParsedTeamDetails,
+    'friendlyTeamId' | 'possibleToChallengeMidweek' | 'possibleToChallengeWeekend'
+  > | null,
+): {
+  availabilityStatus: MatchmakerAvailabilityStatus;
+  availabilityReason?: string;
+} {
+  if (!teamDetails) {
+    return {
+      availabilityStatus: 'unknown',
+      availabilityReason: 'CHPP team details were not available.',
+    };
+  }
+
+  if ((teamDetails.friendlyTeamId ?? 0) > 0) {
+    return {
+      availabilityStatus: 'booked',
+      availabilityReason: 'Friendly already scheduled.',
+    };
+  }
+
+  const canChallengeMidweek = teamDetails.possibleToChallengeMidweek;
+  const canChallengeWeekend = teamDetails.possibleToChallengeWeekend;
+
+  if (canChallengeMidweek === false && canChallengeWeekend === false) {
+    return {
+      availabilityStatus: 'unavailable',
+      availabilityReason: 'This team cannot be challenged right now.',
+    };
+  }
+
+  if (canChallengeMidweek === false || canChallengeWeekend === false) {
+    return {
+      availabilityStatus: 'available',
+      availabilityReason: 'At least one friendly window is still open.',
+    };
+  }
+
+  return {
+    availabilityStatus: 'available',
+  };
 }
 
 export async function getManagerChppCredentials(

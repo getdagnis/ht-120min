@@ -2,7 +2,9 @@ import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { getSupabase } from '../_lib/supabase.js';
 import {
   fetchManagerTeamsFromChpp,
-  fetchTeamBookingStatus,
+  fetchTeamDetailsFromChpp,
+  fetchArenaDetailsFromChpp,
+  classifyTeamAvailability,
   getManagerChppCredentials,
   type MatchmakerTeamOption,
 } from '../_lib/matchmaker.js';
@@ -35,34 +37,6 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
     const snapshot = await fetchManagerTeamsFromChpp(consumerKey, consumerSecret, credentials);
 
-    const availabilityChecks = await Promise.all(
-      snapshot.teams.map(async (team) => {
-        try {
-          const booking = await fetchTeamBookingStatus(consumerKey, consumerSecret, credentials, team.teamId);
-          return {
-            teamId: team.teamId,
-            availabilityStatus: booking.isBooked ? 'booked' : 'available',
-            availabilityReason: booking.isBooked ? 'Friendly already booked' : undefined,
-            bookedMatch: booking.match,
-          } as const;
-        } catch (error) {
-          return {
-            teamId: team.teamId,
-            availabilityStatus: 'unknown',
-            availabilityReason:
-              error instanceof Error
-                ? error.message
-                : 'Could not verify whether this team already has a booked friendly.',
-          } as const;
-        }
-      }),
-    );
-
-    const availabilityMap = new Map<number, (typeof availabilityChecks)[number]>();
-    for (const result of availabilityChecks) {
-      availabilityMap.set(result.teamId, result);
-    }
-
     // Create a map to track DB state
     const { data: dbTeams } = await supabase
       .from('teams')
@@ -79,20 +53,19 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         let logoUrl = dbEntry?.logo_url;
         let arenaImageUrl = dbEntry?.arena_image_url;
         let arenaId = dbEntry?.arena_id;
+        let teamDetails: Awaited<ReturnType<typeof fetchTeamDetailsFromChpp>> | null = null;
 
-        // Fetch if missing
-        if (!logoUrl || !arenaImageUrl) {
-          try {
-            const details = await fetchTeamDetailsFromChpp(consumerKey, consumerSecret, credentials, team.teamId);
-            logoUrl = logoUrl || details.logoUrl;
-            arenaId = arenaId || details.arenaId;
+        try {
+          teamDetails = await fetchTeamDetailsFromChpp(consumerKey, consumerSecret, credentials, team.teamId);
+          logoUrl = logoUrl || teamDetails.logoUrl;
+          arenaId = arenaId || teamDetails.arenaId;
 
-            if (arenaId) {
-              const arena = await fetchArenaDetailsFromChpp(consumerKey, consumerSecret, credentials, arenaId);
-              arenaImageUrl = arenaImageUrl || arena.arenaImageUrl;
-            }
+          if (arenaId) {
+            const arena = await fetchArenaDetailsFromChpp(consumerKey, consumerSecret, credentials, arenaId);
+            arenaImageUrl = arenaImageUrl || arena.arenaImageUrl;
+          }
 
-            // Update DB permanently
+          if ((!dbEntry?.logo_url && logoUrl) || (!dbEntry?.arena_image_url && arenaImageUrl) || (!dbEntry?.arena_id && arenaId)) {
             await supabase
               .from('teams')
               .update({
@@ -102,33 +75,43 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
               })
               .eq('ht_team_id', team.teamId)
               .is('tournament_id', null);
-          } catch (e) {
-            console.error(`Failed to fetch assets for team ${team.teamId}:`, e);
           }
+        } catch (e) {
+          console.error(`Failed to fetch details for team ${team.teamId}:`, e);
         }
 
-        return { ...team, logo_url: logoUrl, arena_image_url: arenaImageUrl };
+        const availability = classifyTeamAvailability(teamDetails);
+        const finalTeam = {
+          ...team,
+          genderId: teamDetails?.genderId ?? team.genderId,
+          logo_url: logoUrl || team.logo_url,
+          arena_image_url: arenaImageUrl || team.arena_image_url,
+          availabilityStatus: availability.availabilityStatus,
+          availabilityReason: availability.availabilityReason,
+          friendlyTeamId: teamDetails?.friendlyTeamId ?? null,
+          possibleToChallengeMidweek: teamDetails?.possibleToChallengeMidweek,
+          possibleToChallengeWeekend: teamDetails?.possibleToChallengeWeekend,
+        };
+
+        if (process.env.NODE_ENV !== 'production' || process.env.MATCHMAKER_AUDIT === 'true') {
+          console.log('[matchmaker/teams] availability', {
+            teamId: finalTeam.teamId,
+            teamName: finalTeam.teamName,
+            genderId: finalTeam.genderId,
+            availabilityStatus: finalTeam.availabilityStatus,
+            availabilityReason: finalTeam.availabilityReason ?? null,
+          });
+        }
+
+        return finalTeam;
       })
     );
 
-    // Enriched teams with booking status
-    const teams: MatchmakerTeamOption[] = enrichedTeams.map((team) => {
-      const availability = availabilityMap.get(team.teamId);
-      return {
-        ...team,
-        availabilityStatus: availability?.availabilityStatus ?? 'unknown',
-        availabilityReason:
-          availability && 'availabilityReason' in availability ? availability.availabilityReason : undefined,
-        bookedMatch: availability && 'bookedMatch' in availability ? availability.bookedMatch : null,
-      };
-    });
+    const teams: MatchmakerTeamOption[] = enrichedTeams.map((team) => team);
 
     // Developer Test Mode
     if (process.env.MATCHMAKER_DEV_MODE === 'true') {
-      teams.forEach((t) => {
-        t.availabilityStatus = 'available';
-        t.availabilityReason = undefined;
-      });
+      console.warn('[matchmaker/teams] MATCHMAKER_DEV_MODE is enabled; adding mock teams only.');
       teams.push(
         {
           teamId: 999001,
@@ -141,7 +124,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
           teamName: 'Bug Hunters FC (Mock)',
           countryName: 'England',
           availabilityStatus: 'booked',
-          availabilityReason: 'Friendly already booked (Mock)',
+          availabilityReason: 'Friendly already scheduled (Mock)',
         },
       );
     }

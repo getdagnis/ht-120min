@@ -2,7 +2,6 @@ import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { getSupabase } from '../_lib/supabase.js';
 import {
   fetchManagerTeamsFromChpp,
-  fetchTeamBookingStatus,
   fetchTeamDetailsFromChpp,
   fetchArenaDetailsFromChpp,
   getManagerChppCredentials,
@@ -97,16 +96,11 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     }
 
     if (!isMockTeam) {
-      const [booking, details] = await Promise.all([
-        fetchTeamBookingStatus(consumerKey, consumerSecret, credentials, parsedTeamId),
-        fetchTeamDetailsFromChpp(consumerKey, consumerSecret, credentials, parsedTeamId),
-      ]);
+      const details = await fetchTeamDetailsFromChpp(consumerKey, consumerSecret, credentials, parsedTeamId);
 
-      if (booking.isBooked) {
-        const bookingDate = booking.match?.matchDate ? new Date(booking.match.matchDate) : null;
-        const when = bookingDate && Number.isFinite(bookingDate.getTime()) ? ` on ${bookingDate.toLocaleString()}` : '';
+      if ((details.friendlyTeamId ?? 0) > 0) {
         return res.status(409).json({
-          error: `This team already has a booked friendly${when}. Please choose a different team.`,
+          error: 'This team already has a booked friendly. Please choose a different team.',
         });
       }
       extraDetails = details;

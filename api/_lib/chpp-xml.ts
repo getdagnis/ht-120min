@@ -52,6 +52,9 @@ export interface ParsedTeamDetails {
   genderId?: number;
   arenaId?: number;
   fanclubSize?: number;
+  friendlyTeamId?: number | null;
+  possibleToChallengeMidweek?: boolean;
+  possibleToChallengeWeekend?: boolean;
   errorCode?: number;
 }
 
@@ -76,6 +79,9 @@ export function parseTeamDetailsXml(xml: string, teamId: number): ParsedTeamDeta
     const arenaIdRaw = block.match(/<Arena>[\s\S]*?<ArenaID>(\d+)<\/ArenaID>/i)?.[1];
     const fanclubSizeRaw = block.match(/<Fanclub>[\s\S]*?<FanclubSize>(\d+)<\/FanclubSize>/i)?.[1];
     const genderIdRaw = block.match(/<GenderID>(\d+)<\/GenderID>/i)?.[1];
+    const friendlyTeamIdRaw = block.match(/<FriendlyTeamID>(\d+)<\/FriendlyTeamID>/i)?.[1];
+    const possibleToChallengeMidweekRaw = readChppTag(block, 'PossibleToChallengeMidweek');
+    const possibleToChallengeWeekendRaw = readChppTag(block, 'PossibleToChallengeWeekend');
 
     return {
       teamId,
@@ -85,6 +91,11 @@ export function parseTeamDetailsXml(xml: string, teamId: number): ParsedTeamDeta
       arenaId: arenaIdRaw ? parseInt(arenaIdRaw, 10) : undefined,
       fanclubSize: fanclubSizeRaw ? parseInt(fanclubSizeRaw, 10) : undefined,
       genderId: genderIdRaw ? parseInt(genderIdRaw, 10) : undefined,
+      friendlyTeamId: friendlyTeamIdRaw ? parseInt(friendlyTeamIdRaw, 10) : 0,
+      possibleToChallengeMidweek:
+        possibleToChallengeMidweekRaw === undefined ? undefined : possibleToChallengeMidweekRaw.toLowerCase() === 'true',
+      possibleToChallengeWeekend:
+        possibleToChallengeWeekendRaw === undefined ? undefined : possibleToChallengeWeekendRaw.toLowerCase() === 'true',
     };
   };
 

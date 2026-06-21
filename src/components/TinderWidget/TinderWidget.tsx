@@ -44,7 +44,7 @@ export const TinderWidget: React.FC<MatchmakerTeaserProps> = ({ className = '' }
           id,
           match_type,
           opponent_location,
-          team:teams(name, country_name, league_id:leage_id)
+          team:teams(name, country_name, league_id)
         `,
         )
         .eq('status', 'open')

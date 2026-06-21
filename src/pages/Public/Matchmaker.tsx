@@ -20,7 +20,7 @@ interface ChppTeamOption {
   leagueId?: number;
   leagueSystemId?: number;
   leagueName?: string;
-  availabilityStatus?: 'available' | 'booked' | 'unknown';
+  availabilityStatus?: 'available' | 'booked' | 'unavailable' | 'unknown';
   availabilityReason?: string;
   genderId?: number;
 }
@@ -31,9 +31,199 @@ const normalizeTeamList = (teams: ChppTeamOption[]) =>
     availabilityStatus: team.availabilityStatus ?? 'unknown',
   }));
 
+const availabilityPriority: Record<NonNullable<ChppTeamOption['availabilityStatus']>, number> = {
+  available: 0,
+  booked: 1,
+  unavailable: 2,
+  unknown: 3,
+};
+
+const getAvailabilityGroupLabel = (status: NonNullable<ChppTeamOption['availabilityStatus']>) => {
+  if (status === 'available') return 'Available Now';
+  if (status === 'booked') return 'Booked';
+  if (status === 'unknown') return 'Unknown';
+  return 'Unavailable';
+};
+
+const getAvailabilityStatusLabel = (team: ChppTeamOption) => {
+  if (team.availabilityStatus === 'available') return 'Available now';
+  if (team.availabilityStatus === 'booked') return 'Booked';
+  if (team.availabilityStatus === 'unknown') return 'Unknown';
+  return 'Unavailable';
+};
+
+const groupTeamsByAvailability = (teams: ChppTeamOption[]) => {
+  const groups = [
+    { status: 'available' as const, teams: [] as ChppTeamOption[] },
+    { status: 'booked' as const, teams: [] as ChppTeamOption[] },
+    { status: 'unavailable' as const, teams: [] as ChppTeamOption[] },
+    { status: 'unknown' as const, teams: [] as ChppTeamOption[] },
+  ];
+
+  teams.forEach((team) => {
+    const status = team.availabilityStatus ?? 'unknown';
+    const group = groups.find((item) => item.status === status) ?? groups[3];
+    group.teams.push(team);
+  });
+
+  return groups
+    .map((group) => ({
+      ...group,
+      teams: group.teams.sort((a, b) => a.teamName.localeCompare(b.teamName)),
+    }))
+    .filter((group) => group.teams.length > 0)
+    .sort((a, b) => availabilityPriority[a.status] - availabilityPriority[b.status]);
+};
+
+const clampScore = (value: number) => Math.max(0, Math.min(100, value));
+
+const getFreshnessLabel = (request: MatchmakerRequest, nowMs: number) => {
+  const ageHours = (nowMs - new Date(request.created_at).getTime()) / (1000 * 60 * 60);
+
+  if (request.status !== 'open') {
+    return {
+      label: 'Booked',
+      tone: 'bad' as const,
+    };
+  }
+
+  if (ageHours < 12) {
+    return {
+      label: 'Posted today',
+      tone: 'good' as const,
+    };
+  }
+
+  if (ageHours < 72) {
+    return {
+      label: 'Posted this week',
+      tone: 'warn' as const,
+    };
+  }
+
+  return {
+    label: 'Older listing',
+    tone: 'bad' as const,
+  };
+};
+
+const isVenueComplementary = (a: MatchmakerRequest['home_away'], b: MatchmakerRequest['home_away']) =>
+  (a === 'home' && b === 'away') || (a === 'away' && b === 'home') || a === 'any' || b === 'any';
+
+const isLocationCompatible = (a: MatchmakerRequest, b: MatchmakerRequest) => {
+  const sameCountry = !!a.team?.country_name && a.team.country_name === b.team?.country_name;
+  const differentCountry = !!a.team?.country_name && !!b.team?.country_name && !sameCountry;
+
+  if (a.opponent_location === 'any' || b.opponent_location === 'any') return true;
+  if (a.opponent_location === 'domestic' && b.opponent_location === 'domestic') return sameCountry;
+  if (a.opponent_location === 'international_only' && b.opponent_location === 'international_only')
+    return differentCountry;
+  if (a.opponent_location === 'domestic') return sameCountry;
+  if (b.opponent_location === 'domestic') return sameCountry;
+  if (a.opponent_location === 'international_only') return differentCountry;
+  if (b.opponent_location === 'international_only') return differentCountry;
+  return false;
+};
+
+const getCompatibilityScore = (myAd: MatchmakerRequest | null, target: MatchmakerRequest) => {
+  if (!myAd) {
+    return { score: 0, labels: [] as string[] };
+  }
+
+  const labels: string[] = [];
+  let score = 0;
+
+  if (myAd.match_type === target.match_type) {
+    score += 30;
+    labels.push('120 min compatible');
+  } else if (myAd.match_type === '90min_acceptable' || target.match_type === '90min_acceptable') {
+    score += 18;
+    labels.push('90 min acceptable');
+  }
+
+  if (isVenueComplementary(myAd.home_away, target.home_away)) {
+    score += myAd.home_away === target.home_away || myAd.home_away === 'any' || target.home_away === 'any' ? 10 : 25;
+    labels.push('Venue preference compatible');
+  }
+
+  if (isLocationCompatible(myAd, target)) {
+    score += 25;
+    labels.push('Location preference compatible');
+  }
+
+  if (myAd.is_long_term && target.is_long_term) {
+    score += 12;
+    labels.push('Long-term preference compatible');
+  } else if (myAd.is_long_term || target.is_long_term) {
+    score += 6;
+    labels.push('Long-term preference possible');
+  }
+
+  if (myAd.is_back_and_forth && target.is_back_and_forth) {
+    score += 8;
+    labels.push('Back-and-forth preference compatible');
+  } else if (myAd.is_back_and_forth || target.is_back_and_forth) {
+    score += 4;
+    labels.push('Back-and-forth preference possible');
+  }
+
+  return { score: clampScore(score), labels };
+};
+
+const getTeamFitScore = (selectedTeam: ChppTeamOption | undefined, target: MatchmakerRequest) => {
+  if (!selectedTeam) {
+    return { score: 0, labels: [] as string[] };
+  }
+
+  const labels: string[] = [];
+  let score = 35;
+
+  if (target.match_type === '120min') {
+    score += 25;
+    labels.push('120 min compatible');
+  } else {
+    score += 12;
+    labels.push('90 min acceptable');
+  }
+
+  if (selectedTeam.countryName && target.team?.country_name) {
+    const sameCountry = selectedTeam.countryName === target.team.country_name;
+    const differentCountry = !sameCountry;
+
+    if (target.opponent_location === 'domestic' && sameCountry) {
+      score += 25;
+      labels.push('Location preference compatible');
+    } else if (target.opponent_location === 'international_only' && differentCountry) {
+      score += 20;
+      labels.push('Location preference compatible');
+    } else if (target.opponent_location === 'any') {
+      score += 12;
+      labels.push('Location preference flexible');
+    }
+  }
+
+  if (selectedTeam.genderId === target.gender_id) {
+    score += 15;
+    labels.push(selectedTeam.genderId === 0 ? 'HFI compatible' : 'Male compatible');
+  }
+
+  if (target.is_long_term) {
+    score += 8;
+    labels.push('Long-term preference compatible');
+  }
+
+  if (target.is_back_and_forth) {
+    score += 6;
+    labels.push('Back-and-forth preference compatible');
+  }
+
+  return { score: clampScore(score), labels };
+};
+
 export const Matchmaker: React.FC = () => {
   const navigate = useNavigate();
   const { profile } = useAuth();
+  const [nowMs] = useState(() => Date.now());
   const [activeTab, setActiveTab] = useState<'browse' | 'my-requests' | 'hfi'>('browse');
   const [requests, setRequests] = useState<MatchmakerRequest[]>([]);
   const isDev = import.meta.env.VITE_MATCHMAKER_DEV_MODE === 'true' || window.location.hostname === 'localhost';
@@ -76,7 +266,10 @@ export const Matchmaker: React.FC = () => {
   const [selectingTeamPurpose, setSelectingTeamPurpose] = useState<'challenge' | 'post'>('post');
   const [targetRequestId, setTargetRequestId] = useState<string | null>(null);
   const [notification, setNotification] = useState<{ title: string; message: string } | null>(null);
-  const [matchedRequest, setMatchedRequest] = useState<MatchmakerRequest | null>(null);
+  const [pendingMatch, setPendingMatch] = useState<{
+    request: MatchmakerRequest;
+    team: ChppTeamOption;
+  } | null>(null);
 
   const effectiveManagerId = (isDev && impersonatedManagerId) || profile?.hattrick_user_id;
 
@@ -102,16 +295,109 @@ export const Matchmaker: React.FC = () => {
   const filteredRequests = useMemo(() => {
     const isHfiView = activeTab === 'hfi';
     return requests.filter((r) => {
-      // 1. Filter out own requests absolutely everywhere in browse tabs
+      // Keep browse wide open; only hide your own ads and explicitly hidden items.
       if (myOwnHtTeamIds.has(r.team?.ht_team_id || 0)) return false;
       if (locallyHiddenRequestIds.has(r.id)) return false;
 
       const teamGender = r.team?.gender_id ?? 1;
       const isFemale = teamGender === 0;
-      if (isHfiView) return isFemale;
-      return !isFemale;
+      return isHfiView ? isFemale : true;
     });
   }, [requests, activeTab, myOwnHtTeamIds, locallyHiddenRequestIds]);
+
+  const myOpenRequest = useMemo(() => {
+    const selectedTeam = myTeams.find((team) => team.teamId === selectedHtTeamId);
+    if (!selectedTeam) return null;
+    return myRequests.find((r) => r.team?.ht_team_id === selectedTeam.teamId && r.status === 'open') || null;
+  }, [myRequests, myTeams, selectedHtTeamId]);
+
+  const selectedChallengeRequest = useMemo(
+    () => (targetRequestId ? requests.find((request) => request.id === targetRequestId) ?? null : null),
+    [requests, targetRequestId],
+  );
+
+  const selectedTeamContext = useMemo(
+    () => myTeams.find((team) => team.teamId === selectedHtTeamId),
+    [myTeams, selectedHtTeamId],
+  );
+
+  const challengeTeams = useMemo(() => {
+    if (selectingTeamPurpose !== 'challenge') return myTeams;
+    const targetGenderId = selectedChallengeRequest?.gender_id;
+    if (targetGenderId === undefined || targetGenderId === null) return myTeams;
+    return myTeams.filter((team) => team.genderId === targetGenderId);
+  }, [myTeams, selectingTeamPurpose, selectedChallengeRequest]);
+
+  const postingTeamGroups = useMemo(() => groupTeamsByAvailability(myTeams), [myTeams]);
+
+  const scoredRequests = useMemo(() => {
+    return filteredRequests
+      .map((request) => {
+        const compatibility = myOpenRequest
+          ? getCompatibilityScore(myOpenRequest, request)
+          : getTeamFitScore(selectedTeamContext, request);
+        const freshness = getFreshnessLabel(request, nowMs);
+        const isNew = (nowMs - new Date(request.created_at).getTime()) / (1000 * 60 * 60) < 24;
+        return {
+          request,
+          compatibility,
+          freshness,
+          isNew,
+        };
+      })
+      .sort((a, b) => {
+        if (b.compatibility.score !== a.compatibility.score) return b.compatibility.score - a.compatibility.score;
+        return new Date(b.request.created_at).getTime() - new Date(a.request.created_at).getTime();
+      });
+  }, [filteredRequests, myOpenRequest, selectedTeamContext, nowMs]);
+
+  useEffect(() => {
+    if (!import.meta.env.DEV || myTeams.length === 0) return;
+    console.table(
+      myTeams.map((team) => ({
+        teamId: team.teamId,
+        teamName: team.teamName,
+        genderId: team.genderId,
+        availabilityStatus: team.availabilityStatus,
+        availabilityReason: team.availabilityReason || '',
+      })),
+    );
+  }, [myTeams]);
+
+  useEffect(() => {
+    if (!import.meta.env.DEV || !isSelectingTeam) return;
+    console.table(
+      challengeTeams.map((team) => ({
+        teamId: team.teamId,
+        teamName: team.teamName,
+        genderId: team.genderId,
+        availabilityStatus: team.availabilityStatus,
+        availabilityReason: team.availabilityReason || '',
+      })),
+    );
+  }, [challengeTeams, isSelectingTeam]);
+
+  useEffect(() => {
+    if (!import.meta.env.DEV || scoredRequests.length === 0) return;
+    const current = scoredRequests[currentIndex];
+    if (!current?.request?.team) return;
+
+    console.table([
+      {
+        teamId: current.request.team.ht_team_id,
+        teamName: current.request.team.name,
+        genderId: current.request.team.gender_id,
+        availabilityStatus: current.request.status,
+        availabilityReason: current.freshness.label,
+      },
+    ]);
+  }, [currentIndex, scoredRequests]);
+
+  useEffect(() => {
+    setTimeout(() => {
+      setCurrentIndex((prev) => Math.min(prev, Math.max(0, scoredRequests.length - 1)));
+    }, 0);
+  }, [scoredRequests.length]);
 
   const fetchRequests = useCallback(async () => {
     setLoading(true);
@@ -197,11 +483,23 @@ export const Matchmaker: React.FC = () => {
         const teams = normalizeTeamList((data.teams as ChppTeamOption[]) || []);
         setMyTeams(teams);
 
+        if (import.meta.env.DEV) {
+          console.table(
+            teams.map((team) => ({
+              teamId: team.teamId,
+              teamName: team.teamName,
+              genderId: team.genderId,
+              availabilityStatus: team.availabilityStatus,
+              availabilityReason: team.availabilityReason || '',
+            })),
+          );
+        }
+
         setSelectedHtTeamId((current) => {
           if (current && teams.some((team) => team.teamId === current && team.availabilityStatus === 'available'))
             return current;
           const availableTeam = teams.find((team) => team.availabilityStatus === 'available');
-          return availableTeam?.teamId || teams[0]?.teamId || 0;
+          return availableTeam?.teamId || 0;
         });
 
         if (data.warning) {
@@ -265,13 +563,12 @@ export const Matchmaker: React.FC = () => {
           isLongTerm,
         }),
       });
-      const data = await res.json().catch(() => ({}));
+      const result = await res.json().catch(() => ({}));
 
       if (!res.ok) {
-        throw new Error(data.error || 'Could not publish this request right now.');
+        throw new Error(result.error || 'Could not publish this request right now.');
       }
 
-      const result = await res.json();
       if (result.request?.id) {
         hideRequestIdLocally(result.request.id);
       }
@@ -293,18 +590,37 @@ export const Matchmaker: React.FC = () => {
   };
 
   const handleAccept = async (requestId: string, teamId: number) => {
-    // Stub for handling match accept
-    console.log('Accepting request:', requestId, 'with team:', teamId);
+    const request = requests.find((item) => item.id === requestId);
+    const team = myTeams.find((item) => item.teamId === teamId);
+
+    if (!request || !team) {
+      console.error('Could not prepare manual match flow:', { requestId, teamId });
+      return;
+    }
+
+    setPendingMatch({ request, team });
+    setIsSelectingTeam(false);
   };
 
   const selectedTeam = myTeams.find((team) => team.teamId === selectedHtTeamId);
-  const isBrowsingAsHfi = selectedTeam?.genderId === 0;
+
+  useEffect(() => {
+    if (!import.meta.env.DEV || !selectedTeam) return;
+    console.table([
+      {
+        teamId: selectedTeam.teamId,
+        teamName: selectedTeam.teamName,
+        genderId: selectedTeam.genderId,
+        availabilityStatus: selectedTeam.availabilityStatus,
+        availabilityReason: selectedTeam.availabilityReason || '',
+      },
+    ]);
+  }, [selectedTeam]);
 
   const canPublish =
     !teamsLoading &&
     !!selectedTeam &&
-    (selectedTeam.availabilityStatus === 'available' ||
-      myRequests.some((r) => r.team?.ht_team_id === selectedHtTeamId && r.status === 'open')) &&
+    selectedTeam.availabilityStatus === 'available' &&
     !isSaving;
 
   return (
@@ -312,7 +628,7 @@ export const Matchmaker: React.FC = () => {
       {/* Browsing As Overlay */}
       {myTeams.length > 1 && profile && (
         <div className={styles.browsingAsOverlay}>
-          <span>Currently browsing as:</span>
+          <span>Selected team for challenge:</span>
           <select value={selectedHtTeamId} onChange={(e) => setSelectedHtTeamId(Number(e.target.value))}>
             {myTeams.map((team) => (
               <option key={team.teamId} value={team.teamId}>
@@ -353,10 +669,8 @@ export const Matchmaker: React.FC = () => {
 
         <div className={styles.tabs}>
           <button
-            className={`${activeTab === 'browse' ? styles.active : ''} ${isBrowsingAsHfi ? styles.disabledTab : ''}`}
-            onClick={() => !isBrowsingAsHfi && setActiveTab('browse')}
-            disabled={isBrowsingAsHfi}
-            title={isBrowsingAsHfi ? 'Male ads are disabled when browsing as HFI' : ''}
+            className={activeTab === 'browse' ? styles.active : ''}
+            onClick={() => setActiveTab('browse')}
           >
             Find Match
           </button>
@@ -393,8 +707,18 @@ export const Matchmaker: React.FC = () => {
             </div>
           ) : (
             (() => {
-              const req = filteredRequests[currentIndex];
+              const entry = scoredRequests[currentIndex];
+              const req = entry?.request;
               if (!req) return null;
+              const compatibilityTitle = myOpenRequest
+                ? [
+                    `Compared with: ${req.team?.name || 'this team'}`,
+                    'Reasons:',
+                    ...(entry.compatibility.labels.length > 0
+                      ? entry.compatibility.labels.map((label) => `✓ ${label}`)
+                      : ['✓ Default match preferences']),
+                  ].join('\n')
+                : 'Match score based on venue, location, match type and partnership preferences.';
 
               return (
                 <div className={styles.cardWrapper}>
@@ -447,6 +771,31 @@ export const Matchmaker: React.FC = () => {
                     </div>
 
                     <div className={styles.cardBody} style={{ paddingTop: '2.5rem' }}>
+                      <div className={styles.adMetaRow}>
+                        {myOpenRequest ? (
+                          <span
+                            className={styles.compatibilityBadge}
+                            title={compatibilityTitle}
+                          >
+                            {entry.compatibility.score}% Match
+                          </span>
+                        ) : (
+                          <span
+                            className={styles.compatibilityHint}
+                            title={compatibilityTitle}
+                          >
+                            {entry.compatibility.score}% Match
+                          </span>
+                        )}
+                        <span
+                          className={`${styles.availabilityBadge} ${styles[entry.freshness.tone]}`}
+                          title="Based on how recently the ad was posted."
+                        >
+                          {entry.freshness.label}
+                        </span>
+                        {entry.isNew && <span className={styles.newBadge}>NEW</span>}
+                      </div>
+
                       <div className={styles.matchSettings}>
                         <div className={styles.settingItem}>
                           <Trophy size={20} weight="fill" color="var(--tinder-bg)" />
@@ -470,12 +819,34 @@ export const Matchmaker: React.FC = () => {
                         </div>
                       </div>
 
-                      {req.message && <div className={styles.message}>"{req.message}"</div>}
-
-                      <div className={styles.badges}>
-                        {req.is_long_term && <span className={styles.badge}>🗓 Long Term</span>}
-                        {req.is_back_and_forth && <span className={styles.badge}>🔄 Back-and-forth</span>}
+                      <div className={styles.adProfileSummary}>
+                        <span className={styles.summaryLabel}>Looking for</span>
+                        <div className={styles.badges}>
+                          <span className={styles.badge}>
+                            {req.match_type === '120min' ? '120 min training' : '90 min acceptable'}
+                          </span>
+                          <span className={styles.badge}>
+                            {req.home_away === 'home'
+                              ? 'My place'
+                              : req.home_away === 'away'
+                                ? 'Your place'
+                                : 'Either venue'}
+                          </span>
+                          <span className={styles.badge}>
+                            {req.opponent_location === 'domestic'
+                              ? `Domestic (${req.team?.country_name || 'same country'})`
+                              : req.opponent_location === 'international_only'
+                                ? 'International only'
+                                : 'Anywhere'}
+                          </span>
+                          <span className={styles.badge}>
+                            {req.is_long_term ? 'Long-term partner' : 'One-off match'}
+                          </span>
+                          {req.is_back_and_forth && <span className={styles.badge}>Home/away exchange</span>}
+                        </div>
                       </div>
+
+                      {req.message && <div className={styles.message}>"{req.message}"</div>}
                     </div>
 
                     <div className={styles.cardActions}>
@@ -529,8 +900,8 @@ export const Matchmaker: React.FC = () => {
                   <button
                     className={styles.navArrow}
                     style={{ right: '-120px' }}
-                    onClick={() => setCurrentIndex((prev) => Math.min(filteredRequests.length - 1, prev + 1))}
-                    disabled={currentIndex === filteredRequests.length - 1}
+                    onClick={() => setCurrentIndex((prev) => Math.min(scoredRequests.length - 1, prev + 1))}
+                    disabled={currentIndex === scoredRequests.length - 1}
                   >
                     <CaretRight weight="bold" />
                   </button>
@@ -628,6 +999,15 @@ export const Matchmaker: React.FC = () => {
                     </div>
 
                     <div className={styles.cardBody} style={{ padding: '1.5rem' }}>
+                      <div className={styles.adMetaRow}>
+                        <span
+                          className={`${styles.availabilityBadge} ${req.status === 'open' ? styles.good : styles.bad}`}
+                          title="Based on how recently the ad was posted."
+                        >
+                          {req.status === 'open' ? getFreshnessLabel(req, nowMs).label : 'Matched'}
+                        </span>
+                      </div>
+
                       <div className={styles.matchSettings}>
                         <div className={styles.settingItem}>
                           <Trophy size={18} weight="fill" color="var(--tinder-bg)" />
@@ -648,6 +1028,33 @@ export const Matchmaker: React.FC = () => {
                             {req.opponent_location === 'international_only' && 'Will travel'}
                             {req.opponent_location === 'any' && 'Anywhere'}
                           </span>
+                        </div>
+                      </div>
+
+                      <div className={styles.adProfileSummary}>
+                        <span className={styles.summaryLabel}>Looking for</span>
+                        <div className={styles.badges}>
+                          <span className={styles.badge}>
+                            {req.match_type === '120min' ? '120 min training' : '90 min acceptable'}
+                          </span>
+                          <span className={styles.badge}>
+                            {req.home_away === 'home'
+                              ? 'My place'
+                              : req.home_away === 'away'
+                                ? 'Your place'
+                                : 'Either venue'}
+                          </span>
+                          <span className={styles.badge}>
+                            {req.opponent_location === 'domestic'
+                              ? `Domestic (${req.team?.country_name || 'same country'})`
+                              : req.opponent_location === 'international_only'
+                                ? 'International only'
+                                : 'Anywhere'}
+                          </span>
+                          <span className={styles.badge}>
+                            {req.is_long_term ? 'Long-term partner' : 'One-off match'}
+                          </span>
+                          {req.is_back_and_forth && <span className={styles.badge}>Home/away exchange</span>}
                         </div>
                       </div>
 
@@ -708,34 +1115,26 @@ export const Matchmaker: React.FC = () => {
                 className={styles.teamDropdown}
               >
                 <option value={0}>Select a team</option>
-                {/* Group 1: Available */}
-                {myTeams.filter((t) => t.availabilityStatus === 'available').length > 0 && (
-                  <optgroup label="Available">
-                    {myTeams
-                      .filter((t) => t.availabilityStatus === 'available')
-                      .map((t) => (
-                        <option key={t.teamId} value={t.teamId}>
-                          {t.teamName} {t.genderId === 0 ? '(HFI)' : ''}{' '}
-                          {myRequests.some((r) => r.team?.ht_team_id === t.teamId && r.status === 'open')
-                            ? '(Update)'
-                            : ''}
+                {postingTeamGroups.map((group) => (
+                  <optgroup key={group.status} label={getAvailabilityGroupLabel(group.status)}>
+                    {group.teams.map((team) => {
+                      const selectable = team.availabilityStatus === 'available';
+                      const labelParts = [team.teamName, team.genderId === 0 ? '(HFI)' : ''];
+                      if (!selectable) {
+                        labelParts.push(`- ${getAvailabilityStatusLabel(team)}`);
+                      }
+                      if (team.availabilityReason) {
+                        labelParts.push(`(${team.availabilityReason})`);
+                      }
+
+                      return (
+                        <option key={team.teamId} value={team.teamId} disabled={!selectable}>
+                          {labelParts.filter(Boolean).join(' ')}
                         </option>
-                      ))}
+                      );
+                    })}
                   </optgroup>
-                )}
-                {/* Group 2: Unavailable/Booked */}
-                {myTeams.filter((t) => t.availabilityStatus !== 'available').length > 0 && (
-                  <optgroup label="Unavailable">
-                    {myTeams
-                      .filter((t) => t.availabilityStatus !== 'available')
-                      .map((t) => (
-                        <option key={t.teamId} value={t.teamId}>
-                          {t.teamName} {t.genderId === 0 ? '(HFI)' : ''} -{' '}
-                          {t.availabilityStatus === 'booked' ? 'Booked' : 'Unknown'}
-                        </option>
-                      ))}
-                  </optgroup>
-                )}
+                ))}
               </select>
             ) : (
               <div className={styles.noTeamsMessage}>
@@ -745,6 +1144,12 @@ export const Matchmaker: React.FC = () => {
                   Retry
                 </Button>
               </div>
+            )}
+            {selectedTeam && (
+              <p className={styles.teamAvailabilityNote}>
+                {getAvailabilityStatusLabel(selectedTeam)}
+                {selectedTeam.availabilityReason ? ` · ${selectedTeam.availabilityReason}` : ''}
+              </p>
             )}
             {teamsWarning && (
               <p className={styles.warningText}>
@@ -841,11 +1246,11 @@ export const Matchmaker: React.FC = () => {
         </form>
       </Modal>
 
-      {matchedRequest && (
+      {pendingMatch && (
         <Modal
-          isOpen={!!matchedRequest}
+          isOpen={!!pendingMatch}
           onClose={() => {
-            setMatchedRequest(null);
+            setPendingMatch(null);
             setCurrentIndex((prev) => prev + 1);
           }}
           title="It's a Match!"
@@ -854,35 +1259,46 @@ export const Matchmaker: React.FC = () => {
             <div className={styles.matchCelebration}>
               <Heart size={64} weight="fill" color="#ff4b2b" className={styles.heartPop} />
               <h2>Ready for Kickoff?</h2>
-              <p>
-                <strong>{matchedRequest.team?.name}</strong> has accepted your challenge!
-              </p>
+              <p>This is a manual arrangement flow. No booking has been sent yet.</p>
             </div>
 
             <div className={styles.matchInstructions}>
-              <p>To finalize the friendly, one of you needs to send the official challenge on Hattrick.</p>
               <div className={styles.matchActionButtons}>
                 <Button
                   variant="primary"
                   style={{ background: 'var(--tinder-bg)', borderColor: 'var(--borderDark)' }}
                   onClick={() =>
                     window.open(
-                      `https://www.hattrick.org/goto.ashx?path=/Club/?TeamID=${matchedRequest.team?.ht_team_id}`,
+                      `https://www.hattrick.org/goto.ashx?path=/Club/?TeamID=${pendingMatch.request.team?.ht_team_id}`,
                       '_blank',
                     )
                   }
                 >
-                  Send Challenge on Hattrick
+                  Open Team on Hattrick
                 </Button>
                 <Button
                   variant="outline"
                   onClick={() => {
-                    setMatchedRequest(null);
+                    setPendingMatch(null);
                     setCurrentIndex((prev) => prev + 1);
                   }}
                 >
-                  Awesome!
+                  Close
                 </Button>
+              </div>
+              <div className={styles.matchTeams}>
+                <div>
+                  <span className={styles.matchTeamLabel}>Your team</span>
+                  <strong>{pendingMatch.team.teamName}</strong>
+                </div>
+                <div>
+                  <span className={styles.matchTeamLabel}>Their ad</span>
+                  <strong>{pendingMatch.request.team?.name}</strong>
+                </div>
+                <div>
+                  <span className={styles.matchTeamLabel}>HT Team ID</span>
+                  <strong>{pendingMatch.request.team?.ht_team_id}</strong>
+                </div>
               </div>
             </div>
           </div>
@@ -892,7 +1308,7 @@ export const Matchmaker: React.FC = () => {
       <TeamSelectorModal
         isOpen={isSelectingTeam}
         onClose={() => setIsSelectingTeam(false)}
-        teams={myTeams.filter((t) => t.availabilityStatus === 'available')}
+        teams={challengeTeams}
         title={selectingTeamPurpose === 'post' ? 'Which team is posting?' : 'Select Challenging Team'}
         onSelect={(teamId) => {
           if (selectingTeamPurpose === 'challenge') {

@@ -309,6 +309,95 @@
   margin-top: 1rem
   font-size: 1rem
 
+.adMetaRow
+  display: flex
+  flex-wrap: wrap
+  gap: 0.5rem
+  align-items: center
+  justify-content: space-between
+  margin-bottom: 1rem
+
+.compatibilityBadge,
+.availabilityBadge,
+.compatibilityHint
+  display: inline-flex
+  align-items: center
+  border-radius: 999px
+  padding: 0.35rem 0.7rem
+  font-size: 0.8rem
+  font-weight: 800
+  letter-spacing: 0.04em
+  text-transform: uppercase
+
+.compatibilityBadge
+  background: rgba(255, 255, 255, 0.12)
+  color: var(--text-h)
+  border: 1px solid var(--border)
+
+.compatibilityHint
+  background: var(--bg-transp)
+  color: var(--text60)
+
+.availabilityBadge
+  color: white
+
+  &.good
+    background: rgba(46, 204, 113, 0.22)
+    border: 1px solid rgba(46, 204, 113, 0.45)
+    color: #c9ffdf
+
+  &.warn
+    background: rgba(255, 193, 7, 0.18)
+    border: 1px solid rgba(255, 193, 7, 0.4)
+    color: #ffe6a3
+
+  &.bad
+    background: rgba(255, 75, 43, 0.16)
+    border: 1px solid rgba(255, 75, 43, 0.38)
+    color: #ffd0c8
+
+.newBadge
+  display: inline-flex
+  align-items: center
+  border-radius: 999px
+  padding: 0.35rem 0.7rem
+  font-size: 0.8rem
+  font-weight: 900
+  letter-spacing: 0.08em
+  text-transform: uppercase
+  background: rgba(255, 255, 255, 0.88)
+  color: #111
+
+.adProfileSummary
+  margin-top: 1rem
+  display: flex
+  flex-direction: column
+  gap: 0.5rem
+
+.summaryLabel
+  font-size: 0.75rem
+  font-weight: 800
+  letter-spacing: 0.08em
+  text-transform: uppercase
+  color: var(--text60)
+
+.badges
+  display: flex
+  flex-wrap: wrap
+  gap: 0.5rem
+
+.badge
+  display: inline-flex
+  align-items: center
+  gap: 0.35rem
+  padding: 0.35rem 0.7rem
+  border-radius: 999px
+  background: var(--bg-transp)
+  border: 1px solid var(--border)
+  color: var(--text-h)
+  font-size: 0.8rem
+  font-weight: 700
+
 .cardActions
   display: flex
   padding: 1.25rem 1.5rem 1.75rem
@@ -394,6 +483,12 @@
   background: var(--bg)
   color: var(--text-h)
   font-size: 1rem
+
+.teamAvailabilityNote
+  margin: 0.25rem 0 0
+  font-size: 0.85rem
+  color: var(--text60)
+  line-height: 1.4
 
 .browsingAsOverlay
   position: fixed
@@ -571,3 +666,35 @@
     margin-bottom: 1.5rem
     color: var(--text60)
     font-size: 1.1rem
+
+.matchCelebration
+  text-align: center
+  display: flex
+  flex-direction: column
+  gap: 0.75rem
+
+.matchInstructions
+  display: flex
+  flex-direction: column
+  gap: 1rem
+  margin-top: 1rem
+
+.matchActionButtons
+  display: flex
+  gap: 0.75rem
+  flex-wrap: wrap
+
+.matchTeams
+  display: grid
+  grid-template-columns: repeat(2, minmax(0, 1fr))
+  gap: 1rem
+  padding-top: 0.5rem
+
+.matchTeamLabel
+  display: block
+  font-size: 0.75rem
+  font-weight: 800
+  letter-spacing: 0.08em
+  text-transform: uppercase
+  color: var(--text60)
+  margin-bottom: 0.25rem
