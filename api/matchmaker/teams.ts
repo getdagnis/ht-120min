@@ -136,12 +136,14 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
         try {
           teamDetails = await fetchTeamDetailsFromChpp(consumerKey, consumerSecret, credentials, team.teamId);
-          logoUrl = logoUrl || teamDetails.logoUrl;
-          arenaId = arenaId || teamDetails.arenaId;
+          // Prefer freshly fetched assets over existing DB values when available
+          logoUrl = teamDetails.logoUrl ?? logoUrl;
+          arenaId = teamDetails.arenaId ?? arenaId;
 
           if (arenaId) {
             const arena = await fetchArenaDetailsFromChpp(consumerKey, consumerSecret, credentials, arenaId);
-            arenaImageUrl = arenaImageUrl || arena.arenaImageUrl;
+            // prefer the fetched arena image (which may be higher-res) over stored value
+            arenaImageUrl = arena.arenaImageUrl ?? arena.arenaFallbackImageUrl ?? arenaImageUrl;
           }
 
           if ((!dbEntry?.logo_url && logoUrl) || (!dbEntry?.arena_image_url && arenaImageUrl) || (!dbEntry?.arena_id && arenaId)) {

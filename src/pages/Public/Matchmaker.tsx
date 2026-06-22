@@ -375,19 +375,30 @@ export const Matchmaker: React.FC = () => {
   }, [myTeams, selectingTeamPurpose, selectedChallengeRequest]);
 
   const postingTeamGroupsForModal = useMemo(() => {
+    const openRequestTeamIds = new Set(
+      myRequests
+        .filter((request) => request.status === 'open' && request.team?.ht_team_id)
+        .map((request) => request.team!.ht_team_id),
+    );
+
     const available = myTeams
       .filter((t) => (t.availabilityStatus ?? 'unknown') === 'available')
       .sort((a, b) => a.teamName.localeCompare(b.teamName));
 
-    const longTerm = myTeams
-      .filter((t) => (t.availabilityStatus ?? 'unknown') !== 'available')
+    const longTermWithoutAd = myTeams
+      .filter((t) => (t.availabilityStatus ?? 'unknown') !== 'available' && !openRequestTeamIds.has(t.teamId))
       .sort((a, b) => a.teamName.localeCompare(b.teamName));
 
-    const groups: { status: 'available' | 'long-term-only'; teams: ChppTeamOption[] }[] = [];
+    const existingAds = myTeams
+      .filter((t) => (t.availabilityStatus ?? 'unknown') !== 'available' && openRequestTeamIds.has(t.teamId))
+      .sort((a, b) => a.teamName.localeCompare(b.teamName));
+
+    const groups: { status: 'available' | 'long-term-only' | 'existing-ad-update'; teams: ChppTeamOption[] }[] = [];
     if (available.length) groups.push({ status: 'available', teams: available });
-    if (longTerm.length) groups.push({ status: 'long-term-only', teams: longTerm });
+    if (longTermWithoutAd.length) groups.push({ status: 'long-term-only', teams: longTermWithoutAd });
+    if (existingAds.length) groups.push({ status: 'existing-ad-update', teams: existingAds });
     return groups;
-  }, [myTeams]);
+  }, [myTeams, myRequests]);
 
   const scoredRequests = useMemo(() => {
     const byCreatedAtDesc = (a: MatchmakerRequest, b: MatchmakerRequest) =>
@@ -1417,7 +1428,13 @@ export const Matchmaker: React.FC = () => {
                 {postingTeamGroupsForModal.map((group) => (
                   <optgroup
                     key={group.status}
-                    label={group.status === 'available' ? 'Available Now' : 'Long-term ads only'}
+                    label={
+                      group.status === 'available'
+                        ? 'Available Now'
+                        : group.status === 'long-term-only'
+                          ? 'Long-term'
+                          : 'Existing ads (update)'
+                    }
                   >
                     {group.teams.map((team) => {
                       const selectable = team.availabilityStatus === 'available';

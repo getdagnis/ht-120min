@@ -201,9 +201,24 @@ export async function fetchArenaDetailsFromChpp(
   }
 
   const parsed = parseArenaDetailsXml(xml);
+  // Attempt to provide a higher-resolution arena image when possible.
+  const chooseBestArenaImage = (url?: string | undefined, fallback?: string | undefined) => {
+    const candidate = url || fallback || undefined;
+    if (!candidate) return undefined;
+
+    try {
+      // Some Hattrick image URLs include a size token like `custom-220-100.jpg`.
+      // Replace any `custom-<width>-<whatever>` token with `custom-620-0` to request a higher-res variant.
+      const hiRes = candidate.replace(/custom-\d+-\d+/i, 'custom-620-0');
+      return hiRes;
+    } catch (e) {
+      return candidate;
+    }
+  };
+
   return {
     ...parsed,
-    arenaImageUrl: parsed.arenaImageUrl || parsed.arenaFallbackImageUrl,
+    arenaImageUrl: chooseBestArenaImage(parsed.arenaImageUrl, parsed.arenaFallbackImageUrl),
   };
 }
 
@@ -218,7 +233,7 @@ export async function fetchManagerTeamsFromChpp(
   if (managerId) {
     params.userID = String(managerId);
   }
-  
+
   const authHeader = getAuthHeader(
     'GET',
     url,

@@ -131,6 +131,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       ht_team_name: selectedTeam.teamName,
       hattrick_user_id: parsedManagerId,
       manager_name: credentials.manager_name,
+      logo_url: extraDetails?.logoUrl ?? (selectedTeam as any).logoUrl ?? null,
       country_id: extraDetails?.countryId ?? null,
       country_name: extraDetails?.countryName ?? selectedTeam.countryName ?? null,
       league_id: selectedTeam.leagueId ?? null,
