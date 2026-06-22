@@ -87,12 +87,16 @@ export const TinderWidget: React.FC<MatchmakerTeaserProps> = ({ className = '' }
 
   return (
     <div className={`${styles.wrapper} ${className}`}>
+      <div className={styles.sectionHeader}>
+        <HeartBreak size={24} weight="regular" className={styles.sectionIcon} />
+        <h2>120 min Tinder</h2>
+      </div>
+
       <Card className={styles.teaserCard}>
         <div className={styles.cardTop}>
           <img src={`/tinder3.svg`} width={32} height={32} alt="" className={styles.tinderImage} />
           <h2>HT-120min Tinder</h2>
         </div>
-
         <div className={styles.pulse}>
           <div className={styles.pulseDot}></div>
           <span>
@@ -103,7 +107,7 @@ export const TinderWidget: React.FC<MatchmakerTeaserProps> = ({ className = '' }
         <p className={styles.description}>Find your next 120 minute training partner the modern way.</p>
 
         <Button variant="primary" fullWidth onClick={() => navigate('/tinder')} className={styles.cta}>
-          Find Your Match <ArrowRight size={18} weight="bold" />
+          Find My Match <ArrowRight size={18} weight="bold" />
         </Button>
 
         {recentRequests.length > 0 && (

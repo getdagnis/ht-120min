@@ -285,7 +285,7 @@ export const Home: React.FC = () => {
               <section className={styles.activeSection}>
                 <div className={styles.sectionHeader}>
                   <Heartbeat size={24} weight="regular" className={styles.sectionIcon} />
-                  <h2>Tournaments Having a Blast</h2>
+                  <h2>Ongoing Tournaments</h2>
                 </div>
                 <div className={styles.tournamentGrid}>
                   {activeTournaments.map((t) => (
