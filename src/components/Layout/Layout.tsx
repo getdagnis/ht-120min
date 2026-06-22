@@ -266,7 +266,7 @@ export const Layout: React.FC<LayoutProps> = ({ children }) => {
             <b />
           </p>
           <a href="https://stage.hattrick.org/MyHattrick/Inbox/?actionType=newMail&userId=8777402" target="_blank">
-            Send me a HT love poem!
+            Enough dancing in the streets, send me a HT love poem!
           </a>{' '}
           💌
           <p className={styles.affiliated}>Not affiliated with Hattrick Ltd.</p>

@@ -39,7 +39,10 @@ const normalizeJoinedTeam = (team?: JoinedTeamRow | null): MatchmakerRequest['te
 
   return {
     ...rest,
+    // keep the normalized availability status for UI logic
     availabilityStatus: team.availabilityStatus ?? availability_status ?? 'unknown',
+    // preserve the raw DB/CHPP value so we can detect explicit nulls (CHPP returned no value)
+    availabilityStatusRaw: availability_status === undefined ? undefined : availability_status,
     availabilityReason: team.availabilityReason ?? availability_reason ?? undefined,
   };
 };
@@ -47,6 +50,7 @@ const normalizeJoinedTeam = (team?: JoinedTeamRow | null): MatchmakerRequest['te
 const normalizeMatchmakerRequest = (request: JoinedRequestRow): MatchmakerRequest => ({
   ...request,
   team: normalizeJoinedTeam(request.team),
+  matched_team: request.matched_team || undefined,
   profile: request.profile || undefined,
 });
 
@@ -1076,13 +1080,15 @@ export const Matchmaker: React.FC = () => {
                           className={`${styles.stateBadge} ${styles[req.team?.availabilityStatus || 'unknown']}`}
                           title={req.team?.availabilityReason || 'Availability from CHPP team details.'}
                         >
-                          {req.team?.availabilityStatus === 'available'
-                            ? 'Available'
-                            : req.team?.availabilityStatus === 'booked'
-                              ? 'Booked'
-                              : req.team?.availabilityStatus === 'unavailable'
-                                ? 'Unavailable'
-                                : 'Unknown'}
+                          {req.team?.availabilityStatus === null
+                            ? 'Broken'
+                            : req.team?.availabilityStatus === 'available'
+                              ? 'Available'
+                              : req.team?.availabilityStatus === 'booked'
+                                ? 'Booked'
+                                : req.team?.availabilityStatus === 'unavailable'
+                                  ? 'Unavailable'
+                                  : 'Unknown'}
                         </span>
                         {req.is_mock && <span className={styles.mockBadge}>Mock</span>}
                       </div>
@@ -1369,8 +1375,8 @@ export const Matchmaker: React.FC = () => {
           ) : (
             <div className={styles.emptyState}>
               <p>You haven't posted any teams this week.</p>
-              <Button variant="primary" onClick={handleStartPosting}>
-                Post Your First Team
+              <Button size="md" variant="tinder" onClick={handleStartPosting}>
+                Post an Ad
               </Button>
             </div>
           )}

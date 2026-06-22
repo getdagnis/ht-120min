@@ -53,6 +53,7 @@ export interface MatchmakerRequest {
     arena_image_url: string | null;
     availabilityStatus?: 'available' | 'booked' | 'unavailable' | 'unknown';
     availabilityReason?: string;
+    availabilityStatusRaw?: string | null;
   };
   profile?: {
     manager_name: string;
