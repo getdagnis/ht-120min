@@ -54,48 +54,11 @@ const normalizeMatchmakerRequest = (request: JoinedRequestRow): MatchmakerReques
   profile: request.profile || undefined,
 });
 
-const availabilityPriority: Record<NonNullable<MatchmakerTeamOption['availabilityStatus']>, number> = {
-  available: 0,
-  booked: 1,
-  unavailable: 2,
-  unknown: 3,
-};
-
-const getAvailabilityGroupLabel = (status: NonNullable<MatchmakerTeamOption['availabilityStatus']>) => {
-  if (status === 'available') return 'Available Now';
-  if (status === 'booked') return 'Booked';
-  if (status === 'unknown') return 'Unknown';
-  return 'Unavailable';
-};
-
 const getAvailabilityStatusLabel = (team: MatchmakerTeamOption) => {
   if (team.availabilityStatus === 'available') return 'Available now';
   if (team.availabilityStatus === 'booked') return 'Booked';
   if (team.availabilityStatus === 'unknown') return 'Unknown';
   return 'Unavailable';
-};
-
-const groupTeamsByAvailability = (teams: ChppTeamOption[]) => {
-  const groups = [
-    { status: 'available' as const, teams: [] as ChppTeamOption[] },
-    { status: 'booked' as const, teams: [] as ChppTeamOption[] },
-    { status: 'unavailable' as const, teams: [] as ChppTeamOption[] },
-    { status: 'unknown' as const, teams: [] as ChppTeamOption[] },
-  ];
-
-  teams.forEach((team) => {
-    const status = team.availabilityStatus ?? 'unknown';
-    const group = groups.find((item) => item.status === status) ?? groups[3];
-    group.teams.push(team);
-  });
-
-  return groups
-    .map((group) => ({
-      ...group,
-      teams: group.teams.sort((a, b) => a.teamName.localeCompare(b.teamName)),
-    }))
-    .filter((group) => group.teams.length > 0)
-    .sort((a, b) => availabilityPriority[a.status] - availabilityPriority[b.status]);
 };
 
 const clampScore = (value: number) => Math.max(0, Math.min(100, value));
@@ -271,7 +234,7 @@ export const Matchmaker: React.FC = () => {
       totalRequests: mockRequests.length,
     };
   }, [mockTeams, mockRequests]);
-  const [activeTab, setActiveTab] = useState<'browse' | 'my-requests' | 'hfi'>('browse');
+  const [activeTab, setActiveTab] = useState<'browse' | 'my-requests' | 'hfi' | 'long-term'>('browse');
   const [requests, setRequests] = useState<MatchmakerRequest[]>([]);
   const isDev = import.meta.env.VITE_MATCHMAKER_DEV_MODE === 'true' || window.location.hostname === 'localhost';
   const [currentIndex, setCurrentIndex] = useState(0);
@@ -308,6 +271,7 @@ export const Matchmaker: React.FC = () => {
   const [message, setMessage] = useState('');
   const [isBackAndForth, setIsBackAndForth] = useState(false);
   const [isLongTerm, setIsLongTerm] = useState(false);
+  const [isLongTermLocked, setIsLongTermLocked] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [isSelectingTeam, setIsSelectingTeam] = useState(false);
   const [selectingTeamPurpose, setSelectingTeamPurpose] = useState<'challenge' | 'post'>('post');
@@ -349,12 +313,15 @@ export const Matchmaker: React.FC = () => {
 
   const filteredRequests = useMemo(() => {
     const isHfiView = activeTab === 'hfi';
+    const isLongTermView = activeTab === 'long-term';
 
     return displayRequests.filter((request) => {
       if (!mockDataEnabled) {
         if (myOwnHtTeamIds.has(request.team?.ht_team_id || 0)) return false;
         if (locallyHiddenRequestIds.has(request.id)) return false;
       }
+
+      if (isLongTermView) return !!request.is_long_term;
 
       const teamGender = request.team?.gender_id ?? 1;
       return isHfiView ? teamGender === 0 : true;
@@ -377,6 +344,24 @@ export const Matchmaker: React.FC = () => {
     [myTeams, selectedHtTeamId],
   );
 
+  const handleSelectTeamChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
+    const id = Number(e.target.value);
+    setSelectedHtTeamId(id);
+    const team = myTeams.find((t) => t.teamId === id);
+    if (team) {
+      const isAvail = (team.availabilityStatus ?? 'unknown') === 'available';
+      if (!isAvail) {
+        setIsLongTerm(true);
+        setIsLongTermLocked(true);
+      } else {
+        setIsLongTerm(false);
+        setIsLongTermLocked(false);
+      }
+    } else {
+      setIsLongTermLocked(false);
+    }
+  };
+
   const getDisplayCountryName = (requestTeam?: MatchmakerRequest['team'] | null) => {
     if (!requestTeam) return undefined;
     return getLeagueNameById(requestTeam.country_id ?? requestTeam.league_id) || requestTeam.country_name || undefined;
@@ -389,7 +374,20 @@ export const Matchmaker: React.FC = () => {
     return myTeams.filter((team) => team.genderId === targetGenderId);
   }, [myTeams, selectingTeamPurpose, selectedChallengeRequest]);
 
-  const postingTeamGroups = useMemo(() => groupTeamsByAvailability(myTeams), [myTeams]);
+  const postingTeamGroupsForModal = useMemo(() => {
+    const available = myTeams
+      .filter((t) => (t.availabilityStatus ?? 'unknown') === 'available')
+      .sort((a, b) => a.teamName.localeCompare(b.teamName));
+
+    const longTerm = myTeams
+      .filter((t) => (t.availabilityStatus ?? 'unknown') !== 'available')
+      .sort((a, b) => a.teamName.localeCompare(b.teamName));
+
+    const groups: { status: 'available' | 'long-term-only'; teams: ChppTeamOption[] }[] = [];
+    if (available.length) groups.push({ status: 'available', teams: available });
+    if (longTerm.length) groups.push({ status: 'long-term-only', teams: longTerm });
+    return groups;
+  }, [myTeams]);
 
   const scoredRequests = useMemo(() => {
     const byCreatedAtDesc = (a: MatchmakerRequest, b: MatchmakerRequest) =>
@@ -855,7 +853,8 @@ export const Matchmaker: React.FC = () => {
     return () => window.clearTimeout(timer);
   }, [mockDataEnabled, mockRequests, mockTeams, mockStats]);
 
-  const canPublish = !teamsLoading && !!selectedTeam && selectedTeam.availabilityStatus === 'available' && !isSaving;
+  const canPublish =
+    !teamsLoading && !!selectedTeam && (selectedTeam.availabilityStatus === 'available' || isLongTerm) && !isSaving;
 
   const mockBrowseEndMessage =
     mockBrowseScope === 'available'
@@ -944,6 +943,15 @@ export const Matchmaker: React.FC = () => {
             Female Only Zone
           </button>
           <button
+            className={activeTab === 'long-term' ? styles.active : ''}
+            onClick={() => {
+              setActiveTab('long-term');
+              setCurrentIndex(0);
+            }}
+          >
+            Long-Term
+          </button>
+          <button
             className={activeTab === 'my-requests' ? styles.active : ''}
             onClick={() => {
               setActiveTab('my-requests');
@@ -955,7 +963,7 @@ export const Matchmaker: React.FC = () => {
         </div>
       </header>
 
-      {activeTab === 'browse' || activeTab === 'hfi' ? (
+      {activeTab === 'browse' || activeTab === 'hfi' || activeTab === 'long-term' ? (
         <div className={styles.browserContainer}>
           {loading ? (
             <div className={styles.loadingState}>
@@ -1404,20 +1412,20 @@ export const Matchmaker: React.FC = () => {
                 <p>Let's check on your teams first...</p>
               </div>
             ) : myTeams.length > 0 ? (
-              <select
-                value={selectedHtTeamId}
-                onChange={(e) => setSelectedHtTeamId(Number(e.target.value))}
-                className={styles.teamDropdown}
-              >
+              <select value={selectedHtTeamId} onChange={handleSelectTeamChange} className={styles.teamDropdown}>
                 <option value={0}>Select a team</option>
-                {postingTeamGroups.map((group) => (
-                  <optgroup key={group.status} label={getAvailabilityGroupLabel(group.status)}>
+                {postingTeamGroupsForModal.map((group) => (
+                  <optgroup
+                    key={group.status}
+                    label={group.status === 'available' ? 'Available Now' : 'Long-term ads only'}
+                  >
                     {group.teams.map((team) => {
                       const selectable = team.availabilityStatus === 'available';
                       const labelParts = [getDisplayTeamName(team.teamName, team.genderId)];
                       if (team.is_mock) {
                         labelParts.push('(Mock)');
                       }
+                      // Show availability label for non-available teams
                       if (!selectable) {
                         labelParts.push(`- ${getAvailabilityStatusLabel(team)}`);
                       }
@@ -1426,7 +1434,7 @@ export const Matchmaker: React.FC = () => {
                       }
 
                       return (
-                        <option key={team.teamId} value={team.teamId} disabled={!selectable}>
+                        <option key={team.teamId} value={team.teamId}>
                           {labelParts.filter(Boolean).join(' ')}
                         </option>
                       );
@@ -1517,7 +1525,12 @@ export const Matchmaker: React.FC = () => {
               <span>🔄 Ok for back-and-forth</span>
             </label>
             <label className={styles.checkboxLabel}>
-              <input type="checkbox" checked={isLongTerm} onChange={(e) => setIsLongTerm(e.target.checked)} />
+              <input
+                type="checkbox"
+                checked={isLongTerm}
+                onChange={(e) => setIsLongTerm(e.target.checked)}
+                disabled={isLongTermLocked}
+              />
               <span>🗓 Looking for long term partner</span>
             </label>
           </div>

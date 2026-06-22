@@ -67,6 +67,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     let isMockTeam = false;
     let extraDetails = null;
     let arenaDetails = null;
+    let bookingStatus: any = null;
 
     // Developer Test Mode
     if (process.env.NODE_ENV === 'development') {
@@ -98,8 +99,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     }
 
     if (!isMockTeam) {
-      const bookingStatus = await fetchTeamBookingStatus(consumerKey, consumerSecret, credentials, parsedTeamId);
-      if (bookingStatus.isBooked) {
+      bookingStatus = await fetchTeamBookingStatus(consumerKey, consumerSecret, credentials, parsedTeamId);
+      // Allow creating long-term ads even if a booked friendly exists — long-term expresses future interest only
+      if (bookingStatus.isBooked && !isLongTerm) {
         return res.status(409).json({
           error: 'This team already has a booked friendly. Please choose a different team.',
         });
@@ -262,7 +264,6 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         chpp_synced_at: new Date().toISOString(),
       })
       .eq('hattrick_user_id', parsedManagerId);
-
 
     return res.status(200).json({
       request,
