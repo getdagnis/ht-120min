@@ -1,4 +1,4 @@
-import { getLeagueNameById } from '../../src/utils/leagues';
+import { getLeagueNameById } from './leagues.js';
 
 export interface ChppTeamOption {
   teamId: number;
