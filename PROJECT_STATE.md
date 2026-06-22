@@ -1,59 +1,76 @@
-# Project State
+# PROJECT STATE
 
-## Matchmaker
+## Core Goal
 
-Current focus:
+Make it easy for Hattrick managers to find and organize 120-minute friendlies.
 
-- Availability now comes from CHPP teamdetails.
-- Matchmaker cards no longer show the compatibility percentage.
-- HFI team names use a shared display helper.
-- Local mock Matchmaker data can be enabled for deterministic testing.
+---
 
-## Roadmap Only
+## Completed
 
-## Availability-first Matchmaker
+### Platform
 
-Hide unavailable/booked listings by default.
-Reveal them only after open listings are exhausted.
+- OAuth login
+- Team synchronization
+- Multi-team support
+- Tournament creation
+- Tournament joining
+- Automated standings
+- Live match tracking
+- Team logos and country data
 
-Reason:
-Managers primarily care about currently challengeable teams.
+### Matchmaker
 
-Priority:
-High
+- Ad publishing
+- Ad browsing
+- HFI support
+- Team availability checks
+- Mock data testing mode
+- Ad freshness indicators
 
-## Recurring Partner Series
+---
 
-Allow two teams to create recurring fixture relationships.
+## Current Focus
 
-Features:
+### Matchmaker Trust
 
-- weekly fixtures
-- score history
-- record keeping
-- head-to-head statistics
-- future automatic booking integration
+- [ ] Correct challengeability detection
+- [ ] Available now vs available later
+- [ ] Fix HFI filtering/data issues
+- [ ] Temporary challenge-link workflow
+- [ ] Remove false-positive available teams
 
-Reason:
-Many managers currently use long-term partners because organization is easier.
+### No Dead Ends
 
-Priority:
-Medium
+- [ ] Express interest
+- [ ] Ad comments/discussion
+- [ ] Future availability planning
 
-## Automatic Friendly League Generator
+---
 
-Long-term vision.
+## Next Features
 
-Allow users to join recurring pools.
+### Recurring Partners
 
-System automatically:
+- [ ] Long-term partner relationships
+- [ ] Match history
+- [ ] Head-to-head records
 
-- finds opponents
-- creates schedules
-- tracks standings
-- handles dropouts
+### Tournament Recruitment
 
-This eventually replaces many one-to-one arrangements.
+- [ ] Matchmaker -> tournament funnel
+- [ ] Tournament discovery improvements
 
-Priority:
-Long-term
+### Automation
+
+- [ ] Direct friendly challenge creation
+- [ ] Automated scheduling
+- [ ] AI round summaries
+
+---
+
+## Future
+
+- [ ] Recurring friendly pools
+- [ ] Automatic league generation
+- [ ] Full scheduling automation

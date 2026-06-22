@@ -1,62 +1,223 @@
-# ROADMAP: HT-120min Evolution
+# ROADMAP: HT-120min
 
-This document tracks our transition from a manual tournament tracker to a fully integrated Hattrick CHPP platform.
+## Core Thesis
 
-## Phase 1: Identity & OAuth (Status: COMPLETED ✅)
+HT-120min exists to make 120-minute football coordination trivial.
 
-**Goal:** Establish secure connection to Hattrick API.
+A manager should immediately understand:
 
-- [x] **HMAC-SHA1 Utility:** Standardized signing for Hattrick.
-- [x] **Handshake flow:** Request Token -> Authorize -> Access Token.
-- [x] **Supabase Sync:** Persist tokens and basic manager identity.
-- [x] **"Connect" UI:** Entry point for managers.
+- who can play
+- who might be available soon
+- what to do next
 
-## Phase 2: Automated Participation (Current Focus 🎯)
+If no match exists, the system must still provide a meaningful next action.
 
-**Goal:** One-click verified tournament entry.
+---
 
-- [x] **Multi-team Support:** Allow managers to choose which team joins a specific tournament.
-- [x] **Metadata Fetching:** Store logo URLs, country IDs, and league names.
-- [x] **CHPP Join Flow:** Replace manual HT ID entry with a "Select your team" picker.
+## Product Strategy
 
-## Phase 3: Automated Result Sync
+### 1. Tournaments = Core System
 
-**Goal:** Zero-effort standings updates and live match tracking.
+The product is tournaments, not listings.
 
-- [x] **Match Details Polling:** Periodically check for completed matches.
-- [x] **Live Match Tracking:** Live score polling, status transitions, and ongoing match UI.
-- [x] **Auto-Standings:** Detect 120min achievements, total minutes, and goals automatically.
-- [ ] **Sync Action:** Provide a "Sync results from Hattrick" button for tournament admins.
+Everything converges here:
 
-## Phase 4: Identity & Social
+- structured competition
+- recurring participation
+- statistics + history
+- organizer control
+- long-term engagement
 
-**Goal:** Make the platform feel like a real part of the Hattrick ecosystem.
+This is where value and monetization naturally emerge.
 
-- [x] **Visual Identity:** Real team logos and country flags in tables.
-- [ ] **Manager Profiles:** Achievements and history across multiple tournaments.
-- [ ] **Tournament Feed:** "Live" activity stream of joins and results.
-- [ ] **Realtime Chat:** Simple per-tournament chat rooms. Partly done (functionality implemented, UI needs improvements).
-- [ ] **Live Chat Room Match action:** While matches are ongoing, chatroom gets live key event announcements (goals, injuries, cards, half-time summary).
-- [ ] **Weekly Tournament Updates/Stats** Key players, most interesting match events in a separate weekly updated standings page widget.
-- [ ] **Team/Tournament Announcements:** A separate tab in TournamentView that allows users to share/read "offical" team and tournament updates. Same as chat functionality implemented, currently hidden from UI waiting for UI/UX finalization.
-- [ ] **Tournament Join Questionnaire (Priority: Medium):** Segment users during joining flow by gender, training duration (90/120min), and desired activity level (active/social vs. inactive/training-only) to improve tournament quality.
+---
 
-## Phase 5: Advanced Automation
+### 2. Matchmaker = Entry Layer
 
-**Goal:** High-level management.
+Matchmaker is not the product. It is the funnel into activity.
 
-- [ ] **Automated Challenges:** Send friendly challenges directly via the app. _IMPORTANT!_
-- [ ] **AI Journalist:** Generate short summaries of round highlights and dramatic 120m matches.
+Its job:
 
-## Phase 6: PRO Tournaments (Priority: High)
+- reduce friction to first contact
+- convert intent into participation
+- surface active and near-future matches
+- never leave users at a dead end
 
-**Long Term Goal:** Monetization and premium features for dedicated organizers and users. Unlimited social/statistics/planning features for Pro tournaments, can select one or two features for regular tournaments.
+---
 
-- [ ] **PRO Status System:** Paid subscription integration.
-- [ ] **Premium Features:** Custom images, advanced polls, Hall of Fame, enhanced statistics, and dedicated tournament chat rooms.
+### 3. Social Layer = Retention Engine
 
-## Core Technical Mandates
+If no immediate match exists, the system must still be useful.
 
-- **Security:** Tokens and secrets stay strictly on the server-side (`/api`).
-- **Performance:** Centralized XML parsing to minimize duplicate Hattrick requests.
-- **Tone:** Preserve the humorous, community-first, unofficial aesthetic.
+Core mechanisms:
+
+- interest signals
+- lightweight interaction between managers
+- visibility into future availability
+- recurring partner formation
+
+Not discussion for its own sake — only as a path to matches.
+
+---
+
+## Core Product Requirements
+
+### Match Availability Must Be Trustworthy
+
+- clear separation: available now / available later
+- no false-positive “available” teams
+- stale ads visibly degraded
+- challengeability must be predictable
+
+If this fails, the system loses credibility.
+
+---
+
+### No Dead Ends
+
+Every interaction must lead to one of:
+
+- match now
+- match later
+- express interest
+- join recurring structure
+- enter tournament flow
+
+Browsing alone is not sufficient.
+
+---
+
+### Reduce Coordination Cost
+
+Every feature must reduce:
+
+- messaging overhead
+- manual scheduling
+- uncertainty
+- repeated negotiation
+
+If it adds steps, it must remove more elsewhere.
+
+---
+
+## Product Pillars
+
+### 1. Matchmaker
+
+Purpose: initiate contact between managers
+
+Core features:
+
+- ads
+- browsing
+- filtering by availability
+- team linking
+- HFI separation
+- basic compatibility signals
+
+Next evolution:
+
+- reliable availability model
+- interest + intent signals
+- lightweight “save / follow” interactions
+- bridge into tournaments and recurring play
+
+---
+
+### 2. Tournaments (CORE)
+
+Purpose: structured competition system
+
+Core features:
+
+- tournament creation
+- joining flows
+- standings
+- live match tracking
+- results sync
+
+Next evolution:
+
+- recruitment via Matchmaker
+- discovery + onboarding funnels
+- richer competition formats
+- automated participation cycles
+
+---
+
+### 3. Social / Identity Layer
+
+Purpose: continuity between tournaments
+
+Core features:
+
+- manager identity
+- team history
+- participation history
+- cross-tournament reputation signals
+
+Scope constraint: keep minimal — only what supports competition.
+
+---
+
+## Development Phases
+
+### Phase 1: Trust Foundation (Current)
+
+Goal: Matchmaker is reliable enough for public recommendation
+
+- correct challengeability detection
+- separate availability states
+- fix HFI and data inconsistencies
+- remove misleading listings
+- introduce “what next” action for every ad
+
+---
+
+### Phase 2: Conversion Layer
+
+- express interest system
+- ad-level interaction (comments / signals)
+- temporary challenge links (fallback flow)
+- lightweight matchmaking actions
+
+---
+
+### Phase 3: Tournament Expansion
+
+Goal: shift core usage from browsing → structured play
+
+- tournament recruitment flows
+- tournament discovery improvements
+- recurring partner structures
+- match history + head-to-head tracking
+
+---
+
+### Phase 4: Automation Layer
+
+- direct friendly challenge creation
+- scheduling assistance
+- automated tournament workflows
+- AI-generated round summaries
+
+---
+
+## Long-Term Direction
+
+- recurring competition pools
+- semi-automated leagues
+- fully structured seasonal cycles
+- minimal manual coordination required
+
+---
+
+## Hard Constraint
+
+If a manager visits the platform, they must always leave with one of:
+
+- a match opportunity
+- a future match opportunity
+- a structured competition path
+
+Anything else is noise.
