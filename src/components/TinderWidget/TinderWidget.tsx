@@ -87,7 +87,9 @@ export const TinderWidget: React.FC<MatchmakerTeaserProps> = ({ className = '' }
     <div className={`${styles.wrapper} ${className}`}>
       <div className={styles.sectionHeader}>
         <HeartBreak size={24} weight="regular" className={styles.sectionIcon} />
-        <h2>120 min Tinder</h2>
+        <h1>
+          <span>HT-120min Tinder</span>
+        </h1>
       </div>
 
       <Card className={styles.teaserCard}>
