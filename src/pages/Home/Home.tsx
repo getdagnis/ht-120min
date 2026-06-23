@@ -11,6 +11,7 @@ import { TinderWidget } from '../../components/TinderWidget/TinderWidget';
 import { SupportersWall } from '../../components/SupportersWall/SupportersWall';
 import { Link as ScrollTo, Element } from 'react-scroll';
 import { calculateMatchDate } from '../../utils/ht-data';
+import { sortOpenTournaments } from '../../utils/open-tournaments';
 import { Trophy, CalendarBlank, Heartbeat, CaretLeft, ArrowRight, Star, Clock } from 'phosphor-react';
 import { TeamsIcon } from '../../components/Icons/TeamsIcon';
 import styles from './Home.module.sass';
@@ -217,15 +218,8 @@ export const Home: React.FC = () => {
           }),
         );
 
-        // Sort by validated count first, then team count
-        setOpenTournaments(
-          open.sort((a, b) => {
-            if (b.validatedTeamCount !== a.validatedTeamCount) {
-              return b.validatedTeamCount - a.validatedTeamCount;
-            }
-            return (b.teamCount ?? 0) - (a.teamCount ?? 0);
-          }),
-        );
+        // Sort by fill % when capped, otherwise by registered team count
+        setOpenTournaments(sortOpenTournaments(open));
 
         const topTeamsList = Object.entries(team120Stats)
           .map(([id, data]) => ({ ht_team_id: parseInt(id), name: data.name, achievements120min: data.count }))

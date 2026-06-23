@@ -1,0 +1,42 @@
+[
+  {
+    "id": "name",
+    "title": "Tournament Name",
+    "body": "Pick a name participants will recognize. Use the regenerate button for a random suggestion if you are stuck."
+  },
+  {
+    "id": "slug",
+    "title": "URL Slug",
+    "body": "Creates the direct link to your tournament (ht-120min.com/t/your-slug). Generated automatically from the name, but you can adjust it."
+  },
+  {
+    "id": "gender",
+    "title": "Tournament Gender",
+    "body": "Regular league for male teams, or Hattrick Femme International (HFI) for female teams. Only eligible teams can join."
+  },
+  {
+    "id": "registration_type",
+    "title": "Registration Type",
+    "body": "Hattrick Validated: managers join and register their own teams automatically. Organizer-Managed: you add participants yourself — useful for tournaments organized via the Hattrick forum."
+  },
+  {
+    "id": "scoring_mode",
+    "title": "Scoring Mode",
+    "body": "120 minute achievements are unique to HT-120min — standings rank teams by how many 120-minute games they have achieved. Regular 90-minute mode uses standard 3/1/0 points."
+  },
+  {
+    "id": "private",
+    "title": "Private Tournament",
+    "body": "Marks the tournament as unlisted. It will not appear on the home page, but anyone with the link can still join."
+  },
+  {
+    "id": "league_restriction",
+    "title": "League Restriction",
+    "body": "Optional. Limit registration to teams from a specific country or league only."
+  },
+  {
+    "id": "description",
+    "title": "Description",
+    "body": "Optional blurb shown on the tournament page. Use the regenerate button for a random 120-minute themed description."
+  }
+]

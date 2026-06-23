@@ -16,47 +16,75 @@ import {
   Link,
   FolderOpen,
   Question,
+  CaretDown,
+  CaretUp,
 } from 'phosphor-react';
 import { DESCRIPTIONS, TOURNAMENT_NAMES, UNIVERSAL_TOURNAMENT_NAMES } from '../../constants/descriptions';
+import { CREATION_TIPS } from '../../constants/creation-tips';
 import { filterTeamsForCategory, validateTeamEligibility, type LeagueCategory } from '../../utils/team-eligibility';
+import { fetchOpenTournaments, formatOpenTournamentMeta, type OpenTournamentSummary } from '../../utils/open-tournaments';
 import styles from './CreateTournament.module.sass';
 import { HATTRICK_LEAGUES } from '../../utils/leagues';
 
-const SidebarContent = () => (
+const CreationTipsWidget = () => {
+  const [expandedTips, setExpandedTips] = useState<Set<string>>(() => new Set());
+
+  const toggleTip = (id: string) => {
+    setExpandedTips((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) {
+        next.delete(id);
+      } else {
+        next.add(id);
+      }
+      return next;
+    });
+  };
+
+  return (
+    <div className={styles.widget}>
+      <h3>
+        <Question size={20} weight="bold" /> Creation Tips
+      </h3>
+      {CREATION_TIPS.map((tip) => {
+        const isExpanded = expandedTips.has(tip.id);
+
+        return (
+          <div key={tip.id} className={styles.faqItem}>
+            <button
+              type="button"
+              className={styles.faqToggle}
+              onClick={() => toggleTip(tip.id)}
+              aria-expanded={isExpanded}
+            >
+              <strong>{tip.title}</strong>
+              {isExpanded ? <CaretUp size={16} weight="bold" /> : <CaretDown size={16} weight="bold" />}
+            </button>
+            {isExpanded && <p>{tip.body}</p>}
+          </div>
+        );
+      })}
+    </div>
+  );
+};
+
+const SidebarContent = ({ openTournaments }: { openTournaments: OpenTournamentSummary[] }) => (
   <aside className={styles.sidebar}>
     <div className={styles.widget}>
       <h3>
         <FolderOpen size={20} weight="bold" /> Open Tournaments
       </h3>
       <ul className={styles.widgetList}>
-        <li className={styles.widgetItem}>
-          <strong>Guam HFI Season 4</strong>
-          <span>14/16 teams · Starting in 2 days</span>
-        </li>
-        <li className={styles.widgetItem}>
-          <strong>120min World Cup</strong>
-          <span>28/32 teams · Starting next week</span>
-        </li>
-        <li className={styles.widgetItem}>
-          <strong>Latvian Friendly League</strong>
-          <span>6/8 teams · Open registration</span>
-        </li>
+        {openTournaments.map((tournament) => (
+          <li key={tournament.id} className={styles.widgetItem}>
+            <strong>{tournament.name}</strong>
+            <span>{formatOpenTournamentMeta(tournament)}</span>
+          </li>
+        ))}
       </ul>
     </div>
 
-    <div className={styles.widget}>
-      <h3>
-        <Question size={20} weight="bold" /> Creation Tips
-      </h3>
-      <div className={styles.faqItem}>
-        <strong>Registration Types</strong>
-        <p>Validated: Managers join themselves. Manual: You add everyone yourself.</p>
-      </div>
-      <div className={styles.faqItem}>
-        <strong>Team Eligibility</strong>
-        <p>Ensure teams match the tournament category (Male or HFI) before adding.</p>
-      </div>
-    </div>
+    <CreationTipsWidget />
   </aside>
 );
 
@@ -83,6 +111,7 @@ const getRandomName = (mode: string) => {
 export const CreateTournament: React.FC = () => {
   const navigate = useNavigate();
   const [loading, setLoading] = useState(false);
+  const [openTournaments, setOpenTournaments] = useState<OpenTournamentSummary[]>([]);
   const [step, setStep] = useState<'info' | 'teams'>(() => {
     const params = new URLSearchParams(window.location.search);
     return params.get('step') === 'teams' ? 'teams' : 'info';
@@ -198,6 +227,25 @@ export const CreateTournament: React.FC = () => {
     const error = params.get('error');
     if (error) alert(decodeURIComponent(error));
   }, [fetchPendingSession]);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    void (async () => {
+      try {
+        const tournaments = await fetchOpenTournaments();
+        if (!cancelled) {
+          setOpenTournaments(tournaments);
+        }
+      } catch (err) {
+        console.error('Error fetching open tournaments:', err);
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   const clearPendingJoin = async (selectionToken: string) => {
     await supabase.from('oauth_temp_sessions').delete().eq('selection_token', selectionToken);
@@ -694,7 +742,7 @@ export const CreateTournament: React.FC = () => {
             </HeroCard>
           </div>
         </div>
-        <SidebarContent />
+        <SidebarContent openTournaments={openTournaments} />
       </div>
     );
   }
@@ -776,7 +824,7 @@ export const CreateTournament: React.FC = () => {
             </Modal>
           </div>
         </div>
-        <SidebarContent />
+        <SidebarContent openTournaments={openTournaments} />
       </div>
     );
   }
@@ -932,7 +980,7 @@ export const CreateTournament: React.FC = () => {
           </HeroCard>
         </div>
       </div>
-      <SidebarContent />
+      <SidebarContent openTournaments={openTournaments} />
     </div>
   );
 };

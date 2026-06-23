@@ -28,6 +28,7 @@
   display: flex
   flex-direction: column
   gap: 2rem
+  margin-top: 3rem
 
 .widget
   background: var(--bg-transp2)
@@ -58,34 +59,55 @@
   gap: 0.25rem
   padding-bottom: 0.75rem
   border-bottom: 1px solid var(--border)
-  
+
   &:last-child
     border-bottom: none
     padding-bottom: 0
 
   strong
     color: var(--text-h)
-  
+
   span
     font-size: 0.85rem
     opacity: 0.8
 
 .faqItem
-  margin-bottom: 1rem
-  
+  margin-bottom: 0.75rem
+
   &:last-child
     margin-bottom: 0
 
+.faqToggle
+  width: 100%
+  display: flex
+  align-items: center
+  justify-content: space-between
+  gap: 0.75rem
+  padding: 0
+  margin: 0
+  border: none
+  background: transparent
+  color: inherit
+  text-align: left
+  cursor: pointer
+
   strong
-    display: block
-    margin-bottom: 0.25rem
     font-size: 0.95rem
-  
-  p
-    font-size: 0.85rem
-    line-height: 1.4
-    margin: 0
-    opacity: 0.8
+    color: var(--text-h)
+    font-weight: 700
+
+  svg
+    flex-shrink: 0
+    opacity: 0.75
+
+  &:hover strong
+    color: var(--accent)
+
+.faqItem p
+  font-size: 0.85rem
+  line-height: 1.4
+  margin: 0.5rem 0 0
+  opacity: 0.8
 
 .headerRow
   position: absolute
@@ -103,7 +125,7 @@
   align-items: center
   justify-content: center
   transition: opacity 0.2s
-  
+
   &:hover
     opacity: 0.7
 
@@ -464,10 +486,10 @@
 @media (max-width: 620px)
   .wrapper
     padding: 0
-  
+
   .container
     padding: 0
-  
+
   .creatorWelcome
     padding: 1rem
     border-radius: 0
