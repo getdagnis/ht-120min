@@ -155,6 +155,9 @@
   justify-content: center
   width: 100%
 
+  @media (max-width: 620px)
+    gap: 0.5rem
+
   button
     background: transparent
     border: none
@@ -168,6 +171,10 @@
     text-transform: uppercase
     letter-spacing: 0.05em
     font-family: var(--mono)
+
+    @media (max-width: 620px)
+      font-size: 0.85rem
+      padding: 0.75rem 0
 
     &:hover
       color: var(--text-h)
@@ -303,8 +310,8 @@
   margin-bottom: 1rem
 
 .teamLogo
-  width: 4.5rem
-  height: 4.5rem
+  height: 5rem
+  width: auto
   object-fit: contain
   border-radius: var(--radius-sm)
 
@@ -628,6 +635,9 @@
     &:hover
       background: var(--bg-transp)
 
+  @media (max-width: 768px)
+    display: none
+
 .myRequests
   width: 100%
   max-width: 1000px
@@ -660,7 +670,7 @@
   background: var(--table-bg-main)
   color: white
   border: 1px solid var(--border)
-  border-radius: var(--radius-md)
+  border-radius: var(--radius-lg)
   margin: 0 auto 2rem
   padding: 0
   width: 100%
@@ -736,6 +746,51 @@
     z-index: 40
     display: flex
     gap: 0.5rem
+
+  @media (max-width: 768px)
+    .cardTop
+      display: grid
+      grid-template-columns: minmax(0, 1fr) auto
+      grid-template-areas: "arena edits" "content content"
+      align-items: start
+      padding-top: 1rem
+
+    .cardTop:not(:has(.inlineEditButtons))
+      grid-template-columns: 1fr
+      grid-template-areas: "arena" "content"
+
+    .cardArena
+      grid-area: arena
+      width: auto
+      height: auto
+      min-height: 0
+      background: transparent
+
+      .arenaFrame
+        position: relative
+        left: 0
+        top: -2rem
+        width: calc(791px / 5)
+        height: calc(605px / 5)
+        padding: 0.35rem
+        transform: rotate(-6deg)
+
+        img
+          padding: 0.25rem
+
+    .inlineEditButtons
+      grid-area: edits
+      position: static
+      align-self: start
+      justify-self: end
+      margin: 0.25rem 0.75rem 0 0
+
+    .cardRight
+      grid-area: content
+      padding: 0 1rem 1.5rem
+
+  .teamName
+    font-size: 1.75rem !important
 
   .iconBtn
     display: inline-flex

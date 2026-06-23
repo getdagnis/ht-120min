@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, Link as RouterLink } from 'react-router-dom';
 import { supabase } from '../../lib/supabase';
 import { nanoid } from 'nanoid';
 import { Button } from '../../components/Button/Button';
@@ -77,7 +77,9 @@ const SidebarContent = ({ openTournaments }: { openTournaments: OpenTournamentSu
       <ul className={styles.widgetList}>
         {openTournaments.map((tournament) => (
           <li key={tournament.id} className={styles.widgetItem}>
-            <strong>{tournament.name}</strong>
+            <strong>
+              <RouterLink to={`/t/${tournament.slug}`}>{tournament.name}</RouterLink>
+            </strong>
             <span>{formatOpenTournamentMeta(tournament)}</span>
           </li>
         ))}

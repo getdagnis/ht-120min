@@ -1361,44 +1361,6 @@ export const Matchmaker: React.FC = () => {
             <div className={styles.requestGrid}>
               {myRequests.map((req) => (
                 <div key={req.id} className={`${styles.myRequestCard} ${styles[req.status]}`} style={{ padding: 0 }}>
-                  {req.status === 'open' && (
-                    <div className={styles.inlineEditButtons}>
-                      <button
-                        type="button"
-                        className={styles.iconBtn}
-                        title="Edit Ad"
-                        onClick={() => {
-                          setSelectedHtTeamId(req.team?.ht_team_id || 0);
-                          setIsPosting(true);
-                        }}
-                      >
-                        <PencilSimple size={18} />
-                      </button>
-                      <button
-                        type="button"
-                        className={styles.iconBtn}
-                        title="Delete Ad"
-                        onClick={async () => {
-                          if (mockDataEnabled) {
-                            setMyRequests((prev) => prev.filter((item) => item.id !== req.id));
-                            setRequests((prev) => prev.filter((item) => item.id !== req.id));
-                            return;
-                          }
-
-                          if (confirm('Delete this friendly ad?')) {
-                            const { error } = await supabase.from('matchmaker_requests').delete().eq('id', req.id);
-                            if (!error) {
-                              void fetchMyRequests();
-                              void fetchRequests();
-                            }
-                          }
-                        }}
-                      >
-                        <Trash size={18} />
-                      </button>
-                    </div>
-                  )}
-
                   <div className={styles.tinderCard}>
                     <div className={styles.cardTop}>
                       <div className={styles.cardArena}>
@@ -1408,6 +1370,43 @@ export const Matchmaker: React.FC = () => {
                           </div>
                         )}
                       </div>
+                      {req.status === 'open' && (
+                        <div className={styles.inlineEditButtons}>
+                          <button
+                            type="button"
+                            className={styles.iconBtn}
+                            title="Edit Ad"
+                            onClick={() => {
+                              setSelectedHtTeamId(req.team?.ht_team_id || 0);
+                              setIsPosting(true);
+                            }}
+                          >
+                            <PencilSimple size={18} />
+                          </button>
+                          <button
+                            type="button"
+                            className={styles.iconBtn}
+                            title="Delete Ad"
+                            onClick={async () => {
+                              if (mockDataEnabled) {
+                                setMyRequests((prev) => prev.filter((item) => item.id !== req.id));
+                                setRequests((prev) => prev.filter((item) => item.id !== req.id));
+                                return;
+                              }
+
+                              if (confirm('Delete this friendly ad?')) {
+                                const { error } = await supabase.from('matchmaker_requests').delete().eq('id', req.id);
+                                if (!error) {
+                                  void fetchMyRequests();
+                                  void fetchRequests();
+                                }
+                              }
+                            }}
+                          >
+                            <Trash size={18} />
+                          </button>
+                        </div>
+                      )}
                       <div className={styles.cardRight}>
                         <div className={styles.teamInfo}>
                           <div className={styles.teamMain}>
