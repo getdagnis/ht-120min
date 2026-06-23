@@ -79,7 +79,7 @@ const MOCK_MATCHMAKER_TEAMS: MatchmakerTeamOption[] = [
     countryName: 'England',
     genderId: 0,
     availabilityStatus: 'booked',
-    availabilityReason: 'Friendly already scheduled for next week.',
+    availabilityReason: 'Next friendly scheduled',
     is_mock: true,
   },
   {
@@ -151,4 +151,3 @@ export const getMockMatchmakerTeams = () => MOCK_MATCHMAKER_TEAMS.map((team) => 
 
 export const getMockMatchmakerTeamById = (teamId: number) =>
   MOCK_MATCHMAKER_TEAMS.find((team) => team.teamId === teamId) ?? null;
-

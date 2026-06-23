@@ -6,7 +6,6 @@ import type { MatchmakerRequest, MatchmakerTeamOption } from '../../utils/matchm
 import { Button } from '../../components/Button/Button';
 import { Modal } from '../../components/Modal/Modal';
 import { TeamSelectorModal } from '../../components/TeamSelectorModal/TeamSelectorModal';
-import { Avatar } from '../../components/Avatar/Avatar';
 import { getDisplayTeamName } from '../../utils/matchmaker';
 import { getLeagueNameById } from '../../utils/leagues';
 import { getMockMatchmakerRequests, getMockMatchmakerTeams, isMatchmakerMockDataEnabled } from '../../mock/matchmaker';
@@ -171,6 +170,79 @@ const getCompatibilityScore = (myAd: MatchmakerRequest | null, target: Matchmake
   return { score: clampScore(score), labels };
 };
 
+type BrowseTabKey = 'browse' | 'hfi' | 'long-term';
+type MatchmakerTabKey = BrowseTabKey | 'my-requests';
+
+const HFI_LEAGUE_ID = 3000;
+
+const resolveRequestGender = (request: MatchmakerRequest): number => request.gender_id ?? request.team?.gender_id ?? 1;
+
+const isFemaleRequest = (request: MatchmakerRequest) =>
+  resolveRequestGender(request) === 0 || request.team?.league_id === HFI_LEAGUE_ID;
+
+const isBookedRequest = (request: MatchmakerRequest) => request.team?.availabilityStatus === 'booked';
+
+const getBrowseCardActions = (tab: BrowseTabKey, request: MatchmakerRequest) => {
+  if (tab === 'browse') {
+    return { showChallengeNow: true, showShowInterest: false };
+  }
+
+  if (tab === 'long-term') {
+    return { showChallengeNow: false, showShowInterest: true };
+  }
+
+  // Female Only: immediate challengers vs booked long-term seekers
+  if (isBookedRequest(request)) {
+    return { showChallengeNow: false, showShowInterest: true };
+  }
+
+  return { showChallengeNow: true, showShowInterest: false };
+};
+
+const isHiddenOwnAd = (
+  request: MatchmakerRequest,
+  options: {
+    mockDataEnabled: boolean;
+    myOwnHtTeamIds: Set<number>;
+    locallyHiddenRequestIds: Set<string>;
+  },
+) => {
+  if (options.mockDataEnabled) return false;
+  if (options.myOwnHtTeamIds.has(request.team?.ht_team_id || 0)) return true;
+  if (options.locallyHiddenRequestIds.has(request.id)) return true;
+  return false;
+};
+
+const requestMatchesBrowseTab = (request: MatchmakerRequest, tab: BrowseTabKey): boolean => {
+  const avail = request.team?.availabilityStatus;
+  const isFemale = isFemaleRequest(request);
+
+  if (tab === 'hfi') {
+    if (!isFemale) return false;
+    // Immediate + long-term female ads in one pool (incl. booked long-term seekers)
+    return avail === 'available' || !!request.is_long_term;
+  }
+
+  if (tab === 'long-term') {
+    if (isFemale) return false;
+    return !!request.is_long_term || avail === 'booked';
+  }
+
+  if (isFemale) return false;
+  return avail === 'available';
+};
+
+const pickDefaultTab = (counts: Record<MatchmakerTabKey, number>, hasMyRequestsTab: boolean): MatchmakerTabKey => {
+  if (hasMyRequestsTab && counts['my-requests'] > 0) {
+    return 'my-requests';
+  }
+
+  const browseOrder: BrowseTabKey[] = ['browse', 'hfi', 'long-term'];
+  return browseOrder.find((tab) => counts[tab] > 0) ?? 'browse';
+};
+
+const formatTabLabel = (label: string, count: number) => (count > 0 ? `${label} (${count})` : label);
+
 const getTeamFitScore = (selectedTeam: ChppTeamOption | undefined, target: MatchmakerRequest) => {
   if (!selectedTeam) {
     return { score: 0, labels: [] as string[] };
@@ -255,14 +327,6 @@ export const Matchmaker: React.FC = () => {
   const [myRequests, setMyRequests] = useState<MatchmakerRequest[]>([]);
   const [hasSetInitialTab, setHasSetInitialTab] = useState(false);
   const hasMyRequests = myRequests.length > 0;
-  // Keep `My Ads` visually at the end of the tabs list, but still default-open it
-  // when ads exist by setting `activeTab` during fetchMyRequests.
-  const tabItems: Array<{ key: 'browse' | 'my-requests' | 'hfi' | 'long-term'; label: string }> = [
-    { key: 'browse' as const, label: 'Hook Up Now' },
-    { key: 'hfi' as const, label: 'Female Only' },
-    { key: 'long-term' as const, label: 'Long-Term' },
-    ...(hasMyRequests ? [{ key: 'my-requests' as const, label: 'My Ads' }] : []),
-  ];
   const [isPosting, setIsPosting] = useState(false);
   const [showLoginModal, setShowLoginModal] = useState(false);
   const [showSuccessOverlay, setShowSuccessOverlay] = useState(false);
@@ -334,22 +398,42 @@ export const Matchmaker: React.FC = () => {
 
   const displayRequests = useMemo(() => requests, [requests]);
 
+  const ownAdFilterOptions = useMemo(
+    () => ({
+      mockDataEnabled,
+      myOwnHtTeamIds,
+      locallyHiddenRequestIds,
+    }),
+    [mockDataEnabled, myOwnHtTeamIds, locallyHiddenRequestIds],
+  );
+
+  const tabAdCounts = useMemo(() => {
+    const visibleRequests = displayRequests.filter((request) => !isHiddenOwnAd(request, ownAdFilterOptions));
+    return {
+      browse: visibleRequests.filter((request) => requestMatchesBrowseTab(request, 'browse')).length,
+      hfi: visibleRequests.filter((request) => requestMatchesBrowseTab(request, 'hfi')).length,
+      'long-term': visibleRequests.filter((request) => requestMatchesBrowseTab(request, 'long-term')).length,
+      'my-requests': myRequests.length,
+    };
+  }, [displayRequests, myRequests.length, ownAdFilterOptions]);
+
+  const tabItems: Array<{ key: MatchmakerTabKey; label: string }> = [
+    { key: 'browse', label: formatTabLabel('Hook Up Now', tabAdCounts.browse) },
+    { key: 'hfi', label: formatTabLabel('Female Only', tabAdCounts.hfi) },
+    { key: 'long-term', label: formatTabLabel('Long-Term', tabAdCounts['long-term']) },
+    ...(hasMyRequests
+      ? [{ key: 'my-requests' as const, label: formatTabLabel('My Ads', tabAdCounts['my-requests']) }]
+      : []),
+  ];
+
   const filteredRequests = useMemo(() => {
-    const isHfiView = activeTab === 'hfi';
-    const isLongTermView = activeTab === 'long-term';
+    if (activeTab === 'my-requests') return [];
 
     return displayRequests.filter((request) => {
-      if (!mockDataEnabled) {
-        if (myOwnHtTeamIds.has(request.team?.ht_team_id || 0)) return false;
-        if (locallyHiddenRequestIds.has(request.id)) return false;
-      }
-
-      if (isLongTermView) return !!request.is_long_term;
-
-      const teamGender = request.team?.gender_id ?? 1;
-      return isHfiView ? teamGender === 0 : true;
+      if (isHiddenOwnAd(request, ownAdFilterOptions)) return false;
+      return requestMatchesBrowseTab(request, activeTab);
     });
-  }, [displayRequests, activeTab, mockDataEnabled, myOwnHtTeamIds, locallyHiddenRequestIds]);
+  }, [displayRequests, activeTab, ownAdFilterOptions]);
 
   const myOpenRequest = useMemo(() => {
     const selectedTeam = myTeams.find((team) => team.teamId === selectedHtTeamId);
@@ -599,19 +683,24 @@ export const Matchmaker: React.FC = () => {
       myAds.forEach((ad) => {
         if (ad.status === 'open') hideRequestIdLocally(ad.id);
       });
-
-      if (myAds.length > 0 && !hasSetInitialTab) {
-        setActiveTab('my-requests');
-        setHasSetInitialTab(true);
-      }
     } catch (err) {
       console.error('Error fetching my requests:', err);
     }
-  }, [profile, hideRequestIdLocally, mockDataEnabled, mockRequests, hasSetInitialTab]);
+  }, [profile, hideRequestIdLocally, mockDataEnabled, mockRequests]);
+
+  useEffect(() => {
+    if (hasSetInitialTab || loading) return;
+
+    const nextTab = pickDefaultTab(tabAdCounts, hasMyRequests);
+    setActiveTab(nextTab);
+    setHasSetInitialTab(true);
+  }, [hasSetInitialTab, loading, tabAdCounts, hasMyRequests]);
 
   useEffect(() => {
     if (!hasMyRequests && activeTab === 'my-requests') {
-      setActiveTab('browse');
+      setTimeout(() => {
+        setActiveTab('browse');
+      }, 0);
     }
   }, [activeTab, hasMyRequests]);
 
@@ -1036,7 +1125,9 @@ export const Matchmaker: React.FC = () => {
               <p>
                 {activeTab === 'hfi'
                   ? 'No female teams are looking for matches right now. Why not post your HFI ad?'
-                  : 'No teams are looking for matches right now. Be the first to post an ad!'}
+                  : activeTab === 'browse'
+                    ? 'No teams are available for friendlies this week. Post you own an ad!'
+                    : 'No teams are looking for matches right now. Be the first to post an ad!'}
               </p>
               <Button variant="tinder" onClick={handleStartPosting}>
                 Post an Ad
@@ -1049,7 +1140,7 @@ export const Matchmaker: React.FC = () => {
               if (!req) return null;
 
               return (
-                <div className={styles.cardWrapper}>
+                <div className={`${styles.cardWrapper} ${styles.browseWrapper}`}>
                   <button
                     className={styles.navArrow}
                     style={{ left: '-120px' }}
@@ -1058,118 +1149,112 @@ export const Matchmaker: React.FC = () => {
                   >
                     <CaretLeft />
                   </button>
-                  <div className={styles.tinderCard}>
-                    <div className={styles.cardHeader}>
-                      {req.team?.arena_image_url && (
-                        <div
-                          className={styles.arenaBackground}
-                          style={{ backgroundImage: `url(${req.team.arena_image_url})` }}
-                        />
-                      )}
-                      <div className={styles.teamInfo}>
-                        <div className={styles.teamMain}>
-                          {req.team?.logo_url ? (
-                            <img src={req.team.logo_url} alt="" className={styles.teamLogo} />
-                          ) : (
-                            <Handshake size={48} className={styles.teamPlaceholder} />
+                  <div className={styles.myRequestCard}>
+                    <div className={styles.tinderCard}>
+                      <div className={styles.cardTop}>
+                        <div className={styles.cardArena}>
+                          {req.team?.arena_image_url && (
+                            <div className={styles.arenaFrame}>
+                              <img src={req.team.arena_image_url} alt="Arena" />
+                            </div>
                           )}
-                          <div className={styles.teamText}>
-                            <h2 className={styles.teamName}>
-                              {getDisplayTeamName(req.team?.name || '', req.team?.gender_id)}
-                            </h2>
-                            <div className={styles.teamMeta}>
-                              {req.team?.league_id && (
-                                <img
-                                  src={`https://www.hattrick.org/Img/flags/${req.team.league_id}.png`}
-                                  alt=""
-                                  className={styles.flag}
-                                />
+                        </div>
+                        <div className={styles.cardRight}>
+                          <div className={styles.teamInfo}>
+                            <div className={styles.teamMain}>
+                              {req.team?.logo_url ? (
+                                <img src={req.team.logo_url} alt="" className={styles.teamLogo} />
+                              ) : (
+                                <Handshake size={48} className={styles.teamPlaceholder} />
                               )}
-                              <span>{getDisplayCountryName(req.team)}</span>
+                              <div className={styles.teamText}>
+                                <h2 className={styles.teamName}>
+                                  {getDisplayTeamName(req.team?.name || '', req.team?.gender_id)}
+                                </h2>
+                                <div className={styles.teamMeta}>
+                                  {req.team?.league_id && (
+                                    <img
+                                      src={`https://www.hattrick.org/Img/flags/${req.team.league_id}.png`}
+                                      alt=""
+                                      className={styles.flag}
+                                    />
+                                  )}
+                                  <span>{getDisplayCountryName(req.team)}</span>
+                                </div>
+                              </div>
                             </div>
                           </div>
-                        </div>
-                      </div>
-                      <div className={styles.managerInfo}>
-                        <span className={styles.managerName}>{req.profile?.manager_name}</span>
-                        <div className={styles.managerAvatar}>
-                          <Avatar avatar={req.profile?.avatar_json || null} variant="circle" size={48} />
-                        </div>
-                      </div>
-                    </div>
-
-                    <div className={styles.cardBody} style={{ paddingTop: '2.5rem' }}>
-                      <div className={styles.adMetaRow}>
-                        <span
-                          className={`${styles.availabilityBadge} ${styles[entry.freshness.tone]}`}
-                          title="Based on how recently the ad was posted."
-                        >
-                          {entry.freshness.label}
-                        </span>
-                        <span
-                          className={`${styles.stateBadge} ${styles[req.team?.availabilityStatus || 'unknown']}`}
-                          title={req.team?.availabilityReason || 'Availability from CHPP team details.'}
-                        >
-                          {req.team?.availabilityStatus === null
-                            ? 'Broken'
-                            : req.team?.availabilityStatus === 'available'
-                              ? 'Available'
-                              : req.team?.availabilityStatus === 'booked'
-                                ? 'Booked'
-                                : req.team?.availabilityStatus === 'unavailable'
-                                  ? 'Unavailable'
-                                  : 'Unknown'}
-                        </span>
-                        {req.is_mock && <span className={styles.mockBadge}>Mock</span>}
-                      </div>
-
-                      <div className={styles.matchSettings}>
-                        <div className={styles.settingItem}>
-                          <Trophy size={20} weight="fill" color="var(--tinder-bg)" />
-                          <span>{req.match_type === '120min' ? '120 min Cup Rules' : '90 min OK'}</span>
-                        </div>
-                        <div className={styles.settingItem}>
-                          <Clock size={20} weight="fill" color="var(--tinder-bg)" />
-                          <span>
-                            {req.home_away === 'home' && 'At my place'}
-                            {req.home_away === 'away' && 'At your place'}
-                            {req.home_away === 'any' && 'Home or Away'}
-                          </span>
-                        </div>
-                        <div className={styles.settingItem}>
-                          <ArrowsOut size={20} weight="fill" color="var(--tinder-bg)" />
-                          <span>
-                            {req.opponent_location === 'domestic' && 'Domestic only'}
-                            {req.opponent_location === 'international_only' && 'Will travel'}
-                            {req.opponent_location === 'any' && 'Anywhere'}
-                          </span>
-                        </div>
-                      </div>
-
-                      <div className={styles.adProfileSummary}>
-                        <span className={styles.summaryLabel}>Looking for</span>
-                        <div className={styles.badges}>
-                          <span className={styles.badge}>
-                            {req.match_type === '120min' ? '120 min training' : '90 min acceptable'}
-                          </span>
-                          <span className={styles.badge}>
-                            {req.home_away === 'home'
-                              ? 'My place'
-                              : req.home_away === 'away'
-                                ? 'Your place'
-                                : 'Either venue'}
-                          </span>
-                          <span className={styles.badge}>
-                            {req.opponent_location === 'domestic'
-                              ? `Domestic (${getDisplayCountryName(req.team) || 'same country'})`
-                              : req.opponent_location === 'international_only'
-                                ? 'International only'
-                                : 'Anywhere'}
-                          </span>
-                          <span className={styles.badge}>
-                            {req.is_long_term ? 'Long-term partner' : 'One-off match'}
-                          </span>
-                          {req.is_back_and_forth && <span className={styles.badge}>Home/away exchange</span>}
+                          <div className={styles.adProfileSummary}>
+                            <span className={styles.summaryLabel}>Looking for</span>
+                            <div className={styles.badges}>
+                              <span className={styles.badge}>
+                                {req.match_type === '120min' ? '120 min training' : '90 min acceptable'}
+                              </span>
+                              <span className={styles.badge}>
+                                {req.home_away === 'home'
+                                  ? 'My place'
+                                  : req.home_away === 'away'
+                                    ? 'Your place'
+                                    : 'Either venue'}
+                              </span>
+                              <span className={styles.badge}>
+                                {req.opponent_location === 'domestic'
+                                  ? `Domestic (${getDisplayCountryName(req.team) || 'same country'})`
+                                  : req.opponent_location === 'international_only'
+                                    ? 'International only'
+                                    : 'Anywhere'}
+                              </span>
+                              <span className={styles.badge}>
+                                {req.is_long_term ? 'Long-term partner' : 'One-off match'}
+                              </span>
+                              {req.is_back_and_forth && <span className={styles.badge}>Home/away exchange</span>}
+                            </div>
+                          </div>
+                          <div className={styles.matchSettings}>
+                            <div className={styles.settingItem}>
+                              <Trophy size={20} weight="fill" color="var(--tinder-bg)" />
+                              <span>{req.match_type === '120min' ? '120 min Cup Rules' : '90 min OK'}</span>
+                            </div>
+                            <div className={styles.settingItem}>
+                              <Clock size={20} weight="fill" color="var(--tinder-bg)" />
+                              <span>
+                                {req.home_away === 'home' && 'At my place'}
+                                {req.home_away === 'away' && 'At your place'}
+                                {req.home_away === 'any' && 'Home or Away'}
+                              </span>
+                            </div>
+                            <div className={styles.settingItem}>
+                              <ArrowsOut size={20} weight="fill" color="var(--tinder-bg)" />
+                              <span>
+                                {req.opponent_location === 'domestic' && 'Domestic only'}
+                                {req.opponent_location === 'international_only' && 'Will travel'}
+                                {req.opponent_location === 'any' && 'Anywhere'}
+                              </span>
+                            </div>
+                          </div>
+                          <div className={styles.adMetaRow}>
+                            <span
+                              className={`${styles.availabilityBadge} ${styles[entry.freshness.tone]}`}
+                              title="Based on how recently the ad was posted."
+                            >
+                              {entry.freshness.label}
+                            </span>
+                            <span
+                              className={`${styles.stateBadge} ${styles[req.team?.availabilityStatus || 'unknown']}`}
+                              title={req.team?.availabilityReason || 'Availability from CHPP team details.'}
+                            >
+                              {req.team?.availabilityStatus === null
+                                ? '404'
+                                : req.team?.availabilityStatus === 'available'
+                                  ? 'Available'
+                                  : req.team?.availabilityStatus === 'booked'
+                                    ? 'Booked This Week'
+                                    : req.team?.availabilityStatus === 'unavailable'
+                                      ? 'Unavailable'
+                                      : 'Unknown'}
+                            </span>
+                            {req.is_mock && <span className={styles.mockBadge}>Mock</span>}
+                          </div>
                         </div>
                       </div>
 
@@ -1177,26 +1262,53 @@ export const Matchmaker: React.FC = () => {
                     </div>
 
                     <div className={styles.cardActions}>
-                      <button
-                        className={styles.dislikeBtn}
-                        onClick={() => setCurrentIndex((prev) => Math.min(filteredRequests.length - 1, prev + 1))}
-                      >
-                        <X size={32} />
-                      </button>
-                      <button
-                        className={styles.likeBtn}
-                        onClick={() => {
-                          if (!profile && !mockDataEnabled) {
-                            setShowLoginModal(true);
-                          } else {
-                            setIsSelectingTeam(true);
-                            setSelectingTeamPurpose('challenge');
-                            setTargetRequestId(req.id);
-                          }
-                        }}
-                      >
-                        <Heart size={32} weight="fill" />
-                      </button>
+                      {(() => {
+                        const { showChallengeNow, showShowInterest } = getBrowseCardActions(activeTab, req);
+
+                        return (
+                          <>
+                            <Button
+                              variant="secondary"
+                              onClick={() => setCurrentIndex((prev) => Math.min(scoredRequests.length - 1, prev + 1))}
+                            >
+                              Pass
+                              <X size={20} />
+                            </Button>
+                            {showChallengeNow && (
+                              <Button
+                                variant="tinder"
+                                onClick={() => {
+                                  if (!profile && !mockDataEnabled) {
+                                    setShowLoginModal(true);
+                                  } else {
+                                    setIsSelectingTeam(true);
+                                    setSelectingTeamPurpose('challenge');
+                                    setTargetRequestId(req.id);
+                                  }
+                                }}
+                              >
+                                <Handshake size={20} />
+                                Challenge Now
+                              </Button>
+                            )}
+                            {showShowInterest && (
+                              <Button
+                                variant="tinder"
+                                onClick={() =>
+                                  window.open(
+                                    `https://www.hattrick.org/Team/Team.aspx?TeamID=${req.team?.ht_team_id}`,
+                                    '_blank',
+                                    'noopener,noreferrer',
+                                  )
+                                }
+                              >
+                                <Heart size={20} weight="fill" />
+                                Show Interest
+                              </Button>
+                            )}
+                          </>
+                        );
+                      })()}
                     </div>
 
                     {showSuccessOverlay && (
@@ -1285,10 +1397,7 @@ export const Matchmaker: React.FC = () => {
                     </div>
                   )}
 
-                  <div
-                    className={styles.tinderCard}
-                    style={{ margin: 0, border: 'none', background: 'transparent', boxShadow: 'none' }}
-                  >
+                  <div className={styles.tinderCard}>
                     <div className={styles.cardTop}>
                       <div className={styles.cardArena}>
                         {req.team?.arena_image_url && (
@@ -1371,22 +1480,22 @@ export const Matchmaker: React.FC = () => {
                           </span>
                         </div>
                       </div>
-
-                      {req.message && (
-                        <div className={styles.message} style={{ fontSize: '0.85rem', padding: '0.75rem' }}>
-                          "{req.message}"
-                        </div>
-                      )}
-
-                      {req.status === 'matched' && req.matched_with_team_id && (
-                        <div className={styles.matchNotice} style={{ marginTop: '1rem' }}>
-                          <Heart size={16} weight="fill" color="#ff4b2b" />
-                          <span>
-                            Matched with <strong>{req.matched_team?.name}</strong>
-                          </span>
-                        </div>
-                      )}
                     </div>
+
+                    {req.message && (
+                      <div className={styles.message} style={{ fontSize: '0.85rem', padding: '0.75rem' }}>
+                        "{req.message}"
+                      </div>
+                    )}
+
+                    {req.status === 'matched' && req.matched_with_team_id && (
+                      <div className={styles.matchNotice} style={{ marginTop: '1rem' }}>
+                        <Heart size={16} weight="fill" color="#ff4b2b" />
+                        <span>
+                          Matched with <strong>{req.matched_team?.name}</strong>
+                        </span>
+                      </div>
+                    )}
                     <div className={styles.activitySection}>
                       <div className={styles.activityHeader}>Activity</div>
                       <div className={styles.activityEmpty}>

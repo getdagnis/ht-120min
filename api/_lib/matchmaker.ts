@@ -62,7 +62,7 @@ export function classifyTeamAvailability(
   if (bookingResult?.isBooked) {
     return {
       availabilityStatus: 'booked',
-      availabilityReason: 'Friendly already scheduled.',
+      availabilityReason: 'Next friendly scheduled',
     };
   }
 
@@ -86,7 +86,7 @@ export function classifyTeamAvailability(
   if ((teamDetails.friendlyTeamId ?? 0) > 0) {
     return {
       availabilityStatus: 'booked',
-      availabilityReason: 'Friendly already scheduled.',
+      availabilityReason: 'Next friendly scheduled',
     };
   }
 
