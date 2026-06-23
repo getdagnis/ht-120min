@@ -12,7 +12,7 @@ import { SupportersWall } from '../../components/SupportersWall/SupportersWall';
 import { Link as ScrollTo, Element } from 'react-scroll';
 import { calculateMatchDate } from '../../utils/ht-data';
 import { sortOpenTournaments } from '../../utils/open-tournaments';
-import { Trophy, CalendarBlank, Heartbeat, CaretLeft, ArrowRight, Star, Clock } from 'phosphor-react';
+import { Trophy, CalendarBlank, Heartbeat, CaretLeft, ArrowRight, Star, Clock, FolderOpen } from 'phosphor-react';
 import { TeamsIcon } from '../../components/Icons/TeamsIcon';
 import styles from './Home.module.sass';
 
@@ -337,8 +337,8 @@ export const Home: React.FC = () => {
             {openTournaments.length > 0 && (
               <section className={styles.activeSection}>
                 <div className={styles.sectionHeader}>
-                  <ArrowRight size={24} weight="regular" className={styles.sectionIcon} />
-                  <h2>Open for Registration</h2>
+                  <FolderOpen size={24} className={styles.sectionIcon} />
+                  <h2>Open Tournaments</h2>
                 </div>
 
                 <div className={styles.tournamentGrid}>
@@ -386,44 +386,48 @@ export const Home: React.FC = () => {
           </div>
 
           <aside className={styles.rightColumn}>
-            <TinderWidget className={styles.marketplaceWrapper} />
-            <SupportersWall />
-            <div className={styles.sectionHeader}>
-              <Star size={24} weight="regular" className={styles.sectionIcon} />
-              <h2>Monthly Best</h2>
+            <div className={styles.tinderSlot}>
+              <TinderWidget className={styles.marketplaceWrapper} />
             </div>
-            {topTeams.length > 0 && (
-              <SectionCard title="Top 10 Teams (120m)" className={styles.statsCard}>
-                <ol className={styles.statsList}>
-                  {topTeams.map((team, idx) => (
-                    <li key={team.ht_team_id}>
-                      <div className={styles.statItem}>
-                        <span className={styles.rank}>{idx + 1}.</span>
-                        <span className={styles.name}>{team.name}</span>
-                        <span className={styles.value}>{team.achievements120min}</span>
-                      </div>
-                    </li>
-                  ))}
-                </ol>
-              </SectionCard>
-            )}
+            <div className={styles.sidebarRest}>
+              <SupportersWall />
+              <div className={styles.sectionHeader}>
+                <Star size={24} weight="regular" className={styles.sectionIcon} />
+                <h2>Monthly Best</h2>
+              </div>
+              {topTeams.length > 0 && (
+                <SectionCard title="Top 10 Teams (120m)" className={styles.statsCard}>
+                  <ol className={styles.statsList}>
+                    {topTeams.map((team, idx) => (
+                      <li key={team.ht_team_id}>
+                        <div className={styles.statItem}>
+                          <span className={styles.rank}>{idx + 1}.</span>
+                          <span className={styles.name}>{team.name}</span>
+                          <span className={styles.value}>{team.achievements120min}</span>
+                        </div>
+                      </li>
+                    ))}
+                  </ol>
+                </SectionCard>
+              )}
 
-            {topActiveTournaments.length > 0 && (
-              <SectionCard title="Most Active" className={styles.statsCard}>
-                <ul className={styles.statsList}>
-                  {topActiveTournaments.map((t) => (
-                    <li key={t.slug}>
-                      <div className={styles.statItem}>
-                        <Link to={`/t/${t.slug}`} className={styles.name}>
-                          {t.name}
-                        </Link>
-                        <span className={styles.value}>{t.completedMatches}</span>
-                      </div>
-                    </li>
-                  ))}
-                </ul>
-              </SectionCard>
-            )}
+              {topActiveTournaments.length > 0 && (
+                <SectionCard title="Most Active" className={styles.statsCard}>
+                  <ul className={styles.statsList}>
+                    {topActiveTournaments.map((t) => (
+                      <li key={t.slug}>
+                        <div className={styles.statItem}>
+                          <Link to={`/t/${t.slug}`} className={styles.name}>
+                            {t.name}
+                          </Link>
+                          <span className={styles.value}>{t.completedMatches}</span>
+                        </div>
+                      </li>
+                    ))}
+                  </ul>
+                </SectionCard>
+              )}
+            </div>
           </aside>
         </div>
         <div className={styles.features}>
