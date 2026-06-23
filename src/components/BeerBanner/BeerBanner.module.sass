@@ -30,11 +30,6 @@
   background-size: 130%
   background-position: 30%
   border-radius: var(--radius-md) 0 0 var(--radius-md)
-  transition: background-size 0.8s ease, background-position 0.8s ease
-  &:hover
-    background-size: 140%
-    background-position: 50%
-    transition: background-size 0.3s ease, background-position 0.3s ease
 
 .content
   display: flex
@@ -79,6 +74,7 @@
 
   &:hover
     cursor: pointer
+    background-color: var(--yellow) !important
 
     & > .btnBeer
       font-size: 4rem
@@ -87,9 +83,6 @@
 
     &:active
       background-color: var(--warning) !important
-
-.btnBeer
-  transition: all 0.5s ease
 
 .btnBeer
   position: absolute

@@ -690,10 +690,12 @@ export const Matchmaker: React.FC = () => {
 
   useEffect(() => {
     if (hasSetInitialTab || loading) return;
-
     const nextTab = pickDefaultTab(tabAdCounts, hasMyRequests);
-    setActiveTab(nextTab);
-    setHasSetInitialTab(true);
+
+    setTimeout(() => {
+      setActiveTab(nextTab);
+      setHasSetInitialTab(true);
+    }, 0);
   }, [hasSetInitialTab, loading, tabAdCounts, hasMyRequests]);
 
   useEffect(() => {
