@@ -21,10 +21,16 @@ export const TEST_MANAGER_IDS = [
   },
 ];
 
-export function getTestManagerIdList(): typeof TEST_MANAGER_IDS {
+export interface TestManagerId {
+  id: string;
+  label: string;
+  description: string;
+}
+
+export function getTestManagerIdList(): TestManagerId[] {
   return TEST_MANAGER_IDS;
 }
 
-export function getTestManagerById(id: string) {
+export function getTestManagerById(id: string): TestManagerId | undefined {
   return TEST_MANAGER_IDS.find((m) => m.id === id);
 }

@@ -7,6 +7,7 @@ import {
   fetchArenaDetailsFromChpp,
   classifyTeamAvailability,
   getManagerChppCredentials,
+  type MatchmakerBookingResult,
 } from '../_lib/matchmaker.js';
 
 const calculateMatchmakerExpiry = (now = new Date()): Date => {
@@ -65,9 +66,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     const snapshot = await fetchManagerTeamsFromChpp(consumerKey, consumerSecret, credentials);
     let selectedTeam = snapshot.teams.find((team) => team.teamId === parsedTeamId);
     let isMockTeam = false;
-    let extraDetails = null;
-    let arenaDetails = null;
-    let bookingStatus: any = null;
+    let extraDetails: Awaited<ReturnType<typeof fetchTeamDetailsFromChpp>> | null = null;
+    let arenaDetails: Awaited<ReturnType<typeof fetchArenaDetailsFromChpp>> | null = null;
+    let bookingStatus: MatchmakerBookingResult | null = null;
 
     // Developer Test Mode
     if (process.env.NODE_ENV === 'development') {
@@ -131,7 +132,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       ht_team_name: selectedTeam.teamName,
       hattrick_user_id: parsedManagerId,
       manager_name: credentials.manager_name,
-      logo_url: extraDetails?.logoUrl ?? (selectedTeam as any).logoUrl ?? null,
+      logo_url: extraDetails?.logoUrl ?? null,
       country_id: extraDetails?.countryId ?? null,
       country_name: extraDetails?.countryName ?? selectedTeam.countryName ?? null,
       league_id: selectedTeam.leagueId ?? null,

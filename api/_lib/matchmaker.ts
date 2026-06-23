@@ -211,7 +211,7 @@ export async function fetchArenaDetailsFromChpp(
       // Replace any `custom-<width>-<whatever>` token with `custom-620-0` to request a higher-res variant.
       const hiRes = candidate.replace(/custom-\d+-\d+/i, 'custom-620-0');
       return hiRes;
-    } catch (e) {
+    } catch {
       return candidate;
     }
   };

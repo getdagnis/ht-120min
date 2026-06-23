@@ -92,6 +92,7 @@ export const SupportersWall: React.FC<SupportersWallProps> = ({ variant = 'compa
   const displayedSupporters = useMemo(() => {
     if (variant === 'full') return DATA;
 
+    void shuffleSeed;
     const shuffle = (array: Supporter[]) => [...array].sort(() => Math.random() - 0.5);
 
     const founding = shuffle(DATA.filter((s) => s.type === 'founding')).slice(0, 3);

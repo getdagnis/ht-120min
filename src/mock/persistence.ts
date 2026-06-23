@@ -2,10 +2,10 @@ const STORAGE_KEY = 'ht120_matchmaker_mock_state';
 const MOCK_MANAGER_ID_KEY = 'ht120_mock_manager_id';
 
 export interface MockPersistenceState {
-  requests: any[];
-  bookings: any[];
-  interests: any[];
-  comments: any[];
+  requests: unknown[];
+  bookings: unknown[];
+  interests: unknown[];
+  comments: unknown[];
 }
 
 export interface MockPersistenceStorage {

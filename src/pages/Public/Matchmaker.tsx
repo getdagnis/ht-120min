@@ -10,7 +10,20 @@ import { Avatar } from '../../components/Avatar/Avatar';
 import { getDisplayTeamName } from '../../utils/matchmaker';
 import { getLeagueNameById } from '../../utils/leagues';
 import { getMockMatchmakerRequests, getMockMatchmakerTeams, isMatchmakerMockDataEnabled } from '../../mock/matchmaker';
-import { Handshake, X, Heart, Clock, Info, Warning, ArrowsOut, Trophy, CaretLeft, CaretRight } from 'phosphor-react';
+import {
+  Handshake,
+  X,
+  Heart,
+  Clock,
+  Info,
+  Warning,
+  ArrowsOut,
+  Trophy,
+  CaretLeft,
+  CaretRight,
+  PencilSimple,
+  Trash,
+} from 'phosphor-react';
 import styles from './Matchmaker.module.sass';
 
 type ChppTeamOption = MatchmakerTeamOption;
@@ -240,6 +253,16 @@ export const Matchmaker: React.FC = () => {
   const [currentIndex, setCurrentIndex] = useState(0);
   const [loading, setLoading] = useState(true);
   const [myRequests, setMyRequests] = useState<MatchmakerRequest[]>([]);
+  const [hasSetInitialTab, setHasSetInitialTab] = useState(false);
+  const hasMyRequests = myRequests.length > 0;
+  // Keep `My Ads` visually at the end of the tabs list, but still default-open it
+  // when ads exist by setting `activeTab` during fetchMyRequests.
+  const tabItems: Array<{ key: 'browse' | 'my-requests' | 'hfi' | 'long-term'; label: string }> = [
+    { key: 'browse' as const, label: 'Hook Up Now' },
+    { key: 'hfi' as const, label: 'Female Only' },
+    { key: 'long-term' as const, label: 'Long-Term' },
+    ...(hasMyRequests ? [{ key: 'my-requests' as const, label: 'My Ads' }] : []),
+  ];
   const [isPosting, setIsPosting] = useState(false);
   const [showLoginModal, setShowLoginModal] = useState(false);
   const [showSuccessOverlay, setShowSuccessOverlay] = useState(false);
@@ -576,10 +599,21 @@ export const Matchmaker: React.FC = () => {
       myAds.forEach((ad) => {
         if (ad.status === 'open') hideRequestIdLocally(ad.id);
       });
+
+      if (myAds.length > 0 && !hasSetInitialTab) {
+        setActiveTab('my-requests');
+        setHasSetInitialTab(true);
+      }
     } catch (err) {
       console.error('Error fetching my requests:', err);
     }
-  }, [profile, hideRequestIdLocally, mockDataEnabled, mockRequests]);
+  }, [profile, hideRequestIdLocally, mockDataEnabled, mockRequests, hasSetInitialTab]);
+
+  useEffect(() => {
+    if (!hasMyRequests && activeTab === 'my-requests') {
+      setActiveTab('browse');
+    }
+  }, [activeTab, hasMyRequests]);
 
   const refreshMyTeams = useCallback(
     async (managerIdOverride?: string) => {
@@ -910,7 +944,7 @@ export const Matchmaker: React.FC = () => {
           <div className={styles.heroTopBar}>
             <span>Instant 120 min Friendly Matcher</span>
             <button className={styles.closeBtn} onClick={() => navigate('/')}>
-              <X size={24} weight="bold" />
+              <X size={24} />
             </button>
           </div>
 
@@ -935,42 +969,19 @@ export const Matchmaker: React.FC = () => {
         </div>
 
         <div className={styles.tabs}>
-          <button
-            className={activeTab === 'browse' ? styles.active : ''}
-            onClick={() => {
-              setActiveTab('browse');
-              setCurrentIndex(0);
-            }}
-          >
-            Find Match
-          </button>
-          <button
-            className={activeTab === 'hfi' ? styles.active : ''}
-            onClick={() => {
-              setActiveTab('hfi');
-              setCurrentIndex(0);
-            }}
-          >
-            Female Only Zone
-          </button>
-          <button
-            className={activeTab === 'long-term' ? styles.active : ''}
-            onClick={() => {
-              setActiveTab('long-term');
-              setCurrentIndex(0);
-            }}
-          >
-            Long-Term
-          </button>
-          <button
-            className={activeTab === 'my-requests' ? styles.active : ''}
-            onClick={() => {
-              setActiveTab('my-requests');
-              setCurrentIndex(0);
-            }}
-          >
-            My Ads
-          </button>
+          {tabItems.map((tab) => (
+            <button
+              key={tab.key}
+              className={activeTab === tab.key ? styles.active : ''}
+              onClick={() => {
+                setActiveTab(tab.key);
+                setCurrentIndex(0);
+                setHasSetInitialTab(true);
+              }}
+            >
+              {tab.label}
+            </button>
+          ))}
         </div>
       </header>
 
@@ -1045,7 +1056,7 @@ export const Matchmaker: React.FC = () => {
                     onClick={() => setCurrentIndex((prev) => Math.max(0, prev - 1))}
                     disabled={currentIndex === 0}
                   >
-                    <CaretLeft weight="bold" />
+                    <CaretLeft />
                   </button>
                   <div className={styles.tinderCard}>
                     <div className={styles.cardHeader}>
@@ -1170,7 +1181,7 @@ export const Matchmaker: React.FC = () => {
                         className={styles.dislikeBtn}
                         onClick={() => setCurrentIndex((prev) => Math.min(filteredRequests.length - 1, prev + 1))}
                       >
-                        <X size={32} weight="bold" />
+                        <X size={32} />
                       </button>
                       <button
                         className={styles.likeBtn}
@@ -1219,7 +1230,7 @@ export const Matchmaker: React.FC = () => {
                     onClick={() => setCurrentIndex((prev) => Math.min(scoredRequests.length - 1, prev + 1))}
                     disabled={currentIndex === scoredRequests.length - 1}
                   >
-                    <CaretRight weight="bold" />
+                    <CaretRight />
                   </button>
                 </div>
               );
@@ -1229,29 +1240,30 @@ export const Matchmaker: React.FC = () => {
       ) : (
         <div className={styles.myRequests}>
           <div className={styles.myAdsHeader}>
-            <h3>Your teams</h3>
-            <p>You will be notified when another manager books a match with your team.</p>
+            <h3>Your published ads</h3>
+            <p>Here you can view, modivy and see activity on your own ads.</p>
           </div>
           {myRequests.length > 0 ? (
             <div className={styles.requestGrid}>
               {myRequests.map((req) => (
                 <div key={req.id} className={`${styles.myRequestCard} ${styles[req.status]}`} style={{ padding: 0 }}>
                   {req.status === 'open' && (
-                    <div className={styles.cardEditOverlay}>
-                      <Button
-                        size="sm"
-                        variant="tinder"
+                    <div className={styles.inlineEditButtons}>
+                      <button
+                        type="button"
+                        className={styles.iconBtn}
+                        title="Edit Ad"
                         onClick={() => {
                           setSelectedHtTeamId(req.team?.ht_team_id || 0);
                           setIsPosting(true);
                         }}
                       >
-                        Edit Ad
-                      </Button>
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        style={{ color: 'white', borderColor: 'white' }}
+                        <PencilSimple size={18} />
+                      </button>
+                      <button
+                        type="button"
+                        className={styles.iconBtn}
+                        title="Delete Ad"
                         onClick={async () => {
                           if (mockDataEnabled) {
                             setMyRequests((prev) => prev.filter((item) => item.id !== req.id));
@@ -1268,8 +1280,8 @@ export const Matchmaker: React.FC = () => {
                           }
                         }}
                       >
-                        Delete
-                      </Button>
+                        <Trash size={18} />
+                      </button>
                     </div>
                   )}
 
@@ -1277,98 +1289,86 @@ export const Matchmaker: React.FC = () => {
                     className={styles.tinderCard}
                     style={{ margin: 0, border: 'none', background: 'transparent', boxShadow: 'none' }}
                   >
-                    <div className={styles.cardHeader}>
-                      {req.team?.arena_image_url && (
-                        <div
-                          className={styles.arenaBackground}
-                          style={{ backgroundImage: `url(${req.team.arena_image_url})` }}
-                        />
-                      )}
-                      <div className={styles.teamInfo} style={{ width: '100%' }}>
-                        <div className={styles.teamMain}>
-                          {req.team?.logo_url ? (
-                            <img src={req.team.logo_url} alt="" className={styles.teamLogo} />
-                          ) : (
-                            <Handshake size={48} className={styles.teamPlaceholder} />
-                          )}
-                          <div className={styles.teamText}>
-                            <h2 className={styles.teamName} style={{ fontSize: '1.4rem' }}>
-                              {getDisplayTeamName(req.team?.name || '', req.team?.gender_id)}
-                            </h2>
-                            <div className={styles.teamMeta}>
-                              {req.team?.league_id && (
-                                <img
-                                  src={`https://www.hattrick.org/Img/flags/${req.team.league_id}.png`}
-                                  alt=""
-                                  className={styles.flag}
-                                />
-                              )}
-                              <span>{getDisplayCountryName(req.team)}</span>
+                    <div className={styles.cardTop}>
+                      <div className={styles.cardArena}>
+                        {req.team?.arena_image_url && (
+                          <div className={styles.arenaFrame}>
+                            <img src={req.team.arena_image_url} alt="Arena" />
+                          </div>
+                        )}
+                      </div>
+                      <div className={styles.cardRight}>
+                        <div className={styles.teamInfo}>
+                          <div className={styles.teamMain}>
+                            {req.team?.logo_url ? (
+                              <img src={req.team.logo_url} alt="" className={styles.teamLogo} />
+                            ) : (
+                              <Handshake size={48} className={styles.teamPlaceholder} />
+                            )}
+                            <div className={styles.teamText}>
+                              <h2 className={styles.teamName} style={{ fontSize: '1.4rem' }}>
+                                {getDisplayTeamName(req.team?.name || '', req.team?.gender_id)}
+                              </h2>
+                              <div className={styles.teamMeta}>
+                                {req.team?.league_id && (
+                                  <img
+                                    src={`https://www.hattrick.org/Img/flags/${req.team.league_id}.png`}
+                                    alt=""
+                                    className={styles.flag}
+                                  />
+                                )}
+                                <span>{getDisplayCountryName(req.team)}</span>
+                              </div>
                             </div>
                           </div>
                         </div>
-                      </div>
-                      <span
-                        className={`${styles.statusBadge} ${styles[req.status]}`}
-                        style={{ position: 'absolute', top: '1rem', right: '1rem', zIndex: 5 }}
-                      >
-                        {req.status === 'open'
-                          ? 'AVAILABLE'
-                          : req.status === 'matched'
-                            ? 'BOOKED'
-                            : req.status.toUpperCase()}
-                      </span>
-                    </div>
-
-                    <div className={styles.cardBody} style={{ padding: '1.5rem' }}>
-                      <div className={styles.adMetaRow}>
-                        <span
-                          className={`${styles.availabilityBadge} ${req.status === 'open' ? styles.good : styles.bad}`}
-                          title="Based on how recently the ad was posted."
-                        >
-                          {req.status === 'open' ? getFreshnessLabel(req, nowMs).label : 'Matched'}
-                        </span>
-                      </div>
-
-                      <div className={styles.matchSettings}>
-                        <div className={styles.settingItem}>
-                          <Trophy size={18} weight="fill" color="var(--tinder-bg)" />
-                          <span>{req.match_type === '120min' ? '120 min Cup Rules' : '90 min OK'}</span>
+                        <div className={styles.adProfileSummary}>
+                          <span className={styles.summaryLabel}>Looking for</span>
+                          <div className={styles.badges}>
+                            <span className={styles.badge}>
+                              {req.match_type === '120min' ? '120 min training' : '90 min acceptable'}
+                            </span>
+                            <span className={styles.badge}>
+                              {req.home_away === 'home'
+                                ? 'My place'
+                                : req.home_away === 'away'
+                                  ? 'Your place'
+                                  : 'Either venue'}
+                            </span>
+                            <span className={styles.badge}>
+                              {req.opponent_location === 'domestic'
+                                ? `Domestic (${getDisplayCountryName(req.team) || 'same country'})`
+                                : req.opponent_location === 'international_only'
+                                  ? 'International only'
+                                  : 'Anywhere'}
+                            </span>
+                            <span className={styles.badge}>
+                              {req.is_long_term ? 'Long-term partner' : 'One-off match'}
+                            </span>
+                            {req.is_back_and_forth && <span className={styles.badge}>Home/away exchange</span>}
+                          </div>
                         </div>
-                        <div className={styles.settingItem}>
-                          <Clock size={18} weight="fill" color="var(--tinder-bg)" />
-                          <span>
-                            {req.home_away === 'home' && 'At my place'}
-                            {req.home_away === 'away' && 'At your place'}
-                            {req.home_away === 'any' && 'Home or Away'}
-                          </span>
+                        <div className={styles.matchSettings}>
+                          <div className={styles.settingItem}>
+                            <Trophy size={18} weight="fill" color="var(--tinder-bg)" />
+                            <span>{req.match_type === '120min' ? '120 min Cup Rules' : '90 min OK'}</span>
+                          </div>
+                          <div className={styles.settingItem}>
+                            <Clock size={18} weight="fill" color="var(--tinder-bg)" />
+                            <span>
+                              {req.home_away === 'home' && 'At my place'}
+                              {req.home_away === 'away' && 'At your place'}
+                              {req.home_away === 'any' && 'Home or Away'}
+                            </span>
+                          </div>
                         </div>
-                      </div>
-
-                      <div className={styles.adProfileSummary}>
-                        <span className={styles.summaryLabel}>Looking for</span>
-                        <div className={styles.badges}>
-                          <span className={styles.badge}>
-                            {req.match_type === '120min' ? '120 min training' : '90 min acceptable'}
+                        <div className={styles.adMetaRow}>
+                          <span
+                            className={`${styles.availabilityBadge} ${req.status === 'open' ? styles.good : styles.bad}`}
+                            title="Based on how recently the ad was posted."
+                          >
+                            {req.status === 'open' ? getFreshnessLabel(req, nowMs).label : 'Matched'}
                           </span>
-                          <span className={styles.badge}>
-                            {req.home_away === 'home'
-                              ? 'My place'
-                              : req.home_away === 'away'
-                                ? 'Your place'
-                                : 'Either venue'}
-                          </span>
-                          <span className={styles.badge}>
-                            {req.opponent_location === 'domestic'
-                              ? `Domestic (${getDisplayCountryName(req.team) || 'same country'})`
-                              : req.opponent_location === 'international_only'
-                                ? 'International only'
-                                : 'Anywhere'}
-                          </span>
-                          <span className={styles.badge}>
-                            {req.is_long_term ? 'Long-term partner' : 'One-off match'}
-                          </span>
-                          {req.is_back_and_forth && <span className={styles.badge}>Home/away exchange</span>}
                         </div>
                       </div>
 
@@ -1386,6 +1386,12 @@ export const Matchmaker: React.FC = () => {
                           </span>
                         </div>
                       )}
+                    </div>
+                    <div className={styles.activitySection}>
+                      <div className={styles.activityHeader}>Activity</div>
+                      <div className={styles.activityEmpty}>
+                        <p>No activity yet.</p>
+                      </div>
                     </div>
                   </div>
                 </div>
@@ -1461,7 +1467,7 @@ export const Matchmaker: React.FC = () => {
               </select>
             ) : (
               <div className={styles.noTeamsMessage}>
-                <Warning size={20} weight="bold" />
+                <Warning size={20} />
                 <p>Hattrick doesn't seem to be telling us about your clubs. Please try again in a moment.</p>
                 <Button variant="zero" onClick={() => refreshMyTeams()} disabled={teamsLoading}>
                   Retry
@@ -1476,17 +1482,17 @@ export const Matchmaker: React.FC = () => {
             )}
             {teamsWarning && (
               <p className={styles.warningText}>
-                <Info size={16} weight="bold" /> {teamsWarning}
+                <Info size={16} /> {teamsWarning}
               </p>
             )}
             {teamsError && (
               <p className={styles.warningText}>
-                <Info size={16} weight="bold" /> {teamsError}
+                <Info size={16} /> {teamsError}
               </p>
             )}
             {publishError && (
               <p className={styles.warningText}>
-                <Info size={16} weight="bold" /> {publishError}
+                <Info size={16} /> {publishError}
               </p>
             )}
           </div>

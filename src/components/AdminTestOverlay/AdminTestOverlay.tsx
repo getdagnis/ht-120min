@@ -1,6 +1,8 @@
 /* eslint-disable react-hooks/set-state-in-effect */
 
 import React, { useState, useEffect } from 'react';
+import type { Scenario } from '../../mock/scenarios/types';
+import type { TestManagerId } from '../../mock/mockManagerIds';
 import {
   clearMockState,
   getAllScenarios,
@@ -66,7 +68,7 @@ export const AdminTestOverlay: React.FC = () => {
 
   if (!visible) return null;
 
-  const scenarios = getAllScenarios();
+  const scenarios: Scenario[] = getAllScenarios();
 
   return (
     <div className={styles.overlay}>
@@ -99,7 +101,7 @@ export const AdminTestOverlay: React.FC = () => {
           <label>Test Manager</label>
           <select value={mockManagerId} onChange={(e) => setLocalMockManagerId(e.target.value)}>
             <option value="">(None - Use fixtures)</option>
-            {getTestManagerIdList().map((mgr) => (
+            {getTestManagerIdList().map((mgr: TestManagerId) => (
               <option key={mgr.id} value={mgr.id}>
                 {mgr.label} ({mgr.id})
               </option>

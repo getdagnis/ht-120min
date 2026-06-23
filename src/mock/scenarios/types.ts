@@ -3,7 +3,7 @@ export interface Scenario {
   name: string;
   description?: string;
   // Keep types loose to avoid cross-layer imports in mock code
-  teams: any[];
-  requests: any[];
+  teams: unknown[];
+  requests: unknown[];
   metadata?: Record<string, unknown>;
 }
