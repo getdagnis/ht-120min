@@ -26,12 +26,12 @@ export const StandingsView: React.FC<StandingsViewProps> = ({ standings, is120mi
         <div className={styles.tableWrapper}>
           <table>
             <thead>
-              <tr className={styles.muted}>
+              <tr>
                 <th>#</th>
                 <th>Team</th>
                 {is120minMode ? (
                   <>
-                    <th className={styles.center}>120m</th>
+                    <th className={styles.center120}>120m</th>
                     <th className={styles.center}>Mins</th>
                     <th className={styles.center}>Pld</th>
                     <th className={styles.center}>Dif</th>

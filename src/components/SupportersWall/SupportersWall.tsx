@@ -17,7 +17,9 @@ export interface Supporter {
 
 const MESSAGES = {
   founding: ['Supported HT-120min when it matters most — in the beginning! 🍺💪'],
-  pioneer: ['Thank you for helping build the project by being an early part of it!'],
+  pioneer: [
+    'Thank you for helping build the project by being an early part of it! When PRO accounts are introduced all those on this wall will enjoy a permanent discount!',
+  ],
 };
 
 const DATA: Supporter[] = [
@@ -105,10 +107,12 @@ export const SupportersWall: React.FC<SupportersWallProps> = ({ variant = 'compa
     <div className={`${styles.wallWrapper} ${variant === 'full' ? styles.fullPage : ''}`}>
       <div className={styles.header}>
         <div className={styles.titleGroup}>
-          <Trophy size={28} className={styles.mainIcon} />
           <h2>Supporters Wall</h2>
         </div>
-        <p className={styles.intro}>Big thanks to the {DATA.length} managers so far who have helped build HT-120min!</p>
+        <p className={styles.intro}>
+          Thank you for helping build the project by being an early part of it! When PRO accounts are introduced all
+          those on this wall will enjoy a permanent discount!
+        </p>
       </div>
 
       <div className={styles.grid}>

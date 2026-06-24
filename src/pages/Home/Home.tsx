@@ -279,7 +279,7 @@ export const Home: React.FC = () => {
               <section className={styles.activeSection}>
                 <div className={styles.sectionHeader}>
                   <Heartbeat size={24} weight="regular" className={styles.sectionIcon} />
-                  <h2>Ongoing Tournaments</h2>
+                  <h2>Featured Tournaments</h2>
                 </div>
                 <div className={styles.tournamentGrid}>
                   {activeTournaments.map((t) => (
@@ -430,6 +430,7 @@ export const Home: React.FC = () => {
             </div>
           </aside>
         </div>
+        <h2 className={styles.featuresH2}>The perfect tool for friendly tournaments</h2>
         <div className={styles.features}>
           <Card className={styles.feature}>
             <div className={styles.featureImg1} />
