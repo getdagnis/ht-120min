@@ -3,6 +3,7 @@ import { rejectIfTestingDisabled } from './_lib/guard.js';
 
 const DEFAULT_MANAGER_ID = '8777402';
 const DEFAULT_TEAM_ID = '681813';
+const DEFAULT_OPPONENT_TEAM_ID = '681813';
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   if (rejectIfTestingDisabled(res)) return;
@@ -57,7 +58,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     </label>
     <label>
       Opponent team ID
-      <input id="opponentTeamId" type="number" placeholder="for challengeable / send" />
+      <input id="opponentTeamId" type="number" value="${DEFAULT_OPPONENT_TEAM_ID}" />
     </label>
     <label>
       CHPP version
