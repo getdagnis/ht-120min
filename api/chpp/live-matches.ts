@@ -65,9 +65,21 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       const finishedDate = readChppTag(xml, 'FinishedDate');
       const finished = (finishedDate && finishedDate !== '0001-01-01 00:00:00') || xml.includes('<MatchStatus>2</MatchStatus>');
 
-      // Raw goals as reported by Hattrick (from actual venue perspective)
-      const htHomeGoals = parseInt(readChppTag(xml, 'HomeGoals') || '0', 10);
-      const htAwayGoals = parseInt(readChppTag(xml, 'AwayGoals') || '0', 10);
+      // For ongoing matches, HomeGoals/AwayGoals in the team blocks are 0.
+      // The Scorers list has running totals — grab the last Goal entry's cumulative score.
+      const scorersBlock = xml.match(/<Scorers>([\s\S]*?)<\/Scorers>/i)?.[1] ?? '';
+      const allGoals = [...scorersBlock.matchAll(/<Goal[^>]*>([\s\S]*?)<\/Goal>/gi)];
+      let htHomeGoals: number;
+      let htAwayGoals: number;
+      if (allGoals.length > 0) {
+        const lastGoal = allGoals[allGoals.length - 1][1];
+        htHomeGoals = parseInt(lastGoal.match(/<ScorerHomeGoals>(\d+)<\/ScorerHomeGoals>/i)?.[1] ?? '0', 10);
+        htAwayGoals = parseInt(lastGoal.match(/<ScorerAwayGoals>(\d+)<\/ScorerAwayGoals>/i)?.[1] ?? '0', 10);
+      } else {
+        // No goals scored yet (0-0), fall back to team block fields
+        htHomeGoals = parseInt(readChppTag(xml, 'HomeGoals') || '0', 10);
+        htAwayGoals = parseInt(readChppTag(xml, 'AwayGoals') || '0', 10);
+      }
 
       // Actual team IDs from Hattrick MatchDetails
       const actualHtHomeTeamId =
