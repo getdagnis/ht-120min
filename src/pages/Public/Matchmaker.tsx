@@ -2,7 +2,7 @@ import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '../../lib/supabase';
 import { useAuth } from '../../hooks/useAuth';
-import type { MatchmakerRequest, MatchmakerTeamOption } from '../../utils/matchmaker';
+import type { MatchmakerRequest, MatchmakerTeamOption, MatchmakerActivity } from '../../utils/matchmaker';
 import { Button } from '../../components/Button/Button';
 import { Modal } from '../../components/Modal/Modal';
 import { TeamSelectorModal } from '../../components/TeamSelectorModal/TeamSelectorModal';
@@ -243,6 +243,22 @@ const pickDefaultTab = (counts: Record<MatchmakerTabKey, number>, hasMyRequestsT
 
 const formatTabLabel = (label: string, count: number) => (count > 0 ? `${label} (${count})` : label);
 
+const formatActivityDate = (iso: string) =>
+  new Date(iso).toLocaleDateString(undefined, { day: '2-digit', month: '2-digit', year: 'numeric' });
+
+const getActivityHeadline = (item: MatchmakerActivity) => {
+  if (item.type === 'challenge_sent') {
+    return `${item.actor_team_name} sent you a challenge.`;
+  }
+  return `${item.actor_team_name} is interested.`;
+};
+
+type ActionDraft = {
+  type: 'challenge' | 'interest';
+  request: MatchmakerRequest;
+  actorTeamId?: number;
+};
+
 const getTeamFitScore = (selectedTeam: ChppTeamOption | undefined, target: MatchmakerRequest) => {
   if (!selectedTeam) {
     return { score: 0, labels: [] as string[] };
@@ -365,10 +381,10 @@ export const Matchmaker: React.FC = () => {
   const [targetRequestId, setTargetRequestId] = useState<string | null>(null);
   const [notification, setNotification] = useState<{ title: string; message: string } | null>(null);
   const [mockBrowseScope, setMockBrowseScope] = useState<'available' | 'booked' | 'all'>('available');
-  const [pendingMatch, setPendingMatch] = useState<{
-    request: MatchmakerRequest;
-    team: ChppTeamOption;
-  } | null>(null);
+  const [actionDraft, setActionDraft] = useState<ActionDraft | null>(null);
+  const [actionComment, setActionComment] = useState('');
+  const [actionSubmitting, setActionSubmitting] = useState(false);
+  const [adActivity, setAdActivity] = useState<Record<string, MatchmakerActivity[]>>({});
 
   const effectiveManagerId = (isDev && impersonatedManagerId) || profile?.hattrick_user_id;
 
@@ -688,6 +704,36 @@ export const Matchmaker: React.FC = () => {
     }
   }, [profile, hideRequestIdLocally, mockDataEnabled, mockRequests]);
 
+  const fetchAdActivity = useCallback(
+    async (adIds: string[]) => {
+      if (mockDataEnabled || adIds.length === 0) return;
+
+      try {
+        const res = await fetch(`/api/matchmaker/activity?adIds=${encodeURIComponent(adIds.join(','))}`);
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error || 'Could not load activity.');
+
+        const grouped: Record<string, MatchmakerActivity[]> = {};
+        for (const item of (data.activity as MatchmakerActivity[]) ?? []) {
+          if (!grouped[item.ad_id]) grouped[item.ad_id] = [];
+          grouped[item.ad_id].push(item);
+        }
+        setAdActivity(grouped);
+      } catch (err) {
+        console.error('Error fetching ad activity:', err);
+      }
+    },
+    [mockDataEnabled],
+  );
+
+  useEffect(() => {
+    if (myRequests.length === 0) {
+      setTimeout(() => setAdActivity({}), 0);
+      return;
+    }
+    setTimeout(() => void fetchAdActivity(myRequests.map((request) => request.id)), 0);
+  }, [myRequests, fetchAdActivity]);
+
   useEffect(() => {
     if (hasSetInitialTab || loading) return;
     const nextTab = pickDefaultTab(tabAdCounts, hasMyRequests);
@@ -923,17 +969,125 @@ export const Matchmaker: React.FC = () => {
     }
   };
 
-  const handleAccept = async (requestId: string, teamId: number) => {
-    const request = requests.find((item) => item.id === requestId);
+  const handleAccept = (requestId: string, teamId: number) => {
+    const request = requests.find((item) => item.id === requestId) || myRequests.find((item) => item.id === requestId);
     const team = myTeams.find((item) => item.teamId === teamId);
 
     if (!request || !team) {
-      console.error('Could not prepare manual match flow:', { requestId, teamId });
+      console.error('Could not prepare challenge flow:', { requestId, teamId });
       return;
     }
 
-    setPendingMatch({ request, team });
+    setActionComment('');
+    setActionDraft({ type: 'challenge', request, actorTeamId: teamId });
     setIsSelectingTeam(false);
+  };
+
+  const openInterestFlow = (request: MatchmakerRequest) => {
+    if (!profile && !mockDataEnabled) {
+      setShowLoginModal(true);
+      return;
+    }
+
+    const defaultTeam = myTeams.find((team) => team.genderId === request.gender_id) || myTeams[0];
+    setActionComment('');
+    setActionDraft({
+      type: 'interest',
+      request,
+      actorTeamId: defaultTeam?.teamId,
+    });
+  };
+
+  const handleSubmitAction = async () => {
+    if (!actionDraft || !effectiveManagerId) return;
+
+    if (mockDataEnabled) {
+      const mockEntry: MatchmakerActivity = {
+        id: `mock-${Date.now()}`,
+        created_at: new Date().toISOString(),
+        ad_id: actionDraft.request.id,
+        actor_user_id: Number(effectiveManagerId),
+        actor_team_id: null,
+        actor_team_name:
+          myTeams.find((team) => team.teamId === actionDraft.actorTeamId)?.teamName || profile?.manager_name || 'You',
+        type: actionDraft.type === 'challenge' ? 'challenge_sent' : 'interest_shown',
+        comment: actionComment.trim() || null,
+        metadata: { source: 'ht-120min' },
+      };
+      setAdActivity((prev) => ({
+        ...prev,
+        [actionDraft.request.id]: [mockEntry, ...(prev[actionDraft.request.id] ?? [])],
+      }));
+      setNotification({
+        title: actionDraft.type === 'challenge' ? 'Mock challenge sent' : 'Interest recorded',
+        message:
+          actionDraft.type === 'challenge'
+            ? 'Mock mode only. No CHPP challenge was sent.'
+            : 'Mock mode only. Interest was recorded locally.',
+      });
+      setActionDraft(null);
+      setActionComment('');
+      setCurrentIndex((prev) => prev + 1);
+      return;
+    }
+
+    setActionSubmitting(true);
+    try {
+      const endpoint =
+        actionDraft.type === 'challenge' ? '/api/matchmaker/send-challenge' : '/api/matchmaker/show-interest';
+      const body: Record<string, unknown> = {
+        managerId: Number(effectiveManagerId),
+        adId: actionDraft.request.id,
+        comment: actionComment.trim() || null,
+      };
+
+      if (actionDraft.actorTeamId) {
+        body.actorTeamId = actionDraft.actorTeamId;
+      }
+
+      if (actionDraft.type === 'interest' && !actionComment.trim()) {
+        throw new Error('Please add a short comment with your interest.');
+      }
+
+      const res = await fetch(endpoint, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body),
+      });
+      const result = await res.json().catch(() => ({}));
+
+      if (!res.ok) {
+        throw new Error(result.error || 'Could not complete this action.');
+      }
+
+      if (result.activity) {
+        const activity = result.activity as MatchmakerActivity;
+        setAdActivity((prev) => ({
+          ...prev,
+          [actionDraft.request.id]: [activity, ...(prev[actionDraft.request.id] ?? [])],
+        }));
+      }
+
+      setNotification({
+        title: actionDraft.type === 'challenge' ? 'Challenge sent' : 'Interest sent',
+        message:
+          result.message ||
+          (actionDraft.type === 'challenge'
+            ? 'Challenge sent successfully. The advertisement owner will see that it originated from HT-120min.'
+            : 'Your interest was recorded on HT-120min.'),
+      });
+      setActionDraft(null);
+      setActionComment('');
+      setCurrentIndex((prev) => prev + 1);
+      void fetchAdActivity(myRequests.map((request) => request.id));
+    } catch (err) {
+      setNotification({
+        title: 'Action failed',
+        message: err instanceof Error ? err.message : 'Could not complete this action.',
+      });
+    } finally {
+      setActionSubmitting(false);
+    }
   };
 
   const selectedTeam = myTeams.find((team) => team.teamId === selectedHtTeamId);
@@ -1290,20 +1444,11 @@ export const Matchmaker: React.FC = () => {
                                 }}
                               >
                                 <Handshake size={20} />
-                                Challenge Now
+                                Send Challenge
                               </Button>
                             )}
                             {showShowInterest && (
-                              <Button
-                                variant="tinder"
-                                onClick={() =>
-                                  window.open(
-                                    `https://www.hattrick.org/Team/Team.aspx?TeamID=${req.team?.ht_team_id}`,
-                                    '_blank',
-                                    'noopener,noreferrer',
-                                  )
-                                }
-                              >
+                              <Button variant="tinder" onClick={() => openInterestFlow(req)}>
                                 <Heart size={20} weight="fill" />
                                 Show Interest
                               </Button>
@@ -1499,9 +1644,29 @@ export const Matchmaker: React.FC = () => {
                     )}
                     <div className={styles.activitySection}>
                       <div className={styles.activityHeader}>Activity</div>
-                      <div className={styles.activityEmpty}>
-                        <p>No activity yet.</p>
-                      </div>
+                      {(adActivity[req.id] ?? []).length > 0 ? (
+                        <div className={styles.activityList}>
+                          {adActivity[req.id].map((item) => (
+                            <div key={item.id} className={styles.activityItem}>
+                              <div className={styles.activityMeta}>
+                                <span className={styles.activityDate}>{formatActivityDate(item.created_at)}</span>
+                                <span className={styles.activitySource}>HT-120min</span>
+                              </div>
+                              <p className={styles.activityHeadline}>{getActivityHeadline(item)}</p>
+                              {item.comment && (
+                                <div className={styles.activityComment}>
+                                  <span className={styles.activityCommentLabel}>Comment:</span>
+                                  <p>"{item.comment}"</p>
+                                </div>
+                              )}
+                            </div>
+                          ))}
+                        </div>
+                      ) : (
+                        <div className={styles.activityEmpty}>
+                          <p>No activity yet.</p>
+                        </div>
+                      )}
                     </div>
                   </div>
                 </div>
@@ -1690,72 +1855,93 @@ export const Matchmaker: React.FC = () => {
         </form>
       </Modal>
 
-      {pendingMatch && (
+      {actionDraft && (
         <Modal
-          isOpen={!!pendingMatch}
+          isOpen={!!actionDraft}
           onClose={() => {
-            setPendingMatch(null);
-            setCurrentIndex((prev) => prev + 1);
+            if (actionSubmitting) return;
+            setActionDraft(null);
+            setActionComment('');
           }}
-          title="It's a Match!"
+          title={actionDraft.type === 'challenge' ? 'Send Challenge' : 'Show Interest'}
         >
-          <div className={styles.matchModal}>
-            <div className={styles.matchCelebration}>
-              <Heart size={64} weight="fill" color="#ff4b2b" className={styles.heartPop} />
-              <h2>{mockDataEnabled ? 'Challenge prepared' : 'Ready for Kickoff?'}</h2>
-              <p>
-                {mockDataEnabled
-                  ? 'This is a mock success flow. No booking has been sent and no database changes were made.'
-                  : 'This is a manual arrangement flow. No booking has been sent yet.'}
-              </p>
-            </div>
+          <div className={styles.actionModal}>
+            <p className={styles.actionIntro}>
+              {actionDraft.type === 'challenge'
+                ? 'Send a real Hattrick challenge. The ad owner will see it originated from HT-120min. A challenge is not the same as a booked match.'
+                : 'Leave a short note for the ad owner. No Hattrick challenge will be sent.'}
+            </p>
 
-            <div className={styles.matchInstructions}>
-              <div className={styles.matchActionButtons}>
-                <Button
-                  variant="primary"
-                  style={{ background: 'var(--tinder-bg)', borderColor: 'var(--borderDark)' }}
-                  onClick={() =>
-                    window.open(
-                      `https://www.hattrick.org/goto.ashx?path=/Club/?TeamID=${pendingMatch.request.team?.ht_team_id}`,
-                      '_blank',
+            {actionDraft.type === 'interest' && myTeams.length > 0 && (
+              <div className={styles.formGroup}>
+                <label>Your team (optional)</label>
+                <select
+                  value={actionDraft.actorTeamId ?? 0}
+                  onChange={(e) =>
+                    setActionDraft((prev) =>
+                      prev ? { ...prev, actorTeamId: Number(e.target.value) || undefined } : prev,
                     )
                   }
+                  className={styles.teamDropdown}
                 >
-                  Open Team on Hattrick
-                </Button>
-                <Button
-                  variant="outline"
-                  onClick={() => {
-                    setPendingMatch(null);
-                    setCurrentIndex((prev) => prev + 1);
-                  }}
-                >
-                  Close
-                </Button>
+                  <option value={0}>Use manager name only</option>
+                  {myTeams.map((team) => (
+                    <option key={team.teamId} value={team.teamId}>
+                      {getDisplayTeamName(team.teamName, team.genderId)}
+                    </option>
+                  ))}
+                </select>
               </div>
-              <div className={styles.matchTeams}>
-                <div>
-                  <span className={styles.matchTeamLabel}>Selected team</span>
-                  <strong>{getDisplayTeamName(pendingMatch.team.teamName, pendingMatch.team.genderId)}</strong>
-                </div>
-                <div>
-                  <span className={styles.matchTeamLabel}>Target team</span>
-                  <strong>
-                    {getDisplayTeamName(pendingMatch.request.team?.name || '', pendingMatch.request.team?.gender_id)}
-                  </strong>
-                </div>
-                <div>
-                  <span className={styles.matchTeamLabel}>HT Team ID</span>
-                  <strong>{pendingMatch.request.team?.ht_team_id}</strong>
-                </div>
-                {mockDataEnabled && (
-                  <div>
-                    <span className={styles.matchTeamLabel}>Mock booking reference</span>
-                    <strong>{`MOCK-${pendingMatch.request.id.slice(-6).toUpperCase()}`}</strong>
-                  </div>
-                )}
-              </div>
+            )}
+
+            {actionDraft.type === 'challenge' && actionDraft.actorTeamId && (
+              <p className={styles.actionTeamLine}>
+                Challenging as{' '}
+                <strong>
+                  {getDisplayTeamName(
+                    myTeams.find((team) => team.teamId === actionDraft.actorTeamId)?.teamName || 'your team',
+                    myTeams.find((team) => team.teamId === actionDraft.actorTeamId)?.genderId,
+                  )}
+                </strong>
+              </p>
+            )}
+
+            <div className={styles.formGroup}>
+              <label>{actionDraft.type === 'challenge' ? 'Comment (optional)' : 'Comment'}</label>
+              <textarea
+                value={actionComment}
+                onChange={(e) => setActionComment(e.target.value)}
+                placeholder={
+                  actionDraft.type === 'challenge'
+                    ? "Hey, sounds good — let's hook up."
+                    : 'We run creative YA friendlies every week.'
+                }
+                rows={4}
+              />
+            </div>
+
+            <div className={styles.actionButtons}>
+              <Button
+                variant="tinder"
+                onClick={() => void handleSubmitAction()}
+                disabled={actionSubmitting || (actionDraft.type === 'interest' && !actionComment.trim())}
+              >
+                {actionSubmitting
+                  ? 'Sending...'
+                  : actionDraft.type === 'challenge'
+                    ? 'Send Challenge'
+                    : 'Show Interest'}
+              </Button>
+              <Button
+                variant="outline"
+                onClick={() => {
+                  setActionDraft(null);
+                  setActionComment('');
+                }}
+                disabled={actionSubmitting}
+              >
+                Cancel
+              </Button>
             </div>
           </div>
         </Modal>
@@ -1768,7 +1954,7 @@ export const Matchmaker: React.FC = () => {
         title={selectingTeamPurpose === 'post' ? 'Which team is posting?' : 'Select Challenging Team'}
         onSelect={(teamId) => {
           if (selectingTeamPurpose === 'challenge') {
-            void handleAccept(targetRequestId!, teamId);
+            handleAccept(targetRequestId!, teamId);
           } else {
             setSelectedHtTeamId(teamId);
             setIsSelectingTeam(false);

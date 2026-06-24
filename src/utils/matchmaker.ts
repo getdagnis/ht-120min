@@ -2,6 +2,27 @@ import type { Avatar } from '../hooks/useAuth';
 
 export type MatchmakerStatus = 'open' | 'matched' | 'expired' | 'cancelled';
 
+export type MatchmakerActivityType = 'challenge_sent' | 'interest_shown';
+
+export interface MatchmakerActivity {
+  id: string;
+  created_at: string;
+  ad_id: string;
+  actor_user_id: number;
+  actor_team_id: string | null;
+  actor_team_name: string;
+  type: MatchmakerActivityType;
+  comment: string | null;
+  metadata: {
+    source?: string;
+    trainingMatchId?: number;
+    chppMatchType?: number;
+    matchPlace?: number;
+    opponentHtTeamId?: number;
+    [key: string]: unknown;
+  };
+}
+
 export interface MatchmakerTeamOption {
   teamId: number;
   teamName: string;

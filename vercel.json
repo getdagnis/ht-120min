@@ -1,6 +1,14 @@
 {
   "rewrites": [
     {
+      "source": "/testing",
+      "destination": "/api/testing"
+    },
+    {
+      "source": "/testing/:path*",
+      "destination": "/api/testing/:path*"
+    },
+    {
       "source": "/:path*",
       "has": [
         {
