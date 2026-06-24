@@ -29,6 +29,7 @@ This file is a quick index of the CHPP interfaces that are relevant to the proje
 
 ## Matches and Fixtures
 
+- `challenges` - Very important. Friendly booking management
 - `cupmatches` - Information about cup matches.
 - `live` - Get the live match ticker. `1.3` `{default}`
 - `matches` - The most recent and upcoming matches for a particular team, senior or youth. `2.3` `{default}`

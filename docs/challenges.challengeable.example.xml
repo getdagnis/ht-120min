@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Placeholder — capture a real response via:
+  GET /api/testing/challengeable?managerId=...&teamId=...&opponentTeamId=...
+  Save the rawXml field here once obtained.
+-->
+<HattrickData>
+  <FileName>challenges.xml</FileName>
+  <Version>1.6</Version>
+  <Comment>Replace this file with a real challengeable response from CHPP.</Comment>
+</HattrickData>

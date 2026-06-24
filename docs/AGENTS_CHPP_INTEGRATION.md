@@ -42,3 +42,17 @@ If code changes do not appear reflected in production:
 2. **Correlate Requests/Logs**: When handling multiple concurrent requests, use a unique `requestId` in both server logs and JSON responses to correlate them.
 3. **Inspect Raw Payloads**: Do not rely on derived boolean logic (e.g., `isExtraTime`). Always log/inspect the *raw* API response payload (e.g., `console.log(xml.substring(...))`) to verify the server is receiving the expected data.
 4. **Check Routing/Deployment**: Ensure the deployed commit on the server matches the local branch. If changes are ignored, assume a routing or deployment mismatch until proven otherwise.
+
+## 6. Challenges API (note: this section is a rough draft, update as you proceed, improve it)
+
+Before implementing, read:
+
+- AGENTS.md
+- PROJECT_STATE.md
+- ROADMAP.md
+- docs/chpp-audit.md
+- docs/AGENTS_CHPP_INTEGRATION.md
+- plans/temp/tinder_phase3.md
+- docs/auth-flow.md
+- docs/challenges.params.md, docs/challenges.schema.xml, docs/challenges.example.xml
+- All Matchmaker-related Supabase tables and activity/event systems currently used by the project
