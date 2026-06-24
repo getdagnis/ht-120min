@@ -51,7 +51,7 @@ export function useLiveMatches(tournamentId: string | undefined, matches: Match[
 
       const ids = potentialLive.map((m) => m.ht_match_id).join(',');
       try {
-        const res = await fetch(`/api/chpp/live-matches?tournament_id=${currentTid}&match_ids=${ids}`);
+        const res = await fetch(`/api/chpp/live-matches?tournament_id=${currentTid}&match_ids=${ids}&_t=${Date.now()}`);
         if (res.ok) {
           const data = await res.json();
 
