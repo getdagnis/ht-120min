@@ -31,7 +31,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     try {
       const snapshot = await fetchManagerTeamsFromChpp(consumerKey, consumerSecret, credentials, managerId);
       teams = snapshot.teams.map((team) => ({ teamId: team.teamId, teamName: team.teamName }));
-    } catch (error) {
+    } catch {
       teams = [];
     }
   }

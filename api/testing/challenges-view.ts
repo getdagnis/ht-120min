@@ -1,9 +1,5 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
-import {
-  checkChppChallengeable,
-  parseChppRequestOptionsFromQuery,
-  viewChppChallenges,
-} from '../_lib/chpp-challenges.js';
+import { parseChppRequestOptionsFromQuery, viewChppChallenges } from '../_lib/chpp-challenges.js';
 import { rejectIfTestingDisabled } from './_lib/guard.js';
 import { resolveTestingManager } from './_lib/manager-context.js';
 import { respondWithChppResult } from './_lib/respond.js';
