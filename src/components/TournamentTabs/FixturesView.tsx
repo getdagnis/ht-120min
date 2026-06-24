@@ -8,6 +8,7 @@ import { calculateMatchDate } from '../../utils/ht-data';
 import styles from '../../pages/Public/TournamentView.module.sass';
 
 interface FixtureMatch {
+  reached_120_minutes: boolean;
   id: string;
   round_id: string;
   home_team_id: string;
@@ -68,7 +69,10 @@ interface FixturesViewProps {
     round_id: string;
     type?: 'yellow' | 'red';
   }[];
-  liveData: Record<string, { status: 'arranged' | 'ongoing' | 'finished'; homeGoals: number; awayGoals: number; venue_mismatch?: boolean }>;
+  liveData: Record<
+    string,
+    { status: 'arranged' | 'ongoing' | 'finished'; homeGoals: number; awayGoals: number; venue_mismatch?: boolean }
+  >;
 }
 
 export const FixturesView: React.FC<FixturesViewProps> = ({
@@ -106,30 +110,39 @@ export const FixturesView: React.FC<FixturesViewProps> = ({
             )
           : null;
 
-        const formatMatch = (m: FixtureMatch, isNext: boolean, roundNum: number) =>
-          `[tr][td]${m.home_team?.name}[/td][td][b]${
-            isNext
-              ? calculateMatchDate(
-                  tournament?.created_at || '',
-                  roundNum,
-                  m.home_team?.country_name,
-                ).toLocaleDateString('lv-LV', {
-                  day: '2-digit',
-                  month: '2-digit',
-                })
-              : m.completed
-                ? `${m.home_goals} : ${m.away_goals}`
-                : m.status === 'misarranged'
-                  ? 'DNP'
-                  : '..:..'
-          }[/b][/td][td]${m.away_team?.name}[/td][/tr]`;
+        const formatMatch = (m: FixtureMatch, isNext: boolean, roundNum: number) => {
+          const value = isNext
+            ? `${calculateMatchDate(
+                tournament?.created_at || '',
+                roundNum,
+                m.home_team?.country_name,
+              ).toLocaleDateString('lv-LV', {
+                day: '2-digit',
+                month: '2-digit',
+              })}`
+            : m.completed
+              ? `${m.home_goals} : ${m.away_goals}${m.went_120 ? " 🎯 120'!" : ''}`
+              : m.status === 'misarranged'
+                ? 'DNP'
+                : `${calculateMatchDate(
+                    tournament?.created_at || '',
+                    roundNum,
+                    m.home_team?.country_name,
+                  ).toLocaleDateString('lv-LV', {
+                    day: '2-digit',
+                    month: '2-digit',
+                  })}.`;
+
+          return `[tr][td]${m.home_team?.name}[/td][td][b]${value}[/b][/td][td]${m.away_team?.name}[/td][/tr]`;
+        };
 
         const handleCopy = () => {
-          let table = `[b]${tournament?.name}[/b]\n[link=http://ht120-min.vercel.app/t/${tournament?.slug}]\n\n[b]ROUND ${round.round_number}, ${allFinished ? 'final results:[/b]' : 'Fixtures:[/b]'}\n[table]${round.matches.map((m) => formatMatch(m, false, round.round_number)).join(' ')}[/table]`;
-          if (isNextRound && nextRound) {
-            table += `\n[b]Next: ROUND ${nextRound.round_number}, fixtures:[/b]\n[table]${nextRound.matches.map((m) => formatMatch(m, true, nextRound.round_number)).join(' ')}[/table]`;
-          }
-          table += `\nFull fixtures: [link=http://ht120-min.vercel.app/t/${tournament?.slug}?tab=fixtures]`;
+          let table = `[b]${tournament?.name}[/b]\n[link=http://ht-120min.vercel.app/t/${tournament?.slug}]\n\n[b]ROUND ${round.round_number}, ${allFinished ? 'final results:[/b]' : 'Fixtures:[/b]'}\n[table]${round.matches
+            .map((m) => formatMatch(m, !m.completed && m.status !== 'misarranged', round.round_number))
+            .join(' ')}[/table]`;
+
+          table += `\n[b]Next: ROUND ${nextRound.round_number}, fixtures:[/b]\n[table]${nextRound.matches.map((m) => formatMatch(m, true, nextRound.round_number)).join(' ')}[/table]`;
+          table += `\nFull fixtures: [link=http://ht-120min.vercel.app/t/${tournament?.slug}?tab=fixtures]`;
           navigator.clipboard.writeText(table);
           setCopied((prev) => ({ ...prev, [round.id]: true }));
           setTimeout(() => setCopied((prev) => ({ ...prev, [round.id]: false })), 2000);
@@ -263,16 +276,16 @@ export const FixturesView: React.FC<FixturesViewProps> = ({
 
                   return (
                     <FixtureCard
-                    key={match.id}
-                    date={status === 'misarranged' ? '' : formattedDate}
-                    status={status}
-                    htMatchId={match.ht_match_id || undefined}
-                    score={currentScore}
-                    matchType={match.match_type || undefined}
-                    is120minMode={tournament?.scoring_mode === '120min'}
-                    went_120={match.went_120}
-                    completed={match.completed}
-                    homeTeam={{
+                      key={match.id}
+                      date={status === 'misarranged' ? '' : formattedDate}
+                      status={status}
+                      htMatchId={match.ht_match_id || undefined}
+                      score={currentScore}
+                      matchType={match.match_type || undefined}
+                      is120minMode={tournament?.scoring_mode === '120min'}
+                      went_120={match.went_120}
+                      completed={match.completed}
+                      homeTeam={{
                         name: match.home_team?.name || 'BYE',
                         managerName: match.home_team?.manager_name || 'UNKNOWN',
                         managerHtId: match.home_team?.hattrick_user_id,
