@@ -6,7 +6,11 @@
     },
     {
       "source": "/testing/:path*",
-      "destination": "/api/testing/:path*"
+      "destination": "/api/testing"
+    },
+    {
+      "source": "/api/testing/:path*",
+      "destination": "/api/testing"
     },
     {
       "source": "/:path*",

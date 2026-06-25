@@ -270,20 +270,9 @@ export const CreateTournament: React.FC = () => {
 
   const fetchTeamLogoFromChpp = async (
     teamId: number,
-    accessToken: string,
-    accessTokenSecret: string,
   ): Promise<{ logoUrl?: string; countryName?: string; countryId?: number }> => {
     try {
-      const res = await fetch('/api/chpp/proxy', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ 
-          file: 'teamdetails',
-          teamID: teamId, 
-          access_token: accessToken, 
-          access_token_secret: accessTokenSecret 
-        }),
-      });
+      const res = await fetch(`/api/teams/info?team_id=${teamId}`);
       if (!res.ok) return {};
       const data = await res.json();
       return {
@@ -315,11 +304,7 @@ export const CreateTournament: React.FC = () => {
       }
 
       // 2. Fetch logo
-      const { logoUrl, countryName, countryId } = await fetchTeamLogoFromChpp(
-        team.teamId,
-        linkedManager.access_token,
-        linkedManager.access_token_secret,
-      );
+      const { logoUrl, countryName, countryId } = await fetchTeamLogoFromChpp(team.teamId);
 
       const creatorTeam: LocalTeam = {
         tempId: nanoid(),

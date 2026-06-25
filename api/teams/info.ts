@@ -133,6 +133,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       leagueName,
       countryId,
       countryName,
+      logoUrl: parsed.logoUrl,
     });
   } catch (error) {
     return res.status(500).json({ error: error instanceof Error ? error.message : 'An unknown error occurred' });

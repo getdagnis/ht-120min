@@ -252,7 +252,37 @@ Phase 3:
 
 Always prioritize Phase 1 work before later phases.
 
-## Before you start
+## Deployment Constraints
+
+### Vercel Hobby Plan: 12 Serverless Function Limit
+
+The project is deployed on Vercel Hobby plan, which allows a maximum of **12 serverless functions** per deployment.
+
+Every `.ts` file in `/api/` that is NOT inside a `_lib/` folder counts as one function.
+
+Current function count: **12** (as of June 2026).
+
+**Rules for agents:**
+- Do NOT add new files directly to `/api/` or its subdirectories (outside `_lib/`) without first removing or consolidating an existing one.
+- Dev/debug tooling belongs in `api/testing/index.ts` as a routed handler — not as a separate file.
+- Shared code belongs in `api/_lib/` — those files do NOT count toward the limit.
+- Before adding any new endpoint, run: `find api -name "*.ts" | grep -v "/_lib/" | wc -l` and confirm the count stays ≤ 12.
+
+**Current 12 functions:**
+1. `api/auth/init.ts`
+2. `api/auth/callback.ts`
+3. `api/auth/complete.ts`
+4. `api/chpp/live-matches.ts`
+5. `api/matchmaker/activity.ts`
+6. `api/matchmaker/publish.ts`
+7. `api/matchmaker/send-challenge.ts`
+8. `api/matchmaker/show-interest.ts`
+9. `api/matchmaker/teams.ts`
+10. `api/teams/info.ts`
+11. `api/teams/refresh-fixtures.ts`
+12. `api/testing/index.ts`
+
+
 
 please familiarize yourself with the project, key files, global styles, package.json, all agent docs (agents.md,
    project_state.md and especially the docs folder, we will have to use hattrick chpp api interfaces a lot) -

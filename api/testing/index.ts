@@ -1,12 +1,233 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { rejectIfTestingDisabled } from './_lib/guard.js';
+import { resolveTestingManager } from './_lib/manager-context.js';
+import { auditManagerCredentials, TESTING_AUTH_EXPLANATION } from './_lib/oauth-audit.js';
+import { respondWithChppResult } from './_lib/respond.js';
+import { getResponseFormat, wantsRawXml } from './_lib/respond.js';
+import { beautifyXml, renderTestingHtmlPage } from './_lib/xml-format.js';
+import {
+  checkChppChallengeable,
+  parseChppRequestOptionsFromQuery,
+  viewChppChallenges,
+  sendChppChallenge,
+  sendChppChallengeDirect,
+  type ChppChallengesRequestOptions,
+} from '../_lib/chpp-challenges.js';
+import { fetchTeamBookingStatus } from '../_lib/matchmaker.js';
 
 const DEFAULT_MANAGER_ID = '8777402';
 const DEFAULT_TEAM_ID = '681813';
 const DEFAULT_OPPONENT_TEAM_ID = '3310896';
 
+// Extract the last path segment: /api/testing/challengeable → "challengeable"
+function getTool(req: VercelRequest): string {
+  const url = req.url ?? '';
+  const path = url.split('?')[0].replace(/\/$/, '');
+  const segment = path.split('/').filter(Boolean).pop() ?? '';
+  // "testing" or "index" means the root dashboard
+  return segment === 'testing' || segment === 'index' ? '' : segment;
+}
+
+async function handleOauthVerify(req: VercelRequest, res: VercelResponse) {
+  if (req.method !== 'GET') return res.status(405).json({ error: 'Method not allowed' });
+  const managerId = Number(req.query.managerId);
+  if (!Number.isFinite(managerId)) return res.status(400).json({ error: 'Missing managerId' });
+  const audit = await auditManagerCredentials(managerId);
+  return res.status(200).json({
+    ...audit,
+    authModel: TESTING_AUTH_EXPLANATION,
+    diagnosis:
+      !audit.hasUserTokens
+        ? 'No user OAuth tokens in DB for this managerId. Log in via /api/auth/init.'
+        : !audit.chppLiveCallOk
+          ? 'Tokens exist in DB but live managercompendium call failed — tokens may be expired or revoked.'
+          : !audit.identityMatches
+            ? `Token belongs to CHPP user ${audit.chppVerifiedUserId}, not requested ${managerId}.`
+            : !audit.hasManageChallengesScope
+              ? 'Tokens valid but oauth_scope does not include manage_challenges. Re-authorize via /api/auth/init to get a fresh token with the correct scope.'
+              : 'User OAuth tokens exist, CHPP confirms identity, and manage_challenges scope is granted.',
+  });
+}
+
+async function handleCredentialsCheck(req: VercelRequest, res: VercelResponse) {
+  if (req.method !== 'GET') return res.status(405).json({ error: 'Method not allowed' });
+  const managerId = Number(req.query.managerId);
+  if (!Number.isFinite(managerId)) return res.status(400).json({ error: 'Missing managerId' });
+  const audit = await auditManagerCredentials(managerId);
+  return res.status(200).json({
+    managerId,
+    ...audit,
+    chppConfigured: !!(process.env.CHPP_CONSUMER_KEY && process.env.CHPP_CONSUMER_SECRET),
+    authModel: TESTING_AUTH_EXPLANATION,
+  });
+}
+
+async function handleBookingStatus(req: VercelRequest, res: VercelResponse) {
+  if (req.method !== 'GET') return res.status(405).json({ error: 'Method not allowed' });
+  const context = await resolveTestingManager(req);
+  if ('error' in context) return res.status(400).json({ error: context.error });
+  const teamId = Number(req.query.teamId);
+  if (!Number.isFinite(teamId)) return res.status(400).json({ error: 'Missing teamId' });
+  try {
+    const booking = await fetchTeamBookingStatus(context.consumerKey, context.consumerSecret, context.credentials, teamId);
+    return res.status(200).json({
+      teamId,
+      isBooked: booking.isBooked,
+      match: booking.match,
+      hint: booking.isBooked ? 'Team has an upcoming booked friendly.' : 'No booked friendly detected.',
+    });
+  } catch (error) {
+    return res.status(500).json({ error: error instanceof Error ? error.message : 'Booking status check failed.' });
+  }
+}
+
+async function handleChallengesView(req: VercelRequest, res: VercelResponse) {
+  if (req.method !== 'GET') return res.status(405).json({ error: 'Method not allowed' });
+  const context = await resolveTestingManager(req);
+  if ('error' in context) return res.status(400).json({ error: context.error });
+  const teamIdRaw = req.query.teamId;
+  const teamId = teamIdRaw ? Number(Array.isArray(teamIdRaw) ? teamIdRaw[0] : teamIdRaw) : undefined;
+  const isWeekendFriendly = Number(req.query.isWeekendFriendly ?? 0) === 1 ? 1 : 0;
+  const requestOptions = parseChppRequestOptionsFromQuery(req.query);
+  try {
+    const result = await viewChppChallenges({
+      consumerKey: context.consumerKey, consumerSecret: context.consumerSecret,
+      oauthToken: context.credentials.oauth_token, oauthTokenSecret: context.credentials.oauth_token_secret,
+      teamId: Number.isFinite(teamId) ? teamId : undefined, isWeekendFriendly, requestOptions,
+    });
+    const hasPermission = result.parsed.errorCode === undefined || result.parsed.errorCode === 0 ||
+      !/permission|scope|manage_challenges/i.test(result.parsed.errorMessage || result.rawXml);
+    return respondWithChppResult(req, res, {
+      label: 'challenges-view', params: result.params, httpStatus: result.httpStatus,
+      rawXml: result.rawXml, requestUrl: result.requestUrl, requestQuery: result.requestQuery,
+      parsed: { ...result.parsed, requestOptions, likelyHasManageChallenges: hasPermission,
+        hint: result.parsed.errorCode === 0 ? 'CHPP challenges view succeeded.' : 'Inspect rawXml.' },
+    });
+  } catch (error) {
+    return res.status(500).json({ error: error instanceof Error ? error.message : 'CHPP challenges view failed.' });
+  }
+}
+
+async function handleChallengeable(req: VercelRequest, res: VercelResponse) {
+  if (req.method !== 'GET') return res.status(405).json({ error: 'Method not allowed' });
+  const context = await resolveTestingManager(req);
+  if ('error' in context) return res.status(400).json({ error: context.error });
+  const teamId = Number(req.query.teamId);
+  const opponentTeamId = Number(req.query.opponentTeamId);
+  const isWeekendFriendly = Number(req.query.isWeekendFriendly ?? 0) === 1 ? 1 : 0;
+  const requestOptions = parseChppRequestOptionsFromQuery(req.query);
+  if (!Number.isFinite(teamId)) return res.status(400).json({ error: 'Missing teamId' });
+  if (!Number.isFinite(opponentTeamId)) return res.status(400).json({ error: 'Missing opponentTeamId' });
+  try {
+    const result = await checkChppChallengeable({
+      consumerKey: context.consumerKey, consumerSecret: context.consumerSecret,
+      oauthToken: context.credentials.oauth_token, oauthTokenSecret: context.credentials.oauth_token_secret,
+      teamId, suggestedTeamIds: [opponentTeamId], isWeekendFriendly, requestOptions,
+    });
+    return respondWithChppResult(req, res, {
+      label: 'challengeable', params: result.params, httpStatus: result.httpStatus,
+      rawXml: result.rawXml, requestUrl: result.requestUrl, requestQuery: result.requestQuery,
+      parsed: { ...result.parsed, requestOptions,
+        hint: result.httpStatus === 401 ? '401 often means scope/params mismatch — try challenges-compare.' : 'Save rawXml to docs/challenges.challengeable.example.xml.' },
+    });
+  } catch (error) {
+    return res.status(500).json({ error: error instanceof Error ? error.message : 'CHPP challengeable check failed.' });
+  }
+}
+
+async function handleChallengesCompare(req: VercelRequest, res: VercelResponse) {
+  if (req.method !== 'GET') return res.status(405).json({ error: 'Method not allowed' });
+  const context = await resolveTestingManager(req);
+  if ('error' in context) return res.status(400).json({ error: context.error });
+  const teamId = Number(req.query.teamId);
+  const opponentTeamId = Number(req.query.opponentTeamId);
+  const isWeekendFriendly = Number(req.query.isWeekendFriendly ?? 0) === 1 ? 1 : 0;
+  const baseOptions = parseChppRequestOptionsFromQuery(req.query);
+  if (!Number.isFinite(teamId) || !Number.isFinite(opponentTeamId)) {
+    return res.status(400).json({ error: 'Missing teamId and opponentTeamId.' });
+  }
+  const auth = {
+    consumerKey: context.consumerKey, consumerSecret: context.consumerSecret,
+    oauthToken: context.credentials.oauth_token, oauthTokenSecret: context.credentials.oauth_token_secret,
+  };
+  const VARIANTS: Array<{ label: string; requestOptions: ChppChallengesRequestOptions }> = [
+    { label: 'view-default', requestOptions: {} },
+    { label: 'challengeable-default', requestOptions: {} },
+    { label: 'challengeable-no-version', requestOptions: { version: null } },
+    { label: 'challengeable-no-weekend', requestOptions: { includeWeekendParam: false } },
+    { label: 'challengeable-teamID-casing', requestOptions: { teamIdParamName: 'teamID' } },
+    { label: 'challengeable-suggestedTeamID', requestOptions: { suggestedTeamIdsParamName: 'suggestedTeamID' } },
+  ];
+  const runs: Array<Record<string, unknown>> = [];
+  for (const variant of VARIANTS) {
+    const requestOptions = { ...baseOptions, ...variant.requestOptions };
+    if (variant.label.startsWith('view')) {
+      const result = await viewChppChallenges({ ...auth, teamId, isWeekendFriendly, requestOptions });
+      runs.push({ variant: variant.label, httpStatus: result.httpStatus, requestUrl: result.requestUrl, requestParams: result.params, parsed: result.parsed, rawXmlPreview: result.rawXml.slice(0, 400), rawXmlFormatted: beautifyXml(result.rawXml) });
+    } else {
+      const result = await checkChppChallengeable({ ...auth, teamId, suggestedTeamIds: [opponentTeamId], isWeekendFriendly, requestOptions });
+      runs.push({ variant: variant.label, httpStatus: result.httpStatus, requestUrl: result.requestUrl, requestParams: result.params, parsed: result.parsed, rawXmlPreview: result.rawXml.slice(0, 400), rawXmlFormatted: beautifyXml(result.rawXml) });
+    }
+  }
+  return res.status(200).json({ tool: 'challenges-compare', managerId: context.managerId, teamId, opponentTeamId, hint: 'Compare requestUrl and httpStatus across variants.', runs });
+}
+
+async function handleChallengeSend(req: VercelRequest, res: VercelResponse) {
+  if (req.method !== 'GET') return res.status(405).json({ error: 'Method not allowed' });
+  const context = await resolveTestingManager(req);
+  if ('error' in context) return res.status(400).json({ error: context.error });
+  const teamId = Number(req.query.teamId);
+  const opponentTeamId = Number(req.query.opponentTeamId);
+  const matchType = Number(req.query.matchType ?? 1) === 1 ? 1 : 0;
+  const matchPlace = Number(req.query.matchPlace ?? 0);
+  const confirm = String(req.query.confirm ?? '') === '1';
+  if (!Number.isFinite(teamId) || !Number.isFinite(opponentTeamId)) {
+    return res.status(400).json({ error: 'Missing teamId and opponentTeamId.' });
+  }
+  if (!confirm) {
+    return res.status(400).json({ error: 'Refusing to send a real challenge without confirm=1.', dryRunParams: { teamId, opponentTeamId, matchType, matchPlace } });
+  }
+  const requestOptions = parseChppRequestOptionsFromQuery(req.query);
+  const useDirect = req.query.useDirect !== '0';
+  try {
+    const challengeInput = {
+      consumerKey: context.consumerKey, consumerSecret: context.consumerSecret,
+      oauthToken: context.credentials.oauth_token, oauthTokenSecret: context.credentials.oauth_token_secret,
+      teamId, opponentTeamId, matchType: matchType as 0 | 1, matchPlace: matchPlace as 0 | 1 | 2, requestOptions,
+    };
+    const result = useDirect ? await sendChppChallengeDirect(challengeInput) : await sendChppChallenge(challengeInput);
+    if (wantsRawXml(req) && result.rawXml) {
+      res.setHeader('Content-Type', 'application/xml; charset=utf-8');
+      return res.status(result.success ? 200 : 502).send(beautifyXml(result.rawXml));
+    }
+    if (getResponseFormat(req) === 'html') {
+      res.setHeader('Content-Type', 'text/html; charset=utf-8');
+      return res.status(result.success ? 200 : 502).send(renderTestingHtmlPage({
+        title: 'challenge-send',
+        subtitle: result.success ? `Challenge sent. TrainingMatchID: ${result.trainingMatchId ?? 'unknown'}` : result.errorMessage || 'Challenge failed',
+        parsed: { success: result.success, trainingMatchId: result.trainingMatchId, errorCode: result.errorCode, challengeable: result.challengeable, skippedChallengeableCheck: result.skippedChallengeableCheck, requestUrl: result.requestUrl, requestQuery: result.requestQuery },
+        rawXml: result.rawXml,
+      }));
+    }
+    return res.status(result.success ? 200 : 502).json({ tool: 'challenge-send', success: result.success, trainingMatchId: result.trainingMatchId, errorCode: result.errorCode, error: result.errorMessage, challengeable: result.challengeable, skippedChallengeableCheck: result.skippedChallengeableCheck, requestUrl: result.requestUrl, requestQuery: result.requestQuery, rawXml: result.rawXml, rawXmlFormatted: result.rawXml ? beautifyXml(result.rawXml) : undefined, warning: 'This created a real Hattrick challenge side effect.' });
+  } catch (error) {
+    return res.status(500).json({ error: error instanceof Error ? error.message : 'CHPP challenge send failed.' });
+  }
+}
+
+
+
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   if (rejectIfTestingDisabled(res)) return;
+
+  const tool = getTool(req);
+  if (tool === 'oauth-verify') return handleOauthVerify(req, res);
+  if (tool === 'credentials-check') return handleCredentialsCheck(req, res);
+  if (tool === 'booking-status') return handleBookingStatus(req, res);
+  if (tool === 'challenges-view') return handleChallengesView(req, res);
+  if (tool === 'challengeable') return handleChallengeable(req, res);
+  if (tool === 'challenges-compare') return handleChallengesCompare(req, res);
+  if (tool === 'challenge-send') return handleChallengeSend(req, res);
 
   const base = `${req.headers['x-forwarded-proto'] || 'http'}://${req.headers.host}/api/testing`;
 
