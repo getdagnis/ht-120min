@@ -77,6 +77,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     const tokenData = new URLSearchParams(body);
     const accessToken = tokenData.get('oauth_token')!;
     const accessTokenSecret = tokenData.get('oauth_token_secret')!;
+    const grantedScope = tokenData.get('scope') ?? '';
 
     // 3. Fetch Manager Details to get User ID and Team ID
     const chppUrl = 'https://chpp.hattrick.org/chppxml.ashx';
@@ -173,6 +174,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         manager_name: managerName,
         teams_json: filteredTeams,
         is_creation: session.is_creation,
+        oauth_scope: grantedScope,
       })
       .eq('oauth_token', oauth_token);
 

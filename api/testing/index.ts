@@ -3,7 +3,7 @@ import { rejectIfTestingDisabled } from './_lib/guard.js';
 
 const DEFAULT_MANAGER_ID = '8777402';
 const DEFAULT_TEAM_ID = '681813';
-const DEFAULT_OPPONENT_TEAM_ID = '681813';
+const DEFAULT_OPPONENT_TEAM_ID = '3310896';
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   if (rejectIfTestingDisabled(res)) return;
@@ -47,6 +47,12 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   <p class="muted">Dev-only. Disabled in production unless <code>TESTING_ENABLED=true</code>.</p>
   <p class="muted">Run <code>vercel dev</code> (port 3000). Vite proxies <code>/testing</code> and <code>/api</code>.</p>
 
+  <div class="tool" style="background:#fff8e6;border-color:#e6c200">
+    <h3>How auth works here</h3>
+    <p><strong>Incognito does not matter.</strong> These tools do not read browser cookies. They load <code>oauth_token</code> + <code>oauth_token_secret</code> from Supabase for the <code>managerId</code> you type below, then sign CHPP requests with <em>app</em> consumer key/secret + <em>user</em> access token/secret.</p>
+    <p>App credentials alone cannot impersonate your team. If challenges-view returns your data, user tokens are in the DB. Run <a id="link-oauth-verify" href="#">oauth-verify</a> first to confirm.</p>
+  </div>
+
   <div class="ids">
     <label>
       Manager ID
@@ -70,6 +76,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
   <h2>Recommended order</h2>
   <ol>
+    <li><a id="quick-oauth" href="#">oauth-verify</a> — prove user tokens exist and match managerId</li>
     <li><a id="quick-view" href="#">challenges-view</a></li>
     <li><a id="quick-compare" href="#">challenges-compare</a> (view vs challengeable variants)</li>
     <li><a id="quick-challengeable" href="#">challengeable</a></li>
@@ -78,16 +85,17 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   </ol>
 
   <div class="tool">
-    <h3>Credentials check</h3>
-    <p>Verify stored OAuth tokens exist for the manager.</p>
+    <h3>OAuth verify</h3>
+    <p>Loads tokens from DB, calls <code>managercompendium</code>, checks CHPP UserID matches managerId.</p>
     <div class="links">
-      <a id="link-credentials" href="#">Open</a>
+      <a id="link-oauth-verify-tool" href="#">Open (JSON)</a>
+      <a id="link-credentials" href="#">credentials-check (same audit)</a>
     </div>
   </div>
 
   <div class="tool">
     <h3>Challenges view (Stage 1)</h3>
-    <p><code>actionType=view</code> — proves <code>manage_challenges</code> read access.</p>
+    <p><code>actionType=view</code> — uses same user tokens as oauth-verify. Does not prove challengeable works.</p>
     <div class="links">
       <a id="link-view" href="#">Readable (HTML)</a>
       <a id="link-view-json" href="#">JSON</a>
@@ -167,6 +175,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         ? { ...core, opponentTeamId }
         : { ...core, opponentTeamId: 'OPPONENT_ID' };
 
+      $('link-oauth-verify').href = buildUrl('/oauth-verify', { managerId });
+      $('link-oauth-verify-tool').href = buildUrl('/oauth-verify', { managerId });
+      $('quick-oauth').href = $('link-oauth-verify').href;
       $('link-credentials').href = buildUrl('/credentials-check', { managerId });
       $('link-booking').href = buildUrl('/booking-status', core);
       $('link-compare').href = buildUrl('/challenges-compare', withOpponent);

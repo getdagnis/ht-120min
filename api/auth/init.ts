@@ -80,8 +80,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       return res.status(500).json({ error: 'Failed to store session', details: error.message });
     }
 
-    // Redirect to Hattrick for authorization
-    const authUrl = `https://chpp.hattrick.org/oauth/authorize.aspx?oauth_token=${oauth_token}`;
+    // Redirect to Hattrick for authorization (request manage_challenges for friendly actions)
+    const authUrl = `https://chpp.hattrick.org/oauth/authorize.aspx?oauth_token=${oauth_token}&scope=manage_challenges`;
     return res.redirect(authUrl);
   } catch (error: unknown) {
     console.error('Auth Init Handler Error:', error);

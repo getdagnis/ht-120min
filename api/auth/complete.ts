@@ -182,6 +182,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         teams_json: teamsJson,
         oauth_token: pending.access_token,
         oauth_token_secret: pending.access_token_secret,
+        oauth_scope: pending.oauth_scope ?? null,
         chpp_synced_at: new Date().toISOString(),
       });
     } catch (e) {

@@ -236,11 +236,18 @@ export async function fetchChppChallengesRaw(input: {
   const requestQuery = query.toString();
   const requestUrl = `${CHPP_URL}?${requestQuery}`;
 
-  if (input.actionType === 'challengeable' || process.env.CHPP_DEBUG === 'true') {
-    console.log('[CHPP challenges]', {
+  const shouldLog =
+    process.env.CHPP_DEBUG === 'true' ||
+    process.env.NODE_ENV !== 'production' ||
+    input.actionType === 'challengeable';
+
+  if (shouldLog) {
+    console.log('[CHPP challenges request]', {
       actionType: input.actionType,
       url: requestUrl,
       params,
+      hasUserToken: Boolean(input.oauthToken),
+      hasUserTokenSecret: Boolean(input.oauthTokenSecret),
     });
   }
 
@@ -250,11 +257,11 @@ export async function fetchChppChallengesRaw(input: {
 
   const rawXml = await response.text();
 
-  if (input.actionType === 'challengeable' || process.env.CHPP_DEBUG === 'true') {
+  if (shouldLog) {
     console.log('[CHPP challenges response]', {
       actionType: input.actionType,
       httpStatus: response.status,
-      bodyPreview: rawXml.slice(0, 500),
+      bodyPreview: rawXml.slice(0, 800),
     });
   }
 
