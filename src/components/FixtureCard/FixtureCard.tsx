@@ -50,10 +50,13 @@ export const FixtureCard: React.FC<FixtureCardProps> = ({
 }) => {
   const badgeContent = (
     <div className={`${styles.statusBadge} ${styles[status]}`}>
-      {status.replace('_', ' ').toUpperCase()}{' '}
-      {['arranged', 'ongoing', 'finished'].includes(status) && (
-        <ArrowUpRight size={16} weight="bold" className={styles.statusBadgeIcon} />
-      )}
+      {went_120 && <div className={styles.badge120}>120'!</div>}
+      <div className={styles.badgeRight}>
+        {status.replace('_', ' ').toUpperCase()}{' '}
+        {['arranged', 'ongoing', 'finished'].includes(status) && (
+          <ArrowUpRight size={16} weight="bold" className={styles.statusBadgeIcon} />
+        )}
+      </div>
     </div>
   );
 

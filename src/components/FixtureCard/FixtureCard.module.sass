@@ -19,9 +19,13 @@
 .teamContainer
   display: flex
   align-items: center
+  justify-content: flex-start
   gap: 1rem
   min-width: 0
   flex: 1 1 0%
+
+  .teamName
+    text-align: left
 
 .teamContainer.right
   justify-content: flex-end
@@ -216,10 +220,24 @@
   opacity: 0.4
   padding: 0 0.5rem
 
+.badge120
+  width: fit-content
+  height: 100%
+  background: var(--accent-2)
+  color: white
+  padding: 0 0.25rem 0 0.5rem
+  padding: 0.25rem 0.75rem 0.25rem 1rem
+  border-radius: var(--radius-sm) 0 0 var(--radius-sm)
+
+.badgeRight
+  display: flex
+  align-items: center
+  padding: 0.25rem 0.5rem 0.25rem 0.75rem
+
 .statusBadge
   display: flex
   align-items: center
-  padding: 0.25rem 0.7rem 0.25rem 1rem
+  padding: 0
   border-radius: 8px
   font-size: 0.95rem
   font-weight: 700
