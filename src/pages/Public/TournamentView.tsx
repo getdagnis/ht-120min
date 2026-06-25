@@ -409,7 +409,7 @@ export const TournamentView: React.FC = () => {
               away_goals:
                 live.status === 'finished' || live.awayGoals > (m.away_goals || 0) ? live.awayGoals : m.away_goals,
               completed: live.status === 'finished' || m.completed,
-              status: live.status === 'finished' ? 'finished' : (live.status || m.status),
+              status: live.status === 'finished' ? 'finished' : live.status || m.status,
               went_120: live.went_120 ?? m.went_120,
               total_minutes: live.total_minutes ?? m.total_minutes,
             };
@@ -672,15 +672,12 @@ export const TournamentView: React.FC = () => {
 
       // 2. Also trigger a live check for arranged/ongoing matches and any completed matches.
       //    Completed matches are included so venue reversals and other stale result data can be re-synced.
-      const matchesToSync = allMatches.filter(m => 
-        m.ht_match_id && (
-          ['arranged', 'ongoing'].includes(m.status) || 
-          m.completed
-        )
+      const matchesToSync = allMatches.filter(
+        (m) => m.ht_match_id && (['arranged', 'ongoing'].includes(m.status) || m.completed),
       );
-      
+
       if (matchesToSync.length > 0) {
-        const ids = matchesToSync.map(m => m.ht_match_id).join(',');
+        const ids = matchesToSync.map((m) => m.ht_match_id).join(',');
         await fetch(`/api/chpp/live-matches?tournament_id=${tournament.id}&match_ids=${ids}`);
       }
 

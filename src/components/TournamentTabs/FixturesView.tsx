@@ -7,8 +7,7 @@ import { Tooltip } from 'react-tooltip';
 import { calculateMatchDate } from '../../utils/ht-data';
 import styles from '../../pages/Public/TournamentView.module.sass';
 
-interface FixtureMatch {
-  reached_120_minutes: boolean;
+export interface FixtureMatch {
   id: string;
   round_id: string;
   home_team_id: string;
