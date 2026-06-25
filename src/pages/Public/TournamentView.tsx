@@ -2314,7 +2314,9 @@ export const TournamentView: React.FC = () => {
                             fullWidth
                             onClick={generateSchedule}
                             disabled={teams.filter((t) => t.active).length < 2 || isGenerating}
-                          ></Button>
+                          >
+                            Generate a schedule
+                          </Button>
                           <p className="center w-100">Generating schedule will also close registration. </p>
                         </div>
                       ) : (
