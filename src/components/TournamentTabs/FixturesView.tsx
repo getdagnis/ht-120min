@@ -44,6 +44,7 @@ interface FixturesViewProps {
   rounds: {
     id: string;
     round_number: number;
+    created_at: string;
     matches: FixtureMatch[];
   }[];
   visibleRoundsCount: number;
@@ -103,7 +104,7 @@ export const FixturesView: React.FC<FixturesViewProps> = ({
 
         const roundDate = round.matches[0]
           ? calculateMatchDate(
-              tournament?.created_at || '',
+              round.created_at,
               round.round_number,
               round.matches[0].home_team?.country_name,
             )
@@ -112,7 +113,7 @@ export const FixturesView: React.FC<FixturesViewProps> = ({
         const formatMatch = (m: FixtureMatch, isNext: boolean, roundNum: number) => {
           const value = isNext
             ? `${calculateMatchDate(
-                tournament?.created_at || '',
+                round.created_at,
                 roundNum,
                 m.home_team?.country_name,
               ).toLocaleDateString('lv-LV', {
@@ -124,7 +125,7 @@ export const FixturesView: React.FC<FixturesViewProps> = ({
               : m.status === 'misarranged'
                 ? 'DNP'
                 : `${calculateMatchDate(
-                    tournament?.created_at || '',
+                    round.created_at,
                     roundNum,
                     m.home_team?.country_name,
                   ).toLocaleDateString('lv-LV', {
@@ -227,7 +228,7 @@ export const FixturesView: React.FC<FixturesViewProps> = ({
               <div className={styles.matchesGrid}>
                 {round.matches.map((match) => {
                   const matchDate = calculateMatchDate(
-                    tournament?.created_at || '',
+                    round.created_at,
                     round.round_number,
                     match.home_team?.country_name,
                   );

@@ -233,9 +233,12 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     // Reload warnings after clearing so recordWarning() works from a clean slate
     const freshWarnings: { round_id: string; team_id: string }[] = [];
 
-    // Only process matches in the upcoming round that are still 'not_arranged' or missing Match ID
+    // Only process matches in the upcoming round that are eligible:
+    // status ∈ {not_arranged, arranged} AND completed = false
+    // Never touch: finished, misarranged, or completed=true
     for (const match of upcomingRound.matches) {
       if (match.completed) continue;
+      if (!['not_arranged', 'arranged'].includes(match.status)) continue;
       
       // If already has ht_match_id and match_type, we can skip
       if (match.status === 'arranged' && match.ht_match_id && match.match_type) continue;

@@ -124,6 +124,7 @@ interface Tournament {
 interface RoundWithMatches {
   id: string;
   round_number: number;
+  created_at: string;
   matches: MatchWithTeams[];
 }
 
@@ -394,7 +395,7 @@ export const TournamentView: React.FC = () => {
           return {
             ...m,
             match_date: round
-              ? calculateMatchDate(tournamentData.created_at, round.round_number, m.home_team?.country_name)
+              ? calculateMatchDate(round.created_at, round.round_number, m.home_team?.country_name)
               : undefined,
           };
         });
@@ -466,6 +467,42 @@ export const TournamentView: React.FC = () => {
     }
     setLoading(false);
   }, [slug, liveData]);
+
+  // Lightweight update: only refresh rounds, matches, warnings and last_fixtures_refresh timestamp.
+  // Does not reload tournament meta, teams, standings, chat, news, or profiles.
+  const fetchFixturesOnly = useCallback(async () => {
+    if (!tournament) return;
+    const { data: roundsData } = await supabase
+      .from('rounds').select('*').eq('tournament_id', tournament.id).order('round_number', { ascending: true });
+    if (!roundsData) return;
+
+    const roundIds = roundsData.map((r: { id: string }) => r.id);
+    const [{ data: matchesData }, { data: warningsData }, { data: tournamentMeta }] = await Promise.all([
+      supabase.from('matches').select(`
+        *, status, ht_match_id, match_type,
+        home_team:teams!matches_home_team_id_fkey(name, ht_team_id, logo_url, country_name, active, manager_name, hattrick_user_id),
+        away_team:teams!matches_away_team_id_fkey(name, ht_team_id, logo_url, country_name, active, manager_name, hattrick_user_id)
+      `).in('round_id', roundIds),
+      supabase.from('fixture_warnings').select('*').eq('tournament_id', tournament.id).eq('active', true),
+      supabase.from('tournaments').select('last_fixtures_refresh').eq('id', tournament.id).single(),
+    ]);
+
+    if (matchesData) {
+      const newRounds = roundsData.map((r: { id: string; round_number: number }) => ({
+        ...r,
+        matches: (matchesData as MatchWithTeams[])
+          .filter((m) => m.round_id === r.id)
+          .map((m) => ({
+            ...m,
+            match_date: calculateMatchDate(r.created_at, r.round_number, m.home_team?.country_name),
+          }))
+          .sort((a, b) => (a.match_date?.getTime() || 0) - (b.match_date?.getTime() || 0)),
+      }));
+      setRounds(newRounds as RoundWithMatches[]);
+    }
+    if (warningsData) setWarnings(warningsData);
+    if (tournamentMeta) setTournament((prev) => prev ? { ...prev, last_fixtures_refresh: tournamentMeta.last_fixtures_refresh } : prev);
+  }, [tournament]);
 
   // Keep last_fixtures_refresh updated in UI when live polling happens
   const prevLastRefreshRef = useRef(lastRefresh);
@@ -682,34 +719,35 @@ export const TournamentView: React.FC = () => {
         await fetch(`/api/chpp/live-matches?tournament_id=${tournament.id}&match_ids=${ids}`);
       }
 
-      await fetchData();
+      await fetchFixturesOnly();
     } catch (err: any) {
       console.error(err.message);
     } finally {
       setIsRefreshingFixtures(false);
     }
-  }, [tournament, isRefreshingFixtures, fetchData, allMatches]);
+  }, [tournament, isRefreshingFixtures, fetchFixturesOnly, allMatches]);
 
   useEffect(() => {
-    if (activeTab === 'fixtures' && tournament && !isRefreshingFixtures) {
-      const lastRefresh = tournament.last_fixtures_refresh ? new Date(tournament.last_fixtures_refresh) : null;
-      const now = new Date();
-      const diffMins = lastRefresh ? (now.getTime() - lastRefresh.getTime()) / (1000 * 60) : 999;
+    if (activeTab !== 'fixtures' || !tournament) return;
 
-      if (diffMins > 15) {
-        // Check if there are matches with 'not_arranged' status in the upcoming round
-        const upcomingRound = rounds.find((r) => r.matches.some((m) => !m.completed));
-        const hasUnarranged = upcomingRound?.matches.some((m) => m.status === 'not_arranged');
+    const shouldRefresh = () => {
+      if (isRefreshingFixtures) return false;
+      if (document.visibilityState !== 'visible') return false;
+      const lastRefreshDate = tournament.last_fixtures_refresh ? new Date(tournament.last_fixtures_refresh) : null;
+      const ageMins = lastRefreshDate ? (Date.now() - lastRefreshDate.getTime()) / 60000 : 999;
+      if (ageMins < 10) return false;
+      return rounds.some((r) => r.matches.some((m) => !m.completed));
+    };
 
-        if (hasUnarranged) {
-          setTimeout(() => {
-            handleRefreshFixtures();
-          }, 0);
-        }
-      }
-    }
+    const t = setTimeout(() => { if (shouldRefresh()) handleRefreshFixtures(); }, 0);
+
+    const interval = setInterval(() => {
+      if (shouldRefresh()) handleRefreshFixtures();
+    }, 10 * 60 * 1000);
+
+    return () => { clearTimeout(t); clearInterval(interval); };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [activeTab]);
+  }, [activeTab, tournament?.id]);
 
   const handleTabChange = (tab: 'standings' | 'fixtures' | 'guestbook' | 'news' | 'admin') => {
     if (tab !== activeTab) {
