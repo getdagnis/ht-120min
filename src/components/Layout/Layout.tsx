@@ -276,7 +276,8 @@ export const Layout: React.FC<LayoutProps> = ({ children }) => {
       <ProfileModal
         isOpen={isProfileModalOpen}
         onClose={() => navigate(location.pathname, { replace: true })}
-        profile={profile}
+        profileId={searchParams.get('profileId') ? Number(searchParams.get('profileId')) : null}
+        ownProfile={profile}
         activeTournaments={activeTournaments}
         maxWidth="620px"
       />

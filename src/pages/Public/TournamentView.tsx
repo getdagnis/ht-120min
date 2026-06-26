@@ -427,7 +427,7 @@ export const TournamentView: React.FC = () => {
             replacement_for_team_id: t.replacement_for_team_id,
             joined_via_oauth: t.joined_via_oauth,
             country_name: t.country_name,
-            country_id: t.hattrick_user_id ? profileMap[t.hattrick_user_id]?.country_id : null,
+            country_id: t.country_id ?? null,
             logo_url: t.logo_url,
             manager_name: t.hattrick_user_id
               ? profileMap[t.hattrick_user_id]?.manager_name || t.manager_name

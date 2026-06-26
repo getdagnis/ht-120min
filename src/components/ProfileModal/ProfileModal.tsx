@@ -12,7 +12,8 @@ interface ProfileModalProps {
   isOpen: boolean;
   onClose: () => void;
   maxWidth?: string;
-  profile: UserProfile | null;
+  profileId: number | null;
+  ownProfile: UserProfile | null;
 }
 
 interface DBTeamWithTournament {
@@ -35,10 +36,24 @@ interface TeamInfo {
   tournament_slug: string;
 }
 
-export const ProfileModal: React.FC<ProfileModalProps> = ({ isOpen, maxWidth, onClose, profile }) => {
+export const ProfileModal: React.FC<ProfileModalProps> = ({ isOpen, maxWidth, onClose, profileId, ownProfile }) => {
   const [teams, setTeams] = useState<TeamInfo[]>([]);
   const [loading, setLoading] = useState(false);
   const [searchParams, setSearchParams] = useSearchParams();
+  const [profile, setProfile] = useState<UserProfile | null>(null);
+
+  useEffect(() => {
+    if (!isOpen || !profileId) return;
+    const load = async () => {
+      if (ownProfile && ownProfile.hattrick_user_id === profileId) {
+        setProfile(ownProfile);
+        return;
+      }
+      const { data } = await supabase.from('profiles').select('*').eq('hattrick_user_id', profileId).maybeSingle();
+      setProfile(data as UserProfile | null);
+    };
+    void load();
+  }, [isOpen, profileId, ownProfile]);
 
   const handleClose = () => {
     if (searchParams.has('profileId')) {
@@ -111,16 +126,16 @@ export const ProfileModal: React.FC<ProfileModalProps> = ({ isOpen, maxWidth, on
               </div>
               {profile.country_name && (
                 <div className={styles.metaItem}>
-                  {profile.country_id && (
+                  {(profile.league_id || profile.country_id) && (
                     <img
-                      // some strange artefact with latvia (now id 53) reported as 48 by API with slightly wrong flag
-                      src={`https://www.hattrick.org/Img/flags/${profile.country_id == 48 ? 53 : profile.country_id}.png`}
+                      // Hattrick flag images are indexed by LeagueID, not CountryID
+                      src={`https://www.hattrick.org/Img/flags/${profile.league_id ?? profile.country_id}.png`}
                       alt={profile.country_name}
                       className={styles.flag}
                     />
                   )}
                   <a
-                    href={`https://www.hattrick.org/goto.ashx?path=/World/Leagues/League.aspx?LeagueID=${profile.country_id}`}
+                    href={`https://www.hattrick.org/goto.ashx?path=/World/Leagues/League.aspx?LeagueID=${profile.league_id ?? profile.country_id}`}
                     target="_blank"
                     rel="noopener noreferrer"
                   >

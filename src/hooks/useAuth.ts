@@ -25,6 +25,7 @@ export interface UserProfile {
   manager_name: string;
   country_id?: number;
   country_name?: string;
+  league_id?: number;
   avatar_json?: Avatar;
   teams_json?: HattrickTeam[];
   created_at: string;

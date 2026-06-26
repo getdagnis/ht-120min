@@ -36,7 +36,7 @@ export const TeamByline: React.FC<TeamBylineProps> = ({
     }
   };
 
-  const displayCountryName = getLeagueNameById(countryId) || countryName;
+  const displayCountryName = countryName || getLeagueNameById(countryId);
   const flagUrl = getFlagUrl(displayCountryName || undefined);
 
   return (
