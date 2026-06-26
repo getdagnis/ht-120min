@@ -1,4 +1,4 @@
-import { getLeagueNameById } from './leagues';
+
 
 export interface ChppTeamOption {
   teamId: number;
@@ -74,11 +74,7 @@ export function parseTeamDetailsXml(xml: string, teamId: number): ParsedTeamDeta
       countryId: block.match(/<Country>[\s\S]*?<CountryID>(\d+)<\/CountryID>/i)?.[1]
         ? parseInt(block.match(/<Country>[\s\S]*?<CountryID>(\d+)<\/CountryID>/i)![1], 10)
         : undefined,
-      countryName: getLeagueNameById(
-        block.match(/<League>[\s\S]*?<LeagueID>(\d+)<\/LeagueID>/i)?.[1]
-          ? parseInt(block.match(/<League>[\s\S]*?<LeagueID>(\d+)<\/LeagueID>/i)![1], 10)
-          : undefined,
-      ) ?? readChppTag(block, 'CountryName'),
+      countryName: readChppTag(block, 'CountryName'),
       logoUrl,
     };
   };
@@ -125,7 +121,7 @@ export function parseManagerCompendiumXml(xml: string): ParsedManagerCompendium 
       leagueLevelUnitName: readChppTag(block, 'LeagueLevelUnitName'),
       regionName: readChppTag(block, 'RegionName'),
       countryId: countryIdRaw ? parseInt(countryIdRaw, 10) : undefined,
-      countryName: getLeagueNameById(leagueIdRaw ? parseInt(leagueIdRaw, 10) : undefined) ?? readChppTag(block, 'CountryName'),
+      countryName: readChppTag(block, 'CountryName'),
     });
   }
 

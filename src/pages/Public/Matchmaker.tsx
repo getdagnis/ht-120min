@@ -487,7 +487,7 @@ export const Matchmaker: React.FC = () => {
 
   const getDisplayCountryName = (requestTeam?: MatchmakerRequest['team'] | null) => {
     if (!requestTeam) return undefined;
-    return getLeagueNameById(requestTeam.country_id ?? requestTeam.league_id) || requestTeam.country_name || undefined;
+    return requestTeam.country_name || undefined;
   };
 
   const challengeTeams = useMemo(() => {

@@ -1,6 +1,5 @@
 import React from 'react';
 import { getFlagUrl } from '../../utils/ht-data';
-import { getLeagueNameById } from '../../utils/leagues';
 import styles from './TeamDisplay.module.scss';
 
 interface TeamDisplayProps {
@@ -16,7 +15,7 @@ interface TeamDisplayProps {
 
 export const TeamDisplay: React.FC<TeamDisplayProps> = ({ team, side }) => {
   const isFree = !team?.name;
-  const countryName = team?.country_name || getLeagueNameById(team?.country_id);
+  const countryName = team?.country_name;
   const flagUrl = getFlagUrl(countryName);
 
   return (
