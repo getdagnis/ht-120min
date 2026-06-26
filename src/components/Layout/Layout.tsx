@@ -17,6 +17,7 @@ import {
 import { scroller } from 'react-scroll';
 import { Button } from '../Button/Button';
 import { useAuth } from '../../hooks/useAuth';
+import { usePresenceHeartbeat } from '../../hooks/usePresenceHeartbeat';
 import { ProfileModal } from '../ProfileModal/ProfileModal';
 import { BeerBanner } from '../BeerBanner/BeerBanner';
 import styles from './Layout.module.sass';
@@ -51,6 +52,7 @@ export const Layout: React.FC<LayoutProps> = ({ children }) => {
   const navigate = useNavigate();
   const location = useLocation();
   const { managerName, profile, activeTournaments, logout } = useAuth();
+  usePresenceHeartbeat(!!managerName, `${location.pathname}${location.search}`);
   const [visitCount] = useState(() => getVisitCount());
 
   const [theme, setTheme] = useState(() => {

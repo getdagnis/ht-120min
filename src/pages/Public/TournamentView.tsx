@@ -137,6 +137,7 @@ export const TournamentView: React.FC = () => {
   const [rounds, setRounds] = useState<RoundWithMatches[]>([]);
   const [teams, setTeams] = useState<Team[]>([]);
   const [warnings, setWarnings] = useState<any[]>([]);
+  const [lastSeenMap, setLastSeenMap] = useState<Record<number, string | null>>({});
 
   // Sync activeTab with URL search param 'tab'
   const activeTabParam = searchParams.get('tab');
@@ -316,19 +317,30 @@ export const TournamentView: React.FC = () => {
       const teamsData = teamsDataRaw || [];
 
       // Fetch profiles to get country_id and up-to-date manager_name
-      let profileMap: Record<number, { country_id: number; manager_name: string }> = {};
+      let nextProfileMap: Record<number, { country_id: number | null; manager_name: string }> = {};
+      let nextLastSeenMap: Record<number, string | null> = {};
       if (teamsData.length > 0) {
         const userIds = teamsData.map((t) => t.hattrick_user_id).filter(Boolean);
         if (userIds.length > 0) {
           const { data: profilesData } = await supabase
             .from('profiles')
-            .select('hattrick_user_id, country_id, manager_name')
+            .select('hattrick_user_id, country_id, manager_name, last_seen_at')
             .in('hattrick_user_id', userIds);
           if (profilesData) {
-            profileMap = Object.fromEntries(profilesData.map((p) => [Number(p.hattrick_user_id), p as any]));
+            nextProfileMap = Object.fromEntries(
+              profilesData.map((p) => [
+                Number(p.hattrick_user_id),
+                { country_id: p.country_id ?? null, manager_name: p.manager_name },
+              ]),
+            );
+            nextLastSeenMap = Object.fromEntries(
+              profilesData.map((p) => [Number(p.hattrick_user_id), p.last_seen_at ?? null]),
+            );
           }
         }
       }
+
+      setLastSeenMap(nextLastSeenMap);
 
       setTeams(teamsData);
 
@@ -361,18 +373,18 @@ export const TournamentView: React.FC = () => {
         home_team: m.home_team
           ? {
               ...m.home_team,
-              country_id: m.home_team.hattrick_user_id ? profileMap[m.home_team.hattrick_user_id]?.country_id : null,
+              country_id: m.home_team.hattrick_user_id ? nextProfileMap[m.home_team.hattrick_user_id]?.country_id : null,
               manager_name: m.home_team.hattrick_user_id
-                ? profileMap[m.home_team.hattrick_user_id]?.manager_name || m.home_team.manager_name
+                ? nextProfileMap[m.home_team.hattrick_user_id]?.manager_name || m.home_team.manager_name
                 : m.home_team.manager_name,
             }
           : null,
         away_team: m.away_team
           ? {
               ...m.away_team,
-              country_id: m.away_team.hattrick_user_id ? profileMap[m.away_team.hattrick_user_id]?.country_id : null,
+              country_id: m.away_team.hattrick_user_id ? nextProfileMap[m.away_team.hattrick_user_id]?.country_id : null,
               manager_name: m.away_team.hattrick_user_id
-                ? profileMap[m.away_team.hattrick_user_id]?.manager_name || m.away_team.manager_name
+                ? nextProfileMap[m.away_team.hattrick_user_id]?.manager_name || m.away_team.manager_name
                 : m.away_team.manager_name,
             }
           : null,
@@ -432,7 +444,7 @@ export const TournamentView: React.FC = () => {
             country_id: t.country_id ?? null,
             logo_url: t.logo_url,
             manager_name: t.hattrick_user_id
-              ? profileMap[t.hattrick_user_id]?.manager_name || t.manager_name
+              ? nextProfileMap[t.hattrick_user_id]?.manager_name || t.manager_name
               : t.manager_name,
           })),
           mergedMatches.map((m) => ({
@@ -513,6 +525,35 @@ export const TournamentView: React.FC = () => {
       setTournament((prev) => (prev ? { ...prev, last_fixtures_refresh: tournamentMeta.last_fixtures_refresh } : prev));
   }, [tournament]);
 
+  const fetchPresenceOnly = useCallback(async () => {
+    if (!tournament) return;
+    const userIds = teams.map((t) => t.hattrick_user_id).filter(Boolean);
+    if (!userIds.length) return;
+    try {
+      const { data, error } = await supabase
+        .from('profiles')
+        .select('hattrick_user_id, last_seen_at')
+        .in('hattrick_user_id', userIds);
+
+      if (error) {
+        console.error('Failed to refresh presence map:', error);
+        return;
+      }
+
+      if (data) {
+        setLastSeenMap((prev) => {
+          const next = { ...prev };
+          data.forEach((p) => {
+            if (p.hattrick_user_id) next[Number(p.hattrick_user_id)] = p.last_seen_at ?? null;
+          });
+          return next;
+        });
+      }
+    } catch (error) {
+      console.error('Presence refresh request failed:', error);
+    }
+  }, [tournament, teams]);
+
   // Keep last_fixtures_refresh updated in UI when live polling happens
   const prevLastRefreshRef = useRef(lastRefresh);
   useEffect(() => {
@@ -557,6 +598,7 @@ export const TournamentView: React.FC = () => {
     try {
       const response = await fetch('/api/auth/complete', {
         method: 'POST',
+        credentials: 'include',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           selection_token: pendingJoinData.selection_token,
@@ -1767,6 +1809,8 @@ export const TournamentView: React.FC = () => {
             is120minMode={is120minMode}
             myHtUserId={myHtUserId}
             tournament={tournament}
+            lastSeenMap={lastSeenMap}
+            onRefreshPresence={fetchPresenceOnly}
           />
           <aside className={styles.statsSidebar}>
             <MottoWidget items={TOURNAMENT_DEFAULT} theme="dark" variant="sidebar" />

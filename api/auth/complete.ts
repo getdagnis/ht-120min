@@ -4,6 +4,7 @@ import { registerOAuthTeam } from '../_lib/chpp-register.js';
 import { getAuthHeader } from '../_lib/chpp-auth.js';
 import { parseTeamDetailsXml } from '../_lib/chpp-xml.js';
 import { validateTeamEligibility } from '../_lib/eligibility.js';
+import { buildAppSessionCookie, getAppSessionSecret } from '../_lib/app-session.js';
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
@@ -184,6 +185,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         oauth_token_secret: pending.access_token_secret,
         oauth_scope: pending.oauth_scope ?? null,
         chpp_synced_at: new Date().toISOString(),
+        last_seen_at: new Date().toISOString(),
       });
     } catch (e) {
       console.error('Failed to update profile during login:', e);
@@ -191,6 +193,15 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
     // 5. Cleanup
     await supabase.from('oauth_temp_sessions').delete().eq('selection_token', selection_token);
+
+    // 6. Set signed session cookie
+    const secret = getAppSessionSecret();
+    if (!secret) {
+      return res.status(500).json({ error: 'APP_SESSION_SECRET is missing' });
+    }
+
+    const secureCookie = process.env.NODE_ENV === 'production' || req.headers['x-forwarded-proto'] === 'https';
+    res.setHeader('Set-Cookie', buildAppSessionCookie(pending.hattrick_user_id, secret, secureCookie));
 
     return res.status(200).json({
       hattrick_user_id: pending.hattrick_user_id,

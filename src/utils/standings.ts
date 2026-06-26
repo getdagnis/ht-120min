@@ -27,6 +27,7 @@ export interface TeamStanding {
   teamName: string;
   htTeamId: number | null;
   hattrickUserId: number | null;
+  lastSeenAt: string | null;
   played: number;
   won: number;
   drawn: number;
@@ -58,6 +59,7 @@ export function calculateStandings(
       teamName: team.name,
       htTeamId: team.ht_team_id,
       hattrickUserId: team.hattrick_user_id,
+      lastSeenAt: null,
       played: 0,
       won: 0,
       drawn: 0,

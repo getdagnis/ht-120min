@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import { SectionCard } from '../../components/Card/SectionCard';
 import { ShieldCheck } from 'phosphor-react';
 import { TeamByline } from '../TeamByline/TeamByline';
@@ -17,11 +17,47 @@ interface StandingsViewProps {
     id?: string;
     thumbnail_index?: number;
   } | null;
+  lastSeenMap?: Record<number, string | null>;
+  onRefreshPresence?: () => void;
 }
 
-export const StandingsView: React.FC<StandingsViewProps> = ({ standings, is120minMode, myHtUserId, tournament }) => {
+export const StandingsView: React.FC<StandingsViewProps> = ({
+  standings,
+  is120minMode,
+  myHtUserId,
+  tournament,
+  lastSeenMap = {},
+  onRefreshPresence,
+}) => {
+  const [presencePulse, setPresencePulse] = useState(0);
+
+  useEffect(() => {
+    const tick = setInterval(() => setPresencePulse((value) => value + 1), 60_000);
+    return () => clearInterval(tick);
+  }, []);
+
+  useEffect(() => {
+    if (!onRefreshPresence) return;
+
+    const refresh = () => {
+      if (document.visibilityState === 'visible') {
+        onRefreshPresence();
+      }
+    };
+
+    refresh();
+
+    const interval = setInterval(refresh, 2.5 * 60 * 1000);
+    document.addEventListener('visibilitychange', refresh);
+
+    return () => {
+      clearInterval(interval);
+      document.removeEventListener('visibilitychange', refresh);
+    };
+  }, [onRefreshPresence]);
+
   return (
-    <div className={styles.mainColumn}>
+    <div className={styles.mainColumn} data-presence-pulse={presencePulse}>
       <SectionCard title="🏆 Standings" thumbnailSeed={tournament?.id}>
         <div className={styles.tableWrapper}>
           <table>
@@ -84,6 +120,7 @@ export const StandingsView: React.FC<StandingsViewProps> = ({ standings, is120mi
                             managerName={s.managerName}
                             managerHtId={s.hattrickUserId}
                             mode="standings"
+                            lastSeenAt={s.hattrickUserId != null ? lastSeenMap[s.hattrickUserId] ?? null : null}
                           />
                         </div>
                       </div>

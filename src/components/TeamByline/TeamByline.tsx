@@ -1,6 +1,6 @@
 import React from 'react';
 import { Tooltip } from 'react-tooltip';
-import { getFlagUrl } from '../../utils/ht-data';
+import { getFlagUrl, formatPresence } from '../../utils/ht-data';
 import styles from './TeamByline.module.sass';
 
 interface TeamBylineProps {
@@ -11,6 +11,7 @@ interface TeamBylineProps {
   managerHtId?: number | null;
   mode: 'standings' | 'fixtures';
   isRight?: boolean;
+  lastSeenAt?: string | null;
 }
 
 export const TeamByline: React.FC<TeamBylineProps> = ({
@@ -21,6 +22,7 @@ export const TeamByline: React.FC<TeamBylineProps> = ({
   managerHtId,
   mode,
   isRight,
+  lastSeenAt,
 }) => {
   // Use a unique ID for tooltips to avoid collisions
   const tooltipIdBase = `byline-${teamId}-${managerHtId}-${mode}-${isRight ? 'r' : 'l'}`;
@@ -37,6 +39,7 @@ export const TeamByline: React.FC<TeamBylineProps> = ({
 
   const displayCountryName = countryName;
   const flagUrl = getFlagUrl(displayCountryName || undefined);
+  const presence = lastSeenAt !== undefined ? formatPresence(lastSeenAt) : null;
 
   return (
     <div className={`${styles.teamExtraInfo} ${isRight ? styles.right : ''}`}>
@@ -88,6 +91,19 @@ export const TeamByline: React.FC<TeamBylineProps> = ({
             {managerName || 'UNKNOWN'}
           </a>
           <Tooltip id={`${tooltipIdBase}-manager`} content="Visit on Hattrick" />
+        </>
+      )}
+      {presence && (
+        <>
+          <span className={styles.separator}>|</span>
+          <span
+            className={`${styles.presenceDot} ${styles[`presence_${presence.color}`]}`}
+            data-tooltip-id={`${tooltipIdBase}-presence`}
+            aria-label={presence.tooltip}
+          >
+            {presence.online ? '●' : presence.label}
+          </span>
+          <Tooltip id={`${tooltipIdBase}-presence`} content={presence.tooltip} />
         </>
       )}
     </div>
