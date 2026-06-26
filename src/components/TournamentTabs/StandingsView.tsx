@@ -59,17 +59,24 @@ export const StandingsView: React.FC<StandingsViewProps> = ({ standings, is120mi
                       <div className={styles.teamInfo}>
                         {s.logoUrl && <img src={s.logoUrl} alt={s.teamName} className={styles.standingLogo} />}
                         <div className={styles.teamTextContainer}>
-                          <div className={styles.nameRow}>
-                            <span className={styles.teamName}>
-                              {s.teamName}
-                              {isMyTeam && <span className={styles.myTeamBadge}> (You)</span>}
-                            </span>
-                            {s.joinedViaOauth && (
-                              <span title="Hattrick Validated Team">
-                                <ShieldCheck size={14} weight="bold" className={styles.validatedIcon} />
+                          <a
+                            href={`https://www.hattrick.org/goto.ashx?path=/Club/?TeamID=${s.htTeamId}`}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className={styles.idLink}
+                          >
+                            <div className={styles.nameRow}>
+                              <span className={styles.teamName}>
+                                {s.teamName}
+                                {isMyTeam && <span className={styles.myTeamBadge}> (You)</span>}
                               </span>
-                            )}
-                          </div>
+                              {s.joinedViaOauth && (
+                                <span title="Hattrick Validated Team">
+                                  <ShieldCheck size={14} weight="bold" className={styles.validatedIcon} />
+                                </span>
+                              )}
+                            </div>
+                          </a>
                           <TeamByline
                             countryName={s.countryName}
                             countryId={s.countryId}

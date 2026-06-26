@@ -334,13 +334,17 @@ function getHTOffsetForDate(date: Date): number {
 
 /**
  * Calculates the match date for a given round based on the tournament creation date
- * and the country's friendly match day/time.
+ * and the country's friendly match day/time. Uses the later of creation date or now
+ * so that generating fixtures after creation always targets a future friendly slot.
  */
 export function calculateMatchDate(tournamentCreatedAt: string, roundNumber: number, countryName?: string): Date {
   const { day, time } = getFriendlyTimeForCountry(countryName);
   const [hours, minutes] = time.split(':').map(Number);
 
-  const startDate = new Date(tournamentCreatedAt);
+  // Use whichever is later: tournament creation or current time.
+  // This ensures fixture generation always targets the next future friendly date.
+  const createdAt = new Date(tournamentCreatedAt);
+  const startDate = createdAt > new Date() ? createdAt : new Date();
   const matchDate = new Date(startDate.getTime());
 
   // Find target offset at startDate to get a baseline

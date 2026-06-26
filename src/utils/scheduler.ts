@@ -28,44 +28,57 @@ export function rotateTeams(teams: (string | null)[]): (string | null)[] {
 
 /**
  * Builds matches for a single round using the current team positions.
- * Implements standard Home/Away balancing.
+ * Home/away is passed in as a pre-computed map for this round.
  */
-export function buildRound(teams: (string | null)[], roundIdx: number): ScheduledMatch[] {
+export function buildRound(teams: (string | null)[], homeMap: Map<string, boolean>): ScheduledMatch[] {
   const matches: ScheduledMatch[] = [];
   const half = teams.length / 2;
 
   for (let i = 0; i < half; i++) {
     const teamA = teams[i];
     const teamB = teams[teams.length - 1 - i];
-
-    // Standard Circle Method Home/Away balancing:
-    // 1. For the fixed team (i=0), alternate every round.
-    // 2. For others, alternate based on round + pairing index.
-    // Bias: We want the fixed team (usually the "oldest" joined) to play AWAY more if rounds are odd.
-    // In a 5-round tourney, we want 2H / 3A for the first team.
-    // Round 0 (rIdx=0): Away (Swap=true)
-    // Round 1 (rIdx=1): Home (Swap=false)
-    let shouldSwap = (roundIdx + i) % 2 === 0;
-
-    if (i === 0) {
-      // Fixed team bias: starts Away in Round 1
-      shouldSwap = roundIdx % 2 === 0;
-    }
-
-    const home = shouldSwap ? teamB : teamA;
-    const away = shouldSwap ? teamA : teamB;
-
-    const isBye = home === null || away === null;
-
+    const isBye = teamA === null || teamB === null;
+    // teamA is home unless homeMap says otherwise
+    const aIsHome = isBye ? true : (homeMap.get(teamA!) ?? true);
     matches.push({
-      home,
-      away,
+      home: aIsHome ? teamA : teamB,
+      away: aIsHome ? teamB : teamA,
       venueType: 'home_away',
       isBye,
     });
   }
-
   return matches;
+}
+
+/**
+ * Generates home/away assignment for all rounds up-front, tracking per-team home counts
+ * to ensure balance (no team gets more than ceil(numRounds/2) home games).
+ */
+function buildHomeAssignments(
+  rounds: Array<Array<[string | null, string | null]>>,
+  numRounds: number,
+): Array<Map<string, boolean>> {
+  const homeCounts: Record<string, number> = {};
+  const maxHome = Math.ceil(numRounds / 2);
+  const result: Array<Map<string, boolean>> = [];
+
+  for (const pairings of rounds) {
+    const map = new Map<string, boolean>();
+    for (const [a, b] of pairings) {
+      if (a === null || b === null) continue;
+      const aHomes = homeCounts[a] ?? 0;
+      const bHomes = homeCounts[b] ?? 0;
+      // Give home to team with fewer homes; if equal, prefer 'a'
+      const aIsHome = aHomes <= bHomes && aHomes < maxHome ? true
+        : bHomes < aHomes && bHomes < maxHome ? false
+        : aHomes < maxHome; // fallback: a gets home if still under limit
+      map.set(a, aIsHome);
+      if (aIsHome) homeCounts[a] = aHomes + 1;
+      else homeCounts[b] = bHomes + 1;
+    }
+    result.push(map);
+  }
+  return result;
 }
 
 /**
@@ -82,40 +95,56 @@ export function mirrorMatches(matches: ScheduledMatch[]): ScheduledMatch[] {
 /**
  * Generates a proper round robin schedule using the Circle Method.
  * Deterministic: Same input teamIds array will always yield same schedule.
+ * Home/away is assigned greedily to keep counts balanced (≤ ceil(n/2) home games per team).
  */
 export function generateRoundRobin(
   teamIds: string[],
   options: SchedulerOptions = { mode: 'single' },
 ): ScheduledRound[] {
   const teams: (string | null)[] = [...teamIds];
-
-  if (teams.length % 2 !== 0) {
-    teams.push(null);
-  }
+  if (teams.length % 2 !== 0) teams.push(null);
 
   const numTeams = teams.length;
   const numRounds = numTeams - 1;
   let currentTeams: (string | null)[] = [...teams];
-  const firstHalf: ScheduledRound[] = [];
 
+  // Step 1: collect raw pairings per round (just who plays whom, no home/away yet)
+  const allPairings: Array<Array<[string | null, string | null]>> = [];
   for (let r = 0; r < numRounds; r++) {
-    firstHalf.push({
-      roundNumber: r + 1,
-      matches: buildRound(currentTeams, r),
-    });
+    const pairs: Array<[string | null, string | null]> = [];
+    const half = currentTeams.length / 2;
+    for (let i = 0; i < half; i++) {
+      pairs.push([currentTeams[i], currentTeams[currentTeams.length - 1 - i]]);
+    }
+    allPairings.push(pairs);
     currentTeams = rotateTeams(currentTeams);
   }
 
-  if (options.mode === 'single') {
-    return firstHalf;
-  }
+  const totalRounds = options.mode === 'double' ? numRounds * 2 : numRounds;
 
-  const secondHalf: ScheduledRound[] = firstHalf.map((round) => ({
-    roundNumber: round.roundNumber + numRounds,
-    matches: mirrorMatches(round.matches),
-  }));
+  // For double, second half mirrors first half's pairings (home/away flipped)
+  const allPairingsForAssignment = options.mode === 'double'
+    ? [...allPairings, ...allPairings.map(p => p.map(([a, b]) => [b, a] as [string | null, string | null]))]
+    : allPairings;
 
-  return [...firstHalf, ...secondHalf];
+  // Step 2: assign home/away with balanced counting
+  const homeMaps = buildHomeAssignments(allPairingsForAssignment, totalRounds);
+
+  // Step 3: build ScheduledRound[]
+  return allPairingsForAssignment.map((pairs, ri) => {
+    const homeMap = homeMaps[ri];
+    const matches: ScheduledMatch[] = pairs.map(([a, b]) => {
+      const isBye = a === null || b === null;
+      const aIsHome = isBye ? true : (homeMap.get(a!) ?? true);
+      return {
+        home: aIsHome ? a : b,
+        away: aIsHome ? b : a,
+        venueType: 'home_away' as const,
+        isBye,
+      };
+    });
+    return { roundNumber: ri + 1, matches };
+  });
 }
 
 /**
@@ -123,26 +152,37 @@ export function generateRoundRobin(
  */
 export function generateRecurring(teamIds: string[], startRound: number = 1, numWeeks: number = 4): ScheduledRound[] {
   const teams: (string | null)[] = [...teamIds];
-  if (teams.length % 2 !== 0) {
-    teams.push(null);
-  }
+  if (teams.length % 2 !== 0) teams.push(null);
 
-  const rounds: ScheduledRound[] = [];
   let currentTeams: (string | null)[] = [...teams];
-
   const totalRotation = teams.length - 1;
   for (let i = 0; i < (startRound - 1) % totalRotation; i++) {
     currentTeams = rotateTeams(currentTeams);
   }
 
+  // Collect pairings first, then assign home/away with balance tracking
+  const allPairings: Array<Array<[string | null, string | null]>> = [];
   for (let i = 0; i < numWeeks; i++) {
-    const roundIdx = startRound - 1 + i;
-    rounds.push({
-      roundNumber: roundIdx + 1,
-      matches: buildRound(currentTeams, roundIdx),
-    });
+    const pairs: Array<[string | null, string | null]> = [];
+    const half = currentTeams.length / 2;
+    for (let j = 0; j < half; j++) {
+      pairs.push([currentTeams[j], currentTeams[currentTeams.length - 1 - j]]);
+    }
+    allPairings.push(pairs);
     currentTeams = rotateTeams(currentTeams);
   }
 
-  return rounds;
+  const homeMaps = buildHomeAssignments(allPairings, numWeeks);
+
+  return allPairings.map((pairs, i) => {
+    const homeMap = homeMaps[i];
+    return {
+      roundNumber: startRound + i,
+      matches: pairs.map(([a, b]) => {
+        const isBye = a === null || b === null;
+        const aIsHome = isBye ? true : (homeMap.get(a!) ?? true);
+        return { home: aIsHome ? a : b, away: aIsHome ? b : a, venueType: 'home_away' as const, isBye };
+      }),
+    };
+  });
 }

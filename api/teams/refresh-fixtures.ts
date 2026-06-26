@@ -74,7 +74,10 @@ const COUNTRY_FRIENDLY_TIMES: Record<string, { day: number; time: string }> = {
 function calculateMatchDate(tournamentCreatedAt: string, roundNumber: number, countryName?: string): Date {
   const settings = COUNTRY_FRIENDLY_TIMES[countryName || ''] || { day: 2, time: '20:00' };
   const [hours, minutes] = settings.time.split(':').map(Number);
-  const date = new Date(tournamentCreatedAt);
+  // Always anchor from now — refresh is called to check upcoming matches,
+  // so we always want the next friendly slot from today, plus (roundNumber-1) weeks.
+  const createdAt = new Date(tournamentCreatedAt);
+  const date = createdAt > new Date() ? new Date(createdAt) : new Date();
   
   // Hattrick Time (Europe/Stockholm) is CET (UTC+1) or CEST (UTC+2)
   // We use the Intl API to find the offset for the given date in Stockholm
@@ -216,6 +219,20 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       }
     };
 
+    // Clear warnings for all rounds from upcomingRound onwards — stale warnings
+    // from previous (wrongly-calculated) refresh passes must not persist.
+    const futureRoundIds = rounds
+      .filter((r) => r.round_number >= upcomingRound.round_number)
+      .map((r) => r.id);
+    await supabase
+      .from('fixture_warnings')
+      .delete()
+      .eq('tournament_id', tournament_id)
+      .in('round_id', futureRoundIds);
+
+    // Reload warnings after clearing so recordWarning() works from a clean slate
+    const freshWarnings: { round_id: string; team_id: string }[] = [];
+
     // Only process matches in the upcoming round that are still 'not_arranged' or missing Match ID
     for (const match of upcomingRound.matches) {
       if (match.completed) continue;
@@ -259,10 +276,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
       // Warning Logic Helper
       const recordWarning = async (teamId: string) => {
-        const alreadyHasWarning = existingWarnings?.some((w) => w.round_id === upcomingRound.id && w.team_id === teamId);
+        const alreadyHasWarning = freshWarnings.some((w) => w.round_id === upcomingRound.id && w.team_id === teamId);
         if (alreadyHasWarning) return;
 
-        const teamWarnings = existingWarnings?.filter((w) => w.team_id === teamId) || [];
+        const teamWarnings = existingWarnings?.filter((w) => w.team_id === teamId && w.round_id !== upcomingRound.id) || [];
         const isConsecutive = teamWarnings.some((w) => {
           const prevRound = rounds.find((r) => r.round_number === upcomingRound.round_number - 1);
           return prevRound && w.round_id === prevRound.id;
@@ -276,10 +293,11 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
           type,
           reason: 'misarranged',
         });
+        freshWarnings.push({ round_id: upcomingRound.id, team_id: teamId });
       };
 
-      const homeAlreadyWarned = existingWarnings?.some((w) => w.round_id === upcomingRound.id && w.team_id === homeTeam.id);
-      const awayAlreadyWarned = existingWarnings?.some((w) => w.round_id === upcomingRound.id && w.team_id === awayTeam.id);
+      const homeAlreadyWarned = freshWarnings.some((w) => w.round_id === upcomingRound.id && w.team_id === homeTeam.id);
+      const awayAlreadyWarned = freshWarnings.some((w) => w.round_id === upcomingRound.id && w.team_id === awayTeam.id);
 
       if (homeOffending && awayOffending) {
         if (!homeAlreadyWarned && !awayAlreadyWarned) {
