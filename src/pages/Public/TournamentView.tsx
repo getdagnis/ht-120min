@@ -373,7 +373,9 @@ export const TournamentView: React.FC = () => {
         home_team: m.home_team
           ? {
               ...m.home_team,
-              country_id: m.home_team.hattrick_user_id ? nextProfileMap[m.home_team.hattrick_user_id]?.country_id : null,
+              country_id: m.home_team.hattrick_user_id
+                ? nextProfileMap[m.home_team.hattrick_user_id]?.country_id
+                : null,
               manager_name: m.home_team.hattrick_user_id
                 ? nextProfileMap[m.home_team.hattrick_user_id]?.manager_name || m.home_team.manager_name
                 : m.home_team.manager_name,
@@ -382,7 +384,9 @@ export const TournamentView: React.FC = () => {
         away_team: m.away_team
           ? {
               ...m.away_team,
-              country_id: m.away_team.hattrick_user_id ? nextProfileMap[m.away_team.hattrick_user_id]?.country_id : null,
+              country_id: m.away_team.hattrick_user_id
+                ? nextProfileMap[m.away_team.hattrick_user_id]?.country_id
+                : null,
               manager_name: m.away_team.hattrick_user_id
                 ? nextProfileMap[m.away_team.hattrick_user_id]?.manager_name || m.away_team.manager_name
                 : m.away_team.manager_name,
@@ -2391,7 +2395,7 @@ export const TournamentView: React.FC = () => {
                                 checked={scheduleMode === 'single'}
                                 onChange={() => setScheduleMode('single')}
                               />
-                              Play each other once (Neutral stadium)
+                              Play each other once
                             </label>
                             <label className={adminStyles.checkboxLabel}>
                               <input
