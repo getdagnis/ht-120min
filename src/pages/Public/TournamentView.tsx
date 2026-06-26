@@ -473,22 +473,30 @@ export const TournamentView: React.FC = () => {
   const fetchFixturesOnly = useCallback(async () => {
     if (!tournament) return;
     const { data: roundsData } = await supabase
-      .from('rounds').select('*').eq('tournament_id', tournament.id).order('round_number', { ascending: true });
+      .from('rounds')
+      .select('*')
+      .eq('tournament_id', tournament.id)
+      .order('round_number', { ascending: true });
     if (!roundsData) return;
 
     const roundIds = roundsData.map((r: { id: string }) => r.id);
     const [{ data: matchesData }, { data: warningsData }, { data: tournamentMeta }] = await Promise.all([
-      supabase.from('matches').select(`
+      supabase
+        .from('matches')
+        .select(
+          `
         *, status, ht_match_id, match_type,
         home_team:teams!matches_home_team_id_fkey(name, ht_team_id, logo_url, country_name, active, manager_name, hattrick_user_id),
         away_team:teams!matches_away_team_id_fkey(name, ht_team_id, logo_url, country_name, active, manager_name, hattrick_user_id)
-      `).in('round_id', roundIds),
+      `,
+        )
+        .in('round_id', roundIds),
       supabase.from('fixture_warnings').select('*').eq('tournament_id', tournament.id).eq('active', true),
       supabase.from('tournaments').select('last_fixtures_refresh').eq('id', tournament.id).single(),
     ]);
 
     if (matchesData) {
-      const newRounds = roundsData.map((r: { id: string; round_number: number }) => ({
+      const newRounds = roundsData.map((r: { created_at: string; id: string; round_number: number }) => ({
         ...r,
         matches: (matchesData as MatchWithTeams[])
           .filter((m) => m.round_id === r.id)
@@ -501,7 +509,8 @@ export const TournamentView: React.FC = () => {
       setRounds(newRounds as RoundWithMatches[]);
     }
     if (warningsData) setWarnings(warningsData);
-    if (tournamentMeta) setTournament((prev) => prev ? { ...prev, last_fixtures_refresh: tournamentMeta.last_fixtures_refresh } : prev);
+    if (tournamentMeta)
+      setTournament((prev) => (prev ? { ...prev, last_fixtures_refresh: tournamentMeta.last_fixtures_refresh } : prev));
   }, [tournament]);
 
   // Keep last_fixtures_refresh updated in UI when live polling happens
@@ -739,13 +748,21 @@ export const TournamentView: React.FC = () => {
       return rounds.some((r) => r.matches.some((m) => !m.completed));
     };
 
-    const t = setTimeout(() => { if (shouldRefresh()) handleRefreshFixtures(); }, 0);
-
-    const interval = setInterval(() => {
+    const t = setTimeout(() => {
       if (shouldRefresh()) handleRefreshFixtures();
-    }, 10 * 60 * 1000);
+    }, 0);
 
-    return () => { clearTimeout(t); clearInterval(interval); };
+    const interval = setInterval(
+      () => {
+        if (shouldRefresh()) handleRefreshFixtures();
+      },
+      10 * 60 * 1000,
+    );
+
+    return () => {
+      clearTimeout(t);
+      clearInterval(interval);
+    };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activeTab, tournament?.id]);
 
