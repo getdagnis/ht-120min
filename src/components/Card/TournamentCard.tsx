@@ -16,6 +16,8 @@ interface TournamentCardProps {
   countryLimit?: string | null;
   scoringMode?: string | null;
   leagueCategory?: string | null;
+  teamCount?: number;
+  maxTeams?: number | null;
 }
 
 export const TournamentCard: React.FC<TournamentCardProps> = ({
@@ -27,9 +29,12 @@ export const TournamentCard: React.FC<TournamentCardProps> = ({
   countryLimit,
   scoringMode,
   leagueCategory,
+  teamCount,
+  maxTeams,
 }) => {
   const bgStyle = getTournamentBackgroundStyle(id, imageUrl);
   const countryId = countryLimit ? getLeagueIdByName(countryLimit) : undefined;
+  const isFull = maxTeams != null && (teamCount ?? 0) >= maxTeams;
 
   return (
     <div className={`${styles.card} ${className}`}>
@@ -53,6 +58,11 @@ export const TournamentCard: React.FC<TournamentCardProps> = ({
             </div>
           )}
           {scoringMode === '120min' && <div className={styles.badge}>120-min</div>}
+          {maxTeams != null && (
+            <div className={`${styles.badge} ${isFull ? styles.badgeFull : ''}`}>
+              {isFull ? 'Tournament full' : `${teamCount ?? 0} / ${maxTeams}`}
+            </div>
+          )}
         </div>
       </div>
     </div>

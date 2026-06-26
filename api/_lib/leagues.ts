@@ -162,6 +162,16 @@ export const HATTRICK_LEAGUES: Record<string, string> = {
   "1003": "Homegrown League"
 };
 
+/**
+ * USAGE CONTRACT — read before calling this function.
+ *
+ * HATTRICK_LEAGUES is keyed by LeagueID (not CountryID).
+ * LeagueID and CountryID are different namespaces in Hattrick's CHPP API.
+ *
+ * Do NOT call with country_id from the database — that is CountryID, a different
+ * namespace. Always use the stored country_name / league_name from CHPP directly.
+ * Legitimate use: leagueId === 3000 (HFI) or similar explicit league checks.
+ */
 export const getLeagueNameById = (id?: number | string | null): string | undefined => {
   if (id === undefined || id === null || id === '') return undefined;
   return HATTRICK_LEAGUES[String(id)];

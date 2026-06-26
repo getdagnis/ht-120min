@@ -1,7 +1,6 @@
 import React from 'react';
 import { Tooltip } from 'react-tooltip';
 import { getFlagUrl } from '../../utils/ht-data';
-import { getLeagueNameById } from '../../utils/leagues';
 import styles from './TeamByline.module.sass';
 
 interface TeamBylineProps {
@@ -36,7 +35,7 @@ export const TeamByline: React.FC<TeamBylineProps> = ({
     }
   };
 
-  const displayCountryName = countryName || getLeagueNameById(countryId);
+  const displayCountryName = countryName;
   const flagUrl = getFlagUrl(displayCountryName || undefined);
 
   return (

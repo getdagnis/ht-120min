@@ -7,7 +7,6 @@ import { Button } from '../../components/Button/Button';
 import { Modal } from '../../components/Modal/Modal';
 import { TeamSelectorModal } from '../../components/TeamSelectorModal/TeamSelectorModal';
 import { getDisplayTeamName } from '../../utils/matchmaker';
-import { getLeagueNameById } from '../../utils/leagues';
 import { getMockMatchmakerRequests, getMockMatchmakerTeams, isMatchmakerMockDataEnabled } from '../../mock/matchmaker';
 import {
   Handshake,
@@ -1470,7 +1469,7 @@ export const Matchmaker: React.FC = () => {
                             <p>{matchType === '120min' ? '⚔️ 120 minute cup rules' : '⚽ 90 minute OK'}</p>
                             <p>
                               {location === 'domestic'
-                                ? `🏠 my country only (${getLeagueNameById(selectedTeam.leagueId) || selectedTeam.countryName})`
+                                ? `🏠 my country only (${selectedTeam.countryName})`
                                 : location === 'international_only'
                                   ? '🌍 will travel'
                                   : '🗺 Anywhere'}

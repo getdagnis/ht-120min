@@ -164,6 +164,21 @@ export const HATTRICK_LEAGUES: Record<string, string> = {
 
 export const LEAGUE_NAMES = Object.values(HATTRICK_LEAGUES);
 
+/**
+ * USAGE CONTRACT — read before calling these functions.
+ *
+ * HATTRICK_LEAGUES is keyed by LeagueID (not CountryID).
+ * LeagueID and CountryID are different namespaces in Hattrick's CHPP API.
+ *
+ * Legitimate uses:
+ *   getLeagueIdByName(name)   — look up LeagueID from a stored country name string,
+ *                               used to construct /Img/flags/{leagueId}.png URLs.
+ *   getLeagueNameById(id)     — only when id is a known LeagueID, e.g. HFI (3000).
+ *
+ * Do NOT call these with country_id from the database — that is Hattrick's CountryID,
+ * a different namespace that will return wrong results.
+ * Always use the stored country_name / league_name fields from CHPP directly.
+ */
 export const getLeagueIdByName = (name: string): string | undefined => {
   return Object.keys(HATTRICK_LEAGUES).find(key => HATTRICK_LEAGUES[key] === name);
 };

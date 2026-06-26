@@ -73,7 +73,26 @@ export async function registerOAuthTeam(
     return existingInThis.id;
   }
 
-  // 3. New team joining. Check if tournament has started (has rounds).
+  // 3. Capacity check — enforce max_teams if set
+  const { data: tournamentMeta } = await supabase
+    .from('tournaments')
+    .select('max_teams')
+    .eq('id', input.tournamentId)
+    .single();
+
+  if (tournamentMeta?.max_teams) {
+    const { count } = await supabase
+      .from('teams')
+      .select('id', { count: 'exact', head: true })
+      .eq('tournament_id', input.tournamentId)
+      .eq('active', true);
+
+    if ((count ?? 0) >= tournamentMeta.max_teams) {
+      throw new Error('This tournament is full. No more teams can join.');
+    }
+  }
+
+  // 4. Check if tournament has started (has rounds).
   const { data: rounds } = await supabase.from('rounds').select('id').eq('tournament_id', input.tournamentId);
 
   const isGenerated = rounds && rounds.length > 0;
@@ -101,7 +120,7 @@ export async function registerOAuthTeam(
     }
   }
 
-  // 4. Register the team
+  // 5. Register the team
   const { data: newTeam, error } = await supabase
     .from('teams')
     .insert({
@@ -125,7 +144,7 @@ export async function registerOAuthTeam(
 
   if (error) throw new Error(error.message);
 
-  // 5. Post-registration logic for ongoing tournaments
+  // 6. Post-registration logic for ongoing tournaments
   if (isGenerated && newTeam) {
     if (replacementForId) {
       // Fill inactive team spot

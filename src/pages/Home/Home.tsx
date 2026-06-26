@@ -60,6 +60,7 @@ interface Tournament extends DBTournament {
   scoring_mode: string | null | undefined;
   league_category: string | null | undefined;
   country_limit: string | null;
+  max_teams: number | null;
   validatedTeamCount: number;
   totalMatches: number;
   completedMatches: number;
@@ -104,6 +105,7 @@ export const Home: React.FC = () => {
           country_limit,
           scoring_mode,
           league_category,
+          max_teams,
           rounds (
             id,
             round_number,
@@ -292,6 +294,8 @@ export const Home: React.FC = () => {
                         countryLimit={t.country_limit}
                         scoringMode={t.scoring_mode}
                         leagueCategory={t.league_category}
+                        maxTeams={t.max_teams}
+                        teamCount={t.teamCount}
                       >
                         <div className={styles.tInfo}>
                           <div className={styles.tTitleRow}>
@@ -352,6 +356,8 @@ export const Home: React.FC = () => {
                         countryLimit={t.country_limit}
                         scoringMode={t.scoring_mode}
                         leagueCategory={t.league_category}
+                        maxTeams={t.max_teams}
+                        teamCount={t.teamCount}
                       >
                         <div className={styles.tInfo}>
                           <div className={styles.tTitleRow}>

@@ -135,6 +135,7 @@ export const CreateTournament: React.FC = () => {
       country_limit: '',
       description: getRandomDescription(),
       admin_email: '',
+      max_teams: '' as string | number,
     };
   });
 
@@ -491,6 +492,7 @@ export const CreateTournament: React.FC = () => {
             description: showDescription ? formData.description : null,
             admin_email: showEmail ? formData.admin_email : null,
             thumbnail_index: Math.floor(Math.random() * 17) + 1,
+            max_teams: formData.max_teams ? Number(formData.max_teams) : null,
 
             season: 1,
             status: 'open',
@@ -632,6 +634,19 @@ export const CreateTournament: React.FC = () => {
                   >
                     <option value="120min">Rank by 120 minute achievements ⏱</option>
                     <option value="points">Regular 90 min friendlies (3p/1p/0) 🥇</option>
+                  </select>
+                </div>
+                <div className={styles.field}>
+                  <label htmlFor="max_teams">Max Teams (optional)</label>
+                  <select
+                    id="max_teams"
+                    value={formData.max_teams}
+                    onChange={(e) => setFormData({ ...formData, max_teams: e.target.value })}
+                  >
+                    <option value="">Unlimited</option>
+                    {[2, 4, 6, 8, 16, 32, 64].map((n) => (
+                      <option key={n} value={n}>{n} teams</option>
+                    ))}
                   </select>
                 </div>
                 <div className={styles.field}>

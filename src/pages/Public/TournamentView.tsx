@@ -118,6 +118,7 @@ interface Tournament {
   status: 'open' | 'active' | 'finished' | 'waiting';
   last_fixtures_refresh: string | null;
   admin_email: string | null;
+  max_teams: number | null;
 }
 
 interface RoundWithMatches {
@@ -1392,10 +1393,16 @@ export const TournamentView: React.FC = () => {
                 <p>{tournament.description}</p>
               </div>
             )}
+            {tournament.max_teams && (
+              <p className={styles.joinLimit}>
+                Join limit: {teams.filter((t) => t.active).length} / {tournament.max_teams}
+                {teams.filter((t) => t.active).length >= tournament.max_teams && ' — Tournament full'}
+              </p>
+            )}
             {is120minMode ? (
               <div className={styles.scoringHelp}>
                 <p onClick={() => setShowScoringHelp(!showScoringHelp)} className={styles.helpToggle}>
-                  <strong>120min training mode</strong> {showScoringHelp ? <X size={18} /> : <Info size={18} />}
+                  <strong>120min scoring mode</strong> {showScoringHelp ? <X size={18} /> : <Info size={18} />}
                 </p>
                 {showScoringHelp && (
                   <p className={styles.helpContent}>
