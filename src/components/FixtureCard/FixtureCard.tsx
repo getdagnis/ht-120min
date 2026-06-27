@@ -20,6 +20,7 @@ interface FixtureCardProps {
   awayTeam: TeamProps;
   status: 'arranged' | 'not_arranged' | 'ongoing' | 'misarranged' | 'finished';
   score?: { home: number; away: number };
+  penaltyShootout?: { home: number; away: number } | null;
   date?: string;
   htMatchId?: number;
   matchType?: number;
@@ -41,6 +42,7 @@ export const FixtureCard: React.FC<FixtureCardProps> = ({
   awayTeam,
   status,
   score,
+  penaltyShootout,
   date,
   htMatchId,
   matchType,
@@ -60,10 +62,16 @@ export const FixtureCard: React.FC<FixtureCardProps> = ({
     </div>
   );
 
+  const hasPenaltyShootout = Boolean(
+    penaltyShootout && penaltyShootout.home !== null && penaltyShootout.away !== null && went_120 && completed,
+  );
+
   const matchTypeInfo = matchType ? { ...MATCH_TYPES[matchType] } : null;
   if (matchTypeInfo && matchType === 5 && completed && went_120) {
-    matchTypeInfo.initials = '120m';
-    matchTypeInfo.description = '120 Minute Cup Rules Match';
+    matchTypeInfo.initials = hasPenaltyShootout ? '120m+PS' : '120m';
+    matchTypeInfo.description = hasPenaltyShootout
+      ? '120 Minute Cup Rules Match decided by penalty shootout'
+      : '120 Minute Cup Rules Match';
   }
 
   const isWrongType = is120minMode && matchType && [4, 7].includes(matchType);
@@ -118,9 +126,15 @@ export const FixtureCard: React.FC<FixtureCardProps> = ({
         <div className={styles.vsRow}>
           {status === 'finished' || status === 'ongoing' ? (
             <>
-              <span className={styles.score}>{score?.home ?? 0}</span>
+              <span className={styles.score}>
+                {score?.home ?? 0}
+                {hasPenaltyShootout && penaltyShootout ? <sup>({penaltyShootout.home})</sup> : null}
+              </span>
               <span className={styles.vs}>VS</span>
-              <span className={styles.score}>{score?.away ?? 0}</span>
+              <span className={styles.score}>
+                {score?.away ?? 0}
+                {hasPenaltyShootout && penaltyShootout ? <sup>({penaltyShootout.away})</sup> : null}
+              </span>
             </>
           ) : (
             <>

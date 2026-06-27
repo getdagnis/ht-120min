@@ -200,7 +200,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       return res.status(500).json({ error: 'APP_SESSION_SECRET is missing' });
     }
 
-    const secureCookie = process.env.NODE_ENV === 'production' || req.headers['x-forwarded-proto'] === 'https';
+    const host = String(req.headers.host || '').split(':')[0].toLowerCase();
+    const isLocalHost = host === 'localhost' || host === '127.0.0.1' || host === '::1';
+    const forwardedProto = String(req.headers['x-forwarded-proto'] || '').toLowerCase();
+    const secureCookie = !isLocalHost && (process.env.NODE_ENV === 'production' || forwardedProto === 'https');
     res.setHeader('Set-Cookie', buildAppSessionCookie(pending.hattrick_user_id, secret, secureCookie));
 
     return res.status(200).json({

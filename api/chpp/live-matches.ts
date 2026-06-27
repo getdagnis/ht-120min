@@ -10,6 +10,53 @@ interface LiveMatchResult {
   total_minutes?: number;
   went_120?: boolean;
   venue_mismatch?: boolean;
+  penalty_shootout_home_goals?: number | null;
+  penalty_shootout_away_goals?: number | null;
+}
+
+const PENALTY_GOAL_EVENT_TYPES = new Set([55, 56, 57]);
+const PENALTY_CONTEST_EVENT_TYPES = new Set([55, 56, 57, 58, 59, 71, 73]);
+
+function getEventTypeId(eventXml: string): number | null {
+  const eventTypeId = eventXml.match(/<EventTypeID>(\d+)<\/EventTypeID>/i)?.[1];
+  if (eventTypeId) return parseInt(eventTypeId, 10);
+
+  const eventKey = eventXml.match(/<EventKey>(\d+)(?:_\d+)?<\/EventKey>/i)?.[1];
+  if (eventKey) return parseInt(eventKey, 10);
+
+  return null;
+}
+
+function parsePenaltyShootout(xml: string, homeTeamId: number | null, awayTeamId: number | null) {
+  if (!homeTeamId || !awayTeamId) {
+    return { homeGoals: null, awayGoals: null, hasShootout: false };
+  }
+
+  let homeGoals = 0;
+  let awayGoals = 0;
+  let hasShootout = false;
+
+  const eventBlocks = xml.match(/<Event(?:\s[^>]*)?>[\s\S]*?<\/Event>/gi) ?? [];
+  for (const eventXml of eventBlocks) {
+    const eventTypeId = getEventTypeId(eventXml);
+    if (!eventTypeId || !PENALTY_CONTEST_EVENT_TYPES.has(eventTypeId)) continue;
+
+    hasShootout = true;
+    if (!PENALTY_GOAL_EVENT_TYPES.has(eventTypeId)) continue;
+
+    const subjectTeamId = parseInt(eventXml.match(/<SubjectTeamID>(\d+)<\/SubjectTeamID>/i)?.[1] ?? '0', 10) || null;
+    if (subjectTeamId === homeTeamId) {
+      homeGoals++;
+    } else if (subjectTeamId === awayTeamId) {
+      awayGoals++;
+    }
+  }
+
+  return {
+    homeGoals: hasShootout ? homeGoals : null,
+    awayGoals: hasShootout ? awayGoals : null,
+    hasShootout,
+  };
 }
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
@@ -94,6 +141,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
       const baseMinutes = isExtraTime ? 120 : 90;
       const totalMinutes = baseMinutes + addedMinutes;
+      const penaltyShootout = parsePenaltyShootout(xml, actualHtHomeTeamId, actualHtAwayTeamId);
 
       // Detect venue mismatch: teams played each other but swapped home/away
       const htMatchIdNum = parseInt(htMatchId, 10);
@@ -129,6 +177,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         total_minutes: totalMinutes,
         went_120: isExtraTime,
         venue_mismatch: venueMismatch,
+        penalty_shootout_home_goals: penaltyShootout.homeGoals,
+        penalty_shootout_away_goals: penaltyShootout.awayGoals,
       };
 
       await supabase.from('matches').update({
@@ -139,6 +189,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         total_minutes: totalMinutes,
         went_120: isExtraTime,
         venue_mismatch: venueMismatch,
+        penalty_shootout_home_goals: penaltyShootout.homeGoals,
+        penalty_shootout_away_goals: penaltyShootout.awayGoals,
         actual_ht_home_team_id: actualHtHomeTeamId,
         actual_ht_away_team_id: actualHtAwayTeamId,
       }).eq('ht_match_id', htMatchIdNum);

@@ -1019,10 +1019,9 @@
   flex-wrap: wrap
   gap: 0.25rem
   padding: 0
-  filter: sepia(0.3)
 
 .chatEmojiBtn
-  background: var(--lighter)
+  background: var(--lighter-less)
   border: 0.5px solid var(--border-transp)
   border-radius: var(--radius-sm)
   font-size: 1rem
@@ -1036,7 +1035,7 @@
     filter: none
 
   &:hover
-    border-color: var(--accent-3)
+    border-color: var(--border-transp)
     background: var(--lighter)
 
   &:focus-visible
@@ -1354,8 +1353,8 @@ div.adminAuthForm > form > button
     cursor: pointer
 
     &.active
-      background: var(--lighter)
-      border: 1px solid var(--accent-3)
+      background: var(--bg-helpText)
+      border: 1px solid var(--accent)
       color: var(--text)
 
 .postingTeamBranding

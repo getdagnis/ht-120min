@@ -52,6 +52,8 @@ interface MatchWithTeams {
   completed: boolean;
   went_120: boolean;
   total_minutes: number;
+  penalty_shootout_home_goals?: number | null;
+  penalty_shootout_away_goals?: number | null;
   status: 'not_arranged' | 'arranged' | 'ongoing' | 'misarranged' | 'finished';
   ht_match_id: number | null;
   match_type: number | null;
@@ -2590,48 +2592,67 @@ export const TournamentView: React.FC = () => {
                   </p>
 
                   <div className={adminStyles.simulatorGrid}>
-                    <div className={adminStyles.simulatorActions}>
-                      <Button
-                        variant="secondary"
-                        size="sm"
-                        onClick={() => handlePostAdminChat('⚽ GOAL! Team A scores against Team B! (1-0)')}
-                      >
-                        ⚽ Goal
-                      </Button>
-                      <Button
-                        variant="secondary"
-                        size="sm"
-                        onClick={() => handlePostAdminChat('🟨 Yellow Card for Player X (Team A)')}
-                      >
-                        🟨 Card
-                      </Button>
-                      <Button
-                        variant="secondary"
-                        size="sm"
-                        onClick={() => handlePostAdminChat('💥🥊 Injury: Player Y (Team B) has been stretched off.')}
-                      >
-                        🏥 Injury
-                      </Button>
-                      <Button
-                        variant="secondary"
-                        size="sm"
-                        onClick={() => handlePostAdminChat('🏁 FINAL SCORE: Team A 2 - 1 Team B')}
-                      >
-                        🏁 Final
-                      </Button>
+                    <div className={adminStyles.simulatorComposer}>
+                      <div className={adminStyles.simulatorActions}>
+                        <Button
+                          variant="secondary"
+                          size="sm"
+                          onClick={() => handlePostAdminChat('⚽ GOAL! Team A scores against Team B! (1-0)')}
+                        >
+                          ⚽ Goal
+                        </Button>
+                        <Button
+                          variant="secondary"
+                          size="sm"
+                          onClick={() => handlePostAdminChat('🟨 Yellow Card for Player X (Team A)')}
+                        >
+                          🟨 Card
+                        </Button>
+                        <Button
+                          variant="secondary"
+                          size="sm"
+                          onClick={() => handlePostAdminChat('💥🥊 Injury: Player Y (Team B) has been stretched off.')}
+                        >
+                          🏥 Injury
+                        </Button>
+                        <Button
+                          variant="secondary"
+                          size="sm"
+                          onClick={() => handlePostAdminChat('🏁 FINAL SCORE: Team A 2 - 1 Team B')}
+                        >
+                          🏁 Final
+                        </Button>
+                      </div>
+
+                      <div className={adminStyles.customSim}>
+                        <input
+                          type="text"
+                          value={adminChatContent}
+                          onChange={(e) => setAdminChatContent(e.target.value)}
+                          placeholder="Custom event message..."
+                          className={adminStyles.simInput}
+                        />
+                        <Button variant="primary" size="sm" onClick={() => handlePostAdminChat(adminChatContent)}>
+                          Send
+                        </Button>
+                      </div>
                     </div>
 
-                    <div className={adminStyles.customSim}>
-                      <input
-                        type="text"
-                        value={adminChatContent}
-                        onChange={(e) => setAdminChatContent(e.target.value)}
-                        placeholder="Custom event message..."
-                        className={adminStyles.simInput}
-                      />
-                      <Button variant="primary" size="sm" onClick={() => handlePostAdminChat(adminChatContent)}>
-                        Send
-                      </Button>
+                    <div className={adminStyles.simulatorPreview}>
+                      <div className={adminStyles.previewHeader}>
+                        <span className={adminStyles.previewLabel}>Chat preview</span>
+                        <span className={adminStyles.previewHint}>Matches the admin/system message style</span>
+                      </div>
+                      <div className={styles.systemMessage}>
+                        <div className={styles.systemMessageContent}>
+                          <span className={styles.chatContent}>
+                            {adminChatContent.trim() || 'Type a message on the left to preview it here.'}
+                          </span>
+                          <span className={styles.chatTime}>
+                            {new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                          </span>
+                        </div>
+                      </div>
                     </div>
                   </div>
                 </div>

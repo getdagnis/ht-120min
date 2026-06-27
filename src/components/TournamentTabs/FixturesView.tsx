@@ -16,6 +16,8 @@ export interface FixtureMatch {
   away_goals: number | null;
   completed: boolean;
   went_120: boolean;
+  penalty_shootout_home_goals?: number | null;
+  penalty_shootout_away_goals?: number | null;
   status: 'not_arranged' | 'arranged' | 'ongoing' | 'misarranged' | 'finished';
   ht_match_id: number | null;
   match_type: number | null;
@@ -111,6 +113,11 @@ export const FixturesView: React.FC<FixturesViewProps> = ({
           : null;
 
         const formatMatch = (m: FixtureMatch, isNext: boolean, roundNum: number) => {
+          const hasPenaltyShootout =
+            m.completed &&
+            m.went_120 &&
+            m.penalty_shootout_home_goals !== null &&
+            m.penalty_shootout_away_goals !== null;
           const value = isNext
             ? `${calculateMatchDate(
                 round.created_at,
@@ -121,7 +128,7 @@ export const FixturesView: React.FC<FixturesViewProps> = ({
                 month: '2-digit',
               })}`
             : m.completed
-              ? `${m.home_goals} : ${m.away_goals}${m.went_120 ? " 🎯 120'!" : ''}`
+              ? `${m.home_goals} : ${m.away_goals}${hasPenaltyShootout ? ` (${m.penalty_shootout_home_goals}:${m.penalty_shootout_away_goals})` : ''}${m.went_120 ? " 🎯 120'!" : ''}`
               : m.status === 'misarranged'
                 ? 'DNP'
                 : `${calculateMatchDate(
@@ -273,6 +280,13 @@ export const FixturesView: React.FC<FixturesViewProps> = ({
                       : isPastStartTime && isWithinLiveWindow
                         ? { home: 0, away: 0 }
                         : undefined;
+                  const penaltyShootout =
+                    match.penalty_shootout_home_goals !== null && match.penalty_shootout_away_goals !== null
+                      ? {
+                          home: match.penalty_shootout_home_goals ?? 0,
+                          away: match.penalty_shootout_away_goals ?? 0,
+                        }
+                      : null;
 
                   return (
                     <FixtureCard
@@ -281,6 +295,7 @@ export const FixturesView: React.FC<FixturesViewProps> = ({
                       status={status}
                       htMatchId={match.ht_match_id || undefined}
                       score={currentScore}
+                      penaltyShootout={penaltyShootout}
                       matchType={match.match_type || undefined}
                       is120minMode={tournament?.scoring_mode === '120min'}
                       went_120={match.went_120}

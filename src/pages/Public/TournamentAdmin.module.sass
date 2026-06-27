@@ -477,7 +477,6 @@
   border-radius: 0.5rem
   color: var(--text)
   padding: 1rem
-  backgr
   font-size: 1rem
   min-height: 60px
   resize: none
@@ -499,10 +498,19 @@
   border-radius: var(--radius-lg)
 
 .simulatorGrid
-  display: flex
-  flex-direction: column
+  display: grid
+  grid-template-columns: minmax(0, 1.15fr) minmax(280px, 0.85fr)
   gap: 1.5rem
   margin-top: 1.5rem
+
+  @media (max-width: 920px)
+    grid-template-columns: 1fr
+
+.simulatorComposer
+  display: flex
+  flex-direction: column
+  gap: 1rem
+  min-width: 0
 
 .simulatorActions
   display: flex
@@ -512,9 +520,14 @@
 .customSim
   display: flex
   gap: 0.5rem
+  align-items: stretch
+
+  @media (max-width: 620px)
+    flex-direction: column
 
   input
     flex: 1
+    min-width: 0
     background: var(--bg-color)
     border: 1px solid var(--border)
     border-radius: var(--radius-sm)
@@ -524,3 +537,34 @@
     &:focus
       outline: none
       border-color: var(--accent)
+
+.simulatorPreview
+  display: flex
+  flex-direction: column
+  gap: 0.75rem
+  min-width: 0
+  padding: 1rem
+  border-radius: var(--radius-md)
+  background: var(--bg-color)
+  border: 1px solid var(--border-transp)
+
+.previewHeader
+  display: flex
+  flex-direction: column
+  gap: 0.15rem
+
+.previewLabel
+  font-size: 0.9rem
+  font-weight: 700
+  color: var(--text-h)
+
+.previewHint
+  font-size: 0.85rem
+  color: var(--text60)
+  opacity: 0.9
+
+.simulatorPreview :global(.systemMessage)
+  margin: 0
+
+.simulatorPreview :global(.systemMessageContent)
+  max-width: 100%
