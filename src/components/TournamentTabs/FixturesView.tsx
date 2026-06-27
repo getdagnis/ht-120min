@@ -18,6 +18,12 @@ export interface FixtureMatch {
   went_120: boolean;
   penalty_shootout_home_goals?: number | null;
   penalty_shootout_away_goals?: number | null;
+  home_yellow_cards?: number;
+  home_red_cards?: number;
+  home_injuries?: number;
+  away_yellow_cards?: number;
+  away_red_cards?: number;
+  away_injuries?: number;
   status: 'not_arranged' | 'arranged' | 'ongoing' | 'misarranged' | 'finished';
   ht_match_id: number | null;
   match_type: number | null;
@@ -49,9 +55,8 @@ interface FixturesViewProps {
     created_at: string;
     matches: FixtureMatch[];
   }[];
-  visibleRoundsCount: number;
-  setVisibleRoundsCount: React.Dispatch<React.SetStateAction<number>>;
   upcomingRoundIndex: number;
+  defaultVisibleRoundsCount: number;
   expandedRounds: Record<string, boolean>;
   toggleRound: (roundId: string) => void;
   tournament: {
@@ -73,15 +78,25 @@ interface FixturesViewProps {
   }[];
   liveData: Record<
     string,
-    { status: 'arranged' | 'ongoing' | 'finished'; homeGoals: number; awayGoals: number; venue_mismatch?: boolean }
+    {
+      status: 'arranged' | 'ongoing' | 'finished';
+      homeGoals: number;
+      awayGoals: number;
+      venue_mismatch?: boolean;
+      home_yellow_cards?: number;
+      home_red_cards?: number;
+      home_injuries?: number;
+      away_yellow_cards?: number;
+      away_red_cards?: number;
+      away_injuries?: number;
+    }
   >;
 }
 
 export const FixturesView: React.FC<FixturesViewProps> = ({
   rounds,
-  visibleRoundsCount,
-  setVisibleRoundsCount,
   upcomingRoundIndex,
+  defaultVisibleRoundsCount,
   expandedRounds,
   toggleRound,
   tournament,
@@ -92,6 +107,9 @@ export const FixturesView: React.FC<FixturesViewProps> = ({
   warnings,
   liveData,
 }) => {
+  const [manualVisibleRoundsCount, setManualVisibleRoundsCount] = React.useState<number | null>(null);
+  const visibleRoundsCount = manualVisibleRoundsCount ?? defaultVisibleRoundsCount;
+
   return (
     <div className={styles.rounds}>
       {rounds.slice(0, visibleRoundsCount).map((round) => {
@@ -280,6 +298,28 @@ export const FixturesView: React.FC<FixturesViewProps> = ({
                       : isPastStartTime && isWithinLiveWindow
                         ? { home: 0, away: 0 }
                         : undefined;
+                  const homeSummary = liveMatch
+                    ? {
+                        yellowCards: liveMatch.home_yellow_cards ?? match.home_yellow_cards ?? 0,
+                        redCards: liveMatch.home_red_cards ?? match.home_red_cards ?? 0,
+                        injuries: liveMatch.home_injuries ?? match.home_injuries ?? 0,
+                      }
+                    : {
+                        yellowCards: match.home_yellow_cards ?? 0,
+                        redCards: match.home_red_cards ?? 0,
+                        injuries: match.home_injuries ?? 0,
+                      };
+                  const awaySummary = liveMatch
+                    ? {
+                        yellowCards: liveMatch.away_yellow_cards ?? match.away_yellow_cards ?? 0,
+                        redCards: liveMatch.away_red_cards ?? match.away_red_cards ?? 0,
+                        injuries: liveMatch.away_injuries ?? match.away_injuries ?? 0,
+                      }
+                    : {
+                        yellowCards: match.away_yellow_cards ?? 0,
+                        redCards: match.away_red_cards ?? 0,
+                        injuries: match.away_injuries ?? 0,
+                      };
                   const penaltyShootout =
                     match.penalty_shootout_home_goals !== null && match.penalty_shootout_away_goals !== null
                       ? {
@@ -309,6 +349,7 @@ export const FixturesView: React.FC<FixturesViewProps> = ({
                         warning: homeWarning?.type,
                         countryName: match.home_team?.country_name,
                         countryId: match.home_team?.country_id,
+                        matchSummary: homeSummary,
                       }}
                       awayTeam={{
                         name: match.away_team?.name || 'BYE',
@@ -319,6 +360,7 @@ export const FixturesView: React.FC<FixturesViewProps> = ({
                         warning: awayWarning?.type,
                         countryName: match.away_team?.country_name,
                         countryId: match.away_team?.country_id,
+                        matchSummary: awaySummary,
                       }}
                     />
                   );
@@ -330,7 +372,15 @@ export const FixturesView: React.FC<FixturesViewProps> = ({
       })}
       {visibleRoundsCount < rounds.length && (
         <div className={styles.formActionRow}>
-          <Button variant="outline" onClick={() => setVisibleRoundsCount((prev: number) => prev + 4)}>
+          <Button
+            variant="outline"
+            onClick={() =>
+              setManualVisibleRoundsCount((prev) => {
+                const base = prev ?? defaultVisibleRoundsCount;
+                return Math.min(rounds.length, base + 4);
+              })
+            }
+          >
             Show More
           </Button>
         </div>

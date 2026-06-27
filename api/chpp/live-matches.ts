@@ -12,10 +12,17 @@ interface LiveMatchResult {
   venue_mismatch?: boolean;
   penalty_shootout_home_goals?: number | null;
   penalty_shootout_away_goals?: number | null;
+  home_yellow_cards?: number;
+  home_red_cards?: number;
+  home_injuries?: number;
+  away_yellow_cards?: number;
+  away_red_cards?: number;
+  away_injuries?: number;
 }
 
 const PENALTY_GOAL_EVENT_TYPES = new Set([55, 56, 57]);
-const PENALTY_CONTEST_EVENT_TYPES = new Set([55, 56, 57, 58, 59, 71, 73]);
+const YELLOW_CARD_EVENT_TYPES = new Set([510, 511]);
+const RED_CARD_EVENT_TYPES = new Set([512, 513, 514]);
 
 function getEventTypeId(eventXml: string): number | null {
   const eventTypeId = eventXml.match(/<EventTypeID>(\d+)<\/EventTypeID>/i)?.[1];
@@ -27,36 +34,138 @@ function getEventTypeId(eventXml: string): number | null {
   return null;
 }
 
-function parsePenaltyShootout(xml: string, homeTeamId: number | null, awayTeamId: number | null) {
+function parseScoreBeforeShootout(xml: string, homeTeamId: number | null, awayTeamId: number | null) {
   if (!homeTeamId || !awayTeamId) {
     return { homeGoals: null, awayGoals: null, hasShootout: false };
   }
 
-  let homeGoals = 0;
-  let awayGoals = 0;
-  let hasShootout = false;
+  const eventBlocks = xml.match(/<Event(?:\s[^>]*)?>[\s\S]*?<\/Event>/gi) ?? [];
+  const hasShootout = eventBlocks.some((eventXml) => {
+    const eventTypeId = getEventTypeId(eventXml);
+    return Boolean(eventTypeId && PENALTY_GOAL_EVENT_TYPES.has(eventTypeId));
+  });
+
+  if (!hasShootout) {
+    return { homeGoals: null, awayGoals: null, hasShootout: false };
+  }
+
+  const scorersBlock = xml.match(/<Scorers>([\s\S]*?)<\/Scorers>/i)?.[1] ?? '';
+  const allGoals = [...scorersBlock.matchAll(/<Goal[^>]*>([\s\S]*?)<\/Goal>/gi)];
+  if (allGoals.length === 0) {
+    return { homeGoals: 0, awayGoals: 0, hasShootout: true };
+  }
+
+  const lastGoal = allGoals[allGoals.length - 1][1];
+  return {
+    homeGoals: parseInt(lastGoal.match(/<ScorerHomeGoals>(\d+)<\/ScorerHomeGoals>/i)?.[1] ?? '0', 10),
+    awayGoals: parseInt(lastGoal.match(/<ScorerAwayGoals>(\d+)<\/ScorerAwayGoals>/i)?.[1] ?? '0', 10),
+    hasShootout: true,
+  };
+}
+
+function parseMatchEventSummary(xml: string, homeTeamId: number | null, awayTeamId: number | null) {
+  const summary = {
+    home_yellow_cards: 0,
+    home_red_cards: 0,
+    home_injuries: 0,
+    away_yellow_cards: 0,
+    away_red_cards: 0,
+    away_injuries: 0,
+  };
+
+  if (!homeTeamId || !awayTeamId) return summary;
+
+  const teamPlayers = new Map<number, Map<number, { yellowCards: number; redCards: number }>>();
+  const teamInjuries = new Map<number, Array<{ playerId: number | null }>>();
+
+  const ensurePlayer = (teamId: number, playerId: number) => {
+    let players = teamPlayers.get(teamId);
+    if (!players) {
+      players = new Map();
+      teamPlayers.set(teamId, players);
+    }
+
+    let player = players.get(playerId);
+    if (!player) {
+      player = { yellowCards: 0, redCards: 0 };
+      players.set(playerId, player);
+    }
+
+    return player;
+  };
+
+  const ensureInjuryList = (teamId: number) => {
+    let injuries = teamInjuries.get(teamId);
+    if (!injuries) {
+      injuries = [];
+      teamInjuries.set(teamId, injuries);
+    }
+    return injuries;
+  };
+
+  const injuryBlocks = xml.match(/<Injuries>([\s\S]*?)<\/Injuries>/i)?.[1] ?? '';
+  const parsedInjuries = [...injuryBlocks.matchAll(/<Injury(?:\s[^>]*)?>[\s\S]*?<\/Injury>/gi)];
+  for (const injuryXml of parsedInjuries) {
+    const teamId = parseInt(injuryXml[0].match(/<InjuryTeamID>(\d+)<\/InjuryTeamID>/i)?.[1] ?? '0', 10) || null;
+    const injuryType = parseInt(injuryXml[0].match(/<InjuryType>(\d+)<\/InjuryType>/i)?.[1] ?? '0', 10) || null;
+    const playerId = parseInt(injuryXml[0].match(/<InjuryPlayerID>(\d+)<\/InjuryPlayerID>/i)?.[1] ?? '0', 10) || null;
+    if (!teamId || (teamId !== homeTeamId && teamId !== awayTeamId)) continue;
+    if (injuryType !== 2) continue;
+    ensureInjuryList(teamId).push({ playerId });
+  }
 
   const eventBlocks = xml.match(/<Event(?:\s[^>]*)?>[\s\S]*?<\/Event>/gi) ?? [];
   for (const eventXml of eventBlocks) {
     const eventTypeId = getEventTypeId(eventXml);
-    if (!eventTypeId || !PENALTY_CONTEST_EVENT_TYPES.has(eventTypeId)) continue;
-
-    hasShootout = true;
-    if (!PENALTY_GOAL_EVENT_TYPES.has(eventTypeId)) continue;
-
     const subjectTeamId = parseInt(eventXml.match(/<SubjectTeamID>(\d+)<\/SubjectTeamID>/i)?.[1] ?? '0', 10) || null;
-    if (subjectTeamId === homeTeamId) {
-      homeGoals++;
-    } else if (subjectTeamId === awayTeamId) {
-      awayGoals++;
+    if (!eventTypeId || !subjectTeamId) continue;
+
+    if (subjectTeamId !== homeTeamId && subjectTeamId !== awayTeamId) continue;
+
+    if (YELLOW_CARD_EVENT_TYPES.has(eventTypeId) || RED_CARD_EVENT_TYPES.has(eventTypeId)) {
+      const playerId = parseInt(eventXml.match(/<SubjectPlayerID>(\d+)<\/SubjectPlayerID>/i)?.[1] ?? '0', 10) || null;
+      if (!playerId) continue;
+
+      const player = ensurePlayer(subjectTeamId, playerId);
+      if (YELLOW_CARD_EVENT_TYPES.has(eventTypeId)) {
+        player.yellowCards += 1;
+      } else {
+        player.redCards += 1;
+      }
     }
   }
 
-  return {
-    homeGoals: hasShootout ? homeGoals : null,
-    awayGoals: hasShootout ? awayGoals : null,
-    hasShootout,
-  };
+  for (const [teamId, players] of teamPlayers.entries()) {
+    let yellowCards = 0;
+    let redCards = 0;
+
+    for (const player of players.values()) {
+      if (player.redCards > 0) {
+        redCards += 1;
+      } else {
+        yellowCards += player.yellowCards;
+      }
+    }
+
+    const injuries = teamInjuries.get(teamId) || [];
+
+    if (teamId === homeTeamId) {
+      summary.home_yellow_cards = yellowCards;
+      summary.home_red_cards = redCards;
+      summary.home_injuries = injuries.length;
+    } else if (teamId === awayTeamId) {
+      summary.away_yellow_cards = yellowCards;
+      summary.away_red_cards = redCards;
+      summary.away_injuries = injuries.length;
+    }
+  }
+
+  const homeInjuries = teamInjuries.get(homeTeamId) || [];
+  const awayInjuries = teamInjuries.get(awayTeamId) || [];
+  summary.home_injuries = homeInjuries.length;
+  summary.away_injuries = awayInjuries.length;
+
+  return summary;
 }
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
@@ -112,20 +221,22 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       const finishedDate = readChppTag(xml, 'FinishedDate');
       const finished = (finishedDate && finishedDate !== '0001-01-01 00:00:00') || xml.includes('<MatchStatus>2</MatchStatus>');
 
-      // For ongoing matches, HomeGoals/AwayGoals in the team blocks are 0.
-      // The Scorers list has running totals — grab the last Goal entry's cumulative score.
+      // For ongoing matches, use the live running score from the last scorer entry.
+      // For finished matches, trust the official HomeGoals/AwayGoals result.
       const scorersBlock = xml.match(/<Scorers>([\s\S]*?)<\/Scorers>/i)?.[1] ?? '';
       const allGoals = [...scorersBlock.matchAll(/<Goal[^>]*>([\s\S]*?)<\/Goal>/gi)];
-      let htHomeGoals: number;
-      let htAwayGoals: number;
+      const finalHomeGoals = parseInt(readChppTag(xml, 'HomeGoals') || '0', 10);
+      const finalAwayGoals = parseInt(readChppTag(xml, 'AwayGoals') || '0', 10);
+      let liveHomeGoals: number;
+      let liveAwayGoals: number;
       if (allGoals.length > 0) {
         const lastGoal = allGoals[allGoals.length - 1][1];
-        htHomeGoals = parseInt(lastGoal.match(/<ScorerHomeGoals>(\d+)<\/ScorerHomeGoals>/i)?.[1] ?? '0', 10);
-        htAwayGoals = parseInt(lastGoal.match(/<ScorerAwayGoals>(\d+)<\/ScorerAwayGoals>/i)?.[1] ?? '0', 10);
+        liveHomeGoals = parseInt(lastGoal.match(/<ScorerHomeGoals>(\d+)<\/ScorerHomeGoals>/i)?.[1] ?? '0', 10);
+        liveAwayGoals = parseInt(lastGoal.match(/<ScorerAwayGoals>(\d+)<\/ScorerAwayGoals>/i)?.[1] ?? '0', 10);
       } else {
         // No goals scored yet (0-0), fall back to team block fields
-        htHomeGoals = parseInt(readChppTag(xml, 'HomeGoals') || '0', 10);
-        htAwayGoals = parseInt(readChppTag(xml, 'AwayGoals') || '0', 10);
+        liveHomeGoals = finalHomeGoals;
+        liveAwayGoals = finalAwayGoals;
       }
 
       // Actual team IDs from Hattrick MatchDetails
@@ -141,14 +252,15 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
       const baseMinutes = isExtraTime ? 120 : 90;
       const totalMinutes = baseMinutes + addedMinutes;
-      const penaltyShootout = parsePenaltyShootout(xml, actualHtHomeTeamId, actualHtAwayTeamId);
+      const scoreBeforeShootout = parseScoreBeforeShootout(xml, actualHtHomeTeamId, actualHtAwayTeamId);
+      const eventSummary = parseMatchEventSummary(xml, actualHtHomeTeamId, actualHtAwayTeamId);
 
       // Detect venue mismatch: teams played each other but swapped home/away
       const htMatchIdNum = parseInt(htMatchId, 10);
       const fixture = matchFixtureMap.get(htMatchIdNum);
       let venueMismatch = false;
-      let homeGoals = htHomeGoals;
-      let awayGoals = htAwayGoals;
+      let homeGoals = finished ? finalHomeGoals : liveHomeGoals;
+      let awayGoals = finished ? finalAwayGoals : liveAwayGoals;
 
       if (
         fixture &&
@@ -163,9 +275,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
         if (scheduledHomeMatchedActualAway) {
           // Venue reversed: map goals back to scheduled fixture perspective
-          // scheduled home team actually played as away → their goals are htAwayGoals
-          homeGoals = htAwayGoals;
-          awayGoals = htHomeGoals;
+          // scheduled home team actually played as away → their goals are away-side goals
+          homeGoals = finished ? finalAwayGoals : liveAwayGoals;
+          awayGoals = finished ? finalHomeGoals : liveHomeGoals;
           venueMismatch = true;
         }
       }
@@ -177,8 +289,14 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         total_minutes: totalMinutes,
         went_120: isExtraTime,
         venue_mismatch: venueMismatch,
-        penalty_shootout_home_goals: penaltyShootout.homeGoals,
-        penalty_shootout_away_goals: penaltyShootout.awayGoals,
+        penalty_shootout_home_goals: scoreBeforeShootout.homeGoals,
+        penalty_shootout_away_goals: scoreBeforeShootout.awayGoals,
+        home_yellow_cards: eventSummary.home_yellow_cards,
+        home_red_cards: eventSummary.home_red_cards,
+        home_injuries: eventSummary.home_injuries,
+        away_yellow_cards: eventSummary.away_yellow_cards,
+        away_red_cards: eventSummary.away_red_cards,
+        away_injuries: eventSummary.away_injuries,
       };
 
       await supabase.from('matches').update({
@@ -189,8 +307,14 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         total_minutes: totalMinutes,
         went_120: isExtraTime,
         venue_mismatch: venueMismatch,
-        penalty_shootout_home_goals: penaltyShootout.homeGoals,
-        penalty_shootout_away_goals: penaltyShootout.awayGoals,
+        penalty_shootout_home_goals: scoreBeforeShootout.homeGoals,
+        penalty_shootout_away_goals: scoreBeforeShootout.awayGoals,
+        home_yellow_cards: eventSummary.home_yellow_cards,
+        home_red_cards: eventSummary.home_red_cards,
+        home_injuries: eventSummary.home_injuries,
+        away_yellow_cards: eventSummary.away_yellow_cards,
+        away_red_cards: eventSummary.away_red_cards,
+        away_injuries: eventSummary.away_injuries,
         actual_ht_home_team_id: actualHtHomeTeamId,
         actual_ht_away_team_id: actualHtAwayTeamId,
       }).eq('ht_match_id', htMatchIdNum);

@@ -4,7 +4,13 @@ const INTERVAL_MS = 60 * 1000; // 1 minute while visible
 
 async function ping() {
   try {
-    const res = await fetch('/api/presence', { method: 'POST', credentials: 'include' });
+    const headers: Record<string, string> = {};
+    if (import.meta.env.DEV) {
+      const userId = localStorage.getItem('my_ht_user_id');
+      if (userId) headers['x-ht-user-id'] = userId;
+    }
+
+    const res = await fetch('/api/presence', { method: 'POST', credentials: 'include', headers });
     if (!res.ok && import.meta.env.DEV) {
       console.warn('[presence] ping failed', res.status, await res.text());
     }

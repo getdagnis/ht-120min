@@ -7,6 +7,12 @@ export interface LiveMatchData {
   total_minutes?: number;
   went_120?: boolean;
   venue_mismatch?: boolean;
+  home_yellow_cards?: number;
+  home_red_cards?: number;
+  home_injuries?: number;
+  away_yellow_cards?: number;
+  away_red_cards?: number;
+  away_injuries?: number;
 }
 
 interface Match {

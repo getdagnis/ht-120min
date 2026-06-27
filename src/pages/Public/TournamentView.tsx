@@ -54,6 +54,12 @@ interface MatchWithTeams {
   total_minutes: number;
   penalty_shootout_home_goals?: number | null;
   penalty_shootout_away_goals?: number | null;
+  home_yellow_cards?: number;
+  home_red_cards?: number;
+  home_injuries?: number;
+  away_yellow_cards?: number;
+  away_red_cards?: number;
+  away_injuries?: number;
   status: 'not_arranged' | 'arranged' | 'ongoing' | 'misarranged' | 'finished';
   ht_match_id: number | null;
   match_type: number | null;
@@ -271,9 +277,6 @@ export const TournamentView: React.FC = () => {
   const [pendingJoinData, setPendingJoinData] = useState<PendingJoinData | null>(null);
   const [submittingJoin, setSubmittingJoin] = useState(false);
 
-  // Pagination for recurring tournaments
-  const [visibleRoundsCount, setVisibleRoundsCount] = useState(4);
-
   // UI state
   const [showScoringHelp, setShowScoringHelp] = useState(false);
   const [isAddingDescription, setIsAddingDescription] = useState(false);
@@ -464,6 +467,12 @@ export const TournamentView: React.FC = () => {
               status: live.status === 'finished' ? 'finished' : live.status || m.status,
               went_120: live.went_120 ?? m.went_120,
               total_minutes: live.total_minutes ?? m.total_minutes,
+              home_yellow_cards: live.home_yellow_cards ?? m.home_yellow_cards,
+              home_red_cards: live.home_red_cards ?? m.home_red_cards,
+              home_injuries: live.home_injuries ?? m.home_injuries,
+              away_yellow_cards: live.away_yellow_cards ?? m.away_yellow_cards,
+              away_red_cards: live.away_red_cards ?? m.away_red_cards,
+              away_injuries: live.away_injuries ?? m.away_injuries,
             };
           }
           return m;
@@ -600,6 +609,9 @@ export const TournamentView: React.FC = () => {
       setTournament((prev) => (prev ? { ...prev, last_fixtures_refresh: lastRefresh } : null));
     }
   }, [lastRefresh]);
+
+  const upcomingRoundIndex = rounds.findIndex((r) => r.matches.some((m) => !m.completed && m.status !== 'misarranged'));
+  const defaultVisibleRoundsCount = upcomingRoundIndex >= 0 ? Math.min(rounds.length, upcomingRoundIndex + 2) : rounds.length;
 
   const fetchPendingJoinData = useCallback(
     async (token: string) => {
@@ -1785,12 +1797,10 @@ export const TournamentView: React.FC = () => {
 
       {activeTab === 'fixtures' && (
         <FixturesView
+          key={tournament?.id}
           rounds={rounds}
-          visibleRoundsCount={visibleRoundsCount}
-          setVisibleRoundsCount={setVisibleRoundsCount}
-          upcomingRoundIndex={rounds.findIndex((r) =>
-            r.matches.some((m) => !m.completed && m.status !== 'misarranged'),
-          )}
+          upcomingRoundIndex={upcomingRoundIndex}
+          defaultVisibleRoundsCount={defaultVisibleRoundsCount}
           expandedRounds={expandedRounds}
           toggleRound={toggleRound}
           tournament={tournament}

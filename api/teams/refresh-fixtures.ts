@@ -74,10 +74,7 @@ const COUNTRY_FRIENDLY_TIMES: Record<string, { day: number; time: string }> = {
 function calculateMatchDate(tournamentCreatedAt: string, roundNumber: number, countryName?: string): Date {
   const settings = COUNTRY_FRIENDLY_TIMES[countryName || ''] || { day: 2, time: '20:00' };
   const [hours, minutes] = settings.time.split(':').map(Number);
-  // Always anchor from now — refresh is called to check upcoming matches,
-  // so we always want the next friendly slot from today, plus (roundNumber-1) weeks.
-  const createdAt = new Date(tournamentCreatedAt);
-  const date = createdAt > new Date() ? new Date(createdAt) : new Date();
+  const date = new Date(tournamentCreatedAt);
   
   // Hattrick Time (Europe/Stockholm) is CET (UTC+1) or CEST (UTC+2)
   // We use the Intl API to find the offset for the given date in Stockholm
@@ -189,14 +186,14 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
     if (!tournament || !rounds || !teams) return res.status(404).json({ error: 'Data not found' });
 
-    // Identify the closest upcoming round (the first round that has non-resolved matches)
+    // Identify the closest upcoming round (the first round that has non-resolved matches).
     const now = new Date();
     const upcomingRound = rounds.find((r) => {
-      return r.matches.some((m: { completed: boolean; status: string; }) => {
+      return r.matches.some((m: { completed: boolean; status: string }) => {
         if (m.completed) return false;
         if (m.status === 'misarranged') {
-          // If misarranged but the match time has already passed, consider it "resolved" for refresh purposes
-          const matchDate = calculateMatchDate(tournament.created_at, r.round_number, teams[0].country_name); // Estimate
+          // If misarranged but the match time has already passed, consider it "resolved" for refresh purposes.
+          const matchDate = calculateMatchDate(tournament.created_at, r.round_number, teams[0].country_name);
           if (now > matchDate) return false;
         }
         return true;
@@ -219,19 +216,21 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       }
     };
 
-    // Clear warnings for all rounds from upcomingRound onwards — stale warnings
-    // from previous (wrongly-calculated) refresh passes must not persist.
-    const futureRoundIds = rounds
-      .filter((r) => r.round_number >= upcomingRound.round_number)
-      .map((r) => r.id);
+    // Clear warnings for the upcoming round — stale warnings from the current
+    // pass must not persist.
+    const futureRoundIds = [upcomingRound.id];
     await supabase
       .from('fixture_warnings')
       .delete()
       .eq('tournament_id', tournament_id)
       .in('round_id', futureRoundIds);
 
-    // Reload warnings after clearing so recordWarning() works from a clean slate
+    const existingWarningsOutsideRefresh = existingWarnings?.filter((w) => !futureRoundIds.includes(w.round_id)) || [];
     const freshWarnings: { round_id: string; team_id: string }[] = [];
+    const getWarningHistory = (teamId: string) => [
+      ...existingWarningsOutsideRefresh.filter((w) => w.team_id === teamId),
+      ...freshWarnings.filter((w) => w.team_id === teamId),
+    ];
 
     // Only process matches in the upcoming round that are eligible:
     // status ∈ {not_arranged, arranged} AND completed = false
@@ -239,7 +238,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     for (const match of upcomingRound.matches) {
       if (match.completed) continue;
       if (!['not_arranged', 'arranged'].includes(match.status)) continue;
-      
+
       // If already has ht_match_id and match_type, we can skip
       if (match.status === 'arranged' && match.ht_match_id && match.match_type) continue;
 
@@ -247,46 +246,48 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       const awayTeam = teams.find((t) => t.id === match.away_team_id);
       if (!homeTeam || !awayTeam) continue;
 
-      const targetDate = calculateMatchDate(tournament.created_at, upcomingRound.round_number, homeTeam.country_name);
-      const homeFriendlies = await getFriendlies(homeTeam);
-      const awayFriendlies = await getFriendlies(awayTeam);
+        const targetDate = calculateMatchDate(upcomingRound.created_at, upcomingRound.round_number, homeTeam.country_name);
+        const homeFriendlies = await getFriendlies(homeTeam);
+        const awayFriendlies = await getFriendlies(awayTeam);
 
-      const isCorrectMatch = (f: { homeId: number; awayId: number }) =>
-        (f.homeId === homeTeam.ht_team_id && f.awayId === awayTeam.ht_team_id) ||
-        (f.homeId === awayTeam.ht_team_id && f.awayId === homeTeam.ht_team_id);
+        const isCorrectMatch = (f: { homeId: number; awayId: number }) =>
+          (f.homeId === homeTeam.ht_team_id && f.awayId === awayTeam.ht_team_id) ||
+          (f.homeId === awayTeam.ht_team_id && f.awayId === homeTeam.ht_team_id);
 
-      const homeMatch = homeFriendlies.find(
-        (f) => Math.abs(f.date.getTime() - targetDate.getTime()) < 3 * 24 * 60 * 60 * 1000,
-      );
-      const awayMatch = awayFriendlies.find(
-        (f) => Math.abs(f.date.getTime() - targetDate.getTime()) < 3 * 24 * 60 * 60 * 1000,
-      );
+        const withinWindow = (f: { date: Date }) => Math.abs(f.date.getTime() - targetDate.getTime()) < 3 * 24 * 60 * 60 * 1000;
+      const homeCorrectMatch = homeFriendlies.find((fixture) => withinWindow(fixture) && isCorrectMatch(fixture));
+      const awayCorrectMatch = awayFriendlies.find((fixture) => withinWindow(fixture) && isCorrectMatch(fixture));
+      const confirmedMatch = homeCorrectMatch ?? awayCorrectMatch;
 
       let status: 'not_arranged' | 'arranged' | 'misarranged' = 'not_arranged';
       let htMatchId: number | null = null;
-      const homeOffending = homeMatch && !isCorrectMatch(homeMatch);
-      const awayOffending = awayMatch && !isCorrectMatch(awayMatch);
 
-      if (homeMatch && awayMatch && homeMatch.matchId === awayMatch.matchId && isCorrectMatch(homeMatch)) {
+      if (confirmedMatch) {
         status = 'arranged';
-        htMatchId = homeMatch.matchId;
-      } else if (homeOffending || awayOffending) {
-        status = 'misarranged';
+        htMatchId = confirmedMatch.matchId;
+      } else {
+        const homeOffending = homeFriendlies.find((fixture) => withinWindow(fixture) && !isCorrectMatch(fixture));
+        const awayOffending = awayFriendlies.find((fixture) => withinWindow(fixture) && !isCorrectMatch(fixture));
+
+        if (homeOffending || awayOffending) {
+          status = 'misarranged';
+        }
       }
 
       // Update match status and HT Match ID
-      await supabase.from('matches').update({ status, ht_match_id: htMatchId, match_type: htMatchId ? homeMatch?.matchType : null }).eq('id', match.id);
+      await supabase
+        .from('matches')
+        .update({ status, ht_match_id: htMatchId, match_type: confirmedMatch?.matchType ?? null })
+        .eq('id', match.id);
 
       // Warning Logic Helper
       const recordWarning = async (teamId: string) => {
         const alreadyHasWarning = freshWarnings.some((w) => w.round_id === upcomingRound.id && w.team_id === teamId);
         if (alreadyHasWarning) return;
 
-        const teamWarnings = existingWarnings?.filter((w) => w.team_id === teamId && w.round_id !== upcomingRound.id) || [];
-        const isConsecutive = teamWarnings.some((w) => {
-          const prevRound = rounds.find((r) => r.round_number === upcomingRound.round_number - 1);
-          return prevRound && w.round_id === prevRound.id;
-        });
+        const teamWarnings = getWarningHistory(teamId);
+        const prevRound = rounds.find((r) => r.round_number === upcomingRound.round_number - 1);
+        const isConsecutive = teamWarnings.some((w) => prevRound && w.round_id === prevRound.id);
         const type = isConsecutive || teamWarnings.length >= 2 ? 'red' : 'yellow';
 
         await supabase.from('fixture_warnings').insert({
@@ -301,6 +302,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
       const homeAlreadyWarned = freshWarnings.some((w) => w.round_id === upcomingRound.id && w.team_id === homeTeam.id);
       const awayAlreadyWarned = freshWarnings.some((w) => w.round_id === upcomingRound.id && w.team_id === awayTeam.id);
+      const homeOffending = !!homeFriendlies.find((fixture) => withinWindow(fixture) && !isCorrectMatch(fixture));
+      const awayOffending = !!awayFriendlies.find((fixture) => withinWindow(fixture) && !isCorrectMatch(fixture));
 
       if (homeOffending && awayOffending) {
         if (!homeAlreadyWarned && !awayAlreadyWarned) {

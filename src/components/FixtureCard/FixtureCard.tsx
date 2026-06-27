@@ -13,6 +13,11 @@ interface TeamProps {
   warning?: 'yellow' | 'red';
   countryName?: string;
   countryId?: number;
+  matchSummary?: {
+    yellowCards: number;
+    redCards: number;
+    injuries: number;
+  } | null;
 }
 
 interface FixtureCardProps {
@@ -70,8 +75,8 @@ export const FixtureCard: React.FC<FixtureCardProps> = ({
   if (matchTypeInfo && matchType === 5 && completed && went_120) {
     matchTypeInfo.initials = hasPenaltyShootout ? '120m+PS' : '120m';
     matchTypeInfo.description = hasPenaltyShootout
-      ? '120 Minute Cup Rules Match decided by penalty shootout'
-      : '120 Minute Cup Rules Match';
+      ? '120m cup rules match decided by penalty shootout'
+      : '120m cup rules match';
   }
 
   const isWrongType = is120minMode && matchType && [4, 7].includes(matchType);
@@ -87,6 +92,7 @@ export const FixtureCard: React.FC<FixtureCardProps> = ({
         managerHtId={team.managerHtId}
         mode="fixtures"
         isRight={isRight}
+        matchSummary={team.matchSummary}
       />
       {team.warning && (
         <div className={styles.warningRow}>

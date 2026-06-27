@@ -60,5 +60,5 @@ export function verifyAppSessionCookie(cookieHeader: string | undefined, secret:
 }
 
 export function getAppSessionSecret(): string | null {
-  return process.env.APP_SESSION_SECRET || (process.env.NODE_ENV !== 'production' ? DEV_FALLBACK_SECRET : null);
+  return process.env.APP_SESSION_SECRET || process.env.CHPP_CONSUMER_SECRET || (process.env.NODE_ENV !== 'production' ? DEV_FALLBACK_SECRET : null);
 }
