@@ -165,6 +165,7 @@ export const TournamentView: React.FC = () => {
   const [isAdminAuthenticated, setIsAdminAuthenticated] = useState(false);
   const [adminAuthError, setAdminAuthError] = useState(false);
   const [failedLoginAttempt, setFailedLoginAttempt] = useState(false);
+  const [selectedAnnouncementTemplate, setSelectedAnnouncementTemplate] = useState<string | null>(null);
   const paramsHandledRef = useRef(false);
   const [isEditingImage, setIsEditingImage] = useState(false);
   const [newImageUrl, setNewImageUrl] = useState('');
@@ -208,6 +209,37 @@ export const TournamentView: React.FC = () => {
       .split('; ')
       .find((row) => row.startsWith('issuperadmin='))
       ?.split('=')[1] === 'you bet';
+
+  const currentHtUserId = Number(localStorage.getItem('my_ht_user_id') || '0') || null;
+  const currentHtManagerName = localStorage.getItem('my_ht_manager_name') || tournament?.organizer_name || 'Admin';
+  const announcementTemplates = [
+    {
+      id: 'tournament-news',
+      label: 'Announcement',
+      icon: '📣',
+    },
+    {
+      id: 'injury-update',
+      label: 'Injury update',
+      icon: '🏥',
+    },
+    {
+      id: 'team-joined',
+      label: 'Team joined',
+      icon: '🎉',
+    },
+    {
+      id: 'team-left',
+      label: 'Team left',
+      icon: '👋',
+    },
+  ] as const;
+  const canLoginAsOrganizer = Boolean(
+    tournament?.organizer_id && currentHtUserId && Number(tournament.organizer_id) === currentHtUserId,
+  );
+  const organizerLoginLabel = `🤖 ${currentHtManagerName} (organizer)`;
+  const selectedAnnouncement =
+    announcementTemplates.find((template) => template.id === selectedAnnouncementTemplate) || null;
 
   // Collapsible states
   const [isSettingsCollapsed, setIsSettingsCollapsed] = useState(() =>
@@ -567,34 +599,37 @@ export const TournamentView: React.FC = () => {
     }
   }, [lastRefresh]);
 
-  const fetchPendingJoinData = useCallback(async (token: string) => {
-    setShowTeamModal(true);
-    setModalLoading(true);
-    console.log('TournamentView Querying Selection Token:', token);
+  const fetchPendingJoinData = useCallback(
+    async (token: string) => {
+      setShowTeamModal(true);
+      setModalLoading(true);
+      console.log('TournamentView Querying Selection Token:', token);
 
-    const { data, error } = await supabase
-      .from('oauth_temp_sessions')
-      .select('*')
-      .eq('selection_token', token)
-      .single();
+      const { data, error } = await supabase
+        .from('oauth_temp_sessions')
+        .select('*')
+        .eq('selection_token', token)
+        .single();
 
-    if (error || !data) {
-      setShowTeamModal(false);
-      alert('Invalid or expired selection session.');
-      const newUrl = window.location.pathname;
-      window.history.replaceState({}, '', newUrl);
-      return;
-    }
+      if (error || !data) {
+        setShowTeamModal(false);
+        alert('Invalid or expired selection session.');
+        const newUrl = window.location.pathname;
+        window.history.replaceState({}, '', newUrl);
+        return;
+      }
 
-    setPendingJoinData(data);
-    if (data.manager_name) {
-      localStorage.setItem('my_ht_manager_name', data.manager_name);
-    }
-    if (data.hattrick_user_id) {
-      localStorage.setItem('my_ht_user_id', String(data.hattrick_user_id));
-    }
-    setModalLoading(false);
-  }, []);
+      setPendingJoinData(data);
+      if (data.manager_name) {
+        localStorage.setItem('my_ht_manager_name', data.manager_name);
+      }
+      if (data.hattrick_user_id) {
+        localStorage.setItem('my_ht_user_id', String(data.hattrick_user_id));
+      }
+      setModalLoading(false);
+    },
+    [setModalLoading, setPendingJoinData, setShowTeamModal],
+  );
 
   const handleTeamSelect = async (team: ChppTeamOption) => {
     if (!pendingJoinData) return;
@@ -637,15 +672,50 @@ export const TournamentView: React.FC = () => {
   };
 
   useEffect(() => {
-    if (tournament && password && password === tournament.admin_password && !isAdminAuthenticated) {
+    if (!tournament || isAdminAuthenticated) return;
+
+    const storedAuthMode = localStorage.getItem(`admin_auth_${slug}`);
+    const storedPassword = localStorage.getItem(`admin_pw_${slug}`);
+    const organizerCanAutoLogin =
+      storedAuthMode === 'organizer' &&
+      canLoginAsOrganizer &&
+      tournament.organizer_id &&
+      Number(tournament.organizer_id) === currentHtUserId;
+
+    if (organizerCanAutoLogin) {
       const timer = setTimeout(() => {
         setIsAdminAuthenticated(true);
-        localStorage.setItem(`admin_pw_${slug}`, password);
         setAdminAuthError(false);
+        setFailedLoginAttempt(false);
       }, 0);
       return () => clearTimeout(timer);
     }
-  }, [password, tournament, slug, isAdminAuthenticated]);
+
+    if (
+      (storedAuthMode === 'password' || !storedAuthMode) &&
+      storedPassword &&
+      tournament.admin_password &&
+      storedPassword === tournament.admin_password
+    ) {
+      const timer = setTimeout(() => {
+        setIsAdminAuthenticated(true);
+        setAdminAuthError(false);
+        setFailedLoginAttempt(false);
+      }, 0);
+      return () => clearTimeout(timer);
+    }
+
+    if (password && password === tournament.admin_password) {
+      const timer = setTimeout(() => {
+        setIsAdminAuthenticated(true);
+        localStorage.setItem(`admin_pw_${slug}`, password);
+        localStorage.setItem(`admin_auth_${slug}`, 'password');
+        setAdminAuthError(false);
+        setFailedLoginAttempt(false);
+      }, 0);
+      return () => clearTimeout(timer);
+    }
+  }, [canLoginAsOrganizer, currentHtUserId, password, tournament, slug, isAdminAuthenticated]);
 
   useEffect(() => {
     const init = async () => {
@@ -936,11 +1006,45 @@ export const TournamentView: React.FC = () => {
     if (tournament && password === tournament.admin_password) {
       setIsAdminAuthenticated(true);
       localStorage.setItem(`admin_pw_${slug}`, password);
+      localStorage.setItem(`admin_auth_${slug}`, 'password');
       setAdminAuthError(false);
+      setFailedLoginAttempt(false);
     } else {
       setAdminAuthError(true);
       setFailedLoginAttempt(true);
     }
+  };
+
+  const handleOrganizerLogin = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!canLoginAsOrganizer) return;
+
+    setIsAdminAuthenticated(true);
+    localStorage.setItem(`admin_auth_${slug}`, 'organizer');
+    localStorage.removeItem(`admin_pw_${slug}`);
+    setPassword('');
+    setAdminAuthError(false);
+    setFailedLoginAttempt(false);
+  };
+
+  const handleAdminLogout = () => {
+    setIsAdminAuthenticated(false);
+    setPassword('');
+    setAdminAuthError(false);
+    setFailedLoginAttempt(false);
+    setSelectedAnnouncementTemplate(null);
+    localStorage.removeItem(`admin_pw_${slug}`);
+    localStorage.removeItem(`admin_auth_${slug}`);
+  };
+
+  const handleAnnouncementSend = () => {
+    const trimmedContent = adminChatContent.trim();
+    if (!trimmedContent) return;
+
+    const template = announcementTemplates.find((item) => item.id === selectedAnnouncementTemplate);
+    const prefix = template ? `${(<span>{template.icon}</span>)} ${template.label}}` : '📣 Announcement';
+    void handlePostAdminChat(`${prefix}\n${trimmedContent}`);
+    setAdminChatContent('');
   };
 
   const updateSettings = async () => {
@@ -1497,7 +1601,7 @@ export const TournamentView: React.FC = () => {
             {tournament.max_teams && (
               <p className={styles.joinLimit}>
                 Join limit: {teams.filter((t) => t.active).length} / {tournament.max_teams}
-                {teams.filter((t) => t.active).length >= tournament.max_teams && ' — Tournament full'}
+                {teams.filter((t) => t.active).length >= tournament.max_teams && ' — Filled!'}
               </p>
             )}
             {is120minMode ? (
@@ -1706,7 +1810,7 @@ export const TournamentView: React.FC = () => {
               </button>
               {isAdminAuthenticated && (
                 <button className={newsMode === 'admin' ? styles.active : ''} onClick={() => setNewsMode('admin')}>
-                  Tournament News
+                  Announcement
                 </button>
               )}
             </div>
@@ -1855,24 +1959,32 @@ export const TournamentView: React.FC = () => {
                 )
               }
             >
-              <form onSubmit={handleAdminLogin} className={styles.adminAuthForm}>
-                <div className={styles.authField}>
-                  <label>Tournament Password</label>
-                  <input
-                    type="password"
-                    value={password}
-                    onChange={(e) => {
-                      setPassword(e.target.value);
-                      if (adminAuthError) setAdminAuthError(false);
-                    }}
-                    placeholder="Enter admin password"
-                    required
-                  />
-                </div>
-                {adminAuthError && <p className={styles.authError}>Invalid password. Please try again.</p>}
-                <Button type="submit" variant="primary" size="md">
-                  Login <ArrowRight size={18} weight="bold" />
-                </Button>
+              <div className={styles.adminAuthForm}>
+                <form onSubmit={canLoginAsOrganizer ? handleOrganizerLogin : handleAdminLogin}>
+                  <div className={styles.authField}>
+                    <label>{canLoginAsOrganizer ? 'Auto-login as the organizer:' : 'Tournament Password'}</label>
+                    {canLoginAsOrganizer ? (
+                      <input type="text" value={organizerLoginLabel} readOnly className={styles.readOnlyName} />
+                    ) : (
+                      <input
+                        type="password"
+                        value={password}
+                        onChange={(e) => {
+                          setPassword(e.target.value);
+                          if (adminAuthError) setAdminAuthError(false);
+                        }}
+                        placeholder="Enter admin password"
+                        required
+                      />
+                    )}
+                  </div>
+                  {!canLoginAsOrganizer && adminAuthError && (
+                    <p className={styles.authError}>Invalid password. Please try again.</p>
+                  )}
+                  <Button type="submit" variant="primary" size="md">
+                    Login <ArrowRight size={18} weight="bold" />
+                  </Button>
+                </form>
 
                 <div className={styles.adminAuthFooter}>
                   {failedLoginAttempt ? (
@@ -1883,7 +1995,7 @@ export const TournamentView: React.FC = () => {
                     </a>
                   )}
                 </div>
-              </form>
+              </div>
             </SectionCard>
           ) : (
             <div className={adminStyles.admin}>
@@ -2470,58 +2582,105 @@ export const TournamentView: React.FC = () => {
                 <Tooltip id="admin-tooltip" />
               </div>
 
-              <div className={adminStyles.simulatorSection}>
-                <h3 className={adminStyles.sectionTitle}>Live Match Simulator (Playground)</h3>
-                <p className={adminStyles.smallNote}>
-                  Send simulated match event messages as "Tournament Administration" to the chat.
-                </p>
+              {isSuperAdmin ? (
+                <div className={adminStyles.simulatorSection}>
+                  <h3 className={adminStyles.sectionTitle}>Live Match Simulator (Playground)</h3>
+                  <p className={adminStyles.smallNote}>
+                    Send simulated match event messages as "Tournament Administration" to the chat.
+                  </p>
 
-                <div className={adminStyles.simulatorGrid}>
-                  <div className={adminStyles.simulatorActions}>
-                    <Button
-                      variant="secondary"
-                      size="sm"
-                      onClick={() => handlePostAdminChat('⚽ GOAL! Team A scores against Team B! (1-0)')}
-                    >
-                      ⚽ Goal
-                    </Button>
-                    <Button
-                      variant="secondary"
-                      size="sm"
-                      onClick={() => handlePostAdminChat('🟨 Yellow Card for Player X (Team A)')}
-                    >
-                      🟨 Card
-                    </Button>
-                    <Button
-                      variant="secondary"
-                      size="sm"
-                      onClick={() => handlePostAdminChat('💥🥊 Injury: Player Y (Team B) has been stretched off.')}
-                    >
-                      🏥 Injury
-                    </Button>
-                    <Button
-                      variant="secondary"
-                      size="sm"
-                      onClick={() => handlePostAdminChat('🏁 FINAL SCORE: Team A 2 - 1 Team B')}
-                    >
-                      🏁 Final
-                    </Button>
-                  </div>
+                  <div className={adminStyles.simulatorGrid}>
+                    <div className={adminStyles.simulatorActions}>
+                      <Button
+                        variant="secondary"
+                        size="sm"
+                        onClick={() => handlePostAdminChat('⚽ GOAL! Team A scores against Team B! (1-0)')}
+                      >
+                        ⚽ Goal
+                      </Button>
+                      <Button
+                        variant="secondary"
+                        size="sm"
+                        onClick={() => handlePostAdminChat('🟨 Yellow Card for Player X (Team A)')}
+                      >
+                        🟨 Card
+                      </Button>
+                      <Button
+                        variant="secondary"
+                        size="sm"
+                        onClick={() => handlePostAdminChat('💥🥊 Injury: Player Y (Team B) has been stretched off.')}
+                      >
+                        🏥 Injury
+                      </Button>
+                      <Button
+                        variant="secondary"
+                        size="sm"
+                        onClick={() => handlePostAdminChat('🏁 FINAL SCORE: Team A 2 - 1 Team B')}
+                      >
+                        🏁 Final
+                      </Button>
+                    </div>
 
-                  <div className={adminStyles.customSim}>
-                    <input
-                      type="text"
-                      value={adminChatContent}
-                      onChange={(e) => setAdminChatContent(e.target.value)}
-                      placeholder="Custom event message..."
-                      className={adminStyles.simInput}
-                    />
-                    <Button variant="primary" size="sm" onClick={() => handlePostAdminChat(adminChatContent)}>
-                      Send
-                    </Button>
+                    <div className={adminStyles.customSim}>
+                      <input
+                        type="text"
+                        value={adminChatContent}
+                        onChange={(e) => setAdminChatContent(e.target.value)}
+                        placeholder="Custom event message..."
+                        className={adminStyles.simInput}
+                      />
+                      <Button variant="primary" size="sm" onClick={() => handlePostAdminChat(adminChatContent)}>
+                        Send
+                      </Button>
+                    </div>
                   </div>
                 </div>
-              </div>
+              ) : (
+                <div className={adminStyles.simulatorSection}>
+                  <h3 className={adminStyles.sectionTitle}>Forum Announcements</h3>
+                  <p className={adminStyles.smallNote}>
+                    Pick a template, then write the message you want published to the tournament chat.
+                  </p>
+
+                  <div className={adminStyles.inviteTemplate}>
+                    <label>Announcement type</label>
+                    <div className={styles.newsTabs}>
+                      {announcementTemplates.map((template) => {
+                        const isSelected = selectedAnnouncementTemplate === template.id;
+                        return (
+                          <button
+                            key={template.id}
+                            type="button"
+                            className={isSelected ? styles.active : ''}
+                            onClick={() => setSelectedAnnouncementTemplate(template.id)}
+                          >
+                            {template.icon} {template.label}
+                          </button>
+                        );
+                      })}
+                    </div>
+
+                    <div className={adminStyles.inviteActionArea}>
+                      <textarea
+                        value={adminChatContent}
+                        onChange={(e) => setAdminChatContent(e.target.value)}
+                        placeholder="Write chat announcement..."
+                        className={adminStyles.inviteTextarea}
+                      />
+                      <div className={adminStyles.smallNote}>
+                        {selectedAnnouncement
+                          ? `${selectedAnnouncement.icon} ${selectedAnnouncement.label} selected`
+                          : 'No template selected yet.'}
+                      </div>
+                      <div className={styles.formActionRow}>
+                        <Button variant="primary" size="sm" onClick={handleAnnouncementSend}>
+                          Send Announcement
+                        </Button>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              )}
 
               <div className={adminStyles.footerActions}>
                 <Button variant="outline" size="sm" onClick={() => window.confirm('Pause this tournament?')}>
@@ -2533,6 +2692,9 @@ export const TournamentView: React.FC = () => {
                   onClick={() => window.confirm('Archive this tournament? (Only if seasons finished)')}
                 >
                   Archive Tournament
+                </Button>
+                <Button variant="outline" size="sm" onClick={handleAdminLogout}>
+                  Logout
                 </Button>
                 {/* PERMANENTLY DELETE TOURNAMENT *
                 <Button

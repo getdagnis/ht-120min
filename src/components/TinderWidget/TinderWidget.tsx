@@ -100,7 +100,7 @@ export const TinderWidget: React.FC<MatchmakerTeaserProps> = ({ className = '' }
         <div className={styles.pulse}>
           <div className={styles.pulseDot}></div>
           <span>
-            🔥 <strong>{activeCount} teams</strong> looking for a matchup
+            <span className="emoji">🔥</span> <strong>{activeCount} teams</strong> looking for a matchup
           </span>
         </div>
 

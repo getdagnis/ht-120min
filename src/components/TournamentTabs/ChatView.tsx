@@ -56,7 +56,9 @@ export const ChatView: React.FC<ChatViewProps> = ({
   const [newChatContent, setNewChatContent] = useState('');
   const [searchParams, setSearchParams] = useSearchParams();
   const chatContainerRef = useRef<HTMLDivElement>(null);
+  const chatInputRef = useRef<HTMLInputElement>(null);
   const [visibleMessageCount, setVisibleMessageCount] = useState(20);
+  const emojiOptions = ['😀', '😢', '🥶', '💪', '🍻', '🏆', '🎯', '👀', '🧘'];
 
   useEffect(() => {
     if (chatContainerRef.current) {
@@ -73,6 +75,26 @@ export const ChatView: React.FC<ChatViewProps> = ({
 
   const handleOpenProfile = (htId: number) => {
     setSearchParams({ ...Object.fromEntries(searchParams.entries()), profileId: htId.toString() });
+  };
+
+  const handleEmojiClick = (emoji: string) => {
+    const input = chatInputRef.current;
+    if (!input) {
+      setNewChatContent((prev) => `${prev}${emoji}`);
+      return;
+    }
+
+    const start = input.selectionStart ?? newChatContent.length;
+    const end = input.selectionEnd ?? newChatContent.length;
+    const nextValue = `${newChatContent.slice(0, start)}${emoji}${newChatContent.slice(end)}`;
+
+    setNewChatContent(nextValue);
+
+    window.requestAnimationFrame(() => {
+      input.focus();
+      const nextCursor = start + emoji.length;
+      input.setSelectionRange(nextCursor, nextCursor);
+    });
   };
 
   return (
@@ -143,16 +165,32 @@ export const ChatView: React.FC<ChatViewProps> = ({
 
       {myHtUserId ? (
         <form onSubmit={handleSubmit} className={styles.chatInputArea}>
-          <input
-            type="text"
-            value={newChatContent}
-            onChange={(e) => setNewChatContent(e.target.value)}
-            placeholder="Say something..."
-            className={styles.postTextarea}
-          />
-          <button type="submit" className={styles.sendBtn}>
-            <PaperPlaneTilt size={22} weight="bold" />
-          </button>
+          <div className={styles.chatInputRow}>
+            <input
+              ref={chatInputRef}
+              type="text"
+              value={newChatContent}
+              onChange={(e) => setNewChatContent(e.target.value)}
+              placeholder="Say something..."
+              className={styles.postTextarea}
+            />
+            <button type="submit" className={styles.sendBtn}>
+              <PaperPlaneTilt size={22} weight="bold" />
+            </button>
+          </div>
+          <div className={styles.chatEmojiBar} aria-label="Quick emoji picker">
+            {emojiOptions.map((emoji) => (
+              <button
+                key={emoji}
+                type="button"
+                className={styles.chatEmojiBtn}
+                onClick={() => handleEmojiClick(emoji)}
+                aria-label={`Add ${emoji}`}
+              >
+                {emoji}
+              </button>
+            ))}
+          </div>
         </form>
       ) : (
         <div className={styles.loginToPost}>
