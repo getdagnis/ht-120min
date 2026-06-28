@@ -12,6 +12,11 @@
   padding: 1rem
   overflow-y: auto
 
+  @media (max-width: 620px)
+    align-items: flex-start
+    padding-top: 0.75rem
+    padding-bottom: 0.75rem
+
 .modal
   background-color: var(--accent-3)
   background-image: url('/grass2.png')
@@ -21,10 +26,16 @@
   border: 1px solid var(--border)
   border-radius: 1rem
   width: 100%
-  height: fit-content
+  max-height: calc(100dvh - 2rem)
+  display: flex
+  flex-direction: column
   box-shadow: 0 10px 40px rgba(0, 0, 0, 0.5)
   animation: modalEnter 0.3s ease-out
   color: var(--text)
+  overflow: hidden
+
+  @media (max-width: 620px)
+    max-height: calc(100dvh - 1.5rem)
 
 .header
   display: flex
@@ -54,6 +65,8 @@
 
 .content
   padding: 1.5rem
+  overflow-y: auto
+  min-height: 0
   @media (max-width: 620px)
     padding: 0.75rem
 
