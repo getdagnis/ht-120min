@@ -249,7 +249,7 @@ export const Layout: React.FC<LayoutProps> = ({ children }) => {
 
       <footer className={styles.footer}>
         <div className={styles.container}>
-          {visitCount >= 0 && <BeerBanner />}
+          {visitCount >= 4 && <BeerBanner />}
           <p>
             © {new Date().getFullYear()}
             <span className="mr-sm" />

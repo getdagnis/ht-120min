@@ -1,10 +1,10 @@
 -- 022_news_and_chat.sql
 -- Idempotent migration to set up news and chat tables
 
--- Drop existing tables to ensure clean state
-DROP TABLE IF EXISTS news_reactions;
-DROP TABLE IF EXISTS news_posts;
-DROP TABLE IF EXISTS tournament_chat;
+-- -- Drop existing tables to ensure clean state
+-- DROP TABLE IF EXISTS news_reactions;
+-- DROP TABLE IF EXISTS news_posts;
+-- DROP TABLE IF EXISTS tournament_chat;
 
 -- News Table
 CREATE TABLE news_posts (
