@@ -62,6 +62,8 @@ interface Tournament extends DBTournament {
   country_limit: string | null;
   max_teams: number | null;
   validatedTeamCount: number;
+  totalRounds: number;
+  completedRounds: number;
   totalMatches: number;
   completedMatches: number;
   activityScore: number;
@@ -145,6 +147,12 @@ export const Home: React.FC = () => {
           // Count validated teams
           const validatedTeamCount = t.teams.filter((team) => team.joined_via_oauth).length;
 
+          const totalRounds = t.rounds?.length ?? 0;
+          const completedRounds =
+            t.rounds?.filter((round) => {
+              const matches = round.matches ?? [];
+              return matches.length > 0 && matches.every((m) => m.completed || m.status === 'misarranged');
+            }).length ?? 0;
           const allMatches = t.rounds?.flatMap((r) => r.matches ?? []) ?? [];
           const totalMatches = allMatches.length;
           // Count finished or misarranged as completed
@@ -192,6 +200,8 @@ export const Home: React.FC = () => {
 
           const tournamentObj = {
             ...t,
+            totalRounds,
+            completedRounds,
             totalMatches,
             completedMatches,
             activityScore: completedMatches,
@@ -304,7 +314,7 @@ export const Home: React.FC = () => {
                           </div>
                           <div className={styles.tMeta}>
                             <span title="Completed Matches">
-                              <Trophy size={14} weight="regular" /> {t.completedMatches} / {t.totalMatches} matches
+                              <Trophy size={14} weight="regular" /> {t.completedRounds} / {t.totalRounds} rounds
                             </span>
                             {t.nextMatchDate && (
                               <span title="Next Match" className={styles.nextMatch}>
@@ -379,7 +389,9 @@ export const Home: React.FC = () => {
                               {team.name}
                             </span>
                           ))}
-                          {t.teams.length > 6 && <span className={styles.teamChipMore}>+{t.teams.length - 6} more</span>}
+                          {t.teams.length > 6 && (
+                            <span className={styles.teamChipMore}>+{t.teams.length - 6} more</span>
+                          )}
                         </div>
                       </div>
                     </TournamentCard>
