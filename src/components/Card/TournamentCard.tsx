@@ -1,4 +1,6 @@
 import React from 'react';
+import { Link as RouterLink } from 'react-router-dom';
+import { ArrowRight } from 'phosphor-react';
 import styles from './TournamentCard.module.sass';
 import { getLeagueIdByName } from '../../utils/leagues';
 import { getTournamentBackgroundStyle } from '../../utils/visuals';
@@ -18,6 +20,7 @@ interface TournamentCardProps {
   leagueCategory?: string | null;
   teamCount?: number;
   maxTeams?: number | null;
+  joinHref?: string;
 }
 
 export const TournamentCard: React.FC<TournamentCardProps> = ({
@@ -31,6 +34,7 @@ export const TournamentCard: React.FC<TournamentCardProps> = ({
   leagueCategory,
   teamCount,
   maxTeams,
+  joinHref,
 }) => {
   const bgStyle = getTournamentBackgroundStyle(id, imageUrl);
   const countryId = countryLimit ? getLeagueIdByName(countryLimit) : undefined;
@@ -61,7 +65,17 @@ export const TournamentCard: React.FC<TournamentCardProps> = ({
           {maxTeams != null && (
             <div className={`${styles.badge} ${isFull ? styles.badgeFull : ''}`}>
               {isFull ? `${teamCount ?? 0}/${maxTeams} — Complete!` : `${teamCount ?? 0}/${maxTeams} teams`}
+              {joinHref && (
+                <RouterLink to={joinHref} className={styles.joinLink}>
+                  Join <ArrowRight size={12} weight="bold" />
+                </RouterLink>
+              )}
             </div>
+          )}
+          {joinHref && (
+            <RouterLink to={joinHref} className={styles.joinLink}>
+              Join <ArrowRight size={12} weight="bold" />
+            </RouterLink>
           )}
         </div>
       </div>

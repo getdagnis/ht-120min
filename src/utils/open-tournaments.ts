@@ -6,7 +6,7 @@ export interface OpenTournamentSummary {
   slug: string;
   created_at: string;
   teamCount: number;
-  team_limit?: number | null;
+  max_teams?: number | null;
   validatedTeamCount: number;
 }
 
@@ -15,24 +15,24 @@ type OpenTournamentRow = {
   name: string;
   slug: string;
   created_at: string;
-  team_limit?: number | null;
+  max_teams?: number | null;
   rounds: { id: string }[] | null;
   teams: { id: string; joined_via_oauth: boolean }[] | null;
 };
 
-export const sortOpenTournaments = <T extends { teamCount: number; team_limit?: number | null }>(
+export const sortOpenTournaments = <T extends { teamCount: number; max_teams?: number | null }>(
   tournaments: T[],
 ): T[] =>
   [...tournaments].sort((a, b) => {
-    const scoreA = a.team_limit && a.team_limit > 0 ? a.teamCount / a.team_limit : a.teamCount;
-    const scoreB = b.team_limit && b.team_limit > 0 ? b.teamCount / b.team_limit : b.teamCount;
+    const scoreA = a.max_teams && a.max_teams > 0 ? a.teamCount / a.max_teams : a.teamCount;
+    const scoreB = b.max_teams && b.max_teams > 0 ? b.teamCount / b.max_teams : b.teamCount;
     return scoreB - scoreA;
   });
 
 export const formatOpenTournamentMeta = (tournament: OpenTournamentSummary) => {
   const teamsLabel =
-    tournament.team_limit && tournament.team_limit > 0
-      ? `${tournament.teamCount}/${tournament.team_limit} teams`
+    tournament.max_teams && tournament.max_teams > 0
+      ? `${tournament.teamCount}/${tournament.max_teams} teams`
       : `${tournament.teamCount} teams`;
 
   return `${teamsLabel} · ${new Date(tournament.created_at).toLocaleDateString()}`;
@@ -48,6 +48,7 @@ export const fetchOpenTournaments = async (): Promise<OpenTournamentSummary[]> =
       slug,
       created_at,
       rounds ( id ),
+      max_teams,
       teams ( id, joined_via_oauth )
     `,
     )
@@ -63,7 +64,7 @@ export const fetchOpenTournaments = async (): Promise<OpenTournamentSummary[]> =
       name: tournament.name,
       slug: tournament.slug,
       created_at: tournament.created_at,
-      team_limit: tournament.team_limit ?? null,
+      max_teams: tournament.max_teams ?? null,
       teamCount: tournament.teams?.length ?? 0,
       validatedTeamCount: tournament.teams?.filter((team) => team.joined_via_oauth).length ?? 0,
     }));

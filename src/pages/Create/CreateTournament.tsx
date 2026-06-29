@@ -80,7 +80,12 @@ const SidebarContent = ({ openTournaments }: { openTournaments: OpenTournamentSu
             <strong>
               <RouterLink to={`/t/${tournament.slug}`}>{tournament.name}</RouterLink>
             </strong>
-            <span>{formatOpenTournamentMeta(tournament)}</span>
+            <span className={styles.widgetMeta}>
+              <span>{formatOpenTournamentMeta(tournament)}</span>
+              <RouterLink to={`/t/${tournament.slug}`} className={styles.joinLink}>
+                Join <ArrowRight size={12} weight="bold" />
+              </RouterLink>
+            </span>
           </li>
         ))}
       </ul>
