@@ -197,11 +197,10 @@ export const Home: React.FC = () => {
                 (m) => !warnings?.some((w) => w.round_id === round.id && w.team_id === m.home_team_id),
               );
               if (validMatches.length > 0) {
-                nextMatchDate = calculateMatchDate(
-                  t.created_at,
-                  round.round_number,
-                  validMatches[0].home_team?.country_name,
-                );
+                const roundDates = validMatches
+                  .map((match) => calculateMatchDate(t.created_at, round.round_number, match.home_team?.country_name))
+                  .sort((a, b) => a.getTime() - b.getTime());
+                nextMatchDate = roundDates[0] ?? null;
                 break;
               }
             }
