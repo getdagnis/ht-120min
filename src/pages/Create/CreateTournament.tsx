@@ -5,6 +5,7 @@ import { nanoid } from 'nanoid';
 import { Button } from '../../components/Button/Button';
 import { HeroCard } from '../../components/Card/HeroCard';
 import { Modal } from '../../components/Modal/Modal';
+import { SidebarWidget } from '../../components/SidebarWidget/SidebarWidget';
 import {
   X,
   ArrowClockwise,
@@ -22,7 +23,11 @@ import {
 import { DESCRIPTIONS, TOURNAMENT_NAMES, UNIVERSAL_TOURNAMENT_NAMES } from '../../constants/descriptions';
 import { CREATION_TIPS } from '../../constants/creation-tips';
 import { filterTeamsForCategory, validateTeamEligibility, type LeagueCategory } from '../../utils/team-eligibility';
-import { fetchOpenTournaments, formatOpenTournamentMeta, type OpenTournamentSummary } from '../../utils/open-tournaments';
+import {
+  fetchOpenTournaments,
+  formatOpenTournamentMeta,
+  type OpenTournamentSummary,
+} from '../../utils/open-tournaments';
 import styles from './CreateTournament.module.sass';
 import { HATTRICK_LEAGUES } from '../../utils/leagues';
 
@@ -42,10 +47,7 @@ const CreationTipsWidget = () => {
   };
 
   return (
-    <div className={styles.widget}>
-      <h3>
-        <Question size={20} weight="bold" /> Creation Tips
-      </h3>
+    <SidebarWidget title="Creation Tips" icon={<Question size={20} weight="bold" />}>
       {CREATION_TIPS.map((tip) => {
         const isExpanded = expandedTips.has(tip.id);
 
@@ -64,16 +66,13 @@ const CreationTipsWidget = () => {
           </div>
         );
       })}
-    </div>
+    </SidebarWidget>
   );
 };
 
 const SidebarContent = ({ openTournaments }: { openTournaments: OpenTournamentSummary[] }) => (
   <aside className={styles.sidebar}>
-    <div className={styles.widget}>
-      <h3>
-        <FolderOpen size={20} weight="bold" /> Open Tournaments
-      </h3>
+    <SidebarWidget title="Open Tournaments" icon={<FolderOpen size={20} weight="bold" />}>
       <ul className={styles.widgetList}>
         {openTournaments.map((tournament) => (
           <li key={tournament.id} className={styles.widgetItem}>
@@ -89,7 +88,7 @@ const SidebarContent = ({ openTournaments }: { openTournaments: OpenTournamentSu
           </li>
         ))}
       </ul>
-    </div>
+    </SidebarWidget>
 
     <CreationTipsWidget />
   </aside>
@@ -642,15 +641,17 @@ export const CreateTournament: React.FC = () => {
                   </select>
                 </div>
                 <div className={styles.field}>
-                  <label htmlFor="max_teams">Max Teams (optional)</label>
+                  <label htmlFor="max_teams">Max Teams</label>
                   <select
                     id="max_teams"
                     value={formData.max_teams}
                     onChange={(e) => setFormData({ ...formData, max_teams: e.target.value })}
                   >
-                    <option value="">Unlimited</option>
+                    <option value="">Unlimited&#32; (decide later)</option>
                     {[2, 4, 6, 8, 16, 32, 64].map((n) => (
-                      <option key={n} value={n}>{n} teams</option>
+                      <option key={n} value={n}>
+                        {n} teams
+                      </option>
                     ))}
                   </select>
                 </div>

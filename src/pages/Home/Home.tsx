@@ -7,14 +7,27 @@ import { HeroCard } from '../../components/Card/HeroCard';
 import { TournamentCard } from '../../components/Card/TournamentCard';
 import { SectionCard } from '../../components/Card/SectionCard';
 import { MottoWidget } from '../../components/MottoWidget/MottoWidget';
+import { SidebarWidget } from '../../components/SidebarWidget/SidebarWidget';
 import { TinderWidget } from '../../components/TinderWidget/TinderWidget';
 import { SupportersWall } from '../../components/SupportersWall/SupportersWall';
 import { Link as ScrollTo, Element } from 'react-scroll';
 import { calculateMatchDate } from '../../utils/ht-data';
 import { sortOpenTournaments } from '../../utils/open-tournaments';
-import { Trophy, CalendarBlank, Heartbeat, CaretLeft, ArrowRight, Star, Clock, FolderOpen } from 'phosphor-react';
+import {
+  Trophy,
+  CalendarBlank,
+  Heartbeat,
+  CaretLeft,
+  ArrowRight,
+  Star,
+  Clock,
+  FolderOpen,
+  ChatText,
+} from 'phosphor-react';
 import { TeamsIcon } from '../../components/Icons/TeamsIcon';
 import styles from './Home.module.sass';
+
+const FORUM_LINK = 'https://www.hattrick.org/goto.ashx?path=/Forum/Overview.aspx?v=0&f=1558036';
 
 interface DBTeamMatch {
   id: string;
@@ -82,6 +95,20 @@ interface TopTournament {
   slug: string;
   completedMatches: number;
 }
+
+const ForumWidget = () => (
+  <SidebarWidget
+    title="Join HT forum!"
+    icon={<ChatText size={20} weight="bold" />}
+    footer={
+      <a href={FORUM_LINK} target="_blank" rel="noreferrer">
+        Join HT-120min forum <ArrowRight size={12} weight="bold" />
+      </a>
+    }
+  >
+    <p>Found a bug, have an idea for a new feature or just want to say something?</p>
+  </SidebarWidget>
+);
 
 export const Home: React.FC = () => {
   const navigate = useNavigate();
@@ -405,6 +432,7 @@ export const Home: React.FC = () => {
             <div className={styles.tinderSlot}>
               <TinderWidget className={styles.marketplaceWrapper} />
             </div>
+            <ForumWidget />
             <div className={styles.sidebarRest}>
               <SupportersWall />
               <div className={styles.sectionHeader}>

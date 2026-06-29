@@ -91,6 +91,38 @@ Deployment:
 
 ---
 
+## Reusable UI First
+
+Before creating new UI elements or page-local style blocks, check the existing reusable components first.
+
+Consider these components before adding anything new:
+
+- `Button`
+- `Card`
+- `HeroCard`
+- `SectionCard`
+- `SidebarWidget`
+- `Modal`
+- `TournamentCard`
+- `FixtureCard`
+- `Avatar`
+- `TeamByline`
+- `TeamDisplay`
+- `SupportersWall`
+- `MottoWidget`
+- `TinderWidget`
+- `ProfileModal`
+- `TeamSelectorModal`
+
+If none of the existing reusable components fit the pattern:
+
+- suggest a new reusable component first
+- avoid building a disposable page-only wrapper
+- keep the new pattern in `src/components/` so it can be reused elsewhere
+- only fall back to page-local JSX and Sass when the pattern is genuinely one-off
+
+---
+
 ## Product Concept
 
 Tournament organizer creates a tournament.
