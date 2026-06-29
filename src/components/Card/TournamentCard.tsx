@@ -65,11 +65,6 @@ export const TournamentCard: React.FC<TournamentCardProps> = ({
           {maxTeams != null && (
             <div className={`${styles.badge} ${isFull ? styles.badgeFull : ''}`}>
               {isFull ? `${teamCount ?? 0}/${maxTeams} — Complete!` : `${teamCount ?? 0}/${maxTeams} teams`}
-              {joinHref && (
-                <RouterLink to={joinHref} className={styles.joinLink}>
-                  Join <ArrowRight size={12} weight="bold" />
-                </RouterLink>
-              )}
             </div>
           )}
           {joinHref && (
