@@ -111,6 +111,11 @@
   overflow: hidden
   animation: fadeIn 0.2s ease-out
 
+  @media (max-width: 620px)
+    top: calc(100% + 1.25rem)
+    right: 0.75rem
+    scale: 1.1
+
 @keyframes fadeIn
   from
     opacity: 0
@@ -168,6 +173,13 @@
   svg
     color: var(--primary-color)
     opacity: 0.8
+
+.tourStatus
+  font-size: 0.7rem
+  color: var(--text-muted)
+  font-weight: 600
+  text-transform: uppercase
+  letter-spacing: 0.04em
 
 .dropdownItem
   width: 100%

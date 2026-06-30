@@ -123,7 +123,7 @@
   .bannerImageWrapper
     width: 100%
     min-width: 0
-    height: 220px
+    height: 15rem
 
   .bannerImage
     border-radius: var(--radius-md) var(--radius-md) 0 0
@@ -133,6 +133,9 @@
     text-align: center
     gap: 2rem
     padding: 1.5rem
+
+    @media (max-width: 620px)
+      padding-bottom: 0
 
   .left
     align-items: center

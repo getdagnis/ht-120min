@@ -13,12 +13,12 @@ export const BeerBanner: React.FC = () => {
       <div className={styles.bannerImageWrapper} />
       <div className={styles.content}>
         <div className={styles.left}>
-          <h2 className={styles.title}>It's free! Buy dev a beer!</h2>
+          <h2 className={styles.title}>Keep the features coming!</h2>
           <p className={styles.subtitle}>
-            Programming boring stuff requires coffee, programming fun stuff demands beer. Let's make this fun!
+            Programming boring stuff requires coffee, programming good stuff demands beer. Fuel the good stuff!
           </p>
           <Button variant="secondaryYellow" size="md" className={styles.tipBtn} onClick={handleTip}>
-            Tip me a pint! <span className={styles.btnBeer}>🍺</span>
+            Tip dev a pint! <span className={styles.btnBeer}>🍺</span>
           </Button>
         </div>
         <div className={styles.right}>

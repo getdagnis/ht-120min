@@ -36,8 +36,8 @@ interface DBTeamMatch {
   away_goals: number | null;
   went_120: boolean;
   status: 'not_arranged' | 'arranged' | 'ongoing' | 'misarranged' | 'finished';
-  home_team_id: string;
-  away_team_id: string;
+  home_team_id: string | null;
+  away_team_id: string | null;
   scheduled_for?: string | null;
   home_team: { country_name: string } | null;
 }

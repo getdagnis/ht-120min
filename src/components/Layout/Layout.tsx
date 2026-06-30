@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { Analytics } from '@vercel/analytics/react';
 import { Link, useNavigate, useLocation, useSearchParams } from 'react-router-dom';
 import {
@@ -51,9 +51,13 @@ function getVisitCount() {
 export const Layout: React.FC<LayoutProps> = ({ children }) => {
   const navigate = useNavigate();
   const location = useLocation();
-  const { managerName, profile, activeTournaments, logout } = useAuth();
+  const { managerName, profile, activeTournaments, organizerTournaments, logout } = useAuth();
   usePresenceHeartbeat(!!managerName, `${location.pathname}${location.search}`);
   const [visitCount] = useState(() => getVisitCount());
+  const visibleOrganizerTournaments = useMemo(() => {
+    const activeTournamentIds = new Set(activeTournaments.map((tournament) => tournament.id));
+    return organizerTournaments.filter((tournament) => !activeTournamentIds.has(tournament.id));
+  }, [activeTournaments, organizerTournaments]);
 
   const [theme, setTheme] = useState(() => {
     const saved = localStorage.getItem('theme');
@@ -193,6 +197,25 @@ export const Layout: React.FC<LayoutProps> = ({ children }) => {
                                       })}
                                     </div>
                                   )}
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+                        )}
+                        {visibleOrganizerTournaments.length > 0 && (
+                          <div className={styles.dropdownInfo}>
+                            <span>Organizer:</span>
+                            <div className={styles.activeTournamentsList}>
+                              {visibleOrganizerTournaments.map((t) => (
+                                <div key={t.id} className={styles.tourItem}>
+                                  <Link
+                                    to={`/t/${t.slug}`}
+                                    className={styles.dropdownLink}
+                                    onClick={() => setIsUserDropdownOpen(false)}
+                                  >
+                                    {t.name}
+                                  </Link>
+                                  {t.status && <div className={styles.tourStatus}>{t.status}</div>}
                                 </div>
                               ))}
                             </div>
