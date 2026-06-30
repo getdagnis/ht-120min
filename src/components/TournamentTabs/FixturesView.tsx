@@ -10,8 +10,8 @@ import styles from '../../pages/Public/TournamentView.module.sass';
 export interface FixtureMatch {
   id: string;
   round_id: string;
-  home_team_id: string;
-  away_team_id: string;
+  home_team_id: string | null;
+  away_team_id: string | null;
   home_goals: number | null;
   away_goals: number | null;
   completed: boolean;
@@ -269,19 +269,20 @@ export const FixturesView: React.FC<FixturesViewProps> = ({
                   // Use status from DB, fallback to simple detection
                   const liveMatch = match.ht_match_id ? liveData[match.ht_match_id.toString()] : null;
                   let status = match.status || 'not_arranged';
+                  const isMisarranged = status === 'misarranged' || !!homeWarning || !!awayWarning;
                   const now = new Date();
                   const isPastStartTime = match.match_date && now >= match.match_date;
                   const isWithinLiveWindow =
                     match.match_date && now.getTime() < match.match_date.getTime() + 4 * 60 * 60 * 1000;
 
-                  if (match.completed) {
+                  if (isMisarranged) {
+                    status = 'misarranged';
+                  } else if (match.completed) {
                     status = 'finished';
                   } else if (liveMatch) {
                     status = liveMatch.status;
                   } else if (isPastStartTime && isWithinLiveWindow && status === 'arranged') {
                     status = 'ongoing';
-                  } else if (homeWarning || awayWarning) {
-                    status = 'misarranged';
                   }
 
                   const currentScore = liveMatch

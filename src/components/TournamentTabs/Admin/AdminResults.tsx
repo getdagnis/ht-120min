@@ -2,33 +2,32 @@ import React from 'react';
 import { SectionCard } from '../../Card/SectionCard';
 import { Button } from '../../Button/Button';
 import { FloppyDisk, Eraser, XCircle, PencilSimple } from 'phosphor-react';
-import { TeamDisplay } from '../../TeamDisplay/TeamDisplay';
+import { getFlagUrl } from '../../../utils/ht-data';
 import adminStyles from '../../../pages/Public/TournamentAdmin.module.sass';
+
+interface ResultTeam {
+  name: string;
+  ht_team_id: number;
+  logo_url?: string;
+  country_name?: string;
+  country_id?: number | null;
+  active?: boolean;
+  manager_name?: string;
+}
 
 interface MatchWithTeams {
   id: string;
   round_id: string;
-  home_team_id: string;
-  away_team_id: string;
+  home_team_id: string | null;
+  away_team_id: string | null;
   home_goals: number | null;
   away_goals: number | null;
   completed: boolean;
   went_120: boolean;
   total_minutes: number;
-  home_team: {
-    name: string;
-    ht_team_id: number;
-    logo_url?: string;
-    active?: boolean;
-    manager_name?: string;
-  } | null;
-  away_team: {
-    name: string;
-    ht_team_id: number;
-    logo_url?: string;
-    active?: boolean;
-    manager_name?: string;
-  } | null;
+  status?: 'not_arranged' | 'arranged' | 'ongoing' | 'misarranged' | 'finished';
+  home_team: ResultTeam | null;
+  away_team: ResultTeam | null;
 }
 
 interface AdminResultsProps {
@@ -47,6 +46,39 @@ interface AdminResultsProps {
   setMatchData: React.Dispatch<React.SetStateAction<Record<string, Partial<MatchWithTeams>>>>;
   currentRoundId?: string;
 }
+
+const AdminResultTeam: React.FC<{ team: ResultTeam | null; side: 'home' | 'away' }> = ({ team, side }) => {
+  const flagUrl = getFlagUrl(team?.country_name);
+
+  if (!team) {
+    return (
+      <div className={`${adminStyles.resultTeam} ${adminStyles[side]}`}>
+        <span className={adminStyles.resultTeamFree}>Free to choose</span>
+      </div>
+    );
+  }
+
+  return (
+    <div className={`${adminStyles.resultTeam} ${adminStyles[side]}`}>
+      {flagUrl && <img src={flagUrl} alt="" title={team.country_name} className={adminStyles.resultFlag} />}
+      <a
+        href={`https://www.hattrick.org/goto.ashx?path=/Club/?TeamID=${team.ht_team_id}`}
+        target="_blank"
+        rel="noopener noreferrer"
+        className={adminStyles.resultTeamLink}
+      >
+        <span className={adminStyles.resultTeamName}>{team.name}</span>
+        <span className={adminStyles.resultTeamId}>({team.ht_team_id})</span>
+      </a>
+    </div>
+  );
+};
+
+const ResultMinutes: React.FC<{ minutes: number; went120: boolean }> = ({ minutes, went120 }) => {
+  if (!went120 || minutes <= 0) return null;
+
+  return <span className={adminStyles.badge}>{minutes}m</span>;
+};
 
 export const AdminResults: React.FC<AdminResultsProps> = ({
   rounds,
@@ -72,15 +104,25 @@ export const AdminResults: React.FC<AdminResultsProps> = ({
           <div key={round.id} className={adminStyles.roundResults}>
             <h3 className={adminStyles.sectionTitle}>Round {round.round_number}</h3>
             {round.matches.map((match: MatchWithTeams) => {
+              const isBye = !match.home_team_id || !match.away_team_id;
+              const byeTeam = match.home_team || match.away_team;
+              const isMisarranged = match.status === 'misarranged';
+              const hasResult = match.completed && match.home_goals !== null && match.away_goals !== null;
               return (
                 <div key={match.id} className={adminStyles.match}>
                   <div className={adminStyles.matchTeams}>
-                    <TeamDisplay team={match.home_team} side="home" />
+                    <AdminResultTeam team={match.home_team} side="home" />
                     <span className={adminStyles.vs}>vs</span>
-                    <TeamDisplay team={match.away_team} side="away" />
+                    <AdminResultTeam team={match.away_team} side="away" />
                   </div>
 
-                  {editingMatch === match.id ? (
+                  {isBye ? (
+                    <div className={adminStyles.matchResult}>
+                      <span className={adminStyles.smallNote}>
+                        {byeTeam?.name || 'Team'} has a BYE. Record any outside-friendly result manually later.
+                      </span>
+                    </div>
+                  ) : editingMatch === match.id ? (
                     <div className={adminStyles.matchEdit}>
                       <div className={adminStyles.scoreInputs}>
                         <input
@@ -197,14 +239,41 @@ export const AdminResults: React.FC<AdminResultsProps> = ({
                     </div>
                   ) : (
                     <div className={adminStyles.matchResult}>
-                      {match.completed ? (
+                      {isMisarranged ? (
+                        <>
+                          {hasResult && (
+                            <div className={adminStyles.score}>
+                              <span>
+                                {match.home_goals} - {match.away_goals}
+                              </span>
+                              <ResultMinutes minutes={match.total_minutes} went120={match.went_120} />
+                            </div>
+                          )}
+                          <span className={adminStyles.misarrangedResult}>misarranged</span>
+                          <Button
+                            size="xs"
+                            variant={hasResult ? 'zero' : round.id === currentRoundId ? 'secondary' : 'outline'}
+                            onClick={() => {
+                              setEditingMatch(match.id);
+                              setMatchData({
+                                ...matchData,
+                                [match.id]: hasResult ? match : { ...match, home_goals: null, away_goals: null },
+                              });
+                            }}
+                            title={hasResult ? 'Edit result' : 'Enter result'}
+                            data-tooltip-id="admin-tooltip"
+                            data-tooltip-content={hasResult ? 'Edit result' : 'Enter result'}
+                          >
+                            <PencilSimple size={16} />
+                          </Button>
+                        </>
+                      ) : match.completed ? (
                         <>
                           <div className={adminStyles.score}>
-                            {match.home_goals} - {match.away_goals}
-                            {match.went_120 && <span className={adminStyles.badge}>120'</span>}
-                            {match.total_minutes > 0 && match.total_minutes !== (match.went_120 ? 120 : 90) && (
-                              <span className={adminStyles.minsBadge}>{match.total_minutes}m</span>
-                            )}
+                            <span>
+                              {match.home_goals} - {match.away_goals}
+                            </span>
+                            <ResultMinutes minutes={match.total_minutes} went120={match.went_120} />
                           </div>
                           <Button
                             size="xs"
@@ -223,7 +292,7 @@ export const AdminResults: React.FC<AdminResultsProps> = ({
                       ) : (
                         <Button
                           size="xs"
-                          variant={round.id === currentRoundId ? 'secondary' : 'outline'}
+                          variant="zero"
                           onClick={() => {
                             setEditingMatch(match.id);
                             setMatchData({
@@ -231,8 +300,11 @@ export const AdminResults: React.FC<AdminResultsProps> = ({
                               [match.id]: { ...match, home_goals: null, away_goals: null },
                             });
                           }}
+                          title="Enter result"
+                          data-tooltip-id="admin-tooltip"
+                          data-tooltip-content="Enter result"
                         >
-                          Enter
+                          <PencilSimple size={16} />
                         </Button>
                       )}
                     </div>

@@ -162,6 +162,29 @@
   flex-direction: column
   gap: 1.5rem
 
+.scheduleIntro
+  text-align: center
+
+  h2
+    margin: 0
+    font-size: 1.8rem
+
+  p
+    margin: 0.25rem 0 0
+    font-weight: 700
+
+.scheduleSubtitle
+  color: var(--text60)
+
+.scheduleDanger
+  color: var(--danger)
+
+.scheduleWarning
+  color: var(--warning)
+
+.scheduleAccent
+  color: var(--accent)
+
 .startSlotGroup
   display: flex
   flex-direction: column
@@ -180,9 +203,16 @@
   padding: 0.8rem 1rem
   border: 1px solid var(--border)
   border-radius: 0.5rem
-  background: var(--surface)
+  background: var(--theme2)
   color: var(--text-h)
   font-weight: 600
+  text-align: center
+
+.startSlotWarning
+  margin: 0.15rem 0 0
+  color: var(--warning)
+  font-weight: 700
+  font-size: 0.9rem
 
 .checkboxGroup
   display: flex
@@ -243,9 +273,65 @@
     font-weight: 700
     opacity: 0.5
 
+.resultTeam
+  display: flex
+  align-items: center
+  gap: 0.5rem
+  min-width: 0
+  flex: 1 1 0
+
+  &.home
+    justify-content: flex-end
+    text-align: right
+
+  &.away
+    justify-content: flex-start
+    text-align: left
+
+  @media (max-width: 640px)
+    justify-content: center
+    text-align: center
+
+.resultFlag
+  width: 18px
+  height: 12px
+  object-fit: cover
+  border-radius: 2px
+  flex: 0 0 auto
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.16)
+
+.resultTeamLink
+  display: inline-flex
+  align-items: baseline
+  gap: 0.45rem
+  min-width: 0
+  color: var(--text-h)
+  text-decoration: none
+
+  &:hover
+    color: var(--accent)
+    text-decoration: underline
+    text-decoration-style: dotted
+
+.resultTeamName
+  font-weight: 700
+  line-height: 1.15
+
+.resultTeamId
+  color: var(--text60)
+  font-size: 0.9rem
+  font-family: var(--mono)
+  font-weight: 600
+
+.resultTeamFree
+  color: var(--accent)
+  font-weight: 700
+  font-style: italic
+
 .matchResult
   display: flex
   align-items: center
+  gap: 0.75rem
 
 .resultInfo
   display: flex
@@ -253,6 +339,9 @@
   gap: 1.5rem
 
 .score
+  display: inline-flex
+  align-items: baseline
+  gap: 0.5rem
   font-weight: 700
   font-size: 1.25rem
   color: var(--text-h)
@@ -262,10 +351,17 @@
   background: rgba(16, 134, 59, 0.1)
   color: var(--accent-3)
   border: 1px solid rgba(16, 134, 59, 0.2)
-  font-size: 0.7rem
-  padding: 2px 8px
+  font-size: 0.65rem
+  padding: 1px 6px
   border-radius: 0.25rem
   font-weight: 700
+
+.misarrangedResult
+  color: var(--danger)
+  font-weight: 800
+  font-size: 0.9rem
+  text-transform: uppercase
+  letter-spacing: 0.04em
 
 .matchEdit
   display: flex
@@ -478,6 +574,56 @@
   font-size: 0.8rem
   margin-top: 0.4rem
   opacity: 0.8
+
+.schedulePreview
+  display: flex
+  flex-direction: column
+  align-items: center
+  gap: 0.75rem
+
+  h3
+    margin: 0
+    font-size: 1.1rem
+    text-transform: uppercase
+    letter-spacing: 0.05em
+
+.previewRow
+  width: min(100%, 460px)
+
+.scheduleAction
+  width: min(100%, 460px)
+  margin: 0 auto
+
+.previewToggle
+  width: 100%
+  display: flex
+  justify-content: center
+  align-items: center
+  gap: 0.5rem
+  flex-wrap: wrap
+  padding: 0.8rem 1rem
+  border: 1px solid var(--border)
+  border-radius: 0.5rem
+  background: var(--theme2)
+  color: var(--text-h)
+  font: inherit
+  font-weight: 700
+  text-align: center
+  cursor: pointer
+
+  &:hover
+    border-color: var(--accent)
+
+.previewMatches
+  width: 100%
+  margin-top: 0.4rem
+  padding: 0.75rem 1rem
+  border: 1px dashed var(--border)
+  border-radius: 0.5rem
+  background: var(--bg-transp2)
+  text-align: center
+  font-size: 0.9rem
+  color: var(--text)
 
 .scheduleNotice
   display: flex

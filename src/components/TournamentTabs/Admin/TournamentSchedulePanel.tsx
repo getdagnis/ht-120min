@@ -1,12 +1,9 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { Info } from 'phosphor-react';
 import { Button } from '../../Button/Button';
 import { SectionCard } from '../../Card/SectionCard';
 import adminStyles from '../../../pages/Public/TournamentAdmin.module.sass';
-import {
-  formatCalendarDate,
-  getCalendarWeekdayLabel,
-} from '../../../utils/hattrick-calendar';
+import { formatCalendarDate } from '../../../utils/hattrick-calendar';
 import type { ScheduleDraftPreview, ScheduleMode } from '../../../utils/schedule-draft';
 
 interface TournamentSchedulePanelProps {
@@ -18,6 +15,7 @@ interface TournamentSchedulePanelProps {
   onSelectedStartSlotIdChange: (value: string) => void;
   isGenerating: boolean;
   onGenerate: () => void;
+  tournamentTeamLimit?: number | null;
   generatedSummary?: {
     scheduleMode?: string | null;
     scheduleStartSlot?: string | null;
@@ -37,6 +35,64 @@ function formatModeReason(reason: string | null) {
   return reason || 'No valid start window found yet.';
 }
 
+function getPlannerTeamCount(draft: ScheduleDraftPreview, tournamentTeamLimit?: number | null) {
+  if (tournamentTeamLimit && tournamentTeamLimit > 0) return tournamentTeamLimit;
+  return draft.teamCount % 2 === 0 ? draft.teamCount : draft.teamCount + 1;
+}
+
+function formatSeasonWeek(slot: { ht120minSeason: number; htWeek: number }, includeWeekend = false) {
+  return `S${slot.ht120minSeason} W${slot.htWeek}${includeWeekend ? ' (weekend)' : ''}`;
+}
+
+function formatStartOption(slot: ScheduleDraftPreview['startSlotOptions'][number]) {
+  if (!slot.selectable && slot.kind === 'blocked_cup_week') {
+    return `🗓 Week ${slot.htWeek} / ${formatShortDate(slot.nominalDate)} • ⛔️ Cup`;
+  }
+  const cupLikely = slot.htWeek === 3 || slot.htWeek === 4 ? ' • ⚠️ Cup Likely' : '';
+  const weekend = slot.kind === 'week15_weekend_friendly' ? ' (weekend-friendly)' : '';
+  return `🗓 Week ${slot.htWeek} / ${formatShortDate(slot.nominalDate)}${weekend}${cupLikely}`;
+}
+
+function formatLeadTime(daysUntilStart: number | null) {
+  if (daysUntilStart == null) return '? days';
+  if (daysUntilStart > 14) return `${Math.floor(daysUntilStart / 7)} weeks from now`;
+  return `${daysUntilStart} day${daysUntilStart === 1 ? '' : 's'}`;
+}
+
+function getSelectedStartWarning(daysUntilStart: number | null) {
+  if (daysUntilStart == null) return null;
+  if (daysUntilStart === 3 || daysUntilStart === 4) return `⚠️ In ${daysUntilStart} days`;
+  if (daysUntilStart > 14) return `⚠️ In ${formatLeadTime(daysUntilStart)}`;
+  return null;
+}
+
+function formatShortDate(date: Date) {
+  return new Intl.DateTimeFormat('lv-LV', {
+    timeZone: 'Europe/Stockholm',
+    day: '2-digit',
+    month: '2-digit',
+    year: 'numeric',
+  }).format(date);
+}
+
+function formatLongDate(date: Date) {
+  return new Intl.DateTimeFormat('en-GB', {
+    timeZone: 'Europe/Stockholm',
+    weekday: 'long',
+    day: '2-digit',
+    month: '2-digit',
+    year: 'numeric',
+  })
+    .format(date)
+    .replace(/\//g, '.');
+}
+
+function formatModeSummary(mode: ScheduleMode) {
+  if (mode === 'single') return 'single round-robin';
+  if (mode === 'double') return 'double round-robin';
+  return 'recurring';
+}
+
 export const TournamentSchedulePanel: React.FC<TournamentSchedulePanelProps> = ({
   isGenerated,
   isCollapsed,
@@ -46,17 +102,42 @@ export const TournamentSchedulePanel: React.FC<TournamentSchedulePanelProps> = (
   onSelectedStartSlotIdChange,
   isGenerating,
   onGenerate,
-  generatedSummary,
+  tournamentTeamLimit,
 }) => {
-  const subtitle =
-    draft.selectedStartSlot && draft.daysUntilStart != null
-      ? `Generate a schedule with ${draft.teamCount} teams. Closest start date: ${formatCalendarDate(draft.selectedStartSlot.nominalDate)}, HT week S${draft.selectedStartSlot.htSeason} W${draft.selectedStartSlot.htWeek} (in ${draft.daysUntilStart} day${draft.daysUntilStart === 1 ? '' : 's'}).`
-      : `${draft.teamCount} teams • No valid start window found`;
+  const [expandedRounds, setExpandedRounds] = useState<Record<number, boolean>>({});
+  const plannerTeamCount = getPlannerTeamCount(draft, tournamentTeamLimit);
+  const selectedStartWarning =
+    draft.selectedStartSlot && (draft.selectedStartSlot.htWeek === 3 || draft.selectedStartSlot.htWeek === 4)
+      ? null
+      : getSelectedStartWarning(draft.daysUntilStart);
+  const validStartSlotIds = new Set(draft.startSlotOptions.map((slot) => slot.id));
+  const dropdownOptions = draft.allSlotOptions.flatMap((slot, index, slots) => {
+    const previous = slots[index - 1];
+    const header =
+      !previous || previous.ht120minSeason !== slot.ht120minSeason
+        ? [
+            {
+              kind: 'header' as const,
+              id: `season-${slot.ht120minSeason} jump`,
+              label: ``,
+            },
+            {
+              kind: 'header' as const,
+              id: `season-${slot.ht120minSeason}`,
+              label: `HT-120min Season ${slot.ht120minSeason}`,
+            },
+          ]
+        : [];
+    return [...header, { kind: 'slot' as const, slot }];
+  });
+  const subtitle = draft.selectedStartSlot
+    ? `Closest start date: ${formatCalendarDate(draft.selectedStartSlot.nominalDate)} (${formatLeadTime(draft.daysUntilStart)})`
+    : 'No valid start window found';
+  const lastRound = draft.rounds[draft.rounds.length - 1] || null;
 
   return (
     <SectionCard
-      title="Generate a schedule"
-      subtitle={<span className={adminStyles.smallNote}>{subtitle}</span>}
+      title={isGenerated ? 'Manage schedule' : 'Generate a schedule'}
       className={adminStyles.scheduleCard}
       collapsible
       isCollapsed={isCollapsed}
@@ -64,6 +145,11 @@ export const TournamentSchedulePanel: React.FC<TournamentSchedulePanelProps> = (
     >
       {!isGenerated ? (
         <div className={adminStyles.genOptions}>
+          <div className={adminStyles.scheduleIntro}>
+            <h2>{plannerTeamCount} team tournament</h2>
+            <p className={adminStyles.scheduleSubtitle}>{subtitle}</p>
+          </div>
+
           <div className={adminStyles.checkboxGroup}>
             {draft.availableModes.map((option) => (
               <label
@@ -81,76 +167,89 @@ export const TournamentSchedulePanel: React.FC<TournamentSchedulePanelProps> = (
                 />
                 <div className={adminStyles.labelRow}>
                   <span>{formatModeLabel(option.mode)}</span>
-                  {!option.available && <span className={adminStyles.smallNote}>{formatModeReason(option.reason)}</span>}
+                  {!option.available && (
+                    <span className={adminStyles.smallNote}>{formatModeReason(option.reason)}</span>
+                  )}
                 </div>
               </label>
             ))}
           </div>
 
           <div className={adminStyles.startSlotGroup}>
-            <label className={adminStyles.startSlotLabel}>Start date</label>
+            <label className={adminStyles.startSlotLabel}>Choose start date</label>
             <select
               className={adminStyles.startSlotSelect}
               value={draft.selectedStartSlotId || ''}
               onChange={(e) => onSelectedStartSlotIdChange(e.target.value)}
               disabled={draft.startSlotOptions.length === 0}
             >
-              {draft.startSlotOptions.map((slot) => (
-                <option key={slot.id} value={slot.id}>
-                  {formatCalendarDate(slot.nominalDate)} • HT S{slot.htSeason} W{slot.htWeek} •{' '}
-                  {getCalendarWeekdayLabel(slot.kind)}
-                </option>
-              ))}
+              {dropdownOptions.map((option) =>
+                option.kind === 'header' ? (
+                  <option key={option.id} value={option.id} disabled>
+                    {option.label}
+                  </option>
+                ) : (
+                  <option
+                    key={option.slot.id}
+                    value={option.slot.id}
+                    disabled={!option.slot.selectable || !validStartSlotIds.has(option.slot.id)}
+                  >
+                    {formatStartOption(option.slot)}
+                  </option>
+                ),
+              )}
             </select>
-            <p className={adminStyles.smallNote}>
-              Choose the round 1 slot. The schedule then consumes the next allowed calendar slots in order.
-            </p>
-            {draft.selectedStartSlot && (
-              <p className={adminStyles.smallNote}>
-                Selected slot: HT S{draft.selectedStartSlot.htSeason} W{draft.selectedStartSlot.htWeek} (
-                {getCalendarWeekdayLabel(draft.selectedStartSlot.kind)})
-              </p>
-            )}
+            {selectedStartWarning && <p className={adminStyles.startSlotWarning}>{selectedStartWarning}</p>}
           </div>
 
           {draft.rounds.length > 0 && (
             <div className={adminStyles.schedulePreview}>
+              <h3>Calendar preview</h3>
               {draft.rounds.map((round) => (
                 <div key={round.roundNumber} className={adminStyles.previewRow}>
-                  <strong>Round {round.roundNumber}</strong>
-                  <span>
-                    {round.slotLabel} • {round.displayDateLabel} • HT S{round.slot.htSeason} W{round.slot.htWeek}
-                  </span>
-                  <div className={adminStyles.smallNote}>
-                    {round.matches.map((match) => (
-                      <div key={`${round.roundNumber}-${match.homeTeamId}-${match.awayTeamId}`}>
-                        {match.homeTeamName} vs {match.awayTeamName} • {formatCalendarDate(match.scheduledFor)} •{' '}
-                        {match.venueType}
-                      </div>
-                    ))}
-                  </div>
+                  <button
+                    type="button"
+                    className={adminStyles.previewToggle}
+                    onClick={() =>
+                      setExpandedRounds((current) => ({
+                        ...current,
+                        [round.roundNumber]: !current[round.roundNumber],
+                      }))
+                    }
+                  >
+                    <strong>Round {round.roundNumber}</strong>
+                    <span>
+                      {round.displayDateLabel} •{' '}
+                      {formatSeasonWeek(round.slot, round.slot.kind === 'week15_weekend_friendly')}
+                    </span>
+                  </button>
+                  {expandedRounds[round.roundNumber] && (
+                    <div className={adminStyles.previewMatches}>
+                      {round.matches.map((match) => (
+                        <div key={`${round.roundNumber}-${match.homeTeamId}-${match.awayTeamId}`}>
+                          {match.isBye
+                            ? `${match.homeTeamName === 'BYE' ? match.awayTeamName : match.homeTeamName} has a BYE`
+                            : `${match.homeTeamName} vs ${match.awayTeamName}`}
+                        </div>
+                      ))}
+                    </div>
+                  )}
                 </div>
               ))}
             </div>
           )}
 
-          {draft.consumesWeek15WeekendFriendly && (
+          {draft.valid && draft.selectedStartSlot && lastRound && (
             <div className={adminStyles.scheduleNotice}>
-              <Info size={14} />
-              <span>Week 15 consumes the extra weekend friendly slot between the midweek and Week 16 rounds.</span>
-            </div>
-          )}
-
-          {draft.warnings.length > 0 && (
-            <div className={adminStyles.scheduleNotice}>
-              <Info size={14} />
-              <div>
-                {draft.warnings.map((warning) => (
-                  <p key={warning} className={adminStyles.smallNote}>
-                    {warning}
-                  </p>
-                ))}
-              </div>
+              <span>
+                Generate a schedule for a{' '}
+                <strong>
+                  {plannerTeamCount} team {formatModeSummary(draft.mode)}
+                </strong>{' '}
+                tournament that will start on <strong>{formatLongDate(draft.selectedStartSlot.nominalDate)}</strong> and
+                last for <strong>{draft.roundCount} rounds</strong> with the last round played on{' '}
+                <strong>{formatLongDate(lastRound.displayDate)}</strong>.
+              </span>
             </div>
           )}
 
@@ -168,32 +267,17 @@ export const TournamentSchedulePanel: React.FC<TournamentSchedulePanelProps> = (
             </div>
           )}
 
-          <Button variant="primary" size="lg" fullWidth onClick={onGenerate} disabled={!draft.valid || isGenerating}>
-            Generate a schedule
-          </Button>
+          <div className={adminStyles.scheduleAction}>
+            <Button variant="primary" size="lg" fullWidth onClick={onGenerate} disabled={!draft.valid || isGenerating}>
+              Generate a schedule
+            </Button>
+          </div>
 
           <p className="center w-100">Generating a schedule also closes registration and locks the selected start.</p>
         </div>
       ) : (
         <div className={adminStyles.scheduleLockedState}>
-          <p className={adminStyles.smallNote}>
-            Existing generated tournaments are read-only. Legacy `scheduled_for` values remain the source of truth for
-            loaded fixtures.
-          </p>
-          <p className={adminStyles.smallNote}>
-            Legacy partial-rescheduling controls are temporarily disabled while the new planner is hardened.
-          </p>
-          {generatedSummary?.scheduleGeneratedAt && (
-            <p className={adminStyles.smallNote}>
-              Schedule generated at {new Date(generatedSummary.scheduleGeneratedAt).toLocaleString()}
-            </p>
-          )}
-          {generatedSummary?.scheduleStartSlot && (
-            <p className={adminStyles.smallNote}>
-              Start slot: {new Date(generatedSummary.scheduleStartSlot).toLocaleString()}
-            </p>
-          )}
-          {generatedSummary?.scheduleMode && <p className={adminStyles.smallNote}>Mode: {generatedSummary.scheduleMode}</p>}
+          <p>Altering schedule for running tournaments is currently not possible. Contact app's author.</p>
         </div>
       )}
     </SectionCard>

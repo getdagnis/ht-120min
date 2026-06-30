@@ -57,8 +57,16 @@ export const HT_CALENDAR_EPOCH = {
 const DAY_MS = 24 * 60 * 60 * 1000;
 const WEEK_MS = 7 * DAY_MS;
 const SEASON_WEEKS = 16;
-const CUP_WEEKS = new Set([1, 2, 3, 4]);
+const BLOCKED_CUP_WEEKS = new Set([1, 2]);
+const CUP_LIKELY_WEEKS = new Set([3, 4]);
 const STOCKHOLM_TIME_ZONE = 'Europe/Stockholm';
+const DEFAULT_WEEKEND_KICKOFF: TeamKickoffTime = {
+  day: 0,
+  time: '10:00',
+  label: 'Weekend fallback',
+  source: 'weekend',
+  reason: 'Missing country metadata',
+};
 
 const EPOCH_LOCAL_DATE_KEY = Date.UTC(2026, 2, 30);
 
@@ -140,7 +148,11 @@ function getWeekStartLocalKey(htSeason: number, htWeek: number) {
 }
 
 export function isBlockedCupWeek(htWeek: number) {
-  return CUP_WEEKS.has(htWeek);
+  return BLOCKED_CUP_WEEKS.has(htWeek);
+}
+
+export function isCupLikelyWeek(htWeek: number) {
+  return CUP_LIKELY_WEEKS.has(htWeek);
 }
 
 function createSlot(params: Omit<CalendarSlot, 'id'>): CalendarSlot {
@@ -237,7 +249,11 @@ export function buildCalendarSlots(now = new Date(), weeksAhead = 64): CalendarS
         nominalDate: localDateKeyToInstant(midweekLocalKey),
         selectable: true,
         blockedReason: null,
-        warning: htWeek === 15 ? 'Week 15 also has a weekend friendly slot' : null,
+        warning: isCupLikelyWeek(htWeek)
+          ? 'Cup Likely'
+          : htWeek === 15
+            ? 'Week 15 also has a weekend friendly slot'
+            : null,
       }),
     );
 
@@ -330,7 +346,7 @@ export function getWeekendKickoffTime(
   leagueLevel?: number | null,
 ): TeamKickoffTime | null {
   const league = getLeagueByCountry(countryName);
-  if (!league) return null;
+  if (!league) return countryName ? { ...DEFAULT_WEEKEND_KICKOFF, reason: 'Unknown country metadata' } : DEFAULT_WEEKEND_KICKOFF;
 
   const weekendEntries = league.entries.filter(isWeekendEntry).map((entry) => ({
     ...entry,

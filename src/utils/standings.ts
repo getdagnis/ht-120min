@@ -1,6 +1,6 @@
 export interface Match {
-  home_team_id: string;
-  away_team_id: string;
+  home_team_id: string | null;
+  away_team_id: string | null;
   home_goals: number | null;
   away_goals: number | null;
   went_120: boolean;
@@ -81,6 +81,7 @@ export function calculateStandings(
   // Process completed matches
   matches.forEach((m) => {
     if (!m.completed || m.home_goals === null || m.away_goals === null) return;
+    if (!m.home_team_id || !m.away_team_id) return;
 
     const home = standingsMap[m.home_team_id];
     const away = standingsMap[m.away_team_id];

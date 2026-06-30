@@ -43,30 +43,29 @@ test('placeholder teams are ignored by the frontend draft team count', () => {
   assert.equal(draft.rounds.length, 3);
 });
 
-test('missing country metadata still allows midweek-only fallback starts', () => {
+test('missing country metadata still allows week 15 weekend fallback starts', () => {
   const teamsWithMissingCountry = [
     { id: 'team-a', name: 'SocClasQua', countryName: null, leagueLevel: null },
-    { id: 'team-b', name: 'Beta', countryName: 'Sweden', leagueLevel: 6 },
-    { id: 'team-c', name: 'Gamma', countryName: 'Sweden', leagueLevel: 6 },
-    { id: 'team-d', name: 'Delta', countryName: 'Sweden', leagueLevel: 6 },
+    { id: 'team-b', name: 'AC Sua', countryName: null, leagueLevel: null },
+    { id: 'team-c', name: 'AtleticoSimoPN', countryName: null, leagueLevel: null },
+    { id: 'team-d', name: 'TikiBoom', countryName: null, leagueLevel: null },
   ];
 
   const draft = buildScheduleDraft({
     teams: teamsWithMissingCountry,
     mode: 'single',
-    startSlotId: null,
+    startSlotId: 'S94-W15-midweek',
     now: new Date('2026-06-29T00:00:00Z'),
   });
 
   assert.equal(draft.valid, true);
-  assert.ok(draft.selectedStartSlotId);
-  assert.ok(draft.availableModes.every((mode) => mode.available));
-  assert.ok(draft.startSlotOptions.length > 0);
-  assert.ok(
-    draft.rounds.some((round) =>
-      round.matches.some((match) => match.homeTeamName === 'SocClasQua' && match.scheduledFor instanceof Date),
-    ),
+  assert.equal(draft.selectedStartSlotId, 'S94-W15-midweek');
+  assert.equal(
+    draft.rounds.map((round) => round.slot.kind).join(','),
+    'midweek_friendly,week15_weekend_friendly,midweek_friendly',
   );
+  assert.ok(draft.availableModes.every((mode) => mode.available));
+  assert.equal(draft.rounds[1]?.matches[0]?.scheduledFor.toISOString(), '2026-07-12T08:00:00.000Z');
 });
 
 test('week 15 scheduling consumes the weekend slot in order and preserves venue_type', () => {
@@ -90,7 +89,7 @@ test('week 15 scheduling consumes the weekend slot in order and preserves venue_
   assert.equal(payload.rounds[1]?.matches[0]?.schedule_slot_type, 'week15_weekend_friendly');
 });
 
-test('odd-team drafts omit bye matches from the serialized payload', () => {
+test('odd-team drafts preserve bye rows in the serialized payload', () => {
   const draft = buildScheduleDraft({
     teams: threeTeams,
     mode: 'single',
@@ -100,36 +99,43 @@ test('odd-team drafts omit bye matches from the serialized payload', () => {
 
   assert.equal(draft.valid, true);
   assert.equal(draft.rounds.length, 3);
-  assert.ok(draft.rounds.every((round) => round.matches.every((match) => match.homeTeamId && match.awayTeamId)));
-  assert.ok(draft.rounds.every((round) => round.matches.length === 1));
+  assert.ok(draft.rounds.every((round) => round.matches.some((match) => match.isBye)));
+  assert.ok(draft.rounds.every((round) => round.matches.length === 2));
 
   const payload = serializeScheduleDraftForRpc(draft);
-  assert.ok(payload.rounds.every((round) => round.matches.length === 1));
+  assert.ok(payload.rounds.every((round) => round.matches.length === 2));
+  assert.ok(payload.rounds.every((round) => round.matches.some((match) => match.is_bye)));
+  assert.ok(
+    payload.rounds.every((round) =>
+      round.matches
+        .filter((match) => match.is_bye)
+        .every((match) => (match.home_team_id === null) !== (match.away_team_id === null)),
+    ),
+  );
   assert.ok(payload.rounds.every((round) => round.matches.every((match) => match.venue_type === 'home_away')));
 });
 
-test('same-day start is valid before kickoff and omitted after kickoff', () => {
-  const beforeKickoff = buildScheduleDraft({
+test('start slots require at least three days of lead time', () => {
+  const twoDaysAway = buildScheduleDraft({
     teams: fourTeams,
     mode: 'single',
     startSlotId: 'S94-W14-midweek',
-    now: new Date('2026-07-01T16:00:00Z'),
+    now: new Date('2026-06-29T00:00:00Z'),
   });
 
-  assert.equal(beforeKickoff.valid, true);
-  assert.equal(beforeKickoff.selectedStartSlotId, 'S94-W14-midweek');
-  assert.ok(beforeKickoff.rounds.every((round) => round.matches.every((match) => match.scheduledFor.getTime() > new Date('2026-07-01T16:00:00Z').getTime())));
+  assert.equal(twoDaysAway.valid, true);
+  assert.equal(twoDaysAway.selectedStartSlotId, 'S94-W15-midweek');
+  assert.ok(twoDaysAway.startSlotOptions.every((slot) => slot.id !== 'S94-W14-midweek'));
 
-  const afterKickoff = buildScheduleDraft({
+  const threeDaysAway = buildScheduleDraft({
     teams: fourTeams,
     mode: 'single',
-    startSlotId: 'S94-W14-midweek',
-    now: new Date('2026-07-01T18:00:00Z'),
+    startSlotId: 'S94-W15-midweek',
+    now: new Date('2026-07-03T00:00:00Z'),
   });
 
-  assert.equal(afterKickoff.valid, true);
-  assert.notEqual(afterKickoff.selectedStartSlotId, 'S94-W14-midweek');
-  assert.ok(afterKickoff.rounds.every((round) => round.matches.every((match) => match.scheduledFor.getTime() > new Date('2026-07-01T18:00:00Z').getTime())));
+  assert.equal(threeDaysAway.valid, true);
+  assert.equal(threeDaysAway.selectedStartSlotId, 'S94-W15-midweek');
 });
 
 test('yesterday start slots are omitted from valid starts', () => {
@@ -186,8 +192,8 @@ test('selected starts move forward when the chosen window no longer fits the act
 
   assert.equal(replaced.valid, true);
   assert.equal(replaced.mode, 'single');
-  assert.equal(replaced.selectedStartSlotId, 'S95-W5-midweek');
-  assert.ok(replaced.startSlotOptions.some((slot) => slot.htSeason === 95 && slot.htWeek === 5));
+  assert.equal(replaced.selectedStartSlotId, 'S95-W3-midweek');
+  assert.ok(replaced.startSlotOptions.some((slot) => slot.htSeason === 95 && slot.htWeek === 3));
 });
 
 test('format availability disables impossible schedules and explains why', () => {
@@ -213,7 +219,43 @@ test('next-season W5 is discovered in the valid start list', () => {
   });
 
   assert.ok(draft.startSlotOptions.some((slot) => slot.htSeason === 95 && slot.htWeek === 5));
-  assert.equal(draft.selectedStartSlotId, 'S94-W14-midweek');
+  assert.equal(draft.selectedStartSlotId, 'S94-W15-midweek');
+});
+
+test('W3-W4 cup-likely weeks can be selected while W1-W2 remain disabled display slots', () => {
+  const draft = buildScheduleDraft({
+    teams: fourTeams,
+    mode: 'single',
+    startSlotId: 'S95-W3-midweek',
+    now: new Date('2026-07-17T00:00:00Z'),
+  });
+
+  assert.equal(draft.valid, true);
+  assert.equal(draft.selectedStartSlotId, 'S95-W3-midweek');
+  assert.ok(draft.startSlotOptions.some((slot) => slot.id === 'S95-W3-midweek'));
+  assert.ok(draft.startSlotOptions.some((slot) => slot.id === 'S95-W4-midweek'));
+
+  const week1 = draft.allSlotOptions.find((slot) => slot.id === 'S95-W1-blocked');
+  const week2 = draft.allSlotOptions.find((slot) => slot.id === 'S95-W2-blocked');
+  assert.equal(week1?.selectable, false);
+  assert.equal(week2?.selectable, false);
+});
+
+test('start options are capped at eight weeks ahead', () => {
+  const draft = buildScheduleDraft({
+    teams: fourTeams,
+    mode: 'single',
+    startSlotId: null,
+    now: new Date('2026-06-29T00:00:00Z'),
+  });
+
+  assert.ok(
+    draft.allSlotOptions.every((slot) => {
+      const daysAhead = Math.round((slot.nominalDate.getTime() - new Date('2026-06-29T00:00:00Z').getTime()) / 86_400_000);
+      return daysAhead <= 56;
+    }),
+  );
+  assert.equal(draft.allSlotOptions.some((slot) => slot.id === 'S95-W6-midweek'), false);
 });
 
 test('calendar slot generation never exposes a Week 16 weekend slot', () => {

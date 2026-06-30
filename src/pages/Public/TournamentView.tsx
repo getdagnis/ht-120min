@@ -48,8 +48,8 @@ interface PendingJoinData {
 interface MatchWithTeams {
   id: string;
   round_id: string;
-  home_team_id: string;
-  away_team_id: string;
+  home_team_id: string | null;
+  away_team_id: string | null;
   home_goals: number | null;
   away_goals: number | null;
   completed: boolean;
@@ -203,7 +203,7 @@ export const TournamentView: React.FC = () => {
   const [replacementHtId, setReplacementHtId] = useState('');
   const [replacementName, setReplacementName] = useState('');
   const [isFetchingTeamData, setIsFetchingTeamData] = useState(false);
-  const [scheduleMode, setScheduleMode] = useState<ScheduleMode>('double');
+  const [scheduleMode, setScheduleMode] = useState<ScheduleMode>('single');
   const [scheduleStartSlotId, setScheduleStartSlotId] = useState('');
 
   // Tournament settings states
@@ -216,6 +216,7 @@ export const TournamentView: React.FC = () => {
     'Hattrick Validated (CHPP)',
   );
   const [editCountryLimit, setEditCountryLimit] = useState<string | null>(null);
+  const [editMaxTeams, setEditMaxTeams] = useState<number | null>(null);
   const [showEditDescription, setShowEditDescription] = useState(false);
   const [editDescription, setEditDescription] = useState('');
   const [showEditEmail, setShowEditEmail] = useState(false);
@@ -435,7 +436,7 @@ export const TournamentView: React.FC = () => {
       setEditLeagueCategory(tournamentData.league_category || 'male');
       setEditRegistrationType(tournamentData.registration_type || 'Organizer-Managed');
       setEditCountryLimit(normalizeLeagueLimit(tournamentData.country_limit));
-      setScheduleMode((tournamentData.schedule_mode as ScheduleMode | null) || 'double');
+      setScheduleMode((tournamentData.schedule_mode as ScheduleMode | null) || 'single');
       const storedStartSlot = tournamentData.schedule_start_slot
         ? buildCalendarSlots(new Date(), 160).find((slot) => slot.nominalDate.toISOString() === tournamentData.schedule_start_slot)
         : null;
@@ -445,6 +446,7 @@ export const TournamentView: React.FC = () => {
       setEditDescription(tournamentData.description || '');
       setShowEditEmail(!!tournamentData.admin_email);
       setEditAdminEmail(tournamentData.admin_email || '');
+      setEditMaxTeams(tournamentData.max_teams || null);
       const { data: teamsDataRaw } = await supabase
         .from('teams')
         .select('*')
@@ -493,7 +495,7 @@ export const TournamentView: React.FC = () => {
         }));
       const reconciledDraft = buildScheduleDraft({
         teams: fetchedScheduleTeams,
-        mode: (tournamentData.schedule_mode as ScheduleMode | null) || 'double',
+        mode: (tournamentData.schedule_mode as ScheduleMode | null) || 'single',
         startSlotId: storedStartSlot?.id || null,
         now: new Date(),
       });
@@ -1191,6 +1193,7 @@ export const TournamentView: React.FC = () => {
           show_description: showEditDescription,
           description: editDescription,
           admin_email: showEditEmail ? editAdminEmail : null,
+          max_teams: editMaxTeams,
         })
 
         .eq('id', tournament?.id);
@@ -1518,8 +1521,9 @@ export const TournamentView: React.FC = () => {
       alert('Unable to serialize the selected schedule draft.');
       return;
     }
-    if (!password.trim()) {
-      alert('Enter the organizer admin password before generating a schedule. The database RPC verifies it before inserting rounds.');
+    const scheduleAdminPassword = password.trim() || tournament?.admin_password || '';
+    if (!scheduleAdminPassword) {
+      alert('Unable to confirm organizer access. Please reload the page and try again.');
       return;
     }
 
@@ -1537,7 +1541,7 @@ export const TournamentView: React.FC = () => {
       const { error } = await supabase.rpc('generate_tournament_schedule', {
         p_tournament_id: tournament?.id,
         p_schedule_payload: serializedScheduleDraft,
-        p_admin_password: password,
+        p_admin_password: scheduleAdminPassword,
         p_schedule_mode: scheduleDraft.mode,
         p_schedule_start_slot: scheduleDraft.selectedStartSlot.nominalDate.toISOString(),
         p_include_week15_weekend_friendly: scheduleDraft.consumesWeek15WeekendFriendly,
@@ -1546,7 +1550,12 @@ export const TournamentView: React.FC = () => {
       if (error) throw error;
       await fetchData();
     } catch (err: unknown) {
-      const message = err instanceof Error ? err.message : 'Unknown error';
+      const message =
+        err instanceof Error
+          ? err.message
+          : err && typeof err === 'object' && 'message' in err && typeof err.message === 'string'
+            ? err.message
+            : 'Unknown error';
       alert('Error generating schedule: ' + message);
     } finally {
       setIsGenerating(false);
@@ -2112,6 +2121,22 @@ export const TournamentView: React.FC = () => {
                       </div>
 
                       <div className={adminStyles.field}>
+                        <label>Team limit</label>
+                        <select
+                          value={editMaxTeams ?? ''}
+                          onChange={(e) => setEditMaxTeams(e.target.value ? Number(e.target.value) : null)}
+                          className={adminStyles.selectField}
+                        >
+                          <option value="">Unlimited (decide later)</option>
+                          {[2, 4, 6, 8, 16, 32, 64].map((n) => (
+                            <option key={n} value={n}>
+                              {n} teams
+                            </option>
+                          ))}
+                        </select>
+                      </div>
+
+                      <div className={adminStyles.field}>
                         <label>Registration Type</label>
                         <select
                           value={editRegistrationType}
@@ -2240,27 +2265,56 @@ export const TournamentView: React.FC = () => {
                     </Button>
                   </SectionCard>
 
-                  <TournamentSchedulePanel
-                    isGenerated={isGenerated}
-                    isCollapsed={resolvedScheduleCollapsed}
-                    onToggleCollapse={() => {
-                      const next = !resolvedScheduleCollapsed;
-                      if (slug) setScheduleCollapseOverrides((current) => ({ ...current, [slug]: next }));
-                      if (scheduleCollapseStorageKey) localStorage.setItem(scheduleCollapseStorageKey, JSON.stringify(next));
-                    }}
-                    draft={scheduleDraft}
-                    onScheduleModeChange={handleScheduleModeChange}
-                    onSelectedStartSlotIdChange={handleScheduleStartSlotIdChange}
-                    isGenerating={isGenerating}
-                    onGenerate={generateSchedule}
-                    generatedSummary={{
-                      scheduleMode: tournament.schedule_mode || null,
-                      scheduleStartSlot: tournament.schedule_start_slot || null,
-                      scheduleLockedAt: tournament.schedule_locked_at || null,
-                      registrationClosedAt: tournament.registration_closed_at || null,
-                      scheduleGeneratedAt: tournament.schedule_generated_at || null,
-                    }}
-                  />
+                  {!isGenerated && (
+                    <TournamentSchedulePanel
+                      isGenerated={isGenerated}
+                      isCollapsed={resolvedScheduleCollapsed}
+                      onToggleCollapse={() => {
+                        const next = !resolvedScheduleCollapsed;
+                        if (slug) setScheduleCollapseOverrides((current) => ({ ...current, [slug]: next }));
+                        if (scheduleCollapseStorageKey) localStorage.setItem(scheduleCollapseStorageKey, JSON.stringify(next));
+                      }}
+                      draft={scheduleDraft}
+                      onScheduleModeChange={handleScheduleModeChange}
+                      onSelectedStartSlotIdChange={handleScheduleStartSlotIdChange}
+                      isGenerating={isGenerating}
+                      onGenerate={generateSchedule}
+                      tournamentTeamLimit={editMaxTeams}
+                    />
+                  )}
+
+                  {isGenerated && (
+                    <AdminResults
+                      rounds={rounds}
+                      editingMatch={editingMatch}
+                      setEditingMatch={setEditingMatch}
+                      updateMatch={updateMatch}
+                      isResultsCollapsed={isResultsCollapsed}
+                      setIsResultsCollapsed={setIsResultsCollapsed}
+                      togglePanel={togglePanel}
+                      matchData={matchData}
+                      setMatchData={setMatchData as any}
+                      currentRoundId={currentRoundId}
+                    />
+                  )}
+
+                  {isGenerated && (
+                    <TournamentSchedulePanel
+                      isGenerated={isGenerated}
+                      isCollapsed={resolvedScheduleCollapsed}
+                      onToggleCollapse={() => {
+                        const next = !resolvedScheduleCollapsed;
+                        if (slug) setScheduleCollapseOverrides((current) => ({ ...current, [slug]: next }));
+                        if (scheduleCollapseStorageKey) localStorage.setItem(scheduleCollapseStorageKey, JSON.stringify(next));
+                      }}
+                      draft={scheduleDraft}
+                      onScheduleModeChange={handleScheduleModeChange}
+                      onSelectedStartSlotIdChange={handleScheduleStartSlotIdChange}
+                      isGenerating={isGenerating}
+                      onGenerate={generateSchedule}
+                      tournamentTeamLimit={editMaxTeams}
+                    />
+                  )}
 
                   <SectionCard
                     title="Manage Teams"
@@ -2547,22 +2601,6 @@ export const TournamentView: React.FC = () => {
                   </SectionCard>
                 </section>
 
-                {isGenerated && (
-                  <section className={adminStyles.fixturesSection}>
-                    <AdminResults
-                      rounds={rounds}
-                      editingMatch={editingMatch}
-                      setEditingMatch={setEditingMatch}
-                      updateMatch={updateMatch}
-                      isResultsCollapsed={isResultsCollapsed}
-                      setIsResultsCollapsed={setIsResultsCollapsed}
-                      togglePanel={togglePanel}
-                      matchData={matchData}
-                      setMatchData={setMatchData as any}
-                      currentRoundId={currentRoundId}
-                    />
-                  </section>
-                )}
                 <Tooltip id="admin-tooltip" />
               </div>
 

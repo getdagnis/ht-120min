@@ -31,13 +31,14 @@ export interface ScheduleModeAvailability {
 }
 
 export interface ScheduleDraftMatch {
-  homeTeamId: string;
-  awayTeamId: string;
+  homeTeamId: string | null;
+  awayTeamId: string | null;
   homeTeamName: string;
   awayTeamName: string;
   venueType: ScheduledMatch['venueType'];
   scheduledFor: Date;
   scheduleSlotType: HattrickScheduleSlotKind;
+  isBye: boolean;
 }
 
 export interface ScheduleDraftRound {
@@ -62,6 +63,7 @@ export interface ScheduleDraftPreview {
   rounds: ScheduleDraftRound[];
   availableModes: ScheduleModeAvailability[];
   startSlotOptions: CalendarSlot[];
+  allSlotOptions: CalendarSlot[];
   closestAvailableStartSlot: CalendarSlot | null;
   daysUntilStart: number | null;
   calendarContext: HattrickCalendarContext;
@@ -71,11 +73,12 @@ export interface ScheduleDraftPreview {
 }
 
 export interface SerializedScheduleMatch {
-  home_team_id: string;
-  away_team_id: string;
+  home_team_id: string | null;
+  away_team_id: string | null;
   venue_type: ScheduledMatch['venueType'];
   scheduled_for: string;
   schedule_slot_type: HattrickScheduleSlotKind;
+  is_bye: boolean;
 }
 
 export interface SerializedScheduleRound {
@@ -108,6 +111,8 @@ export interface BuildScheduleDraftInput {
 const MODE_PRIORITY: ScheduleMode[] = ['single', 'double', 'recurring'];
 const MAX_START_OPTIONS = 12;
 const DEFAULT_HORIZON_WEEKS = 80;
+const MIN_START_LEAD_DAYS = 3;
+const MAX_START_LEAD_DAYS = 8 * 7;
 
 function getRoundCount(mode: ScheduleMode, teamCount: number) {
   if (teamCount < 2) return 0;
@@ -132,6 +137,16 @@ function getPairings(mode: ScheduleMode, teamIds: string[]) {
   return generateRoundRobin(teamIds, { mode: 'single' });
 }
 
+function isSelectableStartCandidate(slot: CalendarSlot, now: Date) {
+  const daysUntil = getSignedDaysUntil(slot.nominalDate, now);
+  return slot.selectable && daysUntil >= MIN_START_LEAD_DAYS && daysUntil <= MAX_START_LEAD_DAYS;
+}
+
+function isDisplayStartCandidate(slot: CalendarSlot, now: Date) {
+  const daysUntil = getSignedDaysUntil(slot.nominalDate, now);
+  return daysUntil >= MIN_START_LEAD_DAYS && daysUntil <= MAX_START_LEAD_DAYS;
+}
+
 function getSlotLabel(slot: CalendarSlot) {
   if (slot.kind === 'blocked_cup_week') return `HT S${slot.htSeason} W${slot.htWeek}`;
   if (slot.kind === 'week15_weekend_friendly') return `Week 15 weekend friendly`;
@@ -151,43 +166,45 @@ function buildRoundFromPairings(
   const matches: ScheduleDraftMatch[] = [];
 
   for (const pairing of round.matches) {
-    if (pairing.isBye || !pairing.home || !pairing.away) continue;
+    if (!pairing.home && !pairing.away) continue;
 
-    const homeTeam = teamLookup.get(pairing.home);
-    const awayTeam = teamLookup.get(pairing.away);
-    if (!homeTeam || !awayTeam) {
+    const homeTeam = pairing.home ? teamLookup.get(pairing.home) : null;
+    const awayTeam = pairing.away ? teamLookup.get(pairing.away) : null;
+    const kickoffTeam = homeTeam || awayTeam;
+    if (!kickoffTeam || (pairing.home && !homeTeam) || (pairing.away && !awayTeam)) {
       return {
         matches: [],
         blockingReason: `Unknown team in round ${round.roundNumber}.`,
       };
     }
 
-    const scheduledFor = getScheduledDateForSlot(slot, homeTeam);
+    const scheduledFor = getScheduledDateForSlot(slot, kickoffTeam);
     if (!scheduledFor) {
       return {
         matches: [],
         blockingReason:
           slot.kind === 'week15_weekend_friendly'
-            ? `Weekend kickoff time is ambiguous for ${homeTeam.name}. Add or fix its league level.`
-            : `Could not resolve kickoff time for ${homeTeam.name}.`,
+            ? `Weekend kickoff time is ambiguous for ${kickoffTeam.name}. Add or fix its league level.`
+            : `Could not resolve kickoff time for ${kickoffTeam.name}.`,
       };
     }
 
     if (scheduledFor.getTime() <= now.getTime()) {
       return {
         matches: [],
-        blockingReason: `Round ${round.roundNumber} kickoff for ${homeTeam.name} has already passed.`,
+        blockingReason: `Round ${round.roundNumber} kickoff for ${kickoffTeam.name} has already passed.`,
       };
     }
 
     matches.push({
-      homeTeamId: homeTeam.id,
-      awayTeamId: awayTeam.id,
-      homeTeamName: homeTeam.name,
-      awayTeamName: awayTeam.name,
+      homeTeamId: homeTeam?.id ?? null,
+      awayTeamId: awayTeam?.id ?? null,
+      homeTeamName: homeTeam?.name ?? 'BYE',
+      awayTeamName: awayTeam?.name ?? 'BYE',
       venueType: pairing.venueType,
       scheduledFor,
       scheduleSlotType: slot.kind as HattrickScheduleSlotKind,
+      isBye: pairing.isBye,
     });
   }
 
@@ -261,6 +278,19 @@ function evaluateDraftFromStartSlot(
     }
 
     if (slot.selectable) {
+      if ((slot.htWeek === 3 || slot.htWeek === 4) && collectedSlots.length >= 2) {
+        const reason = `Round ${collectedSlots.length + 1} would fall in cup-likely week W${slot.htWeek}; W3-W4 are only allowed for rounds 1 and 2.`;
+        blockingReasons.push(reason);
+        return {
+          valid: false,
+          reason,
+          roundCount,
+          rounds: [] as ScheduleDraftRound[],
+          blockingReasons,
+          warnings: [] as string[],
+          consumesWeek15WeekendFriendly: false,
+        };
+      }
       collectedSlots.push(slot);
     }
   }
@@ -367,7 +397,7 @@ function getModeAvailability(
     };
   }
 
-  const candidateSlots = orderedSlots.filter((slot) => slot.selectable && getSignedDaysUntil(slot.nominalDate, now) >= 0);
+  const candidateSlots = orderedSlots.filter((slot) => isSelectableStartCandidate(slot, now));
   let firstReason: string | null = null;
   for (const slot of candidateSlots) {
     const result = evaluateDraftFromStartSlot(activeTeams, mode, slot, orderedSlots, now);
@@ -417,7 +447,7 @@ function chooseStartSlot(
   requestedStartSlotId: string | null,
 ) {
   const activeTeams = normalizeTeams(teams);
-  const candidateSlots = orderedSlots.filter((slot) => slot.selectable && getSignedDaysUntil(slot.nominalDate, now) >= 0);
+  const candidateSlots = orderedSlots.filter((slot) => isSelectableStartCandidate(slot, now));
   const validSlots: CalendarSlot[] = [];
 
   for (const slot of candidateSlots) {
@@ -474,6 +504,9 @@ export function buildScheduleDraft(input: BuildScheduleDraftInput): ScheduleDraf
       rounds: [],
       availableModes,
       startSlotOptions,
+      allSlotOptions: orderedSlots
+        .filter((slot) => isDisplayStartCandidate(slot, now))
+        .slice(0, MAX_START_OPTIONS + 8),
       closestAvailableStartSlot,
       daysUntilStart: null,
       calendarContext,
@@ -499,6 +532,9 @@ export function buildScheduleDraft(input: BuildScheduleDraftInput): ScheduleDraf
     rounds: evaluation.rounds,
     availableModes,
     startSlotOptions,
+    allSlotOptions: orderedSlots
+      .filter((slot) => isDisplayStartCandidate(slot, now))
+      .slice(0, MAX_START_OPTIONS + 8),
     closestAvailableStartSlot,
     daysUntilStart,
     calendarContext,
@@ -532,6 +568,7 @@ export function serializeScheduleDraftForRpc(draft: ScheduleDraftPreview): Seria
         venue_type: match.venueType,
         scheduled_for: match.scheduledFor.toISOString(),
         schedule_slot_type: match.scheduleSlotType,
+        is_bye: match.isBye,
       })),
     })),
   };
@@ -539,6 +576,6 @@ export function serializeScheduleDraftForRpc(draft: ScheduleDraftPreview): Seria
 
 export function getUpcomingScheduleStartSlots(now = new Date(), count = 12) {
   return buildCalendarSlots(now, Math.max(count * 8, DEFAULT_HORIZON_WEEKS))
-    .filter((slot) => slot.selectable && getSignedDaysUntil(slot.nominalDate, now) >= 0)
+    .filter((slot) => isSelectableStartCandidate(slot, now))
     .slice(0, count);
 }

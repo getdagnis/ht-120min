@@ -86,6 +86,7 @@ DECLARE
   v_round_slot_kind text;
   v_round_slot_date timestamptz;
   v_round_match_count integer;
+  v_round_bye_count integer;
   v_round_local_date date;
   v_round_week_start date;
   v_round_week_index integer;
@@ -199,7 +200,7 @@ BEGIN
   END IF;
 
   IF v_payload_team_count IS NULL OR v_payload_team_count <> v_team_count THEN
-    RAISE EXCEPTION 'Payload team count does not match active non-placeholder teams' USING ERRCODE = '22023';
+    RAISE EXCEPTION 'Payload team count does not match eligible teams. Eligible teams are active registered teams, excluding placeholder slots.' USING ERRCODE = '22023';
   END IF;
 
   v_expected_rounds := CASE
@@ -207,7 +208,7 @@ BEGIN
     WHEN p_schedule_mode = 'double' THEN (CASE WHEN v_team_count % 2 = 0 THEN v_team_count - 1 ELSE v_team_count END) * 2
     ELSE 4
   END;
-  v_expected_matches_per_round := v_team_count / 2;
+  v_expected_matches_per_round := (v_team_count + 1) / 2;
 
   IF jsonb_array_length(v_rounds) <> v_expected_rounds THEN
     RAISE EXCEPTION 'Round count does not match the selected format' USING ERRCODE = '22023';
@@ -253,8 +254,12 @@ BEGIN
     v_round_ht_season := 94 + FLOOR(v_round_week_index::numeric / 16)::integer;
     v_round_week_start := DATE '2026-03-30' + (v_round_week_index * 7);
 
-    IF v_round_ht_week BETWEEN 1 AND 4 THEN
+    IF v_round_ht_week BETWEEN 1 AND 2 THEN
       RAISE EXCEPTION 'Schedule payload crosses into blocked cup week W%', v_round_ht_week USING ERRCODE = '22023';
+    END IF;
+
+    IF v_round_ht_week BETWEEN 3 AND 4 AND v_round_index > 2 THEN
+      RAISE EXCEPTION 'Cup-likely weeks W3-W4 are only allowed for rounds 1 and 2' USING ERRCODE = '22023';
     END IF;
 
     IF v_round_slot_kind = 'midweek_friendly' AND v_round_local_date <> v_round_week_start + 2 THEN
@@ -295,10 +300,11 @@ BEGIN
     END IF;
 
     IF v_round_match_count <> v_expected_matches_per_round THEN
-      RAISE EXCEPTION 'Match count does not match the active non-placeholder team count' USING ERRCODE = '22023';
+      RAISE EXCEPTION 'Match count does not match eligible team count, including one BYE row per round for odd-team tournaments' USING ERRCODE = '22023';
     END IF;
 
     v_seen_team_ids := ARRAY[]::uuid[];
+    v_round_bye_count := 0;
 
     FOR v_match IN
       SELECT value
@@ -311,11 +317,21 @@ BEGIN
       v_home_team_id := NULLIF(v_match->>'home_team_id', '')::uuid;
       v_away_team_id := NULLIF(v_match->>'away_team_id', '')::uuid;
 
-      IF v_home_team_id IS NULL OR v_away_team_id IS NULL THEN
-        RAISE EXCEPTION 'Match rows must contain home and away team ids' USING ERRCODE = '22023';
+      IF v_home_team_id IS NULL AND v_away_team_id IS NULL THEN
+        RAISE EXCEPTION 'Match rows must contain at least one team id' USING ERRCODE = '22023';
       END IF;
 
-      IF v_home_team_id = v_away_team_id THEN
+      IF v_home_team_id IS NULL OR v_away_team_id IS NULL THEN
+        IF v_team_count % 2 = 0 THEN
+          RAISE EXCEPTION 'Bye rows are only valid for odd-team schedules' USING ERRCODE = '22023';
+        END IF;
+        v_round_bye_count := v_round_bye_count + 1;
+        IF v_round_bye_count > 1 THEN
+          RAISE EXCEPTION 'Only one bye row is allowed per round' USING ERRCODE = '22023';
+        END IF;
+      END IF;
+
+      IF v_home_team_id IS NOT NULL AND v_home_team_id = v_away_team_id THEN
         RAISE EXCEPTION 'Home and away teams must be different' USING ERRCODE = '22023';
       END IF;
 
@@ -345,7 +361,7 @@ BEGIN
       v_match_week_index := FLOOR(((v_match_local_date - DATE '2026-03-30')::numeric) / 7)::integer;
       v_match_ht_week := ((v_match_week_index % 16) + 16) % 16 + 1;
       v_match_ht_season := 94 + FLOOR(v_match_week_index::numeric / 16)::integer;
-      IF v_match_ht_week BETWEEN 1 AND 4 THEN
+      IF v_match_ht_week BETWEEN 1 AND 2 THEN
         RAISE EXCEPTION 'Schedule payload crosses into a blocked cup week' USING ERRCODE = '22023';
       END IF;
 
@@ -353,28 +369,37 @@ BEGIN
         RAISE EXCEPTION 'Match timestamp does not belong to the round HT week' USING ERRCODE = '22023';
       END IF;
 
-      IF NOT (v_home_team_id = ANY(v_active_team_ids)) THEN
+      IF v_home_team_id IS NOT NULL AND NOT (v_home_team_id = ANY(v_active_team_ids)) THEN
         RAISE EXCEPTION 'Home team does not belong to this tournament or is inactive/placeholder' USING ERRCODE = '22023';
       END IF;
 
-      IF NOT (v_away_team_id = ANY(v_active_team_ids)) THEN
+      IF v_away_team_id IS NOT NULL AND NOT (v_away_team_id = ANY(v_active_team_ids)) THEN
         RAISE EXCEPTION 'Away team does not belong to this tournament or is inactive/placeholder' USING ERRCODE = '22023';
       END IF;
 
-      IF v_home_team_id = ANY(v_seen_team_ids) OR v_away_team_id = ANY(v_seen_team_ids) THEN
+      IF (v_home_team_id IS NOT NULL AND v_home_team_id = ANY(v_seen_team_ids))
+        OR (v_away_team_id IS NOT NULL AND v_away_team_id = ANY(v_seen_team_ids)) THEN
         RAISE EXCEPTION 'A team appears more than once in the same round' USING ERRCODE = '22023';
       END IF;
 
-      v_seen_team_ids := array_append(v_seen_team_ids, v_home_team_id);
-      v_seen_team_ids := array_append(v_seen_team_ids, v_away_team_id);
+      IF v_home_team_id IS NOT NULL THEN
+        v_seen_team_ids := array_append(v_seen_team_ids, v_home_team_id);
+      END IF;
+      IF v_away_team_id IS NOT NULL THEN
+        v_seen_team_ids := array_append(v_seen_team_ids, v_away_team_id);
+      END IF;
 
-      IF NOT (v_home_team_id = ANY(v_payload_seen_team_ids)) THEN
+      IF v_home_team_id IS NOT NULL AND NOT (v_home_team_id = ANY(v_payload_seen_team_ids)) THEN
         v_payload_seen_team_ids := array_append(v_payload_seen_team_ids, v_home_team_id);
       END IF;
-      IF NOT (v_away_team_id = ANY(v_payload_seen_team_ids)) THEN
+      IF v_away_team_id IS NOT NULL AND NOT (v_away_team_id = ANY(v_payload_seen_team_ids)) THEN
         v_payload_seen_team_ids := array_append(v_payload_seen_team_ids, v_away_team_id);
       END IF;
     END LOOP;
+
+    IF v_team_count % 2 = 1 AND v_round_bye_count <> 1 THEN
+      RAISE EXCEPTION 'Odd-team schedules must include one bye row per round' USING ERRCODE = '22023';
+    END IF;
 
     v_previous_slot_kind := v_round_slot_kind;
     v_previous_week_start := v_round_week_start;

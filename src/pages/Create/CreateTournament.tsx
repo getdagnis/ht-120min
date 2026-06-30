@@ -108,6 +108,11 @@ interface LocalTeam {
   countryId?: number;
 }
 
+interface LinkedOrganizer {
+  managerName: string;
+  hattrickUserId: number | null;
+}
+
 const getRandomDescription = () => DESCRIPTIONS[Math.floor(Math.random() * DESCRIPTIONS.length)];
 const getRandomName = (mode: string) => {
   const pool = mode === 'points' ? UNIVERSAL_TOURNAMENT_NAMES : TOURNAMENT_NAMES;
@@ -148,9 +153,14 @@ export const CreateTournament: React.FC = () => {
     return saved ? JSON.parse(saved).teams || [] : [];
   });
 
+  const [organizerProfile, setOrganizerProfile] = useState<LinkedOrganizer | null>(() => {
+    const saved = localStorage.getItem('create_tournament_progress');
+    return saved ? JSON.parse(saved).organizerProfile || null : null;
+  });
+
   const [showDescription, setShowDescription] = useState(() => {
     const saved = localStorage.getItem('create_tournament_progress');
-    return saved ? (JSON.parse(saved).showDescription ?? false) : false;
+    return saved ? (JSON.parse(saved).showDescription ?? true) : true;
   });
 
   const [showEmail, setShowEmail] = useState(() => {
@@ -181,11 +191,19 @@ export const CreateTournament: React.FC = () => {
 
   const [isLinked, setIsLinked] = useState(() => {
     const saved = localStorage.getItem('create_tournament_progress');
-    return saved ? !!JSON.parse(saved).teams?.some((t: LocalTeam) => t.isCreator) : false;
+    if (!saved) return false;
+    const progress = JSON.parse(saved);
+    return !!progress.organizerProfile || !!progress.teams?.some((t: LocalTeam) => t.isCreator);
   });
 
   const saveProgress = useCallback(
-    (updatedForm = formData, updatedTeams = teams, updatedShowDesc = showDescription, updatedShowEmail = showEmail) => {
+    (
+      updatedForm = formData,
+      updatedTeams = teams,
+      updatedShowDesc = showDescription,
+      updatedShowEmail = showEmail,
+      updatedOrganizerProfile = organizerProfile,
+    ) => {
       localStorage.setItem(
         'create_tournament_progress',
         JSON.stringify({
@@ -193,10 +211,11 @@ export const CreateTournament: React.FC = () => {
           teams: updatedTeams,
           showDescription: updatedShowDesc,
           showEmail: updatedShowEmail,
+          organizerProfile: updatedOrganizerProfile,
         }),
       );
     },
-    [formData, teams, showDescription, showEmail],
+    [formData, teams, showDescription, showEmail, organizerProfile],
   );
 
   const fetchPendingSession = useCallback(async (token: string) => {
@@ -267,9 +286,10 @@ export const CreateTournament: React.FC = () => {
     setLinkedManager(null);
     setIsLinked(false);
     const withoutCreator = teams.filter((t) => !t.isCreator);
+    setOrganizerProfile(null);
     setTeams(withoutCreator);
     setStep('info');
-    saveProgress(formData, withoutCreator);
+    saveProgress(formData, withoutCreator, showDescription, showEmail, null);
     window.history.replaceState({}, '', '/create');
   };
 
@@ -329,10 +349,15 @@ export const CreateTournament: React.FC = () => {
         formData.registration_type === 'validated'
           ? [creatorTeam]
           : [...teams.filter((t) => !t.isCreator), creatorTeam];
+      const updatedOrganizerProfile = {
+        managerName: linkedManager.manager_name,
+        hattrickUserId: linkedManager.hattrick_user_id,
+      };
 
       setTeams(updatedTeams);
+      setOrganizerProfile(updatedOrganizerProfile);
       setIsLinked(true);
-      saveProgress(formData, updatedTeams);
+      saveProgress(formData, updatedTeams, showDescription, showEmail, updatedOrganizerProfile);
       setShowModal(false);
       setLinkedManager(null);
 
@@ -346,12 +371,21 @@ export const CreateTournament: React.FC = () => {
   };
 
   const handleOrganizerNoJoin = async () => {
+    if (!linkedManager) return;
+
+    const updatedOrganizerProfile = {
+      managerName: linkedManager.manager_name,
+      hattrickUserId: linkedManager.hattrick_user_id,
+    };
+
     if (linkedManager?.selection_token) {
       await clearPendingJoin(linkedManager.selection_token);
     }
+    setOrganizerProfile(updatedOrganizerProfile);
     setIsLinked(true);
     setShowModal(false);
     setLinkedManager(null);
+    saveProgress(formData, teams, showDescription, showEmail, updatedOrganizerProfile);
     window.history.replaceState({}, '', '/create?step=teams');
   };
 
@@ -459,6 +493,8 @@ export const CreateTournament: React.FC = () => {
   const handleFinalSubmit = async () => {
     const creator = teams.find((t) => t.isCreator);
     const isValidated = formData.registration_type === 'validated';
+    const organizerId = creator?.hattrickUserId ?? organizerProfile?.hattrickUserId ?? null;
+    const organizerName = creator?.managerName ?? organizerProfile?.managerName ?? null;
 
     if (isValidated) {
       if (!creator) {
@@ -500,7 +536,8 @@ export const CreateTournament: React.FC = () => {
 
             season: 1,
             status: 'open',
-            organizer_name: isValidated ? null : creator?.managerName || null,
+            organizer_id: organizerId,
+            organizer_name: isValidated ? null : organizerName,
           },
         ])
         .select()
@@ -532,11 +569,11 @@ export const CreateTournament: React.FC = () => {
       const { error: teamsError } = await supabase.from('teams').insert(teamsToInsert);
       if (teamsError) throw teamsError;
 
-      if (creator?.hattrickUserId) {
-        localStorage.setItem('my_ht_user_id', creator.hattrickUserId.toString());
+      if (organizerId) {
+        localStorage.setItem('my_ht_user_id', organizerId.toString());
       }
-      if (creator?.managerName) {
-        localStorage.setItem('my_ht_manager_name', creator.managerName);
+      if (organizerName) {
+        localStorage.setItem('my_ht_manager_name', organizerName);
       }
       if (creator?.name) {
         localStorage.setItem('my_ht_team_name', creator.name);
@@ -656,45 +693,6 @@ export const CreateTournament: React.FC = () => {
                   </select>
                 </div>
                 <div className={styles.field}>
-                  <label className={styles.checkboxLabel}>
-                    <input
-                      type="checkbox"
-                      checked={formData.is_private}
-                      onChange={(e) => setFormData({ ...formData, is_private: e.target.checked })}
-                    />
-                    Private or "just testing" tournament (unlisted on home page)
-                  </label>
-                </div>
-                <div className={styles.field}>
-                  <label className={styles.checkboxLabel}>
-                    <input
-                      type="checkbox"
-                      checked={showLeagueRestriction}
-                      onChange={(e) => {
-                        setShowLeagueRestriction(e.target.checked);
-                        if (!e.target.checked) setFormData({ ...formData, country_limit: '' });
-                      }}
-                    />
-                    Add League Restriction (optional)
-                  </label>
-                  {showLeagueRestriction && (
-                    <select
-                      id="tournament_country_limit"
-                      value={formData.country_limit}
-                      onChange={(e) => setFormData({ ...formData, country_limit: e.target.value })}
-                      className={`${styles.mt05} ${styles.w100}`}
-                    >
-                      <option value="">Select league...</option>
-                      {Object.entries(HATTRICK_LEAGUES).map(([leagueId, league]) => (
-                        <option key={leagueId} value={leagueId}>
-                          {league}
-                        </option>
-                      ))}
-                    </select>
-                  )}
-                </div>
-
-                <div className={styles.field}>
                   <div className={styles.labelRow}>
                     <label className={styles.checkboxLabel}>
                       <input
@@ -702,7 +700,7 @@ export const CreateTournament: React.FC = () => {
                         checked={showDescription}
                         onChange={(e) => setShowDescription(e.target.checked)}
                       />
-                      Add Description (optional)
+                      Tournament Description
                     </label>
                     {showDescription && (
                       <button
@@ -727,8 +725,46 @@ export const CreateTournament: React.FC = () => {
                 </div>
                 <div className={styles.field}>
                   <label className={styles.checkboxLabel}>
+                    <input
+                      type="checkbox"
+                      checked={showLeagueRestriction}
+                      onChange={(e) => {
+                        setShowLeagueRestriction(e.target.checked);
+                        if (!e.target.checked) setFormData({ ...formData, country_limit: '' });
+                      }}
+                    />
+                    Limited to one league/country
+                  </label>
+                  {showLeagueRestriction && (
+                    <select
+                      id="tournament_country_limit"
+                      value={formData.country_limit}
+                      onChange={(e) => setFormData({ ...formData, country_limit: e.target.value })}
+                      className={`${styles.mt05} ${styles.w100}`}
+                    >
+                      <option value="">Select league...</option>
+                      {Object.entries(HATTRICK_LEAGUES).map(([leagueId, league]) => (
+                        <option key={leagueId} value={leagueId}>
+                          {league}
+                        </option>
+                      ))}
+                    </select>
+                  )}
+                </div>
+                <div className={styles.field}>
+                  <label className={styles.checkboxLabel}>
+                    <input
+                      type="checkbox"
+                      checked={formData.is_private}
+                      onChange={(e) => setFormData({ ...formData, is_private: e.target.checked })}
+                    />
+                    Unlisted tournament (accessed via link)
+                  </label>
+                </div>
+                <div className={styles.field}>
+                  <label className={styles.checkboxLabel}>
                     <input type="checkbox" checked={showEmail} onChange={(e) => setShowEmail(e.target.checked)} />
-                    Recovery email address (recommended)
+                    Recovery email address
                   </label>
                   {showEmail && (
                     <input
@@ -915,15 +951,15 @@ export const CreateTournament: React.FC = () => {
                     />
                   </div>
                   {newTeamId.length >= 6 && !newTeamName && (
-                    <button
+                    <Button
                       type="button"
+                      variant="secondary"
                       onClick={() => fetchTeamData(newTeamId)}
                       disabled={isFetchingTeamData}
-                      className={styles.fetchIconBtn}
                       title="Get Team Data"
                     >
-                      <ArrowRight size={20} weight="bold" />
-                    </button>
+                      Check
+                    </Button>
                   )}
                   {newTeamName && (
                     <Button type="submit" variant="secondary" size="md">

@@ -38,11 +38,18 @@ export interface ActiveTournament {
   nextMatchDate: Date | null;
 }
 
+export interface OrganizerTournament {
+  id: string;
+  name: string;
+  slug: string;
+  status: string | null;
+}
+
 interface DBTeamMatch {
   id: string;
   completed: boolean;
-  home_team_id: string;
-  away_team_id: string;
+  home_team_id: string | null;
+  away_team_id: string | null;
   home_team: { country_name: string } | null;
 }
 
@@ -65,6 +72,14 @@ interface DBTeamJoin {
   tournaments: DBTournament | null;
 }
 
+interface DBOrganizerTournament {
+  id: string;
+  name: string;
+  slug: string;
+  status: string | null;
+  created_at: string;
+}
+
 interface DBWarning {
   round_id: string;
   team_id: string;
@@ -74,6 +89,7 @@ export const useAuth = () => {
   const [managerName, setManagerName] = useState<string | null>(localStorage.getItem('my_ht_manager_name'));
   const [profile, setProfile] = useState<UserProfile | null>(null);
   const [activeTournaments, setActiveTournaments] = useState<ActiveTournament[]>([]);
+  const [organizerTournaments, setOrganizerTournaments] = useState<OrganizerTournament[]>([]);
   const [loading, setLoading] = useState(false);
 
   const fetchProfile = useCallback(async (uid: number) => {
@@ -122,69 +138,87 @@ export const useAuth = () => {
 
       const teamsData = teamsDataRaw as unknown as DBTeamJoin[] | null;
 
-      if (teamsData) {
-        const tournamentIds = Array.from(new Set(teamsData.map((t) => t.tournament_id).filter(Boolean)));
-        let warnings: DBWarning[] | null = null;
-        if (tournamentIds.length > 0) {
-          const { data: warningsRaw } = await supabase
-            .from('fixture_warnings')
-            .select('round_id, team_id')
-            .in('tournament_id', tournamentIds)
-            .eq('active', true);
+      const tournamentIds = Array.from(new Set((teamsData ?? []).map((t) => t.tournament_id).filter(Boolean)));
+      let warnings: DBWarning[] | null = null;
+      if (tournamentIds.length > 0) {
+        const { data: warningsRaw } = await supabase
+          .from('fixture_warnings')
+          .select('round_id, team_id')
+          .in('tournament_id', tournamentIds)
+          .eq('active', true);
 
-          warnings = warningsRaw as unknown as DBWarning[] | null;
-        }
+        warnings = warningsRaw as unknown as DBWarning[] | null;
+      }
 
-        const toursMap = new Map<string, ActiveTournament>();
+      const toursMap = new Map<string, ActiveTournament>();
 
-        for (const t of teamsData) {
-          const tournament = t.tournaments;
-          if (!tournament) continue;
+      for (const t of teamsData ?? []) {
+        const tournament = t.tournaments;
+        if (!tournament) continue;
 
-          // Find the earliest uncompleted match date
-          let nextMatchDate: Date | null = null;
-          
-          if (tournament.rounds && tournament.rounds.length > 0) {
-            const sortedRounds = [...tournament.rounds].sort((a, b) => a.round_number - b.round_number);
-            
-            for (const round of sortedRounds) {
-              const uncompletedMatches = round.matches?.filter((m: DBTeamMatch) => !m.completed) ?? [];
-              
-              // Filter out misarranged matches (check both home and away)
-              const validMatches = uncompletedMatches.filter(m => 
-                !warnings?.some(w => w.round_id === round.id && 
-                  (w.team_id === m.home_team_id || w.team_id === m.away_team_id))
+        // Find the earliest uncompleted match date
+        let nextMatchDate: Date | null = null;
+
+        if (tournament.rounds && tournament.rounds.length > 0) {
+          const sortedRounds = [...tournament.rounds].sort((a, b) => a.round_number - b.round_number);
+
+          for (const round of sortedRounds) {
+            const uncompletedMatches = round.matches?.filter((m: DBTeamMatch) => !m.completed) ?? [];
+
+            // Filter out misarranged matches (check both home and away)
+            const validMatches = uncompletedMatches.filter(
+              (m) =>
+                !warnings?.some(
+                  (w) => w.round_id === round.id && (w.team_id === m.home_team_id || w.team_id === m.away_team_id),
+                ),
+            );
+
+            if (validMatches.length > 0) {
+              const date = calculateMatchDate(
+                tournament.created_at,
+                round.round_number,
+                validMatches[0].home_team?.country_name,
               );
-
-              if (validMatches.length > 0) {
-                const date = calculateMatchDate(
-                  tournament.created_at, 
-                  round.round_number, 
-                  validMatches[0].home_team?.country_name
-                );
-                nextMatchDate = date;
-                break; 
-              }
+              nextMatchDate = date;
+              break;
             }
           }
-
-          toursMap.set(tournament.id, {
-            id: tournament.id,
-            name: tournament.name,
-            slug: tournament.slug,
-            nextMatchDate
-          });
         }
 
-        const sortedTours = Array.from(toursMap.values()).sort((a, b) => {
-          if (!a.nextMatchDate && !b.nextMatchDate) return 0;
-          if (!a.nextMatchDate) return 1; // Far future
-          if (!b.nextMatchDate) return -1;
-          return a.nextMatchDate.getTime() - b.nextMatchDate.getTime();
+        toursMap.set(tournament.id, {
+          id: tournament.id,
+          name: tournament.name,
+          slug: tournament.slug,
+          nextMatchDate,
         });
-
-        setActiveTournaments(sortedTours);
       }
+
+      const sortedTours = Array.from(toursMap.values()).sort((a, b) => {
+        if (!a.nextMatchDate && !b.nextMatchDate) return 0;
+        if (!a.nextMatchDate) return 1; // Far future
+        if (!b.nextMatchDate) return -1;
+        return a.nextMatchDate.getTime() - b.nextMatchDate.getTime();
+      });
+
+      setActiveTournaments(sortedTours);
+
+      const { data: organizerDataRaw } = await supabase
+        .from('tournaments')
+        .select('id, name, slug, status, created_at')
+        .eq('organizer_id', uid)
+        .neq('status', 'archived')
+        .order('created_at', { ascending: false });
+
+      const organizerTours = ((organizerDataRaw as unknown as DBOrganizerTournament[] | null) ?? [])
+        .filter((tournament) => tournament.status !== 'archived')
+        .map((tournament) => ({
+          id: tournament.id,
+          name: tournament.name,
+          slug: tournament.slug,
+          status: tournament.status,
+        }));
+
+      setOrganizerTournaments(organizerTours);
     } catch (err) {
       console.error('Error fetching profile:', err);
     } finally {
@@ -209,12 +243,14 @@ export const useAuth = () => {
     setManagerName(null);
     setProfile(null);
     setActiveTournaments([]);
+    setOrganizerTournaments([]);
   };
 
   return {
     managerName,
     profile,
     activeTournaments,
+    organizerTournaments,
     loading,
     logout,
     refreshProfile: () => {

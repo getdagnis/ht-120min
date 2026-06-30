@@ -130,7 +130,7 @@ export const FixtureCard: React.FC<FixtureCardProps> = ({
           </div>
         )}
         <div className={styles.vsRow}>
-          {status === 'finished' || status === 'ongoing' ? (
+          {completed || status === 'ongoing' ? (
             <>
               <span className={styles.score}>
                 {score?.home ?? 0}

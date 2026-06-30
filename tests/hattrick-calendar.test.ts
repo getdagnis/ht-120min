@@ -58,19 +58,27 @@ test('signed day differences keep past slots distinguishable from display values
   assert.equal(getDaysUntil(yesterday, now), 0);
 });
 
-test('cup weeks are blocked and week 16 has no weekend slot', () => {
+test('cup weeks distinguish blocked W1-W2 from selectable W3-W4 warnings', () => {
   const slots = buildCalendarSlots(new Date('2026-03-30T00:00:00Z'), 4);
   const blockedWeeks = slots.filter((slot) => slot.kind === 'blocked_cup_week');
+  const cupLikelyWeeks = slots.filter((slot) => slot.htWeek === 3 || slot.htWeek === 4);
 
-  assert.equal(blockedWeeks.length >= 4, true);
+  assert.equal(blockedWeeks.length, 2);
   assert.equal(isBlockedCupWeek(1), true);
-  assert.equal(isBlockedCupWeek(4), true);
+  assert.equal(isBlockedCupWeek(2), true);
+  assert.equal(isBlockedCupWeek(3), false);
+  assert.equal(isBlockedCupWeek(4), false);
   assert.equal(isBlockedCupWeek(5), false);
   assert.equal(slots.some((slot) => slot.htWeek === 16 && slot.kind === 'week15_weekend_friendly'), false);
 
   for (const slot of blockedWeeks) {
     assert.equal(slot.selectable, false);
-    assert.match(slot.blockedReason || '', /Cup week W[1-4] is blocked/);
+    assert.match(slot.blockedReason || '', /Cup week W[1-2] is blocked/);
+  }
+
+  for (const slot of cupLikelyWeeks) {
+    assert.equal(slot.selectable, true);
+    assert.equal(slot.warning, 'Cup Likely');
   }
 });
 
@@ -107,4 +115,13 @@ test('weekend kickoff lookup requires a resolvable weekend division when league 
   assert.ok(resolved);
   assert.equal(resolved!.day, 0);
   assert.equal(resolved!.time, '10:00');
+});
+
+test('weekend kickoff lookup falls back for manual teams with missing country metadata', () => {
+  const resolved = getWeekendKickoffTime(null, null);
+
+  assert.ok(resolved);
+  assert.equal(resolved!.day, 0);
+  assert.equal(resolved!.time, '10:00');
+  assert.equal(resolved!.source, 'weekend');
 });
