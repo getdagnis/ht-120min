@@ -8,6 +8,7 @@ interface TeamDetails {
   leagueName?: string;
   leagueId?: number;
   leagueSystemId?: number;
+  leagueLevel?: number;
   countryId?: number;
   countryName?: string;
   genderId?: number;
@@ -94,6 +95,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     const teamName = parsed.teamName || 'Unknown';
     const leagueId = parsed.leagueId?.toString();
     const leagueSystemId = parsed.leagueSystemId?.toString();
+    const leagueLevel = parsed.leagueLevel;
     const leagueName = parsed.leagueName;
     const countryId = parsed.countryId;
     const countryName = parsed.countryName;
@@ -113,6 +115,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             leagueName,
             leagueId: leagueId ? parseInt(leagueId) : undefined,
             leagueSystemId: leagueSystemId ? parseInt(leagueSystemId) : undefined,
+            leagueLevel,
             countryId,
             countryName,
             genderId: genderId ? parseInt(genderId) : undefined,
@@ -130,6 +133,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       teamName,
       leagueId: leagueId ? parseInt(leagueId) : undefined,
       leagueSystemId: leagueSystemId ? parseInt(leagueSystemId) : undefined,
+      leagueLevel,
       leagueName,
       countryId,
       countryName,

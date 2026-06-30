@@ -154,10 +154,35 @@
   border-top: 1px solid var(--border)
   padding-top: 2rem
 
+.scheduleCard
+  margin-top: 1rem
+
 .genOptions
   display: flex
   flex-direction: column
   gap: 1.5rem
+
+.startSlotGroup
+  display: flex
+  flex-direction: column
+  gap: 0.5rem
+  align-items: center
+
+.startSlotLabel
+  font-weight: 700
+  color: var(--text-h)
+  text-transform: uppercase
+  letter-spacing: 0.05em
+  font-size: 0.75rem
+
+.startSlotSelect
+  width: min(100%, 460px)
+  padding: 0.8rem 1rem
+  border: 1px solid var(--border)
+  border-radius: 0.5rem
+  background: var(--surface)
+  color: var(--text-h)
+  font-weight: 600
 
 .checkboxGroup
   display: flex
@@ -453,6 +478,23 @@
   font-size: 0.8rem
   margin-top: 0.4rem
   opacity: 0.8
+
+.scheduleNotice
+  display: flex
+  align-items: center
+  gap: 0.5rem
+  padding: 0.75rem 1rem
+  border-radius: 0.5rem
+  background: var(--bg-transp2)
+  color: var(--text)
+  border: 1px solid var(--border)
+  font-size: 0.85rem
+  line-height: 1.4
+
+.scheduleLockedState
+  display: flex
+  flex-direction: column
+  gap: 0.5rem
 
 .fieldSpacing
   margin-bottom: 1.5rem

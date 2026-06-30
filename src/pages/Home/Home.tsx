@@ -38,6 +38,7 @@ interface DBTeamMatch {
   status: 'not_arranged' | 'arranged' | 'ongoing' | 'misarranged' | 'finished';
   home_team_id: string;
   away_team_id: string;
+  scheduled_for?: string | null;
   home_team: { country_name: string } | null;
 }
 
@@ -143,6 +144,7 @@ export const Home: React.FC = () => {
               completed,
               status,
               home_team_id,
+              scheduled_for,
               home_team:teams!matches_home_team_id_fkey(country_name)
             )
           ),
@@ -198,7 +200,11 @@ export const Home: React.FC = () => {
               );
               if (validMatches.length > 0) {
                 const roundDates = validMatches
-                  .map((match) => calculateMatchDate(t.created_at, round.round_number, match.home_team?.country_name))
+                  .map((match) =>
+                    match.scheduled_for
+                      ? new Date(match.scheduled_for)
+                      : calculateMatchDate(t.created_at, round.round_number, match.home_team?.country_name),
+                  )
                   .sort((a, b) => a.getTime() - b.getTime());
                 nextMatchDate = roundDates[0] ?? null;
                 break;
@@ -378,49 +384,50 @@ export const Home: React.FC = () => {
               <section className={styles.activeSection}>
                 <div className={styles.sectionHeader}>
                   <FolderOpen size={24} className={styles.sectionIcon} />
-                  <h2>Open Tournaments</h2>
+                  <h2>Join Open Tournaments</h2>
                 </div>
 
                 <div className={styles.tournamentGrid}>
                   {openTournaments.map((t) => (
-                    <TournamentCard
-                      key={t.id}
-                      id={t.id}
-                      className={styles.tournamentCard}
-                      thumbnailIndex={t.thumbnail_index}
-                      imageUrl={t.image_url}
-                      countryLimit={t.country_limit}
-                      scoringMode={t.scoring_mode}
-                      leagueCategory={t.league_category}
-                      maxTeams={t.max_teams}
-                      teamCount={t.teamCount}
-                      joinHref={`/t/${t.slug}`}
-                    >
-                      <div className={styles.tInfo}>
-                        <div className={styles.tTitleRow}>
-                          <h3 className={styles.tName}>{t.name}</h3>
-                          <CaretLeft size={18} weight="regular" className={styles.tArrow} />
-                        </div>
-                        <div className={styles.tMeta}>
-                          <span title="Registered Teams">
-                            <TeamsIcon size={14} /> {t.teamCount} teams
-                          </span>
-                          <span title="Creation Date">
-                            <CalendarBlank size={14} weight="regular" /> {new Date(t.created_at).toLocaleDateString()}
-                          </span>
-                        </div>
-                        <div className={styles.tTeams}>
-                          {t.teams.slice(0, 6).map((team) => (
-                            <span key={team.id} className={styles.teamChip}>
-                              {team.name}
+                    <Link key={t.id} to={`/t/${t.slug}`} className={styles.tournamentLink}>
+                      <TournamentCard
+                        id={t.id}
+                        className={styles.tournamentCard}
+                        thumbnailIndex={t.thumbnail_index}
+                        imageUrl={t.image_url}
+                        countryLimit={t.country_limit}
+                        scoringMode={t.scoring_mode}
+                        leagueCategory={t.league_category}
+                        maxTeams={t.max_teams}
+                        teamCount={t.teamCount}
+                        joinHref={`/t/${t.slug}`}
+                      >
+                        <div className={styles.tInfo}>
+                          <div className={styles.tTitleRow}>
+                            <h3 className={styles.tName}>{t.name}</h3>
+                            <CaretLeft size={18} weight="regular" className={styles.tArrow} />
+                          </div>
+                          <div className={styles.tMeta}>
+                            <span title="Registered Teams">
+                              <TeamsIcon size={14} /> {t.teamCount} teams
                             </span>
-                          ))}
-                          {t.teams.length > 6 && (
-                            <span className={styles.teamChipMore}>+{t.teams.length - 6} more</span>
-                          )}
+                            <span title="Creation Date">
+                              <CalendarBlank size={14} weight="regular" /> {new Date(t.created_at).toLocaleDateString()}
+                            </span>
+                          </div>
+                          <div className={styles.tTeams}>
+                            {t.teams.slice(0, 6).map((team) => (
+                              <span key={team.id} className={styles.teamChip}>
+                                {team.name}
+                              </span>
+                            ))}
+                            {t.teams.length > 6 && (
+                              <span className={styles.teamChipMore}>+{t.teams.length - 6} more</span>
+                            )}
+                          </div>
                         </div>
-                      </div>
-                    </TournamentCard>
+                      </TournamentCard>
+                    </Link>
                   ))}
                 </div>
               </section>

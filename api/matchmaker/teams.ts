@@ -22,7 +22,7 @@ async function backfillOpenMatchmakerTeams(
       id,
       team:teams!matchmaker_requests_team_id_fkey(
         id, ht_team_id, oauth_token, oauth_token_secret,
-        name, logo_url, arena_id, arena_image_url, country_id, country_name, availability_status, availability_reason
+        name, logo_url, arena_id, arena_image_url, country_id, country_name, league_level, availability_status, availability_reason
       )
     `,
     )
@@ -75,6 +75,7 @@ async function backfillOpenMatchmakerTeams(
           arena_image_url: arenaImageUrl,
           country_id: details.countryId ?? team.country_id ?? null,
           country_name: details.countryName ?? team.country_name ?? null,
+          league_level: details.leagueLevel ?? team.league_level ?? null,
           gender_id: details.genderId ?? null,
           fanclub_size: details.fanclubSize ?? null,
           availability_status: availability.availabilityStatus,
@@ -186,6 +187,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
               arena_id: arenaId || null,
               country_id: teamDetails?.countryId ?? team.countryId ?? null,
               country_name: teamDetails?.countryName ?? team.countryName ?? null,
+              league_level: teamDetails?.leagueLevel ?? team.leagueLevel ?? null,
               availability_status: availability.availabilityStatus,
               availability_reason: availability.availabilityReason ?? null,
               gender_id: teamDetails?.genderId ?? team.genderId ?? null,
@@ -202,6 +204,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
           arena_image_url: arenaImageUrl || team.arena_image_url,
           countryId: teamDetails?.countryId ?? team.countryId,
           countryName: teamDetails?.countryName ?? team.countryName,
+          leagueLevel: teamDetails?.leagueLevel ?? team.leagueLevel,
           availabilityStatus: availability.availabilityStatus,
           availabilityReason: availability.availabilityReason,
           friendlyTeamId: teamDetails?.friendlyTeamId ?? null,

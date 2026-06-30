@@ -64,6 +64,7 @@ export async function registerOAuthTeam(
         logo_url: input.logoUrl ?? null,
         country_id: input.countryId ?? null,
         country_name: input.countryName ?? null,
+        league_level: input.team.leagueLevel ?? null,
         oauth_token: input.accessToken,
         oauth_token_secret: input.accessTokenSecret,
       })
@@ -132,6 +133,7 @@ export async function registerOAuthTeam(
       hattrick_user_id: input.hattrickUserId,
       country_id: input.countryId ?? null,
       country_name: input.countryName ?? null,
+      league_level: input.team.leagueLevel ?? null,
       logo_url: input.logoUrl ?? null,
       oauth_token: input.accessToken,
       oauth_token_secret: input.accessTokenSecret,

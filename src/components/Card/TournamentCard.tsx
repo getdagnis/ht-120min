@@ -1,5 +1,5 @@
 import React from 'react';
-import { Link as RouterLink } from 'react-router-dom';
+import { useNavigate } from 'react-router-dom';
 import { ArrowRight } from 'phosphor-react';
 import styles from './TournamentCard.module.sass';
 import { getLeagueIdByName } from '../../utils/leagues';
@@ -36,6 +36,7 @@ export const TournamentCard: React.FC<TournamentCardProps> = ({
   maxTeams,
   joinHref,
 }) => {
+  const navigate = useNavigate();
   const bgStyle = getTournamentBackgroundStyle(id, imageUrl);
   const countryId = countryLimit ? getLeagueIdByName(countryLimit) : undefined;
   const isFull = maxTeams != null && (teamCount ?? 0) >= maxTeams;
@@ -68,9 +69,9 @@ export const TournamentCard: React.FC<TournamentCardProps> = ({
             </div>
           )}
           {joinHref && (
-            <RouterLink to={joinHref} className={styles.joinLink}>
+            <button type="button" className={styles.joinLink} onClick={() => navigate(joinHref)}>
               Join <ArrowRight size={12} weight="bold" />
-            </RouterLink>
+            </button>
           )}
         </div>
       </div>

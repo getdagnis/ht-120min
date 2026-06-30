@@ -11,6 +11,7 @@ CREATE TABLE tournaments (
   show_description BOOLEAN DEFAULT TRUE,
   organizer_id BIGINT,
   image_url TEXT,
+  include_week15_weekend_friendly BOOLEAN DEFAULT FALSE,
   created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 
@@ -27,6 +28,7 @@ CREATE TABLE teams (
   oauth_token_secret TEXT,
   logo_url TEXT,
   country_name TEXT,
+  league_level INTEGER,
   joined_via_oauth BOOLEAN DEFAULT FALSE,
   oauth_scope TEXT,
   can_manage_challenges BOOLEAN DEFAULT FALSE,
@@ -72,6 +74,8 @@ CREATE TABLE matches (
   went_120 BOOLEAN DEFAULT FALSE,
   completed BOOLEAN DEFAULT FALSE,
   venue_type TEXT DEFAULT 'home_away',
+  scheduled_for TIMESTAMP WITH TIME ZONE,
+  schedule_slot_type TEXT,
   created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 

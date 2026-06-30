@@ -2,6 +2,7 @@ import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { getSupabase } from '../_lib/supabase.js';
 import { getAuthHeader } from '../_lib/chpp-auth.js';
 import { readChppTag } from '../_lib/chpp-xml.js';
+import { resolveHattrickWeekContext } from '../_lib/hattrick-time.js';
 
 // Simplified helper for match date calculation on server
 // Compare with docs/global-match-time.json before actual implementation
@@ -127,6 +128,33 @@ function calculateMatchDate(tournamentCreatedAt: string, roundNumber: number, co
   return targetDate;
 }
 
+function getMatchTargetDate(match: { scheduled_for?: string | null }, round: { created_at: string; round_number: number }, countryName?: string) {
+  return match.scheduled_for ? new Date(match.scheduled_for) : calculateMatchDate(round.created_at, round.round_number, countryName);
+}
+
+async function fetchWorldDetailsContext(
+  consumerKey: string,
+  consumerSecret: string,
+  oauthToken: string,
+  oauthTokenSecret: string,
+) {
+  const url = 'https://chpp.hattrick.org/chppxml.ashx';
+  const params = { file: 'worlddetails' };
+  const authHeader = getAuthHeader('GET', url, params, consumerKey, consumerSecret, oauthToken, oauthTokenSecret);
+
+  const response = await fetch(`${url}?file=worlddetails`, {
+    headers: { Authorization: authHeader },
+  });
+
+  const xml = await response.text();
+  return {
+    ok: response.ok,
+    status: response.status,
+    xml,
+    context: resolveHattrickWeekContext(xml),
+  };
+}
+
 async function fetchTeamFriendlies(teamId: string, oauthToken: string, oauthTokenSecret: string) {
   const consumerKey = process.env.CHPP_CONSUMER_KEY;
   const consumerSecret = process.env.CHPP_CONSUMER_SECRET;
@@ -167,6 +195,7 @@ interface TeamWithAuth {
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   const { tournament_id } = req.query;
   if (!tournament_id) return res.status(400).json({ error: 'Missing tournament_id' });
+  const contextOnly = String(req.query.context_only || req.query.contextOnly || '') === '1';
 
   try {
     const supabase = getSupabase();
@@ -184,7 +213,33 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       .select('*')
       .eq('tournament_id', tournament_id);
 
-    if (!tournament || !rounds || !teams) return res.status(404).json({ error: 'Data not found' });
+    if (!tournament || !teams || (!rounds && !contextOnly)) return res.status(404).json({ error: 'Data not found' });
+
+    const authTeam = teams.find((team) => team.oauth_token && team.oauth_token_secret);
+    const consumerKey = process.env.CHPP_CONSUMER_KEY;
+    const consumerSecret = process.env.CHPP_CONSUMER_SECRET;
+
+    let hattrickContext = resolveHattrickWeekContext(undefined);
+    if (authTeam && consumerKey && consumerSecret) {
+      try {
+        const worlddetails = await fetchWorldDetailsContext(
+          consumerKey,
+          consumerSecret,
+          authTeam.oauth_token!,
+          authTeam.oauth_token_secret!,
+        );
+        hattrickContext = worlddetails.context;
+      } catch (error) {
+        console.error('Failed to fetch worlddetails context:', error);
+        hattrickContext = resolveHattrickWeekContext(undefined);
+      }
+    }
+
+    if (contextOnly) {
+      return res.status(200).json({
+        hattrick_context: hattrickContext,
+      });
+    }
 
     // Identify the closest upcoming round (the first round that has non-resolved matches).
     const now = new Date();
@@ -193,7 +248,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         if (m.completed) return false;
         if (m.status === 'misarranged') {
           // If misarranged but the match time has already passed, consider it "resolved" for refresh purposes.
-          const matchDate = calculateMatchDate(tournament.created_at, r.round_number, teams[0].country_name);
+          const matchDate = getMatchTargetDate(m as { scheduled_for?: string | null }, r, teams[0].country_name);
           if (now > matchDate) return false;
         }
         return true;
@@ -246,15 +301,15 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       const awayTeam = teams.find((t) => t.id === match.away_team_id);
       if (!homeTeam || !awayTeam) continue;
 
-        const targetDate = calculateMatchDate(upcomingRound.created_at, upcomingRound.round_number, homeTeam.country_name);
-        const homeFriendlies = await getFriendlies(homeTeam);
-        const awayFriendlies = await getFriendlies(awayTeam);
+      const targetDate = getMatchTargetDate(match, upcomingRound, homeTeam.country_name);
+      const homeFriendlies = await getFriendlies(homeTeam);
+      const awayFriendlies = await getFriendlies(awayTeam);
 
-        const isCorrectMatch = (f: { homeId: number; awayId: number }) =>
-          (f.homeId === homeTeam.ht_team_id && f.awayId === awayTeam.ht_team_id) ||
-          (f.homeId === awayTeam.ht_team_id && f.awayId === homeTeam.ht_team_id);
+      const isCorrectMatch = (f: { homeId: number; awayId: number }) =>
+        (f.homeId === homeTeam.ht_team_id && f.awayId === awayTeam.ht_team_id) ||
+        (f.homeId === awayTeam.ht_team_id && f.awayId === homeTeam.ht_team_id);
 
-        const withinWindow = (f: { date: Date }) => Math.abs(f.date.getTime() - targetDate.getTime()) < 3 * 24 * 60 * 60 * 1000;
+      const withinWindow = (f: { date: Date }) => Math.abs(f.date.getTime() - targetDate.getTime()) < 3 * 24 * 60 * 60 * 1000;
       const homeCorrectMatch = homeFriendlies.find((fixture) => withinWindow(fixture) && isCorrectMatch(fixture));
       const awayCorrectMatch = awayFriendlies.find((fixture) => withinWindow(fixture) && isCorrectMatch(fixture));
       const confirmedMatch = homeCorrectMatch ?? awayCorrectMatch;
@@ -320,7 +375,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     // Update tournament refresh timestamp
     await supabase.from('tournaments').update({ last_fixtures_refresh: new Date().toISOString() }).eq('id', tournament_id);
 
-    return res.status(200).json({ status: 'Refresh successful' });
+    return res.status(200).json({ status: 'Refresh successful', hattrick_context: hattrickContext });
   } catch (error) {
     console.error(error);
     return res.status(500).json({ error: error instanceof Error ? error.message : 'An unknown error occurred' });

@@ -7,6 +7,7 @@ export interface ChppTeamOption {
   leagueSystemId?: number;
   leagueName?: string;
   leagueId?: number;
+  leagueLevel?: number;
   leagueLevelUnitName?: string;
   regionName?: string;
   countryId?: number;
@@ -37,6 +38,7 @@ export interface ParsedTeamDetails {
   leagueId?: number;
   leagueSystemId?: number;
   leagueName?: string;
+  leagueLevel?: number;
   countryId?: number;
   countryName?: string;
   logoUrl?: string;
@@ -71,6 +73,9 @@ export function parseTeamDetailsXml(xml: string, teamId: number): ParsedTeamDeta
         ? parseInt(block.match(/<LeagueSystemID>(\d+)<\/LeagueSystemID>/i)![1], 10)
         : undefined,
       leagueName: readChppTag(block, 'LeagueName'),
+      leagueLevel: block.match(/<LeagueLevelUnit>[\s\S]*?<LeagueLevel>(\d+)<\/LeagueLevel>/i)?.[1]
+        ? parseInt(block.match(/<LeagueLevelUnit>[\s\S]*?<LeagueLevel>(\d+)<\/LeagueLevel>/i)![1], 10)
+        : undefined,
       countryId: block.match(/<Country>[\s\S]*?<CountryID>(\d+)<\/CountryID>/i)?.[1]
         ? parseInt(block.match(/<Country>[\s\S]*?<CountryID>(\d+)<\/CountryID>/i)![1], 10)
         : undefined,

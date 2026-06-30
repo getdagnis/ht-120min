@@ -28,6 +28,7 @@ export interface FixtureMatch {
   ht_match_id: number | null;
   match_type: number | null;
   match_date?: Date;
+  scheduled_for?: string | null;
   home_team: {
     name: string;
     ht_team_id: number;
@@ -110,6 +111,15 @@ export const FixturesView: React.FC<FixturesViewProps> = ({
   const [manualVisibleRoundsCount, setManualVisibleRoundsCount] = React.useState<number | null>(null);
   const visibleRoundsCount = manualVisibleRoundsCount ?? defaultVisibleRoundsCount;
 
+  const resolveMatchDate = React.useCallback(
+    (round: { created_at: string; round_number: number }, match: FixtureMatch) =>
+      match.match_date ??
+      (match.scheduled_for
+        ? new Date(match.scheduled_for)
+        : calculateMatchDate(round.created_at, round.round_number, match.home_team?.country_name)),
+    [],
+  );
+
   return (
     <div className={styles.rounds}>
       {rounds.slice(0, visibleRoundsCount).map((round) => {
@@ -122,26 +132,17 @@ export const FixturesView: React.FC<FixturesViewProps> = ({
 
         const nextRound = rounds[rounds.findIndex((r) => r.id === round.id) + 1];
 
-        const roundDate = round.matches[0]
-          ? calculateMatchDate(
-              round.created_at,
-              round.round_number,
-              round.matches[0].home_team?.country_name,
-            )
-          : null;
+        const roundDate = round.matches[0] ? resolveMatchDate(round, round.matches[0]) : null;
 
-        const formatMatch = (m: FixtureMatch, isNext: boolean, roundNum: number) => {
+        const formatMatch = (m: FixtureMatch, isNext: boolean) => {
           const hasPenaltyShootout =
             m.completed &&
             m.went_120 &&
             m.penalty_shootout_home_goals !== null &&
             m.penalty_shootout_away_goals !== null;
+          const matchDate = resolveMatchDate(round, m);
           const value = isNext
-            ? `${calculateMatchDate(
-                round.created_at,
-                roundNum,
-                m.home_team?.country_name,
-              ).toLocaleDateString('lv-LV', {
+            ? `${matchDate.toLocaleDateString('lv-LV', {
                 day: '2-digit',
                 month: '2-digit',
               })}`
@@ -149,11 +150,7 @@ export const FixturesView: React.FC<FixturesViewProps> = ({
               ? `${m.home_goals} : ${m.away_goals}${hasPenaltyShootout ? ` (${m.penalty_shootout_home_goals}:${m.penalty_shootout_away_goals})` : ''}${m.went_120 ? " 🎯 120'!" : ''}`
               : m.status === 'misarranged'
                 ? 'DNP'
-                : `${calculateMatchDate(
-                    round.created_at,
-                    roundNum,
-                    m.home_team?.country_name,
-                  ).toLocaleDateString('lv-LV', {
+                : `${matchDate.toLocaleDateString('lv-LV', {
                     day: '2-digit',
                     month: '2-digit',
                   })}.`;
@@ -163,10 +160,10 @@ export const FixturesView: React.FC<FixturesViewProps> = ({
 
         const handleCopy = () => {
           let table = `[b]${tournament?.name}[/b]\n[link=http://ht-120min.vercel.app/t/${tournament?.slug}]\n\n[b]ROUND ${round.round_number}, ${allFinished ? 'final results:[/b]' : 'Fixtures:[/b]'}\n[table]${round.matches
-            .map((m) => formatMatch(m, !m.completed && m.status !== 'misarranged', round.round_number))
+            .map((m) => formatMatch(m, !m.completed && m.status !== 'misarranged'))
             .join(' ')}[/table]`;
 
-          table += `\n[b]Next: ROUND ${nextRound.round_number}, fixtures:[/b]\n[table]${nextRound.matches.map((m) => formatMatch(m, true, nextRound.round_number)).join(' ')}[/table]`;
+          table += `\n[b]Next: ROUND ${nextRound.round_number}, fixtures:[/b]\n[table]${nextRound.matches.map((m) => formatMatch(m, true)).join(' ')}[/table]`;
           table += `\nFull fixtures: [link=http://ht-120min.vercel.app/t/${tournament?.slug}?tab=fixtures]`;
           navigator.clipboard.writeText(table);
           setCopied((prev) => ({ ...prev, [round.id]: true }));
@@ -252,11 +249,7 @@ export const FixturesView: React.FC<FixturesViewProps> = ({
             {isExpanded && (
               <div className={styles.matchesGrid}>
                 {round.matches.map((match) => {
-                  const matchDate = calculateMatchDate(
-                    round.created_at,
-                    round.round_number,
-                    match.home_team?.country_name,
-                  );
+                  const matchDate = resolveMatchDate(round, match);
 
                   const day = matchDate.toLocaleString('en-GB', { weekday: 'short' }).toUpperCase();
                   const datePart = matchDate.toLocaleDateString('lv-LV', {

@@ -136,6 +136,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       country_id: extraDetails?.countryId ?? null,
       country_name: extraDetails?.countryName ?? selectedTeam.countryName ?? null,
       league_id: selectedTeam.leagueId ?? null,
+      league_level: extraDetails?.leagueLevel ?? null,
       gender_id: extraDetails?.genderId ?? selectedTeam.genderId ?? 1,
       fanclub_size: extraDetails?.fanclubSize ?? null,
       arena_id: extraDetails?.arenaId ?? null,

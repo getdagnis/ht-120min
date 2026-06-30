@@ -442,7 +442,7 @@ export const TOURNAMENT_DEFAULT: string[] = [
   'May only goal difference separate us',
   'Where strangers meet and legends are made',
   'Different places, different clubs, same addiction',
-  'Where football brings us together and competition does the rest',
+  'Where football brings us together and competition handles the rest',
   'Where great challenges are met and greater excuses are born',
   'A gathering of managers, optimists and legendary excuses',
   'Where football, statistics and good vibes strangely coexist',

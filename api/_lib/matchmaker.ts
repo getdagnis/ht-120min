@@ -20,6 +20,7 @@ export interface MatchmakerTeamOption extends ChppTeamOption {
   friendlyTeamId?: number | null;
   possibleToChallengeMidweek?: boolean;
   possibleToChallengeWeekend?: boolean;
+  leagueLevel?: number;
   is_mock?: boolean;
 }
 
