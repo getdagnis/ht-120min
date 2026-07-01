@@ -27,12 +27,15 @@
   .teamName
     text-align: left
 
-.teamContainer.right
-  justify-content: flex-end
+  @media (min-width: 768px)
+  .teamContainer.right
+    justify-content: flex-end
 
   @media (max-width: 768px)
     justify-content: center
-    gap: 1.5rem
+    align-items: center
+    text-align: center
+    gap: 0.5rem
     width: 100%
     flex: 1 1 auto
 

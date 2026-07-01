@@ -192,8 +192,8 @@ test('selected starts move forward when the chosen window no longer fits the act
 
   assert.equal(replaced.valid, true);
   assert.equal(replaced.mode, 'single');
-  assert.equal(replaced.selectedStartSlotId, 'S95-W3-midweek');
-  assert.ok(replaced.startSlotOptions.some((slot) => slot.htSeason === 95 && slot.htWeek === 3));
+  assert.equal(replaced.selectedStartSlotId, 'S95-W4-midweek');
+  assert.ok(replaced.startSlotOptions.some((slot) => slot.htSeason === 95 && slot.htWeek === 4));
 });
 
 test('format availability disables impossible schedules and explains why', () => {
@@ -222,23 +222,26 @@ test('next-season W5 is discovered in the valid start list', () => {
   assert.equal(draft.selectedStartSlotId, 'S94-W15-midweek');
 });
 
-test('W3-W4 cup-likely weeks can be selected while W1-W2 remain disabled display slots', () => {
+test('W4-W6 cup weeks stay selectable while W1-W3 remain disabled display slots', () => {
   const draft = buildScheduleDraft({
     teams: fourTeams,
     mode: 'single',
-    startSlotId: 'S95-W3-midweek',
+    startSlotId: 'S95-W4-midweek',
     now: new Date('2026-07-17T00:00:00Z'),
   });
 
   assert.equal(draft.valid, true);
-  assert.equal(draft.selectedStartSlotId, 'S95-W3-midweek');
-  assert.ok(draft.startSlotOptions.some((slot) => slot.id === 'S95-W3-midweek'));
+  assert.equal(draft.selectedStartSlotId, 'S95-W4-midweek');
   assert.ok(draft.startSlotOptions.some((slot) => slot.id === 'S95-W4-midweek'));
+  assert.ok(draft.startSlotOptions.some((slot) => slot.id === 'S95-W5-midweek'));
+  assert.ok(draft.startSlotOptions.some((slot) => slot.id === 'S95-W6-midweek'));
 
   const week1 = draft.allSlotOptions.find((slot) => slot.id === 'S95-W1-blocked');
   const week2 = draft.allSlotOptions.find((slot) => slot.id === 'S95-W2-blocked');
+  const week3 = draft.allSlotOptions.find((slot) => slot.id === 'S95-W3-blocked');
   assert.equal(week1?.selectable, false);
   assert.equal(week2?.selectable, false);
+  assert.equal(week3?.selectable, false);
 });
 
 test('start options are capped at eight weeks ahead', () => {

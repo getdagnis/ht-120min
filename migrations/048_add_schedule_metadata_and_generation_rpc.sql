@@ -254,12 +254,8 @@ BEGIN
     v_round_ht_season := 94 + FLOOR(v_round_week_index::numeric / 16)::integer;
     v_round_week_start := DATE '2026-03-30' + (v_round_week_index * 7);
 
-    IF v_round_ht_week BETWEEN 1 AND 2 THEN
+    IF v_round_ht_week BETWEEN 1 AND 3 THEN
       RAISE EXCEPTION 'Schedule payload crosses into blocked cup week W%', v_round_ht_week USING ERRCODE = '22023';
-    END IF;
-
-    IF v_round_ht_week BETWEEN 3 AND 4 AND v_round_index > 2 THEN
-      RAISE EXCEPTION 'Cup-likely weeks W3-W4 are only allowed for rounds 1 and 2' USING ERRCODE = '22023';
     END IF;
 
     IF v_round_slot_kind = 'midweek_friendly' AND v_round_local_date <> v_round_week_start + 2 THEN
@@ -361,7 +357,7 @@ BEGIN
       v_match_week_index := FLOOR(((v_match_local_date - DATE '2026-03-30')::numeric) / 7)::integer;
       v_match_ht_week := ((v_match_week_index % 16) + 16) % 16 + 1;
       v_match_ht_season := 94 + FLOOR(v_match_week_index::numeric / 16)::integer;
-      IF v_match_ht_week BETWEEN 1 AND 2 THEN
+      IF v_match_ht_week BETWEEN 1 AND 3 THEN
         RAISE EXCEPTION 'Schedule payload crosses into a blocked cup week' USING ERRCODE = '22023';
       END IF;
 
@@ -498,4 +494,4 @@ GRANT EXECUTE ON FUNCTION public.generate_tournament_schedule(uuid, text, jsonb,
 
 COMMIT;
 
--- DONE!
+-- MIGRATION APPLIED!

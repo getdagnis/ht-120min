@@ -278,19 +278,6 @@ function evaluateDraftFromStartSlot(
     }
 
     if (slot.selectable) {
-      if ((slot.htWeek === 3 || slot.htWeek === 4) && collectedSlots.length >= 2) {
-        const reason = `Round ${collectedSlots.length + 1} would fall in cup-likely week W${slot.htWeek}; W3-W4 are only allowed for rounds 1 and 2.`;
-        blockingReasons.push(reason);
-        return {
-          valid: false,
-          reason,
-          roundCount,
-          rounds: [] as ScheduleDraftRound[],
-          blockingReasons,
-          warnings: [] as string[],
-          consumesWeek15WeekendFriendly: false,
-        };
-      }
       collectedSlots.push(slot);
     }
   }

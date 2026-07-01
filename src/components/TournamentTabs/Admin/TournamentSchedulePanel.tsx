@@ -3,8 +3,9 @@ import { Info } from 'phosphor-react';
 import { Button } from '../../Button/Button';
 import { SectionCard } from '../../Card/SectionCard';
 import adminStyles from '../../../pages/Public/TournamentAdmin.module.sass';
-import { formatCalendarDate } from '../../../utils/hattrick-calendar';
+import { formatCalendarDate, formatCalendarDateWithWeek, getCupWeekDecoration } from '../../../utils/hattrick-calendar';
 import type { ScheduleDraftPreview, ScheduleMode } from '../../../utils/schedule-draft';
+import type { RescheduleDraftPreview } from '../../../utils/reschedule-draft';
 
 interface TournamentSchedulePanelProps {
   isGenerated: boolean;
@@ -23,6 +24,11 @@ interface TournamentSchedulePanelProps {
     registrationClosedAt?: string | null;
     scheduleGeneratedAt?: string | null;
   };
+  rescheduleDraft?: RescheduleDraftPreview | null;
+  onRescheduleFromRoundChange?: (roundNumber: number) => void;
+  onRescheduleStartSlotIdChange?: (value: string) => void;
+  isRescheduling?: boolean;
+  onReschedule?: () => void;
 }
 
 function formatModeLabel(mode: ScheduleMode) {
@@ -44,13 +50,16 @@ function formatSeasonWeek(slot: { ht120minSeason: number; htWeek: number }, incl
   return `S${slot.ht120minSeason} W${slot.htWeek}${includeWeekend ? ' (weekend)' : ''}`;
 }
 
-function formatStartOption(slot: ScheduleDraftPreview['startSlotOptions'][number]) {
+function formatStartOption(slot: ScheduleDraftPreview['startSlotOptions'][number], options?: { current?: boolean }) {
+  const cupDecoration = getCupWeekDecoration(slot.htWeek);
+  const current = options?.current ? ' (current)' : '';
   if (!slot.selectable && slot.kind === 'blocked_cup_week') {
-    return `🗓 Week ${slot.htWeek} / ${formatShortDate(slot.nominalDate)} • ⛔️ Cup`;
+    return `Week ${slot.htWeek} / ${formatShortDate(slot.nominalDate)} • ⛔️ ${cupDecoration?.label ?? 'Cup'}${current}`;
   }
-  const cupLikely = slot.htWeek === 3 || slot.htWeek === 4 ? ' • ⚠️ Cup Likely' : '';
-  const weekend = slot.kind === 'week15_weekend_friendly' ? ' (weekend-friendly)' : '';
-  return `🗓 Week ${slot.htWeek} / ${formatShortDate(slot.nominalDate)}${weekend}${cupLikely}`;
+
+  const cupSuffix = cupDecoration ? ` • ${cupDecoration.tone === 'warning' ? '⚠️' : '🟢'} ${cupDecoration.label}` : '';
+  const weekend = slot.kind === 'week15_weekend_friendly' ? ' (weekend)' : '';
+  return `Week ${slot.htWeek} / ${formatShortDate(slot.nominalDate)}${weekend}${cupSuffix}${current}`;
 }
 
 function formatLeadTime(daysUntilStart: number | null) {
@@ -76,15 +85,7 @@ function formatShortDate(date: Date) {
 }
 
 function formatLongDate(date: Date) {
-  return new Intl.DateTimeFormat('en-GB', {
-    timeZone: 'Europe/Stockholm',
-    weekday: 'long',
-    day: '2-digit',
-    month: '2-digit',
-    year: 'numeric',
-  })
-    .format(date)
-    .replace(/\//g, '.');
+  return formatCalendarDateWithWeek(date, 'long');
 }
 
 function formatModeSummary(mode: ScheduleMode) {
@@ -103,11 +104,16 @@ export const TournamentSchedulePanel: React.FC<TournamentSchedulePanelProps> = (
   isGenerating,
   onGenerate,
   tournamentTeamLimit,
+  rescheduleDraft,
+  onRescheduleFromRoundChange,
+  onRescheduleStartSlotIdChange,
+  isRescheduling = false,
+  onReschedule,
 }) => {
   const [expandedRounds, setExpandedRounds] = useState<Record<number, boolean>>({});
   const plannerTeamCount = getPlannerTeamCount(draft, tournamentTeamLimit);
   const selectedStartWarning =
-    draft.selectedStartSlot && (draft.selectedStartSlot.htWeek === 3 || draft.selectedStartSlot.htWeek === 4)
+    draft.selectedStartSlot && getCupWeekDecoration(draft.selectedStartSlot.htWeek)
       ? null
       : getSelectedStartWarning(draft.daysUntilStart);
   const validStartSlotIds = new Set(draft.startSlotOptions.map((slot) => slot.id));
@@ -134,6 +140,29 @@ export const TournamentSchedulePanel: React.FC<TournamentSchedulePanelProps> = (
     ? `Closest start date: ${formatCalendarDate(draft.selectedStartSlot.nominalDate)} (${formatLeadTime(draft.daysUntilStart)})`
     : 'No valid start window found';
   const lastRound = draft.rounds[draft.rounds.length - 1] || null;
+  const rescheduleValidStartSlotIds = new Set(rescheduleDraft?.startSlotOptions.map((slot) => slot.id) ?? []);
+  const rescheduleDropdownOptions = (rescheduleDraft?.allSlotOptions ?? []).flatMap((slot, index, slots) => {
+    const previous = slots[index - 1];
+    const header =
+      !previous || previous.ht120minSeason !== slot.ht120minSeason
+        ? [
+            {
+              kind: 'header' as const,
+              id: `reschedule-season-${slot.ht120minSeason} jump`,
+              label: ``,
+            },
+            {
+              kind: 'header' as const,
+              id: `reschedule-season-${slot.ht120minSeason}`,
+              label: `HT-120min Season ${slot.ht120minSeason}`,
+            },
+          ]
+        : [];
+    return [...header, { kind: 'slot' as const, slot }];
+  });
+  const rescheduleLastRound = rescheduleDraft?.rounds[rescheduleDraft.rounds.length - 1] || null;
+  const hasSelectedRescheduleRound = Boolean(rescheduleDraft?.selectedFromRoundNumber);
+  const hasSelectedRescheduleStart = Boolean(rescheduleDraft?.selectedStartSlot);
 
   return (
     <SectionCard
@@ -219,7 +248,7 @@ export const TournamentSchedulePanel: React.FC<TournamentSchedulePanelProps> = (
                   >
                     <strong>Round {round.roundNumber}</strong>
                     <span>
-                      {round.displayDateLabel} •{' '}
+                      • {round.displayDateLabel} •{' '}
                       {formatSeasonWeek(round.slot, round.slot.kind === 'week15_weekend_friendly')}
                     </span>
                   </button>
@@ -274,6 +303,164 @@ export const TournamentSchedulePanel: React.FC<TournamentSchedulePanelProps> = (
           </div>
 
           <p className="center w-100">Generating a schedule also closes registration and locks the selected start.</p>
+        </div>
+      ) : rescheduleDraft ? (
+        <div className={adminStyles.genOptions}>
+          <div className={adminStyles.scheduleIntro}>
+            <h2>Regenerate schedule</h2>
+            <p className={adminStyles.scheduleSubtitle}>Move future unarranged rounds without changing pairings.</p>
+          </div>
+
+          <div className={adminStyles.startSlotGroup}>
+            <label className={adminStyles.startSlotLabel}>Regenerate from round</label>
+            <select
+              className={adminStyles.startSlotSelect}
+              value={rescheduleDraft.selectedFromRoundNumber || ''}
+              onChange={(event) => onRescheduleFromRoundChange?.(Number(event.target.value))}
+              disabled={
+                !onRescheduleFromRoundChange || rescheduleDraft.roundChoices.every((choice) => !choice.available)
+              }
+            >
+              <option value="">Select...</option>
+              {rescheduleDraft.roundChoices.map((choice) => (
+                <option key={choice.roundNumber} value={choice.roundNumber} disabled={!choice.available}>
+                  {choice.label}
+                  {!choice.available && choice.reason ? ` - ${choice.reason}` : ''}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          {hasSelectedRescheduleRound && (
+            <div className={adminStyles.startSlotGroup}>
+              <label className={adminStyles.startSlotLabel}>New start date</label>
+              <select
+                className={adminStyles.startSlotSelect}
+                value={rescheduleDraft.selectedStartSlotId || ''}
+                onChange={(event) => onRescheduleStartSlotIdChange?.(event.target.value)}
+                disabled={!onRescheduleStartSlotIdChange || rescheduleDraft.startSlotOptions.length === 0}
+              >
+                <option value="">Select...</option>
+                {rescheduleDropdownOptions.map((option) =>
+                  option.kind === 'header' ? (
+                    <option key={option.id} value={option.id} disabled>
+                      {option.label}
+                    </option>
+                  ) : (
+                    <option
+                      key={option.slot.id}
+                      value={option.slot.id}
+                      disabled={
+                        !option.slot.selectable ||
+                        !rescheduleValidStartSlotIds.has(option.slot.id) ||
+                        option.slot.id === rescheduleDraft.currentStartSlotId
+                      }
+                    >
+                      {formatStartOption(option.slot, {
+                        current: option.slot.id === rescheduleDraft.currentStartSlotId,
+                      })}
+                    </option>
+                  ),
+                )}
+              </select>
+              {rescheduleDraft.daysUntilStart !== null &&
+                rescheduleDraft.daysUntilStart <= 4 &&
+                !(
+                  rescheduleDraft.selectedStartSlot && getCupWeekDecoration(rescheduleDraft.selectedStartSlot.htWeek)
+                ) && <p className={adminStyles.startSlotWarning}>⚠️ In {rescheduleDraft.daysUntilStart} days</p>}
+            </div>
+          )}
+
+          {hasSelectedRescheduleStart &&
+            (rescheduleDraft.previousRounds.length > 0 || rescheduleDraft.rounds.length > 0) && (
+              <div className={adminStyles.schedulePreview}>
+                <h3>Calendar preview</h3>
+                {rescheduleDraft.previousRounds.length > 0 && (
+                  <>
+                    <div className={adminStyles.previewSectionLabel}>Unchanged rounds</div>
+                    {rescheduleDraft.previousRounds.map((round) => (
+                      <div key={round.roundId} className={`${adminStyles.previewRow} ${adminStyles.previewRowMuted}`}>
+                        <div className={`${adminStyles.previewToggle} ${adminStyles.previewToggleStatic}`}>
+                          <strong>Round {round.roundNumber}</strong>
+                          <span>
+                            {round.displayDateLabel ? `• ${round.displayDateLabel}` : '• Date unavailable'}
+                            {round.slot
+                              ? ` • ${formatSeasonWeek(round.slot, round.slot.kind === 'week15_weekend_friendly')}`
+                              : ''}
+                          </span>
+                        </div>
+                      </div>
+                    ))}
+                  </>
+                )}
+
+                {rescheduleDraft.rounds.length > 0 && (
+                  <div className={adminStyles.previewSectionLabel}>Regenerated rounds</div>
+                )}
+                {rescheduleDraft.rounds.map((round) => (
+                  <div key={round.roundNumber} className={adminStyles.previewRow}>
+                    <button
+                      type="button"
+                      className={adminStyles.previewToggle}
+                      onClick={() =>
+                        setExpandedRounds((current) => ({
+                          ...current,
+                          [round.roundNumber]: !current[round.roundNumber],
+                        }))
+                      }
+                    >
+                      <strong>Round {round.roundNumber}</strong>
+                      <span>
+                        • {round.displayDateLabel} •{' '}
+                        {formatSeasonWeek(round.slot, round.slot.kind === 'week15_weekend_friendly')}
+                      </span>
+                    </button>
+                    {expandedRounds[round.roundNumber] && (
+                      <div className={adminStyles.previewMatches}>
+                        {round.matches.map((match) => (
+                          <div key={match.matchId}>
+                            {match.isBye
+                              ? `${match.homeTeamName === 'BYE' ? match.awayTeamName : match.homeTeamName} has a BYE`
+                              : `${match.homeTeamName} vs ${match.awayTeamName}`}
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                ))}
+              </div>
+            )}
+
+          {rescheduleDraft.valid && rescheduleDraft.selectedStartSlot && rescheduleLastRound && (
+            <div className={adminStyles.scheduleNotice}>
+              <h3>Just to check...</h3>
+              <span>
+                Move <strong>Round {rescheduleDraft.selectedFromRoundNumber}</strong> from{' '}
+                <strong>{rescheduleDraft.currentRoundDateLabel || 'its current date'}</strong> to{' '}
+                <strong>{formatLongDate(rescheduleDraft.selectedStartSlot.nominalDate)}</strong>. Any following rounds
+                will follow automatically. Pairings remain unchanged, only dates are rescheduled. Previous rounds are
+                unaffected.
+              </span>
+            </div>
+          )}
+
+          {hasSelectedRescheduleRound && !rescheduleDraft.valid && rescheduleDraft.reason && (
+            <p className={adminStyles.smallNote}>{rescheduleDraft.reason}</p>
+          )}
+
+          {hasSelectedRescheduleStart && (
+            <div className={adminStyles.scheduleAction}>
+              <Button
+                variant="primary"
+                size="lg"
+                fullWidth
+                onClick={onReschedule}
+                disabled={!rescheduleDraft.valid || isRescheduling || !onReschedule}
+              >
+                {isRescheduling ? 'Regenerating...' : 'Regenerate schedule'}
+              </Button>
+            </div>
+          )}
         </div>
       ) : (
         <div className={adminStyles.scheduleLockedState}>

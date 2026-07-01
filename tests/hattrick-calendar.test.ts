@@ -58,27 +58,30 @@ test('signed day differences keep past slots distinguishable from display values
   assert.equal(getDaysUntil(yesterday, now), 0);
 });
 
-test('cup weeks distinguish blocked W1-W2 from selectable W3-W4 warnings', () => {
-  const slots = buildCalendarSlots(new Date('2026-03-30T00:00:00Z'), 4);
+test('cup weeks distinguish blocked W1-W3 from selectable W4-W6 warnings', () => {
+  const slots = buildCalendarSlots(new Date('2026-03-30T00:00:00Z'), 6);
   const blockedWeeks = slots.filter((slot) => slot.kind === 'blocked_cup_week');
-  const cupLikelyWeeks = slots.filter((slot) => slot.htWeek === 3 || slot.htWeek === 4);
+  const warnedWeeks = slots.filter((slot) => slot.htWeek >= 4 && slot.htWeek <= 6);
 
-  assert.equal(blockedWeeks.length, 2);
+  assert.equal(blockedWeeks.length, 3);
   assert.equal(isBlockedCupWeek(1), true);
   assert.equal(isBlockedCupWeek(2), true);
-  assert.equal(isBlockedCupWeek(3), false);
+  assert.equal(isBlockedCupWeek(3), true);
   assert.equal(isBlockedCupWeek(4), false);
   assert.equal(isBlockedCupWeek(5), false);
   assert.equal(slots.some((slot) => slot.htWeek === 16 && slot.kind === 'week15_weekend_friendly'), false);
 
   for (const slot of blockedWeeks) {
     assert.equal(slot.selectable, false);
-    assert.match(slot.blockedReason || '', /Cup week W[1-2] is blocked/);
+    assert.match(slot.blockedReason || '', /Cup week W[1-3] is blocked/);
   }
 
-  for (const slot of cupLikelyWeeks) {
+  assert.equal(warnedWeeks[0]?.warning, 'Cup ~60% globally');
+  assert.equal(warnedWeeks[1]?.warning, 'Cup ~30% globally');
+  assert.equal(warnedWeeks[2]?.warning, 'Cup ~15% globally');
+
+  for (const slot of warnedWeeks) {
     assert.equal(slot.selectable, true);
-    assert.equal(slot.warning, 'Cup Likely');
   }
 });
 
@@ -108,8 +111,17 @@ test('week 15 weekend kickoff lands on the weekend and uses the canonical weeken
   assert.equal(scheduled!.toISOString(), '2026-07-12T08:00:00.000Z');
 });
 
-test('weekend kickoff lookup requires a resolvable weekend division when league level is missing', () => {
-  assert.equal(getWeekendKickoffTime('Sweden', null), null);
+test('weekend kickoff lookup falls back to the broadest division band when league level is missing', () => {
+  const missingSwedishLevel = getWeekendKickoffTime('Sweden', null);
+  assert.ok(missingSwedishLevel);
+  assert.equal(missingSwedishLevel!.day, 0);
+  assert.equal(missingSwedishLevel!.time, '10:00');
+  assert.equal(missingSwedishLevel!.reason, 'Missing league level; using broadest weekend division band');
+
+  const missingGermanLevel = getWeekendKickoffTime('Germany', null);
+  assert.ok(missingGermanLevel);
+  assert.equal(missingGermanLevel!.day, 6);
+  assert.equal(missingGermanLevel!.time, '18:00');
 
   const resolved = getWeekendKickoffTime('Sweden', 6);
   assert.ok(resolved);

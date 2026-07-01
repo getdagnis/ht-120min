@@ -48,7 +48,7 @@ export function useLiveMatches(tournamentId: string | undefined, matches: Match[
 
       const potentialLive = currentMatches.filter((m) => {
         if (m.completed) return false;
-        if (!m.ht_match_id || m.status !== 'arranged') return false;
+        if (!m.ht_match_id || !['arranged', 'ongoing', 'finished'].includes(m.status)) return false;
         const matchDate = m.match_date ? new Date(m.match_date) : null;
         return matchDate && now.getTime() >= matchDate.getTime() - 5 * 60 * 1000;
       });

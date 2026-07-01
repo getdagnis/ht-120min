@@ -5,6 +5,7 @@ import { FixtureCard } from '../../components/FixtureCard/FixtureCard';
 import { ArrowClockwise, CopySimple, Check } from 'phosphor-react';
 import { Tooltip } from 'react-tooltip';
 import { calculateMatchDate } from '../../utils/ht-data';
+import { getHattrickWeekDetails } from '../../utils/hattrick-calendar';
 import styles from '../../pages/Public/TournamentView.module.sass';
 
 export interface FixtureMatch {
@@ -133,6 +134,7 @@ export const FixturesView: React.FC<FixturesViewProps> = ({
         const nextRound = rounds[rounds.findIndex((r) => r.id === round.id) + 1];
 
         const roundDate = round.matches[0] ? resolveMatchDate(round, round.matches[0]) : null;
+        const roundWeek = roundDate ? getHattrickWeekDetails(roundDate) : null;
 
         const formatMatch = (m: FixtureMatch, isNext: boolean) => {
           const hasPenaltyShootout =
@@ -181,9 +183,15 @@ export const FixturesView: React.FC<FixturesViewProps> = ({
               <div className={styles.roundHeader}>
                 <>
                   <span>Round {round.round_number}</span>
-                  {roundDate && (
+                  {roundDate && roundWeek && (
                     <span className={styles.roundDate}>
-                      {roundDate.toLocaleDateString('lv-LV', { day: '2-digit', month: '2-digit', year: 'numeric' })}
+                      HT Week {roundWeek.htWeek} •{' '}
+                      {roundDate.toLocaleDateString('lv-LV', {
+                        timeZone: 'Europe/Stockholm',
+                        day: '2-digit',
+                        month: '2-digit',
+                        year: 'numeric',
+                      })}
                     </span>
                   )}
                 </>

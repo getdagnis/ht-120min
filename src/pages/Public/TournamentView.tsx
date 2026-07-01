@@ -13,6 +13,7 @@ import { validateTeamEligibility } from '../../utils/team-eligibility';
 import { HATTRICK_LEAGUES, getLeagueIdByName, normalizeLeagueLimit } from '../../utils/leagues';
 import { useLiveMatches } from '../../hooks/useLiveMatches';
 import { buildScheduleDraft, serializeScheduleDraftForRpc, type ScheduleMode } from '../../utils/schedule-draft';
+import { buildRescheduleDraft, serializeRescheduleDraftForRpc } from '../../utils/reschedule-draft';
 import { getMatchDateForRound as resolveMatchDateForRound } from '../../utils/match-schedule';
 
 import { Tooltip } from 'react-tooltip';
@@ -66,6 +67,7 @@ interface MatchWithTeams {
   status: 'not_arranged' | 'arranged' | 'ongoing' | 'misarranged' | 'finished';
   ht_match_id: number | null;
   match_type: number | null;
+  venue_type?: 'home_away' | null;
   scheduled_for?: string | null;
   schedule_slot_type?: 'midweek_friendly' | 'weekend_friendly' | 'week15_weekend_friendly' | null;
   home_team: {
@@ -197,6 +199,7 @@ export const TournamentView: React.FC = () => {
   const [newTeamName, setNewTeamName] = useState('');
   const [isSavingTeam, setIsSavingTeam] = useState(false);
   const [isGenerating, setIsGenerating] = useState(false);
+  const [isRescheduling, setIsRescheduling] = useState(false);
   const [editingMatch, setEditingMatch] = useState<string | null>(null);
   const [matchData, setMatchData] = useState<Record<string, Partial<MatchWithTeams>>>({});
   const [replacingTeamId, setReplacingTeamId] = useState<string | null>(null);
@@ -205,6 +208,8 @@ export const TournamentView: React.FC = () => {
   const [isFetchingTeamData, setIsFetchingTeamData] = useState(false);
   const [scheduleMode, setScheduleMode] = useState<ScheduleMode>('single');
   const [scheduleStartSlotId, setScheduleStartSlotId] = useState('');
+  const [rescheduleFromRoundNumber, setRescheduleFromRoundNumber] = useState<number | null>(null);
+  const [rescheduleStartSlotId, setRescheduleStartSlotId] = useState('');
 
   // Tournament settings states
   const [editName, setEditName] = useState('');
@@ -386,6 +391,44 @@ export const TournamentView: React.FC = () => {
     () => (scheduleDraft.valid && scheduleDraft.selectedStartSlot ? serializeScheduleDraftForRpc(scheduleDraft) : null),
     [scheduleDraft],
   );
+  const rescheduleInputRounds = useMemo(
+    () =>
+      rounds.map((round) => ({
+        id: round.id,
+        roundNumber: round.round_number,
+        matches: round.matches.map((match) => ({
+          id: match.id,
+          homeTeamId: match.home_team_id,
+          awayTeamId: match.away_team_id,
+          status: match.status ?? 'not_arranged',
+          completed: match.completed,
+          htMatchId: match.ht_match_id,
+          scheduledFor: match.scheduled_for ?? null,
+          matchDate: match.match_date ?? null,
+          scheduleSlotType: match.schedule_slot_type ?? null,
+          venueType: match.venue_type ?? 'home_away',
+        })),
+      })),
+    [rounds],
+  );
+  const rescheduleDraft = useMemo(
+    () =>
+      buildRescheduleDraft({
+        teams: activeScheduleTeams,
+        rounds: rescheduleInputRounds,
+        fromRoundNumber: rescheduleFromRoundNumber,
+        startSlotId: rescheduleStartSlotId || null,
+        now: new Date(),
+      }),
+    [activeScheduleTeams, rescheduleFromRoundNumber, rescheduleInputRounds, rescheduleStartSlotId],
+  );
+  const serializedRescheduleDraft = useMemo(
+    () =>
+      rescheduleDraft.valid && rescheduleDraft.selectedStartSlot
+        ? serializeRescheduleDraftForRpc(rescheduleDraft)
+        : null,
+    [rescheduleDraft],
+  );
   const resolvedScheduleCollapsed = scheduleCollapseOverride ?? isGenerated;
 
   const reconcileScheduleSelection = useCallback(
@@ -416,6 +459,33 @@ export const TournamentView: React.FC = () => {
     [reconcileScheduleSelection, scheduleDraft.mode],
   );
 
+  const reconcileRescheduleSelection = useCallback(
+    (nextFromRoundNumber: number | null, nextStartSlotId: string | null) => {
+      const nextDraft = buildRescheduleDraft({
+        teams: activeScheduleTeams,
+        rounds: rescheduleInputRounds,
+        fromRoundNumber: nextFromRoundNumber,
+        startSlotId: nextStartSlotId,
+        now: new Date(),
+      });
+      setRescheduleFromRoundNumber(nextDraft.selectedFromRoundNumber);
+      setRescheduleStartSlotId(nextDraft.selectedStartSlotId || '');
+    },
+    [activeScheduleTeams, rescheduleInputRounds],
+  );
+
+  const handleRescheduleFromRoundChange = useCallback((nextRoundNumber: number) => {
+    setRescheduleFromRoundNumber(nextRoundNumber || null);
+    setRescheduleStartSlotId('');
+  }, []);
+
+  const handleRescheduleStartSlotIdChange = useCallback(
+    (nextStartSlotId: string) => {
+      reconcileRescheduleSelection(rescheduleFromRoundNumber, nextStartSlotId || null);
+    },
+    [reconcileRescheduleSelection, rescheduleFromRoundNumber],
+  );
+
   const getMatchDateForRound = useCallback(
     (round: RoundWithMatches, match: MatchWithTeams) =>
       resolveMatchDateForRound(round, match, match.home_team?.country_name),
@@ -438,7 +508,9 @@ export const TournamentView: React.FC = () => {
       setEditCountryLimit(normalizeLeagueLimit(tournamentData.country_limit));
       setScheduleMode((tournamentData.schedule_mode as ScheduleMode | null) || 'single');
       const storedStartSlot = tournamentData.schedule_start_slot
-        ? buildCalendarSlots(new Date(), 160).find((slot) => slot.nominalDate.toISOString() === tournamentData.schedule_start_slot)
+        ? buildCalendarSlots(new Date(), 160).find(
+            (slot) => slot.nominalDate.toISOString() === tournamentData.schedule_start_slot,
+          )
         : null;
       setScheduleStartSlotId(storedStartSlot?.id || '');
       setIsTest(tournamentData.is_test || false);
@@ -730,7 +802,8 @@ export const TournamentView: React.FC = () => {
   }, [lastRefresh]);
 
   const upcomingRoundIndex = rounds.findIndex((r) => r.matches.some((m) => !m.completed && m.status !== 'misarranged'));
-  const defaultVisibleRoundsCount = upcomingRoundIndex >= 0 ? Math.min(rounds.length, upcomingRoundIndex + 2) : rounds.length;
+  const defaultVisibleRoundsCount =
+    upcomingRoundIndex >= 0 ? Math.min(rounds.length, upcomingRoundIndex + 2) : rounds.length;
 
   const fetchPendingJoinData = useCallback(
     async (token: string) => {
@@ -962,10 +1035,10 @@ export const TournamentView: React.FC = () => {
       const response = await fetch(`/api/teams/refresh-fixtures?tournament_id=${tournament.id}`);
       if (!response.ok) throw new Error('Failed to refresh fixtures');
 
-      // 2. Also trigger a live check for arranged/ongoing matches and any completed matches.
-      //    Completed matches are included so venue reversals and other stale result data can be re-synced.
+      // 2. Also trigger a live check for HT-linked matches that may have result data.
+      //    Finished-but-incomplete rows are included so an accidental manual clear can be recovered from CHPP.
       const matchesToSync = allMatches.filter(
-        (m) => m.ht_match_id && (['arranged', 'ongoing'].includes(m.status) || m.completed),
+        (m) => m.ht_match_id && (['arranged', 'ongoing', 'finished'].includes(m.status) || m.completed),
       );
 
       if (matchesToSync.length > 0) {
@@ -1562,24 +1635,66 @@ export const TournamentView: React.FC = () => {
     }
   };
 
-  const updateMatch = async (matchId: string, isScrap: boolean = false) => {
+  const regenerateSchedule = async () => {
+    if (!rescheduleDraft.valid || !rescheduleDraft.selectedStartSlot || !rescheduleDraft.selectedFromRoundNumber) {
+      alert(rescheduleDraft.reason || 'Choose a valid round and start date first.');
+      return;
+    }
+    if (!serializedRescheduleDraft) {
+      alert('Unable to serialize the selected reschedule draft.');
+      return;
+    }
+
+    const scheduleAdminPassword = password.trim() || tournament?.admin_password || '';
+    if (!scheduleAdminPassword) {
+      alert('Unable to confirm organizer access. Please reload the page and try again.');
+      return;
+    }
+
+    const confirmMsg = `Regenerate schedule from round ${rescheduleDraft.selectedFromRoundNumber}?\n\nThis will only move future unarranged rounds. Pairings, BYEs, results, arranged matches, and played matches stay unchanged.`;
+    if (!window.confirm(confirmMsg)) return;
+
+    setIsRescheduling(true);
+    try {
+      const { error } = await supabase.rpc('reschedule_tournament_rounds', {
+        p_tournament_id: tournament?.id,
+        p_admin_password: scheduleAdminPassword,
+        p_from_round_number: rescheduleDraft.selectedFromRoundNumber,
+        p_schedule_payload: serializedRescheduleDraft,
+        p_schedule_start_slot: rescheduleDraft.selectedStartSlot.nominalDate.toISOString(),
+        p_include_week15_weekend_friendly: rescheduleDraft.consumesWeek15WeekendFriendly,
+      });
+
+      if (error) throw error;
+      await fetchData();
+    } catch (err: unknown) {
+      const message =
+        err instanceof Error
+          ? err.message
+          : err && typeof err === 'object' && 'message' in err && typeof err.message === 'string'
+            ? err.message
+            : 'Unknown error';
+      alert('Error regenerating schedule: ' + message);
+    } finally {
+      setIsRescheduling(false);
+    }
+  };
+
+  const updateMatch = async (matchId: string) => {
     const data = matchData[matchId];
+    if (data?.home_goals == null || data?.away_goals == null) {
+      alert('Enter both scores before saving the result.');
+      return;
+    }
+
     const { error } = await supabase
       .from('matches')
       .update({
-        home_goals: isScrap
-          ? null
-          : data && data.home_goals !== undefined && data.home_goals !== null
-            ? parseInt(String(data.home_goals))
-            : null,
-        away_goals: isScrap
-          ? null
-          : data && data.away_goals !== undefined && data.away_goals !== null
-            ? parseInt(String(data.away_goals))
-            : null,
-        went_120: isScrap ? false : (data?.went_120 ?? false),
-        total_minutes: isScrap ? 90 : data?.total_minutes || 90,
-        completed: isScrap ? false : true,
+        home_goals: parseInt(String(data.home_goals)),
+        away_goals: parseInt(String(data.away_goals)),
+        went_120: data?.went_120 ?? false,
+        total_minutes: data?.total_minutes || 90,
+        completed: true,
       })
       .eq('id', matchId);
 
@@ -1600,7 +1715,7 @@ export const TournamentView: React.FC = () => {
 
   const isMobile = window.innerWidth <= 620;
   const publicUrl = `${window.location.origin}/t/${slug}`;
-  const publicUrlDisplay = isMobile ? `.../t/${slug}` : publicUrl;
+  const publicUrlDisplay = isMobile ? `...${slug}` : publicUrl;
 
   // Find the first round that is not fully completed
   const currentRoundId = rounds.find((r) => r.matches.some((m) => !m.completed))?.id;
@@ -2023,7 +2138,7 @@ export const TournamentView: React.FC = () => {
                   {!canLoginAsOrganizer && adminAuthError && (
                     <p className={styles.authError}>Invalid password. Please try again.</p>
                   )}
-                  <Button type="submit" variant="primary" size="md">
+                  <Button type="submit" variant="primaryDanger" size="md">
                     Login <ArrowRight size={18} weight="bold" />
                   </Button>
                 </form>
@@ -2069,19 +2184,18 @@ export const TournamentView: React.FC = () => {
                           ) : (
                             <span className={adminStyles.label}>URL:</span>
                           )}
-                          <a href={publicUrl} target="_blank">
+                          <a href={publicUrl} target="_blank" className={styles.publicUrl}>
                             <code>{publicUrlDisplay}</code>
                           </a>
-                          <Button
-                            size={isMobile ? 'xs' : 'sm'}
-                            variant="outline"
+                          <CopySimple
+                            size={24}
                             onClick={() => {
                               navigator.clipboard.writeText(publicUrl);
                               alert('URL copied!');
                             }}
-                          >
-                            <CopySimple size={16} />
-                          </Button>
+                            weight="bold"
+                            className={adminStyles.copyIcon}
+                          />
                         </div>
                         <div className={adminStyles.metaItem}>
                           {!isMobile ? (
@@ -2091,16 +2205,15 @@ export const TournamentView: React.FC = () => {
                           )}
 
                           <code>{tournament.admin_password}</code>
-                          <Button
-                            size={isMobile ? 'xs' : 'sm'}
-                            variant="outline"
+                          <CopySimple
+                            size={24}
                             onClick={() => {
                               navigator.clipboard.writeText(tournament.admin_password);
                               alert("Password copied! Don't lose it.");
                             }}
-                          >
-                            <CopySimple size={16} />
-                          </Button>
+                            weight="bold"
+                            className={adminStyles.copyIcon}
+                          />
                         </div>
                       </div>
 
@@ -2272,7 +2385,8 @@ export const TournamentView: React.FC = () => {
                       onToggleCollapse={() => {
                         const next = !resolvedScheduleCollapsed;
                         if (slug) setScheduleCollapseOverrides((current) => ({ ...current, [slug]: next }));
-                        if (scheduleCollapseStorageKey) localStorage.setItem(scheduleCollapseStorageKey, JSON.stringify(next));
+                        if (scheduleCollapseStorageKey)
+                          localStorage.setItem(scheduleCollapseStorageKey, JSON.stringify(next));
                       }}
                       draft={scheduleDraft}
                       onScheduleModeChange={handleScheduleModeChange}
@@ -2305,7 +2419,8 @@ export const TournamentView: React.FC = () => {
                       onToggleCollapse={() => {
                         const next = !resolvedScheduleCollapsed;
                         if (slug) setScheduleCollapseOverrides((current) => ({ ...current, [slug]: next }));
-                        if (scheduleCollapseStorageKey) localStorage.setItem(scheduleCollapseStorageKey, JSON.stringify(next));
+                        if (scheduleCollapseStorageKey)
+                          localStorage.setItem(scheduleCollapseStorageKey, JSON.stringify(next));
                       }}
                       draft={scheduleDraft}
                       onScheduleModeChange={handleScheduleModeChange}
@@ -2313,6 +2428,11 @@ export const TournamentView: React.FC = () => {
                       isGenerating={isGenerating}
                       onGenerate={generateSchedule}
                       tournamentTeamLimit={editMaxTeams}
+                      rescheduleDraft={rescheduleDraft}
+                      onRescheduleFromRoundChange={handleRescheduleFromRoundChange}
+                      onRescheduleStartSlotIdChange={handleRescheduleStartSlotIdChange}
+                      isRescheduling={isRescheduling}
+                      onReschedule={regenerateSchedule}
                     />
                   )}
 
@@ -2597,7 +2717,6 @@ export const TournamentView: React.FC = () => {
                         </div>
                       )}
                     </div>
-
                   </SectionCard>
                 </section>
 

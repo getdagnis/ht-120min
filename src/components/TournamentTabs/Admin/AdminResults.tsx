@@ -1,8 +1,9 @@
 import React from 'react';
 import { SectionCard } from '../../Card/SectionCard';
 import { Button } from '../../Button/Button';
-import { FloppyDisk, Eraser, XCircle, PencilSimple } from 'phosphor-react';
+import { Check, ArrowClockwise, X, PencilSimple } from 'phosphor-react';
 import { getFlagUrl } from '../../../utils/ht-data';
+import { getHattrickWeekDetails } from '../../../utils/hattrick-calendar';
 import adminStyles from '../../../pages/Public/TournamentAdmin.module.sass';
 
 interface ResultTeam {
@@ -26,6 +27,8 @@ interface MatchWithTeams {
   went_120: boolean;
   total_minutes: number;
   status?: 'not_arranged' | 'arranged' | 'ongoing' | 'misarranged' | 'finished';
+  scheduled_for?: string | null;
+  match_date?: Date | null;
   home_team: ResultTeam | null;
   away_team: ResultTeam | null;
 }
@@ -38,7 +41,7 @@ interface AdminResultsProps {
   }[];
   editingMatch: string | null;
   setEditingMatch: (matchId: string | null) => void;
-  updateMatch: (matchId: string, isScrap?: boolean) => Promise<void>;
+  updateMatch: (matchId: string) => Promise<void>;
   isResultsCollapsed: boolean;
   setIsResultsCollapsed: React.Dispatch<React.SetStateAction<boolean>>;
   togglePanel: (key: string, state: boolean, setter: React.Dispatch<React.SetStateAction<boolean>>) => void;
@@ -80,6 +83,26 @@ const ResultMinutes: React.FC<{ minutes: number; went120: boolean }> = ({ minute
   return <span className={adminStyles.badge}>{minutes}m</span>;
 };
 
+function getRoundDisplayDate(round: AdminResultsProps['rounds'][number]) {
+  const match = round.matches.find((item) => item.scheduled_for || item.match_date) ?? null;
+  if (!match) return null;
+  return match.scheduled_for ? new Date(match.scheduled_for) : (match.match_date ?? null);
+}
+
+function formatRoundMeta(round: AdminResultsProps['rounds'][number]) {
+  const roundDate = getRoundDisplayDate(round);
+  if (!roundDate) return null;
+
+  const week = getHattrickWeekDetails(roundDate);
+  const dateLabel = roundDate.toLocaleDateString('lv-LV', {
+    timeZone: 'Europe/Stockholm',
+    day: '2-digit',
+    month: '2-digit',
+    year: 'numeric',
+  });
+  return `W${week.htWeek} • ${dateLabel}`;
+}
+
 export const AdminResults: React.FC<AdminResultsProps> = ({
   rounds,
   editingMatch,
@@ -100,220 +123,238 @@ export const AdminResults: React.FC<AdminResultsProps> = ({
       onToggleCollapse={() => togglePanel('results', !isResultsCollapsed, setIsResultsCollapsed)}
     >
       <div className={adminStyles.matches}>
-        {rounds.map((round) => (
-          <div key={round.id} className={adminStyles.roundResults}>
-            <h3 className={adminStyles.sectionTitle}>Round {round.round_number}</h3>
-            {round.matches.map((match: MatchWithTeams) => {
-              const isBye = !match.home_team_id || !match.away_team_id;
-              const byeTeam = match.home_team || match.away_team;
-              const isMisarranged = match.status === 'misarranged';
-              const hasResult = match.completed && match.home_goals !== null && match.away_goals !== null;
-              return (
-                <div key={match.id} className={adminStyles.match}>
-                  <div className={adminStyles.matchTeams}>
-                    <AdminResultTeam team={match.home_team} side="home" />
-                    <span className={adminStyles.vs}>vs</span>
-                    <AdminResultTeam team={match.away_team} side="away" />
-                  </div>
+        {rounds.map((round) => {
+          const roundMeta = formatRoundMeta(round);
 
-                  {isBye ? (
-                    <div className={adminStyles.matchResult}>
-                      <span className={adminStyles.smallNote}>
-                        {byeTeam?.name || 'Team'} has a BYE. Record any outside-friendly result manually later.
-                      </span>
+          return (
+            <div key={round.id} className={adminStyles.roundResults}>
+              <h3 className={adminStyles.sectionTitle}>
+                Round {round.round_number}
+                {roundMeta && <span className={adminStyles.roundMeta}>{roundMeta}</span>}
+              </h3>
+              {round.matches.map((match: MatchWithTeams) => {
+                const isBye = !match.home_team_id || !match.away_team_id;
+                const byeTeam = match.home_team || match.away_team;
+                const isMisarranged = match.status === 'misarranged';
+                const hasResult = match.completed && match.home_goals !== null && match.away_goals !== null;
+                return (
+                  <div key={match.id} className={adminStyles.match}>
+                    <div className={adminStyles.matchTeams}>
+                      <AdminResultTeam team={match.home_team} side="home" />
+                      <span className={adminStyles.vs}>vs</span>
+                      <AdminResultTeam team={match.away_team} side="away" />
                     </div>
-                  ) : editingMatch === match.id ? (
-                    <div className={adminStyles.matchEdit}>
-                      <div className={adminStyles.scoreInputs}>
-                        <input
-                          name={`score_home_${match.id}`}
-                          type="number"
-                          placeholder="H"
-                          value={matchData[match.id]?.home_goals ?? match.home_goals ?? ''}
-                          onChange={(e) =>
-                            setMatchData({
-                              ...matchData,
-                              [match.id]: {
-                                ...(matchData[match.id] || match),
-                                home_goals: e.target.value === '' ? null : Number(e.target.value),
-                              },
-                            })
-                          }
-                        />
-                        <span className={adminStyles.divider}>-</span>
-                        <input
-                          name={`score_away_${match.id}`}
-                          type="number"
-                          placeholder="A"
-                          value={matchData[match.id]?.away_goals ?? match.away_goals ?? ''}
-                          onChange={(e) =>
-                            setMatchData({
-                              ...matchData,
-                              [match.id]: {
-                                ...(matchData[match.id] || match),
-                                away_goals: e.target.value === '' ? null : Number(e.target.value),
-                              },
-                            })
-                          }
-                        />
-                      </div>
-                      <label className={adminStyles.went120}>
-                        <input
-                          title="120min game achieved"
-                          type="checkbox"
-                          checked={matchData[match.id]?.went_120 ?? match.went_120 ?? false}
-                          onChange={(e) =>
-                            setMatchData({
-                              ...matchData,
-                              [match.id]: {
-                                ...(matchData[match.id] || match),
-                                went_120: e.target.checked,
-                                total_minutes: e.target.checked
-                                  ? 120
-                                  : (matchData[match.id]?.total_minutes ?? match.total_minutes ?? 90),
-                              },
-                            })
-                          }
-                        />
-                        120min
-                      </label>
-                      <div className={adminStyles.minutesInput}>
-                        <input
-                          type="number"
-                          value={matchData[match.id]?.total_minutes ?? match.total_minutes ?? 90}
-                          onChange={(e) =>
-                            setMatchData({
-                              ...matchData,
-                              [match.id]: {
-                                ...(matchData[match.id] || match),
-                                total_minutes: e.target.value === '' ? 90 : Number(e.target.value),
-                              },
-                            })
-                          }
-                          placeholder="90"
-                        />
-                        <span title="Total match minutes" className={adminStyles.minsLabel}>
-                          mins
+
+                    {isBye ? (
+                      <div className={adminStyles.matchResult}>
+                        <span className={adminStyles.smallNote}>
+                          {byeTeam?.name || 'Team'} has a BYE. Record any outside-friendly result manually later.
                         </span>
                       </div>
-                      <div className={adminStyles.editActions}>
-                        <Button
-                          size="xs"
-                          onClick={() => updateMatch(match.id)}
-                          variant="primary"
-                          title="Save"
-                          data-tooltip-id="admin-tooltip"
-                          data-tooltip-content="Save result"
-                        >
-                          <FloppyDisk size={16} />
-                        </Button>
-                        <Button
-                          size="xs"
-                          variant="danger"
-                          title={match.completed ? 'Restore original' : 'Clear result'}
-                          onClick={() => {
-                            if (
-                              window.confirm(
-                                match.completed ? 'Restore original result?' : 'Clear result for this match?',
-                              )
-                            ) {
-                              updateMatch(match.id, true);
-                            }
-                          }}
-                          data-tooltip-id="admin-tooltip"
-                          data-tooltip-content={match.completed ? 'Restore original' : 'Clear result'}
-                        >
-                          <Eraser size={16} />
-                        </Button>
-                        <Button
-                          size="xs"
-                          variant="outline"
-                          onClick={() => setEditingMatch(null)}
-                          title="Cancel"
-                          data-tooltip-id="admin-tooltip"
-                          data-tooltip-content="Cancel"
-                        >
-                          <XCircle size={16} />
-                        </Button>
-                      </div>
-                    </div>
-                  ) : (
-                    <div className={adminStyles.matchResult}>
-                      {isMisarranged ? (
-                        <>
-                          {hasResult && (
-                            <div className={adminStyles.score}>
-                              <span>
-                                {match.home_goals} - {match.away_goals}
-                              </span>
-                              <ResultMinutes minutes={match.total_minutes} went120={match.went_120} />
-                            </div>
-                          )}
-                          <span className={adminStyles.misarrangedResult}>misarranged</span>
-                          <Button
-                            size="xs"
-                            variant={hasResult ? 'zero' : round.id === currentRoundId ? 'secondary' : 'outline'}
-                            onClick={() => {
-                              setEditingMatch(match.id);
+                    ) : editingMatch === match.id ? (
+                      <div className={adminStyles.matchEdit}>
+                        <div className={adminStyles.scoreActionRow}>
+                          <div className={adminStyles.scoreInputs}>
+                            <input
+                              name={`score_home_${match.id}`}
+                              type="number"
+                              placeholder="H"
+                              value={matchData[match.id]?.home_goals ?? match.home_goals ?? ''}
+                              onChange={(e) =>
+                                setMatchData({
+                                  ...matchData,
+                                  [match.id]: {
+                                    ...(matchData[match.id] || match),
+                                    home_goals: e.target.value === '' ? null : Number(e.target.value),
+                                  },
+                                })
+                              }
+                            />
+                            <span className={adminStyles.divider}>-</span>
+                            <input
+                              name={`score_away_${match.id}`}
+                              type="number"
+                              placeholder="A"
+                              value={matchData[match.id]?.away_goals ?? match.away_goals ?? ''}
+                              onChange={(e) =>
+                                setMatchData({
+                                  ...matchData,
+                                  [match.id]: {
+                                    ...(matchData[match.id] || match),
+                                    away_goals: e.target.value === '' ? null : Number(e.target.value),
+                                  },
+                                })
+                              }
+                            />
+                          </div>
+                          <div className={adminStyles.editActions}>
+                            <Button
+                              size="xs"
+                              onClick={() => updateMatch(match.id)}
+                              variant="primary"
+                              title="Save"
+                              data-tooltip-id="admin-tooltip"
+                              data-tooltip-content="Save result"
+                            >
+                              <Check size={16} />
+                            </Button>
+                            <Button
+                              size="xs"
+                              variant="outline"
+                              title={match.completed ? 'Reset unsaved changes' : 'Clear form'}
+                              onClick={() => {
+                                setMatchData({
+                                  ...matchData,
+                                  [match.id]: match.completed
+                                    ? match
+                                    : {
+                                        ...match,
+                                        home_goals: null,
+                                        away_goals: null,
+                                        went_120: false,
+                                        total_minutes: 90,
+                                      },
+                                });
+                              }}
+                              data-tooltip-id="admin-tooltip"
+                              data-tooltip-content={match.completed ? 'Reset unsaved changes' : 'Clear form'}
+                            >
+                              <ArrowClockwise size={16} />
+                            </Button>
+                            <Button
+                              size="xs"
+                              variant="outline"
+                              onClick={() => setEditingMatch(null)}
+                              title="Cancel"
+                              data-tooltip-id="admin-tooltip"
+                              data-tooltip-content="Cancel"
+                            >
+                              <X size={16} />
+                            </Button>
+                          </div>
+                        </div>
+                        <label className={adminStyles.went120}>
+                          <input
+                            title="120min game achieved"
+                            type="checkbox"
+                            checked={matchData[match.id]?.went_120 ?? match.went_120 ?? false}
+                            onChange={(e) =>
                               setMatchData({
                                 ...matchData,
-                                [match.id]: hasResult ? match : { ...match, home_goals: null, away_goals: null },
-                              });
-                            }}
-                            title={hasResult ? 'Edit result' : 'Enter result'}
-                            data-tooltip-id="admin-tooltip"
-                            data-tooltip-content={hasResult ? 'Edit result' : 'Enter result'}
-                          >
-                            <PencilSimple size={16} />
-                          </Button>
-                        </>
-                      ) : match.completed ? (
-                        <>
-                          <div className={adminStyles.score}>
-                            <span>
-                              {match.home_goals} - {match.away_goals}
-                            </span>
-                            <ResultMinutes minutes={match.total_minutes} went120={match.went_120} />
-                          </div>
+                                [match.id]: {
+                                  ...(matchData[match.id] || match),
+                                  went_120: e.target.checked,
+                                  total_minutes: e.target.checked
+                                    ? 120
+                                    : (matchData[match.id]?.total_minutes ?? match.total_minutes ?? 90),
+                                },
+                              })
+                            }
+                          />
+                          120min
+                        </label>
+                        <div className={adminStyles.minutesInput}>
+                          <input
+                            type="number"
+                            value={matchData[match.id]?.total_minutes ?? match.total_minutes ?? 90}
+                            onChange={(e) =>
+                              setMatchData({
+                                ...matchData,
+                                [match.id]: {
+                                  ...(matchData[match.id] || match),
+                                  total_minutes: e.target.value === '' ? 90 : Number(e.target.value),
+                                },
+                              })
+                            }
+                            placeholder="90"
+                          />
+                          <span title="Total match minutes" className={adminStyles.minsLabel}>
+                            mins
+                          </span>
+                        </div>
+                      </div>
+                    ) : (
+                      <div className={adminStyles.matchResult}>
+                        {isMisarranged ? (
+                          <>
+                            <div className={adminStyles.resultTopRow}>
+                              {hasResult && (
+                                <div className={adminStyles.score}>
+                                  <span>
+                                    {match.home_goals} - {match.away_goals}
+                                  </span>
+                                  <ResultMinutes minutes={match.total_minutes} went120={match.went_120} />
+                                </div>
+                              )}
+                              <Button
+                                size="xs"
+                                variant={hasResult ? 'zero' : round.id === currentRoundId ? 'secondary' : 'outline'}
+                                onClick={() => {
+                                  setEditingMatch(match.id);
+                                  setMatchData({
+                                    ...matchData,
+                                    [match.id]: hasResult ? match : { ...match, home_goals: null, away_goals: null },
+                                  });
+                                }}
+                                title={hasResult ? 'Edit result' : 'Enter result'}
+                                data-tooltip-id="admin-tooltip"
+                                data-tooltip-content={hasResult ? 'Edit result' : 'Enter result'}
+                              >
+                                <PencilSimple size={16} />
+                              </Button>
+                            </div>
+                            <span className={adminStyles.misarrangedResult}>misarranged</span>
+                          </>
+                        ) : match.completed ? (
+                          <>
+                            <div className={adminStyles.resultTopRow}>
+                              <div className={adminStyles.score}>
+                                <span>
+                                  {match.home_goals} - {match.away_goals}
+                                </span>
+                                <ResultMinutes minutes={match.total_minutes} went120={match.went_120} />
+                              </div>
+                              <Button
+                                size="xs"
+                                variant="zero"
+                                onClick={() => {
+                                  setEditingMatch(match.id);
+                                  setMatchData({ ...matchData, [match.id]: match });
+                                }}
+                                title="Edit result"
+                                data-tooltip-id="admin-tooltip"
+                                data-tooltip-content="Edit result"
+                              >
+                                <PencilSimple size={16} />
+                              </Button>
+                            </div>
+                          </>
+                        ) : (
                           <Button
                             size="xs"
                             variant="zero"
                             onClick={() => {
                               setEditingMatch(match.id);
-                              setMatchData({ ...matchData, [match.id]: match });
+                              setMatchData({
+                                ...matchData,
+                                [match.id]: { ...match, home_goals: null, away_goals: null },
+                              });
                             }}
-                            title="Edit result"
+                            title="Enter result"
                             data-tooltip-id="admin-tooltip"
-                            data-tooltip-content="Edit result"
+                            data-tooltip-content="Enter result"
                           >
                             <PencilSimple size={16} />
                           </Button>
-                        </>
-                      ) : (
-                        <Button
-                          size="xs"
-                          variant="zero"
-                          onClick={() => {
-                            setEditingMatch(match.id);
-                            setMatchData({
-                              ...matchData,
-                              [match.id]: { ...match, home_goals: null, away_goals: null },
-                            });
-                          }}
-                          title="Enter result"
-                          data-tooltip-id="admin-tooltip"
-                          data-tooltip-content="Enter result"
-                        >
-                          <PencilSimple size={16} />
-                        </Button>
-                      )}
-                    </div>
-                  )}
-                </div>
-              );
-            })}
-          </div>
-        ))}
+                        )}
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          );
+        })}
       </div>
     </SectionCard>
   );

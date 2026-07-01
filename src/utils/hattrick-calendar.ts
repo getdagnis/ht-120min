@@ -47,6 +47,12 @@ export interface HattrickWeekContext {
   fallbackUsed: boolean;
 }
 
+export interface CupWeekDecoration {
+  blocked: boolean;
+  label: string;
+  tone: 'blocked' | 'warning' | 'safe';
+}
+
 export const HT_CALENDAR_EPOCH = {
   htSeason: 94,
   htWeek: 1,
@@ -57,8 +63,14 @@ export const HT_CALENDAR_EPOCH = {
 const DAY_MS = 24 * 60 * 60 * 1000;
 const WEEK_MS = 7 * DAY_MS;
 const SEASON_WEEKS = 16;
-const BLOCKED_CUP_WEEKS = new Set([1, 2]);
-const CUP_LIKELY_WEEKS = new Set([3, 4]);
+const CUP_WEEK_DECORATIONS = new Map<number, CupWeekDecoration>([
+  [1, { blocked: true, label: 'Cup 100% globally', tone: 'blocked' }],
+  [2, { blocked: true, label: 'Cup 100% globally', tone: 'blocked' }],
+  [3, { blocked: true, label: 'Cup 100% globally', tone: 'blocked' }],
+  [4, { blocked: false, label: 'Cup ~60% globally', tone: 'warning' }],
+  [5, { blocked: false, label: 'Cup ~30% globally', tone: 'safe' }],
+  [6, { blocked: false, label: 'Cup ~15% globally', tone: 'safe' }],
+]);
 const STOCKHOLM_TIME_ZONE = 'Europe/Stockholm';
 const DEFAULT_WEEKEND_KICKOFF: TeamKickoffTime = {
   day: 0,
@@ -148,20 +160,20 @@ function getWeekStartLocalKey(htSeason: number, htWeek: number) {
 }
 
 export function isBlockedCupWeek(htWeek: number) {
-  return BLOCKED_CUP_WEEKS.has(htWeek);
+  return CUP_WEEK_DECORATIONS.get(htWeek)?.blocked ?? false;
 }
 
 export function isCupLikelyWeek(htWeek: number) {
-  return CUP_LIKELY_WEEKS.has(htWeek);
+  return (CUP_WEEK_DECORATIONS.get(htWeek)?.tone ?? null) === 'warning';
+}
+
+export function getCupWeekDecoration(htWeek: number): CupWeekDecoration | null {
+  return CUP_WEEK_DECORATIONS.get(htWeek) ?? null;
 }
 
 function createSlot(params: Omit<CalendarSlot, 'id'>): CalendarSlot {
   const suffix =
-    params.kind === 'midweek_friendly'
-      ? 'midweek'
-      : params.kind === 'week15_weekend_friendly'
-        ? 'weekend'
-        : 'blocked';
+    params.kind === 'midweek_friendly' ? 'midweek' : params.kind === 'week15_weekend_friendly' ? 'weekend' : 'blocked';
   return {
     id: `S${params.htSeason}-W${params.htWeek}-${suffix}`,
     ...params,
@@ -225,6 +237,7 @@ export function buildCalendarSlots(now = new Date(), weeksAhead = 64): CalendarS
     const weekendLocalKey = addLocalDays(weekStartLocalKey, 5);
 
     if (isBlockedCupWeek(htWeek)) {
+      const cupDecoration = getCupWeekDecoration(htWeek);
       slots.push(
         createSlot({
           kind: 'blocked_cup_week',
@@ -233,12 +246,16 @@ export function buildCalendarSlots(now = new Date(), weeksAhead = 64): CalendarS
           ht120minSeason,
           nominalDate: localDateKeyToInstant(midweekLocalKey),
           selectable: false,
-          blockedReason: `Cup week W${htWeek} is blocked`,
-          warning: 'Cup week',
+          blockedReason: cupDecoration
+            ? `Cup week W${htWeek} is blocked: ${cupDecoration.label}`
+            : `Cup week W${htWeek} is blocked`,
+          warning: cupDecoration?.label ?? 'Cup week',
         }),
       );
       continue;
     }
+
+    const cupDecoration = getCupWeekDecoration(htWeek);
 
     slots.push(
       createSlot({
@@ -249,11 +266,7 @@ export function buildCalendarSlots(now = new Date(), weeksAhead = 64): CalendarS
         nominalDate: localDateKeyToInstant(midweekLocalKey),
         selectable: true,
         blockedReason: null,
-        warning: isCupLikelyWeek(htWeek)
-          ? 'Cup Likely'
-          : htWeek === 15
-            ? 'Week 15 also has a weekend friendly slot'
-            : null,
+        warning: cupDecoration?.label ?? (htWeek === 15 ? 'Week 15 also has a weekend friendly slot' : null),
       }),
     );
 
@@ -346,7 +359,8 @@ export function getWeekendKickoffTime(
   leagueLevel?: number | null,
 ): TeamKickoffTime | null {
   const league = getLeagueByCountry(countryName);
-  if (!league) return countryName ? { ...DEFAULT_WEEKEND_KICKOFF, reason: 'Unknown country metadata' } : DEFAULT_WEEKEND_KICKOFF;
+  if (!league)
+    return countryName ? { ...DEFAULT_WEEKEND_KICKOFF, reason: 'Unknown country metadata' } : DEFAULT_WEEKEND_KICKOFF;
 
   const weekendEntries = league.entries.filter(isWeekendEntry).map((entry) => ({
     ...entry,
@@ -355,19 +369,26 @@ export function getWeekendKickoffTime(
 
   if (weekendEntries.length === 0) return null;
 
-  if (leagueLevel == null) {
-    const sameDay = weekendEntries.every((entry) => entry.day === weekendEntries[0]?.day);
-    const sameTime = weekendEntries.every((entry) => entry.time === weekendEntries[0]?.time);
-    if (!sameDay || !sameTime) return null;
-    const entry = weekendEntries[0];
-    return entry ? { day: parseDay(entry.day), time: entry.time, label: entry.label, source: 'weekend' } : null;
-  }
-
-  const levelBand = leagueLevel <= 6 ? 6 : leagueLevel === 7 ? 7 : 8;
   const sortedEntries = weekendEntries
     .filter((entry) => entry.band !== null)
     .sort((a, b) => (a.band ?? 99) - (b.band ?? 99));
-  const chosen = sortedEntries.find((entry) => (entry.band ?? 99) >= levelBand) ?? sortedEntries[sortedEntries.length - 1];
+
+  if (leagueLevel == null) {
+    const entry = sortedEntries[0] ?? weekendEntries[0];
+    return entry
+      ? {
+          day: parseDay(entry.day),
+          time: entry.time,
+          label: entry.label,
+          source: 'weekend',
+          reason: 'Missing league level; using broadest weekend division band',
+        }
+      : null;
+  }
+
+  const levelBand = leagueLevel <= 6 ? 6 : leagueLevel === 7 ? 7 : 8;
+  const chosen =
+    sortedEntries.find((entry) => (entry.band ?? 99) >= levelBand) ?? sortedEntries[sortedEntries.length - 1];
   if (!chosen) return null;
 
   return { day: parseDay(chosen.day), time: chosen.time, label: chosen.label, source: 'weekend' };
@@ -378,7 +399,10 @@ export function getMidweekKickoffTime(countryName?: string | null): TeamKickoffT
   return { day: friendly.day, time: friendly.time, label: 'Friendly', source: 'midweek' };
 }
 
-export function getKickoffTimeForSlot(kind: HattrickScheduleSlotKind, team: TeamSchedulingInfo): TeamKickoffTime | null {
+export function getKickoffTimeForSlot(
+  kind: HattrickScheduleSlotKind,
+  team: TeamSchedulingInfo,
+): TeamKickoffTime | null {
   if (kind === 'midweek_friendly') {
     return getMidweekKickoffTime(team.countryName ?? null);
   }
@@ -409,14 +433,19 @@ export function getNearestSelectableSlot(slots: CalendarSlot[]) {
   return slots.find((slot) => slot.selectable) ?? null;
 }
 
-export function formatCalendarDate(date: Date) {
+export function formatCalendarDate(date: Date, weekdayFormat: 'short' | 'long' = 'short') {
   return new Intl.DateTimeFormat('en-GB', {
     timeZone: STOCKHOLM_TIME_ZONE,
-    weekday: 'short',
+    weekday: weekdayFormat,
     day: '2-digit',
     month: '2-digit',
     year: 'numeric',
   }).format(date);
+}
+
+export function formatCalendarDateWithWeek(date: Date, weekdayFormat: 'short' | 'long' = 'short') {
+  const week = getHattrickWeekDetails(date);
+  return `${formatCalendarDate(date, weekdayFormat)}, W${week.htWeek}`;
 }
 
 export function getDaysUntil(date: Date, now = new Date()) {
