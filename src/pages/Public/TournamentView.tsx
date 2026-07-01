@@ -1913,11 +1913,6 @@ export const TournamentView: React.FC = () => {
     window.location.href = '/api/auth/init';
   };
 
-  const handleDismissReauthPrompt = (reason: ReauthPromptReason) => {
-    if (slug) sessionStorage.setItem(`reauth_prompt_dismissed_${slug}_${reason}`, 'true');
-    setReauthPromptDismissalVersion((current) => current + 1);
-  };
-
   if (loading) return <div className={styles.loading}>Loading...</div>;
   if (!tournament) return <div className={styles.loading}>Tournament not found</div>;
 
