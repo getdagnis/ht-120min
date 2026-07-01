@@ -1771,7 +1771,10 @@ export const TournamentView: React.FC = () => {
           source: 'system',
         });
       } catch (announcementError) {
-        console.warn('Schedule was regenerated, but the participant announcement could not be published.', announcementError);
+        console.warn(
+          'Schedule was regenerated, but the participant announcement could not be published.',
+          announcementError,
+        );
       }
       await fetchData();
     } catch (err: unknown) {
@@ -1862,18 +1865,18 @@ export const TournamentView: React.FC = () => {
   const tournamentId = tournament?.id ?? null;
   const canJoinTournament = Boolean(
     tournament &&
-      canViewerJoinTournament({
-        hasJoined,
-        isGenerated,
-        maxTeams: tournament.max_teams,
-        teams,
-      }),
+    canViewerJoinTournament({
+      hasJoined,
+      isGenerated,
+      maxTeams: tournament.max_teams,
+      teams,
+    }),
   );
   const shouldPromptReturningParticipantLogin = Boolean(
     tournamentId &&
-      !currentHtUserId &&
-      !canJoinTournament &&
-      teams.some((team) => team.active && !team.is_placeholder && team.hattrick_user_id),
+    !currentHtUserId &&
+    !canJoinTournament &&
+    teams.some((team) => team.active && !team.is_placeholder && team.hattrick_user_id),
   );
   const rawReauthPromptReason =
     currentHtUserId && needsAuthRefresh()
@@ -1893,8 +1896,7 @@ export const TournamentView: React.FC = () => {
       .map((dismissal) => dismissal.announcement_id as string),
   );
   const joinedNoticeDismissed =
-    isJoinedNoticeDismissed ||
-    announcementDismissals.some((dismissal) => dismissal.notice_key === JOINED_NOTICE_KEY);
+    isJoinedNoticeDismissed || announcementDismissals.some((dismissal) => dismissal.notice_key === JOINED_NOTICE_KEY);
   const selectedTournamentMessage = selectTournamentMessage({
     canJoin: canJoinTournament,
     hasJoined,
@@ -2112,7 +2114,6 @@ export const TournamentView: React.FC = () => {
             </HeroCard>
           </div>
         )}
-
       </div>
       {selectedTournamentMessage?.type === 'join' && (
         <div className={styles.registrationStatus}>
@@ -2155,18 +2156,13 @@ export const TournamentView: React.FC = () => {
         <div className={styles.joinedNotice}>
           <div className={styles.joinedNoticeContent}>
             <span>
-              {selectedTournamentMessage.reason === 'auth_refresh_needed'
-                ? 'Please refresh your Hattrick login so HT-120min can update your online status and keep tournament tools working.'
-                : 'Already participating? Refresh your Hattrick login so HT-120min can recognize you on this tournament page.'}
+              Please login with Hattrick CHPP to refresh your credentials and to get access to new feature updates
             </span>
           </div>
           <div className={styles.reauthActions}>
             <Button size="sm" variant="primary" onClick={handleRefreshHattrickLogin}>
-              Refresh Hattrick login
+              Login with CHPP
             </Button>
-            <button className={styles.dismissBtn} onClick={() => handleDismissReauthPrompt(selectedTournamentMessage.reason)}>
-              Maybe later
-            </button>
           </div>
         </div>
       )}
@@ -3031,22 +3027,22 @@ export const TournamentView: React.FC = () => {
                     Public. Visible to guest visitors
                   </label>
 
-	                  <div className={adminStyles.smallNote}>
-	                    {selectedAnnouncement ? `${selectedAnnouncement.label} template selected` : 'No template selected.'}
-	                  </div>
+                  <div className={adminStyles.smallNote}>
+                    {selectedAnnouncement ? `${selectedAnnouncement.label} template selected` : 'No template selected.'}
+                  </div>
 
-	                  <div className={`${styles.joinedNotice} ${adminStyles.announcementPreview}`}>
-	                    <div className={styles.joinedNoticeContent}>
-	                      <span>{deferredAdminAnnouncementContent.trim() || 'Message preview will appear here.'}</span>
-	                    </div>
-	                    <button className={styles.dismissBtn} type="button" disabled>
-	                      <X size={18} weight="bold" />
-	                    </button>
-	                  </div>
+                  <div className={`${styles.joinedNotice} ${adminStyles.announcementPreview}`}>
+                    <div className={styles.joinedNoticeContent}>
+                      <span>{deferredAdminAnnouncementContent.trim() || 'Message preview will appear here.'}</span>
+                    </div>
+                    <button className={styles.dismissBtn} type="button" disabled>
+                      <X size={18} weight="bold" />
+                    </button>
+                  </div>
 
-	                  <div className={styles.formActionRow}>
-	                    <Button
-	                      variant="primary"
+                  <div className={styles.formActionRow}>
+                    <Button
+                      variant="primary"
                       size="sm"
                       onClick={handleAnnouncementPublish}
                       disabled={isPublishingAnnouncement || !adminAnnouncementContent.trim()}

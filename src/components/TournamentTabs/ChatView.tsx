@@ -122,9 +122,6 @@ export const ChatView: React.FC<ChatViewProps> = ({
               <div key={msg.id} className={styles.systemMessage}>
                 <div className={styles.systemMessageContent}>
                   <span className={styles.chatContent}>{msg.content}</span>
-                  <span className={styles.chatTime}>
-                    {new Date(msg.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                  </span>
                 </div>
               </div>
             );
@@ -202,8 +199,7 @@ export const ChatView: React.FC<ChatViewProps> = ({
         <div className={styles.loginToPost}>
           <Button size="sm" onClick={handleLogin} variant="zero" className={styles.chatLoginBtn} type="button">
             <User size={18} weight="bold" />
-            <span className={styles.chatLoginLabel}>Login (CHPP)</span>{' '}
-            <ArrowRight size={18} className="hideOnTable" />
+            <span className={styles.chatLoginLabel}>Login (CHPP)</span> <ArrowRight size={18} className="hideOnTable" />
           </Button>
         </div>
       )}
