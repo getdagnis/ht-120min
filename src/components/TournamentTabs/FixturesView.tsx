@@ -111,6 +111,16 @@ export const FixturesView: React.FC<FixturesViewProps> = ({
 }) => {
   const [manualVisibleRoundsCount, setManualVisibleRoundsCount] = React.useState<number | null>(null);
   const visibleRoundsCount = manualVisibleRoundsCount ?? defaultVisibleRoundsCount;
+  const lastFinishedRoundNumber = React.useMemo(() => {
+    let latestFinishedRoundNumber: number | null = null;
+
+    for (const round of rounds) {
+      const isFinished = round.matches.every((match) => match.completed || match.status === 'misarranged');
+      if (isFinished) latestFinishedRoundNumber = round.round_number;
+    }
+
+    return latestFinishedRoundNumber;
+  }, [rounds]);
 
   const resolveMatchDate = React.useCallback(
     (round: { created_at: string; round_number: number }, match: FixtureMatch) =>
@@ -125,9 +135,10 @@ export const FixturesView: React.FC<FixturesViewProps> = ({
     <div className={styles.rounds}>
       {rounds.slice(0, visibleRoundsCount).map((round) => {
         const isNextRound = round.id === rounds[upcomingRoundIndex]?.id;
-        const isOneAfter = upcomingRoundIndex < rounds.length - 1 && round.id === rounds[upcomingRoundIndex + 1].id;
 
-        const isExpanded = expandedRounds[round.id] ?? (isNextRound || isOneAfter);
+        const isExpanded =
+          expandedRounds[round.id] ??
+          (lastFinishedRoundNumber === null ? true : round.round_number >= lastFinishedRoundNumber);
 
         const allFinished = round.matches.every((m) => m.completed || m.status === 'misarranged');
 

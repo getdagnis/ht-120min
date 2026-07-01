@@ -802,8 +802,7 @@ export const TournamentView: React.FC = () => {
   }, [lastRefresh]);
 
   const upcomingRoundIndex = rounds.findIndex((r) => r.matches.some((m) => !m.completed && m.status !== 'misarranged'));
-  const defaultVisibleRoundsCount =
-    upcomingRoundIndex >= 0 ? Math.min(rounds.length, upcomingRoundIndex + 2) : rounds.length;
+  const defaultVisibleRoundsCount = rounds.length;
 
   const fetchPendingJoinData = useCallback(
     async (token: string) => {
