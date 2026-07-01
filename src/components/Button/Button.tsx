@@ -4,6 +4,7 @@ import styles from './Button.module.sass';
 interface ButtonProps extends React.ButtonHTMLAttributes<HTMLButtonElement> {
   variant?:
     | 'primary'
+    | 'primaryDanger'
     | 'secondary'
     | 'secondaryInverse'
     | 'secondaryHero'

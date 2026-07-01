@@ -22,7 +22,7 @@
   cursor: pointer
 
 .primary,
-.hero, .primaryWhite
+.hero, .primaryWhite, .primaryDanger
   background-color: var(--accent-3)
   border: 1px solid black
   color: white
@@ -32,6 +32,11 @@
     border: 1px solid black
     text-shadow: 0 0 5px #0000003e
     color: white
+
+.primaryDanger
+  background-color: var(--danger)
+  &:hover:not(:disabled)
+    background-color: var(--tinder-bg)
 
 .secondary
   background-color: var(--accent-4)
