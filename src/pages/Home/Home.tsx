@@ -11,8 +11,8 @@ import { SidebarWidget } from '../../components/SidebarWidget/SidebarWidget';
 import { TinderWidget } from '../../components/TinderWidget/TinderWidget';
 import { SupportersWall } from '../../components/SupportersWall/SupportersWall';
 import { Link as ScrollTo, Element } from 'react-scroll';
-import { calculateMatchDate } from '../../utils/ht-data';
 import { sortOpenTournaments } from '../../utils/open-tournaments';
+import { getTournamentNextMatchDate } from '../../utils/tournament-next-match';
 import {
   Trophy,
   CalendarBlank,
@@ -44,6 +44,7 @@ interface DBTeamMatch {
 
 interface DBRound {
   id: string;
+  created_at: string;
   round_number: number;
   matches: DBTeamMatch[] | null;
 }
@@ -138,14 +139,17 @@ export const Home: React.FC = () => {
           max_teams,
           rounds (
             id,
+            created_at,
             round_number,
             matches (
               id,
               completed,
               status,
               home_team_id,
+              away_team_id,
               scheduled_for,
-              home_team:teams!matches_home_team_id_fkey(country_name)
+              home_team:teams!matches_home_team_id_fkey(country_name),
+              away_team:teams!matches_away_team_id_fkey(country_name)
             )
           ),
           teams (
@@ -188,29 +192,7 @@ export const Home: React.FC = () => {
           const completedMatches = allMatches.filter((m) => m.completed || m.status === 'misarranged').length;
           const isClosed = totalMatches > 0 && totalMatches === completedMatches;
           const isGenerated = (t.rounds?.length ?? 0) > 0;
-
-          // Calculate next match date
-          let nextMatchDate: Date | null = null;
-          if (isGenerated && !isClosed && t.rounds) {
-            const sortedRounds = [...t.rounds].sort((a, b) => a.round_number - b.round_number);
-            for (const round of sortedRounds) {
-              const uncompletedMatches = round.matches?.filter((m) => !m.completed) ?? [];
-              const validMatches = uncompletedMatches.filter(
-                (m) => !warnings?.some((w) => w.round_id === round.id && w.team_id === m.home_team_id),
-              );
-              if (validMatches.length > 0) {
-                const roundDates = validMatches
-                  .map((match) =>
-                    match.scheduled_for
-                      ? new Date(match.scheduled_for)
-                      : calculateMatchDate(t.created_at, round.round_number, match.home_team?.country_name),
-                  )
-                  .sort((a, b) => a.getTime() - b.getTime());
-                nextMatchDate = roundDates[0] ?? null;
-                break;
-              }
-            }
-          }
+          const nextMatchDate = isGenerated && !isClosed ? getTournamentNextMatchDate(t.rounds, warnings) : null;
 
           allMatches.forEach((m) => {
             if (m.completed && m.went_120) {

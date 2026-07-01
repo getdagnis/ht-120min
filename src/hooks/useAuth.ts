@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '../lib/supabase';
-import { calculateMatchDate } from '../utils/ht-data';
+import { getTournamentNextMatchDate } from '../utils/tournament-next-match';
 
 export interface AvatarLayer {
   x?: number;
@@ -55,6 +55,7 @@ interface DBTeamMatch {
 
 interface DBRound {
   id: string;
+  created_at: string;
   round_number: number;
   matches: DBTeamMatch[] | null;
 }
@@ -122,12 +123,15 @@ export const useAuth = () => {
             created_at,
             rounds (
               id,
+              created_at,
               round_number,
               matches (
                 id,
                 completed,
+                status,
                 home_team_id,
                 away_team_id,
+                scheduled_for,
                 home_team:teams!matches_home_team_id_fkey(country_name)
               )
             )
@@ -156,40 +160,11 @@ export const useAuth = () => {
         const tournament = t.tournaments;
         if (!tournament) continue;
 
-        // Find the earliest uncompleted match date
-        let nextMatchDate: Date | null = null;
-
-        if (tournament.rounds && tournament.rounds.length > 0) {
-          const sortedRounds = [...tournament.rounds].sort((a, b) => a.round_number - b.round_number);
-
-          for (const round of sortedRounds) {
-            const uncompletedMatches = round.matches?.filter((m: DBTeamMatch) => !m.completed) ?? [];
-
-            // Filter out misarranged matches (check both home and away)
-            const validMatches = uncompletedMatches.filter(
-              (m) =>
-                !warnings?.some(
-                  (w) => w.round_id === round.id && (w.team_id === m.home_team_id || w.team_id === m.away_team_id),
-                ),
-            );
-
-            if (validMatches.length > 0) {
-              const date = calculateMatchDate(
-                tournament.created_at,
-                round.round_number,
-                validMatches[0].home_team?.country_name,
-              );
-              nextMatchDate = date;
-              break;
-            }
-          }
-        }
-
         toursMap.set(tournament.id, {
           id: tournament.id,
           name: tournament.name,
           slug: tournament.slug,
-          nextMatchDate,
+          nextMatchDate: getTournamentNextMatchDate(tournament.rounds, warnings),
         });
       }
 
