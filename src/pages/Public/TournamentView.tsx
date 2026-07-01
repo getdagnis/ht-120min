@@ -15,10 +15,13 @@ import { useLiveMatches } from '../../hooks/useLiveMatches';
 import { buildScheduleDraft, serializeScheduleDraftForRpc, type ScheduleMode } from '../../utils/schedule-draft';
 import { buildRescheduleDraft, serializeRescheduleDraftForRpc } from '../../utils/reschedule-draft';
 import { getMatchDateForRound as resolveMatchDateForRound } from '../../utils/match-schedule';
+import { canViewerJoinTournament } from '../../utils/tournament-joinability';
+import { markAuthRefreshCurrent, needsAuthRefresh } from '../../utils/auth-refresh';
 import {
   ANNOUNCEMENT_TEMPLATES,
   JOINED_NOTICE_KEY,
   selectTournamentMessage,
+  type ReauthPromptReason,
   type TournamentAnnouncement,
   type TournamentAnnouncementDismissal,
   type TournamentAnnouncementVisibility,
@@ -194,6 +197,7 @@ export const TournamentView: React.FC = () => {
   const [isPublicAnnouncement, setIsPublicAnnouncement] = useState(false);
   const [isPublishingAnnouncement, setIsPublishingAnnouncement] = useState(false);
   const [, setPublicAnnouncementDismissalVersion] = useState(0);
+  const [, setReauthPromptDismissalVersion] = useState(0);
 
   // Chat states
   const [chatMessages, setChatMessages] = useState<any[]>([]);
@@ -872,6 +876,7 @@ export const TournamentView: React.FC = () => {
       if (result.hattrick_user_id) {
         localStorage.setItem('my_ht_user_id', result.hattrick_user_id.toString());
       }
+      markAuthRefreshCurrent();
       if (result.manager_name) {
         localStorage.setItem('my_ht_manager_name', result.manager_name);
       }
@@ -1854,11 +1859,34 @@ export const TournamentView: React.FC = () => {
 
   const myHtUserId = localStorage.getItem('my_ht_user_id');
   const hasJoined = teams.some((t) => t.hattrick_user_id === Number(myHtUserId) && t.active);
+  const tournamentId = tournament?.id ?? null;
   const canJoinTournament = Boolean(
     tournament &&
-      !hasJoined &&
-      (!isGenerated || (isGenerated && (teams.some((t) => !t.active && !t.is_placeholder) || teams.length % 2 !== 0))),
+      canViewerJoinTournament({
+        hasJoined,
+        isGenerated,
+        maxTeams: tournament.max_teams,
+        teams,
+      }),
   );
+  const shouldPromptReturningParticipantLogin = Boolean(
+    tournamentId &&
+      !currentHtUserId &&
+      !canJoinTournament &&
+      teams.some((team) => team.active && !team.is_placeholder && team.hattrick_user_id),
+  );
+  const rawReauthPromptReason =
+    currentHtUserId && needsAuthRefresh()
+      ? 'auth_refresh_needed'
+      : shouldPromptReturningParticipantLogin
+        ? 'returning_participant'
+        : null;
+  const reauthPromptDismissalKey =
+    rawReauthPromptReason && slug ? `reauth_prompt_dismissed_${slug}_${rawReauthPromptReason}` : null;
+  const reauthPromptReason =
+    rawReauthPromptReason && reauthPromptDismissalKey && sessionStorage.getItem(reauthPromptDismissalKey) !== 'true'
+      ? rawReauthPromptReason
+      : null;
   const dismissedAnnouncementIds = new Set(
     announcementDismissals
       .filter((dismissal) => dismissal.announcement_id)
@@ -1872,10 +1900,21 @@ export const TournamentView: React.FC = () => {
     hasJoined,
     currentHtUserId,
     joinedNoticeDismissed,
+    reauthPromptReason,
     announcements,
     dismissedAnnouncementIds,
     publicDismissedAnnouncementIds: dismissedPublicAnnouncementIds,
   });
+
+  const handleRefreshHattrickLogin = () => {
+    document.cookie = `auth_return_url=${encodeURIComponent(window.location.pathname + window.location.search)}; path=/; max-age=300`;
+    window.location.href = '/api/auth/init';
+  };
+
+  const handleDismissReauthPrompt = (reason: ReauthPromptReason) => {
+    if (slug) sessionStorage.setItem(`reauth_prompt_dismissed_${slug}_${reason}`, 'true');
+    setReauthPromptDismissalVersion((current) => current + 1);
+  };
 
   if (loading) return <div className={styles.loading}>Loading...</div>;
   if (!tournament) return <div className={styles.loading}>Tournament not found</div>;
@@ -1901,30 +1940,63 @@ export const TournamentView: React.FC = () => {
               Season {tournament.season}
               {tournament.status === 'finished' && <span> • Finished</span>}
             </p>
-            {isAddingDescription && (
-              <div className={styles.quickAddDesc}>
-                <div className={adminStyles.labelRow}>
-                  <label>Add Description</label>
-                  <button type="button" onClick={() => regenerateDescription(true)} className={adminStyles.iconBtn}>
-                    <ArrowClockwise size={20} weight="bold" />
-                  </button>
-                </div>
-
-                <div className={styles.quickAddActions}>
-                  <Button size="sm" variant="primary" onClick={handleQuickDescriptionAdd} disabled={isUpdatingSettings}>
-                    {isUpdatingSettings ? 'Adding...' : 'Add'}
-                  </Button>
-                  <Button size="sm" variant="outline" onClick={() => setIsAddingDescription(false)}>
-                    Cancel
-                  </Button>
-                </div>
+            {(isAddingDescription || (tournament.description && tournament.show_description)) && (
+              <div className={styles.tournamentDescription}>
+                {isAddingDescription ? (
+                  <div className={styles.quickAddDesc}>
+                    <div className={adminStyles.labelRow}>
+                      <label>Add Description</label>
+                      <button
+                        type="button"
+                        onClick={() => regenerateDescription(true)}
+                        className={adminStyles.iconBtn}
+                        title="Regenerate description"
+                      >
+                        <ArrowClockwise size={20} weight="bold" />
+                      </button>
+                    </div>
+                    <textarea
+                      value={quickDescription}
+                      onChange={(e) => setQuickDescription(e.target.value)}
+                      placeholder="Tournament description..."
+                      rows={4}
+                    />
+                    <div className={styles.quickAddActions}>
+                      <Button
+                        size="sm"
+                        variant="primary"
+                        onClick={handleQuickDescriptionAdd}
+                        disabled={isUpdatingSettings || !quickDescription.trim()}
+                      >
+                        {isUpdatingSettings ? 'Adding...' : 'Add'}
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() => {
+                          setIsAddingDescription(false);
+                          setQuickDescription('');
+                        }}
+                      >
+                        Cancel
+                      </Button>
+                    </div>
+                  </div>
+                ) : (
+                  <p>{tournament.description}</p>
+                )}
               </div>
             )}
-
-            {tournament.description && tournament.show_description && (
-              <div className={styles.tournamentDescription}>
-                <p>{tournament.description}</p>
-              </div>
+            {!tournament.description && isAdminAuthenticated && !isAddingDescription && (
+              <button
+                className={styles.addDescBtn}
+                onClick={() => {
+                  setQuickDescription(tournament.description || '');
+                  setIsAddingDescription(true);
+                }}
+              >
+                + Add description
+              </button>
             )}
             {tournament.max_teams && (
               <p className={styles.joinLimit}>
@@ -2041,13 +2113,6 @@ export const TournamentView: React.FC = () => {
           </div>
         )}
 
-        <div className={styles.description}>
-          {!tournament.description && isAdminAuthenticated && !isAddingDescription && (
-            <button className={styles.addDescBtn} onClick={() => setIsAddingDescription(true)}>
-              + Add description
-            </button>
-          )}
-        </div>
       </div>
       {selectedTournamentMessage?.type === 'join' && (
         <div className={styles.registrationStatus}>
@@ -2083,6 +2148,26 @@ export const TournamentView: React.FC = () => {
           <button className={styles.dismissBtn} onClick={handleDismissJoinedNotice}>
             <X size={18} weight="bold" />
           </button>
+        </div>
+      )}
+
+      {selectedTournamentMessage?.type === 'reauth' && (
+        <div className={styles.joinedNotice}>
+          <div className={styles.joinedNoticeContent}>
+            <span>
+              {selectedTournamentMessage.reason === 'auth_refresh_needed'
+                ? 'Please refresh your Hattrick login so HT-120min can update your online status and keep tournament tools working.'
+                : 'Already participating? Refresh your Hattrick login so HT-120min can recognize you on this tournament page.'}
+            </span>
+          </div>
+          <div className={styles.reauthActions}>
+            <Button size="sm" variant="primary" onClick={handleRefreshHattrickLogin}>
+              Refresh Hattrick login
+            </Button>
+            <button className={styles.dismissBtn} onClick={() => handleDismissReauthPrompt(selectedTournamentMessage.reason)}>
+              Maybe later
+            </button>
+          </div>
         </div>
       )}
 
@@ -2505,7 +2590,10 @@ export const TournamentView: React.FC = () => {
                                 type="button"
                                 onClick={() => regenerateDescription(false)}
                                 className={adminStyles.iconBtn}
-                              ></button>
+                                title="Regenerate description"
+                              >
+                                <ArrowClockwise size={20} weight="bold" />
+                              </button>
                             )}
                           </div>
                         </div>

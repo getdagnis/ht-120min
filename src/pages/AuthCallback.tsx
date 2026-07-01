@@ -1,6 +1,7 @@
 import { useEffect } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import styles from './AuthCallback.module.sass';
+import { markAuthRefreshCurrent } from '../utils/auth-refresh';
 
 export const AuthCallback = () => {
   const [searchParams] = useSearchParams();
@@ -23,6 +24,7 @@ export const AuthCallback = () => {
           if (res.ok) {
             localStorage.setItem('my_ht_manager_name', data.manager_name);
             localStorage.setItem('my_ht_user_id', String(data.hattrick_user_id));
+            markAuthRefreshCurrent();
             
             // Redirect to the intended page, or the one from backend, or home
             window.location.href = returnUrl ? decodeURIComponent(returnUrl) : (data.redirect || '/');

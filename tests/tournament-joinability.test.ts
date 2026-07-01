@@ -1,0 +1,76 @@
+import assert from 'node:assert/strict';
+import test from 'node:test';
+
+import { canViewerJoinTournament } from '../src/utils/tournament-joinability';
+
+test('open tournament is not joinable when max team limit is full', () => {
+  assert.equal(
+    canViewerJoinTournament({
+      hasJoined: false,
+      isGenerated: false,
+      maxTeams: 4,
+      teams: [
+        { active: true },
+        { active: true },
+        { active: true },
+        { active: true },
+      ],
+    }),
+    false,
+  );
+});
+
+test('open tournament is joinable below max team limit', () => {
+  assert.equal(
+    canViewerJoinTournament({
+      hasJoined: false,
+      isGenerated: false,
+      maxTeams: 4,
+      teams: [{ active: true }, { active: true }, { active: true }],
+    }),
+    true,
+  );
+});
+
+test('generated tournament is joinable only with replacement or odd-team spot', () => {
+  assert.equal(
+    canViewerJoinTournament({
+      hasJoined: false,
+      isGenerated: true,
+      maxTeams: 4,
+      teams: [{ active: true }, { active: true }, { active: true }, { active: true }],
+    }),
+    false,
+  );
+  assert.equal(
+    canViewerJoinTournament({
+      hasJoined: false,
+      isGenerated: true,
+      maxTeams: 4,
+      teams: [{ active: true }, { active: true }, { active: true }],
+    }),
+    true,
+  );
+  assert.equal(
+    canViewerJoinTournament({
+      hasJoined: false,
+      isGenerated: true,
+      maxTeams: 4,
+      teams: [{ active: true }, { active: true }, { active: false }],
+    }),
+    true,
+  );
+});
+
+test('current participant never sees join prompt', () => {
+  assert.equal(
+    canViewerJoinTournament({
+      hasJoined: true,
+      isGenerated: false,
+      maxTeams: 8,
+      teams: [{ active: true }],
+    }),
+    false,
+  );
+});
+

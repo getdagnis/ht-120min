@@ -30,6 +30,7 @@ test('join prompt suppresses joined notice and announcements', () => {
     hasJoined: false,
     currentHtUserId: null,
     joinedNoticeDismissed: false,
+    reauthPromptReason: 'returning_participant',
     announcements: [announcement({ visibility: 'public' })],
     dismissedAnnouncementIds: new Set(),
     publicDismissedAnnouncementIds: new Set(),
@@ -44,6 +45,7 @@ test('joined notice suppresses announcements until dismissed', () => {
     hasJoined: true,
     currentHtUserId: 1001,
     joinedNoticeDismissed: false,
+    reauthPromptReason: 'auth_refresh_needed',
     announcements: [announcement()],
     dismissedAnnouncementIds: new Set(),
     publicDismissedAnnouncementIds: new Set(),
@@ -58,6 +60,7 @@ test('participant announcements are visible only to users in the audience snapsh
     hasJoined: true,
     currentHtUserId: 1001,
     joinedNoticeDismissed: true,
+    reauthPromptReason: null,
     announcements: [announcement({ audience_ht_user_ids: [1001] })],
     dismissedAnnouncementIds: new Set(),
     publicDismissedAnnouncementIds: new Set(),
@@ -67,6 +70,7 @@ test('participant announcements are visible only to users in the audience snapsh
     hasJoined: true,
     currentHtUserId: 2002,
     joinedNoticeDismissed: true,
+    reauthPromptReason: null,
     announcements: [announcement({ audience_ht_user_ids: [1001] })],
     dismissedAnnouncementIds: new Set(),
     publicDismissedAnnouncementIds: new Set(),
@@ -85,6 +89,7 @@ test('dismissals hide participant and public announcements through the correct m
     hasJoined: true,
     currentHtUserId: 1001,
     joinedNoticeDismissed: true,
+    reauthPromptReason: null,
     announcements: [participantAnnouncement, publicAnnouncement],
     dismissedAnnouncementIds: new Set(['participant']),
     publicDismissedAnnouncementIds: new Set(['public']),
@@ -93,7 +98,54 @@ test('dismissals hide participant and public announcements through the correct m
   assert.equal(selected, null);
 });
 
+test('reauth prompt appears after joined notice is dismissed and before announcements', () => {
+  const selected = selectTournamentMessage({
+    canJoin: false,
+    hasJoined: true,
+    currentHtUserId: 1001,
+    joinedNoticeDismissed: true,
+    reauthPromptReason: 'auth_refresh_needed',
+    announcements: [announcement()],
+    dismissedAnnouncementIds: new Set(),
+    publicDismissedAnnouncementIds: new Set(),
+  });
+
+  assert.equal(selected?.type, 'reauth');
+  if (selected?.type === 'reauth') assert.equal(selected.reason, 'auth_refresh_needed');
+});
+
+test('auth refresh prompt can show for a logged-in tournament visitor after join prompt is unavailable', () => {
+  const selected = selectTournamentMessage({
+    canJoin: false,
+    hasJoined: false,
+    currentHtUserId: 1001,
+    joinedNoticeDismissed: true,
+    reauthPromptReason: 'auth_refresh_needed',
+    announcements: [announcement({ visibility: 'public' })],
+    dismissedAnnouncementIds: new Set(),
+    publicDismissedAnnouncementIds: new Set(),
+  });
+
+  assert.equal(selected?.type, 'reauth');
+  if (selected?.type === 'reauth') assert.equal(selected.reason, 'auth_refresh_needed');
+});
+
+test('returning participant prompt can show without local identity after join prompt is not available', () => {
+  const selected = selectTournamentMessage({
+    canJoin: false,
+    hasJoined: false,
+    currentHtUserId: null,
+    joinedNoticeDismissed: true,
+    reauthPromptReason: 'returning_participant',
+    announcements: [announcement({ visibility: 'public' })],
+    dismissedAnnouncementIds: new Set(),
+    publicDismissedAnnouncementIds: new Set(),
+  });
+
+  assert.equal(selected?.type, 'reauth');
+  if (selected?.type === 'reauth') assert.equal(selected.reason, 'returning_participant');
+});
+
 test('joined notice key is stable for database-backed dismissal', () => {
   assert.equal(JOINED_NOTICE_KEY, 'joined_notice');
 });
-

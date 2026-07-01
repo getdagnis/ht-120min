@@ -1,5 +1,6 @@
 export type TournamentAnnouncementVisibility = 'participants' | 'public';
 export type TournamentAnnouncementSource = 'admin' | 'system';
+export type ReauthPromptReason = 'auth_refresh_needed' | 'returning_participant';
 
 export const JOINED_NOTICE_KEY = 'joined_notice';
 
@@ -45,6 +46,7 @@ export interface TournamentAnnouncementDismissal {
 export type TournamentMessageSelection =
   | { type: 'join' }
   | { type: 'joined_notice' }
+  | { type: 'reauth'; reason: ReauthPromptReason }
   | { type: 'announcement'; announcement: TournamentAnnouncement }
   | null;
 
@@ -53,6 +55,7 @@ interface SelectTournamentMessageInput {
   hasJoined: boolean;
   currentHtUserId: number | null;
   joinedNoticeDismissed: boolean;
+  reauthPromptReason: ReauthPromptReason | null;
   announcements: TournamentAnnouncement[];
   dismissedAnnouncementIds: Set<string>;
   publicDismissedAnnouncementIds: Set<string>;
@@ -79,12 +82,19 @@ export function selectTournamentMessage({
   hasJoined,
   currentHtUserId,
   joinedNoticeDismissed,
+  reauthPromptReason,
   announcements,
   dismissedAnnouncementIds,
   publicDismissedAnnouncementIds,
 }: SelectTournamentMessageInput): TournamentMessageSelection {
   if (canJoin) return { type: 'join' };
   if (hasJoined && !joinedNoticeDismissed) return { type: 'joined_notice' };
+  if (reauthPromptReason === 'auth_refresh_needed' && currentHtUserId) {
+    return { type: 'reauth', reason: reauthPromptReason };
+  }
+  if (reauthPromptReason === 'returning_participant') {
+    return { type: 'reauth', reason: reauthPromptReason };
+  }
 
   const visibleAnnouncement = announcements
     .filter((announcement) =>
