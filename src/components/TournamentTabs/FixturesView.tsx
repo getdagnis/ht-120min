@@ -2,7 +2,7 @@ import React from 'react';
 import { SectionCard } from '../../components/Card/SectionCard';
 import { Button } from '../../components/Button/Button';
 import { FixtureCard } from '../../components/FixtureCard/FixtureCard';
-import { ArrowClockwise, CopySimple, Check } from 'phosphor-react';
+import { ArrowClockwise, ArrowRight, CopySimple, Check } from 'phosphor-react';
 import { Tooltip } from 'react-tooltip';
 import { calculateMatchDate } from '../../utils/ht-data';
 import { getHattrickWeekDetails } from '../../utils/hattrick-calendar';
@@ -93,6 +93,9 @@ interface FixturesViewProps {
       away_injuries?: number;
     }
   >;
+  canJoinTournament: boolean;
+  isConnecting: boolean;
+  onJoinWithHattrick: () => void;
 }
 
 export const FixturesView: React.FC<FixturesViewProps> = ({
@@ -108,6 +111,9 @@ export const FixturesView: React.FC<FixturesViewProps> = ({
   setCopied,
   warnings,
   liveData,
+  canJoinTournament,
+  isConnecting,
+  onJoinWithHattrick,
 }) => {
   const [manualVisibleRoundsCount, setManualVisibleRoundsCount] = React.useState<number | null>(null);
   const visibleRoundsCount = manualVisibleRoundsCount ?? defaultVisibleRoundsCount;
@@ -133,6 +139,19 @@ export const FixturesView: React.FC<FixturesViewProps> = ({
 
   return (
     <div className={styles.rounds}>
+      {rounds.length === 0 && (
+        <SectionCard title="Fixtures & Results">
+          <div className={styles.emptyFixtures}>
+            <p>Fixtures have not yet been generated. Tournament is open for registration. You can join with another team.</p>
+            {canJoinTournament && (
+              <Button variant="primary" size="sm" onClick={onJoinWithHattrick} disabled={isConnecting}>
+                <ArrowRight size={18} weight="bold" /> Join with Hattrick
+              </Button>
+            )}
+          </div>
+        </SectionCard>
+      )}
+
       {rounds.slice(0, visibleRoundsCount).map((round) => {
         const isNextRound = round.id === rounds[upcomingRoundIndex]?.id;
 

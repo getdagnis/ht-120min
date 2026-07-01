@@ -761,6 +761,71 @@
   min-height: 60px
   resize: none
 
+.announcementChips
+  display: flex
+  gap: 0.5rem
+  flex-wrap: wrap
+
+  button
+    border: 1px solid var(--border)
+    border-radius: 999px
+    background: var(--bg-transp2)
+    color: var(--text)
+    padding: 0.45rem 0.8rem
+    font: inherit
+    font-size: 0.85rem
+    font-weight: 700
+    cursor: pointer
+
+    &:hover
+      border-color: var(--accent)
+
+.activeChip
+  border-color: var(--accent) !important
+  background: var(--bg-helpText) !important
+  color: var(--text-h) !important
+
+.announcementList
+  margin-top: 1.5rem
+  display: flex
+  flex-direction: column
+  gap: 0.75rem
+
+  h4
+    margin: 0
+    color: var(--text-h)
+
+.announcementListItem
+  display: flex
+  justify-content: space-between
+  align-items: center
+  gap: 1rem
+  padding: 0.9rem 1rem
+  border: 1px solid var(--border)
+  border-radius: var(--radius-md)
+  background: var(--bg-transp2)
+
+  p
+    margin: 0 0 0.35rem
+    color: var(--text-h)
+
+  span
+    font-size: 0.78rem
+    color: var(--text60)
+    text-transform: uppercase
+    letter-spacing: 0.05em
+
+  @media (max-width: 620px)
+    flex-direction: column
+    align-items: flex-start
+
+.announcementHidden
+  opacity: 0.55
+
+.announcementPreview
+  margin: 0
+  width: 100%
+
 .footerActions
   margin-top: 3rem
   padding-top: 2rem

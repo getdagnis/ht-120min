@@ -1,5 +1,5 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
-import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import React, { useCallback, useDeferredValue, useEffect, useMemo, useRef, useState } from 'react';
 import { useLocation, useParams, useSearchParams } from 'react-router-dom';
 import { supabase } from '../../lib/supabase';
 
@@ -15,6 +15,14 @@ import { useLiveMatches } from '../../hooks/useLiveMatches';
 import { buildScheduleDraft, serializeScheduleDraftForRpc, type ScheduleMode } from '../../utils/schedule-draft';
 import { buildRescheduleDraft, serializeRescheduleDraftForRpc } from '../../utils/reschedule-draft';
 import { getMatchDateForRound as resolveMatchDateForRound } from '../../utils/match-schedule';
+import {
+  ANNOUNCEMENT_TEMPLATES,
+  JOINED_NOTICE_KEY,
+  selectTournamentMessage,
+  type TournamentAnnouncement,
+  type TournamentAnnouncementDismissal,
+  type TournamentAnnouncementVisibility,
+} from '../../utils/tournament-announcements';
 
 import { Tooltip } from 'react-tooltip';
 import { Button } from '../../components/Button/Button';
@@ -179,7 +187,13 @@ export const TournamentView: React.FC = () => {
   const [newNewsContent, setNewNewsContent] = useState('');
   const [isPostingNews, setIsPostingNews] = useState(false);
   const [newsMode, setNewsMode] = useState<'admin' | 'team'>('team');
-  const [adminChatContent, setAdminChatContent] = useState('');
+  const [announcements, setAnnouncements] = useState<TournamentAnnouncement[]>([]);
+  const [announcementDismissals, setAnnouncementDismissals] = useState<TournamentAnnouncementDismissal[]>([]);
+  const [adminAnnouncementContent, setAdminAnnouncementContent] = useState('');
+  const deferredAdminAnnouncementContent = useDeferredValue(adminAnnouncementContent);
+  const [isPublicAnnouncement, setIsPublicAnnouncement] = useState(false);
+  const [isPublishingAnnouncement, setIsPublishingAnnouncement] = useState(false);
+  const [, setPublicAnnouncementDismissalVersion] = useState(0);
 
   // Chat states
   const [chatMessages, setChatMessages] = useState<any[]>([]);
@@ -247,34 +261,17 @@ export const TournamentView: React.FC = () => {
 
   const currentHtUserId = Number(localStorage.getItem('my_ht_user_id') || '0') || null;
   const currentHtManagerName = localStorage.getItem('my_ht_manager_name') || tournament?.organizer_name || 'Admin';
-  const announcementTemplates = [
-    {
-      id: 'tournament-news',
-      label: 'Announcement',
-      icon: '📣',
-    },
-    {
-      id: 'injury-update',
-      label: 'Injury update',
-      icon: '🏥',
-    },
-    {
-      id: 'team-joined',
-      label: 'Team joined',
-      icon: '🎉',
-    },
-    {
-      id: 'team-left',
-      label: 'Team left',
-      icon: '👋',
-    },
-  ] as const;
   const canLoginAsOrganizer = Boolean(
     tournament?.organizer_id && currentHtUserId && Number(tournament.organizer_id) === currentHtUserId,
   );
   const organizerLoginLabel = `🤖 ${currentHtManagerName} (organizer)`;
   const selectedAnnouncement =
-    announcementTemplates.find((template) => template.id === selectedAnnouncementTemplate) || null;
+    ANNOUNCEMENT_TEMPLATES.find((template) => template.id === selectedAnnouncementTemplate) || null;
+  const dismissedPublicAnnouncementIds = new Set(
+    announcements
+      .filter((announcement) => localStorage.getItem(`announcement_dismissed_${announcement.id}`) === 'true')
+      .map((announcement) => announcement.id),
+  );
 
   // Collapsible states
   const [isSettingsCollapsed, setIsSettingsCollapsed] = useState(() =>
@@ -632,6 +629,24 @@ export const TournamentView: React.FC = () => {
 
       setWarnings(warningsData || []);
 
+      const { data: announcementData } = await supabase
+        .from('tournament_announcements')
+        .select('*')
+        .eq('tournament_id', tournamentData.id)
+        .order('created_at', { ascending: false });
+      setAnnouncements((announcementData as TournamentAnnouncement[] | null) || []);
+
+      if (currentHtUserId) {
+        const { data: dismissalData } = await supabase
+          .from('tournament_announcement_dismissals')
+          .select('*')
+          .eq('tournament_id', tournamentData.id)
+          .eq('hattrick_user_id', currentHtUserId);
+        setAnnouncementDismissals((dismissalData as TournamentAnnouncementDismissal[] | null) || []);
+      } else {
+        setAnnouncementDismissals([]);
+      }
+
       if (teamsData) {
         const matchesWithTeams = matchesData as unknown as MatchWithTeams[];
 
@@ -716,7 +731,7 @@ export const TournamentView: React.FC = () => {
       }
     }
     setLoading(false);
-  }, [slug, liveData, getMatchDateForRound]);
+  }, [slug, liveData, getMatchDateForRound, currentHtUserId]);
 
   // Lightweight update: only refresh rounds, matches, warnings and last_fixtures_refresh timestamp.
   // Does not reload tournament meta, teams, standings, chat, news, or profiles.
@@ -1177,21 +1192,6 @@ export const TournamentView: React.FC = () => {
     }
   };
 
-  const handlePostAdminChat = async (content: string) => {
-    if (!content.trim() || !tournament) return;
-    try {
-      await supabase.from('tournament_chat').insert({
-        tournament_id: tournament.id,
-        author_name: 'Tournament Administration',
-        content: content.trim(),
-        author_ht_id: 0, // Special ID for system/admin messages
-      });
-      setAdminChatContent('');
-    } catch (err: any) {
-      alert(err.message);
-    }
-  };
-
   const handleAddReaction = async (postId: string, reaction: string) => {
     const userId = localStorage.getItem('my_ht_user_id') || 'guest';
     const { error } = await supabase.from('news_reactions').insert({
@@ -1238,14 +1238,152 @@ export const TournamentView: React.FC = () => {
     localStorage.removeItem(`admin_auth_${slug}`);
   };
 
-  const handleAnnouncementSend = () => {
-    const trimmedContent = adminChatContent.trim();
+  const getParticipantAudienceHtUserIds = useCallback(
+    () =>
+      Array.from(
+        new Set(
+          teams
+            .filter((team) => team.active && !team.is_placeholder && team.hattrick_user_id)
+            .map((team) => Number(team.hattrick_user_id)),
+        ),
+      ),
+    [teams],
+  );
+
+  const createAnnouncement = useCallback(
+    async ({
+      content,
+      templateKey,
+      visibility,
+      source,
+    }: {
+      content: string;
+      templateKey: string | null;
+      visibility: TournamentAnnouncementVisibility;
+      source: 'admin' | 'system';
+    }) => {
+      if (!tournament || !content.trim()) return null;
+      const audienceHtUserIds = visibility === 'participants' ? getParticipantAudienceHtUserIds() : [];
+      const { data, error } = await supabase
+        .from('tournament_announcements')
+        .insert({
+          tournament_id: tournament.id,
+          content: content.trim(),
+          template_key: templateKey,
+          visibility,
+          source,
+          audience_ht_user_ids: audienceHtUserIds,
+          is_active: true,
+          created_by_name: source === 'system' ? 'Tournament Administration' : currentHtManagerName,
+          created_by_ht_user_id: currentHtUserId,
+        })
+        .select('*')
+        .single();
+
+      if (error) throw error;
+      if (data) setAnnouncements((current) => [data as TournamentAnnouncement, ...current]);
+      return data as TournamentAnnouncement | null;
+    },
+    [currentHtManagerName, currentHtUserId, getParticipantAudienceHtUserIds, tournament],
+  );
+
+  const handleAnnouncementPublish = async () => {
+    const trimmedContent = adminAnnouncementContent.trim();
     if (!trimmedContent) return;
 
-    const template = announcementTemplates.find((item) => item.id === selectedAnnouncementTemplate);
-    const prefix = template ? `${template.icon} ${template.label}` : '📣 Announcement';
-    void handlePostAdminChat(`${prefix}\n${trimmedContent}`);
-    setAdminChatContent('');
+    setIsPublishingAnnouncement(true);
+    try {
+      await createAnnouncement({
+        content: trimmedContent,
+        templateKey: selectedAnnouncementTemplate,
+        visibility: isPublicAnnouncement ? 'public' : 'participants',
+        source: 'admin',
+      });
+      setAdminAnnouncementContent('');
+      setSelectedAnnouncementTemplate(null);
+      setIsPublicAnnouncement(false);
+    } catch (error: any) {
+      alert(error.message);
+    } finally {
+      setIsPublishingAnnouncement(false);
+    }
+  };
+
+  const handleAnnouncementVisibilityToggle = async (announcement: TournamentAnnouncement) => {
+    const nextActive = !announcement.is_active;
+    const { data, error } = await supabase
+      .from('tournament_announcements')
+      .update({ is_active: nextActive, hidden_at: nextActive ? null : new Date().toISOString() })
+      .eq('id', announcement.id)
+      .select('*')
+      .single();
+
+    if (error) {
+      alert(error.message);
+      return;
+    }
+
+    setAnnouncements((current) =>
+      current.map((item) => (item.id === announcement.id ? (data as TournamentAnnouncement) : item)),
+    );
+  };
+
+  const insertDismissal = async (payload: {
+    announcement_id?: string | null;
+    notice_key?: string | null;
+    tournament_id: string;
+    hattrick_user_id: number;
+  }) => {
+    const { data, error } = await supabase
+      .from('tournament_announcement_dismissals')
+      .insert(payload)
+      .select('*')
+      .single();
+
+    if (error) {
+      if (error.code === '23505') return null;
+      throw error;
+    }
+
+    return data as TournamentAnnouncementDismissal | null;
+  };
+
+  const handleDismissJoinedNotice = async () => {
+    if (!tournament || !currentHtUserId) return;
+    setIsJoinedNoticeDismissed(true);
+    localStorage.setItem(`joined_notice_dismissed_${slug}`, 'true');
+    try {
+      const dismissal = await insertDismissal({
+        tournament_id: tournament.id,
+        notice_key: JOINED_NOTICE_KEY,
+        announcement_id: null,
+        hattrick_user_id: currentHtUserId,
+      });
+      if (dismissal) setAnnouncementDismissals((current) => [...current, dismissal]);
+    } catch (error: any) {
+      alert(error.message);
+    }
+  };
+
+  const handleDismissAnnouncement = async (announcement: TournamentAnnouncement) => {
+    if (announcement.visibility === 'public') {
+      localStorage.setItem(`announcement_dismissed_${announcement.id}`, 'true');
+      setPublicAnnouncementDismissalVersion((current) => current + 1);
+      return;
+    }
+
+    if (!tournament || !currentHtUserId) return;
+    try {
+      const dismissal = await insertDismissal({
+        tournament_id: tournament.id,
+        announcement_id: announcement.id,
+        notice_key: null,
+        hattrick_user_id: currentHtUserId,
+      });
+      if (dismissal) setAnnouncementDismissals((current) => [...current, dismissal]);
+    } catch (error: any) {
+      alert(error.message);
+    }
   };
 
   const updateSettings = async () => {
@@ -1620,6 +1758,16 @@ export const TournamentView: React.FC = () => {
       });
 
       if (error) throw error;
+      try {
+        await createAnnouncement({
+          content: 'Tournament schedule dates were updated, please check Fixtures & Results.',
+          templateKey: 'schedule-change',
+          visibility: 'participants',
+          source: 'system',
+        });
+      } catch (announcementError) {
+        console.warn('Schedule was regenerated, but the participant announcement could not be published.', announcementError);
+      }
       await fetchData();
     } catch (err: unknown) {
       const message =
@@ -1704,13 +1852,35 @@ export const TournamentView: React.FC = () => {
     }
   };
 
+  const myHtUserId = localStorage.getItem('my_ht_user_id');
+  const hasJoined = teams.some((t) => t.hattrick_user_id === Number(myHtUserId) && t.active);
+  const canJoinTournament = Boolean(
+    tournament &&
+      !hasJoined &&
+      (!isGenerated || (isGenerated && (teams.some((t) => !t.active && !t.is_placeholder) || teams.length % 2 !== 0))),
+  );
+  const dismissedAnnouncementIds = new Set(
+    announcementDismissals
+      .filter((dismissal) => dismissal.announcement_id)
+      .map((dismissal) => dismissal.announcement_id as string),
+  );
+  const joinedNoticeDismissed =
+    isJoinedNoticeDismissed ||
+    announcementDismissals.some((dismissal) => dismissal.notice_key === JOINED_NOTICE_KEY);
+  const selectedTournamentMessage = selectTournamentMessage({
+    canJoin: canJoinTournament,
+    hasJoined,
+    currentHtUserId,
+    joinedNoticeDismissed,
+    announcements,
+    dismissedAnnouncementIds,
+    publicDismissedAnnouncementIds: dismissedPublicAnnouncementIds,
+  });
+
   if (loading) return <div className={styles.loading}>Loading...</div>;
   if (!tournament) return <div className={styles.loading}>Tournament not found</div>;
 
   const is120minMode = tournament.scoring_mode === '120m' || tournament.scoring_mode === '120min';
-
-  const myHtUserId = localStorage.getItem('my_ht_user_id');
-  const hasJoined = teams.some((t) => t.hattrick_user_id === Number(myHtUserId) && t.active);
 
   const isMobile = window.innerWidth <= 620;
   const publicUrl = `${window.location.origin}/t/${slug}`;
@@ -1879,45 +2049,51 @@ export const TournamentView: React.FC = () => {
           )}
         </div>
       </div>
-      {!hasJoined &&
-        (!isGenerated ||
-          (isGenerated && (teams.some((t) => !t.active && !t.is_placeholder) || teams.length % 2 !== 0))) && (
-          <div className={styles.registrationStatus}>
-            <div className={styles.helpContent}>
-              <p>
-                {isGenerated
-                  ? 'This tournament is ongoing but has available spots for new teams!'
-                  : 'This tournament is currently open and accepting new participants!'}
-              </p>
-              {!isJoining && (
-                <Button
-                  onClick={() => {
-                    setIsConnecting(true);
-                    window.location.href = `/api/auth/init?tournament_id=${tournament?.id}`;
-                  }}
-                  variant="primary"
-                  size="sm"
-                  className={styles.joinButton}
-                  disabled={isConnecting}
-                >
-                  <ArrowRight size={18} weight="bold" /> Join with Hattrick
-                </Button>
-              )}
-            </div>
+      {selectedTournamentMessage?.type === 'join' && (
+        <div className={styles.registrationStatus}>
+          <div className={styles.helpContent}>
+            <p>
+              {isGenerated
+                ? 'This tournament is ongoing but has available spots for new teams!'
+                : 'This tournament is currently open and accepting new participants!'}
+            </p>
+            {!isJoining && (
+              <Button
+                onClick={() => {
+                  setIsConnecting(true);
+                  window.location.href = `/api/auth/init?tournament_id=${tournament?.id}`;
+                }}
+                variant="primary"
+                size="sm"
+                className={styles.joinButton}
+                disabled={isConnecting}
+              >
+                <ArrowRight size={18} weight="bold" /> Join with Hattrick
+              </Button>
+            )}
           </div>
-        )}
+        </div>
+      )}
 
-      {activeTab === 'standings' && hasJoined && !isJoinedNoticeDismissed && (
+      {selectedTournamentMessage?.type === 'joined_notice' && (
         <div className={styles.joinedNotice}>
           <div className={styles.joinedNoticeContent}>
             <span>You are participating in this tournament! Good luck!</span>
           </div>
+          <button className={styles.dismissBtn} onClick={handleDismissJoinedNotice}>
+            <X size={18} weight="bold" />
+          </button>
+        </div>
+      )}
+
+      {selectedTournamentMessage?.type === 'announcement' && (
+        <div className={styles.joinedNotice}>
+          <div className={styles.joinedNoticeContent}>
+            <span>{selectedTournamentMessage.announcement.content}</span>
+          </div>
           <button
             className={styles.dismissBtn}
-            onClick={() => {
-              setIsJoinedNoticeDismissed(true);
-              localStorage.setItem(`joined_notice_dismissed_${slug}`, 'true');
-            }}
+            onClick={() => handleDismissAnnouncement(selectedTournamentMessage.announcement)}
           >
             <X size={18} weight="bold" />
           </button>
@@ -1954,6 +2130,12 @@ export const TournamentView: React.FC = () => {
           setCopied={setCopied}
           warnings={warnings}
           liveData={liveData}
+          canJoinTournament={canJoinTournament}
+          isConnecting={isConnecting}
+          onJoinWithHattrick={() => {
+            setIsConnecting(true);
+            window.location.href = `/api/auth/init?tournament_id=${tournament?.id}`;
+          }}
         />
       )}
 
@@ -2722,124 +2904,102 @@ export const TournamentView: React.FC = () => {
                 <Tooltip id="admin-tooltip" />
               </div>
 
-              {isSuperAdmin ? (
-                <div className={adminStyles.simulatorSection}>
-                  <h3 className={adminStyles.sectionTitle}>Live Match Simulator (Playground)</h3>
-                  <p className={adminStyles.smallNote}>
-                    Send simulated match event messages as "Tournament Administration" to the chat.
-                  </p>
+              <div className={adminStyles.simulatorSection}>
+                <h3 className={adminStyles.sectionTitle}>Admin announcements</h3>
+                <p className={adminStyles.smallNote}>
+                  Publish a dismissible message in the top tournament notice area.
+                </p>
 
-                  <div className={adminStyles.simulatorGrid}>
-                    <div className={adminStyles.simulatorComposer}>
-                      <div className={adminStyles.simulatorActions}>
-                        <Button
-                          variant="secondary"
-                          size="sm"
-                          onClick={() => handlePostAdminChat('⚽ GOAL! Team A scores against Team B! (1-0)')}
-                        >
-                          ⚽ Goal
-                        </Button>
-                        <Button
-                          variant="secondary"
-                          size="sm"
-                          onClick={() => handlePostAdminChat('🟨 Yellow Card for Player X (Team A)')}
-                        >
-                          🟨 Card
-                        </Button>
-                        <Button
-                          variant="secondary"
-                          size="sm"
-                          onClick={() => handlePostAdminChat('💥🥊 Injury: Player Y (Team B) has been stretched off.')}
-                        >
-                          🏥 Injury
-                        </Button>
-                        <Button
-                          variant="secondary"
-                          size="sm"
-                          onClick={() => handlePostAdminChat('🏁 FINAL SCORE: Team A 2 - 1 Team B')}
-                        >
-                          🏁 Final
-                        </Button>
-                      </div>
+                <div className={adminStyles.inviteActionArea}>
+                  <textarea
+                    value={adminAnnouncementContent}
+                    onChange={(e) => setAdminAnnouncementContent(e.target.value)}
+                    placeholder="Write announcement..."
+                    className={adminStyles.inviteTextarea}
+                  />
 
-                      <div className={adminStyles.customSim}>
-                        <input
-                          type="text"
-                          value={adminChatContent}
-                          onChange={(e) => setAdminChatContent(e.target.value)}
-                          placeholder="Custom event message..."
-                          className={adminStyles.simInput}
-                        />
-                        <Button variant="primary" size="sm" onClick={() => handlePostAdminChat(adminChatContent)}>
-                          Send
-                        </Button>
-                      </div>
-                    </div>
+                  <div className={adminStyles.announcementChips}>
+                    {ANNOUNCEMENT_TEMPLATES.map((template) => (
+                      <button
+                        key={template.id}
+                        type="button"
+                        className={selectedAnnouncementTemplate === template.id ? adminStyles.activeChip : ''}
+                        onClick={() => {
+                          setSelectedAnnouncementTemplate(template.id);
+                          setAdminAnnouncementContent(template.content);
+                        }}
+                      >
+                        {template.label}
+                      </button>
+                    ))}
+                  </div>
 
-                    <div className={adminStyles.simulatorPreview}>
-                      <div className={adminStyles.previewHeader}>
-                        <span className={adminStyles.previewLabel}>Chat preview</span>
-                        <span className={adminStyles.previewHint}>Matches the admin/system message style</span>
-                      </div>
-                      <div className={styles.systemMessage}>
-                        <div className={styles.systemMessageContent}>
-                          <span className={styles.chatContent}>
-                            {adminChatContent.trim() || 'Type a message on the left to preview it here.'}
-                          </span>
-                          <span className={styles.chatTime}>
-                            {new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                  <label className={adminStyles.checkboxLabel}>
+                    <input
+                      type="checkbox"
+                      checked={isPublicAnnouncement}
+                      onChange={(event) => setIsPublicAnnouncement(event.target.checked)}
+                    />
+                    Public. Visible to guest visitors
+                  </label>
+
+	                  <div className={adminStyles.smallNote}>
+	                    {selectedAnnouncement ? `${selectedAnnouncement.label} template selected` : 'No template selected.'}
+	                  </div>
+
+	                  <div className={`${styles.joinedNotice} ${adminStyles.announcementPreview}`}>
+	                    <div className={styles.joinedNoticeContent}>
+	                      <span>{deferredAdminAnnouncementContent.trim() || 'Message preview will appear here.'}</span>
+	                    </div>
+	                    <button className={styles.dismissBtn} type="button" disabled>
+	                      <X size={18} weight="bold" />
+	                    </button>
+	                  </div>
+
+	                  <div className={styles.formActionRow}>
+	                    <Button
+	                      variant="primary"
+                      size="sm"
+                      onClick={handleAnnouncementPublish}
+                      disabled={isPublishingAnnouncement || !adminAnnouncementContent.trim()}
+                    >
+                      {isPublishingAnnouncement ? 'Publishing...' : 'Publish'}
+                    </Button>
+                  </div>
+                </div>
+
+                <div className={adminStyles.announcementList}>
+                  <h4>Announcements</h4>
+                  {announcements.length === 0 ? (
+                    <p className={adminStyles.smallNote}>No announcements yet.</p>
+                  ) : (
+                    announcements.map((announcement) => (
+                      <div
+                        key={announcement.id}
+                        className={`${adminStyles.announcementListItem} ${
+                          !announcement.is_active ? adminStyles.announcementHidden : ''
+                        }`}
+                      >
+                        <div>
+                          <p>{announcement.content}</p>
+                          <span>
+                            {announcement.visibility === 'public' ? 'Public' : 'Participants'} •{' '}
+                            {announcement.is_active ? 'Visible' : 'Hidden'} •{' '}
+                            {new Date(announcement.created_at).toLocaleDateString('en-GB')}
                           </span>
                         </div>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              ) : (
-                <div className={adminStyles.simulatorSection}>
-                  <h3 className={adminStyles.sectionTitle}>Forum Announcements</h3>
-                  <p className={adminStyles.smallNote}>
-                    Pick a template, then write the message you want published to the tournament chat.
-                  </p>
-
-                  <div className={adminStyles.inviteTemplate}>
-                    <label>Announcement type</label>
-                    <div className={styles.newsTabs}>
-                      {announcementTemplates.map((template) => {
-                        const isSelected = selectedAnnouncementTemplate === template.id;
-                        return (
-                          <button
-                            key={template.id}
-                            type="button"
-                            className={isSelected ? styles.active : ''}
-                            onClick={() => setSelectedAnnouncementTemplate(template.id)}
-                          >
-                            {template.icon} {template.label}
-                          </button>
-                        );
-                      })}
-                    </div>
-
-                    <div className={adminStyles.inviteActionArea}>
-                      <textarea
-                        value={adminChatContent}
-                        onChange={(e) => setAdminChatContent(e.target.value)}
-                        placeholder="Write chat announcement..."
-                        className={adminStyles.inviteTextarea}
-                      />
-                      <div className={adminStyles.smallNote}>
-                        {selectedAnnouncement
-                          ? `${selectedAnnouncement.icon} ${selectedAnnouncement.label} selected`
-                          : 'No template selected yet.'}
-                      </div>
-                      <div className={styles.formActionRow}>
-                        <Button variant="primary" size="sm" onClick={handleAnnouncementSend}>
-                          Send Announcement
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => handleAnnouncementVisibilityToggle(announcement)}
+                        >
+                          {announcement.is_active ? 'Hide for all' : 'Show for all'}
                         </Button>
                       </div>
-                    </div>
-                  </div>
+                    ))
+                  )}
                 </div>
-              )}
+              </div>
 
               <div className={adminStyles.footerActions}>
                 <Button variant="outline" size="sm" onClick={() => window.confirm('Pause this tournament?')}>

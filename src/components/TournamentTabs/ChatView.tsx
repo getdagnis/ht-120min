@@ -2,8 +2,9 @@ import React, { useState, useRef, useEffect } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { Tooltip } from 'react-tooltip';
 import styles from '../../pages/Public/TournamentView.module.sass';
+import { Button } from '../Button/Button';
 import { Avatar } from '../Avatar/Avatar';
-import { PaperPlaneTilt } from 'phosphor-react';
+import { ArrowRight, PaperPlaneTilt, User } from 'phosphor-react';
 
 interface ChatMessage {
   id: string;
@@ -75,6 +76,11 @@ export const ChatView: React.FC<ChatViewProps> = ({
 
   const handleOpenProfile = (htId: number) => {
     setSearchParams({ ...Object.fromEntries(searchParams.entries()), profileId: htId.toString() });
+  };
+
+  const handleLogin = () => {
+    document.cookie = `auth_return_url=${encodeURIComponent(window.location.pathname + window.location.search)}; path=/; max-age=300`;
+    window.location.href = '/api/auth/init';
   };
 
   const handleEmojiClick = (emoji: string) => {
@@ -194,7 +200,11 @@ export const ChatView: React.FC<ChatViewProps> = ({
         </form>
       ) : (
         <div className={styles.loginToPost}>
-          <p>Login to say something...</p>
+          <Button size="sm" onClick={handleLogin} variant="zero" className={styles.chatLoginBtn} type="button">
+            <User size={18} weight="bold" />
+            <span className={styles.chatLoginLabel}>Login (CHPP)</span>{' '}
+            <ArrowRight size={18} className="hideOnTable" />
+          </Button>
         </div>
       )}
     </div>

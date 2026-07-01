@@ -569,6 +569,16 @@ export const CreateTournament: React.FC = () => {
       const { error: teamsError } = await supabase.from('teams').insert(teamsToInsert);
       if (teamsError) throw teamsError;
 
+      const { error: chatSeedError } = await supabase.from('tournament_chat').insert({
+        tournament_id: tournament.id,
+        author_name: 'Tournament Administration',
+        author_ht_id: 0,
+        content: 'This is tournament chat. Login and say hello to everybody!',
+      });
+      if (chatSeedError) {
+        console.warn('Tournament chat welcome message could not be seeded.', chatSeedError);
+      }
+
       if (organizerId) {
         localStorage.setItem('my_ht_user_id', organizerId.toString());
       }
