@@ -51,7 +51,7 @@ interface AdminResultsProps {
 }
 
 const AdminResultTeam: React.FC<{ team: ResultTeam | null; side: 'home' | 'away' }> = ({ team, side }) => {
-  const flagUrl = getFlagUrl(team?.country_name);
+  const flagUrl = getFlagUrl(team?.country_name, team?.country_id);
 
   if (!team) {
     return (

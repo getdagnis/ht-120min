@@ -222,7 +222,7 @@ export const SupportersWall: React.FC<SupportersWallProps> = ({ variant = 'compa
         team: lookup?.team_name || supporter.team,
         country: lookup?.country_name || supporter.country,
         flag: lookup?.country_name ? '' : supporter.flag,
-        flagUrl: lookup?.country_name ? getFlagUrl(lookup.country_name) : null,
+        flagUrl: lookup?.country_name ? getFlagUrl(lookup.country_name, lookup.country_id) : null,
         message: isPioneer ? renderPioneerMessage(supporter.id) : supporter.message,
       };
     });

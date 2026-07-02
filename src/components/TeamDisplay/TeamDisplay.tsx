@@ -16,7 +16,7 @@ interface TeamDisplayProps {
 export const TeamDisplay: React.FC<TeamDisplayProps> = ({ team, side }) => {
   const isFree = !team?.name;
   const countryName = team?.country_name;
-  const flagUrl = getFlagUrl(countryName);
+  const flagUrl = getFlagUrl(countryName, team?.country_id);
 
   return (
     <div className={`${styles.teamDisplay} ${side ? styles[side] : ''}`}>

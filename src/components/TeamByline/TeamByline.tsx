@@ -1,6 +1,7 @@
 import React from 'react';
 import { Tooltip } from 'react-tooltip';
-import { getFlagUrl, formatPresence } from '../../utils/ht-data';
+import { getCanonicalCountryName, getFlagUrl, formatPresence } from '../../utils/ht-data';
+import { getLeagueIdByName } from '../../utils/leagues';
 import styles from './TeamByline.module.sass';
 
 interface TeamBylineProps {
@@ -43,8 +44,9 @@ export const TeamByline: React.FC<TeamBylineProps> = ({
     }
   };
 
-  const displayCountryName = countryName;
-  const flagUrl = getFlagUrl(displayCountryName || undefined);
+  const displayCountryName = getCanonicalCountryName(countryName, countryId);
+  const flagUrl = getFlagUrl(displayCountryName, countryId);
+  const leagueId = displayCountryName ? getLeagueIdByName(displayCountryName) : undefined;
   const presence = lastSeenAt !== undefined ? formatPresence(lastSeenAt) : null;
   const summary =
     matchSummary && (matchSummary.yellowCards > 0 || matchSummary.redCards > 0 || matchSummary.injuries > 0)
@@ -77,7 +79,7 @@ export const TeamByline: React.FC<TeamBylineProps> = ({
         {displayCountryName && (
           <>
             <a
-              href={`https://www.hattrick.org/goto.ashx?path=/World/Leagues/League.aspx?LeagueID=${countryId || ''}`}
+              href={`https://www.hattrick.org/goto.ashx?path=/World/Leagues/League.aspx?LeagueID=${leagueId || countryId || ''}`}
               target="_blank"
               rel="noopener noreferrer"
               className={styles.flagLink}

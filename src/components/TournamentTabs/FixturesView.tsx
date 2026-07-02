@@ -2,7 +2,7 @@ import React from 'react';
 import { SectionCard } from '../../components/Card/SectionCard';
 import { Button } from '../../components/Button/Button';
 import { FixtureCard } from '../../components/FixtureCard/FixtureCard';
-import { ArrowsInSimple, ArrowsOutSimple, ArrowClockwise, ArrowRight, CopySimple, Check } from 'phosphor-react';
+import { ArrowClockwise, ArrowRight, CopySimple, Check } from 'phosphor-react';
 import { Tooltip } from 'react-tooltip';
 import { calculateMatchDate } from '../../utils/ht-data';
 import { getHattrickWeekDetails } from '../../utils/hattrick-calendar';
