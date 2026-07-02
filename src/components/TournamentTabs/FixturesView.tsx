@@ -2,7 +2,7 @@ import React from 'react';
 import { SectionCard } from '../../components/Card/SectionCard';
 import { Button } from '../../components/Button/Button';
 import { FixtureCard } from '../../components/FixtureCard/FixtureCard';
-import { ArrowClockwise, ArrowRight, CopySimple, Check } from 'phosphor-react';
+import { ArrowsInSimple, ArrowsOutSimple, ArrowClockwise, ArrowRight, CopySimple, Check } from 'phosphor-react';
 import { Tooltip } from 'react-tooltip';
 import { calculateMatchDate } from '../../utils/ht-data';
 import { getHattrickWeekDetails } from '../../utils/hattrick-calendar';
@@ -57,10 +57,13 @@ interface FixturesViewProps {
     created_at: string;
     matches: FixtureMatch[];
   }[];
+  season: number;
   upcomingRoundIndex: number;
   defaultVisibleRoundsCount: number;
   expandedRounds: Record<string, boolean>;
   toggleRound: (roundId: string) => void;
+  onExpandAllRounds: () => void;
+  onCollapseAllRounds: () => void;
   tournament: {
     id: string;
     scoring_mode?: string;
@@ -100,10 +103,13 @@ interface FixturesViewProps {
 
 export const FixturesView: React.FC<FixturesViewProps> = ({
   rounds,
+  season,
   upcomingRoundIndex,
   defaultVisibleRoundsCount,
   expandedRounds,
   toggleRound,
+  onExpandAllRounds,
+  onCollapseAllRounds,
   tournament,
   isRefreshingFixtures,
   handleRefreshFixtures,
@@ -188,6 +194,20 @@ export const FixturesView: React.FC<FixturesViewProps> = ({
 
   return (
     <div className={styles.rounds}>
+      <div className={styles.fixturesHeader}>
+        <h3 className={styles.fixturesTitle}>Season {season} Fixtures</h3>
+        {rounds.length > 0 && (
+          <div className={styles.fixturesHeaderActions}>
+            <button type="button" className={styles.fixturesHeaderAction} onClick={onExpandAllRounds}>
+              <span>EXPAND ALL</span>
+            </button>
+            <button type="button" className={styles.fixturesHeaderAction} onClick={onCollapseAllRounds}>
+              <span>COLLAPSE ALL</span>
+            </button>
+          </div>
+        )}
+      </div>
+
       {rounds.length === 0 && (
         <SectionCard title="Fixtures & Results">
           <div className={styles.emptyFixtures}>

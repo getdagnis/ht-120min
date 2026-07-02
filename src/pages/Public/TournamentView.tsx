@@ -316,11 +316,19 @@ export const TournamentView: React.FC = () => {
     return saved ? JSON.parse(saved) : {};
   });
 
-  const toggleRound = (roundId: string) => {
-    const newExpanded = { ...expandedRounds, [roundId]: !expandedRounds[roundId] };
-    setExpandedRounds(newExpanded);
-    localStorage.setItem(`expanded_rounds_${slug}`, JSON.stringify(newExpanded));
-  };
+  useEffect(() => {
+    localStorage.setItem(`expanded_rounds_${slug}`, JSON.stringify(expandedRounds));
+  }, [expandedRounds, slug]);
+
+  const toggleRound = useCallback(
+    (roundId: string) => {
+      setExpandedRounds((current) => ({
+        ...current,
+        [roundId]: !current[roundId],
+      }));
+    },
+    [],
+  );
   const [quickDescription, setQuickDescription] = useState('');
   const [isJoinedNoticeDismissed, setIsJoinedNoticeDismissed] = useState(
     localStorage.getItem(`joined_notice_dismissed_${slug}`) === 'true',
@@ -860,7 +868,26 @@ export const TournamentView: React.FC = () => {
   }, [lastRefresh]);
 
   const upcomingRoundIndex = rounds.findIndex((r) => r.matches.some((m) => !m.completed && m.status !== 'misarranged'));
+  const currentRoundId = upcomingRoundIndex >= 0 ? rounds[upcomingRoundIndex]?.id ?? null : null;
   const defaultVisibleRoundsCount = rounds.length;
+
+  const expandAllRounds = useCallback(() => {
+    setExpandedRounds(
+      rounds.reduce<Record<string, boolean>>((acc, round) => {
+        acc[round.id] = true;
+        return acc;
+      }, {}),
+    );
+  }, [rounds]);
+
+  const collapseAllRounds = useCallback(() => {
+    setExpandedRounds(
+      rounds.reduce<Record<string, boolean>>((acc, round) => {
+        acc[round.id] = round.id === currentRoundId;
+        return acc;
+      }, {}),
+    );
+  }, [currentRoundId, rounds]);
 
   const fetchPendingJoinData = useCallback(
     async (token: string) => {
@@ -1967,7 +1994,7 @@ export const TournamentView: React.FC = () => {
   const publicUrlDisplay = isMobile ? `...${slug}` : publicUrl;
 
   // Find the first round that is not fully completed
-  const currentRoundId = rounds.find((r) => r.matches.some((m) => !m.completed))?.id;
+  const currentRoundIdForResults = rounds.find((r) => r.matches.some((m) => !m.completed))?.id;
 
   return (
     <div className={styles.view}>
@@ -2240,9 +2267,12 @@ export const TournamentView: React.FC = () => {
           key={tournament?.id}
           rounds={rounds}
           upcomingRoundIndex={upcomingRoundIndex}
+          season={tournament.season}
           defaultVisibleRoundsCount={defaultVisibleRoundsCount}
           expandedRounds={expandedRounds}
           toggleRound={toggleRound}
+          onExpandAllRounds={expandAllRounds}
+          onCollapseAllRounds={collapseAllRounds}
           tournament={tournament}
           isRefreshingFixtures={isRefreshingFixtures}
           handleRefreshFixtures={handleRefreshFixtures}
@@ -2714,7 +2744,7 @@ export const TournamentView: React.FC = () => {
                       togglePanel={togglePanel}
                       matchData={matchData}
                       setMatchData={setMatchData as any}
-                      currentRoundId={currentRoundId}
+                      currentRoundId={currentRoundIdForResults ?? undefined}
                     />
                   )}
 

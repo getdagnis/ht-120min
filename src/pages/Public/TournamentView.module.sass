@@ -1245,6 +1245,62 @@
   flex-direction: column
   gap: 0.5rem
 
+.fixturesHeader
+  display: flex
+  align-items: center
+  justify-content: space-between
+  gap: 1rem
+  margin-bottom: 0.5rem
+
+  @media (max-width: 620px)
+    flex-direction: column
+    align-items: flex-start
+    gap: 0.5rem
+
+.fixturesTitle
+  margin: 0
+  font-size: 1.15rem
+  font-weight: 800
+  line-height: 1.1
+  letter-spacing: 0.02em
+  font-weight: 600
+  color: var(--text-h)
+
+.fixturesHeaderActions
+  display: inline-flex
+  align-items: center
+  gap: 0.85rem
+  flex-wrap: wrap
+
+.fixturesHeaderAction
+  display: inline-flex
+  align-items: flex-end
+  gap: 0.35rem
+  padding: 0
+  border: none
+  background: transparent
+  color: var(--text60)
+  font: inherit
+  font-size: 0.72rem
+  font-weight: 600
+  letter-spacing: 0.08em
+  font-family: var(--heading)
+  text-transform: uppercase
+  cursor: pointer
+  opacity: 0.75
+  transition: color 0.2s ease, opacity 0.2s ease, transform 0.2s ease
+
+  svg
+    flex-shrink: 0
+
+  &:hover:not(:disabled)
+    color: var(--text-h)
+    opacity: 1
+
+  &:disabled
+    cursor: not-allowed
+    opacity: 0.35
+
 .adminAuthForm
   display: flex
   flex-direction: column
