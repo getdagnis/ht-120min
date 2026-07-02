@@ -69,7 +69,7 @@ test('cup weeks distinguish blocked W1-W3 from selectable W4-W6 warnings', () =>
   assert.equal(isBlockedCupWeek(3), true);
   assert.equal(isBlockedCupWeek(4), false);
   assert.equal(isBlockedCupWeek(5), false);
-  assert.equal(slots.some((slot) => slot.htWeek === 16 && slot.kind === 'week15_weekend_friendly'), false);
+  assert.equal(slots.some((slot) => slot.htWeek === 16 && slot.kind === 'weekend_friendly'), false);
 
   for (const slot of blockedWeeks) {
     assert.equal(slot.selectable, false);
@@ -85,7 +85,7 @@ test('cup weeks distinguish blocked W1-W3 from selectable W4-W6 warnings', () =>
   }
 });
 
-test('week 15 exposes an ordered midweek -> weekend -> week 16 sequence', () => {
+test('week 16 exposes the default weekend friendly while week 15 does not by default', () => {
   const slots = buildCalendarSlots(new Date('2026-06-29T00:00:00Z'), 4);
   const ordered = slots
     .filter((slot) => slot.htSeason === 94 && (slot.htWeek === 15 || slot.htWeek === 16))
@@ -93,14 +93,30 @@ test('week 15 exposes an ordered midweek -> weekend -> week 16 sequence', () => 
 
   assert.deepEqual(ordered, [
     '15:midweek_friendly',
-    '15:week15_weekend_friendly',
     '16:midweek_friendly',
+    '16:weekend_friendly',
   ]);
 });
 
-test('week 15 weekend kickoff lands on the weekend and uses the canonical weekend time', () => {
+test('week 15 weekend can be opted into before the default week 16 weekend', () => {
+  const slots = buildCalendarSlots(new Date('2026-06-29T00:00:00Z'), 4, {
+    includeWeek15WeekendFriendly: true,
+  });
+  const ordered = slots
+    .filter((slot) => slot.htSeason === 94 && (slot.htWeek === 15 || slot.htWeek === 16))
+    .map((slot) => `${slot.htWeek}:${slot.kind}`);
+
+  assert.deepEqual(ordered, [
+    '15:midweek_friendly',
+    '15:weekend_friendly',
+    '16:midweek_friendly',
+    '16:weekend_friendly',
+  ]);
+});
+
+test('weekend kickoff lands on the weekend and uses the canonical weekend time', () => {
   const weekendSlot = buildCalendarSlots(new Date('2026-06-29T00:00:00Z'), 4).find(
-    (slot) => slot.kind === 'week15_weekend_friendly',
+    (slot) => slot.kind === 'weekend_friendly' && slot.htWeek === 16,
   );
 
   assert.ok(weekendSlot);
@@ -108,7 +124,7 @@ test('week 15 weekend kickoff lands on the weekend and uses the canonical weeken
   const scheduled = getScheduledDateForSlot(weekendSlot!, { countryName: 'Sweden', leagueLevel: 6 });
   assert.ok(scheduled);
   assert.equal(scheduled!.getUTCDay(), 0);
-  assert.equal(scheduled!.toISOString(), '2026-07-12T08:00:00.000Z');
+  assert.equal(scheduled!.toISOString(), '2026-07-19T08:00:00.000Z');
 });
 
 test('weekend kickoff lookup falls back to the broadest division band when league level is missing', () => {

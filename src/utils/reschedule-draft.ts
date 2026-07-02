@@ -25,7 +25,7 @@ export interface RescheduleExistingMatch {
   htMatchId: number | null;
   scheduledFor?: string | null;
   matchDate?: Date | null;
-  scheduleSlotType?: HattrickScheduleSlotKind | 'weekend_friendly' | null;
+  scheduleSlotType?: HattrickScheduleSlotKind | 'week15_weekend_friendly' | null;
   venueType?: ScheduledMatch['venueType'] | null;
 }
 
@@ -91,6 +91,7 @@ export interface RescheduleDraftPreview {
   daysUntilStart: number | null;
   blockingReasons: string[];
   warnings: string[];
+  canIncludeWeek15WeekendFriendly: boolean;
   consumesWeek15WeekendFriendly: boolean;
 }
 
@@ -129,6 +130,7 @@ export interface BuildRescheduleDraftInput {
   rounds: RescheduleExistingRound[];
   fromRoundNumber: number | null;
   startSlotId: string | null;
+  includeWeek15WeekendFriendly?: boolean;
   now?: Date;
   horizonWeeks?: number;
 }
@@ -176,11 +178,11 @@ function normalizeScheduleSlotType(
 ): HattrickScheduleSlotKind {
   if (scheduleSlotType === 'midweek_friendly') return 'midweek_friendly';
   if (scheduleSlotType === 'week15_weekend_friendly' || scheduleSlotType === 'weekend_friendly') {
-    return 'week15_weekend_friendly';
+    return 'weekend_friendly';
   }
 
   const weekday = matchDate.getUTCDay();
-  return weekday === 0 || weekday === 6 ? 'week15_weekend_friendly' : 'midweek_friendly';
+  return weekday === 0 || weekday === 6 ? 'weekend_friendly' : 'midweek_friendly';
 }
 
 function getCurrentSlot(round: RescheduleExistingRound, orderedSlots: CalendarSlot[]) {
@@ -339,7 +341,7 @@ function buildRescheduledRound(
       return {
         round: null,
         reason:
-          slot.kind === 'week15_weekend_friendly'
+          slot.kind === 'weekend_friendly'
             ? `Weekend kickoff time is ambiguous for ${kickoffTeam.name}. Add or fix its league level.`
             : `Could not resolve kickoff time for ${kickoffTeam.name}.`,
       };
@@ -420,7 +422,7 @@ function evaluateReschedule(
 
   for (let index = 0; index < rounds.length; index += 1) {
     const slot = collected.slots[index];
-    if (slot.kind === 'week15_weekend_friendly') consumesWeek15WeekendFriendly = true;
+    if (slot.kind === 'weekend_friendly' && slot.htWeek === 15) consumesWeek15WeekendFriendly = true;
     if (slot.warning && !warnings.includes(slot.warning)) warnings.push(slot.warning);
 
     const built = buildRescheduledRound(rounds[index]!, slot, index + 1, teamLookup, now);
@@ -483,9 +485,38 @@ function chooseStartSlot(
   };
 }
 
+function canDraftIncludeWeek15WeekendFriendly(
+  teams: ScheduleTeamDraft[],
+  rounds: RescheduleExistingRound[],
+  orderedSlotsWithWeek15: CalendarSlot[],
+  now: Date,
+  latestPinnedSlotIndex: number | null,
+  currentStartSlotId: string | null,
+) {
+  if (rounds.length === 0) return false;
+
+  const candidateSlots = orderedSlotsWithWeek15.filter((slot) => {
+    if (!isSelectableStartCandidate(slot, now)) return false;
+    if (currentStartSlotId && slot.id === currentStartSlotId) return false;
+    if (latestPinnedSlotIndex === null) return true;
+    return orderedSlotsWithWeek15.findIndex((item) => item.id === slot.id) > latestPinnedSlotIndex;
+  });
+
+  return candidateSlots.some((slot) => {
+    const result = evaluateReschedule(teams, rounds, slot, orderedSlotsWithWeek15, now, latestPinnedSlotIndex);
+    return result.valid && result.consumesWeek15WeekendFriendly;
+  });
+}
+
 export function buildRescheduleDraft(input: BuildRescheduleDraftInput): RescheduleDraftPreview {
   const now = input.now ?? new Date();
-  const orderedSlots = buildCalendarSlots(now, input.horizonWeeks ?? DEFAULT_HORIZON_WEEKS);
+  const horizonWeeks = input.horizonWeeks ?? DEFAULT_HORIZON_WEEKS;
+  const orderedSlots = buildCalendarSlots(now, horizonWeeks, {
+    includeWeek15WeekendFriendly: input.includeWeek15WeekendFriendly ?? false,
+  });
+  const orderedSlotsWithWeek15 = input.includeWeek15WeekendFriendly
+    ? orderedSlots
+    : buildCalendarSlots(now, horizonWeeks, { includeWeek15WeekendFriendly: true });
   const orderedRounds = [...input.rounds].sort((a, b) => a.roundNumber - b.roundNumber);
   const roundChoices = getRoundChoices(orderedRounds, now);
   const requestedChoice = input.fromRoundNumber
@@ -538,6 +569,7 @@ export function buildRescheduleDraft(input: BuildRescheduleDraftInput): Reschedu
       daysUntilStart: null,
       blockingReasons: selectedChoice ? [] : [reason],
       warnings: [],
+      canIncludeWeek15WeekendFriendly: false,
       consumesWeek15WeekendFriendly: false,
     };
   }
@@ -575,6 +607,14 @@ export function buildRescheduleDraft(input: BuildRescheduleDraftInput): Reschedu
       daysUntilStart: null,
       blockingReasons: selectedStartSlot ? [] : [reason],
       warnings: [],
+      canIncludeWeek15WeekendFriendly: canDraftIncludeWeek15WeekendFriendly(
+        input.teams,
+        affectedRounds,
+        orderedSlotsWithWeek15,
+        now,
+        latestPinnedSlotIndex,
+        currentStartSlotId,
+      ),
       consumesWeek15WeekendFriendly: false,
     };
   }
@@ -586,6 +626,14 @@ export function buildRescheduleDraft(input: BuildRescheduleDraftInput): Reschedu
     orderedSlots,
     now,
     latestPinnedSlotIndex,
+  );
+  const canIncludeWeek15WeekendFriendly = canDraftIncludeWeek15WeekendFriendly(
+    input.teams,
+    affectedRounds,
+    orderedSlotsWithWeek15,
+    now,
+    latestPinnedSlotIndex,
+    currentStartSlotId,
   );
 
   return {
@@ -607,6 +655,7 @@ export function buildRescheduleDraft(input: BuildRescheduleDraftInput): Reschedu
     daysUntilStart: getDaysUntil(selectedStartSlot.nominalDate, now),
     blockingReasons: evaluation.blockingReasons,
     warnings: evaluation.warnings,
+    canIncludeWeek15WeekendFriendly,
     consumesWeek15WeekendFriendly: evaluation.consumesWeek15WeekendFriendly,
   };
 }

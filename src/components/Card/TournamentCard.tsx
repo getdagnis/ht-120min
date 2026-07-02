@@ -65,7 +65,7 @@ export const TournamentCard: React.FC<TournamentCardProps> = ({
           {scoringMode === '120min' && <div className={styles.badge}>120-min</div>}
           {maxTeams != null && (
             <div className={`${styles.badge} ${isFull ? styles.badgeFull : ''}`}>
-              {isFull ? `${teamCount ?? 0}/${maxTeams} — Complete!` : `${teamCount ?? 0}/${maxTeams} teams`}
+              {isFull ? `${teamCount ?? 0}/${maxTeams} — Full!` : `${teamCount ?? 0}/${maxTeams} teams`}
             </div>
           )}
           {joinHref && (

@@ -1,7 +1,7 @@
 import matchTimeData from './global-match-times.json';
 import { getFriendlyTimeForCountry } from './ht-data';
 
-export type CalendarSlotKind = 'midweek_friendly' | 'week15_weekend_friendly' | 'blocked_cup_week';
+export type CalendarSlotKind = 'midweek_friendly' | 'weekend_friendly' | 'blocked_cup_week';
 export type HattrickScheduleSlotKind = Exclude<CalendarSlotKind, 'blocked_cup_week'>;
 
 export interface HattrickCalendarContext {
@@ -51,6 +51,10 @@ export interface CupWeekDecoration {
   blocked: boolean;
   label: string;
   tone: 'blocked' | 'warning' | 'safe';
+}
+
+export interface BuildCalendarSlotsOptions {
+  includeWeek15WeekendFriendly?: boolean;
 }
 
 export const HT_CALENDAR_EPOCH = {
@@ -173,7 +177,7 @@ export function getCupWeekDecoration(htWeek: number): CupWeekDecoration | null {
 
 function createSlot(params: Omit<CalendarSlot, 'id'>): CalendarSlot {
   const suffix =
-    params.kind === 'midweek_friendly' ? 'midweek' : params.kind === 'week15_weekend_friendly' ? 'weekend' : 'blocked';
+    params.kind === 'midweek_friendly' ? 'midweek' : params.kind === 'weekend_friendly' ? 'weekend' : 'blocked';
   return {
     id: `S${params.htSeason}-W${params.htWeek}-${suffix}`,
     ...params,
@@ -225,9 +229,10 @@ export function getHattrickWeekDetails(date: Date) {
   };
 }
 
-export function buildCalendarSlots(now = new Date(), weeksAhead = 64): CalendarSlot[] {
+export function buildCalendarSlots(now = new Date(), weeksAhead = 64, options: BuildCalendarSlotsOptions = {}): CalendarSlot[] {
   const currentWeekIndex = getWeekIndexFromLocalDateKey(stockholmDateKey(now));
   const slots: CalendarSlot[] = [];
+  const includeWeek15WeekendFriendly = options.includeWeek15WeekendFriendly ?? false;
 
   for (let offset = 0; offset < weeksAhead; offset += 1) {
     const weekIndex = currentWeekIndex + offset;
@@ -266,21 +271,21 @@ export function buildCalendarSlots(now = new Date(), weeksAhead = 64): CalendarS
         nominalDate: localDateKeyToInstant(midweekLocalKey),
         selectable: true,
         blockedReason: null,
-        warning: cupDecoration?.label ?? (htWeek === 15 ? 'Week 15 also has a weekend friendly slot' : null),
+        warning: cupDecoration?.label ?? (htWeek === 15 ? 'Week 15 weekend may have qualifiers' : null),
       }),
     );
 
-    if (htWeek === 15) {
+    if (htWeek === 16 || (htWeek === 15 && includeWeek15WeekendFriendly)) {
       slots.push(
         createSlot({
-          kind: 'week15_weekend_friendly',
+          kind: 'weekend_friendly',
           htSeason,
           htWeek,
           ht120minSeason,
           nominalDate: localDateKeyToInstant(weekendLocalKey),
           selectable: true,
           blockedReason: null,
-          warning: 'Week 15 weekend friendly',
+          warning: htWeek === 15 ? 'Week 15 weekend friendly: possible qualifiers' : 'Week 16 weekend friendly',
         }),
       );
     }
@@ -296,7 +301,7 @@ export function getUpcomingWednesdayStartSlots(now = new Date(), count = 12): Ca
 }
 
 export function getFriendlyWeekdayLabel(kind: HattrickScheduleSlotKind): string {
-  return kind === 'week15_weekend_friendly' ? 'Weekend' : 'Wed';
+  return kind === 'weekend_friendly' ? 'Weekend' : 'Wed';
 }
 
 export function getCalendarWeekdayLabel(kind: CalendarSlotKind): string {
@@ -445,7 +450,7 @@ export function formatCalendarDate(date: Date, weekdayFormat: 'short' | 'long' =
 
 export function formatCalendarDateWithWeek(date: Date, weekdayFormat: 'short' | 'long' = 'short') {
   const week = getHattrickWeekDetails(date);
-  return `${formatCalendarDate(date, weekdayFormat)}, W${week.htWeek}`;
+  return `Week ${week.htWeek} (${formatCalendarDate(date, weekdayFormat)})`;
 }
 
 export function getDaysUntil(date: Date, now = new Date()) {

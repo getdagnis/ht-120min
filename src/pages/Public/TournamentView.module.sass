@@ -1079,7 +1079,7 @@
     background: var(--lighter)
 
   &:focus-visible
-    outline: 2px solid var(--accent)
+    outline: 1px solid var(--accent)
     outline-offset: 2px
 
 .paginationArea
@@ -1376,6 +1376,10 @@ div.adminAuthForm > form > button, .authField > input
   fontSize: 0.85rem
   minHeight: 60px
   resize: none
+
+.inviteTextarea::placeholder
+  color: var(--text60)
+  color: crimson !important
 
 .newsTabs
   display: flex

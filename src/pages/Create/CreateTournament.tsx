@@ -968,7 +968,7 @@ export const CreateTournament: React.FC = () => {
                       disabled={isFetchingTeamData}
                       title="Get Team Data"
                     >
-                      Check
+                      Get Data
                     </Button>
                   )}
                   {newTeamName && (

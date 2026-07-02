@@ -43,7 +43,7 @@ test('placeholder teams are ignored by the frontend draft team count', () => {
   assert.equal(draft.rounds.length, 3);
 });
 
-test('missing country metadata still allows week 15 weekend fallback starts', () => {
+test('missing country metadata still allows default week 16 weekend fallback starts', () => {
   const teamsWithMissingCountry = [
     { id: 'team-a', name: 'SocClasQua', countryName: null, leagueLevel: null },
     { id: 'team-b', name: 'AC Sua', countryName: null, leagueLevel: null },
@@ -62,13 +62,13 @@ test('missing country metadata still allows week 15 weekend fallback starts', ()
   assert.equal(draft.selectedStartSlotId, 'S94-W15-midweek');
   assert.equal(
     draft.rounds.map((round) => round.slot.kind).join(','),
-    'midweek_friendly,week15_weekend_friendly,midweek_friendly',
+    'midweek_friendly,midweek_friendly,weekend_friendly',
   );
   assert.ok(draft.availableModes.every((mode) => mode.available));
-  assert.equal(draft.rounds[1]?.matches[0]?.scheduledFor.toISOString(), '2026-07-12T08:00:00.000Z');
+  assert.equal(draft.rounds[2]?.matches[0]?.scheduledFor.toISOString(), '2026-07-19T08:00:00.000Z');
 });
 
-test('week 15 scheduling consumes the weekend slot in order and preserves venue_type', () => {
+test('week 15 weekend is skipped by default and week 16 weekend is consumed in order', () => {
   const draft = buildScheduleDraft({
     teams: fourTeams,
     mode: 'single',
@@ -79,14 +79,38 @@ test('week 15 scheduling consumes the weekend slot in order and preserves venue_
   assert.equal(draft.valid, true);
   assert.equal(draft.mode, 'single');
   assert.equal(draft.selectedStartSlotId, 'S94-W15-midweek');
-  assert.equal(draft.rounds.map((round) => round.slot.kind).join(','), 'midweek_friendly,week15_weekend_friendly,midweek_friendly');
-  assert.equal(draft.rounds[1]?.matches[0]?.scheduledFor.toISOString(), '2026-07-12T08:00:00.000Z');
-  assert.equal(draft.rounds[1]?.matches[0]?.scheduledFor.getUTCDay(), 0);
+  assert.equal(draft.rounds.map((round) => round.slot.kind).join(','), 'midweek_friendly,midweek_friendly,weekend_friendly');
+  assert.equal(draft.canIncludeWeek15WeekendFriendly, true);
+  assert.equal(draft.consumesWeek15WeekendFriendly, false);
+  assert.equal(draft.rounds[2]?.matches[0]?.scheduledFor.toISOString(), '2026-07-19T08:00:00.000Z');
+  assert.equal(draft.rounds[2]?.matches[0]?.scheduledFor.getUTCDay(), 0);
 
   const payload = serializeScheduleDraftForRpc(draft);
   assert.equal(payload.rounds.length, 3);
-  assert.equal(payload.rounds[1]?.matches[0]?.venue_type, 'home_away');
-  assert.equal(payload.rounds[1]?.matches[0]?.schedule_slot_type, 'week15_weekend_friendly');
+  assert.equal(payload.include_week15_weekend_friendly, false);
+  assert.equal(payload.rounds[2]?.matches[0]?.venue_type, 'home_away');
+  assert.equal(payload.rounds[2]?.matches[0]?.schedule_slot_type, 'weekend_friendly');
+});
+
+test('week 15 weekend can be included before the default week 16 weekend', () => {
+  const draft = buildScheduleDraft({
+    teams: fourTeams,
+    mode: 'recurring',
+    startSlotId: 'S94-W15-midweek',
+    includeWeek15WeekendFriendly: true,
+    now: new Date('2026-06-29T00:00:00Z'),
+  });
+
+  assert.equal(draft.valid, true);
+  assert.equal(
+    draft.rounds.map((round) => `${round.slot.htWeek}:${round.slot.kind}`).join(','),
+    '15:midweek_friendly,15:weekend_friendly,16:midweek_friendly,16:weekend_friendly',
+  );
+  assert.equal(draft.consumesWeek15WeekendFriendly, true);
+
+  const payload = serializeScheduleDraftForRpc(draft);
+  assert.equal(payload.include_week15_weekend_friendly, true);
+  assert.equal(payload.rounds[1]?.matches[0]?.schedule_slot_type, 'weekend_friendly');
 });
 
 test('odd-team drafts preserve bye rows in the serialized payload', () => {
@@ -261,7 +285,7 @@ test('start options are capped at eight weeks ahead', () => {
   assert.equal(draft.allSlotOptions.some((slot) => slot.id === 'S95-W6-midweek'), false);
 });
 
-test('calendar slot generation never exposes a Week 16 weekend slot', () => {
+test('calendar slot generation exposes a Week 16 weekend slot by default', () => {
   const slots = buildCalendarSlots(new Date('2026-07-13T00:00:00Z'), 2);
-  assert.equal(slots.some((slot) => slot.htWeek === 16 && slot.kind === 'week15_weekend_friendly'), false);
+  assert.equal(slots.some((slot) => slot.htWeek === 16 && slot.kind === 'weekend_friendly'), true);
 });

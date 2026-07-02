@@ -69,6 +69,7 @@ export interface ScheduleDraftPreview {
   calendarContext: HattrickCalendarContext;
   blockingReasons: string[];
   warnings: string[];
+  canIncludeWeek15WeekendFriendly: boolean;
   consumesWeek15WeekendFriendly: boolean;
 }
 
@@ -104,6 +105,7 @@ export interface BuildScheduleDraftInput {
   teams: ScheduleTeamDraft[];
   mode: ScheduleMode;
   startSlotId: string | null;
+  includeWeek15WeekendFriendly?: boolean;
   now?: Date;
   horizonWeeks?: number;
 }
@@ -149,7 +151,9 @@ function isDisplayStartCandidate(slot: CalendarSlot, now: Date) {
 
 function getSlotLabel(slot: CalendarSlot) {
   if (slot.kind === 'blocked_cup_week') return `HT S${slot.htSeason} W${slot.htWeek}`;
-  if (slot.kind === 'week15_weekend_friendly') return `Week 15 weekend friendly`;
+  if (slot.kind === 'weekend_friendly') {
+    return slot.htWeek === 15 ? `Week 15 weekend friendly` : `Week ${slot.htWeek} weekend friendly`;
+  }
   return `Midweek friendly`;
 }
 
@@ -183,7 +187,7 @@ function buildRoundFromPairings(
       return {
         matches: [],
         blockingReason:
-          slot.kind === 'week15_weekend_friendly'
+          slot.kind === 'weekend_friendly'
             ? `Weekend kickoff time is ambiguous for ${kickoffTeam.name}. Add or fix its league level.`
             : `Could not resolve kickoff time for ${kickoffTeam.name}.`,
       };
@@ -303,7 +307,7 @@ function evaluateDraftFromStartSlot(
 
   for (let index = 0; index < roundCount; index += 1) {
     const slot = collectedSlots[index];
-    if (slot.kind === 'week15_weekend_friendly') consumesWeek15WeekendFriendly = true;
+    if (slot.kind === 'weekend_friendly' && slot.htWeek === 15) consumesWeek15WeekendFriendly = true;
 
     const round = pairings[index];
     if (!round) {
@@ -455,9 +459,35 @@ function chooseStartSlot(
   };
 }
 
+function canDraftIncludeWeek15WeekendFriendly(
+  selectedStartSlot: CalendarSlot | null,
+  roundCount: number,
+  orderedSlotsWithWeek15: CalendarSlot[],
+) {
+  if (!selectedStartSlot || roundCount <= 0) return false;
+
+  const startIndex = orderedSlotsWithWeek15.findIndex((slot) => slot.id === selectedStartSlot.id);
+  if (startIndex < 0) return false;
+
+  const selectedSlots: CalendarSlot[] = [];
+  for (let index = startIndex; index < orderedSlotsWithWeek15.length && selectedSlots.length < roundCount; index += 1) {
+    const slot = orderedSlotsWithWeek15[index];
+    if (slot.kind === 'blocked_cup_week') return false;
+    if (slot.selectable) selectedSlots.push(slot);
+  }
+
+  return selectedSlots.some((slot) => slot.kind === 'weekend_friendly' && slot.htWeek === 15);
+}
+
 export function buildScheduleDraft(input: BuildScheduleDraftInput): ScheduleDraftPreview {
   const now = input.now ?? new Date();
-  const orderedSlots = buildCalendarSlots(now, input.horizonWeeks ?? DEFAULT_HORIZON_WEEKS);
+  const horizonWeeks = input.horizonWeeks ?? DEFAULT_HORIZON_WEEKS;
+  const orderedSlots = buildCalendarSlots(now, horizonWeeks, {
+    includeWeek15WeekendFriendly: input.includeWeek15WeekendFriendly ?? false,
+  });
+  const orderedSlotsWithWeek15 = input.includeWeek15WeekendFriendly
+    ? orderedSlots
+    : buildCalendarSlots(now, horizonWeeks, { includeWeek15WeekendFriendly: true });
   const calendarContext = getHattrickCalendarContext(now);
   const activeTeams = normalizeTeams(input.teams);
   const teamCount = activeTeams.length;
@@ -499,12 +529,18 @@ export function buildScheduleDraft(input: BuildScheduleDraftInput): ScheduleDraf
       calendarContext,
       blockingReasons: [chosenModeAvailability?.reason || 'No valid start window found.'],
       warnings: [],
+      canIncludeWeek15WeekendFriendly: false,
       consumesWeek15WeekendFriendly: false,
     };
   }
 
   const evaluation = evaluateDraftFromStartSlot(activeTeams, mode, selectedStartSlotResolved, orderedSlots, now);
   const daysUntilStart = getDaysUntil(selectedStartSlotResolved.nominalDate, now);
+  const canIncludeWeek15WeekendFriendly = canDraftIncludeWeek15WeekendFriendly(
+    selectedStartSlotResolved,
+    roundCount,
+    orderedSlotsWithWeek15,
+  );
 
   return {
     valid: evaluation.valid,
@@ -527,6 +563,7 @@ export function buildScheduleDraft(input: BuildScheduleDraftInput): ScheduleDraf
     calendarContext,
     blockingReasons: evaluation.blockingReasons,
     warnings: evaluation.warnings,
+    canIncludeWeek15WeekendFriendly,
     consumesWeek15WeekendFriendly: evaluation.consumesWeek15WeekendFriendly,
   };
 }

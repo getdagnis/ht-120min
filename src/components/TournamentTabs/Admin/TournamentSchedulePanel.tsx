@@ -14,6 +14,8 @@ interface TournamentSchedulePanelProps {
   draft: ScheduleDraftPreview;
   onScheduleModeChange: (mode: ScheduleMode) => void;
   onSelectedStartSlotIdChange: (value: string) => void;
+  includeWeek15WeekendFriendly: boolean;
+  onIncludeWeek15WeekendFriendlyChange: (value: boolean) => void;
   isGenerating: boolean;
   onGenerate: () => void;
   tournamentTeamLimit?: number | null;
@@ -27,6 +29,8 @@ interface TournamentSchedulePanelProps {
   rescheduleDraft?: RescheduleDraftPreview | null;
   onRescheduleFromRoundChange?: (roundNumber: number) => void;
   onRescheduleStartSlotIdChange?: (value: string) => void;
+  includeWeek15WeekendFriendlyForReschedule?: boolean;
+  onIncludeWeek15WeekendFriendlyForRescheduleChange?: (value: boolean) => void;
   isRescheduling?: boolean;
   onReschedule?: () => void;
 }
@@ -58,7 +62,7 @@ function formatStartOption(slot: ScheduleDraftPreview['startSlotOptions'][number
   }
 
   const cupSuffix = cupDecoration ? ` • ${cupDecoration.tone === 'warning' ? '⚠️' : '🟢'} ${cupDecoration.label}` : '';
-  const weekend = slot.kind === 'week15_weekend_friendly' ? ' (weekend)' : '';
+  const weekend = slot.kind === 'weekend_friendly' ? ' (weekend)' : '';
   return `Week ${slot.htWeek} / ${formatShortDate(slot.nominalDate)}${weekend}${cupSuffix}${current}`;
 }
 
@@ -101,12 +105,16 @@ export const TournamentSchedulePanel: React.FC<TournamentSchedulePanelProps> = (
   draft,
   onScheduleModeChange,
   onSelectedStartSlotIdChange,
+  includeWeek15WeekendFriendly,
+  onIncludeWeek15WeekendFriendlyChange,
   isGenerating,
   onGenerate,
   tournamentTeamLimit,
   rescheduleDraft,
   onRescheduleFromRoundChange,
   onRescheduleStartSlotIdChange,
+  includeWeek15WeekendFriendlyForReschedule = false,
+  onIncludeWeek15WeekendFriendlyForRescheduleChange,
   isRescheduling = false,
   onReschedule,
 }) => {
@@ -139,6 +147,7 @@ export const TournamentSchedulePanel: React.FC<TournamentSchedulePanelProps> = (
   const subtitle = draft.selectedStartSlot
     ? `Closest start date: ${formatCalendarDate(draft.selectedStartSlot.nominalDate)} (${formatLeadTime(draft.daysUntilStart)})`
     : 'No valid start window found';
+  const firstRound = draft.rounds[0] || null;
   const lastRound = draft.rounds[draft.rounds.length - 1] || null;
   const rescheduleValidStartSlotIds = new Set(rescheduleDraft?.startSlotOptions.map((slot) => slot.id) ?? []);
   const rescheduleDropdownOptions = (rescheduleDraft?.allSlotOptions ?? []).flatMap((slot, index, slots) => {
@@ -205,7 +214,7 @@ export const TournamentSchedulePanel: React.FC<TournamentSchedulePanelProps> = (
           </div>
 
           <div className={adminStyles.startSlotGroup}>
-            <label className={adminStyles.startSlotLabel}>Choose start date</label>
+            <h3 className={adminStyles.startSlotLabel}>Choose start date</h3>
             <select
               className={adminStyles.startSlotSelect}
               value={draft.selectedStartSlotId || ''}
@@ -231,6 +240,17 @@ export const TournamentSchedulePanel: React.FC<TournamentSchedulePanelProps> = (
             {selectedStartWarning && <p className={adminStyles.startSlotWarning}>{selectedStartWarning}</p>}
           </div>
 
+          {draft.canIncludeWeek15WeekendFriendly && (
+            <label className={adminStyles.checkboxLabel}>
+              <input
+                type="checkbox"
+                checked={includeWeek15WeekendFriendly}
+                onChange={(event) => onIncludeWeek15WeekendFriendlyChange(event.target.checked)}
+              />
+              <span>also include week 15 friendly match (possible qualifiers)</span>
+            </label>
+          )}
+
           {draft.rounds.length > 0 && (
             <div className={adminStyles.schedulePreview}>
               <h3>Calendar preview</h3>
@@ -246,10 +266,10 @@ export const TournamentSchedulePanel: React.FC<TournamentSchedulePanelProps> = (
                       }))
                     }
                   >
-                    <strong>Round {round.roundNumber}</strong>
+                    <strong>Round {round.roundNumber}: </strong>
                     <span>
-                      • {round.displayDateLabel} •{' '}
-                      {formatSeasonWeek(round.slot, round.slot.kind === 'week15_weekend_friendly')}
+                      {' '}
+                      {round.displayDateLabel} • {formatSeasonWeek(round.slot, round.slot.kind === 'weekend_friendly')}
                     </span>
                   </button>
                   {expandedRounds[round.roundNumber] && (
@@ -268,14 +288,14 @@ export const TournamentSchedulePanel: React.FC<TournamentSchedulePanelProps> = (
             </div>
           )}
 
-          {draft.valid && draft.selectedStartSlot && lastRound && (
+          {draft.valid && firstRound && lastRound && (
             <div className={adminStyles.scheduleNotice}>
               <span>
                 Generate a schedule for a{' '}
                 <strong>
                   {plannerTeamCount} team {formatModeSummary(draft.mode)}
                 </strong>{' '}
-                tournament that will start on <strong>{formatLongDate(draft.selectedStartSlot.nominalDate)}</strong> and
+                tournament that will start on <strong>{formatLongDate(firstRound.displayDate)}</strong> and
                 last for <strong>{draft.roundCount} rounds</strong> with the last round played on{' '}
                 <strong>{formatLongDate(lastRound.displayDate)}</strong>.
               </span>
@@ -371,6 +391,18 @@ export const TournamentSchedulePanel: React.FC<TournamentSchedulePanelProps> = (
             </div>
           )}
 
+          {rescheduleDraft.canIncludeWeek15WeekendFriendly && (
+            <label className={adminStyles.checkboxLabel}>
+              <input
+                type="checkbox"
+                checked={includeWeek15WeekendFriendlyForReschedule}
+                onChange={(event) => onIncludeWeek15WeekendFriendlyForRescheduleChange?.(event.target.checked)}
+                disabled={!onIncludeWeek15WeekendFriendlyForRescheduleChange}
+              />
+              <span>also include week 15 friendly match (possible qualifiers)</span>
+            </label>
+          )}
+
           {hasSelectedRescheduleStart &&
             (rescheduleDraft.previousRounds.length > 0 || rescheduleDraft.rounds.length > 0) && (
               <div className={adminStyles.schedulePreview}>
@@ -385,7 +417,7 @@ export const TournamentSchedulePanel: React.FC<TournamentSchedulePanelProps> = (
                           <span>
                             {round.displayDateLabel ? `• ${round.displayDateLabel}` : '• Date unavailable'}
                             {round.slot
-                              ? ` • ${formatSeasonWeek(round.slot, round.slot.kind === 'week15_weekend_friendly')}`
+                              ? ` • ${formatSeasonWeek(round.slot, round.slot.kind === 'weekend_friendly')}`
                               : ''}
                           </span>
                         </div>
@@ -412,7 +444,7 @@ export const TournamentSchedulePanel: React.FC<TournamentSchedulePanelProps> = (
                       <strong>Round {round.roundNumber}</strong>
                       <span>
                         • {round.displayDateLabel} •{' '}
-                        {formatSeasonWeek(round.slot, round.slot.kind === 'week15_weekend_friendly')}
+                        {formatSeasonWeek(round.slot, round.slot.kind === 'weekend_friendly')}
                       </span>
                     </button>
                     {expandedRounds[round.roundNumber] && (
@@ -431,13 +463,13 @@ export const TournamentSchedulePanel: React.FC<TournamentSchedulePanelProps> = (
               </div>
             )}
 
-          {rescheduleDraft.valid && rescheduleDraft.selectedStartSlot && rescheduleLastRound && (
+          {rescheduleDraft.valid && rescheduleDraft.rounds[0] && rescheduleLastRound && (
             <div className={adminStyles.scheduleNotice}>
               <h3>Just to check...</h3>
               <span>
                 Move <strong>Round {rescheduleDraft.selectedFromRoundNumber}</strong> from{' '}
                 <strong>{rescheduleDraft.currentRoundDateLabel || 'its current date'}</strong> to{' '}
-                <strong>{formatLongDate(rescheduleDraft.selectedStartSlot.nominalDate)}</strong>. Any following rounds
+                <strong>{formatLongDate(rescheduleDraft.rounds[0].displayDate)}</strong>. Any following rounds
                 will follow automatically. Pairings remain unchanged, only dates are rescheduled. Previous rounds are
                 unaffected.
               </span>

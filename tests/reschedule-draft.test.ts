@@ -114,7 +114,32 @@ test('reschedule draft preserves pairings after explicit round selection', () =>
   );
 });
 
-test('reschedule draft consumes the W15 weekend slot in order', () => {
+test('reschedule draft consumes the optional W15 weekend slot when requested', () => {
+  const draft = buildRescheduleDraft({
+    teams: fourTeams,
+    rounds: baseRounds,
+    fromRoundNumber: 2,
+    startSlotId: 'S94-W15-midweek',
+    includeWeek15WeekendFriendly: true,
+    now: new Date('2026-06-30T08:00:00Z'),
+  });
+
+  assert.equal(draft.valid, true);
+  assert.equal(draft.currentStartSlotId, 'S94-W15-midweek');
+  assert.equal(
+    draft.rounds.map((round) => round.slot.kind).join(','),
+    'weekend_friendly,midweek_friendly',
+  );
+  assert.equal(draft.rounds[0]?.slot.htWeek, 15);
+  assert.equal(draft.consumesWeek15WeekendFriendly, true);
+
+  const payload = serializeRescheduleDraftForRpc(draft);
+  assert.equal(payload.from_round_number, 2);
+  assert.equal(payload.rounds[0]?.matches[0]?.schedule_slot_type, 'weekend_friendly');
+  assert.equal(payload.rounds[1]?.matches[0]?.match_id, 'match-5');
+});
+
+test('reschedule draft skips W15 weekend by default and still includes W16 weekend', () => {
   const draft = buildRescheduleDraft({
     teams: fourTeams,
     rounds: baseRounds,
@@ -124,17 +149,12 @@ test('reschedule draft consumes the W15 weekend slot in order', () => {
   });
 
   assert.equal(draft.valid, true);
-  assert.equal(draft.currentStartSlotId, 'S94-W15-midweek');
   assert.equal(
-    draft.rounds.map((round) => round.slot.kind).join(','),
-    'week15_weekend_friendly,midweek_friendly',
+    draft.rounds.map((round) => `${round.slot.htWeek}:${round.slot.kind}`).join(','),
+    '16:midweek_friendly,16:weekend_friendly',
   );
-  assert.equal(draft.consumesWeek15WeekendFriendly, true);
-
-  const payload = serializeRescheduleDraftForRpc(draft);
-  assert.equal(payload.from_round_number, 2);
-  assert.equal(payload.rounds[0]?.matches[0]?.schedule_slot_type, 'week15_weekend_friendly');
-  assert.equal(payload.rounds[1]?.matches[0]?.match_id, 'match-5');
+  assert.equal(draft.canIncludeWeek15WeekendFriendly, true);
+  assert.equal(draft.consumesWeek15WeekendFriendly, false);
 });
 
 test('custom reschedule start can skip the W15 weekend when only one round remains', () => {
@@ -352,10 +372,10 @@ test('reschedule starts only after untouched rounds and keeps the current slot a
     draft.previousRounds.map((round) => round.roundNumber),
     [1, 2],
   );
-  assert.ok(draft.allSlotOptions.every((slot) => slot.htWeek !== 15 || slot.kind === 'week15_weekend_friendly'));
+  assert.ok(draft.allSlotOptions.every((slot) => slot.htWeek !== 15));
   assert.ok(draft.allSlotOptions.some((slot) => slot.id === 'S94-W16-midweek'));
   assert.ok(draft.startSlotOptions.every((slot) => slot.id !== 'S94-W16-midweek'));
-  assert.ok(draft.startSlotOptions.some((slot) => slot.id === 'S94-W15-weekend'));
+  assert.ok(draft.startSlotOptions.some((slot) => slot.id === 'S94-W16-weekend'));
   assert.equal(draft.selectedStartSlotId, null);
 });
 
@@ -383,12 +403,14 @@ test('reschedule cutoff uses calendar slot order instead of previous kickoff tim
     })),
     fromRoundNumber: 3,
     startSlotId: 'S94-W15-weekend',
+    includeWeek15WeekendFriendly: true,
     now: new Date('2026-06-30T08:00:00Z'),
   });
 
   assert.equal(draft.valid, true);
   assert.equal(draft.selectedStartSlotId, 'S94-W15-weekend');
-  assert.equal(draft.rounds[0]?.slot.kind, 'week15_weekend_friendly');
+  assert.equal(draft.rounds[0]?.slot.kind, 'weekend_friendly');
+  assert.equal(draft.rounds[0]?.slot.htWeek, 15);
 });
 
 test('legacy schedules without persisted slot metadata can move W16 midweek back to W15 weekend', () => {
@@ -459,6 +481,7 @@ test('legacy schedules without persisted slot metadata can move W16 midweek back
     rounds: legacyRounds,
     fromRoundNumber: 3,
     startSlotId: 'S94-W15-weekend',
+    includeWeek15WeekendFriendly: true,
     now: new Date('2026-06-30T08:00:00Z'),
   });
 
@@ -466,5 +489,5 @@ test('legacy schedules without persisted slot metadata can move W16 midweek back
   assert.equal(draft.currentStartSlotId, 'S94-W16-midweek');
   assert.equal(draft.selectedStartSlotId, 'S94-W15-weekend');
   assert.ok(draft.startSlotOptions.some((slot) => slot.id === 'S94-W15-weekend'));
-  assert.equal(draft.rounds[0]?.matches[0]?.scheduleSlotType, 'week15_weekend_friendly');
+  assert.equal(draft.rounds[0]?.matches[0]?.scheduleSlotType, 'weekend_friendly');
 });
