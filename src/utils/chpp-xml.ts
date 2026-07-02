@@ -32,6 +32,14 @@ export function normalizeChppAssetUrl(url: string): string {
   return trimmed;
 }
 
+function normalizeChppCountryName(countryName?: string, countryId?: number, leagueId?: number) {
+  const normalized = countryName?.trim().normalize('NFD').replace(/\p{Diacritic}/gu, '').toLowerCase();
+  if (countryId === 48 || leagueId === 53 || normalized === 'latvija' || normalized === 'lettonia') {
+    return 'Latvia';
+  }
+  return countryName;
+}
+
 export interface ParsedTeamDetails {
   teamId: number;
   teamName?: string;
@@ -63,12 +71,15 @@ export function parseTeamDetailsXml(xml: string, teamId: number): ParsedTeamDeta
         ? normalizeChppAssetUrl(dressRaw)
         : undefined;
 
+    const leagueIdRaw = block.match(/<League>[\s\S]*?<LeagueID>(\d+)<\/LeagueID>/i)?.[1];
+    const countryIdRaw = block.match(/<Country>[\s\S]*?<CountryID>(\d+)<\/CountryID>/i)?.[1];
+    const leagueId = leagueIdRaw ? parseInt(leagueIdRaw, 10) : undefined;
+    const countryId = countryIdRaw ? parseInt(countryIdRaw, 10) : undefined;
+
     return {
       teamId,
       teamName: readChppTag(block, 'TeamName'),
-      leagueId: block.match(/<League>[\s\S]*?<LeagueID>(\d+)<\/LeagueID>/i)?.[1]
-        ? parseInt(block.match(/<League>[\s\S]*?<LeagueID>(\d+)<\/LeagueID>/i)![1], 10)
-        : undefined,
+      leagueId,
       leagueSystemId: block.match(/<LeagueSystemID>(\d+)<\/LeagueSystemID>/i)?.[1]
         ? parseInt(block.match(/<LeagueSystemID>(\d+)<\/LeagueSystemID>/i)![1], 10)
         : undefined,
@@ -76,10 +87,8 @@ export function parseTeamDetailsXml(xml: string, teamId: number): ParsedTeamDeta
       leagueLevel: block.match(/<LeagueLevelUnit>[\s\S]*?<LeagueLevel>(\d+)<\/LeagueLevel>/i)?.[1]
         ? parseInt(block.match(/<LeagueLevelUnit>[\s\S]*?<LeagueLevel>(\d+)<\/LeagueLevel>/i)![1], 10)
         : undefined,
-      countryId: block.match(/<Country>[\s\S]*?<CountryID>(\d+)<\/CountryID>/i)?.[1]
-        ? parseInt(block.match(/<Country>[\s\S]*?<CountryID>(\d+)<\/CountryID>/i)![1], 10)
-        : undefined,
-      countryName: readChppTag(block, 'CountryName'),
+      countryId,
+      countryName: normalizeChppCountryName(readChppTag(block, 'CountryName'), countryId, leagueId),
       logoUrl,
     };
   };
@@ -115,6 +124,8 @@ export function parseManagerCompendiumXml(xml: string): ParsedManagerCompendium 
     const genderIdRaw = block.match(/<GenderID>(\d+)<\/GenderID>/i)?.[1];
     const leagueSystemIdRaw = block.match(/<LeagueSystemID>(\d+)<\/LeagueSystemID>/i)?.[1];
     const countryIdRaw = block.match(/<CountryID>(\d+)<\/CountryID>/i)?.[1];
+    const countryId = countryIdRaw ? parseInt(countryIdRaw, 10) : undefined;
+    const leagueId = leagueIdRaw ? parseInt(leagueIdRaw, 10) : undefined;
 
     teams.push({
       teamId: parseInt(teamIdRaw, 10),
@@ -122,11 +133,11 @@ export function parseManagerCompendiumXml(xml: string): ParsedManagerCompendium 
       genderId: genderIdRaw ? parseInt(genderIdRaw, 10) : undefined,
       leagueSystemId: leagueSystemIdRaw ? parseInt(leagueSystemIdRaw, 10) : undefined,
       leagueName: readChppTag(block, 'LeagueName'),
-      leagueId: leagueIdRaw ? parseInt(leagueIdRaw, 10) : undefined,
+      leagueId,
       leagueLevelUnitName: readChppTag(block, 'LeagueLevelUnitName'),
       regionName: readChppTag(block, 'RegionName'),
-      countryId: countryIdRaw ? parseInt(countryIdRaw, 10) : undefined,
-      countryName: readChppTag(block, 'CountryName'),
+      countryId,
+      countryName: normalizeChppCountryName(readChppTag(block, 'CountryName'), countryId, leagueId),
     });
   }
 

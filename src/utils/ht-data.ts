@@ -151,6 +151,34 @@ export const COUNTRY_TO_ISO: Record<string, string> = {
   Zambia: 'zm',
 };
 
+const COUNTRY_ID_TO_CANONICAL_NAME: Record<number, string> = {
+  48: 'Latvia',
+  53: 'Latvia',
+};
+
+const COUNTRY_NAME_ALIASES: Record<string, string> = {
+  latvia: 'Latvia',
+  latvija: 'Latvia',
+  lettonia: 'Latvia',
+};
+
+function normalizeCountryKey(countryName: string) {
+  return countryName
+    .trim()
+    .normalize('NFD')
+    .replace(/\p{Diacritic}/gu, '')
+    .toLowerCase();
+}
+
+export function getCanonicalCountryName(countryName?: string | null, countryId?: number | null) {
+  if (countryId && COUNTRY_ID_TO_CANONICAL_NAME[countryId]) return COUNTRY_ID_TO_CANONICAL_NAME[countryId];
+  if (!countryName) return null;
+
+  const trimmed = countryName.trim();
+  if (!trimmed) return null;
+  return COUNTRY_NAME_ALIASES[normalizeCountryKey(trimmed)] ?? (COUNTRY_TO_ISO[trimmed] ? trimmed : trimmed);
+}
+
 // Day: 0=Sun, 1=Mon, 2=Tue, 3=Wed, 4=Thu, 5=Fri, 6=Sat
 // Times are in Hattrick Time (Swedish Time - Europe/Stockholm)
 export const COUNTRY_FRIENDLY_TIMES: Record<string, { day: number; time: string }> = {
@@ -304,13 +332,15 @@ export const COUNTRY_FRIENDLY_TIMES: Record<string, { day: number; time: string 
 const DEFAULT_TIME = { day: 2, time: '20:00' };
 
 export function getFriendlyTimeForCountry(countryName?: string) {
-  if (!countryName) return DEFAULT_TIME;
-  return COUNTRY_FRIENDLY_TIMES[countryName] || DEFAULT_TIME;
+  const canonicalCountryName = getCanonicalCountryName(countryName);
+  if (!canonicalCountryName) return DEFAULT_TIME;
+  return COUNTRY_FRIENDLY_TIMES[canonicalCountryName] || DEFAULT_TIME;
 }
 
-export function getFlagUrl(countryName?: string) {
-  if (!countryName) return null;
-  const iso = COUNTRY_TO_ISO[countryName];
+export function getFlagUrl(countryName?: string | null, countryId?: number | null) {
+  const canonicalCountryName = getCanonicalCountryName(countryName, countryId);
+  if (!canonicalCountryName) return null;
+  const iso = COUNTRY_TO_ISO[canonicalCountryName];
   if (!iso) return null;
   return `https://flagcdn.com/w80/${iso.toLowerCase()}.png`;
 }

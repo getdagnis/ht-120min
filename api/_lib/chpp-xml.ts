@@ -48,6 +48,14 @@ export function normalizeChppAssetUrl(url: string): string {
   return trimmed;
 }
 
+function normalizeChppCountryName(countryName?: string, countryId?: number, leagueId?: number) {
+  const normalized = countryName?.trim().normalize('NFD').replace(/\p{Diacritic}/gu, '').toLowerCase();
+  if (countryId === 48 || leagueId === 53 || normalized === 'latvija' || normalized === 'lettonia') {
+    return 'Latvia';
+  }
+  return countryName;
+}
+
 export interface ParsedTeamDetails {
   teamId: number;
   teamName?: string;
@@ -93,6 +101,8 @@ export function parseTeamDetailsXml(xml: string, teamId: number): ParsedTeamDeta
     const leagueLevelRaw = block.match(/<LeagueLevelUnit>[\s\S]*?<LeagueLevel>(\d+)<\/LeagueLevel>/i)?.[1];
     const leagueName = readChppTag(block, 'LeagueName');
     const countryIdRaw = block.match(/<Country>[\s\S]*?<CountryID>(\d+)<\/CountryID>/i)?.[1];
+    const countryId = countryIdRaw ? parseInt(countryIdRaw, 10) : undefined;
+    const leagueId = leagueIdRaw ? parseInt(leagueIdRaw, 10) : undefined;
     const friendlyTeamIdRaw = block.match(/<FriendlyTeamID>(\d+)<\/FriendlyTeamID>/i)?.[1];
     const possibleToChallengeMidweekRaw = readChppTag(block, 'PossibleToChallengeMidweek');
     const possibleToChallengeWeekendRaw = readChppTag(block, 'PossibleToChallengeWeekend');
@@ -100,12 +110,12 @@ export function parseTeamDetailsXml(xml: string, teamId: number): ParsedTeamDeta
     return {
       teamId,
       teamName: readChppTag(block, 'TeamName'),
-      leagueId: leagueIdRaw ? parseInt(leagueIdRaw, 10) : undefined,
+      leagueId,
       leagueSystemId: leagueSystemIdRaw ? parseInt(leagueSystemIdRaw, 10) : undefined,
       leagueName,
       leagueLevel: leagueLevelRaw ? parseInt(leagueLevelRaw, 10) : undefined,
-      countryId: countryIdRaw ? parseInt(countryIdRaw, 10) : undefined,
-      countryName: readChppTag(block, 'CountryName'),
+      countryId,
+      countryName: normalizeChppCountryName(readChppTag(block, 'CountryName'), countryId, leagueId),
       logoUrl,
       arenaId: arenaIdRaw ? parseInt(arenaIdRaw, 10) : undefined,
       fanclubSize: fanclubSizeRaw ? parseInt(fanclubSizeRaw, 10) : undefined,
@@ -172,7 +182,11 @@ export function parseManagerCompendiumXml(xml: string): ParsedManagerCompendium 
   const managerName = readChppTag(xml, 'Loginname') ?? 'Unknown';
 
   const countryIdRaw = xml.match(/<Country>[\s\S]*?<CountryId>(\d+)<\/CountryId>/i)?.[1];
-  const countryName = xml.match(/<Country>[\s\S]*?<CountryName>([\s\S]*?)<\/CountryName>/i)?.[1];
+  const countryId = countryIdRaw ? parseInt(countryIdRaw, 10) : undefined;
+  const countryName = normalizeChppCountryName(
+    xml.match(/<Country>[\s\S]*?<CountryName>([\s\S]*?)<\/CountryName>/i)?.[1]?.trim(),
+    countryId,
+  );
 
   // Avatar parsing
   let avatar: Avatar | undefined;
@@ -210,6 +224,8 @@ export function parseManagerCompendiumXml(xml: string): ParsedManagerCompendium 
     const genderIdRaw = block.match(/<GenderID>(\d+)<\/GenderID>/i)?.[1];
     const leagueSystemIdRaw = block.match(/<LeagueSystemID>(\d+)<\/LeagueSystemID>/i)?.[1];
     const countryIdRaw = block.match(/<CountryID>(\d+)<\/CountryID>/i)?.[1];
+    const countryId = countryIdRaw ? parseInt(countryIdRaw, 10) : undefined;
+    const leagueId = leagueIdRaw ? parseInt(leagueIdRaw, 10) : undefined;
 
     teams.push({
       teamId: parseInt(teamIdRaw, 10),
@@ -217,18 +233,18 @@ export function parseManagerCompendiumXml(xml: string): ParsedManagerCompendium 
       genderId: genderIdRaw ? parseInt(genderIdRaw, 10) : undefined,
       leagueSystemId: leagueSystemIdRaw ? parseInt(leagueSystemIdRaw, 10) : undefined,
       leagueName: readChppTag(block, 'LeagueName'),
-      leagueId: leagueIdRaw ? parseInt(leagueIdRaw, 10) : undefined,
+      leagueId,
       leagueLevelUnitName: readChppTag(block, 'LeagueLevelUnitName'),
       regionName: readChppTag(block, 'RegionName'),
-      countryId: countryIdRaw ? parseInt(countryIdRaw, 10) : undefined,
-      countryName: readChppTag(block, 'CountryName'),
+      countryId,
+      countryName: normalizeChppCountryName(readChppTag(block, 'CountryName'), countryId, leagueId),
     });
   }
 
   return {
     hattrickUserId: userIdRaw ? parseInt(userIdRaw, 10) : null,
     managerName,
-    countryId: countryIdRaw ? parseInt(countryIdRaw, 10) : undefined,
+    countryId,
     countryName,
     leagueId: teams[0]?.leagueId,
     avatar,

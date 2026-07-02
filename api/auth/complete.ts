@@ -124,6 +124,13 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         team: {
           teamId: parseInt(team_id),
           teamName: team_name,
+          leagueId: teamDetails?.leagueId,
+          leagueSystemId: teamDetails?.leagueSystemId,
+          leagueName: teamDetails?.leagueName,
+          leagueLevel: teamDetails?.leagueLevel,
+          genderId: teamDetails?.genderId,
+          countryId,
+          countryName,
         },
         managerName: pending.manager_name,
         hattrickUserId: pending.hattrick_user_id,
@@ -142,6 +149,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     try {
       let countryId: number | undefined;
       let countryName: string | undefined;
+      let leagueId: number | undefined;
       let avatar = null;
       let teamsJson = pending.teams_json;
 
@@ -168,6 +176,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         const mParsed = parseManagerCompendiumXml(mXml);
         countryId = mParsed.countryId;
         countryName = mParsed.countryName;
+        leagueId = mParsed.leagueId;
         avatar = mParsed.avatar ?? null;
         teamsJson = mParsed.teams;
       } else {
@@ -179,6 +188,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         manager_name: pending.manager_name,
         country_id: countryId ?? null,
         country_name: countryName ?? null,
+        league_id: leagueId ?? null,
         avatar_json: avatar,
         teams_json: teamsJson,
         oauth_token: pending.access_token,

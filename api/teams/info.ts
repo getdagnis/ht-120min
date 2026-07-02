@@ -137,6 +137,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       leagueName,
       countryId,
       countryName,
+      genderId: genderId ? parseInt(genderId) : undefined,
       logoUrl: parsed.logoUrl,
     });
   } catch (error) {

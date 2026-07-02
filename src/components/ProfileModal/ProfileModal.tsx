@@ -5,6 +5,8 @@ import { Avatar } from '../Avatar/Avatar';
 import type { UserProfile, ActiveTournament } from '../../hooks/useAuth';
 import { supabase } from '../../lib/supabase';
 import { Trophy, CalendarBlank, Medal, ArrowUpRight } from 'phosphor-react';
+import { getCanonicalCountryName } from '../../utils/ht-data';
+import { getLeagueIdByName } from '../../utils/leagues';
 import styles from './ProfileModal.module.sass';
 
 interface ProfileModalProps {
@@ -101,6 +103,8 @@ export const ProfileModal: React.FC<ProfileModalProps> = ({ isOpen, maxWidth, on
     month: '2-digit',
     year: 'numeric',
   });
+  const displayCountryName = getCanonicalCountryName(profile.country_name, profile.country_id);
+  const displayLeagueId = profile.league_id ?? (displayCountryName ? getLeagueIdByName(displayCountryName) : undefined);
 
   console.log('Profile Avatar Data:', profile?.avatar_json);
 
@@ -124,22 +128,22 @@ export const ProfileModal: React.FC<ProfileModalProps> = ({ isOpen, maxWidth, on
                 <CalendarBlank size={18} />
                 <span>Joined {joinDate}</span>
               </div>
-              {profile.country_name && (
+              {displayCountryName && (
                 <div className={styles.metaItem}>
-                  {(profile.league_id || profile.country_id) && (
+                  {(displayLeagueId || profile.country_id) && (
                     <img
                       // Hattrick flag images are indexed by LeagueID, not CountryID
-                      src={`https://www.hattrick.org/Img/flags/${profile.league_id ?? profile.country_id}.png`}
-                      alt={profile.country_name}
+                      src={`https://www.hattrick.org/Img/flags/${displayLeagueId ?? profile.country_id}.png`}
+                      alt={displayCountryName}
                       className={styles.flag}
                     />
                   )}
                   <a
-                    href={`https://www.hattrick.org/goto.ashx?path=/World/Leagues/League.aspx?LeagueID=${profile.league_id ?? profile.country_id}`}
+                    href={`https://www.hattrick.org/goto.ashx?path=/World/Leagues/League.aspx?LeagueID=${displayLeagueId ?? profile.country_id}`}
                     target="_blank"
                     rel="noopener noreferrer"
                   >
-                    {profile.country_name} <ArrowUpRight size={14} />
+                    {displayCountryName} <ArrowUpRight size={14} />
                   </a>
                 </div>
               )}

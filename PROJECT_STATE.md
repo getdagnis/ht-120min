@@ -28,6 +28,7 @@ The app currently supports:
 | Default tournament chat message | Implemented in create flow | Uses existing `tournament_chat` table | Not rerun for docs-only refactor | Confirm |
 | Fixture refresh and reversed venue linking | Implemented locally | Uses existing match fields from `037`, `046` | Not rerun for docs-only refactor | Confirm |
 | Next match date on cards/menu | Implemented via `src/utils/tournament-next-match.ts` using rounds/matches | No new migration | Not rerun for docs-only refactor | Confirm |
+| CHPP country display normalization | Implemented locally for Latvia `CountryID=48` / `LeagueID=53` / localized names | No migration; existing rows handled in UI | `npm test` and `npm run build` passed 2026-07-02 | Confirm |
 | Matchmaker challenge send | Partially implemented | Existing matchmaker/profile/token migrations | Requires real CHPP reauth and endpoint confirmation | Confirm |
 
 Production means live deployed behavior. If it has not been checked against the live Supabase/Vercel deployment, leave it as `Confirm`.
@@ -60,6 +61,7 @@ Production means live deployed behavior. If it has not been checked against the 
 - OAuth flow requests `manage_challenges` scope.
 - Manager/team discovery uses `managercompendium`.
 - Team metadata uses `teamdetails`.
+- Latvian CHPP country data is normalized for display from localized names such as `Lettonia`/`Latvija` and the CHPP CountryID/LeagueID split.
 - Fixture booking/reconciliation uses `matches`.
 - Live/finished result sync uses `matchdetails` with match events.
 - Reversed home/away friendly location is treated as arranged, with venue mismatch metadata recorded.

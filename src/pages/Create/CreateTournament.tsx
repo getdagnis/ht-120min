@@ -106,6 +106,9 @@ interface LocalTeam {
   logoUrl?: string;
   countryName?: string;
   countryId?: number;
+  leagueId?: number;
+  genderId?: number;
+  leagueLevel?: number;
 }
 
 interface LinkedOrganizer {
@@ -181,9 +184,14 @@ export const CreateTournament: React.FC = () => {
     teams_json: Array<{
       teamId: number;
       teamName: string;
+      leagueId?: number;
+      genderId?: number;
+      leagueLevel?: number;
       leagueLevelUnitName?: string;
       regionName?: string;
       leagueName?: string;
+      countryId?: number;
+      countryName?: string;
     }>;
   } | null>(null);
   const [showModal, setShowModal] = useState(false);
@@ -295,7 +303,14 @@ export const CreateTournament: React.FC = () => {
 
   const fetchTeamLogoFromChpp = async (
     teamId: number,
-  ): Promise<{ logoUrl?: string; countryName?: string; countryId?: number }> => {
+  ): Promise<{
+    logoUrl?: string;
+    countryName?: string;
+    countryId?: number;
+    leagueId?: number;
+    genderId?: number;
+    leagueLevel?: number;
+  }> => {
     try {
       const res = await fetch(`/api/teams/info?team_id=${teamId}`);
       if (!res.ok) return {};
@@ -304,6 +319,9 @@ export const CreateTournament: React.FC = () => {
         logoUrl: data.logoUrl ?? undefined,
         countryName: data.countryName ?? undefined,
         countryId: data.countryId ?? undefined,
+        leagueId: data.leagueId ?? undefined,
+        genderId: data.genderId ?? undefined,
+        leagueLevel: data.leagueLevel ?? undefined,
       };
     } catch {
       return {};
@@ -329,7 +347,9 @@ export const CreateTournament: React.FC = () => {
       }
 
       // 2. Fetch logo
-      const { logoUrl, countryName, countryId } = await fetchTeamLogoFromChpp(team.teamId);
+      const { logoUrl, countryName, countryId, leagueId, genderId, leagueLevel } = await fetchTeamLogoFromChpp(
+        team.teamId,
+      );
 
       const creatorTeam: LocalTeam = {
         tempId: nanoid(),
@@ -343,6 +363,9 @@ export const CreateTournament: React.FC = () => {
         logoUrl: logoUrl || undefined,
         countryId,
         countryName: countryName || undefined,
+        leagueId,
+        genderId,
+        leagueLevel,
       };
 
       const updatedTeams =
@@ -564,6 +587,9 @@ export const CreateTournament: React.FC = () => {
         logo_url: t.logoUrl || null,
         country_id: t.countryId ?? null,
         country_name: t.countryName || null,
+        league_id: t.leagueId ?? null,
+        gender_id: t.genderId ?? null,
+        league_level: t.leagueLevel ?? null,
       }));
 
       const { error: teamsError } = await supabase.from('teams').insert(teamsToInsert);
