@@ -116,6 +116,9 @@ export const FixturesView: React.FC<FixturesViewProps> = ({
   onJoinWithHattrick,
 }) => {
   const [manualVisibleRoundsCount, setManualVisibleRoundsCount] = React.useState<number | null>(null);
+  const currentRound = upcomingRoundIndex >= 0 ? (rounds[upcomingRoundIndex] ?? null) : null;
+  const currentRoundScrollTargetRef = React.useRef<HTMLDivElement | null>(null);
+  const hasAutoScrolledToCurrentRoundRef = React.useRef(false);
   const visibleRoundsCount = manualVisibleRoundsCount ?? defaultVisibleRoundsCount;
   const lastFinishedRoundNumber = React.useMemo(() => {
     let latestFinishedRoundNumber: number | null = null;
@@ -127,6 +130,52 @@ export const FixturesView: React.FC<FixturesViewProps> = ({
 
     return latestFinishedRoundNumber;
   }, [rounds]);
+
+  const scrollToCurrentRound = React.useCallback(() => {
+    if (!currentRound || currentRound.round_number < 3) return false;
+
+    const target =
+      currentRoundScrollTargetRef.current ??
+      document.querySelector<HTMLElement>(`[data-round-id="${currentRound.id}"]`);
+
+    if (!target) return false;
+
+    const offsetPx = 160;
+    const top = Math.max(window.scrollY + target.getBoundingClientRect().top - offsetPx, 0);
+
+    window.scrollTo({ top, behavior: 'smooth' });
+    return true;
+  }, [currentRound]);
+
+  React.useEffect(() => {
+    if (!currentRound || currentRound.round_number < 3) return;
+    if (hasAutoScrolledToCurrentRoundRef.current) return;
+
+    let cancelled = false;
+    let attempts = 0;
+    let timerId: number | undefined;
+
+    const attemptScroll = () => {
+      if (cancelled || hasAutoScrolledToCurrentRoundRef.current) return;
+
+      if (scrollToCurrentRound()) {
+        hasAutoScrolledToCurrentRoundRef.current = true;
+        return;
+      }
+
+      if (attempts < 12) {
+        attempts += 1;
+        timerId = window.setTimeout(attemptScroll, 50);
+      }
+    };
+
+    timerId = window.setTimeout(attemptScroll, 50);
+
+    return () => {
+      cancelled = true;
+      if (timerId !== undefined) window.clearTimeout(timerId);
+    };
+  }, [currentRound?.id, currentRound?.round_number, scrollToCurrentRound]);
 
   const resolveMatchDate = React.useCallback(
     (round: { created_at: string; round_number: number }, match: FixtureMatch) =>
@@ -142,7 +191,9 @@ export const FixturesView: React.FC<FixturesViewProps> = ({
       {rounds.length === 0 && (
         <SectionCard title="Fixtures & Results">
           <div className={styles.emptyFixtures}>
-            <p>Fixtures have not yet been generated. Tournament is open for registration. You can join with another team.</p>
+            <p>
+              Fixtures have not yet been generated. Tournament is open for registration. You can join with another team.
+            </p>
             {canJoinTournament && (
               <Button variant="primary" size="sm" onClick={onJoinWithHattrick} disabled={isConnecting}>
                 <ArrowRight size={18} weight="bold" /> Join with Hattrick
@@ -203,203 +254,208 @@ export const FixturesView: React.FC<FixturesViewProps> = ({
         };
 
         return (
-          <SectionCard
-            key={round.id}
-            className={isNextRound ? styles.upcomingRound : ''}
-            collapsible
-            isCollapsed={!isExpanded}
-            onToggleCollapse={() => toggleRound(round.id)}
-            title={
-              <div className={styles.roundHeader}>
-                <>
-                  <span>Round {round.round_number}</span>
-                  {roundDate && roundWeek && (
-                    <span className={styles.roundDate}>
-                      HT Week {roundWeek.htWeek} •{' '}
-                      {roundDate.toLocaleDateString('lv-LV', {
-                        timeZone: 'Europe/Stockholm',
-                        day: '2-digit',
-                        month: '2-digit',
-                        year: 'numeric',
-                      })}
-                    </span>
-                  )}
-                </>
-              </div>
-            }
-            headerRight={
-              allFinished || isNextRound ? (
-                <div className={styles.fixturesControls} onClick={(e) => e.stopPropagation()}>
-                  {allFinished ? (
-                    <>
-                      <span className={styles.lastRefresh}>
-                        <div className="hideOnMobile">Copy for HT forums:</div>
+          <div key={round.id} ref={isNextRound ? currentRoundScrollTargetRef : null} data-round-id={round.id}>
+            <SectionCard
+              className={isNextRound ? styles.upcomingRound : ''}
+              collapsible
+              isCollapsed={!isExpanded}
+              onToggleCollapse={() => toggleRound(round.id)}
+              title={
+                <div className={styles.roundHeader}>
+                  <>
+                    <span>Round {round.round_number}</span>
+                    {roundDate && roundWeek && (
+                      <span className={styles.roundDate}>
+                        HT Week {roundWeek.htWeek} •{' '}
+                        {roundDate.toLocaleDateString('lv-LV', {
+                          timeZone: 'Europe/Stockholm',
+                          day: '2-digit',
+                          month: '2-digit',
+                          year: 'numeric',
+                        })}
                       </span>
-                      <button
-                        className={styles.refreshBtn}
-                        onClick={handleCopy}
-                        data-tooltip-id={`copy-tooltip-${round.id}`}
-                      >
-                        {copied[round.id] ? <Check size={18} color="green" /> : <CopySimple size={18} />}
-                      </button>
-                      <Tooltip
-                        id={`copy-tooltip-${round.id}`}
-                        content={copied[round.id] ? 'HT forum table copied!' : 'Copy for HT forums'}
-                        className="tooltip"
-                      />
-                    </>
-                  ) : (
-                    <>
-                      {isNextRound && tournament?.last_fixtures_refresh && (
-                        <span className={styles.lastRefresh}>
-                          <span className="hideOnMobile">
-                            {isRefreshingFixtures ? 'Checking...' : 'Last checked: '}
-                            {!isRefreshingFixtures &&
-                              new Date(tournament.last_fixtures_refresh).toLocaleTimeString('en-GB', {
-                                hour: '2-digit',
-                                minute: '2-digit',
-                              })}
-                          </span>
-                        </span>
-                      )}
-                      <button
-                        className={`${styles.refreshBtn} ${isRefreshingFixtures ? styles.spinning : ''}`}
-                        onClick={handleRefreshFixtures}
-                        disabled={isRefreshingFixtures}
-                        data-tooltip-id="refresh-tooltip"
-                      >
-                        <ArrowClockwise size={18} />
-                      </button>
-                      <Tooltip id="refresh-tooltip" content="Refresh fixtures" />
-                      <button className={styles.refreshBtn} onClick={handleCopy} data-tooltip-id="copy-tooltip">
-                        {copied[round.id] ? <Check size={18} color="green" /> : <CopySimple size={18} />}
-                      </button>
-                      <Tooltip
-                        id="copy-tooltip"
-                        content={copied[round.id] ? 'HT forum table copied!' : 'Copy for HT forums'}
-                      />
-                    </>
-                  )}
+                    )}
+                  </>
                 </div>
-              ) : undefined
-            }
-          >
-            {isExpanded && (
-              <div className={styles.matchesGrid}>
-                {round.matches.map((match) => {
-                  const matchDate = resolveMatchDate(round, match);
+              }
+              headerRight={
+                allFinished || isNextRound ? (
+                  <div className={styles.fixturesControls} onClick={(e) => e.stopPropagation()}>
+                    {allFinished ? (
+                      <>
+                        <span className={styles.lastRefresh}>
+                          <div className="hideOnMobile">Copy for HT forums:</div>
+                        </span>
+                        <button
+                          className={styles.refreshBtn}
+                          onClick={handleCopy}
+                          data-tooltip-id={`copy-tooltip-${round.id}`}
+                        >
+                          {copied[round.id] ? <Check size={18} color="green" /> : <CopySimple size={18} />}
+                        </button>
+                        <Tooltip
+                          id={`copy-tooltip-${round.id}`}
+                          content={copied[round.id] ? 'HT forum table copied!' : 'Copy for HT forums'}
+                          className="tooltip"
+                        />
+                      </>
+                    ) : (
+                      <>
+                        {isNextRound && tournament?.last_fixtures_refresh && (
+                          <span className={styles.lastRefresh}>
+                            <span className="hideOnMobile">
+                              {isRefreshingFixtures ? 'Checking...' : 'Last checked: '}
+                              {!isRefreshingFixtures &&
+                                new Date(tournament.last_fixtures_refresh).toLocaleTimeString('en-GB', {
+                                  hour: '2-digit',
+                                  minute: '2-digit',
+                                })}
+                            </span>
+                          </span>
+                        )}
+                        <button
+                          className={`${styles.refreshBtn} ${isRefreshingFixtures ? styles.spinning : ''}`}
+                          onClick={handleRefreshFixtures}
+                          disabled={isRefreshingFixtures}
+                          data-tooltip-id="refresh-tooltip"
+                        >
+                          <ArrowClockwise size={18} />
+                        </button>
+                        <Tooltip id="refresh-tooltip" content="Refresh fixtures" />
+                        <button className={styles.refreshBtn} onClick={handleCopy} data-tooltip-id="copy-tooltip">
+                          {copied[round.id] ? <Check size={18} color="green" /> : <CopySimple size={18} />}
+                        </button>
+                        <Tooltip
+                          id="copy-tooltip"
+                          content={copied[round.id] ? 'HT forum table copied!' : 'Copy for HT forums'}
+                        />
+                      </>
+                    )}
+                  </div>
+                ) : undefined
+              }
+            >
+              {isExpanded && (
+                <div className={styles.matchesGrid}>
+                  {round.matches.map((match) => {
+                    const matchDate = resolveMatchDate(round, match);
 
-                  const day = matchDate.toLocaleString('en-GB', { weekday: 'short' }).toUpperCase();
-                  const datePart = matchDate.toLocaleDateString('lv-LV', {
-                    day: '2-digit',
-                    month: '2-digit',
-                  });
-                  const timePart = matchDate.toLocaleTimeString('en-GB', {
-                    hour: '2-digit',
-                    minute: '2-digit',
-                    hour12: false,
-                  });
-                  const formattedDate = `${day} / ${datePart} / ${timePart}`;
+                    const day = matchDate.toLocaleString('en-GB', { weekday: 'short' }).toUpperCase();
+                    const datePart = matchDate.toLocaleDateString('lv-LV', {
+                      day: '2-digit',
+                      month: '2-digit',
+                    });
+                    const timePart = matchDate.toLocaleTimeString('en-GB', {
+                      hour: '2-digit',
+                      minute: '2-digit',
+                      hour12: false,
+                    });
+                    const formattedDate = `${day} / ${datePart} / ${timePart}`;
 
-                  const homeWarning = warnings.find((w) => w.team_id === match.home_team_id && w.round_id === round.id);
-                  const awayWarning = warnings.find((w) => w.team_id === match.away_team_id && w.round_id === round.id);
+                    const homeWarning = warnings.find(
+                      (w) => w.team_id === match.home_team_id && w.round_id === round.id,
+                    );
+                    const awayWarning = warnings.find(
+                      (w) => w.team_id === match.away_team_id && w.round_id === round.id,
+                    );
 
-                  // Use status from DB, fallback to simple detection
-                  const liveMatch = match.ht_match_id ? liveData[match.ht_match_id.toString()] : null;
-                  let status = match.status || 'not_arranged';
-                  const isMisarranged = status === 'misarranged' || !!homeWarning || !!awayWarning;
-                  const now = new Date();
-                  const isPastStartTime = match.match_date && now >= match.match_date;
-                  const isWithinLiveWindow =
-                    match.match_date && now.getTime() < match.match_date.getTime() + 4 * 60 * 60 * 1000;
+                    // Use status from DB, fallback to simple detection
+                    const liveMatch = match.ht_match_id ? liveData[match.ht_match_id.toString()] : null;
+                    let status = match.status || 'not_arranged';
+                    const isMisarranged = status === 'misarranged' || !!homeWarning || !!awayWarning;
+                    const now = new Date();
+                    const isPastStartTime = match.match_date && now >= match.match_date;
+                    const isWithinLiveWindow =
+                      match.match_date && now.getTime() < match.match_date.getTime() + 4 * 60 * 60 * 1000;
 
-                  if (isMisarranged) {
-                    status = 'misarranged';
-                  } else if (match.completed) {
-                    status = 'finished';
-                  } else if (liveMatch) {
-                    status = liveMatch.status;
-                  } else if (isPastStartTime && isWithinLiveWindow && status === 'arranged') {
-                    status = 'ongoing';
-                  }
+                    if (isMisarranged) {
+                      status = 'misarranged';
+                    } else if (match.completed) {
+                      status = 'finished';
+                    } else if (liveMatch) {
+                      status = liveMatch.status;
+                    } else if (isPastStartTime && isWithinLiveWindow && status === 'arranged') {
+                      status = 'ongoing';
+                    }
 
-                  const currentScore = liveMatch
-                    ? { home: liveMatch.homeGoals, away: liveMatch.awayGoals }
-                    : match.completed
-                      ? { home: match.home_goals || 0, away: match.away_goals || 0 }
-                      : isPastStartTime && isWithinLiveWindow
-                        ? { home: 0, away: 0 }
-                        : undefined;
-                  const homeSummary = liveMatch
-                    ? {
-                        yellowCards: liveMatch.home_yellow_cards ?? match.home_yellow_cards ?? 0,
-                        redCards: liveMatch.home_red_cards ?? match.home_red_cards ?? 0,
-                        injuries: liveMatch.home_injuries ?? match.home_injuries ?? 0,
-                      }
-                    : {
-                        yellowCards: match.home_yellow_cards ?? 0,
-                        redCards: match.home_red_cards ?? 0,
-                        injuries: match.home_injuries ?? 0,
-                      };
-                  const awaySummary = liveMatch
-                    ? {
-                        yellowCards: liveMatch.away_yellow_cards ?? match.away_yellow_cards ?? 0,
-                        redCards: liveMatch.away_red_cards ?? match.away_red_cards ?? 0,
-                        injuries: liveMatch.away_injuries ?? match.away_injuries ?? 0,
-                      }
-                    : {
-                        yellowCards: match.away_yellow_cards ?? 0,
-                        redCards: match.away_red_cards ?? 0,
-                        injuries: match.away_injuries ?? 0,
-                      };
-                  const penaltyShootout =
-                    match.penalty_shootout_home_goals !== null && match.penalty_shootout_away_goals !== null
+                    const currentScore = liveMatch
+                      ? { home: liveMatch.homeGoals, away: liveMatch.awayGoals }
+                      : match.completed
+                        ? { home: match.home_goals || 0, away: match.away_goals || 0 }
+                        : isPastStartTime && isWithinLiveWindow
+                          ? { home: 0, away: 0 }
+                          : undefined;
+                    const homeSummary = liveMatch
                       ? {
-                          home: match.penalty_shootout_home_goals ?? 0,
-                          away: match.penalty_shootout_away_goals ?? 0,
+                          yellowCards: liveMatch.home_yellow_cards ?? match.home_yellow_cards ?? 0,
+                          redCards: liveMatch.home_red_cards ?? match.home_red_cards ?? 0,
+                          injuries: liveMatch.home_injuries ?? match.home_injuries ?? 0,
                         }
-                      : null;
+                      : {
+                          yellowCards: match.home_yellow_cards ?? 0,
+                          redCards: match.home_red_cards ?? 0,
+                          injuries: match.home_injuries ?? 0,
+                        };
+                    const awaySummary = liveMatch
+                      ? {
+                          yellowCards: liveMatch.away_yellow_cards ?? match.away_yellow_cards ?? 0,
+                          redCards: liveMatch.away_red_cards ?? match.away_red_cards ?? 0,
+                          injuries: liveMatch.away_injuries ?? match.away_injuries ?? 0,
+                        }
+                      : {
+                          yellowCards: match.away_yellow_cards ?? 0,
+                          redCards: match.away_red_cards ?? 0,
+                          injuries: match.away_injuries ?? 0,
+                        };
+                    const penaltyShootout =
+                      match.penalty_shootout_home_goals !== null && match.penalty_shootout_away_goals !== null
+                        ? {
+                            home: match.penalty_shootout_home_goals ?? 0,
+                            away: match.penalty_shootout_away_goals ?? 0,
+                          }
+                        : null;
 
-                  return (
-                    <FixtureCard
-                      key={match.id}
-                      date={status === 'misarranged' ? '' : formattedDate}
-                      status={status}
-                      htMatchId={match.ht_match_id || undefined}
-                      score={currentScore}
-                      penaltyShootout={penaltyShootout}
-                      matchType={match.match_type || undefined}
-                      is120minMode={tournament?.scoring_mode === '120min'}
-                      went_120={match.went_120}
-                      completed={match.completed}
-                      homeTeam={{
-                        name: match.home_team?.name || 'BYE',
-                        managerName: match.home_team?.manager_name || 'UNKNOWN',
-                        managerHtId: match.home_team?.hattrick_user_id,
-                        htTeamId: match.home_team?.ht_team_id || 0,
-                        logoUrl: match.home_team?.logo_url,
-                        warning: homeWarning?.type,
-                        countryName: match.home_team?.country_name,
-                        countryId: match.home_team?.country_id,
-                        matchSummary: homeSummary,
-                      }}
-                      awayTeam={{
-                        name: match.away_team?.name || 'BYE',
-                        managerName: match.away_team?.manager_name || 'UNKNOWN',
-                        managerHtId: match.away_team?.hattrick_user_id,
-                        htTeamId: match.away_team?.ht_team_id || 0,
-                        logoUrl: match.away_team?.logo_url,
-                        warning: awayWarning?.type,
-                        countryName: match.away_team?.country_name,
-                        countryId: match.away_team?.country_id,
-                        matchSummary: awaySummary,
-                      }}
-                    />
-                  );
-                })}
-              </div>
-            )}
-          </SectionCard>
+                    return (
+                      <FixtureCard
+                        key={match.id}
+                        date={status === 'misarranged' ? '' : formattedDate}
+                        status={status}
+                        htMatchId={match.ht_match_id || undefined}
+                        score={currentScore}
+                        penaltyShootout={penaltyShootout}
+                        matchType={match.match_type || undefined}
+                        is120minMode={tournament?.scoring_mode === '120min'}
+                        went_120={match.went_120}
+                        completed={match.completed}
+                        homeTeam={{
+                          name: match.home_team?.name || 'BYE',
+                          managerName: match.home_team?.manager_name || 'UNKNOWN',
+                          managerHtId: match.home_team?.hattrick_user_id,
+                          htTeamId: match.home_team?.ht_team_id || 0,
+                          logoUrl: match.home_team?.logo_url,
+                          warning: homeWarning?.type,
+                          countryName: match.home_team?.country_name,
+                          countryId: match.home_team?.country_id,
+                          matchSummary: homeSummary,
+                        }}
+                        awayTeam={{
+                          name: match.away_team?.name || 'BYE',
+                          managerName: match.away_team?.manager_name || 'UNKNOWN',
+                          managerHtId: match.away_team?.hattrick_user_id,
+                          htTeamId: match.away_team?.ht_team_id || 0,
+                          logoUrl: match.away_team?.logo_url,
+                          warning: awayWarning?.type,
+                          countryName: match.away_team?.country_name,
+                          countryId: match.away_team?.country_id,
+                          matchSummary: awaySummary,
+                        }}
+                      />
+                    );
+                  })}
+                </div>
+              )}
+            </SectionCard>
+          </div>
         );
       })}
       {visibleRoundsCount < rounds.length && (

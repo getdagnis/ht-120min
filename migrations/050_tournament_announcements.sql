@@ -81,3 +81,5 @@ CREATE POLICY "Anyone can create tournament announcement dismissals"
 
 COMMIT;
 
+
+-- MIGRATION APPLIED!

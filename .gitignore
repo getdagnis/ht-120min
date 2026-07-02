@@ -27,3 +27,7 @@ dist-ssr
 Hallowed Be Thy R!.md
 .aider*
 .continue/
+
+# Local database backups
+scripts/backups/*
+!scripts/backups/.gitkeep

@@ -895,3 +895,5 @@ REVOKE EXECUTE ON FUNCTION public.reschedule_tournament_rounds(uuid, text, integ
 GRANT EXECUTE ON FUNCTION public.reschedule_tournament_rounds(uuid, text, integer, jsonb, timestamptz, boolean) TO anon, authenticated;
 
 COMMIT;
+
+-- MIGRATION APPLIED!
