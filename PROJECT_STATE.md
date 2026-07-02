@@ -1,129 +1,110 @@
-# PROJECT STATE
+# PROJECT_STATE.md
 
-Last updated: 2026-06-25
+Last updated: 2026-07-02
 
----
+This is the current-status ledger. Update it after meaningful implementation work. Be explicit about what is local, migrated, tested, deployed, or still unknown.
 
-## Core Goal
+## Current Product State
 
-Make it easy for Hattrick managers to find and organize 120-minute friendlies.
+HT-120min is an early MVP for recurring Hattrick friendly tournaments. Tournaments are the core product; Matchmaker is an entry layer for finding friendly opportunities.
 
----
+The app currently supports:
 
-## Completed
+- Hattrick OAuth login and profile snapshots.
+- Tournament creation, joining, team management, standings, fixtures, chat/news, and admin tools.
+- Schedule generation and schedule regeneration for future unarranged rounds.
+- Manual result entry and CHPP-based match/result refresh.
+- Matchmaker ad publishing, browsing, availability checks, interest flow, and challenge-send path.
 
-### Platform
+## Status Table
 
-- OAuth login with `manage_challenges` scope
-- Token scope stored in `profiles.oauth_scope` (as of June 2026)
-- Team synchronization via CHPP
-- Multi-team support (HFI + male)
-- Tournament creation and joining
-- Automated standings
-- Live match tracking (polls `matchdetails.xml`, scores from `<Scorers>` list)
-- Team logos and country data
-- Fixture refresh via `teams/refresh-fixtures`
-- Venue mismatch detection and goal correction
+| Area | Code | DB migration | Local test | Production |
+| --- | --- | --- | --- | --- |
+| Tournament creation/joining | Implemented | Base migrations through organizer/profile/team fields | Not rerun for docs-only refactor | Confirm |
+| Schedule generation | Implemented | `047`, `048`, corrected by `051` | Covered by `tests/schedule-draft.test.ts`; not rerun for docs-only refactor | Confirm |
+| Schedule regeneration | Implemented | `049`, corrected by `051` | Covered by `tests/reschedule-draft.test.ts`; not rerun for docs-only refactor | Confirm |
+| W15/W16 calendar correction | Implemented locally | `051`; file contains `-- MIGRATION APPLIED!` marker | Covered by calendar/schedule tests; not rerun for docs-only refactor | Confirm actual Supabase/prod state |
+| Tournament announcements | Implemented locally | `050`; file contains `-- MIGRATION APPLIED!` marker | Covered by `tests/tournament-announcements.test.ts`; not rerun for docs-only refactor | Confirm actual Supabase/prod state |
+| Default tournament chat message | Implemented in create flow | Uses existing `tournament_chat` table | Not rerun for docs-only refactor | Confirm |
+| Fixture refresh and reversed venue linking | Implemented locally | Uses existing match fields from `037`, `046` | Not rerun for docs-only refactor | Confirm |
+| Next match date on cards/menu | Implemented via `src/utils/tournament-next-match.ts` using rounds/matches | No new migration | Not rerun for docs-only refactor | Confirm |
+| Matchmaker challenge send | Partially implemented | Existing matchmaker/profile/token migrations | Requires real CHPP reauth and endpoint confirmation | Confirm |
 
-### Matchmaker
+Production means live deployed behavior. If it has not been checked against the live Supabase/Vercel deployment, leave it as `Confirm`.
 
-- Ad publishing (`matchmaker/publish`)
-- Ad browsing (Tinder-style swipe UI)
-- HFI team support and gender filtering
-- Team availability classification (available / booked / unavailable / unknown)
-- Booking status checks via CHPP `matches` feed
-- Mock data mode (`MATCHMAKER_MOCK_DATA=true`)
-- Ad freshness indicators
-- Show-interest flow (`matchmaker/show-interest`)
-- Challenge send flow (`matchmaker/send-challenge`) — routes to CHPP Challenges API
-- Match modal with challenge responsibility clarification
+## What Works Now
 
-### CHPP Challenges API
+### Tournaments
 
-- `view` action works (proven via oauth-verify + challenges-view testing tools)
-- OAuth init requests `manage_challenges` scope
-- Scope captured from access token response and stored in `profiles.oauth_scope`
-- `oauth-verify` now shows `oauthScope` and `hasManageChallengesScope` fields
-- `challengeable` and `challenge` actions blocked by 401 if stored token predates scope addition — **requires re-authorization by each user**
+- Create tournament with organizer/team snapshots.
+- Join tournament through CHPP OAuth.
+- Store manager/team metadata, country ids/names where available, logos, OAuth tokens, and organizer data.
+- Generate single, double, and recurring schedules from the admin panel.
+- Regenerate future unarranged rounds without changing pairings.
+- Handle odd-team BYEs.
+- Show standings, fixtures/results, news/chat, and admin panels.
+- Enter results manually, including misarranged matches where admins decide the result should count.
+- Refresh fixtures from CHPP `matches` and live/finished results from CHPP `matchdetails`.
 
-### Infrastructure
+### Scheduling
 
-- Vercel Hobby plan: currently at **12/12 serverless functions** (hard limit)
-- All dev/debug tools consolidated into single `api/testing/index.ts` router
-- `vercel.json` rewrites all `/api/testing/*` to `api/testing/index.ts`
-- `api/teams/info` returns `logoUrl` in response
-- `chpp/proxy` endpoint removed — `teams/info` used instead
+- Weeks 1-3 are blocked cup weeks.
+- Weeks 4-6 are selectable but flagged with cup-likelihood warnings.
+- Week 15 weekend is optional because qualification games can block teams.
+- Week 16 weekend is included by default as a regular friendly slot.
+- Schedule payloads include `scheduled_for`, `schedule_slot_type`, and `include_week15_weekend_friendly`.
+- Regeneration locks completed, arranged, linked, or already-started rounds.
 
----
+### CHPP
 
-## Known Bugs / Blockers
+- OAuth flow requests `manage_challenges` scope.
+- Manager/team discovery uses `managercompendium`.
+- Team metadata uses `teamdetails`.
+- Fixture booking/reconciliation uses `matches`.
+- Live/finished result sync uses `matchdetails` with match events.
+- Reversed home/away friendly location is treated as arranged, with venue mismatch metadata recorded.
 
-- **CHPP `challengeable` / `challenge` return HTTP 401** for any user whose token was issued before `manage_challenges` scope was added to `auth/init`. Fix: those users must re-authorize via `/api/auth/init`. No code change needed, this is an existing-token problem.
-- **Matchmaker `handleAccept` is a stub** — the match acceptance flow does not yet create a real server-side match record or send a CHPP challenge automatically. Currently relies on manual challenge send.
-- **No race condition protection** — two users can simultaneously match with the same ad. No server-side lock exists.
-- **Edit mode doesn't pre-populate form** — editing an ad opens a blank form instead of loading existing ad data.
-- **Stale ads after challenge** — after a challenge is sent in HT, the ad remains visible until the next availability sync.
+### UI
 
----
+- Results Entry has compact flags, no team logos, HT profile links for teams, icon-only result actions, responsive mobile result controls, and cleaned 120-minute chips.
+- Fixtures collapse older finished rounds by default while keeping last finished, current/next, and future rounds visible.
+- Chat shows a login button when the viewer is not authenticated.
+- Description editor has textarea and regenerate controls restored in tournament/admin contexts.
+- Supporters wall hydrates known users from DB by ids while keeping readable constants for name/team context.
 
-## Current Focus
+## Known Risks And Blockers
 
-### CHPP Challenges Integration
+- Vercel Hobby is at `12/12` serverless functions. New endpoints require consolidation.
+- Production status for migrations `050` and `051` was not independently verified in this docs pass; files are marked applied locally.
+- CHPP `challengeable` / `challenge` can return 401 for users whose tokens predate the `manage_challenges` scope. Those users must reauthorize.
+- Matchmaker `handleAccept` remains incomplete as a full server-side booking/match creation loop.
+- Race protection for simultaneous Matchmaker accepts is not complete.
+- Stale Matchmaker ads can remain visible until availability sync runs.
+- Country and league logic still has name-based fallbacks. Prefer ids for future work.
+- Some CHPP parsing remains ad hoc, especially around `api/teams/info.ts`.
+- The manual schedule smoke-test SQL is a reference helper, not proof of production state.
 
-- [ ] Confirm `challengeable` returns valid XML after re-authorization with `manage_challenges` scope
-- [ ] Confirm `challenge` (direct send) works end-to-end
-- [ ] Wire `matchmaker/send-challenge` to CHPP challenge creation in production flow
-- [ ] Handle `challengeable` 401 gracefully in the UI (prompt re-auth)
+## Do Not Disturb Casually
 
-### Matchmaker Loop Completion
+- Do not add API functions without checking the 12-function limit.
+- Do not replace app-owned tournament standings with CHPP tournament endpoints; HT-120min tournaments are app-owned.
+- Do not remove manual admin result flows while CHPP automation is still incomplete.
+- Do not treat `FriendlyTeamID` as the source of truth for booking when `matches` can answer the same question.
+- Do not depend on country or league display names for new identity logic when ids are available.
 
-- [ ] Replace `handleAccept` stub with real server-side match creation
-- [ ] Add race condition protection (optimistic lock or status check before match insert)
-- [ ] Implement stale-ad cleanup when a team becomes booked
-- [ ] Fix edit mode to pre-populate existing ad data
+## Latest Validation
 
----
+Docs refactor validation should use:
 
-## Next Features
+```bash
+find api -name "*.ts" | grep -v "/_lib/" | wc -l
+rg "docs/(architecture|scheduling|chpp|database-and-deployment)\\.md|PROJECT_STATE|AGENTS_CHPP" AGENTS.md README.md PROJECT_STATE.md docs
+git diff --check
+```
 
-### Matchmaker Improvements
+Full code validation was not rerun for this docs-only refactor. When code changes are made, run:
 
-- [ ] Compatibility filtering (show ✅/⚠️/❌ on cards based on location/type preferences)
-- [ ] Availability-first browsing (available teams first, booked as secondary)
-- [ ] Trust signals on cards (arena size, fanclub size, post age)
-- [ ] `getDisplayTeamName` helper for consistent HFI labeling everywhere
-
-### Recurring Partners
-
-- [ ] Long-term partner relationships
-- [ ] Match history and head-to-head records
-- [ ] Recurring training series after a successful match
-
-### Tournament Recruitment
-
-- [ ] Matchmaker → tournament funnel
-- [ ] Tournament discovery improvements
-
-### Automation
-
-- [ ] Automatic standings updates via CHPP match result retrieval
-- [ ] AI round summaries
-- [ ] Automated scheduling
-
----
-
-## Roadmap (Not MVP)
-
-- Recurring friendly pools
-- Mini leagues (4–8 team rotating schedules)
-- Automatic training league generation
-- Full scheduling automation
-
----
-
-## Deployment Constraints
-
-- Vercel Hobby plan: **12 serverless function limit** (currently at capacity)
-- Before adding any new `/api/*.ts` file: remove or consolidate an existing one
-- Dev tooling must go into `api/testing/index.ts` as a routed handler, never as a new file
-- Run `find api -name "*.ts" | grep -v "/_lib/" | wc -l` before any new endpoint
+```bash
+npm run build
+npm test
+```

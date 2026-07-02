@@ -1,73 +1,67 @@
-# React + TypeScript + Vite
+# HT-120min
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+HT-120min helps Hattrick communities organize recurring 120-minute friendlies without spreadsheets, forum juggling, or manual standings work.
 
-Currently, two official plugins are available:
+The product is intentionally narrow: friendly tournaments for small communities, private leagues, and regional groups. It is not a general tournament platform.
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Oxc](https://oxc.rs)
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/)
+## Stack
 
-## React Compiler
+- Vite
+- React 19
+- TypeScript
+- React Router 7
+- Sass modules
+- Supabase
+- Vercel Serverless Functions
+- Hattrick CHPP OAuth/API
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+## Setup
 
-## Expanding the ESLint configuration
+Run locally:
 
-If you are developing a production application, we recommend updating the configuration to enable type-aware lint rules:
-
-```js
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
-
-      // Remove tseslint.configs.recommended and replace with this
-      tseslint.configs.recommendedTypeChecked,
-      // Alternatively, use this for stricter rules
-      tseslint.configs.strictTypeChecked,
-      // Optionally, add this for stylistic rules
-      tseslint.configs.stylisticTypeChecked,
-
-      // Other configs...
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
+```bash
+npm i
+npm run dev       # or vite, vite --host (local network access), runs vite project on 5173
+vercel dev        # runs dev server with vercel serverless functions enabled on 3000
 ```
 
-You can also install [eslint-plugin-react-x](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-x) and [eslint-plugin-react-dom](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-dom) for React-specific lint rules:
+App expects  Vite public Supabase variables plus server-side CHPP credentials for API routes.
 
-```js
-// eslint.config.js
-import reactX from 'eslint-plugin-react-x'
-import reactDom from 'eslint-plugin-react-dom'
+## Commands
 
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
-      // Enable lint rules for React
-      reactX.configs['recommended-typescript'],
-      // Enable lint rules for React DOM
-      reactDom.configs.recommended,
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
+```bash
+npm run dev       # local Vite dev server
+npm run build     # TypeScript build + Vite production build
+npm test          # Node test runner over tests/*.test.ts
+npm run lint      # ESLint
+npm run preview   # preview production build
+vercel --prod     # deploys to vercel
 ```
+
+## Deployment
+
+The app deploys to Vercel and uses Supabase for persistence.
+
+Important deployment constraint: current Vercel plan allows 12 serverless functions.
+Project has at any point likely maxed out at that limit.
+Every `.ts` file under `api/` outside `_lib/` counts as one function.
+
+Before adding an API endpoint:
+
+```bash
+find api -name "*.ts" | grep -v "/_lib/" | wc -l
+```
+
+Shared server code belongs in `api/_lib/`; debug routes belong in `api/testing/index.ts`.
+
+## Documentation
+
+- `AGENTS.md` - short routing guide for agents.
+- `PROJECT_STATE.md` - current implementation, migration, test, and production status ledger.
+- `ROADMAP.md` - product direction.
+- `docs/architecture.md` - frontend structure and ownership boundaries.
+- `docs/scheduling.md` - Hattrick calendar, schedule generation, and rescheduling rules.
+- `docs/chpp.md` - CHPP auth, endpoint usage, parser rules, and known limitations.
+- `docs/database-and-deployment.md` - Supabase model, migrations, RLS assumptions, and Vercel constraints.
+
+Detailed CHPP schemas, XML examples, audits, and screenshots remain in `docs/` as reference material.

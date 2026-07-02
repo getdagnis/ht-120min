@@ -1,7 +1,11 @@
--- Manual Supabase SQL Editor smoke test for migrations 047 -> 048.
+-- Manual Supabase SQL Editor smoke test for schedule migrations 047 -> 051.
 -- Do not run this from the agent. Paste into Supabase SQL Editor after applying
--- 047 and 048 in a disposable/local database. The final ROLLBACK should leave no
--- test data behind.
+-- the schedule migrations in a disposable/local database. The final ROLLBACK
+-- should leave no test data behind.
+--
+-- Note: this still exercises the legacy `week15_weekend_friendly` slot type.
+-- Migration 051 keeps that value backward-compatible while normalizing the
+-- current frontend payloads around `weekend_friendly` plus the W15 include flag.
 
 BEGIN;
 

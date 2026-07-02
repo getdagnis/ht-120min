@@ -1,101 +1,117 @@
 # AGENTS.md
 
-## Project
+This is the front door for agents working on HT-120min. Keep it short, route to the right detail, and update `PROJECT_STATE.md` after meaningful work.
 
-HT-120min is a niche community tool for organizing recurring Hattrick friendly tournaments.
+## Product
 
-Primary goal:
+HT-120min is a niche community tool for recurring Hattrick friendly tournaments.
 
-- Remove spreadsheet/manual coordination work.
-- Make recurring friendly tournaments easy to create and maintain.
-- Eventually automate as much as possible through CHPP API.
+Primary goal: remove spreadsheet, forum, and manual coordination work for volunteer organizers.
 
-Target users:
+Current positioning: "The easiest way to organize recurring Hattrick friendlies."
 
-- Small Hattrick communities.
-- Private leagues.
-- Regional groups.
-- Friendly tournament organizers.
+Target users are small Hattrick communities, private leagues, regional groups, and friendly tournament organizers. Optimize for organizer efficiency, not participant customization.
 
-Current positioning:
-
-> "The easiest way to organize recurring Hattrick friendlies."
-
-Not trying to become a general tournament platform.
-
-## Primary Users
-
-Typical organizer profile:
-
-- Long-time Hattrick player.
-- Volunteer organizer.
-- Not highly technical.
-- Often manages tournaments via forum posts and spreadsheets.
-- Usually knows all participating teams personally.
-
-Implication:
-
-Optimize for organizer efficiency, not participant customization.
-
-## Current Stage
+## Current Priority
 
 Early MVP before Beta.
 
-Priority:
+Prefer:
 
-1. Ship usable product.
-2. Validate demand.
-3. Improve automation later.
+- manual + working
+- simple + understandable
+- fast to ship
 
 Avoid:
 
-- Enterprise features.
-- Complex permissions.
-- Premature architecture.
-- Multi-year scalability discussions.
+- enterprise features
+- complex permissions
+- premature architecture
+- blocking MVP work on future CHPP automation
 
-Whenever uncertain:
-Choose the simplest solution that allows organizers to run a tournament.
+Decision check:
 
----
+1. Does this help organizers run tournaments?
+2. Does this reduce manual work?
+3. Can it ship this week?
+4. Can it work without CHPP today?
 
-## CHPP Knowledge Base
+If any answer is no, reconsider the scope.
 
-For technical implementation details regarding Hattrick CHPP API:
+## Hard Constraints
 
-- [AGENTS_CHPP_INTEGRATION.md](docs/AGENTS_CHPP_INTEGRATION.md) - **Mandatory reading** for any CHPP-related task. Covers Swedish Time rules, Match Types, and Weekly Cycles.
+- Vercel Hobby allows 12 serverless functions. The project is currently at `12/12`.
+- Every `.ts` file under `api/` outside `_lib/` counts as one Vercel function.
+- Do not add a new API function unless another one is removed or consolidated.
+- Dev/debug tooling belongs in `api/testing/index.ts` as routed handlers.
+- Shared server code belongs in `api/_lib/`.
+- Before API endpoint work, run:
 
----
+```bash
+find api -name "*.ts" | grep -v "/_lib/" | wc -l
+```
+
+Current counted functions:
+
+1. `api/auth/init.ts`
+2. `api/auth/callback.ts`
+3. `api/auth/complete.ts`
+4. `api/chpp/live-matches.ts`
+5. `api/matchmaker/activity.ts`
+6. `api/matchmaker/publish.ts`
+7. `api/matchmaker/send-challenge.ts`
+8. `api/matchmaker/show-interest.ts`
+9. `api/matchmaker/teams.ts`
+10. `api/teams/info.ts`
+11. `api/teams/refresh-fixtures.ts`
+12. `api/testing/index.ts`
+
+## Source Of Truth
+
+- Current project status lives in `PROJECT_STATE.md`.
+- Human setup and project introduction live in `README.md`.
+- CHPP implementation standards live in `docs/chpp.md` and `docs/AGENTS_CHPP_INTEGRATION.md`.
+- Scheduling rules live in `docs/scheduling.md`.
+- Supabase and deployment rules live in `docs/database-and-deployment.md`.
+- Existing CHPP schemas, examples, audits, and screenshots are reference appendices, not primary routing docs.
+
+When updating status, distinguish local code, migration file, applied migration, local test, real Supabase test, and production deployment. Do not collapse those into "done" unless there is evidence.
+
+## Task Routing
+
+| Task | Read first |
+| --- | --- |
+| Any CHPP/OAuth/match refresh work | `docs/chpp.md`, then `docs/AGENTS_CHPP_INTEGRATION.md` |
+| Schedule generation, rescheduling, fixtures dates, BYEs | `docs/scheduling.md` |
+| Supabase schema, migrations, RLS, Vercel functions | `docs/database-and-deployment.md` |
+| Frontend structure, reusable UI, page ownership | `docs/architecture.md` |
+| Current blockers, migration state, validation state | `PROJECT_STATE.md` |
+| Product direction | `ROADMAP.md` |
+
+For CHPP tasks, also inspect the relevant endpoint schemas/examples in `docs/` before changing parser or sync logic.
 
 ## Tech Stack
 
-Frontend:
-
 - Vite
-- React (v19)
-- TypeScript (no-explicit-any enabled)
-- React Router (v7)
-
-Backend:
-
-- Supabase
-- Vercel Serverless Functions (for CHPP OAuth)
-
-Styling:
-
+- React 19
+- TypeScript with `no-explicit-any`
+- React Router 7
 - Sass modules
+- Supabase
+- Vercel Serverless Functions
 
-Deployment:
+Useful commands:
 
-- Vercel
+```bash
+npm run dev
+npm run build
+npm test
+npm run lint
+```
 
----
+## UI Rules
 
-## Reusable UI First
-
-Before creating new UI elements or page-local style blocks, check the existing reusable components first.
-
-Consider these components before adding anything new:
+Reusable UI first. Before creating page-local wrappers or styles, check:
 
 - `Button`
 - `Card`
@@ -114,209 +130,35 @@ Consider these components before adding anything new:
 - `ProfileModal`
 - `TeamSelectorModal`
 
-If none of the existing reusable components fit the pattern:
+If no existing component fits, prefer a reusable component under `src/components/`. Use page-local JSX/Sass only for genuinely one-off layouts.
 
-- suggest a new reusable component first
-- avoid building a disposable page-only wrapper
-- keep the new pattern in `src/components/` so it can be reused elsewhere
-- only fall back to page-local JSX and Sass when the pattern is genuinely one-off
+Visual tone: Hattrick-friendly, nostalgic, community driven, not generic SaaS or enterprise.
 
----
+## Validation Defaults
 
-## Product Concept
+Docs-only:
 
-Tournament organizer creates a tournament.
+```bash
+find api -name "*.ts" | grep -v "/_lib/" | wc -l
+rg "docs/(architecture|scheduling|chpp|database-and-deployment)\\.md|PROJECT_STATE|AGENTS_CHPP" AGENTS.md README.md PROJECT_STATE.md docs
+git diff --check
+```
 
-Teams join (manually or via CHPP OAuth).
+Code changes:
 
-System generates friendly pairings.
+```bash
+npm run build
+npm test
+```
 
-Every round:
+API or CHPP changes:
 
-- Teams play friendlies in Hattrick.
-- Results are recorded (currently manual).
-- Standings update automatically.
+- Confirm function count stays at or below 12.
+- Use endpoint-specific test routes inside `api/testing/index.ts`.
+- Inspect raw XML when parser behavior is uncertain.
 
-Core value:
-Reduce organizer workload.
+Database changes:
 
----
-
-## Planned CHPP Integration
-
-CHPP license application submitted and pending.
-
-Current status:
-
-- No production CHPP access yet.
-- OAuth flow and basic team data retrieval are partially implemented but untested in production.
-- Development should assume manual workflows first.
-
-When CHPP becomes available:
-
-High priority:
-
-- Team lookup
-- Team validation
-- Country retrieval
-- Team metadata
-- Logo retrieval
-- Match result retrieval
-- Friendly scheduling assistance
-
-Potential future:
-
-- Auto scheduling
-- Automatic standings updates
-- Historical statistics
-- Team profile pages
-
-Design code so CHPP can be added later without major rewrites.
-
-Do not block MVP waiting for CHPP.
-
----
-
-## Product Philosophy
-
-Prefer:
-
-- Manual + working
-- Simple + understandable
-- Fast to ship
-
-Over:
-
-- Fully automated
-- Technically elegant
-- Over-engineered
-
-Rule:
-A manual workflow that works today beats a perfect workflow dependent on future API access.
-
----
-
-## Visual Direction
-
-Audience:
-
-- Hattrick users.
-
-Tone:
-
-- Friendly.
-- Slightly nostalgic.
-- Community driven.
-- Not corporate.
-
-Current visuals intentionally reference Hattrick culture.
-
-Avoid:
-
-- Generic SaaS aesthetics.
-- Startup buzzwords.
-- Enterprise language.
-
----
-
-## Important Context
-
-Project originated from a small Guam-based HFI community (~13 teams) that needed a reliable way to organize recurring non-international friendlies.
-
-The project exists because existing organization methods were mostly:
-
-- spreadsheets
-- forum posts
-- manual coordination
-
-The tool is being built by a solo founder.
-
-Engineering decisions should optimize for:
-
-- simplicity
-- maintainability
-- speed of delivery
-
-not:
-
-- theoretical scale
-- large-team workflows
-
----
-
-## Decision Framework
-
-When proposing solutions:
-
-Ask:
-
-1. Does this help organizers run tournaments?
-2. Does this reduce manual work?
-3. Can it ship this week?
-4. Can it work without CHPP today?
-
-If any answer is "no", reconsider.
-
----
-
-## Near-Term Roadmap
-
-Phase 1:
-
-- Tournament creation
-- Team registration
-- Fixtures
-- Standings
-- Basic admin tools
-
-Phase 2:
-
-- CHPP integration
-- Team imports
-- Result imports
-- Team metadata
-
-Phase 3:
-
-- Full automation
-- Statistics
-- Enhanced community features
-
-Always prioritize Phase 1 work before later phases.
-
-## Deployment Constraints
-
-### Vercel Hobby Plan: 12 Serverless Function Limit
-
-The project is deployed on Vercel Hobby plan, which allows a maximum of **12 serverless functions** per deployment.
-
-Every `.ts` file in `/api/` that is NOT inside a `_lib/` folder counts as one function.
-
-Current function count: **12** (as of June 2026).
-
-**Rules for agents:**
-- Do NOT add new files directly to `/api/` or its subdirectories (outside `_lib/`) without first removing or consolidating an existing one.
-- Dev/debug tooling belongs in `api/testing/index.ts` as a routed handler — not as a separate file.
-- Shared code belongs in `api/_lib/` — those files do NOT count toward the limit.
-- Before adding any new endpoint, run: `find api -name "*.ts" | grep -v "/_lib/" | wc -l` and confirm the count stays ≤ 12.
-
-**Current 12 functions:**
-1. `api/auth/init.ts`
-2. `api/auth/callback.ts`
-3. `api/auth/complete.ts`
-4. `api/chpp/live-matches.ts`
-5. `api/matchmaker/activity.ts`
-6. `api/matchmaker/publish.ts`
-7. `api/matchmaker/send-challenge.ts`
-8. `api/matchmaker/show-interest.ts`
-9. `api/matchmaker/teams.ts`
-10. `api/teams/info.ts`
-11. `api/teams/refresh-fixtures.ts`
-12. `api/testing/index.ts`
-
-
-
-please familiarize yourself with the project, key files, global styles, package.json, all agent docs (agents.md,
-   project_state.md and especially the docs folder, we will have to use hattrick chpp api interfaces a lot) -
-   docs/AGENTS_CHPP_INTEGRATION.md, docs/# CHPP Files help.md, docs/auth-flow.md, docs/match-event-types.md etc. until you're confident
-   you've learned everything there was to learn.
+- Create migrations intentionally.
+- Preserve RLS assumptions.
+- Record migration status in `PROJECT_STATE.md`.
