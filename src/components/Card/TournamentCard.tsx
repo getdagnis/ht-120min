@@ -2,7 +2,7 @@ import React from 'react';
 import { useNavigate } from 'react-router-dom';
 import { ArrowRight } from 'phosphor-react';
 import styles from './TournamentCard.module.sass';
-import { getLeagueIdByName } from '../../utils/leagues';
+import { getLeagueIdByName, getLeagueNameById } from '../../utils/leagues';
 import { getTournamentBackgroundStyle } from '../../utils/visuals';
 
 interface TournamentCardProps {
@@ -39,6 +39,7 @@ export const TournamentCard: React.FC<TournamentCardProps> = ({
   const navigate = useNavigate();
   const bgStyle = getTournamentBackgroundStyle(id, imageUrl);
   const countryId = countryLimit ? getLeagueIdByName(countryLimit) : undefined;
+  const countryLabel = countryLimit ? getLeagueNameById(countryLimit) || countryLimit : null;
   const isFull = maxTeams != null && (teamCount ?? 0) >= maxTeams;
 
   return (
@@ -54,7 +55,7 @@ export const TournamentCard: React.FC<TournamentCardProps> = ({
               {countryId && (
                 <img src={`https://www.hattrick.org/Img/flags/${countryId}.png`} alt="" className={styles.flag} />
               )}
-              {countryLimit} Only
+              {countryLabel} Only
             </div>
           )}
           {leagueCategory === 'hfi' && (
