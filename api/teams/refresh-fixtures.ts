@@ -290,12 +290,15 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     // Only process matches in the upcoming round that are eligible:
     // status ∈ {not_arranged, arranged} AND completed = false
     // Never touch: finished, misarranged, or completed=true
+    const linkedMatchIds: number[] = [];
+
     for (const match of upcomingRound.matches) {
       if (match.completed) continue;
-      if (!['not_arranged', 'arranged'].includes(match.status)) continue;
+      const currentStatus = match.status ?? 'not_arranged';
+      if (!['not_arranged', 'arranged'].includes(currentStatus)) continue;
 
       // If already has ht_match_id and match_type, we can skip
-      if (match.status === 'arranged' && match.ht_match_id && match.match_type) continue;
+      if (currentStatus === 'arranged' && match.ht_match_id && match.match_type) continue;
 
       const homeTeam = teams.find((t) => t.id === match.home_team_id);
       const awayTeam = teams.find((t) => t.id === match.away_team_id);
@@ -316,10 +319,19 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
       let status: 'not_arranged' | 'arranged' | 'misarranged' = 'not_arranged';
       let htMatchId: number | null = null;
+      let matchType: number | null = null;
+      let venueMismatch = false;
+      let actualHtHomeTeamId: number | null = null;
+      let actualHtAwayTeamId: number | null = null;
 
       if (confirmedMatch) {
         status = 'arranged';
         htMatchId = confirmedMatch.matchId;
+        matchType = confirmedMatch.matchType;
+        actualHtHomeTeamId = confirmedMatch.homeId;
+        actualHtAwayTeamId = confirmedMatch.awayId;
+        venueMismatch = confirmedMatch.homeId === awayTeam.ht_team_id && confirmedMatch.awayId === homeTeam.ht_team_id;
+        linkedMatchIds.push(confirmedMatch.matchId);
       } else {
         const homeOffending = homeFriendlies.find((fixture) => withinWindow(fixture) && !isCorrectMatch(fixture));
         const awayOffending = awayFriendlies.find((fixture) => withinWindow(fixture) && !isCorrectMatch(fixture));
@@ -332,7 +344,14 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       // Update match status and HT Match ID
       await supabase
         .from('matches')
-        .update({ status, ht_match_id: htMatchId, match_type: confirmedMatch?.matchType ?? null })
+        .update({
+          status,
+          ht_match_id: htMatchId,
+          match_type: matchType,
+          venue_mismatch: venueMismatch,
+          actual_ht_home_team_id: actualHtHomeTeamId,
+          actual_ht_away_team_id: actualHtAwayTeamId,
+        })
         .eq('id', match.id);
 
       // Warning Logic Helper
@@ -375,7 +394,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     // Update tournament refresh timestamp
     await supabase.from('tournaments').update({ last_fixtures_refresh: new Date().toISOString() }).eq('id', tournament_id);
 
-    return res.status(200).json({ status: 'Refresh successful', hattrick_context: hattrickContext });
+    return res.status(200).json({ status: 'Refresh successful', hattrick_context: hattrickContext, linked_match_ids: linkedMatchIds });
   } catch (error) {
     console.error(error);
     return res.status(500).json({ error: error instanceof Error ? error.message : 'An unknown error occurred' });

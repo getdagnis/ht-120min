@@ -1,5 +1,5 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
-import React, { useCallback, useDeferredValue, useEffect, useMemo, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useLocation, useParams, useSearchParams } from 'react-router-dom';
 import { supabase } from '../../lib/supabase';
 
@@ -18,10 +18,8 @@ import { getMatchDateForRound as resolveMatchDateForRound } from '../../utils/ma
 import { canViewerJoinTournament } from '../../utils/tournament-joinability';
 import { markAuthRefreshCurrent, needsAuthRefresh } from '../../utils/auth-refresh';
 import {
-  ANNOUNCEMENT_TEMPLATES,
   JOINED_NOTICE_KEY,
   selectTournamentMessage,
-  type ReauthPromptReason,
   type TournamentAnnouncement,
   type TournamentAnnouncementDismissal,
   type TournamentAnnouncementVisibility,
@@ -34,6 +32,7 @@ import { SectionCard } from '../../components/Card/SectionCard';
 import { ChatView } from '../../components/TournamentTabs/ChatView';
 import { FixturesView } from '../../components/TournamentTabs/FixturesView';
 import { AdminResults } from '../../components/TournamentTabs/Admin/AdminResults';
+import { AdminAnnouncementComposer } from '../../components/TournamentTabs/Admin/AdminAnnouncementComposer';
 import { TournamentSchedulePanel } from '../../components/TournamentTabs/Admin/TournamentSchedulePanel';
 import { Modal } from '../../components/Modal/Modal';
 import { MottoWidget } from '../../components/MottoWidget/MottoWidget';
@@ -192,12 +191,7 @@ export const TournamentView: React.FC = () => {
   const [newsMode, setNewsMode] = useState<'admin' | 'team'>('team');
   const [announcements, setAnnouncements] = useState<TournamentAnnouncement[]>([]);
   const [announcementDismissals, setAnnouncementDismissals] = useState<TournamentAnnouncementDismissal[]>([]);
-  const [adminAnnouncementContent, setAdminAnnouncementContent] = useState('');
-  const deferredAdminAnnouncementContent = useDeferredValue(adminAnnouncementContent);
-  const [isPublicAnnouncement, setIsPublicAnnouncement] = useState(false);
-  const [isPublishingAnnouncement, setIsPublishingAnnouncement] = useState(false);
   const [, setPublicAnnouncementDismissalVersion] = useState(0);
-  const [, setReauthPromptDismissalVersion] = useState(0);
 
   // Chat states
   const [chatMessages, setChatMessages] = useState<any[]>([]);
@@ -207,7 +201,6 @@ export const TournamentView: React.FC = () => {
   const [isAdminAuthenticated, setIsAdminAuthenticated] = useState(false);
   const [adminAuthError, setAdminAuthError] = useState(false);
   const [failedLoginAttempt, setFailedLoginAttempt] = useState(false);
-  const [selectedAnnouncementTemplate, setSelectedAnnouncementTemplate] = useState<string | null>(null);
   const paramsHandledRef = useRef(false);
   const [isEditingImage, setIsEditingImage] = useState(false);
   const [newImageUrl, setNewImageUrl] = useState('');
@@ -226,8 +219,10 @@ export const TournamentView: React.FC = () => {
   const [isFetchingTeamData, setIsFetchingTeamData] = useState(false);
   const [scheduleMode, setScheduleMode] = useState<ScheduleMode>('single');
   const [scheduleStartSlotId, setScheduleStartSlotId] = useState('');
+  const [includeWeek15WeekendFriendly, setIncludeWeek15WeekendFriendly] = useState(false);
   const [rescheduleFromRoundNumber, setRescheduleFromRoundNumber] = useState<number | null>(null);
   const [rescheduleStartSlotId, setRescheduleStartSlotId] = useState('');
+  const [includeWeek15WeekendFriendlyForReschedule, setIncludeWeek15WeekendFriendlyForReschedule] = useState(false);
 
   // Tournament settings states
   const [editName, setEditName] = useState('');
@@ -269,8 +264,6 @@ export const TournamentView: React.FC = () => {
     tournament?.organizer_id && currentHtUserId && Number(tournament.organizer_id) === currentHtUserId,
   );
   const organizerLoginLabel = `🤖 ${currentHtManagerName} (organizer)`;
-  const selectedAnnouncement =
-    ANNOUNCEMENT_TEMPLATES.find((template) => template.id === selectedAnnouncementTemplate) || null;
   const dismissedPublicAnnouncementIds = new Set(
     announcements
       .filter((announcement) => localStorage.getItem(`announcement_dismissed_${announcement.id}`) === 'true')
@@ -384,9 +377,10 @@ export const TournamentView: React.FC = () => {
         teams: activeScheduleTeams,
         mode: scheduleMode,
         startSlotId: scheduleStartSlotId || null,
+        includeWeek15WeekendFriendly,
         now: new Date(),
       }),
-    [activeScheduleTeams, scheduleMode, scheduleStartSlotId],
+    [activeScheduleTeams, includeWeek15WeekendFriendly, scheduleMode, scheduleStartSlotId],
   );
   const serializedScheduleDraft = useMemo(
     () => (scheduleDraft.valid && scheduleDraft.selectedStartSlot ? serializeScheduleDraftForRpc(scheduleDraft) : null),
@@ -419,9 +413,16 @@ export const TournamentView: React.FC = () => {
         rounds: rescheduleInputRounds,
         fromRoundNumber: rescheduleFromRoundNumber,
         startSlotId: rescheduleStartSlotId || null,
+        includeWeek15WeekendFriendly: includeWeek15WeekendFriendlyForReschedule,
         now: new Date(),
       }),
-    [activeScheduleTeams, rescheduleFromRoundNumber, rescheduleInputRounds, rescheduleStartSlotId],
+    [
+      activeScheduleTeams,
+      includeWeek15WeekendFriendlyForReschedule,
+      rescheduleFromRoundNumber,
+      rescheduleInputRounds,
+      rescheduleStartSlotId,
+    ],
   );
   const serializedRescheduleDraft = useMemo(
     () =>
@@ -438,12 +439,13 @@ export const TournamentView: React.FC = () => {
         teams: activeScheduleTeams,
         mode: nextMode,
         startSlotId: nextStartSlotId,
+        includeWeek15WeekendFriendly,
         now: new Date(),
       });
       setScheduleMode(nextDraft.mode);
       setScheduleStartSlotId(nextDraft.selectedStartSlotId || '');
     },
-    [activeScheduleTeams],
+    [activeScheduleTeams, includeWeek15WeekendFriendly],
   );
 
   const handleScheduleModeChange = useCallback(
@@ -460,6 +462,22 @@ export const TournamentView: React.FC = () => {
     [reconcileScheduleSelection, scheduleDraft.mode],
   );
 
+  const handleIncludeWeek15WeekendFriendlyChange = useCallback(
+    (nextValue: boolean) => {
+      setIncludeWeek15WeekendFriendly(nextValue);
+      const nextDraft = buildScheduleDraft({
+        teams: activeScheduleTeams,
+        mode: scheduleDraft.mode,
+        startSlotId: scheduleStartSlotId || null,
+        includeWeek15WeekendFriendly: nextValue,
+        now: new Date(),
+      });
+      setScheduleMode(nextDraft.mode);
+      setScheduleStartSlotId(nextDraft.selectedStartSlotId || '');
+    },
+    [activeScheduleTeams, scheduleDraft.mode, scheduleStartSlotId],
+  );
+
   const reconcileRescheduleSelection = useCallback(
     (nextFromRoundNumber: number | null, nextStartSlotId: string | null) => {
       const nextDraft = buildRescheduleDraft({
@@ -467,12 +485,13 @@ export const TournamentView: React.FC = () => {
         rounds: rescheduleInputRounds,
         fromRoundNumber: nextFromRoundNumber,
         startSlotId: nextStartSlotId,
+        includeWeek15WeekendFriendly: includeWeek15WeekendFriendlyForReschedule,
         now: new Date(),
       });
       setRescheduleFromRoundNumber(nextDraft.selectedFromRoundNumber);
       setRescheduleStartSlotId(nextDraft.selectedStartSlotId || '');
     },
-    [activeScheduleTeams, rescheduleInputRounds],
+    [activeScheduleTeams, includeWeek15WeekendFriendlyForReschedule, rescheduleInputRounds],
   );
 
   const handleRescheduleFromRoundChange = useCallback((nextRoundNumber: number) => {
@@ -485,6 +504,23 @@ export const TournamentView: React.FC = () => {
       reconcileRescheduleSelection(rescheduleFromRoundNumber, nextStartSlotId || null);
     },
     [reconcileRescheduleSelection, rescheduleFromRoundNumber],
+  );
+
+  const handleIncludeWeek15WeekendFriendlyForRescheduleChange = useCallback(
+    (nextValue: boolean) => {
+      setIncludeWeek15WeekendFriendlyForReschedule(nextValue);
+      const nextDraft = buildRescheduleDraft({
+        teams: activeScheduleTeams,
+        rounds: rescheduleInputRounds,
+        fromRoundNumber: rescheduleFromRoundNumber,
+        startSlotId: rescheduleStartSlotId || null,
+        includeWeek15WeekendFriendly: nextValue,
+        now: new Date(),
+      });
+      setRescheduleFromRoundNumber(nextDraft.selectedFromRoundNumber);
+      setRescheduleStartSlotId(nextDraft.selectedStartSlotId || '');
+    },
+    [activeScheduleTeams, rescheduleFromRoundNumber, rescheduleInputRounds, rescheduleStartSlotId],
   );
 
   const getMatchDateForRound = useCallback(
@@ -520,6 +556,8 @@ export const TournamentView: React.FC = () => {
       setShowEditEmail(!!tournamentData.admin_email);
       setEditAdminEmail(tournamentData.admin_email || '');
       setEditMaxTeams(tournamentData.max_teams || null);
+      setIncludeWeek15WeekendFriendly(false);
+      setIncludeWeek15WeekendFriendlyForReschedule(Boolean(tournamentData.include_week15_weekend_friendly));
       const { data: teamsDataRaw } = await supabase
         .from('teams')
         .select('*')
@@ -570,6 +608,7 @@ export const TournamentView: React.FC = () => {
         teams: fetchedScheduleTeams,
         mode: (tournamentData.schedule_mode as ScheduleMode | null) || 'single',
         startSlotId: storedStartSlot?.id || null,
+        includeWeek15WeekendFriendly: false,
         now: new Date(),
       });
       setScheduleMode(reconciledDraft.mode);
@@ -1053,15 +1092,23 @@ export const TournamentView: React.FC = () => {
       // 1. Refresh fixtures (detect arranged matches, warnings etc.)
       const response = await fetch(`/api/teams/refresh-fixtures?tournament_id=${tournament.id}`);
       if (!response.ok) throw new Error('Failed to refresh fixtures');
+      const refreshResult = (await response.json().catch(() => null)) as { linked_match_ids?: number[] } | null;
 
       // 2. Also trigger a live check for HT-linked matches that may have result data.
       //    Finished-but-incomplete rows are included so an accidental manual clear can be recovered from CHPP.
       const matchesToSync = allMatches.filter(
         (m) => m.ht_match_id && (['arranged', 'ongoing', 'finished'].includes(m.status) || m.completed),
       );
+      const matchIdsToSync = new Set<number>();
+      for (const match of matchesToSync) {
+        if (match.ht_match_id) matchIdsToSync.add(match.ht_match_id);
+      }
+      for (const matchId of refreshResult?.linked_match_ids ?? []) {
+        if (matchId) matchIdsToSync.add(matchId);
+      }
 
-      if (matchesToSync.length > 0) {
-        const ids = matchesToSync.map((m) => m.ht_match_id).join(',');
+      if (matchIdsToSync.size > 0) {
+        const ids = Array.from(matchIdsToSync).join(',');
         await fetch(`/api/chpp/live-matches?tournament_id=${tournament.id}&match_ids=${ids}`);
       }
 
@@ -1238,7 +1285,6 @@ export const TournamentView: React.FC = () => {
     setPassword('');
     setAdminAuthError(false);
     setFailedLoginAttempt(false);
-    setSelectedAnnouncementTemplate(null);
     localStorage.removeItem(`admin_pw_${slug}`);
     localStorage.removeItem(`admin_auth_${slug}`);
   };
@@ -1292,27 +1338,25 @@ export const TournamentView: React.FC = () => {
     [currentHtManagerName, currentHtUserId, getParticipantAudienceHtUserIds, tournament],
   );
 
-  const handleAnnouncementPublish = async () => {
-    const trimmedContent = adminAnnouncementContent.trim();
-    if (!trimmedContent) return;
-
-    setIsPublishingAnnouncement(true);
-    try {
+  const handleAnnouncementPublish = useCallback(
+    async ({
+      content,
+      templateKey,
+      visibility,
+    }: {
+      content: string;
+      templateKey: string | null;
+      visibility: TournamentAnnouncementVisibility;
+    }) => {
       await createAnnouncement({
-        content: trimmedContent,
-        templateKey: selectedAnnouncementTemplate,
-        visibility: isPublicAnnouncement ? 'public' : 'participants',
+        content,
+        templateKey,
+        visibility,
         source: 'admin',
       });
-      setAdminAnnouncementContent('');
-      setSelectedAnnouncementTemplate(null);
-      setIsPublicAnnouncement(false);
-    } catch (error: any) {
-      alert(error.message);
-    } finally {
-      setIsPublishingAnnouncement(false);
-    }
-  };
+    },
+    [createAnnouncement],
+  );
 
   const handleAnnouncementVisibilityToggle = async (announcement: TournamentAnnouncement) => {
     const nextActive = !announcement.is_active;
@@ -2651,6 +2695,8 @@ export const TournamentView: React.FC = () => {
                       draft={scheduleDraft}
                       onScheduleModeChange={handleScheduleModeChange}
                       onSelectedStartSlotIdChange={handleScheduleStartSlotIdChange}
+                      includeWeek15WeekendFriendly={includeWeek15WeekendFriendly}
+                      onIncludeWeek15WeekendFriendlyChange={handleIncludeWeek15WeekendFriendlyChange}
                       isGenerating={isGenerating}
                       onGenerate={generateSchedule}
                       tournamentTeamLimit={editMaxTeams}
@@ -2685,12 +2731,18 @@ export const TournamentView: React.FC = () => {
                       draft={scheduleDraft}
                       onScheduleModeChange={handleScheduleModeChange}
                       onSelectedStartSlotIdChange={handleScheduleStartSlotIdChange}
+                      includeWeek15WeekendFriendly={includeWeek15WeekendFriendly}
+                      onIncludeWeek15WeekendFriendlyChange={handleIncludeWeek15WeekendFriendlyChange}
                       isGenerating={isGenerating}
                       onGenerate={generateSchedule}
                       tournamentTeamLimit={editMaxTeams}
                       rescheduleDraft={rescheduleDraft}
                       onRescheduleFromRoundChange={handleRescheduleFromRoundChange}
                       onRescheduleStartSlotIdChange={handleRescheduleStartSlotIdChange}
+                      includeWeek15WeekendFriendlyForReschedule={includeWeek15WeekendFriendlyForReschedule}
+                      onIncludeWeek15WeekendFriendlyForRescheduleChange={
+                        handleIncludeWeek15WeekendFriendlyForRescheduleChange
+                      }
                       isRescheduling={isRescheduling}
                       onReschedule={regenerateSchedule}
                     />
@@ -2783,7 +2835,7 @@ export const TournamentView: React.FC = () => {
                                 </div>
                               ) : (
                                 <Button type="submit" disabled={isSavingTeam} variant="primary">
-                                  {isSavingTeam ? 'Saving...' : <></>}
+                                  {isSavingTeam ? 'Saving...' : 'Add team to tournament'}
                                 </Button>
                               )}
                             </>
@@ -2988,64 +3040,7 @@ export const TournamentView: React.FC = () => {
                 <p className={adminStyles.smallNote}>
                   Publish a dismissible message in the top tournament notice area.
                 </p>
-
-                <div className={adminStyles.inviteActionArea}>
-                  <textarea
-                    value={adminAnnouncementContent}
-                    onChange={(e) => setAdminAnnouncementContent(e.target.value)}
-                    placeholder="Write announcement..."
-                    className={adminStyles.inviteTextarea}
-                  />
-
-                  <div className={adminStyles.announcementChips}>
-                    {ANNOUNCEMENT_TEMPLATES.map((template) => (
-                      <button
-                        key={template.id}
-                        type="button"
-                        className={selectedAnnouncementTemplate === template.id ? adminStyles.activeChip : ''}
-                        onClick={() => {
-                          setSelectedAnnouncementTemplate(template.id);
-                          setAdminAnnouncementContent(template.content);
-                        }}
-                      >
-                        {template.label}
-                      </button>
-                    ))}
-                  </div>
-
-                  <label className={adminStyles.checkboxLabel}>
-                    <input
-                      type="checkbox"
-                      checked={isPublicAnnouncement}
-                      onChange={(event) => setIsPublicAnnouncement(event.target.checked)}
-                    />
-                    Public. Visible to guest visitors
-                  </label>
-
-                  <div className={adminStyles.smallNote}>
-                    {selectedAnnouncement ? `${selectedAnnouncement.label} template selected` : 'No template selected.'}
-                  </div>
-
-                  <div className={`${styles.joinedNotice} ${adminStyles.announcementPreview}`}>
-                    <div className={styles.joinedNoticeContent}>
-                      <span>{deferredAdminAnnouncementContent.trim() || 'Message preview will appear here.'}</span>
-                    </div>
-                    <button className={styles.dismissBtn} type="button" disabled>
-                      <X size={18} weight="bold" />
-                    </button>
-                  </div>
-
-                  <div className={styles.formActionRow}>
-                    <Button
-                      variant="primary"
-                      size="sm"
-                      onClick={handleAnnouncementPublish}
-                      disabled={isPublishingAnnouncement || !adminAnnouncementContent.trim()}
-                    >
-                      {isPublishingAnnouncement ? 'Publishing...' : 'Publish'}
-                    </Button>
-                  </div>
-                </div>
+                <AdminAnnouncementComposer onPublishAnnouncement={handleAnnouncementPublish} />
 
                 <div className={adminStyles.announcementList}>
                   <h4>Announcements</h4>
