@@ -40,6 +40,8 @@ import { StandingsView } from '../../components/TournamentTabs/StandingsView';
 import { TOURNAMENT_DEFAULT } from '../../constants/descriptions';
 import { ArrowClockwise, ArrowRight, ArrowUpRight, CopySimple, Info, Trash, X } from 'phosphor-react';
 
+const DEFAULT_TEAM_LOGO = '/default-logo.png';
+
 interface ChppTeamOption {
   teamId: number;
   teamName: string;
@@ -1934,6 +1936,7 @@ export const TournamentView: React.FC = () => {
   const myHtUserId = localStorage.getItem('my_ht_user_id');
   const hasJoined = teams.some((t) => t.hattrick_user_id === Number(myHtUserId) && t.active);
   const tournamentId = tournament?.id ?? null;
+  const activeRealTeamsCount = teams.filter((team) => team.active && !team.is_placeholder).length;
   const canJoinTournament = Boolean(
     tournament &&
     canViewerJoinTournament({
@@ -1942,6 +1945,9 @@ export const TournamentView: React.FC = () => {
       maxTeams: tournament.max_teams,
       teams,
     }),
+  );
+  const canJoinAnotherTeamBeforeFixtures = Boolean(
+    tournament && !isGenerated && (!tournament.max_teams || activeRealTeamsCount < tournament.max_teams),
   );
   const shouldPromptReturningParticipantLogin = Boolean(
     tournamentId &&
@@ -2281,6 +2287,7 @@ export const TournamentView: React.FC = () => {
           warnings={warnings}
           liveData={liveData}
           canJoinTournament={canJoinTournament}
+          canJoinAnotherTeam={canJoinAnotherTeamBeforeFixtures}
           isConnecting={isConnecting}
           onJoinWithHattrick={() => {
             setIsConnecting(true);
@@ -2312,7 +2319,14 @@ export const TournamentView: React.FC = () => {
                   const myTeam = teams.find((t) => t.hattrick_user_id === Number(myHtId));
                   return myTeam ? (
                     <div className={styles.branding}>
-                      {myTeam.logo_url && <img src={myTeam.logo_url} alt={myTeam.name} />}
+                      <img
+                        src={myTeam.logo_url || DEFAULT_TEAM_LOGO}
+                        alt={myTeam.name}
+                        onError={(event) => {
+                          event.currentTarget.onerror = null;
+                          event.currentTarget.src = DEFAULT_TEAM_LOGO;
+                        }}
+                      />
                       <span>
                         Posting as: <strong>{myTeam.name}</strong>
                       </span>
@@ -2407,6 +2421,12 @@ export const TournamentView: React.FC = () => {
             tournament={tournament}
             lastSeenMap={lastSeenMap}
             onRefreshPresence={fetchPresenceOnly}
+            canJoinTournament={canJoinTournament}
+            isConnecting={isConnecting}
+            onJoinWithHattrick={() => {
+              setIsConnecting(true);
+              window.location.href = `/api/auth/init?tournament_id=${tournament?.id}`;
+            }}
           />
           <aside className={styles.statsSidebar}>
             <MottoWidget items={TOURNAMENT_DEFAULT} theme="dark" variant="sidebar" />

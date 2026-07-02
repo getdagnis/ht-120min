@@ -29,6 +29,7 @@ The app currently supports:
 | Fixture refresh and reversed venue linking | Implemented locally | Uses existing match fields from `037`, `046` | Not rerun for docs-only refactor | Confirm |
 | Next match date on cards/menu | Implemented via `src/utils/tournament-next-match.ts` using rounds/matches | No new migration | Not rerun for docs-only refactor | Confirm |
 | CHPP country display normalization | Implemented locally for Latvia `CountryID=48` / `LeagueID=53` / localized names | No migration; existing rows handled in UI | `npm test` and `npm run build` passed 2026-07-02 | Confirm |
+| Empty tournament join affordances and team logo fallback | Implemented locally | No migration | `npm test` and `npm run build` passed 2026-07-02 | Confirm |
 | Matchmaker challenge send | Partially implemented | Existing matchmaker/profile/token migrations | Requires real CHPP reauth and endpoint confirmation | Confirm |
 
 Production means live deployed behavior. If it has not been checked against the live Supabase/Vercel deployment, leave it as `Confirm`.
@@ -70,6 +71,8 @@ Production means live deployed behavior. If it has not been checked against the 
 
 - Results Entry has compact flags, no team logos, HT profile links for teams, icon-only result actions, responsive mobile result controls, and cleaned 120-minute chips.
 - Fixtures collapse older finished rounds by default while keeping last finished, current/next, and future rounds visible.
+- Empty fixtures still show a Hattrick join CTA before schedules are generated, including when the viewer has already joined one team but can add another.
+- Empty standings show a first-team placeholder row with a join link, and team logo displays fall back to `/default-logo.png`.
 - Chat shows a login button when the viewer is not authenticated.
 - Description editor has textarea and regenerate controls restored in tournament/admin contexts.
 - Supporters wall hydrates known users from DB by ids while keeping readable constants for name/team context.

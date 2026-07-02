@@ -1,9 +1,10 @@
 import React from 'react';
 import { Modal } from '../Modal/Modal';
 import { Button } from '../Button/Button';
-import { TeamsIcon } from '../Icons/TeamsIcon';
 import { getDisplayTeamName, type MatchmakerTeamOption } from '../../utils/matchmaker';
 import styles from './TeamSelectorModal.module.sass';
+
+const DEFAULT_TEAM_LOGO = '/default-logo.png';
 
 interface TeamSelectorModalProps {
   isOpen: boolean;
@@ -71,11 +72,15 @@ export const TeamSelectorModal: React.FC<TeamSelectorModalProps> = ({
                         disabled={!selectable}
                       >
                         <div className={styles.iconWrapper}>
-                          {team.logo_url ? (
-                            <img src={team.logo_url} alt="" className={styles.teamLogo} />
-                          ) : (
-                            <TeamsIcon size={24} />
-                          )}
+                          <img
+                            src={team.logo_url || DEFAULT_TEAM_LOGO}
+                            alt=""
+                            className={styles.teamLogo}
+                            onError={(event) => {
+                              event.currentTarget.onerror = null;
+                              event.currentTarget.src = DEFAULT_TEAM_LOGO;
+                            }}
+                          />
                         </div>
                         <div className={styles.info}>
                           <span className={styles.name}>{getDisplayTeamName(team.teamName, team.genderId)}</span>

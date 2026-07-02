@@ -97,6 +97,7 @@ interface FixturesViewProps {
     }
   >;
   canJoinTournament: boolean;
+  canJoinAnotherTeam?: boolean;
   isConnecting: boolean;
   onJoinWithHattrick: () => void;
 }
@@ -118,6 +119,7 @@ export const FixturesView: React.FC<FixturesViewProps> = ({
   warnings,
   liveData,
   canJoinTournament,
+  canJoinAnotherTeam = canJoinTournament,
   isConnecting,
   onJoinWithHattrick,
 }) => {
@@ -214,7 +216,7 @@ export const FixturesView: React.FC<FixturesViewProps> = ({
             <p>
               Fixtures have not yet been generated. Tournament is open for registration. You can join with another team.
             </p>
-            {canJoinTournament && (
+            {canJoinAnotherTeam && (
               <Button variant="primary" size="sm" onClick={onJoinWithHattrick} disabled={isConnecting}>
                 <ArrowRight size={18} weight="bold" /> Join with Hattrick
               </Button>

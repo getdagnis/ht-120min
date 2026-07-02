@@ -24,6 +24,8 @@ import {
 } from 'phosphor-react';
 import styles from './Matchmaker.module.sass';
 
+const DEFAULT_TEAM_LOGO = '/default-logo.png';
+
 type ChppTeamOption = MatchmakerTeamOption;
 
 const normalizeTeamList = (teams: MatchmakerTeamOption[]) =>
@@ -1317,11 +1319,15 @@ export const Matchmaker: React.FC = () => {
                         <div className={styles.cardRight}>
                           <div className={styles.teamInfo}>
                             <div className={styles.teamMain}>
-                              {req.team?.logo_url ? (
-                                <img src={req.team.logo_url} alt="" className={styles.teamLogo} />
-                              ) : (
-                                <Handshake size={48} className={styles.teamPlaceholder} />
-                              )}
+                              <img
+                                src={req.team?.logo_url || DEFAULT_TEAM_LOGO}
+                                alt=""
+                                className={styles.teamLogo}
+                                onError={(event) => {
+                                  event.currentTarget.onerror = null;
+                                  event.currentTarget.src = DEFAULT_TEAM_LOGO;
+                                }}
+                              />
                               <div className={styles.teamText}>
                                 <h2 className={styles.teamName}>
                                   {getDisplayTeamName(req.team?.name || '', req.team?.gender_id)}
@@ -1554,11 +1560,15 @@ export const Matchmaker: React.FC = () => {
                       <div className={styles.cardRight}>
                         <div className={styles.teamInfo}>
                           <div className={styles.teamMain}>
-                            {req.team?.logo_url ? (
-                              <img src={req.team.logo_url} alt="" className={styles.teamLogo} />
-                            ) : (
-                              <Handshake size={48} className={styles.teamPlaceholder} />
-                            )}
+                            <img
+                              src={req.team?.logo_url || DEFAULT_TEAM_LOGO}
+                              alt=""
+                              className={styles.teamLogo}
+                              onError={(event) => {
+                                event.currentTarget.onerror = null;
+                                event.currentTarget.src = DEFAULT_TEAM_LOGO;
+                              }}
+                            />
                             <div className={styles.teamText}>
                               <h2 className={styles.teamName} style={{ fontSize: '1.4rem' }}>
                                 {getDisplayTeamName(req.team?.name || '', req.team?.gender_id)}

@@ -42,6 +42,8 @@ const MATCH_TYPES: Record<number, { initials: string; description: string }> = {
   9: { initials: 'ICR', description: 'International Cup Rules Friendly' },
 };
 
+const DEFAULT_TEAM_LOGO = '/default-logo.png';
+
 export const FixtureCard: React.FC<FixtureCardProps> = ({
   homeTeam,
   awayTeam,
@@ -107,7 +109,15 @@ export const FixtureCard: React.FC<FixtureCardProps> = ({
     <div className={styles.fixtureCard}>
       <div className={styles.teamContainer}>
         <div className={styles.logoWrapper}>
-          <img src={homeTeam.logoUrl || '/hero-logo-2.png'} alt={homeTeam.name} className={styles.logo} />
+          <img
+            src={homeTeam.logoUrl || DEFAULT_TEAM_LOGO}
+            alt={homeTeam.name}
+            className={styles.logo}
+            onError={(event) => {
+              event.currentTarget.onerror = null;
+              event.currentTarget.src = DEFAULT_TEAM_LOGO;
+            }}
+          />
         </div>
         <div className={styles.teamDetails}>{renderTeamInfo(homeTeam)}</div>
       </div>
@@ -167,7 +177,15 @@ export const FixtureCard: React.FC<FixtureCardProps> = ({
       <div className={`${styles.teamContainer} ${styles.right}`}>
         <div className={`${styles.teamDetails} ${styles.right}`}>{renderTeamInfo(awayTeam, true)}</div>
         <div className={styles.logoWrapper}>
-          <img src={awayTeam.logoUrl || '/hero-logo-2.png'} alt={awayTeam.name} className={styles.logo} />
+          <img
+            src={awayTeam.logoUrl || DEFAULT_TEAM_LOGO}
+            alt={awayTeam.name}
+            className={styles.logo}
+            onError={(event) => {
+              event.currentTarget.onerror = null;
+              event.currentTarget.src = DEFAULT_TEAM_LOGO;
+            }}
+          />
         </div>
       </div>
     </div>

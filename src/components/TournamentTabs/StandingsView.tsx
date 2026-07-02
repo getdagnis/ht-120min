@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { SectionCard } from '../../components/Card/SectionCard';
-import { ShieldCheck } from 'phosphor-react';
+import { ArrowRight, ShieldCheck } from 'phosphor-react';
 import { TeamByline } from '../TeamByline/TeamByline';
 
 import type { TeamStanding } from '../../utils/standings';
@@ -19,7 +19,12 @@ interface StandingsViewProps {
   } | null;
   lastSeenMap?: Record<number, string | null>;
   onRefreshPresence?: () => void;
+  canJoinTournament?: boolean;
+  isConnecting?: boolean;
+  onJoinWithHattrick?: () => void;
 }
+
+const DEFAULT_TEAM_LOGO = '/default-logo.png';
 
 export const StandingsView: React.FC<StandingsViewProps> = ({
   standings,
@@ -28,6 +33,9 @@ export const StandingsView: React.FC<StandingsViewProps> = ({
   tournament,
   lastSeenMap = {},
   onRefreshPresence,
+  canJoinTournament = false,
+  isConnecting = false,
+  onJoinWithHattrick,
 }) => {
   const [presencePulse, setPresencePulse] = useState(0);
 
@@ -86,6 +94,48 @@ export const StandingsView: React.FC<StandingsViewProps> = ({
               </tr>
             </thead>
             <tbody>
+              {standings.length === 0 && (
+                <tr>
+                  <td className={styles.muted}>1</td>
+                  <td className={styles.teamNameCell}>
+                    <div className={styles.teamInfo}>
+                      <img src={DEFAULT_TEAM_LOGO} alt="" className={styles.standingLogo} />
+                      <div className={styles.teamTextContainer}>
+                        <button
+                          type="button"
+                          className={`${styles.idLink} ${styles.placeholderJoinLink}`}
+                          onClick={onJoinWithHattrick}
+                          disabled={!canJoinTournament || isConnecting}
+                        >
+                          <div className={styles.nameRow}>
+                            <span className={styles.teamName}>Be the FIRST team to start!</span>
+                            <ArrowRight size={15} weight="bold" className={styles.placeholderArrow} />
+                          </div>
+                        </button>
+                        <span className={styles.placeholderByline}>Join and be the one to start the tournament</span>
+                      </div>
+                    </div>
+                  </td>
+                  {is120minMode ? (
+                    <>
+                      <td className={`${styles.highlight} ${styles.center}`}>0</td>
+                      <td className={styles.center}>0</td>
+                      <td className={styles.center}>0</td>
+                      <td className={styles.center}>0</td>
+                      <td className={styles.center}>0</td>
+                    </>
+                  ) : (
+                    <>
+                      <td className={styles.center}>0</td>
+                      <td className={styles.center}>0</td>
+                      <td className={styles.center}>0</td>
+                      <td className={styles.center}>0</td>
+                      <td className={styles.center}>0</td>
+                      <td className={styles.center}>0</td>
+                    </>
+                  )}
+                </tr>
+              )}
               {standings.map((s, idx) => {
                 const isMyTeam = s.htTeamId === Number(myHtUserId);
                 return (
@@ -93,7 +143,14 @@ export const StandingsView: React.FC<StandingsViewProps> = ({
                     <td className={styles.muted}>{idx + 1}</td>
                     <td className={styles.teamNameCell}>
                       <div className={styles.teamInfo}>
-                        {s.logoUrl && <img src={s.logoUrl} alt={s.teamName} className={styles.standingLogo} />}
+                        <img
+                          src={s.logoUrl || DEFAULT_TEAM_LOGO}
+                          alt={s.teamName}
+                          className={styles.standingLogo}
+                          onError={(event) => {
+                            event.currentTarget.src = DEFAULT_TEAM_LOGO;
+                          }}
+                        />
                         <div className={styles.teamTextContainer}>
                           <a
                             href={`https://www.hattrick.org/goto.ashx?path=/Club/?TeamID=${s.htTeamId}`}
@@ -120,7 +177,7 @@ export const StandingsView: React.FC<StandingsViewProps> = ({
                             managerName={s.managerName}
                             managerHtId={s.hattrickUserId}
                             mode="standings"
-                            lastSeenAt={s.hattrickUserId != null ? lastSeenMap[s.hattrickUserId] ?? null : null}
+                            lastSeenAt={s.hattrickUserId != null ? (lastSeenMap[s.hattrickUserId] ?? null) : null}
                           />
                         </div>
                       </div>

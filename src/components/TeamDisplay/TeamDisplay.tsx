@@ -2,6 +2,8 @@ import React from 'react';
 import { getFlagUrl } from '../../utils/ht-data';
 import styles from './TeamDisplay.module.scss';
 
+const DEFAULT_TEAM_LOGO = '/default-logo.png';
+
 interface TeamDisplayProps {
   team?: {
     name: string;
@@ -21,8 +23,16 @@ export const TeamDisplay: React.FC<TeamDisplayProps> = ({ team, side }) => {
   return (
     <div className={`${styles.teamDisplay} ${side ? styles[side] : ''}`}>
       <div className={styles.logoRow}>
-        {team?.logo_url && (
-          <img src={team.logo_url} alt={team.name} className={styles.logo} />
+        {team && (
+          <img
+            src={team.logo_url || DEFAULT_TEAM_LOGO}
+            alt={team.name}
+            className={styles.logo}
+            onError={(event) => {
+              event.currentTarget.onerror = null;
+              event.currentTarget.src = DEFAULT_TEAM_LOGO;
+            }}
+          />
         )}
         {flagUrl && (
           <img src={flagUrl} alt="" className={styles.flag} title={countryName} />

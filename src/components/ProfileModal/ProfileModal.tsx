@@ -9,6 +9,8 @@ import { getCanonicalCountryName } from '../../utils/ht-data';
 import { getLeagueIdByName } from '../../utils/leagues';
 import styles from './ProfileModal.module.sass';
 
+const DEFAULT_TEAM_LOGO = '/default-logo.png';
+
 interface ProfileModalProps {
   activeTournaments: ActiveTournament[];
   isOpen: boolean;
@@ -162,7 +164,15 @@ export const ProfileModal: React.FC<ProfileModalProps> = ({ isOpen, maxWidth, on
                 teams.map((team) => (
                   <div key={team.id} className={styles.teamItem}>
                     <div className={styles.teamInfo}>
-                      {team.logo_url && <img src={team.logo_url} alt="" className={styles.teamLogo} />}
+                      <img
+                        src={team.logo_url || DEFAULT_TEAM_LOGO}
+                        alt=""
+                        className={styles.teamLogo}
+                        onError={(event) => {
+                          event.currentTarget.onerror = null;
+                          event.currentTarget.src = DEFAULT_TEAM_LOGO;
+                        }}
+                      />
                       <div className={styles.teamName}>
                         <a
                           href={`https://www.hattrick.org/goto.ashx?path=/Club/?TeamId=${team.ht_team_id}`}
