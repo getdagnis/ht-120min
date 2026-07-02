@@ -108,11 +108,11 @@ export const StandingsView: React.FC<StandingsViewProps> = ({
                           disabled={!canJoinTournament || isConnecting}
                         >
                           <div className={styles.nameRow}>
-                            <span className={styles.teamName}>Be the FIRST team to start!</span>
+                            <span className={styles.teamName}>Be the FIRST team to join!</span>
                             <ArrowRight size={15} weight="bold" className={styles.placeholderArrow} />
                           </div>
                         </button>
-                        <span className={styles.placeholderByline}>Join and be the one to start the tournament</span>
+                        <span className={styles.placeholderByline}>Invite others to get this tournament started!</span>
                       </div>
                     </div>
                   </td>
