@@ -87,6 +87,7 @@ When updating status, distinguish local code, migration file, applied migration,
 | Frontend structure, reusable UI, page ownership | `docs/architecture.md` |
 | Current blockers, migration state, validation state | `PROJECT_STATE.md` |
 | Product direction | `ROADMAP.md` |
+| Broad first-pass project familiarization | `AGENT_ONBOARDING.md` |
 
 For CHPP tasks, also inspect the relevant endpoint schemas/examples in `docs/` before changing parser or sync logic.
 

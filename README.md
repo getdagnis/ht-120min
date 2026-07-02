@@ -57,6 +57,7 @@ Shared server code belongs in `api/_lib/`; debug routes belong in `api/testing/i
 ## Documentation
 
 - `AGENTS.md` - short routing guide for agents.
+- `AGENT_ONBOARDING.md` - optional deep-orientation checklist for new agents.
 - `PROJECT_STATE.md` - current implementation, migration, test, and production status ledger.
 - `ROADMAP.md` - product direction.
 - `docs/architecture.md` - frontend structure and ownership boundaries.

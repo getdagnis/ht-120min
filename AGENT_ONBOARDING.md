@@ -1,114 +1,122 @@
-# AGENT ONBOARDING
+# AGENT_ONBOARDING.md
 
-UPDATED: JUNE 26, 2026
+Last updated: 2026-07-02
 
-Project: **HT-120min**, a React + TypeScript + Vite application for organizing recurring Hattrick friendly tournaments. It integrates with Hattrick CHPP OAuth, uses Supabase for persistence, and Vercel serverless functions for backend operations.
+This is an optional deep-orientation checklist for a new agent joining the project cold. It is not the source of truth for constraints or current status.
 
-Before changing anything, inspect the project and build a concise mental model.
+Use this when the task is broad, risky, or asks you to "familiarize yourself with the project." For normal implementation tasks, start with `AGENTS.md` and follow its task routing.
 
-Read files in this order:
+## Canonical Docs
 
-1. `AGENTS.md`
+Read these first:
 
-   * Treat its project constraints as mandatory.
-   * Pay particular attention to the Vercel serverless-function limit and current function inventory.
+1. `AGENTS.md` - agent entry point, hard constraints, task routing, validation defaults.
+2. `PROJECT_STATE.md` - current implementation status, blockers, migration/test/deploy notes.
+3. `README.md` - human project intro, setup, and commands.
 
-2. `PROJECT_STATE.md`
+Then read focused docs based on the task:
 
-   * Note what is currently working, unfinished, or known to be fragile.
+- `docs/architecture.md` - frontend structure, ownership boundaries, reusable UI.
+- `docs/scheduling.md` - calendar, generation, rescheduling, BYEs, W15/W16 rules.
+- `docs/chpp.md` - CHPP auth, endpoint sources, parser rules, known limitations.
+- `docs/database-and-deployment.md` - Supabase model, migrations, RLS assumptions, Vercel limits.
 
-3. `package.json`
+For CHPP work, also read `docs/AGENTS_CHPP_INTEGRATION.md` and the relevant schema/example files.
 
-   * Confirm scripts, framework versions, and dependencies.
+## First-Pass Repo Scan
 
-4. `src/App.tsx`
+For a full mental model, inspect these files in order:
 
-   * Understand routing and major screens.
+1. `package.json`
+   - scripts, framework versions, dependencies
+2. `src/App.tsx`
+   - routing and major screens
+3. `src/styles/global.sass`
+   - global tokens, typography, themes, responsive helpers
+4. `src/components/Layout/Layout.tsx`
+   - app shell, login controls, active/organizer tournament menu
+5. `src/hooks/useAuth.ts`
+   - custom Hattrick identity model and localStorage/session behavior
+6. `src/pages/Public/TournamentView.tsx`
+   - tournament page, tabs, admin mode, schedule/result/chat flows
+7. `src/pages/Create/CreateTournament.tsx`
+   - creation flow, organizer linking, initial team/chat insert
+8. `src/pages/Public/Matchmaker.tsx`
+   - matchmaker browsing and publishing UI
 
-5. `src/components/Layout/Layout.tsx`
+Backend/API scan:
 
-   * Understand app-level mounting, authentication hooks, and global behavior.
+- `api/auth/init.ts`
+- `api/auth/callback.ts`
+- `api/auth/complete.ts`
+- `api/teams/refresh-fixtures.ts`
+- `api/chpp/live-matches.ts`
+- `api/matchmaker/*`
+- `api/testing/index.ts`
+- `api/_lib/supabase.ts`
+- `api/_lib/chpp-auth.ts`
+- `api/_lib/chpp-xml.ts`
+- `api/_lib/chpp-register.ts`
 
-6. `src/hooks/useAuth.ts`
+Core utilities:
 
-   * Understand how the application identifies a logged-in user.
-   * Important: this application uses custom Hattrick OAuth and localStorage, not a normal Supabase Auth session.
+- `src/utils/hattrick-calendar.ts`
+- `src/utils/schedule-draft.ts`
+- `src/utils/reschedule-draft.ts`
+- `src/utils/scheduler.ts`
+- `src/utils/match-schedule.ts`
+- `src/utils/tournament-next-match.ts`
+- `src/utils/standings.ts`
+- `src/utils/tournament-announcements.ts`
+- `src/utils/team-eligibility.ts`
+- `src/utils/matchmaker.ts`
 
-7. Authentication/backend files:
+Database references:
 
-   * `api/auth/init.ts`
-   * `api/auth/callback.ts`
-   * `api/auth/complete.ts`
-   * `api/_lib/chpp-register.ts`
-   * `api/_lib/supabase.ts`
-   * `api/_lib/chpp-auth.ts`
+- newest numbered migrations in `migrations/`
+- `supabase-schema.sql`
+- `docs/database-and-deployment.md`
 
-8. Tournament data pipeline:
+## Security And Identity Notes
 
-   * `src/pages/Public/TournamentView.tsx`
-   * `src/components/TournamentTabs/StandingsView.tsx`
-   * `src/components/TeamByline/TeamByline.tsx`
-   * `src/components/FixtureCard/FixtureCard.tsx`
-   * `src/utils/standings.ts`
+- This app uses custom Hattrick OAuth and localStorage-backed client identity hints; it is not a normal Supabase Auth session model.
+- Do not trust a Hattrick user id from localStorage as authenticated server identity.
+- Do not expose Supabase service-role keys or CHPP consumer secrets to frontend code.
+- Do not weaken RLS broadly to make a UI flow work.
+- Use ids for identity decisions; treat country, league, team, and manager names as display fields.
 
-9. Fixture logic:
+## Hard Checks During Orientation
 
-   * `src/components/TournamentTabs/FixturesView.tsx`
-   * `api/teams/refresh-fixtures.ts`
-   * `src/utils/ht-data.ts`
-   * `src/utils/scheduler.ts`
+Confirm Vercel function count:
 
-10. Matchmaker/API structure:
+```bash
+find api -name "*.ts" | grep -v "/_lib/" | wc -l
+```
 
-* `api/matchmaker/activity.ts`
-* other files under `api/matchmaker/`
-* `api/testing/index.ts`
+Confirm current dirty state before editing:
 
-1. Database files:
+```bash
+git status --short
+```
 
-* `supabase-schema.sql`
-* all migrations, especially the newest numbered migrations.
-
-Important constraints:
-
-* The app has a hard Vercel function limit of **12 serverless functions**.
-* Do not add a 13th function.
-* Current deployed functions are:
-
-  * `/api/auth/callback`
-  * `/api/auth/complete`
-  * `/api/auth/init`
-  * `/api/chpp/live-matches`
-  * `/api/matchmaker/activity`
-  * `/api/matchmaker/publish`
-  * `/api/matchmaker/send-challenge`
-  * `/api/matchmaker/show-interest`
-  * `/api/matchmaker/teams`
-  * `/api/teams/info`
-  * `/api/teams/refresh-fixtures`
-  * `/api/testing/index`
-* `api/testing/index.ts` is the most likely candidate to remove or consolidate if a production function is needed.
-* Do not weaken Supabase RLS broadly.
-* Do not trust a Hattrick user ID supplied from localStorage as authenticated identity.
-* Avoid broad refactors. The app has just launched to initial users, so production stability matters more than architectural perfection.
-* Keep changes isolated and reversible.
-* Do not modify files during this first pass.
-
-Run:
+For code changes, normal validation is:
 
 ```bash
 npm run build
-npm run lint
+npm test
 ```
 
-Then report:
+For docs-only changes, use the lighter checks from `AGENTS.md`.
 
-1. Current architecture in a concise summary.
-2. Authentication model and its security limitations.
-3. How profile data reaches the standings and `TeamByline`.
-4. Current serverless-function structure.
-5. Any discrepancies between documentation and actual implementation.
-6. Files likely involved in implementing reliable “last seen / online” presence.
-7. The smallest safe implementation strategy you would recommend.
+## Investigation Report Template
 
-Do not implement anything yet. Stop after the investigation report.
+When asked to investigate before implementing, report:
+
+1. Current architecture summary.
+2. Relevant source-of-truth docs and files read.
+3. Authentication/identity assumptions and risks.
+4. Supabase tables or migrations involved.
+5. Vercel/API function impact.
+6. CHPP endpoint/source-of-truth impact, if any.
+7. Smallest safe implementation strategy.
+8. Validation plan.
