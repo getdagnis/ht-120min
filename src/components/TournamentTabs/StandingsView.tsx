@@ -213,8 +213,8 @@ export const StandingsView: React.FC<StandingsViewProps> = ({
           <li className={styles.feedItem}>
             <div className={styles.feedIcon}></div>
             <div className={styles.feedContent}>
-              <p>New cup registration is now open!</p>
-              <span>2 hours ago</span>
+              <p>Team and tournament announcements almost here!</p>
+              <span>2 hours from now</span>
             </div>
           </li>
         </ul>
