@@ -20,7 +20,7 @@ The app currently supports:
 
 | Area | Code | DB migration | Local test | Production |
 | --- | --- | --- | --- | --- |
-| Tournament creation/joining | Implemented | Base migrations through organizer/profile/team fields | Not rerun for docs-only refactor | Confirm |
+| Tournament creation/joining | Implemented; OAuth callback now keeps superadmin team selection unfiltered, matches league limits by LeagueID, saves organizer names for new validated tournaments, and falls back to profile/team organizer names for older null rows | Base migrations through organizer/profile/team fields | `npm test` and `npm run build` passed 2026-07-02 | Confirm |
 | Schedule generation | Implemented | `047`, `048`, corrected by `051` | Covered by `tests/schedule-draft.test.ts`; not rerun for docs-only refactor | Confirm |
 | Schedule regeneration | Implemented | `049`, corrected by `051` | Covered by `tests/reschedule-draft.test.ts`; not rerun for docs-only refactor | Confirm |
 | W15/W16 calendar correction | Implemented locally | `051`; file contains `-- MIGRATION APPLIED!` marker | Covered by calendar/schedule tests; not rerun for docs-only refactor | Confirm actual Supabase/prod state |

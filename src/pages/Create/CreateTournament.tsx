@@ -560,7 +560,7 @@ export const CreateTournament: React.FC = () => {
             season: 1,
             status: 'open',
             organizer_id: organizerId,
-            organizer_name: isValidated ? null : organizerName,
+            organizer_name: organizerName,
           },
         ])
         .select()

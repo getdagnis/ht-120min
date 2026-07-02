@@ -129,7 +129,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       tournament = tData;
     }
 
-    const isSuperAdmin = req.headers.cookie?.includes('issuperadmin=youbet') || req.headers.cookie?.includes('issuperadmin="you bet"');
+    const isSuperAdmin =
+      req.headers.cookie?.includes('issuperadmin=youbet') ||
+      req.headers.cookie?.includes('issuperadmin=you%20bet') ||
+      req.headers.cookie?.includes('issuperadmin="you bet"');
 
     const leagueCategory: LeagueCategory = session.is_creation
       ? session.league_category === 'hfi'
@@ -141,10 +144,11 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
     const countryLimit = session.is_creation ? session.country_limit : tournament?.country_limit;
 
-    const filteredTeams = filterTeamsForCategory(teams, leagueCategory, {
-      countryLimit,
-      skipCountryCheck: isSuperAdmin,
-    });
+    const filteredTeams = isSuperAdmin
+      ? teams
+      : filterTeamsForCategory(teams, leagueCategory, {
+          countryLimit,
+        });
 
     if (filteredTeams.length === 0) {
       const categoryName = leagueCategory === 'hfi' ? 'Hattrick Femme International (HFI)' : 'Regular league (male)';

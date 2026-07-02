@@ -225,6 +225,7 @@ export const TournamentView: React.FC = () => {
   const [rescheduleFromRoundNumber, setRescheduleFromRoundNumber] = useState<number | null>(null);
   const [rescheduleStartSlotId, setRescheduleStartSlotId] = useState('');
   const [includeWeek15WeekendFriendlyForReschedule, setIncludeWeek15WeekendFriendlyForReschedule] = useState(false);
+  const [organizerProfileName, setOrganizerProfileName] = useState<string | null>(null);
 
   // Tournament settings states
   const [editName, setEditName] = useState('');
@@ -254,6 +255,10 @@ export const TournamentView: React.FC = () => {
     document.cookie
       .split('; ')
       .find((row) => row.startsWith('issuperadmin='))
+      ?.split('=')[1] === 'youbet' ||
+    document.cookie
+      .split('; ')
+      .find((row) => row.startsWith('issuperadmin='))
       ?.split('=')[1] === 'you%20bet' ||
     document.cookie
       .split('; ')
@@ -261,7 +266,11 @@ export const TournamentView: React.FC = () => {
       ?.split('=')[1] === 'you bet';
 
   const currentHtUserId = Number(localStorage.getItem('my_ht_user_id') || '0') || null;
-  const currentHtManagerName = localStorage.getItem('my_ht_manager_name') || tournament?.organizer_name || 'Admin';
+  const organizerTeam = tournament?.organizer_id
+    ? teams.find((team) => Number(team.hattrick_user_id) === Number(tournament.organizer_id))
+    : null;
+  const publicOrganizerName = tournament?.organizer_name || organizerTeam?.manager_name || organizerProfileName || null;
+  const currentHtManagerName = localStorage.getItem('my_ht_manager_name') || publicOrganizerName || 'Admin';
   const canLoginAsOrganizer = Boolean(
     tournament?.organizer_id && currentHtUserId && Number(tournament.organizer_id) === currentHtUserId,
   );
@@ -271,6 +280,43 @@ export const TournamentView: React.FC = () => {
       .filter((announcement) => localStorage.getItem(`announcement_dismissed_${announcement.id}`) === 'true')
       .map((announcement) => announcement.id),
   );
+  const settingsHasUnsavedChanges = useMemo(() => {
+    if (!tournament) return false;
+
+    const savedCountryLimit = normalizeLeagueLimit(tournament.country_limit);
+    const savedAdminEmail = tournament.admin_email || '';
+
+    return (
+      editName !== tournament.name ||
+      editIsPrivate !== tournament.is_private ||
+      editChppOnlyJoin !== tournament.chpp_only_join ||
+      editLeagueType !== tournament.league_type ||
+      editLeagueCategory !== (tournament.league_category || 'male') ||
+      editRegistrationType !== (tournament.registration_type || 'Organizer-Managed') ||
+      editCountryLimit !== savedCountryLimit ||
+      editMaxTeams !== (tournament.max_teams || null) ||
+      showEditDescription !== tournament.show_description ||
+      editDescription !== (tournament.description || '') ||
+      showEditEmail !== Boolean(tournament.admin_email) ||
+      editAdminEmail !== savedAdminEmail ||
+      isTest !== Boolean(tournament.is_test)
+    );
+  }, [
+    editAdminEmail,
+    editChppOnlyJoin,
+    editCountryLimit,
+    editDescription,
+    editIsPrivate,
+    editLeagueCategory,
+    editLeagueType,
+    editMaxTeams,
+    editName,
+    editRegistrationType,
+    isTest,
+    showEditDescription,
+    showEditEmail,
+    tournament,
+  ]);
 
   // Collapsible states
   const [isSettingsCollapsed, setIsSettingsCollapsed] = useState(() =>
@@ -545,6 +591,15 @@ export const TournamentView: React.FC = () => {
 
     if (tournamentData) {
       setTournament(tournamentData as Tournament);
+      setOrganizerProfileName(null);
+      if (!tournamentData.organizer_name && tournamentData.organizer_id) {
+        const { data: organizerProfile } = await supabase
+          .from('profiles')
+          .select('manager_name')
+          .eq('hattrick_user_id', tournamentData.organizer_id)
+          .maybeSingle();
+        setOrganizerProfileName(organizerProfile?.manager_name || null);
+      }
       localStorage.setItem('last_viewed_tournament_id', tournamentData.id);
       setEditName(tournamentData.name);
       setEditIsPrivate(tournamentData.is_private);
@@ -2447,20 +2502,22 @@ export const TournamentView: React.FC = () => {
             <SectionCard
               title="Admin Access"
               subtitle={
-                tournament.organizer_name && (
+                publicOrganizerName && (
                   <div className={styles.organizerInfo}>
                     <span className={styles.organizerLabel}>Organizer: </span>
                     <span className={styles.organizerName}>
-                      {tournament.organizer_id && (
+                      {tournament.organizer_id ? (
                         <a
                           href={`https://www.hattrick.org/goto.ashx?path=/Club/Manager/?userId=${tournament.organizer_id}`}
                           target="_blank"
                           rel="noopener noreferrer"
                           className={`${styles.htLink} ${styles.headerBadge}`}
                         >
-                          {tournament.organizer_name}{' '}
+                          {publicOrganizerName}{' '}
                           <ArrowUpRight size={16} weight="bold" style={{ marginLeft: '0.25rem' }} />
                         </a>
+                      ) : (
+                        publicOrganizerName
                       )}
                     </span>
                   </div>
@@ -2727,6 +2784,9 @@ export const TournamentView: React.FC = () => {
                         </div>
                       )}
                     </div>
+                    {settingsHasUnsavedChanges && (
+                      <p className={adminStyles.unsavedSettingsNote}>Use save button to apply changes!</p>
+                    )}
                     <Button onClick={updateSettings} disabled={isUpdatingSettings} variant="primary" size="sm">
                       {isUpdatingSettings ? 'Saving...' : 'Save Settings'}
                     </Button>

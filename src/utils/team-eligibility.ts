@@ -13,14 +13,14 @@ export function isHfiTeam(
 }
 
 function countryLimitMatches(
-  team: Pick<ChppTeamOption, 'countryId' | 'countryName'>,
+  team: Pick<ChppTeamOption, 'leagueId' | 'countryId' | 'countryName'>,
   countryLimit?: string | null,
 ): boolean {
   if (!countryLimit) return true;
 
   const countryLimitId = Number(countryLimit);
   if (Number.isFinite(countryLimitId) && `${countryLimitId}` === countryLimit) {
-    return team.countryId === countryLimitId;
+    return team.leagueId === countryLimitId || team.countryId === countryLimitId;
   }
 
   return team.countryName === countryLimit;

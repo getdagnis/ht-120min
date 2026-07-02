@@ -19,6 +19,20 @@ export function teamMatchesCategory(
   return category === 'hfi' ? isHfiTeam(team) : !isHfiTeam(team);
 }
 
+function countryLimitMatches(
+  team: Pick<ChppTeamOption, 'leagueId' | 'countryId' | 'countryName'>,
+  countryLimit?: string | null,
+): boolean {
+  if (!countryLimit) return true;
+
+  const countryLimitId = Number(countryLimit);
+  if (Number.isFinite(countryLimitId) && `${countryLimitId}` === countryLimit) {
+    return team.leagueId === countryLimitId || team.countryId === countryLimitId;
+  }
+
+  return team.countryName === countryLimit;
+}
+
 export function filterTeamsForCategory<T extends ChppTeamOption>(
   teams: T[],
   category: LeagueCategory,
@@ -27,7 +41,7 @@ export function filterTeamsForCategory<T extends ChppTeamOption>(
   const { countryLimit, skipCountryCheck } = options ?? {};
   return teams.filter((team) => {
     if (!teamMatchesCategory(team, category)) return false;
-    if (!skipCountryCheck && countryLimit && team.countryName && team.countryName !== countryLimit) {
+    if (!skipCountryCheck && !countryLimitMatches(team, countryLimit)) {
       return false;
     }
     return true;
