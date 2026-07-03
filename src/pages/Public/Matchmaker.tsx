@@ -25,6 +25,7 @@ import {
 import styles from './Matchmaker.module.sass';
 
 const DEFAULT_TEAM_LOGO = '/default-logo.png';
+const DEFAULT_ARENA_IMAGE = 'https://res.hattrick.org/arenas/default/12000/custom-620-0.jpg';
 
 type ChppTeamOption = MatchmakerTeamOption;
 
@@ -1310,9 +1311,16 @@ export const Matchmaker: React.FC = () => {
                     <div className={styles.tinderCard}>
                       <div className={styles.cardTop}>
                         <div className={styles.cardArena}>
-                          {req.team?.arena_image_url && (
+                          {(req.team?.arena_image_url || req.team?.arena_id) && (
                             <div className={styles.arenaFrame}>
-                              <img src={req.team.arena_image_url} alt="Arena" />
+                              <img
+                                src={req.team.arena_image_url || DEFAULT_ARENA_IMAGE}
+                                alt="Arena"
+                                onError={(event) => {
+                                  event.currentTarget.onerror = null;
+                                  event.currentTarget.src = DEFAULT_ARENA_IMAGE;
+                                }}
+                              />
                             </div>
                           )}
                         </div>
@@ -1429,7 +1437,7 @@ export const Matchmaker: React.FC = () => {
                         return (
                           <>
                             <Button
-                              variant="secondary"
+                              variant="outline"
                               onClick={() => setCurrentIndex((prev) => Math.min(scoredRequests.length - 1, prev + 1))}
                             >
                               Pass
@@ -1454,8 +1462,8 @@ export const Matchmaker: React.FC = () => {
                             )}
                             {showShowInterest && (
                               <Button variant="tinder" onClick={() => openInterestFlow(req)}>
+                                Send Challenge
                                 <Heart size={20} weight="fill" />
-                                Show Interest
                               </Button>
                             )}
                           </>
@@ -1514,9 +1522,16 @@ export const Matchmaker: React.FC = () => {
                   <div className={styles.tinderCard}>
                     <div className={styles.cardTop}>
                       <div className={styles.cardArena}>
-                        {req.team?.arena_image_url && (
+                        {(req.team?.arena_image_url || req.team?.arena_id) && (
                           <div className={styles.arenaFrame}>
-                            <img src={req.team.arena_image_url} alt="Arena" />
+                            <img
+                              src={req.team.arena_image_url || DEFAULT_ARENA_IMAGE}
+                              alt="Arena"
+                              onError={(event) => {
+                                event.currentTarget.onerror = null;
+                                event.currentTarget.src = DEFAULT_ARENA_IMAGE;
+                              }}
+                            />
                           </div>
                         )}
                       </div>

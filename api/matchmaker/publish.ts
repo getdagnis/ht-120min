@@ -141,7 +141,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       fanclub_size: extraDetails?.fanclubSize ?? null,
       arena_id: extraDetails?.arenaId ?? null,
       arena_size: arenaDetails?.capacity ?? null,
-      arena_image_url: arenaDetails?.arenaImageUrl ?? null,
+      arena_image_url: arenaDetails?.arenaImageUrl ?? arenaDetails?.arenaFallbackImageUrl ?? null,
       availability_status: availability.availabilityStatus,
       availability_reason: availability.availabilityReason ?? null,
       active: true,
