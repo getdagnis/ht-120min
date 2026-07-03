@@ -7,6 +7,7 @@ HT-120min is a Vite/React application backed by Supabase and a small set of Verc
 - `src/pages/Home` lists featured/open tournaments and entry points.
 - `src/pages/Create` owns tournament creation, organizer linking, local draft persistence, and team selection before insert.
 - `src/pages/Public/TournamentView.tsx` owns the public tournament screen, tab switching, admin mode, schedule generation/regeneration calls, match refresh, chat/news, and tournament-level admin actions.
+- `src/pages/Forge` owns the site-admin shell, dashboard widgets, FAQ editor, testing hub, and future admin surfaces.
 - `src/pages/Public/Matchmaker.tsx` owns friendly ad browsing and matchmaker interactions.
 - `src/components/TournamentTabs/*` contains tab-level tournament UI.
 - `src/components/TournamentTabs/Admin/*` contains admin panel surfaces.
@@ -33,6 +34,7 @@ Styling uses Sass modules plus global CSS variables in `src/styles/global.sass`.
 ## Data Flow
 
 - Supabase is accessed directly from the frontend for app-owned tournament data.
+- Site-wide editable content such as the FAQ is stored in Supabase as JSON and loaded by both Home and Forge.
 - Vercel functions handle CHPP OAuth, CHPP XML requests, matchmaker server actions, and fixture refresh.
 - App-owned tournaments are stored in Supabase; Hattrick/CHPP is used for identity, team metadata, friendly booking, and result sync.
 - Standings are derived from app DB matches, not CHPP tournament endpoints.

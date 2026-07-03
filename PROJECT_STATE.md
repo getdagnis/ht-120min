@@ -1,6 +1,6 @@
 # PROJECT_STATE.md
 
-Last updated: 2026-07-02
+Last updated: 2026-07-03
 
 This is the current-status ledger. Update it after meaningful implementation work. Be explicit about what is local, migrated, tested, deployed, or still unknown.
 
@@ -28,6 +28,7 @@ The app currently supports:
 | Default tournament chat message | Implemented in create flow | Uses existing `tournament_chat` table | Not rerun for docs-only refactor | Confirm |
 | Fixture refresh and reversed venue linking | Implemented locally | Uses existing match fields from `037`, `046` | Not rerun for docs-only refactor | Confirm |
 | Next match date on cards/menu | Implemented via `src/utils/tournament-next-match.ts` using rounds/matches | No new migration | Not rerun for docs-only refactor | Confirm |
+| Featured tournaments | Implemented locally with superadmin-only admin toggle and featured-first sorting across public/open/organizer lists | `052`; pending Supabase application | `npm run build` and `npm test` passed 2026-07-03 | Confirm |
 | CHPP country display normalization | Implemented locally for Latvia `CountryID=48` / `LeagueID=53` / localized names | No migration; existing rows handled in UI | `npm test` and `npm run build` passed 2026-07-02 | Confirm |
 | Empty tournament join affordances and team logo fallback | Implemented locally | No migration | `npm test` and `npm run build` passed 2026-07-02 | Confirm |
 | Matchmaker challenge send | Partially implemented | Existing matchmaker/profile/token migrations | Requires real CHPP reauth and endpoint confirmation | Confirm |
@@ -73,6 +74,10 @@ Production means live deployed behavior. If it has not been checked against the 
 - Fixtures collapse older finished rounds by default while keeping last finished, current/next, and future rounds visible.
 - Empty fixtures still show a Hattrick join CTA before schedules are generated, including when the viewer has already joined one team but can add another.
 - Empty standings show a first-team placeholder row with a join link, and team logo displays fall back to `/default-logo.png`.
+- Admin settings show a dirty-state save reminder, organizer-only admin password reset, and team deletion now requires a second admin-password confirmation.
+- Superadmin-only featured tournament toggling is available in admin settings and pins featured tournaments to the top of open, active, and organizer lists.
+- Generate schedule now shows a clearer empty-state reason, waits for a picked start date before previewing, and uses a no-teams placeholder label.
+- Tournament cards use canonical league names and avoid mobile overflow on the home grid.
 - Chat shows a login button when the viewer is not authenticated.
 - Description editor has textarea and regenerate controls restored in tournament/admin contexts.
 - Supporters wall hydrates known users from DB by ids while keeping readable constants for name/team context.

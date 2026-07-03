@@ -26,6 +26,7 @@ import {
 } from '../../utils/tournament-announcements';
 
 import { Tooltip } from 'react-tooltip';
+import { nanoid } from 'nanoid';
 import { Button } from '../../components/Button/Button';
 import { HeroCard } from '../../components/Card/HeroCard';
 import { SectionCard } from '../../components/Card/SectionCard';
@@ -38,7 +39,7 @@ import { Modal } from '../../components/Modal/Modal';
 import { MottoWidget } from '../../components/MottoWidget/MottoWidget';
 import { StandingsView } from '../../components/TournamentTabs/StandingsView';
 import { TOURNAMENT_DEFAULT } from '../../constants/descriptions';
-import { ArrowClockwise, ArrowRight, ArrowUpRight, CopySimple, Info, Trash, X } from 'phosphor-react';
+import { ArrowClockwise, ArrowRight, ArrowUpRight, CopySimple, Info, Star, Trash, X } from 'phosphor-react';
 
 const DEFAULT_TEAM_LOGO = '/default-logo.png';
 
@@ -134,6 +135,7 @@ interface Tournament {
   is_private: boolean;
   description: string | null;
   show_description: boolean;
+  is_featured: boolean;
   thumbnail_index?: number;
   chpp_only_join: boolean;
   league_type: string;
@@ -243,7 +245,9 @@ export const TournamentView: React.FC = () => {
   const [showEditEmail, setShowEditEmail] = useState(false);
   const [editAdminEmail, setEditAdminEmail] = useState('');
   const [isUpdatingSettings, setIsUpdatingSettings] = useState(false);
+  const [isResettingAdminPassword, setIsResettingAdminPassword] = useState(false);
   const [isTest, setIsTest] = useState(false);
+  const [editIsFeatured, setEditIsFeatured] = useState(false);
   const validatedCountryLimit = useMemo(() => {
     const validatedTeams = teams.filter((t) => t.joined_via_oauth && t.country_name);
     const countries = Array.from(new Set(validatedTeams.map((t) => t.country_name)));
@@ -274,6 +278,7 @@ export const TournamentView: React.FC = () => {
   const canLoginAsOrganizer = Boolean(
     tournament?.organizer_id && currentHtUserId && Number(tournament.organizer_id) === currentHtUserId,
   );
+  const canManageFeaturedTournaments = isSuperAdmin && currentHtUserId === 8777402;
   const organizerLoginLabel = `🤖 ${currentHtManagerName} (organizer)`;
   const dismissedPublicAnnouncementIds = new Set(
     announcements
@@ -299,7 +304,8 @@ export const TournamentView: React.FC = () => {
       editDescription !== (tournament.description || '') ||
       showEditEmail !== Boolean(tournament.admin_email) ||
       editAdminEmail !== savedAdminEmail ||
-      isTest !== Boolean(tournament.is_test)
+      isTest !== Boolean(tournament.is_test) ||
+      editIsFeatured !== Boolean(tournament.is_featured)
     );
   }, [
     editAdminEmail,
@@ -315,6 +321,7 @@ export const TournamentView: React.FC = () => {
     isTest,
     showEditDescription,
     showEditEmail,
+    editIsFeatured,
     tournament,
   ]);
 
@@ -623,6 +630,7 @@ export const TournamentView: React.FC = () => {
       setEditMaxTeams(tournamentData.max_teams || null);
       setIncludeWeek15WeekendFriendly(false);
       setIncludeWeek15WeekendFriendlyForReschedule(Boolean(tournamentData.include_week15_weekend_friendly));
+      setEditIsFeatured(Boolean(tournamentData.is_featured));
       const { data: teamsDataRaw } = await supabase
         .from('teams')
         .select('*')
@@ -1364,6 +1372,33 @@ export const TournamentView: React.FC = () => {
     setFailedLoginAttempt(false);
   };
 
+  const handleResetAdminPassword = async () => {
+    if (!tournament || !canLoginAsOrganizer || isResettingAdminPassword) return;
+
+    const confirmed = window.confirm('Reset the tournament admin password?');
+    if (!confirmed) return;
+
+    const newPassword = nanoid(8);
+    setIsResettingAdminPassword(true);
+    try {
+      const { error } = await supabase
+        .from('tournaments')
+        .update({ admin_password: newPassword })
+        .eq('id', tournament.id);
+
+      if (error) throw error;
+
+      localStorage.setItem(`admin_pw_${slug}`, newPassword);
+      setPassword(newPassword);
+      fetchData();
+      alert(`New admin password: ${newPassword}`);
+    } catch (error: any) {
+      alert(error.message);
+    } finally {
+      setIsResettingAdminPassword(false);
+    }
+  };
+
   const handleAdminLogout = () => {
     setIsAdminAuthenticated(false);
     setPassword('');
@@ -1537,6 +1572,7 @@ export const TournamentView: React.FC = () => {
           description: editDescription,
           admin_email: showEditEmail ? editAdminEmail : null,
           max_teams: editMaxTeams,
+          ...(canManageFeaturedTournaments ? { is_featured: editIsFeatured } : {}),
         })
 
         .eq('id', tournament?.id);
@@ -1820,11 +1856,22 @@ export const TournamentView: React.FC = () => {
     }
   };
 
+  const confirmAdminPassword = () => {
+    const enteredPassword = window.prompt('Enter admin password to confirm:');
+    if (enteredPassword === null) return false;
+    if (enteredPassword !== tournament?.admin_password) {
+      alert('Wrong admin password.');
+      return false;
+    }
+    return true;
+  };
+
   const deleteTeam = async (id: string) => {
     let updatedTeams;
     const team = teams.find((t) => t.id === id);
     if (isGenerated) {
       if (window.confirm(`Are you sure you want to deactivate ${team?.name}?`)) {
+        if (!confirmAdminPassword()) return;
         await supabase.from('teams').update({ active: false }).eq('id', id);
         updatedTeams = teams.map((t) => (t.id === id ? { ...t, active: false } : t));
         fetchData();
@@ -1834,6 +1881,7 @@ export const TournamentView: React.FC = () => {
     }
 
     if (window.confirm(`Remove ${team?.name} from the tournament?`)) {
+      if (!confirmAdminPassword()) return;
       // If NOT generated, we just destroy the relationship for this season/tournament
       // Since tournament_id is currently the only link, setting it to null (if schema allowed)
       // or just deleting from this tournament's team list.
@@ -2613,6 +2661,18 @@ export const TournamentView: React.FC = () => {
                           )}
 
                           <code>{tournament.admin_password}</code>
+                          {canLoginAsOrganizer && (
+                            <button
+                              type="button"
+                              onClick={handleResetAdminPassword}
+                              className={adminStyles.copyIcon}
+                              title="Reset password"
+                              aria-label="Reset tournament admin password"
+                              disabled={isResettingAdminPassword}
+                            >
+                              <ArrowClockwise size={24} weight="bold" />
+                            </button>
+                          )}
                           <CopySimple
                             size={24}
                             onClick={() => {
@@ -2781,6 +2841,21 @@ export const TournamentView: React.FC = () => {
                             <input type="checkbox" checked={isTest} onChange={(e) => setIsTest(e.target.checked)} />
                             Testing Ground (Super-Admin only)
                           </label>
+                        </div>
+                      )}
+
+                      {canManageFeaturedTournaments && (
+                        <div className={`${adminStyles.checkboxField} ${styles.formDivider}`}>
+                          <label className={adminStyles.checkboxLabel}>
+                            <input
+                              type="checkbox"
+                              checked={editIsFeatured}
+                              onChange={(e) => setEditIsFeatured(e.target.checked)}
+                            />
+                            <Star size={16} weight="bold" />
+                            Featured tournament
+                          </label>
+                          <p className={adminStyles.smallNote}>Pinned to the top of its public lists.</p>
                         </div>
                       )}
                     </div>
