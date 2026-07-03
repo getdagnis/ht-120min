@@ -34,7 +34,7 @@ Styling uses Sass modules plus global CSS variables in `src/styles/global.sass`.
 ## Data Flow
 
 - Supabase is accessed directly from the frontend for app-owned tournament data.
-- Site-wide editable content such as the FAQ is stored in Supabase as JSON and loaded by both Home and Forge.
+- The public FAQ is source-file driven from `src/constants/faq-revised.ts`; Forge edits it in a readable form and exports a replacement source file.
 - Vercel functions handle CHPP OAuth, CHPP XML requests, matchmaker server actions, and fixture refresh.
 - App-owned tournaments are stored in Supabase; Hattrick/CHPP is used for identity, team metadata, friendly booking, and result sync.
 - Standings are derived from app DB matches, not CHPP tournament endpoints.

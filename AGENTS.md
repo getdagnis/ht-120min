@@ -163,3 +163,17 @@ Database changes:
 - Create migrations intentionally.
 - Preserve RLS assumptions.
 - Record migration status in `PROJECT_STATE.md`.
+
+## Closeout Format
+
+When a task is finished, include:
+
+1. The files affected by that task.
+2. A `git add` command covering those files.
+3. A `git commit -m` command with a message that starts with one of:
+   - `fix/` for bug fixes
+   - `feature/` for new functionality
+   - `major/` for refactors or larger updates
+   - `update/` for UI or UX changes without new features or bug fixes
+
+Keep the commit message concise and descriptive. Use the task scope, not the whole worktree, in the `git add` command.

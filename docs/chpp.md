@@ -65,7 +65,7 @@ When CHPP behavior is unclear:
 - inspect raw XML response snippets
 - include request ids or unique log markers in server handlers
 - verify the deployed route is the route being executed
-- use `api/testing/index.ts` for debug tooling instead of adding new API files
+- use `/forge/testing` for debug tooling instead of adding new API files
 - confirm Vercel function count remains at or below 12
 
 ## Detailed References
