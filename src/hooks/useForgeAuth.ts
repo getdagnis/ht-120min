@@ -7,6 +7,7 @@ import {
   FORGE_AUTH_USER_ID_KEY,
 } from '../utils/auth-storage';
 import { FORGE_SUPERADMIN_USER_ID } from '../constants/site-admins';
+import { hasSuperAdminBypassCookie } from '../utils/superadmin-bypass';
 
 export const useForgeAuth = () => {
   const [managerName, setManagerName] = useState<string | null>(() =>
@@ -26,9 +27,8 @@ export const useForgeAuth = () => {
   }, []);
 
   const isDevBypass = useMemo(() => {
-    if (import.meta.env.PROD) return false;
     try {
-      return document.cookie.includes('issuperadmin=youbet');
+      return hasSuperAdminBypassCookie(document.cookie);
     } catch {
       return false;
     }

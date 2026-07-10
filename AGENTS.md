@@ -66,6 +66,14 @@ Current counted functions:
 11. `api/teams/refresh-fixtures.ts`
 12. `api/testing/index.ts`
 
+## Security Rules
+
+- Treat any public exposure of privileged identifiers, login hints, bypass cookies, tokens, or auth conditions as a critical security bug.
+- Do not show superadmin IDs, role names, admin-only access rules, or bypass instructions in public UI, login screens, error messages, or user-visible empty states.
+- Keep authorization logic in code and server-side checks, not in visible copy.
+- If a screen needs internal access guidance, put it in private docs or code comments only, never in a public route.
+- Review login and admin surfaces for accidental disclosure before committing or publishing changes.
+
 ## Source Of Truth
 
 - Current project status lives in `PROJECT_STATE.md`.

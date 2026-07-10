@@ -3,6 +3,7 @@ import { getSupabase } from '../_lib/supabase.js';
 import { getAuthHeader } from '../_lib/chpp-auth.js';
 import { validateTeamEligibility } from '../_lib/eligibility.js';
 import { parseTeamDetailsXml } from '../_lib/chpp-xml.js';
+import { hasSuperAdminBypassCookie } from '../_lib/superadmin-bypass.js';
 
 interface TeamDetails {
   leagueName?: string;
@@ -44,8 +45,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     }
 
     // 2. Check if team is in another active tournament
-    const isSuperAdmin =
-      req.headers.cookie?.includes('issuperadmin=youbet') || req.headers.cookie?.includes('issuperadmin="you bet"');
+    const isSuperAdmin = hasSuperAdminBypassCookie(req.headers.cookie);
 
     if (!isSuperAdmin) {
       const { data: existing } = await supabase

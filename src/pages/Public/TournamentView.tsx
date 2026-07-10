@@ -17,6 +17,7 @@ import { buildRescheduleDraft, serializeRescheduleDraftForRpc } from '../../util
 import { getMatchDateForRound as resolveMatchDateForRound } from '../../utils/match-schedule';
 import { canViewerJoinTournament } from '../../utils/tournament-joinability';
 import { markAuthRefreshCurrent, needsAuthRefresh } from '../../utils/auth-refresh';
+import { hasSuperAdminBypassCookie } from '../../utils/superadmin-bypass';
 import {
   JOINED_NOTICE_KEY,
   selectTournamentMessage,
@@ -39,6 +40,7 @@ import { Modal } from '../../components/Modal/Modal';
 import { MottoWidget } from '../../components/MottoWidget/MottoWidget';
 import { StandingsView } from '../../components/TournamentTabs/StandingsView';
 import { TOURNAMENT_DEFAULT } from '../../constants/descriptions';
+import { FORGE_SUPERADMIN_USER_ID } from '../../constants/site-admins';
 import { ArrowClockwise, ArrowRight, ArrowUpRight, CopySimple, Info, Star, Trash, X } from 'phosphor-react';
 
 const DEFAULT_TEAM_LOGO = '/default-logo.png';
@@ -255,19 +257,7 @@ export const TournamentView: React.FC = () => {
     return getLeagueIdByName(countries[0]!) ?? null;
   }, [teams]);
 
-  const isSuperAdmin =
-    document.cookie
-      .split('; ')
-      .find((row) => row.startsWith('issuperadmin='))
-      ?.split('=')[1] === 'youbet' ||
-    document.cookie
-      .split('; ')
-      .find((row) => row.startsWith('issuperadmin='))
-      ?.split('=')[1] === 'you%20bet' ||
-    document.cookie
-      .split('; ')
-      .find((row) => row.startsWith('issuperadmin='))
-      ?.split('=')[1] === 'you bet';
+  const isSuperAdmin = useMemo(() => hasSuperAdminBypassCookie(document.cookie), []);
 
   const currentHtUserId = Number(localStorage.getItem('my_ht_user_id') || '0') || null;
   const organizerTeam = tournament?.organizer_id
@@ -278,7 +268,7 @@ export const TournamentView: React.FC = () => {
   const canLoginAsOrganizer = Boolean(
     tournament?.organizer_id && currentHtUserId && Number(tournament.organizer_id) === currentHtUserId,
   );
-  const canManageFeaturedTournaments = isSuperAdmin && currentHtUserId === 8777402;
+  const canManageFeaturedTournaments = isSuperAdmin && currentHtUserId === FORGE_SUPERADMIN_USER_ID;
   const organizerLoginLabel = `🤖 ${currentHtManagerName} (organizer)`;
   const dismissedPublicAnnouncementIds = new Set(
     announcements
@@ -375,15 +365,12 @@ export const TournamentView: React.FC = () => {
     localStorage.setItem(`expanded_rounds_${slug}`, JSON.stringify(expandedRounds));
   }, [expandedRounds, slug]);
 
-  const toggleRound = useCallback(
-    (roundId: string) => {
-      setExpandedRounds((current) => ({
-        ...current,
-        [roundId]: !current[roundId],
-      }));
-    },
-    [],
-  );
+  const toggleRound = useCallback((roundId: string) => {
+    setExpandedRounds((current) => ({
+      ...current,
+      [roundId]: !current[roundId],
+    }));
+  }, []);
   const [quickDescription, setQuickDescription] = useState('');
   const [isJoinedNoticeDismissed, setIsJoinedNoticeDismissed] = useState(
     localStorage.getItem(`joined_notice_dismissed_${slug}`) === 'true',
@@ -933,7 +920,7 @@ export const TournamentView: React.FC = () => {
   }, [lastRefresh]);
 
   const upcomingRoundIndex = rounds.findIndex((r) => r.matches.some((m) => !m.completed && m.status !== 'misarranged'));
-  const currentRoundId = upcomingRoundIndex >= 0 ? rounds[upcomingRoundIndex]?.id ?? null : null;
+  const currentRoundId = upcomingRoundIndex >= 0 ? (rounds[upcomingRoundIndex]?.id ?? null) : null;
   const defaultVisibleRoundsCount = rounds.length;
 
   const expandAllRounds = useCallback(() => {

@@ -16,7 +16,7 @@ import { Button } from '../../components/Button/Button';
 import { SectionCard } from '../../components/Card/SectionCard';
 import { Switch } from '../../components/Switch/Switch';
 import { faqPublished, faqSections, type FaqSection } from '../../constants/faq-essential';
-import { FORGE_SUPERADMIN_USER_ID, siteAdminRules } from '../../constants/site-admins';
+import { siteAdminRules } from '../../constants/site-admins';
 import {
   getAllScenarios,
   getMockManagerId,
@@ -81,9 +81,6 @@ function ForgeGate({ onLogin }: { onLogin: () => void }) {
             Login with CHPP
           </Button>
         </div>
-        <p className={styles.smallNote}>
-          Initial admin access is limited to Hattrick user ID {FORGE_SUPERADMIN_USER_ID}.
-        </p>
       </SectionCard>
     </div>
   );

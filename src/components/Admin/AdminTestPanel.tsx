@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { Button } from '../Button/Button';
+import { FORGE_SUPERADMIN_USER_ID } from '../../constants/site-admins';
 import styles from './AdminTestPanel.module.sass';
 
 export const AdminTestPanel: React.FC = () => {
@@ -16,7 +17,7 @@ export const AdminTestPanel: React.FC = () => {
         headers: { 'Content-Type': 'application/json' },
         credentials: 'include',
         body: JSON.stringify({
-          adminManagerId: import.meta.env.VITE_ADMIN_HT_ID,
+          adminManagerId: FORGE_SUPERADMIN_USER_ID,
           managerId,
           teamId: teamId || undefined,
           message,

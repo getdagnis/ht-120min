@@ -10,6 +10,7 @@ import {
 import crypto from 'crypto';
 import { getSupabase } from '../_lib/supabase.js';
 import { OAUTH_CREATION_TOURNAMENT_ID } from '../_lib/oauth-constants.js';
+import { hasSuperAdminBypassCookie } from '../_lib/superadmin-bypass.js';
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   const { oauth_token, oauth_verifier } = req.query;
@@ -129,10 +130,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       tournament = tData;
     }
 
-    const isSuperAdmin =
-      req.headers.cookie?.includes('issuperadmin=youbet') ||
-      req.headers.cookie?.includes('issuperadmin=you%20bet') ||
-      req.headers.cookie?.includes('issuperadmin="you bet"');
+    const isSuperAdmin = hasSuperAdminBypassCookie(req.headers.cookie);
 
     const leagueCategory: LeagueCategory = session.is_creation
       ? session.league_category === 'hfi'

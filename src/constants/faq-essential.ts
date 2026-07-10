@@ -18,6 +18,32 @@ export interface FaqSection {
 
 export const faqPublished = true;
 
+// Next FAQ questions:
+// Q: Is this only for 120min friendly matches?
+// A: No, it can be used for also regular friendly tournaments. The 120min scoring mode is the main focus but 90min system is also available.
+// Participants can choose how they play their friendlies, it's only affecting their standings in the tournament. Of course, if you are playing
+// in a 120min tournament, you should be dedicated to them so its fair to other participants, but the system does not enforce that.
+
+// Q: Can I use this for my private league or federation?
+// A: Yes, you can use this for your private league. You can create a tournament and invite your league teams to join. The system will
+// handle the fixtures, results, standings, and basic communication for your league. Everyone can create a tournament as long as you don't
+// have another team participating in one already, the success of your tournament depends only if you can also get participants to join it.
+
+// Q: Will this stay free forever?
+// A: Yes, most features will stay free forever. There's a possibility of some premium features in the future, but the core functionality will
+// remain free for all users.
+
+// Q: What possible premium features are planned?
+// Premium Tournaments is something I'm considering right now, where organizer (or participants collectivelly) can pay a small fee to create
+// a tournament with more advanced interactive features, statistics, tournament history etc. Premium Tournaments could also have
+// custom developed features/tournament rules/system as requested by the organizer that could then be optional to be used also
+// for other Premium Tournaments. But all the tournament creation and participation (standings, fixtures, admin, chat etc.)
+// essentials will always be free.
+
+// Q: Will there be a mobile app for this?
+// A: There are no concrete plans for a mobile app at the moment. The website is designed to be mobile-friendly and should work well on most devices.
+// However, technologies used and UI flexibility allows for a potential transition to a cross-platform mobile app.
+
 export const faqSections: FaqSection[] = [
   {
     id: 'getting-started',

@@ -75,6 +75,8 @@ Current counted functions are listed in `AGENTS.md`.
 - CHPP server routes require server-side CHPP consumer credentials.
 - Frontend Supabase access uses public Vite env variables.
 - Service-role and CHPP secrets must stay server-side.
+- `APP_SESSION_SECRET` must be present in production. Do not fall back to `CHPP_CONSUMER_SECRET` for session signing.
+- The superadmin bypass cookie is dev-only. Keep its token out of production and do not surface it in the UI.
 
 ## Validation
 

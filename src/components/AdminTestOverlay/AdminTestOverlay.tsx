@@ -10,6 +10,7 @@ import {
   setMockManagerId,
   getTestManagerIdList,
 } from '../../mock/matchmaker';
+import { hasSuperAdminBypassCookie } from '../../utils/superadmin-bypass';
 import styles from './AdminTestOverlay.module.sass';
 
 const STORAGE_MODE = 'ht120_mode';
@@ -32,7 +33,7 @@ export const AdminTestOverlay: React.FC = () => {
     // show overlay if not production or superadmin cookie present
     try {
       const cookie = typeof window !== 'undefined' ? document.cookie : '';
-      if (mode !== 'production' && cookie.includes('issuperadmin=youbet')) setVisible(true);
+      if (mode !== 'production' && hasSuperAdminBypassCookie(cookie)) setVisible(true);
     } catch {
       // ignore
     }

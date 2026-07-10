@@ -1,4 +1,6 @@
-export const FORGE_SUPERADMIN_USER_ID = 8777402;
+const parsedForgeSuperadminUserId = Number(import.meta.env.VITE_ADMIN_HT_ID);
+
+export const FORGE_SUPERADMIN_USER_ID = Number.isFinite(parsedForgeSuperadminUserId) ? parsedForgeSuperadminUserId : 0;
 
 export const siteAdminRules = [
   {

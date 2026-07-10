@@ -5,6 +5,7 @@ import { getAuthHeader } from '../_lib/chpp-auth.js';
 import { parseTeamDetailsXml } from '../_lib/chpp-xml.js';
 import { validateTeamEligibility } from '../_lib/eligibility.js';
 import { buildAppSessionCookie, getAppSessionSecret } from '../_lib/app-session.js';
+import { hasSuperAdminBypassCookie } from '../_lib/superadmin-bypass.js';
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
@@ -25,8 +26,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   try {
     const supabase = getSupabase();
 
-    const isSuperAdmin =
-      req.headers.cookie?.includes('issuperadmin=youbet') || req.headers.cookie?.includes('issuperadmin="you bet"');
+    const isSuperAdmin = hasSuperAdminBypassCookie(req.headers.cookie);
 
     // 1. Get pending join data
     const { data: pending, error: pError } = await supabase
