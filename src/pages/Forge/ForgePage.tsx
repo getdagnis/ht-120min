@@ -15,9 +15,15 @@ import {
 import { Button } from '../../components/Button/Button';
 import { SectionCard } from '../../components/Card/SectionCard';
 import { Switch } from '../../components/Switch/Switch';
-import { faqPublished, faqSections, type FaqSection } from '../../constants/faq-revised';
+import { faqPublished, faqSections, type FaqSection } from '../../constants/faq-essential';
 import { FORGE_SUPERADMIN_USER_ID, siteAdminRules } from '../../constants/site-admins';
-import { getAllScenarios, getMockManagerId, getTestManagerIdList, clearMockState, setMockManagerId } from '../../mock/matchmaker';
+import {
+  getAllScenarios,
+  getMockManagerId,
+  getTestManagerIdList,
+  clearMockState,
+  setMockManagerId,
+} from '../../mock/matchmaker';
 import { supabase } from '../../lib/supabase';
 import { useForgeAuth } from '../../hooks/useForgeAuth';
 import faqStyles from '../../components/Faq/FaqRenderer.module.sass';
@@ -75,7 +81,9 @@ function ForgeGate({ onLogin }: { onLogin: () => void }) {
             Login with CHPP
           </Button>
         </div>
-        <p className={styles.smallNote}>Initial admin access is limited to Hattrick user ID {FORGE_SUPERADMIN_USER_ID}.</p>
+        <p className={styles.smallNote}>
+          Initial admin access is limited to Hattrick user ID {FORGE_SUPERADMIN_USER_ID}.
+        </p>
       </SectionCard>
     </div>
   );
@@ -187,11 +195,21 @@ function ForgeShell({
 }) {
   return (
     <div className={styles.page}>
-      <ForgeHeader managerName={managerName} onLogoutMain={onLogoutMain} onLogoutForge={onLogoutForge} onLogin={onLogin} />
+      <ForgeHeader
+        managerName={managerName}
+        onLogoutMain={onLogoutMain}
+        onLogoutForge={onLogoutForge}
+        onLogin={onLogin}
+      />
       <div className={styles.shell}>
         <aside className={styles.sidebar}>
           {sidebarItems.map((item) => (
-            <NavLink key={item.to} to={item.to} end={item.to === '/forge'} className={({ isActive }) => `${styles.navItem} ${isActive ? styles.navItemActive : ''}`}>
+            <NavLink
+              key={item.to}
+              to={item.to}
+              end={item.to === '/forge'}
+              className={({ isActive }) => `${styles.navItem} ${isActive ? styles.navItemActive : ''}`}
+            >
               <span className={styles.navIcon}>{item.icon}</span>
               <span>{item.label}</span>
             </NavLink>
@@ -227,7 +245,11 @@ function ForgeDashboard() {
           .select('id, content, author_name, created_at, tournament_id, tournaments (id, name, slug)')
           .order('created_at', { ascending: false })
           .limit(5),
-        supabase.from('tournaments').select('id, name, slug, created_at').order('created_at', { ascending: false }).limit(5),
+        supabase
+          .from('tournaments')
+          .select('id, name, slug, created_at')
+          .order('created_at', { ascending: false })
+          .limit(5),
       ]);
 
       if (cancelled) return;
@@ -339,7 +361,6 @@ function generateFaqSource(globalPublished: boolean, sections: FaqSection[]) {
       const sectionProps = [
         `    id: ${tsString(section.id)},`,
         `    title: ${tsString(section.title)},`,
-        section.description !== undefined ? `    description: ${tsString(section.description)},` : null,
         `    order: ${section.order},`,
         `    published: ${section.published !== false},`,
         `    items: [`,
@@ -349,7 +370,6 @@ function generateFaqSource(globalPublished: boolean, sections: FaqSection[]) {
           `        question: ${tsString(item.question)},`,
           `        answer: \`${escapeTemplateLiteral(item.answer)}\`,`,
           `        status: ${tsString(item.status)},`,
-          item.featured ? `        featured: true,` : null,
           `        published: ${item.published !== false},`,
           `      },`,
         ]),
@@ -460,18 +480,20 @@ function ForgeFaqEditor() {
   const [exportState, setExportState] = useState<'idle' | 'downloaded' | 'error'>('idle');
   const [expandedItemId, setExpandedItemId] = useState(() => faqSections[0]?.items[0]?.id ?? '');
 
-  const generatedSource = useMemo(() => generateFaqSource(globalPublished, draftSections), [draftSections, globalPublished]);
+  const generatedSource = useMemo(
+    () => generateFaqSource(globalPublished, draftSections),
+    [draftSections, globalPublished],
+  );
   const currentContentSignature = useMemo(() => getFaqContentSignature(draftSections), [draftSections]);
   const savedContentSignature = useMemo(() => getFaqContentSignature(savedSections), [savedSections]);
   const fileDirty = currentContentSignature !== savedContentSignature;
 
   const isItemDirty = (sectionId: string, item: FaqSection['items'][number]) => {
-    const savedItem = savedSections.find((section) => section.id === sectionId)?.items.find((candidate) => candidate.id === item.id);
+    const savedItem = savedSections
+      .find((section) => section.id === sectionId)
+      ?.items.find((candidate) => candidate.id === item.id);
     if (!savedItem) return true;
-    return (
-      savedItem.question !== item.question ||
-      savedItem.answer !== item.answer
-    );
+    return savedItem.question !== item.question || savedItem.answer !== item.answer;
   };
 
   const updateSection = (sectionId: string, update: (section: FaqSection) => FaqSection) => {
@@ -479,7 +501,11 @@ function ForgeFaqEditor() {
     setExportState('idle');
   };
 
-  const updateItem = (sectionId: string, itemId: string, update: (item: FaqSection['items'][number]) => FaqSection['items'][number]) => {
+  const updateItem = (
+    sectionId: string,
+    itemId: string,
+    update: (item: FaqSection['items'][number]) => FaqSection['items'][number],
+  ) => {
     setDraftSections((current) =>
       current.map((section) =>
         section.id === sectionId
@@ -516,7 +542,7 @@ function ForgeFaqEditor() {
       const url = URL.createObjectURL(blob);
       const link = document.createElement('a');
       link.href = url;
-      link.download = 'faq-revised.ts';
+      link.download = 'faq-essential.ts';
       link.click();
       URL.revokeObjectURL(url);
       setSavedSections(cloneFaqSections(draftSections));
@@ -550,7 +576,7 @@ function ForgeFaqEditor() {
 
       {exportState !== 'idle' && (
         <p className={exportState === 'error' ? styles.errorText : styles.successText}>
-          {exportState === 'downloaded' && 'Generated faq-revised.ts download.'}
+          {exportState === 'downloaded' && 'Generated faq-essential.ts download.'}
           {exportState === 'error' && 'Could not generate the FAQ source.'}
         </p>
       )}
@@ -570,15 +596,14 @@ function ForgeFaqEditor() {
               const isExpanded = expandedItemId === item.id;
               const itemDirty = isItemDirty(section.id, item);
               return (
-                <article
-                  key={item.id}
-                  className={`${faqStyles.item} ${isExpanded ? faqStyles.itemExpanded : ''}`}
-                >
+                <article key={item.id} className={`${faqStyles.item} ${isExpanded ? faqStyles.itemExpanded : ''}`}>
                   <div className={faqStyles.summary}>
                     <input
                       className={faqStyles.editableQuestion}
                       value={item.question}
-                      onChange={(event) => updateItem(section.id, item.id, (current) => ({ ...current, question: event.target.value }))}
+                      onChange={(event) =>
+                        updateItem(section.id, item.id, (current) => ({ ...current, question: event.target.value }))
+                      }
                     />
                     <button
                       type="button"
@@ -596,7 +621,9 @@ function ForgeFaqEditor() {
                         className={`${faqStyles.answer} ${faqStyles.editableAnswer}`}
                         value={item.answer}
                         rows={getAnswerRows(item.answer)}
-                        onChange={(event) => updateItem(section.id, item.id, (current) => ({ ...current, answer: event.target.value }))}
+                        onChange={(event) =>
+                          updateItem(section.id, item.id, (current) => ({ ...current, answer: event.target.value }))
+                        }
                       />
 
                       <div className={faqStyles.itemActions}>
@@ -607,13 +634,19 @@ function ForgeFaqEditor() {
                         >
                           Save
                         </button>
-                        <button type="button" className={faqStyles.itemButton} onClick={() => restoreItem(section.id, item.id)}>
+                        <button
+                          type="button"
+                          className={faqStyles.itemButton}
+                          onClick={() => restoreItem(section.id, item.id)}
+                        >
                           Cancel
                         </button>
                         <Switch
                           size="sm"
                           checked={item.published !== false}
-                          onChange={(checked) => updateItem(section.id, item.id, (current) => ({ ...current, published: checked }))}
+                          onChange={(checked) =>
+                            updateItem(section.id, item.id, (current) => ({ ...current, published: checked }))
+                          }
                           label="Published"
                         />
                       </div>
@@ -751,8 +784,8 @@ function ForgeAdminsSection() {
         </div>
 
         <div className={styles.smallNote}>
-          The current production admin set is deliberately small. Superadmin owns all Forge capabilities; moderators
-          can be added later with a narrower surface.
+          The current production admin set is deliberately small. Superadmin owns all Forge capabilities; moderators can
+          be added later with a narrower surface.
         </div>
       </SectionCard>
     </section>

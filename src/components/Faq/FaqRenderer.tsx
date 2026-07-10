@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { CaretDown, ChatCircleDots } from 'phosphor-react';
-import type { FaqSection } from '../../constants/faq-revised';
+import type { FaqSection } from '../../constants/faq-essential';
 import styles from './FaqRenderer.module.sass';
 
 interface FaqRendererProps {

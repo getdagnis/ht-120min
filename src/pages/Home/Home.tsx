@@ -15,7 +15,7 @@ import { Link as ScrollTo, Element } from 'react-scroll';
 import { sortOpenTournaments } from '../../utils/open-tournaments';
 import { getTournamentNextMatchDate } from '../../utils/tournament-next-match';
 import { sortFeaturedFirst } from '../../utils/tournament-sorting';
-import { getPublishedFaqSections } from '../../constants/faq-revised';
+import { getPublishedFaqSections } from '../../constants/faq-essential';
 import {
   Trophy,
   CalendarBlank,
@@ -31,7 +31,7 @@ import { TeamsIcon } from '../../components/Icons/TeamsIcon';
 import styles from './Home.module.sass';
 
 const FORUM_LINK = 'https://www.hattrick.org/goto.ashx?path=/Forum/Overview.aspx?v=0&f=1558036';
-const SHOW_FAQ = false;
+const SHOW_FAQ = true;
 
 interface DBTeamMatch {
   id: string;
