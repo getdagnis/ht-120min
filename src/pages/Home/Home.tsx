@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { supabase } from '../../lib/supabase';
 import { Button } from '../../components/Button/Button';
@@ -6,6 +6,7 @@ import { Card } from '../../components/Card/Card';
 import { HeroCard } from '../../components/Card/HeroCard';
 import { TournamentCard } from '../../components/Card/TournamentCard';
 import { SectionCard } from '../../components/Card/SectionCard';
+import { FaqRenderer } from '../../components/Faq/FaqRenderer';
 import { MottoWidget } from '../../components/MottoWidget/MottoWidget';
 import { SidebarWidget } from '../../components/SidebarWidget/SidebarWidget';
 import { TinderWidget } from '../../components/TinderWidget/TinderWidget';
@@ -13,6 +14,8 @@ import { SupportersWall } from '../../components/SupportersWall/SupportersWall';
 import { Link as ScrollTo, Element } from 'react-scroll';
 import { sortOpenTournaments } from '../../utils/open-tournaments';
 import { getTournamentNextMatchDate } from '../../utils/tournament-next-match';
+import { sortFeaturedFirst } from '../../utils/tournament-sorting';
+import { getPublishedFaqSections } from '../../constants/faq-revised';
 import {
   Trophy,
   CalendarBlank,
@@ -28,6 +31,7 @@ import { TeamsIcon } from '../../components/Icons/TeamsIcon';
 import styles from './Home.module.sass';
 
 const FORUM_LINK = 'https://www.hattrick.org/goto.ashx?path=/Forum/Overview.aspx?v=0&f=1558036';
+const SHOW_FAQ = false;
 
 interface DBTeamMatch {
   id: string;
@@ -54,6 +58,7 @@ interface DBTournament {
   name: string;
   slug: string;
   created_at: string;
+  is_featured?: boolean | null;
   is_private: boolean;
   thumbnail_index?: number;
   image_url?: string;
@@ -84,6 +89,7 @@ interface Tournament extends DBTournament {
   activityScore: number;
   teamCount: number;
   nextMatchDate: Date | null;
+  is_featured: boolean;
 }
 
 interface TopTeam {
@@ -118,6 +124,9 @@ export const Home: React.FC = () => {
   const [openTournaments, setOpenTournaments] = useState<Tournament[]>([]);
   const [topTeams, setTopTeams] = useState<TopTeam[]>([]);
   const [topActiveTournaments, setTopActiveTournaments] = useState<TopTournament[]>([]);
+  const faqContent = useMemo(() => getPublishedFaqSections(), []);
+
+  const showFaq = faqContent.length > 0 && SHOW_FAQ;
 
   const fetchTournaments = useCallback(async () => {
     try {
@@ -130,6 +139,7 @@ export const Home: React.FC = () => {
           name, 
           slug, 
           created_at,
+          is_featured,
           is_private,
           thumbnail_index,
           image_url,
@@ -222,6 +232,7 @@ export const Home: React.FC = () => {
             teamCount: t.teams.length,
             nextMatchDate,
             validatedTeamCount,
+            is_featured: Boolean(t.is_featured),
           };
 
           if (isGenerated && !isClosed) {
@@ -233,7 +244,7 @@ export const Home: React.FC = () => {
 
         // Sort by validated count first, then next match date
         setActiveTournaments(
-          active.sort((a, b) => {
+          sortFeaturedFirst(active, (a, b) => {
             if (b.validatedTeamCount !== a.validatedTeamCount) {
               return b.validatedTeamCount - a.validatedTeamCount;
             }
@@ -270,8 +281,6 @@ export const Home: React.FC = () => {
     }, 0);
     return () => clearTimeout(timer);
   }, [fetchTournaments]);
-
-  console.log('🏜💀👾 activeTournaments', activeTournaments);
 
   return (
     <div className={styles.home}>
@@ -499,6 +508,7 @@ export const Home: React.FC = () => {
             </Button>
           </ScrollTo>
         </div>
+        {showFaq && <FaqRenderer sections={faqContent} className={styles.faqRenderer} />}
       </div>
     </div>
   );

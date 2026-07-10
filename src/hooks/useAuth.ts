@@ -1,6 +1,8 @@
 import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '../lib/supabase';
 import { getTournamentNextMatchDate } from '../utils/tournament-next-match';
+import { sortFeaturedFirst } from '../utils/tournament-sorting';
+import { clearMainAuthSession } from '../utils/auth-storage';
 
 export interface AvatarLayer {
   x?: number;
@@ -35,6 +37,7 @@ export interface ActiveTournament {
   id: string;
   name: string;
   slug: string;
+  is_featured: boolean;
   nextMatchDate: Date | null;
 }
 
@@ -42,7 +45,9 @@ export interface OrganizerTournament {
   id: string;
   name: string;
   slug: string;
+  is_featured: boolean;
   status: string | null;
+  created_at: string;
 }
 
 interface DBTeamMatch {
@@ -65,6 +70,7 @@ interface DBTournament {
   name: string;
   slug: string;
   created_at: string;
+  is_featured?: boolean | null;
   rounds: DBRound[] | null;
 }
 
@@ -77,6 +83,7 @@ interface DBOrganizerTournament {
   id: string;
   name: string;
   slug: string;
+  is_featured?: boolean | null;
   status: string | null;
   created_at: string;
 }
@@ -121,6 +128,7 @@ export const useAuth = () => {
             name, 
             slug, 
             created_at,
+            is_featured,
             rounds (
               id,
               created_at,
@@ -164,11 +172,12 @@ export const useAuth = () => {
           id: tournament.id,
           name: tournament.name,
           slug: tournament.slug,
+          is_featured: Boolean(tournament.is_featured),
           nextMatchDate: getTournamentNextMatchDate(tournament.rounds, warnings),
         });
       }
 
-      const sortedTours = Array.from(toursMap.values()).sort((a, b) => {
+      const sortedTours = sortFeaturedFirst(Array.from(toursMap.values()), (a, b) => {
         if (!a.nextMatchDate && !b.nextMatchDate) return 0;
         if (!a.nextMatchDate) return 1; // Far future
         if (!b.nextMatchDate) return -1;
@@ -179,7 +188,7 @@ export const useAuth = () => {
 
       const { data: organizerDataRaw } = await supabase
         .from('tournaments')
-        .select('id, name, slug, status, created_at')
+        .select('id, name, slug, status, created_at, is_featured')
         .eq('organizer_id', uid)
         .neq('status', 'archived')
         .order('created_at', { ascending: false });
@@ -190,10 +199,16 @@ export const useAuth = () => {
           id: tournament.id,
           name: tournament.name,
           slug: tournament.slug,
+          is_featured: Boolean(tournament.is_featured),
           status: tournament.status,
+          created_at: tournament.created_at,
         }));
 
-      setOrganizerTournaments(organizerTours);
+      setOrganizerTournaments(
+        sortFeaturedFirst(organizerTours, (a, b) =>
+          new Date(b.created_at).getTime() - new Date(a.created_at).getTime(),
+        ),
+      );
     } catch (err) {
       console.error('Error fetching profile:', err);
     } finally {
@@ -212,9 +227,7 @@ export const useAuth = () => {
   }, [fetchProfile]);
 
   const logout = () => {
-    localStorage.removeItem('my_ht_manager_name');
-    localStorage.removeItem('my_ht_user_id');
-    localStorage.removeItem('my_ht_team_name');
+    clearMainAuthSession();
     setManagerName(null);
     setProfile(null);
     setActiveTournaments([]);

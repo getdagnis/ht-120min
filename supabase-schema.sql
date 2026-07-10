@@ -10,6 +10,7 @@ CREATE TABLE tournaments (
   description TEXT,
   show_description BOOLEAN DEFAULT TRUE,
   organizer_id BIGINT,
+  is_featured BOOLEAN NOT NULL DEFAULT FALSE,
   image_url TEXT,
   include_week15_weekend_friendly BOOLEAN DEFAULT FALSE,
   created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()

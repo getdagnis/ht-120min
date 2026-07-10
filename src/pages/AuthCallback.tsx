@@ -2,6 +2,12 @@ import { useEffect } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import styles from './AuthCallback.module.sass';
 import { markAuthRefreshCurrent } from '../utils/auth-refresh';
+import {
+  isForgeAuthReturnUrl,
+  setForgeAuthSession,
+  setMainAuthSession,
+  stripForgeAuthFlag,
+} from '../utils/auth-storage';
 
 export const AuthCallback = () => {
   const [searchParams] = useSearchParams();
@@ -22,12 +28,17 @@ export const AuthCallback = () => {
           
           const data = await res.json();
           if (res.ok) {
-            localStorage.setItem('my_ht_manager_name', data.manager_name);
-            localStorage.setItem('my_ht_user_id', String(data.hattrick_user_id));
-            markAuthRefreshCurrent();
+            const forgeAuth = isForgeAuthReturnUrl(returnUrl);
+            if (forgeAuth) {
+              setForgeAuthSession(data.manager_name, data.hattrick_user_id);
+            } else {
+              setMainAuthSession(data.manager_name, data.hattrick_user_id);
+              markAuthRefreshCurrent();
+            }
             
             // Redirect to the intended page, or the one from backend, or home
-            window.location.href = returnUrl ? decodeURIComponent(returnUrl) : (data.redirect || '/');
+            const decodedReturnUrl = returnUrl ? decodeURIComponent(returnUrl) : '';
+            window.location.href = decodedReturnUrl ? stripForgeAuthFlag(decodedReturnUrl) : (data.redirect || '/');
           } else {
             console.error('Auth complete failed:', data.error);
             navigate('/');

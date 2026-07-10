@@ -1,5 +1,4 @@
 import React, { useState } from 'react';
-import { Info } from 'phosphor-react';
 import { Button } from '../../Button/Button';
 import { SectionCard } from '../../Card/SectionCard';
 import adminStyles from '../../../pages/Public/TournamentAdmin.module.sass';
@@ -121,9 +120,11 @@ export const TournamentSchedulePanel: React.FC<TournamentSchedulePanelProps> = (
   const [expandedRounds, setExpandedRounds] = useState<Record<number, boolean>>({});
   const plannerTeamCount = getPlannerTeamCount(draft, tournamentTeamLimit);
   const selectedStartWarning =
-    draft.selectedStartSlot && getCupWeekDecoration(draft.selectedStartSlot.htWeek)
+    draft.requestedStartSlotId && draft.selectedStartSlot && getCupWeekDecoration(draft.selectedStartSlot.htWeek)
       ? null
-      : getSelectedStartWarning(draft.daysUntilStart);
+      : draft.requestedStartSlotId
+        ? getSelectedStartWarning(draft.daysUntilStart)
+        : null;
   const validStartSlotIds = new Set(draft.startSlotOptions.map((slot) => slot.id));
   const dropdownOptions = draft.allSlotOptions.flatMap((slot, index, slots) => {
     const previous = slots[index - 1];
@@ -172,6 +173,15 @@ export const TournamentSchedulePanel: React.FC<TournamentSchedulePanelProps> = (
   const rescheduleLastRound = rescheduleDraft?.rounds[rescheduleDraft.rounds.length - 1] || null;
   const hasSelectedRescheduleRound = Boolean(rescheduleDraft?.selectedFromRoundNumber);
   const hasSelectedRescheduleStart = Boolean(rescheduleDraft?.selectedStartSlot);
+  const hasSelectedStartSlot = Boolean(draft.requestedStartSlotId);
+  const showCalendarPreview = hasSelectedStartSlot && draft.rounds.length > 0;
+  const startSlotPlaceholder =
+    draft.valid || draft.startSlotOptions.length > 0
+      ? 'Select a start date...'
+      : draft.reason === 'At least 2 active teams are required.'
+        ? 'Not enough teams'
+        : draft.reason || 'No valid start date';
+  const invalidReason = !draft.valid ? draft.blockingReasons[0] || draft.reason : null;
 
   return (
     <SectionCard
@@ -217,10 +227,13 @@ export const TournamentSchedulePanel: React.FC<TournamentSchedulePanelProps> = (
             <h3 className={adminStyles.startSlotLabel}>Choose start date</h3>
             <select
               className={adminStyles.startSlotSelect}
-              value={draft.selectedStartSlotId || ''}
+              value={draft.requestedStartSlotId || ''}
               onChange={(e) => onSelectedStartSlotIdChange(e.target.value)}
               disabled={draft.startSlotOptions.length === 0}
             >
+              <option value="" disabled>
+                {startSlotPlaceholder}
+              </option>
               {dropdownOptions.map((option) =>
                 option.kind === 'header' ? (
                   <option key={option.id} value={option.id} disabled>
@@ -251,7 +264,7 @@ export const TournamentSchedulePanel: React.FC<TournamentSchedulePanelProps> = (
             </label>
           )}
 
-          {draft.rounds.length > 0 && (
+          {showCalendarPreview && (
             <div className={adminStyles.schedulePreview}>
               <h3>Calendar preview</h3>
               {draft.rounds.map((round) => (
@@ -288,7 +301,9 @@ export const TournamentSchedulePanel: React.FC<TournamentSchedulePanelProps> = (
             </div>
           )}
 
-          {draft.valid && firstRound && lastRound && (
+          {invalidReason && <p className={adminStyles.scheduleReason}>{invalidReason}</p>}
+
+          {draft.valid && firstRound && lastRound && hasSelectedStartSlot && (
             <div className={adminStyles.scheduleNotice}>
               <span>
                 Generate a schedule for a{' '}
@@ -302,22 +317,14 @@ export const TournamentSchedulePanel: React.FC<TournamentSchedulePanelProps> = (
             </div>
           )}
 
-          {!draft.valid && draft.reason && <p className={adminStyles.smallNote}>{draft.reason}</p>}
-          {!draft.valid && draft.blockingReasons.length > 0 && (
-            <div className={adminStyles.scheduleNotice}>
-              <Info size={14} />
-              <div>
-                {draft.blockingReasons.map((reason) => (
-                  <p key={reason} className={adminStyles.smallNote}>
-                    {reason}
-                  </p>
-                ))}
-              </div>
-            </div>
-          )}
-
           <div className={adminStyles.scheduleAction}>
-            <Button variant="primary" size="lg" fullWidth onClick={onGenerate} disabled={!draft.valid || isGenerating}>
+            <Button
+              variant="primary"
+              size="lg"
+              fullWidth
+              onClick={onGenerate}
+              disabled={!draft.valid || isGenerating || !hasSelectedStartSlot}
+            >
               Generate a schedule
             </Button>
           </div>

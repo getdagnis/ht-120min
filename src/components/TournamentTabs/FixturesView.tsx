@@ -183,7 +183,7 @@ export const FixturesView: React.FC<FixturesViewProps> = ({
       cancelled = true;
       if (timerId !== undefined) window.clearTimeout(timerId);
     };
-  }, [currentRound?.id, currentRound?.round_number, scrollToCurrentRound]);
+  }, [currentRound, currentRound?.id, currentRound?.round_number, scrollToCurrentRound]);
 
   const resolveMatchDate = React.useCallback(
     (round: { created_at: string; round_number: number }, match: FixtureMatch) =>

@@ -13,6 +13,7 @@ import {
   Clock,
   User,
   Handshake,
+  Shield,
 } from 'phosphor-react';
 import { scroller } from 'react-scroll';
 import { Button } from '../Button/Button';
@@ -20,6 +21,7 @@ import { useAuth } from '../../hooks/useAuth';
 import { usePresenceHeartbeat } from '../../hooks/usePresenceHeartbeat';
 import { ProfileModal } from '../ProfileModal/ProfileModal';
 import { BeerBanner } from '../BeerBanner/BeerBanner';
+import { FORGE_SUPERADMIN_USER_ID } from '../../constants/site-admins';
 import styles from './Layout.module.sass';
 
 interface LayoutProps {
@@ -241,6 +243,18 @@ export const Layout: React.FC<LayoutProps> = ({ children }) => {
                           <IdentificationCard size={18} />
                           My Profile
                         </button>
+                        {profile?.hattrick_user_id === FORGE_SUPERADMIN_USER_ID && (
+                          <button
+                            className={styles.dropdownItem}
+                            onClick={() => {
+                              navigate('/forge');
+                              setIsUserDropdownOpen(false);
+                            }}
+                          >
+                            <Shield size={18} />
+                            Forge
+                          </button>
+                        )}
                         <button
                           className={styles.dropdownItem}
                           onClick={() => {
@@ -272,7 +286,7 @@ export const Layout: React.FC<LayoutProps> = ({ children }) => {
 
       <footer className={styles.footer}>
         <div className={styles.container}>
-          {visitCount >= 4 && <BeerBanner />}
+          {visitCount >= 5 && <BeerBanner />}
           <p>
             © {new Date().getFullYear()}
             <span className="mr-sm" />

@@ -1,0 +1,307 @@
+.page
+  min-height: 100vh
+  background: var(--bg)
+  color: var(--text)
+
+.header
+  position: sticky
+  top: 0
+  z-index: 20
+  background: rgba(9, 20, 38, 0.96)
+  border-bottom: 1px solid var(--border)
+  backdrop-filter: blur(14px)
+
+.headerInner
+  width: min(1400px, calc(100vw - 2rem))
+  margin: 0 auto
+  min-height: 4.5rem
+  display: flex
+  align-items: center
+  justify-content: space-between
+  gap: 1rem
+
+.brand
+  display: inline-flex
+  align-items: center
+  gap: 0.75rem
+  color: var(--text-h)
+  text-decoration: none
+  font-size: 1.4rem
+  font-weight: 700
+
+.headerActions
+  position: relative
+
+.userBtn
+  color: var(--text-h)
+
+.dropdown
+  position: absolute
+  right: 0
+  top: calc(100% + 0.5rem)
+  width: 16rem
+  background: var(--table-bg-main)
+  border: 1px solid var(--border)
+  border-radius: var(--radius-xs)
+  box-shadow: 0 0.75rem 2rem rgba(0, 0, 0, 0.28)
+  overflow: hidden
+
+.dropdownItem
+  width: 100%
+  display: flex
+  align-items: center
+  gap: 0.7rem
+  padding: 0.8rem 1rem
+  background: transparent
+  border: 0
+  color: var(--text-h)
+  text-align: left
+  cursor: pointer
+
+  &:hover
+    background: var(--lighter)
+
+.shell
+  width: min(1400px, calc(100vw - 2rem))
+  margin: 0 auto
+  padding: 1.25rem 0 3rem
+  display: grid
+  grid-template-columns: 14rem minmax(0, 1fr)
+  gap: 1rem
+
+.sidebar
+  display: flex
+  flex-direction: column
+  gap: 0.5rem
+  align-self: start
+  position: sticky
+  top: 5.5rem
+
+.navItem
+  display: flex
+  align-items: center
+  gap: 0.7rem
+  text-decoration: none
+  color: var(--text-h)
+  border: 1px solid var(--border)
+  border-radius: var(--radius-xs)
+  background: var(--table-bg-main)
+  padding: 0.8rem 0.9rem
+
+.navItemActive
+  border-color: var(--accent)
+  color: var(--accent)
+
+.navIcon
+  display: inline-flex
+  align-items: center
+  justify-content: center
+  width: 1.2rem
+
+.content
+  min-width: 0
+  display: flex
+  flex-direction: column
+  gap: 1rem
+
+.sectionStack
+  display: flex
+  flex-direction: column
+  gap: 1rem
+
+.dashboardGrid
+  display: grid
+  grid-template-columns: repeat(2, minmax(0, 1fr))
+  gap: 1rem
+
+.metricCard
+  border: 1px solid var(--border)
+  border-radius: var(--radius-xs)
+  background: var(--table-bg-main)
+  padding: 1rem
+  display: flex
+  flex-direction: column
+  gap: 0.75rem
+
+.metricLabel
+  color: var(--text60)
+  font-size: 0.88rem
+  text-transform: uppercase
+  letter-spacing: 0.03em
+
+.metricValue
+  font-size: 2rem
+  font-weight: 700
+  color: var(--text-h)
+
+.list
+  display: flex
+  flex-direction: column
+  gap: 0.75rem
+
+.listRow
+  display: flex
+  justify-content: space-between
+  gap: 1rem
+  padding-top: 0.75rem
+  border-top: 1px solid var(--border)
+
+  &:first-child
+    padding-top: 0
+    border-top: 0
+
+.listTitle
+  color: var(--text-h)
+  font-weight: 600
+
+.listMeta
+  color: var(--text60)
+  font-size: 0.9rem
+  line-height: 1.4
+
+.inlineLink
+  color: var(--accent)
+  text-decoration: none
+
+.gate
+  min-height: 100vh
+  display: grid
+  place-items: center
+  padding: 1rem
+
+.gateCard
+  width: min(42rem, 100%)
+  text-align: center
+
+.gateText
+  margin: 0 0 1rem
+  color: var(--text)
+
+.gateActions
+  display: flex
+  justify-content: center
+  margin-bottom: 0.75rem
+
+.smallNote
+  color: var(--text60)
+  font-size: 0.95rem
+  line-height: 1.45
+
+.faqPage
+  padding: 1rem 0 3rem
+
+.faqSectionHeadingRow
+  display: flex
+  align-items: center
+
+.editorActions
+  display: flex
+  gap: 0.75rem
+  flex-wrap: wrap
+  align-items: center
+
+.errorText
+  color: var(--danger)
+  margin: 0
+
+.successText
+  color: var(--accent)
+  margin: 0
+
+.previewWrap
+  margin-top: 1.25rem
+
+.testingGrid
+  display: grid
+  grid-template-columns: repeat(3, minmax(0, 1fr))
+  gap: 1rem
+
+.testingField
+  display: flex
+  flex-direction: column
+  gap: 0.35rem
+
+  label
+    color: var(--text60)
+    font-size: 0.9rem
+    text-transform: uppercase
+    letter-spacing: 0.03em
+
+  select
+    border-radius: var(--radius-xs)
+    border: 1px solid var(--border)
+    background: var(--bg)
+    color: var(--text-h)
+    padding: 0.75rem 0.9rem
+
+.rulesList
+  display: grid
+  grid-template-columns: repeat(2, minmax(0, 1fr))
+  gap: 1rem
+
+.ruleCard
+  border: 1px solid var(--border)
+  border-radius: var(--radius-xs)
+  background: var(--table-bg-main)
+  padding: 1rem
+
+.ruleTop
+  display: flex
+  justify-content: space-between
+  gap: 1rem
+  align-items: start
+  margin-bottom: 0.75rem
+
+.ruleTitle
+  color: var(--text-h)
+  font-weight: 700
+  font-size: 1.1rem
+
+.ruleMeta
+  color: var(--text60)
+  font-size: 0.9rem
+
+.ruleText
+  margin: 0
+  color: var(--text)
+  line-height: 1.5
+
+.roleBadge
+  flex-shrink: 0
+  border: 1px solid var(--border)
+  border-radius: var(--radius-md)
+  color: var(--accent)
+  padding: 0.2rem 0.55rem
+  font-size: 0.72rem
+  text-transform: uppercase
+
+@media (max-width: 980px)
+  .shell
+    grid-template-columns: 1fr
+
+  .sidebar
+    position: static
+    flex-direction: row
+    flex-wrap: wrap
+
+  .navItem
+    flex: 1 1 10rem
+
+  .dashboardGrid,
+  .testingGrid,
+  .rulesList
+    grid-template-columns: 1fr
+
+@media (max-width: 620px)
+  .headerInner,
+  .shell
+    width: min(100vw - 1rem, 1400px)
+
+  .hideMobile
+    display: none
+
+  .editorActions
+    width: 100%
+
+    > *
+      flex: 1 1 auto

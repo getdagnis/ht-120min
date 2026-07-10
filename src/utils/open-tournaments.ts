@@ -1,10 +1,12 @@
 import { supabase } from '../lib/supabase';
+import { sortFeaturedFirst } from './tournament-sorting';
 
 export interface OpenTournamentSummary {
   id: string;
   name: string;
   slug: string;
   created_at: string;
+  is_featured?: boolean | null;
   teamCount: number;
   max_teams?: number | null;
   validatedTeamCount: number;
@@ -15,15 +17,16 @@ type OpenTournamentRow = {
   name: string;
   slug: string;
   created_at: string;
+  is_featured?: boolean | null;
   max_teams?: number | null;
   rounds: { id: string }[] | null;
   teams: { id: string; joined_via_oauth: boolean }[] | null;
 };
 
-export const sortOpenTournaments = <T extends { teamCount: number; max_teams?: number | null }>(
+export const sortOpenTournaments = <T extends { teamCount: number; max_teams?: number | null; is_featured?: boolean | null }>(
   tournaments: T[],
 ): T[] =>
-  [...tournaments].sort((a, b) => {
+  sortFeaturedFirst(tournaments, (a, b) => {
     const scoreA = a.max_teams && a.max_teams > 0 ? a.teamCount / a.max_teams : a.teamCount;
     const scoreB = b.max_teams && b.max_teams > 0 ? b.teamCount / b.max_teams : b.teamCount;
     return scoreB - scoreA;
@@ -47,6 +50,7 @@ export const fetchOpenTournaments = async (): Promise<OpenTournamentSummary[]> =
       name,
       slug,
       created_at,
+      is_featured,
       rounds ( id ),
       max_teams,
       teams ( id, joined_via_oauth )
@@ -64,6 +68,7 @@ export const fetchOpenTournaments = async (): Promise<OpenTournamentSummary[]> =
       name: tournament.name,
       slug: tournament.slug,
       created_at: tournament.created_at,
+      is_featured: tournament.is_featured ?? false,
       max_teams: tournament.max_teams ?? null,
       teamCount: tournament.teams?.length ?? 0,
       validatedTeamCount: tournament.teams?.filter((team) => team.joined_via_oauth).length ?? 0,
