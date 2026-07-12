@@ -1,6 +1,6 @@
 # PROJECT_STATE.md
 
-Last updated: 2026-07-10
+Last updated: 2026-07-12
 
 This is the current-status ledger. Update it after meaningful implementation work. Be explicit about what is local, migrated, tested, deployed, or still unknown.
 
@@ -30,6 +30,7 @@ The app currently supports:
 | Next match date on cards/menu | Implemented via `src/utils/tournament-next-match.ts` using rounds/matches | No new migration | Not rerun for docs-only refactor | Confirm |
 | Featured tournaments | Implemented locally with superadmin-only admin toggle and featured-first sorting across public/open/organizer lists | `052`; pending Supabase application | `npm run build` and `npm test` passed 2026-07-03 | Confirm |
 | Superadmin bypass and app session hardening | Implemented locally; bypass token is env-backed and disabled in production, app session secret no longer falls back to CHPP secret | No migration | `npm run build` and `npm test` passed 2026-07-10 | Confirm |
+| Sandbox tournament creation | Implemented locally as public third tournament type using real CHPP team metadata and normal tournament mechanics | `053`; pending Supabase application | `npm run build` and `npm test` passed 2026-07-12 | Confirm |
 | API TypeScript editor config | Implemented locally with `api/tsconfig.json` so Vercel API files use Node globals in the IDE without changing `tsc -b` build scope | No migration | `npm run build` passed 2026-07-10; standalone `npx tsc -p api/tsconfig.json` exposes pre-existing API typing issues | Confirm |
 | CHPP country display normalization | Implemented locally for Latvia `CountryID=48` / `LeagueID=53` / localized names | No migration; existing rows handled in UI | `npm test` and `npm run build` passed 2026-07-02 | Confirm |
 | Empty tournament join affordances and team logo fallback | Implemented locally | No migration | `npm test` and `npm run build` passed 2026-07-02 | Confirm |
@@ -79,6 +80,7 @@ Production means live deployed behavior. If it has not been checked against the 
 - Admin settings show a dirty-state save reminder, organizer-only admin password reset, and team deletion now requires a second admin-password confirmation.
 - Superadmin-only featured tournament toggling is available in admin settings and pins featured tournaments to the top of open, active, and organizer lists.
 - Superadmin bypass is env-backed, dev-only, and no longer exposed as a hardcoded cookie value; production session signing now requires `APP_SESSION_SECRET`.
+- Sandbox Playground is available as a public create-flow tournament type. It creates unlisted test tournaments with random real CHPP team metadata, stores sandbox metadata for future expiry cleanup, and excludes test tournaments from normal public discovery lists.
 - Generate schedule now shows a clearer empty-state reason, waits for a picked start date before previewing, and uses a no-teams placeholder label.
 - Tournament cards use canonical league names and avoid mobile overflow on the home grid.
 - Chat shows a login button when the viewer is not authenticated.

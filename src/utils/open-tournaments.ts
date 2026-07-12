@@ -18,6 +18,7 @@ type OpenTournamentRow = {
   slug: string;
   created_at: string;
   is_featured?: boolean | null;
+  is_test?: boolean | null;
   max_teams?: number | null;
   rounds: { id: string }[] | null;
   teams: { id: string; joined_via_oauth: boolean }[] | null;
@@ -51,6 +52,7 @@ export const fetchOpenTournaments = async (): Promise<OpenTournamentSummary[]> =
       slug,
       created_at,
       is_featured,
+      is_test,
       rounds ( id ),
       max_teams,
       teams ( id, joined_via_oauth )
@@ -62,7 +64,7 @@ export const fetchOpenTournaments = async (): Promise<OpenTournamentSummary[]> =
   if (!data) return [];
 
   const open = (data as OpenTournamentRow[])
-    .filter((tournament) => (tournament.rounds?.length ?? 0) === 0)
+    .filter((tournament) => !tournament.is_test && (tournament.rounds?.length ?? 0) === 0)
     .map((tournament) => ({
       id: tournament.id,
       name: tournament.name,

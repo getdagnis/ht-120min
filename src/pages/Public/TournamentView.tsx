@@ -19,6 +19,10 @@ import { canViewerJoinTournament } from '../../utils/tournament-joinability';
 import { markAuthRefreshCurrent, needsAuthRefresh } from '../../utils/auth-refresh';
 import { hasSuperAdminBypassCookie } from '../../utils/superadmin-bypass';
 import {
+  isSandboxTournament,
+  normalizeTournamentRegistrationType,
+} from '../../utils/tournament-types';
+import {
   JOINED_NOTICE_KEY,
   selectTournamentMessage,
   type TournamentAnnouncement,
@@ -41,6 +45,7 @@ import { MottoWidget } from '../../components/MottoWidget/MottoWidget';
 import { StandingsView } from '../../components/TournamentTabs/StandingsView';
 import { TOURNAMENT_DEFAULT } from '../../constants/descriptions';
 import { FORGE_SUPERADMIN_USER_ID } from '../../constants/site-admins';
+import { getRandomSandboxTeamId, SANDBOX_RANDOM_ATTEMPTS } from '../../constants/sandbox';
 import { ArrowClockwise, ArrowRight, ArrowUpRight, CopySimple, Info, Star, Trash, X } from 'phosphor-react';
 
 const DEFAULT_TEAM_LOGO = '/default-logo.png';
@@ -127,6 +132,17 @@ interface Team {
   league_level?: number | null;
 }
 
+interface FetchedTeamData {
+  teamId: number;
+  teamName: string;
+  logoUrl?: string;
+  countryName?: string;
+  countryId?: number;
+  leagueId?: number;
+  genderId?: number;
+  leagueLevel?: number;
+}
+
 interface Tournament {
   id: string;
   slug: string;
@@ -143,7 +159,7 @@ interface Tournament {
   league_type: string;
   country_limit: string | null;
   league_category: 'male' | 'hfi';
-  registration_type: 'Hattrick Validated (CHPP)' | 'Organizer-Managed';
+  registration_type: string;
   include_week15_weekend_friendly: boolean;
   organizer_name?: string;
   organizer_id?: number;
@@ -214,6 +230,10 @@ export const TournamentView: React.FC = () => {
   const [showFullImage, setShowFullImage] = useState(false);
   const [newTeamId, setNewTeamId] = useState('');
   const [newTeamName, setNewTeamName] = useState('');
+  const [newTeamData, setNewTeamData] = useState<FetchedTeamData | null>(null);
+  const [sandboxCandidate, setSandboxCandidate] = useState<FetchedTeamData | null>(null);
+  const [sandboxFetchError, setSandboxFetchError] = useState('');
+  const [isFetchingSandboxTeam, setIsFetchingSandboxTeam] = useState(false);
   const [isSavingTeam, setIsSavingTeam] = useState(false);
   const [isGenerating, setIsGenerating] = useState(false);
   const [isRescheduling, setIsRescheduling] = useState(false);
@@ -222,6 +242,7 @@ export const TournamentView: React.FC = () => {
   const [replacingTeamId, setReplacingTeamId] = useState<string | null>(null);
   const [replacementHtId, setReplacementHtId] = useState('');
   const [replacementName, setReplacementName] = useState('');
+  const [replacementTeamData, setReplacementTeamData] = useState<FetchedTeamData | null>(null);
   const [isFetchingTeamData, setIsFetchingTeamData] = useState(false);
   const [scheduleMode, setScheduleMode] = useState<ScheduleMode>('single');
   const [scheduleStartSlotId, setScheduleStartSlotId] = useState('');
@@ -237,9 +258,7 @@ export const TournamentView: React.FC = () => {
   const [editChppOnlyJoin, setEditChppOnlyJoin] = useState(true);
   const [editLeagueType, setEditLeagueType] = useState('male');
   const [editLeagueCategory, setEditLeagueCategory] = useState<'male' | 'hfi'>('male');
-  const [editRegistrationType, setEditRegistrationType] = useState<'Hattrick Validated (CHPP)' | 'Organizer-Managed'>(
-    'Hattrick Validated (CHPP)',
-  );
+  const [editRegistrationType, setEditRegistrationType] = useState('validated');
   const [editCountryLimit, setEditCountryLimit] = useState<string | null>(null);
   const [editMaxTeams, setEditMaxTeams] = useState<number | null>(null);
   const [showEditDescription, setShowEditDescription] = useState(false);
@@ -287,7 +306,7 @@ export const TournamentView: React.FC = () => {
       editChppOnlyJoin !== tournament.chpp_only_join ||
       editLeagueType !== tournament.league_type ||
       editLeagueCategory !== (tournament.league_category || 'male') ||
-      editRegistrationType !== (tournament.registration_type || 'Organizer-Managed') ||
+      editRegistrationType !== normalizeTournamentRegistrationType(tournament.registration_type) ||
       editCountryLimit !== savedCountryLimit ||
       editMaxTeams !== (tournament.max_teams || null) ||
       showEditDescription !== tournament.show_description ||
@@ -600,7 +619,7 @@ export const TournamentView: React.FC = () => {
       setEditChppOnlyJoin(tournamentData.chpp_only_join);
       setEditLeagueType(tournamentData.league_type);
       setEditLeagueCategory(tournamentData.league_category || 'male');
-      setEditRegistrationType(tournamentData.registration_type || 'Organizer-Managed');
+      setEditRegistrationType(normalizeTournamentRegistrationType(tournamentData.registration_type));
       setEditCountryLimit(normalizeLeagueLimit(tournamentData.country_limit));
       setScheduleMode((tournamentData.schedule_mode as ScheduleMode | null) || 'single');
       const storedStartSlot = tournamentData.schedule_start_slot
@@ -1626,7 +1645,7 @@ export const TournamentView: React.FC = () => {
     setIsFetchingTeamData(true);
     try {
       const res = await fetch(`/api/teams/info?team_id=${htId}`);
-      const data = await res.json();
+      const data = (await res.json()) as FetchedTeamData & { error?: string };
       if (!res.ok) throw new Error(data.error || 'Failed to fetch team data');
 
       // Validation check
@@ -1642,13 +1661,136 @@ export const TournamentView: React.FC = () => {
 
       if (isReplacement) {
         setReplacementName(data.teamName);
+        setReplacementTeamData(data);
       } else {
         setNewTeamName(data.teamName);
+        setNewTeamData(data);
       }
     } catch (error: any) {
       alert(error.message);
     } finally {
       setIsFetchingTeamData(false);
+    }
+  };
+
+  const fetchSandboxTeamById = async (teamId: number): Promise<FetchedTeamData> => {
+    const params = new URLSearchParams({
+      team_id: String(teamId),
+      sandbox: '1',
+      league_category: tournament?.league_category === 'hfi' ? 'hfi' : 'male',
+    });
+    const res = await fetch(`/api/teams/info?${params.toString()}`);
+    const data = (await res.json()) as FetchedTeamData & { error?: string };
+    if (!res.ok) throw new Error(data.error || 'Failed to fetch sandbox team data');
+    if (!data.teamName) throw new Error('Team data is missing a team name.');
+    return data;
+  };
+
+  const fetchRandomSandboxTeam = async () => {
+    setIsFetchingSandboxTeam(true);
+    setSandboxFetchError('');
+    setSandboxCandidate(null);
+
+    try {
+      for (let attempt = 0; attempt < SANDBOX_RANDOM_ATTEMPTS; attempt += 1) {
+        const teamId = getRandomSandboxTeamId();
+        if (teams.some((team) => team.ht_team_id === teamId)) continue;
+
+        try {
+          const candidate = await fetchSandboxTeamById(teamId);
+          if (!teams.some((team) => team.ht_team_id === candidate.teamId)) {
+            setSandboxCandidate(candidate);
+            return;
+          }
+        } catch {
+          // Random team IDs are sparse; keep trying until the configured cap.
+        }
+      }
+
+      setSandboxFetchError('Could not find a matching random team. Try again.');
+    } finally {
+      setIsFetchingSandboxTeam(false);
+    }
+  };
+
+  const addSandboxTeam = async () => {
+    if (!tournament || !sandboxCandidate) return;
+    if (teams.some((team) => team.ht_team_id === sandboxCandidate.teamId && team.active)) {
+      alert('This team is already active in the tournament.');
+      setSandboxCandidate(null);
+      return;
+    }
+
+    setIsSavingTeam(true);
+    try {
+      let oldTeamToReplaceId: string | null = null;
+      if (isGenerated) {
+        const inactiveTeam = teams.find((team) => !team.active && !team.is_placeholder);
+        if (inactiveTeam) {
+          oldTeamToReplaceId = inactiveTeam.id;
+        }
+      }
+
+      const { data: newTeam, error } = await supabase
+        .from('teams')
+        .insert({
+          tournament_id: tournament.id,
+          name: sandboxCandidate.teamName,
+          ht_team_id: sandboxCandidate.teamId,
+          active: true,
+          replacement_for_team_id: oldTeamToReplaceId,
+          joined_via_oauth: false,
+          manager_name: 'Bot team',
+          logo_url: sandboxCandidate.logoUrl ?? null,
+          country_id: sandboxCandidate.countryId ?? null,
+          country_name: sandboxCandidate.countryName ?? null,
+          league_id: sandboxCandidate.leagueId ?? null,
+          gender_id: sandboxCandidate.genderId ?? null,
+          league_level: sandboxCandidate.leagueLevel ?? null,
+        })
+        .select()
+        .single();
+      if (error) throw error;
+
+      if (oldTeamToReplaceId && newTeam?.id) {
+        await supabase
+          .from('matches')
+          .update({ home_team_id: newTeam.id })
+          .eq('home_team_id', oldTeamToReplaceId)
+          .eq('completed', false);
+
+        await supabase
+          .from('matches')
+          .update({ away_team_id: newTeam.id })
+          .eq('away_team_id', oldTeamToReplaceId)
+          .eq('completed', false);
+      } else if (isGenerated && newTeam?.id) {
+        const roundIds = rounds.map((round) => round.id);
+        const { data: byeMatches } = await supabase
+          .from('matches')
+          .select('id, home_team_id, away_team_id')
+          .in('round_id', roundIds)
+          .or('home_team_id.is.null,away_team_id.is.null')
+          .eq('completed', false);
+
+        if (byeMatches && byeMatches.length > 0) {
+          for (const match of byeMatches) {
+            if (match.home_team_id === null) {
+              await supabase.from('matches').update({ home_team_id: newTeam.id }).eq('id', match.id);
+            } else if (match.away_team_id === null) {
+              await supabase.from('matches').update({ away_team_id: newTeam.id }).eq('id', match.id);
+            }
+          }
+        }
+      }
+
+      setSandboxCandidate(null);
+      setSandboxFetchError('');
+      fetchData();
+    } catch (error: any) {
+      alert(error.message);
+    } finally {
+      setIsSavingTeam(false);
     }
   };
 
@@ -1691,6 +1833,7 @@ export const TournamentView: React.FC = () => {
       }
 
       // 1. Insert new team
+      const fetchedTeamData = isJoin ? null : newTeamData;
       const { data: newTeam, error } = await supabase
         .from('teams')
         .insert([
@@ -1700,6 +1843,13 @@ export const TournamentView: React.FC = () => {
             ht_team_id: parseInt(htId.trim()),
             active: true,
             replacement_for_team_id: oldTeamToReplaceId,
+            logo_url: fetchedTeamData?.logoUrl ?? null,
+            country_id: fetchedTeamData?.countryId ?? null,
+            country_name: fetchedTeamData?.countryName ?? null,
+            league_id: fetchedTeamData?.leagueId ?? null,
+            gender_id: fetchedTeamData?.genderId ?? null,
+            league_level: fetchedTeamData?.leagueLevel ?? null,
+            manager_name: fetchedTeamData ? 'Bot team' : null,
           },
         ])
         .select()
@@ -1749,6 +1899,7 @@ export const TournamentView: React.FC = () => {
       } else {
         setNewTeamId('');
         setNewTeamName('');
+        setNewTeamData(null);
       }
       fetchData();
     } catch (error: any) {
@@ -1800,6 +1951,13 @@ export const TournamentView: React.FC = () => {
             ht_team_id: parseInt(replacementHtId.trim()),
             active: true,
             replacement_for_team_id: oldTeamId,
+            logo_url: replacementTeamData?.logoUrl ?? null,
+            country_id: replacementTeamData?.countryId ?? null,
+            country_name: replacementTeamData?.countryName ?? null,
+            league_id: replacementTeamData?.leagueId ?? null,
+            gender_id: replacementTeamData?.genderId ?? null,
+            league_level: replacementTeamData?.leagueLevel ?? null,
+            manager_name: replacementTeamData ? 'Bot team' : null,
           },
         ])
         .select()
@@ -1827,6 +1985,7 @@ export const TournamentView: React.FC = () => {
       setReplacingTeamId(null);
       setReplacementHtId('');
       setReplacementName('');
+      setReplacementTeamData(null);
       fetchData();
     } catch (error: any) {
       alert(error.message);
@@ -2027,8 +2186,13 @@ export const TournamentView: React.FC = () => {
   const hasJoined = teams.some((t) => t.hattrick_user_id === Number(myHtUserId) && t.active);
   const tournamentId = tournament?.id ?? null;
   const activeRealTeamsCount = teams.filter((team) => team.active && !team.is_placeholder).length;
+  const isSandbox = tournament ? isSandboxTournament(tournament.registration_type, tournament.is_test) : false;
+  const canAddSandboxTeam = Boolean(
+    tournament && isSandbox && (!tournament.max_teams || activeRealTeamsCount < tournament.max_teams),
+  );
   const canJoinTournament = Boolean(
     tournament &&
+    !isSandbox &&
     canViewerJoinTournament({
       hasJoined,
       isGenerated,
@@ -2036,8 +2200,12 @@ export const TournamentView: React.FC = () => {
       teams,
     }),
   );
+  const normalizedRegistrationType = tournament
+    ? normalizeTournamentRegistrationType(tournament.registration_type)
+    : 'manual';
+  const isValidatedTournament = normalizedRegistrationType === 'validated';
   const canJoinAnotherTeamBeforeFixtures = Boolean(
-    tournament && !isGenerated && (!tournament.max_teams || activeRealTeamsCount < tournament.max_teams),
+    tournament && !isSandbox && !isGenerated && (!tournament.max_teams || activeRealTeamsCount < tournament.max_teams),
   );
   const shouldPromptReturningParticipantLogin = Boolean(
     tournamentId &&
@@ -2240,7 +2408,59 @@ export const TournamentView: React.FC = () => {
           </div>
         )}
 
-        {isJoining && (
+        {isSandbox && (
+          <div className={styles.testNotice}>
+            <div>
+              <h3>TEST tournament</h3>
+              <p>
+                {canAddSandboxTeam
+                  ? 'This is a test tournament. Add another test team.'
+                  : 'This tournament is TEST.'}
+              </p>
+            </div>
+            {canAddSandboxTeam && (
+              <div className={styles.testNoticeActions}>
+                {!sandboxCandidate && (
+                  <Button
+                    type="button"
+                    variant="secondary"
+                    size="sm"
+                    onClick={fetchRandomSandboxTeam}
+                    disabled={isFetchingSandboxTeam}
+                  >
+                    {isFetchingSandboxTeam ? 'Finding...' : 'Get random test team'}
+                  </Button>
+                )}
+                {sandboxCandidate && (
+                  <div className={styles.sandboxCandidateInline}>
+                    <strong>{sandboxCandidate.teamName}</strong>
+                    <span>
+                      {[`ID ${sandboxCandidate.teamId}`, sandboxCandidate.countryName].filter(Boolean).join(' · ')}
+                    </span>
+                    <Button type="button" variant="secondary" size="sm" onClick={addSandboxTeam} disabled={isSavingTeam}>
+                      Add it
+                    </Button>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={() => {
+                        setSandboxCandidate(null);
+                        setSandboxFetchError('');
+                      }}
+                      disabled={isSavingTeam}
+                    >
+                      Cancel
+                    </Button>
+                  </div>
+                )}
+                {sandboxFetchError && <p className={styles.helperText}>{sandboxFetchError}</p>}
+              </div>
+            )}
+          </div>
+        )}
+
+        {isJoining && !isSandbox && (
           <div className={styles.registrationFormWrapper}>
             <HeroCard title="Join This Tournament">
               <div className={styles.joinHeroImageWrapper}>
@@ -2705,15 +2925,16 @@ export const TournamentView: React.FC = () => {
                       </div>
 
                       <div className={adminStyles.field}>
-                        <label>Registration Type</label>
+                        <label>Tournament Type</label>
                         <select
                           value={editRegistrationType}
-                          onChange={(e) => setEditRegistrationType(e.target.value as any)}
+                          onChange={(e) => setEditRegistrationType(normalizeTournamentRegistrationType(e.target.value))}
                           disabled={teams.length > 0 && !isSuperAdmin}
                           className={adminStyles.selectField}
                         >
                           <option value="validated">Hattrick Validated (CHPP)</option>
                           <option value="manual">Organizer-Managed</option>
+                          <option value="sandbox">Sandbox Playground</option>
                         </select>
                       </div>
 
@@ -2929,9 +3150,9 @@ export const TournamentView: React.FC = () => {
                     {(!isGenerated || teams.some((t) => !t.active) || teams.length % 2 !== 0) && (
                       <div className={adminStyles.addTeamSection}>
                         <h3 className={adminStyles.sectionTitle}>
-                          {tournament.registration_type === 'Hattrick Validated (CHPP)' ? 'Invite Team' : 'Add Team'}
+                          {isValidatedTournament ? 'Invite Team' : 'Add Team'}
                         </h3>
-                        {tournament.registration_type === 'Hattrick Validated (CHPP)' && (
+                        {isValidatedTournament && (
                           <p className={styles.helperText}>
                             In a self-validated tournament, you can't add teams manually. Use this tool to get team data
                             and then send them an invitation.
@@ -2947,6 +3168,7 @@ export const TournamentView: React.FC = () => {
                               onChange={(e) => {
                                 setNewTeamId(e.target.value.replace(/\D/g, ''));
                                 setNewTeamName('');
+                                setNewTeamData(null);
                               }}
                               minLength={6}
                               maxLength={9}
@@ -2974,7 +3196,7 @@ export const TournamentView: React.FC = () => {
                           )}
                           {newTeamName && (
                             <>
-                              {tournament.registration_type === 'Hattrick Validated (CHPP)' ? (
+                              {isValidatedTournament ? (
                                 <div className={styles.inviteSection}>
                                   <Button
                                     variant="secondary"
@@ -3037,10 +3259,11 @@ export const TournamentView: React.FC = () => {
                                       type="text"
                                       placeholder="New HT ID"
                                       value={replacementHtId}
-                                      onChange={(e) => {
-                                        setReplacementHtId(e.target.value.replace(/\D/g, ''));
-                                        setReplacementName('');
-                                      }}
+                                            onChange={(e) => {
+                                              setReplacementHtId(e.target.value.replace(/\D/g, ''));
+                                              setReplacementName('');
+                                              setReplacementTeamData(null);
+                                            }}
                                       required
                                     />
                                     <input
@@ -3116,10 +3339,11 @@ export const TournamentView: React.FC = () => {
                                       type="text"
                                       placeholder="New HT ID"
                                       value={replacementHtId}
-                                      onChange={(e) => {
-                                        setReplacementHtId(e.target.value.replace(/\D/g, ''));
-                                        setReplacementName('');
-                                      }}
+                                            onChange={(e) => {
+                                              setReplacementHtId(e.target.value.replace(/\D/g, ''));
+                                              setReplacementName('');
+                                              setReplacementTeamData(null);
+                                            }}
                                       required
                                     />
                                     <input

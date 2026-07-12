@@ -267,21 +267,54 @@
     align-items: center
     text-align: left
     box-sizing: border-box
+    gap: 0.75rem
+
+.teamIdentity
+  display: flex
+  align-items: center
+  gap: 0.75rem
+  min-width: 0
+
+.teamLogo
+  width: 3rem
+  height: 3rem
+  object-fit: contain
+  border-radius: var(--radius-xs)
+  flex-shrink: 0
 
 .teamInfo
   display: flex
   flex-direction: column
   gap: 2px
+  min-width: 0
 
   .name
+    display: flex
+    align-items: center
+    gap: 0.25rem
     font-weight: 600
     color: white
     font-weight: 700
     font-size: 1.25rem
+    min-width: 0
+    overflow-wrap: anywhere
 
   .id
     font-size: 0.8rem
     color: #ffffff99
+
+.teamActions
+  display: flex
+  align-items: center
+  gap: 0.75rem
+  margin-left: auto
+  flex-shrink: 0
+
+.teamFlag
+  width: 1.5rem
+  height: auto
+  object-fit: contain
+  border-radius: var(--radius-xs)
 
 .deleteBtn
   background: transparent
@@ -415,8 +448,72 @@
     font-size: 0.9rem
     opacity: 0.8
 
+.sandboxCandidate
+  display: flex
+  align-items: center
+  gap: 1rem
+  text-align: left
+  background: var(--bg-transp)
+  border: 1px solid var(--border)
+  border-radius: var(--radius-md)
+  padding: 1rem
+  margin: 1rem 0
+
+  @media (max-width: 640px)
+    flex-direction: column
+    text-align: center
+
+.sandboxCandidateActions
+  display: flex
+  gap: 0.5rem
+  margin-left: auto
+
+  @media (max-width: 640px)
+    margin-left: 0
+    width: 100%
+
+    button
+      flex: 1
+
 .manualEntry
   margin-bottom: 2rem
+
+.restrictions
+  text-align: left
+  background: var(--bg-transp)
+  border: 1px solid var(--border)
+  border-radius: var(--radius-md)
+  padding: 1rem
+  margin: 0 auto 2rem
+
+  h2
+    margin: 0 0 0.75rem
+    color: var(--text-h)
+    font-size: 1.15rem
+
+  dl
+    display: grid
+    grid-template-columns: repeat(2, minmax(0, 1fr))
+    gap: 0.75rem 1rem
+    margin: 0
+
+  div
+    min-width: 0
+
+  dt
+    font-size: 0.75rem
+    color: var(--text60)
+    text-transform: uppercase
+    letter-spacing: 0.04em
+
+  dd
+    margin: 0.1rem 0 0
+    color: var(--text-h)
+    font-weight: 600
+
+  @media (max-width: 640px)
+    dl
+      grid-template-columns: 1fr
 
 .finalizeNote
   margin-top: 1rem

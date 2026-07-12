@@ -16,7 +16,8 @@ interface TeamDetails {
 }
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
-  const { team_id, tournament_id } = req.query;
+  const { team_id, tournament_id, sandbox, league_category } = req.query;
+  const isSandboxLookup = sandbox === '1' || sandbox === 'true';
 
   if (!team_id) {
     return res.status(400).json({ error: 'Missing team_id' });
@@ -47,7 +48,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     // 2. Check if team is in another active tournament
     const isSuperAdmin = hasSuperAdminBypassCookie(req.headers.cookie);
 
-    if (!isSuperAdmin) {
+    if (!isSuperAdmin && !isSandboxLookup) {
       const { data: existing } = await supabase
         .from('teams')
         .select('name, tournament_id, tournaments(name, status)')
@@ -126,6 +127,25 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         if (!validation.eligible) {
           return res.status(400).json({ error: validation.reason });
         }
+      }
+    }
+
+    if (isSandboxLookup) {
+      const requestedCategory = league_category === 'hfi' ? 'hfi' : 'male';
+      const validation = validateTeamEligibility(
+        {
+          leagueName,
+          leagueId: leagueId ? parseInt(leagueId) : undefined,
+          leagueSystemId: leagueSystemId ? parseInt(leagueSystemId) : undefined,
+          leagueLevel,
+          countryId,
+          countryName,
+          genderId: genderId ? parseInt(genderId) : undefined,
+        } as TeamDetails,
+        { category: requestedCategory, countryLimit: null },
+      );
+      if (!validation.eligible) {
+        return res.status(400).json({ error: validation.reason });
       }
     }
 
