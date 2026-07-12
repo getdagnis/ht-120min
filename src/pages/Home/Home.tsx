@@ -106,7 +106,7 @@ interface TopTournament {
 
 const ForumWidget = () => (
   <SidebarWidget
-    title="Join HT forum!"
+    title="Join HT-120min forum on HT!"
     icon={<ChatText size={20} weight="bold" />}
     footer={
       <a href={FORUM_LINK} target="_blank" rel="noreferrer">

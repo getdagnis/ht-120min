@@ -999,7 +999,7 @@ export const CreateTournament: React.FC = () => {
                   )}
                   {newTeamName && (
                     <Button type="submit" variant="secondary" size="md">
-                      <Plus size={20} weight="bold" /> Add
+                      Add it
                     </Button>
                   )}
                 </form>
