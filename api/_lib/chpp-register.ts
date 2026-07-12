@@ -38,9 +38,7 @@ export async function registerOAuthTeam(
 
     if (tournament && tournament.status !== 'finished') {
       throw new Error(
-        `Team ${input.team.teamName} is already active in another tournament: "${
-          tournament.name
-        }". You must leave that tournament before joining a new one.`,
+        `Team ${input.team.teamName} (${input.team.teamId}) is already active in another tournament: "${tournament.name}". It must leave that tournament first.`,
       );
     }
   }

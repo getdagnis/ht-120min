@@ -50,7 +50,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     if (!isSuperAdmin) {
       const { data: existing } = await supabase
         .from('teams')
-        .select('tournament_id, tournaments(name, status)')
+        .select('name, tournament_id, tournaments(name, status)')
         .eq('ht_team_id', team_id)
         .eq('active', true);
 
@@ -61,8 +61,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         });
         if (activeTournament) {
           const t = activeTournament.tournaments as unknown as { name: string };
+          const teamName = activeTournament.name || `Team ID ${team_id}`;
           return res.status(400).json({
-            error: `Team ID ${team_id} is already active in another tournament: "${t.name}". You must leave that tournament first.`,
+            error: `Team ${teamName} (${team_id}) is already active in another tournament: "${t.name}". It must leave that tournament first.`,
           });
         }
       }
