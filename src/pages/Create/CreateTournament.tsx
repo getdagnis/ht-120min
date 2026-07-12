@@ -12,7 +12,6 @@ import {
   ArrowRight,
   Trophy,
   CaretLeft,
-  Plus,
   Trash,
   Link,
   FolderOpen,
