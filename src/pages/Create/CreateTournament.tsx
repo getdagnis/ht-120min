@@ -151,7 +151,6 @@ interface FetchedTeamData {
   leagueLevel?: number;
 }
 
-
 export const CreateTournament: React.FC = () => {
   const navigate = useNavigate();
   const [loading, setLoading] = useState(false);
@@ -291,6 +290,10 @@ export const CreateTournament: React.FC = () => {
     const error = params.get('error');
     if (error) alert(decodeURIComponent(error));
   }, [fetchPendingSession]);
+
+  useEffect(() => {
+    window.scrollTo({ top: 0, left: 0, behavior: 'auto' });
+  }, [step]);
 
   useEffect(() => {
     let cancelled = false;
@@ -659,6 +662,7 @@ export const CreateTournament: React.FC = () => {
     setLoading(true);
     const slug = normalizeSlugInput(formData.slug) || nanoid(10);
     const adminPassword = nanoid(8);
+    let createdTournamentId: string | null = null;
 
     try {
       const { data: tournament, error: tError } = await supabase
@@ -695,6 +699,16 @@ export const CreateTournament: React.FC = () => {
         }
         throw tError;
       }
+      createdTournamentId = tournament.id;
+
+      if (isSandbox) {
+        const { error: sandboxError } = await supabase.from('sandbox_tournaments').insert({
+          tournament_id: tournament.id,
+          team_id_min: SANDBOX_TEAM_ID_MIN,
+          team_id_max: SANDBOX_TEAM_ID_MAX,
+        });
+        if (sandboxError) throw sandboxError;
+      }
 
       const teamsToInsert = teams.map((t) => ({
         tournament_id: tournament.id,
@@ -716,15 +730,6 @@ export const CreateTournament: React.FC = () => {
 
       const { error: teamsError } = await supabase.from('teams').insert(teamsToInsert);
       if (teamsError) throw teamsError;
-
-      if (isSandbox) {
-        const { error: sandboxError } = await supabase.from('sandbox_tournaments').insert({
-          tournament_id: tournament.id,
-          team_id_min: SANDBOX_TEAM_ID_MIN,
-          team_id_max: SANDBOX_TEAM_ID_MAX,
-        });
-        if (sandboxError) throw sandboxError;
-      }
 
       const { error: chatSeedError } = await supabase.from('tournament_chat').insert({
         tournament_id: tournament.id,
@@ -750,8 +755,17 @@ export const CreateTournament: React.FC = () => {
       localStorage.setItem(`admin_pw_${slug}`, adminPassword);
       window.location.href = `/t/${slug}?tab=standings`;
     } catch (err: unknown) {
+      if (createdTournamentId) {
+        await supabase.from('teams').delete().eq('tournament_id', createdTournamentId);
+        await supabase.from('sandbox_tournaments').delete().eq('tournament_id', createdTournamentId);
+        await supabase.from('tournaments').delete().eq('id', createdTournamentId);
+      }
+
       const message = err instanceof Error ? err.message : 'Unknown error';
-      alert('Error creating tournament: ' + message);
+      const friendlyMessage = message.includes("Could not find the table 'public.sandbox_tournaments'")
+        ? 'Sandbox tournaments are not enabled in the database yet. Apply migration 053_sandbox_tournaments.sql and try again.'
+        : message;
+      alert('Error creating tournament: ' + friendlyMessage);
       setLoading(false);
     }
   };
@@ -761,24 +775,22 @@ export const CreateTournament: React.FC = () => {
   const isValidated = registrationType === 'validated';
   const isSandbox = registrationType === 'sandbox';
   const canCreate = isValidated ? !!creator : isSandbox ? teams.length >= 2 : isLinked && teams.length >= 2;
-  const restrictions = [
-    {
-      label: 'League type',
-      value: formData.league_category === 'hfi' ? 'Only HFI teams' : 'Any male',
-    },
-    {
-      label: 'Scoring mode',
-      value: formData.scoring_mode === '120min' ? '120 min' : 'Regular points',
-    },
-    {
-      label: 'Team limit',
-      value: formData.max_teams ? `${teams.length} of ${Number(formData.max_teams)} filled` : 'Unlimited',
-    },
-    {
-      label: 'Country limit',
-      value: formData.country_limit ? getLeagueNameById(formData.country_limit) || formData.country_limit : 'Any country',
-    },
-  ];
+  const leagueRestrictionLabel = formData.league_category === 'hfi' ? 'Only HFI teams' : 'Any male';
+  const countryRestrictionLabel = formData.country_limit
+    ? getLeagueNameById(formData.country_limit) || formData.country_limit
+    : 'Any country';
+  const teamLimitLabel = formData.max_teams ? `${teams.length} of ${Number(formData.max_teams)} filled` : 'Unlimited';
+  const sandboxTeamLimit = formData.max_teams ? Number(formData.max_teams) : null;
+  const sandboxTeamLimitReached = isSandbox && sandboxTeamLimit !== null && teams.length >= sandboxTeamLimit;
+  const sandboxRandomLabel = sandboxTeamLimit
+    ? `Get random (${Math.min(teams.length, sandboxTeamLimit)} of ${sandboxTeamLimit})`
+    : 'Get random';
+  const restrictionsSummary = `League type: ${leagueRestrictionLabel}, Country limit: ${countryRestrictionLabel}, Team limit: ${teamLimitLabel}.`;
+  const teamStepHelper = isValidated
+    ? `Link your Hattrick account to register your team for this tournament. ${restrictionsSummary}`
+    : isSandbox
+      ? `Add at least two random test teams. They use real Hattrick metadata but no real manager joins this tournament. ${restrictionsSummary}`
+      : `Add at least two teams. You can add more later. ${restrictionsSummary}`;
 
   if (step === 'info') {
     return (
@@ -819,9 +831,7 @@ export const CreateTournament: React.FC = () => {
                     name="tournament_slug"
                     type="text"
                     value={formData.slug}
-                    onChange={(e) =>
-                      setFormData({ ...formData, slug: normalizeSlugInput(e.target.value) })
-                    }
+                    onChange={(e) => setFormData({ ...formData, slug: normalizeSlugInput(e.target.value) })}
                     placeholder="e.g. guam-hfi-s1"
                   />
                 </div>
@@ -960,7 +970,9 @@ export const CreateTournament: React.FC = () => {
                       disabled={isSandbox}
                       onChange={(e) => setFormData({ ...formData, is_private: e.target.checked })}
                     />
-                    {isSandbox ? 'Sandbox tournaments are unlisted by default' : 'Unlisted tournament (accessed via link)'}
+                    {isSandbox
+                      ? 'Sandbox tournaments are unlisted by default'
+                      : 'Unlisted tournament (accessed via link)'}
                   </label>
                 </div>
                 <div className={styles.field}>
@@ -1086,19 +1098,9 @@ export const CreateTournament: React.FC = () => {
           </div>
           <HeroCard>
             <h1>{isValidated ? 'Confirm your team' : isSandbox ? 'Build a test tournament' : 'Add Teams'}</h1>
-            <p className={styles.subtitle}>{formData.name}</p>
             <img src="/register2.png" alt="Add Teams" />
-            <div className={styles.restrictions}>
-              <h2>Restrictions</h2>
-              <dl>
-                {restrictions.map((restriction) => (
-                  <div key={restriction.label}>
-                    <dt>{restriction.label}</dt>
-                    <dd>{restriction.value}</dd>
-                  </div>
-                ))}
-              </dl>
-            </div>
+            <h2 className={styles.teamStepTitle}>{formData.name}</h2>
+            <p className={styles.teamStepHelper}>{teamStepHelper}</p>
 
             {!isSandbox && !isLinked && (
               <div className={styles.linkSection}>
@@ -1137,7 +1139,6 @@ export const CreateTournament: React.FC = () => {
 
             {!isValidated && !isSandbox && isLinked && (
               <div className={styles.manualEntry}>
-                <p className={styles.subtitle}>Add at least two teams. You can add more later.</p>
                 <form onSubmit={addLocalTeam} className={styles.teamForm}>
                   <div className={styles.inputGroup}>
                     <input
@@ -1186,19 +1187,15 @@ export const CreateTournament: React.FC = () => {
 
             {isSandbox && (
               <div className={styles.manualEntry}>
-                <p className={styles.subtitle}>
-                  Add at least two random test teams. They use real Hattrick metadata but no real manager joins this
-                  tournament.
-                </p>
                 {!sandboxCandidate && (
                   <Button
                     type="button"
                     variant="secondary"
                     size="lg"
                     onClick={fetchRandomSandboxTeam}
-                    disabled={isFetchingTeamData}
+                    disabled={isFetchingTeamData || sandboxTeamLimitReached}
                   >
-                    {isFetchingTeamData ? 'Finding a team...' : 'Get random'}
+                    {isFetchingTeamData ? 'Finding a team...' : sandboxRandomLabel}
                   </Button>
                 )}
                 {sandboxCandidate && (
@@ -1209,7 +1206,11 @@ export const CreateTournament: React.FC = () => {
                     <div className={styles.creatorCardContent}>
                       <strong>{sandboxCandidate.teamName}</strong>
                       <span>
-                        {[`ID ${sandboxCandidate.teamId}`, sandboxCandidate.countryName, sandboxCandidate.leagueName]
+                        {[
+                          `ID ${sandboxCandidate.teamId}`,
+                          sandboxCandidate.countryName,
+                          sandboxCandidate.leagueId !== sandboxCandidate.countryId && sandboxCandidate.leagueName,
+                        ]
                           .filter(Boolean)
                           .join(' · ')}
                       </span>
@@ -1222,14 +1223,24 @@ export const CreateTournament: React.FC = () => {
                         type="button"
                         variant="outlineWhite"
                         size="sm"
-                        onClick={() => {
-                          setSandboxCandidate(null);
-                          setSandboxFetchError('');
-                        }}
+                        onClick={fetchRandomSandboxTeam}
+                        disabled={isFetchingTeamData}
                       >
-                        Cancel
+                        Retry
                       </Button>
                     </div>
+                    <button
+                      type="button"
+                      className={styles.sandboxCandidateClose}
+                      onClick={() => {
+                        setSandboxCandidate(null);
+                        setSandboxFetchError('');
+                      }}
+                      disabled={isFetchingTeamData}
+                      aria-label="Close random team selector"
+                    >
+                      <X size={18} weight="bold" />
+                    </button>
                   </div>
                 )}
                 {sandboxFetchError && <p className={styles.empty}>{sandboxFetchError}</p>}
@@ -1247,7 +1258,7 @@ export const CreateTournament: React.FC = () => {
                         {team.logoUrl && <img src={team.logoUrl} alt="" className={styles.teamLogo} />}
                         <div className={styles.teamInfo}>
                           <span className={styles.name}>
-                            {team.name}
+                            <span className={styles.teamNameText}>{team.name}</span>
                             {team.isCreator && <span className={styles.creatorBadge}>(You)</span>}
                             <a
                               href={`https://www.hattrick.org/goto.ashx?path=/Club/?TeamID=${team.htId}`}
@@ -1258,13 +1269,20 @@ export const CreateTournament: React.FC = () => {
                               <Link size={16} weight="bold" />
                             </a>
                           </span>
-                          <span className={styles.id}>ID: {team.htId}</span>
+                          <span className={styles.teamMeta}>
+                            {flagUrl && (
+                              <img
+                                src={flagUrl}
+                                alt={team.countryName || ''}
+                                className={styles.teamFlag}
+                                loading="lazy"
+                              />
+                            )}
+                            <span>ID: {team.htId}</span>
+                          </span>
                         </div>
                       </div>
                       <div className={styles.teamActions}>
-                        {flagUrl && (
-                          <img src={flagUrl} alt={team.countryName || ''} className={styles.teamFlag} loading="lazy" />
-                        )}
                         <button
                           onClick={() => (team.isCreator ? goBackToSettings() : removeLocalTeam(team.tempId))}
                           className={styles.deleteBtn}

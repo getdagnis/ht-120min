@@ -1715,6 +1715,11 @@ export const TournamentView: React.FC = () => {
 
   const addSandboxTeam = async () => {
     if (!tournament || !sandboxCandidate) return;
+    if (sandboxTeamLimitReached) {
+      alert('The test tournament has reached its team limit.');
+      setSandboxCandidate(null);
+      return;
+    }
     if (teams.some((team) => team.ht_team_id === sandboxCandidate.teamId && team.active)) {
       alert('This team is already active in the tournament.');
       setSandboxCandidate(null);
@@ -2187,8 +2192,12 @@ export const TournamentView: React.FC = () => {
   const tournamentId = tournament?.id ?? null;
   const activeRealTeamsCount = teams.filter((team) => team.active && !team.is_placeholder).length;
   const isSandbox = tournament ? isSandboxTournament(tournament.registration_type, tournament.is_test) : false;
+  const sandboxTeamLimitReached = Boolean(
+    tournament?.max_teams && activeRealTeamsCount >= tournament.max_teams,
+  );
+  const canManageSandboxTeams = Boolean(tournament && isSandbox && isAdminAuthenticated);
   const canAddSandboxTeam = Boolean(
-    tournament && isSandbox && (!tournament.max_teams || activeRealTeamsCount < tournament.max_teams),
+    canManageSandboxTeams && !sandboxTeamLimitReached,
   );
   const canJoinTournament = Boolean(
     tournament &&
@@ -2418,7 +2427,7 @@ export const TournamentView: React.FC = () => {
                   : 'This tournament is TEST.'}
               </p>
             </div>
-            {canAddSandboxTeam && (
+            {canManageSandboxTeams && (
               <div className={styles.testNoticeActions}>
                 {!sandboxCandidate && (
                   <Button
@@ -2426,13 +2435,29 @@ export const TournamentView: React.FC = () => {
                     variant="secondary"
                     size="sm"
                     onClick={fetchRandomSandboxTeam}
-                    disabled={isFetchingSandboxTeam}
+                    disabled={isFetchingSandboxTeam || !canAddSandboxTeam}
                   >
-                    {isFetchingSandboxTeam ? 'Finding...' : 'Get random test team'}
+                    {isFetchingSandboxTeam
+                      ? 'Finding...'
+                      : tournament.max_teams
+                        ? `Get random (${Math.min(activeRealTeamsCount, tournament.max_teams)} of ${tournament.max_teams})`
+                        : 'Get random test team'}
                   </Button>
                 )}
                 {sandboxCandidate && (
                   <div className={styles.sandboxCandidateInline}>
+                    <button
+                      type="button"
+                      className={styles.sandboxCandidateClose}
+                      onClick={() => {
+                        setSandboxCandidate(null);
+                        setSandboxFetchError('');
+                      }}
+                      disabled={isSavingTeam || isFetchingSandboxTeam}
+                      aria-label="Close random team selector"
+                    >
+                      <X size={16} weight="bold" />
+                    </button>
                     <strong>{sandboxCandidate.teamName}</strong>
                     <span>
                       {[`ID ${sandboxCandidate.teamId}`, sandboxCandidate.countryName].filter(Boolean).join(' · ')}
@@ -2444,13 +2469,10 @@ export const TournamentView: React.FC = () => {
                       type="button"
                       variant="outline"
                       size="sm"
-                      onClick={() => {
-                        setSandboxCandidate(null);
-                        setSandboxFetchError('');
-                      }}
-                      disabled={isSavingTeam}
+                      onClick={fetchRandomSandboxTeam}
+                      disabled={isSavingTeam || isFetchingSandboxTeam}
                     >
-                      Cancel
+                      Retry
                     </Button>
                   </div>
                 )}

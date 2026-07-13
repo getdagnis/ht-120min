@@ -3,7 +3,10 @@ import type { ChppTeamOption } from './chpp-xml.js';
 
 interface TeamTournamentCheck {
   tournament_id: string;
-  tournaments: { name: string; status: string } | { name: string; status: string }[] | null;
+  tournaments:
+    | { name: string; status: string; is_test?: boolean | null; registration_type?: string | null }
+    | { name: string; status: string; is_test?: boolean | null; registration_type?: string | null }[]
+    | null;
 }
 
 export async function registerOAuthTeam(
@@ -25,7 +28,7 @@ export async function registerOAuthTeam(
   if (!input.skipMembershipCheck) {
     const { data: existing } = await supabase
       .from('teams')
-      .select('tournament_id, tournaments(name, status)')
+      .select('tournament_id, tournaments(name, status, is_test, registration_type)')
       .eq('ht_team_id', input.team.teamId)
       .eq('active', true)
       .neq('tournament_id', input.tournamentId)
@@ -36,7 +39,12 @@ export async function registerOAuthTeam(
       ? existingData.tournaments[0]
       : existingData?.tournaments;
 
-    if (tournament && tournament.status !== 'finished') {
+    if (
+      tournament &&
+      tournament.status !== 'finished' &&
+      !tournament.is_test &&
+      tournament.registration_type !== 'sandbox'
+    ) {
       throw new Error(
         `Team ${input.team.teamName} (${input.team.teamId}) is already active in another tournament: "${tournament.name}". It must leave that tournament first.`,
       );

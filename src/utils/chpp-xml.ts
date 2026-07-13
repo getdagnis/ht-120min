@@ -33,6 +33,9 @@ export function normalizeChppAssetUrl(url: string): string {
 }
 
 function normalizeChppCountryName(countryName?: string, countryId?: number, leagueId?: number) {
+  const leagueCountryName = leagueId && leagueId < 1000 ? getLeagueNameById(leagueId) : undefined;
+  if (leagueCountryName) return leagueCountryName;
+
   const normalized = countryName?.trim().normalize('NFD').replace(/\p{Diacritic}/gu, '').toLowerCase();
   if (countryId === 48 || leagueId === 53 || normalized === 'latvija' || normalized === 'lettonia') {
     return 'Latvia';
@@ -147,3 +150,4 @@ export function parseManagerCompendiumXml(xml: string): ParsedManagerCompendium 
     teams,
   };
 }
+import { getLeagueNameById } from './leagues';

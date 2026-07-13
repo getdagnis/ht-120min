@@ -137,6 +137,8 @@
   gap: 0.75rem
   flex-wrap: wrap
   justify-content: flex-end
+  position: relative
+  padding-right: 2rem
 
   strong
     color: var(--text-h)
@@ -147,6 +149,24 @@
 
   @media (max-width: 720px)
     justify-content: flex-start
+
+.sandboxCandidateClose
+  position: absolute
+  top: 50%
+  right: 0
+  transform: translateY(-50%)
+  background: transparent
+  border: none
+  color: var(--text60)
+  cursor: pointer
+  display: flex
+  align-items: center
+  justify-content: center
+  padding: 0.25rem
+  border-radius: var(--radius-xs)
+
+  &:hover
+    color: var(--text-h)
 
 .joinForm
   display: flex

@@ -51,14 +51,18 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     if (!isSuperAdmin && !isSandboxLookup) {
       const { data: existing } = await supabase
         .from('teams')
-        .select('name, tournament_id, tournaments(name, status)')
+        .select('name, tournament_id, tournaments(name, status, is_test, registration_type)')
         .eq('ht_team_id', team_id)
         .eq('active', true);
 
       if (existing && existing.length > 0) {
         const activeTournament = existing.find((e) => {
-          const t = e.tournaments as unknown as { status: string } | null;
-          return t && t.status !== 'finished';
+          const t = e.tournaments as unknown as {
+            status: string;
+            is_test?: boolean | null;
+            registration_type?: string | null;
+          } | null;
+          return t && t.status !== 'finished' && !t.is_test && t.registration_type !== 'sandbox';
         });
         if (activeTournament) {
           const t = activeTournament.tournaments as unknown as { name: string };
