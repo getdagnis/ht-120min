@@ -21,3 +21,5 @@ ON public.sandbox_tournaments
 FOR INSERT
 TO anon, authenticated
 WITH CHECK (true);
+
+-- MIGRATION APPLIED!
