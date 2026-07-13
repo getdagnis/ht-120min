@@ -32,11 +32,14 @@ import {
 import styles from './CreateTournament.module.sass';
 import { HATTRICK_LEAGUES, getLeagueNameById } from '../../utils/leagues';
 import { getFlagUrl } from '../../utils/ht-data';
+import { normalizeTournamentName, normalizeTournamentSlug } from '../../utils/tournament-names';
 import {
   getRandomSandboxTeamId,
   SANDBOX_RANDOM_ATTEMPTS,
-  SANDBOX_TEAM_ID_MAX,
-  SANDBOX_TEAM_ID_MIN,
+  SANDBOX_HFI_TEAM_ID_MAX,
+  SANDBOX_HFI_TEAM_ID_MIN,
+  SANDBOX_REGULAR_TEAM_ID_MAX,
+  SANDBOX_REGULAR_TEAM_ID_MIN,
 } from '../../constants/sandbox';
 
 const CreationTipsWidget = () => {
@@ -129,14 +132,7 @@ const getRandomName = (mode: string) => {
   const pool = mode === 'points' ? UNIVERSAL_TOURNAMENT_NAMES : TOURNAMENT_NAMES;
   return pool[Math.floor(Math.random() * pool.length)];
 };
-const normalizeSlugInput = (value: string) =>
-  value
-    .toLowerCase()
-    .trim()
-    .replace(/[^a-z0-9\s-]/g, '')
-    .replace(/\s+/g, '-')
-    .replace(/-+/g, '-')
-    .replace(/^-|-$/g, '');
+const normalizeSlugInput = (value: string) => normalizeTournamentSlug(value.trim());
 
 interface FetchedTeamData {
   teamId: number;
@@ -512,7 +508,7 @@ export const CreateTournament: React.FC = () => {
 
     try {
       for (let attempt = 0; attempt < SANDBOX_RANDOM_ATTEMPTS; attempt += 1) {
-        const teamId = getRandomSandboxTeamId();
+        const teamId = getRandomSandboxTeamId(formData.league_category === 'hfi' ? 'hfi' : 'male');
         if (teams.some((team) => team.htId === String(teamId))) continue;
 
         try {
@@ -552,8 +548,36 @@ export const CreateTournament: React.FC = () => {
   const handleContinue = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!formData.name.trim()) return;
+    if (!normalizeTournamentName(formData.name)) {
+      alert('Tournament name must include at least one letter or number.');
+      return;
+    }
+
+    let nextForm = formData;
+    const nameSlug = normalizeSlugInput(formData.name);
+    const currentSlug = normalizeSlugInput(formData.slug);
+    if (nameSlug && currentSlug === nameSlug) {
+      const { data: matchingSlugs, error } = await supabase
+        .from('tournaments')
+        .select('slug')
+        .like('slug', `${nameSlug}%`);
+      if (error) {
+        alert('Could not check URL availability. Please try again.');
+        return;
+      }
+
+      const usedSlugs = new Set((matchingSlugs ?? []).map((row) => row.slug));
+      if (usedSlugs.has(nameSlug)) {
+        let suffix = 2;
+        while (usedSlugs.has(`${nameSlug}-${suffix}`)) suffix += 1;
+        const nextSlug = `${nameSlug}-${suffix}`;
+        nextForm = { ...formData, slug: nextSlug };
+        setFormData(nextForm);
+      }
+    }
+
     setStep('teams');
-    saveProgress();
+    saveProgress(nextForm);
     window.history.replaceState({}, '', '/create?step=teams');
   };
 
@@ -660,11 +684,31 @@ export const CreateTournament: React.FC = () => {
     }
 
     setLoading(true);
-    const slug = normalizeSlugInput(formData.slug) || nanoid(10);
+    let slug = normalizeSlugInput(formData.slug) || nanoid(10);
     const adminPassword = nanoid(8);
     let createdTournamentId: string | null = null;
 
     try {
+      const nameSlug = normalizeSlugInput(formData.name);
+      const isSuggestedSlug = !formData.slug || normalizeSlugInput(formData.slug) === nameSlug;
+      if (isSuggestedSlug && slug) {
+        const { data: matchingSlugs, error: slugLookupError } = await supabase
+          .from('tournaments')
+          .select('slug')
+          .like('slug', `${slug}%`);
+        if (slugLookupError) throw slugLookupError;
+
+        const usedSlugs = new Set((matchingSlugs ?? []).map((row) => row.slug));
+        if (usedSlugs.has(slug)) {
+          const baseSlug = slug;
+          let suffix = 2;
+          while (usedSlugs.has(`${baseSlug}-${suffix}`)) suffix += 1;
+          slug = `${baseSlug}-${suffix}`;
+          setFormData({ ...formData, slug });
+          saveProgress({ ...formData, slug });
+        }
+      }
+
       const { data: tournament, error: tError } = await supabase
         .from('tournaments')
         .insert([
@@ -676,7 +720,7 @@ export const CreateTournament: React.FC = () => {
             registration_type: registrationType,
             admin_password: adminPassword,
             is_private: isSandbox ? true : formData.is_private,
-            country_limit: formData.country_limit || null,
+            country_limit: isSandbox ? null : formData.country_limit || null,
             description: showDescription ? formData.description : null,
             admin_email: showEmail ? formData.admin_email : null,
             thumbnail_index: Math.floor(Math.random() * 17) + 1,
@@ -695,17 +739,26 @@ export const CreateTournament: React.FC = () => {
       if (tError) {
         // Handle specific Supabase error for unique constraint
         if (tError.code === '23505') {
-          throw new Error('A tournament with this URL slug already exists. Please choose a different slug.');
+          const duplicateName =
+            tError.message?.includes('tournaments_name_normalized_unique') ||
+            tError.message?.includes('A tournament with this name already exists');
+          throw new Error(
+            duplicateName
+              ? 'A tournament with this name already exists. Please choose a different name.'
+              : 'A tournament with this URL slug already exists. Please choose a different slug.',
+          );
         }
         throw tError;
       }
       createdTournamentId = tournament.id;
 
       if (isSandbox) {
+        const sandboxTeamIdMin = formData.league_category === 'hfi' ? SANDBOX_HFI_TEAM_ID_MIN : SANDBOX_REGULAR_TEAM_ID_MIN;
+        const sandboxTeamIdMax = formData.league_category === 'hfi' ? SANDBOX_HFI_TEAM_ID_MAX : SANDBOX_REGULAR_TEAM_ID_MAX;
         const { error: sandboxError } = await supabase.from('sandbox_tournaments').insert({
           tournament_id: tournament.id,
-          team_id_min: SANDBOX_TEAM_ID_MIN,
-          team_id_max: SANDBOX_TEAM_ID_MAX,
+          team_id_min: sandboxTeamIdMin,
+          team_id_max: sandboxTeamIdMax,
         });
         if (sandboxError) throw sandboxError;
       }
@@ -776,9 +829,11 @@ export const CreateTournament: React.FC = () => {
   const isSandbox = registrationType === 'sandbox';
   const canCreate = isValidated ? !!creator : isSandbox ? teams.length >= 2 : isLinked && teams.length >= 2;
   const leagueRestrictionLabel = formData.league_category === 'hfi' ? 'Only HFI teams' : 'Any male';
-  const countryRestrictionLabel = formData.country_limit
-    ? getLeagueNameById(formData.country_limit) || formData.country_limit
-    : 'Any country';
+  const countryRestrictionLabel = isSandbox
+    ? 'Any country'
+    : formData.country_limit
+      ? getLeagueNameById(formData.country_limit) || formData.country_limit
+      : 'Any country';
   const teamLimitLabel = formData.max_teams ? `${teams.length} of ${Number(formData.max_teams)} filled` : 'Unlimited';
   const sandboxTeamLimit = formData.max_teams ? Number(formData.max_teams) : null;
   const sandboxTeamLimitReached = isSandbox && sandboxTeamLimit !== null && teams.length >= sandboxTeamLimit;
@@ -857,6 +912,7 @@ export const CreateTournament: React.FC = () => {
                         ...formData,
                         registration_type: nextType,
                         is_private: nextType === 'sandbox' ? true : formData.is_private,
+                        country_limit: nextType === 'sandbox' ? '' : formData.country_limit,
                       });
                       setNewTeamId('');
                       setNewTeamName('');
@@ -934,7 +990,7 @@ export const CreateTournament: React.FC = () => {
                     />
                   )}
                 </div>
-                <div className={styles.field}>
+                {!isSandbox && <div className={styles.field}>
                   <label className={styles.checkboxLabel}>
                     <input
                       type="checkbox"
@@ -961,7 +1017,7 @@ export const CreateTournament: React.FC = () => {
                       ))}
                     </select>
                   )}
-                </div>
+                </div>}
                 <div className={styles.field}>
                   <label className={styles.checkboxLabel}>
                     <input

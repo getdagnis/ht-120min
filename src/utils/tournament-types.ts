@@ -21,6 +21,6 @@ export function getTournamentRegistrationTypeLabel(value: unknown) {
   }
 }
 
-export function isSandboxTournament(registrationType: unknown, isTest?: boolean | null) {
-  return normalizeTournamentRegistrationType(registrationType) === 'sandbox' || Boolean(isTest);
+export function isSandboxTournament(registrationType: unknown) {
+  return normalizeTournamentRegistrationType(registrationType) === 'sandbox';
 }

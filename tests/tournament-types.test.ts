@@ -12,8 +12,8 @@ test('registration type normalizer supports current and legacy values', () => {
   assert.equal(normalizeTournamentRegistrationType('Sandbox Playground'), 'sandbox');
 });
 
-test('sandbox tournaments can be detected from type or test flag', () => {
-  assert.equal(isSandboxTournament('sandbox', false), true);
-  assert.equal(isSandboxTournament('manual', true), true);
-  assert.equal(isSandboxTournament('validated', false), false);
+test('only the sandbox registration type enables sandbox behavior', () => {
+  assert.equal(isSandboxTournament('sandbox'), true);
+  assert.equal(isSandboxTournament('manual'), false);
+  assert.equal(isSandboxTournament('validated'), false);
 });

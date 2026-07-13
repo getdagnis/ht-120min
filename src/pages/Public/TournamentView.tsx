@@ -1691,7 +1691,7 @@ export const TournamentView: React.FC = () => {
 
     try {
       for (let attempt = 0; attempt < SANDBOX_RANDOM_ATTEMPTS; attempt += 1) {
-        const teamId = getRandomSandboxTeamId();
+        const teamId = getRandomSandboxTeamId(tournament?.league_category === 'hfi' ? 'hfi' : 'male');
         if (teams.some((team) => team.ht_team_id === teamId)) continue;
 
         try {
@@ -1713,6 +1713,11 @@ export const TournamentView: React.FC = () => {
 
   const addSandboxTeam = async () => {
     if (!tournament || !sandboxCandidate) return;
+    if (isGenerated) {
+      alert('Test teams can only be added before the schedule is generated.');
+      setSandboxCandidate(null);
+      return;
+    }
     if (sandboxTeamLimitReached) {
       alert('The test tournament has reached its team limit.');
       setSandboxCandidate(null);
@@ -1726,22 +1731,13 @@ export const TournamentView: React.FC = () => {
 
     setIsSavingTeam(true);
     try {
-      let oldTeamToReplaceId: string | null = null;
-      if (isGenerated) {
-        const inactiveTeam = teams.find((team) => !team.active && !team.is_placeholder);
-        if (inactiveTeam) {
-          oldTeamToReplaceId = inactiveTeam.id;
-        }
-      }
-
-      const { data: newTeam, error } = await supabase
+      const { error } = await supabase
         .from('teams')
         .insert({
           tournament_id: tournament.id,
           name: sandboxCandidate.teamName,
           ht_team_id: sandboxCandidate.teamId,
           active: true,
-          replacement_for_team_id: oldTeamToReplaceId,
           joined_via_oauth: false,
           manager_name: 'Bot team',
           logo_url: sandboxCandidate.logoUrl ?? null,
@@ -1751,41 +1747,8 @@ export const TournamentView: React.FC = () => {
           gender_id: sandboxCandidate.genderId ?? null,
           league_level: sandboxCandidate.leagueLevel ?? null,
         })
-        .select()
-        .single();
+        ;
       if (error) throw error;
-
-      if (oldTeamToReplaceId && newTeam?.id) {
-        await supabase
-          .from('matches')
-          .update({ home_team_id: newTeam.id })
-          .eq('home_team_id', oldTeamToReplaceId)
-          .eq('completed', false);
-
-        await supabase
-          .from('matches')
-          .update({ away_team_id: newTeam.id })
-          .eq('away_team_id', oldTeamToReplaceId)
-          .eq('completed', false);
-      } else if (isGenerated && newTeam?.id) {
-        const roundIds = rounds.map((round) => round.id);
-        const { data: byeMatches } = await supabase
-          .from('matches')
-          .select('id, home_team_id, away_team_id')
-          .in('round_id', roundIds)
-          .or('home_team_id.is.null,away_team_id.is.null')
-          .eq('completed', false);
-
-        if (byeMatches && byeMatches.length > 0) {
-          for (const match of byeMatches) {
-            if (match.home_team_id === null) {
-              await supabase.from('matches').update({ home_team_id: newTeam.id }).eq('id', match.id);
-            } else if (match.away_team_id === null) {
-              await supabase.from('matches').update({ away_team_id: newTeam.id }).eq('id', match.id);
-            }
-          }
-        }
-      }
 
       setSandboxCandidate(null);
       setSandboxFetchError('');
@@ -2201,11 +2164,11 @@ export const TournamentView: React.FC = () => {
   const hasJoined = teams.some((t) => t.hattrick_user_id === Number(myHtUserId) && t.active);
   const tournamentId = tournament?.id ?? null;
   const activeRealTeamsCount = teams.filter((team) => team.active && !team.is_placeholder).length;
-  const isSandbox = tournament ? isSandboxTournament(tournament.registration_type, tournament.is_test) : false;
+  const isSandbox = tournament ? isSandboxTournament(tournament.registration_type) : false;
   const sandboxTeamLimitReached = Boolean(
     tournament?.max_teams && activeRealTeamsCount >= tournament.max_teams,
   );
-  const canManageSandboxTeams = Boolean(tournament && isSandbox && isAdminAuthenticated);
+  const canManageSandboxTeams = Boolean(tournament && isSandbox && isAdminAuthenticated && !isGenerated);
   const canAddSandboxTeam = Boolean(
     canManageSandboxTeams && !sandboxTeamLimitReached,
   );
