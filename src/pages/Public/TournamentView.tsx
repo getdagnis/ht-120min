@@ -166,7 +166,7 @@ interface Tournament {
   image_url?: string;
   season: number;
   is_test: boolean;
-  status: 'open' | 'active' | 'finished' | 'waiting';
+  status: 'open' | 'active' | 'paused' | 'finished' | 'waiting' | 'archived';
   last_fixtures_refresh: string | null;
   admin_email: string | null;
   max_teams: number | null;
@@ -411,20 +411,23 @@ export const TournamentView: React.FC = () => {
     // we call it inside this effect/callback safely.
   });
 
-  const isHealthQuotaMet = useCallback(() => {
-    if (!teams.length) return true;
-    const totalCount = teams.filter((t) => !t.is_placeholder).length;
-    const inactiveCount = teams.filter((t) => !t.active && !t.is_placeholder).length;
+  const isHealthQuotaMet = useCallback(
+    (teamList: Team[] = teams) => {
+      if (!teamList.length) return true;
+      const totalCount = teamList.filter((t) => !t.is_placeholder).length;
+      const inactiveCount = teamList.filter((t) => !t.active && !t.is_placeholder).length;
 
-    // Small tournaments (2-3 teams) are exempt as per prompt ("recurring friendlies")
-    if (totalCount <= 3) return true;
+      // Small tournaments (2-3 teams) are exempt as per prompt ("recurring friendlies")
+      if (totalCount <= 3) return true;
 
-    if (totalCount <= 5) return inactiveCount === 0;
-    if (totalCount === 6) return inactiveCount <= 1;
-    if (totalCount === 7) return inactiveCount === 0;
+      if (totalCount <= 5) return inactiveCount === 0;
+      if (totalCount === 6) return inactiveCount <= 1;
+      if (totalCount === 7) return inactiveCount === 0;
 
-    return inactiveCount / totalCount <= 0.25;
-  }, [teams]);
+      return inactiveCount / totalCount <= 0.25;
+    },
+    [teams],
+  );
 
   const activeScheduleTeams = useMemo(
     () =>
@@ -1585,11 +1588,6 @@ export const TournamentView: React.FC = () => {
 
       if (error) throw error;
 
-      // Auto-archive if empty
-      if (teams.length === 0) {
-        await supabase.from('tournaments').update({ status: 'archived' }).eq('id', tournament!.id);
-      }
-
       fetchData();
     } catch (error: any) {
       alert(error.message);
@@ -1999,11 +1997,23 @@ export const TournamentView: React.FC = () => {
     }
   };
 
-  const checkArchiveStatus = async (updatedTeams: any[]) => {
-    const validatedCount = updatedTeams.filter((t) => t.active && t.joined_via_oauth).length;
-    if (validatedCount === 0 && updatedTeams.some((t) => t.active)) {
-      await supabase.from('tournaments').update({ is_archived: true }).eq('id', tournament?.id);
-      alert('This tournament has no Hattrick validated teams left and has been archived.');
+  const reconcileTournamentTeamState = async (updatedTeams: Team[]) => {
+    if (!tournament || isSandbox) return;
+
+    const registeredTeams = updatedTeams.filter((team) => !team.is_placeholder);
+    const activeTeams = registeredTeams.filter((team) => team.active);
+
+    if (isGenerated) {
+      const shouldPause = activeTeams.length === 0 || !isHealthQuotaMet(updatedTeams);
+      if (shouldPause && tournament.status !== 'paused') {
+        await supabase.from('tournaments').update({ status: 'paused' }).eq('id', tournament.id);
+        alert('This tournament has been paused because too few active teams remain.');
+      }
+      return;
+    }
+
+    if (registeredTeams.length === 0 && !tournament.is_private) {
+      await supabase.from('tournaments').update({ is_private: true }).eq('id', tournament.id);
     }
   };
 
@@ -2026,7 +2036,7 @@ export const TournamentView: React.FC = () => {
         await supabase.from('teams').update({ active: false }).eq('id', id);
         updatedTeams = teams.map((t) => (t.id === id ? { ...t, active: false } : t));
         fetchData();
-        checkArchiveStatus(updatedTeams);
+        reconcileTournamentTeamState(updatedTeams);
       }
       return;
     }
@@ -2043,7 +2053,7 @@ export const TournamentView: React.FC = () => {
       await supabase.from('teams').delete().eq('id', id);
       updatedTeams = teams.filter((t) => t.id !== id);
       fetchData();
-      checkArchiveStatus(updatedTeams);
+      reconcileTournamentTeamState(updatedTeams);
     }
   };
 

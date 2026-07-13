@@ -85,6 +85,7 @@ interface DBOrganizerTournament {
   slug: string;
   is_featured?: boolean | null;
   status: string | null;
+  is_archived?: boolean | null;
   created_at: string;
 }
 
@@ -188,13 +189,13 @@ export const useAuth = () => {
 
       const { data: organizerDataRaw } = await supabase
         .from('tournaments')
-        .select('id, name, slug, status, created_at, is_featured')
+        .select('id, name, slug, status, is_archived, created_at, is_featured')
         .eq('organizer_id', uid)
         .neq('status', 'archived')
         .order('created_at', { ascending: false });
 
       const organizerTours = ((organizerDataRaw as unknown as DBOrganizerTournament[] | null) ?? [])
-        .filter((tournament) => tournament.status !== 'archived')
+        .filter((tournament) => tournament.status !== 'archived' && !tournament.is_archived)
         .map((tournament) => ({
           id: tournament.id,
           name: tournament.name,

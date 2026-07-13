@@ -61,6 +61,8 @@ interface DBTournament {
   is_featured?: boolean | null;
   is_private: boolean;
   is_test?: boolean | null;
+  status?: string | null;
+  is_archived?: boolean | null;
   thumbnail_index?: number;
   image_url?: string;
   rounds: DBRound[] | null;
@@ -143,6 +145,8 @@ export const Home: React.FC = () => {
           is_featured,
           is_private,
           is_test,
+          status,
+          is_archived,
           thumbnail_index,
           image_url,
           country_limit,
@@ -188,7 +192,9 @@ export const Home: React.FC = () => {
         const team120Stats: Record<number, { name: string; count: number }> = {};
         const tournamentsData = tournaments as unknown as DBTournament[];
 
-        tournamentsData.filter((t) => !t.is_test).forEach((t: DBTournament) => {
+        tournamentsData
+          .filter((t) => !t.is_test && t.status !== 'archived' && !t.is_archived)
+          .forEach((t: DBTournament) => {
           // Count validated teams
           const validatedTeamCount = t.teams.filter((team) => team.joined_via_oauth).length;
 
