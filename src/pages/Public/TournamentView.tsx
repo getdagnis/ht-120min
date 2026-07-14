@@ -18,10 +18,8 @@ import { getMatchDateForRound as resolveMatchDateForRound } from '../../utils/ma
 import { canViewerJoinTournament } from '../../utils/tournament-joinability';
 import { markAuthRefreshCurrent, needsAuthRefresh } from '../../utils/auth-refresh';
 import { hasSuperAdminBypassCookie } from '../../utils/superadmin-bypass';
-import {
-  isSandboxTournament,
-  normalizeTournamentRegistrationType,
-} from '../../utils/tournament-types';
+import { formatTournamentName } from '../../utils/tournament-names';
+import { isSandboxTournament, normalizeTournamentRegistrationType } from '../../utils/tournament-types';
 import {
   JOINED_NOTICE_KEY,
   selectTournamentMessage,
@@ -159,7 +157,6 @@ interface Tournament {
   is_featured: boolean;
   thumbnail_index?: number;
   chpp_only_join: boolean;
-  league_type: string;
   country_limit: string | null;
   league_category: 'male' | 'hfi';
   registration_type: string;
@@ -259,7 +256,6 @@ export const TournamentView: React.FC = () => {
   const [editName, setEditName] = useState('');
   const [editIsPrivate, setEditIsPrivate] = useState(false);
   const [editChppOnlyJoin, setEditChppOnlyJoin] = useState(true);
-  const [editLeagueType, setEditLeagueType] = useState('male');
   const [editLeagueCategory, setEditLeagueCategory] = useState<'male' | 'hfi'>('male');
   const [editRegistrationType, setEditRegistrationType] = useState('validated');
   const [editCountryLimit, setEditCountryLimit] = useState<string | null>(null);
@@ -307,7 +303,6 @@ export const TournamentView: React.FC = () => {
       editName !== tournament.name ||
       editIsPrivate !== tournament.is_private ||
       editChppOnlyJoin !== tournament.chpp_only_join ||
-      editLeagueType !== tournament.league_type ||
       editLeagueCategory !== (tournament.league_category || 'male') ||
       editRegistrationType !== normalizeTournamentRegistrationType(tournament.registration_type) ||
       editCountryLimit !== savedCountryLimit ||
@@ -326,7 +321,6 @@ export const TournamentView: React.FC = () => {
     editDescription,
     editIsPrivate,
     editLeagueCategory,
-    editLeagueType,
     editMaxTeams,
     editName,
     editRegistrationType,
@@ -623,7 +617,6 @@ export const TournamentView: React.FC = () => {
       setEditName(tournamentData.name);
       setEditIsPrivate(tournamentData.is_private);
       setEditChppOnlyJoin(tournamentData.chpp_only_join);
-      setEditLeagueType(tournamentData.league_type);
       setEditLeagueCategory(tournamentData.league_category || 'male');
       setEditRegistrationType(normalizeTournamentRegistrationType(tournamentData.registration_type));
       setEditCountryLimit(normalizeLeagueLimit(tournamentData.country_limit));
@@ -1573,10 +1566,12 @@ export const TournamentView: React.FC = () => {
       const { error } = await supabase
         .from('tournaments')
         .update({
-          name: editName,
+          name:
+            editRegistrationType === 'sandbox'
+              ? formatTournamentName(editName, { registrationType: editRegistrationType })
+              : editName.trim(),
           is_private: editIsPrivate,
           chpp_only_join: editChppOnlyJoin,
-          league_type: editLeagueType,
           league_category: editLeagueCategory,
           registration_type: editRegistrationType,
           country_limit: editCountryLimit,
@@ -1735,23 +1730,20 @@ export const TournamentView: React.FC = () => {
 
     setIsSavingTeam(true);
     try {
-      const { error } = await supabase
-        .from('teams')
-        .insert({
-          tournament_id: tournament.id,
-          name: sandboxCandidate.teamName,
-          ht_team_id: sandboxCandidate.teamId,
-          active: true,
-          joined_via_oauth: false,
-          manager_name: 'Bot team',
-          logo_url: sandboxCandidate.logoUrl ?? null,
-          country_id: sandboxCandidate.countryId ?? null,
-          country_name: sandboxCandidate.countryName ?? null,
-          league_id: sandboxCandidate.leagueId ?? null,
-          gender_id: sandboxCandidate.genderId ?? null,
-          league_level: sandboxCandidate.leagueLevel ?? null,
-        })
-        ;
+      const { error } = await supabase.from('teams').insert({
+        tournament_id: tournament.id,
+        name: sandboxCandidate.teamName,
+        ht_team_id: sandboxCandidate.teamId,
+        active: true,
+        joined_via_oauth: false,
+        manager_name: 'Bot team',
+        logo_url: sandboxCandidate.logoUrl ?? null,
+        country_id: sandboxCandidate.countryId ?? null,
+        country_name: sandboxCandidate.countryName ?? null,
+        league_id: sandboxCandidate.leagueId ?? null,
+        gender_id: sandboxCandidate.genderId ?? null,
+        league_level: sandboxCandidate.leagueLevel ?? null,
+      });
       if (error) throw error;
 
       setSandboxCandidate(null);
@@ -2169,13 +2161,9 @@ export const TournamentView: React.FC = () => {
   const tournamentId = tournament?.id ?? null;
   const activeRealTeamsCount = teams.filter((team) => team.active && !team.is_placeholder).length;
   const isSandbox = tournament ? isSandboxTournament(tournament.registration_type) : false;
-  const sandboxTeamLimitReached = Boolean(
-    tournament?.max_teams && activeRealTeamsCount >= tournament.max_teams,
-  );
+  const sandboxTeamLimitReached = Boolean(tournament?.max_teams && activeRealTeamsCount >= tournament.max_teams);
   const canManageSandboxTeams = Boolean(tournament && isSandbox && isAdminAuthenticated && !isGenerated);
-  const canAddSandboxTeam = Boolean(
-    canManageSandboxTeams && !sandboxTeamLimitReached,
-  );
+  const canAddSandboxTeam = Boolean(canManageSandboxTeams && !sandboxTeamLimitReached);
   const canJoinTournament = Boolean(
     tournament &&
     !isSandbox &&
@@ -2399,9 +2387,7 @@ export const TournamentView: React.FC = () => {
             <div>
               <h3>TEST tournament</h3>
               <p>
-                {canAddSandboxTeam
-                  ? 'This is a test tournament. Add another test team.'
-                  : 'This tournament is TEST.'}
+                {canAddSandboxTeam ? 'This is a test tournament. Add another test team.' : 'This tournament is TEST.'}
               </p>
             </div>
             {canManageSandboxTeams && (
@@ -2439,7 +2425,13 @@ export const TournamentView: React.FC = () => {
                     <span>
                       {[`ID ${sandboxCandidate.teamId}`, sandboxCandidate.countryName].filter(Boolean).join(' · ')}
                     </span>
-                    <Button type="button" variant="secondary" size="sm" onClick={addSandboxTeam} disabled={isSavingTeam}>
+                    <Button
+                      type="button"
+                      variant="secondary"
+                      size="sm"
+                      onClick={addSandboxTeam}
+                      disabled={isSavingTeam}
+                    >
                       Add it
                     </Button>
                     <Button
@@ -3258,11 +3250,11 @@ export const TournamentView: React.FC = () => {
                                       type="text"
                                       placeholder="New HT ID"
                                       value={replacementHtId}
-                                            onChange={(e) => {
-                                              setReplacementHtId(e.target.value.replace(/\D/g, ''));
-                                              setReplacementName('');
-                                              setReplacementTeamData(null);
-                                            }}
+                                      onChange={(e) => {
+                                        setReplacementHtId(e.target.value.replace(/\D/g, ''));
+                                        setReplacementName('');
+                                        setReplacementTeamData(null);
+                                      }}
                                       required
                                     />
                                     <input
@@ -3338,11 +3330,11 @@ export const TournamentView: React.FC = () => {
                                       type="text"
                                       placeholder="New HT ID"
                                       value={replacementHtId}
-                                            onChange={(e) => {
-                                              setReplacementHtId(e.target.value.replace(/\D/g, ''));
-                                              setReplacementName('');
-                                              setReplacementTeamData(null);
-                                            }}
+                                      onChange={(e) => {
+                                        setReplacementHtId(e.target.value.replace(/\D/g, ''));
+                                        setReplacementName('');
+                                        setReplacementTeamData(null);
+                                      }}
                                       required
                                     />
                                     <input
