@@ -38,6 +38,10 @@ Decision check:
 
 If any answer is no, reconsider the scope.
 
+## Collaboration Rule
+
+When a task is not completely obvious and trivial, first inspect the issue and explain the likely cause, then ask whether the user prefers a manual fix, a small targeted change, or a broader implementation. Do not start an elaborate workaround before confirming that direction; the user may prefer to clean up data or make the decision themselves.
+
 ## Hard Constraints
 
 - Vercel Hobby allows 12 serverless functions. The project is currently at `12/12`.
