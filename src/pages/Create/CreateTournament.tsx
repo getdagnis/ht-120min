@@ -139,6 +139,20 @@ const getRandomName = (mode: string) => {
 };
 const normalizeSlugInput = (value: string) => normalizeTournamentSlug(value.trim());
 
+const getInitialFormData = () => ({
+  name: '',
+  slug: '',
+  scoring_mode: '120min',
+  league_category: 'male',
+  registration_type: 'validated',
+  is_private: false,
+  country_limit: '',
+  include_country_flag: true,
+  description: getRandomDescription(),
+  admin_email: '',
+  max_teams: '' as string | number,
+});
+
 interface FetchedTeamData {
   teamId: number;
   teamName: string;
@@ -167,19 +181,7 @@ export const CreateTournament: React.FC = () => {
       const { formData: savedForm } = JSON.parse(saved);
       if (savedForm) return savedForm;
     }
-    return {
-      name: '',
-      slug: '',
-      scoring_mode: '120min',
-      league_category: 'male',
-      registration_type: 'validated',
-      is_private: false,
-      country_limit: '',
-      include_country_flag: true,
-      description: getRandomDescription(),
-      admin_email: '',
-      max_teams: '' as string | number,
-    };
+    return getInitialFormData();
   });
 
   const [teams, setTeams] = useState<LocalTeam[]>(() => {
@@ -333,6 +335,21 @@ export const CreateTournament: React.FC = () => {
     setTeams(withoutCreator);
     setStep('info');
     saveProgress(formData, withoutCreator, showDescription, showEmail, null);
+    window.history.replaceState({}, '', '/create');
+  };
+
+  const clearAll = () => {
+    localStorage.removeItem('create_tournament_progress');
+    setFormData(getInitialFormData());
+    setTeams([]);
+    setOrganizerProfile(null);
+    setShowDescription(true);
+    setShowEmail(false);
+    setShowLeagueRestriction(false);
+    setLinkedManager(null);
+    setShowModal(false);
+    setIsLinked(false);
+    setStep('info');
     window.history.replaceState({}, '', '/create');
   };
 
@@ -1143,10 +1160,20 @@ export const CreateTournament: React.FC = () => {
                 </div>
 
                 <div className={styles.actions}>
-                  <Button type="submit" fullWidth disabled={loading} variant="secondary">
-                    Continue <ArrowRight size={18} weight="bold" />
-                  </Button>
-                </div>
+                <Button type="submit" fullWidth disabled={loading} variant="secondary">
+                  Continue <ArrowRight size={18} weight="bold" />
+                </Button>
+                <Button
+                  type="button"
+                  variant="outlineWhite"
+                  size="sm"
+                  onClick={clearAll}
+                  disabled={loading}
+                  className={styles.opacity08}
+                >
+                  Clear All
+                </Button>
+              </div>
               </form>
             </HeroCard>
           </div>
