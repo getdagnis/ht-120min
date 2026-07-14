@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 
-import { getCanonicalCountryName, getFlagUrl, getFriendlyTimeForCountry } from '../src/utils/ht-data';
+import { getCanonicalCountryName, getFlagUrl, getFriendlyTimeForCountry, getLeagueFlagUrl } from '../src/utils/ht-data';
 import { parseTeamDetailsXml as parseApiTeamDetailsXml } from '../api/_lib/chpp-xml';
 import { parseTeamDetailsXml as parseClientTeamDetailsXml } from '../src/utils/chpp-xml';
 
@@ -12,9 +12,22 @@ test('Latvia display is canonicalized from localized CHPP country values', () =>
 });
 
 test('Latvia flag resolves from either CHPP CountryID or localized country name', () => {
-  assert.equal(getFlagUrl('Lettonia', 48), 'https://flagcdn.com/w80/lv.png');
-  assert.equal(getFlagUrl('Latvija'), 'https://flagcdn.com/w80/lv.png');
-  assert.equal(getFlagUrl(undefined, 48), 'https://flagcdn.com/w80/lv.png');
+  assert.equal(getFlagUrl('Lettonia', 48), 'https://www.hattrick.org/Img/flags/53.png');
+  assert.equal(getFlagUrl('Latvija'), 'https://www.hattrick.org/Img/flags/53.png');
+  assert.equal(getFlagUrl(undefined, 48), 'https://www.hattrick.org/Img/flags/53.png');
+});
+
+test('country flags resolve from CountryID even when CHPP returns localized names', () => {
+  assert.equal(getFlagUrl('Croazia', 42), 'https://www.hattrick.org/Img/flags/58.png');
+  assert.equal(getFlagUrl('Polonia', 26), 'https://www.hattrick.org/Img/flags/24.png');
+  assert.equal(getFlagUrl('Repubblica Ceca', 46), 'https://www.hattrick.org/Img/flags/52.png');
+  assert.equal(getFlagUrl('Cuba', 93), 'https://www.hattrick.org/Img/flags/147.png');
+});
+
+test('only countryless leagues render an additional Hattrick league flag', () => {
+  assert.equal(getLeagueFlagUrl(3000), 'https://www.hattrick.org/Img/flags/3000.png');
+  assert.equal(getLeagueFlagUrl(1000), 'https://www.hattrick.org/Img/flags/1000.png');
+  assert.equal(getLeagueFlagUrl(58), null);
 });
 
 test('localized Latvia names still use Latvia kickoff metadata', () => {
@@ -56,7 +69,7 @@ test('teamdetails parser keeps CHPP CountryID but canonicalizes Latvia display n
   assert.equal(parsed.leagueLevel, 4);
 });
 
-test('teamdetails parser uses LeagueID as canonical country name over localized XML text', () => {
+test('teamdetails parser uses CountryID from worlddetails as canonical country name over localized XML text', () => {
   const xml = `
     <HattrickData>
       <Teams>
@@ -68,7 +81,7 @@ test('teamdetails parser uses LeagueID as canonical country name over localized 
             <LeagueName>Finlandia</LeagueName>
           </League>
           <Country>
-            <CountryID>12</CountryID>
+            <CountryID>11</CountryID>
             <CountryName>Finlandia</CountryName>
           </Country>
         </Team>

@@ -97,6 +97,7 @@ interface MatchWithTeams {
     logo_url?: string;
     country_name?: string;
     country_id?: number;
+    league_id?: number;
     league_level?: number | null;
     manager_name?: string;
     hattrick_user_id?: number;
@@ -108,6 +109,7 @@ interface MatchWithTeams {
     logo_url?: string;
     country_name?: string;
     country_id?: number;
+    league_id?: number;
     league_level?: number | null;
     manager_name?: string;
     hattrick_user_id?: number;
@@ -130,6 +132,7 @@ interface Team {
   is_placeholder?: boolean;
   hattrick_user_id?: number;
   league_level?: number | null;
+  league_id?: number | null;
 }
 
 interface FetchedTeamData {
@@ -710,8 +713,8 @@ export const TournamentView: React.FC = () => {
           status,
           ht_match_id,
           match_type,
-          home_team:teams!matches_home_team_id_fkey(name, ht_team_id, logo_url, country_name, league_level, active, manager_name, hattrick_user_id),
-          away_team:teams!matches_away_team_id_fkey(name, ht_team_id, logo_url, country_name, league_level, active, manager_name, hattrick_user_id)
+          home_team:teams!matches_home_team_id_fkey(name, ht_team_id, logo_url, country_name, country_id, league_id, league_level, active, manager_name, hattrick_user_id),
+          away_team:teams!matches_away_team_id_fkey(name, ht_team_id, logo_url, country_name, country_id, league_id, league_level, active, manager_name, hattrick_user_id)
         `,
         )
         .in(
@@ -820,6 +823,7 @@ export const TournamentView: React.FC = () => {
             joined_via_oauth: t.joined_via_oauth,
             country_name: t.country_name,
             country_id: t.country_id ?? null,
+            league_id: t.league_id ?? null,
             logo_url: t.logo_url,
             manager_name: t.hattrick_user_id
               ? nextProfileMap[t.hattrick_user_id]?.manager_name || t.manager_name

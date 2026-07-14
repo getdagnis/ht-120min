@@ -1,6 +1,6 @@
 # PROJECT_STATE.md
 
-Last updated: 2026-07-12
+Last updated: 2026-07-14
 
 This is the current-status ledger. Update it after meaningful implementation work. Be explicit about what is local, migrated, tested, deployed, or still unknown.
 
@@ -34,7 +34,7 @@ The app currently supports:
 | Tournament name and slug uniqueness | Implemented locally; display names are unique after case/diacritic/punctuation/emoji normalization, existing duplicates are preserved while new duplicates are rejected by a trigger, and generated slugs use collision suffixes without trailing dashes | `054`; pending Supabase application | `npm run build` and `npm test` passed 2026-07-14 | Apply `054` and confirm |
 | Tournament roster health/status | Implemented locally; generated real tournaments pause when their active roster becomes unhealthy, while empty open tournaments become private/unlisted and legacy archived rows are excluded from public lists | No migration; existing `status` and `is_private` fields | `npm run build` and `npm test` passed 2026-07-13 | Confirm against live Supabase |
 | API TypeScript editor config | Implemented locally with `api/tsconfig.json` so Vercel API files use Node globals in the IDE without changing `tsc -b` build scope | No migration | `npm run build` passed 2026-07-10; standalone `npx tsc -p api/tsconfig.json` exposes pre-existing API typing issues | Confirm |
-| CHPP country display normalization | Implemented locally for Latvia `CountryID=48` / `LeagueID=53` / localized names | No migration; existing rows handled in UI | `npm test` and `npm run build` passed 2026-07-02 | Confirm |
+| CHPP country display and flag normalization | Implemented locally from `src/utils/worlddetails.xml` v1.2 through shared world-details records. Parent LeagueID and associated CountryID are kept separate; country-backed teams use one Hattrick parent-league flag, while countryless leagues use an additional Hattrick league flag. English and local names are both retained for future language preferences | No migration; existing rows are resolved by `country_id`, future CHPP writes use canonical English names | `npm test` (65), `npm run build`, `git diff --check`, and no active FlagCDN references passed 2026-07-14 | Confirm against live HFI refresh; existing translated `country_name` values are not backfilled |
 | Empty tournament join affordances and team logo fallback | Implemented locally | No migration | `npm test` and `npm run build` passed 2026-07-02 | Confirm |
 | Matchmaker challenge send | Partially implemented | Existing matchmaker/profile/token migrations | Requires real CHPP reauth and endpoint confirmation | Confirm |
 
@@ -68,7 +68,7 @@ Production means live deployed behavior. If it has not been checked against the 
 - OAuth flow requests `manage_challenges` scope.
 - Manager/team discovery uses `managercompendium`.
 - Team metadata uses `teamdetails`.
-- Latvian CHPP country data is normalized for display from localized names such as `Lettonia`/`Latvija` and the CHPP CountryID/LeagueID split.
+- CHPP country data is normalized from CountryID, independent of the manager's CHPP language; league flags use LeagueID separately. Existing translated database text remains until a data backfill or team refresh.
 - Fixture booking/reconciliation uses `matches`.
 - Live/finished result sync uses `matchdetails` with match events.
 - Reversed home/away friendly location is treated as arranged, with venue mismatch metadata recorded.
@@ -97,7 +97,7 @@ Production means live deployed behavior. If it has not been checked against the 
 - Matchmaker `handleAccept` remains incomplete as a full server-side booking/match creation loop.
 - Race protection for simultaneous Matchmaker accepts is not complete.
 - Stale Matchmaker ads can remain visible until availability sync runs.
-- Country and league logic still has name-based fallbacks. Prefer ids for future work.
+- `src/utils/worlddetails.xml` is the current catalogue source. If CHPP changes its world-details data, regenerate/review `shared/worlddetails.ts` and preserve the LeagueID/CountryID distinction.
 - Some CHPP parsing remains ad hoc, especially around `api/teams/info.ts`.
 - The manual schedule smoke-test SQL is a reference helper, not proof of production state.
 
@@ -111,7 +111,7 @@ Production means live deployed behavior. If it has not been checked against the 
 
 ## Latest Validation
 
-Docs refactor validation should use:
+Latest code validation for the country/flag fix:
 
 ```bash
 find api -name "*.ts" | grep -v "/_lib/" | wc -l
@@ -119,7 +119,7 @@ rg "docs/(architecture|scheduling|chpp|database-and-deployment)\\.md|PROJECT_STA
 git diff --check
 ```
 
-Full code validation was not rerun for this docs-only refactor. When code changes are made, run:
+`npm run build` and `npm test` passed on 2026-07-14. The build still reports the existing CSS `:global` warning and large bundle warning. For future code changes, run:
 
 ```bash
 npm run build

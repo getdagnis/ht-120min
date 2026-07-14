@@ -31,7 +31,7 @@ import {
 } from '../../utils/open-tournaments';
 import styles from './CreateTournament.module.sass';
 import { HATTRICK_LEAGUES, getLeagueNameById } from '../../utils/leagues';
-import { getFlagUrl } from '../../utils/ht-data';
+import { getCanonicalCountryName, getCountryFlagUrl, getLeagueFlagUrl } from '../../utils/ht-data';
 import { normalizeTournamentName, normalizeTournamentSlug } from '../../utils/tournament-names';
 import {
   getRandomSandboxTeamId,
@@ -753,8 +753,10 @@ export const CreateTournament: React.FC = () => {
       createdTournamentId = tournament.id;
 
       if (isSandbox) {
-        const sandboxTeamIdMin = formData.league_category === 'hfi' ? SANDBOX_HFI_TEAM_ID_MIN : SANDBOX_REGULAR_TEAM_ID_MIN;
-        const sandboxTeamIdMax = formData.league_category === 'hfi' ? SANDBOX_HFI_TEAM_ID_MAX : SANDBOX_REGULAR_TEAM_ID_MAX;
+        const sandboxTeamIdMin =
+          formData.league_category === 'hfi' ? SANDBOX_HFI_TEAM_ID_MIN : SANDBOX_REGULAR_TEAM_ID_MIN;
+        const sandboxTeamIdMax =
+          formData.league_category === 'hfi' ? SANDBOX_HFI_TEAM_ID_MAX : SANDBOX_REGULAR_TEAM_ID_MAX;
         const { error: sandboxError } = await supabase.from('sandbox_tournaments').insert({
           tournament_id: tournament.id,
           team_id_min: sandboxTeamIdMin,
@@ -990,34 +992,36 @@ export const CreateTournament: React.FC = () => {
                     />
                   )}
                 </div>
-                {!isSandbox && <div className={styles.field}>
-                  <label className={styles.checkboxLabel}>
-                    <input
-                      type="checkbox"
-                      checked={showLeagueRestriction}
-                      onChange={(e) => {
-                        setShowLeagueRestriction(e.target.checked);
-                        if (!e.target.checked) setFormData({ ...formData, country_limit: '' });
-                      }}
-                    />
-                    Limited to one league/country
-                  </label>
-                  {showLeagueRestriction && (
-                    <select
-                      id="tournament_country_limit"
-                      value={formData.country_limit}
-                      onChange={(e) => setFormData({ ...formData, country_limit: e.target.value })}
-                      className={`${styles.mt05} ${styles.w100}`}
-                    >
-                      <option value="">Select league...</option>
-                      {Object.entries(HATTRICK_LEAGUES).map(([leagueId, league]) => (
-                        <option key={leagueId} value={leagueId}>
-                          {league}
-                        </option>
-                      ))}
-                    </select>
-                  )}
-                </div>}
+                {!isSandbox && (
+                  <div className={styles.field}>
+                    <label className={styles.checkboxLabel}>
+                      <input
+                        type="checkbox"
+                        checked={showLeagueRestriction}
+                        onChange={(e) => {
+                          setShowLeagueRestriction(e.target.checked);
+                          if (!e.target.checked) setFormData({ ...formData, country_limit: '' });
+                        }}
+                      />
+                      Limited to one league/country
+                    </label>
+                    {showLeagueRestriction && (
+                      <select
+                        id="tournament_country_limit"
+                        value={formData.country_limit}
+                        onChange={(e) => setFormData({ ...formData, country_limit: e.target.value })}
+                        className={`${styles.mt05} ${styles.w100}`}
+                      >
+                        <option value="">Select league...</option>
+                        {Object.entries(HATTRICK_LEAGUES).map(([leagueId, league]) => (
+                          <option key={leagueId} value={leagueId}>
+                            {league}
+                          </option>
+                        ))}
+                      </select>
+                    )}
+                  </div>
+                )}
                 <div className={styles.field}>
                   <label className={styles.checkboxLabel}>
                     <input
@@ -1306,7 +1310,9 @@ export const CreateTournament: React.FC = () => {
             {!isValidated && (
               <ul className={styles.teamList}>
                 {teams.map((team) => {
-                  const flagUrl = getFlagUrl(team.countryName, team.countryId);
+                  const displayCountryName = getCanonicalCountryName(team.countryName, team.countryId);
+                  const countryFlagUrl = getCountryFlagUrl(team.countryId, team.countryName);
+                  const leagueFlagUrl = getLeagueFlagUrl(team.leagueId);
 
                   return (
                     <li key={team.tempId} className={team.isCreator ? styles.creatorRow : undefined}>
@@ -1326,10 +1332,13 @@ export const CreateTournament: React.FC = () => {
                             </a>
                           </span>
                           <span className={styles.teamMeta}>
-                            {flagUrl && (
+                            {leagueFlagUrl && (
+                              <img src={leagueFlagUrl} alt="League" className={styles.teamFlag} loading="lazy" />
+                            )}
+                            {countryFlagUrl && (
                               <img
-                                src={flagUrl}
-                                alt={team.countryName || ''}
+                                src={countryFlagUrl}
+                                alt={displayCountryName || 'Country'}
                                 className={styles.teamFlag}
                                 loading="lazy"
                               />

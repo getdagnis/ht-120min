@@ -1,12 +1,12 @@
 import React from 'react';
 import { Tooltip } from 'react-tooltip';
-import { getCanonicalCountryName, getFlagUrl, formatPresence } from '../../utils/ht-data';
-import { getLeagueIdByName } from '../../utils/leagues';
+import { getCanonicalCountryName, getCountryFlagUrl, getLeagueFlagUrl, formatPresence } from '../../utils/ht-data';
 import styles from './TeamByline.module.sass';
 
 interface TeamBylineProps {
   countryName?: string | null;
   countryId?: number | null;
+  leagueId?: number | null;
   teamId: number | null;
   managerName?: string | null;
   managerHtId?: number | null;
@@ -23,6 +23,7 @@ interface TeamBylineProps {
 export const TeamByline: React.FC<TeamBylineProps> = ({
   countryName,
   countryId,
+  leagueId,
   teamId,
   managerName,
   managerHtId,
@@ -45,8 +46,8 @@ export const TeamByline: React.FC<TeamBylineProps> = ({
   };
 
   const displayCountryName = getCanonicalCountryName(countryName, countryId);
-  const flagUrl = getFlagUrl(displayCountryName, countryId);
-  const leagueId = displayCountryName ? getLeagueIdByName(displayCountryName) : undefined;
+  const countryFlagUrl = getCountryFlagUrl(countryId, displayCountryName);
+  const leagueFlagUrl = getLeagueFlagUrl(leagueId);
   const presence = lastSeenAt !== undefined ? formatPresence(lastSeenAt) : null;
   const summary =
     matchSummary && (matchSummary.yellowCards > 0 || matchSummary.redCards > 0 || matchSummary.injuries > 0)
@@ -76,18 +77,10 @@ export const TeamByline: React.FC<TeamBylineProps> = ({
   return (
     <div className={`${styles.teamExtraInfo} ${isRight ? styles.right : ''}`}>
       <div className={styles.metaRow}>
-        {displayCountryName && (
+        {(countryFlagUrl || leagueFlagUrl) && (
           <>
-            <a
-              href={`https://www.hattrick.org/goto.ashx?path=/World/Leagues/League.aspx?LeagueID=${leagueId || countryId || ''}`}
-              target="_blank"
-              rel="noopener noreferrer"
-              className={styles.flagLink}
-              data-tooltip-id={`${tooltipIdBase}-flag`}
-            >
-              <img src={flagUrl || ''} alt={displayCountryName} className={styles.flagIcon} />
-            </a>
-            <Tooltip id={`${tooltipIdBase}-flag`} content={displayCountryName} />
+            {leagueFlagUrl && <img src={leagueFlagUrl} alt="League" className={styles.flagIcon} />}
+            {countryFlagUrl && <img src={countryFlagUrl} alt={displayCountryName || 'Country'} className={styles.flagIcon} />}
             <span className={styles.separator}>|</span>
           </>
         )}

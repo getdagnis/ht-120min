@@ -1,0 +1,4309 @@
+<?xml version="1.0" encoding="utf-8"?>
+<HattrickData>
+  <FileName>worlddetails.xml</FileName>
+  <Version>1.2</Version>
+  <UserID>8777402</UserID>
+  <FetchedDate>2026-07-14 02:30:52</FetchedDate>
+  <LeagueList>
+    <League>
+      <LeagueID>1</LeagueID>
+      <LeagueName>Svezia</LeagueName>
+      <Season>94</Season>
+      <MatchRound>16</MatchRound>
+      <ShortName>Sverige</ShortName>
+      <Continent>Europe</Continent>
+      <ZoneName>Northern Europe</ZoneName>
+      <EnglishName>Sweden</EnglishName>
+      <Country Available="True">
+        <CountryID>1</CountryID>
+        <CountryName>Sverige</CountryName>
+        <CurrencyName>kr</CurrencyName>
+        <CurrencyRate>1</CurrencyRate>
+      </Country>
+      <Cup>
+        <CupID>1</CupID>
+        <CupName>Svenska Cupen</CupName>
+      </Cup>
+      <ActiveUsers>6372</ActiveUsers>
+      <WaitingUsers>0</WaitingUsers>
+      <TrainingDate>2026-07-16 22:00:00</TrainingDate>
+      <EconomyDate>2026-07-19 00:10:00</EconomyDate>
+      <CupMatchDate>2026-06-24 19:00:00</CupMatchDate>
+      <SeriesMatchDate>2026-07-19 10:00:00</SeriesMatchDate>
+      <NumberOfLevels>6</NumberOfLevels>
+    </League>
+    <League>
+      <LeagueID>2</LeagueID>
+      <LeagueName>Inghilterra</LeagueName>
+      <Season>94</Season>
+      <MatchRound>16</MatchRound>
+      <ShortName>England</ShortName>
+      <Continent>Europe</Continent>
+      <ZoneName>Western Europe</ZoneName>
+      <EnglishName>England</EnglishName>
+      <Country Available="True">
+        <CountryID>2</CountryID>
+        <CountryName>England</CountryName>
+        <CurrencyName>£</CurrencyName>
+        <CurrencyRate>15</CurrencyRate>
+      </Country>
+      <Cup>
+        <CupID>3</CupID>
+        <CupName>English Cup</CupName>
+      </Cup>
+      <ActiveUsers>3725</ActiveUsers>
+      <WaitingUsers>0</WaitingUsers>
+      <TrainingDate>2026-07-16 21:00:00</TrainingDate>
+      <EconomyDate>2026-07-17 21:00:00</EconomyDate>
+      <CupMatchDate>2026-06-16 21:00:00</CupMatchDate>
+      <SeriesMatchDate>2026-07-19 18:00:00</SeriesMatchDate>
+      <NumberOfLevels>6</NumberOfLevels>
+    </League>
+    <League>
+      <LeagueID>3</LeagueID>
+      <LeagueName>Germania</LeagueName>
+      <Season>94</Season>
+      <MatchRound>16</MatchRound>
+      <ShortName>Deutschland</ShortName>
+      <Continent>Europe</Continent>
+      <ZoneName>Central Europe</ZoneName>
+      <EnglishName>Germany</EnglishName>
+      <Country Available="True">
+        <CountryID>3</CountryID>
+        <CountryName>Deutschland</CountryName>
+        <CurrencyName>€</CurrencyName>
+        <CurrencyRate>10</CurrencyRate>
+      </Country>
+      <Cup>
+        <CupID>4</CupID>
+        <CupName>Deutschland-Pokal</CupName>
+      </Cup>
+      <ActiveUsers>16442</ActiveUsers>
+      <WaitingUsers>0</WaitingUsers>
+      <TrainingDate>2026-07-17 00:30:00</TrainingDate>
+      <EconomyDate>2026-07-18 00:10:00</EconomyDate>
+      <CupMatchDate>2026-06-30 18:00:00</CupMatchDate>
+      <SeriesMatchDate>2026-07-18 18:00:00</SeriesMatchDate>
+      <NumberOfLevels>8</NumberOfLevels>
+    </League>
+    <League>
+      <LeagueID>4</LeagueID>
+      <LeagueName>Italia</LeagueName>
+      <Season>94</Season>
+      <MatchRound>16</MatchRound>
+      <ShortName>Italia</ShortName>
+      <Continent>Europe</Continent>
+      <ZoneName>Southwestern Europe</ZoneName>
+      <EnglishName>Italy</EnglishName>
+      <Country Available="True">
+        <CountryID>4</CountryID>
+        <CountryName>Italia</CountryName>
+        <CurrencyName>€</CurrencyName>
+        <CurrencyRate>10</CurrencyRate>
+      </Country>
+      <Cup>
+        <CupID>7</CupID>
+        <CupName>Coppa Italia</CupName>
+      </Cup>
+      <ActiveUsers>20029</ActiveUsers>
+      <WaitingUsers>1</WaitingUsers>
+      <TrainingDate>2026-07-16 23:45:00</TrainingDate>
+      <EconomyDate>2026-07-18 02:00:00</EconomyDate>
+      <CupMatchDate>2026-06-30 19:00:00</CupMatchDate>
+      <SeriesMatchDate>2026-07-18 12:00:00</SeriesMatchDate>
+      <NumberOfLevels>8</NumberOfLevels>
+    </League>
+    <League>
+      <LeagueID>5</LeagueID>
+      <LeagueName>Francia</LeagueName>
+      <Season>94</Season>
+      <MatchRound>16</MatchRound>
+      <ShortName>France</ShortName>
+      <Continent>Europe</Continent>
+      <ZoneName>Southwestern Europe</ZoneName>
+      <EnglishName>France</EnglishName>
+      <Country Available="True">
+        <CountryID>5</CountryID>
+        <CountryName>France</CountryName>
+        <CurrencyName>€</CurrencyName>
+        <CurrencyRate>10</CurrencyRate>
+      </Country>
+      <Cup>
+        <CupID>6</CupID>
+        <CupName>Coupe de France</CupName>
+      </Cup>
+      <ActiveUsers>9964</ActiveUsers>
+      <WaitingUsers>0</WaitingUsers>
+      <TrainingDate>2026-07-17 05:15:00</TrainingDate>
+      <EconomyDate>2026-07-18 02:30:00</EconomyDate>
+      <CupMatchDate>2026-07-01 15:00:00</CupMatchDate>
+      <SeriesMatchDate>2026-07-18 21:00:00</SeriesMatchDate>
+      <NumberOfLevels>7</NumberOfLevels>
+    </League>
+    <League>
+      <LeagueID>6</LeagueID>
+      <LeagueName>Messico</LeagueName>
+      <Season>94</Season>
+      <MatchRound>16</MatchRound>
+      <ShortName>México</ShortName>
+      <Continent>North America</Continent>
+      <ZoneName>North America</ZoneName>
+      <EnglishName>Mexico</EnglishName>
+      <Country Available="True">
+        <CountryID>6</CountryID>
+        <CountryName>México</CountryName>
+        <CurrencyName>Pesos</CurrencyName>
+        <CurrencyRate>1</CurrencyRate>
+      </Country>
+      <Cup>
+        <CupID>5</CupID>
+        <CupName>Copa Nacional de México</CupName>
+      </Cup>
+      <ActiveUsers>1879</ActiveUsers>
+      <WaitingUsers>2</WaitingUsers>
+      <TrainingDate>2026-07-17 02:10:00</TrainingDate>
+      <EconomyDate>2026-07-18 20:45:00</EconomyDate>
+      <CupMatchDate>2026-06-17 02:30:00</CupMatchDate>
+      <SeriesMatchDate>2026-07-19 02:00:00</SeriesMatchDate>
+      <NumberOfLevels>6</NumberOfLevels>
+    </League>
+    <League>
+      <LeagueID>7</LeagueID>
+      <LeagueName>Argentina</LeagueName>
+      <Season>94</Season>
+      <MatchRound>16</MatchRound>
+      <ShortName>Argentina</ShortName>
+      <Continent>South America</Continent>
+      <ZoneName>South America</ZoneName>
+      <EnglishName>Argentina</EnglishName>
+      <Country Available="True">
+        <CountryID>7</CountryID>
+        <CountryName>Argentina</CountryName>
+        <CurrencyName>Pesos</CurrencyName>
+        <CurrencyRate>10</CurrencyRate>
+      </Country>
+      <Cup>
+        <CupID>2</CupID>
+        <CupName>Copa Argentina Diego Armando Maradona</CupName>
+      </Cup>
+      <ActiveUsers>11181</ActiveUsers>
+      <WaitingUsers>1</WaitingUsers>
+      <TrainingDate>2026-07-17 02:00:00</TrainingDate>
+      <EconomyDate>2026-07-18 03:30:00</EconomyDate>
+      <CupMatchDate>2026-07-01 23:10:00</CupMatchDate>
+      <SeriesMatchDate>2026-07-19 21:40:00</SeriesMatchDate>
+      <NumberOfLevels>7</NumberOfLevels>
+    </League>
+    <League>
+      <LeagueID>8</LeagueID>
+      <LeagueName>Stati Uniti d'America</LeagueName>
+      <Season>94</Season>
+      <MatchRound>16</MatchRound>
+      <ShortName>USA</ShortName>
+      <Continent>North America</Continent>
+      <ZoneName>North America</ZoneName>
+      <EnglishName>USA</EnglishName>
+      <Country Available="True">
+        <CountryID>8</CountryID>
+        <CountryName>USA</CountryName>
+        <CurrencyName>US$</CurrencyName>
+        <CurrencyRate>10</CurrencyRate>
+      </Country>
+      <Cup>
+        <CupID>8</CupID>
+        <CupName>US Open Cup</CupName>
+      </Cup>
+      <ActiveUsers>2501</ActiveUsers>
+      <WaitingUsers>0</WaitingUsers>
+      <TrainingDate>2026-07-17 03:30:00</TrainingDate>
+      <EconomyDate>2026-07-19 01:30:00</EconomyDate>
+      <CupMatchDate>2026-06-17 23:20:00</CupMatchDate>
+      <SeriesMatchDate>2026-07-19 23:20:00</SeriesMatchDate>
+      <NumberOfLevels>6</NumberOfLevels>
+    </League>
+    <League>
+      <LeagueID>9</LeagueID>
+      <LeagueName>Norvegia</LeagueName>
+      <Season>83</Season>
+      <MatchRound>16</MatchRound>
+      <ShortName>Norge</ShortName>
+      <Continent>Europe</Continent>
+      <ZoneName>Northern Europe</ZoneName>
+      <EnglishName>Norway</EnglishName>
+      <Country Available="True">
+        <CountryID>9</CountryID>
+        <CountryName>Norge</CountryName>
+        <CurrencyName>Kroner</CurrencyName>
+        <CurrencyRate>1</CurrencyRate>
+      </Country>
+      <Cup>
+        <CupID>9</CupID>
+        <CupName>Norgesmesterskapet</CupName>
+      </Cup>
+      <ActiveUsers>2305</ActiveUsers>
+      <WaitingUsers>0</WaitingUsers>
+      <TrainingDate>2026-07-16 20:30:00</TrainingDate>
+      <EconomyDate>2026-07-17 23:00:00</EconomyDate>
+      <CupMatchDate>2026-06-17 16:00:00</CupMatchDate>
+      <SeriesMatchDate>2026-07-18 16:00:00</SeriesMatchDate>
+      <NumberOfLevels>6</NumberOfLevels>
+    </League>
+    <League>
+      <LeagueID>11</LeagueID>
+      <LeagueName>Danimarca</LeagueName>
+      <Season>94</Season>
+      <MatchRound>16</MatchRound>
+      <ShortName>Danmark</ShortName>
+      <Continent>Europe</Continent>
+      <ZoneName>Northern Europe</ZoneName>
+      <EnglishName>Denmark</EnglishName>
+      <Country Available="True">
+        <CountryID>10</CountryID>
+        <CountryName>Danmark</CountryName>
+        <CurrencyName>Kroner</CurrencyName>
+        <CurrencyRate>1</CurrencyRate>
+      </Country>
+      <Cup>
+        <CupID>10</CupID>
+        <CupName>Landspokalturneringen</CupName>
+      </Cup>
+      <ActiveUsers>3729</ActiveUsers>
+      <WaitingUsers>0</WaitingUsers>
+      <TrainingDate>2026-07-17 03:00:00</TrainingDate>
+      <EconomyDate>2026-07-19 01:20:00</EconomyDate>
+      <CupMatchDate>2026-06-17 16:30:00</CupMatchDate>
+      <SeriesMatchDate>2026-07-19 16:00:00</SeriesMatchDate>
+      <NumberOfLevels>6</NumberOfLevels>
+    </League>
+    <League>
+      <LeagueID>12</LeagueID>
+      <LeagueName>Finlandia</LeagueName>
+      <Season>94</Season>
+      <MatchRound>16</MatchRound>
+      <ShortName>Suomi</ShortName>
+      <Continent>Europe</Continent>
+      <ZoneName>Northern Europe</ZoneName>
+      <EnglishName>Finland</EnglishName>
+      <Country Available="True">
+        <CountryID>11</CountryID>
+        <CountryName>Suomi</CountryName>
+        <CurrencyName>€</CurrencyName>
+        <CurrencyRate>10</CurrencyRate>
+      </Country>
+      <Cup>
+        <CupID>11</CupID>
+        <CupName>Suomen Cup</CupName>
+      </Cup>
+      <ActiveUsers>5773</ActiveUsers>
+      <WaitingUsers>0</WaitingUsers>
+      <TrainingDate>2026-07-17 05:00:00</TrainingDate>
+      <EconomyDate>2026-07-18 00:20:00</EconomyDate>
+      <CupMatchDate>2026-06-23 20:00:00</CupMatchDate>
+      <SeriesMatchDate>2026-07-18 20:00:00</SeriesMatchDate>
+      <NumberOfLevels>6</NumberOfLevels>
+    </League>
+    <League>
+      <LeagueID>14</LeagueID>
+      <LeagueName>Paesi Bassi</LeagueName>
+      <Season>83</Season>
+      <MatchRound>16</MatchRound>
+      <ShortName>Nederland</ShortName>
+      <Continent>Europe</Continent>
+      <ZoneName>Western Europe</ZoneName>
+      <EnglishName>Netherlands</EnglishName>
+      <Country Available="True">
+        <CountryID>12</CountryID>
+        <CountryName>Nederland</CountryName>
+        <CurrencyName>€</CurrencyName>
+        <CurrencyRate>10</CurrencyRate>
+      </Country>
+      <Cup>
+        <CupID>13</CupID>
+        <CupName>KNVB Beker</CupName>
+      </Cup>
+      <ActiveUsers>8863</ActiveUsers>
+      <WaitingUsers>1</WaitingUsers>
+      <TrainingDate>2026-07-17 01:05:00</TrainingDate>
+      <EconomyDate>2026-07-19 02:00:00</EconomyDate>
+      <CupMatchDate>2026-07-01 17:00:00</CupMatchDate>
+      <SeriesMatchDate>2026-07-19 20:00:00</SeriesMatchDate>
+      <NumberOfLevels>6</NumberOfLevels>
+    </League>
+    <League>
+      <LeagueID>15</LeagueID>
+      <LeagueName>Oceania</LeagueName>
+      <Season>82</Season>
+      <MatchRound>16</MatchRound>
+      <ShortName>Oceania</ShortName>
+      <Continent>Oceania</Continent>
+      <ZoneName>Asia,  Africa and Oceania</ZoneName>
+      <EnglishName>Oceania</EnglishName>
+      <Country Available="True">
+        <CountryID>13</CountryID>
+        <CountryName>Oceania</CountryName>
+        <CurrencyName>AU$</CurrencyName>
+        <CurrencyRate>5</CurrencyRate>
+      </Country>
+      <Cup>
+        <CupID>14</CupID>
+        <CupName>Oceanian Cup</CupName>
+      </Cup>
+      <ActiveUsers>1067</ActiveUsers>
+      <WaitingUsers>0</WaitingUsers>
+      <TrainingDate>2026-07-17 04:00:00</TrainingDate>
+      <EconomyDate>2026-07-18 00:10:00</EconomyDate>
+      <CupMatchDate>2026-06-10 04:00:00</CupMatchDate>
+      <SeriesMatchDate>2026-07-19 04:00:00</SeriesMatchDate>
+      <NumberOfLevels>5</NumberOfLevels>
+    </League>
+    <League>
+      <LeagueID>16</LeagueID>
+      <LeagueName>Brasile</LeagueName>
+      <Season>82</Season>
+      <MatchRound>16</MatchRound>
+      <ShortName>Brasil</ShortName>
+      <Continent>South America</Continent>
+      <ZoneName>South America</ZoneName>
+      <EnglishName>Brazil</EnglishName>
+      <Country Available="True">
+        <CountryID>22</CountryID>
+        <CountryName>Brasil</CountryName>
+        <CurrencyName>reais</CurrencyName>
+        <CurrencyRate>5</CurrencyRate>
+      </Country>
+      <Cup>
+        <CupID>15</CupID>
+        <CupName>Copa do Brasil</CupName>
+      </Cup>
+      <ActiveUsers>9143</ActiveUsers>
+      <WaitingUsers>4</WaitingUsers>
+      <TrainingDate>2026-07-17 00:05:00</TrainingDate>
+      <EconomyDate>2026-07-19 01:45:00</EconomyDate>
+      <CupMatchDate>2026-06-24 23:55:00</CupMatchDate>
+      <SeriesMatchDate>2026-07-19 23:55:00</SeriesMatchDate>
+      <NumberOfLevels>7</NumberOfLevels>
+    </League>
+    <League>
+      <LeagueID>17</LeagueID>
+      <LeagueName>Canada</LeagueName>
+      <Season>82</Season>
+      <MatchRound>16</MatchRound>
+      <ShortName>Canada</ShortName>
+      <Continent>North America</Continent>
+      <ZoneName>North America</ZoneName>
+      <EnglishName>Canada</EnglishName>
+      <Country Available="True">
+        <CountryID>14</CountryID>
+        <CountryName>Canada</CountryName>
+        <CurrencyName>C$</CurrencyName>
+        <CurrencyRate>5</CurrencyRate>
+      </Country>
+      <Cup>
+        <CupID>16</CupID>
+        <CupName>Canadian Cup</CupName>
+      </Cup>
+      <ActiveUsers>843</ActiveUsers>
+      <WaitingUsers>0</WaitingUsers>
+      <TrainingDate>2026-07-17 07:30:00</TrainingDate>
+      <EconomyDate>2026-07-19 02:15:00</EconomyDate>
+      <CupMatchDate>2026-06-03 23:00:00</CupMatchDate>
+      <SeriesMatchDate>2026-07-19 23:00:00</SeriesMatchDate>
+      <NumberOfLevels>5</NumberOfLevels>
+    </League>
+    <League>
+      <LeagueID>18</LeagueID>
+      <LeagueName>Cile</LeagueName>
+      <Season>82</Season>
+      <MatchRound>16</MatchRound>
+      <ShortName>Chile</ShortName>
+      <Continent>South America</Continent>
+      <ZoneName>South America</ZoneName>
+      <EnglishName>Chile</EnglishName>
+      <Country Available="True">
+        <CountryID>17</CountryID>
+        <CountryName>Chile</CountryName>
+        <CurrencyName>Pesos</CurrencyName>
+        <CurrencyRate>0,05</CurrencyRate>
+      </Country>
+      <Cup>
+        <CupID>17</CupID>
+        <CupName>Copa Chile</CupName>
+      </Cup>
+      <ActiveUsers>5484</ActiveUsers>
+      <WaitingUsers>0</WaitingUsers>
+      <TrainingDate>2026-07-17 02:45:00</TrainingDate>
+      <EconomyDate>2026-07-19 03:30:00</EconomyDate>
+      <CupMatchDate>2026-06-24 22:40:00</CupMatchDate>
+      <SeriesMatchDate>2026-07-19 22:40:00</SeriesMatchDate>
+      <NumberOfLevels>7</NumberOfLevels>
+    </League>
+    <League>
+      <LeagueID>19</LeagueID>
+      <LeagueName>Colombia</LeagueName>
+      <Season>82</Season>
+      <MatchRound>16</MatchRound>
+      <ShortName>Colombia</ShortName>
+      <Continent>South America</Continent>
+      <ZoneName>South America</ZoneName>
+      <EnglishName>Colombia</EnglishName>
+      <Country Available="True">
+        <CountryID>18</CountryID>
+        <CountryName>Colombia</CountryName>
+        <CurrencyName>US$</CurrencyName>
+        <CurrencyRate>10</CurrencyRate>
+      </Country>
+      <Cup>
+        <CupID>18</CupID>
+        <CupName>Copa Colombia</CupName>
+      </Cup>
+      <ActiveUsers>1643</ActiveUsers>
+      <WaitingUsers>0</WaitingUsers>
+      <TrainingDate>2026-07-17 06:30:00</TrainingDate>
+      <EconomyDate>2026-07-19 03:40:00</EconomyDate>
+      <CupMatchDate>2026-06-10 23:40:00</CupMatchDate>
+      <SeriesMatchDate>2026-07-19 23:40:00</SeriesMatchDate>
+      <NumberOfLevels>5</NumberOfLevels>
+    </League>
+    <League>
+      <LeagueID>20</LeagueID>
+      <LeagueName>India</LeagueName>
+      <Season>82</Season>
+      <MatchRound>16</MatchRound>
+      <ShortName>India</ShortName>
+      <Continent>Asia</Continent>
+      <ZoneName>Asia,  Africa and Oceania</ZoneName>
+      <EnglishName>India</EnglishName>
+      <Country Available="True">
+        <CountryID>27</CountryID>
+        <CountryName>India</CountryName>
+        <CurrencyName>Rupees</CurrencyName>
+        <CurrencyRate>0,25</CurrencyRate>
+      </Country>
+      <Cup>
+        <CupID>20</CupID>
+        <CupName>Indian Cup</CupName>
+      </Cup>
+      <ActiveUsers>249</ActiveUsers>
+      <WaitingUsers>0</WaitingUsers>
+      <TrainingDate>2026-07-17 06:05:00</TrainingDate>
+      <EconomyDate>2026-07-18 04:44:00</EconomyDate>
+      <CupMatchDate>2026-05-27 06:00:00</CupMatchDate>
+      <SeriesMatchDate>2026-07-19 08:15:00</SeriesMatchDate>
+      <NumberOfLevels>5</NumberOfLevels>
+    </League>
+    <League>
+      <LeagueID>21</LeagueID>
+      <LeagueName>Irlanda</LeagueName>
+      <Season>82</Season>
+      <MatchRound>16</MatchRound>
+      <ShortName>Ireland</ShortName>
+      <Continent>Europe</Continent>
+      <ZoneName>Western Europe</ZoneName>
+      <EnglishName>Ireland</EnglishName>
+      <Country Available="True">
+        <CountryID>16</CountryID>
+        <CountryName>Ireland</CountryName>
+        <CurrencyName>€</CurrencyName>
+        <CurrencyRate>10</CurrencyRate>
+      </Country>
+      <Cup>
+        <CupID>21</CupID>
+        <CupName>Irish Cup</CupName>
+      </Cup>
+      <ActiveUsers>379</ActiveUsers>
+      <WaitingUsers>0</WaitingUsers>
+      <TrainingDate>2026-07-17 05:45:00</TrainingDate>
+      <EconomyDate>2026-07-18 01:45:00</EconomyDate>
+      <CupMatchDate>2026-06-03 20:15:00</CupMatchDate>
+      <SeriesMatchDate>2026-07-19 16:30:00</SeriesMatchDate>
+      <NumberOfLevels>5</NumberOfLevels>
+    </League>
+    <League>
+      <LeagueID>22</LeagueID>
+      <LeagueName>Giappone</LeagueName>
+      <Season>82</Season>
+      <MatchRound>16</MatchRound>
+      <ShortName>Nippon</ShortName>
+      <Continent>Asia</Continent>
+      <ZoneName>Asia,  Africa and Oceania</ZoneName>
+      <EnglishName>Japan</EnglishName>
+      <Country Available="True">
+        <CountryID>25</CountryID>
+        <CountryName>Nippon</CountryName>
+        <CurrencyName>Yen</CurrencyName>
+        <CurrencyRate>0,1</CurrencyRate>
+      </Country>
+      <Cup>
+        <CupID>22</CupID>
+        <CupName>The Emperor's Cup</CupName>
+      </Cup>
+      <ActiveUsers>188</ActiveUsers>
+      <WaitingUsers>0</WaitingUsers>
+      <TrainingDate>2026-07-17 04:15:00</TrainingDate>
+      <EconomyDate>2026-07-18 03:15:00</EconomyDate>
+      <CupMatchDate>2026-05-27 02:30:00</CupMatchDate>
+      <SeriesMatchDate>2026-07-19 04:15:00</SeriesMatchDate>
+      <NumberOfLevels>5</NumberOfLevels>
+    </League>
+    <League>
+      <LeagueID>23</LeagueID>
+      <LeagueName>Perù</LeagueName>
+      <Season>82</Season>
+      <MatchRound>16</MatchRound>
+      <ShortName>Perú</ShortName>
+      <Continent>South America</Continent>
+      <ZoneName>South America</ZoneName>
+      <EnglishName>Peru</EnglishName>
+      <Country Available="True">
+        <CountryID>21</CountryID>
+        <CountryName>Perú</CountryName>
+        <CurrencyName>S/</CurrencyName>
+        <CurrencyRate>10</CurrencyRate>
+      </Country>
+      <Cup>
+        <CupID>24</CupID>
+        <CupName>Copa Perú</CupName>
+      </Cup>
+      <ActiveUsers>1509</ActiveUsers>
+      <WaitingUsers>0</WaitingUsers>
+      <TrainingDate>2026-07-17 05:30:00</TrainingDate>
+      <EconomyDate>2026-07-19 02:25:00</EconomyDate>
+      <CupMatchDate>2026-06-10 22:50:00</CupMatchDate>
+      <SeriesMatchDate>2026-07-19 22:50:00</SeriesMatchDate>
+      <NumberOfLevels>5</NumberOfLevels>
+    </League>
+    <League>
+      <LeagueID>24</LeagueID>
+      <LeagueName>Polonia</LeagueName>
+      <Season>82</Season>
+      <MatchRound>16</MatchRound>
+      <ShortName>Polska</ShortName>
+      <Continent>Europe</Continent>
+      <ZoneName>Central Europe</ZoneName>
+      <EnglishName>Poland</EnglishName>
+      <Country Available="True">
+        <CountryID>26</CountryID>
+        <CountryName>Polska</CountryName>
+        <CurrencyName>zł</CurrencyName>
+        <CurrencyRate>2,5</CurrencyRate>
+      </Country>
+      <Cup>
+        <CupID>25</CupID>
+        <CupName>Puchar Polski</CupName>
+      </Cup>
+      <ActiveUsers>18227</ActiveUsers>
+      <WaitingUsers>0</WaitingUsers>
+      <TrainingDate>2026-07-17 02:30:00</TrainingDate>
+      <EconomyDate>2026-07-18 23:45:00</EconomyDate>
+      <CupMatchDate>2026-07-01 18:00:00</CupMatchDate>
+      <SeriesMatchDate>2026-07-19 09:00:00</SeriesMatchDate>
+      <NumberOfLevels>7</NumberOfLevels>
+    </League>
+    <League>
+      <LeagueID>25</LeagueID>
+      <LeagueName>Portogallo</LeagueName>
+      <Season>82</Season>
+      <MatchRound>16</MatchRound>
+      <ShortName>Portugal</ShortName>
+      <Continent>Europe</Continent>
+      <ZoneName>Southwestern Europe</ZoneName>
+      <EnglishName>Portugal</EnglishName>
+      <Country Available="True">
+        <CountryID>23</CountryID>
+        <CountryName>Portugal</CountryName>
+        <CurrencyName>€</CurrencyName>
+        <CurrencyRate>10</CurrencyRate>
+      </Country>
+      <Cup>
+        <CupID>26</CupID>
+        <CupName>Taça de Portugal</CupName>
+      </Cup>
+      <ActiveUsers>6802</ActiveUsers>
+      <WaitingUsers>0</WaitingUsers>
+      <TrainingDate>2026-07-16 19:00:00</TrainingDate>
+      <EconomyDate>2026-07-18 01:30:00</EconomyDate>
+      <CupMatchDate>2026-06-24 21:45:00</CupMatchDate>
+      <SeriesMatchDate>2026-07-18 21:45:00</SeriesMatchDate>
+      <NumberOfLevels>7</NumberOfLevels>
+    </League>
+    <League>
+      <LeagueID>26</LeagueID>
+      <LeagueName>Scozia</LeagueName>
+      <Season>82</Season>
+      <MatchRound>16</MatchRound>
+      <ShortName>Scotland</ShortName>
+      <Continent>Europe</Continent>
+      <ZoneName>Western Europe</ZoneName>
+      <EnglishName>Scotland</EnglishName>
+      <Country Available="True">
+        <CountryID>15</CountryID>
+        <CountryName>Scotland</CountryName>
+        <CurrencyName>£</CurrencyName>
+        <CurrencyRate>15</CurrencyRate>
+      </Country>
+      <Cup>
+        <CupID>27</CupID>
+        <CupName>Scottish Cup</CupName>
+      </Cup>
+      <ActiveUsers>349</ActiveUsers>
+      <WaitingUsers>0</WaitingUsers>
+      <TrainingDate>2026-07-16 18:00:00</TrainingDate>
+      <EconomyDate>2026-07-17 23:35:00</EconomyDate>
+      <CupMatchDate>2026-06-03 11:30:00</CupMatchDate>
+      <SeriesMatchDate>2026-07-18 17:30:00</SeriesMatchDate>
+      <NumberOfLevels>5</NumberOfLevels>
+    </League>
+    <League>
+      <LeagueID>27</LeagueID>
+      <LeagueName>Sudafrica</LeagueName>
+      <Season>82</Season>
+      <MatchRound>16</MatchRound>
+      <ShortName>South Africa</ShortName>
+      <Continent>Africa</Continent>
+      <ZoneName>Asia,  Africa and Oceania</ZoneName>
+      <EnglishName>South Africa</EnglishName>
+      <Country Available="True">
+        <CountryID>24</CountryID>
+        <CountryName>South Africa</CountryName>
+        <CurrencyName>Rand</CurrencyName>
+        <CurrencyRate>1,25</CurrencyRate>
+      </Country>
+      <Cup>
+        <CupID>28</CupID>
+        <CupName>South African Cup</CupName>
+      </Cup>
+      <ActiveUsers>143</ActiveUsers>
+      <WaitingUsers>0</WaitingUsers>
+      <TrainingDate>2026-07-16 13:00:00</TrainingDate>
+      <EconomyDate>2026-07-18 04:27:00</EconomyDate>
+      <CupMatchDate>2026-05-20 21:30:00</CupMatchDate>
+      <SeriesMatchDate>2026-07-19 09:15:00</SeriesMatchDate>
+      <NumberOfLevels>4</NumberOfLevels>
+    </League>
+    <League>
+      <LeagueID>28</LeagueID>
+      <LeagueName>Uruguay</LeagueName>
+      <Season>82</Season>
+      <MatchRound>16</MatchRound>
+      <ShortName>Uruguay</ShortName>
+      <Continent>South America</Continent>
+      <ZoneName>South America</ZoneName>
+      <EnglishName>Uruguay</EnglishName>
+      <Country Available="True">
+        <CountryID>19</CountryID>
+        <CountryName>Uruguay</CountryName>
+        <CurrencyName>Pesos</CurrencyName>
+        <CurrencyRate>1</CurrencyRate>
+      </Country>
+      <Cup>
+        <CupID>31</CupID>
+        <CupName>Copa Uruguay</CupName>
+      </Cup>
+      <ActiveUsers>2000</ActiveUsers>
+      <WaitingUsers>0</WaitingUsers>
+      <TrainingDate>2026-07-16 23:00:00</TrainingDate>
+      <EconomyDate>2026-07-19 03:41:00</EconomyDate>
+      <CupMatchDate>2026-06-10 22:30:00</CupMatchDate>
+      <SeriesMatchDate>2026-07-19 22:30:00</SeriesMatchDate>
+      <NumberOfLevels>6</NumberOfLevels>
+    </League>
+    <League>
+      <LeagueID>29</LeagueID>
+      <LeagueName>Venezuela</LeagueName>
+      <Season>82</Season>
+      <MatchRound>16</MatchRound>
+      <ShortName>Venezuela</ShortName>
+      <Continent>South America</Continent>
+      <ZoneName>South America</ZoneName>
+      <EnglishName>Venezuela</EnglishName>
+      <Country Available="True">
+        <CountryID>20</CountryID>
+        <CountryName>Venezuela</CountryName>
+        <CurrencyName>Bs</CurrencyName>
+        <CurrencyRate>10</CurrencyRate>
+      </Country>
+      <Cup>
+        <CupID>32</CupID>
+        <CupName>Copa Venezuela</CupName>
+      </Cup>
+      <ActiveUsers>802</ActiveUsers>
+      <WaitingUsers>0</WaitingUsers>
+      <TrainingDate>2026-07-17 06:15:00</TrainingDate>
+      <EconomyDate>2026-07-19 03:15:00</EconomyDate>
+      <CupMatchDate>2026-06-03 23:30:00</CupMatchDate>
+      <SeriesMatchDate>2026-07-19 23:30:00</SeriesMatchDate>
+      <NumberOfLevels>5</NumberOfLevels>
+    </League>
+    <League>
+      <LeagueID>30</LeagueID>
+      <LeagueName>Corea del Sud</LeagueName>
+      <Season>82</Season>
+      <MatchRound>16</MatchRound>
+      <ShortName>Hanguk</ShortName>
+      <Continent>Asia</Continent>
+      <ZoneName>Asia,  Africa and Oceania</ZoneName>
+      <EnglishName>South Korea</EnglishName>
+      <Country Available="True">
+        <CountryID>29</CountryID>
+        <CountryName>Hanguk</CountryName>
+        <CurrencyName>Won</CurrencyName>
+        <CurrencyRate>0,01</CurrencyRate>
+      </Country>
+      <Cup>
+        <CupID>23</CupID>
+        <CupName>Korea Cup</CupName>
+      </Cup>
+      <ActiveUsers>185</ActiveUsers>
+      <WaitingUsers>0</WaitingUsers>
+      <TrainingDate>2026-07-17 04:45:00</TrainingDate>
+      <EconomyDate>2026-07-18 04:40:00</EconomyDate>
+      <CupMatchDate>2026-05-20 02:00:00</CupMatchDate>
+      <SeriesMatchDate>2026-07-19 04:45:00</SeriesMatchDate>
+      <NumberOfLevels>5</NumberOfLevels>
+    </League>
+    <League>
+      <LeagueID>31</LeagueID>
+      <LeagueName>Thailandia</LeagueName>
+      <Season>82</Season>
+      <MatchRound>16</MatchRound>
+      <ShortName>Prathet Thai</ShortName>
+      <Continent>Asia</Continent>
+      <ZoneName>Asia,  Africa and Oceania</ZoneName>
+      <EnglishName>Thailand</EnglishName>
+      <Country Available="True">
+        <CountryID>30</CountryID>
+        <CountryName>Prathet Thai</CountryName>
+        <CurrencyName>Baht</CurrencyName>
+        <CurrencyRate>0,25</CurrencyRate>
+      </Country>
+      <Cup>
+        <CupID>29</CupID>
+        <CupName>Thai Cup</CupName>
+      </Cup>
+      <ActiveUsers>105</ActiveUsers>
+      <WaitingUsers>0</WaitingUsers>
+      <TrainingDate>2026-07-17 04:20:00</TrainingDate>
+      <EconomyDate>2026-07-18 02:20:00</EconomyDate>
+      <CupMatchDate>2026-05-20 05:30:00</CupMatchDate>
+      <SeriesMatchDate>2026-07-19 05:30:00</SeriesMatchDate>
+      <NumberOfLevels>5</NumberOfLevels>
+    </League>
+    <League>
+      <LeagueID>32</LeagueID>
+      <LeagueName>Turchia</LeagueName>
+      <Season>82</Season>
+      <MatchRound>16</MatchRound>
+      <ShortName>Türkiye</ShortName>
+      <Continent>Europe</Continent>
+      <ZoneName>Eastern Europe</ZoneName>
+      <EnglishName>Turkey</EnglishName>
+      <Country Available="True">
+        <CountryID>31</CountryID>
+        <CountryName>Türkiye</CountryName>
+        <CurrencyName>TL</CurrencyName>
+        <CurrencyRate>10</CurrencyRate>
+      </Country>
+      <Cup>
+        <CupID>30</CupID>
+        <CupName>Türkiye Kupası</CupName>
+      </Cup>
+      <ActiveUsers>3982</ActiveUsers>
+      <WaitingUsers>0</WaitingUsers>
+      <TrainingDate>2026-07-16 16:06:00</TrainingDate>
+      <EconomyDate>2026-07-18 04:30:00</EconomyDate>
+      <CupMatchDate>2026-06-17 08:00:00</CupMatchDate>
+      <SeriesMatchDate>2026-07-19 15:00:00</SeriesMatchDate>
+      <NumberOfLevels>6</NumberOfLevels>
+    </League>
+    <League>
+      <LeagueID>33</LeagueID>
+      <LeagueName>Egitto</LeagueName>
+      <Season>82</Season>
+      <MatchRound>16</MatchRound>
+      <ShortName>Misr</ShortName>
+      <Continent>Africa</Continent>
+      <ZoneName>Asia,  Africa and Oceania</ZoneName>
+      <EnglishName>Egypt</EnglishName>
+      <Country Available="True">
+        <CountryID>32</CountryID>
+        <CountryName>Misr</CountryName>
+        <CurrencyName>E£</CurrencyName>
+        <CurrencyRate>2,5</CurrencyRate>
+      </Country>
+      <Cup>
+        <CupID>19</CupID>
+        <CupName>Kas Misr</CupName>
+      </Cup>
+      <ActiveUsers>159</ActiveUsers>
+      <WaitingUsers>0</WaitingUsers>
+      <TrainingDate>2026-07-16 04:07:00</TrainingDate>
+      <EconomyDate>2026-07-17 15:07:00</EconomyDate>
+      <CupMatchDate>2026-05-19 18:50:00</CupMatchDate>
+      <SeriesMatchDate>2026-07-18 10:50:00</SeriesMatchDate>
+      <NumberOfLevels>5</NumberOfLevels>
+    </League>
+    <League>
+      <LeagueID>34</LeagueID>
+      <LeagueName>Repubblica Popolare Cinese</LeagueName>
+      <Season>82</Season>
+      <MatchRound>16</MatchRound>
+      <ShortName>China</ShortName>
+      <Continent>Asia</Continent>
+      <ZoneName>Asia,  Africa and Oceania</ZoneName>
+      <EnglishName>People's Republic of China</EnglishName>
+      <Country Available="True">
+        <CountryID>28</CountryID>
+        <CountryName>China</CountryName>
+        <CurrencyName>Yuan</CurrencyName>
+        <CurrencyRate>1</CurrencyRate>
+      </Country>
+      <Cup>
+        <CupID>33</CupID>
+        <CupName>China Cup</CupName>
+      </Cup>
+      <ActiveUsers>1508</ActiveUsers>
+      <WaitingUsers>0</WaitingUsers>
+      <TrainingDate>2026-07-16 14:30:00</TrainingDate>
+      <EconomyDate>2026-07-17 22:30:00</EconomyDate>
+      <CupMatchDate>2026-06-10 07:00:00</CupMatchDate>
+      <SeriesMatchDate>2026-07-18 07:00:00</SeriesMatchDate>
+      <NumberOfLevels>5</NumberOfLevels>
+    </League>
+    <League>
+      <LeagueID>35</LeagueID>
+      <LeagueName>Russia</LeagueName>
+      <Season>82</Season>
+      <MatchRound>16</MatchRound>
+      <ShortName>Rossiya</ShortName>
+      <Continent>Europe</Continent>
+      <ZoneName>Eastern Europe</ZoneName>
+      <EnglishName>Russia</EnglishName>
+      <Country Available="True">
+        <CountryID>34</CountryID>
+        <CountryName>Rossiya</CountryName>
+        <CurrencyName>₽</CurrencyName>
+        <CurrencyRate>0,25</CurrencyRate>
+      </Country>
+      <Cup>
+        <CupID>34</CupID>
+        <CupName>Кубок России</CupName>
+      </Cup>
+      <ActiveUsers>664</ActiveUsers>
+      <WaitingUsers>0</WaitingUsers>
+      <TrainingDate>2026-07-16 18:30:00</TrainingDate>
+      <EconomyDate>2026-07-18 23:40:00</EconomyDate>
+      <CupMatchDate>2026-06-03 08:30:00</CupMatchDate>
+      <SeriesMatchDate>2026-07-19 08:30:00</SeriesMatchDate>
+      <NumberOfLevels>5</NumberOfLevels>
+    </League>
+    <League>
+      <LeagueID>36</LeagueID>
+      <LeagueName>Spagna</LeagueName>
+      <Season>82</Season>
+      <MatchRound>16</MatchRound>
+      <ShortName>España</ShortName>
+      <Continent>Europe</Continent>
+      <ZoneName>Southwestern Europe</ZoneName>
+      <EnglishName>Spain</EnglishName>
+      <Country Available="True">
+        <CountryID>35</CountryID>
+        <CountryName>España</CountryName>
+        <CurrencyName>€</CurrencyName>
+        <CurrencyRate>10</CurrencyRate>
+      </Country>
+      <Cup>
+        <CupID>43</CupID>
+        <CupName>Copa de España</CupName>
+      </Cup>
+      <ActiveUsers>17480</ActiveUsers>
+      <WaitingUsers>0</WaitingUsers>
+      <TrainingDate>2026-07-17 01:00:00</TrainingDate>
+      <EconomyDate>2026-07-18 01:00:00</EconomyDate>
+      <CupMatchDate>2026-07-01 12:00:00</CupMatchDate>
+      <SeriesMatchDate>2026-07-18 14:00:00</SeriesMatchDate>
+      <NumberOfLevels>8</NumberOfLevels>
+    </League>
+    <League>
+      <LeagueID>37</LeagueID>
+      <LeagueName>Romania</LeagueName>
+      <Season>82</Season>
+      <MatchRound>16</MatchRound>
+      <ShortName>România</ShortName>
+      <Continent>Europe</Continent>
+      <ZoneName>Eastern Europe</ZoneName>
+      <EnglishName>Romania</EnglishName>
+      <Country Available="True">
+        <CountryID>36</CountryID>
+        <CountryName>România</CountryName>
+        <CurrencyName>Lei</CurrencyName>
+        <CurrencyRate>0,5</CurrencyRate>
+      </Country>
+      <Cup>
+        <CupID>35</CupID>
+        <CupName>Cupa României</CupName>
+      </Cup>
+      <ActiveUsers>7981</ActiveUsers>
+      <WaitingUsers>1</WaitingUsers>
+      <TrainingDate>2026-07-16 21:15:00</TrainingDate>
+      <EconomyDate>2026-07-17 23:15:00</EconomyDate>
+      <CupMatchDate>2026-07-01 10:00:00</CupMatchDate>
+      <SeriesMatchDate>2026-07-18 10:00:00</SeriesMatchDate>
+      <NumberOfLevels>6</NumberOfLevels>
+    </League>
+    <League>
+      <LeagueID>38</LeagueID>
+      <LeagueName>Islanda</LeagueName>
+      <Season>81</Season>
+      <MatchRound>16</MatchRound>
+      <ShortName>Ísland</ShortName>
+      <Continent>Europe</Continent>
+      <ZoneName>Northern Europe</ZoneName>
+      <EnglishName>Iceland</EnglishName>
+      <Country Available="True">
+        <CountryID>37</CountryID>
+        <CountryName>Ísland</CountryName>
+        <CurrencyName>Ikr</CurrencyName>
+        <CurrencyRate>0,1</CurrencyRate>
+      </Country>
+      <Cup>
+        <CupID>36</CupID>
+        <CupName>Íslandsbikarinn</CupName>
+      </Cup>
+      <ActiveUsers>124</ActiveUsers>
+      <WaitingUsers>0</WaitingUsers>
+      <TrainingDate>2026-07-17 06:45:00</TrainingDate>
+      <EconomyDate>2026-07-18 23:35:00</EconomyDate>
+      <CupMatchDate>2026-05-27 20:45:00</CupMatchDate>
+      <SeriesMatchDate>2026-07-19 19:30:00</SeriesMatchDate>
+      <NumberOfLevels>4</NumberOfLevels>
+    </League>
+    <League>
+      <LeagueID>39</LeagueID>
+      <LeagueName>Austria</LeagueName>
+      <Season>81</Season>
+      <MatchRound>16</MatchRound>
+      <ShortName>Österreich</ShortName>
+      <Continent>Europe</Continent>
+      <ZoneName>Central Europe</ZoneName>
+      <EnglishName>Austria</EnglishName>
+      <Country Available="True">
+        <CountryID>33</CountryID>
+        <CountryName>Österreich</CountryName>
+        <CurrencyName>€</CurrencyName>
+        <CurrencyRate>10</CurrencyRate>
+      </Country>
+      <Cup>
+        <CupID>37</CupID>
+        <CupName>Austria-Cup</CupName>
+      </Cup>
+      <ActiveUsers>2602</ActiveUsers>
+      <WaitingUsers>0</WaitingUsers>
+      <TrainingDate>2026-07-17 07:00:00</TrainingDate>
+      <EconomyDate>2026-07-18 23:52:00</EconomyDate>
+      <CupMatchDate>2026-06-17 09:30:00</CupMatchDate>
+      <SeriesMatchDate>2026-07-19 09:30:00</SeriesMatchDate>
+      <NumberOfLevels>6</NumberOfLevels>
+    </League>
+    <League>
+      <LeagueID>44</LeagueID>
+      <LeagueName>Belgio</LeagueName>
+      <Season>81</Season>
+      <MatchRound>16</MatchRound>
+      <ShortName>Belgium</ShortName>
+      <Continent>Europe</Continent>
+      <ZoneName>Western Europe</ZoneName>
+      <EnglishName>Belgium</EnglishName>
+      <Country Available="True">
+        <CountryID>38</CountryID>
+        <CountryName>Belgium</CountryName>
+        <CurrencyName>€</CurrencyName>
+        <CurrencyRate>10</CurrencyRate>
+      </Country>
+      <Cup>
+        <CupID>41</CupID>
+        <CupName>Belgium Cup</CupName>
+      </Cup>
+      <ActiveUsers>8143</ActiveUsers>
+      <WaitingUsers>0</WaitingUsers>
+      <TrainingDate>2026-07-17 01:00:00</TrainingDate>
+      <EconomyDate>2026-07-19 00:25:00</EconomyDate>
+      <CupMatchDate>2026-07-01 13:00:00</CupMatchDate>
+      <SeriesMatchDate>2026-07-19 13:00:00</SeriesMatchDate>
+      <NumberOfLevels>6</NumberOfLevels>
+    </League>
+    <League>
+      <LeagueID>45</LeagueID>
+      <LeagueName>Malesia</LeagueName>
+      <Season>81</Season>
+      <MatchRound>16</MatchRound>
+      <ShortName>Malaysia</ShortName>
+      <Continent>Asia</Continent>
+      <ZoneName>Asia,  Africa and Oceania</ZoneName>
+      <EnglishName>Malaysia</EnglishName>
+      <Country Available="True">
+        <CountryID>39</CountryID>
+        <CountryName>Malaysia</CountryName>
+        <CurrencyName>MYR</CurrencyName>
+        <CurrencyRate>2,5</CurrencyRate>
+      </Country>
+      <Cup>
+        <CupID>38</CupID>
+        <CupName>Piala Malaysia</CupName>
+      </Cup>
+      <ActiveUsers>168</ActiveUsers>
+      <WaitingUsers>0</WaitingUsers>
+      <TrainingDate>2026-07-17 08:00:00</TrainingDate>
+      <EconomyDate>2026-07-18 01:50:00</EconomyDate>
+      <CupMatchDate>2026-05-20 05:00:00</CupMatchDate>
+      <SeriesMatchDate>2026-07-19 05:00:00</SeriesMatchDate>
+      <NumberOfLevels>5</NumberOfLevels>
+    </League>
+    <League>
+      <LeagueID>46</LeagueID>
+      <LeagueName>Svizzera</LeagueName>
+      <Season>81</Season>
+      <MatchRound>16</MatchRound>
+      <ShortName>Schweiz</ShortName>
+      <Continent>Europe</Continent>
+      <ZoneName>Central Europe</ZoneName>
+      <EnglishName>Switzerland</EnglishName>
+      <Country Available="True">
+        <CountryID>40</CountryID>
+        <CountryName>Schweiz</CountryName>
+        <CurrencyName>CHF</CurrencyName>
+        <CurrencyRate>5</CurrencyRate>
+      </Country>
+      <Cup>
+        <CupID>42</CupID>
+        <CupName>Switzerland Cup</CupName>
+      </Cup>
+      <ActiveUsers>9437</ActiveUsers>
+      <WaitingUsers>0</WaitingUsers>
+      <TrainingDate>2026-07-16 23:15:00</TrainingDate>
+      <EconomyDate>2026-07-18 02:15:00</EconomyDate>
+      <CupMatchDate>2026-07-01 10:30:00</CupMatchDate>
+      <SeriesMatchDate>2026-07-18 17:00:00</SeriesMatchDate>
+      <NumberOfLevels>7</NumberOfLevels>
+    </League>
+    <League>
+      <LeagueID>47</LeagueID>
+      <LeagueName>Singapore</LeagueName>
+      <Season>81</Season>
+      <MatchRound>16</MatchRound>
+      <ShortName>Singapore</ShortName>
+      <Continent>Asia</Continent>
+      <ZoneName>Asia,  Africa and Oceania</ZoneName>
+      <EnglishName>Singapore</EnglishName>
+      <Country Available="True">
+        <CountryID>41</CountryID>
+        <CountryName>Singapore</CountryName>
+        <CurrencyName>SG$</CurrencyName>
+        <CurrencyRate>5</CurrencyRate>
+      </Country>
+      <Cup>
+        <CupID>40</CupID>
+        <CupName>Singapore Cup</CupName>
+      </Cup>
+      <ActiveUsers>169</ActiveUsers>
+      <WaitingUsers>0</WaitingUsers>
+      <TrainingDate>2026-07-17 00:15:00</TrainingDate>
+      <EconomyDate>2026-07-18 03:27:00</EconomyDate>
+      <CupMatchDate>2026-05-20 04:30:00</CupMatchDate>
+      <SeriesMatchDate>2026-07-19 04:30:00</SeriesMatchDate>
+      <NumberOfLevels>5</NumberOfLevels>
+    </League>
+    <League>
+      <LeagueID>50</LeagueID>
+      <LeagueName>Grecia</LeagueName>
+      <Season>79</Season>
+      <MatchRound>16</MatchRound>
+      <ShortName>Hellas</ShortName>
+      <Continent>Europe</Continent>
+      <ZoneName>Eastern Europe</ZoneName>
+      <EnglishName>Greece</EnglishName>
+      <Country Available="True">
+        <CountryID>45</CountryID>
+        <CountryName>Hellas</CountryName>
+        <CurrencyName>€</CurrencyName>
+        <CurrencyRate>10</CurrencyRate>
+      </Country>
+      <Cup>
+        <CupID>48</CupID>
+        <CupName>Κύπελλο Ελλάδος</CupName>
+      </Cup>
+      <ActiveUsers>2724</ActiveUsers>
+      <WaitingUsers>0</WaitingUsers>
+      <TrainingDate>2026-07-16 17:15:00</TrainingDate>
+      <EconomyDate>2026-07-17 23:25:00</EconomyDate>
+      <CupMatchDate>2026-06-17 09:45:00</CupMatchDate>
+      <SeriesMatchDate>2026-07-18 11:00:00</SeriesMatchDate>
+      <NumberOfLevels>6</NumberOfLevels>
+    </League>
+    <League>
+      <LeagueID>51</LeagueID>
+      <LeagueName>Ungheria</LeagueName>
+      <Season>79</Season>
+      <MatchRound>16</MatchRound>
+      <ShortName>Magyarország</ShortName>
+      <Continent>Europe</Continent>
+      <ZoneName>Central Europe</ZoneName>
+      <EnglishName>Hungary</EnglishName>
+      <Country Available="True">
+        <CountryID>44</CountryID>
+        <CountryName>Magyarország</CountryName>
+        <CurrencyName>eFt</CurrencyName>
+        <CurrencyRate>50</CurrencyRate>
+      </Country>
+      <Cup>
+        <CupID>49</CupID>
+        <CupName>Magyar Kupa</CupName>
+      </Cup>
+      <ActiveUsers>4206</ActiveUsers>
+      <WaitingUsers>0</WaitingUsers>
+      <TrainingDate>2026-07-16 17:45:00</TrainingDate>
+      <EconomyDate>2026-07-17 23:15:00</EconomyDate>
+      <CupMatchDate>2026-06-24 09:45:00</CupMatchDate>
+      <SeriesMatchDate>2026-07-18 15:30:00</SeriesMatchDate>
+      <NumberOfLevels>6</NumberOfLevels>
+    </League>
+    <League>
+      <LeagueID>52</LeagueID>
+      <LeagueName>Repubblica Ceca</LeagueName>
+      <Season>79</Season>
+      <MatchRound>16</MatchRound>
+      <ShortName>Česko</ShortName>
+      <Continent>Europe</Continent>
+      <ZoneName>Central Europe</ZoneName>
+      <EnglishName>Czechia</EnglishName>
+      <Country Available="True">
+        <CountryID>46</CountryID>
+        <CountryName>Česko</CountryName>
+        <CurrencyName>Kč</CurrencyName>
+        <CurrencyRate>0,25</CurrencyRate>
+      </Country>
+      <Cup>
+        <CupID>50</CupID>
+        <CupName>Český pohár</CupName>
+      </Cup>
+      <ActiveUsers>4001</ActiveUsers>
+      <WaitingUsers>0</WaitingUsers>
+      <TrainingDate>2026-07-16 17:30:00</TrainingDate>
+      <EconomyDate>2026-07-17 23:30:00</EconomyDate>
+      <CupMatchDate>2026-06-24 14:00:00</CupMatchDate>
+      <SeriesMatchDate>2026-07-18 11:30:00</SeriesMatchDate>
+      <NumberOfLevels>7</NumberOfLevels>
+    </League>
+    <League>
+      <LeagueID>53</LeagueID>
+      <LeagueName>Lettonia</LeagueName>
+      <Season>79</Season>
+      <MatchRound>16</MatchRound>
+      <ShortName>Latvija</ShortName>
+      <Continent>Europe</Continent>
+      <ZoneName>Northern Europe</ZoneName>
+      <EnglishName>Latvia</EnglishName>
+      <Country Available="True">
+        <CountryID>48</CountryID>
+        <CountryName>Latvija</CountryName>
+        <CurrencyName>€</CurrencyName>
+        <CurrencyRate>10</CurrencyRate>
+      </Country>
+      <Cup>
+        <CupID>51</CupID>
+        <CupName>Latvijas Nacionālais kauss</CupName>
+      </Cup>
+      <ActiveUsers>1022</ActiveUsers>
+      <WaitingUsers>0</WaitingUsers>
+      <TrainingDate>2026-07-16 18:45:00</TrainingDate>
+      <EconomyDate>2026-07-17 23:15:00</EconomyDate>
+      <CupMatchDate>2026-06-10 13:45:00</CupMatchDate>
+      <SeriesMatchDate>2026-07-18 11:45:00</SeriesMatchDate>
+      <NumberOfLevels>5</NumberOfLevels>
+    </League>
+    <League>
+      <LeagueID>54</LeagueID>
+      <LeagueName>Indonesia</LeagueName>
+      <Season>79</Season>
+      <MatchRound>16</MatchRound>
+      <ShortName>Indonesia</ShortName>
+      <Continent>Asia</Continent>
+      <ZoneName>Asia,  Africa and Oceania</ZoneName>
+      <EnglishName>Indonesia</EnglishName>
+      <Country Available="True">
+        <CountryID>49</CountryID>
+        <CountryName>Indonesia</CountryName>
+        <CurrencyName>Rp</CurrencyName>
+        <CurrencyRate>0,001</CurrencyRate>
+      </Country>
+      <Cup>
+        <CupID>52</CupID>
+        <CupName>Indonesia Cup</CupName>
+      </Cup>
+      <ActiveUsers>460</ActiveUsers>
+      <WaitingUsers>0</WaitingUsers>
+      <TrainingDate>2026-07-16 17:00:00</TrainingDate>
+      <EconomyDate>2026-07-17 23:00:00</EconomyDate>
+      <CupMatchDate>2026-05-27 07:45:00</CupMatchDate>
+      <SeriesMatchDate>2026-07-18 09:00:00</SeriesMatchDate>
+      <NumberOfLevels>5</NumberOfLevels>
+    </League>
+    <League>
+      <LeagueID>55</LeagueID>
+      <LeagueName>Filippine</LeagueName>
+      <Season>79</Season>
+      <MatchRound>16</MatchRound>
+      <ShortName>Pilipinas</ShortName>
+      <Continent>Asia</Continent>
+      <ZoneName>Asia,  Africa and Oceania</ZoneName>
+      <EnglishName>Philippines</EnglishName>
+      <Country Available="True">
+        <CountryID>50</CountryID>
+        <CountryName>Pilipinas</CountryName>
+        <CurrencyName>Pesos</CurrencyName>
+        <CurrencyRate>0,25</CurrencyRate>
+      </Country>
+      <Cup>
+        <CupID>53</CupID>
+        <CupName>Philippine Football Federation Cup</CupName>
+      </Cup>
+      <ActiveUsers>82</ActiveUsers>
+      <WaitingUsers>0</WaitingUsers>
+      <TrainingDate>2026-07-16 14:15:00</TrainingDate>
+      <EconomyDate>2026-07-18 03:21:00</EconomyDate>
+      <CupMatchDate>2026-05-20 03:30:00</CupMatchDate>
+      <SeriesMatchDate>2026-07-19 06:15:00</SeriesMatchDate>
+      <NumberOfLevels>4</NumberOfLevels>
+    </League>
+    <League>
+      <LeagueID>56</LeagueID>
+      <LeagueName>Estonia</LeagueName>
+      <Season>79</Season>
+      <MatchRound>16</MatchRound>
+      <ShortName>Eesti</ShortName>
+      <Continent>Europe</Continent>
+      <ZoneName>Northern Europe</ZoneName>
+      <EnglishName>Estonia</EnglishName>
+      <Country Available="True">
+        <CountryID>47</CountryID>
+        <CountryName>Eesti</CountryName>
+        <CurrencyName>€</CurrencyName>
+        <CurrencyRate>10</CurrencyRate>
+      </Country>
+      <Cup>
+        <CupID>54</CupID>
+        <CupName>Eesti Karikas</CupName>
+      </Cup>
+      <ActiveUsers>738</ActiveUsers>
+      <WaitingUsers>0</WaitingUsers>
+      <TrainingDate>2026-07-16 18:15:00</TrainingDate>
+      <EconomyDate>2026-07-17 23:45:00</EconomyDate>
+      <CupMatchDate>2026-06-03 12:15:00</CupMatchDate>
+      <SeriesMatchDate>2026-07-18 11:15:00</SeriesMatchDate>
+      <NumberOfLevels>5</NumberOfLevels>
+    </League>
+    <League>
+      <LeagueID>57</LeagueID>
+      <LeagueName>Serbia</LeagueName>
+      <Season>79</Season>
+      <MatchRound>16</MatchRound>
+      <ShortName>Srbija</ShortName>
+      <Continent>Europe</Continent>
+      <ZoneName>Eastern Europe</ZoneName>
+      <EnglishName>Serbia</EnglishName>
+      <Country Available="True">
+        <CountryID>43</CountryID>
+        <CountryName>Srbija</CountryName>
+        <CurrencyName>dinar</CurrencyName>
+        <CurrencyRate>1</CurrencyRate>
+      </Country>
+      <Cup>
+        <CupID>55</CupID>
+        <CupName>Куп Србије</CupName>
+      </Cup>
+      <ActiveUsers>1360</ActiveUsers>
+      <WaitingUsers>0</WaitingUsers>
+      <TrainingDate>2026-07-16 16:30:00</TrainingDate>
+      <EconomyDate>2026-07-17 23:20:00</EconomyDate>
+      <CupMatchDate>2026-06-10 12:45:00</CupMatchDate>
+      <SeriesMatchDate>2026-07-18 12:45:00</SeriesMatchDate>
+      <NumberOfLevels>6</NumberOfLevels>
+    </League>
+    <League>
+      <LeagueID>58</LeagueID>
+      <LeagueName>Croazia</LeagueName>
+      <Season>79</Season>
+      <MatchRound>16</MatchRound>
+      <ShortName>Hrvatska</ShortName>
+      <Continent>Europe</Continent>
+      <ZoneName>Eastern Europe</ZoneName>
+      <EnglishName>Croatia</EnglishName>
+      <Country Available="True">
+        <CountryID>42</CountryID>
+        <CountryName>Hrvatska</CountryName>
+        <CurrencyName>€</CurrencyName>
+        <CurrencyRate>10</CurrencyRate>
+      </Country>
+      <Cup>
+        <CupID>56</CupID>
+        <CupName>Kup Hrvatske</CupName>
+      </Cup>
+      <ActiveUsers>1461</ActiveUsers>
+      <WaitingUsers>0</WaitingUsers>
+      <TrainingDate>2026-07-16 16:45:00</TrainingDate>
+      <EconomyDate>2026-07-17 23:20:00</EconomyDate>
+      <CupMatchDate>2026-06-10 08:45:00</CupMatchDate>
+      <SeriesMatchDate>2026-07-18 13:45:00</SeriesMatchDate>
+      <NumberOfLevels>5</NumberOfLevels>
+    </League>
+    <League>
+      <LeagueID>59</LeagueID>
+      <LeagueName>Hong Kong (RPC)</LeagueName>
+      <Season>78</Season>
+      <MatchRound>16</MatchRound>
+      <ShortName>Hong Kong</ShortName>
+      <Continent>Asia</Continent>
+      <ZoneName>Asia,  Africa and Oceania</ZoneName>
+      <EnglishName>Hong Kong</EnglishName>
+      <Country Available="True">
+        <CountryID>53</CountryID>
+        <CountryName>Hong Kong, China</CountryName>
+        <CurrencyName>HKD</CurrencyName>
+        <CurrencyRate>1</CurrencyRate>
+      </Country>
+      <Cup>
+        <CupID>58</CupID>
+        <CupName>Hong Kong Cup</CupName>
+      </Cup>
+      <ActiveUsers>148</ActiveUsers>
+      <WaitingUsers>0</WaitingUsers>
+      <TrainingDate>2026-07-16 13:30:00</TrainingDate>
+      <EconomyDate>2026-07-17 22:45:00</EconomyDate>
+      <CupMatchDate>2026-05-20 11:00:00</CupMatchDate>
+      <SeriesMatchDate>2026-07-18 08:30:00</SeriesMatchDate>
+      <NumberOfLevels>5</NumberOfLevels>
+    </League>
+    <League>
+      <LeagueID>60</LeagueID>
+      <LeagueName>Taiwan</LeagueName>
+      <Season>78</Season>
+      <MatchRound>16</MatchRound>
+      <ShortName>Chin. Taipei</ShortName>
+      <Continent>Asia</Continent>
+      <ZoneName>Asia,  Africa and Oceania</ZoneName>
+      <EnglishName>Chinese Taipei</EnglishName>
+      <Country Available="True">
+        <CountryID>52</CountryID>
+        <CountryName>Chinese Taipei</CountryName>
+        <CurrencyName>$</CurrencyName>
+        <CurrencyRate>10</CurrencyRate>
+      </Country>
+      <Cup>
+        <CupID>59</CupID>
+        <CupName>Phoenix Cup</CupName>
+      </Cup>
+      <ActiveUsers>85</ActiveUsers>
+      <WaitingUsers>0</WaitingUsers>
+      <TrainingDate>2026-07-16 15:30:00</TrainingDate>
+      <EconomyDate>2026-07-17 22:16:00</EconomyDate>
+      <CupMatchDate>2026-05-20 03:00:00</CupMatchDate>
+      <SeriesMatchDate>2026-07-18 05:00:00</SeriesMatchDate>
+      <NumberOfLevels>5</NumberOfLevels>
+    </League>
+    <League>
+      <LeagueID>61</LeagueID>
+      <LeagueName>Galles</LeagueName>
+      <Season>78</Season>
+      <MatchRound>16</MatchRound>
+      <ShortName>Cymru</ShortName>
+      <Continent>Europe</Continent>
+      <ZoneName>Western Europe</ZoneName>
+      <EnglishName>Wales</EnglishName>
+      <Country Available="True">
+        <CountryID>56</CountryID>
+        <CountryName>Cymru</CountryName>
+        <CurrencyName>£</CurrencyName>
+        <CurrencyRate>15</CurrencyRate>
+      </Country>
+      <Cup>
+        <CupID>60</CupID>
+        <CupName>Wales Cup</CupName>
+      </Cup>
+      <ActiveUsers>138</ActiveUsers>
+      <WaitingUsers>0</WaitingUsers>
+      <TrainingDate>2026-07-16 15:30:00</TrainingDate>
+      <EconomyDate>2026-07-17 21:30:00</EconomyDate>
+      <CupMatchDate>2026-05-26 21:30:00</CupMatchDate>
+      <SeriesMatchDate>2026-07-18 21:30:00</SeriesMatchDate>
+      <NumberOfLevels>5</NumberOfLevels>
+    </League>
+    <League>
+      <LeagueID>62</LeagueID>
+      <LeagueName>Bulgaria</LeagueName>
+      <Season>78</Season>
+      <MatchRound>16</MatchRound>
+      <ShortName>Bulgaria</ShortName>
+      <Continent>Europe</Continent>
+      <ZoneName>Eastern Europe</ZoneName>
+      <EnglishName>Bulgaria</EnglishName>
+      <Country Available="True">
+        <CountryID>55</CountryID>
+        <CountryName>Bulgaria</CountryName>
+        <CurrencyName>lv</CurrencyName>
+        <CurrencyRate>5</CurrencyRate>
+      </Country>
+      <Cup>
+        <CupID>61</CupID>
+        <CupName>Купа на България</CupName>
+      </Cup>
+      <ActiveUsers>1646</ActiveUsers>
+      <WaitingUsers>0</WaitingUsers>
+      <TrainingDate>2026-07-16 15:30:00</TrainingDate>
+      <EconomyDate>2026-07-17 22:15:00</EconomyDate>
+      <CupMatchDate>2026-06-09 21:15:00</CupMatchDate>
+      <SeriesMatchDate>2026-07-18 13:25:00</SeriesMatchDate>
+      <NumberOfLevels>5</NumberOfLevels>
+    </League>
+    <League>
+      <LeagueID>63</LeagueID>
+      <LeagueName>Israele</LeagueName>
+      <Season>78</Season>
+      <MatchRound>16</MatchRound>
+      <ShortName>Israel</ShortName>
+      <Continent>Asia</Continent>
+      <ZoneName>Asia,  Africa and Oceania</ZoneName>
+      <EnglishName>Israel</EnglishName>
+      <Country Available="True">
+        <CountryID>51</CountryID>
+        <CountryName>Israel</CountryName>
+        <CurrencyName>NIS</CurrencyName>
+        <CurrencyRate>2</CurrencyRate>
+      </Country>
+      <Cup>
+        <CupID>62</CupID>
+        <CupName>Israel State Cup</CupName>
+      </Cup>
+      <ActiveUsers>2001</ActiveUsers>
+      <WaitingUsers>0</WaitingUsers>
+      <TrainingDate>2026-07-16 15:30:00</TrainingDate>
+      <EconomyDate>2026-07-17 22:15:00</EconomyDate>
+      <CupMatchDate>2026-06-16 20:30:00</CupMatchDate>
+      <SeriesMatchDate>2026-07-18 10:30:00</SeriesMatchDate>
+      <NumberOfLevels>6</NumberOfLevels>
+    </League>
+    <League>
+      <LeagueID>64</LeagueID>
+      <LeagueName>Slovenia</LeagueName>
+      <Season>78</Season>
+      <MatchRound>16</MatchRound>
+      <ShortName>Slovenija</ShortName>
+      <Continent>Europe</Continent>
+      <ZoneName>Central Europe</ZoneName>
+      <EnglishName>Slovenia</EnglishName>
+      <Country Available="True">
+        <CountryID>57</CountryID>
+        <CountryName>Slovenija</CountryName>
+        <CurrencyName>€</CurrencyName>
+        <CurrencyRate>10</CurrencyRate>
+      </Country>
+      <Cup>
+        <CupID>63</CupID>
+        <CupName>Pokal Slovenije</CupName>
+      </Cup>
+      <ActiveUsers>1048</ActiveUsers>
+      <WaitingUsers>0</WaitingUsers>
+      <TrainingDate>2026-07-16 15:30:00</TrainingDate>
+      <EconomyDate>2026-07-17 22:17:00</EconomyDate>
+      <CupMatchDate>2026-06-09 19:30:00</CupMatchDate>
+      <SeriesMatchDate>2026-07-18 13:20:00</SeriesMatchDate>
+      <NumberOfLevels>5</NumberOfLevels>
+    </League>
+    <League>
+      <LeagueID>66</LeagueID>
+      <LeagueName>Lituania</LeagueName>
+      <Season>76</Season>
+      <MatchRound>16</MatchRound>
+      <ShortName>Lietuva</ShortName>
+      <Continent>Europe</Continent>
+      <ZoneName>Northern Europe</ZoneName>
+      <EnglishName>Lithuania</EnglishName>
+      <Country Available="True">
+        <CountryID>61</CountryID>
+        <CountryName>Lietuva</CountryName>
+        <CurrencyName>€</CurrencyName>
+        <CurrencyRate>10</CurrencyRate>
+      </Country>
+      <Cup>
+        <CupID>124</CupID>
+        <CupName>Lietuvos taurė</CupName>
+      </Cup>
+      <ActiveUsers>1120</ActiveUsers>
+      <WaitingUsers>0</WaitingUsers>
+      <TrainingDate>2026-07-16 17:30:00</TrainingDate>
+      <EconomyDate>2026-07-17 23:30:00</EconomyDate>
+      <CupMatchDate>2026-06-10 19:20:00</CupMatchDate>
+      <SeriesMatchDate>2026-07-18 15:20:00</SeriesMatchDate>
+      <NumberOfLevels>5</NumberOfLevels>
+    </League>
+    <League>
+      <LeagueID>67</LeagueID>
+      <LeagueName>Slovacchia</LeagueName>
+      <Season>76</Season>
+      <MatchRound>16</MatchRound>
+      <ShortName>Slovensko</ShortName>
+      <Continent>Europe</Continent>
+      <ZoneName>Central Europe</ZoneName>
+      <EnglishName>Slovakia</EnglishName>
+      <Country Available="True">
+        <CountryID>66</CountryID>
+        <CountryName>Slovensko</CountryName>
+        <CurrencyName>€</CurrencyName>
+        <CurrencyRate>10</CurrencyRate>
+      </Country>
+      <Cup>
+        <CupID>125</CupID>
+        <CupName>Slovenský pohár</CupName>
+      </Cup>
+      <ActiveUsers>1739</ActiveUsers>
+      <WaitingUsers>0</WaitingUsers>
+      <TrainingDate>2026-07-16 17:30:00</TrainingDate>
+      <EconomyDate>2026-07-17 23:30:00</EconomyDate>
+      <CupMatchDate>2026-06-09 19:25:00</CupMatchDate>
+      <SeriesMatchDate>2026-07-18 15:25:00</SeriesMatchDate>
+      <NumberOfLevels>5</NumberOfLevels>
+    </League>
+    <League>
+      <LeagueID>68</LeagueID>
+      <LeagueName>Ucraina</LeagueName>
+      <Season>76</Season>
+      <MatchRound>16</MatchRound>
+      <ShortName>Ukraina</ShortName>
+      <Continent>Europe</Continent>
+      <ZoneName>Eastern Europe</ZoneName>
+      <EnglishName>Ukraine</EnglishName>
+      <Country Available="True">
+        <CountryID>62</CountryID>
+        <CountryName>Ukraina</CountryName>
+        <CurrencyName>hryvnia</CurrencyName>
+        <CurrencyRate>2</CurrencyRate>
+      </Country>
+      <Cup>
+        <CupID>126</CupID>
+        <CupName>Кубок України</CupName>
+      </Cup>
+      <ActiveUsers>674</ActiveUsers>
+      <WaitingUsers>0</WaitingUsers>
+      <TrainingDate>2026-07-16 18:30:00</TrainingDate>
+      <EconomyDate>2026-07-18 23:50:00</EconomyDate>
+      <CupMatchDate>2026-06-03 08:15:00</CupMatchDate>
+      <SeriesMatchDate>2026-07-19 09:45:00</SeriesMatchDate>
+      <NumberOfLevels>5</NumberOfLevels>
+    </League>
+    <League>
+      <LeagueID>69</LeagueID>
+      <LeagueName>Bosnia ed Erzegovina</LeagueName>
+      <Season>76</Season>
+      <MatchRound>16</MatchRound>
+      <ShortName>Bosna i Herc</ShortName>
+      <Continent>Europe</Continent>
+      <ZoneName>Eastern Europe</ZoneName>
+      <EnglishName>Bosnia and Herzegovina</EnglishName>
+      <Country Available="True">
+        <CountryID>63</CountryID>
+        <CountryName>Bosna i Hercegovina</CountryName>
+        <CurrencyName>KM</CurrencyName>
+        <CurrencyRate>5</CurrencyRate>
+      </Country>
+      <Cup>
+        <CupID>127</CupID>
+        <CupName>Kup Bosne i Hercegovine</CupName>
+      </Cup>
+      <ActiveUsers>754</ActiveUsers>
+      <WaitingUsers>0</WaitingUsers>
+      <TrainingDate>2026-07-16 16:30:00</TrainingDate>
+      <EconomyDate>2026-07-17 23:20:00</EconomyDate>
+      <CupMatchDate>2026-06-03 14:15:00</CupMatchDate>
+      <SeriesMatchDate>2026-07-18 13:30:00</SeriesMatchDate>
+      <NumberOfLevels>5</NumberOfLevels>
+    </League>
+    <League>
+      <LeagueID>70</LeagueID>
+      <LeagueName>Vietnam</LeagueName>
+      <Season>76</Season>
+      <MatchRound>16</MatchRound>
+      <ShortName>Việt Nam</ShortName>
+      <Continent>Asia</Continent>
+      <ZoneName>Asia,  Africa and Oceania</ZoneName>
+      <EnglishName>Vietnam</EnglishName>
+      <Country Available="True">
+        <CountryID>65</CountryID>
+        <CountryName>Việt Nam</CountryName>
+        <CurrencyName>đồng</CurrencyName>
+        <CurrencyRate>1</CurrencyRate>
+      </Country>
+      <Cup>
+        <CupID>128</CupID>
+        <CupName>Cúp Quốc Gia</CupName>
+      </Cup>
+      <ActiveUsers>304</ActiveUsers>
+      <WaitingUsers>0</WaitingUsers>
+      <TrainingDate>2026-07-16 17:15:00</TrainingDate>
+      <EconomyDate>2026-07-17 22:30:00</EconomyDate>
+      <CupMatchDate>2026-05-27 05:15:00</CupMatchDate>
+      <SeriesMatchDate>2026-07-18 08:00:00</SeriesMatchDate>
+      <NumberOfLevels>5</NumberOfLevels>
+    </League>
+    <League>
+      <LeagueID>71</LeagueID>
+      <LeagueName>Pakistan</LeagueName>
+      <Season>76</Season>
+      <MatchRound>16</MatchRound>
+      <ShortName>Pakistan</ShortName>
+      <Continent>Asia</Continent>
+      <ZoneName>Asia,  Africa and Oceania</ZoneName>
+      <EnglishName>Pakistan</EnglishName>
+      <Country Available="True">
+        <CountryID>64</CountryID>
+        <CountryName>Pakistan</CountryName>
+        <CurrencyName>rupee</CurrencyName>
+        <CurrencyRate>0,2</CurrencyRate>
+      </Country>
+      <Cup>
+        <CupID>129</CupID>
+        <CupName>Pakistan Cup</CupName>
+      </Cup>
+      <ActiveUsers>42</ActiveUsers>
+      <WaitingUsers>0</WaitingUsers>
+      <TrainingDate>2026-07-17 06:07:00</TrainingDate>
+      <EconomyDate>2026-07-18 02:22:00</EconomyDate>
+      <CupMatchDate>2026-05-13 06:15:00</CupMatchDate>
+      <SeriesMatchDate>2026-07-19 07:30:00</SeriesMatchDate>
+      <NumberOfLevels>4</NumberOfLevels>
+    </League>
+    <League>
+      <LeagueID>72</LeagueID>
+      <LeagueName>Paraguay</LeagueName>
+      <Season>74</Season>
+      <MatchRound>16</MatchRound>
+      <ShortName>Paraguay</ShortName>
+      <Continent>South America</Continent>
+      <ZoneName>South America</ZoneName>
+      <EnglishName>Paraguay</EnglishName>
+      <Country Available="True">
+        <CountryID>67</CountryID>
+        <CountryName>Paraguay</CountryName>
+        <CurrencyName>PYG</CurrencyName>
+        <CurrencyRate>2</CurrencyRate>
+      </Country>
+      <Cup>
+        <CupID>130</CupID>
+        <CupName>Copa Paraguay</CupName>
+      </Cup>
+      <ActiveUsers>298</ActiveUsers>
+      <WaitingUsers>0</WaitingUsers>
+      <TrainingDate>2026-07-16 09:35:00</TrainingDate>
+      <EconomyDate>2026-07-18 02:35:00</EconomyDate>
+      <CupMatchDate>2026-06-02 23:15:00</CupMatchDate>
+      <SeriesMatchDate>2026-07-18 23:15:00</SeriesMatchDate>
+      <NumberOfLevels>5</NumberOfLevels>
+    </League>
+    <League>
+      <LeagueID>73</LeagueID>
+      <LeagueName>Ecuador</LeagueName>
+      <Season>74</Season>
+      <MatchRound>16</MatchRound>
+      <ShortName>Ecuador</ShortName>
+      <Continent>South America</Continent>
+      <ZoneName>South America</ZoneName>
+      <EnglishName>Ecuador</EnglishName>
+      <Country Available="True">
+        <CountryID>68</CountryID>
+        <CountryName>Ecuador</CountryName>
+        <CurrencyName>$</CurrencyName>
+        <CurrencyRate>10</CurrencyRate>
+      </Country>
+      <Cup>
+        <CupID>131</CupID>
+        <CupName>Copa Ecuador</CupName>
+      </Cup>
+      <ActiveUsers>172</ActiveUsers>
+      <WaitingUsers>0</WaitingUsers>
+      <TrainingDate>2026-07-16 09:35:00</TrainingDate>
+      <EconomyDate>2026-07-18 02:45:00</EconomyDate>
+      <CupMatchDate>2026-05-26 23:45:00</CupMatchDate>
+      <SeriesMatchDate>2026-07-18 23:45:00</SeriesMatchDate>
+      <NumberOfLevels>4</NumberOfLevels>
+    </League>
+    <League>
+      <LeagueID>74</LeagueID>
+      <LeagueName>Bolivia</LeagueName>
+      <Season>74</Season>
+      <MatchRound>16</MatchRound>
+      <ShortName>Bolivia</ShortName>
+      <Continent>South America</Continent>
+      <ZoneName>South America</ZoneName>
+      <EnglishName>Bolivia</EnglishName>
+      <Country Available="True">
+        <CountryID>69</CountryID>
+        <CountryName>Bolivia</CountryName>
+        <CurrencyName>Bs</CurrencyName>
+        <CurrencyRate>1</CurrencyRate>
+      </Country>
+      <Cup>
+        <CupID>132</CupID>
+        <CupName>Copa Bolivia</CupName>
+      </Cup>
+      <ActiveUsers>429</ActiveUsers>
+      <WaitingUsers>0</WaitingUsers>
+      <TrainingDate>2026-07-16 09:40:00</TrainingDate>
+      <EconomyDate>2026-07-18 02:40:00</EconomyDate>
+      <CupMatchDate>2026-05-26 22:45:00</CupMatchDate>
+      <SeriesMatchDate>2026-07-18 22:45:00</SeriesMatchDate>
+      <NumberOfLevels>5</NumberOfLevels>
+    </League>
+    <League>
+      <LeagueID>75</LeagueID>
+      <LeagueName>Nigeria</LeagueName>
+      <Season>74</Season>
+      <MatchRound>16</MatchRound>
+      <ShortName>Nigeria</ShortName>
+      <Continent>Africa</Continent>
+      <ZoneName>Asia,  Africa and Oceania</ZoneName>
+      <EnglishName>Nigeria</EnglishName>
+      <Country Available="True">
+        <CountryID>70</CountryID>
+        <CountryName>Nigeria</CountryName>
+        <CurrencyName>kNaira</CurrencyName>
+        <CurrencyRate>0,1</CurrencyRate>
+      </Country>
+      <Cup>
+        <CupID>133</CupID>
+        <CupName>Nigerian League Cup</CupName>
+      </Cup>
+      <ActiveUsers>74</ActiveUsers>
+      <WaitingUsers>0</WaitingUsers>
+      <TrainingDate>2026-07-16 13:00:00</TrainingDate>
+      <EconomyDate>2026-07-18 04:33:00</EconomyDate>
+      <CupMatchDate>2026-05-20 11:45:00</CupMatchDate>
+      <SeriesMatchDate>2026-07-19 18:45:00</SeriesMatchDate>
+      <NumberOfLevels>4</NumberOfLevels>
+    </League>
+    <League>
+      <LeagueID>76</LeagueID>
+      <LeagueName>Isole Faroe</LeagueName>
+      <Season>74</Season>
+      <MatchRound>16</MatchRound>
+      <ShortName>Føroyar</ShortName>
+      <Continent>Europe</Continent>
+      <ZoneName>Northern Europe</ZoneName>
+      <EnglishName>Faroe Islands</EnglishName>
+      <Country Available="True">
+        <CountryID>71</CountryID>
+        <CountryName>Føroyar</CountryName>
+        <CurrencyName>Kroner</CurrencyName>
+        <CurrencyRate>1</CurrencyRate>
+      </Country>
+      <Cup>
+        <CupID>134</CupID>
+        <CupName>Løgmanssteypið</CupName>
+      </Cup>
+      <ActiveUsers>62</ActiveUsers>
+      <WaitingUsers>0</WaitingUsers>
+      <TrainingDate>2026-07-17 06:42:00</TrainingDate>
+      <EconomyDate>2026-07-18 23:32:00</EconomyDate>
+      <CupMatchDate>2026-05-20 16:45:00</CupMatchDate>
+      <SeriesMatchDate>2026-07-19 16:45:00</SeriesMatchDate>
+      <NumberOfLevels>5</NumberOfLevels>
+    </League>
+    <League>
+      <LeagueID>77</LeagueID>
+      <LeagueName>Marocco</LeagueName>
+      <Season>74</Season>
+      <MatchRound>16</MatchRound>
+      <ShortName>Al Maghrib</ShortName>
+      <Continent>Africa</Continent>
+      <ZoneName>Asia,  Africa and Oceania</ZoneName>
+      <EnglishName>Morocco</EnglishName>
+      <Country Available="True">
+        <CountryID>72</CountryID>
+        <CountryName>Al Maghrib</CountryName>
+        <CurrencyName>dirhams</CurrencyName>
+        <CurrencyRate>1</CurrencyRate>
+      </Country>
+      <Cup>
+        <CupID>135</CupID>
+        <CupName>Coupe Du Trône</CupName>
+      </Cup>
+      <ActiveUsers>137</ActiveUsers>
+      <WaitingUsers>0</WaitingUsers>
+      <TrainingDate>2026-07-16 13:15:00</TrainingDate>
+      <EconomyDate>2026-07-19 01:12:00</EconomyDate>
+      <CupMatchDate>2026-05-20 20:50:00</CupMatchDate>
+      <SeriesMatchDate>2026-07-19 15:25:00</SeriesMatchDate>
+      <NumberOfLevels>5</NumberOfLevels>
+    </League>
+    <League>
+      <LeagueID>79</LeagueID>
+      <LeagueName>Arabia Saudita</LeagueName>
+      <Season>73</Season>
+      <MatchRound>16</MatchRound>
+      <ShortName>Saudi Arabia</ShortName>
+      <Continent>Asia</Continent>
+      <ZoneName>Asia,  Africa and Oceania</ZoneName>
+      <EnglishName>Saudi Arabia</EnglishName>
+      <Country Available="True">
+        <CountryID>75</CountryID>
+        <CountryName>Saudi Arabia</CountryName>
+        <CurrencyName>SAR</CurrencyName>
+        <CurrencyRate>2,5</CurrencyRate>
+      </Country>
+      <Cup>
+        <CupID>138</CupID>
+        <CupName>Saudi Arabia Cup</CupName>
+      </Cup>
+      <ActiveUsers>231</ActiveUsers>
+      <WaitingUsers>0</WaitingUsers>
+      <TrainingDate>2026-07-16 13:15:00</TrainingDate>
+      <EconomyDate>2026-07-19 00:18:00</EconomyDate>
+      <CupMatchDate>2026-05-27 16:20:00</CupMatchDate>
+      <SeriesMatchDate>2026-07-19 16:20:00</SeriesMatchDate>
+      <NumberOfLevels>5</NumberOfLevels>
+    </League>
+    <League>
+      <LeagueID>80</LeagueID>
+      <LeagueName>Tunisia</LeagueName>
+      <Season>73</Season>
+      <MatchRound>16</MatchRound>
+      <ShortName>Tounes</ShortName>
+      <Continent>Africa</Continent>
+      <ZoneName>Asia,  Africa and Oceania</ZoneName>
+      <EnglishName>Tunisia</EnglishName>
+      <Country Available="True">
+        <CountryID>76</CountryID>
+        <CountryName>Tounes</CountryName>
+        <CurrencyName>Dinars</CurrencyName>
+        <CurrencyRate>8</CurrencyRate>
+      </Country>
+      <Cup>
+        <CupID>139</CupID>
+        <CupName>Tunisiyah Cup</CupName>
+      </Cup>
+      <ActiveUsers>122</ActiveUsers>
+      <WaitingUsers>0</WaitingUsers>
+      <TrainingDate>2026-07-16 13:15:00</TrainingDate>
+      <EconomyDate>2026-07-19 00:47:00</EconomyDate>
+      <CupMatchDate>2026-05-20 16:45:00</CupMatchDate>
+      <SeriesMatchDate>2026-07-19 16:15:00</SeriesMatchDate>
+      <NumberOfLevels>5</NumberOfLevels>
+    </League>
+    <League>
+      <LeagueID>81</LeagueID>
+      <LeagueName>Costa Rica</LeagueName>
+      <Season>73</Season>
+      <MatchRound>16</MatchRound>
+      <ShortName>Costa Rica</ShortName>
+      <Continent>North America</Continent>
+      <ZoneName>North America</ZoneName>
+      <EnglishName>Costa Rica</EnglishName>
+      <Country Available="True">
+        <CountryID>77</CountryID>
+        <CountryName>Costa Rica</CountryName>
+        <CurrencyName>Colones</CurrencyName>
+        <CurrencyRate>0,2</CurrencyRate>
+      </Country>
+      <Cup>
+        <CupID>140</CupID>
+        <CupName>La Copa Tica</CupName>
+      </Cup>
+      <ActiveUsers>546</ActiveUsers>
+      <WaitingUsers>0</WaitingUsers>
+      <TrainingDate>2026-07-17 07:45:00</TrainingDate>
+      <EconomyDate>2026-07-19 03:33:00</EconomyDate>
+      <CupMatchDate>2026-06-03 23:45:00</CupMatchDate>
+      <SeriesMatchDate>2026-07-19 23:45:00</SeriesMatchDate>
+      <NumberOfLevels>4</NumberOfLevels>
+    </League>
+    <League>
+      <LeagueID>83</LeagueID>
+      <LeagueName>Emirati Arabi Uniti</LeagueName>
+      <Season>73</Season>
+      <MatchRound>16</MatchRound>
+      <ShortName>U.A.E.</ShortName>
+      <Continent>Asia</Continent>
+      <ZoneName>Asia,  Africa and Oceania</ZoneName>
+      <EnglishName>United Arab Emirates</EnglishName>
+      <Country Available="True">
+        <CountryID>78</CountryID>
+        <CountryName>United Arab Emirates</CountryName>
+        <CurrencyName>Dirham</CurrencyName>
+        <CurrencyRate>4</CurrencyRate>
+      </Country>
+      <Cup>
+        <CupID>142</CupID>
+        <CupName>Kaas Al-Sheikh Zayed</CupName>
+      </Cup>
+      <ActiveUsers>152</ActiveUsers>
+      <WaitingUsers>0</WaitingUsers>
+      <TrainingDate>2026-07-16 13:15:00</TrainingDate>
+      <EconomyDate>2026-07-19 00:49:00</EconomyDate>
+      <CupMatchDate>2026-05-20 18:45:00</CupMatchDate>
+      <SeriesMatchDate>2026-07-19 11:50:00</SeriesMatchDate>
+      <NumberOfLevels>5</NumberOfLevels>
+    </League>
+    <League>
+      <LeagueID>84</LeagueID>
+      <LeagueName>Lussemburgo</LeagueName>
+      <Season>73</Season>
+      <MatchRound>16</MatchRound>
+      <ShortName>Lëtzebuerg</ShortName>
+      <Continent>Europe</Continent>
+      <ZoneName>Western Europe</ZoneName>
+      <EnglishName>Luxembourg</EnglishName>
+      <Country Available="True">
+        <CountryID>79</CountryID>
+        <CountryName>Lëtzebuerg</CountryName>
+        <CurrencyName>€</CurrencyName>
+        <CurrencyRate>10</CurrencyRate>
+      </Country>
+      <Cup>
+        <CupID>143</CupID>
+        <CupName>Coupe de Luxembourg</CupName>
+      </Cup>
+      <ActiveUsers>170</ActiveUsers>
+      <WaitingUsers>0</WaitingUsers>
+      <TrainingDate>2026-07-17 04:40:00</TrainingDate>
+      <EconomyDate>2026-07-18 23:39:00</EconomyDate>
+      <CupMatchDate>2026-05-27 14:45:00</CupMatchDate>
+      <SeriesMatchDate>2026-07-19 14:45:00</SeriesMatchDate>
+      <NumberOfLevels>4</NumberOfLevels>
+    </League>
+    <League>
+      <LeagueID>85</LeagueID>
+      <LeagueName>Iran</LeagueName>
+      <Season>73</Season>
+      <MatchRound>16</MatchRound>
+      <ShortName>Iran</ShortName>
+      <Continent>Asia</Continent>
+      <ZoneName>Asia,  Africa and Oceania</ZoneName>
+      <EnglishName>Iran</EnglishName>
+      <Country Available="True">
+        <CountryID>80</CountryID>
+        <CountryName>Iran</CountryName>
+        <CurrencyName>Rial</CurrencyName>
+        <CurrencyRate>0,001</CurrencyRate>
+      </Country>
+      <Cup>
+        <CupID>144</CupID>
+        <CupName>Persian Gulf Cup</CupName>
+      </Cup>
+      <ActiveUsers>1658</ActiveUsers>
+      <WaitingUsers>0</WaitingUsers>
+      <TrainingDate>2026-07-17 06:06:00</TrainingDate>
+      <EconomyDate>2026-07-18 03:23:00</EconomyDate>
+      <CupMatchDate>2026-06-10 15:45:00</CupMatchDate>
+      <SeriesMatchDate>2026-07-19 15:45:00</SeriesMatchDate>
+      <NumberOfLevels>5</NumberOfLevels>
+    </League>
+    <League>
+      <LeagueID>88</LeagueID>
+      <LeagueName>Repubblica Dominicana</LeagueName>
+      <Season>73</Season>
+      <MatchRound>16</MatchRound>
+      <ShortName>Rep. Dom.</ShortName>
+      <Continent>North America</Continent>
+      <ZoneName>North America</ZoneName>
+      <EnglishName>Dominican Republic</EnglishName>
+      <Country Available="True">
+        <CountryID>83</CountryID>
+        <CountryName>República Dominicana</CountryName>
+        <CurrencyName>pesos</CurrencyName>
+        <CurrencyRate>0,5</CurrencyRate>
+      </Country>
+      <Cup>
+        <CupID>147</CupID>
+        <CupName>Copa Quisqueya</CupName>
+      </Cup>
+      <ActiveUsers>384</ActiveUsers>
+      <WaitingUsers>0</WaitingUsers>
+      <TrainingDate>2026-07-17 00:50:00</TrainingDate>
+      <EconomyDate>2026-07-19 03:25:00</EconomyDate>
+      <CupMatchDate>2026-05-27 23:15:00</CupMatchDate>
+      <SeriesMatchDate>2026-07-19 23:15:00</SeriesMatchDate>
+      <NumberOfLevels>4</NumberOfLevels>
+    </League>
+    <League>
+      <LeagueID>89</LeagueID>
+      <LeagueName>Cipro</LeagueName>
+      <Season>73</Season>
+      <MatchRound>16</MatchRound>
+      <ShortName>Cyprus</ShortName>
+      <Continent>Europe</Continent>
+      <ZoneName>Eastern Europe</ZoneName>
+      <EnglishName>Cyprus</EnglishName>
+      <Country Available="True">
+        <CountryID>82</CountryID>
+        <CountryName>Cyprus</CountryName>
+        <CurrencyName>€</CurrencyName>
+        <CurrencyRate>10</CurrencyRate>
+      </Country>
+      <Cup>
+        <CupID>148</CupID>
+        <CupName>Cyprus Cup</CupName>
+      </Cup>
+      <ActiveUsers>239</ActiveUsers>
+      <WaitingUsers>0</WaitingUsers>
+      <TrainingDate>2026-07-16 17:15:00</TrainingDate>
+      <EconomyDate>2026-07-17 23:25:00</EconomyDate>
+      <CupMatchDate>2026-05-26 20:15:00</CupMatchDate>
+      <SeriesMatchDate>2026-07-18 20:15:00</SeriesMatchDate>
+      <NumberOfLevels>5</NumberOfLevels>
+    </League>
+    <League>
+      <LeagueID>91</LeagueID>
+      <LeagueName>Bielorussia</LeagueName>
+      <Season>72</Season>
+      <MatchRound>16</MatchRound>
+      <ShortName>Belarus</ShortName>
+      <Continent>Europe</Continent>
+      <ZoneName>Eastern Europe</ZoneName>
+      <EnglishName>Belarus</EnglishName>
+      <Country Available="True">
+        <CountryID>87</CountryID>
+        <CountryName>Belarus</CountryName>
+        <CurrencyName>BYN</CurrencyName>
+        <CurrencyRate>5</CurrencyRate>
+      </Country>
+      <Cup>
+        <CupID>151</CupID>
+        <CupName>Кубак Беларусі</CupName>
+      </Cup>
+      <ActiveUsers>280</ActiveUsers>
+      <WaitingUsers>0</WaitingUsers>
+      <TrainingDate>2026-07-16 18:30:00</TrainingDate>
+      <EconomyDate>2026-07-19 00:44:00</EconomyDate>
+      <CupMatchDate>2026-05-27 09:15:00</CupMatchDate>
+      <SeriesMatchDate>2026-07-19 10:15:00</SeriesMatchDate>
+      <NumberOfLevels>5</NumberOfLevels>
+    </League>
+    <League>
+      <LeagueID>93</LeagueID>
+      <LeagueName>Irlanda del Nord</LeagueName>
+      <Season>72</Season>
+      <MatchRound>16</MatchRound>
+      <ShortName>N. Ireland</ShortName>
+      <Continent>Europe</Continent>
+      <ZoneName>Western Europe</ZoneName>
+      <EnglishName>Northern Ireland</EnglishName>
+      <Country Available="True">
+        <CountryID>88</CountryID>
+        <CountryName>Northern Ireland</CountryName>
+        <CurrencyName>£</CurrencyName>
+        <CurrencyRate>15</CurrencyRate>
+      </Country>
+      <Cup>
+        <CupID>153</CupID>
+        <CupName>N. Ireland Cup</CupName>
+      </Cup>
+      <ActiveUsers>71</ActiveUsers>
+      <WaitingUsers>0</WaitingUsers>
+      <TrainingDate>2026-07-16 15:30:00</TrainingDate>
+      <EconomyDate>2026-07-17 22:15:00</EconomyDate>
+      <CupMatchDate>2026-05-19 22:15:00</CupMatchDate>
+      <SeriesMatchDate>2026-07-18 22:15:00</SeriesMatchDate>
+      <NumberOfLevels>4</NumberOfLevels>
+    </League>
+    <League>
+      <LeagueID>94</LeagueID>
+      <LeagueName>Giamaica</LeagueName>
+      <Season>72</Season>
+      <MatchRound>16</MatchRound>
+      <ShortName>Jamaica</ShortName>
+      <Continent>North America</Continent>
+      <ZoneName>North America</ZoneName>
+      <EnglishName>Jamaica</EnglishName>
+      <Country Available="True">
+        <CountryID>89</CountryID>
+        <CountryName>Jamaica</CountryName>
+        <CurrencyName>JMD</CurrencyName>
+        <CurrencyRate>0,5</CurrencyRate>
+      </Country>
+      <Cup>
+        <CupID>154</CupID>
+        <CupName>Jamaica Cup</CupName>
+      </Cup>
+      <ActiveUsers>34</ActiveUsers>
+      <WaitingUsers>0</WaitingUsers>
+      <TrainingDate>2026-07-17 01:45:00</TrainingDate>
+      <EconomyDate>2026-07-19 03:43:00</EconomyDate>
+      <CupMatchDate>2026-05-20 22:15:00</CupMatchDate>
+      <SeriesMatchDate>2026-07-19 22:15:00</SeriesMatchDate>
+      <NumberOfLevels>4</NumberOfLevels>
+    </League>
+    <League>
+      <LeagueID>95</LeagueID>
+      <LeagueName>Kenya</LeagueName>
+      <Season>72</Season>
+      <MatchRound>16</MatchRound>
+      <ShortName>Kenya</ShortName>
+      <Continent>Africa</Continent>
+      <ZoneName>Asia,  Africa and Oceania</ZoneName>
+      <EnglishName>Kenya</EnglishName>
+      <Country Available="True">
+        <CountryID>90</CountryID>
+        <CountryName>Kenya</CountryName>
+        <CurrencyName>KES</CurrencyName>
+        <CurrencyRate>0,5</CurrencyRate>
+      </Country>
+      <Cup>
+        <CupID>155</CupID>
+        <CupName>Kenya Cup</CupName>
+      </Cup>
+      <ActiveUsers>29</ActiveUsers>
+      <WaitingUsers>0</WaitingUsers>
+      <TrainingDate>2026-07-16 13:15:00</TrainingDate>
+      <EconomyDate>2026-07-19 00:44:00</EconomyDate>
+      <CupMatchDate>2026-05-13 11:15:00</CupMatchDate>
+      <SeriesMatchDate>2026-07-19 12:45:00</SeriesMatchDate>
+      <NumberOfLevels>4</NumberOfLevels>
+    </League>
+    <League>
+      <LeagueID>96</LeagueID>
+      <LeagueName>Panama</LeagueName>
+      <Season>72</Season>
+      <MatchRound>16</MatchRound>
+      <ShortName>Panamá</ShortName>
+      <Continent>North America</Continent>
+      <ZoneName>North America</ZoneName>
+      <EnglishName>Panama</EnglishName>
+      <Country Available="True">
+        <CountryID>91</CountryID>
+        <CountryName>Panamá</CountryName>
+        <CurrencyName>฿</CurrencyName>
+        <CurrencyRate>10</CurrencyRate>
+      </Country>
+      <Cup>
+        <CupID>156</CupID>
+        <CupName>Copa del Istmo</CupName>
+      </Cup>
+      <ActiveUsers>598</ActiveUsers>
+      <WaitingUsers>0</WaitingUsers>
+      <TrainingDate>2026-07-17 00:45:00</TrainingDate>
+      <EconomyDate>2026-07-19 03:31:00</EconomyDate>
+      <CupMatchDate>2026-06-03 22:10:00</CupMatchDate>
+      <SeriesMatchDate>2026-07-19 22:10:00</SeriesMatchDate>
+      <NumberOfLevels>5</NumberOfLevels>
+    </League>
+    <League>
+      <LeagueID>97</LeagueID>
+      <LeagueName>Macedonia del Nord</LeagueName>
+      <Season>72</Season>
+      <MatchRound>16</MatchRound>
+      <ShortName>S Makedonija</ShortName>
+      <Continent>Europe</Continent>
+      <ZoneName>Eastern Europe</ZoneName>
+      <EnglishName>North Macedonia</EnglishName>
+      <Country Available="True">
+        <CountryID>92</CountryID>
+        <CountryName>Severna Makedonija</CountryName>
+        <CurrencyName>MKD</CurrencyName>
+        <CurrencyRate>0,5</CurrencyRate>
+      </Country>
+      <Cup>
+        <CupID>157</CupID>
+        <CupName>Куп на Македонија</CupName>
+      </Cup>
+      <ActiveUsers>140</ActiveUsers>
+      <WaitingUsers>0</WaitingUsers>
+      <TrainingDate>2026-07-16 16:30:00</TrainingDate>
+      <EconomyDate>2026-07-17 23:20:00</EconomyDate>
+      <CupMatchDate>2026-05-20 10:15:00</CupMatchDate>
+      <SeriesMatchDate>2026-07-18 12:15:00</SeriesMatchDate>
+      <NumberOfLevels>5</NumberOfLevels>
+    </League>
+    <League>
+      <LeagueID>98</LeagueID>
+      <LeagueName>Albania</LeagueName>
+      <Season>71</Season>
+      <MatchRound>16</MatchRound>
+      <ShortName>Shqipëria</ShortName>
+      <Continent>Europe</Continent>
+      <ZoneName>Eastern Europe</ZoneName>
+      <EnglishName>Albania</EnglishName>
+      <Country Available="True">
+        <CountryID>94</CountryID>
+        <CountryName>Shqipëria</CountryName>
+        <CurrencyName>lek</CurrencyName>
+        <CurrencyRate>0,05</CurrencyRate>
+      </Country>
+      <Cup>
+        <CupID>158</CupID>
+        <CupName>Kupa e Shqipërisë</CupName>
+      </Cup>
+      <ActiveUsers>196</ActiveUsers>
+      <WaitingUsers>1</WaitingUsers>
+      <TrainingDate>2026-07-16 16:30:00</TrainingDate>
+      <EconomyDate>2026-07-17 23:20:00</EconomyDate>
+      <CupMatchDate>2026-05-26 20:45:00</CupMatchDate>
+      <SeriesMatchDate>2026-07-18 16:45:00</SeriesMatchDate>
+      <NumberOfLevels>5</NumberOfLevels>
+    </League>
+    <League>
+      <LeagueID>99</LeagueID>
+      <LeagueName>Honduras</LeagueName>
+      <Season>71</Season>
+      <MatchRound>16</MatchRound>
+      <ShortName>Honduras</ShortName>
+      <Continent>North America</Continent>
+      <ZoneName>North America</ZoneName>
+      <EnglishName>Honduras</EnglishName>
+      <Country Available="True">
+        <CountryID>95</CountryID>
+        <CountryName>Honduras</CountryName>
+        <CurrencyName>HNL</CurrencyName>
+        <CurrencyRate>5</CurrencyRate>
+      </Country>
+      <Cup>
+        <CupID>159</CupID>
+        <CupName>Copa Nacional Catracha</CupName>
+      </Cup>
+      <ActiveUsers>579</ActiveUsers>
+      <WaitingUsers>0</WaitingUsers>
+      <TrainingDate>2026-07-17 03:45:00</TrainingDate>
+      <EconomyDate>2026-07-19 03:28:00</EconomyDate>
+      <CupMatchDate>2026-06-03 21:55:00</CupMatchDate>
+      <SeriesMatchDate>2026-07-19 21:55:00</SeriesMatchDate>
+      <NumberOfLevels>4</NumberOfLevels>
+    </League>
+    <League>
+      <LeagueID>100</LeagueID>
+      <LeagueName>El Salvador</LeagueName>
+      <Season>71</Season>
+      <MatchRound>16</MatchRound>
+      <ShortName>El Salvador</ShortName>
+      <Continent>North America</Continent>
+      <ZoneName>North America</ZoneName>
+      <EnglishName>El Salvador</EnglishName>
+      <Country Available="True">
+        <CountryID>96</CountryID>
+        <CountryName>El Salvador</CountryName>
+        <CurrencyName>US$</CurrencyName>
+        <CurrencyRate>10</CurrencyRate>
+      </Country>
+      <Cup>
+        <CupID>160</CupID>
+        <CupName>Copa Presidente</CupName>
+      </Cup>
+      <ActiveUsers>60</ActiveUsers>
+      <WaitingUsers>0</WaitingUsers>
+      <TrainingDate>2026-07-17 03:50:00</TrainingDate>
+      <EconomyDate>2026-07-19 03:10:00</EconomyDate>
+      <CupMatchDate>2026-05-13 21:50:00</CupMatchDate>
+      <SeriesMatchDate>2026-07-19 21:50:00</SeriesMatchDate>
+      <NumberOfLevels>4</NumberOfLevels>
+    </League>
+    <League>
+      <LeagueID>101</LeagueID>
+      <LeagueName>Malta</LeagueName>
+      <Season>71</Season>
+      <MatchRound>16</MatchRound>
+      <ShortName>Malta</ShortName>
+      <Continent>Europe</Continent>
+      <ZoneName>Southwestern Europe</ZoneName>
+      <EnglishName>Malta</EnglishName>
+      <Country Available="True">
+        <CountryID>97</CountryID>
+        <CountryName>Malta</CountryName>
+        <CurrencyName>€</CurrencyName>
+        <CurrencyRate>10</CurrencyRate>
+      </Country>
+      <Cup>
+        <CupID>161</CupID>
+        <CupName>Tazza ta' Malta</CupName>
+      </Cup>
+      <ActiveUsers>190</ActiveUsers>
+      <WaitingUsers>0</WaitingUsers>
+      <TrainingDate>2026-07-17 04:25:00</TrainingDate>
+      <EconomyDate>2026-07-18 02:00:00</EconomyDate>
+      <CupMatchDate>2026-05-27 17:15:00</CupMatchDate>
+      <SeriesMatchDate>2026-07-19 19:15:00</SeriesMatchDate>
+      <NumberOfLevels>5</NumberOfLevels>
+    </League>
+    <League>
+      <LeagueID>102</LeagueID>
+      <LeagueName>Kirghizistan</LeagueName>
+      <Season>71</Season>
+      <MatchRound>16</MatchRound>
+      <ShortName>Kyrgyz Rep</ShortName>
+      <Continent>Asia</Continent>
+      <ZoneName>Asia,  Africa and Oceania</ZoneName>
+      <EnglishName>Kyrgyz Republic</EnglishName>
+      <Country Available="True">
+        <CountryID>98</CountryID>
+        <CountryName>Kyrgyz Republic</CountryName>
+        <CurrencyName>som</CurrencyName>
+        <CurrencyRate>0,2</CurrencyRate>
+      </Country>
+      <Cup>
+        <CupID>162</CupID>
+        <CupName>Kyrgyzstan Cup</CupName>
+      </Cup>
+      <ActiveUsers>27</ActiveUsers>
+      <WaitingUsers>0</WaitingUsers>
+      <TrainingDate>2026-07-17 06:03:00</TrainingDate>
+      <EconomyDate>2026-07-18 02:23:00</EconomyDate>
+      <CupMatchDate>2026-05-13 07:30:00</CupMatchDate>
+      <SeriesMatchDate>2026-07-19 07:30:00</SeriesMatchDate>
+      <NumberOfLevels>3</NumberOfLevels>
+    </League>
+    <League>
+      <LeagueID>103</LeagueID>
+      <LeagueName>Moldavia</LeagueName>
+      <Season>71</Season>
+      <MatchRound>16</MatchRound>
+      <ShortName>Moldova</ShortName>
+      <Continent>Europe</Continent>
+      <ZoneName>Eastern Europe</ZoneName>
+      <EnglishName>Moldova</EnglishName>
+      <Country Available="True">
+        <CountryID>99</CountryID>
+        <CountryName>Moldova</CountryName>
+        <CurrencyName>lei</CurrencyName>
+        <CurrencyRate>0,5</CurrencyRate>
+      </Country>
+      <Cup>
+        <CupID>163</CupID>
+        <CupName>Cupa Moldovei</CupName>
+      </Cup>
+      <ActiveUsers>172</ActiveUsers>
+      <WaitingUsers>0</WaitingUsers>
+      <TrainingDate>2026-07-16 18:30:00</TrainingDate>
+      <EconomyDate>2026-07-19 00:54:00</EconomyDate>
+      <CupMatchDate>2026-05-20 17:45:00</CupMatchDate>
+      <SeriesMatchDate>2026-07-19 17:45:00</SeriesMatchDate>
+      <NumberOfLevels>5</NumberOfLevels>
+    </League>
+    <League>
+      <LeagueID>104</LeagueID>
+      <LeagueName>Georgia</LeagueName>
+      <Season>70</Season>
+      <MatchRound>16</MatchRound>
+      <ShortName>Sakartvelo</ShortName>
+      <Continent>Asia</Continent>
+      <ZoneName>Asia,  Africa and Oceania</ZoneName>
+      <EnglishName>Georgia</EnglishName>
+      <Country Available="True">
+        <CountryID>100</CountryID>
+        <CountryName>Sakartvelo</CountryName>
+        <CurrencyName>Lari</CurrencyName>
+        <CurrencyRate>5</CurrencyRate>
+      </Country>
+      <Cup>
+        <CupID>164</CupID>
+        <CupName>საქართველოს ეროვნული თასი</CupName>
+      </Cup>
+      <ActiveUsers>360</ActiveUsers>
+      <WaitingUsers>0</WaitingUsers>
+      <TrainingDate>2026-07-16 18:30:00</TrainingDate>
+      <EconomyDate>2026-07-19 00:58:00</EconomyDate>
+      <CupMatchDate>2026-05-27 14:20:00</CupMatchDate>
+      <SeriesMatchDate>2026-07-19 14:20:00</SeriesMatchDate>
+      <NumberOfLevels>5</NumberOfLevels>
+    </League>
+    <League>
+      <LeagueID>105</LeagueID>
+      <LeagueName>Andorra</LeagueName>
+      <Season>70</Season>
+      <MatchRound>16</MatchRound>
+      <ShortName>Andorra</ShortName>
+      <Continent>Europe</Continent>
+      <ZoneName>Southwestern Europe</ZoneName>
+      <EnglishName>Andorra</EnglishName>
+      <Country Available="True">
+        <CountryID>101</CountryID>
+        <CountryName>Andorra</CountryName>
+        <CurrencyName>€</CurrencyName>
+        <CurrencyRate>10</CurrencyRate>
+      </Country>
+      <Cup>
+        <CupID>165</CupID>
+        <CupName>Copa Constitució</CupName>
+      </Cup>
+      <ActiveUsers>58</ActiveUsers>
+      <WaitingUsers>0</WaitingUsers>
+      <TrainingDate>2026-07-17 06:25:00</TrainingDate>
+      <EconomyDate>2026-07-18 01:28:00</EconomyDate>
+      <CupMatchDate>2026-05-20 15:15:00</CupMatchDate>
+      <SeriesMatchDate>2026-07-19 15:15:00</SeriesMatchDate>
+      <NumberOfLevels>4</NumberOfLevels>
+    </League>
+    <League>
+      <LeagueID>106</LeagueID>
+      <LeagueName>Giordania</LeagueName>
+      <Season>70</Season>
+      <MatchRound>16</MatchRound>
+      <ShortName>Al Urdun</ShortName>
+      <Continent>Asia</Continent>
+      <ZoneName>Asia,  Africa and Oceania</ZoneName>
+      <EnglishName>Jordan</EnglishName>
+      <Country Available="True">
+        <CountryID>103</CountryID>
+        <CountryName>Al Urdun</CountryName>
+        <CurrencyName>JOD</CurrencyName>
+        <CurrencyRate>5</CurrencyRate>
+      </Country>
+      <Cup>
+        <CupID>166</CupID>
+        <CupName>Al Urdun Cup</CupName>
+      </Cup>
+      <ActiveUsers>56</ActiveUsers>
+      <WaitingUsers>0</WaitingUsers>
+      <TrainingDate>2026-07-16 13:15:00</TrainingDate>
+      <EconomyDate>2026-07-19 01:19:00</EconomyDate>
+      <CupMatchDate>2026-05-20 18:40:00</CupMatchDate>
+      <SeriesMatchDate>2026-07-19 18:40:00</SeriesMatchDate>
+      <NumberOfLevels>4</NumberOfLevels>
+    </League>
+    <League>
+      <LeagueID>107</LeagueID>
+      <LeagueName>Guatemala</LeagueName>
+      <Season>70</Season>
+      <MatchRound>16</MatchRound>
+      <ShortName>Guatemala</ShortName>
+      <Continent>North America</Continent>
+      <ZoneName>North America</ZoneName>
+      <EnglishName>Guatemala</EnglishName>
+      <Country Available="True">
+        <CountryID>102</CountryID>
+        <CountryName>Guatemala</CountryName>
+        <CurrencyName>Q</CurrencyName>
+        <CurrencyRate>10</CurrencyRate>
+      </Country>
+      <Cup>
+        <CupID>167</CupID>
+        <CupName>Copa Gran Jaguar</CupName>
+      </Cup>
+      <ActiveUsers>605</ActiveUsers>
+      <WaitingUsers>0</WaitingUsers>
+      <TrainingDate>2026-07-17 04:30:00</TrainingDate>
+      <EconomyDate>2026-07-19 03:20:00</EconomyDate>
+      <CupMatchDate>2026-06-03 23:50:00</CupMatchDate>
+      <SeriesMatchDate>2026-07-19 23:50:00</SeriesMatchDate>
+      <NumberOfLevels>4</NumberOfLevels>
+    </League>
+    <League>
+      <LeagueID>110</LeagueID>
+      <LeagueName>Trinidad e Tobago</LeagueName>
+      <Season>69</Season>
+      <MatchRound>16</MatchRound>
+      <ShortName>Trinidad/T.</ShortName>
+      <Continent>North America</Continent>
+      <ZoneName>North America</ZoneName>
+      <EnglishName>Trinidad &amp; Tobago</EnglishName>
+      <Country Available="True">
+        <CountryID>105</CountryID>
+        <CountryName>Trinidad &amp; Tobago</CountryName>
+        <CurrencyName>TTD</CurrencyName>
+        <CurrencyRate>1</CurrencyRate>
+      </Country>
+      <Cup>
+        <CupID>170</CupID>
+        <CupName>The Pro Bowl</CupName>
+      </Cup>
+      <ActiveUsers>20</ActiveUsers>
+      <WaitingUsers>0</WaitingUsers>
+      <TrainingDate>2026-07-17 02:15:00</TrainingDate>
+      <EconomyDate>2026-07-19 03:44:00</EconomyDate>
+      <CupMatchDate>2026-05-13 22:20:00</CupMatchDate>
+      <SeriesMatchDate>2026-07-19 22:20:00</SeriesMatchDate>
+      <NumberOfLevels>4</NumberOfLevels>
+    </League>
+    <League>
+      <LeagueID>111</LeagueID>
+      <LeagueName>Nicaragua</LeagueName>
+      <Season>69</Season>
+      <MatchRound>16</MatchRound>
+      <ShortName>Nicaragua</ShortName>
+      <Continent>North America</Continent>
+      <ZoneName>North America</ZoneName>
+      <EnglishName>Nicaragua</EnglishName>
+      <Country Available="True">
+        <CountryID>121</CountryID>
+        <CountryName>Nicaragua</CountryName>
+        <CurrencyName>NIO</CurrencyName>
+        <CurrencyRate>0,5</CurrencyRate>
+      </Country>
+      <Cup>
+        <CupID>171</CupID>
+        <CupName>Copa Nacional Rubén Darío</CupName>
+      </Cup>
+      <ActiveUsers>184</ActiveUsers>
+      <WaitingUsers>0</WaitingUsers>
+      <TrainingDate>2026-07-17 01:15:00</TrainingDate>
+      <EconomyDate>2026-07-19 03:26:00</EconomyDate>
+      <CupMatchDate>2026-05-27 23:40:00</CupMatchDate>
+      <SeriesMatchDate>2026-07-19 23:40:00</SeriesMatchDate>
+      <NumberOfLevels>4</NumberOfLevels>
+    </League>
+    <League>
+      <LeagueID>112</LeagueID>
+      <LeagueName>Kazakistan</LeagueName>
+      <Season>69</Season>
+      <MatchRound>16</MatchRound>
+      <ShortName>Kazakhstan</ShortName>
+      <Continent>Asia</Continent>
+      <ZoneName>Asia,  Africa and Oceania</ZoneName>
+      <EnglishName>Kazakhstan</EnglishName>
+      <Country Available="True">
+        <CountryID>122</CountryID>
+        <CountryName>Kazakhstan</CountryName>
+        <CurrencyName>tenge</CurrencyName>
+        <CurrencyRate>0,1</CurrencyRate>
+      </Country>
+      <Cup>
+        <CupID>172</CupID>
+        <CupName>Kazakhstan Cup</CupName>
+      </Cup>
+      <ActiveUsers>125</ActiveUsers>
+      <WaitingUsers>0</WaitingUsers>
+      <TrainingDate>2026-07-17 06:04:00</TrainingDate>
+      <EconomyDate>2026-07-18 02:24:00</EconomyDate>
+      <CupMatchDate>2026-05-20 12:10:00</CupMatchDate>
+      <SeriesMatchDate>2026-07-19 08:00:00</SeriesMatchDate>
+      <NumberOfLevels>4</NumberOfLevels>
+    </League>
+    <League>
+      <LeagueID>113</LeagueID>
+      <LeagueName>Suriname</LeagueName>
+      <Season>69</Season>
+      <MatchRound>16</MatchRound>
+      <ShortName>Suriname</ShortName>
+      <Continent>South America</Continent>
+      <ZoneName>South America</ZoneName>
+      <EnglishName>Suriname</EnglishName>
+      <Country Available="True">
+        <CountryID>123</CountryID>
+        <CountryName>Suriname</CountryName>
+        <CurrencyName>SRD</CurrencyName>
+        <CurrencyRate>5</CurrencyRate>
+      </Country>
+      <Cup>
+        <CupID>173</CupID>
+        <CupName>SVB Beker</CupName>
+      </Cup>
+      <ActiveUsers>12</ActiveUsers>
+      <WaitingUsers>0</WaitingUsers>
+      <TrainingDate>2026-07-16 23:30:00</TrainingDate>
+      <EconomyDate>2026-07-19 03:37:00</EconomyDate>
+      <CupMatchDate>2026-05-13 23:10:00</CupMatchDate>
+      <SeriesMatchDate>2026-07-19 23:10:00</SeriesMatchDate>
+      <NumberOfLevels>3</NumberOfLevels>
+    </League>
+    <League>
+      <LeagueID>117</LeagueID>
+      <LeagueName>Liechtenstein</LeagueName>
+      <Season>68</Season>
+      <MatchRound>16</MatchRound>
+      <ShortName>Liechtenst.</ShortName>
+      <Continent>Europe</Continent>
+      <ZoneName>Central Europe</ZoneName>
+      <EnglishName>Liechtenstein</EnglishName>
+      <Country Available="True">
+        <CountryID>125</CountryID>
+        <CountryName>Liechtenstein</CountryName>
+        <CurrencyName>CHF</CurrencyName>
+        <CurrencyRate>5</CurrencyRate>
+      </Country>
+      <Cup>
+        <CupID>177</CupID>
+        <CupName>Liechtenstein Cup</CupName>
+      </Cup>
+      <ActiveUsers>82</ActiveUsers>
+      <WaitingUsers>0</WaitingUsers>
+      <TrainingDate>2026-07-16 05:18:00</TrainingDate>
+      <EconomyDate>2026-07-18 01:59:00</EconomyDate>
+      <CupMatchDate>2026-05-26 19:50:00</CupMatchDate>
+      <SeriesMatchDate>2026-07-18 19:50:00</SeriesMatchDate>
+      <NumberOfLevels>4</NumberOfLevels>
+    </League>
+    <League>
+      <LeagueID>118</LeagueID>
+      <LeagueName>Algeria</LeagueName>
+      <Season>68</Season>
+      <MatchRound>16</MatchRound>
+      <ShortName>Algérie</ShortName>
+      <Continent>Africa</Continent>
+      <ZoneName>Asia,  Africa and Oceania</ZoneName>
+      <EnglishName>Algeria</EnglishName>
+      <Country Available="True">
+        <CountryID>126</CountryID>
+        <CountryName>Algérie</CountryName>
+        <CurrencyName>DZD</CurrencyName>
+        <CurrencyRate>0,1</CurrencyRate>
+      </Country>
+      <Cup>
+        <CupID>178</CupID>
+        <CupName>Coupe d'Algérie</CupName>
+      </Cup>
+      <ActiveUsers>110</ActiveUsers>
+      <WaitingUsers>0</WaitingUsers>
+      <TrainingDate>2026-07-16 13:11:00</TrainingDate>
+      <EconomyDate>2026-07-19 01:12:00</EconomyDate>
+      <CupMatchDate>2026-05-20 20:10:00</CupMatchDate>
+      <SeriesMatchDate>2026-07-19 19:25:00</SeriesMatchDate>
+      <NumberOfLevels>5</NumberOfLevels>
+    </League>
+    <League>
+      <LeagueID>119</LeagueID>
+      <LeagueName>Mongolia</LeagueName>
+      <Season>68</Season>
+      <MatchRound>16</MatchRound>
+      <ShortName>Mongol Uls</ShortName>
+      <Continent>Asia</Continent>
+      <ZoneName>Asia,  Africa and Oceania</ZoneName>
+      <EnglishName>Mongolia</EnglishName>
+      <Country Available="True">
+        <CountryID>127</CountryID>
+        <CountryName>Mongol Uls</CountryName>
+        <CurrencyName>tugrik</CurrencyName>
+        <CurrencyRate>0,005</CurrencyRate>
+      </Country>
+      <Cup>
+        <CupID>179</CupID>
+        <CupName>Mongol Uls Cup</CupName>
+      </Cup>
+      <ActiveUsers>2</ActiveUsers>
+      <WaitingUsers>0</WaitingUsers>
+      <TrainingDate>2026-07-16 14:29:00</TrainingDate>
+      <EconomyDate>2026-07-17 22:29:00</EconomyDate>
+      <CupMatchDate>2026-05-13 07:50:00</CupMatchDate>
+      <SeriesMatchDate>2026-07-18 07:50:00</SeriesMatchDate>
+      <NumberOfLevels>3</NumberOfLevels>
+    </League>
+    <League>
+      <LeagueID>120</LeagueID>
+      <LeagueName>Libano</LeagueName>
+      <Season>68</Season>
+      <MatchRound>16</MatchRound>
+      <ShortName>Lubnan</ShortName>
+      <Continent>Asia</Continent>
+      <ZoneName>Asia,  Africa and Oceania</ZoneName>
+      <EnglishName>Lebanon</EnglishName>
+      <Country Available="True">
+        <CountryID>128</CountryID>
+        <CountryName>Lebanon</CountryName>
+        <CurrencyName>LBP</CurrencyName>
+        <CurrencyRate>0,005</CurrencyRate>
+      </Country>
+      <Cup>
+        <CupID>180</CupID>
+        <CupName>Lebanese FA Cup</CupName>
+      </Cup>
+      <ActiveUsers>99</ActiveUsers>
+      <WaitingUsers>0</WaitingUsers>
+      <TrainingDate>2026-07-16 13:09:00</TrainingDate>
+      <EconomyDate>2026-07-19 01:09:00</EconomyDate>
+      <CupMatchDate>2026-05-20 17:40:00</CupMatchDate>
+      <SeriesMatchDate>2026-07-19 14:40:00</SeriesMatchDate>
+      <NumberOfLevels>4</NumberOfLevels>
+    </League>
+    <League>
+      <LeagueID>121</LeagueID>
+      <LeagueName>Senegal</LeagueName>
+      <Season>68</Season>
+      <MatchRound>16</MatchRound>
+      <ShortName>Sénégal</ShortName>
+      <Continent>Africa</Continent>
+      <ZoneName>Asia,  Africa and Oceania</ZoneName>
+      <EnglishName>Senegal</EnglishName>
+      <Country Available="True">
+        <CountryID>86</CountryID>
+        <CountryName>Sénégal</CountryName>
+        <CurrencyName>XOF</CurrencyName>
+        <CurrencyRate>0,02</CurrencyRate>
+      </Country>
+      <Cup>
+        <CupID>181</CupID>
+        <CupName>Senegal Cup</CupName>
+      </Cup>
+      <ActiveUsers>52</ActiveUsers>
+      <WaitingUsers>0</WaitingUsers>
+      <TrainingDate>2026-07-16 11:44:00</TrainingDate>
+      <EconomyDate>2026-07-18 04:44:00</EconomyDate>
+      <CupMatchDate>2026-05-13 11:50:00</CupMatchDate>
+      <SeriesMatchDate>2026-07-19 18:20:00</SeriesMatchDate>
+      <NumberOfLevels>5</NumberOfLevels>
+    </League>
+    <League>
+      <LeagueID>122</LeagueID>
+      <LeagueName>Armenia</LeagueName>
+      <Season>68</Season>
+      <MatchRound>16</MatchRound>
+      <ShortName>Hayastan</ShortName>
+      <Continent>Asia</Continent>
+      <ZoneName>Asia,  Africa and Oceania</ZoneName>
+      <EnglishName>Armenia</EnglishName>
+      <Country Available="True">
+        <CountryID>104</CountryID>
+        <CountryName>Armenia</CountryName>
+        <CurrencyName>dram</CurrencyName>
+        <CurrencyRate>0,02</CurrencyRate>
+      </Country>
+      <Cup>
+        <CupID>182</CupID>
+        <CupName>Hayastani gavat</CupName>
+      </Cup>
+      <ActiveUsers>18</ActiveUsers>
+      <WaitingUsers>0</WaitingUsers>
+      <TrainingDate>2026-07-16 18:31:00</TrainingDate>
+      <EconomyDate>2026-07-19 00:31:00</EconomyDate>
+      <CupMatchDate>2026-05-13 14:40:00</CupMatchDate>
+      <SeriesMatchDate>2026-07-19 14:10:00</SeriesMatchDate>
+      <NumberOfLevels>3</NumberOfLevels>
+    </League>
+    <League>
+      <LeagueID>123</LeagueID>
+      <LeagueName>Bahrein</LeagueName>
+      <Season>67</Season>
+      <MatchRound>16</MatchRound>
+      <ShortName>Bahrain</ShortName>
+      <Continent>Asia</Continent>
+      <ZoneName>Asia,  Africa and Oceania</ZoneName>
+      <EnglishName>Bahrain</EnglishName>
+      <Country Available="True">
+        <CountryID>129</CountryID>
+        <CountryName>Bahrain</CountryName>
+        <CurrencyName>BHD</CurrencyName>
+        <CurrencyRate>20</CurrencyRate>
+      </Country>
+      <Cup>
+        <CupID>184</CupID>
+        <CupName>Kaas El Malek</CupName>
+      </Cup>
+      <ActiveUsers>3</ActiveUsers>
+      <WaitingUsers>0</WaitingUsers>
+      <TrainingDate>2026-07-16 13:15:00</TrainingDate>
+      <EconomyDate>2026-07-19 00:18:00</EconomyDate>
+      <CupMatchDate>2026-05-13 16:50:00</CupMatchDate>
+      <SeriesMatchDate>2026-07-19 16:50:00</SeriesMatchDate>
+      <NumberOfLevels>4</NumberOfLevels>
+    </League>
+    <League>
+      <LeagueID>124</LeagueID>
+      <LeagueName>Barbados</LeagueName>
+      <Season>67</Season>
+      <MatchRound>16</MatchRound>
+      <ShortName>Barbados</ShortName>
+      <Continent>North America</Continent>
+      <ZoneName>North America</ZoneName>
+      <EnglishName>Barbados</EnglishName>
+      <Country Available="True">
+        <CountryID>130</CountryID>
+        <CountryName>Barbados</CountryName>
+        <CurrencyName>BBD</CurrencyName>
+        <CurrencyRate>5</CurrencyRate>
+      </Country>
+      <Cup>
+        <CupID>185</CupID>
+        <CupName>Barbados Cup</CupName>
+      </Cup>
+      <ActiveUsers>8</ActiveUsers>
+      <WaitingUsers>0</WaitingUsers>
+      <TrainingDate>2026-07-17 01:45:00</TrainingDate>
+      <EconomyDate>2026-07-19 03:43:00</EconomyDate>
+      <CupMatchDate>2026-05-13 22:10:00</CupMatchDate>
+      <SeriesMatchDate>2026-07-19 22:10:00</SeriesMatchDate>
+      <NumberOfLevels>4</NumberOfLevels>
+    </League>
+    <League>
+      <LeagueID>125</LeagueID>
+      <LeagueName>Capo Verde</LeagueName>
+      <Season>67</Season>
+      <MatchRound>16</MatchRound>
+      <ShortName>Cabo Verde</ShortName>
+      <Continent>Africa</Continent>
+      <ZoneName>Asia,  Africa and Oceania</ZoneName>
+      <EnglishName>Cape Verde</EnglishName>
+      <Country Available="True">
+        <CountryID>131</CountryID>
+        <CountryName>Cabo Verde</CountryName>
+        <CurrencyName>Esc.</CurrencyName>
+        <CurrencyRate>0,1</CurrencyRate>
+      </Country>
+      <Cup>
+        <CupID>186</CupID>
+        <CupName>Taça de Cabo Verde</CupName>
+      </Cup>
+      <ActiveUsers>50</ActiveUsers>
+      <WaitingUsers>0</WaitingUsers>
+      <TrainingDate>2026-07-16 13:15:00</TrainingDate>
+      <EconomyDate>2026-07-19 01:12:00</EconomyDate>
+      <CupMatchDate>2026-05-20 18:25:00</CupMatchDate>
+      <SeriesMatchDate>2026-07-19 18:25:00</SeriesMatchDate>
+      <NumberOfLevels>4</NumberOfLevels>
+    </League>
+    <League>
+      <LeagueID>126</LeagueID>
+      <LeagueName>Costa d’Avorio</LeagueName>
+      <Season>67</Season>
+      <MatchRound>16</MatchRound>
+      <ShortName>C. d’Ivoire</ShortName>
+      <Continent>Africa</Continent>
+      <ZoneName>Asia,  Africa and Oceania</ZoneName>
+      <EnglishName>Côte d’Ivoire</EnglishName>
+      <Country Available="True">
+        <CountryID>132</CountryID>
+        <CountryName>Côte d’Ivoire</CountryName>
+        <CurrencyName>XOF</CurrencyName>
+        <CurrencyRate>0,02</CurrencyRate>
+      </Country>
+      <Cup>
+        <CupID>187</CupID>
+        <CupName>Coupe nationale</CupName>
+      </Cup>
+      <ActiveUsers>55</ActiveUsers>
+      <WaitingUsers>0</WaitingUsers>
+      <TrainingDate>2026-07-16 13:00:00</TrainingDate>
+      <EconomyDate>2026-07-18 04:33:00</EconomyDate>
+      <CupMatchDate>2026-05-20 18:55:00</CupMatchDate>
+      <SeriesMatchDate>2026-07-19 18:55:00</SeriesMatchDate>
+      <NumberOfLevels>4</NumberOfLevels>
+    </League>
+    <League>
+      <LeagueID>127</LeagueID>
+      <LeagueName>Kuwait</LeagueName>
+      <Season>66</Season>
+      <MatchRound>16</MatchRound>
+      <ShortName>Al Kuwayt</ShortName>
+      <Continent>Asia</Continent>
+      <ZoneName>Asia,  Africa and Oceania</ZoneName>
+      <EnglishName>Kuwait</EnglishName>
+      <Country Available="True">
+        <CountryID>134</CountryID>
+        <CountryName>Al Kuwayt</CountryName>
+        <CurrencyName>dinar</CurrencyName>
+        <CurrencyRate>25</CurrencyRate>
+      </Country>
+      <Cup>
+        <CupID>188</CupID>
+        <CupName>Al Kuwayt Emir Cup</CupName>
+      </Cup>
+      <ActiveUsers>97</ActiveUsers>
+      <WaitingUsers>0</WaitingUsers>
+      <TrainingDate>2026-07-16 13:15:00</TrainingDate>
+      <EconomyDate>2026-07-19 00:18:00</EconomyDate>
+      <CupMatchDate>2026-05-20 16:10:00</CupMatchDate>
+      <SeriesMatchDate>2026-07-19 16:10:00</SeriesMatchDate>
+      <NumberOfLevels>4</NumberOfLevels>
+    </League>
+    <League>
+      <LeagueID>128</LeagueID>
+      <LeagueName>Iraq</LeagueName>
+      <Season>66</Season>
+      <MatchRound>16</MatchRound>
+      <ShortName>Al Iraq</ShortName>
+      <Continent>Asia</Continent>
+      <ZoneName>Asia,  Africa and Oceania</ZoneName>
+      <EnglishName>Iraq</EnglishName>
+      <Country Available="True">
+        <CountryID>135</CountryID>
+        <CountryName>Al Iraq</CountryName>
+        <CurrencyName>dinar</CurrencyName>
+        <CurrencyRate>5</CurrencyRate>
+      </Country>
+      <Cup>
+        <CupID>189</CupID>
+        <CupName>Al Iraq Cup</CupName>
+      </Cup>
+      <ActiveUsers>48</ActiveUsers>
+      <WaitingUsers>0</WaitingUsers>
+      <TrainingDate>2026-07-16 13:15:00</TrainingDate>
+      <EconomyDate>2026-07-19 00:18:00</EconomyDate>
+      <CupMatchDate>2026-05-13 16:25:00</CupMatchDate>
+      <SeriesMatchDate>2026-07-19 16:25:00</SeriesMatchDate>
+      <NumberOfLevels>4</NumberOfLevels>
+    </League>
+    <League>
+      <LeagueID>129</LeagueID>
+      <LeagueName>Azerbaigian</LeagueName>
+      <Season>66</Season>
+      <MatchRound>16</MatchRound>
+      <ShortName>Azərbaycan</ShortName>
+      <Continent>Asia</Continent>
+      <ZoneName>Asia,  Africa and Oceania</ZoneName>
+      <EnglishName>Azerbaijan</EnglishName>
+      <Country Available="True">
+        <CountryID>133</CountryID>
+        <CountryName>Azərbaycan</CountryName>
+        <CurrencyName>AZN</CurrencyName>
+        <CurrencyRate>10</CurrencyRate>
+      </Country>
+      <Cup>
+        <CupID>190</CupID>
+        <CupName>Azərbaycan Kuboku</CupName>
+      </Cup>
+      <ActiveUsers>151</ActiveUsers>
+      <WaitingUsers>0</WaitingUsers>
+      <TrainingDate>2026-07-16 18:30:00</TrainingDate>
+      <EconomyDate>2026-07-19 00:58:00</EconomyDate>
+      <CupMatchDate>2026-05-20 14:25:00</CupMatchDate>
+      <SeriesMatchDate>2026-07-19 14:25:00</SeriesMatchDate>
+      <NumberOfLevels>4</NumberOfLevels>
+    </League>
+    <League>
+      <LeagueID>130</LeagueID>
+      <LeagueName>Angola</LeagueName>
+      <Season>65</Season>
+      <MatchRound>16</MatchRound>
+      <ShortName>Angola</ShortName>
+      <Continent>Africa</Continent>
+      <ZoneName>Asia,  Africa and Oceania</ZoneName>
+      <EnglishName>Angola</EnglishName>
+      <Country Available="True">
+        <CountryID>137</CountryID>
+        <CountryName>Angola</CountryName>
+        <CurrencyName>kwanza</CurrencyName>
+        <CurrencyRate>0,1</CurrencyRate>
+      </Country>
+      <Cup>
+        <CupID>191</CupID>
+        <CupName>Taça de Angola</CupName>
+      </Cup>
+      <ActiveUsers>29</ActiveUsers>
+      <WaitingUsers>0</WaitingUsers>
+      <TrainingDate>2026-07-16 13:00:00</TrainingDate>
+      <EconomyDate>2026-07-18 04:27:00</EconomyDate>
+      <CupMatchDate>2026-05-12 19:40:00</CupMatchDate>
+      <SeriesMatchDate>2026-07-18 19:40:00</SeriesMatchDate>
+      <NumberOfLevels>4</NumberOfLevels>
+    </League>
+    <League>
+      <LeagueID>131</LeagueID>
+      <LeagueName>Montenegro</LeagueName>
+      <Season>65</Season>
+      <MatchRound>16</MatchRound>
+      <ShortName>Crna Gora</ShortName>
+      <Continent>Europe</Continent>
+      <ZoneName>Eastern Europe</ZoneName>
+      <EnglishName>Montenegro</EnglishName>
+      <Country Available="True">
+        <CountryID>136</CountryID>
+        <CountryName>Crna Gora</CountryName>
+        <CurrencyName>€</CurrencyName>
+        <CurrencyRate>10</CurrencyRate>
+      </Country>
+      <Cup>
+        <CupID>192</CupID>
+        <CupName>Kup Crne Gore</CupName>
+      </Cup>
+      <ActiveUsers>111</ActiveUsers>
+      <WaitingUsers>0</WaitingUsers>
+      <TrainingDate>2026-07-16 16:30:00</TrainingDate>
+      <EconomyDate>2026-07-17 23:20:00</EconomyDate>
+      <CupMatchDate>2026-05-20 11:55:00</CupMatchDate>
+      <SeriesMatchDate>2026-07-18 11:55:00</SeriesMatchDate>
+      <NumberOfLevels>4</NumberOfLevels>
+    </League>
+    <League>
+      <LeagueID>132</LeagueID>
+      <LeagueName>Bangladesh</LeagueName>
+      <Season>65</Season>
+      <MatchRound>16</MatchRound>
+      <ShortName>Bangladesh</ShortName>
+      <Continent>Asia</Continent>
+      <ZoneName>Asia,  Africa and Oceania</ZoneName>
+      <EnglishName>Bangladesh</EnglishName>
+      <Country Available="True">
+        <CountryID>138</CountryID>
+        <CountryName>Bangladesh</CountryName>
+        <CurrencyName>taka</CurrencyName>
+        <CurrencyRate>0,2</CurrencyRate>
+      </Country>
+      <Cup>
+        <CupID>193</CupID>
+        <CupName>Bangladesh Cup</CupName>
+      </Cup>
+      <ActiveUsers>35</ActiveUsers>
+      <WaitingUsers>0</WaitingUsers>
+      <TrainingDate>2026-07-17 06:07:00</TrainingDate>
+      <EconomyDate>2026-07-18 02:22:00</EconomyDate>
+      <CupMatchDate>2026-05-13 06:30:00</CupMatchDate>
+      <SeriesMatchDate>2026-07-19 07:45:00</SeriesMatchDate>
+      <NumberOfLevels>4</NumberOfLevels>
+    </League>
+    <League>
+      <LeagueID>133</LeagueID>
+      <LeagueName>Yemen</LeagueName>
+      <Season>64</Season>
+      <MatchRound>16</MatchRound>
+      <ShortName>Al Yaman</ShortName>
+      <Continent>Asia</Continent>
+      <ZoneName>Asia,  Africa and Oceania</ZoneName>
+      <EnglishName>Yemen</EnglishName>
+      <Country Available="True">
+        <CountryID>139</CountryID>
+        <CountryName>Al Yaman</CountryName>
+        <CurrencyName>rial</CurrencyName>
+        <CurrencyRate>0,1</CurrencyRate>
+      </Country>
+      <Cup>
+        <CupID>194</CupID>
+        <CupName>Al Yaman Cup</CupName>
+      </Cup>
+      <ActiveUsers>6</ActiveUsers>
+      <WaitingUsers>0</WaitingUsers>
+      <TrainingDate>2026-07-16 13:15:00</TrainingDate>
+      <EconomyDate>2026-07-19 00:18:00</EconomyDate>
+      <CupMatchDate>2026-05-13 16:35:00</CupMatchDate>
+      <SeriesMatchDate>2026-07-19 16:35:00</SeriesMatchDate>
+      <NumberOfLevels>4</NumberOfLevels>
+    </League>
+    <League>
+      <LeagueID>134</LeagueID>
+      <LeagueName>Oman</LeagueName>
+      <Season>64</Season>
+      <MatchRound>16</MatchRound>
+      <ShortName>Oman</ShortName>
+      <Continent>Asia</Continent>
+      <ZoneName>Asia,  Africa and Oceania</ZoneName>
+      <EnglishName>Oman</EnglishName>
+      <Country Available="True">
+        <CountryID>140</CountryID>
+        <CountryName>Oman</CountryName>
+        <CurrencyName>rial</CurrencyName>
+        <CurrencyRate>20</CurrencyRate>
+      </Country>
+      <Cup>
+        <CupID>195</CupID>
+        <CupName>Ka'as Al-Sultan Qaboos</CupName>
+      </Cup>
+      <ActiveUsers>293</ActiveUsers>
+      <WaitingUsers>0</WaitingUsers>
+      <TrainingDate>2026-07-16 13:15:00</TrainingDate>
+      <EconomyDate>2026-07-19 00:18:00</EconomyDate>
+      <CupMatchDate>2026-05-27 16:40:00</CupMatchDate>
+      <SeriesMatchDate>2026-07-19 16:40:00</SeriesMatchDate>
+      <NumberOfLevels>4</NumberOfLevels>
+    </League>
+    <League>
+      <LeagueID>135</LeagueID>
+      <LeagueName>Mozambico</LeagueName>
+      <Season>62</Season>
+      <MatchRound>16</MatchRound>
+      <ShortName>Moçambique</ShortName>
+      <Continent>Africa</Continent>
+      <ZoneName>Asia,  Africa and Oceania</ZoneName>
+      <EnglishName>Mozambique</EnglishName>
+      <Country Available="True">
+        <CountryID>142</CountryID>
+        <CountryName>Moçambique</CountryName>
+        <CurrencyName>metical</CurrencyName>
+        <CurrencyRate>0,4</CurrencyRate>
+      </Country>
+      <Cup>
+        <CupID>196</CupID>
+        <CupName>Taça de Mocambique</CupName>
+      </Cup>
+      <ActiveUsers>136</ActiveUsers>
+      <WaitingUsers>0</WaitingUsers>
+      <TrainingDate>2026-07-16 13:15:00</TrainingDate>
+      <EconomyDate>2026-07-19 00:18:00</EconomyDate>
+      <CupMatchDate>2026-05-20 16:40:00</CupMatchDate>
+      <SeriesMatchDate>2026-07-19 16:40:00</SeriesMatchDate>
+      <NumberOfLevels>4</NumberOfLevels>
+    </League>
+    <League>
+      <LeagueID>136</LeagueID>
+      <LeagueName>Brunei</LeagueName>
+      <Season>62</Season>
+      <MatchRound>16</MatchRound>
+      <ShortName>Brunei</ShortName>
+      <Continent>Asia</Continent>
+      <ZoneName>Asia,  Africa and Oceania</ZoneName>
+      <EnglishName>Brunei</EnglishName>
+      <Country Available="True">
+        <CountryID>143</CountryID>
+        <CountryName>Brunei</CountryName>
+        <CurrencyName>BND</CurrencyName>
+        <CurrencyRate>5</CurrencyRate>
+      </Country>
+      <Cup>
+        <CupID>197</CupID>
+        <CupName>Brunei Cup</CupName>
+      </Cup>
+      <ActiveUsers>17</ActiveUsers>
+      <WaitingUsers>0</WaitingUsers>
+      <TrainingDate>2026-07-17 08:00:00</TrainingDate>
+      <EconomyDate>2026-07-18 01:50:00</EconomyDate>
+      <CupMatchDate>2026-05-13 05:00:00</CupMatchDate>
+      <SeriesMatchDate>2026-07-19 05:00:00</SeriesMatchDate>
+      <NumberOfLevels>3</NumberOfLevels>
+    </League>
+    <League>
+      <LeagueID>137</LeagueID>
+      <LeagueName>Ghana</LeagueName>
+      <Season>62</Season>
+      <MatchRound>16</MatchRound>
+      <ShortName>Ghana</ShortName>
+      <Continent>Africa</Continent>
+      <ZoneName>Asia,  Africa and Oceania</ZoneName>
+      <EnglishName>Ghana</EnglishName>
+      <Country Available="True">
+        <CountryID>144</CountryID>
+        <CountryName>Ghana</CountryName>
+        <CurrencyName>cedis</CurrencyName>
+        <CurrencyRate>10</CurrencyRate>
+      </Country>
+      <Cup>
+        <CupID>198</CupID>
+        <CupName>Gold Coast Cup</CupName>
+      </Cup>
+      <ActiveUsers>22</ActiveUsers>
+      <WaitingUsers>0</WaitingUsers>
+      <TrainingDate>2026-07-16 13:15:00</TrainingDate>
+      <EconomyDate>2026-07-19 01:12:00</EconomyDate>
+      <CupMatchDate>2026-05-13 18:25:00</CupMatchDate>
+      <SeriesMatchDate>2026-07-19 18:25:00</SeriesMatchDate>
+      <NumberOfLevels>4</NumberOfLevels>
+    </League>
+    <League>
+      <LeagueID>138</LeagueID>
+      <LeagueName>Cambogia</LeagueName>
+      <Season>62</Season>
+      <MatchRound>16</MatchRound>
+      <ShortName>Kampuchea</ShortName>
+      <Continent>Asia</Continent>
+      <ZoneName>Asia,  Africa and Oceania</ZoneName>
+      <EnglishName>Cambodia</EnglishName>
+      <Country Available="True">
+        <CountryID>145</CountryID>
+        <CountryName>Kampuchea</CountryName>
+        <CurrencyName>Riel</CurrencyName>
+        <CurrencyRate>2,5</CurrencyRate>
+      </Country>
+      <Cup>
+        <CupID>199</CupID>
+        <CupName>Kampuchea Cup</CupName>
+      </Cup>
+      <ActiveUsers>10</ActiveUsers>
+      <WaitingUsers>0</WaitingUsers>
+      <TrainingDate>2026-07-16 17:15:00</TrainingDate>
+      <EconomyDate>2026-07-17 22:30:00</EconomyDate>
+      <CupMatchDate>2026-05-13 05:15:00</CupMatchDate>
+      <SeriesMatchDate>2026-07-18 08:00:00</SeriesMatchDate>
+      <NumberOfLevels>3</NumberOfLevels>
+    </League>
+    <League>
+      <LeagueID>139</LeagueID>
+      <LeagueName>Benin</LeagueName>
+      <Season>61</Season>
+      <MatchRound>16</MatchRound>
+      <ShortName>Bénin</ShortName>
+      <Continent>Africa</Continent>
+      <ZoneName>Asia,  Africa and Oceania</ZoneName>
+      <EnglishName>Benin</EnglishName>
+      <Country Available="True">
+        <CountryID>147</CountryID>
+        <CountryName>Benin</CountryName>
+        <CurrencyName>$</CurrencyName>
+        <CurrencyRate>10</CurrencyRate>
+      </Country>
+      <Cup>
+        <CupID>200</CupID>
+        <CupName>Benin Cup</CupName>
+      </Cup>
+      <ActiveUsers>27</ActiveUsers>
+      <WaitingUsers>0</WaitingUsers>
+      <TrainingDate>2026-07-16 13:00:00</TrainingDate>
+      <EconomyDate>2026-07-18 04:33:00</EconomyDate>
+      <CupMatchDate>2026-05-13 11:45:00</CupMatchDate>
+      <SeriesMatchDate>2026-07-19 18:45:00</SeriesMatchDate>
+      <NumberOfLevels>3</NumberOfLevels>
+    </League>
+    <League>
+      <LeagueID>140</LeagueID>
+      <LeagueName>Siria</LeagueName>
+      <Season>61</Season>
+      <MatchRound>16</MatchRound>
+      <ShortName>Suriyah</ShortName>
+      <Continent>Asia</Continent>
+      <ZoneName>Asia,  Africa and Oceania</ZoneName>
+      <EnglishName>Syria</EnglishName>
+      <Country Available="True">
+        <CountryID>148</CountryID>
+        <CountryName>Suriyah</CountryName>
+        <CurrencyName>$</CurrencyName>
+        <CurrencyRate>10</CurrencyRate>
+      </Country>
+      <Cup>
+        <CupID>201</CupID>
+        <CupName>Suriyah Cup</CupName>
+      </Cup>
+      <ActiveUsers>19</ActiveUsers>
+      <WaitingUsers>0</WaitingUsers>
+      <TrainingDate>2026-07-16 13:15:00</TrainingDate>
+      <EconomyDate>2026-07-19 00:18:00</EconomyDate>
+      <CupMatchDate>2026-05-13 16:35:00</CupMatchDate>
+      <SeriesMatchDate>2026-07-19 16:35:00</SeriesMatchDate>
+      <NumberOfLevels>4</NumberOfLevels>
+    </League>
+    <League>
+      <LeagueID>141</LeagueID>
+      <LeagueName>Qatar</LeagueName>
+      <Season>60</Season>
+      <MatchRound>16</MatchRound>
+      <ShortName>Qatar</ShortName>
+      <Continent>Asia</Continent>
+      <ZoneName>Asia,  Africa and Oceania</ZoneName>
+      <EnglishName>Qatar</EnglishName>
+      <Country Available="True">
+        <CountryID>149</CountryID>
+        <CountryName>Qatar</CountryName>
+        <CurrencyName>QAR</CurrencyName>
+        <CurrencyRate>10</CurrencyRate>
+      </Country>
+      <Cup>
+        <CupID>202</CupID>
+        <CupName>Al Kaas Al Qatary</CupName>
+      </Cup>
+      <ActiveUsers>77</ActiveUsers>
+      <WaitingUsers>0</WaitingUsers>
+      <TrainingDate>2026-07-16 13:15:00</TrainingDate>
+      <EconomyDate>2026-07-19 00:18:00</EconomyDate>
+      <CupMatchDate>2026-05-20 16:10:00</CupMatchDate>
+      <SeriesMatchDate>2026-07-19 16:10:00</SeriesMatchDate>
+      <NumberOfLevels>4</NumberOfLevels>
+    </League>
+    <League>
+      <LeagueID>142</LeagueID>
+      <LeagueName>Tanzania</LeagueName>
+      <Season>60</Season>
+      <MatchRound>16</MatchRound>
+      <ShortName>Tanzania</ShortName>
+      <Continent>Africa</Continent>
+      <ZoneName>Asia,  Africa and Oceania</ZoneName>
+      <EnglishName>Tanzania</EnglishName>
+      <Country Available="True">
+        <CountryID>150</CountryID>
+        <CountryName>Tanzania</CountryName>
+        <CurrencyName>$</CurrencyName>
+        <CurrencyRate>10</CurrencyRate>
+      </Country>
+      <Cup>
+        <CupID>203</CupID>
+        <CupName>Tanzania Cup</CupName>
+      </Cup>
+      <ActiveUsers>18</ActiveUsers>
+      <WaitingUsers>0</WaitingUsers>
+      <TrainingDate>2026-07-16 13:15:00</TrainingDate>
+      <EconomyDate>2026-07-19 00:44:00</EconomyDate>
+      <CupMatchDate>2026-05-13 11:15:00</CupMatchDate>
+      <SeriesMatchDate>2026-07-19 12:45:00</SeriesMatchDate>
+      <NumberOfLevels>3</NumberOfLevels>
+    </League>
+    <League>
+      <LeagueID>143</LeagueID>
+      <LeagueName>Uganda</LeagueName>
+      <Season>59</Season>
+      <MatchRound>16</MatchRound>
+      <ShortName>Uganda</ShortName>
+      <Continent>Africa</Continent>
+      <ZoneName>Asia,  Africa and Oceania</ZoneName>
+      <EnglishName>Uganda</EnglishName>
+      <Country Available="True">
+        <CountryID>153</CountryID>
+        <CountryName>Uganda</CountryName>
+        <CurrencyName>shill</CurrencyName>
+        <CurrencyRate>0,005</CurrencyRate>
+      </Country>
+      <Cup>
+        <CupID>204</CupID>
+        <CupName>Uganda Cup</CupName>
+      </Cup>
+      <ActiveUsers>13</ActiveUsers>
+      <WaitingUsers>0</WaitingUsers>
+      <TrainingDate>2026-07-16 13:15:00</TrainingDate>
+      <EconomyDate>2026-07-19 00:18:00</EconomyDate>
+      <CupMatchDate>2026-05-13 16:20:00</CupMatchDate>
+      <SeriesMatchDate>2026-07-19 16:20:00</SeriesMatchDate>
+      <NumberOfLevels>3</NumberOfLevels>
+    </League>
+    <League>
+      <LeagueID>144</LeagueID>
+      <LeagueName>Maldive</LeagueName>
+      <Season>59</Season>
+      <MatchRound>16</MatchRound>
+      <ShortName>Maldives</ShortName>
+      <Continent>Asia</Continent>
+      <ZoneName>Asia,  Africa and Oceania</ZoneName>
+      <EnglishName>Maldives</EnglishName>
+      <Country Available="True">
+        <CountryID>154</CountryID>
+        <CountryName>Dhivehi Raajje</CountryName>
+        <CurrencyName>rufiyaa</CurrencyName>
+        <CurrencyRate>0,5</CurrencyRate>
+      </Country>
+      <Cup>
+        <CupID>205</CupID>
+        <CupName>Dhivehi Raajje Cup</CupName>
+      </Cup>
+      <ActiveUsers>4</ActiveUsers>
+      <WaitingUsers>0</WaitingUsers>
+      <TrainingDate>2026-07-17 06:05:00</TrainingDate>
+      <EconomyDate>2026-07-18 04:44:00</EconomyDate>
+      <CupMatchDate>2026-05-13 06:00:00</CupMatchDate>
+      <SeriesMatchDate>2026-07-19 08:15:00</SeriesMatchDate>
+      <NumberOfLevels>3</NumberOfLevels>
+    </League>
+    <League>
+      <LeagueID>145</LeagueID>
+      <LeagueName>Uzbekistan</LeagueName>
+      <Season>50</Season>
+      <MatchRound>16</MatchRound>
+      <ShortName>Uzbekistan</ShortName>
+      <Continent>Asia</Continent>
+      <ZoneName>Asia,  Africa and Oceania</ZoneName>
+      <EnglishName>Uzbekistan</EnglishName>
+      <Country Available="True">
+        <CountryID>163</CountryID>
+        <CountryName>Uzbekistan</CountryName>
+        <CurrencyName>som</CurrencyName>
+        <CurrencyRate>0,01</CurrencyRate>
+      </Country>
+      <Cup>
+        <CupID>206</CupID>
+        <CupName>O'zbekiston Kubogi</CupName>
+      </Cup>
+      <ActiveUsers>32</ActiveUsers>
+      <WaitingUsers>0</WaitingUsers>
+      <TrainingDate>2026-07-16 18:30:00</TrainingDate>
+      <EconomyDate>2026-07-19 00:58:00</EconomyDate>
+      <CupMatchDate>2026-05-13 14:30:00</CupMatchDate>
+      <SeriesMatchDate>2026-07-19 14:30:00</SeriesMatchDate>
+      <NumberOfLevels>3</NumberOfLevels>
+    </League>
+    <League>
+      <LeagueID>146</LeagueID>
+      <LeagueName>Camerun</LeagueName>
+      <Season>50</Season>
+      <MatchRound>16</MatchRound>
+      <ShortName>Cameroon</ShortName>
+      <Continent>Africa</Continent>
+      <ZoneName>Asia,  Africa and Oceania</ZoneName>
+      <EnglishName>Cameroon</EnglishName>
+      <Country Available="True">
+        <CountryID>165</CountryID>
+        <CountryName>Cameroon</CountryName>
+        <CurrencyName>XAF</CurrencyName>
+        <CurrencyRate>0,02</CurrencyRate>
+      </Country>
+      <Cup>
+        <CupID>207</CupID>
+        <CupName>Cameroonian Cup</CupName>
+      </Cup>
+      <ActiveUsers>5</ActiveUsers>
+      <WaitingUsers>0</WaitingUsers>
+      <TrainingDate>2026-07-16 13:00:00</TrainingDate>
+      <EconomyDate>2026-07-18 04:33:00</EconomyDate>
+      <CupMatchDate>2026-05-13 18:55:00</CupMatchDate>
+      <SeriesMatchDate>2026-07-19 18:55:00</SeriesMatchDate>
+      <NumberOfLevels>3</NumberOfLevels>
+    </League>
+    <League>
+      <LeagueID>147</LeagueID>
+      <LeagueName>Cuba</LeagueName>
+      <Season>50</Season>
+      <MatchRound>16</MatchRound>
+      <ShortName>Cuba</ShortName>
+      <Continent>North America</Continent>
+      <ZoneName>North America</ZoneName>
+      <EnglishName>Cuba</EnglishName>
+      <Country Available="True">
+        <CountryID>93</CountryID>
+        <CountryName>Cuba</CountryName>
+        <CurrencyName>$</CurrencyName>
+        <CurrencyRate>10</CurrencyRate>
+      </Country>
+      <Cup>
+        <CupID>208</CupID>
+        <CupName>Copa Nacional de Cuba</CupName>
+      </Cup>
+      <ActiveUsers>34</ActiveUsers>
+      <WaitingUsers>0</WaitingUsers>
+      <TrainingDate>2026-07-17 00:50:00</TrainingDate>
+      <EconomyDate>2026-07-19 03:25:00</EconomyDate>
+      <CupMatchDate>2026-05-20 23:15:00</CupMatchDate>
+      <SeriesMatchDate>2026-07-19 23:15:00</SeriesMatchDate>
+      <NumberOfLevels>4</NumberOfLevels>
+    </League>
+    <League>
+      <LeagueID>148</LeagueID>
+      <LeagueName>Palestina</LeagueName>
+      <Season>50</Season>
+      <MatchRound>16</MatchRound>
+      <ShortName>Palestine</ShortName>
+      <Continent>Asia</Continent>
+      <ZoneName>Asia,  Africa and Oceania</ZoneName>
+      <EnglishName>Palestine</EnglishName>
+      <Country Available="True">
+        <CountryID>166</CountryID>
+        <CountryName>Palestine</CountryName>
+        <CurrencyName>NIS</CurrencyName>
+        <CurrencyRate>2</CurrencyRate>
+      </Country>
+      <Cup>
+        <CupID>209</CupID>
+        <CupName>Palestine Cup</CupName>
+      </Cup>
+      <ActiveUsers>8</ActiveUsers>
+      <WaitingUsers>0</WaitingUsers>
+      <TrainingDate>2026-07-16 13:20:00</TrainingDate>
+      <EconomyDate>2026-07-19 00:23:00</EconomyDate>
+      <CupMatchDate>2026-05-13 16:15:00</CupMatchDate>
+      <SeriesMatchDate>2026-07-19 16:15:00</SeriesMatchDate>
+      <NumberOfLevels>4</NumberOfLevels>
+    </League>
+    <League>
+      <LeagueID>149</LeagueID>
+      <LeagueName>São Tomé e Príncipe</LeagueName>
+      <Season>25</Season>
+      <MatchRound>16</MatchRound>
+      <ShortName>São Tomé e P</ShortName>
+      <Continent>Africa</Continent>
+      <ZoneName>Asia,  Africa and Oceania</ZoneName>
+      <EnglishName>São Tomé e Príncipe</EnglishName>
+      <Country Available="True">
+        <CountryID>177</CountryID>
+        <CountryName>São Tomé e Príncipe</CountryName>
+        <CurrencyName>dobra</CurrencyName>
+        <CurrencyRate>0,4</CurrencyRate>
+      </Country>
+      <Cup>
+        <CupID>1438</CupID>
+        <CupName>Taça Nacional de São Tomé e Príncipe</CupName>
+      </Cup>
+      <ActiveUsers>8</ActiveUsers>
+      <WaitingUsers>0</WaitingUsers>
+      <TrainingDate>2026-07-16 13:15:00</TrainingDate>
+      <EconomyDate>2026-07-18 04:33:00</EconomyDate>
+      <CupMatchDate>2026-05-20 18:50:00</CupMatchDate>
+      <SeriesMatchDate>2026-07-19 19:05:00</SeriesMatchDate>
+      <NumberOfLevels>4</NumberOfLevels>
+    </League>
+    <League>
+      <LeagueID>151</LeagueID>
+      <LeagueName>Comore</LeagueName>
+      <Season>25</Season>
+      <MatchRound>16</MatchRound>
+      <ShortName>Comoros</ShortName>
+      <Continent>Africa</Continent>
+      <ZoneName>Asia,  Africa and Oceania</ZoneName>
+      <EnglishName>Comoros</EnglishName>
+      <Country Available="True">
+        <CountryID>180</CountryID>
+        <CountryName>Comoros</CountryName>
+        <CurrencyName>franc</CurrencyName>
+        <CurrencyRate>0,02</CurrencyRate>
+      </Country>
+      <Cup>
+        <CupID>1439</CupID>
+        <CupName>Comoros Cup</CupName>
+      </Cup>
+      <ActiveUsers>2</ActiveUsers>
+      <WaitingUsers>0</WaitingUsers>
+      <TrainingDate>2026-07-16 13:15:00</TrainingDate>
+      <EconomyDate>2026-07-19 00:44:00</EconomyDate>
+      <CupMatchDate>2026-05-20 11:10:00</CupMatchDate>
+      <SeriesMatchDate>2026-07-19 12:40:00</SeriesMatchDate>
+      <NumberOfLevels>4</NumberOfLevels>
+    </League>
+    <League>
+      <LeagueID>152</LeagueID>
+      <LeagueName>Sri Lanka</LeagueName>
+      <Season>25</Season>
+      <MatchRound>16</MatchRound>
+      <ShortName>Sri Lanka</ShortName>
+      <Continent>Asia</Continent>
+      <ZoneName>Asia,  Africa and Oceania</ZoneName>
+      <EnglishName>Sri Lanka</EnglishName>
+      <Country Available="True">
+        <CountryID>175</CountryID>
+        <CountryName>Sri Lanka</CountryName>
+        <CurrencyName>rupees</CurrencyName>
+        <CurrencyRate>0,05</CurrencyRate>
+      </Country>
+      <Cup>
+        <CupID>1440</CupID>
+        <CupName>Sri Lanka Cup</CupName>
+      </Cup>
+      <ActiveUsers>1</ActiveUsers>
+      <WaitingUsers>0</WaitingUsers>
+      <TrainingDate>2026-07-17 06:05:00</TrainingDate>
+      <EconomyDate>2026-07-18 04:44:00</EconomyDate>
+      <CupMatchDate>2026-05-13 06:45:00</CupMatchDate>
+      <SeriesMatchDate>2026-07-19 07:50:00</SeriesMatchDate>
+      <NumberOfLevels>4</NumberOfLevels>
+    </League>
+    <League>
+      <LeagueID>153</LeagueID>
+      <LeagueName>Curaçao</LeagueName>
+      <Season>25</Season>
+      <MatchRound>16</MatchRound>
+      <ShortName>Curaçao</ShortName>
+      <Continent>North America</Continent>
+      <ZoneName>North America</ZoneName>
+      <EnglishName>Curaçao</EnglishName>
+      <Country Available="True">
+        <CountryID>178</CountryID>
+        <CountryName>Curaçao</CountryName>
+        <CurrencyName>guilder</CurrencyName>
+        <CurrencyRate>5</CurrencyRate>
+      </Country>
+      <Cup>
+        <CupID>1441</CupID>
+        <CupName>Curaçao Cup</CupName>
+      </Cup>
+      <ActiveUsers>5</ActiveUsers>
+      <WaitingUsers>0</WaitingUsers>
+      <TrainingDate>2026-07-17 06:15:00</TrainingDate>
+      <EconomyDate>2026-07-19 03:15:00</EconomyDate>
+      <CupMatchDate>2026-05-27 22:25:00</CupMatchDate>
+      <SeriesMatchDate>2026-07-19 22:25:00</SeriesMatchDate>
+      <NumberOfLevels>4</NumberOfLevels>
+    </League>
+    <League>
+      <LeagueID>154</LeagueID>
+      <LeagueName>Guam</LeagueName>
+      <Season>25</Season>
+      <MatchRound>16</MatchRound>
+      <ShortName>Guam</ShortName>
+      <Continent>Asia</Continent>
+      <ZoneName>Asia,  Africa and Oceania</ZoneName>
+      <EnglishName>Guam</EnglishName>
+      <Country Available="True">
+        <CountryID>179</CountryID>
+        <CountryName>Guam</CountryName>
+        <CurrencyName>$</CurrencyName>
+        <CurrencyRate>10</CurrencyRate>
+      </Country>
+      <Cup>
+        <CupID>1442</CupID>
+        <CupName>Guam Cup</CupName>
+      </Cup>
+      <ActiveUsers>2</ActiveUsers>
+      <WaitingUsers>0</WaitingUsers>
+      <TrainingDate>2026-07-17 04:15:00</TrainingDate>
+      <EconomyDate>2026-07-18 03:15:00</EconomyDate>
+      <CupMatchDate>2026-05-13 04:15:00</CupMatchDate>
+      <SeriesMatchDate>2026-07-19 04:10:00</SeriesMatchDate>
+      <NumberOfLevels>4</NumberOfLevels>
+    </League>
+    <League>
+      <LeagueID>155</LeagueID>
+      <LeagueName>Repubblica Democratica del Congo</LeagueName>
+      <Season>22</Season>
+      <MatchRound>16</MatchRound>
+      <ShortName>DR Congo</ShortName>
+      <Continent>Africa</Continent>
+      <ZoneName>Asia,  Africa and Oceania</ZoneName>
+      <EnglishName>Democratic Republic of the Congo</EnglishName>
+      <Country Available="True">
+        <CountryID>181</CountryID>
+        <CountryName>DR Congo</CountryName>
+        <CurrencyName>CDF</CurrencyName>
+        <CurrencyRate>0,005</CurrencyRate>
+      </Country>
+      <Cup>
+        <CupID>1463</CupID>
+        <CupName>Coupe du Congo</CupName>
+      </Cup>
+      <ActiveUsers>5</ActiveUsers>
+      <WaitingUsers>0</WaitingUsers>
+      <TrainingDate>2026-07-16 13:15:00</TrainingDate>
+      <EconomyDate>2026-07-18 04:35:00</EconomyDate>
+      <CupMatchDate>2026-05-13 18:50:00</CupMatchDate>
+      <SeriesMatchDate>2026-07-19 18:30:00</SeriesMatchDate>
+      <NumberOfLevels>4</NumberOfLevels>
+    </League>
+    <League>
+      <LeagueID>156</LeagueID>
+      <LeagueName>Etiopia</LeagueName>
+      <Season>22</Season>
+      <MatchRound>16</MatchRound>
+      <ShortName>Ethiopia</ShortName>
+      <Continent>Africa</Continent>
+      <ZoneName>Asia,  Africa and Oceania</ZoneName>
+      <EnglishName>Federal Democratic Republic of Ethiopia</EnglishName>
+      <Country Available="True">
+        <CountryID>182</CountryID>
+        <CountryName>Ethiopia</CountryName>
+        <CurrencyName>Birr</CurrencyName>
+        <CurrencyRate>0,25</CurrencyRate>
+      </Country>
+      <Cup>
+        <CupID>1468</CupID>
+        <CupName>Ītyōṗṗyā Cup</CupName>
+      </Cup>
+      <ActiveUsers>7</ActiveUsers>
+      <WaitingUsers>0</WaitingUsers>
+      <TrainingDate>2026-07-16 13:15:00</TrainingDate>
+      <EconomyDate>2026-07-18 04:35:00</EconomyDate>
+      <CupMatchDate>2026-05-13 18:50:00</CupMatchDate>
+      <SeriesMatchDate>2026-07-19 18:30:00</SeriesMatchDate>
+      <NumberOfLevels>3</NumberOfLevels>
+    </League>
+    <League>
+      <LeagueID>157</LeagueID>
+      <LeagueName>Saint Vincent e Grenadine</LeagueName>
+      <Season>20</Season>
+      <MatchRound>16</MatchRound>
+      <ShortName>St Vincent</ShortName>
+      <Continent>North America</Continent>
+      <ZoneName>North America</ZoneName>
+      <EnglishName>Saint Vincent and the Grenadines</EnglishName>
+      <Country Available="True">
+        <CountryID>184</CountryID>
+        <CountryName>Saint Vincent and the Grenadines</CountryName>
+        <CurrencyName>dollar</CurrencyName>
+        <CurrencyRate>4</CurrencyRate>
+      </Country>
+      <Cup>
+        <CupID>1473</CupID>
+        <CupName>St Vincent &amp; Grenadines Cup</CupName>
+      </Cup>
+      <ActiveUsers>2</ActiveUsers>
+      <WaitingUsers>0</WaitingUsers>
+      <TrainingDate>2026-07-17 01:55:00</TrainingDate>
+      <EconomyDate>2026-07-19 03:42:00</EconomyDate>
+      <CupMatchDate>2026-05-13 22:05:00</CupMatchDate>
+      <SeriesMatchDate>2026-07-19 22:30:00</SeriesMatchDate>
+      <NumberOfLevels>3</NumberOfLevels>
+    </League>
+    <League>
+      <LeagueID>158</LeagueID>
+      <LeagueName>Belize</LeagueName>
+      <Season>20</Season>
+      <MatchRound>16</MatchRound>
+      <ShortName>Belize</ShortName>
+      <Continent>North America</Continent>
+      <ZoneName>North America</ZoneName>
+      <EnglishName>Belize</EnglishName>
+      <Country Available="True">
+        <CountryID>186</CountryID>
+        <CountryName>Belize</CountryName>
+        <CurrencyName>$</CurrencyName>
+        <CurrencyRate>5</CurrencyRate>
+      </Country>
+      <Cup>
+        <CupID>1478</CupID>
+        <CupName>Belize Cup</CupName>
+      </Cup>
+      <ActiveUsers>1</ActiveUsers>
+      <WaitingUsers>0</WaitingUsers>
+      <TrainingDate>2026-07-17 04:35:00</TrainingDate>
+      <EconomyDate>2026-07-19 03:20:00</EconomyDate>
+      <CupMatchDate>2026-05-13 21:45:00</CupMatchDate>
+      <SeriesMatchDate>2026-07-19 21:45:00</SeriesMatchDate>
+      <NumberOfLevels>4</NumberOfLevels>
+    </League>
+    <League>
+      <LeagueID>159</LeagueID>
+      <LeagueName>Madagascar</LeagueName>
+      <Season>20</Season>
+      <MatchRound>16</MatchRound>
+      <ShortName>Madagascar</ShortName>
+      <Continent>Africa</Continent>
+      <ZoneName>Asia,  Africa and Oceania</ZoneName>
+      <EnglishName>Madagascar</EnglishName>
+      <Country Available="True">
+        <CountryID>183</CountryID>
+        <CountryName>Madagascar</CountryName>
+        <CurrencyName>ariary</CurrencyName>
+        <CurrencyRate>0,0025</CurrencyRate>
+      </Country>
+      <Cup>
+        <CupID>1483</CupID>
+        <CupName>Madagasikara Cup</CupName>
+      </Cup>
+      <ActiveUsers>6</ActiveUsers>
+      <WaitingUsers>0</WaitingUsers>
+      <TrainingDate>2026-07-16 13:15:00</TrainingDate>
+      <EconomyDate>2026-07-19 00:15:00</EconomyDate>
+      <CupMatchDate>2026-05-20 16:40:00</CupMatchDate>
+      <SeriesMatchDate>2026-07-19 16:40:00</SeriesMatchDate>
+      <NumberOfLevels>3</NumberOfLevels>
+    </League>
+    <League>
+      <LeagueID>160</LeagueID>
+      <LeagueName>Botswana</LeagueName>
+      <Season>20</Season>
+      <MatchRound>16</MatchRound>
+      <ShortName>Botswana</ShortName>
+      <Continent>Africa</Continent>
+      <ZoneName>Asia,  Africa and Oceania</ZoneName>
+      <EnglishName>Botswana</EnglishName>
+      <Country Available="True">
+        <CountryID>185</CountryID>
+        <CountryName>Botswana</CountryName>
+        <CurrencyName>pula</CurrencyName>
+        <CurrencyRate>10</CurrencyRate>
+      </Country>
+      <Cup>
+        <CupID>1488</CupID>
+        <CupName>Botswana Cup</CupName>
+      </Cup>
+      <ActiveUsers>3</ActiveUsers>
+      <WaitingUsers>0</WaitingUsers>
+      <TrainingDate>2026-07-16 13:15:00</TrainingDate>
+      <EconomyDate>2026-07-18 04:35:00</EconomyDate>
+      <CupMatchDate>2026-05-13 18:50:00</CupMatchDate>
+      <SeriesMatchDate>2026-07-19 18:30:00</SeriesMatchDate>
+      <NumberOfLevels>4</NumberOfLevels>
+    </League>
+    <League>
+      <LeagueID>161</LeagueID>
+      <LeagueName>Birmania</LeagueName>
+      <Season>19</Season>
+      <MatchRound>16</MatchRound>
+      <ShortName>Myanmar</ShortName>
+      <Continent>Asia</Continent>
+      <ZoneName>Asia,  Africa and Oceania</ZoneName>
+      <EnglishName>Myanmar</EnglishName>
+      <Country Available="True">
+        <CountryID>189</CountryID>
+        <CountryName>Myanmar</CountryName>
+        <CurrencyName>kyat</CurrencyName>
+        <CurrencyRate>0,005</CurrencyRate>
+      </Country>
+      <Cup>
+        <CupID>1493</CupID>
+        <CupName>Myanmar Cup</CupName>
+      </Cup>
+      <ActiveUsers>7</ActiveUsers>
+      <WaitingUsers>0</WaitingUsers>
+      <TrainingDate>2026-07-17 06:07:00</TrainingDate>
+      <EconomyDate>2026-07-18 02:22:00</EconomyDate>
+      <CupMatchDate>2026-05-20 06:30:00</CupMatchDate>
+      <SeriesMatchDate>2026-07-19 07:45:00</SeriesMatchDate>
+      <NumberOfLevels>4</NumberOfLevels>
+    </League>
+    <League>
+      <LeagueID>162</LeagueID>
+      <LeagueName>Zambia</LeagueName>
+      <Season>19</Season>
+      <MatchRound>16</MatchRound>
+      <ShortName>Zambia</ShortName>
+      <Continent>Africa</Continent>
+      <ZoneName>Asia,  Africa and Oceania</ZoneName>
+      <EnglishName>Zambia</EnglishName>
+      <Country Available="True">
+        <CountryID>187</CountryID>
+        <CountryName>Zambia</CountryName>
+        <CurrencyName>kwacha</CurrencyName>
+        <CurrencyRate>2</CurrencyRate>
+      </Country>
+      <Cup>
+        <CupID>1498</CupID>
+        <CupName>Zambia Cup</CupName>
+      </Cup>
+      <ActiveUsers>3</ActiveUsers>
+      <WaitingUsers>0</WaitingUsers>
+      <TrainingDate>2026-07-16 13:15:00</TrainingDate>
+      <EconomyDate>2026-07-18 04:35:00</EconomyDate>
+      <CupMatchDate>2026-05-13 18:50:00</CupMatchDate>
+      <SeriesMatchDate>2026-07-19 18:30:00</SeriesMatchDate>
+      <NumberOfLevels>4</NumberOfLevels>
+    </League>
+    <League>
+      <LeagueID>163</LeagueID>
+      <LeagueName>San Marino</LeagueName>
+      <Season>19</Season>
+      <MatchRound>16</MatchRound>
+      <ShortName>San Marino</ShortName>
+      <Continent>Europe</Continent>
+      <ZoneName>Southwestern Europe</ZoneName>
+      <EnglishName>San Marino</EnglishName>
+      <Country Available="True">
+        <CountryID>191</CountryID>
+        <CountryName>San Marino</CountryName>
+        <CurrencyName>€</CurrencyName>
+        <CurrencyRate>10</CurrencyRate>
+      </Country>
+      <Cup>
+        <CupID>1503</CupID>
+        <CupName>Coppa Titano</CupName>
+      </Cup>
+      <ActiveUsers>36</ActiveUsers>
+      <WaitingUsers>0</WaitingUsers>
+      <TrainingDate>2026-07-17 04:25:00</TrainingDate>
+      <EconomyDate>2026-07-18 02:00:00</EconomyDate>
+      <CupMatchDate>2026-05-27 17:15:00</CupMatchDate>
+      <SeriesMatchDate>2026-07-19 19:15:00</SeriesMatchDate>
+      <NumberOfLevels>4</NumberOfLevels>
+    </League>
+    <League>
+      <LeagueID>164</LeagueID>
+      <LeagueName>Haiti</LeagueName>
+      <Season>19</Season>
+      <MatchRound>16</MatchRound>
+      <ShortName>Haiti</ShortName>
+      <Continent>North America</Continent>
+      <ZoneName>North America</ZoneName>
+      <EnglishName>Haiti</EnglishName>
+      <Country Available="True">
+        <CountryID>188</CountryID>
+        <CountryName>Haiti</CountryName>
+        <CurrencyName>gourde</CurrencyName>
+        <CurrencyRate>0,1</CurrencyRate>
+      </Country>
+      <Cup>
+        <CupID>1508</CupID>
+        <CupName>Haiti Cup</CupName>
+      </Cup>
+      <ActiveUsers>7</ActiveUsers>
+      <WaitingUsers>0</WaitingUsers>
+      <TrainingDate>2026-07-17 00:50:00</TrainingDate>
+      <EconomyDate>2026-07-19 03:25:00</EconomyDate>
+      <CupMatchDate>2026-05-13 23:15:00</CupMatchDate>
+      <SeriesMatchDate>2026-07-19 23:15:00</SeriesMatchDate>
+      <NumberOfLevels>3</NumberOfLevels>
+    </League>
+    <League>
+      <LeagueID>165</LeagueID>
+      <LeagueName>Porto Rico</LeagueName>
+      <Season>19</Season>
+      <MatchRound>16</MatchRound>
+      <ShortName>Puerto Rico</ShortName>
+      <Continent>North America</Continent>
+      <ZoneName>North America</ZoneName>
+      <EnglishName>Puerto Rico</EnglishName>
+      <Country Available="True">
+        <CountryID>190</CountryID>
+        <CountryName>Puerto Rico</CountryName>
+        <CurrencyName>$</CurrencyName>
+        <CurrencyRate>10</CurrencyRate>
+      </Country>
+      <Cup>
+        <CupID>1513</CupID>
+        <CupName>Puerto Rico Cup</CupName>
+      </Cup>
+      <ActiveUsers>39</ActiveUsers>
+      <WaitingUsers>0</WaitingUsers>
+      <TrainingDate>2026-07-17 02:15:00</TrainingDate>
+      <EconomyDate>2026-07-19 03:44:00</EconomyDate>
+      <CupMatchDate>2026-05-20 22:20:00</CupMatchDate>
+      <SeriesMatchDate>2026-07-19 22:20:00</SeriesMatchDate>
+      <NumberOfLevels>4</NumberOfLevels>
+    </League>
+    <League>
+      <LeagueID>166</LeagueID>
+      <LeagueName>Grenada</LeagueName>
+      <Season>11</Season>
+      <MatchRound>16</MatchRound>
+      <ShortName>Grenada</ShortName>
+      <Continent>North America</Continent>
+      <ZoneName>North America</ZoneName>
+      <EnglishName>Grenada</EnglishName>
+      <Country Available="True">
+        <CountryID>194</CountryID>
+        <CountryName>Grenada</CountryName>
+        <CurrencyName>dollar</CurrencyName>
+        <CurrencyRate>4</CurrencyRate>
+      </Country>
+      <Cup>
+        <CupID>1528</CupID>
+        <CupName>Grenada Cup</CupName>
+      </Cup>
+      <ActiveUsers>1</ActiveUsers>
+      <WaitingUsers>0</WaitingUsers>
+      <TrainingDate>2026-07-17 01:55:00</TrainingDate>
+      <EconomyDate>2026-07-19 03:42:00</EconomyDate>
+      <CupMatchDate>2026-05-20 22:05:00</CupMatchDate>
+      <SeriesMatchDate>2026-07-19 22:30:00</SeriesMatchDate>
+      <NumberOfLevels>4</NumberOfLevels>
+    </League>
+    <League>
+      <LeagueID>167</LeagueID>
+      <LeagueName>Burkina Faso</LeagueName>
+      <Season>11</Season>
+      <MatchRound>16</MatchRound>
+      <ShortName>Burkina Faso</ShortName>
+      <Continent>Africa</Continent>
+      <ZoneName>Asia,  Africa and Oceania</ZoneName>
+      <EnglishName>Burkina Faso</EnglishName>
+      <Country Available="True">
+        <CountryID>193</CountryID>
+        <CountryName>Burkina Faso</CountryName>
+        <CurrencyName>XOF</CurrencyName>
+        <CurrencyRate>0,02</CurrencyRate>
+      </Country>
+      <Cup>
+        <CupID>1533</CupID>
+        <CupName>Burkina Faso Cup</CupName>
+      </Cup>
+      <ActiveUsers>58</ActiveUsers>
+      <WaitingUsers>0</WaitingUsers>
+      <TrainingDate>2026-07-16 13:00:00</TrainingDate>
+      <EconomyDate>2026-07-18 04:33:00</EconomyDate>
+      <CupMatchDate>2026-05-20 18:55:00</CupMatchDate>
+      <SeriesMatchDate>2026-07-19 18:55:00</SeriesMatchDate>
+      <NumberOfLevels>4</NumberOfLevels>
+    </League>
+    <League>
+      <LeagueID>168</LeagueID>
+      <LeagueName>Nepal</LeagueName>
+      <Season>11</Season>
+      <MatchRound>16</MatchRound>
+      <ShortName>Nepal</ShortName>
+      <Continent>Asia</Continent>
+      <ZoneName>Asia,  Africa and Oceania</ZoneName>
+      <EnglishName>Nepal</EnglishName>
+      <Country Available="True">
+        <CountryID>192</CountryID>
+        <CountryName>Nepal</CountryName>
+        <CurrencyName>rupee</CurrencyName>
+        <CurrencyRate>0,1</CurrencyRate>
+      </Country>
+      <Cup>
+        <CupID>1538</CupID>
+        <CupName>Nepal Cup</CupName>
+      </Cup>
+      <ActiveUsers>17</ActiveUsers>
+      <WaitingUsers>0</WaitingUsers>
+      <TrainingDate>2026-07-17 06:07:00</TrainingDate>
+      <EconomyDate>2026-07-18 02:22:00</EconomyDate>
+      <CupMatchDate>2026-05-20 06:30:00</CupMatchDate>
+      <SeriesMatchDate>2026-07-19 07:45:00</SeriesMatchDate>
+      <NumberOfLevels>4</NumberOfLevels>
+    </League>
+    <League>
+      <LeagueID>169</LeagueID>
+      <LeagueName>Guyana</LeagueName>
+      <Season>8</Season>
+      <MatchRound>16</MatchRound>
+      <ShortName>Guyana</ShortName>
+      <Continent>South America</Continent>
+      <ZoneName>South America</ZoneName>
+      <EnglishName>Guyana</EnglishName>
+      <Country Available="True">
+        <CountryID>197</CountryID>
+        <CountryName>Guyana</CountryName>
+        <CurrencyName>GYD</CurrencyName>
+        <CurrencyRate>0,1</CurrencyRate>
+      </Country>
+      <Cup>
+        <CupID>1543</CupID>
+        <CupName>Guyana Cup</CupName>
+      </Cup>
+      <ActiveUsers>1</ActiveUsers>
+      <WaitingUsers>0</WaitingUsers>
+      <TrainingDate>2026-07-16 23:30:00</TrainingDate>
+      <EconomyDate>2026-07-19 03:37:00</EconomyDate>
+      <CupMatchDate>2026-05-20 23:10:00</CupMatchDate>
+      <SeriesMatchDate>2026-07-19 23:10:00</SeriesMatchDate>
+      <NumberOfLevels>4</NumberOfLevels>
+    </League>
+    <League>
+      <LeagueID>170</LeagueID>
+      <LeagueName>Tahiti</LeagueName>
+      <Season>8</Season>
+      <MatchRound>16</MatchRound>
+      <ShortName>Tahiti</ShortName>
+      <Continent>Oceania</Continent>
+      <ZoneName>Asia,  Africa and Oceania</ZoneName>
+      <EnglishName>Tahiti</EnglishName>
+      <Country Available="True">
+        <CountryID>196</CountryID>
+        <CountryName>Tahiti</CountryName>
+        <CurrencyName>XPF</CurrencyName>
+        <CurrencyRate>0,1</CurrencyRate>
+      </Country>
+      <Cup>
+        <CupID>1548</CupID>
+        <CupName>Tahiti Cup</CupName>
+      </Cup>
+      <ActiveUsers>18</ActiveUsers>
+      <WaitingUsers>0</WaitingUsers>
+      <TrainingDate>2026-07-16 09:40:00</TrainingDate>
+      <EconomyDate>2026-07-17 22:45:00</EconomyDate>
+      <CupMatchDate>2026-05-26 22:45:00</CupMatchDate>
+      <SeriesMatchDate>2026-07-18 22:45:00</SeriesMatchDate>
+      <NumberOfLevels>4</NumberOfLevels>
+    </League>
+    <League>
+      <LeagueID>171</LeagueID>
+      <LeagueName>Guinea</LeagueName>
+      <Season>7</Season>
+      <MatchRound>16</MatchRound>
+      <ShortName>Guinée</ShortName>
+      <Continent>Africa</Continent>
+      <ZoneName>Asia,  Africa and Oceania</ZoneName>
+      <EnglishName>Guinea</EnglishName>
+      <Country Available="True">
+        <CountryID>198</CountryID>
+        <CountryName>Guinea</CountryName>
+        <CurrencyName>franc</CurrencyName>
+        <CurrencyRate>1000</CurrencyRate>
+      </Country>
+      <Cup>
+        <CupID>1558</CupID>
+        <CupName>Guinea Cup</CupName>
+      </Cup>
+      <ActiveUsers>2</ActiveUsers>
+      <WaitingUsers>0</WaitingUsers>
+      <TrainingDate>2026-07-16 11:44:00</TrainingDate>
+      <EconomyDate>2026-07-18 04:44:00</EconomyDate>
+      <CupMatchDate>2026-05-20 11:50:00</CupMatchDate>
+      <SeriesMatchDate>2026-07-19 18:20:00</SeriesMatchDate>
+      <NumberOfLevels>4</NumberOfLevels>
+    </League>
+    <League>
+      <LeagueID>172</LeagueID>
+      <LeagueName>Bahamas</LeagueName>
+      <Season>6</Season>
+      <MatchRound>16</MatchRound>
+      <ShortName>Bahamas</ShortName>
+      <Continent>North America</Continent>
+      <ZoneName>North America</ZoneName>
+      <EnglishName>Bahamas</EnglishName>
+      <Country Available="True">
+        <CountryID>199</CountryID>
+        <CountryName>Bahamas</CountryName>
+        <CurrencyName>BS$</CurrencyName>
+        <CurrencyRate>10</CurrencyRate>
+      </Country>
+      <Cup>
+        <CupID>1563</CupID>
+        <CupName>Bahamas Cup</CupName>
+      </Cup>
+      <ActiveUsers>2</ActiveUsers>
+      <WaitingUsers>0</WaitingUsers>
+      <TrainingDate>2026-07-17 00:50:00</TrainingDate>
+      <EconomyDate>2026-07-19 03:25:00</EconomyDate>
+      <CupMatchDate>2026-05-27 23:15:00</CupMatchDate>
+      <SeriesMatchDate>2026-07-19 23:15:00</SeriesMatchDate>
+      <NumberOfLevels>4</NumberOfLevels>
+    </League>
+    <League>
+      <LeagueID>173</LeagueID>
+      <LeagueName>Ruanda</LeagueName>
+      <Season>6</Season>
+      <MatchRound>16</MatchRound>
+      <ShortName>Rwanda</ShortName>
+      <Continent>Africa</Continent>
+      <ZoneName>Asia,  Africa and Oceania</ZoneName>
+      <EnglishName>Rwanda</EnglishName>
+      <Country Available="True">
+        <CountryID>200</CountryID>
+        <CountryName>Rwanda</CountryName>
+        <CurrencyName>RWF</CurrencyName>
+        <CurrencyRate>0,5</CurrencyRate>
+      </Country>
+      <Cup>
+        <CupID>1568</CupID>
+        <CupName>Rwanda Cup</CupName>
+      </Cup>
+      <ActiveUsers>3</ActiveUsers>
+      <WaitingUsers>0</WaitingUsers>
+      <TrainingDate>2026-07-16 13:15:00</TrainingDate>
+      <EconomyDate>2026-07-19 00:18:00</EconomyDate>
+      <CupMatchDate>2026-05-20 16:20:00</CupMatchDate>
+      <SeriesMatchDate>2026-07-19 16:20:00</SeriesMatchDate>
+      <NumberOfLevels>4</NumberOfLevels>
+    </League>
+    <League>
+      <LeagueID>174</LeagueID>
+      <LeagueName>Saint Kitts e Nevis</LeagueName>
+      <Season>4</Season>
+      <MatchRound>16</MatchRound>
+      <ShortName>Saint Kitts </ShortName>
+      <Continent>North America</Continent>
+      <ZoneName>North America</ZoneName>
+      <EnglishName>Saint Kitts and Nevis</EnglishName>
+      <Country Available="True">
+        <CountryID>202</CountryID>
+        <CountryName>Saint Kitts and Nevis</CountryName>
+        <CurrencyName>dollar</CurrencyName>
+        <CurrencyRate>4</CurrencyRate>
+      </Country>
+      <Cup>
+        <CupID>1573</CupID>
+        <CupName>Saint Kitts and Nevis Cup</CupName>
+      </Cup>
+      <ActiveUsers>0</ActiveUsers>
+      <WaitingUsers>0</WaitingUsers>
+      <TrainingDate>2026-07-17 01:55:00</TrainingDate>
+      <EconomyDate>2026-07-19 03:42:00</EconomyDate>
+      <CupMatchDate>2026-05-27 22:05:00</CupMatchDate>
+      <SeriesMatchDate>2026-07-19 22:30:00</SeriesMatchDate>
+      <NumberOfLevels>4</NumberOfLevels>
+    </League>
+    <League>
+      <LeagueID>175</LeagueID>
+      <LeagueName>Guinea Equatoriale</LeagueName>
+      <Season>4</Season>
+      <MatchRound>16</MatchRound>
+      <ShortName>Guinea Ecuat</ShortName>
+      <Continent>Africa</Continent>
+      <ZoneName>Asia,  Africa and Oceania</ZoneName>
+      <EnglishName>Guinea Ecuatorial</EnglishName>
+      <Country Available="True">
+        <CountryID>201</CountryID>
+        <CountryName>Guinea Ecuatorial</CountryName>
+        <CurrencyName>franc</CurrencyName>
+        <CurrencyRate>1000</CurrencyRate>
+      </Country>
+      <Cup>
+        <CupID>1578</CupID>
+        <CupName>Copa Moussambani</CupName>
+      </Cup>
+      <ActiveUsers>3</ActiveUsers>
+      <WaitingUsers>0</WaitingUsers>
+      <TrainingDate>2026-07-16 13:15:00</TrainingDate>
+      <EconomyDate>2026-07-18 04:33:00</EconomyDate>
+      <CupMatchDate>2026-05-27 18:50:00</CupMatchDate>
+      <SeriesMatchDate>2026-07-19 19:05:00</SeriesMatchDate>
+      <NumberOfLevels>4</NumberOfLevels>
+    </League>
+    <League>
+      <LeagueID>176</LeagueID>
+      <LeagueName>Gibilterra</LeagueName>
+      <Season>2</Season>
+      <MatchRound>16</MatchRound>
+      <ShortName>Gibraltar</ShortName>
+      <Continent>Europe</Continent>
+      <ZoneName>Southwestern Europe</ZoneName>
+      <EnglishName>Gibraltar</EnglishName>
+      <Country Available="True">
+        <CountryID>203</CountryID>
+        <CountryName>Gibraltar</CountryName>
+        <CurrencyName>pounds</CurrencyName>
+        <CurrencyRate>10</CurrencyRate>
+      </Country>
+      <Cup>
+        <CupID>1583</CupID>
+        <CupName>Gibraltar Cup</CupName>
+      </Cup>
+      <ActiveUsers>3</ActiveUsers>
+      <WaitingUsers>0</WaitingUsers>
+      <TrainingDate>2026-07-16 13:15:00</TrainingDate>
+      <EconomyDate>2026-07-19 01:12:00</EconomyDate>
+      <CupMatchDate>2026-05-27 20:50:00</CupMatchDate>
+      <SeriesMatchDate>2026-07-19 15:25:00</SeriesMatchDate>
+      <NumberOfLevels>4</NumberOfLevels>
+    </League>
+    <League>
+      <LeagueID>177</LeagueID>
+      <LeagueName>Bhutan</LeagueName>
+      <Season>2</Season>
+      <MatchRound>16</MatchRound>
+      <ShortName>Bhutan</ShortName>
+      <Continent>Asia</Continent>
+      <ZoneName>Asia,  Africa and Oceania</ZoneName>
+      <EnglishName>Bhutan</EnglishName>
+      <Country Available="True">
+        <CountryID>204</CountryID>
+        <CountryName>Bhutan</CountryName>
+        <CurrencyName>Ngultrum</CurrencyName>
+        <CurrencyRate>0,25</CurrencyRate>
+      </Country>
+      <Cup>
+        <CupID>1588</CupID>
+        <CupName>Bhutan Cup</CupName>
+      </Cup>
+      <ActiveUsers>1</ActiveUsers>
+      <WaitingUsers>0</WaitingUsers>
+      <TrainingDate>2026-07-17 06:07:00</TrainingDate>
+      <EconomyDate>2026-07-18 02:22:00</EconomyDate>
+      <CupMatchDate>2026-05-27 06:30:00</CupMatchDate>
+      <SeriesMatchDate>2026-07-19 07:45:00</SeriesMatchDate>
+      <NumberOfLevels>4</NumberOfLevels>
+    </League>
+    <League>
+      <LeagueID>1001</LeagueID>
+      <LeagueName>Campionato Apache (Edizione limitata)</LeagueName>
+      <Season>6</Season>
+      <MatchRound>16</MatchRound>
+      <ShortName>Apache</ShortName>
+      <Continent>World</Continent>
+      <ZoneName>World</ZoneName>
+      <EnglishName>Apache League</EnglishName>
+      <Country Available="False" />
+      <Cup>
+        <CupID>1518</CupID>
+        <CupName>Apache Cup</CupName>
+      </Cup>
+      <ActiveUsers>0</ActiveUsers>
+      <WaitingUsers>0</WaitingUsers>
+      <TrainingDate>2023-07-06 10:15:00</TrainingDate>
+      <EconomyDate>2023-07-07 13:00:00</EconomyDate>
+      <CupMatchDate>2023-06-27 16:00:00</CupMatchDate>
+      <SeriesMatchDate>2023-07-08 16:30:00</SeriesMatchDate>
+      <NumberOfLevels>5</NumberOfLevels>
+    </League>
+    <League>
+      <LeagueID>1002</LeagueID>
+      <LeagueName>Hattrick Anniversary League</LeagueName>
+      <Season>8</Season>
+      <MatchRound>16</MatchRound>
+      <ShortName>Anniversary</ShortName>
+      <Continent>World</Continent>
+      <ZoneName>World</ZoneName>
+      <EnglishName>Hattrick Anniversary League</EnglishName>
+      <Country Available="False" />
+      <Cup>
+        <CupID>1523</CupID>
+        <CupName>Hattrick Anniversary Cup</CupName>
+      </Cup>
+      <ActiveUsers>0</ActiveUsers>
+      <WaitingUsers>0</WaitingUsers>
+      <TrainingDate>2024-09-19 10:30:00</TrainingDate>
+      <EconomyDate>2024-09-20 13:15:00</EconomyDate>
+      <CupMatchDate>2024-09-17 17:00:00</CupMatchDate>
+      <SeriesMatchDate>2024-09-21 18:30:00</SeriesMatchDate>
+      <NumberOfLevels>7</NumberOfLevels>
+    </League>
+    <League>
+      <LeagueID>1003</LeagueID>
+      <LeagueName>Homegrown League</LeagueName>
+      <Season>7</Season>
+      <MatchRound>16</MatchRound>
+      <ShortName>Homegrown</ShortName>
+      <Continent>World</Continent>
+      <ZoneName>World</ZoneName>
+      <EnglishName>Homegrown League</EnglishName>
+      <Country Available="False" />
+      <Cup>
+        <CupID>1553</CupID>
+        <CupName>Homegrown Cup</CupName>
+      </Cup>
+      <ActiveUsers>0</ActiveUsers>
+      <WaitingUsers>0</WaitingUsers>
+      <TrainingDate>2026-07-17 01:30:00</TrainingDate>
+      <EconomyDate>2026-07-19 02:05:00</EconomyDate>
+      <CupMatchDate>2026-06-10 19:45:00</CupMatchDate>
+      <SeriesMatchDate>2026-07-19 19:45:00</SeriesMatchDate>
+      <NumberOfLevels>5</NumberOfLevels>
+    </League>
+    <League>
+      <LeagueID>3000</LeagueID>
+      <LeagueName>Hattrick Femme International</LeagueName>
+      <Season>1</Season>
+      <MatchRound>16</MatchRound>
+      <ShortName>Femme</ShortName>
+      <Continent>World</Continent>
+      <ZoneName>World</ZoneName>
+      <EnglishName>Hattrick Femme International</EnglishName>
+      <Country Available="False" />
+      <Cup>
+        <CupID>1610</CupID>
+        <CupName>Hattrick Femme International Cup</CupName>
+      </Cup>
+      <ActiveUsers>0</ActiveUsers>
+      <WaitingUsers>0</WaitingUsers>
+      <TrainingDate>2026-07-16 10:30:00</TrainingDate>
+      <EconomyDate>2026-07-17 13:15:00</EconomyDate>
+      <CupMatchDate>2026-06-30 17:00:00</CupMatchDate>
+      <SeriesMatchDate>2026-07-18 18:30:00</SeriesMatchDate>
+      <NumberOfLevels>7</NumberOfLevels>
+    </League>
+  </LeagueList>
+</HattrickData>

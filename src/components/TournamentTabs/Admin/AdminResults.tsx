@@ -2,7 +2,7 @@ import React from 'react';
 import { SectionCard } from '../../Card/SectionCard';
 import { Button } from '../../Button/Button';
 import { Check, ArrowClockwise, X, PencilSimple } from 'phosphor-react';
-import { getFlagUrl } from '../../../utils/ht-data';
+import { getCountryFlagUrl, getLeagueFlagUrl } from '../../../utils/ht-data';
 import { getHattrickWeekDetails } from '../../../utils/hattrick-calendar';
 import adminStyles from '../../../pages/Public/TournamentAdmin.module.sass';
 
@@ -12,6 +12,7 @@ interface ResultTeam {
   logo_url?: string;
   country_name?: string;
   country_id?: number | null;
+  league_id?: number | null;
   active?: boolean;
   manager_name?: string;
 }
@@ -51,7 +52,8 @@ interface AdminResultsProps {
 }
 
 const AdminResultTeam: React.FC<{ team: ResultTeam | null; side: 'home' | 'away' }> = ({ team, side }) => {
-  const flagUrl = getFlagUrl(team?.country_name, team?.country_id);
+  const countryFlagUrl = getCountryFlagUrl(team?.country_id, team?.country_name);
+  const leagueFlagUrl = getLeagueFlagUrl(team?.league_id);
 
   if (!team) {
     return (
@@ -63,7 +65,8 @@ const AdminResultTeam: React.FC<{ team: ResultTeam | null; side: 'home' | 'away'
 
   return (
     <div className={`${adminStyles.resultTeam} ${adminStyles[side]}`}>
-      {flagUrl && <img src={flagUrl} alt="" title={team.country_name} className={adminStyles.resultFlag} />}
+      {leagueFlagUrl && <img src={leagueFlagUrl} alt="League" className={adminStyles.resultFlag} />}
+      {countryFlagUrl && <img src={countryFlagUrl} alt={team.country_name || 'Country'} title={team.country_name} className={adminStyles.resultFlag} />}
       <a
         href={`https://www.hattrick.org/goto.ashx?path=/Club/?TeamID=${team.ht_team_id}`}
         target="_blank"

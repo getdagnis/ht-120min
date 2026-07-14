@@ -173,6 +173,7 @@ export const StandingsView: React.FC<StandingsViewProps> = ({
                           <TeamByline
                             countryName={s.countryName}
                             countryId={s.countryId}
+                            leagueId={s.leagueId}
                             teamId={s.htTeamId}
                             managerName={s.managerName}
                             managerHtId={s.hattrickUserId}

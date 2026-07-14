@@ -1,3 +1,5 @@
+import { getCountryWorldDetails, getLeagueWorldDetails, HATTRICK_WORLD_DETAILS } from '../../shared/worlddetails';
+
 export const COUNTRY_TO_ISO: Record<string, string> = {
   Algeria: 'dz',
   Andorra: 'ad',
@@ -33,11 +35,14 @@ export const COUNTRY_TO_ISO: Record<string, string> = {
   "Cote d'Ivoire": 'ci',
   Croatia: 'hr',
   Cuba: 'cu',
+  Curaçao: 'cw',
   Cyprus: 'cy',
   'Czech Republic': 'cz',
+  Czechia: 'cz',
   Denmark: 'dk',
   'Dominican Republic': 'do',
   'DR Congo': 'cd',
+  'Democratic Republic of the Congo': 'cd',
   Ecuador: 'ec',
   Egypt: 'eg',
   'El Salvador': 'sv',
@@ -45,6 +50,7 @@ export const COUNTRY_TO_ISO: Record<string, string> = {
   'Equatorial Guinea': 'gq',
   Estonia: 'ee',
   Ethiopia: 'et',
+  'Federal Democratic Republic of Ethiopia': 'et',
   'Faroe Islands': 'fo',
   Finland: 'fi',
   France: 'fr',
@@ -56,6 +62,7 @@ export const COUNTRY_TO_ISO: Record<string, string> = {
   Guam: 'gu',
   Guatemala: 'gt',
   Guinea: 'gn',
+  'Guinea Ecuatorial': 'gq',
   Guyana: 'gy',
   Haiti: 'ht',
   Honduras: 'hn',
@@ -75,6 +82,7 @@ export const COUNTRY_TO_ISO: Record<string, string> = {
   Kenya: 'ke',
   Kuwait: 'kw',
   Kyrgyzstan: 'kg',
+  'Kyrgyz Republic': 'kg',
   Latvia: 'lv',
   Lebanon: 'lb',
   Liechtenstein: 'li',
@@ -115,8 +123,10 @@ export const COUNTRY_TO_ISO: Record<string, string> = {
   Rwanda: 'rw',
   'Saint Kitts and Nevis': 'kn',
   'Saint Vincent & the Grenadines': 'vc',
+  'Saint Vincent and the Grenadines': 'vc',
   'San Marino': 'sm',
   'Sao Tome e Principe': 'st',
+  'São Tomé e Príncipe': 'st',
   'Saudi Arabia': 'sa',
   Scotland: 'gb-sct',
   Senegal: 'sn',
@@ -151,11 +161,6 @@ export const COUNTRY_TO_ISO: Record<string, string> = {
   Zambia: 'zm',
 };
 
-const COUNTRY_ID_TO_CANONICAL_NAME: Record<number, string> = {
-  48: 'Latvia',
-  53: 'Latvia',
-};
-
 const COUNTRY_NAME_ALIASES: Record<string, string> = {
   latvia: 'Latvia',
   latvija: 'Latvia',
@@ -171,12 +176,14 @@ function normalizeCountryKey(countryName: string) {
 }
 
 export function getCanonicalCountryName(countryName?: string | null, countryId?: number | null) {
-  if (countryId && COUNTRY_ID_TO_CANONICAL_NAME[countryId]) return COUNTRY_ID_TO_CANONICAL_NAME[countryId];
+  const idName = getCountryWorldDetails(countryId)?.englishName;
+  if (idName) return idName;
   if (!countryName) return null;
 
   const trimmed = countryName.trim();
   if (!trimmed) return null;
-  return COUNTRY_NAME_ALIASES[normalizeCountryKey(trimmed)] ?? (COUNTRY_TO_ISO[trimmed] ? trimmed : trimmed);
+  return COUNTRY_NAME_ALIASES[normalizeCountryKey(trimmed)] ??
+    (Object.values(HATTRICK_WORLD_DETAILS).some((entry) => entry.englishName === trimmed) ? trimmed : null);
 }
 
 // Day: 0=Sun, 1=Mon, 2=Tue, 3=Wed, 4=Thu, 5=Fri, 6=Sat
@@ -338,11 +345,20 @@ export function getFriendlyTimeForCountry(countryName?: string) {
 }
 
 export function getFlagUrl(countryName?: string | null, countryId?: number | null) {
+  return getCountryFlagUrl(countryId, countryName);
+}
+
+export function getCountryFlagUrl(countryId?: number | null, countryName?: string | null) {
   const canonicalCountryName = getCanonicalCountryName(countryName, countryId);
-  if (!canonicalCountryName) return null;
-  const iso = COUNTRY_TO_ISO[canonicalCountryName];
-  if (!iso) return null;
-  return `https://flagcdn.com/w80/${iso.toLowerCase()}.png`;
+  const country =
+    getCountryWorldDetails(countryId) ??
+    Object.values(HATTRICK_WORLD_DETAILS).find((entry) => entry.englishName === canonicalCountryName);
+  return country ? `https://www.hattrick.org/Img/flags/${country.leagueId}.png` : null;
+}
+
+export function getLeagueFlagUrl(leagueId?: number | null) {
+  const league = getLeagueWorldDetails(leagueId);
+  return league?.countryId === null ? `https://www.hattrick.org/Img/flags/${league.leagueId}.png` : null;
 }
 
 /**

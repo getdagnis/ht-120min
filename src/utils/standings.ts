@@ -18,6 +18,7 @@ export interface Team {
   joined_via_oauth?: boolean;
   country_name?: string | null;
   country_id?: number | null;
+  league_id?: number | null;
   logo_url?: string | null;
   manager_name?: string | null;
 }
@@ -41,6 +42,7 @@ export interface TeamStanding {
   joinedViaOauth: boolean;
   countryName: string | null;
   countryId: number | null;
+  leagueId: number | null;
   logoUrl: string | null;
   managerName: string | null;
 }
@@ -73,6 +75,7 @@ export function calculateStandings(
       joinedViaOauth: !!team.joined_via_oauth,
       countryName: team.country_name || null,
       countryId: team.country_id || null,
+      leagueId: team.league_id || null,
       logoUrl: team.logo_url || null,
       managerName: team.manager_name || null,
     };

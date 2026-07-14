@@ -1,5 +1,5 @@
 import React from 'react';
-import { getFlagUrl } from '../../utils/ht-data';
+import { getCountryFlagUrl, getLeagueFlagUrl } from '../../utils/ht-data';
 import styles from './TeamDisplay.module.scss';
 
 const DEFAULT_TEAM_LOGO = '/default-logo.png';
@@ -11,6 +11,7 @@ interface TeamDisplayProps {
     logo_url?: string;
     country_name?: string;
     country_id?: number | null;
+    league_id?: number | null;
   } | null;
   side?: 'home' | 'away';
 }
@@ -18,7 +19,8 @@ interface TeamDisplayProps {
 export const TeamDisplay: React.FC<TeamDisplayProps> = ({ team, side }) => {
   const isFree = !team?.name;
   const countryName = team?.country_name;
-  const flagUrl = getFlagUrl(countryName, team?.country_id);
+  const countryFlagUrl = getCountryFlagUrl(team?.country_id, countryName);
+  const leagueFlagUrl = getLeagueFlagUrl(team?.league_id);
 
   return (
     <div className={`${styles.teamDisplay} ${side ? styles[side] : ''}`}>
@@ -34,9 +36,8 @@ export const TeamDisplay: React.FC<TeamDisplayProps> = ({ team, side }) => {
             }}
           />
         )}
-        {flagUrl && (
-          <img src={flagUrl} alt="" className={styles.flag} title={countryName} />
-        )}
+        {leagueFlagUrl && <img src={leagueFlagUrl} alt="League" className={styles.flag} />}
+        {countryFlagUrl && <img src={countryFlagUrl} alt={countryName || 'Country'} className={styles.flag} title={countryName} />}
       </div>
       {team?.name ? (
         <span className={styles.teamName}>{team.name}</span>

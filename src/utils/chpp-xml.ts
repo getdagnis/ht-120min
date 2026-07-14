@@ -1,3 +1,4 @@
+import { getCountryWorldDetails } from '../../shared/worlddetails';
 
 
 export interface ChppTeamOption {
@@ -32,15 +33,8 @@ export function normalizeChppAssetUrl(url: string): string {
   return trimmed;
 }
 
-function normalizeChppCountryName(countryName?: string, countryId?: number, leagueId?: number) {
-  const leagueCountryName = leagueId && leagueId < 1000 ? getLeagueNameById(leagueId) : undefined;
-  if (leagueCountryName) return leagueCountryName;
-
-  const normalized = countryName?.trim().normalize('NFD').replace(/\p{Diacritic}/gu, '').toLowerCase();
-  if (countryId === 48 || leagueId === 53 || normalized === 'latvija' || normalized === 'lettonia') {
-    return 'Latvia';
-  }
-  return countryName;
+function normalizeChppCountryName(countryName?: string, countryId?: number) {
+  return getCountryWorldDetails(countryId)?.englishName ?? (countryId == null && countryName && /^[\x00-\x7F]+$/.test(countryName) ? countryName : undefined);
 }
 
 export interface ParsedTeamDetails {
@@ -91,7 +85,7 @@ export function parseTeamDetailsXml(xml: string, teamId: number): ParsedTeamDeta
         ? parseInt(block.match(/<LeagueLevelUnit>[\s\S]*?<LeagueLevel>(\d+)<\/LeagueLevel>/i)![1], 10)
         : undefined,
       countryId,
-      countryName: normalizeChppCountryName(readChppTag(block, 'CountryName'), countryId, leagueId),
+      countryName: normalizeChppCountryName(readChppTag(block, 'CountryName'), countryId),
       logoUrl,
     };
   };
@@ -140,7 +134,7 @@ export function parseManagerCompendiumXml(xml: string): ParsedManagerCompendium 
       leagueLevelUnitName: readChppTag(block, 'LeagueLevelUnitName'),
       regionName: readChppTag(block, 'RegionName'),
       countryId,
-      countryName: normalizeChppCountryName(readChppTag(block, 'CountryName'), countryId, leagueId),
+      countryName: normalizeChppCountryName(readChppTag(block, 'CountryName'), countryId),
     });
   }
 
@@ -150,4 +144,3 @@ export function parseManagerCompendiumXml(xml: string): ParsedManagerCompendium 
     teams,
   };
 }
-import { getLeagueNameById } from './leagues';
