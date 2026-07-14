@@ -1,4 +1,4 @@
-import { getCountryWorldDetails } from '../../shared/worlddetails';
+import { getCountryWorldDetails, getLeagueNameById } from '../../shared/worlddetails';
 
 
 export interface ChppTeamOption {
@@ -34,7 +34,7 @@ export function normalizeChppAssetUrl(url: string): string {
 }
 
 function normalizeChppCountryName(countryName?: string, countryId?: number) {
-  return getCountryWorldDetails(countryId)?.englishName ?? (countryId == null && countryName && /^[\x00-\x7F]+$/.test(countryName) ? countryName : undefined);
+  return getCountryWorldDetails(countryId)?.fullName ?? (countryId == null && countryName && /^[\x00-\x7F]+$/.test(countryName) ? countryName : undefined);
 }
 
 export interface ParsedTeamDetails {
@@ -80,7 +80,7 @@ export function parseTeamDetailsXml(xml: string, teamId: number): ParsedTeamDeta
       leagueSystemId: block.match(/<LeagueSystemID>(\d+)<\/LeagueSystemID>/i)?.[1]
         ? parseInt(block.match(/<LeagueSystemID>(\d+)<\/LeagueSystemID>/i)![1], 10)
         : undefined,
-      leagueName: readChppTag(block, 'LeagueName'),
+      leagueName: getLeagueNameById(leagueId) ?? readChppTag(block, 'LeagueName'),
       leagueLevel: block.match(/<LeagueLevelUnit>[\s\S]*?<LeagueLevel>(\d+)<\/LeagueLevel>/i)?.[1]
         ? parseInt(block.match(/<LeagueLevelUnit>[\s\S]*?<LeagueLevel>(\d+)<\/LeagueLevel>/i)![1], 10)
         : undefined,
@@ -129,7 +129,7 @@ export function parseManagerCompendiumXml(xml: string): ParsedManagerCompendium 
       teamName: readChppTag(block, 'TeamName') ?? 'Unknown',
       genderId: genderIdRaw ? parseInt(genderIdRaw, 10) : undefined,
       leagueSystemId: leagueSystemIdRaw ? parseInt(leagueSystemIdRaw, 10) : undefined,
-      leagueName: readChppTag(block, 'LeagueName'),
+      leagueName: getLeagueNameById(leagueId) ?? readChppTag(block, 'LeagueName'),
       leagueId,
       leagueLevelUnitName: readChppTag(block, 'LeagueLevelUnitName'),
       regionName: readChppTag(block, 'RegionName'),

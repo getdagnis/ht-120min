@@ -10,7 +10,7 @@ import { getTournamentBackgroundStyle } from '../../utils/visuals';
 import { calculateStandings } from '../../utils/standings';
 import type { TeamStanding } from '../../utils/standings';
 import { validateTeamEligibility } from '../../utils/team-eligibility';
-import { HATTRICK_LEAGUES, getLeagueIdByName, normalizeLeagueLimit } from '../../utils/leagues';
+import { HATTRICK_LEAGUES, getLeagueIdByName, normalizeLeagueLimit } from '../../../shared/worlddetails';
 import { useLiveMatches } from '../../hooks/useLiveMatches';
 import { buildScheduleDraft, serializeScheduleDraftForRpc, type ScheduleMode } from '../../utils/schedule-draft';
 import { buildRescheduleDraft, serializeRescheduleDraftForRpc } from '../../utils/reschedule-draft';

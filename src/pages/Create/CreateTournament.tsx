@@ -30,7 +30,7 @@ import {
   type OpenTournamentSummary,
 } from '../../utils/open-tournaments';
 import styles from './CreateTournament.module.sass';
-import { HATTRICK_LEAGUES, getLeagueNameById } from '../../utils/leagues';
+import { HATTRICK_LEAGUES, getLeagueNameById } from '../../../shared/worlddetails';
 import { getCanonicalCountryName, getCountryFlagUrl, getLeagueFlagUrl } from '../../utils/ht-data';
 import { normalizeTournamentName, normalizeTournamentSlug } from '../../utils/tournament-names';
 import {

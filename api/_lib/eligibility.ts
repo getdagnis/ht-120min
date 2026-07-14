@@ -2,13 +2,12 @@ import type { ChppTeamOption } from '../_lib/chpp-xml';
 
 export type LeagueCategory = 'male' | 'hfi';
 
-/** HFI teams: LeagueSystemID 2, HFI league 3000, or Femme in league name. */
+/** HFI teams are identified by the CHPP league system or HFI league ID. */
 export function isHfiTeam(
   team: Pick<ChppTeamOption, 'leagueName' | 'leagueId' | 'leagueSystemId' | 'genderId'>,
 ): boolean {
   if (team.leagueSystemId === 2) return true;
   if (team.leagueId === 3000) return true;
-  if (team.leagueName?.toLowerCase().includes('femme')) return true;
   return false;
 }
 

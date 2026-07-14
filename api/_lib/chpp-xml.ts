@@ -1,4 +1,4 @@
-import { getCountryWorldDetails } from '../../shared/worlddetails';
+import { getCountryWorldDetails, getLeagueNameById } from '../../shared/worlddetails';
 
 
 export interface ChppTeamOption {
@@ -50,7 +50,7 @@ export function normalizeChppAssetUrl(url: string): string {
 }
 
 function normalizeChppCountryName(countryName?: string, countryId?: number) {
-  return getCountryWorldDetails(countryId)?.englishName ?? (countryId == null && countryName && /^[\x00-\x7F]+$/.test(countryName) ? countryName : undefined);
+  return getCountryWorldDetails(countryId)?.fullName ?? (countryId == null && countryName && /^[\x00-\x7F]+$/.test(countryName) ? countryName : undefined);
 }
 
 export interface ParsedTeamDetails {
@@ -109,7 +109,7 @@ export function parseTeamDetailsXml(xml: string, teamId: number): ParsedTeamDeta
       teamName: readChppTag(block, 'TeamName'),
       leagueId,
       leagueSystemId: leagueSystemIdRaw ? parseInt(leagueSystemIdRaw, 10) : undefined,
-      leagueName,
+      leagueName: getLeagueNameById(leagueId) ?? leagueName,
       leagueLevel: leagueLevelRaw ? parseInt(leagueLevelRaw, 10) : undefined,
       countryId,
       countryName: normalizeChppCountryName(readChppTag(block, 'CountryName'), countryId),
@@ -229,7 +229,7 @@ export function parseManagerCompendiumXml(xml: string): ParsedManagerCompendium 
       teamName: readChppTag(block, 'TeamName') ?? 'Unknown',
       genderId: genderIdRaw ? parseInt(genderIdRaw, 10) : undefined,
       leagueSystemId: leagueSystemIdRaw ? parseInt(leagueSystemIdRaw, 10) : undefined,
-      leagueName: readChppTag(block, 'LeagueName'),
+      leagueName: getLeagueNameById(leagueId) ?? readChppTag(block, 'LeagueName'),
       leagueId,
       leagueLevelUnitName: readChppTag(block, 'LeagueLevelUnitName'),
       regionName: readChppTag(block, 'RegionName'),
@@ -279,4 +279,3 @@ export function parseMatchesXml(xml: string): ParsedMatch[] {
   }
   return matches;
 }
-import { getLeagueNameById } from './leagues.js';

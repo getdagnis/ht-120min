@@ -2,7 +2,7 @@ import React from 'react';
 import { useNavigate } from 'react-router-dom';
 import { ArrowRight } from 'phosphor-react';
 import styles from './TournamentCard.module.sass';
-import { getLeagueIdByName, getLeagueNameById } from '../../utils/leagues';
+import { getLeagueIdByName, getLeagueNameById } from '../../../shared/worlddetails';
 import { getTournamentBackgroundStyle } from '../../utils/visuals';
 
 interface TournamentCardProps {
