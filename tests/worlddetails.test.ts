@@ -1,16 +1,12 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import {
-  HATTRICK_WORLD_DETAILS,
-  getLeagueIdByName,
-  getLeagueNameById,
-} from '../shared/worlddetails';
+import { HATTRICK_WORLD_DETAILS, getLeagueIdByName, getLeagueNameById } from '../shared/worlddetails';
 
 test('world details expose one English short name and a full name', () => {
   const hfi = HATTRICK_WORLD_DETAILS[3000];
-  assert.equal(hfi.leagueName, 'HFI');
-  assert.equal(hfi.fullName, 'Hattrick Femme International');
-  assert.equal(hfi.emoji, '🇺🇳');
+  assert.equal(hfi.leagueName, 'USA');
+  assert.equal(hfi.fullName, 'United States of America');
+  assert.equal(hfi.emoji, '🇺🇸');
 
   const latvia = HATTRICK_WORLD_DETAILS[53];
   assert.equal(latvia.leagueName, 'Latvia');
@@ -21,9 +17,9 @@ test('world details expose one English short name and a full name', () => {
 });
 
 test('league lookup accepts both short and full names', () => {
-  assert.equal(getLeagueIdByName('HFI'), '3000');
-  assert.equal(getLeagueIdByName('Hattrick Femme International'), '3000');
-  assert.equal(getLeagueNameById(3000), 'HFI');
+  assert.equal(getLeagueIdByName('USA'), '3000');
+  assert.equal(getLeagueIdByName('United States of America'), '3000');
+  assert.equal(getLeagueNameById(3000), 'USA');
 });
 
 test('every world-details country has flag metadata', () => {

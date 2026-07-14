@@ -1,5 +1,5 @@
-import { getCountryWorldDetails, getLeagueNameById } from '../../shared/worlddetails';
-
+import { getLeagueNameById } from '../../shared/worlddetails';
+import { normalizeChppCountryName } from '../../shared/chpp-country';
 
 export interface ChppTeamOption {
   teamId: number;
@@ -31,10 +31,6 @@ export function normalizeChppAssetUrl(url: string): string {
   const trimmed = url.trim();
   if (trimmed.startsWith('//')) return `https:${trimmed}`;
   return trimmed;
-}
-
-function normalizeChppCountryName(countryName?: string, countryId?: number) {
-  return getCountryWorldDetails(countryId)?.fullName ?? (countryId == null && countryName && /^[\x00-\x7F]+$/.test(countryName) ? countryName : undefined);
 }
 
 export interface ParsedTeamDetails {

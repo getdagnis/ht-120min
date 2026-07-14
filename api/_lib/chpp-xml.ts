@@ -1,5 +1,5 @@
-import { getCountryWorldDetails, getLeagueNameById } from '../../shared/worlddetails';
-
+import { getLeagueNameById } from '../../shared/worlddetails';
+import { normalizeChppCountryName } from '../../shared/chpp-country';
 
 export interface ChppTeamOption {
   teamId: number;
@@ -45,12 +45,9 @@ export function readChppTag(block: string, tag: string): string | undefined {
 export function normalizeChppAssetUrl(url: string): string {
   const trimmed = url.trim();
   if (trimmed.startsWith('//')) return `https:${trimmed}`;
-  if (trimmed && !trimmed.startsWith('http')) return `https://www.hattrick.org${trimmed.startsWith('/') ? '' : '/'}${trimmed}`;
+  if (trimmed && !trimmed.startsWith('http'))
+    return `https://www.hattrick.org${trimmed.startsWith('/') ? '' : '/'}${trimmed}`;
   return trimmed;
-}
-
-function normalizeChppCountryName(countryName?: string, countryId?: number) {
-  return getCountryWorldDetails(countryId)?.fullName ?? (countryId == null && countryName && /^[\x00-\x7F]+$/.test(countryName) ? countryName : undefined);
 }
 
 export interface ParsedTeamDetails {
@@ -84,11 +81,7 @@ export function parseTeamDetailsXml(xml: string, teamId: number): ParsedTeamDeta
   const extract = (block: string): ParsedTeamDetails => {
     const logoRaw = readChppTag(block, 'LogoURL') ?? readChppTag(block, 'LogoUri');
     const dressRaw = readChppTag(block, 'DressURI');
-    const logoUrl = logoRaw
-      ? normalizeChppAssetUrl(logoRaw)
-      : dressRaw
-        ? normalizeChppAssetUrl(dressRaw)
-        : undefined;
+    const logoUrl = logoRaw ? normalizeChppAssetUrl(logoRaw) : dressRaw ? normalizeChppAssetUrl(dressRaw) : undefined;
 
     const arenaIdRaw = block.match(/<Arena>[\s\S]*?<ArenaID>(\d+)<\/ArenaID>/i)?.[1];
     const fanclubSizeRaw = block.match(/<Fanclub>[\s\S]*?<FanclubSize>(\d+)<\/FanclubSize>/i)?.[1];
@@ -119,9 +112,13 @@ export function parseTeamDetailsXml(xml: string, teamId: number): ParsedTeamDeta
       genderId: genderIdRaw ? parseInt(genderIdRaw, 10) : undefined,
       friendlyTeamId: friendlyTeamIdRaw ? parseInt(friendlyTeamIdRaw, 10) : 0,
       possibleToChallengeMidweek:
-        possibleToChallengeMidweekRaw === undefined ? undefined : possibleToChallengeMidweekRaw.toLowerCase() === 'true',
+        possibleToChallengeMidweekRaw === undefined
+          ? undefined
+          : possibleToChallengeMidweekRaw.toLowerCase() === 'true',
       possibleToChallengeWeekend:
-        possibleToChallengeWeekendRaw === undefined ? undefined : possibleToChallengeWeekendRaw.toLowerCase() === 'true',
+        possibleToChallengeWeekendRaw === undefined
+          ? undefined
+          : possibleToChallengeWeekendRaw.toLowerCase() === 'true',
     };
   };
 
@@ -174,8 +171,7 @@ export function parseArenaDetailsXml(xml: string): ParsedArenaDetails {
 }
 
 export function parseManagerCompendiumXml(xml: string): ParsedManagerCompendium {
-  const userIdRaw =
-    xml.match(/<UserId>(\d+)<\/UserId>/i)?.[1] ?? xml.match(/<UserID>(\d+)<\/UserID>/i)?.[1];
+  const userIdRaw = xml.match(/<UserId>(\d+)<\/UserId>/i)?.[1] ?? xml.match(/<UserID>(\d+)<\/UserID>/i)?.[1];
   const managerName = readChppTag(xml, 'Loginname') ?? 'Unknown';
 
   const countryIdRaw = xml.match(/<Country>[\s\S]*?<CountryId>(\d+)<\/CountryId>/i)?.[1];
