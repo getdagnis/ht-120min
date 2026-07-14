@@ -13,6 +13,7 @@ export interface HattrickWorldLeague {
   countryNameEn: string | null;
   isoCode: string | null;
   emoji: string;
+  suffix?: string;
 }
 
 export const HATTRICK_WORLD_DETAILS: Record<number, HattrickWorldLeague> = {
@@ -34,7 +35,7 @@ export const HATTRICK_WORLD_DETAILS: Record<number, HattrickWorldLeague> = {
     countryName: 'England',
     countryNameEn: 'England',
     isoCode: 'GB-ENG',
-    emoji: '🇬🇧',
+    emoji: '🏴󠁧󠁢󠁥󠁮󠁧󠁿',
   },
   3: {
     leagueId: 3,
@@ -254,7 +255,7 @@ export const HATTRICK_WORLD_DETAILS: Record<number, HattrickWorldLeague> = {
     countryName: 'Scotland',
     countryNameEn: 'Scotland',
     isoCode: 'GB-SCT',
-    emoji: '🇬🇧',
+    emoji: '🏴󠁧󠁢󠁳󠁣󠁴󠁿',
   },
   27: {
     leagueId: 27,
@@ -544,7 +545,7 @@ export const HATTRICK_WORLD_DETAILS: Record<number, HattrickWorldLeague> = {
     countryName: 'Cymru',
     countryNameEn: 'Wales',
     isoCode: 'GB-WLS',
-    emoji: '🇬🇧',
+    emoji: '🏴󠁧󠁢󠁷󠁬󠁳󠁿',
   },
   62: {
     leagueId: 62,
@@ -1581,6 +1582,7 @@ export const HATTRICK_WORLD_DETAILS: Record<number, HattrickWorldLeague> = {
   1000: {
     leagueId: 1000,
     leagueName: 'HT International',
+    suffix: 'HTI',
     fullName: 'Hattrick International',
     countryId: null,
     countryName: null,
@@ -1591,6 +1593,7 @@ export const HATTRICK_WORLD_DETAILS: Record<number, HattrickWorldLeague> = {
   1001: {
     leagueId: 1001,
     leagueName: 'Apache League',
+    suffix: 'AL',
     fullName: 'Apache League',
     countryId: null,
     countryName: null,
@@ -1601,6 +1604,7 @@ export const HATTRICK_WORLD_DETAILS: Record<number, HattrickWorldLeague> = {
   1002: {
     leagueId: 1002,
     leagueName: 'Anniversary',
+    suffix: 'HAL',
     fullName: 'Hattrick Anniversary League',
     countryId: null,
     countryName: null,
@@ -1611,6 +1615,7 @@ export const HATTRICK_WORLD_DETAILS: Record<number, HattrickWorldLeague> = {
   1003: {
     leagueId: 1003,
     leagueName: 'Homegrown',
+    suffix: 'HGL',
     fullName: 'Homegrown League',
     countryId: null,
     countryName: null,
@@ -1621,6 +1626,7 @@ export const HATTRICK_WORLD_DETAILS: Record<number, HattrickWorldLeague> = {
   3000: {
     leagueId: 3000,
     leagueName: 'HFI',
+    suffix: 'HFI',
     fullName: 'Hattrick Femme International',
     countryId: null,
     countryName: null,

@@ -32,7 +32,12 @@ import {
 import styles from './CreateTournament.module.sass';
 import { HATTRICK_LEAGUES, getLeagueNameById } from '../../../shared/worlddetails';
 import { getCanonicalCountryName, getCountryFlagUrl, getLeagueFlagUrl } from '../../utils/ht-data';
-import { normalizeTournamentName, normalizeTournamentSlug } from '../../utils/tournament-names';
+import {
+  formatTournamentName,
+  hasCountryFlagSuffix,
+  normalizeTournamentName,
+  normalizeTournamentSlug,
+} from '../../utils/tournament-names';
 import {
   getRandomSandboxTeamId,
   SANDBOX_RANDOM_ATTEMPTS,
@@ -170,6 +175,7 @@ export const CreateTournament: React.FC = () => {
       registration_type: 'validated',
       is_private: false,
       country_limit: '',
+      include_country_flag: true,
       description: getRandomDescription(),
       admin_email: '',
       max_teams: '' as string | number,
@@ -530,7 +536,12 @@ export const CreateTournament: React.FC = () => {
 
   const handleNameChange = (name: string) => {
     const slug = normalizeSlugInput(name);
-    setFormData({ ...formData, name, slug });
+    setFormData({
+      ...formData,
+      name,
+      slug,
+      ...(formData.country_limit ? { include_country_flag: hasCountryFlagSuffix(name, formData.country_limit) } : {}),
+    });
   };
 
   const regenerateDescription = () => {
@@ -545,6 +556,30 @@ export const CreateTournament: React.FC = () => {
     handleNameChange(newName);
   };
 
+  const checkSlugAvailability = async (requestedSlug?: string) => {
+    const slug = normalizeSlugInput(requestedSlug || formData.slug || formData.name);
+    if (!slug) {
+      return formData;
+    }
+
+    const { data: matchingSlugs, error } = await supabase.from('tournaments').select('slug').like('slug', `${slug}%`);
+    if (error) {
+      throw error;
+    }
+
+    const usedSlugs = new Set((matchingSlugs ?? []).map((row) => row.slug));
+    let availableSlug = slug;
+    if (usedSlugs.has(availableSlug)) {
+      let suffix = 2;
+      while (usedSlugs.has(`${slug}-${suffix}`)) suffix += 1;
+      availableSlug = `${slug}-${suffix}`;
+    }
+
+    const nextForm = availableSlug === formData.slug ? formData : { ...formData, slug: availableSlug };
+    if (nextForm !== formData) setFormData(nextForm);
+    return nextForm;
+  };
+
   const handleContinue = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!formData.name.trim()) return;
@@ -556,23 +591,12 @@ export const CreateTournament: React.FC = () => {
     let nextForm = formData;
     const nameSlug = normalizeSlugInput(formData.name);
     const currentSlug = normalizeSlugInput(formData.slug);
-    if (nameSlug && currentSlug === nameSlug) {
-      const { data: matchingSlugs, error } = await supabase
-        .from('tournaments')
-        .select('slug')
-        .like('slug', `${nameSlug}%`);
-      if (error) {
+    if (nameSlug && (!currentSlug || currentSlug === nameSlug)) {
+      try {
+        nextForm = await checkSlugAvailability(nameSlug);
+      } catch {
         alert('Could not check URL availability. Please try again.');
         return;
-      }
-
-      const usedSlugs = new Set((matchingSlugs ?? []).map((row) => row.slug));
-      if (usedSlugs.has(nameSlug)) {
-        let suffix = 2;
-        while (usedSlugs.has(`${nameSlug}-${suffix}`)) suffix += 1;
-        const nextSlug = `${nameSlug}-${suffix}`;
-        nextForm = { ...formData, slug: nextSlug };
-        setFormData(nextForm);
       }
     }
 
@@ -684,12 +708,14 @@ export const CreateTournament: React.FC = () => {
     }
 
     setLoading(true);
+    const tournamentName =
+      registrationType === 'sandbox' ? formatTournamentName(formData.name, { registrationType }) : formData.name.trim();
     let slug = normalizeSlugInput(formData.slug) || nanoid(10);
     const adminPassword = nanoid(8);
     let createdTournamentId: string | null = null;
 
     try {
-      const nameSlug = normalizeSlugInput(formData.name);
+      const nameSlug = normalizeSlugInput(tournamentName);
       const isSuggestedSlug = !formData.slug || normalizeSlugInput(formData.slug) === nameSlug;
       if (isSuggestedSlug && slug) {
         const { data: matchingSlugs, error: slugLookupError } = await supabase
@@ -713,7 +739,7 @@ export const CreateTournament: React.FC = () => {
         .from('tournaments')
         .insert([
           {
-            name: formData.name,
+            name: tournamentName,
             slug,
             scoring_mode: formData.scoring_mode,
             league_category: formData.league_category,
@@ -880,6 +906,28 @@ export const CreateTournament: React.FC = () => {
                     placeholder="e.g. Awesome Great Tournament S1 ⭐️"
                     autoFocus
                   />
+                  {formData.country_limit && (
+                    <label className={styles.checkboxLabel}>
+                      <input
+                        type="checkbox"
+                        checked={formData.include_country_flag !== false}
+                        onChange={(e) => {
+                          const includeCountryFlag = e.target.checked;
+                          setFormData({
+                            ...formData,
+                            include_country_flag: includeCountryFlag,
+                            name: formatTournamentName(formData.name, {
+                              registrationType: formData.registration_type,
+                              leagueCategory: formData.league_category,
+                              countryLimit: formData.country_limit,
+                              includeCountryFlag,
+                            }),
+                          });
+                        }}
+                      />
+                      Include flag/suffix
+                    </label>
+                  )}
                 </div>
                 <div className={styles.field}>
                   <label htmlFor="tournament_slug">Unique URL Slug</label>
@@ -888,7 +936,9 @@ export const CreateTournament: React.FC = () => {
                     name="tournament_slug"
                     type="text"
                     value={formData.slug}
-                    onChange={(e) => setFormData({ ...formData, slug: normalizeSlugInput(e.target.value) })}
+                    onChange={(e) => {
+                      setFormData({ ...formData, slug: normalizeSlugInput(e.target.value) });
+                    }}
                     placeholder="e.g. guam-hfi-s1"
                   />
                 </div>
@@ -897,10 +947,22 @@ export const CreateTournament: React.FC = () => {
                   <select
                     id="league_category"
                     value={formData.league_category}
-                    onChange={(e) => setFormData({ ...formData, league_category: e.target.value })}
+                    onChange={(e) => {
+                      const leagueCategory = e.target.value;
+                      setFormData({
+                        ...formData,
+                        league_category: leagueCategory,
+                        name: formatTournamentName(formData.name, {
+                          registrationType: formData.registration_type,
+                          leagueCategory,
+                          countryLimit: formData.country_limit,
+                          includeCountryFlag: formData.include_country_flag,
+                        }),
+                      });
+                    }}
                   >
-                    <option value="male">Regular league (male) 👨🏻</option>
-                    <option value="hfi">Hattrick Femme International (HFI) 👩🏽‍🦰</option>
+                    <option value="male">Regular league</option>
+                    <option value="hfi">Hattrick Femme International (HFI) 💃🏻</option>
                   </select>
                 </div>
                 <div className={styles.field}>
@@ -915,6 +977,12 @@ export const CreateTournament: React.FC = () => {
                         registration_type: nextType,
                         is_private: nextType === 'sandbox' ? true : formData.is_private,
                         country_limit: nextType === 'sandbox' ? '' : formData.country_limit,
+                        name: formatTournamentName(formData.name, {
+                          registrationType: nextType,
+                          leagueCategory: formData.league_category,
+                          countryLimit: nextType === 'sandbox' ? '' : formData.country_limit,
+                          includeCountryFlag: formData.include_country_flag,
+                        }),
                       });
                       setNewTeamId('');
                       setNewTeamName('');
@@ -922,8 +990,8 @@ export const CreateTournament: React.FC = () => {
                       setSandboxCandidate(null);
                     }}
                   >
-                    <option value="validated">Hattrick Validated (CHPP) 🔐</option>
-                    <option value="manual">Organizer-Managed 🔓</option>
+                    <option value="validated">Hattrick Automated (CHPP) ✅</option>
+                    <option value="manual">Organizer-Managed 📂</option>
                     <option value="sandbox">"Just Testing" tournament ✏️</option>
                   </select>
                   <p className={styles.small}>
@@ -931,7 +999,7 @@ export const CreateTournament: React.FC = () => {
                       ? 'Only managers themselves can join with their teams. Automated fixtures and challenges.'
                       : registrationType === 'sandbox'
                         ? 'Create a temporary test tournament with random real Hattrick team data. Real teams cannot join. Random scores counted.'
-                        : 'Organizer can add teams with partial data access, and self-updates results.'}
+                        : "Organiser has more freedom — can add any Hattrick team they want that's available. Can self update scores."}
                   </p>
                 </div>
                 <div className={styles.field}>
@@ -1000,7 +1068,18 @@ export const CreateTournament: React.FC = () => {
                         checked={showLeagueRestriction}
                         onChange={(e) => {
                           setShowLeagueRestriction(e.target.checked);
-                          if (!e.target.checked) setFormData({ ...formData, country_limit: '' });
+                          if (!e.target.checked) {
+                            setFormData({
+                              ...formData,
+                              country_limit: '',
+                              name: formatTournamentName(formData.name, {
+                                registrationType: formData.registration_type,
+                                leagueCategory: formData.league_category,
+                                countryLimit: '',
+                                includeCountryFlag: formData.include_country_flag,
+                              }),
+                            });
+                          }
                         }}
                       />
                       Limited to one league/country
@@ -1009,7 +1088,19 @@ export const CreateTournament: React.FC = () => {
                       <select
                         id="tournament_country_limit"
                         value={formData.country_limit}
-                        onChange={(e) => setFormData({ ...formData, country_limit: e.target.value })}
+                        onChange={(e) => {
+                          const countryLimit = e.target.value;
+                          setFormData({
+                            ...formData,
+                            country_limit: countryLimit,
+                            name: formatTournamentName(formData.name, {
+                              registrationType: formData.registration_type,
+                              leagueCategory: formData.league_category,
+                              countryLimit,
+                              includeCountryFlag: formData.include_country_flag,
+                            }),
+                          });
+                        }}
                         className={`${styles.mt05} ${styles.w100}`}
                       >
                         <option value="">Select league...</option>
@@ -1160,6 +1251,7 @@ export const CreateTournament: React.FC = () => {
             <h1>{isValidated ? 'Confirm your team' : isSandbox ? 'Build a test tournament' : 'Add Teams'}</h1>
             <img src="/register2.png" alt="Add Teams" />
             <h2 className={styles.teamStepTitle}>{formData.name}</h2>
+            <p className={styles.small}>/{formData.slug}</p>
             <p className={styles.teamStepHelper}>{teamStepHelper}</p>
 
             {!isSandbox && !isLinked && (

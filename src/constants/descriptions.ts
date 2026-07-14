@@ -261,7 +261,7 @@ export const EXTRA_TIME_TOURNAMENT_NAMES = [
   'My Sweet 120th',
   'May Contain Additional Minutes',
   'Nobody Expected Extra Time',
-  'The Unfinished Match',
+  'The Unfinished Match Society',
   'The Answer Is Additional Minutes',
   'The Art Of Not Finishing On Time',
   'The Additional Time Authority',
