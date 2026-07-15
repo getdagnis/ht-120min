@@ -63,6 +63,7 @@ interface DBTournament {
   is_test?: boolean | null;
   status?: string | null;
   is_archived?: boolean | null;
+  season: number;
   thumbnail_index?: number;
   image_url?: string;
   rounds: DBRound[] | null;
@@ -123,6 +124,7 @@ const ForumWidget = () => (
 
 export const Home: React.FC = () => {
   const navigate = useNavigate();
+  const [featuredTournaments, setFeaturedTournaments] = useState<Tournament[]>([]);
   const [activeTournaments, setActiveTournaments] = useState<Tournament[]>([]);
   const [openTournaments, setOpenTournaments] = useState<Tournament[]>([]);
   const [topTeams, setTopTeams] = useState<TopTeam[]>([]);
@@ -147,6 +149,7 @@ export const Home: React.FC = () => {
           is_test,
           status,
           is_archived,
+          season,
           thumbnail_index,
           image_url,
           country_limit,
@@ -187,6 +190,7 @@ export const Home: React.FC = () => {
           .eq('active', true);
         const warnings = warningsRaw as unknown as DBWarning[] | null;
 
+        const featured: Tournament[] = [];
         const active: Tournament[] = [];
         const open: Tournament[] = [];
         const team120Stats: Record<number, { name: string; count: number }> = {};
@@ -197,7 +201,6 @@ export const Home: React.FC = () => {
             (t) =>
               !t.is_test &&
               t.status !== 'stopped' &&
-              t.status !== 'finished' &&
               t.status !== 'archived' &&
               !t.is_archived,
           )
@@ -250,12 +253,27 @@ export const Home: React.FC = () => {
             is_featured: Boolean(t.is_featured),
           };
 
-          if (isGenerated && !isClosed) {
+          if (tournamentObj.is_featured) {
+            featured.push(tournamentObj as Tournament);
+          } else if (isGenerated && !isClosed && t.status !== 'finished') {
             active.push(tournamentObj as Tournament);
-          } else if (!isGenerated) {
+          } else if (!isGenerated && t.status !== 'finished') {
             open.push(tournamentObj as Tournament);
           }
         });
+
+        setFeaturedTournaments(
+          sortFeaturedFirst(featured, (a, b) => {
+            const statusWeight = (tournament: Tournament) => {
+              if (tournament.status === 'finished' || tournament.totalMatches === tournament.completedMatches) return 3;
+              if ((tournament.rounds?.length ?? 0) > 0) return 1;
+              return 2;
+            };
+            const weightDelta = statusWeight(a) - statusWeight(b);
+            if (weightDelta !== 0) return weightDelta;
+            return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
+          }),
+        );
 
         // Sort by validated count first, then next match date
         setActiveTournaments(
@@ -297,6 +315,80 @@ export const Home: React.FC = () => {
     return () => clearTimeout(timer);
   }, [fetchTournaments]);
 
+  const getTournamentStateLabel = (tournament: Tournament) => {
+    const seasonLabel = `season ${tournament.season}`;
+    const isGenerated = (tournament.rounds?.length ?? 0) > 0;
+    const isFinished =
+      tournament.status === 'finished' ||
+      (tournament.totalMatches > 0 && tournament.totalMatches === tournament.completedMatches);
+
+    if (isFinished) return `${seasonLabel} finished`;
+    if (tournament.status === 'paused') return `${seasonLabel} paused`;
+    if (isGenerated) return `${seasonLabel} ongoing`;
+    return `waiting participants for ${seasonLabel}`;
+  };
+
+  const renderTournamentCard = (t: Tournament, options: { join?: boolean } = {}) => (
+    <Link key={t.id} to={`/t/${t.slug}`} className={styles.tournamentLink}>
+      <TournamentCard
+        id={t.id}
+        className={styles.tournamentCard}
+        thumbnailIndex={t.thumbnail_index}
+        imageUrl={t.image_url}
+        countryLimit={t.country_limit}
+        scoringMode={t.scoring_mode}
+        leagueCategory={t.league_category}
+        maxTeams={t.max_teams}
+        teamCount={t.teamCount}
+        joinHref={options.join ? `/t/${t.slug}` : undefined}
+      >
+        <div className={styles.tInfo}>
+          <div className={styles.tTitleRow}>
+            <div className={styles.tHeading}>
+              <h3 className={styles.tName}>{t.name}</h3>
+              <span className={styles.tState}>{getTournamentStateLabel(t)}</span>
+            </div>
+            <CaretLeft size={18} weight="regular" className={styles.tArrow} />
+          </div>
+          <div className={styles.tMeta}>
+            {(t.rounds?.length ?? 0) > 0 ? (
+              <span title="Completed Matches">
+                <Trophy size={14} weight="regular" /> {t.completedRounds} / {t.totalRounds} rounds
+              </span>
+            ) : (
+              <span title="Registered Teams">
+                <TeamsIcon size={14} /> {t.teamCount} teams
+              </span>
+            )}
+            {t.nextMatchDate ? (
+              <span title="Next Match" className={styles.nextMatch}>
+                <Clock size={14} weight="regular" /> Next:{' '}
+                {t.nextMatchDate.toLocaleDateString('lv-LV', {
+                  day: '2-digit',
+                  month: '2-digit',
+                  hour: '2-digit',
+                  minute: '2-digit',
+                })}
+              </span>
+            ) : (
+              <span title="Creation Date">
+                <CalendarBlank size={14} weight="regular" /> {new Date(t.created_at).toLocaleDateString()}
+              </span>
+            )}
+          </div>
+          <div className={styles.tTeams}>
+            {t.teams.slice(0, 6).map((team) => (
+              <span key={team.id} className={styles.teamChip}>
+                {team.name}
+              </span>
+            ))}
+            {t.teams.length > 6 && <span className={styles.teamChipMore}>+{t.teams.length - 6} more</span>}
+          </div>
+        </div>
+      </TournamentCard>
+    </Link>
+  );
+
   return (
     <div className={styles.home}>
       <div className={styles.container}>
@@ -325,62 +417,25 @@ export const Home: React.FC = () => {
         <MottoWidget />
         <div className={styles.mainGrid}>
           <div className={styles.leftColumn}>
+            {featuredTournaments.length > 0 && (
+              <section className={styles.activeSection}>
+                <div className={styles.sectionHeader}>
+                  <Star size={24} weight="regular" className={styles.sectionIcon} />
+                  <h2>Featured Tournaments</h2>
+                </div>
+                <div className={styles.tournamentGrid}>
+                  {featuredTournaments.map((t) => renderTournamentCard(t))}
+                </div>
+              </section>
+            )}
+
             {activeTournaments.length > 0 && (
               <section className={styles.activeSection}>
                 <div className={styles.sectionHeader}>
                   <Heartbeat size={24} weight="regular" className={styles.sectionIcon} />
-                  <h2>Featured Tournaments</h2>
+                  <h2>Ongoing Tournaments</h2>
                 </div>
-                <div className={styles.tournamentGrid}>
-                  {activeTournaments.map((t) => (
-                    <Link key={t.id} to={`/t/${t.slug}`} className={styles.tournamentLink}>
-                      <TournamentCard
-                        id={t.id}
-                        className={styles.tournamentCard}
-                        thumbnailIndex={t.thumbnail_index}
-                        imageUrl={t.image_url}
-                        countryLimit={t.country_limit}
-                        scoringMode={t.scoring_mode}
-                        leagueCategory={t.league_category}
-                        maxTeams={t.max_teams}
-                        teamCount={t.teamCount}
-                      >
-                        <div className={styles.tInfo}>
-                          <div className={styles.tTitleRow}>
-                            <h3 className={styles.tName}>{t.name}</h3>
-                            <CaretLeft size={18} weight="regular" className={styles.tArrow} />
-                          </div>
-                          <div className={styles.tMeta}>
-                            <span title="Completed Matches">
-                              <Trophy size={14} weight="regular" /> {t.completedRounds} / {t.totalRounds} rounds
-                            </span>
-                            {t.nextMatchDate && (
-                              <span title="Next Match" className={styles.nextMatch}>
-                                <Clock size={14} weight="regular" /> Next:{' '}
-                                {t.nextMatchDate.toLocaleDateString('lv-LV', {
-                                  day: '2-digit',
-                                  month: '2-digit',
-                                  hour: '2-digit',
-                                  minute: '2-digit',
-                                })}
-                              </span>
-                            )}
-                          </div>
-                          <div className={styles.tTeams}>
-                            {t.teams.slice(0, 6).map((team) => (
-                              <span key={team.id} className={styles.teamChip}>
-                                {team.name}
-                              </span>
-                            ))}
-                            {t.teams.length > 6 && (
-                              <span className={styles.teamChipMore}>+{t.teams.length - 6} more</span>
-                            )}
-                          </div>
-                        </div>
-                      </TournamentCard>
-                    </Link>
-                  ))}
-                </div>
+                <div className={styles.tournamentGrid}>{activeTournaments.map((t) => renderTournamentCard(t))}</div>
               </section>
             )}
 
@@ -390,54 +445,16 @@ export const Home: React.FC = () => {
               <section className={styles.activeSection}>
                 <div className={styles.sectionHeader}>
                   <FolderOpen size={24} className={styles.sectionIcon} />
-                  <h2>Join Open Tournaments</h2>
+                  <h2>Waiting Participants</h2>
                 </div>
 
                 <div className={styles.tournamentGrid}>
-                  {openTournaments.map((t) => (
-                    <Link key={t.id} to={`/t/${t.slug}`} className={styles.tournamentLink}>
-                      <TournamentCard
-                        id={t.id}
-                        className={styles.tournamentCard}
-                        thumbnailIndex={t.thumbnail_index}
-                        imageUrl={t.image_url}
-                        countryLimit={t.country_limit}
-                        scoringMode={t.scoring_mode}
-                        leagueCategory={t.league_category}
-                        maxTeams={t.max_teams}
-                        teamCount={t.teamCount}
-                        joinHref={`/t/${t.slug}`}
-                      >
-                        <div className={styles.tInfo}>
-                          <div className={styles.tTitleRow}>
-                            <h3 className={styles.tName}>{t.name}</h3>
-                            <CaretLeft size={18} weight="regular" className={styles.tArrow} />
-                          </div>
-                          <div className={styles.tMeta}>
-                            <span title="Registered Teams">
-                              <TeamsIcon size={14} /> {t.teamCount} teams
-                            </span>
-                            <span title="Creation Date">
-                              <CalendarBlank size={14} weight="regular" /> {new Date(t.created_at).toLocaleDateString()}
-                            </span>
-                          </div>
-                          <div className={styles.tTeams}>
-                            {t.teams.slice(0, 6).map((team) => (
-                              <span key={team.id} className={styles.teamChip}>
-                                {team.name}
-                              </span>
-                            ))}
-                            {t.teams.length > 6 && (
-                              <span className={styles.teamChipMore}>+{t.teams.length - 6} more</span>
-                            )}
-                          </div>
-                        </div>
-                      </TournamentCard>
-                    </Link>
-                  ))}
+                  {openTournaments.map((t) => renderTournamentCard(t, { join: true }))}
                 </div>
               </section>
             )}
+
+            {showFaq && <FaqRenderer sections={faqContent} className={styles.faqRenderer} />}
           </div>
 
           <aside className={styles.rightColumn}>
@@ -523,7 +540,6 @@ export const Home: React.FC = () => {
             </Button>
           </ScrollTo>
         </div>
-        {showFaq && <FaqRenderer sections={faqContent} className={styles.faqRenderer} />}
       </div>
     </div>
   );
