@@ -962,7 +962,7 @@ export const CreateTournament: React.FC = () => {
                   />
                 </div>
                 <div className={styles.field}>
-                  <label htmlFor="league_category">Tournament Gender</label>
+                  <label htmlFor="league_category">Regular or Femme</label>
                   <select
                     id="league_category"
                     value={formData.league_category}
@@ -1011,14 +1011,14 @@ export const CreateTournament: React.FC = () => {
                   >
                     <option value="validated">Hattrick Automated (CHPP) ✅</option>
                     <option value="manual">Organizer-Managed 📂</option>
-                    <option value="sandbox">"Just Testing" tournament ✏️</option>
+                    <option value="sandbox">"I'm Just Testing" tournament 🎳</option>
                   </select>
                   <p className={styles.small}>
                     {registrationType === 'validated'
-                      ? 'Only managers themselves can join with their teams. Automated fixtures and challenges.'
+                      ? 'Only managers themselves can join with their teams. Automated fixtures and scoring. Managers still arrange their own matches'
                       : registrationType === 'sandbox'
-                        ? 'Create a temporary test tournament with random real Hattrick team data. Real teams cannot join. Random scores counted.'
-                        : "Organiser has more freedom — can add any Hattrick team they want that's available. Can self update scores."}
+                        ? "Create a temporary test tournament with random real Hattrick team data. Real teams cannot join. Test tourneys aren't published. But you can share a link around.  You try to break or make what you want. No-one will be mad."
+                        : "Organiser has more freedom — can add any Hattrick team they want that's available. Can self update scores. Useful when tournament management happens on HT forums. Manager does more, participants less."}
                   </p>
                 </div>
                 <div className={styles.field}>
@@ -1148,7 +1148,7 @@ export const CreateTournament: React.FC = () => {
                 <div className={styles.field}>
                   <label className={styles.checkboxLabel}>
                     <input type="checkbox" checked={showEmail} onChange={(e) => setShowEmail(e.target.checked)} />
-                    Recovery email address
+                    Recovery email address (recommended)
                   </label>
                   {showEmail && (
                     <input
