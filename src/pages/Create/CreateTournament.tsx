@@ -887,10 +887,12 @@ export const CreateTournament: React.FC = () => {
     : 'Get random';
   const restrictionsSummary = `League type: ${leagueRestrictionLabel}, Country limit: ${countryRestrictionLabel}, Team limit: ${teamLimitLabel}.`;
   const teamStepHelper = isValidated
-    ? `Link your Hattrick account to register your team for this tournament. ${restrictionsSummary}`
+    ? `First link your Hattrick account to register your team for this tournament.`
     : isSandbox
       ? `Add at least two random test teams. They use real Hattrick metadata but no real manager joins this tournament. ${restrictionsSummary}`
-      : `Add at least two teams. You can add more later. ${restrictionsSummary}`;
+      : isLinked
+        ? `Add at least two teams to get started. You can add more later.`
+        : 'Now link your Hattrick account to manage this tournament.';
 
   if (step === 'info') {
     return (
@@ -1160,20 +1162,20 @@ export const CreateTournament: React.FC = () => {
                 </div>
 
                 <div className={styles.actions}>
-                <Button type="submit" fullWidth disabled={loading} variant="secondary">
-                  Continue <ArrowRight size={18} weight="bold" />
-                </Button>
-                <Button
-                  type="button"
-                  variant="outlineWhite"
-                  size="sm"
-                  onClick={clearAll}
-                  disabled={loading}
-                  className={styles.opacity08}
-                >
-                  Clear All
-                </Button>
-              </div>
+                  <Button type="submit" fullWidth disabled={loading} variant="secondary">
+                    Continue <ArrowRight size={18} weight="bold" />
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="outlineWhite"
+                    size="sm"
+                    onClick={clearAll}
+                    disabled={loading}
+                    className={styles.opacity08}
+                  >
+                    Clear All
+                  </Button>
+                </div>
               </form>
             </HeroCard>
           </div>
@@ -1286,11 +1288,6 @@ export const CreateTournament: React.FC = () => {
                 <Button size="lg" variant="primary" onClick={handleHattrickLink} disabled={loading}>
                   <ArrowRight size={20} weight="bold" /> {isValidated ? 'Link with Hattrick' : 'Link Organizer Profile'}
                 </Button>
-                <p className={styles.linkInstruction}>
-                  {isValidated
-                    ? 'Link your Hattrick account to register your team for this tournament.'
-                    : 'Required to manage the tournament.'}
-                </p>
               </div>
             )}
 
