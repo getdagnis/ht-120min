@@ -44,8 +44,8 @@ function getDismissKey(userId: number) {
 }
 
 export function TeamOwnershipReclaim({ profile, onClaimed }: TeamOwnershipReclaimProps) {
-  const [claimableTeams, setClaimableTeams] = useState<ClaimableTeamRow[]>([]);
-  const [isLoading, setIsLoading] = useState(false);
+  const [teamRows, setTeamRows] = useState<ClaimableTeamRow[]>([]);
+  const [isFetching, setIsFetching] = useState(false);
   const [isClaiming, setIsClaiming] = useState(false);
   const [isDismissed, setIsDismissed] = useState(false);
 
@@ -53,21 +53,34 @@ export function TeamOwnershipReclaim({ profile, onClaimed }: TeamOwnershipReclai
     return Array.from(new Set((profile?.teams_json ?? []).map((team) => Number(team.teamId)).filter(Boolean)));
   }, [profile?.teams_json]);
 
-  useEffect(() => {
-    if (!profile?.hattrick_user_id || verifiedTeamIds.length === 0) {
-      setClaimableTeams([]);
-      return;
+  const hasEligibleProfile = Boolean(profile?.hattrick_user_id && verifiedTeamIds.length > 0);
+
+  const claimableTeams = useMemo(() => {
+    if (!hasEligibleProfile) {
+      return [];
     }
 
-    if (sessionStorage.getItem(getDismissKey(profile.hattrick_user_id)) === 'true') {
-      setIsDismissed(true);
+    return teamRows.filter((team) => {
+      const tournament = getTournament(team);
+      return (
+        team.ht_team_id &&
+        !team.is_placeholder &&
+        tournament?.registration_type !== 'sandbox' &&
+        tournament?.status !== 'archived' &&
+        (!team.joined_via_oauth || !team.hattrick_user_id)
+      );
+    });
+  }, [hasEligibleProfile, teamRows]);
+
+  useEffect(() => {
+    if (!hasEligibleProfile) {
       return;
     }
 
     let cancelled = false;
 
     async function fetchClaimableTeams() {
-      setIsLoading(true);
+      setIsFetching(true);
       try {
         const { data, error } = await supabase
           .from('teams')
@@ -91,24 +104,11 @@ export function TeamOwnershipReclaim({ profile, onClaimed }: TeamOwnershipReclai
           .in('ht_team_id', verifiedTeamIds)
           .eq('active', true);
 
-        if (error || cancelled) return;
-
-        const rows = ((data as ClaimableTeamRow[] | null) ?? []).filter((team) => {
-          const tournament = getTournament(team);
-          return (
-            team.ht_team_id &&
-            !team.is_placeholder &&
-            tournament?.registration_type !== 'sandbox' &&
-            tournament?.status !== 'archived' &&
-            (!team.joined_via_oauth || !team.hattrick_user_id)
-          );
-        });
-
-        if (!cancelled) {
-          setClaimableTeams(rows);
+        if (!cancelled && !error) {
+          setTeamRows((data as ClaimableTeamRow[] | null) ?? []);
         }
       } finally {
-        if (!cancelled) setIsLoading(false);
+        if (!cancelled) setIsFetching(false);
       }
     }
 
@@ -117,9 +117,13 @@ export function TeamOwnershipReclaim({ profile, onClaimed }: TeamOwnershipReclai
     return () => {
       cancelled = true;
     };
-  }, [profile?.hattrick_user_id, verifiedTeamIds]);
+  }, [hasEligibleProfile, verifiedTeamIds]);
 
-  const isOpen = !isDismissed && !isLoading && claimableTeams.length > 0;
+  const isLoading = isFetching && hasEligibleProfile;
+  const isRememberedDismissal = profile?.hattrick_user_id
+    ? sessionStorage.getItem(getDismissKey(profile.hattrick_user_id)) === 'true'
+    : false;
+  const isOpen = !isDismissed && !isRememberedDismissal && !isLoading && claimableTeams.length > 0;
 
   const askNextTime = () => {
     if (profile?.hattrick_user_id) {
@@ -145,7 +149,7 @@ export function TeamOwnershipReclaim({ profile, onClaimed }: TeamOwnershipReclai
         throw new Error(result?.error || 'Unable to reclaim team ownership.');
       }
 
-      setClaimableTeams([]);
+      setTeamRows([]);
       onClaimed?.();
     } catch (error) {
       alert(error instanceof Error ? error.message : 'Unable to reclaim team ownership.');
