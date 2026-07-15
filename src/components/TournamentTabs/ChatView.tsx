@@ -47,6 +47,27 @@ const isBigEmojiMessage = (content: string): boolean => {
   );
 };
 
+const formatChatTimestamp = (createdAt: string) => {
+  const created = new Date(createdAt).getTime();
+  const ageMs = Date.now() - created;
+  const dayMs = 24 * 60 * 60 * 1000;
+
+  if (!Number.isFinite(created) || ageMs < dayMs) {
+    return new Date(createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+  }
+
+  const days = Math.floor(ageMs / dayMs);
+  if (days < 7) return `${days}d`;
+
+  const weeks = Math.floor(days / 7);
+  if (weeks < 8) return `${weeks}w`;
+
+  const months = Math.floor(days / 30);
+  if (months < 12) return `${months}mo`;
+
+  return `${Math.floor(days / 365)}y`;
+};
+
 export const ChatView: React.FC<ChatViewProps> = ({
   messages,
   onSendMessage,
@@ -157,9 +178,7 @@ export const ChatView: React.FC<ChatViewProps> = ({
                 <div className={`${styles.chatBubble} ${isBigEmoji ? styles.bigEmojiBubble : ''}`}>
                   <span className={`${styles.chatContent} ${isBigEmoji ? styles.bigEmoji : ''}`}>{msg.content}</span>
                 </div>
-                <span className={styles.chatTime}>
-                  {new Date(msg.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                </span>
+                <span className={styles.chatTime}>{formatChatTimestamp(msg.created_at)}</span>
               </div>
             </div>
           );
