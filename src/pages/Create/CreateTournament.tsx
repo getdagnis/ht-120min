@@ -138,6 +138,21 @@ const getRandomName = (mode: string) => {
   return pool[Math.floor(Math.random() * pool.length)];
 };
 const normalizeSlugInput = (value: string) => normalizeTournamentSlug(value.trim());
+const formatEditableTournamentName = (
+  name: string,
+  options: {
+    registrationType?: string | null;
+    leagueCategory?: string | null;
+    countryLimit?: string | number | null;
+    includeCountryFlag?: boolean;
+  },
+) => {
+  if (normalizeTournamentRegistrationType(options.registrationType) === 'sandbox') {
+    return name;
+  }
+
+  return formatTournamentName(name, options);
+};
 
 const getInitialFormData = () => ({
   name: '',
@@ -935,7 +950,7 @@ export const CreateTournament: React.FC = () => {
                           setFormData({
                             ...formData,
                             include_country_flag: includeCountryFlag,
-                            name: formatTournamentName(formData.name, {
+                            name: formatEditableTournamentName(formData.name, {
                               registrationType: formData.registration_type,
                               leagueCategory: formData.league_category,
                               countryLimit: formData.country_limit,
@@ -971,7 +986,7 @@ export const CreateTournament: React.FC = () => {
                       setFormData({
                         ...formData,
                         league_category: leagueCategory,
-                        name: formatTournamentName(formData.name, {
+                        name: formatEditableTournamentName(formData.name, {
                           registrationType: formData.registration_type,
                           leagueCategory,
                           countryLimit: formData.country_limit,
@@ -996,7 +1011,7 @@ export const CreateTournament: React.FC = () => {
                         registration_type: nextType,
                         is_private: nextType === 'sandbox' ? true : formData.is_private,
                         country_limit: nextType === 'sandbox' ? '' : formData.country_limit,
-                        name: formatTournamentName(formData.name, {
+                        name: formatEditableTournamentName(formData.name, {
                           registrationType: nextType,
                           leagueCategory: formData.league_category,
                           countryLimit: nextType === 'sandbox' ? '' : formData.country_limit,
@@ -1091,7 +1106,7 @@ export const CreateTournament: React.FC = () => {
                             setFormData({
                               ...formData,
                               country_limit: '',
-                              name: formatTournamentName(formData.name, {
+                              name: formatEditableTournamentName(formData.name, {
                                 registrationType: formData.registration_type,
                                 leagueCategory: formData.league_category,
                                 countryLimit: '',
@@ -1112,7 +1127,7 @@ export const CreateTournament: React.FC = () => {
                           setFormData({
                             ...formData,
                             country_limit: countryLimit,
-                            name: formatTournamentName(formData.name, {
+                            name: formatEditableTournamentName(formData.name, {
                               registrationType: formData.registration_type,
                               leagueCategory: formData.league_category,
                               countryLimit,
