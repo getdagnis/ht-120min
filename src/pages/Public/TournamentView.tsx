@@ -38,10 +38,12 @@ import { FixturesView } from '../../components/TournamentTabs/FixturesView';
 import { AdminResults } from '../../components/TournamentTabs/Admin/AdminResults';
 import { AdminAnnouncementComposer } from '../../components/TournamentTabs/Admin/AdminAnnouncementComposer';
 import { TournamentSchedulePanel } from '../../components/TournamentTabs/Admin/TournamentSchedulePanel';
+import { FaqRenderer } from '../../components/Faq/FaqRenderer';
 import { Modal } from '../../components/Modal/Modal';
 import { MottoWidget } from '../../components/MottoWidget/MottoWidget';
 import { StandingsView } from '../../components/TournamentTabs/StandingsView';
 import { TOURNAMENT_DEFAULT } from '../../constants/descriptions';
+import { getTournamentFaqSections } from '../../constants/faq-essential';
 import { FORGE_SUPERADMIN_USER_ID } from '../../constants/site-admins';
 import { getRandomSandboxTeamId, SANDBOX_RANDOM_ATTEMPTS } from '../../constants/sandbox';
 import { ArrowClockwise, ArrowRight, ArrowUpRight, CopySimple, Info, Star, Trash, X } from 'phosphor-react';
@@ -54,6 +56,16 @@ interface ChppTeamOption {
   leagueLevelUnitName?: string;
   regionName?: string;
   countryName?: string;
+}
+
+interface HtMatchLinkPreview {
+  ht_match_id: number;
+  actual_home_team_name: string | null;
+  actual_away_team_name: string | null;
+  home_goals: number;
+  away_goals: number;
+  status: 'arranged' | 'ongoing' | 'finished';
+  matched_both_tournament_teams: boolean;
 }
 
 interface PendingJoinData {
@@ -166,7 +178,7 @@ interface Tournament {
   image_url?: string;
   season: number;
   is_test: boolean;
-  status: 'open' | 'active' | 'paused' | 'finished' | 'waiting' | 'archived';
+  status: 'open' | 'active' | 'paused' | 'stopped' | 'finished' | 'waiting' | 'archived';
   last_fixtures_refresh: string | null;
   admin_email: string | null;
   max_teams: number | null;
@@ -184,16 +196,41 @@ interface RoundWithMatches {
   matches: MatchWithTeams[];
 }
 
+type TournamentStatus = Tournament['status'];
+
+function hasFinishedAllRealFixtures(rounds: RoundWithMatches[]) {
+  const matches = rounds.flatMap((round) => round.matches || []);
+  const realFixtures = matches.filter((match) => match.home_team_id && match.away_team_id);
+
+  return realFixtures.length > 0 && realFixtures.every((match) => match.completed || match.status === 'misarranged');
+}
+
+function isBlockingTeamTournament(tournament?: {
+  status?: string | null;
+  is_test?: boolean | null;
+  registration_type?: string | null;
+} | null) {
+  return Boolean(
+    tournament &&
+      tournament.status !== 'finished' &&
+      tournament.status !== 'stopped' &&
+      !tournament.is_test &&
+      tournament.registration_type !== 'sandbox',
+  );
+}
+
 export const TournamentView: React.FC = () => {
   const { slug } = useParams<{ slug: string }>();
   const location = useLocation();
   const [searchParams, setSearchParams] = useSearchParams();
+  const tournamentFaqSections = useMemo(() => getTournamentFaqSections(), []);
   const [tournament, setTournament] = useState<Tournament | null>(null);
   const [standings, setStandings] = useState<TeamStanding[]>([]);
   const [rounds, setRounds] = useState<RoundWithMatches[]>([]);
   const [teams, setTeams] = useState<Team[]>([]);
   const [warnings, setWarnings] = useState<any[]>([]);
   const [lastSeenMap, setLastSeenMap] = useState<Record<number, string | null>>({});
+  const [playingElsewhereTeamIds, setPlayingElsewhereTeamIds] = useState<Set<number>>(new Set());
 
   // Sync activeTab with URL search param 'tab'
   const activeTabParam = searchParams.get('tab');
@@ -672,6 +709,30 @@ export const TournamentView: React.FC = () => {
 
       setTeams(teamsData);
 
+      const activeHtTeamIds = teamsData
+        .filter((team) => team.active && !team.is_placeholder && team.ht_team_id)
+        .map((team) => team.ht_team_id);
+
+      if (activeHtTeamIds.length > 0) {
+        const { data: elsewhereRows } = await supabase
+          .from('teams')
+          .select('ht_team_id, tournament_id, tournaments(name, status, is_test, registration_type)')
+          .in('ht_team_id', activeHtTeamIds)
+          .eq('active', true)
+          .neq('tournament_id', tournamentData.id);
+
+        const elsewhereIds = new Set<number>();
+        (elsewhereRows || []).forEach((row) => {
+          const tournament = Array.isArray(row.tournaments) ? row.tournaments[0] : row.tournaments;
+          if (row.ht_team_id && isBlockingTeamTournament(tournament)) {
+            elsewhereIds.add(Number(row.ht_team_id));
+          }
+        });
+        setPlayingElsewhereTeamIds(elsewhereIds);
+      } else {
+        setPlayingElsewhereTeamIds(new Set());
+      }
+
       const fetchedScheduleTeams = teamsData
         .filter((team) => team.active && !team.is_placeholder)
         .map((team) => ({
@@ -849,6 +910,28 @@ export const TournamentView: React.FC = () => {
               }),
           }));
           setRounds(roundsWithMatches as RoundWithMatches[]);
+
+          const persistedRoundsWithMatches = roundsData.map((r) => ({
+            ...r,
+            matches: matchesWithDates.filter((m) => m.round_id === r.id),
+          })) as RoundWithMatches[];
+
+          if (
+            tournamentData.status !== 'finished' &&
+            tournamentData.status !== 'stopped' &&
+            hasFinishedAllRealFixtures(persistedRoundsWithMatches)
+          ) {
+            const { error: finishError } = await supabase
+              .from('tournaments')
+              .update({ status: 'finished' })
+              .eq('id', tournamentData.id);
+
+            if (finishError) {
+              console.error('Failed to mark tournament finished:', finishError);
+            } else {
+              setTournament((prev) => (prev ? { ...prev, status: 'finished' } : prev));
+            }
+          }
         }
       }
     }
@@ -1218,6 +1301,51 @@ export const TournamentView: React.FC = () => {
     }
   }, [tournament, isRefreshingFixtures, fetchFixturesOnly, allMatches]);
 
+  const requestHtMatchLink = useCallback(
+    async (matchId: string, htMatchId: string, dryRun: boolean): Promise<HtMatchLinkPreview> => {
+      if (!tournament) throw new Error('Tournament is not loaded.');
+
+      const response = await fetch('/api/teams/refresh-fixtures', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          action: 'link_match',
+          tournamentId: tournament.id,
+          matchId,
+          htMatchId,
+          dryRun,
+        }),
+      });
+      const payload = (await response.json().catch(() => null)) as {
+        error?: string;
+        preview?: HtMatchLinkPreview;
+      } | null;
+
+      if (!response.ok || !payload?.preview) {
+        throw new Error(payload?.error || 'Could not link that Hattrick match.');
+      }
+
+      return payload.preview;
+    },
+    [tournament],
+  );
+
+  const previewHtMatchLink = useCallback(
+    (matchId: string, htMatchId: string) => requestHtMatchLink(matchId, htMatchId, true),
+    [requestHtMatchLink],
+  );
+
+  const saveHtMatchLink = useCallback(
+    async (matchId: string, htMatchId: string) => {
+      const preview = await requestHtMatchLink(matchId, htMatchId, false);
+      if (preview.ht_match_id && tournament) {
+        await fetch(`/api/chpp/live-matches?tournament_id=${tournament.id}&match_ids=${preview.ht_match_id}`);
+      }
+      await fetchData();
+    },
+    [fetchData, requestHtMatchLink, tournament],
+  );
+
   useEffect(() => {
     if (activeTab !== 'fixtures' || !tournament) return;
 
@@ -1412,6 +1540,67 @@ export const TournamentView: React.FC = () => {
     setFailedLoginAttempt(false);
     localStorage.removeItem(`admin_pw_${slug}`);
     localStorage.removeItem(`admin_auth_${slug}`);
+  };
+
+  const updateTournamentLifecycleStatus = async (
+    status: TournamentStatus,
+    options: { isPrivate?: boolean } = {},
+  ) => {
+    if (!tournament) return;
+    const updatePayload: Partial<Pick<Tournament, 'status' | 'is_private'>> = { status };
+    if (options.isPrivate !== undefined) updatePayload.is_private = options.isPrivate;
+
+    const { error } = await supabase.from('tournaments').update(updatePayload).eq('id', tournament.id);
+    if (error) {
+      alert(error.message);
+      return;
+    }
+
+    setTournament((prev) => (prev ? { ...prev, ...updatePayload } : prev));
+  };
+
+  const handlePauseTournament = async () => {
+    if (!tournament) return;
+    const confirmed = window.confirm(
+      'Pause this tournament?\n\nPaused tournaments stay joinable and editable, but schedule management is hidden until you set it active again.',
+    );
+    if (!confirmed) return;
+
+    await updateTournamentLifecycleStatus('paused');
+  };
+
+  const handleStopTournament = async () => {
+    if (!tournament) return;
+    const confirmed = window.confirm(
+      'Fully stop this tournament?\n\nStopping halts the tournament, unpublishes it from public lists and allows teams to join other tournaments.',
+    );
+    if (!confirmed) return;
+    if (!confirmAdminPassword()) return;
+
+    await updateTournamentLifecycleStatus('stopped');
+  };
+
+  const handleMoveStoppedToPaused = async () => {
+    if (!tournament) return;
+    if (!confirmAdminPassword()) return;
+
+    if (playingElsewhereTeamIds.size > 0) {
+      const teamNames = teams
+        .filter((team) => team.ht_team_id && playingElsewhereTeamIds.has(team.ht_team_id))
+        .map((team) => team.name)
+        .join(', ');
+      alert(
+        `Tournament cannot be moved to paused while ${teamNames || 'one team'} is playing elsewhere. Remove or replace that team first.`,
+      );
+      return;
+    }
+
+    await updateTournamentLifecycleStatus('paused');
+  };
+
+  const handleSetPausedTournamentActive = async () => {
+    const nextStatus = isGenerated ? 'active' : 'open';
+    await updateTournamentLifecycleStatus(nextStatus);
   };
 
   const getParticipantAudienceHtUserIds = useCallback(
@@ -1958,6 +2147,7 @@ export const TournamentView: React.FC = () => {
 
   const reconcileTournamentTeamState = async (updatedTeams: Team[]) => {
     if (!tournament || isSandbox) return;
+    if (tournament.status === 'stopped' || tournament.status === 'finished') return;
 
     const registeredTeams = updatedTeams.filter((team) => !team.is_placeholder);
     const activeTeams = registeredTeams.filter((team) => team.active);
@@ -2161,6 +2351,9 @@ export const TournamentView: React.FC = () => {
   const tournamentId = tournament?.id ?? null;
   const activeRealTeamsCount = teams.filter((team) => team.active && !team.is_placeholder).length;
   const isSandbox = tournament ? isSandboxTournament(tournament.registration_type) : false;
+  const isPausedTournament = tournament?.status === 'paused';
+  const isStoppedTournament = tournament?.status === 'stopped';
+  const canManageSchedule = Boolean(tournament && !isPausedTournament && !isStoppedTournament);
   const sandboxTeamLimitReached = Boolean(tournament?.max_teams && activeRealTeamsCount >= tournament.max_teams);
   const canManageSandboxTeams = Boolean(tournament && isSandbox && isAdminAuthenticated && !isGenerated);
   const canAddSandboxTeam = Boolean(canManageSandboxTeams && !sandboxTeamLimitReached);
@@ -2172,6 +2365,7 @@ export const TournamentView: React.FC = () => {
       isGenerated,
       maxTeams: tournament.max_teams,
       teams,
+      status: tournament.status,
     }),
   );
   const normalizedRegistrationType = tournament
@@ -2370,7 +2564,31 @@ export const TournamentView: React.FC = () => {
           </div>
         </div>
 
-        {isGenerated && !isHealthQuotaMet() && (
+        {tournament.status === 'paused' && (
+          <div className={styles.testNotice}>
+            <div>
+              <h3>Tournament paused</h3>
+              <p>
+                This tournament is postponed. Teams can still join and admins can edit participants, but schedule
+                management is hidden until the tournament is set active again.
+              </p>
+            </div>
+          </div>
+        )}
+
+        {tournament.status === 'stopped' && (
+          <div className={styles.testNotice}>
+            <div>
+              <h3>Tournament fully stopped</h3>
+              <p>
+                This tournament is halted and unpublished. Teams listed here are allowed to join other tournaments.
+                Admins can move it back to paused when they are ready to rebuild the participant list.
+              </p>
+            </div>
+          </div>
+        )}
+
+        {isGenerated && !isHealthQuotaMet() && tournament.status !== 'stopped' && (
           <div className={styles.pauseNotice}>
             <div>
               <h3>Tournament Paused</h3>
@@ -2710,25 +2928,29 @@ export const TournamentView: React.FC = () => {
               )}
             </div>
           </SectionCard>
+          <FaqRenderer sections={tournamentFaqSections} className={styles.tournamentFaq} />
         </div>
       )}
 
       {activeTab === 'standings' && (
         <div className={styles.standingsContainer}>
-          <StandingsView
-            standings={standings}
-            is120minMode={is120minMode}
-            myHtUserId={myHtUserId}
-            tournament={tournament}
-            lastSeenMap={lastSeenMap}
-            onRefreshPresence={fetchPresenceOnly}
-            canJoinTournament={canJoinTournament}
-            isConnecting={isConnecting}
-            onJoinWithHattrick={() => {
-              setIsConnecting(true);
-              window.location.href = `/api/auth/init?tournament_id=${tournament?.id}`;
-            }}
-          />
+          <div className={styles.mainColumn}>
+            <StandingsView
+              standings={standings}
+              is120minMode={is120minMode}
+              myHtUserId={myHtUserId}
+              tournament={tournament}
+              lastSeenMap={lastSeenMap}
+              onRefreshPresence={fetchPresenceOnly}
+              canJoinTournament={canJoinTournament}
+              isConnecting={isConnecting}
+              onJoinWithHattrick={() => {
+                setIsConnecting(true);
+                window.location.href = `/api/auth/init?tournament_id=${tournament?.id}`;
+              }}
+            />
+            <FaqRenderer sections={tournamentFaqSections} className={styles.tournamentFaq} />
+          </div>
           <aside className={styles.statsSidebar}>
             <MottoWidget items={TOURNAMENT_DEFAULT} theme="dark" variant="sidebar" />
             <ChatView
@@ -3066,7 +3288,7 @@ export const TournamentView: React.FC = () => {
                     </Button>
                   </SectionCard>
 
-                  {!isGenerated && (
+                  {!isGenerated && canManageSchedule && (
                     <TournamentSchedulePanel
                       isGenerated={isGenerated}
                       isCollapsed={resolvedScheduleCollapsed}
@@ -3099,10 +3321,12 @@ export const TournamentView: React.FC = () => {
                       matchData={matchData}
                       setMatchData={setMatchData as any}
                       currentRoundId={currentRoundIdForResults ?? undefined}
+                      previewHtMatchLink={previewHtMatchLink}
+                      saveHtMatchLink={saveHtMatchLink}
                     />
                   )}
 
-                  {isGenerated && (
+                  {isGenerated && canManageSchedule && (
                     <TournamentSchedulePanel
                       isGenerated={isGenerated}
                       isCollapsed={resolvedScheduleCollapsed}
@@ -3235,6 +3459,12 @@ export const TournamentView: React.FC = () => {
                             <div className={styles.nameRow}>
                               <span className={adminStyles.name}>{team.name}</span>
                               {team.joined_via_oauth && <span title="Hattrick Validated Team"></span>}
+                              {isStoppedTournament &&
+                                team.active &&
+                                team.ht_team_id &&
+                                playingElsewhereTeamIds.has(team.ht_team_id) && (
+                                  <span className={adminStyles.playingElsewhere}>PLAYING ELSEWHERE!</span>
+                                )}
                             </div>
                             {team.ht_team_id && <span className={adminStyles.id}>ID: {team.ht_team_id}</span>}
                             {!team.active && <span className={adminStyles.statusBadge}>Inactive</span>}
@@ -3463,19 +3693,71 @@ export const TournamentView: React.FC = () => {
               </div>
 
               <div className={adminStyles.footerActions}>
-                <Button variant="outline" size="sm" onClick={() => window.confirm('Pause this tournament?')}>
-                  Pause Tournament
-                </Button>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => window.confirm('Archive this tournament? (Only if seasons finished)')}
-                >
-                  Archive Tournament
-                </Button>
-                <Button variant="outline" size="sm" onClick={handleAdminLogout}>
-                  Logout
-                </Button>
+                {tournament.status === 'finished' ? (
+                  <>
+                    <p className={adminStyles.lifecycleHelp}>
+                      This tournament is finished. Its history stays visible, but participating teams can join or create
+                      other tournaments.
+                    </p>
+                    <div className={adminStyles.lifecycleButtons}>
+                      <Button variant="outline" size="sm" disabled>
+                        Finished
+                      </Button>
+                    </div>
+                  </>
+                ) : tournament.status === 'stopped' ? (
+                  <>
+                    <p className={adminStyles.lifecycleHelp}>
+                      This tournament is fully stopped and unpublished. Teams may join other tournaments. Move it to
+                      paused only after removing or replacing any team already playing elsewhere.
+                    </p>
+                    <div className={adminStyles.lifecycleButtons}>
+                      <Button variant="primary" size="sm" onClick={handleMoveStoppedToPaused}>
+                        Full stopped. Move to paused.
+                      </Button>
+                    </div>
+                  </>
+                ) : tournament.status === 'paused' ? (
+                  <>
+                    <p className={adminStyles.lifecycleHelp}>
+                      This tournament is paused. Teams can still join and admins can edit participants, but schedule
+                      generation and rescheduling stay hidden until it is active.
+                    </p>
+                    <div className={adminStyles.lifecycleButtons}>
+                      <Button variant="primary" size="sm" onClick={handleSetPausedTournamentActive}>
+                        Paused. Set as active!
+                      </Button>
+                    </div>
+                  </>
+                ) : (
+                  <>
+                    <p className={adminStyles.lifecycleHelp}>
+                      This tournament is active. Pause it to wait for teams or take a break. Stop it to halt the
+                      tournament, unpublish it and allow participants to play elsewhere.
+                    </p>
+                    <div className={adminStyles.lifecycleButtons}>
+                      <Button variant="outline" size="sm" onClick={handlePauseTournament}>
+                        Pause Tournament
+                      </Button>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={handleStopTournament}
+                        data-tooltip-id="admin-tooltip"
+                        data-tooltip-content={
+                          'Stopping a tournament means the schedule is halted, the tournament is unpublished from public lists, and participants are allowed to join another tournament.'
+                        }
+                      >
+                        Stop Tournament
+                      </Button>
+                    </div>
+                  </>
+                )}
+                <div className={adminStyles.lifecycleButtons}>
+                  <Button variant="outline" size="sm" onClick={handleAdminLogout}>
+                    Logout
+                  </Button>
+                </div>
                 {/* PERMANENTLY DELETE TOURNAMENT *
                 <Button
                   variant="danger"

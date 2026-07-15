@@ -84,7 +84,39 @@ export function calculateStandings(
   // Process completed matches
   matches.forEach((m) => {
     if (!m.completed || m.home_goals === null || m.away_goals === null) return;
-    if (!m.home_team_id || !m.away_team_id) return;
+
+    if (!m.home_team_id || !m.away_team_id) {
+      const teamId = m.home_team_id || m.away_team_id;
+      if (!teamId) return;
+
+      const team = standingsMap[teamId];
+      if (!team) return;
+
+      const teamGoals = m.home_team_id ? m.home_goals : m.away_goals;
+      const opponentGoals = m.home_team_id ? m.away_goals : m.home_goals;
+
+      team.played++;
+      team.gf += teamGoals;
+      team.ga += opponentGoals;
+      team.gd = team.gf - team.ga;
+
+      if (teamGoals > opponentGoals) {
+        team.won++;
+        team.pts += 3;
+      } else if (teamGoals < opponentGoals) {
+        team.lost++;
+      } else {
+        team.drawn++;
+        team.pts += 1;
+      }
+
+      if (m.went_120) {
+        team.achievements120min++;
+      }
+
+      team.totalMinutes += m.total_minutes || 90;
+      return;
+    }
 
     const home = standingsMap[m.home_team_id];
     const away = standingsMap[m.away_team_id];

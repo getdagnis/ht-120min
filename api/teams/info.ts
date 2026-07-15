@@ -62,7 +62,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             is_test?: boolean | null;
             registration_type?: string | null;
           } | null;
-          return t && t.status !== 'finished' && !t.is_test && t.registration_type !== 'sandbox';
+          return t && t.status !== 'finished' && t.status !== 'stopped' && !t.is_test && t.registration_type !== 'sandbox';
         });
         if (activeTournament) {
           const t = activeTournament.tournaments as unknown as { name: string };

@@ -74,3 +74,30 @@ test('current participant never sees join prompt', () => {
   );
 });
 
+test('paused tournament remains joinable under normal rules', () => {
+  assert.equal(
+    canViewerJoinTournament({
+      hasJoined: false,
+      isGenerated: false,
+      maxTeams: 4,
+      status: 'paused',
+      teams: [{ active: true }, { active: true }],
+    }),
+    true,
+  );
+});
+
+test('stopped and finished tournaments are not joinable', () => {
+  for (const status of ['stopped', 'finished', 'archived']) {
+    assert.equal(
+      canViewerJoinTournament({
+        hasJoined: false,
+        isGenerated: false,
+        maxTeams: 4,
+        status,
+        teams: [{ active: true }, { active: true }],
+      }),
+      false,
+    );
+  }
+});

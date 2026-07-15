@@ -70,6 +70,7 @@ interface FixturesViewProps {
     name: string;
     slug: string;
     created_at: string;
+    status?: string | null;
     last_fixtures_refresh: string | null;
   } | null;
   isRefreshingFixtures: boolean;
@@ -407,6 +408,8 @@ export const FixturesView: React.FC<FixturesViewProps> = ({
                         : isPastStartTime && isWithinLiveWindow
                           ? { home: 0, away: 0 }
                           : undefined;
+                    const isPostponed =
+                      tournament?.status === 'paused' && !match.completed && status !== 'misarranged';
                     const homeSummary = liveMatch
                       ? {
                           yellowCards: liveMatch.home_yellow_cards ?? match.home_yellow_cards ?? 0,
@@ -440,7 +443,7 @@ export const FixturesView: React.FC<FixturesViewProps> = ({
                     return (
                       <FixtureCard
                         key={match.id}
-                        date={status === 'misarranged' ? '' : formattedDate}
+                        date={status === 'misarranged' ? '' : isPostponed ? 'POSTPONED' : formattedDate}
                         status={status}
                         htMatchId={match.ht_match_id || undefined}
                         score={currentScore}

@@ -192,7 +192,229 @@ interface TeamWithAuth {
   country_name?: string;
 }
 
+interface ManualLinkMatchRow {
+  id: string;
+  home_team_id: string | null;
+  away_team_id: string | null;
+  home_team: { ht_team_id: number | null; name: string | null } | null;
+  away_team: { ht_team_id: number | null; name: string | null } | null;
+}
+
+interface ChppMatchDetails {
+  htMatchId: number;
+  matchType: number | null;
+  actualHtHomeTeamId: number | null;
+  actualHtAwayTeamId: number | null;
+  actualHomeTeamName: string | null;
+  actualAwayTeamName: string | null;
+  homeGoals: number;
+  awayGoals: number;
+  status: 'arranged' | 'ongoing' | 'finished';
+  completed: boolean;
+  went120: boolean;
+  totalMinutes: number;
+}
+
+function getBodyValue(req: VercelRequest, key: string) {
+  if (req.body && typeof req.body === 'object') return req.body[key];
+  if (typeof req.body === 'string') {
+    try {
+      const parsed = JSON.parse(req.body);
+      return parsed?.[key];
+    } catch {
+      return undefined;
+    }
+  }
+  return undefined;
+}
+
+async function fetchMatchDetailsById(
+  htMatchId: string,
+  oauthToken: string,
+  oauthTokenSecret: string,
+): Promise<ChppMatchDetails> {
+  const consumerKey = process.env.CHPP_CONSUMER_KEY;
+  const consumerSecret = process.env.CHPP_CONSUMER_SECRET;
+  const url = 'https://chpp.hattrick.org/chppxml.ashx';
+  const params = { file: 'matchdetails', version: '3.0', matchID: htMatchId, matchEvents: 'true' };
+  const authHeader = getAuthHeader('GET', url, params, consumerKey!, consumerSecret!, oauthToken, oauthTokenSecret);
+  const response = await fetch(`${url}?file=matchdetails&version=3.0&matchEvents=true&matchID=${htMatchId}`, {
+    headers: { Authorization: authHeader },
+  });
+  const xml = await response.text();
+
+  if (!response.ok || /<Error/i.test(xml)) {
+    throw new Error('Could not fetch that Hattrick match.');
+  }
+
+  const actualHtHomeTeamId =
+    parseInt(xml.match(/<HomeTeam>[\s\S]*?<HomeTeamID>(\d+)<\/HomeTeamID>/i)?.[1] || '0', 10) || null;
+  const actualHtAwayTeamId =
+    parseInt(xml.match(/<AwayTeam>[\s\S]*?<AwayTeamID>(\d+)<\/AwayTeamID>/i)?.[1] || '0', 10) || null;
+  const actualHomeTeamName = xml.match(/<HomeTeam>[\s\S]*?<HomeTeamName>([^<]+)<\/HomeTeamName>/i)?.[1] || null;
+  const actualAwayTeamName = xml.match(/<AwayTeam>[\s\S]*?<AwayTeamName>([^<]+)<\/AwayTeamName>/i)?.[1] || null;
+  const matchType = parseInt(readChppTag(xml, 'MatchType') || '0', 10) || null;
+  const finishedDate = readChppTag(xml, 'FinishedDate');
+  const matchStatus = readChppTag(xml, 'MatchStatus');
+  const finished = (finishedDate && finishedDate !== '0001-01-01 00:00:00') || matchStatus === '2';
+  const status = finished ? 'finished' : matchStatus === '1' ? 'ongoing' : 'arranged';
+  const addedMinutes = parseInt(readChppTag(xml, 'AddedMinutes') || '0', 10);
+  const went120 = xml.includes('<MatchPart>3</MatchPart>') || xml.includes('<MatchPart>4</MatchPart>');
+
+  return {
+    htMatchId: parseInt(htMatchId, 10),
+    matchType,
+    actualHtHomeTeamId,
+    actualHtAwayTeamId,
+    actualHomeTeamName,
+    actualAwayTeamName,
+    homeGoals: parseInt(readChppTag(xml, 'HomeGoals') || '0', 10),
+    awayGoals: parseInt(readChppTag(xml, 'AwayGoals') || '0', 10),
+    status,
+    completed: finished,
+    went120,
+    totalMinutes: (went120 ? 120 : 90) + addedMinutes,
+  };
+}
+
+function mapHattrickMatchToFixture(match: ManualLinkMatchRow, details: ChppMatchDetails) {
+  const scheduledHomeHtId = match.home_team?.ht_team_id ?? null;
+  const scheduledAwayHtId = match.away_team?.ht_team_id ?? null;
+  const actualHomeHtId = details.actualHtHomeTeamId;
+  const actualAwayHtId = details.actualHtAwayTeamId;
+
+  const homeSideMatchesActualHome = scheduledHomeHtId !== null && scheduledHomeHtId === actualHomeHtId;
+  const homeSideMatchesActualAway = scheduledHomeHtId !== null && scheduledHomeHtId === actualAwayHtId;
+  const awaySideMatchesActualHome = scheduledAwayHtId !== null && scheduledAwayHtId === actualHomeHtId;
+  const awaySideMatchesActualAway = scheduledAwayHtId !== null && scheduledAwayHtId === actualAwayHtId;
+  const matchedSides = [
+    homeSideMatchesActualHome || homeSideMatchesActualAway ? 'home' : null,
+    awaySideMatchesActualHome || awaySideMatchesActualAway ? 'away' : null,
+  ].filter(Boolean);
+
+  if (matchedSides.length === 0) {
+    return null;
+  }
+
+  let homeGoals: number;
+  let awayGoals: number;
+
+  if (homeSideMatchesActualHome) {
+    homeGoals = details.homeGoals;
+    awayGoals = details.awayGoals;
+  } else if (homeSideMatchesActualAway) {
+    homeGoals = details.awayGoals;
+    awayGoals = details.homeGoals;
+  } else if (awaySideMatchesActualHome) {
+    awayGoals = details.homeGoals;
+    homeGoals = details.awayGoals;
+  } else {
+    awayGoals = details.awayGoals;
+    homeGoals = details.homeGoals;
+  }
+
+  const venueMismatch = Boolean(
+    scheduledHomeHtId &&
+      scheduledAwayHtId &&
+      scheduledHomeHtId === actualAwayHtId &&
+      scheduledAwayHtId === actualHomeHtId,
+  );
+
+  return {
+    homeGoals,
+    awayGoals,
+    venueMismatch,
+    matchedBothTournamentTeams:
+      Boolean(scheduledHomeHtId && (homeSideMatchesActualHome || homeSideMatchesActualAway)) &&
+      Boolean(scheduledAwayHtId && (awaySideMatchesActualHome || awaySideMatchesActualAway)),
+  };
+}
+
+async function handleManualMatchLink(req: VercelRequest, res: VercelResponse) {
+  const supabase = getSupabase();
+  const matchId = String(getBodyValue(req, 'matchId') || '');
+  const htMatchId = String(getBodyValue(req, 'htMatchId') || '').replace(/\D/g, '');
+  const dryRun = Boolean(getBodyValue(req, 'dryRun'));
+
+  if (!matchId || !htMatchId) return res.status(400).json({ error: 'Missing match id.' });
+
+  const { data: authTeam } = await supabase
+    .from('teams')
+    .select('oauth_token, oauth_token_secret')
+    .not('oauth_token', 'is', null)
+    .limit(1)
+    .single();
+
+  if (!authTeam?.oauth_token) return res.status(401).json({ error: 'No CHPP-authenticated team available.' });
+
+  const { data: match } = await supabase
+    .from('matches')
+    .select(
+      `
+      id,
+      home_team_id,
+      away_team_id,
+      home_team:teams!matches_home_team_id_fkey(ht_team_id, name),
+      away_team:teams!matches_away_team_id_fkey(ht_team_id, name)
+    `,
+    )
+    .eq('id', matchId)
+    .single();
+
+  if (!match) return res.status(404).json({ error: 'Tournament match not found.' });
+
+  const details = await fetchMatchDetailsById(htMatchId, authTeam.oauth_token, authTeam.oauth_token_secret || '');
+  if (!details.matchType || ![4, 5, 8, 9].includes(details.matchType)) {
+    return res.status(400).json({ error: 'That Hattrick match is not a friendly match.' });
+  }
+
+  const mapping = mapHattrickMatchToFixture(match as unknown as ManualLinkMatchRow, details);
+  if (!mapping) {
+    return res.status(400).json({ error: 'That match does not include any team from this fixture.' });
+  }
+
+  const preview = {
+    ht_match_id: details.htMatchId,
+    match_type: details.matchType,
+    status: details.status,
+    completed: details.completed,
+    actual_home_team_id: details.actualHtHomeTeamId,
+    actual_away_team_id: details.actualHtAwayTeamId,
+    actual_home_team_name: details.actualHomeTeamName,
+    actual_away_team_name: details.actualAwayTeamName,
+    home_goals: mapping.homeGoals,
+    away_goals: mapping.awayGoals,
+    went_120: details.went120,
+    total_minutes: details.totalMinutes,
+    matched_both_tournament_teams: mapping.matchedBothTournamentTeams,
+  };
+
+  if (!dryRun) {
+    const updatePayload = {
+      ht_match_id: details.htMatchId,
+      match_type: details.matchType,
+      status: details.status,
+      completed: details.completed,
+      home_goals: details.completed || details.status === 'ongoing' ? mapping.homeGoals : null,
+      away_goals: details.completed || details.status === 'ongoing' ? mapping.awayGoals : null,
+      went_120: details.went120,
+      total_minutes: details.totalMinutes,
+      venue_mismatch: mapping.venueMismatch,
+      actual_ht_home_team_id: details.actualHtHomeTeamId,
+      actual_ht_away_team_id: details.actualHtAwayTeamId,
+    };
+    const { error } = await supabase.from('matches').update(updatePayload).eq('id', matchId);
+    if (error) return res.status(500).json({ error: error.message });
+  }
+
+  return res.status(200).json({ ok: true, preview });
+}
+
 export default async function handler(req: VercelRequest, res: VercelResponse) {
+  if (req.method === 'POST' && getBodyValue(req, 'action') === 'link_match') {
+    return handleManualMatchLink(req, res);
+  }
+
   const { tournament_id } = req.query;
   if (!tournament_id) return res.status(400).json({ error: 'Missing tournament_id' });
   const contextOnly = String(req.query.context_only || req.query.contextOnly || '') === '1';

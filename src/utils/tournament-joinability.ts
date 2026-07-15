@@ -8,10 +8,12 @@ interface TournamentJoinabilityInput {
   isGenerated: boolean;
   maxTeams: number | null | undefined;
   teams: TournamentJoinabilityTeam[];
+  status?: string | null;
 }
 
-export function canViewerJoinTournament({ hasJoined, isGenerated, maxTeams, teams }: TournamentJoinabilityInput) {
+export function canViewerJoinTournament({ hasJoined, isGenerated, maxTeams, teams, status }: TournamentJoinabilityInput) {
   if (hasJoined) return false;
+  if (status === 'stopped' || status === 'finished' || status === 'archived') return false;
 
   const activeRealTeams = teams.filter((team) => team.active && !team.is_placeholder);
   const hasInactiveRealSpot = teams.some((team) => !team.active && !team.is_placeholder);
@@ -23,4 +25,3 @@ export function canViewerJoinTournament({ hasJoined, isGenerated, maxTeams, team
 
   return !maxTeams || activeRealTeams.length < maxTeams;
 }
-

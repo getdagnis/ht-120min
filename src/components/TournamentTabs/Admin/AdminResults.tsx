@@ -1,7 +1,7 @@
 import React from 'react';
 import { SectionCard } from '../../Card/SectionCard';
 import { Button } from '../../Button/Button';
-import { Check, ArrowClockwise, X, PencilSimple } from 'phosphor-react';
+import { Check, ArrowClockwise, X, PencilSimple, LinkSimple } from 'phosphor-react';
 import { getCountryFlagUrl, getLeagueFlagUrl } from '../../../utils/ht-data';
 import { getHattrickWeekDetails } from '../../../utils/hattrick-calendar';
 import adminStyles from '../../../pages/Public/TournamentAdmin.module.sass';
@@ -28,6 +28,7 @@ interface MatchWithTeams {
   went_120: boolean;
   total_minutes: number;
   status?: 'not_arranged' | 'arranged' | 'ongoing' | 'misarranged' | 'finished';
+  ht_match_id?: number | null;
   scheduled_for?: string | null;
   match_date?: Date | null;
   home_team: ResultTeam | null;
@@ -49,6 +50,18 @@ interface AdminResultsProps {
   matchData: Record<string, Partial<MatchWithTeams>>;
   setMatchData: React.Dispatch<React.SetStateAction<Record<string, Partial<MatchWithTeams>>>>;
   currentRoundId?: string;
+  previewHtMatchLink: (matchId: string, htMatchId: string) => Promise<HtMatchLinkPreview>;
+  saveHtMatchLink: (matchId: string, htMatchId: string) => Promise<void>;
+}
+
+interface HtMatchLinkPreview {
+  ht_match_id: number;
+  actual_home_team_name: string | null;
+  actual_away_team_name: string | null;
+  home_goals: number;
+  away_goals: number;
+  status: 'arranged' | 'ongoing' | 'finished';
+  matched_both_tournament_teams: boolean;
 }
 
 const AdminResultTeam: React.FC<{ team: ResultTeam | null; side: 'home' | 'away' }> = ({ team, side }) => {
@@ -115,6 +128,19 @@ const ResultEditButton: React.FC<{
   );
 };
 
+const ResultLinkButton: React.FC<{ onClick: () => void }> = ({ onClick }) => (
+  <Button
+    size="xs"
+    variant="outline"
+    onClick={onClick}
+    title="Link Hattrick match"
+    data-tooltip-id="admin-tooltip"
+    data-tooltip-content="Link Hattrick match by Match ID"
+  >
+    <LinkSimple size={16} />
+  </Button>
+);
+
 function getRoundDisplayDate(round: AdminResultsProps['rounds'][number]) {
   const match = round.matches.find((item) => item.scheduled_for || item.match_date) ?? null;
   if (!match) return null;
@@ -146,7 +172,133 @@ export const AdminResults: React.FC<AdminResultsProps> = ({
   matchData,
   setMatchData,
   currentRoundId,
+  previewHtMatchLink,
+  saveHtMatchLink,
 }) => {
+  const [linkingMatchId, setLinkingMatchId] = React.useState<string | null>(null);
+  const [linkInput, setLinkInput] = React.useState('');
+  const [linkPreview, setLinkPreview] = React.useState<HtMatchLinkPreview | null>(null);
+  const [linkError, setLinkError] = React.useState('');
+  const [isCheckingLink, setIsCheckingLink] = React.useState(false);
+  const [isSavingLink, setIsSavingLink] = React.useState(false);
+
+  React.useEffect(() => {
+    setLinkPreview(null);
+    setLinkError('');
+
+    if (!linkingMatchId) return;
+    const htMatchId = linkInput.replace(/\D/g, '');
+    if (htMatchId.length < 5) return;
+
+    let cancelled = false;
+    const timer = window.setTimeout(async () => {
+      setIsCheckingLink(true);
+      try {
+        const preview = await previewHtMatchLink(linkingMatchId, htMatchId);
+        if (!cancelled) setLinkPreview(preview);
+      } catch (error) {
+        const message = error instanceof Error ? error.message : 'Could not link that match.';
+        if (!cancelled) setLinkError(message);
+      } finally {
+        if (!cancelled) setIsCheckingLink(false);
+      }
+    }, 450);
+
+    return () => {
+      cancelled = true;
+      window.clearTimeout(timer);
+    };
+  }, [linkInput, linkingMatchId, previewHtMatchLink]);
+
+  const startLinking = (match: MatchWithTeams) => {
+    setEditingMatch(null);
+    setLinkingMatchId(match.id);
+    setLinkInput(match.ht_match_id ? String(match.ht_match_id) : '');
+    setLinkPreview(null);
+    setLinkError('');
+  };
+
+  const cancelLinking = () => {
+    setLinkingMatchId(null);
+    setLinkInput('');
+    setLinkPreview(null);
+    setLinkError('');
+    setIsCheckingLink(false);
+  };
+
+  const handleSaveLink = async () => {
+    if (!linkingMatchId || !linkPreview) return;
+    setIsSavingLink(true);
+    try {
+      await saveHtMatchLink(linkingMatchId, String(linkPreview.ht_match_id));
+      cancelLinking();
+    } finally {
+      setIsSavingLink(false);
+    }
+  };
+
+  const renderLinkEditor = () => (
+    <div className={adminStyles.linkActions}>
+      <input
+        type="text"
+        inputMode="numeric"
+        maxLength={10}
+        value={linkInput}
+        onChange={(event) => setLinkInput(event.target.value.replace(/\D/g, ''))}
+        placeholder="Match ID"
+        className={adminStyles.matchIdInput}
+      />
+      <Button
+        size="xs"
+        onClick={handleSaveLink}
+        variant="primary"
+        disabled={!linkPreview || isSavingLink}
+        title="Save linked match"
+        data-tooltip-id="admin-tooltip"
+        data-tooltip-content={
+          linkPreview
+            ? `${linkPreview.actual_home_team_name || 'Home'} vs ${linkPreview.actual_away_team_name || 'Away'}`
+            : isCheckingLink
+              ? 'Checking match...'
+              : linkError || 'Enter a valid Match ID'
+        }
+      >
+        <Check size={16} />
+      </Button>
+      <Button
+        size="xs"
+        variant="outline"
+        onClick={cancelLinking}
+        title="Cancel"
+        data-tooltip-id="admin-tooltip"
+        data-tooltip-content="Cancel"
+      >
+        <X size={16} />
+      </Button>
+    </div>
+  );
+
+  const renderMatchActions = (match: MatchWithTeams, hasResult: boolean, roundId: string) => (
+    <div className={adminStyles.editActions}>
+      {linkingMatchId === match.id ? (
+        renderLinkEditor()
+      ) : (
+        <>
+          <ResultLinkButton onClick={() => startLinking(match)} />
+          <ResultEditButton
+            match={match}
+            hasResult={hasResult}
+            roundId={roundId}
+            currentRoundId={currentRoundId}
+            matchData={matchData}
+            setEditingMatch={setEditingMatch}
+            setMatchData={setMatchData}
+          />
+        </>
+      )}
+    </div>
+  );
+
   return (
     <SectionCard
       title="Results Entry"
@@ -177,20 +329,7 @@ export const AdminResults: React.FC<AdminResultsProps> = ({
                       <AdminResultTeam team={match.away_team} side="away" />
                     </div>
 
-                    {isBye ? (
-                      <>
-                        <div className={adminStyles.matchResult}>
-                          <span
-                            className={adminStyles.byeInfo}
-                            data-tooltip-id="admin-tooltip"
-                            data-tooltip-content={`${byeTeam?.name || 'Team'} has a BYE. Record any outside-friendly result manually later.`}
-                          >
-                            BYE
-                          </span>
-                        </div>
-                        <div className={adminStyles.matchActions} />
-                      </>
-                    ) : editingMatch === match.id ? (
+                    {editingMatch === match.id ? (
                       <>
                         <div className={adminStyles.matchEdit}>
                           <div className={adminStyles.scoreActionRow}>
@@ -316,6 +455,31 @@ export const AdminResults: React.FC<AdminResultsProps> = ({
                           </div>
                         </div>
                       </>
+                    ) : isBye ? (
+                      <>
+                        <div className={adminStyles.matchResult}>
+                          {hasResult && (
+                            <div className={adminStyles.resultTopRow}>
+                              <div className={adminStyles.score}>
+                                <span>
+                                  {match.home_goals} - {match.away_goals}
+                                </span>
+                                <ResultMinutes minutes={match.total_minutes} went120={match.went_120} />
+                              </div>
+                            </div>
+                          )}
+                          <span
+                            className={adminStyles.byeInfo}
+                            data-tooltip-id="admin-tooltip"
+                            data-tooltip-content={`${byeTeam?.name || 'Team'} has a BYE. Record any outside-friendly result manually later.`}
+                          >
+                            BYE
+                          </span>
+                        </div>
+                        <div className={adminStyles.matchActions}>
+                          {renderMatchActions(match, hasResult, round.id)}
+                        </div>
+                      </>
                     ) : (
                       <>
                         <div className={adminStyles.matchResult}>
@@ -345,15 +509,7 @@ export const AdminResults: React.FC<AdminResultsProps> = ({
                           ) : null}
                         </div>
                         <div className={adminStyles.matchActions}>
-                          <ResultEditButton
-                            match={match}
-                            hasResult={hasResult}
-                            roundId={round.id}
-                            currentRoundId={currentRoundId}
-                            matchData={matchData}
-                            setEditingMatch={setEditingMatch}
-                            setMatchData={setMatchData}
-                          />
+                          {renderMatchActions(match, hasResult, round.id)}
                         </div>
                       </>
                     )}

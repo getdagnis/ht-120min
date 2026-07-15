@@ -71,6 +71,8 @@ export const fetchOpenTournaments = async (): Promise<OpenTournamentSummary[]> =
     .filter(
       (tournament) =>
         !tournament.is_test &&
+        tournament.status !== 'stopped' &&
+        tournament.status !== 'finished' &&
         tournament.status !== 'archived' &&
         !tournament.is_archived &&
         (tournament.rounds?.length ?? 0) === 0,

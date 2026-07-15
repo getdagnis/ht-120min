@@ -71,6 +71,10 @@ interface DBTournament {
   slug: string;
   created_at: string;
   is_featured?: boolean | null;
+  status?: string | null;
+  is_archived?: boolean | null;
+  is_test?: boolean | null;
+  registration_type?: string | null;
   rounds: DBRound[] | null;
 }
 
@@ -130,6 +134,10 @@ export const useAuth = () => {
             slug, 
             created_at,
             is_featured,
+            status,
+            is_archived,
+            is_test,
+            registration_type,
             rounds (
               id,
               created_at,
@@ -168,6 +176,16 @@ export const useAuth = () => {
       for (const t of teamsData ?? []) {
         const tournament = t.tournaments;
         if (!tournament) continue;
+        if (
+          tournament.status === 'finished' ||
+          tournament.status === 'stopped' ||
+          tournament.status === 'archived' ||
+          tournament.is_archived ||
+          tournament.is_test ||
+          tournament.registration_type === 'sandbox'
+        ) {
+          continue;
+        }
 
         toursMap.set(tournament.id, {
           id: tournament.id,

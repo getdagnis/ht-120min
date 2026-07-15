@@ -193,7 +193,14 @@ export const Home: React.FC = () => {
         const tournamentsData = tournaments as unknown as DBTournament[];
 
         tournamentsData
-          .filter((t) => !t.is_test && t.status !== 'archived' && !t.is_archived)
+          .filter(
+            (t) =>
+              !t.is_test &&
+              t.status !== 'stopped' &&
+              t.status !== 'finished' &&
+              t.status !== 'archived' &&
+              !t.is_archived,
+          )
           .forEach((t: DBTournament) => {
           // Count validated teams
           const validatedTeamCount = t.teams.filter((team) => team.joined_via_oauth).length;

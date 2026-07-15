@@ -286,6 +286,7 @@
 .match
   display: grid
   grid-template-columns: minmax(0, 1fr) 9.5rem 8.5rem
+  grid-template-areas: "teams result actions"
   align-items: center
   gap: 1rem
   padding: 16px 0
@@ -293,6 +294,11 @@
 
   &:last-child
     border-bottom: none
+
+  @media (max-width: 1180px)
+    grid-template-columns: 1fr
+    grid-template-areas: "teams" "result" "actions"
+    gap: 0.85rem
 
   @media (max-width: 640px)
     display: flex
@@ -302,6 +308,7 @@
     text-align: center
 
 .matchTeams
+  grid-area: teams
   display: grid
   grid-template-columns: minmax(0, 1fr) 3rem minmax(0, 1fr)
   align-items: center
@@ -327,6 +334,7 @@
       transform: none
 
 .matchResult
+  grid-area: result
   display: flex
   align-items: center
   justify-content: flex-end
@@ -341,6 +349,7 @@
     gap: 0.5rem
 
 .matchActions
+  grid-area: actions
   display: flex
   align-items: center
   justify-content: flex-end
@@ -384,9 +393,10 @@
   box-shadow: 0 1px 2px rgba(0, 0, 0, 0.16)
 
 .resultTeamLink
-  display: inline-flex
-  align-items: baseline
-  gap: 0.45rem
+  display: flex
+  flex-direction: column
+  align-items: flex-start
+  gap: 0.1rem
   min-width: 0
   color: var(--text-h)
   text-decoration: none
@@ -401,12 +411,14 @@
   line-height: 1.15
   min-width: 0
   overflow-wrap: anywhere
+  word-break: normal
 
 .resultTeamId
   color: var(--text60)
-  font-size: 0.9rem
+  font-size: 0.75rem
   font-family: var(--mono)
   font-weight: 600
+  line-height: 1.1
 
 .resultTeamFree
   color: var(--accent)
@@ -453,6 +465,7 @@
   letter-spacing: 0.04em
 
 .matchEdit
+  grid-area: result
   display: flex
   align-items: center
   gap: 1rem
@@ -538,10 +551,39 @@
 
 .editActions
   display: flex
+  align-items: center
   gap: 0.45rem
+  flex-wrap: nowrap
 
   @media (max-width: 640px)
     justify-content: center
+
+.linkActions
+  display: flex
+  align-items: center
+  gap: 0.45rem
+  flex-wrap: nowrap
+  justify-content: flex-end
+
+  @media (max-width: 640px)
+    justify-content: center
+
+.matchIdInput
+  width: 11ch
+  min-width: 11ch
+  padding: 0.42rem 0.5rem
+  border: 1px solid var(--border)
+  border-radius: var(--radius-xs)
+  background: var(--table-bg)
+  color: var(--text-h)
+  font-family: var(--heading)
+  font-size: 0.8rem
+  font-weight: 700
+  text-align: center
+
+  &:focus
+    outline: none
+    border-color: var(--accent)
 
 .settingsGroup
   display: flex
@@ -893,9 +935,30 @@
   padding-top: 2rem
   border-top: 1px solid var(--border)
   display: flex
+  flex-direction: column
+  align-items: center
   gap: 1rem
+
+.lifecycleHelp
+  margin: 0
+  max-width: 48rem
+  color: var(--text60)
+  font-size: 0.95rem
+  line-height: 1.45
+  text-align: center
+
+.lifecycleButtons
+  display: flex
   justify-content: center
+  gap: 1rem
   flex-wrap: wrap
+
+.playingElsewhere
+  margin-left: 0.5rem
+  color: var(--danger)
+  font-size: 0.75rem
+  font-weight: 800
+  text-transform: uppercase
 
 .simulatorSection
   margin: 3rem 0

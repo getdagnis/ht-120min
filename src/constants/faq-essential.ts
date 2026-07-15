@@ -209,6 +209,88 @@ export const getFaqItemById = (id: string): FaqItem | undefined =>
     .flatMap((section) => section.items)
     .find((item) => item.id === id);
 
+export const getTournamentFaqSections = (): FaqSection[] => [
+  {
+    id: 'tournament-faq',
+    title: 'Tournament FAQ',
+    order: 1,
+    items: [
+      {
+        id: 'tournament-how-it-works',
+        question: 'How does this tournament work?',
+        answer: `The organizer opens registration, creates the schedule and uses this page to manage fixtures, results, standings, news and chat.
+
+Managers still arrange their friendlies in Hattrick. HT-120min checks those Hattrick matches, links them to tournament fixtures and updates results when match data is available.`,
+        status: 'current',
+      },
+      {
+        id: 'tournament-bye-result',
+        question: 'Can a BYE round still count?',
+        answer: `A BYE means your team has no tournament opponent in that round.
+
+If the organizer's house rules allow it, the admin can manually enter an outside-friendly result or link a specific Hattrick match ID. In that case, the result counts only for the tournament team that had the BYE.`,
+        status: 'current',
+      },
+      {
+        id: 'tournament-linked-match-id',
+        question: 'Why would an organizer link a Match ID manually?',
+        answer: `Manual Match ID linking is for exceptions.
+
+Examples include a BYE team playing an outside friendly, two teams moving their match to a different friendly slot, or an organizer choosing to count a related match even when the automatic checker would not select it.`,
+        status: 'current',
+      },
+      {
+        id: 'tournament-moved-friendly',
+        question: 'Can a rearranged friendly still count?',
+        answer: `Yes, if the tournament organizer decides it should.
+
+The automatic checker looks for the expected fixture. If teams play on another date or in another valid friendly slot, the organizer can link that Hattrick match manually so HT-120min follows it and records the result.`,
+        status: 'current',
+      },
+      {
+        id: 'tournament-one-team-linked',
+        question: 'Why can a linked match count when only one tournament team is detected?',
+        answer: `This gives organizers flexibility for real-world exceptions and test tournaments.
+
+If one scheduled team is detected in the linked Hattrick match, HT-120min can map that team's score into the fixture. The organizer can still edit the recorded result afterwards if the tournament rules require a different interpretation.`,
+        status: 'current',
+      },
+      {
+        id: 'tournament-finished-release',
+        question: 'What happens when all rounds are finished?',
+        answer: `When all real tournament fixtures are completed or resolved, the tournament becomes finished.
+
+Finished tournaments remain visible as history, but teams are released from active participation so they can join or create other tournaments.`,
+        status: 'current',
+      },
+      {
+        id: 'tournament-paused',
+        question: 'What does it mean when a tournament is paused?',
+        answer: `A paused tournament is postponed, not ended.
+
+Teams can still join and admins can manage participants, but schedule generation and rescheduling are hidden until the organizer sets the tournament active again. Existing teams are still treated as active participants, so they cannot freely join another real tournament while the tournament is only paused.`,
+        status: 'current',
+      },
+      {
+        id: 'tournament-stopped',
+        question: 'What does it mean when a tournament is fully stopped?',
+        answer: `A fully stopped tournament is halted and unpublished from public lists.
+
+Its teams may join other tournaments. If the organizer later wants to continue, the tournament must first move back to paused, and any team already playing elsewhere must be removed or replaced before the tournament can continue.`,
+        status: 'current',
+      },
+      {
+        id: 'tournament-admin-missing',
+        question: 'What should I do if the tournament admin is missing?',
+        answer: `First try contacting the organizer through Hattrick or the tournament chat.
+
+If they are not responding, [report it](https://stage.hattrick.org/MyHattrick/Inbox/?actionType=newMail&userId=8777402) with the subject **Admin missing** and include the tournament URL.`,
+        status: 'current',
+      },
+    ],
+  },
+];
+
 export const searchFaqItems = (query: string): FaqItem[] => {
   const normalizedQuery = query.trim().toLocaleLowerCase();
 

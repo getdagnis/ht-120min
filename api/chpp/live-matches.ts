@@ -255,31 +255,43 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       const scoreBeforeShootout = parseScoreBeforeShootout(xml, actualHtHomeTeamId, actualHtAwayTeamId);
       const eventSummary = parseMatchEventSummary(xml, actualHtHomeTeamId, actualHtAwayTeamId);
 
-      // Detect venue mismatch: teams played each other but swapped home/away
+      // Map actual Hattrick goals back to the scheduled fixture perspective.
+      // Manual links may intentionally include only one scheduled team, such as
+      // a BYE outside-friendly or an admin-approved replacement match.
       const htMatchIdNum = parseInt(htMatchId, 10);
       const fixture = matchFixtureMap.get(htMatchIdNum);
       let venueMismatch = false;
       let homeGoals = finished ? finalHomeGoals : liveHomeGoals;
       let awayGoals = finished ? finalAwayGoals : liveAwayGoals;
 
-      if (
-        fixture &&
-        fixture.scheduledHomeHtId !== null &&
-        fixture.scheduledAwayHtId !== null &&
-        actualHtHomeTeamId !== null &&
-        actualHtAwayTeamId !== null
-      ) {
-        const scheduledHomeMatchedActualAway =
-          fixture.scheduledHomeHtId === actualHtAwayTeamId &&
-          fixture.scheduledAwayHtId === actualHtHomeTeamId;
+      if (fixture && actualHtHomeTeamId !== null && actualHtAwayTeamId !== null) {
+        const actualHomeGoals = finished ? finalHomeGoals : liveHomeGoals;
+        const actualAwayGoals = finished ? finalAwayGoals : liveAwayGoals;
+        const scheduledHomeMatchedActualHome = fixture.scheduledHomeHtId === actualHtHomeTeamId;
+        const scheduledHomeMatchedActualAway = fixture.scheduledHomeHtId === actualHtAwayTeamId;
+        const scheduledAwayMatchedActualHome = fixture.scheduledAwayHtId === actualHtHomeTeamId;
+        const scheduledAwayMatchedActualAway = fixture.scheduledAwayHtId === actualHtAwayTeamId;
 
-        if (scheduledHomeMatchedActualAway) {
-          // Venue reversed: map goals back to scheduled fixture perspective
-          // scheduled home team actually played as away → their goals are away-side goals
-          homeGoals = finished ? finalAwayGoals : liveAwayGoals;
-          awayGoals = finished ? finalHomeGoals : liveHomeGoals;
-          venueMismatch = true;
+        if (scheduledHomeMatchedActualHome) {
+          homeGoals = actualHomeGoals;
+          awayGoals = actualAwayGoals;
+        } else if (scheduledHomeMatchedActualAway) {
+          homeGoals = actualAwayGoals;
+          awayGoals = actualHomeGoals;
+        } else if (scheduledAwayMatchedActualHome) {
+          awayGoals = actualHomeGoals;
+          homeGoals = actualAwayGoals;
+        } else if (scheduledAwayMatchedActualAway) {
+          awayGoals = actualAwayGoals;
+          homeGoals = actualHomeGoals;
         }
+
+        venueMismatch = Boolean(
+          fixture.scheduledHomeHtId !== null &&
+            fixture.scheduledAwayHtId !== null &&
+            scheduledHomeMatchedActualAway &&
+            scheduledAwayMatchedActualHome,
+        );
       }
 
       results[htMatchId] = {

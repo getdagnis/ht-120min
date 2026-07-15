@@ -42,6 +42,7 @@ export async function registerOAuthTeam(
     if (
       tournament &&
       tournament.status !== 'finished' &&
+      tournament.status !== 'stopped' &&
       !tournament.is_test &&
       tournament.registration_type !== 'sandbox'
     ) {
