@@ -27,79 +27,25 @@ export const faqSections: FaqSection[] = [
       {
         id: 'what-is-ht-120min',
         question: 'What is HT-120min?',
-        answer: `HT-120min is a CHPP tool for organizing recurring Hattrick friendly tournaments. It brings fixtures, results, standings, live match tracking and tournament communication into one place, eliminating the need for spreadsheets, manual counting and scattered forum posts.`,
+        answer: `HT-120min helps Hattrick organize recurring friendly tournaments. Its main promise is to keep fixtures, results, standings, live matches and tournament communication together, without spreadsheets, manual counting or scattered forum posts.`,
         status: 'current',
       },
       {
         id: 'only-for-120-minute-tournaments',
-        question: 'Is HT-120min only for 120-minute tournaments?',
-        answer: `No. The original focus is on tournaments where reaching 120 minutes affects the standings, but organizers can also run regular 90-minute points tournaments.
-
-The longer-term goal is to support more community-created formats and scoring systems, not only one definition of how a friendly tournament should work.`,
+        question: 'Is it only for 120-minute tournaments?',
+        answer: `HT-120min supports both 120-minute competitions and regular 90-minute points tournaments already, even simultaneously. More community-created formats and scoring systems may also be supported over time.`,
         status: 'current',
       },
       {
         id: 'is-ht-120min-free',
         question: 'Is HT-120min free?',
-        answer: `Yes. Joining, participating in and organizing tournaments through HT-120min is free. But any motivational BuyMeACoffee tips are welcome since maintaining and developing the platform is practically a full-time job.`,
+        answer: `Yes. Joining, participating in and organizing tournaments is free. There might be premium tournaments introduced in the future, but the core functionality will remain free for everyone.`,
         status: 'current',
       },
       {
         id: 'how-to-join-a-tournament',
-        question: 'How do I join a tournament?',
-        answer: `Open a tournament that is still accepting teams and press **Join tournament**. Hattrick will ask you to authorize HT-120min through CHPP, after which you can select the team you want to enter.
-
-Once the organizer creates the schedule, the tournament page will show who you need to play and when.`,
-        status: 'current',
-      },
-      {
-        id: 'does-joining-commit-my-team',
-        question: 'Am I committing my team by joining?',
-        answer: `Joining does not automatically arrange friendlies or lock your team into matches. You remain responsible for managing your friendlies through Hattrick.
-
-However, joining tells the organizer and other participants that you intend to take part. Please only join when you reasonably expect to follow the schedule, as missed matches can affect the whole tournament.`,
-        status: 'current',
-      },
-      {
-        id: 'how-a-tournament-works',
-        question: 'How does a tournament work?',
-        answer: `The organizer opens registration and invites teams. When the field is ready, the organizer generates the fixture schedule.
-
-Managers then arrange the required friendlies in Hattrick as usual. HT-120min checks the scheduled matches, follows them live, records the results and updates the tournament standings.`,
-        status: 'current',
-      },
-      {
-        id: 'how-standings-are-calculated',
-        question: 'How are the standings calculated?',
-        answer: `The scoring system depends on the tournament format chosen by the organizer.
-
-In a 120-minute tournament, reaching extra time is part of the competition and teams are primarily ranked by how often they take their tournament matches to 120 minutes. Regular tournaments can instead use a traditional points table.
-
-More scoring formats and alternative ways to view the standings may be added as the platform develops.`,
-        status: 'current',
-      },
-      {
-        id: 'cannot-continue-tournament',
-        question: 'What happens if I can no longer continue?',
-        answer: `Contact the organizer as early as possible. The organizer can then decide how to handle your remaining fixtures and explain the fairest option to the other participants.
-
-There is no platform penalty for leaving, but disappearing without notice can create unnecessary work and spoil the experience for the rest of the tournament.`,
-        status: 'current',
-      },
-      {
-        id: 'where-to-find-tournaments',
-        question: 'Where can I find tournaments to join?',
-        answer: `Available tournaments can be discovered through HT-120min and through the Hattrick communities that organize them.
-
-National forums, federations, regional groups, private leagues and existing circles of friendly partners are usually the best places to hear about new tournaments.`,
-        status: 'current',
-      },
-      {
-        id: 'why-join-a-friendly-tournament',
-        question: 'Why join a tournament instead of playing ordinary friendlies?',
-        answer: `A tournament gives your midweek friendlies an extra purpose. Instead of arranging an isolated match and forgetting about it, you have fixtures to follow, standings to compete in and a community of familiar opponents.
-
-It turns a normally quiet part of the Hattrick week into an additional competition with its own stories, rivalries and memorable matches.`,
+        question: 'How do I join and play in a tournament?',
+        answer: `Find a tourney that you like and is accepting teams, click **Join tournament** and authorize your Hattrick team through CHPP. As simple as that. Once the schedule is ready, arrange your listed friendlies in Hattrick as usual. Apart from joining and booking friendly matches, everything else is automated. HT-120min follows the matches and updates the tournament results and standings.`,
         status: 'current',
       },
     ],
@@ -112,25 +58,17 @@ It turns a normally quiet part of the Hattrick week into an additional competiti
       {
         id: 'what-is-ht-120min-tinder',
         question: 'What is HT-120min Tinder?',
-        answer: `HT-120min Tinder is a place for managers to post one-to-one friendly advertisements, similar to looking for an opponent through a Hattrick forum.
+        answer: `HT-120min Tinder is a place to advertise that your team is looking for friendly opponents.
 
-It is separate from tournaments and is intended for managers who want to find a single match, a 120-minute partner or a longer-term friendly arrangement.`,
+You can look for a single match, a regular 120-minute opponent or a longer-term friendly partnership.`,
         status: 'current',
       },
       {
-        id: 'how-to-post-a-tinder-ad',
-        question: 'How do I post a friendly ad?',
-        answer: `Open **HT-120min Tinder** and press **Post an Ad**. After signing in through CHPP, choose your team and describe what you are looking for.
+        id: 'why-register-on-tinder',
+        question: 'Why should I post my team there?',
+        answer: `Because there is little downside to keeping an ad available. It's a chance to expose yourself to like-minded managers who are looking for a friendly match or a long-term partnership.
 
-You can specify details such as 120-minute or regular friendlies, home or away, domestic or international opponents and whether you want a one-off match or an ongoing partnership.`,
-        status: 'current',
-      },
-      {
-        id: 'what-are-long-term-ads',
-        question: 'What are long-term friendly ads?',
-        answer: `Long-term ads are for managers who want to find reliable future opponents rather than arrange only one immediate match.
-
-They can be useful for recurring 120-minute partners, home-and-away exchanges, regular training matches or managers who prefer not to search for a new opponent every week.`,
+        You may not need a friendly partner today, but another manager looking for the right opponent could discover your team and contact you later.`,
         status: 'current',
       },
     ],
@@ -143,49 +81,25 @@ They can be useful for recurring 120-minute partners, home-and-away exchanges, r
       {
         id: 'create-and-organize-a-tournament',
         question: 'How do I create a tournament?',
-        answer: `Use **Create Tournament**, choose the competition type and scoring format, then share the tournament page with the managers you want to invite.
+        answer: `Choose **Create Tournament**, select the competition type and scoring format, then share the tournament page with the managers you want to invite.
 
-When enough teams have joined, generate the schedule from the admin area. The tournament page then becomes your control centre for participants, fixtures, results, standings, warnings, chat and tournament news.`,
+When the teams are ready, generate the fixture schedule and manage the competition from its tournament page.`,
         status: 'current',
       },
       {
         id: 'private-league-or-federation',
-        question: 'Can I use HT-120min for a private league or federation?',
-        answer: `Yes. Private leagues, federations, regional groups and other Hattrick communities can create their own tournaments and invite their members to join.
+        question: 'Can I use it for my league, federation or community?',
+        answer: `Yes. HT-120min is designed for private leagues, federations, regional groups and other Hattrick communities that want to run recurring friendly competitions.
 
-HT-120min can handle the schedule, results, standings and basic tournament communication, while the community remains responsible for recruiting participants and setting its own expectations.`,
-        status: 'current',
-      },
-      {
-        id: 'where-to-find-participants',
-        question: 'Where can I find participants for my tournament?',
-        answer: `Start with a Hattrick community you already belong to: a national forum, federation, regional group, private league or an existing circle of friendly partners.
-
-You do not need a large audience. A small group of four to six committed teams can already create an enjoyable recurring tournament.`,
-        status: 'current',
-      },
-      {
-        id: 'organizer-responsibilities',
-        question: 'What is the tournament organizer responsible for?',
-        answer: `The organizer decides the format, invites participants, creates the fixture schedule and handles situations that cannot be resolved automatically.
-
-The most important responsibility is communication: make the rules clear, remind managers about upcoming fixtures and deal with withdrawals or missed matches consistently and fairly.`,
+Even a small group of committed teams can create a worthwhile tournament.`,
         status: 'current',
       },
       {
         id: 'custom-scoring-formats',
-        question: 'Can HT-120min support custom rules or scoring systems?',
-        answer: `The standard formats currently focus on 120-minute scoring and regular points tournaments.
+        question: 'Can tournaments use custom rules or scoring systems?',
+        answer: `The standard options currently include 120-minute scoring and regular points tournaments.
 
-More unusual community formats—such as scoring based on discipline, injuries or other match events—may require additional development. HT-120min is intended to grow toward supporting more organizer-created formats where there is a serious community ready to use them.`,
-        status: 'planned',
-      },
-      {
-        id: 'collaborate-on-tournament-format',
-        question: 'Can I propose a tournament format for my community?',
-        answer: `Yes. Organizers representing an active federation, league or established community are welcome to propose formats that would not fit the standard tournament settings.
-
-The best proposals have clear rules, committed participants and a realistic plan for running the competition. Custom development cannot be guaranteed, but serious formats can be discussed and considered for broader support.`,
+Organizers with an active community and a clear idea for another format are welcome to propose it for future support.`,
         status: 'planned',
       },
     ],
@@ -216,75 +130,59 @@ export const getTournamentFaqSections = (): FaqSection[] => [
     order: 1,
     items: [
       {
+        id: 'tournament-what-is-it',
+        question: 'What is a HT-120min tournament?',
+        answer: `This is a recurring Hattrick friendly tournament organized by members of the community.
+
+Instead of playing unrelated weekly friendlies, participating teams follow a shared fixture schedule and compete in tournament standings.`,
+        status: 'current',
+      },
+      {
         id: 'tournament-how-it-works',
-        question: 'How does this tournament work?',
-        answer: `The organizer opens registration, creates the schedule and uses this page to manage fixtures, results, standings, news and chat.
+        question: 'How does the tournament work?',
+        answer: `The organizer accepts teams and creates the fixture schedule.
 
-Managers still arrange their friendlies in Hattrick. HT-120min checks those Hattrick matches, links them to tournament fixtures and updates results when match data is available.`,
+Managers arrange their scheduled friendlies in Hattrick as usual. HT-120min then checks those matches, follows the results and updates the tournament standings.`,
         status: 'current',
       },
       {
-        id: 'tournament-bye-result',
-        question: 'Can a BYE round still count?',
-        answer: `A BYE means your team has no tournament opponent in that round.
+        id: 'tournament-how-to-join',
+        question: 'How do I join?',
+        answer: `Join while tournament registration is open and select the Hattrick team you want to enter.
 
-If the organizer's house rules allow it, the admin can manually enter an outside-friendly result or link a specific Hattrick match ID. In that case, the result counts only for the tournament team that had the BYE.`,
+Once the schedule has been created, this page will show who you need to play and when.`,
         status: 'current',
       },
       {
-        id: 'tournament-linked-match-id',
-        question: 'Why would an organizer link a Match ID manually?',
-        answer: `Manual Match ID linking is for exceptions.
+        id: 'tournament-participant-responsibilities',
+        question: 'What do I need to do after joining?',
+        answer: `Check your upcoming fixtures and arrange the required friendlies with your opponents in Hattrick.
 
-Examples include a BYE team playing an outside friendly, two teams moving their match to a different friendly slot, or an organizer choosing to count a related match even when the automatic checker would not select it.`,
+Joining does not automatically book matches, so participants are expected to follow the schedule and communicate when a match cannot be arranged.`,
         status: 'current',
       },
       {
-        id: 'tournament-moved-friendly',
-        question: 'Can a rearranged friendly still count?',
-        answer: `Yes, if the tournament organizer decides it should.
+        id: 'tournament-odd-team-count',
+        question: 'What happens if there is an odd number of teams?',
+        answer: `One team receives a BYE in each round, meaning it has no scheduled tournament opponent that week.
 
-The automatic checker looks for the expected fixture. If teams play on another date or in another valid friendly slot, the organizer can link that Hattrick match manually so HT-120min follows it and records the result.`,
+Depending on the tournament rules, the BYE may simply be a free round or the organizer may allow another friendly to count for that team.`,
         status: 'current',
       },
       {
-        id: 'tournament-one-team-linked',
-        question: 'Why can a linked match count when only one tournament team is detected?',
-        answer: `This gives organizers flexibility for real-world exceptions and test tournaments.
+        id: 'tournament-rearranged-match',
+        question: 'What if we cannot play the fixture as scheduled?',
+        answer: `Contact your opponent and the tournament organizer as early as possible.
 
-If one scheduled team is detected in the linked Hattrick match, HT-120min can map that team's score into the fixture. The organizer can still edit the recorded result afterwards if the tournament rules require a different interpretation.`,
+The organizer can decide whether the match should be moved, replaced or resolved according to the tournament rules.`,
         status: 'current',
       },
       {
-        id: 'tournament-finished-release',
-        question: 'What happens when all rounds are finished?',
-        answer: `When all real tournament fixtures are completed or resolved, the tournament becomes finished.
+        id: 'tournament-finished',
+        question: 'What happens when the tournament finishes?',
+        answer: `The final results and standings remain available as tournament history.
 
-Finished tournaments remain visible as history, but teams are released from active participation so they can join or create other tournaments.`,
-        status: 'current',
-      },
-      {
-        id: 'tournament-paused',
-        question: 'What does it mean when a tournament is paused?',
-        answer: `A paused tournament is postponed, not ended.
-
-Teams can still join and admins can manage participants, but schedule generation and rescheduling are hidden until the organizer sets the tournament active again. Existing teams are still treated as active participants, so they cannot freely join another real tournament while the tournament is only paused.`,
-        status: 'current',
-      },
-      {
-        id: 'tournament-stopped',
-        question: 'What does it mean when a tournament is fully stopped?',
-        answer: `A fully stopped tournament is halted and unpublished from public lists.
-
-Its teams may join other tournaments. If the organizer later wants to continue, the tournament must first move back to paused, and any team already playing elsewhere must be removed or replaced before the tournament can continue.`,
-        status: 'current',
-      },
-      {
-        id: 'tournament-admin-missing',
-        question: 'What should I do if the tournament admin is missing?',
-        answer: `First try contacting the organizer through Hattrick or the tournament chat.
-
-If they are not responding, [report it](https://stage.hattrick.org/MyHattrick/Inbox/?actionType=newMail&userId=8777402) with the subject **Admin missing** and include the tournament URL.`,
+Participating teams are then released and can join or create another tournament.`,
         status: 'current',
       },
     ],

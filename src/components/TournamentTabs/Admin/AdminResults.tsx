@@ -79,7 +79,14 @@ const AdminResultTeam: React.FC<{ team: ResultTeam | null; side: 'home' | 'away'
   return (
     <div className={`${adminStyles.resultTeam} ${adminStyles[side]}`}>
       {leagueFlagUrl && <img src={leagueFlagUrl} alt="League" className={adminStyles.resultFlag} />}
-      {countryFlagUrl && <img src={countryFlagUrl} alt={team.country_name || 'Country'} title={team.country_name} className={adminStyles.resultFlag} />}
+      {countryFlagUrl && (
+        <img
+          src={countryFlagUrl}
+          alt={team.country_name || 'Country'}
+          title={team.country_name}
+          className={adminStyles.resultFlag}
+        />
+      )}
       <a
         href={`https://www.hattrick.org/goto.ashx?path=/Club/?TeamID=${team.ht_team_id}`}
         target="_blank"
@@ -183,9 +190,6 @@ export const AdminResults: React.FC<AdminResultsProps> = ({
   const [isSavingLink, setIsSavingLink] = React.useState(false);
 
   React.useEffect(() => {
-    setLinkPreview(null);
-    setLinkError('');
-
     if (!linkingMatchId) return;
     const htMatchId = linkInput.replace(/\D/g, '');
     if (htMatchId.length < 5) return;
@@ -244,7 +248,12 @@ export const AdminResults: React.FC<AdminResultsProps> = ({
         inputMode="numeric"
         maxLength={10}
         value={linkInput}
-        onChange={(event) => setLinkInput(event.target.value.replace(/\D/g, ''))}
+        onChange={(event) => {
+          setLinkPreview(null);
+          setLinkError('');
+          setIsCheckingLink(false);
+          setLinkInput(event.target.value.replace(/\D/g, ''));
+        }}
         placeholder="Match ID"
         className={adminStyles.matchIdInput}
       />
@@ -476,9 +485,7 @@ export const AdminResults: React.FC<AdminResultsProps> = ({
                             BYE
                           </span>
                         </div>
-                        <div className={adminStyles.matchActions}>
-                          {renderMatchActions(match, hasResult, round.id)}
-                        </div>
+                        <div className={adminStyles.matchActions}>{renderMatchActions(match, hasResult, round.id)}</div>
                       </>
                     ) : (
                       <>
@@ -508,9 +515,7 @@ export const AdminResults: React.FC<AdminResultsProps> = ({
                             </div>
                           ) : null}
                         </div>
-                        <div className={adminStyles.matchActions}>
-                          {renderMatchActions(match, hasResult, round.id)}
-                        </div>
+                        <div className={adminStyles.matchActions}>{renderMatchActions(match, hasResult, round.id)}</div>
                       </>
                     )}
                   </div>
