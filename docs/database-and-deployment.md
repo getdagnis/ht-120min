@@ -27,7 +27,7 @@ The app treats tournaments, rounds, matches, standings, chat, and admin decision
 
 - Add schema/RPC changes as migrations under `migrations/`.
 - Keep migrations compatible with existing rows when possible.
-- Record meaningful migration state in `PROJECT_STATE.md`.
+- Record migration state in `PROJECT_STATE.md` only when a schema/RPC/RLS change has architectural, security, product-direction, or substantial behavioral impact. Do not add status entries for routine fixes or small implementation details.
 - Distinguish "migration file exists", "applied locally", "applied to Supabase", and "deployed".
 - Do not claim production state unless verified.
 
@@ -94,7 +94,7 @@ npm run build
 npm test
 ```
 
-Database changes should also include a clear manual or automated verification path and an update to `PROJECT_STATE.md`.
+Database changes should also include a clear manual or automated verification path. Update `PROJECT_STATE.md` only when the database change has architectural, security, product-direction, migration-state, or substantial behavioral impact.
 
 ## Detailed References
 

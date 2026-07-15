@@ -1,6 +1,6 @@
 # AGENTS.md
 
-This is the front door for agents working on HT-120min. Keep it short, route to the right detail, and update `PROJECT_STATE.md` after meaningful work.
+This is the front door for agents working on HT-120min. Keep it short, route to the right detail, and update `PROJECT_STATE.md` only for architectural, schema, security, product-direction, integration, or substantial refactor changes.
 
 ## Product
 
@@ -89,6 +89,8 @@ Current counted functions:
 
 When updating status, distinguish local code, migration file, applied migration, local test, real Supabase test, and production deployment. Do not collapse those into "done" unless there is evidence.
 
+`PROJECT_STATE.md` is a high-level project ledger, not a change history. Update it only when work changes architecture, database/schema/RPC/RLS behavior, security posture, product direction, a major integration, a substantial refactor, or a meaningful blocker/deployment state. Do not add rows for isolated UI styling, copy changes, routine bug fixes, small cleanup, editor/tooling adjustments, or ordinary validation results. Mention those in the task handoff instead. When uncertain, leave the ledger unchanged and ask the user before adding a status entry.
+
 ## Task Routing
 
 | Task | Read first |
@@ -174,7 +176,7 @@ Database changes:
 
 - Create migrations intentionally.
 - Preserve RLS assumptions.
-- Record migration status in `PROJECT_STATE.md`.
+- Record migration status in `PROJECT_STATE.md` only when the change has architectural, security, product-direction, migration-state, or substantial behavioral impact.
 
 ## Closeout Format
 
