@@ -1,6 +1,6 @@
 # PROJECT_STATE.md
 
-Last updated: 2026-07-14
+Last updated: 2026-07-15
 
 This is the current-status ledger. Update it after meaningful implementation work. Be explicit about what is local, migrated, tested, deployed, or still unknown.
 
@@ -33,6 +33,7 @@ The app currently supports:
 | Tournament name and slug uniqueness | Implemented locally; display names are unique after case/diacritic/punctuation/emoji normalization, existing duplicates are preserved while new duplicates are rejected by a trigger, Continue resolves suggested slug collisions without trailing dashes, and the teams step shows the resulting slug | `054`; pending Supabase application | `npm run build`, `npm test` (69), and `git diff --check` passed 2026-07-14 | Apply `054` and confirm |
 | Tournament roster health/status | Implemented locally; generated real tournaments pause when their active roster becomes unhealthy, while empty open tournaments become private/unlisted and legacy archived rows are excluded from public lists | No migration; existing `status` and `is_private` fields | `npm run build` and `npm test` passed 2026-07-13 | Confirm against live Supabase |
 | Tournament valid-user count | Implemented locally in migration `056`; `tournaments.valid_users` is maintained from active, non-placeholder OAuth-linked teams with distinct Hattrick user IDs. Existing rows default to `0` for manual cleanup/backfill | `056`; pending Supabase application | Pending migration application; code validation in progress | Apply `056`, then manually backfill historical rows as needed |
+| Team ownership reclaim | Implemented locally; existing organizer-added/bot/incomplete team rows are upgraded when the owner joins that exact tournament via CHPP, and logged-in users now get a global reclaim prompt for active non-sandbox teams that match their CHPP team list but are not fully OAuth-linked | No migration; uses existing team OAuth/profile fields | `npm run build`, `npm test` (69), and `git diff --check` passed 2026-07-15 | Confirm after deployment with a real owner login |
 | CHPP country/league display and flag normalization | Implemented locally from `src/utils/worlddetails.xml` v1.2 through the shared `worlddetails` catalogue. `leagueName` is the single short English UI name, `fullName` is the full English name, and `countryName` preserves Hattrick's original local country name. ISO codes and emoji are stored with the same record. Parent LeagueID and associated CountryID remain separate; country-backed teams use one Hattrick parent-league flag, while countryless leagues use an additional Hattrick league flag. CHPP country-name normalization is shared by the browser and API parsers | No migration; existing rows are resolved by `country_id`, future CHPP writes use canonical shared names | `npm run build` passed 2026-07-14; `npm test` has one unrelated existing world-details flag assertion failure | Confirm against live HFI refresh; existing translated `country_name` values are not backfilled |
 | Matchmaker challenge send | Partially implemented | Existing matchmaker/profile/token migrations | Requires real CHPP reauth and endpoint confirmation | Confirm |
 
@@ -44,6 +45,7 @@ Production means live deployed behavior. If it has not been checked against the 
 
 - Create tournament with organizer/team snapshots.
 - Join tournament through CHPP OAuth.
+- Reclaim ownership of organizer-added/bot-looking teams when the real owner logs in and confirms the prompt.
 - Store manager/team metadata, country ids/names where available, logos, OAuth tokens, and organizer data.
 - Generate single, double, and recurring schedules from the admin panel.
 - Regenerate future unarranged rounds without changing pairings.
@@ -110,7 +112,7 @@ Production means live deployed behavior. If it has not been checked against the 
 
 ## Latest Validation
 
-Latest code validation for the country/flag fix:
+Latest code validation for team ownership reclaim:
 
 ```bash
 find api -name "*.ts" | grep -v "/_lib/" | wc -l
@@ -118,7 +120,7 @@ rg "docs/(architecture|scheduling|chpp|database-and-deployment)\\.md|PROJECT_STA
 git diff --check
 ```
 
-`npm run build`, `npm run lint`, and `npm test` (69 tests) passed on 2026-07-14. The build still reports the existing CSS `:global` warning and large bundle warning. For future code changes, run:
+`npm run build`, `npm test` (69 tests), and `git diff --check` passed on 2026-07-15. The build still reports the existing CSS `:global` warning and large bundle warning. For future code changes, run:
 
 ```bash
 npm run build

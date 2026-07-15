@@ -75,6 +75,9 @@ export async function registerOAuthTeam(
         league_level: input.team.leagueLevel ?? null,
         oauth_token: input.accessToken,
         oauth_token_secret: input.accessTokenSecret,
+        hattrick_user_id: input.hattrickUserId,
+        joined_via_oauth: true,
+        ht_team_name: input.team.teamName,
       })
       .eq('id', existingInThis.id);
 

@@ -21,6 +21,7 @@ import { useAuth } from '../../hooks/useAuth';
 import { usePresenceHeartbeat } from '../../hooks/usePresenceHeartbeat';
 import { ProfileModal } from '../ProfileModal/ProfileModal';
 import { BeerBanner } from '../BeerBanner/BeerBanner';
+import { TeamOwnershipReclaim } from '../TeamOwnershipReclaim/TeamOwnershipReclaim';
 import { FORGE_SUPERADMIN_USER_ID } from '../../constants/site-admins';
 import styles from './Layout.module.sass';
 
@@ -53,7 +54,7 @@ function getVisitCount() {
 export const Layout: React.FC<LayoutProps> = ({ children }) => {
   const navigate = useNavigate();
   const location = useLocation();
-  const { managerName, profile, activeTournaments, organizerTournaments, logout } = useAuth();
+  const { managerName, profile, activeTournaments, organizerTournaments, logout, refreshProfile } = useAuth();
   usePresenceHeartbeat(!!managerName, `${location.pathname}${location.search}`);
   const [visitCount] = useState(() => getVisitCount());
   const visibleOrganizerTournaments = useMemo(() => {
@@ -320,6 +321,8 @@ export const Layout: React.FC<LayoutProps> = ({ children }) => {
         activeTournaments={activeTournaments}
         maxWidth="620px"
       />
+
+      <TeamOwnershipReclaim profile={profile} onClaimed={refreshProfile} />
 
       <Analytics />
     </div>

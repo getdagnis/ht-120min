@@ -1,16 +1,136 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
+import type { ChppTeamOption } from '../_lib/chpp-xml.js';
 import { getSupabase } from '../_lib/supabase.js';
 import { registerOAuthTeam } from '../_lib/chpp-register.js';
 import { getAuthHeader } from '../_lib/chpp-auth.js';
 import { parseTeamDetailsXml } from '../_lib/chpp-xml.js';
 import { validateTeamEligibility } from '../_lib/eligibility.js';
-import { buildAppSessionCookie, getAppSessionSecret } from '../_lib/app-session.js';
+import { buildAppSessionCookie, getAppSessionSecret, verifyAppSessionCookie } from '../_lib/app-session.js';
 import { hasSuperAdminBypassCookie } from '../_lib/superadmin-bypass.js';
+
+interface CompleteAuthBody {
+  action?: 'claim_teams';
+  selection_token?: string;
+  team_id?: string | number;
+  team_name?: string;
+  teamIds?: number[];
+}
+
+interface ProfileForClaim {
+  manager_name: string;
+  teams_json: ChppTeamOption[] | null;
+  oauth_token: string | null;
+  oauth_token_secret: string | null;
+  oauth_scope: string | null;
+}
+
+interface TeamForClaim {
+  id: string;
+  ht_team_id: number | null;
+  active: boolean | null;
+  is_placeholder: boolean | null;
+  joined_via_oauth: boolean | null;
+  hattrick_user_id: number | null;
+}
+
+function getRequestedTeamIds(input: unknown): number[] {
+  if (!Array.isArray(input)) return [];
+  return Array.from(
+    new Set(
+      input
+        .map((value) => Number(value))
+        .filter((value) => Number.isInteger(value) && value > 0),
+    ),
+  );
+}
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
 
-  const { selection_token, team_id, team_name } = req.body;
+  const { selection_token, team_id, team_name, action, teamIds } = req.body as CompleteAuthBody;
+
+  const supabase = getSupabase();
+
+  if (action === 'claim_teams') {
+    const secret = getAppSessionSecret();
+    if (!secret) {
+      return res.status(500).json({ error: 'APP_SESSION_SECRET is missing' });
+    }
+
+    const session = verifyAppSessionCookie(req.headers.cookie, secret);
+    if (!session) {
+      return res.status(401).json({ error: 'Login required' });
+    }
+
+    const requestedTeamIds = getRequestedTeamIds(teamIds);
+    if (requestedTeamIds.length === 0) {
+      return res.status(400).json({ error: 'No teams selected' });
+    }
+
+    const { data: profileData, error: profileError } = await supabase
+      .from('profiles')
+      .select('manager_name, teams_json, oauth_token, oauth_token_secret, oauth_scope')
+      .eq('hattrick_user_id', session.userId)
+      .maybeSingle();
+
+    if (profileError || !profileData) {
+      return res.status(404).json({ error: 'Profile not found' });
+    }
+
+    const profile = profileData as ProfileForClaim;
+    const profileTeams = Array.isArray(profile.teams_json) ? profile.teams_json : [];
+    const verifiedTeamsById = new Map(profileTeams.map((team) => [team.teamId, team]));
+    const verifiedRequestedIds = requestedTeamIds.filter((id) => verifiedTeamsById.has(id));
+
+    if (verifiedRequestedIds.length === 0) {
+      return res.status(403).json({ error: 'No selected teams belong to this Hattrick account' });
+    }
+
+    const { data: teamRowsRaw, error: teamsError } = await supabase
+      .from('teams')
+      .select('id, ht_team_id, active, is_placeholder, joined_via_oauth, hattrick_user_id')
+      .in('ht_team_id', verifiedRequestedIds)
+      .eq('active', true);
+
+    if (teamsError) {
+      return res.status(500).json({ error: teamsError.message });
+    }
+
+    const claimableRows = ((teamRowsRaw as TeamForClaim[] | null) ?? []).filter(
+      (team) =>
+        team.ht_team_id &&
+        !team.is_placeholder &&
+        (!team.joined_via_oauth || !team.hattrick_user_id) &&
+        verifiedTeamsById.has(team.ht_team_id),
+    );
+
+    for (const team of claimableRows) {
+      const verifiedTeam = team.ht_team_id ? verifiedTeamsById.get(team.ht_team_id) : null;
+      const { error: updateError } = await supabase
+        .from('teams')
+        .update({
+          name: verifiedTeam?.teamName ?? undefined,
+          ht_team_name: verifiedTeam?.teamName ?? undefined,
+          manager_name: profile.manager_name,
+          hattrick_user_id: session.userId,
+          joined_via_oauth: true,
+          oauth_token: profile.oauth_token,
+          oauth_token_secret: profile.oauth_token_secret,
+          oauth_scope: profile.oauth_scope,
+          can_manage_challenges: Boolean(profile.oauth_scope?.includes('manage_challenges')),
+        })
+        .eq('id', team.id);
+
+      if (updateError) {
+        return res.status(500).json({ error: updateError.message });
+      }
+    }
+
+    return res.status(200).json({
+      claimed: claimableRows.length,
+      teamIds: claimableRows.map((team) => team.ht_team_id).filter(Boolean),
+    });
+  }
 
   if (!selection_token) {
     return res.status(400).json({ error: 'Missing selection_token' });
@@ -24,8 +144,6 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   }
 
   try {
-    const supabase = getSupabase();
-
     const isSuperAdmin = hasSuperAdminBypassCookie(req.headers.cookie);
 
     // 1. Get pending join data
