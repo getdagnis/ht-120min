@@ -284,9 +284,10 @@
     margin-bottom: 0
 
 .match
-  display: flex
-  justify-content: space-between
-  align-items: flex-end
+  display: grid
+  grid-template-columns: minmax(0, 1fr) 9.5rem 8.5rem
+  align-items: center
+  gap: 1rem
   padding: 16px 0
   border-bottom: 1px solid var(--border)
 
@@ -294,16 +295,18 @@
     border-bottom: none
 
   @media (max-width: 640px)
+    display: flex
     flex-direction: column
     align-items: center
     gap: 1.5rem
     text-align: center
 
 .matchTeams
-  display: flex
+  display: grid
+  grid-template-columns: minmax(0, 1fr) 3rem minmax(0, 1fr)
   align-items: center
-  gap: 2rem
-  flex: 1
+  gap: 1rem
+  min-width: 0
 
   .vs
     font-size: 0.75rem
@@ -311,10 +314,12 @@
     text-transform: uppercase
     font-weight: 700
     opacity: 0.5
+    text-align: center
 
   @media (max-width: 640px)
     width: 100%
     flex-direction: column
+    display: flex
     align-items: center
     gap: 0.75rem
 
@@ -324,7 +329,9 @@
 .matchResult
   display: flex
   align-items: center
+  justify-content: flex-end
   gap: 0.75rem
+  min-width: 0
 
   @media (max-width: 640px)
     width: 100%
@@ -332,6 +339,16 @@
     flex-direction: column
     align-items: center
     gap: 0.5rem
+
+.matchActions
+  display: flex
+  align-items: center
+  justify-content: flex-end
+  width: 100%
+  min-width: 0
+
+  @media (max-width: 640px)
+    justify-content: center
 
 .resultTopRow
   display: flex
@@ -346,7 +363,12 @@
   align-items: center
   gap: 0.5rem
   min-width: 0
-  flex: 1 1 0
+
+  &.home
+    justify-content: flex-start
+
+  &.away
+    justify-content: flex-start
 
   @media (max-width: 640px)
     justify-content: center
@@ -377,6 +399,8 @@
 .resultTeamName
   font-weight: 700
   line-height: 1.15
+  min-width: 0
+  overflow-wrap: anywhere
 
 .resultTeamId
   color: var(--text60)
@@ -388,6 +412,15 @@
   color: var(--accent)
   font-weight: 700
   font-style: italic
+  overflow-wrap: anywhere
+
+.byeInfo
+  color: var(--text60)
+  font-size: 0.85rem
+  font-weight: 700
+  text-transform: uppercase
+  letter-spacing: 0.04em
+  cursor: help
 
 .resultInfo
   display: flex
@@ -727,6 +760,13 @@
   text-align: center
   font-size: 0.9rem
   color: var(--text)
+
+  .roundRow
+    display: flex
+
+  span
+    font-style: italic !important
+    color: var(--text60)
 
 .scheduleNotice
   display: flex

@@ -86,6 +86,35 @@ const ResultMinutes: React.FC<{ minutes: number; went120: boolean }> = ({ minute
   return <span className={adminStyles.badge}>{minutes}m</span>;
 };
 
+const ResultEditButton: React.FC<{
+  match: MatchWithTeams;
+  hasResult?: boolean;
+  roundId: string;
+  currentRoundId?: string;
+  matchData: Record<string, Partial<MatchWithTeams>>;
+  setEditingMatch: (matchId: string | null) => void;
+  setMatchData: React.Dispatch<React.SetStateAction<Record<string, Partial<MatchWithTeams>>>>;
+}> = ({ match, hasResult = false, roundId, currentRoundId, matchData, setEditingMatch, setMatchData }) => {
+  return (
+    <Button
+      size="xs"
+      variant={hasResult ? 'zero' : roundId === currentRoundId ? 'secondary' : 'outline'}
+      onClick={() => {
+        setEditingMatch(match.id);
+        setMatchData({
+          ...matchData,
+          [match.id]: hasResult ? match : { ...match, home_goals: null, away_goals: null },
+        });
+      }}
+      title={hasResult ? 'Edit result' : 'Enter result'}
+      data-tooltip-id="admin-tooltip"
+      data-tooltip-content={hasResult ? 'Edit result' : 'Enter result'}
+    >
+      <PencilSimple size={16} />
+    </Button>
+  );
+};
+
 function getRoundDisplayDate(round: AdminResultsProps['rounds'][number]) {
   const match = round.matches.find((item) => item.scheduled_for || item.match_date) ?? null;
   if (!match) return null;
@@ -149,47 +178,97 @@ export const AdminResults: React.FC<AdminResultsProps> = ({
                     </div>
 
                     {isBye ? (
-                      <div className={adminStyles.matchResult}>
-                        <span className={adminStyles.smallNote}>
-                          {byeTeam?.name || 'Team'} has a BYE. Record any outside-friendly result manually later.
-                        </span>
-                      </div>
+                      <>
+                        <div className={adminStyles.matchResult}>
+                          <span
+                            className={adminStyles.byeInfo}
+                            data-tooltip-id="admin-tooltip"
+                            data-tooltip-content={`${byeTeam?.name || 'Team'} has a BYE. Record any outside-friendly result manually later.`}
+                          >
+                            BYE
+                          </span>
+                        </div>
+                        <div className={adminStyles.matchActions} />
+                      </>
                     ) : editingMatch === match.id ? (
-                      <div className={adminStyles.matchEdit}>
-                        <div className={adminStyles.scoreActionRow}>
-                          <div className={adminStyles.scoreInputs}>
-                            <input
-                              name={`score_home_${match.id}`}
-                              type="number"
-                              placeholder="H"
-                              value={matchData[match.id]?.home_goals ?? match.home_goals ?? ''}
-                              onChange={(e) =>
-                                setMatchData({
-                                  ...matchData,
-                                  [match.id]: {
-                                    ...(matchData[match.id] || match),
-                                    home_goals: e.target.value === '' ? null : Number(e.target.value),
-                                  },
-                                })
-                              }
-                            />
-                            <span className={adminStyles.divider}>-</span>
-                            <input
-                              name={`score_away_${match.id}`}
-                              type="number"
-                              placeholder="A"
-                              value={matchData[match.id]?.away_goals ?? match.away_goals ?? ''}
-                              onChange={(e) =>
-                                setMatchData({
-                                  ...matchData,
-                                  [match.id]: {
-                                    ...(matchData[match.id] || match),
-                                    away_goals: e.target.value === '' ? null : Number(e.target.value),
-                                  },
-                                })
-                              }
-                            />
+                      <>
+                        <div className={adminStyles.matchEdit}>
+                          <div className={adminStyles.scoreActionRow}>
+                            <div className={adminStyles.scoreInputs}>
+                              <input
+                                name={`score_home_${match.id}`}
+                                type="number"
+                                placeholder="H"
+                                value={matchData[match.id]?.home_goals ?? match.home_goals ?? ''}
+                                onChange={(e) =>
+                                  setMatchData({
+                                    ...matchData,
+                                    [match.id]: {
+                                      ...(matchData[match.id] || match),
+                                      home_goals: e.target.value === '' ? null : Number(e.target.value),
+                                    },
+                                  })
+                                }
+                              />
+                              <span className={adminStyles.divider}>-</span>
+                              <input
+                                name={`score_away_${match.id}`}
+                                type="number"
+                                placeholder="A"
+                                value={matchData[match.id]?.away_goals ?? match.away_goals ?? ''}
+                                onChange={(e) =>
+                                  setMatchData({
+                                    ...matchData,
+                                    [match.id]: {
+                                      ...(matchData[match.id] || match),
+                                      away_goals: e.target.value === '' ? null : Number(e.target.value),
+                                    },
+                                  })
+                                }
+                              />
+                            </div>
                           </div>
+                          <label className={adminStyles.went120}>
+                            <input
+                              title="120min game achieved"
+                              type="checkbox"
+                              checked={matchData[match.id]?.went_120 ?? match.went_120 ?? false}
+                              onChange={(e) =>
+                                setMatchData({
+                                  ...matchData,
+                                  [match.id]: {
+                                    ...(matchData[match.id] || match),
+                                    went_120: e.target.checked,
+                                    total_minutes: e.target.checked
+                                      ? 120
+                                      : (matchData[match.id]?.total_minutes ?? match.total_minutes ?? 90),
+                                  },
+                                })
+                              }
+                            />
+                            120min
+                          </label>
+                          <div className={adminStyles.minutesInput}>
+                            <input
+                              type="number"
+                              value={matchData[match.id]?.total_minutes ?? match.total_minutes ?? 90}
+                              onChange={(e) =>
+                                setMatchData({
+                                  ...matchData,
+                                  [match.id]: {
+                                    ...(matchData[match.id] || match),
+                                    total_minutes: e.target.value === '' ? 90 : Number(e.target.value),
+                                  },
+                                })
+                              }
+                              placeholder="90"
+                            />
+                            <span title="Total match minutes" className={adminStyles.minsLabel}>
+                              mins
+                            </span>
+                          </div>
+                        </div>
+                        <div className={adminStyles.matchActions}>
                           <div className={adminStyles.editActions}>
                             <Button
                               size="xs"
@@ -236,80 +315,25 @@ export const AdminResults: React.FC<AdminResultsProps> = ({
                             </Button>
                           </div>
                         </div>
-                        <label className={adminStyles.went120}>
-                          <input
-                            title="120min game achieved"
-                            type="checkbox"
-                            checked={matchData[match.id]?.went_120 ?? match.went_120 ?? false}
-                            onChange={(e) =>
-                              setMatchData({
-                                ...matchData,
-                                [match.id]: {
-                                  ...(matchData[match.id] || match),
-                                  went_120: e.target.checked,
-                                  total_minutes: e.target.checked
-                                    ? 120
-                                    : (matchData[match.id]?.total_minutes ?? match.total_minutes ?? 90),
-                                },
-                              })
-                            }
-                          />
-                          120min
-                        </label>
-                        <div className={adminStyles.minutesInput}>
-                          <input
-                            type="number"
-                            value={matchData[match.id]?.total_minutes ?? match.total_minutes ?? 90}
-                            onChange={(e) =>
-                              setMatchData({
-                                ...matchData,
-                                [match.id]: {
-                                  ...(matchData[match.id] || match),
-                                  total_minutes: e.target.value === '' ? 90 : Number(e.target.value),
-                                },
-                              })
-                            }
-                            placeholder="90"
-                          />
-                          <span title="Total match minutes" className={adminStyles.minsLabel}>
-                            mins
-                          </span>
-                        </div>
-                      </div>
+                      </>
                     ) : (
-                      <div className={adminStyles.matchResult}>
-                        {isMisarranged ? (
-                          <>
-                            <div className={adminStyles.resultTopRow}>
-                              {hasResult && (
-                                <div className={adminStyles.score}>
-                                  <span>
-                                    {match.home_goals} - {match.away_goals}
-                                  </span>
-                                  <ResultMinutes minutes={match.total_minutes} went120={match.went_120} />
-                                </div>
-                              )}
-                              <Button
-                                size="xs"
-                                variant={hasResult ? 'zero' : round.id === currentRoundId ? 'secondary' : 'outline'}
-                                onClick={() => {
-                                  setEditingMatch(match.id);
-                                  setMatchData({
-                                    ...matchData,
-                                    [match.id]: hasResult ? match : { ...match, home_goals: null, away_goals: null },
-                                  });
-                                }}
-                                title={hasResult ? 'Edit result' : 'Enter result'}
-                                data-tooltip-id="admin-tooltip"
-                                data-tooltip-content={hasResult ? 'Edit result' : 'Enter result'}
-                              >
-                                <PencilSimple size={16} />
-                              </Button>
-                            </div>
-                            <span className={adminStyles.misarrangedResult}>misarranged</span>
-                          </>
-                        ) : match.completed ? (
-                          <>
+                      <>
+                        <div className={adminStyles.matchResult}>
+                          {isMisarranged ? (
+                            <>
+                              <div className={adminStyles.resultTopRow}>
+                                {hasResult && (
+                                  <div className={adminStyles.score}>
+                                    <span>
+                                      {match.home_goals} - {match.away_goals}
+                                    </span>
+                                    <ResultMinutes minutes={match.total_minutes} went120={match.went_120} />
+                                  </div>
+                                )}
+                              </div>
+                              <span className={adminStyles.misarrangedResult}>misarranged</span>
+                            </>
+                          ) : match.completed ? (
                             <div className={adminStyles.resultTopRow}>
                               <div className={adminStyles.score}>
                                 <span>
@@ -317,40 +341,21 @@ export const AdminResults: React.FC<AdminResultsProps> = ({
                                 </span>
                                 <ResultMinutes minutes={match.total_minutes} went120={match.went_120} />
                               </div>
-                              <Button
-                                size="xs"
-                                variant="zero"
-                                onClick={() => {
-                                  setEditingMatch(match.id);
-                                  setMatchData({ ...matchData, [match.id]: match });
-                                }}
-                                title="Edit result"
-                                data-tooltip-id="admin-tooltip"
-                                data-tooltip-content="Edit result"
-                              >
-                                <PencilSimple size={16} />
-                              </Button>
                             </div>
-                          </>
-                        ) : (
-                          <Button
-                            size="xs"
-                            variant="zero"
-                            onClick={() => {
-                              setEditingMatch(match.id);
-                              setMatchData({
-                                ...matchData,
-                                [match.id]: { ...match, home_goals: null, away_goals: null },
-                              });
-                            }}
-                            title="Enter result"
-                            data-tooltip-id="admin-tooltip"
-                            data-tooltip-content="Enter result"
-                          >
-                            <PencilSimple size={16} />
-                          </Button>
-                        )}
-                      </div>
+                          ) : null}
+                        </div>
+                        <div className={adminStyles.matchActions}>
+                          <ResultEditButton
+                            match={match}
+                            hasResult={hasResult}
+                            roundId={round.id}
+                            currentRoundId={currentRoundId}
+                            matchData={matchData}
+                            setEditingMatch={setEditingMatch}
+                            setMatchData={setMatchData}
+                          />
+                        </div>
+                      </>
                     )}
                   </div>
                 );

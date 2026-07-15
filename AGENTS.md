@@ -182,12 +182,19 @@ Database changes:
 
 When a task is finished, include:
 
-1. The files affected by that task.
-2. A `git add` command covering those files.
-3. A `git commit -m` command with a message that starts with one of:
+1. Changes: what changed, briefly.
+2. Validation: commands/checks run, and anything not run.
+3. How to test: practical user-facing steps to inspect the behavior.
+4. The files affected by that task.
+5. A `git add` command covering those files.
+6. A `git commit -m` command with a message that starts with one of:
    - `fix/` for bug fixes
    - `feature/` for new functionality
    - `major/` for refactors or larger updates
    - `update/` for UI or UX changes without new features or bug fixes
+
+`How to test` should separate UI inspection from real integration testing. If a feature cannot be fully tested without real teams, live matches, CHPP ownership, specific Supabase rows, or production data, say that clearly and give the closest useful UI/manual check.
+
+When real data is unavailable and UI/UX polish is the main need, a minimal dummy UI path is acceptable. Keep dummy UI under Forge/testing surfaces such as `/forge/testing`, do not add public `/dummies` routes, and do not add API functions for dummy views. Dummy UI is only for layout, copy, responsive states, modals, empty states, and flow inspection; it is not proof that CHPP, Supabase, or production behavior works.
 
 Keep the commit message concise and descriptive. Use the task scope, not the whole worktree, in the `git add` command.

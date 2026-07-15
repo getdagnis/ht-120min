@@ -288,10 +288,21 @@ export const TournamentSchedulePanel: React.FC<TournamentSchedulePanelProps> = (
                   {expandedRounds[round.roundNumber] && (
                     <div className={adminStyles.previewMatches}>
                       {round.matches.map((match) => (
-                        <div key={`${round.roundNumber}-${match.homeTeamId}-${match.awayTeamId}`}>
-                          {match.isBye
-                            ? `${match.homeTeamName === 'BYE' ? match.awayTeamName : match.homeTeamName} has a BYE`
-                            : `${match.homeTeamName} vs ${match.awayTeamName}`}
+                        <div
+                          key={`${round.roundNumber}-${match.homeTeamId}-${match.awayTeamId}`}
+                          className={adminStyles.roundRow}
+                        >
+                          {match.isBye ? (
+                            <>
+                              {match.homeTeamName === 'BYE' ? match.awayTeamName : match.homeTeamName}
+                              <span> has a </span>BYE
+                            </>
+                          ) : (
+                            <>
+                              {match.homeTeamName}
+                              <span> vs</span> {match.awayTeamName}
+                            </>
+                          )}
                         </div>
                       ))}
                     </div>
@@ -310,8 +321,8 @@ export const TournamentSchedulePanel: React.FC<TournamentSchedulePanelProps> = (
                 <strong>
                   {plannerTeamCount} team {formatModeSummary(draft.mode)}
                 </strong>{' '}
-                tournament that will start on <strong>{formatLongDate(firstRound.displayDate)}</strong> and
-                last for <strong>{draft.roundCount} rounds</strong> with the last round played on{' '}
+                tournament that will start on <strong>{formatLongDate(firstRound.displayDate)}</strong> and last for{' '}
+                <strong>{draft.roundCount} rounds</strong> with the last round played on{' '}
                 <strong>{formatLongDate(lastRound.displayDate)}</strong>.
               </span>
             </div>
@@ -458,9 +469,17 @@ export const TournamentSchedulePanel: React.FC<TournamentSchedulePanelProps> = (
                       <div className={adminStyles.previewMatches}>
                         {round.matches.map((match) => (
                           <div key={match.matchId}>
-                            {match.isBye
-                              ? `${match.homeTeamName === 'BYE' ? match.awayTeamName : match.homeTeamName} has a BYE`
-                              : `${match.homeTeamName} vs ${match.awayTeamName}`}
+                            {match.isBye ? (
+                              <>
+                                {match.homeTeamName === 'BYE' ? match.awayTeamName : match.homeTeamName}{' '}
+                                <span>has a BYE</span>
+                              </>
+                            ) : (
+                              <>
+                                {match.homeTeamName}
+                                <span> vs</span> {match.awayTeamName}
+                              </>
+                            )}
                           </div>
                         ))}
                       </div>
@@ -476,8 +495,8 @@ export const TournamentSchedulePanel: React.FC<TournamentSchedulePanelProps> = (
               <span>
                 Move <strong>Round {rescheduleDraft.selectedFromRoundNumber}</strong> from{' '}
                 <strong>{rescheduleDraft.currentRoundDateLabel || 'its current date'}</strong> to{' '}
-                <strong>{formatLongDate(rescheduleDraft.rounds[0].displayDate)}</strong>. Any following rounds
-                will follow automatically. Pairings remain unchanged, only dates are rescheduled. Previous rounds are
+                <strong>{formatLongDate(rescheduleDraft.rounds[0].displayDate)}</strong>. Any following rounds will
+                follow automatically. Pairings remain unchanged, only dates are rescheduled. Previous rounds are
                 unaffected.
               </span>
             </div>

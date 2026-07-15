@@ -2042,7 +2042,7 @@ export const TournamentView: React.FC = () => {
     let confirmMsg = `Are you sure you want to generate the schedule with ${activeTeamCount} teams?`;
     if (activeTeamCount % 2 !== 0) {
       confirmMsg +=
-        '\n\n⚠️ ODD NUMBER OF TEAMS: Each round one team will have a BYE. BYE rules: teams with a BYE can challenge anyone outside the tournament that round and still get points if they report the result.';
+        '\n\n⚠️ ODD NUMBER OF TEAMS: Each round one team will have a BYE. BYE rules: teams with a BYE can challenge anyone outside the tournament that round and still get points if organizer manually adds such results. Whether or not to do that you can add a custom tournament house-rule.';
     }
 
     if (!window.confirm(confirmMsg)) return;
