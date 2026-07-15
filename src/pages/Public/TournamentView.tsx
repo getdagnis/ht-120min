@@ -42,10 +42,17 @@ import { FaqRenderer } from '../../components/Faq/FaqRenderer';
 import { Modal } from '../../components/Modal/Modal';
 import { MottoWidget } from '../../components/MottoWidget/MottoWidget';
 import { StandingsView } from '../../components/TournamentTabs/StandingsView';
+import { WelcomeModal } from '../../components/WelcomeModal/WelcomeModal';
 import { TOURNAMENT_DEFAULT } from '../../constants/descriptions';
 import { getTournamentFaqSections } from '../../constants/faq-essential';
 import { FORGE_SUPERADMIN_USER_ID } from '../../constants/site-admins';
 import { getRandomSandboxTeamId, SANDBOX_RANDOM_ATTEMPTS } from '../../constants/sandbox';
+import {
+  dismissWelcome,
+  getTournamentVisitWelcomeKey,
+  hasDismissedWelcome,
+  TOURNAMENT_CREATED_WELCOME,
+} from '../../utils/welcome-modals';
 import { ArrowClockwise, ArrowRight, ArrowUpRight, CopySimple, Info, Star, Trash, X } from 'phosphor-react';
 
 const DEFAULT_TEAM_LOGO = '/default-logo.png';
@@ -301,6 +308,7 @@ export const TournamentView: React.FC = () => {
   const [editDescription, setEditDescription] = useState('');
   const [showEditEmail, setShowEditEmail] = useState(false);
   const [editAdminEmail, setEditAdminEmail] = useState('');
+  const [showOpenTournamentWelcome, setShowOpenTournamentWelcome] = useState(false);
   const [isUpdatingSettings, setIsUpdatingSettings] = useState(false);
   const [isResettingAdminPassword, setIsResettingAdminPassword] = useState(false);
   const [isTest, setIsTest] = useState(false);
@@ -324,6 +332,7 @@ export const TournamentView: React.FC = () => {
     tournament?.organizer_id && currentHtUserId && Number(tournament.organizer_id) === currentHtUserId,
   );
   const canManageFeaturedTournaments = isSuperAdmin && currentHtUserId === FORGE_SUPERADMIN_USER_ID;
+  const showCreatedTournamentWelcome = searchParams.get('welcome') === TOURNAMENT_CREATED_WELCOME;
   const organizerLoginLabel = `🤖 ${currentHtManagerName} (organizer)`;
   const dismissedPublicAnnouncementIds = new Set(
     announcements
@@ -1873,7 +1882,7 @@ export const TournamentView: React.FC = () => {
     const res = await fetch(`/api/teams/info?${params.toString()}`);
     const data = (await res.json()) as FetchedTeamData & { error?: string };
     if (!res.ok) throw new Error(data.error || 'Failed to fetch sandbox team data');
-    if (!data.teamName) throw new Error('Team data is missing a team name.');
+    if (!data.teamName || data.teamName === 'Unknown') throw new Error('Team data is missing a valid team name.');
     return data;
   };
 
@@ -2415,6 +2424,33 @@ export const TournamentView: React.FC = () => {
     dismissedAnnouncementIds,
     publicDismissedAnnouncementIds: dismissedPublicAnnouncementIds,
   });
+
+  useEffect(() => {
+    if (!slug || !tournament || showCreatedTournamentWelcome) {
+      setShowOpenTournamentWelcome(false);
+      return;
+    }
+
+    if (isSandbox || tournament.status !== 'open' || hasJoined || canLoginAsOrganizer) {
+      setShowOpenTournamentWelcome(false);
+      return;
+    }
+
+    const key = getTournamentVisitWelcomeKey(slug);
+    setShowOpenTournamentWelcome(!hasDismissedWelcome(key));
+  }, [canLoginAsOrganizer, hasJoined, isSandbox, showCreatedTournamentWelcome, slug, tournament]);
+
+  const closeCreatedTournamentWelcome = () => {
+    const nextParams = new URLSearchParams(searchParams);
+    nextParams.delete('welcome');
+    setSearchParams(nextParams, { replace: true });
+  };
+
+  const closeOpenTournamentWelcome = () => {
+    if (!slug) return;
+    dismissWelcome(getTournamentVisitWelcomeKey(slug));
+    setShowOpenTournamentWelcome(false);
+  };
 
   const handleRefreshHattrickLogin = () => {
     document.cookie = `auth_return_url=${encodeURIComponent(window.location.pathname + window.location.search)}; path=/; max-age=300`;
@@ -3776,6 +3812,42 @@ export const TournamentView: React.FC = () => {
           )}
         </div>
       )}
+
+      <WelcomeModal
+        isOpen={showCreatedTournamentWelcome}
+        onClose={closeCreatedTournamentWelcome}
+        imageSrc="/create.png"
+        imageAlt="Tournament created"
+        title="Tournament created. Now stress it a little."
+        buttonLabel="Let's test it"
+      >
+        <p>Try the important bits while nothing serious is on the line:</p>
+        <ul>
+          <li>add teams and remove teams,</li>
+          <li>test team limits and country rules,</li>
+          <li>generate a schedule,</li>
+          <li>regenerate it and see what breaks,</li>
+          <li>click around the admin tools until you trust them.</li>
+        </ul>
+      </WelcomeModal>
+
+      <WelcomeModal
+        isOpen={showOpenTournamentWelcome}
+        onClose={closeOpenTournamentWelcome}
+        imageSrc="/register2.png"
+        imageAlt="Open tournament welcome"
+        title="This tournament is open."
+        buttonLabel="Sounds good"
+      >
+        <p>Next steps are simple:</p>
+        <ul>
+          <li>add your team to the tournament,</li>
+          <li>invite a few others too,</li>
+          <li>wait for Hattrick week 4 or until cup frees you,</li>
+          <li>wait for the admin to generate the schedule,</li>
+          <li>start booking matches from that schedule and enjoy yourself.</li>
+        </ul>
+      </WelcomeModal>
 
       <Modal isOpen={isEditingImage} onClose={() => setIsEditingImage(false)} title="Update Tournament Image">
         <div className={styles.modalContent}>

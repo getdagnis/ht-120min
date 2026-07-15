@@ -98,7 +98,13 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     }
 
     const parsed = parseTeamDetailsXml(xml, Number(team_id));
-    const teamName = parsed.teamName || 'Unknown';
+    const teamName = parsed.teamName?.trim() || 'Unknown';
+    const hasUsableTeamName = teamName !== 'Unknown';
+
+    if (!hasUsableTeamName) {
+      return res.status(404).json({ error: `Team ID ${team_id} was not found.` });
+    }
+
     const leagueId = parsed.leagueId?.toString();
     const leagueSystemId = parsed.leagueSystemId?.toString();
     const leagueLevel = parsed.leagueLevel;

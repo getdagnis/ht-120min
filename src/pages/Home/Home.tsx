@@ -11,11 +11,13 @@ import { MottoWidget } from '../../components/MottoWidget/MottoWidget';
 import { SidebarWidget } from '../../components/SidebarWidget/SidebarWidget';
 import { TinderWidget } from '../../components/TinderWidget/TinderWidget';
 import { SupportersWall } from '../../components/SupportersWall/SupportersWall';
+import { WelcomeModal } from '../../components/WelcomeModal/WelcomeModal';
 import { Link as ScrollTo, Element } from 'react-scroll';
 import { sortOpenTournaments } from '../../utils/open-tournaments';
 import { getTournamentNextMatchDate } from '../../utils/tournament-next-match';
 import { sortFeaturedFirst } from '../../utils/tournament-sorting';
 import { getPublishedFaqSections } from '../../constants/faq-essential';
+import { dismissWelcome, hasDismissedWelcome, HOME_WELCOME_KEY } from '../../utils/welcome-modals';
 import {
   Trophy,
   CalendarBlank,
@@ -124,6 +126,7 @@ const ForumWidget = () => (
 
 export const Home: React.FC = () => {
   const navigate = useNavigate();
+  const [showWelcome, setShowWelcome] = useState(false);
   const [featuredTournaments, setFeaturedTournaments] = useState<Tournament[]>([]);
   const [activeTournaments, setActiveTournaments] = useState<Tournament[]>([]);
   const [openTournaments, setOpenTournaments] = useState<Tournament[]>([]);
@@ -132,6 +135,17 @@ export const Home: React.FC = () => {
   const faqContent = useMemo(() => getPublishedFaqSections(), []);
 
   const showFaq = faqContent.length > 0 && SHOW_FAQ;
+
+  useEffect(() => {
+    if (!hasDismissedWelcome(HOME_WELCOME_KEY)) {
+      setShowWelcome(true);
+    }
+  }, []);
+
+  const closeWelcome = () => {
+    dismissWelcome(HOME_WELCOME_KEY);
+    setShowWelcome(false);
+  };
 
   const fetchTournaments = useCallback(async () => {
     try {
@@ -391,6 +405,27 @@ export const Home: React.FC = () => {
 
   return (
     <div className={styles.home}>
+      <WelcomeModal
+        isOpen={showWelcome}
+        onClose={closeWelcome}
+        imageSrc="/hero1.png"
+        imageAlt="HT-120min welcome"
+        title="Hey, this is HT-120min!"
+        buttonLabel="Ok, I guess"
+      >
+        <p>It is off-season. Best time to:</p>
+        <ul>
+          <li>browse around and learn what you can,</li>
+          <li>create a test tournament,</li>
+          <li>
+            visit our <a href={FORUM_LINK} target="_blank" rel="noreferrer">Hattrick forum</a> to ask questions, give
+            feedback or request features,
+          </li>
+          <li>start planning that small HFI league of yours to play proper domestic 120s.</li>
+        </ul>
+        <p>Browse around. Come around.</p>
+      </WelcomeModal>
+
       <div className={styles.container}>
         <div className={styles.heroBand}>
           <HeroCard className={styles.heroCard}>

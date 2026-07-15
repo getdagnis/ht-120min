@@ -79,6 +79,7 @@ Production means live deployed behavior. If it has not been checked against the 
 - Fixtures collapse older finished rounds by default while keeping last finished, current/next, and future rounds visible.
 - Empty fixtures still show a Hattrick join CTA before schedules are generated, including when the viewer has already joined one team but can add another.
 - Empty standings show a first-team placeholder row with a join link, and team logo displays fall back to `/default-logo.png`.
+- Welcome modals now exist locally for the home page, Matchmaker, newly created tournaments, and first visits to open tournaments. They use one shared modal shell with per-surface copy and per-browser dismissal state.
 - Admin settings show a dirty-state save reminder, organizer-only admin password reset, and team deletion now requires a second admin-password confirmation.
 - Superadmin-only featured tournament toggling is available in admin settings and pins featured tournaments to the top of open, active, and organizer lists.
 - Superadmin bypass is env-backed, dev-only, and no longer exposed as a hardcoded cookie value; production session signing now requires `APP_SESSION_SECRET`.
@@ -120,7 +121,7 @@ rg "docs/(architecture|scheduling|chpp|database-and-deployment)\\.md|PROJECT_STA
 git diff --check
 ```
 
-`npm run build`, `npm test` (69 tests), and `git diff --check` passed on 2026-07-15. The build still reports the existing CSS `:global` warning and large bundle warning. For future code changes, run:
+`npm run build`, `npm test` (75 tests), and `git diff --check` passed on 2026-07-15. The build still reports the existing CSS `:global` warning and large bundle warning. For future code changes, run:
 
 ```bash
 npm run build

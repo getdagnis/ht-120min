@@ -537,7 +537,7 @@ export const CreateTournament: React.FC = () => {
     const res = await fetch(`/api/teams/info?${params.toString()}`);
     const data = (await res.json()) as FetchedTeamData & { error?: string };
     if (!res.ok) throw new Error(data.error || 'Failed to fetch sandbox team data');
-    if (!data.teamName) throw new Error('Team data is missing a team name.');
+    if (!data.teamName || data.teamName === 'Unknown') throw new Error('Team data is missing a valid team name.');
     return data;
   };
 
@@ -869,7 +869,7 @@ export const CreateTournament: React.FC = () => {
       localStorage.removeItem('create_tournament_progress');
       localStorage.setItem(HAS_CREATED_TOURNAMENT_KEY, 'true');
       localStorage.setItem(`admin_pw_${slug}`, adminPassword);
-      window.location.href = `/t/${slug}?tab=standings`;
+      window.location.href = `/t/${slug}?tab=standings&welcome=created`;
     } catch (err: unknown) {
       if (createdTournamentId) {
         await supabase.from('teams').delete().eq('tournament_id', createdTournamentId);

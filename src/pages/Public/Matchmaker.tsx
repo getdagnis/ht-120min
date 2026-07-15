@@ -6,8 +6,10 @@ import type { MatchmakerRequest, MatchmakerTeamOption, MatchmakerActivity } from
 import { Button } from '../../components/Button/Button';
 import { Modal } from '../../components/Modal/Modal';
 import { TeamSelectorModal } from '../../components/TeamSelectorModal/TeamSelectorModal';
+import { WelcomeModal } from '../../components/WelcomeModal/WelcomeModal';
 import { getDisplayTeamName } from '../../utils/matchmaker';
 import { getMockMatchmakerRequests, getMockMatchmakerTeams, isMatchmakerMockDataEnabled } from '../../mock/matchmaker';
+import { dismissWelcome, hasDismissedWelcome, TINDER_WELCOME_KEY } from '../../utils/welcome-modals';
 import {
   Handshake,
   X,
@@ -342,6 +344,7 @@ export const Matchmaker: React.FC = () => {
   const isDev = import.meta.env.VITE_MATCHMAKER_DEV_MODE === 'true' || window.location.hostname === 'localhost';
   const [currentIndex, setCurrentIndex] = useState(0);
   const [loading, setLoading] = useState(true);
+  const [showWelcome, setShowWelcome] = useState(false);
   const [myRequests, setMyRequests] = useState<MatchmakerRequest[]>([]);
   const [hasSetInitialTab, setHasSetInitialTab] = useState(false);
   const hasMyRequests = myRequests.length > 0;
@@ -378,6 +381,17 @@ export const Matchmaker: React.FC = () => {
   const [isLongTerm, setIsLongTerm] = useState(false);
   const [isLongTermLocked, setIsLongTermLocked] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
+
+  useEffect(() => {
+    if (!hasDismissedWelcome(TINDER_WELCOME_KEY)) {
+      setShowWelcome(true);
+    }
+  }, []);
+
+  const closeWelcome = () => {
+    dismissWelcome(TINDER_WELCOME_KEY);
+    setShowWelcome(false);
+  };
   const [isSelectingTeam, setIsSelectingTeam] = useState(false);
   const [selectingTeamPurpose, setSelectingTeamPurpose] = useState<'challenge' | 'post'>('post');
   const [targetRequestId, setTargetRequestId] = useState<string | null>(null);
@@ -1706,6 +1720,18 @@ export const Matchmaker: React.FC = () => {
           )}
         </div>
       )}
+
+      <WelcomeModal
+        isOpen={showWelcome}
+        onClose={closeWelcome}
+        imageSrc="/tinder-date-long-firefly.jpg"
+        imageAlt="HT-Tinder welcome"
+        title="Welcome to HT-Tinder!"
+        buttonLabel="Let me see the damage"
+      >
+        <p>Tinder section is in very early alpha.</p>
+        <p>Try it anyway, register your team for a long-term relationship and you might just get lucky.</p>
+      </WelcomeModal>
 
       {/* Posting Modal */}
       <Modal
