@@ -50,6 +50,15 @@ export interface OrganizerTournament {
   created_at: string;
 }
 
+export interface TestTournament {
+  id: string;
+  name: string;
+  slug: string;
+  is_featured: boolean;
+  status: string | null;
+  created_at: string;
+}
+
 interface DBTeamMatch {
   id: string;
   completed: boolean;
@@ -90,6 +99,8 @@ interface DBOrganizerTournament {
   is_featured?: boolean | null;
   status: string | null;
   is_archived?: boolean | null;
+  is_test?: boolean | null;
+  registration_type?: string | null;
   created_at: string;
 }
 
@@ -103,6 +114,7 @@ export const useAuth = () => {
   const [profile, setProfile] = useState<UserProfile | null>(null);
   const [activeTournaments, setActiveTournaments] = useState<ActiveTournament[]>([]);
   const [organizerTournaments, setOrganizerTournaments] = useState<OrganizerTournament[]>([]);
+  const [testTournaments, setTestTournaments] = useState<TestTournament[]>([]);
   const [loading, setLoading] = useState(false);
 
   const fetchProfile = useCallback(async (uid: number) => {
@@ -207,13 +219,30 @@ export const useAuth = () => {
 
       const { data: organizerDataRaw } = await supabase
         .from('tournaments')
-        .select('id, name, slug, status, is_archived, created_at, is_featured')
+        .select('id, name, slug, status, is_archived, is_test, registration_type, created_at, is_featured')
         .eq('organizer_id', uid)
         .neq('status', 'archived')
         .order('created_at', { ascending: false });
 
-      const organizerTours = ((organizerDataRaw as unknown as DBOrganizerTournament[] | null) ?? [])
-        .filter((tournament) => tournament.status !== 'archived' && !tournament.is_archived)
+      const organizerRows = ((organizerDataRaw as unknown as DBOrganizerTournament[] | null) ?? []).filter(
+        (tournament) => tournament.status !== 'archived' && !tournament.is_archived,
+      );
+
+      const mapMenuTournament = (tournament: DBOrganizerTournament) => ({
+        id: tournament.id,
+        name: tournament.name,
+        slug: tournament.slug,
+        is_featured: Boolean(tournament.is_featured),
+        status: tournament.status,
+        created_at: tournament.created_at,
+      });
+
+      const testTours = organizerRows
+        .filter((tournament) => tournament.registration_type === 'sandbox' || tournament.is_test)
+        .map(mapMenuTournament);
+
+      const organizerTours = organizerRows
+        .filter((tournament) => tournament.registration_type !== 'sandbox' && !tournament.is_test)
         .map((tournament) => ({
           id: tournament.id,
           name: tournament.name,
@@ -227,6 +256,9 @@ export const useAuth = () => {
         sortFeaturedFirst(organizerTours, (a, b) =>
           new Date(b.created_at).getTime() - new Date(a.created_at).getTime(),
         ),
+      );
+      setTestTournaments(
+        sortFeaturedFirst(testTours, (a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime()),
       );
     } catch (err) {
       console.error('Error fetching profile:', err);
@@ -251,6 +283,7 @@ export const useAuth = () => {
     setProfile(null);
     setActiveTournaments([]);
     setOrganizerTournaments([]);
+    setTestTournaments([]);
   };
 
   return {
@@ -258,6 +291,7 @@ export const useAuth = () => {
     profile,
     activeTournaments,
     organizerTournaments,
+    testTournaments,
     loading,
     logout,
     refreshProfile: () => {

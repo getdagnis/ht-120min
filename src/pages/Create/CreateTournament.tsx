@@ -47,6 +47,8 @@ import {
   SANDBOX_REGULAR_TEAM_ID_MIN,
 } from '../../constants/sandbox';
 
+const HAS_CREATED_TOURNAMENT_KEY = 'ht120_has_created_tournament';
+
 const CreationTipsWidget = () => {
   const [expandedTips, setExpandedTips] = useState<Set<string>>(() => new Set());
 
@@ -159,7 +161,7 @@ const getInitialFormData = () => ({
   slug: '',
   scoring_mode: '120min',
   league_category: 'male',
-  registration_type: 'validated',
+  registration_type: localStorage.getItem(HAS_CREATED_TOURNAMENT_KEY) === 'true' ? 'validated' : 'sandbox',
   is_private: false,
   country_limit: '',
   include_country_flag: true,
@@ -865,6 +867,7 @@ export const CreateTournament: React.FC = () => {
       }
 
       localStorage.removeItem('create_tournament_progress');
+      localStorage.setItem(HAS_CREATED_TOURNAMENT_KEY, 'true');
       localStorage.setItem(`admin_pw_${slug}`, adminPassword);
       window.location.href = `/t/${slug}?tab=standings`;
     } catch (err: unknown) {

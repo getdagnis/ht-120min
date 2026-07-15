@@ -13,6 +13,10 @@ import { OAUTH_CREATION_TOURNAMENT_ID } from '../_lib/oauth-constants.js';
 import { hasSuperAdminBypassCookie } from '../_lib/superadmin-bypass.js';
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
+  if (req.method === 'HEAD' || req.method === 'OPTIONS') {
+    return res.status(204).end();
+  }
+
   const { oauth_token, oauth_verifier } = req.query;
 
   if (!oauth_token || !oauth_verifier) {

@@ -54,7 +54,8 @@ function getVisitCount() {
 export const Layout: React.FC<LayoutProps> = ({ children }) => {
   const navigate = useNavigate();
   const location = useLocation();
-  const { managerName, profile, activeTournaments, organizerTournaments, logout, refreshProfile } = useAuth();
+  const { managerName, profile, activeTournaments, organizerTournaments, testTournaments, logout, refreshProfile } =
+    useAuth();
   usePresenceHeartbeat(!!managerName, `${location.pathname}${location.search}`);
   const [visitCount] = useState(() => getVisitCount());
   const visibleOrganizerTournaments = useMemo(() => {
@@ -210,6 +211,25 @@ export const Layout: React.FC<LayoutProps> = ({ children }) => {
                             <span>Organizer:</span>
                             <div className={styles.activeTournamentsList}>
                               {visibleOrganizerTournaments.map((t) => (
+                                <div key={t.id} className={styles.tourItem}>
+                                  <Link
+                                    to={`/t/${t.slug}`}
+                                    className={styles.dropdownLink}
+                                    onClick={() => setIsUserDropdownOpen(false)}
+                                  >
+                                    {t.name}
+                                  </Link>
+                                  {t.status && <div className={styles.tourStatus}>{t.status}</div>}
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+                        )}
+                        {testTournaments.length > 0 && (
+                          <div className={styles.dropdownInfo}>
+                            <span>Test tournaments:</span>
+                            <div className={styles.activeTournamentsList}>
+                              {testTournaments.map((t) => (
                                 <div key={t.id} className={styles.tourItem}>
                                   <Link
                                     to={`/t/${t.slug}`}
