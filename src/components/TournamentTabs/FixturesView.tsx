@@ -397,6 +397,8 @@ export const FixturesView: React.FC<FixturesViewProps> = ({
                       status = 'finished';
                     } else if (liveMatch) {
                       status = liveMatch.status;
+                    } else if (status === 'ongoing' && !isWithinLiveWindow) {
+                      status = 'arranged';
                     } else if (isPastStartTime && isWithinLiveWindow && status === 'arranged') {
                       status = 'ongoing';
                     }

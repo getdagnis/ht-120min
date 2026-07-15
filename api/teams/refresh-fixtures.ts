@@ -3,6 +3,7 @@ import { getSupabase } from '../_lib/supabase.js';
 import { getAuthHeader } from '../_lib/chpp-auth.js';
 import { readChppTag } from '../_lib/chpp-xml.js';
 import { resolveHattrickWeekContext } from '../_lib/hattrick-time.js';
+import { isFriendlyInsideAcceptedWindow } from '../_lib/match-window.js';
 
 // Simplified helper for match date calculation on server
 // Compare with docs/global-match-time.json before actual implementation
@@ -534,7 +535,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         (f.homeId === homeTeam.ht_team_id && f.awayId === awayTeam.ht_team_id) ||
         (f.homeId === awayTeam.ht_team_id && f.awayId === homeTeam.ht_team_id);
 
-      const withinWindow = (f: { date: Date }) => Math.abs(f.date.getTime() - targetDate.getTime()) < 3 * 24 * 60 * 60 * 1000;
+      const withinWindow = (f: { date: Date }) =>
+        isFriendlyInsideAcceptedWindow(f.date, targetDate, match.schedule_slot_type);
       const homeCorrectMatch = homeFriendlies.find((fixture) => withinWindow(fixture) && isCorrectMatch(fixture));
       const awayCorrectMatch = awayFriendlies.find((fixture) => withinWindow(fixture) && isCorrectMatch(fixture));
       const confirmedMatch = homeCorrectMatch ?? awayCorrectMatch;

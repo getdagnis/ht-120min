@@ -440,10 +440,15 @@ export const TournamentView: React.FC = () => {
 
   const allMatches = rounds.flatMap((r) => r.matches);
   const isGenerated = rounds.length > 0;
-  const { liveData, lastRefresh } = useLiveMatches(tournament?.id, allMatches, () => {
-    // Note: fetchData is defined below but hoisted as a const,
-    // we call it inside this effect/callback safely.
-  });
+  const { liveData, lastRefresh } = useLiveMatches(
+    tournament?.id,
+    allMatches,
+    () => {
+      // Note: fetchData is defined below but hoisted as a const,
+      // we call it inside this effect/callback safely.
+    },
+    activeTab === 'fixtures',
+  );
 
   const isHealthQuotaMet = useCallback(
     (teamList: Team[] = teams) => {

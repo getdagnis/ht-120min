@@ -4,7 +4,7 @@ import { getAuthHeader } from '../_lib/chpp-auth.js';
 import { readChppTag } from '../_lib/chpp-xml.js';
 
 interface LiveMatchResult {
-  status: 'ongoing' | 'finished';
+  status: 'arranged' | 'ongoing' | 'finished';
   homeGoals: number;
   awayGoals: number;
   total_minutes?: number;
@@ -220,6 +220,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
       const finishedDate = readChppTag(xml, 'FinishedDate');
       const finished = (finishedDate && finishedDate !== '0001-01-01 00:00:00') || xml.includes('<MatchStatus>2</MatchStatus>');
+      const isOngoing = xml.includes('<MatchStatus>1</MatchStatus>');
+      const status = finished ? 'finished' : isOngoing ? 'ongoing' : 'arranged';
 
       // For ongoing matches, use the live running score from the last scorer entry.
       // For finished matches, trust the official HomeGoals/AwayGoals result.
@@ -295,7 +297,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       }
 
       results[htMatchId] = {
-        status: finished ? 'finished' : 'ongoing',
+        status,
         homeGoals,
         awayGoals,
         total_minutes: totalMinutes,
@@ -312,10 +314,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       };
 
       await supabase.from('matches').update({
-        home_goals: homeGoals,
-        away_goals: awayGoals,
+        home_goals: status === 'arranged' ? null : homeGoals,
+        away_goals: status === 'arranged' ? null : awayGoals,
         completed: finished,
-        status: finished ? 'finished' : 'ongoing',
+        status,
         total_minutes: totalMinutes,
         went_120: isExtraTime,
         venue_mismatch: venueMismatch,

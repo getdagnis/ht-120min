@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 
 export interface LiveMatchData {
-  status: 'ongoing' | 'finished';
+  status: 'arranged' | 'ongoing' | 'finished';
   homeGoals: number;
   awayGoals: number;
   total_minutes?: number;
@@ -22,7 +22,12 @@ interface Match {
   match_date?: Date | string;
 }
 
-export function useLiveMatches(tournamentId: string | undefined, matches: Match[], onMatchFinished?: () => void) {
+export function useLiveMatches(
+  tournamentId: string | undefined,
+  matches: Match[],
+  onMatchFinished?: () => void,
+  enabled = true,
+) {
   const [liveData, setLiveData] = useState<Record<string, LiveMatchData>>({});
   const [lastRefresh, setLastRefresh] = useState<string | null>(null);
 
@@ -37,7 +42,7 @@ export function useLiveMatches(tournamentId: string | undefined, matches: Match[
   }, [matches, tournamentId, onMatchFinished]);
 
   useEffect(() => {
-    if (!tournamentId) return;
+    if (!tournamentId || !enabled) return;
 
     const checkLiveMatches = async () => {
       const now = new Date();
@@ -50,7 +55,10 @@ export function useLiveMatches(tournamentId: string | undefined, matches: Match[
         if (m.completed) return false;
         if (!m.ht_match_id || !['arranged', 'ongoing', 'finished'].includes(m.status)) return false;
         const matchDate = m.match_date ? new Date(m.match_date) : null;
-        return matchDate && now.getTime() >= matchDate.getTime() - 5 * 60 * 1000;
+        if (!matchDate) return false;
+        const startsAt = matchDate.getTime() - 5 * 60 * 1000;
+        const endsAt = matchDate.getTime() + 4 * 60 * 60 * 1000;
+        return now.getTime() >= startsAt && now.getTime() <= endsAt;
       });
 
       if (potentialLive.length === 0) return;
@@ -93,7 +101,7 @@ export function useLiveMatches(tournamentId: string | undefined, matches: Match[
     checkLiveMatches();
     const interval = setInterval(checkLiveMatches, 30000);
     return () => clearInterval(interval);
-  }, [tournamentId]);
+  }, [tournamentId, enabled]);
 
   return { liveData, lastRefresh };
 }
