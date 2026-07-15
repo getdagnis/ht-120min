@@ -31,3 +31,10 @@ Hallowed Be Thy R!.md
 # Local database backups
 scripts/backups/*
 !scripts/backups/.gitkeep
+
+# Playwright
+/test-results/
+/playwright-report/
+/blob-report/
+/playwright/.cache/
+/playwright/.auth/
