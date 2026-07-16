@@ -18,6 +18,8 @@ Important tables used by current code:
 - `news_reactions`
 - `tournament_announcements`
 - `tournament_announcement_dismissals`
+- `tournament_seasons`
+- `tournament_season_comments`
 - `matchmaker_requests`
 - `matchmaker_activity`
 
@@ -40,6 +42,8 @@ Recent important migrations:
 - `049_reschedule_tournament_rounds_rpc.sql`
 - `050_tournament_announcements.sql`
 - `051_correct_week15_week16_weekend_schedule.sql`
+- `057_tournament_seasons_history.sql`
+- `058_tournament_season_yearbook_comments.sql`
 
 ## RLS And Access Assumptions
 
@@ -75,6 +79,7 @@ Current counted functions are listed in `AGENTS.md`.
 - CHPP server routes require server-side CHPP consumer credentials.
 - Frontend Supabase access uses public Vite env variables.
 - Service-role and CHPP secrets must stay server-side.
+- `SUPABASE_SECRET_KEY` (or legacy `SUPABASE_SERVICE_ROLE_KEY`) is required for server-authorized writes such as immutable season yearbook comments. Never prefix it with `VITE_` or expose it to browser code.
 - `APP_SESSION_SECRET` must be present in production. Do not fall back to `CHPP_CONSUMER_SECRET` for session signing.
 - The superadmin bypass cookie is dev-only. Keep its token out of production and do not surface it in the UI.
 

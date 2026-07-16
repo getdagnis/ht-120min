@@ -11,6 +11,8 @@ import { calculateStandings } from '../../utils/standings';
 import type { TeamStanding, Team as StandingTeam } from '../../utils/standings';
 import {
   buildSeasonHistorySnapshot,
+  resolveSeasonFinishedAt,
+  resolveSeasonStartedAt,
   type SeasonHistorySnapshot,
   type SeasonHistoryMatch,
 } from '../../utils/season-history';
@@ -36,6 +38,7 @@ import {
 import { Tooltip } from 'react-tooltip';
 import { nanoid } from 'nanoid';
 import { Button } from '../../components/Button/Button';
+import { Modal } from '../../components/Modal/Modal';
 import { HeroCard } from '../../components/Card/HeroCard';
 import { SectionCard } from '../../components/Card/SectionCard';
 import { ChatView } from '../../components/TournamentTabs/ChatView';
@@ -44,7 +47,6 @@ import { AdminResults } from '../../components/TournamentTabs/Admin/AdminResults
 import { AdminAnnouncementComposer } from '../../components/TournamentTabs/Admin/AdminAnnouncementComposer';
 import { TournamentSchedulePanel } from '../../components/TournamentTabs/Admin/TournamentSchedulePanel';
 import { FaqRenderer } from '../../components/Faq/FaqRenderer';
-import { Modal } from '../../components/Modal/Modal';
 import { MottoWidget } from '../../components/MottoWidget/MottoWidget';
 import { StandingsView } from '../../components/TournamentTabs/StandingsView';
 import { TournamentHistory } from '../../components/TournamentHistory/TournamentHistory';
@@ -323,8 +325,11 @@ export const TournamentView: React.FC = () => {
   const [announcementDismissals, setAnnouncementDismissals] = useState<TournamentAnnouncementDismissal[]>([]);
   const [, setPublicAnnouncementDismissalVersion] = useState(0);
   const [seasons, setSeasons] = useState<TournamentSeason[]>([]);
+  const [historyReportNoticeOpen, setHistoryReportNoticeOpen] = useState(false);
+  const [historyReportSeen, setHistoryReportSeen] = useState(false);
   const [isAddingSeason, setIsAddingSeason] = useState(false);
   const [rebuildingSeasonNumber, setRebuildingSeasonNumber] = useState<number | null>(null);
+  const [isFinalizingSeason, setIsFinalizingSeason] = useState(false);
 
   // Chat states
   const [chatMessages, setChatMessages] = useState<any[]>([]);
@@ -362,6 +367,88 @@ export const TournamentView: React.FC = () => {
   const [rescheduleStartSlotId, setRescheduleStartSlotId] = useState('');
   const [includeWeek15WeekendFriendlyForReschedule, setIncludeWeek15WeekendFriendlyForReschedule] = useState(false);
   const [organizerProfileName, setOrganizerProfileName] = useState<string | null>(null);
+  const currentHtUserId = Number(localStorage.getItem('my_ht_user_id') || '0') || null;
+
+  const latestPublishedHistorySeason = useMemo(
+    () =>
+      [...seasons]
+        .filter((season) => season.status === 'finished' && season.snapshot_json)
+        .sort((a, b) => b.season_number - a.season_number)[0] || null,
+    [seasons],
+  );
+  const historyReportPublishedAt = latestPublishedHistorySeason?.snapshot_json?.generatedAt || null;
+  const historyReportNoticeIsCurrent = Boolean(
+    historyReportPublishedAt && Date.now() - new Date(historyReportPublishedAt).getTime() <= 7 * 24 * 60 * 60 * 1000,
+  );
+
+  useEffect(() => {
+    if (!tournament || !latestPublishedHistorySeason || !historyReportNoticeIsCurrent || !currentHtUserId) {
+      setHistoryReportNoticeOpen(false);
+      return;
+    }
+
+    let cancelled = false;
+    fetch(
+      `/api/tournaments/history?notice=history-report-status&seasonId=${encodeURIComponent(latestPublishedHistorySeason.id)}&tournamentId=${encodeURIComponent(tournament.id)}`,
+    )
+      .then((response) => response.json())
+      .then((data: { dismissed?: boolean; seen?: boolean; tracked?: boolean }) => {
+        if (cancelled) return;
+        setHistoryReportSeen(Boolean(data.seen));
+        setHistoryReportNoticeOpen(data.tracked === true && data.dismissed !== true && data.seen !== true);
+      })
+      .catch(() => {
+        if (!cancelled) setHistoryReportNoticeOpen(false);
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [currentHtUserId, historyReportNoticeIsCurrent, latestPublishedHistorySeason, tournament]);
+
+  useEffect(() => {
+    if (!tournament || !activeTab || activeTab !== 'history' || !latestPublishedHistorySeason || !currentHtUserId) return;
+    void fetch('/api/tournaments/history', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        action: 'mark-history-report-seen',
+        seasonId: latestPublishedHistorySeason.id,
+        tournamentId: tournament.id,
+      }),
+    });
+    setHistoryReportSeen(true);
+    setHistoryReportNoticeOpen(false);
+  }, [activeTab, currentHtUserId, latestPublishedHistorySeason, tournament]);
+
+  const dismissHistoryReportNotice = () => {
+    if (!tournament || !latestPublishedHistorySeason || !currentHtUserId) return;
+    setHistoryReportNoticeOpen(false);
+    void fetch('/api/tournaments/history', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        action: 'mark-history-report-dismissed',
+        seasonId: latestPublishedHistorySeason.id,
+        tournamentId: tournament.id,
+      }),
+    });
+  };
+
+  const markHistoryReportSeen = () => {
+    if (!tournament || !latestPublishedHistorySeason || !currentHtUserId) return;
+    setHistoryReportSeen(true);
+    setHistoryReportNoticeOpen(false);
+    void fetch('/api/tournaments/history', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        action: 'mark-history-report-seen',
+        seasonId: latestPublishedHistorySeason.id,
+        tournamentId: tournament.id,
+      }),
+    });
+  };
 
   // Tournament settings states
   const [editName, setEditName] = useState('');
@@ -401,7 +488,6 @@ export const TournamentView: React.FC = () => {
   const isSandbox = tournament ? isSandboxTournament(tournament.registration_type) : false;
   const isPausedTournament = tournament?.status === 'paused';
   const isStoppedTournament = tournament?.status === 'stopped';
-  const currentHtUserId = Number(localStorage.getItem('my_ht_user_id') || '0') || null;
   const organizerTeam = tournament?.organizer_id
     ? teams.find((team) => Number(team.hattrick_user_id) === Number(tournament.organizer_id))
     : null;
@@ -1763,16 +1849,22 @@ export const TournamentView: React.FC = () => {
     );
   }, [rounds, teams, tournament]);
 
-  const ensureCurrentSeasonSnapshot = useCallback(async () => {
-    if (!tournament) return null;
+  const persistCurrentSeasonHistory = useCallback(async () => {
+    if (!tournament) throw new Error('Tournament is not available.');
     const currentSeasonNumber = tournament.season || 1;
     const existingSeason = seasons.find((season) => season.season_number === currentSeasonNumber);
-    if (existingSeason?.snapshot_json) return existingSeason.snapshot_json;
-
-    const snapshot = buildCurrentSeasonSnapshot();
-    if (!snapshot) return null;
+    const snapshot = existingSeason?.snapshot_json || buildCurrentSeasonSnapshot();
+    if (!snapshot) throw new Error('Season history could not be generated.');
 
     const now = new Date().toISOString();
+    const finishedAt = resolveSeasonFinishedAt(
+      rounds.flatMap((round) => round.matches.map((match) => toSeasonHistoryMatch(match, round.round_number))),
+      existingSeason?.finished_at || now,
+    );
+    const startedAt = resolveSeasonStartedAt(
+      rounds.flatMap((round) => round.matches.map((match) => toSeasonHistoryMatch(match, round.round_number))),
+      existingSeason?.started_at || tournament.schedule_generated_at || null,
+    );
     const { data, error } = await supabase
       .from('tournament_seasons')
       .upsert(
@@ -1781,8 +1873,8 @@ export const TournamentView: React.FC = () => {
           season_number: currentSeasonNumber,
           status: 'finished',
           planned_start_slot: tournament.schedule_start_slot,
-          started_at: tournament.schedule_generated_at,
-          finished_at: now,
+          started_at: startedAt,
+          finished_at: finishedAt,
           snapshot_json: snapshot,
           updated_at: now,
         },
@@ -1800,7 +1892,39 @@ export const TournamentView: React.FC = () => {
     }
 
     return snapshot;
-  }, [buildCurrentSeasonSnapshot, seasons, tournament]);
+  }, [buildCurrentSeasonSnapshot, rounds, seasons, tournament]);
+
+  const handleGenerateHistoryReport = async () => {
+    if (!tournament || isFinalizingSeason) return;
+    setIsFinalizingSeason(true);
+    try {
+      await persistCurrentSeasonHistory();
+    } catch (error) {
+      alert(error instanceof Error ? error.message : 'Could not generate the season history report.');
+    } finally {
+      setIsFinalizingSeason(false);
+    }
+  };
+
+  const handleFinishSeason = async () => {
+    if (!tournament || isFinalizingSeason) return;
+    const confirmed = window.confirm(
+      `Finish Season ${tournament.season}?\n\nThis closes the season, generates its History report and allows participating teams to join other tournaments.`,
+    );
+    if (!confirmed) return;
+
+    setIsFinalizingSeason(true);
+    try {
+      await persistCurrentSeasonHistory();
+      const { error } = await supabase.from('tournaments').update({ status: 'finished' }).eq('id', tournament.id);
+      if (error) throw error;
+      setTournament((current) => (current ? { ...current, status: 'finished' } : current));
+    } catch (error) {
+      alert(error instanceof Error ? error.message : 'Could not finish this season.');
+    } finally {
+      setIsFinalizingSeason(false);
+    }
+  };
 
   const handleRebuildSeasonSnapshot = async (season: TournamentSeason) => {
     if (!tournament || rebuildingSeasonNumber !== null) return;
@@ -1871,7 +1995,10 @@ export const TournamentView: React.FC = () => {
 
     setIsAddingSeason(true);
     try {
-      await ensureCurrentSeasonSnapshot();
+      const finishedSeason = seasons.find((season) => season.season_number === (tournament.season || 1));
+      if (!finishedSeason?.snapshot_json) {
+        throw new Error('Generate the current season History report before adding a new season.');
+      }
       const now = new Date().toISOString();
       const plannedStart =
         tournament.schedule_start_slot && new Date(tournament.schedule_start_slot).getTime() > Date.now()
@@ -3180,6 +3307,11 @@ export const TournamentView: React.FC = () => {
         </button>
         <button className={activeTab === 'history' ? styles.active : ''} onClick={() => handleTabChange('history')}>
           History
+          {!historyReportSeen && historyReportNoticeIsCurrent && latestPublishedHistorySeason && currentHtUserId && (
+            <span className={styles.historyTabBadge} aria-label="New history report">
+              1
+            </span>
+          )}
         </button>
         <button className={isNewsTab ? styles.active : ''} onClick={() => handleTabChange('news')}>
           News
@@ -3188,6 +3320,44 @@ export const TournamentView: React.FC = () => {
           Admin
         </button>
       </div>
+
+      <Modal
+        isOpen={historyReportNoticeOpen && latestPublishedHistorySeason !== null}
+        onClose={dismissHistoryReportNotice}
+        title={`Season ${latestPublishedHistorySeason?.season_number} history`}
+        maxWidth="520px"
+        modalClassName={styles.historyReportModal}
+        headerClassName={styles.historyReportHeader}
+        closeButtonClassName={styles.historyReportClose}
+      >
+        <p className={styles.historyReportText}>
+          <strong>🏆 Season {latestPublishedHistorySeason?.season_number} history report is published!</strong> You can
+          now view it and leave your one time only final season's comment!
+        </p>
+        <div className={styles.historyReportActions}>
+          <Button
+            variant="secondaryYellow"
+            size="md"
+            onClick={() => {
+              markHistoryReportSeen();
+              const nextParams = new URLSearchParams(searchParams);
+              nextParams.set('tab', 'history');
+              setSearchParams(nextParams);
+            }}
+          >
+            View Season Report
+          </Button>
+          <Button
+            variant="outline"
+            size="md"
+            onClick={() => {
+              dismissHistoryReportNotice();
+            }}
+          >
+            Later
+          </Button>
+        </div>
+      </Modal>
 
       {activeTab === 'history' && (
         <div className={styles.historyContainer}>
@@ -3204,6 +3374,9 @@ export const TournamentView: React.FC = () => {
             currentHtUserId={currentHtUserId}
             selectedSeasonNumber={selectedHistorySeasonNumber}
             onSelectSeason={handleHistorySeasonChange}
+            canGenerateReport={isAdminAuthenticated && tournament.status === 'finished'}
+            isGeneratingReport={isFinalizingSeason}
+            onGenerateReport={handleGenerateHistoryReport}
           />
         </div>
       )}
@@ -3369,6 +3542,8 @@ export const TournamentView: React.FC = () => {
                 setIsConnecting(true);
                 window.location.href = `/api/auth/init?tournament_id=${tournament?.id}`;
               }}
+              seasonId={currentSeason?.id}
+              seasonNumber={currentSeason?.season_number ?? tournament.season}
             />
             <FaqRenderer sections={tournamentFaqSections} className={styles.tournamentFaq} />
           </div>
@@ -3762,19 +3937,59 @@ export const TournamentView: React.FC = () => {
                         <h3>Current season</h3>
                         <p className={adminStyles.seasonCurrent}>
                           Season {tournament.season} {currentSeason?.status || tournament.status}
-                          {formatHistoryDate(currentSeason?.planned_start_slot || tournament.schedule_start_slot) &&
-                            ` • ${formatHistoryDate(currentSeason?.planned_start_slot || tournament.schedule_start_slot)}`}
+                          {tournament.status === 'finished'
+                            ? formatHistoryDate(currentSeason?.finished_at) &&
+                              ` • Finished ${formatHistoryDate(currentSeason?.finished_at)}`
+                            : isGenerated
+                              ? formatHistoryDate(currentSeason?.started_at || tournament.schedule_generated_at) &&
+                                ` • Started ${formatHistoryDate(currentSeason?.started_at || tournament.schedule_generated_at)}`
+                              : formatHistoryDate(
+                                  currentSeason?.planned_start_slot || tournament.schedule_start_slot,
+                                ) &&
+                                ` • Planned ${formatHistoryDate(currentSeason?.planned_start_slot || tournament.schedule_start_slot)}`}
                         </p>
                         <p className={adminStyles.smallNote}>
-                          Finished seasons are preserved in History. Add a new season only after the current one is
-                          finished.
+                          {tournament.status === 'finished' && !currentSeason?.snapshot_json
+                            ? 'This season is finished, but its History report has not been generated yet.'
+                            : tournament.status === 'finished'
+                              ? 'This season is finished and preserved in History. You can now add a new season.'
+                              : isGenerated
+                                ? 'Finish the season when its competition is complete. This preserves its final History report.'
+                                : 'Generate a schedule before finishing this season.'}
                         </p>
                       </div>
-                      {tournament.status === 'finished' && (
-                        <Button variant="primary" size="sm" onClick={handleAddNewSeason} disabled={isAddingSeason}>
-                          {isAddingSeason ? 'Adding...' : 'Add new'}
-                        </Button>
-                      )}
+                      <div className={adminStyles.seasonActions}>
+                        {tournament.status !== 'finished' && isGenerated && (
+                          <Button
+                            variant="primaryDanger"
+                            size="sm"
+                            onClick={handleFinishSeason}
+                            disabled={isFinalizingSeason}
+                          >
+                            {isFinalizingSeason ? 'Finishing...' : 'Finish season'}
+                          </Button>
+                        )}
+                        {tournament.status === 'finished' && !currentSeason?.snapshot_json && (
+                          <Button
+                            variant="primary"
+                            size="sm"
+                            onClick={handleGenerateHistoryReport}
+                            disabled={isFinalizingSeason}
+                          >
+                            {isFinalizingSeason ? 'Generating...' : 'Generate history report'}
+                          </Button>
+                        )}
+                        {tournament.status === 'finished' && currentSeason?.snapshot_json && (
+                          <>
+                            <Button variant="outline" size="sm" disabled>
+                              History report generated
+                            </Button>
+                            <Button variant="primary" size="sm" onClick={handleAddNewSeason} disabled={isAddingSeason}>
+                              {isAddingSeason ? 'Adding...' : 'Add new'}
+                            </Button>
+                          </>
+                        )}
+                      </div>
                     </div>
                   </SectionCard>
 
@@ -4269,7 +4484,7 @@ export const TournamentView: React.FC = () => {
         imageSrc="/create.png"
         imageAlt="New tournament ready for testing"
         title="Test tournament created!"
-        buttonLabel="Let's do testing!"
+        buttonLabel="Let's start testing!"
       >
         <strong>Try the important parts while nothing serious is on the line:</strong>
 

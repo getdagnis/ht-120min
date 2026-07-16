@@ -8,6 +8,7 @@ import { SupportersPage } from './pages/Public/SupportersPage';
 import { AuthCallback } from './pages/AuthCallback';
 import { ScrollToTop } from './components/ScrollToTop';
 import { ForgePage } from './pages/Forge/ForgePage';
+import { TournamentHistoryDummy } from './pages/Dummies/TournamentHistoryDummy';
 
 function PublicApp() {
   return (
@@ -20,6 +21,7 @@ function PublicApp() {
         <Route path="/tinder" element={<Matchmaker />} />
         <Route path="/supporters" element={<SupportersPage />} />
         <Route path="/auth/callback" element={<AuthCallback />} />
+        {import.meta.env.DEV && <Route path="/dummies/tournament-history" element={<TournamentHistoryDummy />} />}
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
     </Layout>

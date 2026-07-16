@@ -93,7 +93,31 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     return res.status(405).json({ error: 'Method not allowed' });
   }
 
-  const { managerId } = req.query;
+  const { managerId, adId, adIds } = req.query;
+  if (typeof adId === 'string' || typeof adIds === 'string') {
+    const ids = typeof adId === 'string' ? [adId] : adIds.split(',').map((id) => id.trim()).filter(Boolean);
+    if (ids.length === 0) {
+      return res.status(400).json({ error: 'Missing adId or adIds' });
+    }
+
+    try {
+      const supabase = getSupabase();
+      const { data, error } = await supabase
+        .from('matchmaker_activity')
+        .select('*')
+        .in('ad_id', ids)
+        .order('created_at', { ascending: false });
+
+      if (error) throw error;
+      return res.status(200).json({ activity: data ?? [] });
+    } catch (error) {
+      console.error('Matchmaker activity fetch error:', error);
+      return res.status(500).json({
+        error: error instanceof Error ? error.message : 'Could not load activity.',
+      });
+    }
+  }
+
   if (!managerId || Array.isArray(managerId)) {
     return res.status(400).json({ error: 'Missing managerId' });
   }

@@ -33,6 +33,7 @@ interface FixtureCardProps {
   scoring_mode?: string;
   went_120?: boolean;
   completed?: boolean;
+  totalMinutes?: number;
 }
 
 const MATCH_TYPES: Record<number, { initials: string; description: string }> = {
@@ -56,10 +57,15 @@ export const FixtureCard: React.FC<FixtureCardProps> = ({
   is120minMode,
   went_120,
   completed,
+  totalMinutes,
 }) => {
   const badgeContent = (
     <div className={`${styles.statusBadge} ${styles[status]}`}>
-      {went_120 && <div className={styles.badge120}>120'!</div>}
+      {completed && (
+        <div className={`${styles.minutesBadge} ${went_120 ? styles.achievedMinutes : ''}`}>
+          {totalMinutes ?? (went_120 ? 120 : 90)}'{went_120 ? '!' : ' mins'}
+        </div>
+      )}
       <div className={styles.badgeRight}>
         {status.replace('_', ' ').toUpperCase()}{' '}
         {['arranged', 'ongoing', 'finished'].includes(status) && (

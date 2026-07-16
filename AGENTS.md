@@ -61,14 +61,14 @@ Current counted functions:
 2. `api/auth/callback.ts`
 3. `api/auth/complete.ts`
 4. `api/chpp/live-matches.ts`
-5. `api/matchmaker/activity.ts`
-6. `api/matchmaker/publish.ts`
-7. `api/matchmaker/send-challenge.ts`
-8. `api/matchmaker/show-interest.ts`
-9. `api/matchmaker/teams.ts`
-10. `api/teams/info.ts`
-11. `api/teams/refresh-fixtures.ts`
-12. `api/testing/index.ts`
+5. `api/matchmaker/publish.ts`
+6. `api/matchmaker/send-challenge.ts`
+7. `api/matchmaker/show-interest.ts`
+8. `api/matchmaker/teams.ts`
+9. `api/teams/info.ts`
+10. `api/teams/refresh-fixtures.ts`
+11. `api/testing/index.ts`
+12. `api/tournaments/history.ts`
 
 ## Security Rules
 

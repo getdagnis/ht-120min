@@ -21,6 +21,7 @@ export interface Team {
   league_id?: number | null;
   logo_url?: string | null;
   manager_name?: string | null;
+  is_placeholder?: boolean;
 }
 
 export interface TeamStanding {

@@ -1,0 +1,514 @@
+.history
+  display: flex
+  flex-direction: column
+  gap: 0.75rem
+  width: 100%
+
+.seasonSelector
+  display: grid
+  grid-template-columns: repeat(auto-fit, minmax(12rem, 1fr))
+  overflow: hidden
+  border: 1px solid var(--border)
+  border-radius: var(--radius-sm)
+  background: var(--table-bg-main)
+
+  button
+    display: flex
+    justify-content: center
+    align-items: baseline
+    gap: 0.5rem
+    min-height: 2.5rem
+    height: auto
+    padding: 0.55rem 1rem
+    border: 0
+    border-right: 1px solid var(--border)
+    background: transparent
+    color: var(--text60)
+    cursor: pointer
+    font-size: 1.25rem
+
+    &:last-child
+      border-right: 0
+
+    &:disabled
+      cursor: default
+      opacity: 0.55
+
+    strong
+      color: var(--text-h)
+      font-family: var(--heading)
+      font-weight: 600
+
+    span
+      font-size: 0.8rem
+
+  .selectedSeason
+    background: var(--table-bg)
+
+.historyColumns
+  display: grid
+  grid-template-columns: minmax(0, 3fr) minmax(17rem, 0.95fr)
+  gap: 0.75rem
+  align-items: start
+  margin-top: 1rem
+
+  @media (max-width: 960px)
+    grid-template-columns: 1fr
+
+.mainColumn,
+.sideColumn
+  display: flex
+  flex-direction: column
+  gap: 0.75rem
+  min-width: 0
+
+.championCard,
+.standingsCard,
+.sideCard
+  border: 1px solid var(--border)
+  border-radius: var(--radius-sm)
+  background: var(--table-bg-main)
+
+.championCard
+  display: grid
+  grid-template-columns: minmax(16rem, 1.4fr) minmax(10rem, 0.75fr) minmax(22rem, 2fr)
+  align-items: stretch
+  background: var(--lighter)
+
+  @media (max-width: 1180px)
+    grid-template-columns: 1fr 1fr
+
+  @media (max-width: 640px)
+    grid-template-columns: 1fr
+
+.championHeadline,
+.runnerUp
+  padding: 1rem
+  border-right: 1px solid var(--border)
+
+  @media (max-width: 640px)
+    border-right: 0
+    border-bottom: 1px solid var(--border)
+
+.championHeadline
+  h2
+    display: flex
+    align-items: center
+    gap: 0.5rem
+    margin: 0 0 0.75rem
+    color: var(--warning)
+    font-size: 1.25rem
+    font-weight: 600
+
+.runnerUp
+  display: flex
+  flex-direction: column
+  justify-content: center
+  gap: 0.5rem
+
+  > span
+    color: var(--text60)
+    font-size: 0.8rem
+
+.seasonNumbers
+  display: grid
+  grid-template-columns: 1.35fr repeat(4, 1fr)
+  align-items: center
+  margin: 0
+  padding: 1rem
+
+  @media (max-width: 1180px)
+    grid-column: 1 / -1
+    border-top: 1px solid var(--border)
+
+  @media (max-width: 640px)
+    grid-template-columns: repeat(2, 1fr)
+    gap: 1rem
+
+  div
+    text-align: center
+
+    &:first-child
+      text-align: left
+
+  dt
+    color: var(--text60)
+    font-size: 0.75rem
+
+  dd
+    margin: 0.35rem 0 0
+    color: var(--text-h)
+    font-family: var(--heading)
+    font-size: 1.25rem
+    font-weight: 600
+
+  div:first-child dd
+    font-family: inherit
+    font-size: 0.9rem
+    font-weight: 500
+
+.contentSection
+  h2
+    margin: 0 0 0.5rem
+    color: var(--text-h)
+    font-size: 1.25rem
+    font-weight: 600
+
+.awardsGrid,
+.participantsGrid
+  display: grid
+  grid-template-columns: repeat(3, minmax(0, 1fr))
+  gap: 0.5rem
+
+  @media (max-width: 760px)
+    grid-template-columns: repeat(2, minmax(0, 1fr))
+
+  @media (max-width: 480px)
+    grid-template-columns: 1fr
+
+.awardCard,
+.participantCard
+  min-width: 0
+  padding: 0.8rem
+  border: 1px solid var(--border)
+  border-radius: var(--radius-sm)
+  background: var(--lighter)
+
+.awardCard
+  display: flex
+  flex-direction: column
+  gap: 0.65rem
+
+  > small
+    color: var(--accent)
+
+.awardLabel
+  display: flex
+  align-items: center
+  gap: 0.45rem
+  color: var(--text)
+  font-size: 0.85rem
+
+  svg
+    flex-shrink: 0
+    color: var(--warning)
+
+.awardRecipients
+  display: flex
+  flex-direction: column
+  gap: 0.4rem
+
+.participantCard
+  display: flex
+  flex-direction: column
+  justify-content: space-between
+  gap: 0.65rem
+
+  > span
+    color: var(--text60)
+    font-size: 0.8rem
+
+.teamIdentity
+  display: flex
+  align-items: center
+  gap: 0.65rem
+  min-width: 0
+
+  > img
+    width: 4.5rem
+    height: 4.5rem
+    flex-shrink: 0
+    object-fit: contain
+
+  > div
+    min-width: 0
+
+  strong
+    display: block
+    color: var(--text-h)
+    font-family: var(--heading)
+    font-size: 1.2rem
+    font-weight: 600
+    overflow-wrap: anywhere
+
+.compactTeam
+  > img
+    width: 2.4rem
+    height: 2.4rem
+
+  strong
+    font-size: 0.95rem
+
+.standingsCard
+  padding: 0.9rem 1rem
+
+  > h2
+    margin: 0 0 0.6rem
+    color: var(--text-h)
+    font-size: 1.25rem
+    font-weight: 600
+
+.tableWrapper
+  overflow-x: auto
+
+  table
+    width: 100%
+    border-collapse: collapse
+
+  th,
+  td
+    padding: 0.55rem 0.4rem
+    border-bottom: 1px solid var(--border)
+    text-align: center
+
+  th
+    color: var(--text60)
+    font-size: 0.75rem
+    font-weight: 600
+
+  th:nth-child(2),
+  td:nth-child(2)
+    min-width: 12rem
+    text-align: left
+
+  tbody tr:last-child td
+    border-bottom: 0
+
+.accentStat
+  color: var(--accent)
+  font-weight: 600
+
+.sideCard
+  padding: 1rem
+
+  h2
+    margin: 0 0 0.75rem
+    color: var(--text-h)
+    font-size: 1rem
+    font-weight: 600
+
+  > p
+    margin: 0
+    color: var(--text60)
+    line-height: 1.55
+
+.recordReason
+  margin: -0.25rem 0 0.8rem !important
+  font-size: 0.75rem
+
+.recordsList
+  display: flex
+  flex-direction: column
+  margin: 0
+
+  > div
+    padding: 0.65rem 0
+    border-bottom: 1px solid var(--border)
+
+    &:last-child
+      border-bottom: 0
+
+  dt
+    display: flex
+    align-items: center
+    gap: 0.45rem
+    color: var(--text)
+    font-size: 0.8rem
+
+    svg
+      flex-shrink: 0
+      color: var(--text60)
+
+  dd
+    margin: 0.25rem 0 0 1.45rem
+    color: var(--text60)
+    font-size: 0.75rem
+
+    span
+      float: right
+
+.memorableMatch
+  display: grid
+  grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr)
+  align-items: center
+  gap: 0.5rem
+
+.memorableTeam
+  display: flex
+  flex-direction: column
+  align-items: center
+  gap: 0.35rem
+  min-width: 0
+  text-align: center
+
+  img
+    width: 3.25rem
+    height: 3.25rem
+    object-fit: contain
+
+  span
+    color: var(--text)
+    font-size: 0.75rem
+    overflow-wrap: anywhere
+
+.memorableScore
+  display: flex
+  flex-direction: column
+  align-items: center
+  gap: 0.2rem
+
+  strong
+    color: var(--text-h)
+    font-family: var(--heading)
+    font-size: 1.6rem
+    font-weight: 600
+
+  span
+    color: var(--accent)
+    font-size: 0.8rem
+    font-weight: 600
+
+  small
+    color: var(--text60)
+
+.commentsList
+  display: flex
+  flex-direction: column
+  gap: 0.65rem
+
+  blockquote
+    margin: 0
+    padding: 0.9rem 0
+    border-top: 1px solid var(--border)
+
+    p
+      margin: 0 0 0.5rem
+      color: var(--text)
+      line-height: 1.45
+      font-size: 1rem
+      white-space: pre-wrap
+
+    .commentAuthorRow
+      display: flex
+      align-items: center
+      gap: 0.45rem
+
+      img
+        width: 3rem
+        height: 4rem
+        object-fit: contain
+
+      strong
+        color: var(--text)
+
+      .commentAuthor
+        display: flex
+        flex-direction: column
+        gap: 0.1rem
+
+        small
+          color: var(--text60)
+          font-size: 0.75rem
+
+    .commentDate
+      display: block
+      margin-top: 0.45rem
+      color: var(--text60)
+      font-size: 0.75rem
+      text-align: right
+      white-space: nowrap
+
+.yearbookCard
+  padding: 1rem
+
+  .commentsList blockquote:first-child
+    margin-top: 0.25rem
+
+.commentForm
+  display: flex
+  flex-direction: column
+  gap: 0.5rem
+  margin-top: 0.9rem
+
+  label
+    color: var(--text)
+    font-size: 0.8rem
+    font-weight: 600
+
+  textarea
+    width: 100%
+    box-sizing: border-box
+    resize: vertical
+    padding: 0.65rem
+    border: 1px solid var(--border)
+    border-radius: var(--radius-xs)
+    background: var(--bg-transp)
+    color: var(--text)
+    font: inherit
+
+  ::placeholder
+    color: var(--text60)
+
+  > div
+    display: flex
+    justify-content: space-between
+    align-items: center
+    gap: 0.5rem
+
+  small,
+  > p
+    color: var(--text60)
+    font-size: 0.7rem
+
+  > p
+    margin: 0
+
+.commentError
+  margin-top: 0.75rem !important
+  color: var(--danger) !important
+
+.commentConfirmModal
+  background: var(--table-bg-main)
+  background-image: none
+
+.commentConfirmHeader
+  background: var(--table-bg)
+
+  h2
+    color: var(--text)
+
+.commentConfirmClose
+  color: var(--text)
+
+.commentConfirmText
+  margin: 0
+  text-align: center
+  color: var(--text)
+  font-size: 1.1rem
+  line-height: 1.5
+
+.commentConfirmActions
+  display: flex
+  justify-content: center
+  gap: 0.75rem
+  width: 100%
+  margin: 1.25rem auto 0
+
+.mutedText,
+.emptyHistory
+  margin: 0
+  color: var(--text60)
+
+.emptyHistoryReport
+  display: flex
+  flex-direction: column
+  align-items: flex-start
+  gap: 1rem
+  padding: 1.25rem
+  border: 1px solid var(--border)
+  border-radius: var(--radius-sm)
+  background: var(--table-bg-main)
+
+  p
+    margin: 0
+    color: var(--text60)

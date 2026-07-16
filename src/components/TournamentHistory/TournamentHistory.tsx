@@ -1,0 +1,716 @@
+import React, { useEffect, useMemo, useState } from 'react';
+import { Cards, ChartLineUp, Clock, FirstAid, Handshake, Medal, SoccerBall, Trophy, UsersThree } from 'phosphor-react';
+import { Button } from '../Button/Button';
+import { Modal } from '../Modal/Modal';
+import { TeamByline } from '../TeamByline/TeamByline';
+import {
+  normalizeSeasonHistorySnapshot,
+  type SeasonAward,
+  type SeasonAwardKey,
+  type SeasonHistorySnapshot,
+  type SeasonHistorySnapshotV2,
+  type SeasonMatchSnapshot,
+  type SeasonParticipant,
+} from '../../utils/season-history';
+import styles from './TournamentHistory.module.sass';
+
+const DEFAULT_TEAM_LOGO = '/default-logo.png';
+const MAX_COMMENT_LENGTH = 480;
+
+const getCommentDraftStorageKey = (seasonId: string, currentHtUserId: number) =>
+  `ht-120min:season-comment-drafts:${currentHtUserId}:${seasonId}`;
+
+const readCommentDrafts = (seasonId: string, currentHtUserId: number): Record<string, string> => {
+  try {
+    const stored = sessionStorage.getItem(getCommentDraftStorageKey(seasonId, currentHtUserId));
+    if (!stored) return {};
+    const parsed: unknown = JSON.parse(stored);
+    if (!parsed || typeof parsed !== 'object') return {};
+    return Object.fromEntries(
+      Object.entries(parsed).filter((entry): entry is [string, string] => typeof entry[1] === 'string'),
+    );
+  } catch {
+    return {};
+  }
+};
+
+export interface TournamentHistorySeason {
+  id: string;
+  seasonNumber: number;
+  status: 'planned' | 'ongoing' | 'finished';
+  plannedStartSlot: string | null;
+  startedAt: string | null;
+  finishedAt: string | null;
+  snapshot: SeasonHistorySnapshot | null;
+}
+
+export interface TournamentSeasonComment {
+  id: string;
+  season_id: string;
+  team_id: string;
+  team_name: string;
+  manager_name: string | null;
+  comment: string;
+  created_at: string;
+}
+
+interface SeasonYearbookProps {
+  seasonNumber: number;
+  comments: TournamentSeasonComment[];
+  commentsLoading: boolean;
+  commentsLoadError?: string;
+  commentsSubmitError?: string;
+  teamLogoById?: Record<string, string | null | undefined>;
+  title?: string;
+  children?: React.ReactNode;
+}
+
+export const SeasonYearbook: React.FC<SeasonYearbookProps> = ({
+  seasonNumber,
+  comments,
+  commentsLoading,
+  commentsLoadError = '',
+  commentsSubmitError = '',
+  teamLogoById = {},
+  title,
+  children,
+}) => (
+  <section className={`${styles.standingsCard} ${styles.yearbookCard}`}>
+    <h2>{title || `📔 Season ${seasonNumber} yearbook`}</h2>
+    {commentsLoading && <p className={styles.mutedText}>Season yearbook comments loading...</p>}
+    {!commentsLoading && !commentsLoadError && comments.length === 0 && (
+      <p className={styles.mutedText}>No final comments yet.</p>
+    )}
+    {!commentsLoadError && (
+      <div className={styles.commentsList}>
+        {comments.map((comment) => (
+          <blockquote key={comment.id}>
+            <div className={styles.commentAuthorRow}>
+              <img
+                src={teamLogoById[comment.team_id] || DEFAULT_TEAM_LOGO}
+                alt=""
+                onError={(event) => {
+                  event.currentTarget.src = DEFAULT_TEAM_LOGO;
+                }}
+              />
+              <span className={styles.commentAuthor}>
+                <strong>{comment.team_name}</strong>
+                {comment.manager_name && <small>{comment.manager_name}</small>}
+              </span>
+            </div>
+            <p>{comment.comment}</p>
+            <time className={styles.commentDate} dateTime={comment.created_at}>
+              {formatDate(comment.created_at)}
+            </time>
+          </blockquote>
+        ))}
+      </div>
+    )}
+    {commentsLoadError && <p className={styles.mutedText}>Season comments are unavailable right now.</p>}
+    {commentsSubmitError && <p className={styles.commentError}>{commentsSubmitError}</p>}
+    {children}
+  </section>
+);
+
+interface TournamentHistoryProps {
+  seasons: TournamentHistorySeason[];
+  currentHtUserId: number | null;
+  selectedSeasonNumber?: number | null;
+  onSelectSeason?: (seasonNumber: number) => void;
+  loadComments?: (seasonId: string) => Promise<TournamentSeasonComment[]>;
+  submitComment?: (seasonId: string, teamId: string, comment: string) => Promise<TournamentSeasonComment>;
+  canGenerateReport?: boolean;
+  isGeneratingReport?: boolean;
+  onGenerateReport?: () => void;
+}
+
+const AWARD_DETAILS: Record<SeasonAwardKey, { label: string; icon: React.ReactNode }> = {
+  champions: { label: 'Champions', icon: <Trophy size={20} weight="regular" /> },
+  'most-120-matches': { label: 'Most 120-minute matches', icon: <Medal size={20} weight="fill" /> },
+  'top-scorers': { label: 'Top scorers', icon: <SoccerBall size={20} weight="fill" /> },
+  'best-goal-difference': { label: 'Best goal difference', icon: <ChartLineUp size={20} weight="bold" /> },
+  'fair-play': { label: 'Fair Play', icon: <Handshake size={20} weight="fill" /> },
+  'every-fixture-completed': { label: 'Every fixture completed', icon: <UsersThree size={20} weight="fill" /> },
+  'total-minute-specialists': { label: 'Total minute specialists', icon: <Clock size={20} weight="fill" /> },
+};
+
+const AWARD_PRIORITY: SeasonAwardKey[] = [
+  'champions',
+  'top-scorers',
+  'best-goal-difference',
+  'fair-play',
+  'every-fixture-completed',
+  'total-minute-specialists',
+];
+
+const formatDate = (value?: string | null) =>
+  value
+    ? new Intl.DateTimeFormat('en-GB', { day: '2-digit', month: '2-digit', year: 'numeric' }).format(new Date(value))
+    : null;
+
+const defaultLoadComments = async (seasonId: string) => {
+  const response = await fetch(`/api/tournaments/history?seasonId=${encodeURIComponent(seasonId)}`);
+  const data = await response.json();
+  if (!response.ok) throw new Error(data.error || 'Could not load season comments.');
+  return (data.comments || []) as TournamentSeasonComment[];
+};
+
+const defaultSubmitComment = async (seasonId: string, teamId: string, comment: string) => {
+  const response = await fetch('/api/tournaments/history', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ seasonId, teamId, comment }),
+  });
+  const data = await response.json();
+  if (!response.ok) throw new Error(data.error || 'Could not save your season comment.');
+  return data.comment as TournamentSeasonComment;
+};
+
+function findParticipant(snapshot: SeasonHistorySnapshotV2, teamId?: string | null) {
+  return teamId ? snapshot.participants.find((participant) => participant.teamId === teamId) || null : null;
+}
+
+function TeamIdentity({ participant, compact = false }: { participant: SeasonParticipant; compact?: boolean }) {
+  return (
+    <div className={`${styles.teamIdentity} ${compact ? styles.compactTeam : ''}`}>
+      <img
+        src={participant.logoUrl || DEFAULT_TEAM_LOGO}
+        alt=""
+        onError={(event) => {
+          event.currentTarget.src = DEFAULT_TEAM_LOGO;
+        }}
+      />
+      <div>
+        <strong>{participant.teamName}</strong>
+        {!compact && (
+          <TeamByline
+            countryName={participant.countryName}
+            countryId={participant.countryId}
+            leagueId={participant.leagueId}
+            teamId={participant.htTeamId}
+            managerName={participant.managerName}
+            managerHtId={participant.hattrickUserId}
+            mode="standings"
+          />
+        )}
+      </div>
+    </div>
+  );
+}
+
+function getAwardStat(award: SeasonAward) {
+  if (award.key === 'top-scorers') return `${award.value || 0} goals`;
+  if (award.key === 'most-120-matches') return `${award.value || 0} × 120m`;
+  if (award.key === 'best-goal-difference') return `${(award.value || 0) > 0 ? '+' : ''}${award.value || 0}`;
+  if (award.key === 'total-minute-specialists') return `${award.value || 0} mins`;
+  if (award.key === 'every-fixture-completed') return 'Full season completed';
+  if (award.key === 'fair-play') {
+    const cardCount = award.value || 0;
+    return award.recipientTeamIds.length > 1
+      ? `Shared distinction (${cardCount} card${cardCount === 1 ? '' : 's'})`
+      : `${cardCount} card${cardCount === 1 ? '' : 's'}`;
+  }
+  return 'Season winners';
+}
+
+function getParticipantHighlight(participant: SeasonParticipant, snapshot: SeasonHistorySnapshotV2) {
+  const award = AWARD_PRIORITY.map((key) => snapshot.awards.find((item) => item.key === key)).find((item) =>
+    item?.recipientTeamIds.includes(participant.teamId),
+  );
+  if (award) return AWARD_DETAILS[award.key].label;
+  const standing = snapshot.standings.find((item) => item.teamId === participant.teamId);
+  if (!standing) return 'Season participant';
+  if (standing.totalMinutes > 0) return `${standing.totalMinutes} total minutes`;
+  return `${standing.gf} goals scored`;
+}
+
+function MatchRecord({ match, snapshot }: { match: SeasonMatchSnapshot; snapshot: SeasonHistorySnapshotV2 }) {
+  const home = findParticipant(snapshot, match.homeTeamId);
+  const away = findParticipant(snapshot, match.awayTeamId);
+  return (
+    <div className={styles.memorableMatch}>
+      <div className={styles.memorableTeam}>
+        <img src={home?.logoUrl || DEFAULT_TEAM_LOGO} alt="" />
+        <span>{match.homeTeamName}</span>
+      </div>
+      <div className={styles.memorableScore}>
+        <strong>
+          {match.homeGoals} - {match.awayGoals}
+        </strong>
+        {match.went120 && <span>{match.totalMinutes}m</span>}
+        {match.roundNumber && <small>Round {match.roundNumber}</small>}
+      </div>
+      <div className={styles.memorableTeam}>
+        <img src={away?.logoUrl || DEFAULT_TEAM_LOGO} alt="" />
+        <span>{match.awayTeamName}</span>
+      </div>
+    </div>
+  );
+}
+
+export const TournamentHistory: React.FC<TournamentHistoryProps> = ({
+  seasons,
+  currentHtUserId,
+  selectedSeasonNumber,
+  onSelectSeason,
+  loadComments = defaultLoadComments,
+  submitComment = defaultSubmitComment,
+  canGenerateReport = false,
+  isGeneratingReport = false,
+  onGenerateReport,
+}) => {
+  const finishedSeasons = useMemo(
+    () => seasons.filter((season) => season.status === 'finished' && season.snapshot),
+    [seasons],
+  );
+  const selectedSeason =
+    finishedSeasons.find((season) => season.seasonNumber === selectedSeasonNumber) || finishedSeasons.at(-1) || null;
+  const snapshot = selectedSeason?.snapshot ? normalizeSeasonHistorySnapshot(selectedSeason.snapshot) : null;
+  const [comments, setComments] = useState<TournamentSeasonComment[]>([]);
+  const [commentDrafts, setCommentDrafts] = useState<Record<string, string>>({});
+  const [loadedCommentDraftStorageKey, setLoadedCommentDraftStorageKey] = useState<string | null>(null);
+  const [loadedCommentsSeasonId, setLoadedCommentsSeasonId] = useState<string | null>(null);
+  const [commentsLoadError, setCommentsLoadError] = useState('');
+  const [commentsSubmitError, setCommentsSubmitError] = useState('');
+  const [submittingTeamId, setSubmittingTeamId] = useState<string | null>(null);
+  const [pendingCommentParticipant, setPendingCommentParticipant] = useState<SeasonParticipant | null>(null);
+
+  useEffect(() => {
+    if (!selectedSeason) return;
+    let cancelled = false;
+    loadComments(selectedSeason.id)
+      .then((items) => {
+        if (!cancelled) {
+          setComments(items);
+          setLoadedCommentsSeasonId(selectedSeason.id);
+          setCommentsLoadError('');
+        }
+      })
+      .catch((error) => {
+        if (!cancelled) {
+          setComments([]);
+          setLoadedCommentsSeasonId(selectedSeason.id);
+          setCommentsLoadError(error instanceof Error ? error.message : 'Season comments are unavailable.');
+        }
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [loadComments, selectedSeason]);
+
+  useEffect(() => {
+    if (!selectedSeason || !currentHtUserId) {
+      setLoadedCommentDraftStorageKey(null);
+      setCommentDrafts({});
+      return;
+    }
+    const storageKey = getCommentDraftStorageKey(selectedSeason.id, currentHtUserId);
+    setLoadedCommentDraftStorageKey(storageKey);
+    setCommentDrafts(readCommentDrafts(selectedSeason.id, currentHtUserId));
+  }, [currentHtUserId, selectedSeason?.id]);
+
+  useEffect(() => {
+    if (!selectedSeason || !currentHtUserId) return;
+    const storageKey = getCommentDraftStorageKey(selectedSeason.id, currentHtUserId);
+    if (loadedCommentDraftStorageKey !== storageKey) return;
+    try {
+      if (Object.keys(commentDrafts).length === 0) {
+        sessionStorage.removeItem(storageKey);
+      } else {
+        sessionStorage.setItem(storageKey, JSON.stringify(commentDrafts));
+      }
+    } catch {
+      // Draft persistence is best effort when session storage is unavailable.
+    }
+  }, [commentDrafts, currentHtUserId, loadedCommentDraftStorageKey, selectedSeason?.id]);
+
+  if (finishedSeasons.length === 0 || !selectedSeason || !snapshot) {
+    const finishedSeasonWithoutReport = [...seasons]
+      .reverse()
+      .find((season) => season.status === 'finished' && !season.snapshot);
+
+    if (finishedSeasonWithoutReport) {
+      return (
+        <div className={styles.emptyHistoryReport}>
+          <p>
+            Season {finishedSeasonWithoutReport.seasonNumber} is finished. The admin can now generate a full season
+            history report.
+          </p>
+          {canGenerateReport && onGenerateReport && (
+            <Button size="sm" onClick={onGenerateReport} disabled={isGeneratingReport}>
+              {isGeneratingReport ? 'Generating...' : 'Generate season report'}
+            </Button>
+          )}
+        </div>
+      );
+    }
+
+    return <p className={styles.emptyHistory}>No finished seasons yet.</p>;
+  }
+
+  const winner = findParticipant(snapshot, snapshot.winner?.teamId);
+  const runnerUpStanding = snapshot.standings[1];
+  const runnerUp = findParticipant(snapshot, runnerUpStanding?.teamId);
+  const memorableMatch = snapshot.matches.find((match) => match.id === snapshot.records.memorableMatchId) || null;
+  const highestScoringMatch =
+    snapshot.matches.find((match) => match.id === snapshot.records.highestScoringMatchId) || null;
+  const longestMatch = snapshot.matches.find((match) => match.id === snapshot.records.longestMatchId) || null;
+  const commentTeamIds = new Set(comments.map((comment) => comment.team_id));
+  const eligibleTeams = snapshot.participants.filter(
+    (participant) =>
+      currentHtUserId && participant.hattrickUserId === currentHtUserId && !commentTeamIds.has(participant.teamId),
+  );
+  const commentsLoading = loadedCommentsSeasonId !== selectedSeason.id;
+  const seasonStartedAt =
+    selectedSeason.startedAt ||
+    snapshot.matches
+      .map((match) => match.scheduledFor)
+      .filter((value): value is string => !!value)
+      .sort()[0] ||
+    null;
+  const most120Award: SeasonAward = {
+    key: 'most-120-matches',
+    recipientTeamIds: snapshot.records.most120TeamIds,
+    value: snapshot.records.most120Value,
+  };
+  const fairPlayCardCounts = snapshot.teamStats.map((stat) => ({
+    teamId: stat.teamId,
+    value: stat.yellowCards + stat.redCards,
+  }));
+  const lowestCardCount = fairPlayCardCounts.length ? Math.min(...fairPlayCardCounts.map((item) => item.value)) : null;
+  const fairPlayAward: SeasonAward | null =
+    lowestCardCount === null
+      ? null
+      : {
+          key: 'fair-play',
+          recipientTeamIds: fairPlayCardCounts
+            .filter((item) => item.value === lowestCardCount)
+            .map((item) => item.teamId),
+          value: lowestCardCount,
+        };
+  const displayAwards = [
+    most120Award,
+    ...snapshot.awards.filter(
+      (award) => award.key !== 'champions' && award.key !== 'most-120-matches' && award.key !== 'fair-play',
+    ),
+    ...(fairPlayAward ? [fairPlayAward] : []),
+  ].sort((a, b) => {
+    const order: SeasonAwardKey[] = [
+      'most-120-matches',
+      'top-scorers',
+      'best-goal-difference',
+      'fair-play',
+      'every-fixture-completed',
+      'total-minute-specialists',
+    ];
+    return order.indexOf(a.key) - order.indexOf(b.key);
+  });
+
+  const handleSubmit = async (participant: SeasonParticipant) => {
+    const draft = commentDrafts[participant.teamId] || '';
+    if (!draft.trim()) return;
+
+    setSubmittingTeamId(participant.teamId);
+    setCommentsSubmitError('');
+    try {
+      const saved = await submitComment(selectedSeason.id, participant.teamId, draft);
+      setComments((current) => [...current, saved]);
+      setCommentDrafts((current) => ({ ...current, [participant.teamId]: '' }));
+    } catch (error) {
+      setCommentsSubmitError(error instanceof Error ? error.message : 'Could not save your season comment.');
+    } finally {
+      setSubmittingTeamId(null);
+      setPendingCommentParticipant(null);
+    }
+  };
+
+  const yearbookSection = (
+    <SeasonYearbook
+      seasonNumber={selectedSeason.seasonNumber}
+      comments={comments}
+      commentsLoading={commentsLoading}
+      commentsLoadError={commentsLoadError}
+      commentsSubmitError={commentsSubmitError}
+      teamLogoById={Object.fromEntries(
+        snapshot.participants.map((participant) => [participant.teamId, participant.logoUrl]),
+      )}
+    >
+      {!commentsLoading &&
+        !commentsLoadError &&
+        eligibleTeams.map((participant) => (
+          <div key={participant.teamId} className={styles.commentForm}>
+            <label htmlFor={`season-comment-${participant.teamId}`}>Your final comment as {participant.teamName}</label>
+            <textarea
+              id={`season-comment-${participant.teamId}`}
+              value={commentDrafts[participant.teamId] || ''}
+              maxLength={MAX_COMMENT_LENGTH}
+              rows={4}
+              placeholder="Leave one final thought from the season..."
+              onChange={(event) =>
+                setCommentDrafts((current) => ({ ...current, [participant.teamId]: event.target.value }))
+              }
+            />
+            <div>
+              <small>
+                {(commentDrafts[participant.teamId] || '').length}/{MAX_COMMENT_LENGTH}
+              </small>
+              <Button
+                size="xs"
+                onClick={() => setPendingCommentParticipant(participant)}
+                disabled={!commentDrafts[participant.teamId]?.trim() || submittingTeamId === participant.teamId}
+              >
+                Post final comment
+              </Button>
+            </div>
+            <p>This can be posted once and cannot be changed.</p>
+          </div>
+        ))}
+    </SeasonYearbook>
+  );
+
+  return (
+    <div className={styles.history}>
+      <div className={styles.seasonSelector} aria-label="Tournament seasons">
+        {seasons.map((season) => {
+          const selectable = season.status === 'finished' && !!season.snapshot;
+          return (
+            <button
+              key={season.id}
+              type="button"
+              disabled={!selectable}
+              className={season.id === selectedSeason.id ? styles.selectedSeason : ''}
+              onClick={() => selectable && onSelectSeason?.(season.seasonNumber)}
+            >
+              <strong>Season {season.seasonNumber}</strong>
+              <span>
+                {season.status === 'finished' ? `Finished ${formatDate(season.finishedAt) || ''}` : 'Upcoming'}
+              </span>
+            </button>
+          );
+        })}
+      </div>
+
+      <div className={styles.historyColumns} data-testid="history-columns">
+        <main className={styles.mainColumn}>
+          <section className={styles.championCard}>
+            <div className={styles.championHeadline}>
+              <h2>🏆 Season {selectedSeason.seasonNumber} champions</h2>
+              {winner && <TeamIdentity participant={winner} />}
+            </div>
+            {runnerUp && (
+              <div className={styles.runnerUp}>
+                <span>Runner-up</span>
+                <TeamIdentity participant={runnerUp} compact />
+              </div>
+            )}
+            <dl className={styles.seasonNumbers}>
+              <div>
+                <dt>Season dates</dt>
+                <dd>
+                  {formatDate(seasonStartedAt) || '-'} - {formatDate(selectedSeason.finishedAt) || '-'}
+                </dd>
+              </div>
+              <div>
+                <dt>Teams</dt>
+                <dd>{snapshot.summary.teams}</dd>
+              </div>
+              <div>
+                <dt>120m</dt>
+                <dd>{snapshot.summary.achievements120min}x2</dd>
+              </div>
+              <div>
+                <dt>Goals</dt>
+                <dd>{snapshot.summary.goals}</dd>
+              </div>
+              <div>
+                <dt>Completed</dt>
+                <dd>{snapshot.summary.completedMatches}</dd>
+              </div>
+            </dl>
+          </section>
+
+          <section className={styles.contentSection}>
+            <h2>Awards & distinctions</h2>
+            <div className={styles.awardsGrid} data-testid="history-awards">
+              {displayAwards.map((award) => {
+                const recipients = award.recipientTeamIds
+                  .map((teamId) => findParticipant(snapshot, teamId))
+                  .filter((participant): participant is SeasonParticipant => !!participant);
+                return (
+                  <article key={award.key} className={styles.awardCard}>
+                    <div className={styles.awardLabel}>
+                      {AWARD_DETAILS[award.key].icon}
+                      <span>{AWARD_DETAILS[award.key].label}</span>
+                    </div>
+                    <div className={styles.awardRecipients}>
+                      {recipients.map((participant) => (
+                        <TeamIdentity key={participant.teamId} participant={participant} compact />
+                      ))}
+                    </div>
+                    <small>{getAwardStat(award)}</small>
+                  </article>
+                );
+              })}
+            </div>
+          </section>
+
+          <section className={styles.contentSection}>
+            <h2>All Season {selectedSeason.seasonNumber} teams</h2>
+            <div className={styles.participantsGrid}>
+              {[...snapshot.participants]
+                .sort((a, b) => (a.finalPosition || 999) - (b.finalPosition || 999))
+                .map((participant) => (
+                  <article key={participant.teamId} className={styles.participantCard}>
+                    <TeamIdentity participant={participant} compact />
+                    <span>{getParticipantHighlight(participant, snapshot)}</span>
+                  </article>
+                ))}
+            </div>
+          </section>
+
+          {yearbookSection}
+
+          <section className={styles.standingsCard}>
+            <h2>Final standings - Season {selectedSeason.seasonNumber}</h2>
+            <div className={styles.tableWrapper}>
+              <table>
+                <thead>
+                  <tr>
+                    <th>#</th>
+                    <th>Team</th>
+                    <th>120m</th>
+                    <th>Mins</th>
+                    <th>Pld</th>
+                    <th>Dif</th>
+                    <th>Goals</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {snapshot.standings.map((standing, index) => {
+                    const participant = findParticipant(snapshot, standing.teamId);
+                    return (
+                      <tr key={standing.teamId}>
+                        <td>{index + 1}</td>
+                        <td>{participant ? <TeamIdentity participant={participant} compact /> : standing.teamName}</td>
+                        <td className={styles.accentStat}>{standing.achievements120min}</td>
+                        <td>{standing.totalMinutes}</td>
+                        <td>{standing.played}</td>
+                        <td>{standing.gd > 0 ? `+${standing.gd}` : standing.gd}</td>
+                        <td>{standing.gf}</td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          </section>
+        </main>
+
+        <aside className={styles.sideColumn}>
+          <section className={styles.sideCard}>
+            <h2>Season story</h2>
+            <p>{snapshot.story}</p>
+          </section>
+
+          <section className={styles.sideCard}>
+            <h2>Season records</h2>
+            <dl className={styles.recordsList}>
+              <div>
+                <dt>
+                  <Medal size={18} /> Most 120-minute matches
+                </dt>
+                <dd>
+                  {snapshot.records.most120TeamIds
+                    .map((teamId) => findParticipant(snapshot, teamId)?.teamName)
+                    .filter(Boolean)
+                    .join(', ') || '-'}{' '}
+                  <span>{snapshot.records.most120Value}</span>
+                </dd>
+              </div>
+              <div>
+                <dt>
+                  <SoccerBall size={18} /> Highest-scoring match
+                </dt>
+                <dd>
+                  {highestScoringMatch
+                    ? `${highestScoringMatch.homeTeamName} ${highestScoringMatch.homeGoals} - ${highestScoringMatch.awayGoals} ${highestScoringMatch.awayTeamName}`
+                    : '-'}
+                </dd>
+              </div>
+              <div>
+                <dt>
+                  <ChartLineUp size={18} /> Closest finish
+                </dt>
+                <dd>
+                  {snapshot.records.closestFinish
+                    ? `${findParticipant(snapshot, snapshot.records.closestFinish.leaderTeamId)?.teamName || 'Champions'} finished ${snapshot.records.closestFinish.margin} ${snapshot.records.closestFinish.metric === 'points' ? `point${snapshot.records.closestFinish.margin === 1 ? '' : 's'}` : '120-minute result'} ahead of ${findParticipant(snapshot, snapshot.records.closestFinish.runnerUpTeamId)?.teamName || 'the runner-up'}`
+                    : '-'}
+                </dd>
+              </div>
+              <div>
+                <dt>
+                  <Cards size={18} /> Total cards
+                </dt>
+                <dd>{snapshot.summary.yellowCards + snapshot.summary.redCards}</dd>
+              </div>
+              <div>
+                <dt>
+                  <FirstAid size={18} /> Total injuries
+                </dt>
+                <dd>{snapshot.summary.injuries}</dd>
+              </div>
+              <div>
+                <dt>
+                  <Clock size={18} /> Longest match
+                </dt>
+                <dd>
+                  {longestMatch
+                    ? `${longestMatch.homeTeamName} ${longestMatch.homeGoals} - ${longestMatch.awayGoals} ${longestMatch.awayTeamName} · ${longestMatch.totalMinutes} minutes`
+                    : '-'}
+                </dd>
+              </div>
+            </dl>
+          </section>
+
+          {memorableMatch && (
+            <section className={styles.sideCard}>
+              <h2>Memorable match</h2>
+              <p className={styles.recordReason}>
+                Chosen for reaching {memorableMatch.totalMinutes} minutes with{' '}
+                {memorableMatch.homeGoals + memorableMatch.awayGoals} goals.
+              </p>
+              <MatchRecord match={memorableMatch} snapshot={snapshot} />
+            </section>
+          )}
+        </aside>
+      </div>
+      <Modal
+        isOpen={pendingCommentParticipant !== null}
+        onClose={() => setPendingCommentParticipant(null)}
+        title="Post final comment?"
+        maxWidth="520px"
+        modalClassName={styles.commentConfirmModal}
+        headerClassName={styles.commentConfirmHeader}
+        closeButtonClassName={styles.commentConfirmClose}
+      >
+        <p className={styles.commentConfirmText}>
+          This will publish your final season comment as <strong>{pendingCommentParticipant?.teamName}</strong>. It
+          cannot be changed afterwards.
+        </p>
+        <div className={styles.commentConfirmActions}>
+          <Button
+            variant="primaryDanger"
+            size="md"
+            onClick={() => pendingCommentParticipant && handleSubmit(pendingCommentParticipant)}
+            disabled={pendingCommentParticipant ? !commentDrafts[pendingCommentParticipant.teamId]?.trim() : true}
+          >
+            Post comment
+          </Button>
+          <Button variant="outline" size="md" onClick={() => setPendingCommentParticipant(null)}>
+            Cancel
+          </Button>
+        </div>
+      </Modal>
+    </div>
+  );
+};

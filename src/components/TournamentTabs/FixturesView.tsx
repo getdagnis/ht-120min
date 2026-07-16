@@ -17,6 +17,7 @@ export interface FixtureMatch {
   away_goals: number | null;
   completed: boolean;
   went_120: boolean;
+  total_minutes: number;
   penalty_shootout_home_goals?: number | null;
   penalty_shootout_away_goals?: number | null;
   home_yellow_cards?: number;
@@ -455,6 +456,7 @@ export const FixturesView: React.FC<FixturesViewProps> = ({
                         is120minMode={tournament?.scoring_mode === '120min'}
                         went_120={match.went_120}
                         completed={match.completed}
+                        totalMinutes={match.total_minutes}
                         homeTeam={{
                           name: match.home_team?.name || 'BYE',
                           managerName: match.home_team?.manager_name || 'UNKNOWN',

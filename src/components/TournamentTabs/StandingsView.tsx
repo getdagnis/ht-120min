@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { SectionCard } from '../../components/Card/SectionCard';
 import { ArrowRight, ShieldCheck } from 'phosphor-react';
 import { TeamByline } from '../TeamByline/TeamByline';
+import { SeasonYearbook, type TournamentSeasonComment } from '../TournamentHistory/TournamentHistory';
 
 import type { TeamStanding } from '../../utils/standings';
 // import { MottoWidget } from '../../components/MottoWidget/MottoWidget';
@@ -22,6 +23,8 @@ interface StandingsViewProps {
   canJoinTournament?: boolean;
   isConnecting?: boolean;
   onJoinWithHattrick?: () => void;
+  seasonId?: string | null;
+  seasonNumber?: number;
 }
 
 const DEFAULT_TEAM_LOGO = '/default-logo.png';
@@ -36,8 +39,12 @@ export const StandingsView: React.FC<StandingsViewProps> = ({
   canJoinTournament = false,
   isConnecting = false,
   onJoinWithHattrick,
+  seasonId = null,
+  seasonNumber = 0,
 }) => {
   const [presencePulse, setPresencePulse] = useState(0);
+  const [seasonComments, setSeasonComments] = useState<TournamentSeasonComment[]>([]);
+  const [seasonCommentsLoading, setSeasonCommentsLoading] = useState(false);
 
   useEffect(() => {
     const tick = setInterval(() => setPresencePulse((value) => value + 1), 60_000);
@@ -63,6 +70,39 @@ export const StandingsView: React.FC<StandingsViewProps> = ({
       document.removeEventListener('visibilitychange', refresh);
     };
   }, [onRefreshPresence]);
+
+  useEffect(() => {
+    if (!seasonId) {
+      setSeasonComments([]);
+      setSeasonCommentsLoading(false);
+      return;
+    }
+
+    let cancelled = false;
+    setSeasonCommentsLoading(true);
+    fetch(`/api/tournaments/history?seasonId=${encodeURIComponent(seasonId)}`)
+      .then(async (response) => {
+        const data = await response.json();
+        if (!response.ok) throw new Error(data.error || 'Could not load season comments.');
+        return (data.comments || []) as TournamentSeasonComment[];
+      })
+      .then((comments) => {
+        if (!cancelled) {
+          setSeasonComments(comments);
+          setSeasonCommentsLoading(false);
+        }
+      })
+      .catch(() => {
+        if (!cancelled) {
+          setSeasonComments([]);
+          setSeasonCommentsLoading(false);
+        }
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [seasonId]);
 
   return (
     <div className={styles.mainColumn} data-presence-pulse={presencePulse}>
@@ -208,6 +248,14 @@ export const StandingsView: React.FC<StandingsViewProps> = ({
           </table>
         </div>
       </SectionCard>
+      {seasonId && (
+        <SeasonYearbook
+          seasonNumber={seasonNumber}
+          comments={seasonComments}
+          commentsLoading={seasonCommentsLoading}
+          teamLogoById={Object.fromEntries(standings.map((standing) => [standing.teamId, standing.logoUrl]))}
+        />
+      )}
       {/* <MottoWidget items={TOURNAMENT_DEFAULT} theme="dark" variant="standings" className={styles.standingsMotto} /> */}
       <SectionCard title="News Feed">
         <ul className={styles.newsFeed}>

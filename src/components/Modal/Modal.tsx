@@ -10,6 +10,8 @@ interface ModalProps {
   maxWidth?: string;
   showHeader?: boolean;
   modalClassName?: string;
+  closeButtonClassName?: string;
+  headerClassName?: string;
   contentClassName?: string;
 }
 
@@ -21,6 +23,8 @@ export const Modal: React.FC<ModalProps> = ({
   maxWidth = '600px',
   showHeader = true,
   modalClassName = '',
+  closeButtonClassName = '',
+  headerClassName = '',
   contentClassName = '',
 }) => {
   useEffect(() => {
@@ -51,11 +55,15 @@ export const Modal: React.FC<ModalProps> = ({
 
   return (
     <div className={styles.overlay} onClick={onClose}>
-      <div className={[styles.modal, modalClassName].filter(Boolean).join(' ')} style={{ maxWidth }} onClick={(e) => e.stopPropagation()}>
-        {showHeader && (
-          <div className={styles.header}>
+        <div className={[styles.modal, modalClassName].filter(Boolean).join(' ')} style={{ maxWidth }} onClick={(e) => e.stopPropagation()}>
+          {showHeader && (
+          <div className={[styles.header, headerClassName].filter(Boolean).join(' ')}>
             {title && <h2 className={styles.title}>{title}</h2>}
-            <button className={styles.closeBtn} onClick={onClose}>
+            <button
+              className={[styles.closeBtn, closeButtonClassName].filter(Boolean).join(' ')}
+              onClick={onClose}
+              aria-label="Close"
+            >
               <X size={24} weight="bold" />
             </button>
           </div>
