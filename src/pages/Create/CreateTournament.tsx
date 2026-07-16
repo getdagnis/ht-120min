@@ -213,7 +213,7 @@ export const CreateTournament: React.FC = () => {
 
   const [showDescription, setShowDescription] = useState(() => {
     const saved = localStorage.getItem('create_tournament_progress');
-    return saved ? (JSON.parse(saved).showDescription ?? true) : true;
+    return saved ? (JSON.parse(saved).showDescription ?? true) : false;
   });
 
   const [showEmail, setShowEmail] = useState(() => {
@@ -360,7 +360,7 @@ export const CreateTournament: React.FC = () => {
     setFormData(getInitialFormData());
     setTeams([]);
     setOrganizerProfile(null);
-    setShowDescription(true);
+    setShowDescription(false);
     setShowEmail(false);
     setShowLeagueRestriction(false);
     setLinkedManager(null);
@@ -1029,7 +1029,7 @@ export const CreateTournament: React.FC = () => {
                   >
                     <option value="validated">Hattrick Automated (CHPP) ✅</option>
                     <option value="manual">Organizer-Managed 📂</option>
-                    <option value="sandbox">"I'm Just Testing" tournament 🎳</option>
+                    <option value="sandbox">Dummy Test Tournament 🎳</option>
                   </select>
                   <p className={styles.small}>
                     {registrationType === 'validated'
