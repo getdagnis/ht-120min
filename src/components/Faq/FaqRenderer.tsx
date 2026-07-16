@@ -108,7 +108,7 @@ export const FaqRenderer: React.FC<FaqRendererProps> = ({ sections, className = 
                     onClick={() => setOpenItemId(isOpen ? '' : item.id)}
                   >
                     <span className={styles.question}>{item.question}</span>
-                    <CaretDown size={26} weight="bold" className={styles.chevron} />
+                    <CaretDown size={20} weight="bold" className={styles.chevron} />
                   </button>
                   {isOpen && <div className={styles.answer}>{renderAnswer(item.answer)}</div>}
                 </article>
