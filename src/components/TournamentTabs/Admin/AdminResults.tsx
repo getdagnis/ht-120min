@@ -142,7 +142,7 @@ const ResultLinkButton: React.FC<{ onClick: () => void }> = ({ onClick }) => (
     onClick={onClick}
     title="Link Hattrick match"
     data-tooltip-id="admin-tooltip"
-    data-tooltip-content="Link Hattrick match by Match ID"
+    data-tooltip-content="Link Hattrick match by ID (with at least one of the teams)"
   >
     <LinkSimple size={16} />
   </Button>

@@ -94,7 +94,7 @@ export const TeamByline: React.FC<TeamBylineProps> = ({
         >
           ID: {teamId}
         </a>
-        <Tooltip id={`${tooltipIdBase}-id`} content="View on Hattrick" />
+        <Tooltip id={`${tooltipIdBase}-id`} content="View on Hattrick" className="tooltip" />
 
         <span className={styles.separator}>|</span>
 
@@ -116,7 +116,7 @@ export const TeamByline: React.FC<TeamBylineProps> = ({
             >
               {managerName || 'UNKNOWN'}
             </a>
-            <Tooltip id={`${tooltipIdBase}-manager`} content="Visit on Hattrick" />
+            <Tooltip id={`${tooltipIdBase}-manager`} content="Visit on Hattrick" className="tooltip" />
           </>
         )}
         {presence && (
@@ -129,7 +129,7 @@ export const TeamByline: React.FC<TeamBylineProps> = ({
             >
               {presence.online ? '●' : presence.label}
             </span>
-            <Tooltip id={`${tooltipIdBase}-presence`} content={presence.tooltip} />
+            <Tooltip id={`${tooltipIdBase}-presence`} content={presence.tooltip} className="tooltip" />
           </>
         )}
       </div>
@@ -138,7 +138,7 @@ export const TeamByline: React.FC<TeamBylineProps> = ({
           {repeatIcons('/svg/match-yellow.svg', 'Yellow card', summary.yellowCards, 'Yellow card')}
           {repeatIcons('/svg/match-card.svg', 'Red card', summary.redCards, 'Red card')}
           {repeatIcons('/svg/match-cross.svg', 'Injury', summary.injuries, 'Injury')}
-          <Tooltip id={`${tooltipIdBase}-summary`} content={summaryTooltip} />
+          <Tooltip id={`${tooltipIdBase}-summary`} content={summaryTooltip} className="tooltip" />
         </div>
       )}
     </div>

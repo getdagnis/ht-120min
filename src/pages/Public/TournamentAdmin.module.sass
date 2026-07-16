@@ -211,6 +211,12 @@
   gap: 0.35rem
   color: var(--text60)
 
+  li
+    display: flex
+    align-items: center
+    justify-content: space-between
+    gap: 0.75rem
+
 .seasonCurrent
   margin: 0 0 0.35rem
   font-weight: 800
@@ -599,14 +605,13 @@
     justify-content: center
 
 .matchIdInput
-  width: 11ch
+  width: 12rem
   min-width: 11ch
   padding: 0.42rem 0.5rem
   border: 1px solid var(--border)
   border-radius: var(--radius-xs)
-  background: var(--table-bg)
+  background: var(--bg-color)
   color: var(--text-h)
-  font-family: var(--heading)
   font-size: 0.8rem
   font-weight: 700
   text-align: center
@@ -835,6 +840,11 @@
 
   .roundRow
     display: flex
+    width: 100%
+    justify-content: space-between
+
+    .rowMiddle
+      width: 20%
 
   span
     font-style: italic !important

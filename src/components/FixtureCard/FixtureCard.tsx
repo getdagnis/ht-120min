@@ -134,7 +134,7 @@ export const FixtureCard: React.FC<FixtureCardProps> = ({
                 >
                   {matchTypeInfo.initials} <Info size={12} />
                 </span>
-                <Tooltip id={`match-type-${htMatchId}`} content={matchTypeInfo.description} />
+                <Tooltip id={`match-type-${htMatchId}`} content={matchTypeInfo.description} className="tooltip" />
               </>
             )}
           </div>

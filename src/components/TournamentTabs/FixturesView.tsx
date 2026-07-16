@@ -344,13 +344,14 @@ export const FixturesView: React.FC<FixturesViewProps> = ({
                         >
                           <ArrowClockwise size={18} />
                         </button>
-                        <Tooltip id="refresh-tooltip" content="Refresh fixtures" />
+                        <Tooltip id="refresh-tooltip" content="Refresh fixtures" className="tooltip" />
                         <button className={styles.refreshBtn} onClick={handleCopy} data-tooltip-id="copy-tooltip">
                           {copied[round.id] ? <Check size={18} color="green" /> : <CopySimple size={18} />}
                         </button>
                         <Tooltip
                           id="copy-tooltip"
                           content={copied[round.id] ? 'HT forum table copied!' : 'Copy for HT forums'}
+                          className="tooltip"
                         />
                       </>
                     )}

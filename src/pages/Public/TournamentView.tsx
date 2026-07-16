@@ -47,6 +47,7 @@ import { FaqRenderer } from '../../components/Faq/FaqRenderer';
 import { Modal } from '../../components/Modal/Modal';
 import { MottoWidget } from '../../components/MottoWidget/MottoWidget';
 import { StandingsView } from '../../components/TournamentTabs/StandingsView';
+import { TournamentHistory } from '../../components/TournamentHistory/TournamentHistory';
 import { WelcomeModal } from '../../components/WelcomeModal/WelcomeModal';
 import { TOURNAMENT_DEFAULT } from '../../constants/descriptions';
 import { getTournamentFaqSections } from '../../constants/faq-essential';
@@ -246,11 +247,17 @@ function toStandingTeam(team: Team): StandingTeam {
     league_id: team.league_id ?? null,
     logo_url: team.logo_url,
     manager_name: team.manager_name,
+    is_placeholder: team.is_placeholder,
   };
 }
 
-function toSeasonHistoryMatch(match: MatchWithTeams): SeasonHistoryMatch {
+function toSeasonHistoryMatch(match: MatchWithTeams, roundNumber?: number): SeasonHistoryMatch {
   return {
+    id: match.id,
+    roundNumber,
+    scheduledFor: match.scheduled_for || match.match_date?.toISOString() || null,
+    homeTeamName: match.home_team?.name || null,
+    awayTeamName: match.away_team?.name || null,
     home_team_id: match.home_team_id,
     away_team_id: match.away_team_id,
     home_goals: match.home_goals,
@@ -317,6 +324,7 @@ export const TournamentView: React.FC = () => {
   const [, setPublicAnnouncementDismissalVersion] = useState(0);
   const [seasons, setSeasons] = useState<TournamentSeason[]>([]);
   const [isAddingSeason, setIsAddingSeason] = useState(false);
+  const [rebuildingSeasonNumber, setRebuildingSeasonNumber] = useState<number | null>(null);
 
   // Chat states
   const [chatMessages, setChatMessages] = useState<any[]>([]);
@@ -1048,7 +1056,9 @@ export const TournamentView: React.FC = () => {
                     : team.manager_name,
                 }),
               ),
-              matchesWithDates.map((match) => toSeasonHistoryMatch(match)),
+              matchesWithDates.map((match) =>
+                toSeasonHistoryMatch(match, roundsData.find((round) => round.id === match.round_id)?.round_number),
+              ),
               tournamentData.scoring_mode as any,
             );
             await supabase.from('tournament_seasons').upsert(
@@ -1748,7 +1758,7 @@ export const TournamentView: React.FC = () => {
     if (!tournament) return null;
     return buildSeasonHistorySnapshot(
       teams.map((team) => toStandingTeam(team)),
-      rounds.flatMap((round) => round.matches.map((match) => toSeasonHistoryMatch(match))),
+      rounds.flatMap((round) => round.matches.map((match) => toSeasonHistoryMatch(match, round.round_number))),
       tournament.scoring_mode as any,
     );
   }, [rounds, teams, tournament]);
@@ -1791,6 +1801,63 @@ export const TournamentView: React.FC = () => {
 
     return snapshot;
   }, [buildCurrentSeasonSnapshot, seasons, tournament]);
+
+  const handleRebuildSeasonSnapshot = async (season: TournamentSeason) => {
+    if (!tournament || rebuildingSeasonNumber !== null) return;
+    setRebuildingSeasonNumber(season.season_number);
+    try {
+      const { data: seasonRounds, error: roundsError } = await supabase
+        .from('rounds')
+        .select('*')
+        .eq('tournament_id', tournament.id)
+        .eq('season_number', season.season_number)
+        .order('round_number', { ascending: true });
+      if (roundsError) throw roundsError;
+      if (!seasonRounds?.length) throw new Error('No retained rounds were found for this season.');
+
+      const { data: seasonMatches, error: matchesError } = await supabase
+        .from('matches')
+        .select('*')
+        .in(
+          'round_id',
+          seasonRounds.map((round) => round.id),
+        );
+      if (matchesError) throw matchesError;
+
+      const roundNumberById = new Map(seasonRounds.map((round) => [round.id, round.round_number]));
+      const matches = (seasonMatches || []) as MatchWithTeams[];
+      const historicalTeamIds = new Set(
+        [
+          ...matches.flatMap((match) => [match.home_team_id, match.away_team_id]),
+          ...(season.snapshot_json?.standings || []).map((standing) => standing.teamId),
+        ].filter((teamId): teamId is string => !!teamId),
+      );
+      const historicalTeams = teams
+        .filter((team) => historicalTeamIds.has(team.id))
+        .map((team) => toStandingTeam({ ...team, active: true }));
+      const snapshot = buildSeasonHistorySnapshot(
+        historicalTeams,
+        matches.map((match) => toSeasonHistoryMatch(match, roundNumberById.get(match.round_id))),
+        tournament.scoring_mode as any,
+      );
+      const updatedAt = new Date().toISOString();
+      const { data: updatedSeason, error: updateError } = await supabase
+        .from('tournament_seasons')
+        .update({ snapshot_json: snapshot, updated_at: updatedAt })
+        .eq('id', season.id)
+        .select('*')
+        .single();
+      if (updateError) throw updateError;
+
+      setSeasons((current) =>
+        current.map((item) => (item.id === season.id ? (updatedSeason as TournamentSeason) : item)),
+      );
+    } catch (error) {
+      alert(error instanceof Error ? error.message : 'Could not rebuild this season archive.');
+    } finally {
+      setRebuildingSeasonNumber(null);
+    }
+  };
 
   const handleAddNewSeason = async () => {
     if (!tournament || isAddingSeason) return;
@@ -2343,7 +2410,8 @@ export const TournamentView: React.FC = () => {
 
   const reviveTeam = async (teamId: string) => {
     const team = teams.find((t) => t.id === teamId);
-    if (!window.confirm(`Revive ${team?.name}?`)) return;
+    if (!window.confirm(`This team was previously removed from tournament. Do you want to revive ${team?.name}?`))
+      return;
 
     setIsSavingTeam(true);
     try {
@@ -2740,6 +2808,14 @@ export const TournamentView: React.FC = () => {
   const historySeasons = seasons
     .filter((season) => season.status === 'finished' || season.snapshot_json)
     .sort((a, b) => b.season_number - a.season_number);
+  const selectedHistorySeasonNumber =
+    Number(searchParams.get('historySeason')) || historySeasons[0]?.season_number || null;
+  const handleHistorySeasonChange = (seasonNumber: number) => {
+    const nextParams = new URLSearchParams(searchParams);
+    nextParams.set('tab', 'history');
+    nextParams.set('historySeason', String(seasonNumber));
+    setSearchParams(nextParams, { replace: true });
+  };
   const formatHistoryDate = (value?: string | null) =>
     value
       ? new Intl.DateTimeFormat('en-GB', {
@@ -2926,7 +3002,9 @@ export const TournamentView: React.FC = () => {
             <div>
               <h3>TEST tournament</h3>
               <p>
-                {canAddSandboxTeam ? 'This is a test tournament. Add another test team.' : 'This tournament is TEST.'}
+                {canAddSandboxTeam
+                  ? 'This is a test tournament. Current team limit allows adding another'
+                  : 'This tournament is TEST.'}
               </p>
             </div>
             {canManageSandboxTeams && (
@@ -3113,91 +3191,20 @@ export const TournamentView: React.FC = () => {
 
       {activeTab === 'history' && (
         <div className={styles.historyContainer}>
-          <SectionCard title="Tournament history" className={styles.historySection}>
-            {historySeasons.length === 0 ? (
-              <p className={styles.emptyHistory}>No finished seasons yet.</p>
-            ) : (
-              <div className={styles.historyList}>
-                {historySeasons.map((season) => {
-                  const snapshot = season.snapshot_json;
-                  return (
-                    <article key={season.id} className={styles.historySeason}>
-                      <div className={styles.historySeasonHeader}>
-                        <div>
-                          <h2>Season {season.season_number}</h2>
-                          <p>
-                            {season.status}
-                            {formatHistoryDate(season.finished_at) &&
-                              ` • Finished ${formatHistoryDate(season.finished_at)}`}
-                          </p>
-                        </div>
-                        {snapshot?.winner && (
-                          <div className={styles.historyWinner}>
-                            <span>Winner</span>
-                            <strong>{snapshot.winner.teamName}</strong>
-                          </div>
-                        )}
-                      </div>
-
-                      {snapshot ? (
-                        <>
-                          <div className={styles.historySummary}>
-                            <span>{snapshot.summary.completedMatches} matches</span>
-                            <span>{snapshot.summary.goals} goals</span>
-                            <span>{snapshot.summary.achievements120min} 120m</span>
-                            <span>{snapshot.summary.yellowCards} YC</span>
-                            <span>{snapshot.summary.redCards} RC</span>
-                            <span>{snapshot.summary.injuries} injuries</span>
-                          </div>
-
-                          <div className={styles.historyTableWrapper}>
-                            <table>
-                              <thead>
-                                <tr>
-                                  <th>#</th>
-                                  <th>Team</th>
-                                  <th>120m</th>
-                                  <th>Pld</th>
-                                  <th>Dif</th>
-                                  <th>Goals</th>
-                                </tr>
-                              </thead>
-                              <tbody>
-                                {snapshot.standings.map((standing, index) => (
-                                  <tr key={standing.teamId}>
-                                    <td>{index + 1}</td>
-                                    <td>{standing.teamName}</td>
-                                    <td>{standing.achievements120min}</td>
-                                    <td>{standing.played}</td>
-                                    <td>{standing.gd > 0 ? `+${standing.gd}` : standing.gd}</td>
-                                    <td>{standing.gf}</td>
-                                  </tr>
-                                ))}
-                              </tbody>
-                            </table>
-                          </div>
-
-                          <div className={styles.historyTeamStats}>
-                            {snapshot.teamStats.map((stat) => (
-                              <div key={stat.teamId} className={styles.historyTeamCard}>
-                                <strong>{stat.teamName}</strong>
-                                <span>ID: {stat.htTeamId || '-'}</span>
-                                <span>YC {stat.yellowCards}</span>
-                                <span>RC {stat.redCards}</span>
-                                <span>Injuries {stat.injuries}</span>
-                              </div>
-                            ))}
-                          </div>
-                        </>
-                      ) : (
-                        <p className={styles.emptyHistory}>Season snapshot is not available yet.</p>
-                      )}
-                    </article>
-                  );
-                })}
-              </div>
-            )}
-          </SectionCard>
+          <TournamentHistory
+            seasons={seasons.map((season) => ({
+              id: season.id,
+              seasonNumber: season.season_number,
+              status: season.status,
+              plannedStartSlot: season.planned_start_slot,
+              startedAt: season.started_at,
+              finishedAt: season.finished_at,
+              snapshot: season.snapshot_json,
+            }))}
+            currentHtUserId={currentHtUserId}
+            selectedSeasonNumber={selectedHistorySeasonNumber}
+            onSelectSeason={handleHistorySeasonChange}
+          />
         </div>
       )}
 
@@ -3730,7 +3737,22 @@ export const TournamentView: React.FC = () => {
                           <ul className={adminStyles.seasonList}>
                             {previousSeasons.map((season) => (
                               <li key={season.id}>
-                                Season {season.season_number} {season.status}
+                                <span>
+                                  Season {season.season_number} {season.status}
+                                </span>
+                                {season.snapshot_json &&
+                                  (!('version' in season.snapshot_json) || season.snapshot_json.version !== 2) && (
+                                    <Button
+                                      variant="outline"
+                                      size="xs"
+                                      onClick={() => handleRebuildSeasonSnapshot(season)}
+                                      disabled={rebuildingSeasonNumber !== null}
+                                    >
+                                      {rebuildingSeasonNumber === season.season_number
+                                        ? 'Rebuilding...'
+                                        : 'Rebuild archive'}
+                                    </Button>
+                                  )}
                               </li>
                             ))}
                           </ul>
@@ -4117,7 +4139,7 @@ export const TournamentView: React.FC = () => {
                   </SectionCard>
                 </section>
 
-                <Tooltip id="admin-tooltip" />
+                <Tooltip id="admin-tooltip" className="tooltip" />
               </div>
 
               <div className={adminStyles.simulatorSection}>
@@ -4247,19 +4269,17 @@ export const TournamentView: React.FC = () => {
         imageSrc="/create.png"
         imageAlt="New tournament ready for testing"
         title="Test tournament created!"
-        buttonLabel="Start testing!"
+        buttonLabel="Let's do testing!"
       >
         <strong>Try the important parts while nothing serious is on the line:</strong>
 
         <ul>
-          <li>👉 Add, remove and replace dummy teams</li>
+          <li>👉 Add, remove and replace dummy teams, generate and inspect the schedule</li>
+          <li>👉 Link matches to real ones via admin or add dummy scores</li>
           <li>👉 Test switching team limits and country rules</li>
-          <li>👉 Generate and inspect the schedule</li>
-          <li>👉 Try standings, results and admin tools</li>
-          <li>👉 You can link any match played by the dummy team</li>
         </ul>
 
-        <p>When everything feels right, create the real tournament and invite people in.</p>
+        <p>When you feel like a pro, create the real tournament and invite people in.</p>
       </WelcomeModal>
 
       <WelcomeModal

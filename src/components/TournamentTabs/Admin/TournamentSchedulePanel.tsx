@@ -295,12 +295,12 @@ export const TournamentSchedulePanel: React.FC<TournamentSchedulePanelProps> = (
                           {match.isBye ? (
                             <>
                               {match.homeTeamName === 'BYE' ? match.awayTeamName : match.homeTeamName}
-                              <span> has a </span>BYE
+                              <span> has a BYE</span>
                             </>
                           ) : (
                             <>
                               {match.homeTeamName}
-                              <span> vs</span> {match.awayTeamName}
+                              <span className={adminStyles.rowmiddle}> vs</span> {match.awayTeamName}
                             </>
                           )}
                         </div>
