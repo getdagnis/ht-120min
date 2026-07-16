@@ -38,7 +38,16 @@ export interface ActiveTournament {
   name: string;
   slug: string;
   is_featured: boolean;
+  created_at: string;
   nextMatchDate: Date | null;
+}
+
+export interface FinishedTournament {
+  id: string;
+  name: string;
+  slug: string;
+  is_featured: boolean;
+  created_at: string;
 }
 
 export interface OrganizerTournament {
@@ -71,6 +80,7 @@ interface DBRound {
   id: string;
   created_at: string;
   round_number: number;
+  season_number?: number | null;
   matches: DBTeamMatch[] | null;
 }
 
@@ -84,6 +94,7 @@ interface DBTournament {
   is_archived?: boolean | null;
   is_test?: boolean | null;
   registration_type?: string | null;
+  season?: number | null;
   rounds: DBRound[] | null;
 }
 
@@ -113,6 +124,7 @@ export const useAuth = () => {
   const [managerName, setManagerName] = useState<string | null>(localStorage.getItem('my_ht_manager_name'));
   const [profile, setProfile] = useState<UserProfile | null>(null);
   const [activeTournaments, setActiveTournaments] = useState<ActiveTournament[]>([]);
+  const [finishedTournaments, setFinishedTournaments] = useState<FinishedTournament[]>([]);
   const [organizerTournaments, setOrganizerTournaments] = useState<OrganizerTournament[]>([]);
   const [testTournaments, setTestTournaments] = useState<TestTournament[]>([]);
   const [loading, setLoading] = useState(false);
@@ -150,10 +162,12 @@ export const useAuth = () => {
             is_archived,
             is_test,
             registration_type,
+            season,
             rounds (
               id,
               created_at,
               round_number,
+              season_number,
               matches (
                 id,
                 completed,
@@ -184,12 +198,12 @@ export const useAuth = () => {
       }
 
       const toursMap = new Map<string, ActiveTournament>();
+      const finishedToursMap = new Map<string, FinishedTournament>();
 
       for (const t of teamsData ?? []) {
         const tournament = t.tournaments;
         if (!tournament) continue;
         if (
-          tournament.status === 'finished' ||
           tournament.status === 'stopped' ||
           tournament.status === 'archived' ||
           tournament.is_archived ||
@@ -199,12 +213,29 @@ export const useAuth = () => {
           continue;
         }
 
+        if (tournament.status === 'finished') {
+          finishedToursMap.set(tournament.id, {
+            id: tournament.id,
+            name: tournament.name,
+            slug: tournament.slug,
+            is_featured: Boolean(tournament.is_featured),
+            created_at: tournament.created_at,
+          });
+          continue;
+        }
+
         toursMap.set(tournament.id, {
           id: tournament.id,
           name: tournament.name,
           slug: tournament.slug,
           is_featured: Boolean(tournament.is_featured),
-          nextMatchDate: getTournamentNextMatchDate(tournament.rounds, warnings),
+          created_at: tournament.created_at,
+          nextMatchDate: getTournamentNextMatchDate(
+            (tournament.rounds ?? []).filter(
+              (round) => (round.season_number ?? tournament.season ?? 1) === (tournament.season ?? 1),
+            ),
+            warnings,
+          ),
         });
       }
 
@@ -216,6 +247,9 @@ export const useAuth = () => {
       });
 
       setActiveTournaments(sortedTours);
+      setFinishedTournaments(
+        sortFeaturedFirst(Array.from(finishedToursMap.values()), (a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime()),
+      );
 
       const { data: organizerDataRaw } = await supabase
         .from('tournaments')
@@ -282,6 +316,7 @@ export const useAuth = () => {
     setManagerName(null);
     setProfile(null);
     setActiveTournaments([]);
+    setFinishedTournaments([]);
     setOrganizerTournaments([]);
     setTestTournaments([]);
   };
@@ -290,6 +325,7 @@ export const useAuth = () => {
     managerName,
     profile,
     activeTournaments,
+    finishedTournaments,
     organizerTournaments,
     testTournaments,
     loading,

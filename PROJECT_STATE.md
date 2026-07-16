@@ -1,6 +1,6 @@
 # PROJECT_STATE.md
 
-Last updated: 2026-07-15
+Last updated: 2026-07-16
 
 This is the current-status ledger. Update it after meaningful implementation work. Be explicit about what is local, migrated, tested, deployed, or still unknown.
 
@@ -26,13 +26,14 @@ The app currently supports:
 | W15/W16 calendar correction | Implemented locally | `051`; file contains `-- MIGRATION APPLIED!` marker | Covered by calendar/schedule tests; not rerun for docs-only refactor | Confirm actual Supabase/prod state |
 | Tournament announcements | Implemented locally | `050`; file contains `-- MIGRATION APPLIED!` marker | Covered by `tests/tournament-announcements.test.ts`; not rerun for docs-only refactor | Confirm actual Supabase/prod state |
 | Fixture refresh and reversed venue linking | Implemented locally | Uses existing match fields from `037`, `046` | Not rerun for docs-only refactor | Confirm |
-| Featured tournaments | Implemented locally with superadmin-only admin toggle and featured-first sorting across public/open/organizer lists | `052`; pending Supabase application | `npm run build` and `npm test` passed 2026-07-03 | Confirm |
+| Featured tournaments | Implemented locally with superadmin-only admin toggle and featured-first sorting across public/open/organizer lists, with featured items ordered oldest-first | `052`; pending Supabase application | `npm run build` and `npm test` passed 2026-07-03 | Confirm |
 | Superadmin bypass and app session hardening | Implemented locally; bypass token is env-backed and disabled in production, app session secret no longer falls back to CHPP secret | No migration | `npm run build` and `npm test` passed 2026-07-10 | Confirm |
 | Sandbox tournament creation | Implemented locally as public third tournament type using real CHPP team metadata and normal tournament mechanics; creation now cleans up partial rows after dependent insert failures, reports a clear migration error, bypasses verified-team/archive rules, only allows adding teams before schedule generation, hides country limits, uses an HFI-specific random ID range, and permanently marks names with `(test)` | `053`; pending Supabase application; `055` adds the suffix to existing sandbox names | `npm run build`, `npm test` (69), and `git diff --check` passed 2026-07-14 | Apply `053` and `055`, then confirm |
 | Tournament name suffix defaults | Implemented locally; sandbox names enforce `(test)`, country flags are optional via the create-flow checkbox, and HFI/special-league suffixes are applied only when the relevant selector changes. Manual name edits are preserved on normal saves, and removing a generated country flag automatically unchecks the flag option | No new migration; `055` covers existing sandbox names | `npm run build`, `npm test` (69), and `git diff --check` passed 2026-07-14 | Confirm create/edit behavior after applying `055` |
 | Tournament name and slug uniqueness | Implemented locally; display names are unique after case/diacritic/punctuation/emoji normalization, existing duplicates are preserved while new duplicates are rejected by a trigger, Continue resolves suggested slug collisions without trailing dashes, and the teams step shows the resulting slug | `054`; pending Supabase application | `npm run build`, `npm test` (69), and `git diff --check` passed 2026-07-14 | Apply `054` and confirm |
 | Tournament roster health/status | Implemented locally; generated real tournaments pause when their active roster becomes unhealthy, while empty open tournaments become private/unlisted and legacy archived rows are excluded from public lists | No migration; existing `status` and `is_private` fields | `npm run build` and `npm test` passed 2026-07-13 | Confirm against live Supabase |
 | Tournament valid-user count | Implemented locally in migration `056`; `tournaments.valid_users` is maintained from active, non-placeholder OAuth-linked teams with distinct Hattrick user IDs. Existing rows default to `0` for manual cleanup/backfill | `056`; pending Supabase application | Pending migration application; code validation in progress | Apply `056`, then manually backfill historical rows as needed |
+| Tournament seasons/history | Implemented locally; current-season rounds are separated with `rounds.season_number`, finished seasons can be snapshotted into `tournament_seasons.snapshot_json`, public History tab displays past standings/winners/cards/injuries, and admin Season planner can create a planned next season after finish | `057`; pending Supabase application | `npm run build`, `npm test` (75), `git diff --check`, and API function count `12` passed 2026-07-16 | Apply `057`, then confirm add-new-season against live Supabase |
 | Team ownership reclaim | Implemented locally; existing organizer-added/bot/incomplete team rows are upgraded when the owner joins that exact tournament via CHPP, and logged-in users now get a global reclaim prompt for active non-sandbox teams that match their CHPP team list but are not fully OAuth-linked | No migration; uses existing team OAuth/profile fields | `npm run build`, `npm test` (69), and `git diff --check` passed 2026-07-15 | Confirm after deployment with a real owner login |
 | CHPP country/league display and flag normalization | Implemented locally from `src/utils/worlddetails.xml` v1.2 through the shared `worlddetails` catalogue. `leagueName` is the single short English UI name, `fullName` is the full English name, and `countryName` preserves Hattrick's original local country name. ISO codes and emoji are stored with the same record. Parent LeagueID and associated CountryID remain separate; country-backed teams use one Hattrick parent-league flag, while countryless leagues use an additional Hattrick league flag. CHPP country-name normalization is shared by the browser and API parsers | No migration; existing rows are resolved by `country_id`, future CHPP writes use canonical shared names | `npm run build` passed 2026-07-14; `npm test` has one unrelated existing world-details flag assertion failure | Confirm against live HFI refresh; existing translated `country_name` values are not backfilled |
 | Matchmaker challenge send | Partially implemented | Existing matchmaker/profile/token migrations | Requires real CHPP reauth and endpoint confirmation | Confirm |
@@ -80,8 +81,12 @@ Production means live deployed behavior. If it has not been checked against the 
 - Empty fixtures still show a Hattrick join CTA before schedules are generated, including when the viewer has already joined one team but can add another.
 - Empty standings show a first-team placeholder row with a join link, and team logo displays fall back to `/default-logo.png`.
 - Welcome modals now exist locally for the home page, Matchmaker, newly created tournaments, and first visits to open tournaments. They use one shared modal shell with per-surface copy and per-browser dismissal state.
+- Tournament cards prioritize a future planned start date over the previous finished date, so next-season planning is visible before historical status.
+- Tournament History is available locally as a public tab for finished/snapshotted seasons, with a first-pass admin Season planner under schedule management.
 - Admin settings show a dirty-state save reminder, organizer-only admin password reset, and team deletion now requires a second admin-password confirmation.
 - Superadmin-only featured tournament toggling is available in admin settings and pins featured tournaments to the top of open, active, and organizer lists.
+- Featured tournaments are ordered oldest-first within each pinned list.
+- Account dropdown now separates current active participations from finished participations and labels the active section as `ACTIVE:`.
 - Superadmin bypass is env-backed, dev-only, and no longer exposed as a hardcoded cookie value; production session signing now requires `APP_SESSION_SECRET`.
 - Sandbox Playground is available as a public create-flow tournament type. It creates unlisted test tournaments with random real CHPP team metadata, stores sandbox metadata for future expiry cleanup, and excludes test tournaments from normal public discovery lists.
 - Generate schedule now shows a clearer empty-state reason, waits for a picked start date before previewing, and uses a no-teams placeholder label.
@@ -113,7 +118,7 @@ Production means live deployed behavior. If it has not been checked against the 
 
 ## Latest Validation
 
-Latest code validation for team ownership reclaim:
+Latest code validation for tournament seasons/history:
 
 ```bash
 find api -name "*.ts" | grep -v "/_lib/" | wc -l
@@ -121,7 +126,9 @@ rg "docs/(architecture|scheduling|chpp|database-and-deployment)\\.md|PROJECT_STA
 git diff --check
 ```
 
-`npm run build`, `npm test` (75 tests), and `git diff --check` passed on 2026-07-15. The build still reports the existing CSS `:global` warning and large bundle warning. For future code changes, run:
+`find api -name "*.ts" | grep -v "/_lib/" | wc -l` returned `12`.
+
+`npm run build`, `npm test` (75 tests), and `git diff --check` passed on 2026-07-16. The build still reports the existing CSS `:global` warning and large bundle warning. For future code changes, run:
 
 ```bash
 npm run build

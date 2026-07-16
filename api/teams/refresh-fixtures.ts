@@ -427,6 +427,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       .from('rounds')
       .select('*, matches(*)')
       .eq('tournament_id', tournament_id)
+      .eq('season_number', tournament?.season || 1)
       .order('round_number');
     const { data: teams } = (await supabase.from('teams').select('*').eq('tournament_id', tournament_id)) as {
       data: TeamWithAuth[] | null;

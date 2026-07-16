@@ -5,10 +5,15 @@ import { supabase } from '../../lib/supabase';
 
 import adminStyles from './TournamentAdmin.module.sass';
 import styles from './TournamentView.module.sass';
-import { buildCalendarSlots } from '../../utils/hattrick-calendar';
+import { buildCalendarSlots, formatCalendarDateWithWeek } from '../../utils/hattrick-calendar';
 import { getTournamentBackgroundStyle } from '../../utils/visuals';
 import { calculateStandings } from '../../utils/standings';
-import type { TeamStanding } from '../../utils/standings';
+import type { TeamStanding, Team as StandingTeam } from '../../utils/standings';
+import {
+  buildSeasonHistorySnapshot,
+  type SeasonHistorySnapshot,
+  type SeasonHistoryMatch,
+} from '../../utils/season-history';
 import { validateTeamEligibility } from '../../utils/team-eligibility';
 import { HATTRICK_LEAGUES, getLeagueIdByName, normalizeLeagueLimit } from '../../../shared/worlddetails';
 import { useLiveMatches } from '../../hooks/useLiveMatches';
@@ -145,6 +150,7 @@ interface Team {
   logo_url?: string;
   joined_via_oauth?: boolean;
   country_name?: string;
+  country_id?: number | null;
   manager_name?: string;
   is_placeholder?: boolean;
   hattrick_user_id?: number;
@@ -200,16 +206,65 @@ interface RoundWithMatches {
   id: string;
   round_number: number;
   created_at: string;
+  season_number?: number;
   matches: MatchWithTeams[];
 }
 
 type TournamentStatus = Tournament['status'];
+
+interface TournamentSeason {
+  id: string;
+  tournament_id: string;
+  season_number: number;
+  status: 'planned' | 'ongoing' | 'finished';
+  planned_start_slot: string | null;
+  started_at: string | null;
+  finished_at: string | null;
+  snapshot_json: SeasonHistorySnapshot | null;
+  created_at: string;
+  updated_at: string;
+}
 
 function hasFinishedAllRealFixtures(rounds: RoundWithMatches[]) {
   const matches = rounds.flatMap((round) => round.matches || []);
   const realFixtures = matches.filter((match) => match.home_team_id && match.away_team_id);
 
   return realFixtures.length > 0 && realFixtures.every((match) => match.completed || match.status === 'misarranged');
+}
+
+function toStandingTeam(team: Team): StandingTeam {
+  return {
+    id: team.id,
+    name: team.name,
+    ht_team_id: team.ht_team_id,
+    hattrick_user_id: team.hattrick_user_id ?? null,
+    active: team.active,
+    replacement_for_team_id: team.replacement_for_team_id ?? null,
+    joined_via_oauth: team.joined_via_oauth,
+    country_name: team.country_name,
+    country_id: team.country_id ?? null,
+    league_id: team.league_id ?? null,
+    logo_url: team.logo_url,
+    manager_name: team.manager_name,
+  };
+}
+
+function toSeasonHistoryMatch(match: MatchWithTeams): SeasonHistoryMatch {
+  return {
+    home_team_id: match.home_team_id,
+    away_team_id: match.away_team_id,
+    home_goals: match.home_goals,
+    away_goals: match.away_goals,
+    completed: match.completed,
+    went_120: match.went_120,
+    total_minutes: match.total_minutes,
+    home_yellow_cards: match.home_yellow_cards,
+    home_red_cards: match.home_red_cards,
+    home_injuries: match.home_injuries,
+    away_yellow_cards: match.away_yellow_cards,
+    away_red_cards: match.away_red_cards,
+    away_injuries: match.away_injuries,
+  };
 }
 
 function isBlockingTeamTournament(
@@ -243,7 +298,7 @@ export const TournamentView: React.FC = () => {
 
   // Sync activeTab with URL search param 'tab'
   const activeTabParam = searchParams.get('tab');
-  const activeTab = ['standings', 'fixtures', 'guestbook', 'admin', 'news'].includes(activeTabParam || '')
+  const activeTab = ['standings', 'fixtures', 'history', 'guestbook', 'admin', 'news'].includes(activeTabParam || '')
     ? (activeTabParam as any)
     : location.state?.isAdminInit
       ? 'admin'
@@ -260,6 +315,8 @@ export const TournamentView: React.FC = () => {
   const [announcements, setAnnouncements] = useState<TournamentAnnouncement[]>([]);
   const [announcementDismissals, setAnnouncementDismissals] = useState<TournamentAnnouncementDismissal[]>([]);
   const [, setPublicAnnouncementDismissalVersion] = useState(0);
+  const [seasons, setSeasons] = useState<TournamentSeason[]>([]);
+  const [isAddingSeason, setIsAddingSeason] = useState(false);
 
   // Chat states
   const [chatMessages, setChatMessages] = useState<any[]>([]);
@@ -310,7 +367,8 @@ export const TournamentView: React.FC = () => {
   const [editDescription, setEditDescription] = useState('');
   const [showEditEmail, setShowEditEmail] = useState(false);
   const [editAdminEmail, setEditAdminEmail] = useState('');
-  const [showOpenTournamentWelcome, setShowOpenTournamentWelcome] = useState(false);
+  const [hasClosedCreatedTournamentWelcome, setHasClosedCreatedTournamentWelcome] = useState(false);
+  const [hasClosedOpenTournamentWelcome, setHasClosedOpenTournamentWelcome] = useState(false);
   const [isUpdatingSettings, setIsUpdatingSettings] = useState(false);
   const [isResettingAdminPassword, setIsResettingAdminPassword] = useState(false);
   const [isTest, setIsTest] = useState(false);
@@ -322,8 +380,19 @@ export const TournamentView: React.FC = () => {
     return getLeagueIdByName(countries[0]!) ?? null;
   }, [teams]);
 
-  const isSuperAdmin = useMemo(() => hasSuperAdminBypassCookie(document.cookie), []);
+  const savedStartSlotId = useMemo(() => {
+    if (!tournament?.schedule_start_slot) return '';
+    const storedStartSlot = buildCalendarSlots(new Date(), 160).find(
+      (slot) => slot.nominalDate.toISOString() === tournament.schedule_start_slot,
+    );
+    return storedStartSlot?.id || '';
+  }, [tournament]);
 
+  const myHtUserId = localStorage.getItem('my_ht_user_id');
+  const hasJoined = teams.some((t) => t.hattrick_user_id === Number(myHtUserId) && t.active);
+  const isSandbox = tournament ? isSandboxTournament(tournament.registration_type) : false;
+  const isPausedTournament = tournament?.status === 'paused';
+  const isStoppedTournament = tournament?.status === 'stopped';
   const currentHtUserId = Number(localStorage.getItem('my_ht_user_id') || '0') || null;
   const organizerTeam = tournament?.organizer_id
     ? teams.find((team) => Number(team.hattrick_user_id) === Number(tournament.organizer_id))
@@ -333,8 +402,26 @@ export const TournamentView: React.FC = () => {
   const canLoginAsOrganizer = Boolean(
     tournament?.organizer_id && currentHtUserId && Number(tournament.organizer_id) === currentHtUserId,
   );
-  const canManageFeaturedTournaments = isSuperAdmin && currentHtUserId === FORGE_SUPERADMIN_USER_ID;
+
+  const tournamentVisitWelcomeKey = slug ? getTournamentVisitWelcomeKey(slug) : null;
   const showCreatedTournamentWelcome = searchParams.get('welcome') === TOURNAMENT_CREATED_WELCOME;
+  const showCreatedTournamentWelcomeVisible = showCreatedTournamentWelcome && !hasClosedCreatedTournamentWelcome;
+  const showOpenTournamentWelcome =
+    Boolean(
+      tournamentVisitWelcomeKey &&
+        slug &&
+        tournament &&
+        !showCreatedTournamentWelcomeVisible &&
+        !isSandbox &&
+        tournament.status === 'open' &&
+        !hasJoined &&
+        !canLoginAsOrganizer &&
+        !hasClosedOpenTournamentWelcome &&
+        !hasDismissedWelcome(tournamentVisitWelcomeKey),
+    );
+
+  const isSuperAdmin = useMemo(() => hasSuperAdminBypassCookie(document.cookie), []);
+  const canManageFeaturedTournaments = isSuperAdmin && currentHtUserId === FORGE_SUPERADMIN_USER_ID;
   const organizerLoginLabel = `🤖 ${currentHtManagerName} (organizer)`;
   const dismissedPublicAnnouncementIds = new Set(
     announcements
@@ -359,6 +446,7 @@ export const TournamentView: React.FC = () => {
       editDescription !== (tournament.description || '') ||
       showEditEmail !== Boolean(tournament.admin_email) ||
       editAdminEmail !== savedAdminEmail ||
+      scheduleStartSlotId !== savedStartSlotId ||
       isTest !== Boolean(tournament.is_test) ||
       editIsFeatured !== Boolean(tournament.is_featured)
     );
@@ -373,6 +461,8 @@ export const TournamentView: React.FC = () => {
     editName,
     editRegistrationType,
     isTest,
+    scheduleStartSlotId,
+    savedStartSlotId,
     showEditDescription,
     showEditEmail,
     editIsFeatured,
@@ -667,6 +757,17 @@ export const TournamentView: React.FC = () => {
         setOrganizerProfileName(organizerProfile?.manager_name || null);
       }
       localStorage.setItem('last_viewed_tournament_id', tournamentData.id);
+      const currentSeasonNumber = Number(tournamentData.season || 1);
+      const { data: seasonData, error: seasonError } = await supabase
+        .from('tournament_seasons')
+        .select('*')
+        .eq('tournament_id', tournamentData.id)
+        .order('season_number', { ascending: true });
+      if (!seasonError && seasonData) {
+        setSeasons(seasonData as TournamentSeason[]);
+      } else {
+        setSeasons([]);
+      }
       setEditName(tournamentData.name);
       setEditIsPrivate(tournamentData.is_private);
       setEditChppOnlyJoin(tournamentData.chpp_only_join);
@@ -773,6 +874,7 @@ export const TournamentView: React.FC = () => {
         .from('rounds')
         .select('*')
         .eq('tournament_id', tournamentData.id)
+        .eq('season_number', currentSeasonNumber)
         .order('round_number', { ascending: true });
 
       const { data: matchesDataRaw } = await supabase
@@ -937,6 +1039,34 @@ export const TournamentView: React.FC = () => {
             tournamentData.status !== 'stopped' &&
             hasFinishedAllRealFixtures(persistedRoundsWithMatches)
           ) {
+            const finishedAt = new Date().toISOString();
+            const snapshot = buildSeasonHistorySnapshot(
+              teamsData.map((team) =>
+                toStandingTeam({
+                  ...(team as Team),
+                  manager_name: team.hattrick_user_id
+                    ? nextProfileMap[team.hattrick_user_id]?.manager_name || team.manager_name
+                    : team.manager_name,
+                }),
+              ),
+              matchesWithDates.map((match) => toSeasonHistoryMatch(match)),
+              tournamentData.scoring_mode as any,
+            );
+            await supabase
+              .from('tournament_seasons')
+              .upsert(
+                {
+                  tournament_id: tournamentData.id,
+                  season_number: currentSeasonNumber,
+                  status: 'finished',
+                  planned_start_slot: tournamentData.schedule_start_slot,
+                  started_at: tournamentData.schedule_generated_at,
+                  finished_at: finishedAt,
+                  snapshot_json: snapshot,
+                  updated_at: finishedAt,
+                },
+                { onConflict: 'tournament_id,season_number' },
+              );
             const { error: finishError } = await supabase
               .from('tournaments')
               .update({ status: 'finished' })
@@ -962,6 +1092,7 @@ export const TournamentView: React.FC = () => {
       .from('rounds')
       .select('*')
       .eq('tournament_id', tournament.id)
+      .eq('season_number', tournament.season || 1)
       .order('round_number', { ascending: true });
     if (!roundsData) return;
 
@@ -1392,7 +1523,7 @@ export const TournamentView: React.FC = () => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activeTab, tournament?.id]);
 
-  const handleTabChange = (tab: 'standings' | 'fixtures' | 'guestbook' | 'news' | 'admin') => {
+  const handleTabChange = (tab: 'standings' | 'fixtures' | 'history' | 'guestbook' | 'news' | 'admin') => {
     if (tab !== activeTab) {
       setIsAddingDescription(false);
       setQuickDescription('');
@@ -1616,6 +1747,130 @@ export const TournamentView: React.FC = () => {
     await updateTournamentLifecycleStatus(nextStatus);
   };
 
+  const buildCurrentSeasonSnapshot = useCallback(() => {
+    if (!tournament) return null;
+    return buildSeasonHistorySnapshot(
+      teams.map((team) => toStandingTeam(team)),
+      rounds.flatMap((round) => round.matches.map((match) => toSeasonHistoryMatch(match))),
+      tournament.scoring_mode as any,
+    );
+  }, [rounds, teams, tournament]);
+
+  const ensureCurrentSeasonSnapshot = useCallback(async () => {
+    if (!tournament) return null;
+    const currentSeasonNumber = tournament.season || 1;
+    const existingSeason = seasons.find((season) => season.season_number === currentSeasonNumber);
+    if (existingSeason?.snapshot_json) return existingSeason.snapshot_json;
+
+    const snapshot = buildCurrentSeasonSnapshot();
+    if (!snapshot) return null;
+
+    const now = new Date().toISOString();
+    const { data, error } = await supabase
+      .from('tournament_seasons')
+      .upsert(
+        {
+          tournament_id: tournament.id,
+          season_number: currentSeasonNumber,
+          status: 'finished',
+          planned_start_slot: tournament.schedule_start_slot,
+          started_at: tournament.schedule_generated_at,
+          finished_at: now,
+          snapshot_json: snapshot,
+          updated_at: now,
+        },
+        { onConflict: 'tournament_id,season_number' },
+      )
+      .select('*')
+      .single();
+
+    if (error) throw error;
+    if (data) {
+      setSeasons((current) => {
+        const withoutCurrent = current.filter((season) => season.season_number !== currentSeasonNumber);
+        return [...withoutCurrent, data as TournamentSeason].sort((a, b) => a.season_number - b.season_number);
+      });
+    }
+
+    return snapshot;
+  }, [buildCurrentSeasonSnapshot, seasons, tournament]);
+
+  const handleAddNewSeason = async () => {
+    if (!tournament || isAddingSeason) return;
+    if (tournament.status !== 'finished') {
+      alert('A new season can only be added after the current season is finished.');
+      return;
+    }
+    const nextSeasonNumber = (tournament.season || 1) + 1;
+    const confirmed = window.confirm(`Create Season ${nextSeasonNumber} and move this tournament to planned state?`);
+    if (!confirmed) return;
+
+    setIsAddingSeason(true);
+    try {
+      await ensureCurrentSeasonSnapshot();
+      const now = new Date().toISOString();
+      const plannedStart =
+        tournament.schedule_start_slot && new Date(tournament.schedule_start_slot).getTime() > Date.now()
+          ? tournament.schedule_start_slot
+          : null;
+
+      const { data: nextSeason, error: seasonError } = await supabase
+        .from('tournament_seasons')
+        .insert({
+          tournament_id: tournament.id,
+          season_number: nextSeasonNumber,
+          status: 'planned',
+          planned_start_slot: plannedStart,
+          created_at: now,
+          updated_at: now,
+        })
+        .select('*')
+        .single();
+
+      if (seasonError) throw seasonError;
+
+      const { error: tournamentError } = await supabase
+        .from('tournaments')
+        .update({
+          season: nextSeasonNumber,
+          status: 'waiting',
+          schedule_start_slot: plannedStart,
+          schedule_locked_at: null,
+          registration_closed_at: null,
+          schedule_generated_at: null,
+        })
+        .eq('id', tournament.id);
+
+      if (tournamentError) throw tournamentError;
+
+      if (nextSeason) {
+        setSeasons((current) =>
+          [...current, nextSeason as TournamentSeason].sort((a, b) => a.season_number - b.season_number),
+        );
+      }
+      setRounds([]);
+      setStandings([]);
+      setTournament((prev) =>
+        prev
+          ? {
+              ...prev,
+              season: nextSeasonNumber,
+              status: 'waiting',
+              schedule_start_slot: plannedStart,
+              schedule_locked_at: null,
+              registration_closed_at: null,
+              schedule_generated_at: null,
+            }
+          : prev,
+      );
+      fetchData();
+    } catch (error: any) {
+      alert(error.message);
+    } finally {
+      setIsAddingSeason(false);
+    }
+  };
+
   const getParticipantAudienceHtUserIds = useCallback(
     () =>
       Array.from(
@@ -1765,6 +2020,9 @@ export const TournamentView: React.FC = () => {
   const updateSettings = async () => {
     setIsUpdatingSettings(true);
     try {
+      const selectedStartSlot = scheduleStartSlotId
+        ? scheduleDraft.allSlotOptions.find((slot) => slot.id === scheduleStartSlotId) || null
+        : null;
       const { error } = await supabase
         .from('tournaments')
         .update({
@@ -1782,12 +2040,27 @@ export const TournamentView: React.FC = () => {
           description: editDescription,
           admin_email: showEditEmail ? editAdminEmail : null,
           max_teams: editMaxTeams,
+          schedule_start_slot: selectedStartSlot?.nominalDate.toISOString() ?? tournament?.schedule_start_slot ?? null,
           ...(canManageFeaturedTournaments ? { is_featured: editIsFeatured } : {}),
         })
 
         .eq('id', tournament?.id);
 
       if (error) throw error;
+      if (tournament) {
+        await supabase
+          .from('tournament_seasons')
+          .upsert(
+            {
+              tournament_id: tournament.id,
+              season_number: tournament.season || 1,
+              status: tournament.status === 'finished' ? 'finished' : isGenerated ? 'ongoing' : 'planned',
+              planned_start_slot: selectedStartSlot?.nominalDate.toISOString() ?? tournament.schedule_start_slot ?? null,
+              updated_at: new Date().toISOString(),
+            },
+            { onConflict: 'tournament_id,season_number' },
+          );
+      }
 
       fetchData();
     } catch (error: any) {
@@ -2262,6 +2535,19 @@ export const TournamentView: React.FC = () => {
       });
 
       if (error) throw error;
+      await supabase
+        .from('tournament_seasons')
+        .upsert(
+          {
+            tournament_id: tournament?.id,
+            season_number: tournament?.season || 1,
+            status: 'ongoing',
+            planned_start_slot: scheduleDraft.selectedStartSlot.nominalDate.toISOString(),
+            started_at: new Date().toISOString(),
+            updated_at: new Date().toISOString(),
+          },
+          { onConflict: 'tournament_id,season_number' },
+        );
       try {
         await createAnnouncement({
           content: 'Tournament schedule dates were updated, please check Fixtures & Results.',
@@ -2359,14 +2645,9 @@ export const TournamentView: React.FC = () => {
     }
   };
 
-  const myHtUserId = localStorage.getItem('my_ht_user_id');
-  const hasJoined = teams.some((t) => t.hattrick_user_id === Number(myHtUserId) && t.active);
+  const canManageSchedule = Boolean(tournament && !isPausedTournament && !isStoppedTournament);
   const tournamentId = tournament?.id ?? null;
   const activeRealTeamsCount = teams.filter((team) => team.active && !team.is_placeholder).length;
-  const isSandbox = tournament ? isSandboxTournament(tournament.registration_type) : false;
-  const isPausedTournament = tournament?.status === 'paused';
-  const isStoppedTournament = tournament?.status === 'stopped';
-  const canManageSchedule = Boolean(tournament && !isPausedTournament && !isStoppedTournament);
   const sandboxTeamLimitReached = Boolean(tournament?.max_teams && activeRealTeamsCount >= tournament.max_teams);
   const canManageSandboxTeams = Boolean(tournament && isSandbox && isAdminAuthenticated && !isGenerated);
   const canAddSandboxTeam = Boolean(canManageSandboxTeams && !sandboxTeamLimitReached);
@@ -2424,31 +2705,25 @@ export const TournamentView: React.FC = () => {
     publicDismissedAnnouncementIds: dismissedPublicAnnouncementIds,
   });
 
-  useEffect(() => {
-    if (!slug || !tournament || showCreatedTournamentWelcome) {
-      setShowOpenTournamentWelcome(false);
-      return;
-    }
-
-    if (isSandbox || tournament.status !== 'open' || hasJoined || canLoginAsOrganizer) {
-      setShowOpenTournamentWelcome(false);
-      return;
-    }
-
-    const key = getTournamentVisitWelcomeKey(slug);
-    setShowOpenTournamentWelcome(!hasDismissedWelcome(key));
-  }, [canLoginAsOrganizer, hasJoined, isSandbox, showCreatedTournamentWelcome, slug, tournament]);
-
   const closeCreatedTournamentWelcome = () => {
+    setHasClosedCreatedTournamentWelcome(true);
+  };
+
+  const acceptCreatedTournamentWelcome = () => {
     const nextParams = new URLSearchParams(searchParams);
     nextParams.delete('welcome');
     setSearchParams(nextParams, { replace: true });
+    setHasClosedCreatedTournamentWelcome(true);
   };
 
   const closeOpenTournamentWelcome = () => {
-    if (!slug) return;
-    dismissWelcome(getTournamentVisitWelcomeKey(slug));
-    setShowOpenTournamentWelcome(false);
+    setHasClosedOpenTournamentWelcome(true);
+  };
+
+  const acceptOpenTournamentWelcome = () => {
+    if (!tournamentVisitWelcomeKey) return;
+    dismissWelcome(tournamentVisitWelcomeKey);
+    setHasClosedOpenTournamentWelcome(true);
   };
 
   const handleRefreshHattrickLogin = () => {
@@ -2467,6 +2742,19 @@ export const TournamentView: React.FC = () => {
 
   // Find the first round that is not fully completed
   const currentRoundIdForResults = rounds.find((r) => r.matches.some((m) => !m.completed))?.id;
+  const previousSeasons = seasons.filter((season) => season.season_number < (tournament.season || 1));
+  const currentSeason = seasons.find((season) => season.season_number === (tournament.season || 1));
+  const historySeasons = seasons
+    .filter((season) => season.status === 'finished' || season.snapshot_json)
+    .sort((a, b) => b.season_number - a.season_number);
+  const formatHistoryDate = (value?: string | null) =>
+    value
+      ? new Intl.DateTimeFormat('en-GB', {
+          day: '2-digit',
+          month: '2-digit',
+          year: 'numeric',
+        }).format(new Date(value))
+      : null;
 
   return (
     <div className={styles.view}>
@@ -2819,6 +3107,9 @@ export const TournamentView: React.FC = () => {
         <button className={activeTab === 'fixtures' ? styles.active : ''} onClick={() => handleTabChange('fixtures')}>
           Fixtures <span className="hideOnMobile">& Results</span>
         </button>
+        <button className={activeTab === 'history' ? styles.active : ''} onClick={() => handleTabChange('history')}>
+          History
+        </button>
         <button className={isNewsTab ? styles.active : ''} onClick={() => handleTabChange('news')}>
           News
         </button>
@@ -2826,6 +3117,95 @@ export const TournamentView: React.FC = () => {
           Admin
         </button>
       </div>
+
+      {activeTab === 'history' && (
+        <div className={styles.historyContainer}>
+          <SectionCard title="Tournament history" className={styles.historySection}>
+            {historySeasons.length === 0 ? (
+              <p className={styles.emptyHistory}>No finished seasons yet.</p>
+            ) : (
+              <div className={styles.historyList}>
+                {historySeasons.map((season) => {
+                  const snapshot = season.snapshot_json;
+                  return (
+                    <article key={season.id} className={styles.historySeason}>
+                      <div className={styles.historySeasonHeader}>
+                        <div>
+                          <h2>Season {season.season_number}</h2>
+                          <p>
+                            {season.status}
+                            {formatHistoryDate(season.finished_at) && ` • Finished ${formatHistoryDate(season.finished_at)}`}
+                          </p>
+                        </div>
+                        {snapshot?.winner && (
+                          <div className={styles.historyWinner}>
+                            <span>Winner</span>
+                            <strong>{snapshot.winner.teamName}</strong>
+                          </div>
+                        )}
+                      </div>
+
+                      {snapshot ? (
+                        <>
+                          <div className={styles.historySummary}>
+                            <span>{snapshot.summary.completedMatches} matches</span>
+                            <span>{snapshot.summary.goals} goals</span>
+                            <span>{snapshot.summary.achievements120min} 120m</span>
+                            <span>{snapshot.summary.yellowCards} YC</span>
+                            <span>{snapshot.summary.redCards} RC</span>
+                            <span>{snapshot.summary.injuries} injuries</span>
+                          </div>
+
+                          <div className={styles.historyTableWrapper}>
+                            <table>
+                              <thead>
+                                <tr>
+                                  <th>#</th>
+                                  <th>Team</th>
+                                  <th>120m</th>
+                                  <th>Pld</th>
+                                  <th>Dif</th>
+                                  <th>Goals</th>
+                                </tr>
+                              </thead>
+                              <tbody>
+                                {snapshot.standings.map((standing, index) => (
+                                  <tr key={standing.teamId}>
+                                    <td>{index + 1}</td>
+                                    <td>{standing.teamName}</td>
+                                    <td>{standing.achievements120min}</td>
+                                    <td>{standing.played}</td>
+                                    <td>{standing.gd > 0 ? `+${standing.gd}` : standing.gd}</td>
+                                    <td>{standing.gf}</td>
+                                  </tr>
+                                ))}
+                              </tbody>
+                            </table>
+                          </div>
+
+                          <div className={styles.historyTeamStats}>
+                            {snapshot.teamStats.map((stat) => (
+                              <div key={stat.teamId} className={styles.historyTeamCard}>
+                                <strong>{stat.teamName}</strong>
+                                <span>ID: {stat.htTeamId || '-'}</span>
+                                <span>YC {stat.yellowCards}</span>
+                                <span>RC {stat.redCards}</span>
+                                <span>Injuries {stat.injuries}</span>
+                              </div>
+                            ))}
+                          </div>
+                        </>
+                      ) : (
+                        <p className={styles.emptyHistory}>Season snapshot is not available yet.</p>
+                      )}
+                    </article>
+                  );
+                })}
+              </div>
+            )}
+          </SectionCard>
+        </div>
+      )}
 
       {activeTab === 'fixtures' && (
         <FixturesView
@@ -3178,6 +3558,26 @@ export const TournamentView: React.FC = () => {
                       </div>
 
                       <div className={adminStyles.field}>
+                        <label>Planned start date</label>
+                        <select
+                          value={scheduleStartSlotId}
+                          onChange={(e) => setScheduleStartSlotId(e.target.value)}
+                          disabled={scheduleDraft.startSlotOptions.length === 0}
+                          className={adminStyles.selectField}
+                        >
+                          <option value="" disabled>
+                            {scheduleDraft.startSlotOptions.length > 0 ? 'Select a start date...' : 'Not enough teams'}
+                          </option>
+                          {scheduleDraft.startSlotOptions.map((slot) => (
+                            <option key={slot.id} value={slot.id}>
+                              {`HT S${slot.ht120minSeason} W${slot.htWeek} • ${formatCalendarDateWithWeek(slot.nominalDate, 'short')}`}
+                            </option>
+                          ))}
+                        </select>
+                        <p className={adminStyles.smallNote}>Used as the planned first date on tournament cards.</p>
+                      </div>
+
+                      <div className={adminStyles.field}>
                         <label>Tournament Type</label>
                         <select
                           value={editRegistrationType}
@@ -3326,6 +3726,40 @@ export const TournamentView: React.FC = () => {
                     <Button onClick={updateSettings} disabled={isUpdatingSettings} variant="primary" size="sm">
                       {isUpdatingSettings ? 'Saving...' : 'Save Settings'}
                     </Button>
+                  </SectionCard>
+
+                  <SectionCard title="Season planner" className={adminStyles.seasonPlannerCard}>
+                    <div className={adminStyles.seasonPlanner}>
+                      {previousSeasons.length > 0 && (
+                        <div>
+                          <h3>Previous seasons</h3>
+                          <ul className={adminStyles.seasonList}>
+                            {previousSeasons.map((season) => (
+                              <li key={season.id}>
+                                Season {season.season_number} {season.status}
+                              </li>
+                            ))}
+                          </ul>
+                        </div>
+                      )}
+                      <div>
+                        <h3>Current season</h3>
+                        <p className={adminStyles.seasonCurrent}>
+                          Season {tournament.season} {currentSeason?.status || tournament.status}
+                          {formatHistoryDate(currentSeason?.planned_start_slot || tournament.schedule_start_slot) &&
+                            ` • ${formatHistoryDate(currentSeason?.planned_start_slot || tournament.schedule_start_slot)}`}
+                        </p>
+                        <p className={adminStyles.smallNote}>
+                          Finished seasons are preserved in History. Add a new season only after the current one is
+                          finished.
+                        </p>
+                      </div>
+                      {tournament.status === 'finished' && (
+                        <Button variant="primary" size="sm" onClick={handleAddNewSeason} disabled={isAddingSeason}>
+                          {isAddingSeason ? 'Adding...' : 'Add new'}
+                        </Button>
+                      )}
+                    </div>
                   </SectionCard>
 
                   {!isGenerated && canManageSchedule && (
@@ -3813,8 +4247,9 @@ export const TournamentView: React.FC = () => {
       )}
 
       <WelcomeModal
-        isOpen={showCreatedTournamentWelcome}
+        isOpen={showCreatedTournamentWelcomeVisible}
         onClose={closeCreatedTournamentWelcome}
+        onPrimaryAction={acceptCreatedTournamentWelcome}
         imageSrc="/create.png"
         imageAlt="Tournament created"
         title="Tournament created. Now stress it a little."
@@ -3833,6 +4268,7 @@ export const TournamentView: React.FC = () => {
       <WelcomeModal
         isOpen={showOpenTournamentWelcome}
         onClose={closeOpenTournamentWelcome}
+        onPrimaryAction={acceptOpenTournamentWelcome}
         imageSrc="/register2.png"
         imageAlt="Open tournament welcome"
         title="This tournament is open"

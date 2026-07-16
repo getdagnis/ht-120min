@@ -89,7 +89,7 @@ export async function registerOAuthTeam(
   // 3. Capacity check — enforce max_teams if set
   const { data: tournamentMeta } = await supabase
     .from('tournaments')
-    .select('max_teams')
+    .select('max_teams, season')
     .eq('id', input.tournamentId)
     .single();
 
@@ -106,7 +106,11 @@ export async function registerOAuthTeam(
   }
 
   // 4. Check if tournament has started (has rounds).
-  const { data: rounds } = await supabase.from('rounds').select('id').eq('tournament_id', input.tournamentId);
+  const { data: rounds } = await supabase
+    .from('rounds')
+    .select('id')
+    .eq('tournament_id', input.tournamentId)
+    .eq('season_number', tournamentMeta?.season || 1);
 
   const isGenerated = rounds && rounds.length > 0;
   let replacementForId: string | null = null;
