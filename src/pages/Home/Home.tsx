@@ -471,7 +471,8 @@ export const Home: React.FC = () => {
         buttonLabel="Let's go!"
       >
         <strong>
-          When cups are still running, is the best time to prepare <span className="nowrap"> what comes after!</span>
+          While the cups are still running, this is the best time to prepare
+          <span className="nowrap"> what comes after!</span>
           <span className="nowrap"> Here is how to</span> get ready now:
         </strong>
         <ul>
@@ -479,7 +480,7 @@ export const Home: React.FC = () => {
             👉 Create your first <Link to="/create">dummy test tournament</Link>
           </li>
           <li>👉 Explore tournament management using dummy Hattrick teams</li>
-          <li>👉 When ready — make a real cup and invite others to join!</li>
+          <li>👉 Once ready — create a real cup and invite others to join!</li>
           {/* <li>👉 If not into cups — post an ad in HT-Tinder!</li> */}
         </ul>
 

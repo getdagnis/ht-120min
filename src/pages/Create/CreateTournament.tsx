@@ -1035,7 +1035,7 @@ export const CreateTournament: React.FC = () => {
                     {registrationType === 'validated'
                       ? 'Only managers themselves can join with their teams. Automated fixtures and scoring. Managers still arrange their own matches'
                       : registrationType === 'sandbox'
-                        ? "Create a temporary test tournament with random real Hattrick team data. Real teams cannot join. Test tourneys aren't published. But you can share a link around.  You try to break or make what you want. No-one will be mad."
+                        ? "Create a temporary test tournament with random dummy Hattrick teams. Real teams cannot be added. Test tourneys aren't published. But you can share the link around for others to look."
                         : "Organiser has more freedom — can add any Hattrick team they want that's available. Can self update scores. Useful when tournament management happens on HT forums. Manager does more, participants less."}
                   </p>
                 </div>

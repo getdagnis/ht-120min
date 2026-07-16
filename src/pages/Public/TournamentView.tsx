@@ -406,19 +406,18 @@ export const TournamentView: React.FC = () => {
   const tournamentVisitWelcomeKey = slug ? getTournamentVisitWelcomeKey(slug) : null;
   const showCreatedTournamentWelcome = searchParams.get('welcome') === TOURNAMENT_CREATED_WELCOME;
   const showCreatedTournamentWelcomeVisible = showCreatedTournamentWelcome && !hasClosedCreatedTournamentWelcome;
-  const showOpenTournamentWelcome =
-    Boolean(
-      tournamentVisitWelcomeKey &&
-        slug &&
-        tournament &&
-        !showCreatedTournamentWelcomeVisible &&
-        !isSandbox &&
-        tournament.status === 'open' &&
-        !hasJoined &&
-        !canLoginAsOrganizer &&
-        !hasClosedOpenTournamentWelcome &&
-        !hasDismissedWelcome(tournamentVisitWelcomeKey),
-    );
+  const showOpenTournamentWelcome = Boolean(
+    tournamentVisitWelcomeKey &&
+    slug &&
+    tournament &&
+    !showCreatedTournamentWelcomeVisible &&
+    !isSandbox &&
+    tournament.status === 'open' &&
+    !hasJoined &&
+    !canLoginAsOrganizer &&
+    !hasClosedOpenTournamentWelcome &&
+    !hasDismissedWelcome(tournamentVisitWelcomeKey),
+  );
 
   const isSuperAdmin = useMemo(() => hasSuperAdminBypassCookie(document.cookie), []);
   const canManageFeaturedTournaments = isSuperAdmin && currentHtUserId === FORGE_SUPERADMIN_USER_ID;
@@ -1052,21 +1051,19 @@ export const TournamentView: React.FC = () => {
               matchesWithDates.map((match) => toSeasonHistoryMatch(match)),
               tournamentData.scoring_mode as any,
             );
-            await supabase
-              .from('tournament_seasons')
-              .upsert(
-                {
-                  tournament_id: tournamentData.id,
-                  season_number: currentSeasonNumber,
-                  status: 'finished',
-                  planned_start_slot: tournamentData.schedule_start_slot,
-                  started_at: tournamentData.schedule_generated_at,
-                  finished_at: finishedAt,
-                  snapshot_json: snapshot,
-                  updated_at: finishedAt,
-                },
-                { onConflict: 'tournament_id,season_number' },
-              );
+            await supabase.from('tournament_seasons').upsert(
+              {
+                tournament_id: tournamentData.id,
+                season_number: currentSeasonNumber,
+                status: 'finished',
+                planned_start_slot: tournamentData.schedule_start_slot,
+                started_at: tournamentData.schedule_generated_at,
+                finished_at: finishedAt,
+                snapshot_json: snapshot,
+                updated_at: finishedAt,
+              },
+              { onConflict: 'tournament_id,season_number' },
+            );
             const { error: finishError } = await supabase
               .from('tournaments')
               .update({ status: 'finished' })
@@ -2048,18 +2045,16 @@ export const TournamentView: React.FC = () => {
 
       if (error) throw error;
       if (tournament) {
-        await supabase
-          .from('tournament_seasons')
-          .upsert(
-            {
-              tournament_id: tournament.id,
-              season_number: tournament.season || 1,
-              status: tournament.status === 'finished' ? 'finished' : isGenerated ? 'ongoing' : 'planned',
-              planned_start_slot: selectedStartSlot?.nominalDate.toISOString() ?? tournament.schedule_start_slot ?? null,
-              updated_at: new Date().toISOString(),
-            },
-            { onConflict: 'tournament_id,season_number' },
-          );
+        await supabase.from('tournament_seasons').upsert(
+          {
+            tournament_id: tournament.id,
+            season_number: tournament.season || 1,
+            status: tournament.status === 'finished' ? 'finished' : isGenerated ? 'ongoing' : 'planned',
+            planned_start_slot: selectedStartSlot?.nominalDate.toISOString() ?? tournament.schedule_start_slot ?? null,
+            updated_at: new Date().toISOString(),
+          },
+          { onConflict: 'tournament_id,season_number' },
+        );
       }
 
       fetchData();
@@ -2535,19 +2530,17 @@ export const TournamentView: React.FC = () => {
       });
 
       if (error) throw error;
-      await supabase
-        .from('tournament_seasons')
-        .upsert(
-          {
-            tournament_id: tournament?.id,
-            season_number: tournament?.season || 1,
-            status: 'ongoing',
-            planned_start_slot: scheduleDraft.selectedStartSlot.nominalDate.toISOString(),
-            started_at: new Date().toISOString(),
-            updated_at: new Date().toISOString(),
-          },
-          { onConflict: 'tournament_id,season_number' },
-        );
+      await supabase.from('tournament_seasons').upsert(
+        {
+          tournament_id: tournament?.id,
+          season_number: tournament?.season || 1,
+          status: 'ongoing',
+          planned_start_slot: scheduleDraft.selectedStartSlot.nominalDate.toISOString(),
+          started_at: new Date().toISOString(),
+          updated_at: new Date().toISOString(),
+        },
+        { onConflict: 'tournament_id,season_number' },
+      );
       try {
         await createAnnouncement({
           content: 'Tournament schedule dates were updated, please check Fixtures & Results.',
@@ -3134,7 +3127,8 @@ export const TournamentView: React.FC = () => {
                           <h2>Season {season.season_number}</h2>
                           <p>
                             {season.status}
-                            {formatHistoryDate(season.finished_at) && ` • Finished ${formatHistoryDate(season.finished_at)}`}
+                            {formatHistoryDate(season.finished_at) &&
+                              ` • Finished ${formatHistoryDate(season.finished_at)}`}
                           </p>
                         </div>
                         {snapshot?.winner && (
@@ -4251,18 +4245,21 @@ export const TournamentView: React.FC = () => {
         onClose={closeCreatedTournamentWelcome}
         onPrimaryAction={acceptCreatedTournamentWelcome}
         imageSrc="/create.png"
-        imageAlt="Tournament created"
-        title="Tournament created. Now stress it a little."
-        buttonLabel="Let's test it"
+        imageAlt="New tournament ready for testing"
+        title="Test tournament created!"
+        buttonLabel="Start testing!"
       >
-        <p>Try the important bits while nothing serious is on the line:</p>
+        <strong>Try the important parts while nothing serious is on the line:</strong>
+
         <ul>
-          <li>add teams and remove teams,</li>
-          <li>test team limits and country rules,</li>
-          <li>generate a schedule,</li>
-          <li>regenerate it and see what breaks,</li>
-          <li>click around the admin tools until you trust them.</li>
+          <li>👉 Add, remove and replace dummy teams</li>
+          <li>👉 Test switching team limits and country rules</li>
+          <li>👉 Generate and inspect the schedule</li>
+          <li>👉 Try standings, results and admin tools</li>
+          <li>👉 You can link any match played by the dummy team</li>
         </ul>
+
+        <p>When everything feels right, create the real tournament and invite people in.</p>
       </WelcomeModal>
 
       <WelcomeModal
@@ -4271,7 +4268,7 @@ export const TournamentView: React.FC = () => {
         onPrimaryAction={acceptOpenTournamentWelcome}
         imageSrc="/register2.png"
         imageAlt="Open tournament welcome"
-        title="This tournament is open"
+        title="This tournament is open!"
         buttonLabel="Sounds good"
       >
         <p>Next steps are simple:</p>
