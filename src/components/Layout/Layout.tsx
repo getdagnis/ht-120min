@@ -54,8 +54,16 @@ function getVisitCount() {
 export const Layout: React.FC<LayoutProps> = ({ children }) => {
   const navigate = useNavigate();
   const location = useLocation();
-  const { managerName, profile, activeTournaments, organizerTournaments, testTournaments, logout, refreshProfile } =
-    useAuth();
+  const {
+    managerName,
+    profile,
+    activeTournaments,
+    finishedTournaments,
+    organizerTournaments,
+    testTournaments,
+    logout,
+    refreshProfile,
+  } = useAuth();
   usePresenceHeartbeat(!!managerName, `${location.pathname}${location.search}`);
   const [visitCount] = useState(() => getVisitCount());
   const visibleOrganizerTournaments = useMemo(() => {
@@ -179,7 +187,7 @@ export const Layout: React.FC<LayoutProps> = ({ children }) => {
                       <div className={styles.dropdown}>
                         {activeTournaments.length > 0 && (
                           <div className={styles.dropdownInfo}>
-                            <span>Active in:</span>
+                            <span>ACTIVE:</span>
                             <div className={styles.activeTournamentsList}>
                               {activeTournaments.map((t) => (
                                 <div key={t.id} className={styles.tourItem}>
@@ -201,6 +209,24 @@ export const Layout: React.FC<LayoutProps> = ({ children }) => {
                                       })}
                                     </div>
                                   )}
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+                        )}
+                        {finishedTournaments.length > 0 && (
+                          <div className={styles.dropdownInfo}>
+                            <span>Finished:</span>
+                            <div className={styles.activeTournamentsList}>
+                              {finishedTournaments.map((t) => (
+                                <div key={t.id} className={styles.tourItem}>
+                                  <Link
+                                    to={`/t/${t.slug}`}
+                                    className={styles.dropdownLink}
+                                    onClick={() => setIsUserDropdownOpen(false)}
+                                  >
+                                    {t.name}
+                                  </Link>
                                 </div>
                               ))}
                             </div>
@@ -325,13 +351,21 @@ export const Layout: React.FC<LayoutProps> = ({ children }) => {
             </a>
             <b />
           </p>
-          <a href="https://stage.hattrick.org/MyHattrick/Inbox/?actionType=newMail&userId=8777402" target="_blank">
+          <a
+            href="https://www.hattrick.org/goto.ashx?path=/MyHattrick/Inbox/?actionType=newMail&userId=8777402"
+            target="_blank"
+          >
             Send me a HT message!
           </a>{' '}
           💌
           <p className={styles.affiliated}>Not affiliated with Hattrick Ltd.</p>
         </div>
-        <img src="/svg/chpp.svg" alt="CHPP logo" width={80} />
+        <a
+          href="https://www.hattrick.org/goto.ashx?path=/Community/CHPP/ChppProgramDetails.aspx?ApplicationId=5363"
+          target="_blank"
+        >
+          <img src="/svg/chpp.svg" alt="CHPP product page" width={80} />
+        </a>
       </footer>
 
       <ProfileModal

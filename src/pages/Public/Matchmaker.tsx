@@ -344,7 +344,7 @@ export const Matchmaker: React.FC = () => {
   const isDev = import.meta.env.VITE_MATCHMAKER_DEV_MODE === 'true' || window.location.hostname === 'localhost';
   const [currentIndex, setCurrentIndex] = useState(0);
   const [loading, setLoading] = useState(true);
-  const [showWelcome, setShowWelcome] = useState(false);
+  const [showWelcome, setShowWelcome] = useState(() => !hasDismissedWelcome(TINDER_WELCOME_KEY));
   const [myRequests, setMyRequests] = useState<MatchmakerRequest[]>([]);
   const [hasSetInitialTab, setHasSetInitialTab] = useState(false);
   const hasMyRequests = myRequests.length > 0;
@@ -382,13 +382,11 @@ export const Matchmaker: React.FC = () => {
   const [isLongTermLocked, setIsLongTermLocked] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
 
-  useEffect(() => {
-    if (!hasDismissedWelcome(TINDER_WELCOME_KEY)) {
-      setShowWelcome(true);
-    }
-  }, []);
-
   const closeWelcome = () => {
+    setShowWelcome(false);
+  };
+
+  const acceptWelcome = () => {
     dismissWelcome(TINDER_WELCOME_KEY);
     setShowWelcome(false);
   };
@@ -1724,6 +1722,7 @@ export const Matchmaker: React.FC = () => {
       <WelcomeModal
         isOpen={showWelcome}
         onClose={closeWelcome}
+        onPrimaryAction={acceptWelcome}
         imageSrc="/tinder-date-long-firefly.jpg"
         imageAlt="HT-Tinder welcome"
         title="Welcome to HT-Tinder!"

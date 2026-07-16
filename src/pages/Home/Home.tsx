@@ -19,21 +19,11 @@ import { getTournamentNextMatchDate } from '../../utils/tournament-next-match';
 import { sortFeaturedFirst } from '../../utils/tournament-sorting';
 import { getPublishedFaqSections } from '../../constants/faq-essential';
 import { dismissWelcome, hasDismissedWelcome, HOME_WELCOME_KEY } from '../../utils/welcome-modals';
-import {
-  Trophy,
-  CalendarBlank,
-  Heartbeat,
-  CaretLeft,
-  ArrowRight,
-  Star,
-  Clock,
-  FolderOpen,
-  ChatText,
-} from 'phosphor-react';
+import { Trophy, CalendarBlank, Heartbeat, CaretLeft, ArrowRight, Star, FolderOpen, ChatText } from 'phosphor-react';
 import { TeamsIcon } from '../../components/Icons/TeamsIcon';
 import styles from './Home.module.sass';
 
-const FORUM_LINK = 'https://www.hattrick.org/goto.ashx?path=/Forum/Overview.aspx?v=0&f=1558036';
+const FORUM_LINK = 'https://www.hattrick.org/goto.ashx?path=/Forum/Read.aspx?n=1&nm=32&t=17685273&v=0';
 const SHOW_FAQ = true;
 
 interface DBTeamMatch {
@@ -53,6 +43,7 @@ interface DBRound {
   id: string;
   created_at: string;
   round_number: number;
+  season_number?: number | null;
   matches: DBTeamMatch[] | null;
 }
 
@@ -152,6 +143,10 @@ export const Home: React.FC = () => {
   }, []);
 
   const closeWelcome = () => {
+    setShowWelcome(false);
+  };
+
+  const acceptWelcome = () => {
     dismissWelcome(HOME_WELCOME_KEY);
     setShowWelcome(false);
   };
@@ -184,6 +179,7 @@ export const Home: React.FC = () => {
             id,
             created_at,
             round_number,
+            season_number,
             matches (
               id,
               completed,
@@ -223,26 +219,27 @@ export const Home: React.FC = () => {
         tournamentsData
           .filter((t) => !t.is_test && t.status !== 'stopped' && t.status !== 'archived' && !t.is_archived)
           .forEach((t: DBTournament) => {
+            const currentRounds = (t.rounds ?? []).filter((round) => (round.season_number ?? t.season) === t.season);
             // Count validated teams
             const validatedTeamCount = t.teams.filter((team) => team.joined_via_oauth).length;
 
-            const totalRounds = t.rounds?.length ?? 0;
+            const totalRounds = currentRounds.length;
             const completedRounds =
-              t.rounds?.filter((round) => {
+              currentRounds.filter((round) => {
                 const matches = round.matches ?? [];
                 return matches.length > 0 && matches.every((m) => m.completed || m.status === 'misarranged');
               }).length ?? 0;
-            const allMatches = t.rounds?.flatMap((r) => r.matches ?? []) ?? [];
+            const allMatches = currentRounds.flatMap((r) => r.matches ?? []);
             const totalMatches = allMatches.length;
             // Count finished or misarranged as completed
             const completedMatches = allMatches.filter((m) => m.completed || m.status === 'misarranged').length;
             const isClosed = totalMatches > 0 && totalMatches === completedMatches;
-            const isGenerated = (t.rounds?.length ?? 0) > 0;
-            const nextMatchDate = isGenerated && !isClosed ? getTournamentNextMatchDate(t.rounds, warnings) : null;
-            const allMatchDates = (t.rounds ?? []).flatMap((round) =>
+            const isGenerated = currentRounds.length > 0;
+            const nextMatchDate = isGenerated && !isClosed ? getTournamentNextMatchDate(currentRounds, warnings) : null;
+            const allMatchDates = currentRounds.flatMap((round) =>
               (round.matches ?? []).map((match) => getMatchDateForRound(round, match, match.home_team?.country_name)),
             );
-            const completedMatchDates = (t.rounds ?? []).flatMap((round) =>
+            const completedMatchDates = currentRounds.flatMap((round) =>
               (round.matches ?? [])
                 .filter((match) => match.completed || match.status === 'misarranged')
                 .map((match) => getMatchDateForRound(round, match, match.home_team?.country_name)),
@@ -250,8 +247,7 @@ export const Home: React.FC = () => {
             const plannedStartDate = t.schedule_start_slot ? new Date(t.schedule_start_slot) : null;
             const startedAt =
               allMatchDates.sort((a, b) => a.getTime() - b.getTime())[0] ?? plannedStartDate ?? new Date(t.created_at);
-            const finishedAt =
-              completedMatchDates.sort((a, b) => a.getTime() - b.getTime()).at(-1) ?? null;
+            const finishedAt = completedMatchDates.sort((a, b) => a.getTime() - b.getTime()).at(-1) ?? null;
 
             allMatches.forEach((m) => {
               if (m.completed && m.went_120) {
@@ -273,6 +269,7 @@ export const Home: React.FC = () => {
 
             const tournamentObj = {
               ...t,
+              rounds: currentRounds,
               totalRounds,
               completedRounds,
               totalMatches,
@@ -362,6 +359,17 @@ export const Home: React.FC = () => {
     return `waiting participants for ${seasonLabel}`;
   };
 
+  // Initialize with a stable value to avoid calling impure functions during render.
+  const [currentTime, setCurrentTime] = useState<number>(() => 0);
+
+  useEffect(() => {
+    const id = setTimeout(() => {
+      setCurrentTime(Date.now());
+    }, 0);
+
+    return () => clearTimeout(id);
+  }, []);
+
   const getTournamentDateLabel = (tournament: Tournament) => {
     const formatDate = (date: Date | null) =>
       date
@@ -375,6 +383,12 @@ export const Home: React.FC = () => {
     const isFinished =
       tournament.status === 'finished' ||
       (tournament.totalMatches > 0 && tournament.totalMatches === tournament.completedMatches);
+    const plannedStartIsFuture =
+      tournament.plannedStartDate && tournament.plannedStartDate.getTime() > currentTime - 60 * 60 * 1000;
+
+    if (plannedStartIsFuture) {
+      return `Planned: ${formatDate(tournament.plannedStartDate)}`;
+    }
 
     if (tournament.status === 'waiting') {
       return `Season ${tournament.season}: ${formatDate(tournament.plannedStartDate || tournament.startedAt || null) ?? formatDate(new Date(tournament.created_at))}`;
@@ -384,7 +398,12 @@ export const Home: React.FC = () => {
       return `Finished: ${formatDate(tournament.finishedAt || tournament.startedAt || tournament.plannedStartDate || new Date(tournament.created_at))}`;
     }
 
-    if ((tournament.rounds?.length ?? 0) > 0 || tournament.status === 'active' || tournament.status === 'paused' || tournament.status === 'stopped') {
+    if (
+      (tournament.rounds?.length ?? 0) > 0 ||
+      tournament.status === 'active' ||
+      tournament.status === 'paused' ||
+      tournament.status === 'stopped'
+    ) {
       return `Started: ${formatDate(tournament.startedAt || tournament.plannedStartDate || new Date(tournament.created_at))}`;
     }
 
@@ -445,29 +464,32 @@ export const Home: React.FC = () => {
       <WelcomeModal
         isOpen={showWelcome}
         onClose={closeWelcome}
-        imageSrc="/w16-planning-1.png"
+        onPrimaryAction={acceptWelcome}
+        imageSrc="/w16-planning-4.jpg"
         imageAlt="Hattrick managers preparing for a new tournament season"
-        title="Plan next season’s friendlies now"
-        buttonLabel="Join us!"
+        title="Welcome to HT-120min!"
+        buttonLabel="Let's go!"
       >
-        <p>The cups are still running, but this is the best time to prepare what comes after them.</p>
+        <strong>
+          When cups are still running, is the best time to prepare <span className="nowrap"> what comes after!</span>
+          <span className="nowrap"> Here is how to</span> get ready now:
+        </strong>
         <ul>
           <li>
-            <strong>Create a test tournament</strong> and experience it from the inside.
+            👉 Create your first <Link to="/create">dummy test tournament</Link>
           </li>
-          <li>Try schedules, standings and simulated matches without consequences.</li>
-          <li>Invite a few managers when you are ready to make it real.</li>
+          <li>👉 Explore tournament management using dummy Hattrick teams</li>
+          <li>👉 When ready — make a real cup and invite others to join!</li>
+          {/* <li>👉 If not into cups — post an ad in HT-Tinder!</li> */}
         </ul>
 
         <p>
-          Need people or ideas? Visit our{' '}
+          Visit HT-120min{' '}
           <a href={FORUM_LINK} target="_blank" rel="noreferrer">
             Hattrick forum
-          </a>
-          .
+          </a>{' '}
+          for more!
         </p>
-
-        <p>When the cups end, your next competition could already be waiting.</p>
       </WelcomeModal>
 
       <div className={styles.container}>

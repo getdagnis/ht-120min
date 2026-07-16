@@ -7,6 +7,7 @@ import styles from './WelcomeModal.module.sass';
 interface WelcomeModalProps {
   isOpen: boolean;
   onClose: () => void;
+  onPrimaryAction?: () => void;
   imageSrc: string;
   imageAlt: string;
   title: string;
@@ -17,6 +18,7 @@ interface WelcomeModalProps {
 export const WelcomeModal: React.FC<WelcomeModalProps> = ({
   isOpen,
   onClose,
+  onPrimaryAction,
   imageSrc,
   imageAlt,
   title,
@@ -45,7 +47,7 @@ export const WelcomeModal: React.FC<WelcomeModalProps> = ({
           <h2 className={styles.title}>{title}</h2>
           <div className={styles.copy}>{children}</div>
           <div className={styles.actions}>
-            <Button type="button" variant="secondaryYellow" size="lg" onClick={onClose}>
+            <Button type="button" variant="secondaryYellow" size="lg" onClick={onPrimaryAction ?? onClose}>
               {buttonLabel}
             </Button>
           </div>

@@ -21,14 +21,13 @@
   top: 0.85rem
   right: 0.85rem
   z-index: 2
-  width: 2.5rem
-  height: 2.5rem
+  width: 2rem
+  height: 2rem
   display: inline-flex
   align-items: center
   justify-content: center
   border-radius: var(--radius-sm)
-  border: 1px solid rgba(255, 255, 255, 0.22)
-  background: rgba(6, 11, 25, 0.55)
+  background: var(--accent-4)
   color: white
   cursor: pointer
   transition: background 0.2s ease, border-color 0.2s ease
@@ -41,7 +40,7 @@
   width: 100%
   margin: 0
   overflow: hidden
-  border-radius: var(--radius-md)
+  border-radius: var(--radius-md) var(--radius-md) 0 0
   max-height: 20rem
 
 .image
@@ -58,9 +57,9 @@
     padding: 1rem
 
 .title
-  margin: 0 0 0.75rem
+  margin: 0.5rem 0 1.25rem
   font-family: var(--heading)
-  font-size: 2rem
+  font-size: clamp(1.5rem, 7vw, 2.25rem) !important
   line-height: 1
   font-weight: 600
   color: var(--text-h)
@@ -87,9 +86,15 @@
     color: var(--primary-color)
     font-weight: 600
     text-decoration: none
+    padding-bottom: 0.1rem
+    border-bottom: 1px dotted white
 
     &:hover
-      text-decoration: underline
+      border-bottom: none
+
+.signature
+  display: block
+  margin-top: 1rem
 
 .actions
   margin: 1.25rem 0 1rem
