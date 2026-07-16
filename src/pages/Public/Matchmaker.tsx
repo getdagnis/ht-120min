@@ -723,7 +723,7 @@ export const Matchmaker: React.FC = () => {
       if (mockDataEnabled || adIds.length === 0) return;
 
       try {
-        const res = await fetch(`/api/matchmaker/activity?adIds=${encodeURIComponent(adIds.join(','))}`);
+        const res = await fetch(`/api/matchmaker/teams?adIds=${encodeURIComponent(adIds.join(','))}`);
         const data = await res.json();
         if (!res.ok) throw new Error(data.error || 'Could not load activity.');
 
@@ -1724,12 +1724,19 @@ export const Matchmaker: React.FC = () => {
         onClose={closeWelcome}
         onPrimaryAction={acceptWelcome}
         imageSrc="/tinder-date-long-firefly.jpg"
-        imageAlt="HT-Tinder welcome"
+        imageAlt="Hattrick managers looking for friendly partners"
         title="Welcome to HT-Tinder!"
-        buttonLabel="Let me see the damage"
+        buttonLabel="See who's around!"
       >
-        <p>Tinder section is in very early alpha.</p>
-        <p>Try it anyway, register your team for a long-term relationship and you might just get lucky.</p>
+        <strong>Leave a friendly ad and let the right opponent find you.</strong>
+
+        <ul>
+          <li>👉 Register your team</li>
+          <li>👉 Say what kind of friendly partner you want</li>
+          <li>👉 Keep the ad there until someone suitable comes along</li>
+        </ul>
+
+        <p>It is still early alpha — expectations low, hopes strangely high.</p>
       </WelcomeModal>
 
       {/* Posting Modal */}

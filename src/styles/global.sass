@@ -29,6 +29,7 @@
   --text: #292f39
   --text-h: #08090d
   --text60: #666f7fbb
+  --text50: #666f7faa
   --bg: url('/bg-3-light.png') repeat repeat fixed
   --bg-color: #cdc8c3ee
   --bg-color-transp: #cdc8c399
@@ -247,15 +248,15 @@ table
       font-size: 0.9rem
 
 .tooltip
-  background-color: #5c5853 !important
+  background-color: var(--danger)
   color: white !important
   opacity: 1 !important
 
-  @media (prefers-color-scheme: dark)
-    background-color: #1f2739 !important
+  [data-theme='dark'] &
+    background-color: var(--table-bg) !important
 
-  :global([data-theme='dark']) &
-    background: #060b19 !important
+  [data-theme='light'] &
+    background-color: var(--accent-4) !important
 
 .__react_component_tooltip.show
   opacity: 1 !important

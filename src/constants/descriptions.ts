@@ -1,3 +1,5 @@
+// MottoWidget: partial descriptions pool.
+// CreateFlow: entire descriptions pool for regeneration.
 export const DESCRIPTIONS_INITIAL: string[] = [
   'Winning is weak. Drawing is divine',
   'Points are passable. Extra 30 minutes are titanic',
@@ -208,6 +210,7 @@ export const DESCRIPTIONS_INITIAL: string[] = [
   'Come for friendlies, leave with life-long friendly rivalries',
 ];
 
+// CreateFlow: partial tournament names pool.
 export const EXTRA_TIME_TOURNAMENT_NAMES = [
   'The Divine Draw Invitational',
   'The Magnificent Additional Minutes',
@@ -279,6 +282,7 @@ export const EXTRA_TIME_TOURNAMENT_NAMES = [
   'Just A Few Minutes More Invitational',
 ];
 
+// CreateFlow: partial tournament names pool.
 export const UNIVERSAL_TOURNAMENT_NAMES = [
   'We Are Calm, Content and Satisfied',
   'Delirious Fans and Sponsors Cup',
@@ -421,7 +425,15 @@ export const UNIVERSAL_TOURNAMENT_NAMES = [
   'Historic Events Every Week Cup 🏔',
 ];
 
+// CreateFlow: partial 120min descriptions pool for the initial default.
+export const TOURNAMENT_DEFAULT_120MIN_DEFAULTS = [
+  'Pressing, 5-5-0 and all defensive is the dresscode',
+  'Welcome to the 2 hour party of pressing, 5-5-0 and all defensive',
+];
+
+// TournamentView: entire 120min descriptions pool for MottoWidget or other 120min views.
 export const TOURNAMENT_DEFAULT_120MIN = [
+  ...TOURNAMENT_DEFAULT_120MIN_DEFAULTS,
   'Winning is weak. Drawing is divine',
   'Points are passable. Extra 30 minutes are titanic',
   'Life is short. Matches should be longer',
@@ -433,6 +445,9 @@ export const TOURNAMENT_DEFAULT_120MIN = [
   'Life Begins After 90!',
 ];
 
+// TournamentView: entire tournament descriptions pool.
+// MottoWidget: partial descriptions pool.
+// CreateFlow: entire descriptions pool for regeneration.
 export const TOURNAMENT_DEFAULT: string[] = [
   'Winning is weak. Drawing is divine',
   "One man's draw is another one's training",
@@ -531,7 +546,7 @@ export const TOURNAMENT_DEFAULT: string[] = [
   'Your strikers called. They want a week off.',
   'Fielding strikers is for 90 min friendlies people',
   'The road to 120 starts with 5-5-0, defensive and Pressing',
-  'Just pressing the 120 mins out of this cup rule friendly',
+  'No-one who shoots for 120 minutes, ends up with 75!',
   'When opponent tactics matter as much as yours, rivals become friends',
   'Pressing, 5-5-0 and all defensive is the dresscode',
   'Welcome to the 2 hour party of pressing, 5-5-0 and all defensive',
@@ -539,5 +554,8 @@ export const TOURNAMENT_DEFAULT: string[] = [
   '"It is fun to think in reverse, as in "how to score the least goals." — CCalm',
 ];
 
+// CreateFlow: entire tournament names pool.
 export const TOURNAMENT_NAMES = [...EXTRA_TIME_TOURNAMENT_NAMES, ...UNIVERSAL_TOURNAMENT_NAMES];
+// CreateFlow: entire descriptions pool.
+// MottoWidget: partial descriptions pool.
 export const DESCRIPTIONS = [...DESCRIPTIONS_INITIAL, ...TOURNAMENT_DEFAULT];

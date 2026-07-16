@@ -1,6 +1,7 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { useNavigate, Link as RouterLink } from 'react-router-dom';
 import { supabase } from '../../lib/supabase';
+import { Tooltip } from 'react-tooltip';
 import { nanoid } from 'nanoid';
 import { Button } from '../../components/Button/Button';
 import { HeroCard } from '../../components/Card/HeroCard';
@@ -20,7 +21,12 @@ import {
   CaretDown,
   CaretUp,
 } from 'phosphor-react';
-import { DESCRIPTIONS, TOURNAMENT_NAMES, UNIVERSAL_TOURNAMENT_NAMES } from '../../constants/descriptions';
+import {
+  DESCRIPTIONS,
+  TOURNAMENT_DEFAULT_120MIN_DEFAULTS,
+  TOURNAMENT_NAMES,
+  UNIVERSAL_TOURNAMENT_NAMES,
+} from '../../constants/descriptions';
 import { CREATION_TIPS } from '../../constants/creation-tips';
 import { filterTeamsForCategory, validateTeamEligibility, type LeagueCategory } from '../../utils/team-eligibility';
 import { normalizeTournamentRegistrationType } from '../../utils/tournament-types';
@@ -135,6 +141,8 @@ interface LinkedOrganizer {
 }
 
 const getRandomDescription = () => DESCRIPTIONS[Math.floor(Math.random() * DESCRIPTIONS.length)];
+const getRandom120MinDefaultDescription = () =>
+  TOURNAMENT_DEFAULT_120MIN_DEFAULTS[Math.floor(Math.random() * TOURNAMENT_DEFAULT_120MIN_DEFAULTS.length)];
 const getRandomName = (mode: string) => {
   const pool = mode === 'points' ? UNIVERSAL_TOURNAMENT_NAMES : TOURNAMENT_NAMES;
   return pool[Math.floor(Math.random() * pool.length)];
@@ -165,7 +173,7 @@ const getInitialFormData = () => ({
   is_private: false,
   country_limit: '',
   include_country_flag: true,
-  description: getRandomDescription(),
+  description: getRandom120MinDefaultDescription(),
   admin_email: '',
   max_teams: '' as string | number,
 });
@@ -185,6 +193,8 @@ interface FetchedTeamData {
 
 export const CreateTournament: React.FC = () => {
   const navigate = useNavigate();
+  const nameInputRef = useRef<HTMLInputElement | null>(null);
+  const descriptionRef = useRef<HTMLTextAreaElement | null>(null);
   const [loading, setLoading] = useState(false);
   const [openTournaments, setOpenTournaments] = useState<OpenTournamentSummary[]>([]);
   const [step, setStep] = useState<'info' | 'teams'>(() => {
@@ -583,11 +593,23 @@ export const CreateTournament: React.FC = () => {
     const updatedForm = { ...formData, description: newDesc };
     setFormData(updatedForm);
     saveProgress(updatedForm);
+    window.requestAnimationFrame(() => {
+      const field = descriptionRef.current;
+      if (!field) return;
+      field.focus();
+      field.setSelectionRange(field.value.length, field.value.length);
+    });
   };
 
   const regenerateName = () => {
     const newName = getRandomName(formData.scoring_mode);
     handleNameChange(newName);
+    window.requestAnimationFrame(() => {
+      const field = nameInputRef.current;
+      if (!field) return;
+      field.focus();
+      field.setSelectionRange(field.value.length, field.value.length);
+    });
   };
 
   const checkSlugAvailability = async (requestedSlug?: string) => {
@@ -929,7 +951,13 @@ export const CreateTournament: React.FC = () => {
                 <div className={styles.field}>
                   <div className={styles.labelRow}>
                     <label htmlFor="tournament_name">Tournament Name</label>
-                    <button type="button" onClick={regenerateName} className={styles.iconBtn} title="Regenerate Name">
+                    <button
+                      type="button"
+                      onClick={regenerateName}
+                      className={styles.iconBtn}
+                      data-tooltip-id="regenerate-tooltip"
+                      aria-label="Regenerate name"
+                    >
                       <ArrowClockwise size={20} weight="bold" />
                     </button>
                   </div>
@@ -937,6 +965,7 @@ export const CreateTournament: React.FC = () => {
                     id="tournament_name"
                     name="tournament_name"
                     type="text"
+                    ref={nameInputRef}
                     required
                     value={formData.name}
                     onChange={(e) => handleNameChange(e.target.value)}
@@ -1081,7 +1110,8 @@ export const CreateTournament: React.FC = () => {
                         type="button"
                         onClick={regenerateDescription}
                         className={styles.iconBtn}
-                        title="Regenerate Description"
+                        data-tooltip-id="regenerate-tooltip"
+                        aria-label="Regenerate description"
                       >
                         <ArrowClockwise size={20} weight="bold" />
                       </button>
@@ -1089,6 +1119,7 @@ export const CreateTournament: React.FC = () => {
                   </div>
                   {showDescription && (
                     <textarea
+                      ref={descriptionRef}
                       value={formData.description}
                       onChange={(e) => setFormData({ ...formData, description: e.target.value })}
                       placeholder="Tell participants about the tournament..."
@@ -1097,6 +1128,7 @@ export const CreateTournament: React.FC = () => {
                     />
                   )}
                 </div>
+                <Tooltip id="regenerate-tooltip" content="Regenerate" delayShow={800} className="tooltip" />
                 {!isSandbox && (
                   <div className={styles.field}>
                     <label className={styles.checkboxLabel}>

@@ -360,11 +360,14 @@ export const Layout: React.FC<LayoutProps> = ({ children }) => {
           💌
           <p className={styles.affiliated}>Not affiliated with Hattrick Ltd.</p>
         </div>
+        <h3>Rate us!</h3>
         <a
           href="https://www.hattrick.org/goto.ashx?path=/Community/CHPP/ChppProgramDetails.aspx?ApplicationId=5363"
           target="_blank"
         >
-          <img src="/svg/chpp.svg" alt="CHPP product page" width={80} />
+          <div className={styles.chpp}>
+            <img src="/svg/chpp.svg" alt="CHPP product page" width={80} />
+          </div>
         </a>
       </footer>
 
