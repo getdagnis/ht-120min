@@ -331,6 +331,7 @@ export const Layout: React.FC<LayoutProps> = ({ children }) => {
           💌
           <p className={styles.affiliated}>Not affiliated with Hattrick Ltd.</p>
         </div>
+        <img src="/svg/chpp.svg" alt="CHPP logo" width={80} />
       </footer>
 
       <ProfileModal

@@ -27,7 +27,7 @@ export const faqSections: FaqSection[] = [
       {
         id: 'what-is-ht-120min',
         question: 'What is HT-120min?',
-        answer: `HT-120min helps Hattrick organize recurring friendly tournaments. Its main promise is to keep fixtures, results, standings, live matches and tournament communication together, without spreadsheets, manual counting or scattered forum posts.`,
+        answer: `HT-120min helps organize recurring friendly tournaments. Its main promise is to keep fixtures, results, standings, live matches and tournament communication together, without spreadsheets, manual counting or scattered forum posts.`,
         status: 'current',
       },
       {
@@ -66,7 +66,7 @@ You can look for a single match, a regular 120-minute opponent or a longer-term 
       {
         id: 'why-register-on-tinder',
         question: 'Why should I post my team there?',
-        answer: `Because there is little downside to keeping an ad available. It's a chance to expose yourself to like-minded managers who are looking for a friendly match or a long-term partnership.
+        answer: `It's a chance to expose yourself to like-minded managers who are looking for a friendly match or a long-term partnership.
 
         You may not need a friendly partner today, but another manager looking for the right opponent could discover your team and contact you later.`,
         status: 'current',

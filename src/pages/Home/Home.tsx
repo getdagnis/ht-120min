@@ -14,6 +14,7 @@ import { SupportersWall } from '../../components/SupportersWall/SupportersWall';
 import { WelcomeModal } from '../../components/WelcomeModal/WelcomeModal';
 import { Link as ScrollTo, Element } from 'react-scroll';
 import { sortOpenTournaments } from '../../utils/open-tournaments';
+import { getMatchDateForRound } from '../../utils/match-schedule';
 import { getTournamentNextMatchDate } from '../../utils/tournament-next-match';
 import { sortFeaturedFirst } from '../../utils/tournament-sorting';
 import { getPublishedFaqSections } from '../../constants/faq-essential';
@@ -60,6 +61,7 @@ interface DBTournament {
   name: string;
   slug: string;
   created_at: string;
+  schedule_start_slot?: string | null;
   is_featured?: boolean | null;
   is_private: boolean;
   is_test?: boolean | null;
@@ -95,6 +97,9 @@ interface Tournament extends DBTournament {
   activityScore: number;
   teamCount: number;
   nextMatchDate: Date | null;
+  plannedStartDate: Date | null;
+  startedAt: Date | null;
+  finishedAt: Date | null;
   is_featured: boolean;
 }
 
@@ -137,9 +142,13 @@ export const Home: React.FC = () => {
   const showFaq = faqContent.length > 0 && SHOW_FAQ;
 
   useEffect(() => {
-    if (!hasDismissedWelcome(HOME_WELCOME_KEY)) {
-      setShowWelcome(true);
-    }
+    const id = setTimeout(() => {
+      if (!hasDismissedWelcome(HOME_WELCOME_KEY)) {
+        setShowWelcome(true);
+      }
+    }, 0);
+
+    return () => clearTimeout(id);
   }, []);
 
   const closeWelcome = () => {
@@ -158,6 +167,7 @@ export const Home: React.FC = () => {
           name, 
           slug, 
           created_at,
+          schedule_start_slot,
           is_featured,
           is_private,
           is_test,
@@ -211,70 +221,80 @@ export const Home: React.FC = () => {
         const tournamentsData = tournaments as unknown as DBTournament[];
 
         tournamentsData
-          .filter(
-            (t) =>
-              !t.is_test &&
-              t.status !== 'stopped' &&
-              t.status !== 'archived' &&
-              !t.is_archived,
-          )
+          .filter((t) => !t.is_test && t.status !== 'stopped' && t.status !== 'archived' && !t.is_archived)
           .forEach((t: DBTournament) => {
-          // Count validated teams
-          const validatedTeamCount = t.teams.filter((team) => team.joined_via_oauth).length;
+            // Count validated teams
+            const validatedTeamCount = t.teams.filter((team) => team.joined_via_oauth).length;
 
-          const totalRounds = t.rounds?.length ?? 0;
-          const completedRounds =
-            t.rounds?.filter((round) => {
-              const matches = round.matches ?? [];
-              return matches.length > 0 && matches.every((m) => m.completed || m.status === 'misarranged');
-            }).length ?? 0;
-          const allMatches = t.rounds?.flatMap((r) => r.matches ?? []) ?? [];
-          const totalMatches = allMatches.length;
-          // Count finished or misarranged as completed
-          const completedMatches = allMatches.filter((m) => m.completed || m.status === 'misarranged').length;
-          const isClosed = totalMatches > 0 && totalMatches === completedMatches;
-          const isGenerated = (t.rounds?.length ?? 0) > 0;
-          const nextMatchDate = isGenerated && !isClosed ? getTournamentNextMatchDate(t.rounds, warnings) : null;
+            const totalRounds = t.rounds?.length ?? 0;
+            const completedRounds =
+              t.rounds?.filter((round) => {
+                const matches = round.matches ?? [];
+                return matches.length > 0 && matches.every((m) => m.completed || m.status === 'misarranged');
+              }).length ?? 0;
+            const allMatches = t.rounds?.flatMap((r) => r.matches ?? []) ?? [];
+            const totalMatches = allMatches.length;
+            // Count finished or misarranged as completed
+            const completedMatches = allMatches.filter((m) => m.completed || m.status === 'misarranged').length;
+            const isClosed = totalMatches > 0 && totalMatches === completedMatches;
+            const isGenerated = (t.rounds?.length ?? 0) > 0;
+            const nextMatchDate = isGenerated && !isClosed ? getTournamentNextMatchDate(t.rounds, warnings) : null;
+            const allMatchDates = (t.rounds ?? []).flatMap((round) =>
+              (round.matches ?? []).map((match) => getMatchDateForRound(round, match, match.home_team?.country_name)),
+            );
+            const completedMatchDates = (t.rounds ?? []).flatMap((round) =>
+              (round.matches ?? [])
+                .filter((match) => match.completed || match.status === 'misarranged')
+                .map((match) => getMatchDateForRound(round, match, match.home_team?.country_name)),
+            );
+            const plannedStartDate = t.schedule_start_slot ? new Date(t.schedule_start_slot) : null;
+            const startedAt =
+              allMatchDates.sort((a, b) => a.getTime() - b.getTime())[0] ?? plannedStartDate ?? new Date(t.created_at);
+            const finishedAt =
+              completedMatchDates.sort((a, b) => a.getTime() - b.getTime()).at(-1) ?? null;
 
-          allMatches.forEach((m) => {
-            if (m.completed && m.went_120) {
-              const homeTeam = t.teams.find((team) => team.id === m.home_team_id);
-              const awayTeam = t.teams.find((team) => team.id === m.away_team_id);
+            allMatches.forEach((m) => {
+              if (m.completed && m.went_120) {
+                const homeTeam = t.teams.find((team) => team.id === m.home_team_id);
+                const awayTeam = t.teams.find((team) => team.id === m.away_team_id);
 
-              if (homeTeam && homeTeam.ht_team_id) {
-                if (!team120Stats[homeTeam.ht_team_id])
-                  team120Stats[homeTeam.ht_team_id] = { name: homeTeam.name, count: 0 };
-                team120Stats[homeTeam.ht_team_id].count++;
+                if (homeTeam && homeTeam.ht_team_id) {
+                  if (!team120Stats[homeTeam.ht_team_id])
+                    team120Stats[homeTeam.ht_team_id] = { name: homeTeam.name, count: 0 };
+                  team120Stats[homeTeam.ht_team_id].count++;
+                }
+                if (awayTeam && awayTeam.ht_team_id) {
+                  if (!team120Stats[awayTeam.ht_team_id])
+                    team120Stats[awayTeam.ht_team_id] = { name: awayTeam.name, count: 0 };
+                  team120Stats[awayTeam.ht_team_id].count++;
+                }
               }
-              if (awayTeam && awayTeam.ht_team_id) {
-                if (!team120Stats[awayTeam.ht_team_id])
-                  team120Stats[awayTeam.ht_team_id] = { name: awayTeam.name, count: 0 };
-                team120Stats[awayTeam.ht_team_id].count++;
-              }
+            });
+
+            const tournamentObj = {
+              ...t,
+              totalRounds,
+              completedRounds,
+              totalMatches,
+              completedMatches,
+              activityScore: completedMatches,
+              teamCount: t.teams.length,
+              nextMatchDate,
+              plannedStartDate,
+              startedAt,
+              finishedAt,
+              validatedTeamCount,
+              is_featured: Boolean(t.is_featured),
+            };
+
+            if (tournamentObj.is_featured) {
+              featured.push(tournamentObj as Tournament);
+            } else if (isGenerated && !isClosed && t.status !== 'finished') {
+              active.push(tournamentObj as Tournament);
+            } else if (!isGenerated && t.status !== 'finished') {
+              open.push(tournamentObj as Tournament);
             }
           });
-
-          const tournamentObj = {
-            ...t,
-            totalRounds,
-            completedRounds,
-            totalMatches,
-            completedMatches,
-            activityScore: completedMatches,
-            teamCount: t.teams.length,
-            nextMatchDate,
-            validatedTeamCount,
-            is_featured: Boolean(t.is_featured),
-          };
-
-          if (tournamentObj.is_featured) {
-            featured.push(tournamentObj as Tournament);
-          } else if (isGenerated && !isClosed && t.status !== 'finished') {
-            active.push(tournamentObj as Tournament);
-          } else if (!isGenerated && t.status !== 'finished') {
-            open.push(tournamentObj as Tournament);
-          }
-        });
 
         setFeaturedTournaments(
           sortFeaturedFirst(featured, (a, b) => {
@@ -285,7 +305,7 @@ export const Home: React.FC = () => {
             };
             const weightDelta = statusWeight(a) - statusWeight(b);
             if (weightDelta !== 0) return weightDelta;
-            return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
+            return new Date(a.created_at).getTime() - new Date(b.created_at).getTime();
           }),
         );
 
@@ -342,6 +362,35 @@ export const Home: React.FC = () => {
     return `waiting participants for ${seasonLabel}`;
   };
 
+  const getTournamentDateLabel = (tournament: Tournament) => {
+    const formatDate = (date: Date | null) =>
+      date
+        ? new Intl.DateTimeFormat('en-GB', {
+            day: '2-digit',
+            month: '2-digit',
+            year: 'numeric',
+          }).format(date)
+        : null;
+
+    const isFinished =
+      tournament.status === 'finished' ||
+      (tournament.totalMatches > 0 && tournament.totalMatches === tournament.completedMatches);
+
+    if (tournament.status === 'waiting') {
+      return `Season ${tournament.season}: ${formatDate(tournament.plannedStartDate || tournament.startedAt || null) ?? formatDate(new Date(tournament.created_at))}`;
+    }
+
+    if (isFinished) {
+      return `Finished: ${formatDate(tournament.finishedAt || tournament.startedAt || tournament.plannedStartDate || new Date(tournament.created_at))}`;
+    }
+
+    if ((tournament.rounds?.length ?? 0) > 0 || tournament.status === 'active' || tournament.status === 'paused' || tournament.status === 'stopped') {
+      return `Started: ${formatDate(tournament.startedAt || tournament.plannedStartDate || new Date(tournament.created_at))}`;
+    }
+
+    return `Planned: ${formatDate(tournament.plannedStartDate || new Date(tournament.created_at))}`;
+  };
+
   const renderTournamentCard = (t: Tournament, options: { join?: boolean } = {}) => (
     <Link key={t.id} to={`/t/${t.slug}`} className={styles.tournamentLink}>
       <TournamentCard
@@ -374,21 +423,9 @@ export const Home: React.FC = () => {
                 <TeamsIcon size={14} /> {t.teamCount} teams
               </span>
             )}
-            {t.nextMatchDate ? (
-              <span title="Next Match" className={styles.nextMatch}>
-                <Clock size={14} weight="regular" /> Next:{' '}
-                {t.nextMatchDate.toLocaleDateString('lv-LV', {
-                  day: '2-digit',
-                  month: '2-digit',
-                  hour: '2-digit',
-                  minute: '2-digit',
-                })}
-              </span>
-            ) : (
-              <span title="Creation Date">
-                <CalendarBlank size={14} weight="regular" /> {new Date(t.created_at).toLocaleDateString()}
-              </span>
-            )}
+            <span title="Tournament date">
+              <CalendarBlank size={14} weight="regular" /> {getTournamentDateLabel(t)}
+            </span>
           </div>
           <div className={styles.tTeams}>
             {t.teams.slice(0, 6).map((team) => (
@@ -408,22 +445,29 @@ export const Home: React.FC = () => {
       <WelcomeModal
         isOpen={showWelcome}
         onClose={closeWelcome}
-        imageSrc="/hero1.png"
-        imageAlt="HT-120min welcome"
-        title="Hey, this is HT-120min!"
-        buttonLabel="Ok, I guess"
+        imageSrc="/w16-planning-1.png"
+        imageAlt="Hattrick managers preparing for a new tournament season"
+        title="Plan next season’s friendlies now"
+        buttonLabel="Join us!"
       >
-        <p>It is off-season. Best time to:</p>
+        <p>The cups are still running, but this is the best time to prepare what comes after them.</p>
         <ul>
-          <li>browse around and learn what you can,</li>
-          <li>create a test tournament,</li>
           <li>
-            visit our <a href={FORUM_LINK} target="_blank" rel="noreferrer">Hattrick forum</a> to ask questions, give
-            feedback or request features,
+            <strong>Create a test tournament</strong> and experience it from the inside.
           </li>
-          <li>start planning that small HFI league of yours to play proper domestic 120s.</li>
+          <li>Try schedules, standings and simulated matches without consequences.</li>
+          <li>Invite a few managers when you are ready to make it real.</li>
         </ul>
-        <p>Browse around. Come around.</p>
+
+        <p>
+          Need people or ideas? Visit our{' '}
+          <a href={FORUM_LINK} target="_blank" rel="noreferrer">
+            Hattrick forum
+          </a>
+          .
+        </p>
+
+        <p>When the cups end, your next competition could already be waiting.</p>
       </WelcomeModal>
 
       <div className={styles.container}>
@@ -458,9 +502,7 @@ export const Home: React.FC = () => {
                   <Star size={24} weight="regular" className={styles.sectionIcon} />
                   <h2>Featured Tournaments</h2>
                 </div>
-                <div className={styles.tournamentGrid}>
-                  {featuredTournaments.map((t) => renderTournamentCard(t))}
-                </div>
+                <div className={styles.tournamentGrid}>{featuredTournaments.map((t) => renderTournamentCard(t))}</div>
               </section>
             )}
 

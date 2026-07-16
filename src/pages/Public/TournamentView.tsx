@@ -212,17 +212,19 @@ function hasFinishedAllRealFixtures(rounds: RoundWithMatches[]) {
   return realFixtures.length > 0 && realFixtures.every((match) => match.completed || match.status === 'misarranged');
 }
 
-function isBlockingTeamTournament(tournament?: {
-  status?: string | null;
-  is_test?: boolean | null;
-  registration_type?: string | null;
-} | null) {
+function isBlockingTeamTournament(
+  tournament?: {
+    status?: string | null;
+    is_test?: boolean | null;
+    registration_type?: string | null;
+  } | null,
+) {
   return Boolean(
     tournament &&
-      tournament.status !== 'finished' &&
-      tournament.status !== 'stopped' &&
-      !tournament.is_test &&
-      tournament.registration_type !== 'sandbox',
+    tournament.status !== 'finished' &&
+    tournament.status !== 'stopped' &&
+    !tournament.is_test &&
+    tournament.registration_type !== 'sandbox',
   );
 }
 
@@ -1556,10 +1558,7 @@ export const TournamentView: React.FC = () => {
     localStorage.removeItem(`admin_auth_${slug}`);
   };
 
-  const updateTournamentLifecycleStatus = async (
-    status: TournamentStatus,
-    options: { isPrivate?: boolean } = {},
-  ) => {
+  const updateTournamentLifecycleStatus = async (status: TournamentStatus, options: { isPrivate?: boolean } = {}) => {
     if (!tournament) return;
     const updatePayload: Partial<Pick<Tournament, 'status' | 'is_private'>> = { status };
     if (options.isPrivate !== undefined) updatePayload.is_private = options.isPrivate;
@@ -3836,7 +3835,7 @@ export const TournamentView: React.FC = () => {
         onClose={closeOpenTournamentWelcome}
         imageSrc="/register2.png"
         imageAlt="Open tournament welcome"
-        title="This tournament is open."
+        title="This tournament is open"
         buttonLabel="Sounds good"
       >
         <p>Next steps are simple:</p>
