@@ -5,7 +5,10 @@ export type SeasonAwardKey =
   | 'most-120-matches'
   | 'top-scorers'
   | 'best-goal-difference'
+  | 'least-goals-allowed'
   | 'fair-play'
+  | 'most-cards'
+  | 'most-injuries'
   | 'every-fixture-completed'
   | 'total-minute-specialists';
 
@@ -159,9 +162,21 @@ function buildAwards(
     standings.map((standing) => ({ teamId: standing.teamId, value: standing.gd })),
     'max',
   );
+  const leastGoalsAllowed = getWinningTeamIds(
+    standings.map((standing) => ({ teamId: standing.teamId, value: standing.ga })),
+    'min',
+  );
   const fairPlay = getWinningTeamIds(
     teamStats.map((stat) => ({ teamId: stat.teamId, value: stat.yellowCards + stat.redCards })),
     'min',
+  );
+  const mostCards = getWinningTeamIds(
+    teamStats.map((stat) => ({ teamId: stat.teamId, value: stat.yellowCards + stat.redCards })),
+    'max',
+  );
+  const mostInjuries = getWinningTeamIds(
+    teamStats.map((stat) => ({ teamId: stat.teamId, value: stat.injuries })),
+    'max',
   );
   const most120 = getWinningTeamIds(
     standings.map((standing) => ({ teamId: standing.teamId, value: standing.achievements120min })),
@@ -196,7 +211,22 @@ function buildAwards(
       recipientTeamIds: bestGoalDifference.teamIds,
       value: bestGoalDifference.value,
     },
+    {
+      key: 'least-goals-allowed',
+      recipientTeamIds: leastGoalsAllowed.teamIds,
+      value: leastGoalsAllowed.value,
+    },
     { key: 'fair-play', recipientTeamIds: fairPlay.teamIds, value: fairPlay.value },
+    {
+      key: 'most-cards',
+      recipientTeamIds: mostCards.value && mostCards.value > 0 ? mostCards.teamIds : [],
+      value: mostCards.value,
+    },
+    {
+      key: 'most-injuries',
+      recipientTeamIds: mostInjuries.value && mostInjuries.value > 0 ? mostInjuries.teamIds : [],
+      value: mostInjuries.value,
+    },
     {
       key: 'every-fixture-completed',
       recipientTeamIds: completedEveryFixture,

@@ -1,5 +1,16 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
-import { Cards, ChartLineUp, Clock, FirstAid, Handshake, Medal, SoccerBall, Trophy, UsersThree } from 'phosphor-react';
+import {
+  Cards,
+  ChartLine,
+  ChartLineUp,
+  Clock,
+  FirstAid,
+  Handshake,
+  Medal,
+  SoccerBall,
+  Trophy,
+  UsersThree,
+} from 'phosphor-react';
 import { Button } from '../Button/Button';
 import { Modal } from '../Modal/Modal';
 import { TeamByline } from '../TeamByline/TeamByline';
@@ -154,7 +165,10 @@ const AWARD_DETAILS: Record<SeasonAwardKey, { label: string; icon: React.ReactNo
   'most-120-matches': { label: 'Most 120-minute matches', icon: <Medal size={20} weight="regular" /> },
   'top-scorers': { label: 'Top scorers', icon: <SoccerBall size={20} weight="regular" /> },
   'best-goal-difference': { label: 'Best goal difference', icon: <ChartLineUp size={20} weight="bold" /> },
+  'least-goals-allowed': { label: 'Least goals allowed', icon: <ChartLine size={20} weight="bold" /> },
   'fair-play': { label: 'Fair Play', icon: <Handshake size={20} weight="regular" /> },
+  'most-cards': { label: 'Most cards', icon: <Cards size={20} weight="regular" /> },
+  'most-injuries': { label: 'Most injuries', icon: <FirstAid size={20} weight="regular" /> },
   'every-fixture-completed': { label: 'Every fixture completed', icon: <UsersThree size={20} weight="regular" /> },
   'total-minute-specialists': { label: 'Total minute specialists', icon: <Clock size={20} weight="regular" /> },
 };
@@ -163,7 +177,10 @@ const AWARD_PRIORITY: SeasonAwardKey[] = [
   'champions',
   'top-scorers',
   'best-goal-difference',
+  'least-goals-allowed',
   'fair-play',
+  'most-cards',
+  'most-injuries',
   'every-fixture-completed',
   'total-minute-specialists',
 ];
@@ -244,7 +261,10 @@ function getAwardStat(award: SeasonAward) {
   if (award.key === 'top-scorers') return `${award.value || 0} goals`;
   if (award.key === 'most-120-matches') return `${award.value || 0} × 120m`;
   if (award.key === 'best-goal-difference') return `${(award.value || 0) > 0 ? '+' : ''}${award.value || 0}`;
+  if (award.key === 'least-goals-allowed') return `${award.value || 0} conceded`;
   if (award.key === 'total-minute-specialists') return `${award.value || 0} mins`;
+  if (award.key === 'most-cards') return `${award.value || 0} card${award.value === 1 ? '' : 's'}`;
+  if (award.key === 'most-injuries') return `${award.value || 0} injur${award.value === 1 ? 'y' : 'ies'}`;
   if (award.key === 'every-fixture-completed') return 'Full season completed';
   if (award.key === 'fair-play') {
     const cardCount = award.value || 0;
@@ -462,7 +482,10 @@ export const TournamentHistory: React.FC<TournamentHistoryProps> = ({
       'most-120-matches',
       'top-scorers',
       'best-goal-difference',
+      'least-goals-allowed',
       'fair-play',
+      'most-cards',
+      'most-injuries',
       'every-fixture-completed',
       'total-minute-specialists',
     ];

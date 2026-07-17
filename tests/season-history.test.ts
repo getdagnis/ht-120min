@@ -84,6 +84,7 @@ test('season snapshot freezes participants, shares tied awards, and excludes inc
         completed: true,
         went_120: false,
         total_minutes: 90,
+        away_injuries: 1,
       },
     ],
     '120min',
@@ -112,6 +113,14 @@ test('season snapshot freezes participants, shares tied awards, and excludes inc
     snapshot.awards.find((award) => award.key === 'total-minute-specialists')?.recipientTeamIds,
     ['b'],
   );
+  assert.deepEqual(
+    snapshot.awards.find((award) => award.key === 'least-goals-allowed')?.recipientTeamIds.sort(),
+    ['a', 'c'],
+  );
+  assert.deepEqual(snapshot.awards.find((award) => award.key === 'most-cards')?.recipientTeamIds, ['a']);
+  assert.equal(snapshot.awards.find((award) => award.key === 'most-cards')?.value, 2);
+  assert.deepEqual(snapshot.awards.find((award) => award.key === 'most-injuries')?.recipientTeamIds, ['c']);
+  assert.equal(snapshot.awards.find((award) => award.key === 'most-injuries')?.value, 1);
   assert.equal(snapshot.summary.completedMatches, 2);
   assert.equal(snapshot.summary.goals, 5);
   assert.equal(snapshot.matches.length, 2);
