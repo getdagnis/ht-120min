@@ -2996,7 +2996,7 @@ export const TournamentView: React.FC = () => {
   const historyTabBadgeCount =
     activeTab !== 'history' ? Math.max(latestHistoryUnreadCount, hasNewHistoryReportBadge ? 1 : 0) : 0;
 
-  const handleHistoryCommentsLoaded = useCallback((seasonId: string, commentCount: number) => {
+  const handleHistoryCommentsLoaded = (seasonId: string, commentCount: number) => {
     setHistorySeasonCommentCounts((current) =>
       current[seasonId] === commentCount ? current : { ...current, [seasonId]: commentCount },
     );
@@ -3004,7 +3004,7 @@ export const TournamentView: React.FC = () => {
       localStorage.setItem(`ht-120min:history-comments-read:${seasonId}`, String(commentCount));
       setHistorySeenVersion((current) => current + 1);
     }
-  }, [activeTab]);
+  };
 
   return (
     <div className={styles.view}>
@@ -3089,11 +3089,11 @@ export const TournamentView: React.FC = () => {
                 </p>
                 {showScoringHelp && (
                   <p className={styles.helpContent}>
-                    Teams in this tournament compete to score more 120min training matches achieved than their
-                    opponents. Standings are ranked by <strong>120min achievements</strong> primarily. Ties are settled
-                    by <strong>Total Minutes</strong> (means more training minutes achieved), then{' '}
-                    <strong>Smaller Goal Difference</strong> (here closer means better), and finally{' '}
-                    <strong>Goals Scored</strong> (means draws with fireworks).
+                    Teams in this tournament compete to collect as many completed 120-minute training matches as
+                    possible. Standings are ranked first by <strong>120min achievements</strong>. If teams are tied, the
+                    current tie-breakers are <strong>goal difference</strong>, then <strong>goals scored</strong>, then
+                    fewer matches played. In other words: get the match to 120 minutes first; after that, football still
+                    settles the close calls.
                   </p>
                 )}
               </div>
