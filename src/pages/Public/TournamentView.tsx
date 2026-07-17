@@ -334,7 +334,8 @@ export const TournamentView: React.FC = () => {
   const [, setPublicAnnouncementDismissalVersion] = useState(0);
   const [seasons, setSeasons] = useState<TournamentSeason[]>([]);
   const [historyReportNoticeOpen, setHistoryReportNoticeOpen] = useState(false);
-  const [historyReportSeen, setHistoryReportSeen] = useState(false);
+  const [historySeasonCommentCounts, setHistorySeasonCommentCounts] = useState<Record<string, number>>({});
+  const [historySeenVersion, setHistorySeenVersion] = useState(0);
   const [isAddingSeason, setIsAddingSeason] = useState(false);
   const [rebuildingSeasonNumber, setRebuildingSeasonNumber] = useState<number | null>(null);
   const [isFinalizingSeason, setIsFinalizingSeason] = useState(false);
@@ -401,7 +402,6 @@ export const TournamentView: React.FC = () => {
       .then((response) => response.json())
       .then((data: { dismissed?: boolean; seen?: boolean; tracked?: boolean }) => {
         if (cancelled) return;
-        setHistoryReportSeen(Boolean(data.seen));
         setHistoryReportNoticeOpen(data.tracked === true && data.dismissed !== true && data.seen !== true);
       })
       .catch(() => {
@@ -423,7 +423,7 @@ export const TournamentView: React.FC = () => {
         seasonId: latestPublishedHistorySeason.id,
         tournamentId: tournament.id,
       }),
-    }).then(() => setHistoryReportSeen(true));
+    });
   }, [activeTab, currentHtUserId, latestPublishedHistorySeason, tournament]);
 
   const dismissHistoryReportNotice = () => {
@@ -442,7 +442,6 @@ export const TournamentView: React.FC = () => {
 
   const markHistoryReportSeen = () => {
     if (!tournament || !latestPublishedHistorySeason || !currentHtUserId) return;
-    setHistoryReportSeen(true);
     setHistoryReportNoticeOpen(false);
     void fetch('/api/tournaments/history', {
       method: 'POST',
@@ -1623,6 +1622,16 @@ export const TournamentView: React.FC = () => {
 
   const handleTabChange = (tab: 'standings' | 'fixtures' | 'history' | 'guestbook' | 'news' | 'admin') => {
     if (tab !== activeTab) {
+      if (tab === 'history' && latestPublishedHistorySeason) {
+        const latestCount = historySeasonCommentCounts[latestPublishedHistorySeason.id];
+        if (typeof latestCount === 'number') {
+          localStorage.setItem(
+            `ht-120min:history-comments-read:${latestPublishedHistorySeason.id}`,
+            String(latestCount),
+          );
+          setHistorySeenVersion((current) => current + 1);
+        }
+      }
       setIsAddingDescription(false);
       setQuickDescription('');
       setSearchParams({ tab });
@@ -2957,6 +2966,38 @@ export const TournamentView: React.FC = () => {
         }).format(new Date(value))
       : null;
 
+  const latestHistoryCommentCount =
+    latestPublishedHistorySeason ? historySeasonCommentCounts[latestPublishedHistorySeason.id] ?? null : null;
+  const latestHistoryReadCount = latestPublishedHistorySeason
+    ? (() => {
+        void historySeenVersion;
+        const storedValue = localStorage.getItem(`ht-120min:history-comments-read:${latestPublishedHistorySeason.id}`);
+        const storedCount = storedValue ? Number(storedValue) : 0;
+        return Number.isFinite(storedCount) ? storedCount : 0;
+      })()
+    : 0;
+  const latestHistoryUnreadCount =
+    latestPublishedHistorySeason &&
+    latestHistoryCommentCount !== null &&
+    latestHistoryCommentCount > latestHistoryReadCount
+      ? latestHistoryCommentCount - latestHistoryReadCount
+      : 0;
+  const hasNewHistoryReportBadge = Boolean(
+    latestPublishedHistorySeason && historyReportNoticeIsCurrent && (!currentHtUserId || historyReportNoticeOpen),
+  );
+  const historyTabBadgeCount =
+    activeTab !== 'history' ? Math.max(latestHistoryUnreadCount, hasNewHistoryReportBadge ? 1 : 0) : 0;
+
+  const handleHistoryCommentsLoaded = (seasonId: string, commentCount: number) => {
+    setHistorySeasonCommentCounts((current) =>
+      current[seasonId] === commentCount ? current : { ...current, [seasonId]: commentCount },
+    );
+    if (activeTab === 'history') {
+      localStorage.setItem(`ht-120min:history-comments-read:${seasonId}`, String(commentCount));
+      setHistorySeenVersion((current) => current + 1);
+    }
+  };
+
   return (
     <div className={styles.view}>
       <div className={styles.tHeader}>
@@ -3312,9 +3353,9 @@ export const TournamentView: React.FC = () => {
         </button>
         <button className={activeTab === 'history' ? styles.active : ''} onClick={() => handleTabChange('history')}>
           History
-          {!historyReportSeen && historyReportNoticeIsCurrent && latestPublishedHistorySeason && currentHtUserId && (
-            <span className={styles.historyTabBadge} aria-label="New history report">
-              1
+          {historyTabBadgeCount > 0 && (
+            <span className={styles.historyTabBadge} aria-label="New season history activity">
+              {historyTabBadgeCount}
             </span>
           )}
         </button>
@@ -3345,6 +3386,13 @@ export const TournamentView: React.FC = () => {
             size="md"
             onClick={() => {
               markHistoryReportSeen();
+              if (latestPublishedHistorySeason && typeof latestHistoryCommentCount === 'number') {
+                localStorage.setItem(
+                  `ht-120min:history-comments-read:${latestPublishedHistorySeason.id}`,
+                  String(latestHistoryCommentCount),
+                );
+                setHistorySeenVersion((current) => current + 1);
+              }
               const nextParams = new URLSearchParams(searchParams);
               nextParams.set('tab', 'history');
               setSearchParams(nextParams);
@@ -3382,6 +3430,8 @@ export const TournamentView: React.FC = () => {
             canGenerateReport={isAdminAuthenticated && tournament.status === 'finished'}
             isGeneratingReport={isFinalizingSeason}
             onGenerateReport={handleGenerateHistoryReport}
+            autoScrollToYearbook={latestHistoryUnreadCount > 0}
+            onCommentsLoaded={handleHistoryCommentsLoaded}
           />
         </div>
       )}
@@ -3557,6 +3607,9 @@ export const TournamentView: React.FC = () => {
               }}
               seasonId={currentSeason?.id}
               seasonNumber={currentSeason?.season_number ?? tournament.season}
+              seasonStatus={currentSeason?.status === 'finished' ? 'finished' : 'ongoing'}
+              onCommentsLoaded={handleHistoryCommentsLoaded}
+              onVisitHistory={() => handleTabChange('history')}
             />
           </div>
           <aside className={styles.statsSidebar}>
