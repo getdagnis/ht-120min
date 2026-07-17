@@ -471,8 +471,7 @@ export const Home: React.FC = () => {
         buttonLabel="Let's go!"
       >
         <strong>
-          While the cups are still running, this is the best time to prepare
-          <span className="nowrap"> what comes after!</span>
+          While the cups are still running, this is the best time to prepare what comes after!
           <span className="nowrap"> Here is how to</span> get ready now:
         </strong>
         <ul>
