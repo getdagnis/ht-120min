@@ -82,6 +82,8 @@ export const Layout: React.FC<LayoutProps> = ({ children }) => {
   const [searchParams] = useSearchParams();
 
   const isProfileModalOpen = !!searchParams.get('profileId');
+  const authError = searchParams.get('auth_error');
+  const authErrorReference = searchParams.get('auth_error_ref');
 
   useEffect(() => {
     document.documentElement.setAttribute('data-theme', theme);
@@ -131,6 +133,16 @@ export const Layout: React.FC<LayoutProps> = ({ children }) => {
     // Pure login: no tournament_id, no is_creation
     document.cookie = `auth_return_url=${encodeURIComponent(location.pathname + location.search)}; path=/; max-age=300`;
     window.location.href = '/api/auth/init';
+  };
+
+  const dismissAuthError = () => {
+    const nextParams = new URLSearchParams(location.search);
+    nextParams.delete('auth_error');
+    nextParams.delete('auth_error_ref');
+    navigate(
+      { pathname: location.pathname, search: nextParams.toString() ? `?${nextParams.toString()}` : '' },
+      { replace: true },
+    );
   };
 
   return (
@@ -329,7 +341,36 @@ export const Layout: React.FC<LayoutProps> = ({ children }) => {
         </div>
       </header>
 
-      <main className={styles.main}>{children}</main>
+      <main className={styles.main}>
+        {authError && (
+          <section className={styles.authFailure} role="alert">
+            <div>
+              <h2>Hattrick login is temporarily unavailable</h2>
+              <p>
+                The site is still available, but the login connection could not be completed. Please try again shortly.
+                {authErrorReference && <> Reference: <code>{authErrorReference}</code></>}
+              </p>
+            </div>
+            <div className={styles.authFailureActions}>
+              <Button size="sm" variant="primary" onClick={handleLogin}>
+                <User size={18} weight="bold" /> Try login again
+              </Button>
+              <a
+                className={styles.authFailureLink}
+                href={`https://www.hattrick.org/goto.ashx?path=/MyHattrick/Inbox/?actionType=newMail&userId=8777402`}
+                target="_blank"
+                rel="noreferrer"
+              >
+                Report this problem
+              </a>
+              <button type="button" className={styles.authFailureDismiss} onClick={dismissAuthError}>
+                Dismiss
+              </button>
+            </div>
+          </section>
+        )}
+        {children}
+      </main>
 
       <footer className={styles.footer}>
         <div className={styles.container}>

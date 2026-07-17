@@ -204,6 +204,59 @@
 .main
   flex: 1
 
+.authFailure
+  max-width: 1200px
+  margin: 5rem auto 0
+  padding: 1rem 1.25rem
+  display: flex
+  align-items: center
+  justify-content: space-between
+  gap: 1rem
+  background: var(--table-bg)
+  border: 1px solid var(--danger)
+  border-radius: var(--radius-sm)
+  color: var(--text)
+
+  h2
+    margin-bottom: 0.25rem
+    font-size: 1.15rem
+
+  p
+    margin: 0
+    color: var(--text60)
+    font-size: 0.9rem
+
+  code
+    color: var(--text)
+    font-size: 0.8rem
+
+.authFailureActions
+  display: flex
+  align-items: center
+  gap: 0.75rem
+  flex-shrink: 0
+
+.authFailureLink
+  color: var(--danger)
+  font-weight: 600
+  text-decoration: underline
+
+.authFailureDismiss
+  color: var(--text60)
+  font-size: 0.9rem
+
+  &:hover
+    color: var(--text)
+
+@media (max-width: 720px)
+  .authFailure
+    align-items: flex-start
+    flex-direction: column
+    margin: 4.5rem 1rem 0
+
+  .authFailureActions
+    flex-wrap: wrap
+
 .footer
   padding: 2rem 0
   margin-top: 3rem

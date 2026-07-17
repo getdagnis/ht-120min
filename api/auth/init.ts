@@ -1,49 +1,32 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
-import { createClient } from '@supabase/supabase-js';
-import { getAuthHeader } from '../_lib/chpp-auth.js';
-
-// Helper to get supabase client safely in serverless functions
-const getSupabase = () => {
-  const url = process.env.VITE_SUPABASE_URL || process.env.SUPABASE_URL;
-  const key =
-    process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.VITE_SUPABASE_PUBLISHABLE_KEY || process.env.SUPABASE_ANON_KEY;
-
-  if (!url || !key) {
-    throw new Error(`Supabase configuration missing. URL: ${!!url}, Key: ${!!key}`);
-  }
-  return createClient(url, key);
-};
+import { redirectAuthFailure } from '../_lib/auth-failure.js';
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
-  const { tournament_id, is_creation, league_category, country_limit } = req.query;
-  console.log('Auth Init - Params:', { tournament_id, is_creation });
-
-  if (!tournament_id && is_creation !== 'true') {
-    // Treat as login only - no tournament_id required
+  if (req.method === 'HEAD' || req.method === 'OPTIONS') {
+    return res.status(204).end();
   }
-
-  const consumerKey = process.env.CHPP_CONSUMER_KEY;
-  const consumerSecret = process.env.CHPP_CONSUMER_SECRET;
-
-  if (!consumerKey || !consumerSecret) {
-    return res.status(500).json({ error: 'CHPP Consumer Key or Secret missing in environment' });
-  }
-
-  const url = 'https://chpp.hattrick.org/oauth/request_token.ashx';
-  const method = 'GET';
-
-  // Determine callback URL
-  const protocol = req.headers['x-forwarded-proto'] || 'http';
-  const host = req.headers['host'];
-  const callbackUrl = `${protocol}://${host}/api/auth/callback`;
-
-  const params: Record<string, string> = {
-    oauth_callback: callbackUrl,
-  };
-
-  const authHeader = getAuthHeader(method, url, params, consumerKey, consumerSecret);
 
   try {
+    const { getAuthHeader } = await import('../_lib/chpp-auth.js');
+    const { createClient } = await import('@supabase/supabase-js');
+    const { tournament_id, is_creation, league_category, country_limit } = req.query;
+    console.log('Auth Init - Params:', { tournament_id, is_creation });
+
+    const consumerKey = process.env.CHPP_CONSUMER_KEY;
+    const consumerSecret = process.env.CHPP_CONSUMER_SECRET;
+
+    if (!consumerKey || !consumerSecret) {
+      return res.status(500).json({ error: 'CHPP Consumer Key or Secret missing in environment' });
+    }
+
+    const url = 'https://chpp.hattrick.org/oauth/request_token.ashx';
+    const method = 'GET';
+    const protocol = req.headers['x-forwarded-proto'] || 'http';
+    const host = req.headers['host'];
+    const callbackUrl = `${protocol}://${host}/api/auth/callback`;
+    const params: Record<string, string> = { oauth_callback: callbackUrl };
+    const authHeader = getAuthHeader(method, url, params, consumerKey, consumerSecret);
+
     const response = await fetch(url, {
       method,
       headers: {
@@ -66,7 +49,13 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       return res.status(500).json({ error: 'Invalid response from Hattrick', body });
     }
     // Store temporary session
-    const supabase = getSupabase();
+    const supabaseUrl = process.env.VITE_SUPABASE_URL || process.env.SUPABASE_URL;
+    const supabaseKey =
+      process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.VITE_SUPABASE_PUBLISHABLE_KEY || process.env.SUPABASE_ANON_KEY;
+    if (!supabaseUrl || !supabaseKey) {
+      throw new Error(`Supabase configuration missing. URL: ${!!supabaseUrl}, Key: ${!!supabaseKey}`);
+    }
+    const supabase = createClient(supabaseUrl, supabaseKey);
     const { error } = await supabase.from('oauth_temp_sessions').insert({
       oauth_token,
       oauth_token_secret,
@@ -84,7 +73,6 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     const authUrl = `https://chpp.hattrick.org/oauth/authorize.aspx?oauth_token=${oauth_token}&scope=manage_challenges`;
     return res.redirect(authUrl);
   } catch (error: unknown) {
-    console.error('Auth Init Handler Error:', error);
-    return res.status(500).json({ error: error instanceof Error ? error.message : 'An unknown error occurred' });
+    return redirectAuthFailure(req, res, 'auth-init', error);
   }
 }
