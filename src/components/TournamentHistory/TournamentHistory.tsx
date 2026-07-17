@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { Cards, ChartLineUp, Clock, FirstAid, Handshake, Medal, SoccerBall, Trophy, UsersThree } from 'phosphor-react';
 import { Button } from '../Button/Button';
 import { Modal } from '../Modal/Modal';
@@ -64,6 +64,11 @@ interface SeasonYearbookProps {
   commentsSubmitError?: string;
   teamLogoById?: Record<string, string | null | undefined>;
   title?: string;
+  subtitle?: React.ReactNode;
+  showProgress?: boolean;
+  showComments?: boolean;
+  emptyMessage?: React.ReactNode;
+  scrollTargetRef?: React.RefObject<HTMLElement | null>;
   children?: React.ReactNode;
 }
 
@@ -76,16 +81,22 @@ export const SeasonYearbook: React.FC<SeasonYearbookProps> = ({
   commentsSubmitError = '',
   teamLogoById = {},
   title,
+  subtitle,
+  showProgress = true,
+  showComments = true,
+  emptyMessage,
+  scrollTargetRef,
   children,
 }) => (
-  <section className={`${styles.standingsCard} ${styles.yearbookCard}`}>
+  <section className={`${styles.standingsCard} ${styles.yearbookCard}`} ref={scrollTargetRef}>
     <h2>{title || `📔 Season ${seasonNumber} Yearbook`}</h2>
+    {subtitle && <p className={styles.yearbookIntro}>{subtitle}</p>}
     {commentsLoading && <p className={styles.mutedText}>Season yearbook comments loading...</p>}
-    {!commentsLoading && !commentsLoadError && comments.length === 0 && (
-      <p className={styles.mutedText}>Be the first to add a final thought to this Yearbook!</p>
-    )}
-    {!commentsLoadError && (
+    {!commentsLoadError && showComments && (
       <div className={styles.commentsList}>
+        {!commentsLoading && comments.length === 0 && (
+          <p className={styles.mutedText}>{emptyMessage || 'Be the first to add a final thought to this Yearbook!'}</p>
+        )}
         {comments.map((comment) => (
           <blockquote key={comment.id}>
             <div className={styles.commentAuthorRow}>
@@ -108,12 +119,15 @@ export const SeasonYearbook: React.FC<SeasonYearbookProps> = ({
             </time>
           </blockquote>
         ))}
-        {!commentsLoading && !commentsLoadError && typeof totalTeams === 'number' && (
+        {showProgress && !commentsLoading && !commentsLoadError && typeof totalTeams === 'number' && (
           <p className={styles.yearbookProgress}>
             {comments.length} of {totalTeams} teams have written their season comments
           </p>
         )}
       </div>
+    )}
+    {!showComments && !commentsLoading && !commentsLoadError && emptyMessage && (
+      <p className={styles.yearbookIntro}>{emptyMessage}</p>
     )}
     {commentsLoadError && <p className={styles.mutedText}>Season comments are unavailable right now.</p>}
     {commentsSubmitError && <p className={styles.commentError}>{commentsSubmitError}</p>}
@@ -131,6 +145,8 @@ interface TournamentHistoryProps {
   canGenerateReport?: boolean;
   isGeneratingReport?: boolean;
   onGenerateReport?: () => void;
+  autoScrollToYearbook?: boolean;
+  onCommentsLoaded?: (seasonId: string, commentCount: number) => void;
 }
 
 const AWARD_DETAILS: Record<SeasonAwardKey, { label: string; icon: React.ReactNode }> = {
@@ -196,25 +212,28 @@ function TeamIdentity({
   return (
     <div className={`${styles.teamIdentity} ${compact ? styles.compactTeam : ''}`}>
       <img
+        className={styles.teamLogo}
         src={participant.logoUrl || DEFAULT_TEAM_LOGO}
         alt=""
         onError={(event) => {
           event.currentTarget.src = DEFAULT_TEAM_LOGO;
         }}
       />
-      <div>
-        <strong>{participant.teamName}</strong>
-        {detail && <div className={styles.teamDetail}>{detail}</div>}
+      <div className={styles.teamInfo}>
+        <strong className={styles.teamName}>{participant.teamName}</strong>
+        {detail && <div className={styles.detailText}>{detail}</div>}
         {!compact && (
-          <TeamByline
-            countryName={participant.countryName}
-            countryId={participant.countryId}
-            leagueId={participant.leagueId}
-            teamId={participant.htTeamId}
-            managerName={participant.managerName}
-            managerHtId={participant.hattrickUserId}
-            mode="standings"
-          />
+          <div className={styles.teamByline}>
+            <TeamByline
+              countryName={participant.countryName}
+              countryId={participant.countryId}
+              leagueId={participant.leagueId}
+              teamId={participant.htTeamId}
+              managerName={participant.managerName}
+              managerHtId={participant.hattrickUserId}
+              mode="standings"
+            />
+          </div>
         )}
       </div>
     </div>
@@ -281,7 +300,10 @@ export const TournamentHistory: React.FC<TournamentHistoryProps> = ({
   canGenerateReport = false,
   isGeneratingReport = false,
   onGenerateReport,
+  autoScrollToYearbook = false,
+  onCommentsLoaded,
 }) => {
+  const yearbookRef = useRef<HTMLElement | null>(null);
   const finishedSeasons = useMemo(
     () => seasons.filter((season) => season.status === 'finished' && season.snapshot),
     [seasons],
@@ -308,6 +330,7 @@ export const TournamentHistory: React.FC<TournamentHistoryProps> = ({
           setComments(items);
           setLoadedCommentsSeasonId(selectedSeasonId);
           setCommentsLoadError('');
+          onCommentsLoaded?.(selectedSeasonId, items.length);
         }
       })
       .catch((error) => {
@@ -315,12 +338,18 @@ export const TournamentHistory: React.FC<TournamentHistoryProps> = ({
           setComments([]);
           setLoadedCommentsSeasonId(selectedSeasonId);
           setCommentsLoadError(error instanceof Error ? error.message : 'Season comments are unavailable.');
+          onCommentsLoaded?.(selectedSeasonId, 0);
         }
       });
     return () => {
       cancelled = true;
     };
-  }, [loadComments, selectedSeasonId]);
+  }, [loadComments, onCommentsLoaded, selectedSeasonId]);
+
+  useEffect(() => {
+    if (!autoScrollToYearbook || !yearbookRef.current || !selectedSeasonId) return;
+    yearbookRef.current.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  }, [autoScrollToYearbook, selectedSeasonId]);
 
   useEffect(() => {
     const id = setTimeout(() => {
@@ -380,6 +409,8 @@ export const TournamentHistory: React.FC<TournamentHistoryProps> = ({
   const winner = findParticipant(snapshot, snapshot.winner?.teamId);
   const runnerUpStanding = snapshot.standings[1];
   const runnerUp = findParticipant(snapshot, runnerUpStanding?.teamId);
+  const thirdPlaceStanding = snapshot.standings[2];
+  const thirdPlace = findParticipant(snapshot, thirdPlaceStanding?.teamId);
   const memorableMatch = snapshot.matches.find((match) => match.id === snapshot.records.memorableMatchId) || null;
   const highestScoringMatch =
     snapshot.matches.find((match) => match.id === snapshot.records.highestScoringMatchId) || null;
@@ -397,6 +428,9 @@ export const TournamentHistory: React.FC<TournamentHistoryProps> = ({
       .filter((value): value is string => !!value)
       .sort()[0] ||
     null;
+  const roundsPlayed = new Set(
+    snapshot.matches.map((match) => match.roundNumber).filter((value): value is number => typeof value === 'number'),
+  ).size;
   const most120Award: SeasonAward = {
     key: 'most-120-matches',
     recipientTeamIds: snapshot.records.most120TeamIds,
@@ -464,6 +498,7 @@ export const TournamentHistory: React.FC<TournamentHistoryProps> = ({
       teamLogoById={Object.fromEntries(
         snapshot.participants.map((participant) => [participant.teamId, participant.logoUrl]),
       )}
+      scrollTargetRef={yearbookRef}
     >
       {!commentsLoading &&
         !commentsLoadError &&
@@ -526,16 +561,105 @@ export const TournamentHistory: React.FC<TournamentHistoryProps> = ({
       <div className={styles.historyColumns} data-testid="history-columns">
         <main className={styles.mainColumn}>
           <section className={styles.championCard}>
-            <div className={styles.championHeadline}>
-              <h2>🏆 Season {selectedSeason.seasonNumber} champions</h2>
-              {winner && <TeamIdentity participant={winner} />}
-            </div>
-            {runnerUp && (
-              <div className={styles.runnerUp}>
-                <span>Runner-up</span>
-                <TeamIdentity participant={runnerUp} compact />
+            <div className={styles.championWinners}>
+              <div className={`${styles.championContainer} ${styles.championFirst}`}>
+                <div className={styles.championHeadline}>
+                  <h2>🏆 Season {selectedSeason.seasonNumber} champions</h2>
+                </div>
+                <div className={styles.winner}>
+                  {winner && (
+                    <div className={styles.winnerFirstIdentity}>
+                      <img
+                        className={styles.winnerFirstLogo}
+                        src={winner.logoUrl || DEFAULT_TEAM_LOGO}
+                        alt=""
+                        onError={(event) => {
+                          event.currentTarget.src = DEFAULT_TEAM_LOGO;
+                        }}
+                      />
+                      <div className={styles.winnerFirstInfo}>
+                        <h3 className={styles.winnerFirstName}>{winner.teamName}</h3>
+                        <div className={styles.winnerFirstByline}>
+                          <TeamByline
+                            countryName={winner.countryName}
+                            countryId={winner.countryId}
+                            leagueId={winner.leagueId}
+                            teamId={winner.htTeamId}
+                            managerName={winner.managerName}
+                            managerHtId={winner.hattrickUserId}
+                            mode="standings"
+                          />
+                        </div>
+                      </div>
+                    </div>
+                  )}
+                </div>
               </div>
-            )}
+              <div className={styles.championPlacings}>
+                {runnerUp && (
+                  <div className={`${styles.placementCard} ${styles.championSecond}`}>
+                    <div className={styles.placementHeader}>Runner-up</div>
+                    <div className={styles.placementBody}>
+                      <div className={styles.winnerSecondIdentity}>
+                        <img
+                          className={styles.winnerSecondLogo}
+                          src={runnerUp.logoUrl || DEFAULT_TEAM_LOGO}
+                          alt=""
+                          onError={(event) => {
+                            event.currentTarget.src = DEFAULT_TEAM_LOGO;
+                          }}
+                        />
+                        <div className={styles.winnerSecondInfo}>
+                          <h3 className={styles.winnerSecondName}>{runnerUp.teamName}</h3>
+                          <div className={styles.winnerSecondByline}>
+                            <TeamByline
+                              countryName={runnerUp.countryName}
+                              countryId={runnerUp.countryId}
+                              leagueId={runnerUp.leagueId}
+                              teamId={runnerUp.htTeamId}
+                              managerName={runnerUp.managerName}
+                              managerHtId={runnerUp.hattrickUserId}
+                              mode="standings"
+                            />
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                )}
+                {thirdPlace && (
+                  <div className={`${styles.placementCard} ${styles.championThird}`}>
+                    <div className={styles.placementHeaderThird}>Third place</div>
+                    <div className={styles.placementBody}>
+                      <div className={styles.winnerThirdIdentity}>
+                        <img
+                          className={styles.winnerThirdLogo}
+                          src={thirdPlace.logoUrl || DEFAULT_TEAM_LOGO}
+                          alt=""
+                          onError={(event) => {
+                            event.currentTarget.src = DEFAULT_TEAM_LOGO;
+                          }}
+                        />
+                        <div className={styles.winnerThirdInfo}>
+                          <h3 className={styles.winnerThirdName}>{thirdPlace.teamName}</h3>
+                          <div className={styles.winnerThirdByline}>
+                            <TeamByline
+                              countryName={thirdPlace.countryName}
+                              countryId={thirdPlace.countryId}
+                              leagueId={thirdPlace.leagueId}
+                              teamId={thirdPlace.htTeamId}
+                              managerName={thirdPlace.managerName}
+                              managerHtId={thirdPlace.hattrickUserId}
+                              mode="standings"
+                            />
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                )}
+              </div>
+            </div>
             <dl className={styles.seasonNumbers}>
               <div>
                 <dt>Season dates</dt>
@@ -546,6 +670,10 @@ export const TournamentHistory: React.FC<TournamentHistoryProps> = ({
               <div>
                 <dt>Teams</dt>
                 <dd>{snapshot.summary.teams}</dd>
+              </div>
+              <div>
+                <dt>Rounds</dt>
+                <dd>{roundsPlayed}</dd>
               </div>
               <div>
                 <dt>120m</dt>
@@ -586,7 +714,7 @@ export const TournamentHistory: React.FC<TournamentHistoryProps> = ({
                             <TeamIdentity key={participant.teamId} participant={participant} compact />
                           ))}
                         </div>
-                        <small>{awardStat}</small>
+                        <small className={styles.detailText}>{awardStat}</small>
                       </>
                     )}
                   </article>
