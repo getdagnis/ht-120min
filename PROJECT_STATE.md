@@ -1,6 +1,6 @@
 # PROJECT_STATE.md
 
-Last updated: 2026-07-16
+Last updated: 2026-07-17
 
 This is the current-status ledger. Update it after meaningful implementation work. Be explicit about what is local, migrated, tested, deployed, or still unknown.
 
@@ -129,7 +129,7 @@ git diff --check
 
 `find api -name "*.ts" | grep -v "/_lib/" | wc -l` returned `12`.
 
-`npm run build`, `npm test` (82 tests), and `git diff --check` passed on 2026-07-17. The API function count remains `12` after consolidating Matchmaker activity reads into `api/matchmaker/teams.ts` and adding `api/tournaments/history.ts`. Chromium verification could not execute because both Playwright Chromium and system Chrome abort with `SIGABRT` on this Intel Mac before opening a page; the focused E2E spec remains in `e2e/tournament-history.spec.ts`. The build still reports the existing CSS `:global` warning and large bundle warning. This FAQ/sidebar update was validated with the same build and test commands. For future code changes, run:
+`npm run check:server-imports`, `npm run build`, `npm test`, and `git diff --check` passed on 2026-07-17. The server import check was added after Vercel's Node ESM runtime exposed an extensionless relative import that local Vite development accepted; it scans `api/` and `shared/` and requires explicit runtime `.js` extensions for relative server imports. The API function count remains `12` after consolidating Matchmaker activity reads into `api/matchmaker/teams.ts` and adding `api/tournaments/history.ts`. Chromium verification could not execute because both Playwright Chromium and system Chrome abort with `SIGABRT` on this Intel Mac before opening a page; the focused E2E spec remains in `e2e/tournament-history.spec.ts`. The build still reports the existing CSS `:global` warning and large bundle warning. This FAQ/sidebar update was validated with the same build and test commands. For future code changes, run:
 
 ```bash
 npm run build

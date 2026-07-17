@@ -5,7 +5,8 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
-    "build": "tsc -b && vite build",
+    "check:server-imports": "node scripts/check-server-imports.mjs",
+    "build": "npm run check:server-imports && tsc -b && vite build",
     "test": "node --import tsx --test tests/*.test.ts",
     "lint": "eslint .",
     "preview": "vite preview"
