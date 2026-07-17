@@ -2,15 +2,35 @@
   "rewrites": [
     {
       "source": "/testing",
-      "destination": "/api/testing"
+      "destination": "/api/testing?tool=manifest"
     },
     {
       "source": "/testing/:path*",
-      "destination": "/api/testing"
+      "destination": "/api/testing?tool=$1"
     },
     {
       "source": "/api/testing/:path*",
-      "destination": "/api/testing"
+      "destination": "/api/testing?tool=$1"
+    },
+    {
+      "source": "/api/presence",
+      "destination": "/api/app?route=presence"
+    },
+    {
+      "source": "/api/tournaments/history",
+      "destination": "/api/app?route=history"
+    },
+    {
+      "source": "/api/activity",
+      "destination": "/api/app?route=activity"
+    },
+    {
+      "source": "/api/forge/stats",
+      "destination": "/api/app?route=forge-stats"
+    },
+    {
+      "source": "/auth/callback",
+      "destination": "/index.html"
     },
     {
       "source": "/:path*",
