@@ -1,4 +1,4 @@
-import type { ChppTeamOption } from '../_lib/chpp-xml';
+import type { ChppTeamOption } from '../_lib/chpp-xml.js';
 
 export type LeagueCategory = 'male' | 'hfi';
 

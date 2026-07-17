@@ -1,6 +1,6 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
-import { fetchManagerTeamsFromChpp } from '../../_lib/matchmaker';
-import { getSupabase } from '../../_lib/supabase';
+import { fetchManagerTeamsFromChpp } from '../../_lib/matchmaker.js';
+import { getSupabase } from '../../_lib/supabase.js';
 
 export interface ManagerCredentialAudit {
   requestedManagerId: number;

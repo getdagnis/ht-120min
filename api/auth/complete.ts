@@ -49,7 +49,15 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
   const { selection_token, team_id, team_name, action, teamIds } = req.body as CompleteAuthBody;
 
-  const supabase = getSupabase();
+  let supabase: ReturnType<typeof getSupabase>;
+  try {
+    supabase = getSupabase();
+  } catch (error) {
+    console.error('Auth Complete Supabase init error:', error);
+    return res.status(500).json({
+      error: error instanceof Error ? error.message : 'Supabase configuration missing',
+    });
+  }
 
   if (action === 'claim_teams') {
     const secret = getAppSessionSecret();

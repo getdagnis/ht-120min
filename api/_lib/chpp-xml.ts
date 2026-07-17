@@ -1,5 +1,5 @@
-import { getLeagueNameById } from '../../shared/worlddetails';
-import { normalizeChppCountryName } from '../../shared/chpp-country';
+import { getLeagueNameById } from '../../shared/worlddetails.js';
+import { normalizeChppCountryName } from '../../shared/chpp-country.js';
 
 export interface ChppTeamOption {
   teamId: number;

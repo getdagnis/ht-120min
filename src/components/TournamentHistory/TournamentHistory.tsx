@@ -572,7 +572,7 @@ export const TournamentHistory: React.FC<TournamentHistoryProps> = ({
               className={season.id === selectedSeason.id ? styles.selectedSeason : ''}
               onClick={() => selectable && onSelectSeason?.(season.seasonNumber)}
             >
-              <strong>Season {season.seasonNumber}</strong>
+              <strong>Season {season.seasonNumber} Report</strong>
               <span>
                 {season.status === 'finished' ? `Finished ${formatDate(season.finishedAt) || ''}` : 'Upcoming'}
               </span>
@@ -708,7 +708,9 @@ export const TournamentHistory: React.FC<TournamentHistoryProps> = ({
               </div>
               <div>
                 <dt>Completed</dt>
-                <dd>{snapshot.summary.completedMatches}</dd>
+                <dd>
+                  {snapshot.summary.completedMatches}/{snapshot.summary.matches}
+                </dd>
               </div>
             </dl>
           </section>
