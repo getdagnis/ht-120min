@@ -84,7 +84,7 @@ export const StandingsView: React.FC<StandingsViewProps> = ({
     if (!seasonId) return;
 
     let cancelled = false;
-    fetch(`/api/tournaments/history?seasonId=${encodeURIComponent(seasonId)}`)
+    fetch(`/api/app?route=history&seasonId=${encodeURIComponent(seasonId)}`)
       .then(async (response) => {
         const data = await response.json();
         if (!response.ok) throw new Error(data.error || 'Could not load season comments.');

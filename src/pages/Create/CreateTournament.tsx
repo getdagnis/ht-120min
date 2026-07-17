@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { useNavigate, Link as RouterLink } from 'react-router-dom';
 import { supabase } from '../../lib/supabase';
+import { trackActivity } from '../../hooks/useActivityTracking';
 import { Tooltip } from 'react-tooltip';
 import { nanoid } from 'nanoid';
 import { Button } from '../../components/Button/Button';
@@ -859,6 +860,11 @@ export const CreateTournament: React.FC = () => {
       localStorage.removeItem('create_tournament_progress');
       localStorage.setItem(HAS_CREATED_TOURNAMENT_KEY, 'true');
       localStorage.setItem(`admin_pw_${slug}`, adminPassword);
+      void trackActivity('tournament_created', {
+        route: '/create',
+        tournamentId: tournament.id,
+        metadata: { registrationType, isSandbox },
+      });
       window.location.href = `/t/${slug}?tab=standings&welcome=created`;
     } catch (err: unknown) {
       if (createdTournamentId) {

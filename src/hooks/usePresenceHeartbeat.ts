@@ -10,7 +10,7 @@ async function ping() {
       if (userId) headers['x-ht-user-id'] = userId;
     }
 
-    const res = await fetch('/api/presence', { method: 'POST', credentials: 'include', headers });
+    const res = await fetch('/api/app?route=presence', { method: 'POST', credentials: 'include', headers });
     if (!res.ok && import.meta.env.DEV) {
       console.warn('[presence] ping failed', res.status, await res.text());
     }

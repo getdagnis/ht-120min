@@ -27,6 +27,9 @@ vercel dev        # runs dev server with vercel serverless functions enabled on 
 
 App expects  Vite public Supabase variables plus server-side CHPP credentials for API routes.
 
+Server-only deployment variables also include `SUPABASE_SECRET_KEY`, `APP_SESSION_SECRET`, and
+`FORGE_SUPERADMIN_HT_ID`. Keep these out of `VITE_` variables and never expose them in browser copy.
+
 ## Commands
 
 ```bash
@@ -64,5 +67,9 @@ Shared server code belongs in `api/_lib/`; debug routes belong in `api/testing/i
 - `docs/scheduling.md` - Hattrick calendar, schedule generation, and rescheduling rules.
 - `docs/chpp.md` - CHPP auth, endpoint usage, parser rules, and known limitations.
 - `docs/database-and-deployment.md` - Supabase model, migrations, RLS assumptions, and Vercel constraints.
+
+Forge is the private site-admin area at `/forge`. It includes the FAQ editor, protected CHPP testing toolkit,
+and usage statistics. Forge login uses the separate signed server session; the normal HT-120min login remains
+independent. Activity statistics require migration `059_activity_ledger.sql` and the server-only Supabase key.
 
 Detailed CHPP schemas, XML examples, audits, and screenshots remain in `docs/` as reference material.

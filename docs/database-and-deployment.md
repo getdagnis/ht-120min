@@ -22,6 +22,8 @@ Important tables used by current code:
 - `tournament_season_comments`
 - `matchmaker_requests`
 - `matchmaker_activity`
+- `activity_events` (private raw Forge telemetry, 90-day retention)
+- `activity_daily` (private aggregate activity counters)
 
 The app treats tournaments, rounds, matches, standings, chat, and admin decisions as app-owned state. CHPP data is synced into snapshots or used to reconcile fixtures/results.
 
@@ -44,6 +46,7 @@ Recent important migrations:
 - `051_correct_week15_week16_weekend_schedule.sql`
 - `057_tournament_seasons_history.sql`
 - `058_tournament_season_yearbook_comments.sql`
+- `059_activity_ledger.sql`
 
 ## RLS And Access Assumptions
 
@@ -81,7 +84,18 @@ Current counted functions are listed in `AGENTS.md`.
 - Service-role and CHPP secrets must stay server-side.
 - `SUPABASE_SECRET_KEY` (or legacy `SUPABASE_SERVICE_ROLE_KEY`) is required for server-authorized writes such as immutable season yearbook comments. Never prefix it with `VITE_` or expose it to browser code.
 - `APP_SESSION_SECRET` must be present in production. Do not fall back to `CHPP_CONSUMER_SECRET` for session signing.
+- `FORGE_SUPERADMIN_HT_ID` is server-only configuration for the Forge superadmin. Do not use a `VITE_` value as the production source of authorization.
+- Activity events contain operational metadata, including raw user-agent and IP fields. They are service-role-only tables with no anon/authenticated grants; the Forge stats route is the only application read path and raw events are intended to be removed after 90 days. Authenticated events store the Hattrick manager nickname from `profiles`, and the stats service may associate earlier events from the same visitor cookie with that nickname. Keep raw IP/user-agent values out of Forge UI responses.
 - The superadmin bypass cookie is dev-only. Keep its token out of production and do not surface it in the UI.
+
+## Consolidated API Routes
+
+The Vercel function limit is kept at 12 by routing related server operations through counted dispatchers:
+
+- `api/app.ts`: presence, history, activity ingestion, Forge session, and Forge statistics.
+- `api/testing/index.ts`: the protected CHPP testing toolkit and its historical sub-tools.
+
+Frontend calls should use the dispatcher query routes or the rewrites in `vercel.json`; do not recreate the removed standalone presence/history functions without checking the function count.
 
 ## Validation
 

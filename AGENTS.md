@@ -68,7 +68,7 @@ Current counted functions:
 9. `api/teams/info.ts`
 10. `api/teams/refresh-fixtures.ts`
 11. `api/testing/index.ts`
-12. `api/tournaments/history.ts`
+12. `api/app.ts` (presence, history, activity, Forge session, and Forge statistics)
 
 ## Security Rules
 
@@ -77,6 +77,7 @@ Current counted functions:
 - Keep authorization logic in code and server-side checks, not in visible copy.
 - If a screen needs internal access guidance, put it in private docs or code comments only, never in a public route.
 - Review login and admin surfaces for accidental disclosure before committing or publishing changes.
+- Activity telemetry is private operational data. Store it server-side with service-role access only, keep raw user-agent/IP data out of public queries, and document retention before adding fields.
 
 ## Source Of Truth
 

@@ -6,10 +6,11 @@ import {
   FORGE_AUTH_MANAGER_NAME_KEY,
   FORGE_AUTH_USER_ID_KEY,
 } from '../utils/auth-storage';
-import { FORGE_SUPERADMIN_USER_ID } from '../constants/site-admins';
 import { hasSuperAdminBypassCookie } from '../utils/superadmin-bypass';
 
 export const useForgeAuth = () => {
+  const [loading, setLoading] = useState(true);
+  const [serverAuthorized, setServerAuthorized] = useState(false);
   const [managerName, setManagerName] = useState<string | null>(() =>
     localStorage.getItem(FORGE_AUTH_MANAGER_NAME_KEY),
   );
@@ -19,11 +20,34 @@ export const useForgeAuth = () => {
   });
 
   useEffect(() => {
-    setTimeout(() => {
-      setManagerName(localStorage.getItem(FORGE_AUTH_MANAGER_NAME_KEY));
-      const stored = Number(localStorage.getItem(FORGE_AUTH_USER_ID_KEY) || '0');
-      setUserId(stored || null);
-    }, 0);
+    let cancelled = false;
+    const load = async () => {
+      try {
+        const response = await fetch('/api/app?route=forge-session', { credentials: 'include' });
+        const data = (await response.json()) as { authorized?: boolean; userId?: number; managerName?: string | null };
+        if (cancelled) return;
+        if (data.authorized && data.userId) {
+          setServerAuthorized(true);
+          setUserId(data.userId);
+          setManagerName(data.managerName || localStorage.getItem(FORGE_AUTH_MANAGER_NAME_KEY));
+        } else {
+          setServerAuthorized(false);
+          setUserId(null);
+          setManagerName(null);
+        }
+      } catch {
+        if (!cancelled) {
+          setUserId(null);
+          setManagerName(null);
+        }
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    };
+    void load();
+    return () => {
+      cancelled = true;
+    };
   }, []);
 
   const isDevBypass = useMemo(() => {
@@ -34,7 +58,7 @@ export const useForgeAuth = () => {
     }
   }, []);
 
-  const isAuthorized = isDevBypass || userId === FORGE_SUPERADMIN_USER_ID;
+  const isAuthorized = isDevBypass || serverAuthorized;
 
   const login = useCallback(() => {
     const returnUrl = buildForgeAuthReturnUrl(window.location.pathname, window.location.search);
@@ -43,9 +67,12 @@ export const useForgeAuth = () => {
   }, []);
 
   const logoutForge = useCallback(() => {
-    clearForgeAuthSession();
-    setManagerName(null);
-    setUserId(null);
+    void fetch('/api/app?route=forge-session', { method: 'POST', credentials: 'include' }).finally(() => {
+      clearForgeAuthSession();
+      setServerAuthorized(false);
+      setManagerName(null);
+      setUserId(null);
+    });
   }, []);
 
   const logoutMain = useCallback(() => {
@@ -58,12 +85,14 @@ export const useForgeAuth = () => {
     setManagerName(storedManagerName);
     const storedUserId = Number(localStorage.getItem(FORGE_AUTH_USER_ID_KEY) || '0');
     setUserId(storedUserId || null);
+    setServerAuthorized(false);
   }, []);
 
   return {
     managerName,
     userId,
     isAuthorized,
+    loading,
     isDevBypass,
     login,
     logoutForge,

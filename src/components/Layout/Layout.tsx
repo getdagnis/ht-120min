@@ -19,6 +19,7 @@ import { scroller } from 'react-scroll';
 import { Button } from '../Button/Button';
 import { useAuth } from '../../hooks/useAuth';
 import { usePresenceHeartbeat } from '../../hooks/usePresenceHeartbeat';
+import { useActivityTracking } from '../../hooks/useActivityTracking';
 import { ProfileModal } from '../ProfileModal/ProfileModal';
 import { BeerBanner } from '../BeerBanner/BeerBanner';
 import { TeamOwnershipReclaim } from '../TeamOwnershipReclaim/TeamOwnershipReclaim';
@@ -65,6 +66,7 @@ export const Layout: React.FC<LayoutProps> = ({ children }) => {
     refreshProfile,
   } = useAuth();
   usePresenceHeartbeat(!!managerName, `${location.pathname}${location.search}`);
+  useActivityTracking(`${location.pathname}${location.search}`);
   const [visitCount] = useState(() => getVisitCount());
   const visibleOrganizerTournaments = useMemo(() => {
     const activeTournamentIds = new Set(activeTournaments.map((tournament) => tournament.id));

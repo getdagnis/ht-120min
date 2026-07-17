@@ -1,4 +1,4 @@
-import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
+import { BrowserRouter, Routes, Route, Navigate, useLocation } from 'react-router-dom';
 import { Layout } from './components/Layout/Layout';
 import { Home } from './pages/Home/Home';
 import { CreateTournament } from './pages/Create/CreateTournament';
@@ -28,15 +28,25 @@ function PublicApp() {
   );
 }
 
-function App() {
+function RoutedApp() {
+  const location = useLocation();
+
   return (
-    <BrowserRouter>
+    <div className={location.pathname.startsWith('/forge') ? 'appRouteForge' : undefined}>
       <ScrollToTop />
       <Routes>
         <Route path="/forge/*" element={<ForgePage />} />
         <Route path="/testing" element={<Navigate to="/forge/testing" replace />} />
         <Route path="/*" element={<PublicApp />} />
       </Routes>
+    </div>
+  );
+}
+
+function App() {
+  return (
+    <BrowserRouter>
+      <RoutedApp />
     </BrowserRouter>
   );
 }

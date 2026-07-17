@@ -7,9 +7,11 @@ import { parseTeamDetailsXml } from '../_lib/chpp-xml.js';
 import { validateTeamEligibility } from '../_lib/eligibility.js';
 import { buildAppSessionCookie, getAppSessionSecret, verifyAppSessionCookie } from '../_lib/app-session.js';
 import { hasSuperAdminBypassCookie } from '../_lib/superadmin-bypass.js';
+import { buildForgeSessionCookie, getForgeSuperadminId } from '../_lib/forge-session.js';
 
 interface CompleteAuthBody {
   action?: 'claim_teams';
+  forgeAuth?: boolean;
   selection_token?: string;
   team_id?: string | number;
   team_name?: string;
@@ -47,7 +49,7 @@ function getRequestedTeamIds(input: unknown): number[] {
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
 
-  const { selection_token, team_id, team_name, action, teamIds } = req.body as CompleteAuthBody;
+  const { selection_token, team_id, team_name, action, teamIds, forgeAuth } = req.body as CompleteAuthBody;
 
   let supabase: ReturnType<typeof getSupabase>;
   try {
@@ -340,7 +342,11 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     const isLocalHost = host === 'localhost' || host === '127.0.0.1' || host === '::1';
     const forwardedProto = String(req.headers['x-forwarded-proto'] || '').toLowerCase();
     const secureCookie = !isLocalHost && (process.env.NODE_ENV === 'production' || forwardedProto === 'https');
-    res.setHeader('Set-Cookie', buildAppSessionCookie(pending.hattrick_user_id, secret, secureCookie));
+    const cookies = [buildAppSessionCookie(pending.hattrick_user_id, secret, secureCookie)];
+    if (forgeAuth && pending.hattrick_user_id === getForgeSuperadminId()) {
+      cookies.push(buildForgeSessionCookie(pending.hattrick_user_id, secureCookie));
+    }
+    res.setHeader('Set-Cookie', cookies);
 
     return res.status(200).json({
       hattrick_user_id: pending.hattrick_user_id,

@@ -2,6 +2,7 @@ import { useEffect } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import styles from './AuthCallback.module.sass';
 import { markAuthRefreshCurrent } from '../utils/auth-refresh';
+import { trackActivity } from '../hooks/useActivityTracking';
 import {
   isForgeAuthReturnUrl,
   setForgeAuthSession,
@@ -23,7 +24,7 @@ export const AuthCallback = () => {
             method: 'POST',
             credentials: 'include',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ selection_token: token }),
+            body: JSON.stringify({ selection_token: token, forgeAuth: isForgeAuthReturnUrl(returnUrl) }),
           });
           
           const data = await res.json();
@@ -35,6 +36,10 @@ export const AuthCallback = () => {
               setMainAuthSession(data.manager_name, data.hattrick_user_id);
               markAuthRefreshCurrent();
             }
+            void trackActivity('login', {
+              route: returnUrl ? decodeURIComponent(returnUrl) : '/',
+              metadata: { forge: forgeAuth },
+            });
             
             // Redirect to the intended page, or the one from backend, or home
             const decodedReturnUrl = returnUrl ? decodeURIComponent(returnUrl) : '';

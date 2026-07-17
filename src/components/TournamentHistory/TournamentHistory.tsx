@@ -196,14 +196,14 @@ const getCurrentHattrickSeasonWeekLabel = () => {
 };
 
 const defaultLoadComments = async (seasonId: string) => {
-  const response = await fetch(`/api/tournaments/history?seasonId=${encodeURIComponent(seasonId)}`);
+  const response = await fetch(`/api/app?route=history&seasonId=${encodeURIComponent(seasonId)}`);
   const data = await response.json();
   if (!response.ok) throw new Error(data.error || 'Could not load season comments.');
   return (data.comments || []) as TournamentSeasonComment[];
 };
 
 const defaultSubmitComment = async (seasonId: string, teamId: string, comment: string) => {
-  const response = await fetch('/api/tournaments/history', {
+  const response = await fetch('/api/app?route=history', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ seasonId, teamId, comment }),
