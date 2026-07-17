@@ -13,6 +13,7 @@ interface ModalProps {
   closeButtonClassName?: string;
   headerClassName?: string;
   contentClassName?: string;
+  useContentPanel?: boolean;
 }
 
 export const Modal: React.FC<ModalProps> = ({
@@ -26,6 +27,7 @@ export const Modal: React.FC<ModalProps> = ({
   closeButtonClassName = '',
   headerClassName = '',
   contentClassName = '',
+  useContentPanel = true,
 }) => {
   useEffect(() => {
     if (isOpen) {
@@ -68,7 +70,7 @@ export const Modal: React.FC<ModalProps> = ({
             </button>
           </div>
         )}
-        <div className={[styles.content, contentClassName].filter(Boolean).join(' ')}>{children}</div>
+        <div className={[styles.content, useContentPanel ? styles.contentPanel : '', contentClassName].filter(Boolean).join(' ')}>{children}</div>
       </div>
     </div>
   );

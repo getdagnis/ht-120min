@@ -33,6 +33,7 @@ export const WelcomeModal: React.FC<WelcomeModalProps> = ({
       showHeader={false}
       modalClassName={styles.modal}
       contentClassName={styles.modalContent}
+      useContentPanel={false}
     >
       <div className={styles.panel}>
         <button type="button" className={styles.closeBtn} onClick={onClose} aria-label="Close welcome message">
