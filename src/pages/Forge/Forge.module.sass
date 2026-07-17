@@ -1,15 +1,54 @@
 .page
   min-height: 100vh
+  --bg: #f4f6f8
+  --bg-color: #f4f6f8
+  --bg-color-transp: #f4f6f8
+  --bg-transp: #eef1f5
+  --bg-transp2: #e5e9ef
+  --bg-transp3: #dce3ec
+  --bg-dark: #e8edf2
+  --theme: #ffffff
+  --theme2: #ffffff
+  --table-bg: #eef1f5
+  --table-bg-main: #ffffff
+  --chat-bg: #f7f9fb
+  --border: #d9e0e8
+  --border-transp: #d9e0e899
+  --borderDark: #243143
+  --borderWeak: #24314333
+  --lighter: #edf0f5
+  --lighter-less: #f5f7fa
+  --lighter-more: #e5e9f0
+  --darker: #e9edf2
+  --text: #394657
+  --text-h: #172131
+  --text60: #718096
+  --accent: #6854d9
+  --accent-2: #5846c3
+  --accent-3: #6854d9
+  --accent-4: #34445c
+  --yellow: #806de4
+  --warning: #c88718
+  --danger: #c33f67
+  --bg-danger: #c33f6714
+  --sans: 'Barlow', Roboto, system-ui, 'Segoe UI', sans-serif
   background: var(--bg)
   color: var(--text)
+
+  :global(button)
+    font-family: var(--sans)
+    letter-spacing: 0
+
+.surfaceCard
+  box-shadow: 0 0.45rem 1.25rem rgba(31, 45, 61, 0.07)
 
 .header
   position: sticky
   top: 0
   z-index: 20
-  background: rgba(9, 20, 38, 0.96)
-  border-bottom: 1px solid var(--border)
-  backdrop-filter: blur(14px)
+  background: #172131
+  border-bottom: 1px solid #2b3a4d
+  box-shadow: 0 0.25rem 1rem rgba(16, 25, 38, 0.16)
 
 .headerInner
   width: min(1400px, calc(100vw - 2rem))
@@ -24,7 +63,7 @@
   display: inline-flex
   align-items: center
   gap: 0.75rem
-  color: var(--text-h)
+  color: #f5f7fb
   text-decoration: none
   font-size: 1.4rem
   font-weight: 700
@@ -33,7 +72,12 @@
   position: relative
 
 .userBtn
-  color: var(--text-h)
+  color: #f5f7fb
+
+  &:hover
+    color: #ffffff
+    background: #ffffff14 !important
+    border-color: #ffffff22 !important
 
 .dropdown
   position: absolute
@@ -64,7 +108,7 @@
 .shell
   width: min(1400px, calc(100vw - 2rem))
   margin: 0 auto
-  padding: 1.25rem 0 3rem
+  padding: 1.75rem 0 3.5rem
   display: grid
   grid-template-columns: 14rem minmax(0, 1fr)
   gap: 1rem
@@ -72,7 +116,7 @@
 .sidebar
   display: flex
   flex-direction: column
-  gap: 0.5rem
+  gap: 0.35rem
   align-self: start
   position: sticky
   top: 5.5rem
@@ -82,15 +126,22 @@
   align-items: center
   gap: 0.7rem
   text-decoration: none
-  color: var(--text-h)
-  border: 1px solid var(--border)
+  color: var(--text60)
+  border: 1px solid transparent
   border-radius: var(--radius-xs)
-  background: var(--table-bg-main)
-  padding: 0.8rem 0.9rem
+  background: transparent
+  padding: 0.72rem 0.85rem
+  font-weight: 600
+  transition: background-color 0.15s ease, color 0.15s ease
+
+  &:hover
+    color: var(--text-h)
+    background: var(--lighter-less)
 
 .navItemActive
-  border-color: var(--accent)
+  border-color: transparent
   color: var(--accent)
+  background: #eeeaff
 
 .navIcon
   display: inline-flex
@@ -117,8 +168,8 @@
 .metricCard
   border: 1px solid var(--border)
   border-radius: var(--radius-xs)
-  background: var(--table-bg-main)
-  padding: 1rem
+  background: #f8fafc
+  padding: 1.1rem
   display: flex
   flex-direction: column
   gap: 0.75rem
@@ -126,8 +177,7 @@
 .metricLabel
   color: var(--text60)
   font-size: 0.88rem
-  text-transform: uppercase
-  letter-spacing: 0.03em
+  font-weight: 600
 
 .metricValue
   font-size: 2rem
@@ -160,7 +210,8 @@
   line-height: 1.4
 
 .inlineLink
-  color: var(--accent)
+  color: var(--accent-2)
+  font-weight: 600
   text-decoration: none
 
 .gate
@@ -172,6 +223,9 @@
 .gateCard
   width: min(42rem, 100%)
   text-align: center
+
+.gate
+  background: #f4f6f8
 
 .gateText
   margin: 0 0 1rem
@@ -205,7 +259,7 @@
   margin: 0
 
 .successText
-  color: var(--accent)
+  color: var(--accent-2)
   margin: 0
 
 .previewWrap
@@ -234,6 +288,192 @@
     color: var(--text-h)
     padding: 0.75rem 0.9rem
 
+  input
+    border-radius: var(--radius-xs)
+    border: 1px solid var(--border)
+    background: var(--bg)
+    color: var(--text-h)
+    padding: 0.75rem 0.9rem
+
+.testingCheckbox
+  display: inline-flex
+  align-items: center
+  gap: 0.5rem
+  color: var(--text)
+  margin: 1rem 0
+
+.testingOutput
+  max-height: 34rem
+  overflow: auto
+  margin: 1rem 0 0
+  padding: 1rem
+  border: 1px solid var(--border)
+  border-radius: var(--radius-xs)
+  background: var(--bg)
+  color: var(--text)
+  white-space: pre-wrap
+  word-break: break-word
+  font: 0.82rem/1.45 ui-monospace, SFMono-Regular, Consolas, monospace
+
+.statsToolbar
+  display: flex
+  align-items: end
+  justify-content: space-between
+  gap: 1rem
+  margin-bottom: 1rem
+
+.statsMetricGrid
+  display: grid
+  grid-template-columns: repeat(4, minmax(0, 1fr))
+  gap: 1rem
+
+.statsGraph,
+.statsUsers,
+.statsEvents
+  margin-top: 1.5rem
+
+  h3
+    margin: 0 0 0.75rem
+    color: var(--text-h)
+    font-family: var(--heading)
+    font-size: 1.25rem
+
+.statsHeadingRow
+  display: flex
+  align-items: start
+  justify-content: space-between
+  gap: 1rem
+
+.statsBreakdownGrid
+  display: grid
+  grid-template-columns: repeat(3, minmax(0, 1fr))
+  gap: 1rem
+  margin-top: 1.5rem
+
+.statsBreakdownCard
+  min-width: 0
+  padding: 1rem
+  border: 1px solid var(--border)
+  border-radius: var(--radius-xs)
+  background: #f8fafc
+
+  h3
+    margin: 0 0 0.75rem
+    color: var(--text-h)
+    font-family: var(--heading)
+    font-size: 1.05rem
+
+.breakdownList
+  display: flex
+  flex-direction: column
+  gap: 0.45rem
+
+.breakdownRow
+  display: flex
+  align-items: center
+  justify-content: space-between
+  gap: 0.75rem
+  min-width: 0
+  padding-bottom: 0.4rem
+  border-bottom: 1px solid var(--border)
+
+  &:last-child
+    padding-bottom: 0
+    border-bottom: 0
+
+.breakdownName
+  min-width: 0
+  overflow: hidden
+  color: var(--text)
+  text-overflow: ellipsis
+  white-space: nowrap
+
+.breakdownCount
+  flex: 0 0 auto
+  color: var(--accent-2)
+  font-weight: 700
+
+.countryFlag
+  display: inline-block
+  margin-right: 0.4rem
+
+.visitorName
+  display: inline-flex
+  align-items: center
+  gap: 0.1rem
+
+.activityBars
+  min-height: 8rem
+  display: flex
+  align-items: end
+  gap: 0.35rem
+  padding: 0.75rem 0 0
+  border-bottom: 1px solid var(--border)
+
+.activityBarItem
+  min-width: 1.2rem
+  height: 7rem
+  display: flex
+  flex: 1 1 0
+  flex-direction: column
+  justify-content: end
+  align-items: center
+  gap: 0.3rem
+  color: var(--text60)
+  font-size: 0.68rem
+
+.activityBar
+  width: 100%
+  min-height: 0.25rem
+  background: var(--accent)
+  border-radius: var(--radius-xs) var(--radius-xs) 0 0
+
+.statsTableWrap
+  overflow-x: auto
+
+.statsTable
+  width: 100%
+  border-collapse: collapse
+  color: var(--text)
+
+  th,
+  td
+    padding: 0.65rem 0.5rem
+    border-bottom: 1px solid var(--border)
+    text-align: left
+    white-space: nowrap
+
+  th
+    color: var(--text60)
+    font-size: 0.8rem
+    text-transform: uppercase
+
+.tableButton,
+.clearSelection
+  border: 0
+  background: transparent
+  color: var(--accent)
+  cursor: pointer
+
+.tableButton
+  display: flex
+  flex-direction: column
+  align-items: start
+  font: inherit
+  font-weight: 600
+
+  small
+    color: var(--text60)
+    font-size: 0.75rem
+    font-weight: 500
+
+.selectedRow
+  background: var(--lighter-less)
+
+.clearSelection
+  margin: -0.5rem 0 0.75rem
+  padding: 0
+
 .rulesList
   display: grid
   grid-template-columns: repeat(2, minmax(0, 1fr))
@@ -242,7 +482,7 @@
 .ruleCard
   border: 1px solid var(--border)
   border-radius: var(--radius-xs)
-  background: var(--table-bg-main)
+  background: #f8fafc
   padding: 1rem
 
 .ruleTop
@@ -289,8 +529,14 @@
 
   .dashboardGrid,
   .testingGrid,
-  .rulesList
+  .rulesList,
+  .statsMetricGrid,
+  .statsBreakdownGrid
     grid-template-columns: 1fr
+
+  .statsToolbar
+    align-items: start
+    flex-direction: column
 
 @media (max-width: 620px)
   .headerInner,

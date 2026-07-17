@@ -2,7 +2,7 @@ import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { Link, Navigate, NavLink, Route, Routes } from 'react-router-dom';
 import {
   CaretDown,
-  Check,
+  ChartLineUp,
   ChatCircleDots,
   Flask,
   House,
@@ -17,16 +17,10 @@ import { SectionCard } from '../../components/Card/SectionCard';
 import { Switch } from '../../components/Switch/Switch';
 import { faqPublished, faqSections, type FaqSection } from '../../constants/faq-essential';
 import { siteAdminRules } from '../../constants/site-admins';
-import {
-  getAllScenarios,
-  getMockManagerId,
-  getTestManagerIdList,
-  clearMockState,
-  setMockManagerId,
-} from '../../mock/matchmaker';
 import { supabase } from '../../lib/supabase';
 import { useForgeAuth } from '../../hooks/useForgeAuth';
 import faqStyles from '../../components/Faq/FaqRenderer.module.sass';
+import { HATTRICK_WORLD_DETAILS } from '../../../shared/worlddetails';
 import styles from './Forge.module.sass';
 
 interface DashboardUser {
@@ -52,8 +46,74 @@ interface DashboardChat {
   tournaments?: { id: string; name: string; slug: string } | null;
 }
 
+interface ForgeStatsUser {
+  userId: number;
+  managerName: string;
+  visits: number;
+  events: number;
+  firstSeen: string;
+  lastSeen: string;
+  tournaments: number;
+  teams: number;
+}
+
+interface ForgeStatsEvent {
+  id: string;
+  occurred_at: string;
+  visitor_id: string;
+  visit_id: string | null;
+  hattrick_user_id: number | null;
+  resolved_user_id: number | null;
+  manager_name: string | null;
+  resolved_manager_name: string | null;
+  event_type: string;
+  route: string | null;
+  referrer: string | null;
+  country_code: string | null;
+  language: string | null;
+  platform: string | null;
+  browser: string | null;
+  metadata?: Record<string, unknown> | null;
+}
+
+interface ForgeStatsVisitor {
+  visitorId: string;
+  userId: number | null;
+  managerName: string | null;
+  visits: number;
+  events: number;
+  firstSeen: string;
+  lastSeen: string;
+  countries: string[];
+  platforms: string[];
+  browsers: string[];
+  routes: string[];
+}
+
+interface ForgeStatsBreakdown {
+  value: string;
+  count: number;
+}
+
+interface ForgeStatsDaily {
+  activity_date: string;
+  event_type: string;
+  route: string;
+  event_count: number;
+}
+
+interface ForgeStatsResponse {
+  summary: { events: number; visits: number; actions: number; uniqueVisitors: number; identifiedUsers: number };
+  users: ForgeStatsUser[];
+  visitors: ForgeStatsVisitor[];
+  events: ForgeStatsEvent[];
+  breakdowns: Record<string, ForgeStatsBreakdown[]>;
+  daily: ForgeStatsDaily[];
+}
+
 const sidebarItems = [
   { to: '/forge', label: 'Dashboard', icon: <House size={18} weight="bold" /> },
+  { to: '/forge/stats', label: 'Statistics', icon: <ChartLineUp size={18} weight="bold" /> },
   { to: '/forge/faq', label: 'FAQ', icon: <ListBullets size={18} weight="bold" /> },
   { to: '/forge/testing', label: 'Testing', icon: <Flask size={18} weight="bold" /> },
   { to: '/forge/admins', label: 'Admins', icon: <Users size={18} weight="bold" /> },
@@ -68,19 +128,42 @@ function formatDateTime(value: string) {
   });
 }
 
-function ForgeGate({ onLogin }: { onLogin: () => void }) {
+function countryFlag(countryCode: string) {
+  const normalized = countryCode.toUpperCase();
+  return Object.values(HATTRICK_WORLD_DETAILS).find((entry) => entry.isoCode === normalized)?.emoji || '🌐';
+}
+
+function eventMetadataSummary(event: ForgeStatsEvent) {
+  const metadata = event.metadata || {};
+  const details: string[] = [];
+  if (typeof metadata.control === 'string') details.push(`Control: ${metadata.control}`);
+  if (typeof metadata.value === 'string' || typeof metadata.value === 'boolean') details.push(`Value: ${String(metadata.value)}`);
+  if (typeof metadata.depth === 'number') details.push(`Scroll: ${metadata.depth}%`);
+  if (typeof metadata.maxScrollPercent === 'number') details.push(`Max scroll: ${metadata.maxScrollPercent}%`);
+  if (typeof metadata.durationSeconds === 'number') details.push(`Time: ${metadata.durationSeconds}s`);
+  if (typeof metadata.reason === 'string') details.push(`Exit: ${metadata.reason}`);
+  if (typeof metadata.theme === 'string') details.push(`Theme: ${metadata.theme}`);
+  if (typeof metadata.viewport === 'string') details.push(`Viewport: ${metadata.viewport}`);
+  return details.join(' · ');
+}
+
+function ForgeGate({ onLogin, loading = false }: { onLogin: () => void; loading?: boolean }) {
   return (
     <div className={styles.gate}>
-      <SectionCard title="Forge admin login" className={styles.gateCard}>
+      <SectionCard title="Forge admin login" className={`${styles.gateCard} ${styles.surfaceCard}`}>
         <p className={styles.gateText}>
-          This area is for Forge site administration. Sign in with the dedicated CHPP flow to continue.
+          {loading
+            ? 'Checking your Forge session...'
+            : 'This area is for Forge site administration. Sign in with the dedicated CHPP flow to continue.'}
         </p>
-        <div className={styles.gateActions}>
-          <Button variant="secondaryYellow" size="lg" onClick={onLogin}>
-            <Shield size={18} weight="bold" />
-            Login with CHPP
-          </Button>
-        </div>
+        {!loading && (
+          <div className={styles.gateActions}>
+            <Button variant="secondaryYellow" size="lg" onClick={onLogin}>
+              <Shield size={18} weight="bold" />
+              Login with CHPP
+            </Button>
+          </div>
+        )}
       </SectionCard>
     </div>
   );
@@ -267,7 +350,7 @@ function ForgeDashboard() {
 
   return (
     <section className={styles.sectionStack}>
-      <SectionCard title="Dashboard" subtitle="Quick status and recent activity.">
+      <SectionCard title="Dashboard" subtitle="Quick status and recent activity." className={styles.surfaceCard}>
         {loading ? (
           <p className={styles.smallNote}>Loading dashboard data...</p>
         ) : (
@@ -331,6 +414,224 @@ function ForgeDashboard() {
               </div>
             </div>
           </div>
+        )}
+      </SectionCard>
+    </section>
+  );
+}
+
+function ForgeStatsSection() {
+  const [days, setDays] = useState('30');
+  const [selectedUserId, setSelectedUserId] = useState<number | null>(null);
+  const [selectedVisitorId, setSelectedVisitorId] = useState<string | null>(null);
+  const [data, setData] = useState<ForgeStatsResponse | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
+
+  useEffect(() => {
+    let cancelled = false;
+    const load = async () => {
+      setLoading(true);
+      setError('');
+      try {
+        const params = new URLSearchParams({
+          route: 'forge-stats',
+          since: new Date(Date.now() - Number(days) * 86400000).toISOString(),
+        });
+        if (selectedUserId) params.set('userId', String(selectedUserId));
+        if (selectedVisitorId) params.set('visitorId', selectedVisitorId);
+        const response = await fetch(`/api/app?${params.toString()}`, { credentials: 'include' });
+        const next = (await response.json()) as ForgeStatsResponse & { error?: string };
+        if (!response.ok) throw new Error(next.error || 'Could not load Forge statistics.');
+        if (!cancelled) setData(next);
+      } catch (loadError) {
+        if (!cancelled) setError(loadError instanceof Error ? loadError.message : 'Could not load Forge statistics.');
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    };
+    void load();
+    return () => {
+      cancelled = true;
+    };
+  }, [days, selectedUserId, selectedVisitorId]);
+
+  const dailyTotals = useMemo(() => {
+    const totals = new Map<string, number>();
+    for (const row of data?.daily || []) totals.set(row.activity_date, (totals.get(row.activity_date) || 0) + row.event_count);
+    return Array.from(totals.entries()).slice(-30);
+  }, [data?.daily]);
+  const maxDaily = Math.max(1, ...dailyTotals.map(([, count]) => count));
+  const selectedVisitor = data?.visitors.find((visitor) => visitor.visitorId === selectedVisitorId) || null;
+  const selectedLabel = selectedVisitor?.managerName
+    || (selectedUserId ? data?.users.find((user) => user.userId === selectedUserId)?.managerName : null)
+    || 'everyone';
+  const breakdownCards = [
+    { key: 'countries', title: 'Countries', flags: true },
+    { key: 'routes', title: 'Pages', flags: false },
+    { key: 'referrers', title: 'Sources', flags: false },
+    { key: 'platforms', title: 'Platforms', flags: false },
+    { key: 'browsers', title: 'Browsers', flags: false },
+    { key: 'languages', title: 'Languages', flags: false },
+    { key: 'themes', title: 'Themes', flags: false },
+    { key: 'screens', title: 'Screens', flags: false },
+    { key: 'times', title: 'Visit times', flags: false },
+  ] as const;
+
+  return (
+    <section className={styles.sectionStack}>
+      <SectionCard
+        title="Statistics"
+        subtitle="Private usage and journey data. Raw records are retained for 90 days."
+        className={styles.surfaceCard}
+      >
+        <div className={styles.statsToolbar}>
+          <label className={styles.testingField}>
+            <span>Period</span>
+            <select value={days} onChange={(event) => setDays(event.target.value)}>
+              <option value="7">Last 7 days</option>
+              <option value="30">Last 30 days</option>
+              <option value="90">Last 90 days</option>
+            </select>
+          </label>
+          <span className={styles.smallNote}>Your own identified activity is excluded from these totals by default.</span>
+        </div>
+
+        {loading && <p className={styles.smallNote}>Loading statistics...</p>}
+        {error && <p className={styles.errorText}>{error}</p>}
+        {data && !loading && (
+          <>
+            <div className={styles.statsMetricGrid}>
+              <div className={styles.metricCard}><span className={styles.metricLabel}>Visits</span><span className={styles.metricValue}>{data.summary.visits}</span></div>
+              <div className={styles.metricCard}><span className={styles.metricLabel}>Unique visitors</span><span className={styles.metricValue}>{data.summary.uniqueVisitors}</span></div>
+              <div className={styles.metricCard}><span className={styles.metricLabel}>Identified users</span><span className={styles.metricValue}>{data.summary.identifiedUsers}</span></div>
+              <div className={styles.metricCard}><span className={styles.metricLabel}>Actions</span><span className={styles.metricValue}>{data.summary.actions}</span></div>
+            </div>
+
+            <div className={styles.statsBreakdownGrid}>
+              {breakdownCards.map((card) => {
+                const rows = data.breakdowns[card.key] || [];
+                return (
+                  <div key={card.key} className={styles.statsBreakdownCard}>
+                    <h3>{card.title}</h3>
+                    {rows.length === 0 ? <p className={styles.smallNote}>No data yet.</p> : (
+                      <div className={styles.breakdownList}>
+                        {rows.map((row) => (
+                          <div key={row.value} className={styles.breakdownRow}>
+                            <span className={styles.breakdownName}>
+                              {card.flags === true && <span className={styles.countryFlag}>{countryFlag(row.value)}</span>}
+                              {row.value}
+                            </span>
+                            <span className={styles.breakdownCount}>{row.count}</span>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+
+            <div className={styles.statsGraph}>
+              <h3>Activity by day</h3>
+              <div className={styles.activityBars}>
+                {dailyTotals.length === 0 && <span className={styles.smallNote}>No activity in this period.</span>}
+                {dailyTotals.map(([date, count]) => (
+                  <div key={date} className={styles.activityBarItem} title={`${date}: ${count} events`}>
+                    <span className={styles.activityBar} style={{ height: `${Math.max(4, (count / maxDaily) * 100)}%` }} />
+                    <span>{date.slice(5)}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            <div className={styles.statsUsers}>
+              <div className={styles.statsHeadingRow}>
+                <h3>Recent visitors</h3>
+                {(selectedVisitorId || selectedUserId) && (
+                  <button type="button" className={styles.clearSelection} onClick={() => {
+                    setSelectedVisitorId(null);
+                    setSelectedUserId(null);
+                  }}>
+                    Show everyone
+                  </button>
+                )}
+              </div>
+              {data.visitors.length === 0 ? <p className={styles.smallNote}>No visitors in this period.</p> : (
+                <div className={styles.statsTableWrap}>
+                  <table className={styles.statsTable}>
+                    <thead><tr><th>Visitor</th><th>Visits</th><th>Country</th><th>Device</th><th>Last seen</th></tr></thead>
+                    <tbody>
+                      {data.visitors.map((visitor) => (
+                        <tr key={visitor.visitorId} className={selectedVisitorId === visitor.visitorId ? styles.selectedRow : ''}>
+                          <td>
+                            <button type="button" className={styles.tableButton} onClick={() => {
+                              setSelectedUserId(null);
+                              setSelectedVisitorId(selectedVisitorId === visitor.visitorId ? null : visitor.visitorId);
+                            }}>
+                              <span className={styles.visitorName}>
+                                {visitor.countries[0] && <span className={styles.countryFlag}>{countryFlag(visitor.countries[0])}</span>}
+                                {visitor.managerName || 'Anonymous visitor'}
+                              </span>
+                              <small>{visitor.managerName ? `Hattrick ID ${visitor.userId}` : `Visitor ${visitor.visitorId.slice(0, 8)}`}</small>
+                            </button>
+                          </td>
+                          <td>{visitor.visits}</td>
+                          <td>{visitor.countries.join(', ') || 'Unknown'}</td>
+                          <td>{visitor.platforms.join(', ') || 'Unknown'} · {visitor.browsers.join(', ') || 'Unknown'}</td>
+                          <td>{formatDateTime(visitor.lastSeen)}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </div>
+
+            <div className={styles.statsUsers}>
+              <h3>Identified users</h3>
+              {data.users.length === 0 ? <p className={styles.smallNote}>No identified users in this period.</p> : (
+                <div className={styles.statsTableWrap}>
+                  <table className={styles.statsTable}>
+                    <thead><tr><th>Manager</th><th>Visits</th><th>Events</th><th>Tournaments</th><th>Last seen</th></tr></thead>
+                    <tbody>
+                      {data.users.map((user) => (
+                        <tr key={user.userId} className={selectedUserId === user.userId ? styles.selectedRow : ''}>
+                          <td><button type="button" className={styles.tableButton} onClick={() => setSelectedUserId(selectedUserId === user.userId ? null : user.userId)}>{user.managerName}<small>ID {user.userId}</small></button></td>
+                          <td>{user.visits}</td><td>{user.events}</td><td>{user.tournaments}</td><td>{formatDateTime(user.lastSeen)}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </div>
+
+            <div className={styles.statsEvents}>
+              <div className={styles.statsHeadingRow}>
+                <div>
+                  <h3>{selectedVisitorId || selectedUserId ? `Journey: ${selectedLabel}` : 'Recent visits and actions'}</h3>
+                  {(selectedVisitor || selectedUserId) && <p className={styles.smallNote}>Nickname is captured from the authenticated Hattrick profile when available.</p>}
+                </div>
+              </div>
+              <div className={styles.list}>
+                {data.events.map((event) => (
+                  <div key={event.id} className={styles.listRow}>
+                    <div>
+                      <div className={styles.listTitle}>
+                        {event.country_code && <span className={styles.countryFlag}>{countryFlag(event.country_code)}</span>}
+                        {event.event_type} · {event.resolved_manager_name || event.manager_name || 'Anonymous visitor'}
+                      </div>
+                      <div className={styles.listMeta}>{event.route || 'unknown route'} · {event.platform || 'platform unknown'} · {event.browser || 'browser unknown'} · {event.language || 'language unknown'}</div>
+                      {event.referrer && <div className={styles.listMeta}>From {event.referrer}</div>}
+                      {eventMetadataSummary(event) && <div className={styles.listMeta}>{eventMetadataSummary(event)}</div>}
+                    </div>
+                    <div className={styles.listMeta}>{formatDateTime(event.occurred_at)}</div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </>
         )}
       </SectionCard>
     </section>
@@ -660,100 +961,53 @@ function ForgeFaqEditor() {
 }
 
 function ForgeTestingSection() {
-  const [mode, setMode] = useState(() => localStorage.getItem('ht120_mode') || 'production');
-  const [scenario, setScenario] = useState(() => localStorage.getItem('ht120_scenario') || '');
-  const [mockManagerId, setLocalMockManagerId] = useState(() => getMockManagerId() || '');
-  const scenarios = useMemo(() => getAllScenarios(), []);
+  const [managerId, setManagerId] = useState(() => localStorage.getItem('forge_ht_user_id') || '');
+  const [teamId, setTeamId] = useState('');
+  const [opponentTeamId, setOpponentTeamId] = useState('');
+  const [weekend, setWeekend] = useState(false);
+  const [output, setOutput] = useState('');
+  const [loading, setLoading] = useState(false);
 
-  const apply = () => {
-    localStorage.setItem('ht120_mode', mode);
-    if (mode === 'scenario' && scenario) {
-      localStorage.setItem('ht120_scenario', scenario);
-    } else {
-      localStorage.removeItem('ht120_scenario');
+  const runTool = async (tool: string, sideEffect = false) => {
+    if (sideEffect && !window.confirm('This can send a real Hattrick challenge. Continue?')) return;
+    setLoading(true);
+    try {
+      const params = new URLSearchParams({ tool, managerId, teamId, opponentTeamId, format: 'json' });
+      if (weekend) params.set('isWeekendFriendly', '1');
+      if (sideEffect) params.set('confirm', '1');
+      const response = await fetch(`/api/testing?${params.toString()}`, { credentials: 'include' });
+      const json = await response.json();
+      setOutput(JSON.stringify(json, null, 2));
+    } catch (error) {
+      setOutput(error instanceof Error ? error.message : 'Testing request failed.');
+    } finally {
+      setLoading(false);
     }
-
-    if (mode === 'mock') {
-      setMockManagerId(mockManagerId || null);
-    } else {
-      setMockManagerId(null);
-    }
-
-    window.location.reload();
-  };
-
-  const reset = () => {
-    localStorage.removeItem('ht120_mode');
-    localStorage.removeItem('ht120_scenario');
-    window.location.reload();
-  };
-
-  const clearState = () => {
-    clearMockState();
-    window.location.reload();
   };
 
   return (
     <section className={styles.sectionStack}>
-      <SectionCard title="Testing hub" subtitle="Scenario and mock controls for CHPP and matchmaker debugging.">
+      <SectionCard
+        title="Testing hub"
+        subtitle="Direct CHPP checks for challenge management and friendly booking."
+        className={styles.surfaceCard}
+      >
         <div className={styles.testingGrid}>
-          <div className={styles.testingField}>
-            <label>Mode</label>
-            <select value={mode} onChange={(e) => setMode(e.target.value)}>
-              <option value="production">Production</option>
-              <option value="mock">Mock</option>
-              <option value="scenario">Scenario</option>
-            </select>
-          </div>
-
-          {mode === 'scenario' && (
-            <div className={styles.testingField}>
-              <label>Scenario</label>
-              <select value={scenario} onChange={(e) => setScenario(e.target.value)}>
-                <option value="">(none)</option>
-                {scenarios.map((item) => (
-                  <option key={item.id} value={item.id}>
-                    {item.name}
-                  </option>
-                ))}
-              </select>
-            </div>
-          )}
-
-          {mode === 'mock' && (
-            <div className={styles.testingField}>
-              <label>Mock manager</label>
-              <select value={mockManagerId} onChange={(e) => setLocalMockManagerId(e.target.value)}>
-                <option value="">(none)</option>
-                {getTestManagerIdList().map((item) => (
-                  <option key={item.id} value={item.id}>
-                    {item.label} ({item.id})
-                  </option>
-                ))}
-              </select>
-            </div>
-          )}
+          <label className={styles.testingField}><span>Manager ID</span><input value={managerId} onChange={(event) => setManagerId(event.target.value)} /></label>
+          <label className={styles.testingField}><span>My team ID</span><input value={teamId} onChange={(event) => setTeamId(event.target.value)} /></label>
+          <label className={styles.testingField}><span>Opponent team ID</span><input value={opponentTeamId} onChange={(event) => setOpponentTeamId(event.target.value)} /></label>
         </div>
-
+        <label className={styles.testingCheckbox}><input type="checkbox" checked={weekend} onChange={(event) => setWeekend(event.target.checked)} /> Weekend friendly</label>
         <div className={styles.editorActions}>
-          <Button variant="secondaryYellow" onClick={apply}>
-            <Check size={18} weight="bold" />
-            Apply
-          </Button>
-          <Button variant="outline" onClick={reset}>
-            Reset
-          </Button>
-          <Button variant="outline" onClick={clearState}>
-            Clear mock state
-          </Button>
+          <Button variant="outline" disabled={loading} onClick={() => void runTool('credentials-check')}>Credentials check</Button>
+          <Button variant="outline" disabled={loading} onClick={() => void runTool('challenges-view')}>Challenges view</Button>
+          <Button variant="outline" disabled={loading} onClick={() => void runTool('challengeable')}>Challengeable</Button>
+          <Button variant="outline" disabled={loading} onClick={() => void runTool('challenges-compare')}>Compare variants</Button>
+          <Button variant="outline" disabled={loading} onClick={() => void runTool('booking-status')}>Booking status</Button>
+          <Button variant="secondaryYellow" disabled={loading} onClick={() => void runTool('challenge-send', true)}>Send challenge</Button>
         </div>
-
-        <div className={styles.previewWrap}>
-          <p className={styles.smallNote}>
-            These controls mirror the current development test state and stay entirely in browser storage until you
-            apply them.
-          </p>
-        </div>
+        <p className={styles.smallNote}>Challenge send has a real Hattrick side effect and is never run without confirmation.</p>
+        {output && <pre className={styles.testingOutput}>{output}</pre>}
       </SectionCard>
     </section>
   );
@@ -762,7 +1016,7 @@ function ForgeTestingSection() {
 function ForgeAdminsSection() {
   return (
     <section className={styles.sectionStack}>
-      <SectionCard title="Admins and rules" subtitle="Superadmin first, moderators later.">
+      <SectionCard title="Admins and rules" subtitle="Superadmin first, moderators later." className={styles.surfaceCard}>
         <div className={styles.rulesList}>
           {siteAdminRules.map((rule) => (
             <div key={rule.role} className={styles.ruleCard}>
@@ -792,6 +1046,10 @@ function ForgeAdminsSection() {
 export const ForgePage: React.FC = () => {
   const auth = useForgeAuth();
 
+  if (auth.loading) {
+    return <ForgeGate onLogin={auth.login} loading />;
+  }
+
   if (!auth.isAuthorized) {
     return <ForgeGate onLogin={auth.login} />;
   }
@@ -805,6 +1063,7 @@ export const ForgePage: React.FC = () => {
     >
       <Routes>
         <Route index element={<ForgeDashboard />} />
+        <Route path="stats" element={<ForgeStatsSection />} />
         <Route path="faq" element={<ForgeFaqEditor />} />
         <Route path="testing" element={<ForgeTestingSection />} />
         <Route path="admins" element={<ForgeAdminsSection />} />
