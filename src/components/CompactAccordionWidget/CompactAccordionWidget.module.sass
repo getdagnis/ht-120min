@@ -1,0 +1,42 @@
+.widget
+  gap: 0.75rem
+  padding: 1rem
+
+.item
+  padding-bottom: 0.65rem
+  border-bottom: 1px solid var(--border-transp)
+
+  &:last-child
+    padding-bottom: 0
+    border-bottom: 0
+
+.toggle
+  width: 100%
+  display: flex
+  align-items: center
+  justify-content: space-between
+  gap: 0.5rem
+  padding: 0
+  border: 0
+  background: transparent
+  color: var(--text-h)
+  text-align: left
+  cursor: pointer
+
+  strong
+    font-size: 0.9rem
+    line-height: 1.25
+
+  svg
+    flex-shrink: 0
+    color: var(--text60)
+
+  &:hover strong
+    color: var(--accent)
+
+.body
+  margin: 0.45rem 0 0
+  color: var(--text60)
+  font-size: 0.85rem
+  line-height: 1.4
+  white-space: pre-line

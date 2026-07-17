@@ -166,7 +166,7 @@ Joining does not automatically book matches, so participants are expected to fol
         question: 'What happens if there is an odd number of teams?',
         answer: `One team receives a BYE in each round, meaning it has no scheduled tournament opponent that week.
 
-Depending on the tournament rules, the BYE may simply be a free round or the organizer may allow another friendly to count for that team.`,
+Depending on the tournament "house rules", the BYE may simply be a free round or the organizer may allow another friendly to count for that team.`,
         status: 'current',
       },
       {

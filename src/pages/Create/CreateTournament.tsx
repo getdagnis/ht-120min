@@ -7,6 +7,7 @@ import { Button } from '../../components/Button/Button';
 import { HeroCard } from '../../components/Card/HeroCard';
 import { Modal } from '../../components/Modal/Modal';
 import { SidebarWidget } from '../../components/SidebarWidget/SidebarWidget';
+import { CompactAccordionWidget } from '../../components/CompactAccordionWidget/CompactAccordionWidget';
 import {
   X,
   ArrowClockwise,
@@ -18,8 +19,6 @@ import {
   Link,
   FolderOpen,
   Question,
-  CaretDown,
-  CaretUp,
 } from 'phosphor-react';
 import {
   DESCRIPTIONS,
@@ -55,44 +54,13 @@ import {
 
 const HAS_CREATED_TOURNAMENT_KEY = 'ht120_has_created_tournament';
 
-const CreationTipsWidget = () => {
-  const [expandedTips, setExpandedTips] = useState<Set<string>>(() => new Set());
-
-  const toggleTip = (id: string) => {
-    setExpandedTips((prev) => {
-      const next = new Set(prev);
-      if (next.has(id)) {
-        next.delete(id);
-      } else {
-        next.add(id);
-      }
-      return next;
-    });
-  };
-
-  return (
-    <SidebarWidget title="Creation Tips" icon={<Question size={20} weight="bold" />}>
-      {CREATION_TIPS.map((tip) => {
-        const isExpanded = expandedTips.has(tip.id);
-
-        return (
-          <div key={tip.id} className={styles.faqItem}>
-            <button
-              type="button"
-              className={styles.faqToggle}
-              onClick={() => toggleTip(tip.id)}
-              aria-expanded={isExpanded}
-            >
-              <strong>{tip.title}</strong>
-              {isExpanded ? <CaretUp size={16} weight="bold" /> : <CaretDown size={16} weight="bold" />}
-            </button>
-            {isExpanded && <p>{tip.body}</p>}
-          </div>
-        );
-      })}
-    </SidebarWidget>
-  );
-};
+const CreationTipsWidget = () => (
+  <CompactAccordionWidget
+    title="Creation Tips"
+    icon={<Question size={20} weight="bold" />}
+    items={CREATION_TIPS}
+  />
+);
 
 const SidebarContent = ({ openTournaments }: { openTournaments: OpenTournamentSummary[] }) => (
   <aside className={styles.sidebar}>

@@ -125,103 +125,106 @@ export const ChatView: React.FC<ChatViewProps> = ({
   };
 
   return (
-    <div className={styles.chatSection}>
-      <div className={styles.chatMessages} ref={chatContainerRef}>
-        {messages.length > visibleMessageCount && (
-          <button className={styles.loadMoreBtn} onClick={() => setVisibleMessageCount((prev) => prev + 20)}>
-            Load More
-          </button>
-        )}
-        {messages.slice(-visibleMessageCount).map((msg) => {
-          const isOwnMessage = msg.author_ht_id === myHtUserId;
-          const isLeagueManager = leagueManagerIds.includes(msg.author_ht_id);
-          const isSystem = msg.author_ht_id === 0;
-          const isBigEmoji = isBigEmojiMessage(msg.content);
+    <>
+      <div className={styles.chatSection}>
+        <div className={styles.chatMessages} ref={chatContainerRef}>
+          {messages.length > visibleMessageCount && (
+            <button className={styles.loadMoreBtn} onClick={() => setVisibleMessageCount((prev) => prev + 20)}>
+              Load More
+            </button>
+          )}
+          {messages.slice(-visibleMessageCount).map((msg) => {
+            const isOwnMessage = msg.author_ht_id === myHtUserId;
+            const isLeagueManager = leagueManagerIds.includes(msg.author_ht_id);
+            const isSystem = msg.author_ht_id === 0;
+            const isBigEmoji = isBigEmojiMessage(msg.content);
 
-          if (isSystem) {
+            if (isSystem) {
+              return (
+                <div key={msg.id} className={styles.systemMessage}>
+                  <div className={styles.systemMessageContent}>
+                    <span className={styles.chatContent}>{msg.content}</span>
+                  </div>
+                </div>
+              );
+            }
+
             return (
-              <div key={msg.id} className={styles.systemMessage}>
-                <div className={styles.systemMessageContent}>
-                  <span className={styles.chatContent}>{msg.content}</span>
+              <div
+                key={msg.id}
+                className={`${styles.chatMessage} ${isOwnMessage ? styles.ownMessage : styles.otherMessage} ${!isLeagueManager && !isOwnMessage ? styles.externalManager : ''}`}
+              >
+                <div className={styles.chatMessageContent}>
+                  {!isOwnMessage && (
+                    <>
+                      <button
+                        onClick={() => handleOpenProfile(msg.author_ht_id)}
+                        className={styles.chatAuthor}
+                        data-tooltip-id={`author-tooltip-${msg.id}`}
+                      >
+                        {msg.author_name}
+                      </button>
+                      <Tooltip id={`author-tooltip-${msg.id}`} className={styles.chatAuthorTooltip}>
+                        <div className={styles.tooltipAvatar}>
+                          <Avatar
+                            className={styles.tooltipAvatarImg}
+                            avatar={msg.profiles?.avatar_json || null}
+                            variant="circle"
+                          />
+                        </div>
+                        <span className={styles.tooltipTeamName}>{teamNames[msg.author_ht_id] || 'Guest'}</span>
+                      </Tooltip>
+                    </>
+                  )}
+                  <div className={`${styles.chatBubble} ${isBigEmoji ? styles.bigEmojiBubble : ''}`}>
+                    <span className={`${styles.chatContent} ${isBigEmoji ? styles.bigEmoji : ''}`}>{msg.content}</span>
+                  </div>
+                  <span className={styles.chatTime}>{formatChatTimestamp(msg.created_at)}</span>
                 </div>
               </div>
             );
-          }
-
-          return (
-            <div
-              key={msg.id}
-              className={`${styles.chatMessage} ${isOwnMessage ? styles.ownMessage : styles.otherMessage} ${!isLeagueManager && !isOwnMessage ? styles.externalManager : ''}`}
-            >
-              <div className={styles.chatMessageContent}>
-                {!isOwnMessage && (
-                  <>
-                    <button
-                      onClick={() => handleOpenProfile(msg.author_ht_id)}
-                      className={styles.chatAuthor}
-                      data-tooltip-id={`author-tooltip-${msg.id}`}
-                    >
-                      {msg.author_name}
-                    </button>
-                    <Tooltip id={`author-tooltip-${msg.id}`} className={styles.chatAuthorTooltip}>
-                      <div className={styles.tooltipAvatar}>
-                        <Avatar
-                          className={styles.tooltipAvatarImg}
-                          avatar={msg.profiles?.avatar_json || null}
-                          variant="circle"
-                        />
-                      </div>
-                      <span className={styles.tooltipTeamName}>{teamNames[msg.author_ht_id] || 'Guest'}</span>
-                    </Tooltip>
-                  </>
-                )}
-                <div className={`${styles.chatBubble} ${isBigEmoji ? styles.bigEmojiBubble : ''}`}>
-                  <span className={`${styles.chatContent} ${isBigEmoji ? styles.bigEmoji : ''}`}>{msg.content}</span>
-                </div>
-                <span className={styles.chatTime}>{formatChatTimestamp(msg.created_at)}</span>
-              </div>
-            </div>
-          );
-        })}
-      </div>
-
-      {myHtUserId ? (
-        <form onSubmit={handleSubmit} className={styles.chatInputArea}>
-          <div className={styles.chatInputRow}>
-            <input
-              ref={chatInputRef}
-              type="text"
-              value={newChatContent}
-              onChange={(e) => setNewChatContent(e.target.value)}
-              placeholder="Say something..."
-              className={styles.postTextarea}
-            />
-            <button type="submit" className={styles.sendBtn}>
-              <PaperPlaneTilt size={22} weight="bold" />
-            </button>
-          </div>
-          <div className={styles.chatEmojiBar} aria-label="Quick emoji picker">
-            {emojiOptions.map((emoji) => (
-              <button
-                key={emoji}
-                type="button"
-                className={styles.chatEmojiBtn}
-                onClick={() => handleEmojiClick(emoji)}
-                aria-label={`Add ${emoji}`}
-              >
-                {emoji}
-              </button>
-            ))}
-          </div>
-        </form>
-      ) : (
-        <div className={styles.loginToPost}>
-          <Button size="sm" onClick={handleLogin} variant="zero" className={styles.chatLoginBtn} type="button">
-            <User size={18} weight="bold" />
-            <span className={styles.chatLoginLabel}>Login (CHPP)</span> <ArrowRight size={18} className="hideOnTable" />
-          </Button>
+          })}
         </div>
-      )}
-    </div>
+
+        {myHtUserId ? (
+          <form onSubmit={handleSubmit} className={styles.chatInputArea}>
+            <div className={styles.chatInputRow}>
+              <input
+                ref={chatInputRef}
+                type="text"
+                value={newChatContent}
+                onChange={(e) => setNewChatContent(e.target.value)}
+                placeholder="Say something..."
+                className={styles.postTextarea}
+              />
+              <button type="submit" className={styles.sendBtn}>
+                <PaperPlaneTilt size={22} weight="bold" />
+              </button>
+            </div>
+            <div className={styles.chatEmojiBar} aria-label="Quick emoji picker">
+              {emojiOptions.map((emoji) => (
+                <button
+                  key={emoji}
+                  type="button"
+                  className={styles.chatEmojiBtn}
+                  onClick={() => handleEmojiClick(emoji)}
+                  aria-label={`Add ${emoji}`}
+                >
+                  {emoji}
+                </button>
+              ))}
+            </div>
+          </form>
+        ) : (
+          <div className={styles.loginToPost}>
+            <Button size="sm" onClick={handleLogin} variant="zero" className={styles.chatLoginBtn} type="button">
+              <User size={18} weight="bold" />
+              <span className={styles.chatLoginLabel}>Login (CHPP)</span>{' '}
+              <ArrowRight size={18} className="hideOnTable" />
+            </Button>
+          </div>
+        )}
+      </div>
+    </>
   );
 };

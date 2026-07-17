@@ -44,7 +44,8 @@ export const StandingsView: React.FC<StandingsViewProps> = ({
 }) => {
   const [presencePulse, setPresencePulse] = useState(0);
   const [seasonComments, setSeasonComments] = useState<TournamentSeasonComment[]>([]);
-  const [seasonCommentsLoading, setSeasonCommentsLoading] = useState(false);
+  const [loadedSeasonCommentsId, setLoadedSeasonCommentsId] = useState<string | null>(null);
+  const seasonCommentsLoading = Boolean(seasonId && loadedSeasonCommentsId !== seasonId);
 
   useEffect(() => {
     const tick = setInterval(() => setPresencePulse((value) => value + 1), 60_000);
@@ -72,14 +73,9 @@ export const StandingsView: React.FC<StandingsViewProps> = ({
   }, [onRefreshPresence]);
 
   useEffect(() => {
-    if (!seasonId) {
-      setSeasonComments([]);
-      setSeasonCommentsLoading(false);
-      return;
-    }
+    if (!seasonId) return;
 
     let cancelled = false;
-    setSeasonCommentsLoading(true);
     fetch(`/api/tournaments/history?seasonId=${encodeURIComponent(seasonId)}`)
       .then(async (response) => {
         const data = await response.json();
@@ -89,13 +85,13 @@ export const StandingsView: React.FC<StandingsViewProps> = ({
       .then((comments) => {
         if (!cancelled) {
           setSeasonComments(comments);
-          setSeasonCommentsLoading(false);
+          setLoadedSeasonCommentsId(seasonId);
         }
       })
       .catch(() => {
         if (!cancelled) {
           setSeasonComments([]);
-          setSeasonCommentsLoading(false);
+          setLoadedSeasonCommentsId(seasonId);
         }
       });
 
@@ -251,7 +247,7 @@ export const StandingsView: React.FC<StandingsViewProps> = ({
       {seasonId && (
         <SeasonYearbook
           seasonNumber={seasonNumber}
-          comments={seasonComments}
+            comments={seasonId && loadedSeasonCommentsId === seasonId ? seasonComments : []}
           commentsLoading={seasonCommentsLoading}
           teamLogoById={Object.fromEntries(standings.map((standing) => [standing.teamId, standing.logoUrl]))}
         />

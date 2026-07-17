@@ -59,13 +59,16 @@
 .sideColumn
   display: flex
   flex-direction: column
-  gap: 0.75rem
+  gap: 2rem
   min-width: 0
+
+.sideColumn
+  gap: 1rem
 
 .championCard,
 .standingsCard,
 .sideCard
-  border: 1px solid var(--border)
+  border: 1px solid var(--border-transp)
   border-radius: var(--radius-sm)
   background: var(--table-bg-main)
 
@@ -84,7 +87,7 @@
 .championHeadline,
 .runnerUp
   padding: 1rem
-  border-right: 1px solid var(--border)
+  border-right: 1px solid var(--border-transp)
 
   @media (max-width: 640px)
     border-right: 0
@@ -96,7 +99,7 @@
     align-items: center
     gap: 0.5rem
     margin: 0 0 0.75rem
-    color: var(--warning)
+    color: var(--gold-dark)
     font-size: 1.25rem
     font-weight: 600
 
@@ -149,7 +152,7 @@
 
 .contentSection
   h2
-    margin: 0 0 0.5rem
+    margin: 0.5rem 0 1rem
     color: var(--text-h)
     font-size: 1.25rem
     font-weight: 600
@@ -158,7 +161,7 @@
 .participantsGrid
   display: grid
   grid-template-columns: repeat(3, minmax(0, 1fr))
-  gap: 0.5rem
+  gap: 0.75rem
 
   @media (max-width: 760px)
     grid-template-columns: repeat(2, minmax(0, 1fr))
@@ -170,7 +173,7 @@
 .participantCard
   min-width: 0
   padding: 0.8rem
-  border: 1px solid var(--border)
+  border: 1px solid var(--border-transp)
   border-radius: var(--radius-sm)
   background: var(--lighter)
 
@@ -180,18 +183,22 @@
   gap: 0.65rem
 
   > small
-    color: var(--accent)
+    color: var(--text60)
+    font-family: var(--heading)
 
 .awardLabel
   display: flex
   align-items: center
   gap: 0.45rem
   color: var(--text)
+  border-bottom: 1px solid var(--border-transp)
+  padding-bottom: 0.5rem
   font-size: 0.85rem
+  font-family: var(--heading)
 
   svg
     flex-shrink: 0
-    color: var(--warning)
+    color: var(--gold-dark)
 
 .awardRecipients
   display: flex
@@ -204,9 +211,12 @@
   justify-content: space-between
   gap: 0.65rem
 
-  > span
-    color: var(--text60)
-    font-size: 0.8rem
+.teamDetail
+  color: var(--text60)
+  line-height: 1.35
+  font-size: 0.85rem
+  font-family: var(--heading)
+  overflow-wrap: anywhere
 
 .teamIdentity
   display: flex
@@ -225,9 +235,8 @@
 
   strong
     display: block
-    color: var(--text-h)
+    color: var(--text)
     font-family: var(--heading)
-    font-size: 1.2rem
     font-weight: 600
     overflow-wrap: anywhere
 
@@ -237,7 +246,7 @@
     height: 2.4rem
 
   strong
-    font-size: 0.95rem
+    font-size: 1.1rem
 
 .standingsCard
   padding: 0.9rem 1rem
@@ -258,8 +267,9 @@
   th,
   td
     padding: 0.55rem 0.4rem
-    border-bottom: 1px solid var(--border)
+    border-bottom: 1px solid var(--border-transp)
     text-align: center
+    font-family: var(--heading)
 
   th
     color: var(--text60)
@@ -303,7 +313,7 @@
 
   > div
     padding: 0.65rem 0
-    border-bottom: 1px solid var(--border)
+    border-bottom: 1px solid var(--border-transp)
 
     &:last-child
       border-bottom: 0
@@ -374,12 +384,16 @@
 .commentsList
   display: flex
   flex-direction: column
+  padding-top: .75rem
   gap: 0.65rem
 
   blockquote
     margin: 0
-    padding: 0.9rem 0
-    border-top: 1px solid var(--border)
+    padding: 1rem
+    background: var(--lighter)
+    border: 1px solid var(--border-transp)
+    box-shadow: 0 0 1rem rgba(black, 0.1)
+    border-radius: var(--radius-sm)
 
     p
       margin: 0 0 0.5rem
@@ -428,7 +442,7 @@
   display: flex
   flex-direction: column
   gap: 0.5rem
-  margin-top: 0.9rem
+  margin-top: 2rem
 
   label
     color: var(--text)
@@ -440,11 +454,13 @@
     box-sizing: border-box
     resize: vertical
     padding: 0.65rem
-    border: 1px solid var(--border)
+    min-height: 12rem
+    border: 1px solid var(--border-transp)
     border-radius: var(--radius-xs)
     background: var(--bg-transp)
     color: var(--text)
     font: inherit
+    margin-bottom: 0.25rem
 
   ::placeholder
     color: var(--text60)

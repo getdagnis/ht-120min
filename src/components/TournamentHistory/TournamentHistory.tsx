@@ -12,6 +12,7 @@ import {
   type SeasonMatchSnapshot,
   type SeasonParticipant,
 } from '../../utils/season-history';
+import { getHattrickCalendarContext } from '../../utils/hattrick-calendar';
 import styles from './TournamentHistory.module.sass';
 
 const DEFAULT_TEAM_LOGO = '/default-logo.png';
@@ -76,10 +77,10 @@ export const SeasonYearbook: React.FC<SeasonYearbookProps> = ({
   children,
 }) => (
   <section className={`${styles.standingsCard} ${styles.yearbookCard}`}>
-    <h2>{title || `📔 Season ${seasonNumber} yearbook`}</h2>
+    <h2>{title || `📔 Season ${seasonNumber} Yearbook`}</h2>
     {commentsLoading && <p className={styles.mutedText}>Season yearbook comments loading...</p>}
     {!commentsLoading && !commentsLoadError && comments.length === 0 && (
-      <p className={styles.mutedText}>No final comments yet.</p>
+      <p className={styles.mutedText}>Be the first to add a final thought to this Yearbook!</p>
     )}
     {!commentsLoadError && (
       <div className={styles.commentsList}>
@@ -101,6 +102,7 @@ export const SeasonYearbook: React.FC<SeasonYearbookProps> = ({
             <p>{comment.comment}</p>
             <time className={styles.commentDate} dateTime={comment.created_at}>
               {formatDate(comment.created_at)}
+              {comment.created_at ? ` • ${getCurrentHattrickSeasonWeekLabel()}` : ''}
             </time>
           </blockquote>
         ))}
@@ -126,12 +128,12 @@ interface TournamentHistoryProps {
 
 const AWARD_DETAILS: Record<SeasonAwardKey, { label: string; icon: React.ReactNode }> = {
   champions: { label: 'Champions', icon: <Trophy size={20} weight="regular" /> },
-  'most-120-matches': { label: 'Most 120-minute matches', icon: <Medal size={20} weight="fill" /> },
-  'top-scorers': { label: 'Top scorers', icon: <SoccerBall size={20} weight="fill" /> },
+  'most-120-matches': { label: 'Most 120-minute matches', icon: <Medal size={20} weight="regular" /> },
+  'top-scorers': { label: 'Top scorers', icon: <SoccerBall size={20} weight="regular" /> },
   'best-goal-difference': { label: 'Best goal difference', icon: <ChartLineUp size={20} weight="bold" /> },
-  'fair-play': { label: 'Fair Play', icon: <Handshake size={20} weight="fill" /> },
-  'every-fixture-completed': { label: 'Every fixture completed', icon: <UsersThree size={20} weight="fill" /> },
-  'total-minute-specialists': { label: 'Total minute specialists', icon: <Clock size={20} weight="fill" /> },
+  'fair-play': { label: 'Fair Play', icon: <Handshake size={20} weight="regular" /> },
+  'every-fixture-completed': { label: 'Every fixture completed', icon: <UsersThree size={20} weight="regular" /> },
+  'total-minute-specialists': { label: 'Total minute specialists', icon: <Clock size={20} weight="regular" /> },
 };
 
 const AWARD_PRIORITY: SeasonAwardKey[] = [
@@ -147,6 +149,11 @@ const formatDate = (value?: string | null) =>
   value
     ? new Intl.DateTimeFormat('en-GB', { day: '2-digit', month: '2-digit', year: 'numeric' }).format(new Date(value))
     : null;
+
+const getCurrentHattrickSeasonWeekLabel = () => {
+  const { htSeason, htWeek } = getHattrickCalendarContext();
+  return `HT S${htSeason} W${htWeek}`;
+};
 
 const defaultLoadComments = async (seasonId: string) => {
   const response = await fetch(`/api/tournaments/history?seasonId=${encodeURIComponent(seasonId)}`);
@@ -170,7 +177,15 @@ function findParticipant(snapshot: SeasonHistorySnapshotV2, teamId?: string | nu
   return teamId ? snapshot.participants.find((participant) => participant.teamId === teamId) || null : null;
 }
 
-function TeamIdentity({ participant, compact = false }: { participant: SeasonParticipant; compact?: boolean }) {
+function TeamIdentity({
+  participant,
+  compact = false,
+  detail,
+}: {
+  participant: SeasonParticipant;
+  compact?: boolean;
+  detail?: React.ReactNode;
+}) {
   return (
     <div className={`${styles.teamIdentity} ${compact ? styles.compactTeam : ''}`}>
       <img
@@ -182,6 +197,7 @@ function TeamIdentity({ participant, compact = false }: { participant: SeasonPar
       />
       <div>
         <strong>{participant.teamName}</strong>
+        {detail && <div className={styles.teamDetail}>{detail}</div>}
         {!compact && (
           <TeamByline
             countryName={participant.countryName}
@@ -265,6 +281,7 @@ export const TournamentHistory: React.FC<TournamentHistoryProps> = ({
   );
   const selectedSeason =
     finishedSeasons.find((season) => season.seasonNumber === selectedSeasonNumber) || finishedSeasons.at(-1) || null;
+  const selectedSeasonId = selectedSeason?.id ?? null;
   const snapshot = selectedSeason?.snapshot ? normalizeSeasonHistorySnapshot(selectedSeason.snapshot) : null;
   const [comments, setComments] = useState<TournamentSeasonComment[]>([]);
   const [commentDrafts, setCommentDrafts] = useState<Record<string, string>>({});
@@ -276,38 +293,43 @@ export const TournamentHistory: React.FC<TournamentHistoryProps> = ({
   const [pendingCommentParticipant, setPendingCommentParticipant] = useState<SeasonParticipant | null>(null);
 
   useEffect(() => {
-    if (!selectedSeason) return;
+    if (!selectedSeasonId) return;
     let cancelled = false;
-    loadComments(selectedSeason.id)
+    loadComments(selectedSeasonId)
       .then((items) => {
         if (!cancelled) {
           setComments(items);
-          setLoadedCommentsSeasonId(selectedSeason.id);
+          setLoadedCommentsSeasonId(selectedSeasonId);
           setCommentsLoadError('');
         }
       })
       .catch((error) => {
         if (!cancelled) {
           setComments([]);
-          setLoadedCommentsSeasonId(selectedSeason.id);
+          setLoadedCommentsSeasonId(selectedSeasonId);
           setCommentsLoadError(error instanceof Error ? error.message : 'Season comments are unavailable.');
         }
       });
     return () => {
       cancelled = true;
     };
-  }, [loadComments, selectedSeason]);
+  }, [loadComments, selectedSeasonId]);
 
   useEffect(() => {
-    if (!selectedSeason || !currentHtUserId) {
-      setLoadedCommentDraftStorageKey(null);
-      setCommentDrafts({});
-      return;
-    }
-    const storageKey = getCommentDraftStorageKey(selectedSeason.id, currentHtUserId);
-    setLoadedCommentDraftStorageKey(storageKey);
-    setCommentDrafts(readCommentDrafts(selectedSeason.id, currentHtUserId));
-  }, [currentHtUserId, selectedSeason?.id]);
+    const id = setTimeout(() => {
+      if (!selectedSeason || !currentHtUserId) {
+        // Session storage is an external draft source; clear stale local state when its scope changes.
+        setLoadedCommentDraftStorageKey(null);
+        setCommentDrafts({});
+        return;
+      }
+      const storageKey = getCommentDraftStorageKey(selectedSeason.id, currentHtUserId);
+      setLoadedCommentDraftStorageKey(storageKey);
+      setCommentDrafts(readCommentDrafts(selectedSeason.id, currentHtUserId));
+    }, 0);
+
+    return () => clearTimeout(id);
+  }, [currentHtUserId, selectedSeason]);
 
   useEffect(() => {
     if (!selectedSeason || !currentHtUserId) return;
@@ -322,7 +344,7 @@ export const TournamentHistory: React.FC<TournamentHistoryProps> = ({
     } catch {
       // Draft persistence is best effort when session storage is unavailable.
     }
-  }, [commentDrafts, currentHtUserId, loadedCommentDraftStorageKey, selectedSeason?.id]);
+  }, [commentDrafts, currentHtUserId, loadedCommentDraftStorageKey, selectedSeason]);
 
   if (finishedSeasons.length === 0 || !selectedSeason || !snapshot) {
     const finishedSeasonWithoutReport = [...seasons]
@@ -360,7 +382,7 @@ export const TournamentHistory: React.FC<TournamentHistoryProps> = ({
     (participant) =>
       currentHtUserId && participant.hattrickUserId === currentHtUserId && !commentTeamIds.has(participant.teamId),
   );
-  const commentsLoading = loadedCommentsSeasonId !== selectedSeason.id;
+  const commentsLoading = loadedCommentsSeasonId !== selectedSeasonId;
   const seasonStartedAt =
     selectedSeason.startedAt ||
     snapshot.matches
@@ -439,13 +461,15 @@ export const TournamentHistory: React.FC<TournamentHistoryProps> = ({
         !commentsLoadError &&
         eligibleTeams.map((participant) => (
           <div key={participant.teamId} className={styles.commentForm}>
-            <label htmlFor={`season-comment-${participant.teamId}`}>Your final comment as {participant.teamName}</label>
+            <label htmlFor={`season-comment-${participant.teamId}`}>
+              Post your final comment as {participant.teamName}
+            </label>
             <textarea
               id={`season-comment-${participant.teamId}`}
               value={commentDrafts[participant.teamId] || ''}
               maxLength={MAX_COMMENT_LENGTH}
               rows={4}
-              placeholder="Leave one final thought from the season..."
+              placeholder="Your season's comment..."
               onChange={(event) =>
                 setCommentDrafts((current) => ({ ...current, [participant.teamId]: event.target.value }))
               }
@@ -455,7 +479,8 @@ export const TournamentHistory: React.FC<TournamentHistoryProps> = ({
                 {(commentDrafts[participant.teamId] || '').length}/{MAX_COMMENT_LENGTH}
               </small>
               <Button
-                size="xs"
+                size="sm"
+                variant="primaryDanger"
                 onClick={() => setPendingCommentParticipant(participant)}
                 disabled={!commentDrafts[participant.teamId]?.trim() || submittingTeamId === participant.teamId}
               >
@@ -530,24 +555,32 @@ export const TournamentHistory: React.FC<TournamentHistoryProps> = ({
           </section>
 
           <section className={styles.contentSection}>
-            <h2>Awards & distinctions</h2>
+            <h2>Awards & Distinctions</h2>
             <div className={styles.awardsGrid} data-testid="history-awards">
               {displayAwards.map((award) => {
                 const recipients = award.recipientTeamIds
                   .map((teamId) => findParticipant(snapshot, teamId))
                   .filter((participant): participant is SeasonParticipant => !!participant);
+                const awardStat = getAwardStat(award);
+                const isSingleRecipient = recipients.length === 1;
                 return (
                   <article key={award.key} className={styles.awardCard}>
                     <div className={styles.awardLabel}>
                       {AWARD_DETAILS[award.key].icon}
                       <span>{AWARD_DETAILS[award.key].label}</span>
                     </div>
-                    <div className={styles.awardRecipients}>
-                      {recipients.map((participant) => (
-                        <TeamIdentity key={participant.teamId} participant={participant} compact />
-                      ))}
-                    </div>
-                    <small>{getAwardStat(award)}</small>
+                    {isSingleRecipient ? (
+                      <TeamIdentity key={recipients[0].teamId} participant={recipients[0]} compact detail={awardStat} />
+                    ) : (
+                      <>
+                        <div className={styles.awardRecipients}>
+                          {recipients.map((participant) => (
+                            <TeamIdentity key={participant.teamId} participant={participant} compact />
+                          ))}
+                        </div>
+                        <small>{awardStat}</small>
+                      </>
+                    )}
                   </article>
                 );
               })}
@@ -555,14 +588,17 @@ export const TournamentHistory: React.FC<TournamentHistoryProps> = ({
           </section>
 
           <section className={styles.contentSection}>
-            <h2>All Season {selectedSeason.seasonNumber} teams</h2>
+            <h2>All Season {selectedSeason.seasonNumber} Titles</h2>
             <div className={styles.participantsGrid}>
               {[...snapshot.participants]
                 .sort((a, b) => (a.finalPosition || 999) - (b.finalPosition || 999))
                 .map((participant) => (
                   <article key={participant.teamId} className={styles.participantCard}>
-                    <TeamIdentity participant={participant} compact />
-                    <span>{getParticipantHighlight(participant, snapshot)}</span>
+                    <TeamIdentity
+                      participant={participant}
+                      compact
+                      detail={getParticipantHighlight(participant, snapshot)}
+                    />
                   </article>
                 ))}
             </div>

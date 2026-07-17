@@ -46,7 +46,7 @@ import { FixturesView } from '../../components/TournamentTabs/FixturesView';
 import { AdminResults } from '../../components/TournamentTabs/Admin/AdminResults';
 import { AdminAnnouncementComposer } from '../../components/TournamentTabs/Admin/AdminAnnouncementComposer';
 import { TournamentSchedulePanel } from '../../components/TournamentTabs/Admin/TournamentSchedulePanel';
-import { FaqRenderer } from '../../components/Faq/FaqRenderer';
+import { CompactAccordionWidget } from '../../components/CompactAccordionWidget/CompactAccordionWidget';
 import { MottoWidget } from '../../components/MottoWidget/MottoWidget';
 import { StandingsView } from '../../components/TournamentTabs/StandingsView';
 import { TournamentHistory } from '../../components/TournamentHistory/TournamentHistory';
@@ -61,7 +61,7 @@ import {
   hasDismissedWelcome,
   TOURNAMENT_CREATED_WELCOME,
 } from '../../utils/welcome-modals';
-import { ArrowClockwise, ArrowRight, ArrowUpRight, CopySimple, Info, Star, Trash, X } from 'phosphor-react';
+import { ArrowClockwise, ArrowRight, ArrowUpRight, CopySimple, Info, Question, Star, Trash, X } from 'phosphor-react';
 
 const DEFAULT_TEAM_LOGO = '/default-logo.png';
 
@@ -297,6 +297,14 @@ export const TournamentView: React.FC = () => {
   const location = useLocation();
   const [searchParams, setSearchParams] = useSearchParams();
   const tournamentFaqSections = useMemo(() => getTournamentFaqSections(), []);
+  const tournamentFaqItems = useMemo(
+    () => tournamentFaqSections.flatMap((section) => section.items).map((item) => ({
+      id: item.id,
+      title: item.question,
+      body: item.answer,
+    })),
+    [tournamentFaqSections],
+  );
   const [tournament, setTournament] = useState<Tournament | null>(null);
   const [standings, setStandings] = useState<TeamStanding[]>([]);
   const [rounds, setRounds] = useState<RoundWithMatches[]>([]);
@@ -376,16 +384,15 @@ export const TournamentView: React.FC = () => {
         .sort((a, b) => b.season_number - a.season_number)[0] || null,
     [seasons],
   );
+  const [renderTimestamp] = useState(() => Date.now());
   const historyReportPublishedAt = latestPublishedHistorySeason?.snapshot_json?.generatedAt || null;
   const historyReportNoticeIsCurrent = Boolean(
-    historyReportPublishedAt && Date.now() - new Date(historyReportPublishedAt).getTime() <= 7 * 24 * 60 * 60 * 1000,
+    historyReportPublishedAt &&
+      renderTimestamp - new Date(historyReportPublishedAt).getTime() <= 7 * 24 * 60 * 60 * 1000,
   );
 
   useEffect(() => {
-    if (!tournament || !latestPublishedHistorySeason || !historyReportNoticeIsCurrent || !currentHtUserId) {
-      setHistoryReportNoticeOpen(false);
-      return;
-    }
+    if (!tournament || !latestPublishedHistorySeason || !historyReportNoticeIsCurrent || !currentHtUserId) return;
 
     let cancelled = false;
     fetch(
@@ -416,9 +423,7 @@ export const TournamentView: React.FC = () => {
         seasonId: latestPublishedHistorySeason.id,
         tournamentId: tournament.id,
       }),
-    });
-    setHistoryReportSeen(true);
-    setHistoryReportNoticeOpen(false);
+    }).then(() => setHistoryReportSeen(true));
   }, [activeTab, currentHtUserId, latestPublishedHistorySeason, tournament]);
 
   const dismissHistoryReportNotice = () => {
@@ -3410,8 +3415,9 @@ export const TournamentView: React.FC = () => {
       )}
 
       {isNewsTab && (
-        <div className={styles.guestbook}>
-          <SectionCard title="News & Announcements">
+        <div className={styles.newsLayout}>
+          <div className={styles.guestbook}>
+            <SectionCard title="News & Announcements">
             <div className={styles.newsTabs}>
               <button className={newsMode === 'team' ? styles.active : ''} onClick={() => setNewsMode('team')}>
                 Team News
@@ -3521,8 +3527,15 @@ export const TournamentView: React.FC = () => {
                 ))
               )}
             </div>
-          </SectionCard>
-          <FaqRenderer sections={tournamentFaqSections} className={styles.tournamentFaq} />
+            </SectionCard>
+          </div>
+          <aside className={styles.newsSidebar}>
+            <CompactAccordionWidget
+              title="Tournament FAQ"
+              icon={<Question size={20} weight="bold" />}
+              items={tournamentFaqItems}
+            />
+          </aside>
         </div>
       )}
 
@@ -3545,7 +3558,6 @@ export const TournamentView: React.FC = () => {
               seasonId={currentSeason?.id}
               seasonNumber={currentSeason?.season_number ?? tournament.season}
             />
-            <FaqRenderer sections={tournamentFaqSections} className={styles.tournamentFaq} />
           </div>
           <aside className={styles.statsSidebar}>
             <MottoWidget items={TOURNAMENT_DEFAULT} theme="dark" variant="sidebar" />
@@ -3555,6 +3567,11 @@ export const TournamentView: React.FC = () => {
               myHtUserId={myHtUserId ? Number(myHtUserId) : null}
               leagueManagerIds={teams.map((t) => t.hattrick_user_id).filter((id): id is number => !!id)}
               teamNames={teams.reduce((acc, t) => ({ ...acc, [t.hattrick_user_id || 0]: t.name }), {})}
+            />
+            <CompactAccordionWidget
+              title="Tournament FAQ"
+              icon={<Question size={20} weight="bold" />}
+              items={tournamentFaqItems}
             />
           </aside>
         </div>

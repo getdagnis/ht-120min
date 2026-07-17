@@ -2,41 +2,51 @@
   {
     "id": "name",
     "title": "Tournament Name",
-    "body": "Pick a name participants will recognize. Use the regenerate button for a random suggestion if you are stuck."
+    "body": "Pick a name participants will recognize. Sandbox tournaments are temporary test spaces and are marked as TEST automatically."
   },
   {
     "id": "slug",
     "title": "URL Slug",
-    "body": "Creates the direct link to your tournament (ht-120min.com/t/your-slug). Generated automatically from the name, but you can adjust it."
+    "body": "Creates the direct link to your tournament. It is generated from the name and checked for uniqueness when you continue."
   },
   {
     "id": "gender",
     "title": "Tournament Gender",
-    "body": "Regular league for male teams, or Hattrick Femme International (HFI) for female teams. Only eligible teams can join."
+    "body": "Choose Regular for male teams or HFI for female teams. Real tournament teams are checked against their Hattrick league."
   },
   {
     "id": "registration_type",
-    "title": "Registration Type",
-    "body": "Hattrick Validated: managers join and register their own teams automatically. Organizer-Managed: you add participants yourself — useful for tournaments organized via the Hattrick forum."
+    "title": "Tournament Type",
+    "body": "Hattrick Validated lets managers join with CHPP. Organizer-Managed lets you add teams yourself. Just Testing creates a clearly marked sandbox with dummy Hattrick teams for trying the flow."
   },
   {
     "id": "scoring_mode",
     "title": "Scoring Mode",
-    "body": "120 minute achievements are unique to HT-120min — standings rank teams by how many 120-minute games they have achieved. Regular 90-minute mode uses standard 3/1/0 points."
+    "body": "120-minute mode counts matches reaching 120 minutes as achievements. Regular mode uses standard 3/1/0 points."
   },
   {
     "id": "private",
     "title": "Private Tournament",
-    "body": "Marks the tournament as unlisted. It will not appear on the home page, but anyone with the link can still join."
+    "body": "Private tournaments stay out of public lists, but people with the direct link can still view and join while registration is open."
   },
   {
     "id": "league_restriction",
     "title": "League Restriction",
-    "body": "Optional. Limit registration to teams from a specific country or league only."
+    "body": "Optional. Limit real tournament registration to a specific country or Hattrick league. This option is not used for sandbox team selection."
   },
   {
     "id": "description",
     "title": "Description",
-    "body": "Optional blurb shown on the tournament page. Use the regenerate button for a random 120-minute themed description."
+    "body": "Optional text shown on the tournament page. Keep it useful for participants: explain the community, rules or friendly format."
+  },
+  {
+    "id": "teams-and-schedule",
+    "title": "Teams and Schedule",
+    "body": "Add at least two teams before generating a schedule. After generation, participants arrange the listed friendlies in Hattrick and the site refreshes results from CHPP."
+  },
+  {
+    "id": "sandbox",
+    "title": "Sandbox Tournaments",
+    "body": "Sandbox tournaments use real Hattrick team metadata but do not represent real manager participation. Add random teams, test restrictions and try schedule generation or regeneration without affecting real tournament eligibility."
   }
 ]

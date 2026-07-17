@@ -92,6 +92,7 @@ Production means live deployed behavior. If it has not been checked against the 
 - Generate schedule now shows a clearer empty-state reason, waits for a picked start date before previewing, and uses a no-teams placeholder label.
 - Tournament cards use canonical league names and avoid mobile overflow on the home grid.
 - Chat shows a login button when the viewer is not authenticated.
+- Tournament FAQ now uses the same compact sidebar accordion as Create Tournament tips; updated creation guidance covers sandbox tournaments, schedule/result handling, and current privacy/restriction behavior.
 - Description editor has textarea and regenerate controls restored in tournament/admin contexts.
 - Supporters wall hydrates known users from DB by ids while keeping readable constants for name/team context.
 
@@ -128,7 +129,7 @@ git diff --check
 
 `find api -name "*.ts" | grep -v "/_lib/" | wc -l` returned `12`.
 
-`npm run build`, `npm test` (82 tests), and `git diff --check` passed on 2026-07-17. The API function count remains `12` after consolidating Matchmaker activity reads into `api/matchmaker/teams.ts` and adding `api/tournaments/history.ts`. Chromium verification could not execute because both Playwright Chromium and system Chrome abort with `SIGABRT` on this Intel Mac before opening a page; the focused E2E spec remains in `e2e/tournament-history.spec.ts`. The build still reports the existing CSS `:global` warning and large bundle warning. For future code changes, run:
+`npm run build`, `npm test` (82 tests), and `git diff --check` passed on 2026-07-17. The API function count remains `12` after consolidating Matchmaker activity reads into `api/matchmaker/teams.ts` and adding `api/tournaments/history.ts`. Chromium verification could not execute because both Playwright Chromium and system Chrome abort with `SIGABRT` on this Intel Mac before opening a page; the focused E2E spec remains in `e2e/tournament-history.spec.ts`. The build still reports the existing CSS `:global` warning and large bundle warning. This FAQ/sidebar update was validated with the same build and test commands. For future code changes, run:
 
 ```bash
 npm run build
