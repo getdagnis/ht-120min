@@ -247,7 +247,8 @@ export const StandingsView: React.FC<StandingsViewProps> = ({
       {seasonId && (
         <SeasonYearbook
           seasonNumber={seasonNumber}
-            comments={seasonId && loadedSeasonCommentsId === seasonId ? seasonComments : []}
+          comments={seasonId && loadedSeasonCommentsId === seasonId ? seasonComments : []}
+          totalTeams={standings.length}
           commentsLoading={seasonCommentsLoading}
           teamLogoById={Object.fromEntries(standings.map((standing) => [standing.teamId, standing.logoUrl]))}
         />

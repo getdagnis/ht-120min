@@ -200,16 +200,13 @@
     flex-shrink: 0
     color: var(--gold-dark)
 
+:global([data-theme="dark"]) .awardLabel svg
+  color: var(--gold)
+
 .awardRecipients
   display: flex
   flex-direction: column
   gap: 0.4rem
-
-.participantCard
-  display: flex
-  flex-direction: column
-  justify-content: space-between
-  gap: 0.65rem
 
 .teamDetail
   color: var(--text60)
@@ -217,6 +214,15 @@
   font-size: 0.85rem
   font-family: var(--heading)
   overflow-wrap: anywhere
+
+.participantCard
+  display: flex
+  flex-direction: column
+  justify-content: space-between
+  gap: 0.65rem
+
+  .teamDetail
+    color: var(--gold-dark)
 
 .teamIdentity
   display: flex
@@ -438,6 +444,11 @@
   .commentsList blockquote:first-child
     margin-top: 0.25rem
 
+.yearbookProgress
+  font-size: 0.9rem
+  font-family: var(--heading)
+  color: var(--text60)
+
 .commentForm
   display: flex
   flex-direction: column
@@ -460,7 +471,7 @@
     background: var(--bg-transp)
     color: var(--text)
     font: inherit
-    margin-bottom: 0.25rem
+    margin-bottom: 0.5rem
 
   ::placeholder
     color: var(--text60)

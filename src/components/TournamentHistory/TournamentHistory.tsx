@@ -58,6 +58,7 @@ export interface TournamentSeasonComment {
 interface SeasonYearbookProps {
   seasonNumber: number;
   comments: TournamentSeasonComment[];
+  totalTeams?: number;
   commentsLoading: boolean;
   commentsLoadError?: string;
   commentsSubmitError?: string;
@@ -69,6 +70,7 @@ interface SeasonYearbookProps {
 export const SeasonYearbook: React.FC<SeasonYearbookProps> = ({
   seasonNumber,
   comments,
+  totalTeams,
   commentsLoading,
   commentsLoadError = '',
   commentsSubmitError = '',
@@ -106,6 +108,11 @@ export const SeasonYearbook: React.FC<SeasonYearbookProps> = ({
             </time>
           </blockquote>
         ))}
+        {!commentsLoading && !commentsLoadError && typeof totalTeams === 'number' && (
+          <p className={styles.yearbookProgress}>
+            {comments.length} of {totalTeams} teams have written their season comments
+          </p>
+        )}
       </div>
     )}
     {commentsLoadError && <p className={styles.mutedText}>Season comments are unavailable right now.</p>}
@@ -450,6 +457,7 @@ export const TournamentHistory: React.FC<TournamentHistoryProps> = ({
     <SeasonYearbook
       seasonNumber={selectedSeason.seasonNumber}
       comments={comments}
+      totalTeams={snapshot.participants.length}
       commentsLoading={commentsLoading}
       commentsLoadError={commentsLoadError}
       commentsSubmitError={commentsSubmitError}
