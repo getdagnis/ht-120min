@@ -19,6 +19,7 @@ import {
 import { validateTeamEligibility } from '../../utils/team-eligibility';
 import { HATTRICK_LEAGUES, getLeagueIdByName, normalizeLeagueLimit } from '../../../shared/worlddetails';
 import { useLiveMatches } from '../../hooks/useLiveMatches';
+import { trackActivity } from '../../hooks/useActivityTracking';
 import { buildScheduleDraft, serializeScheduleDraftForRpc, type ScheduleMode } from '../../utils/schedule-draft';
 import { buildRescheduleDraft, serializeRescheduleDraftForRpc } from '../../utils/reschedule-draft';
 import { getMatchDateForRound as resolveMatchDateForRound } from '../../utils/match-schedule';
@@ -397,7 +398,7 @@ export const TournamentView: React.FC = () => {
 
     let cancelled = false;
     fetch(
-      `/api/tournaments/history?notice=history-report-status&seasonId=${encodeURIComponent(latestPublishedHistorySeason.id)}&tournamentId=${encodeURIComponent(tournament.id)}`,
+      `/api/app?route=history&notice=history-report-status&seasonId=${encodeURIComponent(latestPublishedHistorySeason.id)}&tournamentId=${encodeURIComponent(tournament.id)}`,
     )
       .then((response) => response.json())
       .then((data: { dismissed?: boolean; seen?: boolean; tracked?: boolean }) => {
@@ -415,7 +416,7 @@ export const TournamentView: React.FC = () => {
 
   useEffect(() => {
     if (!tournament || !activeTab || activeTab !== 'history' || !latestPublishedHistorySeason || !currentHtUserId) return;
-    void fetch('/api/tournaments/history', {
+    void fetch('/api/app?route=history', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -429,7 +430,7 @@ export const TournamentView: React.FC = () => {
   const dismissHistoryReportNotice = () => {
     if (!tournament || !latestPublishedHistorySeason || !currentHtUserId) return;
     setHistoryReportNoticeOpen(false);
-    void fetch('/api/tournaments/history', {
+    void fetch('/api/app?route=history', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -443,7 +444,7 @@ export const TournamentView: React.FC = () => {
   const markHistoryReportSeen = () => {
     if (!tournament || !latestPublishedHistorySeason || !currentHtUserId) return;
     setHistoryReportNoticeOpen(false);
-    void fetch('/api/tournaments/history', {
+    void fetch('/api/app?route=history', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -2426,6 +2427,7 @@ export const TournamentView: React.FC = () => {
 
       setSandboxCandidate(null);
       setSandboxFetchError('');
+      void trackActivity('sandbox_team_added', { route: `/t/${slug}`, tournamentId: tournament.id, metadata: { teamId: sandboxCandidate.teamId } });
       fetchData();
     } catch (error: any) {
       alert(error.message);
@@ -2541,6 +2543,12 @@ export const TournamentView: React.FC = () => {
         setNewTeamName('');
         setNewTeamData(null);
       }
+      void trackActivity(isJoin ? 'tournament_joined' : 'team_added_by_admin', {
+        route: `/t/${slug}`,
+        tournamentId: tournament?.id,
+        teamId: finalTeamId || undefined,
+        metadata: { isJoin },
+      });
       fetchData();
     } catch (error: any) {
       alert(error.message);
@@ -2988,7 +2996,7 @@ export const TournamentView: React.FC = () => {
   const historyTabBadgeCount =
     activeTab !== 'history' ? Math.max(latestHistoryUnreadCount, hasNewHistoryReportBadge ? 1 : 0) : 0;
 
-  const handleHistoryCommentsLoaded = (seasonId: string, commentCount: number) => {
+  const handleHistoryCommentsLoaded = useCallback((seasonId: string, commentCount: number) => {
     setHistorySeasonCommentCounts((current) =>
       current[seasonId] === commentCount ? current : { ...current, [seasonId]: commentCount },
     );
@@ -2996,7 +3004,7 @@ export const TournamentView: React.FC = () => {
       localStorage.setItem(`ht-120min:history-comments-read:${seasonId}`, String(commentCount));
       setHistorySeenVersion((current) => current + 1);
     }
-  };
+  }, [activeTab]);
 
   return (
     <div className={styles.view}>
