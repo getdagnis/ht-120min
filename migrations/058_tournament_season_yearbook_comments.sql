@@ -29,7 +29,3 @@ GRANT SELECT ON public.tournament_season_comments TO anon, authenticated;
 REVOKE INSERT, UPDATE, DELETE ON public.tournament_season_comments FROM anon, authenticated;
 
 -- MIGRATION APPLIED!
-
--- Thank you guys for inviting me to  be a part of this! This has been an awesome 1st season and way more interesting (at least to me) than I imagined when I was first invited by NinoMed to join Guam forums! I certainly got to know teams and managers from this friendly (!) tournament better than from my actual HFI league.
-
--- The show must go on! See you in the next one. Hope to see more teams joining for Season 2! Go Guam, go Queens! 💃🏽🇬🇺

@@ -53,7 +53,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         .from('tournament_season_comments')
         .select(COMMENT_SELECT)
         .eq('season_id', seasonId)
-        .order('created_at', { ascending: true });
+        .order('created_at', { ascending: false });
 
       if (error) throw error;
       return res.status(200).json({ comments: data ?? [] });

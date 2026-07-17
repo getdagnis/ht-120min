@@ -18,11 +18,14 @@ interface StandingsViewProps {
     id?: string;
     thumbnail_index?: number;
   } | null;
+  seasonStatus?: 'planned' | 'ongoing' | 'finished';
   lastSeenMap?: Record<number, string | null>;
   onRefreshPresence?: () => void;
   canJoinTournament?: boolean;
   isConnecting?: boolean;
   onJoinWithHattrick?: () => void;
+  onVisitHistory?: () => void;
+  onCommentsLoaded?: (seasonId: string, commentCount: number) => void;
   seasonId?: string | null;
   seasonNumber?: number;
 }
@@ -34,11 +37,14 @@ export const StandingsView: React.FC<StandingsViewProps> = ({
   is120minMode,
   myHtUserId,
   tournament,
+  seasonStatus,
   lastSeenMap = {},
   onRefreshPresence,
   canJoinTournament = false,
   isConnecting = false,
   onJoinWithHattrick,
+  onVisitHistory,
+  onCommentsLoaded,
   seasonId = null,
   seasonNumber = 0,
 }) => {
@@ -86,19 +92,21 @@ export const StandingsView: React.FC<StandingsViewProps> = ({
         if (!cancelled) {
           setSeasonComments(comments);
           setLoadedSeasonCommentsId(seasonId);
+          onCommentsLoaded?.(seasonId, comments.length);
         }
       })
       .catch(() => {
         if (!cancelled) {
           setSeasonComments([]);
           setLoadedSeasonCommentsId(seasonId);
+          onCommentsLoaded?.(seasonId, 0);
         }
       });
 
     return () => {
       cancelled = true;
     };
-  }, [seasonId]);
+  }, [onCommentsLoaded, seasonId]);
 
   return (
     <div className={styles.mainColumn} data-presence-pulse={presencePulse}>
@@ -244,16 +252,22 @@ export const StandingsView: React.FC<StandingsViewProps> = ({
           </table>
         </div>
       </SectionCard>
-      {seasonId && (
+      {seasonId && seasonStatus === 'finished' && (
         <SeasonYearbook
           seasonNumber={seasonNumber}
           comments={seasonId && loadedSeasonCommentsId === seasonId ? seasonComments : []}
           totalTeams={standings.length}
           commentsLoading={seasonCommentsLoading}
           teamLogoById={Object.fromEntries(standings.map((standing) => [standing.teamId, standing.logoUrl]))}
+          showProgress={seasonStatus === 'finished'}
+          showComments={seasonStatus === 'finished'}
+          emptyMessage={
+            seasonStatus === 'finished'
+              ? undefined
+              : 'The season yearbook will open once the season concludes and its final report is published.'
+          }
         />
       )}
-      {/* <MottoWidget items={TOURNAMENT_DEFAULT} theme="dark" variant="standings" className={styles.standingsMotto} /> */}
       <SectionCard title="News Feed">
         <ul className={styles.newsFeed}>
           <li className={styles.feedItem}>
@@ -265,6 +279,23 @@ export const StandingsView: React.FC<StandingsViewProps> = ({
           </li>
         </ul>
       </SectionCard>
+      {seasonId && seasonStatus !== 'finished' && (
+        <SeasonYearbook
+          seasonNumber={seasonNumber}
+          comments={[]}
+          commentsLoading={false}
+          showComments={false}
+          showProgress={false}
+          emptyMessage={
+            <>
+              The season yearbook will open once the season concludes and its final report is published.{' '}
+              <button type="button" className={styles.yearbookHistoryLink} onClick={onVisitHistory}>
+                Visit history to add yours
+              </button>
+            </>
+          }
+        />
+      )}
     </div>
   );
 };
