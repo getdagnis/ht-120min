@@ -3610,6 +3610,7 @@ export const TournamentView: React.FC = () => {
               seasonStatus={currentSeason?.status === 'finished' ? 'finished' : 'ongoing'}
               onCommentsLoaded={handleHistoryCommentsLoaded}
               onVisitHistory={() => handleTabChange('history')}
+              canAddSeasonComment={false}
             />
           </div>
           <aside className={styles.statsSidebar}>

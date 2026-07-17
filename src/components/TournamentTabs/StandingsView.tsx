@@ -25,6 +25,7 @@ interface StandingsViewProps {
   isConnecting?: boolean;
   onJoinWithHattrick?: () => void;
   onVisitHistory?: () => void;
+  canAddSeasonComment?: boolean;
   onCommentsLoaded?: (seasonId: string, commentCount: number) => void;
   seasonId?: string | null;
   seasonNumber?: number;
@@ -44,6 +45,7 @@ export const StandingsView: React.FC<StandingsViewProps> = ({
   isConnecting = false,
   onJoinWithHattrick,
   onVisitHistory,
+  canAddSeasonComment = false,
   onCommentsLoaded,
   seasonId = null,
   seasonNumber = 0,
@@ -288,10 +290,15 @@ export const StandingsView: React.FC<StandingsViewProps> = ({
           showProgress={false}
           emptyMessage={
             <>
-              The season yearbook will open once the season concludes and its final report is published.{' '}
-              <button type="button" className={styles.yearbookHistoryLink} onClick={onVisitHistory}>
-                Visit history to add yours
-              </button>
+              The season yearbook will open once the season concludes and its final report is published.
+              {canAddSeasonComment && onVisitHistory && (
+                <>
+                  {' '}
+                  <button type="button" className={styles.yearbookHistoryLink} onClick={onVisitHistory}>
+                    Visit history to add yours
+                  </button>
+                </>
+              )}
             </>
           }
         />
