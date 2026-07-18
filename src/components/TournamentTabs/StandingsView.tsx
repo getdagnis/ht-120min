@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { SectionCard } from '../../components/Card/SectionCard';
 import { ArrowRight, ShieldCheck } from 'phosphor-react';
 import { TeamByline } from '../TeamByline/TeamByline';
@@ -32,6 +32,8 @@ interface StandingsViewProps {
 }
 
 const DEFAULT_TEAM_LOGO = '/default-logo.png';
+type StandingsSortKey = 'default' | 'team' | 'achievements120min' | 'totalMinutes' | 'played' | 'won' | 'drawn' | 'lost' | 'gd' | 'gf' | 'pts';
+type SortDirection = 'asc' | 'desc';
 
 export const StandingsView: React.FC<StandingsViewProps> = ({
   standings,
@@ -51,9 +53,65 @@ export const StandingsView: React.FC<StandingsViewProps> = ({
   seasonNumber = 0,
 }) => {
   const [presencePulse, setPresencePulse] = useState(0);
+  const [show120minScoring, setShow120minScoring] = useState(is120minMode);
+  const [sortKey, setSortKey] = useState<StandingsSortKey>('default');
+  const [sortDirection, setSortDirection] = useState<SortDirection>('desc');
   const [seasonComments, setSeasonComments] = useState<TournamentSeasonComment[]>([]);
   const [loadedSeasonCommentsId, setLoadedSeasonCommentsId] = useState<string | null>(null);
   const seasonCommentsLoading = Boolean(seasonId && loadedSeasonCommentsId !== seasonId);
+
+  const sortedStandings = useMemo(() => {
+    const rows = [...standings];
+    const compareDefault = (a: TeamStanding, b: TeamStanding) => {
+      if (show120minScoring) {
+        if (b.achievements120min !== a.achievements120min) return b.achievements120min - a.achievements120min;
+        if (b.gd !== a.gd) return b.gd - a.gd;
+        if (b.gf !== a.gf) return b.gf - a.gf;
+        return a.played - b.played;
+      }
+      if (b.pts !== a.pts) return b.pts - a.pts;
+      if (b.gd !== a.gd) return b.gd - a.gd;
+      return b.gf - a.gf;
+    };
+
+    rows.sort((a, b) => {
+      if (sortKey === 'default') return compareDefault(a, b);
+      if (sortKey === 'team') {
+        const result = a.teamName.localeCompare(b.teamName, undefined, { sensitivity: 'base' });
+        return sortDirection === 'asc' ? result : -result;
+      }
+
+      const result = Number(b[sortKey]) - Number(a[sortKey]);
+      if (result !== 0) return sortDirection === 'asc' ? -result : result;
+      return a.teamName.localeCompare(b.teamName, undefined, { sensitivity: 'base' });
+    });
+
+    return rows;
+  }, [show120minScoring, sortDirection, sortKey, standings]);
+
+  const toggleScoringDisplay = () => {
+    setShow120minScoring((value) => !value);
+    setSortKey('default');
+    setSortDirection('desc');
+  };
+
+  const handleSort = (nextKey: StandingsSortKey) => {
+    if (sortKey === nextKey) {
+      setSortDirection((direction) => direction === 'asc' ? 'desc' : 'asc');
+      return;
+    }
+    setSortKey(nextKey);
+    setSortDirection(nextKey === 'team' ? 'asc' : 'desc');
+  };
+
+  const sortIndicator = (key: StandingsSortKey) => sortKey === key ? (sortDirection === 'asc' ? ' ↑' : ' ↓') : '';
+  const sortableHeader = (label: string, key: StandingsSortKey, className = '') => (
+    <th className={className} aria-sort={sortKey === key ? (sortDirection === 'asc' ? 'ascending' : 'descending') : 'none'}>
+      <button type="button" className={styles.sortHeader} onClick={() => handleSort(key)}>
+        {label}<span aria-hidden="true">{sortIndicator(key)}</span>
+      </button>
+    </th>
+  );
 
   useEffect(() => {
     const tick = setInterval(() => setPresencePulse((value) => value + 1), 60_000);
@@ -112,29 +170,42 @@ export const StandingsView: React.FC<StandingsViewProps> = ({
 
   return (
     <div className={styles.mainColumn} data-presence-pulse={presencePulse}>
-      <SectionCard title="🏆 Standings" thumbnailSeed={tournament?.id}>
+      <SectionCard
+        title="🏆 Standings"
+        thumbnailSeed={tournament?.id}
+        headerRight={(
+          <button
+            type="button"
+            className={styles.scoringToggle}
+            onClick={toggleScoringDisplay}
+            aria-label={`Switch to ${show120minScoring ? '90min' : '120min'} scoring display`}
+          >
+            {show120minScoring ? '120min scoring' : '90min scoring'}
+          </button>
+        )}
+      >
         <div className={styles.tableWrapper}>
           <table>
             <thead>
               <tr>
                 <th>#</th>
-                <th>Team</th>
-                {is120minMode ? (
+                {sortableHeader('Team', 'team')}
+                {show120minScoring ? (
                   <>
-                    <th className={styles.center120}>120m</th>
-                    <th className={styles.center}>Mins</th>
-                    <th className={styles.center}>Pld</th>
-                    <th className={styles.center}>Dif</th>
-                    <th className={styles.center}>Goals</th>
+                    {sortableHeader('120m', 'achievements120min', styles.center120)}
+                    {sortableHeader('Mins', 'totalMinutes', styles.center)}
+                    {sortableHeader('Pld', 'played', styles.center)}
+                    {sortableHeader('Dif', 'gd', styles.center)}
+                    {sortableHeader('Goals', 'gf', styles.center)}
                   </>
                 ) : (
                   <>
-                    <th className={styles.center}>Pld</th>
-                    <th className={styles.center}>W</th>
-                    <th className={styles.center}>D</th>
-                    <th className={styles.center}>L</th>
-                    <th className={styles.center}>GD</th>
-                    <th className={styles.center}>Pts</th>
+                    {sortableHeader('Pld', 'played', styles.center)}
+                    {sortableHeader('W', 'won', styles.center)}
+                    {sortableHeader('D', 'drawn', styles.center)}
+                    {sortableHeader('L', 'lost', styles.center)}
+                    {sortableHeader('GD', 'gd', styles.center)}
+                    {sortableHeader('Pts', 'pts', styles.center)}
                   </>
                 )}
               </tr>
@@ -162,7 +233,7 @@ export const StandingsView: React.FC<StandingsViewProps> = ({
                       </div>
                     </div>
                   </td>
-                  {is120minMode ? (
+                  {show120minScoring ? (
                     <>
                       <td className={`${styles.highlight} ${styles.center}`}>0</td>
                       <td className={styles.center}>0</td>
@@ -182,7 +253,7 @@ export const StandingsView: React.FC<StandingsViewProps> = ({
                   )}
                 </tr>
               )}
-              {standings.map((s, idx) => {
+              {sortedStandings.map((s, idx) => {
                 const isMyTeam = s.htTeamId === Number(myHtUserId);
                 return (
                   <tr key={s.teamId} className={isMyTeam ? styles.myTeamRow : ''}>
@@ -229,7 +300,7 @@ export const StandingsView: React.FC<StandingsViewProps> = ({
                         </div>
                       </div>
                     </td>
-                    {is120minMode ? (
+                    {show120minScoring ? (
                       <>
                         <td className={`${styles.highlight} ${styles.center}`}>{s.achievements120min}</td>
                         <td className={styles.center}>{s.totalMinutes}</td>

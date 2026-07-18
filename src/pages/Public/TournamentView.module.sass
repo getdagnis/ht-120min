@@ -299,6 +299,27 @@
   &::-webkit-scrollbar
     display: none
 
+.scoringToggle
+  align-self: center
+  margin: 0 1.5rem 0 0
+  padding: 0
+  border: 0
+  background: transparent
+  color: var(--text60)
+  cursor: pointer
+  font: inherit
+  font-size: 0.85rem
+  line-height: 1.2
+  white-space: nowrap
+
+  &:hover,
+  &:focus-visible
+    color: var(--accent-2)
+
+  @media (max-width: 620px)
+    margin-right: 0.75rem
+    font-size: 0.75rem
+
 .tabs
   display: flex
   gap: 2rem
@@ -406,6 +427,23 @@
 .center120
   color: var(--accent-2)
   font-weight: 700
+
+.sortHeader
+  display: inline-flex
+  align-items: center
+  gap: 0.15rem
+  min-width: 100%
+  padding: 0
+  border: 0
+  background: transparent
+  color: inherit
+  cursor: pointer
+  font: inherit
+  text-align: inherit
+
+  &:hover,
+  &:focus-visible
+    color: var(--accent-2)
 
 .teamNameCell
   padding: 1rem 1rem
