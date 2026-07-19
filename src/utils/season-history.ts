@@ -258,7 +258,7 @@ function buildStory(standings: TeamStanding[], summary: SeasonHistorySummary) {
 function buildRecords(
   standings: TeamStanding[],
   matches: SeasonMatchSnapshot[],
-  scoringMode: '120m' | '120min' | 'points',
+  scoringMode: '120m' | '120min' | 'points' | 'appg',
 ): SeasonHistoryRecords {
   const most120 = getWinningTeamIds(
     standings.map((standing) => ({ teamId: standing.teamId, value: standing.achievements120min })),
@@ -279,7 +279,7 @@ function buildRecords(
   });
   const leader = standings[0];
   const runnerUp = standings[1];
-  const metric = scoringMode === 'points' ? 'points' : '120m';
+  const metric = scoringMode === 'points' || scoringMode === 'appg' ? 'points' : '120m';
   const leaderValue = metric === 'points' ? leader?.pts : leader?.achievements120min;
   const runnerUpValue = metric === 'points' ? runnerUp?.pts : runnerUp?.achievements120min;
 
@@ -304,7 +304,7 @@ function buildRecords(
 export function buildSeasonHistorySnapshot(
   teams: Team[],
   matches: SeasonHistoryMatch[],
-  scoringMode: '120m' | '120min' | 'points',
+  scoringMode: '120m' | '120min' | 'points' | 'appg',
 ): SeasonHistorySnapshotV2 {
   const participatingTeamIds = new Set(
     matches.flatMap((match) => [match.home_team_id, match.away_team_id]).filter((teamId): teamId is string => !!teamId),

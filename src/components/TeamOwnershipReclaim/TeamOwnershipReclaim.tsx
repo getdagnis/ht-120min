@@ -24,12 +24,14 @@ interface ClaimableTeamRow {
         name: string;
         slug: string;
         status: string | null;
+        is_test?: boolean | null;
         registration_type?: string | null;
       }
     | {
         name: string;
         slug: string;
         status: string | null;
+        is_test?: boolean | null;
         registration_type?: string | null;
       }[]
     | null;
@@ -54,6 +56,20 @@ export function TeamOwnershipReclaim({ profile, onClaimed }: TeamOwnershipReclai
   }, [profile?.teams_json]);
 
   const hasEligibleProfile = Boolean(profile?.hattrick_user_id && verifiedTeamIds.length > 0);
+  const currentUserId = profile?.hattrick_user_id ?? null;
+
+  const linkedTeamIds = useMemo(() => {
+    return new Set(
+      teamRows
+        .filter(
+          (team) =>
+            team.ht_team_id &&
+            team.hattrick_user_id === currentUserId &&
+            team.joined_via_oauth === true,
+        )
+        .map((team) => team.ht_team_id),
+    );
+  }, [currentUserId, teamRows]);
 
   const claimableTeams = useMemo(() => {
     if (!hasEligibleProfile) {
@@ -62,15 +78,22 @@ export function TeamOwnershipReclaim({ profile, onClaimed }: TeamOwnershipReclai
 
     return teamRows.filter((team) => {
       const tournament = getTournament(team);
+      const isActiveParticipation =
+        Boolean(tournament) &&
+        (!tournament?.status || ['open', 'active', 'ongoing', 'paused'].includes(tournament.status));
       return (
         team.ht_team_id &&
         !team.is_placeholder &&
+        !linkedTeamIds.has(team.ht_team_id) &&
+        team.hattrick_user_id == null &&
+        Boolean(tournament) &&
         tournament?.registration_type !== 'sandbox' &&
-        tournament?.status !== 'archived' &&
-        (!team.joined_via_oauth || !team.hattrick_user_id)
+        !tournament?.is_test &&
+        team.joined_via_oauth !== true &&
+        isActiveParticipation
       );
     });
-  }, [hasEligibleProfile, teamRows]);
+  }, [hasEligibleProfile, linkedTeamIds, teamRows]);
 
   useEffect(() => {
     if (!hasEligibleProfile) {
@@ -97,6 +120,7 @@ export function TeamOwnershipReclaim({ profile, onClaimed }: TeamOwnershipReclai
               name,
               slug,
               status,
+              is_test,
               registration_type
             )
           `,
@@ -159,7 +183,13 @@ export function TeamOwnershipReclaim({ profile, onClaimed }: TeamOwnershipReclai
   };
 
   return (
-    <Modal isOpen={isOpen} onClose={askNextTime} title="Some of your teams are already registered" maxWidth="720px">
+    <Modal
+      isOpen={isOpen}
+      onClose={askNextTime}
+      title="Some of your teams are already registered"
+      maxWidth="720px"
+      useContentPanel={false}
+    >
       <div className={styles.content}>
         <p className={styles.intro}>
           Some of your teams are already registered with HT-120min. Do you want to reclaim full ownership over these

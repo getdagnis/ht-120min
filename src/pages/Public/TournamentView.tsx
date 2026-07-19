@@ -8,6 +8,7 @@ import styles from './TournamentView.module.sass';
 import { buildCalendarSlots, formatCalendarDateWithWeek } from '../../utils/hattrick-calendar';
 import { getTournamentBackgroundStyle } from '../../utils/visuals';
 import { calculateStandings } from '../../utils/standings';
+import { validateAppgOutcome } from '../../utils/appg';
 import type { TeamStanding, Team as StandingTeam } from '../../utils/standings';
 import {
   buildSeasonHistorySnapshot,
@@ -17,7 +18,7 @@ import {
   type SeasonHistoryMatch,
 } from '../../utils/season-history';
 import { validateTeamEligibility } from '../../utils/team-eligibility';
-import { HATTRICK_LEAGUES, getLeagueIdByName, normalizeLeagueLimit } from '../../../shared/worlddetails';
+import { HATTRICK_LEAGUES, normalizeLeagueLimit } from '../../../shared/worlddetails';
 import { useLiveMatches } from '../../hooks/useLiveMatches';
 import { trackActivity } from '../../hooks/useActivityTracking';
 import { buildScheduleDraft, serializeScheduleDraftForRpc, type ScheduleMode } from '../../utils/schedule-draft';
@@ -44,10 +45,11 @@ import { HeroCard } from '../../components/Card/HeroCard';
 import { SectionCard } from '../../components/Card/SectionCard';
 import { ChatView } from '../../components/TournamentTabs/ChatView';
 import { FixturesView } from '../../components/TournamentTabs/FixturesView';
-import { AdminResults } from '../../components/TournamentTabs/Admin/AdminResults';
+import { AdminResults, type BulkMatchUpdate } from '../../components/TournamentTabs/Admin/AdminResults';
 import { AdminAnnouncementComposer } from '../../components/TournamentTabs/Admin/AdminAnnouncementComposer';
 import { TournamentSchedulePanel } from '../../components/TournamentTabs/Admin/TournamentSchedulePanel';
 import { CompactAccordionWidget } from '../../components/CompactAccordionWidget/CompactAccordionWidget';
+import { SidebarWidget } from '../../components/SidebarWidget/SidebarWidget';
 import { MottoWidget } from '../../components/MottoWidget/MottoWidget';
 import { StandingsView } from '../../components/TournamentTabs/StandingsView';
 import { TournamentHistory } from '../../components/TournamentHistory/TournamentHistory';
@@ -56,6 +58,7 @@ import { TOURNAMENT_DEFAULT } from '../../constants/descriptions';
 import { getTournamentFaqSections } from '../../constants/faq-essential';
 import { FORGE_SUPERADMIN_USER_ID } from '../../constants/site-admins';
 import { getRandomSandboxTeamId, SANDBOX_RANDOM_ATTEMPTS } from '../../constants/sandbox';
+import type { ResultCsvRow } from '../../utils/result-csv';
 import {
   dismissWelcome,
   getTournamentVisitWelcomeKey,
@@ -64,7 +67,29 @@ import {
 } from '../../utils/welcome-modals';
 import { ArrowClockwise, ArrowRight, ArrowUpRight, CopySimple, Info, Question, Star, Trash, X } from 'phosphor-react';
 
+const FORUM_LINK = 'https://www.hattrick.org/goto.ashx?path=/Forum/Read.aspx?n=1&nm=32&t=17685273&v=0';
 const DEFAULT_TEAM_LOGO = '/default-logo.png';
+const UNSAVED_SETTINGS_MESSAGE = 'Use save button to apply changes!';
+
+const TOURNAMENT_VIEW_MODALS_OPEN_BY_DEFAULT = {
+  historyReportNotice: false,
+  createdTournamentWelcome: false,
+  openTournamentWelcome: false,
+  editTournamentImage: false,
+  teamSelection: false,
+  seasonCommentConfirm: false,
+};
+const ADMIN_PANELS = [
+  { id: 'settings', label: 'Tournament Settings' },
+  { id: 'season', label: 'Season planner' },
+  { id: 'schedule', label: 'Schedule' },
+  { id: 'results', label: 'Results Entry' },
+  { id: 'teams', label: 'Manage Teams' },
+  { id: 'announcements', label: 'Admin announcements' },
+  { id: 'lifecycle', label: 'Tournament status' },
+] as const;
+
+type AdminPanelId = (typeof ADMIN_PANELS)[number]['id'];
 
 interface ChppTeamOption {
   teamId: number;
@@ -104,6 +129,8 @@ interface MatchWithTeams {
   total_minutes: number;
   penalty_shootout_home_goals?: number | null;
   penalty_shootout_away_goals?: number | null;
+  appg_outcome?: 'ET3' | 'ET2' | 'PS1' | 'RT0' | 'OPW' | 'needs_review' | null;
+  appg_outcome_source?: 'unclassified' | 'chpp' | 'organizer' | 'csv' | null;
   home_yellow_cards?: number;
   home_red_cards?: number;
   home_injuries?: number;
@@ -160,6 +187,7 @@ interface Team {
   hattrick_user_id?: number;
   league_level?: number | null;
   league_id?: number | null;
+  gender_id?: number | null;
 }
 
 interface FetchedTeamData {
@@ -268,6 +296,9 @@ function toSeasonHistoryMatch(match: MatchWithTeams, roundNumber?: number): Seas
     completed: match.completed,
     went_120: match.went_120,
     total_minutes: match.total_minutes,
+    appg_outcome: match.appg_outcome,
+    penalty_shootout_home_goals: match.penalty_shootout_home_goals,
+    penalty_shootout_away_goals: match.penalty_shootout_away_goals,
     home_yellow_cards: match.home_yellow_cards,
     home_red_cards: match.home_red_cards,
     home_injuries: match.home_injuries,
@@ -299,11 +330,14 @@ export const TournamentView: React.FC = () => {
   const [searchParams, setSearchParams] = useSearchParams();
   const tournamentFaqSections = useMemo(() => getTournamentFaqSections(), []);
   const tournamentFaqItems = useMemo(
-    () => tournamentFaqSections.flatMap((section) => section.items).map((item) => ({
-      id: item.id,
-      title: item.question,
-      body: item.answer,
-    })),
+    () =>
+      tournamentFaqSections
+        .flatMap((section) => section.items)
+        .map((item) => ({
+          id: item.id,
+          title: item.question,
+          body: item.answer,
+        })),
     [tournamentFaqSections],
   );
   const [tournament, setTournament] = useState<Tournament | null>(null);
@@ -390,7 +424,7 @@ export const TournamentView: React.FC = () => {
   const historyReportPublishedAt = latestPublishedHistorySeason?.snapshot_json?.generatedAt || null;
   const historyReportNoticeIsCurrent = Boolean(
     historyReportPublishedAt &&
-      renderTimestamp - new Date(historyReportPublishedAt).getTime() <= 7 * 24 * 60 * 60 * 1000,
+    renderTimestamp - new Date(historyReportPublishedAt).getTime() <= 7 * 24 * 60 * 60 * 1000,
   );
 
   useEffect(() => {
@@ -415,7 +449,8 @@ export const TournamentView: React.FC = () => {
   }, [currentHtUserId, historyReportNoticeIsCurrent, latestPublishedHistorySeason, tournament]);
 
   useEffect(() => {
-    if (!tournament || !activeTab || activeTab !== 'history' || !latestPublishedHistorySeason || !currentHtUserId) return;
+    if (!tournament || !activeTab || activeTab !== 'history' || !latestPublishedHistorySeason || !currentHtUserId)
+      return;
     void fetch('/api/app?route=history', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -473,13 +508,6 @@ export const TournamentView: React.FC = () => {
   const [isResettingAdminPassword, setIsResettingAdminPassword] = useState(false);
   const [isTest, setIsTest] = useState(false);
   const [editIsFeatured, setEditIsFeatured] = useState(false);
-  const validatedCountryLimit = useMemo(() => {
-    const validatedTeams = teams.filter((t) => t.joined_via_oauth && t.country_name);
-    const countries = Array.from(new Set(validatedTeams.map((t) => t.country_name)));
-    if (countries.length !== 1) return null;
-    return getLeagueIdByName(countries[0]!) ?? null;
-  }, [teams]);
-
   const savedStartSlotId = useMemo(() => {
     if (!tournament?.schedule_start_slot) return '';
     const storedStartSlot = buildCalendarSlots(new Date(), 160).find(
@@ -487,10 +515,25 @@ export const TournamentView: React.FC = () => {
     );
     return storedStartSlot?.id || '';
   }, [tournament]);
+  const firstKnownFixtureDate = useMemo(() => {
+    const dates = rounds
+      .flatMap((round) => round.matches)
+      .map((match) => (match.scheduled_for ? new Date(match.scheduled_for) : match.match_date ?? null))
+      .filter((date): date is Date => Boolean(date && Number.isFinite(date.getTime())))
+      .sort((a, b) => a.getTime() - b.getTime());
+
+    return dates[0] ?? null;
+  }, [rounds]);
+  const isStartDateLocked = Boolean(firstKnownFixtureDate);
 
   const myHtUserId = localStorage.getItem('my_ht_user_id');
   const hasJoined = teams.some((t) => t.hattrick_user_id === Number(myHtUserId) && t.active);
+  const normalizedRegistrationType = tournament
+    ? normalizeTournamentRegistrationType(tournament.registration_type)
+    : 'manual';
   const isSandbox = tournament ? isSandboxTournament(tournament.registration_type) : false;
+  const isValidatedTournament = normalizedRegistrationType === 'validated';
+  const isOrganizerManagedTournament = normalizedRegistrationType === 'manual';
   const isPausedTournament = tournament?.status === 'paused';
   const isStoppedTournament = tournament?.status === 'stopped';
   const organizerTeam = tournament?.organizer_id
@@ -501,21 +544,33 @@ export const TournamentView: React.FC = () => {
   const canLoginAsOrganizer = Boolean(
     tournament?.organizer_id && currentHtUserId && Number(tournament.organizer_id) === currentHtUserId,
   );
+  const storedAdminAuthMode = slug ? localStorage.getItem(`admin_auth_${slug}`) : null;
+  const adminAccessMode = storedAdminAuthMode === 'organizer' && canLoginAsOrganizer ? 'organizer' : 'guest admin';
+  const adminAccessName =
+    adminAccessMode === 'organizer'
+      ? currentHtManagerName
+      : publicOrganizerName || localStorage.getItem('my_ht_manager_name') || 'Guest admin';
 
   const tournamentVisitWelcomeKey = slug ? getTournamentVisitWelcomeKey(slug) : null;
   const showCreatedTournamentWelcome = searchParams.get('welcome') === TOURNAMENT_CREATED_WELCOME;
-  const showCreatedTournamentWelcomeVisible = showCreatedTournamentWelcome && !hasClosedCreatedTournamentWelcome;
-  const showOpenTournamentWelcome = Boolean(
-    tournamentVisitWelcomeKey &&
-    slug &&
+  const showCreatedTournamentWelcomeVisible = Boolean(
     tournament &&
-    !showCreatedTournamentWelcomeVisible &&
-    !isSandbox &&
-    tournament.status === 'open' &&
-    !hasJoined &&
-    !canLoginAsOrganizer &&
-    !hasClosedOpenTournamentWelcome &&
-    !hasDismissedWelcome(tournamentVisitWelcomeKey),
+    ((showCreatedTournamentWelcome && !hasClosedCreatedTournamentWelcome) ||
+      TOURNAMENT_VIEW_MODALS_OPEN_BY_DEFAULT.createdTournamentWelcome),
+  );
+  const showOpenTournamentWelcome = Boolean(
+    tournament &&
+    (TOURNAMENT_VIEW_MODALS_OPEN_BY_DEFAULT.openTournamentWelcome ||
+      (tournamentVisitWelcomeKey &&
+        slug &&
+        !showCreatedTournamentWelcomeVisible &&
+        !isSandbox &&
+        isValidatedTournament &&
+        tournament.status === 'open' &&
+        !hasJoined &&
+        !canLoginAsOrganizer &&
+        !hasClosedOpenTournamentWelcome &&
+        !hasDismissedWelcome(tournamentVisitWelcomeKey))),
   );
 
   const isSuperAdmin = useMemo(() => hasSuperAdminBypassCookie(document.cookie), []);
@@ -526,28 +581,45 @@ export const TournamentView: React.FC = () => {
       .filter((announcement) => localStorage.getItem(`announcement_dismissed_${announcement.id}`) === 'true')
       .map((announcement) => announcement.id),
   );
-  const settingsHasUnsavedChanges = useMemo(() => {
-    if (!tournament) return false;
+  const unsavedSettingsFields = useMemo(() => {
+    if (!tournament) {
+      return {
+        name: false,
+        private: false,
+        chppOnlyJoin: false,
+        leagueCategory: false,
+        registrationType: false,
+        countryLimit: false,
+        maxTeams: false,
+        showDescription: false,
+        description: false,
+        showEmail: false,
+        adminEmail: false,
+        scheduleStart: false,
+        test: false,
+        featured: false,
+      };
+    }
 
     const savedCountryLimit = normalizeLeagueLimit(tournament.country_limit);
     const savedAdminEmail = tournament.admin_email || '';
 
-    return (
-      editName !== tournament.name ||
-      editIsPrivate !== tournament.is_private ||
-      editChppOnlyJoin !== tournament.chpp_only_join ||
-      editLeagueCategory !== (tournament.league_category || 'male') ||
-      editRegistrationType !== normalizeTournamentRegistrationType(tournament.registration_type) ||
-      editCountryLimit !== savedCountryLimit ||
-      editMaxTeams !== (tournament.max_teams || null) ||
-      showEditDescription !== tournament.show_description ||
-      editDescription !== (tournament.description || '') ||
-      showEditEmail !== Boolean(tournament.admin_email) ||
-      editAdminEmail !== savedAdminEmail ||
-      scheduleStartSlotId !== savedStartSlotId ||
-      isTest !== Boolean(tournament.is_test) ||
-      editIsFeatured !== Boolean(tournament.is_featured)
-    );
+    return {
+      name: editName !== tournament.name,
+      private: editIsPrivate !== tournament.is_private,
+      chppOnlyJoin: editChppOnlyJoin !== tournament.chpp_only_join,
+      leagueCategory: editLeagueCategory !== (tournament.league_category || 'male'),
+      registrationType: editRegistrationType !== normalizeTournamentRegistrationType(tournament.registration_type),
+      countryLimit: editCountryLimit !== savedCountryLimit,
+      maxTeams: editMaxTeams !== (tournament.max_teams || null),
+      showDescription: showEditDescription !== tournament.show_description,
+      description: editDescription !== (tournament.description || ''),
+      showEmail: showEditEmail !== Boolean(tournament.admin_email),
+      adminEmail: editAdminEmail !== savedAdminEmail,
+      scheduleStart: !isStartDateLocked && scheduleStartSlotId !== savedStartSlotId,
+      test: isTest !== Boolean(tournament.is_test),
+      featured: editIsFeatured !== Boolean(tournament.is_featured),
+    };
   }, [
     editAdminEmail,
     editChppOnlyJoin,
@@ -558,6 +630,7 @@ export const TournamentView: React.FC = () => {
     editMaxTeams,
     editName,
     editRegistrationType,
+    isStartDateLocked,
     isTest,
     scheduleStartSlotId,
     savedStartSlotId,
@@ -566,6 +639,9 @@ export const TournamentView: React.FC = () => {
     editIsFeatured,
     tournament,
   ]);
+  const settingsHasUnsavedChanges = Object.values(unsavedSettingsFields).some(Boolean);
+  const renderUnsavedSettingsNote = (isChanged: boolean) =>
+    isChanged ? <p className={adminStyles.unsavedSettingsNote}>{UNSAVED_SETTINGS_MESSAGE}</p> : null;
 
   // Collapsible states
   const [isSettingsCollapsed, setIsSettingsCollapsed] = useState(() =>
@@ -592,6 +668,25 @@ export const TournamentView: React.FC = () => {
   const togglePanel = (key: string, state: boolean, setter: React.Dispatch<React.SetStateAction<boolean>>) => {
     setter(state);
     if (slug) localStorage.setItem(`${key}_collapsed_${slug}`, JSON.stringify(state));
+  };
+
+  const scrollToAdminPanel = (panelId: AdminPanelId) => {
+    if (panelId === 'settings') togglePanel('settings', false, setIsSettingsCollapsed);
+    if (panelId === 'teams') togglePanel('teams', false, setIsTeamsCollapsed);
+    if (panelId === 'results') togglePanel('results', false, setIsResultsCollapsed);
+    if (panelId === 'schedule' && scheduleCollapseStorageKey) {
+      if (slug) setScheduleCollapseOverrides((current) => ({ ...current, [slug]: false }));
+      localStorage.setItem(scheduleCollapseStorageKey, JSON.stringify(false));
+    }
+
+    window.setTimeout(() => {
+      const target = document.getElementById(`admin-panel-${panelId}`);
+      if (!target) return;
+
+      const offsetPx = 120;
+      const top = Math.max(window.scrollY + target.getBoundingClientRect().top - offsetPx, 0);
+      window.scrollTo({ top, behavior: 'smooth' });
+    }, 80);
   };
 
   // Join states
@@ -1107,6 +1202,9 @@ export const TournamentView: React.FC = () => {
             completed: m.completed,
             went_120: m.went_120,
             total_minutes: m.total_minutes,
+            appg_outcome: m.appg_outcome,
+            penalty_shootout_home_goals: m.penalty_shootout_home_goals,
+            penalty_shootout_away_goals: m.penalty_shootout_away_goals,
           })),
           tournamentData.scoring_mode as any,
         );
@@ -2223,12 +2321,51 @@ export const TournamentView: React.FC = () => {
     }
   };
 
+  const getActiveTeamRestrictionMismatch = (countryLimit = editCountryLimit) => {
+    if (!countryLimit) return null;
+
+    for (const team of teams) {
+      if (!team.active || team.is_placeholder) continue;
+      const validation = validateTeamEligibility(
+        {
+          leagueName: '',
+          leagueId: team.league_id ?? undefined,
+          leagueSystemId: team.league_id === 3000 || team.gender_id === 2 ? 2 : undefined,
+          genderId: team.gender_id ?? undefined,
+          countryId: team.country_id ?? undefined,
+          countryName: team.country_name,
+        },
+        {
+          category: editLeagueCategory,
+          countryLimit,
+        },
+      );
+
+      if (!validation.eligible) {
+        return `Team ${team.name} (${team.ht_team_id}) does not match this league limit. ${
+          validation.reason || 'Remove the team or choose Any Hattrick League.'
+        }`;
+      }
+    }
+
+    return null;
+  };
+
   const updateSettings = async () => {
+    const teamRestrictionMismatch = getActiveTeamRestrictionMismatch();
+    if (teamRestrictionMismatch) {
+      alert(teamRestrictionMismatch);
+      return;
+    }
+
     setIsUpdatingSettings(true);
     try {
-      const selectedStartSlot = scheduleStartSlotId
+      const selectedStartSlot = !isStartDateLocked && scheduleStartSlotId
         ? scheduleDraft.allSlotOptions.find((slot) => slot.id === scheduleStartSlotId) || null
         : null;
+      const nextPlannedStartSlot = isStartDateLocked
+        ? tournament?.schedule_start_slot ?? null
+        : selectedStartSlot?.nominalDate.toISOString() ?? tournament?.schedule_start_slot ?? null;
       const { error } = await supabase
         .from('tournaments')
         .update({
@@ -2246,7 +2383,7 @@ export const TournamentView: React.FC = () => {
           description: editDescription,
           admin_email: showEditEmail ? editAdminEmail : null,
           max_teams: editMaxTeams,
-          schedule_start_slot: selectedStartSlot?.nominalDate.toISOString() ?? tournament?.schedule_start_slot ?? null,
+          schedule_start_slot: nextPlannedStartSlot,
           ...(canManageFeaturedTournaments ? { is_featured: editIsFeatured } : {}),
         })
 
@@ -2259,7 +2396,7 @@ export const TournamentView: React.FC = () => {
             tournament_id: tournament.id,
             season_number: tournament.season || 1,
             status: tournament.status === 'finished' ? 'finished' : isGenerated ? 'ongoing' : 'planned',
-            planned_start_slot: selectedStartSlot?.nominalDate.toISOString() ?? tournament.schedule_start_slot ?? null,
+            planned_start_slot: nextPlannedStartSlot,
             updated_at: new Date().toISOString(),
           },
           { onConflict: 'tournament_id,season_number' },
@@ -2427,7 +2564,11 @@ export const TournamentView: React.FC = () => {
 
       setSandboxCandidate(null);
       setSandboxFetchError('');
-      void trackActivity('sandbox_team_added', { route: `/t/${slug}`, tournamentId: tournament.id, metadata: { teamId: sandboxCandidate.teamId } });
+      void trackActivity('sandbox_team_added', {
+        route: `/t/${slug}`,
+        tournamentId: tournament.id,
+        metadata: { teamId: sandboxCandidate.teamId },
+      });
       fetchData();
     } catch (error: any) {
       alert(error.message);
@@ -2836,23 +2977,187 @@ export const TournamentView: React.FC = () => {
       alert('Enter both scores before saving the result.');
       return;
     }
+    const appgValidationError = data.appg_outcome
+      ? validateAppgOutcome({
+          home_goals: Number(data.home_goals),
+          away_goals: Number(data.away_goals),
+          went_120: data.went_120 ?? false,
+          total_minutes: data.total_minutes || 90,
+          penalty_shootout_home_goals: data.penalty_shootout_home_goals ?? null,
+          penalty_shootout_away_goals: data.penalty_shootout_away_goals ?? null,
+          appg_outcome: data.appg_outcome,
+        })
+      : null;
+    if (appgValidationError) {
+      alert(appgValidationError);
+      return;
+    }
 
-    const { error } = await supabase
-      .from('matches')
-      .update({
-        home_goals: parseInt(String(data.home_goals)),
-        away_goals: parseInt(String(data.away_goals)),
-        went_120: data?.went_120 ?? false,
-        total_minutes: data?.total_minutes || 90,
-        completed: true,
-      })
-      .eq('id', matchId);
+    const payload = {
+      home_goals: parseInt(String(data.home_goals)),
+      away_goals: parseInt(String(data.away_goals)),
+      went_120: data?.went_120 ?? false,
+      total_minutes: data?.total_minutes || 90,
+      completed: true,
+      penalty_shootout_home_goals: data.penalty_shootout_home_goals ?? null,
+      penalty_shootout_away_goals: data.penalty_shootout_away_goals ?? null,
+      ...(data.appg_outcome ? { appg_outcome: data.appg_outcome, appg_outcome_source: 'organizer' as const } : {}),
+    };
+    const { error } = await supabase.from('matches').update(payload).eq('id', matchId);
 
     if (error) alert(error.message);
     else {
       setEditingMatch(null);
-      fetchData();
+      setRounds((current) =>
+        current.map((round) => ({
+          ...round,
+          matches: round.matches.map((match) => (match.id === matchId ? { ...match, ...payload } : match)),
+        })),
+      );
+      setMatchData((current) => {
+        const next = { ...current };
+        delete next[matchId];
+        return next;
+      });
     }
+  };
+
+  const saveBulkMatches = async (updates: Record<string, BulkMatchUpdate>) => {
+    const entries = Object.entries(updates);
+    const results = await Promise.all(
+      entries.map(async ([matchId, data]) => {
+        const match = rounds.flatMap((round) => round.matches).find((item) => item.id === matchId);
+        const isBye = Boolean(match && (!match.home_team_id || !match.away_team_id));
+        const homeGoals = data.home_goals == null && isBye ? 0 : data.home_goals;
+        const awayGoals = data.away_goals == null && isBye ? 0 : data.away_goals;
+        if (homeGoals == null || awayGoals == null) {
+          throw new Error('Every simulated match needs both scores before saving.');
+        }
+        const appgValidationError = data.appg_outcome
+          ? validateAppgOutcome({
+              home_goals: Number(homeGoals),
+              away_goals: Number(awayGoals),
+              went_120: data.went_120 ?? false,
+              total_minutes: data.total_minutes || 90,
+              penalty_shootout_home_goals: data.penalty_shootout_home_goals ?? null,
+              penalty_shootout_away_goals: data.penalty_shootout_away_goals ?? null,
+              appg_outcome: data.appg_outcome,
+            })
+          : null;
+        if (appgValidationError) throw new Error(appgValidationError);
+        const payload = {
+          home_goals: Number(homeGoals),
+          away_goals: Number(awayGoals),
+          went_120: Boolean(data.went_120),
+          total_minutes: Number(data.total_minutes) || 90,
+          completed: true,
+          penalty_shootout_home_goals: data.penalty_shootout_home_goals ?? null,
+          penalty_shootout_away_goals: data.penalty_shootout_away_goals ?? null,
+          ...(data.appg_outcome ? { appg_outcome: data.appg_outcome, appg_outcome_source: 'organizer' as const } : {}),
+        };
+        const { error } = await supabase.from('matches').update(payload).eq('id', matchId);
+        if (error) throw error;
+        return [matchId, payload] as const;
+      }),
+    );
+    const saved = Object.fromEntries(results);
+    setRounds((current) =>
+      current.map((round) => ({
+        ...round,
+        matches: round.matches.map((match) => (saved[match.id] ? { ...match, ...saved[match.id] } : match)),
+      })),
+    );
+  };
+
+  const importCsvRows = async (rows: ResultCsvRow[]) => {
+    if (!tournament) throw new Error('Tournament is not loaded.');
+    const teamRows = rows.filter((row) => row.type === 'team');
+    const matchRows = rows.filter((row) => row.type === 'match');
+    if (teamRows.length > 0 && isGenerated) {
+      throw new Error('Import team rows before generating the schedule.');
+    }
+
+    const existingTeamIds = new Set(teams.filter((team) => team.active).map((team) => team.ht_team_id));
+    const importedTeamIds = new Set<number>();
+    const fetchedTeams: FetchedTeamData[] = [];
+    for (const row of teamRows) {
+      if (!row.teamId || importedTeamIds.has(row.teamId)) continue;
+      importedTeamIds.add(row.teamId);
+      if (existingTeamIds.has(row.teamId)) continue;
+      const response = await fetch(`/api/teams/info?team_id=${row.teamId}`);
+      const data = (await response.json()) as FetchedTeamData & { error?: string };
+      if (!response.ok) throw new Error(data.error || `Could not fetch team ${row.teamId}.`);
+      const validation = validateTeamEligibility(data, {
+        category: tournament.league_category,
+        countryLimit: tournament.country_limit,
+      });
+      if (!validation.eligible) throw new Error(validation.reason || `Team ${row.teamId} is not eligible.`);
+      fetchedTeams.push(data);
+    }
+
+    for (const row of matchRows) {
+      const match = rounds
+        .find((round) => round.round_number === row.round)
+        ?.matches.find((item) => {
+          const homeId = item.home_team?.ht_team_id;
+          const awayId = item.away_team?.ht_team_id;
+          return (
+            (homeId === row.homeTeamId && awayId === row.awayTeamId) ||
+            (homeId === row.awayTeamId && awayId === row.homeTeamId)
+          );
+        });
+      if (!match)
+        throw new Error(`Could not find the round ${row.round} fixture for ${row.homeTeamId} and ${row.awayTeamId}.`);
+      if (row.homeGoals == null || row.awayGoals == null)
+        throw new Error(`Result row for round ${row.round} is missing a score.`);
+    }
+
+    if (fetchedTeams.length > 0) {
+      const { error } = await supabase.from('teams').insert(
+        fetchedTeams.map((team) => ({
+          tournament_id: tournament.id,
+          name: team.teamName,
+          ht_team_id: team.teamId,
+          active: true,
+          joined_via_oauth: false,
+          manager_name: 'Bot team',
+          logo_url: team.logoUrl ?? null,
+          country_id: team.countryId ?? null,
+          country_name: team.countryName ?? null,
+          league_id: team.leagueId ?? null,
+          gender_id: team.genderId ?? null,
+          league_level: team.leagueLevel ?? null,
+        })),
+      );
+      if (error) throw error;
+    }
+
+    const resultUpdates: Record<string, BulkMatchUpdate> = {};
+    for (const row of matchRows) {
+      const match = rounds
+        .find((round) => round.round_number === row.round)
+        ?.matches.find((item) => {
+          const homeId = item.home_team?.ht_team_id;
+          const awayId = item.away_team?.ht_team_id;
+          return (
+            (homeId === row.homeTeamId && awayId === row.awayTeamId) ||
+            (homeId === row.awayTeamId && awayId === row.homeTeamId)
+          );
+        });
+      if (!match) continue;
+      resultUpdates[match.id] = {
+        home_goals: row.homeGoals,
+        away_goals: row.awayGoals,
+        total_minutes: row.totalMinutes || 90,
+        went_120: row.went120 ?? Boolean((row.totalMinutes || 90) > 90),
+        completed: true,
+        penalty_shootout_home_goals: row.penaltyShootoutHomeGoals,
+        penalty_shootout_away_goals: row.penaltyShootoutAwayGoals,
+        ...(row.appgOutcome ? { appg_outcome: row.appgOutcome, appg_outcome_source: 'csv' as const } : {}),
+      };
+    }
+    if (Object.keys(resultUpdates).length > 0) await saveBulkMatches(resultUpdates);
+    if (fetchedTeams.length > 0) await fetchData();
   };
 
   const canManageSchedule = Boolean(tournament && !isPausedTournament && !isStoppedTournament);
@@ -2872,10 +3177,6 @@ export const TournamentView: React.FC = () => {
       status: tournament.status,
     }),
   );
-  const normalizedRegistrationType = tournament
-    ? normalizeTournamentRegistrationType(tournament.registration_type)
-    : 'manual';
-  const isValidatedTournament = normalizedRegistrationType === 'validated';
   const canJoinAnotherTeamBeforeFixtures = Boolean(
     tournament && !isSandbox && !isGenerated && (!tournament.max_teams || activeRealTeamsCount < tournament.max_teams),
   );
@@ -2936,15 +3237,41 @@ export const TournamentView: React.FC = () => {
     setHasClosedOpenTournamentWelcome(true);
   };
 
+  const handleHistoryCommentsLoaded = useCallback(
+    (seasonId: string, commentCount: number) => {
+      setHistorySeasonCommentCounts((current) =>
+        current[seasonId] === commentCount ? current : { ...current, [seasonId]: commentCount },
+      );
+      if (activeTab === 'history') {
+        localStorage.setItem(`ht-120min:history-comments-read:${seasonId}`, String(commentCount));
+        setHistorySeenVersion((current) => current + 1);
+      }
+    },
+    [activeTab],
+  );
+
   const handleRefreshHattrickLogin = () => {
     document.cookie = `auth_return_url=${encodeURIComponent(window.location.pathname + window.location.search)}; path=/; max-age=300`;
     window.location.href = '/api/auth/init';
   };
 
-  if (loading) return <div className={styles.loading}>Loading...</div>;
-  if (!tournament) return <div className={styles.loading}>Tournament not found</div>;
+  if (loading) {
+    return (
+      <div className={styles.view}>
+        <div className={styles.loading}>Loading tournament...</div>
+      </div>
+    );
+  }
+  if (!tournament) {
+    return (
+      <div className={styles.view}>
+        <div className={styles.loading}>Tournament not found</div>
+      </div>
+    );
+  }
 
   const is120minMode = tournament.scoring_mode === '120m' || tournament.scoring_mode === '120min';
+  const isAppgMode = tournament.scoring_mode === 'appg';
 
   const isMobile = window.innerWidth <= 620;
   const publicUrl = `${window.location.origin}/t/${slug}`;
@@ -2974,8 +3301,9 @@ export const TournamentView: React.FC = () => {
         }).format(new Date(value))
       : null;
 
-  const latestHistoryCommentCount =
-    latestPublishedHistorySeason ? historySeasonCommentCounts[latestPublishedHistorySeason.id] ?? null : null;
+  const latestHistoryCommentCount = latestPublishedHistorySeason
+    ? (historySeasonCommentCounts[latestPublishedHistorySeason.id] ?? null)
+    : null;
   const latestHistoryReadCount = latestPublishedHistorySeason
     ? (() => {
         void historySeenVersion;
@@ -2995,16 +3323,6 @@ export const TournamentView: React.FC = () => {
   );
   const historyTabBadgeCount =
     activeTab !== 'history' ? Math.max(latestHistoryUnreadCount, hasNewHistoryReportBadge ? 1 : 0) : 0;
-
-  const handleHistoryCommentsLoaded = (seasonId: string, commentCount: number) => {
-    setHistorySeasonCommentCounts((current) =>
-      current[seasonId] === commentCount ? current : { ...current, [seasonId]: commentCount },
-    );
-    if (activeTab === 'history') {
-      localStorage.setItem(`ht-120min:history-comments-read:${seasonId}`, String(commentCount));
-      setHistorySeenVersion((current) => current + 1);
-    }
-  };
 
   return (
     <div className={styles.view}>
@@ -3082,7 +3400,45 @@ export const TournamentView: React.FC = () => {
                 {teams.filter((t) => t.active).length >= tournament.max_teams && ' — Filled!'}
               </p>
             )}
-            {is120minMode ? (
+            {isAppgMode ? (
+              <div className={styles.scoringHelp}>
+                <p onClick={() => setShowScoringHelp(!showScoringHelp)} className={styles.helpToggle}>
+                  <strong>APPG scoring mode</strong> {showScoringHelp ? <X size={18} /> : <Info size={18} />}
+                </p>
+                {showScoringHelp && (
+                  <div className={styles.helpContent}>
+                    <p>
+                      APPG means <strong>Average Points Per Game</strong>. Standings are ranked by each team's average
+                      APPG points from completed, classified matches.
+                    </p>
+                    <ul>
+                      <li>
+                        <strong>ET3</strong> - 3 points for finishing the match in extra time, when at least one of the
+                        winning goals came from open play.
+                      </li>
+                      <li>
+                        <strong>ET2</strong> - 2 points for finishing the match in extra time, when the winning goal or
+                        goals came from special events or other non-open-play events.
+                      </li>
+                      <li>
+                        <strong>PS1</strong> - 1 point if the match goes to penalties.
+                      </li>
+                      <li>
+                        <strong>RT0</strong> - 0 points if the match is decided before extra time.
+                      </li>
+                      <li>
+                        <strong>OPW</strong> - minus 1 point for the winning team if they scored the regular-time winner
+                        from open play.
+                      </li>
+                    </ul>
+                    <p>
+                      Matches marked <strong>needs review</strong> do not count toward APPG until an organizer classifies
+                      them. Ties are then sorted by goal difference, goals scored, and team name.
+                    </p>
+                  </div>
+                )}
+              </div>
+            ) : is120minMode ? (
               <div className={styles.scoringHelp}>
                 <p onClick={() => setShowScoringHelp(!showScoringHelp)} className={styles.helpToggle}>
                   <strong>120min scoring mode</strong> {showScoringHelp ? <X size={18} /> : <Info size={18} />}
@@ -3376,7 +3732,10 @@ export const TournamentView: React.FC = () => {
       </div>
 
       <Modal
-        isOpen={historyReportNoticeOpen && latestPublishedHistorySeason !== null}
+        isOpen={
+          (historyReportNoticeOpen || TOURNAMENT_VIEW_MODALS_OPEN_BY_DEFAULT.historyReportNotice) &&
+          latestPublishedHistorySeason !== null
+        }
         onClose={dismissHistoryReportNotice}
         title={`Season ${latestPublishedHistorySeason?.season_number} history`}
         maxWidth="520px"
@@ -3440,151 +3799,154 @@ export const TournamentView: React.FC = () => {
             onGenerateReport={handleGenerateHistoryReport}
             autoScrollToYearbook={latestHistoryUnreadCount > 0}
             onCommentsLoaded={handleHistoryCommentsLoaded}
+            forceCommentConfirmOpen={TOURNAMENT_VIEW_MODALS_OPEN_BY_DEFAULT.seasonCommentConfirm}
           />
         </div>
       )}
 
       {activeTab === 'fixtures' && (
-        <FixturesView
-          key={tournament?.id}
-          rounds={rounds}
-          upcomingRoundIndex={upcomingRoundIndex}
-          season={tournament.season}
-          defaultVisibleRoundsCount={defaultVisibleRoundsCount}
-          expandedRounds={expandedRounds}
-          toggleRound={toggleRound}
-          onExpandAllRounds={expandAllRounds}
-          onCollapseAllRounds={collapseAllRounds}
-          tournament={tournament}
-          isRefreshingFixtures={isRefreshingFixtures}
-          handleRefreshFixtures={handleRefreshFixtures}
-          copied={copied}
-          setCopied={setCopied}
-          warnings={warnings}
-          liveData={liveData}
-          canJoinTournament={canJoinTournament}
-          canJoinAnotherTeam={canJoinAnotherTeamBeforeFixtures}
-          isConnecting={isConnecting}
-          onJoinWithHattrick={() => {
-            setIsConnecting(true);
-            window.location.href = `/api/auth/init?tournament_id=${tournament?.id}`;
-          }}
-        />
+        <div className={styles.fixturesContainer}>
+          <FixturesView
+            key={tournament?.id}
+            rounds={rounds}
+            upcomingRoundIndex={upcomingRoundIndex}
+            season={tournament.season}
+            defaultVisibleRoundsCount={defaultVisibleRoundsCount}
+            expandedRounds={expandedRounds}
+            toggleRound={toggleRound}
+            onExpandAllRounds={expandAllRounds}
+            onCollapseAllRounds={collapseAllRounds}
+            tournament={tournament}
+            isRefreshingFixtures={isRefreshingFixtures}
+            handleRefreshFixtures={handleRefreshFixtures}
+            copied={copied}
+            setCopied={setCopied}
+            warnings={warnings}
+            liveData={liveData}
+            canJoinTournament={canJoinTournament}
+            canJoinAnotherTeam={canJoinAnotherTeamBeforeFixtures}
+            isConnecting={isConnecting}
+            onJoinWithHattrick={() => {
+              setIsConnecting(true);
+              window.location.href = `/api/auth/init?tournament_id=${tournament?.id}`;
+            }}
+          />
+        </div>
       )}
 
       {isNewsTab && (
         <div className={styles.newsLayout}>
           <div className={styles.guestbook}>
             <SectionCard title="News & Announcements">
-            <div className={styles.newsTabs}>
-              <button className={newsMode === 'team' ? styles.active : ''} onClick={() => setNewsMode('team')}>
-                Team News
-              </button>
-              {isAdminAuthenticated && (
-                <button className={newsMode === 'admin' ? styles.active : ''} onClick={() => setNewsMode('admin')}>
-                  Announcement
+              <div className={styles.newsTabs}>
+                <button className={newsMode === 'team' ? styles.active : ''} onClick={() => setNewsMode('team')}>
+                  Team News
                 </button>
-              )}
-            </div>
-
-            {/* Team Branding for Posting */}
-            {newsMode === 'team' && (
-              <div className={styles.postingTeamBranding}>
-                {/* Need to find current manager's team assuming we have teams array */}
-                {(() => {
-                  const myHtId = localStorage.getItem('my_ht_user_id');
-                  const myTeam = teams.find((t) => t.hattrick_user_id === Number(myHtId));
-                  return myTeam ? (
-                    <div className={styles.branding}>
-                      <img
-                        src={myTeam.logo_url || DEFAULT_TEAM_LOGO}
-                        alt={myTeam.name}
-                        onError={(event) => {
-                          event.currentTarget.onerror = null;
-                          event.currentTarget.src = DEFAULT_TEAM_LOGO;
-                        }}
-                      />
-                      <span>
-                        Posting as: <strong>{myTeam.name}</strong>
-                      </span>
-                    </div>
-                  ) : (
-                    <p>You don't have a team in this tournament.</p>
-                  );
-                })()}
+                {isAdminAuthenticated && (
+                  <button className={newsMode === 'admin' ? styles.active : ''} onClick={() => setNewsMode('admin')}>
+                    Announcement
+                  </button>
+                )}
               </div>
-            )}
 
-            <form onSubmit={handlePostMessage} className={styles.postForm}>
-              <div className={styles.newsInputGroup}>
-                <input
-                  type="text"
-                  value={newNewsTitle}
-                  onChange={(e) => setNewNewsTitle(e.target.value)}
-                  placeholder="Article Title..."
-                  className={styles.postTitleInput}
-                />
-                <textarea
-                  value={newNewsContent}
-                  onChange={(e) => setNewNewsContent(e.target.value)}
-                  placeholder={
-                    newsMode === 'admin' ? 'Write a tournament announcement...' : "Share your team's news..."
-                  }
-                  className={styles.postTextarea}
-                  rows={3}
-                />
-              </div>
-              <div className={styles.postActions}>
-                <Button type="submit" variant="primary" disabled={isPostingNews || !newNewsContent.trim()}>
-                  {isPostingNews ? 'Posting...' : 'Post News'}
-                </Button>
-              </div>
-            </form>
-
-            <div className={styles.postsList}>
-              {newsPosts.length === 0 ? (
-                <p className={styles.noPosts}>No news yet.</p>
-              ) : (
-                newsPosts.map((post) => (
-                  <div key={post.id} className={`${styles.post} ${post.is_admin ? styles.adminPost : ''}`}>
-                    <div className={styles.postHeader}>
-                      {/* Team Logo if applicable */}
-                      {post.author_team_id && teams.find((t) => t.id === post.author_team_id)?.logo_url && (
+              {/* Team Branding for Posting */}
+              {newsMode === 'team' && (
+                <div className={styles.postingTeamBranding}>
+                  {/* Need to find current manager's team assuming we have teams array */}
+                  {(() => {
+                    const myHtId = localStorage.getItem('my_ht_user_id');
+                    const myTeam = teams.find((t) => t.hattrick_user_id === Number(myHtId));
+                    return myTeam ? (
+                      <div className={styles.branding}>
                         <img
-                          src={teams.find((t) => t.id === post.author_team_id)?.logo_url}
-                          className={styles.postLogo}
-                          alt=""
+                          src={myTeam.logo_url || DEFAULT_TEAM_LOGO}
+                          alt={myTeam.name}
+                          onError={(event) => {
+                            event.currentTarget.onerror = null;
+                            event.currentTarget.src = DEFAULT_TEAM_LOGO;
+                          }}
                         />
-                      )}
-                      <span className={styles.postAuthor}>{post.author_name}</span>
-                      <span className={styles.postTime}>
-                        {new Date(post.created_at).toLocaleString('lv-LV', {
-                          month: 'short',
-                          day: 'numeric',
-                          hour: '2-digit',
-                          minute: '2-digit',
-                        })}
-                      </span>
-                    </div>
-                    {post.title && <h4 className={styles.postTitle}>{post.title}</h4>}
-                    <div className={styles.postContent}>{post.content}</div>
-
-                    {/* Reaction Bar */}
-                    <div className={styles.reactionBar}>
-                      {['🔥', '💪', '👌', '❤️', '🥶', '😱', '😢', '🏆'].map((emoji) => (
-                        <button
-                          key={emoji}
-                          onClick={() => handleAddReaction(post.id, emoji)}
-                          className={styles.reactionBtn}
-                        >
-                          {emoji}
-                        </button>
-                      ))}
-                    </div>
-                  </div>
-                ))
+                        <span>
+                          Posting as: <strong>{myTeam.name}</strong>
+                        </span>
+                      </div>
+                    ) : (
+                      <p>You don't have a team in this tournament.</p>
+                    );
+                  })()}
+                </div>
               )}
-            </div>
+
+              <form onSubmit={handlePostMessage} className={styles.postForm}>
+                <div className={styles.newsInputGroup}>
+                  <input
+                    type="text"
+                    value={newNewsTitle}
+                    onChange={(e) => setNewNewsTitle(e.target.value)}
+                    placeholder="Article Title..."
+                    className={styles.postTitleInput}
+                  />
+                  <textarea
+                    value={newNewsContent}
+                    onChange={(e) => setNewNewsContent(e.target.value)}
+                    placeholder={
+                      newsMode === 'admin' ? 'Write a tournament announcement...' : "Share your team's news..."
+                    }
+                    className={styles.postTextarea}
+                    rows={3}
+                  />
+                </div>
+                <div className={styles.postActions}>
+                  <Button type="submit" variant="primary" disabled={isPostingNews || !newNewsContent.trim()}>
+                    {isPostingNews ? 'Posting...' : 'Post News'}
+                  </Button>
+                </div>
+              </form>
+
+              <div className={styles.postsList}>
+                {newsPosts.length === 0 ? (
+                  <p className={styles.noPosts}>No news yet.</p>
+                ) : (
+                  newsPosts.map((post) => (
+                    <div key={post.id} className={`${styles.post} ${post.is_admin ? styles.adminPost : ''}`}>
+                      <div className={styles.postHeader}>
+                        {/* Team Logo if applicable */}
+                        {post.author_team_id && teams.find((t) => t.id === post.author_team_id)?.logo_url && (
+                          <img
+                            src={teams.find((t) => t.id === post.author_team_id)?.logo_url}
+                            className={styles.postLogo}
+                            alt=""
+                          />
+                        )}
+                        <span className={styles.postAuthor}>{post.author_name}</span>
+                        <span className={styles.postTime}>
+                          {new Date(post.created_at).toLocaleString('lv-LV', {
+                            month: 'short',
+                            day: 'numeric',
+                            hour: '2-digit',
+                            minute: '2-digit',
+                          })}
+                        </span>
+                      </div>
+                      {post.title && <h4 className={styles.postTitle}>{post.title}</h4>}
+                      <div className={styles.postContent}>{post.content}</div>
+
+                      {/* Reaction Bar */}
+                      <div className={styles.reactionBar}>
+                        {['🔥', '💪', '👌', '❤️', '🥶', '😱', '😢', '🏆'].map((emoji) => (
+                          <button
+                            key={emoji}
+                            onClick={() => handleAddReaction(post.id, emoji)}
+                            className={styles.reactionBtn}
+                          >
+                            {emoji}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  ))
+                )}
+              </div>
             </SectionCard>
           </div>
           <aside className={styles.newsSidebar}>
@@ -3599,28 +3961,26 @@ export const TournamentView: React.FC = () => {
 
       {activeTab === 'standings' && (
         <div className={styles.standingsContainer}>
-          <div className={styles.mainColumn}>
-            <StandingsView
-              standings={standings}
-              is120minMode={is120minMode}
-              myHtUserId={myHtUserId}
-              tournament={tournament}
-              lastSeenMap={lastSeenMap}
-              onRefreshPresence={fetchPresenceOnly}
-              canJoinTournament={canJoinTournament}
-              isConnecting={isConnecting}
-              onJoinWithHattrick={() => {
-                setIsConnecting(true);
-                window.location.href = `/api/auth/init?tournament_id=${tournament?.id}`;
-              }}
-              seasonId={currentSeason?.id}
-              seasonNumber={currentSeason?.season_number ?? tournament.season}
-              seasonStatus={currentSeason?.status === 'finished' ? 'finished' : 'ongoing'}
-              onCommentsLoaded={handleHistoryCommentsLoaded}
-              onVisitHistory={() => handleTabChange('history')}
-              canAddSeasonComment={false}
-            />
-          </div>
+          <StandingsView
+            standings={standings}
+            is120minMode={is120minMode}
+            myHtUserId={myHtUserId}
+            tournament={tournament}
+            lastSeenMap={lastSeenMap}
+            onRefreshPresence={fetchPresenceOnly}
+            canJoinTournament={canJoinTournament}
+            isConnecting={isConnecting}
+            onJoinWithHattrick={() => {
+              setIsConnecting(true);
+              window.location.href = `/api/auth/init?tournament_id=${tournament?.id}`;
+            }}
+            seasonId={currentSeason?.id}
+            seasonNumber={currentSeason?.season_number ?? tournament.season}
+            seasonStatus={currentSeason?.status === 'finished' ? 'finished' : 'ongoing'}
+            onCommentsLoaded={handleHistoryCommentsLoaded}
+            onVisitHistory={() => handleTabChange('history')}
+            canAddSeasonComment={false}
+          />
           <aside className={styles.statsSidebar}>
             <MottoWidget items={TOURNAMENT_DEFAULT} theme="dark" variant="sidebar" />
             <ChatView
@@ -3640,75 +4000,78 @@ export const TournamentView: React.FC = () => {
       )}
 
       {activeTab === 'admin' && (
-        <div className={styles.adminSection}>
+        <div className={styles.adminTabContent}>
           {!isAdminAuthenticated ? (
-            <SectionCard
-              title="Admin Access"
-              subtitle={
-                publicOrganizerName && (
-                  <div className={styles.organizerInfo}>
-                    <span className={styles.organizerLabel}>Organizer: </span>
-                    <span className={styles.organizerName}>
-                      {tournament.organizer_id ? (
-                        <a
-                          href={`https://www.hattrick.org/goto.ashx?path=/Club/Manager/?userId=${tournament.organizer_id}`}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className={`${styles.htLink} ${styles.headerBadge}`}
-                        >
-                          {publicOrganizerName}{' '}
-                          <ArrowUpRight size={16} weight="bold" style={{ marginLeft: '0.25rem' }} />
-                        </a>
+            <div className={`${adminStyles.admin} ${styles.adminLoginPanel}`}>
+              <SectionCard
+                title="Admin Access"
+                subtitle={
+                  publicOrganizerName && (
+                    <div className={styles.organizerInfo}>
+                      <span className={styles.organizerLabel}>Organizer: </span>
+                      <span className={styles.organizerName}>
+                        {tournament.organizer_id ? (
+                          <a
+                            href={`https://www.hattrick.org/goto.ashx?path=/Club/Manager/?userId=${tournament.organizer_id}`}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className={`${styles.htLink} ${styles.headerBadge}`}
+                          >
+                            {publicOrganizerName}{' '}
+                            <ArrowUpRight size={16} weight="bold" style={{ marginLeft: '0.25rem' }} />
+                          </a>
+                        ) : (
+                          publicOrganizerName
+                        )}
+                      </span>
+                    </div>
+                  )
+                }
+              >
+                <div className={styles.adminAuthForm}>
+                  <form onSubmit={canLoginAsOrganizer ? handleOrganizerLogin : handleAdminLogin}>
+                    <div className={styles.authField}>
+                      <label>{canLoginAsOrganizer ? 'Auto-login as the organizer:' : 'Tournament Password'}</label>
+                      {canLoginAsOrganizer ? (
+                        <input type="text" value={organizerLoginLabel} readOnly className={styles.readOnlyName} />
                       ) : (
-                        publicOrganizerName
+                        <input
+                          type="password"
+                          value={password}
+                          onChange={(e) => {
+                            setPassword(e.target.value);
+                            if (adminAuthError) setAdminAuthError(false);
+                          }}
+                          placeholder="Enter admin password"
+                          required
+                        />
                       )}
-                    </span>
-                  </div>
-                )
-              }
-            >
-              <div className={styles.adminAuthForm}>
-                <form onSubmit={canLoginAsOrganizer ? handleOrganizerLogin : handleAdminLogin}>
-                  <div className={styles.authField}>
-                    <label>{canLoginAsOrganizer ? 'Auto-login as the organizer:' : 'Tournament Password'}</label>
-                    {canLoginAsOrganizer ? (
-                      <input type="text" value={organizerLoginLabel} readOnly className={styles.readOnlyName} />
+                    </div>
+                    {!canLoginAsOrganizer && adminAuthError && (
+                      <p className={styles.authError}>Invalid password. Please try again.</p>
+                    )}
+                    <Button type="submit" variant="primaryDanger" size="md">
+                      Login <ArrowRight size={18} weight="bold" />
+                    </Button>
+                  </form>
+
+                  <div className={styles.adminAuthFooter}>
+                    {failedLoginAttempt ? (
+                      <p className={styles.adminAuthNote}>Forgot password? Recover with a registered email.</p>
                     ) : (
-                      <input
-                        type="password"
-                        value={password}
-                        onChange={(e) => {
-                          setPassword(e.target.value);
-                          if (adminAuthError) setAdminAuthError(false);
-                        }}
-                        placeholder="Enter admin password"
-                        required
-                      />
+                      <a href="/create" className={styles.adminAuthLink}>
+                        Want to be an admin? <u>Start your own tournament</u>.
+                      </a>
                     )}
                   </div>
-                  {!canLoginAsOrganizer && adminAuthError && (
-                    <p className={styles.authError}>Invalid password. Please try again.</p>
-                  )}
-                  <Button type="submit" variant="primaryDanger" size="md">
-                    Login <ArrowRight size={18} weight="bold" />
-                  </Button>
-                </form>
-
-                <div className={styles.adminAuthFooter}>
-                  {failedLoginAttempt ? (
-                    <p className={styles.adminAuthNote}>Forgot password? Recover with a registered email.</p>
-                  ) : (
-                    <a href="/create" className={styles.adminAuthLink}>
-                      Want to be an admin? <u>Start your own tournament</u>.
-                    </a>
-                  )}
                 </div>
-              </div>
-            </SectionCard>
+              </SectionCard>
+            </div>
           ) : (
             <div className={adminStyles.admin}>
               <div className={adminStyles.mainGrid}>
                 <section className={adminStyles.teamsSection}>
+                  <div id="admin-panel-settings">
                   <SectionCard
                     title="Tournament Settings"
                     collapsible
@@ -3794,6 +4157,7 @@ export const TournamentView: React.FC = () => {
                         {teams.length > 0 && !isSuperAdmin && (
                           <p className={adminStyles.smallNote}>Category is locked once teams have registered.</p>
                         )}
+                        {renderUnsavedSettingsNote(unsavedSettingsFields.leagueCategory)}
                       </div>
 
                       <div className={adminStyles.field}>
@@ -3810,26 +4174,46 @@ export const TournamentView: React.FC = () => {
                             </option>
                           ))}
                         </select>
+                        {renderUnsavedSettingsNote(unsavedSettingsFields.maxTeams)}
                       </div>
 
                       <div className={adminStyles.field}>
-                        <label>Planned start date</label>
-                        <select
-                          value={scheduleStartSlotId}
-                          onChange={(e) => setScheduleStartSlotId(e.target.value)}
-                          disabled={scheduleDraft.startSlotOptions.length === 0}
-                          className={adminStyles.selectField}
-                        >
-                          <option value="" disabled>
-                            {scheduleDraft.startSlotOptions.length > 0 ? 'Select a start date...' : 'Not enough teams'}
-                          </option>
-                          {scheduleDraft.startSlotOptions.map((slot) => (
-                            <option key={slot.id} value={slot.id}>
-                              {`HT S${slot.ht120minSeason} W${slot.htWeek} • ${formatCalendarDateWithWeek(slot.nominalDate, 'short')}`}
-                            </option>
-                          ))}
-                        </select>
-                        <p className={adminStyles.smallNote}>Used as the planned first date on tournament cards.</p>
+                        <label>{isStartDateLocked ? 'Start date' : 'Planned start date'}</label>
+                        {isStartDateLocked && firstKnownFixtureDate ? (
+                          <>
+                            <input
+                              type="text"
+                              value={formatCalendarDateWithWeek(firstKnownFixtureDate, 'short')}
+                              disabled
+                              className={adminStyles.selectField}
+                            />
+                            <p className={adminStyles.smallNote}>
+                              Locked after schedule generation because the first fixture date is known.
+                            </p>
+                          </>
+                        ) : (
+                          <>
+                            <select
+                              value={scheduleStartSlotId}
+                              onChange={(e) => setScheduleStartSlotId(e.target.value)}
+                              disabled={scheduleDraft.startSlotOptions.length === 0}
+                              className={adminStyles.selectField}
+                            >
+                              <option value="" disabled>
+                                {scheduleDraft.startSlotOptions.length > 0
+                                  ? 'Select a start date...'
+                                  : 'Not enough teams'}
+                              </option>
+                              {scheduleDraft.startSlotOptions.map((slot) => (
+                                <option key={slot.id} value={slot.id}>
+                                  {`HT S${slot.ht120minSeason} W${slot.htWeek} • ${formatCalendarDateWithWeek(slot.nominalDate, 'short')}`}
+                                </option>
+                              ))}
+                            </select>
+                            <p className={adminStyles.smallNote}>Used as the planned first date on tournament cards.</p>
+                          </>
+                        )}
+                        {renderUnsavedSettingsNote(unsavedSettingsFields.scheduleStart)}
                       </div>
 
                       <div className={adminStyles.field}>
@@ -3844,23 +4228,40 @@ export const TournamentView: React.FC = () => {
                           <option value="manual">Organizer-Managed</option>
                           <option value="sandbox">Sandbox Playground</option>
                         </select>
+                        {renderUnsavedSettingsNote(unsavedSettingsFields.registrationType)}
                       </div>
 
                       <div className={adminStyles.field}>
                         <label>League of team (any or locked to existing)</label>
                         <select
-                          value={editCountryLimit || validatedCountryLimit || ''}
-                          onChange={(e) => setEditCountryLimit(e.target.value || null)}
+                          value={editCountryLimit || ''}
+                          onChange={(e) => {
+                            const nextCountryLimit = e.target.value || null;
+                            const mismatch = getActiveTeamRestrictionMismatch(nextCountryLimit);
+                            if (mismatch) {
+                              alert(mismatch);
+                              return;
+                            }
+                            setEditCountryLimit(nextCountryLimit);
+                          }}
                           className={adminStyles.selectField}
                         >
                           <option value="">Any Hattrick League</option>
-                          {validatedCountryLimit && (
-                            <option value={validatedCountryLimit}>{HATTRICK_LEAGUES[validatedCountryLimit]}</option>
-                          )}
+                          {Object.entries(HATTRICK_LEAGUES).map(([leagueId, leagueName]) => (
+                            <option key={leagueId} value={leagueId}>
+                              {leagueName}
+                            </option>
+                          ))}
                         </select>
                         {(() => {
-                          const validatedTeams = teams.filter((t) => t.joined_via_oauth && t.country_name);
-                          const countries = Array.from(new Set(validatedTeams.map((t) => t.country_name)));
+                          const countries = Array.from(
+                            new Set(
+                              teams
+                                .filter((team) => team.active && !team.is_placeholder)
+                                .map((team) => normalizeLeagueLimit(team.country_id ? String(team.country_id) : team.country_name))
+                                .filter(Boolean),
+                            ),
+                          );
                           if (countries.length >= 2) {
                             return (
                               <p className={adminStyles.smallNote}>teams from at least 2 leagues already registered</p>
@@ -3868,6 +4269,7 @@ export const TournamentView: React.FC = () => {
                           }
                           return null;
                         })()}
+                        {renderUnsavedSettingsNote(unsavedSettingsFields.countryLimit)}
                       </div>
 
                       <div className={adminStyles.checkboxField}>
@@ -3879,6 +4281,7 @@ export const TournamentView: React.FC = () => {
                           />
                           Only Hattrick validated teams can join
                         </label>
+                        {renderUnsavedSettingsNote(unsavedSettingsFields.chppOnlyJoin)}
                       </div>
 
                       <div className={adminStyles.checkboxField}>
@@ -3890,6 +4293,7 @@ export const TournamentView: React.FC = () => {
                           />
                           Private Tournament (unlisted on home page)
                         </label>
+                        {renderUnsavedSettingsNote(unsavedSettingsFields.private)}
                       </div>
 
                       <div>
@@ -3914,6 +4318,7 @@ export const TournamentView: React.FC = () => {
                               </button>
                             )}
                           </div>
+                          {renderUnsavedSettingsNote(unsavedSettingsFields.showDescription)}
                         </div>
 
                         {showEditDescription && (
@@ -3924,6 +4329,7 @@ export const TournamentView: React.FC = () => {
                               placeholder="Tournament description..."
                               rows={4}
                             />
+                            {renderUnsavedSettingsNote(unsavedSettingsFields.description)}
                           </div>
                         )}
                       </div>
@@ -3938,6 +4344,7 @@ export const TournamentView: React.FC = () => {
                             />
                             Recovery email address (recommended)
                           </label>
+                          {renderUnsavedSettingsNote(unsavedSettingsFields.showEmail)}
                         </div>
                         {showEditEmail && (
                           <div className={`${adminStyles.textField} ${styles.mt1}`}>
@@ -3947,6 +4354,7 @@ export const TournamentView: React.FC = () => {
                               onChange={(e) => setEditAdminEmail(e.target.value)}
                               placeholder="In case you forget your admin password..."
                             />
+                            {renderUnsavedSettingsNote(unsavedSettingsFields.adminEmail)}
                           </div>
                         )}
                       </div>
@@ -3957,6 +4365,7 @@ export const TournamentView: React.FC = () => {
                             <input type="checkbox" checked={isTest} onChange={(e) => setIsTest(e.target.checked)} />
                             Testing Ground (Super-Admin only)
                           </label>
+                          {renderUnsavedSettingsNote(unsavedSettingsFields.test)}
                         </div>
                       )}
 
@@ -3972,17 +4381,18 @@ export const TournamentView: React.FC = () => {
                             Featured tournament
                           </label>
                           <p className={adminStyles.smallNote}>Pinned to the top of its public lists.</p>
+                          {renderUnsavedSettingsNote(unsavedSettingsFields.featured)}
                         </div>
                       )}
                     </div>
-                    {settingsHasUnsavedChanges && (
-                      <p className={adminStyles.unsavedSettingsNote}>Use save button to apply changes!</p>
-                    )}
                     <Button onClick={updateSettings} disabled={isUpdatingSettings} variant="primary" size="sm">
                       {isUpdatingSettings ? 'Saving...' : 'Save Settings'}
                     </Button>
+                    {renderUnsavedSettingsNote(settingsHasUnsavedChanges)}
                   </SectionCard>
+                  </div>
 
+                  <div id="admin-panel-season">
                   <SectionCard title="Season planner" className={adminStyles.seasonPlannerCard}>
                     <div className={adminStyles.seasonPlanner}>
                       {previousSeasons.length > 0 && (
@@ -4071,8 +4481,10 @@ export const TournamentView: React.FC = () => {
                       </div>
                     </div>
                   </SectionCard>
+                  </div>
 
                   {!isGenerated && canManageSchedule && (
+                    <div id="admin-panel-schedule">
                     <TournamentSchedulePanel
                       isGenerated={isGenerated}
                       isCollapsed={resolvedScheduleCollapsed}
@@ -4091,9 +4503,11 @@ export const TournamentView: React.FC = () => {
                       onGenerate={generateSchedule}
                       tournamentTeamLimit={editMaxTeams}
                     />
+                    </div>
                   )}
 
                   {isGenerated && (
+                    <div id="admin-panel-results">
                     <AdminResults
                       rounds={rounds}
                       editingMatch={editingMatch}
@@ -4107,10 +4521,15 @@ export const TournamentView: React.FC = () => {
                       currentRoundId={currentRoundIdForResults ?? undefined}
                       previewHtMatchLink={previewHtMatchLink}
                       saveHtMatchLink={saveHtMatchLink}
+                      scoringMode={tournament.scoring_mode}
+                      saveBulkMatches={saveBulkMatches}
+                      importCsvRows={importCsvRows}
                     />
+                    </div>
                   )}
 
                   {isGenerated && canManageSchedule && (
+                    <div id="admin-panel-schedule">
                     <TournamentSchedulePanel
                       isGenerated={isGenerated}
                       isCollapsed={resolvedScheduleCollapsed}
@@ -4138,8 +4557,10 @@ export const TournamentView: React.FC = () => {
                       isRescheduling={isRescheduling}
                       onReschedule={regenerateSchedule}
                     />
+                    </div>
                   )}
 
+                  <div id="admin-panel-teams">
                   <SectionCard
                     title="Manage Teams"
                     collapsible
@@ -4431,12 +4852,9 @@ export const TournamentView: React.FC = () => {
                       )}
                     </div>
                   </SectionCard>
-                </section>
+                  </div>
 
-                <Tooltip id="admin-tooltip" className="tooltip" />
-              </div>
-
-              <div className={adminStyles.simulatorSection}>
+              <div id="admin-panel-announcements" className={adminStyles.simulatorSection}>
                 <h3 className={adminStyles.sectionTitle}>Admin announcements</h3>
                 <p className={adminStyles.smallNote}>
                   Publish a dismissible message in the top tournament notice area.
@@ -4476,7 +4894,7 @@ export const TournamentView: React.FC = () => {
                 </div>
               </div>
 
-              <div className={adminStyles.footerActions}>
+              <div id="admin-panel-lifecycle" className={adminStyles.footerActions}>
                 {tournament.status === 'finished' ? (
                   <>
                     <p className={adminStyles.lifecycleHelp}>
@@ -4551,7 +4969,38 @@ export const TournamentView: React.FC = () => {
                   Delete Tournament
                 </Button> */}
               </div>
-            </div>
+            </section>
+            <aside className={adminStyles.adminSidebar}>
+              <SidebarWidget title="Admin access" icon={<Info size={20} weight="bold" />}>
+                <div className={adminStyles.accessCard}>
+                  <span className={adminStyles.accessLabel}>Accessing as:</span>
+                  <strong>
+                    {adminAccessName} <span>({adminAccessMode})</span>
+                  </strong>
+                </div>
+              </SidebarWidget>
+              <SidebarWidget title="Admin Links" icon={<Question size={20} weight="bold" />}>
+                <div className={adminStyles.adminLinksCard}>
+                  {ADMIN_PANELS.filter((panel) => {
+                    if (panel.id === 'schedule') return canManageSchedule;
+                    if (panel.id === 'results') return isGenerated;
+                    return true;
+                  }).map((panel) => (
+                    <button
+                      key={panel.id}
+                      type="button"
+                      className={adminStyles.adminLinkButton}
+                      onClick={() => scrollToAdminPanel(panel.id)}
+                    >
+                      {panel.label}
+                    </button>
+                  ))}
+                </div>
+              </SidebarWidget>
+            </aside>
+          </div>
+          <Tooltip id="admin-tooltip" className="tooltip" />
+        </div>
           )}
         </div>
       )}
@@ -4561,19 +5010,67 @@ export const TournamentView: React.FC = () => {
         onClose={closeCreatedTournamentWelcome}
         onPrimaryAction={acceptCreatedTournamentWelcome}
         imageSrc="/create.png"
-        imageAlt="New tournament ready for testing"
-        title="Test tournament created!"
-        buttonLabel="Let's start testing!"
+        imageAlt={isSandbox ? 'New tournament ready for testing' : 'New tournament ready'}
+        title={
+          isSandbox
+            ? 'Test tournament created!'
+            : isOrganizerManagedTournament
+              ? 'Organizer-managed tournament created!'
+              : 'Tournament created!'
+        }
+        buttonLabel={isSandbox ? 'Start testing!' : 'Open tournament'}
       >
-        <strong>Try the important parts while nothing serious is on the line:</strong>
+        {isSandbox ? (
+          <>
+            <strong>Try the important parts while nothing serious is on the line:</strong>
 
-        <ul>
-          <li>👉 Add, remove and replace dummy teams, generate and inspect the schedule</li>
-          <li>👉 Link matches to real ones via admin or add dummy scores</li>
-          <li>👉 Test switching team limits and country rules</li>
-        </ul>
+            <ul>
+              <li>👉 Add, remove and replace dummy teams, generate and inspect the schedule</li>
+              <li>👉 Link matches to real ones via admin or add dummy scores</li>
+              <li>👉 Test switching team limits and country rules</li>
+            </ul>
 
-        <p>When you feel like a pro, create the real tournament and invite people in.</p>
+            <p>When you feel like a pro, create the real tournament and invite people in.</p>
+          </>
+        ) : isOrganizerManagedTournament ? (
+          <>
+            <strong>Your organizer-managed {tournament.name} page is ready.</strong>
+
+            <ul>
+              <li>👉 Add the invited Hattrick teams yourself from the admin tab</li>
+              <li>👉 Share the public page for fixtures, standings and announcements</li>
+              <li>👉 Generate the schedule when the lineup is ready</li>
+              <li>
+                👉 Results will be updated automatically but can be manually edited or linked for matches off-schedule
+              </li>
+            </ul>
+
+            <p>
+              This format gives the organizer more control. Participants do not need to join through CHPP unless you
+              want them to interact with HT-120min directly.
+            </p>
+          </>
+        ) : (
+          <>
+            <strong>Your tournament page is ready.</strong>
+
+            <ul>
+              <li>👉 Share the public link with the managers you want to invite</li>
+              <li>👉 Wait for teams to join (minimum is 2)</li>
+              <li>👉 Generate the schedule when you are ready to start</li>
+              <li>👉 Let participants know when it's time to book their first match</li>
+              <li>👉 Manage settings, teams, schedule and announcements from the admin tab</li>
+            </ul>
+
+            <p>
+              Ask in{' '}
+              <a href={FORUM_LINK} target="_blank" rel="noreferrer">
+                HT-120min Hattrick forum
+              </a>{' '}
+              to get help quickly!
+            </p>
+          </>
+        )}
       </WelcomeModal>
 
       <WelcomeModal
@@ -4595,7 +5092,11 @@ export const TournamentView: React.FC = () => {
         </ul>
       </WelcomeModal>
 
-      <Modal isOpen={isEditingImage} onClose={() => setIsEditingImage(false)} title="Update Tournament Image">
+      <Modal
+        isOpen={isEditingImage || TOURNAMENT_VIEW_MODALS_OPEN_BY_DEFAULT.editTournamentImage}
+        onClose={() => setIsEditingImage(false)}
+        title="Update Tournament Image"
+      >
         <div className={styles.modalContent}>
           <p>
             Link to an external image URL (e.g., Imgur, Hattrick logo, etc.). Make sure it's the address of image itself
@@ -4628,7 +5129,7 @@ export const TournamentView: React.FC = () => {
       </Modal>
 
       <Modal
-        isOpen={showTeamModal}
+        isOpen={showTeamModal || TOURNAMENT_VIEW_MODALS_OPEN_BY_DEFAULT.teamSelection}
         onClose={() => {
           setShowTeamModal(false);
           const newUrl = window.location.pathname;

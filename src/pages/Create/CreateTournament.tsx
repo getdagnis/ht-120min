@@ -507,6 +507,39 @@ export const CreateTournament: React.FC = () => {
     }
   };
 
+  const getTeamSettingsMismatch = (
+    team: LocalTeam,
+    options: { leagueCategory?: string; countryLimit?: string | number | null } = {},
+  ) => {
+    const countryLimit = options.countryLimit ?? formData.country_limit;
+    const validation = validateTeamEligibility(
+      {
+        leagueName: '',
+        leagueId: team.leagueId,
+        leagueSystemId: team.leagueId === 3000 || team.genderId === 2 ? 2 : undefined,
+        genderId: team.genderId,
+        countryId: team.countryId,
+        countryName: team.countryName,
+      },
+      {
+        category: (options.leagueCategory || formData.league_category) as LeagueCategory,
+        countryLimit: countryLimit ? String(countryLimit) : null,
+      },
+    );
+
+    return validation.eligible ? null : validation.reason || 'Team does not match the selected tournament restrictions.';
+  };
+
+  const getFirstTeamSettingsMismatch = (
+    options: { leagueCategory?: string; countryLimit?: string | number | null } = {},
+  ) => {
+    for (const team of teams) {
+      const mismatch = getTeamSettingsMismatch(team, options);
+      if (mismatch) return `Team ${team.name} (${team.htId}) does not match this restriction. ${mismatch}`;
+    }
+    return null;
+  };
+
   const fetchSandboxTeamById = async (teamId: number): Promise<FetchedTeamData> => {
     const params = new URLSearchParams({
       team_id: String(teamId),
@@ -730,6 +763,12 @@ export const CreateTournament: React.FC = () => {
         alert('Add at least two teams (or join with your team plus one more).');
         return;
       }
+    }
+
+    const settingsMismatch = getFirstTeamSettingsMismatch();
+    if (settingsMismatch) {
+      alert(settingsMismatch);
+      return;
     }
 
     setLoading(true);
@@ -1012,9 +1051,11 @@ export const CreateTournament: React.FC = () => {
                     value={formData.registration_type}
                     onChange={(e) => {
                       const nextType = normalizeTournamentRegistrationType(e.target.value);
+                      const nextScoringMode = nextType === 'validated' && formData.scoring_mode === 'appg' ? '120min' : formData.scoring_mode;
                       setFormData({
                         ...formData,
                         registration_type: nextType,
+                        scoring_mode: nextScoringMode,
                         is_private: nextType === 'sandbox' ? true : formData.is_private,
                         country_limit: nextType === 'sandbox' ? '' : formData.country_limit,
                         name: formatEditableTournamentName(formData.name, {
@@ -1052,6 +1093,9 @@ export const CreateTournament: React.FC = () => {
                   >
                     <option value="120min">Rank by 120 minute achievements ⏱</option>
                     <option value="points">Regular 90 min friendlies (3p/1p/0) 🥇</option>
+                    {registrationType !== 'validated' && (
+                      <option value="appg">APPG (HFI event scoring) 📊</option>
+                    )}
                   </select>
                 </div>
                 <div className={styles.field}>
@@ -1133,6 +1177,13 @@ export const CreateTournament: React.FC = () => {
                         value={formData.country_limit}
                         onChange={(e) => {
                           const countryLimit = e.target.value;
+                          if (countryLimit) {
+                            const mismatch = getFirstTeamSettingsMismatch({ countryLimit });
+                            if (mismatch) {
+                              alert(mismatch);
+                              return;
+                            }
+                          }
                           setFormData({
                             ...formData,
                             country_limit: countryLimit,

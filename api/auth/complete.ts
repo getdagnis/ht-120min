@@ -33,6 +33,24 @@ interface TeamForClaim {
   is_placeholder: boolean | null;
   joined_via_oauth: boolean | null;
   hattrick_user_id: number | null;
+  tournaments:
+    | {
+        status: string | null;
+        registration_type: string | null;
+        is_test: boolean | null;
+        is_archived: boolean | null;
+      }
+    | {
+        status: string | null;
+        registration_type: string | null;
+        is_test: boolean | null;
+        is_archived: boolean | null;
+      }[]
+    | null;
+}
+
+function getClaimTournament(team: TeamForClaim) {
+  return Array.isArray(team.tournaments) ? team.tournaments[0] : team.tournaments;
 }
 
 function getRequestedTeamIds(input: unknown): number[] {
@@ -98,7 +116,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
     const { data: teamRowsRaw, error: teamsError } = await supabase
       .from('teams')
-      .select('id, ht_team_id, active, is_placeholder, joined_via_oauth, hattrick_user_id')
+      .select(
+        'id, ht_team_id, active, is_placeholder, joined_via_oauth, hattrick_user_id, tournaments(status, registration_type, is_test, is_archived)',
+      )
       .in('ht_team_id', verifiedRequestedIds)
       .eq('active', true);
 
@@ -106,13 +126,33 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       return res.status(500).json({ error: teamsError.message });
     }
 
-    const claimableRows = ((teamRowsRaw as TeamForClaim[] | null) ?? []).filter(
-      (team) =>
+    const teamRows = (teamRowsRaw as TeamForClaim[] | null) ?? [];
+    const linkedTeamIds = new Set(
+      teamRows
+        .filter((team) => team.ht_team_id && team.hattrick_user_id === session.userId && team.joined_via_oauth === true)
+        .map((team) => team.ht_team_id),
+    );
+
+    const claimableRows = teamRows.filter((team) => {
+      const tournament = getClaimTournament(team);
+      const isActiveParticipation =
+        Boolean(tournament) &&
+        (!tournament?.status || ['open', 'active', 'ongoing', 'paused'].includes(tournament.status));
+
+      return (
         team.ht_team_id &&
         !team.is_placeholder &&
-        (!team.joined_via_oauth || !team.hattrick_user_id) &&
-        verifiedTeamsById.has(team.ht_team_id),
-    );
+        !linkedTeamIds.has(team.ht_team_id) &&
+        team.hattrick_user_id == null &&
+        Boolean(tournament) &&
+        tournament?.registration_type !== 'sandbox' &&
+        !tournament?.is_test &&
+        !tournament?.is_archived &&
+        team.joined_via_oauth !== true &&
+        isActiveParticipation &&
+        verifiedTeamsById.has(team.ht_team_id)
+      );
+    });
 
     for (const team of claimableRows) {
       const verifiedTeam = team.ht_team_id ? verifiedTeamsById.get(team.ht_team_id) : null;

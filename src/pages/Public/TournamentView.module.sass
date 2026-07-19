@@ -1,32 +1,52 @@
 .view
   text-align: left
+  width: 100%
   max-width: 1150px
   margin: 0 auto
-  padding: 5rem 1rem 2rem
+  padding: 5rem 0 2rem
+  box-sizing: border-box
+
+  @media (max-width: 1160px)
+    padding: 5rem 0.5rem 2rem
 
   @media (max-width: 620px)
-    padding: 4.5rem 0.75rem 1rem
+    padding: 4.5rem 0.5rem 1rem
+
+  @media (min-width: 1161px)
+    width: 1150px
+
+.tabContent
+  width: 100%
+  min-width: 0
+  box-sizing: border-box
 
 .loading
-  padding: 3rem
+  display: flex
+  align-items: center
+  justify-content: center
+  min-height: 45vh
+  padding: 3rem 0
   text-align: center
   font-weight: 500
+  font-size: 1.25rem
 
 .headerTop
-  display: flex
+  display: grid
+  grid-template-columns: minmax(0, 1fr) 22rem
   gap: 1rem
-  justify-content: space-between
   align-items: start
   margin-bottom: 1.5rem
   margin-top: 1.25rem
-  @media (max-width: 620px)
-    flex-direction: column
+
+  @media (max-width: 720px)
+    grid-template-columns: 1fr
     margin-top: 0
     padding-top: 0
     gap: 0
 
 .h1Img
-  width: 21rem
+  width: 22rem
+  max-width: 100%
   aspect-ratio: 4/3
   background-size: cover !important
   object-fit: cover
@@ -42,6 +62,8 @@
       pointer-events: auto
 
 .titleArea
+  min-width: 0
+
   @media (max-width: 620px)
     order: 2
 
@@ -284,6 +306,20 @@
   border-radius: 0.5rem
   border: 1px solid var(--accent)
 
+  p
+    margin: 0
+
+  p + ul,
+  ul + p
+    margin-top: 0.75rem
+
+  ul
+    margin: 0
+    padding-left: 1.15rem
+
+  li + li
+    margin-top: 0.45rem
+
 .joinLimit
   font-size: 0.85rem
   color: var(--text-muted)
@@ -299,16 +335,25 @@
   &::-webkit-scrollbar
     display: none
 
+.scoringControl
+  display: inline-flex
+  align-items: center
+  gap: 0.35rem
+  margin-right: 1.5rem
+  color: var(--text60)
+  font-size: 0.85rem
+  white-space: nowrap
+
 .scoringToggle
-  align-self: center
-  margin: 0 1.5rem 0 0
+  display: inline-flex
+  align-items: center
+  gap: 0.35rem
   padding: 0
   border: 0
   background: transparent
   color: var(--text60)
   cursor: pointer
   font: inherit
-  font-size: 0.85rem
   line-height: 1.2
   white-space: nowrap
 
@@ -317,8 +362,11 @@
     color: var(--accent-2)
 
   @media (max-width: 620px)
-    margin-right: 0.75rem
     font-size: 0.75rem
+
+.pointsHeader
+  color: var(--accent-2) !important
+  font-weight: 700 !important
 
 .tabs
   display: flex
@@ -673,12 +721,12 @@
   background: var(--bg-transp2)
   border: 1px dashed var(--border)
   border-radius: 0.5rem
-  width: 21rem
+  width: 22rem
+  max-width: 100%
   aspect-ratio: 4/3
   display: flex
   align-items: center
   justify-content: center
-  width: 21rem
   color: var(--text)
   font-size: 0.85rem
   overflow: hidden
@@ -744,7 +792,7 @@
   .imagePlaceholder
     order: 1
     aspect-ratio: 3/2
-    min-width: 21rem
+    min-width: 22rem
     margin-top: 1rem
     box-sizing: border-box
 
@@ -928,8 +976,9 @@
   padding: 0 !important
 
 .standingsContainer
+  @extend .tabContent
   display: grid
-  grid-template-columns: 1fr 21rem
+  grid-template-columns: minmax(0, 1fr) 22rem
   gap: 1rem
   align-items: start
 
@@ -946,10 +995,12 @@
   margin-top: 0.5rem
 
 .newsLayout
+  @extend .tabContent
   display: grid
-  grid-template-columns: minmax(0, 1fr) 21rem
+  grid-template-columns: minmax(0, 1fr) 22rem
   gap: 1rem
   align-items: start
+  margin-top: 1rem
 
   @media (max-width: 1024px)
     grid-template-columns: 1fr
@@ -963,8 +1014,18 @@
     order: 2
 
 .historyContainer
+  @extend .tabContent
   width: 100%
   margin: 0 auto
+
+.fixturesContainer
+  @extend .tabContent
+
+.adminTabContent
+  @extend .tabContent
+
+.adminLoginPanel
+  width: 100%
 
 .statsSidebar
   display: flex
@@ -1456,6 +1517,9 @@
   opacity: 0.7
 
 .rounds
+  width: 100%
+  min-width: 0
+  box-sizing: border-box
   display: flex
   flex-direction: column
   gap: 0.5rem
@@ -1689,7 +1753,7 @@ div.adminAuthForm > form > button, .authField > input
     border-radius: 4px
 
 .guestbook
-  margin-top: 1rem
+  min-width: 0
 
 .postForm
   margin-bottom: 2rem

@@ -76,7 +76,7 @@ export const Layout: React.FC<LayoutProps> = ({ children }) => {
   const [theme, setTheme] = useState(() => {
     const saved = localStorage.getItem('theme');
     if (saved) return saved;
-    return window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+    return window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'dark';
   });
 
   const [isUserDropdownOpen, setIsUserDropdownOpen] = useState(false);
@@ -350,7 +350,12 @@ export const Layout: React.FC<LayoutProps> = ({ children }) => {
               <h2>Hattrick login is temporarily unavailable</h2>
               <p>
                 The site is still available, but the login connection could not be completed. Please try again shortly.
-                {authErrorReference && <> Reference: <code>{authErrorReference}</code></>}
+                {authErrorReference && (
+                  <>
+                    {' '}
+                    Reference: <code>{authErrorReference}</code>
+                  </>
+                )}
               </p>
             </div>
             <div className={styles.authFailureActions}>
@@ -403,7 +408,7 @@ export const Layout: React.FC<LayoutProps> = ({ children }) => {
           💌
           <p className={styles.affiliated}>Not affiliated with Hattrick Ltd.</p>
         </div>
-        <h3>Rate us!</h3>
+        <h3>Rate this app on Hattrick!</h3>
         <a
           href="https://www.hattrick.org/goto.ashx?path=/Community/CHPP/ChppProgramDetails.aspx?ApplicationId=5363"
           target="_blank"

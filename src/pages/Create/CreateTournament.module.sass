@@ -1,15 +1,19 @@
 .wrapper
   display: grid
-  grid-template-columns: 1fr 22rem
-  gap: 2rem
+  grid-template-columns: minmax(0, 1fr) 22rem
+  gap: 1rem
   padding: 2rem 0
   align-items: flex-start
+  width: 100%
   max-width: 1150px
   margin: 0 auto
+  box-sizing: border-box
+
+  @media (max-width: 1160px)
+    padding: 2rem 0.5rem
 
   @media (max-width: 1024px)
     grid-template-columns: 1fr
-    padding: 1rem
 
 .container
   width: 100%

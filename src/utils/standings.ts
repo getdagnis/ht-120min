@@ -1,3 +1,5 @@
+import { getAppgPoints, type AppgOutcome } from './appg';
+
 export interface Match {
   home_team_id: string | null;
   away_team_id: string | null;
@@ -6,6 +8,9 @@ export interface Match {
   went_120: boolean;
   completed: boolean;
   total_minutes?: number;
+  appg_outcome?: AppgOutcome | null;
+  penalty_shootout_home_goals?: number | null;
+  penalty_shootout_away_goals?: number | null;
 }
 
 export interface Team {
@@ -38,6 +43,7 @@ export interface TeamStanding {
   ga: number;
   gd: number;
   pts: number;
+  appgPoints: number;
   achievements120min: number;
   totalMinutes: number;
   joinedViaOauth: boolean;
@@ -51,7 +57,7 @@ export interface TeamStanding {
 export function calculateStandings(
   teams: Team[],
   matches: Match[],
-  scoringMode: '120m' | '120min' | 'points',
+  scoringMode: '120m' | '120min' | 'points' | 'appg',
 ): TeamStanding[] {
   const standingsMap: Record<string, TeamStanding> = {};
 
@@ -71,6 +77,7 @@ export function calculateStandings(
       ga: 0,
       gd: 0,
       pts: 0,
+      appgPoints: 0,
       achievements120min: 0,
       totalMinutes: 0,
       joinedViaOauth: !!team.joined_via_oauth,
@@ -111,6 +118,9 @@ export function calculateStandings(
         team.pts += 1;
       }
 
+      const appgPoints = getAppgPoints(m);
+      if (appgPoints !== null) team.appgPoints += m.home_team_id ? appgPoints.home : appgPoints.away;
+
       if (m.went_120) {
         team.achievements120min++;
       }
@@ -148,6 +158,12 @@ export function calculateStandings(
       away.pts += 1;
     }
 
+    const appgPoints = getAppgPoints(m);
+    if (appgPoints !== null) {
+      home.appgPoints += appgPoints.home;
+      away.appgPoints += appgPoints.away;
+    }
+
     if (m.went_120) {
       home.achievements120min++;
       away.achievements120min++;
@@ -174,6 +190,17 @@ export function calculateStandings(
       if (b.gf !== a.gf) return b.gf - a.gf;
 
       return a.played - b.played;
+    });
+  }
+
+  if (scoringMode === 'appg') {
+    return standings.sort((a, b) => {
+      const aAverage = a.played ? a.appgPoints / a.played : 0;
+      const bAverage = b.played ? b.appgPoints / b.played : 0;
+      if (bAverage !== aAverage) return bAverage - aAverage;
+      if (b.gd !== a.gd) return b.gd - a.gd;
+      if (b.gf !== a.gf) return b.gf - a.gf;
+      return a.teamName.localeCompare(b.teamName);
     });
   }
 

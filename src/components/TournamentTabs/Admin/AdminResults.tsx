@@ -4,6 +4,8 @@ import { Button } from '../../Button/Button';
 import { Check, ArrowClockwise, X, PencilSimple, LinkSimple } from 'phosphor-react';
 import { getCountryFlagUrl, getLeagueFlagUrl } from '../../../utils/ht-data';
 import { getHattrickWeekDetails } from '../../../utils/hattrick-calendar';
+import { APPG_OUTCOMES, appgOutcomeLabel, validateAppgOutcome, type AppgOutcome } from '../../../utils/appg';
+import { parseResultCsv, RESULT_CSV_TEMPLATE, type ResultCsvRow } from '../../../utils/result-csv';
 import adminStyles from '../../../pages/Public/TournamentAdmin.module.sass';
 
 interface ResultTeam {
@@ -30,9 +32,24 @@ interface MatchWithTeams {
   status?: 'not_arranged' | 'arranged' | 'ongoing' | 'misarranged' | 'finished';
   ht_match_id?: number | null;
   scheduled_for?: string | null;
+  appg_outcome?: AppgOutcome | null;
+  penalty_shootout_home_goals?: number | null;
+  penalty_shootout_away_goals?: number | null;
   match_date?: Date | null;
   home_team: ResultTeam | null;
   away_team: ResultTeam | null;
+}
+
+export interface BulkMatchUpdate {
+  home_goals?: number | null;
+  away_goals?: number | null;
+  went_120?: boolean;
+  total_minutes?: number;
+  completed?: boolean;
+  penalty_shootout_home_goals?: number | null;
+  penalty_shootout_away_goals?: number | null;
+  appg_outcome?: AppgOutcome | null;
+  appg_outcome_source?: 'organizer' | 'csv';
 }
 
 interface AdminResultsProps {
@@ -52,6 +69,9 @@ interface AdminResultsProps {
   currentRoundId?: string;
   previewHtMatchLink: (matchId: string, htMatchId: string) => Promise<HtMatchLinkPreview>;
   saveHtMatchLink: (matchId: string, htMatchId: string) => Promise<void>;
+  scoringMode?: string;
+  saveBulkMatches?: (updates: Record<string, BulkMatchUpdate>) => Promise<void>;
+  importCsvRows?: (rows: ResultCsvRow[]) => Promise<void>;
 }
 
 interface HtMatchLinkPreview {
@@ -181,6 +201,9 @@ export const AdminResults: React.FC<AdminResultsProps> = ({
   currentRoundId,
   previewHtMatchLink,
   saveHtMatchLink,
+  scoringMode = '120min',
+  saveBulkMatches,
+  importCsvRows,
 }) => {
   const [linkingMatchId, setLinkingMatchId] = React.useState<string | null>(null);
   const [linkInput, setLinkInput] = React.useState('');
@@ -188,6 +211,99 @@ export const AdminResults: React.FC<AdminResultsProps> = ({
   const [linkError, setLinkError] = React.useState('');
   const [isCheckingLink, setIsCheckingLink] = React.useState(false);
   const [isSavingLink, setIsSavingLink] = React.useState(false);
+  const [bulkMatchIds, setBulkMatchIds] = React.useState<string[]>([]);
+  const [isSavingBulk, setIsSavingBulk] = React.useState(false);
+  const fileInputRef = React.useRef<HTMLInputElement | null>(null);
+
+  const bulkMatches = React.useMemo(
+    () => rounds.flatMap((round) => round.matches).filter((match) => bulkMatchIds.includes(match.id)),
+    [bulkMatchIds, rounds],
+  );
+
+  const setBulkValue = (matchId: string, values: Partial<MatchWithTeams>) => {
+    setMatchData((current) => ({
+      ...current,
+      [matchId]: { ...(current[matchId] || rounds.flatMap((round) => round.matches).find((match) => match.id === matchId)), ...values },
+    }));
+  };
+
+  const startBulkSimulation = (matchIds: string[]) => {
+    setEditingMatch(null);
+    setBulkMatchIds(matchIds);
+    setMatchData((current) => {
+      const next = { ...current };
+      for (const matchId of matchIds) {
+        if (!next[matchId]) {
+          const match = rounds.flatMap((round) => round.matches).find((item) => item.id === matchId);
+          if (match) next[matchId] = { ...match };
+        }
+      }
+      return next;
+    });
+  };
+
+  const cancelBulkSimulation = () => setBulkMatchIds([]);
+
+  const saveBulkSimulation = async () => {
+    if (!saveBulkMatches) return;
+    setIsSavingBulk(true);
+    try {
+      const updates: Record<string, BulkMatchUpdate> = Object.fromEntries(bulkMatches.map((match) => {
+        const draft = matchData[match.id] || match;
+        const isBye = !match.home_team_id || !match.away_team_id;
+        const normalizedDraft = isBye
+          ? { ...draft, home_goals: draft.home_goals ?? 0, away_goals: draft.away_goals ?? 0 }
+          : draft;
+        if (scoringMode === 'appg') {
+          const validationError = validateAppgOutcome({
+            home_goals: normalizedDraft.home_goals ?? null,
+            away_goals: normalizedDraft.away_goals ?? null,
+            went_120: normalizedDraft.went_120 ?? false,
+            total_minutes: normalizedDraft.total_minutes ?? 90,
+            penalty_shootout_home_goals: normalizedDraft.penalty_shootout_home_goals ?? null,
+            penalty_shootout_away_goals: normalizedDraft.penalty_shootout_away_goals ?? null,
+            appg_outcome: normalizedDraft.appg_outcome ?? null,
+          });
+          if (validationError) {
+            throw new Error(`${match.home_team?.name || 'BYE'} vs ${match.away_team?.name || 'BYE'}: ${validationError}`);
+          }
+        }
+        return [match.id, normalizedDraft];
+      }));
+      await saveBulkMatches(updates);
+      setBulkMatchIds([]);
+      setMatchData((current) => {
+        const next = { ...current };
+        bulkMatchIds.forEach((matchId) => delete next[matchId]);
+        return next;
+      });
+    } catch (error) {
+      alert(error instanceof Error ? error.message : 'Could not save the simulated results.');
+    } finally {
+      setIsSavingBulk(false);
+    }
+  };
+
+  const downloadCsvTemplate = () => {
+    const blob = new Blob([RESULT_CSV_TEMPLATE], { type: 'text/csv;charset=utf-8' });
+    const url = URL.createObjectURL(blob);
+    const anchor = document.createElement('a');
+    anchor.href = url;
+    anchor.download = 'ht-120min-results-template.csv';
+    anchor.click();
+    URL.revokeObjectURL(url);
+  };
+
+  const handleCsvFile = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    event.target.value = '';
+    if (!file || !importCsvRows) return;
+    try {
+      await importCsvRows(parseResultCsv(await file.text()));
+    } catch (error) {
+      alert(error instanceof Error ? error.message : 'Could not import that CSV.');
+    }
+  };
 
   React.useEffect(() => {
     if (!linkingMatchId) return;
@@ -315,6 +431,22 @@ export const AdminResults: React.FC<AdminResultsProps> = ({
       isCollapsed={isResultsCollapsed}
       onToggleCollapse={() => togglePanel('results', !isResultsCollapsed, setIsResultsCollapsed)}
     >
+      <div className={adminStyles.bulkResultToolbar}>
+        {saveBulkMatches && (
+          <>
+            <Button size="xs" variant="outline" onClick={() => startBulkSimulation(rounds.flatMap((round) => round.matches.map((match) => match.id)))}>
+              Simulate season
+            </Button>
+            {importCsvRows && (
+              <>
+                <Button size="xs" variant="outline" onClick={downloadCsvTemplate}>CSV template</Button>
+                <Button size="xs" variant="outline" onClick={() => fileInputRef.current?.click()}>Import CSV</Button>
+                <input ref={fileInputRef} type="file" accept=".csv,text/csv" onChange={handleCsvFile} hidden />
+              </>
+            )}
+          </>
+        )}
+      </div>
       <div className={adminStyles.matches}>
         {rounds.map((round) => {
           const roundMeta = formatRoundMeta(round);
@@ -324,7 +456,47 @@ export const AdminResults: React.FC<AdminResultsProps> = ({
               <h3 className={adminStyles.sectionTitle}>
                 Round {round.round_number}
                 {roundMeta && <span className={adminStyles.roundMeta}>{roundMeta}</span>}
+                {saveBulkMatches && (
+                  <Button
+                    size="xs"
+                    variant="outline"
+                    onClick={() => startBulkSimulation(round.matches.map((match) => match.id))}
+                  >
+                    Simulate round
+                  </Button>
+                )}
               </h3>
+              {bulkMatchIds.length > 0 && bulkMatches.some((match) => round.matches.some((item) => item.id === match.id)) && (
+                <div className={adminStyles.bulkEditor}>
+                  {bulkMatches.filter((match) => round.matches.some((item) => item.id === match.id)).map((match) => {
+                    const draft = matchData[match.id] || match;
+                    return (
+                      <div key={match.id} className={adminStyles.bulkRow}>
+                        <span className={adminStyles.bulkTeams}>
+                          {match.home_team?.name || 'BYE'} vs {match.away_team?.name || 'BYE'}
+                        </span>
+                        <input type="number" aria-label="Home goals" value={draft.home_goals ?? ''} onChange={(event) => setBulkValue(match.id, { home_goals: event.target.value === '' ? null : Number(event.target.value) })} />
+                        <span>-</span>
+                        <input type="number" aria-label="Away goals" value={draft.away_goals ?? ''} onChange={(event) => setBulkValue(match.id, { away_goals: event.target.value === '' ? null : Number(event.target.value) })} />
+                        <input type="number" aria-label="Total minutes" value={draft.total_minutes ?? 90} onChange={(event) => setBulkValue(match.id, { total_minutes: Number(event.target.value) || 90, went_120: Number(event.target.value) > 90 })} />
+                        {scoringMode === 'appg' && (
+                          <>
+                            <select aria-label="APPG outcome" value={draft.appg_outcome || 'needs_review'} onChange={(event) => setBulkValue(match.id, { appg_outcome: event.target.value as AppgOutcome })}>
+                              {APPG_OUTCOMES.map((outcome) => <option key={outcome} value={outcome}>{appgOutcomeLabel(outcome)}</option>)}
+                            </select>
+                            {draft.appg_outcome === 'PS1' && (
+                              <>
+                                <input type="number" aria-label="Penalty shootout home goals" placeholder="PS H" value={draft.penalty_shootout_home_goals ?? ''} onChange={(event) => setBulkValue(match.id, { penalty_shootout_home_goals: event.target.value === '' ? null : Number(event.target.value) })} />
+                                <input type="number" aria-label="Penalty shootout away goals" placeholder="PS A" value={draft.penalty_shootout_away_goals ?? ''} onChange={(event) => setBulkValue(match.id, { penalty_shootout_away_goals: event.target.value === '' ? null : Number(event.target.value) })} />
+                              </>
+                            )}
+                          </>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
               {round.matches.map((match: MatchWithTeams) => {
                 const isBye = !match.home_team_id || !match.away_team_id;
                 const byeTeam = match.home_team || match.away_team;
@@ -415,6 +587,63 @@ export const AdminResults: React.FC<AdminResultsProps> = ({
                               mins
                             </span>
                           </div>
+                          {scoringMode === 'appg' && (
+                            <>
+                              <select
+                                aria-label="APPG outcome"
+                                value={matchData[match.id]?.appg_outcome || 'needs_review'}
+                                onChange={(event) =>
+                                  setMatchData({
+                                    ...matchData,
+                                    [match.id]: {
+                                      ...(matchData[match.id] || match),
+                                      appg_outcome: event.target.value as AppgOutcome,
+                                    },
+                                  })
+                                }
+                              >
+                                {APPG_OUTCOMES.map((outcome) => (
+                                  <option key={outcome} value={outcome}>
+                                    {appgOutcomeLabel(outcome)}
+                                  </option>
+                                ))}
+                              </select>
+                              {matchData[match.id]?.appg_outcome === 'PS1' && (
+                                <>
+                                  <input
+                                    type="number"
+                                    aria-label="Penalty shootout home goals"
+                                    placeholder="PS H"
+                                    value={matchData[match.id]?.penalty_shootout_home_goals ?? ''}
+                                    onChange={(event) =>
+                                      setMatchData({
+                                        ...matchData,
+                                        [match.id]: {
+                                          ...(matchData[match.id] || match),
+                                          penalty_shootout_home_goals: event.target.value === '' ? null : Number(event.target.value),
+                                        },
+                                      })
+                                    }
+                                  />
+                                  <input
+                                    type="number"
+                                    aria-label="Penalty shootout away goals"
+                                    placeholder="PS A"
+                                    value={matchData[match.id]?.penalty_shootout_away_goals ?? ''}
+                                    onChange={(event) =>
+                                      setMatchData({
+                                        ...matchData,
+                                        [match.id]: {
+                                          ...(matchData[match.id] || match),
+                                          penalty_shootout_away_goals: event.target.value === '' ? null : Number(event.target.value),
+                                        },
+                                      })
+                                    }
+                                  />
+                                </>
+                              )}
+                            </>
+                          )}
                         </div>
                         <div className={adminStyles.matchActions}>
                           <div className={adminStyles.editActions}>
@@ -525,6 +754,12 @@ export const AdminResults: React.FC<AdminResultsProps> = ({
           );
         })}
       </div>
+      {bulkMatchIds.length > 0 && (
+        <div className={adminStyles.bulkActions}>
+          <Button size="xs" variant="primary" onClick={saveBulkSimulation} disabled={isSavingBulk}><Check size={16} /> Save simulation</Button>
+          <Button size="xs" variant="outline" onClick={cancelBulkSimulation}><X size={16} /> Cancel</Button>
+        </div>
+      )}
     </SectionCard>
   );
 };

@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { SectionCard } from '../../components/Card/SectionCard';
-import { ArrowRight, ShieldCheck } from 'phosphor-react';
+import { ArrowRight, Recycle, ShieldCheck } from 'phosphor-react';
 import { TeamByline } from '../TeamByline/TeamByline';
 import { SeasonYearbook, type TournamentSeasonComment } from '../TournamentHistory/TournamentHistory';
 
@@ -17,6 +17,7 @@ interface StandingsViewProps {
   tournament: {
     id?: string;
     thumbnail_index?: number;
+    scoring_mode?: string | null;
   } | null;
   seasonStatus?: 'planned' | 'ongoing' | 'finished';
   lastSeenMap?: Record<number, string | null>;
@@ -32,7 +33,14 @@ interface StandingsViewProps {
 }
 
 const DEFAULT_TEAM_LOGO = '/default-logo.png';
-type StandingsSortKey = 'default' | 'team' | 'achievements120min' | 'totalMinutes' | 'played' | 'won' | 'drawn' | 'lost' | 'gd' | 'gf' | 'pts';
+const STANDINGS_SCORING_MODES = {
+  '120min': { enabled: true, label: '120min', tooltip: '120-minute scoring' },
+  '90min': { enabled: true, label: '90min', tooltip: 'Regular 90-minute scoring' },
+  appg: { enabled: true, label: 'APPG', tooltip: 'Average Points Per Game' },
+} as const;
+
+type StandingsScoringMode = keyof typeof STANDINGS_SCORING_MODES;
+type StandingsSortKey = 'default' | 'team' | 'achievements120min' | 'totalMinutes' | 'played' | 'won' | 'drawn' | 'lost' | 'gd' | 'gf' | 'pts' | 'appg';
 type SortDirection = 'asc' | 'desc';
 
 export const StandingsView: React.FC<StandingsViewProps> = ({
@@ -53,21 +61,35 @@ export const StandingsView: React.FC<StandingsViewProps> = ({
   seasonNumber = 0,
 }) => {
   const [presencePulse, setPresencePulse] = useState(0);
-  const [show120minScoring, setShow120minScoring] = useState(is120minMode);
+  const isAppgSupported = tournament?.scoring_mode === 'appg';
+  const [scoringMode, setScoringMode] = useState<StandingsScoringMode>(
+    isAppgSupported ? 'appg' : is120minMode ? '120min' : '90min',
+  );
   const [sortKey, setSortKey] = useState<StandingsSortKey>('default');
   const [sortDirection, setSortDirection] = useState<SortDirection>('desc');
   const [seasonComments, setSeasonComments] = useState<TournamentSeasonComment[]>([]);
   const [loadedSeasonCommentsId, setLoadedSeasonCommentsId] = useState<string | null>(null);
   const seasonCommentsLoading = Boolean(seasonId && loadedSeasonCommentsId !== seasonId);
+  const show120minScoring = scoringMode === '120min';
+  const showAppgScoring = scoringMode === 'appg';
+  const enabledScoringModes = (Object.keys(STANDINGS_SCORING_MODES) as StandingsScoringMode[])
+    .filter((mode) => STANDINGS_SCORING_MODES[mode].enabled && (mode !== 'appg' || isAppgSupported));
+  const activeScoringConfig = STANDINGS_SCORING_MODES[scoringMode];
+
+  const averagePointsPerGame = (standing: TeamStanding) => standing.played > 0 ? standing.appgPoints / standing.played : 0;
 
   const sortedStandings = useMemo(() => {
     const rows = [...standings];
     const compareDefault = (a: TeamStanding, b: TeamStanding) => {
-      if (show120minScoring) {
+      if (scoringMode === '120min') {
         if (b.achievements120min !== a.achievements120min) return b.achievements120min - a.achievements120min;
         if (b.gd !== a.gd) return b.gd - a.gd;
         if (b.gf !== a.gf) return b.gf - a.gf;
         return a.played - b.played;
+      }
+      if (scoringMode === 'appg') {
+        const averageDifference = averagePointsPerGame(b) - averagePointsPerGame(a);
+        if (averageDifference !== 0) return averageDifference;
       }
       if (b.pts !== a.pts) return b.pts - a.pts;
       if (b.gd !== a.gd) return b.gd - a.gd;
@@ -81,16 +103,30 @@ export const StandingsView: React.FC<StandingsViewProps> = ({
         return sortDirection === 'asc' ? result : -result;
       }
 
-      const result = Number(b[sortKey]) - Number(a[sortKey]);
+      const aValue = sortKey === 'appg' ? averagePointsPerGame(a) : Number(a[sortKey]);
+      const bValue = sortKey === 'appg' ? averagePointsPerGame(b) : Number(b[sortKey]);
+      const result = bValue - aValue;
       if (result !== 0) return sortDirection === 'asc' ? -result : result;
       return a.teamName.localeCompare(b.teamName, undefined, { sensitivity: 'base' });
     });
 
     return rows;
-  }, [show120minScoring, sortDirection, sortKey, standings]);
+  }, [scoringMode, sortDirection, sortKey, standings]);
+
+  useEffect(() => {
+    const defaultMode: StandingsScoringMode = isAppgSupported ? 'appg' : is120minMode ? '120min' : '90min';
+    const resetTimer = window.setTimeout(() => {
+      setScoringMode(defaultMode);
+      setSortKey('default');
+      setSortDirection('desc');
+    }, 0);
+    return () => window.clearTimeout(resetTimer);
+  }, [is120minMode, isAppgSupported]);
 
   const toggleScoringDisplay = () => {
-    setShow120minScoring((value) => !value);
+    const currentIndex = enabledScoringModes.indexOf(scoringMode);
+    const nextMode = enabledScoringModes[(currentIndex + 1) % enabledScoringModes.length];
+    setScoringMode(nextMode);
     setSortKey('default');
     setSortDirection('desc');
   };
@@ -174,14 +210,19 @@ export const StandingsView: React.FC<StandingsViewProps> = ({
         title="🏆 Standings"
         thumbnailSeed={tournament?.id}
         headerRight={(
-          <button
-            type="button"
-            className={styles.scoringToggle}
-            onClick={toggleScoringDisplay}
-            aria-label={`Switch to ${show120minScoring ? '90min' : '120min'} scoring display`}
-          >
-            {show120minScoring ? '120min scoring' : '90min scoring'}
-          </button>
+          <div className={styles.scoringControl}>
+            <span>Scoring:</span>
+            <button
+              type="button"
+              className={styles.scoringToggle}
+              onClick={toggleScoringDisplay}
+              title={activeScoringConfig.tooltip}
+              aria-label={`Switch scoring display from ${activeScoringConfig.label}`}
+            >
+              <span className={scoringMode === '90min' ? styles.highlight : ''}>{activeScoringConfig.label}</span>
+              <Recycle size={20} weight="bold" aria-hidden="true" />
+            </button>
+          </div>
         )}
       >
         <div className={styles.tableWrapper}>
@@ -198,6 +239,13 @@ export const StandingsView: React.FC<StandingsViewProps> = ({
                     {sortableHeader('Dif', 'gd', styles.center)}
                     {sortableHeader('Goals', 'gf', styles.center)}
                   </>
+                ) : showAppgScoring ? (
+                  <>
+                    {sortableHeader('APPG', 'appg', `${styles.center} ${styles.pointsHeader}`)}
+                    {sortableHeader('Pld', 'played', styles.center)}
+                    {sortableHeader('Dif', 'gd', styles.center)}
+                    {sortableHeader('Goals', 'gf', styles.center)}
+                  </>
                 ) : (
                   <>
                     {sortableHeader('Pld', 'played', styles.center)}
@@ -205,7 +253,7 @@ export const StandingsView: React.FC<StandingsViewProps> = ({
                     {sortableHeader('D', 'drawn', styles.center)}
                     {sortableHeader('L', 'lost', styles.center)}
                     {sortableHeader('GD', 'gd', styles.center)}
-                    {sortableHeader('Pts', 'pts', styles.center)}
+                    {sortableHeader('Pts', 'pts', `${styles.center} ${styles.pointsHeader}`)}
                   </>
                 )}
               </tr>
@@ -237,6 +285,13 @@ export const StandingsView: React.FC<StandingsViewProps> = ({
                     <>
                       <td className={`${styles.highlight} ${styles.center}`}>0</td>
                       <td className={styles.center}>0</td>
+                      <td className={styles.center}>0</td>
+                      <td className={styles.center}>0</td>
+                      <td className={styles.center}>0</td>
+                    </>
+                  ) : showAppgScoring ? (
+                    <>
+                      <td className={`${styles.highlight} ${styles.center}`}>0.00</td>
                       <td className={styles.center}>0</td>
                       <td className={styles.center}>0</td>
                       <td className={styles.center}>0</td>
@@ -308,6 +363,13 @@ export const StandingsView: React.FC<StandingsViewProps> = ({
                         <td className={styles.center}>{s.gd > 0 ? `+${s.gd}` : s.gd}</td>
                         <td className={styles.center}>{s.gf}</td>
                       </>
+                    ) : showAppgScoring ? (
+                      <>
+                        <td className={`${styles.highlight} ${styles.center}`}>{averagePointsPerGame(s).toFixed(2)}</td>
+                        <td className={styles.center}>{s.played}</td>
+                        <td className={styles.center}>{s.gd > 0 ? `+${s.gd}` : s.gd}</td>
+                        <td className={styles.center}>{s.gf}</td>
+                      </>
                     ) : (
                       <>
                         <td className={styles.center}>{s.played}</td>
@@ -315,7 +377,7 @@ export const StandingsView: React.FC<StandingsViewProps> = ({
                         <td className={styles.center}>{s.drawn}</td>
                         <td className={styles.center}>{s.lost}</td>
                         <td className={styles.center}>{s.gd > 0 ? `+${s.gd}` : s.gd}</td>
-                        <td className={styles.center}>{s.pts}</td>
+                        <td className={`${styles.highlight} ${styles.center}`}>{s.pts}</td>
                       </>
                     )}
                   </tr>

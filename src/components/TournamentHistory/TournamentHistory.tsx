@@ -158,6 +158,7 @@ interface TournamentHistoryProps {
   onGenerateReport?: () => void;
   autoScrollToYearbook?: boolean;
   onCommentsLoaded?: (seasonId: string, commentCount: number) => void;
+  forceCommentConfirmOpen?: boolean;
 }
 
 const AWARD_DETAILS: Record<SeasonAwardKey, { label: string; icon: React.ReactNode }> = {
@@ -322,6 +323,7 @@ export const TournamentHistory: React.FC<TournamentHistoryProps> = ({
   onGenerateReport,
   autoScrollToYearbook = false,
   onCommentsLoaded,
+  forceCommentConfirmOpen = false,
 }) => {
   const yearbookRef = useRef<HTMLElement | null>(null);
   const finishedSeasons = useMemo(
@@ -882,7 +884,7 @@ export const TournamentHistory: React.FC<TournamentHistoryProps> = ({
         </aside>
       </div>
       <Modal
-        isOpen={pendingCommentParticipant !== null}
+        isOpen={pendingCommentParticipant !== null || forceCommentConfirmOpen}
         onClose={() => setPendingCommentParticipant(null)}
         title="Post final comment?"
         maxWidth="520px"
