@@ -583,6 +583,46 @@
   td
     font-style: italic
 
+.reapplySuggestionRow
+  .teamNameCell
+    padding-block: 0.7rem
+
+.reapplySuggestion
+  position: relative
+  min-height: 3.5rem
+
+  .teamInfo
+    min-width: 0
+    filter: grayscale(1)
+    opacity: 0.2
+
+.reapplyActions
+  position: absolute
+  inset: 50% 0 auto auto
+  display: flex
+  gap: 0.45rem
+  transform: translateY(-50%)
+
+  button
+    padding: 0.35rem 0.6rem
+    border: 1px solid var(--border)
+    border-radius: var(--radius-xs)
+    background: var(--table-bg)
+    color: var(--text-h)
+    font: inherit
+    font-size: 0.78rem
+    cursor: pointer
+
+    &:hover,
+    &:focus-visible
+      border-color: var(--accent-2)
+      color: var(--accent-2)
+
+  @media (max-width: 620px)
+    position: static
+    margin-top: 0.5rem
+    transform: none
+
 .inviteSpotBtn
   padding: 4px 10px
   font-size: 0.8rem

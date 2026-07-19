@@ -30,6 +30,15 @@ interface StandingsViewProps {
   onCommentsLoaded?: (seasonId: string, commentCount: number) => void;
   seasonId?: string | null;
   seasonNumber?: number;
+  reapplySuggestions?: {
+    id: string;
+    name: string;
+    htTeamId: number;
+    hattrickUserId: number | null;
+    logoUrl: string | null;
+  }[];
+  onReapplySuggestion?: (teamId: string) => void;
+  onRemoveReapplySuggestion?: (teamId: string) => void;
 }
 
 const DEFAULT_TEAM_LOGO = '/default-logo.png';
@@ -59,6 +68,9 @@ export const StandingsView: React.FC<StandingsViewProps> = ({
   onCommentsLoaded,
   seasonId = null,
   seasonNumber = 0,
+  reapplySuggestions = [],
+  onReapplySuggestion,
+  onRemoveReapplySuggestion,
 }) => {
   const [presencePulse, setPresencePulse] = useState(0);
   const isAppgSupported = tournament?.scoring_mode === 'appg';
@@ -259,7 +271,7 @@ export const StandingsView: React.FC<StandingsViewProps> = ({
               </tr>
             </thead>
             <tbody>
-              {standings.length === 0 && (
+              {standings.length === 0 && reapplySuggestions.length === 0 && (
                 <tr>
                   <td className={styles.muted}>1</td>
                   <td className={styles.teamNameCell}>
@@ -380,6 +392,40 @@ export const StandingsView: React.FC<StandingsViewProps> = ({
                         <td className={`${styles.highlight} ${styles.center}`}>{s.pts}</td>
                       </>
                     )}
+                  </tr>
+                );
+              })}
+              {reapplySuggestions.map((team) => {
+                const isOwner = team.hattrickUserId !== null && team.hattrickUserId === Number(myHtUserId);
+                return (
+                  <tr key={team.id} className={styles.reapplySuggestionRow}>
+                    <td className={styles.muted}>-</td>
+                    <td className={styles.teamNameCell}>
+                      <div className={styles.reapplySuggestion}>
+                        <div className={styles.teamInfo}>
+                          <img
+                            src={team.logoUrl || DEFAULT_TEAM_LOGO}
+                            alt={team.name}
+                            className={styles.standingLogo}
+                            onError={(event) => {
+                              event.currentTarget.src = DEFAULT_TEAM_LOGO;
+                            }}
+                          />
+                          <span className={styles.teamName}>{team.name}</span>
+                        </div>
+                        {isOwner && (
+                          <div className={styles.reapplyActions}>
+                            <button type="button" onClick={() => onReapplySuggestion?.(team.id)}>
+                              Re-apply
+                            </button>
+                            <button type="button" onClick={() => onRemoveReapplySuggestion?.(team.id)}>
+                              Remove
+                            </button>
+                          </div>
+                        )}
+                      </div>
+                    </td>
+                    <td colSpan={show120minScoring ? 5 : showAppgScoring ? 4 : 6} />
                   </tr>
                 );
               })}

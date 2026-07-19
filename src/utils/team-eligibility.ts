@@ -1,6 +1,12 @@
 import type { ChppTeamOption } from './chpp-xml';
+import { HATTRICK_WORLD_DETAILS } from '../../shared/worlddetails';
 
 export type LeagueCategory = 'male' | 'hfi';
+
+export interface LeagueRestrictionOption {
+  value: string;
+  label: string;
+}
 
 /** HFI teams are identified by the CHPP league system or HFI league ID. */
 export function isHfiTeam(
@@ -62,4 +68,29 @@ export function validateTeamEligibility(
   }
   
   return { eligible: true };
+}
+
+/**
+ * Restriction choices that make sense for a tournament category and remain
+ * compatible with every team already registered. HFI teams are based in a
+ * country but compete in the countryless HFI league, so HFI restrictions use
+ * country IDs; regular tournaments use league IDs and may include other
+ * countryless Hattrick leagues.
+ */
+export function getCompatibleLeagueRestrictionOptions<
+  T extends Pick<ChppTeamOption, 'leagueName' | 'leagueId' | 'leagueSystemId' | 'genderId' | 'countryId' | 'countryName'>,
+>(teams: T[], category: LeagueCategory): LeagueRestrictionOption[] {
+  const options = Object.values(HATTRICK_WORLD_DETAILS)
+    .filter((league) => (category === 'hfi' ? league.countryId !== null : league.leagueId !== 3000))
+    .map((league) => ({
+      value: String(category === 'hfi' ? league.countryId : league.leagueId),
+      label: league.leagueName,
+    }));
+
+  const uniqueOptions = Array.from(new Map(options.map((option) => [option.value, option])).values());
+  if (teams.length === 0) return uniqueOptions;
+
+  return uniqueOptions.filter((option) =>
+    teams.every((team) => validateTeamEligibility(team, { category, countryLimit: option.value }).eligible),
+  );
 }

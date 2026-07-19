@@ -22,7 +22,8 @@ type OpenTournamentRow = {
   status?: string | null;
   is_archived?: boolean | null;
   max_teams?: number | null;
-  rounds: { id: string }[] | null;
+  season: number | null;
+  rounds: { id: string; season_number: number | null }[] | null;
   teams: { id: string; joined_via_oauth: boolean }[] | null;
 };
 
@@ -57,7 +58,8 @@ export const fetchOpenTournaments = async (): Promise<OpenTournamentSummary[]> =
       is_test,
       status,
       is_archived,
-      rounds ( id ),
+      season,
+      rounds ( id, season_number ),
       max_teams,
       teams ( id, joined_via_oauth )
     `,
@@ -75,7 +77,9 @@ export const fetchOpenTournaments = async (): Promise<OpenTournamentSummary[]> =
         tournament.status !== 'finished' &&
         tournament.status !== 'archived' &&
         !tournament.is_archived &&
-        (tournament.rounds?.length ?? 0) === 0,
+        !(tournament.rounds || []).some(
+          (round) => Number(round.season_number ?? 1) === Number(tournament.season ?? 1),
+        ),
     )
     .map((tournament) => ({
       id: tournament.id,

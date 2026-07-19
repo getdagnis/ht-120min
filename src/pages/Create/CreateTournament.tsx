@@ -28,7 +28,12 @@ import {
   UNIVERSAL_TOURNAMENT_NAMES,
 } from '../../constants/descriptions';
 import { CREATION_TIPS } from '../../constants/creation-tips';
-import { filterTeamsForCategory, validateTeamEligibility, type LeagueCategory } from '../../utils/team-eligibility';
+import {
+  filterTeamsForCategory,
+  getCompatibleLeagueRestrictionOptions,
+  validateTeamEligibility,
+  type LeagueCategory,
+} from '../../utils/team-eligibility';
 import { normalizeTournamentRegistrationType } from '../../utils/tournament-types';
 import {
   fetchOpenTournaments,
@@ -36,7 +41,7 @@ import {
   type OpenTournamentSummary,
 } from '../../utils/open-tournaments';
 import styles from './CreateTournament.module.sass';
-import { HATTRICK_LEAGUES, getLeagueNameById } from '../../../shared/worlddetails';
+import { getLeagueNameById } from '../../../shared/worlddetails';
 import { getCanonicalCountryName, getCountryFlagUrl, getLeagueFlagUrl } from '../../utils/ht-data';
 import {
   formatTournamentName,
@@ -540,6 +545,18 @@ export const CreateTournament: React.FC = () => {
     return null;
   };
 
+  const leagueRestrictionOptions = getCompatibleLeagueRestrictionOptions(
+    teams.map((team) => ({
+      leagueName: '',
+      leagueId: team.leagueId,
+      leagueSystemId: team.leagueId === 3000 || team.genderId === 2 ? 2 : undefined,
+      genderId: team.genderId,
+      countryId: team.countryId,
+      countryName: team.countryName,
+    })),
+    formData.league_category as LeagueCategory,
+  );
+
   const fetchSandboxTeamById = async (teamId: number): Promise<FetchedTeamData> => {
     const params = new URLSearchParams({
       team_id: String(teamId),
@@ -1027,14 +1044,34 @@ export const CreateTournament: React.FC = () => {
                     id="league_category"
                     value={formData.league_category}
                     onChange={(e) => {
-                      const leagueCategory = e.target.value;
+                      const leagueCategory = e.target.value as LeagueCategory;
+                      const nextRestrictions = getCompatibleLeagueRestrictionOptions(
+                        teams.map((team) => ({
+                          leagueName: '',
+                          leagueId: team.leagueId,
+                          leagueSystemId: team.leagueId === 3000 || team.genderId === 2 ? 2 : undefined,
+                          genderId: team.genderId,
+                          countryId: team.countryId,
+                          countryName: team.countryName,
+                        })),
+                        leagueCategory,
+                      );
+                      const countryLimit = nextRestrictions.some((option) => option.value === formData.country_limit)
+                        ? formData.country_limit
+                        : '';
+                      const mismatch = getFirstTeamSettingsMismatch({ leagueCategory, countryLimit });
+                      if (mismatch) {
+                        alert(mismatch);
+                        return;
+                      }
                       setFormData({
                         ...formData,
                         league_category: leagueCategory,
+                        country_limit: countryLimit,
                         name: formatEditableTournamentName(formData.name, {
                           registrationType: formData.registration_type,
                           leagueCategory,
-                          countryLimit: formData.country_limit,
+                          countryLimit,
                           includeCountryFlag: formData.include_country_flag,
                         }),
                       });
@@ -1198,9 +1235,9 @@ export const CreateTournament: React.FC = () => {
                         className={`${styles.mt05} ${styles.w100}`}
                       >
                         <option value="">Select league...</option>
-                        {Object.entries(HATTRICK_LEAGUES).map(([leagueId, league]) => (
-                          <option key={leagueId} value={leagueId}>
-                            {league}
+                        {leagueRestrictionOptions.map((option) => (
+                          <option key={option.value} value={option.value}>
+                            {option.label}
                           </option>
                         ))}
                       </select>

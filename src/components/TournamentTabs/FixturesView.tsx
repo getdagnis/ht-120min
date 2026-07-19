@@ -102,6 +102,10 @@ interface FixturesViewProps {
   canJoinAnotherTeam?: boolean;
   isConnecting: boolean;
   onJoinWithHattrick: () => void;
+  isHistorical?: boolean;
+  onViewPreviousSeason?: () => void;
+  onViewNextSeason?: () => void;
+  emptyStateMessage?: string;
 }
 
 export const FixturesView: React.FC<FixturesViewProps> = ({
@@ -124,9 +128,13 @@ export const FixturesView: React.FC<FixturesViewProps> = ({
   canJoinAnotherTeam = canJoinTournament,
   isConnecting,
   onJoinWithHattrick,
+  isHistorical = false,
+  onViewPreviousSeason,
+  onViewNextSeason,
+  emptyStateMessage,
 }) => {
   const [manualVisibleRoundsCount, setManualVisibleRoundsCount] = React.useState<number | null>(null);
-  const currentRound = upcomingRoundIndex >= 0 ? (rounds[upcomingRoundIndex] ?? null) : null;
+  const currentRound = !isHistorical && upcomingRoundIndex >= 0 ? (rounds[upcomingRoundIndex] ?? null) : null;
   const currentRoundScrollTargetRef = React.useRef<HTMLDivElement | null>(null);
   const hasAutoScrolledToCurrentRoundRef = React.useRef(false);
   const visibleRoundsCount = manualVisibleRoundsCount ?? defaultVisibleRoundsCount;
@@ -200,14 +208,28 @@ export const FixturesView: React.FC<FixturesViewProps> = ({
     <div className={styles.rounds}>
       <div className={styles.fixturesHeader}>
         <h3 className={styles.fixturesTitle}>Season {season} Fixtures</h3>
-        {rounds.length > 0 && (
+        {(onViewPreviousSeason || onViewNextSeason || rounds.length > 0) && (
           <div className={styles.fixturesHeaderActions}>
-            <button type="button" className={styles.fixturesHeaderAction} onClick={onExpandAllRounds}>
+            {onViewPreviousSeason && (
+              <button type="button" className={styles.fixturesHeaderAction} onClick={onViewPreviousSeason}>
+                <span>PREVIOUS</span>
+              </button>
+            )}
+            {onViewNextSeason && (
+              <button type="button" className={styles.fixturesHeaderAction} onClick={onViewNextSeason}>
+                <span>NEXT</span>
+              </button>
+            )}
+            {rounds.length > 0 && (
+              <button type="button" className={styles.fixturesHeaderAction} onClick={onExpandAllRounds}>
               <span>EXPAND ALL</span>
-            </button>
-            <button type="button" className={styles.fixturesHeaderAction} onClick={onCollapseAllRounds}>
-              <span>COLLAPSE ALL</span>
-            </button>
+              </button>
+            )}
+            {rounds.length > 0 && (
+              <button type="button" className={styles.fixturesHeaderAction} onClick={onCollapseAllRounds}>
+                <span>COLLAPSE ALL</span>
+              </button>
+            )}
           </div>
         )}
       </div>
@@ -216,7 +238,7 @@ export const FixturesView: React.FC<FixturesViewProps> = ({
         <SectionCard title="Fixtures & Results">
           <div className={styles.emptyFixtures}>
             <p>
-              Fixtures have not yet been generated. Tournament is open for registration. You can join with another team.
+              {emptyStateMessage || 'Fixtures have not yet been generated. Tournament is open for registration. You can join with another team.'}
             </p>
             {canJoinAnotherTeam && (
               <Button variant="primary" size="sm" onClick={onJoinWithHattrick} disabled={isConnecting}>
@@ -303,7 +325,7 @@ export const FixturesView: React.FC<FixturesViewProps> = ({
                 </div>
               }
               headerRight={
-                allFinished || isNextRound ? (
+                !isHistorical && (allFinished || isNextRound) ? (
                   <div className={styles.fixturesControls} onClick={(e) => e.stopPropagation()}>
                     {allFinished ? (
                       <>
@@ -385,7 +407,7 @@ export const FixturesView: React.FC<FixturesViewProps> = ({
                     );
 
                     // Use status from DB, fallback to simple detection
-                    const liveMatch = match.ht_match_id ? liveData[match.ht_match_id.toString()] : null;
+                    const liveMatch = !isHistorical && match.ht_match_id ? liveData[match.ht_match_id.toString()] : null;
                     let status = match.status || 'not_arranged';
                     const isMisarranged = status === 'misarranged' || !!homeWarning || !!awayWarning;
                     const now = new Date();
@@ -399,9 +421,9 @@ export const FixturesView: React.FC<FixturesViewProps> = ({
                       status = 'finished';
                     } else if (liveMatch) {
                       status = liveMatch.status;
-                    } else if (status === 'ongoing' && !isWithinLiveWindow) {
+                    } else if (!isHistorical && status === 'ongoing' && !isWithinLiveWindow) {
                       status = 'arranged';
-                    } else if (isPastStartTime && isWithinLiveWindow && status === 'arranged') {
+                    } else if (!isHistorical && isPastStartTime && isWithinLiveWindow && status === 'arranged') {
                       status = 'ongoing';
                     }
 
@@ -409,11 +431,11 @@ export const FixturesView: React.FC<FixturesViewProps> = ({
                       ? { home: liveMatch.homeGoals, away: liveMatch.awayGoals }
                       : match.completed
                         ? { home: match.home_goals || 0, away: match.away_goals || 0 }
-                        : isPastStartTime && isWithinLiveWindow
+                      : !isHistorical && isPastStartTime && isWithinLiveWindow
                           ? { home: 0, away: 0 }
                           : undefined;
                     const isPostponed =
-                      tournament?.status === 'paused' && !match.completed && status !== 'misarranged';
+                      !isHistorical && tournament?.status === 'paused' && !match.completed && status !== 'misarranged';
                     const homeSummary = liveMatch
                       ? {
                           yellowCards: liveMatch.home_yellow_cards ?? match.home_yellow_cards ?? 0,

@@ -101,3 +101,16 @@ test('stopped and finished tournaments are not joinable', () => {
     );
   }
 });
+
+test('locks an auto-started season until its current-season schedule exists', () => {
+  assert.equal(
+    canViewerJoinTournament({
+      hasJoined: false,
+      isGenerated: false,
+      maxTeams: null,
+      status: 'active',
+      teams: [{ active: true }],
+    }),
+    false,
+  );
+});

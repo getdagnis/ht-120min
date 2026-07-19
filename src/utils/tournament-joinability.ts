@@ -14,6 +14,8 @@ interface TournamentJoinabilityInput {
 export function canViewerJoinTournament({ hasJoined, isGenerated, maxTeams, teams, status }: TournamentJoinabilityInput) {
   if (hasJoined) return false;
   if (status === 'stopped' || status === 'finished' || status === 'archived') return false;
+  // An active tournament without current-season fixtures is an auto-started, roster-locked season.
+  if (status === 'active' && !isGenerated) return false;
 
   const activeRealTeams = teams.filter((team) => team.active && !team.is_placeholder);
   const hasInactiveRealSpot = teams.some((team) => !team.active && !team.is_placeholder);

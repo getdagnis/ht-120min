@@ -66,6 +66,7 @@ export async function registerOAuthTeam(
       .from('teams')
       .update({
         active: true,
+        reapply_season_number: null,
         name: input.team.teamName,
         manager_name: input.managerName,
         logo_url: input.logoUrl ?? null,
@@ -157,6 +158,7 @@ export async function registerOAuthTeam(
       oauth_token_secret: input.accessTokenSecret,
       joined_via_oauth: true,
       active: true,
+      reapply_season_number: null,
       replacement_for_team_id: replacementForId,
     })
     .select()

@@ -176,6 +176,7 @@ API or CHPP changes:
 Database changes:
 
 - Create migrations intentionally.
+- Treat a migration ending in `-- MIGRATION APPLIED!` as immutable. Never edit it: put every follow-up schema, RPC, or function change in the next migration. If it was edited by mistake after application, restore its applied content and move the later changes into a new migration before continuing.
 - Preserve RLS assumptions.
 - Record migration status in `PROJECT_STATE.md` only when the change has architectural, security, product-direction, migration-state, or substantial behavioral impact.
 
