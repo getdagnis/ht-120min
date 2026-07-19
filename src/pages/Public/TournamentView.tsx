@@ -992,20 +992,20 @@ export const TournamentView: React.FC = () => {
       const teamsData = teamsDataRaw || [];
 
       // Fetch profiles to get country_id and up-to-date manager_name
-      let nextProfileMap: Record<number, { country_id: number | null; manager_name: string }> = {};
+      let nextProfileMap: Record<number, { manager_name: string }> = {};
       let nextLastSeenMap: Record<number, string | null> = {};
       if (teamsData.length > 0) {
         const userIds = teamsData.map((t) => t.hattrick_user_id).filter(Boolean);
         if (userIds.length > 0) {
           const { data: profilesData } = await supabase
             .from('profiles')
-            .select('hattrick_user_id, country_id, manager_name, last_seen_at')
+            .select('hattrick_user_id, manager_name, last_seen_at')
             .in('hattrick_user_id', userIds);
           if (profilesData) {
             nextProfileMap = Object.fromEntries(
               profilesData.map((p) => [
                 Number(p.hattrick_user_id),
-                { country_id: p.country_id ?? null, manager_name: p.manager_name },
+                { manager_name: p.manager_name },
               ]),
             );
             nextLastSeenMap = Object.fromEntries(
@@ -1093,9 +1093,6 @@ export const TournamentView: React.FC = () => {
         home_team: m.home_team
           ? {
               ...m.home_team,
-              country_id: m.home_team.hattrick_user_id
-                ? nextProfileMap[m.home_team.hattrick_user_id]?.country_id
-                : null,
               manager_name: m.home_team.hattrick_user_id
                 ? nextProfileMap[m.home_team.hattrick_user_id]?.manager_name || m.home_team.manager_name
                 : m.home_team.manager_name,
@@ -1104,9 +1101,6 @@ export const TournamentView: React.FC = () => {
         away_team: m.away_team
           ? {
               ...m.away_team,
-              country_id: m.away_team.hattrick_user_id
-                ? nextProfileMap[m.away_team.hattrick_user_id]?.country_id
-                : null,
               manager_name: m.away_team.hattrick_user_id
                 ? nextProfileMap[m.away_team.hattrick_user_id]?.manager_name || m.away_team.manager_name
                 : m.away_team.manager_name,
@@ -1299,8 +1293,8 @@ export const TournamentView: React.FC = () => {
         .select(
           `
         *, status, ht_match_id, match_type,
-        home_team:teams!matches_home_team_id_fkey(name, ht_team_id, logo_url, country_name, league_level, active, manager_name, hattrick_user_id),
-        away_team:teams!matches_away_team_id_fkey(name, ht_team_id, logo_url, country_name, league_level, active, manager_name, hattrick_user_id)
+        home_team:teams!matches_home_team_id_fkey(name, ht_team_id, logo_url, country_name, country_id, league_id, league_level, active, manager_name, hattrick_user_id),
+        away_team:teams!matches_away_team_id_fkey(name, ht_team_id, logo_url, country_name, country_id, league_id, league_level, active, manager_name, hattrick_user_id)
       `,
         )
         .in('round_id', roundIds),
