@@ -61,11 +61,7 @@ import {
 const HAS_CREATED_TOURNAMENT_KEY = 'ht120_has_created_tournament';
 
 const CreationTipsWidget = () => (
-  <CompactAccordionWidget
-    title="Creation Tips"
-    icon={<Question size={20} weight="bold" />}
-    items={CREATION_TIPS}
-  />
+  <CompactAccordionWidget title="Creation Tips" icon={<Question size={20} weight="bold" />} items={CREATION_TIPS} />
 );
 
 const SidebarContent = ({ openTournaments }: { openTournaments: OpenTournamentSummary[] }) => (
@@ -532,7 +528,9 @@ export const CreateTournament: React.FC = () => {
       },
     );
 
-    return validation.eligible ? null : validation.reason || 'Team does not match the selected tournament restrictions.';
+    return validation.eligible
+      ? null
+      : validation.reason || 'Team does not match the selected tournament restrictions.';
   };
 
   const getFirstTeamSettingsMismatch = (
@@ -1088,7 +1086,8 @@ export const CreateTournament: React.FC = () => {
                     value={formData.registration_type}
                     onChange={(e) => {
                       const nextType = normalizeTournamentRegistrationType(e.target.value);
-                      const nextScoringMode = nextType === 'validated' && formData.scoring_mode === 'appg' ? '120min' : formData.scoring_mode;
+                      const nextScoringMode =
+                        nextType === 'validated' && formData.scoring_mode === 'appg' ? '120min' : formData.scoring_mode;
                       setFormData({
                         ...formData,
                         registration_type: nextType,
@@ -1130,9 +1129,7 @@ export const CreateTournament: React.FC = () => {
                   >
                     <option value="120min">Rank by 120 minute achievements ⏱</option>
                     <option value="points">Regular 90 min friendlies (3p/1p/0) 🥇</option>
-                    {registrationType !== 'validated' && (
-                      <option value="appg">APPG (HFI event scoring) 📊</option>
-                    )}
+                    {registrationType !== 'validated' && <option value="appg">APPG (HFI event scoring) 📊</option>}
                   </select>
                 </div>
                 <div className={styles.field}>
@@ -1183,7 +1180,7 @@ export const CreateTournament: React.FC = () => {
                     />
                   )}
                 </div>
-                <Tooltip id="regenerate-tooltip" content="Regenerate" delayShow={800} className="tooltip" />
+                <Tooltip id="regenerate-tooltip" content="Shuffle from pool" delayShow={800} className="tooltip" />
                 {!isSandbox && (
                   <div className={styles.field}>
                     <label className={styles.checkboxLabel}>

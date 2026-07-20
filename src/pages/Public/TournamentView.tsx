@@ -5154,9 +5154,10 @@ export const TournamentView: React.FC = () => {
                           type="button"
                           className={adminStyles.adminLinkButton}
                           onClick={() => scrollToAdminPanel(panel.id)}
+                          data-tooltip-id="admin-tooltip"
+                          data-tooltip-content={panel.description}
                         >
                           <span>{panel.label}</span>
-                          <small>{panel.description}</small>
                         </button>
                       ))}
                     </div>
