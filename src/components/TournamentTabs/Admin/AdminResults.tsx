@@ -138,7 +138,7 @@ const ResultEditButton: React.FC<{
   return (
     <Button
       size="xs"
-      variant={hasResult ? 'zero' : roundId === currentRoundId ? 'secondary' : 'outline'}
+      variant={hasResult ? 'action' : roundId === currentRoundId ? 'secondaryAction' : 'action'}
       onClick={() => {
         setEditingMatch(match.id);
         setMatchData({
@@ -158,7 +158,7 @@ const ResultEditButton: React.FC<{
 const ResultLinkButton: React.FC<{ onClick: () => void }> = ({ onClick }) => (
   <Button
     size="xs"
-    variant="outline"
+    variant="action"
     onClick={onClick}
     title="Link Hattrick match"
     data-tooltip-id="admin-tooltip"
@@ -383,7 +383,7 @@ export const AdminResults: React.FC<AdminResultsProps> = ({
       <Button
         size="xs"
         onClick={handleSaveLink}
-        variant="primary"
+        variant="primaryDanger"
         disabled={!linkPreview || isSavingLink}
         title="Save linked match"
         data-tooltip-id="admin-tooltip"
@@ -399,7 +399,7 @@ export const AdminResults: React.FC<AdminResultsProps> = ({
       </Button>
       <Button
         size="xs"
-        variant="outline"
+        variant="action"
         onClick={cancelLinking}
         title="Cancel"
         data-tooltip-id="admin-tooltip"
@@ -443,17 +443,17 @@ export const AdminResults: React.FC<AdminResultsProps> = ({
           <>
             <Button
               size="xs"
-              variant="outline"
+              variant="action"
               onClick={() => startBulkSimulation(rounds.flatMap((round) => round.matches.map((match) => match.id)))}
             >
               Simulate season
             </Button>
             {importCsvRows && (
               <>
-                <Button size="xs" variant="outline" onClick={downloadCsvTemplate}>
+                <Button size="xs" variant="action" onClick={downloadCsvTemplate}>
                   CSV template
                 </Button>
-                <Button size="xs" variant="outline" onClick={() => fileInputRef.current?.click()}>
+                <Button size="xs" variant="action" onClick={() => fileInputRef.current?.click()}>
                   Import CSV
                 </Button>
                 <input ref={fileInputRef} type="file" accept=".csv,text/csv" onChange={handleCsvFile} hidden />
@@ -474,7 +474,7 @@ export const AdminResults: React.FC<AdminResultsProps> = ({
                 {saveBulkMatches && (
                   <Button
                     size="xs"
-                    variant="outline"
+                    variant="action"
                     onClick={() => startBulkSimulation(round.matches.map((match) => match.id))}
                   >
                     Simulate round
@@ -732,7 +732,7 @@ export const AdminResults: React.FC<AdminResultsProps> = ({
                             <Button
                               size="xs"
                               onClick={() => updateMatch(match.id)}
-                              variant="primary"
+                              variant="primaryDanger"
                               title="Save"
                               data-tooltip-id="admin-tooltip"
                               data-tooltip-content="Save result"
@@ -741,7 +741,7 @@ export const AdminResults: React.FC<AdminResultsProps> = ({
                             </Button>
                             <Button
                               size="xs"
-                              variant="outline"
+                              variant="action"
                               title={match.completed ? 'Reset unsaved changes' : 'Clear form'}
                               onClick={() => {
                                 setMatchData({
@@ -764,7 +764,7 @@ export const AdminResults: React.FC<AdminResultsProps> = ({
                             </Button>
                             <Button
                               size="xs"
-                              variant="outline"
+                              variant="action"
                               onClick={() => setEditingMatch(null)}
                               title="Cancel"
                               data-tooltip-id="admin-tooltip"
@@ -838,10 +838,10 @@ export const AdminResults: React.FC<AdminResultsProps> = ({
       </div>
       {bulkMatchIds.length > 0 && (
         <div className={adminStyles.bulkActions}>
-          <Button size="xs" variant="primary" onClick={saveBulkSimulation} disabled={isSavingBulk}>
+          <Button size="xs" variant="primaryDanger" onClick={saveBulkSimulation} disabled={isSavingBulk}>
             <Check size={16} /> Save simulation
           </Button>
-          <Button size="xs" variant="outline" onClick={cancelBulkSimulation}>
+          <Button size="xs" variant="action" onClick={cancelBulkSimulation}>
             <X size={16} /> Cancel
           </Button>
         </div>

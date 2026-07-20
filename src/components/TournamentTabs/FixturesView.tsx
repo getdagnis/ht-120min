@@ -227,7 +227,7 @@ export const FixturesView: React.FC<FixturesViewProps> = ({
             )}
             {rounds.length > 0 && (
               <button type="button" className={styles.fixturesHeaderAction} onClick={onExpandAllRounds}>
-              <span>EXPAND ALL</span>
+                <span>EXPAND ALL</span>
               </button>
             )}
             {rounds.length > 0 && (
@@ -243,7 +243,8 @@ export const FixturesView: React.FC<FixturesViewProps> = ({
         <SectionCard title="Fixtures & Results">
           <div className={styles.emptyFixtures}>
             <p>
-              {emptyStateMessage || 'Fixtures have not yet been generated. Tournament is open for registration. You can join with another team.'}
+              {emptyStateMessage ||
+                'Fixtures have not yet been generated. Tournament is open for registration. You can join with another team.'}
             </p>
             {canJoinAnotherTeam && (
               <Button variant="primary" size="sm" onClick={onJoinWithHattrick} disabled={isConnecting}>
@@ -412,7 +413,8 @@ export const FixturesView: React.FC<FixturesViewProps> = ({
                     );
 
                     // Use status from DB, fallback to simple detection
-                    const liveMatch = !isHistorical && match.ht_match_id ? liveData[match.ht_match_id.toString()] : null;
+                    const liveMatch =
+                      !isHistorical && match.ht_match_id ? liveData[match.ht_match_id.toString()] : null;
                     let status = match.status || 'not_arranged';
                     const isMisarranged = status === 'misarranged' || !!homeWarning || !!awayWarning;
                     const now = new Date();
@@ -436,7 +438,7 @@ export const FixturesView: React.FC<FixturesViewProps> = ({
                       ? { home: liveMatch.homeGoals, away: liveMatch.awayGoals }
                       : match.completed
                         ? { home: match.home_goals || 0, away: match.away_goals || 0 }
-                      : !isHistorical && isPastStartTime && isWithinLiveWindow
+                        : !isHistorical && isPastStartTime && isWithinLiveWindow
                           ? { home: 0, away: 0 }
                           : undefined;
                     const isPostponed =
@@ -522,7 +524,7 @@ export const FixturesView: React.FC<FixturesViewProps> = ({
       {visibleRoundsCount < rounds.length && (
         <div className={styles.formActionRow}>
           <Button
-            variant="outline"
+            variant="action"
             onClick={() =>
               setManualVisibleRoundsCount((prev) => {
                 const base = prev ?? defaultVisibleRoundsCount;

@@ -87,12 +87,12 @@ const TOURNAMENT_VIEW_MODALS_OPEN_BY_DEFAULT = {
 };
 const ADMIN_PANELS = [
   { id: 'settings', label: 'Tournament Settings', description: 'General tournament settings' },
-  { id: 'season', label: 'Season planner', description: 'Close or add new seasons, generate season reports' },
-  { id: 'results', label: 'Results Entry', description: "Manage current season's fixtures" },
   { id: 'schedule', label: 'Schedule', description: 'Generate a new schedule or change the existing one' },
-  { id: 'teams', label: 'Manage Teams', description: 'Add new or remove teams' },
   { id: 'announcements', label: 'Admin announcements', description: 'Create tournament announcements' },
+  { id: 'season', label: 'Season planner', description: 'Close or add new seasons, generate season reports' },
   { id: 'lifecycle', label: 'Tournament status', description: 'Manage tournament status' },
+  { id: 'results', label: 'Results Entry', description: "Manage current season's fixtures" },
+  { id: 'teams', label: 'Manage Teams', description: 'Add new or remove teams' },
 ] as const;
 
 type AdminPanelId = (typeof ADMIN_PANELS)[number]['id'];
@@ -691,7 +691,13 @@ export const TournamentView: React.FC = () => {
     JSON.parse(localStorage.getItem(`teams_collapsed_${slug}`) || 'true'),
   );
   const [isResultsCollapsed, setIsResultsCollapsed] = useState(() =>
-    JSON.parse(localStorage.getItem(`results_collapsed_${slug}`) || 'false'),
+    JSON.parse(localStorage.getItem(`results_collapsed_${slug}`) || 'true'),
+  );
+  const [isSeasonCollapsed, setIsSeasonCollapsed] = useState(() =>
+    JSON.parse(localStorage.getItem(`season_collapsed_${slug}`) || 'true'),
+  );
+  const [isAnnouncementsCollapsed, setIsAnnouncementsCollapsed] = useState(() =>
+    JSON.parse(localStorage.getItem(`announcements_collapsed_${slug}`) || 'false'),
   );
   const [scheduleCollapseOverrides, setScheduleCollapseOverrides] = useState<Record<string, boolean>>({});
   const scheduleCollapseStorageKey = slug ? `schedule_collapsed_${slug}` : null;
@@ -710,14 +716,36 @@ export const TournamentView: React.FC = () => {
     if (slug) localStorage.setItem(`${key}_collapsed_${slug}`, JSON.stringify(state));
   };
 
+  const setSchedulePanelCollapsed = (state: boolean) => {
+    if (slug) setScheduleCollapseOverrides((current) => ({ ...current, [slug]: state }));
+    if (scheduleCollapseStorageKey) localStorage.setItem(scheduleCollapseStorageKey, JSON.stringify(state));
+  };
+
+  const expandAllAdminPanels = () => {
+    togglePanel('settings', false, setIsSettingsCollapsed);
+    togglePanel('announcements', false, setIsAnnouncementsCollapsed);
+    togglePanel('season', false, setIsSeasonCollapsed);
+    togglePanel('results', false, setIsResultsCollapsed);
+    togglePanel('teams', false, setIsTeamsCollapsed);
+    setSchedulePanelCollapsed(false);
+  };
+
+  const collapseAllAdminPanels = () => {
+    togglePanel('settings', true, setIsSettingsCollapsed);
+    togglePanel('announcements', true, setIsAnnouncementsCollapsed);
+    togglePanel('season', true, setIsSeasonCollapsed);
+    togglePanel('results', true, setIsResultsCollapsed);
+    togglePanel('teams', true, setIsTeamsCollapsed);
+    setSchedulePanelCollapsed(true);
+  };
+
   const scrollToAdminPanel = (panelId: AdminPanelId) => {
     if (panelId === 'settings') togglePanel('settings', false, setIsSettingsCollapsed);
+    if (panelId === 'announcements') togglePanel('announcements', false, setIsAnnouncementsCollapsed);
+    if (panelId === 'season') togglePanel('season', false, setIsSeasonCollapsed);
     if (panelId === 'teams') togglePanel('teams', false, setIsTeamsCollapsed);
     if (panelId === 'results') togglePanel('results', false, setIsResultsCollapsed);
-    if (panelId === 'schedule' && scheduleCollapseStorageKey) {
-      if (slug) setScheduleCollapseOverrides((current) => ({ ...current, [slug]: false }));
-      localStorage.setItem(scheduleCollapseStorageKey, JSON.stringify(false));
-    }
+    if (panelId === 'schedule') setSchedulePanelCollapsed(false);
 
     window.setTimeout(() => {
       const target = document.getElementById(`admin-panel-${panelId}`);
@@ -877,6 +905,23 @@ export const TournamentView: React.FC = () => {
     [rescheduleDraft],
   );
   const resolvedScheduleCollapsed = scheduleCollapseOverride ?? isGenerated;
+  const isSeasonCloseAvailable = Boolean(
+    tournament && tournament.status !== 'finished' && isGenerated && hasFinishedAllRealFixtures(rounds),
+  );
+
+  useEffect(() => {
+    if (!slug || !tournament) return;
+    if (localStorage.getItem(`settings_collapsed_${slug}`) !== null) return;
+
+    setIsSettingsCollapsed(tournament.status !== 'open' || isGenerated);
+  }, [isGenerated, slug, tournament]);
+
+  useEffect(() => {
+    if (!slug || !tournament) return;
+    if (localStorage.getItem(`season_collapsed_${slug}`) !== null) return;
+
+    setIsSeasonCollapsed(!isSeasonCloseAvailable);
+  }, [isSeasonCloseAvailable, slug, tournament]);
 
   const reconcileScheduleSelection = useCallback(
     (nextMode: ScheduleMode, nextStartSlotId: string | null) => {
@@ -2466,6 +2511,11 @@ export const TournamentView: React.FC = () => {
       }
 
       fetchData();
+      if (settingsHasUnsavedChanges) {
+        window.setTimeout(() => {
+          togglePanel('settings', true, setIsSettingsCollapsed);
+        }, 1000);
+      }
     } catch (error: any) {
       alert(error.message);
     } finally {
@@ -2950,6 +3000,7 @@ export const TournamentView: React.FC = () => {
       });
 
       if (error) throw error;
+      setSchedulePanelCollapsed(true);
       await supabase.from('tournament_seasons').upsert(
         {
           tournament_id: tournament?.id,
@@ -3019,6 +3070,7 @@ export const TournamentView: React.FC = () => {
       });
 
       if (error) throw error;
+      setSchedulePanelCollapsed(true);
       await fetchData();
     } catch (err: unknown) {
       const message =
@@ -3465,7 +3517,7 @@ export const TournamentView: React.FC = () => {
                       </Button>
                       <Button
                         size="sm"
-                        variant="outline"
+                        variant="zero"
                         onClick={() => {
                           setIsAddingDescription(false);
                           setQuickDescription('');
@@ -3687,7 +3739,7 @@ export const TournamentView: React.FC = () => {
                     </Button>
                     <Button
                       type="button"
-                      variant="outline"
+                      variant="zero"
                       size="sm"
                       onClick={fetchRandomSandboxTeam}
                       disabled={isSavingTeam || isFetchingSandboxTeam}
@@ -3865,7 +3917,7 @@ export const TournamentView: React.FC = () => {
             View Season Report
           </Button>
           <Button
-            variant="outline"
+            variant="zero"
             size="md"
             onClick={() => {
               dismissHistoryReportNotice();
@@ -4527,8 +4579,109 @@ export const TournamentView: React.FC = () => {
                     </SectionCard>
                   </div>
 
+                  {!isGenerated && canManageSchedule && (
+                    <div id="admin-panel-schedule">
+                      <TournamentSchedulePanel
+                        isGenerated={isGenerated}
+                        isCollapsed={resolvedScheduleCollapsed}
+                        onToggleCollapse={() => setSchedulePanelCollapsed(!resolvedScheduleCollapsed)}
+                        draft={scheduleDraft}
+                        onScheduleModeChange={handleScheduleModeChange}
+                        onSelectedStartSlotIdChange={handleScheduleStartSlotIdChange}
+                        includeWeek15WeekendFriendly={includeWeek15WeekendFriendly}
+                        onIncludeWeek15WeekendFriendlyChange={handleIncludeWeek15WeekendFriendlyChange}
+                        isGenerating={isGenerating}
+                        onGenerate={generateSchedule}
+                        tournamentTeamLimit={editMaxTeams}
+                      />
+                    </div>
+                  )}
+
+                  {isGenerated && canManageSchedule && (
+                    <div id="admin-panel-schedule">
+                      <TournamentSchedulePanel
+                        isGenerated={isGenerated}
+                        isCollapsed={resolvedScheduleCollapsed}
+                        onToggleCollapse={() => setSchedulePanelCollapsed(!resolvedScheduleCollapsed)}
+                        draft={scheduleDraft}
+                        onScheduleModeChange={handleScheduleModeChange}
+                        onSelectedStartSlotIdChange={handleScheduleStartSlotIdChange}
+                        includeWeek15WeekendFriendly={includeWeek15WeekendFriendly}
+                        onIncludeWeek15WeekendFriendlyChange={handleIncludeWeek15WeekendFriendlyChange}
+                        isGenerating={isGenerating}
+                        onGenerate={generateSchedule}
+                        tournamentTeamLimit={editMaxTeams}
+                        rescheduleDraft={rescheduleDraft}
+                        onRescheduleFromRoundChange={handleRescheduleFromRoundChange}
+                        onRescheduleStartSlotIdChange={handleRescheduleStartSlotIdChange}
+                        includeWeek15WeekendFriendlyForReschedule={includeWeek15WeekendFriendlyForReschedule}
+                        onIncludeWeek15WeekendFriendlyForRescheduleChange={
+                          handleIncludeWeek15WeekendFriendlyForRescheduleChange
+                        }
+                        isRescheduling={isRescheduling}
+                        onReschedule={regenerateSchedule}
+                      />
+                    </div>
+                  )}
+
+                  <div id="admin-panel-announcements">
+                    <SectionCard
+                      title="Admin announcements"
+                      collapsible
+                      isCollapsed={isAnnouncementsCollapsed}
+                      onToggleCollapse={() =>
+                        togglePanel('announcements', !isAnnouncementsCollapsed, setIsAnnouncementsCollapsed)
+                      }
+                    >
+                      <p className={adminStyles.smallNote}>
+                        Publish a dismissible message in the top tournament notice area.
+                      </p>
+                      <AdminAnnouncementComposer onPublishAnnouncement={handleAnnouncementPublish} />
+
+                      <div className={adminStyles.announcementList}>
+                        {announcements.length === 0 ? (
+                          <>
+                            <h4>Current announcements</h4>
+                            <p className={adminStyles.smallNote}>No announcements yet.</p>
+                          </>
+                        ) : (
+                          announcements.map((announcement) => (
+                            <div
+                              key={announcement.id}
+                              className={`${adminStyles.announcementListItem} ${
+                                !announcement.is_active ? adminStyles.announcementHidden : ''
+                              }`}
+                            >
+                              <div>
+                                <p>{announcement.content}</p>
+                                <span>
+                                  {announcement.visibility === 'public' ? 'Public' : 'Participants'} •{' '}
+                                  {announcement.is_active ? 'Visible' : 'Hidden'} •{' '}
+                                  {new Date(announcement.created_at).toLocaleDateString('en-GB')}
+                                </span>
+                              </div>
+                              <Button
+                                variant="zero"
+                                size="sm"
+                                onClick={() => handleAnnouncementVisibilityToggle(announcement)}
+                              >
+                                {announcement.is_active ? 'Hide for all' : 'Show for all'}
+                              </Button>
+                            </div>
+                          ))
+                        )}
+                      </div>
+                    </SectionCard>
+                  </div>
+
                   <div id="admin-panel-season">
-                    <SectionCard title="Season planner" className={adminStyles.seasonPlannerCard}>
+                    <SectionCard
+                      title="Season planner"
+                      className={adminStyles.seasonPlannerCard}
+                      collapsible
+                      isCollapsed={isSeasonCollapsed}
+                      onToggleCollapse={() => togglePanel('season', !isSeasonCollapsed, setIsSeasonCollapsed)}
+                    >
                       <div className={adminStyles.seasonPlanner}>
                         {previousSeasons.length > 0 && (
                           <div>
@@ -4542,7 +4695,7 @@ export const TournamentView: React.FC = () => {
                                   {season.snapshot_json &&
                                     (!('version' in season.snapshot_json) || season.snapshot_json.version !== 2) && (
                                       <Button
-                                        variant="outline"
+                                        variant="zero"
                                         size="xs"
                                         onClick={() => handleRebuildSeasonSnapshot(season)}
                                         disabled={rebuildingSeasonNumber !== null}
@@ -4604,7 +4757,7 @@ export const TournamentView: React.FC = () => {
                             )}
                             {tournament.status === 'finished' && currentSeason?.snapshot_json && (
                               <>
-                                <Button variant="outline" size="sm" disabled>
+                                <Button variant="zero" size="sm" disabled>
                                   History report generated
                                 </Button>
                                 <Button
@@ -4622,7 +4775,7 @@ export const TournamentView: React.FC = () => {
                                   content="Keeps the existing roster. The next season starts with a clean table and waits for you to generate a new schedule."
                                 />
                                 <Button
-                                  variant="outline"
+                                  variant="zero"
                                   size="sm"
                                   onClick={() => handleStartNewSeason('open')}
                                   disabled={isAddingSeason}
@@ -4643,29 +4796,6 @@ export const TournamentView: React.FC = () => {
                     </SectionCard>
                   </div>
 
-                  {!isGenerated && canManageSchedule && (
-                    <div id="admin-panel-schedule">
-                      <TournamentSchedulePanel
-                        isGenerated={isGenerated}
-                        isCollapsed={resolvedScheduleCollapsed}
-                        onToggleCollapse={() => {
-                          const next = !resolvedScheduleCollapsed;
-                          if (slug) setScheduleCollapseOverrides((current) => ({ ...current, [slug]: next }));
-                          if (scheduleCollapseStorageKey)
-                            localStorage.setItem(scheduleCollapseStorageKey, JSON.stringify(next));
-                        }}
-                        draft={scheduleDraft}
-                        onScheduleModeChange={handleScheduleModeChange}
-                        onSelectedStartSlotIdChange={handleScheduleStartSlotIdChange}
-                        includeWeek15WeekendFriendly={includeWeek15WeekendFriendly}
-                        onIncludeWeek15WeekendFriendlyChange={handleIncludeWeek15WeekendFriendlyChange}
-                        isGenerating={isGenerating}
-                        onGenerate={generateSchedule}
-                        tournamentTeamLimit={editMaxTeams}
-                      />
-                    </div>
-                  )}
-
                   {isGenerated && (
                     <div id="admin-panel-results">
                       <AdminResults
@@ -4684,38 +4814,6 @@ export const TournamentView: React.FC = () => {
                         scoringMode={tournament.scoring_mode}
                         saveBulkMatches={saveBulkMatches}
                         importCsvRows={importCsvRows}
-                      />
-                    </div>
-                  )}
-
-                  {isGenerated && canManageSchedule && (
-                    <div id="admin-panel-schedule">
-                      <TournamentSchedulePanel
-                        isGenerated={isGenerated}
-                        isCollapsed={resolvedScheduleCollapsed}
-                        onToggleCollapse={() => {
-                          const next = !resolvedScheduleCollapsed;
-                          if (slug) setScheduleCollapseOverrides((current) => ({ ...current, [slug]: next }));
-                          if (scheduleCollapseStorageKey)
-                            localStorage.setItem(scheduleCollapseStorageKey, JSON.stringify(next));
-                        }}
-                        draft={scheduleDraft}
-                        onScheduleModeChange={handleScheduleModeChange}
-                        onSelectedStartSlotIdChange={handleScheduleStartSlotIdChange}
-                        includeWeek15WeekendFriendly={includeWeek15WeekendFriendly}
-                        onIncludeWeek15WeekendFriendlyChange={handleIncludeWeek15WeekendFriendlyChange}
-                        isGenerating={isGenerating}
-                        onGenerate={generateSchedule}
-                        tournamentTeamLimit={editMaxTeams}
-                        rescheduleDraft={rescheduleDraft}
-                        onRescheduleFromRoundChange={handleRescheduleFromRoundChange}
-                        onRescheduleStartSlotIdChange={handleRescheduleStartSlotIdChange}
-                        includeWeek15WeekendFriendlyForReschedule={includeWeek15WeekendFriendlyForReschedule}
-                        onIncludeWeek15WeekendFriendlyForRescheduleChange={
-                          handleIncludeWeek15WeekendFriendlyForRescheduleChange
-                        }
-                        isRescheduling={isRescheduling}
-                        onReschedule={regenerateSchedule}
                       />
                     </div>
                   )}
@@ -4911,7 +5009,7 @@ export const TournamentView: React.FC = () => {
                                     }}
                                     title={isGenerated ? 'Deactivate Team' : 'Delete Team'}
                                   >
-                                    <Trash size={16} /> Delete
+                                    <Trash size={16} /> Deactivate
                                   </Button>
                                 </>
                               ) : (
@@ -4989,7 +5087,7 @@ export const TournamentView: React.FC = () => {
                       <div className={adminStyles.inviteTemplate}>
                         <Button
                           size="sm"
-                          variant="outline"
+                          variant="action"
                           onClick={() => setIsInviteExpanded(!isInviteExpanded)}
                           className={adminStyles.inviteBtn}
                         >
@@ -5000,14 +5098,14 @@ export const TournamentView: React.FC = () => {
                             <label className={adminStyles.inviteLabel}>Share this with your Hattrick buddies</label>
                             <textarea
                               readOnly
-                              value={`You are invited to join "${tournament.name}" (Season ${tournament.season}) on HT-120min! Register your team here: ${publicUrl}`}
+                              value={`I'd like to invite you to join "${tournament.name}" (Season ${tournament.season}) tournament on HT-120min! Register your team here: ${publicUrl}`}
                             />
                             <Button
                               size="sm"
-                              variant="outline"
+                              variant="zero"
                               onClick={() => {
                                 navigator.clipboard.writeText(
-                                  `You are invited to join "${tournament.name}" (Season ${tournament.season}) on HT-120min! Register your team here: ${publicUrl}`,
+                                  `I'd like to invite you to join "${tournament.name}" (Season ${tournament.season}) tournament on HT-120min! Register your team here: ${publicUrl}`,
                                 );
                                 alert('Invitation copied!');
                               }}
@@ -5018,46 +5116,6 @@ export const TournamentView: React.FC = () => {
                     </SectionCard>
                   </div>
 
-                  <div id="admin-panel-announcements" className={adminStyles.simulatorSection}>
-                    <h3 className={adminStyles.sectionTitle}>Admin announcements</h3>
-                    <p className={adminStyles.smallNote}>
-                      Publish a dismissible message in the top tournament notice area.
-                    </p>
-                    <AdminAnnouncementComposer onPublishAnnouncement={handleAnnouncementPublish} />
-
-                    <div className={adminStyles.announcementList}>
-                      <h4>Announcements</h4>
-                      {announcements.length === 0 ? (
-                        <p className={adminStyles.smallNote}>No announcements yet.</p>
-                      ) : (
-                        announcements.map((announcement) => (
-                          <div
-                            key={announcement.id}
-                            className={`${adminStyles.announcementListItem} ${
-                              !announcement.is_active ? adminStyles.announcementHidden : ''
-                            }`}
-                          >
-                            <div>
-                              <p>{announcement.content}</p>
-                              <span>
-                                {announcement.visibility === 'public' ? 'Public' : 'Participants'} •{' '}
-                                {announcement.is_active ? 'Visible' : 'Hidden'} •{' '}
-                                {new Date(announcement.created_at).toLocaleDateString('en-GB')}
-                              </span>
-                            </div>
-                            <Button
-                              variant="outline"
-                              size="sm"
-                              onClick={() => handleAnnouncementVisibilityToggle(announcement)}
-                            >
-                              {announcement.is_active ? 'Hide for all' : 'Show for all'}
-                            </Button>
-                          </div>
-                        ))
-                      )}
-                    </div>
-                  </div>
-
                   <div id="admin-panel-lifecycle" className={adminStyles.footerActions}>
                     {tournament.status === 'finished' ? (
                       <>
@@ -5066,7 +5124,7 @@ export const TournamentView: React.FC = () => {
                           create other tournaments.
                         </p>
                         <div className={adminStyles.lifecycleButtons}>
-                          <Button variant="outline" size="sm" disabled>
+                          <Button variant="zero" size="sm" disabled>
                             Finished
                           </Button>
                         </div>
@@ -5102,11 +5160,11 @@ export const TournamentView: React.FC = () => {
                           tournament, unpublish it and allow participants to play elsewhere.
                         </p>
                         <div className={adminStyles.lifecycleButtons}>
-                          <Button variant="outline" size="sm" onClick={handlePauseTournament}>
+                          <Button variant="zero" size="sm" onClick={handlePauseTournament}>
                             Pause Tournament
                           </Button>
                           <Button
-                            variant="outline"
+                            variant="zero"
                             size="sm"
                             onClick={handleStopTournament}
                             data-tooltip-id="admin-tooltip"
@@ -5119,19 +5177,14 @@ export const TournamentView: React.FC = () => {
                         </div>
                       </>
                     )}
-                    <div className={adminStyles.lifecycleButtons}>
-                      <Button variant="outline" size="sm" onClick={handleAdminLogout}>
-                        Logout
-                      </Button>
-                    </div>
                     {/* PERMANENTLY DELETE TOURNAMENT *
                 <Button
                   variant="danger"
                   size="sm"
                   onClick={() => window.confirm('Permanently DELETE this tournament? This cannot be undone!')}
                 >
-                  Delete Tournament
-                </Button> */}
+                    Delete Tournament
+                  </Button> */}
                   </div>
                 </section>
                 <aside className={adminStyles.adminSidebar}>
@@ -5141,6 +5194,9 @@ export const TournamentView: React.FC = () => {
                       <strong>
                         {adminAccessName} <span>({adminAccessMode})</span>
                       </strong>
+                      <button type="button" className={styles.fixturesHeaderAction} onClick={handleAdminLogout}>
+                        <span>LOGOUT</span>
+                      </button>
                     </div>
                     <div className={adminStyles.adminLinksCard}>
                       <span className={adminStyles.accessLabel}>Quick links</span>
@@ -5160,6 +5216,14 @@ export const TournamentView: React.FC = () => {
                           <span>{panel.label}</span>
                         </button>
                       ))}
+                      <div className={styles.fixturesHeaderActions}>
+                        <button type="button" className={styles.fixturesHeaderAction} onClick={expandAllAdminPanels}>
+                          <span>EXPAND ALL</span>
+                        </button>
+                        <button type="button" className={styles.fixturesHeaderAction} onClick={collapseAllAdminPanels}>
+                          <span>COLLAPSE ALL</span>
+                        </button>
+                      </div>
                     </div>
                   </SidebarWidget>
                 </aside>
@@ -5337,7 +5401,7 @@ export const TournamentView: React.FC = () => {
 
               <div className={styles.modalFooter}>
                 <Button
-                  variant="outline"
+                  variant="zero"
                   fullWidth
                   onClick={() => {
                     setShowTeamModal(false);

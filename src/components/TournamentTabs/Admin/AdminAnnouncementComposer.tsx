@@ -59,6 +59,7 @@ export const AdminAnnouncementComposer = React.memo(function AdminAnnouncementCo
       />
 
       <div className={adminStyles.announcementChips}>
+        Templates:{' '}
         {ANNOUNCEMENT_TEMPLATES.map((template) => (
           <button
             key={template.id}
@@ -84,7 +85,7 @@ export const AdminAnnouncementComposer = React.memo(function AdminAnnouncementCo
       </label>
 
       <div className={adminStyles.smallNote}>
-        {selectedAnnouncement ? `${selectedAnnouncement.label} template selected` : 'No template selected.'}
+        {selectedAnnouncement ? `${selectedAnnouncement.label} template selected` : ''}
       </div>
 
       <div

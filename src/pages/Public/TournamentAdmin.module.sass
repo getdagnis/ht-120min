@@ -156,6 +156,9 @@
   border-bottom: 1px dotted var(--border)
 
 .sectionTitle
+  display: flex
+  align-items: flex-end
+  height: auto
   margin: 0 0 1rem
   font-size: 1.1rem
   font-weight: 700
@@ -165,6 +168,10 @@
 
   button
     margin-left: 0.75rem
+
+  h3
+    display: flex !important
+    align-items: flex-end !important
 
 .bulkResultToolbar
   display: flex
@@ -220,7 +227,8 @@
     justify-content: center
 
 .roundMeta
-  display: inline-block
+  display: flex
+  align-items: flex-end
   margin-left: 0.65rem
   font-size: 0.8rem
   font-weight: 500
@@ -967,9 +975,10 @@
     border-color: var(--accent)
 
 .smallNote
-  font-size: 0.8rem
+  font-family: var(--heading)
+  color: var(--text60)
   margin-top: 0.4rem
-  opacity: 0.8
+  margin-bottom: 0.2rem
 
 .schedulePreview
   display: flex
@@ -1102,13 +1111,16 @@
 
 .announcementChips
   display: flex
+  align-items: center
   gap: 0.5rem
   flex-wrap: wrap
+  font-family: var(--heading)
+  color: var(--text60)
 
   button
-    border: 1px solid var(--border)
-    border-radius: 999px
-    background: var(--bg-transp2)
+    border: 1px solid var(--border-transp)
+    border-radius: var(--radius-sm)
+    background: var(--lighter-less)
     color: var(--text)
     padding: 0.45rem 0.8rem
     font: inherit
@@ -1164,9 +1176,10 @@
 .announcementPreview
   margin: 0
   width: 100%
+  margin-bottom: 0 !important
 
 .announcementPreviewMuted
-  opacity: 0.55
+  opacity: 0.3
 
 .footerActions
   margin-top: 3rem

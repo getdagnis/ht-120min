@@ -905,7 +905,7 @@ export const TournamentHistory: React.FC<TournamentHistoryProps> = ({
           >
             Post comment
           </Button>
-          <Button variant="outline" size="md" onClick={() => setPendingCommentParticipant(null)}>
+          <Button variant="action" size="md" onClick={() => setPendingCommentParticipant(null)}>
             Cancel
           </Button>
         </div>
