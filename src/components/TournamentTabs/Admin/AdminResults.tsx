@@ -2,7 +2,7 @@ import React from 'react';
 import { SectionCard } from '../../Card/SectionCard';
 import { Button } from '../../Button/Button';
 import { Check, ArrowClockwise, X, PencilSimple, LinkSimple } from 'phosphor-react';
-import { getCountryFlagUrl, getLeagueFlagUrl } from '../../../utils/ht-data';
+import { getCountryFlagUrl } from '../../../utils/ht-data';
 import { getHattrickWeekDetails } from '../../../utils/hattrick-calendar';
 import { APPG_OUTCOMES, appgOutcomeLabel, validateAppgOutcome, type AppgOutcome } from '../../../utils/appg';
 import {
