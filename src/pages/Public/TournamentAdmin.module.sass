@@ -158,11 +158,12 @@
 .sectionTitle
   display: flex
   align-items: flex-end
+  justify-content: space-between
   height: auto
   margin: 0 0 1rem
   font-size: 1.1rem
   font-weight: 700
-  color: var(--text-h)
+  color: var(--text)
   text-transform: uppercase
   letter-spacing: 0.05em
 
@@ -502,7 +503,8 @@
     font-size: 1.75rem
 
 .roundResults
-  margin-bottom: 2rem
+  margin: 1rem 0 2rem
+  font-family: var(--heading)
   &:last-child
     margin-bottom: 0
 
@@ -511,6 +513,8 @@
   grid-template-columns: minmax(0, 1fr) 9.5rem 8.5rem
   grid-template-areas: "teams result actions"
   align-items: center
+  justify-content: center
+  text-align: center
   gap: 1rem
   padding: 16px 0
   border-bottom: 1px solid var(--border)
@@ -563,7 +567,7 @@
   grid-area: result
   display: flex
   align-items: center
-  justify-content: flex-end
+  justify-content: center
   gap: 0.75rem
   min-width: 0
 
@@ -626,38 +630,41 @@
   flex: 0 0 auto
   box-shadow: 0 1px 2px rgba(0, 0, 0, 0.16)
 
+.teamAndId
+  display: flex
+  flex-direction: column
+  align-items: flex-start
+
 .resultTeamLink
   display: flex
   flex-direction: column
   align-items: flex-start
-  flex: 1 1 0
   gap: 0.1rem
   max-width: 100%
   min-width: 0
-  color: var(--text-h)
+  color: var(--text)
   text-decoration: none
 
   &:hover
-    color: var(--accent)
-    text-decoration: underline
-    text-decoration-style: dotted
+    text-decoration: none
 
 .resultTeamName
   display: block
   font-weight: 700
-  line-height: 1.15
+  line-height: 1.3
+  font-size: 1.15rem
   max-width: 100%
   min-width: 0
+  text-align: left
   white-space: normal
   overflow-wrap: anywhere
   word-break: normal
 
 .resultTeamId
   color: var(--text60)
-  font-size: 0.75rem
-  font-family: var(--mono)
+  font-size: 0.7rem
   font-weight: 600
-  line-height: 1.1
+  line-height: 1.3
 
 .resultTeamFree
   color: var(--accent)
@@ -679,13 +686,16 @@
   gap: 1.5rem
 
 .score
-  display: inline-flex
+  display: flex
+  align-items: center
+  justify-content: center
   align-items: baseline
   gap: 0.5rem
   font-weight: 700
   font-size: 1.25rem
   color: var(--text-h)
-  font-family: var(--mono)
+  font-family: var(--heading)
+  text-align: center
 
 .badge
   background: rgba(16, 134, 59, 0.1)

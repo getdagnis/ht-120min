@@ -5,7 +5,12 @@ import { Check, ArrowClockwise, X, PencilSimple, LinkSimple } from 'phosphor-rea
 import { getCountryFlagUrl, getLeagueFlagUrl } from '../../../utils/ht-data';
 import { getHattrickWeekDetails } from '../../../utils/hattrick-calendar';
 import { APPG_OUTCOMES, appgOutcomeLabel, validateAppgOutcome, type AppgOutcome } from '../../../utils/appg';
-import { parseResultCsv, RESULT_CSV_CLEAN_TEMPLATE, RESULT_CSV_TEMPLATE, type ResultCsvRow } from '../../../utils/result-csv';
+import {
+  parseResultCsv,
+  RESULT_CSV_CLEAN_TEMPLATE,
+  RESULT_CSV_TEMPLATE,
+  type ResultCsvRow,
+} from '../../../utils/result-csv';
 import { createSandboxResultUpdates, type BulkMatchUpdate } from '../../../utils/sandbox-results';
 import adminStyles from '../../../pages/Public/TournamentAdmin.module.sass';
 
@@ -78,7 +83,6 @@ interface HtMatchLinkPreview {
 
 const AdminResultTeam: React.FC<{ team: ResultTeam | null; side: 'home' | 'away' }> = ({ team, side }) => {
   const countryFlagUrl = getCountryFlagUrl(team?.country_id, team?.country_name);
-  const leagueFlagUrl = getLeagueFlagUrl(team?.league_id);
 
   if (!team) {
     return (
@@ -90,7 +94,6 @@ const AdminResultTeam: React.FC<{ team: ResultTeam | null; side: 'home' | 'away'
 
   return (
     <div className={`${adminStyles.resultTeam} ${adminStyles[side]}`}>
-      {leagueFlagUrl && <img src={leagueFlagUrl} alt="League" className={adminStyles.resultFlag} />}
       {countryFlagUrl && (
         <img
           src={countryFlagUrl}
@@ -99,15 +102,19 @@ const AdminResultTeam: React.FC<{ team: ResultTeam | null; side: 'home' | 'away'
           className={adminStyles.resultFlag}
         />
       )}
-      <a
-        href={`https://www.hattrick.org/goto.ashx?path=/Club/?TeamID=${team.ht_team_id}`}
-        target="_blank"
-        rel="noopener noreferrer"
-        className={adminStyles.resultTeamLink}
-      >
+
+      <div className={adminStyles.teamAndId}>
+        {' '}
         <span className={adminStyles.resultTeamName}>{team.name}</span>
-        <span className={adminStyles.resultTeamId}>({team.ht_team_id})</span>
-      </a>
+        <a
+          href={`https://www.hattrick.org/goto.ashx?path=/Club/?TeamID=${team.ht_team_id}`}
+          target="_blank"
+          rel="noopener noreferrer"
+          className={adminStyles.resultTeamLink}
+        >
+          <span className={adminStyles.resultTeamId}>({team.ht_team_id})</span>
+        </a>
+      </div>
     </div>
   );
 };
@@ -471,10 +478,10 @@ export const AdminResults: React.FC<AdminResultsProps> = ({
             ) : (
               <Button
                 size="xs"
-                variant="action"
+                variant="secondaryAction"
                 onClick={() => startBulkEditing(rounds.flatMap((round) => round.matches.map((match) => match.id)))}
               >
-                Bulk edit season results
+                Bulk Edit Season
               </Button>
             )}
             {importCsvRows && (
@@ -509,37 +516,42 @@ export const AdminResults: React.FC<AdminResultsProps> = ({
           classified yet.
         </p>
       )}
-      {resultNotice && <p className={adminStyles.resultNotice} role="status">{resultNotice}</p>}
+      {resultNotice && (
+        <p className={adminStyles.resultNotice} role="status">
+          {resultNotice}
+        </p>
+      )}
       <div className={adminStyles.matches}>
         {rounds.map((round) => {
           const roundMeta = formatRoundMeta(round);
 
           return (
             <div key={round.id} className={adminStyles.roundResults}>
-              <h3 className={adminStyles.sectionTitle}>
-                Round {round.round_number}
-                {roundMeta && <span className={adminStyles.roundMeta}>{roundMeta}</span>}
-                {saveBulkMatches && (
-                  isSandbox ? (
+              <div className={adminStyles.sectionTitle}>
+                <div className={adminStyles.sectionTitle}>
+                  <h3>Round {round.round_number} </h3>
+                  {roundMeta && <span className={adminStyles.roundMeta}>{roundMeta}</span>}
+                </div>
+                {saveBulkMatches &&
+                  (isSandbox ? (
                     <Button
                       size="xs"
                       variant="action"
                       onClick={() => void randomFillMatches(round.matches)}
                       disabled={isRandomFilling}
                     >
-                      <ArrowClockwise size={16} /> Random-fill round
+                      <ArrowClockwise size={16} /> Simulate round
                     </Button>
                   ) : (
                     <Button
                       size="xs"
-                      variant="action"
+                      variant="secondaryAction"
                       onClick={() => startBulkEditing(round.matches.map((match) => match.id))}
                     >
-                      Bulk edit round results
+                      Bulk Edit Round
                     </Button>
-                  )
-                )}
-              </h3>
+                  ))}
+              </div>
               {bulkMatchIds.length > 0 &&
                 bulkMatches.some((match) => round.matches.some((item) => item.id === match.id)) && (
                   <div className={adminStyles.bulkEditor}>
@@ -838,13 +850,11 @@ export const AdminResults: React.FC<AdminResultsProps> = ({
                       <>
                         <div className={adminStyles.matchResult}>
                           {hasResult && (
-                            <div className={adminStyles.resultTopRow}>
-                              <div className={adminStyles.score}>
-                                <span>
-                                  {match.home_goals} - {match.away_goals}
-                                </span>
-                                <ResultMinutes minutes={match.total_minutes} went120={match.went_120} />
-                              </div>
+                            <div className={adminStyles.score}>
+                              <span>
+                                {match.home_goals} - {match.away_goals}
+                              </span>
+                              <ResultMinutes minutes={match.total_minutes} went120={match.went_120} />
                             </div>
                           )}
                           <span
@@ -862,16 +872,14 @@ export const AdminResults: React.FC<AdminResultsProps> = ({
                         <div className={adminStyles.matchResult}>
                           {isMisarranged ? (
                             <>
-                              <div className={adminStyles.resultTopRow}>
-                                {hasResult && (
-                                  <div className={adminStyles.score}>
-                                    <span>
-                                      {match.home_goals} - {match.away_goals}
-                                    </span>
-                                    <ResultMinutes minutes={match.total_minutes} went120={match.went_120} />
-                                  </div>
-                                )}
-                              </div>
+                              {hasResult && (
+                                <div className={adminStyles.score}>
+                                  <span>
+                                    {match.home_goals} - {match.away_goals}
+                                  </span>
+                                  <ResultMinutes minutes={match.total_minutes} went120={match.went_120} />
+                                </div>
+                              )}
                               <span className={adminStyles.misarrangedResult}>misarranged</span>
                             </>
                           ) : match.completed ? (
