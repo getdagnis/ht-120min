@@ -21,7 +21,7 @@
 .adminSidebar
   display: flex
   flex-direction: column
-  gap: 2rem
+  gap: 1rem
   position: sticky
   top: 1rem
 
@@ -53,26 +53,56 @@
 .adminLinksCard
   display: flex
   flex-direction: column
-  gap: 0.5rem
+  gap: 0.25rem
+  margin-top: 1rem
 
 .adminLinkButton
   width: 100%
-  border: 1px solid var(--border)
+  display: flex
+  flex-direction: column
+  gap: 0.25rem
+  border: 0
   border-radius: var(--radius-xs)
-  background: var(--bg-transp)
+  background: transparent
   color: var(--text)
   cursor: pointer
-  font-family: var(--heading)
-  font-size: 0.95rem
-  font-weight: 700
-  line-height: 1.1
-  padding: 0.55rem 0.7rem
+  line-height: 1.3
+  padding: 0.25rem 0
   text-align: left
   transition: background 0.15s ease, border-color 0.15s ease, color 0.15s ease
 
+  span
+    position: relative
+    color: var(--text)
+    font-size: 1rem
+    font-weight: 600
+    width: fit-content
+
+    &::after
+      content: "❯"
+      position: absolute
+      left: calc(100% + 0.5rem)
+      bottom: .1rem
+      height: auto
+      vertical-align: baseline
+      font-size: 0.75rem
+      color: var(--text60)
+      transition: left 0.2s ease
+
+    &:hover::after
+      left: calc(100% + 0.75rem)
+
+  small
+    color: var(--text60)
+    font-family: var(--sans)
+    font-size: 0.75rem
+    font-weight: 600
+    line-height: 1.2
+    overflow: hidden
+    text-overflow: ellipsis
+    white-space: nowrap
+
   &:hover
-    background: var(--table-bg)
-    border-color: var(--accent)
     color: var(--text-h)
 
 .meta
@@ -186,7 +216,6 @@
 
   @media (max-width: 640px)
     justify-content: center
-
 
 .roundMeta
   display: inline-block
@@ -484,16 +513,19 @@
 .matchTeams
   grid-area: teams
   display: grid
-  grid-template-columns: minmax(0, 1fr) 3rem minmax(0, 1fr)
+  grid-template-columns: minmax(0, 1fr) 2.5rem minmax(0, 1fr)
   align-items: center
-  gap: 1rem
+  gap: 0.75rem
   min-width: 0
 
   .vs
+    align-self: center
+    justify-self: center
     font-size: 0.75rem
     color: var(--text)
     text-transform: uppercase
     font-weight: 700
+    line-height: 1
     opacity: 0.5
     text-align: center
 
@@ -545,13 +577,15 @@
   display: flex
   align-items: center
   gap: 0.5rem
+  max-width: 100%
   min-width: 0
+  overflow: hidden
 
   &.home
     justify-content: flex-start
 
   &.away
-    justify-content: flex-end
+    justify-content: flex-start
 
   @media (max-width: 640px)
     justify-content: center
@@ -576,7 +610,9 @@
   display: flex
   flex-direction: column
   align-items: flex-start
+  flex: 1 1 0
   gap: 0.1rem
+  max-width: 100%
   min-width: 0
   color: var(--text-h)
   text-decoration: none
@@ -587,9 +623,12 @@
     text-decoration-style: dotted
 
 .resultTeamName
+  display: block
   font-weight: 700
   line-height: 1.15
+  max-width: 100%
   min-width: 0
+  white-space: normal
   overflow-wrap: anywhere
   word-break: normal
 
@@ -648,8 +687,11 @@
   grid-area: result
   display: flex
   align-items: center
+  justify-content: flex-end
   gap: 1rem
   flex-wrap: wrap
+  max-width: 100%
+  min-width: 0
 
   @media (max-width: 640px)
     width: 100%
@@ -660,8 +702,11 @@
 .scoreActionRow
   display: flex
   align-items: center
+  justify-content: flex-end
   gap: 0.75rem
   flex-wrap: wrap
+  max-width: 100%
+  min-width: 0
 
   @media (max-width: 640px)
     width: 100%
@@ -673,6 +718,8 @@
   display: flex
   align-items: center
   gap: 0.5rem
+  flex: 0 1 auto
+  min-width: 0
 
   @media (max-width: 640px)
     justify-content: center
@@ -693,9 +740,11 @@
   display: flex
   align-items: center
   gap: 0.25rem
+  flex: 0 0 auto
   font-size: 0.8rem
   font-weight: 600
   cursor: pointer
+  white-space: nowrap
 
   input
     width: 14px
@@ -705,6 +754,7 @@
   display: flex
   align-items: center
   gap: 0.25rem
+  flex: 0 0 auto
   background: var(--table-bg)
   padding: 4px 8px
   border-radius: 4px

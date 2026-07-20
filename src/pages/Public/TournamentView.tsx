@@ -86,13 +86,13 @@ const TOURNAMENT_VIEW_MODALS_OPEN_BY_DEFAULT = {
   seasonCommentConfirm: false,
 };
 const ADMIN_PANELS = [
-  { id: 'settings', label: 'Tournament Settings' },
-  { id: 'season', label: 'Season planner' },
-  { id: 'schedule', label: 'Schedule' },
-  { id: 'results', label: 'Results Entry' },
-  { id: 'teams', label: 'Manage Teams' },
-  { id: 'announcements', label: 'Admin announcements' },
-  { id: 'lifecycle', label: 'Tournament status' },
+  { id: 'settings', label: 'Tournament Settings', description: 'General tournament settings' },
+  { id: 'season', label: 'Season planner', description: 'Close or add new seasons, generate season reports' },
+  { id: 'results', label: 'Results Entry', description: "Manage current season's fixtures" },
+  { id: 'schedule', label: 'Schedule', description: 'Generate a new schedule or change the existing one' },
+  { id: 'teams', label: 'Manage Teams', description: 'Add new or remove teams' },
+  { id: 'announcements', label: 'Admin announcements', description: 'Create tournament announcements' },
+  { id: 'lifecycle', label: 'Tournament status', description: 'Manage tournament status' },
 ] as const;
 
 type AdminPanelId = (typeof ADMIN_PANELS)[number]['id'];
@@ -2215,7 +2215,9 @@ export const TournamentView: React.FC = () => {
       alert(error.message);
       return;
     }
-    setTeams((current) => current.map((item) => (item.id === team.id ? { ...item, reapply_season_number: null } : item)));
+    setTeams((current) =>
+      current.map((item) => (item.id === team.id ? { ...item, reapply_season_number: null } : item)),
+    );
   };
 
   const getParticipantAudienceHtUserIds = useCallback(
@@ -3356,18 +3358,18 @@ export const TournamentView: React.FC = () => {
     .sort((a, b) => b.season_number - a.season_number)[0];
   const fixtureNextSeason = isViewingHistoricalFixtures
     ? [...seasons]
-        .filter((season) => season.season_number > fixtureSeasonNumber && season.season_number < currentSeasonNumber && season.fixtures_snapshot_json)
+        .filter(
+          (season) =>
+            season.season_number > fixtureSeasonNumber &&
+            season.season_number < currentSeasonNumber &&
+            season.fixtures_snapshot_json,
+        )
         .sort((a, b) => a.season_number - b.season_number)[0] || currentSeason
     : null;
   const reapplySuggestions =
     tournament.status === 'waiting'
       ? teams
-          .filter(
-            (team) =>
-              !team.active &&
-              !team.is_placeholder &&
-              team.reapply_season_number === currentSeasonNumber,
-          )
+          .filter((team) => !team.active && !team.is_placeholder && team.reapply_season_number === currentSeasonNumber)
           .map((team) => ({
             id: team.id,
             name: team.name,
@@ -3928,8 +3930,12 @@ export const TournamentView: React.FC = () => {
                 ? `Season ${currentSeasonNumber} has a locked roster. A new schedule has not yet been generated.`
                 : undefined
             }
-            onViewPreviousSeason={fixturePreviousSeason ? () => setFixtureViewSeasonNumber(fixturePreviousSeason.season_number) : undefined}
-            onViewNextSeason={fixtureNextSeason ? () => setFixtureViewSeasonNumber(fixtureNextSeason.season_number) : undefined}
+            onViewPreviousSeason={
+              fixturePreviousSeason ? () => setFixtureViewSeasonNumber(fixturePreviousSeason.season_number) : undefined
+            }
+            onViewNextSeason={
+              fixtureNextSeason ? () => setFixtureViewSeasonNumber(fixtureNextSeason.season_number) : undefined
+            }
             onJoinWithHattrick={() => {
               setIsConnecting(true);
               window.location.href = `/api/auth/init?tournament_id=${tournament?.id}`;
@@ -4576,61 +4582,61 @@ export const TournamentView: React.FC = () => {
                                   : 'Generate a schedule before finishing this season.'}
                           </p>
                           <div className={adminStyles.seasonActions}>
-                          {tournament.status !== 'finished' && isGenerated && (
-                            <Button
-                              variant="primaryDanger"
-                              size="sm"
-                              onClick={handleFinishSeason}
-                              disabled={isFinalizingSeason}
-                            >
-                              {isFinalizingSeason ? 'Finishing...' : 'Finish season'}
-                            </Button>
-                          )}
-                          {tournament.status === 'finished' && !currentSeason?.snapshot_json && (
-                            <Button
-                              variant="primary"
-                              size="sm"
-                              onClick={handleGenerateHistoryReport}
-                              disabled={isFinalizingSeason}
-                            >
-                              {isFinalizingSeason ? 'Generating...' : 'Generate history report'}
-                            </Button>
-                          )}
-                          {tournament.status === 'finished' && currentSeason?.snapshot_json && (
-                            <>
-                              <Button variant="outline" size="sm" disabled>
-                                History report generated
+                            {tournament.status !== 'finished' && isGenerated && (
+                              <Button
+                                variant="primaryDanger"
+                                size="sm"
+                                onClick={handleFinishSeason}
+                                disabled={isFinalizingSeason}
+                              >
+                                {isFinalizingSeason ? 'Finishing...' : 'Finish season'}
                               </Button>
+                            )}
+                            {tournament.status === 'finished' && !currentSeason?.snapshot_json && (
                               <Button
                                 variant="primary"
                                 size="sm"
-                                onClick={() => handleStartNewSeason('auto')}
-                                disabled={isAddingSeason}
-                                data-tooltip-id="auto-start-season-tooltip"
+                                onClick={handleGenerateHistoryReport}
+                                disabled={isFinalizingSeason}
                               >
-                                {isAddingSeason ? 'Starting...' : `Auto-start Season ${(tournament.season || 1) + 1}`}
+                                {isFinalizingSeason ? 'Generating...' : 'Generate history report'}
                               </Button>
-                              <Tooltip
-                                id="auto-start-season-tooltip"
-                                className="tooltip"
-                                content="Keeps the existing roster. The next season starts with a clean table and waits for you to generate a new schedule."
-                              />
-                              <Button
-                                variant="outline"
-                                size="sm"
-                                onClick={() => handleStartNewSeason('open')}
-                                disabled={isAddingSeason}
-                                data-tooltip-id="open-next-season-tooltip"
-                              >
-                                Open for Season {(tournament.season || 1) + 1}
-                              </Button>
-                              <Tooltip
-                                id="open-next-season-tooltip"
-                                className="tooltip"
-                                content="Opens a new roster. Previous teams stay as quiet re-application suggestions for their owners."
-                              />
-                            </>
-                          )}
+                            )}
+                            {tournament.status === 'finished' && currentSeason?.snapshot_json && (
+                              <>
+                                <Button variant="outline" size="sm" disabled>
+                                  History report generated
+                                </Button>
+                                <Button
+                                  variant="primary"
+                                  size="sm"
+                                  onClick={() => handleStartNewSeason('auto')}
+                                  disabled={isAddingSeason}
+                                  data-tooltip-id="auto-start-season-tooltip"
+                                >
+                                  {isAddingSeason ? 'Starting...' : `Auto-start Season ${(tournament.season || 1) + 1}`}
+                                </Button>
+                                <Tooltip
+                                  id="auto-start-season-tooltip"
+                                  className="tooltip"
+                                  content="Keeps the existing roster. The next season starts with a clean table and waits for you to generate a new schedule."
+                                />
+                                <Button
+                                  variant="outline"
+                                  size="sm"
+                                  onClick={() => handleStartNewSeason('open')}
+                                  disabled={isAddingSeason}
+                                  data-tooltip-id="open-next-season-tooltip"
+                                >
+                                  Open for Season {(tournament.season || 1) + 1}
+                                </Button>
+                                <Tooltip
+                                  id="open-next-season-tooltip"
+                                  className="tooltip"
+                                  content="Opens a new roster. Previous teams stay as quiet re-application suggestions for their owners."
+                                />
+                              </>
+                            )}
                           </div>
                         </div>
                       </div>
@@ -5129,16 +5135,15 @@ export const TournamentView: React.FC = () => {
                   </div>
                 </section>
                 <aside className={adminStyles.adminSidebar}>
-                  <SidebarWidget title="Admin access" icon={<Info size={20} weight="bold" />}>
+                  <SidebarWidget title="Admin" icon={<Info size={20} weight="bold" />}>
                     <div className={adminStyles.accessCard}>
                       <span className={adminStyles.accessLabel}>Accessing as:</span>
                       <strong>
                         {adminAccessName} <span>({adminAccessMode})</span>
                       </strong>
                     </div>
-                  </SidebarWidget>
-                  <SidebarWidget title="Admin Links" icon={<Question size={20} weight="bold" />}>
                     <div className={adminStyles.adminLinksCard}>
+                      <span className={adminStyles.accessLabel}>Quick links</span>
                       {ADMIN_PANELS.filter((panel) => {
                         if (panel.id === 'schedule') return canManageSchedule;
                         if (panel.id === 'results') return isGenerated;
@@ -5150,7 +5155,8 @@ export const TournamentView: React.FC = () => {
                           className={adminStyles.adminLinkButton}
                           onClick={() => scrollToAdminPanel(panel.id)}
                         >
-                          {panel.label}
+                          <span>{panel.label}</span>
+                          <small>{panel.description}</small>
                         </button>
                       ))}
                     </div>
