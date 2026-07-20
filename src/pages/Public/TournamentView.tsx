@@ -903,25 +903,17 @@ export const TournamentView: React.FC = () => {
         ? serializeRescheduleDraftForRpc(rescheduleDraft)
         : null,
     [rescheduleDraft],
-  );
-  const resolvedScheduleCollapsed = scheduleCollapseOverride ?? isGenerated;
-  const isSeasonCloseAvailable = Boolean(
-    tournament && tournament.status !== 'finished' && isGenerated && hasFinishedAllRealFixtures(rounds),
-  );
-
-  useEffect(() => {
-    if (!slug || !tournament) return;
-    if (localStorage.getItem(`settings_collapsed_${slug}`) !== null) return;
-
-    setIsSettingsCollapsed(tournament.status !== 'open' || isGenerated);
-  }, [isGenerated, slug, tournament]);
-
-  useEffect(() => {
-    if (!slug || !tournament) return;
-    if (localStorage.getItem(`season_collapsed_${slug}`) !== null) return;
-
-    setIsSeasonCollapsed(!isSeasonCloseAvailable);
-  }, [isSeasonCloseAvailable, slug, tournament]);
+	  );
+	  const hasSettingsCollapseOverride = slug ? localStorage.getItem(`settings_collapsed_${slug}`) !== null : false;
+	  const hasSeasonCollapseOverride = slug ? localStorage.getItem(`season_collapsed_${slug}`) !== null : false;
+	  const resolvedScheduleCollapsed = scheduleCollapseOverride ?? isGenerated;
+	  const isSeasonCloseAvailable = Boolean(
+	    tournament && tournament.status !== 'finished' && isGenerated && hasFinishedAllRealFixtures(rounds),
+	  );
+	  const resolvedSettingsCollapsed = hasSettingsCollapseOverride
+	    ? isSettingsCollapsed
+	    : Boolean(tournament && (tournament.status !== 'open' || isGenerated));
+	  const resolvedSeasonCollapsed = hasSeasonCollapseOverride ? isSeasonCollapsed : !isSeasonCloseAvailable;
 
   const reconcileScheduleSelection = useCallback(
     (nextMode: ScheduleMode, nextStartSlotId: string | null) => {
@@ -4247,10 +4239,10 @@ export const TournamentView: React.FC = () => {
                 <section className={adminStyles.teamsSection}>
                   <div id="admin-panel-settings">
                     <SectionCard
-                      title="Tournament Settings"
-                      collapsible
-                      isCollapsed={isSettingsCollapsed}
-                      onToggleCollapse={() => togglePanel('settings', !isSettingsCollapsed, setIsSettingsCollapsed)}
+	                      title="Tournament Settings"
+	                      collapsible
+	                      isCollapsed={resolvedSettingsCollapsed}
+	                      onToggleCollapse={() => togglePanel('settings', !resolvedSettingsCollapsed, setIsSettingsCollapsed)}
                     >
                       <div className={adminStyles.settingsGroup}>
                         {/* EDIT TOURNAMENT NAME **
@@ -4677,10 +4669,10 @@ export const TournamentView: React.FC = () => {
                   <div id="admin-panel-season">
                     <SectionCard
                       title="Season planner"
-                      className={adminStyles.seasonPlannerCard}
-                      collapsible
-                      isCollapsed={isSeasonCollapsed}
-                      onToggleCollapse={() => togglePanel('season', !isSeasonCollapsed, setIsSeasonCollapsed)}
+	                      className={adminStyles.seasonPlannerCard}
+	                      collapsible
+	                      isCollapsed={resolvedSeasonCollapsed}
+	                      onToggleCollapse={() => togglePanel('season', !resolvedSeasonCollapsed, setIsSeasonCollapsed)}
                     >
                       <div className={adminStyles.seasonPlanner}>
                         {previousSeasons.length > 0 && (
