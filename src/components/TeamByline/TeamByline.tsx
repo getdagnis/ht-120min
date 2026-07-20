@@ -1,6 +1,11 @@
 import React from 'react';
 import { Tooltip } from 'react-tooltip';
 import { getCanonicalCountryName, getCountryFlagUrl, getLeagueFlagUrl, formatPresence } from '../../utils/ht-data';
+import {
+  getCardEventLabel,
+  getInjuryEventLabel,
+  type MatchSideEventDetails,
+} from '../../../shared/match-events';
 import styles from './TeamByline.module.sass';
 
 interface TeamBylineProps {
@@ -17,6 +22,7 @@ interface TeamBylineProps {
     yellowCards: number;
     redCards: number;
     injuries: number;
+    eventDetails?: MatchSideEventDetails | null;
   } | null;
 }
 
@@ -53,6 +59,9 @@ export const TeamByline: React.FC<TeamBylineProps> = ({
     matchSummary && (matchSummary.yellowCards > 0 || matchSummary.redCards > 0 || matchSummary.injuries > 0)
       ? matchSummary
       : null;
+  const detailedCards = summary?.eventDetails?.cards ?? [];
+  const detailedInjuries = summary?.eventDetails?.injuries ?? [];
+  const hasDetailedEvents = detailedCards.length > 0 || detailedInjuries.length > 0;
   const summaryTooltipParts = summary
     ? [
         summary.yellowCards ? `${summary.yellowCards} yellow card${summary.yellowCards === 1 ? '' : 's'}` : '',
@@ -73,6 +82,47 @@ export const TeamByline: React.FC<TeamBylineProps> = ({
         data-tooltip-content={tooltip}
       />
     ));
+
+  const formatEventTooltip = (minute: number | null, label: string) => (minute === null ? label : `${minute}' - ${label}`);
+
+  const detailedEventIcons = hasDetailedEvents ? (
+    <>
+      {detailedCards.map((card, index) => {
+        const tooltip = formatEventTooltip(card.minute, getCardEventLabel(card));
+        const key = `card-${card.eventTypeId}-${card.playerId ?? 'unknown'}-${card.minute ?? index}-${index}`;
+
+        if (card.type === 'second_yellow_red') {
+          return (
+            <span key={key} className={styles.secondYellowRed} data-tooltip-id={`${tooltipIdBase}-summary`} data-tooltip-content={tooltip}>
+              <img src="/svg/match-yellow.svg" alt="Yellow card" className={styles.summaryIcon} />
+              <img src="/svg/match-card.svg" alt="Red card" className={`${styles.summaryIcon} ${styles.redOverlay}`} />
+            </span>
+          );
+        }
+
+        return (
+          <img
+            key={key}
+            src={card.type === 'yellow' ? '/svg/match-yellow.svg' : '/svg/match-card.svg'}
+            alt={getCardEventLabel(card)}
+            className={styles.summaryIcon}
+            data-tooltip-id={`${tooltipIdBase}-summary`}
+            data-tooltip-content={tooltip}
+          />
+        );
+      })}
+      {detailedInjuries.map((injury, index) => (
+        <img
+          key={`injury-${injury.playerId ?? 'unknown'}-${injury.minute ?? index}-${index}`}
+          src={injury.severity === 'plaster' ? '/svg/plaster.svg' : '/svg/match-cross.svg'}
+          alt={getInjuryEventLabel(injury)}
+          className={styles.summaryIcon}
+          data-tooltip-id={`${tooltipIdBase}-summary`}
+          data-tooltip-content={formatEventTooltip(injury.minute, getInjuryEventLabel(injury))}
+        />
+      ))}
+    </>
+  ) : null;
 
   return (
     <div className={`${styles.teamExtraInfo} ${isRight ? styles.right : ''}`}>
@@ -135,10 +185,18 @@ export const TeamByline: React.FC<TeamBylineProps> = ({
       </div>
       {mode === 'fixtures' && summary && (
         <div className={styles.summaryRow} data-tooltip-id={`${tooltipIdBase}-summary`} aria-label={summaryTooltip}>
-          {repeatIcons('/svg/match-yellow.svg', 'Yellow card', summary.yellowCards, 'Yellow card')}
-          {repeatIcons('/svg/match-card.svg', 'Red card', summary.redCards, 'Red card')}
-          {repeatIcons('/svg/match-cross.svg', 'Injury', summary.injuries, 'Injury')}
-          <Tooltip id={`${tooltipIdBase}-summary`} content={summaryTooltip} className="tooltip" />
+          {detailedEventIcons || (
+            <>
+              {repeatIcons('/svg/match-yellow.svg', 'Yellow card', summary.yellowCards, 'Yellow card')}
+              {repeatIcons('/svg/match-card.svg', 'Red card', summary.redCards, 'Red card')}
+              {repeatIcons('/svg/match-cross.svg', 'Injury', summary.injuries, 'Injury')}
+            </>
+          )}
+          {hasDetailedEvents ? (
+            <Tooltip id={`${tooltipIdBase}-summary`} className="tooltip" />
+          ) : (
+            <Tooltip id={`${tooltipIdBase}-summary`} content={summaryTooltip} className="tooltip" />
+          )}
         </div>
       )}
     </div>

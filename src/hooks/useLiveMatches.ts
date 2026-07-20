@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
+import type { MatchEventDetails } from '../../shared/match-events';
 
 export interface LiveMatchData {
   status: 'arranged' | 'ongoing' | 'finished';
@@ -13,6 +14,7 @@ export interface LiveMatchData {
   away_yellow_cards?: number;
   away_red_cards?: number;
   away_injuries?: number;
+  match_event_details?: MatchEventDetails;
 }
 
 interface Match {

@@ -200,3 +200,5 @@ When a task is finished, include:
 When real data is unavailable and UI/UX polish is the main need, a minimal dummy UI path is acceptable. Keep dummy UI under Forge/testing surfaces such as `/forge/testing`, do not add public `/dummies` routes, and do not add API functions for dummy views. Dummy UI is only for layout, copy, responsive states, modals, empty states, and flow inspection; it is not proof that CHPP, Supabase, or production behavior works.
 
 Keep the commit message concise and descriptive. Use the task scope, not the whole worktree, in the `git add` command.
+
+For completed code changes, automatically bump the patch version in `package.json` (for example, `0.2.2` to `0.2.3`) and mention it in the closeout. Do not change the minor or major version unilaterally: when the accumulated work plausibly warrants a milestone such as `0.2.8` to `0.3.0` or `0.9.2` to `1.0.0`, suggest that release bump in the closeout instead.

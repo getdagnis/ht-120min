@@ -2,8 +2,14 @@ import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { getSupabase } from '../_lib/supabase.js';
 import { getAuthHeader } from '../_lib/chpp-auth.js';
 import { readChppTag } from '../_lib/chpp-xml.js';
+import {
+  mapMatchEventDetailsToFixture,
+  parseMatchEventDetails,
+  summarizeMatchEventDetails,
+} from '../_lib/chpp-match-events.js';
 import { resolveHattrickWeekContext } from '../_lib/hattrick-time.js';
 import { isFriendlyInsideAcceptedWindow } from '../_lib/match-window.js';
+import type { MatchEventDetails } from '../../shared/match-events.js';
 
 // Simplified helper for match date calculation on server
 // Compare with docs/global-match-time.json before actual implementation
@@ -214,6 +220,7 @@ interface ChppMatchDetails {
   completed: boolean;
   went120: boolean;
   totalMinutes: number;
+  eventDetails: MatchEventDetails;
 }
 
 function getBodyValue(req: VercelRequest, key: string) {
@@ -237,9 +244,9 @@ async function fetchMatchDetailsById(
   const consumerKey = process.env.CHPP_CONSUMER_KEY;
   const consumerSecret = process.env.CHPP_CONSUMER_SECRET;
   const url = 'https://chpp.hattrick.org/chppxml.ashx';
-  const params = { file: 'matchdetails', version: '3.0', matchID: htMatchId, matchEvents: 'true' };
+  const params = { file: 'matchdetails', version: '3.1', matchID: htMatchId, matchEvents: 'true' };
   const authHeader = getAuthHeader('GET', url, params, consumerKey!, consumerSecret!, oauthToken, oauthTokenSecret);
-  const response = await fetch(`${url}?file=matchdetails&version=3.0&matchEvents=true&matchID=${htMatchId}`, {
+  const response = await fetch(`${url}?file=matchdetails&version=3.1&matchEvents=true&matchID=${htMatchId}`, {
     headers: { Authorization: authHeader },
   });
   const xml = await response.text();
@@ -275,6 +282,7 @@ async function fetchMatchDetailsById(
     completed: finished,
     went120,
     totalMinutes: (went120 ? 120 : 90) + addedMinutes,
+    eventDetails: parseMatchEventDetails(xml),
   };
 }
 
@@ -328,6 +336,7 @@ function mapHattrickMatchToFixture(match: ManualLinkMatchRow, details: ChppMatch
     matchedBothTournamentTeams:
       Boolean(scheduledHomeHtId && (homeSideMatchesActualHome || homeSideMatchesActualAway)) &&
       Boolean(scheduledAwayHtId && (awaySideMatchesActualHome || awaySideMatchesActualAway)),
+    eventDetails: mapMatchEventDetailsToFixture(details.eventDetails, scheduledHomeHtId, scheduledAwayHtId),
   };
 }
 
@@ -388,6 +397,8 @@ async function handleManualMatchLink(req: VercelRequest, res: VercelResponse) {
     went_120: details.went120,
     total_minutes: details.totalMinutes,
     matched_both_tournament_teams: mapping.matchedBothTournamentTeams,
+    ...summarizeMatchEventDetails(mapping.eventDetails),
+    match_event_details: mapping.eventDetails,
   };
 
   if (!dryRun) {
@@ -403,6 +414,8 @@ async function handleManualMatchLink(req: VercelRequest, res: VercelResponse) {
       venue_mismatch: mapping.venueMismatch,
       actual_ht_home_team_id: details.actualHtHomeTeamId,
       actual_ht_away_team_id: details.actualHtAwayTeamId,
+      ...summarizeMatchEventDetails(mapping.eventDetails),
+      match_event_details: mapping.eventDetails,
     };
     const { error } = await supabase.from('matches').update(updatePayload).eq('id', matchId);
     if (error) return res.status(500).json({ error: error.message });

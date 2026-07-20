@@ -44,11 +44,24 @@ Do not use Hattrick website pages or undocumented interfaces. CHPP products must
 - Result sync uses `matchdetails` with `matchEvents=true`.
 - Extra time should be detected from event type `70`, match parts `3/4`, and scorer/event evidence as described in `AGENTS_CHPP_INTEGRATION.md`.
 
+## Structured Match Event Contract
+
+- Request `matchdetails` with `version=3.1&matchEvents=true`. Both parameters are required for the event-level payload.
+- `api/_lib/chpp-match-events.ts` is the shared server parser. Both live refresh and manual match linking must use it; do not create a third parser for event summaries.
+- Store the structured payload in `matches.match_event_details`, mapped to the **scheduled fixture sides**. This keeps cards/injuries correct when CHPP home/away is reversed or an admin links one BYE team to an outside friendly.
+- Existing numeric card/injury columns remain derived compatibility summaries for standings and older snapshots.
+- The parser uses only stable structured IDs and fields, never localized `EventText`:
+  - cards: `510` yellow/nasty play, `511` yellow/cheating, `512` second yellow/red nasty play, `513` second yellow/red cheating, `514` straight red;
+  - injuries: `<InjuryType>1</InjuryType>` is a plaster and type `2` is an injury; `401-422` record the body location, whose `ObjectPlayerID` may carry weeks; `454` is a doctor-report duration in `SubjectPlayerID` when it can be attached unambiguously by match time; `423` records a foul-related injury;
+  - do not infer an attacking or offending player/team from prose. A team attribution is only recorded where the structured `423` event and the two-team match context make it explicit.
+- Season fixture archives copy the persisted fixture data and never re-fetch CHPP. Regenerating a report upgrades only older fixture archives that lack the `match_event_details` field.
+
 ## Parser Rules
 
 - Inspect raw XML before changing parser behavior.
 - Prefer shared parser helpers where available.
 - Avoid new ad hoc regex parsing unless the existing parser cannot support the endpoint yet.
+- Preserve the raw event code even if the current UI or scoring system does not use it yet. Future tournament modes can derive rules from this structured data.
 - Store ids as identifiers and names as display fields.
 - Be careful with localized country/league names.
 

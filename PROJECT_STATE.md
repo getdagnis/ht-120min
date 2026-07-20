@@ -26,6 +26,7 @@ The app currently supports:
 | W15/W16 calendar correction | Implemented locally | `051`; file contains `-- MIGRATION APPLIED!` marker | Covered by calendar/schedule tests; not rerun for docs-only refactor | Confirm actual Supabase/prod state |
 | Tournament announcements | Implemented locally | `050`; file contains `-- MIGRATION APPLIED!` marker | Covered by `tests/tournament-announcements.test.ts`; not rerun for docs-only refactor | Confirm actual Supabase/prod state |
 | Fixture refresh and reversed venue linking | Implemented locally | Uses existing match fields from `037`, `046` | Not rerun for docs-only refactor | Confirm |
+| Structured CHPP match events | Implemented locally; MatchDetails v3.1 event data now preserves card subtype, player/minute, plaster versus injury, location, duration and foul context through live refresh, manual linking and fixture archives. Existing numeric counts remain compatibility summaries; event data is mapped to scheduled fixture sides before persistence | `063_add_match_event_details.sql`; manual Supabase application pending | Parser and archive regression tests added; full project validation pending | Apply `063`, refresh finished fixtures, then regenerate the season report once to upgrade an older fixture archive from already-persisted data |
 | Featured tournaments | Implemented locally with superadmin-only admin toggle and featured-first sorting across public/open/organizer lists, with featured items ordered oldest-first | `052`; pending Supabase application | `npm run build` and `npm test` passed 2026-07-03 | Confirm |
 | Superadmin bypass and app session hardening | Implemented locally; bypass token is env-backed and disabled in production, app session secret no longer falls back to CHPP secret | No migration | `npm run build` and `npm test` passed 2026-07-10 | Confirm |
 | Auth failure fallback | Implemented locally; auth init and callback dependency/runtime failures log an `AUTH_FAILURE` reference and return visitors to the app with retry/report actions instead of exposing a Vercel error page | No migration | `npm run build`, `npm run lint`, and `npm test` (82) passed 2026-07-17 | Deploy and exercise a real login flow; owner alerting still requires Vercel alerting or Sentry/log-drain configuration |
@@ -76,7 +77,7 @@ Production means live deployed behavior. If it has not been checked against the 
 - Team metadata uses `teamdetails`.
 - CHPP country data is normalized from CountryID, independent of the manager's CHPP language; league flags use LeagueID separately. Existing translated database text remains until a data backfill or team refresh.
 - Fixture booking/reconciliation uses `matches`.
-- Live/finished result sync uses `matchdetails` with match events.
+- Live/finished result sync uses `matchdetails` v3.1 with structured match events. Card/injury details require migration `063` before live persistence.
 - Reversed home/away friendly location is treated as arranged, with venue mismatch metadata recorded.
 
 ### UI

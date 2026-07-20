@@ -101,19 +101,21 @@ Notes:
 
 ### `matchdetails`
 
-There is no shared parser for `matchdetails`. The code parses it manually in `api/chpp/live-matches.ts`.
+`api/_lib/chpp-match-events.ts` is the shared structured event parser. It is used by both `api/chpp/live-matches.ts` and manual linking in `api/teams/refresh-fixtures.ts`.
 
 | Area | Parsed Now | Available in Schema | Missed Fields | Impact |
 | --- | --- | --- | --- | --- |
 | Match completion | `FinishedDate`, `MatchStatus` check | `FinishedDate`, `MatchStatus` | None for current use | Low |
 | Score | `HomeGoals`, `AwayGoals` | `HomeGoals`, `AwayGoals` | None | Low |
-| Extra time | `AddedMinutes`, `MatchPart` checks in `EventList` | `EventList`, `MatchPart`, `EventTypeID` | More explicit structured parsing would be nicer | Low |
+| Extra time | `AddedMinutes`, `MatchPart` checks in `EventList` | `EventList`, `MatchPart`, `EventTypeID` | None for current sync | Low |
 | Venue mismatch | `HomeTeamID`, `AwayTeamID` | `HomeTeam`, `AwayTeam` nested ids | `HomeTeamName`, `AwayTeamName` | Low |
+| Cards | `510-514`, player, minute, subtype | `Bookings`, `EventList` | No player names retained in fixture JSON | Low |
+| Injuries | type, player, minute, location, doctor weeks, foul flag | `Injuries`, `401-423`, `454` | Later competition rules may add more injury lifecycle events | Medium |
 
 Notes:
 
-- This is aligned with the repository standard in `docs/AGENTS_CHPP_INTEGRATION.md`.
-- The parser is manual, but the fields used are appropriate for the current sync job.
+- The event parser relies on structured XML only; it does not inspect localized event text.
+- Event data is mapped from actual CHPP sides to scheduled fixture sides before it is written to `matches.match_event_details`.
 
 ### Ad hoc parsing in `api/teams/info.ts`
 

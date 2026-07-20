@@ -6,6 +6,7 @@ import { ArrowClockwise, ArrowRight, CopySimple, Check } from 'phosphor-react';
 import { Tooltip } from 'react-tooltip';
 import { calculateMatchDate } from '../../utils/ht-data';
 import { getHattrickWeekDetails } from '../../utils/hattrick-calendar';
+import type { MatchEventDetails } from '../../../shared/match-events';
 import styles from '../../pages/Public/TournamentView.module.sass';
 
 export interface FixtureMatch {
@@ -26,6 +27,7 @@ export interface FixtureMatch {
   away_yellow_cards?: number;
   away_red_cards?: number;
   away_injuries?: number;
+  match_event_details?: MatchEventDetails | null;
   status: 'not_arranged' | 'arranged' | 'ongoing' | 'misarranged' | 'finished';
   ht_match_id: number | null;
   match_type: number | null;
@@ -96,11 +98,13 @@ interface FixturesViewProps {
       away_yellow_cards?: number;
       away_red_cards?: number;
       away_injuries?: number;
+      match_event_details?: MatchEventDetails;
     }
   >;
   canJoinTournament: boolean;
   canJoinAnotherTeam?: boolean;
   isConnecting: boolean;
+  canUpdateFixtures?: boolean;
   onJoinWithHattrick: () => void;
   isHistorical?: boolean;
   onViewPreviousSeason?: () => void;
@@ -127,6 +131,7 @@ export const FixturesView: React.FC<FixturesViewProps> = ({
   canJoinTournament,
   canJoinAnotherTeam = canJoinTournament,
   isConnecting,
+  canUpdateFixtures = false,
   onJoinWithHattrick,
   isHistorical = false,
   onViewPreviousSeason,
@@ -441,22 +446,26 @@ export const FixturesView: React.FC<FixturesViewProps> = ({
                           yellowCards: liveMatch.home_yellow_cards ?? match.home_yellow_cards ?? 0,
                           redCards: liveMatch.home_red_cards ?? match.home_red_cards ?? 0,
                           injuries: liveMatch.home_injuries ?? match.home_injuries ?? 0,
+                          eventDetails: liveMatch.match_event_details?.home ?? match.match_event_details?.home ?? null,
                         }
                       : {
                           yellowCards: match.home_yellow_cards ?? 0,
                           redCards: match.home_red_cards ?? 0,
                           injuries: match.home_injuries ?? 0,
+                          eventDetails: match.match_event_details?.home ?? null,
                         };
                     const awaySummary = liveMatch
                       ? {
                           yellowCards: liveMatch.away_yellow_cards ?? match.away_yellow_cards ?? 0,
                           redCards: liveMatch.away_red_cards ?? match.away_red_cards ?? 0,
                           injuries: liveMatch.away_injuries ?? match.away_injuries ?? 0,
+                          eventDetails: liveMatch.match_event_details?.away ?? match.match_event_details?.away ?? null,
                         }
                       : {
                           yellowCards: match.away_yellow_cards ?? 0,
                           redCards: match.away_red_cards ?? 0,
                           injuries: match.away_injuries ?? 0,
+                          eventDetails: match.match_event_details?.away ?? null,
                         };
                     const penaltyShootout =
                       match.penalty_shootout_home_goals !== null && match.penalty_shootout_away_goals !== null
@@ -522,6 +531,14 @@ export const FixturesView: React.FC<FixturesViewProps> = ({
             }
           >
             Show More
+          </Button>
+        </div>
+      )}
+      {!isHistorical && canUpdateFixtures && rounds.length > 0 && (
+        <div className={styles.fixturesUpdateAction}>
+          <Button variant="secondary" size="sm" onClick={handleRefreshFixtures} disabled={isRefreshingFixtures}>
+            <ArrowClockwise size={18} className={isRefreshingFixtures ? styles.spinning : undefined} />
+            {isRefreshingFixtures ? 'Updating fixtures...' : 'Update fixtures'}
           </Button>
         </div>
       )}

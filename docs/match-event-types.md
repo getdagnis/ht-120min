@@ -16,6 +16,17 @@
 - `401-426` - Injuries and medical events
 - `427-880` - Milestones and match meta
 
+## Parser Contract
+
+HT-120min requests `matchdetails` as `version=3.1&matchEvents=true` and parses structured fields only. `EventText` is localized and must never be used to derive fixture data or scoring.
+
+Current persisted event coverage is deliberately narrow and extensible:
+
+- Card codes `510-514` retain yellow/second-yellow-red/straight-red state and nasty-play versus cheating subtype.
+- `<InjuryType>1</InjuryType>` is a plaster; type `2` is an injury. Event codes `401-422` provide body location, `423` marks a foul-related injury, and `454` is the doctor-report week count.
+- Details are written in `matches.match_event_details` after mapping from actual CHPP home/away to the scheduled fixture sides. Numeric card/injury columns remain summary fields.
+- Future tournament types may consume more event codes, but their scoring must be derived from this stable payload rather than added to the CHPP parser as one-off logic.
+
 ## Event Index
 
 ### Match setup and context

@@ -2,6 +2,12 @@ import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { getSupabase } from '../_lib/supabase.js';
 import { getAuthHeader } from '../_lib/chpp-auth.js';
 import { readChppTag } from '../_lib/chpp-xml.js';
+import {
+  mapMatchEventDetailsToFixture,
+  parseMatchEventDetails,
+  summarizeMatchEventDetails,
+} from '../_lib/chpp-match-events.js';
+import type { MatchEventDetails } from '../../shared/match-events.js';
 
 interface LiveMatchResult {
   status: 'arranged' | 'ongoing' | 'finished';
@@ -18,11 +24,10 @@ interface LiveMatchResult {
   away_yellow_cards?: number;
   away_red_cards?: number;
   away_injuries?: number;
+  match_event_details?: MatchEventDetails;
 }
 
 const PENALTY_GOAL_EVENT_TYPES = new Set([55, 56, 57]);
-const YELLOW_CARD_EVENT_TYPES = new Set([510, 511]);
-const RED_CARD_EVENT_TYPES = new Set([512, 513, 514]);
 
 function getEventTypeId(eventXml: string): number | null {
   const eventTypeId = eventXml.match(/<EventTypeID>(\d+)<\/EventTypeID>/i)?.[1];
@@ -63,111 +68,6 @@ function parseScoreBeforeShootout(xml: string, homeTeamId: number | null, awayTe
   };
 }
 
-function parseMatchEventSummary(xml: string, homeTeamId: number | null, awayTeamId: number | null) {
-  const summary = {
-    home_yellow_cards: 0,
-    home_red_cards: 0,
-    home_injuries: 0,
-    away_yellow_cards: 0,
-    away_red_cards: 0,
-    away_injuries: 0,
-  };
-
-  if (!homeTeamId || !awayTeamId) return summary;
-
-  const teamPlayers = new Map<number, Map<number, { yellowCards: number; redCards: number }>>();
-  const teamInjuries = new Map<number, Array<{ playerId: number | null }>>();
-
-  const ensurePlayer = (teamId: number, playerId: number) => {
-    let players = teamPlayers.get(teamId);
-    if (!players) {
-      players = new Map();
-      teamPlayers.set(teamId, players);
-    }
-
-    let player = players.get(playerId);
-    if (!player) {
-      player = { yellowCards: 0, redCards: 0 };
-      players.set(playerId, player);
-    }
-
-    return player;
-  };
-
-  const ensureInjuryList = (teamId: number) => {
-    let injuries = teamInjuries.get(teamId);
-    if (!injuries) {
-      injuries = [];
-      teamInjuries.set(teamId, injuries);
-    }
-    return injuries;
-  };
-
-  const injuryBlocks = xml.match(/<Injuries>([\s\S]*?)<\/Injuries>/i)?.[1] ?? '';
-  const parsedInjuries = [...injuryBlocks.matchAll(/<Injury(?:\s[^>]*)?>[\s\S]*?<\/Injury>/gi)];
-  for (const injuryXml of parsedInjuries) {
-    const teamId = parseInt(injuryXml[0].match(/<InjuryTeamID>(\d+)<\/InjuryTeamID>/i)?.[1] ?? '0', 10) || null;
-    const injuryType = parseInt(injuryXml[0].match(/<InjuryType>(\d+)<\/InjuryType>/i)?.[1] ?? '0', 10) || null;
-    const playerId = parseInt(injuryXml[0].match(/<InjuryPlayerID>(\d+)<\/InjuryPlayerID>/i)?.[1] ?? '0', 10) || null;
-    if (!teamId || (teamId !== homeTeamId && teamId !== awayTeamId)) continue;
-    if (injuryType !== 2) continue;
-    ensureInjuryList(teamId).push({ playerId });
-  }
-
-  const eventBlocks = xml.match(/<Event(?:\s[^>]*)?>[\s\S]*?<\/Event>/gi) ?? [];
-  for (const eventXml of eventBlocks) {
-    const eventTypeId = getEventTypeId(eventXml);
-    const subjectTeamId = parseInt(eventXml.match(/<SubjectTeamID>(\d+)<\/SubjectTeamID>/i)?.[1] ?? '0', 10) || null;
-    if (!eventTypeId || !subjectTeamId) continue;
-
-    if (subjectTeamId !== homeTeamId && subjectTeamId !== awayTeamId) continue;
-
-    if (YELLOW_CARD_EVENT_TYPES.has(eventTypeId) || RED_CARD_EVENT_TYPES.has(eventTypeId)) {
-      const playerId = parseInt(eventXml.match(/<SubjectPlayerID>(\d+)<\/SubjectPlayerID>/i)?.[1] ?? '0', 10) || null;
-      if (!playerId) continue;
-
-      const player = ensurePlayer(subjectTeamId, playerId);
-      if (YELLOW_CARD_EVENT_TYPES.has(eventTypeId)) {
-        player.yellowCards += 1;
-      } else {
-        player.redCards += 1;
-      }
-    }
-  }
-
-  for (const [teamId, players] of teamPlayers.entries()) {
-    let yellowCards = 0;
-    let redCards = 0;
-
-    for (const player of players.values()) {
-      if (player.redCards > 0) {
-        redCards += 1;
-      } else {
-        yellowCards += player.yellowCards;
-      }
-    }
-
-    const injuries = teamInjuries.get(teamId) || [];
-
-    if (teamId === homeTeamId) {
-      summary.home_yellow_cards = yellowCards;
-      summary.home_red_cards = redCards;
-      summary.home_injuries = injuries.length;
-    } else if (teamId === awayTeamId) {
-      summary.away_yellow_cards = yellowCards;
-      summary.away_red_cards = redCards;
-      summary.away_injuries = injuries.length;
-    }
-  }
-
-  const homeInjuries = teamInjuries.get(homeTeamId) || [];
-  const awayInjuries = teamInjuries.get(awayTeamId) || [];
-  summary.home_injuries = homeInjuries.length;
-  summary.away_injuries = awayInjuries.length;
-
-  return summary;
-}
-
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   const { tournament_id, match_ids } = req.query;
   const ids = Array.isArray(match_ids) ? match_ids : (match_ids as string)?.split(',') || [];
@@ -188,6 +88,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         home_team:home_team_id ( ht_team_id ),
         away_team:away_team_id ( ht_team_id )
       `)
+      .eq('tournament_id', String(tournament_id))
       .in('ht_match_id', ids.map((id) => parseInt(id, 10)));
 
     // Build a lookup: ht_match_id -> { scheduledHomeHtId, scheduledAwayHtId }
@@ -211,11 +112,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     const url = 'https://chpp.hattrick.org/chppxml.ashx';
     const results: Record<string, LiveMatchResult> = {};
     for (const htMatchId of ids) {
-      // Use version 3.0 to ensure EventList is returned
-      const params = { file: 'matchdetails', version: '3.0', matchID: htMatchId, matchEvents: 'true' };
+      const params = { file: 'matchdetails', version: '3.1', matchID: htMatchId, matchEvents: 'true' };
       const authHeader = getAuthHeader('GET', url, params, process.env.CHPP_CONSUMER_KEY!, process.env.CHPP_CONSUMER_SECRET!, team.oauth_token!, team.oauth_token_secret!);
 
-      const response = await fetch(`${url}?file=matchdetails&version=3.0&matchEvents=true&matchID=${htMatchId}`, { headers: { Authorization: authHeader } });
+      const response = await fetch(`${url}?file=matchdetails&version=3.1&matchEvents=true&matchID=${htMatchId}`, { headers: { Authorization: authHeader } });
       const xml = await response.text();
 
       const finishedDate = readChppTag(xml, 'FinishedDate');
@@ -255,7 +155,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       const baseMinutes = isExtraTime ? 120 : 90;
       const totalMinutes = baseMinutes + addedMinutes;
       const scoreBeforeShootout = parseScoreBeforeShootout(xml, actualHtHomeTeamId, actualHtAwayTeamId);
-      const eventSummary = parseMatchEventSummary(xml, actualHtHomeTeamId, actualHtAwayTeamId);
+      const actualEventDetails = parseMatchEventDetails(xml);
 
       // Map actual Hattrick goals back to the scheduled fixture perspective.
       // Manual links may intentionally include only one scheduled team, such as
@@ -296,6 +196,15 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         );
       }
 
+      const eventDetails = fixture
+        ? mapMatchEventDetailsToFixture(
+            actualEventDetails,
+            fixture.scheduledHomeHtId,
+            fixture.scheduledAwayHtId,
+          )
+        : actualEventDetails;
+      const eventSummary = summarizeMatchEventDetails(eventDetails);
+
       results[htMatchId] = {
         status,
         homeGoals,
@@ -311,6 +220,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         away_yellow_cards: eventSummary.away_yellow_cards,
         away_red_cards: eventSummary.away_red_cards,
         away_injuries: eventSummary.away_injuries,
+        match_event_details: eventDetails,
       };
 
       await supabase.from('matches').update({
@@ -329,9 +239,12 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         away_yellow_cards: eventSummary.away_yellow_cards,
         away_red_cards: eventSummary.away_red_cards,
         away_injuries: eventSummary.away_injuries,
+        match_event_details: eventDetails,
         actual_ht_home_team_id: actualHtHomeTeamId,
         actual_ht_away_team_id: actualHtAwayTeamId,
-      }).eq('ht_match_id', htMatchIdNum);
+      })
+        .eq('tournament_id', String(tournament_id))
+        .eq('ht_match_id', htMatchIdNum);
     }
     return res.status(200).json({ results });
   } catch (error) {

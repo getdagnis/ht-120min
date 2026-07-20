@@ -1,3 +1,5 @@
+import type { MatchEventDetails } from '../../shared/match-events';
+
 export interface SeasonFixtureTeamSnapshot {
   name: string;
   ht_team_id: number;
@@ -30,6 +32,7 @@ export interface SeasonFixtureMatchSnapshot {
   away_yellow_cards: number;
   away_red_cards: number;
   away_injuries: number;
+  match_event_details: MatchEventDetails | null;
   status: 'not_arranged' | 'arranged' | 'ongoing' | 'misarranged' | 'finished';
   ht_match_id: number | null;
   match_type: number | null;
@@ -53,6 +56,18 @@ export interface SeasonFixturesSnapshot {
   seasonNumber: number;
   savedAt: string;
   rounds: SeasonFixtureRoundSnapshot[];
+}
+
+/**
+ * Legacy fixture archives predate the structured event field. Rebuilding only
+ * those archives lets a completed season pick up already-persisted event data
+ * without changing reports that were created with the current schema.
+ */
+export function isMissingMatchEventDetails(snapshot: SeasonFixturesSnapshot | null | undefined): boolean {
+  if (!snapshot) return true;
+  return snapshot.rounds.some((round) =>
+    round.matches.some((match) => !Object.prototype.hasOwnProperty.call(match, 'match_event_details')),
+  );
 }
 
 interface SnapshotSourceTeam {
@@ -87,6 +102,7 @@ interface SnapshotSourceMatch {
   away_yellow_cards?: number | null;
   away_red_cards?: number | null;
   away_injuries?: number | null;
+  match_event_details?: MatchEventDetails | null;
   status: SeasonFixtureMatchSnapshot['status'];
   ht_match_id: number | null;
   match_type: number | null;
@@ -153,6 +169,7 @@ export function buildSeasonFixturesSnapshot(
         away_yellow_cards: match.away_yellow_cards ?? 0,
         away_red_cards: match.away_red_cards ?? 0,
         away_injuries: match.away_injuries ?? 0,
+        match_event_details: match.match_event_details ?? null,
         status: match.status,
         ht_match_id: match.ht_match_id,
         match_type: match.match_type,

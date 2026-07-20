@@ -2,6 +2,7 @@ import React from 'react';
 import { ArrowUpRight, Info } from 'phosphor-react';
 import { Tooltip } from 'react-tooltip';
 import { TeamByline } from '../TeamByline/TeamByline';
+import type { MatchSideEventDetails } from '../../../shared/match-events';
 import styles from './FixtureCard.module.sass';
 
 interface TeamProps {
@@ -17,6 +18,7 @@ interface TeamProps {
     yellowCards: number;
     redCards: number;
     injuries: number;
+    eventDetails?: MatchSideEventDetails | null;
   } | null;
 }
 

@@ -19,10 +19,12 @@ import {
 } from '../../utils/season-history';
 import {
   buildSeasonFixturesSnapshot,
+  isMissingMatchEventDetails,
   type SeasonFixturesSnapshot,
 } from '../../utils/season-fixtures';
 import { getCompatibleLeagueRestrictionOptions, validateTeamEligibility } from '../../utils/team-eligibility';
 import { normalizeLeagueLimit } from '../../../shared/worlddetails';
+import type { MatchEventDetails } from '../../../shared/match-events';
 import { useLiveMatches } from '../../hooks/useLiveMatches';
 import { trackActivity } from '../../hooks/useActivityTracking';
 import { buildScheduleDraft, serializeScheduleDraftForRpc, type ScheduleMode } from '../../utils/schedule-draft';
@@ -141,6 +143,7 @@ interface MatchWithTeams {
   away_yellow_cards?: number;
   away_red_cards?: number;
   away_injuries?: number;
+  match_event_details?: MatchEventDetails | null;
   status: 'not_arranged' | 'arranged' | 'ongoing' | 'misarranged' | 'finished';
   ht_match_id: number | null;
   match_type: number | null;
@@ -1200,6 +1203,7 @@ export const TournamentView: React.FC = () => {
               away_yellow_cards: live.away_yellow_cards ?? m.away_yellow_cards,
               away_red_cards: live.away_red_cards ?? m.away_red_cards,
               away_injuries: live.away_injuries ?? m.away_injuries,
+              match_event_details: live.match_event_details ?? m.match_event_details,
             };
           }
           return m;
@@ -2001,7 +2005,10 @@ export const TournamentView: React.FC = () => {
     const existingSeason = seasons.find((season) => season.season_number === currentSeasonNumber);
     const snapshot = existingSeason?.snapshot_json || buildCurrentSeasonSnapshot();
     if (!snapshot) throw new Error('Season history could not be generated.');
-    const fixturesSnapshot = existingSeason?.fixtures_snapshot_json || buildCurrentSeasonFixturesArchive();
+    const fixturesSnapshot =
+      existingSeason?.fixtures_snapshot_json && !isMissingMatchEventDetails(existingSeason.fixtures_snapshot_json)
+        ? existingSeason.fixtures_snapshot_json
+        : buildCurrentSeasonFixturesArchive();
     if (!fixturesSnapshot) throw new Error('Season fixtures could not be archived.');
 
     const now = new Date().toISOString();
@@ -3914,6 +3921,7 @@ export const TournamentView: React.FC = () => {
             canJoinTournament={canJoinTournament}
             canJoinAnotherTeam={canJoinAnotherTeamBeforeFixtures}
             isConnecting={isConnecting}
+            canUpdateFixtures={isAdminAuthenticated}
             isHistorical={isViewingHistoricalFixtures}
             emptyStateMessage={
               tournament.status === 'active' && rounds.length === 0

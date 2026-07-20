@@ -21,7 +21,8 @@ When implementing match tracking, prioritize `matchdetails.xml`:
     - `completed: true`
     - `status: 'finished'`
     - `went_120`: Derived from EventTypeID 70 or MatchPart 3/4 detection.
-    - `total_minutes`: 120 if `went_120` is true, 90 otherwise.
+    - `total_minutes`: 120 plus added time if `went_120` is true, otherwise 90 plus added time.
+    - `match_event_details`: structured card/injury data mapped to the scheduled fixture sides, plus the derived numeric card/injury summary columns.
 
 ## 3. Data Integrity & Syncing
 
@@ -33,6 +34,15 @@ When implementing match tracking, prioritize `matchdetails.xml`:
 
 - **Required Parameters**: When fetching `matchdetails.xml`, always include `matchEvents=true` to retrieve the `<EventList>`. Without this, event-based indicators (like `MatchPart` tags, `EventTypeID`, and `EventKey`) will be absent.
 - **Explicit Versioning**: If an endpoint is missing expected fields, explicitly define the version (e.g., `version=3.1`) in the request parameters. Implicit versioning may default to lighter, stripped-down payloads that omit critical detail.
+
+## 4.1 Match Event Detail Rules
+
+- Use `api/_lib/chpp-match-events.ts` from both `api/chpp/live-matches.ts` and manual match linking in `api/teams/refresh-fixtures.ts`.
+- Parse event IDs and XML fields only. `EventText` is localized to the token owner's Hattrick language and is not a stable data source.
+- Persist `matches.match_event_details` alongside the numeric summary fields from migration `046`.
+- Preserve card subtype: `510/511` are yellow cards, `512/513` are second-yellow reds, and `514` is a straight red.
+- Preserve injury type/location/duration: `InjuryType=1` is a plaster, type `2` is an injury, `401-422` identify the body location, and `454` provides the doctor-report week count when unambiguous.
+- Map event data to the scheduled fixture sides before persistence. A manually linked BYE result must keep the unmatched fixture side empty.
 
 ## 5. Debugging Execution Paths
 
