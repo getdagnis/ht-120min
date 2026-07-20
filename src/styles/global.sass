@@ -29,8 +29,8 @@
   --tinder-bright: rgb(199, 0, 53)
   --tinder-dark: #560725
   --modal-overlay: #8d8a87b1
-  --action-bg: pink
-  --action-text: crimson
+  --action-bg: rgb(228, 219, 195)
+  --action-text: rgb(140, 63, 93)
 
   --text: #292f39
   --text-h: #08090d
@@ -113,8 +113,9 @@
   --beige: #27426c30
   --tournament-thumb: url('/thumb-full.jpg')
   --modal-overlay: #212936a8
-  --action-bg: #283649d4
-  --action-text: #546680e8
+  --action-bg: rgba(54, 45, 65, 0.615)
+  --action-bg-bright: rgba(89, 31, 56, 0.926)
+  --action-text: rgb(179, 175, 199)
 
   color-scheme: dark
 
@@ -275,13 +276,14 @@ table
   opacity: 1 !important
   overflow-wrap: break-word
   white-space: pre-line
+  font-size: 0.75rem !important
 
   [data-theme='dark'] &
     background-color: var(--table-bg)
 
   [data-theme='light'] &
-    background-color: var(--brown)
-    color: var(--text)
+    background-color: var(--action-bg)
+    color: var(--action-text)
 
 .__react_component_tooltip.show
   opacity: 1 !important

@@ -69,3 +69,38 @@ test('APPG standings sort by average APPG points per game', () => {
   assert.equal(standings[0].appgPoints, 3);
   assert.equal(standings[0].played, 1);
 });
+
+test('APPG ignores unclassified results in the average denominator', () => {
+  const standings = calculateStandings(
+    teams,
+    [
+      {
+        home_team_id: 'home',
+        away_team_id: 'away',
+        home_goals: 2,
+        away_goals: 1,
+        completed: true,
+        went_120: true,
+        total_minutes: 121,
+        appg_outcome: 'ET3',
+      },
+      {
+        home_team_id: 'home',
+        away_team_id: 'away',
+        home_goals: 1,
+        away_goals: 0,
+        completed: true,
+        went_120: false,
+        total_minutes: 90,
+        appg_outcome: 'needs_review',
+      },
+    ],
+    'appg',
+  );
+
+  const home = standings.find((standing) => standing.teamId === 'home');
+  assert.ok(home);
+  assert.equal(home.played, 2);
+  assert.equal(home.appgPlayed, 1);
+  assert.equal(home.appgPoints / home.appgPlayed, 3);
+});

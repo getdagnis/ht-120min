@@ -44,6 +44,7 @@ export interface TeamStanding {
   gd: number;
   pts: number;
   appgPoints: number;
+  appgPlayed: number;
   achievements120min: number;
   totalMinutes: number;
   joinedViaOauth: boolean;
@@ -78,6 +79,7 @@ export function calculateStandings(
       gd: 0,
       pts: 0,
       appgPoints: 0,
+      appgPlayed: 0,
       achievements120min: 0,
       totalMinutes: 0,
       joinedViaOauth: !!team.joined_via_oauth,
@@ -119,7 +121,10 @@ export function calculateStandings(
       }
 
       const appgPoints = getAppgPoints(m);
-      if (appgPoints !== null) team.appgPoints += m.home_team_id ? appgPoints.home : appgPoints.away;
+      if (appgPoints !== null) {
+        team.appgPoints += m.home_team_id ? appgPoints.home : appgPoints.away;
+        team.appgPlayed++;
+      }
 
       if (m.went_120) {
         team.achievements120min++;
@@ -162,6 +167,8 @@ export function calculateStandings(
     if (appgPoints !== null) {
       home.appgPoints += appgPoints.home;
       away.appgPoints += appgPoints.away;
+      home.appgPlayed++;
+      away.appgPlayed++;
     }
 
     if (m.went_120) {
@@ -195,8 +202,8 @@ export function calculateStandings(
 
   if (scoringMode === 'appg') {
     return standings.sort((a, b) => {
-      const aAverage = a.played ? a.appgPoints / a.played : 0;
-      const bAverage = b.played ? b.appgPoints / b.played : 0;
+      const aAverage = a.appgPlayed ? a.appgPoints / a.appgPlayed : 0;
+      const bAverage = b.appgPlayed ? b.appgPoints / b.appgPlayed : 0;
       if (bAverage !== aAverage) return bAverage - aAverage;
       if (b.gd !== a.gd) return b.gd - a.gd;
       if (b.gf !== a.gf) return b.gf - a.gf;

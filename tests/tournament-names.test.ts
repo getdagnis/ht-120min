@@ -2,6 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {
   formatTournamentName,
+  formatTournamentSlug,
   hasCountryFlagSuffix,
   normalizeTournamentName,
   normalizeTournamentSlug,
@@ -14,6 +15,12 @@ test('tournament name normalization ignores emoji and punctuation', () => {
 
 test('tournament slug normalization never leaves a trailing dash', () => {
   assert.equal(normalizeTournamentSlug('Bone Crushers International 🏆'), 'bone-crushers-international');
+});
+
+test('sandbox slug suggestions carry the immutable test marker without duplicating it', () => {
+  assert.equal(formatTournamentSlug('Practice Cup', 'sandbox'), 'practice-cup-test');
+  assert.equal(formatTournamentSlug('Practice Cup (test)', 'sandbox'), 'practice-cup-test');
+  assert.equal(formatTournamentSlug('Practice Cup', 'validated'), 'practice-cup');
 });
 
 test('tournament names use permanent sandbox and current restriction suffixes', () => {

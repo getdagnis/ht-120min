@@ -5,7 +5,8 @@ import { Check, ArrowClockwise, X, PencilSimple, LinkSimple } from 'phosphor-rea
 import { getCountryFlagUrl, getLeagueFlagUrl } from '../../../utils/ht-data';
 import { getHattrickWeekDetails } from '../../../utils/hattrick-calendar';
 import { APPG_OUTCOMES, appgOutcomeLabel, validateAppgOutcome, type AppgOutcome } from '../../../utils/appg';
-import { parseResultCsv, RESULT_CSV_TEMPLATE, type ResultCsvRow } from '../../../utils/result-csv';
+import { parseResultCsv, RESULT_CSV_CLEAN_TEMPLATE, RESULT_CSV_TEMPLATE, type ResultCsvRow } from '../../../utils/result-csv';
+import { createSandboxResultUpdates, type BulkMatchUpdate } from '../../../utils/sandbox-results';
 import adminStyles from '../../../pages/Public/TournamentAdmin.module.sass';
 
 interface ResultTeam {
@@ -40,17 +41,7 @@ interface MatchWithTeams {
   away_team: ResultTeam | null;
 }
 
-export interface BulkMatchUpdate {
-  home_goals?: number | null;
-  away_goals?: number | null;
-  went_120?: boolean;
-  total_minutes?: number;
-  completed?: boolean;
-  penalty_shootout_home_goals?: number | null;
-  penalty_shootout_away_goals?: number | null;
-  appg_outcome?: AppgOutcome | null;
-  appg_outcome_source?: 'organizer' | 'csv';
-}
+export type { BulkMatchUpdate } from '../../../utils/sandbox-results';
 
 interface AdminResultsProps {
   rounds: {
@@ -72,6 +63,7 @@ interface AdminResultsProps {
   scoringMode?: string;
   saveBulkMatches?: (updates: Record<string, BulkMatchUpdate>) => Promise<void>;
   importCsvRows?: (rows: ResultCsvRow[]) => Promise<void>;
+  isSandbox?: boolean;
 }
 
 interface HtMatchLinkPreview {
@@ -204,6 +196,7 @@ export const AdminResults: React.FC<AdminResultsProps> = ({
   scoringMode = '120min',
   saveBulkMatches,
   importCsvRows,
+  isSandbox = false,
 }) => {
   const [linkingMatchId, setLinkingMatchId] = React.useState<string | null>(null);
   const [linkInput, setLinkInput] = React.useState('');
@@ -213,6 +206,8 @@ export const AdminResults: React.FC<AdminResultsProps> = ({
   const [isSavingLink, setIsSavingLink] = React.useState(false);
   const [bulkMatchIds, setBulkMatchIds] = React.useState<string[]>([]);
   const [isSavingBulk, setIsSavingBulk] = React.useState(false);
+  const [isRandomFilling, setIsRandomFilling] = React.useState(false);
+  const [resultNotice, setResultNotice] = React.useState('');
   const fileInputRef = React.useRef<HTMLInputElement | null>(null);
 
   const bulkMatches = React.useMemo(
@@ -230,7 +225,7 @@ export const AdminResults: React.FC<AdminResultsProps> = ({
     }));
   };
 
-  const startBulkSimulation = (matchIds: string[]) => {
+  const startBulkEditing = (matchIds: string[]) => {
     setEditingMatch(null);
     setBulkMatchIds(matchIds);
     setMatchData((current) => {
@@ -245,9 +240,9 @@ export const AdminResults: React.FC<AdminResultsProps> = ({
     });
   };
 
-  const cancelBulkSimulation = () => setBulkMatchIds([]);
+  const cancelBulkEditing = () => setBulkMatchIds([]);
 
-  const saveBulkSimulation = async () => {
+  const saveBulkResults = async () => {
     if (!saveBulkMatches) return;
     setIsSavingBulk(true);
     try {
@@ -285,18 +280,38 @@ export const AdminResults: React.FC<AdminResultsProps> = ({
         return next;
       });
     } catch (error) {
-      alert(error instanceof Error ? error.message : 'Could not save the simulated results.');
+      alert(error instanceof Error ? error.message : 'Could not save results.');
     } finally {
       setIsSavingBulk(false);
     }
   };
 
-  const downloadCsvTemplate = () => {
-    const blob = new Blob([RESULT_CSV_TEMPLATE], { type: 'text/csv;charset=utf-8' });
+  const randomFillMatches = async (matches: MatchWithTeams[]) => {
+    if (!saveBulkMatches) return;
+    const updates = createSandboxResultUpdates(matches, scoringMode);
+    const updatedCount = Object.keys(updates).length;
+    if (updatedCount === 0) {
+      setResultNotice('No two-team fixtures are available to random-fill.');
+      return;
+    }
+
+    setIsRandomFilling(true);
+    try {
+      await saveBulkMatches(updates);
+      setResultNotice(`${updatedCount} fixture${updatedCount === 1 ? '' : 's'} random-filled.`);
+    } catch (error) {
+      alert(error instanceof Error ? error.message : 'Could not random-fill results.');
+    } finally {
+      setIsRandomFilling(false);
+    }
+  };
+
+  const downloadCsvTemplate = (template: string, filename: string) => {
+    const blob = new Blob([template], { type: 'text/csv;charset=utf-8' });
     const url = URL.createObjectURL(blob);
     const anchor = document.createElement('a');
     anchor.href = url;
-    anchor.download = 'ht-120min-results-template.csv';
+    anchor.download = filename;
     anchor.click();
     URL.revokeObjectURL(url);
   };
@@ -359,6 +374,9 @@ export const AdminResults: React.FC<AdminResultsProps> = ({
     try {
       await saveHtMatchLink(linkingMatchId, String(linkPreview.ht_match_id));
       cancelLinking();
+      setResultNotice('Match linked. Fixtures updated.');
+    } catch (error) {
+      setLinkError(error instanceof Error ? error.message : 'Could not link that match.');
     } finally {
       setIsSavingLink(false);
     }
@@ -441,20 +459,42 @@ export const AdminResults: React.FC<AdminResultsProps> = ({
       <div className={adminStyles.bulkResultToolbar}>
         {saveBulkMatches && (
           <>
-            <Button
-              size="xs"
-              variant="action"
-              onClick={() => startBulkSimulation(rounds.flatMap((round) => round.matches.map((match) => match.id)))}
-            >
-              Simulate season
-            </Button>
+            {isSandbox ? (
+              <Button
+                size="xs"
+                variant="action"
+                onClick={() => void randomFillMatches(rounds.flatMap((round) => round.matches))}
+                disabled={isRandomFilling}
+              >
+                <ArrowClockwise size={16} /> {isRandomFilling ? 'Random-filling...' : 'Random-fill season'}
+              </Button>
+            ) : (
+              <Button
+                size="xs"
+                variant="action"
+                onClick={() => startBulkEditing(rounds.flatMap((round) => round.matches.map((match) => match.id)))}
+              >
+                Bulk edit season results
+              </Button>
+            )}
             {importCsvRows && (
               <>
-                <Button size="xs" variant="action" onClick={downloadCsvTemplate}>
-                  CSV template
+                <Button
+                  size="xs"
+                  variant="action"
+                  onClick={() => downloadCsvTemplate(RESULT_CSV_CLEAN_TEMPLATE, 'ht-120min-results.csv')}
+                >
+                  Download clean CSV
+                </Button>
+                <Button
+                  size="xs"
+                  variant="action"
+                  onClick={() => downloadCsvTemplate(RESULT_CSV_TEMPLATE, 'ht-120min-results-example.csv')}
+                >
+                  Download example CSV
                 </Button>
                 <Button size="xs" variant="action" onClick={() => fileInputRef.current?.click()}>
-                  Import CSV
+                  Import results CSV
                 </Button>
                 <input ref={fileInputRef} type="file" accept=".csv,text/csv" onChange={handleCsvFile} hidden />
               </>
@@ -462,6 +502,14 @@ export const AdminResults: React.FC<AdminResultsProps> = ({
           </>
         )}
       </div>
+      {scoringMode === 'appg' && importCsvRows && (
+        <p className={adminStyles.appgCsvHelp}>
+          ET3 = extra-time winner, open-play winning goal. ET2 = extra-time winner, SE/other winning goal. PS1 =
+          penalties. RT0 = regulation result worth 0. OPW = regulation open-play winner gets -1. needs_review = not
+          classified yet.
+        </p>
+      )}
+      {resultNotice && <p className={adminStyles.resultNotice} role="status">{resultNotice}</p>}
       <div className={adminStyles.matches}>
         {rounds.map((round) => {
           const roundMeta = formatRoundMeta(round);
@@ -472,13 +520,24 @@ export const AdminResults: React.FC<AdminResultsProps> = ({
                 Round {round.round_number}
                 {roundMeta && <span className={adminStyles.roundMeta}>{roundMeta}</span>}
                 {saveBulkMatches && (
-                  <Button
-                    size="xs"
-                    variant="action"
-                    onClick={() => startBulkSimulation(round.matches.map((match) => match.id))}
-                  >
-                    Simulate round
-                  </Button>
+                  isSandbox ? (
+                    <Button
+                      size="xs"
+                      variant="action"
+                      onClick={() => void randomFillMatches(round.matches)}
+                      disabled={isRandomFilling}
+                    >
+                      <ArrowClockwise size={16} /> Random-fill round
+                    </Button>
+                  ) : (
+                    <Button
+                      size="xs"
+                      variant="action"
+                      onClick={() => startBulkEditing(round.matches.map((match) => match.id))}
+                    >
+                      Bulk edit round results
+                    </Button>
+                  )
                 )}
               </h3>
               {bulkMatchIds.length > 0 &&
@@ -838,10 +897,10 @@ export const AdminResults: React.FC<AdminResultsProps> = ({
       </div>
       {bulkMatchIds.length > 0 && (
         <div className={adminStyles.bulkActions}>
-          <Button size="xs" variant="primaryDanger" onClick={saveBulkSimulation} disabled={isSavingBulk}>
-            <Check size={16} /> Save simulation
+          <Button size="xs" variant="primaryDanger" onClick={saveBulkResults} disabled={isSavingBulk}>
+            <Check size={16} /> Save results
           </Button>
-          <Button size="xs" variant="action" onClick={cancelBulkSimulation}>
+          <Button size="xs" variant="action" onClick={cancelBulkEditing}>
             <X size={16} /> Cancel
           </Button>
         </div>

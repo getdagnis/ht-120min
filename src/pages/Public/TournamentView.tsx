@@ -903,17 +903,17 @@ export const TournamentView: React.FC = () => {
         ? serializeRescheduleDraftForRpc(rescheduleDraft)
         : null,
     [rescheduleDraft],
-	  );
-	  const hasSettingsCollapseOverride = slug ? localStorage.getItem(`settings_collapsed_${slug}`) !== null : false;
-	  const hasSeasonCollapseOverride = slug ? localStorage.getItem(`season_collapsed_${slug}`) !== null : false;
-	  const resolvedScheduleCollapsed = scheduleCollapseOverride ?? isGenerated;
-	  const isSeasonCloseAvailable = Boolean(
-	    tournament && tournament.status !== 'finished' && isGenerated && hasFinishedAllRealFixtures(rounds),
-	  );
-	  const resolvedSettingsCollapsed = hasSettingsCollapseOverride
-	    ? isSettingsCollapsed
-	    : Boolean(tournament && (tournament.status !== 'open' || isGenerated));
-	  const resolvedSeasonCollapsed = hasSeasonCollapseOverride ? isSeasonCollapsed : !isSeasonCloseAvailable;
+  );
+  const hasSettingsCollapseOverride = slug ? localStorage.getItem(`settings_collapsed_${slug}`) !== null : false;
+  const hasSeasonCollapseOverride = slug ? localStorage.getItem(`season_collapsed_${slug}`) !== null : false;
+  const resolvedScheduleCollapsed = scheduleCollapseOverride ?? isGenerated;
+  const isSeasonCloseAvailable = Boolean(
+    tournament && tournament.status !== 'finished' && isGenerated && hasFinishedAllRealFixtures(rounds),
+  );
+  const resolvedSettingsCollapsed = hasSettingsCollapseOverride
+    ? isSettingsCollapsed
+    : Boolean(tournament && (tournament.status !== 'open' || isGenerated));
+  const resolvedSeasonCollapsed = hasSeasonCollapseOverride ? isSeasonCollapsed : !isSeasonCloseAvailable;
 
   const reconcileScheduleSelection = useCallback(
     (nextMode: ScheduleMode, nextStartSlotId: string | null) => {
@@ -1389,11 +1389,31 @@ export const TournamentView: React.FC = () => {
           .sort((a, b) => (a.match_date?.getTime() || 0) - (b.match_date?.getTime() || 0)),
       }));
       setRounds(newRounds as RoundWithMatches[]);
+      setStandings(
+        calculateStandings(
+          teams.map((team) => toStandingTeam(team)),
+          newRounds.flatMap((round) =>
+            round.matches.map((match) => ({
+              home_team_id: match.home_team_id,
+              away_team_id: match.away_team_id,
+              home_goals: match.home_goals,
+              away_goals: match.away_goals,
+              completed: match.completed,
+              went_120: match.went_120,
+              total_minutes: match.total_minutes,
+              appg_outcome: match.appg_outcome,
+              penalty_shootout_home_goals: match.penalty_shootout_home_goals,
+              penalty_shootout_away_goals: match.penalty_shootout_away_goals,
+            })),
+          ),
+          tournament.scoring_mode as '120m' | '120min' | 'points' | 'appg',
+        ),
+      );
     }
     if (warningsData) setWarnings(warningsData);
     if (tournamentMeta)
       setTournament((prev) => (prev ? { ...prev, last_fixtures_refresh: tournamentMeta.last_fixtures_refresh } : prev));
-  }, [tournament, getMatchDateForRound]);
+  }, [tournament, teams, getMatchDateForRound]);
 
   const fetchPresenceOnly = useCallback(async () => {
     if (!tournament) return;
@@ -1753,9 +1773,9 @@ export const TournamentView: React.FC = () => {
       if (preview.ht_match_id && tournament) {
         await fetch(`/api/chpp/live-matches?tournament_id=${tournament.id}&match_ids=${preview.ht_match_id}`);
       }
-      await fetchData();
+      await fetchFixturesOnly();
     },
-    [fetchData, requestHtMatchLink, tournament],
+    [fetchFixturesOnly, requestHtMatchLink, tournament],
   );
 
   useEffect(() => {
@@ -3130,37 +3150,45 @@ export const TournamentView: React.FC = () => {
 
   const saveBulkMatches = async (updates: Record<string, BulkMatchUpdate>) => {
     const entries = Object.entries(updates);
-    const results = await Promise.all(
-      entries.map(async ([matchId, data]) => {
-        const match = rounds.flatMap((round) => round.matches).find((item) => item.id === matchId);
-        const isBye = Boolean(match && (!match.home_team_id || !match.away_team_id));
-        const homeGoals = data.home_goals == null && isBye ? 0 : data.home_goals;
-        const awayGoals = data.away_goals == null && isBye ? 0 : data.away_goals;
-        if (homeGoals == null || awayGoals == null) {
-          throw new Error('Every simulated match needs both scores before saving.');
-        }
-        const appgValidationError = data.appg_outcome
-          ? validateAppgOutcome({
-              home_goals: Number(homeGoals),
-              away_goals: Number(awayGoals),
-              went_120: data.went_120 ?? false,
-              total_minutes: data.total_minutes || 90,
-              penalty_shootout_home_goals: data.penalty_shootout_home_goals ?? null,
-              penalty_shootout_away_goals: data.penalty_shootout_away_goals ?? null,
+    const preparedUpdates = entries.map(([matchId, data]) => {
+      const match = rounds.flatMap((round) => round.matches).find((item) => item.id === matchId);
+      const isBye = Boolean(match && (!match.home_team_id || !match.away_team_id));
+      const homeGoals = data.home_goals == null && isBye ? 0 : data.home_goals;
+      const awayGoals = data.away_goals == null && isBye ? 0 : data.away_goals;
+      if (homeGoals == null || awayGoals == null) {
+        throw new Error('Every result needs both scores before saving.');
+      }
+      const appgValidationError = data.appg_outcome
+        ? validateAppgOutcome({
+            home_goals: Number(homeGoals),
+            away_goals: Number(awayGoals),
+            went_120: data.went_120 ?? false,
+            total_minutes: data.total_minutes || 90,
+            penalty_shootout_home_goals: data.penalty_shootout_home_goals ?? null,
+            penalty_shootout_away_goals: data.penalty_shootout_away_goals ?? null,
+            appg_outcome: data.appg_outcome,
+          })
+        : null;
+      if (appgValidationError) throw new Error(appgValidationError);
+      const payload = {
+        home_goals: Number(homeGoals),
+        away_goals: Number(awayGoals),
+        went_120: Boolean(data.went_120),
+        total_minutes: Number(data.total_minutes) || 90,
+        completed: true,
+        penalty_shootout_home_goals: data.penalty_shootout_home_goals ?? null,
+        penalty_shootout_away_goals: data.penalty_shootout_away_goals ?? null,
+        ...(data.appg_outcome
+          ? {
               appg_outcome: data.appg_outcome,
-            })
-          : null;
-        if (appgValidationError) throw new Error(appgValidationError);
-        const payload = {
-          home_goals: Number(homeGoals),
-          away_goals: Number(awayGoals),
-          went_120: Boolean(data.went_120),
-          total_minutes: Number(data.total_minutes) || 90,
-          completed: true,
-          penalty_shootout_home_goals: data.penalty_shootout_home_goals ?? null,
-          penalty_shootout_away_goals: data.penalty_shootout_away_goals ?? null,
-          ...(data.appg_outcome ? { appg_outcome: data.appg_outcome, appg_outcome_source: 'organizer' as const } : {}),
-        };
+              appg_outcome_source: data.appg_outcome_source ?? ('organizer' as const),
+            }
+          : {}),
+      };
+      return [matchId, payload] as const;
+    });
+    const results = await Promise.all(
+      preparedUpdates.map(async ([matchId, payload]) => {
         const { error } = await supabase.from('matches').update(payload).eq('id', matchId);
         if (error) throw error;
         return [matchId, payload] as const;
@@ -3201,8 +3229,8 @@ export const TournamentView: React.FC = () => {
       fetchedTeams.push(data);
     }
 
-    for (const row of matchRows) {
-      const match = rounds
+    const findFixture = (row: ResultCsvRow) =>
+      rounds
         .find((round) => round.round_number === row.round)
         ?.matches.find((item) => {
           const homeId = item.home_team?.ht_team_id;
@@ -3212,10 +3240,32 @@ export const TournamentView: React.FC = () => {
             (homeId === row.awayTeamId && awayId === row.homeTeamId)
           );
         });
+
+    const matchedRows = matchRows.map((row) => {
+      const match = findFixture(row);
       if (!match)
         throw new Error(`Could not find the round ${row.round} fixture for ${row.homeTeamId} and ${row.awayTeamId}.`);
       if (row.homeGoals == null || row.awayGoals == null)
         throw new Error(`Result row for round ${row.round} is missing a score.`);
+      const isReversed = match.home_team?.ht_team_id === row.awayTeamId;
+      const normalized = {
+        home_goals: isReversed ? row.awayGoals : row.homeGoals,
+        away_goals: isReversed ? row.homeGoals : row.awayGoals,
+        total_minutes: row.totalMinutes || 90,
+        went_120: row.went120 ?? Boolean((row.totalMinutes || 90) > 90),
+        penalty_shootout_home_goals: isReversed ? row.penaltyShootoutAwayGoals : row.penaltyShootoutHomeGoals,
+        penalty_shootout_away_goals: isReversed ? row.penaltyShootoutHomeGoals : row.penaltyShootoutAwayGoals,
+        appg_outcome: row.appgOutcome,
+      };
+      const appgValidationError = normalized.appg_outcome ? validateAppgOutcome(normalized) : null;
+      if (appgValidationError) {
+        throw new Error(`Round ${row.round}: ${appgValidationError}`);
+      }
+      return { match, normalized };
+    });
+
+    if (new Set(matchedRows.map(({ match }) => match.id)).size !== matchedRows.length) {
+      throw new Error('CSV contains the same scheduled fixture more than once.');
     }
 
     if (fetchedTeams.length > 0) {
@@ -3238,30 +3288,16 @@ export const TournamentView: React.FC = () => {
       if (error) throw error;
     }
 
-    const resultUpdates: Record<string, BulkMatchUpdate> = {};
-    for (const row of matchRows) {
-      const match = rounds
-        .find((round) => round.round_number === row.round)
-        ?.matches.find((item) => {
-          const homeId = item.home_team?.ht_team_id;
-          const awayId = item.away_team?.ht_team_id;
-          return (
-            (homeId === row.homeTeamId && awayId === row.awayTeamId) ||
-            (homeId === row.awayTeamId && awayId === row.homeTeamId)
-          );
-        });
-      if (!match) continue;
-      resultUpdates[match.id] = {
-        home_goals: row.homeGoals,
-        away_goals: row.awayGoals,
-        total_minutes: row.totalMinutes || 90,
-        went_120: row.went120 ?? Boolean((row.totalMinutes || 90) > 90),
-        completed: true,
-        penalty_shootout_home_goals: row.penaltyShootoutHomeGoals,
-        penalty_shootout_away_goals: row.penaltyShootoutAwayGoals,
-        ...(row.appgOutcome ? { appg_outcome: row.appgOutcome, appg_outcome_source: 'csv' as const } : {}),
-      };
-    }
+    const resultUpdates: Record<string, BulkMatchUpdate> = Object.fromEntries(
+      matchedRows.map(({ match, normalized }) => [
+        match.id,
+        {
+          ...normalized,
+          completed: true,
+          ...(normalized.appg_outcome ? { appg_outcome_source: 'csv' as const } : {}),
+        },
+      ]),
+    );
     if (Object.keys(resultUpdates).length > 0) await saveBulkMatches(resultUpdates);
     if (fetchedTeams.length > 0) await fetchData();
   };
@@ -4239,10 +4275,12 @@ export const TournamentView: React.FC = () => {
                 <section className={adminStyles.teamsSection}>
                   <div id="admin-panel-settings">
                     <SectionCard
-	                      title="Tournament Settings"
-	                      collapsible
-	                      isCollapsed={resolvedSettingsCollapsed}
-	                      onToggleCollapse={() => togglePanel('settings', !resolvedSettingsCollapsed, setIsSettingsCollapsed)}
+                      title="Tournament Settings"
+                      collapsible
+                      isCollapsed={resolvedSettingsCollapsed}
+                      onToggleCollapse={() =>
+                        togglePanel('settings', !resolvedSettingsCollapsed, setIsSettingsCollapsed)
+                      }
                     >
                       <div className={adminStyles.settingsGroup}>
                         {/* EDIT TOURNAMENT NAME **
@@ -4589,33 +4627,6 @@ export const TournamentView: React.FC = () => {
                     </div>
                   )}
 
-                  {isGenerated && canManageSchedule && (
-                    <div id="admin-panel-schedule">
-                      <TournamentSchedulePanel
-                        isGenerated={isGenerated}
-                        isCollapsed={resolvedScheduleCollapsed}
-                        onToggleCollapse={() => setSchedulePanelCollapsed(!resolvedScheduleCollapsed)}
-                        draft={scheduleDraft}
-                        onScheduleModeChange={handleScheduleModeChange}
-                        onSelectedStartSlotIdChange={handleScheduleStartSlotIdChange}
-                        includeWeek15WeekendFriendly={includeWeek15WeekendFriendly}
-                        onIncludeWeek15WeekendFriendlyChange={handleIncludeWeek15WeekendFriendlyChange}
-                        isGenerating={isGenerating}
-                        onGenerate={generateSchedule}
-                        tournamentTeamLimit={editMaxTeams}
-                        rescheduleDraft={rescheduleDraft}
-                        onRescheduleFromRoundChange={handleRescheduleFromRoundChange}
-                        onRescheduleStartSlotIdChange={handleRescheduleStartSlotIdChange}
-                        includeWeek15WeekendFriendlyForReschedule={includeWeek15WeekendFriendlyForReschedule}
-                        onIncludeWeek15WeekendFriendlyForRescheduleChange={
-                          handleIncludeWeek15WeekendFriendlyForRescheduleChange
-                        }
-                        isRescheduling={isRescheduling}
-                        onReschedule={regenerateSchedule}
-                      />
-                    </div>
-                  )}
-
                   <div id="admin-panel-announcements">
                     <SectionCard
                       title="Admin announcements"
@@ -4666,13 +4677,40 @@ export const TournamentView: React.FC = () => {
                     </SectionCard>
                   </div>
 
+                  {isGenerated && canManageSchedule && (
+                    <div id="admin-panel-schedule">
+                      <TournamentSchedulePanel
+                        isGenerated={isGenerated}
+                        isCollapsed={resolvedScheduleCollapsed}
+                        onToggleCollapse={() => setSchedulePanelCollapsed(!resolvedScheduleCollapsed)}
+                        draft={scheduleDraft}
+                        onScheduleModeChange={handleScheduleModeChange}
+                        onSelectedStartSlotIdChange={handleScheduleStartSlotIdChange}
+                        includeWeek15WeekendFriendly={includeWeek15WeekendFriendly}
+                        onIncludeWeek15WeekendFriendlyChange={handleIncludeWeek15WeekendFriendlyChange}
+                        isGenerating={isGenerating}
+                        onGenerate={generateSchedule}
+                        tournamentTeamLimit={editMaxTeams}
+                        rescheduleDraft={rescheduleDraft}
+                        onRescheduleFromRoundChange={handleRescheduleFromRoundChange}
+                        onRescheduleStartSlotIdChange={handleRescheduleStartSlotIdChange}
+                        includeWeek15WeekendFriendlyForReschedule={includeWeek15WeekendFriendlyForReschedule}
+                        onIncludeWeek15WeekendFriendlyForRescheduleChange={
+                          handleIncludeWeek15WeekendFriendlyForRescheduleChange
+                        }
+                        isRescheduling={isRescheduling}
+                        onReschedule={regenerateSchedule}
+                      />
+                    </div>
+                  )}
+
                   <div id="admin-panel-season">
                     <SectionCard
                       title="Season planner"
-	                      className={adminStyles.seasonPlannerCard}
-	                      collapsible
-	                      isCollapsed={resolvedSeasonCollapsed}
-	                      onToggleCollapse={() => togglePanel('season', !resolvedSeasonCollapsed, setIsSeasonCollapsed)}
+                      className={adminStyles.seasonPlannerCard}
+                      collapsible
+                      isCollapsed={resolvedSeasonCollapsed}
+                      onToggleCollapse={() => togglePanel('season', !resolvedSeasonCollapsed, setIsSeasonCollapsed)}
                     >
                       <div className={adminStyles.seasonPlanner}>
                         {previousSeasons.length > 0 && (
@@ -4806,6 +4844,7 @@ export const TournamentView: React.FC = () => {
                         scoringMode={tournament.scoring_mode}
                         saveBulkMatches={saveBulkMatches}
                         importCsvRows={importCsvRows}
+                        isSandbox={isSandbox}
                       />
                     </div>
                   )}

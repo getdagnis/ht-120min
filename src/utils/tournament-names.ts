@@ -17,6 +17,12 @@ export const normalizeTournamentSlug = (value: string) =>
     .replace(/-+/g, '-')
     .replace(/^-|-$/g, '');
 
+export function formatTournamentSlug(name: string, registrationType?: string | null) {
+  const slug = normalizeTournamentSlug(name);
+  if (!slug || registrationType !== 'sandbox' || slug.endsWith('-test')) return slug;
+  return `${slug}-test`;
+}
+
 export interface TournamentNameSuffixOptions {
   registrationType?: string | null;
   leagueCategory?: string | null;

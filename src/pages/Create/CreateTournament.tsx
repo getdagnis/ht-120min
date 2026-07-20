@@ -45,6 +45,7 @@ import { getLeagueNameById } from '../../../shared/worlddetails';
 import { getCanonicalCountryName, getCountryFlagUrl, getLeagueFlagUrl } from '../../utils/ht-data';
 import {
   formatTournamentName,
+  formatTournamentSlug,
   hasCountryFlagSuffix,
   normalizeTournamentName,
   normalizeTournamentSlug,
@@ -118,6 +119,8 @@ const getRandomName = (mode: string) => {
   return pool[Math.floor(Math.random() * pool.length)];
 };
 const normalizeSlugInput = (value: string) => normalizeTournamentSlug(value.trim());
+const getSuggestedTournamentSlug = (name: string, registrationType?: string | null) =>
+  formatTournamentSlug(name, normalizeTournamentRegistrationType(registrationType));
 const formatEditableTournamentName = (
   name: string,
   options: {
@@ -596,7 +599,7 @@ export const CreateTournament: React.FC = () => {
   };
 
   const handleNameChange = (name: string) => {
-    const slug = normalizeSlugInput(name);
+    const slug = getSuggestedTournamentSlug(name, formData.registration_type);
     setFormData({
       ...formData,
       name,
@@ -662,9 +665,10 @@ export const CreateTournament: React.FC = () => {
     }
 
     let nextForm = formData;
-    const nameSlug = normalizeSlugInput(formData.name);
+    const nameSlug = getSuggestedTournamentSlug(formData.name, formData.registration_type);
     const currentSlug = normalizeSlugInput(formData.slug);
-    if (nameSlug && (!currentSlug || currentSlug === nameSlug)) {
+    const legacyNameSlug = normalizeSlugInput(formData.name);
+    if (nameSlug && (!currentSlug || currentSlug === nameSlug || currentSlug === legacyNameSlug)) {
       try {
         nextForm = await checkSlugAvailability(nameSlug);
       } catch {
@@ -789,13 +793,14 @@ export const CreateTournament: React.FC = () => {
     setLoading(true);
     const tournamentName =
       registrationType === 'sandbox' ? formatTournamentName(formData.name, { registrationType }) : formData.name.trim();
-    let slug = normalizeSlugInput(formData.slug) || nanoid(10);
+    const nameSlug = getSuggestedTournamentSlug(tournamentName, registrationType);
+    const enteredSlug = normalizeSlugInput(formData.slug);
+    const isSuggestedSlug = !enteredSlug || enteredSlug === nameSlug || enteredSlug === normalizeSlugInput(formData.name);
+    let slug = (isSuggestedSlug ? nameSlug : enteredSlug) || nanoid(10);
     const adminPassword = nanoid(8);
     let createdTournamentId: string | null = null;
 
     try {
-      const nameSlug = normalizeSlugInput(tournamentName);
-      const isSuggestedSlug = !formData.slug || normalizeSlugInput(formData.slug) === nameSlug;
       if (isSuggestedSlug && slug) {
         const { data: matchingSlugs, error: slugLookupError } = await supabase
           .from('tournaments')
@@ -1088,18 +1093,26 @@ export const CreateTournament: React.FC = () => {
                       const nextType = normalizeTournamentRegistrationType(e.target.value);
                       const nextScoringMode =
                         nextType === 'validated' && formData.scoring_mode === 'appg' ? '120min' : formData.scoring_mode;
+                      const currentSlug = normalizeSlugInput(formData.slug);
+                      const currentSuggestedSlug = getSuggestedTournamentSlug(formData.name, formData.registration_type);
+                      const isGeneratedSlug =
+                        !currentSlug ||
+                        currentSlug === currentSuggestedSlug ||
+                        currentSlug === normalizeSlugInput(formData.name);
+                      const nextName = formatEditableTournamentName(formData.name, {
+                        registrationType: nextType,
+                        leagueCategory: formData.league_category,
+                        countryLimit: nextType === 'sandbox' ? '' : formData.country_limit,
+                        includeCountryFlag: formData.include_country_flag,
+                      });
                       setFormData({
                         ...formData,
                         registration_type: nextType,
                         scoring_mode: nextScoringMode,
                         is_private: nextType === 'sandbox' ? true : formData.is_private,
                         country_limit: nextType === 'sandbox' ? '' : formData.country_limit,
-                        name: formatEditableTournamentName(formData.name, {
-                          registrationType: nextType,
-                          leagueCategory: formData.league_category,
-                          countryLimit: nextType === 'sandbox' ? '' : formData.country_limit,
-                          includeCountryFlag: formData.include_country_flag,
-                        }),
+                        name: nextName,
+                        slug: isGeneratedSlug ? getSuggestedTournamentSlug(nextName, nextType) : formData.slug,
                       });
                       setNewTeamId('');
                       setNewTeamName('');

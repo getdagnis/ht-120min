@@ -49,7 +49,7 @@ const STANDINGS_SCORING_MODES = {
 } as const;
 
 type StandingsScoringMode = keyof typeof STANDINGS_SCORING_MODES;
-type StandingsSortKey = 'default' | 'team' | 'achievements120min' | 'totalMinutes' | 'played' | 'won' | 'drawn' | 'lost' | 'gd' | 'gf' | 'pts' | 'appg';
+type StandingsSortKey = 'default' | 'team' | 'achievements120min' | 'totalMinutes' | 'played' | 'appgPlayed' | 'won' | 'drawn' | 'lost' | 'gd' | 'gf' | 'pts' | 'appg';
 type SortDirection = 'asc' | 'desc';
 
 export const StandingsView: React.FC<StandingsViewProps> = ({
@@ -88,7 +88,8 @@ export const StandingsView: React.FC<StandingsViewProps> = ({
     .filter((mode) => STANDINGS_SCORING_MODES[mode].enabled && (mode !== 'appg' || isAppgSupported));
   const activeScoringConfig = STANDINGS_SCORING_MODES[scoringMode];
 
-  const averagePointsPerGame = (standing: TeamStanding) => standing.played > 0 ? standing.appgPoints / standing.played : 0;
+  const averagePointsPerGame = (standing: TeamStanding) =>
+    standing.appgPlayed > 0 ? standing.appgPoints / standing.appgPlayed : 0;
 
   const sortedStandings = useMemo(() => {
     const rows = [...standings];
@@ -153,9 +154,9 @@ export const StandingsView: React.FC<StandingsViewProps> = ({
   };
 
   const sortIndicator = (key: StandingsSortKey) => sortKey === key ? (sortDirection === 'asc' ? ' ↑' : ' ↓') : '';
-  const sortableHeader = (label: string, key: StandingsSortKey, className = '') => (
+  const sortableHeader = (label: string, key: StandingsSortKey, className = '', title?: string) => (
     <th className={className} aria-sort={sortKey === key ? (sortDirection === 'asc' ? 'ascending' : 'descending') : 'none'}>
-      <button type="button" className={styles.sortHeader} onClick={() => handleSort(key)}>
+      <button type="button" className={styles.sortHeader} onClick={() => handleSort(key)} title={title}>
         {label}<span aria-hidden="true">{sortIndicator(key)}</span>
       </button>
     </th>
@@ -247,7 +248,7 @@ export const StandingsView: React.FC<StandingsViewProps> = ({
                   <>
                     {sortableHeader('120m', 'achievements120min', styles.center120)}
                     {sortableHeader('Mins', 'totalMinutes', styles.center)}
-                    {sortableHeader('Pld', 'played', styles.center)}
+                    {sortableHeader('Class.', 'appgPlayed', styles.center, 'Classified APPG matches')}
                     {sortableHeader('Dif', 'gd', styles.center)}
                     {sortableHeader('Goals', 'gf', styles.center)}
                   </>
@@ -371,7 +372,7 @@ export const StandingsView: React.FC<StandingsViewProps> = ({
                       <>
                         <td className={`${styles.highlight} ${styles.center}`}>{s.achievements120min}</td>
                         <td className={styles.center}>{s.totalMinutes}</td>
-                        <td className={styles.center}>{s.played}</td>
+                        <td className={styles.center}>{s.appgPlayed}</td>
                         <td className={styles.center}>{s.gd > 0 ? `+${s.gd}` : s.gd}</td>
                         <td className={styles.center}>{s.gf}</td>
                       </>

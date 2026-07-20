@@ -102,4 +102,15 @@ export function parseResultCsv(csv: string): ResultCsvRow[] {
   return rows;
 }
 
-export const RESULT_CSV_TEMPLATE = `type,team_id,round,home_team_id,away_team_id,home_goals,away_goals,total_minutes,went_120,penalty_shootout_home_goals,penalty_shootout_away_goals,appg_outcome\nteam,3220518,,,,,,,,,,\nmatch,,1,3220518,3220511,2,1,121,true,,,ET3`;
+const RESULT_CSV_HEADER =
+  'type,team_id,round,home_team_id,away_team_id,home_goals,away_goals,total_minutes,went_120,penalty_shootout_home_goals,penalty_shootout_away_goals,appg_outcome';
+
+export const RESULT_CSV_CLEAN_TEMPLATE = `${RESULT_CSV_HEADER}\n`;
+
+export const RESULT_CSV_TEMPLATE = `${RESULT_CSV_HEADER}
+team,3220518,,,,,,,,,,
+team,3220511,,,,,,,,,,
+match,,1,3220518,3220511,2,1,121,true,,,ET3
+match,,2,3220511,3220518,1,1,120,true,4,3,PS1
+match,,3,3220518,3220511,2,0,90,false,,,RT0
+match,,4,3220511,3220518,1,0,90,false,,,OPW`;

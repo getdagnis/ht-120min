@@ -1,16 +1,23 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { parseResultCsv, RESULT_CSV_TEMPLATE } from '../src/utils/result-csv';
+import { parseResultCsv, RESULT_CSV_CLEAN_TEMPLATE, RESULT_CSV_TEMPLATE } from '../src/utils/result-csv';
 
 test('result CSV template parses team and match rows', () => {
   const rows = parseResultCsv(RESULT_CSV_TEMPLATE);
-  assert.equal(rows.length, 2);
+  assert.equal(rows.length, 6);
   assert.equal(rows[0].type, 'team');
   assert.equal(rows[0].teamId, 3220518);
-  assert.equal(rows[1].type, 'match');
-  assert.equal(rows[1].round, 1);
-  assert.equal(rows[1].appgOutcome, 'ET3');
-  assert.equal(rows[1].went120, true);
+  assert.equal(rows[1].type, 'team');
+  assert.equal(rows[1].teamId, 3220511);
+  assert.equal(rows[2].type, 'match');
+  assert.equal(rows[2].round, 1);
+  assert.equal(rows[2].appgOutcome, 'ET3');
+  assert.equal(rows[2].went120, true);
+  assert.deepEqual(rows.slice(2).map((row) => row.appgOutcome), ['ET3', 'PS1', 'RT0', 'OPW']);
+});
+
+test('clean result CSV template requires data rows before import', () => {
+  assert.throws(() => parseResultCsv(RESULT_CSV_CLEAN_TEMPLATE), /header and at least one row/i);
 });
 
 test('result CSV rejects malformed row types and duplicate team rows', () => {
