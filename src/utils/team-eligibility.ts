@@ -25,7 +25,7 @@ function countryLimitMatches(
 
   const countryLimitId = Number(countryLimit);
   if (Number.isFinite(countryLimitId) && `${countryLimitId}` === countryLimit) {
-    return team.leagueId === countryLimitId || team.countryId === countryLimitId;
+    return team.countryId === countryLimitId;
   }
 
   return team.countryName === countryLimit;
@@ -73,17 +73,17 @@ export function validateTeamEligibility(
 /**
  * Restriction choices that make sense for a tournament category and remain
  * compatible with every team already registered. HFI teams are based in a
- * country but compete in the countryless HFI league, so HFI restrictions use
- * country IDs; regular tournaments use league IDs and may include other
- * countryless Hattrick leagues.
+ * country but compete in the countryless HFI league. Restrictions are keyed by
+ * country IDs for every category because CHPP LeagueID and CountryID are not
+ * the same value in WorldDetails.
  */
 export function getCompatibleLeagueRestrictionOptions<
   T extends Pick<ChppTeamOption, 'leagueName' | 'leagueId' | 'leagueSystemId' | 'genderId' | 'countryId' | 'countryName'>,
 >(teams: T[], category: LeagueCategory): LeagueRestrictionOption[] {
   const options = Object.values(HATTRICK_WORLD_DETAILS)
-    .filter((league) => (category === 'hfi' ? league.countryId !== null : league.leagueId !== 3000))
+    .filter((league) => league.countryId !== null)
     .map((league) => ({
-      value: String(category === 'hfi' ? league.countryId : league.leagueId),
+      value: String(league.countryId),
       label: league.leagueName,
     }));
 

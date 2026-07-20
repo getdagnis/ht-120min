@@ -30,11 +30,11 @@ export interface TournamentNameSuffixOptions {
   includeCountryFlag?: boolean;
 }
 
-function getNameMetadata(countryLimit?: string | number | null) {
+function getNameMetadata(countryLimit?: string | number | null, options?: { preferLeague?: boolean }) {
   if (countryLimit === undefined || countryLimit === null || countryLimit === '') return null;
   const id = Number(countryLimit);
   if (!Number.isFinite(id)) return null;
-  return getLeagueWorldDetails(id) ?? getCountryWorldDetails(id);
+  return options?.preferLeague ? getLeagueWorldDetails(id) ?? getCountryWorldDetails(id) : getCountryWorldDetails(id) ?? getLeagueWorldDetails(id);
 }
 
 export function hasCountryFlagSuffix(name: string, countryLimit?: string | number | null) {
@@ -71,7 +71,8 @@ export function formatTournamentName(name: string, options: TournamentNameSuffix
   if (options.registrationType === 'sandbox') return `${baseName} (test)`;
 
   let formattedName = baseName;
-  const specialLeague = options.leagueCategory === 'hfi' ? getNameMetadata(3000) : getNameMetadata(options.countryLimit);
+  const specialLeague =
+    options.leagueCategory === 'hfi' ? getNameMetadata(3000, { preferLeague: true }) : getNameMetadata(options.countryLimit);
   if (specialLeague?.suffix) formattedName += ` (${specialLeague.suffix})`;
 
   const country = getNameMetadata(options.countryLimit);

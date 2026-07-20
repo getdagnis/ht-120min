@@ -2,7 +2,7 @@ import React from 'react';
 import { useNavigate } from 'react-router-dom';
 import { ArrowRight } from 'phosphor-react';
 import styles from './TournamentCard.module.sass';
-import { getLeagueIdByName, getLeagueNameById } from '../../../shared/worlddetails';
+import { getCountryIdByName, getCountryNameById } from '../../../shared/worlddetails';
 import { getTournamentBackgroundStyle } from '../../utils/visuals';
 
 interface TournamentCardProps {
@@ -38,8 +38,8 @@ export const TournamentCard: React.FC<TournamentCardProps> = ({
 }) => {
   const navigate = useNavigate();
   const bgStyle = getTournamentBackgroundStyle(id, imageUrl);
-  const countryId = countryLimit ? getLeagueIdByName(countryLimit) : undefined;
-  const countryLabel = countryLimit ? getLeagueNameById(countryLimit) || countryLimit : null;
+  const countryId = countryLimit ? getCountryIdByName(countryLimit) : undefined;
+  const countryLabel = countryLimit ? getCountryNameById(countryLimit) || countryLimit : null;
   const isFull = maxTeams != null && (teamCount ?? 0) >= maxTeams;
 
   return (

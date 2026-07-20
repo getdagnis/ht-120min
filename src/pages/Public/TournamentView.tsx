@@ -291,6 +291,21 @@ function toStandingTeam(team: Team): StandingTeam {
   };
 }
 
+function toStandingMatch(match: MatchWithTeams) {
+  return {
+    home_team_id: match.home_team_id,
+    away_team_id: match.away_team_id,
+    home_goals: match.home_goals,
+    away_goals: match.away_goals,
+    completed: match.completed,
+    went_120: match.went_120,
+    total_minutes: match.total_minutes,
+    appg_outcome: match.appg_outcome,
+    penalty_shootout_home_goals: match.penalty_shootout_home_goals,
+    penalty_shootout_away_goals: match.penalty_shootout_away_goals,
+  };
+}
+
 function toSeasonHistoryMatch(match: MatchWithTeams, roundNumber?: number): SeasonHistoryMatch {
   return {
     id: match.id,
@@ -856,8 +871,11 @@ export const TournamentView: React.FC = () => {
     [activeScheduleTeams, includeWeek15WeekendFriendly, scheduleMode, scheduleStartSlotId],
   );
   const serializedScheduleDraft = useMemo(
-    () => (scheduleDraft.valid && scheduleDraft.selectedStartSlot ? serializeScheduleDraftForRpc(scheduleDraft) : null),
-    [scheduleDraft],
+    () =>
+      scheduleStartSlotId && scheduleDraft.valid && scheduleDraft.selectedStartSlot
+        ? serializeScheduleDraftForRpc(scheduleDraft)
+        : null,
+    [scheduleDraft, scheduleStartSlotId],
   );
   const rescheduleInputRounds = useMemo(
     () =>
@@ -925,7 +943,7 @@ export const TournamentView: React.FC = () => {
         now: new Date(),
       });
       setScheduleMode(nextDraft.mode);
-      setScheduleStartSlotId(nextDraft.selectedStartSlotId || '');
+      setScheduleStartSlotId(nextStartSlotId ? nextDraft.selectedStartSlotId || '' : '');
     },
     [activeScheduleTeams, includeWeek15WeekendFriendly],
   );
@@ -955,7 +973,7 @@ export const TournamentView: React.FC = () => {
         now: new Date(),
       });
       setScheduleMode(nextDraft.mode);
-      setScheduleStartSlotId(nextDraft.selectedStartSlotId || '');
+      setScheduleStartSlotId(scheduleStartSlotId ? nextDraft.selectedStartSlotId || '' : '');
     },
     [activeScheduleTeams, scheduleDraft.mode, scheduleStartSlotId],
   );
@@ -1135,7 +1153,7 @@ export const TournamentView: React.FC = () => {
         now: new Date(),
       });
       setScheduleMode(reconciledDraft.mode);
-      setScheduleStartSlotId(reconciledDraft.selectedStartSlotId || '');
+      setScheduleStartSlotId(storedStartSlot?.id || '');
 
       const { data: roundsData } = await supabase
         .from('rounds')
@@ -1294,55 +1312,7 @@ export const TournamentView: React.FC = () => {
           }));
           setRounds(roundsWithMatches as RoundWithMatches[]);
 
-          const persistedRoundsWithMatches = roundsData.map((r) => ({
-            ...r,
-            matches: matchesWithDates.filter((m) => m.round_id === r.id),
-          })) as RoundWithMatches[];
-
-          if (
-            tournamentData.status !== 'finished' &&
-            tournamentData.status !== 'stopped' &&
-            hasFinishedAllRealFixtures(persistedRoundsWithMatches)
-          ) {
-            const finishedAt = new Date().toISOString();
-            const snapshot = buildSeasonHistorySnapshot(
-              teamsData.map((team) =>
-                toStandingTeam({
-                  ...(team as Team),
-                  manager_name: team.hattrick_user_id
-                    ? nextProfileMap[team.hattrick_user_id]?.manager_name || team.manager_name
-                    : team.manager_name,
-                }),
-              ),
-              matchesWithDates.map((match) =>
-                toSeasonHistoryMatch(match, roundsData.find((round) => round.id === match.round_id)?.round_number),
-              ),
-              tournamentData.scoring_mode as any,
-            );
-            await supabase.from('tournament_seasons').upsert(
-              {
-                tournament_id: tournamentData.id,
-                season_number: currentSeasonNumber,
-                status: 'finished',
-                planned_start_slot: tournamentData.schedule_start_slot,
-                started_at: tournamentData.schedule_generated_at,
-                finished_at: finishedAt,
-                snapshot_json: snapshot,
-                updated_at: finishedAt,
-              },
-              { onConflict: 'tournament_id,season_number' },
-            );
-            const { error: finishError } = await supabase
-              .from('tournaments')
-              .update({ status: 'finished' })
-              .eq('id', tournamentData.id);
-
-            if (finishError) {
-              console.error('Failed to mark tournament finished:', finishError);
-            } else {
-              setTournament((prev) => (prev ? { ...prev, status: 'finished' } : prev));
-            }
-          }
+          // Season reports are generated only through explicit admin actions.
         }
       }
     }
@@ -2977,7 +2947,7 @@ export const TournamentView: React.FC = () => {
       return;
     }
 
-    if (!scheduleDraft.valid || !scheduleDraft.selectedStartSlot) {
+    if (!scheduleStartSlotId || !scheduleDraft.valid || !scheduleDraft.selectedStartSlot) {
       alert(scheduleDraft.reason || 'Choose a valid start date first.');
       return;
     }
@@ -3134,11 +3104,17 @@ export const TournamentView: React.FC = () => {
     if (error) alert(error.message);
     else {
       setEditingMatch(null);
-      setRounds((current) =>
-        current.map((round) => ({
-          ...round,
-          matches: round.matches.map((match) => (match.id === matchId ? { ...match, ...payload } : match)),
-        })),
+      const nextRounds = rounds.map((round) => ({
+        ...round,
+        matches: round.matches.map((match) => (match.id === matchId ? { ...match, ...payload } : match)),
+      }));
+      setRounds(nextRounds);
+      setStandings(
+        calculateStandings(
+          teams.map((team) => toStandingTeam(team)),
+          nextRounds.flatMap((round) => round.matches.map(toStandingMatch)),
+          (tournament?.scoring_mode || '120min') as '120m' | '120min' | 'points' | 'appg',
+        ),
       );
       setMatchData((current) => {
         const next = { ...current };
@@ -3195,11 +3171,49 @@ export const TournamentView: React.FC = () => {
       }),
     );
     const saved = Object.fromEntries(results);
-    setRounds((current) =>
-      current.map((round) => ({
-        ...round,
-        matches: round.matches.map((match) => (saved[match.id] ? { ...match, ...saved[match.id] } : match)),
-      })),
+    const nextRounds = rounds.map((round) => ({
+      ...round,
+      matches: round.matches.map((match) => (saved[match.id] ? { ...match, ...saved[match.id] } : match)),
+    }));
+    setRounds(nextRounds);
+    setStandings(
+      calculateStandings(
+        teams.map((team) => toStandingTeam(team)),
+        nextRounds.flatMap((round) => round.matches.map(toStandingMatch)),
+        (tournament?.scoring_mode || '120min') as '120m' | '120min' | 'points' | 'appg',
+      ),
+    );
+  };
+
+  const clearSeasonResults = async () => {
+    const matchIds = rounds.flatMap((round) => round.matches.map((match) => match.id));
+    if (matchIds.length === 0) return;
+
+    const payload = {
+      home_goals: null,
+      away_goals: null,
+      went_120: false,
+      total_minutes: 90,
+      completed: false,
+      penalty_shootout_home_goals: null,
+      penalty_shootout_away_goals: null,
+      appg_outcome: null,
+      appg_outcome_source: null,
+    };
+    const { error } = await supabase.from('matches').update(payload).in('id', matchIds);
+    if (error) throw error;
+
+    const nextRounds = rounds.map((round) => ({
+      ...round,
+      matches: round.matches.map((match) => ({ ...match, ...payload })),
+    }));
+    setRounds(nextRounds);
+    setStandings(
+      calculateStandings(
+        teams.map((team) => toStandingTeam(team)),
+        nextRounds.flatMap((round) => round.matches.map(toStandingMatch)),
+        (tournament?.scoring_mode || '120min') as '120m' | '120min' | 'points' | 'appg',
+      ),
     );
   };
 
@@ -4440,7 +4454,7 @@ export const TournamentView: React.FC = () => {
                         </div>
 
                         <div className={adminStyles.field}>
-                          <label>League of team (any or locked to existing)</label>
+                          <label>Country of team (any or locked to existing)</label>
                           <select
                             value={editCountryLimit || ''}
                             onChange={(e) => {
@@ -4454,7 +4468,7 @@ export const TournamentView: React.FC = () => {
                             }}
                             className={adminStyles.selectField}
                           >
-                            <option value="">Any Hattrick League</option>
+                            <option value="">Any country</option>
                             {editCountryLimit && !currentLeagueRestrictionIsCompatible && (
                               <option value={editCountryLimit} disabled>
                                 Current setting conflicts with registered teams
@@ -4480,7 +4494,7 @@ export const TournamentView: React.FC = () => {
                             if (countries.length >= 2) {
                               return (
                                 <p className={adminStyles.smallNote}>
-                                  Teams from at least 2 leagues already registered.
+                                  Teams from at least 2 countries already registered.
                                 </p>
                               );
                             }
@@ -4626,56 +4640,6 @@ export const TournamentView: React.FC = () => {
                       />
                     </div>
                   )}
-
-                  <div id="admin-panel-announcements">
-                    <SectionCard
-                      title="Admin announcements"
-                      collapsible
-                      isCollapsed={isAnnouncementsCollapsed}
-                      onToggleCollapse={() =>
-                        togglePanel('announcements', !isAnnouncementsCollapsed, setIsAnnouncementsCollapsed)
-                      }
-                    >
-                      <p className={adminStyles.smallNote}>
-                        Publish a dismissible message in the top tournament notice area.
-                      </p>
-                      <AdminAnnouncementComposer onPublishAnnouncement={handleAnnouncementPublish} />
-
-                      <div className={adminStyles.announcementList}>
-                        {announcements.length === 0 ? (
-                          <>
-                            <h4>Current announcements</h4>
-                            <p className={adminStyles.smallNote}>No announcements yet.</p>
-                          </>
-                        ) : (
-                          announcements.map((announcement) => (
-                            <div
-                              key={announcement.id}
-                              className={`${adminStyles.announcementListItem} ${
-                                !announcement.is_active ? adminStyles.announcementHidden : ''
-                              }`}
-                            >
-                              <div>
-                                <p>{announcement.content}</p>
-                                <span>
-                                  {announcement.visibility === 'public' ? 'Public' : 'Participants'} •{' '}
-                                  {announcement.is_active ? 'Visible' : 'Hidden'} •{' '}
-                                  {new Date(announcement.created_at).toLocaleDateString('en-GB')}
-                                </span>
-                              </div>
-                              <Button
-                                variant="zero"
-                                size="sm"
-                                onClick={() => handleAnnouncementVisibilityToggle(announcement)}
-                              >
-                                {announcement.is_active ? 'Hide for all' : 'Show for all'}
-                              </Button>
-                            </div>
-                          ))
-                        )}
-                      </div>
-                    </SectionCard>
-                  </div>
 
                   {isGenerated && canManageSchedule && (
                     <div id="admin-panel-schedule">
@@ -4843,6 +4807,7 @@ export const TournamentView: React.FC = () => {
                         saveHtMatchLink={saveHtMatchLink}
                         scoringMode={tournament.scoring_mode}
                         saveBulkMatches={saveBulkMatches}
+                        clearSeasonResults={clearSeasonResults}
                         importCsvRows={importCsvRows}
                         isSandbox={isSandbox}
                       />
@@ -5142,6 +5107,56 @@ export const TournamentView: React.FC = () => {
                               }}
                             ></Button>
                           </div>
+                        )}
+                      </div>
+                    </SectionCard>
+                  </div>
+
+                  <div id="admin-panel-announcements">
+                    <SectionCard
+                      title="Admin announcements"
+                      collapsible
+                      isCollapsed={isAnnouncementsCollapsed}
+                      onToggleCollapse={() =>
+                        togglePanel('announcements', !isAnnouncementsCollapsed, setIsAnnouncementsCollapsed)
+                      }
+                    >
+                      <p className={adminStyles.smallNote}>
+                        Publish a dismissible message in the top tournament notice area.
+                      </p>
+                      <AdminAnnouncementComposer onPublishAnnouncement={handleAnnouncementPublish} />
+
+                      <div className={adminStyles.announcementList}>
+                        {announcements.length === 0 ? (
+                          <>
+                            <h4>Current announcements</h4>
+                            <p className={adminStyles.smallNote}>No announcements yet.</p>
+                          </>
+                        ) : (
+                          announcements.map((announcement) => (
+                            <div
+                              key={announcement.id}
+                              className={`${adminStyles.announcementListItem} ${
+                                !announcement.is_active ? adminStyles.announcementHidden : ''
+                              }`}
+                            >
+                              <div>
+                                <p>{announcement.content}</p>
+                                <span>
+                                  {announcement.visibility === 'public' ? 'Public' : 'Participants'} •{' '}
+                                  {announcement.is_active ? 'Visible' : 'Hidden'} •{' '}
+                                  {new Date(announcement.created_at).toLocaleDateString('en-GB')}
+                                </span>
+                              </div>
+                              <Button
+                                variant="zero"
+                                size="sm"
+                                onClick={() => handleAnnouncementVisibilityToggle(announcement)}
+                              >
+                                {announcement.is_active ? 'Hide for all' : 'Show for all'}
+                              </Button>
+                            </div>
+                          ))
                         )}
                       </div>
                     </SectionCard>

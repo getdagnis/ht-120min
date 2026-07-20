@@ -67,6 +67,7 @@ interface AdminResultsProps {
   saveHtMatchLink: (matchId: string, htMatchId: string) => Promise<void>;
   scoringMode?: string;
   saveBulkMatches?: (updates: Record<string, BulkMatchUpdate>) => Promise<void>;
+  clearSeasonResults?: () => Promise<void>;
   importCsvRows?: (rows: ResultCsvRow[]) => Promise<void>;
   isSandbox?: boolean;
 }
@@ -202,6 +203,7 @@ export const AdminResults: React.FC<AdminResultsProps> = ({
   saveHtMatchLink,
   scoringMode = '120min',
   saveBulkMatches,
+  clearSeasonResults,
   importCsvRows,
   isSandbox = false,
 }) => {
@@ -214,6 +216,7 @@ export const AdminResults: React.FC<AdminResultsProps> = ({
   const [bulkMatchIds, setBulkMatchIds] = React.useState<string[]>([]);
   const [isSavingBulk, setIsSavingBulk] = React.useState(false);
   const [isRandomFilling, setIsRandomFilling] = React.useState(false);
+  const [isClearingResults, setIsClearingResults] = React.useState(false);
   const [resultNotice, setResultNotice] = React.useState('');
   const fileInputRef = React.useRef<HTMLInputElement | null>(null);
 
@@ -310,6 +313,26 @@ export const AdminResults: React.FC<AdminResultsProps> = ({
       alert(error instanceof Error ? error.message : 'Could not random-fill results.');
     } finally {
       setIsRandomFilling(false);
+    }
+  };
+
+  const handleClearSeasonResults = async () => {
+    if (!clearSeasonResults) return;
+    const confirmed = window.confirm(
+      'Clear every result in this season?\n\nThis removes all manually entered, imported and random-filled scores, minutes, penalty data and APPG classifications. Fixtures and linked Hattrick match IDs stay in place.',
+    );
+    if (!confirmed) return;
+
+    setIsClearingResults(true);
+    try {
+      await clearSeasonResults();
+      setBulkMatchIds([]);
+      setMatchData({});
+      setResultNotice('All season results were cleared.');
+    } catch (error) {
+      alert(error instanceof Error ? error.message : 'Could not clear season results.');
+    } finally {
+      setIsClearingResults(false);
     }
   };
 
@@ -540,7 +563,7 @@ export const AdminResults: React.FC<AdminResultsProps> = ({
                       onClick={() => void randomFillMatches(round.matches)}
                       disabled={isRandomFilling}
                     >
-                      <ArrowClockwise size={16} /> Simulate round
+                      <ArrowClockwise size={16} /> Random-fill round
                     </Button>
                   ) : (
                     <Button
@@ -903,6 +926,13 @@ export const AdminResults: React.FC<AdminResultsProps> = ({
           );
         })}
       </div>
+      {clearSeasonResults && rounds.some((round) => round.matches.some((match) => match.completed)) && (
+        <div className={adminStyles.clearResultsAction}>
+          <Button size="xs" variant="action" onClick={handleClearSeasonResults} disabled={isClearingResults}>
+            <X size={16} /> {isClearingResults ? 'Clearing results...' : 'Clear all season results'}
+          </Button>
+        </div>
+      )}
       {bulkMatchIds.length > 0 && (
         <div className={adminStyles.bulkActions}>
           <Button size="xs" variant="primaryDanger" onClick={saveBulkResults} disabled={isSavingBulk}>

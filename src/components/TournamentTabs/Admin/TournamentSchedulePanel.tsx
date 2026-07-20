@@ -431,7 +431,7 @@ export const TournamentSchedulePanel: React.FC<TournamentSchedulePanelProps> = (
                     {rescheduleDraft.previousRounds.map((round) => (
                       <div key={round.roundId} className={`${adminStyles.previewRow} ${adminStyles.previewRowMuted}`}>
                         <div className={`${adminStyles.previewToggle} ${adminStyles.previewToggleStatic}`}>
-                          <strong>Round {round.roundNumber}</strong>
+                          <strong>🗓 Round {round.roundNumber}</strong>
                           <span>
                             {round.displayDateLabel ? `• ${round.displayDateLabel}` : '• Date unavailable'}
                             {round.slot

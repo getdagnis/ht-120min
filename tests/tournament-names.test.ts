@@ -26,10 +26,10 @@ test('sandbox slug suggestions carry the immutable test marker without duplicati
 test('tournament names use permanent sandbox and current restriction suffixes', () => {
   assert.equal(formatTournamentName('Playground', { registrationType: 'sandbox' }), 'Playground (test)');
   assert.equal(formatTournamentName('Playground (test)', { registrationType: 'sandbox' }), 'Playground (test)');
-  assert.equal(formatTournamentName('Queens', { countryLimit: 53 }), 'Queens 🇱🇻');
-  assert.equal(formatTournamentName('Queens 🇱🇻', { countryLimit: 53 }), 'Queens 🇱🇻');
+  assert.equal(formatTournamentName('Queens', { countryLimit: 48 }), 'Queens 🇱🇻');
+  assert.equal(formatTournamentName('Queens 🇱🇻', { countryLimit: 48 }), 'Queens 🇱🇻');
   assert.equal(formatTournamentName('Women', { countryLimit: 3000 }), 'Women (HFI)');
   assert.equal(formatTournamentName('Women (HFI)', { countryLimit: 3000 }), 'Women (HFI)');
-  assert.equal(hasCountryFlagSuffix('Queens 🇱🇻', 53), true);
-  assert.equal(hasCountryFlagSuffix('Queens', 53), false);
+  assert.equal(hasCountryFlagSuffix('Queens 🇱🇻', 48), true);
+  assert.equal(hasCountryFlagSuffix('Queens', 48), false);
 });

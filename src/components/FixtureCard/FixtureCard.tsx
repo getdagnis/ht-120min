@@ -2,6 +2,7 @@ import React from 'react';
 import { ArrowUpRight, Info } from 'phosphor-react';
 import { Tooltip } from 'react-tooltip';
 import { TeamByline } from '../TeamByline/TeamByline';
+import { appgOutcomeLabel, type AppgOutcome } from '../../utils/appg';
 import type { MatchSideEventDetails } from '../../../shared/match-events';
 import styles from './FixtureCard.module.sass';
 
@@ -36,6 +37,7 @@ interface FixtureCardProps {
   went_120?: boolean;
   completed?: boolean;
   totalMinutes?: number;
+  appgOutcome?: AppgOutcome | null;
 }
 
 const MATCH_TYPES: Record<number, { initials: string; description: string }> = {
@@ -60,7 +62,10 @@ export const FixtureCard: React.FC<FixtureCardProps> = ({
   went_120,
   completed,
   totalMinutes,
+  appgOutcome,
 }) => {
+  const appgOutcomeText =
+    completed && appgOutcome && appgOutcome !== 'needs_review' ? appgOutcomeLabel(appgOutcome) : null;
   const badgeContent = (
     <div className={`${styles.statusBadge} ${styles[status]}`}>
       {completed && (
@@ -180,6 +185,7 @@ export const FixtureCard: React.FC<FixtureCardProps> = ({
         ) : (
           badgeContent
         )}
+        {appgOutcomeText && <div className={styles.appgOutcome}>{appgOutcomeText}</div>}
       </div>
 
       <div className={`${styles.teamContainer} ${styles.right}`}>

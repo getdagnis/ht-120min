@@ -41,7 +41,7 @@ import {
   type OpenTournamentSummary,
 } from '../../utils/open-tournaments';
 import styles from './CreateTournament.module.sass';
-import { getLeagueNameById } from '../../../shared/worlddetails';
+import { getCountryNameById } from '../../../shared/worlddetails';
 import { getCanonicalCountryName, getCountryFlagUrl, getLeagueFlagUrl } from '../../utils/ht-data';
 import {
   formatTournamentName,
@@ -468,6 +468,7 @@ export const CreateTournament: React.FC = () => {
   const [newTeamName, setNewTeamName] = useState('');
   const [newTeamData, setNewTeamData] = useState<FetchedTeamData | null>(null);
   const [sandboxCandidate, setSandboxCandidate] = useState<FetchedTeamData | null>(null);
+  const [sandboxEntryMode, setSandboxEntryMode] = useState<'random' | 'manual'>('random');
   const [isFetchingTeamData, setIsFetchingTeamData] = useState(false);
   const [sandboxFetchError, setSandboxFetchError] = useState('');
 
@@ -593,6 +594,27 @@ export const CreateTournament: React.FC = () => {
       }
 
       setSandboxFetchError('Could not find a matching random team. Try again.');
+    } finally {
+      setIsFetchingTeamData(false);
+    }
+  };
+
+  const fetchSandboxManualTeamData = async (htId: string) => {
+    const teamId = Number(htId);
+    if (!teamId || htId.length < 5) return;
+    setIsFetchingTeamData(true);
+    setSandboxFetchError('');
+    try {
+      const data = await fetchSandboxTeamById(teamId);
+      if (teams.some((team) => team.htId === String(data.teamId))) {
+        throw new Error('This Team ID is already in the list.');
+      }
+      setNewTeamName(data.teamName);
+      setNewTeamData(data);
+    } catch (error: unknown) {
+      setNewTeamName('');
+      setNewTeamData(null);
+      setSandboxFetchError(error instanceof Error ? error.message : 'Could not fetch that test team.');
     } finally {
       setIsFetchingTeamData(false);
     }
@@ -795,7 +817,8 @@ export const CreateTournament: React.FC = () => {
       registrationType === 'sandbox' ? formatTournamentName(formData.name, { registrationType }) : formData.name.trim();
     const nameSlug = getSuggestedTournamentSlug(tournamentName, registrationType);
     const enteredSlug = normalizeSlugInput(formData.slug);
-    const isSuggestedSlug = !enteredSlug || enteredSlug === nameSlug || enteredSlug === normalizeSlugInput(formData.name);
+    const isSuggestedSlug =
+      !enteredSlug || enteredSlug === nameSlug || enteredSlug === normalizeSlugInput(formData.name);
     let slug = (isSuggestedSlug ? nameSlug : enteredSlug) || nanoid(10);
     const adminPassword = nanoid(8);
     let createdTournamentId: string | null = null;
@@ -950,7 +973,7 @@ export const CreateTournament: React.FC = () => {
   const countryRestrictionLabel = isSandbox
     ? 'Any country'
     : formData.country_limit
-      ? getLeagueNameById(formData.country_limit) || formData.country_limit
+      ? getCountryNameById(formData.country_limit) || formData.country_limit
       : 'Any country';
   const teamLimitLabel = formData.max_teams ? `${teams.length} of ${Number(formData.max_teams)} filled` : 'Unlimited';
   const sandboxTeamLimit = formData.max_teams ? Number(formData.max_teams) : null;
@@ -1094,7 +1117,10 @@ export const CreateTournament: React.FC = () => {
                       const nextScoringMode =
                         nextType === 'validated' && formData.scoring_mode === 'appg' ? '120min' : formData.scoring_mode;
                       const currentSlug = normalizeSlugInput(formData.slug);
-                      const currentSuggestedSlug = getSuggestedTournamentSlug(formData.name, formData.registration_type);
+                      const currentSuggestedSlug = getSuggestedTournamentSlug(
+                        formData.name,
+                        formData.registration_type,
+                      );
                       const isGeneratedSlug =
                         !currentSlug ||
                         currentSlug === currentSuggestedSlug ||
@@ -1485,61 +1511,138 @@ export const CreateTournament: React.FC = () => {
 
             {isSandbox && (
               <div className={styles.manualEntry}>
-                {!sandboxCandidate && (
-                  <Button
-                    type="button"
-                    variant="secondary"
-                    size="lg"
-                    onClick={fetchRandomSandboxTeam}
-                    disabled={isFetchingTeamData || sandboxTeamLimitReached}
-                  >
-                    {isFetchingTeamData ? 'Finding a team...' : sandboxRandomLabel}
-                  </Button>
-                )}
-                {sandboxCandidate && (
-                  <div className={styles.sandboxCandidate}>
-                    {sandboxCandidate.logoUrl && (
-                      <img src={sandboxCandidate.logoUrl} alt="" className={styles.creatorTeamLogo} />
+                {sandboxEntryMode === 'random' ? (
+                  <>
+                    {!sandboxCandidate && (
+                      <>
+                        <Button
+                          type="button"
+                          variant="secondary"
+                          size="lg"
+                          onClick={fetchRandomSandboxTeam}
+                          disabled={isFetchingTeamData || sandboxTeamLimitReached}
+                        >
+                          {isFetchingTeamData ? 'Finding a team...' : sandboxRandomLabel}
+                        </Button>
+                        <button
+                          type="button"
+                          className={styles.selectorSwitch}
+                          onClick={() => {
+                            setSandboxEntryMode('manual');
+                            setSandboxCandidate(null);
+                            setSandboxFetchError('');
+                          }}
+                        >
+                          I will add teams manually
+                        </button>
+                      </>
                     )}
-                    <div className={styles.creatorCardContent}>
-                      <strong>{sandboxCandidate.teamName}</strong>
-                      <span>
-                        {[
-                          `ID ${sandboxCandidate.teamId}`,
-                          sandboxCandidate.countryName,
-                          sandboxCandidate.leagueId !== sandboxCandidate.countryId && sandboxCandidate.leagueName,
-                        ]
-                          .filter(Boolean)
-                          .join(' · ')}
-                      </span>
-                    </div>
-                    <div className={styles.sandboxCandidateActions}>
-                      <Button type="button" variant="secondary" size="sm" onClick={addSandboxTeam}>
-                        Add it
-                      </Button>
-                      <Button
-                        type="button"
-                        variant="outlineWhite"
-                        size="sm"
-                        onClick={fetchRandomSandboxTeam}
-                        disabled={isFetchingTeamData}
-                      >
-                        Retry
-                      </Button>
-                    </div>
+                    {sandboxCandidate && (
+                      <div className={styles.sandboxCandidate}>
+                        {sandboxCandidate.logoUrl && (
+                          <img src={sandboxCandidate.logoUrl} alt="" className={styles.creatorTeamLogo} />
+                        )}
+                        <div className={styles.creatorCardContent}>
+                          <strong>{sandboxCandidate.teamName}</strong>
+                          <span>
+                            {[
+                              `ID ${sandboxCandidate.teamId}`,
+                              sandboxCandidate.countryName,
+                              sandboxCandidate.leagueId !== sandboxCandidate.countryId && sandboxCandidate.leagueName,
+                            ]
+                              .filter(Boolean)
+                              .join(' · ')}
+                          </span>
+                        </div>
+                        <div className={styles.sandboxCandidateActions}>
+                          <Button type="button" variant="secondary" size="sm" onClick={addSandboxTeam}>
+                            Add it
+                          </Button>
+                          <Button
+                            type="button"
+                            variant="outlineWhite"
+                            size="sm"
+                            onClick={fetchRandomSandboxTeam}
+                            disabled={isFetchingTeamData}
+                          >
+                            Retry
+                          </Button>
+                        </div>
+                        <button
+                          type="button"
+                          className={styles.sandboxCandidateClose}
+                          onClick={() => {
+                            setSandboxCandidate(null);
+                            setSandboxFetchError('');
+                          }}
+                          disabled={isFetchingTeamData}
+                          aria-label="Close random team selector"
+                        >
+                          <X size={18} weight="bold" />
+                        </button>
+                      </div>
+                    )}
+                  </>
+                ) : (
+                  <>
+                    <form onSubmit={addLocalTeam} className={styles.teamForm}>
+                      <div className={styles.inputGroup}>
+                        <input
+                          name="sandbox_team_ht_id"
+                          type="text"
+                          placeholder="HT Team ID"
+                          value={newTeamId}
+                          onChange={(e) => {
+                            setNewTeamId(e.target.value.replace(/\D/g, ''));
+                            setNewTeamName('');
+                            setNewTeamData(null);
+                            setSandboxFetchError('');
+                          }}
+                          minLength={5}
+                          maxLength={9}
+                          required
+                        />
+                        <input
+                          name="sandbox_team_name"
+                          type="text"
+                          placeholder="Team Name"
+                          value={newTeamName}
+                          readOnly
+                          className={styles.readOnlyName}
+                          required
+                        />
+                      </div>
+                      {newTeamId.length >= 5 && !newTeamName && (
+                        <Button
+                          type="button"
+                          variant="secondary"
+                          onClick={() => fetchSandboxManualTeamData(newTeamId)}
+                          disabled={isFetchingTeamData || sandboxTeamLimitReached}
+                          title="Get Team Data"
+                        >
+                          {isFetchingTeamData ? 'Getting data...' : 'Get Data'}
+                        </Button>
+                      )}
+                      {newTeamName && (
+                        <Button type="submit" variant="secondary" size="md" disabled={sandboxTeamLimitReached}>
+                          Add it
+                        </Button>
+                      )}
+                    </form>
                     <button
                       type="button"
-                      className={styles.sandboxCandidateClose}
+                      className={styles.selectorSwitch}
                       onClick={() => {
-                        setSandboxCandidate(null);
+                        setSandboxEntryMode('random');
+                        setNewTeamId('');
+                        setNewTeamName('');
+                        setNewTeamData(null);
                         setSandboxFetchError('');
                       }}
-                      disabled={isFetchingTeamData}
-                      aria-label="Close random team selector"
                     >
-                      <X size={18} weight="bold" />
+                      Switch to random team selector
                     </button>
-                  </div>
+                  </>
                 )}
                 {sandboxFetchError && <p className={styles.empty}>{sandboxFetchError}</p>}
               </div>

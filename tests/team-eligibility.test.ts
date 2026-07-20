@@ -18,9 +18,10 @@ const latviaTeam = {
   genderId: 1,
 };
 
-test('numeric league limits match Hattrick LeagueID before CHPP CountryID', () => {
-  assert.deepEqual(filterTeamsForCategory([latviaTeam], 'male', { countryLimit: '53' }), [latviaTeam]);
-  assert.equal(validateTeamEligibility(latviaTeam, { category: 'male', countryLimit: '53' }).eligible, true);
+test('numeric country limits match CHPP CountryID, not Hattrick LeagueID', () => {
+  assert.deepEqual(filterTeamsForCategory([latviaTeam], 'male', { countryLimit: '48' }), [latviaTeam]);
+  assert.equal(validateTeamEligibility(latviaTeam, { category: 'male', countryLimit: '48' }).eligible, true);
+  assert.equal(validateTeamEligibility(latviaTeam, { category: 'male', countryLimit: '53' }).eligible, false);
 });
 
 test('category filtering excludes HFI teams from regular tournaments', () => {
@@ -49,9 +50,24 @@ test('restriction options only include values compatible with all registered tea
 
   assert.deepEqual(getCompatibleLeagueRestrictionOptions([latviaTeam, polandTeam], 'male'), []);
   assert.deepEqual(
-    getCompatibleLeagueRestrictionOptions([latviaTeam], 'male').find((option) => option.value === '53'),
-    { value: '53', label: 'Latvia' },
+    getCompatibleLeagueRestrictionOptions([latviaTeam], 'male').find((option) => option.value === '48'),
+    { value: '48', label: 'Latvia' },
   );
+});
+
+test('restriction options do not confuse neighboring league IDs with country IDs', () => {
+  const finlandTeam = {
+    ...latviaTeam,
+    teamId: 255523,
+    leagueId: 12,
+    leagueName: 'Finland',
+    countryId: 11,
+    countryName: 'Finland',
+  };
+
+  const options = getCompatibleLeagueRestrictionOptions([finlandTeam], 'male');
+  assert.deepEqual(options, [{ value: '11', label: 'Finland' }]);
+  assert.equal(options.some((option) => option.label === 'Denmark'), false);
 });
 
 test('HFI restrictions use team countries and exclude countryless leagues', () => {

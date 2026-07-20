@@ -237,6 +237,11 @@
   @media (max-width: 640px)
     justify-content: center
 
+.clearResultsAction
+  display: flex
+  justify-content: center
+  margin: 1rem 0 0
+
 .roundMeta
   display: flex
   align-items: flex-end
@@ -413,6 +418,10 @@
   display: flex
   flex-direction: column
   gap: 1.5rem
+  font-size: 0.9rem
+
+  p
+    color: var(--text60)
 
 .genOptions .checkboxLabel
   margin: 0 auto 1rem
@@ -856,7 +865,7 @@
     width: min(25rem, 100%)
 
 .unsavedSettingsNote
-  margin: -0.25rem 0 0.75rem
+  margin: 0.25rem 0 0.75rem
   color: var(--accent-2)
   font-size: 0.85rem
   font-weight: 700
@@ -1041,9 +1050,8 @@
   gap: 0.5rem
   flex-wrap: wrap
   padding: 0.8rem 1rem
-  border: 2px solid var(--border-transp)
-  border-radius: 0.5rem
-  background: var(--theme)
+  border-radius: var(--radius-sm)
+  background: var(--lighter)
   color: var(--text-h)
   font: inherit
   font-weight: 700

@@ -1665,9 +1665,35 @@ export function getLeagueIdByName(name?: string | number | null): string | undef
     ?.leagueId.toString();
 }
 
+export function getCountryIdByName(name?: string | number | null): string | undefined {
+  if (name === undefined || name === null || name === '') return undefined;
+  const value = String(name).trim();
+  const numericId = Number(value);
+  if (Number.isFinite(numericId)) {
+    if (getCountryWorldDetails(numericId)) return String(numericId);
+    const matchingLeague = getLeagueWorldDetails(numericId);
+    return matchingLeague?.countryId == null ? undefined : String(matchingLeague.countryId);
+  }
+
+  return Object.values(HATTRICK_WORLD_DETAILS)
+    .find(
+      (league) =>
+        league.leagueName === value ||
+        league.fullName === value ||
+        league.countryName === value ||
+        league.countryNameEn === value,
+    )
+    ?.countryId?.toString();
+}
+
 export function getLeagueNameById(id?: number | string | null): string | undefined {
   if (id === undefined || id === null || id === '') return undefined;
   return HATTRICK_WORLD_DETAILS[Number(id)]?.leagueName;
+}
+
+export function getCountryNameById(id?: number | string | null): string | undefined {
+  if (id === undefined || id === null || id === '') return undefined;
+  return getCountryWorldDetails(Number(id))?.leagueName;
 }
 
 export function getLeagueFullNameById(id?: number | string | null): string | undefined {
@@ -1679,5 +1705,5 @@ export function normalizeLeagueLimit(value: string | number | null | undefined):
   if (value === null || value === undefined) return null;
   const raw = String(value).trim();
   if (!raw) return null;
-  return getLeagueIdByName(raw) ?? raw;
+  return getCountryIdByName(raw) ?? raw;
 }

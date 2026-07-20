@@ -6,6 +6,7 @@ import { ArrowClockwise, ArrowRight, CopySimple, Check } from 'phosphor-react';
 import { Tooltip } from 'react-tooltip';
 import { calculateMatchDate } from '../../utils/ht-data';
 import { getHattrickWeekDetails } from '../../utils/hattrick-calendar';
+import type { AppgOutcome } from '../../utils/appg';
 import type { MatchEventDetails } from '../../../shared/match-events';
 import styles from '../../pages/Public/TournamentView.module.sass';
 
@@ -33,6 +34,7 @@ export interface FixtureMatch {
   match_type: number | null;
   match_date?: Date;
   scheduled_for?: string | null;
+  appg_outcome?: AppgOutcome | null;
   home_team: {
     name: string;
     ht_team_id: number;
@@ -242,14 +244,14 @@ export const FixturesView: React.FC<FixturesViewProps> = ({
       {rounds.length === 0 && (
         <SectionCard title="Fixtures & Results">
           <div className={styles.emptyFixtures}>
-            <p>
-              {emptyStateMessage ||
-                'Fixtures have not yet been generated. Tournament is open for registration. You can join with another team.'}
-            </p>
+            <p>{emptyStateMessage || 'Fixtures have not yet been generated. Tournament is open for registration.'}</p>
             {canJoinAnotherTeam && (
-              <Button variant="primary" size="sm" onClick={onJoinWithHattrick} disabled={isConnecting}>
-                <ArrowRight size={18} weight="bold" /> Join with Hattrick
-              </Button>
+              <>
+                You can join with another team.
+                <Button variant="primary" size="sm" onClick={onJoinWithHattrick} disabled={isConnecting}>
+                  <ArrowRight size={18} weight="bold" /> Join with Hattrick
+                </Button>
+              </>
             )}
           </div>
         </SectionCard>
@@ -490,6 +492,7 @@ export const FixturesView: React.FC<FixturesViewProps> = ({
                         went_120={match.went_120}
                         completed={match.completed}
                         totalMinutes={match.total_minutes}
+                        appgOutcome={match.appg_outcome}
                         homeTeam={{
                           name: match.home_team?.name || 'BYE',
                           managerName: match.home_team?.manager_name || 'UNKNOWN',
