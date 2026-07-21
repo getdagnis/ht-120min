@@ -1,7 +1,7 @@
 import React from 'react';
 import { SectionCard } from '../../Card/SectionCard';
 import { Button } from '../../Button/Button';
-import { Check, ArrowClockwise, X, PencilSimple, LinkSimple } from 'phosphor-react';
+import { Check, ArrowClockwise, X, PencilSimple, LinkSimple, Trash } from 'phosphor-react';
 import { getCountryFlagUrl } from '../../../utils/ht-data';
 import { getHattrickWeekDetails } from '../../../utils/hattrick-calendar';
 import { APPG_OUTCOMES, appgOutcomeLabel, validateAppgOutcome, type AppgOutcome } from '../../../utils/appg';
@@ -70,6 +70,8 @@ interface AdminResultsProps {
   clearSeasonResults?: () => Promise<void>;
   importCsvRows?: (rows: ResultCsvRow[]) => Promise<void>;
   isSandbox?: boolean;
+  canRemoveFixtures?: boolean;
+  onRemoveFixture?: (matchId: string) => Promise<void>;
 }
 
 interface HtMatchLinkPreview {
@@ -206,6 +208,8 @@ export const AdminResults: React.FC<AdminResultsProps> = ({
   clearSeasonResults,
   importCsvRows,
   isSandbox = false,
+  canRemoveFixtures = false,
+  onRemoveFixture,
 }) => {
   const [linkingMatchId, setLinkingMatchId] = React.useState<string | null>(null);
   const [linkInput, setLinkInput] = React.useState('');
@@ -217,6 +221,7 @@ export const AdminResults: React.FC<AdminResultsProps> = ({
   const [isSavingBulk, setIsSavingBulk] = React.useState(false);
   const [isRandomFilling, setIsRandomFilling] = React.useState(false);
   const [isClearingResults, setIsClearingResults] = React.useState(false);
+  const [removingMatchId, setRemovingMatchId] = React.useState<string | null>(null);
   const [resultNotice, setResultNotice] = React.useState('');
   const fileInputRef = React.useRef<HTMLInputElement | null>(null);
 
@@ -224,6 +229,7 @@ export const AdminResults: React.FC<AdminResultsProps> = ({
     () => rounds.flatMap((round) => round.matches).filter((match) => bulkMatchIds.includes(match.id)),
     [bulkMatchIds, rounds],
   );
+  const visibleRounds = React.useMemo(() => rounds.filter((round) => round.matches.length > 0), [rounds]);
 
   const setBulkValue = (matchId: string, values: Partial<MatchWithTeams>) => {
     setMatchData((current) => ({
@@ -474,6 +480,26 @@ export const AdminResults: React.FC<AdminResultsProps> = ({
             setEditingMatch={setEditingMatch}
             setMatchData={setMatchData}
           />
+          {canRemoveFixtures && onRemoveFixture && (
+            <Button
+              size="xs"
+              variant="primaryDanger"
+              onClick={async () => {
+                setRemovingMatchId(match.id);
+                try {
+                  await onRemoveFixture(match.id);
+                } finally {
+                  setRemovingMatchId(null);
+                }
+              }}
+              disabled={removingMatchId === match.id}
+              title="Remove fixture"
+              data-tooltip-id="admin-tooltip"
+              data-tooltip-content="Remove fixture"
+            >
+              <Trash size={16} />
+            </Button>
+          )}
         </>
       )}
     </div>
@@ -495,6 +521,9 @@ export const AdminResults: React.FC<AdminResultsProps> = ({
                 variant="action"
                 onClick={() => void randomFillMatches(rounds.flatMap((round) => round.matches))}
                 disabled={isRandomFilling}
+                title="Random-fill season"
+                data-tooltip-id="admin-tooltip"
+                data-tooltip-content="Generate and save random test results for every two-team fixture in this season."
               >
                 <ArrowClockwise size={16} /> {isRandomFilling ? 'Random-filling...' : 'Random-fill season'}
               </Button>
@@ -503,6 +532,9 @@ export const AdminResults: React.FC<AdminResultsProps> = ({
                 size="xs"
                 variant="secondaryAction"
                 onClick={() => startBulkEditing(rounds.flatMap((round) => round.matches.map((match) => match.id)))}
+                title="Bulk edit season"
+                data-tooltip-id="admin-tooltip"
+                data-tooltip-content="Open one editor for every fixture in the current season."
               >
                 Bulk Edit Season
               </Button>
@@ -513,6 +545,9 @@ export const AdminResults: React.FC<AdminResultsProps> = ({
                   size="xs"
                   variant="action"
                   onClick={() => downloadCsvTemplate(RESULT_CSV_CLEAN_TEMPLATE, 'ht-120min-results.csv')}
+                  title="Download clean CSV"
+                  data-tooltip-id="admin-tooltip"
+                  data-tooltip-content="Download an empty CSV template for importing teams and match results."
                 >
                   Download clean CSV
                 </Button>
@@ -520,10 +555,20 @@ export const AdminResults: React.FC<AdminResultsProps> = ({
                   size="xs"
                   variant="action"
                   onClick={() => downloadCsvTemplate(RESULT_CSV_TEMPLATE, 'ht-120min-results-example.csv')}
+                  title="Download example CSV"
+                  data-tooltip-id="admin-tooltip"
+                  data-tooltip-content="Download an example CSV showing the supported team and result format."
                 >
                   Download example CSV
                 </Button>
-                <Button size="xs" variant="action" onClick={() => fileInputRef.current?.click()}>
+                <Button
+                  size="xs"
+                  variant="action"
+                  onClick={() => fileInputRef.current?.click()}
+                  title="Import results CSV"
+                  data-tooltip-id="admin-tooltip"
+                  data-tooltip-content="Import teams and match results from an HT-120min CSV file."
+                >
                   Import results CSV
                 </Button>
                 <input ref={fileInputRef} type="file" accept=".csv,text/csv" onChange={handleCsvFile} hidden />
@@ -545,7 +590,7 @@ export const AdminResults: React.FC<AdminResultsProps> = ({
         </p>
       )}
       <div className={adminStyles.matches}>
-        {rounds.map((round) => {
+        {visibleRounds.map((round) => {
           const roundMeta = formatRoundMeta(round);
 
           return (
@@ -555,13 +600,16 @@ export const AdminResults: React.FC<AdminResultsProps> = ({
                   <h3>Round {round.round_number} </h3>
                   {roundMeta && <span className={adminStyles.roundMeta}>{roundMeta}</span>}
                 </div>
-                {saveBulkMatches &&
+                {saveBulkMatches && round.matches.length > 0 &&
                   (isSandbox ? (
                     <Button
                       size="xs"
                       variant="action"
                       onClick={() => void randomFillMatches(round.matches)}
                       disabled={isRandomFilling}
+                      title="Random-fill round"
+                      data-tooltip-id="admin-tooltip"
+                      data-tooltip-content="Generate and save random test results for every two-team fixture in this round."
                     >
                       <ArrowClockwise size={16} /> Random-fill round
                     </Button>
@@ -570,6 +618,9 @@ export const AdminResults: React.FC<AdminResultsProps> = ({
                       size="xs"
                       variant="secondaryAction"
                       onClick={() => startBulkEditing(round.matches.map((match) => match.id))}
+                      title="Bulk edit round"
+                      data-tooltip-id="admin-tooltip"
+                      data-tooltip-content="Open one editor for every fixture in this round."
                     >
                       Bulk Edit Round
                     </Button>
@@ -928,17 +979,40 @@ export const AdminResults: React.FC<AdminResultsProps> = ({
       </div>
       {clearSeasonResults && rounds.some((round) => round.matches.some((match) => match.completed)) && (
         <div className={adminStyles.clearResultsAction}>
-          <Button size="xs" variant="action" onClick={handleClearSeasonResults} disabled={isClearingResults}>
+          <Button
+            size="xs"
+            variant="action"
+            onClick={handleClearSeasonResults}
+            disabled={isClearingResults}
+            title="Clear all season results"
+            data-tooltip-id="admin-tooltip"
+            data-tooltip-content="Remove all saved scores and result data while keeping fixtures and linked Hattrick match IDs."
+          >
             <X size={16} /> {isClearingResults ? 'Clearing results...' : 'Clear all season results'}
           </Button>
         </div>
       )}
       {bulkMatchIds.length > 0 && (
         <div className={adminStyles.bulkActions}>
-          <Button size="xs" variant="primaryDanger" onClick={saveBulkResults} disabled={isSavingBulk}>
+          <Button
+            size="xs"
+            variant="primaryDanger"
+            onClick={saveBulkResults}
+            disabled={isSavingBulk}
+            title="Save bulk results"
+            data-tooltip-id="admin-tooltip"
+            data-tooltip-content="Save every result currently open in the bulk editor."
+          >
             <Check size={16} /> Save results
           </Button>
-          <Button size="xs" variant="action" onClick={cancelBulkEditing}>
+          <Button
+            size="xs"
+            variant="action"
+            onClick={cancelBulkEditing}
+            title="Close bulk editor"
+            data-tooltip-id="admin-tooltip"
+            data-tooltip-content="Close the bulk editor without saving."
+          >
             <X size={16} /> Cancel
           </Button>
         </div>

@@ -88,7 +88,8 @@ interface TournamentSchedulePanelProps {
   isRescheduling?: boolean;
   onReschedule?: () => void;
   previewHtMatchAdd?: (htMatchId: string) => Promise<HtMatchAddPreview>;
-  saveHtMatchAdd?: (htMatchId: string) => Promise<void>;
+  saveHtMatchAdd?: (htMatchId: string, options?: { refreshFixtures?: boolean }) => Promise<void>;
+  onRefreshFixtures?: () => Promise<void>;
   fetchHtMatchSuggestions?: (options?: {
     teamHtId?: number;
     offset?: number;
@@ -205,6 +206,7 @@ export const TournamentSchedulePanel: React.FC<TournamentSchedulePanelProps> = (
   onReschedule,
   previewHtMatchAdd,
   saveHtMatchAdd,
+  onRefreshFixtures,
   fetchHtMatchSuggestions,
 }) => {
   const [expandedRounds, setExpandedRounds] = useState<Record<number, boolean>>({});
@@ -223,6 +225,7 @@ export const TournamentSchedulePanel: React.FC<TournamentSchedulePanelProps> = (
   const [suggestionsNotice, setSuggestionsNotice] = useState('');
   const [isFetchingSuggestions, setIsFetchingSuggestions] = useState(false);
   const [savingSuggestedMatchId, setSavingSuggestedMatchId] = useState<number | null>(null);
+  const [isAddingAllSuggested, setIsAddingAllSuggested] = useState(false);
   const [renderTimestamp] = useState(() => Date.now());
   const [calendarContext] = useState(() => getHattrickCalendarContext());
   const [suggestionFetchWindow, setSuggestionFetchWindow] = useState<MatchFetchWindow>(() =>
@@ -380,6 +383,67 @@ export const TournamentSchedulePanel: React.FC<TournamentSchedulePanelProps> = (
     }
   };
 
+  const handleFetchAllSuggestions = async () => {
+    if (!fetchHtMatchSuggestions || activeTeams.length < 2) return;
+
+    setIsFetchingSuggestions(true);
+    setSuggestionsError('');
+    setSuggestionsNotice('');
+    setSuggestedMatches([]);
+    setSuggestionsOffset(0);
+    setSuggestionsHasMore(false);
+    setSuggestionTeamId(null);
+
+    const mergedMatches = new Map<number, HtMatchSuggestion>();
+
+    try {
+      for (const [teamIndex, team] of activeTeams.entries()) {
+        setSuggestionsNotice(`Fetching ${teamIndex + 1} of ${activeTeams.length}: ${team.name}`);
+
+        let offset = 0;
+        let hasMore = true;
+
+        while (hasMore) {
+          const result = await fetchHtMatchSuggestions({
+            teamHtId: Number(team.ht_team_id),
+            offset,
+            fetchWindow: suggestionFetchWindow,
+            matchCategories: suggestionCategories,
+          });
+
+          for (const match of result.matches) {
+            mergedMatches.set(match.ht_match_id, match);
+          }
+
+          hasMore = result.hasMore && result.nextOffset > offset;
+          offset = result.nextOffset;
+        }
+      }
+
+      const now = renderTimestamp;
+      const orderedMatches = [...mergedMatches.values()].sort((a, b) => {
+        const aDate = a.match_date ? new Date(a.match_date).getTime() : 0;
+        const bDate = b.match_date ? new Date(b.match_date).getTime() : 0;
+        const aIsFuture = aDate > now;
+        const bIsFuture = bDate > now;
+
+        if (aIsFuture !== bIsFuture) return aIsFuture ? 1 : -1;
+        return aIsFuture ? aDate - bDate : bDate - aDate;
+      });
+
+      setSuggestedMatches(orderedMatches);
+      setSuggestionsNotice(
+        orderedMatches.length === 0
+          ? 'No additional matches found between registered teams.'
+          : `${orderedMatches.length} unique match${orderedMatches.length === 1 ? '' : 'es'} found.`,
+      );
+    } catch (error) {
+      setSuggestionsError(error instanceof Error ? error.message : 'Could not fetch all team matches.');
+    } finally {
+      setIsFetchingSuggestions(false);
+    }
+  };
+
   const handleAddSuggestedMatch = async (match: HtMatchSuggestion) => {
     if (!saveHtMatchAdd) return;
     setSavingSuggestedMatchId(match.ht_match_id);
@@ -393,6 +457,53 @@ export const TournamentSchedulePanel: React.FC<TournamentSchedulePanelProps> = (
       setSuggestionsError(error instanceof Error ? error.message : 'Could not add that match.');
     } finally {
       setSavingSuggestedMatchId(null);
+    }
+  };
+
+  const handleAddAllSuggestedMatches = async () => {
+    if (!saveHtMatchAdd || suggestedMatches.length === 0) return;
+
+    const matchesToAdd = [...suggestedMatches];
+    let addedCount = 0;
+    const failedMessages: string[] = [];
+
+    setIsAddingAllSuggested(true);
+    setSuggestionsError('');
+    setSuggestionsNotice('');
+
+    try {
+      for (const [matchIndex, match] of matchesToAdd.entries()) {
+        setSavingSuggestedMatchId(match.ht_match_id);
+        setSuggestionsNotice(`Adding ${matchIndex + 1} of ${matchesToAdd.length}...`);
+
+        try {
+          await saveHtMatchAdd(String(match.ht_match_id), { refreshFixtures: false });
+          addedCount += 1;
+          setSuggestedMatches((current) => current.filter((item) => item.ht_match_id !== match.ht_match_id));
+        } catch (error) {
+          failedMessages.push(
+            error instanceof Error ? error.message : `Could not add Hattrick match ${match.ht_match_id}.`,
+          );
+        }
+      }
+
+      if (addedCount > 0 && onRefreshFixtures) {
+        await onRefreshFixtures();
+      }
+
+      setSuggestionsNotice(
+        `${addedCount} match${addedCount === 1 ? '' : 'es'} added.` +
+          (failedMessages.length > 0 ? ` ${failedMessages.length} failed and remain in the list.` : ''),
+      );
+
+      if (failedMessages.length > 0) {
+        setSuggestionsError(failedMessages[0]);
+      }
+    } catch (error) {
+      setSuggestionsError(error instanceof Error ? error.message : 'Could not finish adding the matches.');
+    } finally {
+      setSavingSuggestedMatchId(null);
+      setIsAddingAllSuggested(false);
     }
   };
 
@@ -452,7 +563,7 @@ export const TournamentSchedulePanel: React.FC<TournamentSchedulePanelProps> = (
         size="xs"
         variant="primary"
         onClick={() => void handleAddSuggestedMatch(match)}
-        disabled={savingSuggestedMatchId === match.ht_match_id}
+        disabled={isAddingAllSuggested || savingSuggestedMatchId === match.ht_match_id}
       >
         {savingSuggestedMatchId === match.ht_match_id ? 'Adding...' : 'Add to fixtures'}
       </Button>
@@ -466,6 +577,16 @@ export const TournamentSchedulePanel: React.FC<TournamentSchedulePanelProps> = (
 
     return (
       <div className={adminStyles.suggestedMatches}>
+        {suggestedMatches.length > 1 && (
+          <Button
+            size="sm"
+            variant="primary"
+            onClick={() => void handleAddAllSuggestedMatches()}
+            disabled={isAddingAllSuggested || isFetchingSuggestions}
+          >
+            {isAddingAllSuggested ? 'Adding matches...' : `Add all shown (${suggestedMatches.length})`}
+          </Button>
+        )}
         {past.length > 0 && (
           <>
             <h3>Suggested matches</h3>
@@ -483,7 +604,7 @@ export const TournamentSchedulePanel: React.FC<TournamentSchedulePanelProps> = (
             size="xs"
             variant="secondaryAction"
             onClick={() => void handleFetchSuggestions({ append: true })}
-            disabled={isFetchingSuggestions}
+            disabled={isFetchingSuggestions || isAddingAllSuggested}
           >
             Load more
           </Button>
@@ -582,7 +703,7 @@ export const TournamentSchedulePanel: React.FC<TournamentSchedulePanelProps> = (
           <>
             {showPerTeamSuggestions ? (
               <div className={adminStyles.suggestionTeamList}>
-                <p className={adminStyles.smallNote}>Fetch matches for one team at a time.</p>
+                <p className={adminStyles.smallNote}>Fetch one team, or scan every registered team.</p>
                 {activeTeams.map((team) => (
                   <Button
                     key={team.id}
@@ -592,7 +713,7 @@ export const TournamentSchedulePanel: React.FC<TournamentSchedulePanelProps> = (
                       setSuggestionTeamId(Number(team.ht_team_id));
                       void handleFetchSuggestions({ teamHtId: Number(team.ht_team_id) });
                     }}
-                    disabled={isFetchingSuggestions || suggestionCategories.length === 0}
+                    disabled={isFetchingSuggestions || isAddingAllSuggested || suggestionCategories.length === 0}
                   >
                     {team.name}
                   </Button>
@@ -626,6 +747,16 @@ export const TournamentSchedulePanel: React.FC<TournamentSchedulePanelProps> = (
               </button>
             </div>
             {showSuggestionOptions && renderSuggestionOptions()}
+            {showPerTeamSuggestions && (
+              <Button
+                size="xs"
+                variant="primaryAction"
+                onClick={() => void handleFetchAllSuggestions()}
+                disabled={isFetchingSuggestions || isAddingAllSuggested || suggestionCategories.length === 0}
+              >
+                {isFetchingSuggestions ? 'Fetching matches...' : 'Fetch all teams'}
+              </Button>
+            )}
             {selectedSuggestionTeam && (
               <p className={adminStyles.smallNote}>Showing matches found from {selectedSuggestionTeam.name}.</p>
             )}

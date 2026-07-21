@@ -1848,7 +1848,7 @@ export const TournamentView: React.FC = () => {
   );
 
   const requestAddHtMatch = useCallback(
-    async (htMatchId: string, dryRun: boolean) => {
+    async (htMatchId: string, dryRun: boolean, options: { refreshFixtures?: boolean } = {}) => {
       if (!tournament) throw new Error('Tournament is not loaded.');
       const adminPassword = password.trim() || tournament.admin_password || '';
       if (!adminPassword) throw new Error('Organizer password is required.');
@@ -1873,7 +1873,7 @@ export const TournamentView: React.FC = () => {
       if (!response.ok || !payload?.preview) {
         throw new Error(payload?.error || 'Could not add that Hattrick match.');
       }
-      if (!dryRun) await fetchFixturesOnly();
+      if (!dryRun && options.refreshFixtures !== false) await fetchFixturesOnly();
       return payload.preview;
     },
     [fetchFixturesOnly, password, tournament],
@@ -1882,7 +1882,8 @@ export const TournamentView: React.FC = () => {
   const previewHtMatchAdd = useCallback((htMatchId: string) => requestAddHtMatch(htMatchId, true), [requestAddHtMatch]);
 
   const saveHtMatchAdd = useCallback(
-    (htMatchId: string) => requestAddHtMatch(htMatchId, false).then(() => undefined),
+    (htMatchId: string, options?: { refreshFixtures?: boolean }) =>
+      requestAddHtMatch(htMatchId, false, options).then(() => undefined),
     [requestAddHtMatch],
   );
 
@@ -3305,6 +3306,57 @@ export const TournamentView: React.FC = () => {
         return next;
       });
     }
+  };
+
+  const removeFixture = async (matchId: string) => {
+    const match = rounds.flatMap((round) => round.matches).find((item) => item.id === matchId);
+    if (!match) return;
+
+    const roundId = match.round_id;
+    const homeName = match.home_team?.name || 'Home team';
+    const awayName = match.away_team?.name || 'Away team';
+    if (!window.confirm(`Remove ${homeName} vs ${awayName} from this tournament's fixtures?`)) return;
+
+    try {
+      const { error } = await supabase.from('matches').delete().eq('id', matchId);
+      if (error) throw error;
+
+      const { count, error: countError } = await supabase
+        .from('matches')
+        .select('id', { count: 'exact', head: true })
+        .eq('round_id', roundId);
+      if (countError) throw countError;
+
+      if (count === 0) {
+        const { error: roundError } = await supabase.from('rounds').delete().eq('id', roundId);
+        if (roundError) throw roundError;
+      }
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Could not remove the fixture.';
+      alert(`Could not remove the fixture: ${message}`);
+      return;
+    }
+
+    const nextRounds = rounds
+      .map((round) => ({
+        ...round,
+        matches: round.matches.filter((item) => item.id !== matchId),
+      }))
+      .filter((round) => round.matches.length > 0);
+    setRounds(nextRounds);
+    setEditingMatch(null);
+    setMatchData((current) => {
+      const next = { ...current };
+      delete next[matchId];
+      return next;
+    });
+    setStandings(
+      calculateStandings(
+        teams.map((team) => toStandingTeam(team)),
+        nextRounds.flatMap((round) => round.matches.map(toStandingMatch)),
+        (tournament?.scoring_mode || '120min') as '120m' | '120min' | 'points' | 'appg',
+      ),
+    );
   };
 
   const saveBulkMatches = async (updates: Record<string, BulkMatchUpdate>) => {
@@ -4845,6 +4897,7 @@ export const TournamentView: React.FC = () => {
                         teams={teams}
                         previewHtMatchAdd={previewHtMatchAdd}
                         saveHtMatchAdd={saveHtMatchAdd}
+                        onRefreshFixtures={fetchFixturesOnly}
                         fetchHtMatchSuggestions={fetchHtMatchSuggestions}
                       />
                     </div>
@@ -4877,6 +4930,7 @@ export const TournamentView: React.FC = () => {
                         teams={teams}
                         previewHtMatchAdd={previewHtMatchAdd}
                         saveHtMatchAdd={saveHtMatchAdd}
+                        onRefreshFixtures={fetchFixturesOnly}
                         fetchHtMatchSuggestions={fetchHtMatchSuggestions}
                       />
                     </div>
@@ -4902,6 +4956,8 @@ export const TournamentView: React.FC = () => {
                         clearSeasonResults={clearSeasonResults}
                         importCsvRows={importCsvRows}
                         isSandbox={isSandbox}
+                        canRemoveFixtures={scheduleSetup === 'manual'}
+                        onRemoveFixture={removeFixture}
                       />
                     </div>
                   )}
@@ -5541,7 +5597,7 @@ export const TournamentView: React.FC = () => {
               This format gives the organizer more control. Participants do not need to join through CHPP unless you
               want them to interact with HT-120min directly.
             </p>
-            <p>If you're happy or want a new feature — tip dev a pint 🍻💪</p>
+            <p>If you're happy or want a new feature — ip dev a pint 🍻💪</p>
           </>
         ) : (
           <>
