@@ -1,6 +1,15 @@
 export type MatchCardReason = 'nasty_play' | 'cheating' | null;
 export type MatchCardType = 'yellow' | 'second_yellow_red' | 'straight_red';
 export type MatchInjurySeverity = 'plaster' | 'injury';
+export type MatchGoalCategory = 'regular' | 'other';
+
+export interface MatchGoalEvent {
+  eventTypeId: number;
+  playerId: number | null;
+  minute: number | null;
+  matchPart: number | null;
+  category: MatchGoalCategory;
+}
 
 export interface MatchCardEvent {
   eventTypeId: 510 | 511 | 512 | 513 | 514;
@@ -27,6 +36,8 @@ export interface MatchSideEventDetails {
   teamId: number | null;
   cards: MatchCardEvent[];
   injuries: MatchInjuryEvent[];
+  goals?: MatchGoalEvent[];
+  penaltyShootoutGoals?: number;
 }
 
 export interface MatchEventDetails {
@@ -34,6 +45,7 @@ export interface MatchEventDetails {
   source: 'matchdetails-3.1';
   actualHomeTeamId: number | null;
   actualAwayTeamId: number | null;
+  hasPenaltyShootout?: boolean;
   home: MatchSideEventDetails;
   away: MatchSideEventDetails;
 }

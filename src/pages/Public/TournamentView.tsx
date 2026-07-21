@@ -922,7 +922,8 @@ export const TournamentView: React.FC = () => {
       // Note: fetchData is defined below but hoisted as a const,
       // we call it inside this effect/callback safely.
     },
-    activeTab === 'fixtures',
+    activeTab === 'fixtures' || tournament?.scoring_mode === 'appg',
+    tournament?.scoring_mode === 'appg',
   );
 
   const isHealthQuotaMet = useCallback(
@@ -1351,6 +1352,12 @@ export const TournamentView: React.FC = () => {
               status: live.status === 'finished' ? 'finished' : live.status || m.status,
               went_120: live.went_120 ?? m.went_120,
               total_minutes: live.total_minutes ?? m.total_minutes,
+              penalty_shootout_home_goals:
+                live.penalty_shootout_home_goals ?? m.penalty_shootout_home_goals,
+              penalty_shootout_away_goals:
+                live.penalty_shootout_away_goals ?? m.penalty_shootout_away_goals,
+              appg_outcome: live.appg_outcome ?? m.appg_outcome,
+              appg_outcome_source: live.appg_outcome_source ?? m.appg_outcome_source,
               home_yellow_cards: live.home_yellow_cards ?? m.home_yellow_cards,
               home_red_cards: live.home_red_cards ?? m.home_red_cards,
               home_injuries: live.home_injuries ?? m.home_injuries,
@@ -3452,6 +3459,37 @@ export const TournamentView: React.FC = () => {
     );
   };
 
+  const clearSeasonFixtures = async () => {
+    if (!tournament) throw new Error('Tournament is not loaded.');
+    if (scheduleSetup !== 'manual') throw new Error('Season fixtures can only be cleared for no-schedule tournaments.');
+
+    const seasonNumber = tournament.season || 1;
+    const { data: seasonRounds, error: roundsError } = await supabase
+      .from('rounds')
+      .select('id')
+      .eq('tournament_id', tournament.id)
+      .eq('season_number', seasonNumber);
+    if (roundsError) throw roundsError;
+
+    const roundIds = (seasonRounds || []).map((round) => round.id);
+    if (roundIds.length > 0) {
+      const { error: matchesError } = await supabase.from('matches').delete().in('round_id', roundIds);
+      if (matchesError) throw matchesError;
+
+      const { error: deleteRoundsError } = await supabase.from('rounds').delete().in('id', roundIds);
+      if (deleteRoundsError) throw deleteRoundsError;
+    }
+
+    setRounds([]);
+    setStandings(
+      calculateStandings(
+        teams.map((team) => toStandingTeam(team)),
+        [],
+        (tournament.scoring_mode || '120min') as '120m' | '120min' | 'points' | 'appg',
+      ),
+    );
+  };
+
   const importCsvRows = async (rows: ResultCsvRow[]) => {
     if (!tournament) throw new Error('Tournament is not loaded.');
     const teamRows = rows.filter((row) => row.type === 'team');
@@ -4954,6 +4992,7 @@ export const TournamentView: React.FC = () => {
                         scoringMode={tournament.scoring_mode}
                         saveBulkMatches={saveBulkMatches}
                         clearSeasonResults={clearSeasonResults}
+                        clearSeasonFixtures={scheduleSetup === 'manual' ? clearSeasonFixtures : undefined}
                         importCsvRows={importCsvRows}
                         isSandbox={isSandbox}
                         canRemoveFixtures={scheduleSetup === 'manual'}

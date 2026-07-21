@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 
 import {
+  getPenaltyShootoutScore,
   mapMatchEventDetailsToFixture,
   parseMatchEventDetails,
   summarizeMatchEventDetails,
@@ -20,14 +21,21 @@ function matchDetailsXml({ injuries = '', events = '' }: { injuries?: string; ev
   `;
 }
 
-function event(typeId: number, teamId: number, playerId: number, minute: number, objectPlayerId = 0) {
+function event(
+  typeId: number,
+  teamId: number,
+  playerId: number,
+  minute: number,
+  objectPlayerId = 0,
+  matchPart = 2,
+) {
   return `
     <Event>
       <Minute>${minute}</Minute>
       <SubjectPlayerID>${playerId}</SubjectPlayerID>
       <SubjectTeamID>${teamId}</SubjectTeamID>
       <ObjectPlayerID>${objectPlayerId}</ObjectPlayerID>
-      <MatchPart>2</MatchPart>
+      <MatchPart>${matchPart}</MatchPart>
       <EventTypeID>${typeId}</EventTypeID>
     </Event>
   `;
@@ -140,4 +148,24 @@ test('maps event details to scheduled fixture sides and leaves an unmatched BYE 
   const bye = mapMatchEventDetailsToFixture(parsed, null, 100);
   assert.equal(bye.home.cards.length, 0);
   assert.equal(bye.away.cards.length, 1);
+});
+
+test('retains regular, other, and penalty-shootout scoring evidence', () => {
+  const xml = matchDetailsXml({
+    events: `
+      ${event(121, 100, 1, 50)}
+      ${event(140, 200, 2, 108, 0, 3)}
+      ${event(55, 100, 3, 121, 0, 4)}
+      ${event(56, 100, 4, 122, 0, 4)}
+      ${event(57, 200, 5, 123, 0, 4)}
+    `,
+  });
+  const parsed = parseMatchEventDetails(xml);
+  const shootout = getPenaltyShootoutScore(parsed);
+
+  assert.deepEqual(parsed.home.goals?.map((goal) => goal.category), ['regular']);
+  assert.deepEqual(parsed.away.goals?.map((goal) => goal.category), ['other']);
+  assert.equal(parsed.away.goals?.[0]?.matchPart, 3);
+  assert.equal(parsed.hasPenaltyShootout, true);
+  assert.deepEqual(shootout, { home: 2, away: 1 });
 });

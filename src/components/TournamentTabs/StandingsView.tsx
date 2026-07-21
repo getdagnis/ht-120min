@@ -49,7 +49,20 @@ const STANDINGS_SCORING_MODES = {
 } as const;
 
 type StandingsScoringMode = keyof typeof STANDINGS_SCORING_MODES;
-type StandingsSortKey = 'default' | 'team' | 'achievements120min' | 'totalMinutes' | 'played' | 'appgPlayed' | 'won' | 'drawn' | 'lost' | 'gd' | 'gf' | 'pts' | 'appg';
+type StandingsSortKey =
+  | 'default'
+  | 'team'
+  | 'achievements120min'
+  | 'totalMinutes'
+  | 'played'
+  | 'appgPlayed'
+  | 'won'
+  | 'drawn'
+  | 'lost'
+  | 'gd'
+  | 'gf'
+  | 'pts'
+  | 'appg';
 type SortDirection = 'asc' | 'desc';
 
 export const StandingsView: React.FC<StandingsViewProps> = ({
@@ -84,8 +97,9 @@ export const StandingsView: React.FC<StandingsViewProps> = ({
   const seasonCommentsLoading = Boolean(seasonId && loadedSeasonCommentsId !== seasonId);
   const show120minScoring = scoringMode === '120min';
   const showAppgScoring = scoringMode === 'appg';
-  const enabledScoringModes = (Object.keys(STANDINGS_SCORING_MODES) as StandingsScoringMode[])
-    .filter((mode) => STANDINGS_SCORING_MODES[mode].enabled && (mode !== 'appg' || isAppgSupported));
+  const enabledScoringModes = (Object.keys(STANDINGS_SCORING_MODES) as StandingsScoringMode[]).filter(
+    (mode) => STANDINGS_SCORING_MODES[mode].enabled && (mode !== 'appg' || isAppgSupported),
+  );
   const activeScoringConfig = STANDINGS_SCORING_MODES[scoringMode];
 
   const averagePointsPerGame = (standing: TeamStanding) =>
@@ -146,18 +160,22 @@ export const StandingsView: React.FC<StandingsViewProps> = ({
 
   const handleSort = (nextKey: StandingsSortKey) => {
     if (sortKey === nextKey) {
-      setSortDirection((direction) => direction === 'asc' ? 'desc' : 'asc');
+      setSortDirection((direction) => (direction === 'asc' ? 'desc' : 'asc'));
       return;
     }
     setSortKey(nextKey);
     setSortDirection(nextKey === 'team' ? 'asc' : 'desc');
   };
 
-  const sortIndicator = (key: StandingsSortKey) => sortKey === key ? (sortDirection === 'asc' ? ' ↑' : ' ↓') : '';
+  const sortIndicator = (key: StandingsSortKey) => (sortKey === key ? (sortDirection === 'asc' ? ' ↑' : ' ↓') : '');
   const sortableHeader = (label: string, key: StandingsSortKey, className = '', title?: string) => (
-    <th className={className} aria-sort={sortKey === key ? (sortDirection === 'asc' ? 'ascending' : 'descending') : 'none'}>
+    <th
+      className={className}
+      aria-sort={sortKey === key ? (sortDirection === 'asc' ? 'ascending' : 'descending') : 'none'}
+    >
       <button type="button" className={styles.sortHeader} onClick={() => handleSort(key)} title={title}>
-        {label}<span aria-hidden="true">{sortIndicator(key)}</span>
+        {label}
+        <span aria-hidden="true">{sortIndicator(key)}</span>
       </button>
     </th>
   );
@@ -222,7 +240,7 @@ export const StandingsView: React.FC<StandingsViewProps> = ({
       <SectionCard
         title="🏆 Standings"
         thumbnailSeed={tournament?.id}
-        headerRight={(
+        headerRight={
           <div className={styles.scoringControl}>
             <span>Scoring:</span>
             <button
@@ -232,11 +250,11 @@ export const StandingsView: React.FC<StandingsViewProps> = ({
               title={activeScoringConfig.tooltip}
               aria-label={`Switch scoring display from ${activeScoringConfig.label}`}
             >
-              <span className={scoringMode === '90min' ? styles.highlight : ''}>{activeScoringConfig.label}</span>
-              <Recycle size={20} weight="bold" aria-hidden="true" />
+              <span>{activeScoringConfig.label}</span>
+              <Recycle size={16} weight="regular" aria-hidden="true" />
             </button>
           </div>
-        )}
+        }
       >
         <div className={styles.tableWrapper}>
           <table>

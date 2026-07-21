@@ -3,10 +3,12 @@ import { getSupabase } from '../_lib/supabase.js';
 import { getAuthHeader } from '../_lib/chpp-auth.js';
 import { readChppTag } from '../_lib/chpp-xml.js';
 import {
+  getPenaltyShootoutScore,
   mapMatchEventDetailsToFixture,
   parseMatchEventDetails,
   summarizeMatchEventDetails,
 } from '../_lib/chpp-match-events.js';
+import { buildChppAppgUpdate } from '../_lib/appg-chpp-classifier.js';
 import type { MatchEventDetails } from '../../shared/match-events.js';
 
 interface LiveMatchResult {
@@ -24,48 +26,9 @@ interface LiveMatchResult {
   away_yellow_cards?: number;
   away_red_cards?: number;
   away_injuries?: number;
+  appg_outcome?: 'ET3' | 'ET2' | 'PS1' | 'RT0' | 'OPW' | 'needs_review';
+  appg_outcome_source?: 'unclassified' | 'chpp';
   match_event_details?: MatchEventDetails;
-}
-
-const PENALTY_GOAL_EVENT_TYPES = new Set([55, 56, 57]);
-
-function getEventTypeId(eventXml: string): number | null {
-  const eventTypeId = eventXml.match(/<EventTypeID>(\d+)<\/EventTypeID>/i)?.[1];
-  if (eventTypeId) return parseInt(eventTypeId, 10);
-
-  const eventKey = eventXml.match(/<EventKey>(\d+)(?:_\d+)?<\/EventKey>/i)?.[1];
-  if (eventKey) return parseInt(eventKey, 10);
-
-  return null;
-}
-
-function parseScoreBeforeShootout(xml: string, homeTeamId: number | null, awayTeamId: number | null) {
-  if (!homeTeamId || !awayTeamId) {
-    return { homeGoals: null, awayGoals: null, hasShootout: false };
-  }
-
-  const eventBlocks = xml.match(/<Event(?:\s[^>]*)?>[\s\S]*?<\/Event>/gi) ?? [];
-  const hasShootout = eventBlocks.some((eventXml) => {
-    const eventTypeId = getEventTypeId(eventXml);
-    return Boolean(eventTypeId && PENALTY_GOAL_EVENT_TYPES.has(eventTypeId));
-  });
-
-  if (!hasShootout) {
-    return { homeGoals: null, awayGoals: null, hasShootout: false };
-  }
-
-  const scorersBlock = xml.match(/<Scorers>([\s\S]*?)<\/Scorers>/i)?.[1] ?? '';
-  const allGoals = [...scorersBlock.matchAll(/<Goal[^>]*>([\s\S]*?)<\/Goal>/gi)];
-  if (allGoals.length === 0) {
-    return { homeGoals: 0, awayGoals: 0, hasShootout: true };
-  }
-
-  const lastGoal = allGoals[allGoals.length - 1][1];
-  return {
-    homeGoals: parseInt(lastGoal.match(/<ScorerHomeGoals>(\d+)<\/ScorerHomeGoals>/i)?.[1] ?? '0', 10),
-    awayGoals: parseInt(lastGoal.match(/<ScorerAwayGoals>(\d+)<\/ScorerAwayGoals>/i)?.[1] ?? '0', 10),
-    hasShootout: true,
-  };
 }
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
@@ -76,6 +39,13 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
   try {
     const supabase = getSupabase();
+    const { data: tournament } = await supabase
+      .from('tournaments')
+      .select('scoring_mode')
+      .eq('id', String(tournament_id))
+      .single();
+    if (!tournament) return res.status(404).json({ error: 'Tournament not found' });
+
     const { data: team } = await supabase.from('teams').select('oauth_token, oauth_token_secret').not('oauth_token', 'is', null).limit(1).single();
     if (!team) return res.status(401).json({ error: 'No auth team' });
 
@@ -85,6 +55,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       .select(`
         id,
         ht_match_id,
+        appg_outcome_source,
         home_team:home_team_id ( ht_team_id ),
         away_team:away_team_id ( ht_team_id )
       `)
@@ -94,7 +65,11 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     // Build a lookup: ht_match_id -> { scheduledHomeHtId, scheduledAwayHtId }
     const matchFixtureMap = new Map<
       number,
-      { scheduledHomeHtId: number | null; scheduledAwayHtId: number | null }
+      {
+        scheduledHomeHtId: number | null;
+        scheduledAwayHtId: number | null;
+        appgOutcomeSource: string | null;
+      }
     >();
     if (tournamentMatches) {
       for (const m of tournamentMatches) {
@@ -104,6 +79,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
           matchFixtureMap.set(m.ht_match_id, {
             scheduledHomeHtId: homeTeam?.ht_team_id ?? null,
             scheduledAwayHtId: awayTeam?.ht_team_id ?? null,
+            appgOutcomeSource: m.appg_outcome_source ?? null,
           });
         }
       }
@@ -154,7 +130,6 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
       const baseMinutes = isExtraTime ? 120 : 90;
       const totalMinutes = baseMinutes + addedMinutes;
-      const scoreBeforeShootout = parseScoreBeforeShootout(xml, actualHtHomeTeamId, actualHtAwayTeamId);
       const actualEventDetails = parseMatchEventDetails(xml);
 
       // Map actual Hattrick goals back to the scheduled fixture perspective.
@@ -204,6 +179,19 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
           )
         : actualEventDetails;
       const eventSummary = summarizeMatchEventDetails(eventDetails);
+      const penaltyShootout = getPenaltyShootoutScore(eventDetails);
+      const appgUpdate = buildChppAppgUpdate({
+        scoringMode: tournament.scoring_mode,
+        currentSource: fixture?.appgOutcomeSource,
+        completed: finished,
+        homeGoals: finished ? homeGoals : null,
+        awayGoals: finished ? awayGoals : null,
+        went120: isExtraTime,
+        totalMinutes,
+        penaltyShootoutHomeGoals: penaltyShootout.home,
+        penaltyShootoutAwayGoals: penaltyShootout.away,
+        eventDetails,
+      });
 
       results[htMatchId] = {
         status,
@@ -212,8 +200,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         total_minutes: totalMinutes,
         went_120: isExtraTime,
         venue_mismatch: venueMismatch,
-        penalty_shootout_home_goals: scoreBeforeShootout.homeGoals,
-        penalty_shootout_away_goals: scoreBeforeShootout.awayGoals,
+        penalty_shootout_home_goals: penaltyShootout.home,
+        penalty_shootout_away_goals: penaltyShootout.away,
+        ...appgUpdate,
         home_yellow_cards: eventSummary.home_yellow_cards,
         home_red_cards: eventSummary.home_red_cards,
         home_injuries: eventSummary.home_injuries,
@@ -231,8 +220,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         total_minutes: totalMinutes,
         went_120: isExtraTime,
         venue_mismatch: venueMismatch,
-        penalty_shootout_home_goals: scoreBeforeShootout.homeGoals,
-        penalty_shootout_away_goals: scoreBeforeShootout.awayGoals,
+        penalty_shootout_home_goals: penaltyShootout.home,
+        penalty_shootout_away_goals: penaltyShootout.away,
+        ...appgUpdate,
         home_yellow_cards: eventSummary.home_yellow_cards,
         home_red_cards: eventSummary.home_red_cards,
         home_injuries: eventSummary.home_injuries,

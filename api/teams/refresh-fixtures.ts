@@ -3,10 +3,12 @@ import { getSupabase } from '../_lib/supabase.js';
 import { getAuthHeader } from '../_lib/chpp-auth.js';
 import { readChppTag } from '../_lib/chpp-xml.js';
 import {
+  getPenaltyShootoutScore,
   mapMatchEventDetailsToFixture,
   parseMatchEventDetails,
   summarizeMatchEventDetails,
 } from '../_lib/chpp-match-events.js';
+import { buildChppAppgUpdate } from '../_lib/appg-chpp-classifier.js';
 import {
   getHattrickCalendarContext,
   getHattrickWeekFromDate,
@@ -295,8 +297,10 @@ interface TeamWithAuth {
 
 interface ManualLinkMatchRow {
   id: string;
+  tournament_id: string;
   home_team_id: string | null;
   away_team_id: string | null;
+  appg_outcome_source: string | null;
   home_team: { ht_team_id: number | null; name: string | null } | null;
   away_team: { ht_team_id: number | null; name: string | null } | null;
 }
@@ -329,6 +333,7 @@ interface AddHtMatchTournamentRow {
   id: string;
   admin_password: string;
   season: number | null;
+  scoring_mode: string | null;
 }
 
 function getBodyValue(req: VercelRequest, key: string) {
@@ -473,8 +478,10 @@ async function handleManualMatchLink(req: VercelRequest, res: VercelResponse) {
     .select(
       `
       id,
+      tournament_id,
       home_team_id,
       away_team_id,
+      appg_outcome_source,
       home_team:teams!matches_home_team_id_fkey(ht_team_id, name),
       away_team:teams!matches_away_team_id_fkey(ht_team_id, name)
     `,
@@ -483,6 +490,12 @@ async function handleManualMatchLink(req: VercelRequest, res: VercelResponse) {
     .single();
 
   if (!match) return res.status(404).json({ error: 'Tournament match not found.' });
+
+  const { data: scoringTournament } = await supabase
+    .from('tournaments')
+    .select('scoring_mode')
+    .eq('id', match.tournament_id)
+    .single();
 
   const details = await fetchMatchDetailsById(htMatchId, authTeam.oauth_token, authTeam.oauth_token_secret || '');
   if (!details.matchType || ![4, 5, 8, 9].includes(details.matchType)) {
@@ -493,6 +506,20 @@ async function handleManualMatchLink(req: VercelRequest, res: VercelResponse) {
   if (!mapping) {
     return res.status(400).json({ error: 'That match does not include any team from this fixture.' });
   }
+
+  const penaltyShootout = getPenaltyShootoutScore(mapping.eventDetails);
+  const appgUpdate = buildChppAppgUpdate({
+    scoringMode: scoringTournament?.scoring_mode,
+    currentSource: match.appg_outcome_source,
+    completed: details.completed,
+    homeGoals: mapping.homeGoals,
+    awayGoals: mapping.awayGoals,
+    went120: details.went120,
+    totalMinutes: details.totalMinutes,
+    penaltyShootoutHomeGoals: penaltyShootout.home,
+    penaltyShootoutAwayGoals: penaltyShootout.away,
+    eventDetails: mapping.eventDetails,
+  });
 
   const preview = {
     ht_match_id: details.htMatchId,
@@ -507,6 +534,9 @@ async function handleManualMatchLink(req: VercelRequest, res: VercelResponse) {
     away_goals: mapping.awayGoals,
     went_120: details.went120,
     total_minutes: details.totalMinutes,
+    penalty_shootout_home_goals: penaltyShootout.home,
+    penalty_shootout_away_goals: penaltyShootout.away,
+    ...appgUpdate,
     matched_both_tournament_teams: mapping.matchedBothTournamentTeams,
     ...summarizeMatchEventDetails(mapping.eventDetails),
     match_event_details: mapping.eventDetails,
@@ -523,6 +553,9 @@ async function handleManualMatchLink(req: VercelRequest, res: VercelResponse) {
       went_120: details.went120,
       total_minutes: details.totalMinutes,
       venue_mismatch: mapping.venueMismatch,
+      penalty_shootout_home_goals: penaltyShootout.home,
+      penalty_shootout_away_goals: penaltyShootout.away,
+      ...appgUpdate,
       actual_ht_home_team_id: details.actualHtHomeTeamId,
       actual_ht_away_team_id: details.actualHtAwayTeamId,
       ...summarizeMatchEventDetails(mapping.eventDetails),
@@ -610,7 +643,7 @@ async function handleSuggestHtMatches(req: VercelRequest, res: VercelResponse) {
 
   const { data: tournament } = (await supabase
     .from('tournaments')
-    .select('id, admin_password, season')
+    .select('id, admin_password, season, scoring_mode')
     .eq('id', tournamentId)
     .single()) as { data: AddHtMatchTournamentRow | null };
   if (!tournament) return res.status(404).json({ error: 'Tournament not found.' });
@@ -704,7 +737,7 @@ async function handleAddHtMatch(req: VercelRequest, res: VercelResponse) {
 
   const { data: tournament } = await supabase
     .from('tournaments')
-    .select('id, admin_password, season')
+    .select('id, admin_password, season, scoring_mode')
     .eq('id', tournamentId)
     .single();
   if (!tournament) return res.status(404).json({ error: 'Tournament not found.' });
@@ -793,6 +826,19 @@ async function handleAddHtMatch(req: VercelRequest, res: VercelResponse) {
       details.actualHtAwayTeamId,
     );
     const summary = summarizeMatchEventDetails(eventDetails);
+    const penaltyShootout = getPenaltyShootoutScore(eventDetails);
+    const appgUpdate = buildChppAppgUpdate({
+      scoringMode: tournament.scoring_mode,
+      currentSource: 'unclassified',
+      completed: details.completed,
+      homeGoals: details.homeGoals,
+      awayGoals: details.awayGoals,
+      went120: details.went120,
+      totalMinutes: details.totalMinutes,
+      penaltyShootoutHomeGoals: penaltyShootout.home,
+      penaltyShootoutAwayGoals: penaltyShootout.away,
+      eventDetails,
+    });
     const { error: matchError } = await supabase.from('matches').insert({
       round_id: roundId,
       home_team_id: homeTeam?.id || null,
@@ -808,8 +854,9 @@ async function handleAddHtMatch(req: VercelRequest, res: VercelResponse) {
       scheduled_for: details.matchDate.toISOString(),
       actual_ht_home_team_id: details.actualHtHomeTeamId,
       actual_ht_away_team_id: details.actualHtAwayTeamId,
-      appg_outcome: 'needs_review',
-      appg_outcome_source: 'unclassified',
+      penalty_shootout_home_goals: penaltyShootout.home,
+      penalty_shootout_away_goals: penaltyShootout.away,
+      ...appgUpdate,
       ...summary,
       match_event_details: eventDetails,
     });

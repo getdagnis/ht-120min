@@ -518,6 +518,7 @@
     margin-bottom: 0
 
 .match
+  position: relative
   display: grid
   grid-template-columns: minmax(0, 1fr) 9.5rem 8.5rem
   grid-template-areas: "teams result actions"
@@ -542,6 +543,33 @@
     align-items: center
     gap: 1.5rem
     text-align: center
+
+.matchLink
+  position: absolute
+  top: 50%
+  left: 0
+  display: flex
+  align-items: center
+  justify-content: center
+  color: var(--accent)
+  transform: translateY(-50%)
+
+  &:hover
+    color: var(--accent-2)
+
+.match.hasMatchLink
+  padding-left: 2rem
+
+.needsReviewRow
+  width: 100%
+  padding: 0.35rem 0.75rem
+  background: var(--danger)
+  color: white
+  font-size: 0.75rem
+  font-weight: 800
+  letter-spacing: 0.08em
+  text-align: center
+  text-transform: uppercase
 
 .matchTeams
   grid-area: teams

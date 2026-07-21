@@ -2,11 +2,27 @@ import type {
   MatchCardEvent,
   MatchEventDetails,
   MatchEventSummary,
+  MatchGoalEvent,
   MatchInjuryEvent,
   MatchSideEventDetails,
 } from '../../shared/match-events.js';
 
 const CARD_EVENT_TYPES = new Set([510, 511, 512, 513, 514]);
+const REGULAR_GOAL_EVENT_TYPES = new Set([
+  101, 102, 103, 111, 112, 113, 121, 122, 123, 131, 132, 133,
+  151, 152, 153, 161, 162, 163, 171, 172, 173, 181, 182, 183,
+]);
+const GOAL_EVENT_TYPES = new Set([
+  ...Array.from({ length: 26 }, (_, index) => 100 + index),
+  ...Array.from({ length: 14 }, (_, index) => 130 + index),
+  ...Array.from({ length: 5 }, (_, index) => 150 + index),
+  ...Array.from({ length: 5 }, (_, index) => 160 + index),
+  ...Array.from({ length: 5 }, (_, index) => 170 + index),
+  ...Array.from({ length: 8 }, (_, index) => 180 + index),
+  190,
+]);
+const PENALTY_SHOOTOUT_GOAL_EVENT_TYPES = new Set([55, 56, 57]);
+const PENALTY_SHOOTOUT_EVENT_TYPES = new Set([55, 56, 57, 58, 59, 71, 73]);
 const INJURY_LOCATION_EVENT_MIN = 401;
 const INJURY_LOCATION_EVENT_MAX = 422;
 const INJURY_BY_FOUL_EVENT = 423;
@@ -88,7 +104,7 @@ function getActualTeamIds(xml: string) {
 }
 
 function createSide(teamId: number | null): MatchSideEventDetails {
-  return { teamId, cards: [], injuries: [] };
+  return { teamId, cards: [], injuries: [], goals: [], penaltyShootoutGoals: 0 };
 }
 
 function findInjury(
@@ -155,6 +171,17 @@ function toCardEvent(event: ParsedEvent): MatchCardEvent | null {
   };
 }
 
+function toGoalEvent(event: ParsedEvent): MatchGoalEvent | null {
+  if (!GOAL_EVENT_TYPES.has(event.typeId)) return null;
+  return {
+    eventTypeId: event.typeId,
+    playerId: event.subjectPlayerId,
+    minute: event.minute,
+    matchPart: event.matchPart,
+    category: REGULAR_GOAL_EVENT_TYPES.has(event.typeId) ? 'regular' : 'other',
+  };
+}
+
 function sideForTeam(
   home: MatchSideEventDetails,
   away: MatchSideEventDetails,
@@ -174,11 +201,19 @@ export function parseMatchEventDetails(xml: string): MatchEventDetails {
   const home = createSide(actualHomeTeamId);
   const away = createSide(actualAwayTeamId);
   const events = getEventBlocks(xml);
+  const hasPenaltyShootout = events.some((event) => PENALTY_SHOOTOUT_EVENT_TYPES.has(event.typeId));
 
   for (const event of events) {
+    const side = sideForTeam(home, away, event.subjectTeamId);
     const card = toCardEvent(event);
-    if (!card) continue;
-    sideForTeam(home, away, event.subjectTeamId)?.cards.push(card);
+    if (card && side) side.cards.push(card);
+
+    const goal = toGoalEvent(event);
+    if (goal && side) (side.goals ||= []).push(goal);
+
+    if (side && PENALTY_SHOOTOUT_GOAL_EVENT_TYPES.has(event.typeId)) {
+      side.penaltyShootoutGoals = (side.penaltyShootoutGoals || 0) + 1;
+    }
   }
 
   for (const injury of getInjuryBlocks(xml)) {
@@ -233,13 +268,14 @@ export function parseMatchEventDetails(xml: string): MatchEventDetails {
     source: 'matchdetails-3.1',
     actualHomeTeamId,
     actualAwayTeamId,
+    hasPenaltyShootout,
     home,
     away,
   };
 }
 
 function emptyMappedSide(teamId: number | null): MatchSideEventDetails {
-  return { teamId, cards: [], injuries: [] };
+  return { teamId, cards: [], injuries: [], goals: [], penaltyShootoutGoals: 0 };
 }
 
 /**
@@ -259,13 +295,31 @@ export function mapMatchEventDetailsToFixture(
 
   const copySide = (teamId: number | null): MatchSideEventDetails => {
     const source = actualSideFor(teamId);
-    return source ? { teamId, cards: source.cards, injuries: source.injuries } : emptyMappedSide(teamId);
+    return source
+      ? {
+          teamId,
+          cards: source.cards,
+          injuries: source.injuries,
+          goals: source.goals || [],
+          penaltyShootoutGoals: source.penaltyShootoutGoals || 0,
+        }
+      : emptyMappedSide(teamId);
   };
 
   return {
     ...details,
     home: copySide(scheduledHomeTeamId),
     away: copySide(scheduledAwayTeamId),
+  };
+}
+
+export function getPenaltyShootoutScore(details: MatchEventDetails) {
+  if (!details.hasPenaltyShootout) {
+    return { home: null, away: null };
+  }
+  return {
+    home: details.home.penaltyShootoutGoals ?? 0,
+    away: details.away.penaltyShootoutGoals ?? 0,
   };
 }
 

@@ -1,7 +1,7 @@
 import React from 'react';
 import { SectionCard } from '../../Card/SectionCard';
 import { Button } from '../../Button/Button';
-import { Check, ArrowClockwise, X, PencilSimple, LinkSimple, Trash } from 'phosphor-react';
+import { Check, ArrowClockwise, ArrowUpRight, X, PencilSimple, LinkSimple, Trash } from 'phosphor-react';
 import { getCountryFlagUrl } from '../../../utils/ht-data';
 import { getHattrickWeekDetails } from '../../../utils/hattrick-calendar';
 import { APPG_OUTCOMES, appgOutcomeLabel, validateAppgOutcome, type AppgOutcome } from '../../../utils/appg';
@@ -68,6 +68,7 @@ interface AdminResultsProps {
   scoringMode?: string;
   saveBulkMatches?: (updates: Record<string, BulkMatchUpdate>) => Promise<void>;
   clearSeasonResults?: () => Promise<void>;
+  clearSeasonFixtures?: () => Promise<void>;
   importCsvRows?: (rows: ResultCsvRow[]) => Promise<void>;
   isSandbox?: boolean;
   canRemoveFixtures?: boolean;
@@ -206,6 +207,7 @@ export const AdminResults: React.FC<AdminResultsProps> = ({
   scoringMode = '120min',
   saveBulkMatches,
   clearSeasonResults,
+  clearSeasonFixtures,
   importCsvRows,
   isSandbox = false,
   canRemoveFixtures = false,
@@ -221,6 +223,8 @@ export const AdminResults: React.FC<AdminResultsProps> = ({
   const [isSavingBulk, setIsSavingBulk] = React.useState(false);
   const [isRandomFilling, setIsRandomFilling] = React.useState(false);
   const [isClearingResults, setIsClearingResults] = React.useState(false);
+  const [isClearingFixtures, setIsClearingFixtures] = React.useState(false);
+  const [bulkEditScope, setBulkEditScope] = React.useState<'season' | 'round' | null>(null);
   const [removingMatchId, setRemovingMatchId] = React.useState<string | null>(null);
   const [resultNotice, setResultNotice] = React.useState('');
   const fileInputRef = React.useRef<HTMLInputElement | null>(null);
@@ -241,9 +245,10 @@ export const AdminResults: React.FC<AdminResultsProps> = ({
     }));
   };
 
-  const startBulkEditing = (matchIds: string[]) => {
+  const startBulkEditing = (matchIds: string[], scope: 'season' | 'round') => {
     setEditingMatch(null);
     setBulkMatchIds(matchIds);
+    setBulkEditScope(scope);
     setMatchData((current) => {
       const next = { ...current };
       for (const matchId of matchIds) {
@@ -256,7 +261,10 @@ export const AdminResults: React.FC<AdminResultsProps> = ({
     });
   };
 
-  const cancelBulkEditing = () => setBulkMatchIds([]);
+  const cancelBulkEditing = () => {
+    setBulkMatchIds([]);
+    setBulkEditScope(null);
+  };
 
   const saveBulkResults = async () => {
     if (!saveBulkMatches) return;
@@ -290,6 +298,7 @@ export const AdminResults: React.FC<AdminResultsProps> = ({
       );
       await saveBulkMatches(updates);
       setBulkMatchIds([]);
+      setBulkEditScope(null);
       setMatchData((current) => {
         const next = { ...current };
         bulkMatchIds.forEach((matchId) => delete next[matchId]);
@@ -333,12 +342,35 @@ export const AdminResults: React.FC<AdminResultsProps> = ({
     try {
       await clearSeasonResults();
       setBulkMatchIds([]);
+      setBulkEditScope(null);
       setMatchData({});
       setResultNotice('All season results were cleared.');
     } catch (error) {
       alert(error instanceof Error ? error.message : 'Could not clear season results.');
     } finally {
       setIsClearingResults(false);
+    }
+  };
+
+  const handleClearSeasonFixtures = async () => {
+    if (!clearSeasonFixtures) return;
+    const confirmed = window.confirm(
+      'Clear every fixture in this season?\n\nThis permanently removes all matches and their parent rounds. Teams and tournament settings stay in place.',
+    );
+    if (!confirmed) return;
+
+    setIsClearingFixtures(true);
+    try {
+      await clearSeasonFixtures();
+      setBulkMatchIds([]);
+      setBulkEditScope(null);
+      setMatchData({});
+      setEditingMatch(null);
+      setResultNotice('All season fixtures were cleared.');
+    } catch (error) {
+      alert(error instanceof Error ? error.message : 'Could not clear season fixtures.');
+    } finally {
+      setIsClearingFixtures(false);
     }
   };
 
@@ -531,7 +563,12 @@ export const AdminResults: React.FC<AdminResultsProps> = ({
               <Button
                 size="xs"
                 variant="secondaryAction"
-                onClick={() => startBulkEditing(rounds.flatMap((round) => round.matches.map((match) => match.id)))}
+                onClick={() =>
+                  startBulkEditing(
+                    rounds.flatMap((round) => round.matches.map((match) => match.id)),
+                    'season',
+                  )
+                }
                 title="Bulk edit season"
                 data-tooltip-id="admin-tooltip"
                 data-tooltip-content="Open one editor for every fixture in the current season."
@@ -617,7 +654,7 @@ export const AdminResults: React.FC<AdminResultsProps> = ({
                     <Button
                       size="xs"
                       variant="secondaryAction"
-                      onClick={() => startBulkEditing(round.matches.map((match) => match.id))}
+                      onClick={() => startBulkEditing(round.matches.map((match) => match.id), 'round')}
                       title="Bulk edit round"
                       data-tooltip-id="admin-tooltip"
                       data-tooltip-content="Open one editor for every fixture in this round."
@@ -726,12 +763,30 @@ export const AdminResults: React.FC<AdminResultsProps> = ({
                 const isMisarranged = match.status === 'misarranged';
                 const hasResult = match.completed && match.home_goals !== null && match.away_goals !== null;
                 return (
-                  <div key={match.id} className={adminStyles.match}>
-                    <div className={adminStyles.matchTeams}>
+                  <React.Fragment key={match.id}>
+                    {match.appg_outcome === 'needs_review' && (
+                      <div className={adminStyles.needsReviewRow}>NEEDS REVIEW</div>
+                    )}
+                    <div className={`${adminStyles.match} ${match.ht_match_id ? adminStyles.hasMatchLink : ''}`}>
+                      {match.ht_match_id && (
+                        <a
+                          href={`https://www.hattrick.org/goto.ashx?path=/Club/Matches/Match.aspx?matchID=${match.ht_match_id}`}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className={adminStyles.matchLink}
+                          aria-label={`Open Hattrick match ${match.ht_match_id}`}
+                          title="Open Hattrick match"
+                          data-tooltip-id="admin-tooltip"
+                          data-tooltip-content="Open linked Hattrick match"
+                        >
+                          <ArrowUpRight size={18} weight="bold" />
+                        </a>
+                      )}
+                      <div className={adminStyles.matchTeams}>
                       <AdminResultTeam team={match.home_team} side="home" />
                       <span className={adminStyles.vs}>vs</span>
                       <AdminResultTeam team={match.away_team} side="away" />
-                    </div>
+                      </div>
 
                     {editingMatch === match.id ? (
                       <>
@@ -970,28 +1025,14 @@ export const AdminResults: React.FC<AdminResultsProps> = ({
                         <div className={adminStyles.matchActions}>{renderMatchActions(match, hasResult, round.id)}</div>
                       </>
                     )}
-                  </div>
+                    </div>
+                  </React.Fragment>
                 );
               })}
             </div>
           );
         })}
       </div>
-      {clearSeasonResults && rounds.some((round) => round.matches.some((match) => match.completed)) && (
-        <div className={adminStyles.clearResultsAction}>
-          <Button
-            size="xs"
-            variant="action"
-            onClick={handleClearSeasonResults}
-            disabled={isClearingResults}
-            title="Clear all season results"
-            data-tooltip-id="admin-tooltip"
-            data-tooltip-content="Remove all saved scores and result data while keeping fixtures and linked Hattrick match IDs."
-          >
-            <X size={16} /> {isClearingResults ? 'Clearing results...' : 'Clear all season results'}
-          </Button>
-        </div>
-      )}
       {bulkMatchIds.length > 0 && (
         <div className={adminStyles.bulkActions}>
           <Button
@@ -1015,6 +1056,32 @@ export const AdminResults: React.FC<AdminResultsProps> = ({
           >
             <X size={16} /> Cancel
           </Button>
+          {bulkEditScope === 'season' && clearSeasonResults && rounds.some((round) => round.matches.some((match) => match.completed)) && (
+            <Button
+              size="xs"
+              variant="action"
+              onClick={handleClearSeasonResults}
+              disabled={isClearingResults || isClearingFixtures}
+              title="Clear all season results"
+              data-tooltip-id="admin-tooltip"
+              data-tooltip-content="Remove all saved scores and result data while keeping fixtures and linked Hattrick match IDs."
+            >
+              <X size={16} /> {isClearingResults ? 'Clearing results...' : 'Clear all season results'}
+            </Button>
+          )}
+          {bulkEditScope === 'season' && clearSeasonFixtures && rounds.length > 0 && (
+            <Button
+              size="xs"
+              variant="primaryDanger"
+              onClick={handleClearSeasonFixtures}
+              disabled={isClearingResults || isClearingFixtures}
+              title="Clear season fixtures"
+              data-tooltip-id="admin-tooltip"
+              data-tooltip-content="Permanently remove every fixture and round in this season."
+            >
+              <X size={16} /> {isClearingFixtures ? 'Clearing fixtures...' : 'Clear season fixtures'}
+            </Button>
+          )}
         </div>
       )}
     </SectionCard>

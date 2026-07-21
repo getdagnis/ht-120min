@@ -17,7 +17,7 @@
     cursor: not-allowed
     border: none
 
-  &:hover
+  &:hover:not(:disabled)
     transition: all 0.1s ease-in-out
 
 .button > *
@@ -136,7 +136,7 @@
   padding: 0.15em 0.75rem
   box-sizing: border-box
 
-  &:hover
+  &:hover:not(:disabled)
     color: var(--text)
     background-color: var(--lighter)
     border: 1px solid var(--borderWeak)
@@ -151,7 +151,7 @@
     font-size: 0.85rem
     padding: 0.1rem 0.4rem
 
-  &:hover
+  &:hover:not(:disabled)
     color: white
     background-color: var(--accent-3)
     border: 1px solid transparent
@@ -160,7 +160,7 @@
   color: var(--action-text)
   background-color: var(--action-bg)
 
-  &:hover
+  &:hover:not(:disabled)
     color: white
     background-color: var(--action-bg-bright)
 
@@ -168,7 +168,7 @@
   color: var(--action-text)
   background-color: var(--action-bg-bright)
 
-  &:hover
+  &:hover:not(:disabled)
     color: white
     background-color: var(--accent-3)
     border: 1px solid var(--accent-3)

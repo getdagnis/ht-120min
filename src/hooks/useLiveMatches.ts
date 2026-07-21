@@ -14,6 +14,10 @@ export interface LiveMatchData {
   away_yellow_cards?: number;
   away_red_cards?: number;
   away_injuries?: number;
+  penalty_shootout_home_goals?: number | null;
+  penalty_shootout_away_goals?: number | null;
+  appg_outcome?: 'ET3' | 'ET2' | 'PS1' | 'RT0' | 'OPW' | 'needs_review';
+  appg_outcome_source?: 'unclassified' | 'chpp';
   match_event_details?: MatchEventDetails;
 }
 
@@ -22,6 +26,8 @@ interface Match {
   ht_match_id: number | null;
   status: string;
   match_date?: Date | string;
+  appg_outcome?: 'ET3' | 'ET2' | 'PS1' | 'RT0' | 'OPW' | 'needs_review' | null;
+  appg_outcome_source?: 'unclassified' | 'chpp' | 'organizer' | 'csv' | null;
 }
 
 export function useLiveMatches(
@@ -29,6 +35,7 @@ export function useLiveMatches(
   matches: Match[],
   onMatchFinished?: () => void,
   enabled = true,
+  reclassifyAppg = false,
 ) {
   const [liveData, setLiveData] = useState<Record<string, LiveMatchData>>({});
   const [lastRefresh, setLastRefresh] = useState<string | null>(null);
@@ -36,6 +43,11 @@ export function useLiveMatches(
   const matchesRef = useRef(matches);
   const tournamentIdRef = useRef(tournamentId);
   const onMatchFinishedRef = useRef(onMatchFinished);
+  const attemptedAppgMatchIdsRef = useRef<Set<number>>(new Set());
+
+  useEffect(() => {
+    attemptedAppgMatchIdsRef.current.clear();
+  }, [tournamentId]);
 
   useEffect(() => {
     matchesRef.current = matches;
@@ -54,8 +66,17 @@ export function useLiveMatches(
       if (!currentTid || !currentMatches || currentMatches.length === 0) return;
 
       const potentialLive = currentMatches.filter((m) => {
-        if (m.completed) return false;
-        if (!m.ht_match_id || !['arranged', 'ongoing', 'finished'].includes(m.status)) return false;
+        if (!m.ht_match_id) return false;
+        if (m.completed) {
+          return (
+            reclassifyAppg &&
+            m.appg_outcome === 'needs_review' &&
+            m.appg_outcome_source !== 'organizer' &&
+            m.appg_outcome_source !== 'csv' &&
+            !attemptedAppgMatchIdsRef.current.has(m.ht_match_id)
+          );
+        }
+        if (!['arranged', 'ongoing', 'finished'].includes(m.status)) return false;
         const matchDate = m.match_date ? new Date(m.match_date) : null;
         if (!matchDate) return false;
         const startsAt = matchDate.getTime() - 5 * 60 * 1000;
@@ -70,6 +91,9 @@ export function useLiveMatches(
         const res = await fetch(`/api/chpp/live-matches?tournament_id=${currentTid}&match_ids=${ids}&_t=${Date.now()}`);
         if (res.ok) {
           const data = await res.json();
+          potentialLive
+            .filter((match) => match.completed && match.ht_match_id)
+            .forEach((match) => attemptedAppgMatchIdsRef.current.add(match.ht_match_id!));
 
           setLiveData((prev) => {
             const next = { ...prev };
@@ -103,7 +127,7 @@ export function useLiveMatches(
     checkLiveMatches();
     const interval = setInterval(checkLiveMatches, 30000);
     return () => clearInterval(interval);
-  }, [tournamentId, enabled]);
+  }, [tournamentId, enabled, reclassifyAppg]);
 
   return { liveData, lastRefresh };
 }
