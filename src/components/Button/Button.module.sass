@@ -11,9 +11,10 @@
   transition: color 0.3s ease-in-out, background-color 0.3s ease-in-out, border-color 0.3s ease-in-out
 
   &:disabled
-    background: var(--bg-transp2)
-    color: var(--borderDark)
+    background: var(--darker)
+    color: var(--border)
     cursor: not-allowed
+    border: none
 
   &:hover
     transition: all 0.1s ease-in-out
@@ -151,9 +152,8 @@
     border: 1px solid transparent !important
 
 .secondaryAction
-  color: var(--text)
+  color: var(--action-text)
   background-color: var(--action-bg) !important
-  border: 1px solid var(--lighter)
 
   &:hover
     color: var(--text)

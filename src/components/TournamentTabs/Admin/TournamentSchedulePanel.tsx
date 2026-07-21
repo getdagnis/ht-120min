@@ -371,7 +371,7 @@ export const TournamentSchedulePanel: React.FC<TournamentSchedulePanelProps> = (
       setSuggestionsOffset(result.nextOffset);
       setSuggestionsHasMore(result.hasMore);
       if (!append && result.matches.length === 0) {
-        setSuggestionsNotice('No matches found between registered teams.');
+        setSuggestionsNotice('No additional matches found between registered teams.');
       }
     } catch (error) {
       setSuggestionsError(error instanceof Error ? error.message : 'Could not fetch suggested matches.');
@@ -403,7 +403,9 @@ export const TournamentSchedulePanel: React.FC<TournamentSchedulePanelProps> = (
         <div className={adminStyles.addHtMatchTeams}>
           <div className={adminStyles.addHtMatchTeam}>
             {addMatchPreview.home_team?.logo_url && <img src={addMatchPreview.home_team.logo_url} alt="" />}
-            <strong>{addMatchPreview.home_team?.name || addMatchPreview.actual_home_team_name || 'Unknown home'}</strong>
+            <strong>
+              {addMatchPreview.home_team?.name || addMatchPreview.actual_home_team_name || 'Unknown home'}
+            </strong>
             <span>{addMatchPreview.home_team_known ? 'Registered team' : 'Not in this tournament'}</span>
           </div>
           <span className={adminStyles.addHtMatchScore}>
@@ -411,7 +413,9 @@ export const TournamentSchedulePanel: React.FC<TournamentSchedulePanelProps> = (
           </span>
           <div className={adminStyles.addHtMatchTeam}>
             {addMatchPreview.away_team?.logo_url && <img src={addMatchPreview.away_team.logo_url} alt="" />}
-            <strong>{addMatchPreview.away_team?.name || addMatchPreview.actual_away_team_name || 'Unknown away'}</strong>
+            <strong>
+              {addMatchPreview.away_team?.name || addMatchPreview.actual_away_team_name || 'Unknown away'}
+            </strong>
             <span>{addMatchPreview.away_team_known ? 'Registered team' : 'Not in this tournament'}</span>
           </div>
         </div>
@@ -600,22 +604,27 @@ export const TournamentSchedulePanel: React.FC<TournamentSchedulePanelProps> = (
                 variant="secondaryAction"
                 onClick={() => void handleFetchSuggestions()}
                 disabled={
-                  !fetchHtMatchSuggestions || activeTeams.length < 2 || isFetchingSuggestions || suggestionCategories.length === 0
+                  !fetchHtMatchSuggestions ||
+                  activeTeams.length < 2 ||
+                  isFetchingSuggestions ||
+                  suggestionCategories.length === 0
                 }
               >
                 {isFetchingSuggestions ? 'Fetching matches...' : 'Fetch matches'}
               </Button>
             )}
-            <button
-              type="button"
-              className={adminStyles.textLinkButton}
-              onClick={() => setShowSuggestionOptions((current) => !current)}
-            >
-              {showSuggestionOptions ? 'Hide options' : 'Show options'}
-            </button>
-            <button type="button" className={adminStyles.textLinkButton} onClick={() => setManualAddOpen(true)}>
-              Add matches manually
-            </button>
+            <div className={adminStyles.textLinks}>
+              <button
+                type="button"
+                className={adminStyles.textLinkButton}
+                onClick={() => setShowSuggestionOptions((current) => !current)}
+              >
+                {showSuggestionOptions ? 'Hide options' : 'Show options'}
+              </button>
+              <button type="button" className={adminStyles.textLinkButton} onClick={() => setManualAddOpen(true)}>
+                Add matches manually
+              </button>
+            </div>
             {showSuggestionOptions && renderSuggestionOptions()}
             {selectedSuggestionTeam && (
               <p className={adminStyles.smallNote}>Showing matches found from {selectedSuggestionTeam.name}.</p>

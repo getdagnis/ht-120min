@@ -437,6 +437,46 @@ export const TournamentView: React.FC = () => {
         })),
     [tournamentFaqSections],
   );
+  const tournamentSettingsFaqItems = useMemo(
+    () => [
+      {
+        id: 'admin-faq-category',
+        title: 'Tournament Category',
+        body: 'Choose the tournament type. Hattrick Validated keeps CHPP-linked teams, Organizer-managed keeps manual control, and Sandbox is for test tournaments.',
+      },
+      {
+        id: 'admin-faq-schedule',
+        title: 'Schedule setup',
+        body: 'Generated schedule builds the normal round-robin calendar. No pre-made schedule skips that and lets you add real Hattrick matches one by one instead.',
+      },
+      {
+        id: 'admin-faq-team-limit',
+        title: 'Team Limit',
+        body: 'Set the maximum number of teams allowed in the tournament. Leave it open if you want the roster to stay flexible.',
+      },
+      {
+        id: 'admin-faq-start-date',
+        title: 'Planned start date',
+        body: 'This is the planned display date on tournament cards until a real schedule exists. Once fixtures are locked, the actual start date takes over.',
+      },
+      {
+        id: 'admin-faq-validated',
+        title: 'Only Hattrick validated teams can join',
+        body: 'Keep this on if only CHPP-linked teams should be able to join. Turn it off when you want manual or sandbox teams to be added too.',
+      },
+      {
+        id: 'admin-faq-country',
+        title: 'Country limit',
+        body: 'Use this to restrict joining teams to a specific country. If the current roster already spans multiple countries, the value has to fit everyone already in the tournament.',
+      },
+      {
+        id: 'admin-faq-email',
+        title: 'Recovery email',
+        body: 'Add a recovery email if you want a fallback for admin password problems. It is optional, but useful when the tournament may need long-term maintenance.',
+      },
+    ],
+    [],
+  );
   const [tournament, setTournament] = useState<Tournament | null>(null);
   const [standings, setStandings] = useState<TeamStanding[]>([]);
   const [rounds, setRounds] = useState<RoundWithMatches[]>([]);
@@ -1839,10 +1879,7 @@ export const TournamentView: React.FC = () => {
     [fetchFixturesOnly, password, tournament],
   );
 
-  const previewHtMatchAdd = useCallback(
-    (htMatchId: string) => requestAddHtMatch(htMatchId, true),
-    [requestAddHtMatch],
-  );
+  const previewHtMatchAdd = useCallback((htMatchId: string) => requestAddHtMatch(htMatchId, true), [requestAddHtMatch]);
 
   const saveHtMatchAdd = useCallback(
     (htMatchId: string) => requestAddHtMatch(htMatchId, false).then(() => undefined),
@@ -4492,7 +4529,7 @@ export const TournamentView: React.FC = () => {
                                 aria-label="Reset tournament admin password"
                                 disabled={isResettingAdminPassword}
                               >
-                                <ArrowClockwise size={24} weight="bold" />
+                                <ArrowClockwise size={18} weight="bold" />
                               </button>
                             )}
                             <CopySimple
@@ -4510,7 +4547,7 @@ export const TournamentView: React.FC = () => {
                         <div className={adminStyles.field}>
                           {renderSettingsLabel(
                             'Tournament Category',
-                            teams.length > 0 && !isSuperAdmin ? 'locked once teams register' : undefined,
+                            teams.length > 0 && !isSuperAdmin ? '(locked once teams register)' : undefined,
                           )}
                           <select
                             value={editLeagueCategory}
@@ -4525,13 +4562,13 @@ export const TournamentView: React.FC = () => {
                         </div>
 
                         <div className={adminStyles.field}>
-                          {renderSettingsLabel('Team limit', 'set maximum')}
+                          {renderSettingsLabel('Team limit', '(set maximum allowed, minimum is 2)')}
                           <select
                             value={editMaxTeams ?? ''}
                             onChange={(e) => setEditMaxTeams(e.target.value ? Number(e.target.value) : null)}
                             className={adminStyles.selectField}
                           >
-                            <option value="">Unlimited (decide later)</option>
+                            <option value="">Unlimited (decide when ready)</option>
                             {[2, 4, 6, 8, 16, 32, 64].map((n) => (
                               <option key={n} value={n}>
                                 {n} teams
@@ -4544,7 +4581,9 @@ export const TournamentView: React.FC = () => {
                         <div className={adminStyles.field}>
                           {renderSettingsLabel(
                             isStartDateLocked ? 'Start date' : 'Planned start date',
-                            isStartDateLocked ? 'from first fixture' : 'display only',
+                            isStartDateLocked
+                              ? '(locked by first fixture)'
+                              : '(will lock to first fixture when present)',
                           )}
                           {isStartDateLocked && firstKnownFixtureDate ? (
                             <>
@@ -4594,7 +4633,7 @@ export const TournamentView: React.FC = () => {
                         {showAdvancedSettings && (
                           <>
                             <div className={adminStyles.field}>
-                              {renderSettingsLabel('Schedule setup', 'generated or manual')}
+                              {renderSettingsLabel('Schedule setup', '(advanced setting, see FAQ)')}
                               <select
                                 value={scheduleSetup}
                                 onChange={(event) => setScheduleSetup(event.target.value as ScheduleSetup)}
@@ -4609,7 +4648,7 @@ export const TournamentView: React.FC = () => {
                             <div className={adminStyles.field}>
                               {renderSettingsLabel(
                                 'Tournament Type',
-                                teams.length > 0 && !isSuperAdmin ? 'locked once teams register' : undefined,
+                                teams.length > 0 && !isSuperAdmin ? '(locked once teams register)' : undefined,
                               )}
                               <select
                                 value={editRegistrationType}
@@ -4627,7 +4666,7 @@ export const TournamentView: React.FC = () => {
                             </div>
 
                             <div className={adminStyles.field}>
-                              {renderSettingsLabel('Country of team', 'optional limit')}
+                              {renderSettingsLabel('Country limit', '(locked to already registerd teams)')}
                               <select
                                 value={editCountryLimit || ''}
                                 onChange={(e) => {
@@ -4729,7 +4768,6 @@ export const TournamentView: React.FC = () => {
                                 />
                                 Recovery email address
                               </label>
-                              <span className={adminStyles.labelHelp}>recommended</span>
                               {renderUnsavedSettingsNote(unsavedSettingsFields.showEmail)}
                             </div>
                             {showEditEmail && (
@@ -4843,128 +4881,6 @@ export const TournamentView: React.FC = () => {
                       />
                     </div>
                   )}
-
-                  <div id="admin-panel-season">
-                    <SectionCard
-                      title="Season planner"
-                      className={adminStyles.seasonPlannerCard}
-                      collapsible
-                      isCollapsed={resolvedSeasonCollapsed}
-                      onToggleCollapse={() => togglePanel('season', !resolvedSeasonCollapsed, setIsSeasonCollapsed)}
-                    >
-                      <div className={adminStyles.seasonPlanner}>
-                        {previousSeasons.length > 0 && (
-                          <div>
-                            <h3>Previous seasons</h3>
-                            <ul className={adminStyles.seasonList}>
-                              {previousSeasons.map((season) => (
-                                <li key={season.id}>
-                                  <span>
-                                    Season {season.season_number} {season.status}
-                                  </span>
-                                  {season.snapshot_json &&
-                                    (!('version' in season.snapshot_json) || season.snapshot_json.version !== 2) && (
-                                      <Button
-                                        variant="zero"
-                                        size="xs"
-                                        onClick={() => handleRebuildSeasonSnapshot(season)}
-                                        disabled={rebuildingSeasonNumber !== null}
-                                      >
-                                        {rebuildingSeasonNumber === season.season_number
-                                          ? 'Rebuilding...'
-                                          : 'Rebuild archive'}
-                                      </Button>
-                                    )}
-                                </li>
-                              ))}
-                            </ul>
-                          </div>
-                        )}
-                        <div>
-                          <h3>Current season</h3>
-                          <p className={adminStyles.seasonCurrent}>
-                            Season {tournament.season} {currentSeason?.status || tournament.status}
-                            {tournament.status === 'finished'
-                              ? formatHistoryDate(currentSeason?.finished_at) &&
-                                ` • Finished ${formatHistoryDate(currentSeason?.finished_at)}`
-                              : isGenerated
-                                ? formatHistoryDate(currentSeason?.started_at || tournament.schedule_generated_at) &&
-                                  ` • Started ${formatHistoryDate(currentSeason?.started_at || tournament.schedule_generated_at)}`
-                                : formatHistoryDate(
-                                    currentSeason?.planned_start_slot || tournament.schedule_start_slot,
-                                  ) &&
-                                  ` • Planned ${formatHistoryDate(currentSeason?.planned_start_slot || tournament.schedule_start_slot)}`}
-                          </p>
-                          <p className={adminStyles.smallNote}>
-                            {tournament.status === 'finished' && !currentSeason?.snapshot_json
-                              ? 'This season is finished, but its History report has not been generated yet.'
-                              : tournament.status === 'finished'
-                                ? 'This season is finished and preserved in History. You can now add a new season.'
-                                : isGenerated
-                                  ? 'Finish the season when its competition is complete. This preserves its final History report.'
-                                  : 'Generate a schedule before finishing this season.'}
-                          </p>
-                          <div className={adminStyles.seasonActions}>
-                            {tournament.status !== 'finished' && isGenerated && (
-                              <Button
-                                variant="primaryDanger"
-                                size="sm"
-                                onClick={handleFinishSeason}
-                                disabled={isFinalizingSeason}
-                              >
-                                {isFinalizingSeason ? 'Finishing...' : 'Finish season'}
-                              </Button>
-                            )}
-                            {tournament.status === 'finished' && !currentSeason?.snapshot_json && (
-                              <Button
-                                variant="primary"
-                                size="sm"
-                                onClick={handleGenerateHistoryReport}
-                                disabled={isFinalizingSeason}
-                              >
-                                {isFinalizingSeason ? 'Generating...' : 'Generate history report'}
-                              </Button>
-                            )}
-                            {tournament.status === 'finished' && currentSeason?.snapshot_json && (
-                              <>
-                                <Button variant="zero" size="sm" disabled>
-                                  History report generated
-                                </Button>
-                                <Button
-                                  variant="primary"
-                                  size="sm"
-                                  onClick={() => handleStartNewSeason('auto')}
-                                  disabled={isAddingSeason}
-                                  data-tooltip-id="auto-start-season-tooltip"
-                                >
-                                  {isAddingSeason ? 'Starting...' : `Auto-start Season ${(tournament.season || 1) + 1}`}
-                                </Button>
-                                <Tooltip
-                                  id="auto-start-season-tooltip"
-                                  className="tooltip"
-                                  content="Keeps the existing roster. The next season starts with a clean table and waits for you to generate a new schedule."
-                                />
-                                <Button
-                                  variant="zero"
-                                  size="sm"
-                                  onClick={() => handleStartNewSeason('open')}
-                                  disabled={isAddingSeason}
-                                  data-tooltip-id="open-next-season-tooltip"
-                                >
-                                  Open for Season {(tournament.season || 1) + 1}
-                                </Button>
-                                <Tooltip
-                                  id="open-next-season-tooltip"
-                                  className="tooltip"
-                                  content="Opens a new roster. Previous teams stay as quiet re-application suggestions for their owners."
-                                />
-                              </>
-                            )}
-                          </div>
-                        </div>
-                      </div>
-                    </SectionCard>
-                  </div>
 
                   {canManageSchedule && (
                     <div id="admin-panel-results">
@@ -5288,6 +5204,128 @@ export const TournamentView: React.FC = () => {
                     </SectionCard>
                   </div>
 
+                  <div id="admin-panel-season">
+                    <SectionCard
+                      title="Season planner"
+                      className={adminStyles.seasonPlannerCard}
+                      collapsible
+                      isCollapsed={resolvedSeasonCollapsed}
+                      onToggleCollapse={() => togglePanel('season', !resolvedSeasonCollapsed, setIsSeasonCollapsed)}
+                    >
+                      <div className={adminStyles.seasonPlanner}>
+                        {previousSeasons.length > 0 && (
+                          <div>
+                            <h3>Previous seasons</h3>
+                            <ul className={adminStyles.seasonList}>
+                              {previousSeasons.map((season) => (
+                                <li key={season.id}>
+                                  <span>
+                                    Season {season.season_number} {season.status}
+                                  </span>
+                                  {season.snapshot_json &&
+                                    (!('version' in season.snapshot_json) || season.snapshot_json.version !== 2) && (
+                                      <Button
+                                        variant="zero"
+                                        size="xs"
+                                        onClick={() => handleRebuildSeasonSnapshot(season)}
+                                        disabled={rebuildingSeasonNumber !== null}
+                                      >
+                                        {rebuildingSeasonNumber === season.season_number
+                                          ? 'Rebuilding...'
+                                          : 'Rebuild archive'}
+                                      </Button>
+                                    )}
+                                </li>
+                              ))}
+                            </ul>
+                          </div>
+                        )}
+                        <div>
+                          <h3>Current season</h3>
+                          <p className={adminStyles.seasonCurrent}>
+                            Season {tournament.season} {currentSeason?.status || tournament.status}
+                            {tournament.status === 'finished'
+                              ? formatHistoryDate(currentSeason?.finished_at) &&
+                                ` • Finished ${formatHistoryDate(currentSeason?.finished_at)}`
+                              : isGenerated
+                                ? formatHistoryDate(currentSeason?.started_at || tournament.schedule_generated_at) &&
+                                  ` • Started ${formatHistoryDate(currentSeason?.started_at || tournament.schedule_generated_at)}`
+                                : formatHistoryDate(
+                                    currentSeason?.planned_start_slot || tournament.schedule_start_slot,
+                                  ) &&
+                                  ` • Planned ${formatHistoryDate(currentSeason?.planned_start_slot || tournament.schedule_start_slot)}`}
+                          </p>
+                          <p className={adminStyles.smallNote}>
+                            {tournament.status === 'finished' && !currentSeason?.snapshot_json
+                              ? 'This season is finished, but its History report has not been generated yet.'
+                              : tournament.status === 'finished'
+                                ? 'This season is finished and preserved in History. You can now add a new season.'
+                                : isGenerated
+                                  ? 'Finish the season when its competition is complete. This preserves its final History report.'
+                                  : 'Generate a schedule before finishing this season.'}
+                          </p>
+                          <div className={adminStyles.seasonActions}>
+                            {tournament.status !== 'finished' && isGenerated && (
+                              <Button
+                                variant="primaryDanger"
+                                size="sm"
+                                onClick={handleFinishSeason}
+                                disabled={isFinalizingSeason}
+                              >
+                                {isFinalizingSeason ? 'Finishing...' : 'Finish season'}
+                              </Button>
+                            )}
+                            {tournament.status === 'finished' && !currentSeason?.snapshot_json && (
+                              <Button
+                                variant="primary"
+                                size="sm"
+                                onClick={handleGenerateHistoryReport}
+                                disabled={isFinalizingSeason}
+                              >
+                                {isFinalizingSeason ? 'Generating...' : 'Generate history report'}
+                              </Button>
+                            )}
+                            {tournament.status === 'finished' && currentSeason?.snapshot_json && (
+                              <>
+                                <Button variant="zero" size="sm" disabled>
+                                  History report generated
+                                </Button>
+                                <Button
+                                  variant="primary"
+                                  size="sm"
+                                  onClick={() => handleStartNewSeason('auto')}
+                                  disabled={isAddingSeason}
+                                  data-tooltip-id="auto-start-season-tooltip"
+                                >
+                                  {isAddingSeason ? 'Starting...' : `Auto-start Season ${(tournament.season || 1) + 1}`}
+                                </Button>
+                                <Tooltip
+                                  id="auto-start-season-tooltip"
+                                  className="tooltip"
+                                  content="Keeps the existing roster. The next season starts with a clean table and waits for you to generate a new schedule."
+                                />
+                                <Button
+                                  variant="zero"
+                                  size="sm"
+                                  onClick={() => handleStartNewSeason('open')}
+                                  disabled={isAddingSeason}
+                                  data-tooltip-id="open-next-season-tooltip"
+                                >
+                                  Open for Season {(tournament.season || 1) + 1}
+                                </Button>
+                                <Tooltip
+                                  id="open-next-season-tooltip"
+                                  className="tooltip"
+                                  content="Opens a new roster. Previous teams stay as quiet re-application suggestions for their owners."
+                                />
+                              </>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                    </SectionCard>
+                  </div>
+
                   <div id="admin-panel-announcements">
                     <SectionCard
                       title="Admin announcements"
@@ -5448,6 +5486,11 @@ export const TournamentView: React.FC = () => {
                       </div>
                     </div>
                   </SidebarWidget>
+                  <CompactAccordionWidget
+                    title="Tournament Settings FAQ"
+                    icon={<Question size={20} weight="bold" />}
+                    items={tournamentSettingsFaqItems}
+                  />
                 </aside>
               </div>
               <Tooltip id="admin-tooltip" className="tooltip" />
