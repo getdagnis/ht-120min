@@ -242,7 +242,7 @@ export const SupportersWall: React.FC<SupportersWallProps> = ({ variant = 'compa
     <div className={`${styles.wallWrapper} ${variant === 'full' ? styles.fullPage : ''}`}>
       <div className={styles.header}>
         <div className={styles.titleGroup}>
-          <h2>User Hall of Fame</h2>
+          <h2>Wall of Hnorary Mentions</h2>
         </div>
         <p className={styles.intro}>
           Thank you for helping build the project by being an early part of it! When PRO accounts are introduced all

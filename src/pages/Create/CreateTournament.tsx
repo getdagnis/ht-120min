@@ -1533,7 +1533,7 @@ export const CreateTournament: React.FC = () => {
                             setSandboxFetchError('');
                           }}
                         >
-                          I will add teams manually
+                          Add teams manually instead.
                         </button>
                       </>
                     )}

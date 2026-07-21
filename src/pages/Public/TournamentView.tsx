@@ -3887,7 +3887,7 @@ export const TournamentView: React.FC = () => {
         {tournament.status === 'stopped' && (
           <div className={styles.testNotice}>
             <div>
-              <h3>Tournament fully stopped</h3>
+              <h3>Tournament fully stopped ⛔️</h3>
               <p>
                 This tournament is halted and unpublished. Teams listed here are allowed to join other tournaments.
                 Admins can move it back to paused when they are ready to rebuild the participant list.
@@ -3911,11 +3911,11 @@ export const TournamentView: React.FC = () => {
         {isSandbox && (
           <div className={styles.testNotice}>
             <div>
-              <h3>TEST tournament</h3>
+              <h3>TEST tournament.</h3>
               <p>
                 {canAddSandboxTeam
-                  ? 'This is a test tournament. Current team limit allows adding another'
-                  : 'This tournament is TEST.'}
+                  ? 'This is a dummy tournament for test purposes. Teams represented are not actually participating. Current limit allows adding more test teams.'
+                  : 'This is a dummy tournament for test purposes. Teams represented are not actually participating.'}
               </p>
             </div>
             {canManageSandboxTeams && (
@@ -3932,7 +3932,7 @@ export const TournamentView: React.FC = () => {
                       ? 'Finding...'
                       : tournament.max_teams
                         ? `Get random (${Math.min(activeRealTeamsCount, tournament.max_teams)} of ${tournament.max_teams})`
-                        : 'Get random test team'}
+                        : 'Get random team'}
                   </Button>
                 )}
                 {sandboxCandidate && (
@@ -5396,7 +5396,7 @@ export const TournamentView: React.FC = () => {
                           paused only after removing or replacing any team already playing elsewhere.
                         </p>
                         <div className={adminStyles.lifecycleButtons}>
-                          <Button variant="primary" size="sm" onClick={handleMoveStoppedToPaused}>
+                          <Button variant="secondaryAction" size="sm" onClick={handleMoveStoppedToPaused}>
                             Full stopped. Move to paused.
                           </Button>
                         </div>
@@ -5512,7 +5512,7 @@ export const TournamentView: React.FC = () => {
               ? 'Organizer-managed tournament created!'
               : 'Tournament created!'
         }
-        buttonLabel={isSandbox ? 'Start testing!' : 'Open tournament'}
+        buttonLabel={isSandbox ? 'Start testing!' : 'View tournament'}
       >
         {isSandbox ? (
           <>
@@ -5531,18 +5531,17 @@ export const TournamentView: React.FC = () => {
             <strong>Your organizer-managed {tournament.name} page is ready.</strong>
 
             <ul>
-              <li>👉 Add the invited Hattrick teams yourself from the admin tab</li>
+              <li>👉 Invited more teams to join or add them yourself from the admin tab</li>
               <li>👉 Share the public page for fixtures, standings and announcements</li>
               <li>👉 Generate the schedule when the lineup is ready</li>
-              <li>
-                👉 Results will be updated automatically but can be manually edited or linked for matches off-schedule
-              </li>
+              <li>👉 Results will be updated automatically but can be manually edited or linked</li>
             </ul>
 
             <p>
               This format gives the organizer more control. Participants do not need to join through CHPP unless you
               want them to interact with HT-120min directly.
             </p>
+            <p>If you're happy or want a new feature — tip dev a pint 🍻💪</p>
           </>
         ) : (
           <>
