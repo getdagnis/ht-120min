@@ -97,6 +97,10 @@ const ADMIN_PANELS = [
 
 type AdminPanelId = (typeof ADMIN_PANELS)[number]['id'];
 
+function normalizeGeneratedScheduleMode(value: unknown): ScheduleMode {
+  return value === 'double' || value === 'recurring' || value === 'single' ? value : 'single';
+}
+
 interface ChppTeamOption {
   teamId: number;
   teamName: string;
@@ -114,6 +118,44 @@ interface HtMatchLinkPreview {
   status: 'arranged' | 'ongoing' | 'finished';
   matched_both_tournament_teams: boolean;
 }
+
+interface HtMatchAddPreview {
+  ht_match_id: number;
+  match_type: number | null;
+  match_date: string | null;
+  status: 'arranged' | 'ongoing' | 'finished';
+  completed: boolean;
+  actual_home_team_id: number | null;
+  actual_away_team_id: number | null;
+  actual_home_team_name: string | null;
+  actual_away_team_name: string | null;
+  home_goals: number | null;
+  away_goals: number | null;
+  went_120: boolean;
+  total_minutes: number;
+  home_team_known: boolean;
+  away_team_known: boolean;
+  home_team: { id: string; name: string; ht_team_id: number | null; logo_url: string | null } | null;
+  away_team: { id: string; name: string; ht_team_id: number | null; logo_url: string | null } | null;
+}
+
+interface HtMatchSuggestion {
+  ht_match_id: number;
+  match_type: number | null;
+  match_date: string | null;
+  status: 'arranged' | 'finished';
+  actual_home_team_id: number | null;
+  actual_away_team_id: number | null;
+  actual_home_team_name: string | null;
+  actual_away_team_name: string | null;
+  home_goals: number | null;
+  away_goals: number | null;
+  home_team: { id: string; name: string; ht_team_id: number | null; logo_url: string | null } | null;
+  away_team: { id: string; name: string; ht_team_id: number | null; logo_url: string | null } | null;
+}
+
+type MatchFetchWindow = 'current' | 'previous' | 'last50';
+type MatchFetchCategory = 'friendlies' | 'cup' | 'league';
 
 interface PendingJoinData {
   id: string;
@@ -235,7 +277,7 @@ interface Tournament {
   last_fixtures_refresh: string | null;
   admin_email: string | null;
   max_teams: number | null;
-  schedule_mode?: ScheduleMode | null;
+  schedule_mode?: ScheduleMode | 'manual' | null;
   schedule_start_slot?: string | null;
   schedule_locked_at?: string | null;
   registration_closed_at?: string | null;
@@ -251,6 +293,7 @@ interface RoundWithMatches {
 }
 
 type TournamentStatus = Tournament['status'];
+type ScheduleSetup = 'generated' | 'manual';
 
 interface TournamentSeason {
   id: string;
@@ -460,6 +503,7 @@ export const TournamentView: React.FC = () => {
   const [replacementTeamData, setReplacementTeamData] = useState<FetchedTeamData | null>(null);
   const [isFetchingTeamData, setIsFetchingTeamData] = useState(false);
   const [scheduleMode, setScheduleMode] = useState<ScheduleMode>('single');
+  const [scheduleSetup, setScheduleSetup] = useState<ScheduleSetup>('generated');
   const [scheduleStartSlotId, setScheduleStartSlotId] = useState('');
   const [includeWeek15WeekendFriendly, setIncludeWeek15WeekendFriendly] = useState(false);
   const [rescheduleFromRoundNumber, setRescheduleFromRoundNumber] = useState<number | null>(null);
@@ -557,6 +601,7 @@ export const TournamentView: React.FC = () => {
   const [editDescription, setEditDescription] = useState('');
   const [showEditEmail, setShowEditEmail] = useState(false);
   const [editAdminEmail, setEditAdminEmail] = useState('');
+  const [showAdvancedSettings, setShowAdvancedSettings] = useState(false);
   const [hasClosedCreatedTournamentWelcome, setHasClosedCreatedTournamentWelcome] = useState(false);
   const [hasClosedOpenTournamentWelcome, setHasClosedOpenTournamentWelcome] = useState(false);
   const [isUpdatingSettings, setIsUpdatingSettings] = useState(false);
@@ -650,6 +695,7 @@ export const TournamentView: React.FC = () => {
         description: false,
         showEmail: false,
         adminEmail: false,
+        scheduleMode: false,
         scheduleStart: false,
         test: false,
         featured: false,
@@ -658,6 +704,9 @@ export const TournamentView: React.FC = () => {
 
     const savedCountryLimit = normalizeLeagueLimit(tournament.country_limit);
     const savedAdminEmail = tournament.admin_email || '';
+    const currentScheduleSetting = scheduleSetup === 'manual' ? 'manual' : scheduleMode;
+    const savedScheduleSetting =
+      tournament.schedule_mode === 'manual' ? 'manual' : normalizeGeneratedScheduleMode(tournament.schedule_mode);
 
     return {
       name: editName !== tournament.name,
@@ -671,6 +720,7 @@ export const TournamentView: React.FC = () => {
       description: editDescription !== (tournament.description || ''),
       showEmail: showEditEmail !== Boolean(tournament.admin_email),
       adminEmail: editAdminEmail !== savedAdminEmail,
+      scheduleMode: currentScheduleSetting !== savedScheduleSetting,
       scheduleStart: !isStartDateLocked && scheduleStartSlotId !== savedStartSlotId,
       test: isTest !== Boolean(tournament.is_test),
       featured: editIsFeatured !== Boolean(tournament.is_featured),
@@ -687,6 +737,8 @@ export const TournamentView: React.FC = () => {
     editRegistrationType,
     isStartDateLocked,
     isTest,
+    scheduleMode,
+    scheduleSetup,
     scheduleStartSlotId,
     savedStartSlotId,
     showEditDescription,
@@ -697,6 +749,12 @@ export const TournamentView: React.FC = () => {
   const settingsHasUnsavedChanges = Object.values(unsavedSettingsFields).some(Boolean);
   const renderUnsavedSettingsNote = (isChanged: boolean) =>
     isChanged ? <p className={adminStyles.unsavedSettingsNote}>{UNSAVED_SETTINGS_MESSAGE}</p> : null;
+  const renderSettingsLabel = (label: string, note?: string) => (
+    <div className={adminStyles.settingsLabelRow}>
+      <label>{label}</label>
+      {note && <span className={adminStyles.labelHelp}>{note}</span>}
+    </div>
+  );
 
   // Collapsible states
   const [isSettingsCollapsed, setIsSettingsCollapsed] = useState(() =>
@@ -1062,7 +1120,8 @@ export const TournamentView: React.FC = () => {
       setEditLeagueCategory(tournamentData.league_category || 'male');
       setEditRegistrationType(normalizeTournamentRegistrationType(tournamentData.registration_type));
       setEditCountryLimit(normalizeLeagueLimit(tournamentData.country_limit));
-      setScheduleMode((tournamentData.schedule_mode as ScheduleMode | null) || 'single');
+      setScheduleSetup(tournamentData.schedule_mode === 'manual' ? 'manual' : 'generated');
+      setScheduleMode(normalizeGeneratedScheduleMode(tournamentData.schedule_mode));
       const storedStartSlot = tournamentData.schedule_start_slot
         ? buildCalendarSlots(new Date(), 160).find(
             (slot) => slot.nominalDate.toISOString() === tournamentData.schedule_start_slot,
@@ -1147,7 +1206,7 @@ export const TournamentView: React.FC = () => {
         }));
       const reconciledDraft = buildScheduleDraft({
         teams: fetchedScheduleTeams,
-        mode: (tournamentData.schedule_mode as ScheduleMode | null) || 'single',
+        mode: normalizeGeneratedScheduleMode(tournamentData.schedule_mode),
         startSlotId: storedStartSlot?.id || null,
         includeWeek15WeekendFriendly: false,
         now: new Date(),
@@ -1746,6 +1805,92 @@ export const TournamentView: React.FC = () => {
       await fetchFixturesOnly();
     },
     [fetchFixturesOnly, requestHtMatchLink, tournament],
+  );
+
+  const requestAddHtMatch = useCallback(
+    async (htMatchId: string, dryRun: boolean) => {
+      if (!tournament) throw new Error('Tournament is not loaded.');
+      const adminPassword = password.trim() || tournament.admin_password || '';
+      if (!adminPassword) throw new Error('Organizer password is required.');
+
+      const response = await fetch('/api/teams/refresh-fixtures', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          action: 'add_ht_match',
+          tournamentId: tournament.id,
+          adminPassword,
+          htMatchId,
+          dryRun,
+        }),
+      });
+      const payload = (await response.json().catch(() => null)) as {
+        error?: string;
+        preview?: HtMatchAddPreview;
+        inserted?: number;
+      } | null;
+
+      if (!response.ok || !payload?.preview) {
+        throw new Error(payload?.error || 'Could not add that Hattrick match.');
+      }
+      if (!dryRun) await fetchFixturesOnly();
+      return payload.preview;
+    },
+    [fetchFixturesOnly, password, tournament],
+  );
+
+  const previewHtMatchAdd = useCallback(
+    (htMatchId: string) => requestAddHtMatch(htMatchId, true),
+    [requestAddHtMatch],
+  );
+
+  const saveHtMatchAdd = useCallback(
+    (htMatchId: string) => requestAddHtMatch(htMatchId, false).then(() => undefined),
+    [requestAddHtMatch],
+  );
+
+  const fetchHtMatchSuggestions = useCallback(
+    async (options?: {
+      teamHtId?: number;
+      offset?: number;
+      fetchWindow?: MatchFetchWindow;
+      matchCategories?: MatchFetchCategory[];
+    }) => {
+      if (!tournament) throw new Error('Tournament is not loaded.');
+      const adminPassword = password.trim() || tournament.admin_password || '';
+      if (!adminPassword) throw new Error('Organizer password is required.');
+
+      const response = await fetch('/api/teams/refresh-fixtures', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          action: 'suggest_ht_matches',
+          tournamentId: tournament.id,
+          adminPassword,
+          teamHtId: options?.teamHtId,
+          offset: options?.offset || 0,
+          fetchWindow: options?.fetchWindow,
+          matchCategories: options?.matchCategories,
+          limit: 10,
+        }),
+      });
+      const payload = (await response.json().catch(() => null)) as {
+        error?: string;
+        matches?: HtMatchSuggestion[];
+        nextOffset?: number;
+        hasMore?: boolean;
+      } | null;
+
+      if (!response.ok || !payload?.matches) {
+        throw new Error(payload?.error || 'Could not fetch suggested matches.');
+      }
+      return {
+        matches: payload.matches,
+        nextOffset: payload.nextOffset || 0,
+        hasMore: Boolean(payload.hasMore),
+      };
+    },
+    [password, tournament],
   );
 
   useEffect(() => {
@@ -2472,6 +2617,7 @@ export const TournamentView: React.FC = () => {
           description: editDescription,
           admin_email: showEditEmail ? editAdminEmail : null,
           max_teams: editMaxTeams,
+          schedule_mode: scheduleSetup === 'manual' ? 'manual' : scheduleMode,
           schedule_start_slot: nextPlannedStartSlot,
           ...(canManageFeaturedTournaments ? { is_featured: editIsFeatured } : {}),
         })
@@ -4362,7 +4508,10 @@ export const TournamentView: React.FC = () => {
                         </div>
 
                         <div className={adminStyles.field}>
-                          <label>Tournament Category</label>
+                          {renderSettingsLabel(
+                            'Tournament Category',
+                            teams.length > 0 && !isSuperAdmin ? 'locked once teams register' : undefined,
+                          )}
                           <select
                             value={editLeagueCategory}
                             onChange={(e) => setEditLeagueCategory(e.target.value as any)}
@@ -4372,14 +4521,11 @@ export const TournamentView: React.FC = () => {
                             <option value="male">Regular league (male)</option>
                             <option value="hfi">Hattrick Femme International (HFI)</option>
                           </select>
-                          {teams.length > 0 && !isSuperAdmin && (
-                            <p className={adminStyles.smallNote}>Category is locked once teams have registered.</p>
-                          )}
                           {renderUnsavedSettingsNote(unsavedSettingsFields.leagueCategory)}
                         </div>
 
                         <div className={adminStyles.field}>
-                          <label>Team limit</label>
+                          {renderSettingsLabel('Team limit', 'set maximum')}
                           <select
                             value={editMaxTeams ?? ''}
                             onChange={(e) => setEditMaxTeams(e.target.value ? Number(e.target.value) : null)}
@@ -4396,7 +4542,10 @@ export const TournamentView: React.FC = () => {
                         </div>
 
                         <div className={adminStyles.field}>
-                          <label>{isStartDateLocked ? 'Start date' : 'Planned start date'}</label>
+                          {renderSettingsLabel(
+                            isStartDateLocked ? 'Start date' : 'Planned start date',
+                            isStartDateLocked ? 'from first fixture' : 'display only',
+                          )}
                           {isStartDateLocked && firstKnownFixtureDate ? (
                             <>
                               <input
@@ -4405,9 +4554,6 @@ export const TournamentView: React.FC = () => {
                                 disabled
                                 className={adminStyles.selectField}
                               />
-                              <p className={adminStyles.smallNote}>
-                                Locked after schedule generation because the first fixture date is known.
-                              </p>
                             </>
                           ) : (
                             <>
@@ -4428,91 +4574,9 @@ export const TournamentView: React.FC = () => {
                                   </option>
                                 ))}
                               </select>
-                              <p className={adminStyles.smallNote}>
-                                Used as the planned first date on tournament cards.
-                              </p>
                             </>
                           )}
                           {renderUnsavedSettingsNote(unsavedSettingsFields.scheduleStart)}
-                        </div>
-
-                        <div className={adminStyles.field}>
-                          <label>Tournament Type</label>
-                          <select
-                            value={editRegistrationType}
-                            onChange={(e) =>
-                              setEditRegistrationType(normalizeTournamentRegistrationType(e.target.value))
-                            }
-                            disabled={teams.length > 0 && !isSuperAdmin}
-                            className={adminStyles.selectField}
-                          >
-                            <option value="validated">Hattrick Validated (CHPP)</option>
-                            <option value="manual">Organizer-Managed</option>
-                            <option value="sandbox">Sandbox Playground</option>
-                          </select>
-                          {renderUnsavedSettingsNote(unsavedSettingsFields.registrationType)}
-                        </div>
-
-                        <div className={adminStyles.field}>
-                          <label>Country of team (any or locked to existing)</label>
-                          <select
-                            value={editCountryLimit || ''}
-                            onChange={(e) => {
-                              const nextCountryLimit = e.target.value || null;
-                              const mismatch = getActiveTeamRestrictionMismatch(nextCountryLimit);
-                              if (mismatch) {
-                                alert(mismatch);
-                                return;
-                              }
-                              setEditCountryLimit(nextCountryLimit);
-                            }}
-                            className={adminStyles.selectField}
-                          >
-                            <option value="">Any country</option>
-                            {editCountryLimit && !currentLeagueRestrictionIsCompatible && (
-                              <option value={editCountryLimit} disabled>
-                                Current setting conflicts with registered teams
-                              </option>
-                            )}
-                            {leagueRestrictionOptions.map((option) => (
-                              <option key={option.value} value={option.value}>
-                                {option.label}
-                              </option>
-                            ))}
-                          </select>
-                          {(() => {
-                            const countries = Array.from(
-                              new Set(
-                                teams
-                                  .filter((team) => team.active && !team.is_placeholder)
-                                  .map((team) =>
-                                    normalizeLeagueLimit(team.country_id ? String(team.country_id) : team.country_name),
-                                  )
-                                  .filter(Boolean),
-                              ),
-                            );
-                            if (countries.length >= 2) {
-                              return (
-                                <p className={adminStyles.smallNote}>
-                                  Teams from at least 2 countries already registered.
-                                </p>
-                              );
-                            }
-                            return null;
-                          })()}
-                          {renderUnsavedSettingsNote(unsavedSettingsFields.countryLimit)}
-                        </div>
-
-                        <div className={adminStyles.checkboxField}>
-                          <label className={adminStyles.checkboxLabel}>
-                            <input
-                              type="checkbox"
-                              checked={editChppOnlyJoin}
-                              onChange={(e) => setEditChppOnlyJoin(e.target.checked)}
-                            />
-                            Only Hattrick validated teams can join
-                          </label>
-                          {renderUnsavedSettingsNote(unsavedSettingsFields.chppOnlyJoin)}
                         </div>
 
                         <div className={adminStyles.checkboxField}>
@@ -4526,6 +4590,95 @@ export const TournamentView: React.FC = () => {
                           </label>
                           {renderUnsavedSettingsNote(unsavedSettingsFields.private)}
                         </div>
+
+                        {showAdvancedSettings && (
+                          <>
+                            <div className={adminStyles.field}>
+                              {renderSettingsLabel('Schedule setup', 'generated or manual')}
+                              <select
+                                value={scheduleSetup}
+                                onChange={(event) => setScheduleSetup(event.target.value as ScheduleSetup)}
+                                className={adminStyles.selectField}
+                              >
+                                <option value="generated">Generated schedule</option>
+                                <option value="manual">No pre-made schedule</option>
+                              </select>
+                              {renderUnsavedSettingsNote(unsavedSettingsFields.scheduleMode)}
+                            </div>
+
+                            <div className={adminStyles.field}>
+                              {renderSettingsLabel(
+                                'Tournament Type',
+                                teams.length > 0 && !isSuperAdmin ? 'locked once teams register' : undefined,
+                              )}
+                              <select
+                                value={editRegistrationType}
+                                onChange={(e) =>
+                                  setEditRegistrationType(normalizeTournamentRegistrationType(e.target.value))
+                                }
+                                disabled={teams.length > 0 && !isSuperAdmin}
+                                className={adminStyles.selectField}
+                              >
+                                <option value="validated">Hattrick Validated (CHPP)</option>
+                                <option value="manual">Organizer-Managed</option>
+                                <option value="sandbox">Sandbox Playground</option>
+                              </select>
+                              {renderUnsavedSettingsNote(unsavedSettingsFields.registrationType)}
+                            </div>
+
+                            <div className={adminStyles.field}>
+                              {renderSettingsLabel('Country of team', 'optional limit')}
+                              <select
+                                value={editCountryLimit || ''}
+                                onChange={(e) => {
+                                  const nextCountryLimit = e.target.value || null;
+                                  const mismatch = getActiveTeamRestrictionMismatch(nextCountryLimit);
+                                  if (mismatch) {
+                                    alert(mismatch);
+                                    return;
+                                  }
+                                  setEditCountryLimit(nextCountryLimit);
+                                }}
+                                className={adminStyles.selectField}
+                              >
+                                <option value="">Any country</option>
+                                {editCountryLimit && !currentLeagueRestrictionIsCompatible && (
+                                  <option value={editCountryLimit} disabled>
+                                    Current setting conflicts with registered teams
+                                  </option>
+                                )}
+                                {leagueRestrictionOptions.map((option) => (
+                                  <option key={option.value} value={option.value}>
+                                    {option.label}
+                                  </option>
+                                ))}
+                              </select>
+                              {(() => {
+                                const countries = Array.from(
+                                  new Set(
+                                    teams
+                                      .filter((team) => team.active && !team.is_placeholder)
+                                      .map((team) =>
+                                        normalizeLeagueLimit(
+                                          team.country_id ? String(team.country_id) : team.country_name,
+                                        ),
+                                      )
+                                      .filter(Boolean),
+                                  ),
+                                );
+                                if (countries.length >= 2) {
+                                  return (
+                                    <p className={adminStyles.smallNote}>
+                                      Teams from at least 2 countries already registered.
+                                    </p>
+                                  );
+                                }
+                                return null;
+                              })()}
+                              {renderUnsavedSettingsNote(unsavedSettingsFields.countryLimit)}
+                            </div>
+                          </>
+                        )}
 
                         <div>
                           <div className={adminStyles.checkboxField}>
@@ -4565,30 +4718,33 @@ export const TournamentView: React.FC = () => {
                           )}
                         </div>
 
-                        <div className={styles.mt1}>
-                          <div className={adminStyles.checkboxField}>
-                            <label className={adminStyles.checkboxLabel}>
-                              <input
-                                type="checkbox"
-                                checked={showEditEmail}
-                                onChange={(e) => setShowEditEmail(e.target.checked)}
-                              />
-                              Recovery email address (recommended)
-                            </label>
-                            {renderUnsavedSettingsNote(unsavedSettingsFields.showEmail)}
-                          </div>
-                          {showEditEmail && (
-                            <div className={`${adminStyles.textField} ${styles.mt1}`}>
-                              <input
-                                type="email"
-                                value={editAdminEmail}
-                                onChange={(e) => setEditAdminEmail(e.target.value)}
-                                placeholder="In case you forget your admin password..."
-                              />
-                              {renderUnsavedSettingsNote(unsavedSettingsFields.adminEmail)}
+                        {showAdvancedSettings && (
+                          <div className={styles.mt1}>
+                            <div className={adminStyles.checkboxField}>
+                              <label className={adminStyles.checkboxLabel}>
+                                <input
+                                  type="checkbox"
+                                  checked={showEditEmail}
+                                  onChange={(e) => setShowEditEmail(e.target.checked)}
+                                />
+                                Recovery email address
+                              </label>
+                              <span className={adminStyles.labelHelp}>recommended</span>
+                              {renderUnsavedSettingsNote(unsavedSettingsFields.showEmail)}
                             </div>
-                          )}
-                        </div>
+                            {showEditEmail && (
+                              <div className={`${adminStyles.textField} ${styles.mt1}`}>
+                                <input
+                                  type="email"
+                                  value={editAdminEmail}
+                                  onChange={(e) => setEditAdminEmail(e.target.value)}
+                                  placeholder="In case you forget your admin password..."
+                                />
+                                {renderUnsavedSettingsNote(unsavedSettingsFields.adminEmail)}
+                              </div>
+                            )}
+                          </div>
+                        )}
 
                         {isSuperAdmin && (
                           <div className={`${adminStyles.checkboxField} ${styles.formDivider}`}>
@@ -4616,9 +4772,19 @@ export const TournamentView: React.FC = () => {
                           </div>
                         )}
                       </div>
-                      <Button onClick={updateSettings} disabled={isUpdatingSettings} variant="primary" size="sm">
-                        {isUpdatingSettings ? 'Saving...' : 'Save Settings'}
-                      </Button>
+                      <div className={adminStyles.settingsActions}>
+                        <Button onClick={updateSettings} disabled={isUpdatingSettings} variant="primary" size="sm">
+                          {isUpdatingSettings ? 'Saving...' : 'Save Settings'}
+                        </Button>
+                        <Button
+                          type="button"
+                          onClick={() => setShowAdvancedSettings((current) => !current)}
+                          variant="secondaryAction"
+                          size="sm"
+                        >
+                          {showAdvancedSettings ? 'Hide more settings' : 'Show more settings'}
+                        </Button>
+                      </div>
                       {renderUnsavedSettingsNote(settingsHasUnsavedChanges)}
                     </SectionCard>
                   </div>
@@ -4629,6 +4795,7 @@ export const TournamentView: React.FC = () => {
                         isGenerated={isGenerated}
                         isCollapsed={resolvedScheduleCollapsed}
                         onToggleCollapse={() => setSchedulePanelCollapsed(!resolvedScheduleCollapsed)}
+                        scheduleSetup={scheduleSetup}
                         draft={scheduleDraft}
                         onScheduleModeChange={handleScheduleModeChange}
                         onSelectedStartSlotIdChange={handleScheduleStartSlotIdChange}
@@ -4637,6 +4804,10 @@ export const TournamentView: React.FC = () => {
                         isGenerating={isGenerating}
                         onGenerate={generateSchedule}
                         tournamentTeamLimit={editMaxTeams}
+                        teams={teams}
+                        previewHtMatchAdd={previewHtMatchAdd}
+                        saveHtMatchAdd={saveHtMatchAdd}
+                        fetchHtMatchSuggestions={fetchHtMatchSuggestions}
                       />
                     </div>
                   )}
@@ -4647,6 +4818,7 @@ export const TournamentView: React.FC = () => {
                         isGenerated={isGenerated}
                         isCollapsed={resolvedScheduleCollapsed}
                         onToggleCollapse={() => setSchedulePanelCollapsed(!resolvedScheduleCollapsed)}
+                        scheduleSetup={scheduleSetup}
                         draft={scheduleDraft}
                         onScheduleModeChange={handleScheduleModeChange}
                         onSelectedStartSlotIdChange={handleScheduleStartSlotIdChange}
@@ -4664,6 +4836,10 @@ export const TournamentView: React.FC = () => {
                         }
                         isRescheduling={isRescheduling}
                         onReschedule={regenerateSchedule}
+                        teams={teams}
+                        previewHtMatchAdd={previewHtMatchAdd}
+                        saveHtMatchAdd={saveHtMatchAdd}
+                        fetchHtMatchSuggestions={fetchHtMatchSuggestions}
                       />
                     </div>
                   )}
@@ -4790,7 +4966,7 @@ export const TournamentView: React.FC = () => {
                     </SectionCard>
                   </div>
 
-                  {isGenerated && (
+                  {canManageSchedule && (
                     <div id="admin-panel-results">
                       <AdminResults
                         rounds={rounds}

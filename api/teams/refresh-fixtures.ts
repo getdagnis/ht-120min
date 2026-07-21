@@ -7,7 +7,12 @@ import {
   parseMatchEventDetails,
   summarizeMatchEventDetails,
 } from '../_lib/chpp-match-events.js';
-import { resolveHattrickWeekContext } from '../_lib/hattrick-time.js';
+import {
+  getHattrickCalendarContext,
+  getHattrickWeekFromDate,
+  getHattrickWeekStartDate,
+  resolveHattrickWeekContext,
+} from '../_lib/hattrick-time.js';
 import { isFriendlyInsideAcceptedWindow } from '../_lib/match-window.js';
 import type { MatchEventDetails } from '../../shared/match-events.js';
 
@@ -162,29 +167,118 @@ async function fetchWorldDetailsContext(
   };
 }
 
-async function fetchTeamFriendlies(teamId: string, oauthToken: string, oauthTokenSecret: string) {
+interface TeamFriendlyMatch {
+  homeId: number;
+  awayId: number;
+  homeName: string | null;
+  awayName: string | null;
+  date: Date;
+  matchId: number;
+  matchType: number;
+  homeGoals: number | null;
+  awayGoals: number | null;
+  status: string | null;
+}
+
+type MatchFetchWindow = 'current' | 'previous' | 'last50';
+type MatchFetchCategory = 'friendlies' | 'cup' | 'league';
+
+const MATCH_TYPE_GROUPS: Record<MatchFetchCategory, number[]> = {
+  friendlies: [4, 5, 8, 9],
+  cup: [3],
+  league: [1],
+};
+const ADDABLE_MATCH_TYPES = new Set([...MATCH_TYPE_GROUPS.friendlies, ...MATCH_TYPE_GROUPS.cup, ...MATCH_TYPE_GROUPS.league]);
+
+function getMatchTypesForCategories(categories: MatchFetchCategory[]) {
+  const selected = categories.length > 0 ? categories : ['friendlies'];
+  return new Set(selected.flatMap((category) => MATCH_TYPE_GROUPS[category] || []));
+}
+
+function getSuggestedFetchWindow(value: unknown): MatchFetchWindow {
+  return value === 'current' || value === 'previous' || value === 'last50' ? value : 'current';
+}
+
+function getSuggestedFetchCategories(value: unknown): MatchFetchCategory[] {
+  if (!Array.isArray(value)) return ['friendlies'];
+  return value.filter((item): item is MatchFetchCategory => item === 'friendlies' || item === 'cup' || item === 'league');
+}
+
+function formatChppDateTime(date: Date) {
+  const pad = (value: number) => String(value).padStart(2, '0');
+  return `${date.getUTCFullYear()}-${pad(date.getUTCMonth() + 1)}-${pad(date.getUTCDate())} ${pad(
+    date.getUTCHours(),
+  )}:${pad(date.getUTCMinutes())}:${pad(date.getUTCSeconds())}`;
+}
+
+function getMatchFetchSeason(window: MatchFetchWindow) {
+  if (window === 'last50') return null;
+  const context = getHattrickCalendarContext();
+  return window === 'previous' ? context.htSeason - 1 : context.htSeason;
+}
+
+function getLastMatchDateForWindow(window: MatchFetchWindow) {
+  const targetSeason = getMatchFetchSeason(window);
+  if (!targetSeason) return null;
+  return getHattrickWeekStartDate(targetSeason + 1, 1);
+}
+
+function isInsideFetchWindow(matchDate: Date, window: MatchFetchWindow) {
+  const targetSeason = getMatchFetchSeason(window);
+  if (!targetSeason) return true;
+  return getHattrickWeekFromDate(matchDate).htSeason === targetSeason;
+}
+
+async function fetchTeamFriendlies(
+  teamId: string,
+  oauthToken: string,
+  oauthTokenSecret: string,
+  options: { fetchWindow?: MatchFetchWindow; matchTypes?: Set<number> } = {},
+) {
   const consumerKey = process.env.CHPP_CONSUMER_KEY;
   const consumerSecret = process.env.CHPP_CONSUMER_SECRET;
   const url = 'https://chpp.hattrick.org/chppxml.ashx';
-  // matchType omitted to get all matches for the team
-  const params = { file: 'matches', teamID: teamId };
+  const fetchWindow = options.fetchWindow || 'current';
+  const lastMatchDate = getLastMatchDateForWindow(fetchWindow);
+  const params = lastMatchDate
+    ? { file: 'matches', teamID: teamId, LastMatchDate: formatChppDateTime(lastMatchDate) }
+    : { file: 'matches', teamID: teamId };
   const authHeader = getAuthHeader('GET', url, params, consumerKey!, consumerSecret!, oauthToken, oauthTokenSecret);
-  const response = await fetch(`${url}?file=matches&teamID=${teamId}`, { headers: { Authorization: authHeader } });
+  const query = new URLSearchParams(params).toString();
+  const response = await fetch(`${url}?${query}`, { headers: { Authorization: authHeader } });
   if (!response.ok) return [];
   const xml = await response.text();
-  const friendlies: { homeId: number; awayId: number; date: Date; matchId: number; matchType: number }[] = [];
+  const friendlies: TeamFriendlyMatch[] = [];
+  const allowedMatchTypes = options.matchTypes || getMatchTypesForCategories(['friendlies']);
   for (const match of xml.matchAll(/<Match>([\s\S]*?)<\/Match>/gi)) {
     const block = match[1];
     const matchType = parseInt(readChppTag(block, 'MatchType') || '0', 10);
-    // Valid friendlies: 4=Normal, 5=Cup, 8=Int. Normal, 9=Int. Cup
-    if ([4, 5, 8, 9].includes(matchType)) {
+    if (allowedMatchTypes.has(matchType)) {
       const status = readChppTag(block, 'Status');
       if (status === 'FINISHED' || status === 'UPCOMING') {
         const homeId = parseInt(readChppTag(block, 'HomeTeamID') || '0', 10);
         const awayId = parseInt(readChppTag(block, 'AwayTeamID') || '0', 10);
+        const homeName = readChppTag(block, 'HomeTeamName') || null;
+        const awayName = readChppTag(block, 'AwayTeamName') || null;
         const dateStr = readChppTag(block, 'MatchDate');
         const matchId = parseInt(readChppTag(block, 'MatchID') || '0', 10);
-        if (homeId && awayId && dateStr) friendlies.push({ homeId, awayId, matchId, date: new Date(dateStr.replace(' ', 'T')), matchType });
+        const homeGoalsText = readChppTag(block, 'HomeGoals');
+        const awayGoalsText = readChppTag(block, 'AwayGoals');
+        const date = dateStr ? new Date(dateStr.replace(' ', 'T')) : null;
+        if (homeId && awayId && date && isInsideFetchWindow(date, fetchWindow)) {
+          friendlies.push({
+            homeId,
+            awayId,
+            homeName,
+            awayName,
+            matchId,
+            date,
+            matchType,
+            homeGoals: homeGoalsText === '' ? null : Number(homeGoalsText),
+            awayGoals: awayGoalsText === '' ? null : Number(awayGoalsText),
+            status,
+          });
+        }
       }
     }
   }
@@ -210,6 +304,7 @@ interface ManualLinkMatchRow {
 interface ChppMatchDetails {
   htMatchId: number;
   matchType: number | null;
+  matchDate: Date | null;
   actualHtHomeTeamId: number | null;
   actualHtAwayTeamId: number | null;
   actualHomeTeamName: string | null;
@@ -221,6 +316,19 @@ interface ChppMatchDetails {
   went120: boolean;
   totalMinutes: number;
   eventDetails: MatchEventDetails;
+}
+
+interface AddHtMatchTeamRow {
+  id: string;
+  name: string;
+  ht_team_id: number | null;
+  logo_url: string | null;
+}
+
+interface AddHtMatchTournamentRow {
+  id: string;
+  admin_password: string;
+  season: number | null;
 }
 
 function getBodyValue(req: VercelRequest, key: string) {
@@ -262,6 +370,8 @@ async function fetchMatchDetailsById(
   const actualHomeTeamName = xml.match(/<HomeTeam>[\s\S]*?<HomeTeamName>([^<]+)<\/HomeTeamName>/i)?.[1] || null;
   const actualAwayTeamName = xml.match(/<AwayTeam>[\s\S]*?<AwayTeamName>([^<]+)<\/AwayTeamName>/i)?.[1] || null;
   const matchType = parseInt(readChppTag(xml, 'MatchType') || '0', 10) || null;
+  const matchDateText = readChppTag(xml, 'MatchDate');
+  const matchDate = matchDateText ? new Date(matchDateText.replace(' ', 'T')) : null;
   const finishedDate = readChppTag(xml, 'FinishedDate');
   const matchStatus = readChppTag(xml, 'MatchStatus');
   const finished = (finishedDate && finishedDate !== '0001-01-01 00:00:00') || matchStatus === '2';
@@ -272,6 +382,7 @@ async function fetchMatchDetailsById(
   return {
     htMatchId: parseInt(htMatchId, 10),
     matchType,
+    matchDate,
     actualHtHomeTeamId,
     actualHtAwayTeamId,
     actualHomeTeamName,
@@ -424,9 +535,303 @@ async function handleManualMatchLink(req: VercelRequest, res: VercelResponse) {
   return res.status(200).json({ ok: true, preview });
 }
 
+function formatMatchDateKey(date: Date | null) {
+  return date && Number.isFinite(date.getTime()) ? date.toISOString().slice(0, 10) : null;
+}
+
+function buildAddHtMatchPreview(details: ChppMatchDetails, homeTeam: AddHtMatchTeamRow | null, awayTeam: AddHtMatchTeamRow | null) {
+  return {
+    ht_match_id: details.htMatchId,
+    match_type: details.matchType,
+    match_date: details.matchDate?.toISOString() || null,
+    status: details.status,
+    completed: details.completed,
+    actual_home_team_id: details.actualHtHomeTeamId,
+    actual_away_team_id: details.actualHtAwayTeamId,
+    actual_home_team_name: details.actualHomeTeamName,
+    actual_away_team_name: details.actualAwayTeamName,
+    home_goals: details.completed || details.status === 'ongoing' ? details.homeGoals : null,
+    away_goals: details.completed || details.status === 'ongoing' ? details.awayGoals : null,
+    went_120: details.went120,
+    total_minutes: details.totalMinutes,
+    home_team_known: Boolean(homeTeam),
+    away_team_known: Boolean(awayTeam),
+    home_team: homeTeam
+      ? { id: homeTeam.id, name: homeTeam.name, ht_team_id: homeTeam.ht_team_id, logo_url: homeTeam.logo_url }
+      : null,
+    away_team: awayTeam
+      ? { id: awayTeam.id, name: awayTeam.name, ht_team_id: awayTeam.ht_team_id, logo_url: awayTeam.logo_url }
+      : null,
+  };
+}
+
+function formatSuggestedStatus(status: string | null): 'arranged' | 'finished' {
+  return status === 'FINISHED' ? 'finished' : 'arranged';
+}
+
+function toSuggestedMatch(
+  match: TeamFriendlyMatch,
+  teamByHtId: Map<number, AddHtMatchTeamRow>,
+) {
+  const homeTeam = teamByHtId.get(match.homeId) || null;
+  const awayTeam = teamByHtId.get(match.awayId) || null;
+  return {
+    ht_match_id: match.matchId,
+    match_type: match.matchType,
+    match_date: match.date.toISOString(),
+    status: formatSuggestedStatus(match.status),
+    actual_home_team_id: match.homeId,
+    actual_away_team_id: match.awayId,
+    actual_home_team_name: match.homeName,
+    actual_away_team_name: match.awayName,
+    home_goals: match.status === 'FINISHED' ? match.homeGoals : null,
+    away_goals: match.status === 'FINISHED' ? match.awayGoals : null,
+    home_team: homeTeam
+      ? { id: homeTeam.id, name: homeTeam.name, ht_team_id: homeTeam.ht_team_id, logo_url: homeTeam.logo_url }
+      : null,
+    away_team: awayTeam
+      ? { id: awayTeam.id, name: awayTeam.name, ht_team_id: awayTeam.ht_team_id, logo_url: awayTeam.logo_url }
+      : null,
+  };
+}
+
+async function handleSuggestHtMatches(req: VercelRequest, res: VercelResponse) {
+  const supabase = getSupabase();
+  const tournamentId = String(getBodyValue(req, 'tournamentId') || '');
+  const adminPassword = String(getBodyValue(req, 'adminPassword') || '');
+  const teamHtId = String(getBodyValue(req, 'teamHtId') || '').replace(/\D/g, '');
+  const offset = Math.max(0, Number(getBodyValue(req, 'offset') || 0));
+  const limit = Math.min(10, Math.max(1, Number(getBodyValue(req, 'limit') || 10)));
+  const fetchWindow = getSuggestedFetchWindow(getBodyValue(req, 'fetchWindow'));
+  const categories = getSuggestedFetchCategories(getBodyValue(req, 'matchCategories'));
+  const matchTypes = getMatchTypesForCategories(categories);
+
+  if (!tournamentId) return res.status(400).json({ error: 'Missing tournament.' });
+
+  const { data: tournament } = (await supabase
+    .from('tournaments')
+    .select('id, admin_password, season')
+    .eq('id', tournamentId)
+    .single()) as { data: AddHtMatchTournamentRow | null };
+  if (!tournament) return res.status(404).json({ error: 'Tournament not found.' });
+  if (!adminPassword || adminPassword !== tournament.admin_password) {
+    return res.status(403).json({ error: 'Organizer password is required.' });
+  }
+
+  const { data: authTeam } = await supabase
+    .from('teams')
+    .select('oauth_token, oauth_token_secret')
+    .not('oauth_token', 'is', null)
+    .limit(1)
+    .single();
+  if (!authTeam?.oauth_token) return res.status(401).json({ error: 'No CHPP-authenticated team available.' });
+
+  const { data: teams } = (await supabase
+    .from('teams')
+    .select('id, name, ht_team_id, logo_url')
+    .eq('tournament_id', tournamentId)
+    .eq('active', true)) as { data: AddHtMatchTeamRow[] | null };
+  const activeTeams = (teams || []).filter((team) => team.ht_team_id);
+  if (activeTeams.length < 2) return res.status(400).json({ error: 'Add at least two teams before fetching matches.' });
+
+  const currentSeason = Number(tournament.season || 1);
+  const { data: rounds } = await supabase
+    .from('rounds')
+    .select('matches(ht_match_id)')
+    .eq('tournament_id', tournamentId)
+    .eq('season_number', currentSeason);
+  const existingMatchIds = new Set<number>();
+  for (const round of rounds || []) {
+    for (const match of round.matches || []) {
+      if (match.ht_match_id) existingMatchIds.add(Number(match.ht_match_id));
+    }
+  }
+
+  const registeredHtIds = new Set(activeTeams.map((team) => Number(team.ht_team_id)));
+  const teamByHtId = new Map(activeTeams.map((team) => [Number(team.ht_team_id), team]));
+  const selectedTeams = teamHtId
+    ? activeTeams.filter((team) => Number(team.ht_team_id) === Number(teamHtId))
+    : activeTeams.length > 4
+      ? []
+      : activeTeams.slice(0, Math.max(1, activeTeams.length - 1));
+  if (selectedTeams.length === 0) {
+    return res.status(400).json({ error: 'Choose one team to fetch matches for this tournament size.' });
+  }
+
+  const deduped = new Map<number, TeamFriendlyMatch>();
+  for (const team of selectedTeams) {
+    const matches = await fetchTeamFriendlies(
+      String(team.ht_team_id),
+      authTeam.oauth_token,
+      authTeam.oauth_token_secret || '',
+      { fetchWindow, matchTypes },
+    );
+    for (const match of matches) {
+      if (existingMatchIds.has(match.matchId)) continue;
+      if (!registeredHtIds.has(match.homeId) || !registeredHtIds.has(match.awayId)) continue;
+      if (deduped.has(match.matchId)) continue;
+      deduped.set(match.matchId, match);
+    }
+  }
+
+  const now = Date.now();
+  const matches = [...deduped.values()];
+  const pastMatches = matches
+    .filter((match) => match.date.getTime() <= now)
+    .sort((a, b) => b.date.getTime() - a.date.getTime());
+  const futureMatches = matches
+    .filter((match) => match.date.getTime() > now)
+    .sort((a, b) => a.date.getTime() - b.date.getTime());
+  const ordered = [...pastMatches, ...futureMatches];
+  const page = ordered.slice(offset, offset + limit).map((match) => toSuggestedMatch(match, teamByHtId));
+
+  return res.status(200).json({
+    ok: true,
+    matches: page,
+    nextOffset: offset + page.length,
+    hasMore: offset + page.length < ordered.length,
+  });
+}
+
+async function handleAddHtMatch(req: VercelRequest, res: VercelResponse) {
+  const supabase = getSupabase();
+  const tournamentId = String(getBodyValue(req, 'tournamentId') || '');
+  const adminPassword = String(getBodyValue(req, 'adminPassword') || '');
+  const htMatchId = String(getBodyValue(req, 'htMatchId') || '').replace(/\D/g, '');
+  const dryRun = Boolean(getBodyValue(req, 'dryRun'));
+
+  if (!tournamentId || !htMatchId) return res.status(400).json({ error: 'Missing tournament or match id.' });
+
+  const { data: tournament } = await supabase
+    .from('tournaments')
+    .select('id, admin_password, season')
+    .eq('id', tournamentId)
+    .single();
+  if (!tournament) return res.status(404).json({ error: 'Tournament not found.' });
+  if (!adminPassword || adminPassword !== tournament.admin_password) {
+    return res.status(403).json({ error: 'Organizer password is required.' });
+  }
+
+  const { data: authTeam } = await supabase
+    .from('teams')
+    .select('oauth_token, oauth_token_secret')
+    .not('oauth_token', 'is', null)
+    .limit(1)
+    .single();
+  if (!authTeam?.oauth_token) return res.status(401).json({ error: 'No CHPP-authenticated team available.' });
+
+  const { data: teams } = (await supabase
+    .from('teams')
+    .select('id, name, ht_team_id, logo_url')
+    .eq('tournament_id', tournamentId)
+    .eq('active', true)) as { data: AddHtMatchTeamRow[] | null };
+  const activeTeams = (teams || []).filter((team) => team.ht_team_id);
+  if (activeTeams.length === 0) return res.status(400).json({ error: 'Add teams before adding Hattrick matches.' });
+
+  const currentSeason = Number(tournament.season || 1);
+  const { data: rounds } = await supabase
+    .from('rounds')
+    .select('id, round_number, matches(id, ht_match_id, scheduled_for)')
+    .eq('tournament_id', tournamentId)
+    .eq('season_number', currentSeason)
+    .order('round_number', { ascending: true });
+
+  const existingMatchIds = new Set<number>();
+  const roundByDate = new Map<string, string>();
+  for (const round of rounds || []) {
+    for (const match of round.matches || []) {
+      if (match.ht_match_id) existingMatchIds.add(Number(match.ht_match_id));
+      const key = formatMatchDateKey(match.scheduled_for ? new Date(match.scheduled_for) : null);
+      if (key && !roundByDate.has(key)) roundByDate.set(key, round.id);
+    }
+  }
+
+  const teamByHtId = new Map(activeTeams.map((team) => [Number(team.ht_team_id), team]));
+  const details = await fetchMatchDetailsById(htMatchId, authTeam.oauth_token, authTeam.oauth_token_secret || '');
+  const homeTeam = details.actualHtHomeTeamId ? teamByHtId.get(details.actualHtHomeTeamId) || null : null;
+  const awayTeam = details.actualHtAwayTeamId ? teamByHtId.get(details.actualHtAwayTeamId) || null : null;
+  const dateKey = formatMatchDateKey(details.matchDate);
+
+  if (existingMatchIds.has(details.htMatchId)) {
+    return res.status(409).json({ error: 'That Hattrick match is already added to this tournament.' });
+  }
+  if (!details.matchType || !ADDABLE_MATCH_TYPES.has(details.matchType)) {
+    return res.status(400).json({ error: 'That Hattrick match is not a supported league, cup, or friendly match.' });
+  }
+  if (!dateKey || !details.matchDate) {
+    return res.status(400).json({ error: 'Match date is unavailable.' });
+  }
+
+  const preview = buildAddHtMatchPreview(details, homeTeam, awayTeam);
+
+  if (!dryRun) {
+    if (!homeTeam || !awayTeam) {
+      return res.status(400).json({ error: 'Both match teams must be registered in this tournament first.' });
+    }
+
+    let roundId = roundByDate.get(dateKey);
+    if (!roundId) {
+      const nextRoundNumber = Math.max(0, ...(rounds || []).map((round) => Number(round.round_number || 0))) + 1;
+      const { data: insertedRound, error: roundError } = await supabase
+        .from('rounds')
+        .insert({
+          tournament_id: tournamentId,
+          season_number: currentSeason,
+          round_number: nextRoundNumber,
+        })
+        .select('id')
+        .single();
+      if (roundError || !insertedRound) {
+        return res.status(500).json({ error: roundError?.message || 'Could not create a round for this match.' });
+      }
+      roundId = insertedRound.id;
+    }
+
+    const eventDetails = mapMatchEventDetailsToFixture(
+      details.eventDetails,
+      details.actualHtHomeTeamId,
+      details.actualHtAwayTeamId,
+    );
+    const summary = summarizeMatchEventDetails(eventDetails);
+    const { error: matchError } = await supabase.from('matches').insert({
+      round_id: roundId,
+      home_team_id: homeTeam?.id || null,
+      away_team_id: awayTeam?.id || null,
+      home_goals: details.completed || details.status === 'ongoing' ? details.homeGoals : null,
+      away_goals: details.completed || details.status === 'ongoing' ? details.awayGoals : null,
+      completed: details.completed,
+      status: details.status,
+      went_120: details.went120,
+      total_minutes: details.totalMinutes,
+      ht_match_id: details.htMatchId,
+      match_type: details.matchType,
+      scheduled_for: details.matchDate.toISOString(),
+      actual_ht_home_team_id: details.actualHtHomeTeamId,
+      actual_ht_away_team_id: details.actualHtAwayTeamId,
+      appg_outcome: 'needs_review',
+      appg_outcome_source: 'unclassified',
+      ...summary,
+      match_event_details: eventDetails,
+    });
+    if (matchError) return res.status(500).json({ error: matchError.message });
+  }
+
+  return res.status(200).json({
+    ok: true,
+    preview,
+    inserted: dryRun ? 0 : 1,
+  });
+}
+
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   if (req.method === 'POST' && getBodyValue(req, 'action') === 'link_match') {
     return handleManualMatchLink(req, res);
+  }
+  if (req.method === 'POST' && getBodyValue(req, 'action') === 'add_ht_match') {
+    return handleAddHtMatch(req, res);
+  }
+  if (req.method === 'POST' && getBodyValue(req, 'action') === 'suggest_ht_matches') {
+    return handleSuggestHtMatches(req, res);
   }
 
   const { tournament_id } = req.query;
@@ -499,7 +904,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       if (!team.oauth_token) return [];
       try {
         const secret = team.oauth_token_secret || '';
-        const data = await fetchTeamFriendlies(team.ht_team_id.toString(), team.oauth_token, secret);
+        const data = await fetchTeamFriendlies(team.ht_team_id.toString(), team.oauth_token, secret, {
+          fetchWindow: 'last50',
+          matchTypes: getMatchTypesForCategories(['friendlies']),
+        });
         teamCache[team.id] = data;
         return data;
       } catch (e) {

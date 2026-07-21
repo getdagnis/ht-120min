@@ -2,14 +2,68 @@ import React, { useState } from 'react';
 import { Button } from '../../Button/Button';
 import { SectionCard } from '../../Card/SectionCard';
 import adminStyles from '../../../pages/Public/TournamentAdmin.module.sass';
-import { formatCalendarDate, formatCalendarDateWithWeek, getCupWeekDecoration } from '../../../utils/hattrick-calendar';
+import {
+  formatCalendarDate,
+  formatCalendarDateWithWeek,
+  getCupWeekDecoration,
+  getHattrickCalendarContext,
+} from '../../../utils/hattrick-calendar';
 import type { ScheduleDraftPreview, ScheduleMode } from '../../../utils/schedule-draft';
 import type { RescheduleDraftPreview } from '../../../utils/reschedule-draft';
+
+type ScheduleSetup = 'generated' | 'manual';
+type MatchFetchWindow = 'current' | 'previous' | 'last50';
+type MatchFetchCategory = 'friendlies' | 'cup' | 'league';
+
+interface HtMatchAddPreview {
+  ht_match_id: number;
+  match_type: number | null;
+  match_date: string | null;
+  status: 'arranged' | 'ongoing' | 'finished';
+  completed: boolean;
+  actual_home_team_id: number | null;
+  actual_away_team_id: number | null;
+  actual_home_team_name: string | null;
+  actual_away_team_name: string | null;
+  home_goals: number | null;
+  away_goals: number | null;
+  went_120: boolean;
+  total_minutes: number;
+  home_team_known: boolean;
+  away_team_known: boolean;
+  home_team: { id: string; name: string; ht_team_id: number | null; logo_url: string | null } | null;
+  away_team: { id: string; name: string; ht_team_id: number | null; logo_url: string | null } | null;
+}
+
+interface HtMatchSuggestion {
+  ht_match_id: number;
+  match_type: number | null;
+  match_date: string | null;
+  status: 'arranged' | 'finished';
+  actual_home_team_id: number | null;
+  actual_away_team_id: number | null;
+  actual_home_team_name: string | null;
+  actual_away_team_name: string | null;
+  home_goals: number | null;
+  away_goals: number | null;
+  home_team: { id: string; name: string; ht_team_id: number | null; logo_url: string | null } | null;
+  away_team: { id: string; name: string; ht_team_id: number | null; logo_url: string | null } | null;
+}
+
+interface SchedulePanelTeam {
+  id: string;
+  name: string;
+  ht_team_id: number;
+  logo_url?: string | null;
+  active?: boolean;
+  is_placeholder?: boolean;
+}
 
 interface TournamentSchedulePanelProps {
   isGenerated: boolean;
   isCollapsed: boolean;
   onToggleCollapse: () => void;
+  scheduleSetup: ScheduleSetup;
   draft: ScheduleDraftPreview;
   onScheduleModeChange: (mode: ScheduleMode) => void;
   onSelectedStartSlotIdChange: (value: string) => void;
@@ -18,6 +72,7 @@ interface TournamentSchedulePanelProps {
   isGenerating: boolean;
   onGenerate: () => void;
   tournamentTeamLimit?: number | null;
+  teams?: SchedulePanelTeam[];
   generatedSummary?: {
     scheduleMode?: string | null;
     scheduleStartSlot?: string | null;
@@ -32,6 +87,14 @@ interface TournamentSchedulePanelProps {
   onIncludeWeek15WeekendFriendlyForRescheduleChange?: (value: boolean) => void;
   isRescheduling?: boolean;
   onReschedule?: () => void;
+  previewHtMatchAdd?: (htMatchId: string) => Promise<HtMatchAddPreview>;
+  saveHtMatchAdd?: (htMatchId: string) => Promise<void>;
+  fetchHtMatchSuggestions?: (options?: {
+    teamHtId?: number;
+    offset?: number;
+    fetchWindow?: MatchFetchWindow;
+    matchCategories?: MatchFetchCategory[];
+  }) => Promise<{ matches: HtMatchSuggestion[]; nextOffset: number; hasMore: boolean }>;
 }
 
 function formatModeLabel(mode: ScheduleMode) {
@@ -97,10 +160,33 @@ function formatModeSummary(mode: ScheduleMode) {
   return 'recurring';
 }
 
+function formatMatchType(type: number | null) {
+  if (type === 1) return 'League match';
+  if (type === 3) return 'Cup match';
+  if (type === 4) return 'Friendly';
+  if (type === 5) return 'Cup friendly';
+  if (type === 8) return 'International friendly';
+  if (type === 9) return 'International cup friendly';
+  return type ? `Match type ${type}` : 'Match type unknown';
+}
+
+function formatAddMatchDate(value: string | null) {
+  if (!value) return 'Date unavailable';
+  return new Intl.DateTimeFormat('en-GB', {
+    timeZone: 'Europe/Stockholm',
+    day: '2-digit',
+    month: '2-digit',
+    year: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit',
+  }).format(new Date(value));
+}
+
 export const TournamentSchedulePanel: React.FC<TournamentSchedulePanelProps> = ({
   isGenerated,
   isCollapsed,
   onToggleCollapse,
+  scheduleSetup,
   draft,
   onScheduleModeChange,
   onSelectedStartSlotIdChange,
@@ -109,6 +195,7 @@ export const TournamentSchedulePanel: React.FC<TournamentSchedulePanelProps> = (
   isGenerating,
   onGenerate,
   tournamentTeamLimit,
+  teams = [],
   rescheduleDraft,
   onRescheduleFromRoundChange,
   onRescheduleStartSlotIdChange,
@@ -116,8 +203,33 @@ export const TournamentSchedulePanel: React.FC<TournamentSchedulePanelProps> = (
   onIncludeWeek15WeekendFriendlyForRescheduleChange,
   isRescheduling = false,
   onReschedule,
+  previewHtMatchAdd,
+  saveHtMatchAdd,
+  fetchHtMatchSuggestions,
 }) => {
   const [expandedRounds, setExpandedRounds] = useState<Record<number, boolean>>({});
+  const [manualAddOpen, setManualAddOpen] = useState(false);
+  const [addMatchInput, setAddMatchInput] = useState('');
+  const [addMatchPreview, setAddMatchPreview] = useState<HtMatchAddPreview | null>(null);
+  const [addMatchError, setAddMatchError] = useState('');
+  const [addMatchNotice, setAddMatchNotice] = useState('');
+  const [isCheckingAddMatch, setIsCheckingAddMatch] = useState(false);
+  const [isSavingAddMatch, setIsSavingAddMatch] = useState(false);
+  const [suggestionTeamId, setSuggestionTeamId] = useState<number | null>(null);
+  const [suggestedMatches, setSuggestedMatches] = useState<HtMatchSuggestion[]>([]);
+  const [suggestionsOffset, setSuggestionsOffset] = useState(0);
+  const [suggestionsHasMore, setSuggestionsHasMore] = useState(false);
+  const [suggestionsError, setSuggestionsError] = useState('');
+  const [suggestionsNotice, setSuggestionsNotice] = useState('');
+  const [isFetchingSuggestions, setIsFetchingSuggestions] = useState(false);
+  const [savingSuggestedMatchId, setSavingSuggestedMatchId] = useState<number | null>(null);
+  const [renderTimestamp] = useState(() => Date.now());
+  const [calendarContext] = useState(() => getHattrickCalendarContext());
+  const [suggestionFetchWindow, setSuggestionFetchWindow] = useState<MatchFetchWindow>(() =>
+    getHattrickCalendarContext().htWeek <= 3 ? 'previous' : 'current',
+  );
+  const [suggestionCategories, setSuggestionCategories] = useState<MatchFetchCategory[]>(['friendlies']);
+  const [showSuggestionOptions, setShowSuggestionOptions] = useState(false);
   const plannerTeamCount = getPlannerTeamCount(draft, tournamentTeamLimit);
   const selectedStartWarning =
     draft.requestedStartSlotId && draft.selectedStartSlot && getCupWeekDecoration(draft.selectedStartSlot.htWeek)
@@ -182,16 +294,396 @@ export const TournamentSchedulePanel: React.FC<TournamentSchedulePanelProps> = (
         ? 'Not enough teams'
         : draft.reason || 'No valid start date';
   const invalidReason = !draft.valid ? draft.blockingReasons[0] || draft.reason : null;
+  const canAddFetchedMatch = Boolean(addMatchPreview?.home_team_known && addMatchPreview?.away_team_known);
+  const activeTeams = teams.filter((team) => team.active !== false && !team.is_placeholder && team.ht_team_id);
+  const showPerTeamSuggestions = activeTeams.length > 4;
+  const selectedSuggestionTeam = suggestionTeamId
+    ? activeTeams.find((team) => Number(team.ht_team_id) === suggestionTeamId) || null
+    : null;
+
+  const handleFetchAddMatch = async () => {
+    const htMatchId = addMatchInput.replace(/\D/g, '');
+    if (!previewHtMatchAdd || htMatchId.length < 5) return;
+
+    setIsCheckingAddMatch(true);
+    setAddMatchError('');
+    setAddMatchNotice('');
+    setAddMatchPreview(null);
+    try {
+      setAddMatchPreview(await previewHtMatchAdd(htMatchId));
+    } catch (error) {
+      setAddMatchError(error instanceof Error ? error.message : 'Could not preview that match.');
+    } finally {
+      setIsCheckingAddMatch(false);
+    }
+  };
+
+  const handleSaveAddMatch = async () => {
+    if (!saveHtMatchAdd || !addMatchPreview || !canAddFetchedMatch) return;
+
+    setIsSavingAddMatch(true);
+    setAddMatchError('');
+    setAddMatchNotice('');
+    try {
+      await saveHtMatchAdd(String(addMatchPreview.ht_match_id));
+      setAddMatchInput('');
+      setAddMatchPreview(null);
+      setAddMatchNotice('Hattrick match added to fixtures.');
+    } catch (error) {
+      setAddMatchError(error instanceof Error ? error.message : 'Could not add that match.');
+    } finally {
+      setIsSavingAddMatch(false);
+    }
+  };
+
+  const handleFetchSuggestions = async (options?: { append?: boolean; teamHtId?: number }) => {
+    if (!fetchHtMatchSuggestions) return;
+    const teamHtId = options?.teamHtId ?? suggestionTeamId ?? undefined;
+    const append = Boolean(options?.append);
+
+    setIsFetchingSuggestions(true);
+    setSuggestionsError('');
+    setSuggestionsNotice('');
+    if (!append) {
+      setSuggestedMatches([]);
+      setSuggestionsOffset(0);
+      setSuggestionsHasMore(false);
+    }
+
+    try {
+      const result = await fetchHtMatchSuggestions({
+        teamHtId,
+        offset: append ? suggestionsOffset : 0,
+        fetchWindow: suggestionFetchWindow,
+        matchCategories: suggestionCategories,
+      });
+      setSuggestedMatches((current) => {
+        const next = append ? [...current] : [];
+        const known = new Set(next.map((match) => match.ht_match_id));
+        for (const match of result.matches) {
+          if (!known.has(match.ht_match_id)) {
+            next.push(match);
+            known.add(match.ht_match_id);
+          }
+        }
+        return next;
+      });
+      setSuggestionsOffset(result.nextOffset);
+      setSuggestionsHasMore(result.hasMore);
+      if (!append && result.matches.length === 0) {
+        setSuggestionsNotice('No matches found between registered teams.');
+      }
+    } catch (error) {
+      setSuggestionsError(error instanceof Error ? error.message : 'Could not fetch suggested matches.');
+    } finally {
+      setIsFetchingSuggestions(false);
+    }
+  };
+
+  const handleAddSuggestedMatch = async (match: HtMatchSuggestion) => {
+    if (!saveHtMatchAdd) return;
+    setSavingSuggestedMatchId(match.ht_match_id);
+    setSuggestionsError('');
+    setSuggestionsNotice('');
+    try {
+      await saveHtMatchAdd(String(match.ht_match_id));
+      setSuggestedMatches((current) => current.filter((item) => item.ht_match_id !== match.ht_match_id));
+      setSuggestionsNotice('Match added to fixtures.');
+    } catch (error) {
+      setSuggestionsError(error instanceof Error ? error.message : 'Could not add that match.');
+    } finally {
+      setSavingSuggestedMatchId(null);
+    }
+  };
+
+  const renderAddMatchPreview = () => {
+    if (!addMatchPreview) return null;
+    return (
+      <div className={adminStyles.addHtMatchPreview}>
+        <div className={adminStyles.addHtMatchTeams}>
+          <div className={adminStyles.addHtMatchTeam}>
+            {addMatchPreview.home_team?.logo_url && <img src={addMatchPreview.home_team.logo_url} alt="" />}
+            <strong>{addMatchPreview.home_team?.name || addMatchPreview.actual_home_team_name || 'Unknown home'}</strong>
+            <span>{addMatchPreview.home_team_known ? 'Registered team' : 'Not in this tournament'}</span>
+          </div>
+          <span className={adminStyles.addHtMatchScore}>
+            {addMatchPreview.home_goals ?? '-'} - {addMatchPreview.away_goals ?? '-'}
+          </span>
+          <div className={adminStyles.addHtMatchTeam}>
+            {addMatchPreview.away_team?.logo_url && <img src={addMatchPreview.away_team.logo_url} alt="" />}
+            <strong>{addMatchPreview.away_team?.name || addMatchPreview.actual_away_team_name || 'Unknown away'}</strong>
+            <span>{addMatchPreview.away_team_known ? 'Registered team' : 'Not in this tournament'}</span>
+          </div>
+        </div>
+        <p className={adminStyles.addHtMatchMeta}>
+          {formatAddMatchDate(addMatchPreview.match_date)} · {formatMatchType(addMatchPreview.match_type)} ·{' '}
+          {addMatchPreview.status}
+          {addMatchPreview.total_minutes ? ` · ${addMatchPreview.total_minutes}m` : ''}
+        </p>
+        {!canAddFetchedMatch && (
+          <p className={adminStyles.scheduleDanger}>Both teams must be registered before this match can be added.</p>
+        )}
+      </div>
+    );
+  };
+
+  const renderSuggestedMatch = (match: HtMatchSuggestion) => (
+    <div key={match.ht_match_id} className={adminStyles.suggestedMatchRow}>
+      <div className={adminStyles.addHtMatchTeam}>
+        {match.home_team?.logo_url && <img src={match.home_team.logo_url} alt="" />}
+        <strong>{match.home_team?.name || match.actual_home_team_name || 'Unknown home'}</strong>
+      </div>
+      <div className={adminStyles.suggestedMatchScore}>
+        <strong>
+          {match.home_goals ?? '-'} - {match.away_goals ?? '-'}
+        </strong>
+        <span>{formatAddMatchDate(match.match_date)}</span>
+        <span>{formatMatchType(match.match_type)}</span>
+      </div>
+      <div className={adminStyles.addHtMatchTeam}>
+        {match.away_team?.logo_url && <img src={match.away_team.logo_url} alt="" />}
+        <strong>{match.away_team?.name || match.actual_away_team_name || 'Unknown away'}</strong>
+      </div>
+      <Button
+        size="xs"
+        variant="primary"
+        onClick={() => void handleAddSuggestedMatch(match)}
+        disabled={savingSuggestedMatchId === match.ht_match_id}
+      >
+        {savingSuggestedMatchId === match.ht_match_id ? 'Adding...' : 'Add to fixtures'}
+      </Button>
+    </div>
+  );
+
+  const renderSuggestedMatches = () => {
+    const now = renderTimestamp;
+    const past = suggestedMatches.filter((match) => !match.match_date || new Date(match.match_date).getTime() <= now);
+    const future = suggestedMatches.filter((match) => match.match_date && new Date(match.match_date).getTime() > now);
+
+    return (
+      <div className={adminStyles.suggestedMatches}>
+        {past.length > 0 && (
+          <>
+            <h3>Suggested matches</h3>
+            {past.map(renderSuggestedMatch)}
+          </>
+        )}
+        {future.length > 0 && (
+          <>
+            <h3 className={adminStyles.secondaryTitle}>Future matches</h3>
+            {future.map(renderSuggestedMatch)}
+          </>
+        )}
+        {suggestionsHasMore && (
+          <Button
+            size="xs"
+            variant="secondaryAction"
+            onClick={() => void handleFetchSuggestions({ append: true })}
+            disabled={isFetchingSuggestions}
+          >
+            Load more
+          </Button>
+        )}
+      </div>
+    );
+  };
+
+  const toggleSuggestionCategory = (category: MatchFetchCategory) => {
+    setSuggestionCategories((current) =>
+      current.includes(category) ? current.filter((item) => item !== category) : [...current, category],
+    );
+    setSuggestedMatches([]);
+    setSuggestionsOffset(0);
+    setSuggestionsHasMore(false);
+    setSuggestionsNotice('');
+    setSuggestionsError('');
+  };
+
+  const handleSuggestionWindowChange = (window: MatchFetchWindow) => {
+    setSuggestionFetchWindow(window);
+    setSuggestedMatches([]);
+    setSuggestionsOffset(0);
+    setSuggestionsHasMore(false);
+    setSuggestionsNotice('');
+    setSuggestionsError('');
+  };
+
+  const renderSuggestionOptions = () => (
+    <div className={adminStyles.matchFetchOptions}>
+      <fieldset>
+        <legend>Timeframe</legend>
+        <label>
+          <input
+            type="radio"
+            name="matchFetchWindow"
+            value="current"
+            checked={suggestionFetchWindow === 'current'}
+            onChange={() => handleSuggestionWindowChange('current')}
+          />
+          This season ({calendarContext.htSeason})
+        </label>
+        <label>
+          <input
+            type="radio"
+            name="matchFetchWindow"
+            value="previous"
+            checked={suggestionFetchWindow === 'previous'}
+            onChange={() => handleSuggestionWindowChange('previous')}
+          />
+          Previous season ({calendarContext.htSeason - 1})
+        </label>
+        <label>
+          <input
+            type="radio"
+            name="matchFetchWindow"
+            value="last50"
+            checked={suggestionFetchWindow === 'last50'}
+            onChange={() => handleSuggestionWindowChange('last50')}
+          />
+          Last 50 matches
+        </label>
+      </fieldset>
+
+      <fieldset>
+        <legend>Match types</legend>
+        {[
+          ['friendlies', 'Friendlies'],
+          ['cup', 'Cup matches'],
+          ['league', 'League matches'],
+        ].map(([value, label]) => (
+          <label key={value}>
+            <input
+              type="checkbox"
+              checked={suggestionCategories.includes(value as MatchFetchCategory)}
+              onChange={() => toggleSuggestionCategory(value as MatchFetchCategory)}
+            />
+            {label}
+          </label>
+        ))}
+      </fieldset>
+    </div>
+  );
+
+  const renderManualScheduleTools = () => (
+    <div className={adminStyles.genOptions}>
+      <div className={adminStyles.scheduleIntro}>
+        <h2>No pre-made schedule</h2>
+        <p className={adminStyles.scheduleSubtitle}>
+          Add real Hattrick matches one by one. Teams must already be registered in this tournament.
+        </p>
+      </div>
+
+      <div className={adminStyles.addHtMatchPanel}>
+        {!manualAddOpen ? (
+          <>
+            {showPerTeamSuggestions ? (
+              <div className={adminStyles.suggestionTeamList}>
+                <p className={adminStyles.smallNote}>Fetch matches for one team at a time.</p>
+                {activeTeams.map((team) => (
+                  <Button
+                    key={team.id}
+                    size="xs"
+                    variant={suggestionTeamId === Number(team.ht_team_id) ? 'secondaryAction' : 'action'}
+                    onClick={() => {
+                      setSuggestionTeamId(Number(team.ht_team_id));
+                      void handleFetchSuggestions({ teamHtId: Number(team.ht_team_id) });
+                    }}
+                    disabled={isFetchingSuggestions || suggestionCategories.length === 0}
+                  >
+                    {team.name}
+                  </Button>
+                ))}
+              </div>
+            ) : (
+              <Button
+                size="sm"
+                variant="secondaryAction"
+                onClick={() => void handleFetchSuggestions()}
+                disabled={
+                  !fetchHtMatchSuggestions || activeTeams.length < 2 || isFetchingSuggestions || suggestionCategories.length === 0
+                }
+              >
+                {isFetchingSuggestions ? 'Fetching matches...' : 'Fetch matches'}
+              </Button>
+            )}
+            <button
+              type="button"
+              className={adminStyles.textLinkButton}
+              onClick={() => setShowSuggestionOptions((current) => !current)}
+            >
+              {showSuggestionOptions ? 'Hide options' : 'Show options'}
+            </button>
+            <button type="button" className={adminStyles.textLinkButton} onClick={() => setManualAddOpen(true)}>
+              Add matches manually
+            </button>
+            {showSuggestionOptions && renderSuggestionOptions()}
+            {selectedSuggestionTeam && (
+              <p className={adminStyles.smallNote}>Showing matches found from {selectedSuggestionTeam.name}.</p>
+            )}
+            {suggestionsError && <p className={adminStyles.scheduleDanger}>{suggestionsError}</p>}
+            {suggestionsNotice && <p className={adminStyles.resultNotice}>{suggestionsNotice}</p>}
+            {renderSuggestedMatches()}
+          </>
+        ) : (
+          <>
+            <div className={adminStyles.linkActions}>
+              <input
+                type="text"
+                inputMode="numeric"
+                maxLength={10}
+                value={addMatchInput}
+                onChange={(event) => {
+                  setAddMatchInput(event.target.value.replace(/\D/g, ''));
+                  setAddMatchPreview(null);
+                  setAddMatchError('');
+                  setAddMatchNotice('');
+                }}
+                placeholder="Match ID"
+                className={adminStyles.matchIdInput}
+              />
+              <Button
+                size="xs"
+                variant="secondaryAction"
+                onClick={() => void handleFetchAddMatch()}
+                disabled={!previewHtMatchAdd || addMatchInput.replace(/\D/g, '').length < 5 || isCheckingAddMatch}
+              >
+                Fetch match
+              </Button>
+              {addMatchPreview && canAddFetchedMatch && (
+                <Button
+                  size="xs"
+                  variant="primary"
+                  onClick={() => void handleSaveAddMatch()}
+                  disabled={isSavingAddMatch}
+                >
+                  Add to fixtures
+                </Button>
+              )}
+            </div>
+            <button type="button" className={adminStyles.textLinkButton} onClick={() => setManualAddOpen(false)}>
+              Back to suggested matches
+            </button>
+            {isCheckingAddMatch && <p className={adminStyles.smallNote}>Fetching match...</p>}
+            {addMatchError && <p className={adminStyles.scheduleDanger}>{addMatchError}</p>}
+            {addMatchNotice && <p className={adminStyles.resultNotice}>{addMatchNotice}</p>}
+            {renderAddMatchPreview()}
+          </>
+        )}
+      </div>
+    </div>
+  );
 
   return (
     <SectionCard
-      title={isGenerated ? 'Manage schedule' : 'Generate a schedule'}
+      title={scheduleSetup === 'manual' ? 'Add HT matches' : isGenerated ? 'Manage schedule' : 'Generate a schedule'}
       className={adminStyles.scheduleCard}
       collapsible
       isCollapsed={isCollapsed}
       onToggleCollapse={onToggleCollapse}
     >
-      {!isGenerated ? (
+      {scheduleSetup === 'manual' ? (
+        renderManualScheduleTools()
+      ) : !isGenerated ? (
         <div className={adminStyles.genOptions}>
           <div className={adminStyles.scheduleIntro}>
             <h2>{plannerTeamCount} team tournament</h2>
