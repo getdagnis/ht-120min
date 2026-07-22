@@ -1174,145 +1174,146 @@ export const TournamentView: React.FC = () => {
     [],
   );
 
-  const fetchData = useCallback(async (options: { showLoader?: boolean } = {}) => {
-    const showLoader = options.showLoader ?? !hasLoadedTournamentRef.current;
-    if (showLoader) setLoading(true);
-    const { data: tournamentData } = await supabase.from('tournaments').select('*').eq('slug', slug).single();
+  const fetchData = useCallback(
+    async (options: { showLoader?: boolean } = {}) => {
+      const showLoader = options.showLoader ?? !hasLoadedTournamentRef.current;
+      if (showLoader) setLoading(true);
+      const { data: tournamentData } = await supabase.from('tournaments').select('*').eq('slug', slug).single();
 
-    if (tournamentData) {
-      setTournament(tournamentData as Tournament);
-      setOrganizerProfileName(null);
-      if (!tournamentData.organizer_name && tournamentData.organizer_id) {
-        const { data: organizerProfile } = await supabase
-          .from('profiles')
-          .select('manager_name')
-          .eq('hattrick_user_id', tournamentData.organizer_id)
-          .maybeSingle();
-        setOrganizerProfileName(organizerProfile?.manager_name || null);
-      }
-      localStorage.setItem('last_viewed_tournament_id', tournamentData.id);
-      const currentSeasonNumber = Number(tournamentData.season || 1);
-      const { data: seasonData, error: seasonError } = await supabase
-        .from('tournament_seasons')
-        .select('*')
-        .eq('tournament_id', tournamentData.id)
-        .order('season_number', { ascending: true });
-      if (!seasonError && seasonData) {
-        setSeasons(seasonData as TournamentSeason[]);
-      } else {
-        setSeasons([]);
-      }
-      setEditName(tournamentData.name);
-      setEditIsPrivate(tournamentData.is_private);
-      setEditChppOnlyJoin(tournamentData.chpp_only_join);
-      setEditLeagueCategory(tournamentData.league_category || 'male');
-      setEditRegistrationType(normalizeTournamentRegistrationType(tournamentData.registration_type));
-      setEditCountryLimit(normalizeLeagueLimit(tournamentData.country_limit));
-      setScheduleSetup(tournamentData.schedule_mode === 'manual' ? 'manual' : 'generated');
-      setScheduleMode(normalizeGeneratedScheduleMode(tournamentData.schedule_mode));
-      const storedStartSlot = tournamentData.schedule_start_slot
-        ? buildCalendarSlots(new Date(), 160).find(
-            (slot) => slot.nominalDate.toISOString() === tournamentData.schedule_start_slot,
-          )
-        : null;
-      setScheduleStartSlotId(storedStartSlot?.id || '');
-      setIsTest(tournamentData.is_test || false);
-      setShowEditDescription(tournamentData.show_description);
-      setEditDescription(tournamentData.description || '');
-      setShowEditEmail(!!tournamentData.admin_email);
-      setEditAdminEmail(tournamentData.admin_email || '');
-      setEditMaxTeams(tournamentData.max_teams || null);
-      setIncludeWeek15WeekendFriendly(false);
-      setIncludeWeek15WeekendFriendlyForReschedule(Boolean(tournamentData.include_week15_weekend_friendly));
-      setEditIsFeatured(Boolean(tournamentData.is_featured));
-      const { data: teamsDataRaw } = await supabase
-        .from('teams')
-        .select('*')
-        .eq('tournament_id', tournamentData.id)
-        .order('created_at', { ascending: true });
-
-      const teamsData = teamsDataRaw || [];
-
-      // Fetch profiles to get country_id and up-to-date manager_name
-      let nextProfileMap: Record<number, { manager_name: string }> = {};
-      let nextLastSeenMap: Record<number, string | null> = {};
-      if (teamsData.length > 0) {
-        const userIds = teamsData.map((t) => t.hattrick_user_id).filter(Boolean);
-        if (userIds.length > 0) {
-          const { data: profilesData } = await supabase
+      if (tournamentData) {
+        setTournament(tournamentData as Tournament);
+        setOrganizerProfileName(null);
+        if (!tournamentData.organizer_name && tournamentData.organizer_id) {
+          const { data: organizerProfile } = await supabase
             .from('profiles')
-            .select('hattrick_user_id, manager_name, last_seen_at')
-            .in('hattrick_user_id', userIds);
-          if (profilesData) {
-            nextProfileMap = Object.fromEntries(
-              profilesData.map((p) => [Number(p.hattrick_user_id), { manager_name: p.manager_name }]),
-            );
-            nextLastSeenMap = Object.fromEntries(
-              profilesData.map((p) => [Number(p.hattrick_user_id), p.last_seen_at ?? null]),
-            );
+            .select('manager_name')
+            .eq('hattrick_user_id', tournamentData.organizer_id)
+            .maybeSingle();
+          setOrganizerProfileName(organizerProfile?.manager_name || null);
+        }
+        localStorage.setItem('last_viewed_tournament_id', tournamentData.id);
+        const currentSeasonNumber = Number(tournamentData.season || 1);
+        const { data: seasonData, error: seasonError } = await supabase
+          .from('tournament_seasons')
+          .select('*')
+          .eq('tournament_id', tournamentData.id)
+          .order('season_number', { ascending: true });
+        if (!seasonError && seasonData) {
+          setSeasons(seasonData as TournamentSeason[]);
+        } else {
+          setSeasons([]);
+        }
+        setEditName(tournamentData.name);
+        setEditIsPrivate(tournamentData.is_private);
+        setEditChppOnlyJoin(tournamentData.chpp_only_join);
+        setEditLeagueCategory(tournamentData.league_category || 'male');
+        setEditRegistrationType(normalizeTournamentRegistrationType(tournamentData.registration_type));
+        setEditCountryLimit(normalizeLeagueLimit(tournamentData.country_limit));
+        setScheduleSetup(tournamentData.schedule_mode === 'manual' ? 'manual' : 'generated');
+        setScheduleMode(normalizeGeneratedScheduleMode(tournamentData.schedule_mode));
+        const storedStartSlot = tournamentData.schedule_start_slot
+          ? buildCalendarSlots(new Date(), 160).find(
+              (slot) => slot.nominalDate.toISOString() === tournamentData.schedule_start_slot,
+            )
+          : null;
+        setScheduleStartSlotId(storedStartSlot?.id || '');
+        setIsTest(tournamentData.is_test || false);
+        setShowEditDescription(tournamentData.show_description);
+        setEditDescription(tournamentData.description || '');
+        setShowEditEmail(!!tournamentData.admin_email);
+        setEditAdminEmail(tournamentData.admin_email || '');
+        setEditMaxTeams(tournamentData.max_teams || null);
+        setIncludeWeek15WeekendFriendly(false);
+        setIncludeWeek15WeekendFriendlyForReschedule(Boolean(tournamentData.include_week15_weekend_friendly));
+        setEditIsFeatured(Boolean(tournamentData.is_featured));
+        const { data: teamsDataRaw } = await supabase
+          .from('teams')
+          .select('*')
+          .eq('tournament_id', tournamentData.id)
+          .order('created_at', { ascending: true });
+
+        const teamsData = teamsDataRaw || [];
+
+        // Fetch profiles to get country_id and up-to-date manager_name
+        let nextProfileMap: Record<number, { manager_name: string }> = {};
+        let nextLastSeenMap: Record<number, string | null> = {};
+        if (teamsData.length > 0) {
+          const userIds = teamsData.map((t) => t.hattrick_user_id).filter(Boolean);
+          if (userIds.length > 0) {
+            const { data: profilesData } = await supabase
+              .from('profiles')
+              .select('hattrick_user_id, manager_name, last_seen_at')
+              .in('hattrick_user_id', userIds);
+            if (profilesData) {
+              nextProfileMap = Object.fromEntries(
+                profilesData.map((p) => [Number(p.hattrick_user_id), { manager_name: p.manager_name }]),
+              );
+              nextLastSeenMap = Object.fromEntries(
+                profilesData.map((p) => [Number(p.hattrick_user_id), p.last_seen_at ?? null]),
+              );
+            }
           }
         }
-      }
 
-      setLastSeenMap(nextLastSeenMap);
+        setLastSeenMap(nextLastSeenMap);
 
-      setTeams(teamsData);
+        setTeams(teamsData);
 
-      const activeHtTeamIds = teamsData
-        .filter((team) => team.active && !team.is_placeholder && team.ht_team_id)
-        .map((team) => team.ht_team_id);
+        const activeHtTeamIds = teamsData
+          .filter((team) => team.active && !team.is_placeholder && team.ht_team_id)
+          .map((team) => team.ht_team_id);
 
-      if (activeHtTeamIds.length > 0) {
-        const { data: elsewhereRows } = await supabase
-          .from('teams')
-          .select('ht_team_id, tournament_id, tournaments(name, status, is_test, registration_type)')
-          .in('ht_team_id', activeHtTeamIds)
-          .eq('active', true)
-          .neq('tournament_id', tournamentData.id);
+        if (activeHtTeamIds.length > 0) {
+          const { data: elsewhereRows } = await supabase
+            .from('teams')
+            .select('ht_team_id, tournament_id, tournaments(name, status, is_test, registration_type)')
+            .in('ht_team_id', activeHtTeamIds)
+            .eq('active', true)
+            .neq('tournament_id', tournamentData.id);
 
-        const elsewhereIds = new Set<number>();
-        (elsewhereRows || []).forEach((row) => {
-          const tournament = Array.isArray(row.tournaments) ? row.tournaments[0] : row.tournaments;
-          if (row.ht_team_id && isBlockingTeamTournament(tournament)) {
-            elsewhereIds.add(Number(row.ht_team_id));
-          }
+          const elsewhereIds = new Set<number>();
+          (elsewhereRows || []).forEach((row) => {
+            const tournament = Array.isArray(row.tournaments) ? row.tournaments[0] : row.tournaments;
+            if (row.ht_team_id && isBlockingTeamTournament(tournament)) {
+              elsewhereIds.add(Number(row.ht_team_id));
+            }
+          });
+          setPlayingElsewhereTeamIds(elsewhereIds);
+        } else {
+          setPlayingElsewhereTeamIds(new Set());
+        }
+
+        const fetchedScheduleTeams = teamsData
+          .filter((team) => team.active && !team.is_placeholder)
+          .map((team) => ({
+            id: team.id,
+            name: team.name,
+            active: team.active,
+            isPlaceholder: team.is_placeholder,
+            countryName: team.country_name ?? null,
+            leagueLevel: team.league_level ?? null,
+          }));
+        const reconciledDraft = buildScheduleDraft({
+          teams: fetchedScheduleTeams,
+          mode: normalizeGeneratedScheduleMode(tournamentData.schedule_mode),
+          startSlotId: storedStartSlot?.id || null,
+          includeWeek15WeekendFriendly: false,
+          now: new Date(),
         });
-        setPlayingElsewhereTeamIds(elsewhereIds);
-      } else {
-        setPlayingElsewhereTeamIds(new Set());
-      }
+        setScheduleMode(reconciledDraft.mode);
+        setScheduleStartSlotId(storedStartSlot?.id || '');
 
-      const fetchedScheduleTeams = teamsData
-        .filter((team) => team.active && !team.is_placeholder)
-        .map((team) => ({
-          id: team.id,
-          name: team.name,
-          active: team.active,
-          isPlaceholder: team.is_placeholder,
-          countryName: team.country_name ?? null,
-          leagueLevel: team.league_level ?? null,
-        }));
-      const reconciledDraft = buildScheduleDraft({
-        teams: fetchedScheduleTeams,
-        mode: normalizeGeneratedScheduleMode(tournamentData.schedule_mode),
-        startSlotId: storedStartSlot?.id || null,
-        includeWeek15WeekendFriendly: false,
-        now: new Date(),
-      });
-      setScheduleMode(reconciledDraft.mode);
-      setScheduleStartSlotId(storedStartSlot?.id || '');
+        const { data: roundsData } = await supabase
+          .from('rounds')
+          .select('*')
+          .eq('tournament_id', tournamentData.id)
+          .eq('season_number', currentSeasonNumber)
+          .order('round_number', { ascending: true });
 
-      const { data: roundsData } = await supabase
-        .from('rounds')
-        .select('*')
-        .eq('tournament_id', tournamentData.id)
-        .eq('season_number', currentSeasonNumber)
-        .order('round_number', { ascending: true });
-
-      const { data: matchesDataRaw } = await supabase
-        .from('matches')
-        .select(
-          `
+        const { data: matchesDataRaw } = await supabase
+          .from('matches')
+          .select(
+            `
           *,
           status,
           ht_match_id,
@@ -1320,128 +1321,130 @@ export const TournamentView: React.FC = () => {
           home_team:teams!matches_home_team_id_fkey(name, ht_team_id, logo_url, country_name, country_id, league_id, league_level, active, manager_name, hattrick_user_id),
           away_team:teams!matches_away_team_id_fkey(name, ht_team_id, logo_url, country_name, country_id, league_id, league_level, active, manager_name, hattrick_user_id)
         `,
-        )
-        .in(
-          'round_id',
-          (roundsData || []).map((r) => r.id),
-        );
+          )
+          .in(
+            'round_id',
+            (roundsData || []).map((r) => r.id),
+          );
 
-      // Enrich matches with profile data
-      const matchesData = (matchesDataRaw || []).map((m) => ({
-        ...m,
-        home_team: m.home_team
-          ? {
-              ...m.home_team,
-              manager_name: m.home_team.hattrick_user_id
-                ? nextProfileMap[m.home_team.hattrick_user_id]?.manager_name || m.home_team.manager_name
-                : m.home_team.manager_name,
-            }
-          : null,
-        away_team: m.away_team
-          ? {
-              ...m.away_team,
-              manager_name: m.away_team.hattrick_user_id
-                ? nextProfileMap[m.away_team.hattrick_user_id]?.manager_name || m.away_team.manager_name
-                : m.away_team.manager_name,
-            }
-          : null,
-      }));
+        // Enrich matches with profile data
+        const matchesData = (matchesDataRaw || []).map((m) => ({
+          ...m,
+          home_team: m.home_team
+            ? {
+                ...m.home_team,
+                manager_name: m.home_team.hattrick_user_id
+                  ? nextProfileMap[m.home_team.hattrick_user_id]?.manager_name || m.home_team.manager_name
+                  : m.home_team.manager_name,
+              }
+            : null,
+          away_team: m.away_team
+            ? {
+                ...m.away_team,
+                manager_name: m.away_team.hattrick_user_id
+                  ? nextProfileMap[m.away_team.hattrick_user_id]?.manager_name || m.away_team.manager_name
+                  : m.away_team.manager_name,
+              }
+            : null,
+        }));
 
-      const { data: warningsData } = await supabase
-        .from('fixture_warnings')
-        .select('*')
-        .eq('tournament_id', tournamentData.id)
-        .eq('active', true);
-
-      setWarnings(warningsData || []);
-
-      const { data: announcementData } = await supabase
-        .from('tournament_announcements')
-        .select('*')
-        .eq('tournament_id', tournamentData.id)
-        .order('created_at', { ascending: false });
-      setAnnouncements((announcementData as TournamentAnnouncement[] | null) || []);
-
-      if (currentHtUserId) {
-        const { data: dismissalData } = await supabase
-          .from('tournament_announcement_dismissals')
+        const { data: warningsData } = await supabase
+          .from('fixture_warnings')
           .select('*')
           .eq('tournament_id', tournamentData.id)
-          .eq('hattrick_user_id', currentHtUserId);
-        setAnnouncementDismissals((dismissalData as TournamentAnnouncementDismissal[] | null) || []);
-      } else {
-        setAnnouncementDismissals([]);
-      }
+          .eq('active', true);
 
-      if (teamsData) {
-        const matchesWithTeams = matchesData as unknown as MatchWithTeams[];
+        setWarnings(warningsData || []);
 
-        // Add calculated match_date to each match for sorting and status detection
-        const matchesWithDates = matchesWithTeams.map((m) => {
-          const round = roundsData?.find((r) => r.id === m.round_id);
-          return {
-            ...m,
-            match_date: round ? getMatchDateForRound(round as RoundWithMatches, m) : undefined,
-          };
-        });
+        const { data: announcementData } = await supabase
+          .from('tournament_announcements')
+          .select('*')
+          .eq('tournament_id', tournamentData.id)
+          .order('created_at', { ascending: false });
+        setAnnouncements((announcementData as TournamentAnnouncement[] | null) || []);
 
-        const mergedMatches = matchesWithDates;
+        if (currentHtUserId) {
+          const { data: dismissalData } = await supabase
+            .from('tournament_announcement_dismissals')
+            .select('*')
+            .eq('tournament_id', tournamentData.id)
+            .eq('hattrick_user_id', currentHtUserId);
+          setAnnouncementDismissals((dismissalData as TournamentAnnouncementDismissal[] | null) || []);
+        } else {
+          setAnnouncementDismissals([]);
+        }
 
-        const calculated = calculateStandings(
-          teamsData.map((t) => ({
-            id: t.id,
-            name: t.name,
-            ht_team_id: t.ht_team_id,
-            hattrick_user_id: t.hattrick_user_id,
-            active: t.active,
-            replacement_for_team_id: t.replacement_for_team_id,
-            joined_via_oauth: t.joined_via_oauth,
-            country_name: t.country_name,
-            country_id: t.country_id ?? null,
-            league_id: t.league_id ?? null,
-            logo_url: t.logo_url,
-            manager_name: t.hattrick_user_id
-              ? nextProfileMap[t.hattrick_user_id]?.manager_name || t.manager_name
-              : t.manager_name,
-          })),
-          mergedMatches.map((m) => ({
-            home_team_id: m.home_team_id,
-            away_team_id: m.away_team_id,
-            home_goals: m.home_goals,
-            away_goals: m.away_goals,
-            completed: m.completed,
-            went_120: m.went_120,
-            total_minutes: m.total_minutes,
-            appg_outcome: m.appg_outcome,
-            penalty_shootout_home_goals: m.penalty_shootout_home_goals,
-            penalty_shootout_away_goals: m.penalty_shootout_away_goals,
-          })),
-          tournamentData.scoring_mode as any,
-        );
+        if (teamsData) {
+          const matchesWithTeams = matchesData as unknown as MatchWithTeams[];
 
-        setStandings(calculated);
+          // Add calculated match_date to each match for sorting and status detection
+          const matchesWithDates = matchesWithTeams.map((m) => {
+            const round = roundsData?.find((r) => r.id === m.round_id);
+            return {
+              ...m,
+              match_date: round ? getMatchDateForRound(round as RoundWithMatches, m) : undefined,
+            };
+          });
 
-        if (roundsData) {
-          const roundsWithMatches = roundsData.map((r) => ({
-            ...r,
-            matches: mergedMatches
-              .filter((m) => m.round_id === r.id)
-              .sort((a, b) => {
-                const aDate = a.match_date?.getTime() || 0;
-                const bDate = b.match_date?.getTime() || 0;
-                if (aDate !== bDate) return aDate - bDate;
-                return a.id.localeCompare(b.id);
-              }),
-          }));
-          setRounds(roundsWithMatches as RoundWithMatches[]);
+          const mergedMatches = matchesWithDates;
 
-          // Season reports are generated only through explicit admin actions.
+          const calculated = calculateStandings(
+            teamsData.map((t) => ({
+              id: t.id,
+              name: t.name,
+              ht_team_id: t.ht_team_id,
+              hattrick_user_id: t.hattrick_user_id,
+              active: t.active,
+              replacement_for_team_id: t.replacement_for_team_id,
+              joined_via_oauth: t.joined_via_oauth,
+              country_name: t.country_name,
+              country_id: t.country_id ?? null,
+              league_id: t.league_id ?? null,
+              logo_url: t.logo_url,
+              manager_name: t.hattrick_user_id
+                ? nextProfileMap[t.hattrick_user_id]?.manager_name || t.manager_name
+                : t.manager_name,
+            })),
+            mergedMatches.map((m) => ({
+              home_team_id: m.home_team_id,
+              away_team_id: m.away_team_id,
+              home_goals: m.home_goals,
+              away_goals: m.away_goals,
+              completed: m.completed,
+              went_120: m.went_120,
+              total_minutes: m.total_minutes,
+              appg_outcome: m.appg_outcome,
+              penalty_shootout_home_goals: m.penalty_shootout_home_goals,
+              penalty_shootout_away_goals: m.penalty_shootout_away_goals,
+            })),
+            tournamentData.scoring_mode as any,
+          );
+
+          setStandings(calculated);
+
+          if (roundsData) {
+            const roundsWithMatches = roundsData.map((r) => ({
+              ...r,
+              matches: mergedMatches
+                .filter((m) => m.round_id === r.id)
+                .sort((a, b) => {
+                  const aDate = a.match_date?.getTime() || 0;
+                  const bDate = b.match_date?.getTime() || 0;
+                  if (aDate !== bDate) return aDate - bDate;
+                  return a.id.localeCompare(b.id);
+                }),
+            }));
+            setRounds(roundsWithMatches as RoundWithMatches[]);
+
+            // Season reports are generated only through explicit admin actions.
+          }
         }
       }
-    }
-    hasLoadedTournamentRef.current = true;
-    if (showLoader) setLoading(false);
-  }, [slug, getMatchDateForRound, currentHtUserId]);
+      hasLoadedTournamentRef.current = true;
+      if (showLoader) setLoading(false);
+    },
+    [slug, getMatchDateForRound, currentHtUserId],
+  );
 
   // Lightweight update: only refresh rounds, matches, warnings and last_fixtures_refresh timestamp.
   // Does not reload tournament meta, teams, standings, chat, news, or profiles.
@@ -5633,8 +5636,8 @@ export const TournamentView: React.FC = () => {
                     {tournament.status === 'finished' ? (
                       <>
                         <p className={adminStyles.lifecycleHelp}>
-                          This tournament is finished. Its history stays visible, but participating teams can join or
-                          create other tournaments.
+                          Until a new season is started, this tournament is considered finished. Its history stays
+                          visible, but participating teams can join or create other tournaments.
                         </p>
                         <div className={adminStyles.lifecycleButtons}>
                           <Button variant="zero" size="sm" disabled>
