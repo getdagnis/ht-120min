@@ -335,7 +335,7 @@
 .participantCard
   min-width: 0
   padding: 0.8rem
-  border: 1px solid var(--border-transp)
+  border: 1px solid var(--border)
   border-radius: var(--radius-sm)
   background: var(--lighter)
 
@@ -343,10 +343,14 @@
   display: flex
   flex-direction: column
   gap: 0.65rem
+  border: 1px solid var(--gold-transp)
 
   > small
     color: var(--text60)
     font-family: var(--heading)
+
+[data-theme="light"] .awardCard
+    border: 1px solid var(--gold-dark)
 
 .awardLabel
   display: flex

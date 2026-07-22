@@ -289,8 +289,8 @@ function getAwardStat(
       : `${cardCount} card${cardCount === 1 ? '' : 's'}`;
   }
   if (award.key === 'most-injuries') {
-    const injuryCount = teamId ? award.recipientValues?.[teamId] ?? award.value ?? 0 : award.value || 0;
-    const injuryWeeks = teamId ? award.recipientSecondaryValues?.[teamId] ?? 0 : 0;
+    const injuryCount = teamId ? (award.recipientValues?.[teamId] ?? award.value ?? 0) : award.value || 0;
+    const injuryWeeks = teamId ? (award.recipientSecondaryValues?.[teamId] ?? 0) : 0;
     return `${injuryCount} injur${injuryCount === 1 ? 'y' : 'ies'}${injuryWeeks ? ` (${injuryWeeks} weeks)` : ''}`;
   }
   if (award.key === 'most-matches-played') return `${award.value || 0} games`;
@@ -732,7 +732,8 @@ export const TournamentHistory: React.FC<TournamentHistoryProps> = ({
               <div>
                 <dt>120m Matches</dt>
                 <dd>
-                  {snapshot.summary.achievements120min} ({snapshot.summary.completedMatches > 0
+                  {snapshot.summary.achievements120min} (
+                  {snapshot.summary.completedMatches > 0
                     ? Math.round((snapshot.summary.achievements120min / snapshot.summary.completedMatches) * 100)
                     : 0}
                   %)
@@ -791,7 +792,7 @@ export const TournamentHistory: React.FC<TournamentHistoryProps> = ({
           </section>
 
           <section className={styles.contentSection}>
-            <h2>All Season {selectedSeason.seasonNumber} Titles</h2>
+            <h2>Season {selectedSeason.seasonNumber} achievements per team</h2>
             <div className={styles.participantsGrid}>
               {[...snapshot.participants]
                 .sort((a, b) => (a.finalPosition || 999) - (b.finalPosition || 999))
@@ -882,9 +883,7 @@ export const TournamentHistory: React.FC<TournamentHistoryProps> = ({
                 <dt>
                   <Medal size={18} /> Most 120-minute matches
                 </dt>
-                <dd>
-                  {most120RecordDetails || '-'}
-                </dd>
+                <dd>{most120RecordDetails || '-'}</dd>
               </div>
               <div>
                 <dt>
