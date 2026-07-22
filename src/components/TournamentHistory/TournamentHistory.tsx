@@ -156,6 +156,7 @@ interface TournamentHistoryProps {
   canGenerateReport?: boolean;
   isGeneratingReport?: boolean;
   onGenerateReport?: () => void;
+  scoringMode?: '120m' | '120min' | 'points' | 'appg';
   autoScrollToYearbook?: boolean;
   onCommentsLoaded?: (seasonId: string, commentCount: number) => void;
   forceCommentConfirmOpen?: boolean;
@@ -170,6 +171,7 @@ const AWARD_DETAILS: Record<SeasonAwardKey, { label: string; icon: React.ReactNo
   'fair-play': { label: 'Fair Play', icon: <Handshake size={20} weight="regular" /> },
   'most-cards': { label: 'Most cards', icon: <Cards size={20} weight="regular" /> },
   'most-injuries': { label: 'Most injuries', icon: <FirstAid size={20} weight="regular" /> },
+  'most-matches-played': { label: 'Most matches played', icon: <UsersThree size={20} weight="regular" /> },
   'every-fixture-completed': { label: 'Every fixture completed', icon: <UsersThree size={20} weight="regular" /> },
   'total-minute-specialists': { label: 'Total minute specialists', icon: <Clock size={20} weight="regular" /> },
 };
@@ -182,6 +184,7 @@ const AWARD_PRIORITY: SeasonAwardKey[] = [
   'fair-play',
   'most-cards',
   'most-injuries',
+  'most-matches-played',
   'every-fixture-completed',
   'total-minute-specialists',
 ];
@@ -321,6 +324,7 @@ export const TournamentHistory: React.FC<TournamentHistoryProps> = ({
   canGenerateReport = false,
   isGeneratingReport = false,
   onGenerateReport,
+  scoringMode = '120min',
   autoScrollToYearbook = false,
   onCommentsLoaded,
   forceCommentConfirmOpen = false,
@@ -458,25 +462,15 @@ export const TournamentHistory: React.FC<TournamentHistoryProps> = ({
     recipientTeamIds: snapshot.records.most120TeamIds,
     value: snapshot.records.most120Value,
   };
-  const fairPlayCardCounts = snapshot.teamStats.map((stat) => ({
-    teamId: stat.teamId,
-    value: stat.yellowCards + stat.redCards,
-  }));
-  const lowestCardCount = fairPlayCardCounts.length ? Math.min(...fairPlayCardCounts.map((item) => item.value)) : null;
-  const fairPlayAward: SeasonAward | null =
-    lowestCardCount === null
-      ? null
-      : {
-          key: 'fair-play',
-          recipientTeamIds: fairPlayCardCounts
-            .filter((item) => item.value === lowestCardCount)
-            .map((item) => item.teamId),
-          value: lowestCardCount,
-        };
+  const fairPlayAward = snapshot.awards.find((award) => award.key === 'fair-play') || null;
   const displayAwards = [
     most120Award,
     ...snapshot.awards.filter(
-      (award) => award.key !== 'champions' && award.key !== 'most-120-matches' && award.key !== 'fair-play',
+      (award) =>
+        award.key !== 'champions' &&
+        award.key !== 'most-120-matches' &&
+        award.key !== 'fair-play' &&
+        !(scoringMode === 'appg' && award.key === 'every-fixture-completed'),
     ),
     ...(fairPlayAward ? [fairPlayAward] : []),
   ].sort((a, b) => {
@@ -488,6 +482,7 @@ export const TournamentHistory: React.FC<TournamentHistoryProps> = ({
       'fair-play',
       'most-cards',
       'most-injuries',
+      'most-matches-played',
       'every-fixture-completed',
       'total-minute-specialists',
     ];
@@ -693,26 +688,29 @@ export const TournamentHistory: React.FC<TournamentHistoryProps> = ({
                 </dd>
               </div>
               <div>
-                <dt>Teams</dt>
+                <dt>Tournament Teams</dt>
                 <dd>{snapshot.summary.teams}</dd>
               </div>
               <div>
-                <dt>Rounds</dt>
+                <dt>Total Rounds</dt>
                 <dd>{roundsPlayed}</dd>
               </div>
               <div>
-                <dt>120m</dt>
-                <dd>{snapshot.summary.achievements120min}x2</dd>
+                <dt>120m Matches</dt>
+                <dd>
+                  {snapshot.summary.achievements120min} ({snapshot.summary.completedMatches > 0
+                    ? Math.round((snapshot.summary.achievements120min / snapshot.summary.completedMatches) * 100)
+                    : 0}
+                  %)
+                </dd>
               </div>
               <div>
-                <dt>Goals</dt>
+                <dt>Total Goals</dt>
                 <dd>{snapshot.summary.goals}</dd>
               </div>
               <div>
-                <dt>Completed</dt>
-                <dd>
-                  {snapshot.summary.completedMatches}/{snapshot.summary.matches}
-                </dd>
+                <dt>Matches Completed</dt>
+                <dd>{snapshot.summary.completedMatches}</dd>
               </div>
             </dl>
           </section>

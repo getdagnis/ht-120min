@@ -925,19 +925,10 @@ export const TournamentView: React.FC = () => {
 
   const [loading, setLoading] = useState(true);
   const [copied, setCopied] = useState<Record<string, boolean>>({});
+  const hasLoadedTournamentRef = useRef(false);
 
   const allMatches = rounds.flatMap((r) => r.matches);
   const isGenerated = rounds.length > 0;
-  const { liveData, lastRefresh } = useLiveMatches(
-    tournament?.id,
-    allMatches,
-    () => {
-      // Note: fetchData is defined below but hoisted as a const,
-      // we call it inside this effect/callback safely.
-    },
-    activeTab === 'fixtures' || tournament?.scoring_mode === 'appg',
-    tournament?.scoring_mode === 'appg',
-  );
 
   const isHealthQuotaMet = useCallback(
     (teamList: Team[] = teams) => {
@@ -1141,8 +1132,9 @@ export const TournamentView: React.FC = () => {
     [],
   );
 
-  const fetchData = useCallback(async () => {
-    setLoading(true);
+  const fetchData = useCallback(async (options: { showLoader?: boolean } = {}) => {
+    const showLoader = options.showLoader ?? !hasLoadedTournamentRef.current;
+    if (showLoader) setLoading(true);
     const { data: tournamentData } = await supabase.from('tournaments').select('*').eq('slug', slug).single();
 
     if (tournamentData) {
@@ -1351,35 +1343,7 @@ export const TournamentView: React.FC = () => {
           };
         });
 
-        // Merge liveData into matches for immediate standings/UI updates
-        const mergedMatches = matchesWithDates.map((m) => {
-          const live = m.ht_match_id ? liveData[m.ht_match_id.toString()] : null;
-          if (live) {
-            return {
-              ...m,
-              home_goals:
-                live.status === 'finished' || live.homeGoals > (m.home_goals || 0) ? live.homeGoals : m.home_goals,
-              away_goals:
-                live.status === 'finished' || live.awayGoals > (m.away_goals || 0) ? live.awayGoals : m.away_goals,
-              completed: live.status === 'finished' || m.completed,
-              status: live.status === 'finished' ? 'finished' : live.status || m.status,
-              went_120: live.went_120 ?? m.went_120,
-              total_minutes: live.total_minutes ?? m.total_minutes,
-              penalty_shootout_home_goals: live.penalty_shootout_home_goals ?? m.penalty_shootout_home_goals,
-              penalty_shootout_away_goals: live.penalty_shootout_away_goals ?? m.penalty_shootout_away_goals,
-              appg_outcome: live.appg_outcome ?? m.appg_outcome,
-              appg_outcome_source: live.appg_outcome_source ?? m.appg_outcome_source,
-              home_yellow_cards: live.home_yellow_cards ?? m.home_yellow_cards,
-              home_red_cards: live.home_red_cards ?? m.home_red_cards,
-              home_injuries: live.home_injuries ?? m.home_injuries,
-              away_yellow_cards: live.away_yellow_cards ?? m.away_yellow_cards,
-              away_red_cards: live.away_red_cards ?? m.away_red_cards,
-              away_injuries: live.away_injuries ?? m.away_injuries,
-              match_event_details: live.match_event_details ?? m.match_event_details,
-            };
-          }
-          return m;
-        });
+        const mergedMatches = matchesWithDates;
 
         const calculated = calculateStandings(
           teamsData.map((t) => ({
@@ -1433,8 +1397,9 @@ export const TournamentView: React.FC = () => {
         }
       }
     }
-    setLoading(false);
-  }, [slug, liveData, getMatchDateForRound, currentHtUserId]);
+    hasLoadedTournamentRef.current = true;
+    if (showLoader) setLoading(false);
+  }, [slug, getMatchDateForRound, currentHtUserId]);
 
   // Lightweight update: only refresh rounds, matches, warnings and last_fixtures_refresh timestamp.
   // Does not reload tournament meta, teams, standings, chat, news, or profiles.
@@ -1502,6 +1467,16 @@ export const TournamentView: React.FC = () => {
       setTournament((prev) => (prev ? { ...prev, last_fixtures_refresh: tournamentMeta.last_fixtures_refresh } : prev));
   }, [tournament, teams, getMatchDateForRound]);
 
+  const { liveData } = useLiveMatches(
+    tournament?.id,
+    allMatches,
+    () => {
+      void fetchFixturesOnly();
+    },
+    tournament?.status !== 'finished' && (activeTab === 'fixtures' || tournament?.scoring_mode === 'appg'),
+    tournament?.scoring_mode === 'appg',
+  );
+
   const fetchPresenceOnly = useCallback(async () => {
     if (!tournament) return;
     const userIds = teams.map((t) => t.hattrick_user_id).filter(Boolean);
@@ -1530,15 +1505,6 @@ export const TournamentView: React.FC = () => {
       console.error('Presence refresh request failed:', error);
     }
   }, [tournament, teams]);
-
-  // Keep last_fixtures_refresh updated in UI when live polling happens
-  const prevLastRefreshRef = useRef(lastRefresh);
-  useEffect(() => {
-    if (lastRefresh && lastRefresh !== prevLastRefreshRef.current) {
-      prevLastRefreshRef.current = lastRefresh;
-      setTournament((prev) => (prev ? { ...prev, last_fixtures_refresh: lastRefresh } : null));
-    }
-  }, [lastRefresh]);
 
   const upcomingRoundIndex = rounds.findIndex((r) => r.matches.some((m) => !m.completed && m.status !== 'misarranged'));
   const currentRoundId = upcomingRoundIndex >= 0 ? (rounds[upcomingRoundIndex]?.id ?? null) : null;
@@ -1683,7 +1649,7 @@ export const TournamentView: React.FC = () => {
 
   useEffect(() => {
     const init = async () => {
-      await fetchData();
+      await fetchData({ showLoader: true });
     };
     init();
   }, [fetchData]);
@@ -4389,6 +4355,7 @@ export const TournamentView: React.FC = () => {
             canGenerateReport={isAdminAuthenticated && tournament.status === 'finished'}
             isGeneratingReport={isFinalizingSeason}
             onGenerateReport={handleGenerateHistoryReport}
+            scoringMode={tournament.scoring_mode as '120m' | '120min' | 'points' | 'appg'}
             autoScrollToYearbook={latestHistoryUnreadCount > 0}
             onCommentsLoaded={handleHistoryCommentsLoaded}
             forceCommentConfirmOpen={TOURNAMENT_VIEW_MODALS_OPEN_BY_DEFAULT.seasonCommentConfirm}

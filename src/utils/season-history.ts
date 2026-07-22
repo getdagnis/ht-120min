@@ -9,6 +9,7 @@ export type SeasonAwardKey =
   | 'fair-play'
   | 'most-cards'
   | 'most-injuries'
+  | 'most-matches-played'
   | 'every-fixture-completed'
   | 'total-minute-specialists';
 
@@ -151,8 +152,35 @@ function buildAwards(
   standings: TeamStanding[],
   teamStats: SeasonTeamStat[],
   sourceMatches: SeasonHistoryMatch[] | null,
+  scoringMode: '120m' | '120min' | 'points' | 'appg',
 ) {
   if (standings.length === 0) return [];
+
+  const completedMatchCounts = new Map(standings.map((standing) => [standing.teamId, 0]));
+  (sourceMatches || [])
+    .filter((match) => match.completed && match.home_goals !== null && match.away_goals !== null)
+    .forEach((match) => {
+      if (match.home_team_id && completedMatchCounts.has(match.home_team_id)) {
+        completedMatchCounts.set(match.home_team_id, (completedMatchCounts.get(match.home_team_id) || 0) + 1);
+      }
+      if (match.away_team_id && completedMatchCounts.has(match.away_team_id)) {
+        completedMatchCounts.set(match.away_team_id, (completedMatchCounts.get(match.away_team_id) || 0) + 1);
+      }
+    });
+  const maxMatchesPlayed = sourceMatches ? Math.max(...completedMatchCounts.values(), 0) : null;
+  const minimumEligibleMatches =
+    maxMatchesPlayed === null || maxMatchesPlayed === 0
+      ? 1
+      : scoringMode === 'appg'
+        ? Math.ceil(maxMatchesPlayed * 0.5)
+        : 1;
+  const eligibleTeamIds = new Set(
+    [...completedMatchCounts.entries()]
+      .filter(([, matchesPlayed]) => matchesPlayed >= minimumEligibleMatches)
+      .map(([teamId]) => teamId),
+  );
+  const eligibleStandings = standings.filter((standing) => eligibleTeamIds.has(standing.teamId));
+  const eligibleTeamStats = teamStats.filter((stat) => eligibleTeamIds.has(stat.teamId));
 
   const topScorers = getWinningTeamIds(
     standings.map((standing) => ({ teamId: standing.teamId, value: standing.gf })),
@@ -163,11 +191,11 @@ function buildAwards(
     'max',
   );
   const leastGoalsAllowed = getWinningTeamIds(
-    standings.map((standing) => ({ teamId: standing.teamId, value: standing.ga })),
+    eligibleStandings.map((standing) => ({ teamId: standing.teamId, value: standing.ga })),
     'min',
   );
   const fairPlay = getWinningTeamIds(
-    teamStats.map((stat) => ({ teamId: stat.teamId, value: stat.yellowCards + stat.redCards })),
+    eligibleTeamStats.map((stat) => ({ teamId: stat.teamId, value: stat.yellowCards + stat.redCards })),
     'min',
   );
   const mostCards = getWinningTeamIds(
@@ -201,6 +229,13 @@ function buildAwards(
       );
     })
     .map((standing) => standing.teamId);
+  const mostMatchesPlayed =
+    scoringMode === 'appg' && maxMatchesPlayed !== null && maxMatchesPlayed > 0
+      ? getWinningTeamIds(
+          [...completedMatchCounts].map(([teamId, value]) => ({ teamId, value })),
+          'max',
+        )
+      : { teamIds: [] as string[], value: null as number | null };
 
   const awards: SeasonAward[] = [
     { key: 'champions', recipientTeamIds: [standings[0].teamId], value: null },
@@ -218,6 +253,11 @@ function buildAwards(
     },
     { key: 'fair-play', recipientTeamIds: fairPlay.teamIds, value: fairPlay.value },
     {
+      key: 'most-matches-played',
+      recipientTeamIds: mostMatchesPlayed.teamIds,
+      value: mostMatchesPlayed.value,
+    },
+    {
       key: 'most-cards',
       recipientTeamIds: mostCards.value && mostCards.value > 0 ? mostCards.teamIds : [],
       value: mostCards.value,
@@ -227,11 +267,15 @@ function buildAwards(
       recipientTeamIds: mostInjuries.value && mostInjuries.value > 0 ? mostInjuries.teamIds : [],
       value: mostInjuries.value,
     },
-    {
-      key: 'every-fixture-completed',
-      recipientTeamIds: completedEveryFixture,
-      value: completedEveryFixture.length > 0 ? 1 : null,
-    },
+    ...(scoringMode === 'appg'
+      ? []
+      : [
+          {
+            key: 'every-fixture-completed' as const,
+            recipientTeamIds: completedEveryFixture,
+            value: completedEveryFixture.length > 0 ? 1 : null,
+          },
+        ]),
     {
       key: 'total-minute-specialists',
       recipientTeamIds: totalMinutes.teamIds,
@@ -399,7 +443,7 @@ export function buildSeasonHistorySnapshot(
     winner: standings[0] || null,
     participants,
     teamStats,
-    awards: buildAwards(standings, teamStats, matches),
+    awards: buildAwards(standings, teamStats, matches, scoringMode),
     matches: frozenMatches,
     records: buildRecords(standings, frozenMatches, scoringMode),
     summary,
@@ -428,7 +472,7 @@ export function normalizeSeasonHistorySnapshot(snapshot: SeasonHistorySnapshot):
     ...snapshot,
     version: 2,
     participants,
-    awards: buildAwards(snapshot.standings, snapshot.teamStats, null),
+    awards: buildAwards(snapshot.standings, snapshot.teamStats, null, '120min'),
     matches: [],
     records: buildRecords(snapshot.standings, [], '120min'),
     story: buildStory(snapshot.standings, snapshot.summary),

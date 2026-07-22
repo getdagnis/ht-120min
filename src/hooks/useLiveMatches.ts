@@ -38,7 +38,6 @@ export function useLiveMatches(
   reclassifyAppg = false,
 ) {
   const [liveData, setLiveData] = useState<Record<string, LiveMatchData>>({});
-  const [lastRefresh, setLastRefresh] = useState<string | null>(null);
 
   const matchesRef = useRef(matches);
   const tournamentIdRef = useRef(tournamentId);
@@ -95,9 +94,9 @@ export function useLiveMatches(
             .filter((match) => match.completed && match.ht_match_id)
             .forEach((match) => attemptedAppgMatchIdsRef.current.add(match.ht_match_id!));
 
+          let hasNewFinished = false;
           setLiveData((prev) => {
             const next = { ...prev };
-            let hasNewFinished = false;
 
             Object.entries(data.results as Record<string, LiveMatchData>).forEach(([id, result]) => {
               if (
@@ -111,13 +110,11 @@ export function useLiveMatches(
               }
             });
 
-            if (hasNewFinished && onMatchFinishedRef.current) {
-              onMatchFinishedRef.current();
-            }
             return next;
           });
 
-          setLastRefresh(data.lastRefresh);
+          if (hasNewFinished) onMatchFinishedRef.current?.();
+
         }
       } catch (error) {
         console.error('Error polling live matches:', error);
@@ -129,5 +126,5 @@ export function useLiveMatches(
     return () => clearInterval(interval);
   }, [tournamentId, enabled, reclassifyAppg]);
 
-  return { liveData, lastRefresh };
+  return { liveData };
 }

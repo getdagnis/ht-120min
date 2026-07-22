@@ -46,6 +46,14 @@ const teams: Team[] = [
     is_placeholder: true,
   },
 ];
+const teamD: Team = {
+  id: 'd',
+  name: 'Team D',
+  ht_team_id: 104,
+  hattrick_user_id: 1004,
+  active: true,
+  replacement_for_team_id: null,
+};
 
 test('season snapshot freezes participants, shares tied awards, and excludes incomplete fixture awards', () => {
   const snapshot = buildSeasonHistorySnapshot(
@@ -149,6 +157,77 @@ test('points snapshots calculate closest finish from points', () => {
 
   assert.equal(snapshot.records.closestFinish?.metric, 'points');
   assert.equal(snapshot.records.closestFinish?.margin, 0);
+});
+
+test('zero-match teams cannot win low-total awards, including APPG fair play', () => {
+  const snapshot = buildSeasonHistorySnapshot(
+    teams,
+    [
+      {
+        id: 'played',
+        home_team_id: 'a',
+        away_team_id: 'b',
+        home_goals: 1,
+        away_goals: 0,
+        completed: true,
+        went_120: false,
+        total_minutes: 90,
+        home_yellow_cards: 1,
+      },
+    ],
+    'appg',
+  );
+
+  assert.equal(snapshot.awards.find((award) => award.key === 'least-goals-allowed')?.recipientTeamIds.includes('c'), false);
+  assert.equal(snapshot.awards.find((award) => award.key === 'fair-play')?.recipientTeamIds.includes('c'), false);
+  assert.deepEqual(snapshot.awards.find((award) => award.key === 'most-matches-played')?.recipientTeamIds.sort(), ['a', 'b']);
+  assert.equal(snapshot.awards.some((award) => award.key === 'every-fixture-completed'), false);
+});
+
+test('APPG low-total awards require at least half the maximum completed matches, rounded up', () => {
+  const snapshot = buildSeasonHistorySnapshot(
+    [...teams, teamD],
+    [
+      { id: 'a1', home_team_id: 'b', away_team_id: 'a', home_goals: 1, away_goals: 0, completed: true, went_120: false, total_minutes: 90 },
+      { id: 'a2', home_team_id: 'b', away_team_id: 'a', home_goals: 1, away_goals: 0, completed: true, went_120: false, total_minutes: 90 },
+      { id: 'a3', home_team_id: 'b', away_team_id: 'a', home_goals: 1, away_goals: 0, completed: true, went_120: false, total_minutes: 90 },
+      { id: 'a4', home_team_id: 'b', away_team_id: 'a', home_goals: 1, away_goals: 0, completed: true, went_120: false, total_minutes: 90 },
+      { id: 'c1', home_team_id: 'c', away_team_id: 'd', home_goals: 0, away_goals: 0, completed: true, went_120: false, total_minutes: 90 },
+      { id: 'c2', home_team_id: 'c', away_team_id: 'd', home_goals: 0, away_goals: 0, completed: true, went_120: false, total_minutes: 90 },
+    ],
+    'appg',
+  );
+
+  assert.equal(snapshot.awards.find((award) => award.key === 'least-goals-allowed')?.recipientTeamIds.includes('c'), true);
+  assert.equal(snapshot.awards.find((award) => award.key === 'least-goals-allowed')?.recipientTeamIds.includes('d'), true);
+  assert.deepEqual(snapshot.awards.find((award) => award.key === 'most-matches-played')?.recipientTeamIds.sort(), ['a', 'b']);
+});
+
+test('APPG eligibility excludes teams below half and shares most-matches ties', () => {
+  const snapshot = buildSeasonHistorySnapshot(
+    [...teams, teamD],
+    [
+      { id: 'a1', home_team_id: 'a', away_team_id: 'b', home_goals: 1, away_goals: 0, completed: true, went_120: false, total_minutes: 90 },
+      { id: 'a2', home_team_id: 'a', away_team_id: 'b', home_goals: 1, away_goals: 0, completed: true, went_120: false, total_minutes: 90 },
+      { id: 'a3', home_team_id: 'a', away_team_id: 'b', home_goals: 1, away_goals: 0, completed: true, went_120: false, total_minutes: 90 },
+      { id: 'a4', home_team_id: 'a', away_team_id: 'b', home_goals: 1, away_goals: 0, completed: true, went_120: false, total_minutes: 90 },
+      { id: 'a5', home_team_id: 'a', away_team_id: 'b', home_goals: 1, away_goals: 0, completed: true, went_120: false, total_minutes: 90 },
+      { id: 'c1', home_team_id: 'c', away_team_id: 'd', home_goals: 0, away_goals: 0, completed: true, went_120: false, total_minutes: 90 },
+    ],
+    'appg',
+  );
+
+  assert.equal(snapshot.awards.find((award) => award.key === 'least-goals-allowed')?.recipientTeamIds.includes('c'), false);
+  assert.deepEqual(snapshot.awards.find((award) => award.key === 'most-matches-played')?.recipientTeamIds.sort(), ['a', 'b']);
+});
+
+test('APPG produces no match-count or low-total awards when no match is completed', () => {
+  const snapshot = buildSeasonHistorySnapshot(teams.slice(0, 3), [], 'appg');
+
+  assert.equal(snapshot.awards.some((award) => award.key === 'most-matches-played'), false);
+  assert.equal(snapshot.awards.some((award) => award.key === 'least-goals-allowed'), false);
+  assert.equal(snapshot.awards.some((award) => award.key === 'fair-play'), false);
+  assert.equal(snapshot.awards.some((award) => award.key === 'every-fixture-completed'), false);
 });
 
 test('legacy snapshots remain readable without inventing fixture-completion awards', () => {

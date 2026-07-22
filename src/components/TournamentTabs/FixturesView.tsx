@@ -302,7 +302,9 @@ export const FixturesView: React.FC<FixturesViewProps> = ({
             .map((m) => formatMatch(m, !m.completed && m.status !== 'misarranged'))
             .join(' ')}[/table]`;
 
-          table += `\n[b]Next: ROUND ${nextRound.round_number}, fixtures:[/b]\n[table]${nextRound.matches.map((m) => formatMatch(m, true)).join(' ')}[/table]`;
+          if (nextRound) {
+            table += `\n[b]Next: ROUND ${nextRound.round_number}, fixtures:[/b]\n[table]${nextRound.matches.map((m) => formatMatch(m, true)).join(' ')}[/table]`;
+          }
           table += `\nFull fixtures: [link=http://ht-120min.vercel.app/t/${tournament?.slug}?tab=fixtures]`;
           navigator.clipboard.writeText(table);
           setCopied((prev) => ({ ...prev, [round.id]: true }));
@@ -337,7 +339,7 @@ export const FixturesView: React.FC<FixturesViewProps> = ({
               headerRight={
                 !isHistorical && (allFinished || isNextRound) ? (
                   <div className={styles.fixturesControls} onClick={(e) => e.stopPropagation()}>
-                    {allFinished ? (
+                    {allFinished || tournament?.status === 'finished' ? (
                       <>
                         <span className={styles.lastRefresh}>
                           <div className="hideOnMobile">Copy for HT forums:</div>
