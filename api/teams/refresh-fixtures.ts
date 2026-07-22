@@ -184,6 +184,7 @@ interface TeamFriendlyMatch {
 
 type MatchFetchWindow = 'current' | 'previous' | 'last50';
 type MatchFetchCategory = 'friendlies' | 'cup' | 'league';
+const CHPP_MATCHES_TIMEOUT_MS = 8_000;
 
 const MATCH_TYPE_GROUPS: Record<MatchFetchCategory, number[]> = {
   friendlies: [4, 5, 8, 9],
@@ -247,7 +248,17 @@ async function fetchTeamFriendlies(
     : { file: 'matches', teamID: teamId };
   const authHeader = getAuthHeader('GET', url, params, consumerKey!, consumerSecret!, oauthToken, oauthTokenSecret);
   const query = new URLSearchParams(params).toString();
-  const response = await fetch(`${url}?${query}`, { headers: { Authorization: authHeader } });
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), CHPP_MATCHES_TIMEOUT_MS);
+  let response: Response;
+  try {
+    response = await fetch(`${url}?${query}`, {
+      headers: { Authorization: authHeader },
+      signal: controller.signal,
+    });
+  } finally {
+    clearTimeout(timeoutId);
+  }
   if (!response.ok) return [];
   const xml = await response.text();
   const friendlies: TeamFriendlyMatch[] = [];
@@ -267,7 +278,7 @@ async function fetchTeamFriendlies(
         const homeGoalsText = readChppTag(block, 'HomeGoals');
         const awayGoalsText = readChppTag(block, 'AwayGoals');
         const date = dateStr ? new Date(dateStr.replace(' ', 'T')) : null;
-        if (homeId && awayId && date && isInsideFetchWindow(date, fetchWindow)) {
+        if (homeId && awayId && matchId && date && Number.isFinite(date.getTime()) && isInsideFetchWindow(date, fetchWindow)) {
           friendlies.push({
             homeId,
             awayId,
@@ -628,7 +639,7 @@ function toSuggestedMatch(
   };
 }
 
-async function handleSuggestHtMatches(req: VercelRequest, res: VercelResponse) {
+async function handleSuggestHtMatchesInternal(req: VercelRequest, res: VercelResponse) {
   const supabase = getSupabase();
   const tournamentId = String(getBodyValue(req, 'tournamentId') || '');
   const adminPassword = String(getBodyValue(req, 'adminPassword') || '');
@@ -668,14 +679,15 @@ async function handleSuggestHtMatches(req: VercelRequest, res: VercelResponse) {
   if (activeTeams.length < 2) return res.status(400).json({ error: 'Add at least two teams before fetching matches.' });
 
   const currentSeason = Number(tournament.season || 1);
-  const { data: rounds } = await supabase
+  const { data: rounds, error: roundsError } = await supabase
     .from('rounds')
     .select('matches(ht_match_id)')
     .eq('tournament_id', tournamentId)
     .eq('season_number', currentSeason);
+  if (roundsError) return res.status(500).json({ error: roundsError.message });
   const existingMatchIds = new Set<number>();
   for (const round of rounds || []) {
-    for (const match of round.matches || []) {
+    for (const match of Array.isArray(round.matches) ? round.matches : []) {
       if (match.ht_match_id) existingMatchIds.add(Number(match.ht_match_id));
     }
   }
@@ -693,12 +705,20 @@ async function handleSuggestHtMatches(req: VercelRequest, res: VercelResponse) {
 
   const deduped = new Map<number, TeamFriendlyMatch>();
   for (const team of selectedTeams) {
-    const matches = await fetchTeamFriendlies(
-      String(team.ht_team_id),
-      authTeam.oauth_token,
-      authTeam.oauth_token_secret || '',
-      { fetchWindow, matchTypes },
-    );
+    let matches: TeamFriendlyMatch[] = [];
+    try {
+      matches = await fetchTeamFriendlies(
+        String(team.ht_team_id),
+        authTeam.oauth_token,
+        authTeam.oauth_token_secret || '',
+        { fetchWindow, matchTypes },
+      );
+    } catch (error) {
+      console.error('Could not fetch suggested matches for team:', {
+        teamId: team.ht_team_id,
+        error: error instanceof Error ? error.message : error,
+      });
+    }
     for (const match of matches) {
       if (existingMatchIds.has(match.matchId)) continue;
       if (!registeredHtIds.has(match.homeId) || !registeredHtIds.has(match.awayId)) continue;
@@ -724,6 +744,17 @@ async function handleSuggestHtMatches(req: VercelRequest, res: VercelResponse) {
     nextOffset: offset + page.length,
     hasMore: offset + page.length < ordered.length,
   });
+}
+
+async function handleSuggestHtMatches(req: VercelRequest, res: VercelResponse) {
+  try {
+    return await handleSuggestHtMatchesInternal(req, res);
+  } catch (error) {
+    console.error('Suggested Hattrick matches request failed:', error);
+    return res.status(500).json({
+      error: error instanceof Error ? error.message : 'Could not fetch suggested matches.',
+    });
+  }
 }
 
 async function handleAddHtMatch(req: VercelRequest, res: VercelResponse) {

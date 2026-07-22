@@ -229,6 +229,7 @@ export const CreateTournament: React.FC = () => {
   } | null>(null);
   const [showModal, setShowModal] = useState(false);
   const [modalLoading, setModalLoading] = useState(false);
+  const linkingParamsHandledRef = useRef(false);
 
   const [isLinked, setIsLinked] = useState(() => {
     const saved = localStorage.getItem('create_tournament_progress');
@@ -282,17 +283,23 @@ export const CreateTournament: React.FC = () => {
   }, []);
 
   useEffect(() => {
+    if (linkingParamsHandledRef.current) return;
+
     const params = new URLSearchParams(window.location.search);
 
     const token = params.get('token');
     if (token) {
+      linkingParamsHandledRef.current = true;
       setTimeout(() => {
         void fetchPendingSession(token);
       }, 0);
     }
 
     const error = params.get('error');
-    if (error) alert(decodeURIComponent(error));
+    if (error) {
+      linkingParamsHandledRef.current = true;
+      alert(decodeURIComponent(error));
+    }
   }, [fetchPendingSession]);
 
   useEffect(() => {
@@ -437,6 +444,7 @@ export const CreateTournament: React.FC = () => {
       setLinkedManager(null);
 
       await clearPendingJoin(linkedManager.selection_token);
+      window.history.replaceState({}, '', '/create?step=teams');
       window.location.reload();
     } catch (err: unknown) {
       alert(err instanceof Error ? err.message : 'An unexpected error occurred during team selection');
