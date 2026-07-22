@@ -49,6 +49,7 @@ When a task is not completely obvious and trivial, first inspect the issue and e
 - Do not add a new API function unless another one is removed or consolidated.
 - Dev/debug tooling belongs in `api/testing/index.ts` as routed handlers.
 - Shared server code belongs in `api/_lib/`.
+- Any source file imported by `api/` must use explicit runtime `.js` extensions for relative TypeScript/JavaScript imports. JSON imports must include `with { type: 'json' }`; Vercel runs these server imports as native ESM even when local Vite/tsx resolution is more forgiving.
 - Before API endpoint work, run:
 
 ```bash

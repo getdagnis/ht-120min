@@ -1,4 +1,4 @@
-import { getCountryWorldDetails, getLeagueWorldDetails, HATTRICK_WORLD_DETAILS } from '../../shared/worlddetails';
+import { getCountryWorldDetails, getLeagueWorldDetails, HATTRICK_WORLD_DETAILS } from '../../shared/worlddetails.js';
 
 
 const COUNTRY_NAME_ALIASES: Record<string, string> = {

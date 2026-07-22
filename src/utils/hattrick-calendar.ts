@@ -1,5 +1,5 @@
 import matchTimeData from './global-match-times.json' with { type: 'json' };
-import { getFriendlyTimeForCountry } from './ht-data';
+import { getFriendlyTimeForCountry } from './ht-data.js';
 
 export type CalendarSlotKind = 'midweek_friendly' | 'weekend_friendly' | 'blocked_cup_week';
 export type HattrickScheduleSlotKind = Exclude<CalendarSlotKind, 'blocked_cup_week'>;
