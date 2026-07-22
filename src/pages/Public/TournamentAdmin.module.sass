@@ -562,14 +562,25 @@
 
 .needsReviewRow
   width: 100%
-  padding: 0.35rem 0.75rem
-  background: var(--danger)
-  color: white
+  padding: 0.2rem 0.75rem
+  background: var(--bg-danger)
+  border: 1px solid var(--bg-danger-border)
+  border-radius: var(--radius-sm)
+  color: var(--danger)
+
   font-size: 0.75rem
   font-weight: 800
   letter-spacing: 0.08em
   text-align: center
   text-transform: uppercase
+
+.needsReviewLink
+  display: inline-flex
+  align-items: center
+  color: var(--danger)
+
+  &:hover
+    color: var(--text-h)
 
 .matchTeams
   grid-area: teams

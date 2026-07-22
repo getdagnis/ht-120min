@@ -262,7 +262,9 @@ export const FixturesView: React.FC<FixturesViewProps> = ({
 
         const isExpanded =
           expandedRounds[round.id] ??
-          (lastFinishedRoundNumber === null ? true : round.round_number >= lastFinishedRoundNumber);
+          (upcomingRoundIndex < 0 || lastFinishedRoundNumber === null
+            ? true
+            : round.round_number >= lastFinishedRoundNumber);
 
         const allFinished = round.matches.every((m) => m.completed || m.status === 'misarranged');
 
@@ -375,7 +377,11 @@ export const FixturesView: React.FC<FixturesViewProps> = ({
                         >
                           <ArrowClockwise size={18} />
                         </button>
-                        <Tooltip id="refresh-tooltip" content="Refresh fixtures" className="tooltip" />
+                        <Tooltip
+                          id="refresh-tooltip"
+                          content="Re-fetches linked Hattrick fixtures and result/event data, updates match statuses and warnings, reclassifies eligible APPG results, recalculates standings, and refreshes this view. It does not change schedule pairings."
+                          className="tooltip"
+                        />
                         <button className={styles.refreshBtn} onClick={handleCopy} data-tooltip-id="copy-tooltip">
                           {copied[round.id] ? <Check size={18} color="green" /> : <CopySimple size={18} />}
                         </button>

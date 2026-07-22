@@ -1352,10 +1352,8 @@ export const TournamentView: React.FC = () => {
               status: live.status === 'finished' ? 'finished' : live.status || m.status,
               went_120: live.went_120 ?? m.went_120,
               total_minutes: live.total_minutes ?? m.total_minutes,
-              penalty_shootout_home_goals:
-                live.penalty_shootout_home_goals ?? m.penalty_shootout_home_goals,
-              penalty_shootout_away_goals:
-                live.penalty_shootout_away_goals ?? m.penalty_shootout_away_goals,
+              penalty_shootout_home_goals: live.penalty_shootout_home_goals ?? m.penalty_shootout_home_goals,
+              penalty_shootout_away_goals: live.penalty_shootout_away_goals ?? m.penalty_shootout_away_goals,
               appg_outcome: live.appg_outcome ?? m.appg_outcome,
               appg_outcome_source: live.appg_outcome_source ?? m.appg_outcome_source,
               home_yellow_cards: live.home_yellow_cards ?? m.home_yellow_cards,
@@ -2294,6 +2292,51 @@ export const TournamentView: React.FC = () => {
       setTournament((current) => (current ? { ...current, status: 'finished' } : current));
     } catch (error) {
       alert(error instanceof Error ? error.message : 'Could not finish this season.');
+    } finally {
+      setIsFinalizingSeason(false);
+    }
+  };
+
+  const handleStartSeason = async () => {
+    if (!tournament || isFinalizingSeason) return;
+    const currentSeasonNumber = tournament.season || 1;
+    const confirmed = window.confirm(
+      `Set Season ${currentSeasonNumber} as started?\n\nThis closes registration for the season. You can then add fixtures manually or generate a schedule.`,
+    );
+    if (!confirmed) return;
+
+    setIsFinalizingSeason(true);
+    try {
+      const startedAt = new Date().toISOString();
+      const { data: updatedSeason, error: seasonError } = await supabase
+        .from('tournament_seasons')
+        .update({ status: 'ongoing', started_at: startedAt, updated_at: startedAt })
+        .eq('tournament_id', tournament.id)
+        .eq('season_number', currentSeasonNumber)
+        .select('*')
+        .single();
+      if (seasonError) throw seasonError;
+
+      const { error: tournamentError } = await supabase
+        .from('tournaments')
+        .update({ status: 'active', registration_closed_at: startedAt })
+        .eq('id', tournament.id);
+      if (tournamentError) throw tournamentError;
+
+      if (updatedSeason) {
+        setSeasons((current) =>
+          current
+            .map((season) =>
+              season.season_number === currentSeasonNumber ? (updatedSeason as TournamentSeason) : season,
+            )
+            .sort((a, b) => a.season_number - b.season_number),
+        );
+      }
+      setTournament((current) =>
+        current ? { ...current, status: 'active', registration_closed_at: startedAt } : current,
+      );
+    } catch (error) {
+      alert(error instanceof Error ? error.message : 'Could not start this season.');
     } finally {
       setIsFinalizingSeason(false);
     }
@@ -3711,6 +3754,8 @@ export const TournamentView: React.FC = () => {
   const previousSeasons = seasons.filter((season) => season.season_number < (tournament.season || 1));
   const currentSeason = seasons.find((season) => season.season_number === (tournament.season || 1));
   const currentSeasonNumber = tournament.season || 1;
+  const isCurrentSeasonPlanned = currentSeason?.status === 'planned';
+  const canMarkSeasonFinished = Boolean(tournament.status !== 'finished' && currentSeason?.status === 'ongoing');
   const selectedFixtureSeason =
     fixtureViewSeasonNumber === null
       ? null
@@ -5355,19 +5400,29 @@ export const TournamentView: React.FC = () => {
                               ? 'This season is finished, but its History report has not been generated yet.'
                               : tournament.status === 'finished'
                                 ? 'This season is finished and preserved in History. You can now add a new season.'
-                                : isGenerated
-                                  ? 'Finish the season when its competition is complete. This preserves its final History report.'
-                                  : 'Generate a schedule before finishing this season.'}
+                                : isCurrentSeasonPlanned
+                                  ? 'Set the season as started to close registration. You can then add fixtures manually or generate a schedule.'
+                                  : 'Mark the season finished when its competition is complete. This preserves its final History report.'}
                           </p>
                           <div className={adminStyles.seasonActions}>
-                            {tournament.status !== 'finished' && isGenerated && (
+                            {isCurrentSeasonPlanned && (
+                              <Button
+                                variant="primaryAction"
+                                size="sm"
+                                onClick={handleStartSeason}
+                                disabled={isFinalizingSeason}
+                              >
+                                {isFinalizingSeason ? 'Starting...' : 'Set season as started'}
+                              </Button>
+                            )}
+                            {canMarkSeasonFinished && (
                               <Button
                                 variant="primaryDanger"
                                 size="sm"
                                 onClick={handleFinishSeason}
                                 disabled={isFinalizingSeason}
                               >
-                                {isFinalizingSeason ? 'Finishing...' : 'Finish season'}
+                                {isFinalizingSeason ? 'Finishing...' : 'Mark season finished'}
                               </Button>
                             )}
                             {tournament.status === 'finished' && !currentSeason?.snapshot_json && (

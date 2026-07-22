@@ -765,7 +765,24 @@ export const AdminResults: React.FC<AdminResultsProps> = ({
                 return (
                   <React.Fragment key={match.id}>
                     {match.appg_outcome === 'needs_review' && (
-                      <div className={adminStyles.needsReviewRow}>NEEDS REVIEW</div>
+                      <div className={adminStyles.needsReviewRow}>
+                        {match.ht_match_id ? (
+                          <a
+                            href={`https://www.hattrick.org/goto.ashx?path=/Club/Matches/Match.aspx?matchID=${match.ht_match_id}`}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className={adminStyles.needsReviewLink}
+                            aria-label={`Open Hattrick match ${match.ht_match_id}`}
+                            title="Open Hattrick match"
+                            data-tooltip-id="admin-tooltip"
+                            data-tooltip-content="Open linked Hattrick match"
+                          >
+                            NEEDS REVIEW <ArrowUpRight size={14} weight="bold" />
+                          </a>
+                        ) : (
+                          'NEEDS REVIEW'
+                        )}
+                      </div>
                     )}
                     <div className={`${adminStyles.match} ${match.ht_match_id ? adminStyles.hasMatchLink : ''}`}>
                       {match.ht_match_id && (
