@@ -281,7 +281,6 @@ export const StandingsView: React.FC<StandingsViewProps> = ({
                     {sortableHeader('120m', 'achievements120min', styles.center120)}
                     {sortableHeader('120m%', 'achievements120minPercent', styles.center, '120-minute matches as a percentage of played matches')}
                     {sortableHeader('Mins', 'totalMinutes', styles.center)}
-                    {sortableHeader('Class.', 'appgPlayed', styles.center, 'Classified APPG matches')}
                     {sortableHeader('Dif', 'gd', styles.center)}
                     {sortableHeader('Goals', 'gf', styles.center)}
                   </>
@@ -408,7 +407,6 @@ export const StandingsView: React.FC<StandingsViewProps> = ({
                         <td className={`${styles.highlight} ${styles.center}`}>{s.achievements120min}</td>
                         <td className={styles.center}>{percentage120min(s).toFixed(0)}%</td>
                         <td className={styles.center}>{s.totalMinutes}</td>
-                        <td className={styles.center}>{s.appgPlayed}</td>
                         <td className={styles.center}>{s.gd > 0 ? `+${s.gd}` : s.gd}</td>
                         <td className={styles.center}>{s.gf}</td>
                       </>
@@ -463,7 +461,7 @@ export const StandingsView: React.FC<StandingsViewProps> = ({
                         )}
                       </div>
                     </td>
-                    <td colSpan={show120minScoring ? 6 : showAppgScoring ? 5 : 6} />
+                    <td colSpan={show120minScoring ? 5 : showAppgScoring ? 5 : 6} />
                   </tr>
                 );
               })}
