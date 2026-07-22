@@ -1,4 +1,4 @@
-import matchTimeData from './global-match-times.json';
+import matchTimeData from './global-match-times.json' with { type: 'json' };
 import { getFriendlyTimeForCountry } from './ht-data';
 
 export type CalendarSlotKind = 'midweek_friendly' | 'weekend_friendly' | 'blocked_cup_week';
