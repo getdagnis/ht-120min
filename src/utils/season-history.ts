@@ -1,4 +1,5 @@
 import { calculateStandings, type Match, type Team, type TeamStanding } from './standings';
+import type { MatchEventDetails, MatchSideEventDetails } from '../../shared/match-events';
 
 export type SeasonAwardKey =
   | 'champions'
@@ -25,6 +26,7 @@ export interface SeasonHistoryMatch extends Match {
   away_yellow_cards?: number | null;
   away_red_cards?: number | null;
   away_injuries?: number | null;
+  match_event_details?: MatchEventDetails | null;
 }
 
 export interface SeasonTeamStat {
@@ -34,6 +36,7 @@ export interface SeasonTeamStat {
   yellowCards: number;
   redCards: number;
   injuries: number;
+  injuryWeeks?: number;
 }
 
 export interface SeasonParticipant {
@@ -53,6 +56,8 @@ export interface SeasonAward {
   key: SeasonAwardKey;
   recipientTeamIds: string[];
   value: number | null;
+  recipientValues?: Record<string, number>;
+  recipientSecondaryValues?: Record<string, number>;
 }
 
 export interface SeasonMatchSnapshot {
@@ -148,6 +153,9 @@ const getWinningTeamIds = (items: Array<{ teamId: string; value: number }>, mode
   };
 };
 
+const getInjuryWeeks = (side?: MatchSideEventDetails | null) =>
+  (side?.injuries || []).reduce((total, injury) => total + (injury.weeks || 0), 0);
+
 function buildAwards(
   standings: TeamStanding[],
   teamStats: SeasonTeamStat[],
@@ -202,8 +210,9 @@ function buildAwards(
     teamStats.map((stat) => ({ teamId: stat.teamId, value: stat.yellowCards + stat.redCards })),
     'max',
   );
+  const hasInjuryWeeks = teamStats.some((stat) => (stat.injuryWeeks || 0) > 0);
   const mostInjuries = getWinningTeamIds(
-    teamStats.map((stat) => ({ teamId: stat.teamId, value: stat.injuries })),
+    teamStats.map((stat) => ({ teamId: stat.teamId, value: hasInjuryWeeks ? stat.injuryWeeks || 0 : stat.injuries })),
     'max',
   );
   const most120 = getWinningTeamIds(
@@ -236,6 +245,8 @@ function buildAwards(
           'max',
         )
       : { teamIds: [] as string[], value: null as number | null };
+  const injuryCountByTeam = Object.fromEntries(teamStats.map((stat) => [stat.teamId, stat.injuries]));
+  const injuryWeeksByTeam = Object.fromEntries(teamStats.map((stat) => [stat.teamId, stat.injuryWeeks || 0]));
 
   const awards: SeasonAward[] = [
     { key: 'champions', recipientTeamIds: [standings[0].teamId], value: null },
@@ -265,7 +276,18 @@ function buildAwards(
     {
       key: 'most-injuries',
       recipientTeamIds: mostInjuries.value && mostInjuries.value > 0 ? mostInjuries.teamIds : [],
-      value: mostInjuries.value,
+      value:
+        mostInjuries.teamIds.length > 0
+          ? Math.max(...mostInjuries.teamIds.map((teamId) => injuryCountByTeam[teamId] || 0))
+          : null,
+      recipientValues:
+        mostInjuries.teamIds.length > 0
+          ? Object.fromEntries(mostInjuries.teamIds.map((teamId) => [teamId, injuryCountByTeam[teamId] || 0]))
+          : undefined,
+      recipientSecondaryValues:
+        mostInjuries.teamIds.length > 0
+          ? Object.fromEntries(mostInjuries.teamIds.map((teamId) => [teamId, injuryWeeksByTeam[teamId] || 0]))
+          : undefined,
     },
     ...(scoringMode === 'appg'
       ? []
@@ -367,6 +389,7 @@ export function buildSeasonHistorySnapshot(
       yellowCards: 0,
       redCards: 0,
       injuries: 0,
+      injuryWeeks: 0,
     });
   });
 
@@ -376,12 +399,14 @@ export function buildSeasonHistorySnapshot(
       stat.yellowCards += match.home_yellow_cards || 0;
       stat.redCards += match.home_red_cards || 0;
       stat.injuries += match.home_injuries || 0;
+      stat.injuryWeeks = (stat.injuryWeeks || 0) + getInjuryWeeks(match.match_event_details?.home);
     }
     if (match.away_team_id && teamStatsMap.has(match.away_team_id)) {
       const stat = teamStatsMap.get(match.away_team_id)!;
       stat.yellowCards += match.away_yellow_cards || 0;
       stat.redCards += match.away_red_cards || 0;
       stat.injuries += match.away_injuries || 0;
+      stat.injuryWeeks = (stat.injuryWeeks || 0) + getInjuryWeeks(match.match_event_details?.away);
     }
   });
 

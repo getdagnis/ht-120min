@@ -373,6 +373,7 @@ function toSeasonHistoryMatch(match: MatchWithTeams, roundNumber?: number): Seas
     away_yellow_cards: match.away_yellow_cards,
     away_red_cards: match.away_red_cards,
     away_injuries: match.away_injuries,
+    match_event_details: match.match_event_details,
   };
 }
 

@@ -230,6 +230,51 @@ test('APPG produces no match-count or low-total awards when no match is complete
   assert.equal(snapshot.awards.some((award) => award.key === 'every-fixture-completed'), false);
 });
 
+test('most injuries is decided by injury weeks while preserving injury counts', () => {
+  const snapshot = buildSeasonHistorySnapshot(
+    teams.slice(0, 2),
+    [
+      {
+        id: 'injured',
+        home_team_id: 'a',
+        away_team_id: 'b',
+        home_goals: 1,
+        away_goals: 0,
+        completed: true,
+        went_120: false,
+        total_minutes: 90,
+        home_injuries: 1,
+        away_injuries: 2,
+        match_event_details: {
+          version: 1,
+          source: 'matchdetails-3.1',
+          actualHomeTeamId: 101,
+          actualAwayTeamId: 102,
+          home: {
+            teamId: 101,
+            cards: [],
+            injuries: [{ playerId: 1, minute: 10, matchPart: 1, injuryType: 2, severity: 'injury', locationEventTypeId: null, weeks: 8, causedByFoul: false, causedByTeamId: null }],
+          },
+          away: {
+            teamId: 102,
+            cards: [],
+            injuries: [
+              { playerId: 2, minute: 20, matchPart: 1, injuryType: 2, severity: 'injury', locationEventTypeId: null, weeks: 2, causedByFoul: false, causedByTeamId: null },
+              { playerId: 3, minute: 30, matchPart: 1, injuryType: 2, severity: 'injury', locationEventTypeId: null, weeks: 2, causedByFoul: false, causedByTeamId: null },
+            ],
+          },
+        },
+      },
+    ],
+    'appg',
+  );
+
+  const award = snapshot.awards.find((item) => item.key === 'most-injuries');
+  assert.deepEqual(award?.recipientTeamIds, ['a']);
+  assert.equal(award?.recipientValues?.a, 1);
+  assert.equal(award?.recipientSecondaryValues?.a, 8);
+});
+
 test('legacy snapshots remain readable without inventing fixture-completion awards', () => {
   const current = buildSeasonHistorySnapshot(teams.slice(0, 2), [], '120min');
   const legacy: SeasonHistorySnapshotV1 = {

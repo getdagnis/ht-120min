@@ -261,20 +261,43 @@ function TeamIdentity({
   );
 }
 
-function getAwardStat(award: SeasonAward) {
-  if (award.key === 'top-scorers') return `${award.value || 0} goals`;
-  if (award.key === 'most-120-matches') return `${award.value || 0} × 120m`;
-  if (award.key === 'best-goal-difference') return `${(award.value || 0) > 0 ? '+' : ''}${award.value || 0}`;
-  if (award.key === 'least-goals-allowed') return `${award.value || 0} conceded`;
+function getAwardStat(
+  award: SeasonAward,
+  snapshot: SeasonHistorySnapshotV2,
+  scoringMode: '120m' | '120min' | 'points' | 'appg',
+  teamId?: string,
+) {
+  const standing = teamId ? snapshot.standings.find((item) => item.teamId === teamId) : null;
+  const games = standing ? ` (${standing.played} games)` : '';
+  if (award.key === 'top-scorers') return `${award.value || 0} goals${scoringMode === 'appg' ? games : ''}`;
+  if (award.key === 'most-120-matches') {
+    const percentage = standing?.played ? Math.round(((award.value || 0) / standing.played) * 100) : 0;
+    return `${award.value || 0} × 120m (${percentage}%)`;
+  }
+  if (award.key === 'best-goal-difference') {
+    const goalDifference = `${(award.value || 0) > 0 ? '+' : ''}${award.value || 0}`;
+    return `${goalDifference} (${standing?.gf || 0} scored)`;
+  }
+  if (award.key === 'least-goals-allowed') return `${award.value || 0} conceded${games}`;
   if (award.key === 'total-minute-specialists') return `${award.value || 0} mins`;
-  if (award.key === 'most-cards') return `${award.value || 0} card${award.value === 1 ? '' : 's'}`;
-  if (award.key === 'most-injuries') return `${award.value || 0} injur${award.value === 1 ? 'y' : 'ies'}`;
+  if (award.key === 'most-cards') {
+    const teamStat = teamId ? snapshot.teamStats.find((stat) => stat.teamId === teamId) : null;
+    const cardCount = teamStat ? teamStat.yellowCards + teamStat.redCards : award.value || 0;
+    const redCards = teamStat?.redCards || 0;
+    return scoringMode === 'appg'
+      ? `${cardCount} card${cardCount === 1 ? '' : 's'} (${standing?.played || 0} games, ${redCards} red)`
+      : `${cardCount} card${cardCount === 1 ? '' : 's'}`;
+  }
+  if (award.key === 'most-injuries') {
+    const injuryCount = teamId ? award.recipientValues?.[teamId] ?? award.value ?? 0 : award.value || 0;
+    const injuryWeeks = teamId ? award.recipientSecondaryValues?.[teamId] ?? 0 : 0;
+    return `${injuryCount} injur${injuryCount === 1 ? 'y' : 'ies'}${injuryWeeks ? ` (${injuryWeeks} weeks)` : ''}`;
+  }
+  if (award.key === 'most-matches-played') return `${award.value || 0} games`;
   if (award.key === 'every-fixture-completed') return 'Full season completed';
   if (award.key === 'fair-play') {
     const cardCount = award.value || 0;
-    return award.recipientTeamIds.length > 1
-      ? `Shared distinction (${cardCount} card${cardCount === 1 ? '' : 's'})`
-      : `${cardCount} card${cardCount === 1 ? '' : 's'}`;
+    return `${cardCount} card${cardCount === 1 ? '' : 's'}${games}`;
   }
   return 'Season winners';
 }
@@ -437,6 +460,16 @@ export const TournamentHistory: React.FC<TournamentHistoryProps> = ({
   const runnerUp = findParticipant(snapshot, runnerUpStanding?.teamId);
   const thirdPlaceStanding = snapshot.standings[2];
   const thirdPlace = findParticipant(snapshot, thirdPlaceStanding?.teamId);
+  const most120RecordDetails = snapshot.records.most120TeamIds
+    .map((teamId) => {
+      const teamName = findParticipant(snapshot, teamId)?.teamName;
+      const standing = snapshot.standings.find((item) => item.teamId === teamId);
+      if (!teamName) return null;
+      const percentage = standing?.played ? Math.round((snapshot.records.most120Value / standing.played) * 100) : 0;
+      return `${teamName} ${snapshot.records.most120Value} × 120m (${percentage}%)`;
+    })
+    .filter(Boolean)
+    .join(', ');
   const memorableMatch = snapshot.matches.find((match) => match.id === snapshot.records.memorableMatchId) || null;
   const highestScoringMatch =
     snapshot.matches.find((match) => match.id === snapshot.records.highestScoringMatchId) || null;
@@ -457,6 +490,7 @@ export const TournamentHistory: React.FC<TournamentHistoryProps> = ({
   const roundsPlayed = new Set(
     snapshot.matches.map((match) => match.roundNumber).filter((value): value is number => typeof value === 'number'),
   ).size;
+  const isAppgHistory = scoringMode === 'appg';
   const most120Award: SeasonAward = {
     key: 'most-120-matches',
     recipientTeamIds: snapshot.records.most120TeamIds,
@@ -722,7 +756,6 @@ export const TournamentHistory: React.FC<TournamentHistoryProps> = ({
                 const recipients = award.recipientTeamIds
                   .map((teamId) => findParticipant(snapshot, teamId))
                   .filter((participant): participant is SeasonParticipant => !!participant);
-                const awardStat = getAwardStat(award);
                 const isSingleRecipient = recipients.length === 1;
                 return (
                   <article key={award.key} className={styles.awardCard}>
@@ -731,15 +764,24 @@ export const TournamentHistory: React.FC<TournamentHistoryProps> = ({
                       <span>{AWARD_DETAILS[award.key].label}</span>
                     </div>
                     {isSingleRecipient ? (
-                      <TeamIdentity key={recipients[0].teamId} participant={recipients[0]} compact detail={awardStat} />
+                      <TeamIdentity
+                        key={recipients[0].teamId}
+                        participant={recipients[0]}
+                        compact
+                        detail={getAwardStat(award, snapshot, scoringMode, recipients[0].teamId)}
+                      />
                     ) : (
                       <>
                         <div className={styles.awardRecipients}>
                           {recipients.map((participant) => (
-                            <TeamIdentity key={participant.teamId} participant={participant} compact />
+                            <TeamIdentity
+                              key={participant.teamId}
+                              participant={participant}
+                              compact
+                              detail={getAwardStat(award, snapshot, scoringMode, participant.teamId)}
+                            />
                           ))}
                         </div>
-                        <small className={styles.detailText}>{awardStat}</small>
                       </>
                     )}
                   </article>
@@ -775,11 +817,22 @@ export const TournamentHistory: React.FC<TournamentHistoryProps> = ({
                   <tr>
                     <th>#</th>
                     <th>Team</th>
-                    <th>120m</th>
-                    <th>Mins</th>
-                    <th>Pld</th>
-                    <th>Dif</th>
-                    <th>Goals</th>
+                    {isAppgHistory ? (
+                      <>
+                        <th>APPG</th>
+                        <th>Pld</th>
+                        <th>Dif</th>
+                        <th>Goals</th>
+                      </>
+                    ) : (
+                      <>
+                        <th>120m</th>
+                        <th>Mins</th>
+                        <th>Pld</th>
+                        <th>Dif</th>
+                        <th>Goals</th>
+                      </>
+                    )}
                   </tr>
                 </thead>
                 <tbody>
@@ -789,11 +842,24 @@ export const TournamentHistory: React.FC<TournamentHistoryProps> = ({
                       <tr key={standing.teamId}>
                         <td>{index + 1}</td>
                         <td>{participant ? <TeamIdentity participant={participant} compact /> : standing.teamName}</td>
-                        <td className={styles.accentStat}>{standing.achievements120min}</td>
-                        <td>{standing.totalMinutes}</td>
-                        <td>{standing.played}</td>
-                        <td>{standing.gd > 0 ? `+${standing.gd}` : standing.gd}</td>
-                        <td>{standing.gf}</td>
+                        {isAppgHistory ? (
+                          <>
+                            <td className={styles.accentStat}>
+                              {standing.appgPlayed ? (standing.appgPoints / standing.appgPlayed).toFixed(2) : '0.00'}
+                            </td>
+                            <td>{standing.played}</td>
+                            <td>{standing.gd > 0 ? `+${standing.gd}` : standing.gd}</td>
+                            <td>{standing.gf}</td>
+                          </>
+                        ) : (
+                          <>
+                            <td className={styles.accentStat}>{standing.achievements120min}</td>
+                            <td>{standing.totalMinutes}</td>
+                            <td>{standing.played}</td>
+                            <td>{standing.gd > 0 ? `+${standing.gd}` : standing.gd}</td>
+                            <td>{standing.gf}</td>
+                          </>
+                        )}
                       </tr>
                     );
                   })}
@@ -817,11 +883,7 @@ export const TournamentHistory: React.FC<TournamentHistoryProps> = ({
                   <Medal size={18} /> Most 120-minute matches
                 </dt>
                 <dd>
-                  {snapshot.records.most120TeamIds
-                    .map((teamId) => findParticipant(snapshot, teamId)?.teamName)
-                    .filter(Boolean)
-                    .join(', ') || '-'}{' '}
-                  <span>{snapshot.records.most120Value}</span>
+                  {most120RecordDetails || '-'}
                 </dd>
               </div>
               <div>

@@ -53,6 +53,7 @@ type StandingsSortKey =
   | 'default'
   | 'team'
   | 'achievements120min'
+  | 'achievements120minPercent'
   | 'totalMinutes'
   | 'played'
   | 'appgPlayed'
@@ -104,6 +105,8 @@ export const StandingsView: React.FC<StandingsViewProps> = ({
 
   const averagePointsPerGame = (standing: TeamStanding) =>
     standing.appgPlayed > 0 ? standing.appgPoints / standing.appgPlayed : 0;
+  const percentage120min = (standing: TeamStanding) =>
+    standing.played > 0 ? (standing.achievements120min / standing.played) * 100 : 0;
 
   const sortedStandings = useMemo(() => {
     const rows = [...standings];
@@ -130,8 +133,18 @@ export const StandingsView: React.FC<StandingsViewProps> = ({
         return sortDirection === 'asc' ? result : -result;
       }
 
-      const aValue = sortKey === 'appg' ? averagePointsPerGame(a) : Number(a[sortKey]);
-      const bValue = sortKey === 'appg' ? averagePointsPerGame(b) : Number(b[sortKey]);
+      const aValue =
+        sortKey === 'appg'
+          ? averagePointsPerGame(a)
+          : sortKey === 'achievements120minPercent'
+            ? percentage120min(a)
+            : Number(a[sortKey]);
+      const bValue =
+        sortKey === 'appg'
+          ? averagePointsPerGame(b)
+          : sortKey === 'achievements120minPercent'
+            ? percentage120min(b)
+            : Number(b[sortKey]);
       const result = bValue - aValue;
       if (result !== 0) return sortDirection === 'asc' ? -result : result;
       return a.teamName.localeCompare(b.teamName, undefined, { sensitivity: 'base' });
@@ -265,6 +278,7 @@ export const StandingsView: React.FC<StandingsViewProps> = ({
                 {show120minScoring ? (
                   <>
                     {sortableHeader('120m', 'achievements120min', styles.center120)}
+                    {sortableHeader('120m%', 'achievements120minPercent', styles.center120, '120-minute matches as a percentage of played matches')}
                     {sortableHeader('Mins', 'totalMinutes', styles.center)}
                     {sortableHeader('Class.', 'appgPlayed', styles.center, 'Classified APPG matches')}
                     {sortableHeader('Dif', 'gd', styles.center)}
@@ -389,6 +403,7 @@ export const StandingsView: React.FC<StandingsViewProps> = ({
                     {show120minScoring ? (
                       <>
                         <td className={`${styles.highlight} ${styles.center}`}>{s.achievements120min}</td>
+                        <td className={styles.center}>{percentage120min(s).toFixed(0)}%</td>
                         <td className={styles.center}>{s.totalMinutes}</td>
                         <td className={styles.center}>{s.appgPlayed}</td>
                         <td className={styles.center}>{s.gd > 0 ? `+${s.gd}` : s.gd}</td>
