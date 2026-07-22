@@ -20,15 +20,15 @@ export interface AppgPoints {
 export function appgOutcomeLabel(outcome: AppgOutcome) {
   switch (outcome) {
     case 'ET3':
-      return 'Extra time, open-play winner';
+      return 'Extra time, open-play winner (3pt)';
     case 'ET2':
-      return 'Extra time, SE/other winner';
+      return 'Extra time, SE/other winner (2pt)';
     case 'PS1':
-      return 'Penalty shootout';
+      return 'Penalty shootout (1pt)';
     case 'RT0':
-      return 'Regulation result worth 0';
+      return 'Regulation time ending (0p)';
     case 'OPW':
-      return 'Regulation open-play winner';
+      return 'Regulation open-play winner (-1p)';
     default:
       return 'Needs review';
   }
@@ -63,8 +63,10 @@ export function getAppgPoints(match: AppgMatchInput): AppgPoints | null {
 
 export function validateAppgOutcome(match: AppgMatchInput): string | null {
   if (!match.appg_outcome || match.appg_outcome === 'needs_review') return null;
-  if (match.home_goals === null || match.away_goals === null) return 'Enter both scores before choosing an APPG outcome.';
-  if (match.appg_outcome !== 'RT0' && !winnerSide(match)) return 'APPG needs a winning team or a completed penalty shootout.';
+  if (match.home_goals === null || match.away_goals === null)
+    return 'Enter both scores before choosing an APPG outcome.';
+  if (match.appg_outcome !== 'RT0' && !winnerSide(match))
+    return 'APPG needs a winning team or a completed penalty shootout.';
 
   const extraTime = Boolean(match.went_120 || (match.total_minutes ?? 0) > 90);
   if ((match.appg_outcome === 'ET3' || match.appg_outcome === 'ET2') && !extraTime) {

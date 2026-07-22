@@ -58,7 +58,7 @@ import { CompactAccordionWidget } from '../../components/CompactAccordionWidget/
 import { SidebarWidget } from '../../components/SidebarWidget/SidebarWidget';
 import { MottoWidget } from '../../components/MottoWidget/MottoWidget';
 import { StandingsView } from '../../components/TournamentTabs/StandingsView';
-import { TournamentHistory } from '../../components/TournamentHistory/TournamentHistory';
+import { TournamentHistory, type TournamentSeasonComment } from '../../components/TournamentHistory/TournamentHistory';
 import { WelcomeModal } from '../../components/WelcomeModal/WelcomeModal';
 import { TOURNAMENT_DEFAULT } from '../../constants/descriptions';
 import { getTournamentFaqSections } from '../../constants/faq-essential';
@@ -507,6 +507,8 @@ export const TournamentView: React.FC = () => {
   const [announcementDismissals, setAnnouncementDismissals] = useState<TournamentAnnouncementDismissal[]>([]);
   const [, setPublicAnnouncementDismissalVersion] = useState(0);
   const [seasons, setSeasons] = useState<TournamentSeason[]>([]);
+  const historyCommentsCacheRef = useRef(new Map<string, TournamentSeasonComment[]>());
+  const historyCommentsRequestsRef = useRef(new Map<string, Promise<TournamentSeasonComment[]>>());
   const [historyReportNoticeOpen, setHistoryReportNoticeOpen] = useState(false);
   const [historySeasonCommentCounts, setHistorySeasonCommentCounts] = useState<Record<string, number>>({});
   const [historySeenVersion, setHistorySeenVersion] = useState(0);
@@ -561,6 +563,45 @@ export const TournamentView: React.FC = () => {
         .sort((a, b) => b.season_number - a.season_number)[0] || null,
     [seasons],
   );
+
+  const loadHistoryComments = useCallback(async (seasonId: string) => {
+    const cachedComments = historyCommentsCacheRef.current.get(seasonId);
+    if (cachedComments) return cachedComments;
+
+    const pendingRequest = historyCommentsRequestsRef.current.get(seasonId);
+    if (pendingRequest) return pendingRequest;
+
+    const request = fetch(`/api/app?route=history&seasonId=${encodeURIComponent(seasonId)}`)
+      .then(async (response) => {
+        const data = (await response.json()) as { comments?: TournamentSeasonComment[]; error?: string };
+        if (!response.ok) throw new Error(data.error || 'Could not load season comments.');
+        const comments = data.comments || [];
+        historyCommentsCacheRef.current.set(seasonId, comments);
+        return comments;
+      })
+      .finally(() => {
+        historyCommentsRequestsRef.current.delete(seasonId);
+      });
+
+    historyCommentsRequestsRef.current.set(seasonId, request);
+    return request;
+  }, []);
+
+  const handleHistoryCommentSubmitted = useCallback((seasonId: string, comment: TournamentSeasonComment) => {
+    const currentComments = historyCommentsCacheRef.current.get(seasonId) || [];
+    historyCommentsCacheRef.current.set(seasonId, [
+      ...currentComments.filter((item) => item.id !== comment.id && item.team_id !== comment.team_id),
+      comment,
+    ]);
+  }, []);
+
+  useEffect(() => {
+    if (!tournament?.id || !latestPublishedHistorySeason) return;
+    void loadHistoryComments(latestPublishedHistorySeason.id).catch(() => {
+      // History tab rendering remains responsible for showing a load error.
+    });
+  }, [latestPublishedHistorySeason, loadHistoryComments, tournament?.id]);
+
   const [renderTimestamp] = useState(() => Date.now());
   const historyReportPublishedAt = latestPublishedHistorySeason?.snapshot_json?.generatedAt || null;
   const historyReportNoticeIsCurrent = Boolean(
@@ -4358,7 +4399,9 @@ export const TournamentView: React.FC = () => {
             onGenerateReport={handleGenerateHistoryReport}
             scoringMode={tournament.scoring_mode as '120m' | '120min' | 'points' | 'appg'}
             autoScrollToYearbook={latestHistoryUnreadCount > 0}
+            loadComments={loadHistoryComments}
             onCommentsLoaded={handleHistoryCommentsLoaded}
+            onCommentSubmitted={handleHistoryCommentSubmitted}
             forceCommentConfirmOpen={TOURNAMENT_VIEW_MODALS_OPEN_BY_DEFAULT.seasonCommentConfirm}
           />
         </div>

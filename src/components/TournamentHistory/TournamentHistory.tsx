@@ -159,6 +159,7 @@ interface TournamentHistoryProps {
   scoringMode?: '120m' | '120min' | 'points' | 'appg';
   autoScrollToYearbook?: boolean;
   onCommentsLoaded?: (seasonId: string, commentCount: number) => void;
+  onCommentSubmitted?: (seasonId: string, comment: TournamentSeasonComment) => void;
   forceCommentConfirmOpen?: boolean;
 }
 
@@ -350,6 +351,7 @@ export const TournamentHistory: React.FC<TournamentHistoryProps> = ({
   scoringMode = '120min',
   autoScrollToYearbook = false,
   onCommentsLoaded,
+  onCommentSubmitted,
   forceCommentConfirmOpen = false,
 }) => {
   const yearbookRef = useRef<HTMLElement | null>(null);
@@ -532,6 +534,7 @@ export const TournamentHistory: React.FC<TournamentHistoryProps> = ({
     try {
       const saved = await submitComment(selectedSeason.id, participant.teamId, draft);
       setComments((current) => [...current, saved]);
+      onCommentSubmitted?.(selectedSeason.id, saved);
       setCommentDrafts((current) => ({ ...current, [participant.teamId]: '' }));
     } catch (error) {
       setCommentsSubmitError(error instanceof Error ? error.message : 'Could not save your season comment.');
@@ -652,7 +655,7 @@ export const TournamentHistory: React.FC<TournamentHistoryProps> = ({
               <div className={styles.championPlacings}>
                 {runnerUp && (
                   <div className={`${styles.placementCard} ${styles.championSecond}`}>
-                    <div className={styles.placementHeader}>Runner-up</div>
+                    <div className={styles.placementHeader}>🥈 Runner-up</div>
                     <div className={styles.placementBody}>
                       <div className={styles.winnerSecondIdentity}>
                         <img
@@ -683,7 +686,7 @@ export const TournamentHistory: React.FC<TournamentHistoryProps> = ({
                 )}
                 {thirdPlace && (
                   <div className={`${styles.placementCard} ${styles.championThird}`}>
-                    <div className={styles.placementHeaderThird}>Third place</div>
+                    <div className={styles.placementHeaderThird}>🥉 Third place</div>
                     <div className={styles.placementBody}>
                       <div className={styles.winnerThirdIdentity}>
                         <img
@@ -751,7 +754,7 @@ export const TournamentHistory: React.FC<TournamentHistoryProps> = ({
           </section>
 
           <section className={styles.contentSection}>
-            <h2>Awards & Distinctions</h2>
+            <h2 className={styles.awards}>Awards & Distinctions</h2>
             <div className={styles.awardsGrid} data-testid="history-awards">
               {displayAwards.map((award) => {
                 const recipients = award.recipientTeamIds

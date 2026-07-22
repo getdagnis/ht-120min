@@ -97,6 +97,7 @@
 .championPlacings,
 .placementCard
   padding: 0
+  border-radius: var(--radius-sm) var(--radius-sm) 0 0
 
 .championHeadline
   width: 100%
@@ -187,6 +188,7 @@
   text-align: center
   line-height: 1.2
 
+  border-radius: var(--radius-sm)
 .placementHeader
   background: var(--table-bg)
   color: var(--text60)
@@ -315,7 +317,7 @@
 .contentSection
   h2
     margin: 0.5rem 0 1rem
-    color: var(--text-h)
+    color: var(--text)
     font-size: 1.25rem
     font-weight: 600
 
@@ -343,21 +345,23 @@
   display: flex
   flex-direction: column
   gap: 0.65rem
-  border: 1px solid var(--gold-transp)
 
   > small
     color: var(--text60)
     font-family: var(--heading)
 
-[data-theme="light"] .awardCard
-    border: 1px solid var(--gold-dark)
+.championCard, .awardCard
+  border: 1px solid var(--gold-transp)
+
+[data-theme="light"] .championCard, [data-theme="light"] .awardCard
+  border: 1px solid var(--gold)
 
 .awardLabel
   display: flex
   align-items: center
   gap: 0.45rem
-  color: var(--text)
-  border-bottom: 1px solid var(--border-transp)
+  color: var(--gold-dark)
+  border-bottom: 1px solid var(--gold-transp)
   padding-bottom: 0.5rem
   font-size: 0.85rem
   font-family: var(--heading)
@@ -366,8 +370,8 @@
     flex-shrink: 0
     color: var(--gold-dark)
 
-:global([data-theme="dark"]) .awardLabel svg
-  color: var(--gold)
+[data-theme="dark"] .awardLabel, [data-theme="dark"] .awardLabel svg
+    color: var(--gold)
 
 .awardRecipients
   display: flex
