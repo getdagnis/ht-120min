@@ -76,6 +76,7 @@ import { ArrowClockwise, ArrowRight, ArrowUpRight, CopySimple, Info, Question, S
 const FORUM_LINK = 'https://www.hattrick.org/goto.ashx?path=/Forum/Read.aspx?n=1&nm=32&t=17685273&v=0';
 const DEFAULT_TEAM_LOGO = '/default-logo.png';
 const UNSAVED_SETTINGS_MESSAGE = 'Use save button to apply changes!';
+const getHistoryReportNoticeStorageKey = (seasonId: string) => `ht-120min:history-report-notice-dismissed:${seasonId}`;
 
 const TOURNAMENT_VIEW_MODALS_OPEN_BY_DEFAULT = {
   historyReportNotice: false,
@@ -569,6 +570,11 @@ export const TournamentView: React.FC = () => {
   useEffect(() => {
     if (!tournament || !latestPublishedHistorySeason || !historyReportNoticeIsCurrent || !currentHtUserId) return;
 
+    const localNoticeKey = getHistoryReportNoticeStorageKey(latestPublishedHistorySeason.id);
+    if (localStorage.getItem(localNoticeKey) === 'true') {
+      return;
+    }
+
     let cancelled = false;
     fetch(
       `/api/app?route=history&notice=history-report-status&seasonId=${encodeURIComponent(latestPublishedHistorySeason.id)}&tournamentId=${encodeURIComponent(tournament.id)}`,
@@ -576,7 +582,12 @@ export const TournamentView: React.FC = () => {
       .then((response) => response.json())
       .then((data: { dismissed?: boolean; seen?: boolean; tracked?: boolean }) => {
         if (cancelled) return;
-        setHistoryReportNoticeOpen(data.tracked === true && data.dismissed !== true && data.seen !== true);
+        setHistoryReportNoticeOpen(
+          localStorage.getItem(localNoticeKey) !== 'true' &&
+            data.tracked === true &&
+            data.dismissed !== true &&
+            data.seen !== true,
+        );
       })
       .catch(() => {
         if (!cancelled) setHistoryReportNoticeOpen(false);
@@ -604,6 +615,7 @@ export const TournamentView: React.FC = () => {
   const dismissHistoryReportNotice = () => {
     if (!tournament || !latestPublishedHistorySeason || !currentHtUserId) return;
     setHistoryReportNoticeOpen(false);
+    localStorage.setItem(getHistoryReportNoticeStorageKey(latestPublishedHistorySeason.id), 'true');
     void fetch('/api/app?route=history', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -618,6 +630,7 @@ export const TournamentView: React.FC = () => {
   const markHistoryReportSeen = () => {
     if (!tournament || !latestPublishedHistorySeason || !currentHtUserId) return;
     setHistoryReportNoticeOpen(false);
+    localStorage.setItem(getHistoryReportNoticeStorageKey(latestPublishedHistorySeason.id), 'true');
     void fetch('/api/app?route=history', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -1937,7 +1950,7 @@ export const TournamentView: React.FC = () => {
   );
 
   useEffect(() => {
-    if (activeTab !== 'fixtures' || !tournament) return;
+    if (activeTab !== 'fixtures' || !tournament || tournament.status === 'finished') return;
 
     const shouldRefresh = () => {
       if (isRefreshingFixtures) return false;
@@ -2277,18 +2290,85 @@ export const TournamentView: React.FC = () => {
     }
   };
 
-  const handleFinishSeason = async () => {
-    if (!tournament || isFinalizingSeason) return;
+  const handleClearHistoryReport = async () => {
+    if (!tournament || !currentSeason || isFinalizingSeason) return;
     const confirmed = window.confirm(
-      `Finish Season ${tournament.season}?\n\nThis closes the season, generates its History report and allows participating teams to join other tournaments.`,
+      `Clear the Season ${currentSeason.season_number} history report?\n\nThis removes the published report so you can correct the underlying results and generate it again.`,
     );
     if (!confirmed) return;
 
     setIsFinalizingSeason(true);
     try {
-      await persistCurrentSeasonHistory();
+      const { data, error } = await supabase
+        .from('tournament_seasons')
+        .update({ snapshot_json: null, updated_at: new Date().toISOString() })
+        .eq('id', currentSeason.id)
+        .select('*')
+        .single();
+      if (error) throw error;
+
+      const { error: dismissalError } = await supabase
+        .from('tournament_announcement_dismissals')
+        .delete()
+        .eq('tournament_id', tournament.id)
+        .in('notice_key', [
+          `history-report-dismissed:${currentSeason.id}`,
+          `history-report-viewed:${currentSeason.id}`,
+        ]);
+      if (dismissalError) throw dismissalError;
+
+      localStorage.removeItem(getHistoryReportNoticeStorageKey(currentSeason.id));
+      if (data) {
+        setSeasons((current) =>
+          current.map((season) => (season.id === currentSeason.id ? (data as TournamentSeason) : season)),
+        );
+      }
+    } catch (error) {
+      alert(error instanceof Error ? error.message : 'Could not clear the season history report.');
+    } finally {
+      setIsFinalizingSeason(false);
+    }
+  };
+
+  const handleFinishSeason = async () => {
+    if (!tournament || isFinalizingSeason) return;
+    const confirmed = window.confirm(
+      `Finish Season ${tournament.season}?\n\nThis closes the season and allows participating teams to join other tournaments. You can generate its History report separately afterwards.`,
+    );
+    if (!confirmed) return;
+
+    setIsFinalizingSeason(true);
+    try {
+      const finishedAt = new Date().toISOString();
+      const currentSeasonNumber = tournament.season || 1;
+      const { data: updatedSeason, error: seasonError } = await supabase
+        .from('tournament_seasons')
+        .upsert(
+          {
+            tournament_id: tournament.id,
+            season_number: currentSeasonNumber,
+            status: 'finished',
+            planned_start_slot: tournament.schedule_start_slot,
+            started_at: currentSeason?.started_at || tournament.schedule_generated_at || null,
+            finished_at: currentSeason?.finished_at || finishedAt,
+            updated_at: finishedAt,
+          },
+          { onConflict: 'tournament_id,season_number' },
+        )
+        .select('*')
+        .single();
+      if (seasonError) throw seasonError;
       const { error } = await supabase.from('tournaments').update({ status: 'finished' }).eq('id', tournament.id);
       if (error) throw error;
+      if (updatedSeason) {
+        setSeasons((current) =>
+          current
+            .map((season) =>
+              season.season_number === currentSeasonNumber ? (updatedSeason as TournamentSeason) : season,
+            )
+            .sort((a, b) => a.season_number - b.season_number),
+        );
+      }
       setTournament((current) => (current ? { ...current, status: 'finished' } : current));
     } catch (error) {
       alert(error instanceof Error ? error.message : 'Could not finish this season.');
@@ -4243,6 +4323,9 @@ export const TournamentView: React.FC = () => {
       <Modal
         isOpen={
           (historyReportNoticeOpen || TOURNAMENT_VIEW_MODALS_OPEN_BY_DEFAULT.historyReportNotice) &&
+          localStorage.getItem(
+            latestPublishedHistorySeason ? getHistoryReportNoticeStorageKey(latestPublishedHistorySeason.id) : '',
+          ) !== 'true' &&
           latestPublishedHistorySeason !== null
         }
         onClose={dismissHistoryReportNotice}
@@ -5436,39 +5519,48 @@ export const TournamentView: React.FC = () => {
                               </Button>
                             )}
                             {tournament.status === 'finished' && currentSeason?.snapshot_json && (
-                              <>
-                                <Button variant="zero" size="sm" disabled>
-                                  History report generated
-                                </Button>
+                              <div className={adminStyles.seasonBtnContainer}>
                                 <Button
-                                  variant="primary"
+                                  variant="secondaryAction"
                                   size="sm"
-                                  onClick={() => handleStartNewSeason('auto')}
-                                  disabled={isAddingSeason}
-                                  data-tooltip-id="auto-start-season-tooltip"
+                                  onClick={handleClearHistoryReport}
+                                  disabled={isFinalizingSeason}
                                 >
-                                  {isAddingSeason ? 'Starting...' : `Auto-start Season ${(tournament.season || 1) + 1}`}
+                                  {isFinalizingSeason ? 'Clearing...' : 'Clear history report'}
                                 </Button>
-                                <Tooltip
-                                  id="auto-start-season-tooltip"
-                                  className="tooltip"
-                                  content="Keeps the existing roster. The next season starts with a clean table and waits for you to generate a new schedule."
-                                />
-                                <Button
-                                  variant="zero"
-                                  size="sm"
-                                  onClick={() => handleStartNewSeason('open')}
-                                  disabled={isAddingSeason}
-                                  data-tooltip-id="open-next-season-tooltip"
-                                >
-                                  Open for Season {(tournament.season || 1) + 1}
-                                </Button>
-                                <Tooltip
-                                  id="open-next-season-tooltip"
-                                  className="tooltip"
-                                  content="Opens a new roster. Previous teams stay as quiet re-application suggestions for their owners."
-                                />
-                              </>
+                                <div className={adminStyles.seasonBtns}>
+                                  <Button
+                                    variant="primaryAction"
+                                    size="sm"
+                                    onClick={() => handleStartNewSeason('auto')}
+                                    disabled={isAddingSeason}
+                                    data-tooltip-id="auto-start-season-tooltip"
+                                  >
+                                    {isAddingSeason
+                                      ? 'Starting...'
+                                      : `Auto-start Season ${(tournament.season || 1) + 1}`}
+                                  </Button>
+                                  <Tooltip
+                                    id="auto-start-season-tooltip"
+                                    className="tooltip"
+                                    content="Keeps the existing roster. The next season starts with a clean table and waits for you to generate a new schedule."
+                                  />
+                                  <Button
+                                    variant="primaryAction"
+                                    size="sm"
+                                    onClick={() => handleStartNewSeason('open')}
+                                    disabled={isAddingSeason}
+                                    data-tooltip-id="open-next-season-tooltip"
+                                  >
+                                    Open Season {(tournament.season || 1) + 1} registration
+                                  </Button>
+                                  <Tooltip
+                                    id="open-next-season-tooltip"
+                                    className="tooltip"
+                                    content="Opens a new roster. Previous teams stay as quiet re-application suggestions for their owners."
+                                  />
+                                </div>
+                              </div>
                             )}
                           </div>
                         </div>

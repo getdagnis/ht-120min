@@ -545,7 +545,7 @@ export const FixturesView: React.FC<FixturesViewProps> = ({
           </Button>
         </div>
       )}
-      {!isHistorical && canUpdateFixtures && rounds.length > 0 && (
+      {!isHistorical && tournament?.status !== 'finished' && canUpdateFixtures && rounds.length > 0 && (
         <div className={styles.fixturesUpdateAction}>
           <Button variant="action" size="sm" onClick={handleRefreshFixtures} disabled={isRefreshingFixtures}>
             <ArrowClockwise size={18} className={isRefreshingFixtures ? styles.spinning : undefined} />
