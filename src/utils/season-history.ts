@@ -1,5 +1,6 @@
 import { calculateStandings, type Match, type Team, type TeamStanding } from './standings';
 import type { MatchEventDetails, MatchSideEventDetails } from '../../shared/match-events';
+import { isAppg120ScoringMode, usesAveragePoints } from '../../shared/scoring-profile';
 
 export type SeasonAwardKey =
   | 'champions'
@@ -179,7 +180,7 @@ function buildAwards(
   const minimumEligibleMatches =
     maxMatchesPlayed === null || maxMatchesPlayed === 0
       ? 1
-      : scoringMode === 'appg'
+      : isAppg120ScoringMode(scoringMode)
         ? Math.ceil(maxMatchesPlayed * 0.5)
         : 1;
   const eligibleTeamIds = new Set(
@@ -239,7 +240,7 @@ function buildAwards(
     })
     .map((standing) => standing.teamId);
   const mostMatchesPlayed =
-    scoringMode === 'appg' && maxMatchesPlayed !== null && maxMatchesPlayed > 0
+    isAppg120ScoringMode(scoringMode) && maxMatchesPlayed !== null && maxMatchesPlayed > 0
       ? getWinningTeamIds(
           [...completedMatchCounts].map(([teamId, value]) => ({ teamId, value })),
           'max',
@@ -289,7 +290,7 @@ function buildAwards(
           ? Object.fromEntries(mostInjuries.teamIds.map((teamId) => [teamId, injuryWeeksByTeam[teamId] || 0]))
           : undefined,
     },
-    ...(scoringMode === 'appg'
+    ...(isAppg120ScoringMode(scoringMode)
       ? []
       : [
           {
@@ -345,7 +346,7 @@ function buildRecords(
   });
   const leader = standings[0];
   const runnerUp = standings[1];
-  const metric = scoringMode === 'points' || scoringMode === 'appg' ? 'points' : '120m';
+  const metric = scoringMode === 'points' || usesAveragePoints(scoringMode) ? 'points' : '120m';
   const leaderValue = metric === 'points' ? leader?.pts : leader?.achievements120min;
   const runnerUpValue = metric === 'points' ? runnerUp?.pts : runnerUp?.achievements120min;
 

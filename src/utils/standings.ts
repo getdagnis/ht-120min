@@ -1,4 +1,5 @@
 import { getAppgPoints, type AppgOutcome } from './appg';
+import { usesAveragePoints, type PersistedScoringMode } from '../../shared/scoring-profile';
 
 export interface Match {
   home_team_id: string | null;
@@ -58,7 +59,7 @@ export interface TeamStanding {
 export function calculateStandings(
   teams: Team[],
   matches: Match[],
-  scoringMode: '120m' | '120min' | 'points' | 'appg',
+  scoringMode: PersistedScoringMode,
 ): TeamStanding[] {
   const standingsMap: Record<string, TeamStanding> = {};
 
@@ -200,7 +201,7 @@ export function calculateStandings(
     });
   }
 
-  if (scoringMode === 'appg') {
+  if (usesAveragePoints(scoringMode)) {
     return standings.sort((a, b) => {
       const aAverage = a.appgPlayed ? a.appgPoints / a.appgPlayed : 0;
       const bAverage = b.appgPlayed ? b.appgPoints / b.appgPlayed : 0;

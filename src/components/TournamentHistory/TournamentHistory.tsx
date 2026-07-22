@@ -24,6 +24,7 @@ import {
   type SeasonParticipant,
 } from '../../utils/season-history';
 import { getHattrickCalendarContext } from '../../utils/hattrick-calendar';
+import { isAppg120ScoringMode } from '../../../shared/scoring-profile';
 import styles from './TournamentHistory.module.sass';
 
 const DEFAULT_TEAM_LOGO = '/default-logo.png';
@@ -270,7 +271,7 @@ function getAwardStat(
 ) {
   const standing = teamId ? snapshot.standings.find((item) => item.teamId === teamId) : null;
   const games = standing ? ` (${standing.played} games)` : '';
-  if (award.key === 'top-scorers') return `${award.value || 0} goals${scoringMode === 'appg' ? games : ''}`;
+  if (award.key === 'top-scorers') return `${award.value || 0} goals${isAppg120ScoringMode(scoringMode) ? games : ''}`;
   if (award.key === 'most-120-matches') {
     const percentage = standing?.played ? Math.round(((award.value || 0) / standing.played) * 100) : 0;
     return `${award.value || 0} × 120m (${percentage}%)`;
@@ -285,7 +286,7 @@ function getAwardStat(
     const teamStat = teamId ? snapshot.teamStats.find((stat) => stat.teamId === teamId) : null;
     const cardCount = teamStat ? teamStat.yellowCards + teamStat.redCards : award.value || 0;
     const redCards = teamStat?.redCards || 0;
-    return scoringMode === 'appg'
+    return isAppg120ScoringMode(scoringMode)
       ? `${cardCount} card${cardCount === 1 ? '' : 's'} (${standing?.played || 0} games, ${redCards} red)`
       : `${cardCount} card${cardCount === 1 ? '' : 's'}`;
   }
@@ -492,7 +493,7 @@ export const TournamentHistory: React.FC<TournamentHistoryProps> = ({
   const roundsPlayed = new Set(
     snapshot.matches.map((match) => match.roundNumber).filter((value): value is number => typeof value === 'number'),
   ).size;
-  const isAppgHistory = scoringMode === 'appg';
+  const isAppgHistory = isAppg120ScoringMode(scoringMode);
   const most120Award: SeasonAward = {
     key: 'most-120-matches',
     recipientTeamIds: snapshot.records.most120TeamIds,
@@ -506,7 +507,7 @@ export const TournamentHistory: React.FC<TournamentHistoryProps> = ({
         award.key !== 'champions' &&
         award.key !== 'most-120-matches' &&
         award.key !== 'fair-play' &&
-        !(scoringMode === 'appg' && award.key === 'every-fixture-completed'),
+        !(isAppgHistory && award.key === 'every-fixture-completed'),
     ),
     ...(fairPlayAward ? [fairPlayAward] : []),
   ].sort((a, b) => {

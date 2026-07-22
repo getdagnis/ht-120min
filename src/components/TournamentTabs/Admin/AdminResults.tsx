@@ -12,6 +12,7 @@ import {
   type ResultCsvRow,
 } from '../../../utils/result-csv';
 import { createSandboxResultUpdates, type BulkMatchUpdate } from '../../../utils/sandbox-results';
+import { isAppg120ScoringMode } from '../../../../shared/scoring-profile';
 import adminStyles from '../../../pages/Public/TournamentAdmin.module.sass';
 
 interface ResultTeam {
@@ -277,7 +278,7 @@ export const AdminResults: React.FC<AdminResultsProps> = ({
           const normalizedDraft = isBye
             ? { ...draft, home_goals: draft.home_goals ?? 0, away_goals: draft.away_goals ?? 0 }
             : draft;
-          if (scoringMode === 'appg') {
+          if (isAppg120ScoringMode(scoringMode)) {
             const validationError = validateAppgOutcome({
               home_goals: normalizedDraft.home_goals ?? null,
               away_goals: normalizedDraft.away_goals ?? null,
@@ -614,7 +615,7 @@ export const AdminResults: React.FC<AdminResultsProps> = ({
           </>
         )}
       </div>
-      {scoringMode === 'appg' && importCsvRows && (
+      {isAppg120ScoringMode(scoringMode) && importCsvRows && (
         <p className={adminStyles.appgCsvHelp}>
           ET3 = extra-time winner, open-play winning goal. ET2 = extra-time winner, SE/other winning goal. PS1 =
           penalties. RT0 = regulation result worth 0. OPW = regulation open-play winner gets -1. needs_review = not
@@ -707,7 +708,7 @@ export const AdminResults: React.FC<AdminResultsProps> = ({
                                 })
                               }
                             />
-                            {scoringMode === 'appg' && (
+                            {isAppg120ScoringMode(scoringMode) && (
                               <>
                                 <select
                                   aria-label="APPG outcome"
@@ -764,7 +765,7 @@ export const AdminResults: React.FC<AdminResultsProps> = ({
                 const hasResult = match.completed && match.home_goals !== null && match.away_goals !== null;
                 return (
                   <React.Fragment key={match.id}>
-                    {match.appg_outcome === 'needs_review' && (
+                    {isAppg120ScoringMode(scoringMode) && match.appg_outcome === 'needs_review' && (
                       <div className={adminStyles.needsReviewRow}>
                         {match.ht_match_id ? (
                           <a
@@ -884,7 +885,7 @@ export const AdminResults: React.FC<AdminResultsProps> = ({
                               mins
                             </span>
                           </div>
-                          {scoringMode === 'appg' && (
+                          {isAppg120ScoringMode(scoringMode) && (
                             <>
                               <select
                                 aria-label="APPG outcome"

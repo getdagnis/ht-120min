@@ -1,3 +1,11 @@
+/**
+ * APPG-120 result rules.
+ *
+ * The filename, database fields and exported `Appg*` symbols remain for
+ * compatibility. ET3, ET2, PS1, RT0 and OPW belong to APPG-120 and must not
+ * be inherited automatically by future APPG-90 or Bone Crushers profiles.
+ */
+
 export const APPG_OUTCOMES = ['ET3', 'ET2', 'PS1', 'RT0', 'OPW', 'needs_review'] as const;
 
 export type AppgOutcome = (typeof APPG_OUTCOMES)[number];
@@ -64,9 +72,9 @@ export function getAppgPoints(match: AppgMatchInput): AppgPoints | null {
 export function validateAppgOutcome(match: AppgMatchInput): string | null {
   if (!match.appg_outcome || match.appg_outcome === 'needs_review') return null;
   if (match.home_goals === null || match.away_goals === null)
-    return 'Enter both scores before choosing an APPG outcome.';
+    return 'Enter both scores before choosing an APPG-120 outcome.';
   if (match.appg_outcome !== 'RT0' && !winnerSide(match))
-    return 'APPG needs a winning team or a completed penalty shootout.';
+    return 'APPG-120 needs a winning team or a completed penalty shootout.';
 
   const extraTime = Boolean(match.went_120 || (match.total_minutes ?? 0) > 90);
   if ((match.appg_outcome === 'ET3' || match.appg_outcome === 'ET2') && !extraTime) {

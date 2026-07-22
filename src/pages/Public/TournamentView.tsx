@@ -9,6 +9,7 @@ import { buildCalendarSlots, formatCalendarDateWithWeek } from '../../utils/hatt
 import { getTournamentBackgroundStyle } from '../../utils/visuals';
 import { calculateStandings } from '../../utils/standings';
 import { validateAppgOutcome } from '../../utils/appg';
+import { isAppg120ScoringMode } from '../../../shared/scoring-profile';
 import type { TeamStanding, Team as StandingTeam } from '../../utils/standings';
 import {
   buildSeasonHistorySnapshot,
@@ -88,12 +89,12 @@ const TOURNAMENT_VIEW_MODALS_OPEN_BY_DEFAULT = {
 };
 const ADMIN_PANELS = [
   { id: 'settings', label: 'Tournament Settings', description: 'General tournament settings' },
-  { id: 'schedule', label: 'Schedule', description: 'Generate a new schedule or change the existing one' },
-  { id: 'announcements', label: 'Admin announcements', description: 'Create tournament announcements' },
-  { id: 'season', label: 'Season planner', description: 'Close or add new seasons, generate season reports' },
-  { id: 'lifecycle', label: 'Tournament status', description: 'Manage tournament status' },
+  { id: 'schedule', label: 'Manage schedule', description: 'Generate, reschedule, or add tournament matches' },
   { id: 'results', label: 'Results Entry', description: "Manage current season's fixtures" },
   { id: 'teams', label: 'Manage Teams', description: 'Add new or remove teams' },
+  { id: 'season', label: 'Season planner', description: 'Close or add new seasons, generate season reports' },
+  { id: 'announcements', label: 'Admin announcements', description: 'Create tournament announcements' },
+  { id: 'lifecycle', label: 'Tournament status', description: 'Manage tournament status' },
 ] as const;
 
 type AdminPanelId = (typeof ADMIN_PANELS)[number]['id'];
@@ -852,9 +853,13 @@ export const TournamentView: React.FC = () => {
   );
 
   // Collapsible states
-  const [isSettingsCollapsed, setIsSettingsCollapsed] = useState(() =>
+  const [, setIsSettingsCollapsed] = useState(() =>
     JSON.parse(localStorage.getItem(`settings_collapsed_${slug}`) || 'false'),
   );
+  const [settingsCollapseOverride, setSettingsCollapseOverride] = useState<boolean | null>(() => {
+    const stored = localStorage.getItem(`settings_collapsed_${slug}`);
+    return stored === null ? null : JSON.parse(stored);
+  });
   const [isTeamsCollapsed, setIsTeamsCollapsed] = useState(() =>
     JSON.parse(localStorage.getItem(`teams_collapsed_${slug}`) || 'true'),
   );
@@ -881,6 +886,7 @@ export const TournamentView: React.FC = () => {
   // Helper to persist toggle
   const togglePanel = (key: string, state: boolean, setter: React.Dispatch<React.SetStateAction<boolean>>) => {
     setter(state);
+    if (key === 'settings') setSettingsCollapseOverride(state);
     if (slug) localStorage.setItem(`${key}_collapsed_${slug}`, JSON.stringify(state));
   };
 
@@ -1067,15 +1073,13 @@ export const TournamentView: React.FC = () => {
         : null,
     [rescheduleDraft],
   );
-  const hasSettingsCollapseOverride = slug ? localStorage.getItem(`settings_collapsed_${slug}`) !== null : false;
   const hasSeasonCollapseOverride = slug ? localStorage.getItem(`season_collapsed_${slug}`) !== null : false;
   const resolvedScheduleCollapsed = scheduleCollapseOverride ?? isGenerated;
   const isSeasonCloseAvailable = Boolean(
     tournament && tournament.status !== 'finished' && isGenerated && hasFinishedAllRealFixtures(rounds),
   );
-  const resolvedSettingsCollapsed = hasSettingsCollapseOverride
-    ? isSettingsCollapsed
-    : Boolean(tournament && (tournament.status !== 'open' || isGenerated));
+  const resolvedSettingsCollapsed =
+    settingsCollapseOverride ?? Boolean(tournament && (tournament.status !== 'open' || isGenerated));
   const resolvedSeasonCollapsed = hasSeasonCollapseOverride ? isSeasonCollapsed : !isSeasonCloseAvailable;
 
   const reconcileScheduleSelection = useCallback(
@@ -1518,8 +1522,9 @@ export const TournamentView: React.FC = () => {
     () => {
       void fetchFixturesOnly();
     },
-    tournament?.status !== 'finished' && (activeTab === 'fixtures' || tournament?.scoring_mode === 'appg'),
-    tournament?.scoring_mode === 'appg',
+    tournament?.status !== 'finished' &&
+      (activeTab === 'fixtures' || isAppg120ScoringMode(tournament?.scoring_mode)),
+    isAppg120ScoringMode(tournament?.scoring_mode),
   );
 
   const fetchPresenceOnly = useCallback(async () => {
@@ -3834,7 +3839,7 @@ export const TournamentView: React.FC = () => {
   }
 
   const is120minMode = tournament.scoring_mode === '120m' || tournament.scoring_mode === '120min';
-  const isAppgMode = tournament.scoring_mode === 'appg';
+  const isAppgMode = isAppg120ScoringMode(tournament.scoring_mode);
 
   const isMobile = window.innerWidth <= 620;
   const publicUrl = `${window.location.origin}/t/${slug}`;
@@ -4003,13 +4008,13 @@ export const TournamentView: React.FC = () => {
             {isAppgMode ? (
               <div className={styles.scoringHelp}>
                 <p onClick={() => setShowScoringHelp(!showScoringHelp)} className={styles.helpToggle}>
-                  <strong>APPG scoring mode</strong> {showScoringHelp ? <X size={18} /> : <Info size={18} />}
+                  <strong>APPG-120 scoring mode</strong> {showScoringHelp ? <X size={18} /> : <Info size={18} />}
                 </p>
                 {showScoringHelp && (
                   <div className={styles.helpContent}>
                     <p>
-                      APPG means <strong>Average Points Per Game</strong>. Standings are ranked by each team's average
-                      APPG points from completed, classified matches.
+                      <strong>APPG-120</strong> uses Average Points Per Game with the English tournament's 120-minute
+                      result classifications. Standings use completed, classified matches only.
                     </p>
                     <ul>
                       <li>
@@ -5132,10 +5137,12 @@ export const TournamentView: React.FC = () => {
                         previewHtMatchLink={previewHtMatchLink}
                         saveHtMatchLink={saveHtMatchLink}
                         scoringMode={tournament.scoring_mode}
-                        saveBulkMatches={saveBulkMatches}
-                        clearSeasonResults={clearSeasonResults}
-                        clearSeasonFixtures={scheduleSetup === 'manual' ? clearSeasonFixtures : undefined}
-                        importCsvRows={importCsvRows}
+                        saveBulkMatches={isValidatedTournament ? undefined : saveBulkMatches}
+                        clearSeasonResults={isValidatedTournament ? undefined : clearSeasonResults}
+                        clearSeasonFixtures={
+                          isValidatedTournament || scheduleSetup !== 'manual' ? undefined : clearSeasonFixtures
+                        }
+                        importCsvRows={isValidatedTournament ? undefined : importCsvRows}
                         isSandbox={isSandbox}
                         canRemoveFixtures={scheduleSetup === 'manual'}
                         onRemoveFixture={removeFixture}
@@ -5718,7 +5725,7 @@ export const TournamentView: React.FC = () => {
                       <span className={adminStyles.accessLabel}>Quick links</span>
                       {ADMIN_PANELS.filter((panel) => {
                         if (panel.id === 'schedule') return canManageSchedule;
-                        if (panel.id === 'results') return isGenerated;
+                        if (panel.id === 'results') return canManageSchedule;
                         return true;
                       }).map((panel) => (
                         <button
@@ -5729,7 +5736,9 @@ export const TournamentView: React.FC = () => {
                           data-tooltip-id="admin-tooltip"
                           data-tooltip-content={panel.description}
                         >
-                          <span>{panel.label}</span>
+                          <span>
+                            {panel.id === 'schedule' && scheduleSetup === 'manual' ? 'Add matches' : panel.label}
+                          </span>
                         </button>
                       ))}
                       <div className={styles.fixturesHeaderActions}>

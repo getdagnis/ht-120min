@@ -1,4 +1,5 @@
 import type { AppgOutcome } from './appg';
+import { isAppg120ScoringMode } from '../../shared/scoring-profile';
 
 export interface BulkMatchUpdate {
   home_goals?: number | null;
@@ -92,7 +93,7 @@ export function createSandboxResultUpdates(
       .filter((match) => match.home_team_id && match.away_team_id)
       .map((match) => [
         match.id,
-        scoringMode === 'appg' ? randomAppgResult(random) : randomStandardResult(random, scoringMode),
+        isAppg120ScoringMode(scoringMode) ? randomAppgResult(random) : randomStandardResult(random, scoringMode),
       ]),
   );
 }

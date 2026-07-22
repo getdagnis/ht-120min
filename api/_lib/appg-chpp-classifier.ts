@@ -1,4 +1,5 @@
 import type { MatchEventDetails, MatchGoalEvent, MatchSideEventDetails } from '../../shared/match-events.js';
+import { supportsAppg120ChppClassification } from '../../shared/scoring-profile.js';
 
 export type ChppAppgOutcome = 'ET3' | 'ET2' | 'PS1' | 'RT0' | 'OPW' | 'needs_review';
 export type ChppAppgOutcomeSource = 'unclassified' | 'chpp' | 'organizer' | 'csv';
@@ -93,7 +94,7 @@ export function classifyChppAppgOutcome(input: ChppAppgClassificationInput): Chp
 }
 
 export function buildChppAppgUpdate(input: ChppAppgUpdateInput): ChppAppgUpdate {
-  if (input.scoringMode !== 'appg') return {};
+  if (!supportsAppg120ChppClassification(input.scoringMode)) return {};
   if (input.currentSource === 'organizer' || input.currentSource === 'csv') return {};
 
   const outcome = classifyChppAppgOutcome(input);

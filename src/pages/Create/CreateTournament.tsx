@@ -28,6 +28,7 @@ import {
   UNIVERSAL_TOURNAMENT_NAMES,
 } from '../../constants/descriptions';
 import { CREATION_TIPS } from '../../constants/creation-tips';
+import { isAppg120ScoringMode } from '../../../shared/scoring-profile';
 import {
   filterTeamsForCategory,
   getCompatibleLeagueRestrictionOptions,
@@ -1123,7 +1124,9 @@ export const CreateTournament: React.FC = () => {
                     onChange={(e) => {
                       const nextType = normalizeTournamentRegistrationType(e.target.value);
                       const nextScoringMode =
-                        nextType === 'validated' && formData.scoring_mode === 'appg' ? '120min' : formData.scoring_mode;
+                        nextType === 'validated' && isAppg120ScoringMode(formData.scoring_mode)
+                          ? '120min'
+                          : formData.scoring_mode;
                       const currentSlug = normalizeSlugInput(formData.slug);
                       const currentSuggestedSlug = getSuggestedTournamentSlug(
                         formData.name,
@@ -1176,7 +1179,7 @@ export const CreateTournament: React.FC = () => {
                   >
                     <option value="120min">Rank by 120 minute achievements ⏱</option>
                     <option value="points">Regular 90 min friendlies (3p/1p/0) 🥇</option>
-                    {registrationType !== 'validated' && <option value="appg">APPG (HFI event scoring) 📊</option>}
+                    {registrationType !== 'validated' && <option value="appg">APPG-120 (HFI event scoring) 📊</option>}
                   </select>
                 </div>
                 <div className={styles.field}>

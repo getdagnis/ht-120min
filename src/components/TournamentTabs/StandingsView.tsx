@@ -5,6 +5,7 @@ import { TeamByline } from '../TeamByline/TeamByline';
 import { SeasonYearbook, type TournamentSeasonComment } from '../TournamentHistory/TournamentHistory';
 
 import type { TeamStanding } from '../../utils/standings';
+import { isAppg120ScoringMode } from '../../../shared/scoring-profile';
 // import { MottoWidget } from '../../components/MottoWidget/MottoWidget';
 // import { TOURNAMENT_DEFAULT } from '../../constants/descriptions';
 
@@ -87,7 +88,7 @@ export const StandingsView: React.FC<StandingsViewProps> = ({
   onRemoveReapplySuggestion,
 }) => {
   const [presencePulse, setPresencePulse] = useState(0);
-  const isAppgSupported = tournament?.scoring_mode === 'appg';
+  const isAppgSupported = isAppg120ScoringMode(tournament?.scoring_mode);
   const [scoringMode, setScoringMode] = useState<StandingsScoringMode>(
     isAppgSupported ? 'appg' : is120minMode ? '120min' : '90min',
   );
@@ -97,7 +98,7 @@ export const StandingsView: React.FC<StandingsViewProps> = ({
   const [loadedSeasonCommentsId, setLoadedSeasonCommentsId] = useState<string | null>(null);
   const seasonCommentsLoading = Boolean(seasonId && loadedSeasonCommentsId !== seasonId);
   const show120minScoring = scoringMode === '120min';
-  const showAppgScoring = scoringMode === 'appg';
+  const showAppgScoring = isAppg120ScoringMode(scoringMode);
   const enabledScoringModes = (Object.keys(STANDINGS_SCORING_MODES) as StandingsScoringMode[]).filter(
     (mode) => STANDINGS_SCORING_MODES[mode].enabled && (mode !== 'appg' || isAppgSupported),
   );
@@ -117,7 +118,7 @@ export const StandingsView: React.FC<StandingsViewProps> = ({
         if (b.gf !== a.gf) return b.gf - a.gf;
         return a.played - b.played;
       }
-      if (scoringMode === 'appg') {
+      if (isAppg120ScoringMode(scoringMode)) {
         const averageDifference = averagePointsPerGame(b) - averagePointsPerGame(a);
         if (averageDifference !== 0) return averageDifference;
       }
