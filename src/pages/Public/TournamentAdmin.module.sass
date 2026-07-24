@@ -18,6 +18,10 @@
 .teamsSection
   min-width: 0
 
+.pressOnlyAdmin
+  > div:not(#admin-panel-announcements)
+    display: none
+
 .adminSidebar
   display: flex
   flex-direction: column
@@ -173,6 +177,67 @@
   h3
     display: flex !important
     align-items: flex-end !important
+
+.rolesPanel
+  display: flex
+  flex-direction: column
+  gap: 1rem
+
+.roleGroup
+  display: flex
+  flex-direction: column
+  gap: 0.5rem
+
+.roleGroupHeader
+  display: flex
+  align-items: baseline
+  justify-content: space-between
+  gap: 1rem
+  color: var(--text-h)
+
+  span
+    color: var(--text60)
+    font-size: 0.85rem
+
+.roleList
+  display: flex
+  flex-direction: column
+  gap: 0.5rem
+
+.roleRow
+  display: flex
+  align-items: center
+  justify-content: space-between
+  gap: 1rem
+  padding: 0.75rem
+  border: 1px solid var(--border)
+  border-radius: var(--radius-xs)
+  background: var(--table-bg)
+
+  div
+    display: flex
+    flex-direction: column
+    gap: 0.2rem
+
+  span
+    color: var(--text60)
+    font-size: 0.8rem
+
+.roleForm
+  display: grid
+  grid-template-columns: minmax(10rem, 1fr) minmax(10rem, 1fr) auto
+  gap: 0.5rem
+
+  input, select
+    min-width: 0
+    padding: 0.55rem
+    border: 1px solid var(--border)
+    border-radius: var(--radius-xs)
+    background: var(--bg-color)
+    color: var(--text-h)
+
+  @media (max-width: 640px)
+    grid-template-columns: 1fr
 
 .bulkResultToolbar
   display: flex

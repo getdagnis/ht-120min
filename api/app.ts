@@ -10,11 +10,174 @@ import { cleanupActivityEvents, recordActivity } from './_lib/activity.js';
 import { findOwnedSeasonParticipant, validateSeasonComment } from './_lib/season-comments.js';
 import { getServiceSupabase, getSupabase } from './_lib/supabase.js';
 import { hasSuperAdminBypassCookie } from './_lib/superadmin-bypass.js';
+import {
+  loadTournamentAccess,
+  loadTournamentRoleRecords,
+} from './_lib/tournament-access.js';
+import { isTournamentRole, type TournamentRole } from '../shared/tournament-roles.js';
 
 const COMMENT_SELECT = 'id, season_id, team_id, team_name, manager_name, comment, created_at';
 const HISTORY_REPORT_DISMISSED_NOTICE = 'history-report-dismissed';
 const HISTORY_REPORT_VIEWED_NOTICE = 'history-report-viewed';
 const HISTORY_REPORT_STATUS_NOTICE = 'history-report-status';
+
+async function requireTournamentRoleSession(req: VercelRequest, res: VercelResponse, tournamentId: string) {
+  const secret = getAppSessionSecret();
+  const session = secret ? verifyAppSessionCookie(req.headers.cookie, secret) : null;
+  const bypass = hasSuperAdminBypassCookie(req.headers.cookie);
+  const userId = session?.userId || (bypass ? getForgeSuperadminId() : null);
+  if (!userId) {
+    res.status(401).json({ error: 'Please sign in with Hattrick first.' });
+    return null;
+  }
+
+  const access = await loadTournamentAccess(getServiceSupabase(), tournamentId, userId, bypass);
+  if (!access) {
+    res.status(404).json({ error: 'Tournament not found.' });
+    return null;
+  }
+  return { userId, access };
+}
+
+async function handleTournamentAccess(req: VercelRequest, res: VercelResponse) {
+  if (req.method !== 'GET') return res.status(405).json({ error: 'Method not allowed.' });
+  const tournamentId = readString(req.query.tournamentId);
+  if (!tournamentId) return res.status(400).json({ error: 'Missing tournamentId.' });
+  const actor = await requireTournamentRoleSession(req, res, tournamentId);
+  if (!actor) return;
+  return res.status(200).json(actor.access);
+}
+
+async function handleManagedTournaments(req: VercelRequest, res: VercelResponse) {
+  if (req.method !== 'GET') return res.status(405).json({ error: 'Method not allowed.' });
+  const secret = getAppSessionSecret();
+  const session = secret ? verifyAppSessionCookie(req.headers.cookie, secret) : null;
+  const userId = session?.userId || (hasSuperAdminBypassCookie(req.headers.cookie) ? getForgeSuperadminId() : null);
+  if (!userId) return res.status(401).json({ error: 'Please sign in with Hattrick first.' });
+
+  const supabase = getServiceSupabase();
+  const [{ data: organizerRows, error: organizerError }, { data: roleRows, error: rolesError }] = await Promise.all([
+    supabase.from('tournaments').select('id').eq('organizer_id', userId),
+    supabase.from('tournament_roles').select('tournament_id').eq('hattrick_user_id', userId),
+  ]);
+  if (organizerError) throw organizerError;
+  if (rolesError && rolesError.code !== '42P01' && rolesError.code !== 'PGRST205') throw rolesError;
+  const tournamentIds = Array.from(new Set([
+    ...(organizerRows || []).map((row) => row.id),
+    ...(roleRows || []).map((row) => row.tournament_id),
+  ]));
+  if (tournamentIds.length === 0) return res.status(200).json({ tournaments: [] });
+
+  const { data: tournaments, error: tournamentsError } = await supabase
+    .from('tournaments')
+    .select('id, name, slug, is_featured, status, is_archived, is_test, registration_type, created_at')
+    .in('id', tournamentIds)
+    .neq('status', 'archived');
+  if (tournamentsError) throw tournamentsError;
+  return res.status(200).json({ tournaments: tournaments || [] });
+}
+
+async function handleTournamentRoles(req: VercelRequest, res: VercelResponse) {
+  const tournamentId = readString(req.method === 'GET' ? req.query.tournamentId : req.body?.tournamentId);
+  if (!tournamentId) return res.status(400).json({ error: 'Missing tournamentId.' });
+
+  let actor;
+  try {
+    actor = await requireTournamentRoleSession(req, res, tournamentId);
+  } catch (error) {
+    console.error('Tournament role access error:', error);
+    return res.status(500).json({ error: 'Could not load tournament roles.' });
+  }
+  if (!actor) return;
+
+  if (req.method === 'GET') {
+    if (!actor.access.canViewRoles) return res.status(403).json({ error: 'This role cannot view tournament roles.' });
+    const roleRecords = await loadTournamentRoleRecords(getServiceSupabase(), tournamentId);
+    if (!roleRecords) return res.status(404).json({ error: 'Tournament not found.' });
+    return res.status(200).json({
+      ...actor.access,
+      ...roleRecords,
+      currentRole: actor.access.actualRole,
+    });
+  }
+
+  if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed.' });
+  if (!actor.access.canManageAdmins && !actor.access.canManagePressOfficer && !actor.access.canManageCoOrganizer) {
+    return res.status(403).json({ error: 'This role cannot manage tournament roles.' });
+  }
+
+  const action = readString(req.body?.action);
+  const targetUserId = Number(req.body?.hattrickUserId) || 0;
+  if (!targetUserId) return res.status(400).json({ error: 'A valid Hattrick user ID is required.' });
+  if (targetUserId === actor.userId) {
+    return res.status(400).json({ error: 'The original organizer cannot be delegated through this panel.' });
+  }
+
+  const supabase = getServiceSupabase();
+  const { data: tournamentOwner, error: tournamentOwnerError } = await supabase
+    .from('tournaments')
+    .select('organizer_id')
+    .eq('id', tournamentId)
+    .single();
+  if (tournamentOwnerError) throw tournamentOwnerError;
+  if (targetUserId === Number(tournamentOwner.organizer_id)) {
+    return res.status(400).json({ error: 'The original organizer cannot be delegated through this panel.' });
+  }
+  if (action === 'remove') {
+    const { data: targetRole, error: targetRoleError } = await supabase
+      .from('tournament_roles')
+      .select('role')
+      .eq('tournament_id', tournamentId)
+      .eq('hattrick_user_id', targetUserId)
+      .maybeSingle();
+    if (targetRoleError) throw targetRoleError;
+    if (!targetRole) return res.status(404).json({ error: 'Delegated role not found.' });
+    if (targetRole.role === 'co_organizer' && !actor.access.canManageCoOrganizer) return res.status(403).json({ error: 'Only the original organizer can manage the co-organizer.' });
+    if (targetRole.role === 'admin' && !actor.access.canManageAdmins) return res.status(403).json({ error: 'This role cannot manage tournament admins.' });
+    if (targetRole.role === 'press_officer' && !actor.access.canManagePressOfficer) return res.status(403).json({ error: 'This role cannot manage the press officer.' });
+    const { error } = await supabase.from('tournament_roles').delete().eq('tournament_id', tournamentId).eq('hattrick_user_id', targetUserId);
+    if (error) throw error;
+  } else if (action === 'assign') {
+    if (!isTournamentRole(req.body?.role)) return res.status(400).json({ error: 'Invalid tournament role.' });
+    const role = req.body.role as TournamentRole;
+    if (role === 'co_organizer' && !actor.access.canManageCoOrganizer) return res.status(403).json({ error: 'Only the original organizer can manage the co-organizer.' });
+    if (role === 'admin' && !actor.access.canManageAdmins) return res.status(403).json({ error: 'This role cannot manage tournament admins.' });
+    if (role === 'press_officer' && !actor.access.canManagePressOfficer) return res.status(403).json({ error: 'This role cannot manage the press officer.' });
+    const { data: targetProfile, error: targetProfileError } = await supabase
+      .from('profiles')
+      .select('hattrick_user_id, manager_name')
+      .eq('hattrick_user_id', targetUserId)
+      .maybeSingle();
+    if (targetProfileError) throw targetProfileError;
+    if (!targetProfile) return res.status(422).json({ error: 'This manager has not signed into HT-120min yet.' });
+    const { data: currentRoles, error: currentRolesError } = await supabase.from('tournament_roles').select('hattrick_user_id, role').eq('tournament_id', tournamentId);
+    if (currentRolesError) throw currentRolesError;
+    if (role === 'admin' && !currentRoles?.some((item) => item.hattrick_user_id === targetUserId && item.role === 'admin') && (currentRoles ?? []).filter((item) => item.role === 'admin').length >= 4) {
+      return res.status(409).json({ error: 'This tournament already has four tournament admins.' });
+    }
+    if (role === 'co_organizer' || role === 'press_officer') {
+      const existingSlot = currentRoles?.find((item) => item.role === role && item.hattrick_user_id !== targetUserId);
+      if (existingSlot) return res.status(409).json({ error: `This tournament already has a ${role === 'co_organizer' ? 'co-organizer' : 'press officer'}. Remove the current one before assigning another.` });
+    }
+    const { error: removeExistingError } = await supabase.from('tournament_roles').delete().eq('tournament_id', tournamentId).eq('hattrick_user_id', targetUserId);
+    if (removeExistingError) throw removeExistingError;
+    const { error } = await supabase.from('tournament_roles').insert({
+      tournament_id: tournamentId,
+      hattrick_user_id: targetUserId,
+      role,
+      added_by_ht_user_id: actor.userId,
+    });
+    if (error) throw error;
+  } else {
+    return res.status(400).json({ error: 'Unknown role action.' });
+  }
+
+  const refreshed = await loadTournamentRoleRecords(supabase, tournamentId);
+  return res.status(200).json({
+    ok: true,
+    roles: refreshed?.roles ?? [],
+  });
+}
 
 function readString(value: unknown) {
   return typeof value === 'string' ? value.trim() : '';
@@ -444,6 +607,12 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         return await handleForgeSession(req, res);
       case 'forge-stats':
         return await handleForgeStats(req, res);
+      case 'tournament-roles':
+        return await handleTournamentRoles(req, res);
+      case 'tournament-access':
+        return await handleTournamentAccess(req, res);
+      case 'managed-tournaments':
+        return await handleManagedTournaments(req, res);
       case 'activity':
       default:
         return await handleActivity(req, res);

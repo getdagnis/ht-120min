@@ -27,7 +27,7 @@ export const faqSections: FaqSection[] = [
       {
         id: 'what-is-ht-120min',
         question: 'What is HT-120min?',
-        answer: `HT-120min helps organize recurring friendly tournaments. Its main promise is to keep fixtures, results, standings, live matches and tournament communication together, without spreadsheets, manual counting or scattered forum posts.`,
+        answer: `HT-120min helps organise recurring friendly tournaments. Its main promise is to keep fixtures, results, standings, live matches and tournament communication together, without spreadsheets, manual counting or scattered forum posts.`,
         status: 'current',
       },
       {

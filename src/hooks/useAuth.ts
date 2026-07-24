@@ -262,6 +262,21 @@ export const useAuth = () => {
         (tournament) => tournament.status !== 'archived' && !tournament.is_archived,
       );
 
+      let delegatedRows: DBOrganizerTournament[] = [];
+      try {
+        const managedResponse = await fetch('/api/app?route=managed-tournaments', { credentials: 'include' });
+        if (managedResponse.ok) {
+          const managedPayload = (await managedResponse.json()) as { tournaments?: DBOrganizerTournament[] };
+          delegatedRows = managedPayload.tournaments || [];
+        }
+      } catch {
+        // The organizer query remains the compatibility fallback for older sessions.
+      }
+
+      const managedRows = Array.from(
+        new Map([...organizerRows, ...delegatedRows].map((tournament) => [tournament.id, tournament])).values(),
+      ).filter((tournament) => tournament.status !== 'archived' && !tournament.is_archived);
+
       const mapMenuTournament = (tournament: DBOrganizerTournament) => ({
         id: tournament.id,
         name: tournament.name,
@@ -271,11 +286,11 @@ export const useAuth = () => {
         created_at: tournament.created_at,
       });
 
-      const testTours = organizerRows
+      const testTours = managedRows
         .filter((tournament) => tournament.registration_type === 'sandbox' || tournament.is_test)
         .map(mapMenuTournament);
 
-      const organizerTours = organizerRows
+      const organizerTours = managedRows
         .filter((tournament) => tournament.registration_type !== 'sandbox' && !tournament.is_test)
         .map((tournament) => ({
           id: tournament.id,

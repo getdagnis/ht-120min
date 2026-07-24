@@ -213,9 +213,8 @@ export const StandingsView: React.FC<StandingsViewProps> = ({
 
   const copyStandingsForForum = () => {
     const tournamentName = tournament?.name || 'Tournament';
-    const categorySuffix = tournament?.league_category === 'hfi' ? ' (HFI)' : '';
     const tournamentLink = tournament?.slug ? `[link=https://ht-120min.vercel.app/t/${tournament.slug}]` : '';
-    const heading = `[b]${tournamentName}${categorySuffix}[/b] – ${activeScoringConfig.label} Standings${
+    const heading = `[b]🏆 ${tournamentName}[/b] – ${activeScoringConfig.label} Standings${
       tournamentLink ? `\n${tournamentLink}` : ''
     }`;
     const buildTable = (rows: TeamStanding[], includePlacement: boolean) => {

@@ -1,7 +1,7 @@
 {
   "name": "ht-120min",
   "private": true,
-  "version": "0.3.36",
+  "version": "0.3.41",
   "type": "module",
   "scripts": {
     "dev": "vite",

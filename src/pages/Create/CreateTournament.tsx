@@ -337,6 +337,19 @@ export const CreateTournament: React.FC = () => {
     await supabase.from('oauth_temp_sessions').delete().eq('selection_token', selectionToken);
   };
 
+  const establishCreationSession = async (selectionToken: string) => {
+    const response = await fetch('/api/auth/complete', {
+      method: 'POST',
+      credentials: 'include',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ action: 'create_session', selection_token: selectionToken }),
+    });
+    const data = (await response.json()) as { error?: string; hattrick_user_id?: number; manager_name?: string };
+    if (!response.ok) throw new Error(data.error || 'Could not establish the organizer session.');
+    if (data.hattrick_user_id) localStorage.setItem('my_ht_user_id', String(data.hattrick_user_id));
+    if (data.manager_name) localStorage.setItem('my_ht_manager_name', data.manager_name);
+  };
+
   const goBackToSettings = async () => {
     const token =
       linkedManager?.selection_token ?? new URLSearchParams(window.location.search).get('token') ?? undefined;
@@ -451,6 +464,7 @@ export const CreateTournament: React.FC = () => {
       setShowModal(false);
       setLinkedManager(null);
 
+      await establishCreationSession(linkedManager.selection_token);
       await clearPendingJoin(linkedManager.selection_token);
       window.history.replaceState({}, '', '/create?step=teams');
       window.location.reload();
@@ -470,6 +484,7 @@ export const CreateTournament: React.FC = () => {
     };
 
     if (linkedManager?.selection_token) {
+      await establishCreationSession(linkedManager.selection_token);
       await clearPendingJoin(linkedManager.selection_token);
     }
     setOrganizerProfile(updatedOrganizerProfile);
@@ -1240,7 +1255,12 @@ export const CreateTournament: React.FC = () => {
                     />
                   )}
                 </div>
-                <Tooltip id="regenerate-tooltip" content="Shuffle from pool" delayShow={800} className="tooltip" />
+                <Tooltip
+                  id="regenerate-tooltip"
+                  content="Shuffle from pre-written pool. Will be checked for uniqueness when proceeding"
+                  delayShow={800}
+                  className="tooltip"
+                />
                 {!isSandbox && (
                   <div className={styles.field}>
                     <label className={styles.checkboxLabel}>
@@ -1375,7 +1395,7 @@ export const CreateTournament: React.FC = () => {
                   <>
                     {!isValidated ? (
                       <p>
-                        A self-organized cup you can join with one of your teams, or organize it without playing. These
+                        A self-organized cup you can join with one of your teams, or organise it without playing. These
                         teams are eligible for this cup.
                       </p>
                     ) : eligibleTeams.length === 1 ? (

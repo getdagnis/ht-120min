@@ -10,7 +10,7 @@ import { hasSuperAdminBypassCookie } from '../_lib/superadmin-bypass.js';
 import { buildForgeSessionCookie, getForgeSuperadminId } from '../_lib/forge-session.js';
 
 interface CompleteAuthBody {
-  action?: 'claim_teams';
+  action?: 'claim_teams' | 'create_session';
   forgeAuth?: boolean;
   selection_token?: string;
   team_id?: string | number;
@@ -77,6 +77,27 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     return res.status(500).json({
       error: error instanceof Error ? error.message : 'Supabase configuration missing',
     });
+  }
+
+  if (action === 'create_session') {
+    if (!selection_token) return res.status(400).json({ error: 'Missing selection_token' });
+    const { data: creationSession, error: creationSessionError } = await supabase
+      .from('oauth_temp_sessions')
+      .select('selection_token, is_creation, hattrick_user_id, manager_name')
+      .eq('selection_token', selection_token)
+      .maybeSingle();
+    if (creationSessionError || !creationSession || !creationSession.is_creation || !creationSession.hattrick_user_id) {
+      return res.status(401).json({ error: 'Invalid or expired creation session.' });
+    }
+
+    const secret = getAppSessionSecret();
+    if (!secret) return res.status(500).json({ error: 'APP_SESSION_SECRET is missing' });
+    const host = String(req.headers.host || '').split(':')[0].toLowerCase();
+    const isLocalHost = host === 'localhost' || host === '127.0.0.1' || host === '::1';
+    const forwardedProto = String(req.headers['x-forwarded-proto'] || '').toLowerCase();
+    const secureCookie = !isLocalHost && (process.env.NODE_ENV === 'production' || forwardedProto === 'https');
+    res.setHeader('Set-Cookie', buildAppSessionCookie(creationSession.hattrick_user_id, secret, secureCookie));
+    return res.status(200).json({ hattrick_user_id: creationSession.hattrick_user_id, manager_name: creationSession.manager_name });
   }
 
   if (action === 'claim_teams') {

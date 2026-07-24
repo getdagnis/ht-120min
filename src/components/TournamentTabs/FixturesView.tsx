@@ -151,8 +151,10 @@ export const FixturesView: React.FC<FixturesViewProps> = ({
     const byId = new Map<string, { id: string; name: string }>();
     rounds.forEach((round) => {
       round.matches.forEach((match) => {
-        if (match.home_team_id && match.home_team) byId.set(match.home_team_id, { id: match.home_team_id, name: match.home_team.name });
-        if (match.away_team_id && match.away_team) byId.set(match.away_team_id, { id: match.away_team_id, name: match.away_team.name });
+        if (match.home_team_id && match.home_team)
+          byId.set(match.home_team_id, { id: match.home_team_id, name: match.home_team.name });
+        if (match.away_team_id && match.away_team)
+          byId.set(match.away_team_id, { id: match.away_team_id, name: match.away_team.name });
       });
     });
     return [...byId.values()].sort((a, b) => a.name.localeCompare(b.name));
@@ -161,7 +163,12 @@ export const FixturesView: React.FC<FixturesViewProps> = ({
     () =>
       selectedTeamId
         ? rounds
-            .map((round) => ({ ...round, matches: round.matches.filter((match) => match.home_team_id === selectedTeamId || match.away_team_id === selectedTeamId) }))
+            .map((round) => ({
+              ...round,
+              matches: round.matches.filter(
+                (match) => match.home_team_id === selectedTeamId || match.away_team_id === selectedTeamId,
+              ),
+            }))
             .filter((round) => round.matches.length > 0)
         : rounds,
     [rounds, selectedTeamId],
@@ -258,7 +265,7 @@ export const FixturesView: React.FC<FixturesViewProps> = ({
                   aria-expanded={isTeamFilterOpen}
                   aria-haspopup="listbox"
                 >
-                  <span>FILTER: {selectedTeamName || 'ALL'}</span>
+                  <span>FILTER: {selectedTeamName || 'ALL TEAMS'}</span>
                 </button>
                 {isTeamFilterOpen && (
                   <div className={styles.fixturesFilterDropdown} role="listbox" aria-label="Filter fixtures by team">

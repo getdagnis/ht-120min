@@ -499,7 +499,7 @@ export const Home: React.FC = () => {
               <h1 className={styles.hiddenH1}>HT-120min</h1>
               <img src="/hero-logo-2.png" alt="HT-120min" className={styles.heroImg} />
               <p className={styles.subtitle}>
-                Organize 120 min tournaments and recurring friendlies with ease by getting together with other
+                Organise 120 min tournaments and recurring friendlies with ease by getting together with other
                 like-minded Hattrick managers.
               </p>
               <div className={styles.ctaBtns}>
