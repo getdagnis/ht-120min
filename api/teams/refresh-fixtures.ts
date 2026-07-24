@@ -17,6 +17,12 @@ import {
 } from '../_lib/hattrick-time.js';
 import { isFriendlyInsideAcceptedWindow } from '../_lib/match-window.js';
 import type { MatchEventDetails } from '../../shared/match-events.js';
+import {
+  buildArchiveDateChunks,
+  mergeChppMatchesById,
+  parseChppMatchesXml,
+  type ParsedChppMatch,
+} from '../../shared/matches-archive.js';
 
 // Simplified helper for match date calculation on server
 // Compare with docs/global-match-time.json before actual implementation
@@ -220,16 +226,57 @@ function getMatchFetchSeason(window: MatchFetchWindow) {
   return window === 'previous' ? context.htSeason - 1 : context.htSeason;
 }
 
-function getLastMatchDateForWindow(window: MatchFetchWindow) {
-  const targetSeason = getMatchFetchSeason(window);
-  if (!targetSeason) return null;
-  return getHattrickWeekStartDate(targetSeason + 1, 1);
+function getSeasonDateRange(season: number) {
+  return {
+    start: getHattrickWeekStartDate(season, 1),
+    end: getHattrickWeekStartDate(season + 1, 1),
+  };
 }
 
-function isInsideFetchWindow(matchDate: Date, window: MatchFetchWindow) {
-  const targetSeason = getMatchFetchSeason(window);
-  if (!targetSeason) return true;
-  return getHattrickWeekFromDate(matchDate).htSeason === targetSeason;
+async function fetchChppMatchesXml(
+  teamId: string,
+  oauthToken: string,
+  oauthTokenSecret: string,
+  params: Record<string, string>,
+) {
+  const consumerKey = process.env.CHPP_CONSUMER_KEY;
+  const consumerSecret = process.env.CHPP_CONSUMER_SECRET;
+  const url = 'https://chpp.hattrick.org/chppxml.ashx';
+  const authHeader = getAuthHeader('GET', url, params, consumerKey!, consumerSecret!, oauthToken, oauthTokenSecret);
+  const query = new URLSearchParams(params).toString();
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), CHPP_MATCHES_TIMEOUT_MS);
+  try {
+    const response = await fetch(`${url}?${query}`, {
+      headers: { Authorization: authHeader },
+      signal: controller.signal,
+    });
+    if (!response.ok) return '';
+    return await response.text();
+  } finally {
+    clearTimeout(timeoutId);
+  }
+}
+
+interface FetchTeamFriendliesResult {
+  matches: TeamFriendlyMatch[];
+  rawMatchesReturned: number;
+  selectedCategoryMatches: number;
+}
+
+function toTeamFriendlyMatch(match: ParsedChppMatch): TeamFriendlyMatch {
+  return {
+    homeId: match.homeId,
+    awayId: match.awayId,
+    homeName: match.homeName,
+    awayName: match.awayName,
+    date: match.date,
+    matchId: match.matchId,
+    matchType: match.matchType,
+    homeGoals: match.homeGoals,
+    awayGoals: match.awayGoals,
+    status: match.status,
+  };
 }
 
 async function fetchTeamFriendlies(
@@ -238,64 +285,61 @@ async function fetchTeamFriendlies(
   oauthTokenSecret: string,
   options: { fetchWindow?: MatchFetchWindow; matchTypes?: Set<number> } = {},
 ) {
-  const consumerKey = process.env.CHPP_CONSUMER_KEY;
-  const consumerSecret = process.env.CHPP_CONSUMER_SECRET;
-  const url = 'https://chpp.hattrick.org/chppxml.ashx';
   const fetchWindow = options.fetchWindow || 'current';
-  const lastMatchDate = getLastMatchDateForWindow(fetchWindow);
-  const params = lastMatchDate
-    ? { file: 'matches', teamID: teamId, LastMatchDate: formatChppDateTime(lastMatchDate) }
-    : { file: 'matches', teamID: teamId };
-  const authHeader = getAuthHeader('GET', url, params, consumerKey!, consumerSecret!, oauthToken, oauthTokenSecret);
-  const query = new URLSearchParams(params).toString();
-  const controller = new AbortController();
-  const timeoutId = setTimeout(() => controller.abort(), CHPP_MATCHES_TIMEOUT_MS);
-  let response: Response;
-  try {
-    response = await fetch(`${url}?${query}`, {
-      headers: { Authorization: authHeader },
-      signal: controller.signal,
-    });
-  } finally {
-    clearTimeout(timeoutId);
-  }
-  if (!response.ok) return [];
-  const xml = await response.text();
-  const friendlies: TeamFriendlyMatch[] = [];
   const allowedMatchTypes = options.matchTypes || getMatchTypesForCategories(['friendlies']);
-  for (const match of xml.matchAll(/<Match>([\s\S]*?)<\/Match>/gi)) {
-    const block = match[1];
-    const matchType = parseInt(readChppTag(block, 'MatchType') || '0', 10);
-    if (allowedMatchTypes.has(matchType)) {
-      const status = readChppTag(block, 'Status');
-      if (status === 'FINISHED' || status === 'UPCOMING') {
-        const homeId = parseInt(readChppTag(block, 'HomeTeamID') || '0', 10);
-        const awayId = parseInt(readChppTag(block, 'AwayTeamID') || '0', 10);
-        const homeName = readChppTag(block, 'HomeTeamName') || null;
-        const awayName = readChppTag(block, 'AwayTeamName') || null;
-        const dateStr = readChppTag(block, 'MatchDate');
-        const matchId = parseInt(readChppTag(block, 'MatchID') || '0', 10);
-        const homeGoalsText = readChppTag(block, 'HomeGoals');
-        const awayGoalsText = readChppTag(block, 'AwayGoals');
-        const date = dateStr ? new Date(dateStr.replace(' ', 'T')) : null;
-        if (homeId && awayId && matchId && date && Number.isFinite(date.getTime()) && isInsideFetchWindow(date, fetchWindow)) {
-          friendlies.push({
-            homeId,
-            awayId,
-            homeName,
-            awayName,
-            matchId,
-            date,
-            matchType,
-            homeGoals: homeGoalsText === '' ? null : Number(homeGoalsText),
-            awayGoals: awayGoalsText === '' ? null : Number(awayGoalsText),
-            status,
-          });
-        }
-      }
-    }
+  if (fetchWindow === 'last50') {
+    const xml = await fetchChppMatchesXml(teamId, oauthToken, oauthTokenSecret, { file: 'matches', teamID: teamId });
+    const parsed = parseChppMatchesXml(xml, { matchTypes: allowedMatchTypes });
+    return {
+      matches: parsed.matches.map(toTeamFriendlyMatch),
+      rawMatchesReturned: parsed.rawMatchesReturned,
+      selectedCategoryMatches: parsed.selectedCategoryMatches,
+    };
   }
-  return friendlies;
+
+  const targetSeason = getMatchFetchSeason(fetchWindow);
+  if (!targetSeason) return { matches: [], rawMatchesReturned: 0, selectedCategoryMatches: 0 };
+  const range = getSeasonDateRange(targetSeason);
+  const archiveEnd = fetchWindow === 'current' ? new Date(Math.min(range.end.getTime(), Date.now())) : range.end;
+  const chunks = buildArchiveDateChunks(range.start, archiveEnd);
+  const archiveResults: ParsedChppMatch[][] = [];
+  let rawMatchesReturned = 0;
+  let selectedCategoryMatches = 0;
+
+  for (const chunk of chunks) {
+    const xml = await fetchChppMatchesXml(teamId, oauthToken, oauthTokenSecret, {
+      file: 'matchesArchive',
+      teamID: teamId,
+      FirstMatchDate: formatChppDateTime(chunk.firstDate),
+      LastMatchDate: formatChppDateTime(chunk.lastDate),
+    });
+    const parsed = parseChppMatchesXml(xml, {
+      archive: true,
+      matchTypes: allowedMatchTypes,
+      firstDate: chunk.firstDate,
+      lastDate: chunk.lastDate,
+    });
+    rawMatchesReturned += parsed.rawMatchesReturned;
+    selectedCategoryMatches += parsed.selectedCategoryMatches;
+    archiveResults.push(parsed.matches);
+  }
+
+  let matches = mergeChppMatchesById(archiveResults).map(toTeamFriendlyMatch);
+  if (fetchWindow === 'current' && archiveEnd < range.end) {
+    const xml = await fetchChppMatchesXml(teamId, oauthToken, oauthTokenSecret, { file: 'matches', teamID: teamId });
+    const parsed = parseChppMatchesXml(xml, { matchTypes: allowedMatchTypes });
+    rawMatchesReturned += parsed.rawMatchesReturned;
+    const upcomingMatches = parsed.matches.filter(
+      (match) => match.date > archiveEnd && getHattrickWeekFromDate(match.date).htSeason === targetSeason,
+    );
+    selectedCategoryMatches += upcomingMatches.length;
+    matches = mergeChppMatchesById([
+      matches,
+      upcomingMatches,
+    ]).map(toTeamFriendlyMatch);
+  }
+
+  return { matches, rawMatchesReturned, selectedCategoryMatches };
 }
 
 interface TeamWithAuth {
@@ -704,10 +748,19 @@ async function handleSuggestHtMatchesInternal(req: VercelRequest, res: VercelRes
   }
 
   const deduped = new Map<number, TeamFriendlyMatch>();
+  const selectedCategoryMatchIds = new Set<number>();
+  const registeredHeadToHeadMatchIds = new Set<number>();
+  const alreadyImportedMatchIds = new Set<number>();
+  const discoveredDates: Date[] = [];
+  let rawMatchesReturned = 0;
   for (const team of selectedTeams) {
-    let matches: TeamFriendlyMatch[] = [];
+    let result: FetchTeamFriendliesResult = {
+      matches: [],
+      rawMatchesReturned: 0,
+      selectedCategoryMatches: 0,
+    };
     try {
-      matches = await fetchTeamFriendlies(
+      result = await fetchTeamFriendlies(
         String(team.ht_team_id),
         authTeam.oauth_token,
         authTeam.oauth_token_secret || '',
@@ -719,9 +772,16 @@ async function handleSuggestHtMatchesInternal(req: VercelRequest, res: VercelRes
         error: error instanceof Error ? error.message : error,
       });
     }
-    for (const match of matches) {
-      if (existingMatchIds.has(match.matchId)) continue;
+    rawMatchesReturned += result.rawMatchesReturned;
+    for (const match of result.matches) {
+      selectedCategoryMatchIds.add(match.matchId);
+      discoveredDates.push(match.date);
+      if (existingMatchIds.has(match.matchId)) {
+        alreadyImportedMatchIds.add(match.matchId);
+        continue;
+      }
       if (!registeredHtIds.has(match.homeId) || !registeredHtIds.has(match.awayId)) continue;
+      registeredHeadToHeadMatchIds.add(match.matchId);
       if (deduped.has(match.matchId)) continue;
       deduped.set(match.matchId, match);
     }
@@ -737,12 +797,22 @@ async function handleSuggestHtMatchesInternal(req: VercelRequest, res: VercelRes
     .sort((a, b) => a.date.getTime() - b.date.getTime());
   const ordered = [...pastMatches, ...futureMatches];
   const page = ordered.slice(offset, offset + limit).map((match) => toSuggestedMatch(match, teamByHtId));
+  const discoveredTimes = discoveredDates.map((date) => date.getTime()).filter(Number.isFinite);
 
   return res.status(200).json({
     ok: true,
     matches: page,
     nextOffset: offset + page.length,
     hasMore: offset + page.length < ordered.length,
+    diagnostics: {
+      rawChppMatchesReturned: rawMatchesReturned,
+      selectedCategoryMatches: selectedCategoryMatchIds.size,
+      registeredTeamHeadToHeadMatches: registeredHeadToHeadMatchIds.size,
+      alreadyImportedMatches: alreadyImportedMatchIds.size,
+      uniqueSuggestions: ordered.length,
+      earliestDiscoveredDate: discoveredTimes.length ? new Date(Math.min(...discoveredTimes)).toISOString() : null,
+      latestDiscoveredDate: discoveredTimes.length ? new Date(Math.max(...discoveredTimes)).toISOString() : null,
+    },
   });
 }
 

@@ -30,6 +30,8 @@ import { useLiveMatches } from '../../hooks/useLiveMatches';
 import { trackActivity } from '../../hooks/useActivityTracking';
 import { buildScheduleDraft, serializeScheduleDraftForRpc, type ScheduleMode } from '../../utils/schedule-draft';
 import { buildRescheduleDraft, serializeRescheduleDraftForRpc } from '../../utils/reschedule-draft';
+import { buildManualRoundNormalizationPlan } from '../../utils/manual-rounds';
+import { buildClearSeasonResultsPayload } from '../../utils/season-results';
 import { getMatchDateForRound as resolveMatchDateForRound } from '../../utils/match-schedule';
 import { canViewerJoinTournament } from '../../utils/tournament-joinability';
 import { markAuthRefreshCurrent, needsAuthRefresh } from '../../utils/auth-refresh';
@@ -154,6 +156,16 @@ interface HtMatchSuggestion {
   away_goals: number | null;
   home_team: { id: string; name: string; ht_team_id: number | null; logo_url: string | null } | null;
   away_team: { id: string; name: string; ht_team_id: number | null; logo_url: string | null } | null;
+}
+
+interface HtMatchFetchDiagnostics {
+  rawChppMatchesReturned: number;
+  selectedCategoryMatches: number;
+  registeredTeamHeadToHeadMatches: number;
+  alreadyImportedMatches: number;
+  uniqueSuggestions: number;
+  earliestDiscoveredDate: string | null;
+  latestDiscoveredDate: string | null;
 }
 
 type MatchFetchWindow = 'current' | 'previous' | 'last50';
@@ -1516,6 +1528,76 @@ export const TournamentView: React.FC = () => {
       setTournament((prev) => (prev ? { ...prev, last_fixtures_refresh: tournamentMeta.last_fixtures_refresh } : prev));
   }, [tournament, teams, getMatchDateForRound]);
 
+  const normalizeManualRounds = useCallback(async () => {
+    if (!tournament) return;
+    const seasonNumber = Number(tournament.season || 1);
+    const { data, error } = await supabase
+      .from('rounds')
+      .select('id, round_number, matches(id, scheduled_for)')
+      .eq('tournament_id', tournament.id)
+      .eq('season_number', seasonNumber)
+      .order('round_number', { ascending: true });
+    if (error) throw error;
+
+    const rounds = (data || []) as Array<{
+      id: string;
+      round_number: number;
+      matches: Array<{ id: string; scheduled_for: string | null }>;
+    }>;
+    const plan = buildManualRoundNormalizationPlan(rounds);
+    const usedRoundIds = new Set(plan.finalRounds.map((round) => round.roundId).filter(Boolean));
+    const roundsToRemove = rounds.filter((round) => !usedRoundIds.has(round.id)).map((round) => round.id);
+    const temporaryRoundNumberById = new Map(
+      rounds.map((round, index) => [round.id, -1 - index]),
+    );
+
+    for (const [roundId, roundNumber] of temporaryRoundNumberById) {
+      const { error: updateError } = await supabase.from('rounds').update({ round_number: roundNumber }).eq('id', roundId);
+      if (updateError) throw updateError;
+    }
+
+    const roundIdByDate = new Map<string, string>();
+    for (const round of plan.finalRounds) {
+      if (round.roundId) {
+        roundIdByDate.set(round.dateKey, round.roundId);
+        continue;
+      }
+      const { data: insertedRound, error: insertError } = await supabase
+        .from('rounds')
+        .insert({ tournament_id: tournament.id, season_number: seasonNumber, round_number: -100000 - round.roundNumber })
+        .select('id')
+        .single();
+      if (insertError || !insertedRound) throw insertError || new Error('Could not create a normalized round.');
+      roundIdByDate.set(round.dateKey, insertedRound.id as string);
+      round.roundId = insertedRound.id as string;
+    }
+
+    const matchIdsByRound = new Map<string, string[]>();
+    for (const assignment of plan.assignments) {
+      const roundId = roundIdByDate.get(assignment.dateKey);
+      if (!roundId) continue;
+      const matchIds = matchIdsByRound.get(roundId) || [];
+      matchIds.push(assignment.matchId);
+      matchIdsByRound.set(roundId, matchIds);
+    }
+    for (const [roundId, matchIds] of matchIdsByRound) {
+      const { error: matchError } = await supabase.from('matches').update({ round_id: roundId }).in('id', matchIds);
+      if (matchError) throw matchError;
+    }
+
+    if (roundsToRemove.length > 0) {
+      const { error: deleteError } = await supabase.from('rounds').delete().in('id', roundsToRemove);
+      if (deleteError) throw deleteError;
+    }
+
+    for (const round of plan.finalRounds) {
+      const roundId = roundIdByDate.get(round.dateKey);
+      if (!roundId) continue;
+      const { error: finalError } = await supabase.from('rounds').update({ round_number: round.roundNumber }).eq('id', roundId);
+      if (finalError) throw finalError;
+    }
+  }, [tournament]);
+
   const { liveData } = useLiveMatches(
     tournament?.id,
     allMatches,
@@ -1951,6 +2033,7 @@ export const TournamentView: React.FC = () => {
         matches?: HtMatchSuggestion[];
         nextOffset?: number;
         hasMore?: boolean;
+        diagnostics?: HtMatchFetchDiagnostics;
       } | null;
 
       if (!response.ok || !payload?.matches) {
@@ -1960,6 +2043,7 @@ export const TournamentView: React.FC = () => {
         matches: payload.matches,
         nextOffset: payload.nextOffset || 0,
         hasMore: Boolean(payload.hasMore),
+        diagnostics: payload.diagnostics,
       };
     },
     [password, tournament],
@@ -3570,17 +3654,7 @@ export const TournamentView: React.FC = () => {
     const matchIds = rounds.flatMap((round) => round.matches.map((match) => match.id));
     if (matchIds.length === 0) return;
 
-    const payload = {
-      home_goals: null,
-      away_goals: null,
-      went_120: false,
-      total_minutes: 90,
-      completed: false,
-      penalty_shootout_home_goals: null,
-      penalty_shootout_away_goals: null,
-      appg_outcome: null,
-      appg_outcome_source: null,
-    };
+    const payload = buildClearSeasonResultsPayload();
     const { error } = await supabase.from('matches').update(payload).in('id', matchIds);
     if (error) throw error;
 
@@ -3678,7 +3752,7 @@ export const TournamentView: React.FC = () => {
         home_goals: isReversed ? row.awayGoals : row.homeGoals,
         away_goals: isReversed ? row.homeGoals : row.awayGoals,
         total_minutes: row.totalMinutes || 90,
-        went_120: row.went120 ?? Boolean((row.totalMinutes || 90) > 90),
+        went_120: row.went120 ?? Boolean((row.totalMinutes || 90) >= 120),
         penalty_shootout_home_goals: isReversed ? row.penaltyShootoutAwayGoals : row.penaltyShootoutHomeGoals,
         penalty_shootout_away_goals: isReversed ? row.penaltyShootoutHomeGoals : row.penaltyShootoutAwayGoals,
         appg_outcome: row.appgOutcome,
@@ -5083,6 +5157,7 @@ export const TournamentView: React.FC = () => {
                         previewHtMatchAdd={previewHtMatchAdd}
                         saveHtMatchAdd={saveHtMatchAdd}
                         onRefreshFixtures={fetchFixturesOnly}
+                        onNormalizeManualRounds={scheduleSetup === 'manual' ? normalizeManualRounds : undefined}
                         fetchHtMatchSuggestions={fetchHtMatchSuggestions}
                       />
                     </div>
@@ -5116,6 +5191,7 @@ export const TournamentView: React.FC = () => {
                         previewHtMatchAdd={previewHtMatchAdd}
                         saveHtMatchAdd={saveHtMatchAdd}
                         onRefreshFixtures={fetchFixturesOnly}
+                        onNormalizeManualRounds={scheduleSetup === 'manual' ? normalizeManualRounds : undefined}
                         fetchHtMatchSuggestions={fetchHtMatchSuggestions}
                       />
                     </div>

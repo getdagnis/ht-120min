@@ -314,7 +314,7 @@ function buildStory(standings: TeamStanding[], summary: SeasonHistorySummary) {
   if (!winner) return 'This season finished without enough results for a full summary.';
   const runnerUp = standings[1];
   const resultText = summary.achievements120min
-    ? `${summary.achievements120min} total match${summary.achievements120min === 1 ? '' : 'es'} reaching 120 minutes`
+    ? `${summary.achievements120min} match${summary.achievements120min === 1 ? '' : 'es'} reaching 120 minutes out of ${summary.completedMatches} total`
     : `${summary.completedMatches} completed match${summary.completedMatches === 1 ? '' : 'es'}`;
 
   return runnerUp

@@ -124,7 +124,6 @@ export function calculateStandings(
       const appgPoints = getAppgPoints(m);
       if (appgPoints !== null) {
         team.appgPoints += m.home_team_id ? appgPoints.home : appgPoints.away;
-        team.appgPlayed++;
       }
 
       if (m.went_120) {
@@ -132,6 +131,7 @@ export function calculateStandings(
       }
 
       team.totalMinutes += m.total_minutes || 90;
+      team.appgPlayed++;
       return;
     }
 
@@ -168,8 +168,6 @@ export function calculateStandings(
     if (appgPoints !== null) {
       home.appgPoints += appgPoints.home;
       away.appgPoints += appgPoints.away;
-      home.appgPlayed++;
-      away.appgPlayed++;
     }
 
     if (m.went_120) {
@@ -179,6 +177,8 @@ export function calculateStandings(
 
     home.totalMinutes += m.total_minutes || 90;
     away.totalMinutes += m.total_minutes || 90;
+    home.appgPlayed++;
+    away.appgPlayed++;
   });
 
   // Filter out inactive teams from the final list

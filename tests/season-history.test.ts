@@ -134,7 +134,7 @@ test('season snapshot freezes participants, shares tied awards, and excludes inc
   assert.equal(snapshot.matches.length, 2);
   assert.equal(snapshot.records.highestScoringMatchId, 'a-b');
   assert.equal(snapshot.records.longestMatchId, 'a-b');
-  assert.match(snapshot.story, /Team A finished ahead of Team B/);
+  assert.match(snapshot.story, /Team A finished ahead of Team B in a season with 1 match reaching 120 minutes out of 2 total/);
 });
 
 test('points snapshots calculate closest finish from points', () => {

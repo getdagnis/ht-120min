@@ -141,10 +141,32 @@ export const FixturesView: React.FC<FixturesViewProps> = ({
   emptyStateMessage,
 }) => {
   const [manualVisibleRoundsCount, setManualVisibleRoundsCount] = React.useState<number | null>(null);
+  const [selectedTeamId, setSelectedTeamId] = React.useState<string | null>(null);
+  const [isTeamFilterOpen, setIsTeamFilterOpen] = React.useState(false);
   const currentRound = !isHistorical && upcomingRoundIndex >= 0 ? (rounds[upcomingRoundIndex] ?? null) : null;
   const currentRoundScrollTargetRef = React.useRef<HTMLDivElement | null>(null);
   const hasAutoScrolledToCurrentRoundRef = React.useRef(false);
   const visibleRoundsCount = manualVisibleRoundsCount ?? defaultVisibleRoundsCount;
+  const fixtureTeams = React.useMemo(() => {
+    const byId = new Map<string, { id: string; name: string }>();
+    rounds.forEach((round) => {
+      round.matches.forEach((match) => {
+        if (match.home_team_id && match.home_team) byId.set(match.home_team_id, { id: match.home_team_id, name: match.home_team.name });
+        if (match.away_team_id && match.away_team) byId.set(match.away_team_id, { id: match.away_team_id, name: match.away_team.name });
+      });
+    });
+    return [...byId.values()].sort((a, b) => a.name.localeCompare(b.name));
+  }, [rounds]);
+  const filteredRounds = React.useMemo(
+    () =>
+      selectedTeamId
+        ? rounds
+            .map((round) => ({ ...round, matches: round.matches.filter((match) => match.home_team_id === selectedTeamId || match.away_team_id === selectedTeamId) }))
+            .filter((round) => round.matches.length > 0)
+        : rounds,
+    [rounds, selectedTeamId],
+  );
+  const selectedTeamName = fixtureTeams.find((team) => team.id === selectedTeamId)?.name;
   const lastFinishedRoundNumber = React.useMemo(() => {
     let latestFinishedRoundNumber: number | null = null;
 
@@ -228,6 +250,46 @@ export const FixturesView: React.FC<FixturesViewProps> = ({
               </button>
             )}
             {rounds.length > 0 && (
+              <div className={styles.fixturesFilterMenu}>
+                <button
+                  type="button"
+                  className={styles.fixturesHeaderAction}
+                  onClick={() => setIsTeamFilterOpen((open) => !open)}
+                  aria-expanded={isTeamFilterOpen}
+                  aria-haspopup="listbox"
+                >
+                  <span>FILTER: {selectedTeamName || 'ALL'}</span>
+                </button>
+                {isTeamFilterOpen && (
+                  <div className={styles.fixturesFilterDropdown} role="listbox" aria-label="Filter fixtures by team">
+                    <button
+                      type="button"
+                      className={styles.fixturesFilterOption}
+                      onClick={() => {
+                        setSelectedTeamId(null);
+                        setIsTeamFilterOpen(false);
+                      }}
+                    >
+                      ALL TEAMS
+                    </button>
+                    {fixtureTeams.map((team) => (
+                      <button
+                        key={team.id}
+                        type="button"
+                        className={styles.fixturesFilterOption}
+                        onClick={() => {
+                          setSelectedTeamId(team.id);
+                          setIsTeamFilterOpen(false);
+                        }}
+                      >
+                        {team.name}
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
+            {rounds.length > 0 && (
               <button type="button" className={styles.fixturesHeaderAction} onClick={onExpandAllRounds}>
                 <span>EXPAND ALL</span>
               </button>
@@ -257,8 +319,8 @@ export const FixturesView: React.FC<FixturesViewProps> = ({
         </SectionCard>
       )}
 
-      {rounds.slice(0, visibleRoundsCount).map((round) => {
-        const isNextRound = round.id === rounds[upcomingRoundIndex]?.id;
+      {filteredRounds.slice(0, visibleRoundsCount).map((round) => {
+        const isNextRound = round.id === currentRound?.id;
 
         const isExpanded =
           expandedRounds[round.id] ??
@@ -268,7 +330,7 @@ export const FixturesView: React.FC<FixturesViewProps> = ({
 
         const allFinished = round.matches.every((m) => m.completed || m.status === 'misarranged');
 
-        const nextRound = rounds[rounds.findIndex((r) => r.id === round.id) + 1];
+        const nextRound = filteredRounds[filteredRounds.findIndex((r) => r.id === round.id) + 1];
 
         const roundDate = round.matches[0] ? resolveMatchDate(round, round.matches[0]) : null;
         const roundWeek = roundDate ? getHattrickWeekDetails(roundDate) : null;
@@ -532,14 +594,14 @@ export const FixturesView: React.FC<FixturesViewProps> = ({
           </div>
         );
       })}
-      {visibleRoundsCount < rounds.length && (
+      {visibleRoundsCount < filteredRounds.length && (
         <div className={styles.formActionRow}>
           <Button
             variant="action"
             onClick={() =>
               setManualVisibleRoundsCount((prev) => {
                 const base = prev ?? defaultVisibleRoundsCount;
-                return Math.min(rounds.length, base + 4);
+                return Math.min(filteredRounds.length, base + 4);
               })
             }
           >

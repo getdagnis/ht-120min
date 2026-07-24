@@ -58,15 +58,20 @@ function winnerSide(match: AppgMatchInput): 'home' | 'away' | null {
 
 export function getAppgPoints(match: AppgMatchInput): AppgPoints | null {
   if (!match.appg_outcome || match.appg_outcome === 'needs_review') return null;
-  if (match.appg_outcome === 'RT0') return { home: 0, away: 0 };
-
-  const winner = winnerSide(match);
-  if (!winner) return null;
-
-  if (match.appg_outcome === 'OPW') return winner === 'home' ? { home: -1, away: 0 } : { home: 0, away: -1 };
-
-  const winningPoints = match.appg_outcome === 'ET3' ? 3 : match.appg_outcome === 'ET2' ? 2 : 1;
-  return winner === 'home' ? { home: winningPoints, away: 0 } : { home: 0, away: winningPoints };
+  switch (match.appg_outcome) {
+    case 'ET3':
+      return { home: 3, away: 3 };
+    case 'ET2':
+      return { home: 2, away: 2 };
+    case 'PS1':
+      return { home: 1, away: 1 };
+    case 'RT0':
+      return { home: 0, away: 0 };
+    case 'OPW':
+      return { home: -1, away: -1 };
+    default:
+      return null;
+  }
 }
 
 export function validateAppgOutcome(match: AppgMatchInput): string | null {
@@ -76,7 +81,7 @@ export function validateAppgOutcome(match: AppgMatchInput): string | null {
   if (match.appg_outcome !== 'RT0' && !winnerSide(match))
     return 'APPG-120 needs a winning team or a completed penalty shootout.';
 
-  const extraTime = Boolean(match.went_120 || (match.total_minutes ?? 0) > 90);
+  const extraTime = Boolean(match.went_120 || (match.total_minutes ?? 0) >= 120);
   if ((match.appg_outcome === 'ET3' || match.appg_outcome === 'ET2') && !extraTime) {
     return 'ET3 and ET2 require a match that reached extra time.';
   }

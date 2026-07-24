@@ -704,7 +704,7 @@ export const AdminResults: React.FC<AdminResultsProps> = ({
                               onChange={(event) =>
                                 setBulkValue(match.id, {
                                   total_minutes: Number(event.target.value) || 90,
-                                  went_120: Number(event.target.value) > 90,
+                                  went_120: Number(event.target.value) >= 120,
                                 })
                               }
                             />

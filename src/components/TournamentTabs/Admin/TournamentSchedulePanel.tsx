@@ -50,6 +50,16 @@ interface HtMatchSuggestion {
   away_team: { id: string; name: string; ht_team_id: number | null; logo_url: string | null } | null;
 }
 
+interface HtMatchFetchDiagnostics {
+  rawChppMatchesReturned: number;
+  selectedCategoryMatches: number;
+  registeredTeamHeadToHeadMatches: number;
+  alreadyImportedMatches: number;
+  uniqueSuggestions: number;
+  earliestDiscoveredDate: string | null;
+  latestDiscoveredDate: string | null;
+}
+
 interface SchedulePanelTeam {
   id: string;
   name: string;
@@ -90,12 +100,18 @@ interface TournamentSchedulePanelProps {
   previewHtMatchAdd?: (htMatchId: string) => Promise<HtMatchAddPreview>;
   saveHtMatchAdd?: (htMatchId: string, options?: { refreshFixtures?: boolean }) => Promise<void>;
   onRefreshFixtures?: () => Promise<void>;
+  onNormalizeManualRounds?: () => Promise<void>;
   fetchHtMatchSuggestions?: (options?: {
     teamHtId?: number;
     offset?: number;
     fetchWindow?: MatchFetchWindow;
     matchCategories?: MatchFetchCategory[];
-  }) => Promise<{ matches: HtMatchSuggestion[]; nextOffset: number; hasMore: boolean }>;
+  }) => Promise<{
+    matches: HtMatchSuggestion[];
+    nextOffset: number;
+    hasMore: boolean;
+    diagnostics?: HtMatchFetchDiagnostics;
+  }>;
 }
 
 function formatModeLabel(mode: ScheduleMode) {
@@ -207,6 +223,7 @@ export const TournamentSchedulePanel: React.FC<TournamentSchedulePanelProps> = (
   previewHtMatchAdd,
   saveHtMatchAdd,
   onRefreshFixtures,
+  onNormalizeManualRounds,
   fetchHtMatchSuggestions,
 }) => {
   const [expandedRounds, setExpandedRounds] = useState<Record<number, boolean>>({});
@@ -223,9 +240,11 @@ export const TournamentSchedulePanel: React.FC<TournamentSchedulePanelProps> = (
   const [suggestionsHasMore, setSuggestionsHasMore] = useState(false);
   const [suggestionsError, setSuggestionsError] = useState('');
   const [suggestionsNotice, setSuggestionsNotice] = useState('');
+  const [suggestionsDiagnostics, setSuggestionsDiagnostics] = useState<HtMatchFetchDiagnostics | null>(null);
   const [isFetchingSuggestions, setIsFetchingSuggestions] = useState(false);
   const [savingSuggestedMatchId, setSavingSuggestedMatchId] = useState<number | null>(null);
   const [isAddingAllSuggested, setIsAddingAllSuggested] = useState(false);
+  const [isNormalizingManualRounds, setIsNormalizingManualRounds] = useState(false);
   const [renderTimestamp] = useState(() => Date.now());
   const [calendarContext] = useState(() => getHattrickCalendarContext());
   const [suggestionFetchWindow, setSuggestionFetchWindow] = useState<MatchFetchWindow>(() =>
@@ -347,6 +366,7 @@ export const TournamentSchedulePanel: React.FC<TournamentSchedulePanelProps> = (
     setIsFetchingSuggestions(true);
     setSuggestionsError('');
     setSuggestionsNotice('');
+    setSuggestionsDiagnostics(null);
     if (!append) {
       setSuggestedMatches([]);
       setSuggestionsOffset(0);
@@ -373,6 +393,7 @@ export const TournamentSchedulePanel: React.FC<TournamentSchedulePanelProps> = (
       });
       setSuggestionsOffset(result.nextOffset);
       setSuggestionsHasMore(result.hasMore);
+      setSuggestionsDiagnostics(result.diagnostics || null);
       if (!append && result.matches.length === 0) {
         setSuggestionsNotice('No additional matches found between registered teams.');
       }
@@ -389,12 +410,21 @@ export const TournamentSchedulePanel: React.FC<TournamentSchedulePanelProps> = (
     setIsFetchingSuggestions(true);
     setSuggestionsError('');
     setSuggestionsNotice('');
+    setSuggestionsDiagnostics(null);
     setSuggestedMatches([]);
     setSuggestionsOffset(0);
     setSuggestionsHasMore(false);
     setSuggestionTeamId(null);
 
     const mergedMatches = new Map<number, HtMatchSuggestion>();
+    const diagnostics = {
+      rawChppMatchesReturned: 0,
+      selectedCategoryMatches: 0,
+      registeredTeamHeadToHeadMatches: 0,
+      alreadyImportedMatches: 0,
+      earliestDiscoveredDate: null as string | null,
+      latestDiscoveredDate: null as string | null,
+    };
 
     try {
       for (const [teamIndex, team] of activeTeams.entries()) {
@@ -415,6 +445,26 @@ export const TournamentSchedulePanel: React.FC<TournamentSchedulePanelProps> = (
             mergedMatches.set(match.ht_match_id, match);
           }
 
+          if (offset === 0 && result.diagnostics) {
+            diagnostics.rawChppMatchesReturned += result.diagnostics.rawChppMatchesReturned;
+            diagnostics.selectedCategoryMatches += result.diagnostics.selectedCategoryMatches;
+            diagnostics.registeredTeamHeadToHeadMatches += result.diagnostics.registeredTeamHeadToHeadMatches;
+            diagnostics.alreadyImportedMatches += result.diagnostics.alreadyImportedMatches;
+            if (
+              result.diagnostics.earliestDiscoveredDate &&
+              (!diagnostics.earliestDiscoveredDate ||
+                result.diagnostics.earliestDiscoveredDate < diagnostics.earliestDiscoveredDate)
+            ) {
+              diagnostics.earliestDiscoveredDate = result.diagnostics.earliestDiscoveredDate;
+            }
+            if (
+              result.diagnostics.latestDiscoveredDate &&
+              (!diagnostics.latestDiscoveredDate || result.diagnostics.latestDiscoveredDate > diagnostics.latestDiscoveredDate)
+            ) {
+              diagnostics.latestDiscoveredDate = result.diagnostics.latestDiscoveredDate;
+            }
+          }
+
           hasMore = result.hasMore && result.nextOffset > offset;
           offset = result.nextOffset;
         }
@@ -432,6 +482,7 @@ export const TournamentSchedulePanel: React.FC<TournamentSchedulePanelProps> = (
       });
 
       setSuggestedMatches(orderedMatches);
+      setSuggestionsDiagnostics({ ...diagnostics, uniqueSuggestions: orderedMatches.length });
       setSuggestionsNotice(
         orderedMatches.length === 0
           ? 'No additional matches found between registered teams.'
@@ -466,6 +517,8 @@ export const TournamentSchedulePanel: React.FC<TournamentSchedulePanelProps> = (
     const matchesToAdd = [...suggestedMatches];
     let addedCount = 0;
     const failedMessages: string[] = [];
+    let normalizationError = '';
+    let refreshError = '';
 
     setIsAddingAllSuggested(true);
     setSuggestionsError('');
@@ -487,23 +540,53 @@ export const TournamentSchedulePanel: React.FC<TournamentSchedulePanelProps> = (
         }
       }
 
+      if (onNormalizeManualRounds) {
+        try {
+          await onNormalizeManualRounds();
+        } catch (error) {
+          normalizationError = error instanceof Error ? error.message : String(error);
+        }
+      }
       if (addedCount > 0 && onRefreshFixtures) {
-        await onRefreshFixtures();
+        try {
+          await onRefreshFixtures();
+        } catch (error) {
+          refreshError = error instanceof Error ? error.message : String(error);
+        }
       }
 
       setSuggestionsNotice(
         `${addedCount} match${addedCount === 1 ? '' : 'es'} added.` +
-          (failedMessages.length > 0 ? ` ${failedMessages.length} failed and remain in the list.` : ''),
+          (failedMessages.length > 0 ? ` ${failedMessages.length} failed and remain in the list.` : '') +
+          (normalizationError ? ` Chronological round ordering failed: ${normalizationError}` : '') +
+          (refreshError ? ` Fixture refresh failed: ${refreshError}` : ''),
       );
 
-      if (failedMessages.length > 0) {
-        setSuggestionsError(failedMessages[0]);
+      if (refreshError || failedMessages.length > 0) {
+        setSuggestionsError(refreshError || failedMessages[0]);
       }
     } catch (error) {
       setSuggestionsError(error instanceof Error ? error.message : 'Could not finish adding the matches.');
     } finally {
       setSavingSuggestedMatchId(null);
       setIsAddingAllSuggested(false);
+    }
+  };
+
+  const handleNormalizeManualRounds = async () => {
+    if (!onNormalizeManualRounds) return;
+    setIsNormalizingManualRounds(true);
+    setSuggestionsError('');
+    setSuggestionsNotice('');
+    try {
+      await onNormalizeManualRounds();
+      setSuggestionsNotice('Chronological round ordering updated.');
+    } catch (error) {
+      setSuggestionsError(
+        `Chronological round ordering failed: ${error instanceof Error ? error.message : String(error)}`,
+      );
+    } finally {
+      setIsNormalizingManualRounds(false);
     }
   };
 
@@ -618,6 +701,7 @@ export const TournamentSchedulePanel: React.FC<TournamentSchedulePanelProps> = (
       current.includes(category) ? current.filter((item) => item !== category) : [...current, category],
     );
     setSuggestedMatches([]);
+    setSuggestionsDiagnostics(null);
     setSuggestionsOffset(0);
     setSuggestionsHasMore(false);
     setSuggestionsNotice('');
@@ -627,6 +711,7 @@ export const TournamentSchedulePanel: React.FC<TournamentSchedulePanelProps> = (
   const handleSuggestionWindowChange = (window: MatchFetchWindow) => {
     setSuggestionFetchWindow(window);
     setSuggestedMatches([]);
+    setSuggestionsDiagnostics(null);
     setSuggestionsOffset(0);
     setSuggestionsHasMore(false);
     setSuggestionsNotice('');
@@ -757,11 +842,31 @@ export const TournamentSchedulePanel: React.FC<TournamentSchedulePanelProps> = (
                 {isFetchingSuggestions ? 'Fetching matches...' : 'Fetch all teams'}
               </Button>
             )}
+            {onNormalizeManualRounds && (
+              <Button
+                size="xs"
+                variant="action"
+                onClick={() => void handleNormalizeManualRounds()}
+                disabled={isFetchingSuggestions || isAddingAllSuggested || isNormalizingManualRounds}
+              >
+                {isNormalizingManualRounds ? 'Normalizing rounds...' : 'Normalize rounds'}
+              </Button>
+            )}
             {selectedSuggestionTeam && (
               <p className={adminStyles.smallNote}>Showing matches found from {selectedSuggestionTeam.name}.</p>
             )}
             {suggestionsError && <p className={adminStyles.scheduleDanger}>{suggestionsError}</p>}
             {suggestionsNotice && <p className={adminStyles.resultNotice}>{suggestionsNotice}</p>}
+            {suggestionsDiagnostics && (
+              <p className={adminStyles.smallNote}>
+                CHPP {suggestionsDiagnostics.rawChppMatchesReturned} · selected {suggestionsDiagnostics.selectedCategoryMatches} ·{' '}
+                registered head-to-head {suggestionsDiagnostics.registeredTeamHeadToHeadMatches} · imported{' '}
+                {suggestionsDiagnostics.alreadyImportedMatches} · unique {suggestionsDiagnostics.uniqueSuggestions}
+                {suggestionsDiagnostics.earliestDiscoveredDate && suggestionsDiagnostics.latestDiscoveredDate
+                  ? ` · ${formatAddMatchDate(suggestionsDiagnostics.earliestDiscoveredDate)}–${formatAddMatchDate(suggestionsDiagnostics.latestDiscoveredDate)}`
+                  : ''}
+              </p>
+            )}
             {renderSuggestedMatches()}
           </>
         ) : (
