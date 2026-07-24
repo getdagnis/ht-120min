@@ -459,6 +459,9 @@ export const TournamentHistory: React.FC<TournamentHistoryProps> = ({
   }
 
   const winner = findParticipant(snapshot, snapshot.winner?.teamId);
+  const winnerStanding = snapshot.winner
+    ? snapshot.standings.find((standing) => standing.teamId === snapshot.winner?.teamId)
+    : null;
   const runnerUpStanding = snapshot.standings[1];
   const runnerUp = findParticipant(snapshot, runnerUpStanding?.teamId);
   const thirdPlaceStanding = snapshot.standings[2];
@@ -647,6 +650,20 @@ export const TournamentHistory: React.FC<TournamentHistoryProps> = ({
                             managerHtId={winner.hattrickUserId}
                             mode="standings"
                           />
+                          {isAppg120ScoringMode(scoringMode) && winnerStanding && (
+                            <div className={styles.winnerStats}>
+                              APPG{' '}
+                              {winnerStanding.appgPlayed > 0
+                                ? (winnerStanding.appgPoints / winnerStanding.appgPlayed).toFixed(2)
+                                : '0.00'}
+                              {' · '}Pld {winnerStanding.played}
+                              {' · '}120m: {winnerStanding.achievements120min}
+                              {' · '}
+                              {winnerStanding.played > 0
+                                ? `${Math.round((winnerStanding.achievements120min / winnerStanding.played) * 100)}%`
+                                : '0%'}
+                            </div>
+                          )}
                         </div>
                       </div>
                     </div>

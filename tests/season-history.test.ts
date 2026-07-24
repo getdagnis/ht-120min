@@ -221,6 +221,41 @@ test('APPG eligibility excludes teams below half and shares most-matches ties', 
   assert.deepEqual(snapshot.awards.find((award) => award.key === 'most-matches-played')?.recipientTeamIds.sort(), ['a', 'b']);
 });
 
+test('APPG history champion must reach the match quota', () => {
+  const snapshot = buildSeasonHistorySnapshot(
+    [...teams, teamD],
+    [
+      ...Array.from({ length: 6 }, (_, index) => ({
+        id: `regular-${index}`,
+        home_team_id: 'a',
+        away_team_id: 'b',
+        home_goals: 0,
+        away_goals: 0,
+        completed: true,
+        went_120: false,
+        total_minutes: 90,
+        appg_outcome: 'RT0' as const,
+      })),
+      ...Array.from({ length: 2 }, (_, index) => ({
+        id: `short-${index}`,
+        home_team_id: 'c',
+        away_team_id: 'd',
+        home_goals: 1,
+        away_goals: 0,
+        completed: true,
+        went_120: true,
+        total_minutes: 120,
+        appg_outcome: 'ET3' as const,
+      })),
+    ],
+    'appg',
+  );
+
+  assert.equal(snapshot.standings[0]?.teamId, 'c');
+  assert.equal(snapshot.winner?.teamId, 'a');
+  assert.deepEqual(snapshot.awards.find((award) => award.key === 'champions')?.recipientTeamIds, ['a']);
+});
+
 test('APPG produces no match-count or low-total awards when no match is completed', () => {
   const snapshot = buildSeasonHistorySnapshot(teams.slice(0, 3), [], 'appg');
 

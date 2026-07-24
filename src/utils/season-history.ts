@@ -1,4 +1,11 @@
-import { calculateStandings, type Match, type Team, type TeamStanding } from './standings';
+import {
+  calculateStandings,
+  getAppgStandingsQuota,
+  meetsAppgStandingsQuota,
+  type Match,
+  type Team,
+  type TeamStanding,
+} from './standings';
 import type { MatchEventDetails, MatchSideEventDetails } from '../../shared/match-events';
 import { isAppg120ScoringMode, usesAveragePoints } from '../../shared/scoring-profile';
 
@@ -157,6 +164,15 @@ const getWinningTeamIds = (items: Array<{ teamId: string; value: number }>, mode
 const getInjuryWeeks = (side?: MatchSideEventDetails | null) =>
   (side?.injuries || []).reduce((total, injury) => total + (injury.weeks || 0), 0);
 
+function getHistoryEligibleStandings(
+  standings: TeamStanding[],
+  scoringMode: '120m' | '120min' | 'points' | 'appg',
+) {
+  if (!isAppg120ScoringMode(scoringMode)) return standings;
+  const quota = getAppgStandingsQuota(standings);
+  return standings.filter((standing) => meetsAppgStandingsQuota(standing, quota));
+}
+
 function buildAwards(
   standings: TeamStanding[],
   teamStats: SeasonTeamStat[],
@@ -248,9 +264,10 @@ function buildAwards(
       : { teamIds: [] as string[], value: null as number | null };
   const injuryCountByTeam = Object.fromEntries(teamStats.map((stat) => [stat.teamId, stat.injuries]));
   const injuryWeeksByTeam = Object.fromEntries(teamStats.map((stat) => [stat.teamId, stat.injuryWeeks || 0]));
+  const championStandings = getHistoryEligibleStandings(standings, scoringMode);
 
   const awards: SeasonAward[] = [
-    { key: 'champions', recipientTeamIds: [standings[0].teamId], value: null },
+    { key: 'champions', recipientTeamIds: championStandings[0] ? [championStandings[0].teamId] : [], value: null },
     { key: 'most-120-matches', recipientTeamIds: most120.teamIds, value: most120.value },
     { key: 'top-scorers', recipientTeamIds: topScorers.teamIds, value: topScorers.value },
     {
@@ -380,6 +397,7 @@ export function buildSeasonHistorySnapshot(
     .filter((team) => !team.is_placeholder && (team.active || participatingTeamIds.has(team.id)))
     .map((team) => ({ ...team, active: true }));
   const standings = calculateStandings(seasonTeams, matches, scoringMode);
+  const historyEligibleStandings = getHistoryEligibleStandings(standings, scoringMode);
   const teamStatsMap = new Map<string, SeasonTeamStat>();
 
   seasonTeams.forEach((team) => {
@@ -466,14 +484,14 @@ export function buildSeasonHistorySnapshot(
   return {
     version: 2,
     standings,
-    winner: standings[0] || null,
+    winner: historyEligibleStandings[0] || null,
     participants,
     teamStats,
     awards: buildAwards(standings, teamStats, matches, scoringMode),
     matches: frozenMatches,
     records: buildRecords(standings, frozenMatches, scoringMode),
     summary,
-    story: buildStory(standings, summary),
+    story: buildStory(historyEligibleStandings, summary),
     generatedAt: new Date().toISOString(),
   };
 }
