@@ -9,11 +9,14 @@ function eventDetails(
   awayGoals: Array<{ category: MatchGoalCategory; matchPart?: number }>,
   shootout?: { home: number; away: number },
 ): MatchEventDetails {
-  const goals = (items: Array<{ category: MatchGoalCategory; matchPart?: number }>) =>
+  const goals = (
+    items: Array<{ category: MatchGoalCategory; matchPart?: number }>,
+    minuteOffset = 0,
+  ) =>
     items.map((item, index) => ({
       eventTypeId: item.category === 'regular' ? 121 : 120,
       playerId: index + 1,
-      minute: item.matchPart && item.matchPart >= 3 ? 105 + index : 20 + index,
+      minute: item.matchPart && item.matchPart >= 3 ? 105 + minuteOffset + index : 20 + minuteOffset + index,
       matchPart: item.matchPart ?? 2,
       category: item.category,
     }));
@@ -35,7 +38,7 @@ function eventDetails(
       teamId: 200,
       cards: [],
       injuries: [],
-      goals: goals(awayGoals),
+      goals: goals(awayGoals, 10),
       penaltyShootoutGoals: shootout?.away ?? 0,
     },
   };
@@ -54,7 +57,37 @@ test('classifies regulation results with event evidence', () => {
         [{ category: 'regular' }],
       ),
     }),
-    'needs_review',
+    'RT0',
+  );
+
+  assert.equal(
+    classifyChppAppgOutcome({
+      completed: true,
+      homeGoals: 2,
+      awayGoals: 1,
+      went120: false,
+      totalMinutes: 93,
+      eventDetails: eventDetails(
+        [{ category: 'other' }, { category: 'regular' }],
+        [{ category: 'regular' }],
+      ),
+    }),
+    'OPW',
+  );
+
+  assert.equal(
+    classifyChppAppgOutcome({
+      completed: true,
+      homeGoals: 2,
+      awayGoals: 0,
+      went120: false,
+      totalMinutes: 93,
+      eventDetails: eventDetails(
+        [{ category: 'regular' }, { category: 'regular' }],
+        [],
+      ),
+    }),
+    'OPW',
   );
 
   assert.equal(
@@ -65,7 +98,7 @@ test('classifies regulation results with event evidence', () => {
       went120: false,
       eventDetails: eventDetails([{ category: 'other' }], []),
     }),
-    'needs_review',
+    'RT0',
   );
 
   assert.equal(
@@ -162,6 +195,25 @@ test('classifies a known penalty-shootout winner and leaves incomplete evidence 
       awayGoals: 1,
       went120: false,
       eventDetails: eventDetails([{ category: 'regular' }], [{ category: 'regular' }]),
+    }),
+    'needs_review',
+  );
+});
+
+test('leaves same-minute goal evidence for organizer review', () => {
+  const details = eventDetails([{ category: 'regular' }, { category: 'other' }], []);
+  if (details.home.goals) {
+    details.home.goals[1].minute = details.home.goals[0].minute;
+  }
+
+  assert.equal(
+    classifyChppAppgOutcome({
+      completed: true,
+      homeGoals: 2,
+      awayGoals: 0,
+      went120: false,
+      totalMinutes: 93,
+      eventDetails: details,
     }),
     'needs_review',
   );

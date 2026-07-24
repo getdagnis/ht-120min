@@ -48,6 +48,11 @@ function isExtraTimeGoal(goal: MatchGoalEvent) {
   return goal.matchPart !== null && goal.matchPart >= 3;
 }
 
+function hasSameMinuteGoals(goals: MatchGoalEvent[]) {
+  const minutes = goals.map((goal) => goal.minute).filter((minute): minute is number => minute !== null);
+  return new Set(minutes).size !== minutes.length;
+}
+
 /**
  * English APPG tournament rules only. Keep this separate from generic CHPP parsing
  * so the whole policy can be removed without affecting other tournament formats.
@@ -79,12 +84,12 @@ export function classifyChppAppgOutcome(input: ChppAppgClassificationInput): Chp
     input.went120 === true || hasStructuredExtraTimeEvidence || (input.totalMinutes ?? 0) >= 120;
   const winner = winnerSide(input.homeGoals, input.awayGoals);
 
-  if (!reachedExtraTime && !winner) return 'RT0';
-  if (!reachedExtraTime && winner) return 'needs_review';
-  if (!winner) return 'needs_review';
-
   if (!homeGoals || !awayGoals) return 'needs_review';
   if (!matchesOfficialScore(homeGoals, awayGoals, input.homeGoals, input.awayGoals)) return 'needs_review';
+  if (hasSameMinuteGoals([...homeGoals, ...awayGoals])) return 'needs_review';
+
+  if (!reachedExtraTime && !winner) return 'RT0';
+  if (!winner) return 'needs_review';
 
   const winnerGoals = winner === 'home' ? homeGoals : awayGoals;
 
@@ -95,7 +100,10 @@ export function classifyChppAppgOutcome(input: ChppAppgClassificationInput): Chp
     return 'needs_review';
   }
 
-  return 'needs_review';
+  const losingScore = winner === 'home' ? input.awayGoals : input.homeGoals;
+  const decisiveGoal = winnerGoals[losingScore];
+
+  return decisiveGoal?.category === 'regular' ? 'OPW' : decisiveGoal ? 'RT0' : 'needs_review';
 }
 
 export function buildChppAppgUpdate(input: ChppAppgUpdateInput): ChppAppgUpdate {
