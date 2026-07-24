@@ -24,6 +24,10 @@ test('country flags resolve from CountryID even when CHPP returns localized name
   assert.equal(getFlagUrl('Cuba', 93), 'https://www.hattrick.org/Img/flags/147.png');
 });
 
+test('Guam country ID resolves to Hattrick flag league asset 154', () => {
+  assert.equal(getFlagUrl('Guam', 179), 'https://www.hattrick.org/Img/flags/154.png');
+});
+
 test('only countryless leagues render an additional Hattrick league flag', () => {
   assert.equal(getLeagueFlagUrl(3000), 'https://www.hattrick.org/Img/flags/3000.png');
   assert.equal(getLeagueFlagUrl(1000), 'https://www.hattrick.org/Img/flags/1000.png');
