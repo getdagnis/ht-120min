@@ -4489,6 +4489,7 @@ export const TournamentView: React.FC = () => {
               snapshot: season.snapshot_json,
             }))}
             currentHtUserId={currentHtUserId}
+            tournamentSlug={tournament.slug}
             selectedSeasonNumber={selectedHistorySeasonNumber}
             onSelectSeason={handleHistorySeasonChange}
             canGenerateReport={isAdminAuthenticated && tournament.status === 'finished'}

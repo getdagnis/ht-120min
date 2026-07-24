@@ -1,9 +1,11 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import {
   Cards,
+  Check,
   ChartLine,
   ChartLineUp,
   Clock,
+  CopySimple,
   FirstAid,
   Handshake,
   Medal,
@@ -11,6 +13,7 @@ import {
   Trophy,
   UsersThree,
 } from 'phosphor-react';
+import { Tooltip } from 'react-tooltip';
 import { Button } from '../Button/Button';
 import { Modal } from '../Modal/Modal';
 import { TeamByline } from '../TeamByline/TeamByline';
@@ -162,6 +165,7 @@ interface TournamentHistoryProps {
   onCommentsLoaded?: (seasonId: string, commentCount: number) => void;
   onCommentSubmitted?: (seasonId: string, comment: TournamentSeasonComment) => void;
   forceCommentConfirmOpen?: boolean;
+  tournamentSlug?: string;
 }
 
 const AWARD_DETAILS: Record<SeasonAwardKey, { label: string; icon: React.ReactNode }> = {
@@ -354,6 +358,7 @@ export const TournamentHistory: React.FC<TournamentHistoryProps> = ({
   onCommentsLoaded,
   onCommentSubmitted,
   forceCommentConfirmOpen = false,
+  tournamentSlug,
 }) => {
   const yearbookRef = useRef<HTMLElement | null>(null);
   const finishedSeasons = useMemo(
@@ -372,6 +377,7 @@ export const TournamentHistory: React.FC<TournamentHistoryProps> = ({
   const [commentsSubmitError, setCommentsSubmitError] = useState('');
   const [submittingTeamId, setSubmittingTeamId] = useState<string | null>(null);
   const [pendingCommentParticipant, setPendingCommentParticipant] = useState<SeasonParticipant | null>(null);
+  const [historyReportCopied, setHistoryReportCopied] = useState(false);
 
   useEffect(() => {
     if (!selectedSeasonId) return;
@@ -529,6 +535,98 @@ export const TournamentHistory: React.FC<TournamentHistoryProps> = ({
     return order.indexOf(a.key) - order.indexOf(b.key);
   });
 
+  const forumCell = (value: string | number) => `[td]${value}[/td]`;
+  const forumHeaderCell = (value: string) => `[th]${value}[/th]`;
+  const forumRow = (values: Array<string | number>) => `[tr]${values.map(forumCell).join('')}[/tr]`;
+  const forumTable = (header: string[], rows: Array<Array<string | number>>) =>
+    `[table]\n${[header.map(forumHeaderCell).join(''), ...rows.map(forumRow)].join('\n')}\n[/table]`;
+  const forumKeyValueTable = (rows: Array<[string, string | number]>) =>
+    `[table]\n${rows.map(([label, value]) => `[tr]${forumHeaderCell(label)}${forumCell(value)}[/tr]`).join('\n')}\n[/table]`;
+  const forumTeamName = (name: string) => name.replace(/\[/g, '(').replace(/\]/g, ')');
+
+  const copyHistoryReport = () => {
+    const title = `[b]🏆 Season ${selectedSeason.seasonNumber} Report[/b]`;
+    const link = tournamentSlug
+      ? `[link=https://120min.vercel.app/t/${tournamentSlug}?tab=history]`
+      : null;
+    const finishedDate = `[i]Finished ${formatDate(selectedSeason.finishedAt) || '-'}[/i]`;
+    const podiumRows = [
+      winner ? `🥇 [b]${forumTeamName(winner.teamName)}[/b] — Champions` : null,
+      runnerUp ? `🥈 [b]${forumTeamName(runnerUp.teamName)}[/b] — Runner-up` : null,
+      thirdPlace ? `🥉 [b]${forumTeamName(thirdPlace.teamName)}[/b] — Third place` : null,
+    ].filter((row): row is string => !!row);
+    const glanceTable = forumKeyValueTable([
+      ['Season dates', `${formatDate(seasonStartedAt) || '-'}–${formatDate(selectedSeason.finishedAt) || '-'}`],
+      ['Teams', snapshot.summary.teams],
+      ['Rounds', roundsPlayed],
+      ['Completed matches', snapshot.summary.completedMatches],
+      [
+        '120-minute matches',
+        `${snapshot.summary.achievements120min} (${snapshot.summary.completedMatches > 0 ? Math.round((snapshot.summary.achievements120min / snapshot.summary.completedMatches) * 100) : 0}%)`,
+      ],
+      ['Total goals', snapshot.summary.goals],
+    ]);
+    const awardRows = displayAwards.map((award) => {
+      const recipients = award.recipientTeamIds
+        .map((teamId) => findParticipant(snapshot, teamId))
+        .filter((participant): participant is SeasonParticipant => !!participant);
+      const firstRecipient = recipients[0];
+      return [
+        AWARD_DETAILS[award.key].label,
+        recipients.map((participant) => forumTeamName(participant.teamName)).join(', '),
+        firstRecipient ? getAwardStat(award, snapshot, scoringMode, firstRecipient.teamId) : '',
+      ];
+    });
+    const awardTable = forumTable(['Award', 'Team', 'Result'], awardRows);
+    const standingRows = snapshot.standings.map((standing, index) => [
+      index + 1,
+      forumTeamName(standing.teamName),
+      isAppgHistory
+        ? standing.appgPlayed > 0
+          ? (standing.appgPoints / standing.appgPlayed).toFixed(2)
+          : '0.00'
+        : standing.achievements120min,
+      ...(isAppgHistory ? [] : [`${standing.played > 0 ? Math.round((standing.achievements120min / standing.played) * 100) : 0}%`]),
+      ...(isAppgHistory ? [standing.played] : [standing.totalMinutes, standing.played]),
+      standing.gd > 0 ? `+${standing.gd}` : standing.gd,
+      standing.gf,
+    ]);
+    const standingsTable = forumTable(
+      isAppgHistory ? ['#', 'Team', 'APPG', 'Pld', 'Dif', 'Goals'] : ['#', 'Team', '120m', '120m%', 'Mins', 'Pld', 'Dif', 'Goals'],
+      standingRows,
+    );
+    const reportSections = [
+      title,
+      link,
+      finishedDate,
+      '',
+      '[b]Season podium[/b]',
+      ...podiumRows,
+      '',
+      '[b]Season at a glance[/b]',
+      glanceTable,
+      '[b]Awards & distinctions[/b]',
+      awardTable,
+      '[b]Final standings[/b]',
+      standingsTable,
+      '[b]Season story[/b]',
+      '',
+      snapshot.story,
+      '',
+      `[b]📔 Season ${selectedSeason.seasonNumber} Yearbook[/b]`,
+      '',
+      ...comments.flatMap((comment) => [
+        `[quote]\n[b]${forumTeamName(comment.team_name)}${comment.manager_name ? ` — ${forumTeamName(comment.manager_name)}` : ''}[/b]\n\n${comment.comment}\n\n[i]${formatDate(comment.created_at)} • ${getCurrentHattrickSeasonWeekLabel()}[/i]\n[/quote]`,
+        '',
+      ]),
+      `[i]${comments.length} of ${snapshot.participants.length} teams submitted a season comment.[/i]`,
+    ].filter((section): section is string => section !== null && section !== undefined);
+
+    void navigator.clipboard.writeText(reportSections.join('\n'));
+    setHistoryReportCopied(true);
+    window.setTimeout(() => setHistoryReportCopied(false), 2000);
+  };
+
   const handleSubmit = async (participant: SeasonParticipant) => {
     const draft = commentDrafts[participant.teamId] || '';
     if (!draft.trim()) return;
@@ -603,20 +701,37 @@ export const TournamentHistory: React.FC<TournamentHistoryProps> = ({
         {seasons.map((season) => {
           const selectable = season.status === 'finished' && !!season.snapshot;
           return (
-            <button
-              key={season.id}
-              type="button"
-              disabled={!selectable}
-              className={season.id === selectedSeason.id ? styles.selectedSeason : ''}
-              onClick={() => selectable && onSelectSeason?.(season.seasonNumber)}
-            >
-              <strong>Season {season.seasonNumber} Report</strong>
-              <span>
-                {season.status === 'finished' ? `Finished ${formatDate(season.finishedAt) || ''}` : 'Upcoming'}
-              </span>
-            </button>
+            <div key={season.id} className={styles.seasonSelectorItem}>
+              <button
+                type="button"
+                disabled={!selectable}
+                className={season.id === selectedSeason.id ? styles.selectedSeason : ''}
+                onClick={() => selectable && onSelectSeason?.(season.seasonNumber)}
+              >
+                <strong>Season {season.seasonNumber} Report</strong>
+                <span>
+                  {season.status === 'finished' ? `Finished ${formatDate(season.finishedAt) || ''}` : 'Upcoming'}
+                </span>
+              </button>
+              {season.id === selectedSeason.id && snapshot && (
+                <button
+                  type="button"
+                  className={styles.seasonCopyButton}
+                  onClick={copyHistoryReport}
+                  data-tooltip-id="history-report-copy-tooltip"
+                  aria-label="Copy season report for HT forums"
+                >
+                  {historyReportCopied ? <Check size={18} color="green" /> : <CopySimple size={18} />}
+                </button>
+              )}
+            </div>
           );
         })}
+        <Tooltip
+          id="history-report-copy-tooltip"
+          content={historyReportCopied ? 'HT forum report copied!' : 'Copy season report for HT forums'}
+          className="tooltip"
+        />
       </div>
 
       <div className={styles.historyColumns} data-testid="history-columns">

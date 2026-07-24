@@ -1179,7 +1179,9 @@ export const CreateTournament: React.FC = () => {
                   >
                     <option value="120min">Rank by 120 minute achievements ⏱</option>
                     <option value="points">Regular 90 min friendlies (3p/1p/0) 🥇</option>
-                    {registrationType !== 'validated' && <option value="appg">APPG-120 (HFI event scoring) 📊</option>}
+                    {registrationType !== 'validated' && (
+                      <option value="appg">APPG-120 (120 min event-based average points) 📊</option>
+                    )}
                   </select>
                 </div>
                 <div className={styles.field}>

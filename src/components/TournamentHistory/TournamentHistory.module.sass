@@ -45,6 +45,31 @@
   .selectedSeason
     background: var(--table-bg)
 
+.seasonSelectorItem
+  display: flex
+  min-width: 0
+  border-right: 1px solid var(--border)
+
+  &:last-child
+    border-right: 0
+
+  > button:first-child
+    flex: 1
+    min-width: 0
+    border-right: 0
+
+.seasonCopyButton
+  flex: 0 0 auto
+  width: 2.5rem
+  padding: 0.5rem !important
+  border-right: 0 !important
+  color: var(--text60) !important
+  opacity: 0.65
+
+  &:hover:not(:disabled)
+    opacity: 1
+    color: var(--accent) !important
+
 .historyColumns
   display: grid
   grid-template-columns: minmax(0, 1fr) 22rem
