@@ -2,7 +2,7 @@ import React from 'react';
 import { useNavigate } from 'react-router-dom';
 import { ArrowRight } from 'phosphor-react';
 import styles from './TournamentCard.module.sass';
-import { getCountryIdByName, getCountryNameById } from '../../../shared/worlddetails';
+import { resolveCountryRestriction } from '../../../shared/worlddetails';
 import { getTournamentBackgroundStyle } from '../../utils/visuals';
 
 interface TournamentCardProps {
@@ -38,8 +38,7 @@ export const TournamentCard: React.FC<TournamentCardProps> = ({
 }) => {
   const navigate = useNavigate();
   const bgStyle = getTournamentBackgroundStyle(id, imageUrl);
-  const countryId = countryLimit ? getCountryIdByName(countryLimit) : undefined;
-  const countryLabel = countryLimit ? getCountryNameById(countryLimit) || countryLimit : null;
+  const countryRestriction = resolveCountryRestriction(countryLimit);
   const isFull = maxTeams != null && (teamCount ?? 0) >= maxTeams;
 
   return (
@@ -50,12 +49,14 @@ export const TournamentCard: React.FC<TournamentCardProps> = ({
       <div className={styles.mainContent}>
         {children}
         <div className={styles.badges}>
-          {countryLimit && (
+          {countryRestriction && (
             <div className={styles.badge}>
-              {countryId && (
-                <img src={`https://www.hattrick.org/Img/flags/${countryId}.png`} alt="" className={styles.flag} />
-              )}
-              {countryLabel} Only
+              <img
+                src={`https://www.hattrick.org/Img/flags/${countryRestriction.leagueId}.png`}
+                alt=""
+                className={styles.flag}
+              />
+              {countryRestriction.leagueName} Only
             </div>
           )}
           {leagueCategory === 'hfi' && (

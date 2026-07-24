@@ -42,7 +42,7 @@ import {
   type OpenTournamentSummary,
 } from '../../utils/open-tournaments';
 import styles from './CreateTournament.module.sass';
-import { getCountryNameById } from '../../../shared/worlddetails';
+import { resolveCountryRestriction } from '../../../shared/worlddetails';
 import { getCanonicalCountryName, getCountryFlagUrl, getLeagueFlagUrl } from '../../utils/ht-data';
 import {
   formatTournamentName,
@@ -982,7 +982,7 @@ export const CreateTournament: React.FC = () => {
   const countryRestrictionLabel = isSandbox
     ? 'Any country'
     : formData.country_limit
-      ? getCountryNameById(formData.country_limit) || formData.country_limit
+      ? resolveCountryRestriction(formData.country_limit)?.leagueName || formData.country_limit
       : 'Any country';
   const teamLimitLabel = formData.max_teams ? `${teams.length} of ${Number(formData.max_teams)} filled` : 'Unlimited';
   const sandboxTeamLimit = formData.max_teams ? Number(formData.max_teams) : null;

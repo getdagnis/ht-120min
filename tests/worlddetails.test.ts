@@ -7,6 +7,7 @@ import {
   getLeagueIdByName,
   getLeagueNameById,
   normalizeLeagueLimit,
+  resolveCountryRestriction,
 } from '../shared/worlddetails';
 
 test('world details expose one English short name and a full name', () => {
@@ -35,6 +36,13 @@ test('country lookup uses CHPP CountryID instead of Hattrick LeagueID', () => {
   assert.equal(getCountryIdByName('Finland'), '11');
   assert.equal(normalizeLeagueLimit('Finland'), '11');
   assert.equal(normalizeLeagueLimit('11'), '11');
+});
+
+test('country restriction display handles current and legacy numeric formats', () => {
+  assert.equal(resolveCountryRestriction('179')?.leagueName, 'Guam');
+  assert.equal(resolveCountryRestriction('179')?.leagueId, 154);
+  assert.equal(resolveCountryRestriction('53')?.leagueName, 'Latvia');
+  assert.equal(resolveCountryRestriction('53')?.leagueId, 53);
 });
 
 test('every world-details country has flag metadata', () => {

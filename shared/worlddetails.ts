@@ -1696,6 +1696,23 @@ export function getCountryNameById(id?: number | string | null): string | undefi
   return getCountryWorldDetails(Number(id))?.leagueName;
 }
 
+/** Resolve current CountryID values and legacy restrictions stored as LeagueID. */
+export function resolveCountryRestriction(value?: string | number | null): HattrickWorldLeague | null {
+  if (value === undefined || value === null || value === '') return null;
+  const raw = String(value).trim();
+  if (!raw) return null;
+
+  const numericId = Number(raw);
+  if (Number.isFinite(numericId) && raw === String(numericId)) {
+    const legacyLeague = getLeagueWorldDetails(numericId);
+    if (legacyLeague?.countryId !== null && legacyLeague) return legacyLeague;
+    return getCountryWorldDetails(numericId);
+  }
+
+  const countryId = getCountryIdByName(raw);
+  return getCountryWorldDetails(countryId ? Number(countryId) : null);
+}
+
 export function getLeagueFullNameById(id?: number | string | null): string | undefined {
   if (id === undefined || id === null || id === '') return undefined;
   return HATTRICK_WORLD_DETAILS[Number(id)]?.fullName;
