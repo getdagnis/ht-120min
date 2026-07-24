@@ -21,8 +21,8 @@
   },
   {
     "id": "scoring_mode",
-    "title": "Scoring Mode",
-    "body": "120-minute mode counts matches reaching 120 minutes as achievements. Regular mode uses standard 3/1/0 points."
+    "title": "Scoring Modes",
+    "body": "Choose how the standings are ranked. 120-minute achievements counts completed friendlies that reach 120 minutes. Regular 90-minute points uses 3 points for a win, 1 for a draw and 0 for a loss. APPG-120 is a cooperative Average Points Per Game system for reconstructed 120-minute tournaments: each match is classified as ET3 (+3), ET2 (+2), PS1 (+1), RT0 (0) or OPW (−1 to the regulation-time winner), then total APPG points are divided by completed matches. APPG-120 is available for organizer-managed and sandbox tournaments, where classifications can be reviewed."
   },
   {
     "id": "private",

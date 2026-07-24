@@ -62,6 +62,13 @@ import {
 
 const HAS_CREATED_TOURNAMENT_KEY = 'ht120_has_created_tournament';
 
+const SCORING_MODE_HELP: Record<string, string> = {
+  '120min':
+    '120-minute achievements: standings rank teams by how many completed friendlies reached 120 minutes. The match result itself does not award league points.',
+  points: 'Regular 90-minute points: standard football scoring — 3 points for a win, 1 for a draw and 0 for a loss.',
+  appg: "Average Points Per Game for 120-minute tournaments that do not follow a strict schedule (teams play different amount of games). Points are awarded based on 120 min matches, then team's total is divided by its completed matches.",
+};
+
 const CreationTipsWidget = () => (
   <CompactAccordionWidget title="Creation Tips" icon={<Question size={20} weight="bold" />} items={CREATION_TIPS} />
 );
@@ -1183,6 +1190,7 @@ export const CreateTournament: React.FC = () => {
                       <option value="appg">APPG-120 (120 min event-based average points) 📊</option>
                     )}
                   </select>
+                  <p className={styles.small}>{SCORING_MODE_HELP[formData.scoring_mode]}</p>
                 </div>
                 <div className={styles.field}>
                   <label htmlFor="max_teams">Max Teams</label>
