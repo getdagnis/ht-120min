@@ -581,6 +581,7 @@ export const TournamentSchedulePanel: React.FC<TournamentSchedulePanelProps> = (
     setSuggestionsNotice('');
     try {
       await onNormalizeManualRounds();
+      await onRefreshFixtures?.();
       setSuggestionsNotice('Chronological round ordering updated.');
     } catch (error) {
       setSuggestionsError(

@@ -56,6 +56,15 @@ export interface TeamStanding {
   managerName: string | null;
 }
 
+export function getAppgStandingsQuota(standings: Array<Pick<TeamStanding, 'played'>>): number {
+  const maxMatchesPlayed = Math.max(0, ...standings.map((standing) => standing.played));
+  return maxMatchesPlayed > 0 ? Math.ceil(maxMatchesPlayed * 0.5) : 0;
+}
+
+export function meetsAppgStandingsQuota(standing: Pick<TeamStanding, 'played'>, quota: number): boolean {
+  return quota === 0 || standing.played >= quota;
+}
+
 export function calculateStandings(
   teams: Team[],
   matches: Match[],

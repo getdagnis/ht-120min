@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { getAppgPoints, validateAppgOutcome } from '../src/utils/appg';
-import { calculateStandings } from '../src/utils/standings';
+import { calculateStandings, getAppgStandingsQuota, meetsAppgStandingsQuota } from '../src/utils/standings';
 
 const teams = [
   { id: 'home', name: 'Home', ht_team_id: 1, hattrick_user_id: null, active: true, replacement_for_team_id: null },
@@ -144,4 +144,12 @@ test('APPG example averages use all played matches without a minimum threshold',
   assert.equal(hemsworthStanding?.played, 9);
   assert.equal(hemsworthStanding?.appgPoints, 8);
   assert.equal(hemsworthStanding && Number((hemsworthStanding.appgPoints / hemsworthStanding.appgPlayed).toFixed(2)), 0.89);
+});
+
+test('APPG standings quota uses half the most active team rounded up', () => {
+  const quota = getAppgStandingsQuota([{ played: 9 }, { played: 5 }, { played: 4 }]);
+
+  assert.equal(quota, 5);
+  assert.equal(meetsAppgStandingsQuota({ played: 5 }, quota), true);
+  assert.equal(meetsAppgStandingsQuota({ played: 4 }, quota), false);
 });

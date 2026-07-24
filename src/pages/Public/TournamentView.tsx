@@ -4120,14 +4120,14 @@ export const TournamentView: React.FC = () => {
                         <strong>RT0</strong> - 0 points if the match is decided before extra time.
                       </li>
                       <li>
-                        <strong>OPW</strong> - minus 1 point for the winning team when an organizer classifies a
-                        regulation-time open-play win.
+                        <strong>OPW</strong> - minus 1 point for the winning team after a regulation-time open-play
+                        win.
                       </li>
                     </ul>
                     <p>
-                      Regulation-time wins remain <strong>needs review</strong> until an organizer chooses RT0 or OPW.
-                      Matches marked <strong>needs review</strong> do not count toward APPG until an organizer classifies
-                      them.
+                      Clear regulation-time event evidence is classified automatically as RT0 or OPW. Matches with
+                      missing, mismatched, or ambiguous evidence (such as same-minute goals) remain <strong>needs
+                      review</strong> until an organizer classifies them.
                     </p>
                   </div>
                 )}

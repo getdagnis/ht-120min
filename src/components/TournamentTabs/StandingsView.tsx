@@ -4,7 +4,7 @@ import { ArrowRight, Recycle, ShieldCheck } from 'phosphor-react';
 import { TeamByline } from '../TeamByline/TeamByline';
 import { SeasonYearbook, type TournamentSeasonComment } from '../TournamentHistory/TournamentHistory';
 
-import type { TeamStanding } from '../../utils/standings';
+import { getAppgStandingsQuota, meetsAppgStandingsQuota, type TeamStanding } from '../../utils/standings';
 import { isAppg120ScoringMode } from '../../../shared/scoring-profile';
 // import { MottoWidget } from '../../components/MottoWidget/MottoWidget';
 // import { TOURNAMENT_DEFAULT } from '../../constants/descriptions';
@@ -108,6 +108,10 @@ export const StandingsView: React.FC<StandingsViewProps> = ({
     standing.appgPlayed > 0 ? standing.appgPoints / standing.appgPlayed : 0;
   const percentage120min = (standing: TeamStanding) =>
     standing.played > 0 ? (standing.achievements120min / standing.played) * 100 : 0;
+  const appgMatchQuota = useMemo(() => {
+    return showAppgScoring ? getAppgStandingsQuota(standings) : 0;
+  }, [showAppgScoring, standings]);
+  const reachesAppgQuota = (standing: TeamStanding) => meetsAppgStandingsQuota(standing, appgMatchQuota);
 
   const sortedStandings = useMemo(() => {
     const rows = [...standings];
@@ -128,6 +132,11 @@ export const StandingsView: React.FC<StandingsViewProps> = ({
     };
 
     rows.sort((a, b) => {
+      if (isAppg120ScoringMode(scoringMode)) {
+        const aReachesQuota = meetsAppgStandingsQuota(a, appgMatchQuota);
+        const bReachesQuota = meetsAppgStandingsQuota(b, appgMatchQuota);
+        if (aReachesQuota !== bReachesQuota) return aReachesQuota ? -1 : 1;
+      }
       if (sortKey === 'default') return compareDefault(a, b);
       if (sortKey === 'team') {
         const result = a.teamName.localeCompare(b.teamName, undefined, { sensitivity: 'base' });
@@ -152,7 +161,7 @@ export const StandingsView: React.FC<StandingsViewProps> = ({
     });
 
     return rows;
-  }, [scoringMode, sortDirection, sortKey, standings]);
+  }, [appgMatchQuota, scoringMode, sortDirection, sortKey, standings]);
 
   useEffect(() => {
     const defaultMode: StandingsScoringMode = isAppgSupported ? 'appg' : is120minMode ? '120min' : '90min';
@@ -182,6 +191,9 @@ export const StandingsView: React.FC<StandingsViewProps> = ({
   };
 
   const sortIndicator = (key: StandingsSortKey) => (sortKey === key ? (sortDirection === 'asc' ? ' ↑' : ' ↓') : '');
+  const qualifiedAppgCount = showAppgScoring
+    ? sortedStandings.filter((standing) => reachesAppgQuota(standing)).length
+    : sortedStandings.length;
   const sortableHeader = (label: string, key: StandingsSortKey, className = '', title?: string) => (
     <th
       className={className}
@@ -357,9 +369,19 @@ export const StandingsView: React.FC<StandingsViewProps> = ({
               )}
               {sortedStandings.map((s, idx) => {
                 const isMyTeam = s.htTeamId === Number(myHtUserId);
+                const reachesQuota = reachesAppgQuota(s);
+                const placement = reachesQuota ? sortedStandings.slice(0, idx).filter(reachesAppgQuota).length + 1 : null;
                 return (
-                  <tr key={s.teamId} className={isMyTeam ? styles.myTeamRow : ''}>
-                    <td className={styles.muted}>{idx + 1}</td>
+                  <React.Fragment key={s.teamId}>
+                    {showAppgScoring && idx === qualifiedAppgCount && qualifiedAppgCount < sortedStandings.length && (
+                      <tr>
+                        <th colSpan={7} className={styles.appgQuotaLabel}>
+                          Did not reach quota
+                        </th>
+                      </tr>
+                    )}
+                    <tr className={isMyTeam ? styles.myTeamRow : ''}>
+                    <td className={styles.muted}>{placement ?? ''}</td>
                     <td className={styles.teamNameCell}>
                       <div className={styles.teamInfo}>
                         <img
@@ -428,7 +450,8 @@ export const StandingsView: React.FC<StandingsViewProps> = ({
                         <td className={`${styles.highlight} ${styles.center}`}>{s.pts}</td>
                       </>
                     )}
-                  </tr>
+                    </tr>
+                  </React.Fragment>
                 );
               })}
               {reapplySuggestions.map((team) => {

@@ -618,8 +618,8 @@ export const AdminResults: React.FC<AdminResultsProps> = ({
       {isAppg120ScoringMode(scoringMode) && importCsvRows && (
         <p className={adminStyles.appgCsvHelp}>
           ET3 = extra-time winner, open-play winning goal. ET2 = extra-time winner, SE/other winning goal. PS1 =
-          penalties. RT0 = regulation result worth 0. OPW = organizer-classified regulation open-play winner gets -1.
-          Regulation wins remain needs_review until manually classified.
+          penalties. RT0 = regulation result worth 0. OPW = regulation open-play winner gets -1. Missing or ambiguous
+          event evidence remains needs_review.
         </p>
       )}
       {resultNotice && (
@@ -638,7 +638,8 @@ export const AdminResults: React.FC<AdminResultsProps> = ({
                   <h3>Round {round.round_number} </h3>
                   {roundMeta && <span className={adminStyles.roundMeta}>{roundMeta}</span>}
                 </div>
-                {saveBulkMatches && round.matches.length > 0 &&
+                {saveBulkMatches &&
+                  round.matches.length > 0 &&
                   (isSandbox ? (
                     <Button
                       size="xs"
@@ -655,7 +656,12 @@ export const AdminResults: React.FC<AdminResultsProps> = ({
                     <Button
                       size="xs"
                       variant="secondaryAction"
-                      onClick={() => startBulkEditing(round.matches.map((match) => match.id), 'round')}
+                      onClick={() =>
+                        startBulkEditing(
+                          round.matches.map((match) => match.id),
+                          'round',
+                        )
+                      }
                       title="Bulk edit round"
                       data-tooltip-id="admin-tooltip"
                       data-tooltip-content="Open one editor for every fixture in this round."
@@ -801,248 +807,252 @@ export const AdminResults: React.FC<AdminResultsProps> = ({
                         </a>
                       )}
                       <div className={adminStyles.matchTeams}>
-                      <AdminResultTeam team={match.home_team} side="home" />
-                      <span className={adminStyles.vs}>vs</span>
-                      <AdminResultTeam team={match.away_team} side="away" />
+                        <AdminResultTeam team={match.home_team} side="home" />
+                        <span className={adminStyles.vs}>vs</span>
+                        <AdminResultTeam team={match.away_team} side="away" />
                       </div>
 
-                    {editingMatch === match.id ? (
-                      <>
-                        <div className={adminStyles.matchEdit}>
-                          <div className={adminStyles.scoreActionRow}>
-                            <div className={adminStyles.scoreInputs}>
-                              <input
-                                name={`score_home_${match.id}`}
-                                type="text"
-                                pattern="[0-9]+"
-                                placeholder="H"
-                                value={matchData[match.id]?.home_goals ?? match.home_goals ?? ''}
-                                onChange={(e) =>
-                                  setMatchData({
-                                    ...matchData,
-                                    [match.id]: {
-                                      ...(matchData[match.id] || match),
-                                      home_goals: e.target.value === '' ? null : Number(e.target.value),
-                                    },
-                                  })
-                                }
-                              />
-                              <span className={adminStyles.divider}>-</span>
-                              <input
-                                name={`score_away_${match.id}`}
-                                type="text"
-                                pattern="[0-9]+"
-                                placeholder="A"
-                                value={matchData[match.id]?.away_goals ?? match.away_goals ?? ''}
-                                onChange={(e) =>
-                                  setMatchData({
-                                    ...matchData,
-                                    [match.id]: {
-                                      ...(matchData[match.id] || match),
-                                      away_goals: e.target.value === '' ? null : Number(e.target.value),
-                                    },
-                                  })
-                                }
-                              />
-                            </div>
-                          </div>
-                          <label className={adminStyles.went120}>
-                            <input
-                              title="120min game achieved"
-                              type="checkbox"
-                              checked={matchData[match.id]?.went_120 ?? match.went_120 ?? false}
-                              onChange={(e) =>
-                                setMatchData({
-                                  ...matchData,
-                                  [match.id]: {
-                                    ...(matchData[match.id] || match),
-                                    went_120: e.target.checked,
-                                    total_minutes: e.target.checked
-                                      ? 120
-                                      : (matchData[match.id]?.total_minutes ?? match.total_minutes ?? 90),
-                                  },
-                                })
-                              }
-                            />
-                            120min
-                          </label>
-                          <div className={adminStyles.minutesInput}>
-                            <input
-                              type="number"
-                              value={matchData[match.id]?.total_minutes ?? match.total_minutes ?? 90}
-                              onChange={(e) =>
-                                setMatchData({
-                                  ...matchData,
-                                  [match.id]: {
-                                    ...(matchData[match.id] || match),
-                                    total_minutes: e.target.value === '' ? 90 : Number(e.target.value),
-                                  },
-                                })
-                              }
-                              placeholder="90"
-                            />
-                            <span title="Total match minutes" className={adminStyles.minsLabel}>
-                              mins
-                            </span>
-                          </div>
-                          {isAppg120ScoringMode(scoringMode) && (
-                            <>
-                              <select
-                                aria-label="APPG outcome"
-                                value={matchData[match.id]?.appg_outcome || 'needs_review'}
-                                onChange={(event) =>
-                                  setMatchData({
-                                    ...matchData,
-                                    [match.id]: {
-                                      ...(matchData[match.id] || match),
-                                      appg_outcome: event.target.value as AppgOutcome,
-                                    },
-                                  })
-                                }
-                              >
-                                {APPG_OUTCOMES.map((outcome) => (
-                                  <option key={outcome} value={outcome}>
-                                    {appgOutcomeLabel(outcome)}
-                                  </option>
-                                ))}
-                              </select>
-                              {matchData[match.id]?.appg_outcome === 'PS1' && (
-                                <>
-                                  <input
-                                    type="number"
-                                    aria-label="Penalty shootout home goals"
-                                    placeholder="PS H"
-                                    value={matchData[match.id]?.penalty_shootout_home_goals ?? ''}
-                                    onChange={(event) =>
-                                      setMatchData({
-                                        ...matchData,
-                                        [match.id]: {
-                                          ...(matchData[match.id] || match),
-                                          penalty_shootout_home_goals:
-                                            event.target.value === '' ? null : Number(event.target.value),
-                                        },
-                                      })
-                                    }
-                                  />
-                                  <input
-                                    type="number"
-                                    aria-label="Penalty shootout away goals"
-                                    placeholder="PS A"
-                                    value={matchData[match.id]?.penalty_shootout_away_goals ?? ''}
-                                    onChange={(event) =>
-                                      setMatchData({
-                                        ...matchData,
-                                        [match.id]: {
-                                          ...(matchData[match.id] || match),
-                                          penalty_shootout_away_goals:
-                                            event.target.value === '' ? null : Number(event.target.value),
-                                        },
-                                      })
-                                    }
-                                  />
-                                </>
-                              )}
-                            </>
-                          )}
-                        </div>
-                        <div className={adminStyles.matchActions}>
-                          <div className={adminStyles.editActions}>
-                            <Button
-                              size="xs"
-                              onClick={() => updateMatch(match.id)}
-                              variant="primaryDanger"
-                              title="Save"
-                              data-tooltip-id="admin-tooltip"
-                              data-tooltip-content="Save result"
-                            >
-                              <Check size={16} />
-                            </Button>
-                            <Button
-                              size="xs"
-                              variant="action"
-                              title={match.completed ? 'Reset unsaved changes' : 'Clear form'}
-                              onClick={() => {
-                                setMatchData({
-                                  ...matchData,
-                                  [match.id]: match.completed
-                                    ? match
-                                    : {
-                                        ...match,
-                                        home_goals: null,
-                                        away_goals: null,
-                                        went_120: false,
-                                        total_minutes: 90,
+                      {editingMatch === match.id ? (
+                        <>
+                          <div className={adminStyles.matchEdit}>
+                            <div className={adminStyles.scoreActionRow}>
+                              <div className={adminStyles.scoreInputs}>
+                                <input
+                                  name={`score_home_${match.id}`}
+                                  type="text"
+                                  pattern="[0-9]+"
+                                  placeholder="H"
+                                  value={matchData[match.id]?.home_goals ?? match.home_goals ?? ''}
+                                  onChange={(e) =>
+                                    setMatchData({
+                                      ...matchData,
+                                      [match.id]: {
+                                        ...(matchData[match.id] || match),
+                                        home_goals: e.target.value === '' ? null : Number(e.target.value),
                                       },
-                                });
-                              }}
-                              data-tooltip-id="admin-tooltip"
-                              data-tooltip-content={match.completed ? 'Reset unsaved changes' : 'Clear form'}
-                            >
-                              <ArrowClockwise size={16} />
-                            </Button>
-                            <Button
-                              size="xs"
-                              variant="action"
-                              onClick={() => setEditingMatch(null)}
-                              title="Cancel"
-                              data-tooltip-id="admin-tooltip"
-                              data-tooltip-content="Cancel"
-                            >
-                              <X size={16} />
-                            </Button>
-                          </div>
-                        </div>
-                      </>
-                    ) : isBye ? (
-                      <>
-                        <div className={adminStyles.matchResult}>
-                          {hasResult && (
-                            <div className={adminStyles.score}>
-                              <span>
-                                {match.home_goals} - {match.away_goals}
-                              </span>
-                              <ResultMinutes minutes={match.total_minutes} went120={match.went_120} />
+                                    })
+                                  }
+                                />
+                                <span className={adminStyles.divider}>-</span>
+                                <input
+                                  name={`score_away_${match.id}`}
+                                  type="text"
+                                  pattern="[0-9]+"
+                                  placeholder="A"
+                                  value={matchData[match.id]?.away_goals ?? match.away_goals ?? ''}
+                                  onChange={(e) =>
+                                    setMatchData({
+                                      ...matchData,
+                                      [match.id]: {
+                                        ...(matchData[match.id] || match),
+                                        away_goals: e.target.value === '' ? null : Number(e.target.value),
+                                      },
+                                    })
+                                  }
+                                />
+                              </div>
                             </div>
-                          )}
-                          <span
-                            className={adminStyles.byeInfo}
-                            data-tooltip-id="admin-tooltip"
-                            data-tooltip-content={`${byeTeam?.name || 'Team'} has a BYE. Record any outside-friendly result manually later.`}
-                          >
-                            BYE
-                          </span>
-                        </div>
-                        <div className={adminStyles.matchActions}>{renderMatchActions(match, hasResult, round.id)}</div>
-                      </>
-                    ) : (
-                      <>
-                        <div className={adminStyles.matchResult}>
-                          {isMisarranged ? (
-                            <>
-                              {hasResult && (
-                                <div className={adminStyles.score}>
-                                  <span>
-                                    {match.home_goals} - {match.away_goals}
-                                  </span>
-                                  <ResultMinutes minutes={match.total_minutes} went120={match.went_120} />
-                                </div>
-                              )}
-                              <span className={adminStyles.misarrangedResult}>misarranged</span>
-                            </>
-                          ) : match.completed ? (
-                            <div className={adminStyles.resultTopRow}>
+                            <label className={adminStyles.went120}>
+                              <input
+                                title="120min game achieved"
+                                type="checkbox"
+                                checked={matchData[match.id]?.went_120 ?? match.went_120 ?? false}
+                                onChange={(e) =>
+                                  setMatchData({
+                                    ...matchData,
+                                    [match.id]: {
+                                      ...(matchData[match.id] || match),
+                                      went_120: e.target.checked,
+                                      total_minutes: e.target.checked
+                                        ? 120
+                                        : (matchData[match.id]?.total_minutes ?? match.total_minutes ?? 90),
+                                    },
+                                  })
+                                }
+                              />
+                              120min
+                            </label>
+                            <div className={adminStyles.minutesInput}>
+                              <input
+                                type="number"
+                                value={matchData[match.id]?.total_minutes ?? match.total_minutes ?? 90}
+                                onChange={(e) =>
+                                  setMatchData({
+                                    ...matchData,
+                                    [match.id]: {
+                                      ...(matchData[match.id] || match),
+                                      total_minutes: e.target.value === '' ? 90 : Number(e.target.value),
+                                    },
+                                  })
+                                }
+                                placeholder="90"
+                              />
+                              <span title="Total match minutes" className={adminStyles.minsLabel}>
+                                mins
+                              </span>
+                            </div>
+                            {isAppg120ScoringMode(scoringMode) && (
+                              <>
+                                <select
+                                  aria-label="APPG outcome"
+                                  value={matchData[match.id]?.appg_outcome || 'needs_review'}
+                                  onChange={(event) =>
+                                    setMatchData({
+                                      ...matchData,
+                                      [match.id]: {
+                                        ...(matchData[match.id] || match),
+                                        appg_outcome: event.target.value as AppgOutcome,
+                                      },
+                                    })
+                                  }
+                                >
+                                  {APPG_OUTCOMES.map((outcome) => (
+                                    <option key={outcome} value={outcome}>
+                                      {appgOutcomeLabel(outcome)}
+                                    </option>
+                                  ))}
+                                </select>
+                                {matchData[match.id]?.appg_outcome === 'PS1' && (
+                                  <>
+                                    <input
+                                      type="number"
+                                      aria-label="Penalty shootout home goals"
+                                      placeholder="PS H"
+                                      value={matchData[match.id]?.penalty_shootout_home_goals ?? ''}
+                                      onChange={(event) =>
+                                        setMatchData({
+                                          ...matchData,
+                                          [match.id]: {
+                                            ...(matchData[match.id] || match),
+                                            penalty_shootout_home_goals:
+                                              event.target.value === '' ? null : Number(event.target.value),
+                                          },
+                                        })
+                                      }
+                                    />
+                                    <input
+                                      type="number"
+                                      aria-label="Penalty shootout away goals"
+                                      placeholder="PS A"
+                                      value={matchData[match.id]?.penalty_shootout_away_goals ?? ''}
+                                      onChange={(event) =>
+                                        setMatchData({
+                                          ...matchData,
+                                          [match.id]: {
+                                            ...(matchData[match.id] || match),
+                                            penalty_shootout_away_goals:
+                                              event.target.value === '' ? null : Number(event.target.value),
+                                          },
+                                        })
+                                      }
+                                    />
+                                  </>
+                                )}
+                              </>
+                            )}
+                          </div>
+                          <div className={adminStyles.matchActions}>
+                            <div className={adminStyles.editActions}>
+                              <Button
+                                size="xs"
+                                onClick={() => updateMatch(match.id)}
+                                variant="primaryDanger"
+                                title="Save"
+                                data-tooltip-id="admin-tooltip"
+                                data-tooltip-content="Save result"
+                              >
+                                <Check size={16} />
+                              </Button>
+                              <Button
+                                size="xs"
+                                variant="action"
+                                title={match.completed ? 'Reset unsaved changes' : 'Clear form'}
+                                onClick={() => {
+                                  setMatchData({
+                                    ...matchData,
+                                    [match.id]: match.completed
+                                      ? match
+                                      : {
+                                          ...match,
+                                          home_goals: null,
+                                          away_goals: null,
+                                          went_120: false,
+                                          total_minutes: 90,
+                                        },
+                                  });
+                                }}
+                                data-tooltip-id="admin-tooltip"
+                                data-tooltip-content={match.completed ? 'Reset unsaved changes' : 'Clear form'}
+                              >
+                                <ArrowClockwise size={16} />
+                              </Button>
+                              <Button
+                                size="xs"
+                                variant="action"
+                                onClick={() => setEditingMatch(null)}
+                                title="Cancel"
+                                data-tooltip-id="admin-tooltip"
+                                data-tooltip-content="Cancel"
+                              >
+                                <X size={16} />
+                              </Button>
+                            </div>
+                          </div>
+                        </>
+                      ) : isBye ? (
+                        <>
+                          <div className={adminStyles.matchResult}>
+                            {hasResult && (
                               <div className={adminStyles.score}>
                                 <span>
                                   {match.home_goals} - {match.away_goals}
                                 </span>
                                 <ResultMinutes minutes={match.total_minutes} went120={match.went_120} />
                               </div>
-                            </div>
-                          ) : null}
-                        </div>
-                        <div className={adminStyles.matchActions}>{renderMatchActions(match, hasResult, round.id)}</div>
-                      </>
-                    )}
+                            )}
+                            <span
+                              className={adminStyles.byeInfo}
+                              data-tooltip-id="admin-tooltip"
+                              data-tooltip-content={`${byeTeam?.name || 'Team'} has a BYE. Record any outside-friendly result manually later.`}
+                            >
+                              BYE
+                            </span>
+                          </div>
+                          <div className={adminStyles.matchActions}>
+                            {renderMatchActions(match, hasResult, round.id)}
+                          </div>
+                        </>
+                      ) : (
+                        <>
+                          <div className={adminStyles.matchResult}>
+                            {isMisarranged ? (
+                              <>
+                                {hasResult && (
+                                  <div className={adminStyles.score}>
+                                    <span>
+                                      {match.home_goals} - {match.away_goals}
+                                    </span>
+                                    <ResultMinutes minutes={match.total_minutes} went120={match.went_120} />
+                                  </div>
+                                )}
+                                <span className={adminStyles.misarrangedResult}>misarranged</span>
+                              </>
+                            ) : match.completed ? (
+                              <div className={adminStyles.resultTopRow}>
+                                <div className={adminStyles.score}>
+                                  <span>
+                                    {match.home_goals} - {match.away_goals}
+                                  </span>
+                                  <ResultMinutes minutes={match.total_minutes} went120={match.went_120} />
+                                </div>
+                              </div>
+                            ) : null}
+                          </div>
+                          <div className={adminStyles.matchActions}>
+                            {renderMatchActions(match, hasResult, round.id)}
+                          </div>
+                        </>
+                      )}
                     </div>
                   </React.Fragment>
                 );
@@ -1053,17 +1063,34 @@ export const AdminResults: React.FC<AdminResultsProps> = ({
       </div>
       {bulkMatchIds.length > 0 && (
         <div className={adminStyles.bulkActions}>
-          <Button
-            size="xs"
-            variant="primaryDanger"
-            onClick={saveBulkResults}
-            disabled={isSavingBulk}
-            title="Save bulk results"
-            data-tooltip-id="admin-tooltip"
-            data-tooltip-content="Save every result currently open in the bulk editor."
-          >
-            <Check size={16} /> Save results
-          </Button>
+          {bulkEditScope === 'season' &&
+            clearSeasonResults &&
+            rounds.some((round) => round.matches.some((match) => match.completed)) && (
+              <Button
+                size="xs"
+                variant="action"
+                onClick={handleClearSeasonResults}
+                disabled={isClearingResults || isClearingFixtures}
+                title="Clear all season results"
+                data-tooltip-id="admin-tooltip"
+                data-tooltip-content="Remove all saved scores and result data while keeping fixtures and linked Hattrick match IDs."
+              >
+                <X size={16} /> {isClearingResults ? 'Clearing results...' : 'Clear all scores'}
+              </Button>
+            )}
+          {bulkEditScope === 'season' && clearSeasonFixtures && rounds.length > 0 && (
+            <Button
+              size="xs"
+              variant="action"
+              onClick={handleClearSeasonFixtures}
+              disabled={isClearingResults || isClearingFixtures}
+              title="Clear season fixtures"
+              data-tooltip-id="admin-tooltip"
+              data-tooltip-content="Permanently remove every fixture and round in this season."
+            >
+              <X size={16} /> {isClearingFixtures ? 'Clearing fixtures...' : 'Remove all matches'}
+            </Button>
+          )}
           <Button
             size="xs"
             variant="action"
@@ -1074,32 +1101,17 @@ export const AdminResults: React.FC<AdminResultsProps> = ({
           >
             <X size={16} /> Cancel
           </Button>
-          {bulkEditScope === 'season' && clearSeasonResults && rounds.some((round) => round.matches.some((match) => match.completed)) && (
-            <Button
-              size="xs"
-              variant="action"
-              onClick={handleClearSeasonResults}
-              disabled={isClearingResults || isClearingFixtures}
-              title="Clear all season results"
-              data-tooltip-id="admin-tooltip"
-              data-tooltip-content="Remove all saved scores and result data while keeping fixtures and linked Hattrick match IDs."
-            >
-              <X size={16} /> {isClearingResults ? 'Clearing results...' : 'Clear all season results'}
-            </Button>
-          )}
-          {bulkEditScope === 'season' && clearSeasonFixtures && rounds.length > 0 && (
-            <Button
-              size="xs"
-              variant="primaryDanger"
-              onClick={handleClearSeasonFixtures}
-              disabled={isClearingResults || isClearingFixtures}
-              title="Clear season fixtures"
-              data-tooltip-id="admin-tooltip"
-              data-tooltip-content="Permanently remove every fixture and round in this season."
-            >
-              <X size={16} /> {isClearingFixtures ? 'Clearing fixtures...' : 'Clear season fixtures'}
-            </Button>
-          )}
+          <Button
+            size="xs"
+            variant="primaryDanger"
+            onClick={saveBulkResults}
+            disabled={isSavingBulk}
+            title="Save bulk results"
+            data-tooltip-id="admin-tooltip"
+            data-tooltip-content="Save every result currently open in the bulk editor."
+          >
+            <Check size={16} /> Save bulk edits
+          </Button>
         </div>
       )}
     </SectionCard>
