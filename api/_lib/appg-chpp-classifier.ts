@@ -70,14 +70,19 @@ export function classifyChppAppgOutcome(input: ChppAppgClassificationInput): Chp
       : 'needs_review';
   }
 
-  const reachedExtraTime = input.went120 === true || (input.totalMinutes ?? 0) >= 120;
+  const homeGoals = parsedGoals(input.eventDetails.home);
+  const awayGoals = parsedGoals(input.eventDetails.away);
+  const hasStructuredExtraTimeEvidence = [homeGoals, awayGoals].some(
+    (goals) => goals?.some(isExtraTimeGoal) ?? false,
+  );
+  const reachedExtraTime =
+    input.went120 === true || hasStructuredExtraTimeEvidence || (input.totalMinutes ?? 0) >= 120;
   const winner = winnerSide(input.homeGoals, input.awayGoals);
 
   if (!reachedExtraTime && !winner) return 'RT0';
+  if (!reachedExtraTime && winner) return 'needs_review';
   if (!winner) return 'needs_review';
 
-  const homeGoals = parsedGoals(input.eventDetails.home);
-  const awayGoals = parsedGoals(input.eventDetails.away);
   if (!homeGoals || !awayGoals) return 'needs_review';
   if (!matchesOfficialScore(homeGoals, awayGoals, input.homeGoals, input.awayGoals)) return 'needs_review';
 
@@ -90,7 +95,7 @@ export function classifyChppAppgOutcome(input: ChppAppgClassificationInput): Chp
     return 'needs_review';
   }
 
-  return winnerGoals.some((goal) => goal.category === 'regular') ? 'OPW' : 'RT0';
+  return 'needs_review';
 }
 
 export function buildChppAppgUpdate(input: ChppAppgUpdateInput): ChppAppgUpdate {

@@ -459,7 +459,8 @@ export const TournamentSchedulePanel: React.FC<TournamentSchedulePanelProps> = (
             }
             if (
               result.diagnostics.latestDiscoveredDate &&
-              (!diagnostics.latestDiscoveredDate || result.diagnostics.latestDiscoveredDate > diagnostics.latestDiscoveredDate)
+              (!diagnostics.latestDiscoveredDate ||
+                result.diagnostics.latestDiscoveredDate > diagnostics.latestDiscoveredDate)
             ) {
               diagnostics.latestDiscoveredDate = result.diagnostics.latestDiscoveredDate;
             }
@@ -849,7 +850,7 @@ export const TournamentSchedulePanel: React.FC<TournamentSchedulePanelProps> = (
                 onClick={() => void handleNormalizeManualRounds()}
                 disabled={isFetchingSuggestions || isAddingAllSuggested || isNormalizingManualRounds}
               >
-                {isNormalizingManualRounds ? 'Normalizing rounds...' : 'Normalize rounds'}
+                {isNormalizingManualRounds ? 'Normalising rounds...' : 'Normalise rounds (sort by date)'}
               </Button>
             )}
             {selectedSuggestionTeam && (
@@ -859,8 +860,9 @@ export const TournamentSchedulePanel: React.FC<TournamentSchedulePanelProps> = (
             {suggestionsNotice && <p className={adminStyles.resultNotice}>{suggestionsNotice}</p>}
             {suggestionsDiagnostics && (
               <p className={adminStyles.smallNote}>
-                CHPP {suggestionsDiagnostics.rawChppMatchesReturned} · selected {suggestionsDiagnostics.selectedCategoryMatches} ·{' '}
-                registered head-to-head {suggestionsDiagnostics.registeredTeamHeadToHeadMatches} · imported{' '}
+                CHPP {suggestionsDiagnostics.rawChppMatchesReturned} · selected{' '}
+                {suggestionsDiagnostics.selectedCategoryMatches} · registered head-to-head{' '}
+                {suggestionsDiagnostics.registeredTeamHeadToHeadMatches} · imported{' '}
                 {suggestionsDiagnostics.alreadyImportedMatches} · unique {suggestionsDiagnostics.uniqueSuggestions}
                 {suggestionsDiagnostics.earliestDiscoveredDate && suggestionsDiagnostics.latestDiscoveredDate
                   ? ` · ${formatAddMatchDate(suggestionsDiagnostics.earliestDiscoveredDate)}–${formatAddMatchDate(suggestionsDiagnostics.latestDiscoveredDate)}`

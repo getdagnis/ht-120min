@@ -32,7 +32,8 @@ test('APPG handles penalty, regulation zero, and open-play penalty outcomes', ()
   );
   assert.deepEqual(getAppgPoints({ home_goals: 2, away_goals: 0, appg_outcome: 'RT0' }), { home: 0, away: 0 });
   assert.deepEqual(getAppgPoints({ home_goals: 1, away_goals: 1, appg_outcome: 'RT0' }), { home: 0, away: 0 });
-  assert.deepEqual(getAppgPoints({ home_goals: 2, away_goals: 1, appg_outcome: 'OPW' }), { home: -1, away: -1 });
+  assert.deepEqual(getAppgPoints({ home_goals: 2, away_goals: 1, appg_outcome: 'OPW' }), { home: -1, away: 0 });
+  assert.deepEqual(getAppgPoints({ home_goals: 1, away_goals: 2, appg_outcome: 'OPW' }), { home: 0, away: -1 });
 });
 
 test('APPG requires evidence appropriate to the selected outcome', () => {
@@ -46,6 +47,7 @@ test('APPG requires evidence appropriate to the selected outcome', () => {
   );
   assert.equal(validateAppgOutcome({ home_goals: 2, away_goals: 1, total_minutes: 90, appg_outcome: 'OPW' }), null);
   assert.equal(validateAppgOutcome({ home_goals: 2, away_goals: 1, total_minutes: 93, appg_outcome: 'RT0' }), null);
+  assert.equal(validateAppgOutcome({ home_goals: 2, away_goals: 1, total_minutes: 93, appg_outcome: 'OPW' }), null);
   assert.match(
     validateAppgOutcome({ home_goals: 2, away_goals: 1, total_minutes: 93, appg_outcome: 'ET2' }) || '',
     /extra time/i,

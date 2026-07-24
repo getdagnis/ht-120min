@@ -9,10 +9,19 @@ interface TournamentJoinabilityInput {
   maxTeams: number | null | undefined;
   teams: TournamentJoinabilityTeam[];
   status?: string | null;
+  registrationClosedAt?: string | null;
 }
 
-export function canViewerJoinTournament({ hasJoined, isGenerated, maxTeams, teams, status }: TournamentJoinabilityInput) {
+export function canViewerJoinTournament({
+  hasJoined,
+  isGenerated,
+  maxTeams,
+  teams,
+  status,
+  registrationClosedAt,
+}: TournamentJoinabilityInput) {
   if (hasJoined) return false;
+  if (registrationClosedAt) return false;
   if (status === 'stopped' || status === 'finished' || status === 'archived') return false;
   // An active tournament without current-season fixtures is an auto-started, roster-locked season.
   if (status === 'active' && !isGenerated) return false;

@@ -618,8 +618,8 @@ export const AdminResults: React.FC<AdminResultsProps> = ({
       {isAppg120ScoringMode(scoringMode) && importCsvRows && (
         <p className={adminStyles.appgCsvHelp}>
           ET3 = extra-time winner, open-play winning goal. ET2 = extra-time winner, SE/other winning goal. PS1 =
-          penalties. RT0 = regulation result worth 0. OPW = regulation open-play winner gets -1. needs_review = not
-          classified yet.
+          penalties. RT0 = regulation result worth 0. OPW = organizer-classified regulation open-play winner gets -1.
+          Regulation wins remain needs_review until manually classified.
         </p>
       )}
       {resultNotice && (

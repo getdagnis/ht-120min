@@ -49,6 +49,7 @@ import {
 import { Tooltip } from 'react-tooltip';
 import { nanoid } from 'nanoid';
 import { Button } from '../../components/Button/Button';
+import { Switch } from '../../components/Switch/Switch';
 import { Modal } from '../../components/Modal/Modal';
 import { HeroCard } from '../../components/Card/HeroCard';
 import { SectionCard } from '../../components/Card/SectionCard';
@@ -705,6 +706,7 @@ export const TournamentView: React.FC = () => {
   const [editRegistrationType, setEditRegistrationType] = useState('validated');
   const [editCountryLimit, setEditCountryLimit] = useState<string | null>(null);
   const [editMaxTeams, setEditMaxTeams] = useState<number | null>(null);
+  const [editRegistrationOpen, setEditRegistrationOpen] = useState(true);
   const [showEditDescription, setShowEditDescription] = useState(false);
   const [editDescription, setEditDescription] = useState('');
   const [showEditEmail, setShowEditEmail] = useState(false);
@@ -799,6 +801,7 @@ export const TournamentView: React.FC = () => {
         registrationType: false,
         countryLimit: false,
         maxTeams: false,
+        registrationOpen: false,
         showDescription: false,
         description: false,
         showEmail: false,
@@ -824,6 +827,7 @@ export const TournamentView: React.FC = () => {
       registrationType: editRegistrationType !== normalizeTournamentRegistrationType(tournament.registration_type),
       countryLimit: editCountryLimit !== savedCountryLimit,
       maxTeams: editMaxTeams !== (tournament.max_teams || null),
+      registrationOpen: editRegistrationOpen !== !tournament.registration_closed_at,
       showDescription: showEditDescription !== tournament.show_description,
       description: editDescription !== (tournament.description || ''),
       showEmail: showEditEmail !== Boolean(tournament.admin_email),
@@ -842,6 +846,7 @@ export const TournamentView: React.FC = () => {
     editLeagueCategory,
     editMaxTeams,
     editName,
+    editRegistrationOpen,
     editRegistrationType,
     isStartDateLocked,
     isTest,
@@ -1239,6 +1244,7 @@ export const TournamentView: React.FC = () => {
         setShowEditEmail(!!tournamentData.admin_email);
         setEditAdminEmail(tournamentData.admin_email || '');
         setEditMaxTeams(tournamentData.max_teams || null);
+        setEditRegistrationOpen(!tournamentData.registration_closed_at);
         setIncludeWeek15WeekendFriendly(false);
         setIncludeWeek15WeekendFriendlyForReschedule(Boolean(tournamentData.include_week15_weekend_friendly));
         setEditIsFeatured(Boolean(tournamentData.is_featured));
@@ -2885,6 +2891,9 @@ export const TournamentView: React.FC = () => {
           description: editDescription,
           admin_email: showEditEmail ? editAdminEmail : null,
           max_teams: editMaxTeams,
+          registration_closed_at: editRegistrationOpen
+            ? null
+            : (tournament?.registration_closed_at ?? new Date().toISOString()),
           schedule_mode: scheduleSetup === 'manual' ? 'manual' : scheduleMode,
           schedule_start_slot: nextPlannedStartSlot,
           ...(canManageFeaturedTournaments ? { is_featured: editIsFeatured } : {}),
@@ -3817,10 +3826,15 @@ export const TournamentView: React.FC = () => {
       maxTeams: tournament.max_teams,
       teams,
       status: tournament.status,
+      registrationClosedAt: tournament.registration_closed_at,
     }),
   );
   const canJoinAnotherTeamBeforeFixtures = Boolean(
-    tournament && !isSandbox && !isGenerated && (!tournament.max_teams || activeRealTeamsCount < tournament.max_teams),
+    tournament &&
+      !isSandbox &&
+      !tournament.registration_closed_at &&
+      !isGenerated &&
+      (!tournament.max_teams || activeRealTeamsCount < tournament.max_teams),
   );
   const shouldPromptReturningParticipantLogin = Boolean(
     tournamentId &&
@@ -4106,13 +4120,14 @@ export const TournamentView: React.FC = () => {
                         <strong>RT0</strong> - 0 points if the match is decided before extra time.
                       </li>
                       <li>
-                        <strong>OPW</strong> - minus 1 point for the winning team if they scored the regular-time winner
-                        from open play.
+                        <strong>OPW</strong> - minus 1 point for the winning team when an organizer classifies a
+                        regulation-time open-play win.
                       </li>
                     </ul>
                     <p>
-                      Matches marked <strong>needs review</strong> do not count toward APPG until an organizer
-                      classifies them. Ties are then sorted by goal difference, goals scored, and team name.
+                      Regulation-time wins remain <strong>needs review</strong> until an organizer chooses RT0 or OPW.
+                      Matches marked <strong>needs review</strong> do not count toward APPG until an organizer classifies
+                      them.
                     </p>
                   </div>
                 )}
@@ -4927,6 +4942,21 @@ export const TournamentView: React.FC = () => {
                             </>
                           )}
                           {renderUnsavedSettingsNote(unsavedSettingsFields.scheduleStart)}
+                        </div>
+
+                        <div className={adminStyles.field}>
+                          {renderSettingsLabel('Registration')}
+                          <Switch
+                            checked={editRegistrationOpen}
+                            onChange={setEditRegistrationOpen}
+                            size="sm"
+                            label={
+                              editRegistrationOpen
+                                ? 'Tournament open for registration'
+                                : 'Tournament closed for registration'
+                            }
+                          />
+                          {renderUnsavedSettingsNote(unsavedSettingsFields.registrationOpen)}
                         </div>
 
                         <div className={adminStyles.checkboxField}>

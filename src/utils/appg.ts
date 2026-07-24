@@ -67,8 +67,11 @@ export function getAppgPoints(match: AppgMatchInput): AppgPoints | null {
       return { home: 1, away: 1 };
     case 'RT0':
       return { home: 0, away: 0 };
-    case 'OPW':
-      return { home: -1, away: -1 };
+    case 'OPW': {
+      const winner = winnerSide(match);
+      if (!winner) return null;
+      return winner === 'home' ? { home: -1, away: 0 } : { home: 0, away: -1 };
+    }
     default:
       return null;
   }

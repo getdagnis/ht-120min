@@ -48,12 +48,13 @@ test('classifies regulation results with event evidence', () => {
       homeGoals: 2,
       awayGoals: 1,
       went120: false,
+      totalMinutes: 93,
       eventDetails: eventDetails(
         [{ category: 'regular' }, { category: 'other' }],
         [{ category: 'regular' }],
       ),
     }),
-    'OPW',
+    'needs_review',
   );
 
   assert.equal(
@@ -64,7 +65,7 @@ test('classifies regulation results with event evidence', () => {
       went120: false,
       eventDetails: eventDetails([{ category: 'other' }], []),
     }),
-    'RT0',
+    'needs_review',
   );
 
   assert.equal(
@@ -103,6 +104,37 @@ test('classifies extra-time regular and other goals separately', () => {
       eventDetails: eventDetails(
         [{ category: 'regular' }],
         [{ category: 'regular' }, { category: 'other', matchPart: 3 }],
+      ),
+    }),
+    'ET2',
+  );
+});
+
+test('uses explicit extra-time evidence for ET3 and ET2', () => {
+  assert.equal(
+    classifyChppAppgOutcome({
+      completed: true,
+      homeGoals: 2,
+      awayGoals: 1,
+      totalMinutes: 120,
+      went120: false,
+      eventDetails: eventDetails(
+        [{ category: 'regular' }, { category: 'regular', matchPart: 3 }],
+        [{ category: 'regular' }],
+      ),
+    }),
+    'ET3',
+  );
+  assert.equal(
+    classifyChppAppgOutcome({
+      completed: true,
+      homeGoals: 2,
+      awayGoals: 1,
+      totalMinutes: 120,
+      went120: false,
+      eventDetails: eventDetails(
+        [{ category: 'regular' }, { category: 'other', matchPart: 3 }],
+        [{ category: 'regular' }],
       ),
     }),
     'ET2',

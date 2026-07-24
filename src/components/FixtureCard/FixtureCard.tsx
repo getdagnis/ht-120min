@@ -70,7 +70,7 @@ export const FixtureCard: React.FC<FixtureCardProps> = ({
     <div className={`${styles.statusBadge} ${styles[status]}`}>
       {completed && (
         <div className={`${styles.minutesBadge} ${went_120 ? styles.achievedMinutes : ''}`}>
-          {totalMinutes ?? (went_120 ? 120 : 90)}'{went_120 ? '!' : ' mins'}
+          {totalMinutes ?? (went_120 ? 120 : 90)}'{went_120 ? '!' : ''}
         </div>
       )}
       <div className={styles.badgeRight}>
