@@ -9,6 +9,7 @@ import {
   FirstAid,
   Handshake,
   Medal,
+  Recycle,
   SoccerBall,
   Trophy,
   UsersThree,
@@ -27,6 +28,7 @@ import {
   type SeasonParticipant,
 } from '../../utils/season-history';
 import { getHattrickCalendarContext } from '../../utils/hattrick-calendar';
+import { getAppgStandingsQuota, meetsAppgStandingsQuota } from '../../utils/standings';
 import { isAppg120ScoringMode } from '../../../shared/scoring-profile';
 import styles from './TournamentHistory.module.sass';
 
@@ -149,6 +151,14 @@ export const SeasonYearbook: React.FC<SeasonYearbookProps> = ({
     {children}
   </section>
 );
+
+const HISTORY_SCORING_MODES = {
+  '120min': { label: '120min', tooltip: '120-minute scoring' },
+  '90min': { label: '90min', tooltip: 'Regular 90-minute scoring' },
+  appg: { label: 'APPG', tooltip: 'Average Points Per Game' },
+} as const;
+
+type HistoryScoringMode = keyof typeof HISTORY_SCORING_MODES;
 
 interface TournamentHistoryProps {
   seasons: TournamentHistorySeason[];
@@ -378,6 +388,12 @@ export const TournamentHistory: React.FC<TournamentHistoryProps> = ({
   const [submittingTeamId, setSubmittingTeamId] = useState<string | null>(null);
   const [pendingCommentParticipant, setPendingCommentParticipant] = useState<SeasonParticipant | null>(null);
   const [historyReportCopied, setHistoryReportCopied] = useState(false);
+  const defaultHistoryScoringMode: HistoryScoringMode = isAppg120ScoringMode(scoringMode)
+    ? 'appg'
+    : scoringMode === 'points'
+      ? '90min'
+      : '120min';
+  const [historyScoringMode, setHistoryScoringMode] = useState<HistoryScoringMode>(defaultHistoryScoringMode);
 
   useEffect(() => {
     if (!selectedSeasonId) return;
@@ -464,13 +480,65 @@ export const TournamentHistory: React.FC<TournamentHistoryProps> = ({
     return <p className={styles.emptyHistory}>No finished seasons yet.</p>;
   }
 
+  const isAppgHistory = isAppg120ScoringMode(scoringMode);
+  const historyAppgQuota = isAppgHistory ? getAppgStandingsQuota(snapshot.standings) : 0;
+  const sortedHistoryStandings = [...snapshot.standings].sort((a, b) => {
+    if (historyScoringMode === 'appg') {
+      const aQualified = meetsAppgStandingsQuota(a, historyAppgQuota);
+      const bQualified = meetsAppgStandingsQuota(b, historyAppgQuota);
+      if (aQualified !== bQualified) return aQualified ? -1 : 1;
+      const averageDifference = (b.appgPlayed ? b.appgPoints / b.appgPlayed : 0) - (a.appgPlayed ? a.appgPoints / a.appgPlayed : 0);
+      if (averageDifference !== 0) return averageDifference;
+      if (b.appgPoints !== a.appgPoints) return b.appgPoints - a.appgPoints;
+      if (b.appgPlayed !== a.appgPlayed) return b.appgPlayed - a.appgPlayed;
+      return a.teamName.localeCompare(b.teamName, undefined, { sensitivity: 'base' });
+    }
+    if (historyScoringMode === '120min') {
+      if (b.achievements120min !== a.achievements120min) return b.achievements120min - a.achievements120min;
+      if (b.gd !== a.gd) return b.gd - a.gd;
+      if (b.gf !== a.gf) return b.gf - a.gf;
+      return a.played - b.played;
+    }
+    if (b.pts !== a.pts) return b.pts - a.pts;
+    if (b.gd !== a.gd) return b.gd - a.gd;
+    if (b.gf !== a.gf) return b.gf - a.gf;
+    return a.teamName.localeCompare(b.teamName, undefined, { sensitivity: 'base' });
+  });
+  const qualifiedHistoryStandings =
+    historyScoringMode === 'appg'
+      ? sortedHistoryStandings.filter((standing) => meetsAppgStandingsQuota(standing, historyAppgQuota))
+      : sortedHistoryStandings;
+  const belowQuotaHistoryStandings =
+    historyScoringMode === 'appg'
+      ? sortedHistoryStandings.filter((standing) => !meetsAppgStandingsQuota(standing, historyAppgQuota))
+      : [];
+  const enabledHistoryScoringModes: HistoryScoringMode[] = isAppgHistory
+    ? ['appg', '120min', '90min']
+    : ['120min', '90min'];
+  const activeHistoryScoringConfig = HISTORY_SCORING_MODES[historyScoringMode];
+  const toggleHistoryScoringMode = () => {
+    const currentIndex = enabledHistoryScoringModes.indexOf(historyScoringMode);
+    setHistoryScoringMode(enabledHistoryScoringModes[(currentIndex + 1) % enabledHistoryScoringModes.length]);
+  };
+  const historyEligibleTeamIds = new Set(
+    snapshot.standings
+      .filter((standing) => meetsAppgStandingsQuota(standing, historyAppgQuota))
+      .map((standing) => standing.teamId),
+  );
+  const displayableAwards = snapshot.awards
+    .map((award) =>
+      isAppgHistory
+        ? { ...award, recipientTeamIds: award.recipientTeamIds.filter((teamId) => historyEligibleTeamIds.has(teamId)) }
+        : award,
+    )
+    .filter((award) => award.recipientTeamIds.length > 0);
   const winner = findParticipant(snapshot, snapshot.winner?.teamId);
   const winnerStanding = snapshot.winner
     ? snapshot.standings.find((standing) => standing.teamId === snapshot.winner?.teamId)
     : null;
-  const runnerUpStanding = snapshot.standings[1];
+  const runnerUpStanding = qualifiedHistoryStandings[1];
   const runnerUp = findParticipant(snapshot, runnerUpStanding?.teamId);
-  const thirdPlaceStanding = snapshot.standings[2];
+  const thirdPlaceStanding = qualifiedHistoryStandings[2];
   const thirdPlace = findParticipant(snapshot, thirdPlaceStanding?.teamId);
   const most120RecordDetails = snapshot.records.most120TeamIds
     .map((teamId) => {
@@ -502,16 +570,20 @@ export const TournamentHistory: React.FC<TournamentHistoryProps> = ({
   const roundsPlayed = new Set(
     snapshot.matches.map((match) => match.roundNumber).filter((value): value is number => typeof value === 'number'),
   ).size;
-  const isAppgHistory = isAppg120ScoringMode(scoringMode);
-  const most120Award: SeasonAward = {
+  const storedMost120Award = displayableAwards.find((award) => award.key === 'most-120-matches');
+  const fallbackMost120Standings = isAppgHistory ? qualifiedHistoryStandings : snapshot.standings;
+  const fallbackMost120Value = Math.max(0, ...fallbackMost120Standings.map((standing) => standing.achievements120min));
+  const most120Award: SeasonAward = storedMost120Award || {
     key: 'most-120-matches',
-    recipientTeamIds: snapshot.records.most120TeamIds,
-    value: snapshot.records.most120Value,
+    recipientTeamIds: fallbackMost120Standings
+      .filter((standing) => standing.achievements120min === fallbackMost120Value)
+      .map((standing) => standing.teamId),
+    value: fallbackMost120Value,
   };
   const fairPlayAward = snapshot.awards.find((award) => award.key === 'fair-play') || null;
   const displayAwards = [
     most120Award,
-    ...snapshot.awards.filter(
+    ...displayableAwards.filter(
       (award) =>
         award.key !== 'champions' &&
         award.key !== 'most-120-matches' &&
@@ -949,21 +1021,36 @@ export const TournamentHistory: React.FC<TournamentHistoryProps> = ({
           {yearbookSection}
 
           <section className={styles.standingsCard}>
-            <h2>Final standings - Season {selectedSeason.seasonNumber}</h2>
+            <div className={styles.standingsHeading}>
+              <h2>Final standings - Season {selectedSeason.seasonNumber}</h2>
+              <div className={styles.scoringControl}>
+                <span>Scoring:</span>
+                <button
+                  type="button"
+                  className={styles.scoringToggle}
+                  onClick={toggleHistoryScoringMode}
+                  title={activeHistoryScoringConfig.tooltip}
+                  aria-label={`Switch scoring display from ${activeHistoryScoringConfig.label}`}
+                >
+                  <span>{activeHistoryScoringConfig.label}</span>
+                  <Recycle size={16} weight="regular" aria-hidden="true" />
+                </button>
+              </div>
+            </div>
             <div className={styles.tableWrapper}>
               <table>
                 <thead>
                   <tr>
                     <th>#</th>
                     <th>Team</th>
-                    {isAppgHistory ? (
+                    {historyScoringMode === 'appg' ? (
                       <>
                         <th>APPG</th>
                         <th>Pld</th>
                         <th>Dif</th>
                         <th>Goals</th>
                       </>
-                    ) : (
+                    ) : historyScoringMode === '120min' ? (
                       <>
                         <th>120m</th>
                         <th>Mins</th>
@@ -971,17 +1058,26 @@ export const TournamentHistory: React.FC<TournamentHistoryProps> = ({
                         <th>Dif</th>
                         <th>Goals</th>
                       </>
+                    ) : (
+                      <>
+                        <th>Pld</th>
+                        <th>W</th>
+                        <th>D</th>
+                        <th>L</th>
+                        <th>GD</th>
+                        <th>Pts</th>
+                      </>
                     )}
                   </tr>
                 </thead>
                 <tbody>
-                  {snapshot.standings.map((standing, index) => {
+                  {qualifiedHistoryStandings.map((standing, index) => {
                     const participant = findParticipant(snapshot, standing.teamId);
                     return (
                       <tr key={standing.teamId}>
                         <td>{index + 1}</td>
                         <td>{participant ? <TeamIdentity participant={participant} compact /> : standing.teamName}</td>
-                        {isAppgHistory ? (
+                        {historyScoringMode === 'appg' ? (
                           <>
                             <td className={styles.accentStat}>
                               {standing.appgPlayed ? (standing.appgPoints / standing.appgPlayed).toFixed(2) : '0.00'}
@@ -990,7 +1086,7 @@ export const TournamentHistory: React.FC<TournamentHistoryProps> = ({
                             <td>{standing.gd > 0 ? `+${standing.gd}` : standing.gd}</td>
                             <td>{standing.gf}</td>
                           </>
-                        ) : (
+                        ) : historyScoringMode === '120min' ? (
                           <>
                             <td className={styles.accentStat}>{standing.achievements120min}</td>
                             <td>{standing.totalMinutes}</td>
@@ -998,10 +1094,43 @@ export const TournamentHistory: React.FC<TournamentHistoryProps> = ({
                             <td>{standing.gd > 0 ? `+${standing.gd}` : standing.gd}</td>
                             <td>{standing.gf}</td>
                           </>
+                        ) : (
+                          <>
+                            <td>{standing.played}</td>
+                            <td>{standing.won}</td>
+                            <td>{standing.drawn}</td>
+                            <td>{standing.lost}</td>
+                            <td>{standing.gd > 0 ? `+${standing.gd}` : standing.gd}</td>
+                            <td className={styles.accentStat}>{standing.pts}</td>
+                          </>
                         )}
                       </tr>
                     );
                   })}
+                  {historyScoringMode === 'appg' && belowQuotaHistoryStandings.length > 0 && (
+                    <>
+                      <tr>
+                        <th colSpan={6} className={styles.appgQuotaLabel}>
+                          Did not reach quota ({historyAppgQuota} matches)
+                        </th>
+                      </tr>
+                      {belowQuotaHistoryStandings.map((standing) => {
+                        const participant = findParticipant(snapshot, standing.teamId);
+                        return (
+                          <tr key={standing.teamId}>
+                            <td>-</td>
+                            <td>{participant ? <TeamIdentity participant={participant} compact /> : standing.teamName}</td>
+                            <td className={styles.accentStat}>
+                              {standing.appgPlayed ? (standing.appgPoints / standing.appgPlayed).toFixed(2) : '0.00'}
+                            </td>
+                            <td>{standing.played}</td>
+                            <td>{standing.gd > 0 ? `+${standing.gd}` : standing.gd}</td>
+                            <td>{standing.gf}</td>
+                          </tr>
+                        );
+                      })}
+                    </>
+                  )}
                 </tbody>
               </table>
             </div>

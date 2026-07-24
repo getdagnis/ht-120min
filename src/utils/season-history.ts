@@ -203,13 +203,15 @@ function buildAwards(
   );
   const eligibleStandings = standings.filter((standing) => eligibleTeamIds.has(standing.teamId));
   const eligibleTeamStats = teamStats.filter((stat) => eligibleTeamIds.has(stat.teamId));
+  const awardStandings = isAppg120ScoringMode(scoringMode) ? eligibleStandings : standings;
+  const awardTeamStats = isAppg120ScoringMode(scoringMode) ? eligibleTeamStats : teamStats;
 
   const topScorers = getWinningTeamIds(
-    standings.map((standing) => ({ teamId: standing.teamId, value: standing.gf })),
+    awardStandings.map((standing) => ({ teamId: standing.teamId, value: standing.gf })),
     'max',
   );
   const bestGoalDifference = getWinningTeamIds(
-    standings.map((standing) => ({ teamId: standing.teamId, value: standing.gd })),
+    awardStandings.map((standing) => ({ teamId: standing.teamId, value: standing.gd })),
     'max',
   );
   const leastGoalsAllowed = getWinningTeamIds(
@@ -221,20 +223,20 @@ function buildAwards(
     'min',
   );
   const mostCards = getWinningTeamIds(
-    teamStats.map((stat) => ({ teamId: stat.teamId, value: stat.yellowCards + stat.redCards })),
+    awardTeamStats.map((stat) => ({ teamId: stat.teamId, value: stat.yellowCards + stat.redCards })),
     'max',
   );
-  const hasInjuryWeeks = teamStats.some((stat) => (stat.injuryWeeks || 0) > 0);
+  const hasInjuryWeeks = awardTeamStats.some((stat) => (stat.injuryWeeks || 0) > 0);
   const mostInjuries = getWinningTeamIds(
-    teamStats.map((stat) => ({ teamId: stat.teamId, value: hasInjuryWeeks ? stat.injuryWeeks || 0 : stat.injuries })),
+    awardTeamStats.map((stat) => ({ teamId: stat.teamId, value: hasInjuryWeeks ? stat.injuryWeeks || 0 : stat.injuries })),
     'max',
   );
   const most120 = getWinningTeamIds(
-    standings.map((standing) => ({ teamId: standing.teamId, value: standing.achievements120min })),
+    awardStandings.map((standing) => ({ teamId: standing.teamId, value: standing.achievements120min })),
     'max',
   );
   const totalMinutes = getWinningTeamIds(
-    standings.map((standing) => ({ teamId: standing.teamId, value: standing.totalMinutes })),
+    awardStandings.map((standing) => ({ teamId: standing.teamId, value: standing.totalMinutes })),
     'max',
   );
   const completedEveryFixture = standings

@@ -5,11 +5,7 @@ import { Tooltip } from 'react-tooltip';
 import { TeamByline } from '../TeamByline/TeamByline';
 import { SeasonYearbook, type TournamentSeasonComment } from '../TournamentHistory/TournamentHistory';
 
-import {
-  getAppgStandingsQuota,
-  meetsAppgStandingsQuota,
-  type TeamStanding,
-} from '../../utils/standings';
+import { getAppgStandingsQuota, meetsAppgStandingsQuota, type TeamStanding } from '../../utils/standings';
 import { isAppg120ScoringMode } from '../../../shared/scoring-profile';
 // import { MottoWidget } from '../../components/MottoWidget/MottoWidget';
 // import { TOURNAMENT_DEFAULT } from '../../constants/descriptions';
@@ -211,15 +207,14 @@ export const StandingsView: React.FC<StandingsViewProps> = ({
   const signedGoalDifference = (value: number) => (value > 0 ? `+${value}` : String(value));
   const appgClassificationTooltip = (standing: TeamStanding) =>
     `Pts ${standing.appgPoints} · ET3 ${standing.appgClassifications.ET3} · ET2 ${standing.appgClassifications.ET2} · PS1 ${standing.appgClassifications.PS1} · RT0 ${standing.appgClassifications.RT0} · OPW ${standing.appgClassifications.OPW}`;
-  const forumRow = (values: Array<string | number>) => `[tr]${values.map((value) => `[td]${value}[/td]`).join('')}[/tr]`;
+  const forumRow = (values: Array<string | number>) =>
+    `[tr]${values.map((value) => `[td]${value}[/td]`).join('')}[/tr]`;
   const forumHeader = (values: string[]) => `[tr]${values.map((value) => `[th]${value}[/th]`).join('')}[/tr]`;
 
   const copyStandingsForForum = () => {
     const tournamentName = tournament?.name || 'Tournament';
     const categorySuffix = tournament?.league_category === 'hfi' ? ' (HFI)' : '';
-    const tournamentLink = tournament?.slug
-      ? `[link=https://ht-120min.vercel.app/t/${tournament.slug}]`
-      : '';
+    const tournamentLink = tournament?.slug ? `[link=https://ht-120min.vercel.app/t/${tournament.slug}]` : '';
     const heading = `[b]${tournamentName}${categorySuffix}[/b] – ${activeScoringConfig.label} Standings${
       tournamentLink ? `\n${tournamentLink}` : ''
     }`;
@@ -399,7 +394,12 @@ export const StandingsView: React.FC<StandingsViewProps> = ({
                 {show120minScoring ? (
                   <>
                     {sortableHeader('120m', 'achievements120min', styles.center120)}
-                    {sortableHeader('120m%', 'achievements120minPercent', styles.center, '120-minute matches as a percentage of played matches')}
+                    {sortableHeader(
+                      '120m%',
+                      'achievements120minPercent',
+                      styles.center,
+                      '120-minute matches as a percentage of played matches',
+                    )}
                     {sortableHeader('Mins', 'totalMinutes', styles.center)}
                     {sortableHeader('Dif', 'gd', styles.center)}
                     {sortableHeader('Goals', 'gf', styles.center)}
@@ -407,7 +407,12 @@ export const StandingsView: React.FC<StandingsViewProps> = ({
                 ) : showAppgScoring ? (
                   <>
                     {sortableHeader('APPG', 'appg', `${styles.center} ${styles.pointsHeader}`)}
-                    {sortableHeader('120m%', 'achievements120minPercent', styles.center, '120-minute matches as a percentage of played matches')}
+                    {sortableHeader(
+                      '120m%',
+                      'achievements120minPercent',
+                      styles.center,
+                      '120-minute matches as a percentage of played matches',
+                    )}
                     {sortableHeader('Pld', 'played', styles.center)}
                     {sortableHeader('Dif', 'gd', styles.center)}
                     {sortableHeader('Goals', 'gf', styles.center)}
@@ -478,93 +483,95 @@ export const StandingsView: React.FC<StandingsViewProps> = ({
               {sortedStandings.map((s, idx) => {
                 const isMyTeam = s.htTeamId === Number(myHtUserId);
                 const reachesQuota = reachesAppgQuota(s);
-                const placement = reachesQuota ? sortedStandings.slice(0, idx).filter(reachesAppgQuota).length + 1 : null;
+                const placement = reachesQuota
+                  ? sortedStandings.slice(0, idx).filter(reachesAppgQuota).length + 1
+                  : null;
                 return (
                   <React.Fragment key={s.teamId}>
                     {showAppgScoring && idx === qualifiedAppgCount && qualifiedAppgCount < sortedStandings.length && (
                       <tr>
                         <th colSpan={7} className={styles.appgQuotaLabel}>
-                          Did not reach quota
+                          Does not reach quota
                         </th>
                       </tr>
                     )}
                     <tr className={isMyTeam ? styles.myTeamRow : ''}>
-                    <td className={styles.muted}>{placement ?? ''}</td>
-                    <td className={styles.teamNameCell}>
-                      <div className={styles.teamInfo}>
-                        <img
-                          src={s.logoUrl || DEFAULT_TEAM_LOGO}
-                          alt={s.teamName}
-                          className={styles.standingLogo}
-                          onError={(event) => {
-                            event.currentTarget.src = DEFAULT_TEAM_LOGO;
-                          }}
-                        />
-                        <div className={styles.teamTextContainer}>
-                          <a
-                            href={`https://www.hattrick.org/goto.ashx?path=/Club/?TeamID=${s.htTeamId}`}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className={styles.idLink}
-                          >
-                            <div className={styles.nameRow}>
-                              <span className={styles.teamName}>
-                                {s.teamName}
-                                {isMyTeam && <span className={styles.myTeamBadge}> (You)</span>}
-                              </span>
-                              {s.joinedViaOauth && (
-                                <span title="Hattrick Validated Team">
-                                  <ShieldCheck size={14} weight="bold" className={styles.validatedIcon} />
-                                </span>
-                              )}
-                            </div>
-                          </a>
-                          <TeamByline
-                            countryName={s.countryName}
-                            countryId={s.countryId}
-                            leagueId={s.leagueId}
-                            teamId={s.htTeamId}
-                            managerName={s.managerName}
-                            managerHtId={s.hattrickUserId}
-                            mode="standings"
-                            lastSeenAt={s.hattrickUserId != null ? (lastSeenMap[s.hattrickUserId] ?? null) : null}
+                      <td className={styles.muted}>{placement ?? ''}</td>
+                      <td className={styles.teamNameCell}>
+                        <div className={styles.teamInfo}>
+                          <img
+                            src={s.logoUrl || DEFAULT_TEAM_LOGO}
+                            alt={s.teamName}
+                            className={styles.standingLogo}
+                            onError={(event) => {
+                              event.currentTarget.src = DEFAULT_TEAM_LOGO;
+                            }}
                           />
+                          <div className={styles.teamTextContainer}>
+                            <a
+                              href={`https://www.hattrick.org/goto.ashx?path=/Club/?TeamID=${s.htTeamId}`}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className={styles.idLink}
+                            >
+                              <div className={styles.nameRow}>
+                                <span className={styles.teamName}>
+                                  {s.teamName}
+                                  {isMyTeam && <span className={styles.myTeamBadge}> (You)</span>}
+                                </span>
+                                {s.joinedViaOauth && (
+                                  <span title="Hattrick Validated Team">
+                                    <ShieldCheck size={14} weight="bold" className={styles.validatedIcon} />
+                                  </span>
+                                )}
+                              </div>
+                            </a>
+                            <TeamByline
+                              countryName={s.countryName}
+                              countryId={s.countryId}
+                              leagueId={s.leagueId}
+                              teamId={s.htTeamId}
+                              managerName={s.managerName}
+                              managerHtId={s.hattrickUserId}
+                              mode="standings"
+                              lastSeenAt={s.hattrickUserId != null ? (lastSeenMap[s.hattrickUserId] ?? null) : null}
+                            />
+                          </div>
                         </div>
-                      </div>
-                    </td>
-                    {show120minScoring ? (
-                      <>
-                        <td className={`${styles.highlight} ${styles.center}`}>{s.achievements120min}</td>
-                        <td className={styles.center}>{percentage120min(s).toFixed(0)}%</td>
-                        <td className={styles.center}>{s.totalMinutes}</td>
-                        <td className={styles.center}>{s.gd > 0 ? `+${s.gd}` : s.gd}</td>
-                        <td className={styles.center}>{s.gf}</td>
-                      </>
-                    ) : showAppgScoring ? (
-                      <>
-                        <td
-                          className={`${styles.highlight} ${styles.center}`}
-                          data-tooltip-id="appg-breakdown-tooltip"
-                          data-tooltip-content={appgClassificationTooltip(s)}
-                          title={appgClassificationTooltip(s)}
-                        >
-                          {averagePointsPerGame(s).toFixed(2)}
-                        </td>
-                        <td className={styles.center}>{percentage120min(s).toFixed(0)}%</td>
-                        <td className={styles.center}>{s.played}</td>
-                        <td className={styles.center}>{s.gd > 0 ? `+${s.gd}` : s.gd}</td>
-                        <td className={styles.center}>{s.gf}</td>
-                      </>
-                    ) : (
-                      <>
-                        <td className={styles.center}>{s.played}</td>
-                        <td className={styles.center}>{s.won}</td>
-                        <td className={styles.center}>{s.drawn}</td>
-                        <td className={styles.center}>{s.lost}</td>
-                        <td className={styles.center}>{s.gd > 0 ? `+${s.gd}` : s.gd}</td>
-                        <td className={`${styles.highlight} ${styles.center}`}>{s.pts}</td>
-                      </>
-                    )}
+                      </td>
+                      {show120minScoring ? (
+                        <>
+                          <td className={`${styles.highlight} ${styles.center}`}>{s.achievements120min}</td>
+                          <td className={styles.center}>{percentage120min(s).toFixed(0)}%</td>
+                          <td className={styles.center}>{s.totalMinutes}</td>
+                          <td className={styles.center}>{s.gd > 0 ? `+${s.gd}` : s.gd}</td>
+                          <td className={styles.center}>{s.gf}</td>
+                        </>
+                      ) : showAppgScoring ? (
+                        <>
+                          <td
+                            className={`${styles.highlight} ${styles.center}`}
+                            data-tooltip-id="appg-breakdown-tooltip"
+                            data-tooltip-content={appgClassificationTooltip(s)}
+                            title={appgClassificationTooltip(s)}
+                          >
+                            {averagePointsPerGame(s).toFixed(2)}
+                          </td>
+                          <td className={styles.center}>{percentage120min(s).toFixed(0)}%</td>
+                          <td className={styles.center}>{s.played}</td>
+                          <td className={styles.center}>{s.gd > 0 ? `+${s.gd}` : s.gd}</td>
+                          <td className={styles.center}>{s.gf}</td>
+                        </>
+                      ) : (
+                        <>
+                          <td className={styles.center}>{s.played}</td>
+                          <td className={styles.center}>{s.won}</td>
+                          <td className={styles.center}>{s.drawn}</td>
+                          <td className={styles.center}>{s.lost}</td>
+                          <td className={styles.center}>{s.gd > 0 ? `+${s.gd}` : s.gd}</td>
+                          <td className={`${styles.highlight} ${styles.center}`}>{s.pts}</td>
+                        </>
+                      )}
                     </tr>
                   </React.Fragment>
                 );
