@@ -14,6 +14,21 @@ export interface Match {
   penalty_shootout_away_goals?: number | null;
 }
 
+export const APPG_CLASSIFICATIONS = ['ET3', 'ET2', 'PS1', 'RT0', 'OPW'] as const;
+export type AppgClassification = (typeof APPG_CLASSIFICATIONS)[number];
+
+type AppgClassificationCounts = Record<AppgClassification, number>;
+
+function createAppgClassificationCounts(): AppgClassificationCounts {
+  return Object.fromEntries(APPG_CLASSIFICATIONS.map((classification) => [classification, 0])) as AppgClassificationCounts;
+}
+
+function recordAppgClassification(standing: TeamStanding, outcome: AppgOutcome | null | undefined) {
+  if (outcome && outcome !== 'needs_review') {
+    standing.appgClassifications[outcome]++;
+  }
+}
+
 export interface Team {
   id: string;
   name: string;
@@ -46,6 +61,7 @@ export interface TeamStanding {
   pts: number;
   appgPoints: number;
   appgPlayed: number;
+  appgClassifications: AppgClassificationCounts;
   achievements120min: number;
   totalMinutes: number;
   joinedViaOauth: boolean;
@@ -90,6 +106,7 @@ export function calculateStandings(
       pts: 0,
       appgPoints: 0,
       appgPlayed: 0,
+      appgClassifications: createAppgClassificationCounts(),
       achievements120min: 0,
       totalMinutes: 0,
       joinedViaOauth: !!team.joined_via_oauth,
@@ -134,6 +151,7 @@ export function calculateStandings(
       if (appgPoints !== null) {
         team.appgPoints += m.home_team_id ? appgPoints.home : appgPoints.away;
       }
+      recordAppgClassification(team, m.appg_outcome);
 
       if (m.went_120) {
         team.achievements120min++;
@@ -178,6 +196,8 @@ export function calculateStandings(
       home.appgPoints += appgPoints.home;
       away.appgPoints += appgPoints.away;
     }
+    recordAppgClassification(home, m.appg_outcome);
+    recordAppgClassification(away, m.appg_outcome);
 
     if (m.went_120) {
       home.achievements120min++;

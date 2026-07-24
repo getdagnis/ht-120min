@@ -5,7 +5,11 @@ import { Tooltip } from 'react-tooltip';
 import { TeamByline } from '../TeamByline/TeamByline';
 import { SeasonYearbook, type TournamentSeasonComment } from '../TournamentHistory/TournamentHistory';
 
-import { getAppgStandingsQuota, meetsAppgStandingsQuota, type TeamStanding } from '../../utils/standings';
+import {
+  getAppgStandingsQuota,
+  meetsAppgStandingsQuota,
+  type TeamStanding,
+} from '../../utils/standings';
 import { isAppg120ScoringMode } from '../../../shared/scoring-profile';
 // import { MottoWidget } from '../../components/MottoWidget/MottoWidget';
 // import { TOURNAMENT_DEFAULT } from '../../constants/descriptions';
@@ -205,6 +209,8 @@ export const StandingsView: React.FC<StandingsViewProps> = ({
 
   const forumTeamName = (standing: TeamStanding) => standing.teamName.replace(/\[/g, '(').replace(/\]/g, ')');
   const signedGoalDifference = (value: number) => (value > 0 ? `+${value}` : String(value));
+  const appgClassificationTooltip = (standing: TeamStanding) =>
+    `Pts ${standing.appgPoints} · ET3 ${standing.appgClassifications.ET3} · ET2 ${standing.appgClassifications.ET2} · PS1 ${standing.appgClassifications.PS1} · RT0 ${standing.appgClassifications.RT0} · OPW ${standing.appgClassifications.OPW}`;
   const forumRow = (values: Array<string | number>) => `[tr]${values.map((value) => `[td]${value}[/td]`).join('')}[/tr]`;
   const forumHeader = (values: string[]) => `[tr]${values.map((value) => `[th]${value}[/th]`).join('')}[/tr]`;
 
@@ -219,16 +225,21 @@ export const StandingsView: React.FC<StandingsViewProps> = ({
     }`;
     const buildTable = (rows: TeamStanding[], includePlacement: boolean) => {
       if (showAppgScoring) {
-        const header = includePlacement ? ['#', 'Team', 'APPG', '120m%', 'Pld', 'Dif', 'Goals'] : ['Team', 'APPG', '120m%', 'Pld', 'Dif', 'Goals'];
+        const header = includePlacement
+          ? ['#', 'Team', 'Pld', 'ET3', 'ET2', 'PS1', 'RT0', 'OPW', 'Pts', 'AVG']
+          : ['Team', 'Pld', 'ET3', 'ET2', 'PS1', 'RT0', 'OPW', 'Pts', 'AVG'];
         return `[table]\n${forumHeader(header)}\n${rows
           .map((standing, index) => {
             const values = [
               forumTeamName(standing),
-              averagePointsPerGame(standing).toFixed(2),
-              `${percentage120min(standing).toFixed(0)}%`,
               standing.played,
-              signedGoalDifference(standing.gd),
-              standing.gf,
+              standing.appgClassifications.ET3,
+              standing.appgClassifications.ET2,
+              standing.appgClassifications.PS1,
+              standing.appgClassifications.RT0,
+              standing.appgClassifications.OPW,
+              standing.appgPoints,
+              averagePointsPerGame(standing).toFixed(2),
             ];
             return forumRow(includePlacement ? [index + 1, ...values] : values);
           })
@@ -531,7 +542,14 @@ export const StandingsView: React.FC<StandingsViewProps> = ({
                       </>
                     ) : showAppgScoring ? (
                       <>
-                        <td className={`${styles.highlight} ${styles.center}`}>{averagePointsPerGame(s).toFixed(2)}</td>
+                        <td
+                          className={`${styles.highlight} ${styles.center}`}
+                          data-tooltip-id="appg-breakdown-tooltip"
+                          data-tooltip-content={appgClassificationTooltip(s)}
+                          title={appgClassificationTooltip(s)}
+                        >
+                          {averagePointsPerGame(s).toFixed(2)}
+                        </td>
                         <td className={styles.center}>{percentage120min(s).toFixed(0)}%</td>
                         <td className={styles.center}>{s.played}</td>
                         <td className={styles.center}>{s.gd > 0 ? `+${s.gd}` : s.gd}</td>
@@ -587,6 +605,7 @@ export const StandingsView: React.FC<StandingsViewProps> = ({
               })}
             </tbody>
           </table>
+          <Tooltip id="appg-breakdown-tooltip" className="tooltip" />
         </div>
       </SectionCard>
       {seasonId && seasonStatus === 'finished' && (

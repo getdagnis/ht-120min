@@ -76,6 +76,7 @@ test('APPG standings sort by average APPG points per game', () => {
   assert.equal(standings[1].appgPoints, 3);
   assert.equal(standings[0].played, 1);
   assert.equal(standings[0].appgPlayed, 1);
+  assert.deepEqual(standings[0].appgClassifications, { ET3: 1, ET2: 0, PS1: 0, RT0: 0, OPW: 0 });
 });
 
 test('APPG counts every completed match in the average denominator', () => {
@@ -140,9 +141,11 @@ test('APPG example averages use all played matches without a minimum threshold',
 
   assert.equal(ealingStanding?.played, 2);
   assert.equal(ealingStanding?.appgPoints, 2);
+  assert.deepEqual(ealingStanding?.appgClassifications, { ET3: 0, ET2: 1, PS1: 0, RT0: 1, OPW: 0 });
   assert.equal(ealingStanding && ealingStanding.appgPoints / ealingStanding.appgPlayed, 1);
   assert.equal(hemsworthStanding?.played, 9);
   assert.equal(hemsworthStanding?.appgPoints, 8);
+  assert.deepEqual(hemsworthStanding?.appgClassifications, { ET3: 0, ET2: 2, PS1: 4, RT0: 3, OPW: 0 });
   assert.equal(hemsworthStanding && Number((hemsworthStanding.appgPoints / hemsworthStanding.appgPlayed).toFixed(2)), 0.89);
 });
 
