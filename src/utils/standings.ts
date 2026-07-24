@@ -215,8 +215,8 @@ export function calculateStandings(
       const aAverage = a.appgPlayed ? a.appgPoints / a.appgPlayed : 0;
       const bAverage = b.appgPlayed ? b.appgPoints / b.appgPlayed : 0;
       if (bAverage !== aAverage) return bAverage - aAverage;
-      if (b.gd !== a.gd) return b.gd - a.gd;
-      if (b.gf !== a.gf) return b.gf - a.gf;
+      if (b.appgPoints !== a.appgPoints) return b.appgPoints - a.appgPoints;
+      if (b.appgPlayed !== a.appgPlayed) return b.appgPlayed - a.appgPlayed;
       return a.teamName.localeCompare(b.teamName);
     });
   }

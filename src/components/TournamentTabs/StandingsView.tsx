@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { SectionCard } from '../../components/Card/SectionCard';
-import { ArrowRight, Recycle, ShieldCheck } from 'phosphor-react';
+import { ArrowRight, Check, CopySimple, Recycle, ShieldCheck } from 'phosphor-react';
+import { Tooltip } from 'react-tooltip';
 import { TeamByline } from '../TeamByline/TeamByline';
 import { SeasonYearbook, type TournamentSeasonComment } from '../TournamentHistory/TournamentHistory';
 
@@ -17,6 +18,9 @@ interface StandingsViewProps {
   myHtUserId: string | null;
   tournament: {
     id?: string;
+    name?: string;
+    slug?: string;
+    league_category?: string | null;
     thumbnail_index?: number;
     scoring_mode?: string | null;
   } | null;
@@ -95,6 +99,7 @@ export const StandingsView: React.FC<StandingsViewProps> = ({
   const [sortKey, setSortKey] = useState<StandingsSortKey>('default');
   const [sortDirection, setSortDirection] = useState<SortDirection>('desc');
   const [seasonComments, setSeasonComments] = useState<TournamentSeasonComment[]>([]);
+  const [standingsCopied, setStandingsCopied] = useState(false);
   const [loadedSeasonCommentsId, setLoadedSeasonCommentsId] = useState<string | null>(null);
   const seasonCommentsLoading = Boolean(seasonId && loadedSeasonCommentsId !== seasonId);
   const show120minScoring = scoringMode === '120min';
@@ -125,6 +130,9 @@ export const StandingsView: React.FC<StandingsViewProps> = ({
       if (isAppg120ScoringMode(scoringMode)) {
         const averageDifference = averagePointsPerGame(b) - averagePointsPerGame(a);
         if (averageDifference !== 0) return averageDifference;
+        if (b.appgPoints !== a.appgPoints) return b.appgPoints - a.appgPoints;
+        if (b.appgPlayed !== a.appgPlayed) return b.appgPlayed - a.appgPlayed;
+        return a.teamName.localeCompare(b.teamName, undefined, { sensitivity: 'base' });
       }
       if (b.pts !== a.pts) return b.pts - a.pts;
       if (b.gd !== a.gd) return b.gd - a.gd;
@@ -194,6 +202,81 @@ export const StandingsView: React.FC<StandingsViewProps> = ({
   const qualifiedAppgCount = showAppgScoring
     ? sortedStandings.filter((standing) => reachesAppgQuota(standing)).length
     : sortedStandings.length;
+
+  const forumTeamName = (standing: TeamStanding) => standing.teamName.replace(/\[/g, '(').replace(/\]/g, ')');
+  const signedGoalDifference = (value: number) => (value > 0 ? `+${value}` : String(value));
+  const forumRow = (values: Array<string | number>) => `[tr]${values.map((value) => `[td]${value}[/td]`).join('')}[/tr]`;
+  const forumHeader = (values: string[]) => `[tr]${values.map((value) => `[th]${value}[/th]`).join('')}[/tr]`;
+
+  const copyStandingsForForum = () => {
+    const tournamentName = tournament?.name || 'Tournament';
+    const categorySuffix = tournament?.league_category === 'hfi' ? ' (HFI)' : '';
+    const tournamentLink = tournament?.slug
+      ? `[link=https://ht-120min.vercel.app/t/${tournament.slug}]`
+      : '';
+    const heading = `[b]${tournamentName}${categorySuffix}[/b] – ${activeScoringConfig.label} Standings${
+      tournamentLink ? `\n${tournamentLink}` : ''
+    }`;
+    const buildTable = (rows: TeamStanding[], includePlacement: boolean) => {
+      if (showAppgScoring) {
+        const header = includePlacement ? ['#', 'Team', 'APPG', '120m%', 'Pld', 'Dif', 'Goals'] : ['Team', 'APPG', '120m%', 'Pld', 'Dif', 'Goals'];
+        return `[table]\n${forumHeader(header)}\n${rows
+          .map((standing, index) => {
+            const values = [
+              forumTeamName(standing),
+              averagePointsPerGame(standing).toFixed(2),
+              `${percentage120min(standing).toFixed(0)}%`,
+              standing.played,
+              signedGoalDifference(standing.gd),
+              standing.gf,
+            ];
+            return forumRow(includePlacement ? [index + 1, ...values] : values);
+          })
+          .join('\n')}\n[/table]`;
+      }
+
+      if (show120minScoring) {
+        return `[table]\n${forumHeader(['#', 'Team', '120m', '120m%', 'Mins', 'Dif', 'Goals'])}\n${rows
+          .map((standing, index) =>
+            forumRow([
+              index + 1,
+              forumTeamName(standing),
+              standing.achievements120min,
+              `${percentage120min(standing).toFixed(0)}%`,
+              standing.totalMinutes,
+              signedGoalDifference(standing.gd),
+              standing.gf,
+            ]),
+          )
+          .join('\n')}\n[/table]`;
+      }
+
+      return `[table]\n${forumHeader(['#', 'Team', 'Pld', 'W', 'D', 'L', 'GD', 'Pts'])}\n${rows
+        .map((standing, index) =>
+          forumRow([
+            index + 1,
+            forumTeamName(standing),
+            standing.played,
+            standing.won,
+            standing.drawn,
+            standing.lost,
+            signedGoalDifference(standing.gd),
+            standing.pts,
+          ]),
+        )
+        .join('\n')}\n[/table]`;
+    };
+
+    let forumText = `${heading}\n${buildTable(sortedStandings.slice(0, qualifiedAppgCount), true)}`;
+    if (showAppgScoring && qualifiedAppgCount < sortedStandings.length) {
+      forumText += `\n[b]Did not reach the ${appgMatchQuota}-match quota[/b]\n${buildTable(sortedStandings.slice(qualifiedAppgCount), false)}`;
+      forumText += `\n[i]Order: APPG average descending, total APPG points descending, team name ascending. A team must play at least ${appgMatchQuota} matches to qualify (50% of most played).[/i]`;
+    }
+
+    void navigator.clipboard.writeText(forumText);
+    setStandingsCopied(true);
+    window.setTimeout(() => setStandingsCopied(false), 2000);
+  };
   const sortableHeader = (label: string, key: StandingsSortKey, className = '', title?: string) => (
     <th
       className={className}
@@ -279,6 +362,20 @@ export const StandingsView: React.FC<StandingsViewProps> = ({
               <span>{activeScoringConfig.label}</span>
               <Recycle size={16} weight="regular" aria-hidden="true" />
             </button>
+            <button
+              type="button"
+              className={styles.refreshBtn}
+              onClick={copyStandingsForForum}
+              data-tooltip-id="standings-copy-tooltip"
+              aria-label="Copy standings for HT forums"
+            >
+              {standingsCopied ? <Check size={18} color="green" /> : <CopySimple size={18} />}
+            </button>
+            <Tooltip
+              id="standings-copy-tooltip"
+              content={standingsCopied ? 'HT forum table copied!' : 'Copy standings for HT forums'}
+              className="tooltip"
+            />
           </div>
         }
       >
