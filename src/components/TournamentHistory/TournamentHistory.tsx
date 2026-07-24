@@ -539,16 +539,14 @@ export const TournamentHistory: React.FC<TournamentHistoryProps> = ({
   const forumHeaderCell = (value: string) => `[th]${value}[/th]`;
   const forumRow = (values: Array<string | number>) => `[tr]${values.map(forumCell).join('')}[/tr]`;
   const forumTable = (header: string[], rows: Array<Array<string | number>>) =>
-    `[table]\n${[header.map(forumHeaderCell).join(''), ...rows.map(forumRow)].join('\n')}\n[/table]`;
+    `[table]\n${[`[tr]${header.map(forumHeaderCell).join('')}[/tr]`, ...rows.map(forumRow)].join('\n')}\n[/table]`;
   const forumKeyValueTable = (rows: Array<[string, string | number]>) =>
     `[table]\n${rows.map(([label, value]) => `[tr]${forumHeaderCell(label)}${forumCell(value)}[/tr]`).join('\n')}\n[/table]`;
   const forumTeamName = (name: string) => name.replace(/\[/g, '(').replace(/\]/g, ')');
 
   const copyHistoryReport = () => {
     const title = `[b]🏆 Season ${selectedSeason.seasonNumber} Report[/b]`;
-    const link = tournamentSlug
-      ? `[link=https://120min.vercel.app/t/${tournamentSlug}?tab=history]`
-      : null;
+    const link = tournamentSlug ? `[link=https://120min.vercel.app/t/${tournamentSlug}?tab=history]` : null;
     const finishedDate = `[i]Finished ${formatDate(selectedSeason.finishedAt) || '-'}[/i]`;
     const podiumRows = [
       winner ? `🥇 [b]${forumTeamName(winner.teamName)}[/b] — Champions` : null,
@@ -586,13 +584,17 @@ export const TournamentHistory: React.FC<TournamentHistoryProps> = ({
           ? (standing.appgPoints / standing.appgPlayed).toFixed(2)
           : '0.00'
         : standing.achievements120min,
-      ...(isAppgHistory ? [] : [`${standing.played > 0 ? Math.round((standing.achievements120min / standing.played) * 100) : 0}%`]),
+      ...(isAppgHistory
+        ? []
+        : [`${standing.played > 0 ? Math.round((standing.achievements120min / standing.played) * 100) : 0}%`]),
       ...(isAppgHistory ? [standing.played] : [standing.totalMinutes, standing.played]),
       standing.gd > 0 ? `+${standing.gd}` : standing.gd,
       standing.gf,
     ]);
     const standingsTable = forumTable(
-      isAppgHistory ? ['#', 'Team', 'APPG', 'Pld', 'Dif', 'Goals'] : ['#', 'Team', '120m', '120m%', 'Mins', 'Pld', 'Dif', 'Goals'],
+      isAppgHistory
+        ? ['#', 'Team', 'APPG', 'Pld', 'Dif', 'Goals']
+        : ['#', 'Team', '120m', '120m%', 'Mins', 'Pld', 'Dif', 'Goals'],
       standingRows,
     );
     const reportSections = [
@@ -616,7 +618,7 @@ export const TournamentHistory: React.FC<TournamentHistoryProps> = ({
       `[b]📔 Season ${selectedSeason.seasonNumber} Yearbook[/b]`,
       '',
       ...comments.flatMap((comment) => [
-        `[quote]\n[b]${forumTeamName(comment.team_name)}${comment.manager_name ? ` — ${forumTeamName(comment.manager_name)}` : ''}[/b]\n\n${comment.comment}\n\n[i]${formatDate(comment.created_at)} • ${getCurrentHattrickSeasonWeekLabel()}[/i]\n[/quote]`,
+        `[q]\n[b]${forumTeamName(comment.team_name)}${comment.manager_name ? ` — ${forumTeamName(comment.manager_name)}` : ''}[/b]\n\n${comment.comment}\n\n[i]${formatDate(comment.created_at)} • ${getCurrentHattrickSeasonWeekLabel()}[/i]\n[/q]`,
         '',
       ]),
       `[i]${comments.length} of ${snapshot.participants.length} teams submitted a season comment.[/i]`,
