@@ -164,10 +164,7 @@ const getWinningTeamIds = (items: Array<{ teamId: string; value: number }>, mode
 const getInjuryWeeks = (side?: MatchSideEventDetails | null) =>
   (side?.injuries || []).reduce((total, injury) => total + (injury.weeks || 0), 0);
 
-function getHistoryEligibleStandings(
-  standings: TeamStanding[],
-  scoringMode: '120m' | '120min' | 'points' | 'appg',
-) {
+function getHistoryEligibleStandings(standings: TeamStanding[], scoringMode: '120m' | '120min' | 'points' | 'appg') {
   if (!isAppg120ScoringMode(scoringMode)) return standings;
   const quota = getAppgStandingsQuota(standings);
   return standings.filter((standing) => meetsAppgStandingsQuota(standing, quota));
@@ -331,12 +328,12 @@ function buildStory(standings: TeamStanding[], summary: SeasonHistorySummary) {
   if (!winner) return 'This season finished without enough results for a full summary.';
   const runnerUp = standings[1];
   const resultText = summary.achievements120min
-    ? `${summary.achievements120min} match${summary.achievements120min === 1 ? '' : 'es'} reaching 120 minutes out of ${summary.completedMatches} total`
-    : `${summary.completedMatches} completed match${summary.completedMatches === 1 ? '' : 'es'}`;
+    ? `where ${summary.achievements120min} match${summary.achievements120min === 1 ? '' : 'es'} reached 120 minutes out of ${summary.completedMatches} completed total.`
+    : `of ${summary.completedMatches} total completed match${summary.completedMatches === 1 ? '' : 'es'}`;
 
   return runnerUp
-    ? `${winner.teamName} finished ahead of ${runnerUp.teamName} in a season with ${resultText}.`
-    : `${winner.teamName} completed a season with ${resultText}.`;
+    ? `${winner.teamName} finished ahead of ${runnerUp.teamName} in a season ${resultText}.`
+    : `${winner.teamName} completed a season ${resultText}.`;
 }
 
 function buildRecords(
