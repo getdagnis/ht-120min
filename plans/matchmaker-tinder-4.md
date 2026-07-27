@@ -47,7 +47,7 @@ Requirements:
 Add:
 
 ```env
-MATCHMAKER_MOCK_DATA=true
+NEXT_PUBLIC_MATCHMAKER_MOCK_DATA=true
 ```
 
 Behavior:
@@ -108,7 +108,7 @@ Do not replace production data.
 Append mock data only when:
 
 ```env
-MATCHMAKER_MOCK_DATA=true
+NEXT_PUBLIC_MATCHMAKER_MOCK_DATA=true
 ```
 
 This should allow testing:

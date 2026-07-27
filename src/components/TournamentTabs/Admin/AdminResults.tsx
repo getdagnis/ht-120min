@@ -179,12 +179,13 @@ function getRoundDisplayDate(round: AdminResultsProps['rounds'][number]) {
 }
 
 function formatRoundMeta(round: AdminResultsProps['rounds'][number]) {
+  const match = round.matches.find((item) => item.scheduled_for || item.match_date) ?? null;
   const roundDate = getRoundDisplayDate(round);
   if (!roundDate) return null;
 
   const week = getHattrickWeekDetails(roundDate);
   const dateLabel = roundDate.toLocaleDateString('lv-LV', {
-    timeZone: 'Europe/Stockholm',
+    timeZone: match?.ht_match_id ? 'Europe/Stockholm' : 'Europe/Riga',
     day: '2-digit',
     month: '2-digit',
     year: 'numeric',

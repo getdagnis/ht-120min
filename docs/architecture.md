@@ -37,6 +37,18 @@ Styling uses Sass modules plus global CSS variables in `src/styles/global.sass`.
 ## Data Flow
 
 - Home and public Tournament View load their initial data through `src/app/_data/public-data.ts` in App Router server components, using the Supabase public key and the same RLS policy as anonymous browser visitors. Their hydrated legacy components retain interactive updates, forms, tabs, and mutation paths.
+
+## Remaining migration plan
+
+The legacy feature tree was designed for a Vite-only browser render. During the App Router transition, a client component can now render once on the server and again in the browser during hydration, so browser-only identity, preferences, viewport state, clocks, random values, and locale-sensitive formatting must not decide the first visible markup.
+
+The remaining migration work is staged as follows:
+
+1. Keep the server snapshot contract explicit for every migrated route: initial public data comes from the App Router page, while browser identity and preferences enter through hydration-safe client boundaries.
+2. Audit each migrated route and its shared children for render-time browser APIs, time, randomness, viewport branches, and implicit locale/time-zone formatting. Classify each use as server-safe, post-hydration, or interaction-only.
+3. Move repeated browser-only behavior to shared hooks/components. The current baseline is `useHydratedBrowserState.ts` for storage/hydration and client clocks; route-specific data should continue to be passed as serialized server snapshots.
+4. Verify Home and Tournament View at desktop/mobile widths, with empty and populated data, logged-out and remembered-user storage, direct loads and client navigation. The explicit App Router pages for Create, Matchmaker, Supporters, Auth Callback, and the Tinder alias are currently client-only parity pages.
+5. Complete the public preview gate for OAuth/CHPP, cookies, Supabase reads, locale switching, and authenticated tournament flows before deleting compatibility behavior inside individual feature components. Forge is intentionally deferred and does not block public migration completion.
 - Other app-owned tournament reads are still accessed directly from the frontend while their routes remain in the compatibility layer.
 - The public FAQ is source-file driven from `src/constants/faq-revised.ts`; Forge edits it in a readable form and exports a replacement source file.
 - `src/app/api/[[...path]]/route.ts` adapts the existing `src/server/api` handlers to Next route handlers while preserving API paths and payloads.

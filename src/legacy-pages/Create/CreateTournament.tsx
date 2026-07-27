@@ -1,7 +1,9 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
-import { useNavigate, Link as RouterLink } from 'react-router-dom';
+import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import { supabase } from '../../lib/supabase';
-import { withCurrentLocale } from '../../next/locale-path';
+import { toLocalePath } from '../../next/locale-path';
+import { useLocale } from '../../i18n/LocaleProvider';
 import { trackActivity } from '../../hooks/useActivityTracking';
 import { Tooltip } from 'react-tooltip';
 import { nanoid } from 'nanoid';
@@ -18,7 +20,7 @@ import {
   PencilSimple,
   CaretLeft,
   Trash,
-  Link,
+  Link as LinkIcon,
   FolderOpen,
   Question,
 } from 'phosphor-react';
@@ -74,20 +76,20 @@ const CreationTipsWidget = () => (
   <CompactAccordionWidget title="Creation Tips" icon={<Question size={20} weight="bold" />} items={CREATION_TIPS} />
 );
 
-const SidebarContent = ({ openTournaments }: { openTournaments: OpenTournamentSummary[] }) => (
+const SidebarContent = ({ openTournaments, locale }: { openTournaments: OpenTournamentSummary[]; locale: string }) => (
   <aside className={styles.sidebar}>
     <SidebarWidget title="Open Tournaments" icon={<FolderOpen size={20} weight="bold" />}>
       <ul className={styles.widgetList}>
         {openTournaments.map((tournament) => (
           <li key={tournament.id} className={styles.widgetItem}>
             <strong>
-              <RouterLink to={`/t/${tournament.slug}`}>{tournament.name}</RouterLink>
+              <Link href={toLocalePath(locale, `/t/${tournament.slug}`)}>{tournament.name}</Link>
             </strong>
             <span className={styles.widgetMeta}>
               <span>{formatOpenTournamentMeta(tournament)}</span>
-              <RouterLink to={`/t/${tournament.slug}`} className={styles.joinLink}>
+              <Link href={toLocalePath(locale, `/t/${tournament.slug}`)} className={styles.joinLink}>
                 Join <ArrowRight size={12} weight="bold" />
-              </RouterLink>
+              </Link>
             </span>
           </li>
         ))}
@@ -174,7 +176,8 @@ interface FetchedTeamData {
 }
 
 export const CreateTournament: React.FC = () => {
-  const navigate = useNavigate();
+  const router = useRouter();
+  const { locale } = useLocale();
   const nameInputRef = useRef<HTMLInputElement | null>(null);
   const descriptionRef = useRef<HTMLTextAreaElement | null>(null);
   const [loading, setLoading] = useState(false);
@@ -364,7 +367,7 @@ export const CreateTournament: React.FC = () => {
     setTeams(withoutCreator);
     setStep('info');
     saveProgress(formData, withoutCreator, showDescription, showEmail, null);
-    window.history.replaceState({}, '', withCurrentLocale('/create'));
+      router.replace(toLocalePath(locale, '/create'));
   };
 
   const clearAll = () => {
@@ -379,7 +382,7 @@ export const CreateTournament: React.FC = () => {
     setShowModal(false);
     setIsLinked(false);
     setStep('info');
-    window.history.replaceState({}, '', withCurrentLocale('/create'));
+      router.replace(toLocalePath(locale, '/create'));
   };
 
   const fetchTeamLogoFromChpp = async (
@@ -467,8 +470,7 @@ export const CreateTournament: React.FC = () => {
 
       await establishCreationSession(linkedManager.selection_token);
       await clearPendingJoin(linkedManager.selection_token);
-      window.history.replaceState({}, '', withCurrentLocale('/create?step=teams'));
-      window.location.reload();
+      router.replace(toLocalePath(locale, '/create?step=teams'));
     } catch (err: unknown) {
       alert(err instanceof Error ? err.message : 'An unexpected error occurred during team selection');
     } finally {
@@ -493,7 +495,7 @@ export const CreateTournament: React.FC = () => {
     setShowModal(false);
     setLinkedManager(null);
     saveProgress(formData, teams, showDescription, showEmail, updatedOrganizerProfile);
-    window.history.replaceState({}, '', withCurrentLocale('/create?step=teams'));
+    router.replace(toLocalePath(locale, '/create?step=teams'));
   };
 
   const [newTeamId, setNewTeamId] = useState('');
@@ -733,7 +735,7 @@ export const CreateTournament: React.FC = () => {
 
     setStep('teams');
     saveProgress(nextForm);
-      window.history.replaceState({}, '', withCurrentLocale('/create?step=teams'));
+      router.replace(toLocalePath(locale, '/create?step=teams'));
   };
 
   const addLocalTeam = (e: React.FormEvent) => {
@@ -979,7 +981,7 @@ export const CreateTournament: React.FC = () => {
         tournamentId: tournament.id,
         metadata: { registrationType, isSandbox },
       });
-      window.location.href = withCurrentLocale(`/t/${slug}?tab=standings&welcome=created`);
+      router.push(toLocalePath(locale, `/t/${slug}?tab=standings&welcome=created`));
     } catch (err: unknown) {
       if (createdTournamentId) {
         await supabase.from('teams').delete().eq('tournament_id', createdTournamentId);
@@ -1028,7 +1030,7 @@ export const CreateTournament: React.FC = () => {
         <div className={styles.main}>
           <div className={styles.container}>
             <div className={styles.headerRow}>
-              <button className={styles.closeBtn} onClick={() => navigate('/')}>
+              <button className={styles.closeBtn} onClick={() => router.push(toLocalePath(locale, '/'))}>
                 <X size={36} weight="bold" />
               </button>
             </div>
@@ -1370,7 +1372,7 @@ export const CreateTournament: React.FC = () => {
             </HeroCard>
           </div>
         </div>
-        <SidebarContent openTournaments={openTournaments} />
+        <SidebarContent openTournaments={openTournaments} locale={locale} />
       </div>
     );
   }
@@ -1452,7 +1454,7 @@ export const CreateTournament: React.FC = () => {
             </Modal>
           </div>
         </div>
-        <SidebarContent openTournaments={openTournaments} />
+        <SidebarContent openTournaments={openTournaments} locale={locale} />
       </div>
     );
   }
@@ -1462,7 +1464,7 @@ export const CreateTournament: React.FC = () => {
       <div className={styles.main}>
         <div className={styles.container}>
           <div className={styles.headerRow}>
-            <button className={styles.closeBtn} onClick={() => navigate('/')}>
+            <button className={styles.closeBtn} onClick={() => router.push(toLocalePath(locale, '/'))}>
               <X size={36} weight="bold" />
             </button>
           </div>
@@ -1711,7 +1713,7 @@ export const CreateTournament: React.FC = () => {
                               rel="noopener noreferrer"
                               className={styles.htLink}
                             >
-                              <Link size={16} weight="bold" />
+                              <LinkIcon size={16} weight="bold" />
                             </a>
                           </span>
                           <span className={styles.teamMeta}>
@@ -1761,7 +1763,7 @@ export const CreateTournament: React.FC = () => {
                 size="sm"
                 onClick={() => {
                   setStep('info');
-                  window.history.replaceState({}, '', withCurrentLocale('/create'));
+                  router.replace(toLocalePath(locale, '/create'));
                 }}
                 disabled={loading}
                 className={styles.opacity08}
@@ -1772,7 +1774,7 @@ export const CreateTournament: React.FC = () => {
           </HeroCard>
         </div>
       </div>
-      <SidebarContent openTournaments={openTournaments} />
+      <SidebarContent openTournaments={openTournaments} locale={locale} />
     </div>
   );
 };

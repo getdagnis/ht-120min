@@ -1,10 +1,11 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { useSearchParams } from 'react-router-dom';
+import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import { Tooltip } from 'react-tooltip';
 import styles from '../../legacy-pages/Public/TournamentView.module.sass';
 import { Button } from '../Button/Button';
 import { Avatar } from '../Avatar/Avatar';
 import { ArrowRight, PaperPlaneTilt, User } from 'phosphor-react';
+import { useClientNow } from '../../hooks/useHydratedBrowserState';
 
 interface ChatMessage {
   id: string;
@@ -47,13 +48,17 @@ const isBigEmojiMessage = (content: string): boolean => {
   );
 };
 
-const formatChatTimestamp = (createdAt: string) => {
+const formatChatTimestamp = (createdAt: string, nowMs: number) => {
   const created = new Date(createdAt).getTime();
-  const ageMs = Date.now() - created;
+  const ageMs = nowMs - created;
   const dayMs = 24 * 60 * 60 * 1000;
 
   if (!Number.isFinite(created) || ageMs < dayMs) {
-    return new Date(createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+    return new Date(createdAt).toLocaleTimeString('en-GB', {
+      hour: '2-digit',
+      minute: '2-digit',
+      timeZone: 'Europe/Riga',
+    });
   }
 
   const days = Math.floor(ageMs / dayMs);
@@ -76,10 +81,13 @@ export const ChatView: React.FC<ChatViewProps> = ({
   teamNames,
 }) => {
   const [newChatContent, setNewChatContent] = useState('');
-  const [searchParams, setSearchParams] = useSearchParams();
+  const pathname = usePathname() || '/';
+  const router = useRouter();
+  const searchParams = useSearchParams();
   const chatContainerRef = useRef<HTMLDivElement>(null);
   const chatInputRef = useRef<HTMLInputElement>(null);
   const [visibleMessageCount, setVisibleMessageCount] = useState(20);
+  const nowMs = useClientNow(30_000);
   const emojiOptions = ['😀', '😢', '🥶', '💪', '🍻', '🏆', '🎯', '👀', '🧘'];
 
   useEffect(() => {
@@ -96,7 +104,9 @@ export const ChatView: React.FC<ChatViewProps> = ({
   };
 
   const handleOpenProfile = (htId: number) => {
-    setSearchParams({ ...Object.fromEntries(searchParams.entries()), profileId: htId.toString() });
+    const nextParams = new URLSearchParams(searchParams.toString());
+    nextParams.set('profileId', htId.toString());
+    router.push(`${pathname}?${nextParams.toString()}`);
   };
 
   const handleLogin = () => {
@@ -179,7 +189,7 @@ export const ChatView: React.FC<ChatViewProps> = ({
                   <div className={`${styles.chatBubble} ${isBigEmoji ? styles.bigEmojiBubble : ''}`}>
                     <span className={`${styles.chatContent} ${isBigEmoji ? styles.bigEmoji : ''}`}>{msg.content}</span>
                   </div>
-                  <span className={styles.chatTime}>{formatChatTimestamp(msg.created_at)}</span>
+                  <span className={styles.chatTime}>{formatChatTimestamp(msg.created_at, nowMs)}</span>
                 </div>
               </div>
             );

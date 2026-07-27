@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useRouter } from 'next/navigation';
 import { supabase } from '../../lib/supabase';
 import { Button } from '../Button/Button';
 import { Card } from '../Card/Card';
@@ -7,6 +7,8 @@ import { ArrowRight, HeartBreak } from 'phosphor-react';
 import { getDisplayTeamName } from '../../utils/matchmaker';
 import { getMockMatchmakerRequests, isMatchmakerMockDataEnabled } from '../../mock/matchmaker';
 import styles from './TinderWidget.module.sass';
+import { useLocale } from '../../i18n/LocaleProvider';
+import { toLocalePath } from '../../next/locale-path';
 
 interface MatchmakerTeaserProps {
   className?: string;
@@ -26,7 +28,8 @@ interface RecentRequest {
 }
 
 export const TinderWidget: React.FC<MatchmakerTeaserProps> = ({ className = '' }) => {
-  const navigate = useNavigate();
+  const router = useRouter();
+  const { locale } = useLocale();
   const mockDataEnabled = isMatchmakerMockDataEnabled();
   const [activeCount, setActiveCount] = useState(0);
   const [recentRequests, setRecentRequests] = useState<RecentRequest[]>([]);
@@ -106,7 +109,7 @@ export const TinderWidget: React.FC<MatchmakerTeaserProps> = ({ className = '' }
 
         <p className={styles.description}>Find your next 120 minute training partner the modern way.</p>
 
-        <Button variant="primary" fullWidth onClick={() => navigate('/tinder')} className={styles.cta}>
+        <Button variant="primary" fullWidth onClick={() => router.push(toLocalePath(locale, '/matchmaker'))} className={styles.cta}>
           Find My Match <ArrowRight size={18} weight="bold" />
         </Button>
 

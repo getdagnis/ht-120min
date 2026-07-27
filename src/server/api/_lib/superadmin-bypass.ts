@@ -1,5 +1,5 @@
 const SUPERADMIN_BYPASS_COOKIE_NAME = 'issuperadmin';
-const SUPERADMIN_BYPASS_TOKEN = (process.env.ADMIN_HT_ID || process.env.VITE_ADMIN_HT_ID || '').trim() || null;
+const SUPERADMIN_BYPASS_TOKEN = (process.env.ADMIN_HT_ID || '').trim() || null;
 
 function readCookieValue(cookieHeader: string, cookieName: string) {
   for (const part of cookieHeader.split(';')) {

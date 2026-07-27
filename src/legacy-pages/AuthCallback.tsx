@@ -1,5 +1,5 @@
 import { useEffect } from 'react';
-import { useNavigate, useSearchParams } from 'react-router-dom';
+import { useRouter, useSearchParams } from 'next/navigation';
 import styles from './AuthCallback.module.sass';
 import { withCurrentLocale } from '../next/locale-path';
 import { markAuthRefreshCurrent } from '../utils/auth-refresh';
@@ -12,8 +12,8 @@ import {
 } from '../utils/auth-storage';
 
 export const AuthCallback = () => {
-  const [searchParams] = useSearchParams();
-  const navigate = useNavigate();
+  const searchParams = useSearchParams();
+  const router = useRouter();
 
   useEffect(() => {
     const token = searchParams.get('token');
@@ -49,18 +49,18 @@ export const AuthCallback = () => {
               : withCurrentLocale(data.redirect || '/');
           } else {
             console.error('Auth complete failed:', data.error);
-            navigate('/');
+            router.replace(withCurrentLocale('/'));
           }
         } catch (err) {
           console.error('Auth complete fetch error:', err);
-          navigate('/');
+          router.replace(withCurrentLocale('/'));
         }
       };
       void finalizeLogin();
     } else {
-      navigate('/');
+      router.replace(withCurrentLocale('/'));
     }
-  }, [searchParams, navigate]);
+  }, [searchParams, router]);
 
   return (
     <div className={styles.container}>

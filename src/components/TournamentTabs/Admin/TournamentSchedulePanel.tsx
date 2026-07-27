@@ -167,7 +167,7 @@ function getSelectedStartWarning(daysUntilStart: number | null) {
 
 function formatShortDate(date: Date) {
   return new Intl.DateTimeFormat('lv-LV', {
-    timeZone: 'Europe/Stockholm',
+    timeZone: 'Europe/Riga',
     day: '2-digit',
     month: '2-digit',
     year: 'numeric',
@@ -197,7 +197,7 @@ function formatMatchType(type: number | null) {
 function formatAddMatchDate(value: string | null) {
   if (!value) return 'Date unavailable';
   return new Intl.DateTimeFormat('en-GB', {
-    timeZone: 'Europe/Stockholm',
+    timeZone: 'Europe/Riga',
     day: '2-digit',
     month: '2-digit',
     year: 'numeric',

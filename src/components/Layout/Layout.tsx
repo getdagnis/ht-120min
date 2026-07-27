@@ -1,6 +1,9 @@
+'use client';
+
 import React, { useState, useEffect, useMemo, useRef, useSyncExternalStore } from 'react';
 import { Analytics } from '@vercel/analytics/react';
-import { Link, useNavigate, useLocation, useSearchParams } from 'react-router-dom';
+import Link from 'next/link';
+import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import {
   Trophy,
   Sun,
@@ -23,6 +26,8 @@ import { ProfileModal } from '../ProfileModal/ProfileModal';
 import { BeerBanner } from '../BeerBanner/BeerBanner';
 import { TeamOwnershipReclaim } from '../TeamOwnershipReclaim/TeamOwnershipReclaim';
 import { LocaleSwitcher } from '../../i18n/LocaleSwitcher';
+import { useLocale } from '../../i18n/LocaleProvider';
+import { toLocalePath } from '../../next/locale-path';
 import styles from './Layout.module.sass';
 
 interface LayoutProps {
@@ -71,8 +76,11 @@ function getServerThemeSnapshot() {
 }
 
 export const Layout: React.FC<LayoutProps> = ({ children }) => {
-  const navigate = useNavigate();
-  const location = useLocation();
+  const router = useRouter();
+  const pathname = usePathname() || '/';
+  const searchParams = useSearchParams();
+  const { locale } = useLocale();
+  const currentUrl = `${pathname}${searchParams.toString() ? `?${searchParams.toString()}` : ''}`;
   const {
     managerName,
     profile,
@@ -83,8 +91,8 @@ export const Layout: React.FC<LayoutProps> = ({ children }) => {
     logout,
     refreshProfile,
   } = useAuth();
-  usePresenceHeartbeat(!!managerName, `${location.pathname}${location.search}`);
-  useActivityTracking(`${location.pathname}${location.search}`);
+  usePresenceHeartbeat(!!managerName, currentUrl);
+  useActivityTracking(currentUrl);
   const visibleOrganizerTournaments = useMemo(() => {
     const activeTournamentIds = new Set(activeTournaments.map((tournament) => tournament.id));
     return organizerTournaments.filter((tournament) => !activeTournamentIds.has(tournament.id));
@@ -94,8 +102,6 @@ export const Layout: React.FC<LayoutProps> = ({ children }) => {
 
   const [isUserDropdownOpen, setIsUserDropdownOpen] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
-  const [searchParams] = useSearchParams();
-
   const isProfileModalOpen = !!searchParams.get('profileId');
   const authError = searchParams.get('auth_error');
   const authErrorReference = searchParams.get('auth_error_ref');
@@ -124,12 +130,12 @@ export const Layout: React.FC<LayoutProps> = ({ children }) => {
     window.dispatchEvent(new Event(THEME_CHANGED_EVENT));
   };
 
-  const isCreatePage = location.pathname.startsWith('/create');
+  const isCreatePage = pathname === `/${locale}/create` || pathname.startsWith(`/${locale}/create/`);
 
   const handleActionClick = () => {
     if (isCreatePage) {
       if (location.pathname !== '/') {
-        navigate('/');
+        router.push(toLocalePath(locale, '/'));
         setTimeout(() => {
           scroller.scrollTo('opentours', {
             duration: 800,
@@ -145,24 +151,22 @@ export const Layout: React.FC<LayoutProps> = ({ children }) => {
         });
       }
     } else {
-      navigate('/create');
+      router.push(toLocalePath(locale, '/create'));
     }
   };
 
   const handleLogin = () => {
     // Pure login: no tournament_id, no is_creation
-    document.cookie = `auth_return_url=${encodeURIComponent(location.pathname + location.search)}; path=/; max-age=300`;
+    document.cookie = `auth_return_url=${encodeURIComponent(currentUrl)}; path=/; max-age=300`;
     window.location.href = '/api/auth/init';
   };
 
   const dismissAuthError = () => {
-    const nextParams = new URLSearchParams(location.search);
+    const nextParams = new URLSearchParams(searchParams.toString());
     nextParams.delete('auth_error');
     nextParams.delete('auth_error_ref');
-    navigate(
-      { pathname: location.pathname, search: nextParams.toString() ? `?${nextParams.toString()}` : '' },
-      { replace: true },
-    );
+    const query = nextParams.toString();
+    router.replace(`${pathname}${query ? `?${query}` : ''}`);
   };
 
   return (
@@ -170,7 +174,7 @@ export const Layout: React.FC<LayoutProps> = ({ children }) => {
       <header className={styles.header}>
         <div className={styles.container}>
           <div className={styles.headerContent}>
-            <Link to="/" className={styles.logo}>
+            <Link href={toLocalePath(locale, '/')} className={styles.logo}>
               <Trophy size={28} weight="bold" className={styles.icon} />
               <span>HT-120min</span>
             </Link>
@@ -225,7 +229,7 @@ export const Layout: React.FC<LayoutProps> = ({ children }) => {
                               {activeTournaments.map((t) => (
                                 <div key={t.id} className={styles.tourItem}>
                                   <Link
-                                    to={`/t/${t.slug}`}
+                                    href={toLocalePath(locale, `/t/${t.slug}`)}
                                     className={styles.dropdownLink}
                                     onClick={() => setIsUserDropdownOpen(false)}
                                   >
@@ -239,6 +243,7 @@ export const Layout: React.FC<LayoutProps> = ({ children }) => {
                                         month: '2-digit',
                                         hour: '2-digit',
                                         minute: '2-digit',
+                                        timeZone: 'Europe/Riga',
                                       })}
                                     </div>
                                   )}
@@ -254,7 +259,7 @@ export const Layout: React.FC<LayoutProps> = ({ children }) => {
                               {finishedTournaments.map((t) => (
                                 <div key={t.id} className={styles.tourItem}>
                                   <Link
-                                    to={`/t/${t.slug}`}
+                                    href={toLocalePath(locale, `/t/${t.slug}`)}
                                     className={styles.dropdownLink}
                                     onClick={() => setIsUserDropdownOpen(false)}
                                   >
@@ -272,7 +277,7 @@ export const Layout: React.FC<LayoutProps> = ({ children }) => {
                               {visibleOrganizerTournaments.map((t) => (
                                 <div key={t.id} className={styles.tourItem}>
                                   <Link
-                                    to={`/t/${t.slug}`}
+                                    href={toLocalePath(locale, `/t/${t.slug}`)}
                                     className={styles.dropdownLink}
                                     onClick={() => setIsUserDropdownOpen(false)}
                                   >
@@ -291,7 +296,7 @@ export const Layout: React.FC<LayoutProps> = ({ children }) => {
                               {testTournaments.map((t) => (
                                 <div key={t.id} className={styles.tourItem}>
                                   <Link
-                                    to={`/t/${t.slug}`}
+                                    href={toLocalePath(locale, `/t/${t.slug}`)}
                                     className={styles.dropdownLink}
                                     onClick={() => setIsUserDropdownOpen(false)}
                                   >
@@ -306,7 +311,7 @@ export const Layout: React.FC<LayoutProps> = ({ children }) => {
                         <button
                           className={styles.dropdownItem}
                           onClick={() => {
-                            navigate('/tinder');
+                            router.push(toLocalePath(locale, '/matchmaker'));
                             setIsUserDropdownOpen(false);
                           }}
                         >
@@ -316,7 +321,7 @@ export const Layout: React.FC<LayoutProps> = ({ children }) => {
                         <button
                           className={styles.dropdownItem}
                           onClick={() => {
-                            navigate(`?profileId=${profile?.hattrick_user_id}`);
+                            router.push(`${pathname}?profileId=${profile?.hattrick_user_id}`);
                             setIsUserDropdownOpen(false);
                           }}
                         >
@@ -328,7 +333,7 @@ export const Layout: React.FC<LayoutProps> = ({ children }) => {
                           onClick={() => {
                             logout();
                             setIsUserDropdownOpen(false);
-                            window.location.reload();
+                            router.refresh();
                           }}
                         >
                           <SignOut size={18} />
@@ -428,7 +433,7 @@ export const Layout: React.FC<LayoutProps> = ({ children }) => {
 
       <ProfileModal
         isOpen={isProfileModalOpen}
-        onClose={() => navigate(location.pathname, { replace: true })}
+        onClose={() => router.replace(pathname)}
         profileId={searchParams.get('profileId') ? Number(searchParams.get('profileId')) : null}
         ownProfile={profile}
         activeTournaments={activeTournaments}

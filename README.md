@@ -29,12 +29,11 @@ The public application is served under `/en` and `/lv`; unprefixed public URLs r
 Forge remains English-only at `/forge`.
 
 The browser expects `NEXT_PUBLIC_SUPABASE_URL` and
-`NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` (the legacy `VITE_` names remain accepted by the
-compatibility layer during migration). Server-side CHPP and Supabase credentials remain
+`NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY`. Server-side CHPP and Supabase credentials remain
 private and are used only by Next route handlers.
 
 Server-only deployment variables also include `SUPABASE_SECRET_KEY`, `APP_SESSION_SECRET`, and
-`FORGE_SUPERADMIN_HT_ID`. Keep these out of `VITE_` variables and never expose them in browser copy.
+`FORGE_SUPERADMIN_HT_ID`. Keep these server-only and never expose them in browser copy.
 
 ## Commands
 

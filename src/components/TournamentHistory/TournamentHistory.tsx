@@ -39,6 +39,8 @@ const getCommentDraftStorageKey = (seasonId: string, currentHtUserId: number) =>
   `ht-120min:season-comment-drafts:${currentHtUserId}:${seasonId}`;
 
 const readCommentDrafts = (seasonId: string, currentHtUserId: number): Record<string, string> => {
+  if (typeof window === 'undefined') return {};
+
   try {
     const stored = sessionStorage.getItem(getCommentDraftStorageKey(seasonId, currentHtUserId));
     if (!stored) return {};
@@ -208,7 +210,12 @@ const AWARD_PRIORITY: SeasonAwardKey[] = [
 
 const formatDate = (value?: string | null) =>
   value
-    ? new Intl.DateTimeFormat('en-GB', { day: '2-digit', month: '2-digit', year: 'numeric' }).format(new Date(value))
+    ? new Intl.DateTimeFormat('en-GB', {
+        day: '2-digit',
+        month: '2-digit',
+        year: 'numeric',
+        timeZone: 'Europe/Riga',
+      }).format(new Date(value))
     : null;
 
 const getCurrentHattrickSeasonWeekLabel = () => {

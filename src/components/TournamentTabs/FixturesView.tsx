@@ -8,6 +8,7 @@ import { calculateMatchDate } from '../../utils/ht-data';
 import { getHattrickWeekDetails } from '../../utils/hattrick-calendar';
 import { getImportedFixtureRoundPeriod } from '../../utils/manual-rounds';
 import { getMatchDateForRound } from '../../utils/match-schedule';
+import { useClientNow } from '../../hooks/useHydratedBrowserState';
 import type { AppgOutcome } from '../../utils/appg';
 import type { MatchEventDetails } from '../../../shared/match-events';
 import styles from '../../legacy-pages/Public/TournamentView.module.sass';
@@ -142,6 +143,7 @@ export const FixturesView: React.FC<FixturesViewProps> = ({
   onViewNextSeason,
   emptyStateMessage,
 }) => {
+  const nowMs = useClientNow(30_000);
   const [manualVisibleRoundsCount, setManualVisibleRoundsCount] = React.useState<number | null>(null);
   const [selectedTeamId, setSelectedTeamId] = React.useState<string | null>(null);
   const [isTeamFilterOpen, setIsTeamFilterOpen] = React.useState(false);
@@ -341,6 +343,7 @@ export const FixturesView: React.FC<FixturesViewProps> = ({
         const nextRound = filteredRounds[filteredRounds.findIndex((r) => r.id === round.id) + 1];
 
         const roundDate = round.matches[0] ? resolveMatchDate(round, round.matches[0]) : null;
+        const roundTimeZone = round.matches[0]?.ht_match_id ? 'Europe/Stockholm' : 'Europe/Riga';
         const roundWeek = roundDate ? getHattrickWeekDetails(roundDate) : null;
         const roundPeriod = roundDate ? getImportedFixtureRoundPeriod(roundDate) : null;
 
@@ -355,6 +358,7 @@ export const FixturesView: React.FC<FixturesViewProps> = ({
             ? `${matchDate.toLocaleDateString('lv-LV', {
                 day: '2-digit',
                 month: '2-digit',
+                timeZone: m.ht_match_id ? 'Europe/Stockholm' : 'Europe/Riga',
               })}`
             : m.completed
               ? `${m.home_goals} : ${m.away_goals}${hasPenaltyShootout ? ` (${m.penalty_shootout_home_goals}:${m.penalty_shootout_away_goals})` : ''}${m.went_120 ? " 🎯 120'!" : ''}`
@@ -363,6 +367,7 @@ export const FixturesView: React.FC<FixturesViewProps> = ({
                 : `${matchDate.toLocaleDateString('lv-LV', {
                     day: '2-digit',
                     month: '2-digit',
+                    timeZone: m.ht_match_id ? 'Europe/Stockholm' : 'Europe/Riga',
                   })}.`;
 
           return `[tr][td]${m.home_team?.name}[/td][td][b]${value}[/b][/td][td]${m.away_team?.name}[/td][/tr]`;
@@ -398,7 +403,7 @@ export const FixturesView: React.FC<FixturesViewProps> = ({
                         HT Week {roundWeek.htWeek}
                         {roundPeriod !== 'full_week' ? ` • ${roundPeriod === 'weekend' ? 'Weekend' : 'Midweek'}` : ''} •{' '}
                         {roundDate.toLocaleDateString('lv-LV', {
-                          timeZone: 'Europe/Stockholm',
+                          timeZone: roundTimeZone,
                           day: '2-digit',
                           month: '2-digit',
                           year: 'numeric',
@@ -436,9 +441,10 @@ export const FixturesView: React.FC<FixturesViewProps> = ({
                             <span className="hideOnMobile">
                               {isRefreshingFixtures ? 'Checking...' : 'Last checked: '}
                               {!isRefreshingFixtures &&
-                                new Date(tournament.last_fixtures_refresh).toLocaleTimeString('en-GB', {
-                                  hour: '2-digit',
-                                  minute: '2-digit',
+                                  new Date(tournament.last_fixtures_refresh).toLocaleTimeString('en-GB', {
+                                    hour: '2-digit',
+                                    minute: '2-digit',
+                                    timeZone: 'Europe/Riga',
                                 })}
                             </span>
                           </span>
@@ -475,15 +481,22 @@ export const FixturesView: React.FC<FixturesViewProps> = ({
                   {round.matches.map((match) => {
                     const matchDate = resolveMatchDate(round, match);
 
-                    const day = matchDate.toLocaleString('en-GB', { weekday: 'short' }).toUpperCase();
+                    const day = matchDate
+                      .toLocaleString('en-GB', {
+                        weekday: 'short',
+                        timeZone: match.ht_match_id ? 'Europe/Stockholm' : 'Europe/Riga',
+                      })
+                      .toUpperCase();
                     const datePart = matchDate.toLocaleDateString('lv-LV', {
                       day: '2-digit',
                       month: '2-digit',
+                      timeZone: match.ht_match_id ? 'Europe/Stockholm' : 'Europe/Riga',
                     });
                     const timePart = matchDate.toLocaleTimeString('en-GB', {
                       hour: '2-digit',
                       minute: '2-digit',
                       hour12: false,
+                      timeZone: match.ht_match_id ? 'Europe/Stockholm' : 'Europe/Riga',
                     });
                     const formattedDate = `${day} / ${datePart} / ${timePart}`;
 
@@ -499,7 +512,7 @@ export const FixturesView: React.FC<FixturesViewProps> = ({
                       !isHistorical && match.ht_match_id ? liveData[match.ht_match_id.toString()] : null;
                     let status = match.status || 'not_arranged';
                     const isMisarranged = status === 'misarranged' || !!homeWarning || !!awayWarning;
-                    const now = new Date();
+                    const now = new Date(nowMs);
                     const isPastStartTime = match.match_date && now >= match.match_date;
                     const isWithinLiveWindow =
                       match.match_date && now.getTime() < match.match_date.getTime() + 4 * 60 * 60 * 1000;

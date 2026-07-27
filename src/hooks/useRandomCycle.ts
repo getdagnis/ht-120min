@@ -45,8 +45,11 @@ export function useRandomCycle<T>(items: T[], intervalMs: number): T {
     setPrevItems(items);
     setQueue([...items]);
     setIndex(0);
-    hasStartedRandomCycle.current = false;
   }
+
+  useEffect(() => {
+    hasStartedRandomCycle.current = false;
+  }, [items]);
 
   useEffect(() => {
     if (items.length === 0) return;

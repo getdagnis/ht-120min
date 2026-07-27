@@ -18,7 +18,6 @@ export function LocaleProvider({ locale, children }: { locale: Locale; children:
   const value = useMemo(() => ({ locale, messages: getDictionary(locale) }), [locale]);
 
   useEffect(() => {
-    document.documentElement.lang = locale;
     document.cookie = `ht120_locale=${locale}; path=/; max-age=31536000; samesite=lax`;
   }, [locale]);
 

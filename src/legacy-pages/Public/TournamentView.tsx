@@ -1,6 +1,8 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
+'use client';
+
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { useLocation, useParams, useSearchParams } from 'react-router-dom';
+import { usePathname, useParams, useRouter, useSearchParams as useNextSearchParams } from 'next/navigation';
 import { supabase } from '../../lib/supabase';
 
 import adminStyles from './TournamentAdmin.module.sass';
@@ -72,6 +74,7 @@ import { TOURNAMENT_DEFAULT } from '../../constants/descriptions';
 import { getTournamentFaqSections } from '../../constants/faq-essential';
 import { TOURNAMENT_ROLE_LABELS, type TournamentRole } from '../../../shared/tournament-roles';
 import { getRandomSandboxTeamId, SANDBOX_RANDOM_ATTEMPTS } from '../../constants/sandbox';
+import { useClientNow, useHydratedLocalStorage, useHydrationReady } from '../../hooks/useHydratedBrowserState';
 import type { ResultCsvRow } from '../../utils/result-csv';
 import {
   dismissWelcome,
@@ -474,9 +477,21 @@ function reviveInitialRounds(initialData?: TournamentInitialData) {
 }
 
 export const TournamentView: React.FC<{ initialData?: TournamentInitialData }> = ({ initialData }) => {
-  const { slug } = useParams<{ slug: string }>();
-  const location = useLocation();
-  const [searchParams, setSearchParams] = useSearchParams();
+  const { slug: rawSlug } = useParams<{ slug: string }>();
+  const slug = typeof rawSlug === 'string' ? rawSlug : '';
+  const pathname = usePathname() || '/';
+  const router = useRouter();
+  const searchParams = useNextSearchParams();
+  const setSearchParams = useCallback(
+    (next: URLSearchParams | Record<string, string>, options?: { replace?: boolean }) => {
+      const params = next instanceof URLSearchParams ? next : new URLSearchParams(next);
+      const query = params.toString();
+      const url = `${pathname}${query ? `?${query}` : ''}`;
+      if (options?.replace) router.replace(url);
+      else router.push(url);
+    },
+    [pathname, router],
+  );
   const tournamentFaqSections = useMemo(() => getTournamentFaqSections(), []);
   const tournamentFaqItems = useMemo(
     () =>
@@ -545,9 +560,7 @@ export const TournamentView: React.FC<{ initialData?: TournamentInitialData }> =
   const activeTabParam = searchParams.get('tab');
   const activeTab = ['standings', 'fixtures', 'history', 'guestbook', 'admin', 'news'].includes(activeTabParam || '')
     ? (activeTabParam as any)
-    : location.state?.isAdminInit
-      ? 'admin'
-      : 'standings';
+    : 'standings';
 
   const [isRefreshingFixtures, setIsRefreshingFixtures] = useState(false);
 
@@ -579,7 +592,7 @@ export const TournamentView: React.FC<{ initialData?: TournamentInitialData }> =
   const [chatMessages, setChatMessages] = useState<any[]>([]);
 
   // Admin states
-  const [password, setPassword] = useState(() => readLocalStorage(`admin_pw_${slug}`) || '');
+  const [password, setPassword] = useState('');
   const [isAdminAuthenticated, setIsAdminAuthenticated] = useState(false);
   const [tournamentRoles, setTournamentRoles] = useState<TournamentRoleRecord[]>([]);
   const [originalOrganizer, setOriginalOrganizer] = useState<TournamentOwnerRecord>({
@@ -603,7 +616,7 @@ export const TournamentView: React.FC<{ initialData?: TournamentInitialData }> =
     canManagePressOfficer: boolean;
     canManageCoOrganizer: boolean;
   } | null>(null);
-  const [roleAccessLoading, setRoleAccessLoading] = useState(() => Boolean(readLocalStorage('my_ht_user_id')));
+  const [roleAccessLoading, setRoleAccessLoading] = useState(false);
   const [adminAuthSource, setAdminAuthSource] = useState<'oauth_role' | 'legacy_password' | null>(null);
   const [adminAuthError, setAdminAuthError] = useState(false);
   const [failedLoginAttempt, setFailedLoginAttempt] = useState(false);
@@ -638,7 +651,10 @@ export const TournamentView: React.FC<{ initialData?: TournamentInitialData }> =
   const [organizerProfileName, setOrganizerProfileName] = useState<string | null>(
     () => initialData?.organizerProfileName || null,
   );
-  const currentHtUserId = Number(readLocalStorage('my_ht_user_id') || '0') || null;
+  const isHydrationReady = useHydrationReady();
+  const storedHtUserId = useHydratedLocalStorage('my_ht_user_id');
+  const storedHtManagerName = useHydratedLocalStorage('my_ht_manager_name');
+  const currentHtUserId = Number(storedHtUserId || '0') || null;
 
   useEffect(() => {
     if (!tournament?.id || !currentHtUserId) {
@@ -791,7 +807,7 @@ export const TournamentView: React.FC<{ initialData?: TournamentInitialData }> =
     });
   }, [latestPublishedHistorySeason, loadHistoryComments, tournament?.id]);
 
-  const [renderTimestamp] = useState(() => Date.now());
+  const renderTimestamp = useClientNow();
   const historyReportPublishedAt = latestPublishedHistorySeason?.snapshot_json?.generatedAt || null;
   const historyReportNoticeIsCurrent = Boolean(
     historyReportPublishedAt &&
@@ -911,7 +927,7 @@ export const TournamentView: React.FC<{ initialData?: TournamentInitialData }> =
   }, [rounds]);
   const isStartDateLocked = Boolean(firstKnownFixtureDate);
 
-  const myHtUserId = readLocalStorage('my_ht_user_id');
+  const myHtUserId = storedHtUserId;
   const hasJoined = teams.some((t) => t.hattrick_user_id === Number(myHtUserId) && t.active);
   const normalizedRegistrationType = tournament
     ? normalizeTournamentRegistrationType(tournament.registration_type)
@@ -925,7 +941,7 @@ export const TournamentView: React.FC<{ initialData?: TournamentInitialData }> =
     ? teams.find((team) => Number(team.hattrick_user_id) === Number(tournament.organizer_id))
     : null;
   const publicOrganizerName = tournament?.organizer_name || organizerTeam?.manager_name || organizerProfileName || null;
-  const currentHtManagerName = readLocalStorage('my_ht_manager_name') || publicOrganizerName || 'Admin';
+  const currentHtManagerName = storedHtManagerName || publicOrganizerName || 'Admin';
   const canLoginAsOrganizer = Boolean(
     tournament?.organizer_id && currentHtUserId && Number(tournament.organizer_id) === currentHtUserId,
   );
@@ -979,11 +995,15 @@ export const TournamentView: React.FC<{ initialData?: TournamentInitialData }> =
         !hasDismissedWelcome(tournamentVisitWelcomeKey))),
   );
 
-  const canManageFeaturedTournaments = Boolean(roleAccess?.isImplicitSuperadmin);
+  const isSiteAdmin = Boolean(roleAccess?.isImplicitSuperadmin);
+  const canManageFeaturedTournaments = isSiteAdmin;
   const organizerLoginLabel = `${currentHtManagerName} (${verifiedRoleLabel})`;
   const dismissedPublicAnnouncementIds = new Set(
     announcements
-      .filter((announcement) => readLocalStorage(`announcement_dismissed_${announcement.id}`) === 'true')
+      .filter(
+        (announcement) =>
+          isHydrationReady && readLocalStorage(`announcement_dismissed_${announcement.id}`) === 'true',
+      )
       .map((announcement) => announcement.id),
   );
   const unsavedSettingsFields = useMemo(() => {
@@ -1094,6 +1114,7 @@ export const TournamentView: React.FC<{ initialData?: TournamentInitialData }> =
     if (slug && Object.prototype.hasOwnProperty.call(scheduleCollapseOverrides, slug)) {
       return scheduleCollapseOverrides[slug];
     }
+    if (!isHydrationReady) return null;
     const stored = readLocalStorage(scheduleCollapseStorageKey);
     if (stored === null) return null;
     try {
@@ -1101,7 +1122,7 @@ export const TournamentView: React.FC<{ initialData?: TournamentInitialData }> =
     } catch {
       return null;
     }
-  }, [scheduleCollapseOverrides, scheduleCollapseStorageKey, slug]);
+  }, [isHydrationReady, scheduleCollapseOverrides, scheduleCollapseStorageKey, slug]);
 
   // Helper to persist toggle
   const togglePanel = (key: string, state: boolean, setter: React.Dispatch<React.SetStateAction<boolean>>) => {
@@ -1168,14 +1189,31 @@ export const TournamentView: React.FC<{ initialData?: TournamentInitialData }> =
   // UI state
   const [showScoringHelp, setShowScoringHelp] = useState(false);
   const [isAddingDescription, setIsAddingDescription] = useState(false);
-  const [expandedRounds, setExpandedRounds] = useState<Record<string, boolean>>(() => {
-    const saved = readLocalStorage(`expanded_rounds_${slug}`);
-    return saved ? JSON.parse(saved) : {};
-  });
+  const [expandedRounds, setExpandedRounds] = useState<Record<string, boolean>>({});
+  const expandedRoundsReadyRef = useRef(false);
 
   useEffect(() => {
+    if (!isHydrationReady) return;
+
+    const timer = window.setTimeout(() => {
+      const saved = readLocalStorage(`expanded_rounds_${slug}`);
+      expandedRoundsReadyRef.current = true;
+      if (!saved) return;
+
+      try {
+        setExpandedRounds(JSON.parse(saved) as Record<string, boolean>);
+      } catch {
+        setExpandedRounds({});
+      }
+    }, 0);
+
+    return () => window.clearTimeout(timer);
+  }, [isHydrationReady, slug]);
+
+  useEffect(() => {
+    if (!isHydrationReady || !expandedRoundsReadyRef.current) return;
     localStorage.setItem(`expanded_rounds_${slug}`, JSON.stringify(expandedRounds));
-  }, [expandedRounds, slug]);
+  }, [expandedRounds, isHydrationReady, slug]);
 
   const toggleRound = useCallback((roundId: string) => {
     setExpandedRounds((current) => ({
@@ -1184,8 +1222,9 @@ export const TournamentView: React.FC<{ initialData?: TournamentInitialData }> =
     }));
   }, []);
   const [quickDescription, setQuickDescription] = useState('');
-  const [isJoinedNoticeDismissed, setIsJoinedNoticeDismissed] = useState(
-    () => readLocalStorage(`joined_notice_dismissed_${slug}`) === 'true',
+  const [isJoinedNoticeDismissed, setIsJoinedNoticeDismissed] = useState(false);
+  const storedJoinedNoticeDismissed = useHydratedLocalStorage(
+    slug ? `joined_notice_dismissed_${slug}` : '',
   );
 
   const regenerateDescription = (isQuick: boolean) => {
@@ -1296,7 +1335,9 @@ export const TournamentView: React.FC<{ initialData?: TournamentInitialData }> =
         : null,
     [rescheduleDraft],
   );
-  const hasSeasonCollapseOverride = slug ? readLocalStorage(`season_collapsed_${slug}`) !== null : false;
+  const hasSeasonCollapseOverride = Boolean(
+    isHydrationReady && slug && readLocalStorage(`season_collapsed_${slug}`) !== null,
+  );
   const resolvedScheduleCollapsed = scheduleCollapseOverride ?? isGenerated;
   const isSeasonCloseAvailable = Boolean(
     tournament && tournament.status !== 'finished' && isGenerated && hasFinishedAllRealFixtures(rounds),
@@ -1911,7 +1952,7 @@ export const TournamentView: React.FC<{ initialData?: TournamentInitialData }> =
         setShowTeamModal(false);
         alert('Invalid or expired selection session.');
         const newUrl = window.location.pathname;
-        window.history.replaceState({}, '', newUrl);
+        router.replace(newUrl);
         return;
       }
 
@@ -1924,7 +1965,7 @@ export const TournamentView: React.FC<{ initialData?: TournamentInitialData }> =
       }
       setModalLoading(false);
     },
-    [setModalLoading, setPendingJoinData, setShowTeamModal],
+    [router, setModalLoading, setPendingJoinData, setShowTeamModal],
   );
 
   const handleTeamSelect = async (team: ChppTeamOption) => {
@@ -1960,7 +2001,7 @@ export const TournamentView: React.FC<{ initialData?: TournamentInitialData }> =
       setPendingJoinData(null);
 
       alert('Success! You have joined the tournament.');
-      window.location.reload();
+      await fetchData({ showLoader: false });
     } catch (err) {
       alert(err instanceof Error ? err.message : 'An unknown error occurred');
     } finally {
@@ -2031,8 +2072,8 @@ export const TournamentView: React.FC<{ initialData?: TournamentInitialData }> =
 
     if (errorMsg || joined || token) {
       paramsHandledRef.current = true;
-      const newUrl = window.location.pathname;
-      window.history.replaceState({}, '', newUrl);
+      const newUrl = pathname;
+      router.replace(newUrl);
 
       if (errorMsg) {
         alert(errorMsg);
@@ -2044,13 +2085,7 @@ export const TournamentView: React.FC<{ initialData?: TournamentInitialData }> =
         }, 0);
       }
     }
-  }, [fetchPendingJoinData]);
-
-  useEffect(() => {
-    if (location.state?.isAdminInit) {
-      setSearchParams({ tab: 'admin' });
-    }
-  }, [location.state?.isAdminInit, setSearchParams]);
+  }, [fetchPendingJoinData, pathname, router]);
 
   const isNewsTab = activeTab === 'guestbook' || activeTab === 'news';
 
@@ -4093,7 +4128,9 @@ export const TournamentView: React.FC<{ initialData?: TournamentInitialData }> =
       .map((dismissal) => dismissal.announcement_id as string),
   );
   const joinedNoticeDismissed =
-    isJoinedNoticeDismissed || announcementDismissals.some((dismissal) => dismissal.notice_key === JOINED_NOTICE_KEY);
+    isJoinedNoticeDismissed ||
+    storedJoinedNoticeDismissed === 'true' ||
+    announcementDismissals.some((dismissal) => dismissal.notice_key === JOINED_NOTICE_KEY);
   const selectedTournamentMessage = selectTournamentMessage({
     canJoin: canJoinTournament,
     hasJoined,
@@ -4110,7 +4147,7 @@ export const TournamentView: React.FC<{ initialData?: TournamentInitialData }> =
   };
 
   const acceptCreatedTournamentWelcome = () => {
-    const nextParams = new URLSearchParams(searchParams);
+    const nextParams = new URLSearchParams(searchParams.toString());
     nextParams.delete('welcome');
     setSearchParams(nextParams, { replace: true });
     setHasClosedCreatedTournamentWelcome(true);
@@ -4162,8 +4199,8 @@ export const TournamentView: React.FC<{ initialData?: TournamentInitialData }> =
   const is120minMode = tournament.scoring_mode === '120m' || tournament.scoring_mode === '120min';
   const isAppgMode = isAppg120ScoringMode(tournament.scoring_mode);
 
-  const isMobile = typeof window !== 'undefined' && window.innerWidth <= 620;
-  const publicUrl = typeof window === 'undefined' ? `/t/${slug}` : `${window.location.origin}/t/${slug}`;
+  const isMobile = isHydrationReady && window.innerWidth <= 620;
+  const publicUrl = !isHydrationReady ? pathname : `${window.location.origin}${pathname}`;
   const publicUrlDisplay = isMobile ? `...${slug}` : publicUrl;
 
   // Find the first round that is not fully completed
@@ -4213,7 +4250,7 @@ export const TournamentView: React.FC<{ initialData?: TournamentInitialData }> =
   const selectedHistorySeasonNumber =
     Number(searchParams.get('historySeason')) || historySeasons[0]?.season_number || null;
   const handleHistorySeasonChange = (seasonNumber: number) => {
-    const nextParams = new URLSearchParams(searchParams);
+    const nextParams = new URLSearchParams(searchParams.toString());
     nextParams.set('tab', 'history');
     nextParams.set('historySeason', String(seasonNumber));
     setSearchParams(nextParams, { replace: true });
@@ -4224,6 +4261,7 @@ export const TournamentView: React.FC<{ initialData?: TournamentInitialData }> =
           day: '2-digit',
           month: '2-digit',
           year: 'numeric',
+          timeZone: 'Europe/Riga',
         }).format(new Date(value))
       : null;
 
@@ -4233,7 +4271,9 @@ export const TournamentView: React.FC<{ initialData?: TournamentInitialData }> =
   const latestHistoryReadCount = latestPublishedHistorySeason
     ? (() => {
         void historySeenVersion;
-        const storedValue = readLocalStorage(`ht-120min:history-comments-read:${latestPublishedHistorySeason.id}`);
+        const storedValue = isHydrationReady
+          ? readLocalStorage(`ht-120min:history-comments-read:${latestPublishedHistorySeason.id}`)
+          : null;
         const storedCount = storedValue ? Number(storedValue) : 0;
         return Number.isFinite(storedCount) ? storedCount : 0;
       })()
@@ -4660,9 +4700,10 @@ export const TournamentView: React.FC<{ initialData?: TournamentInitialData }> =
       <Modal
         isOpen={
           (historyReportNoticeOpen || TOURNAMENT_VIEW_MODALS_OPEN_BY_DEFAULT.historyReportNotice) &&
-          readLocalStorage(
-            latestPublishedHistorySeason ? getHistoryReportNoticeStorageKey(latestPublishedHistorySeason.id) : '',
-          ) !== 'true' &&
+          (!isHydrationReady ||
+            readLocalStorage(
+              latestPublishedHistorySeason ? getHistoryReportNoticeStorageKey(latestPublishedHistorySeason.id) : '',
+            ) !== 'true') &&
           latestPublishedHistorySeason !== null
         }
         onClose={dismissHistoryReportNotice}
@@ -4689,7 +4730,7 @@ export const TournamentView: React.FC<{ initialData?: TournamentInitialData }> =
                 );
                 setHistorySeenVersion((current) => current + 1);
               }
-              const nextParams = new URLSearchParams(searchParams);
+              const nextParams = new URLSearchParams(searchParams.toString());
               nextParams.set('tab', 'history');
               setSearchParams(nextParams);
             }}
@@ -4803,8 +4844,7 @@ export const TournamentView: React.FC<{ initialData?: TournamentInitialData }> =
                 <div className={styles.postingTeamBranding}>
                   {/* Need to find current manager's team assuming we have teams array */}
                   {(() => {
-                    const myHtId = readLocalStorage('my_ht_user_id');
-                    const myTeam = teams.find((t) => t.hattrick_user_id === Number(myHtId));
+                    const myTeam = teams.find((t) => t.hattrick_user_id === Number(myHtUserId));
                     return myTeam ? (
                       <div className={styles.branding}>
                         <img
@@ -4874,6 +4914,7 @@ export const TournamentView: React.FC<{ initialData?: TournamentInitialData }> =
                             day: 'numeric',
                             hour: '2-digit',
                             minute: '2-digit',
+                            timeZone: 'Europe/Riga',
                           })}
                         </span>
                       </div>
@@ -5133,12 +5174,12 @@ export const TournamentView: React.FC<{ initialData?: TournamentInitialData }> =
                           <div className={adminStyles.field}>
                             {renderSettingsLabel(
                               'Tournament Category',
-                              teams.length > 0 && !isSuperAdmin ? '(locked once teams register)' : undefined,
+                              teams.length > 0 && !isSiteAdmin ? '(locked once teams register)' : undefined,
                             )}
                             <select
                               value={editLeagueCategory}
                               onChange={(e) => setEditLeagueCategory(e.target.value as any)}
-                              disabled={teams.length > 0 && !isSuperAdmin}
+                              disabled={teams.length > 0 && !isSiteAdmin}
                               className={adminStyles.selectField}
                             >
                               <option value="male">Regular league (male)</option>
@@ -5249,14 +5290,14 @@ export const TournamentView: React.FC<{ initialData?: TournamentInitialData }> =
                               <div className={adminStyles.field}>
                                 {renderSettingsLabel(
                                   'Tournament Type',
-                                  teams.length > 0 && !isSuperAdmin ? '(locked once teams register)' : undefined,
+                                  teams.length > 0 && !isSiteAdmin ? '(locked once teams register)' : undefined,
                                 )}
                                 <select
                                   value={editRegistrationType}
                                   onChange={(e) =>
                                     setEditRegistrationType(normalizeTournamentRegistrationType(e.target.value))
                                   }
-                                  disabled={teams.length > 0 && !isSuperAdmin}
+                                  disabled={teams.length > 0 && !isSiteAdmin}
                                   className={adminStyles.selectField}
                                 >
                                   <option value="validated">Hattrick Validated (CHPP)</option>
@@ -5385,11 +5426,11 @@ export const TournamentView: React.FC<{ initialData?: TournamentInitialData }> =
                             </div>
                           )}
 
-                          {isSuperAdmin && (
+                          {isSiteAdmin && (
                             <div className={`${adminStyles.checkboxField} ${styles.formDivider}`}>
                               <label className={adminStyles.checkboxLabel}>
                                 <input type="checkbox" checked={isTest} onChange={(e) => setIsTest(e.target.checked)} />
-                                Testing Ground (Super-Admin only)
+                                Testing Ground
                               </label>
                               {renderUnsavedSettingsNote(unsavedSettingsFields.test)}
                             </div>
@@ -5996,7 +6037,9 @@ export const TournamentView: React.FC<{ initialData?: TournamentInitialData }> =
                                 <span>
                                   {announcement.visibility === 'public' ? 'Public' : 'Participants'} •{' '}
                                   {announcement.is_active ? 'Visible' : 'Hidden'} •{' '}
-                                  {new Date(announcement.created_at).toLocaleDateString('en-GB')}
+                                  {new Date(announcement.created_at).toLocaleDateString('en-GB', {
+                                    timeZone: 'Europe/Riga',
+                                  })}
                                 </span>
                               </div>
                               <Button
@@ -6285,8 +6328,8 @@ export const TournamentView: React.FC<{ initialData?: TournamentInitialData }> =
         isOpen={showTeamModal || TOURNAMENT_VIEW_MODALS_OPEN_BY_DEFAULT.teamSelection}
         onClose={() => {
           setShowTeamModal(false);
-          const newUrl = window.location.pathname;
-          window.history.replaceState({}, '', newUrl);
+          const newUrl = pathname;
+          router.replace(newUrl);
         }}
         title={pendingJoinData ? `Welcome, ${pendingJoinData.manager_name}!` : 'Linking Hattrick…'}
       >
@@ -6329,8 +6372,8 @@ export const TournamentView: React.FC<{ initialData?: TournamentInitialData }> =
                   fullWidth
                   onClick={() => {
                     setShowTeamModal(false);
-                    const newUrl = window.location.pathname;
-                    window.history.replaceState({}, '', newUrl);
+                    const newUrl = pathname;
+                    router.replace(newUrl);
                   }}
                   disabled={submittingJoin}
                 >

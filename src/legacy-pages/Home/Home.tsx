@@ -1,5 +1,8 @@
+'use client';
+
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
-import { useNavigate, Link } from 'react-router-dom';
+import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import { supabase } from '../../lib/supabase';
 import { Button } from '../../components/Button/Button';
 import { Card } from '../../components/Card/Card';
@@ -23,6 +26,8 @@ import { Trophy, CalendarBlank, Heartbeat, CaretLeft, ArrowRight, Star, FolderOp
 import { TeamsIcon } from '../../components/Icons/TeamsIcon';
 import styles from './Home.module.sass';
 import type { HomeInitialData } from '../../app/_data/public-data';
+import { useLocale } from '../../i18n/LocaleProvider';
+import { toLocalePath } from '../../next/locale-path';
 
 const FORUM_LINK = 'https://www.hattrick.org/goto.ashx?path=/Forum/Read.aspx?n=1&nm=32&t=17685273&v=0';
 const SHOW_FAQ = true;
@@ -132,7 +137,8 @@ const ForumWidget = () => (
 );
 
 export const Home: React.FC<{ initialData?: HomeInitialData }> = ({ initialData }) => {
-  const navigate = useNavigate();
+  const router = useRouter();
+  const { locale } = useLocale();
   const [showWelcome, setShowWelcome] = useState(false);
   const [featuredTournaments, setFeaturedTournaments] = useState<Tournament[]>(() =>
     (initialData?.featuredTournaments || []).map(reviveInitialTournament),
@@ -394,9 +400,10 @@ export const Home: React.FC<{ initialData?: HomeInitialData }> = ({ initialData 
     const formatDate = (date: Date | null) =>
       date
         ? new Intl.DateTimeFormat('en-GB', {
-            day: '2-digit',
-            month: '2-digit',
-            year: 'numeric',
+          day: '2-digit',
+          month: '2-digit',
+          year: 'numeric',
+          timeZone: 'Europe/Riga',
           }).format(date)
         : null;
 
@@ -430,8 +437,8 @@ export const Home: React.FC<{ initialData?: HomeInitialData }> = ({ initialData 
     return `Planned: ${formatDate(tournament.plannedStartDate || new Date(tournament.created_at))}`;
   };
 
-  const renderTournamentCard = (t: Tournament, options: { join?: boolean } = {}) => (
-    <Link key={t.id} to={`/t/${t.slug}`} className={styles.tournamentLink}>
+  const renderTournamentCard = (t: Tournament, options: { join?: boolean } = {}) => {
+    const card = (
       <TournamentCard
         id={t.id}
         className={styles.tournamentCard}
@@ -442,7 +449,7 @@ export const Home: React.FC<{ initialData?: HomeInitialData }> = ({ initialData 
         leagueCategory={t.league_category}
         maxTeams={t.max_teams}
         teamCount={t.teamCount}
-        joinHref={options.join ? `/t/${t.slug}` : undefined}
+        joinHref={options.join ? toLocalePath(locale, `/t/${t.slug}`) : undefined}
       >
         <div className={styles.tInfo}>
           <div className={styles.tTitleRow}>
@@ -476,8 +483,18 @@ export const Home: React.FC<{ initialData?: HomeInitialData }> = ({ initialData 
           </div>
         </div>
       </TournamentCard>
-    </Link>
-  );
+    );
+
+    return options.join ? (
+      <div key={t.id} className={styles.tournamentLink}>
+        {card}
+      </div>
+    ) : (
+      <Link key={t.id} href={toLocalePath(locale, `/t/${t.slug}`)} className={styles.tournamentLink}>
+        {card}
+      </Link>
+    );
+  };
 
   return (
     <div className={styles.home}>
@@ -496,7 +513,7 @@ export const Home: React.FC<{ initialData?: HomeInitialData }> = ({ initialData 
         </strong>
         <ul>
           <li>
-            👉 Create your first <Link to="/create">dummy test tournament</Link>
+            👉 Create your first <Link href={toLocalePath(locale, '/create')}>dummy test tournament</Link>
           </li>
           <li>👉 Explore tournament management using dummy Hattrick teams</li>
           <li>👉 Once ready — create a real cup and invite others to join!</li>
@@ -523,7 +540,7 @@ export const Home: React.FC<{ initialData?: HomeInitialData }> = ({ initialData 
                 like-minded Hattrick managers.
               </p>
               <div className={styles.ctaBtns}>
-                <Button size="lg" onClick={() => navigate('/create')} variant="secondaryYellow">
+                <Button size="lg" onClick={() => router.push(toLocalePath(locale, '/create'))} variant="secondaryYellow">
                   <Trophy size={22} weight="regular" /> Create Tournament
                 </Button>
                 <ScrollTo to="opentours" smooth={true} duration={600} offset={-80}>
@@ -609,7 +626,7 @@ export const Home: React.FC<{ initialData?: HomeInitialData }> = ({ initialData 
                     {topActiveTournaments.map((t) => (
                       <li key={t.slug}>
                         <div className={styles.statItem}>
-                          <Link to={`/t/${t.slug}`} className={styles.name}>
+                          <Link href={toLocalePath(locale, `/t/${t.slug}`)} className={styles.name}>
                             {t.name}
                           </Link>
                           <span className={styles.value}>{t.completedMatches}</span>
@@ -650,7 +667,7 @@ export const Home: React.FC<{ initialData?: HomeInitialData }> = ({ initialData 
           </Card>
         </div>{' '}
         <div className={styles.ctaBtns}>
-          <Button size="lg" onClick={() => navigate('/create')} variant="secondaryYellow">
+          <Button size="lg" onClick={() => router.push(toLocalePath(locale, '/create'))} variant="secondaryYellow">
             <Trophy size={22} weight="regular" /> Create Tournament
           </Button>
           <ScrollTo to="opentours" smooth={true} duration={600} offset={-80}>

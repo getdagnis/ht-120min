@@ -13,12 +13,7 @@ function getForgeSecret() {
 }
 
 export function getForgeSuperadminId() {
-  // VITE_* values are public browser configuration and must never authorize Forge in production.
-  const raw =
-    process.env.FORGE_SUPERADMIN_HT_ID ||
-    process.env.ADMIN_HT_ID ||
-    (process.env.NODE_ENV !== 'production' ? process.env.VITE_ADMIN_HT_ID : '') ||
-    '';
+  const raw = process.env.FORGE_SUPERADMIN_HT_ID || process.env.ADMIN_HT_ID || '';
   const parsed = Number(raw);
   return Number.isInteger(parsed) && parsed > 0 ? parsed : null;
 }

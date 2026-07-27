@@ -15,6 +15,7 @@ import {
   loadTournamentRoleRecords,
 } from './_lib/tournament-access.js';
 import { isTournamentRole, type TournamentRole } from '../../../shared/tournament-roles.js';
+import { isForgeEnabled } from '../forge-availability.js';
 
 const COMMENT_SELECT = 'id, season_id, team_id, team_name, manager_name, comment, created_at';
 const HISTORY_REPORT_DISMISSED_NOTICE = 'history-report-dismissed';
@@ -255,6 +256,7 @@ async function handleActivity(req: VercelRequest, res: VercelResponse) {
 }
 
 async function handleForgeSession(req: VercelRequest, res: VercelResponse) {
+  if (!isForgeEnabled()) return res.status(404).json({ error: 'Not found.' });
   if (req.method === 'GET') {
     const session = verifyForgeSessionCookie(req.headers.cookie);
     if (!session) return res.status(200).json({ authorized: false });
@@ -400,6 +402,7 @@ function toDate(value: unknown, fallback: Date) {
 }
 
 async function handleForgeStats(req: VercelRequest, res: VercelResponse) {
+  if (!isForgeEnabled()) return res.status(404).json({ error: 'Not found.' });
   if (req.method !== 'GET') return res.status(405).json({ error: 'Method not allowed' });
   if (!isForgeAdminRequest(req.headers.cookie) && !hasSuperAdminBypassCookie(req.headers.cookie)) {
     return res.status(401).json({ error: 'Forge authorization required.' });

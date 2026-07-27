@@ -1,5 +1,7 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useRouter } from 'next/navigation';
+import { useLocale } from '../../i18n/LocaleProvider';
+import { toLocalePath } from '../../next/locale-path';
 import { supabase } from '../../lib/supabase';
 import { useAuth } from '../../hooks/useAuth';
 import type { MatchmakerRequest, MatchmakerTeamOption, MatchmakerActivity } from '../../utils/matchmaker';
@@ -315,7 +317,8 @@ const getTeamFitScore = (selectedTeam: ChppTeamOption | undefined, target: Match
 };
 
 export const Matchmaker: React.FC = () => {
-  const navigate = useNavigate();
+  const router = useRouter();
+  const { locale } = useLocale();
   const { profile } = useAuth();
   const [nowMs] = useState(() => Date.now());
   const mockDataEnabled = isMatchmakerMockDataEnabled();
@@ -1202,7 +1205,7 @@ export const Matchmaker: React.FC = () => {
         <div className={styles.tinderHeroCard}>
           <div className={styles.heroTopBar}>
             <span>Instant 120 min Friendly Matcher</span>
-            <button className={styles.closeBtn} onClick={() => navigate('/')}>
+            <button className={styles.closeBtn} onClick={() => router.push(toLocalePath(locale, '/'))}>
               <X size={24} />
             </button>
           </div>

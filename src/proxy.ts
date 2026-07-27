@@ -1,7 +1,7 @@
 import { NextResponse, type NextRequest } from 'next/server';
 import { defaultLocale, isLocale } from './i18n/config';
 
-const legacyPublicPaths = ['/create', '/matchmaker', '/tinder', '/supporters', '/auth/callback'];
+const localeOwnedPublicPaths = ['/create', '/matchmaker', '/tinder', '/supporters', '/auth/callback'];
 
 function hasLocale(pathname: string) {
   const firstSegment = pathname.split('/')[1];
@@ -25,6 +25,7 @@ export function proxy(request: NextRequest) {
   }
 
   if (pathname === '/testing') {
+    if (process.env.FORGE_ENABLED !== 'true') return new NextResponse(null, { status: 404 });
     const target = request.nextUrl.clone();
     target.pathname = '/forge/testing';
     return NextResponse.redirect(target, 308);
@@ -35,7 +36,7 @@ export function proxy(request: NextRequest) {
   const target = request.nextUrl.clone();
   target.pathname = `/${preferredLocale(request)}${pathname === '/' ? '' : pathname}`;
 
-  if (legacyPublicPaths.includes(pathname) || pathname === '/' || pathname.startsWith('/t/')) {
+  if (localeOwnedPublicPaths.includes(pathname) || pathname === '/' || pathname.startsWith('/t/')) {
     return NextResponse.redirect(target, 308);
   }
 

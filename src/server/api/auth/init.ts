@@ -49,9 +49,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       return res.status(500).json({ error: 'Invalid response from Hattrick', body });
     }
     // Store temporary session
-    const supabaseUrl = process.env.VITE_SUPABASE_URL || process.env.SUPABASE_URL;
-    const supabaseKey =
-      process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.VITE_SUPABASE_PUBLISHABLE_KEY || process.env.SUPABASE_ANON_KEY;
+    const supabaseUrl = process.env.SUPABASE_URL;
+    const supabaseKey = process.env.SUPABASE_PUBLISHABLE_KEY;
     if (!supabaseUrl || !supabaseKey) {
       throw new Error(`Supabase configuration missing. URL: ${!!supabaseUrl}, Key: ${!!supabaseKey}`);
     }

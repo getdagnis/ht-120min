@@ -1,6 +1,6 @@
 # PROJECT_STATE.md
 
-Last updated: 2026-07-26
+Last updated: 2026-07-27
 
 This is the current-status ledger. Update it after meaningful implementation work. Be explicit about what is local, migrated, tested, deployed, or still unknown.
 
@@ -8,7 +8,7 @@ This is the current-status ledger. Update it after meaningful implementation wor
 
 HT-120min is an early MVP for recurring Hattrick friendly tournaments. Tournaments are the core product; Matchmaker is an entry layer for finding friendly opportunities.
 
-The local application shell has migrated from Vite/React Router to Next.js App Router. Public routes are locale-prefixed (`/en` and `/lv`), with English-only Forge at `/forge`. Home and public Tournament View now load their initial public Supabase snapshots in App Router server components and render those snapshots before hydration; the existing interactive screens, tabs, and forms remain client components. Other public routes still use the compatibility router while parity is verified. This migration is local and has not yet been production-deployed or verified against live OAuth/CHPP traffic.
+The local application shell has migrated from Vite/React Router to Next.js App Router. Public routes are locale-prefixed (`/en` and `/lv`) and explicitly owned by App Router, with English-only Forge isolated at `/forge`. Home and public Tournament View load their initial public Supabase snapshots in App Router server components and render those snapshots before hydration; the existing interactive screens, tabs, and forms remain client components. React Router remains only inside the deferred Forge subsystem. Forge is disabled unless `FORGE_ENABLED=true`, and its privileged API guards remain server-side. This migration is local and has not yet been production-deployed or verified against live OAuth/CHPP traffic.
 
 The app currently supports:
 
@@ -127,7 +127,7 @@ Production means live deployed behavior. If it has not been checked against the 
 - The manual schedule smoke-test SQL is a reference helper, not proof of production state.
 - Auth failure records are visible in Vercel logs, but automatic owner notification is not configured yet; add a Vercel alert, log drain, or Sentry integration if immediate email/push notification is required.
 - Activity analytics require migration `059` and the server-only Supabase secret. Authenticated events capture the manager nickname from the profile table, while anonymous events can be associated with that nickname later through the visitor cookie. The current stats view intentionally exposes operational aggregates and selected journey metadata only to Forge; raw IP and user-agent fields remain out of the UI, and retention cleanup is application-driven until a scheduled maintenance path is added.
-- Forge authorization requires `FORGE_SUPERADMIN_HT_ID` in production. `VITE_ADMIN_HT_ID` is accepted only for local development compatibility and cannot authorize Forge in production.
+- Forge authorization requires `FORGE_SUPERADMIN_HT_ID` in production. `ADMIN_HT_ID` is an optional development-only bypass token and cannot authorize Forge in production.
 - The historical CHPP testing toolkit is restored as a consolidated `/api/testing` dispatcher. It performs real CHPP reads and challenge sends; challenge sends remain confirmation-gated and must be tested with a disposable target.
 - APPG event classification remains conservative: it uses the documented structured CHPP event identifiers and leaves missing or score-mismatched goal evidence as `needs_review`; live Supabase/CHPP verification is still outstanding.
 

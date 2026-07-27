@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { useSearchParams } from 'react-router-dom';
+import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import { Modal } from '../Modal/Modal';
 import { Avatar } from '../Avatar/Avatar';
 import type { UserProfile, ActiveTournament } from '../../hooks/useAuth';
@@ -42,7 +42,9 @@ interface TeamInfo {
 export const ProfileModal: React.FC<ProfileModalProps> = ({ isOpen, maxWidth, onClose, profileId, ownProfile }) => {
   const [teams, setTeams] = useState<TeamInfo[]>([]);
   const [loading, setLoading] = useState(false);
-  const [searchParams, setSearchParams] = useSearchParams();
+  const pathname = usePathname() || '/';
+  const router = useRouter();
+  const searchParams = useSearchParams();
   const [profile, setProfile] = useState<UserProfile | null>(null);
 
   useEffect(() => {
@@ -60,9 +62,10 @@ export const ProfileModal: React.FC<ProfileModalProps> = ({ isOpen, maxWidth, on
 
   const handleClose = () => {
     if (searchParams.has('profileId')) {
-      const nextParams = new URLSearchParams(searchParams);
+      const nextParams = new URLSearchParams(searchParams.toString());
       nextParams.delete('profileId');
-      setSearchParams(nextParams, { replace: true });
+      const query = nextParams.toString();
+      router.replace(`${pathname}${query ? `?${query}` : ''}`);
     }
 
     onClose();

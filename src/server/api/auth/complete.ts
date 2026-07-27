@@ -8,6 +8,7 @@ import { validateTeamEligibility } from '../_lib/eligibility.js';
 import { buildAppSessionCookie, getAppSessionSecret, verifyAppSessionCookie } from '../_lib/app-session.js';
 import { hasSuperAdminBypassCookie } from '../_lib/superadmin-bypass.js';
 import { buildForgeSessionCookie, getForgeSuperadminId } from '../_lib/forge-session.js';
+import { isForgeEnabled } from '../../forge-availability.js';
 
 interface CompleteAuthBody {
   action?: 'claim_teams' | 'create_session';
@@ -68,6 +69,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
 
   const { selection_token, team_id, team_name, action, teamIds, forgeAuth } = req.body as CompleteAuthBody;
+  if (forgeAuth && !isForgeEnabled()) return res.status(404).json({ error: 'Not found.' });
 
   let supabase: ReturnType<typeof getSupabase>;
   try {

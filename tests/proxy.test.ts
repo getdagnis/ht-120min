@@ -25,9 +25,8 @@ test('uses the browser language for the initial locale redirect', () => {
   assert.equal(locationPath(response), '/lv/create');
 });
 
-test('keeps the legacy testing shortcut outside the localized public app', () => {
+test('disables the Forge testing shortcut unless Forge is explicitly enabled', () => {
   const response = proxy(new NextRequest('https://ht-120min.test/testing'));
 
-  assert.equal(response.status, 308);
-  assert.equal(locationPath(response), '/forge/testing');
+  assert.equal(response.status, 404);
 });

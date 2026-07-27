@@ -74,11 +74,11 @@ budget is explicitly rechecked.
 - Frontend deploys through Vercel.
 - Supabase migrations must be applied separately from frontend deployment unless a deployment process explicitly handles them.
 - CHPP server routes require server-side CHPP consumer credentials.
-- Frontend Supabase access uses `NEXT_PUBLIC_` env variables; legacy `VITE_` names remain accepted temporarily by the compatibility client.
+- Frontend Supabase access uses `NEXT_PUBLIC_SUPABASE_URL` and `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY`.
 - Service-role and CHPP secrets must stay server-side.
-- `SUPABASE_SECRET_KEY` (or legacy `SUPABASE_SERVICE_ROLE_KEY`) is required for server-authorized writes such as immutable season yearbook comments. Never prefix it with `VITE_` or expose it to browser code.
+- `SUPABASE_SECRET_KEY` is required for server-authorized writes such as immutable season yearbook comments. Never expose it to browser code.
 - `APP_SESSION_SECRET` must be present in production. Do not fall back to `CHPP_CONSUMER_SECRET` for session signing.
-- `FORGE_SUPERADMIN_HT_ID` is server-only configuration for the Forge superadmin. Do not use a `VITE_` value as the production source of authorization.
+- `FORGE_SUPERADMIN_HT_ID` is server-only configuration for the Forge superadmin.
 - Activity events contain operational metadata, including raw user-agent and IP fields. They are service-role-only tables with no anon/authenticated grants; the Forge stats route is the only application read path and raw events are intended to be removed after 90 days. Authenticated events store the Hattrick manager nickname from `profiles`, and the stats service may associate earlier events from the same visitor cookie with that nickname. Keep raw IP/user-agent values out of Forge UI responses.
 - The superadmin bypass cookie is dev-only. Keep its token out of production and do not surface it in the UI.
 

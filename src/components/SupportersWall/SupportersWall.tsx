@@ -1,10 +1,13 @@
-import React, { useEffect, useMemo, useState } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import { Trophy, BeerBottle, ArrowClockwise, ArrowsOut } from 'phosphor-react';
 import { supabase } from '../../lib/supabase';
 import { getFlagUrl } from '../../utils/ht-data';
 import { Button } from '../Button/Button';
 import styles from './SupportersWall.module.sass';
+import { useLocale } from '../../i18n/LocaleProvider';
+import { toLocalePath } from '../../next/locale-path';
 
 export interface Supporter {
   id: string;
@@ -164,7 +167,8 @@ function shuffleWithSeed<T>(items: T[], seed: number) {
 }
 
 export const SupportersWall: React.FC<SupportersWallProps> = ({ variant = 'compact' }) => {
-  const navigate = useNavigate();
+  const router = useRouter();
+  const { locale } = useLocale();
   const [shuffleSeed, setShuffleSeed] = useState(0);
   const [lookupById, setLookupById] = useState<Record<string, SupporterLookup>>({});
 
@@ -209,20 +213,20 @@ export const SupportersWall: React.FC<SupportersWallProps> = ({ variant = 'compa
     void loadSupporters();
   }, []);
 
-  const renderPioneerMessage = (supporterId: string) => {
+  const renderPioneerMessage = useCallback((supporterId: string) => {
     const cup = pioneerCupS1[supporterId as keyof typeof pioneerCupS1];
     if (!cup) return MESSAGES.founding[0];
 
     return (
       <>
         An honorary pioneer member of HT-120min and participant of{' '}
-        <Link to={cup.href} className={styles.cupLink}>
+        <Link href={toLocalePath(locale, cup.href)} className={styles.cupLink}>
           {cup.label}
         </Link>{' '}
         in Season 1.
       </>
     );
-  };
+  }, [locale]);
 
   const displayedSupporters = useMemo(() => {
     const resolvedSupporters = SUPPORTER_SEEDS.map((supporter) => {
@@ -246,7 +250,7 @@ export const SupportersWall: React.FC<SupportersWallProps> = ({ variant = 'compa
     const pioneers = shuffleWithSeed(resolvedSupporters.filter((s) => s.type === 'pioneer'), shuffleSeed + 2).slice(0, 3);
 
     return [...founding, ...pioneers];
-  }, [lookupById, variant, shuffleSeed]);
+  }, [lookupById, variant, shuffleSeed, renderPioneerMessage]);
 
   return (
     <div className={`${styles.wallWrapper} ${variant === 'full' ? styles.fullPage : ''}`}>
@@ -292,7 +296,7 @@ export const SupportersWall: React.FC<SupportersWallProps> = ({ variant = 'compa
           >
             <ArrowClockwise size={18} /> Shuffle
           </Button>
-          <Button variant="outlineWhite" size="sm" onClick={() => navigate('/supporters')} className={styles.actionBtn}>
+          <Button variant="outlineWhite" size="sm" onClick={() => router.push(toLocalePath(locale, '/supporters'))} className={styles.actionBtn}>
             <ArrowsOut size={18} /> Show All
           </Button>
         </div>
