@@ -2,6 +2,9 @@
 
 Scope: review every Hattrick / CHPP-derived data path in the codebase and verify that each field comes from the most authoritative endpoint available in the repo's CHPP docs.
 
+> Audit note: this is a reference snapshot. Source paths below use the current Next.js server tree; findings remain
+> recommendations to verify before implementation, not claims that every item is resolved.
+
 Primary references used:
 - `docs/AGENTS_CHPP_INTEGRATION.md`
 - `docs/# CHPP Files help.md`
@@ -10,16 +13,16 @@ Primary references used:
 - `docs/chpp datatypes.html`
 - `docs/challenges.params.md`
 - `docs/managercompendium.schema.xml`
-- `api/_lib/chpp-xml.ts`
-- `api/_lib/matchmaker.ts`
-- `api/auth/callback.ts`
-- `api/auth/complete.ts`
-- `api/teams/info.ts`
-- `api/teams/refresh-fixtures.ts`
-- `api/chpp/live-matches.ts`
-- `api/matchmaker/*`
-- `src/pages/Public/Matchmaker.tsx`
-- `src/pages/Public/TournamentView.tsx`
+- `src/server/api/_lib/chpp-xml.ts`
+- `src/server/api/_lib/matchmaker.ts`
+- `src/server/api/auth/callback.ts`
+- `src/server/api/auth/complete.ts`
+- `src/server/api/teams/info.ts`
+- `src/server/api/teams/refresh-fixtures.ts`
+- `src/server/api/chpp/live-matches.ts`
+- `src/server/api/matchmaker/*`
+- `src/legacy-pages/Public/Matchmaker.tsx`
+- `src/legacy-pages/Public/TournamentView.tsx`
 
 ## Executive Summary
 
@@ -47,7 +50,7 @@ The main reliability problems are:
 | Country | Auth complete, profile, tournament join, Matchmaker profile snapshots | `managercompendium` | `CountryID`, `CountryName` | Yes, for canonical display mapping use `worlddetails` | `managercompendium` for sync, `worlddetails` for display normalization | Medium | The code stores both `country_id` and `country_name`; any comparison should prefer ids. |
 | League | Auth complete, tournament join, eligibility checks | `managercompendium` team list | `LeagueID`, `LeagueName`, `LeagueLevelUnitName` | Yes, `leaguedetails` for canonical series metadata | `managercompendium` for owned-team discovery, `leaguedetails` for league hierarchy | Medium | League text is currently used in a few inference paths. |
 | Avatar | Profile / account UI | `managercompendium` | `Avatar` | No | `managercompendium` | Low | Persisted as JSON and displayed directly. |
-| Supporter status | Profile / account UI | `managercompendium` | `UserSupporterTier` | No | `managercompendium` | Low | The schema exposes it, but `api/_lib/chpp-xml.ts` does not currently parse/store it. |
+| Supporter status | Profile / account UI | `managercompendium` | `UserSupporterTier` | No | `managercompendium` | Low | The schema exposes it, but `src/server/api/_lib/chpp-xml.ts` does not currently parse/store it. |
 | Youth info | Not currently used | None | None | Yes, dedicated youth files | Dedicated youth endpoints only | Low | `managercompendium` explicitly says youth should use dedicated youth XML files. No youth manager metadata integration was found. |
 
 ### Team Data

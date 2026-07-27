@@ -1,6 +1,6 @@
 # AGENT_ONBOARDING.md
 
-Last updated: 2026-07-02
+Last updated: 2026-07-27
 
 This is an optional deep-orientation checklist for a new agent joining the project cold. It is not the source of truth for constraints or current status.
 
@@ -29,19 +29,21 @@ For a full mental model, inspect these files in order:
 
 1. `package.json`
    - scripts, framework versions, dependencies
-2. `src/App.tsx`
-   - routing and major screens
-3. `src/styles/global.sass`
+2. `src/app/(public)/[locale]/layout.tsx`
+   - localized public shell, server HTML language, metadata, and shared layout
+3. `src/proxy.ts`
+   - locale redirects and disabled Forge/testing boundaries
+4. `src/global.sass`
    - global tokens, typography, themes, responsive helpers
-4. `src/components/Layout/Layout.tsx`
+5. `src/components/Layout/Layout.tsx`
    - app shell, login controls, active/organizer tournament menu
-5. `src/hooks/useAuth.ts`
+6. `src/hooks/useAuth.ts`
    - custom Hattrick identity model and localStorage/session behavior
-6. `src/legacy-pages/Public/TournamentView.tsx`
+7. `src/legacy-pages/Public/TournamentView.tsx`
    - tournament page, tabs, admin mode, schedule/result/chat flows
-7. `src/legacy-pages/Create/CreateTournament.tsx`
+8. `src/legacy-pages/Create/CreateTournament.tsx`
    - creation flow, organizer linking, initial team/chat insert
-8. `src/legacy-pages/Public/Matchmaker.tsx`
+9. `src/legacy-pages/Public/Matchmaker.tsx`
    - matchmaker browsing and publishing UI
 
 Backend/API scan:
@@ -56,6 +58,9 @@ Backend/API scan:
 - `src/server/api/_lib/chpp-auth.ts`
 - `src/server/api/_lib/chpp-xml.ts`
 - `src/server/api/_lib/chpp-register.ts`
+
+Forge is intentionally deferred. Inspect `src/app/(forge)/` and `src/next/ForgeApp.tsx` only when a task
+explicitly concerns site-admin tooling; do not treat Forge as a blocker for public product work.
 
 Core utilities:
 

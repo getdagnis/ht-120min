@@ -45,6 +45,8 @@ When a task is not completely obvious and trivial, first inspect the issue and e
 ## Hard Constraints
 
 - Vercel Hobby allows 12 serverless functions. The project is currently at `12/12`.
+- The public application is owned by the Next.js App Router under `src/app/(public)/[locale]/`.
+- Forge is isolated under `src/app/(forge)/` and disabled unless `FORGE_ENABLED=true`.
 - The migrated Next.js API surface is one consolidated route handler at `src/app/api/[[...path]]/route.ts`.
 - Do not add a new API route handler without checking the Vercel function budget.
 - Dev/debug tooling belongs in `src/server/api/testing/index.ts` as routed handlers.
@@ -98,13 +100,13 @@ For CHPP tasks, also inspect the relevant endpoint schemas/examples in `docs/` b
 
 ## Tech Stack
 
-- Next.js App Router (with the legacy client feature tree retained during parity migration)
+- Next.js App Router (public routes and localized shell)
 - React 19
 - TypeScript with `no-explicit-any`
-- React Router 7
+- React Router 7 (Forge-only, deferred)
 - Sass modules
 - Supabase
-- Vercel Serverless Functions
+- Vercel route handlers / serverless deployment
 
 Useful commands:
 

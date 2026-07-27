@@ -37,7 +37,7 @@ When implementing match tracking, prioritize `matchdetails.xml`:
 
 ## 4.1 Match Event Detail Rules
 
-- Use `api/_lib/chpp-match-events.ts` from both `api/chpp/live-matches.ts` and manual match linking in `api/teams/refresh-fixtures.ts`.
+- Use `src/server/api/_lib/chpp-match-events.ts` from both `src/server/api/chpp/live-matches.ts` and manual match linking in `src/server/api/teams/refresh-fixtures.ts`.
 - Parse event IDs and XML fields only. `EventText` is localized to the token owner's Hattrick language and is not a stable data source.
 - Persist `matches.match_event_details` alongside the numeric summary fields from migration `046`.
 - Preserve card subtype: `510/511` are yellow cards, `512/513` are second-yellow reds, and `514` is a straight red.
@@ -57,7 +57,7 @@ If code changes do not appear reflected in production:
 
 Before implementing, read:
 
-- AGENTS.md
+  - AGENTS.md
 - PROJECT_STATE.md
 - ROADMAP.md
 - docs/chpp-audit.md

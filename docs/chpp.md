@@ -68,7 +68,7 @@ at the shared parsing/serialization boundary.
 ## Structured Match Event Contract
 
 - Request `matchdetails` with `version=3.1&matchEvents=true`. Both parameters are required for the event-level payload.
-- `api/_lib/chpp-match-events.ts` is the shared server parser. Both live refresh and manual match linking must use it; do not create a third parser for event summaries.
+- `src/server/api/_lib/chpp-match-events.ts` is the shared server parser. Both live refresh and manual match linking must use it; do not create a third parser for event summaries.
 - Store the structured payload in `matches.match_event_details`, mapped to the **scheduled fixture sides**. This keeps cards/injuries correct when CHPP home/away is reversed or an admin links one BYE team to an outside friendly.
 - Existing numeric card/injury columns remain derived compatibility summaries for standings and older snapshots.
 - The parser uses only stable structured IDs and fields, never localized `EventText`:
@@ -88,7 +88,7 @@ at the shared parsing/serialization boundary.
 
 Known parser risks:
 
-- `api/teams/info.ts` still has bespoke parsing.
+- `src/server/api/teams/info.ts` still has bespoke parsing.
 - Some country/league logic still uses display-name fallbacks.
 - `teamdetails` country id coverage has historically lagged behind country name usage.
 

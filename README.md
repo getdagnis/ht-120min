@@ -9,10 +9,9 @@ The product is intentionally narrow: friendly tournaments for small communities,
 - Next.js App Router
 - React 19
 - TypeScript
-- React Router 7
 - Sass modules
 - Supabase
-- Vercel Serverless Functions
+- Vercel route handlers / serverless deployment
 - Hattrick CHPP OAuth/API
 
 ## Setup
@@ -22,18 +21,17 @@ Run locally:
 ```bash
 npm i
 npm run dev       # Next.js development server
-vercel dev        # runs dev server with vercel serverless functions enabled on 3000
 ```
 
 The public application is served under `/en` and `/lv`; unprefixed public URLs redirect to `/en`.
-Forge remains English-only at `/forge`.
+Forge remains English-only and is disabled by default at `/forge`; enable it explicitly with `FORGE_ENABLED=true`.
 
 The browser expects `NEXT_PUBLIC_SUPABASE_URL` and
 `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY`. Server-side CHPP and Supabase credentials remain
 private and are used only by Next route handlers.
 
 Server-only deployment variables also include `SUPABASE_SECRET_KEY`, `APP_SESSION_SECRET`, and
-`FORGE_SUPERADMIN_HT_ID`. Keep these server-only and never expose them in browser copy.
+`FORGE_SUPERADMIN_HT_ID`, and `FORGE_ENABLED`. Keep these server-only and never expose them in browser copy.
 
 ## Commands
 
@@ -44,12 +42,13 @@ npm run start     # serve the production build
 npm test          # Node test runner over tests/*.test.ts
 npm run lint      # ESLint
 npm run preview   # alias for the production server
-vercel --prod     # deploys to vercel
+vercel --prod     # deploys to Vercel, when the CLI is authenticated
 ```
 
 ## Deployment
 
-The app deploys to Vercel and uses Supabase for persistence.
+The app deploys to Vercel and uses Supabase for persistence. Public pages are owned by the
+Next.js App Router; the deferred Forge UI is the only remaining React Router consumer.
 
 Important deployment constraint: current Vercel plan allows 12 serverless functions.
 The migrated application exposes one consolidated Next.js API route at
@@ -67,8 +66,9 @@ The migrated application exposes one consolidated Next.js API route at
 - `docs/chpp.md` - CHPP auth, endpoint usage, parser rules, and known limitations.
 - `docs/database-and-deployment.md` - Supabase model, migrations, RLS assumptions, and Vercel constraints.
 
-Forge is the private site-admin area at `/forge`. It includes the FAQ editor, protected CHPP testing toolkit,
-and usage statistics. Forge login uses the separate signed server session; the normal HT-120min login remains
-independent. Activity statistics require migration `059_activity_ledger.sql` and the server-only Supabase key.
+Forge is the deferred private site-admin area at `/forge`. It includes the FAQ editor, protected CHPP testing
+toolkit, and usage statistics, but is disabled unless `FORGE_ENABLED=true`. Forge login uses the separate signed
+server session; the normal HT-120min login remains independent. Activity statistics require migration
+`059_activity_ledger.sql` and the server-only Supabase key.
 
 Detailed CHPP schemas, XML examples, audits, and screenshots remain in `docs/` as reference material.

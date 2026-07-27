@@ -8,7 +8,7 @@ This document outlines the three primary Hattrick OAuth-based flows in the appli
 | :--- | :--- | :--- | :--- |
 | **Trigger** | "Login" button (Header) | "Join" button (TournamentView) | "Create" button (Home/Header) |
 | **Initial Request** | `/api/auth/init` | `/api/auth/init?tournament_id={id}` | `/api/auth/init?is_creation=true` |
-| **Redirect After OAuth** | `/auth/callback?token=...` | `/t/{slug}?token=...` | `/create?step=teams&token=...` |
+| **Redirect After OAuth** | `/[locale]/auth/callback?token=...` | `/[locale]/t/{slug}?token=...` | `/[locale]/create?step=teams&token=...` |
 | **Finalization API** | `/api/auth/complete` | `/api/auth/complete` | `/api/auth/complete` |
 | **Required User Data** | Manager Name, User ID | Team Selection, Manager Details | Team Selection, Manager Details |
 | **DB Side Effects** | Profile Upsert | Profile Upsert + `teams` entry | Profile Upsert + Data for Tournament Creation |
@@ -50,21 +50,23 @@ This document outlines the three primary Hattrick OAuth-based flows in the appli
 
 *Goal: Just log in to see "My Profile" or switch themes.*
 
-- **Logic**: No `tournament_id` is passed. The user is redirected to a generic `/auth/callback` page which immediately calls `/api/auth/complete`.
+- **Logic**: No `tournament_id` is passed. The user is redirected to the localized App Router
+  page `/[locale]/auth/callback`, which immediately calls `/api/auth/complete`.
 - **UI**: Header updates from "Login" to "Manager Name".
 
 ### B. Join Tournament Flow
 
 *Goal: Register a specific team in an existing tournament.*
 
-- **Logic**: `tournament_id` is carried through the flow. The user is redirected back to the specific tournament page.
+- **Logic**: `tournament_id` is carried through the flow. The user is redirected back to the localized specific
+  tournament page.
 - **UI**: A modal appears on the tournament page asking the user to pick one of their eligible teams. Upon selection, the join is finalized.
 
 ### C. Create Tournament Flow
 
 *Goal: Link a Hattrick manager to a new tournament before its creation.*
 
-- **Logic**: `is_creation=true` is set. The user is redirected to the `/create` flow.
+- **Logic**: `is_creation=true` is set. The user is redirected to the localized `/[locale]/create` flow.
 - **UI**: The creation form's "Step 2" (Team Selection) is automatically populated with the user's data.
 
 ## 4. Troubleshooting Overlaps

@@ -4,13 +4,16 @@ Scope: verify what each CHPP parser actually extracts, compare it with the offic
 
 This is a parser audit, not a source-selection audit.
 
+> Audit note: this is a reference snapshot. The implementation paths below use the current Next.js server tree;
+> parser gaps and recommendations remain findings to verify before implementation.
+
 Primary references:
 
-- `api/_lib/chpp-xml.ts`
+- `src/server/api/_lib/chpp-xml.ts`
 - `src/utils/chpp-xml.ts`
-- `api/teams/info.ts`
-- `api/teams/refresh-fixtures.ts`
-- `api/chpp/live-matches.ts`
+- `src/server/api/teams/info.ts`
+- `src/server/api/teams/refresh-fixtures.ts`
+- `src/server/api/chpp/live-matches.ts`
 - `docs/managercompendium.schema.xml`
 - `docs/teamdetails.schema.xml`
 - `docs/arenadetails.schema.xml`
@@ -29,7 +32,7 @@ The biggest parser-related risks are:
 - `managercompendium` is parsed for team discovery, but supporter tier, language, and several nested team fields are ignored.
 - `arenadetails` is parsed correctly for `ArenaImage`, but image population still depends on the refresh/update path, not just the parser.
 - There is a duplicated client-side XML helper in `src/utils/chpp-xml.ts` with the same omissions as the server helper.
-- One route, `api/teams/info.ts`, still does ad hoc regex parsing instead of using the shared parser.
+- One route, `src/server/api/teams/info.ts`, still does ad hoc regex parsing instead of using the shared parser.
 
 ## Parser Coverage Matrix
 
@@ -101,7 +104,8 @@ Notes:
 
 ### `matchdetails`
 
-`api/_lib/chpp-match-events.ts` is the shared structured event parser. It is used by both `api/chpp/live-matches.ts` and manual linking in `api/teams/refresh-fixtures.ts`.
+`src/server/api/_lib/chpp-match-events.ts` is the shared structured event parser. It is used by both
+`src/server/api/chpp/live-matches.ts` and manual linking in `src/server/api/teams/refresh-fixtures.ts`.
 
 | Area | Parsed Now | Available in Schema | Missed Fields | Impact |
 | --- | --- | --- | --- | --- |
@@ -117,7 +121,7 @@ Notes:
 - The event parser relies on structured XML only; it does not inspect localized event text.
 - Event data is mapped from actual CHPP sides to scheduled fixture sides before it is written to `matches.match_event_details`.
 
-### Ad hoc parsing in `api/teams/info.ts`
+### Ad hoc parsing in `src/server/api/teams/info.ts`
 
 This route does not use the shared parser and instead extracts fields with regex.
 
@@ -156,7 +160,7 @@ Notes:
 
 ### High
 
-1. `api/teams/info.ts` performs bespoke regex parsing.
+1. `src/server/api/teams/info.ts` performs bespoke regex parsing.
    - Complexity: Low
    - Risk: Medium
    - Confidence: High
@@ -191,7 +195,7 @@ Notes:
 Current state:
 
 - `parseArenaDetailsXml()` reads `ArenaImage` and normalizes it into `arenaImageUrl`.
-- `api/matchmaker/teams.ts` and `api/matchmaker/admin-create.ts` both write `arena_image_url` when arena details are fetched.
+- `src/server/api/matchmaker/teams.ts` and `src/server/api/matchmaker/admin-create.ts` both write `arena_image_url` when arena details are fetched.
 
 Most likely failure modes:
 
@@ -210,7 +214,7 @@ Current state:
 
 - The code stores `countryName` from CHPP responses in multiple tables and uses it for equality checks, flags, and scheduling.
 - The shared `teamdetails` parser does not preserve `CountryID`.
-- `api/teams/info.ts` also extracts `countryName` directly.
+- `src/server/api/teams/info.ts` also extracts `countryName` directly.
 
 Why this is risky:
 
@@ -229,7 +233,7 @@ Recommended architecture:
 
 1. Expand `parseTeamDetailsXml()` to keep `CountryID`, `LeagueID`, `LeagueSystemID`, and `ArenaName` where available.
 2. Add `UserSupporterTier` to `parseManagerCompendiumXml()` if the UI wants it.
-3. Replace the ad hoc parsing in `api/teams/info.ts` with the shared parser or a wrapper around it.
+3. Replace the ad hoc parsing in `src/server/api/teams/info.ts` with the shared parser or a wrapper around it.
 4. Add a backfill job or one-time resync for `arena_image_url` on existing teams.
 5. Introduce a canonical country layer and stop using `countryName` as an identifier.
 

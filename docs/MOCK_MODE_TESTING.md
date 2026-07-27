@@ -150,7 +150,7 @@ When in mock mode with a manager selected:
 
 1. Open DevTools → Network tab
 2. Create a page load or click "Refresh Teams"
-3. Look for: `GET /api/matchmaker/teams?managerId=8777402`
+3. Look for: `GET /api/matchmaker/teams?managerId=8777402` (served by the consolidated App Router API adapter)
 4. Response should contain real team array from CHPP
 
 ```json
@@ -172,7 +172,7 @@ When in mock mode with a manager selected:
 
 - **Test Manager List**: `src/mock/mockManagerIds.ts` (edit this to add managers)
 - **Admin Overlay**: `src/components/AdminTestOverlay/AdminTestOverlay.tsx` (shows dropdown)
-- **Matchmaker Page**: `src/pages/Public/Matchmaker.tsx` (refreshMyTeams function)
+- **Matchmaker Page**: `src/legacy-pages/Public/Matchmaker.tsx` (refreshMyTeams function)
 - **Persistence**: `src/mock/persistence.ts` (stores selected manager ID)
 
 ## Expected Behavior

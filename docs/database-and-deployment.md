@@ -89,7 +89,9 @@ The Vercel function limit is kept at 12 by routing related server operations thr
 - `src/server/api/app.ts`: presence, history, activity ingestion, Forge session, and Forge statistics.
 - `src/server/api/testing/index.ts`: the protected CHPP testing toolkit and its historical sub-tools.
 
-Frontend calls should use the dispatcher query routes; Next route handlers now own the API paths directly.
+Frontend calls should use the existing public `/api/...` contracts. The consolidated App Router adapter dispatches
+those paths to `src/server/api/` handlers; `/api/app?route=...` remains the shared dispatcher contract for app-owned
+operations that use it.
 
 ## Validation
 
@@ -109,6 +111,6 @@ Database changes should also include a clear manual or automated verification pa
 - `PROJECT_STATE.md`
 - `AGENTS.md`
 - `migrations/`
-- `api/_lib/supabase.ts`
+- `src/server/api/_lib/supabase.ts`
 - `src/lib/supabase.ts`
 - `docs/schedule-rpc-smoke-test.sql`
