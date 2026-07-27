@@ -5,6 +5,7 @@ import { Layout } from '../../../components/Layout/Layout';
 import { ScrollToTop } from '../../../components/ScrollToTop';
 import { LocaleProvider } from '../../../i18n/LocaleProvider';
 import { locales, isLocale, type Locale } from '../../../i18n/config';
+import '../../../global.sass';
 
 export const dynamic = 'force-dynamic';
 
