@@ -1,0 +1,33 @@
+<?xml version="1.0" encoding="utf-8"?>
+<HattrickData>
+  <FileName>playerevents.xml</FileName>
+  <Version>1.3</Version>
+  <UserID>8777402</UserID>
+  <FetchedDate>2026-06-09 12:45:47</FetchedDate>
+  <UserSupporterTier>none</UserSupporterTier>
+  <Player>
+    <PlayerID>491703305</PlayerID>
+    <PlayerEvents Available="True">
+      <PlayerEvent>
+        <EventDate>2026-03-20 23:22:00</EventDate>
+        <PlayerEventTypeID>42</PlayerEventTypeID>
+        <EventText>Parte della squadra che è diventata campione della &lt;a href="/World/Series/?LeagueLevelUnitID=28447"&gt;V.2&lt;/a&gt; (&lt;a href="/World/Leagues/League.aspx?LeagueID=53"&gt;Lettonia&lt;/a&gt;) per la stagione 78.</EventText>
+      </PlayerEvent>
+      <PlayerEvent>
+        <EventDate>2025-04-29 14:18:00</EventDate>
+        <PlayerEventTypeID>20</PlayerEventTypeID>
+        <EventText>È stato promosso dalle giovanili di &lt;a href="/Club/?TeamID=681813" title="This bot team is a bot"&gt;This bot team is a bot&lt;/a&gt; a 17 anni e 0 giorni in  Jelgava.</EventText>
+      </PlayerEvent>
+      <PlayerEvent>
+        <EventDate>2024-11-23 06:22:00</EventDate>
+        <PlayerEventTypeID>21</PlayerEventTypeID>
+        <EventText>È stato selezionato e assunto da Jānis Puriņš per &lt;a href="/Club/Youth/?YouthTeamID=3095502"&gt;The MiniBots&lt;/a&gt;</EventText>
+      </PlayerEvent>
+      <PlayerEvent>
+        <EventDate>2024-11-16 20:27:00</EventDate>
+        <PlayerEventTypeID>21</PlayerEventTypeID>
+        <EventText>Gli è stato negato un contratto da &lt;a href="/Club/Youth/?YouthTeamID=2989521"&gt;Lil Trooper&lt;/a&gt;.</EventText>
+      </PlayerEvent>
+    </PlayerEvents>
+  </Player>
+</HattrickData>

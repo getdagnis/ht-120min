@@ -1,0 +1,14 @@
+{
+  "redirects": [
+    {
+      "source": "/screens/:path*",
+      "destination": "/s/:path*",
+      "permanent": true
+    },
+    {
+      "source": "/testing",
+      "destination": "/forge/testing",
+      "permanent": true
+    }
+  ]
+}

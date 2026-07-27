@@ -1,0 +1,87 @@
+.switch
+  display: inline-flex
+  align-items: center
+  gap: 0.65rem
+  border: 0
+  padding: 0
+  background: transparent
+  color: var(--text-h)
+  font-family: inherit
+  font-weight: 600
+  cursor: pointer
+
+  &:disabled
+    cursor: not-allowed
+    opacity: 0.55
+
+.track
+  position: relative
+  flex-shrink: 0
+  border: 1px solid var(--border)
+  border-radius: var(--radius-md)
+  background: rgba(255, 255, 255, 0.08)
+  transition: background 160ms ease, border-color 160ms ease
+
+.thumb
+  position: absolute
+  top: 50%
+  left: 0.2rem
+  border-radius: var(--radius-sm)
+  background: var(--text60)
+  transform: translateY(-50%)
+  transition: transform 160ms ease, background 160ms ease
+
+.label
+  line-height: 1.2
+
+.md
+  font-size: 1rem
+
+  .track
+    width: 3.1rem
+    height: 1.7rem
+
+  .thumb
+    width: 1.15rem
+    height: 1.15rem
+
+  &.checked .thumb
+    transform: translate(1.35rem, -50%)
+
+.sm
+  gap: 0.45rem
+  font-size: 0.82rem
+
+  .track
+    width: 2.25rem
+    height: 1.25rem
+
+  .thumb
+    left: 0.16rem
+    width: 0.82rem
+    height: 0.82rem
+
+  &.checked .thumb
+    transform: translate(0.94rem, -50%)
+
+.checked
+  .track
+    border-color: rgba(0, 204, 92, 0.58)
+    background: rgba(0, 204, 92, 0.2)
+
+  .thumb
+    background: var(--accent)
+
+.green.checked
+  .track
+    border-color: rgba(255, 255, 255, 0.75)
+    background: rgba(255, 255, 255, 0.22)
+
+  .thumb
+    background: var(--text-h)
+
+.contrast
+  color: var(--text)
+
+  &.checked
+    color: var(--text-h)

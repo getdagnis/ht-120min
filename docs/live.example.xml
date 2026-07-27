@@ -1,0 +1,836 @@
+<?xml version="1.0" encoding="utf-8"?>
+<HattrickData>
+  <FileName>live.xml</FileName>
+  <Version>2.3</Version>
+  <UserID>8777402</UserID>
+  <FetchedDate>2026-06-01 13:44:17</FetchedDate>
+  <MatchList>
+    <Match>
+      <SourceSystem>HTOIntegrated</SourceSystem>
+      <MatchID>41148198</MatchID>
+      <MatchType>62</MatchType>
+      <MatchDate>2026-06-01 00:49:00</MatchDate>
+      <HomeTeam>
+        <HomeTeamID>681813</HomeTeamID>
+        <HomeTeamName>This bot team is a bot</HomeTeamName>
+        <HomeTeamShortName>Bots</HomeTeamShortName>
+      </HomeTeam>
+      <AwayTeam>
+        <AwayTeamID>1539856</AwayTeamID>
+        <AwayTeamName>F.C. De Knokkers</AwayTeamName>
+        <AwayTeamShortName>Knokkers</AwayTeamShortName>
+      </AwayTeam>
+      <EventList>
+        <Event Index="0">
+          <Minute>0</Minute>
+          <SubjectPlayerID>0</SubjectPlayerID>
+          <SubjectTeamID>0</SubjectTeamID>
+          <ObjectPlayerID>0</ObjectPlayerID>
+          <EventKey>36_2</EventKey>
+          <MatchPart>0</MatchPart>
+          <EventText>A causa della pioggia che sferza lo stadio da stanotte, è toccato vedere un campo simile ad un pantano.</EventText>
+        </Event>
+        <Event Index="1">
+          <Minute>0</Minute>
+          <SubjectPlayerID>0</SubjectPlayerID>
+          <SubjectTeamID>0</SubjectTeamID>
+          <ObjectPlayerID>0</ObjectPlayerID>
+          <EventKey>390_4</EventKey>
+          <MatchPart>0</MatchPart>
+          <EventText>Il campo bagnato ha reso difficile spiccare per i giocatori veloci o tecnici. Per una volta i bruti che fanno a spallate per tutto il campo si sono trovati a proprio agio come un papero nello stagno.</EventText>
+        </Event>
+        <Event Index="2">
+          <Minute>0</Minute>
+          <SubjectPlayerID>0</SubjectPlayerID>
+          <SubjectTeamID>0</SubjectTeamID>
+          <ObjectPlayerID>0</ObjectPlayerID>
+          <EventKey>19_5</EventKey>
+          <MatchPart>0</MatchPart>
+          <EventText></EventText>
+        </Event>
+        <Event Index="3">
+          <Minute>0</Minute>
+          <SubjectPlayerID>0</SubjectPlayerID>
+          <SubjectTeamID>681813</SubjectTeamID>
+          <ObjectPlayerID>0</ObjectPlayerID>
+          <EventKey>21_3</EventKey>
+          <MatchPart>0</MatchPart>
+          <EventText>Ecco i giocatori che costituiranno l'undici titolare: &lt;a href="/Club/Players/Player.aspx?playerId=448917822" title="Bertocco" class="homeplayer"&gt;Bertocco&lt;/a&gt; - &lt;a href="/Club/Players/Player.aspx?playerId=462244828" title="Kaltnieks" class="homeplayer"&gt;Kaltnieks&lt;/a&gt;, &lt;a href="/Club/Players/Player.aspx?playerId=455214478" title="Emrani" class="homeplayer"&gt;Emrani&lt;/a&gt; - &lt;a href="/Club/Players/Player.aspx?playerId=460902226" title="Lenfant" class="homeplayer"&gt;Lenfant&lt;/a&gt;, &lt;a href="/Club/Players/Player.aspx?playerId=493119823" title="Mirdza Ķempis" class="homeplayer"&gt;Mirdza Ķempis&lt;/a&gt;, &lt;a href="/Club/Players/Player.aspx?playerId=490037034" title="Lācis" class="homeplayer"&gt;Lācis&lt;/a&gt;, &lt;a href="/Club/Players/Player.aspx?playerId=491703305" title="Namatēvs" class="homeplayer"&gt;Namatēvs&lt;/a&gt;, &lt;a href="/Club/Players/Player.aspx?playerId=459448930" title="Handl" class="homeplayer"&gt;Handl&lt;/a&gt; - &lt;a href="/Club/Players/Player.aspx?playerId=468353683" title="Lukstiņš" class="homeplayer"&gt;Lukstiņš&lt;/a&gt;, &lt;a href="/Club/Players/Player.aspx?playerId=452648113" title="Pazutka" class="homeplayer"&gt;Pazutka&lt;/a&gt;, &lt;a href="/Club/Players/Player.aspx?playerId=458257692" title="Mair" class="homeplayer"&gt;Mair&lt;/a&gt;.&lt;br /&gt;&lt;br /&gt;</EventText>
+        </Event>
+        <Event Index="4">
+          <Minute>0</Minute>
+          <SubjectPlayerID>0</SubjectPlayerID>
+          <SubjectTeamID>1539856</SubjectTeamID>
+          <ObjectPlayerID>0</ObjectPlayerID>
+          <EventKey>21_2</EventKey>
+          <MatchPart>0</MatchPart>
+          <EventText>Siamo in grado di elencarvi la formazione in campo dal primo minuto: &lt;a href="/Club/Players/Player.aspx?playerId=482283289" title="Sady" class="awayplayer"&gt;Sady&lt;/a&gt; - &lt;a href="/Club/Players/Player.aspx?playerId=478692323" title="Andreiaş" class="awayplayer"&gt;Andreiaş&lt;/a&gt;, &lt;a href="/Club/Players/Player.aspx?playerId=490641867" title="Taber" class="awayplayer"&gt;Taber&lt;/a&gt; - &lt;a href="/Club/Players/Player.aspx?playerId=496531480" title="Garlick" class="awayplayer"&gt;Garlick&lt;/a&gt;, &lt;a href="/Club/Players/Player.aspx?playerId=479108201" title="Nesrsta" class="awayplayer"&gt;Nesrsta&lt;/a&gt;, &lt;a href="/Club/Players/Player.aspx?playerId=488479196" title="Chiariti" class="awayplayer"&gt;Chiariti&lt;/a&gt;, &lt;a href="/Club/Players/Player.aspx?playerId=488589406" title="Mokabber" class="awayplayer"&gt;Mokabber&lt;/a&gt;, &lt;a href="/Club/Players/Player.aspx?playerId=479129564" title="Chaimongkol" class="awayplayer"&gt;Chaimongkol&lt;/a&gt; - &lt;a href="/Club/Players/Player.aspx?playerId=487820201" title="Filep" class="awayplayer"&gt;Filep&lt;/a&gt;, &lt;a href="/Club/Players/Player.aspx?playerId=491073186" title="Carner" class="awayplayer"&gt;Carner&lt;/a&gt;, &lt;a href="/Club/Players/Player.aspx?playerId=483892843" title="Bj&amp;#246;rg&amp;#250;lfsson" class="awayplayer"&gt;Björgúlfsson&lt;/a&gt;.&lt;br /&gt;&lt;br /&gt;</EventText>
+        </Event>
+        <Event Index="5">
+          <Minute>0</Minute>
+          <SubjectPlayerID>1020503</SubjectPlayerID>
+          <SubjectTeamID>0</SubjectTeamID>
+          <ObjectPlayerID>1020503</ObjectPlayerID>
+          <EventKey>23_5</EventKey>
+          <MatchPart>0</MatchPart>
+          <EventText>Entrambe le squadre si schierano con un canonico 2-5-3.</EventText>
+        </Event>
+        <Event Index="6">
+          <Minute>0</Minute>
+          <SubjectPlayerID>0</SubjectPlayerID>
+          <SubjectTeamID>0</SubjectTeamID>
+          <ObjectPlayerID>0</ObjectPlayerID>
+          <EventKey>598_4</EventKey>
+          <MatchPart>0</MatchPart>
+          <EventText></EventText>
+        </Event>
+        <Event Index="7">
+          <Minute>7</Minute>
+          <SubjectPlayerID>0</SubjectPlayerID>
+          <SubjectTeamID>681813</SubjectTeamID>
+          <ObjectPlayerID>0</ObjectPlayerID>
+          <EventKey>495_3</EventKey>
+          <MatchPart>1</MatchPart>
+          <EventText></EventText>
+        </Event>
+        <Event Index="8">
+          <Minute>17</Minute>
+          <SubjectPlayerID>452648113</SubjectPlayerID>
+          <SubjectTeamID>681813</SubjectTeamID>
+          <ObjectPlayerID>482283289</ObjectPlayerID>
+          <EventKey>122_5</EventKey>
+          <MatchPart>1</MatchPart>
+          <EventText>1 a 0! La rete del vantaggio per i padroni di casa è arrivata al 17°: il traversone dalla sinistra di &lt;a href="/Club/Players/Player.aspx?playerId=452648113" title="Kuz’ma Pazutka" class="homeplayer"&gt;Kuz’ma Pazutka&lt;/a&gt; ha assunto una parabola stranissima che ha scavalcato il portiere infilandosi sul palo più lontano. Il labiale del marcatore era eloquente: "Volevo crossare!".</EventText>
+        </Event>
+        <Event Index="9">
+          <Minute>19</Minute>
+          <SubjectPlayerID>58</SubjectPlayerID>
+          <SubjectTeamID>681813</SubjectTeamID>
+          <ObjectPlayerID>0</ObjectPlayerID>
+          <EventKey>471_5</EventKey>
+          <MatchPart>1</MatchPart>
+          <EventText></EventText>
+        </Event>
+        <Event Index="10">
+          <Minute>22</Minute>
+          <SubjectPlayerID>458257692</SubjectPlayerID>
+          <SubjectTeamID>681813</SubjectTeamID>
+          <ObjectPlayerID>478692323</ObjectPlayerID>
+          <EventKey>215_2</EventKey>
+          <MatchPart>1</MatchPart>
+          <EventText>&lt;a href="/Club/Players/Player.aspx?playerId=458257692" title="Kari Mair" class="homeplayer"&gt;Kari Mair&lt;/a&gt; sembra proprio una saetta. Al 22° minuto è fuggito sulla fascia alla velocità della luce, il suo tiro forte era centrale però ed è stato bloccato dal portiere.</EventText>
+        </Event>
+        <Event Index="11">
+          <Minute>23</Minute>
+          <SubjectPlayerID>478692323</SubjectPlayerID>
+          <SubjectTeamID>1539856</SubjectTeamID>
+          <ObjectPlayerID>448917822</ObjectPlayerID>
+          <EventKey>261_3</EventKey>
+          <MatchPart>1</MatchPart>
+          <EventText>&lt;a href="/Club/Players/Player.aspx?playerId=478692323" title="Valentin Andreiaş" class="awayplayer"&gt;Valentin Andreiaş&lt;/a&gt; ha quasi segnato il gol del pareggio per  &lt;span class="awayteam"&gt;Knokkers&lt;/span&gt; al minuto 23, ma  &lt;a href="/Club/Players/Player.aspx?playerId=448917822" title="Luigi Bertocco" class="homeplayer"&gt;Luigi Bertocco&lt;/a&gt; riesce a toccare il pallone quel tanto che basta per fargli solo sfiorare il palo.</EventText>
+        </Event>
+        <Event Index="12">
+          <Minute>24</Minute>
+          <SubjectPlayerID>468353683</SubjectPlayerID>
+          <SubjectTeamID>681813</SubjectTeamID>
+          <ObjectPlayerID>482283289</ObjectPlayerID>
+          <EventKey>231_5</EventKey>
+          <MatchPart>1</MatchPart>
+          <EventText>È stata la traversa a dire no a &lt;a href="/Club/Players/Player.aspx?playerId=468353683" title="Guntis Lukstiņš" class="homeplayer"&gt;Guntis Lukstiņš&lt;/a&gt; che aveva concluso con una cannonata dopo il buon fraseggio dei compagni nella zona centrale del campo.</EventText>
+        </Event>
+        <Event Index="13">
+          <Minute>25</Minute>
+          <SubjectPlayerID>458257692</SubjectPlayerID>
+          <SubjectTeamID>681813</SubjectTeamID>
+          <ObjectPlayerID>478692323</ObjectPlayerID>
+          <EventKey>115_5</EventKey>
+          <MatchPart>1</MatchPart>
+          <EventText>&lt;a href="/Club/Players/Player.aspx?playerId=478692323" title="Valentin Andreiaş" class="awayplayer"&gt;Valentin Andreiaş&lt;/a&gt; dovrebbe spiegarsi con Zenone! Perché, partito con un ottimo margine di vantaggio su di un rilancio senza troppe pretese, si fa superare in velocità dal rapidissimo &lt;a href="/Club/Players/Player.aspx?playerId=458257692" title="Kari Mair" class="homeplayer"&gt;Kari Mair&lt;/a&gt; e gli permette di mettere a segno il gol che significa il 2 a 0!</EventText>
+        </Event>
+        <Event Index="15">
+          <Minute>33</Minute>
+          <SubjectPlayerID>452648113</SubjectPlayerID>
+          <SubjectTeamID>681813</SubjectTeamID>
+          <ObjectPlayerID>482283289</ObjectPlayerID>
+          <EventKey>231_3</EventKey>
+          <MatchPart>1</MatchPart>
+          <EventText>Bella azione di &lt;span class="hometeam"&gt;Bots&lt;/span&gt; al 33° minuto: &lt;a href="/Club/Players/Player.aspx?playerId=452648113" title="Kuz’ma Pazutka" class="homeplayer"&gt;Kuz’ma Pazutka&lt;/a&gt; si è fatto trovare libero al centro e ha cercato una conclusione di prima intenzione, che però è andata ad impattare contro il palo ed è finita fuori.</EventText>
+        </Event>
+        <Event Index="16">
+          <Minute>39</Minute>
+          <SubjectPlayerID>458257692</SubjectPlayerID>
+          <SubjectTeamID>681813</SubjectTeamID>
+          <ObjectPlayerID>482283289</ObjectPlayerID>
+          <EventKey>233_3</EventKey>
+          <MatchPart>1</MatchPart>
+          <EventText>39° minuto: &lt;span class="hometeam"&gt;Bots&lt;/span&gt; è andata vicina a chiudere la partita con &lt;a href="/Club/Players/Player.aspx?playerId=458257692" title="Kari Mair" class="homeplayer"&gt;Kari Mair&lt;/a&gt;, che però ha sprecato la più facile delle occasioni.</EventText>
+        </Event>
+        <Event Index="17">
+          <Minute>41</Minute>
+          <SubjectPlayerID>468353683</SubjectPlayerID>
+          <SubjectTeamID>681813</SubjectTeamID>
+          <ObjectPlayerID>460902226</ObjectPlayerID>
+          <EventKey>216_2</EventKey>
+          <MatchPart>1</MatchPart>
+          <EventText>Eravamo al 41°, &lt;a href="/Club/Players/Player.aspx?playerId=460902226" title="Jean-Michel Lenfant" class="homeplayer"&gt;Jean-Michel Lenfant&lt;/a&gt; è fuggito a tutta birra sfruttando un fallo laterale battuto con grande rapidità. La difesa avversaria è rimasta sbilanciata in avanti. &lt;a href="/Club/Players/Player.aspx?playerId=468353683" title="Guntis Lukstiņš" class="homeplayer"&gt;Guntis Lukstiņš&lt;/a&gt; si è proposto sulla linea del fuorigioco per sfruttare la superiorità numerica, ha ricevuto e ha battuto di prima intenzione dal limite dell'area... Che tiraccio, un esterno destro da dimenticare che si perde vicino alla bandierina del corner.</EventText>
+        </Event>
+        <Event Index="18">
+          <Minute>42</Minute>
+          <SubjectPlayerID>479108201</SubjectPlayerID>
+          <SubjectTeamID>1539856</SubjectTeamID>
+          <ObjectPlayerID>448917822</ObjectPlayerID>
+          <EventKey>253_4</EventKey>
+          <MatchPart>1</MatchPart>
+          <EventText>Al 42°, &lt;span class="awayteam"&gt;Knokkers&lt;/span&gt; si è portata avanti sulla fascia destra, ma il controllo di palla da parte di &lt;a href="/Club/Players/Player.aspx?playerId=479108201" title="Mojm&amp;#237;r Nesrsta" class="awayplayer"&gt;Mojmír Nesrsta&lt;/a&gt; è stato imperfetto e il passaggio si è spento sul fondo.</EventText>
+        </Event>
+        <Event Index="19">
+          <Minute>43</Minute>
+          <SubjectPlayerID>488589406</SubjectPlayerID>
+          <SubjectTeamID>1539856</SubjectTeamID>
+          <ObjectPlayerID>0</ObjectPlayerID>
+          <EventKey>510_4</EventKey>
+          <MatchPart>1</MatchPart>
+          <EventText>E qui ci stava il rosso! &lt;a href="/Club/Players/Player.aspx?playerId=488589406" title="Dariush Mokabber" class="awayplayer"&gt;Dariush Mokabber&lt;/a&gt; è stato graziato dall'arbitro, dopo un'entrataccia a piedi uniti sulle caviglie di un avversario. Solo giallo per lui al minuto 43.</EventText>
+        </Event>
+        <Event Index="20">
+          <Minute>44</Minute>
+          <SubjectPlayerID>468353683</SubjectPlayerID>
+          <SubjectTeamID>681813</SubjectTeamID>
+          <ObjectPlayerID>482283289</ObjectPlayerID>
+          <EventKey>131_2</EventKey>
+          <MatchPart>1</MatchPart>
+          <EventText>Al 44° dell'incontro la difesa ospite dovrebbe avere maggior cura di &lt;a href="/Club/Players/Player.aspx?playerId=468353683" title="Guntis Lukstiņš" class="homeplayer"&gt;Guntis Lukstiņš&lt;/a&gt; che si smarca presentandosi al cospetto del portiere insaccando facilmente un altro gol per &lt;span class="hometeam"&gt;Bots&lt;/span&gt;: 3 a 0.</EventText>
+        </Event>
+        <Event Index="21">
+          <Minute>45</Minute>
+          <SubjectPlayerID>0</SubjectPlayerID>
+          <SubjectTeamID>0</SubjectTeamID>
+          <ObjectPlayerID>0</ObjectPlayerID>
+          <EventKey>45_3</EventKey>
+          <MatchPart>1</MatchPart>
+          <EventText>Parziale di 3 a 0 al duplice fischio arbitrale.</EventText>
+        </Event>
+        <Event Index="22">
+          <Minute>45</Minute>
+          <SubjectPlayerID>0</SubjectPlayerID>
+          <SubjectTeamID>681813</SubjectTeamID>
+          <ObjectPlayerID>58</ObjectPlayerID>
+          <EventKey>40_1</EventKey>
+          <MatchPart>1</MatchPart>
+          <EventText>Ecco i dati relativi al possesso palla: &lt;span class="hometeam"&gt;Bots&lt;/span&gt; avanti con un 58%.&lt;br /&gt;&lt;br /&gt;</EventText>
+        </Event>
+        <Event Index="23">
+          <Minute>46</Minute>
+          <SubjectPlayerID>0</SubjectPlayerID>
+          <SubjectTeamID>0</SubjectTeamID>
+          <ObjectPlayerID>0</ObjectPlayerID>
+          <EventKey>597_3</EventKey>
+          <MatchPart>2</MatchPart>
+          <EventText></EventText>
+        </Event>
+        <Event Index="24">
+          <Minute>46</Minute>
+          <SubjectPlayerID>458220587</SubjectPlayerID>
+          <SubjectTeamID>681813</SubjectTeamID>
+          <ObjectPlayerID>45</ObjectPlayerID>
+          <EventKey>459_3</EventKey>
+          <MatchPart>2</MatchPart>
+          <EventText></EventText>
+        </Event>
+        <Event Index="25">
+          <Minute>50</Minute>
+          <SubjectPlayerID>446957683</SubjectPlayerID>
+          <SubjectTeamID>681813</SubjectTeamID>
+          <ObjectPlayerID>50</ObjectPlayerID>
+          <EventKey>459_5</EventKey>
+          <MatchPart>2</MatchPart>
+          <EventText></EventText>
+        </Event>
+        <Event Index="26">
+          <Minute>53</Minute>
+          <SubjectPlayerID>455214478</SubjectPlayerID>
+          <SubjectTeamID>681813</SubjectTeamID>
+          <ObjectPlayerID>482283289</ObjectPlayerID>
+          <EventKey>130_2</EventKey>
+          <MatchPart>2</MatchPart>
+          <EventText>Calcio di punizione per &lt;span class="hometeam"&gt;Bots&lt;/span&gt; e pubblico di casa con il fiato sospeso. Il punto di battuta è quello ideale per lo specialista &lt;a href="/Club/Players/Player.aspx?playerId=455214478" title="Fakhreddin Emrani" class="homeplayer"&gt;Fakhreddin Emrani&lt;/a&gt;. Foltissima la barriera ospite, il direttore di gara la fa arretrare qualche passo. Mani sui fianchi e volto concentratissimo per &lt;a href="/Club/Players/Player.aspx?playerId=455214478" title="Fakhreddin Emrani" class="homeplayer"&gt;Fakhreddin Emrani&lt;/a&gt;. Ecco il fischio, parte il tiro...ed è gol! Esecuzione magistrale che non ha lasciato scampo al portiere avversario. Quando scocca il 53°, siamo sul 4 a 0.</EventText>
+        </Event>
+        <Event Index="27">
+          <Minute>55</Minute>
+          <SubjectPlayerID>452648113</SubjectPlayerID>
+          <SubjectTeamID>681813</SubjectTeamID>
+          <ObjectPlayerID>458220587</ObjectPlayerID>
+          <EventKey>351_4</EventKey>
+          <MatchPart>2</MatchPart>
+          <EventText>&lt;a href="/Club/Players/Player.aspx?playerId=452648113" title="Kuz’ma Pazutka" class="homeplayer"&gt;Kuz’ma Pazutka&lt;/a&gt; è stato sostituito al minuto 55, ma si poteva consolare col fatto che la sua squadra era in vantaggio. &lt;a href="/Club/Players/Player.aspx?playerId=458220587" title="Pedro Idoate" class="homeplayer"&gt;Pedro Idoate&lt;/a&gt; è stato il rimpiazzo.</EventText>
+        </Event>
+        <Event Index="28">
+          <Minute>55</Minute>
+          <SubjectPlayerID>455214478</SubjectPlayerID>
+          <SubjectTeamID>681813</SubjectTeamID>
+          <ObjectPlayerID>0</ObjectPlayerID>
+          <EventKey>361_4</EventKey>
+          <MatchPart>2</MatchPart>
+          <EventText>Dopo una breve interruzione di gioco al 55° minuto, &lt;span class="hometeam"&gt;Bots&lt;/span&gt; sembrava aver cambiato il suo approccio tattico alla gara.</EventText>
+        </Event>
+        <Event Index="29">
+          <Minute>60</Minute>
+          <SubjectPlayerID>460902226</SubjectPlayerID>
+          <SubjectTeamID>681813</SubjectTeamID>
+          <ObjectPlayerID>446957683</ObjectPlayerID>
+          <EventKey>352_3</EventKey>
+          <MatchPart>2</MatchPart>
+          <EventText>60 minuti di gioco, &lt;span class="hometeam"&gt;Bots&lt;/span&gt; vuole energie fresche in campo. &lt;a href="/Club/Players/Player.aspx?playerId=460902226" title="Jean-Michel Lenfant" class="homeplayer"&gt;Jean-Michel Lenfant&lt;/a&gt; ha dato un veloce abbraccio a &lt;a href="/Club/Players/Player.aspx?playerId=446957683" title="Omar Cocchia" class="homeplayer"&gt;Omar Cocchia&lt;/a&gt; mentre ha lasciato il campo.</EventText>
+        </Event>
+        <Event Index="30">
+          <Minute>63</Minute>
+          <SubjectPlayerID>458257692</SubjectPlayerID>
+          <SubjectTeamID>681813</SubjectTeamID>
+          <ObjectPlayerID>482283289</ObjectPlayerID>
+          <EventKey>232_3</EventKey>
+          <MatchPart>2</MatchPart>
+          <EventText>Al 63° è &lt;a href="/Club/Players/Player.aspx?playerId=458257692" title="Kari Mair" class="homeplayer"&gt;Kari Mair&lt;/a&gt; che ha provato a chiudere il conto per &lt;span class="hometeam"&gt;Bots&lt;/span&gt;, ma il suo tiro dalla sinistra non è stato preciso e ha scavalcato la porta.</EventText>
+        </Event>
+        <Event Index="31">
+          <Minute>64</Minute>
+          <SubjectPlayerID>479129564</SubjectPlayerID>
+          <SubjectTeamID>1539856</SubjectTeamID>
+          <ObjectPlayerID>448917822</ObjectPlayerID>
+          <EventKey>152_1</EventKey>
+          <MatchPart>2</MatchPart>
+          <EventText>I giocatori di &lt;span class="awayteam"&gt;Knokkers&lt;/span&gt; non hanno nessuna intenzione di arrendersi e al minuto 64 riducono le distanze. Dopo una serie di passaggi orizzontali, una verticalizzazione trova libero sul lato sinistro dell'area di rigore &lt;a href="/Club/Players/Player.aspx?playerId=479129564" title="Thawee Chaimongkol" class="awayplayer"&gt;Thawee Chaimongkol&lt;/a&gt;, che evita in dribbling il disperato tentativo di recupero dell'ultimo difensore e vanifica il tuffo di &lt;a href="/Club/Players/Player.aspx?playerId=448917822" title="Luigi Bertocco" class="homeplayer"&gt;Luigi Bertocco&lt;/a&gt; con un tiro a girare sul secondo palo. Gol numero 1 per gli ospiti e punteggio sul 4 - 1!</EventText>
+        </Event>
+        <Event Index="32">
+          <Minute>67</Minute>
+          <SubjectPlayerID>493119823</SubjectPlayerID>
+          <SubjectTeamID>681813</SubjectTeamID>
+          <ObjectPlayerID>482283289</ObjectPlayerID>
+          <EventKey>233_1</EventKey>
+          <MatchPart>2</MatchPart>
+          <EventText>I padroni di casa sfiorano un altro gol al 67°: &lt;a href="/Club/Players/Player.aspx?playerId=493119823" title="Miks Mirdza Ķempis" class="homeplayer"&gt;Miks Mirdza Ķempis&lt;/a&gt;, liberatosi sulla destra, lascia partire un tiro indirizzato al palo opposto, ma &lt;a href="/Club/Players/Player.aspx?playerId=482283289" title="Ireneusz Sady" class="awayplayer"&gt;Ireneusz Sady&lt;/a&gt; rimedia deviando il pallone con la punta delle dita.</EventText>
+        </Event>
+        <Event Index="33">
+          <Minute>75</Minute>
+          <SubjectPlayerID>0</SubjectPlayerID>
+          <SubjectTeamID>681813</SubjectTeamID>
+          <ObjectPlayerID>0</ObjectPlayerID>
+          <EventKey>495_1</EventKey>
+          <MatchPart>2</MatchPart>
+          <EventText></EventText>
+        </Event>
+        <Event Index="34">
+          <Minute>78</Minute>
+          <SubjectPlayerID>458257692</SubjectPlayerID>
+          <SubjectTeamID>681813</SubjectTeamID>
+          <ObjectPlayerID>482283289</ObjectPlayerID>
+          <EventKey>131_5</EventKey>
+          <MatchPart>2</MatchPart>
+          <EventText>&lt;span class="hometeam"&gt;Bots&lt;/span&gt; rischia di dilagare: &lt;a href="/Club/Players/Player.aspx?playerId=458257692" title="Kari Mair" class="homeplayer"&gt;Kari Mair&lt;/a&gt; chiama palla in mezzo all'area e, ricevuto il pallone, colpisce di ginocchio. Palla sporca, ma val bene un altro goal: 5 - 1.</EventText>
+        </Event>
+        <Event Index="35">
+          <Minute>89</Minute>
+          <SubjectPlayerID>0</SubjectPlayerID>
+          <SubjectTeamID>0</SubjectTeamID>
+          <ObjectPlayerID>0</ObjectPlayerID>
+          <EventKey>75_3</EventKey>
+          <MatchPart>2</MatchPart>
+          <EventText>I giocatori sono abbastanza stanchi, ma quando l'arbitro comunica un recupero di 2 minuti, tenteranno ancora di sfruttare questo tempo per cambiare le sorti dell'incontro.</EventText>
+        </Event>
+        <Event Index="36">
+          <Minute>92</Minute>
+          <SubjectPlayerID>0</SubjectPlayerID>
+          <SubjectTeamID>0</SubjectTeamID>
+          <ObjectPlayerID>0</ObjectPlayerID>
+          <EventKey>599_3</EventKey>
+          <MatchPart>2</MatchPart>
+          <EventText>La partita è finita 5 - 1. Al rientro negli spogliatoi la squadra ospite viene accolta dagli applausi dei giocatori di casa disposti in due file. Anche il pubblico si alza in piedi per applaudire.</EventText>
+        </Event>
+        <Event Index="37">
+          <Minute>92</Minute>
+          <SubjectPlayerID>0</SubjectPlayerID>
+          <SubjectTeamID>681813</SubjectTeamID>
+          <ObjectPlayerID>0</ObjectPlayerID>
+          <EventKey>601_2</EventKey>
+          <MatchPart>2</MatchPart>
+          <EventText></EventText>
+        </Event>
+        <Event Index="38">
+          <Minute>92</Minute>
+          <SubjectPlayerID>0</SubjectPlayerID>
+          <SubjectTeamID>681813</SubjectTeamID>
+          <ObjectPlayerID>57</ObjectPlayerID>
+          <EventKey>40_4</EventKey>
+          <MatchPart>2</MatchPart>
+          <EventText>Un dato importante è che il centrocampo di &lt;span class="hometeam"&gt;Bots&lt;/span&gt; ha lavorato meglio di quello avversario: 57% di possesso palla.&lt;br /&gt;&lt;br /&gt;</EventText>
+        </Event>
+        <Event Index="39">
+          <Minute>92</Minute>
+          <SubjectPlayerID>458257692</SubjectPlayerID>
+          <SubjectTeamID>681813</SubjectTeamID>
+          <ObjectPlayerID>0</ObjectPlayerID>
+          <EventKey>41_3</EventKey>
+          <MatchPart>2</MatchPart>
+          <EventText>E non abbiamo dubbi a eleggere il migliore in campo fra i giocatori di &lt;span class="hometeam"&gt;Bots&lt;/span&gt;: splendida partita per &lt;a href="/Club/Players/Player.aspx?playerId=458257692" title="Kari Mair" class="homeplayer"&gt;Kari Mair&lt;/a&gt;.</EventText>
+        </Event>
+        <Event Index="40">
+          <Minute>92</Minute>
+          <SubjectPlayerID>479129564</SubjectPlayerID>
+          <SubjectTeamID>1539856</SubjectTeamID>
+          <ObjectPlayerID>0</ObjectPlayerID>
+          <EventKey>41_1</EventKey>
+          <MatchPart>2</MatchPart>
+          <EventText>Per &lt;span class="awayteam"&gt;Knokkers&lt;/span&gt; si è messo in luce soprattutto &lt;a href="/Club/Players/Player.aspx?playerId=479129564" title="Thawee Chaimongkol" class="awayplayer"&gt;Thawee Chaimongkol&lt;/a&gt;: una prestazione molto convincente la sua.</EventText>
+        </Event>
+        <Event Index="41">
+          <Minute>92</Minute>
+          <SubjectPlayerID>26</SubjectPlayerID>
+          <SubjectTeamID>681813</SubjectTeamID>
+          <ObjectPlayerID>29</ObjectPlayerID>
+          <EventKey>550_4</EventKey>
+          <MatchPart>2</MatchPart>
+          <EventText></EventText>
+        </Event>
+        <Event Index="42">
+          <Minute>92</Minute>
+          <SubjectPlayerID>19</SubjectPlayerID>
+          <SubjectTeamID>1539856</SubjectTeamID>
+          <ObjectPlayerID>17</ObjectPlayerID>
+          <EventKey>550_1</EventKey>
+          <MatchPart>2</MatchPart>
+          <EventText></EventText>
+        </Event>
+      </EventList>
+      <HomeGoals>5</HomeGoals>
+      <AwayGoals>1</AwayGoals>
+      <LastShownEventIndex>42</LastShownEventIndex>
+    </Match>
+    <Match>
+      <SourceSystem>HTOIntegrated</SourceSystem>
+      <MatchID>41148212</MatchID>
+      <MatchType>62</MatchType>
+      <MatchDate>2026-06-01 00:59:00</MatchDate>
+      <HomeTeam>
+        <HomeTeamID>681813</HomeTeamID>
+        <HomeTeamName>This bot team is a bot</HomeTeamName>
+        <HomeTeamShortName>Bots</HomeTeamShortName>
+      </HomeTeam>
+      <AwayTeam>
+        <AwayTeamID>230818</AwayTeamID>
+        <AwayTeamName>Brunswick</AwayTeamName>
+        <AwayTeamShortName>Brunswick</AwayTeamShortName>
+      </AwayTeam>
+      <EventList>
+        <Event Index="0">
+          <Minute>0</Minute>
+          <SubjectPlayerID>0</SubjectPlayerID>
+          <SubjectTeamID>0</SubjectTeamID>
+          <ObjectPlayerID>0</ObjectPlayerID>
+          <EventKey>37_5</EventKey>
+          <MatchPart>0</MatchPart>
+          <EventText>Fortunatamente la pioggia non si è mostrata prima della fine del match, ma che rischio!</EventText>
+        </Event>
+        <Event Index="1">
+          <Minute>0</Minute>
+          <SubjectPlayerID>0</SubjectPlayerID>
+          <SubjectTeamID>0</SubjectTeamID>
+          <ObjectPlayerID>0</ObjectPlayerID>
+          <EventKey>19_2</EventKey>
+          <MatchPart>0</MatchPart>
+          <EventText></EventText>
+        </Event>
+        <Event Index="2">
+          <Minute>0</Minute>
+          <SubjectPlayerID>0</SubjectPlayerID>
+          <SubjectTeamID>681813</SubjectTeamID>
+          <ObjectPlayerID>0</ObjectPlayerID>
+          <EventKey>21_1</EventKey>
+          <MatchPart>0</MatchPart>
+          <EventText>Udiamo in questo momento lo speaker pronunciare la formazione: &lt;a href="/Club/Players/Player.aspx?playerId=448917822" title="Bertocco" class="homeplayer"&gt;Bertocco&lt;/a&gt; - &lt;a href="/Club/Players/Player.aspx?playerId=462244828" title="Kaltnieks" class="homeplayer"&gt;Kaltnieks&lt;/a&gt;, &lt;a href="/Club/Players/Player.aspx?playerId=455214478" title="Emrani" class="homeplayer"&gt;Emrani&lt;/a&gt; - &lt;a href="/Club/Players/Player.aspx?playerId=460902226" title="Lenfant" class="homeplayer"&gt;Lenfant&lt;/a&gt;, &lt;a href="/Club/Players/Player.aspx?playerId=493119823" title="Mirdza Ķempis" class="homeplayer"&gt;Mirdza Ķempis&lt;/a&gt;, &lt;a href="/Club/Players/Player.aspx?playerId=490037034" title="Lācis" class="homeplayer"&gt;Lācis&lt;/a&gt;, &lt;a href="/Club/Players/Player.aspx?playerId=491703305" title="Namatēvs" class="homeplayer"&gt;Namatēvs&lt;/a&gt;, &lt;a href="/Club/Players/Player.aspx?playerId=459448930" title="Handl" class="homeplayer"&gt;Handl&lt;/a&gt; - &lt;a href="/Club/Players/Player.aspx?playerId=468353683" title="Lukstiņš" class="homeplayer"&gt;Lukstiņš&lt;/a&gt;, &lt;a href="/Club/Players/Player.aspx?playerId=452648113" title="Pazutka" class="homeplayer"&gt;Pazutka&lt;/a&gt;, &lt;a href="/Club/Players/Player.aspx?playerId=458257692" title="Mair" class="homeplayer"&gt;Mair&lt;/a&gt;.&lt;br /&gt;&lt;br /&gt;</EventText>
+        </Event>
+        <Event Index="3">
+          <Minute>0</Minute>
+          <SubjectPlayerID>0</SubjectPlayerID>
+          <SubjectTeamID>230818</SubjectTeamID>
+          <ObjectPlayerID>0</ObjectPlayerID>
+          <EventKey>21_3</EventKey>
+          <MatchPart>0</MatchPart>
+          <EventText>Ecco i giocatori che costituiranno l'undici titolare: &lt;a href="/Club/Players/Player.aspx?playerId=488827059" title="Lafforgue" class="awayplayer"&gt;Lafforgue&lt;/a&gt; - &lt;a href="/Club/Players/Player.aspx?playerId=488321973" title="Moura" class="awayplayer"&gt;Moura&lt;/a&gt;, &lt;a href="/Club/Players/Player.aspx?playerId=488711312" title="Cygański" class="awayplayer"&gt;Cygański&lt;/a&gt;, &lt;a href="/Club/Players/Player.aspx?playerId=488740449" title="Fărăuanu" class="awayplayer"&gt;Fărăuanu&lt;/a&gt; - &lt;a href="/Club/Players/Player.aspx?playerId=497161924" title="Kashitsyn" class="awayplayer"&gt;Kashitsyn&lt;/a&gt;, &lt;a href="/Club/Players/Player.aspx?playerId=493473503" title="Sakol&amp;#39;chyk" class="awayplayer"&gt;Sakol'chyk&lt;/a&gt;, &lt;a href="/Club/Players/Player.aspx?playerId=490120217" title="Andersons" class="awayplayer"&gt;Andersons&lt;/a&gt;, &lt;a href="/Club/Players/Player.aspx?playerId=485582244" title="Šeplers" class="awayplayer"&gt;Šeplers&lt;/a&gt;, &lt;a href="/Club/Players/Player.aspx?playerId=489808334" title="Bandikov" class="awayplayer"&gt;Bandikov&lt;/a&gt; - &lt;a href="/Club/Players/Player.aspx?playerId=490022999" title="Vējš" class="awayplayer"&gt;Vējš&lt;/a&gt;, &lt;a href="/Club/Players/Player.aspx?playerId=490376916" title="Roraima" class="awayplayer"&gt;Roraima&lt;/a&gt;.&lt;br /&gt;&lt;br /&gt;</EventText>
+        </Event>
+        <Event Index="4">
+          <Minute>0</Minute>
+          <SubjectPlayerID>1020503</SubjectPlayerID>
+          <SubjectTeamID>0</SubjectTeamID>
+          <ObjectPlayerID>1030502</ObjectPlayerID>
+          <EventKey>24_1</EventKey>
+          <MatchPart>0</MatchPart>
+          <EventText>&lt;span class="hometeam"&gt;This bot team is a bot&lt;/span&gt; si dispone con un 2-5-3, mentre &lt;span class="awayteam"&gt;Brunswick&lt;/span&gt; schiera un 3-5-2. </EventText>
+        </Event>
+        <Event Index="5">
+          <Minute>0</Minute>
+          <SubjectPlayerID>0</SubjectPlayerID>
+          <SubjectTeamID>0</SubjectTeamID>
+          <ObjectPlayerID>0</ObjectPlayerID>
+          <EventKey>598_5</EventKey>
+          <MatchPart>0</MatchPart>
+          <EventText></EventText>
+        </Event>
+        <Event Index="6">
+          <Minute>0</Minute>
+          <SubjectPlayerID>162</SubjectPlayerID>
+          <SubjectTeamID>230818</SubjectTeamID>
+          <ObjectPlayerID>0</ObjectPlayerID>
+          <EventKey>335_4</EventKey>
+          <MatchPart>1</MatchPart>
+          <EventText>Gol su calcio d'angolo? Imprevedibili passaggi smarcanti? Velocissimi scatti verso la porta? Attenzione, perchè tutto questo oggi ha maggiori possibilità di accadere, considerata la libertà di inventare che il coach di &lt;span class="awayteam"&gt;Brunswick&lt;/span&gt; ha concesso ai suoi. Può essere davvero un giorno speciale.</EventText>
+        </Event>
+        <Event Index="7">
+          <Minute>17</Minute>
+          <SubjectPlayerID>0</SubjectPlayerID>
+          <SubjectTeamID>681813</SubjectTeamID>
+          <ObjectPlayerID>0</ObjectPlayerID>
+          <EventKey>495_5</EventKey>
+          <MatchPart>1</MatchPart>
+          <EventText></EventText>
+        </Event>
+        <Event Index="8">
+          <Minute>29</Minute>
+          <SubjectPlayerID>455214478</SubjectPlayerID>
+          <SubjectTeamID>681813</SubjectTeamID>
+          <ObjectPlayerID>488827059</ObjectPlayerID>
+          <EventKey>124_2</EventKey>
+          <MatchPart>1</MatchPart>
+          <EventText>Occasione d'oro per &lt;span class="hometeam"&gt;Bots&lt;/span&gt;, che ha usufruito di un calcio di rigore per portarsi in vantaggio. Dopo un breve conciliabolo sulla panchina dei padroni di casa il prescelto per battere il tiro dagli 11 metri è stato &lt;a href="/Club/Players/Player.aspx?playerId=455214478" title="Fakhreddin Emrani" class="homeplayer"&gt;Fakhreddin Emrani&lt;/a&gt;. Rincorsa brevissima per lui. Il portiere ha intuito ma la palla è entrata in rete! 1 a 0, siamo al 29° minuto.</EventText>
+        </Event>
+        <Event Index="9">
+          <Minute>31</Minute>
+          <SubjectPlayerID>59</SubjectPlayerID>
+          <SubjectTeamID>681813</SubjectTeamID>
+          <ObjectPlayerID>0</ObjectPlayerID>
+          <EventKey>471_3</EventKey>
+          <MatchPart>1</MatchPart>
+          <EventText></EventText>
+        </Event>
+        <Event Index="10">
+          <Minute>34</Minute>
+          <SubjectPlayerID>459448930</SubjectPlayerID>
+          <SubjectTeamID>681813</SubjectTeamID>
+          <ObjectPlayerID>488827059</ObjectPlayerID>
+          <EventKey>285_4</EventKey>
+          <MatchPart>1</MatchPart>
+          <EventText>Contro una squadra di livello inferiore la combinazione sul calcio di punizione indiretto calciato da &lt;span class="hometeam"&gt;Bots&lt;/span&gt; al 34° minuto avrebbe potuto portare a qualche risultato... sfortunatamente la difesa ha intuito tutto e ha sventato l'azione.</EventText>
+        </Event>
+        <Event Index="11">
+          <Minute>35</Minute>
+          <SubjectPlayerID>491703305</SubjectPlayerID>
+          <SubjectTeamID>681813</SubjectTeamID>
+          <ObjectPlayerID>488827059</ObjectPlayerID>
+          <EventKey>231_4</EventKey>
+          <MatchPart>1</MatchPart>
+          <EventText>I giocatori di &lt;span class="hometeam"&gt;Bots&lt;/span&gt; non hanno capito che la partita non era ancora finita e hanno sprecato un'altra opportunità al 35° con &lt;a href="/Club/Players/Player.aspx?playerId=491703305" title="Oskars Namatēvs" class="homeplayer"&gt;Oskars Namatēvs&lt;/a&gt; che, invece di servire un compagno smarcato, ha tentato la soluzione personale con un tiro debole e centrale.</EventText>
+        </Event>
+        <Event Index="12">
+          <Minute>39</Minute>
+          <SubjectPlayerID>459448930</SubjectPlayerID>
+          <SubjectTeamID>681813</SubjectTeamID>
+          <ObjectPlayerID>488827059</ObjectPlayerID>
+          <EventKey>232_5</EventKey>
+          <MatchPart>1</MatchPart>
+          <EventText>&lt;span class="hometeam"&gt;Bots&lt;/span&gt; ha cercato di prendere il largo, ma ha dovuto fare i conti con l'esibizionismo di &lt;a href="/Club/Players/Player.aspx?playerId=459448930" title="David Handl" class="homeplayer"&gt;David Handl&lt;/a&gt; che, tutto solo sulla sinistra, invece di andare a rete ha cercato di dare spettacolo con i suoi giochetti di tacco, riuscendo solo ad annodarsi i piedi e inciampare quindi sul pallone.</EventText>
+        </Event>
+        <Event Index="14">
+          <Minute>45</Minute>
+          <SubjectPlayerID>0</SubjectPlayerID>
+          <SubjectTeamID>0</SubjectTeamID>
+          <ObjectPlayerID>0</ObjectPlayerID>
+          <EventKey>45_2</EventKey>
+          <MatchPart>1</MatchPart>
+          <EventText>Oggi il primo tempo si chiude sul risultato di 1 - 0. Riprenderemo la cronaca fra quindici minuti.</EventText>
+        </Event>
+        <Event Index="15">
+          <Minute>45</Minute>
+          <SubjectPlayerID>0</SubjectPlayerID>
+          <SubjectTeamID>681813</SubjectTeamID>
+          <ObjectPlayerID>58</ObjectPlayerID>
+          <EventKey>40_1</EventKey>
+          <MatchPart>1</MatchPart>
+          <EventText>Ecco i dati relativi al possesso palla: &lt;span class="hometeam"&gt;Bots&lt;/span&gt; avanti con un 58%.&lt;br /&gt;&lt;br /&gt;</EventText>
+        </Event>
+        <Event Index="16">
+          <Minute>46</Minute>
+          <SubjectPlayerID>0</SubjectPlayerID>
+          <SubjectTeamID>0</SubjectTeamID>
+          <ObjectPlayerID>0</ObjectPlayerID>
+          <EventKey>597_2</EventKey>
+          <MatchPart>2</MatchPart>
+          <EventText></EventText>
+        </Event>
+        <Event Index="17">
+          <Minute>50</Minute>
+          <SubjectPlayerID>446957683</SubjectPlayerID>
+          <SubjectTeamID>681813</SubjectTeamID>
+          <ObjectPlayerID>50</ObjectPlayerID>
+          <EventKey>459_4</EventKey>
+          <MatchPart>2</MatchPart>
+          <EventText></EventText>
+        </Event>
+        <Event Index="18">
+          <Minute>55</Minute>
+          <SubjectPlayerID>458220587</SubjectPlayerID>
+          <SubjectTeamID>681813</SubjectTeamID>
+          <ObjectPlayerID>55</ObjectPlayerID>
+          <EventKey>459_1</EventKey>
+          <MatchPart>2</MatchPart>
+          <EventText></EventText>
+        </Event>
+        <Event Index="19">
+          <Minute>58</Minute>
+          <SubjectPlayerID>468353683</SubjectPlayerID>
+          <SubjectTeamID>681813</SubjectTeamID>
+          <ObjectPlayerID>488827059</ObjectPlayerID>
+          <EventKey>232_3</EventKey>
+          <MatchPart>2</MatchPart>
+          <EventText>Al 58° è &lt;a href="/Club/Players/Player.aspx?playerId=468353683" title="Guntis Lukstiņš" class="homeplayer"&gt;Guntis Lukstiņš&lt;/a&gt; che ha provato a chiudere il conto per &lt;span class="hometeam"&gt;Bots&lt;/span&gt;, ma il suo tiro dalla sinistra non è stato preciso e ha scavalcato la porta.</EventText>
+        </Event>
+        <Event Index="20">
+          <Minute>60</Minute>
+          <SubjectPlayerID>460902226</SubjectPlayerID>
+          <SubjectTeamID>681813</SubjectTeamID>
+          <ObjectPlayerID>446957683</ObjectPlayerID>
+          <EventKey>352_1</EventKey>
+          <MatchPart>2</MatchPart>
+          <EventText>Dopo il 60°, l'allenatore di  &lt;span class="hometeam"&gt;Bots&lt;/span&gt; ha deciso di provare ad inserire un nuovo giocatore in campo, facendo cenno a &lt;a href="/Club/Players/Player.aspx?playerId=460902226" title="Jean-Michel Lenfant" class="homeplayer"&gt;Jean-Michel Lenfant&lt;/a&gt; di uscire. &lt;a href="/Club/Players/Player.aspx?playerId=446957683" title="Omar Cocchia" class="homeplayer"&gt;Omar Cocchia&lt;/a&gt; ha preso il suo posto.</EventText>
+        </Event>
+        <Event Index="21">
+          <Minute>63</Minute>
+          <SubjectPlayerID>488711312</SubjectPlayerID>
+          <SubjectTeamID>230818</SubjectTeamID>
+          <ObjectPlayerID>0</ObjectPlayerID>
+          <EventKey>511_2</EventKey>
+          <MatchPart>2</MatchPart>
+          <EventText>Ma che avrà sempre da protestare &lt;a href="/Club/Players/Player.aspx?playerId=488711312" title="Daniel Cygański" class="awayplayer"&gt;Daniel Cygański&lt;/a&gt;? Non se ne poteva veramente più! Speriamo che il cartellino giallo che si è trovato sotto il naso al 63° minuto lo abbia calmato un po'.</EventText>
+        </Event>
+        <Event Index="22">
+          <Minute>64</Minute>
+          <SubjectPlayerID>446957683</SubjectPlayerID>
+          <SubjectTeamID>230818</SubjectTeamID>
+          <ObjectPlayerID>490120217</ObjectPlayerID>
+          <EventKey>209_1</EventKey>
+          <MatchPart>2</MatchPart>
+          <EventText>&lt;a href="/Club/Players/Player.aspx?playerId=490120217" title="Gunārs Andersons" class="awayplayer"&gt;Gunārs Andersons&lt;/a&gt; è troppo sicuro di sé. Esce palla al piede dalla propria area di rigore intasata da un nugolo di avversari, si fa soffiare il pallone da &lt;a href="/Club/Players/Player.aspx?playerId=446957683" title="Omar Cocchia" class="homeplayer"&gt;Omar Cocchia&lt;/a&gt; e resta a guardare l'avversario che, per sua fortuna, spreca tutto calciando alle stelle. Irripetibili i commenti delle due panchine!</EventText>
+        </Event>
+        <Event Index="23">
+          <Minute>65</Minute>
+          <SubjectPlayerID>455214478</SubjectPlayerID>
+          <SubjectTeamID>681813</SubjectTeamID>
+          <ObjectPlayerID>458220587</ObjectPlayerID>
+          <EventKey>351_2</EventKey>
+          <MatchPart>2</MatchPart>
+          <EventText>&lt;a href="/Club/Players/Player.aspx?playerId=455214478" title="Fakhreddin Emrani" class="homeplayer"&gt;Fakhreddin Emrani&lt;/a&gt; avrebbe voluto continuare a giocare, ma dopo 65 minuti l'allenatore di &lt;span class="hometeam"&gt;Bots&lt;/span&gt; ha preso la decisione di sostituirlo con &lt;a href="/Club/Players/Player.aspx?playerId=458220587" title="Pedro Idoate" class="homeplayer"&gt;Pedro Idoate&lt;/a&gt;.</EventText>
+        </Event>
+        <Event Index="24">
+          <Minute>65</Minute>
+          <SubjectPlayerID>455214478</SubjectPlayerID>
+          <SubjectTeamID>681813</SubjectTeamID>
+          <ObjectPlayerID>458257692</ObjectPlayerID>
+          <EventKey>81_4</EventKey>
+          <MatchPart>2</MatchPart>
+          <EventText>Senza più &lt;a href="/Club/Players/Player.aspx?playerId=455214478" title="Fakhreddin Emrani" class="homeplayer"&gt;Fakhreddin Emrani&lt;/a&gt;, i giocatori in campo si consultano con uno sguardo: &lt;a href="/Club/Players/Player.aspx?playerId=458257692" title="Kari Mair" class="homeplayer"&gt;Kari Mair&lt;/a&gt; si curerà dei calci piazzati per il resto della partita.</EventText>
+        </Event>
+        <Event Index="25">
+          <Minute>65</Minute>
+          <SubjectPlayerID>455214478</SubjectPlayerID>
+          <SubjectTeamID>681813</SubjectTeamID>
+          <ObjectPlayerID>446957683</ObjectPlayerID>
+          <EventKey>80_1</EventKey>
+          <MatchPart>2</MatchPart>
+          <EventText>&lt;a href="/Club/Players/Player.aspx?playerId=446957683" title="Omar Cocchia" class="homeplayer"&gt;Omar Cocchia&lt;/a&gt; è ora capitano per &lt;span class="hometeam"&gt;Bots&lt;/span&gt;.</EventText>
+        </Event>
+        <Event Index="26">
+          <Minute>65</Minute>
+          <SubjectPlayerID>452648113</SubjectPlayerID>
+          <SubjectTeamID>681813</SubjectTeamID>
+          <ObjectPlayerID>459638596</ObjectPlayerID>
+          <EventKey>352_5</EventKey>
+          <MatchPart>2</MatchPart>
+          <EventText>&lt;a href="/Club/Players/Player.aspx?playerId=452648113" title="Kuz’ma Pazutka" class="homeplayer"&gt;Kuz’ma Pazutka&lt;/a&gt; avrebbe voluto fortemente continuare a giocare, ma il suo allenatore ha deciso diversamente. &lt;a href="/Club/Players/Player.aspx?playerId=459638596" title="Giggino Bottino" class="homeplayer"&gt;Giggino Bottino&lt;/a&gt; è entrato in campo per &lt;span class="hometeam"&gt;Bots&lt;/span&gt; quando l'orologio segnava 65 minuti di gioco.</EventText>
+        </Event>
+        <Event Index="27">
+          <Minute>66</Minute>
+          <SubjectPlayerID>458257692</SubjectPlayerID>
+          <SubjectTeamID>681813</SubjectTeamID>
+          <ObjectPlayerID>488827059</ObjectPlayerID>
+          <EventKey>232_4</EventKey>
+          <MatchPart>2</MatchPart>
+          <EventText>&lt;a href="/Club/Players/Player.aspx?playerId=458257692" title="Kari Mair" class="homeplayer"&gt;Kari Mair&lt;/a&gt; ha provato a saltare un difensore sulla fascia sinistra del campo, ma questi non si è fatto ingannare dalle finte bloccando così sul nascere l'azione di &lt;span class="hometeam"&gt;Bots&lt;/span&gt;.</EventText>
+        </Event>
+        <Event Index="28">
+          <Minute>71</Minute>
+          <SubjectPlayerID>0</SubjectPlayerID>
+          <SubjectTeamID>681813</SubjectTeamID>
+          <ObjectPlayerID>0</ObjectPlayerID>
+          <EventKey>495_4</EventKey>
+          <MatchPart>2</MatchPart>
+          <EventText></EventText>
+        </Event>
+        <Event Index="29">
+          <Minute>76</Minute>
+          <SubjectPlayerID>490037034</SubjectPlayerID>
+          <SubjectTeamID>681813</SubjectTeamID>
+          <ObjectPlayerID>488827059</ObjectPlayerID>
+          <EventKey>233_2</EventKey>
+          <MatchPart>2</MatchPart>
+          <EventText>Boato sugli spalti: &lt;a href="/Club/Players/Player.aspx?playerId=490037034" title="Edgars Juris Lācis" class="homeplayer"&gt;Edgars Juris Lācis&lt;/a&gt; è andato vicino al gol per &lt;span class="hometeam"&gt;Bots&lt;/span&gt;, ma dopo essersi smarcato bene sulla destra, la sua conclusione è stata deviata in corner dal portiere ospite.</EventText>
+        </Event>
+        <Event Index="30">
+          <Minute>77</Minute>
+          <SubjectPlayerID>459638596</SubjectPlayerID>
+          <SubjectTeamID>230818</SubjectTeamID>
+          <ObjectPlayerID>490120217</ObjectPlayerID>
+          <EventKey>209_2</EventKey>
+          <MatchPart>2</MatchPart>
+          <EventText>Incredibile leggerezza di &lt;a href="/Club/Players/Player.aspx?playerId=490120217" title="Gunārs Andersons" class="awayplayer"&gt;Gunārs Andersons&lt;/a&gt; che, cercando l'appoggio di petto sul suo portiere, ha servito involontariamente &lt;a href="/Club/Players/Player.aspx?playerId=459638596" title="Giggino Bottino" class="homeplayer"&gt;Giggino Bottino&lt;/a&gt;. Lo stesso &lt;a href="/Club/Players/Player.aspx?playerId=459638596" title="Giggino Bottino" class="homeplayer"&gt;Giggino Bottino&lt;/a&gt; appariva sorpreso da tanta grazia, ed infatti ha calciato, senza troppa convinzione, un pallone assolutamente innocuo.</EventText>
+        </Event>
+        <Event Index="31">
+          <Minute>80</Minute>
+          <SubjectPlayerID>493473503</SubjectPlayerID>
+          <SubjectTeamID>230818</SubjectTeamID>
+          <ObjectPlayerID>448917822</ObjectPlayerID>
+          <EventKey>263_1</EventKey>
+          <MatchPart>2</MatchPart>
+          <EventText>&lt;a href="/Club/Players/Player.aspx?playerId=493473503" title="Jan Sakol&amp;#39;chyk" class="awayplayer"&gt;Jan Sakol'chyk&lt;/a&gt; è entrato in area dopo una grande percussione sulla destra, ma il difensore centrale è riuscito comunque ad anticiparlo e spazzare.</EventText>
+        </Event>
+        <Event Index="32">
+          <Minute>83</Minute>
+          <SubjectPlayerID>458220587</SubjectPlayerID>
+          <SubjectTeamID>681813</SubjectTeamID>
+          <ObjectPlayerID>488827059</ObjectPlayerID>
+          <EventKey>133_1</EventKey>
+          <MatchPart>2</MatchPart>
+          <EventText>&lt;a href="/Club/Players/Player.aspx?playerId=458220587" title="Pedro Idoate" class="homeplayer"&gt;Pedro Idoate&lt;/a&gt;! Il giocatore di &lt;span class="hometeam"&gt;Bots&lt;/span&gt; ha anticipato tutti sul primo palo deviando in rete un pallone arrivato dalla destra. Il tabellone segna il 83°, siamo 2 a 0. Un passaggio preciso di &lt;a href="/Club/Players/Player.aspx?playerId=491703305" title="Oskars Namatēvs" class="homeplayer"&gt;Oskars Namatēvs&lt;/a&gt; è stato essenziale per la marcatura.</EventText>
+        </Event>
+        <Event Index="33">
+          <Minute>87</Minute>
+          <SubjectPlayerID>468353683</SubjectPlayerID>
+          <SubjectTeamID>681813</SubjectTeamID>
+          <ObjectPlayerID>488827059</ObjectPlayerID>
+          <EventKey>133_4</EventKey>
+          <MatchPart>2</MatchPart>
+          <EventText>Si va lisci come l'olio al 87° quando &lt;a href="/Club/Players/Player.aspx?playerId=468353683" title="Guntis Lukstiņš" class="homeplayer"&gt;Guntis Lukstiņš&lt;/a&gt; taglia come il burro dalla destra la difesa ospite e aumenta il vantaggio dei padroni di casa! Aumentano le calorie amici!</EventText>
+        </Event>
+        <Event Index="34">
+          <Minute>89</Minute>
+          <SubjectPlayerID>0</SubjectPlayerID>
+          <SubjectTeamID>0</SubjectTeamID>
+          <ObjectPlayerID>0</ObjectPlayerID>
+          <EventKey>75_3</EventKey>
+          <MatchPart>2</MatchPart>
+          <EventText>I giocatori sono abbastanza stanchi, ma quando l'arbitro comunica un recupero di 2 minuti, tenteranno ancora di sfruttare questo tempo per cambiare le sorti dell'incontro.</EventText>
+        </Event>
+        <Event Index="35">
+          <Minute>92</Minute>
+          <SubjectPlayerID>0</SubjectPlayerID>
+          <SubjectTeamID>0</SubjectTeamID>
+          <ObjectPlayerID>0</ObjectPlayerID>
+          <EventKey>599_4</EventKey>
+          <MatchPart>2</MatchPart>
+          <EventText>La partita si chiude sul punteggio di 3 a 0. Malgrado l'agonismo mostrato in campo, i giocatori delle due squadre si radunano a centrocampo per il consueto cerimoniale di fairplay. </EventText>
+        </Event>
+        <Event Index="36">
+          <Minute>92</Minute>
+          <SubjectPlayerID>0</SubjectPlayerID>
+          <SubjectTeamID>681813</SubjectTeamID>
+          <ObjectPlayerID>0</ObjectPlayerID>
+          <EventKey>601_2</EventKey>
+          <MatchPart>2</MatchPart>
+          <EventText></EventText>
+        </Event>
+        <Event Index="37">
+          <Minute>92</Minute>
+          <SubjectPlayerID>0</SubjectPlayerID>
+          <SubjectTeamID>681813</SubjectTeamID>
+          <ObjectPlayerID>57</ObjectPlayerID>
+          <EventKey>40_2</EventKey>
+          <MatchPart>2</MatchPart>
+          <EventText>Abbiamo notato come &lt;span class="hometeam"&gt;Bots&lt;/span&gt; abbia controllato il pallone più a lungo degli avversari, 57% secondo le statistiche.&lt;br /&gt;&lt;br /&gt;</EventText>
+        </Event>
+        <Event Index="38">
+          <Minute>92</Minute>
+          <SubjectPlayerID>468353683</SubjectPlayerID>
+          <SubjectTeamID>681813</SubjectTeamID>
+          <ObjectPlayerID>0</ObjectPlayerID>
+          <EventKey>41_4</EventKey>
+          <MatchPart>2</MatchPart>
+          <EventText>&lt;span class="hometeam"&gt;Bots&lt;/span&gt; ai raggi x: il miglior giocatore è stato senza dubbio &lt;a href="/Club/Players/Player.aspx?playerId=468353683" title="Guntis Lukstiņš" class="homeplayer"&gt;Guntis Lukstiņš&lt;/a&gt;.</EventText>
+        </Event>
+        <Event Index="39">
+          <Minute>92</Minute>
+          <SubjectPlayerID>488740449</SubjectPlayerID>
+          <SubjectTeamID>230818</SubjectTeamID>
+          <ObjectPlayerID>0</ObjectPlayerID>
+          <EventKey>41_2</EventKey>
+          <MatchPart>2</MatchPart>
+          <EventText>Uomo partita fra le fila di &lt;span class="awayteam"&gt;Brunswick&lt;/span&gt; è sicuramente &lt;a href="/Club/Players/Player.aspx?playerId=488740449" title="Alexandru Fărăuanu" class="awayplayer"&gt;Alexandru Fărăuanu&lt;/a&gt;.</EventText>
+        </Event>
+        <Event Index="40">
+          <Minute>92</Minute>
+          <SubjectPlayerID>27</SubjectPlayerID>
+          <SubjectTeamID>681813</SubjectTeamID>
+          <ObjectPlayerID>28</ObjectPlayerID>
+          <EventKey>550_1</EventKey>
+          <MatchPart>2</MatchPart>
+          <EventText></EventText>
+        </Event>
+        <Event Index="41">
+          <Minute>92</Minute>
+          <SubjectPlayerID>21</SubjectPlayerID>
+          <SubjectTeamID>230818</SubjectTeamID>
+          <ObjectPlayerID>25</ObjectPlayerID>
+          <EventKey>550_4</EventKey>
+          <MatchPart>2</MatchPart>
+          <EventText></EventText>
+        </Event>
+      </EventList>
+      <HomeGoals>3</HomeGoals>
+      <AwayGoals>0</AwayGoals>
+      <LastShownEventIndex>41</LastShownEventIndex>
+    </Match>
+    <Match>
+      <SourceSystem>HTOIntegrated</SourceSystem>
+      <MatchID>41152780</MatchID>
+      <MatchType>12</MatchType>
+      <MatchDate>2026-06-05 20:00:00</MatchDate>
+      <HomeTeam>
+        <HomeTeamID>3119</HomeTeamID>
+        <HomeTeamName>U21 Ukraina</HomeTeamName>
+        <HomeTeamShortName>Ukraina</HomeTeamShortName>
+      </HomeTeam>
+      <AwayTeam>
+        <AwayTeamID>3092</AwayTeamID>
+        <AwayTeamName>U21 Latvija</AwayTeamName>
+        <AwayTeamShortName>Latvija</AwayTeamShortName>
+      </AwayTeam>
+      <EventList />
+      <HomeGoals>0</HomeGoals>
+      <AwayGoals>0</AwayGoals>
+    </Match>
+    <Match>
+      <SourceSystem>Hattrick</SourceSystem>
+      <MatchID>763935107</MatchID>
+      <MatchType>1</MatchType>
+      <MatchDate>2026-06-06 18:50:00</MatchDate>
+      <HomeTeam>
+        <HomeTeamID>3133995</HomeTeamID>
+        <HomeTeamName>Åland United</HomeTeamName>
+        <HomeTeamShortName>United</HomeTeamShortName>
+      </HomeTeam>
+      <AwayTeam>
+        <AwayTeamID>3220518</AwayTeamID>
+        <AwayTeamName>Guåhan Goddesses</AwayTeamName>
+        <AwayTeamShortName>Goddesses</AwayTeamShortName>
+      </AwayTeam>
+      <EventList />
+      <HomeGoals>0</HomeGoals>
+      <AwayGoals>0</AwayGoals>
+    </Match>
+  </MatchList>
+</HattrickData>

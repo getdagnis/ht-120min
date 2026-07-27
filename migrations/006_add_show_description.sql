@@ -1,0 +1,1 @@
+ALTER TABLE tournaments ADD COLUMN IF NOT EXISTS show_description BOOLEAN DEFAULT TRUE;

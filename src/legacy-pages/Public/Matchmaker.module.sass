@@ -1,0 +1,1139 @@
+.view
+  width: 100%
+  min-height: 100vh
+  background-color: var(--bg-color-transp)
+  background-attachment: fixed
+  padding: 4rem 1rem
+  display: flex
+  flex-direction: column
+  align-items: center
+
+.mockBanner
+  width: 100%
+  max-width: 1200px
+  margin: 0 auto 1rem
+  padding: 1rem 1.25rem
+  border-radius: var(--radius-md)
+  border: 2px solid rgba(255, 75, 43, 0.5)
+  background: linear-gradient(135deg, rgba(255, 75, 43, 0.18), rgba(18, 18, 24, 0.92))
+  color: white
+  box-shadow: var(--shadow-lg)
+  display: flex
+  flex-wrap: wrap
+  justify-content: space-between
+  gap: 1rem
+
+.mockBannerCopy
+  display: flex
+  flex-direction: column
+  gap: 0.25rem
+
+.mockBannerKicker
+  font-size: 0.75rem
+  font-weight: 900
+  letter-spacing: 0.12em
+  text-transform: uppercase
+  color: #ffd0c8
+
+.mockStats
+  display: flex
+  flex-wrap: wrap
+  justify-content: flex-end
+  gap: 0.5rem
+
+  span
+    display: inline-flex
+    align-items: center
+    padding: 0.35rem 0.65rem
+    border-radius: 999px
+    background: rgba(255, 255, 255, 0.12)
+    border: 1px solid rgba(255, 255, 255, 0.14)
+    font-size: 0.82rem
+    font-weight: 800
+    white-space: nowrap
+
+.headerContainer
+  width: 100%
+  margin: 0 auto
+  display: flex
+  flex-direction: column
+  gap: 1.75rem
+  z-index: 1
+
+.tinderHeroCard
+  width: 100%
+  background-color: var(--tinder-bg)
+  border-radius: var(--radius-md)
+  overflow: hidden
+  position: relative
+  box-shadow: var(--shadow-lg)
+  display: flex
+  flex-direction: column
+  border: 1px solid var(--borderWeak)
+
+.heroTopBar
+  padding: 0.75rem 1rem
+  display: flex
+  justify-content: space-between
+  align-items: center
+
+  span
+    font-size: 0.85rem
+    font-weight: 700
+    letter-spacing: 0.05em
+    text-transform: uppercase
+    color: white
+    opacity: 0.8
+    font-family: var(--mono)
+
+.closeBtn
+  background: transparent
+  border: none
+  color: white
+  cursor: pointer
+  display: flex
+  align-items: center
+  justify-content: center
+  padding: 0.25rem
+  opacity: 0.6
+  transition: opacity 0.2s
+  &:hover
+    opacity: 1
+
+.heroImageContainer
+  padding: 1rem
+  position: relative
+  display: flex
+  flex-direction: column
+  align-items: center
+
+.heroImage
+  width: 100%
+  border-radius: var(--radius-md)
+  display: block
+
+.heroBranding
+  padding: 1.5rem 0 1rem
+  text-align: center
+  color: white
+
+  h1
+    margin: 0
+    font-size: 3.5rem
+    font-weight: 900
+    line-height: 0.85
+    text-transform: uppercase
+    letter-spacing: -0.03em
+    font-family: var(--heading)
+    color: white
+
+    span:last-child
+      font-size: 5rem
+      display: block
+
+.heroActions
+  padding: 0 1.5rem 3rem
+  display: flex
+  flex-direction: column
+  align-items: center
+  gap: 1.5rem
+
+.heroSubtitle
+  font-size: 1.1rem
+  opacity: 0.9
+  font-weight: 500
+  max-width: 520px
+  text-align: center
+  line-height: 1.4
+  color: white
+
+.tabs
+  display: flex
+  gap: 2rem
+  margin: 2rem 0
+  border-bottom: 1px solid var(--border)
+  justify-content: center
+  width: 100%
+
+  @media (max-width: 620px)
+    gap: 0.5rem
+
+  button
+    background: transparent
+    border: none
+    padding: 0.75rem 0.5rem
+    font-weight: 700
+    color: var(--text60)
+    position: relative
+    font-size: 1rem
+    cursor: pointer
+    transition: all 0.2s
+    text-transform: uppercase
+    letter-spacing: 0.05em
+    font-family: var(--mono)
+
+    @media (max-width: 620px)
+      font-size: 0.85rem
+      padding: 0.75rem 0
+
+    &:hover
+      color: var(--text-h)
+
+    &.active
+      color: var(--tinder-bg)
+      &::after
+        content: ''
+        position: absolute
+        bottom: -1px
+        left: 0
+        right: 0
+        height: 2px
+        background-color: var(--tinder-bg)
+
+.disabledTab
+  opacity: 0.4
+  cursor: not-allowed !important
+  &:hover
+    color: var(--text60) !important
+
+.browserContainer
+  width: 100%
+  max-width: 1200px
+  margin: 0 auto
+  display: flex
+  flex-direction: column
+  align-items: center
+  gap: 2rem
+
+.loadingState
+  width: 100%
+  min-height: 28rem
+  display: flex
+  flex-direction: column
+  align-items: center
+  justify-content: center
+  gap: 1rem
+  border-radius: var(--radius-md)
+  border: 1px dashed var(--border)
+  background: var(--bg-transp2)
+  color: var(--text-h)
+
+  p
+    margin: 0
+    font-size: 1rem
+    font-weight: 700
+    letter-spacing: 0.02em
+
+.spin
+  animation: spin 1.1s linear infinite
+
+@keyframes spin
+  from
+    transform: rotate(0deg)
+  to
+    transform: rotate(360deg)
+
+.cardWrapper
+  position: relative
+  width: 100%
+  margin: 0 auto
+
+.navArrow
+  position: absolute
+  top: 50%
+  transform: translateY(-50%)
+  background: transparent
+  border: none
+  width: auto
+  height: 12rem
+  display: flex
+  align-items: center
+  justify-content: center
+  cursor: pointer
+  color: var(--text-h)
+  z-index: 10
+  transition: all 0.3s
+  opacity: 0.15
+  padding: 0 1rem
+
+  svg
+    width: 4rem
+    height: 8rem
+
+  &:hover:not(:disabled)
+    opacity: 0.6
+    color: var(--tinder-bg)
+
+  &:disabled
+    opacity: 0.05
+    cursor: not-allowed
+
+  @media (max-width: 768px)
+    display: none
+
+.tinderCard
+  background: var(--bg)
+  border: 1px solid var(--border)
+  border-radius: var(--radius-md)
+  overflow: hidden
+  box-shadow: var(--shadow-lg)
+  position: relative
+
+.arenaBackground
+  position: absolute
+  top: 0
+  left: 0
+  right: 0
+  bottom: 0
+  background-size: cover
+  background-position: center
+  z-index: 0
+  &::after
+    content: ''
+    position: absolute
+    top: 0
+    left: 0
+    right: 0
+    bottom: 0
+    background: linear-gradient(to bottom, rgba(0,0,0,0.2) 0%, rgba(0,0,0,0.8) 100%)
+
+.teamInfo
+  position: relative
+  z-index: 1
+  width: 100%
+
+.teamMain
+  display: flex
+  align-items: center
+  gap: 0.5rem
+  color: white !important
+  margin-bottom: 1rem
+
+.teamLogo
+  height: 5rem
+  width: auto
+  object-fit: contain
+  border-radius: var(--radius-sm)
+
+.teamText
+  display: flex
+  flex-direction: column
+  color: white !important
+  gap: 0.25rem
+
+.teamName
+  font-size: 2.25rem !important
+  color: white !important
+  font-weight: 700
+  line-height: 1.1
+  margin: 0
+
+.teamMeta
+  display: flex
+  align-items: center
+  gap: 0.5rem
+  font-size: 0.95rem
+  opacity: 0.9
+  font-weight: 600
+  color: white !important
+
+.flag
+  height: 14px
+  border: 1px solid rgba(255,255,255,0.2)
+
+.managerInfo
+  position: absolute
+  bottom: 0
+  right: 1.5rem
+  display: flex
+  align-items: center
+  gap: 0.75rem
+  z-index: 99
+  transform: translateY(50%)
+
+.managerName
+  font-weight: 700
+  font-size: 0.9rem
+  color: var(--text-h)
+  background: var(--bg)
+  padding: 0.25rem 0.75rem
+  border-radius: var(--radius-sm)
+  border: 1px solid var(--border)
+  box-shadow: var(--shadow-sm)
+
+.managerAvatar
+  border: 3px solid var(--bg)
+  border-radius: var(--radius-sm)
+  background: var(--bg)
+  box-shadow: var(--shadow-md)
+  flex-shrink: 0
+
+.message
+  font-style: italic
+  background: var(--bg-transp)
+  padding: 1.25rem
+  border-radius: var(--radius-sm)
+  border-left: 4px solid var(--tinder-bg)
+  margin-top: 1rem
+  font-size: 1rem
+
+.adMetaRow
+  display: flex
+  flex-wrap: wrap
+  gap: 0.5rem
+  align-items: center
+  justify-content: space-between
+  margin-top: 1rem
+
+.compatibilityBadge,
+.availabilityBadge,
+.compatibilityHint
+  display: inline-flex
+  align-items: center
+  border-radius: var(--radius-sm)
+  padding: 0.35rem 0.7rem
+  font-size: 0.8rem
+  font-weight: 800
+  letter-spacing: 0.04em
+  text-transform: uppercase
+
+.compatibilityBadge
+  background: rgba(255, 255, 255, 0.12)
+  color: var(--text-h)
+  border: 1px solid var(--border)
+
+.compatibilityHint
+  background: var(--bg-transp)
+  color: var(--text60)
+
+.availabilityBadge
+  color: white
+
+  &.good
+    background: rgba(46, 204, 113, 0.22)
+    border: 1px solid rgba(46, 204, 113, 0.45)
+    color: #c9ffdf
+
+  &.warn
+    background: rgba(255, 193, 7, 0.18)
+    border: 1px solid rgba(255, 193, 7, 0.4)
+    color: #ffe6a3
+
+  &.bad
+    background: rgba(255, 75, 43, 0.16)
+    border: 1px solid rgba(255, 75, 43, 0.38)
+    color: #ffd0c8
+
+.stateBadge,
+.mockBadge
+  display: inline-flex
+  align-items: center
+  border-radius: var(--radius-sm)
+  padding: 0.35rem 0.7rem
+  font-size: 0.8rem
+  font-weight: 800
+  letter-spacing: 0.04em
+  text-transform: uppercase
+  white-space: nowrap
+
+.stateBadge
+  border: 1px solid transparent
+
+  &.available
+    background: rgba(46, 204, 113, 0.18)
+    border-color: rgba(46, 204, 113, 0.38)
+    color: #d6ffe5
+
+  &.booked
+    background: rgba(255, 193, 7, 0.16)
+    border-color: rgba(255, 193, 7, 0.34)
+    color: #ffe9a8
+
+  &.unknown
+    background: rgba(255, 255, 255, 0.08)
+    border-color: rgba(255, 255, 255, 0.16)
+    color: #f0f0f0
+
+  &.unavailable
+    background: rgba(255, 75, 43, 0.16)
+    border-color: rgba(255, 75, 43, 0.38)
+    color: #ffd0c8
+
+.mockBadge
+  background: rgba(255, 255, 255, 0.9)
+  border: 1px solid rgba(0, 0, 0, 0.12)
+  color: #111
+
+.newBadge
+  display: inline-flex
+  align-items: center
+  border-radius: var(--radius-sm)
+  padding: 0.35rem 0.7rem
+  font-size: 0.8rem
+  font-weight: 900
+  letter-spacing: 0.08em
+  text-transform: uppercase
+  background: rgba(255, 255, 255, 0.88)
+  color: #111
+
+.adProfileSummary
+  display: flex
+  flex-direction: column
+  gap: 0.5rem
+
+.summaryLabel
+  font-size: 0.75rem
+  font-weight: 800
+  letter-spacing: 0.08em
+  text-transform: uppercase
+  color: white
+
+.badges
+  display: flex
+  flex-wrap: wrap
+  gap: 0.5rem
+  margin-bottom: 1rem
+
+.badge
+  display: inline-flex
+  align-items: center
+  gap: 0.35rem
+  padding: 0.35rem 0.7rem
+  border-radius: var(--radius-sm)
+  background: var(--bg-transp3)
+  color: white
+  font-size: 0.8rem
+  font-weight: 700
+
+.cardActions
+  display: flex
+  padding: 1.25rem 1.5rem 1.75rem
+  gap: 0.75rem
+  background: var(--bg-transp2)
+  border-top: 1px solid var(--border)
+  justify-content: center
+  flex-wrap: wrap
+
+  > *
+    flex: 1 1 0
+    min-width: 8.5rem
+    max-width: 14rem
+
+.postModal
+  display: flex
+  flex-direction: column
+  gap: 1.5rem
+  padding: 1rem
+
+.formGroup
+  display: flex
+  flex-direction: column
+  gap: 0.5rem
+
+  label
+    font-weight: 700
+    color: var(--text-h)
+
+.teamSelector
+  display: flex
+  flex-direction: column
+  gap: 0.5rem
+
+.teamOption
+  padding: 0.75rem
+  border: 1px solid var(--border)
+  border-radius: var(--radius-sm)
+  cursor: pointer
+  display: flex
+  justify-content: space-between
+  align-items: center
+
+  &.selected
+    border-color: var(--tinder-bg)
+    background: var(--bg-helpText)
+
+  &.disabled
+    opacity: 0.6
+    cursor: not-allowed
+
+.teamOptionInfo
+  display: flex
+  flex-direction: column
+
+.teamMeta
+  font-size: 0.85rem
+  color: var(--text60)
+
+.teamStatus
+  font-size: 0.85rem
+  font-weight: 700
+
+  &.available
+    color: var(--accent)
+  &.booked
+    color: var(--danger)
+  &.unknown
+    color: var(--text60)
+
+.checkboxGroup
+  display: flex
+  gap: 1rem
+
+.checkboxLabel
+  display: flex
+  align-items: center
+  gap: 0.5rem
+  cursor: pointer
+  font-weight: 500
+
+.postActions
+  margin-top: 1rem
+
+.teamDropdown
+  width: 100%
+  padding: 0.75rem
+  border: 1px solid var(--border)
+  border-radius: var(--radius-sm)
+  background: var(--bg)
+  color: var(--text-h)
+  font-size: 1rem
+
+.teamAvailabilityNote
+  margin: 0.25rem 0 0
+  font-size: 0.85rem
+  line-height: 1.4
+
+  p
+    color: white !important
+
+.browsingAsOverlay
+  position: fixed
+  bottom: 1rem
+  right: 1rem
+  z-index: 1000
+  background: var(--bg-transp2)
+  padding: 0.75rem 1rem
+  border-radius: var(--radius-md)
+  border: 1px solid var(--border)
+  display: flex
+  align-items: center
+  gap: 0.5rem
+  box-shadow: var(--shadow-md)
+
+  span
+    font-size: 0.85rem
+    color: var(--text60)
+
+  select
+    background: transparent
+    border: none
+    font-weight: 700
+    color: var(--text-h)
+    cursor: pointer
+    padding: 0.25rem 0.5rem
+    border-radius: var(--radius-sm)
+    &:hover
+      background: var(--bg-transp)
+
+  @media (max-width: 768px)
+    display: none
+
+.myRequests
+  width: 100%
+  max-width: 1000px
+  margin: 0 auto
+
+.myAdsHeader
+  text-align: center
+  margin-bottom: 3rem
+
+  h3
+    font-size: 2rem
+    margin-bottom: 0
+    font-family: var(--heading)
+
+  p
+    color: var(--text60)
+
+.cardBody
+  display: flex
+  flex-direction: column
+  width: 100%
+  padding: 1.5rem
+
+.requestGrid
+  display: flex
+  flex-direction: column
+  gap: 1.5rem
+
+.myRequestCard
+  background: var(--table-bg-main)
+  color: white
+  border: 1px solid var(--border)
+  border-radius: var(--radius-lg)
+  margin: 0 auto 2rem
+  padding: 0
+  width: 100%
+  max-width: 55rem
+  display: block
+  transition: all 0.2s
+  position: relative
+  overflow: visible
+
+  .cardTop
+    display: flex
+    width: 100%
+    background: var(--table-bg)
+    border-radius: var(--radius-md) var(--radius-md) 0 0
+    background-color: var(--heroBg)
+    background-image: url('/grass2.png')
+    background-repeat: repeat
+    background-position: center
+    background-size: 30%
+
+  .cardArena
+    background: olive
+    width: 34rem
+    height: 100%
+
+    .arenaFrame
+      width: calc(791px/2.35)
+      height: calc(605px/2.35)
+      display: flex
+      align-items: center
+      justify-content: center
+      background-image: url('/paper-frame.png')
+      background-repeat: no-repeat
+      background-position: center
+      background-size: contain
+      padding: 0.75rem
+      box-sizing: border-box
+      transform: rotate(-6deg)
+      position: absolute
+      left: -1.5rem
+      top: -1rem
+      z-index: 2
+
+      img
+        width: 100%
+        height: 100%
+        padding: 0.5rem
+        object-fit: cover
+
+  .cardRight
+    display: flex
+    flex-direction: column
+    padding: 1.5rem
+    width: 100%
+
+  .tinderCard
+    display: flex
+    flex-direction: column
+    align-items: stretch
+    overflow: visible
+
+    .teamInfo
+      width: 100%
+
+  // remove hover edit overlay—controls are inline now
+  .cardEditOverlay
+    display: none !important
+
+  .inlineEditButtons
+    position: absolute
+    top: 0.9rem
+    right: 1rem
+    z-index: 40
+    display: flex
+    gap: 0.5rem
+
+  @media (max-width: 768px)
+    .cardTop
+      display: grid
+      grid-template-columns: minmax(0, 1fr) auto
+      grid-template-areas: "arena edits" "content content"
+      align-items: start
+      padding-top: 1rem
+
+    .cardTop:not(:has(.inlineEditButtons))
+      grid-template-columns: 1fr
+      grid-template-areas: "arena" "content"
+
+    .cardArena
+      grid-area: arena
+      width: auto
+      height: auto
+      min-height: 0
+      background: transparent
+
+      .arenaFrame
+        position: relative
+        left: 0
+        top: -2rem
+        width: calc(791px / 5)
+        height: calc(605px / 5)
+        padding: 0.35rem
+        transform: rotate(-6deg)
+
+        img
+          padding: 0.25rem
+
+    .inlineEditButtons
+      grid-area: edits
+      position: static
+      align-self: start
+      justify-self: end
+      margin: 0.25rem 0.75rem 0 0
+
+    .cardRight
+      grid-area: content
+      padding: 0 1rem 1.5rem
+
+  .teamName
+    font-size: 1.75rem !important
+
+  .iconBtn
+    display: inline-flex
+    align-items: center
+    justify-content: center
+    background: transparent
+    background: rgba(0,0,0,0.1)
+    border-radius: var(--radius-xs)
+    outline: none
+    border: none
+    width: 2rem
+    height: 2rem
+    color: white
+    cursor: pointer
+    transition: all 0.12s
+
+    &:hover
+      background: rgba(0,0,0,0.25)
+
+  @media (max-width: 1024px)
+    .tinderCard
+      display: block
+
+      .activitySection
+        grid-column: auto
+
+.browseWrapper
+  // slightly larger horizontal padding for the stacked browse view
+  padding-left: 0
+
+.viewerActions
+  margin-top: 1.25rem
+  display: flex
+  gap: 0.75rem
+
+.viewerBtn
+  display: inline-flex
+  align-items: center
+  justify-content: center
+  padding: 0.6rem 1rem
+  border-radius: 999px
+  background: rgba(0,0,0,0.18)
+  color: white
+  border: 1px solid rgba(255,255,255,0.06)
+  font-weight: 800
+  cursor: pointer
+  text-decoration: none
+  transition: all 0.12s
+
+  &:hover
+    transform: translateY(-2px)
+    background: rgba(0,0,0,0.28)
+
+.cardEditOverlay
+  position: absolute
+  top: 0
+  left: 0
+  right: 0
+  bottom: 0
+  background: rgba(0, 0, 0, 0.5)
+  backdrop-filter: blur(2px)
+  display: flex
+  flex-direction: column
+  align-items: center
+  justify-content: center
+  gap: 1rem
+  opacity: 0
+  pointer-events: none
+  transition: all 0.2s
+  z-index: 10
+
+  &:hover
+    border-color: var(--tinder-bg)
+    box-shadow: var(--shadow-md)
+
+.cardEditOverlay
+  position: absolute
+  top: 0
+  left: 0
+  right: 0
+  bottom: 0
+  background: rgba(0, 0, 0, 0.5)
+  backdrop-filter: blur(2px)
+  display: flex
+  flex-direction: column
+  align-items: center
+  justify-content: center
+  gap: 1rem
+  opacity: 0
+  pointer-events: none
+  transition: all 0.2s
+  z-index: 10
+
+.myRequestCard:hover .cardEditOverlay
+  opacity: 1
+  pointer-events: auto
+
+.requestHeader
+  display: flex
+  justify-content: space-between
+  align-items: flex-start
+
+.requestTeamInfo
+  display: flex
+  align-items: center
+  gap: 0.75rem
+
+  .smallFlag
+    height: 14px
+    border: 1px solid var(--borderWeak)
+
+.statusBadge
+  font-size: 0.75rem
+  font-weight: 800
+  padding: 0.25rem 0.6rem
+  border-radius: 100px
+  letter-spacing: 0.05em
+  position: absolute
+  right: 3.6rem
+  top: 1rem
+  &.open
+    background: var(--bg-success)
+    color: var(--accent)
+  &.matched
+    background: rgba(255, 75, 43, 0.1)
+    color: #ff4b2b
+
+.requestBody
+  display: flex
+  flex-direction: column
+  gap: 0.75rem
+
+.reqDetail
+  display: flex
+  align-items: center
+  gap: 0.5rem
+  font-size: 0.95rem
+  color: var(--text60)
+
+  span
+    color: var(--text-h)
+    font-weight: 500
+
+.matchNotice
+  margin-top: 0.5rem
+  padding: 0.75rem
+  background: var(--bg-transp)
+  border-radius: var(--radius-sm)
+  display: flex
+  align-items: center
+  gap: 0.75rem
+  font-size: 0.9rem
+
+.requestFooter
+  margin-top: auto
+  padding-top: 1.25rem
+  border-top: 1px solid var(--border)
+
+.footerActions
+  display: flex
+  gap: 0.5rem
+  justify-content: space-between
+
+.cancelBtn
+  color: var(--text40)
+  &:hover
+    color: var(--danger)
+
+.activitySection
+  padding: 1.25rem
+
+.activityHeader
+  font-size: 0.8rem
+  font-weight: 800
+  letter-spacing: 0.08em
+  text-transform: uppercase
+  color: var(--text-h)
+  margin-bottom: 0.75rem
+  margin-left: 0.5rem
+
+.activityEmpty
+  padding: 1rem
+  background: var(--bg)
+  border: 1px solid var(--border-transp)
+  border-radius: var(--radius-xs)
+  color: var(--text60)
+  font-size: 0.95rem
+
+  p
+    margin: 0
+
+.activityList
+  display: flex
+  flex-direction: column
+  gap: 0.75rem
+
+.activityItem
+  padding: 1rem
+  background: var(--bg)
+  border: 1px solid var(--border-transp)
+  border-radius: var(--radius-xs)
+
+.activityMeta
+  display: flex
+  align-items: center
+  justify-content: space-between
+  gap: 0.75rem
+  margin-bottom: 0.5rem
+
+.activityDate
+  font-size: 0.8rem
+  color: var(--text60)
+  font-weight: 700
+
+.activitySource
+  font-size: 0.7rem
+  font-weight: 800
+  letter-spacing: 0.06em
+  text-transform: uppercase
+  color: var(--tinder-bg)
+  background: rgba(255, 75, 43, 0.12)
+  padding: 0.2rem 0.45rem
+  border-radius: 999px
+
+.activityHeadline
+  margin: 0
+  font-weight: 700
+  color: var(--text-h)
+
+.activityComment
+  margin-top: 0.75rem
+  padding-top: 0.75rem
+  border-top: 1px dashed var(--border-transp)
+
+.activityCommentLabel
+  display: block
+  font-size: 0.75rem
+  font-weight: 800
+  text-transform: uppercase
+  letter-spacing: 0.06em
+  color: var(--text60)
+  margin-bottom: 0.35rem
+
+  + p
+    margin: 0
+    color: var(--text)
+    font-style: italic
+
+.actionModal
+  display: flex
+  flex-direction: column
+  gap: 1rem
+
+.actionIntro
+  margin: 0
+  color: var(--text60)
+  line-height: 1.5
+
+.actionTeamLine
+  margin: 0
+  color: var(--text)
+
+.actionButtons
+  display: flex
+  gap: 0.75rem
+  flex-wrap: wrap
+
+.editBtn
+  color: var(--tinder-bg)
+  font-weight: 700
+  &:hover
+    color: white
+    background: var(--tinder-bg)
+
+.emptyState
+  text-align: center
+  padding: 4rem 2rem
+  background: var(--bg-transp2)
+  border-radius: var(--radius-md)
+  border: 1px dashed var(--border)
+
+  p
+    margin-bottom: 1.5rem
+    color: var(--text60)
+    font-size: 1.1rem
+
+.endActions
+  display: flex
+  flex-wrap: wrap
+  justify-content: center
+  gap: 0.75rem
+
+.matchCelebration
+  text-align: center
+  display: flex
+  flex-direction: column
+  gap: 0.75rem
+
+.matchInstructions
+  display: flex
+  flex-direction: column
+  gap: 1rem
+  margin-top: 1rem
+
+.matchActionButtons
+  display: flex
+  gap: 0.75rem
+  flex-wrap: wrap
+
+.matchTeams
+  display: grid
+  grid-template-columns: repeat(2, minmax(0, 1fr))
+  gap: 1rem
+  padding-top: 0.5rem
+
+.matchTeamLabel
+  display: block
+  font-size: 0.75rem
+  font-weight: 800
+  letter-spacing: 0.08em
+  text-transform: uppercase
+  color: var(--text60)
+  margin-bottom: 0.25rem
+.successOverlay
+  position: absolute
+  inset: 0
+  z-index: 30
+  display: flex
+  flex-direction: column
+  align-items: center
+  justify-content: center
+  padding: 2rem
+  text-align: center
+  gap: 1rem
+  background: linear-gradient(180deg, rgba(12, 12, 16, 0.94), rgba(0, 0, 0, 0.98))
+  color: white
+
+  h2
+    margin: 0
+    font-size: 2rem
+    font-family: var(--heading)
+
+.matchModal
+  display: flex
+  flex-direction: column
+  gap: 1.5rem

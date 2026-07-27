@@ -1,0 +1,174 @@
+All containers/elements for the selected version and action type are shown.
+<?xml version="1.0" encoding="utf-8"?>
+-<HattrickData>
+-<MatchList>
+-<Match>
+<MatchID> : unsigned Integer
+The globally unique identifier of the match.
+</MatchID>
+<MatchType> : MatchTypeID
+Integer defining the type of match.
+</MatchType>
+<SourceSystem> : sourceSystem
+Specifies which source system the match belongs to, this replace the old isYouth param
+</SourceSystem>
+<MatchDate> : DateTime
+The start date (kick-off) of the match.
+</MatchDate>
+-<HomeTeam>
+<HomeTeamID> : Integer
+The teamID of the Home team in the match. (Negative for street teams)
+</HomeTeamID>
+<HomeTeamName> : String
+The team name of the Home team in the match.
+</HomeTeamName>
+<HomeTeamShortName> : String
+The short team name of the Home team in the match.
+</HomeTeamShortName>
+-<StartingLineup>
+-<Player>
+<PlayerID> : unsigned Integer
+Globally unique ID of the player.
+</PlayerID>
+<RoleID> : MatchRoleID
+An integer indicating which formal 'slot' (Role) the player has filled in the match.
+</RoleID>
+<PlayerName> : String
+The full name of the player.
+</PlayerName>
+<Behaviour> : MatchBehaviourID
+An integer indicating the individual order or repositioning that the player has played with. Not provided for Captain and Set Pieces taker.
+</Behaviour>
+</Player>
+</StartingLineup>
+</HomeTeam>
+-<AwayTeam>
+<AwayTeamID> : Integer
+The teamID of the Away team in the match. (Negative for street teams)
+</AwayTeamID>
+<AwayTeamName> : String
+The team name of the Away team in the match.
+</AwayTeamName>
+<AwayTeamShortName> : String
+The short team name of the Away team in the match.
+</AwayTeamShortName>
+-<StartingLineup>
+-<Player>
+<PlayerID> : unsigned Integer
+Globally unique ID of the player.
+</PlayerID>
+<RoleID> : MatchRoleID
+An integer indicating which formal 'slot' (Role) the player has filled in the match.
+</RoleID>
+<PlayerName> : String
+The full name of the player.
+</PlayerName>
+<Behaviour> : MatchBehaviourID
+An integer indicating the individual order or repositioning that the player has played with. Not provided for Captain and Set Pieces taker.
+</Behaviour>
+</Player>
+</StartingLineup>
+</AwayTeam>
+-<Substitutions>
+-<Substitution>
+<TeamID> : unsigned Integer
+The globally unique TeamID for which the orders were sent.
+</TeamID>
+<SubjectPlayerID> : unsigned Integer
+If a/ substitution: The player leaving. If b/ behaviour change: The player changing his behaviour. Or c/ position swap: the first player that will change his position.
+</SubjectPlayerID>
+<ObjectPlayerID> : unsigned Integer
+The player entering (or once more the player changing behaviour). Or if position swap, the player to swap with.
+</ObjectPlayerID>
+<OrderType> : matchOrderTypeID
+The type of the order.
+</OrderType>
+<NewPositionId> : MatchRoleID
+An integer representing the new position for the (entering or staying) player.
+</NewPositionId>
+<NewPositionBehaviour> : MatchBehaviourID
+An integer representing the new behaviour for the (entering or staying) player.
+</NewPositionBehaviour>
+<MatchMinute> : unsigned Integer
+An integer indicating in which minute the order was executed.
+</MatchMinute>
+<MatchPart> : matchPart
+Which part of the match the order was executed.
+</MatchPart>
+</Substitution>
+</Substitutions>
+-<EventList>
+-<Event Index='unsigned Integer'>
+<Minute> : unsigned Integer
+The match minute when the event happened.
+</Minute>
+<MatchPart> : matchPart
+Which part of the match the event happened.
+</MatchPart>
+<EventKey> : String
+A unique key defining what type of event it was.
+</EventKey>
+<EventText> : String
+String describing the event as it would appear in the match report.
+</EventText>
+<SubjectTeamID> : unsigned Integer
+Integer that, for goals and chances, is indicating the attacking team. For other event, this field usually indicates the team that is doing something. It may indicate other things for other events - exactly what is not documented here and the SubjectTeamID information, while free to use for CHPPs is 'unsupported' and used 'at your own risk'.
+</SubjectTeamID>
+<SubjectPlayerID> : unsigned Integer
+Integer that, for goals and chances, is indicating the scorer or the player failing to score. For other events, this field usually indicates the primarily active player. It may indicate other things for other events and like SubjectTeamID is 'unsupported' and used 'at your own risk'.
+</SubjectPlayerID>
+<ObjectPlayerID> : unsigned Integer
+Integer that, for regular goals and chances, is indicating the defending team's goal keeper. For special event chances/goals, the ObjectPlayer is often the assisting player of the attacking team, but can be any other player that is involved in the event. For other events, this field is used very freely and can indicate any kind of relevant integer data. Like SubjectPlayerID and SubjectTeamID, it is 'unsupported' and used at 'your own risk'.
+</ObjectPlayerID>
+</Event>
+</EventList>
+<HomeGoals> : unsigned Integer
+The current number of goals in the match for the home team.
+</HomeGoals>
+<AwayGoals> : unsigned Integer
+The current number of goals in the match for the away team.
+</AwayGoals>
+<LastShownEventIndex> : unsigned Integer
+The last shown event. Use this as LastShownIndexes for actionType=viewNew.
+</LastShownEventIndex>
+<NextEventMinute> : unsigned Integer
+The minute that the next matchevent will happen, this allows you to only ask for new events when needed. Only available while the match is ongoing. It should only be used by the application, it should NOT be shown to the users.
+</NextEventMinute>
+<NextEventMatchPart> : matchPart
+The matchPart in which the next matchevent will happen, this allows you to only ask for new events when needed. Only available while the match is ongoing. It should only be used by the application, it should NOT be shown to the users.
+</NextEventMatchPart>
+</Match>
+</MatchList>
+</HattrickData>
+References
+#MatchEventTypes
+Documentation of the match events in Hattrick here!
+#Note
+The viewAll and viewNew actionTypes are intended as the primary CHPP use of HT Live, in the following manner, which is the behaviour we recommend. We appreciate all developers who seek to minimize server load by using this recommended way:
+
+Upon first access per session, use viewAll. Then store the events locally in your application, user disk or similar. Then use viewNew for the repeating requests.
+#LastShownIndexes
+Value	Description
+{
+ "matches": [
+  {"matchId":"52383954", "sourceSystem":"youth", "index":"4"},
+  {"matchId":"341643388", "sourceSystem":"hattrick", "index":"-1"},
+  ,{"matchId":"341643388", "sourceSystem":"htointegrated", "index":"-1"}
+  {"matchId":"345947495", "index":"-1"}
+ ]
+}
+
+This is a JSON-formatted string.
+
+matches
+An array of all matches.
+
+matchId
+The globally unique matchID.
+
+sourceSystem
+Specifies which source system the match belongs to. Defaults to "Hattrick" if not provided.
+
+index
+The EventIndex, you should pick this from the <LastShownIndex>-element.
+You can provide -1 to get all the events if you like, but you might just as well not send that match at all and it will default to -1 anyway.

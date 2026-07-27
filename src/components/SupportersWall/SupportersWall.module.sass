@@ -1,0 +1,200 @@
+.wallWrapper
+  padding: 2rem
+  background-color: var(--table-bg)
+  background-image: url('/grass2.png')
+  background-position: center
+  background-repeat: repeat
+  background-blend-mode: multiply
+  border-radius: var(--radius-lg)
+  border: 1px solid var(--border)
+  text-align: left
+
+[data-theme='dark'] .wallWrapper
+  background-color: var(--bg-transp3)
+
+.fullPage
+  max-width: 1200px
+  margin: 6rem auto 3rem
+  background: none
+  border: none
+  padding: 0
+
+  .header
+    text-align: center
+    margin-bottom: 4rem
+    border: none
+
+  .titleGroup
+    justify-content: center
+    h2
+      font-size: 4rem
+      letter-spacing: -0.02em
+
+  .grid
+    grid-template-columns: repeat(auto-fill, minmax(280px, 1fr))
+    gap: 3rem 2rem
+
+.header
+  margin-bottom: 2rem
+  border-bottom: 2px solid rgba(255,255,255,0.1)
+  padding-bottom: 1rem
+
+.titleGroup
+  display: flex
+  align-items: center
+  justify-content: center
+  gap: 0.75rem
+  margin-bottom: 0.5rem
+  color: white
+
+  h2
+    margin: 0
+    color: white
+    font-size: 1.75rem
+    font-weight: 800
+
+.intro
+  font-size: 1rem
+  font-style: italic
+  text-align: center
+  color: white
+  max-width: 42rem
+  margin: 0 auto
+
+.fullPage h2, .fullPage .intro, .fullPage .mainIcon
+  color: var(--text)
+
+.grid
+  display: grid
+  grid-template-columns: repeat(auto-fill, minmax(180px, 1fr))
+  gap: 2rem 1rem
+  margin-bottom: 1.5rem
+
+.supporterCard
+  position: relative
+  background: #00000033
+  padding: 6px
+  box-shadow: 0 8px 15px rgba(0,0,0,0.1)
+  transform: rotate(-0.5deg)
+  transition: all 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275)
+  display: flex
+  flex-direction: column
+  animation: shake 0.5s ease-in-out
+
+  &:nth-child(even)
+    transform: rotate(0.8deg)
+
+  &:hover
+    transform: scale(1.08) rotate(0)
+    z-index: 10
+    box-shadow: 0 15px 30px rgba(0,0,0,0.2)
+@keyframes shake
+  0%, 100%
+    transform: translateX(0)
+  25%
+    transform: translateX(-5px)
+  75%
+    transform: translateX(5px)
+
+.badge
+  position: absolute
+  top: -12px
+  left: 50%
+  transform: translateX(-50%)
+  z-index: 2
+  font-size: 0.65rem
+  font-weight: 800
+  text-transform: uppercase
+  color: white
+  background-color: var(--heroBg)
+  padding: 0.25rem 0.75rem
+  border-radius: 999px
+  display: flex
+  align-items: center
+  gap: 0.35rem
+  white-space: nowrap
+  box-shadow: 0 2px 8px rgba(0,0,0,0.2)
+  border: 2px solid white
+
+.founding .badge
+  background: var(--orange)
+  color: #29211d
+
+.pioneer .badge
+  background: var(--tinder)
+
+.cardFrame
+  border: 1px solid #eee
+  padding: 1rem 1rem 0.5rem
+  background: #fdfdfd
+  display: flex
+  flex-direction: column
+  align-items: center
+  text-align: center
+  height: 100%
+  color: #333
+
+.name
+  font-weight: 800
+  font-size: 1.1rem
+  margin-bottom: 0.15rem
+  color: #111
+  font-family: var(--heading)
+
+.team
+  font-size: 0.85rem
+  font-weight: 700
+  color: #555
+  margin-bottom: 0.5rem
+
+.flag
+  width: 16px
+  height: 11px
+  object-fit: cover
+  vertical-align: middle
+  margin-left: 0.3rem
+  border-radius: 2px
+  box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.08)
+
+.cupLink
+  color: inherit
+  text-decoration: underline
+  text-underline-offset: 0.12em
+
+.thankYou
+  font-size: 0.75rem
+  color: #666
+  font-style: italic
+  line-height: 1.4
+  margin: 0.5rem 0
+  flex-grow: 1
+
+.beers
+  margin-top: 0.5rem
+  font-size: 1rem
+  letter-spacing: 0.05em
+
+.actions
+  display: flex
+  gap: 1rem
+  justify-content: center
+  margin-top: 1rem
+  padding-top: 1rem
+  border-top: 1px solid rgba(255,255,255,0.05)
+
+.actionBtn
+  color: white !important
+  font-weight: 700
+  gap: 0.4rem
+  &:hover
+    color: black !important
+
+@media (max-width: 620px)
+  .grid
+    grid-template-columns: 1fr
+
+  .wallWrapper
+    padding: 1.5rem 0.75rem
+
+  .fullPage .grid
+    grid-template-columns: 1fr

@@ -1,0 +1,1 @@
+ALTER TABLE matches ADD COLUMN total_minutes INTEGER DEFAULT 90;

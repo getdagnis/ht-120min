@@ -1,0 +1,1 @@
+ALTER TABLE matches ADD COLUMN match_type INTEGER;

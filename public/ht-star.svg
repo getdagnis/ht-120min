@@ -1,0 +1,19 @@
+<svg xmlns:xlink="http://www.w3.org/1999/xlink" xmlns="http://www.w3.org/2000/svg" class="svg-tab-icon" width="24" height="24" viewBox="0 0 100 100"><defs><g id="kit_shape_86">
+<path vector-effect="non-scaling-stroke" d="
+M 100.55 38
+Q 100.15 33.5 90.55 33.5
+L 65.95 33.5 62.85 9
+Q 61.55 0 56.85 0 52.45 0 47.75 9
+L 36.45 33.5 12.65 33.5
+Q 3.15 33.5 0.55 38 -0.75 41.6 5.75 48.4
+L 21.75 62.4 11.35 86.9
+Q 6.15 96.8 8.75 98.6 12.65 102.3 21.35 95.5
+L 43.45 81.4 60.25 95.5
+Q 67.25 102.3 71.15 98.6 75.45 96.8 74.15 86.9
+L 70.65 62.4 92.35 48.4
+Q 100.95 41.6 100.55 38 Z"></path>
+</g></defs>
+                    <g>
+                        <use xlink:href="#kit_shape_86"></use>
+                    </g>
+                </svg>

@@ -1,0 +1,102 @@
+.teamExtraInfo
+  display: flex
+  flex-direction: column
+  align-items: flex-start
+  gap: 0.1rem
+  font-family: var(--heading)
+  font-size: 0.75rem
+  color: var(--text50)
+  margin-top: 0.1rem
+  letter-spacing: 0.02em
+
+  &.right
+    justify-content: flex-end
+    align-items: flex-end
+
+.metaRow
+  display: flex
+  align-items: center
+  gap: 0.4rem
+  opacity: 1
+
+.summaryRow
+  display: flex
+  align-items: center
+  gap: 0.15rem
+  min-height: 16px
+  opacity: 1
+
+.separator
+  opacity: 0.5
+  font-weight: 300
+  padding: 0 0.1rem
+
+.flagLink, .idLink, .managerLink, .managerNameLink
+  text-decoration: none !important
+  padding: 0 !important
+  color: inherit !important
+  display: flex
+  align-items: center
+  transition: opacity 0.2s, color 0.2s
+
+  &:hover
+    opacity: 1
+    color: var(--accent) !important
+
+.flagIcon
+  width: 16px
+  height: auto
+  object-fit: contain
+
+.managerNameLink
+  background: none
+  border: none
+  font: inherit
+  cursor: pointer
+  text-transform: uppercase
+
+.idLink, .managerLink
+  text-transform: uppercase
+
+.presenceDot
+  font-size: 0.7rem
+  font-weight: 600
+  line-height: 1
+  cursor: default
+  letter-spacing: 0
+
+.presence_green
+  color: #4caf50
+
+.presence_yellow
+  color: #f5a623
+
+.presence_red
+  color: #e05252
+
+.presence_grey
+  color: var(--text60)
+
+.summaryIcon
+  width: 0.8rem
+  height: 0.8rem
+  object-fit: contain
+  margin-top: 0.1rem
+
+.secondYellowRed
+  position: relative
+  display: inline-flex
+  width: 0.95rem
+  height: 0.95rem
+  align-items: flex-start
+  justify-content: flex-start
+
+  .summaryIcon
+    position: absolute
+    left: 0
+    top: 0.05rem
+
+.redOverlay
+  left: 0.28rem !important
+  top: 0.05rem !important
+  transform: rotate(10deg)

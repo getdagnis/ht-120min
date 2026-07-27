@@ -1,0 +1,311 @@
+@import url('https://fonts.googleapis.com/css2?family=Barlow:ital,wght@0,100;0,200;0,300;0,400;0,500;0,600;0,700;0,800;0,900;1,100;1,200;1,300;1,400;1,500;1,600;1,700;1,800;1,900&display=swap')
+@import url('https://fonts.googleapis.com/css2?family=Barlow+Condensed:ital,wght@0,100;0,200;0,300;0,400;0,500;0,600;0,700;0,800;0,900;1,100;1,200;1,300;1,400;1,500;1,600;1,700;1,800;1,900&display=swap')
+@import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:ital,wght@0,100;0,200;0,300;0,400;0,500;0,600;0,700;1,100;1,200;1,300;1,400;1,500;1,600;1,700&display=swap')
+@import url('https://fonts.googleapis.com/css2?family=Noto+Color+Emoji&display=swap')
+
+:root
+  --yellow: rgb(242, 255, 0)
+  --orange: rgb(255, 200, 0)
+  --beige: #f0ebe4
+  --brown: #e4ded6
+  --brown-transp: #e4dcd09f
+  --border: #a7a097d8
+  --border-transp: #a7a09755
+  --borderDark: #29211d
+  --borderWeak: #00000066
+  --beerBg: #37261d9c
+  --lighter: #ffffff77
+  --lighter-less: #ffffff33
+  --lighter-more: #ffffff99
+  --darker: #291f1b11
+  --darker-green: #003b1187
+  --gold: rgb(208, 176, 81)
+  --gold-transp: rgba(208, 176, 81, 0.3)
+  --gold-dark: rgb(176, 142, 43)
+  --warning: rgb(245, 159, 0)
+  --danger: crimson
+  --bg-danger: rgba(193, 9, 61, 0.1)
+  --bg-danger-border: rgba(193, 9, 61, 0.2)
+  --tinder: rgb(174, 10, 54)
+  --tinder-bg: rgb(139, 3, 55)
+  --tinder-bright: rgb(199, 0, 53)
+  --tinder-dark: #560725
+  --modal-overlay: #8d8a87b1
+  --action-bg: rgba(134, 133, 129, 0.7)
+  --action-bg-bright: rgba(82, 82, 69, 0.7)
+  --action-bg-dark: rgba(40, 40, 39, 0.7)
+  --action-text: rgb(239, 238, 235)
+
+  --text: #292f39
+  --text-h: #08090d
+  --text60: #666f7fbb
+  --text50: #666f7faa
+  --bg: url('/bg-3-light.png') repeat repeat fixed
+  --bg-color: #cdc8c3ee
+  --bg-color-transp: #cdc8c399
+  --bg-transp: #e1dfdddd
+  --bg-transp2: #e6e4e270
+  --bg-transp3: #0d172c50
+  --bg-dark: #efedea9f
+  --theme: #faf9f8
+  --theme2: white
+  --accent: #09aa44
+  --accent-2: rgb(48, 144, 87)
+  --accent-3: rgb(41, 137, 79)
+  --accent-4: #0d672ee0
+  --heroBg: #006514
+  --bg-helpText: rgba(16, 134, 59, 0.1)
+  --table-bg: var(--brown-transp)
+  --table-bg-main: var(--beige)
+  --chat-bg: #f0ebe466
+  --header: #b4b4b41a
+  --tournament-thumb: url('/thumb-full-light.jpg')
+
+  --emoji: 'Noto Color Emoji', 'Apple Color Emoji', 'Segoe UI Emoji', sans-serif
+  --sans: 'Barlow', Roboto, system-ui, 'Segoe UI', 'Noto Color Emoji', 'Apple Color Emoji', 'Segoe UI Emoji', sans-serif
+  --heading: 'Barlow Condensed', 'Raleway', system-ui, 'Segoe UI', Roboto, 'Noto Color Emoji', 'Apple Color Emoji', 'Segoe UI Emoji', sans-serif
+  --mono: 'IBM Plex Mono', ui-monospace, Consolas, monospace, 'Noto Color Emoji', 'Apple Color Emoji', 'Segoe UI Emoji'
+
+  --radius-xs: 0.25rem
+  --radius-sm: 0.35rem
+  --radius-md: 0.5rem
+  --radius-lg: 0.75rem
+
+  font: 1rem var(--sans)
+  font-weight: 500
+  letter-spacing: 0.1px
+  line-height: 1.5
+  color-scheme: light
+  color: var(--text)
+  background: var(--bg)
+  font-synthesis: none
+  text-rendering: optimizeLegibility
+  -webkit-font-smoothing: antialiased
+  -moz-osx-font-smoothing: grayscale
+
+  @media (max-width: 1024px)
+    font-size: 16px
+
+// Dark theme variables
+@mixin dark-theme
+  --text: #cad1de
+  --text-h: #f3f4f6
+  --text60: #798496bb
+  --bg: url('/bg-3.png') repeat repeat fixed
+  --bg-color: #070e1eee
+  --bg-color-transp: #070e1e99
+  --bg-transp: #0d172cee
+  --bg-transp2: #0d172c77
+  --bg-transp3: #0d172c50
+  --bg-dark: #10132390
+  --border: #3d495b7c
+  --border-transp: #3d495b33
+  --borderDark: #e3e7edc6
+  --borderWeak: #ffffff22
+  --theme: #213552
+  --theme2: #949aa2
+  --accent: #0fb54c
+  --accent-2: #0b8337
+  --accent-3: #0f8038c1
+  --table-bg: #14243ac3
+  --table-bg-main: #0d1a2bc8
+  --chat-bg: #20324a71
+  --lighter: #27426c40
+  --lighter-less: #31396e20
+  --lighter-more: #27426c50
+  --darker: #0b0f23ac
+  --darker-less: #0e122582
+  --beige: #27426c30
+  --tournament-thumb: url('/thumb-full.jpg')
+  --modal-overlay: #212936a8
+  --action-bg: rgba(54, 66, 90, 0.638)
+  --action-bg-bright: rgba(41, 73, 112, 0.638)
+  --action-text: rgb(160, 176, 184)
+
+  color-scheme: dark
+
+// Apply dark theme based on data attribute (manual toggle)
+[data-theme='dark']
+  @include dark-theme
+
+// Handle system preference fallback ONLY if data-theme is not set
+// (Though in our case JS sets it immediately, this is good practice)
+@media (prefers-color-scheme: dark)
+  :root:not([data-theme='light'])
+    @include dark-theme
+
+*
+  margin: 0
+  padding: 0
+  box-sizing: border-box
+
+body
+  margin: 0
+  background-color: var(--bg)
+  color: var(--text)
+  transition: background-color 0.3s ease, color 0.3s ease
+  overflow-x: hidden
+
+#root
+  width: 100%
+  max-width: 1150px
+  margin: 0 auto
+  min-height: 100vh
+  display: flex
+  flex-direction: column
+
+.appRouteForge
+  width: 100vw
+  max-width: none
+  margin-left: calc(50% - 50vw)
+  min-height: 100vh
+  box-sizing: border-box
+
+h1,
+h2,
+h3,
+h4
+  font-family: var(--heading)
+  font-weight: 600
+  color: var(--text-h)
+  margin-top: 0
+  line-height: 1.2
+
+a
+  color: var(--text)
+  text-decoration: none
+  text-decoration-style: dotted
+  text-decoration-color: var(--borderDark)
+  transition: color 0.2s ease
+  white-space: nowrap !important
+  &:hover
+    text-decoration: none
+
+ul, li
+  list-style: none
+
+button
+  cursor: pointer
+  font-family: inherit
+  background: transparent
+  outline: none
+  border: none
+
+input,
+select, textarea
+  font-family: inherit
+  font-size: 1rem
+  font-weight: 500
+  padding: 0.6rem 1rem
+  border: 2px solid var(--border)
+  border-radius: var(--radius-sm)
+  background: var(--bg)
+  color: var(--text-h)
+  transition: border-color 0.2s
+  caret-color: var(--accent-2)
+  caret-shape: block
+
+  &::placeholder
+    color: var(--text60) !important
+
+  &:focus
+    outline: none
+    border: 2px solid var(--borderDark)
+
+.tableWrapper
+  overflow-x: auto
+  -webkit-overflow-scrolling: touch
+  scrollbar-width: none
+  -ms-overflow-style: none
+
+  &::-webkit-scrollbar
+    display: none
+
+.w-100, .w100
+  width: 100% !important
+
+.r-180, .r180
+  transform: rotate(180deg)
+
+.mr-sm
+  margin-right: 0.25rem
+
+.baseline
+  display: flex !important
+  align-items: baseline !important
+
+.fs-md
+  font-size: 1rem !important
+
+.nowrap
+  white-space: nowrap !important
+
+.center
+  text-align: center !important
+
+table
+  width: 100%
+  border-collapse: collapse
+  font-size: 1.2rem
+
+  th,
+  td
+    text-align: left
+    padding: 0.75rem 1rem
+    border-bottom: 1px solid var(--border)
+
+    @media (max-width: 620px)
+      padding: 0.5rem 0.75rem
+
+  th
+    color: var(--text-h)
+    font-weight: 600
+    font-size: 1rem
+    letter-spacing: 0.05em
+
+  tr:last-child td
+    border-bottom: none
+
+  @media (max-width: 620px)
+    font-size: 1rem
+
+    th
+      font-size: 0.9rem
+
+.tooltip
+  max-width: min(25rem, calc(100vw - 2rem))
+  box-sizing: border-box
+  background-color: var(--danger)
+  color: white
+  line-height: 1.35
+  max-width: 16rem !important
+  opacity: 1 !important
+  overflow-wrap: break-word
+  white-space: pre-line
+  font-size: 0.75rem !important
+
+  [data-theme='dark'] &
+    background-color: var(--table-bg)
+
+  [data-theme='light'] &
+    background-color: var(--action-bg)
+    color: var(--action-text)
+
+.__react_component_tooltip.show
+  opacity: 1 !important
+
+.hideOnMobile
+  @media (max-width: 620px)
+    display: none !important
+
+.hideOnTable
+  @media (max-width: 768px)
+    display: none !important
+
+.baseline
+  display: flex
+  align-items: baseline
+
+.emoji
+  font-family: var(--emoji)
+  margin-right: 0.1rem

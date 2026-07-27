@@ -1,0 +1,199 @@
+.button
+  display: inline-flex
+  align-items: center
+  justify-content: center
+  border-radius: var(--radius-xs)
+  font-weight: 600
+  font-family: var(--mono)
+  min-width: fit-content
+  border: 1px solid transparent
+  gap: 0.75rem
+  box-sizing: border-box
+  transition: color 0.3s ease-in-out, background-color 0.3s ease-in-out, border-color 0.3s ease-in-out
+
+  &:disabled
+    background: var(--darker)
+    color: var(--border)
+    cursor: not-allowed
+    border: none
+
+  &:hover:not(:disabled)
+    transition: all 0.1s ease-in-out
+
+.button > *
+  cursor: pointer
+
+.primary,
+.hero, .primaryWhite, .primaryDanger
+  background-color: var(--accent-3)
+  min-width: fit-content
+  border: 1px solid var(--darker-less)
+  color: white
+
+  &:hover:not(:disabled)
+    background-color: var(--accent)
+    border: 1px solid transparent
+    text-shadow: 0 0 5px #0000003e
+    color: white
+
+.primaryDanger
+  background-color: var(--danger)
+  border: 1px solid var(--darker-less)
+
+  &:hover:not(:disabled)
+    background-color: var(--tinder-bg)
+    border: 1px solid var(--darker-less)
+
+.secondary
+  background-color: var(--accent-3)
+  border: 1px solid var(--borderDark)
+  border-color: var(--accent-4)
+  color: white
+  &:hover:not(:disabled)
+    background-color: var(--yellow)
+    border-color: black
+    color: black
+
+.secondaryYellow
+  background-color: var(--yellow)
+  border: 1px solid black
+  color: black
+  &:hover:not(:disabled)
+    background-color: var(--brown-transp)
+
+.secondaryInverse
+  background-color: transparent
+  border: 1px solid white
+  color: white
+  &:hover:not(:disabled)
+    background-color: var(--yellow)
+    border-color: black
+    color: black
+
+.secondaryHero
+  background-color: white
+  border: 1px solid black
+  color: black
+  &:hover:not(:disabled)
+    background-color: var(--brown-transp)
+
+.outline
+  background-color: transparent
+  color: var(--borderDark)
+  border: 1px solid var(--borderDark)
+
+  &:hover:not(:disabled)
+    background-color: var(--text-h)
+    border-color: var(--theme)
+    color: var(--theme)
+
+  &White
+    color: white
+    background-color: transparent
+    border: 1px solid white
+    cursor: pointer
+
+    &:hover
+      background-color: white
+      color: black
+      border: 1px solid black
+      cursor: pointer
+
+.danger
+  background-color: transparent
+  color: crimson
+  border: 1px solid crimson
+  &:hover:not(:disabled)
+    background-color: crimson
+    color: white
+
+.tinder
+  background: var(--tinder-dark)
+  border: 1px solid white
+  color: white
+  box-shadow: 0 4px 15px rgba(174, 10, 54, 0.3)
+  &:hover:not(:disabled)
+    background: var(--tinder-bright)
+    box-shadow: 0 6px 20px rgba(174, 10, 54, 0.4)
+
+.tinderOutline
+  background: transparent
+  border: 2px solid white
+  color: white
+  &:hover:not(:disabled)
+    background: rgba(255, 255, 255, 0.1)
+    border-color: white
+
+.zero, .action, .secondaryAction, .primaryAction
+  border: 1px solid transparent
+  background-color: transparent
+  color: var(--text-h)
+  border-radius: var(--radius-xs)
+  display: flex
+  align-items: center
+  justify-content: center
+  min-width: 2.75rem
+  padding: 0.15em 0.75rem
+  box-sizing: border-box
+
+  &:hover:not(:disabled)
+    color: var(--text)
+    background-color: var(--lighter)
+    border: 1px solid var(--borderWeak)
+
+.action, .secondaryAction
+  color: var(--action-text)
+  font-family: var(--mono)
+  background-color: var(--action-bg)
+  border: 1px solid transparent
+
+  &.xs
+    font-size: 0.85rem
+    padding: 0.1rem 0.4rem
+
+  &:hover:not(:disabled)
+    color: white
+    background-color: var(--accent-3)
+    border: 1px solid transparent
+
+.secondaryAction
+  color: var(--action-text)
+  background-color: var(--action-bg)
+  max-width: fit-content
+
+  &:hover:not(:disabled)
+    color: white
+    background-color: var(--action-bg-bright)
+
+.primaryAction
+  color: var(--action-text)
+  background-color: var(--action-bg-bright)
+
+  &:hover:not(:disabled)
+    color: white
+    background-color: var(--accent-3)
+    border: 1px solid var(--accent-3)
+
+.xs
+  padding: 0.175rem 0.6rem
+  font-size: 0.9rem
+  gap: 0.25rem
+
+.sm
+  padding: 0.25rem 0.75rem
+  font-size: 0.95rem
+  gap: 0.35rem
+
+.md
+  padding: 0.5rem 1.25rem
+  font-size: 1rem
+  gap: 0.25rem
+
+.lg
+  padding: 12px 2rem
+  min-width: 12rem
+  font-size: 1.125rem
+
+.fullWidth
+  display: flex
+  width: 100%

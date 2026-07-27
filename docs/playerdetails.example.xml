@@ -1,0 +1,67 @@
+<?xml version="1.0" encoding="utf-8"?>
+<HattrickData>
+  <FileName>playerdetails.xml</FileName>
+  <Version>3.2</Version>
+  <UserID>8777402</UserID>
+  <FetchedDate>2026-06-09 12:43:41</FetchedDate>
+  <UserSupporterTier>none</UserSupporterTier>
+  <IsPlayingMatch>False</IsPlayingMatch>
+  <Player>
+    <PlayerID>476305652</PlayerID>
+    <FirstName>Ville</FirstName>
+    <NickName></NickName>
+    <LastName>Pylvänäinen</LastName>
+    <PlayerNumber>13</PlayerNumber>
+    <Age>27</Age>
+    <AgeDays>18</AgeDays>
+    <NextBirthDay>2026-09-11 00:00:00</NextBirthDay>
+    <GenderID>1</GenderID>
+    <ArrivalDate>2023-04-28 21:26:00</ArrivalDate>
+    <PlayerForm>7</PlayerForm>
+    <Cards>0</Cards>
+    <InjuryLevel>0</InjuryLevel>
+    <Statement></Statement>
+    <PlayerLanguage>Suomi</PlayerLanguage>
+    <PlayerLanguageID>9</PlayerLanguageID>
+    <TrainerData />
+    <OwningTeam>
+      <TeamID>97982</TeamID>
+      <TeamName>M0RPHY F.F.</TeamName>
+      <LeagueID>1</LeagueID>
+    </OwningTeam>
+    <Salary>484800</Salary>
+    <IsAbroad>False</IsAbroad>
+    <Agreeability>2</Agreeability>
+    <Aggressiveness>1</Aggressiveness>
+    <Honesty>3</Honesty>
+    <Experience>8</Experience>
+    <Loyalty>20</Loyalty>
+    <MotherClubBonus>True</MotherClubBonus>
+    <MotherClub>
+      <TeamID>97982</TeamID>
+      <TeamName>M0RPHY F.F.</TeamName>
+    </MotherClub>
+    <Leadership>2</Leadership>
+    <Specialty>3</Specialty>
+    <NativeCountryID>1</NativeCountryID>
+    <NativeLeagueID>1</NativeLeagueID>
+    <NativeLeagueName>Sverige</NativeLeagueName>
+    <TSI>254260</TSI>
+    <PlayerSkills>
+      <StaminaSkill>7</StaminaSkill>
+    </PlayerSkills>
+    <Caps>0</Caps>
+    <CapsU20>0</CapsU20>
+    <CareerGoals>24</CareerGoals>
+    <CareerHattricks>0</CareerHattricks>
+    <LeagueGoals>3</LeagueGoals>
+    <CupGoals>0</CupGoals>
+    <FriendliesGoals>3</FriendliesGoals>
+    <MatchesCurrentTeam>221</MatchesCurrentTeam>
+    <GoalsCurrentTeam>24</GoalsCurrentTeam>
+    <AssistsCurrentTeam>13</AssistsCurrentTeam>
+    <CareerAssists>13</CareerAssists>
+    <TransferListed>False</TransferListed>
+    <TransferDetails />
+  </Player>
+</HattrickData>

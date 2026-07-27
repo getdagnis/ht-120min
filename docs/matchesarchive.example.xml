@@ -1,0 +1,287 @@
+<?xml version="1.0" encoding="utf-8"?>
+<HattrickData>
+  <FileName>matchesArchive.xml</FileName>
+  <Version>1.5</Version>
+  <UserID>8777402</UserID>
+  <FetchedDate>2026-06-09 12:31:44</FetchedDate>
+  <IsYouth>True</IsYouth>
+  <Team>
+    <TeamID>50596</TeamID>
+    <TeamName>Sülzer Hinterhof-Kicker</TeamName>
+    <MatchList>
+      <Match>
+        <MatchID>143544336</MatchID>
+        <HomeTeam>
+          <HomeTeamID>50596</HomeTeamID>
+          <HomeTeamName>Sülzer Hinterhof-Kicker</HomeTeamName>
+        </HomeTeam>
+        <AwayTeam>
+          <AwayTeamID>3186215</AwayTeamID>
+          <AwayTeamName>La Bassa Under 18</AwayTeamName>
+        </AwayTeam>
+        <MatchDate>2026-03-14 05:00:00</MatchDate>
+        <MatchType>100</MatchType>
+        <MatchContextId>0</MatchContextId>
+        <SourceSystem>Youth</SourceSystem>
+        <MatchRuleId>0</MatchRuleId>
+        <CupId>0</CupId>
+        <CupLevel>0</CupLevel>
+        <CupLevelIndex>0</CupLevelIndex>
+        <HomeGoals>3</HomeGoals>
+        <AwayGoals>0</AwayGoals>
+      </Match>
+      <Match>
+        <MatchID>143544339</MatchID>
+        <HomeTeam>
+          <HomeTeamID>3203992</HomeTeamID>
+          <HomeTeamName>Jong Wismut</HomeTeamName>
+        </HomeTeam>
+        <AwayTeam>
+          <AwayTeamID>50596</AwayTeamID>
+          <AwayTeamName>Sülzer Hinterhof-Kicker</AwayTeamName>
+        </AwayTeam>
+        <MatchDate>2026-03-21 05:00:00</MatchDate>
+        <MatchType>100</MatchType>
+        <MatchContextId>0</MatchContextId>
+        <SourceSystem>Youth</SourceSystem>
+        <MatchRuleId>0</MatchRuleId>
+        <CupId>0</CupId>
+        <CupLevel>0</CupLevel>
+        <CupLevelIndex>0</CupLevelIndex>
+        <HomeGoals>2</HomeGoals>
+        <AwayGoals>6</AwayGoals>
+      </Match>
+      <Match>
+        <MatchID>143544340</MatchID>
+        <HomeTeam>
+          <HomeTeamID>50596</HomeTeamID>
+          <HomeTeamName>Sülzer Hinterhof-Kicker</HomeTeamName>
+        </HomeTeam>
+        <AwayTeam>
+          <AwayTeamID>3203992</AwayTeamID>
+          <AwayTeamName>Jong Wismut</AwayTeamName>
+        </AwayTeam>
+        <MatchDate>2026-03-28 05:00:00</MatchDate>
+        <MatchType>100</MatchType>
+        <MatchContextId>0</MatchContextId>
+        <SourceSystem>Youth</SourceSystem>
+        <MatchRuleId>0</MatchRuleId>
+        <CupId>0</CupId>
+        <CupLevel>0</CupLevel>
+        <CupLevelIndex>0</CupLevelIndex>
+        <HomeGoals>8</HomeGoals>
+        <AwayGoals>0</AwayGoals>
+      </Match>
+      <Match>
+        <MatchID>143544349</MatchID>
+        <HomeTeam>
+          <HomeTeamID>3186215</HomeTeamID>
+          <HomeTeamName>La Bassa Under 18</HomeTeamName>
+        </HomeTeam>
+        <AwayTeam>
+          <AwayTeamID>50596</AwayTeamID>
+          <AwayTeamName>Sülzer Hinterhof-Kicker</AwayTeamName>
+        </AwayTeam>
+        <MatchDate>2026-04-04 05:00:00</MatchDate>
+        <MatchType>100</MatchType>
+        <MatchContextId>0</MatchContextId>
+        <SourceSystem>Youth</SourceSystem>
+        <MatchRuleId>0</MatchRuleId>
+        <CupId>0</CupId>
+        <CupLevel>0</CupLevel>
+        <CupLevelIndex>0</CupLevelIndex>
+        <HomeGoals>2</HomeGoals>
+        <AwayGoals>0</AwayGoals>
+      </Match>
+      <Match>
+        <MatchID>143544348</MatchID>
+        <HomeTeam>
+          <HomeTeamID>50596</HomeTeamID>
+          <HomeTeamName>Sülzer Hinterhof-Kicker</HomeTeamName>
+        </HomeTeam>
+        <AwayTeam>
+          <AwayTeamID>2945954</AwayTeamID>
+          <AwayTeamName>Balfékek U17</AwayTeamName>
+        </AwayTeam>
+        <MatchDate>2026-04-11 05:00:00</MatchDate>
+        <MatchType>100</MatchType>
+        <MatchContextId>0</MatchContextId>
+        <SourceSystem>Youth</SourceSystem>
+        <MatchRuleId>0</MatchRuleId>
+        <CupId>0</CupId>
+        <CupLevel>0</CupLevel>
+        <CupLevelIndex>0</CupLevelIndex>
+        <HomeGoals>0</HomeGoals>
+        <AwayGoals>2</AwayGoals>
+      </Match>
+      <Match>
+        <MatchID>143544350</MatchID>
+        <HomeTeam>
+          <HomeTeamID>285531</HomeTeamID>
+          <HomeTeamName>Super-corcoritos</HomeTeamName>
+        </HomeTeam>
+        <AwayTeam>
+          <AwayTeamID>50596</AwayTeamID>
+          <AwayTeamName>Sülzer Hinterhof-Kicker</AwayTeamName>
+        </AwayTeam>
+        <MatchDate>2026-04-18 05:00:00</MatchDate>
+        <MatchType>100</MatchType>
+        <MatchContextId>0</MatchContextId>
+        <SourceSystem>Youth</SourceSystem>
+        <MatchRuleId>0</MatchRuleId>
+        <CupId>0</CupId>
+        <CupLevel>0</CupLevel>
+        <CupLevelIndex>0</CupLevelIndex>
+        <HomeGoals>0</HomeGoals>
+        <AwayGoals>1</AwayGoals>
+      </Match>
+      <Match>
+        <MatchID>143544355</MatchID>
+        <HomeTeam>
+          <HomeTeamID>50596</HomeTeamID>
+          <HomeTeamName>Sülzer Hinterhof-Kicker</HomeTeamName>
+        </HomeTeam>
+        <AwayTeam>
+          <AwayTeamID>3191460</AwayTeamID>
+          <AwayTeamName>Göztepe U19</AwayTeamName>
+        </AwayTeam>
+        <MatchDate>2026-04-25 05:00:00</MatchDate>
+        <MatchType>100</MatchType>
+        <MatchContextId>0</MatchContextId>
+        <SourceSystem>Youth</SourceSystem>
+        <MatchRuleId>0</MatchRuleId>
+        <CupId>0</CupId>
+        <CupLevel>0</CupLevel>
+        <CupLevelIndex>0</CupLevelIndex>
+        <HomeGoals>2</HomeGoals>
+        <AwayGoals>2</AwayGoals>
+      </Match>
+      <Match>
+        <MatchID>144680418</MatchID>
+        <HomeTeam>
+          <HomeTeamID>50596</HomeTeamID>
+          <HomeTeamName>Sülzer Hinterhof-Kicker</HomeTeamName>
+        </HomeTeam>
+        <AwayTeam>
+          <AwayTeamID>3032091</AwayTeamID>
+          <AwayTeamName>-Dinamo-</AwayTeamName>
+        </AwayTeam>
+        <MatchDate>2026-05-02 05:00:00</MatchDate>
+        <MatchType>100</MatchType>
+        <MatchContextId>0</MatchContextId>
+        <SourceSystem>Youth</SourceSystem>
+        <MatchRuleId>0</MatchRuleId>
+        <CupId>0</CupId>
+        <CupLevel>0</CupLevel>
+        <CupLevelIndex>0</CupLevelIndex>
+        <HomeGoals>4</HomeGoals>
+        <AwayGoals>1</AwayGoals>
+      </Match>
+      <Match>
+        <MatchID>144680423</MatchID>
+        <HomeTeam>
+          <HomeTeamID>2945954</HomeTeamID>
+          <HomeTeamName>Balfékek U17</HomeTeamName>
+        </HomeTeam>
+        <AwayTeam>
+          <AwayTeamID>50596</AwayTeamID>
+          <AwayTeamName>Sülzer Hinterhof-Kicker</AwayTeamName>
+        </AwayTeam>
+        <MatchDate>2026-05-09 05:00:00</MatchDate>
+        <MatchType>100</MatchType>
+        <MatchContextId>0</MatchContextId>
+        <SourceSystem>Youth</SourceSystem>
+        <MatchRuleId>0</MatchRuleId>
+        <CupId>0</CupId>
+        <CupLevel>0</CupLevel>
+        <CupLevelIndex>0</CupLevelIndex>
+        <HomeGoals>1</HomeGoals>
+        <AwayGoals>1</AwayGoals>
+      </Match>
+      <Match>
+        <MatchID>144680421</MatchID>
+        <HomeTeam>
+          <HomeTeamID>50596</HomeTeamID>
+          <HomeTeamName>Sülzer Hinterhof-Kicker</HomeTeamName>
+        </HomeTeam>
+        <AwayTeam>
+          <AwayTeamID>285531</AwayTeamID>
+          <AwayTeamName>Super-corcoritos</AwayTeamName>
+        </AwayTeam>
+        <MatchDate>2026-05-16 05:00:00</MatchDate>
+        <MatchType>100</MatchType>
+        <MatchContextId>0</MatchContextId>
+        <SourceSystem>Youth</SourceSystem>
+        <MatchRuleId>0</MatchRuleId>
+        <CupId>0</CupId>
+        <CupLevel>0</CupLevel>
+        <CupLevelIndex>0</CupLevelIndex>
+        <HomeGoals>2</HomeGoals>
+        <AwayGoals>1</AwayGoals>
+      </Match>
+      <Match>
+        <MatchID>144680430</MatchID>
+        <HomeTeam>
+          <HomeTeamID>3186215</HomeTeamID>
+          <HomeTeamName>La Bassa Under 18</HomeTeamName>
+        </HomeTeam>
+        <AwayTeam>
+          <AwayTeamID>50596</AwayTeamID>
+          <AwayTeamName>Sülzer Hinterhof-Kicker</AwayTeamName>
+        </AwayTeam>
+        <MatchDate>2026-05-23 05:00:00</MatchDate>
+        <MatchType>100</MatchType>
+        <MatchContextId>0</MatchContextId>
+        <SourceSystem>Youth</SourceSystem>
+        <MatchRuleId>0</MatchRuleId>
+        <CupId>0</CupId>
+        <CupLevel>0</CupLevel>
+        <CupLevelIndex>0</CupLevelIndex>
+        <HomeGoals>4</HomeGoals>
+        <AwayGoals>1</AwayGoals>
+      </Match>
+      <Match>
+        <MatchID>144680429</MatchID>
+        <HomeTeam>
+          <HomeTeamID>50596</HomeTeamID>
+          <HomeTeamName>Sülzer Hinterhof-Kicker</HomeTeamName>
+        </HomeTeam>
+        <AwayTeam>
+          <AwayTeamID>3260041</AwayTeamID>
+          <AwayTeamName>Lumitos FC</AwayTeamName>
+        </AwayTeam>
+        <MatchDate>2026-05-30 05:00:00</MatchDate>
+        <MatchType>100</MatchType>
+        <MatchContextId>0</MatchContextId>
+        <SourceSystem>Youth</SourceSystem>
+        <MatchRuleId>0</MatchRuleId>
+        <CupId>0</CupId>
+        <CupLevel>0</CupLevel>
+        <CupLevelIndex>0</CupLevelIndex>
+        <HomeGoals>4</HomeGoals>
+        <AwayGoals>1</AwayGoals>
+      </Match>
+      <Match>
+        <MatchID>144680431</MatchID>
+        <HomeTeam>
+          <HomeTeamID>3260041</HomeTeamID>
+          <HomeTeamName>Lumitos FC</HomeTeamName>
+        </HomeTeam>
+        <AwayTeam>
+          <AwayTeamID>50596</AwayTeamID>
+          <AwayTeamName>Sülzer Hinterhof-Kicker</AwayTeamName>
+        </AwayTeam>
+        <MatchDate>2026-06-06 05:00:00</MatchDate>
+        <MatchType>100</MatchType>
+        <MatchContextId>0</MatchContextId>
+        <SourceSystem>Youth</SourceSystem>
+        <MatchRuleId>0</MatchRuleId>
+        <CupId>0</CupId>
+        <CupLevel>0</CupLevel>
+        <CupLevelIndex>0</CupLevelIndex>
+        <HomeGoals>0</HomeGoals>
+        <AwayGoals>6</AwayGoals>
+      </Match>
+    </MatchList>
+  </Team>
+</HattrickData>

@@ -1,0 +1,423 @@
+All containers/elements for the selected version and action type are shown.
+
+<?xml version="1.0" encoding="utf-8"?>
+
+-<HattrickData>
+<MatchID> : unsigned Integer
+The globally unique identifier of the match.
+</MatchID>
+<sourceSystem> : sourceSystem
+Specifies which source system the match belongs to, this replace the old isYouth param
+</sourceSystem> -<MatchData Available='Boolean'> -<HomeTeam>
+<HomeTeamID> : Integer
+The teamID of the Home team in the match. (Negative for street teams)
+</HomeTeamID>
+<HomeTeamName> : String
+The team name of the Home team in the match.
+</HomeTeamName>
+</HomeTeam> -<AwayTeam>
+<AwayTeamID> : Integer
+The teamID of the Away team in the match. (Negative for street teams)
+</AwayTeamID>
+<AwayTeamName> : String
+The team name of the Away team in the match.
+</AwayTeamName>
+</AwayTeam> -<Arena>
+<ArenaID> : unsigned Integer
+The globally unique arenaID.
+</ArenaID>
+<ArenaName> : String
+The name of the arena.
+</ArenaName>
+</Arena>
+<MatchDate> : DateTime
+The kick-off date and time of the match.
+</MatchDate>
+<MatchType> : MatchTypeID
+Integer defining the type of match.
+</MatchType>
+<Attitude> : MatchTeamAttitude
+Integer value representing the the team attitude specified for the match. Only shown to the owner of the team - otherwise omitted.
+</Attitude>
+<TacticType> : MatchTacticType
+Integer value representing the team tactic type specified for the match.
+</TacticType>
+<CoachModifier> : coachModifier
+Integer value representing the style of play the team will use in the match. The value ranges from -10 (100% defensive) to 10 (100% offensive). The attribute Available specifies if the value has been set or not.
+</CoachModifier> -<Lineup> -<Positions> -<Player>
+<PlayerID> : unsigned Integer
+The globally unique playerID.
+</PlayerID>
+<RoleID> : MatchRoleID
+An integer indicating which formal 'slot' (Role) the player has filled in the match, before the repositionings take effect. So, there can only be one (or zero) player with a particular RoleID (contrary to how PositionCode works).
+</RoleID>
+<FirstName> : String
+First name of the player.
+</FirstName>
+<NickName> : String
+Nick name of the player.
+</NickName>
+<LastName> : String
+Last name of the player.
+</LastName>
+<Behaviour> : MatchBehaviourID
+An integer indicating the individual order or repositioning that the player has played with.
+</Behaviour>
+</Player>
+</Positions> -<Bench> -<Player>
+<PlayerID> : unsigned Integer
+The globally unique playerID.
+</PlayerID>
+<RoleID> : MatchRoleID
+An integer indicating which formal 'slot' (Role) the player has filled in the match, before the repositionings take effect. So, there can only be one (or zero) player with a particular RoleID (contrary to how PositionCode works).
+</RoleID>
+<FirstName> : String
+First name of the player.
+</FirstName>
+<NickName> : String
+Nick name of the player.
+</NickName>
+<LastName> : String
+Last name of the player.
+</LastName>
+</Player>
+</Bench> -<Kickers> -<Player>
+<PlayerID> : unsigned Integer
+The globally unique playerID.
+</PlayerID>
+<RoleID> : MatchRoleID
+An integer indicating which formal 'slot' (Role) the player has filled in the match, before the repositionings take effect. So, there can only be one (or zero) player with a particular RoleID (contrary to how PositionCode works).
+</RoleID>
+<FirstName> : String
+First name of the player.
+</FirstName>
+<NickName> : String
+Nick name of the player.
+</NickName>
+<LastName> : String
+Last name of the player.
+</LastName>
+</Player>
+</Kickers> -<SetPieces>
+<PlayerID> : unsigned Integer
+The globally unique playerID.
+</PlayerID>
+<FirstName> : String
+First name of the player.
+</FirstName>
+<NickName> : String
+Nick name of the player.
+</NickName>
+<LastName> : String
+Last name of the player.
+</LastName>
+</SetPieces> -<Captain>
+<PlayerID> : unsigned Integer
+The globally unique playerID.
+</PlayerID>
+<FirstName> : String
+First name of the player.
+</FirstName>
+<NickName> : String
+Nick name of the player.
+</NickName>
+<LastName> : String
+Last name of the player.
+</LastName>
+</Captain>
+</Lineup> -<PlayerOrders> -<PlayerOrder>
+<PlayerOrderID> : unsigned Integer
+The globally unique PlayerOrderID.
+</PlayerOrderID>
+<MatchMinuteCriteria> : unsigned Integer
+An integer indicating in which minute the order should be executed at the earliest.
+</MatchMinuteCriteria>
+<GoalDiffCriteria> : unsigned Integer
+An integer representing different standings also required to trigger the order.
+</GoalDiffCriteria>
+<RedCardCriteria> : unsigned Integer
+An integer representing different red card events also required to trigger the order.
+</RedCardCriteria>
+<SubjectPlayerID> : unsigned Integer
+If a/ substitution: The player leaving. If b/ behaviour change: The player changing his behaviour. Or c/ position swap: the first player that will change his position.
+</SubjectPlayerID>
+<ObjectPlayerID> : unsigned Integer
+The player entering (or once more the player changing behaviour). Or if position swap, the player to swap with.
+</ObjectPlayerID>
+<OrderType> : matchOrderTypeID
+The type of the order.
+</OrderType>
+<NewPositionId> : MatchRoleID
+An integer representing the new position for the (entering or staying) player.
+</NewPositionId>
+<NewPositionBehaviour> : MatchBehaviourID
+An integer representing the new behaviour for the (entering or staying) player.
+</NewPositionBehaviour>
+<PlayerOrderExtraInteger> : MatchBehaviourID
+An integer representing the new behaviour for the (entering or staying) player. (It will always have the value 0, as it is not used by the new match engine.)
+</PlayerOrderExtraInteger>
+</PlayerOrder>
+</PlayerOrders>
+</MatchData>
+</HattrickData>
+References
+#Note
+With version 1.6: Corrected the ID for Substitute (Winger) to 117 (from 118) and corrected the ID for Substitute (Forward) to 118 (from 117).
+#MatchMinuteCriteria
+MatchMinuteCriteria Description
+-1 Anytime
+0 ... 119 After x minutes
+46 Halftime
+91 Before extratime
+#GoalDiffCriteria
+GoalDiffCriteria Description
+-1 Any standing
+0 Match is tied
+1 In the lead
+2 Down
+3 In the lead by more than one
+4 Down by more than one
+5 Not down
+6 Not in the lead
+7 In the lead by more than two
+8 Down by more than two
+9 Match is not tied
+#RedCardCriteria
+RedCardCriteria Description
+-1 Ignore red card status
+1 My player red-carded
+2 Opponent red-carded
+11 My central defender red-carded
+12 My midfielder red-carded
+13 My forward red-carded
+14 My wing back red-carded
+15 My winger red-carded
+21 Opponent central defender red-carded
+22 Opponent midfielder red-carded
+23 Opponent forward red-carded
+24 Opponent wing back red-carded
+25 Opponent winger red-carded
+#Lineup_18
+Value Description
+{
+"positions": [
+{"id":"283974499", "behaviour":"0"},
+{"id":"227622136", "behaviour":"1"},
+{"id":"0", "behaviour":"0"},
+{"id":"226747085", "behaviour":"0"},
+{"id":"0", "behaviour":"0"},
+{"id":"285319569", "behaviour":"2"},
+{"id":"234525976", "behaviour":"1"},
+{"id":"190611685", "behaviour":"0"},
+{"id":"255908009", "behaviour":"0"},
+{"id":"98722167", "behaviour":"0"},
+{"id":"0", "behaviour":"0"},
+{"id":"327345682", "behaviour":"4"},
+{"id":"312263029", "behaviour":"0"},
+{"id":"327875363", "behaviour":"0"},
+
+{"id":"319107771", "behaviour":"0"},
+{"id":"224242073", "behaviour":"0"},
+{"id":"266402745", "behaviour":"0"},
+{"id":"304433518", "behaviour":"0"},
+{"id":"214058496", "behaviour":"0"},
+
+{"id":"190611685", "behaviour":"0"},
+{"id":"226747085", "behaviour":"0"},
+
+{"id":"226747085", "behaviour":"0"},
+{"id":"190611685", "behaviour":"0"},
+{"id":"98722167", "behaviour":"0"},
+{"id":"283974499", "behaviour":"0"},
+{"id":"227622136", "behaviour":"0"},
+{"id":"0", "behaviour":"0"},
+{"id":"0", "behaviour":"0"},
+{"id":"0", "behaviour":"0"},
+{"id":"0", "behaviour":"0"},
+{"id":"0", "behaviour":"0"},
+{"id":"0", "behaviour":"0"}
+],
+"settings":
+{
+"tactic":"0",
+"speechLevel":"0",
+"newLineup":"",
+"coachModifier":"0"
+},
+"substitutions": [
+{
+"playerin":"304433518",
+"playerout":"327875363",
+"orderType":"1",
+"min":"80",
+"pos":"-1",
+"beh":"-1",
+"card":"-1",
+"standing":"0"
+},
+{
+"playerin":"319107771",
+"playerout":"283974499",
+"orderType":"1",
+"min":"89",
+"pos":"-1",
+"beh":"-1",
+"card":"-1",
+"standing":"3"
+}
+]
+}
+
+This is a JSON-formatted string.
+
+positions
+An array of all positions.
+
+First 14 positionslots (0-13) represent the players on the field, starting with the goalkeeper (0), followed by right defender (1), right central defender (2) and so on up to left forward (13).
+The next 5 slots are substitutes in the following order: goalkeeper, defender, midfielder, forward, winger.
+Line 20 and 21 is captain and set pieces taker.
+The last 11 slots are penalty takers. All 11 of these should always be provided, sending {"id":"0","behaviour":"0"} where not provided by the user. In this example only 5 kickers were set by the user.
+The id is the PlayerId of the player you want.
+The behaviour is the matchBehaviourID
+The order is very important and concequently its very important that you send id:0 on slots where no player is placed!
+settings
+tactic is matchTacticType.
+speechLevel is the matchTeamAttitude.
+newLineup should always be empty.
+coachModifer is the style of play and is a value between -10 (100% defensive) and 10 (100% offensive). The available values depends on the level of the teams tactical assistant. If the coach is offensive you can go 2 steps, or 20%, per level towards defensive, and vice versa. If you have a neutral coach you can go 1 step, or 10%, per level in either direction. This value is optional and is recommended to not include if the user doesn't have a tactical assistant. Ignored for youth matches.
+substitutions
+An array of all Subs / Orders. You can have 0-5 of subs/orders, plus an additional one per level of the teams tactical assistant. Send an empty array for 0 substitutions.
+
+playerin is the playerId of the player in the "in" box.
+playerout is consequently the playerId of the player in the "out" box, this should be same as playerin if its a behaviour change.
+orderType: 1 = substitution or behaviour change, 3 = position swap.
+min: MatchMinuteCriteria
+pos: the position the player should take after the substitution, 0-13, see positions above for the order. -1 means no change.
+beh: see matchBehaviourID. -1 means no change.
+card: RedCardCriteria
+standing: GoalDiffCriteria
+#Lineup_30
+Value Description
+{
+"positions": [
+{"id":283974499, "behaviour":0},
+{"id":227622136, "behaviour":1},
+{"id":0, "behaviour":0},
+{"id":226747085, "behaviour":0},
+{"id":0, "behaviour":0},
+{"id":285319569, "behaviour":2},
+{"id":234525976, "behaviour":1},
+{"id":190611685, "behaviour":0},
+{"id":255908009, "behaviour":0},
+{"id":98722167, "behaviour":0},
+{"id":0, "behaviour":0},
+{"id":327345682, "behaviour":4},
+{"id":312263029, "behaviour":0},
+{"id":327875363, "behaviour":0}
+],
+"bench": [
+{"id":319107771, "behaviour":0},
+{"id":0, "behaviour":0},
+{"id":224242073, "behaviour":0},
+{"id":266402745, "behaviour":0},
+{"id":214058496, "behaviour":0},
+{"id":304433518, "behaviour":0},
+{"id":0, "behaviour":0},
+
+{"id":224242073, "behaviour":0},
+{"id":0, "behaviour":0},
+{"id":224242073, "behaviour":0},
+{"id":214058496, "behaviour":0},
+{"id":304433518, "behaviour":0},
+{"id":234525976, "behaviour":0},
+{"id":0, "behaviour":0}
+],
+"kickers": [
+{"id":226747085, "behaviour":0},
+{"id":190611685, "behaviour":0},
+{"id":98722167, "behaviour":0},
+{"id":283974499, "behaviour":0},
+{"id":227622136, "behaviour":0},
+{"id":0, "behaviour":0},
+{"id":0, "behaviour":0},
+{"id":0, "behaviour":0},
+{"id":0, "behaviour":0},
+{"id":0, "behaviour":0},
+{"id":0, "behaviour":0}
+],
+"captain": "190611685",
+"setPieces": "226747085",
+"settings":
+{
+"tactic":"0",
+"speechLevel":"0",
+"newLineup":"",
+"coachModifier":"0",
+"manMarkerPlayerId":"0",
+"manMarkingPlayerId":"0"
+},
+"substitutions": [
+{
+"playerin":"304433518",
+"playerout":"327875363",
+"orderType":"1",
+"min":"80",
+"pos":"-1",
+"beh":"-1",
+"card":"-1",
+"standing":"0"
+},
+{
+"playerin":"319107771",
+"playerout":"283974499",
+"orderType":"1",
+"min":"89",
+"pos":"-1",
+"beh":"-1",
+"card":"-1",
+"standing":"3"
+}
+]
+}
+
+This is a JSON-formatted string with support of a larger bench.
+
+You must send the complete JSON-object as shown here, even when for example no captain was set. Always send "0" where no player was provided as the order is very important.
+
+positions
+An array of all positions.
+id is the PlayerId of the player you want.
+behaviour is the matchBehaviourID
+This represent the players on the field, starting with the goalkeeper (0), followed by right defender (1), right central defender (2) and so on up to left forward (13).
+bench
+An array of the bench.
+id is the PlayerId of the player you want.
+behaviour is optional and will always be 0 regardless of value.
+The first 7 slots represents the primary substitutes, in the following order: goalkeeper, central defender, wing back, inner midfielder, forward, winger, extra.
+The next 7 slots represents the backup substitutes, in the same order as above.
+To qualify as a backup substitute a player must first be a primary substitute.
+There's no limit to how many slots a substitute can hold.
+kickers
+An array of all the penalty takers.
+id is the PlayerId of the player you want.
+behaviour is optional and will always be 0 regardless of value.
+captain
+The PlayerId of the player you want as captain. "0" if not set.
+setPieces
+The PlayerId of the player you want as set pieces taker. "0" if not set.
+settings
+tactic is matchTacticType.
+speechLevel is the matchTeamAttitude.
+newLineup should always be empty.
+coachModifer is the style of play and is a value between -10 (100% defensive) and 10 (100% offensive). The available values depends on the level of the teams tactical assistant. If the coach is offensive you can go 2 steps, or 20%, per level towards defensive, and vice versa. If you have a neutral coach you can go 1 step, or 10%, per level in either direction. This value is optional and is recommended to not include if the user doesn't have a tactical assistant. Ignored for youth matches.
+substitutions
+An array of all Subs / Orders. You can have 0-5 of subs/orders, plus an additional one per level of the teams tactical assistant. Send an empty array for 0 substitutions.
+
+playerin is the playerId of the player in the "in" box.
+playerout is consequently the playerId of the player in the "out" box, this should be same as playerin if its a behaviour change.
+orderType: 1 = substitution or behaviour change, 3 = position swap.
+min: MatchMinuteCriteria
+pos: the position the player should take after the substitution, 0-13, see positions above for the order. -1 means no change.
+beh: see matchBehaviourID. -1 means no change.
+card: RedCardCriteria
+standing: GoalDiffCriteria

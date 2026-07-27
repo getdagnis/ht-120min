@@ -1,0 +1,130 @@
+<?xml version="1.0" encoding="utf-8"?>
+<HattrickData>
+  <FileName>managercompendium.xml</FileName>
+  <Version>1.7</Version>
+  <UserID>8777402</UserID>
+  <FetchedDate>2026-06-01 13:23:59</FetchedDate>
+  <Manager>
+    <UserId>8777402</UserId>
+    <Loginname>mr_bots</Loginname>
+    <SupporterTier>gold</SupporterTier>
+    <LastLogins>
+      <LoginTime>2026-06-01 13:11:21 : 91.105.***.***</LoginTime>
+      <LoginTime>2026-06-01 11:58:06 : 91.105.***.***</LoginTime>
+      <LoginTime>2026-06-01 11:32:00 : 91.105.***.***</LoginTime>
+      <LoginTime>2026-05-31 13:12:24 : 91.105.***.***</LoginTime>
+      <LoginTime>2026-05-31 10:19:36 : 91.105.***.***</LoginTime>
+      <LoginTime>2026-05-30 18:12:40 : 91.105.***.***</LoginTime>
+    </LastLogins>
+    <Language>
+      <LanguageId>4</LanguageId>
+      <LanguageName>Italiano</LanguageName>
+    </Language>
+    <Country>
+      <CountryId>48</CountryId>
+      <CountryName>Latvija</CountryName>
+    </Country>
+    <Currency>
+      <CurrencyName>€</CurrencyName>
+      <CurrencyRate>10</CurrencyRate>
+    </Currency>
+    <Teams>
+      <Team>
+        <TeamId>681813</TeamId>
+        <TeamName>This bot team is a bot</TeamName>
+        <GenderID>1</GenderID>
+        <LeagueSystemID>1</LeagueSystemID>
+        <Arena>
+          <ArenaId>681813</ArenaId>
+          <ArenaName>House of Bots</ArenaName>
+        </Arena>
+        <League>
+          <LeagueId>53</LeagueId>
+          <LeagueName>Latvija</LeagueName>
+          <Season>79</Season>
+        </League>
+        <Country>
+          <CountryId>48</CountryId>
+          <CountryName>Latvija</CountryName>
+        </Country>
+        <LeagueLevelUnit>
+          <LeagueLevelUnitId>14183</LeagueLevelUnitId>
+          <LeagueLevelUnitName>IV.35</LeagueLevelUnitName>
+        </LeagueLevelUnit>
+        <Region>
+          <RegionId>1956</RegionId>
+          <RegionName>Talsi</RegionName>
+        </Region>
+        <YouthTeam>
+          <YouthTeamId>3095502</YouthTeamId>
+          <YouthTeamName>The MiniBots</YouthTeamName>
+          <YouthLeague>
+            <YouthLeagueId>22546</YouthLeagueId>
+            <YouthLeagueName>Youth Glory</YouthLeagueName>
+          </YouthLeague>
+        </YouthTeam>
+      </Team>
+      <Team>
+        <TeamId>3220518</TeamId>
+        <TeamName>Guåhan Goddesses</TeamName>
+        <GenderID>2</GenderID>
+        <LeagueSystemID>2</LeagueSystemID>
+        <Arena>
+          <ArenaId>3217261</ArenaId>
+          <ArenaName>Hagåtña Chocolate House</ArenaName>
+        </Arena>
+        <League>
+          <LeagueId>3000</LeagueId>
+          <LeagueName>Hattrick Femme International</LeagueName>
+          <Season>1</Season>
+        </League>
+        <Country>
+          <CountryId>179</CountryId>
+          <CountryName>Guam</CountryName>
+        </Country>
+        <LeagueLevelUnit>
+          <LeagueLevelUnitId>272682</LeagueLevelUnitId>
+          <LeagueLevelUnitName>VII.1026</LeagueLevelUnitName>
+        </LeagueLevelUnit>
+        <Region>
+          <RegionId>2779</RegionId>
+          <RegionName>Tamuning </RegionName>
+        </Region>
+        <YouthTeam>
+          <YouthTeamId>3254987</YouthTeamId>
+          <YouthTeamName>Guardians of Guåhan</YouthTeamName>
+          <YouthLeague>
+            <YouthLeagueId>824442</YouthLeagueId>
+            <YouthLeagueName>Junior League Basel</YouthLeagueName>
+          </YouthLeague>
+        </YouthTeam>
+      </Team>
+    </Teams>
+    <NationalTeamCoach />
+    <NationalTeamAssistant />
+    <Avatar>
+      <BackgroundImage>/Img/Avatar/backgrounds/card1.png</BackgroundImage>
+      <Layer x="9" y="10">
+        <Image>/Img/Avatar/backgrounds/bg_blue.png</Image>
+      </Layer>
+      <Layer x="9" y="10">
+        <Image>/Img/Avatar/bodies/f9man3a.png</Image>
+      </Layer>
+      <Layer x="9" y="10">
+        <Image>/Img/Avatar/faces/f9m.png</Image>
+      </Layer>
+      <Layer x="25" y="10">
+        <Image>/Img/Avatar/eyes/e28b.png</Image>
+      </Layer>
+      <Layer x="31" y="63">
+        <Image>/Img/Avatar/mouths/m7b.png</Image>
+      </Layer>
+      <Layer x="18" y="29">
+        <Image>/Img/Avatar/noses/n12.png</Image>
+      </Layer>
+      <Layer x="9" y="10">
+        <Image>/Img/Avatar/hair/f9h14j.png</Image>
+      </Layer>
+    </Avatar>
+  </Manager>
+</HattrickData>

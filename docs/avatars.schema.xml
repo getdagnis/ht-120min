@@ -1,0 +1,26 @@
+All containers/elements for the selected version and action type are shown.
+<?xml version="1.0" encoding="utf-8"?>
+-<HattrickData>
+-<Team>
+<TeamId> : unsigned Integer
+The globally unique TeamID.
+</TeamId>
+-<Players>
+-<Player>
+<PlayerID> : unsigned Integer
+The globally unique PlayerID.
+</PlayerID>
+-<Avatar>
+<BackgroundImage> : URI
+The URL to the card background-image. This will show a silouette for non-supporter teams.
+</BackgroundImage>
+-<Layer x='unsigned Integer' y='unsigned Integer'>
+<Image> : URI
+The URL to the bodypart item.
+</Image>
+</Layer>
+</Avatar>
+</Player>
+</Players>
+</Team>
+</HattrickData>

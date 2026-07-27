@@ -1,0 +1,175 @@
+<?xml version="1.0" encoding="utf-8"?>
+<HattrickData>
+  <FileName>fans.xml</FileName>
+  <Version>1.3</Version>
+  <UserID>8777402</UserID>
+  <FetchedDate>2026-06-15 19:07:20</FetchedDate>
+  <Team>
+    <TeamID>681813</TeamID>
+    <FanclubId>687334</FanclubId>
+    <FanclubName>The Bot Gang</FanclubName>
+    <FanMood>10</FanMood>
+    <Members>2594</Members>
+    <FanSeasonExpectation>1</FanSeasonExpectation>
+    <PlayedMatches>
+      <Match>
+        <MatchID>762410928</MatchID>
+        <HomeTeam>
+          <HomeTeamID>681813</HomeTeamID>
+          <HomeTeamName>This bot team is a bot</HomeTeamName>
+        </HomeTeam>
+        <AwayTeam>
+          <AwayTeamID>679007</AwayTeamID>
+          <AwayTeamName>M-Ergli</AwayTeamName>
+        </AwayTeam>
+        <MatchDate>2026-05-09 11:45:00</MatchDate>
+        <MatchType>1</MatchType>
+        <HomeGoals>0</HomeGoals>
+        <AwayGoals>0</AwayGoals>
+        <FanMatchExpectation>6</FanMatchExpectation>
+        <FanMoodAfterMatch>10</FanMoodAfterMatch>
+        <Weather>1</Weather>
+        <SoldSeats>60009</SoldSeats>
+      </Match>
+      <Match>
+        <MatchID>762410932</MatchID>
+        <HomeTeam>
+          <HomeTeamID>681753</HomeTeamID>
+          <HomeTeamName>Fk Snaiperi</HomeTeamName>
+        </HomeTeam>
+        <AwayTeam>
+          <AwayTeamID>681813</AwayTeamID>
+          <AwayTeamName>This bot team is a bot</AwayTeamName>
+        </AwayTeam>
+        <MatchDate>2026-05-16 11:45:00</MatchDate>
+        <MatchType>1</MatchType>
+        <HomeGoals>0</HomeGoals>
+        <AwayGoals>4</AwayGoals>
+        <FanMatchExpectation>4</FanMatchExpectation>
+        <FanMoodAfterMatch>10</FanMoodAfterMatch>
+        <Weather>2</Weather>
+        <SoldSeats>28093</SoldSeats>
+      </Match>
+      <Match>
+        <MatchID>762410933</MatchID>
+        <HomeTeam>
+          <HomeTeamID>681813</HomeTeamID>
+          <HomeTeamName>This bot team is a bot</HomeTeamName>
+        </HomeTeam>
+        <AwayTeam>
+          <AwayTeamID>681753</AwayTeamID>
+          <AwayTeamName>Fk Snaiperi</AwayTeamName>
+        </AwayTeam>
+        <MatchDate>2026-05-23 11:45:00</MatchDate>
+        <MatchType>1</MatchType>
+        <HomeGoals>2</HomeGoals>
+        <AwayGoals>0</AwayGoals>
+        <FanMatchExpectation>7</FanMatchExpectation>
+        <FanMoodAfterMatch>10</FanMoodAfterMatch>
+        <Weather>2</Weather>
+        <SoldSeats>54533</SoldSeats>
+      </Match>
+      <Match>
+        <MatchID>762410937</MatchID>
+        <HomeTeam>
+          <HomeTeamID>679007</HomeTeamID>
+          <HomeTeamName>M-Ergli</HomeTeamName>
+        </HomeTeam>
+        <AwayTeam>
+          <AwayTeamID>681813</AwayTeamID>
+          <AwayTeamName>This bot team is a bot</AwayTeamName>
+        </AwayTeam>
+        <MatchDate>2026-05-30 11:45:00</MatchDate>
+        <MatchType>1</MatchType>
+        <HomeGoals>4</HomeGoals>
+        <AwayGoals>3</AwayGoals>
+        <FanMatchExpectation>4</FanMatchExpectation>
+        <FanMoodAfterMatch>9</FanMoodAfterMatch>
+        <Weather>2</Weather>
+        <SoldSeats>46080</SoldSeats>
+      </Match>
+      <Match>
+        <MatchID>762410942</MatchID>
+        <HomeTeam>
+          <HomeTeamID>681813</HomeTeamID>
+          <HomeTeamName>This bot team is a bot</HomeTeamName>
+        </HomeTeam>
+        <AwayTeam>
+          <AwayTeamID>677887</AwayTeamID>
+          <AwayTeamName>FC Nachos</AwayTeamName>
+        </AwayTeam>
+        <MatchDate>2026-06-06 11:45:00</MatchDate>
+        <MatchType>1</MatchType>
+        <HomeGoals>5</HomeGoals>
+        <AwayGoals>2</AwayGoals>
+        <FanMatchExpectation>6</FanMatchExpectation>
+        <FanMoodAfterMatch>10</FanMoodAfterMatch>
+        <Weather>3</Weather>
+        <SoldSeats>56543</SoldSeats>
+      </Match>
+      <Match>
+        <MatchID>762410945</MatchID>
+        <HomeTeam>
+          <HomeTeamID>116634</HomeTeamID>
+          <HomeTeamName>FK Bursis</HomeTeamName>
+        </HomeTeam>
+        <AwayTeam>
+          <AwayTeamID>681813</AwayTeamID>
+          <AwayTeamName>This bot team is a bot</AwayTeamName>
+        </AwayTeam>
+        <MatchDate>2026-06-13 11:45:00</MatchDate>
+        <MatchType>1</MatchType>
+        <HomeGoals>0</HomeGoals>
+        <AwayGoals>0</AwayGoals>
+        <FanMatchExpectation>4</FanMatchExpectation>
+        <FanMoodAfterMatch>10</FanMoodAfterMatch>
+        <Weather>1</Weather>
+        <SoldSeats>51940</SoldSeats>
+      </Match>
+    </PlayedMatches>
+    <UpcomingMatches>
+      <Match>
+        <MatchID>762410952</MatchID>
+        <HomeTeam>
+          <HomeTeamID>681813</HomeTeamID>
+          <HomeTeamName>This bot team is a bot</HomeTeamName>
+        </HomeTeam>
+        <AwayTeam>
+          <AwayTeamID>683085</AwayTeamID>
+          <AwayTeamName>FC Smildzējciems</AwayTeamName>
+        </AwayTeam>
+        <MatchDate>2026-06-20 11:45:00</MatchDate>
+        <MatchType>1</MatchType>
+        <FanMatchExpectation>5</FanMatchExpectation>
+      </Match>
+      <Match>
+        <MatchID>762410953</MatchID>
+        <HomeTeam>
+          <HomeTeamID>684279</HomeTeamID>
+          <HomeTeamName>Zosēnu gani</HomeTeamName>
+        </HomeTeam>
+        <AwayTeam>
+          <AwayTeamID>681813</AwayTeamID>
+          <AwayTeamName>This bot team is a bot</AwayTeamName>
+        </AwayTeam>
+        <MatchDate>2026-06-27 11:45:00</MatchDate>
+        <MatchType>1</MatchType>
+        <FanMatchExpectation>4</FanMatchExpectation>
+      </Match>
+      <Match>
+        <MatchID>762410959</MatchID>
+        <HomeTeam>
+          <HomeTeamID>681813</HomeTeamID>
+          <HomeTeamName>This bot team is a bot</HomeTeamName>
+        </HomeTeam>
+        <AwayTeam>
+          <AwayTeamID>679496</AwayTeamID>
+          <AwayTeamName>Inčukalns 07</AwayTeamName>
+        </AwayTeam>
+        <MatchDate>2026-07-04 11:45:00</MatchDate>
+        <MatchType>1</MatchType>
+        <FanMatchExpectation>7</FanMatchExpectation>
+      </Match>
+    </UpcomingMatches>
+  </Team>
+</HattrickData>

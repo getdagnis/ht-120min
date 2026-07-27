@@ -1,0 +1,52 @@
+[
+  {
+    "id": "name",
+    "title": "Tournament Name",
+    "body": "Pick a name participants will recognize. Sandbox tournaments are temporary test spaces and are marked as TEST automatically."
+  },
+  {
+    "id": "slug",
+    "title": "URL Slug",
+    "body": "Creates the direct link to your tournament. It is generated from the name and checked for uniqueness when you continue."
+  },
+  {
+    "id": "gender",
+    "title": "Tournament Gender",
+    "body": "Choose Regular for male teams or HFI for female teams. Real tournament teams are checked against their Hattrick league."
+  },
+  {
+    "id": "registration_type",
+    "title": "Tournament Type",
+    "body": "Hattrick Validated lets managers join with CHPP. Organizer-Managed lets you add teams yourself. Just Testing creates a clearly marked sandbox with dummy Hattrick teams for trying the flow."
+  },
+  {
+    "id": "scoring_mode",
+    "title": "Scoring Modes",
+    "body": "Choose how the standings are ranked. 120-minute achievements counts completed friendlies that reach 120 minutes. Regular 90-minute points uses 3 points for a win, 1 for a draw and 0 for a loss. APPG-120 is a cooperative Average Points Per Game system for reconstructed 120-minute tournaments: each match is classified as ET3 (+3), ET2 (+2), PS1 (+1), RT0 (0) or OPW (−1 to the regulation-time winner), then total APPG points are divided by completed matches. APPG-120 is available for organizer-managed and sandbox tournaments, where classifications can be reviewed."
+  },
+  {
+    "id": "private",
+    "title": "Private Tournament",
+    "body": "Private tournaments stay out of public lists, but people with the direct link can still view and join while registration is open."
+  },
+  {
+    "id": "league_restriction",
+    "title": "League Restriction",
+    "body": "Optional. Limit real tournament registration to a specific country or Hattrick league. This option is not used for sandbox team selection."
+  },
+  {
+    "id": "description",
+    "title": "Description",
+    "body": "Optional text shown on the tournament page. Keep it useful for participants: explain the community, rules or friendly format."
+  },
+  {
+    "id": "teams-and-schedule",
+    "title": "Teams and Schedule",
+    "body": "Add at least two teams before generating a schedule. After generation, participants arrange the listed friendlies in Hattrick and the site refreshes results from CHPP."
+  },
+  {
+    "id": "sandbox",
+    "title": "Sandbox Tournaments",
+    "body": "Sandbox tournaments use real Hattrick team metadata but do not represent real manager participation. Add random teams, test restrictions and try schedule generation or regeneration without affecting real tournament eligibility."
+  }
+]

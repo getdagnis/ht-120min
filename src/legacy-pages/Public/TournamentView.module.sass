@@ -1,0 +1,2007 @@
+.view
+  text-align: left
+  width: 100%
+  max-width: 1150px
+  margin: 0 auto
+  padding: 5rem 0 2rem
+  box-sizing: border-box
+
+  @media (max-width: 1160px)
+    padding: 5rem 0.5rem 2rem
+
+  @media (max-width: 620px)
+    padding: 4.5rem 0.5rem 1rem
+
+  @media (min-width: 1161px)
+    width: 1150px
+
+.tabContent
+  width: 100%
+  min-width: 0
+  box-sizing: border-box
+
+.loading
+  display: flex
+  align-items: center
+  justify-content: center
+  min-height: 45vh
+  padding: 3rem 0
+  text-align: center
+  font-weight: 500
+  font-size: 1.25rem
+
+.headerTop
+  display: grid
+  grid-template-columns: minmax(0, 1fr) 22rem
+  gap: 1rem
+  align-items: start
+  margin-bottom: 1.5rem
+  margin-top: 1.25rem
+
+  @media (max-width: 720px)
+    grid-template-columns: 1fr
+    margin-top: 0
+    padding-top: 0
+    gap: 0
+
+.h1Img
+  width: 22rem
+  max-width: 100%
+  aspect-ratio: 4/3
+  background-size: cover !important
+  object-fit: cover
+  border-radius: var(--radius-sm)
+  background: var(--bg-transp)
+  position: relative
+  cursor: pointer
+  overflow: hidden
+
+  &:hover
+    .editOverlay
+      opacity: 1
+      pointer-events: auto
+
+.titleArea
+  min-width: 0
+
+  @media (max-width: 620px)
+    order: 2
+
+    .h1Wrap
+      display: flex
+      gap: 0.5rem
+      align-items: center
+
+  h1
+    margin: 0 0 0.5rem
+    font-size: 2.25rem
+    font-weight: 700
+    line-height: 1.2
+    text-wrap: pretty
+
+  .subtitle
+    margin: 0 0 1.5rem
+    font-size: 1rem
+    color: var(--text60)
+    opacity: 0.8
+    font-weight: 600
+    text-transform: uppercase
+    letter-spacing: 0.05em
+
+  @media (max-width: 640px)
+    flex-direction: column
+    align-items: flex-start
+    gap: 1rem
+    margin-bottom: 0
+
+    button
+      width: 100%
+
+.pauseNotice
+  background: rgba(214, 51, 108, 0.1)
+  border: 1px solid var(--accent)
+  color: var(--text-h)
+  padding: 1.5rem
+  border-radius: 0.75rem
+  margin-bottom: 2rem
+  display: flex
+  align-items: center
+  gap: 1.5rem
+
+  h3
+    margin: 0 0 0.25rem
+    color: var(--accent)
+    font-size: 1.25rem
+
+  p
+    margin: 0
+    font-size: 1rem
+    opacity: 0.9
+
+.testNotice
+  background: var(--bg-helpText)
+  border: 1px solid var(--secondary)
+  color: var(--text-h)
+  padding: 1.25rem
+  border-radius: var(--radius-md)
+  margin-bottom: 2rem
+  display: flex
+  justify-content: space-between
+  gap: 1rem
+  align-items: center
+
+  h3
+    margin: 0 0 0.25rem
+    color: var(--secondary)
+    font-size: 1.25rem
+
+  p
+    margin: 0
+    color: var(--text)
+
+  @media (max-width: 720px)
+    flex-direction: column
+    align-items: flex-start
+
+.testNoticeActions
+  display: flex
+  flex-direction: column
+  gap: 0.5rem
+  align-items: flex-end
+
+  @media (max-width: 720px)
+    width: 100%
+    align-items: stretch
+
+.sandboxCandidateInline
+  display: flex
+  align-items: center
+  gap: 0.75rem
+  flex-wrap: wrap
+  justify-content: flex-end
+  position: relative
+  padding-right: 2rem
+
+  strong
+    color: var(--text-h)
+
+  span
+    color: var(--text60)
+    font-size: 0.9rem
+
+  @media (max-width: 720px)
+    justify-content: flex-start
+
+.sandboxCandidateClose
+  position: absolute
+  top: 50%
+  right: 0
+  transform: translateY(-50%)
+  background: transparent
+  border: none
+  color: var(--text60)
+  cursor: pointer
+  display: flex
+  align-items: center
+  justify-content: center
+  padding: 0.25rem
+  border-radius: var(--radius-xs)
+
+  &:hover
+    color: var(--text-h)
+
+.joinForm
+  display: flex
+  flex-direction: column
+  gap: 1.5rem
+
+.joinInputs
+  display: flex
+  gap: 1rem
+
+  input
+    flex: 1
+    min-width: 0
+
+  @media (max-width: 640px)
+    flex-direction: column
+
+.joinActions
+  display: flex
+  gap: 1rem
+  justify-content: flex-start
+
+.description
+  color: var(--text)
+  font-size: 1rem
+  font-weight: 500
+  line-height: 1.6
+  max-width: 800px
+  text-wrap: pretty
+
+  p
+    margin: 0
+
+  strong
+    color: var(--text-h)
+    font-weight: 700
+
+.addDescBtn
+  background: transparent
+  border: none
+  color: var(--accent)
+  font-weight: 600
+  padding: 0
+  cursor: pointer
+  font-size: 0.9rem
+  margin-bottom: 1rem
+  opacity: 0.8
+  transition: opacity 0.2s
+
+  &:hover
+    opacity: 1
+    text-decoration: underline
+
+.quickAddDesc
+  margin-bottom: 1.5rem
+  display: flex
+  flex-direction: column
+  gap: 0.75rem
+
+  textarea
+    width: 100%
+    padding: 0.75rem
+    border-radius: 8px
+    border: 1px solid var(--border)
+    color: var(--text)
+    font-family: inherit
+    font-size: 0.95rem
+    resize: vertical
+
+    &:focus
+      outline: none
+      border-color: var(--accent)
+
+.quickAddActions
+  display: flex
+  gap: 0.5rem
+
+.tournamentDescription
+  margin-bottom: 1rem
+  padding-bottom: 1rem
+  border-bottom: 1px dashed var(--border)
+  text-wrap: pretty
+
+  p
+    white-space: pre-wrap
+    font-size: 1.1rem
+    color: var(--text-h)
+
+.scoringHelp
+  .helpIcon
+    vertical-align: middle
+    cursor: pointer
+    color: var(--accent)
+    margin-left: 0.25rem
+    transition: transform 0.2s
+    opacity: 0.8
+
+    &:hover
+      transform: scale(1.2)
+      opacity: 1
+
+.standingsHeader
+  display: flex
+  justify-content: flex-end
+  align-items: flex-start
+  margin-bottom: 1.5rem
+
+.helpContent
+  margin-top: 0.5rem
+  margin-right: 1rem
+  font-size: 0.95rem
+  color: var(--text)
+  background: rgba(16, 134, 59, 0.05)
+  padding: 0.75rem 1rem
+  border-radius: 0.5rem
+  border: 1px solid var(--accent)
+
+  p
+    margin: 0
+
+  p + ul,
+  ul + p
+    margin-top: 0.75rem
+
+  ul
+    margin: 0
+    padding-left: 1.15rem
+
+  li + li
+    margin-top: 0.45rem
+
+.joinLimit
+  font-size: 0.85rem
+  color: var(--text-muted)
+  margin: 0 0 0.5rem 0
+
+.tableWrapper
+  font-family: var(--heading)
+  overflow-x: auto
+  -webkit-overflow-scrolling: touch
+  scrollbar-width: none
+  -ms-overflow-style: none
+
+  &::-webkit-scrollbar
+    display: none
+
+.scoringControl
+  display: inline-flex
+  align-items: center
+  gap: 0.35rem
+  margin-right: 1rem
+  color: var(--text60)
+  font-size: 0.85rem
+  white-space: nowrap
+
+.scoringToggle
+  display: inline-flex
+  align-items: center
+  gap: 0.35rem
+  padding: 0
+  border: 0
+  background: transparent
+  color: var(--text60)
+  cursor: pointer
+  font: inherit
+  line-height: 1.2
+  white-space: nowrap
+
+  &:hover,
+  &:focus-visible
+    color: var(--accent)
+
+  @media (max-width: 620px)
+    font-size: 0.75rem
+
+.pointsHeader
+  color: var(--accent-2) !important
+  font-weight: 700 !important
+
+.tabs
+  display: flex
+  gap: 2rem
+  margin-bottom: 2rem
+  border-bottom: 2px solid var(--border)
+
+  @media (max-width: 360px)
+    gap: 1rem
+
+  button
+    background: transparent
+    border: none
+    padding: 12px 0
+    font-weight: 600
+    color: var(--text)
+    position: relative
+    font-size: 0.95rem
+    transition: all 0.2s
+
+    &:hover
+      color: var(--accent)
+
+    &.active
+      color: var(--accent-2)
+      &::after
+        content: ''
+        position: absolute
+        bottom: -2px
+        left: 0
+        right: 0
+        height: 2px
+        background-color: var(--accent-2)
+
+.historyTabBadge
+  display: inline-flex
+  align-items: center
+  justify-content: center
+  min-width: 1.1rem
+  height: 1.1rem
+  margin-left: 0.35rem
+  padding: 0 0.25rem
+  border-radius: var(--radius-xs)
+  background: var(--danger)
+  color: white
+  font-size: 0.7rem
+  line-height: 1
+
+.yearbookHistoryLink
+  appearance: none
+  background: transparent
+  border: 0
+  padding: 0
+  cursor: pointer
+  color: var(--text60)
+  font-size: 0.95rem
+  font-weight: 600
+  text-decoration: underline
+  text-underline-offset: 0.15em
+  white-space: nowrap
+  font: inherit
+
+  &:hover
+    color: var(--text-h)
+
+.historyReportModal
+  background: var(--table-bg-main)
+  background-image: none
+
+.historyReportHeader
+  background: var(--table-bg)
+
+  h2
+    color: var(--text)
+
+.historyReportClose
+  color: var(--text)
+
+.historyReportText
+  margin: 0
+  text-align: center
+  color: var(--text)
+  font-size: 1.1rem
+  line-height: 1.5
+
+.historyReportActions
+  display: flex
+  justify-content: center
+  gap: 0.75rem
+  width: 100%
+  margin: 1.25rem auto 0
+
+.muted
+  color: var(--text)
+  opacity: 0.3
+  @media (max-width: 620px)
+    padding: 0.5rem 0
+
+.highlight
+  font-weight: 800
+  color: var(--accent-2)
+
+.appgQuotaLabel
+  color: var(--text-muted)
+  font-size: 0.7rem
+  font-weight: 600
+  letter-spacing: 0.08em
+  padding: 0.65rem 0.5rem 0.35rem
+  text-align: left
+  text-transform: uppercase
+
+.center, .center120
+  text-align: center
+  @media (max-width: 1120px)
+    padding: 0.5rem
+
+.center120
+  color: var(--accent-2)
+  font-weight: 700
+
+.sortHeader
+  display: inline-flex
+  align-items: center
+  justify-content: center
+  gap: 0.15rem
+  min-width: 100%
+  padding: 0
+  border: 0
+  color: inherit
+  background: transparent
+  cursor: pointer
+  font: inherit
+  text-align: inherit
+
+  &:hover,
+  &:focus-visible
+    color: var(--text60)
+
+.teamNameCell
+  padding: 1rem 1rem
+  gap: 0.75rem
+
+  @media (max-width: 620px)
+    padding: 0.5rem 1rem 0.5rem 0
+  @media (max-width: 1120px)
+    padding: 0.5rem 1rem 0.5rem 0
+
+.teamInfo
+  display: flex
+  align-items: center
+  min-width: 20rem
+  gap: 0.75rem
+  box-sizing: border-box
+  @media (max-width: 620px)
+    min-width: 15rem
+  @media (max-width: 1120px)
+    min-width: 15rem
+
+.teamTextContainer
+  display: flex
+  flex-direction: column
+  gap: 0.25rem
+  justify-content: center
+
+.nameRow
+  display: flex
+  align-items: center
+  gap: 0.25rem
+
+.standingLogo
+  width: 3rem
+  height: 3rem
+  object-fit: contain
+  border-radius: var(--radius-xs)
+  // background: rgba(255, 255, 255, 0.05)
+  flex-shrink: 0
+
+.teamName
+  font-family: var(--heading)
+  font-size: 1.35rem
+  font-weight: 600
+  color: var(--text-h)
+  line-height: 1.1
+
+  @media (max-width: 620px)
+    font-size: 1rem
+
+.placeholderJoinLink
+  background: transparent
+  border: 0
+  cursor: pointer
+  text-align: left
+
+  &:disabled
+    cursor: default
+    opacity: 0.7
+
+.placeholderArrow
+  color: var(--accent-3)
+  flex-shrink: 0
+
+.placeholderByline
+  font-family: var(--heading)
+  font-size: 0.75rem
+  color: var(--text60)
+  letter-spacing: 0.02em
+
+.htLink
+  color: var(--text)
+  opacity: 0.4
+  display: flex
+  align-items: center
+  transition: all 0.2s
+  cursor: pointer
+  pointer-events: auto
+
+  &:hover
+    opacity: 1
+    color: var(--accent)
+
+.teamId
+  font-size: 0.75rem
+  color: var(--text)
+  opacity: 0.8
+
+.inactiveRow
+  opacity: 0.6
+  background: rgba(255, 255, 255, 0.02)
+
+  td
+    font-style: italic
+
+.reapplySuggestionRow
+  .teamNameCell
+    padding-block: 0.7rem
+
+.reapplySuggestion
+  position: relative
+  min-height: 3.5rem
+
+  .teamInfo
+    min-width: 0
+    filter: grayscale(1)
+    opacity: 0.2
+
+.reapplyActions
+  position: absolute
+  inset: 50% 0 auto auto
+  display: flex
+  gap: 0.45rem
+  transform: translateY(-50%)
+
+  button
+    padding: 0.35rem 0.6rem
+    border: 1px solid var(--border)
+    border-radius: var(--radius-xs)
+    background: var(--table-bg)
+    color: var(--text-h)
+    font: inherit
+    font-size: 0.78rem
+    cursor: pointer
+
+    &:hover,
+    &:focus-visible
+      border-color: var(--accent-3)
+      color: var(--accent-3)
+
+  @media (max-width: 620px)
+    position: static
+    margin-top: 0.5rem
+    transform: none
+
+.inviteSpotBtn
+  padding: 4px 10px
+  font-size: 0.8rem
+  height: auto
+  color: var(--accent)
+
+.spotLabel
+  font-size: 0.95rem
+  font-weight: 500
+  color: var(--text)
+  opacity: 0.7
+
+.registrationStatus
+  @extend .scoringHelp
+  border-color: var(--accent-3)
+  width: 100%
+
+  strong
+    color: var(--active-3)
+
+  .helpContent
+    display: flex
+    justify-content: space-between
+    align-items: center
+    width: 100%
+    padding: 1rem
+    margin-bottom: 1.5rem
+    background: var(--bg-helpText)
+    border-color: var(--accent)
+    @media (max-width:780px)
+      flex-direction: column
+      justify-content: center
+      gap: 0.75rem
+      text-align: center
+
+  .joinButton
+    background: var(--accent-3)
+    padding: 0.5rem 1.25rem
+
+.joinedNotice
+  background: var(--bg-helpText)
+  border: 1px solid var(--accent)
+  padding: 1rem
+  border-radius: 0.75rem
+  margin-bottom: 2rem
+  display: flex
+  align-items: center
+  justify-content: space-between
+  gap: 1rem
+  font-weight: 600
+  color: var(--text-h)
+  font-size: 0.95rem
+
+.joinedNoticeContent
+  display: flex
+  align-items: center
+  gap: 1rem
+
+.reauthActions
+  display: flex
+  align-items: center
+  gap: 0.75rem
+  flex-wrap: wrap
+  justify-content: flex-end
+
+  .dismissBtn
+    width: auto
+    font-weight: 700
+    color: var(--text)
+    opacity: 0.7
+
+.emptyFixtures
+  display: flex
+  flex-direction: column
+  align-items: center
+  gap: 1rem
+  padding: 2rem
+  text-align: center
+  color: var(--text)
+
+  p
+    max-width: 36rem
+    margin: 0
+
+.dismissBtn
+  background: transparent
+  border: none
+  color: var(--accent-3)
+  opacity: 0.5
+  cursor: pointer
+  display: flex
+  align-items: center
+  justify-content: center
+  transition: all 0.2s
+  padding: 4px
+
+  &:hover
+    opacity: 1
+    color: var(--accent)
+
+.standingsFooter
+  margin-top: 2rem
+  text-align: center
+  display: flex
+  flex-direction: column
+  align-items: center
+
+.standingsFooterNote
+  font-style: italic
+  opacity: 0.8
+  margin-bottom: 0
+
+.footerButtons
+  display: flex
+  gap: 1rem
+  justify-content: center
+  @media (max-width: 620px)
+    flex-direction: column
+    width: 100%
+    gap: 0.75rem
+
+.myTeamRow
+  background: rgba(16, 134, 59, 0.08) !important
+
+  .teamName
+    color: var(--accent)
+    font-weight: 700
+
+.myTeamBadge
+  font-size: 0.8rem
+  color: var(--accent)
+  font-weight: 600
+  opacity: 0.9
+
+.imagePlaceholder
+  background: var(--bg-transp2)
+  border: 1px dashed var(--border)
+  border-radius: 0.5rem
+  width: 22rem
+  max-width: 100%
+  aspect-ratio: 4/3
+  display: flex
+  align-items: center
+  justify-content: center
+  color: var(--text)
+  font-size: 0.85rem
+  overflow: hidden
+  position: relative
+  cursor: pointer
+
+  .tournamentImage
+    width: 100%
+    height: 100%
+    background-position: center
+    background-repeat: no-repeat
+    background-size: cover
+    object-fit: cover
+    border-radius: 0.5rem
+
+.editOverlay
+  position: absolute
+  bottom: 0.5rem
+  right: 0.5rem
+  background: rgba(0, 0, 0, 0.6)
+  border-radius: 0.4rem
+  display: flex
+  flex-direction: row
+  align-items: center
+  justify-content: center
+  color: white
+  padding: 0.5rem
+  gap: 0.5rem
+  z-index: 5
+  pointer-events: auto
+  cursor: pointer
+
+  @media (max-width: 620px)
+    display: none
+
+  span
+    font-size: 0.7rem
+    font-weight: 700
+    text-transform: uppercase
+    letter-spacing: 0.05em
+
+.validatedIcon
+  color: #0fb54c
+
+.placeholderMessage
+  position: absolute
+  top: 0
+  left: 0
+  right: 0
+  bottom: 0
+  display: flex
+  align-items: center
+  justify-content: center
+  text-align: center
+  padding: 1rem
+  font-size: 0.8rem
+  color: var(--text)
+  opacity: 0.6
+  pointer-events: none
+  font-weight: 500
+
+@media (min-width: 621px)
+  .imagePlaceholder
+    order: 1
+    aspect-ratio: 3/2
+    min-width: 22rem
+    margin-top: 1rem
+    box-sizing: border-box
+
+@media (max-width: 620px)
+  .imagePlaceholder
+    width: 100%
+    aspect-ratio: 16/9
+    height: auto
+    margin-top: 1rem
+    margin-bottom: 1rem
+
+.organizerInfo
+  display: flex
+  justify-content: left
+  align-items: center
+  margin-right: 1.5rem
+  font-size: 0.9rem
+  color: var(--text)
+
+  .organizerLabel
+    opacity: 0.6
+    font-weight: 500
+
+  .organizerName
+    color: var(--accent)
+    font-weight: 700
+
+.registrationFormWrapper
+  margin-bottom: 2rem
+
+.joinHeroImageWrapper
+  position: relative
+  width: 100%
+  height: 200px
+  margin-bottom: 1.5rem
+  border-radius: 0.75rem
+  overflow: hidden
+  background: var(--bg-transp)
+
+.joinHeroImage
+  width: 100%
+  height: 100%
+  object-fit: cover
+  opacity: 0.8
+
+.imageLoaderOverlay
+  position: absolute
+  top: 0
+  left: 0
+  right: 0
+  bottom: 0
+  background: rgba(0, 0, 0, 0.7)
+  display: flex
+  flex-direction: column
+  align-items: center
+  justify-content: center
+  gap: 1rem
+  color: white
+  z-index: 2
+
+  :global(.spin)
+    animation: spin 1.2s linear infinite
+
+  p
+    margin: 0
+    font-weight: 600
+    font-size: 0.9rem
+
+@keyframes spin
+  from
+    transform: rotate(0deg)
+  to
+    transform: rotate(360deg)
+
+.modalContent
+  color: white
+  p
+    margin: 0 0 1rem
+
+.teamOptionsList
+  display: flex
+  flex-direction: column
+  gap: 0.75rem
+  margin-bottom: 1.5rem
+
+.teamOptionCard
+  display: flex
+  justify-content: space-between
+  align-items: center
+  padding: 1rem
+  background: var(--bg-transp)
+  border: 1px solid var(--border)
+  border-radius: 0.75rem
+  cursor: pointer
+  transition: all 0.2s
+
+  &:hover
+    border-color: var(--accent)
+    background: var(--bg-transp2)
+
+  &.disabled
+    opacity: 0.5
+    pointer-events: none
+
+.teamOptionInfo
+  display: flex
+  flex-direction: column
+  gap: 0.25rem
+
+.teamOptionHeader
+  display: flex
+  align-items: center
+  gap: 0.5rem
+
+  strong
+    font-size: 1.1rem
+    color: var(--text-h)
+
+.teamIcon
+  color: var(--accent)
+
+.teamMeta
+  font-size: 0.85rem
+  color: var(--text)
+  opacity: 0.8
+
+.joiningStatus
+  text-align: center
+  font-style: italic
+  color: var(--accent)
+  margin-bottom: 1rem
+
+.modalFooter
+  border-top: 1px solid var(--border)
+  padding-top: 1.5rem
+  margin-top: 1rem
+
+.registrationIntro
+  text-align: center
+  font-style: italic
+  margin-bottom: 1.5rem
+  opacity: 0.9
+
+.registrationLinkArea
+  margin-bottom: 2rem
+  text-align: center
+
+.registrationLinkNote
+  margin-top: 1rem
+  font-size: 0.9rem
+  opacity: 0.8
+
+.dividerWrapper
+  position: relative
+  text-align: center
+  margin: 2rem 0
+
+.dividerLine
+  border: 0
+  border-top: 1px solid var(--border)
+  opacity: 0.3
+
+.dividerText
+  position: absolute
+  top: 50%
+  left: 50%
+  transform: translate(-50%, -50%)
+  background: var(--bg)
+  padding: 0 1rem
+  font-size: 0.8rem
+  color: var(--text)
+  opacity: 0.7
+
+.mutedAction
+  opacity: 0.8
+
+.validatedCheck
+  color: #0fb54c
+
+.noPadding
+  padding: 0 !important
+
+.standingsContainer
+  @extend .tabContent
+  display: grid
+  grid-template-columns: minmax(0, 1fr) 22rem
+  gap: 1rem
+  align-items: start
+
+  @media (max-width: 1024px)
+    grid-template-columns: 1fr
+
+.mainColumn
+  display: flex
+  flex-direction: column
+  gap: 1rem
+  min-width: 0
+
+.tournamentFaq
+  margin-top: 0.5rem
+
+.newsLayout
+  @extend .tabContent
+  display: grid
+  grid-template-columns: minmax(0, 1fr) 22rem
+  gap: 1rem
+  align-items: start
+  margin-top: 1rem
+
+  @media (max-width: 1024px)
+    grid-template-columns: 1fr
+
+.newsSidebar
+  position: sticky
+  top: 1rem
+
+  @media (max-width: 1024px)
+    position: static
+    order: 2
+
+.historyContainer
+  @extend .tabContent
+  width: 100%
+  margin: 0 auto
+
+.fixturesContainer
+  @extend .tabContent
+
+.adminTabContent
+  @extend .tabContent
+
+.adminLoginPanel
+  width: 100%
+
+.statsSidebar
+  display: flex
+  flex-direction: column
+  position: sticky
+  gap: 1rem
+
+  .mottoCard
+    margin: 0
+
+  @media (max-width: 1024px)
+    position: static
+    order: 2
+
+.newsFeed
+  list-style: none
+  padding: 0
+  margin: 0
+  display: flex
+  flex-direction: column
+  gap: 1rem
+
+.feedItem
+  display: flex
+  gap: 1rem
+  padding-bottom: 1rem
+  border-bottom: 1px solid var(--border)
+
+  &:last-child
+    border-bottom: none
+    padding-bottom: 0
+
+.feedIcon
+  width: 2rem
+  height: 2rem
+  border-radius: 50%
+  background: var(--bg-transp)
+  display: flex
+  align-items: center
+  justify-content: center
+  flex-shrink: 0
+  color: var(--accent)
+
+.feedContent
+  display: flex
+  flex-direction: column
+  gap: 0.25rem
+
+  p
+    margin: 0
+    font-size: 0.95rem
+    line-height: 1.4
+    color: var(--text-h)
+
+  span
+    font-size: 0.8rem
+    opacity: 0.6
+    text-transform: uppercase
+    letter-spacing: 0.05em
+
+.chatMessages
+  display: flex
+  flex-direction: column
+  gap: 0.5rem
+  max-height: 25rem
+  overflow-y: auto
+  padding: 0.75rem
+  background: var(--chat-bg)
+  border: 1px solid var(--border-transp)
+  border-radius: var(--radius-md)
+  scrollbar-width: thin
+  scrollbar-color: rgba(118, 118, 118, 0.3) transparent
+  scrollbar-gutter: stable
+
+  &::-webkit-scrollbar
+    width: 0.4rem
+    height: 0.4rem
+
+  &::-webkit-scrollbar-track
+    background: transparent
+
+  &::-webkit-scrollbar-thumb
+    background-color: rgba(118, 118, 118, 0.3)
+    border-radius: 999px
+    border: 0
+
+.chatSection
+  display: flex
+  flex-direction: column
+  margin-bottom: 1rem
+
+.loginToPost
+  display: flex
+  justify-content: center
+  align-items: center
+
+.chatLoginBtn
+  width: fit-content
+
+.chatLoginLabel
+  @media (max-width: 620px)
+    display: none
+
+.loadMoreBtn
+  background: var(--bg-transp2)
+  border: none
+  color: var(--text60)
+  padding: 0.5rem
+  border-radius: var(--radius-sm)
+  cursor: pointer
+  font-size: 0.85rem
+  margin-bottom: 0.5rem
+  align-self: center
+
+  &:hover
+    color: var(--accent)
+    background: var(--bg-transp)
+
+.chatMessage
+  display: flex
+  gap: 0.75rem
+  max-width: 90%
+  align-items: flex-start
+
+  &.ownMessage
+    align-self: flex-end
+    flex-direction: row
+    .chatBubble
+      background: var(--accent-3)
+      color: white
+    .chatMessageContent
+      align-items: flex-end
+      text-align: right
+
+  &.otherMessage
+    align-self: flex-start
+    flex-direction: row-reverse
+    .chatBubble
+      background: var(--beige)
+      color: var(--text)
+    .chatMessageContent
+      align-items: flex-start
+      text-align: left
+
+  &.externalManager
+    .chatAuthor
+      color: var(--accent-3)
+      font-style: italic
+
+.chatAvatarWrapper
+  width: 60px
+  height: 70px
+  flex-shrink: 0
+  overflow: hidden
+  border-radius: var(--radius-sm)
+  background: rgba(0,0,0,0.05)
+  display: flex
+  align-items: center
+  justify-content: center
+  position: relative
+
+.chatAvatar
+  transform-origin: center center
+  position: absolute
+  top: 50%
+  left: 50%
+  transform: translate(-50%, -50%) scale(0.5)
+
+.chatMessageContent
+  display: flex
+  flex-direction: column
+  flex: 1
+  min-width: 0
+
+.chatAuthor
+  font-weight: 700
+  color: var(--accent-3)
+  font-size: 0.85rem
+  margin-bottom: 0.25rem
+  text-decoration: none
+  background: none
+  border: none
+  padding: 0
+  cursor: pointer
+  &:hover
+    text-decoration: underline
+
+.chatBubble
+  background: var(--beige)
+  padding: 0.75rem 1rem 0.75rem 0.5rem
+  border-radius: var(--radius-md)
+  font-size: 0.95rem
+  line-height: 1.2
+  width: fit-content
+  max-width: 100%
+  overflow-wrap: anywhere
+  word-break: break-word
+
+  &.bigEmojiBubble
+    background: transparent !important
+    padding: 0
+    box-shadow: none
+
+.bigEmoji
+  font-size: 3rem
+  line-height: 1
+  display: block
+
+.systemMessage
+  width: 100%
+  display: flex
+  justify-content: center
+  margin: 1rem 0
+
+.systemMessageContent
+  background: var(--bg-transp2)
+  border: 1px solid var(--border-transp)
+  padding: 0.75rem 1.5rem
+  border-radius: var(--radius-lg)
+  text-align: center
+  max-width: 80%
+  line-height: 1.2
+  font-size: 0.9rem
+
+  .chatTime
+    display: block
+    margin-top: 0.25rem
+    font-size: 0.75rem
+
+.chatTime
+  font-size: 0.75rem
+  margin-top: 0.25rem
+
+.chatAuthorTooltip
+  background: var(--bg)
+  border: 1px solid var(--border)
+  border-radius: var(--radius-md)
+  padding: 0.5rem
+  z-index: 100
+  display: flex
+  flex-direction: column
+  align-items: center
+  gap: 0.5rem
+
+.tooltipAvatar
+  width: 50px
+  height: 50px
+  overflow: hidden
+  border-radius: var(--radius-sm)
+  background: rgba(0,0,0,0.05)
+  display: flex
+  align-items: center
+  justify-content: center
+  position: relative
+
+.tooltipAvatarImg
+  transform-origin: center center
+  position: absolute
+  top: 50%
+  left: 50%
+  transform: translate(-50%, -50%) scale(0.4)
+
+.tooltipTeamName
+  font-weight: 600
+  font-size: 0.85rem
+  color: var(--text-h)
+
+.chatInputArea
+  display: flex
+  flex-direction: column
+  gap: 0.5rem
+  margin-top: 1rem
+
+.chatInputRow
+  display: flex
+  gap: 0.5rem
+  align-items: stretch
+
+  .postTextarea
+    flex: 1
+    min-width: 0
+
+.sendBtn
+  background: var(--accent-3)
+  color: white
+  border: none
+  padding: 0.35rem 1rem
+  border-radius: var(--radius-sm)
+  box-sizing: border-box
+  cursor: pointer
+  display: flex
+  align-items: center
+  gap: 0.5rem
+  font-weight: 600
+  transition: 0.5s
+
+  &:hover
+    background: var(--accent)
+    transition: 0.15s
+
+  [data-theme="light"]
+    background: brown
+.chatEmojiBar
+  display: flex
+  flex-wrap: wrap
+  gap: 0.25rem
+  padding: 0
+
+.chatEmojiBtn
+  background: var(--lighter-less)
+  border: 0.5px solid var(--border-transp)
+  border-radius: var(--radius-sm)
+  font-size: 1rem
+  line-height: 1
+  cursor: pointer
+  padding: 0.35rem
+  min-width: 2.1rem
+  filter: grayscale(1)
+  transition: all 0.2s ease-out
+  opacity: 0.5
+  &:hover
+    opacity: 1
+    filter: none
+
+  &:hover
+    border-color: var(--border-transp)
+    background: var(--lighter)
+
+  &:focus-visible
+    outline: 1px solid var(--accent)
+    outline-offset: 2px
+
+.paginationArea
+  margin-top: 1rem
+  text-align: center
+
+.roundHeader
+  display: flex
+  align-items: baseline
+  gap: 0.75rem
+
+  span
+    display: inline-flex
+    align-items: baseline
+
+  svg
+    align-self: center
+
+.roundDate
+  font-size: 0.85rem
+  opacity: 0.5
+  font-weight: 500
+
+.fixturesControls
+  display: flex
+  justify-content: flex-end
+  align-content: baseline
+  margin-right: 1.5rem
+  position: relative
+  z-index: 10
+
+  @media (max-width: 620px)
+    margin-top: 0
+    margin-right: 1rem
+
+.lastRefresh
+  font-size: 0.85rem
+  color: var(--text60)
+  opacity: 0.7
+  align-self: center
+  margin-right: 0.5rem
+  font-family: var(--sans)
+  font-weight: 500
+
+.refreshBtn
+  background: transparent
+  height: fit-content
+  margin: auto
+  border: none
+  color: var(--text60)
+  opacity: 0.6
+  cursor: pointer
+  padding: 8px
+  border-radius: 50%
+  transition: all 0.2s
+  display: flex
+  align-items: center
+  justify-content: center
+
+  &:hover:not(:disabled)
+    opacity: 1
+    background: rgba(0, 0, 0, 0.05)
+    color: var(--accent)
+
+  &:disabled
+    cursor: not-allowed
+    opacity: 0.3
+
+  &.spinning
+    animation: spin 1s linear infinite
+
+@keyframes spin
+  from
+    transform: rotate(0deg)
+  to
+    transform: rotate(360deg)
+
+.imageModalOverlay
+  position: fixed
+  top: 0
+  left: 0
+  width: 100%
+  height: 100%
+  background: rgba(0, 0, 0, 0.8)
+  display: flex
+  align-items: center
+  justify-content: center
+  z-index: 1000
+  cursor: pointer
+  padding: 1rem
+
+.imageModalContent
+  max-width: 900px
+  width: 96vw
+  max-height: 90vh
+  object-fit: contain
+
+.matchDate
+  font-size: 0.75rem
+  color: var(--text)
+  opacity: 0.5
+  font-weight: 600
+  margin-bottom: 0.25rem
+  text-transform: uppercase
+
+.match
+  display: flex
+  flex-direction: column
+  padding: 16px 0
+  border-bottom: 1px solid var(--border)
+  &:last-child
+    border-bottom: none
+
+  @media (max-width: 640px)
+    text-align: center
+
+.matchTeams
+  display: flex
+  align-items: center
+  gap: 2rem
+  flex: 1
+  justify-content: space-between
+
+  @media (max-width: 640px)
+    flex-direction: column
+    gap: 1rem
+
+  .vs
+    font-size: 0.75rem
+    color: var(--text)
+    text-transform: uppercase
+    font-weight: 700
+    opacity: 0.5
+
+.scoreRow
+  display: flex
+  align-items: center
+  gap: 1rem
+
+.score
+  font-weight: 700
+  font-size: 1.25rem
+  color: var(--text-h)
+  font-family: var(--mono)
+
+.badge
+  background: rgba(16, 134, 59, 0.1)
+  color: var(--accent)
+  border: 1px solid rgba(16, 134, 59, 0.2)
+  font-size: 0.7rem
+  padding: 2px 8px
+  border-radius: 0.25rem
+  font-weight: 700
+
+.pending
+  font-size: 0.875rem
+  color: var(--text)
+  font-weight: 500
+  opacity: 0.7
+
+.rounds
+  width: 100%
+  min-width: 0
+  box-sizing: border-box
+  display: flex
+  flex-direction: column
+  gap: 0.5rem
+
+.fixturesHeader
+  display: flex
+  align-items: center
+  justify-content: space-between
+  gap: 1rem
+  margin-bottom: 0.5rem
+
+  @media (max-width: 620px)
+    flex-direction: column
+    align-items: flex-start
+    gap: 0.5rem
+
+.fixturesTitle
+  margin: 0
+  font-size: 1.15rem
+  font-weight: 800
+  line-height: 1.1
+  letter-spacing: 0.02em
+  font-weight: 600
+  color: var(--text-h)
+
+.fixturesHeaderActions
+  display: inline-flex
+  align-items: center
+  gap: 0.85rem
+  margin-top: 1rem
+  flex-wrap: wrap
+
+.fixturesHeaderAction
+  display: inline-flex
+  align-items: flex-end
+  gap: 0.35rem
+  margin-top: 0.5rem
+  padding: 0
+  border: none
+  background: transparent
+  color: var(--text60)
+  font: inherit
+  font-size: 0.72rem
+  font-weight: 600
+  letter-spacing: 0.08em
+  font-family: var(--heading)
+  text-transform: uppercase
+  cursor: pointer
+  opacity: 0.75
+  transition: color 0.2s ease, opacity 0.2s ease, transform 0.2s ease
+
+  svg
+    flex-shrink: 0
+
+  &:hover:not(:disabled)
+    color: var(--text-h)
+    opacity: 1
+
+  &:disabled
+    cursor: not-allowed
+    opacity: 0.35
+
+.fixturesFilterMenu
+  position: relative
+
+.fixturesFilterDropdown
+  position: absolute
+  z-index: 20
+  top: calc(100% + 0.35rem)
+  right: 0
+  min-width: 12rem
+  max-height: 18rem
+  overflow-y: auto
+  padding: 0.35rem
+  background: var(--bg)
+  border: 1px solid var(--border)
+  border-radius: var(--radius-sm)
+  box-shadow: var(--shadow)
+
+.fixturesFilterOption
+  display: block
+  width: 100%
+  padding: 0.45rem 0.6rem
+  border: 0
+  background: transparent
+  color: var(--text60)
+  font: inherit
+  font-size: 0.72rem
+  font-weight: 600
+  text-align: left
+  cursor: pointer
+
+  &:hover
+    background: var(--bg-transp)
+    color: var(--text-h)
+
+.adminAuthForm
+  display: flex
+  flex-direction: column
+  gap: 1rem
+  max-width: 100%
+  margin: 0
+
+div.adminAuthForm > form > button, .authField > input
+  width: 24rem
+  max-width: 100%
+  caret-color: var(--danger)
+
+// div.adminAuthForm > form > button
+//   background-color: var(--danger)
+
+//   &:hover
+//     background-color: var(--tinder) !important
+
+.authField > input:read-only
+  outine: none
+  border: none
+  cursor: default
+  background: var(--lighter)
+  padding: none
+  font-size: 1.1rem
+  user-select: none
+  color: var(--text60)
+
+.adminAuthFooter
+  margin-top: 1.5rem
+  text-align: left
+  display: flex
+  flex-direction: column
+  gap: 0.5rem
+
+.adminAuthNote
+  font-size: 0.85rem
+  opacity: 0.8
+  color: var(--text)
+
+.adminAuthLink
+  font-size: 0.85rem
+  opacity: 0.8
+  color: inherit
+  text-decoration: underline
+  transition: opacity 0.2s
+
+  &:hover
+    opacity: 1
+
+.adminAuthAction
+  font-size: 0.85rem
+  opacity: 0.8
+  color: inherit
+  text-decoration: underline
+  cursor: pointer
+  background: none
+  border: none
+  padding: 0
+  font-family: inherit
+
+.authError
+  color: var(--accent)
+  font-size: 0.9rem
+  margin-bottom: 1rem
+  font-weight: 600
+
+.headerBadge
+  margin-left: 0.5rem
+
+.imageOverlayIcon
+  color: #0fb54c
+
+.formActionRow
+  margin-top: 1rem
+  text-align: center
+
+.fixturesUpdateAction
+  display: flex
+  justify-content: center
+  margin-top: 1.5rem
+
+  svg.spinning
+    animation: spin 1s linear infinite
+
+.formDivider
+  margin-top: 2rem
+  padding-top: 1.5rem
+  border-top: 1px solid var(--border)
+
+.mt05
+  margin-top: 0.5rem
+
+.mt1
+  margin-top: 1rem
+
+.mb1
+  margin-bottom: 1rem
+
+.mb15
+  margin-bottom: 1.5rem
+
+.opacity06
+  opacity: 0.6
+
+.helperText
+  font-size: 0.85rem
+  opacity: 0.8
+  margin-bottom: 1rem
+
+.authField
+  display: flex
+  flex-direction: column
+  gap: 0.5rem
+  margin-bottom: 1rem
+
+  label
+    font-weight: 600
+    color: var(--text-h)
+
+.inviteSection
+  margin-top: 1rem
+
+.inviteTemplateWrapper
+  display: flex
+  flex-direction: column
+  gap: 1rem
+  width: 100%
+
+.inviteTextarea
+  width: 100%
+  background: var(--lighter)
+  border: 1px solid var(--border-transp)
+  borderRadius: 0.5rem
+  color: var(--text)
+  padding: 0.5rem
+  fontSize: 0.85rem
+  minHeight: 60px
+  resize: none
+
+.inviteTextarea::placeholder
+  color: var(--text60)
+  color: crimson !important
+
+.newsTabs
+  display: flex
+  gap: 1rem
+  margin-bottom: 1rem
+
+  button
+    background: var(--bg-transp)
+    border: 1px solid var(--border)
+    padding: 0.5rem 1rem
+    border-radius: 0.5rem
+    color: var(--text)
+    font-weight: 500
+    font-size: 0.9rem
+    cursor: pointer
+
+    &.active
+      background: var(--bg-helpText)
+      border: 1px solid var(--accent)
+      color: var(--text)
+
+.postingTeamBranding
+  margin-bottom: 1rem
+  padding: 0.5rem
+  background: var(--bg-transp)
+  border-radius: 0.5rem
+
+.branding
+  display: flex
+  align-items: center
+  gap: 0.5rem
+
+  img
+    width: 24px
+    height: 24px
+    border-radius: 4px
+
+.guestbook
+  min-width: 0
+
+.postForm
+  margin-bottom: 2rem
+  display: flex
+  flex-direction: column
+  gap: 1rem
+
+.postTextarea
+  width: 100%
+  background: var(--bg-transp)
+  border: 1px solid var(--borderWeak)
+  border-radius: var(--radius-sm)
+  padding: 0.75rem 1rem
+  color: var(--text)
+  font-family: inherit
+  font-size: 1rem
+  resize: vertical
+  transition: border-color 0.2s
+
+  &:focus
+    outline: none
+    border: 1px solid var(--borderWeak)
+
+.postActions
+  display: flex
+  justify-content: flex-end
+
+.postsList
+  display: flex
+  flex-direction: column
+  gap: 1.5rem
+
+.post
+  padding: 1rem
+  background: rgba(255, 255, 255, 0.03)
+  border-radius: 0.75rem
+  border-left: 3px solid var(--border)
+
+  &.adminPost
+    border-left-color: var(--accent)
+    background: rgba(214, 51, 108, 0.05)
+
+.postHeader
+  display: flex
+  align-items: center
+  gap: 0.5rem
+  margin-bottom: 0.5rem
+  flex-wrap: wrap
+
+.postTitle
+  margin: 0.5rem 0
+  font-size: 1.1rem
+  color: var(--text-h)
+
+.postTitleInput
+  width: 100%
+  background: var(--bg-transp)
+  border: 1px solid var(--border)
+  border-radius: 0.5rem
+  padding: 0.75rem
+  color: var(--text)
+  font-family: inherit
+  margin-bottom: 0.5rem
+
+.reactionBar
+  display: flex
+  gap: 0.5rem
+  margin-top: 0.5rem
+
+.reactionBtn
+  background: var(--bg-transp)
+  border: 1px solid var(--border)
+  border-radius: 0.5rem
+  padding: 0.25rem 0.5rem
+  cursor: pointer
+  font-size: 0.9rem
+  transition: background 0.2s
+
+  &:hover
+    background: var(--bg-transp2)
+
+.postAuthor
+  font-weight: 700
+  color: var(--text-h)
+
+.postAuthorId
+  font-size: 0.8rem
+  opacity: 0.5
+
+.adminBadge
+  background: var(--accent)
+  color: white
+  font-size: 0.7rem
+  padding: 2px 6px
+  border-radius: 4px
+  font-weight: 700
+  text-transform: uppercase
+
+.postTime
+  margin-left: auto
+  font-size: 0.8rem
+  opacity: 0.5
+
+.postContent
+  font-size: 1rem
+  line-height: 1.5
+  color: var(--text)
+  white-space: pre-wrap
+  word-break: break-word
+
+.noPosts
+  text-align: center
+  padding: 2rem
+  opacity: 0.5
+  font-style: italic
+
+.helpToggle
+  cursor: pointer
+  display: flex
+  align-items: center
+  gap: 0.5rem
+  margin: 0
+
+.upcomingRound
+  border: 2px solid var(--accent-3)
+  border-radius: var(--radius-md)
+
+.teamExtraInfo
+  display: flex
+  align-items: center
+  gap: 0.4rem
+  font-size: 0.75rem
+  color: var(--text60)
+  margin-top: 0.25rem
+  opacity: 0.7
+
+.flagIcon
+  width: 16px
+  height: auto
+  object-fit: contain
+
+.managerNameLink
+  background: none
+  border: none
+  padding: 0
+  color: var(--accent)
+  font-size: 0.75rem
+  text-decoration: underline
+  cursor: pointer
+  &:hover
+    color: var(--accent-hover)

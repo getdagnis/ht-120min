@@ -1,0 +1,151 @@
+<?xml version="1.0" encoding="utf-8"?>
+<HattrickData>
+  <FileName>matchdetails.xml</FileName>
+  <Version>3.1</Version>
+  <UserID>8777402</UserID>
+  <FetchedDate>2026-06-01 13:21:44</FetchedDate>
+  <UserSupporterTier>gold</UserSupporterTier>
+  <SourceSystem>Hattrick</SourceSystem>
+  <Match>
+    <MatchID>52282171</MatchID>
+    <MatchType>1</MatchType>
+    <MatchContextId>80680</MatchContextId>
+    <MatchRuleId>0</MatchRuleId>
+    <CupLevel>0</CupLevel>
+    <CupLevelIndex>0</CupLevelIndex>
+    <MatchDate>2005-11-05 18:40:00</MatchDate>
+    <FinishedDate>2005-11-05 20:25:00</FinishedDate>
+    <AddedMinutes>0</AddedMinutes>
+    <HomeTeam>
+      <HomeTeamID>826235</HomeTeamID>
+      <HomeTeamName>Vorwärts Billstedt</HomeTeamName>
+      <DressURI>//res.hattrick.org/kits/1/1/1/1/matchKitSmall.png</DressURI>
+      <Formation>3-5-2</Formation>
+      <HomeGoals>2</HomeGoals>
+      <TacticType>0</TacticType>
+      <TacticSkill>0</TacticSkill>
+      <RatingMidfield>8</RatingMidfield>
+      <RatingRightDef>21</RatingRightDef>
+      <RatingMidDef>20</RatingMidDef>
+      <RatingLeftDef>16</RatingLeftDef>
+      <RatingRightAtt>9</RatingRightAtt>
+      <RatingMidAtt>11</RatingMidAtt>
+      <RatingLeftAtt>11</RatingLeftAtt>
+      <NrOfChancesLeft>1</NrOfChancesLeft>
+      <NrOfChancesCenter>0</NrOfChancesCenter>
+      <NrOfChancesRight>0</NrOfChancesRight>
+      <NrOfChancesSpecialEvents>3</NrOfChancesSpecialEvents>
+      <NrOfChancesOther>1</NrOfChancesOther>
+    </HomeTeam>
+    <AwayTeam>
+      <AwayTeamID>648638</AwayTeamID>
+      <AwayTeamName>SV Heimbach AH</AwayTeamName>
+      <DressURI>//res.hattrick.org/kits/1/1/1/1/matchKitSmall.png</DressURI>
+      <Formation>5-3-2</Formation>
+      <AwayGoals>2</AwayGoals>
+      <TacticType>0</TacticType>
+      <TacticSkill>0</TacticSkill>
+      <RatingMidfield>10</RatingMidfield>
+      <RatingRightDef>15</RatingRightDef>
+      <RatingMidDef>17</RatingMidDef>
+      <RatingLeftDef>15</RatingLeftDef>
+      <RatingRightAtt>7</RatingRightAtt>
+      <RatingMidAtt>17</RatingMidAtt>
+      <RatingLeftAtt>7</RatingLeftAtt>
+      <NrOfChancesLeft>0</NrOfChancesLeft>
+      <NrOfChancesCenter>1</NrOfChancesCenter>
+      <NrOfChancesRight>1</NrOfChancesRight>
+      <NrOfChancesSpecialEvents>1</NrOfChancesSpecialEvents>
+      <NrOfChancesOther>0</NrOfChancesOther>
+    </AwayTeam>
+    <Arena>
+      <ArenaID>829673</ArenaID>
+      <ArenaName>Billy Billstedt Arena</ArenaName>
+      <WeatherID>1</WeatherID>
+      <SoldTotal>10685</SoldTotal>
+      <SoldTerraces>6954</SoldTerraces>
+      <SoldBasic>2731</SoldBasic>
+      <SoldRoof>1000</SoldRoof>
+      <SoldVIP>0</SoldVIP>
+    </Arena>
+    <MatchOfficials>
+      <Referee>
+        <RefereeId>291524944</RefereeId>
+        <RefereeName>Tony De Bruycker</RefereeName>
+        <RefereeCountryId>44</RefereeCountryId>
+        <RefereeCountryName>Belgium</RefereeCountryName>
+        <RefereeTeamId>514873</RefereeTeamId>
+        <RefereeTeamname>Transvaaliens</RefereeTeamname>
+      </Referee>
+      <RefereeAssistant1>
+        <RefereeId>0</RefereeId>
+        <RefereeName> </RefereeName>
+        <RefereeCountryId>0</RefereeCountryId>
+        <RefereeCountryName />
+        <RefereeTeamId>0</RefereeTeamId>
+        <RefereeTeamname></RefereeTeamname>
+      </RefereeAssistant1>
+      <RefereeAssistant2>
+        <RefereeId>0</RefereeId>
+        <RefereeName> </RefereeName>
+        <RefereeCountryId>0</RefereeCountryId>
+        <RefereeCountryName />
+        <RefereeTeamId>0</RefereeTeamId>
+        <RefereeTeamname></RefereeTeamname>
+      </RefereeAssistant2>
+    </MatchOfficials>
+    <Scorers>
+      <Goal Index="0">
+        <ScorerPlayerID>49077894</ScorerPlayerID>
+        <ScorerPlayerName>Dittmar Haueslmeier</ScorerPlayerName>
+        <ScorerTeamID>648638</ScorerTeamID>
+        <ScorerHomeGoals>0</ScorerHomeGoals>
+        <ScorerAwayGoals>1</ScorerAwayGoals>
+        <ScorerMinute>1</ScorerMinute>
+        <MatchPart>1</MatchPart>
+      </Goal>
+      <Goal Index="1">
+        <ScorerPlayerID>20500345</ScorerPlayerID>
+        <ScorerPlayerName>Foppe van Gaal</ScorerPlayerName>
+        <ScorerTeamID>826235</ScorerTeamID>
+        <ScorerHomeGoals>1</ScorerHomeGoals>
+        <ScorerAwayGoals>1</ScorerAwayGoals>
+        <ScorerMinute>18</ScorerMinute>
+        <MatchPart>1</MatchPart>
+      </Goal>
+      <Goal Index="2">
+        <ScorerPlayerID>71336784</ScorerPlayerID>
+        <ScorerPlayerName>Mario Walldürn</ScorerPlayerName>
+        <ScorerTeamID>648638</ScorerTeamID>
+        <ScorerHomeGoals>1</ScorerHomeGoals>
+        <ScorerAwayGoals>2</ScorerAwayGoals>
+        <ScorerMinute>40</ScorerMinute>
+        <MatchPart>1</MatchPart>
+      </Goal>
+      <Goal Index="3">
+        <ScorerPlayerID>10495174</ScorerPlayerID>
+        <ScorerPlayerName>Mats-Erik Sandner</ScorerPlayerName>
+        <ScorerTeamID>826235</ScorerTeamID>
+        <ScorerHomeGoals>2</ScorerHomeGoals>
+        <ScorerAwayGoals>2</ScorerAwayGoals>
+        <ScorerMinute>52</ScorerMinute>
+        <MatchPart>2</MatchPart>
+      </Goal>
+    </Scorers>
+    <Bookings>
+      <Booking Index="0">
+        <BookingPlayerID>55048239</BookingPlayerID>
+        <BookingPlayerName>Giuseppe Santuccio</BookingPlayerName>
+        <BookingTeamID>826235</BookingTeamID>
+        <BookingType>1</BookingType>
+        <BookingMinute>60</BookingMinute>
+        <MatchPart>2</MatchPart>
+      </Booking>
+    </Bookings>
+    <Injuries />
+    <PossessionFirstHalfHome>45</PossessionFirstHalfHome>
+    <PossessionFirstHalfAway>55</PossessionFirstHalfAway>
+    <PossessionSecondHalfHome>45</PossessionSecondHalfHome>
+    <PossessionSecondHalfAway>55</PossessionSecondHalfAway>
+  </Match>
+</HattrickData>

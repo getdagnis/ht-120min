@@ -1,0 +1,37 @@
+<?xml version="1.0" encoding="utf-8"?>
+<HattrickData>
+  <FileName>training.xml</FileName>
+  <Version>2.2</Version>
+  <UserID>8777402</UserID>
+  <FetchedDate>2026-06-09 12:47:26</FetchedDate>
+  <UserSupporterTier>none</UserSupporterTier>
+  <Team>
+    <TeamID>681813</TeamID>
+    <TeamName>This bot team is a bot</TeamName>
+    <TrainingLevel>100</TrainingLevel>
+    <NewTrainingLevel Available="False" />
+    <TrainingType>8</TrainingType>
+    <StaminaTrainingPart>16</StaminaTrainingPart>
+    <LastTrainingTrainingType>8</LastTrainingTrainingType>
+    <LastTrainingTrainingLevel>100</LastTrainingTrainingLevel>
+    <LastTrainingStaminaTrainingPart>16</LastTrainingStaminaTrainingPart>
+    <Trainer>
+      <TrainerID>490703986</TrainerID>
+      <TrainerName>Franco Villaggio</TrainerName>
+      <ArrivalDate>2025-03-12 14:58:00</ArrivalDate>
+    </Trainer>
+    <SpecialTraining />
+    <Morale Available="True">6</Morale>
+    <SelfConfidence Available="True">8</SelfConfidence>
+    <Experience442>3</Experience442>
+    <Experience433>3</Experience433>
+    <Experience451>7</Experience451>
+    <Experience352>10</Experience352>
+    <Experience532>3</Experience532>
+    <Experience343>3</Experience343>
+    <Experience541>3</Experience541>
+    <Experience523>3</Experience523>
+    <Experience550>3</Experience550>
+    <Experience253>9</Experience253>
+  </Team>
+</HattrickData>

@@ -1,0 +1,34 @@
+<?xml version="1.0" encoding="utf-8"?>
+<HattrickData>
+  <FileName>challenges.xml</FileName>
+  <Version>1.6</Version>
+  <UserID>8777402</UserID>
+  <FetchedDate>2026-06-15 19:09:21</FetchedDate>
+  <Team>
+    <TeamID>681813</TeamID>
+    <TeamName>This bot team is a bot</TeamName>
+    <ChallengesByMe>
+      <Challenge>
+        <TrainingMatchID>89957365</TrainingMatchID>
+        <MatchID>766619430</MatchID>
+        <MatchTime>2026-06-17 06:30:00</MatchTime>
+        <FriendlyType>1</FriendlyType>
+        <Opponent>
+          <TeamID>2153211</TeamID>
+          <TeamName>Manaslu F.C.</TeamName>
+          <LogoURL>https://res.hattrick.org/teamlogo/22/216/2154/2153211/2153211.webp</LogoURL>
+        </Opponent>
+        <Arena>
+          <ArenaID>2149953</ArenaID>
+          <ArenaName>The Kop</ArenaName>
+        </Arena>
+        <Country>
+          <CountryID>192</CountryID>
+          <CountryName>Nepal</CountryName>
+        </Country>
+        <IsAgreed>True</IsAgreed>
+      </Challenge>
+    </ChallengesByMe>
+    <OffersByOthers />
+  </Team>
+</HattrickData>
