@@ -49,10 +49,12 @@ export default async function PublicLocaleLayout({
   return (
     <html lang={locale}>
       <body>
-        <LocaleProvider locale={locale}>
-          <ScrollToTop />
-          <Layout>{children}</Layout>
-        </LocaleProvider>
+        <div id="root">
+          <LocaleProvider locale={locale}>
+            <ScrollToTop />
+            <Layout>{children}</Layout>
+          </LocaleProvider>
+        </div>
       </body>
     </html>
   );

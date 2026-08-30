@@ -90,6 +90,7 @@ export const Layout: React.FC<LayoutProps> = ({ children }) => {
     testTournaments,
     logout,
     refreshProfile,
+    authReady,
   } = useAuth();
   usePresenceHeartbeat(!!managerName, currentUrl);
   useActivityTracking(currentUrl);
@@ -207,7 +208,9 @@ export const Layout: React.FC<LayoutProps> = ({ children }) => {
               </div>
 
               <div className={styles.userContainer} ref={dropdownRef}>
-                {managerName ? (
+                {!authReady ? (
+                  <div className={styles.authPlaceholder} aria-hidden="true" />
+                ) : managerName ? (
                   <>
                     <Button
                       size="sm"

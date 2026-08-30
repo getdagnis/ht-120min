@@ -400,10 +400,10 @@ export const Home: React.FC<{ initialData?: HomeInitialData }> = ({ initialData 
     const formatDate = (date: Date | null) =>
       date
         ? new Intl.DateTimeFormat('en-GB', {
-          day: '2-digit',
-          month: '2-digit',
-          year: 'numeric',
-          timeZone: 'Europe/Riga',
+            day: '2-digit',
+            month: '2-digit',
+            year: 'numeric',
+            timeZone: 'Europe/Riga',
           }).format(date)
         : null;
 
@@ -508,7 +508,7 @@ export const Home: React.FC<{ initialData?: HomeInitialData }> = ({ initialData 
         buttonLabel="Let's go!"
       >
         <strong>
-          While the cups are still running, this is the best time to prepare what comes after!
+          While the cups are still running, this is the best time to prepare for the "friendlies season"!
           <span className="nowrap"> Here is how to</span> get ready now:
         </strong>
         <ul>
@@ -540,7 +540,11 @@ export const Home: React.FC<{ initialData?: HomeInitialData }> = ({ initialData 
                 like-minded Hattrick managers.
               </p>
               <div className={styles.ctaBtns}>
-                <Button size="lg" onClick={() => router.push(toLocalePath(locale, '/create'))} variant="secondaryYellow">
+                <Button
+                  size="lg"
+                  onClick={() => router.push(toLocalePath(locale, '/create'))}
+                  variant="secondaryYellow"
+                >
                   <Trophy size={22} weight="regular" /> Create Tournament
                 </Button>
                 <ScrollTo to="opentours" smooth={true} duration={600} offset={-80}>

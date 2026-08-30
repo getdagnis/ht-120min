@@ -130,6 +130,7 @@ export const useAuth = () => {
   const [organizerTournaments, setOrganizerTournaments] = useState<OrganizerTournament[]>([]);
   const [testTournaments, setTestTournaments] = useState<TestTournament[]>([]);
   const [loading, setLoading] = useState(false);
+  const [authReady, setAuthReady] = useState(false);
 
   const fetchProfile = useCallback(async (uid: number) => {
     setLoading(true);
@@ -320,14 +321,24 @@ export const useAuth = () => {
 
   useEffect(() => {
     if (typeof window === 'undefined') return;
+    if (authReady) return;
     const hattrickUserId = localStorage.getItem('my_ht_user_id') ? Number(localStorage.getItem('my_ht_user_id')) : null;
-    if (hattrickUserId) {
-      const timer = setTimeout(() => {
-        void fetchProfile(hattrickUserId);
-      }, 0);
+    if (!hattrickUserId) {
+      const timer = setTimeout(() => setAuthReady(true), 0);
       return () => clearTimeout(timer);
     }
-  }, [fetchProfile]);
+
+    let active = true;
+    const timer = setTimeout(() => {
+      void fetchProfile(hattrickUserId).finally(() => {
+        if (active) setAuthReady(true);
+      });
+    }, 0);
+    return () => {
+      active = false;
+      clearTimeout(timer);
+    };
+  }, [authReady, fetchProfile]);
 
   const logout = () => {
     clearMainAuthSession();
@@ -347,6 +358,7 @@ export const useAuth = () => {
     organizerTournaments,
     testTournaments,
     loading,
+    authReady,
     logout,
     refreshProfile: () => {
       if (typeof window === 'undefined') return;
