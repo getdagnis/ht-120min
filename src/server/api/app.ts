@@ -8,6 +8,7 @@ import {
 } from './_lib/forge-session.js';
 import { cleanupActivityEvents, recordActivity } from './_lib/activity.js';
 import { findSeasonParticipant, validateSeasonComment } from './_lib/season-comments.js';
+import { validateTournamentLeave } from './_lib/tournament-participation.js';
 import { getServiceSupabase, getSupabase } from './_lib/supabase.js';
 import { hasSuperAdminBypassCookie } from './_lib/superadmin-bypass.js';
 import {
@@ -16,6 +17,7 @@ import {
 } from './_lib/tournament-access.js';
 import { isTournamentRole, type TournamentRole } from '../../../shared/tournament-roles.js';
 import { isForgeEnabled } from '../forge-availability.js';
+import { isTournamentRegistrationOpen } from '../../utils/tournament-joinability.js';
 
 const COMMENT_SELECT = 'id, season_id, team_id, team_name, manager_name, comment, created_at';
 const HISTORY_REPORT_DISMISSED_NOTICE = 'history-report-dismissed';
@@ -76,6 +78,80 @@ async function handleManagedTournaments(req: VercelRequest, res: VercelResponse)
     .neq('status', 'archived');
   if (tournamentsError) throw tournamentsError;
   return res.status(200).json({ tournaments: tournaments || [] });
+}
+
+async function handleTournamentParticipation(req: VercelRequest, res: VercelResponse) {
+  if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed.' });
+  if (readString(req.body?.action) !== 'leave') {
+    return res.status(400).json({ error: 'Unknown tournament participation action.' });
+  }
+
+  const tournamentId = readString(req.body?.tournamentId);
+  const teamId = readString(req.body?.teamId);
+  if (!tournamentId || !teamId) return res.status(400).json({ error: 'Missing tournament or team.' });
+
+  const secret = getAppSessionSecret();
+  if (!secret) return res.status(500).json({ error: 'Session configuration is missing.' });
+  const session = verifyAppSessionCookie(req.headers.cookie, secret);
+  if (!session) return res.status(401).json({ error: 'Please sign in with Hattrick first.' });
+
+  const supabase = getServiceSupabase();
+  const { data: tournament, error: tournamentError } = await supabase
+    .from('tournaments')
+    .select('id, season, status, registration_closed_at')
+    .eq('id', tournamentId)
+    .maybeSingle();
+  if (tournamentError) throw tournamentError;
+  if (!tournament) return res.status(404).json({ error: 'Tournament not found.' });
+
+  const { data: team, error: teamError } = await supabase
+    .from('teams')
+    .select('id, active, reapply_season_number, hattrick_user_id')
+    .eq('id', teamId)
+    .eq('tournament_id', tournamentId)
+    .maybeSingle();
+  if (teamError) throw teamError;
+  if (!team) return res.status(404).json({ error: 'Team not found.' });
+
+  const { count: roundCount, error: roundCountError } = await supabase
+    .from('rounds')
+    .select('id', { count: 'exact', head: true })
+    .eq('tournament_id', tournamentId)
+    .eq('season_number', tournament.season);
+  if (roundCountError) throw roundCountError;
+
+  const validationError = validateTournamentLeave({
+    viewerUserId: session.userId,
+    tournamentSeason: Number(tournament.season) || 1,
+    registrationOpen: isTournamentRegistrationOpen({
+      isGenerated: (roundCount ?? 0) > 0,
+      status: tournament.status,
+      registrationClosedAt: tournament.registration_closed_at,
+    }),
+    team: {
+      active: team.active,
+      hattrickUserId: team.hattrick_user_id,
+      reapplySeasonNumber: team.reapply_season_number,
+    },
+  });
+  if (validationError) return res.status(validationError.status).json({ error: validationError.error });
+
+  let updateQuery = supabase
+    .from('teams')
+    .update({ active: false, reapply_season_number: null })
+    .eq('id', teamId)
+    .eq('tournament_id', tournamentId)
+    .eq('active', team.active);
+  if (!team.active) {
+    updateQuery = updateQuery.eq('reapply_season_number', tournament.season);
+  }
+  const { data: removedTeam, error: updateError } = await updateQuery.select('id').maybeSingle();
+  if (updateError) throw updateError;
+  if (!removedTeam) {
+    return res.status(409).json({ error: 'The team participation changed. Refresh and try again.' });
+  }
+
+  return res.status(200).json({ removed: true, teamId: removedTeam.id });
 }
 
 async function handleTournamentRoles(req: VercelRequest, res: VercelResponse) {
@@ -616,6 +692,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         return await handleTournamentAccess(req, res);
       case 'managed-tournaments':
         return await handleManagedTournaments(req, res);
+      case 'tournament-participation':
+        return await handleTournamentParticipation(req, res);
       case 'activity':
       default:
         return await handleActivity(req, res);

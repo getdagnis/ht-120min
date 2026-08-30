@@ -61,8 +61,10 @@ export async function registerOAuthTeam(
     .maybeSingle();
 
   if (existingInThis) {
-    // Just reactivate and update info
-    const { error } = await supabase
+    // Reactivate the existing season participant and verify that the write
+    // actually matched a row. PostgREST can otherwise report no error when
+    // RLS filters an update down to zero rows.
+    const { data: reactivatedTeam, error } = await supabase
       .from('teams')
       .update({
         active: true,
@@ -81,10 +83,20 @@ export async function registerOAuthTeam(
         joined_via_oauth: true,
         ht_team_name: input.team.teamName,
       })
-      .eq('id', existingInThis.id);
+      .eq('id', existingInThis.id)
+      .select('id, active, reapply_season_number')
+      .maybeSingle();
 
     if (error) throw new Error(error.message);
-    return existingInThis.id;
+    if (
+      !reactivatedTeam ||
+      reactivatedTeam.id !== existingInThis.id ||
+      reactivatedTeam.active !== true ||
+      reactivatedTeam.reapply_season_number !== null
+    ) {
+      throw new Error(`Could not reactivate ${input.team.teamName}. Please try joining again.`);
+    }
+    return reactivatedTeam.id;
   }
 
   // 3. Capacity check — enforce max_teams if set

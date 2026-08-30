@@ -12,6 +12,24 @@ interface TournamentJoinabilityInput {
   registrationClosedAt?: string | null;
 }
 
+interface TournamentRegistrationStateInput {
+  isGenerated: boolean;
+  status?: string | null;
+  registrationClosedAt?: string | null;
+}
+
+export function isTournamentRegistrationOpen({
+  isGenerated,
+  status,
+  registrationClosedAt,
+}: TournamentRegistrationStateInput) {
+  return (
+    !isGenerated &&
+    !registrationClosedAt &&
+    (status === 'open' || status === 'waiting')
+  );
+}
+
 export function canViewerJoinTournament({
   hasJoined,
   isGenerated,

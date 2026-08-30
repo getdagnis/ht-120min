@@ -54,6 +54,22 @@ test('joined notice suppresses announcements until dismissed', () => {
   assert.equal(selected?.type, 'joined_notice');
 });
 
+test('open registration keeps the participant message visible after an older joined notice was dismissed', () => {
+  const selected = selectTournamentMessage({
+    canJoin: false,
+    isOpenParticipant: true,
+    hasJoined: true,
+    currentHtUserId: 1001,
+    joinedNoticeDismissed: true,
+    reauthPromptReason: null,
+    announcements: [announcement()],
+    dismissedAnnouncementIds: new Set(),
+    publicDismissedAnnouncementIds: new Set(),
+  });
+
+  assert.equal(selected?.type, 'participant_open');
+});
+
 test('participant announcements are visible only to users in the audience snapshot', () => {
   const included = selectTournamentMessage({
     canJoin: false,

@@ -1,6 +1,6 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import type { ChppTeamOption } from '../_lib/chpp-xml.js';
-import { getSupabase } from '../_lib/supabase.js';
+import { getServiceSupabase } from '../_lib/supabase.js';
 import { registerOAuthTeam } from '../_lib/chpp-register.js';
 import { getAuthHeader } from '../_lib/chpp-auth.js';
 import { parseTeamDetailsXml } from '../_lib/chpp-xml.js';
@@ -9,6 +9,10 @@ import { buildAppSessionCookie, getAppSessionSecret, verifyAppSessionCookie } fr
 import { hasSuperAdminBypassCookie } from '../_lib/superadmin-bypass.js';
 import { buildForgeSessionCookie, getForgeSuperadminId } from '../_lib/forge-session.js';
 import { isForgeEnabled } from '../../forge-availability.js';
+import {
+  fetchManagerTeamsFromChpp,
+  ManagerCompendiumRequestError,
+} from '../_lib/manager-compendium.js';
 
 interface CompleteAuthBody {
   action?: 'claim_teams' | 'create_session';
@@ -71,9 +75,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   const { selection_token, team_id, team_name, action, teamIds, forgeAuth } = req.body as CompleteAuthBody;
   if (forgeAuth && !isForgeEnabled()) return res.status(404).json({ error: 'Not found.' });
 
-  let supabase: ReturnType<typeof getSupabase>;
+  let supabase: ReturnType<typeof getServiceSupabase>;
   try {
-    supabase = getSupabase();
+    supabase = getServiceSupabase();
   } catch (error) {
     console.error('Auth Complete Supabase init error:', error);
     return res.status(500).json({
@@ -344,34 +348,21 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       let avatar = null;
       let teamsJson = pending.teams_json;
 
-      const chppUrl = 'https://chpp.hattrick.org/chppxml.ashx';
-      const chppParams = {
-        file: 'managercompendium',
-        version: '1.7',
-      };
-      const authHeader = getAuthHeader(
-        'GET',
-        chppUrl,
-        chppParams,
-        consumerKey,
-        consumerSecret,
-        pending.access_token,
-        pending.access_token_secret,
-      );
-      const mRes = await fetch(`${chppUrl}?file=managercompendium&version=1.7`, {
-        headers: { Authorization: authHeader },
-      });
-      if (mRes.ok) {
-        const mXml = await mRes.text();
-        const { parseManagerCompendiumXml } = await import('../_lib/chpp-xml.js');
-        const mParsed = parseManagerCompendiumXml(mXml);
+      try {
+        const mParsed = await fetchManagerTeamsFromChpp(consumerKey, consumerSecret, {
+          oauth_token: pending.access_token,
+          oauth_token_secret: pending.access_token_secret,
+        });
         countryId = mParsed.countryId;
         countryName = mParsed.countryName;
         leagueId = mParsed.leagueId;
         avatar = mParsed.avatar ?? null;
         teamsJson = mParsed.teams;
-      } else {
-        console.warn('Failed to refresh managercompendium during login, using cached teams_json:', mRes.status);
+      } catch (error) {
+        console.warn(
+          'Failed to refresh managercompendium during login, using cached teams_json:',
+          error instanceof ManagerCompendiumRequestError ? error.status : error,
+        );
       }
 
       await supabase.from('profiles').upsert({

@@ -1,6 +1,5 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { getAuthHeader } from './chpp-auth.js';
-import { parseManagerCompendiumXml } from './chpp-xml.js';
 import {
   filterTeamsForCategory,
   isHfiTeam,
@@ -11,6 +10,10 @@ import crypto from 'crypto';
 import { getSupabase } from './supabase.js';
 import { OAUTH_CREATION_TOURNAMENT_ID } from './oauth-constants.js';
 import { hasSuperAdminBypassCookie } from './superadmin-bypass.js';
+import {
+  fetchManagerTeamsFromChpp,
+  ManagerCompendiumRequestError,
+} from './manager-compendium.js';
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   if (req.method === 'HEAD' || req.method === 'OPTIONS') {
@@ -84,34 +87,26 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     const accessTokenSecret = tokenData.get('oauth_token_secret')!;
     const grantedScope = tokenData.get('scope') ?? '';
 
-    // 3. Fetch Manager Details to get User ID and Team ID
-    const chppUrl = 'https://chpp.hattrick.org/chppxml.ashx';
-    const chppParams = { file: 'managercompendium' };
-    const chppHeader = getAuthHeader(
-      'GET',
-      chppUrl,
-      chppParams,
-      consumerKey,
-      consumerSecret,
-      accessToken,
-      accessTokenSecret,
-    );
-
-    const chppRes = await fetch(`${chppUrl}?file=managercompendium`, {
-      headers: { Authorization: chppHeader },
-    });
-
-    const managerXml = await chppRes.text();
-
-    if (!chppRes.ok) {
-      if (process.env.NODE_ENV !== 'production') {
-        console.log('🚨 CHPP status:', chppRes.status);
-        console.log('🚨 CHPP headers:', Object.fromEntries(chppRes.headers.entries()));
+    // 3. Fetch every senior team owned by this manager. Version 1.7 is
+    // required for accounts that own both regular and HFI teams.
+    let parsed;
+    try {
+      parsed = await fetchManagerTeamsFromChpp(consumerKey, consumerSecret, {
+        oauth_token: accessToken,
+        oauth_token_secret: accessTokenSecret,
+      });
+    } catch (error) {
+      if (error instanceof ManagerCompendiumRequestError) {
+        if (process.env.NODE_ENV !== 'production') {
+          console.log('🚨 CHPP status:', error.status);
+        }
+        return res
+          .status(error.status)
+          .json({ error: 'Failed to fetch managercompendium', details: error.responseBody });
       }
-      return res.status(chppRes.status).json({ error: 'Failed to fetch managercompendium', details: managerXml });
+      throw error;
     }
 
-    const parsed = parseManagerCompendiumXml(managerXml);
     const { hattrickUserId, managerName, teams } = parsed;
 
     if (!teams.length) {

@@ -1,7 +1,34 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 
-import { canViewerJoinTournament } from '../src/utils/tournament-joinability';
+import { canViewerJoinTournament, isTournamentRegistrationOpen } from '../src/utils/tournament-joinability';
+
+test('participant actions are available only while open registration has no fixtures', () => {
+  assert.equal(
+    isTournamentRegistrationOpen({ isGenerated: false, status: 'open', registrationClosedAt: null }),
+    true,
+  );
+  assert.equal(
+    isTournamentRegistrationOpen({ isGenerated: false, status: 'waiting', registrationClosedAt: null }),
+    true,
+  );
+  assert.equal(
+    isTournamentRegistrationOpen({ isGenerated: false, status: 'active', registrationClosedAt: null }),
+    false,
+  );
+  assert.equal(
+    isTournamentRegistrationOpen({
+      isGenerated: false,
+      status: 'waiting',
+      registrationClosedAt: '2026-08-30T10:00:00.000Z',
+    }),
+    false,
+  );
+  assert.equal(
+    isTournamentRegistrationOpen({ isGenerated: true, status: 'waiting', registrationClosedAt: null }),
+    false,
+  );
+});
 
 test('open tournament is not joinable when max team limit is full', () => {
   assert.equal(

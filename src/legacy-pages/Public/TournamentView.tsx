@@ -35,7 +35,7 @@ import { buildRescheduleDraft, serializeRescheduleDraftForRpc } from '../../util
 import { buildManualRoundNormalizationPlan } from '../../utils/manual-rounds';
 import { buildClearSeasonResultsPayload } from '../../utils/season-results';
 import { getMatchDateForRound as resolveMatchDateForRound } from '../../utils/match-schedule';
-import { canViewerJoinTournament } from '../../utils/tournament-joinability';
+import { canViewerJoinTournament, isTournamentRegistrationOpen } from '../../utils/tournament-joinability';
 import { markAuthRefreshCurrent, needsAuthRefresh } from '../../utils/auth-refresh';
 import { formatTournamentName } from '../../utils/tournament-names';
 import { isSandboxTournament, normalizeTournamentRegistrationType } from '../../utils/tournament-types';
@@ -997,12 +997,10 @@ export const TournamentView: React.FC<{ initialData?: TournamentInitialData }> =
 
   const isSiteAdmin = Boolean(roleAccess?.isImplicitSuperadmin);
   const canManageFeaturedTournaments = isSiteAdmin;
-  const organizerLoginLabel = `${currentHtManagerName} (${verifiedRoleLabel})`;
   const dismissedPublicAnnouncementIds = new Set(
     announcements
       .filter(
-        (announcement) =>
-          isHydrationReady && readLocalStorage(`announcement_dismissed_${announcement.id}`) === 'true',
+        (announcement) => isHydrationReady && readLocalStorage(`announcement_dismissed_${announcement.id}`) === 'true',
       )
       .map((announcement) => announcement.id),
   );
@@ -1085,28 +1083,20 @@ export const TournamentView: React.FC<{ initialData?: TournamentInitialData }> =
   );
 
   // Collapsible states
-  const [, setIsSettingsCollapsed] = useState(() =>
-    readStoredBoolean(`settings_collapsed_${slug}`, false),
-  );
+  const [, setIsSettingsCollapsed] = useState(() => readStoredBoolean(`settings_collapsed_${slug}`, false));
   const [settingsCollapseOverride, setSettingsCollapseOverride] = useState<boolean | null>(() => {
     const stored = readLocalStorage(`settings_collapsed_${slug}`);
     return stored === null ? null : readStoredBoolean(`settings_collapsed_${slug}`, false);
   });
-  const [isTeamsCollapsed, setIsTeamsCollapsed] = useState(() =>
-    readStoredBoolean(`teams_collapsed_${slug}`, true),
-  );
+  const [isTeamsCollapsed, setIsTeamsCollapsed] = useState(() => readStoredBoolean(`teams_collapsed_${slug}`, true));
   const [isResultsCollapsed, setIsResultsCollapsed] = useState(() =>
     readStoredBoolean(`results_collapsed_${slug}`, true),
   );
-  const [isSeasonCollapsed, setIsSeasonCollapsed] = useState(() =>
-    readStoredBoolean(`season_collapsed_${slug}`, true),
-  );
+  const [isSeasonCollapsed, setIsSeasonCollapsed] = useState(() => readStoredBoolean(`season_collapsed_${slug}`, true));
   const [isAnnouncementsCollapsed, setIsAnnouncementsCollapsed] = useState(() =>
     readStoredBoolean(`announcements_collapsed_${slug}`, false),
   );
-  const [isRolesCollapsed, setIsRolesCollapsed] = useState(() =>
-    readStoredBoolean(`roles_collapsed_${slug}`, true),
-  );
+  const [isRolesCollapsed, setIsRolesCollapsed] = useState(() => readStoredBoolean(`roles_collapsed_${slug}`, true));
   const [scheduleCollapseOverrides, setScheduleCollapseOverrides] = useState<Record<string, boolean>>({});
   const scheduleCollapseStorageKey = slug ? `schedule_collapsed_${slug}` : null;
   const scheduleCollapseOverride = useMemo(() => {
@@ -1223,9 +1213,7 @@ export const TournamentView: React.FC<{ initialData?: TournamentInitialData }> =
   }, []);
   const [quickDescription, setQuickDescription] = useState('');
   const [isJoinedNoticeDismissed, setIsJoinedNoticeDismissed] = useState(false);
-  const storedJoinedNoticeDismissed = useHydratedLocalStorage(
-    slug ? `joined_notice_dismissed_${slug}` : '',
-  );
+  const storedJoinedNoticeDismissed = useHydratedLocalStorage(slug ? `joined_notice_dismissed_${slug}` : '');
 
   const regenerateDescription = (isQuick: boolean) => {
     const randomDesc = TOURNAMENT_DEFAULT[Math.floor(Math.random() * TOURNAMENT_DEFAULT.length)];
@@ -2490,6 +2478,12 @@ export const TournamentView: React.FC<{ initialData?: TournamentInitialData }> =
     setFailedLoginAttempt(false);
   };
 
+  const handleOrganizerSessionLogin = (e: React.FormEvent) => {
+    e.preventDefault();
+    document.cookie = `auth_return_url=${encodeURIComponent(window.location.pathname + window.location.search)}; path=/; max-age=300`;
+    window.location.href = '/api/auth/init';
+  };
+
   const handleResetAdminPassword = async () => {
     if (!tournament || !canLoginAsOrganizer || isResettingAdminPassword) return;
 
@@ -2914,22 +2908,26 @@ export const TournamentView: React.FC<{ initialData?: TournamentInitialData }> =
     }
   };
 
-  const handleRemoveReapplySuggestion = async (team: Team) => {
-    if (!tournament || team.reapply_season_number !== tournament.season) return;
-    if (!window.confirm(`Remove ${team.name} from the Season ${tournament.season} re-application suggestions?`)) return;
+  const handleLeaveTournament = async (team: Team) => {
+    if (!tournament) return;
+    if (!window.confirm(`Leave ${tournament.name} with ${team.name}?`)) return;
 
-    const { error } = await supabase
-      .from('teams')
-      .update({ reapply_season_number: null })
-      .eq('id', team.id)
-      .eq('tournament_id', tournament.id);
-    if (error) {
-      alert(error.message);
+    const response = await fetch('/api/app?route=tournament-participation', {
+      method: 'POST',
+      credentials: 'include',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        action: 'leave',
+        tournamentId: tournament.id,
+        teamId: team.id,
+      }),
+    });
+    const result = (await response.json()) as { error?: string };
+    if (!response.ok) {
+      alert(result.error || 'Could not leave the tournament.');
       return;
     }
-    setTeams((current) =>
-      current.map((item) => (item.id === team.id ? { ...item, reapply_season_number: null } : item)),
-    );
+    await fetchData({ showLoader: false });
   };
 
   const getParticipantAudienceHtUserIds = useCallback(
@@ -4097,12 +4095,17 @@ export const TournamentView: React.FC<{ initialData?: TournamentInitialData }> =
       registrationClosedAt: tournament.registration_closed_at,
     }),
   );
-  const canJoinAnotherTeamBeforeFixtures = Boolean(
+  const isRegistrationOpen = Boolean(
     tournament &&
     !isSandbox &&
-    !tournament.registration_closed_at &&
-    !isGenerated &&
-    (!tournament.max_teams || activeRealTeamsCount < tournament.max_teams),
+    isTournamentRegistrationOpen({
+      isGenerated,
+      status: tournament.status,
+      registrationClosedAt: tournament.registration_closed_at,
+    }),
+  );
+  const canJoinAnotherTeamBeforeFixtures = Boolean(
+    isRegistrationOpen && tournament && (!tournament.max_teams || activeRealTeamsCount < tournament.max_teams),
   );
   const shouldPromptReturningParticipantLogin = Boolean(
     tournamentId &&
@@ -4133,6 +4136,7 @@ export const TournamentView: React.FC<{ initialData?: TournamentInitialData }> =
     announcementDismissals.some((dismissal) => dismissal.notice_key === JOINED_NOTICE_KEY);
   const selectedTournamentMessage = selectTournamentMessage({
     canJoin: canJoinTournament,
+    isOpenParticipant: hasJoined && isRegistrationOpen,
     hasJoined,
     currentHtUserId,
     joinedNoticeDismissed,
@@ -4232,18 +4236,17 @@ export const TournamentView: React.FC<{ initialData?: TournamentInitialData }> =
         )
         .sort((a, b) => a.season_number - b.season_number)[0] || currentSeason
     : null;
-  const reapplySuggestions =
-    tournament.status === 'waiting'
-      ? teams
-          .filter((team) => !team.active && !team.is_placeholder && team.reapply_season_number === currentSeasonNumber)
-          .map((team) => ({
-            id: team.id,
-            name: team.name,
-            htTeamId: team.ht_team_id,
-            hattrickUserId: team.hattrick_user_id ?? null,
-            logoUrl: team.logo_url ?? null,
-          }))
-      : [];
+  const reapplySuggestions = isRegistrationOpen
+    ? teams
+        .filter((team) => !team.active && !team.is_placeholder && team.reapply_season_number === currentSeasonNumber)
+        .map((team) => ({
+          id: team.id,
+          name: team.name,
+          htTeamId: team.ht_team_id,
+          hattrickUserId: team.hattrick_user_id ?? null,
+          logoUrl: team.logo_url ?? null,
+        }))
+    : [];
   const historySeasons = seasons
     .filter((season) => season.status === 'finished' || season.snapshot_json)
     .sort((a, b) => b.season_number - a.season_number);
@@ -4634,6 +4637,28 @@ export const TournamentView: React.FC<{ initialData?: TournamentInitialData }> =
         </div>
       )}
 
+      {selectedTournamentMessage?.type === 'participant_open' && (
+        <div className={styles.registrationStatus}>
+          <div className={styles.helpContent}>
+            <p>You are participating in this cup but it hasn't started yet!</p>
+            {canJoinAnotherTeamBeforeFixtures && (
+              <Button
+                onClick={() => {
+                  setIsConnecting(true);
+                  window.location.href = `/api/auth/init?tournament_id=${tournament.id}`;
+                }}
+                variant="primary"
+                size="sm"
+                className={styles.joinButton}
+                disabled={isConnecting}
+              >
+                <ArrowRight size={18} weight="bold" /> Join with another team
+              </Button>
+            )}
+          </div>
+        </div>
+      )}
+
       {selectedTournamentMessage?.type === 'joined_notice' && (
         <div className={styles.joinedNotice}>
           <div className={styles.joinedNoticeContent}>
@@ -4978,6 +5003,7 @@ export const TournamentView: React.FC<{ initialData?: TournamentInitialData }> =
             onVisitHistory={() => handleTabChange('history')}
             canAddSeasonComment={false}
             reapplySuggestions={reapplySuggestions}
+            canLeaveTournament={isRegistrationOpen}
             onReapplySuggestion={(teamId) => {
               const team = teams.find((item) => item.id === teamId);
               if (!team || team.hattrick_user_id !== Number(myHtUserId)) return;
@@ -4987,7 +5013,12 @@ export const TournamentView: React.FC<{ initialData?: TournamentInitialData }> =
             onRemoveReapplySuggestion={(teamId) => {
               const team = teams.find((item) => item.id === teamId);
               if (!team || team.hattrick_user_id !== Number(myHtUserId)) return;
-              void handleRemoveReapplySuggestion(team);
+              void handleLeaveTournament(team);
+            }}
+            onLeaveTournament={(teamId) => {
+              const team = teams.find((item) => item.id === teamId);
+              if (!team || !team.active || team.hattrick_user_id !== Number(myHtUserId)) return;
+              void handleLeaveTournament(team);
             }}
           />
           <aside className={styles.statsSidebar}>
@@ -5041,18 +5072,28 @@ export const TournamentView: React.FC<{ initialData?: TournamentInitialData }> =
                   {roleAccessLoading ? (
                     <p className={adminStyles.smallNote}>Checking your tournament access…</p>
                   ) : (
-                    <form onSubmit={verifiedRoleAccess ? handleOrganizerLogin : handleAdminLogin}>
+                    <form
+                      onSubmit={
+                        verifiedRoleAccess
+                          ? handleOrganizerLogin
+                          : canLoginAsOrganizer
+                            ? handleOrganizerSessionLogin
+                            : handleAdminLogin
+                      }
+                    >
                       <div className={styles.authField}>
                         <label>
-                          {verifiedRoleAccess ? 'Sign in with your Hattrick account:' : 'Tournament Password'}
+                          {verifiedRoleAccess || canLoginAsOrganizer
+                            ? 'Sign in with your Hattrick account:'
+                            : 'Tournament Password'}
                         </label>
-                        {verifiedRoleAccess ? (
+                        {verifiedRoleAccess || canLoginAsOrganizer ? (
                           <input
                             type="text"
                             value={
-                              roleAccess?.viewerManagerName
+                              verifiedRoleAccess && roleAccess?.viewerManagerName
                                 ? `${roleAccess.viewerManagerName} (${verifiedRoleLabel})`
-                                : organizerLoginLabel
+                                : `${currentHtManagerName} (Organiser)`
                             }
                             readOnly
                             className={styles.readOnlyName}
@@ -5074,7 +5115,11 @@ export const TournamentView: React.FC<{ initialData?: TournamentInitialData }> =
                         <p className={styles.authError}>Invalid password. Please try again.</p>
                       )}
                       <Button type="submit" variant="primaryDanger" size="md">
-                        {verifiedRoleAccess ? `Sign in as ${verifiedRoleLabel}` : 'Login'}{' '}
+                        {verifiedRoleAccess
+                          ? `Sign in as ${verifiedRoleLabel}`
+                          : canLoginAsOrganizer
+                            ? 'Sign in as Organiser'
+                            : 'Login'}{' '}
                         <ArrowRight size={18} weight="bold" />
                       </Button>
                     </form>

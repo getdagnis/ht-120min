@@ -1,7 +1,6 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { getAuthHeader } from './chpp-auth.js';
 import {
-  parseManagerCompendiumXml,
   parseMatchesXml,
   parseTeamDetailsXml,
   parseArenaDetailsXml,
@@ -10,6 +9,8 @@ import {
   type ParsedTeamDetails,
   type ParsedArenaDetails,
 } from './chpp-xml.js';
+
+export { fetchManagerTeamsFromChpp } from './manager-compendium.js';
 
 export type MatchmakerAvailabilityStatus = 'available' | 'booked' | 'unavailable' | 'unknown';
 
@@ -220,46 +221,6 @@ export async function fetchArenaDetailsFromChpp(
   return {
     ...parsed,
     arenaImageUrl: chooseBestArenaImage(parsed.arenaImageUrl, parsed.arenaFallbackImageUrl),
-  };
-}
-
-export async function fetchManagerTeamsFromChpp(
-  consumerKey: string,
-  consumerSecret: string,
-  credentials: Pick<ManagerChppCredentials, 'oauth_token' | 'oauth_token_secret'>,
-  managerId?: number | string,
-) {
-  const url = 'https://chpp.hattrick.org/chppxml.ashx';
-  const params: Record<string, string> = { file: 'managercompendium', version: '1.7' };
-  if (managerId) {
-    params.userID = String(managerId);
-  }
-
-  const authHeader = getAuthHeader(
-    'GET',
-    url,
-    params,
-    consumerKey,
-    consumerSecret,
-    credentials.oauth_token,
-    credentials.oauth_token_secret,
-  );
-
-  const query = new URLSearchParams(params);
-  const response = await fetch(`${url}?${query.toString()}`, {
-    headers: { Authorization: authHeader },
-  });
-
-  const xml = await response.text();
-  if (!response.ok) {
-    throw new Error(`CHPP managercompendium failed (${response.status})`);
-  }
-
-  const parsed = parseManagerCompendiumXml(xml);
-
-  return {
-    ...parsed,
-    teams: parsed.teams ?? [],
   };
 }
 

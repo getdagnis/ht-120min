@@ -48,8 +48,10 @@ interface StandingsViewProps {
     hattrickUserId: number | null;
     logoUrl: string | null;
   }[];
+  canLeaveTournament?: boolean;
   onReapplySuggestion?: (teamId: string) => void;
   onRemoveReapplySuggestion?: (teamId: string) => void;
+  onLeaveTournament?: (teamId: string) => void;
 }
 
 const DEFAULT_TEAM_LOGO = '/default-logo.png';
@@ -103,8 +105,10 @@ export const StandingsView: React.FC<StandingsViewProps> = ({
   seasonNumber = 0,
   seasonParticipantIds = [],
   reapplySuggestions = [],
+  canLeaveTournament = false,
   onReapplySuggestion,
   onRemoveReapplySuggestion,
+  onLeaveTournament,
 }) => {
   const [presencePulse, setPresencePulse] = useState(0);
   const isAppgSupported = isAppg120ScoringMode(tournament?.scoring_mode);
@@ -402,7 +406,7 @@ export const StandingsView: React.FC<StandingsViewProps> = ({
   return (
     <div className={styles.mainColumn} data-presence-pulse={presencePulse}>
       <SectionCard
-        title="🏆 Standings"
+        title={`🏆 Standings • Season ${seasonNumber || 1}`}
         thumbnailSeed={tournament?.id}
         headerRight={
           <div className={styles.scoringControl}>
@@ -530,7 +534,7 @@ export const StandingsView: React.FC<StandingsViewProps> = ({
                 </tr>
               )}
               {sortedStandings.map((s, idx) => {
-                const isMyTeam = s.htTeamId === Number(myHtUserId);
+                const isMyTeam = s.hattrickUserId === Number(myHtUserId);
                 const reachesQuota = reachesAppgQuota(s);
                 const placement = reachesQuota
                   ? sortedStandings.slice(0, idx).filter(reachesAppgQuota).length + 1
@@ -547,45 +551,54 @@ export const StandingsView: React.FC<StandingsViewProps> = ({
                     <tr className={isMyTeam ? styles.myTeamRow : ''}>
                       <td className={styles.muted}>{placement ?? ''}</td>
                       <td className={styles.teamNameCell}>
-                        <div className={styles.teamInfo}>
-                          <img
-                            src={s.logoUrl || DEFAULT_TEAM_LOGO}
-                            alt={s.teamName}
-                            className={styles.standingLogo}
-                            onError={(event) => {
-                              event.currentTarget.src = DEFAULT_TEAM_LOGO;
-                            }}
-                          />
-                          <div className={styles.teamTextContainer}>
-                            <a
-                              href={`https://www.hattrick.org/goto.ashx?path=/Club/?TeamID=${s.htTeamId}`}
-                              target="_blank"
-                              rel="noopener noreferrer"
-                              className={styles.idLink}
-                            >
-                              <div className={styles.nameRow}>
-                                <span className={styles.teamName}>
-                                  {s.teamName}
-                                  {isMyTeam && <span className={styles.myTeamBadge}> (You)</span>}
-                                </span>
-                                {s.joinedViaOauth && (
-                                  <span title="Hattrick Validated Team">
-                                    <ShieldCheck size={14} weight="bold" className={styles.validatedIcon} />
-                                  </span>
-                                )}
-                              </div>
-                            </a>
-                            <TeamByline
-                              countryName={s.countryName}
-                              countryId={s.countryId}
-                              leagueId={s.leagueId}
-                              teamId={s.htTeamId}
-                              managerName={s.managerName}
-                              managerHtId={s.hattrickUserId}
-                              mode="standings"
-                              lastSeenAt={s.hattrickUserId != null ? (lastSeenMap[s.hattrickUserId] ?? null) : null}
+                        <div className={styles.standingsTeamEntry}>
+                          <div className={styles.teamInfo}>
+                            <img
+                              src={s.logoUrl || DEFAULT_TEAM_LOGO}
+                              alt={s.teamName}
+                              className={styles.standingLogo}
+                              onError={(event) => {
+                                event.currentTarget.src = DEFAULT_TEAM_LOGO;
+                              }}
                             />
+                            <div className={styles.teamTextContainer}>
+                              <a
+                                href={`https://www.hattrick.org/goto.ashx?path=/Club/?TeamID=${s.htTeamId}`}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className={styles.idLink}
+                              >
+                                <div className={styles.nameRow}>
+                                  <span className={styles.teamName}>
+                                    {s.teamName}
+                                    {isMyTeam && <span className={styles.myTeamBadge}> (You)</span>}
+                                  </span>
+                                  {s.joinedViaOauth && (
+                                    <span title="Hattrick Validated Team">
+                                      <ShieldCheck size={14} weight="bold" className={styles.validatedIcon} />
+                                    </span>
+                                  )}
+                                </div>
+                              </a>
+                              <TeamByline
+                                countryName={s.countryName}
+                                countryId={s.countryId}
+                                leagueId={s.leagueId}
+                                teamId={s.htTeamId}
+                                managerName={s.managerName}
+                                managerHtId={s.hattrickUserId}
+                                mode="standings"
+                                lastSeenAt={s.hattrickUserId != null ? (lastSeenMap[s.hattrickUserId] ?? null) : null}
+                              />
+                            </div>
                           </div>
+                          {isMyTeam && canLeaveTournament && (
+                            <div className={styles.reapplyActions}>
+                              <Button variant="danger" size="xxs" onClick={() => onLeaveTournament?.(s.teamId)}>
+                                Leave
+                              </Button>
+                            </div>
+                          )}
                         </div>
                       </td>
                       {show120minScoring ? (
@@ -645,12 +658,12 @@ export const StandingsView: React.FC<StandingsViewProps> = ({
                         </div>
                         {isOwner && (
                           <div className={styles.reapplyActions}>
-                            <button type="button" onClick={() => onReapplySuggestion?.(team.id)}>
-                              Re-apply
-                            </button>
-                            <button type="button" onClick={() => onRemoveReapplySuggestion?.(team.id)}>
-                              Remove
-                            </button>
+                            <Button variant="primaryAction" size="xs" onClick={() => onReapplySuggestion?.(team.id)}>
+                              Re-join
+                            </Button>
+                            <Button variant="danger" size="xs" onClick={() => onRemoveReapplySuggestion?.(team.id)}>
+                              Leave
+                            </Button>
                           </div>
                         )}
                       </div>
@@ -675,49 +688,43 @@ export const StandingsView: React.FC<StandingsViewProps> = ({
           showComments={seasonStatus === 'finished'}
           commentsSubmitError={commentsSubmitError}
           emptyMessage={
-            eligibleCommentStandings.length > 0
-              ? null
-              : "Season participants' final comments will appear here."
+            eligibleCommentStandings.length > 0 ? null : "Season participants' final comments will appear here."
           }
         >
-          {!seasonCommentsLoading && eligibleCommentStandings.map((standing) => (
-            <div key={standing.teamId} className={historyStyles.commentForm}>
-              <label htmlFor={`standings-season-comment-${standing.teamId}`}>
-                Post your final comment as {standing.teamName}
-              </label>
-              <textarea
-                id={`standings-season-comment-${standing.teamId}`}
-                value={commentDrafts[standing.teamId] || ''}
-                maxLength={480}
-                rows={4}
-                placeholder="Your season's comment..."
-                onChange={(event) =>
-                  setCommentDrafts((current) => ({ ...current, [standing.teamId]: event.target.value }))
-                }
-              />
-              <div>
-                <small>{(commentDrafts[standing.teamId] || '').length}/480</small>
-                <Button
-                  size="sm"
-                  variant="primaryDanger"
-                  onClick={() => setPendingCommentStanding(standing)}
-                  disabled={!commentDrafts[standing.teamId]?.trim() || submittingTeamId === standing.teamId}
-                >
-                  Post final comment
-                </Button>
+          {!seasonCommentsLoading &&
+            eligibleCommentStandings.map((standing) => (
+              <div key={standing.teamId} className={historyStyles.commentForm}>
+                <label htmlFor={`standings-season-comment-${standing.teamId}`}>
+                  Post your final comment as {standing.teamName}
+                </label>
+                <textarea
+                  id={`standings-season-comment-${standing.teamId}`}
+                  value={commentDrafts[standing.teamId] || ''}
+                  maxLength={480}
+                  rows={4}
+                  placeholder="Your season's comment..."
+                  onChange={(event) =>
+                    setCommentDrafts((current) => ({ ...current, [standing.teamId]: event.target.value }))
+                  }
+                />
+                <div>
+                  <small>{(commentDrafts[standing.teamId] || '').length}/480</small>
+                  <Button
+                    size="sm"
+                    variant="primaryDanger"
+                    onClick={() => setPendingCommentStanding(standing)}
+                    disabled={!commentDrafts[standing.teamId]?.trim() || submittingTeamId === standing.teamId}
+                  >
+                    Post final comment
+                  </Button>
+                </div>
+                <p>This can be posted once and cannot be changed.</p>
               </div>
-              <p>This can be posted once and cannot be changed.</p>
-            </div>
-          ))}
+            ))}
         </SeasonYearbook>
       )}
       {pendingCommentStanding && (
-        <Modal
-          isOpen
-          onClose={() => setPendingCommentStanding(null)}
-          title="Post final comment?"
-          maxWidth="500px"
-        >
+        <Modal isOpen onClose={() => setPendingCommentStanding(null)} title="Post final comment?" maxWidth="500px">
           <p>
             This will publish your final season comment as <strong>{pendingCommentStanding.teamName}</strong>. It cannot
             be changed later.

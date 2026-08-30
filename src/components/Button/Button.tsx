@@ -19,7 +19,7 @@ interface ButtonProps extends React.ButtonHTMLAttributes<HTMLButtonElement> {
     | 'action'
     | 'primaryAction'
     | 'secondaryAction';
-  size?: 'xs' | 'sm' | 'md' | 'lg';
+  size?: 'xxs' | 'xs' | 'sm' | 'md' | 'lg';
   fullWidth?: boolean;
 }
 
