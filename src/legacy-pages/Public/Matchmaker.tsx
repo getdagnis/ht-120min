@@ -1215,13 +1215,6 @@ export const Matchmaker: React.FC = () => {
       )}
       <header className={styles.headerContainer}>
         <div className={styles.tinderHeroCard}>
-          <div className={styles.heroTopBar}>
-            <span>Instant 120 min Friendly Matcher</span>
-            <button className={styles.closeBtn} onClick={() => router.push(toLocalePath(locale, '/'))}>
-              <X size={24} />
-            </button>
-          </div>
-
           <div className={styles.heroImageContainer}>
             <img src="/tinder-date-long-transp.png" alt="Tinder Date" className={styles.heroImage} />
             <div className={styles.heroBranding}>
