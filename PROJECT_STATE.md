@@ -1,6 +1,6 @@
 # PROJECT_STATE.md
 
-Last updated: 2026-07-27
+Last updated: 2026-08-30
 
 This is the current-status ledger. Update it after meaningful implementation work. Be explicit about what is local, migrated, tested, deployed, or still unknown.
 
@@ -8,7 +8,15 @@ This is the current-status ledger. Update it after meaningful implementation wor
 
 HT-120min is an early MVP for recurring Hattrick friendly tournaments. Tournaments are the core product; Matchmaker is an entry layer for finding friendly opportunities.
 
-The local application shell has migrated from Vite/React Router to Next.js App Router. Public routes are locale-prefixed (`/en` and `/lv`) and explicitly owned by App Router, with English-only Forge isolated at `/forge`. Home and public Tournament View load their initial public Supabase snapshots in App Router server components and render those snapshots before hydration; the existing interactive screens, tabs, and forms remain client components. React Router remains only inside the deferred Forge subsystem. Forge is disabled unless `FORGE_ENABLED=true`, and its privileged API guards remain server-side. This migration is local and has not yet been production-deployed or verified against live OAuth/CHPP traffic.
+The application shell has migrated from Vite/React Router to Next.js App Router. Public routes are locale-prefixed (`/en` and `/lv`) and owned by App Router, with English-only Forge isolated at `/forge`. Home and public Tournament View load initial public Supabase snapshots in App Router server components before hydration; the existing interactive screens, tabs, and forms remain client components. React Router remains only inside the deferred Forge subsystem. Forge is disabled unless `FORGE_ENABLED=true`, and privileged API guards remain server-side. The current checkout is locally validated, but production deployment and live OAuth/CHPP behavior remain separate verification steps.
+
+## Current checkout snapshot
+
+- `main` is clean and aligned with `origin/main` at `2acef5e` (`update/welcome modal`).
+- Recent work includes the Next.js migration follow-up, OAuth/team-join fixes, responsive UI cleanup, and updated welcome-modal copy.
+- The local test suite currently passes 165 tests. Lint, production build, server-import validation, and diff validation also pass locally.
+- Migrations `001`–`067` are organized under `migrations/applied/` in this checkout. That directory layout is repository state, not proof that every migration has been applied to the live Supabase project.
+- The old Playwright workflow and its two obsolete specs were removed in the current working tree; no Playwright config or direct Playwright dependency exists. Do not report browser E2E coverage as active until a current route/config/spec is restored deliberately.
 
 The app currently supports:
 
@@ -141,7 +149,7 @@ Production means live deployed behavior. If it has not been checked against the 
 
 ## Latest Validation
 
-Latest code validation for APPG scoring, bulk simulation, tournament seasons/history, and yearbook:
+Latest local validation for the current Next.js checkout (2026-08-30):
 
 ```bash
 test -f 'src/app/api/[[...path]]/route.ts' && echo 1
@@ -149,11 +157,9 @@ rg "docs/(architecture|scheduling|chpp|database-and-deployment)\\.md|PROJECT_STA
 git diff --check
 ```
 
-The consolidated Next API route handler is present; Vercel production function-count verification remains outstanding.
+The consolidated Next API route handler is present. `npm test` passes 165 tests; `npm run lint`, `npm run build`, `npm run check:server-imports`, and `git diff --check` also pass. The build includes TypeScript checking and server-import validation. The route tree exposes one consolidated API handler. Live Supabase migration/application, CHPP response verification, and production deployment verification remain outstanding.
 
-`npm run check:server-imports`, `npm run lint`, `npm test` (155), `npm run build`, the consolidated API-route check, and `git diff --check` passed during the Next.js migration. Home and a populated public tournament route were also requested from a local production build on 2026-07-26; both returned `200` with their initial page content in the HTML. The server import check scans `src/server/` and `shared/` and requires explicit runtime `.js` extensions for relative server imports. Live Supabase migration/application, CHPP response verification, and Vercel function-count/deployment verification remain outstanding.
-
-Delegated tournament roles passed focused access tests and the full 143-test suite, production build, server-import check, 12-function count, and `git diff --check` during this follow-up. Migrations `066` and `067` are still not independently verified as applied to Supabase or production.
+The local production build previously returned `200` for Home and a populated public tournament route, but this is not production verification. Delegated roles, APPG, scheduling, history/yearbook, and Next migration tests are covered by the current local suite. Real OAuth, CHPP, Supabase migration state, and deployed behavior still require separate checks.
 
 ```bash
 npm run build

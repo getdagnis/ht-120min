@@ -71,6 +71,10 @@
   flex-direction: column
   border: 1px solid var(--borderWeak)
 
+.tinderModal
+  background-color: var(--tinder-bg) !important
+  background-image: none !important
+
 .heroTopBar
   padding: 0.75rem 1rem
   display: flex
@@ -245,27 +249,27 @@
   background: transparent
   border: none
   width: auto
-  height: 12rem
+  height: 24rem
   display: flex
   align-items: center
   justify-content: center
   cursor: pointer
-  color: var(--text-h)
+  color: var(--tinder)
   z-index: 10
   transition: all 0.3s
-  opacity: 0.15
-  padding: 0 1rem
+  opacity: 0.8
+  padding: 0 0.5rem
 
   svg
-    width: 4rem
-    height: 8rem
+    width: 8rem
+    height: 16rem
 
   &:hover:not(:disabled)
-    opacity: 0.6
-    color: var(--tinder-bg)
+    color: var(--tinder-bright)
+    opacity: 1
 
   &:disabled
-    opacity: 0.05
+    opacity: 0.1
     cursor: not-allowed
 
   @media (max-width: 768px)
@@ -310,19 +314,25 @@
   margin-bottom: 1rem
 
 .teamLogo
-  height: 5rem
+  height: 20rem
   width: auto
   object-fit: contain
   border-radius: var(--radius-sm)
+  position: relative
+  z-index: 3
+  margin: -2.25rem 0 -0.75rem -2rem
+  transform: rotate(-8deg)
 
 .teamText
   display: flex
   flex-direction: column
   color: white !important
   gap: 0.25rem
+  margin-left: 2rem
 
 .teamName
-  font-size: 2.25rem !important
+  font-size: 2.8rem !important
+  max-width: 20rem
   color: white !important
   font-weight: 700
   line-height: 1.1
@@ -332,7 +342,7 @@
   display: flex
   align-items: center
   gap: 0.5rem
-  font-size: 0.95rem
+  font-size: 1rem
   opacity: 0.9
   font-weight: 600
   color: white !important
@@ -370,12 +380,13 @@
 
 .message
   font-style: italic
-  background: var(--bg-transp)
-  padding: 1.25rem
+  background: transparent
+  padding: 0
   border-radius: var(--radius-sm)
-  border-left: 4px solid var(--tinder-bg)
-  margin-top: 1rem
-  font-size: 1rem
+  margin: 2rem 0 1rem
+  width: 100%
+  max-width: 60rem
+  font-size: 1.1rem
 
 .adMetaRow
   display: flex
@@ -410,9 +421,9 @@
   color: white
 
   &.good
-    background: rgba(46, 204, 113, 0.22)
-    border: 1px solid rgba(46, 204, 113, 0.45)
-    color: #c9ffdf
+    background: rgba(174, 10, 54, 0.22)
+    border: 1px solid rgba(199, 0, 53, 0.55)
+    color: #ffd0dc
 
   &.warn
     background: rgba(255, 193, 7, 0.18)
@@ -440,9 +451,9 @@
   border: 1px solid transparent
 
   &.available
-    background: rgba(46, 204, 113, 0.18)
-    border-color: rgba(46, 204, 113, 0.38)
-    color: #d6ffe5
+    background: rgba(174, 10, 54, 0.18)
+    border-color: rgba(199, 0, 53, 0.45)
+    color: #ffd0dc
 
   &.booked
     background: rgba(255, 193, 7, 0.16)
@@ -479,6 +490,8 @@
 .adProfileSummary
   display: flex
   flex-direction: column
+  align-items: flex-start
+  width: 100%
   gap: 0.5rem
 
 .summaryLabel
@@ -491,6 +504,11 @@
 .badges
   display: flex
   flex-wrap: wrap
+  align-items: flex-start
+  align-content: flex-start
+  justify-content: flex-start
+  align-self: flex-start
+  width: 100%
   gap: 0.5rem
   margin-bottom: 1rem
 
@@ -560,7 +578,7 @@
   display: flex
   flex-direction: column
 
-.teamMeta
+.teamOptionInfo .teamMeta
   font-size: 0.85rem
   color: var(--text60)
 
@@ -569,7 +587,7 @@
   font-weight: 700
 
   &.available
-    color: var(--accent)
+    color: var(--tinder-bright)
   &.booked
     color: var(--danger)
   &.unknown
@@ -681,24 +699,26 @@
   overflow: visible
 
   .cardTop
+    position: relative
     display: flex
     width: 100%
     background: var(--table-bg)
     border-radius: var(--radius-md) var(--radius-md) 0 0
-    background-color: var(--heroBg)
-    background-image: url('/grass2.png')
-    background-repeat: repeat
-    background-position: center
-    background-size: 30%
+    background-color: var(--tinder-bg)
 
   .cardArena
-    background: olive
-    width: 34rem
-    height: 100%
+    position: absolute
+    top: -0.25rem
+    right: -0.25rem
+    background: transparent
+    width: 15rem
+    aspect-ratio: 791 / 605
+    z-index: 2
 
     .arenaFrame
-      width: calc(791px/2.35)
-      height: calc(605px/2.35)
+      width: 15rem
+      aspect-ratio: 791 / 605
+      height: auto
       display: flex
       align-items: center
       justify-content: center
@@ -708,10 +728,10 @@
       background-size: contain
       padding: 0.75rem
       box-sizing: border-box
-      transform: rotate(-6deg)
+      transform: rotate(6deg)
       position: absolute
-      left: -1.5rem
-      top: -1rem
+      right: 0
+      top: 0
       z-index: 2
 
       img
@@ -725,6 +745,11 @@
     flex-direction: column
     padding: 1.5rem
     width: 100%
+    max-width: 60rem
+    box-sizing: border-box
+
+    .teamMain
+      padding-right: 10rem
 
   .tinderCard
     display: flex
@@ -749,48 +774,29 @@
 
   @media (max-width: 768px)
     .cardTop
-      display: grid
-      grid-template-columns: minmax(0, 1fr) auto
-      grid-template-areas: "arena edits" "content content"
-      align-items: start
+      display: block
       padding-top: 1rem
 
-    .cardTop:not(:has(.inlineEditButtons))
-      grid-template-columns: 1fr
-      grid-template-areas: "arena" "content"
-
     .cardArena
-      grid-area: arena
-      width: auto
-      height: auto
-      min-height: 0
-      background: transparent
-
-      .arenaFrame
-        position: relative
-        left: 0
-        top: -2rem
-        width: calc(791px / 5)
-        height: calc(605px / 5)
-        padding: 0.35rem
-        transform: rotate(-6deg)
-
-        img
-          padding: 0.25rem
+      display: none
 
     .inlineEditButtons
-      grid-area: edits
       position: static
       align-self: start
       justify-self: end
       margin: 0.25rem 0.75rem 0 0
 
     .cardRight
-      grid-area: content
       padding: 0 1rem 1.5rem
 
+      .teamMain
+        padding-right: 0
+
   .teamName
-    font-size: 1.75rem !important
+    font-size: 2.1rem !important
+
+  .teamLogo
+    height: 13rem
 
   .iconBtn
     display: inline-flex
@@ -820,6 +826,13 @@
 .browseWrapper
   // slightly larger horizontal padding for the stacked browse view
   padding-left: 0
+  max-width: 73rem
+
+.navArrowLeft
+  left: 0.5rem
+
+.navArrowRight
+  right: 0.5rem
 
 .viewerActions
   margin-top: 1.25rem
@@ -912,8 +925,8 @@
   right: 3.6rem
   top: 1rem
   &.open
-    background: var(--bg-success)
-    color: var(--accent)
+    background: rgba(174, 10, 54, 0.16)
+    color: var(--tinder-bright)
   &.matched
     background: rgba(255, 75, 43, 0.1)
     color: #ff4b2b

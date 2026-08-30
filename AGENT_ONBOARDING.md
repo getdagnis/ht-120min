@@ -1,126 +1,59 @@
 # AGENT_ONBOARDING.md
 
-Last updated: 2026-07-27
+Last updated: 2026-08-30
 
-This is an optional deep-orientation checklist for a new agent joining the project cold. It is not the source of truth for constraints or current status.
+This is a short orientation map, not a second source of truth. Read `AGENTS.md`
+for operating rules and `PROJECT_STATE.md` for current status. Do not duplicate
+those documents here.
 
-Use this when the task is broad, risky, or asks you to "familiarize yourself with the project." For normal implementation tasks, start with `AGENTS.md` and follow its task routing.
+## Start here
 
-## Canonical Docs
+1. `package.json` — scripts, framework, and version.
+2. `README.md` — human setup and product overview.
+3. `PROJECT_STATE.md` — implementation, migration, validation, and deployment state.
+4. `src/app/(public)/[locale]/layout.tsx` — localized Next public shell.
+5. `src/app/(public)/[locale]/t/[slug]/page.tsx` — public tournament entry point.
+6. `src/components/Layout/Layout.tsx` — shared navigation and identity controls.
+7. `src/legacy-pages/Public/TournamentView.tsx` — interactive tournament tabs and admin workspace.
 
-Read these first:
+The public app is owned by Next.js App Router. React Router remains inside the
+deferred Forge subsystem only. All API contracts are dispatched through
+`src/app/api/[[...path]]/route.ts`; implementation belongs under
+`src/server/api/` and shared server helpers under `src/server/api/_lib/`.
 
-1. `AGENTS.md` - agent entry point, hard constraints, task routing, validation defaults.
-2. `PROJECT_STATE.md` - current implementation status, blockers, migration/test/deploy notes.
-3. `README.md` - human project intro, setup, and commands.
+## Read by task
 
-Then read focused docs based on the task:
+- Public shell, components, or page ownership: `docs/architecture.md`
+- CHPP, OAuth, match refresh, or date parsing: `docs/chpp.md` and `docs/AGENTS_CHPP_INTEGRATION.md`
+- Schedules, fixture dates, rounds, or BYEs: `docs/scheduling.md`
+- Supabase, migrations, RLS, or deployment: `docs/database-and-deployment.md`
+- Product direction: `ROADMAP.md`
 
-- `docs/architecture.md` - frontend structure, ownership boundaries, reusable UI.
-- `docs/scheduling.md` - calendar, generation, rescheduling, BYEs, W15/W16 rules.
-- `docs/chpp.md` - CHPP auth, endpoint sources, parser rules, known limitations.
-- `docs/database-and-deployment.md` - Supabase model, migrations, RLS assumptions, Vercel limits.
+Relevant implementation areas:
 
-For CHPP work, also read `docs/AGENTS_CHPP_INTEGRATION.md` and the relevant schema/example files.
+- Auth: `src/hooks/useAuth.ts`, `src/server/api/auth/`
+- Tournament page: `src/legacy-pages/Public/TournamentView.tsx`
+- Create flow: `src/legacy-pages/Create/CreateTournament.tsx`
+- API dispatcher: `src/app/api/[[...path]]/route.ts`
+- CHPP refresh: `src/server/api/teams/refresh-fixtures.ts`, `src/server/api/chpp/live-matches.ts`
+- Scheduling utilities: `src/utils/hattrick-calendar.ts`, `src/utils/schedule-draft.ts`, `src/utils/reschedule-draft.ts`, `src/utils/match-schedule.ts`
+- Domain utilities: `src/utils/standings.ts`, `src/utils/season-history.ts`, `src/utils/team-eligibility.ts`
 
-## First-Pass Repo Scan
-
-For a full mental model, inspect these files in order:
-
-1. `package.json`
-   - scripts, framework versions, dependencies
-2. `src/app/(public)/[locale]/layout.tsx`
-   - localized public shell, server HTML language, metadata, and shared layout
-3. `src/proxy.ts`
-   - locale redirects and disabled Forge/testing boundaries
-4. `src/global.sass`
-   - global tokens, typography, themes, responsive helpers
-5. `src/components/Layout/Layout.tsx`
-   - app shell, login controls, active/organizer tournament menu
-6. `src/hooks/useAuth.ts`
-   - custom Hattrick identity model and localStorage/session behavior
-7. `src/legacy-pages/Public/TournamentView.tsx`
-   - tournament page, tabs, admin mode, schedule/result/chat flows
-8. `src/legacy-pages/Create/CreateTournament.tsx`
-   - creation flow, organizer linking, initial team/chat insert
-9. `src/legacy-pages/Public/Matchmaker.tsx`
-   - matchmaker browsing and publishing UI
-
-Backend/API scan:
-
-- `src/app/api/[[...path]]/route.ts`
-- `src/server/api/auth/*`
-- `src/server/api/teams/refresh-fixtures.ts`
-- `src/server/api/chpp/live-matches.ts`
-- `src/server/api/matchmaker/*`
-- `src/server/api/testing/index.ts`
-- `src/server/api/_lib/supabase.ts`
-- `src/server/api/_lib/chpp-auth.ts`
-- `src/server/api/_lib/chpp-xml.ts`
-- `src/server/api/_lib/chpp-register.ts`
-
-Forge is intentionally deferred. Inspect `src/app/(forge)/` and `src/next/ForgeApp.tsx` only when a task
-explicitly concerns site-admin tooling; do not treat Forge as a blocker for public product work.
-
-Core utilities:
-
-- `src/utils/hattrick-calendar.ts`
-- `src/utils/schedule-draft.ts`
-- `src/utils/reschedule-draft.ts`
-- `src/utils/scheduler.ts`
-- `src/utils/match-schedule.ts`
-- `src/utils/tournament-next-match.ts`
-- `src/utils/standings.ts`
-- `src/utils/tournament-announcements.ts`
-- `src/utils/team-eligibility.ts`
-- `src/utils/matchmaker.ts`
-
-Database references:
-
-- newest numbered migrations in `migrations/`
-- `supabase-schema.sql`
-- `docs/database-and-deployment.md`
-
-## Security And Identity Notes
-
-- This app uses custom Hattrick OAuth and localStorage-backed client identity hints; it is not a normal Supabase Auth session model.
-- Do not trust a Hattrick user id from localStorage as authenticated server identity.
-- Do not expose Supabase service-role keys or CHPP consumer secrets to frontend code.
-- Do not weaken RLS broadly to make a UI flow work.
-- Use ids for identity decisions; treat country, league, team, and manager names as display fields.
-
-## Hard Checks During Orientation
-
-Confirm Vercel function count:
-
-```bash
-test -f 'src/app/api/[[...path]]/route.ts' && echo 1
-```
-
-Confirm current dirty state before editing:
+## Safe first checks
 
 ```bash
 git status --short
-```
-
-For code changes, normal validation is:
-
-```bash
-npm run build
+test -f 'src/app/api/[[...path]]/route.ts' && echo 1
 npm test
+npm run lint
+npm run build
 ```
 
-For docs-only changes, use the lighter checks from `AGENTS.md`.
+For database work, inspect the newest migration files and verify actual
+Supabase application separately; a local migration file is not proof of a live
+database change. For production claims, distinguish local code, deployment,
+live Supabase state, and real OAuth/CHPP testing.
 
-## Investigation Report Template
-
-When asked to investigate before implementing, report:
-
-1. Current architecture summary.
-2. Relevant source-of-truth docs and files read.
-3. Authentication/identity assumptions and risks.
-4. Supabase tables or migrations involved.
-5. Vercel/API function impact.
-6. CHPP endpoint/source-of-truth impact, if any.
-7. Smallest safe implementation strategy.
-8. Validation plan.
+Do not recursively search `.git`, `node_modules`, `.next`, `dist`, `.rcs`,
+`.vercel`, `supabase/.temp`, or generated reports. The workspace VS Code
+settings exclude these from search, Explorer, and file watching.

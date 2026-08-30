@@ -78,6 +78,7 @@ function getServerThemeSnapshot() {
 export const Layout: React.FC<LayoutProps> = ({ children }) => {
   const router = useRouter();
   const pathname = usePathname() || '/';
+  const isTinderPage = pathname.endsWith('/matchmaker') || pathname.endsWith('/tinder');
   const searchParams = useSearchParams();
   const { locale } = useLocale();
   const currentUrl = `${pathname}${searchParams.toString() ? `?${searchParams.toString()}` : ''}`;
@@ -396,7 +397,7 @@ export const Layout: React.FC<LayoutProps> = ({ children }) => {
 
       <footer className={styles.footer}>
         <div className={styles.container}>
-          <BeerBanner />
+          <BeerBanner variant={isTinderPage ? 'tinder' : 'default'} />
           <p>
             © {new Date().getFullYear()}
             <span className="mr-sm" />

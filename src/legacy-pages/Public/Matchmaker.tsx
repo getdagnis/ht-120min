@@ -16,11 +16,9 @@ import {
   Handshake,
   X,
   Heart,
-  Clock,
   Info,
   Warning,
   ArrowsOut,
-  Trophy,
   CaretLeft,
   CaretRight,
   PencilSimple,
@@ -76,7 +74,7 @@ const getAvailabilityStatusLabel = (team: MatchmakerTeamOption) => {
   if (team.availabilityStatus === 'available') return 'Available now';
   if (team.availabilityStatus === 'booked') return 'Booked';
   if (team.availabilityStatus === 'unknown') return 'Unknown';
-  return 'Unavailable';
+  return 'Booked This Week';
 };
 
 const clampScore = (value: number) => Math.max(0, Math.min(100, value));
@@ -505,6 +503,20 @@ export const Matchmaker: React.FC = () => {
   const getDisplayCountryName = (requestTeam?: MatchmakerRequest['team'] | null) => {
     if (!requestTeam) return undefined;
     return requestTeam.country_name || undefined;
+  };
+
+  const getMessagePlaceholder = (request: MatchmakerRequest) => {
+    const matchType = request.match_type === '120min' ? '120 min training' : '90 min acceptable';
+    const venue = request.home_away === 'home' ? 'My place' : request.home_away === 'away' ? 'Your place' : 'Either venue';
+    const location =
+      request.opponent_location === 'domestic'
+        ? `Domestic (${getDisplayCountryName(request.team) || 'same country'})`
+        : request.opponent_location === 'international_only'
+          ? 'International only'
+          : 'Anywhere';
+    const duration = request.is_long_term ? 'Long-term partner' : 'One-off match';
+
+    return `${matchType}. ${venue}. ${location}. ${duration}. Reach out to me!`;
   };
 
   const challengeTeams = useMemo(() => {
@@ -1315,8 +1327,7 @@ export const Matchmaker: React.FC = () => {
               return (
                 <div className={`${styles.cardWrapper} ${styles.browseWrapper}`}>
                   <button
-                    className={styles.navArrow}
-                    style={{ left: '-120px' }}
+                    className={`${styles.navArrow} ${styles.navArrowLeft}`}
                     onClick={() => setCurrentIndex((prev) => Math.max(0, prev - 1))}
                     disabled={currentIndex === 0}
                   >
@@ -1368,6 +1379,9 @@ export const Matchmaker: React.FC = () => {
                               </div>
                             </div>
                           </div>
+                          <div className={styles.message}>
+                            {req.message ? `"${req.message}"` : <strong>{getMessagePlaceholder(req)}</strong>}
+                          </div>
                           <div className={styles.adProfileSummary}>
                             <span className={styles.summaryLabel}>Looking for</span>
                             <div className={styles.badges}>
@@ -1394,28 +1408,6 @@ export const Matchmaker: React.FC = () => {
                               {req.is_back_and_forth && <span className={styles.badge}>Home/away exchange</span>}
                             </div>
                           </div>
-                          <div className={styles.matchSettings}>
-                            <div className={styles.settingItem}>
-                              <Trophy size={20} weight="fill" color="var(--tinder-bg)" />
-                              <span>{req.match_type === '120min' ? '120 min Cup Rules' : '90 min OK'}</span>
-                            </div>
-                            <div className={styles.settingItem}>
-                              <Clock size={20} weight="fill" color="var(--tinder-bg)" />
-                              <span>
-                                {req.home_away === 'home' && 'At my place'}
-                                {req.home_away === 'away' && 'At your place'}
-                                {req.home_away === 'any' && 'Home or Away'}
-                              </span>
-                            </div>
-                            <div className={styles.settingItem}>
-                              <ArrowsOut size={20} weight="fill" color="var(--tinder-bg)" />
-                              <span>
-                                {req.opponent_location === 'domestic' && 'Domestic only'}
-                                {req.opponent_location === 'international_only' && 'Will travel'}
-                                {req.opponent_location === 'any' && 'Anywhere'}
-                              </span>
-                            </div>
-                          </div>
                           <div className={styles.adMetaRow}>
                             <span
                               className={`${styles.availabilityBadge} ${styles[entry.freshness.tone]}`}
@@ -1434,7 +1426,7 @@ export const Matchmaker: React.FC = () => {
                                   : req.team?.availabilityStatus === 'booked'
                                     ? 'Booked This Week'
                                     : req.team?.availabilityStatus === 'unavailable'
-                                      ? 'Unavailable'
+                                      ? 'Booked This Week'
                                       : 'Unknown'}
                             </span>
                             {req.is_mock && <span className={styles.mockBadge}>Mock</span>}
@@ -1442,7 +1434,6 @@ export const Matchmaker: React.FC = () => {
                         </div>
                       </div>
 
-                      {req.message && <div className={styles.message}>"{req.message}"</div>}
                     </div>
 
                     <div className={styles.cardActions}>
@@ -1512,8 +1503,7 @@ export const Matchmaker: React.FC = () => {
                     )}
                   </div>
                   <button
-                    className={styles.navArrow}
-                    style={{ right: '-120px' }}
+                    className={`${styles.navArrow} ${styles.navArrowRight}`}
                     onClick={() => setCurrentIndex((prev) => Math.min(scoredRequests.length - 1, prev + 1))}
                     disabled={currentIndex === scoredRequests.length - 1}
                   >
@@ -1600,7 +1590,7 @@ export const Matchmaker: React.FC = () => {
                               }}
                             />
                             <div className={styles.teamText}>
-                              <h2 className={styles.teamName} style={{ fontSize: '1.4rem' }}>
+                              <h2 className={styles.teamName}>
                                 {getDisplayTeamName(req.team?.name || '', req.team?.gender_id)}
                               </h2>
                               <div className={styles.teamMeta}>
@@ -1615,6 +1605,9 @@ export const Matchmaker: React.FC = () => {
                               </div>
                             </div>
                           </div>
+                        </div>
+                        <div className={styles.message} style={{ fontSize: '1.1rem' }}>
+                          {req.message ? `"${req.message}"` : <strong>{getMessagePlaceholder(req)}</strong>}
                         </div>
                         <div className={styles.adProfileSummary}>
                           <span className={styles.summaryLabel}>Looking for</span>
@@ -1642,20 +1635,6 @@ export const Matchmaker: React.FC = () => {
                             {req.is_back_and_forth && <span className={styles.badge}>Home/away exchange</span>}
                           </div>
                         </div>
-                        <div className={styles.matchSettings}>
-                          <div className={styles.settingItem}>
-                            <Trophy size={18} weight="fill" color="var(--tinder-bg)" />
-                            <span>{req.match_type === '120min' ? '120 min Cup Rules' : '90 min OK'}</span>
-                          </div>
-                          <div className={styles.settingItem}>
-                            <Clock size={18} weight="fill" color="var(--tinder-bg)" />
-                            <span>
-                              {req.home_away === 'home' && 'At my place'}
-                              {req.home_away === 'away' && 'At your place'}
-                              {req.home_away === 'any' && 'Home or Away'}
-                            </span>
-                          </div>
-                        </div>
                         <div className={styles.adMetaRow}>
                           <span
                             className={`${styles.availabilityBadge} ${req.status === 'open' ? styles.good : styles.bad}`}
@@ -1666,12 +1645,6 @@ export const Matchmaker: React.FC = () => {
                         </div>
                       </div>
                     </div>
-
-                    {req.message && (
-                      <div className={styles.message} style={{ fontSize: '0.85rem', padding: '0.75rem' }}>
-                        "{req.message}"
-                      </div>
-                    )}
 
                     {req.status === 'matched' && req.matched_with_team_id && (
                       <div className={styles.matchNotice} style={{ marginTop: '1rem' }}>
@@ -1730,6 +1703,7 @@ export const Matchmaker: React.FC = () => {
         imageAlt="Hattrick managers looking for friendly partners"
         title="Welcome to HT-Tinder!"
         buttonLabel="See who's around!"
+        variant="tinder"
       >
         <strong>Leave a friendly ad and let the right opponent find you.</strong>
 
@@ -1754,6 +1728,7 @@ export const Matchmaker: React.FC = () => {
             ? 'Edit Friendly Request'
             : 'Post a Friendly Request'
         }
+        modalClassName={styles.tinderModal}
       >
         <form onSubmit={handleCreateRequest} className={styles.postModal}>
           <div className={styles.formGroup}>
@@ -1903,7 +1878,7 @@ export const Matchmaker: React.FC = () => {
           </div>
 
           <div className={styles.postActions}>
-            <Button type="submit" variant="primary" fullWidth disabled={!canPublish}>
+            <Button type="submit" variant="tinder" fullWidth disabled={!canPublish}>
               {isSaving
                 ? 'Publishing...'
                 : myRequests.some((r) => r.team?.ht_team_id === selectedHtTeamId && r.status === 'open')
@@ -1923,6 +1898,7 @@ export const Matchmaker: React.FC = () => {
             setActionComment('');
           }}
           title={actionDraft.type === 'challenge' ? 'Send Challenge' : 'Show Interest'}
+          modalClassName={styles.tinderModal}
         >
           <div className={styles.actionModal}>
             <p className={styles.actionIntro}>
@@ -2011,6 +1987,7 @@ export const Matchmaker: React.FC = () => {
         onClose={() => setIsSelectingTeam(false)}
         teams={challengeTeams}
         title={selectingTeamPurpose === 'post' ? 'Which team is posting?' : 'Select Challenging Team'}
+        modalClassName={styles.tinderModal}
         onSelect={(teamId) => {
           if (selectingTeamPurpose === 'challenge') {
             handleAccept(targetRequestId!, teamId);
@@ -2021,16 +1998,26 @@ export const Matchmaker: React.FC = () => {
           }
         }}
       />
-      <Modal isOpen={!!notification} onClose={() => setNotification(null)} title={notification?.title}>
+      <Modal
+        isOpen={!!notification}
+        onClose={() => setNotification(null)}
+        title={notification?.title}
+        modalClassName={styles.tinderModal}
+      >
         <p>{notification?.message}</p>
-        <Button variant="primary" onClick={() => setNotification(null)} style={{ marginTop: '1rem' }}>
+        <Button variant="tinder" onClick={() => setNotification(null)} style={{ marginTop: '1rem' }}>
           OK
         </Button>
       </Modal>
-      <Modal isOpen={showLoginModal} onClose={() => setShowLoginModal(false)} title="Sign in required">
+      <Modal
+        isOpen={showLoginModal}
+        onClose={() => setShowLoginModal(false)}
+        title="Sign in required"
+        modalClassName={styles.tinderModal}
+      >
         <p style={{ marginBottom: '1rem' }}>To book or publish friendlies you need a connected Hattrick account.</p>
         <div style={{ display: 'flex', gap: '10px' }}>
-          <Button variant="primary" onClick={handleLogin}>
+          <Button variant="tinder" onClick={handleLogin}>
             Login with Hattrick
           </Button>
           <Button variant="outline" onClick={() => setShowLoginModal(false)}>

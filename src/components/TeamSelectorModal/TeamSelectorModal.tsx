@@ -12,6 +12,7 @@ interface TeamSelectorModalProps {
   teams: MatchmakerTeamOption[];
   onSelect: (teamId: number) => void;
   title?: string;
+  modalClassName?: string;
 }
 
 export const TeamSelectorModal: React.FC<TeamSelectorModalProps> = ({
@@ -19,7 +20,8 @@ export const TeamSelectorModal: React.FC<TeamSelectorModalProps> = ({
   onClose,
   teams,
   onSelect,
-  title = 'Select Team'
+  title = 'Select Team',
+  modalClassName = '',
 }) => {
   const isSelectable = (status?: MatchmakerTeamOption['availabilityStatus']) => status === 'available';
 
@@ -36,7 +38,7 @@ export const TeamSelectorModal: React.FC<TeamSelectorModalProps> = ({
     },
     {
       key: 'unavailable',
-      label: 'Unavailable',
+      label: 'Booked This Week',
       teams: teams.filter((team) => team.availabilityStatus === 'unavailable'),
     },
     {
@@ -50,11 +52,11 @@ export const TeamSelectorModal: React.FC<TeamSelectorModalProps> = ({
     if (team.availabilityStatus === 'available') return 'Available now';
     if (team.availabilityStatus === 'booked') return 'Booked';
     if (team.availabilityStatus === 'unknown') return 'Unknown';
-    return 'Unavailable';
+    return 'Booked This Week';
   };
 
   return (
-    <Modal isOpen={isOpen} onClose={onClose} title={title}>
+    <Modal isOpen={isOpen} onClose={onClose} title={title} modalClassName={modalClassName}>
       <div className={styles.container}>
         {teams.length > 0 ? (
           <div className={styles.sections}>

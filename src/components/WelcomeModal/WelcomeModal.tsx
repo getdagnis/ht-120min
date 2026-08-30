@@ -13,6 +13,7 @@ interface WelcomeModalProps {
   title: string;
   buttonLabel: string;
   children: React.ReactNode;
+  variant?: 'default' | 'tinder';
 }
 
 export const WelcomeModal: React.FC<WelcomeModalProps> = ({
@@ -24,6 +25,7 @@ export const WelcomeModal: React.FC<WelcomeModalProps> = ({
   title,
   buttonLabel,
   children,
+  variant = 'default',
 }) => {
   return (
     <Modal
@@ -31,7 +33,7 @@ export const WelcomeModal: React.FC<WelcomeModalProps> = ({
       onClose={onClose}
       maxWidth="720px"
       showHeader={false}
-      modalClassName={styles.modal}
+      modalClassName={[styles.modal, variant === 'tinder' ? styles.tinderModal : ''].filter(Boolean).join(' ')}
       contentClassName={styles.modalContent}
       useContentPanel={false}
     >
@@ -48,7 +50,12 @@ export const WelcomeModal: React.FC<WelcomeModalProps> = ({
           <h2 className={styles.title}>{title}</h2>
           <div className={styles.copy}>{children}</div>
           <div className={styles.actions}>
-            <Button type="button" variant="secondaryYellow" size="lg" onClick={onPrimaryAction ?? onClose}>
+            <Button
+              type="button"
+              variant={variant === 'tinder' ? 'tinder' : 'secondaryYellow'}
+              size="lg"
+              onClick={onPrimaryAction ?? onClose}
+            >
               {buttonLabel}
             </Button>
           </div>
