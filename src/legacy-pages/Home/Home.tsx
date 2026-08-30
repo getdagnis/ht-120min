@@ -547,7 +547,7 @@ export const Home: React.FC<{ initialData?: HomeInitialData }> = ({ initialData 
                 >
                   <Trophy size={22} weight="regular" /> Create Tournament
                 </Button>
-                <ScrollTo to="opentours" smooth={true} duration={600} offset={-80}>
+                <ScrollTo to="opentours" smooth={true} duration={600} offset={-30}>
                   <Button size="lg" variant="secondaryHero">
                     <ArrowRight size={22} weight="regular" /> Join Tournament
                   </Button>
@@ -557,6 +557,7 @@ export const Home: React.FC<{ initialData?: HomeInitialData }> = ({ initialData 
           </HeroCard>
         </div>
         <MottoWidget />
+        <Element name="opentours" />
         <div className={styles.mainGrid}>
           <div className={styles.leftColumn}>
             {featuredTournaments.length > 0 && (
@@ -578,8 +579,6 @@ export const Home: React.FC<{ initialData?: HomeInitialData }> = ({ initialData 
                 <div className={styles.tournamentGrid}>{activeTournaments.map((t) => renderTournamentCard(t))}</div>
               </section>
             )}
-
-            <Element name="opentours" />
 
             {openTournaments.length > 0 && (
               <section className={styles.activeSection}>
@@ -674,7 +673,7 @@ export const Home: React.FC<{ initialData?: HomeInitialData }> = ({ initialData 
           <Button size="lg" onClick={() => router.push(toLocalePath(locale, '/create'))} variant="secondaryYellow">
             <Trophy size={22} weight="regular" /> Create Tournament
           </Button>
-          <ScrollTo to="opentours" smooth={true} duration={600} offset={-80}>
+          <ScrollTo to="opentours" smooth={true} duration={600} offset={-20}>
             <Button size="lg" variant="secondaryHero">
               <ArrowRight size={22} weight="regular" /> Join Tournament
             </Button>
