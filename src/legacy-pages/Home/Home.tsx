@@ -505,15 +505,15 @@ export const Home: React.FC<{ initialData?: HomeInitialData }> = ({ initialData 
         imageSrc="/w16-planning-4.jpg"
         imageAlt="Hattrick managers preparing for a new tournament season"
         title="Welcome to HT-120min!"
-        buttonLabel="Let's go!"
+        buttonLabel="Let's play some friendlies"
       >
         <strong>
-          While the cups are still running, this is the best time to prepare for the "friendlies season"!
-          <span className="nowrap"> Here is how to</span> get ready now:
+          When cups are finishing, it's time to launch one for auto-arranged friendlies!
+          <span className="nowrap"> Here is how to</span> you can do:
         </strong>
         <ul>
           <li>
-            👉 Create your first <Link href={toLocalePath(locale, '/create')}>dummy test tournament</Link>
+            👉 If new here, create your first <Link href={toLocalePath(locale, '/create')}>dummy test tournament</Link>
           </li>
           <li>👉 Explore tournament management using dummy Hattrick teams</li>
           <li>👉 Once ready — create a real cup and invite others to join!</li>
