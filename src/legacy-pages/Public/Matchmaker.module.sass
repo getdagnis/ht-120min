@@ -336,8 +336,8 @@
 
   @media (max-width: 620px)
   .teamLogo
-    margin-top: 0
-    margin-left: 0
+    margin-top: 2px
+    margin-left: 2px
 
 .teamText
   display: flex
@@ -351,13 +351,13 @@ h2.teamName
   margin: 0
   font-weight: 700
   font-size: 3.3rem !important
-  line-height: 1 !important
+  line-height: 1.2 !important
   max-width: 20rem
 
-  @media (max-width: 620px)
-    h2.teamName
-      font-size: 2.2rem
-      line-height: 1.2rem
+@media (max-width: 620px)
+  h2.teamName
+    font-size: 2.2rem !important
+    line-height: 1.2rem
 
 .teamMeta
   display: flex
@@ -414,7 +414,7 @@ h2.teamName
   flex-wrap: wrap
   gap: 0.5rem
   align-items: center
-  justify-content: space-between
+  justify-content: flex-start
   margin-top: 1rem
 
 .compatibilityBadge,
