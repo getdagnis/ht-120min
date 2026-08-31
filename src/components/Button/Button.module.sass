@@ -44,6 +44,9 @@
     background-color: var(--tinder-bg)
     border: 1px solid var(--darker-less)
 
+.primary:hover:not(:disabled)
+  border-color: var(--darker-less)
+
 .secondary
   background-color: var(--accent-3)
   border: 1px solid var(--borderDark)
@@ -99,13 +102,17 @@
       border: 1px solid black
       cursor: pointer
 
-.danger
+.danger, .grey, .gray
   background-color: transparent
   color: crimson
   border: 1px solid crimson
   &:hover:not(:disabled)
     background-color: crimson
     color: white
+
+.grey, .gray
+  color: grey
+  border: 1px solid grey
 
 .tinder
   background: var(--tinder-dark)

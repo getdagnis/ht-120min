@@ -227,9 +227,9 @@ export const ChatView: React.FC<ChatViewProps> = ({
           </form>
         ) : (
           <div className={styles.loginToPost}>
-            <Button size="sm" onClick={handleLogin} variant="zero" className={styles.chatLoginBtn} type="button">
+            <Button size="sm" onClick={handleLogin} variant="primary" className={styles.chatLoginBtn} type="button">
               <User size={18} weight="bold" />
-              <span className={styles.chatLoginLabel}>Login (CHPP)</span>{' '}
+              <span>Login to chat</span>
               <ArrowRight size={18} className="hideOnTable" />
             </Button>
           </div>

@@ -397,7 +397,7 @@ export const Layout: React.FC<LayoutProps> = ({ children }) => {
 
       <footer className={styles.footer}>
         <div className={styles.container}>
-          <BeerBanner variant={isTinderPage ? 'tinder' : 'default'} />
+          <BeerBanner key={currentUrl} variant={isTinderPage ? 'tinder' : 'default'} />
           <p>
             © {new Date().getFullYear()}
             <span className="mr-sm" />

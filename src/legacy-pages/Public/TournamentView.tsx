@@ -35,7 +35,11 @@ import { buildRescheduleDraft, serializeRescheduleDraftForRpc } from '../../util
 import { buildManualRoundNormalizationPlan } from '../../utils/manual-rounds';
 import { buildClearSeasonResultsPayload } from '../../utils/season-results';
 import { getMatchDateForRound as resolveMatchDateForRound } from '../../utils/match-schedule';
-import { canViewerJoinTournament, isTournamentRegistrationOpen } from '../../utils/tournament-joinability';
+import {
+  canViewerJoinAnotherTeam,
+  canViewerJoinTournament,
+  isTournamentRegistrationOpen,
+} from '../../utils/tournament-joinability';
 import { markAuthRefreshCurrent, needsAuthRefresh } from '../../utils/auth-refresh';
 import { formatTournamentName } from '../../utils/tournament-names';
 import { isSandboxTournament, normalizeTournamentRegistrationType } from '../../utils/tournament-types';
@@ -4105,7 +4109,13 @@ export const TournamentView: React.FC<{ initialData?: TournamentInitialData }> =
     }),
   );
   const canJoinAnotherTeamBeforeFixtures = Boolean(
-    isRegistrationOpen && tournament && (!tournament.max_teams || activeRealTeamsCount < tournament.max_teams),
+    tournament &&
+      canViewerJoinAnotherTeam({
+        isLoggedIn: Boolean(currentHtUserId),
+        isRegistrationOpen,
+        maxTeams: tournament.max_teams,
+        activeTeamsCount: activeRealTeamsCount,
+      }),
   );
   const shouldPromptReturningParticipantLogin = Boolean(
     tournamentId &&

@@ -33,8 +33,10 @@ export const getTournamentBackgroundStyle = (id: string, customImageUrl?: string
 /**
  * Specifically for small header thumbnails
  */
-export const getHeaderThumbnailStyle = (id: string) => {
-  const base = getTournamentBackgroundStyle(id);
+export const getHeaderThumbnailStyle = (id: string, customImageUrl?: string | null) => {
+  const base = getTournamentBackgroundStyle(id, customImageUrl);
+  if (customImageUrl) return base;
+
   return {
     ...base,
     backgroundSize: '1200%', // Even more zoom for tiny thumbnails

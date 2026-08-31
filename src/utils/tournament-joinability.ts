@@ -18,6 +18,13 @@ interface TournamentRegistrationStateInput {
   registrationClosedAt?: string | null;
 }
 
+interface AdditionalTeamJoinInput {
+  isLoggedIn: boolean;
+  isRegistrationOpen: boolean;
+  maxTeams: number | null | undefined;
+  activeTeamsCount: number;
+}
+
 export function isTournamentRegistrationOpen({
   isGenerated,
   status,
@@ -53,4 +60,13 @@ export function canViewerJoinTournament({
   }
 
   return !maxTeams || activeRealTeams.length < maxTeams;
+}
+
+export function canViewerJoinAnotherTeam({
+  isLoggedIn,
+  isRegistrationOpen,
+  maxTeams,
+  activeTeamsCount,
+}: AdditionalTeamJoinInput) {
+  return isLoggedIn && isRegistrationOpen && (!maxTeams || activeTeamsCount < maxTeams);
 }

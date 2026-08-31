@@ -14,6 +14,7 @@ interface SectionCardProps {
   onToggleCollapse?: () => void;
   headerThumbnailIndex?: number;
   thumbnailSeed?: string;
+  thumbnailImageUrl?: string | null;
 }
 
 export const SectionCard: React.FC<SectionCardProps> = ({
@@ -27,8 +28,9 @@ export const SectionCard: React.FC<SectionCardProps> = ({
   onToggleCollapse,
   headerThumbnailIndex,
   thumbnailSeed,
+  thumbnailImageUrl,
 }) => {
-  const thumbStyle = thumbnailSeed ? getHeaderThumbnailStyle(thumbnailSeed) : null;
+  const thumbStyle = thumbnailSeed ? getHeaderThumbnailStyle(thumbnailSeed, thumbnailImageUrl) : null;
 
   return (
     <div className={`${styles.card} ${className} ${collapsible ? styles.collapsible : ''}`}>

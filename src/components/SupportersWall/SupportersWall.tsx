@@ -131,12 +131,12 @@ const SUPPORTER_SEEDS = [
 
   // Founding Supporters
   {
-    id: 'f1',
-    name: 'AntiFragole',
-    team: 'SC Strikers Unlimited',
-    country: 'Italy',
-    flag: '🇮🇹',
-    type: 'founding',
+    id: '3220516',
+    name: 'CCalm',
+    team: 'Tamuning Amazons',
+    country: 'Guam',
+    flag: '🇬🇺',
+    type: 'pioneer',
     message: MESSAGES.founding[0],
     beers: 2,
   },

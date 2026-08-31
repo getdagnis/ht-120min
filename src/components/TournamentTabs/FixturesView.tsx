@@ -315,15 +315,19 @@ export const FixturesView: React.FC<FixturesViewProps> = ({
 
       {rounds.length === 0 && (
         <SectionCard title="Fixtures & Results">
-          <div className={styles.emptyFixtures}>
+          <div className={`${styles.emptyFixtures} ${styles.registrationStatus}`}>
             <p>{emptyStateMessage || 'Fixtures have not yet been generated. Tournament is open for registration.'}</p>
-            {canJoinAnotherTeam && (
-              <>
-                You can join with another team.
-                <Button variant="primary" size="sm" onClick={onJoinWithHattrick} disabled={isConnecting}>
-                  <ArrowRight size={18} weight="bold" /> Join with Hattrick
-                </Button>
-              </>
+            {canJoinAnotherTeam && <span>You can join with another team.</span>}
+            {(canJoinTournament || canJoinAnotherTeam) && (
+              <Button
+                variant="primary"
+                size="sm"
+                className={styles.joinButton}
+                onClick={onJoinWithHattrick}
+                disabled={isConnecting}
+              >
+                <ArrowRight size={18} weight="bold" /> Join with Hattrick
+              </Button>
             )}
           </div>
         </SectionCard>

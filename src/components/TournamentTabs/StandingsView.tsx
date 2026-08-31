@@ -25,6 +25,7 @@ interface StandingsViewProps {
     slug?: string;
     league_category?: string | null;
     thumbnail_index?: number;
+    image_url?: string | null;
     scoring_mode?: string | null;
   } | null;
   seasonStatus?: 'planned' | 'ongoing' | 'finished';
@@ -408,6 +409,7 @@ export const StandingsView: React.FC<StandingsViewProps> = ({
       <SectionCard
         title={`🏆 Standings • Season ${seasonNumber || 1}`}
         thumbnailSeed={tournament?.id}
+        thumbnailImageUrl={tournament?.image_url}
         headerRight={
           <div className={styles.scoringControl}>
             <span>Scoring:</span>

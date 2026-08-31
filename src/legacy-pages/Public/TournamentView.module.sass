@@ -346,8 +346,10 @@
   color: var(--text60)
   font-size: 0.85rem
   white-space: nowrap
-  span
-    display: none
+
+  @media (max-width: 620px)
+    span
+      display: none
 
 .scoringToggle
   display: inline-flex
@@ -716,6 +718,10 @@
   p
     max-width: 36rem
     margin: 0
+
+  .joinButton
+    background: var(--accent-3)
+    padding: 0.5rem 1.25rem
 
 .dismissBtn
   background: transparent
@@ -1181,10 +1187,8 @@
 
 .chatLoginBtn
   width: fit-content
-
-.chatLoginLabel
-  @media (max-width: 620px)
-    display: none
+  margin-top: 0.5rem
+  min-width: 12rem
 
 .loadMoreBtn
   background: var(--bg-transp2)

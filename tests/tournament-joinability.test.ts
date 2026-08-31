@@ -1,7 +1,11 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 
-import { canViewerJoinTournament, isTournamentRegistrationOpen } from '../src/utils/tournament-joinability';
+import {
+  canViewerJoinAnotherTeam,
+  canViewerJoinTournament,
+  isTournamentRegistrationOpen,
+} from '../src/utils/tournament-joinability';
 
 test('participant actions are available only while open registration has no fixtures', () => {
   assert.equal(
@@ -26,6 +30,33 @@ test('participant actions are available only while open registration has no fixt
   );
   assert.equal(
     isTournamentRegistrationOpen({ isGenerated: true, status: 'waiting', registrationClosedAt: null }),
+    false,
+  );
+});
+
+test('joining with another team requires login, open registration, and a free place', () => {
+  const availableTournament = {
+    isRegistrationOpen: true,
+    maxTeams: 4,
+    activeTeamsCount: 3,
+  };
+
+  assert.equal(canViewerJoinAnotherTeam({ ...availableTournament, isLoggedIn: false }), false);
+  assert.equal(canViewerJoinAnotherTeam({ ...availableTournament, isLoggedIn: true }), true);
+  assert.equal(
+    canViewerJoinAnotherTeam({
+      ...availableTournament,
+      isLoggedIn: true,
+      isRegistrationOpen: false,
+    }),
+    false,
+  );
+  assert.equal(
+    canViewerJoinAnotherTeam({
+      ...availableTournament,
+      isLoggedIn: true,
+      activeTeamsCount: 4,
+    }),
     false,
   );
 });
