@@ -1,15 +1,17 @@
-import React, { useState, useEffect, useCallback, useMemo } from 'react';
-import { useRouter } from 'next/navigation';
-import { useLocale } from '../../i18n/LocaleProvider';
-import { toLocalePath } from '../../next/locale-path';
+import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { supabase } from '../../lib/supabase';
 import { useAuth } from '../../hooks/useAuth';
-import type { MatchmakerRequest, MatchmakerTeamOption, MatchmakerActivity } from '../../utils/matchmaker';
+import {
+  getDisplayTeamName,
+  resolveMatchmakerSwipe,
+  type MatchmakerRequest,
+  type MatchmakerTeamOption,
+  type MatchmakerActivity,
+} from '../../utils/matchmaker';
 import { Button } from '../../components/Button/Button';
 import { Modal } from '../../components/Modal/Modal';
 import { TeamSelectorModal } from '../../components/TeamSelectorModal/TeamSelectorModal';
 import { WelcomeModal } from '../../components/WelcomeModal/WelcomeModal';
-import { getDisplayTeamName } from '../../utils/matchmaker';
 import { getMockMatchmakerRequests, getMockMatchmakerTeams, isMatchmakerMockDataEnabled } from '../../mock/matchmaker';
 import { dismissWelcome, hasDismissedWelcome, TINDER_WELCOME_KEY } from '../../utils/welcome-modals';
 import {
@@ -315,8 +317,6 @@ const getTeamFitScore = (selectedTeam: ChppTeamOption | undefined, target: Match
 };
 
 export const Matchmaker: React.FC = () => {
-  const router = useRouter();
-  const { locale } = useLocale();
   const { profile } = useAuth();
   const [nowMs] = useState(() => Date.now());
   const mockDataEnabled = isMatchmakerMockDataEnabled();
@@ -344,6 +344,9 @@ export const Matchmaker: React.FC = () => {
   const [requests, setRequests] = useState<MatchmakerRequest[]>([]);
   const isDev = process.env.NEXT_PUBLIC_MATCHMAKER_DEV_MODE === 'true' || window.location.hostname === 'localhost';
   const [currentIndex, setCurrentIndex] = useState(0);
+  const swipeStartRef = useRef<{ pointerId: number; x: number; y: number } | null>(null);
+  const [swipeOffset, setSwipeOffset] = useState(0);
+  const [isSwiping, setIsSwiping] = useState(false);
   const [loading, setLoading] = useState(true);
   const [showWelcome, setShowWelcome] = useState(() => !hasDismissedWelcome(TINDER_WELCOME_KEY));
   const [myRequests, setMyRequests] = useState<MatchmakerRequest[]>([]);
@@ -1027,6 +1030,73 @@ export const Matchmaker: React.FC = () => {
     });
   };
 
+  const openBrowseChallengeFlow = (request: MatchmakerRequest) => {
+    if (activeTab === 'my-requests') return;
+
+    const { showChallengeNow, showShowInterest } = getBrowseCardActions(activeTab, request);
+    if (showShowInterest) {
+      openInterestFlow(request);
+      return;
+    }
+    if (!showChallengeNow) return;
+
+    if (!profile && !mockDataEnabled) {
+      setShowLoginModal(true);
+      return;
+    }
+
+    setIsSelectingTeam(true);
+    setSelectingTeamPurpose('challenge');
+    setTargetRequestId(request.id);
+  };
+
+  const resetSwipe = () => {
+    swipeStartRef.current = null;
+    setIsSwiping(false);
+    setSwipeOffset(0);
+  };
+
+  const handleSwipePointerDown = (event: React.PointerEvent<HTMLDivElement>) => {
+    if (!event.isPrimary || (event.pointerType === 'mouse' && event.button !== 0)) return;
+
+    swipeStartRef.current = {
+      pointerId: event.pointerId,
+      x: event.clientX,
+      y: event.clientY,
+    };
+    event.currentTarget.setPointerCapture(event.pointerId);
+    setIsSwiping(true);
+  };
+
+  const handleSwipePointerMove = (event: React.PointerEvent<HTMLDivElement>) => {
+    const start = swipeStartRef.current;
+    if (!start || start.pointerId !== event.pointerId) return;
+
+    const deltaX = event.clientX - start.x;
+    const deltaY = event.clientY - start.y;
+    if (Math.abs(deltaX) <= Math.abs(deltaY)) {
+      setSwipeOffset(0);
+      return;
+    }
+
+    setSwipeOffset(Math.max(-160, Math.min(160, deltaX)));
+  };
+
+  const handleSwipePointerUp = (event: React.PointerEvent<HTMLDivElement>) => {
+    const start = swipeStartRef.current;
+    if (!start || start.pointerId !== event.pointerId) return;
+
+    const action = resolveMatchmakerSwipe(event.clientX - start.x, event.clientY - start.y);
+    const request = scoredRequests[currentIndex]?.request;
+    resetSwipe();
+
+    if (action === 'next') {
+      setCurrentIndex((prev) => Math.min(scoredRequests.length - 1, prev + 1));
+    } else if (action === 'challenge' && request) {
+      openBrowseChallengeFlow(request);
+    }
+  };
+
   const handleSubmitAction = async () => {
     if (!actionDraft || !effectiveManagerId) return;
 
@@ -1326,9 +1396,24 @@ export const Matchmaker: React.FC = () => {
                   >
                     <CaretLeft />
                   </button>
-                  <div className={styles.myRequestCard}>
+                  <div
+                    className={`${styles.myRequestCard} ${styles.swipeCard} ${isSwiping ? styles.swiping : ''}`}
+                    style={
+                      {
+                        '--swipe-offset': `${swipeOffset}px`,
+                        '--swipe-rotation': `${swipeOffset / 32}deg`,
+                      } as React.CSSProperties
+                    }
+                  >
                     <div className={styles.tinderCard}>
-                      <div className={styles.cardTop}>
+                      <div
+                        className={`${styles.cardTop} ${styles.swipeSurface}`}
+                        onPointerDown={handleSwipePointerDown}
+                        onPointerMove={handleSwipePointerMove}
+                        onPointerUp={handleSwipePointerUp}
+                        onPointerCancel={resetSwipe}
+                        onDragStart={(event) => event.preventDefault()}
+                      >
                         <div className={styles.cardArena}>
                           {(req.team?.arena_image_url || req.team?.arena_id) && (
                             <div className={styles.arenaFrame}>
@@ -1443,24 +1528,13 @@ export const Matchmaker: React.FC = () => {
                               <X size={20} />
                             </Button>
                             {showChallengeNow && (
-                              <Button
-                                variant="tinder"
-                                onClick={() => {
-                                  if (!profile && !mockDataEnabled) {
-                                    setShowLoginModal(true);
-                                  } else {
-                                    setIsSelectingTeam(true);
-                                    setSelectingTeamPurpose('challenge');
-                                    setTargetRequestId(req.id);
-                                  }
-                                }}
-                              >
+                              <Button variant="tinder" onClick={() => openBrowseChallengeFlow(req)}>
                                 <Handshake size={20} />
                                 Send Challenge
                               </Button>
                             )}
                             {showShowInterest && (
-                              <Button variant="tinder" onClick={() => openInterestFlow(req)}>
+                              <Button variant="tinder" onClick={() => openBrowseChallengeFlow(req)}>
                                 Send Challenge
                                 <Heart size={20} weight="fill" />
                               </Button>

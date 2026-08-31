@@ -4,6 +4,20 @@ export type MatchmakerStatus = 'open' | 'matched' | 'expired' | 'cancelled';
 
 export type MatchmakerActivityType = 'challenge_sent' | 'interest_shown';
 
+export type MatchmakerSwipeAction = 'next' | 'challenge' | null;
+
+export const resolveMatchmakerSwipe = (
+  deltaX: number,
+  deltaY: number,
+  threshold = 56,
+): MatchmakerSwipeAction => {
+  const horizontalDistance = Math.abs(deltaX);
+  const verticalDistance = Math.abs(deltaY);
+
+  if (horizontalDistance < threshold || horizontalDistance <= verticalDistance * 1.2) return null;
+  return deltaX < 0 ? 'next' : 'challenge';
+};
+
 export interface MatchmakerActivity {
   id: string;
   created_at: string;
