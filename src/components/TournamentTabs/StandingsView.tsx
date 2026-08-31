@@ -10,8 +10,6 @@ import historyStyles from '../TournamentHistory/TournamentHistory.module.sass';
 
 import { getAppgStandingsQuota, meetsAppgStandingsQuota, type TeamStanding } from '../../utils/standings';
 import { isAppg120ScoringMode } from '../../../shared/scoring-profile';
-// import { MottoWidget } from '../../components/MottoWidget/MottoWidget';
-// import { TOURNAMENT_DEFAULT } from '../../constants/descriptions';
 
 import styles from '../../legacy-pages/Public/TournamentView.module.sass';
 
@@ -573,7 +571,6 @@ export const StandingsView: React.FC<StandingsViewProps> = ({
                                 <div className={styles.nameRow}>
                                   <span className={styles.teamName}>
                                     {s.teamName}
-                                    {isMyTeam && <span className={styles.myTeamBadge}> (You)</span>}
                                   </span>
                                   {s.joinedViaOauth && (
                                     <span title="Hattrick Validated Team">
@@ -596,7 +593,7 @@ export const StandingsView: React.FC<StandingsViewProps> = ({
                           </div>
                           {isMyTeam && canLeaveTournament && (
                             <div className={styles.reapplyActions}>
-                              <Button variant="danger" size="xxs" onClick={() => onLeaveTournament?.(s.teamId)}>
+                              <Button variant="grey" size="xxs" onClick={() => onLeaveTournament?.(s.teamId)}>
                                 Leave
                               </Button>
                             </div>

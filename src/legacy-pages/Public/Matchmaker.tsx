@@ -2,8 +2,14 @@ import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react'
 import { supabase } from '../../lib/supabase';
 import { useAuth } from '../../hooks/useAuth';
 import {
+  advanceMatchmakerDeckCursor,
   getDisplayTeamName,
-  resolveMatchmakerSwipe,
+  getMatchmakerBrowseAction,
+  getMatchmakerMessagePlaceholder,
+  getMatchmakerRequestFormState,
+  normalizeMatchmakerDeckCursor,
+  shouldAdvanceMatchmakerDeckAfterAction,
+  upsertMockMatchmakerRequest,
   type MatchmakerRequest,
   type MatchmakerTeamOption,
   type MatchmakerActivity,
@@ -14,15 +20,13 @@ import { TeamSelectorModal } from '../../components/TeamSelectorModal/TeamSelect
 import { WelcomeModal } from '../../components/WelcomeModal/WelcomeModal';
 import { getMockMatchmakerRequests, getMockMatchmakerTeams, isMatchmakerMockDataEnabled } from '../../mock/matchmaker';
 import { dismissWelcome, hasDismissedWelcome, TINDER_WELCOME_KEY } from '../../utils/welcome-modals';
+import { MatchmakerBrowseDeck } from './MatchmakerBrowseDeck';
+import deckStyles from './MatchmakerBrowseDeck.module.sass';
 import {
-  Handshake,
-  X,
   Heart,
   Info,
   Warning,
-  ArrowsOut,
   CaretLeft,
-  CaretRight,
   PencilSimple,
   Trash,
 } from 'phosphor-react';
@@ -30,6 +34,7 @@ import styles from './Matchmaker.module.sass';
 
 const DEFAULT_TEAM_LOGO = '/default-logo.png';
 const DEFAULT_ARENA_IMAGE = 'https://res.hattrick.org/arenas/default/12000/custom-620-0.jpg';
+const MOCK_MANAGER_ID = 9900001;
 
 type ChppTeamOption = MatchmakerTeamOption;
 
@@ -186,23 +191,12 @@ const resolveRequestGender = (request: MatchmakerRequest): number => request.gen
 const isFemaleRequest = (request: MatchmakerRequest) =>
   resolveRequestGender(request) === 0 || request.team?.league_id === HFI_LEAGUE_ID;
 
-const isBookedRequest = (request: MatchmakerRequest) => request.team?.availabilityStatus === 'booked';
-
 const getBrowseCardActions = (tab: BrowseTabKey, request: MatchmakerRequest) => {
-  if (tab === 'browse') {
-    return { showChallengeNow: true, showShowInterest: false };
-  }
-
-  if (tab === 'long-term') {
-    return { showChallengeNow: false, showShowInterest: true };
-  }
-
-  // Female Only: immediate challengers vs booked long-term seekers
-  if (isBookedRequest(request)) {
-    return { showChallengeNow: false, showShowInterest: true };
-  }
-
-  return { showChallengeNow: true, showShowInterest: false };
+  const action = getMatchmakerBrowseAction(tab, request);
+  return {
+    showChallengeNow: action === 'challenge',
+    showShowInterest: action === 'interest',
+  };
 };
 
 const isHiddenOwnAd = (
@@ -344,9 +338,7 @@ export const Matchmaker: React.FC = () => {
   const [requests, setRequests] = useState<MatchmakerRequest[]>([]);
   const isDev = process.env.NEXT_PUBLIC_MATCHMAKER_DEV_MODE === 'true' || window.location.hostname === 'localhost';
   const [currentIndex, setCurrentIndex] = useState(0);
-  const swipeStartRef = useRef<{ pointerId: number; x: number; y: number } | null>(null);
-  const [swipeOffset, setSwipeOffset] = useState(0);
-  const [isSwiping, setIsSwiping] = useState(false);
+  const [mobileExperience, setMobileExperience] = useState<'welcome' | 'app'>('welcome');
   const [loading, setLoading] = useState(true);
   const [showWelcome, setShowWelcome] = useState(() => !hasDismissedWelcome(TINDER_WELCOME_KEY));
   const [myRequests, setMyRequests] = useState<MatchmakerRequest[]>([]);
@@ -354,8 +346,8 @@ export const Matchmaker: React.FC = () => {
   const hasMyRequests = myRequests.length > 0;
   const [isPosting, setIsPosting] = useState(false);
   const [showLoginModal, setShowLoginModal] = useState(false);
-  const [showSuccessOverlay, setShowSuccessOverlay] = useState(false);
   const [publishError, setPublishError] = useState<string | null>(null);
+  const [editingRequestId, setEditingRequestId] = useState<string | null>(null);
 
   // Persistent tracking of own ads to hide them instantly
   const [locallyHiddenRequestIds, setLocallyHiddenRequestIds] = useState<Set<string>>(() => {
@@ -404,9 +396,28 @@ export const Matchmaker: React.FC = () => {
   const [actionSubmitting, setActionSubmitting] = useState(false);
   const [adActivity, setAdActivity] = useState<Record<string, MatchmakerActivity[]>>({});
 
-  const effectiveManagerId = (isDev && impersonatedManagerId) || profile?.hattrick_user_id;
+  const effectiveManagerId = mockDataEnabled
+    ? String(MOCK_MANAGER_ID)
+    : (isDev && impersonatedManagerId) || profile?.hattrick_user_id;
+
+  const applyRequestFormState = (request?: MatchmakerRequest | null, fallbackTeamId = 0) => {
+    const formState = getMatchmakerRequestFormState(request, fallbackTeamId);
+    setSelectedHtTeamId(formState.selectedHtTeamId);
+    setMatchType(formState.matchType);
+    setLocation(formState.location);
+    setHomeAway(formState.homeAway);
+    setMessage(formState.message);
+    setIsBackAndForth(formState.isBackAndForth);
+    setIsLongTerm(formState.isLongTerm);
+
+    const team = myTeams.find((item) => item.teamId === formState.selectedHtTeamId);
+    setIsLongTermLocked(!!team && team.availabilityStatus !== 'available');
+  };
 
   const handleStartPosting = () => {
+    setEditingRequestId(null);
+    applyRequestFormState(null, selectedHtTeamId);
+    setMobileExperience('app');
     if (mockDataEnabled) {
       setIsPosting(true);
       return;
@@ -417,6 +428,12 @@ export const Matchmaker: React.FC = () => {
     } else {
       setIsPosting(true);
     }
+  };
+
+  const startEditingRequest = (request: MatchmakerRequest) => {
+    setEditingRequestId(request.id);
+    applyRequestFormState(request);
+    setIsPosting(true);
   };
 
   const handleLogin = () => {
@@ -509,17 +526,7 @@ export const Matchmaker: React.FC = () => {
   };
 
   const getMessagePlaceholder = (request: MatchmakerRequest) => {
-    const matchType = request.match_type === '120min' ? '120 min training' : '90 min acceptable';
-    const venue = request.home_away === 'home' ? 'My place' : request.home_away === 'away' ? 'Your place' : 'Either venue';
-    const location =
-      request.opponent_location === 'domestic'
-        ? `Domestic (${getDisplayCountryName(request.team) || 'same country'})`
-        : request.opponent_location === 'international_only'
-          ? 'International only'
-          : 'Anywhere';
-    const duration = request.is_long_term ? 'Long-term partner' : 'One-off match';
-
-    return `${matchType}. ${venue}. ${location}. ${duration}. Reach out to me!`;
+    return getMatchmakerMessagePlaceholder(request);
   };
 
   const challengeTeams = useMemo(() => {
@@ -605,7 +612,10 @@ export const Matchmaker: React.FC = () => {
       });
   }, [filteredRequests, mockDataEnabled, mockBrowseScope, myOpenRequest, selectedTeamContext, nowMs]);
 
-  const mockBrowseEndReached = mockDataEnabled && currentIndex >= scoredRequests.length;
+  const scoredRequestsRef = useRef(scoredRequests);
+  useEffect(() => {
+    scoredRequestsRef.current = scoredRequests;
+  }, [scoredRequests]);
 
   useEffect(() => {
     if (process.env.NODE_ENV === 'production' || myTeams.length === 0) return;
@@ -651,7 +661,7 @@ export const Matchmaker: React.FC = () => {
 
   useEffect(() => {
     setTimeout(() => {
-      setCurrentIndex((prev) => Math.min(prev, Math.max(0, scoredRequests.length - 1)));
+      setCurrentIndex((prev) => normalizeMatchmakerDeckCursor(prev, scoredRequests.length));
     }, 0);
   }, [scoredRequests.length]);
 
@@ -905,11 +915,16 @@ export const Matchmaker: React.FC = () => {
 
       if (mockDataEnabled) {
         const now = new Date();
-        const requestId = `mock-publish-${now.getTime()}`;
+        const existingRequest = editingRequestId
+          ? myRequests.find((request) => request.id === editingRequestId) ||
+            requests.find((request) => request.id === editingRequestId)
+          : null;
+        const requestId = existingRequest?.id || `mock-publish-${now.getTime()}`;
         const publishedRequest: MatchmakerRequest = {
+          ...existingRequest,
           id: requestId,
           team_id: `mock-team-${selectedTeam.teamId}`,
-          manager_ht_id: selectedTeam.teamId,
+          manager_ht_id: MOCK_MANAGER_ID,
           match_type: matchType,
           opponent_location: location,
           home_away: homeAway,
@@ -919,8 +934,8 @@ export const Matchmaker: React.FC = () => {
           status: 'open',
           matched_with_team_id: null,
           matched_at: null,
-          expires_at: now.toISOString(),
-          created_at: now.toISOString(),
+          expires_at: existingRequest?.expires_at || now.toISOString(),
+          created_at: existingRequest?.created_at || now.toISOString(),
           is_back_and_forth: isBackAndForth,
           is_long_term: isLongTerm,
           gender_id: selectedTeam.genderId ?? 1,
@@ -949,13 +964,17 @@ export const Matchmaker: React.FC = () => {
           },
         };
 
-        setRequests((prev) => [publishedRequest, ...prev]);
-        setMyRequests((prev) => [publishedRequest, ...prev]);
+        setRequests((prev) => upsertMockMatchmakerRequest(prev, publishedRequest, editingRequestId));
+        setMyRequests((prev) => upsertMockMatchmakerRequest(prev, publishedRequest, editingRequestId));
         setActiveTab('my-requests');
+        setMobileExperience('app');
         setIsPosting(false);
         setMessage('');
-        setShowSuccessOverlay(true);
-        setIsSaving(false);
+        setEditingRequestId(null);
+        setNotification({
+          title: editingRequestId ? 'Mock ad updated' : 'Mock ad published',
+          message: 'Mock mode only. No live Matchmaker data was changed.',
+        });
         return;
       }
 
@@ -988,9 +1007,14 @@ export const Matchmaker: React.FC = () => {
       // Priority 1: Successful publish flow
       await Promise.all([fetchMyRequests(), fetchRequests()]);
       setActiveTab('my-requests');
+      setMobileExperience('app');
       setIsPosting(false);
       setMessage('');
-      setShowSuccessOverlay(true);
+      setEditingRequestId(null);
+      setNotification({
+        title: editingRequestId ? 'Ad updated' : 'Ad published',
+        message: 'Your friendly advertisement is now visible to suitable partners.',
+      });
     } catch (err) {
       console.error('Error creating request:', err);
       setPublishError(
@@ -1050,55 +1074,16 @@ export const Matchmaker: React.FC = () => {
     setTargetRequestId(request.id);
   };
 
-  const resetSwipe = () => {
-    swipeStartRef.current = null;
-    setIsSwiping(false);
-    setSwipeOffset(0);
-  };
-
-  const handleSwipePointerDown = (event: React.PointerEvent<HTMLDivElement>) => {
-    if (!event.isPrimary || (event.pointerType === 'mouse' && event.button !== 0)) return;
-
-    swipeStartRef.current = {
-      pointerId: event.pointerId,
-      x: event.clientX,
-      y: event.clientY,
-    };
-    event.currentTarget.setPointerCapture(event.pointerId);
-    setIsSwiping(true);
-  };
-
-  const handleSwipePointerMove = (event: React.PointerEvent<HTMLDivElement>) => {
-    const start = swipeStartRef.current;
-    if (!start || start.pointerId !== event.pointerId) return;
-
-    const deltaX = event.clientX - start.x;
-    const deltaY = event.clientY - start.y;
-    if (Math.abs(deltaX) <= Math.abs(deltaY)) {
-      setSwipeOffset(0);
-      return;
-    }
-
-    setSwipeOffset(Math.max(-160, Math.min(160, deltaX)));
-  };
-
-  const handleSwipePointerUp = (event: React.PointerEvent<HTMLDivElement>) => {
-    const start = swipeStartRef.current;
-    if (!start || start.pointerId !== event.pointerId) return;
-
-    const action = resolveMatchmakerSwipe(event.clientX - start.x, event.clientY - start.y);
-    const request = scoredRequests[currentIndex]?.request;
-    resetSwipe();
-
-    if (action === 'next') {
-      setCurrentIndex((prev) => Math.min(scoredRequests.length - 1, prev + 1));
-    } else if (action === 'challenge' && request) {
-      openBrowseChallengeFlow(request);
-    }
-  };
-
   const handleSubmitAction = async () => {
     if (!actionDraft || !effectiveManagerId) return;
+    const actedOnRequestId = actionDraft.request.id;
+    const advanceAfterSuccess = () => {
+      setCurrentIndex((prev) => {
+        const currentRequestId = scoredRequestsRef.current[prev]?.request.id;
+        if (!shouldAdvanceMatchmakerDeckAfterAction(currentRequestId, actedOnRequestId)) return prev;
+        return advanceMatchmakerDeckCursor(prev, scoredRequestsRef.current.length);
+      });
+    };
 
     if (mockDataEnabled) {
       const mockEntry: MatchmakerActivity = {
@@ -1126,7 +1111,7 @@ export const Matchmaker: React.FC = () => {
       });
       setActionDraft(null);
       setActionComment('');
-      setCurrentIndex((prev) => prev + 1);
+      advanceAfterSuccess();
       return;
     }
 
@@ -1177,7 +1162,7 @@ export const Matchmaker: React.FC = () => {
       });
       setActionDraft(null);
       setActionComment('');
-      setCurrentIndex((prev) => prev + 1);
+      advanceAfterSuccess();
       void fetchAdActivity(myRequests.map((request) => request.id));
     } catch (err) {
       setNotification({
@@ -1284,7 +1269,7 @@ export const Matchmaker: React.FC = () => {
         </div>
       )}
       <header className={styles.headerContainer}>
-        <div className={styles.tinderHeroCard}>
+        <div className={`${styles.tinderHeroCard} ${mobileExperience === 'app' ? deckStyles.mobileHiddenWhenActive : ''}`}>
           <div className={styles.heroImageContainer}>
             <img src="/tinder-date-long-transp.png" alt="Tinder Date" className={styles.heroImage} />
             <div className={styles.heroBranding}>
@@ -1305,7 +1290,7 @@ export const Matchmaker: React.FC = () => {
           </div>
         </div>
 
-        <div className={styles.tabs}>
+        <div className={`${styles.tabs} ${deckStyles.legacyTabs}`}>
           {tabItems.map((tab) => (
             <button
               key={tab.key}
@@ -1320,272 +1305,76 @@ export const Matchmaker: React.FC = () => {
             </button>
           ))}
         </div>
+
+        <div
+          className={`${deckStyles.mobileCategoryButtons} ${mobileExperience === 'app' ? deckStyles.mobileHiddenWhenActive : ''}`}
+          aria-label="Tinder categories"
+        >
+          {tabItems.map((tab) => (
+            <Button
+              key={tab.key}
+              variant="primary"
+              onClick={() => {
+                setActiveTab(tab.key);
+                setCurrentIndex(0);
+                setHasSetInitialTab(true);
+                setMobileExperience('app');
+              }}
+            >
+              {tab.label}
+            </Button>
+          ))}
+        </div>
       </header>
 
-      {activeTab === 'browse' || activeTab === 'hfi' || activeTab === 'long-term' ? (
-        <div className={styles.browserContainer}>
-          {loading ? (
-            <div className={styles.loadingState}>
-              <ArrowsOut size={48} className={styles.spin} />
-              <p>
-                {mockDataEnabled
-                  ? 'Synchronising friendly availability...'
-                  : 'Checking team availability and loading listings...'}
-              </p>
-            </div>
-          ) : mockBrowseEndReached ? (
-            <div className={styles.emptyState}>
-              <Handshake size={64} opacity={0.2} />
-              <p>{mockBrowseEndMessage}</p>
-              <div className={styles.endActions}>
-                <Button
-                  variant="tinder"
-                  onClick={() => {
-                    setMockBrowseScope('available');
-                    setCurrentIndex(0);
-                  }}
-                >
-                  Start Again
-                </Button>
-                <Button
-                  variant="outline"
-                  onClick={() => {
-                    setMockBrowseScope('booked');
-                    setCurrentIndex(0);
-                  }}
-                >
-                  Show Booked Teams
-                </Button>
-                <Button
-                  variant="outline"
-                  onClick={() => {
-                    setMockBrowseScope('all');
-                    setCurrentIndex(0);
-                  }}
-                >
-                  Show All Listings
-                </Button>
-              </div>
-            </div>
-          ) : filteredRequests.length === 0 ? (
-            <div className={styles.emptyState}>
-              <Handshake size={64} opacity={0.2} />
-              <p>
-                {activeTab === 'hfi'
-                  ? 'No female teams are looking for matches right now. Why not post your HFI ad?'
-                  : activeTab === 'browse'
-                    ? 'No teams are available for friendlies this week. Post you own an ad!'
-                    : 'No teams are looking for matches right now. Be the first to post an ad!'}
-              </p>
-              <Button variant="tinder" onClick={handleStartPosting}>
-                Post an Ad
-              </Button>
-            </div>
-          ) : (
-            (() => {
-              const entry = scoredRequests[currentIndex];
-              const req = entry?.request;
-              if (!req) return null;
-
-              return (
-                <div className={`${styles.cardWrapper} ${styles.browseWrapper}`}>
-                  <button
-                    className={`${styles.navArrow} ${styles.navArrowLeft}`}
-                    onClick={() => setCurrentIndex((prev) => Math.max(0, prev - 1))}
-                    disabled={currentIndex === 0}
-                  >
-                    <CaretLeft />
-                  </button>
-                  <div
-                    className={`${styles.myRequestCard} ${styles.swipeCard} ${isSwiping ? styles.swiping : ''}`}
-                    style={
-                      {
-                        '--swipe-offset': `${swipeOffset}px`,
-                        '--swipe-rotation': `${swipeOffset / 32}deg`,
-                      } as React.CSSProperties
-                    }
-                  >
-                    <div className={styles.tinderCard}>
-                      <div
-                        className={`${styles.cardTop} ${styles.swipeSurface}`}
-                        onPointerDown={handleSwipePointerDown}
-                        onPointerMove={handleSwipePointerMove}
-                        onPointerUp={handleSwipePointerUp}
-                        onPointerCancel={resetSwipe}
-                        onDragStart={(event) => event.preventDefault()}
-                      >
-                        <div className={styles.cardArena}>
-                          {(req.team?.arena_image_url || req.team?.arena_id) && (
-                            <div className={styles.arenaFrame}>
-                              <img
-                                src={req.team.arena_image_url || DEFAULT_ARENA_IMAGE}
-                                alt="Arena"
-                                onError={(event) => {
-                                  event.currentTarget.onerror = null;
-                                  event.currentTarget.src = DEFAULT_ARENA_IMAGE;
-                                }}
-                              />
-                            </div>
-                          )}
-                        </div>
-                        <div className={styles.cardRight}>
-                          <div className={styles.teamInfo}>
-                            <div className={styles.teamMain}>
-                              <img
-                                src={req.team?.logo_url || DEFAULT_TEAM_LOGO}
-                                alt=""
-                                className={styles.teamLogo}
-                                onError={(event) => {
-                                  event.currentTarget.onerror = null;
-                                  event.currentTarget.src = DEFAULT_TEAM_LOGO;
-                                }}
-                              />
-                              <div className={styles.teamText}>
-                                <h2 className={styles.teamName}>
-                                  {getDisplayTeamName(req.team?.name || '', req.team?.gender_id)}
-                                </h2>
-                                <div className={styles.teamMeta}>
-                                  {req.team?.league_id && (
-                                    <img
-                                      src={`https://www.hattrick.org/Img/flags/${req.team.league_id}.png`}
-                                      alt=""
-                                      className={styles.flag}
-                                    />
-                                  )}
-                                  <span>{getDisplayCountryName(req.team)}</span>
-                                </div>
-                              </div>
-                            </div>
-                          </div>
-                          <div className={styles.message}>
-                            {req.message ? `"${req.message}"` : <strong>{getMessagePlaceholder(req)}</strong>}
-                          </div>
-                          <div className={styles.adProfileSummary}>
-                            <span className={styles.summaryLabel}>Looking for</span>
-                            <div className={styles.badges}>
-                              <span className={styles.badge}>
-                                {req.match_type === '120min' ? '120 min training' : '90 min acceptable'}
-                              </span>
-                              <span className={styles.badge}>
-                                {req.home_away === 'home'
-                                  ? 'My place'
-                                  : req.home_away === 'away'
-                                    ? 'Your place'
-                                    : 'Either venue'}
-                              </span>
-                              <span className={styles.badge}>
-                                {req.opponent_location === 'domestic'
-                                  ? `Domestic (${getDisplayCountryName(req.team) || 'same country'})`
-                                  : req.opponent_location === 'international_only'
-                                    ? 'International only'
-                                    : 'Anywhere'}
-                              </span>
-                              <span className={styles.badge}>
-                                {req.is_long_term ? 'Long-term partner' : 'One-off match'}
-                              </span>
-                              {req.is_back_and_forth && <span className={styles.badge}>Home/away exchange</span>}
-                            </div>
-                          </div>
-                          <div className={styles.adMetaRow}>
-                            <span
-                              className={`${styles.availabilityBadge} ${styles[entry.freshness.tone]}`}
-                              title="Based on how recently the ad was posted."
-                            >
-                              {entry.freshness.label}
-                            </span>
-                            <span
-                              className={`${styles.stateBadge} ${styles[req.team?.availabilityStatus || 'unknown']}`}
-                              title={req.team?.availabilityReason || 'Availability from CHPP team details.'}
-                            >
-                              {req.team?.availabilityStatus === null
-                                ? '404'
-                                : req.team?.availabilityStatus === 'available'
-                                  ? 'Available'
-                                  : req.team?.availabilityStatus === 'booked'
-                                    ? 'Booked This Week'
-                                    : req.team?.availabilityStatus === 'unavailable'
-                                      ? 'Booked This Week'
-                                      : 'Unknown'}
-                            </span>
-                            {req.is_mock && <span className={styles.mockBadge}>Mock</span>}
-                          </div>
-                        </div>
-                      </div>
-
-                    </div>
-
-                    <div className={styles.cardActions}>
-                      {(() => {
-                        const { showChallengeNow, showShowInterest } = getBrowseCardActions(activeTab, req);
-
-                        return (
-                          <>
-                            <Button
-                              variant="outline"
-                              onClick={() => setCurrentIndex((prev) => Math.min(scoredRequests.length - 1, prev + 1))}
-                            >
-                              Pass
-                              <X size={20} />
-                            </Button>
-                            {showChallengeNow && (
-                              <Button variant="tinder" onClick={() => openBrowseChallengeFlow(req)}>
-                                <Handshake size={20} />
-                                Send Challenge
-                              </Button>
-                            )}
-                            {showShowInterest && (
-                              <Button variant="tinder" onClick={() => openBrowseChallengeFlow(req)}>
-                                Send Challenge
-                                <Heart size={20} weight="fill" />
-                              </Button>
-                            )}
-                          </>
-                        );
-                      })()}
-                    </div>
-
-                    {showSuccessOverlay && (
-                      <div className={styles.successOverlay}>
-                        <Heart size={80} weight="fill" color="#fff" />
-                        <h2>{mockDataEnabled ? 'Mock publish complete!' : 'Published!'}</h2>
-                        {selectedTeam && (
-                          <div style={{ marginBottom: '2rem' }}>
-                            <p style={{ fontWeight: 800, fontSize: '1.5rem', marginBottom: '0.5rem' }}>
-                              {getDisplayTeamName(selectedTeam.teamName, selectedTeam.genderId)}
-                            </p>
-                            <p>{matchType === '120min' ? '⚔️ 120 minute cup rules' : '⚽ 90 minute OK'}</p>
-                            <p>
-                              {location === 'domestic'
-                                ? `🏠 my country only (${selectedTeam.countryName})`
-                                : location === 'international_only'
-                                  ? '🌍 will travel'
-                                  : '🗺 Anywhere'}
-                            </p>
-                          </div>
-                        )}
-                        <Button variant="tinder" onClick={() => setShowSuccessOverlay(false)}>
-                          Awesome!
-                        </Button>
-                      </div>
-                    )}
-                  </div>
-                  <button
-                    className={`${styles.navArrow} ${styles.navArrowRight}`}
-                    onClick={() => setCurrentIndex((prev) => Math.min(scoredRequests.length - 1, prev + 1))}
-                    disabled={currentIndex === scoredRequests.length - 1}
-                  >
-                    <CaretRight />
-                  </button>
-                </div>
-              );
-            })()
-          )}
+      {mobileExperience === 'app' && (
+        <div className={deckStyles.mobileAppHeader}>
+          <button type="button" className={deckStyles.mobileBack} onClick={() => setMobileExperience('welcome')}>
+            <CaretLeft /> Back
+          </button>
+          <h2 className={deckStyles.mobileSectionTitle}>
+            {tabItems.find((tab) => tab.key === activeTab)?.label || 'Browse'}
+          </h2>
         </div>
+      )}
+
+      <div className={`${deckStyles.appContent} ${mobileExperience === 'app' ? deckStyles.appContentActive : ''}`}>
+      {activeTab === 'browse' || activeTab === 'hfi' || activeTab === 'long-term' ? (
+        <MatchmakerBrowseDeck
+          activeTab={activeTab as 'browse' | 'hfi' | 'long-term'}
+          loading={loading}
+          entries={scoredRequests}
+          cursor={currentIndex}
+          emptyMessage={
+            activeTab === 'hfi'
+              ? 'No female teams are looking for matches right now. Why not post your HFI ad?'
+              : activeTab === 'browse'
+                ? 'No teams are available for friendlies this week. Post your own ad!'
+                : 'No teams are looking for matches right now. Be the first to post an ad!'
+          }
+          endMessage={mockDataEnabled ? mockBrowseEndMessage : "You've seen all suitable listings."}
+          mockDataEnabled={mockDataEnabled}
+          onPostAd={handleStartPosting}
+          onPrevious={() => setCurrentIndex((prev) => Math.max(0, prev - 1))}
+          onPass={() => setCurrentIndex((prev) => advanceMatchmakerDeckCursor(prev, scoredRequests.length))}
+          onPrimaryAction={openBrowseChallengeFlow}
+          onRestart={() => {
+            setCurrentIndex(0);
+          }}
+          onShowBooked={() => {
+            setMockBrowseScope('booked');
+            setCurrentIndex(0);
+          }}
+          onShowAll={() => {
+            setMockBrowseScope('all');
+            setCurrentIndex(0);
+          }}
+        />
       ) : (
         <div className={styles.myRequests}>
           <div className={styles.myAdsHeader}>
             <h3>Your published ads</h3>
-            <p>Here you can view, modivy and see activity on your own ads.</p>
+            <p>Here you can view, modify and see activity on your own ads.</p>
           </div>
           {myRequests.length > 0 ? (
             <div className={styles.requestGrid}>
@@ -1613,10 +1402,7 @@ export const Matchmaker: React.FC = () => {
                             type="button"
                             className={styles.iconBtn}
                             title="Edit Ad"
-                            onClick={() => {
-                              setSelectedHtTeamId(req.team?.ht_team_id || 0);
-                              setIsPosting(true);
-                            }}
+                            onClick={() => startEditingRequest(req)}
                           >
                             <PencilSimple size={18} />
                           </button>
@@ -1761,6 +1547,7 @@ export const Matchmaker: React.FC = () => {
           )}
         </div>
       )}
+      </div>
 
       <WelcomeModal
         isOpen={showWelcome}
@@ -1789,12 +1576,9 @@ export const Matchmaker: React.FC = () => {
         onClose={() => {
           setIsPosting(false);
           setPublishError(null);
+          setEditingRequestId(null);
         }}
-        title={
-          myRequests.some((r) => r.team?.ht_team_id === selectedHtTeamId && r.status === 'open')
-            ? 'Edit Friendly Request'
-            : 'Post a Friendly Request'
-        }
+        title={editingRequestId ? 'Edit Friendly Request' : 'Post a Friendly Request'}
         modalClassName={styles.tinderModal}
       >
         <form onSubmit={handleCreateRequest} className={styles.postModal}>
@@ -1805,7 +1589,13 @@ export const Matchmaker: React.FC = () => {
                 <p>Let's check on your teams first...</p>
               </div>
             ) : myTeams.length > 0 ? (
-              <select value={selectedHtTeamId} onChange={handleSelectTeamChange} className={styles.teamDropdown}>
+              <select
+                value={selectedHtTeamId}
+                onChange={handleSelectTeamChange}
+                className={styles.teamDropdown}
+                disabled={!!editingRequestId}
+                aria-describedby={editingRequestId ? 'editing-team-note' : undefined}
+              >
                 <option value={0}>Select a team</option>
                 {postingTeamGroupsForModal.map((group) => (
                   <optgroup
@@ -1840,7 +1630,7 @@ export const Matchmaker: React.FC = () => {
                     })}
                   </optgroup>
                 ))}
-              </select>
+            </select>
             ) : (
               <div className={styles.noTeamsMessage}>
                 <Warning size={20} />
@@ -1850,6 +1640,7 @@ export const Matchmaker: React.FC = () => {
                 </Button>
               </div>
             )}
+            {editingRequestId && <p id="editing-team-note">The team cannot be changed while editing this ad.</p>}
             {selectedTeam && (
               <p className={styles.teamAvailabilityNote}>
                 {getAvailabilityStatusLabel(selectedTeam)}
@@ -1948,7 +1739,7 @@ export const Matchmaker: React.FC = () => {
             <Button type="submit" variant="tinder" fullWidth disabled={!canPublish}>
               {isSaving
                 ? 'Publishing...'
-                : myRequests.some((r) => r.team?.ht_team_id === selectedHtTeamId && r.status === 'open')
+                : editingRequestId
                   ? 'Update Ad'
                   : 'Publish Request'}
             </Button>

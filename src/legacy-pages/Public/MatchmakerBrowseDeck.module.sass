@@ -1,0 +1,200 @@
+.dragCard
+  transform: translateX(var(--swipe-offset, 0))
+  transition: transform 0.18s ease-out
+  will-change: transform
+  touch-action: pan-y
+  user-select: none
+  cursor: grab
+
+.dragging
+  transition: none
+  cursor: grabbing
+
+.mobileCard,
+.mobileCategoryButtons,
+.mobileAppHeader
+  display: none
+
+.appContent
+  width: 100%
+
+@media (max-width: 768px)
+  .legacyTabs
+    display: none
+
+  .mobileHiddenWhenActive
+    display: none !important
+
+  .mobileCategoryButtons
+    display: grid
+    grid-template-columns: repeat(2, minmax(0, 1fr))
+    gap: 0.75rem
+    width: 100%
+    margin: 1.5rem 0 2rem
+
+    > *
+      width: 100%
+      min-height: 3.25rem
+
+  .appContent
+    display: none
+
+  .appContentActive
+    display: block
+
+  .mobileAppHeader
+    display: flex
+    align-items: center
+    justify-content: space-between
+    gap: 1rem
+    width: 100%
+    margin: 0 0 1rem
+
+  .mobileBack
+    display: inline-flex
+    align-items: center
+    gap: 0.35rem
+    border: 0
+    background: transparent
+    color: var(--text-h)
+    font: inherit
+    font-weight: 800
+    cursor: pointer
+
+  .mobileSectionTitle
+    margin: 0
+    color: var(--tinder-bright)
+    font-family: var(--heading)
+    font-size: 1.35rem
+    text-transform: uppercase
+    text-align: right
+
+  .desktopCard
+    display: none
+
+  .mobileCard
+    display: block
+    width: 100%
+    overflow: hidden
+    border: 1px solid var(--border)
+    border-radius: var(--radius-lg)
+    background: var(--table-bg-main)
+    color: white
+    box-shadow: var(--shadow-lg)
+
+  .mobileBody
+    display: flex
+    min-height: 25rem
+    flex-direction: column
+    gap: 1.25rem
+    padding: 1.25rem 1rem 1.5rem
+    background: var(--tinder-bg)
+
+  .mobileIdentity
+    display: grid
+    grid-template-columns: 6.5rem minmax(0, 1fr)
+    align-items: center
+    gap: 0.65rem
+
+  .mobileLogo
+    width: 6.25rem
+    height: 6.25rem
+    object-fit: contain
+    border-radius: var(--radius-sm)
+
+  .mobileTeamText
+    min-width: 0
+
+    h2
+      margin: 0
+      color: white
+      font-family: var(--heading)
+      font-size: 2.2rem
+      line-height: 1.05
+      overflow-wrap: anywhere
+
+  .mobileMeta
+    display: flex
+    align-items: center
+    gap: 0.5rem
+    margin-top: 0.45rem
+    color: rgba(255, 255, 255, 0.82)
+    font-weight: 700
+
+    img
+      width: auto
+      height: 0.9rem
+      border: 1px solid rgba(255, 255, 255, 0.25)
+
+  .mobileMessage
+    margin: auto 0 0
+    color: white
+    font-size: 1.05rem
+    font-style: italic
+    font-weight: 700
+    line-height: 1.55
+
+  .mobileProfile
+    display: flex
+    flex-direction: column
+    gap: 0.6rem
+
+  .mobileSummaryLabel
+    font-size: 0.74rem
+    font-weight: 900
+    letter-spacing: 0.08em
+    text-transform: uppercase
+
+  .mobileBadges
+    display: flex
+    flex-wrap: wrap
+    gap: 0.5rem
+
+    span
+      padding: 0.45rem 0.65rem
+      border-radius: var(--radius-sm)
+      background: rgba(0, 0, 0, 0.18)
+      color: white
+      font-size: 0.78rem
+      font-weight: 800
+
+  .mobileStatus
+    display: flex
+    flex-wrap: wrap
+    gap: 0.75rem
+
+    span
+      padding: 0.45rem 0.65rem
+      border: 1px solid rgba(255, 255, 255, 0.22)
+      border-radius: var(--radius-sm)
+      color: rgba(255, 255, 255, 0.86)
+      font-size: 0.75rem
+      font-weight: 900
+      letter-spacing: 0.04em
+      text-transform: uppercase
+
+  .mobileActions
+    display: grid
+    grid-template-columns: minmax(0, 0.9fr) minmax(0, 1.1fr)
+    gap: 0.75rem
+    padding: 1.25rem
+    background: var(--bg-transp2)
+    border-top: 1px solid var(--border)
+
+    > *
+      width: 100%
+      min-width: 0
+
+@media (max-width: 390px)
+  .mobileCategoryButtons
+    grid-template-columns: 1fr
+
+  .mobileIdentity
+    grid-template-columns: 5.75rem minmax(0, 1fr)
+
+  .mobileLogo
+    width: 5.5rem
+    height: 5.5rem
+
+  .mobileTeamText h2
+    font-size: 2rem

@@ -1,6 +1,5 @@
-import { redirect } from 'next/navigation';
+import { MatchmakerClient } from '../../../../next/ClientOnlyPublicRoutes';
 
-export default async function TinderAlias({ params }: { params: Promise<{ locale: string }> }) {
-  const { locale } = await params;
-  redirect(`/${locale}/matchmaker`);
+export default function TinderPage() {
+  return <MatchmakerClient />;
 }

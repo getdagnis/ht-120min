@@ -1,0 +1,1025 @@
+• The final review also identified a pre-existing server-side identity issue in the live CHPP publish/challenge/interest handlers: they trust a
+  client-supplied manager ID. I’m leaving that untouched because you explicitly asked to audit the existing CHPP logic rather than modify it in
+  this pass; I’ll call it out as a separate follow-up risk. The Tinder UI work itself is now validated locally.
+
+• Explored
+  └ Read SKILL.md (ai-slop-cleaner skill)
+
+Earlier messages are available — press ctrl + t to view the full transcript
+  └ Search resolveMatchmakerSwipe|swipeStartRef|showSuccessOverlay|scoredRequests|handleCreateRequest|handleStartPosting|openBrowseChallengeFlow|
+           myRequestCard|tabs|browserContainer|mockBrowseEndReached|setCurrentIndex in Matchmaker.tsx
+
+• Ran 2 commands · ctrl + t to view transcript
+
+• Ran 5 commands · ctrl + t to view transcript
+
+• Edited src/legacy-pages/Public/Matchmaker.tsx (+14 -9)
+      1 -import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
+      1 +import React, { useState, useEffect, useCallback, useMemo } from 'react';
+      2  import { supabase } from '../../lib/supabase';
+        ⋮
+      4  import {
+      5 +  advanceMatchmakerDeckCursor,
+      6    getDisplayTeamName,
+      6 -  resolveMatchmakerSwipe,
+      7 +  getMatchmakerMessagePlaceholder,
+      8 +  getMatchmakerRequestFormState,
+      9 +  normalizeMatchmakerDeckCursor,
+     10 +  shouldAdvanceMatchmakerDeckAfterAction,
+  … Diff preview limited (ctrl + t to view transcript).
+
+• Edited src/legacy-pages/Public/Matchmaker.tsx (+23 -11)
+    413
+    414 +  const applyRequestFormState = (request?: MatchmakerRequest | null, fallbackTeamId = 0) => {
+    415 +    const formState = getMatchmakerRequestFormState(request, fallbackTeamId);
+    416 +    setSelectedHtTeamId(formState.selectedHtTeamId);
+    417 +    setMatchType(formState.matchType);
+    418 +    setLocation(formState.location);
+    419 +    setHomeAway(formState.homeAway);
+    420 +    setMessage(formState.message);
+    421 +    setIsBackAndForth(formState.isBackAndForth);
+    422 +    setIsLongTerm(formState.isLongTerm);
+    423 +
+    424 +    const team = myTeams.find((item) => item.teamId === formState.selectedHtTeamId);
+  … Diff preview limited (ctrl + t to view transcript).
+
+• Edited src/legacy-pages/Public/Matchmaker.tsx (+4 -3)
+      1 -import React, { useState, useEffect, useCallback, useMemo } from 'react';
+      1 +import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
+      2  import { supabase } from '../../lib/supabase';
+        ⋮
+    624
+    625 -  const mockBrowseEndReached = mockDataEnabled && currentIndex >= scoredRequests.length;
+    625 +  const scoredRequestsRef = useRef(scoredRequests);
+    626 +  scoredRequestsRef.current = scoredRequests;
+    627
+        ⋮
+    671      setTimeout(() => {
+    671 -      setCurrentIndex((prev) => Math.min(prev, Math.max(0, scoredRequests.length - 1)));
+  … Diff preview limited (ctrl + t to view transcript).
+
+• Explored
+  └ Read publish.ts
+    Search publish|editing|requestId|matchmaker_requests in publish.ts
+
+• Edited src/legacy-pages/Public/Matchmaker.tsx (+23 -9)
+     925          const now = new Date();
+     926 -        const requestId = `mock-publish-${now.getTime()}`;
+     926 +        const existingRequest = editingRequestId
+     927 +          ? myRequests.find((request) => request.id === editingRequestId) ||
+     928 +            requests.find((request) => request.id === editingRequestId)
+     929 +          : null;
+     930 +        const requestId = existingRequest?.id || `mock-publish-${now.getTime()}`;
+     931          const publishedRequest: MatchmakerRequest = {
+     932 +          ...existingRequest,
+     933            id: requestId,
+     934            team_id: `mock-team-${selectedTeam.teamId}`,
+     930 -          manager_ht_id: selectedTeam.teamId,
+  … Diff preview limited (ctrl + t to view transcript).
+
+• Edited src/legacy-pages/Public/Matchmaker.tsx (+10 -49)
+    1084
+    1085 -  const resetSwipe = () => {
+    1086 -    swipeStartRef.current = null;
+    1087 -    setIsSwiping(false);
+    1088 -    setSwipeOffset(0);
+    1089 -  };
+    1090 -
+    1091 -  const handleSwipePointerDown = (event: React.PointerEvent<HTMLDivElement>) => {
+    1092 -    if (!event.isPrimary || (event.pointerType === 'mouse' && event.button !== 0)) return;
+    1093 -
+    1094 -    swipeStartRef.current = {
+    1095 -      pointerId: event.pointerId,
+  … Diff preview limited (ctrl + t to view transcript).
+
+• Edited src/legacy-pages/Public/Matchmaker.tsx (+33 -1)
+    1279        <header className={styles.headerContainer}>
+    1280 -        <div className={styles.tinderHeroCard}>
+    1280 +        <div className={`${styles.tinderHeroCard} ${mobileExperience === 'app' ? deckStyles.mobileHiddenWhenActive : ''}`}>
+    1281            <div className={styles.heroImageContainer}>
+         ⋮
+    1315          </div>
+    1316 +
+    1317 +        <div
+    1318 +          className={`${deckStyles.mobileCategoryButtons} ${mobileExperience === 'app' ? deckStyles.mobileHiddenWhenActive : ''}`}
+    1319 +          aria-label="Tinder categories"
+    1320 +        >
+    1321 +          {tabItems.map((tab) => (
+  … Diff preview limited (ctrl + t to view transcript).
+
+• Explored
+  └ Read Matchmaker.tsx
+
+• Edited src/legacy-pages/Public/Matchmaker.tsx (+1 -0)
+    28    Warning,
+    29 +  CaretLeft,
+    30    ArrowsOut,
+
+• Ran 2 commands · ctrl + t to view transcript
+
+• Ran 3 commands · ctrl + t to view transcript
+
+• Edited src/legacy-pages/Public/Matchmaker.tsx (+0 -0)
+
+• Explored
+  └ Read Matchmaker.tsx
+
+• Edited src/legacy-pages/Public/Matchmaker.tsx (+1 -9)
+    1351        {activeTab === 'browse' || activeTab === 'hfi' || activeTab === 'long-term' ? (
+    1352 -        <div className={styles.browserContainer}>
+    1353 -          {loading ? (
+    1354 -            <div className={styles.loadingState}>
+    1355 -              <ArrowsOut size={48} className={styles.spin} />
+    1356 -              <p>
+    1357 -                {mockDataEnabled
+    1358 -                  ? 'Synchronising friendly availability...'
+    1359 -                  : 'Checking team availability and loading listings...'}
+    1360 -              </p>
+    1352 +        <MatchmakerBrowseDeck
+    1353              </div>
+
+• Explored
+  └ Read Matchmaker.tsx
+
+• Edited src/legacy-pages/Public/Matchmaker.tsx (+0 -30)
+    1360                    variant="tinder"
+    1361 -                  onClick={() => {
+    1362 -                    setMockBrowseScope('available');
+    1363 -                    setCurrentIndex(0);
+    1364 -                  }}
+    1365 -                >
+    1366 -                  Start Again
+    1367 -                </Button>
+    1368 -                <Button
+    1369 -                  variant="outline"
+    1370 -                  onClick={() => {
+    1371 -                    setMockBrowseScope('booked');
+  … Diff preview limited (ctrl + t to view transcript).
+
+• Explored
+  └ Read Matchmaker.tsx
+
+───────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+
+• The parent file hit an edit-boundary problem while I was replacing the old render branch. I’m restoring only that previously clean file from
+  HEAD, then I’ll reapply the changes in smaller, verifiable patches. No unrelated files or data are affected.
+
+• Ran git show HEAD:src/legacy-pages/Public/Matchmaker.tsx
+  └ import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
+    import { supabase } from '../../lib/supabase';
+    … +2093 lines (ctrl + t to view transcript)
+      );
+    };
+
+• Deleted src/legacy-pages/Public/Matchmaker.tsx (+0 -2085)
+       1 -import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
+       2 -import { supabase } from '../../lib/supabase';
+       3 -import { useAuth } from '../../hooks/useAuth';
+       4 -import {
+       5 -  advanceMatchmakerDeckCursor,
+       6 -  getDisplayTeamName,
+       7 -  getMatchmakerMessagePlaceholder,
+       8 -  getMatchmakerRequestFormState,
+       9 -  normalizeMatchmakerDeckCursor,
+      10 -  shouldAdvanceMatchmakerDeckAfterAction,
+      11 -  upsertMockMatchmakerRequest,
+      12 -  type MatchmakerRequest,
+  … Diff preview limited (ctrl + t to view transcript).
+
+• Added src/legacy-pages/Public/Matchmaker.tsx (+2098 -0)
+       1 +import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
+       2 +import { supabase } from '../../lib/supabase';
+       3 +import { useAuth } from '../../hooks/useAuth';
+       4 +import {
+       5 +  getDisplayTeamName,
+       6 +  resolveMatchmakerSwipe,
+       7 +  type MatchmakerRequest,
+       8 +  type MatchmakerTeamOption,
+       9 +  type MatchmakerActivity,
+      10 +} from '../../utils/matchmaker';
+      11 +import { Button } from '../../components/Button/Button';
+      12 +import { Modal } from '../../components/Modal/Modal';
+  … Diff preview limited (ctrl + t to view transcript).
+
+• Ran git status --short src/legacy-pages/Public/Matchmaker.tsx; sed -n '1,36p' src/legacy-pages/Public/Matchmaker.tsx; nl -ba src/legacy-pages/
+  │ Public/Matchmaker.tsx | sed -n '330,430p'; nl -ba src/legacy-pages/Public/Matchmaker.tsx | sed -n '550,665p'; nl -ba src/legacy-pages/Public/
+  │ Matchmaker.tsx | sed -n '1015,1145p'
+  └  M src/legacy-pages/Public/Matchmaker.tsx
+    import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
+    … +381 lines (ctrl + t to view transcript)
+      1144            body.actorTeamId = actionDraft.actorTeamId;
+      1145          }
+
+• Edited src/legacy-pages/Public/Matchmaker.tsx (+8 -2)
+       4  import {
+       5 +  advanceMatchmakerDeckCursor,
+       6    getDisplayTeamName,
+       6 -  resolveMatchmakerSwipe,
+       7 +  getMatchmakerMessagePlaceholder,
+       8 +  getMatchmakerRequestFormState,
+       9 +  normalizeMatchmakerDeckCursor,
+      10 +  shouldAdvanceMatchmakerDeckAfterAction,
+      11 +  upsertMockMatchmakerRequest,
+      12    type MatchmakerRequest,
+         ⋮
+      21  import { dismissWelcome, hasDismissedWelcome, TINDER_WELCOME_KEY } from '../../utils/welcome-modals';
+  … Diff preview limited (ctrl + t to view transcript).
+
+• Edited src/legacy-pages/Public/Matchmaker.tsx (+27 -5)
+    353    const [currentIndex, setCurrentIndex] = useState(0);
+    354 -  const swipeStartRef = useRef<{ pointerId: number; x: number; y: number } | null>(null);
+    355 -  const [swipeOffset, setSwipeOffset] = useState(0);
+    356 -  const [isSwiping, setIsSwiping] = useState(false);
+    354 +  const [mobileExperience, setMobileExperience] = useState<'welcome' | 'app'>('welcome');
+    355    const [loading, setLoading] = useState(true);
+        ⋮
+    361    const [showLoginModal, setShowLoginModal] = useState(false);
+    364 -  const [showSuccessOverlay, setShowSuccessOverlay] = useState(false);
+    362    const [publishError, setPublishError] = useState<string | null>(null);
+    363 +  const [editingRequestId, setEditingRequestId] = useState<string | null>(null);
+    364
+  … Diff preview limited (ctrl + t to view transcript).
+
+• Edited src/legacy-pages/Public/Matchmaker.tsx (+1 -11)
+    540    const getMessagePlaceholder = (request: MatchmakerRequest) => {
+    541 -    const matchType = request.match_type === '120min' ? '120 min training' : '90 min acceptable';
+    542 -    const venue = request.home_away === 'home' ? 'My place' : request.home_away === 'away' ? 'Your place' : 'Either venue';
+    543 -    const location =
+    544 -      request.opponent_location === 'domestic'
+    545 -        ? `Domestic (${getDisplayCountryName(request.team) || 'same country'})`
+    546 -        : request.opponent_location === 'international_only'
+    547 -          ? 'International only'
+    548 -          : 'Anywhere';
+    549 -    const duration = request.is_long_term ? 'Long-term partner' : 'One-off match';
+    550 -
+    551 -    return `${matchType}. ${venue}. ${location}. ${duration}. Reach out to me!`;
+  … Diff preview limited (ctrl + t to view transcript).
+
+• Edited src/legacy-pages/Public/Matchmaker.tsx (+3 -2)
+    626
+    627 -  const mockBrowseEndReached = mockDataEnabled && currentIndex >= scoredRequests.length;
+    627 +  const scoredRequestsRef = useRef(scoredRequests);
+    628 +  scoredRequestsRef.current = scoredRequests;
+    629
+        ⋮
+    673      setTimeout(() => {
+    673 -      setCurrentIndex((prev) => Math.min(prev, Math.max(0, scoredRequests.length - 1)));
+    674 +      setCurrentIndex((prev) => normalizeMatchmakerDeckCursor(prev, scoredRequests.length));
+    675      }, 0);
+
+• Edited src/legacy-pages/Public/Matchmaker.tsx (+23 -9)
+     927          const now = new Date();
+     928 -        const requestId = `mock-publish-${now.getTime()}`;
+     928 +        const existingRequest = editingRequestId
+     929 +          ? myRequests.find((request) => request.id === editingRequestId) ||
+     930 +            requests.find((request) => request.id === editingRequestId)
+     931 +          : null;
+     932 +        const requestId = existingRequest?.id || `mock-publish-${now.getTime()}`;
+     933          const publishedRequest: MatchmakerRequest = {
+     934 +          ...existingRequest,
+     935            id: requestId,
+     936            team_id: `mock-team-${selectedTeam.teamId}`,
+     932 -          manager_ht_id: selectedTeam.teamId,
+  … Diff preview limited (ctrl + t to view transcript).
+
+• Edited src/legacy-pages/Public/Matchmaker.tsx (+10 -2)
+    1135      if (!actionDraft || !effectiveManagerId) return;
+    1136 +    const actedOnRequestId = actionDraft.request.id;
+    1137 +    const advanceAfterSuccess = () => {
+    1138 +      setCurrentIndex((prev) => {
+    1139 +        const currentRequestId = scoredRequestsRef.current[prev]?.request.id;
+    1140 +        if (!shouldAdvanceMatchmakerDeckAfterAction(currentRequestId, actedOnRequestId)) return prev;
+    1141 +        return advanceMatchmakerDeckCursor(prev, scoredRequestsRef.current.length);
+    1142 +      });
+    1143 +    };
+    1144
+         ⋮
+    1170        setActionComment('');
+  … Diff preview limited (ctrl + t to view transcript).
+
+• Edited src/legacy-pages/Public/Matchmaker.tsx (+0 -47)
+    1086
+    1087 -  const resetSwipe = () => {
+    1088 -    swipeStartRef.current = null;
+    1089 -    setIsSwiping(false);
+    1090 -    setSwipeOffset(0);
+    1091 -  };
+    1092 -
+    1093 -  const handleSwipePointerDown = (event: React.PointerEvent<HTMLDivElement>) => {
+    1094 -    if (!event.isPrimary || (event.pointerType === 'mouse' && event.button !== 0)) return;
+    1095 -
+    1096 -    swipeStartRef.current = {
+    1097 -      pointerId: event.pointerId,
+  … Diff preview limited (ctrl + t to view transcript).
+
+• Ran 5 commands · ctrl + t to view transcript
+
+• Edited src/legacy-pages/Public/Matchmaker.tsx (+0 -20)
+    1558                              </p>
+    1559 -                          </div>
+    1560 -                        )}
+    1561 -                        <Button variant="tinder" onClick={() => setShowSuccessOverlay(false)}>
+    1562 -                          Awesome!
+    1563 -                        </Button>
+    1564 -                      </div>
+    1565 -                    )}
+    1566 -                  </div>
+    1567 -                  <button
+    1568 -                    className={`${styles.navArrow} ${styles.navArrowRight}`}
+    1569 -                    onClick={() => setCurrentIndex((prev) => Math.min(scoredRequests.length - 1, prev + 1))}
+  … Diff preview limited (ctrl + t to view transcript).
+
+• Edited src/legacy-pages/Public/Matchmaker.tsx (+0 -20)
+    1538                          );
+    1539 -                      })()}
+    1540 -                    </div>
+    1541 -
+    1542 -                    {showSuccessOverlay && (
+    1543 -                      <div className={styles.successOverlay}>
+    1544 -                        <Heart size={80} weight="fill" color="#fff" />
+    1545 -                        <h2>{mockDataEnabled ? 'Mock publish complete!' : 'Published!'}</h2>
+    1546 -                        {selectedTeam && (
+    1547 -                          <div style={{ marginBottom: '2rem' }}>
+    1548 -                            <p style={{ fontWeight: 800, fontSize: '1.5rem', marginBottom: '0.5rem' }}>
+    1549 -                              {getDisplayTeamName(selectedTeam.teamName, selectedTeam.genderId)}
+  … Diff preview limited (ctrl + t to view transcript).
+
+• Edited src/legacy-pages/Public/Matchmaker.tsx (+0 -20)
+    1518                              <Button
+    1519 -                              variant="outline"
+    1520 -                              onClick={() => setCurrentIndex((prev) => Math.min(scoredRequests.length - 1, prev + 1))}
+    1521 -                            >
+    1522 -                              Pass
+    1523 -                              <X size={20} />
+    1524 -                            </Button>
+    1525 -                            {showChallengeNow && (
+    1526 -                              <Button variant="tinder" onClick={() => openBrowseChallengeFlow(req)}>
+    1527 -                                <Handshake size={20} />
+    1528 -                                Send Challenge
+    1529 -                              </Button>
+  … Diff preview limited (ctrl + t to view transcript).
+
+• Edited src/legacy-pages/Public/Matchmaker.tsx (+0 -20)
+    1498                                    ? 'Available'
+    1499 -                                  : req.team?.availabilityStatus === 'booked'
+    1500 -                                    ? 'Booked This Week'
+    1501 -                                    : req.team?.availabilityStatus === 'unavailable'
+    1502 -                                      ? 'Booked This Week'
+    1503 -                                      : 'Unknown'}
+    1504 -                            </span>
+    1505 -                            {req.is_mock && <span className={styles.mockBadge}>Mock</span>}
+    1506 -                          </div>
+    1507 -                        </div>
+    1508 -                      </div>
+    1509 -
+  … Diff preview limited (ctrl + t to view transcript).
+
+• Edited src/legacy-pages/Public/Matchmaker.tsx (+0 -20)
+    1478                                <span className={styles.badge}>
+    1479 -                                {req.is_long_term ? 'Long-term partner' : 'One-off match'}
+    1480 -                              </span>
+    1481 -                              {req.is_back_and_forth && <span className={styles.badge}>Home/away exchange</span>}
+    1482 -                            </div>
+    1483 -                          </div>
+    1484 -                          <div className={styles.adMetaRow}>
+    1485 -                            <span
+    1486 -                              className={`${styles.availabilityBadge} ${styles[entry.freshness.tone]}`}
+    1487 -                              title="Based on how recently the ad was posted."
+    1488 -                            >
+    1489 -                              {entry.freshness.label}
+  … Diff preview limited (ctrl + t to view transcript).
+
+• Edited src/legacy-pages/Public/Matchmaker.tsx (+0 -20)
+    1458                            <div className={styles.adProfileSummary}>
+    1459 -                            <span className={styles.summaryLabel}>Looking for</span>
+    1460 -                            <div className={styles.badges}>
+    1461 -                              <span className={styles.badge}>
+    1462 -                                {req.match_type === '120min' ? '120 min training' : '90 min acceptable'}
+    1463 -                              </span>
+    1464 -                              <span className={styles.badge}>
+    1465 -                                {req.home_away === 'home'
+    1466 -                                  ? 'My place'
+    1467 -                                  : req.home_away === 'away'
+    1468 -                                    ? 'Your place'
+    1469 -                                    : 'Either venue'}
+  … Diff preview limited (ctrl + t to view transcript).
+
+• Edited src/legacy-pages/Public/Matchmaker.tsx (+0 -20)
+    1438                                <div className={styles.teamText}>
+    1439 -                                <h2 className={styles.teamName}>
+    1440 -                                  {getDisplayTeamName(req.team?.name || '', req.team?.gender_id)}
+    1441 -                                </h2>
+    1442 -                                <div className={styles.teamMeta}>
+    1443 -                                  {req.team?.league_id && (
+    1444 -                                    <img
+    1445 -                                      src={`https://www.hattrick.org/Img/flags/${req.team.league_id}.png`}
+    1446 -                                      alt=""
+    1447 -                                      className={styles.flag}
+    1448 -                                    />
+    1449 -                                  )}
+  … Diff preview limited (ctrl + t to view transcript).
+
+• Edited src/legacy-pages/Public/Matchmaker.tsx (+0 -20)
+    1418                                  onError={(event) => {
+    1419 -                                  event.currentTarget.onerror = null;
+    1420 -                                  event.currentTarget.src = DEFAULT_ARENA_IMAGE;
+    1421 -                                }}
+    1422 -                              />
+    1423 -                            </div>
+    1424 -                          )}
+    1425 -                        </div>
+    1426 -                        <div className={styles.cardRight}>
+    1427 -                          <div className={styles.teamInfo}>
+    1428 -                            <div className={styles.teamMain}>
+    1429 -                              <img
+  … Diff preview limited (ctrl + t to view transcript).
+
+• Edited src/legacy-pages/Public/Matchmaker.tsx (+0 -20)
+    1398                          '--swipe-offset': `${swipeOffset}px`,
+    1399 -                        '--swipe-rotation': `${swipeOffset / 32}deg`,
+    1400 -                      } as React.CSSProperties
+    1401 -                    }
+    1402 -                  >
+    1403 -                    <div className={styles.tinderCard}>
+    1404 -                      <div
+    1405 -                        className={`${styles.cardTop} ${styles.swipeSurface}`}
+    1406 -                        onPointerDown={handleSwipePointerDown}
+    1407 -                        onPointerMove={handleSwipePointerMove}
+    1408 -                        onPointerUp={handleSwipePointerUp}
+    1409 -                        onPointerCancel={resetSwipe}
+  … Diff preview limited (ctrl + t to view transcript).
+
+• Edited src/legacy-pages/Public/Matchmaker.tsx (+0 -20)
+    1378              </div>
+    1379 -          ) : (
+    1380 -            (() => {
+    1381 -              const entry = scoredRequests[currentIndex];
+    1382 -              const req = entry?.request;
+    1383 -              if (!req) return null;
+    1384 -
+    1385 -              return (
+    1386 -                <div className={`${styles.cardWrapper} ${styles.browseWrapper}`}>
+    1387 -                  <button
+    1388 -                    className={`${styles.navArrow} ${styles.navArrowLeft}`}
+    1389 -                    onClick={() => setCurrentIndex((prev) => Math.max(0, prev - 1))}
+  … Diff preview limited (ctrl + t to view transcript).
+
+• Edited src/legacy-pages/Public/Matchmaker.tsx (+0 -20)
+    1358                      setCurrentIndex(0);
+    1359 -                  }}
+    1360 -                >
+    1361 -                  Show All Listings
+    1362 -                </Button>
+    1363 -              </div>
+    1364 -            </div>
+    1365 -          ) : filteredRequests.length === 0 ? (
+    1366 -            <div className={styles.emptyState}>
+    1367 -              <Handshake size={64} opacity={0.2} />
+    1368 -              <p>
+    1369 -                {activeTab === 'hfi'
+  … Diff preview limited (ctrl + t to view transcript).
+
+• Edited src/legacy-pages/Public/Matchmaker.tsx (+0 -20)
+    1338                    onClick={() => {
+    1339 -                    setMockBrowseScope('available');
+    1340 -                    setCurrentIndex(0);
+    1341 -                  }}
+    1342 -                >
+    1343 -                  Start Again
+    1344 -                </Button>
+    1345 -                <Button
+    1346 -                  variant="outline"
+    1347 -                  onClick={() => {
+    1348 -                    setMockBrowseScope('booked');
+    1349 -                    setCurrentIndex(0);
+  … Diff preview limited (ctrl + t to view transcript).
+
+• Edited src/legacy-pages/Public/Matchmaker.tsx (+0 -18)
+    1320        {activeTab === 'browse' || activeTab === 'hfi' || activeTab === 'long-term' ? (
+    1321 -        <div className={styles.browserContainer}>
+    1322 -          {loading ? (
+    1323 -            <div className={styles.loadingState}>
+    1324 -              <ArrowsOut size={48} className={styles.spin} />
+    1325 -              <p>
+    1326 -                {mockDataEnabled
+    1327 -                  ? 'Synchronising friendly availability...'
+    1328 -                  : 'Checking team availability and loading listings...'}
+    1329 -              </p>
+    1330 -            </div>
+    1331 -          ) : mockBrowseEndReached ? (
+  … Diff preview limited (ctrl + t to view transcript).
+
+• Edited src/legacy-pages/Public/Matchmaker.tsx (+31 -0)
+    1320        {activeTab === 'browse' || activeTab === 'hfi' || activeTab === 'long-term' ? (
+    1321 +        <MatchmakerBrowseDeck
+    1322 +          activeTab={activeTab as 'browse' | 'hfi' | 'long-term'}
+    1323 +          loading={loading}
+    1324 +          entries={scoredRequests}
+    1325 +          cursor={currentIndex}
+    1326 +          emptyMessage={
+    1327 +            activeTab === 'hfi'
+    1328 +              ? 'No female teams are looking for matches right now. Why not post your HFI ad?'
+    1329 +              : activeTab === 'browse'
+    1330 +                ? 'No teams are available for friendlies this week. Post your own ad!'
+    1331 +                : 'No teams are looking for matches right now. Be the first to post an ad!'
+  … Diff preview limited (ctrl + t to view transcript).
+
+• Ran 2 commands · ctrl + t to view transcript
+
+• Edited src/legacy-pages/Public/Matchmaker.tsx (+0 -3)
+    23  import {
+    24 -  Handshake,
+    25 -  X,
+    24    Heart,
+       ⋮
+    28    CaretLeft,
+    31 -  CaretRight,
+    29    PencilSimple,
+
+• Edited src/legacy-pages/Public/Matchmaker.tsx (+0 -1)
+    26    Warning,
+    27 -  ArrowsOut,
+    27    CaretLeft,
+
+• Edited src/legacy-pages/Public/Matchmaker.tsx (+2 -0)
+    22  import { MatchmakerBrowseDeck } from './MatchmakerBrowseDeck';
+    23 +import { MatchmakerBrowseDeck } from './MatchmakerBrowseDeck';
+    24  import {
+       ⋮
+    36  const MOCK_MANAGER_ID = 9900001;
+    37 +const MOCK_MANAGER_ID = 9900001;
+    38
+
+• Ran 3 commands · ctrl + t to view transcript
+
+• Edited src/legacy-pages/Public/Matchmaker.tsx (+0 -2)
+    22  import { MatchmakerBrowseDeck } from './MatchmakerBrowseDeck';
+    23 -import { MatchmakerBrowseDeck } from './MatchmakerBrowseDeck';
+    23  import {
+       ⋮
+    34  const DEFAULT_ARENA_IMAGE = '<https://res.hattrick.org/arenas/default/12000/custom-620-0.jpg>';
+    36 -const MOCK_MANAGER_ID = 9900001;
+    35  const MOCK_MANAGER_ID = 9900001;
+
+• Explored
+  └ Read Matchmaker.tsx
+
+• Edited src/legacy-pages/Public/Matchmaker.tsx (+34 -1)
+      22  import { MatchmakerBrowseDeck } from './MatchmakerBrowseDeck';
+      23 +import deckStyles from './MatchmakerBrowseDeck.module.sass';
+      24  import {
+         ⋮
+    1278        <header className={styles.headerContainer}>
+    1278 -        <div className={styles.tinderHeroCard}>
+    1279 +        <div className={`${styles.tinderHeroCard} ${mobileExperience === 'app' ? deckStyles.mobileHiddenWhenActive : ''}`}>
+    1280            <div className={styles.heroImageContainer}>
+         ⋮
+    1314          </div>
+    1315 +
+    1316 +        <div
+  … Diff preview limited (ctrl + t to view transcript).
+
+• Edited src/legacy-pages/Public/Matchmaker.tsx (+1 -0)
+    1560        )}
+    1561 +      </div>
+    1562
+
+• Explored
+  └ Read Matchmaker.tsx
+    Search showSuccessOverlay|mockBrowseEndReached|swipeStartRef|handleSwipePointer|resolveMatchmakerSwipe|ArrowsOut|CaretRight|
+           styles\.browserContainer in Matchmaker.tsx
+
+• Ran 2 commands · ctrl + t to view transcript
+
+• Edited src/legacy-pages/Public/Matchmaker.tsx (+2 -5)
+    1384              <h3>Your published ads</h3>
+    1385 -            <p>Here you can view, modivy and see activity on your own ads.</p>
+    1385 +            <p>Here you can view, modify and see activity on your own ads.</p>
+    1386            </div>
+         ⋮
+    1412                              title="Edit Ad"
+    1413 -                            onClick={() => {
+    1414 -                              setSelectedHtTeamId(req.team?.ht_team_id || 0);
+    1415 -                              setIsPosting(true);
+    1416 -                            }}
+    1413 +                            onClick={() => startEditingRequest(req)}
+    1414                            >
+
+• Explored
+  └ Read Matchmaker.tsx
+
+• Edited src/legacy-pages/Public/Matchmaker.tsx (+3 -6)
+    1586            setPublishError(null);
+    1587 +          setEditingRequestId(null);
+    1588          }}
+    1588 -        title={
+    1589 -          myRequests.some((r) => r.team?.ht_team_id === selectedHtTeamId && r.status === 'open')
+    1590 -            ? 'Edit Friendly Request'
+    1591 -            : 'Post a Friendly Request'
+    1592 -        }
+    1589 +        title={editingRequestId ? 'Edit Friendly Request' : 'Post a Friendly Request'}
+    1590          modalClassName={styles.tinderModal}
+         ⋮
+    1742                  ? 'Publishing...'
+  … Diff preview limited (ctrl + t to view transcript).
+
+• Ran 1 command · ctrl + t to view transcript
+• Ran node --import tsx --test tests/matchmaker.test.ts && npx eslint src/legacy-pages/Public/Matchmaker.tsx src/legacy-pages/Public/
+  │ MatchmakerBrowseDeck.tsx src/utils/matchmaker.ts
+  └ ✔ horizontal Matchmaker swipes resolve to their card actions (1.044385ms)
+    ✔ short or primarily vertical Matchmaker gestures do not trigger actions (0.147315ms)
+    … +30 lines (ctrl + t to view transcript)
+    ✖ 1 problem (1 error, 0 warnings)
+
+• Edited src/legacy-pages/Public/Matchmaker.tsx (+3 -1)
+    624    const scoredRequestsRef = useRef(scoredRequests);
+    625 -  scoredRequestsRef.current = scoredRequests;
+    625 +  useEffect(() => {
+    626 +    scoredRequestsRef.current = scoredRequests;
+    627 +  }, [scoredRequests]);
+    628
+
+• Ran 4 commands · ctrl + t to view transcript
+
+• Edited src/legacy-pages/Public/Matchmaker.tsx (+1 -1)
+    1301
+    1302 -        <div className={styles.tabs}>
+    1302 +        <div className={`${styles.tabs} ${deckStyles.legacyTabs}`}>
+    1303            {tabItems.map((tab) => (
+
+• Edited src/legacy-pages/Public/MatchmakerBrowseDeck.module.sass (+5 -2)
+     14  .mobileCategoryButtons,
+     15 -.mobileAppHeader
+     15 +.mobileAppHeader,
+     16 +.legacyTabs
+     17    display: none
+        ⋮
+     22  @media (max-width: 768px)
+     23 +  .legacyTabs
+     24 +    display: none
+     25 +
+     26    .mobileHiddenWhenActive
+        ⋮
+  … Diff preview limited (ctrl + t to view transcript).
+
+• Edited src/legacy-pages/Public/MatchmakerBrowseDeck.module.sass (+1 -2)
+    14  .mobileCategoryButtons,
+    15 -.mobileAppHeader,
+    16 -.legacyTabs
+    15 +.mobileAppHeader
+    16    display: none
+
+• Edited src/legacy-pages/Public/Matchmaker.module.sass (+1 -1)
+    336
+    337 -  @media (max-width: 620px)
+    337 +@media (max-width: 620px)
+    338    .teamLogo
+
+• Ran 2 commands · ctrl + t to view transcript
+
+• Edited src/legacy-pages/Public/Matchmaker.module.sass (+0 -44)
+     213
+     214 -.browserContainer
+     215 -  width: 100%
+     216 -  max-width: 1200px
+     217 -  margin: 0 auto
+     218 -  display: flex
+     219 -  flex-direction: column
+     220 -  align-items: center
+     221 -  gap: 2rem
+     222 -
+     214  .loadingState
+         ⋮
+  … Diff preview limited (ctrl + t to view transcript).
+
+• Edited src/legacy-pages/Public/Matchmaker.tsx (+6 -16)
+      6    getDisplayTeamName,
+      7 +  getMatchmakerBrowseAction,
+      8    getMatchmakerMessagePlaceholder,
+        ⋮
+    192    resolveRequestGender(request) === 0 || request.team?.league_id === HFI_LEAGUE_ID;
+    192 -
+    193 -const isBookedRequest = (request: MatchmakerRequest) => request.team?.availabilityStatus === 'booked';
+    193
+    194  const getBrowseCardActions = (tab: BrowseTabKey, request: MatchmakerRequest) => {
+    196 -  if (tab === 'browse') {
+    197 -    return { showChallengeNow: true, showShowInterest: false };
+    198 -  }
+  … Diff preview limited (ctrl + t to view transcript).
+
+• Ran 3 commands · ctrl + t to view transcript
+
+───────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+
+• The simplified deck is now wired: the legacy browse renderer and rotation CSS are removed, the public alias redirects to /tinder, mobile category
+  entry controls are separated from desktop tabs, and the existing CHPP action endpoints remain untouched. Targeted behavior tests and lint pass;
+  I’m moving to the build and runtime audit now.
+
+• Waited for background terminal · npm run build
+
+• Ran 6 commands · ctrl + t to view transcript
+
+───────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+
+• The production build and server-import check pass. I’m doing the required independent review now on the Tinder diff, specifically checking for
+  hidden desktop regressions, mock-only leakage, and route/action completeness before the final validation run.
+
+⚠ `[features].codex_hooks` is deprecated. Use `[features].hooks` instead.
+Enable it with `--enable hooks` or `[features].hooks` in config.toml. See <https://developers.openai.com/codex/config-basic#feature-flags> for
+details.
+
+• Spawned 01a056eb-23c9-76c0-8433-f2fcbcd01f74 (gpt-5.6-terra high)
+  └ Review the current HT-120min worktree for the Tinder finalisation task. Do not edit files. Review only the task-related changes: src/legacy-
+  pages/Public/Matc...
+
+⚠ `[features].codex_hooks` is deprecated. Use `[features].hooks` instead.
+Enable it with `--enable hooks` or `[features].hooks` in config.toml. See <https://developers.openai.com/codex/config-basic#feature-flags> for
+details.
+
+• Spawned 01a056eb-2884-79c0-b880-0a3095bac2d8 (gpt-5.6-terra high)
+  └ Review the current HT-120min Tinder finalisation diff from an architecture/design perspective. Do not edit files. Check the boundary between
+  Matchmaker paren...
+
+• Ran find /Applications -maxdepth 3 \( -name 'Google Chrome.app' -o -name 'Chromium.app' -o -name 'Brave Browser.app' \) -print 2>/dev/null | head
+  │ -20; find /Users/dagnisskurbe/Library -maxdepth 4 -type f -name 'chrome' -o -name 'Chromium' 2>/dev/null | head -20
+  └ /Applications/Google Chrome.app
+    /Applications/Brave Browser.app
+    /Users/dagnisskurbe/Library/Application Support/Chromium
+
+⚠ `[features].codex_hooks` is deprecated. Use `[features].hooks` instead.
+Enable it with `--enable hooks` or `[features].hooks` in config.toml. See <https://developers.openai.com/codex/config-basic#feature-flags> for
+details.
+
+⚠ `[features].codex_hooks` is deprecated. Use `[features].hooks` instead.
+Enable it with `--enable hooks` or `[features].hooks` in config.toml. See <https://developers.openai.com/codex/config-basic#feature-flags> for
+details.
+
+⚠ `[features].codex_hooks` is deprecated. Use `[features].hooks` instead.
+Enable it with `--enable hooks` or `[features].hooks` in config.toml. See <https://developers.openai.com/codex/config-basic#feature-flags> for
+details.
+
+• Waited for background terminal · NEXT_PUBLIC_MATCHMAKER_MOCK_DATA=true npm run build
+
+• Ran 1 command · ctrl + t to view transcript
+• Ran PORT=3101 npm run start
+  └
+    > ht-120min@0.3.46 start
+    … +10 lines (ctrl + t to view transcript)
+      port: 3101
+    }
+
+───────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+
+• The mock production build also passes. The sandbox blocks binding a local Next server (EPERM), so I’m using the next safe verification path:
+  first complete static/runtime-path checks, then I’ll use a headless browser only if the environment permits it without touching external
+  services.
+
+• Ran HOSTNAME=127.0.0.1 PORT=3101 npm run start
+  └
+    > ht-120min@0.3.46 start
+    … +10 lines (ctrl + t to view transcript)
+      port: 3101
+    }
+
+• Ran /Applications/Google\ Chrome.app/Contents/MacOS/Google\ Chrome --headless --disable-gpu --no-sandbox
+  │ --user-data-dir=/private/tmp/ht120-tinder-chrome-check --virtual-time-budget=10000 --dump-dom <http://localhost:3101/en/tinder> | rg -n
+  │ "HT-120min Tinder|TEST ENVIRONMENT|Hook Up Now|Synchronising|No teams|The Boys|Matchmaker|Post an Ad"
+  └ (no output)
+
+• Ran /Applications/Google\ Chrome.app/Contents/MacOS/Google\ Chrome --headless --disable-gpu --no-sandbox
+  │ --user-data-dir=/private/tmp/ht120-tinder-chrome-check-2 --virtual-time-budget=10000 --dump-dom <http://localhost:3101/en/tinder>
+  └ (no output)
+
+• Ran /Applications/Google\ Chrome.app/Contents/MacOS/Google\ Chrome --headless --disable-gpu --no-sandbox
+  │ --user-data-dir=/private/tmp/ht120-tinder-chrome-check-3 --virtual-time-budget=10000 --dump-dom <http://localhost:3101/en/tinder>
+  └ (no output)
+
+• Ran curl -sS -o /private/tmp/ht120-tinder-route.html -w 'tinder %{http_code} %{size_download}\n' <http://localhost:3101/en/tinder>; curl -sS -o
+  │ /private/tmp/ht120-matchmaker-route.html -w 'alias %{http_code} %{size_download}\n' -D /private/tmp/ht120-matchmaker-headers.txt
+  │ <http://localhost:3101/en/matchmaker>; sed -n '1,12p' /private/tmp/ht120-matchmaker-headers.txt; rg -o "HT-120min|Tinder|redirect"
+  │ … +1 lines
+  └ curl: (7) Failed to connect to localhost port 3101 after 0 ms: Couldn't connect to server
+    tinder 000 0
+    … +2 lines (ctrl + t to view transcript)
+    rg: /private/tmp/ht120-tinder-route.html: IO error for operation on /private/tmp/ht120-tinder-route.html: No such file or directory (os error
+    2)
+
+• Running PORT=3101 npm run start
+  └
+    > ht-120min@0.3.46 start
+    … +4 lines (ctrl + t to view transcript)
+    - Network:       <http://192.168.0.100:3101>
+    ✓ Ready in 226ms
+
+• Ran /usr/bin/curl -sS -o /private/tmp/ht120-tinder-route.html -w 'tinder %{http_code} %{size_download}\n' <http://localhost:3101/en/tinder>;
+  │ /usr/bin/curl -sS -o /private/tmp/ht120-matchmaker-route.html -w 'alias %{http_code} %{size_download}\n' -D
+  │ /private/tmp/ht120-matchmaker-headers.txt <http://localhost:3101/en/matchmaker>; /usr/bin/sed -n '1,12p'
+  │ … +1 lines
+  └ tinder 200 17849
+    alias 307 9789
+    … +9 lines (ctrl + t to view transcript)
+
+    zsh:1: no such file or directory: /usr/bin/rg
+
+• Context compacted
+
+───────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+
+• I’m continuing the audit from the current implementation. I’ll finish the review-agent checks, verify the route alias/runtime smoke result, then
+  run the final validation suite and report any remaining gaps without touching CHPP logic.
+
+• Waiting for 2 agents
+  └ 01a056eb-23c9-76c0-8433-f2fcbcd01f74
+    01a056eb-2884-79c0-b880-0a3095bac2d8
+
+• Finished waiting
+  └ No agents completed yet
+
+• Ran /usr/bin/curl -sS -o /dev/null -w 'tinder %{http_code} %{size_download}\n' <http://localhost:3101/en/tinder>; /usr/bin/curl -sS -o /dev/null -w
+  │ 'alias %{http_code} %{size_download}\n' -D /private/tmp/ht120-matchmaker-headers.txt <http://localhost:3101/en/matchmaker>; /usr/bin/sed -n
+  │ '1,8p' /private/tmp/ht120-matchmaker-headers.txt; /usr/bin/curl -sS <http://localhost:3101/en/tinder> | /usr/bin/rg -o
+  │ … +1 lines
+  └ tinder 200 17849
+    alias 307 9789
+    … +8 lines (ctrl + t to view transcript)
+    zsh:1: no such file or directory: /usr/bin/rg
+    curl: (23) Failure writing output to destination, passed 5219 returned 0
+
+↳ Interacted with background terminal
+  └
+
+• Ran PORT=3101 npm run start
+  └
+    > ht-120min@0.3.46 start
+    … +5 lines (ctrl + t to view transcript)
+    ✓ Ready in 226ms
+    ^C
+
+• Ran 3 commands · ctrl + t to view transcript
+
+• Waiting for 2 agents
+  └ 01a056eb-23c9-76c0-8433-f2fcbcd01f74
+    01a056eb-2884-79c0-b880-0a3095bac2d8
+
+• Finished waiting
+  └ No agents completed yet
+
+• Ran 3 commands · ctrl + t to view transcript
+• Ran rg -n "showSuccessOverlay|setShowSuccessOverlay|showSuccess" src/legacy-pages/Public/Matchmaker.tsx src/legacy-pages/Public/
+  │ Matchmaker.module.sass
+  └ (no output)
+
+• Waiting for 2 agents
+  └ 01a056eb-23c9-76c0-8433-f2fcbcd01f74
+    01a056eb-2884-79c0-b880-0a3095bac2d8
+
+• Finished waiting
+  └ 01a056eb-23c9-76c0-8433-f2fcbcd01f74: Completed - ## Code Review Summary **Files Reviewed:** 11 **Total Issues:** 1 **Architectural Status:**
+  BLOCK ### By Severity - CRITICAL: 0 - HIGH: 0 - MEDIUM: 1 - LOW: 0 ### Issues [MEDIUM] The live edit flow can update or create the wrong ad.
+  [Mat...
+
+• Waiting for 01a056eb-2884-79c0-b880-0a3095bac2d8
+
+• Finished waiting
+  └ 01a056eb-2884-79c0-b880-0a3095bac2d8: Completed - ## Summary `BLOCK` for a merge-ready live Tinder finalisation. The new parent/deck split is
+  mostly sound, but the directly invoked CHPP mutation boundary accepts a caller-controlled manager ID; it can select another manager’s stored
+  cred...
+
+• Ran 4 commands · ctrl + t to view transcript
+
+───────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+
+• The review found one real flow defect in the current implementation: live ad editing hydrates an ad ID but the existing publish endpoint updates
+  by team, so changing the team in the edit form can target the wrong ad. I’m applying the low-risk in-scope fix by locking the team during edits,
+  and I’m also preserving query parameters through the legacy route redirect and keeping “Start Again” on the current deck category.
+
+• Edited 2 files (+30 -5)
+  └ src/app/(public)/[locale]/matchmaker/page.tsx (+20 -2)
+     2
+     3 -export default async function MatchmakerAlias({ params }: { params: Promise<{ locale: string }> }) {
+     3 +export default async function MatchmakerAlias({
+     4 +  params,
+     5 +  searchParams,
+     6 +}: {
+     7 +  params: Promise<{ locale: string }>;
+     8 +  searchParams: Promise<Record<string, string | string[] | undefined>>;
+     9 +}) {
+    10    const { locale } = await params;
+     5 -  redirect(`/${locale}/tinder`);
+    11 +  const query = await searchParams;
+
+  └ src/legacy-pages/Public/Matchmaker.tsx (+10 -3)
+  … Diff preview limited (ctrl + t to view transcript).
+
+• Ran 5 commands · ctrl + t to view transcript
+
+───────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+
+• The focused checks are clean after those fixes. The route smoke check also confirms /en/tinder returns 200 and /en/matchmaker returns a 307
+  redirect to /en/tinder; the legacy alias remains intact. I’m moving through the full repository validation now.
+
+• Ran npm test
+  └
+    > ht-120min@0.3.46 test
+    … +183 lines (ctrl + t to view transcript)
+    ℹ todo 0
+    ℹ duration_ms 8057.991772
+
+• Waited for background terminal · npm run lint
+
+• Ran npm run lint
+  └
+    > ht-120min@0.3.46 lint
+    > eslint .
+
+• Waited for background terminal · npm run build
+
+• Ran npm run build
+  └
+    > ht-120min@0.3.46 build
+    … +39 lines (ctrl + t to view transcript)
+    ƒ  (Dynamic)  server-rendered on demand
+
+───────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+
+• Full tests (175 passing), lint, and the normal production build are green. The build still exposes the expected single consolidated API route and
+  both public Tinder/legacy alias routes. I’m doing the final static checks and a last diff review now.
+
+• Ran 4 commands · ctrl + t to view transcript
+
+• Closed 01a056eb-23c9-76c0-8433-f2fcbcd01f74
+
+• Closed 01a056eb-2884-79c0-b880-0a3095bac2d8
+
+───────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+
+• The final review also identified a pre-existing server-side identity issue in the live CHPP publish/challenge/interest handlers: they trust a
+  client-supplied manager ID. I’m leaving that untouched because you explicitly asked to audit the existing CHPP logic rather than modify it in
+  this pass; I’ll call it out as a separate follow-up risk. The Tinder UI work itself is now validated locally.
+
+• Explored
+  └ Read SKILL.md (ai-slop-cleaner skill)
+
+───────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+
+• I’m doing the required bounded cleanup pass on the Tinder files only. The behavior lock is already in place (175 tests passing); I’m checking for
+  dead/debug code, duplicate branches, and fallback-like paths without expanding into the pre-existing server/CHPP security work.
+
+• Ran 4 commands · ctrl + t to view transcript
+
+───────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+
+• Continued and completed the Tinder finalisation pass.
+
+  Changes:
+
+- /tinder is now canonical; /matchmaker redirects while preserving query parameters.
+- Added a dedicated mobile browse deck while retaining the desktop card structure.
+- Swipe left/pass advances and exhausts the deck; swipe right opens Challenge or Interest.
+- Restored visible button fallbacks and normal mobile primary category buttons.
+- Fixed end-of-deck handling.
+- Centralised Challenge vs Interest rules.
+- Hydrated all edit-form fields and prevented changing teams while editing live ads.
+- Mock ad editing preserves IDs and updates correctly.
+- Mock Tinder routes suppress presence/activity telemetry.
+- No CHPP calls, API logic, schema changes, or version bump. Version remains 0.3.46.
+
+  Audit findings:
+
+- HFI/female creation remains wired through selected-team gender_id; the HFI tab uses the existing female/league filtering.
+- Existing CHPP publish/challenge/interest handlers still trust client-supplied manager IDs. This is a pre-existing security issue and was
+    intentionally left untouched per your instruction.
+
+  Validation passed:
+
+- npm test — 175 tests
+- npm run lint
+- npm run build
+- npm run check:server-imports
+- API handlers — 12
+- git diff --check
+- Mock-data production build also passed.
+
+  A fresh browser visual check was not possible because headless Chrome crashed locally; manual testing should cover mobile welcome → category →
+  swipe/buttons → challenge/interest → back, plus desktop card appearance and /matchmaker redirection.
+
+  Only stage these Tinder changes:
+
+  git add 'src/app/(public)/[locale]/matchmaker/page.tsx' 'src/app/(public)/[locale]/tinder/page.tsx' src/components/Layout/Layout.tsx src/hooks/
+  useActivityTracking.ts src/hooks/usePresenceHeartbeat.ts src/legacy-pages/Public/Matchmaker.module.sass src/legacy-pages/Public/Matchmaker.tsx
+  src/legacy-pages/Public/MatchmakerBrowseDeck.module.sass src/legacy-pages/Public/MatchmakerBrowseDeck.tsx src/utils/matchmaker.ts tests/
+  matchmaker.test.ts
+
+  I did not commit, and unrelated worktree changes remain unstaged.
+
+─ Worked for 39m 00s ──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+
+›
+  • The final review also identified a pre-existing server-side identity issue in the live CHPP publish/challenge/interest handlers: they trust a
+    client-supplied manager ID. I’m leaving that untouched because you explicitly asked to audit the existing CHPP logic rather than modify it in
+    this pass; I’ll call it out as a separate follow-up risk. The Tinder UI work itself is now validated locally.
+
+  • Explored
+    └ Read SKILL.md (ai-slop-cleaner skill)
+
+  gpt-5.6-luna xhigh · Context 24% left · ~/github/ht-120min · weekly 77% left · 5h 50% left · 13.1M used · Main [default]

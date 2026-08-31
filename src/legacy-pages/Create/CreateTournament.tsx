@@ -10,7 +10,7 @@ import { nanoid } from 'nanoid';
 import { Button } from '../../components/Button/Button';
 import { HeroCard } from '../../components/Card/HeroCard';
 import { Modal } from '../../components/Modal/Modal';
-import { SidebarWidget } from '../../components/SidebarWidget/SidebarWidget';
+import { ReusableWidget } from '../../components/ReusableWidget/ReusableWidget';
 import { CompactAccordionWidget } from '../../components/CompactAccordionWidget/CompactAccordionWidget';
 import {
   X,
@@ -78,7 +78,7 @@ const CreationTipsWidget = () => (
 
 const SidebarContent = ({ openTournaments, locale }: { openTournaments: OpenTournamentSummary[]; locale: string }) => (
   <aside className={styles.sidebar}>
-    <SidebarWidget title="Open Tournaments" icon={<FolderOpen size={20} weight="bold" />}>
+    <ReusableWidget title="Open Tournaments" icon={<FolderOpen size={20} weight="bold" />}>
       <ul className={styles.widgetList}>
         {openTournaments.map((tournament) => (
           <li key={tournament.id} className={styles.widgetItem}>
@@ -94,7 +94,7 @@ const SidebarContent = ({ openTournaments, locale }: { openTournaments: OpenTour
           </li>
         ))}
       </ul>
-    </SidebarWidget>
+    </ReusableWidget>
 
     <CreationTipsWidget />
   </aside>

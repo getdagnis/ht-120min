@@ -79,6 +79,7 @@ export const Layout: React.FC<LayoutProps> = ({ children }) => {
   const router = useRouter();
   const pathname = usePathname() || '/';
   const isTinderPage = pathname.endsWith('/matchmaker') || pathname.endsWith('/tinder');
+  const isMockMatchmakerRoute = isTinderPage && process.env.NEXT_PUBLIC_MATCHMAKER_MOCK_DATA === 'true';
   const searchParams = useSearchParams();
   const { locale } = useLocale();
   const currentUrl = `${pathname}${searchParams.toString() ? `?${searchParams.toString()}` : ''}`;
@@ -93,8 +94,8 @@ export const Layout: React.FC<LayoutProps> = ({ children }) => {
     refreshProfile,
     authReady,
   } = useAuth();
-  usePresenceHeartbeat(!!managerName, currentUrl);
-  useActivityTracking(currentUrl);
+  usePresenceHeartbeat(!!managerName, currentUrl, !isMockMatchmakerRoute);
+  useActivityTracking(currentUrl, !isMockMatchmakerRoute);
   const visibleOrganizerTournaments = useMemo(() => {
     const activeTournamentIds = new Set(activeTournaments.map((tournament) => tournament.id));
     return organizerTournaments.filter((tournament) => !activeTournamentIds.has(tournament.id));
@@ -315,7 +316,7 @@ export const Layout: React.FC<LayoutProps> = ({ children }) => {
                         <button
                           className={styles.dropdownItem}
                           onClick={() => {
-                            router.push(toLocalePath(locale, '/matchmaker'));
+                            router.push(toLocalePath(locale, '/tinder'));
                             setIsUserDropdownOpen(false);
                           }}
                         >

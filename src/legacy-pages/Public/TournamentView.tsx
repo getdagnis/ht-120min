@@ -69,7 +69,7 @@ import {
   type TournamentRoleRecord,
 } from '../../components/TournamentTabs/Admin/TournamentRolesPanel';
 import { CompactAccordionWidget } from '../../components/CompactAccordionWidget/CompactAccordionWidget';
-import { SidebarWidget } from '../../components/SidebarWidget/SidebarWidget';
+import { ReusableWidget } from '../../components/ReusableWidget/ReusableWidget';
 import { MottoWidget } from '../../components/MottoWidget/MottoWidget';
 import { StandingsView } from '../../components/TournamentTabs/StandingsView';
 import { TournamentHistory, type TournamentSeasonComment } from '../../components/TournamentHistory/TournamentHistory';
@@ -4626,8 +4626,8 @@ export const TournamentView: React.FC<{ initialData?: TournamentInitialData }> =
           <div className={styles.helpContent}>
             <p>
               {isGenerated
-                ? 'This tournament is ongoing but has available spots for new teams!'
-                : 'This tournament is currently open and accepting new participants!'}
+                ? 'This cup is ongoing but has available spots for new teams! Join! ⚽️👍'
+                : "New team registration for this cup is now open! Join and let's have a great season! ⚽️🏆"}
             </p>
             {!isJoining && (
               <Button
@@ -6203,7 +6203,7 @@ export const TournamentView: React.FC<{ initialData?: TournamentInitialData }> =
                   )}
                 </section>
                 <aside className={adminStyles.adminSidebar}>
-                  <SidebarWidget title="Admin" icon={<Info size={20} weight="bold" />}>
+                  <ReusableWidget title="Admin" icon={<Info size={20} weight="bold" />}>
                     <div className={adminStyles.accessCard}>
                       <span className={adminStyles.accessLabel}>Accessing as:</span>
                       <strong>
@@ -6244,7 +6244,7 @@ export const TournamentView: React.FC<{ initialData?: TournamentInitialData }> =
                         </button>
                       </div>
                     </div>
-                  </SidebarWidget>
+                  </ReusableWidget>
                   <CompactAccordionWidget
                     title="Tournament Settings FAQ"
                     icon={<Question size={20} weight="bold" />}

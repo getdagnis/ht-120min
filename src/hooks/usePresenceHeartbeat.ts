@@ -19,11 +19,11 @@ async function ping() {
   }
 }
 
-export function usePresenceHeartbeat(loggedIn: boolean, activitySignal: string) {
+export function usePresenceHeartbeat(loggedIn: boolean, activitySignal: string, enabled = true) {
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   useEffect(() => {
-    if (!loggedIn) return;
+    if (!enabled || !loggedIn) return;
 
     const start = () => {
       if (intervalRef.current) return;
@@ -52,5 +52,5 @@ export function usePresenceHeartbeat(loggedIn: boolean, activitySignal: string) 
       stop();
       document.removeEventListener('visibilitychange', onVisibility);
     };
-  }, [loggedIn, activitySignal]);
+  }, [activitySignal, enabled, loggedIn]);
 }

@@ -11,7 +11,7 @@ import { TournamentCard } from '../../components/Card/TournamentCard';
 import { SectionCard } from '../../components/Card/SectionCard';
 import { FaqRenderer } from '../../components/Faq/FaqRenderer';
 import { MottoWidget } from '../../components/MottoWidget/MottoWidget';
-import { SidebarWidget } from '../../components/SidebarWidget/SidebarWidget';
+import { ReusableWidget } from '../../components/ReusableWidget/ReusableWidget';
 import { TinderWidget } from '../../components/TinderWidget/TinderWidget';
 import { SupportersWall } from '../../components/SupportersWall/SupportersWall';
 import { WelcomeModal } from '../../components/WelcomeModal/WelcomeModal';
@@ -123,17 +123,17 @@ function reviveInitialTournament(tournament: HomeInitialData['featuredTournament
 }
 
 const ForumWidget = () => (
-  <SidebarWidget
-    title="Join HT-120min forum on HT!"
+  <ReusableWidget
+    title="Official ht-120min CHPP forum"
     icon={<ChatText size={20} weight="bold" />}
     footer={
-      <a href={FORUM_LINK} target="_blank" rel="noreferrer">
-        Join HT-120min forum <ArrowRight size={12} weight="bold" />
-      </a>
+      <Button to="">
+        CHPP HT-120min forum <ArrowRight size={12} weight="bold" />
+      </Button>
     }
   >
-    <p>Found a bug, have an idea for a new feature or just want to say something?</p>
-  </SidebarWidget>
+    <p>Have a question, an idea, found a bug or just to say hi? Come and do so on our official ht-120min forum!</p>
+  </ReusableWidget>
 );
 
 export const Home: React.FC<{ initialData?: HomeInitialData }> = ({ initialData }) => {

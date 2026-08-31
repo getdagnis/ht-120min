@@ -1,5 +1,5 @@
 import React from 'react';
-import styles from './SidebarWidget.module.sass';
+import styles from './ReusableWidget.module.sass';
 
 interface SidebarWidgetProps {
   title: React.ReactNode;
@@ -9,7 +9,7 @@ interface SidebarWidgetProps {
   className?: string;
 }
 
-export const SidebarWidget: React.FC<SidebarWidgetProps> = ({ title, icon, children, footer, className = '' }) => {
+export const ReusableWidget: React.FC<SidebarWidgetProps> = ({ title, icon, children, footer, className = '' }) => {
   return (
     <section className={`${styles.widget} ${className}`}>
       <h3 className={styles.header}>

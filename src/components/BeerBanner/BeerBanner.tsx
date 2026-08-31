@@ -15,6 +15,7 @@ const getalus_imgUrls: string[] = [
   '/getalus/getalus-cc-5.png',
   '/getalus/getalus-cc-6.png',
   '/getalus/getalus-cc-7.png',
+  '/getalus/getalus-cc-8.png',
 ];
 const getalus_labels: string[] = ["Tip Dev a beer!"];
 

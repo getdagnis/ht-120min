@@ -46,8 +46,10 @@ function readableFieldLabel(element: Element) {
   return label?.slice(0, 80) || element.id || element.tagName.toLowerCase();
 }
 
-export function useActivityTracking(route: string) {
+export function useActivityTracking(route: string, enabled = true) {
   useEffect(() => {
+    if (!enabled) return;
+
     const startedAt = Date.now();
     const scrollMilestones = new Set<number>();
     let maxScrollPercent = 0;
@@ -124,5 +126,5 @@ export function useActivityTracking(route: string) {
       document.removeEventListener('visibilitychange', handleVisibilityChange);
       window.removeEventListener('pagehide', handlePageHide);
     };
-  }, [route]);
+  }, [enabled, route]);
 }

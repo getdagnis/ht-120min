@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { CaretDown, CaretUp } from 'phosphor-react';
-import { SidebarWidget } from '../SidebarWidget/SidebarWidget';
+import { ReusableWidget } from '../ReusableWidget/ReusableWidget';
 import styles from './CompactAccordionWidget.module.sass';
 
 export interface CompactAccordionItem {
@@ -34,7 +34,7 @@ export const CompactAccordionWidget: React.FC<CompactAccordionWidgetProps> = ({
   };
 
   return (
-    <SidebarWidget title={title} icon={icon} className={`${styles.widget} ${className}`}>
+    <ReusableWidget title={title} icon={icon} className={`${styles.widget} ${className}`}>
       {items.map((item) => {
         const expanded = expandedItems.has(item.id);
 
@@ -53,6 +53,6 @@ export const CompactAccordionWidget: React.FC<CompactAccordionWidgetProps> = ({
           </div>
         );
       })}
-    </SidebarWidget>
+    </ReusableWidget>
   );
 };

@@ -102,7 +102,7 @@
       border: 1px solid black
       cursor: pointer
 
-.danger, .grey, .gray
+.danger, .grey
   background-color: transparent
   color: crimson
   border: 1px solid crimson
@@ -110,9 +110,11 @@
     background-color: crimson
     color: white
 
-.grey, .gray
-  color: grey
-  border: 1px solid grey
+.grey
+  color: var(--text60)
+  border: 1px solid var(--text60)
+  &:hover:not(:disabled)
+    background-color: var(--text60)
 
 .tinder
   background: var(--tinder-dark)
