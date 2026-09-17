@@ -1,6 +1,8 @@
--- Manual Supabase SQL Editor smoke test for schedule migrations 047 -> 051.
+-- Manual Supabase SQL Editor smoke test for schedule and season migrations.
 -- Do not run this from the agent. Paste into Supabase SQL Editor after applying
--- the schedule migrations in a disposable/local database. The final ROLLBACK
+-- migrations 047, 048, 051, 057, and
+-- 20260917142135_scope_schedule_generation_to_current_season in a
+-- disposable/local database. The final ROLLBACK
 -- should leave no test data behind.
 --
 -- Note: this still exercises the legacy `week15_weekend_friendly` slot type.
@@ -183,6 +185,36 @@ BEGIN
     WHERE r.tournament_id = v_tournament_id
   ) <> 6 THEN
     RAISE EXCEPTION 'unexpected match count';
+  END IF;
+
+  -- Season 1 rounds remain for history, but must not block Season 2 generation.
+  UPDATE tournaments
+  SET season = 2,
+      status = 'waiting',
+      schedule_locked_at = NULL,
+      registration_closed_at = NULL,
+      schedule_generated_at = NULL
+  WHERE id = v_tournament_id;
+
+  v_result := public.generate_tournament_schedule(v_tournament_id, 'correct-password', v_payload, 'single', v_w15_midweek, true);
+  RAISE NOTICE 'season 2 result: %', v_result;
+
+  IF (
+    SELECT count(*)
+    FROM rounds
+    WHERE tournament_id = v_tournament_id
+      AND season_number = 1
+  ) <> 3 THEN
+    RAISE EXCEPTION 'season 1 rounds were not retained';
+  END IF;
+
+  IF (
+    SELECT count(*)
+    FROM rounds
+    WHERE tournament_id = v_tournament_id
+      AND season_number = 2
+  ) <> 3 THEN
+    RAISE EXCEPTION 'season 2 rounds were not generated';
   END IF;
 END $$;
 
