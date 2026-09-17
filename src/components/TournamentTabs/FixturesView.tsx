@@ -37,6 +37,8 @@ export interface FixtureMatch {
   match_type: number | null;
   match_date?: Date;
   scheduled_for?: string | null;
+  schedule_slot_type?: string | null;
+  fixture_source?: string | null;
   appg_outcome?: AppgOutcome | null;
   home_team: {
     name: string;
@@ -56,6 +58,13 @@ export interface FixtureMatch {
     manager_name?: string;
     hattrick_user_id?: number;
   } | null;
+}
+
+function getFixtureDisplayTimeZone(
+  match: Pick<FixtureMatch, 'ht_match_id' | 'schedule_slot_type' | 'fixture_source'>,
+) {
+  const isGeneratedFixture = match.fixture_source === 'generated' || Boolean(match.schedule_slot_type);
+  return match.ht_match_id && !isGeneratedFixture ? 'Europe/Stockholm' : undefined;
 }
 
 interface FixturesViewProps {
@@ -347,7 +356,7 @@ export const FixturesView: React.FC<FixturesViewProps> = ({
         const nextRound = filteredRounds[filteredRounds.findIndex((r) => r.id === round.id) + 1];
 
         const roundDate = round.matches[0] ? resolveMatchDate(round, round.matches[0]) : null;
-        const roundTimeZone = round.matches[0]?.ht_match_id ? 'Europe/Stockholm' : 'Europe/Riga';
+        const roundTimeZone = round.matches[0] ? getFixtureDisplayTimeZone(round.matches[0]) : undefined;
         const roundWeek = roundDate ? getHattrickWeekDetails(roundDate) : null;
         const roundPeriod = roundDate ? getImportedFixtureRoundPeriod(roundDate) : null;
 
@@ -362,7 +371,7 @@ export const FixturesView: React.FC<FixturesViewProps> = ({
             ? `${matchDate.toLocaleDateString('lv-LV', {
                 day: '2-digit',
                 month: '2-digit',
-                timeZone: m.ht_match_id ? 'Europe/Stockholm' : 'Europe/Riga',
+                timeZone: getFixtureDisplayTimeZone(m),
               })}`
             : m.completed
               ? `${m.home_goals} : ${m.away_goals}${hasPenaltyShootout ? ` (${m.penalty_shootout_home_goals}:${m.penalty_shootout_away_goals})` : ''}${m.went_120 ? " 🎯 120'!" : ''}`
@@ -371,7 +380,7 @@ export const FixturesView: React.FC<FixturesViewProps> = ({
                 : `${matchDate.toLocaleDateString('lv-LV', {
                     day: '2-digit',
                     month: '2-digit',
-                    timeZone: m.ht_match_id ? 'Europe/Stockholm' : 'Europe/Riga',
+                    timeZone: getFixtureDisplayTimeZone(m),
                   })}.`;
 
           return `[tr][td]${m.home_team?.name}[/td][td][b]${value}[/b][/td][td]${m.away_team?.name}[/td][/tr]`;
@@ -488,19 +497,19 @@ export const FixturesView: React.FC<FixturesViewProps> = ({
                     const day = matchDate
                       .toLocaleString('en-GB', {
                         weekday: 'short',
-                        timeZone: match.ht_match_id ? 'Europe/Stockholm' : 'Europe/Riga',
+                          timeZone: getFixtureDisplayTimeZone(match),
                       })
                       .toUpperCase();
                     const datePart = matchDate.toLocaleDateString('lv-LV', {
                       day: '2-digit',
                       month: '2-digit',
-                      timeZone: match.ht_match_id ? 'Europe/Stockholm' : 'Europe/Riga',
+                      timeZone: getFixtureDisplayTimeZone(match),
                     });
                     const timePart = matchDate.toLocaleTimeString('en-GB', {
                       hour: '2-digit',
                       minute: '2-digit',
                       hour12: false,
-                      timeZone: match.ht_match_id ? 'Europe/Stockholm' : 'Europe/Riga',
+                      timeZone: getFixtureDisplayTimeZone(match),
                     });
                     const formattedDate = `${day} / ${datePart} / ${timePart}`;
 

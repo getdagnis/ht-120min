@@ -21,6 +21,19 @@ test('linked fixture scheduled_for is interpreted as Stockholm wall-clock time',
   assert.equal(scheduled.toISOString(), '2026-04-28T19:00:00.000Z');
 });
 
+test('generated fixture keeps its UTC scheduled_for after being linked', () => {
+  const scheduled = getMatchDateForRound(
+    { created_at: '2026-01-01T00:00:00Z', round_number: 1 },
+    {
+      scheduled_for: '2026-09-23T02:15:00.000Z',
+      ht_match_id: 771594636,
+      schedule_slot_type: 'midweek_friendly',
+    },
+    'Guam',
+  );
+  assert.equal(scheduled.toISOString(), '2026-09-23T02:15:00.000Z');
+});
+
 test('falls back to calculated date when scheduled_for is missing', () => {
   const round = {
     created_at: '2026-01-01T00:00:00Z',

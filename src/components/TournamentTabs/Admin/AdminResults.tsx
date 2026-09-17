@@ -39,6 +39,8 @@ interface MatchWithTeams {
   status?: 'not_arranged' | 'arranged' | 'ongoing' | 'misarranged' | 'finished';
   ht_match_id?: number | null;
   scheduled_for?: string | null;
+  schedule_slot_type?: string | null;
+  fixture_source?: string | null;
   appg_outcome?: AppgOutcome | null;
   penalty_shootout_home_goals?: number | null;
   penalty_shootout_away_goals?: number | null;
@@ -184,8 +186,9 @@ function formatRoundMeta(round: AdminResultsProps['rounds'][number]) {
   if (!roundDate) return null;
 
   const week = getHattrickWeekDetails(roundDate);
+  const isGeneratedFixture = match?.fixture_source === 'generated' || Boolean(match?.schedule_slot_type);
   const dateLabel = roundDate.toLocaleDateString('lv-LV', {
-    timeZone: match?.ht_match_id ? 'Europe/Stockholm' : 'Europe/Riga',
+    timeZone: match?.ht_match_id && !isGeneratedFixture ? 'Europe/Stockholm' : undefined,
     day: '2-digit',
     month: '2-digit',
     year: 'numeric',
