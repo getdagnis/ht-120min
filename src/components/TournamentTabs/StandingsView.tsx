@@ -6,7 +6,10 @@ import { ArrowRight, Check, CopySimple, Recycle, ShieldCheck } from 'phosphor-re
 import { Tooltip } from 'react-tooltip';
 import { TeamByline } from '../TeamByline/TeamByline';
 import { SeasonYearbook, type TournamentSeasonComment } from '../TournamentHistory/TournamentHistory';
+import { NewsArticle, type NewsPost, type NewsReaction } from './NewsTab';
+import { supabase } from '../../lib/supabase';
 import historyStyles from '../TournamentHistory/TournamentHistory.module.sass';
+import newsStyles from './NewsTab.module.sass';
 
 import { getAppgStandingsQuota, meetsAppgStandingsQuota, type TeamStanding } from '../../utils/standings';
 import { isAppg120ScoringMode } from '../../../shared/scoring-profile';
@@ -33,6 +36,8 @@ interface StandingsViewProps {
   isConnecting?: boolean;
   onJoinWithHattrick?: () => void;
   onVisitHistory?: () => void;
+  onVisitNews?: () => void;
+  reactionAuthorNames?: Record<string, string>;
   canAddSeasonComment?: boolean;
   onCommentsLoaded?: (seasonId: string, commentCount: number) => void;
   onCommentSubmitted?: (seasonId: string, comment: TournamentSeasonComment) => void;
@@ -96,6 +101,8 @@ export const StandingsView: React.FC<StandingsViewProps> = ({
   isConnecting = false,
   onJoinWithHattrick,
   onVisitHistory,
+  onVisitNews,
+  reactionAuthorNames = {},
   canAddSeasonComment = false,
   onCommentsLoaded,
   onCommentSubmitted,
@@ -117,6 +124,8 @@ export const StandingsView: React.FC<StandingsViewProps> = ({
   const [sortKey, setSortKey] = useState<StandingsSortKey>('default');
   const [sortDirection, setSortDirection] = useState<SortDirection>('desc');
   const [seasonComments, setSeasonComments] = useState<TournamentSeasonComment[]>([]);
+  const [latestNewsPost, setLatestNewsPost] = useState<NewsPost | null>(null);
+  const [latestNewsReactions, setLatestNewsReactions] = useState<NewsReaction[]>([]);
   const [commentDrafts, setCommentDrafts] = useState<Record<string, string>>({});
   const [pendingCommentStanding, setPendingCommentStanding] = useState<TeamStanding | null>(null);
   const [submittingTeamId, setSubmittingTeamId] = useState<string | null>(null);
@@ -213,6 +222,82 @@ export const StandingsView: React.FC<StandingsViewProps> = ({
     }, 0);
     return () => window.clearTimeout(resetTimer);
   }, [is120minMode, isAppgSupported]);
+
+  useEffect(() => {
+    if (!tournament?.id || !seasonNumber) return;
+
+    const fetchLatestNews = async () => {
+      const { data } = await supabase
+        .from('news_posts')
+        .select('*')
+        .eq('tournament_id', tournament.id)
+        .eq('season_number', seasonNumber)
+        .order('created_at', { ascending: false })
+        .limit(1)
+        .maybeSingle();
+      setLatestNewsPost((data as NewsPost | null) || null);
+      if (data) {
+        const { data: reactionRows } = await supabase
+          .from('news_reactions')
+          .select('post_id, user_id, reaction')
+          .eq('post_id', data.id);
+        setLatestNewsReactions((reactionRows as NewsReaction[] | null) || []);
+      } else {
+        setLatestNewsReactions([]);
+      }
+    };
+    void fetchLatestNews();
+
+    const channel = supabase
+      .channel(`standings-news:${tournament.id}`)
+      .on(
+        'postgres_changes',
+        {
+          event: 'INSERT',
+          schema: 'public',
+          table: 'news_posts',
+          filter: `tournament_id=eq.${tournament.id}`,
+        },
+        (payload) => {
+          const post = payload.new as NewsPost & { season_number?: number | null };
+          if (post.season_number === seasonNumber) {
+            setLatestNewsPost(post);
+            setLatestNewsReactions([]);
+          }
+        },
+      )
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'news_reactions' },
+        (payload) => {
+          const reaction = payload.new as NewsReaction;
+          if (reaction.post_id === latestNewsPost?.id) {
+            setLatestNewsReactions((current) => [
+              ...current.filter((item) => item.user_id !== reaction.user_id),
+              reaction,
+            ]);
+          }
+        },
+      )
+      .subscribe();
+
+    return () => {
+      void supabase.removeChannel(channel);
+    };
+  }, [latestNewsPost?.id, seasonNumber, tournament?.id]);
+
+  const handleNewsReaction = async (postId: string, reaction: string) => {
+    if (!myHtUserId) return;
+    const { error } = await supabase.from('news_reactions').upsert(
+      { post_id: postId, user_id: myHtUserId, reaction },
+      { onConflict: 'post_id,user_id' },
+    );
+    if (error) return;
+    setLatestNewsReactions((current) => [
+      ...current.filter((item) => item.user_id !== myHtUserId),
+      { post_id: postId, user_id: myHtUserId, reaction },
+    ]);
+  };
 
   const toggleScoringDisplay = () => {
     const currentIndex = enabledScoringModes.indexOf(scoringMode);
@@ -744,15 +829,23 @@ export const StandingsView: React.FC<StandingsViewProps> = ({
         </Modal>
       )}
       <SectionCard title="News Feed">
-        <ul className={styles.newsFeed}>
-          <li className={styles.feedItem}>
-            <div className={styles.feedIcon}></div>
-            <div className={styles.feedContent}>
-              <p>Team and tournament announcements almost here!</p>
-              <span>2 hours from now</span>
-            </div>
-          </li>
-        </ul>
+        {latestNewsPost ? (
+          <NewsArticle
+            post={latestNewsPost}
+            authorTeam={null}
+            reactions={latestNewsReactions}
+            currentUserId={myHtUserId}
+            reactionAuthorNames={reactionAuthorNames}
+            onReaction={handleNewsReaction}
+          />
+        ) : (
+          <p className={newsStyles.noPosts}>No news yet.</p>
+        )}
+        {onVisitNews && (
+          <button type="button" className={newsStyles.allArticlesLink} onClick={onVisitNews}>
+            All articles
+          </button>
+        )}
       </SectionCard>
       {seasonId && seasonStatus !== 'finished' && (
         <SeasonYearbook

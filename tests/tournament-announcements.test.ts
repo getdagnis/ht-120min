@@ -17,7 +17,7 @@ function announcement(overrides: Partial<TournamentAnnouncement> = {}): Tourname
     source: overrides.source ?? 'admin',
     audience_ht_user_ids: overrides.audience_ht_user_ids ?? [1001],
     is_active: overrides.is_active ?? true,
-    created_by_name: overrides.created_by_name ?? 'Tournament Administration',
+    created_by_name: overrides.created_by_name ?? 'Cup Press Release',
     created_by_ht_user_id: overrides.created_by_ht_user_id ?? null,
     created_at: overrides.created_at ?? '2026-07-01T10:00:00.000Z',
     hidden_at: overrides.hidden_at ?? null,

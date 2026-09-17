@@ -65,6 +65,7 @@ import { HeroCard } from '../../components/Card/HeroCard';
 import { SectionCard } from '../../components/Card/SectionCard';
 import { ChatView } from '../../components/TournamentTabs/ChatView';
 import { FixturesView } from '../../components/TournamentTabs/FixturesView';
+import { NewsTab } from '../../components/TournamentTabs/NewsTab';
 import { AdminResults, type BulkMatchUpdate } from '../../components/TournamentTabs/Admin/AdminResults';
 import { AdminAnnouncementComposer } from '../../components/TournamentTabs/Admin/AdminAnnouncementComposer';
 import { TournamentSchedulePanel } from '../../components/TournamentTabs/Admin/TournamentSchedulePanel';
@@ -95,7 +96,6 @@ import { ArrowClockwise, ArrowRight, ArrowUpRight, CopySimple, Info, Question, S
 import type { TournamentInitialData } from '../../app/_data/public-data';
 
 const FORUM_LINK = 'https://www.hattrick.org/goto.ashx?path=/Forum/Read.aspx?n=1&nm=32&t=17685273&v=0';
-const DEFAULT_TEAM_LOGO = '/default-logo.png';
 const UNSAVED_SETTINGS_MESSAGE = 'Use save button to apply changes!';
 const getHistoryReportNoticeStorageKey = (seasonId: string) => `ht-120min:history-report-notice-dismissed:${seasonId}`;
 
@@ -573,12 +573,6 @@ export const TournamentView: React.FC<{ initialData?: TournamentInitialData }> =
 
   const [isRefreshingFixtures, setIsRefreshingFixtures] = useState(false);
 
-  // News states
-  const [newsPosts, setNewsPosts] = useState<any[]>([]);
-  const [newNewsTitle, setNewNewsTitle] = useState('');
-  const [newNewsContent, setNewNewsContent] = useState('');
-  const [isPostingNews, setIsPostingNews] = useState(false);
-  const [newsMode, setNewsMode] = useState<'admin' | 'team'>('team');
   const [announcements, setAnnouncements] = useState<TournamentAnnouncement[]>(
     () => (initialData?.announcements as unknown as TournamentAnnouncement[] | undefined) || [],
   );
@@ -2111,69 +2105,6 @@ export const TournamentView: React.FC<{ initialData?: TournamentInitialData }> =
 
   const isNewsTab = activeTab === 'guestbook' || activeTab === 'news';
 
-  useEffect(() => {
-    if (isNewsTab && tournament) {
-      const fetchPosts = async () => {
-        const { data } = await supabase
-          .from('news_posts')
-          .select('*')
-          .eq('tournament_id', tournament.id)
-          .order('created_at', { ascending: false });
-        setNewsPosts(data || []);
-      };
-      fetchPosts();
-
-      const channel = supabase
-        .channel(`news:${tournament.id}`)
-        .on(
-          'postgres_changes',
-          {
-            event: 'INSERT',
-            schema: 'public',
-            table: 'news_posts',
-            filter: `tournament_id=eq.${tournament.id}`,
-          },
-          (payload) => {
-            setNewsPosts((prev) => [payload.new as any, ...prev]);
-          },
-        )
-        .subscribe();
-
-      return () => {
-        supabase.removeChannel(channel);
-      };
-    }
-  }, [activeTab, isNewsTab, tournament]);
-
-  const handlePostMessage = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!newNewsContent.trim() || !tournament) return;
-
-    setIsPostingNews(true);
-    try {
-      // Try to find current team in this tournament
-      const myHtId = localStorage.getItem('my_ht_user_id');
-      const myTeam = myHtId ? teams.find((t) => t.hattrick_user_id === Number(myHtId)) : null;
-
-      const { error } = await supabase.from('news_posts').insert({
-        tournament_id: tournament.id,
-        title: newNewsTitle.trim(),
-        content: newNewsContent.trim(),
-        author_name: newsMode === 'admin' ? 'Tournament Administration' : myTeam?.name || 'Guest',
-        author_team_id: newsMode === 'admin' ? null : myTeam?.id || null,
-        is_admin: newsMode === 'admin',
-      });
-
-      if (error) throw error;
-      setNewNewsContent('');
-      setNewNewsTitle('');
-    } catch (err: any) {
-      alert(err.message);
-    } finally {
-      setIsPostingNews(false);
-    }
-  };
-
   const handleRefreshFixtures = useCallback(async () => {
     if (!tournament || isRefreshingFixtures) return;
     setIsRefreshingFixtures(true);
@@ -2472,16 +2403,6 @@ export const TournamentView: React.FC<{ initialData?: TournamentInitialData }> =
     } catch (err: any) {
       alert(err.message);
     }
-  };
-
-  const handleAddReaction = async (postId: string, reaction: string) => {
-    const userId = localStorage.getItem('my_ht_user_id') || 'guest';
-    const { error } = await supabase.from('news_reactions').insert({
-      post_id: postId,
-      user_id: userId,
-      reaction: reaction,
-    });
-    if (error) alert(error.message);
   };
 
   const handleAdminLogin = (e: React.FormEvent) => {
@@ -3001,7 +2922,7 @@ export const TournamentView: React.FC<{ initialData?: TournamentInitialData }> =
           source,
           audience_ht_user_ids: audienceHtUserIds,
           is_active: true,
-          created_by_name: source === 'system' ? 'Tournament Administration' : currentHtManagerName,
+          created_by_name: source === 'system' ? 'Cup Press Release' : currentHtManagerName,
           created_by_ht_user_id: currentHtUserId,
         })
         .select('*')
@@ -4890,130 +4811,15 @@ export const TournamentView: React.FC<{ initialData?: TournamentInitialData }> =
         </div>
       )}
 
-      {isNewsTab && (
-        <div className={styles.newsLayout}>
-          <div className={styles.guestbook}>
-            <SectionCard title="News & Announcements">
-              <div className={styles.newsTabs}>
-                <button className={newsMode === 'team' ? styles.active : ''} onClick={() => setNewsMode('team')}>
-                  Team News
-                </button>
-                {isAdminAuthenticated && (
-                  <button className={newsMode === 'admin' ? styles.active : ''} onClick={() => setNewsMode('admin')}>
-                    Announcement
-                  </button>
-                )}
-              </div>
-
-              {/* Team Branding for Posting */}
-              {newsMode === 'team' && (
-                <div className={styles.postingTeamBranding}>
-                  {/* Need to find current manager's team assuming we have teams array */}
-                  {(() => {
-                    const myTeam = teams.find((t) => t.hattrick_user_id === Number(myHtUserId));
-                    return myTeam ? (
-                      <div className={styles.branding}>
-                        <img
-                          src={myTeam.logo_url || DEFAULT_TEAM_LOGO}
-                          alt={myTeam.name}
-                          onError={(event) => {
-                            event.currentTarget.onerror = null;
-                            event.currentTarget.src = DEFAULT_TEAM_LOGO;
-                          }}
-                        />
-                        <span>
-                          Posting as: <strong>{myTeam.name}</strong>
-                        </span>
-                      </div>
-                    ) : (
-                      <p>You don't have a team in this tournament.</p>
-                    );
-                  })()}
-                </div>
-              )}
-
-              <form onSubmit={handlePostMessage} className={styles.postForm}>
-                <div className={styles.newsInputGroup}>
-                  <input
-                    type="text"
-                    value={newNewsTitle}
-                    onChange={(e) => setNewNewsTitle(e.target.value)}
-                    placeholder="Article Title..."
-                    className={styles.postTitleInput}
-                  />
-                  <textarea
-                    value={newNewsContent}
-                    onChange={(e) => setNewNewsContent(e.target.value)}
-                    placeholder={
-                      newsMode === 'admin' ? 'Write a tournament announcement...' : "Share your team's news..."
-                    }
-                    className={styles.postTextarea}
-                    rows={3}
-                  />
-                </div>
-                <div className={styles.postActions}>
-                  <Button type="submit" variant="primary" disabled={isPostingNews || !newNewsContent.trim()}>
-                    {isPostingNews ? 'Posting...' : 'Post News'}
-                  </Button>
-                </div>
-              </form>
-
-              <div className={styles.postsList}>
-                {newsPosts.length === 0 ? (
-                  <p className={styles.noPosts}>No news yet.</p>
-                ) : (
-                  newsPosts.map((post) => (
-                    <div key={post.id} className={`${styles.post} ${post.is_admin ? styles.adminPost : ''}`}>
-                      <div className={styles.postHeader}>
-                        {/* Team Logo if applicable */}
-                        {post.author_team_id && teams.find((t) => t.id === post.author_team_id)?.logo_url && (
-                          <img
-                            src={teams.find((t) => t.id === post.author_team_id)?.logo_url}
-                            className={styles.postLogo}
-                            alt=""
-                          />
-                        )}
-                        <span className={styles.postAuthor}>{post.author_name}</span>
-                        <span className={styles.postTime}>
-                          {new Date(post.created_at).toLocaleString('lv-LV', {
-                            month: 'short',
-                            day: 'numeric',
-                            hour: '2-digit',
-                            minute: '2-digit',
-                            timeZone: 'Europe/Riga',
-                          })}
-                        </span>
-                      </div>
-                      {post.title && <h4 className={styles.postTitle}>{post.title}</h4>}
-                      <div className={styles.postContent}>{post.content}</div>
-
-                      {/* Reaction Bar */}
-                      <div className={styles.reactionBar}>
-                        {['🔥', '💪', '👌', '❤️', '🥶', '😱', '😢', '🏆'].map((emoji) => (
-                          <button
-                            key={emoji}
-                            onClick={() => handleAddReaction(post.id, emoji)}
-                            className={styles.reactionBtn}
-                          >
-                            {emoji}
-                          </button>
-                        ))}
-                      </div>
-                    </div>
-                  ))
-                )}
-              </div>
-            </SectionCard>
-          </div>
-          <aside className={styles.newsSidebar}>
-            <CompactAccordionWidget
-              title="Tournament FAQ"
-              icon={<Question size={20} weight="bold" />}
-              items={tournamentFaqItems}
-            />
-          </aside>
-        </div>
-      )}
+      <NewsTab
+        isActive={isNewsTab}
+        tournamentId={tournament.id}
+        seasonNumber={currentSeasonNumber}
+        teams={teams}
+        myHtUserId={myHtUserId}
+        isAdminAuthenticated={isAdminAuthenticated}
+        faqItems={tournamentFaqItems}
+      />
 
       {activeTab === 'standings' && (
         <div className={styles.standingsContainer}>
@@ -5042,6 +4848,12 @@ export const TournamentView: React.FC<{ initialData?: TournamentInitialData }> =
                 : []
             }
             onVisitHistory={() => handleTabChange('history')}
+            onVisitNews={() => handleTabChange('news')}
+            reactionAuthorNames={Object.fromEntries(
+              teams
+                .filter((team) => team.hattrick_user_id)
+                .map((team) => [String(team.hattrick_user_id), team.manager_name || team.name]),
+            )}
             canAddSeasonComment={false}
             reapplySuggestions={reapplySuggestions}
             canLeaveTournament={isRegistrationOpen}

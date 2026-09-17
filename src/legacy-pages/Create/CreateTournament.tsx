@@ -955,7 +955,7 @@ export const CreateTournament: React.FC = () => {
 
       const { error: chatSeedError } = await supabase.from('tournament_chat').insert({
         tournament_id: tournament.id,
-        author_name: 'Tournament Administration',
+        author_name: 'Cup Press Release',
         author_ht_id: 0,
         content: 'This is tournament chat. Login and say hello to everybody!',
       });
