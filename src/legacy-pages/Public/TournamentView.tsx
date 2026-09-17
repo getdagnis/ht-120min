@@ -1766,7 +1766,15 @@ export const TournamentView: React.FC<{ initialData?: TournamentInitialData }> =
             ...m,
             match_date: getMatchDateForRound(r as RoundWithMatches, m),
           }))
-          .sort((a, b) => (a.match_date?.getTime() || 0) - (b.match_date?.getTime() || 0)),
+          .sort((a, b) => {
+            const aDate = a.match_date?.getTime() || 0;
+            const bDate = b.match_date?.getTime() || 0;
+            if (aDate !== bDate) return aDate - bDate;
+            const aHtMatchId = a.ht_match_id ?? Number.MAX_SAFE_INTEGER;
+            const bHtMatchId = b.ht_match_id ?? Number.MAX_SAFE_INTEGER;
+            if (aHtMatchId !== bHtMatchId) return aHtMatchId - bHtMatchId;
+            return a.id.localeCompare(b.id);
+          }),
       }));
       setRounds(newRounds as RoundWithMatches[]);
       setStandings(
