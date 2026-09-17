@@ -129,6 +129,22 @@ export function getScheduleRoundCount(mode: ScheduleMode, activeTeamCount: numbe
   return getRoundCount(mode, activeTeamCount);
 }
 
+export function shuffleScheduleTeamIds(teamIds: string[], random: () => number = Math.random) {
+  const shuffled = [...teamIds];
+
+  for (let index = shuffled.length - 1; index > 0; index -= 1) {
+    const swapIndex = Math.floor(random() * (index + 1));
+    [shuffled[index], shuffled[swapIndex]] = [shuffled[swapIndex]!, shuffled[index]!];
+  }
+
+  // Avoid a no-op preview when random selection happens to preserve the input order.
+  if (shuffled.length > 1 && shuffled.every((teamId, index) => teamId === teamIds[index])) {
+    [shuffled[0], shuffled[1]] = [shuffled[1]!, shuffled[0]!];
+  }
+
+  return shuffled;
+}
+
 function normalizeTeams(teams: ScheduleTeamDraft[]) {
   return teams.filter((team) => team.active !== false && team.isPlaceholder !== true);
 }

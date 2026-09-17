@@ -114,7 +114,7 @@ test('reschedule draft preserves pairings after explicit round selection', () =>
   );
 });
 
-test('reschedule draft consumes the optional W15 weekend slot when requested', () => {
+test('reschedule draft keeps the current W15 start when the optional weekend is requested', () => {
   const draft = buildRescheduleDraft({
     teams: fourTeams,
     rounds: baseRounds,
@@ -128,18 +128,18 @@ test('reschedule draft consumes the optional W15 weekend slot when requested', (
   assert.equal(draft.currentStartSlotId, 'S94-W15-midweek');
   assert.equal(
     draft.rounds.map((round) => round.slot.kind).join(','),
-    'weekend_friendly,midweek_friendly',
+    'midweek_friendly,weekend_friendly',
   );
   assert.equal(draft.rounds[0]?.slot.htWeek, 15);
   assert.equal(draft.consumesWeek15WeekendFriendly, true);
 
   const payload = serializeRescheduleDraftForRpc(draft);
   assert.equal(payload.from_round_number, 2);
-  assert.equal(payload.rounds[0]?.matches[0]?.schedule_slot_type, 'weekend_friendly');
+  assert.equal(payload.rounds[0]?.matches[0]?.schedule_slot_type, 'midweek_friendly');
   assert.equal(payload.rounds[1]?.matches[0]?.match_id, 'match-5');
 });
 
-test('reschedule draft skips W15 weekend by default and still includes W16 weekend', () => {
+test('reschedule draft keeps the current W15 start by default', () => {
   const draft = buildRescheduleDraft({
     teams: fourTeams,
     rounds: baseRounds,
@@ -151,7 +151,7 @@ test('reschedule draft skips W15 weekend by default and still includes W16 weeke
   assert.equal(draft.valid, true);
   assert.equal(
     draft.rounds.map((round) => `${round.slot.htWeek}:${round.slot.kind}`).join(','),
-    '16:midweek_friendly,16:weekend_friendly',
+    '15:midweek_friendly,16:midweek_friendly',
   );
   assert.equal(draft.canIncludeWeek15WeekendFriendly, true);
   assert.equal(draft.consumesWeek15WeekendFriendly, false);
@@ -340,7 +340,7 @@ test('W4 can be selected as a reschedule start', () => {
   );
 });
 
-test('reschedule starts only after untouched rounds and keeps the current slot as a disabled marker', () => {
+test('reschedule allows keeping the current start slot after untouched rounds', () => {
   const draft = buildRescheduleDraft({
     teams: fourTeams,
     rounds: baseRounds.map((round) => ({
@@ -361,12 +361,12 @@ test('reschedule starts only after untouched rounds and keeps the current slot a
             : round.matches,
     })),
     fromRoundNumber: 3,
-    startSlotId: null,
+    startSlotId: 'S94-W16-midweek',
     now: new Date('2026-06-30T08:00:00Z'),
   });
 
-  assert.equal(draft.valid, false);
-  assert.equal(draft.reason, 'Select a new start date.');
+  assert.equal(draft.valid, true);
+  assert.equal(draft.reason, null);
   assert.equal(draft.currentStartSlotId, 'S94-W16-midweek');
   assert.deepEqual(
     draft.previousRounds.map((round) => round.roundNumber),
@@ -374,9 +374,9 @@ test('reschedule starts only after untouched rounds and keeps the current slot a
   );
   assert.ok(draft.allSlotOptions.every((slot) => slot.htWeek !== 15));
   assert.ok(draft.allSlotOptions.some((slot) => slot.id === 'S94-W16-midweek'));
-  assert.ok(draft.startSlotOptions.every((slot) => slot.id !== 'S94-W16-midweek'));
+  assert.ok(draft.startSlotOptions.some((slot) => slot.id === 'S94-W16-midweek'));
   assert.ok(draft.startSlotOptions.some((slot) => slot.id === 'S94-W16-weekend'));
-  assert.equal(draft.selectedStartSlotId, null);
+  assert.equal(draft.selectedStartSlotId, 'S94-W16-midweek');
 });
 
 test('reschedule cutoff uses calendar slot order instead of previous kickoff timestamp', () => {

@@ -1,7 +1,8 @@
 -- Manual Supabase SQL Editor smoke test for schedule and season migrations.
 -- Do not run this from the agent. Paste into Supabase SQL Editor after applying
 -- migrations 047, 048, 051, 057, and
--- 20260917142135_scope_schedule_generation_to_current_season in a
+-- 20260917142135_scope_schedule_generation_to_current_season, and
+-- 20260917150146_allow_pending_active_schedule_generation in a
 -- disposable/local database. The final ROLLBACK
 -- should leave no test data behind.
 --
@@ -190,9 +191,9 @@ BEGIN
   -- Season 1 rounds remain for history, but must not block Season 2 generation.
   UPDATE tournaments
   SET season = 2,
-      status = 'waiting',
+      status = 'active',
       schedule_locked_at = NULL,
-      registration_closed_at = NULL,
+      registration_closed_at = NOW(),
       schedule_generated_at = NULL
   WHERE id = v_tournament_id;
 

@@ -88,6 +88,7 @@ interface TournamentSchedulePanelProps {
   onIncludeWeek15WeekendFriendlyChange: (value: boolean) => void;
   isGenerating: boolean;
   onGenerate: () => void;
+  onShuffleFixtures?: () => void;
   tournamentTeamLimit?: number | null;
   teams?: SchedulePanelTeam[];
   generatedSummary?: {
@@ -218,6 +219,7 @@ export const TournamentSchedulePanel: React.FC<TournamentSchedulePanelProps> = (
   onIncludeWeek15WeekendFriendlyChange,
   isGenerating,
   onGenerate,
+  onShuffleFixtures,
   tournamentTeamLimit,
   teams = [],
   rescheduleDraft,
@@ -1093,6 +1095,17 @@ export const TournamentSchedulePanel: React.FC<TournamentSchedulePanelProps> = (
             </Button>
           </div>
 
+          {onShuffleFixtures && draft.teamCount > 1 && (
+            <button
+              type="button"
+              className={adminStyles.textLinkButton}
+              onClick={onShuffleFixtures}
+              disabled={isGenerating}
+            >
+              Re-shuffle fixtures
+            </button>
+          )}
+
           <p className="center w-100">Generating a schedule also closes registration and locks the selected start.</p>
         </div>
       ) : rescheduleDraft ? (
@@ -1143,8 +1156,7 @@ export const TournamentSchedulePanel: React.FC<TournamentSchedulePanelProps> = (
                       value={option.slot.id}
                       disabled={
                         !option.slot.selectable ||
-                        !rescheduleValidStartSlotIds.has(option.slot.id) ||
-                        option.slot.id === rescheduleDraft.currentStartSlotId
+                        !rescheduleValidStartSlotIds.has(option.slot.id)
                       }
                     >
                       {formatStartOption(option.slot, {
@@ -1271,6 +1283,17 @@ export const TournamentSchedulePanel: React.FC<TournamentSchedulePanelProps> = (
                 {isRescheduling ? 'Regenerating...' : 'Regenerate schedule'}
               </Button>
             </div>
+          )}
+
+          {hasSelectedRescheduleStart && rescheduleDraft.rounds.length > 0 && onShuffleFixtures && draft.teamCount > 1 && (
+            <button
+              type="button"
+              className={adminStyles.textLinkButton}
+              onClick={onShuffleFixtures}
+              disabled={isRescheduling}
+            >
+              Re-shuffle fixtures
+            </button>
           )}
         </div>
       ) : (

@@ -457,11 +457,9 @@ function chooseStartSlot(
   now: Date,
   requestedStartSlotId: string | null,
   latestPinnedSlotIndex: number | null,
-  currentStartSlotId: string | null,
 ) {
   const candidateSlots = orderedSlots.filter((slot) => {
     if (!isSelectableStartCandidate(slot, now)) return false;
-    if (currentStartSlotId && slot.id === currentStartSlotId) return false;
     if (latestPinnedSlotIndex === null) return true;
     return orderedSlots.findIndex((item) => item.id === slot.id) > latestPinnedSlotIndex;
   });
@@ -491,13 +489,11 @@ function canDraftIncludeWeek15WeekendFriendly(
   orderedSlotsWithWeek15: CalendarSlot[],
   now: Date,
   latestPinnedSlotIndex: number | null,
-  currentStartSlotId: string | null,
 ) {
   if (rounds.length === 0) return false;
 
   const candidateSlots = orderedSlotsWithWeek15.filter((slot) => {
     if (!isSelectableStartCandidate(slot, now)) return false;
-    if (currentStartSlotId && slot.id === currentStartSlotId) return false;
     if (latestPinnedSlotIndex === null) return true;
     return orderedSlotsWithWeek15.findIndex((item) => item.id === slot.id) > latestPinnedSlotIndex;
   });
@@ -581,7 +577,6 @@ export function buildRescheduleDraft(input: BuildRescheduleDraftInput): Reschedu
     now,
     input.startSlotId,
     latestPinnedSlotIndex,
-    currentStartSlotId,
   );
 
   if (!input.startSlotId || !selectedStartSlot) {
@@ -613,7 +608,6 @@ export function buildRescheduleDraft(input: BuildRescheduleDraftInput): Reschedu
         orderedSlotsWithWeek15,
         now,
         latestPinnedSlotIndex,
-        currentStartSlotId,
       ),
       consumesWeek15WeekendFriendly: false,
     };

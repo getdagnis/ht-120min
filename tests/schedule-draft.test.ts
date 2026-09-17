@@ -2,7 +2,12 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 
 import { buildCalendarSlots } from '../src/utils/hattrick-calendar';
-import { buildScheduleDraft, getScheduleRoundCount, serializeScheduleDraftForRpc } from '../src/utils/schedule-draft';
+import {
+  buildScheduleDraft,
+  getScheduleRoundCount,
+  serializeScheduleDraftForRpc,
+  shuffleScheduleTeamIds,
+} from '../src/utils/schedule-draft';
 
 const fourTeams = [
   { id: 'team-a', name: 'Alpha', countryName: 'Sweden', leagueLevel: 6 },
@@ -41,6 +46,30 @@ test('placeholder teams are ignored by the frontend draft team count', () => {
   assert.equal(draft.valid, true);
   assert.equal(draft.teamCount, 4);
   assert.equal(draft.rounds.length, 3);
+});
+
+test('fixture shuffling creates a new roster order without changing the registered teams', () => {
+  const teamIds = fourTeams.map((team) => team.id);
+  const shuffled = shuffleScheduleTeamIds(teamIds, () => 0.99);
+
+  assert.deepEqual(teamIds, ['team-a', 'team-b', 'team-c', 'team-d']);
+  assert.deepEqual([...shuffled].sort(), [...teamIds].sort());
+  assert.notDeepEqual(shuffled, teamIds);
+
+  const originalDraft = buildScheduleDraft({
+    teams: fourTeams,
+    mode: 'single',
+    startSlotId: 'S94-W15-midweek',
+    now: new Date('2026-06-29T00:00:00Z'),
+  });
+  const shuffledDraft = buildScheduleDraft({
+    teams: shuffled.map((teamId) => fourTeams.find((team) => team.id === teamId)!),
+    mode: 'single',
+    startSlotId: 'S94-W15-midweek',
+    now: new Date('2026-06-29T00:00:00Z'),
+  });
+
+  assert.notDeepEqual(shuffledDraft.rounds[0]?.matches, originalDraft.rounds[0]?.matches);
 });
 
 test('missing country metadata still allows default week 16 weekend fallback starts', () => {

@@ -30,7 +30,12 @@ import { normalizeLeagueLimit } from '../../../shared/worlddetails';
 import type { MatchEventDetails } from '../../../shared/match-events';
 import { useLiveMatches } from '../../hooks/useLiveMatches';
 import { trackActivity } from '../../hooks/useActivityTracking';
-import { buildScheduleDraft, serializeScheduleDraftForRpc, type ScheduleMode } from '../../utils/schedule-draft';
+import {
+  buildScheduleDraft,
+  serializeScheduleDraftForRpc,
+  shuffleScheduleTeamIds,
+  type ScheduleMode,
+} from '../../utils/schedule-draft';
 import { buildRescheduleDraft, serializeRescheduleDraftForRpc } from '../../utils/reschedule-draft';
 import { buildManualRoundNormalizationPlan } from '../../utils/manual-rounds';
 import { buildClearSeasonResultsPayload } from '../../utils/season-results';
@@ -648,6 +653,7 @@ export const TournamentView: React.FC<{ initialData?: TournamentInitialData }> =
   const [scheduleMode, setScheduleMode] = useState<ScheduleMode>('single');
   const [scheduleSetup, setScheduleSetup] = useState<ScheduleSetup>('generated');
   const [scheduleStartSlotId, setScheduleStartSlotId] = useState('');
+  const [scheduleTeamOrder, setScheduleTeamOrder] = useState<string[] | null>(null);
   const [includeWeek15WeekendFriendly, setIncludeWeek15WeekendFriendly] = useState(false);
   const [rescheduleFromRoundNumber, setRescheduleFromRoundNumber] = useState<number | null>(null);
   const [rescheduleStartSlotId, setRescheduleStartSlotId] = useState('');
@@ -1264,16 +1270,28 @@ export const TournamentView: React.FC<{ initialData?: TournamentInitialData }> =
         })),
     [teams],
   );
+  const scheduleDraftTeams = useMemo(() => {
+    if (!scheduleTeamOrder) return activeScheduleTeams;
+
+    const teamsById = new Map(activeScheduleTeams.map((team) => [team.id, team]));
+    const shuffledTeams = scheduleTeamOrder.flatMap((teamId) => {
+      const team = teamsById.get(teamId);
+      return team ? [team] : [];
+    });
+    const shuffledTeamIds = new Set(shuffledTeams.map((team) => team.id));
+
+    return [...shuffledTeams, ...activeScheduleTeams.filter((team) => !shuffledTeamIds.has(team.id))];
+  }, [activeScheduleTeams, scheduleTeamOrder]);
   const scheduleDraft = useMemo(
     () =>
       buildScheduleDraft({
-        teams: activeScheduleTeams,
+        teams: scheduleDraftTeams,
         mode: scheduleMode,
         startSlotId: scheduleStartSlotId || null,
         includeWeek15WeekendFriendly,
         now: new Date(),
       }),
-    [activeScheduleTeams, includeWeek15WeekendFriendly, scheduleMode, scheduleStartSlotId],
+    [includeWeek15WeekendFriendly, scheduleDraftTeams, scheduleMode, scheduleStartSlotId],
   );
   const serializedScheduleDraft = useMemo(
     () =>
@@ -1359,6 +1377,10 @@ export const TournamentView: React.FC<{ initialData?: TournamentInitialData }> =
     },
     [reconcileScheduleSelection, scheduleStartSlotId],
   );
+
+  const handleShuffleScheduleFixtures = useCallback(() => {
+    setScheduleTeamOrder(shuffleScheduleTeamIds(scheduleDraftTeams.map((team) => team.id)));
+  }, [scheduleDraftTeams]);
 
   const handleScheduleStartSlotIdChange = useCallback(
     (nextStartSlotId: string) => {
@@ -2891,6 +2913,7 @@ export const TournamentView: React.FC<{ initialData?: TournamentInitialData }> =
       setRounds([]);
       setStandings([]);
       setFixtureViewSeasonNumber(null);
+      setScheduleTeamOrder(null);
       setTournament((prev) =>
         prev
           ? {
@@ -5541,6 +5564,7 @@ export const TournamentView: React.FC<{ initialData?: TournamentInitialData }> =
                             onIncludeWeek15WeekendFriendlyChange={handleIncludeWeek15WeekendFriendlyChange}
                             isGenerating={isGenerating}
                             onGenerate={generateSchedule}
+                            onShuffleFixtures={handleShuffleScheduleFixtures}
                             tournamentTeamLimit={editMaxTeams}
                             teams={teams}
                             previewHtMatchAdd={previewHtMatchAdd}
@@ -5566,6 +5590,7 @@ export const TournamentView: React.FC<{ initialData?: TournamentInitialData }> =
                             onIncludeWeek15WeekendFriendlyChange={handleIncludeWeek15WeekendFriendlyChange}
                             isGenerating={isGenerating}
                             onGenerate={generateSchedule}
+                            onShuffleFixtures={handleShuffleScheduleFixtures}
                             tournamentTeamLimit={editMaxTeams}
                             rescheduleDraft={rescheduleDraft}
                             onRescheduleFromRoundChange={handleRescheduleFromRoundChange}
