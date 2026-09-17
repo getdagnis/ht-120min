@@ -1059,8 +1059,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
           fetchWindow: 'last50',
           matchTypes: getMatchTypesForCategories(['friendlies']),
         });
-        teamCache[team.id] = data;
-        return data;
+        teamCache[team.id] = data.matches;
+        return data.matches;
       } catch (e) {
         console.error(`Error fetching friendlies for team ${team.id}:`, e);
         return [];
