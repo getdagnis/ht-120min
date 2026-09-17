@@ -37,6 +37,7 @@ interface LayoutProps {
 const VISIT_COUNT_KEY = 'visitCount';
 const LAST_VISIT_DAY_KEY = 'visitCountLastDay';
 const THEME_CHANGED_EVENT = 'ht-120min:theme-changed';
+type ThemePreference = 'light' | 'dark' | 'system';
 
 function getTodayKey(date = new Date()) {
   return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
@@ -67,12 +68,13 @@ function subscribeToTheme(callback: () => void) {
   };
 }
 
-function getThemeSnapshot() {
-  return localStorage.getItem('theme') || 'dark';
+function getThemeSnapshot(): ThemePreference {
+  const storedTheme = localStorage.getItem('theme');
+  return storedTheme === 'light' || storedTheme === 'dark' ? storedTheme : 'system';
 }
 
-function getServerThemeSnapshot() {
-  return 'dark';
+function getServerThemeSnapshot(): ThemePreference {
+  return 'system';
 }
 
 export const Layout: React.FC<LayoutProps> = ({ children }) => {
@@ -110,7 +112,11 @@ export const Layout: React.FC<LayoutProps> = ({ children }) => {
   const authErrorReference = searchParams.get('auth_error_ref');
 
   useEffect(() => {
-    document.documentElement.setAttribute('data-theme', theme);
+    if (theme === 'system') {
+      document.documentElement.removeAttribute('data-theme');
+    } else {
+      document.documentElement.setAttribute('data-theme', theme);
+    }
   }, [theme]);
 
   useEffect(() => {

@@ -40,3 +40,4 @@ scripts/backups/*
 /blob-report/
 /playwright/.cache/
 /playwright/.auth/
+.vercel
