@@ -263,17 +263,17 @@ export function formatPresence(lastSeenAt: string | null | undefined): {
     };
   }
 
-  if (mins < 5) return { label: '5m', tooltip: 'Seen less than 5 minutes ago', color: 'green', online: false };
-  if (mins < 15) return { label: '15m', tooltip: 'Seen less than 15 minutes ago', color: 'green', online: false };
-  if (mins < 30) return { label: '30m', tooltip: 'Seen less than 30 minutes ago', color: 'green', online: false };
-  if (mins < 60) return { label: '1h', tooltip: 'Seen less than 1 hour ago', color: 'green', online: false };
+  if (mins < 15) return { label: '10m', tooltip: 'Seen less than 5 minutes ago', color: 'green', online: false };
+  if (mins < 20) return { label: '15m', tooltip: 'Seen less than 15 minutes ago', color: 'green', online: false };
+  if (mins < 40) return { label: '30m', tooltip: 'Seen less than 30 minutes ago', color: 'green', online: false };
+  if (mins < 80) return { label: '1h', tooltip: 'Seen less than 1 hour ago', color: 'green', online: false };
 
-  if (mins < 120) return { label: '2h', tooltip: 'Seen less than 4 hours ago', color: 'yellow', online: false };
-  if (mins < 240) return { label: '4h', tooltip: 'Seen less than 6 hours ago', color: 'yellow', online: false };
-  if (mins < 360) return { label: '6h', tooltip: 'Seen less than 10 hours ago', color: 'yellow', online: false };
-  if (mins < 60 * 10) return { label: '10h', tooltip: 'Seen less than 16 hours ago', color: 'yellow', online: false };
-  if (mins < 60 * 16) return { label: '16h', tooltip: 'Seen less than 24 hours ago', color: 'yellow', online: false };
-  if (mins < 60 * 24) return { label: '24h', tooltip: 'Seen less than 2 days ago', color: 'yellow', online: false };
+  if (mins < 150) return { label: '2h', tooltip: 'Seen less than 4 hours ago', color: 'yellow', online: false };
+  if (mins < 300) return { label: '4h', tooltip: 'Seen less than 6 hours ago', color: 'yellow', online: false };
+  if (mins < 420) return { label: '6h', tooltip: 'Seen less than 10 hours ago', color: 'yellow', online: false };
+  if (mins < 60 * 11) return { label: '10h', tooltip: 'Seen less than 16 hours ago', color: 'yellow', online: false };
+  if (mins < 60 * 18) return { label: '16h', tooltip: 'Seen less than 24 hours ago', color: 'yellow', online: false };
+  if (mins < 60 * 24) return { label: '20h', tooltip: 'Seen less than 2 days ago', color: 'yellow', online: false };
 
   if (mins < 60 * 24 * 2) return { label: '1d', tooltip: 'Seen about a day ago', color: 'yellow', online: false };
   if (mins < 60 * 24 * 3) return { label: '2d', tooltip: 'Seen about 2 days ago', color: 'yellow', online: false };
@@ -285,9 +285,9 @@ export function formatPresence(lastSeenAt: string | null | undefined): {
 
   if (mins < 60 * 24 * 21) return { label: '2w', tooltip: 'Seen about 2 weeks ago', color: 'red', online: false };
   if (mins < 60 * 24 * 30) return { label: '3w', tooltip: 'Seen about 3 weeks ago', color: 'red', online: false };
-  if (mins < 60 * 24 * 60) return { label: '1m', tooltip: 'Seen about 1 month ago', color: 'red', online: false };
-  if (mins < 60 * 24 * 90) return { label: '2m', tooltip: 'Seen about 2 months ago', color: 'red', online: false };
-  if (mins < 60 * 24 * 180) return { label: '3m+', tooltip: 'Seen about 6 months ago', color: 'red', online: false };
+  if (mins < 60 * 24 * 45) return { label: '1mo', tooltip: 'Seen about 1 month ago', color: 'red', online: false };
+  if (mins < 60 * 24 * 80) return { label: '2mo', tooltip: 'Seen about 2 months ago', color: 'red', online: false };
+  if (mins < 60 * 24 * 140) return { label: '4mo', tooltip: 'Seen about 6 months ago', color: 'red', online: false };
   if (mins < 60 * 24 * 365) return { label: '1y', tooltip: 'Seen about 1 year ago', color: 'red', online: false };
 
   return { label: '1y+', tooltip: 'Seen more than a year ago', color: 'red', online: false };

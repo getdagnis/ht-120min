@@ -93,7 +93,7 @@ export const NewsArticle: React.FC<NewsArticleProps> = ({
     )}
     {onReaction && (
       <div className={styles.reactionBar}>
-        {['🔥', '💪', '👌', '❤️', '🥶', '😱', '😢', '🏆'].map((emoji) => (
+        {['😅', '💪', '🔥', '❤️', '🥶', '🍺', '😕', '🏆'].map((emoji) => (
           <button
             key={emoji}
             onClick={() => onReaction(post.id, emoji)}
