@@ -828,7 +828,7 @@ export const StandingsView: React.FC<StandingsViewProps> = ({
           </div>
         </Modal>
       )}
-      <SectionCard title="News Feed">
+      <SectionCard title="🗞 120min Weekly">
         {latestNewsPost ? (
           <NewsArticle
             post={latestNewsPost}
