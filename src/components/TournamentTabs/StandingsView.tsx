@@ -643,6 +643,7 @@ export const StandingsView: React.FC<StandingsViewProps> = ({
               )}
               {sortedStandings.map((s, idx) => {
                 const isMyTeam = s.hattrickUserId === Number(myHtUserId);
+                const isOpenSpot = s.isOpenSpot;
                 const reachesQuota = reachesAppgQuota(s);
                 const placement = reachesQuota
                   ? sortedStandings.slice(0, idx).filter(reachesAppgQuota).length + 1
@@ -661,42 +662,56 @@ export const StandingsView: React.FC<StandingsViewProps> = ({
                       <td className={styles.teamNameCell}>
                         <div className={styles.standingsTeamEntry}>
                           <div className={styles.teamInfo}>
-                            <img
-                              src={s.logoUrl || DEFAULT_TEAM_LOGO}
-                              alt={s.teamName}
-                              className={styles.standingLogo}
-                              onError={(event) => {
-                                event.currentTarget.src = DEFAULT_TEAM_LOGO;
-                              }}
-                            />
-                            <div className={styles.teamTextContainer}>
-                              <a
-                                href={`https://www.hattrick.org/goto.ashx?path=/Club/?TeamID=${s.htTeamId}`}
-                                target="_blank"
-                                rel="noopener noreferrer"
-                                className={styles.idLink}
-                              >
-                                <div className={styles.nameRow}>
-                                  <span className={styles.teamName}>
-                                    {s.teamName}
-                                  </span>
-                                  {s.joinedViaOauth && (
-                                    <span title="Hattrick Validated Team">
-                                      <ShieldCheck size={14} weight="bold" className={styles.validatedIcon} />
-                                    </span>
-                                  )}
-                                </div>
-                              </a>
-                              <TeamByline
-                                countryName={s.countryName}
-                                countryId={s.countryId}
-                                leagueId={s.leagueId}
-                                teamId={s.htTeamId}
-                                managerName={s.managerName}
-                                managerHtId={s.hattrickUserId}
-                                mode="standings"
-                                lastSeenAt={s.hattrickUserId != null ? (lastSeenMap[s.hattrickUserId] ?? null) : null}
+                            {!isOpenSpot && (
+                              <img
+                                src={s.logoUrl || DEFAULT_TEAM_LOGO}
+                                alt={s.teamName}
+                                className={styles.standingLogo}
+                                onError={(event) => {
+                                  event.currentTarget.src = DEFAULT_TEAM_LOGO;
+                                }}
                               />
+                            )}
+                            <div className={styles.teamTextContainer}>
+                              {isOpenSpot ? (
+                                <Button
+                                  type="button"
+                                  variant="zero"
+                                  size="xs"
+                                  onClick={onJoinWithHattrick}
+                                  disabled={!canJoinTournament || isConnecting}
+                                >
+                                  Join with CHPP <ArrowRight size={15} weight="bold" />
+                                </Button>
+                              ) : (
+                                <>
+                                  <a
+                                    href={`https://www.hattrick.org/goto.ashx?path=/Club/?TeamID=${s.htTeamId}`}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    className={styles.idLink}
+                                  >
+                                    <div className={styles.nameRow}>
+                                      <span className={styles.teamName}>{s.teamName}</span>
+                                      {s.joinedViaOauth && (
+                                        <span title="Hattrick Validated Team">
+                                          <ShieldCheck size={14} weight="bold" className={styles.validatedIcon} />
+                                        </span>
+                                      )}
+                                    </div>
+                                  </a>
+                                  <TeamByline
+                                    countryName={s.countryName}
+                                    countryId={s.countryId}
+                                    leagueId={s.leagueId}
+                                    teamId={s.htTeamId}
+                                    managerName={s.managerName}
+                                    managerHtId={s.hattrickUserId}
+                                    mode="standings"
+                                    lastSeenAt={s.hattrickUserId != null ? (lastSeenMap[s.hattrickUserId] ?? null) : null}
+                                  />
+                                </>
+                              )}
                             </div>
                           </div>
                           {isMyTeam && canLeaveTournament && (

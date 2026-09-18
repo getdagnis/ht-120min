@@ -8,6 +8,7 @@ import styles from './FixtureCard.module.sass';
 
 interface TeamProps {
   name: string;
+  isBye?: boolean;
   managerName?: string;
   managerHtId?: number;
   htTeamId: number;
@@ -99,16 +100,18 @@ export const FixtureCard: React.FC<FixtureCardProps> = ({
   const renderTeamInfo = (team: TeamProps, isRight?: boolean) => (
     <>
       <div className={styles.teamName}>{team.name.toUpperCase()}</div>
-      <TeamByline
-        countryName={team.countryName}
-        countryId={team.countryId}
-        teamId={team.htTeamId}
-        managerName={team.managerName}
-        managerHtId={team.managerHtId}
-        mode="fixtures"
-        isRight={isRight}
-        matchSummary={team.matchSummary}
-      />
+      {!team.isBye && (
+        <TeamByline
+          countryName={team.countryName}
+          countryId={team.countryId}
+          teamId={team.htTeamId}
+          managerName={team.managerName}
+          managerHtId={team.managerHtId}
+          mode="fixtures"
+          isRight={isRight}
+          matchSummary={team.matchSummary}
+        />
+      )}
       {team.warning && (
         <div className={styles.warningRow}>
           <img src="/warn-red.png" alt="Warning" className={styles.warnIcon} />
@@ -122,15 +125,17 @@ export const FixtureCard: React.FC<FixtureCardProps> = ({
     <div className={styles.fixtureCard}>
       <div className={styles.teamContainer}>
         <div className={styles.logoWrapper}>
-          <img
-            src={homeTeam.logoUrl || DEFAULT_TEAM_LOGO}
-            alt={homeTeam.name}
-            className={styles.logo}
-            onError={(event) => {
-              event.currentTarget.onerror = null;
-              event.currentTarget.src = DEFAULT_TEAM_LOGO;
-            }}
-          />
+          {!homeTeam.isBye && (
+            <img
+              src={homeTeam.logoUrl || DEFAULT_TEAM_LOGO}
+              alt={homeTeam.name}
+              className={styles.logo}
+              onError={(event) => {
+                event.currentTarget.onerror = null;
+                event.currentTarget.src = DEFAULT_TEAM_LOGO;
+              }}
+            />
+          )}
         </div>
         <div className={styles.teamDetails}>{renderTeamInfo(homeTeam)}</div>
       </div>
@@ -191,15 +196,17 @@ export const FixtureCard: React.FC<FixtureCardProps> = ({
       <div className={`${styles.teamContainer} ${styles.right}`}>
         <div className={`${styles.teamDetails} ${styles.right}`}>{renderTeamInfo(awayTeam, true)}</div>
         <div className={styles.logoWrapper}>
-          <img
-            src={awayTeam.logoUrl || DEFAULT_TEAM_LOGO}
-            alt={awayTeam.name}
-            className={styles.logo}
-            onError={(event) => {
-              event.currentTarget.onerror = null;
-              event.currentTarget.src = DEFAULT_TEAM_LOGO;
-            }}
-          />
+          {!awayTeam.isBye && (
+            <img
+              src={awayTeam.logoUrl || DEFAULT_TEAM_LOGO}
+              alt={awayTeam.name}
+              className={styles.logo}
+              onError={(event) => {
+                event.currentTarget.onerror = null;
+                event.currentTarget.src = DEFAULT_TEAM_LOGO;
+              }}
+            />
+          )}
         </div>
       </div>
     </div>

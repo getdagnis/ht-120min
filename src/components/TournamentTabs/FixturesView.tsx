@@ -42,6 +42,7 @@ export interface FixtureMatch {
   appg_outcome?: AppgOutcome | null;
   home_team: {
     name: string;
+    active?: boolean;
     ht_team_id: number;
     logo_url?: string;
     country_name?: string;
@@ -51,6 +52,7 @@ export interface FixtureMatch {
   } | null;
   away_team: {
     name: string;
+    active?: boolean;
     ht_team_id: number;
     logo_url?: string;
     country_name?: string;
@@ -584,6 +586,8 @@ export const FixturesView: React.FC<FixturesViewProps> = ({
                             away: match.penalty_shootout_away_goals ?? 0,
                           }
                         : null;
+                      const homeIsBye = !match.home_team || match.home_team.active === false;
+                      const awayIsBye = !match.away_team || match.away_team.active === false;
 
                     return (
                       <FixtureCard
@@ -600,26 +604,28 @@ export const FixturesView: React.FC<FixturesViewProps> = ({
                         totalMinutes={match.total_minutes}
                         appgOutcome={match.appg_outcome}
                         homeTeam={{
-                          name: match.home_team?.name || 'BYE',
-                          managerName: match.home_team?.manager_name || 'UNKNOWN',
-                          managerHtId: match.home_team?.hattrick_user_id,
-                          htTeamId: match.home_team?.ht_team_id || 0,
-                          logoUrl: match.home_team?.logo_url,
-                          warning: homeWarning?.type,
-                          countryName: match.home_team?.country_name,
-                          countryId: match.home_team?.country_id,
+                          name: homeIsBye ? 'BYE' : match.home_team?.name || 'BYE',
+                          managerName: homeIsBye ? '' : match.home_team?.manager_name || 'UNKNOWN',
+                          managerHtId: homeIsBye ? undefined : match.home_team?.hattrick_user_id,
+                          htTeamId: homeIsBye ? 0 : match.home_team?.ht_team_id || 0,
+                          logoUrl: homeIsBye ? undefined : match.home_team?.logo_url,
+                          warning: homeIsBye ? undefined : homeWarning?.type,
+                          countryName: homeIsBye ? undefined : match.home_team?.country_name,
+                          countryId: homeIsBye ? undefined : match.home_team?.country_id,
                           matchSummary: homeSummary,
+                          isBye: homeIsBye,
                         }}
                         awayTeam={{
-                          name: match.away_team?.name || 'BYE',
-                          managerName: match.away_team?.manager_name || 'UNKNOWN',
-                          managerHtId: match.away_team?.hattrick_user_id,
-                          htTeamId: match.away_team?.ht_team_id || 0,
-                          logoUrl: match.away_team?.logo_url,
-                          warning: awayWarning?.type,
-                          countryName: match.away_team?.country_name,
-                          countryId: match.away_team?.country_id,
+                          name: awayIsBye ? 'BYE' : match.away_team?.name || 'BYE',
+                          managerName: awayIsBye ? '' : match.away_team?.manager_name || 'UNKNOWN',
+                          managerHtId: awayIsBye ? undefined : match.away_team?.hattrick_user_id,
+                          htTeamId: awayIsBye ? 0 : match.away_team?.ht_team_id || 0,
+                          logoUrl: awayIsBye ? undefined : match.away_team?.logo_url,
+                          warning: awayIsBye ? undefined : awayWarning?.type,
+                          countryName: awayIsBye ? undefined : match.away_team?.country_name,
+                          countryId: awayIsBye ? undefined : match.away_team?.country_id,
                           matchSummary: awaySummary,
+                          isBye: awayIsBye,
                         }}
                       />
                     );

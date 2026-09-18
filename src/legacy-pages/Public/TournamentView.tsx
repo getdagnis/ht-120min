@@ -1234,9 +1234,23 @@ export const TournamentView: React.FC<{ initialData?: TournamentInitialData }> =
 
   const isHealthQuotaMet = useCallback(
     (teamList: Team[] = teams) => {
-      if (!teamList.length) return true;
-      const totalCount = teamList.filter((t) => !t.is_placeholder).length;
-      const inactiveCount = teamList.filter((t) => !t.active && !t.is_placeholder).length;
+      const currentSeasonTeamIds = new Set(
+        rounds.flatMap((round) =>
+          round.matches.flatMap((match) => [match.home_team_id, match.away_team_id].filter(Boolean) as string[]),
+        ),
+      );
+      const replacedTeamIds = new Set(
+        teamList.map((team) => team.replacement_for_team_id).filter(Boolean) as string[],
+      );
+      const currentSeasonTeams = teamList.filter(
+        (team) =>
+          !team.is_placeholder &&
+          (team.active || (currentSeasonTeamIds.has(team.id) && !replacedTeamIds.has(team.id))),
+      );
+      if (!currentSeasonTeams.length) return true;
+
+      const totalCount = currentSeasonTeams.length;
+      const inactiveCount = currentSeasonTeams.filter((team) => !team.active).length;
 
       // Small tournaments (2-3 teams) are exempt as per prompt ("recurring friendlies")
       if (totalCount <= 3) return true;
@@ -1247,7 +1261,7 @@ export const TournamentView: React.FC<{ initialData?: TournamentInitialData }> =
 
       return inactiveCount / totalCount <= 0.25;
     },
-    [teams],
+    [rounds, teams],
   );
 
   const activeScheduleTeams = useMemo(
@@ -5562,7 +5576,9 @@ export const TournamentView: React.FC<{ initialData?: TournamentInitialData }> =
                               <li key={team.id} className={!team.active ? adminStyles.inactiveTeam : ''}>
                                 <div className={adminStyles.teamInfo}>
                                   <div className={styles.nameRow}>
-                                    <span className={adminStyles.name}>{team.name}</span>
+                                    <span className={`${adminStyles.name} ${!team.active ? adminStyles.inactiveName : ''}`}>
+                                      {team.active ? team.name : team.name || 'Open slot'}
+                                    </span>
                                     {team.joined_via_oauth && <span title="Hattrick Validated Team"></span>}
                                     {isStoppedTournament &&
                                       team.active &&
@@ -5571,8 +5587,12 @@ export const TournamentView: React.FC<{ initialData?: TournamentInitialData }> =
                                         <span className={adminStyles.playingElsewhere}>PLAYING ELSEWHERE!</span>
                                       )}
                                   </div>
-                                  {team.ht_team_id && <span className={adminStyles.id}>ID: {team.ht_team_id}</span>}
-                                  {!team.active && <span className={adminStyles.statusBadge}>Inactive</span>}
+                                  {team.active && team.ht_team_id && (
+                                    <span className={adminStyles.id}>ID: {team.ht_team_id}</span>
+                                  )}
+                                  {!team.active && (
+                                    <span className={adminStyles.statusBadge}>Replace / invite team</span>
+                                  )}
                                 </div>
 
                                 <div className={adminStyles.teamActions}>
@@ -5717,7 +5737,9 @@ export const TournamentView: React.FC<{ initialData?: TournamentInitialData }> =
                                           size="sm"
                                           variant="zero"
                                           onClick={() => setReplacingTeamId(team.id)}
-                                        ></Button>
+                                        >
+                                          Replace / invite team
+                                        </Button>
                                       )}
                                     </div>
                                   )}

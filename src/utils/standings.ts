@@ -48,6 +48,7 @@ export interface Team {
 export interface TeamStanding {
   teamId: string;
   teamName: string;
+  isOpenSpot: boolean;
   htTeamId: number | null;
   hattrickUserId: number | null;
   lastSeenAt: string | null;
@@ -87,12 +88,16 @@ export function calculateStandings(
   scoringMode: PersistedScoringMode,
 ): TeamStanding[] {
   const standingsMap: Record<string, TeamStanding> = {};
+  const participatingTeamIds = new Set(
+    matches.flatMap((match) => [match.home_team_id, match.away_team_id]).filter((teamId): teamId is string => !!teamId),
+  );
 
   // Initialize teams
   teams.forEach((team) => {
     standingsMap[team.id] = {
       teamId: team.id,
-      teamName: team.name,
+      teamName: team.active ? team.name : 'Open spot',
+      isOpenSpot: !team.active,
       htTeamId: team.ht_team_id,
       hattrickUserId: team.hattrick_user_id,
       lastSeenAt: null,
@@ -210,9 +215,10 @@ export function calculateStandings(
     away.appgPlayed++;
   });
 
-  // Filter out inactive teams from the final list
-  const activeTeamIds = new Set(teams.filter((t) => t.active).map((t) => t.id));
-  const standings = Object.values(standingsMap).filter((s) => activeTeamIds.has(s.teamId));
+  // Keep inactive teams that participated this season so their stats remain visible.
+  const standings = Object.values(standingsMap).filter(
+    (standing) => teams.find((team) => team.id === standing.teamId)?.active || participatingTeamIds.has(standing.teamId),
+  );
 
   // Sorting logic based on mode
   if (scoringMode === '120m' || scoringMode === '120min') {

@@ -36,3 +36,36 @@ test('completed BYE result counts for the one tournament team', () => {
   assert.equal(standings[0].achievements120min, 1);
   assert.equal(standings[0].totalMinutes, 121);
 });
+
+test('inactive current-season teams keep their stats as an open spot', () => {
+  const standings = calculateStandings(
+    [
+      {
+        id: 'team-a',
+        name: 'Team A',
+        ht_team_id: 123,
+        hattrick_user_id: 456,
+        active: false,
+        replacement_for_team_id: null,
+      },
+    ],
+    [
+      {
+        home_team_id: 'team-a',
+        away_team_id: null,
+        home_goals: 3,
+        away_goals: 2,
+        went_120: true,
+        completed: true,
+        total_minutes: 121,
+      },
+    ],
+    '120min',
+  );
+
+  assert.equal(standings.length, 1);
+  assert.equal(standings[0].teamName, 'Open spot');
+  assert.equal(standings[0].isOpenSpot, true);
+  assert.equal(standings[0].played, 1);
+  assert.equal(standings[0].won, 1);
+});

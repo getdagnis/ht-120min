@@ -120,7 +120,7 @@ test('generated tournament is joinable only with replacement or odd-team spot', 
   );
 });
 
-test('registration-closed tournaments are not joinable despite an odd-team spot', () => {
+test('registration-closed generated tournaments still allow an odd-team spot', () => {
   assert.equal(
     canViewerJoinTournament({
       hasJoined: false,
@@ -130,7 +130,7 @@ test('registration-closed tournaments are not joinable despite an odd-team spot'
       registrationClosedAt: '2026-07-24T12:00:00.000Z',
       teams: [{ active: true }, { active: true }, { active: true }],
     }),
-    false,
+    true,
   );
 });
 
