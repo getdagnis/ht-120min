@@ -357,7 +357,7 @@ export const NewsTab: React.FC<NewsTabProps> = ({
               const authorTeam = post.author_team_id ? teams.find((team) => team.id === post.author_team_id) : null;
 
               return (
-                <SectionCard key={post.id} className={styles.weeklyPanel}>
+                <SectionCard key={post.id} title="🗞 120min Weekly" className={styles.weeklyPanel}>
                   <NewsArticle
                     post={post}
                     authorTeam={authorTeam}

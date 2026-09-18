@@ -869,7 +869,7 @@ export const StandingsView: React.FC<StandingsViewProps> = ({
             return (
               <SectionCard
                 key={post.id}
-                title={index === 0 ? '🗞 120min Weekly' : undefined}
+                title='🗞 120min Weekly'
                 className={newsStyles.weeklyPanel}
               >
                 <NewsArticle

@@ -29,7 +29,6 @@ import type { HomeInitialData } from '../../app/_data/public-data';
 import { useLocale } from '../../i18n/LocaleProvider';
 import { toLocalePath } from '../../next/locale-path';
 import { NewsArticle, type NewsPost } from '../../components/TournamentTabs/NewsTab';
-import { pickFrontpageWeeklyPosts } from '../../utils/news-priority';
 
 const FORUM_LINK = 'https://www.hattrick.org/goto.ashx?path=/Forum/Read.aspx?n=1&nm=32&t=17685273&v=0';
 const SHOW_FAQ = true;
@@ -157,16 +156,6 @@ interface HomeWeeklyRawPost {
         is_archived?: boolean | null;
       }[]
     | null;
-  author_team:
-    | {
-        id: string;
-        name: string;
-      }
-    | {
-        id: string;
-        name: string;
-      }[]
-    | null;
 }
 
 const firstRelation = <T,>(value: T | T[] | null | undefined): T | null => {
@@ -220,7 +209,10 @@ export const Home: React.FC<{ initialData?: HomeInitialData }> = ({ initialData 
 
   const showFaq = faqContent.length > 0 && SHOW_FAQ;
 
-  const fetchLatestWeeklyPosts = useCallback(async () => {
+const fetchLatestWeeklyPosts = useCallback(async () => {
+  const twoMonthsAgo = new Date();
+  twoMonthsAgo.setMonth(twoMonthsAgo.getMonth() - 2);
+
   const { data, error } = await supabase
     .from('news_posts')
     .select(
@@ -241,15 +233,13 @@ export const Home: React.FC<{ initialData?: HomeInitialData }> = ({ initialData 
         is_test,
         status,
         is_archived
-      ),
-      author_team:teams!news_posts_author_team_id_fkey (
-        id,
-        name
       )
     `,
     )
+    .eq('is_admin', true)
+    .gte('created_at', twoMonthsAgo.toISOString())
     .order('created_at', { ascending: false })
-    .limit(24);
+    .limit(3);
 
   if (error) {
     console.error('Could not load 120min Weekly frontpage posts:', error.message);
@@ -259,12 +249,10 @@ export const Home: React.FC<{ initialData?: HomeInitialData }> = ({ initialData 
   const rows = ((data || []) as unknown as HomeWeeklyRawPost[])
     .map((post) => {
       const tournament = firstRelation(post.tournament);
-      const authorTeam = firstRelation(post.author_team);
 
       return {
         post,
         tournament,
-        authorTeam,
       };
     })
     .filter(({ tournament }) => {
@@ -277,21 +265,21 @@ export const Home: React.FC<{ initialData?: HomeInitialData }> = ({ initialData 
         tournament.status !== 'archived'
       );
     })
-    .map(({ post, tournament, authorTeam }) => ({
+    .map(({ post, tournament }) => ({
       id: post.id,
       tournament_id: post.tournament_id,
       tournament_slug: tournament?.slug || '',
       tournament_name: tournament?.name || 'Tournament',
       title: post.title,
       content: post.content,
-      author_name: post.is_admin ? tournament?.name || post.author_name : authorTeam?.name || post.author_name,
-      author_team_id: post.author_team_id,
-      author_team_name: authorTeam?.name || null,
-      is_admin: post.is_admin,
+      author_name: tournament?.name || post.author_name,
+      author_team_id: null,
+      author_team_name: null,
+      is_admin: true,
       created_at: post.created_at,
     }));
 
-  setLatestWeeklyPosts(pickFrontpageWeeklyPosts(rows));
+  setLatestWeeklyPosts(rows);
 }, []);
 
 useEffect(() => {
@@ -741,7 +729,7 @@ useEffect(() => {
             {latestWeeklyPosts.length > 0 && (
   <section className={styles.homeWeekly}>
     <div className={styles.homeWeeklyList}>
-      {latestWeeklyPosts.map((post, index) => {
+      {latestWeeklyPosts.map((post) => {
         const normalizedPost: NewsPost = {
           id: post.id,
           tournament_id: post.tournament_id,
@@ -756,11 +744,11 @@ useEffect(() => {
         };
 
         return (
-          <SectionCard
-            key={post.id}
-            title={index === 0 ? '🗞 120min Weekly: In the tournaments' : undefined}
-            className={styles.homeWeeklyCard}
-          >
+  <SectionCard
+    key={post.id}
+    title="🗞 120min Weekly: In the tournaments"
+    className={styles.homeWeeklyCard}
+  >
             <NewsArticle
               post={normalizedPost}
               visitHref={toLocalePath(locale, `/t/${post.tournament_slug}`)}
