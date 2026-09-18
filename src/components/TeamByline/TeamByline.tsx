@@ -177,7 +177,7 @@ export const TeamByline: React.FC<TeamBylineProps> = ({
               data-tooltip-id={`${tooltipIdBase}-presence`}
               aria-label={presence.tooltip}
             >
-              {presence.online ? '●' : presence.label}
+              {presence.online ? '✔︎' : presence.label}
             </span>
             <Tooltip id={`${tooltipIdBase}-presence`} content={presence.tooltip} className="tooltip" />
           </>

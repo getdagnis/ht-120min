@@ -12,6 +12,13 @@ export interface Match {
   appg_outcome?: AppgOutcome | null;
   penalty_shootout_home_goals?: number | null;
   penalty_shootout_away_goals?: number | null;
+  home_slot_id?: string | null;
+  away_slot_id?: string | null;
+}
+
+export interface SeasonSlot {
+  id: string;
+  current_team_id: string | null;
 }
 
 export const APPG_CLASSIFICATIONS = ['ET3', 'ET2', 'PS1', 'RT0', 'OPW'] as const;
@@ -253,4 +260,33 @@ export function calculateStandings(
     if (b.gd !== a.gd) return b.gd - a.gd;
     return b.gf - a.gf;
   });
+}
+
+/**
+ * Uses physical season slots as the statistics owner when a slot backfill is
+ * present. The current slot occupant supplies display identity; completed
+ * matches still retain their legacy team IDs for fixture-history rendering.
+ */
+export function calculateSeasonSlotStandings(
+  teams: Team[],
+  matches: Match[],
+  slots: SeasonSlot[],
+  scoringMode: PersistedScoringMode,
+): TeamStanding[] {
+  if (slots.length === 0) return calculateStandings(teams, matches, scoringMode);
+
+  const teamsById = new Map(teams.map((team) => [team.id, team]));
+  const slotTeams: Team[] = slots.flatMap((slot) => {
+    const team = slot.current_team_id ? teamsById.get(slot.current_team_id) : null;
+    return team ? [{ ...team, id: slot.id, active: true }] : [];
+  });
+  return calculateStandings(
+    slotTeams,
+    matches.map((match) => ({
+      ...match,
+      home_team_id: match.home_slot_id || match.home_team_id,
+      away_team_id: match.away_slot_id || match.away_team_id,
+    })),
+    scoringMode,
+  );
 }

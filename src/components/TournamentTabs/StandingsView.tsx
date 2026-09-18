@@ -673,16 +673,17 @@ export const StandingsView: React.FC<StandingsViewProps> = ({
                               />
                             )}
                             <div className={styles.teamTextContainer}>
+
                               {isOpenSpot ? (
-                                <Button
+                              <div className={styles.canJoinButton}>  <Button
                                   type="button"
-                                  variant="zero"
+                                  variant="secondaryAction"
                                   size="xs"
                                   onClick={onJoinWithHattrick}
                                   disabled={!canJoinTournament || isConnecting}
                                 >
                                   Join with CHPP <ArrowRight size={15} weight="bold" />
-                                </Button>
+                                </Button></div>
                               ) : (
                                 <>
                                   <a
@@ -868,7 +869,7 @@ export const StandingsView: React.FC<StandingsViewProps> = ({
       )}
       {latestNewsPosts.length > 0 && (
         <div className={newsStyles.weeklyPanels}>
-          {latestNewsPosts.map((post, index) => {
+          {latestNewsPosts.map((post) => {
             const authorStanding = post.author_team_id
               ? standings.find((standing) => standing.teamId === post.author_team_id)
               : null;

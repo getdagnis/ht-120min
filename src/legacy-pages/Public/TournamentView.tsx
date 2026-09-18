@@ -9,7 +9,7 @@ import adminStyles from './TournamentAdmin.module.sass';
 import styles from './TournamentView.module.sass';
 import { buildCalendarSlots, formatCalendarDateWithWeek } from '../../utils/hattrick-calendar';
 import { getTournamentBackgroundStyle } from '../../utils/visuals';
-import { calculateStandings } from '../../utils/standings';
+import { calculateSeasonSlotStandings, calculateStandings } from '../../utils/standings';
 import { validateAppgOutcome } from '../../utils/appg';
 import { isAppg120ScoringMode } from '../../../shared/scoring-profile';
 import type { TeamStanding, Team as StandingTeam } from '../../utils/standings';
@@ -559,6 +559,7 @@ export const TournamentView: React.FC<{ initialData?: TournamentInitialData }> =
   const [standings, setStandings] = useState<TeamStanding[]>(
     () => (initialData?.standings as unknown as TeamStanding[] | undefined) || [],
   );
+  const [seasonSlots, setSeasonSlots] = useState<Array<{ id: string; current_team_id: string | null }>>([]);
   const [rounds, setRounds] = useState<RoundWithMatches[]>(() => reviveInitialRounds(initialData));
   const [teams, setTeams] = useState<Team[]>(() => (initialData?.teams as unknown as Team[] | undefined) || []);
   const [warnings, setWarnings] = useState<any[]>(() => initialData?.warnings || []);
@@ -642,7 +643,6 @@ export const TournamentView: React.FC<{ initialData?: TournamentInitialData }> =
   const [replacingTeamId, setReplacingTeamId] = useState<string | null>(null);
   const [replacementHtId, setReplacementHtId] = useState('');
   const [replacementName, setReplacementName] = useState('');
-  const [replacementTeamData, setReplacementTeamData] = useState<FetchedTeamData | null>(null);
   const [isFetchingTeamData, setIsFetchingTeamData] = useState(false);
   const [scheduleMode, setScheduleMode] = useState<ScheduleMode>('single');
   const [scheduleSetup, setScheduleSetup] = useState<ScheduleSetup>('generated');
@@ -1493,6 +1493,11 @@ export const TournamentView: React.FC<{ initialData?: TournamentInitialData }> =
         } else {
           setSeasons([]);
         }
+        const currentSeasonId = (seasonData || []).find((season) => Number(season.season_number) === currentSeasonNumber)?.id;
+        const { data: slotData } = currentSeasonId
+          ? await supabase.from('tournament_season_slots').select('id, current_team_id').eq('tournament_season_id', currentSeasonId)
+          : { data: [] as Array<{ id: string; current_team_id: string | null }> };
+        setSeasonSlots((slotData || []) as Array<{ id: string; current_team_id: string | null }>);
         setEditName(tournamentData.name);
         setEditIsPrivate(tournamentData.is_private);
         setEditChppOnlyJoin(tournamentData.chpp_only_join);
@@ -1618,26 +1623,31 @@ export const TournamentView: React.FC<{ initialData?: TournamentInitialData }> =
             (roundsData || []).map((r) => r.id),
           );
 
-        // Enrich matches with profile data
-        const matchesData = (matchesDataRaw || []).map((m) => ({
-          ...m,
-          home_team: m.home_team
+        const rawMatches = matchesDataRaw || [];
+        const assignmentIds = Array.from(new Set(rawMatches.flatMap((match) => [match.home_slot_assignment_id, match.away_slot_assignment_id]).filter((id): id is string => typeof id === 'string')));
+        const { data: assignmentRows } = assignmentIds.length
+          ? await supabase.from('tournament_season_slot_assignments').select('id, team_name, ht_team_id, manager_name, hattrick_user_id, logo_url').in('id', assignmentIds)
+          : { data: [] as Array<Record<string, unknown>> };
+        const assignments = new Map((assignmentRows || []).map((assignment) => [String(assignment.id), assignment]));
+        // Completed fixture cards use their frozen assignment identity; upcoming
+        // cards retain the incoming team now occupying the physical slot.
+        const matchesData = rawMatches.map((m) => {
+          const enrichTeam = (team: typeof m.home_team, assignmentId: unknown) => {
+            const enriched = team
             ? {
-                ...m.home_team,
-                manager_name: m.home_team.hattrick_user_id
-                  ? nextProfileMap[m.home_team.hattrick_user_id]?.manager_name || m.home_team.manager_name
-                  : m.home_team.manager_name,
+                ...team,
+                manager_name: team.hattrick_user_id
+                  ? nextProfileMap[team.hattrick_user_id]?.manager_name || team.manager_name
+                  : team.manager_name,
               }
-            : null,
-          away_team: m.away_team
-            ? {
-                ...m.away_team,
-                manager_name: m.away_team.hattrick_user_id
-                  ? nextProfileMap[m.away_team.hattrick_user_id]?.manager_name || m.away_team.manager_name
-                  : m.away_team.manager_name,
-              }
-            : null,
-        }));
+            : null;
+            const assignment = typeof assignmentId === 'string' ? assignments.get(assignmentId) : null;
+            return assignment && m.completed
+              ? { ...(enriched || {}), name: assignment.team_name, ht_team_id: assignment.ht_team_id, manager_name: assignment.manager_name, hattrick_user_id: assignment.hattrick_user_id, logo_url: assignment.logo_url }
+              : enriched;
+          };
+          return { ...m, home_team: enrichTeam(m.home_team, m.home_slot_assignment_id), away_team: enrichTeam(m.away_team, m.away_slot_assignment_id) };
+        });
 
         const { data: warningsData } = await supabase
           .from('fixture_warnings')
@@ -1679,7 +1689,7 @@ export const TournamentView: React.FC<{ initialData?: TournamentInitialData }> =
 
           const mergedMatches = matchesWithDates;
 
-          const calculated = calculateStandings(
+          const calculated = calculateSeasonSlotStandings(
             teamsData.map((t) => ({
               id: t.id,
               name: t.name,
@@ -1699,6 +1709,8 @@ export const TournamentView: React.FC<{ initialData?: TournamentInitialData }> =
             mergedMatches.map((m) => ({
               home_team_id: m.home_team_id,
               away_team_id: m.away_team_id,
+              home_slot_id: m.home_slot_id,
+              away_slot_id: m.away_slot_id,
               home_goals: m.home_goals,
               away_goals: m.away_goals,
               completed: m.completed,
@@ -1708,6 +1720,7 @@ export const TournamentView: React.FC<{ initialData?: TournamentInitialData }> =
               penalty_shootout_home_goals: m.penalty_shootout_home_goals,
               penalty_shootout_away_goals: m.penalty_shootout_away_goals,
             })),
+            (slotData || []) as Array<{ id: string; current_team_id: string | null }>,
             tournamentData.scoring_mode as any,
           );
 
@@ -1786,12 +1799,14 @@ export const TournamentView: React.FC<{ initialData?: TournamentInitialData }> =
       }));
       setRounds(newRounds as RoundWithMatches[]);
       setStandings(
-        calculateStandings(
+        calculateSeasonSlotStandings(
           teams.map((team) => toStandingTeam(team)),
           newRounds.flatMap((round) =>
             round.matches.map((match) => ({
               home_team_id: match.home_team_id,
               away_team_id: match.away_team_id,
+              home_slot_id: match.home_slot_id,
+              away_slot_id: match.away_slot_id,
               home_goals: match.home_goals,
               away_goals: match.away_goals,
               completed: match.completed,
@@ -1802,6 +1817,7 @@ export const TournamentView: React.FC<{ initialData?: TournamentInitialData }> =
               penalty_shootout_away_goals: match.penalty_shootout_away_goals,
             })),
           ),
+          seasonSlots,
           tournament.scoring_mode as '120m' | '120min' | 'points' | 'appg',
         ),
       );
@@ -1809,7 +1825,7 @@ export const TournamentView: React.FC<{ initialData?: TournamentInitialData }> =
     if (warningsData) setWarnings(warningsData);
     if (tournamentMeta)
       setTournament((prev) => (prev ? { ...prev, last_fixtures_refresh: tournamentMeta.last_fixtures_refresh } : prev));
-  }, [tournament, teams, getMatchDateForRound]);
+  }, [tournament, teams, seasonSlots, getMatchDateForRound]);
 
   const normalizeManualRounds = useCallback(async () => {
     if (!tournament) return;
@@ -3225,7 +3241,6 @@ export const TournamentView: React.FC<{ initialData?: TournamentInitialData }> =
 
       if (isReplacement) {
         setReplacementName(data.teamName);
-        setReplacementTeamData(data);
       } else {
         setNewTeamName(data.teamName);
         setNewTeamData(data);
@@ -3451,6 +3466,10 @@ export const TournamentView: React.FC<{ initialData?: TournamentInitialData }> =
 
   const reviveTeam = async (teamId: string) => {
     const team = teams.find((t) => t.id === teamId);
+    if (isGenerated) {
+      alert('Scheduled-season revival is unavailable during peak-season slot compatibility. Use the reviewed replacement flow instead.');
+      return;
+    }
     if (!window.confirm(`This team was previously removed from tournament. Do you want to revive ${team?.name}?`))
       return;
 
@@ -3467,8 +3486,8 @@ export const TournamentView: React.FC<{ initialData?: TournamentInitialData }> =
   };
 
   const replaceTeam = async (oldTeamId: string) => {
-    if (!replacementName.trim() || !replacementHtId.trim()) {
-      alert('Both new Team Name and new HT ID are required.');
+    if (!replacementHtId.trim() || !tournament) {
+      alert('A checked existing Hattrick team ID is required.');
       return;
     }
 
@@ -3479,54 +3498,23 @@ export const TournamentView: React.FC<{ initialData?: TournamentInitialData }> =
 
     setIsSavingTeam(true);
     try {
-      // 1. Deactivate old team if not already
-      await supabase.from('teams').update({ active: false }).eq('id', oldTeamId);
-
-      // 2. Insert new team
-      const { data: newTeam, error: nError } = await supabase
-        .from('teams')
-        .insert([
-          {
-            tournament_id: tournament?.id,
-            name: replacementName.trim(),
-            ht_team_id: parseInt(replacementHtId.trim()),
-            active: true,
-            replacement_for_team_id: oldTeamId,
-            logo_url: replacementTeamData?.logoUrl ?? null,
-            country_id: replacementTeamData?.countryId ?? null,
-            country_name: replacementTeamData?.countryName ?? null,
-            league_id: replacementTeamData?.leagueId ?? null,
-            gender_id: replacementTeamData?.genderId ?? null,
-            league_level: replacementTeamData?.leagueLevel ?? null,
-            manager_name: replacementTeamData ? 'Bot team' : null,
-          },
-        ])
-        .select()
-        .single();
-
-      if (nError) throw nError;
-
-      // 3. Update upcoming matches
-      if (newTeam) {
-        const { error: m1Error } = await supabase
-          .from('matches')
-          .update({ home_team_id: newTeam.id })
-          .eq('home_team_id', oldTeamId)
-          .eq('completed', false);
-
-        const { error: m2Error } = await supabase
-          .from('matches')
-          .update({ away_team_id: newTeam.id })
-          .eq('away_team_id', oldTeamId)
-          .eq('completed', false);
-
-        if (m1Error || m2Error) throw new Error('Failed to update matches');
-      }
+      const response = await fetch('/api/app?route=season-slot-replacement', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'same-origin',
+        body: JSON.stringify({
+          tournamentId: tournament.id,
+          seasonNumber: Number(tournament.season || 1),
+          formerTeamId: oldTeamId,
+          incomingHtTeamId: Number(replacementHtId),
+        }),
+      });
+      const result = (await response.json()) as { error?: string };
+      if (!response.ok) throw new Error(result.error || 'The replacement could not be completed.');
 
       setReplacingTeamId(null);
       setReplacementHtId('');
       setReplacementName('');
-      setReplacementTeamData(null);
       fetchData();
     } catch (error: any) {
       alert(error.message);
@@ -3570,13 +3558,7 @@ export const TournamentView: React.FC<{ initialData?: TournamentInitialData }> =
     let updatedTeams;
     const team = teams.find((t) => t.id === id);
     if (isGenerated) {
-      if (window.confirm(`Are you sure you want to deactivate ${team?.name}?`)) {
-        if (!confirmAdminPassword()) return;
-        await supabase.from('teams').update({ active: false }).eq('id', id);
-        updatedTeams = teams.map((t) => (t.id === id ? { ...t, active: false } : t));
-        fetchData();
-        reconcileTournamentTeamState(updatedTeams);
-      }
+      alert('Scheduled-season removal is unavailable during peak-season slot compatibility. Do not mutate a slot-backed roster directly.');
       return;
     }
 
@@ -5608,7 +5590,6 @@ export const TournamentView: React.FC<{ initialData?: TournamentInitialData }> =
                                             onChange={(e) => {
                                               setReplacementHtId(e.target.value.replace(/\D/g, ''));
                                               setReplacementName('');
-                                              setReplacementTeamData(null);
                                             }}
                                             required
                                           />
@@ -5688,7 +5669,6 @@ export const TournamentView: React.FC<{ initialData?: TournamentInitialData }> =
                                             onChange={(e) => {
                                               setReplacementHtId(e.target.value.replace(/\D/g, ''));
                                               setReplacementName('');
-                                              setReplacementTeamData(null);
                                             }}
                                             required
                                           />

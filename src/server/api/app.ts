@@ -154,6 +154,32 @@ async function handleTournamentParticipation(req: VercelRequest, res: VercelResp
   return res.status(200).json({ removed: true, teamId: removedTeam.id });
 }
 
+async function handleSeasonSlotReplacement(req: VercelRequest, res: VercelResponse) {
+  if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed.' });
+  const tournamentId = readString(req.body?.tournamentId);
+  const formerTeamId = readString(req.body?.formerTeamId);
+  const incomingHtTeamId = Number(req.body?.incomingHtTeamId);
+  const seasonNumber = Number(req.body?.seasonNumber);
+  if (!tournamentId || !formerTeamId || !Number.isSafeInteger(incomingHtTeamId) || incomingHtTeamId <= 0 || !Number.isSafeInteger(seasonNumber) || seasonNumber < 1) {
+    return res.status(400).json({ error: 'Invalid replacement request.' });
+  }
+  const actor = await requireTournamentRoleSession(req, res, tournamentId);
+  if (!actor) return;
+  if (!actor.access.canManageOperations) return res.status(403).json({ error: 'This role cannot replace a scheduled team.' });
+
+  const { data, error } = await getServiceSupabase().rpc('replace_known_team_in_current_season', {
+    p_tournament_id: tournamentId,
+    p_season_number: seasonNumber,
+    p_former_team_id: formerTeamId,
+    p_incoming_ht_team_id: incomingHtTeamId,
+  });
+  if (error) {
+    const status = ['22023', '23505', 'P0002'].includes(error.code || '') ? 409 : 500;
+    return res.status(status).json({ error: error.message });
+  }
+  return res.status(200).json({ replacement: Array.isArray(data) ? data[0] : data });
+}
+
 async function handleTournamentRoles(req: VercelRequest, res: VercelResponse) {
   const tournamentId = readString(req.method === 'GET' ? req.query.tournamentId : req.body?.tournamentId);
   if (!tournamentId) return res.status(400).json({ error: 'Missing tournamentId.' });
@@ -694,6 +720,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         return await handleManagedTournaments(req, res);
       case 'tournament-participation':
         return await handleTournamentParticipation(req, res);
+      case 'season-slot-replacement':
+        return await handleSeasonSlotReplacement(req, res);
       case 'activity':
       default:
         return await handleActivity(req, res);

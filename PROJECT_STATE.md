@@ -30,6 +30,10 @@ The app currently supports:
 
 | Area | Code | DB migration | Local test | Production |
 | --- | --- | --- | --- | --- |
+| Peak-season FFC/Zermatt slot compatibility | Local compatibility layer only: slots preserve a physical current-season standings line while completed fixture identity remains frozen; it explicitly does not normalize global team/credential ownership | `20260918165441_add_season_slots_and_assignments.sql` prepared locally; not applied | `npm test` (182), lint, TypeScript, server-import, and diff checks passed locally; no local Supabase transaction test was available | **Blocked:** run the documented read-only FFC/Zermatt preflight, then disposable DB test, migration application, one live action, and post-action verifier. Do not mutate live data on a failed/ambiguous preflight. |
+
+| Area | Code | DB migration | Local test | Production |
+| --- | --- | --- | --- | --- |
 | Tournament creation/joining | Implemented; OAuth callback now keeps superadmin team selection unfiltered, matches league limits by LeagueID, saves organizer names for new validated tournaments, and falls back to profile/team organizer names for older null rows | Base migrations through organizer/profile/team fields | `npm test` and `npm run build` passed 2026-07-02 | Confirm |
 | Schedule generation | Implemented; generation now scopes its existing-round guard to the current tournament season so retained Season 1 rounds do not block the first Season 2 schedule | `047`, `048`, corrected by `051`; `20260917142135_scope_schedule_generation_to_current_season.sql` is a new migration file and has not been applied | `docs/schedule-rpc-smoke-test.sql` now covers retained Season 1 rounds plus Season 2 generation; local/live database execution pending | Apply the new migration, then generate the first Season 2 schedule for a finished Season 1 tournament |
 | Schedule regeneration | Implemented | `049`, corrected by `051` | Covered by `tests/reschedule-draft.test.ts`; not rerun for docs-only refactor | Confirm |

@@ -52,6 +52,15 @@ When a task is not completely obvious and trivial, first inspect the issue and e
 - Dev/debug tooling belongs in `src/server/api/testing/index.ts` as routed handlers.
 - Shared server code belongs in `src/server/api/_lib/`.
 - Any source file imported by `src/server/api/` or the Next API route must use explicit runtime `.js` extensions for relative TypeScript/JavaScript imports. JSON imports must include `with { type: 'json' }`.
+
+## Peak-season slot compatibility hard stop
+
+`teams` currently has legacy, internally inconsistent identity semantics. The
+current-season slot compatibility slice is not authorization to generalize that
+model into global identity work during peak season. Do not directly write
+scheduled-team lifecycle state from a browser, insert a raw known Hattrick team,
+rewrite a completed fixture participant, or apply the slot migration unless the
+named production preflight in `docs/season-slot-compatibility.md` has passed.
 - Before API endpoint work, run:
 
 ```bash

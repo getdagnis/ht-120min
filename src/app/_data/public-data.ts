@@ -6,7 +6,7 @@ import { getMatchDateForRound } from '../../utils/match-schedule';
 import { getTournamentNextMatchDate } from '../../utils/tournament-next-match';
 import { sortFeaturedFirst } from '../../utils/tournament-sorting';
 import { sortOpenTournaments } from '../../utils/open-tournaments';
-import { calculateStandings } from '../../utils/standings';
+import { calculateSeasonSlotStandings } from '../../utils/standings';
 
 interface HomeMatch {
   id: string;
@@ -287,6 +287,10 @@ export const loadTournamentInitialData = cache(async (slug: string): Promise<Tou
 
   const teams = (teamsRaw || []) as Record<string, unknown>[];
   const rounds = (roundsRaw || []) as Record<string, unknown>[];
+  const currentSeasonId = String((seasonsRaw || []).find((season) => Number((season as Record<string, unknown>).season_number) === seasonNumber)?.id || '');
+  const { data: slotsRaw } = currentSeasonId
+    ? await supabase.from('tournament_season_slots').select('id, current_team_id').eq('tournament_season_id', currentSeasonId)
+    : { data: [] as unknown[] };
   const roundIds = rounds.map((round) => String(round.id));
   const userIds = teams.map((team) => Number(team.hattrick_user_id || 0)).filter(Boolean);
   const [matchesResult, profilesResult] = await Promise.all([
@@ -309,14 +313,25 @@ export const loadTournamentInitialData = cache(async (slug: string): Promise<Tou
 
   const profiles = (profilesResult.data || []) as { hattrick_user_id: number; manager_name: string; last_seen_at: string | null }[];
   const profileMap = Object.fromEntries(profiles.map((profile) => [profile.hattrick_user_id, profile.manager_name]));
-  const matches = ((matchesResult.data || []) as Record<string, unknown>[]).map((match) => {
+  const rawMatches = (matchesResult.data || []) as Record<string, unknown>[];
+  const assignmentIds = Array.from(new Set(rawMatches.flatMap((match) => [match.home_slot_assignment_id, match.away_slot_assignment_id]).filter((id): id is string => typeof id === 'string')));
+  const { data: assignmentRows } = assignmentIds.length
+    ? await supabase.from('tournament_season_slot_assignments').select('id, team_name, ht_team_id, manager_name, hattrick_user_id, logo_url').in('id', assignmentIds)
+    : { data: [] as unknown[] };
+  const assignments = new Map((assignmentRows || []).map((row) => [String((row as Record<string, unknown>).id), row as Record<string, unknown>]));
+  const matches = rawMatches.map((match) => {
     const enrichTeam = (value: unknown) => {
       if (!value || typeof value !== 'object') return null;
       const team = value as Record<string, unknown>;
       const userId = Number(team.hattrick_user_id || 0);
       return { ...team, manager_name: profileMap[userId] || team.manager_name || null };
     };
-    return { ...match, home_team: enrichTeam(match.home_team), away_team: enrichTeam(match.away_team) };
+    const historicalTeam = (team: unknown, assignmentId: unknown) => {
+      const assignment = typeof assignmentId === 'string' ? assignments.get(assignmentId) : null;
+      if (!assignment || !match.completed) return enrichTeam(team);
+      return { ...(enrichTeam(team) || {}), name: assignment.team_name, ht_team_id: assignment.ht_team_id, manager_name: assignment.manager_name, hattrick_user_id: assignment.hattrick_user_id, logo_url: assignment.logo_url };
+    };
+    return { ...match, home_team: historicalTeam(match.home_team, match.home_slot_assignment_id), away_team: historicalTeam(match.away_team, match.away_slot_assignment_id) };
   });
 
   const roundWithMatches = rounds.map((round) => ({
@@ -339,7 +354,10 @@ export const loadTournamentInitialData = cache(async (slug: string): Promise<Tou
       }),
   }));
 
-  const standings = calculateStandings(
+  // The slot table is optional until the peak-season migration is applied. Its
+  // query intentionally degrades to the legacy team-based view on old projects.
+  const slots = (slotsRaw || []) as { id: string; current_team_id: string | null }[];
+  const standings = calculateSeasonSlotStandings(
     teams.map((team) => ({
       id: String(team.id),
       name: String(team.name),
@@ -358,6 +376,8 @@ export const loadTournamentInitialData = cache(async (slug: string): Promise<Tou
     matches.map((match) => ({
       home_team_id: (match.home_team_id as string | null) || null,
       away_team_id: (match.away_team_id as string | null) || null,
+      home_slot_id: (match.home_slot_id as string | null) || null,
+      away_slot_id: (match.away_slot_id as string | null) || null,
       home_goals: Number(match.home_goals || 0),
       away_goals: Number(match.away_goals || 0),
       completed: Boolean(match.completed),
@@ -367,6 +387,7 @@ export const loadTournamentInitialData = cache(async (slug: string): Promise<Tou
       penalty_shootout_home_goals: Number(match.penalty_shootout_home_goals || 0) || null,
       penalty_shootout_away_goals: Number(match.penalty_shootout_away_goals || 0) || null,
     })),
+    slots,
     String(tournament.scoring_mode || '120min'),
   ) as Record<string, unknown>[];
 

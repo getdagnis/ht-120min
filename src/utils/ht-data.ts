@@ -256,7 +256,7 @@ export function formatPresence(lastSeenAt: string | null | undefined): {
   const mins = (Date.now() - lastSeen.getTime()) / 60000;
   if (mins < 5) {
     return {
-      label: '●',
+      label: '✔︎',
       tooltip: 'Wandering around',
       color: 'green',
       online: true,
