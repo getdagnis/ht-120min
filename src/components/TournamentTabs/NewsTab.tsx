@@ -18,6 +18,9 @@ interface NewsTeam {
 
 export interface NewsPost {
   id: string;
+  tournament_id?: string | null;
+  tournament_slug?: string | null;
+  tournament_name?: string | null;
   title?: string | null;
   content: string;
   author_name: string;
@@ -39,6 +42,8 @@ export interface NewsArticleProps {
   currentUserId?: string | null;
   reactionAuthorNames?: Record<string, string>;
   onReaction?: (postId: string, reaction: string) => void;
+  visitHref?: string;
+  visitLabel?: string;
 }
 
 interface NewsTabProps {
@@ -60,6 +65,8 @@ export const NewsArticle: React.FC<NewsArticleProps> = ({
   currentUserId,
   reactionAuthorNames = {},
   onReaction,
+  visitHref,
+  visitLabel = 'Visit cup',
 }) => (
   <article className={`${styles.post} ${post.is_admin ? styles.adminPost : ''}`}>
     <div className={styles.postHeader}>
@@ -93,7 +100,7 @@ export const NewsArticle: React.FC<NewsArticleProps> = ({
     )}
     {onReaction && (
       <div className={styles.reactionBar}>
-        {['😅', '💪', '🔥', '❤️', '🥶', '🍺', '😕', '🏆'].map((emoji) => (
+        {['😅', '💪', '🔥', '❤️', '🥶', '🍺', '😕', '🏆', '⚽️'].map((emoji) => (
           <button
             key={emoji}
             onClick={() => onReaction(post.id, emoji)}
@@ -103,6 +110,20 @@ export const NewsArticle: React.FC<NewsArticleProps> = ({
             {emoji}
           </button>
         ))}
+      </div>
+    )}
+    {visitHref && (
+      <div className={styles.visitCupRow}>
+        <Button
+          type="button"
+          variant="outline"
+          size="sm"
+          onClick={() => {
+            window.location.href = visitHref;
+          }}
+        >
+          {visitLabel}
+        </Button>
       </div>
     )}
   </article>
@@ -240,12 +261,15 @@ export const NewsTab: React.FC<NewsTabProps> = ({
       }));
   };
 
+  const latestPost = newsPosts[0] || null;
+  const olderPosts = newsPosts.slice(1);
+
   if (!isActive) return null;
 
   return (
     <div className={styles.newsLayout}>
       <div className={styles.guestbook}>
-        <SectionCard title="News & Announcements">
+        <SectionCard title="Write a press release">
           <div className={styles.newsTabs}>
             <button className={newsMode === 'team' ? styles.active : ''} onClick={() => setNewsMode('team')}>
               Team News
@@ -305,29 +329,51 @@ export const NewsTab: React.FC<NewsTabProps> = ({
               </Button>
             </div>
           </form>
+        </SectionCard>
 
-          <div className={styles.postsList}>
-            {newsPosts.length === 0 ? (
-              <p className={styles.noPosts}>No news yet.</p>
-            ) : (
-              newsPosts.map((post) => {
-                const authorTeam = post.author_team_id ? teams.find((team) => team.id === post.author_team_id) : null;
-                return (
+        {newsPosts.length === 0 ? (
+          <SectionCard title="🗞 120min Weekly">
+            <p className={styles.noPosts}>No news yet.</p>
+          </SectionCard>
+        ) : (
+          <div className={styles.weeklyPanels}>
+            {latestPost && (
+              <SectionCard title="🗞 120min Weekly" className={styles.weeklyPanel}>
+                <NewsArticle
+                  post={latestPost}
+                  authorTeam={
+                    latestPost.author_team_id ? teams.find((team) => team.id === latestPost.author_team_id) : null
+                  }
+                  reactions={newsReactions[latestPost.id]}
+                  currentUserId={myHtUserId}
+                  reactionAuthorNames={reactionAuthorNames}
+                  onReaction={handleAddReaction}
+                  visitHref={window.location.pathname}
+                />
+              </SectionCard>
+            )}
+
+            {olderPosts.map((post) => {
+              const authorTeam = post.author_team_id ? teams.find((team) => team.id === post.author_team_id) : null;
+
+              return (
+                <SectionCard key={post.id} className={styles.weeklyPanel}>
                   <NewsArticle
-                    key={post.id}
                     post={post}
                     authorTeam={authorTeam}
                     reactions={newsReactions[post.id]}
                     currentUserId={myHtUserId}
                     reactionAuthorNames={reactionAuthorNames}
                     onReaction={handleAddReaction}
+                    visitHref={window.location.pathname}
                   />
-                );
-              })
-            )}
+                </SectionCard>
+              );
+            })}
           </div>
-        </SectionCard>
+        )}
       </div>
+
       <aside className={styles.newsSidebar}>
         <CompactAccordionWidget title="Tournament FAQ" icon={<Question size={20} weight="bold" />} items={faqItems} />
       </aside>

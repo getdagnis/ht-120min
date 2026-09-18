@@ -124,8 +124,8 @@ export const StandingsView: React.FC<StandingsViewProps> = ({
   const [sortKey, setSortKey] = useState<StandingsSortKey>('default');
   const [sortDirection, setSortDirection] = useState<SortDirection>('desc');
   const [seasonComments, setSeasonComments] = useState<TournamentSeasonComment[]>([]);
-  const [latestNewsPost, setLatestNewsPost] = useState<NewsPost | null>(null);
-  const [latestNewsReactions, setLatestNewsReactions] = useState<NewsReaction[]>([]);
+  const [latestNewsPosts, setLatestNewsPosts] = useState<NewsPost[]>([]);
+  const [latestNewsReactions, setLatestNewsReactions] = useState<Record<string, NewsReaction[]>>({});
   const [commentDrafts, setCommentDrafts] = useState<Record<string, string>>({});
   const [pendingCommentStanding, setPendingCommentStanding] = useState<TeamStanding | null>(null);
   const [submittingTeamId, setSubmittingTeamId] = useState<string | null>(null);
@@ -226,24 +226,32 @@ export const StandingsView: React.FC<StandingsViewProps> = ({
   useEffect(() => {
     if (!tournament?.id || !seasonNumber) return;
 
-    const fetchLatestNews = async () => {
+   const fetchLatestNews = async () => {
       const { data } = await supabase
         .from('news_posts')
         .select('*')
         .eq('tournament_id', tournament.id)
         .eq('season_number', seasonNumber)
         .order('created_at', { ascending: false })
-        .limit(1)
-        .maybeSingle();
-      setLatestNewsPost((data as NewsPost | null) || null);
-      if (data) {
+        .limit(3);
+
+      const posts = (data as NewsPost[] | null) || [];
+      setLatestNewsPosts(posts);
+
+      if (posts.length > 0) {
         const { data: reactionRows } = await supabase
           .from('news_reactions')
           .select('post_id, user_id, reaction')
-          .eq('post_id', data.id);
-        setLatestNewsReactions((reactionRows as NewsReaction[] | null) || []);
+          .in(
+            'post_id',
+            posts.map((post) => post.id),
+          );
+
+        setLatestNewsReactions(
+          Object.groupBy((reactionRows as NewsReaction[] | null) || [], (reaction) => reaction.post_id),
+        );
       } else {
-        setLatestNewsReactions([]);
+        setLatestNewsReactions({});
       }
     };
     void fetchLatestNews();
@@ -260,9 +268,10 @@ export const StandingsView: React.FC<StandingsViewProps> = ({
         },
         (payload) => {
           const post = payload.new as NewsPost & { season_number?: number | null };
+
           if (post.season_number === seasonNumber) {
-            setLatestNewsPost(post);
-            setLatestNewsReactions([]);
+            setLatestNewsPosts((current) => [post, ...current].slice(0, 3));
+            setLatestNewsReactions((current) => ({ ...current, [post.id]: [] }));
           }
         },
       )
@@ -271,12 +280,20 @@ export const StandingsView: React.FC<StandingsViewProps> = ({
         { event: '*', schema: 'public', table: 'news_reactions' },
         (payload) => {
           const reaction = payload.new as NewsReaction;
-          if (reaction.post_id === latestNewsPost?.id) {
-            setLatestNewsReactions((current) => [
-              ...current.filter((item) => item.user_id !== reaction.user_id),
-              reaction,
-            ]);
-          }
+          if (!reaction.post_id) return;
+
+          setLatestNewsReactions((current) => {
+            if (!current[reaction.post_id]) return current;
+
+            const existing = current[reaction.post_id] || [];
+            return {
+              ...current,
+              [reaction.post_id]: [
+                ...existing.filter((item) => item.user_id !== reaction.user_id),
+                reaction,
+              ],
+            };
+          });
         },
       )
       .subscribe();
@@ -284,19 +301,25 @@ export const StandingsView: React.FC<StandingsViewProps> = ({
     return () => {
       void supabase.removeChannel(channel);
     };
-  }, [latestNewsPost?.id, seasonNumber, tournament?.id]);
+  }, [seasonNumber, tournament?.id]);
 
   const handleNewsReaction = async (postId: string, reaction: string) => {
     if (!myHtUserId) return;
+
     const { error } = await supabase.from('news_reactions').upsert(
       { post_id: postId, user_id: myHtUserId, reaction },
       { onConflict: 'post_id,user_id' },
     );
+
     if (error) return;
-    setLatestNewsReactions((current) => [
-      ...current.filter((item) => item.user_id !== myHtUserId),
-      { post_id: postId, user_id: myHtUserId, reaction },
-    ]);
+
+    setLatestNewsReactions((current) => ({
+      ...current,
+      [postId]: [
+        ...(current[postId] || []).filter((item) => item.user_id !== myHtUserId),
+        { post_id: postId, user_id: myHtUserId, reaction },
+      ],
+    }));
   };
 
   const toggleScoringDisplay = () => {
@@ -828,25 +851,46 @@ export const StandingsView: React.FC<StandingsViewProps> = ({
           </div>
         </Modal>
       )}
-      <SectionCard title="🗞 120min Weekly">
-        {latestNewsPost ? (
-          <NewsArticle
-            post={latestNewsPost}
-            authorTeam={null}
-            reactions={latestNewsReactions}
-            currentUserId={myHtUserId}
-            reactionAuthorNames={reactionAuthorNames}
-            onReaction={handleNewsReaction}
-          />
-        ) : (
-          <p className={newsStyles.noPosts}>No news yet.</p>
+      {latestNewsPosts.length > 0 && (
+        <div className={newsStyles.weeklyPanels}>
+          {latestNewsPosts.map((post, index) => {
+            const authorStanding = post.author_team_id
+              ? standings.find((standing) => standing.teamId === post.author_team_id)
+              : null;
+
+            const authorTeam = authorStanding
+              ? {
+                  id: authorStanding.teamId,
+                  name: authorStanding.teamName,
+                  logo_url: authorStanding.logoUrl || DEFAULT_TEAM_LOGO,
+                }
+              : null;
+
+            return (
+              <SectionCard
+                key={post.id}
+                title={index === 0 ? '🗞 120min Weekly' : undefined}
+                className={newsStyles.weeklyPanel}
+              >
+                <NewsArticle
+                  post={post}
+                  authorTeam={authorTeam}
+                  reactions={latestNewsReactions[post.id] || []}
+                  currentUserId={myHtUserId}
+                  reactionAuthorNames={reactionAuthorNames}
+                  onReaction={handleNewsReaction}
+                />
+              </SectionCard>
+            );
+          })}
+                  {onVisitNews && (
+          <Button variant="outline" onClick={onVisitNews}>
+            All press releases
+          </Button>
         )}
-        {onVisitNews && (
-          <button type="button" className={newsStyles.allArticlesLink} onClick={onVisitNews}>
-            All articles
-          </button>
-        )}
-      </SectionCard>
+        </div>
+      )}
+
       {seasonId && seasonStatus !== 'finished' && (
         <SeasonYearbook
           seasonNumber={seasonNumber}

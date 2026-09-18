@@ -28,6 +28,8 @@ import styles from './Home.module.sass';
 import type { HomeInitialData } from '../../app/_data/public-data';
 import { useLocale } from '../../i18n/LocaleProvider';
 import { toLocalePath } from '../../next/locale-path';
+import { NewsArticle, type NewsPost } from '../../components/TournamentTabs/NewsTab';
+import { pickFrontpageWeeklyPosts } from '../../utils/news-priority';
 
 const FORUM_LINK = 'https://www.hattrick.org/goto.ashx?path=/Forum/Read.aspx?n=1&nm=32&t=17685273&v=0';
 const SHOW_FAQ = true;
@@ -112,6 +114,66 @@ interface TopTournament {
   completedMatches: number;
 }
 
+interface HomeWeeklyPost {
+  id: string;
+  tournament_id: string;
+  tournament_slug: string;
+  tournament_name: string;
+  title: string | null;
+  content: string;
+  author_name: string;
+  author_team_id: string | null;
+  author_team_name: string | null;
+  is_admin: boolean | null;
+  created_at: string;
+}
+
+interface HomeWeeklyRawPost {
+  id: string;
+  tournament_id: string;
+  title: string | null;
+  content: string;
+  author_name: string;
+  author_team_id: string | null;
+  is_admin: boolean | null;
+  created_at: string;
+  tournament:
+    | {
+        id: string;
+        name: string;
+        slug: string;
+        is_private: boolean;
+        is_test?: boolean | null;
+        status?: string | null;
+        is_archived?: boolean | null;
+      }
+    | {
+        id: string;
+        name: string;
+        slug: string;
+        is_private: boolean;
+        is_test?: boolean | null;
+        status?: string | null;
+        is_archived?: boolean | null;
+      }[]
+    | null;
+  author_team:
+    | {
+        id: string;
+        name: string;
+      }
+    | {
+        id: string;
+        name: string;
+      }[]
+    | null;
+}
+
+const firstRelation = <T,>(value: T | T[] | null | undefined): T | null => {
+  if (!value) return null;
+  return Array.isArray(value) ? value[0] || null : value;
+};
+
 function reviveInitialTournament(tournament: HomeInitialData['featuredTournaments'][number]): Tournament {
   return {
     ...tournament,
@@ -127,9 +189,9 @@ const ForumWidget = () => (
     title="Official ht-120min CHPP forum"
     icon={<ChatText size={20} weight="bold" />}
     footer={
-      <Button to="">
+      <a href="https://www.hattrick.org/goto.ashx?path=/Forum/Overview.aspx?v=0&f=1558036" target='_blank'>
         CHPP HT-120min forum <ArrowRight size={12} weight="bold" />
-      </Button>
+      </a>
     }
   >
     <p>Have a question, an idea, found a bug or just to say hi? Come and do so on our official ht-120min forum!</p>
@@ -153,9 +215,92 @@ export const Home: React.FC<{ initialData?: HomeInitialData }> = ({ initialData 
   const [topActiveTournaments, setTopActiveTournaments] = useState<TopTournament[]>(
     () => initialData?.topActiveTournaments || [],
   );
+  const [latestWeeklyPosts, setLatestWeeklyPosts] = useState<HomeWeeklyPost[]>([]);
   const faqContent = useMemo(() => getPublishedFaqSections(), []);
 
   const showFaq = faqContent.length > 0 && SHOW_FAQ;
+
+  const fetchLatestWeeklyPosts = useCallback(async () => {
+  const { data, error } = await supabase
+    .from('news_posts')
+    .select(
+      `
+      id,
+      tournament_id,
+      title,
+      content,
+      author_name,
+      author_team_id,
+      is_admin,
+      created_at,
+      tournament:tournaments!news_posts_tournament_id_fkey (
+        id,
+        name,
+        slug,
+        is_private,
+        is_test,
+        status,
+        is_archived
+      ),
+      author_team:teams!news_posts_author_team_id_fkey (
+        id,
+        name
+      )
+    `,
+    )
+    .order('created_at', { ascending: false })
+    .limit(24);
+
+  if (error) {
+    console.error('Could not load 120min Weekly frontpage posts:', error.message);
+    return;
+  }
+
+  const rows = ((data || []) as unknown as HomeWeeklyRawPost[])
+    .map((post) => {
+      const tournament = firstRelation(post.tournament);
+      const authorTeam = firstRelation(post.author_team);
+
+      return {
+        post,
+        tournament,
+        authorTeam,
+      };
+    })
+    .filter(({ tournament }) => {
+      return (
+        tournament &&
+        !tournament.is_private &&
+        !tournament.is_test &&
+        !tournament.is_archived &&
+        tournament.status !== 'stopped' &&
+        tournament.status !== 'archived'
+      );
+    })
+    .map(({ post, tournament, authorTeam }) => ({
+      id: post.id,
+      tournament_id: post.tournament_id,
+      tournament_slug: tournament?.slug || '',
+      tournament_name: tournament?.name || 'Tournament',
+      title: post.title,
+      content: post.content,
+      author_name: post.is_admin ? tournament?.name || post.author_name : authorTeam?.name || post.author_name,
+      author_team_id: post.author_team_id,
+      author_team_name: authorTeam?.name || null,
+      is_admin: post.is_admin,
+      created_at: post.created_at,
+    }));
+
+  setLatestWeeklyPosts(pickFrontpageWeeklyPosts(rows));
+}, []);
+
+useEffect(() => {
+  const timer = window.setTimeout(() => {
+    void fetchLatestWeeklyPosts();
+  }, 0);
+
+  return () => window.clearTimeout(timer);
+}, [fetchLatestWeeklyPosts]);
 
   useEffect(() => {
     const id = setTimeout(() => {
@@ -592,6 +737,41 @@ export const Home: React.FC<{ initialData?: HomeInitialData }> = ({ initialData 
                 </div>
               </section>
             )}
+
+            {latestWeeklyPosts.length > 0 && (
+  <section className={styles.homeWeekly}>
+    <div className={styles.homeWeeklyList}>
+      {latestWeeklyPosts.map((post, index) => {
+        const normalizedPost: NewsPost = {
+          id: post.id,
+          tournament_id: post.tournament_id,
+          tournament_slug: post.tournament_slug,
+          tournament_name: post.tournament_name,
+          title: post.title,
+          content: post.content,
+          author_name: post.is_admin ? post.tournament_name : post.author_name,
+          author_team_id: post.author_team_id,
+          is_admin: Boolean(post.is_admin),
+          created_at: post.created_at,
+        };
+
+        return (
+          <SectionCard
+            key={post.id}
+            title={index === 0 ? '🗞 120min Weekly: In the tournaments' : undefined}
+            className={styles.homeWeeklyCard}
+          >
+            <NewsArticle
+              post={normalizedPost}
+              visitHref={toLocalePath(locale, `/t/${post.tournament_slug}`)}
+              visitLabel="Visit cup"
+            />
+          </SectionCard>
+        );
+      })}
+    </div>
+  </section>
+)}
 
             {showFaq && <FaqRenderer sections={faqContent} className={styles.faqRenderer} />}
           </div>

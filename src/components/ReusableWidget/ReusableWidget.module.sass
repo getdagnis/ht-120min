@@ -32,24 +32,25 @@
   align-items: flex-start
   margin-top: 0.1rem
 
-  a,
-  button
+  a
     display: inline-flex
     align-items: center
     justify-content: center
     gap: 0.35rem
     padding: 0.55rem 0.8rem
     border-radius: var(--radius-sm)
-    color: var(--accent)
+    width: 100%
     font-size: 0.9rem
     font-weight: 700
     text-decoration: none
-    background: transparent
-    border: 1px solid color-mix(in srgb, var(--accent) 35%, transparent)
+    background: var(--accent-2)
+    border: 1px solid black
+    color: white
     transition: opacity 0.2s ease, border-color 0.2s ease, background-color 0.2s ease
 
     &:hover
       text-decoration: none
       opacity: 0.9
-      background-color: var(--bg-helpText)
-      border-color: color-mix(in srgb, var(--accent) 55%, transparent)
+      background: var(--yellow)
+      border: 1px solid black
+      color: black

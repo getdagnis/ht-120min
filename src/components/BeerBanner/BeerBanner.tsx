@@ -1,4 +1,3 @@
-import React, { useEffect, useRef } from 'react';
 import { Card } from '../Card/Card';
 import { Button } from '../Button/Button';
 import styles from './BeerBanner.module.sass';
