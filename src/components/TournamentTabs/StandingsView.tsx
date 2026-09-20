@@ -604,7 +604,7 @@ export const StandingsView: React.FC<StandingsViewProps> = ({
                           onClick={onJoinWithHattrick}
                           disabled={!canJoinTournament || isConnecting}
                         >
-                          <div className={styles.nameRow}>
+                          <div className={styles.nameRowFirst}>
                             <span className={styles.teamName}>Be the FIRST team to join!</span>
                             <ArrowRight size={15} weight="bold" className={styles.placeholderArrow} />
                           </div>
