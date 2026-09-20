@@ -38,6 +38,7 @@ export function buildRealTournamentInsert(options: RealTournamentInsertOptions) 
     admin_password: options.adminPassword,
     is_private: options.isPrivate,
     country_limit: options.countryLimit,
+    country_limit_format: options.countryLimit ? 'country_id' : null,
     description: options.showDescription ? options.description : null,
     show_description: options.showDescription,
     admin_email: options.adminEmail,

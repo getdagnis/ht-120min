@@ -91,6 +91,7 @@ interface Tournament extends DBTournament {
   scoring_mode: string | null | undefined;
   league_category: string | null | undefined;
   country_limit: string | null;
+  country_limit_format?: 'country_id' | 'league_id' | null;
   max_teams: number | null;
   validatedTeamCount: number;
   totalRounds: number;
@@ -338,6 +339,7 @@ useEffect(() => {
           thumbnail_index,
           image_url,
           country_limit,
+          country_limit_format,
           scoring_mode,
           league_category,
           max_teams,
@@ -596,6 +598,7 @@ useEffect(() => {
         thumbnailIndex={t.thumbnail_index}
         imageUrl={t.image_url}
         countryLimit={t.country_limit}
+        countryLimitFormat={t.country_limit_format}
         scoringMode={t.scoring_mode}
         leagueCategory={t.league_category}
         maxTeams={t.max_teams}

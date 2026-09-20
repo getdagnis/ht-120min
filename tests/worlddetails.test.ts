@@ -43,6 +43,9 @@ test('country restriction display handles current and legacy numeric formats', (
   assert.equal(resolveCountryRestriction('179')?.leagueId, 154);
   assert.equal(resolveCountryRestriction('53')?.leagueName, 'Latvia');
   assert.equal(resolveCountryRestriction('53')?.leagueId, 53);
+  assert.equal(resolveCountryRestriction('125', 'country_id')?.leagueName, 'Liechtenstein');
+  assert.equal(resolveCountryRestriction('131', 'country_id')?.leagueName, 'Cape Verde');
+  assert.equal(resolveCountryRestriction('117', 'league_id')?.leagueName, 'Liechtenstein');
 });
 
 test('every world-details country has flag metadata', () => {

@@ -53,6 +53,7 @@ interface HomeTournamentRow {
   thumbnail_index?: number;
   image_url?: string;
   country_limit: string | null;
+  country_limit_format?: 'country_id' | 'league_id' | null;
   scoring_mode: string | null;
   league_category: string | null;
   max_teams: number | null;
@@ -134,7 +135,7 @@ export const loadHomeInitialData = cache(async (): Promise<HomeInitialData> => {
         .select(
           `
           id, name, slug, created_at, schedule_start_slot, is_featured, is_private, is_test, status, is_archived,
-          season, thumbnail_index, image_url, country_limit, scoring_mode, league_category, max_teams,
+          season, thumbnail_index, image_url, country_limit, country_limit_format, scoring_mode, league_category, max_teams,
           rounds (
             id, created_at, round_number, season_number,
             matches (

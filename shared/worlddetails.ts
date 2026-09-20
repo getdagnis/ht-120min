@@ -16,6 +16,8 @@ export interface HattrickWorldLeague {
   suffix?: string;
 }
 
+export type CountryRestrictionFormat = 'country_id' | 'league_id';
+
 export const HATTRICK_WORLD_DETAILS: Record<number, HattrickWorldLeague> = {
   1: {
     leagueId: 1,
@@ -1696,17 +1698,33 @@ export function getCountryNameById(id?: number | string | null): string | undefi
   return getCountryWorldDetails(Number(id))?.leagueName;
 }
 
-/** Resolve current CountryID values and legacy restrictions stored as LeagueID. */
-export function resolveCountryRestriction(value?: string | number | null): HattrickWorldLeague | null {
+/**
+ * Resolve a restriction using its persisted identifier namespace.
+ * Unmarked historical rows retain the original LeagueID-first interpretation.
+ */
+export function resolveCountryRestriction(
+  value?: string | number | null,
+  format?: CountryRestrictionFormat | null,
+): HattrickWorldLeague | null {
   if (value === undefined || value === null || value === '') return null;
   const raw = String(value).trim();
   if (!raw) return null;
 
   const numericId = Number(raw);
   if (Number.isFinite(numericId) && raw === String(numericId)) {
+    if (format === 'country_id') return getCountryWorldDetails(numericId);
+    if (format === 'league_id') {
+      const legacyLeague = getLeagueWorldDetails(numericId);
+      return legacyLeague?.countryId !== null ? legacyLeague : null;
+    }
+
+    // Existing rows predate country_limit_format and stored LeagueIDs.
     const legacyLeague = getLeagueWorldDetails(numericId);
     if (legacyLeague?.countryId !== null && legacyLeague) return legacyLeague;
-    return getCountryWorldDetails(numericId);
+
+    const currentCountry = getCountryWorldDetails(numericId);
+    if (currentCountry) return currentCountry;
+    return null;
   }
 
   const countryId = getCountryIdByName(raw);

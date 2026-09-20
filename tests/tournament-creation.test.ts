@@ -30,6 +30,7 @@ test('real tournament insert defaults remain public, open, CHPP-only, and non-te
     admin_password: 'not-logged',
     is_private: false,
     country_limit: '202',
+    country_limit_format: 'country_id',
     description: 'Pressing helps.',
     show_description: true,
     admin_email: null,

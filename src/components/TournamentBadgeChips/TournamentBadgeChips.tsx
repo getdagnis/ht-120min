@@ -1,9 +1,10 @@
 import React from 'react';
-import { resolveCountryRestriction } from '../../../shared/worlddetails';
+import { resolveCountryRestriction, type CountryRestrictionFormat } from '../../../shared/worlddetails';
 import styles from './TournamentBadgeChips.module.sass';
 
 interface TournamentBadgeChipsProps {
   countryLimit?: string | null;
+  countryLimitFormat?: CountryRestrictionFormat | null;
   leagueCategory?: string | null;
   scoringMode?: string | null;
   children?: React.ReactNode;
@@ -11,11 +12,12 @@ interface TournamentBadgeChipsProps {
 
 export const TournamentBadgeChips: React.FC<TournamentBadgeChipsProps> = ({
   countryLimit,
+  countryLimitFormat,
   leagueCategory,
   scoringMode,
   children,
 }) => {
-  const countryRestriction = resolveCountryRestriction(countryLimit);
+  const countryRestriction = resolveCountryRestriction(countryLimit, countryLimitFormat);
   const is120min = scoringMode === '120min' || scoringMode === '120m';
 
   if (!countryRestriction && leagueCategory !== 'hfi' && !is120min && !children) return null;

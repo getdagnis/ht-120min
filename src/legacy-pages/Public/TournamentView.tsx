@@ -322,6 +322,7 @@ interface Tournament {
   thumbnail_index?: number;
   chpp_only_join: boolean;
   country_limit: string | null;
+  country_limit_format?: 'country_id' | 'league_id' | null;
   league_category: 'male' | 'hfi';
   registration_type: string;
   include_week15_weekend_friendly: boolean;
@@ -1035,7 +1036,7 @@ export const TournamentView: React.FC<{ initialData?: TournamentInitialData }> =
       };
     }
 
-    const savedCountryLimit = normalizeLeagueLimit(tournament.country_limit);
+    const savedCountryLimit = normalizeLeagueLimit(tournament.country_limit, tournament.country_limit_format);
     const savedAdminEmail = tournament.admin_email || '';
     const currentScheduleSetting = scheduleSetup === 'manual' ? 'manual' : scheduleMode;
     const savedScheduleSetting =
@@ -1508,7 +1509,7 @@ export const TournamentView: React.FC<{ initialData?: TournamentInitialData }> =
         setEditChppOnlyJoin(tournamentData.chpp_only_join);
         setEditLeagueCategory(tournamentData.league_category || 'male');
         setEditRegistrationType(normalizeTournamentRegistrationType(tournamentData.registration_type));
-        setEditCountryLimit(normalizeLeagueLimit(tournamentData.country_limit));
+        setEditCountryLimit(normalizeLeagueLimit(tournamentData.country_limit, tournamentData.country_limit_format));
         setScheduleSetup(tournamentData.schedule_mode === 'manual' ? 'manual' : 'generated');
         setScheduleMode(normalizeGeneratedScheduleMode(tournamentData.schedule_mode));
         const storedStartSlot = tournamentData.schedule_start_slot
@@ -3158,6 +3159,7 @@ export const TournamentView: React.FC<{ initialData?: TournamentInitialData }> =
           league_category: editLeagueCategory,
           registration_type: editRegistrationType,
           country_limit: editCountryLimit,
+          country_limit_format: editCountryLimit ? 'country_id' : null,
           is_test: isTest,
           show_description: showEditDescription,
           description: editDescription,
@@ -4351,6 +4353,7 @@ export const TournamentView: React.FC<{ initialData?: TournamentInitialData }> =
             )}
             <TournamentBadgeChips
               countryLimit={tournament.country_limit}
+              countryLimitFormat={tournament.country_limit_format}
               leagueCategory={tournament.league_category}
               scoringMode={tournament.scoring_mode}
             />
