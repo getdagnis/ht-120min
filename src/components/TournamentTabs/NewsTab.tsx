@@ -6,6 +6,7 @@ import { Button } from '../Button/Button';
 import { SectionCard } from '../Card/SectionCard';
 import { CompactAccordionWidget, type CompactAccordionItem } from '../CompactAccordionWidget/CompactAccordionWidget';
 import { supabase } from '../../lib/supabase';
+import { useLocale } from '../../i18n/LocaleProvider';
 import styles from './NewsTab.module.sass';
 
 interface NewsTeam {
@@ -67,67 +68,72 @@ export const NewsArticle: React.FC<NewsArticleProps> = ({
   onReaction,
   visitHref,
   visitLabel = 'Visit cup',
-}) => (
-  <article className={`${styles.post} ${post.is_admin ? styles.adminPost : ''}`}>
-    <div className={styles.postHeader}>
-      {authorTeam?.logo_url && <img src={authorTeam.logo_url} className={styles.postLogo} alt="" />}
-      <span className={styles.postAuthor}>{post.author_name}</span>
-      <span className={styles.postTime}>
-        {new Date(post.created_at).toLocaleString('lv-LV', {
-          month: 'short',
-          day: 'numeric',
-          hour: '2-digit',
-          minute: '2-digit',
-          timeZone: 'Europe/Riga',
-        })}
-      </span>
-    </div>
-    {post.title && <h4 className={styles.postTitle}>{post.title}</h4>}
-    <div className={styles.postContent}>{post.content}</div>
-    {reactions.length > 0 && (
-      <div className={styles.usedReactions} aria-label="Used reactions">
-        {reactions.map((item, index) => (
-          <span key={`${item.user_id}-${index}`} className={styles.usedReaction}>
-            <span
-              title={reactionAuthorNames[item.user_id] || `CHPP user ${item.user_id}`}
-              aria-label={`${reactionAuthorNames[item.user_id] || `CHPP user ${item.user_id}`} reacted ${item.reaction}`}
-            >
-              {item.reaction}
+}) => {
+  const { locale } = useLocale();
+  const dateLocale = locale === 'lv' ? 'lv-LV' : 'en-GB';
+
+  return (
+    <article className={`${styles.post} ${post.is_admin ? styles.adminPost : ''}`}>
+      <div className={styles.postHeader}>
+        {authorTeam?.logo_url && <img src={authorTeam.logo_url} className={styles.postLogo} alt="" />}
+        <span className={styles.postAuthor}>{post.author_name}</span>
+        <span className={styles.postTime}>
+          {new Date(post.created_at).toLocaleString(dateLocale, {
+            month: 'short',
+            day: 'numeric',
+            hour: '2-digit',
+            minute: '2-digit',
+            timeZone: 'Europe/Riga',
+          })}
+        </span>
+      </div>
+      {post.title && <h4 className={styles.postTitle}>{post.title}</h4>}
+      <div className={styles.postContent}>{post.content}</div>
+      {reactions.length > 0 && (
+        <div className={styles.usedReactions} aria-label="Used reactions">
+          {reactions.map((item, index) => (
+            <span key={`${item.user_id}-${index}`} className={styles.usedReaction}>
+              <span
+                title={reactionAuthorNames[item.user_id] || `CHPP user ${item.user_id}`}
+                aria-label={`${reactionAuthorNames[item.user_id] || `CHPP user ${item.user_id}`} reacted ${item.reaction}`}
+              >
+                {item.reaction}
+              </span>
             </span>
-          </span>
-        ))}
-      </div>
-    )}
-    {onReaction && (
-      <div className={styles.reactionBar}>
-        {['😅', '💪', '🔥', '❤️', '🥶', '🍺', '😕', '🏆', '⚽️'].map((emoji) => (
-          <button
-            key={emoji}
-            onClick={() => onReaction(post.id, emoji)}
-            className={`${styles.reactionBtn} ${reactions.some((item) => item.user_id === currentUserId && item.reaction === emoji) ? styles.reactionSelected : ''}`}
-            disabled={!currentUserId}
+          ))}
+        </div>
+      )}
+      {onReaction && (
+        <div className={styles.reactionBar}>
+          {['😅', '💪', '🔥', '❤️', '🥶', '🍺', '😕', '🏆', '⚽️'].map((emoji) => (
+            <button
+              key={emoji}
+              onClick={() => onReaction(post.id, emoji)}
+              className={`${styles.reactionBtn} ${reactions.some((item) => item.user_id === currentUserId && item.reaction === emoji) ? styles.reactionSelected : ''}`}
+              disabled={!currentUserId}
+            >
+              {emoji}
+            </button>
+          ))}
+        </div>
+      )}
+      {visitHref && (
+        <div className={styles.visitCupRow}>
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            onClick={() => {
+              window.location.href = visitHref;
+            }}
           >
-            {emoji}
-          </button>
-        ))}
-      </div>
-    )}
-    {visitHref && (
-      <div className={styles.visitCupRow}>
-        <Button
-          type="button"
-          variant="outline"
-          size="sm"
-          onClick={() => {
-            window.location.href = visitHref;
-          }}
-        >
-          {visitLabel}
-        </Button>
-      </div>
-    )}
-  </article>
-);
+            {visitLabel}
+          </Button>
+        </div>
+      )}
+    </article>
+  );
+};
 
 export const NewsTab: React.FC<NewsTabProps> = ({
   isActive,
