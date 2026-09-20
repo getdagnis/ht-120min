@@ -10,6 +10,7 @@
     "next:build": "next build --webpack",
     "next:start": "next start",
     "check:server-imports": "node scripts/check-server-imports.mjs",
+    "seed:exotic-hfi": "node --env-file-if-exists=.env --env-file-if-exists=.env.local --import tsx scripts/seed-exotic-hfi.ts",
     "test": "node --import tsx --test tests/*.test.ts",
     "lint": "eslint .",
     "preview": "next start"

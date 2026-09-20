@@ -29,6 +29,11 @@ import type { HomeInitialData } from '../../app/_data/public-data';
 import { useLocale } from '../../i18n/LocaleProvider';
 import { toLocalePath } from '../../next/locale-path';
 import { NewsArticle, type NewsPost } from '../../components/TournamentTabs/NewsTab';
+import {
+  EXOTIC_HFI_CAMPAIGN_SLUG_SET,
+  EXOTIC_HFI_GROUP_TITLE,
+  orderExoticHfiTournaments,
+} from '../../constants/exotic-hfi-campaign';
 
 const FORUM_LINK = 'https://www.hattrick.org/goto.ashx?path=/Forum/Read.aspx?n=1&nm=32&t=17685273&v=0';
 const SHOW_FAQ = true;
@@ -199,6 +204,9 @@ export const Home: React.FC<{ initialData?: HomeInitialData }> = ({ initialData 
   );
   const [openTournaments, setOpenTournaments] = useState<Tournament[]>(() =>
     (initialData?.openTournaments || []).map(reviveInitialTournament),
+  );
+  const [exoticHfiTournaments, setExoticHfiTournaments] = useState<Tournament[]>(() =>
+    (initialData?.exoticHfiTournaments || []).map(reviveInitialTournament),
   );
   const [topTeams, setTopTeams] = useState<TopTeam[]>(() => initialData?.topTeams || []);
   const [topActiveTournaments, setTopActiveTournaments] = useState<TopTournament[]>(
@@ -371,6 +379,7 @@ useEffect(() => {
         const featured: Tournament[] = [];
         const active: Tournament[] = [];
         const open: Tournament[] = [];
+        const exoticHfi: Tournament[] = [];
         const team120Stats: Record<number, { name: string; count: number }> = {};
         const tournamentsData = tournaments as unknown as DBTournament[];
 
@@ -442,6 +451,14 @@ useEffect(() => {
               is_featured: Boolean(t.is_featured),
             };
 
+            if (EXOTIC_HFI_CAMPAIGN_SLUG_SET.has(t.slug)) {
+              exoticHfi.push(tournamentObj as Tournament);
+              if (tournamentObj.is_featured) {
+                featured.push(tournamentObj as Tournament);
+              }
+              return;
+            }
+
             if (tournamentObj.is_featured) {
               featured.push(tournamentObj as Tournament);
             } else if (isGenerated && !isClosed && t.status !== 'finished') {
@@ -479,6 +496,7 @@ useEffect(() => {
 
         // Sort by fill % when capped, otherwise by registered team count
         setOpenTournaments(sortOpenTournaments(open));
+        setExoticHfiTournaments(orderExoticHfiTournaments(exoticHfi));
 
         const topTeamsList = Object.entries(team120Stats)
           .map(([id, data]) => ({ ht_team_id: parseInt(id), name: data.name, achievements120min: data.count }))
@@ -700,6 +718,18 @@ useEffect(() => {
                   <h2>Featured Tournaments</h2>
                 </div>
                 <div className={styles.tournamentGrid}>{featuredTournaments.map((t) => renderTournamentCard(t))}</div>
+              </section>
+            )}
+
+            {exoticHfiTournaments.length > 0 && (
+              <section className={styles.activeSection}>
+                <div className={styles.sectionHeader}>
+                  <Trophy size={24} weight="regular" className={styles.sectionIcon} />
+                  <h2>{EXOTIC_HFI_GROUP_TITLE}</h2>
+                </div>
+                <div className={styles.tournamentGrid}>
+                  {exoticHfiTournaments.map((t) => renderTournamentCard(t))}
+                </div>
               </section>
             )}
 

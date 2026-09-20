@@ -7,6 +7,10 @@ import { getTournamentNextMatchDate } from '../../utils/tournament-next-match';
 import { sortFeaturedFirst } from '../../utils/tournament-sorting';
 import { sortOpenTournaments } from '../../utils/open-tournaments';
 import { calculateSeasonSlotStandings } from '../../utils/standings';
+import {
+  EXOTIC_HFI_CAMPAIGN_SLUG_SET,
+  orderExoticHfiTournaments,
+} from '../../constants/exotic-hfi-campaign';
 
 interface HomeMatch {
   id: string;
@@ -81,6 +85,7 @@ export interface HomeInitialData {
   featuredTournaments: HomeTournament[];
   activeTournaments: HomeTournament[];
   openTournaments: HomeTournament[];
+  exoticHfiTournaments: HomeTournament[];
   topTeams: { name: string; ht_team_id: number; achievements120min: number }[];
   topActiveTournaments: { name: string; slug: string; completedMatches: number }[];
 }
@@ -117,7 +122,7 @@ function serializeDate(value: Date | null) {
 export const loadHomeInitialData = cache(async (): Promise<HomeInitialData> => {
   const supabase = getPublicSupabase();
   if (!supabase) {
-    return { featuredTournaments: [], activeTournaments: [], openTournaments: [], topTeams: [], topActiveTournaments: [] };
+    return { featuredTournaments: [], activeTournaments: [], openTournaments: [], exoticHfiTournaments: [], topTeams: [], topActiveTournaments: [] };
   }
 
   let tournamentsRaw: unknown[] | null;
@@ -145,19 +150,20 @@ export const loadHomeInitialData = cache(async (): Promise<HomeInitialData> => {
     ]);
     if (tournamentsResult.error) {
       console.error('Could not load Home tournaments on the server:', tournamentsResult.error.message);
-      return { featuredTournaments: [], activeTournaments: [], openTournaments: [], topTeams: [], topActiveTournaments: [] };
+      return { featuredTournaments: [], activeTournaments: [], openTournaments: [], exoticHfiTournaments: [], topTeams: [], topActiveTournaments: [] };
     }
     tournamentsRaw = tournamentsResult.data;
     warningsRaw = warningsResult.data;
   } catch (error) {
     console.error('Could not load Home tournaments on the server:', error instanceof Error ? error.message : 'Unknown error');
-    return { featuredTournaments: [], activeTournaments: [], openTournaments: [], topTeams: [], topActiveTournaments: [] };
+    return { featuredTournaments: [], activeTournaments: [], openTournaments: [], exoticHfiTournaments: [], topTeams: [], topActiveTournaments: [] };
   }
 
   const warnings = (warningsRaw || []) as HomeWarning[];
   const featured: HomeTournament[] = [];
   const active: HomeTournament[] = [];
   const open: HomeTournament[] = [];
+  const exoticHfi: HomeTournament[] = [];
   const team120Stats: Record<number, { name: string; count: number }> = {};
 
   for (const tournament of (tournamentsRaw || []) as unknown as HomeTournamentRow[]) {
@@ -215,6 +221,12 @@ export const loadHomeInitialData = cache(async (): Promise<HomeInitialData> => {
       is_featured: Boolean(tournament.is_featured),
     };
 
+    if (EXOTIC_HFI_CAMPAIGN_SLUG_SET.has(item.slug)) {
+      exoticHfi.push(item);
+      if (item.is_featured) featured.push(item);
+      continue;
+    }
+
     if (item.is_featured) featured.push(item);
     else if (isGenerated && !isClosed && item.status !== 'finished') active.push(item);
     else if (!isGenerated && item.status !== 'finished') open.push(item);
@@ -241,6 +253,7 @@ export const loadHomeInitialData = cache(async (): Promise<HomeInitialData> => {
     featuredTournaments,
     activeTournaments,
     openTournaments: sortOpenTournaments(open),
+    exoticHfiTournaments: orderExoticHfiTournaments(exoticHfi),
     topTeams: Object.entries(team120Stats)
       .map(([id, data]) => ({ ht_team_id: Number(id), name: data.name, achievements120min: data.count }))
       .toSorted((a, b) => b.achievements120min - a.achievements120min)

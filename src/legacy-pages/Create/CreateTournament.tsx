@@ -54,6 +54,7 @@ import {
   normalizeTournamentName,
   normalizeTournamentSlug,
 } from '../../utils/tournament-names';
+import { buildRealTournamentInsert } from '../../utils/tournament-creation';
 import {
   getRandomSandboxTeamId,
   SANDBOX_RANDOM_ATTEMPTS,
@@ -879,26 +880,42 @@ export const CreateTournament: React.FC = () => {
       const { data: tournament, error: tError } = await supabase
         .from('tournaments')
         .insert([
-          {
+          isSandbox
+            ? {
+                name: tournamentName,
+                slug,
+                scoring_mode: formData.scoring_mode,
+                league_category: formData.league_category,
+                registration_type: registrationType,
+                admin_password: adminPassword,
+                is_private: true,
+                country_limit: null,
+                description: showDescription ? formData.description : null,
+                admin_email: showEmail ? formData.admin_email : null,
+                thumbnail_index: Math.floor(Math.random() * 17) + 1,
+                max_teams: formData.max_teams ? Number(formData.max_teams) : null,
+                season: 1,
+                status: 'open',
+                is_test: true,
+                organizer_id: organizerId,
+                organizer_name: organizerName,
+              }
+            : buildRealTournamentInsert({
             name: tournamentName,
             slug,
-            scoring_mode: formData.scoring_mode,
-            league_category: formData.league_category,
-            registration_type: registrationType,
-            admin_password: adminPassword,
-            is_private: isSandbox ? true : formData.is_private,
-            country_limit: isSandbox ? null : formData.country_limit || null,
-            description: showDescription ? formData.description : null,
-            admin_email: showEmail ? formData.admin_email : null,
-            thumbnail_index: Math.floor(Math.random() * 17) + 1,
-            max_teams: formData.max_teams ? Number(formData.max_teams) : null,
-
-            season: 1,
-            status: 'open',
-            is_test: isSandbox,
-            organizer_id: organizerId,
-            organizer_name: organizerName,
-          },
+            scoringMode: formData.scoring_mode,
+            leagueCategory: formData.league_category,
+            registrationType,
+            adminPassword,
+            isPrivate: formData.is_private,
+            countryLimit: formData.country_limit || null,
+            description: formData.description,
+            showDescription,
+            adminEmail: showEmail ? formData.admin_email : null,
+            maxTeams: formData.max_teams ? Number(formData.max_teams) : null,
+            organizerId,
+            organizerName,
+          }),
         ])
         .select()
         .single();

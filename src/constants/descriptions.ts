@@ -429,6 +429,10 @@ export const UNIVERSAL_TOURNAMENT_NAMES = [
 export const TOURNAMENT_DEFAULT_120MIN_DEFAULTS = [
   'Pressing, 5-5-0 and all defensive is the dresscode',
   'Welcome to the 2 hour party of pressing, 5-5-0 and all defensive',
+  'Pressing, 5-5-0, all defensive — and your worst set pieces taker. See you after 90',
+  "Glory to 5-5-0, to Pressing, to a SP taker who cannot hit a ball",
+  'Defend everything. Finish nothing. Best training starts after 90',
+  'Your terrible set pieces taker finally has a job: keeping this friendly alive past 90',
 ];
 
 // TournamentView: entire 120min descriptions pool for MottoWidget or other 120min views.
