@@ -4,6 +4,7 @@ import { ArrowRight } from 'phosphor-react';
 import styles from './TournamentCard.module.sass';
 import { getTournamentBackgroundStyle } from '../../utils/visuals';
 import { TournamentBadgeChips } from '../TournamentBadgeChips/TournamentBadgeChips';
+import type { CountryRestrictionFormat } from '../../../shared/worlddetails';
 
 interface TournamentCardProps {
   id: string;
@@ -16,6 +17,7 @@ interface TournamentCardProps {
   matchesPlayed?: number;
   nextMatch?: string;
   countryLimit?: string | null;
+  countryLimitFormat?: CountryRestrictionFormat | null;
   scoringMode?: string | null;
   leagueCategory?: string | null;
   teamCount?: number;
@@ -30,6 +32,7 @@ export const TournamentCard: React.FC<TournamentCardProps> = ({
   imageUrl,
   isActiveInviting = false,
   countryLimit,
+  countryLimitFormat,
   scoringMode,
   leagueCategory,
   teamCount,
@@ -46,7 +49,12 @@ export const TournamentCard: React.FC<TournamentCardProps> = ({
       </div>
       <div className={styles.mainContent}>
         {children}
-        <TournamentBadgeChips countryLimit={countryLimit} leagueCategory={leagueCategory} scoringMode={scoringMode}>
+        <TournamentBadgeChips
+          countryLimit={countryLimit}
+          countryLimitFormat={countryLimitFormat}
+          leagueCategory={leagueCategory}
+          scoringMode={scoringMode}
+        >
           {maxTeams != null && (
             <div className={`${styles.badge} ${isFull ? styles.badgeFull : ''}`}>
               {isFull ? `${teamCount ?? 0}/${maxTeams} — Full` : `${teamCount ?? 0}/${maxTeams} teams`}
