@@ -2,8 +2,8 @@ import React from 'react';
 import Link from 'next/link';
 import { ArrowRight } from 'phosphor-react';
 import styles from './TournamentCard.module.sass';
-import { resolveCountryRestriction } from '../../../shared/worlddetails';
 import { getTournamentBackgroundStyle } from '../../utils/visuals';
+import { TournamentBadgeChips } from '../TournamentBadgeChips/TournamentBadgeChips';
 
 interface TournamentCardProps {
   id: string;
@@ -37,7 +37,6 @@ export const TournamentCard: React.FC<TournamentCardProps> = ({
   joinHref,
 }) => {
   const bgStyle = getTournamentBackgroundStyle(id, imageUrl);
-  const countryRestriction = resolveCountryRestriction(countryLimit);
   const isFull = maxTeams != null && (teamCount ?? 0) >= maxTeams;
 
   return (
@@ -47,23 +46,7 @@ export const TournamentCard: React.FC<TournamentCardProps> = ({
       </div>
       <div className={styles.mainContent}>
         {children}
-        <div className={styles.badges}>
-          {countryRestriction && (
-            <div className={styles.badge}>
-              <img
-                src={`https://www.hattrick.org/Img/flags/${countryRestriction.leagueId}.png`}
-                alt=""
-                className={styles.flag}
-              />
-              {countryRestriction.leagueName} Only
-            </div>
-          )}
-          {leagueCategory === 'hfi' && (
-            <div className={styles.badge}>
-              <img src={`https://www.hattrick.org/Img/flags/3000.png`} alt="" className={styles.flag} /> HFI 💃🏽
-            </div>
-          )}
-          {scoringMode === '120min' && <div className={styles.badge}>120-min</div>}
+        <TournamentBadgeChips countryLimit={countryLimit} leagueCategory={leagueCategory} scoringMode={scoringMode}>
           {maxTeams != null && (
             <div className={`${styles.badge} ${isFull ? styles.badgeFull : ''}`}>
               {isFull ? `${teamCount ?? 0}/${maxTeams} — Full` : `${teamCount ?? 0}/${maxTeams} teams`}
@@ -74,7 +57,7 @@ export const TournamentCard: React.FC<TournamentCardProps> = ({
               Join <ArrowRight size={12} weight="bold" />
             </Link>
           )}
-        </div>
+        </TournamentBadgeChips>
       </div>
     </div>
   );

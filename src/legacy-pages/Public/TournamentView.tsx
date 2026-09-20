@@ -81,6 +81,7 @@ import { SidebarPollWidget } from '../../components/SidebarPollWidget/SidebarPol
 import { StandingsView } from '../../components/TournamentTabs/StandingsView';
 import { TournamentHistory, type TournamentSeasonComment } from '../../components/TournamentHistory/TournamentHistory';
 import { WelcomeModal } from '../../components/WelcomeModal/WelcomeModal';
+import { TournamentBadgeChips } from '../../components/TournamentBadgeChips/TournamentBadgeChips';
 import { TOURNAMENT_DEFAULT } from '../../constants/descriptions';
 import { getTournamentFaqSections } from '../../constants/faq-essential';
 import { TOURNAMENT_ROLE_LABELS, type TournamentRole } from '../../../shared/tournament-roles';
@@ -4347,6 +4348,11 @@ export const TournamentView: React.FC<{ initialData?: TournamentInitialData }> =
                 {teams.filter((t) => t.active).length >= tournament.max_teams && ' — Filled!'}
               </p>
             )}
+            <TournamentBadgeChips
+              countryLimit={tournament.country_limit}
+              leagueCategory={tournament.league_category}
+              scoringMode={tournament.scoring_mode}
+            />
             {isAppgMode ? (
               <div className={styles.scoringHelp}>
                 <p onClick={() => setShowScoringHelp(!showScoringHelp)} className={styles.helpToggle}>
