@@ -36,6 +36,7 @@ test('country lookup uses CHPP CountryID instead of Hattrick LeagueID', () => {
   assert.equal(getCountryIdByName('Finland'), '11');
   assert.equal(normalizeLeagueLimit('Finland'), '11');
   assert.equal(normalizeLeagueLimit('11'), '11');
+  assert.equal(normalizeLeagueLimit('12', 'league_id'), '11');
 });
 
 test('country restriction display handles current and legacy numeric formats', () => {

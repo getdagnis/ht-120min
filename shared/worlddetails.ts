@@ -1736,9 +1736,22 @@ export function getLeagueFullNameById(id?: number | string | null): string | und
   return HATTRICK_WORLD_DETAILS[Number(id)]?.fullName;
 }
 
-export function normalizeLeagueLimit(value: string | number | null | undefined): string | null {
+export function normalizeLeagueLimit(
+  value: string | number | null | undefined,
+  format?: CountryRestrictionFormat | null,
+): string | null {
   if (value === null || value === undefined) return null;
   const raw = String(value).trim();
   if (!raw) return null;
+
+  const numericId = Number(raw);
+  if (Number.isFinite(numericId) && raw === String(numericId)) {
+    // New callers and CHPP team metadata use CountryID. Only explicitly
+    // labelled (or a tournament's known historical) LeagueIDs are converted.
+    if (format !== 'league_id') return getCountryWorldDetails(numericId) ? raw : null;
+    const legacyLeague = getLeagueWorldDetails(numericId);
+    return legacyLeague?.countryId !== null ? String(legacyLeague.countryId) : null;
+  }
+
   return getCountryIdByName(raw) ?? raw;
 }

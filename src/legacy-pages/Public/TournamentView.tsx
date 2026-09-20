@@ -1036,7 +1036,10 @@ export const TournamentView: React.FC<{ initialData?: TournamentInitialData }> =
       };
     }
 
-    const savedCountryLimit = normalizeLeagueLimit(tournament.country_limit, tournament.country_limit_format);
+    const savedCountryLimit = normalizeLeagueLimit(
+      tournament.country_limit,
+      tournament.country_limit_format ?? 'league_id',
+    );
     const savedAdminEmail = tournament.admin_email || '';
     const currentScheduleSetting = scheduleSetup === 'manual' ? 'manual' : scheduleMode;
     const savedScheduleSetting =
@@ -1509,7 +1512,9 @@ export const TournamentView: React.FC<{ initialData?: TournamentInitialData }> =
         setEditChppOnlyJoin(tournamentData.chpp_only_join);
         setEditLeagueCategory(tournamentData.league_category || 'male');
         setEditRegistrationType(normalizeTournamentRegistrationType(tournamentData.registration_type));
-        setEditCountryLimit(normalizeLeagueLimit(tournamentData.country_limit, tournamentData.country_limit_format));
+        setEditCountryLimit(
+          normalizeLeagueLimit(tournamentData.country_limit, tournamentData.country_limit_format ?? 'league_id'),
+        );
         setScheduleSetup(tournamentData.schedule_mode === 'manual' ? 'manual' : 'generated');
         setScheduleMode(normalizeGeneratedScheduleMode(tournamentData.schedule_mode));
         const storedStartSlot = tournamentData.schedule_start_slot
