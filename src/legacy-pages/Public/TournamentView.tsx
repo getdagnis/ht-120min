@@ -1188,6 +1188,8 @@ export const TournamentView: React.FC<{ initialData?: TournamentInitialData }> =
   const [modalLoading, setModalLoading] = useState(false);
   const [pendingJoinData, setPendingJoinData] = useState<PendingJoinData | null>(null);
   const [submittingJoin, setSubmittingJoin] = useState(false);
+  const [joinError, setJoinError] = useState<string | null>(null);
+  const [showJoinErrorModal, setShowJoinErrorModal] = useState(false);
 
   // UI state
   const [showScoringHelp, setShowScoringHelp] = useState(false);
@@ -2007,7 +2009,8 @@ export const TournamentView: React.FC<{ initialData?: TournamentInitialData }> =
 
       if (error || !data) {
         setShowTeamModal(false);
-        alert('Invalid or expired selection session.');
+        setJoinError('Your team selection session has expired. Please choose Join with Hattrick again.');
+        setShowJoinErrorModal(true);
         const newUrl = window.location.pathname;
         router.replace(newUrl);
         return;
@@ -2027,6 +2030,7 @@ export const TournamentView: React.FC<{ initialData?: TournamentInitialData }> =
 
   const handleTeamSelect = async (team: ChppTeamOption) => {
     if (!pendingJoinData) return;
+    setJoinError(null);
     setSubmittingJoin(true);
     try {
       const response = await fetch('/api/auth/complete', {
@@ -2056,11 +2060,9 @@ export const TournamentView: React.FC<{ initialData?: TournamentInitialData }> =
 
       setShowTeamModal(false);
       setPendingJoinData(null);
-
-      alert('Success! You have joined the tournament.');
       await fetchData({ showLoader: false });
     } catch (err) {
-      alert(err instanceof Error ? err.message : 'An unknown error occurred');
+      setJoinError(err instanceof Error ? err.message : 'Unable to join this tournament. Please try again.');
     } finally {
       setSubmittingJoin(false);
     }
@@ -2144,9 +2146,10 @@ export const TournamentView: React.FC<{ initialData?: TournamentInitialData }> =
       router.replace(newUrl);
 
       if (errorMsg) {
-        alert(errorMsg);
+        setJoinError(errorMsg);
+        setShowJoinErrorModal(true);
       } else if (joined) {
-        alert('Success! You have joined the tournament.');
+        void fetchData({ showLoader: false });
       } else if (token) {
         setTimeout(() => {
           void fetchPendingJoinData(token);
@@ -6313,6 +6316,8 @@ export const TournamentView: React.FC<{ initialData?: TournamentInitialData }> =
                 )}
               </div>
 
+              {joinError && <p className={styles.joiningStatus}>{joinError}</p>}
+
               {submittingJoin && <p className={styles.joiningStatus}>Joining tournament...</p>}
 
               <div className={styles.modalFooter}>
@@ -6331,6 +6336,24 @@ export const TournamentView: React.FC<{ initialData?: TournamentInitialData }> =
               </div>
             </>
           )}
+        </div>
+      </Modal>
+
+      <Modal
+        isOpen={showJoinErrorModal}
+        onClose={() => {
+          setShowJoinErrorModal(false);
+          setJoinError(null);
+        }}
+        title="Unable to join tournament"
+      >
+        <div className={styles.modalContent}>
+          <p>{joinError}</p>
+          <div className={styles.modalFooter}>
+            <Button variant="primary" fullWidth onClick={() => setShowJoinErrorModal(false)}>
+              OK
+            </Button>
+          </div>
         </div>
       </Modal>
 

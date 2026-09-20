@@ -1,11 +1,6 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { getAuthHeader } from './chpp-auth.js';
-import {
-  filterTeamsForCategory,
-  isHfiTeam,
-  teamMatchesCategory,
-  type LeagueCategory,
-} from './team-eligibility.js';
+import { filterTeamsForCategory, type LeagueCategory } from './team-eligibility.js';
 import crypto from 'crypto';
 import { getSupabase } from './supabase.js';
 import { OAUTH_CREATION_TOURNAMENT_ID } from './oauth-constants.js';
@@ -147,21 +142,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
           countryLimit,
         });
 
-    if (filteredTeams.length === 0) {
-      const categoryName = leagueCategory === 'hfi' ? 'Hattrick Femme International (HFI)' : 'Regular league (male)';
-
-      const team = teams.find((t) => !teamMatchesCategory(t, leagueCategory)) ?? teams[0];
-      const teamCategory = isHfiTeam(team) ? 'HFI' : 'male league';
-      
-      const verboseError = `Team ID ${team.teamId} "${team.teamName}" (${teamCategory}) is not eligible to play in a ${categoryName}. Please register a ${categoryName} team.`;
-      
-      if (session.is_creation) {
-        return res.redirect(`/create?error=${encodeURIComponent(verboseError)}`);
-      }
-      return res.redirect(`/t/${tournament?.slug}?error=${encodeURIComponent(verboseError)}`);
-    }
-
-    // ALWAYS redirect to selection for creators, or if multiple teams
+    // Always open the picker. An empty eligible list is useful feedback and
+    // must not be replaced with an error about an unrelated primary team.
     const selectionToken = crypto.randomBytes(16).toString('hex');
     console.log('Callback - Generated Selection Token:', selectionToken);
     const { error } = await supabase
