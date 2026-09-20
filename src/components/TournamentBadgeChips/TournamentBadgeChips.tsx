@@ -37,7 +37,7 @@ export const TournamentBadgeChips: React.FC<TournamentBadgeChipsProps> = ({
           <img src="https://www.hattrick.org/Img/flags/3000.png" alt="" className={styles.flag} /> HFI 💃🏽
         </div>
       )}
-      {is120min && <div className={styles.badge}>120-min</div>}
+      {is120min && <div className={styles.badge}>⏱ 120min</div>}
       {children}
     </div>
   );
