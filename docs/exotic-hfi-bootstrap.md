@@ -7,7 +7,8 @@ The one-off campaign seed creates the 20 missing `exotic-hfi-*` tournaments and 
 Campaign rows use CHPP `CountryID` values, while some older tournament rows use
 the older `LeagueID` representation. Those numeric namespaces overlap, so they
 cannot be reliably distinguished from `country_limit` alone. Before releasing
-the campaign cards, apply migration `20260920152428_add_country_limit_format.sql`.
+the campaign cards, apply migration
+`migrations/20260920152428_add_country_limit_format.sql`.
 It marks Queens and the 20 campaign slugs as `country_id` without guessing or
 rewriting any unrelated historical restrictions. New normal tournament rows
 with a country restriction now persist the same explicit marker.
