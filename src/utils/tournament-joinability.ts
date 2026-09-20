@@ -47,6 +47,10 @@ export function canViewerJoinTournament({
 }: TournamentJoinabilityInput) {
   if (hasJoined) return false;
   if (status === 'stopped' || status === 'finished' || status === 'archived') return false;
+  // Registration closure is authoritative for every tournament shape. A
+  // generated season may still have a replacement/odd-team vacancy, but that
+  // vacancy is organizer-managed once registration has been closed.
+  if (registrationClosedAt) return false;
   // An active tournament without current-season fixtures is an auto-started, roster-locked season.
   if (status === 'active' && !isGenerated) return false;
 
@@ -57,8 +61,6 @@ export function canViewerJoinTournament({
   if (isGenerated) {
     return hasInactiveRealSpot || hasOddGeneratedByeSpot;
   }
-
-    if (registrationClosedAt) return false;
 
   return !maxTeams || activeRealTeams.length < maxTeams;
 }

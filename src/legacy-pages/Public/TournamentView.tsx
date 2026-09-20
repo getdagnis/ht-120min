@@ -77,6 +77,7 @@ import {
 import { CompactAccordionWidget } from '../../components/CompactAccordionWidget/CompactAccordionWidget';
 import { ReusableWidget } from '../../components/ReusableWidget/ReusableWidget';
 import { MottoWidget } from '../../components/MottoWidget/MottoWidget';
+import { SidebarPollWidget } from '../../components/SidebarPollWidget/SidebarPollWidget';
 import { StandingsView } from '../../components/TournamentTabs/StandingsView';
 import { TournamentHistory, type TournamentSeasonComment } from '../../components/TournamentHistory/TournamentHistory';
 import { WelcomeModal } from '../../components/WelcomeModal/WelcomeModal';
@@ -98,6 +99,8 @@ import type { TournamentInitialData } from '../../app/_data/public-data';
 const FORUM_LINK = 'https://www.hattrick.org/goto.ashx?path=/Forum/Read.aspx?n=1&nm=32&t=17685273&v=0';
 const UNSAVED_SETTINGS_MESSAGE = 'Use save button to apply changes!';
 const getHistoryReportNoticeStorageKey = (seasonId: string) => `ht-120min:history-report-notice-dismissed:${seasonId}`;
+const getOrganizerAdminSessionStorageKey = (tournamentId: string, userId: number) =>
+  `ht-120min:organizer-admin-session:${tournamentId}:${userId}`;
 
 function readLocalStorage(key: string) {
   if (typeof window === 'undefined') return null;
@@ -2063,9 +2066,20 @@ export const TournamentView: React.FC<{ initialData?: TournamentInitialData }> =
     const storedAuthMode = localStorage.getItem(`admin_auth_${slug}`);
     const storedPassword = localStorage.getItem(`admin_pw_${slug}`);
 
-    // A verified role makes the password unnecessary, but still requires the
-    // deliberate one-click sign-in shown in the admin access card.
-    if (roleAccess?.canViewAdmin) return;
+    // The deliberate organizer confirmation lasts for this browser session,
+    // but is restored only after the server verifies the signed session and
+    // current tournament role again.
+    if (roleAccess?.canViewAdmin) {
+      const sessionKey = getOrganizerAdminSessionStorageKey(tournament.id, roleAccess.viewerUserId);
+      if (readSessionStorage(sessionKey) !== 'oauth_role') return;
+      const timer = setTimeout(() => {
+        setIsAdminAuthenticated(true);
+        setAdminAuthSource('oauth_role');
+        setAdminAuthError(false);
+        setFailedLoginAttempt(false);
+      }, 0);
+      return () => clearTimeout(timer);
+    }
 
     if (
       (storedAuthMode === 'password' || !storedAuthMode) &&
@@ -2456,6 +2470,9 @@ export const TournamentView: React.FC<{ initialData?: TournamentInitialData }> =
 
     setIsAdminAuthenticated(true);
     setAdminAuthSource('oauth_role');
+    if (tournament) {
+      sessionStorage.setItem(getOrganizerAdminSessionStorageKey(tournament.id, roleAccess.viewerUserId), 'oauth_role');
+    }
     localStorage.setItem(`admin_auth_${slug}`, 'organizer');
     localStorage.removeItem(`admin_pw_${slug}`);
     setPassword('');
@@ -2504,6 +2521,9 @@ export const TournamentView: React.FC<{ initialData?: TournamentInitialData }> =
     setFailedLoginAttempt(false);
     localStorage.removeItem(`admin_pw_${slug}`);
     localStorage.removeItem(`admin_auth_${slug}`);
+    if (tournament && roleAccess?.viewerUserId) {
+      sessionStorage.removeItem(getOrganizerAdminSessionStorageKey(tournament.id, roleAccess.viewerUserId));
+    }
   };
 
   const updateTournamentLifecycleStatus = async (status: TournamentStatus, options: { isPrivate?: boolean } = {}) => {
@@ -4834,7 +4854,7 @@ export const TournamentView: React.FC<{ initialData?: TournamentInitialData }> =
             }}
             seasonId={currentSeason?.id}
             seasonNumber={currentSeason?.season_number ?? tournament.season}
-            seasonStatus={currentSeason?.status === 'finished' ? 'finished' : 'ongoing'}
+            seasonStatus={currentSeason?.status}
             onCommentsLoaded={handleHistoryCommentsLoaded}
             onCommentSubmitted={handleHistoryCommentSubmitted}
             loadComments={loadHistoryComments}
@@ -4878,6 +4898,16 @@ export const TournamentView: React.FC<{ initialData?: TournamentInitialData }> =
               myHtUserId={myHtUserId ? Number(myHtUserId) : null}
               leagueManagerIds={teams.map((t) => t.hattrick_user_id).filter((id): id is number => !!id)}
               teamNames={teams.reduce((acc, t) => ({ ...acc, [t.hattrick_user_id || 0]: t.name }), {})}
+            />
+            <SidebarPollWidget
+              seasonId={currentSeason?.id}
+              seasonStatus={currentSeason?.status}
+              teams={teams
+                .filter((team) => team.active && !team.is_placeholder)
+                .map((team) => ({ id: team.id, name: team.name }))}
+              rounds={rounds}
+              is120minMode={is120minMode}
+              myHtUserId={myHtUserId ? Number(myHtUserId) : null}
             />
             <CompactAccordionWidget
               title="Tournament FAQ"
@@ -5958,6 +5988,28 @@ export const TournamentView: React.FC<{ initialData?: TournamentInitialData }> =
                     </SectionCard>
                   </div>
 
+
+                                    {!isPressOfficer && oauthRoleAccess && (
+                    <div id="admin-panel-roles">
+                      <SectionCard
+                        title="Roles & Access"
+                        collapsible
+                        isCollapsed={isRolesCollapsed}
+                        onToggleCollapse={() => togglePanel('roles', !isRolesCollapsed, setIsRolesCollapsed)}
+                      >
+                        <TournamentRolesPanel
+                          tournamentId={tournament.id}
+                          roles={tournamentRoles}
+                          originalOrganizer={originalOrganizer}
+                          canManageAdmins={Boolean(roleAccess?.canManageAdmins && oauthRoleAccess)}
+                          canManagePressOfficer={Boolean(roleAccess?.canManagePressOfficer && oauthRoleAccess)}
+                          canManageCoOrganizer={Boolean(roleAccess?.canManageCoOrganizer && oauthRoleAccess)}
+                          onRolesChanged={setTournamentRoles}
+                        />
+                      </SectionCard>
+                    </div>
+                  )}
+
                   <div id="admin-panel-lifecycle" className={adminStyles.footerActions}>
                     {tournament.status === 'finished' ? (
                       <>
@@ -6028,26 +6080,6 @@ export const TournamentView: React.FC<{ initialData?: TournamentInitialData }> =
                     Delete Tournament
                   </Button> */}
                   </div>
-                  {!isPressOfficer && oauthRoleAccess && (
-                    <div id="admin-panel-roles">
-                      <SectionCard
-                        title="Roles & Access"
-                        collapsible
-                        isCollapsed={isRolesCollapsed}
-                        onToggleCollapse={() => togglePanel('roles', !isRolesCollapsed, setIsRolesCollapsed)}
-                      >
-                        <TournamentRolesPanel
-                          tournamentId={tournament.id}
-                          roles={tournamentRoles}
-                          originalOrganizer={originalOrganizer}
-                          canManageAdmins={Boolean(roleAccess?.canManageAdmins && oauthRoleAccess)}
-                          canManagePressOfficer={Boolean(roleAccess?.canManagePressOfficer && oauthRoleAccess)}
-                          canManageCoOrganizer={Boolean(roleAccess?.canManageCoOrganizer && oauthRoleAccess)}
-                          onRolesChanged={setTournamentRoles}
-                        />
-                      </SectionCard>
-                    </div>
-                  )}
                 </section>
                 <aside className={adminStyles.adminSidebar}>
                   <ReusableWidget title="Admin" icon={<Info size={20} weight="bold" />}>
