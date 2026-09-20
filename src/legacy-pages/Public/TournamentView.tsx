@@ -989,7 +989,8 @@ export const TournamentView: React.FC<{ initialData?: TournamentInitialData }> =
       TOURNAMENT_VIEW_MODALS_OPEN_BY_DEFAULT.createdTournamentWelcome),
   );
   const showOpenTournamentWelcome = Boolean(
-    tournament &&
+    isHydrationReady &&
+      tournament &&
     (TOURNAMENT_VIEW_MODALS_OPEN_BY_DEFAULT.openTournamentWelcome ||
       (tournamentVisitWelcomeKey &&
         slug &&
