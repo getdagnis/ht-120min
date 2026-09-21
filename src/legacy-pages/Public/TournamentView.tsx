@@ -4900,6 +4900,7 @@ export const TournamentView: React.FC<{ initialData?: TournamentInitialData }> =
             isConnecting={isConnecting}
             canUpdateFixtures={canManageOperationalAdmin}
             isHistorical={isViewingHistoricalFixtures}
+            currentHtUserId={currentHtUserId}
             emptyStateMessage={
               tournament.status === 'active' && rounds.length === 0
                 ? `Season ${currentSeasonNumber} has a locked roster. A new schedule has not yet been generated.`

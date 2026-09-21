@@ -2,6 +2,7 @@ import React from 'react';
 import { SectionCard } from '../../components/Card/SectionCard';
 import { Button } from '../../components/Button/Button';
 import { FixtureCard } from '../../components/FixtureCard/FixtureCard';
+import { Modal } from '../../components/Modal/Modal';
 import { ArrowClockwise, ArrowRight, CopySimple, Check } from 'phosphor-react';
 import { Tooltip } from 'react-tooltip';
 import { calculateMatchDate } from '../../utils/ht-data';
@@ -123,10 +124,20 @@ interface FixturesViewProps {
   canUpdateFixtures?: boolean;
   onJoinWithHattrick: () => void;
   isHistorical?: boolean;
+  currentHtUserId?: number | null;
   onViewPreviousSeason?: () => void;
   onViewNextSeason?: () => void;
   emptyStateMessage?: string;
 }
+
+const FIXTURE_CHALLENGE_PREVIEW_MATCH_ID = 'fixture-challenge-preview-match';
+const HATTRICK_CHALLENGES_URL = 'https://www.hattrick.org/goto.ashx?path=/Club/Challenges/';
+const fixtureChallengePreviewMode =
+  process.env.NODE_ENV !== 'production' &&
+  (process.env.NEXT_PUBLIC_FIXTURE_CHALLENGE_PREVIEW === '1' ||
+    process.env.NEXT_PUBLIC_FIXTURE_CHALLENGE_PREVIEW === '2')
+    ? process.env.NEXT_PUBLIC_FIXTURE_CHALLENGE_PREVIEW
+    : null;
 
 export const FixturesView: React.FC<FixturesViewProps> = ({
   rounds,
@@ -150,15 +161,51 @@ export const FixturesView: React.FC<FixturesViewProps> = ({
   canUpdateFixtures = false,
   onJoinWithHattrick,
   isHistorical = false,
+  currentHtUserId,
   onViewPreviousSeason,
   onViewNextSeason,
   emptyStateMessage,
 }) => {
+  type FixtureChallengeAvailability = {
+    available: boolean;
+    side?: 'home' | 'away';
+    opponent?: { name: string; htTeamId: number };
+    matchType?: 'cup_rules' | 'normal';
+    venue?: 'home' | 'away';
+    reason?: string;
+    sent?: boolean;
+  };
+  type FixtureChallengeSelection = {
+    matchType: 'cup_rules' | 'normal';
+    venue: 'home' | 'away';
+  };
+
   const nowMs = useClientNow(30_000);
   const [manualVisibleRoundsCount, setManualVisibleRoundsCount] = React.useState<number | null>(null);
   const [selectedTeamId, setSelectedTeamId] = React.useState<string | null>(null);
   const [isTeamFilterOpen, setIsTeamFilterOpen] = React.useState(false);
+  const [challengeAvailability, setChallengeAvailability] = React.useState<
+    Record<string, FixtureChallengeAvailability>
+  >(() =>
+    fixtureChallengePreviewMode
+      ? {
+          [FIXTURE_CHALLENGE_PREVIEW_MATCH_ID]: {
+            available: true,
+            side: 'home',
+            opponent: { name: 'Preview Opponent FC', htTeamId: 900002 },
+            matchType: 'cup_rules',
+            venue: 'away',
+          },
+        }
+      : {},
+  );
+  const [challengeMatchId, setChallengeMatchId] = React.useState<string | null>(null);
+  const [challengeError, setChallengeError] = React.useState<string | null>(null);
+  const [isSendingChallenge, setIsSendingChallenge] = React.useState(false);
+  const [challengeSuccess, setChallengeSuccess] = React.useState<string | null>(null);
+  const [challengeSelection, setChallengeSelection] = React.useState<FixtureChallengeSelection | null>(null);
   const currentRound = !isHistorical && upcomingRoundIndex >= 0 ? (rounds[upcomingRoundIndex] ?? null) : null;
+  const tournamentId = tournament?.id;
   const currentRoundScrollTargetRef = React.useRef<HTMLDivElement | null>(null);
   const hasAutoScrolledToCurrentRoundRef = React.useRef(false);
   const visibleRoundsCount = manualVisibleRoundsCount ?? defaultVisibleRoundsCount;
@@ -199,6 +246,119 @@ export const FixturesView: React.FC<FixturesViewProps> = ({
 
     return latestFinishedRoundNumber;
   }, [rounds]);
+
+  const challengeCandidateMatches = React.useMemo(
+    () =>
+      currentRound?.matches.filter((match) => {
+        if (match.completed || (match.status && match.status !== 'not_arranged') || !currentHtUserId) return false;
+        return (
+          Number(match.home_team?.hattrick_user_id) === currentHtUserId ||
+          Number(match.away_team?.hattrick_user_id) === currentHtUserId
+        );
+      }) || [],
+    [currentHtUserId, currentRound],
+  );
+  const challengeCandidateKey = challengeCandidateMatches.map((match) => match.id).join(',');
+
+  React.useEffect(() => {
+    if (!tournamentId || !currentHtUserId || challengeCandidateMatches.length === 0) return;
+
+    let cancelled = false;
+    const loadChallengeAvailability = async () => {
+      const results = await Promise.all(
+        challengeCandidateMatches.map(async (match) => {
+          try {
+            const params = new URLSearchParams({ tournamentId, matchId: match.id });
+            const response = await fetch(`/api/app?route=fixture-challenge&${params.toString()}`, {
+              credentials: 'include',
+            });
+            const payload = (await response.json()) as FixtureChallengeAvailability;
+            return [match.id, payload] as const;
+          } catch {
+            return [match.id, { available: false }] as const;
+          }
+        }),
+      );
+      if (cancelled) return;
+      setChallengeAvailability((previous) => ({ ...previous, ...Object.fromEntries(results) }));
+    };
+
+    void loadChallengeAvailability();
+    return () => {
+      cancelled = true;
+    };
+  }, [challengeCandidateKey, challengeCandidateMatches, currentHtUserId, tournamentId]);
+
+  const openChallengeConfirmation = React.useCallback((matchId: string) => {
+    const challenge = challengeAvailability[matchId];
+    setChallengeError(null);
+    setChallengeSuccess(null);
+    setChallengeSelection({
+      matchType: challenge?.matchType === 'normal' ? 'normal' : 'cup_rules',
+      venue: challenge?.venue === 'away' ? 'away' : 'home',
+    });
+    setChallengeMatchId(matchId);
+  }, [challengeAvailability]);
+
+  const closeChallengeConfirmation = React.useCallback(() => {
+    if (isSendingChallenge) return;
+    setChallengeMatchId(null);
+    setChallengeError(null);
+    setChallengeSuccess(null);
+    setChallengeSelection(null);
+  }, [isSendingChallenge]);
+
+  const submitChallenge = React.useCallback(async () => {
+    if (!tournamentId || !challengeMatchId || isSendingChallenge) return;
+
+    if (challengeMatchId === FIXTURE_CHALLENGE_PREVIEW_MATCH_ID) {
+      if (fixtureChallengePreviewMode === '1') {
+        setChallengeSuccess('Challenge sent. Wait for Preview Opponent FC to accept.');
+      } else {
+        setChallengeError('Preview only: Hattrick rejected this challenge.');
+      }
+      return;
+    }
+
+    setIsSendingChallenge(true);
+    setChallengeError(null);
+    try {
+      const response = await fetch('/api/app?route=fixture-challenge', {
+        method: 'POST',
+        credentials: 'include',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          tournamentId,
+          matchId: challengeMatchId,
+          matchType: challengeSelection?.matchType,
+          venue: challengeSelection?.venue,
+        }),
+      });
+      const payload = (await response.json()) as FixtureChallengeAvailability & { error?: string; message?: string };
+      if (!response.ok || !payload.sent) {
+        setChallengeError(payload.error || payload.reason || 'Hattrick could not send this challenge.');
+        return;
+      }
+      setChallengeAvailability((previous) => ({
+        ...previous,
+        [challengeMatchId]: { ...previous[challengeMatchId], ...payload, sent: true },
+      }));
+      setChallengeSuccess(
+        `Challenge sent. Wait for ${payload.opponent?.name || challengeAvailability[challengeMatchId]?.opponent?.name || 'your opponent'} to accept.`,
+      );
+    } catch {
+      setChallengeError('Could not contact Hattrick. Please try again.');
+    } finally {
+      setIsSendingChallenge(false);
+    }
+  }, [challengeAvailability, challengeMatchId, challengeSelection, isSendingChallenge, tournamentId]);
+
+  const selectedChallenge = challengeMatchId ? challengeAvailability[challengeMatchId] : null;
+  const selectedChallengeSelection: FixtureChallengeSelection =
+    challengeSelection || {
+      matchType: selectedChallenge?.matchType === 'normal' ? 'normal' : 'cup_rules',
+      venue: selectedChallenge?.venue === 'away' ? 'away' : 'home',
+    };
 
   const scrollToCurrentRound = React.useCallback(() => {
     if (!currentRound || currentRound.round_number < 3) return false;
@@ -588,6 +748,17 @@ export const FixturesView: React.FC<FixturesViewProps> = ({
                         : null;
                       const homeIsBye = !match.home_team || match.home_team.active === false;
                       const awayIsBye = !match.away_team || match.away_team.active === false;
+                      const availableChallenge = challengeAvailability[match.id];
+                      const fixtureChallengeAction =
+                        !isHistorical &&
+                        status === 'not_arranged' &&
+                        availableChallenge?.available &&
+                        !availableChallenge.sent
+                          ? {
+                              direction: availableChallenge.side === 'away' ? ('left' as const) : ('right' as const),
+                              onClick: () => openChallengeConfirmation(match.id),
+                            }
+                          : undefined;
 
                     return (
                       <FixtureCard
@@ -603,6 +774,7 @@ export const FixturesView: React.FC<FixturesViewProps> = ({
                         completed={match.completed}
                         totalMinutes={match.total_minutes}
                         appgOutcome={match.appg_outcome}
+                        challengeAction={fixtureChallengeAction}
                         homeTeam={{
                           name: homeIsBye ? 'BYE' : match.home_team?.name || 'BYE',
                           managerName: homeIsBye ? '' : match.home_team?.manager_name || 'UNKNOWN',
@@ -651,6 +823,36 @@ export const FixturesView: React.FC<FixturesViewProps> = ({
           </Button>
         </div>
       )}
+      {fixtureChallengePreviewMode && (
+        <SectionCard title="Fixture challenge preview">
+          <p className={styles.fixtureChallengePreviewNote}>
+            Local preview only. It does not read tournament data or contact Hattrick.
+          </p>
+          <FixtureCard
+            date="WED / 30.09. / 05:15"
+            status="not_arranged"
+            is120minMode
+            challengeAction={{
+              direction: 'right',
+              onClick: () => openChallengeConfirmation(FIXTURE_CHALLENGE_PREVIEW_MATCH_ID),
+            }}
+            homeTeam={{
+              name: 'Preview Home United',
+              htTeamId: 900001,
+              countryName: 'Latvia',
+              countryId: 54,
+              managerName: 'Preview manager',
+            }}
+            awayTeam={{
+              name: 'Preview Opponent FC',
+              htTeamId: 900002,
+              countryName: 'Guam',
+              countryId: 117,
+              managerName: 'Preview opponent',
+            }}
+          />
+        </SectionCard>
+      )}
       {!isHistorical && tournament?.status !== 'finished' && canUpdateFixtures && rounds.length > 0 && (
         <div className={styles.fixturesUpdateAction}>
           <Button variant="action" size="sm" onClick={handleRefreshFixtures} disabled={isRefreshingFixtures}>
@@ -659,6 +861,103 @@ export const FixturesView: React.FC<FixturesViewProps> = ({
           </Button>
         </div>
       )}
+      <Modal
+        isOpen={Boolean(selectedChallenge)}
+        onClose={closeChallengeConfirmation}
+        title={challengeSuccess ? '✅ Challenge sent' : '⚽️ Send a challenge'}
+        maxWidth="520px"
+      >
+        <div className={styles.fixtureChallengeModal}>
+          {challengeSuccess ? (
+            <>
+              <p>{challengeSuccess}</p>
+              <Button
+                variant="outlineWhite"
+                fullWidth
+                onClick={() => window.open(HATTRICK_CHALLENGES_URL, '_blank', 'noopener,noreferrer')}
+              >
+                View on Hattrick
+              </Button>
+            </>
+          ) : (
+            <>
+              <p>
+                Send a challenge to <strong>{selectedChallenge?.opponent?.name || 'this team'}</strong>:
+              </p>
+              <div className={styles.fixtureChallengeOptions}>
+                <div>
+                  <h3>Type</h3>
+                  <div className={styles.fixtureChallengeRadioGroup} role="radiogroup" aria-label="Challenge type">
+                    <label
+                      className={`${styles.fixtureChallengeRadio} ${
+                        selectedChallengeSelection.matchType === 'cup_rules' ? styles.selected : ''
+                      }`}
+                    >
+                      <input
+                        type="radio"
+                        name="fixture-challenge-type"
+                        checked={selectedChallengeSelection.matchType === 'cup_rules'}
+                        onChange={() => setChallengeSelection((current) => ({ ...(current || selectedChallengeSelection), matchType: 'cup_rules' }))}
+                      />
+                      <span className={styles.fixtureChallengeRadioMark} aria-hidden="true" /> Cup rules (120 min)
+                    </label>
+                    <label
+                      className={`${styles.fixtureChallengeRadio} ${
+                        selectedChallengeSelection.matchType === 'normal' ? styles.selected : ''
+                      }`}
+                    >
+                      <input
+                        type="radio"
+                        name="fixture-challenge-type"
+                        checked={selectedChallengeSelection.matchType === 'normal'}
+                        onChange={() => setChallengeSelection((current) => ({ ...(current || selectedChallengeSelection), matchType: 'normal' }))}
+                      />
+                      <span className={styles.fixtureChallengeRadioMark} aria-hidden="true" /> Normal rules
+                    </label>
+                  </div>
+                </div>
+                <div>
+                  <h3>Venue</h3>
+                  <div className={styles.fixtureChallengeRadioGroup} role="radiogroup" aria-label="Scheduled venue">
+                    <label
+                      className={`${styles.fixtureChallengeRadio} ${
+                        selectedChallengeSelection.venue === 'home' ? styles.selected : ''
+                      }`}
+                    >
+                      <input
+                        type="radio"
+                        name="fixture-challenge-venue"
+                        checked={selectedChallengeSelection.venue === 'home'}
+                        onChange={() => setChallengeSelection((current) => ({ ...(current || selectedChallengeSelection), venue: 'home' }))}
+                      />
+                      <span className={styles.fixtureChallengeRadioMark} aria-hidden="true" /> Home
+                    </label>
+                    <label
+                      className={`${styles.fixtureChallengeRadio} ${
+                        selectedChallengeSelection.venue === 'away' ? styles.selected : ''
+                      }`}
+                    >
+                      <input
+                        type="radio"
+                        name="fixture-challenge-venue"
+                        checked={selectedChallengeSelection.venue === 'away'}
+                        onChange={() => setChallengeSelection((current) => ({ ...(current || selectedChallengeSelection), venue: 'away' }))}
+                      />
+                      <span className={styles.fixtureChallengeRadioMark} aria-hidden="true" /> Away (scheduled)
+                    </label>
+                  </div>
+                </div>
+              </div>
+              {challengeError && <p className={styles.fixtureChallengeError}>{challengeError}</p>}
+              <div className={styles.fixtureChallengeActions}>
+                <Button variant="outlineWhite" fullWidth onClick={submitChallenge} disabled={isSendingChallenge}>
+                  {isSendingChallenge ? 'Sending…' : 'Send'}
+                </Button>
+              </div>
+            </>
+          )}
+        </div>
+      </Modal>
     </div>
   );
 };

@@ -1755,6 +1755,92 @@ div.adminAuthForm > form > button, .authField > input
   margin-top: 1rem
   text-align: center
 
+.fixtureChallengeModal
+  display: grid
+  gap: 1.25rem
+  color: white
+
+  p
+    margin: 0
+    font-size: 1.05rem
+    line-height: 1.5
+    color: white
+
+.fixtureChallengePreviewNote
+  margin: 0 0 0.5rem
+  color: white
+  font-size: 0.9rem
+
+.fixtureChallengeOptions
+  display: grid
+  gap: 1rem
+  margin: 0
+
+  h3
+    margin: 0 0 0.5rem
+    color: white
+    font-size: 0.75rem
+    font-weight: 700
+    letter-spacing: 0.08em
+    text-transform: uppercase
+
+.fixtureChallengeRadioGroup
+  display: grid
+  grid-template-columns: repeat(2, minmax(0, 1fr))
+  gap: 0.75rem
+
+.fixtureChallengeRadio
+  display: flex
+  align-items: center
+  gap: 0.5rem
+  min-height: 3rem
+  padding: 0.65rem 0.8rem
+  border: 1px solid white
+  border-radius: var(--radius-sm)
+  color: white
+  font-size: 0.95rem
+  font-weight: 700
+  line-height: 1.2
+  cursor: pointer
+  position: relative
+
+  input
+    position: absolute
+    opacity: 0
+    inset: 0
+    cursor: pointer
+
+    &:focus-visible + .fixtureChallengeRadioMark
+      outline: 2px solid white
+      outline-offset: 3px
+
+  &.selected
+    background: white
+    color: black
+
+.fixtureChallengeRadioMark
+  width: 1rem
+  height: 1rem
+  flex: 0 0 auto
+  border: 2px solid currentColor
+  border-radius: 50%
+  position: relative
+
+.selected .fixtureChallengeRadioMark::after
+  content: ''
+  position: absolute
+  inset: 0.18rem
+  border-radius: 50%
+  background: currentColor
+
+.fixtureChallengeActions
+  display: flex
+  width: 100%
+
+.fixtureChallengeError
+  color: white
+  font-weight: 600
+
 .fixturesUpdateAction
   display: flex
   justify-content: center

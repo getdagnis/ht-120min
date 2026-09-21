@@ -1,5 +1,5 @@
 import React from 'react';
-import { ArrowUpRight, Info } from 'phosphor-react';
+import { ArrowLeft, ArrowRight, ArrowUpRight, Info } from 'phosphor-react';
 import { Tooltip } from 'react-tooltip';
 import { TeamByline } from '../TeamByline/TeamByline';
 import { appgOutcomeLabel, type AppgOutcome } from '../../utils/appg';
@@ -39,6 +39,10 @@ interface FixtureCardProps {
   completed?: boolean;
   totalMinutes?: number;
   appgOutcome?: AppgOutcome | null;
+  challengeAction?: {
+    direction: 'left' | 'right';
+    onClick: () => void;
+  };
 }
 
 const MATCH_TYPES: Record<number, { initials: string; description: string }> = {
@@ -64,6 +68,7 @@ export const FixtureCard: React.FC<FixtureCardProps> = ({
   completed,
   totalMinutes,
   appgOutcome,
+  challengeAction,
 }) => {
   const appgOutcomeText =
     completed && appgOutcome && appgOutcome !== 'needs_review' ? appgOutcomeLabel(appgOutcome) : null;
@@ -178,7 +183,17 @@ export const FixtureCard: React.FC<FixtureCardProps> = ({
             </>
           )}
         </div>
-        {['arranged', 'ongoing', 'finished'].includes(status) && htMatchId ? (
+        {challengeAction ? (
+          <button
+            type="button"
+            className={`${styles.statusBadge} ${styles.arranged} ${styles.challengeAction}`}
+            onClick={challengeAction.onClick}
+          >
+            {challengeAction.direction === 'left' ? <ArrowLeft size={18} weight="bold" /> : null}
+            Send Challenge
+            {challengeAction.direction === 'right' ? <ArrowRight size={18} weight="bold" /> : null}
+          </button>
+        ) : ['arranged', 'ongoing', 'finished'].includes(status) && htMatchId ? (
           <a
             href={`https://www.hattrick.org/goto.ashx?path=/Club/Matches/Match.aspx?matchID=${htMatchId}`}
             target="_blank"
