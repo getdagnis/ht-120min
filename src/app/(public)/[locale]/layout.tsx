@@ -3,7 +3,7 @@ import type { Metadata } from 'next';
 import type { ReactNode } from 'react';
 import { Layout } from '../../../components/Layout/Layout';
 import { ScrollToTop } from '../../../components/ScrollToTop';
-import { barlow, barlowCondensed } from '../../../fonts';
+import { barlow, barlowCondensed, ibmPlexMono, notoColorEmoji } from '../../../fonts';
 import { LocaleProvider } from '../../../i18n/LocaleProvider';
 import { locales, isLocale, type Locale } from '../../../i18n/config';
 import '../../../global.sass';
@@ -48,7 +48,10 @@ export default async function PublicLocaleLayout({
   const locale = rawLocale as Locale;
 
   return (
-    <html className={`${barlow.variable} ${barlowCondensed.variable}`} lang={locale}>
+    <html
+      className={`${barlow.variable} ${barlowCondensed.variable} ${ibmPlexMono.variable} ${notoColorEmoji.variable}`}
+      lang={locale}
+    >
       <body>
         <div id="root">
           <LocaleProvider locale={locale}>

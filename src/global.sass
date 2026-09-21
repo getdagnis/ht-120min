@@ -1,6 +1,3 @@
-@import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:ital,wght@0,100;0,200;0,300;0,400;0,500;0,600;0,700;1,100;1,200;1,300;1,400;1,500;1,600;1,700&display=swap')
-@import url('https://fonts.googleapis.com/css2?family=Noto+Color+Emoji&display=swap')
-
 :root
   --yellow: rgb(242, 255, 0)
   --orange: rgb(255, 200, 0)
@@ -64,10 +61,10 @@
   --header: #b4b4b41a
   --tournament-thumb: url('/thumb-full-light.jpg')
 
-  --emoji: 'Noto Color Emoji', 'Apple Color Emoji', 'Segoe UI Emoji', sans-serif
-  --sans: var(--font-barlow), Roboto, system-ui, 'Segoe UI', 'Noto Color Emoji', 'Apple Color Emoji', 'Segoe UI Emoji', sans-serif
-  --heading: var(--font-barlow-condensed), 'Raleway', system-ui, 'Segoe UI', Roboto, 'Noto Color Emoji', 'Apple Color Emoji', 'Segoe UI Emoji', sans-serif
-  --mono: 'IBM Plex Mono', ui-monospace, Consolas, monospace, 'Noto Color Emoji', 'Apple Color Emoji', 'Segoe UI Emoji'
+  --emoji: var(--font-noto-color-emoji), 'Apple Color Emoji', 'Segoe UI Emoji', sans-serif
+  --sans: var(--font-barlow), Roboto, system-ui, 'Segoe UI', var(--font-noto-color-emoji), 'Apple Color Emoji', 'Segoe UI Emoji', sans-serif
+  --heading: var(--font-barlow-condensed), 'Raleway', system-ui, 'Segoe UI', Roboto, var(--font-noto-color-emoji), 'Apple Color Emoji', 'Segoe UI Emoji', sans-serif
+  --mono: var(--font-ibm-plex-mono), ui-monospace, Consolas, monospace, var(--font-noto-color-emoji), 'Apple Color Emoji', 'Segoe UI Emoji'
 
   --radius-xs: 0.25rem
   --radius-sm: 0.35rem
