@@ -5014,7 +5014,7 @@ export const TournamentView: React.FC<{ initialData?: TournamentInitialData }> =
                   aria-expanded={isStandingsSeasonMenuOpen}
                   aria-haspopup="listbox"
                 >
-                  Season {selectedSeasonNumber}
+                  Season {selectedSeasonNumber} standings
                   <CaretDown size={16} weight="bold" aria-hidden="true" />
                 </Button>
                 {isStandingsSeasonMenuOpen && (
