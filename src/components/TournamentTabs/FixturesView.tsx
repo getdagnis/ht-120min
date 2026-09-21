@@ -943,7 +943,7 @@ export const FixturesView: React.FC<FixturesViewProps> = ({
                         checked={selectedChallengeSelection.venue === 'away'}
                         onChange={() => setChallengeSelection((current) => ({ ...(current || selectedChallengeSelection), venue: 'away' }))}
                       />
-                      <span className={styles.fixtureChallengeRadioMark} aria-hidden="true" /> Away (scheduled)
+                      <span className={styles.fixtureChallengeRadioMark} aria-hidden="true" /> Away (per schedule)
                     </label>
                   </div>
                 </div>
