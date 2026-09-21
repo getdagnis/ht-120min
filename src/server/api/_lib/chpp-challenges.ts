@@ -73,8 +73,8 @@ export function mapAdMatchTypeToChpp(matchType: string): ChppChallengeMatchType 
 }
 
 export function mapAdHomeAwayToChppMatchPlace(homeAway: string): ChppChallengeMatchPlace {
-  if (homeAway === 'home') return 1;
-  if (homeAway === 'away') return 0;
+  if (homeAway === 'home') return 0;
+  if (homeAway === 'away') return 1;
   return 0;
 }
 

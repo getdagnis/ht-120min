@@ -18,6 +18,19 @@ import {
 import { isTournamentRole, type TournamentRole } from '../../../shared/tournament-roles.js';
 import { isForgeEnabled } from '../forge-availability.js';
 import { isTournamentRegistrationOpen } from '../../utils/tournament-joinability.js';
+import {
+  checkChppChallengeable,
+  isOpponentChallengeable,
+  sendChppChallenge,
+} from './_lib/chpp-challenges.js';
+import {
+  getFixtureChallengeMatchPlace,
+  getFixtureChallengeMatchType,
+  resolveFixtureChallengeOptions,
+  getFixtureChallengeSide,
+  type FixtureChallengeSide,
+} from './_lib/fixture-challenge.js';
+import { fetchManagerTeamsFromChpp, getManagerChppCredentials } from './_lib/matchmaker.js';
 
 const COMMENT_SELECT = 'id, season_id, team_id, team_name, manager_name, comment, created_at';
 const HISTORY_REPORT_DISMISSED_NOTICE = 'history-report-dismissed';
@@ -284,6 +297,257 @@ async function handleTournamentRoles(req: VercelRequest, res: VercelResponse) {
 
 function readString(value: unknown) {
   return typeof value === 'string' ? value.trim() : '';
+}
+
+type FixtureChallengeTeamRow = {
+  id: string;
+  ht_team_id: number | null;
+  hattrick_user_id: number | null;
+  active: boolean | null;
+  is_placeholder: boolean | null;
+  name: string | null;
+};
+
+type FixtureChallengeMatchRow = {
+  id: string;
+  round_id: string;
+  status: string | null;
+  completed: boolean | null;
+  home_team: FixtureChallengeTeamRow | null;
+  away_team: FixtureChallengeTeamRow | null;
+};
+
+type FixtureChallengeRoundRow = {
+  id: string;
+  round_number: number;
+  matches: Array<Pick<FixtureChallengeMatchRow, 'id' | 'status' | 'completed'>> | null;
+};
+
+type ResolvedFixtureChallenge = {
+  side: FixtureChallengeSide;
+  actorTeam: FixtureChallengeTeamRow;
+  opponentTeam: FixtureChallengeTeamRow;
+  matchType: 0 | 1;
+  matchPlace: 0 | 1;
+};
+
+function fixtureChallengeUnavailable(reason: string) {
+  return { available: false as const, reason };
+}
+
+async function resolveFixtureChallenge(
+  req: VercelRequest,
+  res: VercelResponse,
+): Promise<{ sessionUserId: number; tournamentId: string; matchId: string; resolved?: ResolvedFixtureChallenge } | null> {
+  const values = req.method === 'GET' ? req.query : req.body;
+  const tournamentId = readString(Array.isArray(values?.tournamentId) ? values.tournamentId[0] : values?.tournamentId);
+  const matchId = readString(Array.isArray(values?.matchId) ? values.matchId[0] : values?.matchId);
+  if (!tournamentId || !matchId) {
+    res.status(400).json({ error: 'Missing tournamentId or matchId.' });
+    return null;
+  }
+
+  const secret = getAppSessionSecret();
+  const session = secret ? verifyAppSessionCookie(req.headers.cookie, secret) : null;
+  if (!session) {
+    res.status(401).json({ error: 'Please sign in with Hattrick first.' });
+    return null;
+  }
+
+  const supabase = getServiceSupabase();
+  const { data: tournament, error: tournamentError } = await supabase
+    .from('tournaments')
+    .select('id, season, scoring_mode, status, is_archived')
+    .eq('id', tournamentId)
+    .maybeSingle();
+  if (tournamentError) throw tournamentError;
+  if (!tournament || tournament.is_archived || ['finished', 'archived', 'cancelled'].includes(tournament.status || '')) {
+    res.status(404).json({ error: 'Tournament is not available for fixture challenges.' });
+    return null;
+  }
+
+  const { data: rounds, error: roundsError } = await supabase
+    .from('rounds')
+    .select('id, round_number, matches(id, status, completed)')
+    .eq('tournament_id', tournamentId)
+    .eq('season_number', tournament.season)
+    .order('round_number', { ascending: true });
+  if (roundsError) throw roundsError;
+  const currentRound = (rounds as FixtureChallengeRoundRow[] | null)?.find((round) =>
+    (round.matches || []).some((match) => !match.completed && match.status !== 'misarranged'),
+  );
+  if (!currentRound) {
+    res.status(409).json(fixtureChallengeUnavailable('There is no active tournament round to arrange.'));
+    return null;
+  }
+
+  const { data: match, error: matchError } = await supabase
+    .from('matches')
+    .select(`
+      id,
+      round_id,
+      status,
+      completed,
+      home_team:teams!matches_home_team_id_fkey(id, ht_team_id, hattrick_user_id, active, is_placeholder, name),
+      away_team:teams!matches_away_team_id_fkey(id, ht_team_id, hattrick_user_id, active, is_placeholder, name)
+    `)
+    .eq('id', matchId)
+    .eq('round_id', currentRound.id)
+    .maybeSingle();
+  if (matchError) throw matchError;
+  const fixture = match as FixtureChallengeMatchRow | null;
+  if (!fixture) {
+    res.status(404).json({ error: 'Fixture not found in the active round.' });
+    return null;
+  }
+  if (fixture.completed || (fixture.status && fixture.status !== 'not_arranged')) {
+    res.status(409).json(fixtureChallengeUnavailable('This fixture is already arranged or no longer active.'));
+    return null;
+  }
+
+  const side = getFixtureChallengeSide({
+    viewerUserId: session.userId,
+    homeOwnerId: fixture.home_team?.hattrick_user_id,
+    awayOwnerId: fixture.away_team?.hattrick_user_id,
+  });
+  if (!side) {
+    res.status(403).json(fixtureChallengeUnavailable('You do not own a team in this fixture.'));
+    return null;
+  }
+
+  const actorTeam = side === 'home' ? fixture.home_team : fixture.away_team;
+  const opponentTeam = side === 'home' ? fixture.away_team : fixture.home_team;
+  if (
+    !actorTeam ||
+    !opponentTeam ||
+    actorTeam.active === false ||
+    opponentTeam.active === false ||
+    actorTeam.is_placeholder ||
+    opponentTeam.is_placeholder ||
+    !Number.isSafeInteger(actorTeam.ht_team_id) ||
+    !Number.isSafeInteger(opponentTeam.ht_team_id) ||
+    (actorTeam.ht_team_id ?? 0) <= 0 ||
+    (opponentTeam.ht_team_id ?? 0) <= 0
+  ) {
+    res.status(409).json(fixtureChallengeUnavailable('This fixture does not have two active Hattrick teams.'));
+    return null;
+  }
+
+  return {
+    sessionUserId: session.userId,
+    tournamentId,
+    matchId,
+    resolved: {
+      side,
+      actorTeam,
+      opponentTeam,
+      matchType: getFixtureChallengeMatchType(tournament.scoring_mode),
+      matchPlace: getFixtureChallengeMatchPlace(side),
+    },
+  };
+}
+
+async function handleFixtureChallenge(req: VercelRequest, res: VercelResponse) {
+  if (req.method !== 'GET' && req.method !== 'POST') {
+    return res.status(405).json({ error: 'Method not allowed.' });
+  }
+
+  const resolvedRequest = await resolveFixtureChallenge(req, res);
+  if (!resolvedRequest?.resolved) return;
+
+  const { sessionUserId, resolved } = resolvedRequest;
+  const options = resolveFixtureChallengeOptions(
+    req.method === 'POST'
+      ? {
+          matchType: readString(req.body?.matchType),
+          venue: readString(req.body?.venue),
+        }
+      : {},
+    { matchType: resolved.matchType, matchPlace: resolved.matchPlace },
+  );
+  if (!options) {
+    return res.status(400).json({ error: 'Challenge type and venue must be Cup Rules or Normal Rules, and Home or Away.' });
+  }
+  const supabase = getServiceSupabase();
+  const credentials = await getManagerChppCredentials(supabase, sessionUserId);
+  if (!credentials) {
+    return res.status(401).json({ error: 'Your Hattrick authorization has expired. Please sign in with Hattrick again.' });
+  }
+
+  const consumerKey = process.env.CHPP_CONSUMER_KEY;
+  const consumerSecret = process.env.CHPP_CONSUMER_SECRET;
+  if (!consumerKey || !consumerSecret) {
+    return res.status(500).json({ error: 'CHPP configuration is missing.' });
+  }
+
+  const ownedTeams = await fetchManagerTeamsFromChpp(consumerKey, consumerSecret, credentials, sessionUserId);
+  const actorTeamId = resolved.actorTeam.ht_team_id as number;
+  const opponentTeamId = resolved.opponentTeam.ht_team_id as number;
+  if (!ownedTeams.teams.some((team) => team.teamId === actorTeamId)) {
+    return res.status(403).json({ error: 'Your Hattrick account no longer owns this fixture team.' });
+  }
+
+  const challengeable = await checkChppChallengeable({
+    consumerKey,
+    consumerSecret,
+    oauthToken: credentials.oauth_token,
+    oauthTokenSecret: credentials.oauth_token_secret,
+    teamId: actorTeamId,
+    suggestedTeamIds: [opponentTeamId],
+    isWeekendFriendly: 0,
+  });
+  const check = isOpponentChallengeable(challengeable.parsed, opponentTeamId);
+  if (!check.ok) {
+    const body = fixtureChallengeUnavailable(check.reason || 'This opponent cannot be challenged right now.');
+    return res.status(req.method === 'GET' ? 200 : 409).json(body);
+  }
+
+  const availability = {
+    available: true as const,
+    side: resolved.side,
+    opponent: { name: resolved.opponentTeam.name || 'opposing team', htTeamId: opponentTeamId },
+    matchType: options.matchType === 1 ? 'cup_rules' : 'normal',
+    venue: options.matchPlace === 0 ? 'home' : 'away',
+  };
+  if (req.method === 'GET') return res.status(200).json(availability);
+
+  const sent = await sendChppChallenge({
+    consumerKey,
+    consumerSecret,
+    oauthToken: credentials.oauth_token,
+    oauthTokenSecret: credentials.oauth_token_secret,
+    teamId: actorTeamId,
+    opponentTeamId,
+    matchType: options.matchType,
+    matchPlace: options.matchPlace,
+    isWeekendFriendly: 0,
+  });
+  if (!sent.success) {
+    console.warn('[Fixture challenge] CHPP challenge failed', {
+      tournamentId: resolvedRequest.tournamentId,
+      matchId: resolvedRequest.matchId,
+      actorTeamId,
+      opponentTeamId,
+      errorCode: sent.errorCode,
+    });
+    return res.status(502).json({ error: sent.errorMessage || 'Hattrick could not send this challenge.' });
+  }
+
+  console.info('[Fixture challenge] sent', {
+    tournamentId: resolvedRequest.tournamentId,
+    matchId: resolvedRequest.matchId,
+    actorTeamId,
+    opponentTeamId,
+    matchType: options.matchType,
+    matchPlace: options.matchPlace,
+    trainingMatchId: sent.trainingMatchId,
+  });
+  return res.status(200).json({
+    ...availability,
+    sent: true,
+    trainingMatchId: sent.trainingMatchId,
+    message: 'Challenge sent. Waiting for the opponent to accept.',
+  });
 }
 
 function routeFor(request: VercelRequest) {
@@ -722,6 +986,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         return await handleTournamentParticipation(req, res);
       case 'season-slot-replacement':
         return await handleSeasonSlotReplacement(req, res);
+      case 'fixture-challenge':
+        return await handleFixtureChallenge(req, res);
       case 'activity':
       default:
         return await handleActivity(req, res);

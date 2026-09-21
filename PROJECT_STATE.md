@@ -99,6 +99,7 @@ Production means live deployed behavior. If it has not been checked against the 
 - Team metadata uses `teamdetails`.
 - CHPP country data is normalized from CountryID, independent of the manager's CHPP language; league flags use LeagueID separately. Existing translated database text remains until a data backfill or team refresh.
 - Fixture booking/reconciliation uses `matches`.
+- The active fixture round can offer a server-authorized CHPP challenge to the signed-in fixture owner. Preflight and send derive the current round, owner team, and opponent from the stored fixture; browser input is limited to tournament/fixture ids plus one validated Cup/Normal and Home/Away choice. Defaults follow the scheduled fixture and scoring mode, but managers may override either to accommodate an agreed venue or 90-minute exception. All current fixture challenges are midweek.
 - Live/finished result sync uses `matchdetails` v3.1 with structured match events. Card/injury details require migration `063` before live persistence.
 - Reversed home/away friendly location is treated as arranged, with venue mismatch metadata recorded.
 
@@ -132,6 +133,7 @@ Production means live deployed behavior. If it has not been checked against the 
 - Vercel Hobby is at `12/12` serverless functions. New endpoints require consolidation.
 - Production status for migrations `050` and `051` was not independently verified in this docs pass; files are marked applied locally.
 - CHPP `challengeable` / `challenge` can return 401 for users whose tokens predate the `manage_challenges` scope. Those users must reauthorize.
+- Fixture challenge availability is a live CHPP preflight, and a sent challenge remains pending until the opponent accepts; local build/test checks do not prove a real CHPP send or acceptance.
 - Matchmaker `handleAccept` remains incomplete as a full server-side booking/match creation loop.
 - Race protection for simultaneous Matchmaker accepts is not complete.
 - Stale Matchmaker ads can remain visible until availability sync runs.
