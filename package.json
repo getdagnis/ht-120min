@@ -13,7 +13,9 @@
     "seed:exotic-hfi": "node --env-file-if-exists=.env --env-file-if-exists=.env.local --import tsx scripts/seed-exotic-hfi.ts",
     "test": "node --import tsx --test tests/*.test.ts",
     "lint": "eslint .",
-    "preview": "next start"
+    "preview": "next start",
+    "check": "npm run lint && npm run build && npm run test",
+    "prod": "npm run lint && npm run build && npm run test && vercel --prod"
   },
   "dependencies": {
     "@google/genai": "^2.9.0",
