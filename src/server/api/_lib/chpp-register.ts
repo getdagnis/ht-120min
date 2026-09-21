@@ -4,9 +4,62 @@ import type { ChppTeamOption } from './chpp-xml.js';
 interface TeamTournamentCheck {
   tournament_id: string;
   tournaments:
-    | { name: string; status: string; is_test?: boolean | null; registration_type?: string | null }
-    | { name: string; status: string; is_test?: boolean | null; registration_type?: string | null }[]
+    | { name: string; slug: string; status: string; is_test?: boolean | null; registration_type?: string | null }
+    | { name: string; slug: string; status: string; is_test?: boolean | null; registration_type?: string | null }[]
     | null;
+}
+
+export interface ActiveTournamentConflict {
+  tournamentId: string;
+  name: string;
+  slug: string;
+}
+
+function getTournamentCheck(row: TeamTournamentCheck) {
+  return Array.isArray(row.tournaments) ? row.tournaments[0] : row.tournaments;
+}
+
+function isBlockingTournament(tournament: ReturnType<typeof getTournamentCheck>) {
+  return Boolean(
+    tournament &&
+      tournament.status !== 'finished' &&
+      tournament.status !== 'stopped' &&
+      !tournament.is_test &&
+      tournament.registration_type !== 'sandbox',
+  );
+}
+
+/**
+ * Uses the same membership definition as registration so picker guidance
+ * cannot promise a team is selectable when the final write will reject it.
+ */
+export async function getActiveTournamentConflicts(
+  supabase: SupabaseClient,
+  teamIds: number[],
+  targetTournamentId: string,
+): Promise<Map<number, ActiveTournamentConflict>> {
+  if (teamIds.length === 0) return new Map();
+
+  const { data, error } = await supabase
+    .from('teams')
+    .select('ht_team_id, tournament_id, tournaments(name, slug, status, is_test, registration_type)')
+    .in('ht_team_id', teamIds)
+    .eq('active', true)
+    .neq('tournament_id', targetTournamentId);
+
+  if (error) throw new Error(error.message);
+
+  const conflicts = new Map<number, ActiveTournamentConflict>();
+  for (const row of (data ?? []) as unknown as Array<TeamTournamentCheck & { ht_team_id: number | null }>) {
+    const tournament = getTournamentCheck(row);
+    if (!row.ht_team_id || !isBlockingTournament(tournament) || !tournament) continue;
+    conflicts.set(row.ht_team_id, {
+      tournamentId: row.tournament_id,
+      name: tournament.name,
+      slug: tournament.slug,
+    });
+  }
+  return conflicts;
 }
 
 export async function registerOAuthTeam(
@@ -26,28 +79,13 @@ export async function registerOAuthTeam(
 ) {
   // 1. Check if team is in another active tournament
   if (!input.skipMembershipCheck) {
-    const { data: existing } = await supabase
-      .from('teams')
-      .select('tournament_id, tournaments(name, status, is_test, registration_type)')
-      .eq('ht_team_id', input.team.teamId)
-      .eq('active', true)
-      .neq('tournament_id', input.tournamentId)
-      .maybeSingle();
+    const conflict = (await getActiveTournamentConflicts(supabase, [input.team.teamId], input.tournamentId)).get(
+      input.team.teamId,
+    );
 
-    const existingData = existing as unknown as TeamTournamentCheck | null;
-    const tournament = Array.isArray(existingData?.tournaments)
-      ? existingData.tournaments[0]
-      : existingData?.tournaments;
-
-    if (
-      tournament &&
-      tournament.status !== 'finished' &&
-      tournament.status !== 'stopped' &&
-      !tournament.is_test &&
-      tournament.registration_type !== 'sandbox'
-    ) {
+    if (conflict) {
       throw new Error(
-        `Team ${input.team.teamName} (${input.team.teamId}) is already active in another tournament: "${tournament.name}". It must leave that tournament first.`,
+        `Team ${input.team.teamName} (${input.team.teamId}) is already active in another tournament: "${conflict.name}". It must leave that tournament first.`,
       );
     }
   }

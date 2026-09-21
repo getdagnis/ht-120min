@@ -3,14 +3,15 @@ import styles from './Button.module.sass';
 
 interface ButtonProps extends React.ButtonHTMLAttributes<HTMLButtonElement> {
   variant?:
-    | 'primary'
+    | 'primary' // the actual secondary (neutral green)
     | 'primaryDanger'
     | 'secondary'
     | 'secondaryInverse'
     | 'secondaryHero'
-    | 'secondaryYellow'
+    | 'secondaryYellow' // the actual primary (bright yellow)
     | 'outline'
     | 'outlineWhite'
+    | 'outlineModal'
     | 'danger'
     | 'grey'
     | 'hero'

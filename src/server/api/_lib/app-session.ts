@@ -30,6 +30,12 @@ export function buildAppSessionCookie(userId: number, secret: string, secure: bo
   return cookieParts.join('; ');
 }
 
+export function clearAppSessionCookie(secure: boolean): string {
+  const cookieParts = ['ht_session=', 'HttpOnly', 'SameSite=Lax', 'Path=/', 'Max-Age=0'];
+  if (secure) cookieParts.push('Secure');
+  return cookieParts.join('; ');
+}
+
 export function verifyAppSessionCookie(cookieHeader: string | undefined, secret: string): AppSessionPayload | null {
   if (!cookieHeader) return null;
 

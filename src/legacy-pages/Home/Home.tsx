@@ -659,7 +659,7 @@ useEffect(() => {
         imageSrc="/w16-planning-4.jpg"
         imageAlt="Hattrick managers preparing for a new tournament season"
         title="Welcome to HT-120min!"
-        buttonLabel="Let's play some friendlies"
+        buttonLabel="Proceed"
       >
         <strong>
           When cups are finishing, it's time to launch one for auto-arranged friendlies!

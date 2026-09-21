@@ -2,13 +2,12 @@ import React, { useState, useEffect } from 'react';
 import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import { Modal } from '../Modal/Modal';
 import { Avatar } from '../Avatar/Avatar';
+import { ModalTeamCard } from '../ModalTeamCard/ModalTeamCard';
 import type { UserProfile, ActiveTournament } from '../../hooks/useAuth';
 import { supabase } from '../../lib/supabase';
 import { Trophy, CalendarBlank, Medal, ArrowUpRight } from 'phosphor-react';
 import { getCanonicalCountryName, getCountryFlagUrl, getLeagueFlagUrl } from '../../utils/ht-data';
 import styles from './ProfileModal.module.sass';
-
-const DEFAULT_TEAM_LOGO = '/default-logo.png';
 
 interface ProfileModalProps {
   activeTournaments: ActiveTournament[];
@@ -24,6 +23,9 @@ interface DBTeamWithTournament {
   name: string;
   ht_team_id: number;
   logo_url: string | null;
+  country_id: number | null;
+  country_name: string | null;
+  league_id: number | null;
   tournaments: {
     name: string;
     slug: string;
@@ -35,6 +37,9 @@ interface TeamInfo {
   name: string;
   ht_team_id: number;
   logo_url: string | null;
+  country_id: number | null;
+  country_name: string | null;
+  league_id: number | null;
   tournament_name: string;
   tournament_slug: string;
 }
@@ -77,7 +82,7 @@ export const ProfileModal: React.FC<ProfileModalProps> = ({ isOpen, maxWidth, on
         setLoading(true);
         const { data } = await supabase
           .from('teams')
-          .select('id, name, ht_team_id, logo_url, tournaments(name, slug)')
+          .select('id, name, ht_team_id, logo_url, country_id, country_name, league_id, tournaments(name, slug)')
           .eq('hattrick_user_id', profile.hattrick_user_id)
           .eq('active', true);
 
@@ -89,6 +94,9 @@ export const ProfileModal: React.FC<ProfileModalProps> = ({ isOpen, maxWidth, on
               name: t.name,
               ht_team_id: t.ht_team_id,
               logo_url: t.logo_url,
+              country_id: t.country_id,
+              country_name: t.country_name,
+              league_id: t.league_id,
               tournament_name: t.tournaments?.name || 'Unknown',
               tournament_slug: t.tournaments?.slug || '',
             })),
@@ -160,31 +168,20 @@ export const ProfileModal: React.FC<ProfileModalProps> = ({ isOpen, maxWidth, on
                 <p>Loading teams...</p>
               ) : teams.length > 0 ? (
                 teams.map((team) => (
-                  <div key={team.id} className={styles.teamItem}>
-                    <div className={styles.teamInfo}>
-                      <img
-                        src={team.logo_url || DEFAULT_TEAM_LOGO}
-                        alt=""
-                        className={styles.teamLogo}
-                        onError={(event) => {
-                          event.currentTarget.onerror = null;
-                          event.currentTarget.src = DEFAULT_TEAM_LOGO;
-                        }}
-                      />
-                      <div className={styles.teamName}>
-                        <a
-                          href={`https://www.hattrick.org/goto.ashx?path=/Club/?TeamId=${team.ht_team_id}`}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                        >
-                          {team.name} <span className={styles.htId}>({team.ht_team_id})</span>
-                        </a>
-                        <span className={styles.htTournament}>
-                          Active in: <a href={`/t/${team.tournament_slug}`}>{team.tournament_name}</a>
-                        </span>
-                      </div>
-                    </div>
-                  </div>
+                  <ModalTeamCard
+                    key={team.id}
+                    team={{
+                      teamId: team.ht_team_id,
+                      teamName: team.name,
+                      logoUrl: team.logo_url,
+                      countryId: team.country_id,
+                      countryName: team.country_name,
+                      leagueId: team.league_id,
+                    }}
+                    status={
+                      <>Active in: <a href={`/t/${team.tournament_slug}`}>{team.tournament_name}</a></>
+                    }
+                  />
                 ))
               ) : (
                 <p>No active teams registered yet.</p>

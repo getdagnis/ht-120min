@@ -1,10 +1,9 @@
 import React from 'react';
 import { Modal } from '../Modal/Modal';
 import { Button } from '../Button/Button';
+import { ModalTeamCard } from '../ModalTeamCard/ModalTeamCard';
 import { getDisplayTeamName, type MatchmakerTeamOption } from '../../utils/matchmaker';
 import styles from './TeamSelectorModal.module.sass';
-
-const DEFAULT_TEAM_LOGO = '/default-logo.png';
 
 interface TeamSelectorModalProps {
   isOpen: boolean;
@@ -66,38 +65,28 @@ export const TeamSelectorModal: React.FC<TeamSelectorModalProps> = ({
                 <div className={styles.grid}>
                   {group.teams.map((team) => {
                     const selectable = isSelectable(team.availabilityStatus);
+                    const status = team.availabilityReason
+                      ? `${getStatusLabel(team)} — ${team.availabilityReason}`
+                      : selectable
+                        ? 'Available now — ready to use right now.'
+                        : `${getStatusLabel(team)} — this team cannot be used right now.`;
                     return (
-                      <button
+                      <ModalTeamCard
                         key={team.teamId}
-                        className={`${styles.teamBtn} ${selectable ? '' : styles.disabled}`}
-                        onClick={() => selectable && onSelect(team.teamId)}
+                        team={{
+                          teamId: team.teamId,
+                          teamName: getDisplayTeamName(team.teamName, team.genderId),
+                          logoUrl: team.logo_url,
+                          countryId: team.countryId,
+                          countryName: team.countryName,
+                          leagueId: team.leagueId,
+                          leagueName: team.leagueName,
+                        }}
+                        status={team.is_mock ? `${status} Mock` : status}
+                        statusDanger={!selectable}
+                        onSelect={selectable ? () => onSelect(team.teamId) : undefined}
                         disabled={!selectable}
-                      >
-                        <div className={styles.iconWrapper}>
-                          <img
-                            src={team.logo_url || DEFAULT_TEAM_LOGO}
-                            alt=""
-                            className={styles.teamLogo}
-                            onError={(event) => {
-                              event.currentTarget.onerror = null;
-                              event.currentTarget.src = DEFAULT_TEAM_LOGO;
-                            }}
-                          />
-                        </div>
-                        <div className={styles.info}>
-                          <span className={styles.name}>{getDisplayTeamName(team.teamName, team.genderId)}</span>
-                          <span className={styles.country}>{team.countryName}</span>
-                          <span className={styles.status}>{getStatusLabel(team)}</span>
-                          {team.availabilityReason ? (
-                            <span className={styles.reason}>{team.availabilityReason}</span>
-                          ) : selectable ? (
-                            <span className={styles.reason}>Ready to use right now.</span>
-                          ) : (
-                            <span className={styles.reason}>This team cannot be used right now.</span>
-                          )}
-                          {team.is_mock && <span className={styles.reason}>Mock</span>}
-                        </div>
-                      </button>
+                      />
                     );
                   })}
                 </div>

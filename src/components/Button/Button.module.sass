@@ -12,10 +12,7 @@
   transition: color 0.3s ease-in-out, background-color 0.3s ease-in-out, border-color 0.3s ease-in-out
 
   &:disabled
-    background: var(--darker)
-    color: var(--border)
     cursor: not-allowed
-    border: none
 
   &:hover:not(:disabled)
     transition: all 0.1s ease-in-out
@@ -25,9 +22,9 @@
 
 .primary,
 .hero, .primaryWhite, .primaryDanger
-  background-color: var(--accent-3)
+  background-color: var(--accent-4)
   min-width: fit-content
-  border: 1px solid var(--darker-less)
+  border: 1px solid var(--accent)
   color: white
 
   &:hover:not(:disabled)
@@ -49,8 +46,7 @@
 
 .secondary
   background-color: var(--accent-3)
-  border: 1px solid var(--borderDark)
-  border-color: var(--accent-4)
+  border: 1px solid var(--darker-green)
   color: white
   &:hover:not(:disabled)
     background-color: var(--yellow)
@@ -63,6 +59,11 @@
   color: black
   &:hover:not(:disabled)
     background-color: var(--brown-transp)
+  &:disabled
+    background: var(--darker-green)
+    border-color: var(--darker)
+    color: white
+    opacity: 0.7
 
 .secondaryInverse
   background-color: transparent
@@ -96,11 +97,16 @@
     border: 1px solid white
     cursor: pointer
 
+  &Modal
+    color: white
+    background-color: transparent
+    border: 1px solid white
+    opacity: 0.7
+    cursor: pointer
+
     &:hover
-      background-color: white
-      color: black
-      border: 1px solid black
-      cursor: pointer
+      opacity: 1
+      background: var(--darker-green)
 
 .danger, .grey
   background-color: transparent
@@ -207,3 +213,6 @@
 .fullWidth
   display: flex
   width: 100%
+
+.opacity8
+  opacity: 0.8

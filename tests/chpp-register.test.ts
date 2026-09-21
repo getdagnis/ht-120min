@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 import type { SupabaseClient } from '@supabase/supabase-js';
 
-import { registerOAuthTeam } from '../src/server/api/_lib/chpp-register.js';
+import { getActiveTournamentConflicts, registerOAuthTeam } from '../src/server/api/_lib/chpp-register.js';
 
 interface QueryResult {
   data: unknown;
@@ -78,4 +78,59 @@ test('rejoining fails instead of reporting success when the activation update ma
     registerOAuthTeam(mock.client, registrationInput),
     /Could not reactivate Guåhan Goddesses/,
   );
+});
+
+test('picker conflict lookup exposes only another real active tournament with its public slug', async () => {
+  const rows = [
+    {
+      ht_team_id: 3220518,
+      tournament_id: 'gibraltar',
+      tournaments: {
+        name: 'Exotic HFI — Gibraltar 🇬🇮',
+        slug: 'exotic-hfi-gibraltar',
+        status: 'open',
+        is_test: false,
+        registration_type: 'chpp',
+      },
+    },
+    {
+      ht_team_id: 681813,
+      tournament_id: 'finished',
+      tournaments: {
+        name: 'Old cup',
+        slug: 'old-cup',
+        status: 'finished',
+        is_test: false,
+        registration_type: 'chpp',
+      },
+    },
+    {
+      ht_team_id: 123456,
+      tournament_id: 'sandbox',
+      tournaments: {
+        name: 'Sandbox cup',
+        slug: 'sandbox-cup',
+        status: 'open',
+        is_test: true,
+        registration_type: 'sandbox',
+      },
+    },
+  ];
+  const query = {
+    select: () => query,
+    in: () => query,
+    eq: () => query,
+    neq: async () => ({ data: rows, error: null }),
+  };
+  const client = { from: () => query } as unknown as SupabaseClient;
+
+  const conflicts = await getActiveTournamentConflicts(client, [3220518, 681813, 123456], 'target');
+
+  assert.deepEqual(conflicts.get(3220518), {
+    tournamentId: 'gibraltar',
+    name: 'Exotic HFI — Gibraltar 🇬🇮',
+    slug: 'exotic-hfi-gibraltar',
+  });
+  assert.equal(conflicts.has(681813), false);
+  assert.equal(conflicts.has(123456), false);
 });

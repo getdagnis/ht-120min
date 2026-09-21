@@ -197,6 +197,18 @@ export const MatchmakerBrowseDeck: React.FC<MatchmakerBrowseDeckProps> = ({
   const request = entry.request;
   const action = getMatchmakerBrowseAction(activeTab, request);
   const primaryLabel = action === 'challenge' ? 'Send Challenge' : 'Show Interest';
+  const handlePrimaryAction = () => {
+    if (action === 'interest' && request.team?.ht_team_id) {
+      window.open(
+        `https://www.hattrick.org/goto.ashx?path=/Club/?TeamID=${request.team.ht_team_id}`,
+        '_blank',
+        'noopener,noreferrer',
+      );
+      return;
+    }
+
+    onPrimaryAction(request);
+  };
   const swipeStyle = { '--swipe-offset': `${swipeOffset}px` } as React.CSSProperties;
   const pointerHandlers = {
     onPointerDown: handlePointerDown,
@@ -295,7 +307,7 @@ export const MatchmakerBrowseDeck: React.FC<MatchmakerBrowseDeckProps> = ({
           <Button variant="outline" onClick={onPass}>
             Pass <X size={20} />
           </Button>
-          <Button variant="tinder" onClick={() => onPrimaryAction(request)}>
+          <Button variant="tinder" onClick={handlePrimaryAction}>
             {action === 'challenge' ? <Handshake size={20} /> : <Heart size={20} weight="fill" />}
             {primaryLabel}
           </Button>
@@ -343,7 +355,7 @@ export const MatchmakerBrowseDeck: React.FC<MatchmakerBrowseDeckProps> = ({
           <Button variant="outline" onClick={onPass}>
             Pass <X size={20} />
           </Button>
-          <Button variant="tinder" onClick={() => onPrimaryAction(request)}>
+          <Button variant="tinder" onClick={handlePrimaryAction}>
             {primaryLabel}
             {action === 'challenge' ? <Handshake size={20} /> : <Heart size={20} weight="fill" />}
           </Button>
@@ -356,4 +368,3 @@ export const MatchmakerBrowseDeck: React.FC<MatchmakerBrowseDeckProps> = ({
     </div>
   );
 };
-

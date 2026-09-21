@@ -1,0 +1,102 @@
+.card
+  width: 100%
+  display: flex
+  align-items: center
+  gap: 1rem
+  padding: 1rem
+  border: 1px solid var(--darker-green-1)
+  border-radius: 0.8rem
+  background: var(--darker-green-1)
+  text-align: left
+
+  &.eligible
+    background: var(--darker-green)
+    border: 1px solid var(--darker-green)
+
+  &:is(button)
+    cursor: pointer
+    font: inherit
+
+    &:hover:not(:disabled)
+      border-color: var(--accent)
+      background: var(--accent-5)
+
+.disabled
+  user-select: none
+  cursor: not-allowed
+
+.logo
+  width: 4.5rem
+  height: 4.5rem
+  flex: 0 0 auto
+  object-fit: contain
+
+.content
+  display: flex
+  flex: 1
+  min-width: 0
+  flex-direction: column
+  align-items: flex-start
+  gap: 0.18rem
+
+.name
+  color: white
+  font-family: var(--heading)
+  font-size: 1.35rem
+  line-height: 1.15
+  overflow-wrap: anywhere
+
+.byline
+  color: white
+  font-size: 0.875rem
+  font-family: var(--sans)
+  font-weight: 400
+  line-height: 1.35
+
+.disabled .logo, .disabled .name, .disabled .byline
+  opacity: 0.6
+  filter: grayscale(1)
+
+.separator
+  display: inline-block
+  margin: 0 0.3rem
+  opacity: 0.7
+
+.status, .statusDanger
+  color: white
+  margin-top: 0.35rem
+  padding: 0.25rem 0.5rem
+  border-radius: var(--radius-xs)
+  font-size: 0.9rem
+  font-weight: 600
+  line-height: 1.35
+  width: 100%
+
+  a
+    color: white
+    font-weight: 700
+    text-decoration: underline
+    text-underline-offset: 0.15em
+
+.statusDanger
+  background: var(--lighterDarker)
+
+.caret
+  color: white
+  flex: 0 0 auto
+
+@media (max-width: 620px)
+  .card
+    align-items: flex-start
+    gap: 0.75rem
+    padding: 0.8rem
+
+  .logo
+    width: 3.5rem
+    height: 3.5rem
+
+  .name
+    font-size: 1.12rem
+
+  .caret
+    align-self: center

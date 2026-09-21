@@ -4,6 +4,7 @@ import { normalizeChppCountryName } from '../../../../shared/chpp-country.js';
 export interface ChppTeamOption {
   teamId: number;
   teamName: string;
+  logoUrl?: string;
   genderId?: number;
   leagueSystemId?: number;
   leagueName?: string;
@@ -13,6 +14,10 @@ export interface ChppTeamOption {
   regionName?: string;
   countryId?: number;
   countryName?: string;
+  activeTournament?: {
+    name: string;
+    slug: string;
+  };
 }
 
 export interface AvatarLayer {

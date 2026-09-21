@@ -25,8 +25,8 @@ import {
   isMissingMatchEventDetails,
   type SeasonFixturesSnapshot,
 } from '../../utils/season-fixtures';
-import { getCompatibleLeagueRestrictionOptions, validateTeamEligibility } from '../../utils/team-eligibility';
-import { normalizeLeagueLimit } from '../../../shared/worlddetails';
+import { getCompatibleLeagueRestrictionOptions, teamMatchesCategory, validateTeamEligibility } from '../../utils/team-eligibility';
+import { normalizeLeagueLimit, resolveCountryRestriction } from '../../../shared/worlddetails';
 import type { MatchEventDetails } from '../../../shared/match-events';
 import { useLiveMatches } from '../../hooks/useLiveMatches';
 import { trackActivity } from '../../hooks/useActivityTracking';
@@ -61,6 +61,7 @@ import { nanoid } from 'nanoid';
 import { Button } from '../../components/Button/Button';
 import { Switch } from '../../components/Switch/Switch';
 import { Modal } from '../../components/Modal/Modal';
+import { ModalTeamCard } from '../../components/ModalTeamCard/ModalTeamCard';
 import { HeroCard } from '../../components/Card/HeroCard';
 import { SectionCard } from '../../components/Card/SectionCard';
 import { ChatView } from '../../components/TournamentTabs/ChatView';
@@ -151,9 +152,19 @@ function normalizeGeneratedScheduleMode(value: unknown): ScheduleMode {
 interface ChppTeamOption {
   teamId: number;
   teamName: string;
+  logoUrl?: string;
+  genderId?: number;
+  leagueId?: number;
+  leagueSystemId?: number;
+  leagueName?: string;
   leagueLevelUnitName?: string;
   regionName?: string;
+  countryId?: number;
   countryName?: string;
+  activeTournament?: {
+    name: string;
+    slug: string;
+  };
 }
 
 interface HtMatchLinkPreview {
@@ -1999,6 +2010,7 @@ export const TournamentView: React.FC<{ initialData?: TournamentInitialData }> =
     async (token: string) => {
       setShowTeamModal(true);
       setModalLoading(true);
+      setIsConnecting(false);
       console.log('TournamentView Querying Selection Token:', token);
 
       const { data, error } = await supabase
@@ -2025,7 +2037,7 @@ export const TournamentView: React.FC<{ initialData?: TournamentInitialData }> =
       }
       setModalLoading(false);
     },
-    [router, setModalLoading, setPendingJoinData, setShowTeamModal],
+    [router, setIsConnecting, setJoinError, setModalLoading, setPendingJoinData, setShowJoinErrorModal, setShowTeamModal],
   );
 
   const handleTeamSelect = async (team: ChppTeamOption) => {
@@ -2066,6 +2078,60 @@ export const TournamentView: React.FC<{ initialData?: TournamentInitialData }> =
     } finally {
       setSubmittingJoin(false);
     }
+  };
+
+  const getJoinTeamCardState = (
+    team: ChppTeamOption,
+  ): { disabled: boolean; status: React.ReactNode; statusDanger: boolean } => {
+    if (!tournament) return { disabled: true, status: '⛔️ Tournament details are unavailable.', statusDanger: true };
+    if (!teamMatchesCategory(team, tournament.league_category)) {
+      return {
+        disabled: true,
+        statusDanger: true,
+        status:
+          tournament.league_category === 'hfi'
+            ? '⛔️ Not eligible! This tournament is for HFI teams only.'
+            : '⛔️ Not eligible! This tournament is for regular male teams.',
+      };
+    }
+
+    const countryLimit = normalizeLeagueLimit(
+      tournament.country_limit,
+      tournament.country_limit_format ?? 'league_id',
+    );
+    const eligibility = validateTeamEligibility(team, {
+      category: tournament.league_category,
+      countryLimit,
+    });
+
+    if (!eligibility.eligible) {
+      const restrictedCountry = resolveCountryRestriction(
+        tournament.country_limit,
+        tournament.country_limit_format ?? 'league_id',
+      )?.leagueName;
+      return {
+        disabled: true,
+        statusDanger: true,
+        status: restrictedCountry
+          ? `⛔️ Not eligible! Must be based in ${restrictedCountry}.`
+          : `⛔️ Not eligible! ${eligibility.reason || 'This team cannot join this tournament.'}`,
+      };
+    }
+
+    if (team.activeTournament) {
+      return {
+        disabled: true,
+        statusDanger: true,
+        status: (
+          <>
+            ⛔️ Already active in:{' '}
+            <a href={toLocalePath(locale, `/t/${team.activeTournament.slug}`)}>{team.activeTournament.name}</a>
+          </>
+        ),
+      };
+    }
+
+    return { disabled: false, status: '✅ Eligible to participate!', statusDanger: false };
   };
 
   useEffect(() => {
@@ -2134,7 +2200,10 @@ export const TournamentView: React.FC<{ initialData?: TournamentInitialData }> =
   useEffect(() => {
     if (paramsHandledRef.current) return;
 
-    // Check for error, success, or token param from OAuth
+    // This route is reached through a full OAuth navigation. Keep its callback
+    // detection independent from the App Router's reactive query state: that
+    // was the pre-recovery behavior and reliably opens the picker on every
+    // returned OAuth flow.
     const params = new URLSearchParams(window.location.search);
     const errorMsg = params.get('error');
     const joined = params.get('joined');
@@ -2143,20 +2212,25 @@ export const TournamentView: React.FC<{ initialData?: TournamentInitialData }> =
     if (errorMsg || joined || token) {
       paramsHandledRef.current = true;
       const newUrl = pathname;
+
       router.replace(newUrl);
 
       if (errorMsg) {
-        setJoinError(errorMsg);
-        setShowJoinErrorModal(true);
+        window.setTimeout(() => {
+          setJoinError(errorMsg);
+          setShowJoinErrorModal(true);
+        }, 0);
       } else if (joined) {
-        void fetchData({ showLoader: false });
+        window.setTimeout(() => {
+          void fetchData({ showLoader: false });
+        }, 0);
       } else if (token) {
-        setTimeout(() => {
+        window.setTimeout(() => {
           void fetchPendingJoinData(token);
         }, 0);
       }
     }
-  }, [fetchPendingJoinData, pathname, router]);
+  }, [fetchData, fetchPendingJoinData, pathname, router]);
 
   const isNewsTab = activeTab === 'guestbook' || activeTab === 'news';
 
@@ -6295,24 +6369,29 @@ export const TournamentView: React.FC<{ initialData?: TournamentInitialData }> =
               </p>
 
               <div className={styles.teamOptionsList}>
-                {pendingJoinData?.teams_json.map((team) => (
-                  <div
-                    key={team.teamId}
-                    className={`${styles.teamOptionCard} ${submittingJoin ? styles.disabled : ''}`}
-                    onClick={() => !submittingJoin && handleTeamSelect(team)}
-                  >
-                    <div className={styles.teamOptionInfo}>
-                      <div className={styles.teamOptionHeader}>
-                        <strong>{team.teamName}</strong>
-                      </div>
-                      <span className={styles.teamMeta}>
-                        {[team.leagueLevelUnitName, team.regionName].filter(Boolean).join(' • ')}
-                      </span>
-                    </div>
-                  </div>
-                ))}
+                {pendingJoinData?.teams_json.map((team) => {
+                  const teamState = getJoinTeamCardState(team);
+                  return (
+                    <ModalTeamCard
+                      key={team.teamId}
+                      team={{
+                        teamId: team.teamId,
+                        teamName: team.teamName,
+                        logoUrl: team.logoUrl,
+                        countryId: team.countryId,
+                        countryName: team.countryName,
+                        leagueId: team.leagueId,
+                        leagueName: team.leagueName,
+                      }}
+                      status={teamState.status}
+                      statusDanger={teamState.statusDanger}
+                      onSelect={!teamState.disabled && !submittingJoin ? () => void handleTeamSelect(team) : undefined}
+                      disabled={teamState.disabled || submittingJoin}
+                    />
+                  );
+                })}
                 {pendingJoinData?.teams_json.length === 0 && (
-                  <p className="center">None of your teams are eligible for this tournament.</p>
+                  <p className="center">No teams were returned by Hattrick for this account.</p>
                 )}
               </div>
 
@@ -6322,7 +6401,7 @@ export const TournamentView: React.FC<{ initialData?: TournamentInitialData }> =
 
               <div className={styles.modalFooter}>
                 <Button
-                  variant="zero"
+                  variant="outlineModal"
                   fullWidth
                   onClick={() => {
                     setShowTeamModal(false);

@@ -5,10 +5,52 @@ import crypto from 'crypto';
 import { getSupabase } from './supabase.js';
 import { OAUTH_CREATION_TOURNAMENT_ID } from './oauth-constants.js';
 import { hasSuperAdminBypassCookie } from './superadmin-bypass.js';
+import { getActiveTournamentConflicts } from './chpp-register.js';
+import { fetchTeamDetailsFromChpp } from './matchmaker.js';
+import type { ChppTeamOption } from './chpp-xml.js';
+import { normalizeLeagueLimit } from '../../../../shared/worlddetails.js';
+import { buildAppSessionCookie, getAppSessionSecret } from './app-session.js';
 import {
   fetchManagerTeamsFromChpp,
   ManagerCompendiumRequestError,
 } from './manager-compendium.js';
+
+async function hydratePickerTeamLogos(
+  supabase: ReturnType<typeof getSupabase>,
+  teams: ChppTeamOption[],
+  consumerKey: string,
+  consumerSecret: string,
+  credentials: { oauth_token: string; oauth_token_secret: string },
+): Promise<ChppTeamOption[]> {
+  const teamIds = teams.map((team) => team.teamId);
+  const { data: storedTeams } = await supabase
+    .from('teams')
+    .select('ht_team_id, logo_url')
+    .in('ht_team_id', teamIds)
+    .not('logo_url', 'is', null);
+  const storedLogos = new Map<number, string>();
+  for (const team of (storedTeams ?? []) as Array<{ ht_team_id: number | null; logo_url: string | null }>) {
+    if (team.ht_team_id && team.logo_url) storedLogos.set(team.ht_team_id, team.logo_url);
+  }
+
+  const missingLogoTeams = teams.filter((team) => !storedLogos.has(team.teamId));
+  const fetchedLogos = await Promise.all(
+    missingLogoTeams.map(async (team) => {
+      try {
+        const details = await fetchTeamDetailsFromChpp(consumerKey, consumerSecret, credentials, team.teamId);
+        return [team.teamId, details.logoUrl] as const;
+      } catch {
+        return [team.teamId, undefined] as const;
+      }
+    }),
+  );
+
+  for (const [teamId, logoUrl] of fetchedLogos) {
+    if (logoUrl) storedLogos.set(teamId, logoUrl);
+  }
+
+  return teams.map((team) => (storedLogos.has(team.teamId) ? { ...team, logoUrl: storedLogos.get(team.teamId) } : team));
+}
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   if (req.method === 'HEAD' || req.method === 'OPTIONS') {
@@ -108,12 +150,20 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       return res.status(500).json({ error: 'No teams found in managercompendium response' });
     }
 
+    const teamsWithLogos = await hydratePickerTeamLogos(
+      supabase,
+      teams,
+      consumerKey,
+      consumerSecret,
+      { oauth_token: accessToken, oauth_token_secret: accessTokenSecret },
+    );
+
     // 4. Fetch Tournament Details for filtering (if not creating)
     let tournament = null;
     if (!session.is_creation && session.tournament_id) {
       const { data: tData, error: tError } = await supabase
         .from('tournaments')
-        .select('id, slug, league_category, country_limit, registration_type')
+        .select('id, slug, league_category, country_limit, country_limit_format, registration_type')
         .eq('id', session.tournament_id)
         .single();
 
@@ -134,16 +184,32 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         ? 'hfi'
         : 'male';
 
-    const countryLimit = session.is_creation ? session.country_limit : tournament?.country_limit;
+    const countryLimit = session.is_creation
+      ? session.country_limit
+      : normalizeLeagueLimit(tournament?.country_limit, tournament?.country_limit_format ?? 'league_id');
 
     const filteredTeams = isSuperAdmin
-      ? teams
-      : filterTeamsForCategory(teams, leagueCategory, {
+      ? teamsWithLogos
+      : filterTeamsForCategory(teamsWithLogos, leagueCategory, {
           countryLimit,
         });
 
-    // Always open the picker. An empty eligible list is useful feedback and
-    // must not be replaced with an error about an unrelated primary team.
+    // Tournament joins show every CHPP team in the picker. Filtering here
+    // hides useful category/country explanations behind an empty state.
+    // Creation retains its existing restricted selection flow.
+    let teamsForSelection = session.is_creation ? filteredTeams : teamsWithLogos;
+    if (!session.is_creation && session.tournament_id && !isSuperAdmin) {
+      const conflicts = await getActiveTournamentConflicts(
+        supabase,
+        teamsWithLogos.map((team) => team.teamId),
+        session.tournament_id,
+      );
+      teamsForSelection = teamsWithLogos.map((team) => {
+        const conflict = conflicts.get(team.teamId);
+        return conflict ? { ...team, activeTournament: { name: conflict.name, slug: conflict.slug } } : team;
+      });
+    }
+
     const selectionToken = crypto.randomBytes(16).toString('hex');
     console.log('Callback - Generated Selection Token:', selectionToken);
     const { error } = await supabase
@@ -155,7 +221,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         access_token_secret: accessTokenSecret,
         hattrick_user_id: hattrickUserId,
         manager_name: managerName,
-        teams_json: filteredTeams,
+        teams_json: teamsForSelection,
         is_creation: session.is_creation,
         oauth_scope: grantedScope,
       })
@@ -165,15 +231,31 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       return res.status(500).json({ error: 'Failed to store pending OAuth join', details: error.message });
     }
 
+    // A successful CHPP callback is a completed Hattrick login, even when the
+    // manager cannot select a team from this particular tournament picker.
+    // The picker may be entirely read-only, so waiting for /auth/complete to
+    // set this cookie leaves the client looking logged in via localStorage
+    // while server-authorized endpoints correctly reject it.
+    const appSessionSecret = getAppSessionSecret();
+    if (!appSessionSecret) {
+      return res.status(500).json({ error: 'APP_SESSION_SECRET is missing' });
+    }
+    const host = String(req.headers.host || '').split(':')[0].toLowerCase();
+    const isLocalHost = host === 'localhost' || host === '127.0.0.1' || host === '::1';
+    const forwardedProto = String(req.headers['x-forwarded-proto'] || '').toLowerCase();
+    const secureCookie = !isLocalHost && (process.env.NODE_ENV === 'production' || forwardedProto === 'https');
+    const responseCookies = [buildAppSessionCookie(hattrickUserId, appSessionSecret, secureCookie)];
+
     // Redirect to AuthCallback to handle final login
     const returnUrl = req.cookies?.auth_return_url ? decodeURIComponent(req.cookies.auth_return_url) : null;
     
     let redirectPath = `/auth/callback?token=${selectionToken}`;
     if (returnUrl) {
       // Clear cookie
-      res.setHeader('Set-Cookie', 'auth_return_url=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT');
+      responseCookies.push('auth_return_url=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT');
       redirectPath += `&returnUrl=${encodeURIComponent(returnUrl)}`;
     }
+    res.setHeader('Set-Cookie', responseCookies);
     
     if (session.is_creation) {
       return res.redirect(`/create?step=teams&token=${selectionToken}`);

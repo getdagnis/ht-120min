@@ -1376,11 +1376,10 @@ export const CreateTournament: React.FC = () => {
                   </Button>
                   <Button
                     type="button"
-                    variant="outlineWhite"
+                    variant="outlineModal"
                     size="sm"
                     onClick={clearAll}
                     disabled={loading}
-                    className={styles.opacity08}
                   >
                     Clear All
                   </Button>
@@ -1461,7 +1460,7 @@ export const CreateTournament: React.FC = () => {
                     )}
 
                     <div className={styles.modalFooter}>
-                      <Button variant="outline" fullWidth onClick={() => void goBackToSettings()}>
+                      <Button variant="outlineModal" fullWidth onClick={() => void goBackToSettings()}>
                         Cancel and change settings
                       </Button>
                     </div>
@@ -1489,7 +1488,6 @@ export const CreateTournament: React.FC = () => {
             <h1>{isValidated ? 'Confirm your team' : isSandbox ? 'Build a test tournament' : 'Add Teams'}</h1>
             <img src="/register2.png" alt="Add Teams" />
             <h2 className={styles.teamStepTitle}>{formData.name}</h2>
-            <p className={styles.small}>/{formData.slug}</p>
             <p className={styles.teamStepHelper}>{teamStepHelper}</p>
 
             {!isSandbox && !isLinked && (
@@ -1766,7 +1764,7 @@ export const CreateTournament: React.FC = () => {
 
             <div className={styles.genActions}>
               <Button
-                variant="secondary"
+                variant="secondaryYellow"
                 size="lg"
                 fullWidth
                 onClick={handleFinalSubmit}
@@ -1776,14 +1774,13 @@ export const CreateTournament: React.FC = () => {
                 {loading ? 'Creating...' : isSandbox ? 'Create Test Tournament' : 'Create Tournament'}
               </Button>
               <Button
-                variant="outlineWhite"
+                variant="outlineModal"
                 size="sm"
                 onClick={() => {
                   setStep('info');
                   router.replace(toLocalePath(locale, '/create'));
                 }}
                 disabled={loading}
-                className={styles.opacity08}
               >
                 Go Back
               </Button>

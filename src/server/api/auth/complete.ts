@@ -5,8 +5,9 @@ import { registerOAuthTeam } from '../_lib/chpp-register.js';
 import { getAuthHeader } from '../_lib/chpp-auth.js';
 import { parseTeamDetailsXml } from '../_lib/chpp-xml.js';
 import { validateTeamEligibility } from '../_lib/eligibility.js';
-import { buildAppSessionCookie, getAppSessionSecret, verifyAppSessionCookie } from '../_lib/app-session.js';
+import { buildAppSessionCookie, clearAppSessionCookie, getAppSessionSecret, verifyAppSessionCookie } from '../_lib/app-session.js';
 import { hasSuperAdminBypassCookie } from '../_lib/superadmin-bypass.js';
+import { normalizeLeagueLimit } from '../../../../shared/worlddetails.js';
 import { buildForgeSessionCookie, getForgeSuperadminId } from '../_lib/forge-session.js';
 import { isForgeEnabled } from '../../forge-availability.js';
 import {
@@ -15,7 +16,7 @@ import {
 } from '../_lib/manager-compendium.js';
 
 interface CompleteAuthBody {
-  action?: 'claim_teams' | 'create_session';
+  action?: 'claim_teams' | 'create_session' | 'clear_session';
   forgeAuth?: boolean;
   selection_token?: string;
   team_id?: string | number;
@@ -74,6 +75,15 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
   const { selection_token, team_id, team_name, action, teamIds, forgeAuth } = req.body as CompleteAuthBody;
   if (forgeAuth && !isForgeEnabled()) return res.status(404).json({ error: 'Not found.' });
+
+  if (action === 'clear_session') {
+    const host = String(req.headers.host || '').split(':')[0].toLowerCase();
+    const isLocalHost = host === 'localhost' || host === '127.0.0.1' || host === '::1';
+    const forwardedProto = String(req.headers['x-forwarded-proto'] || '').toLowerCase();
+    const secureCookie = !isLocalHost && (process.env.NODE_ENV === 'production' || forwardedProto === 'https');
+    res.setHeader('Set-Cookie', clearAppSessionCookie(secureCookie));
+    return res.status(200).json({ cleared: true });
+  }
 
   let supabase: ReturnType<typeof getServiceSupabase>;
   try {
@@ -291,7 +301,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     if (pending.tournament_id && team_id && team_name) {
       const { data: tournament, error: tErr } = await supabase
         .from('tournaments')
-        .select('slug, country_limit, league_category')
+        .select('slug, country_limit, country_limit_format, league_category')
         .eq('id', pending.tournament_id)
         .single();
 
@@ -308,7 +318,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
           countryName,
           genderId: teamDetails?.genderId,
         },
-        { category: tournament.league_category === 'hfi' ? 'hfi' : 'male', countryLimit: tournament.country_limit },
+        {
+          category: tournament.league_category === 'hfi' ? 'hfi' : 'male',
+          countryLimit: normalizeLeagueLimit(tournament.country_limit, tournament.country_limit_format ?? 'league_id'),
+        },
       );
       if (!eligibility.eligible && !isSuperAdmin) {
         throw new Error(`This team is not from the required league (${tournament.country_limit}).`);
