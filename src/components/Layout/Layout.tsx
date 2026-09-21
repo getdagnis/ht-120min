@@ -106,6 +106,7 @@ export const Layout: React.FC<LayoutProps> = ({ children }) => {
   const theme = useSyncExternalStore(subscribeToTheme, getThemeSnapshot, getServerThemeSnapshot);
 
   const [isUserDropdownOpen, setIsUserDropdownOpen] = useState(false);
+  const [visitCount, setVisitCount] = useState(0);
   const dropdownRef = useRef<HTMLDivElement>(null);
   const isProfileModalOpen = !!searchParams.get('profileId');
   const authError = searchParams.get('auth_error');
@@ -120,7 +121,7 @@ export const Layout: React.FC<LayoutProps> = ({ children }) => {
   }, [theme]);
 
   useEffect(() => {
-    getVisitCount();
+    setVisitCount(getVisitCount());
   }, []);
 
   useEffect(() => {
@@ -404,7 +405,7 @@ export const Layout: React.FC<LayoutProps> = ({ children }) => {
 
       <footer className={styles.footer}>
         <div className={styles.container}>
-          <BeerBanner key={currentUrl} variant={isTinderPage ? 'tinder' : 'default'} />
+          {visitCount >= 3 && <BeerBanner key={currentUrl} variant={isTinderPage ? 'tinder' : 'default'} />}
           <p>
             © {new Date().getFullYear()}
             <span className="mr-sm" />
