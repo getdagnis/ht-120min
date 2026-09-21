@@ -1607,6 +1607,77 @@
   font-weight: 600
   color: var(--text-h)
 
+.fixturesSeasonMenu
+  position: relative
+
+.fixturesSeasonDropdown
+  position: absolute
+  z-index: 20
+  top: calc(100% + 0.35rem)
+  left: 0
+  min-width: 10rem
+  padding: 0.35rem
+  background: var(--bg)
+  border: 1px solid var(--border)
+  border-radius: var(--radius-sm)
+  box-shadow: var(--shadow)
+
+.fixturesSeasonOption
+  display: block
+  width: 100%
+  padding: 0.45rem 0.6rem
+  border: 0
+  background: transparent
+  color: var(--text60)
+  font: inherit
+  font-size: 0.8rem
+  font-weight: 600
+  text-align: left
+  cursor: pointer
+
+  &:hover, &[aria-selected='true']
+    background: var(--bg-transp)
+    color: var(--text-h)
+
+.standingsSeasonSwitcher
+  display: flex
+  justify-content: flex-end
+  margin-bottom: -0.5rem
+
+.standingsSeasonMenu
+  position: relative
+  display: flex
+  justify-content: flex-end
+
+.standingsSeasonDropdown
+  position: absolute
+  z-index: 20
+  top: calc(100% + 0.35rem)
+  right: 0
+  min-width: 10rem
+  padding: 0.35rem
+  background: var(--bg)
+  border: 1px solid var(--border)
+  border-radius: var(--radius-sm)
+  box-shadow: var(--shadow)
+
+.standingsSeasonOption
+  display: block
+  width: 100%
+  padding: 0.45rem 0.6rem
+  border: 0
+  background: transparent
+  color: var(--text60)
+  font: inherit
+  font-size: 0.8rem
+  font-weight: 600
+  text-align: left
+  cursor: pointer
+
+  &:hover, &[aria-selected='true']
+    background: var(--bg-transp)
+    color: var(--text-h)
+
 .fixturesHeaderActions
   display: inline-flex
   align-items: center
