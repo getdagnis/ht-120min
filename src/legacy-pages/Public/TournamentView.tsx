@@ -4306,6 +4306,7 @@ export const TournamentView: React.FC<{ initialData?: TournamentInitialData }> =
   // Find the first round that is not fully completed
   const currentRoundIdForResults = rounds.find((r) => r.matches.some((m) => !m.completed))?.id;
   const currentSeasonNumber = currentSeasonNumberForSelection;
+  const previousSeasons = seasons.filter((season) => season.season_number < currentSeasonNumber);
   const currentSeason = seasons.find((season) => season.season_number === currentSeasonNumber);
   const selectedSeason = seasons.find((season) => season.season_number === selectedSeasonNumber) || currentSeason;
   const isViewingHistoricalSeason = selectedSeasonNumber < currentSeasonNumber;

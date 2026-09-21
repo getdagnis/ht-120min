@@ -63,9 +63,7 @@ export interface FixtureMatch {
   } | null;
 }
 
-function getFixtureDisplayTimeZone(
-  match: Pick<FixtureMatch, 'ht_match_id' | 'schedule_slot_type' | 'fixture_source'>,
-) {
+function getFixtureDisplayTimeZone(match: Pick<FixtureMatch, 'ht_match_id' | 'schedule_slot_type' | 'fixture_source'>) {
   const isGeneratedFixture = match.fixture_source === 'generated' || Boolean(match.schedule_slot_type);
   return match.ht_match_id && !isGeneratedFixture ? 'Europe/Stockholm' : undefined;
 }
@@ -290,16 +288,19 @@ export const FixturesView: React.FC<FixturesViewProps> = ({
     };
   }, [challengeCandidateKey, challengeCandidateMatches, currentHtUserId, tournamentId]);
 
-  const openChallengeConfirmation = React.useCallback((matchId: string) => {
-    const challenge = challengeAvailability[matchId];
-    setChallengeError(null);
-    setChallengeSuccess(null);
-    setChallengeSelection({
-      matchType: challenge?.matchType === 'normal' ? 'normal' : 'cup_rules',
-      venue: challenge?.venue === 'away' ? 'away' : 'home',
-    });
-    setChallengeMatchId(matchId);
-  }, [challengeAvailability]);
+  const openChallengeConfirmation = React.useCallback(
+    (matchId: string) => {
+      const challenge = challengeAvailability[matchId];
+      setChallengeError(null);
+      setChallengeSuccess(null);
+      setChallengeSelection({
+        matchType: challenge?.matchType === 'normal' ? 'normal' : 'cup_rules',
+        venue: challenge?.venue === 'away' ? 'away' : 'home',
+      });
+      setChallengeMatchId(matchId);
+    },
+    [challengeAvailability],
+  );
 
   const closeChallengeConfirmation = React.useCallback(() => {
     if (isSendingChallenge) return;
@@ -355,11 +356,10 @@ export const FixturesView: React.FC<FixturesViewProps> = ({
   }, [challengeAvailability, challengeMatchId, challengeSelection, isSendingChallenge, tournamentId]);
 
   const selectedChallenge = challengeMatchId ? challengeAvailability[challengeMatchId] : null;
-  const selectedChallengeSelection: FixtureChallengeSelection =
-    challengeSelection || {
-      matchType: selectedChallenge?.matchType === 'normal' ? 'normal' : 'cup_rules',
-      venue: selectedChallenge?.venue === 'away' ? 'away' : 'home',
-    };
+  const selectedChallengeSelection: FixtureChallengeSelection = challengeSelection || {
+    matchType: selectedChallenge?.matchType === 'normal' ? 'normal' : 'cup_rules',
+    venue: selectedChallenge?.venue === 'away' ? 'away' : 'home',
+  };
   const seasonOptions = React.useMemo(
     () => [...new Set([season, ...availableSeasonNumbers])].sort((a, b) => b - a),
     [availableSeasonNumbers, season],
@@ -505,9 +505,11 @@ export const FixturesView: React.FC<FixturesViewProps> = ({
               </button>
             )}
             {rounds.length > 0 && (
-              <button type="button" className={styles.fixturesHeaderAction} onClick={onCollapseAllRounds}>
-                <span>COLLAPSE ALL</span>
-              </button>
+              <Tooltip id="collapse-tooltip" content="Collapse all except active" className="tooltip">
+                <button type="button" className={styles.fixturesHeaderAction} onClick={onCollapseAllRounds}>
+                  <span>COLLAPSE ALL</span>
+                </button>
+              </Tooltip>
             )}
           </div>
         )}
@@ -605,7 +607,9 @@ export const FixturesView: React.FC<FixturesViewProps> = ({
                     {roundDate && roundWeek && (
                       <span className={styles.roundDate}>
                         HT Week {roundWeek.htWeek}
-                        {roundPeriod !== 'full_week' ? ` • ${roundPeriod === 'weekend' ? 'Weekend' : 'Midweek'}` : ''} •{' '}
+                        {roundPeriod !== 'full_week'
+                          ? ` • ${roundPeriod === 'weekend' ? 'Weekend' : 'Midweek'}`
+                          : ''} •{' '}
                         {roundDate.toLocaleDateString('lv-LV', {
                           timeZone: roundTimeZone,
                           day: '2-digit',
@@ -645,10 +649,10 @@ export const FixturesView: React.FC<FixturesViewProps> = ({
                             <span className="hideOnMobile">
                               {isRefreshingFixtures ? 'Checking...' : 'Last checked: '}
                               {!isRefreshingFixtures &&
-                                  new Date(tournament.last_fixtures_refresh).toLocaleTimeString('en-GB', {
-                                    hour: '2-digit',
-                                    minute: '2-digit',
-                                    timeZone: 'Europe/Riga',
+                                new Date(tournament.last_fixtures_refresh).toLocaleTimeString('en-GB', {
+                                  hour: '2-digit',
+                                  minute: '2-digit',
+                                  timeZone: 'Europe/Riga',
                                 })}
                             </span>
                           </span>
@@ -661,11 +665,7 @@ export const FixturesView: React.FC<FixturesViewProps> = ({
                         >
                           <ArrowClockwise size={18} />
                         </button>
-                        <Tooltip
-                          id="refresh-tooltip"
-                          content="Re-fetches linked Hattrick fixtures and result/event data, updates match statuses and warnings, reclassifies eligible APPG results, recalculates standings, and refreshes this view. It does not change schedule pairings."
-                          className="tooltip"
-                        />
+                        <Tooltip id="refresh-tooltip" content="Refresh results" className="tooltip" />
                         <button className={styles.refreshBtn} onClick={handleCopy} data-tooltip-id="copy-tooltip">
                           {copied[round.id] ? <Check size={18} color="green" /> : <CopySimple size={18} />}
                         </button>
@@ -688,7 +688,7 @@ export const FixturesView: React.FC<FixturesViewProps> = ({
                     const day = matchDate
                       .toLocaleString('en-GB', {
                         weekday: 'short',
-                          timeZone: getFixtureDisplayTimeZone(match),
+                        timeZone: getFixtureDisplayTimeZone(match),
                       })
                       .toUpperCase();
                     const datePart = matchDate.toLocaleDateString('lv-LV', {
@@ -775,19 +775,19 @@ export const FixturesView: React.FC<FixturesViewProps> = ({
                             away: match.penalty_shootout_away_goals ?? 0,
                           }
                         : null;
-                      const homeIsBye = !match.home_team || (!isHistorical && match.home_team.active === false);
-                      const awayIsBye = !match.away_team || (!isHistorical && match.away_team.active === false);
-                      const availableChallenge = challengeAvailability[match.id];
-                      const fixtureChallengeAction =
-                        !isHistorical &&
-                        status === 'not_arranged' &&
-                        availableChallenge?.available &&
-                        !availableChallenge.sent
-                          ? {
-                              direction: availableChallenge.side === 'away' ? ('left' as const) : ('right' as const),
-                              onClick: () => openChallengeConfirmation(match.id),
-                            }
-                          : undefined;
+                    const homeIsBye = !match.home_team || (!isHistorical && match.home_team.active === false);
+                    const awayIsBye = !match.away_team || (!isHistorical && match.away_team.active === false);
+                    const availableChallenge = challengeAvailability[match.id];
+                    const fixtureChallengeAction =
+                      !isHistorical &&
+                      status === 'not_arranged' &&
+                      availableChallenge?.available &&
+                      !availableChallenge.sent
+                        ? {
+                            direction: availableChallenge.side === 'away' ? ('left' as const) : ('right' as const),
+                            onClick: () => openChallengeConfirmation(match.id),
+                          }
+                        : undefined;
 
                     return (
                       <FixtureCard
@@ -926,7 +926,12 @@ export const FixturesView: React.FC<FixturesViewProps> = ({
                         type="radio"
                         name="fixture-challenge-type"
                         checked={selectedChallengeSelection.matchType === 'cup_rules'}
-                        onChange={() => setChallengeSelection((current) => ({ ...(current || selectedChallengeSelection), matchType: 'cup_rules' }))}
+                        onChange={() =>
+                          setChallengeSelection((current) => ({
+                            ...(current || selectedChallengeSelection),
+                            matchType: 'cup_rules',
+                          }))
+                        }
                       />
                       <span className={styles.fixtureChallengeRadioMark} aria-hidden="true" /> Cup rules (120 min)
                     </label>
@@ -939,7 +944,12 @@ export const FixturesView: React.FC<FixturesViewProps> = ({
                         type="radio"
                         name="fixture-challenge-type"
                         checked={selectedChallengeSelection.matchType === 'normal'}
-                        onChange={() => setChallengeSelection((current) => ({ ...(current || selectedChallengeSelection), matchType: 'normal' }))}
+                        onChange={() =>
+                          setChallengeSelection((current) => ({
+                            ...(current || selectedChallengeSelection),
+                            matchType: 'normal',
+                          }))
+                        }
                       />
                       <span className={styles.fixtureChallengeRadioMark} aria-hidden="true" /> Normal rules
                     </label>
@@ -957,7 +967,12 @@ export const FixturesView: React.FC<FixturesViewProps> = ({
                         type="radio"
                         name="fixture-challenge-venue"
                         checked={selectedChallengeSelection.venue === 'home'}
-                        onChange={() => setChallengeSelection((current) => ({ ...(current || selectedChallengeSelection), venue: 'home' }))}
+                        onChange={() =>
+                          setChallengeSelection((current) => ({
+                            ...(current || selectedChallengeSelection),
+                            venue: 'home',
+                          }))
+                        }
                       />
                       <span className={styles.fixtureChallengeRadioMark} aria-hidden="true" /> Home
                     </label>
@@ -970,7 +985,12 @@ export const FixturesView: React.FC<FixturesViewProps> = ({
                         type="radio"
                         name="fixture-challenge-venue"
                         checked={selectedChallengeSelection.venue === 'away'}
-                        onChange={() => setChallengeSelection((current) => ({ ...(current || selectedChallengeSelection), venue: 'away' }))}
+                        onChange={() =>
+                          setChallengeSelection((current) => ({
+                            ...(current || selectedChallengeSelection),
+                            venue: 'away',
+                          }))
+                        }
                       />
                       <span className={styles.fixtureChallengeRadioMark} aria-hidden="true" /> Away (per schedule)
                     </label>
