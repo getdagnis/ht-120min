@@ -59,6 +59,14 @@ function getVisitCount() {
   return storedCount;
 }
 
+function subscribeToVisitCount() {
+  return () => {};
+}
+
+function getServerVisitCount() {
+  return 0;
+}
+
 function subscribeToTheme(callback: () => void) {
   window.addEventListener('storage', callback);
   window.addEventListener(THEME_CHANGED_EVENT, callback);
@@ -106,7 +114,7 @@ export const Layout: React.FC<LayoutProps> = ({ children }) => {
   const theme = useSyncExternalStore(subscribeToTheme, getThemeSnapshot, getServerThemeSnapshot);
 
   const [isUserDropdownOpen, setIsUserDropdownOpen] = useState(false);
-  const [visitCount, setVisitCount] = useState(0);
+  const visitCount = useSyncExternalStore(subscribeToVisitCount, getVisitCount, getServerVisitCount);
   const dropdownRef = useRef<HTMLDivElement>(null);
   const isProfileModalOpen = !!searchParams.get('profileId');
   const authError = searchParams.get('auth_error');
@@ -119,10 +127,6 @@ export const Layout: React.FC<LayoutProps> = ({ children }) => {
       document.documentElement.setAttribute('data-theme', theme);
     }
   }, [theme]);
-
-  useEffect(() => {
-    setVisitCount(getVisitCount());
-  }, []);
 
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
