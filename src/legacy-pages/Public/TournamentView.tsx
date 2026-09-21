@@ -95,7 +95,18 @@ import {
   hasDismissedWelcome,
   TOURNAMENT_CREATED_WELCOME,
 } from '../../utils/welcome-modals';
-import { ArrowClockwise, ArrowRight, ArrowUpRight, CopySimple, Info, Question, Star, Trash, X } from 'phosphor-react';
+import {
+  ArrowClockwise,
+  ArrowRight,
+  ArrowUpRight,
+  CaretDown,
+  CopySimple,
+  Info,
+  Question,
+  Star,
+  Trash,
+  X,
+} from 'phosphor-react';
 import type { TournamentInitialData } from '../../app/_data/public-data';
 
 const FORUM_LINK = 'https://www.hattrick.org/goto.ashx?path=/Forum/Read.aspx?n=1&nm=32&t=17685273&v=0';
@@ -598,6 +609,19 @@ export const TournamentView: React.FC<{ initialData?: TournamentInitialData }> =
   const [seasons, setSeasons] = useState<TournamentSeason[]>(
     () => (initialData?.seasons as unknown as TournamentSeason[] | undefined) || [],
   );
+  const currentSeasonNumberForSelection = tournament?.season || 1;
+  const availableSeasonNumbers = [
+    ...new Set([currentSeasonNumberForSelection, ...seasons.map((season) => season.season_number)]),
+  ]
+    .filter((seasonNumber) => seasonNumber <= currentSeasonNumberForSelection)
+    .sort((a, b) => b - a);
+  const requestedSeasonNumber = Number(searchParams.get('season'));
+  const selectedSeasonNumber =
+    Number.isInteger(requestedSeasonNumber) &&
+    requestedSeasonNumber > 0 &&
+    availableSeasonNumbers.includes(requestedSeasonNumber)
+      ? requestedSeasonNumber
+      : currentSeasonNumberForSelection;
   const historyCommentsCacheRef = useRef(new Map<string, TournamentSeasonComment[]>());
   const historyCommentsRequestsRef = useRef(new Map<string, Promise<TournamentSeasonComment[]>>());
   const [historyReportNoticeOpen, setHistoryReportNoticeOpen] = useState(false);
@@ -606,7 +630,7 @@ export const TournamentView: React.FC<{ initialData?: TournamentInitialData }> =
   const [isAddingSeason, setIsAddingSeason] = useState(false);
   const [rebuildingSeasonNumber, setRebuildingSeasonNumber] = useState<number | null>(null);
   const [isFinalizingSeason, setIsFinalizingSeason] = useState(false);
-  const [fixtureViewSeasonNumber, setFixtureViewSeasonNumber] = useState<number | null>(null);
+  const [isStandingsSeasonMenuOpen, setIsStandingsSeasonMenuOpen] = useState(false);
 
   // Chat states
   const [chatMessages, setChatMessages] = useState<any[]>([]);
@@ -2401,7 +2425,13 @@ export const TournamentView: React.FC<{ initialData?: TournamentInitialData }> =
   );
 
   useEffect(() => {
-    if (activeTab !== 'fixtures' || !tournament || tournament.status === 'finished') return;
+    if (
+      activeTab !== 'fixtures' ||
+      !tournament ||
+      tournament.status === 'finished' ||
+      selectedSeasonNumber !== currentSeasonNumberForSelection
+    )
+      return;
 
     const shouldRefresh = () => {
       if (isRefreshingFixtures) return false;
@@ -2428,7 +2458,7 @@ export const TournamentView: React.FC<{ initialData?: TournamentInitialData }> =
       clearInterval(interval);
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [activeTab, tournament?.id]);
+  }, [activeTab, currentSeasonNumberForSelection, selectedSeasonNumber, tournament?.id]);
 
   const handleTabChange = (tab: 'standings' | 'fixtures' | 'history' | 'guestbook' | 'news' | 'admin') => {
     if (tab !== activeTab) {
@@ -2444,7 +2474,9 @@ export const TournamentView: React.FC<{ initialData?: TournamentInitialData }> =
       }
       setIsAddingDescription(false);
       setQuickDescription('');
-      setSearchParams({ tab });
+      const nextParams = new URLSearchParams(searchParams.toString());
+      nextParams.set('tab', tab);
+      setSearchParams(nextParams);
     }
   };
 
@@ -4273,33 +4305,24 @@ export const TournamentView: React.FC<{ initialData?: TournamentInitialData }> =
 
   // Find the first round that is not fully completed
   const currentRoundIdForResults = rounds.find((r) => r.matches.some((m) => !m.completed))?.id;
-  const previousSeasons = seasons.filter((season) => season.season_number < (tournament.season || 1));
-  const currentSeason = seasons.find((season) => season.season_number === (tournament.season || 1));
-  const currentSeasonNumber = tournament.season || 1;
+  const currentSeasonNumber = currentSeasonNumberForSelection;
+  const currentSeason = seasons.find((season) => season.season_number === currentSeasonNumber);
+  const selectedSeason = seasons.find((season) => season.season_number === selectedSeasonNumber) || currentSeason;
+  const isViewingHistoricalSeason = selectedSeasonNumber < currentSeasonNumber;
   const isCurrentSeasonPlanned = currentSeason?.status === 'planned';
   const canMarkSeasonFinished = Boolean(tournament.status !== 'finished' && currentSeason?.status === 'ongoing');
-  const selectedFixtureSeason =
-    fixtureViewSeasonNumber === null
-      ? null
-      : seasons.find((season) => season.season_number === fixtureViewSeasonNumber && season.fixtures_snapshot_json);
-  const isViewingHistoricalFixtures = Boolean(selectedFixtureSeason?.fixtures_snapshot_json);
-  const fixtureRounds = selectedFixtureSeason?.fixtures_snapshot_json
-    ? restoreFixtureSnapshot(selectedFixtureSeason.fixtures_snapshot_json)
+  const isViewingHistoricalFixtures = isViewingHistoricalSeason;
+  const fixtureRounds = isViewingHistoricalSeason
+    ? selectedSeason?.fixtures_snapshot_json
+      ? restoreFixtureSnapshot(selectedSeason.fixtures_snapshot_json)
+      : []
     : rounds;
-  const fixtureSeasonNumber = selectedFixtureSeason?.season_number ?? currentSeasonNumber;
-  const fixturePreviousSeason = [...seasons]
-    .filter((season) => season.season_number < fixtureSeasonNumber && season.fixtures_snapshot_json)
-    .sort((a, b) => b.season_number - a.season_number)[0];
-  const fixtureNextSeason = isViewingHistoricalFixtures
-    ? [...seasons]
-        .filter(
-          (season) =>
-            season.season_number > fixtureSeasonNumber &&
-            season.season_number < currentSeasonNumber &&
-            season.fixtures_snapshot_json,
-        )
-        .sort((a, b) => a.season_number - b.season_number)[0] || currentSeason
-    : null;
+  const fixtureSeasonNumber = selectedSeasonNumber;
+  const handleSeasonChange = (seasonNumber: number) => {
+    const nextParams = new URLSearchParams(searchParams.toString());
+    nextParams.set('season', String(seasonNumber));
+    setSearchParams(nextParams, { replace: true });
+  };
   const reapplySuggestions = isRegistrationOpen
     ? teams
         .filter((team) => !team.active && !team.is_placeholder && team.reapply_season_number === currentSeasonNumber)
@@ -4895,22 +4918,20 @@ export const TournamentView: React.FC<{ initialData?: TournamentInitialData }> =
             setCopied={setCopied}
             warnings={warnings}
             liveData={liveData}
-            canJoinTournament={canJoinTournament}
-            canJoinAnotherTeam={canJoinAnotherTeamBeforeFixtures}
+            canJoinTournament={!isViewingHistoricalSeason && canJoinTournament}
+            canJoinAnotherTeam={isViewingHistoricalSeason ? false : canJoinAnotherTeamBeforeFixtures}
             isConnecting={isConnecting}
             canUpdateFixtures={canManageOperationalAdmin}
             isHistorical={isViewingHistoricalFixtures}
             currentHtUserId={currentHtUserId}
+            availableSeasonNumbers={availableSeasonNumbers}
+            onSeasonChange={handleSeasonChange}
             emptyStateMessage={
-              tournament.status === 'active' && rounds.length === 0
+              isViewingHistoricalSeason && !selectedSeason?.fixtures_snapshot_json
+                ? `Fixtures for Season ${selectedSeasonNumber} are unavailable because this season has no saved fixture snapshot.`
+                : tournament.status === 'active' && rounds.length === 0
                 ? `Season ${currentSeasonNumber} has a locked roster. A new schedule has not yet been generated.`
                 : undefined
-            }
-            onViewPreviousSeason={
-              fixturePreviousSeason ? () => setFixtureViewSeasonNumber(fixturePreviousSeason.season_number) : undefined
-            }
-            onViewNextSeason={
-              fixtureNextSeason ? () => setFixtureViewSeasonNumber(fixtureNextSeason.season_number) : undefined
             }
             onJoinWithHattrick={() => {
               setIsConnecting(true);
@@ -4933,7 +4954,7 @@ export const TournamentView: React.FC<{ initialData?: TournamentInitialData }> =
       {activeTab === 'standings' && (
         <div className={styles.standingsContainer}>
           <StandingsView
-            standings={standings}
+            standings={isViewingHistoricalSeason ? selectedSeason?.snapshot_json?.standings || [] : standings}
             is120minMode={is120minMode}
             myHtUserId={myHtUserId}
             tournament={tournament}
@@ -4945,15 +4966,15 @@ export const TournamentView: React.FC<{ initialData?: TournamentInitialData }> =
               setIsConnecting(true);
               window.location.href = `/api/auth/init?tournament_id=${tournament?.id}`;
             }}
-            seasonId={currentSeason?.id}
-            seasonNumber={currentSeason?.season_number ?? tournament.season}
-            seasonStatus={currentSeason?.status}
+            seasonId={selectedSeason?.id}
+            seasonNumber={selectedSeason?.season_number ?? selectedSeasonNumber}
+            seasonStatus={selectedSeason?.status}
             onCommentsLoaded={handleHistoryCommentsLoaded}
             onCommentSubmitted={handleHistoryCommentSubmitted}
             loadComments={loadHistoryComments}
             seasonParticipantIds={
-              currentSeason?.snapshot_json && 'participants' in currentSeason.snapshot_json
-                ? currentSeason.snapshot_json.participants.map((participant) => participant.teamId)
+              selectedSeason?.snapshot_json && 'participants' in selectedSeason.snapshot_json
+                ? selectedSeason.snapshot_json.participants.map((participant) => participant.teamId)
                 : []
             }
             onVisitHistory={() => handleTabChange('history')}
@@ -4965,7 +4986,7 @@ export const TournamentView: React.FC<{ initialData?: TournamentInitialData }> =
             )}
             canAddSeasonComment={false}
             reapplySuggestions={reapplySuggestions}
-            canLeaveTournament={isRegistrationOpen}
+            canLeaveTournament={!isViewingHistoricalSeason && isRegistrationOpen}
             onReapplySuggestion={(teamId) => {
               const team = teams.find((item) => item.id === teamId);
               if (!team || team.hattrick_user_id !== Number(myHtUserId)) return;
@@ -4984,6 +5005,38 @@ export const TournamentView: React.FC<{ initialData?: TournamentInitialData }> =
             }}
           />
           <aside className={styles.statsSidebar}>
+            {availableSeasonNumbers.length > 1 && (
+              <div className={styles.standingsSeasonMenu}>
+                <Button
+                  variant="zero"
+                  size="sm"
+                  onClick={() => setIsStandingsSeasonMenuOpen((open) => !open)}
+                  aria-expanded={isStandingsSeasonMenuOpen}
+                  aria-haspopup="listbox"
+                >
+                  Season {selectedSeasonNumber} standings
+                  <CaretDown size={16} weight="bold" aria-hidden="true" />
+                </Button>
+                {isStandingsSeasonMenuOpen && (
+                  <div className={styles.standingsSeasonDropdown} role="listbox" aria-label="Select season">
+                    {availableSeasonNumbers.map((seasonNumber) => (
+                      <button
+                        key={seasonNumber}
+                        type="button"
+                        className={styles.standingsSeasonOption}
+                        aria-selected={seasonNumber === selectedSeasonNumber}
+                        onClick={() => {
+                          setIsStandingsSeasonMenuOpen(false);
+                          handleSeasonChange(seasonNumber);
+                        }}
+                      >
+                        Season {seasonNumber}
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
             <MottoWidget items={TOURNAMENT_DEFAULT} theme="dark" variant="sidebar" />
             <ChatView
               messages={chatMessages}

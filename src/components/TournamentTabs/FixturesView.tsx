@@ -3,7 +3,7 @@ import { SectionCard } from '../../components/Card/SectionCard';
 import { Button } from '../../components/Button/Button';
 import { FixtureCard } from '../../components/FixtureCard/FixtureCard';
 import { Modal } from '../../components/Modal/Modal';
-import { ArrowClockwise, ArrowRight, CopySimple, Check } from 'phosphor-react';
+import { ArrowClockwise, ArrowRight, CaretDown, CopySimple, Check } from 'phosphor-react';
 import { Tooltip } from 'react-tooltip';
 import { calculateMatchDate } from '../../utils/ht-data';
 import { getHattrickWeekDetails } from '../../utils/hattrick-calendar';
@@ -125,8 +125,8 @@ interface FixturesViewProps {
   onJoinWithHattrick: () => void;
   isHistorical?: boolean;
   currentHtUserId?: number | null;
-  onViewPreviousSeason?: () => void;
-  onViewNextSeason?: () => void;
+  availableSeasonNumbers?: number[];
+  onSeasonChange?: (seasonNumber: number) => void;
   emptyStateMessage?: string;
 }
 
@@ -162,8 +162,8 @@ export const FixturesView: React.FC<FixturesViewProps> = ({
   onJoinWithHattrick,
   isHistorical = false,
   currentHtUserId,
-  onViewPreviousSeason,
-  onViewNextSeason,
+  availableSeasonNumbers = [],
+  onSeasonChange,
   emptyStateMessage,
 }) => {
   type FixtureChallengeAvailability = {
@@ -204,6 +204,7 @@ export const FixturesView: React.FC<FixturesViewProps> = ({
   const [isSendingChallenge, setIsSendingChallenge] = React.useState(false);
   const [challengeSuccess, setChallengeSuccess] = React.useState<string | null>(null);
   const [challengeSelection, setChallengeSelection] = React.useState<FixtureChallengeSelection | null>(null);
+  const [isSeasonMenuOpen, setIsSeasonMenuOpen] = React.useState(false);
   const currentRound = !isHistorical && upcomingRoundIndex >= 0 ? (rounds[upcomingRoundIndex] ?? null) : null;
   const tournamentId = tournament?.id;
   const currentRoundScrollTargetRef = React.useRef<HTMLDivElement | null>(null);
@@ -359,6 +360,10 @@ export const FixturesView: React.FC<FixturesViewProps> = ({
       matchType: selectedChallenge?.matchType === 'normal' ? 'normal' : 'cup_rules',
       venue: selectedChallenge?.venue === 'away' ? 'away' : 'home',
     };
+  const seasonOptions = React.useMemo(
+    () => [...new Set([season, ...availableSeasonNumbers])].sort((a, b) => b - a),
+    [availableSeasonNumbers, season],
+  );
 
   const scrollToCurrentRound = React.useCallback(() => {
     if (!currentRound || currentRound.round_number < 3) return false;
@@ -417,19 +422,43 @@ export const FixturesView: React.FC<FixturesViewProps> = ({
   return (
     <div className={styles.rounds}>
       <div className={styles.fixturesHeader}>
-        <h3 className={styles.fixturesTitle}>Season {season} Fixtures</h3>
-        {(onViewPreviousSeason || onViewNextSeason || rounds.length > 0) && (
+        <div className={styles.fixturesSeasonMenu}>
+          {seasonOptions.length > 1 ? (
+            <Button
+              variant="zero"
+              size="sm"
+              className={styles.fixturesTitle}
+              onClick={() => setIsSeasonMenuOpen((open) => !open)}
+              aria-expanded={isSeasonMenuOpen}
+              aria-haspopup="listbox"
+            >
+              Season {season} Fixtures
+              <CaretDown size={16} weight="bold" aria-hidden="true" />
+            </Button>
+          ) : (
+            <h3 className={styles.fixturesTitle}>Season {season} Fixtures</h3>
+          )}
+          {isSeasonMenuOpen && seasonOptions.length > 1 && (
+            <div className={styles.fixturesSeasonDropdown} role="listbox" aria-label="Select season">
+              {seasonOptions.map((seasonNumber) => (
+                <button
+                  key={seasonNumber}
+                  type="button"
+                  className={styles.fixturesSeasonOption}
+                  aria-selected={seasonNumber === season}
+                  onClick={() => {
+                    setIsSeasonMenuOpen(false);
+                    onSeasonChange?.(seasonNumber);
+                  }}
+                >
+                  Season {seasonNumber}
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
+        {(seasonOptions.length > 1 || rounds.length > 0) && (
           <div className={styles.fixturesHeaderActions}>
-            {onViewPreviousSeason && (
-              <button type="button" className={styles.fixturesHeaderAction} onClick={onViewPreviousSeason}>
-                <span>PREVIOUS</span>
-              </button>
-            )}
-            {onViewNextSeason && (
-              <button type="button" className={styles.fixturesHeaderAction} onClick={onViewNextSeason}>
-                <span>NEXT</span>
-              </button>
-            )}
             {rounds.length > 0 && (
               <div className={styles.fixturesFilterMenu}>
                 <button
@@ -746,8 +775,8 @@ export const FixturesView: React.FC<FixturesViewProps> = ({
                             away: match.penalty_shootout_away_goals ?? 0,
                           }
                         : null;
-                      const homeIsBye = !match.home_team || match.home_team.active === false;
-                      const awayIsBye = !match.away_team || match.away_team.active === false;
+                      const homeIsBye = !match.home_team || (!isHistorical && match.home_team.active === false);
+                      const awayIsBye = !match.away_team || (!isHistorical && match.away_team.active === false);
                       const availableChallenge = challengeAvailability[match.id];
                       const fixtureChallengeAction =
                         !isHistorical &&

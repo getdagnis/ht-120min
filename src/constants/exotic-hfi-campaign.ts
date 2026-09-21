@@ -17,6 +17,7 @@ const EXOTIC_HFI_COUNTRY_NAMES = [
   'Curaçao',
   'São Tomé e Príncipe',
   'Barbados',
+  'Madagascar',
   'Bahamas',
   'Maldives',
   'Bhutan',
