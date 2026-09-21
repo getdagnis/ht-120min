@@ -1039,30 +1039,14 @@ export const Matchmaker: React.FC = () => {
     setIsSelectingTeam(false);
   };
 
-  const openInterestFlow = (request: MatchmakerRequest) => {
-    if (!profile && !mockDataEnabled) {
-      setShowLoginModal(true);
-      return;
-    }
-
-    const defaultTeam = myTeams.find((team) => team.genderId === request.gender_id) || myTeams[0];
-    setActionComment('');
-    setActionDraft({
-      type: 'interest',
-      request,
-      actorTeamId: defaultTeam?.teamId,
-    });
-  };
-
   const openBrowseChallengeFlow = (request: MatchmakerRequest) => {
     if (activeTab === 'my-requests') return;
 
     const { showChallengeNow, showShowInterest } = getBrowseCardActions(activeTab, request);
-    if (showShowInterest) {
-      openInterestFlow(request);
-      return;
-    }
-    if (!showChallengeNow) return;
+    // Temporary live-CHPP test: use the established challenge flow for
+    // interest cards too. This still stops at the normal team selector and
+    // explicit Send Challenge confirmation.
+    if (!showChallengeNow && !showShowInterest) return;
 
     if (!profile && !mockDataEnabled) {
       setShowLoginModal(true);

@@ -196,19 +196,8 @@ export const MatchmakerBrowseDeck: React.FC<MatchmakerBrowseDeckProps> = ({
   const entry = deckView.item;
   const request = entry.request;
   const action = getMatchmakerBrowseAction(activeTab, request);
-  const primaryLabel = action === 'challenge' ? 'Send Challenge' : 'Show Interest';
-  const handlePrimaryAction = () => {
-    if (action === 'interest' && request.team?.ht_team_id) {
-      window.open(
-        `https://www.hattrick.org/goto.ashx?path=/Club/?TeamID=${request.team.ht_team_id}`,
-        '_blank',
-        'noopener,noreferrer',
-      );
-      return;
-    }
-
-    onPrimaryAction(request);
-  };
+  const primaryLabel = 'Send Challenge';
+  const handlePrimaryAction = () => onPrimaryAction(request);
   const swipeStyle = { '--swipe-offset': `${swipeOffset}px` } as React.CSSProperties;
   const pointerHandlers = {
     onPointerDown: handlePointerDown,
