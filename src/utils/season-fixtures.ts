@@ -1,4 +1,4 @@
-import type { MatchEventDetails } from '../../shared/match-events';
+import type { MatchEventDetails } from '../../shared/match-events.js';
 
 export interface SeasonFixtureTeamSnapshot {
   name: string;

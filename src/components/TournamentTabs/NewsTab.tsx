@@ -57,8 +57,6 @@ interface NewsTabProps {
   faqItems: CompactAccordionItem[];
 }
 
-const DEFAULT_TEAM_LOGO = '/default-logo.png';
-
 export const NewsArticle: React.FC<NewsArticleProps> = ({
   post,
   authorTeam,

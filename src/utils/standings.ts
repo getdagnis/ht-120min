@@ -1,5 +1,5 @@
-import { getAppgPoints, type AppgOutcome } from './appg';
-import { usesAveragePoints, type PersistedScoringMode } from '../../shared/scoring-profile';
+import { getAppgPoints, type AppgOutcome } from './appg.js';
+import { usesAveragePoints, type PersistedScoringMode } from '../../shared/scoring-profile.js';
 
 export interface Match {
   home_team_id: string | null;

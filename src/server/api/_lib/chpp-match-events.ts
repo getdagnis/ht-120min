@@ -4,7 +4,10 @@ import type {
   MatchEventSummary,
   MatchGoalEvent,
   MatchInjuryEvent,
+  MatchResultDetails,
+  MatchScore,
   MatchSideEventDetails,
+  MatchSidePerformance,
 } from '../../../../shared/match-events.js';
 
 const CARD_EVENT_TYPES = new Set([510, 511, 512, 513, 514]);
@@ -40,9 +43,28 @@ interface ParsedEvent {
 interface ParsedInjury {
   teamId: number;
   playerId: number | null;
+  playerName: string | null;
   minute: number | null;
   matchPart: number | null;
   injuryType: number;
+}
+
+interface ParsedScorer {
+  teamId: number | null;
+  playerId: number | null;
+  playerName: string | null;
+  minute: number | null;
+  matchPart: number | null;
+  homeGoals: number;
+  awayGoals: number;
+}
+
+interface ParsedBooking {
+  teamId: number | null;
+  playerId: number | null;
+  playerName: string | null;
+  minute: number | null;
+  matchPart: number | null;
 }
 
 function readNumber(block: string, tag: string): number | null {
@@ -50,6 +72,11 @@ function readNumber(block: string, tag: string): number | null {
   if (!raw) return null;
   const value = Number.parseInt(raw, 10);
   return Number.isFinite(value) ? value : null;
+}
+
+function readText(block: string, tag: string): string | null {
+  const value = block.match(new RegExp(`<${tag}>([\\s\\S]*?)<\\/${tag}>`, 'i'))?.[1]?.trim();
+  return value || null;
 }
 
 function getEventTypeId(eventXml: string): number | null {
@@ -86,12 +113,104 @@ function getInjuryBlocks(xml: string): ParsedInjury[] {
       return {
         teamId,
         playerId: readNumber(injuryXml, 'InjuryPlayerID'),
+        playerName: readText(injuryXml, 'InjuryPlayerName'),
         minute: readNumber(injuryXml, 'InjuryMinute'),
         matchPart: readNumber(injuryXml, 'MatchPart'),
         injuryType,
       };
     })
     .filter((injury): injury is ParsedInjury => Boolean(injury));
+}
+
+function getBookings(xml: string): ParsedBooking[] {
+  const bookingsBlock = xml.match(/<Bookings>([\s\S]*?)<\/Bookings>/i)?.[1] || '';
+  return (bookingsBlock.match(/<Booking(?:\s[^>]*)?>[\s\S]*?<\/Booking>/gi) || []).map((bookingXml) => ({
+    teamId: readNumber(bookingXml, 'BookingTeamID'),
+    playerId: readNumber(bookingXml, 'BookingPlayerID'),
+    playerName: readText(bookingXml, 'BookingPlayerName'),
+    minute: readNumber(bookingXml, 'BookingMinute'),
+    matchPart: readNumber(bookingXml, 'MatchPart'),
+  }));
+}
+
+function getScorers(xml: string): ParsedScorer[] {
+  const scorersBlock = xml.match(/<Scorers>([\s\S]*?)<\/Scorers>/i)?.[1] || '';
+  return (scorersBlock.match(/<Goal(?:\s[^>]*)?>[\s\S]*?<\/Goal>/gi) || []).map((goalXml) => ({
+    teamId: readNumber(goalXml, 'ScorerTeamID'),
+    playerId: readNumber(goalXml, 'ScorerPlayerID'),
+    playerName: readText(goalXml, 'ScorerPlayerName'),
+    minute: readNumber(goalXml, 'ScorerMinute'),
+    matchPart: readNumber(goalXml, 'MatchPart'),
+    homeGoals: readNumber(goalXml, 'ScorerHomeGoals') ?? 0,
+    awayGoals: readNumber(goalXml, 'ScorerAwayGoals') ?? 0,
+  }));
+}
+
+const TACTIC_NAMES: Record<number, string> = {
+  0: 'Normal',
+  1: 'Pressing',
+  2: 'Counter-attacks',
+  3: 'Attack in the middle',
+  4: 'Attack on wings',
+  7: 'Play creatively',
+  8: 'Long shots',
+};
+
+function getTeamBlock(xml: string, side: 'Home' | 'Away') {
+  return xml.match(new RegExp(`<${side}Team>[\\s\\S]*?<\\/${side}Team>`, 'i'))?.[0] || '';
+}
+
+function sidePerformance(xml: string, side: 'Home' | 'Away'): MatchSidePerformance {
+  const team = getTeamBlock(xml, side);
+  const possessionSide = side === 'Home' ? 'Home' : 'Away';
+  const tacticType = readNumber(team, 'TacticType');
+  return {
+    formation: readText(team, 'Formation'),
+    tacticType,
+    tacticName: tacticType === null ? null : TACTIC_NAMES[tacticType] || null,
+    tacticSkill: readNumber(team, 'TacticSkill'),
+    possessionFirstHalf: readNumber(xml, `PossessionFirstHalf${possessionSide}`),
+    possessionSecondHalf: readNumber(xml, `PossessionSecondHalf${possessionSide}`),
+    ratings: {
+      midfield: readNumber(team, 'RatingMidfield'),
+      rightDefence: readNumber(team, 'RatingRightDef'),
+      centralDefence: readNumber(team, 'RatingMidDef'),
+      leftDefence: readNumber(team, 'RatingLeftDef'),
+      rightAttack: readNumber(team, 'RatingRightAtt'),
+      centralAttack: readNumber(team, 'RatingMidAtt'),
+      leftAttack: readNumber(team, 'RatingLeftAtt'),
+    },
+    chances: {
+      left: readNumber(team, 'NrOfChancesLeft'),
+      centre: readNumber(team, 'NrOfChancesCenter'),
+      right: readNumber(team, 'NrOfChancesRight'),
+      specialEvents: readNumber(team, 'NrOfChancesSpecialEvents'),
+      other: readNumber(team, 'NrOfChancesOther'),
+    },
+  };
+}
+
+function resultDetails(
+  xml: string,
+  scorers: ParsedScorer[],
+  actualHomeTeamId: number | null,
+  actualAwayTeamId: number | null,
+  hasPenaltyShootout: boolean,
+  penaltyShootout: MatchScore | null,
+): MatchResultDetails {
+  const after = (lastPart: number) => {
+    const last = [...scorers].reverse().find((goal) => goal.matchPart !== null && goal.matchPart <= lastPart);
+    return last ? { home: last.homeGoals, away: last.awayGoals } : { home: 0, away: 0 };
+  };
+  const scoreAfterRegulation = after(2);
+  const scoreAfterExtraTime = after(3);
+  const reached120 = scorers.some((goal) => goal.matchPart === 3) || /<MatchPart>[34]<\/MatchPart>/i.test(xml);
+  const decisionType = hasPenaltyShootout ? 'penalty_shootout' : reached120 ? 'extra_time' : 'regulation';
+  const decidingScore = hasPenaltyShootout && penaltyShootout ? penaltyShootout : scoreAfterExtraTime;
+  const winnerTeamId = decidingScore.home === decidingScore.away
+    ? null
+    : decidingScore.home > decidingScore.away ? actualHomeTeamId : actualAwayTeamId;
+  return { scoreAfterRegulation, scoreAfterExtraTime, penaltyShootout, decisionType, winnerTeamId, reached120 };
 }
 
 function getActualTeamIds(xml: string) {
@@ -172,14 +291,40 @@ function toCardEvent(event: ParsedEvent): MatchCardEvent | null {
 }
 
 function toGoalEvent(event: ParsedEvent): MatchGoalEvent | null {
-  if (!GOAL_EVENT_TYPES.has(event.typeId)) return null;
+  if (!GOAL_EVENT_TYPES.has(event.typeId) && !PENALTY_SHOOTOUT_GOAL_EVENT_TYPES.has(event.typeId)) return null;
   return {
     eventTypeId: event.typeId,
     playerId: event.subjectPlayerId,
     minute: event.minute,
     matchPart: event.matchPart,
-    category: REGULAR_GOAL_EVENT_TYPES.has(event.typeId) ? 'regular' : 'other',
+    category: PENALTY_SHOOTOUT_GOAL_EVENT_TYPES.has(event.typeId)
+      ? 'penalty_shootout'
+      : REGULAR_GOAL_EVENT_TYPES.has(event.typeId) ? 'regular' : 'other',
   };
+}
+
+function attachScorerNames(side: MatchSideEventDetails, scorers: ParsedScorer[]) {
+  for (const goal of side.goals || []) {
+    const scorer = scorers.find((candidate) =>
+      candidate.teamId === side.teamId &&
+      candidate.playerId === goal.playerId &&
+      candidate.minute === goal.minute &&
+      candidate.matchPart === goal.matchPart,
+    );
+    if (scorer?.playerName) goal.playerName = scorer.playerName;
+  }
+}
+
+function attachBookingNames(side: MatchSideEventDetails, bookings: ParsedBooking[]) {
+  for (const card of side.cards) {
+    const booking = bookings.find((candidate) =>
+      candidate.teamId === side.teamId &&
+      candidate.playerId === card.playerId &&
+      candidate.minute === card.minute &&
+      candidate.matchPart === card.matchPart,
+    );
+    if (booking?.playerName) card.playerName = booking.playerName;
+  }
 }
 
 function sideForTeam(
@@ -201,6 +346,8 @@ export function parseMatchEventDetails(xml: string): MatchEventDetails {
   const home = createSide(actualHomeTeamId);
   const away = createSide(actualAwayTeamId);
   const events = getEventBlocks(xml);
+  const scorers = getScorers(xml);
+  const bookings = getBookings(xml);
   const hasPenaltyShootout = events.some((event) => PENALTY_SHOOTOUT_EVENT_TYPES.has(event.typeId));
 
   for (const event of events) {
@@ -216,11 +363,17 @@ export function parseMatchEventDetails(xml: string): MatchEventDetails {
     }
   }
 
+  attachScorerNames(home, scorers);
+  attachScorerNames(away, scorers);
+  attachBookingNames(home, bookings);
+  attachBookingNames(away, bookings);
+
   for (const injury of getInjuryBlocks(xml)) {
     const side = sideForTeam(home, away, injury.teamId);
     if (!side) continue;
     side.injuries.push({
       playerId: injury.playerId,
+      playerName: injury.playerName,
       minute: injury.minute,
       matchPart: injury.matchPart,
       injuryType: injury.injuryType,
@@ -263,12 +416,20 @@ export function parseMatchEventDetails(xml: string): MatchEventDetails {
     injury.causedByTeamId = event.subjectTeamId === actualHomeTeamId ? actualAwayTeamId : actualHomeTeamId;
   }
 
+  const penaltyShootout = hasPenaltyShootout
+    ? { home: home.penaltyShootoutGoals || 0, away: away.penaltyShootoutGoals || 0 }
+    : null;
+
+  home.performance = sidePerformance(xml, 'Home');
+  away.performance = sidePerformance(xml, 'Away');
+
   return {
-    version: 1,
+    version: 2,
     source: 'matchdetails-3.1',
     actualHomeTeamId,
     actualAwayTeamId,
     hasPenaltyShootout,
+    result: resultDetails(xml, scorers, actualHomeTeamId, actualAwayTeamId, hasPenaltyShootout, penaltyShootout),
     home,
     away,
   };
@@ -302,15 +463,33 @@ export function mapMatchEventDetailsToFixture(
           injuries: source.injuries,
           goals: source.goals || [],
           penaltyShootoutGoals: source.penaltyShootoutGoals || 0,
+          performance: source.performance,
         }
       : emptyMappedSide(teamId);
   };
 
   return {
     ...details,
+    result: details.result
+      ? {
+          ...details.result,
+          scoreAfterRegulation: mapScoreToFixture(details.result.scoreAfterRegulation, details.actualHomeTeamId, scheduledHomeTeamId),
+          scoreAfterExtraTime: mapScoreToFixture(details.result.scoreAfterExtraTime, details.actualHomeTeamId, scheduledHomeTeamId),
+          penaltyShootout: details.result.penaltyShootout
+            ? mapScoreToFixture(details.result.penaltyShootout, details.actualHomeTeamId, scheduledHomeTeamId)
+            : null,
+        }
+      : undefined,
     home: copySide(scheduledHomeTeamId),
     away: copySide(scheduledAwayTeamId),
   };
+}
+
+function mapScoreToFixture(score: MatchScore, actualHomeTeamId: number | null, scheduledHomeTeamId: number | null): MatchScore {
+  if (actualHomeTeamId === null || scheduledHomeTeamId === null) return score;
+  return actualHomeTeamId === scheduledHomeTeamId
+    ? score
+    : { home: score.away, away: score.home };
 }
 
 export function getPenaltyShootoutScore(details: MatchEventDetails) {
@@ -321,6 +500,10 @@ export function getPenaltyShootoutScore(details: MatchEventDetails) {
     home: details.home.penaltyShootoutGoals ?? 0,
     away: details.away.penaltyShootoutGoals ?? 0,
   };
+}
+
+export function getFootballScore(details: MatchEventDetails) {
+  return details.result?.scoreAfterExtraTime || null;
 }
 
 export function summarizeMatchEventDetails(details: MatchEventDetails): MatchEventSummary {

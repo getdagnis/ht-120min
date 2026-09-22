@@ -1,11 +1,13 @@
 export type MatchCardReason = 'nasty_play' | 'cheating' | null;
 export type MatchCardType = 'yellow' | 'second_yellow_red' | 'straight_red';
 export type MatchInjurySeverity = 'plaster' | 'injury';
-export type MatchGoalCategory = 'regular' | 'other';
+export type MatchGoalCategory = 'regular' | 'other' | 'penalty_shootout';
+export type MatchDecisionType = 'regulation' | 'extra_time' | 'penalty_shootout';
 
 export interface MatchGoalEvent {
   eventTypeId: number;
   playerId: number | null;
+  playerName?: string | null;
   minute: number | null;
   matchPart: number | null;
   category: MatchGoalCategory;
@@ -14,6 +16,7 @@ export interface MatchGoalEvent {
 export interface MatchCardEvent {
   eventTypeId: 510 | 511 | 512 | 513 | 514;
   playerId: number | null;
+  playerName?: string | null;
   minute: number | null;
   matchPart: number | null;
   type: MatchCardType;
@@ -22,6 +25,7 @@ export interface MatchCardEvent {
 
 export interface MatchInjuryEvent {
   playerId: number | null;
+  playerName?: string | null;
   minute: number | null;
   matchPart: number | null;
   injuryType: number;
@@ -32,20 +36,65 @@ export interface MatchInjuryEvent {
   causedByTeamId: number | null;
 }
 
+export interface MatchScore {
+  home: number;
+  away: number;
+}
+
+export interface MatchResultDetails {
+  scoreAfterRegulation: MatchScore;
+  scoreAfterExtraTime: MatchScore;
+  penaltyShootout: MatchScore | null;
+  decisionType: MatchDecisionType;
+  winnerTeamId: number | null;
+  reached120: boolean;
+}
+
+export interface MatchRatings {
+  midfield: number | null;
+  rightDefence: number | null;
+  centralDefence: number | null;
+  leftDefence: number | null;
+  rightAttack: number | null;
+  centralAttack: number | null;
+  leftAttack: number | null;
+}
+
+export interface MatchChanceCounts {
+  left: number | null;
+  centre: number | null;
+  right: number | null;
+  specialEvents: number | null;
+  other: number | null;
+}
+
+export interface MatchSidePerformance {
+  formation: string | null;
+  tacticType: number | null;
+  tacticName: string | null;
+  tacticSkill: number | null;
+  possessionFirstHalf: number | null;
+  possessionSecondHalf: number | null;
+  ratings: MatchRatings;
+  chances: MatchChanceCounts;
+}
+
 export interface MatchSideEventDetails {
   teamId: number | null;
   cards: MatchCardEvent[];
   injuries: MatchInjuryEvent[];
   goals?: MatchGoalEvent[];
   penaltyShootoutGoals?: number;
+  performance?: MatchSidePerformance;
 }
 
 export interface MatchEventDetails {
-  version: 1;
+  version: 1 | 2;
   source: 'matchdetails-3.1';
   actualHomeTeamId: number | null;
   actualAwayTeamId: number | null;
   hasPenaltyShootout?: boolean;
+  result?: MatchResultDetails;
   home: MatchSideEventDetails;
   away: MatchSideEventDetails;
 }
