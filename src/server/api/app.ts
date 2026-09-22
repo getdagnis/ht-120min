@@ -31,6 +31,16 @@ import {
   type FixtureChallengeSide,
 } from './_lib/fixture-challenge.js';
 import { fetchManagerTeamsFromChpp, getManagerChppCredentials } from './_lib/matchmaker.js';
+import { buildRoundPressInput, type RoundPressMatchSource, type RoundPressRoundSource, type RoundPressTeamSource } from './_lib/round-press-input.js';
+import {
+  generateRoundPressDraft,
+  ROUND_PRESS_MODEL,
+  ROUND_PRESS_PROMPT_VERSION,
+  ROUND_PRESS_THINKING_LEVEL,
+} from './_lib/round-press-writer.js';
+import type { MatchEventDetails } from '../../../shared/match-events.js';
+import type { PersistedScoringMode } from '../../../shared/scoring-profile.js';
+import type { SeasonFixturesSnapshot } from '../../utils/season-fixtures.js';
 
 const COMMENT_SELECT = 'id, season_id, team_id, team_name, manager_name, comment, created_at';
 const HISTORY_REPORT_DISMISSED_NOTICE = 'history-report-dismissed';
@@ -550,6 +560,216 @@ async function handleFixtureChallenge(req: VercelRequest, res: VercelResponse) {
   });
 }
 
+function asRecord(value: unknown): Record<string, unknown> | null {
+  return typeof value === 'object' && value !== null && !Array.isArray(value) ? (value as Record<string, unknown>) : null;
+}
+
+function firstRecord(value: unknown): Record<string, unknown> | null {
+  if (Array.isArray(value)) return asRecord(value[0]);
+  return asRecord(value);
+}
+
+function positiveInteger(value: unknown): number | null {
+  const parsed = typeof value === 'number' ? value : typeof value === 'string' && value.trim() ? Number(value) : NaN;
+  return Number.isSafeInteger(parsed) && parsed > 0 ? parsed : null;
+}
+
+function roundPressTeam(value: unknown, id: string | null): RoundPressTeamSource | null {
+  const team = asRecord(value);
+  if (!team || !id) return null;
+  return {
+    id,
+    name: typeof team.name === 'string' && team.name ? team.name : 'Unknown team',
+    ht_team_id: positiveInteger(team.ht_team_id),
+    manager_name: typeof team.manager_name === 'string' ? team.manager_name : null,
+    country_name: typeof team.country_name === 'string' ? team.country_name : null,
+    country_id: positiveInteger(team.country_id),
+    league_id: positiveInteger(team.league_id),
+  };
+}
+
+function roundPressMatch(value: unknown, snapshotTeams?: Map<string, RoundPressTeamSource>): RoundPressMatchSource | null {
+  const row = asRecord(value);
+  if (!row || typeof row.id !== 'string' || typeof row.round_id !== 'string') return null;
+  const homeTeamId = typeof row.home_team_id === 'string' ? row.home_team_id : null;
+  const awayTeamId = typeof row.away_team_id === 'string' ? row.away_team_id : null;
+  const homeSnapshot = homeTeamId ? snapshotTeams?.get(homeTeamId) || null : null;
+  const awaySnapshot = awayTeamId ? snapshotTeams?.get(awayTeamId) || null : null;
+  const homeTeam = roundPressTeam(firstRecord(row.home_team) || homeSnapshot, homeTeamId) || homeSnapshot || null;
+  const awayTeam = roundPressTeam(firstRecord(row.away_team) || awaySnapshot, awayTeamId) || awaySnapshot || null;
+  return {
+    id: row.id,
+    round_id: row.round_id,
+    home_team_id: homeTeamId,
+    away_team_id: awayTeamId,
+    home_goals: typeof row.home_goals === 'number' ? row.home_goals : null,
+    away_goals: typeof row.away_goals === 'number' ? row.away_goals : null,
+    completed: row.completed === true,
+    status: typeof row.status === 'string' ? row.status : 'not_arranged',
+    went_120: row.went_120 === true,
+    total_minutes: typeof row.total_minutes === 'number' ? row.total_minutes : null,
+    penalty_shootout_home_goals: typeof row.penalty_shootout_home_goals === 'number' ? row.penalty_shootout_home_goals : null,
+    penalty_shootout_away_goals: typeof row.penalty_shootout_away_goals === 'number' ? row.penalty_shootout_away_goals : null,
+    home_yellow_cards: typeof row.home_yellow_cards === 'number' ? row.home_yellow_cards : 0,
+    home_red_cards: typeof row.home_red_cards === 'number' ? row.home_red_cards : 0,
+    home_injuries: typeof row.home_injuries === 'number' ? row.home_injuries : 0,
+    away_yellow_cards: typeof row.away_yellow_cards === 'number' ? row.away_yellow_cards : 0,
+    away_red_cards: typeof row.away_red_cards === 'number' ? row.away_red_cards : 0,
+    away_injuries: typeof row.away_injuries === 'number' ? row.away_injuries : 0,
+    match_event_details: (asRecord(row.match_event_details) as unknown as MatchEventDetails | null) || null,
+    scheduled_for: typeof row.scheduled_for === 'string' ? row.scheduled_for : null,
+    home_team: homeTeam,
+    away_team: awayTeam,
+  };
+}
+
+function roundPressRounds(rows: unknown[], snapshotTeams?: Map<string, RoundPressTeamSource>): RoundPressRoundSource[] {
+  return rows
+    .map((value) => {
+      const row = asRecord(value);
+      const roundNumber = row ? positiveInteger(row.round_number) : null;
+      if (!row || typeof row.id !== 'string' || !roundNumber) return null;
+      return {
+        id: row.id,
+        round_number: roundNumber,
+        matches: Array.isArray(row.matches)
+          ? row.matches.map((match) => roundPressMatch(match, snapshotTeams)).filter((match): match is RoundPressMatchSource => Boolean(match))
+          : [],
+      };
+    })
+    .filter((round): round is RoundPressRoundSource => Boolean(round));
+}
+
+function snapshotTeamsFromRounds(snapshot: SeasonFixturesSnapshot): Map<string, RoundPressTeamSource> {
+  const teams = new Map<string, RoundPressTeamSource>();
+  snapshot.rounds.forEach((round) => {
+    round.matches.forEach((match) => {
+      if (match.home_team_id && match.home_team) {
+        teams.set(match.home_team_id, { id: match.home_team_id, ...match.home_team });
+      }
+      if (match.away_team_id && match.away_team) {
+        teams.set(match.away_team_id, { id: match.away_team_id, ...match.away_team });
+      }
+    });
+  });
+  return teams;
+}
+
+async function handleGenerateRoundSummary(req: VercelRequest, res: VercelResponse) {
+  if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed.' });
+  const tournamentId = readString(req.body?.tournamentId);
+  const seasonNumber = positiveInteger(req.body?.seasonNumber);
+  const roundNumber = positiveInteger(req.body?.roundNumber);
+  if (!tournamentId || !seasonNumber || !roundNumber) {
+    return res.status(400).json({ error: 'tournamentId, seasonNumber, and roundNumber are required.' });
+  }
+
+  const actor = await requireTournamentRoleSession(req, res, tournamentId);
+  if (!actor) return;
+  if (!actor.access.canPublishAnnouncements) {
+    return res.status(403).json({ error: 'This role cannot generate tournament press drafts.' });
+  }
+
+  const supabase = getServiceSupabase();
+  const { data: tournament, error: tournamentError } = await supabase
+    .from('tournaments')
+    .select('id, name, season, scoring_mode')
+    .eq('id', tournamentId)
+    .maybeSingle();
+  if (tournamentError) throw tournamentError;
+  if (!tournament) return res.status(404).json({ error: 'Tournament not found.' });
+
+  const currentSeasonNumber = positiveInteger(tournament.season) || 1;
+  const scoringMode: PersistedScoringMode = tournament.scoring_mode === 'points' || tournament.scoring_mode === 'appg' || tournament.scoring_mode === '120m'
+    ? tournament.scoring_mode
+    : '120min';
+  let rounds: RoundPressRoundSource[];
+  let teams: RoundPressTeamSource[];
+
+  if (seasonNumber !== currentSeasonNumber) {
+    const { data: season, error: seasonError } = await supabase
+      .from('tournament_seasons')
+      .select('season_number, fixtures_snapshot_json')
+      .eq('tournament_id', tournamentId)
+      .eq('season_number', seasonNumber)
+      .maybeSingle();
+    if (seasonError) throw seasonError;
+    if (!season) return res.status(400).json({ error: 'Requested season does not belong to this tournament.' });
+    const snapshot = season.fixtures_snapshot_json as SeasonFixturesSnapshot | null;
+    if (!snapshot?.rounds) return res.status(422).json({ error: `Season ${seasonNumber} has no archived fixture data.` });
+    const snapshotTeams = snapshotTeamsFromRounds(snapshot);
+    rounds = roundPressRounds(snapshot.rounds as unknown as unknown[], snapshotTeams);
+    teams = Array.from(snapshotTeams.values());
+  } else {
+    const [{ data: roundRows, error: roundsError }, { data: teamRows, error: teamsError }] = await Promise.all([
+      supabase.from('rounds').select('id, round_number').eq('tournament_id', tournamentId).eq('season_number', seasonNumber).order('round_number', { ascending: true }),
+      supabase.from('teams').select('id, name, ht_team_id, manager_name, country_name, country_id, league_id').eq('tournament_id', tournamentId),
+    ]);
+    if (roundsError) throw roundsError;
+    if (teamsError) throw teamsError;
+    const roundIds = (roundRows || []).map((row) => row.id).filter((id): id is string => typeof id === 'string');
+    if (roundIds.length === 0) return res.status(404).json({ error: `Season ${seasonNumber} has no rounds.` });
+    const { data: matchRows, error: matchesError } = await supabase
+      .from('matches')
+      .select(`*, home_team:teams!matches_home_team_id_fkey(id, name, ht_team_id, manager_name, country_name, country_id, league_id), away_team:teams!matches_away_team_id_fkey(id, name, ht_team_id, manager_name, country_name, country_id, league_id)`)
+      .in('round_id', roundIds);
+    if (matchesError) throw matchesError;
+    const sourceTeams = (teamRows || []).map((row) => roundPressTeam(row, typeof row.id === 'string' ? row.id : null)).filter((team): team is RoundPressTeamSource => Boolean(team));
+    teams = sourceTeams;
+    const matchesByRound = new Map<string, RoundPressMatchSource[]>();
+    (matchRows || []).forEach((row) => {
+      const match = roundPressMatch(row);
+      if (!match) return;
+      const list = matchesByRound.get(match.round_id) || [];
+      list.push(match);
+      matchesByRound.set(match.round_id, list);
+    });
+    rounds = (roundRows || []).map((row) => ({ id: row.id, round_number: Number(row.round_number), matches: matchesByRound.get(row.id) || [] }));
+  }
+
+  const selectedRound = rounds.find((round) => round.round_number === roundNumber);
+  if (!selectedRound) return res.status(404).json({ error: `Round ${roundNumber} was not found for Season ${seasonNumber}.` });
+  const realMatches = selectedRound.matches.filter((match) => match.home_team && match.away_team);
+  if (realMatches.length === 0) return res.status(422).json({ error: `Round ${roundNumber} does not contain any real fixtures.` });
+  const incomplete = realMatches.find((match) => !match.completed && match.status !== 'misarranged');
+  if (incomplete) return res.status(409).json({ error: `Round ${roundNumber} is not complete yet.` });
+
+  const input = buildRoundPressInput({
+    tournament: { id: tournament.id, name: tournament.name, scoringMode },
+    seasonNumber,
+    roundNumber,
+    rounds: rounds.map((round) => ({ ...round, matches: round.matches.filter((match) => match.home_team && match.away_team) })),
+    teams,
+  });
+  const startedAt = Date.now();
+  try {
+    const result = await generateRoundPressDraft(input);
+    console.info('[Round press] generated', {
+      tournamentId,
+      seasonNumber,
+      roundNumber,
+      matchCount: input.matches.length,
+      model: ROUND_PRESS_MODEL,
+      thinkingLevel: ROUND_PRESS_THINKING_LEVEL,
+      promptVersion: ROUND_PRESS_PROMPT_VERSION,
+      repaired: result.repaired,
+      durationMs: Date.now() - startedAt,
+    });
+    return res.status(200).json(result.draft);
+  } catch (error) {
+    console.error('[Round press] generation failed', {
+      tournamentId,
+      seasonNumber,
+      roundNumber,
+      durationMs: Date.now() - startedAt,
+      error: error instanceof Error ? error.message : 'unknown error',
+    });
+    const message = error instanceof Error ? error.message : '';
+    if (message === 'Gemini configuration is missing.') return res.status(500).json({ error: message });
+    return res.status(502).json({ error: 'Could not generate a valid round summary.' });
+  }
+}
+
 function routeFor(request: VercelRequest) {
   const raw = request.query.route;
   return readString(Array.isArray(raw) ? raw[0] : raw) || 'activity';
@@ -988,6 +1208,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         return await handleSeasonSlotReplacement(req, res);
       case 'fixture-challenge':
         return await handleFixtureChallenge(req, res);
+      case 'generate-round-summary':
+        return await handleGenerateRoundSummary(req, res);
       case 'activity':
       default:
         return await handleActivity(req, res);
