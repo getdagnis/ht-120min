@@ -172,10 +172,11 @@ export const NewsTab: React.FC<NewsTabProps> = ({
         const { data: reactionRows } = await supabase
           .from('news_reactions')
           .select('post_id, user_id, reaction')
-          .in('post_id', posts.map((post) => post.id));
-        setNewsReactions(
-          Object.groupBy((reactionRows as NewsReaction[] | null) || [], (reaction) => reaction.post_id),
-        );
+          .in(
+            'post_id',
+            posts.map((post) => post.id),
+          );
+        setNewsReactions(Object.groupBy((reactionRows as NewsReaction[] | null) || [], (reaction) => reaction.post_id));
       }
     };
     void fetchPosts();
@@ -197,24 +198,17 @@ export const NewsTab: React.FC<NewsTabProps> = ({
           }
         },
       )
-      .on(
-        'postgres_changes',
-        { event: '*', schema: 'public', table: 'news_reactions' },
-        (payload) => {
-          const reaction = payload.new as NewsReaction;
-          if (!reaction.post_id) return;
-          setNewsReactions((current) => {
-            const existing = current[reaction.post_id] || [];
-            return {
-              ...current,
-              [reaction.post_id]: [
-                ...existing.filter((item) => item.user_id !== reaction.user_id),
-                reaction,
-              ],
-            };
-          });
-        },
-      )
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'news_reactions' }, (payload) => {
+        const reaction = payload.new as NewsReaction;
+        if (!reaction.post_id) return;
+        setNewsReactions((current) => {
+          const existing = current[reaction.post_id] || [];
+          return {
+            ...current,
+            [reaction.post_id]: [...existing.filter((item) => item.user_id !== reaction.user_id), reaction],
+          };
+        });
+      })
       .subscribe();
 
     return () => {
@@ -252,10 +246,9 @@ export const NewsTab: React.FC<NewsTabProps> = ({
   const handleAddReaction = async (postId: string, reaction: string) => {
     const userId = localStorage.getItem('my_ht_user_id');
     if (!userId) return;
-    const { error } = await supabase.from('news_reactions').upsert(
-      { post_id: postId, user_id: userId, reaction },
-      { onConflict: 'post_id,user_id' },
-    );
+    const { error } = await supabase
+      .from('news_reactions')
+      .upsert({ post_id: postId, user_id: userId, reaction }, { onConflict: 'post_id,user_id' });
     if (error) alert(error.message);
     else
       setNewsReactions((current) => ({
@@ -275,68 +268,6 @@ export const NewsTab: React.FC<NewsTabProps> = ({
   return (
     <div className={styles.newsLayout}>
       <div className={styles.guestbook}>
-        <SectionCard title="Write a press release">
-          <div className={styles.newsTabs}>
-            <button className={newsMode === 'team' ? styles.active : ''} onClick={() => setNewsMode('team')}>
-              Team News
-            </button>
-            {isAdminAuthenticated && (
-              <button className={newsMode === 'admin' ? styles.active : ''} onClick={() => setNewsMode('admin')}>
-                Announcement
-              </button>
-            )}
-          </div>
-
-          {newsMode === 'team' && (
-            <div className={styles.postingTeamBranding}>
-              {(() => {
-                const myTeam = myHtUserId ? teams.find((team) => team.hattrick_user_id === Number(myHtUserId)) : null;
-                return myTeam ? (
-                  <div className={styles.branding}>
-                    <img
-                      src={myTeam.logo_url || DEFAULT_TEAM_LOGO}
-                      alt={myTeam.name}
-                      onError={(event) => {
-                        event.currentTarget.onerror = null;
-                        event.currentTarget.src = DEFAULT_TEAM_LOGO;
-                      }}
-                    />
-                    <span>
-                      Posting as: <strong>{myTeam.name}</strong>
-                    </span>
-                  </div>
-                ) : (
-                  <p>You don't have a team in this tournament.</p>
-                );
-              })()}
-            </div>
-          )}
-
-          <form onSubmit={handlePostMessage} className={styles.postForm}>
-            <div className={styles.newsInputGroup}>
-              <input
-                type="text"
-                value={newNewsTitle}
-                onChange={(event) => setNewNewsTitle(event.target.value)}
-                placeholder="Article Title..."
-                className={styles.postTitleInput}
-              />
-              <textarea
-                value={newNewsContent}
-                onChange={(event) => setNewNewsContent(event.target.value)}
-                placeholder={newsMode === 'admin' ? 'Write a tournament announcement...' : "Share your team's news..."}
-                className={styles.postTextarea}
-                rows={3}
-              />
-            </div>
-            <div className={styles.postActions}>
-              <Button type="submit" variant="primary" disabled={isPostingNews || !newNewsContent.trim()}>
-                {isPostingNews ? 'Posting...' : 'Post News'}
-              </Button>
-            </div>
-          </form>
-        </SectionCard>
-
         {newsPosts.length === 0 ? (
           <SectionCard title="🗞 120min Weekly">
             <p className={styles.noPosts}>No news yet.</p>
@@ -376,6 +307,72 @@ export const NewsTab: React.FC<NewsTabProps> = ({
                 </SectionCard>
               );
             })}
+
+            <SectionCard title="Write a press release">
+              <div className={styles.newsTabs}>
+                <button className={newsMode === 'team' ? styles.active : ''} onClick={() => setNewsMode('team')}>
+                  Team News
+                </button>
+                {isAdminAuthenticated && (
+                  <button className={newsMode === 'admin' ? styles.active : ''} onClick={() => setNewsMode('admin')}>
+                    Announcement
+                  </button>
+                )}
+              </div>
+
+              {newsMode === 'team' && (
+                <div className={styles.postingTeamBranding}>
+                  {(() => {
+                    const myTeam = myHtUserId
+                      ? teams.find((team) => team.hattrick_user_id === Number(myHtUserId))
+                      : null;
+                    return myTeam ? (
+                      <div className={styles.branding}>
+                        <img
+                          src={myTeam.logo_url || DEFAULT_TEAM_LOGO}
+                          alt={myTeam.name}
+                          onError={(event) => {
+                            event.currentTarget.onerror = null;
+                            event.currentTarget.src = DEFAULT_TEAM_LOGO;
+                          }}
+                        />
+                        <span>
+                          Posting as: <strong>{myTeam.name}</strong>
+                        </span>
+                      </div>
+                    ) : (
+                      <p>You don't have a team in this tournament.</p>
+                    );
+                  })()}
+                </div>
+              )}
+
+              <form onSubmit={handlePostMessage} className={styles.postForm}>
+                <div className={styles.newsInputGroup}>
+                  <input
+                    type="text"
+                    value={newNewsTitle}
+                    onChange={(event) => setNewNewsTitle(event.target.value)}
+                    placeholder="Article Title..."
+                    className={styles.postTitleInput}
+                  />
+                  <textarea
+                    value={newNewsContent}
+                    onChange={(event) => setNewNewsContent(event.target.value)}
+                    placeholder={
+                      newsMode === 'admin' ? 'Write a tournament announcement...' : "Share your team's news..."
+                    }
+                    className={styles.postTextarea}
+                    rows={12}
+                  />
+                </div>
+                <div className={styles.postActions}>
+                  <Button type="submit" variant="primary" disabled={isPostingNews || !newNewsContent.trim()}>
+                    {isPostingNews ? 'Posting...' : 'Post News'}
+                  </Button>
+                </div>
+              </form>
+            </SectionCard>
           </div>
         )}
       </div>

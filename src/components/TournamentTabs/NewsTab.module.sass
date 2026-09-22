@@ -73,12 +73,12 @@
   color: var(--text)
   font-family: inherit
   font-size: 1rem
-  resize: vertical
+  resize: none
   transition: border-color 0.2s
 
   &:focus
     outline: none
-    border: 1px solid var(--borderWeak)
+    border: 1px solid white
 
 .postActions
   display: flex
@@ -116,6 +116,9 @@
   color: var(--text)
   font-family: inherit
   margin-bottom: 0.5rem
+
+  &:focus
+    border: 1px solid white
 
 .reactionBar
   display: flex
