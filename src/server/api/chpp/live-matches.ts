@@ -3,6 +3,7 @@ import { getSupabase } from '../_lib/supabase.js';
 import { getAuthHeader } from '../_lib/chpp-auth.js';
 import { readChppTag } from '../_lib/chpp-xml.js';
 import {
+  getFootballScore,
   getPenaltyShootoutScore,
   mapMatchEventDetailsToFixture,
   parseMatchEventDetails,
@@ -131,6 +132,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       const baseMinutes = isExtraTime ? 120 : 90;
       const totalMinutes = baseMinutes + addedMinutes;
       const actualEventDetails = parseMatchEventDetails(xml);
+      const footballScore = getFootballScore(actualEventDetails);
 
       // Map actual Hattrick goals back to the scheduled fixture perspective.
       // Manual links may intentionally include only one scheduled team, such as
@@ -138,12 +140,12 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       const htMatchIdNum = parseInt(htMatchId, 10);
       const fixture = matchFixtureMap.get(htMatchIdNum);
       let venueMismatch = false;
-      let homeGoals = finished ? finalHomeGoals : liveHomeGoals;
-      let awayGoals = finished ? finalAwayGoals : liveAwayGoals;
+      let homeGoals = footballScore?.home ?? (finished ? finalHomeGoals : liveHomeGoals);
+      let awayGoals = footballScore?.away ?? (finished ? finalAwayGoals : liveAwayGoals);
 
       if (fixture && actualHtHomeTeamId !== null && actualHtAwayTeamId !== null) {
-        const actualHomeGoals = finished ? finalHomeGoals : liveHomeGoals;
-        const actualAwayGoals = finished ? finalAwayGoals : liveAwayGoals;
+        const actualHomeGoals = footballScore?.home ?? (finished ? finalHomeGoals : liveHomeGoals);
+        const actualAwayGoals = footballScore?.away ?? (finished ? finalAwayGoals : liveAwayGoals);
         const scheduledHomeMatchedActualHome = fixture.scheduledHomeHtId === actualHtHomeTeamId;
         const scheduledHomeMatchedActualAway = fixture.scheduledHomeHtId === actualHtAwayTeamId;
         const scheduledAwayMatchedActualHome = fixture.scheduledAwayHtId === actualHtHomeTeamId;

@@ -163,9 +163,37 @@ test('retains regular, other, and penalty-shootout scoring evidence', () => {
   const parsed = parseMatchEventDetails(xml);
   const shootout = getPenaltyShootoutScore(parsed);
 
-  assert.deepEqual(parsed.home.goals?.map((goal) => goal.category), ['regular']);
-  assert.deepEqual(parsed.away.goals?.map((goal) => goal.category), ['other']);
+  assert.deepEqual(parsed.home.goals?.map((goal) => goal.category), ['regular', 'penalty_shootout', 'penalty_shootout']);
+  assert.deepEqual(parsed.away.goals?.map((goal) => goal.category), ['other', 'penalty_shootout']);
   assert.equal(parsed.away.goals?.[0]?.matchPart, 3);
   assert.equal(parsed.hasPenaltyShootout, true);
   assert.deepEqual(shootout, { home: 2, away: 1 });
+  assert.deepEqual(parsed.result?.scoreAfterRegulation, { home: 0, away: 0 });
+  assert.deepEqual(parsed.result?.scoreAfterExtraTime, { home: 0, away: 0 });
+  assert.equal(parsed.result?.decisionType, 'penalty_shootout');
+  assert.equal(parsed.result?.winnerTeamId, 100);
+});
+
+test('persists stable MatchDetails performance and named scorer facts without EventText', () => {
+  const xml = `
+    <HattrickData><Match>
+      <HomeTeam><HomeTeamID>100</HomeTeamID><Formation>5-5-0</Formation><TacticType>1</TacticType><TacticSkill>7</TacticSkill><RatingMidfield>12</RatingMidfield><RatingRightDef>22</RatingRightDef><RatingMidDef>23</RatingMidDef><RatingLeftDef>24</RatingLeftDef><RatingRightAtt>4</RatingRightAtt><RatingMidAtt>3</RatingMidAtt><RatingLeftAtt>5</RatingLeftAtt><NrOfChancesLeft>1</NrOfChancesLeft><NrOfChancesCenter>2</NrOfChancesCenter><NrOfChancesRight>3</NrOfChancesRight><NrOfChancesSpecialEvents>4</NrOfChancesSpecialEvents><NrOfChancesOther>5</NrOfChancesOther></HomeTeam>
+      <AwayTeam><AwayTeamID>200</AwayTeamID><Formation>4-4-2</Formation><TacticType>0</TacticType><TacticSkill>0</TacticSkill></AwayTeam>
+      <PossessionFirstHalfHome>61</PossessionFirstHalfHome><PossessionFirstHalfAway>39</PossessionFirstHalfAway><PossessionSecondHalfHome>58</PossessionSecondHalfHome><PossessionSecondHalfAway>42</PossessionSecondHalfAway>
+      <Scorers><Goal><ScorerPlayerID>42</ScorerPlayerID><ScorerPlayerName>Named Scorer</ScorerPlayerName><ScorerTeamID>100</ScorerTeamID><ScorerHomeGoals>1</ScorerHomeGoals><ScorerAwayGoals>0</ScorerAwayGoals><ScorerMinute>77</ScorerMinute><MatchPart>2</MatchPart></Goal></Scorers>
+      <Bookings><Booking><BookingPlayerID>17</BookingPlayerID><BookingPlayerName>Named Card</BookingPlayerName><BookingTeamID>100</BookingTeamID><BookingMinute>61</BookingMinute><MatchPart>2</MatchPart></Booking></Bookings>
+      <EventList>${event(101, 100, 42, 77)}${event(510, 100, 17, 61)}</EventList>
+    </Match></HattrickData>`;
+  const parsed = parseMatchEventDetails(xml);
+
+  assert.equal(parsed.version, 2);
+  assert.equal(parsed.home.performance?.formation, '5-5-0');
+  assert.equal(parsed.home.performance?.tacticName, 'Pressing');
+  assert.equal(parsed.home.performance?.possessionFirstHalf, 61);
+  assert.equal(parsed.home.performance?.ratings.centralDefence, 23);
+  assert.equal(parsed.home.performance?.chances.specialEvents, 4);
+  assert.equal(parsed.home.goals?.[0]?.playerName, 'Named Scorer');
+  assert.equal(parsed.home.cards?.[0]?.playerName, 'Named Card');
+  assert.deepEqual(parsed.result?.scoreAfterRegulation, { home: 1, away: 0 });
+  assert.equal(parsed.result?.decisionType, 'regulation');
 });

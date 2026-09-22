@@ -7,9 +7,17 @@ import {
 } from '../_lib/chpp-challenges.js';
 import { fetchManagerTeamsFromChpp, fetchTeamBookingStatus, getManagerChppCredentials } from '../_lib/matchmaker.js';
 import { getSupabase } from '../_lib/supabase.js';
+import { getServiceSupabase } from '../_lib/supabase.js';
 import { isForgeAdminRequest } from '../_lib/forge-session.js';
 import { rejectIfForgeTestingUnauthorized } from './_lib/guard.js';
 import { beautifyXml } from './_lib/xml-format.js';
+import { getAuthHeader } from '../_lib/chpp-auth.js';
+import {
+  getFootballScore,
+  getPenaltyShootoutScore,
+  mapMatchEventDetailsToFixture,
+  parseMatchEventDetails,
+} from '../_lib/chpp-match-events.js';
 
 function value(req: VercelRequest, key: string) {
   const raw = req.query[key];
@@ -51,8 +59,85 @@ function manifest() {
       { id: 'challenges-compare', label: 'Challenges comparison' },
       { id: 'booking-status', label: 'Booking status' },
       { id: 'challenge-send', label: 'Challenge send', sideEffect: true },
+      { id: 'round-press-matchdetails-backfill', label: 'Round press MatchDetails backfill', sideEffect: true },
     ],
   };
+}
+
+async function handleRoundPressMatchDetailsBackfill(req: VercelRequest, res: VercelResponse) {
+  const context = await resolveManager(req);
+  if ('error' in context) return res.status(400).json(context);
+  const tournamentId = value(req, 'tournamentId');
+  const seasonNumber = numberValue(req, 'seasonNumber');
+  const roundNumber = numberValue(req, 'roundNumber');
+  const apply = value(req, 'apply') === '1';
+  if (!tournamentId || !seasonNumber || !roundNumber) {
+    return res.status(400).json({ error: 'tournamentId, seasonNumber, and roundNumber are required.' });
+  }
+
+  const supabase = getServiceSupabase();
+  const { data: round, error: roundError } = await supabase
+    .from('rounds')
+    .select('id')
+    .eq('tournament_id', tournamentId)
+    .eq('season_number', seasonNumber)
+    .eq('round_number', roundNumber)
+    .maybeSingle();
+  if (roundError) throw roundError;
+  if (!round) return res.status(404).json({ error: 'Round not found.' });
+
+  const { data: matches, error: matchesError } = await supabase
+    .from('matches')
+    .select('id, ht_match_id, home_team:teams!matches_home_team_id_fkey(ht_team_id), away_team:teams!matches_away_team_id_fkey(ht_team_id)')
+    .eq('round_id', round.id)
+    .not('ht_match_id', 'is', null);
+  if (matchesError) throw matchesError;
+  if (!matches?.length) return res.status(422).json({ error: 'Round has no linked Hattrick matches.' });
+  if (matches.length > 10) return res.status(422).json({ error: 'Backfill is limited to ten matches per request.' });
+
+  const url = 'https://chpp.hattrick.org/chppxml.ashx';
+  const refreshed = [];
+  for (const match of matches) {
+    const htMatchId = Number(match.ht_match_id);
+    const params = { file: 'matchdetails', version: '3.1', matchID: String(htMatchId), matchEvents: 'true' };
+    const authHeader = getAuthHeader('GET', url, params, context.consumerKey, context.consumerSecret, context.credentials.oauth_token, context.credentials.oauth_token_secret);
+    const response = await fetch(`${url}?file=matchdetails&version=3.1&matchEvents=true&matchID=${htMatchId}`, { headers: { Authorization: authHeader } });
+    const xml = await response.text();
+    if (!response.ok || /<Error/i.test(xml)) {
+      refreshed.push({ matchId: match.id, htMatchId, refreshed: false, error: 'CHPP MatchDetails was unavailable.' });
+      continue;
+    }
+
+    const homeTeam = match.home_team as { ht_team_id?: number | null } | null;
+    const awayTeam = match.away_team as { ht_team_id?: number | null } | null;
+    const details = mapMatchEventDetailsToFixture(
+      parseMatchEventDetails(xml),
+      typeof homeTeam?.ht_team_id === 'number' ? homeTeam.ht_team_id : null,
+      typeof awayTeam?.ht_team_id === 'number' ? awayTeam.ht_team_id : null,
+    );
+    const footballScore = getFootballScore(details);
+    const shootout = getPenaltyShootoutScore(details);
+    if (apply) {
+      const { error } = await supabase.from('matches').update({
+        match_event_details: details,
+        home_goals: footballScore?.home ?? null,
+        away_goals: footballScore?.away ?? null,
+        went_120: details.result?.reached120 ?? false,
+        penalty_shootout_home_goals: shootout.home,
+        penalty_shootout_away_goals: shootout.away,
+      }).eq('id', match.id);
+      if (error) throw error;
+    }
+    refreshed.push({
+      matchId: match.id,
+      htMatchId,
+      refreshed: true,
+      persisted: apply,
+      version: details.version,
+      result: details.result,
+    });
+  }
+  return res.status(200).json({ tool: 'round-press-matchdetails-backfill', tournamentId, seasonNumber, roundNumber, apply, refreshed });
 }
 
 async function handleCredentials(req: VercelRequest, res: VercelResponse) {
@@ -205,7 +290,7 @@ async function handleSend(req: VercelRequest, res: VercelResponse) {
 }
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
-  if (req.method !== 'GET') return res.status(405).json({ error: 'Method not allowed' });
+  if (req.method !== 'GET' && req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
   if (!isForgeAdminRequest(req.headers.cookie)) {
     if (rejectIfForgeTestingUnauthorized(req, res)) return;
   }
@@ -219,6 +304,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       case 'challenges-compare': return await handleCompare(req, res);
       case 'booking-status': return await handleBooking(req, res);
       case 'challenge-send': return await handleSend(req, res);
+      case 'round-press-matchdetails-backfill': return await handleRoundPressMatchDetailsBackfill(req, res);
       case 'manifest': return res.status(200).json(manifest());
       default: return res.status(404).json({ error: 'Unknown testing tool.' });
     }

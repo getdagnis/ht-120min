@@ -1,4 +1,4 @@
-import type { MatchEventDetails, MatchSideEventDetails } from '../../../../shared/match-events.js';
+import type { MatchEventDetails, MatchSideEventDetails, MatchSidePerformance } from '../../../../shared/match-events.js';
 import type { PersistedScoringMode } from '../../../../shared/scoring-profile.js';
 import { calculateStandings, type Match, type Team } from '../../../utils/standings.js';
 
@@ -79,6 +79,10 @@ export interface RoundPressInput {
       totalMinutes: number | null;
       penaltyShootoutHomeGoals: number | null;
       penaltyShootoutAwayGoals: number | null;
+      scoreAfterRegulation: { home: number; away: number } | null;
+      scoreAfterExtraTime: { home: number; away: number } | null;
+      decisionType: 'regulation' | 'extra_time' | 'penalty_shootout' | null;
+      winnerTeamId: number | null;
     };
     homeFacts: RoundPressSideFacts;
     awayFacts: RoundPressSideFacts;
@@ -106,6 +110,7 @@ export interface RoundPressSideFacts {
     category: string;
   }>;
   penaltyShootoutGoals: number;
+  performance: MatchSidePerformance | null;
 }
 
 function sideFacts(side: MatchSideEventDetails | undefined, yellowFallback: number, redFallback: number, injuryFallback: number): RoundPressSideFacts {
@@ -132,6 +137,7 @@ function sideFacts(side: MatchSideEventDetails | undefined, yellowFallback: numb
       category: goal.category,
     })),
     penaltyShootoutGoals: side?.penaltyShootoutGoals || 0,
+    performance: side?.performance || null,
   };
 }
 
@@ -215,6 +221,10 @@ export function buildRoundPressInput(params: {
       totalMinutes: match.total_minutes,
       penaltyShootoutHomeGoals: match.penalty_shootout_home_goals ?? null,
       penaltyShootoutAwayGoals: match.penalty_shootout_away_goals ?? null,
+      scoreAfterRegulation: match.match_event_details?.result?.scoreAfterRegulation || null,
+      scoreAfterExtraTime: match.match_event_details?.result?.scoreAfterExtraTime || null,
+      decisionType: match.match_event_details?.result?.decisionType || null,
+      winnerTeamId: match.match_event_details?.result?.winnerTeamId || null,
     },
     homeFacts: sideFacts(
       match.match_event_details?.home,

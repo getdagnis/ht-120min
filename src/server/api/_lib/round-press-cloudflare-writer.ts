@@ -1,6 +1,6 @@
 import type { RoundPressInput } from './round-press-input.js';
 import { parseAndValidateRoundPressDraft, validateRoundPressDraft, type RoundPressDraft } from './round-press-validator.js';
-import { ROUND_PRESS_PROMPT_V1 } from './round-press-writer.js';
+import { ROUND_PRESS_PROMPT_V2 as ROUND_PRESS_PROMPT_V1 } from './round-press-prompts.js';
 
 export const CLOUDFLARE_ROUND_PRESS_MODEL = '@cf/zai-org/glm-4.7-flash';
 

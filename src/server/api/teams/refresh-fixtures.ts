@@ -3,6 +3,7 @@ import { getSupabase } from '../_lib/supabase.js';
 import { getAuthHeader } from '../_lib/chpp-auth.js';
 import { readChppTag } from '../_lib/chpp-xml.js';
 import {
+  getFootballScore,
   getPenaltyShootoutScore,
   mapMatchEventDetailsToFixture,
   parseMatchEventDetails,
@@ -440,6 +441,8 @@ async function fetchMatchDetailsById(
   const addedMinutes = parseInt(readChppTag(xml, 'AddedMinutes') || '0', 10);
   const went120 = xml.includes('<MatchPart>3</MatchPart>') || xml.includes('<MatchPart>4</MatchPart>');
   const storedMatchDate = serializeStoredStockholmDate(matchDateText);
+  const eventDetails = parseMatchEventDetails(xml);
+  const footballScore = getFootballScore(eventDetails);
 
   return {
     htMatchId: parseInt(htMatchId, 10),
@@ -450,13 +453,13 @@ async function fetchMatchDetailsById(
     actualHtAwayTeamId,
     actualHomeTeamName,
     actualAwayTeamName,
-    homeGoals: parseInt(readChppTag(xml, 'HomeGoals') || '0', 10),
-    awayGoals: parseInt(readChppTag(xml, 'AwayGoals') || '0', 10),
+    homeGoals: footballScore?.home ?? parseInt(readChppTag(xml, 'HomeGoals') || '0', 10),
+    awayGoals: footballScore?.away ?? parseInt(readChppTag(xml, 'AwayGoals') || '0', 10),
     status,
     completed: finished,
     went120,
     totalMinutes: (went120 ? 120 : 90) + addedMinutes,
-    eventDetails: parseMatchEventDetails(xml),
+    eventDetails,
   };
 }
 

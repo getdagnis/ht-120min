@@ -31,6 +31,13 @@ import {
   type FixtureChallengeSide,
 } from './_lib/fixture-challenge.js';
 import { fetchManagerTeamsFromChpp, getManagerChppCredentials } from './_lib/matchmaker.js';
+import { getAuthHeader } from './_lib/chpp-auth.js';
+import {
+  getFootballScore,
+  getPenaltyShootoutScore,
+  mapMatchEventDetailsToFixture,
+  parseMatchEventDetails,
+} from './_lib/chpp-match-events.js';
 import { buildRoundPressInput, type RoundPressMatchSource, type RoundPressRoundSource, type RoundPressTeamSource } from './_lib/round-press-input.js';
 import {
   CloudflareAiConfigurationError,
@@ -649,6 +656,44 @@ function roundPressRounds(rows: unknown[], snapshotTeams?: Map<string, RoundPres
     .filter((round): round is RoundPressRoundSource => Boolean(round));
 }
 
+/**
+ * Archived fixture snapshots are authoritative for historical fixture identity
+ * and scheduling. Rich MatchDetails facts live on the persistent match row so
+ * they can be improved by an explicit backfill without mutating the snapshot.
+ */
+function hydrateHistoricalRoundPressFacts(
+  rounds: RoundPressRoundSource[],
+  rows: unknown[],
+): RoundPressRoundSource[] {
+  const factsByMatchId = new Map<string, Record<string, unknown>>();
+  rows.forEach((value) => {
+    const row = asRecord(value);
+    if (row && typeof row.id === 'string') factsByMatchId.set(row.id, row);
+  });
+
+  return rounds.map((round) => ({
+    ...round,
+    matches: round.matches.map((match) => {
+      const facts = factsByMatchId.get(match.id);
+      if (!facts) return match;
+      return {
+        ...match,
+        home_goals: typeof facts.home_goals === 'number' ? facts.home_goals : match.home_goals,
+        away_goals: typeof facts.away_goals === 'number' ? facts.away_goals : match.away_goals,
+        went_120: typeof facts.went_120 === 'boolean' ? facts.went_120 : match.went_120,
+        total_minutes: typeof facts.total_minutes === 'number' ? facts.total_minutes : match.total_minutes,
+        penalty_shootout_home_goals: typeof facts.penalty_shootout_home_goals === 'number'
+          ? facts.penalty_shootout_home_goals
+          : match.penalty_shootout_home_goals,
+        penalty_shootout_away_goals: typeof facts.penalty_shootout_away_goals === 'number'
+          ? facts.penalty_shootout_away_goals
+          : match.penalty_shootout_away_goals,
+        match_event_details: (asRecord(facts.match_event_details) as unknown as MatchEventDetails | null) || match.match_event_details,
+      };
+    }),
+  }));
+}
+
 function snapshotTeamsFromRounds(snapshot: SeasonFixturesSnapshot): Map<string, RoundPressTeamSource> {
   const teams = new Map<string, RoundPressTeamSource>();
   snapshot.rounds.forEach((round) => {
@@ -662,6 +707,120 @@ function snapshotTeamsFromRounds(snapshot: SeasonFixturesSnapshot): Map<string, 
     });
   });
   return teams;
+}
+
+/**
+ * Explicit, bounded repair operation for archived MatchDetails facts.
+ *
+ * This deliberately derives CHPP credentials from the signed-in manager rather
+ * than accepting a manager id from the browser. It is not used by round-press
+ * generation itself: generated drafts always read persisted facts.
+ */
+async function handleRoundPressMatchDetailsBackfill(req: VercelRequest, res: VercelResponse) {
+  if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed.' });
+  const tournamentId = readString(req.body?.tournamentId);
+  const seasonNumber = positiveInteger(req.body?.seasonNumber);
+  const roundNumber = positiveInteger(req.body?.roundNumber);
+  const apply = req.body?.apply === true;
+  if (!tournamentId || !seasonNumber || !roundNumber) {
+    return res.status(400).json({ error: 'tournamentId, seasonNumber, and roundNumber are required.' });
+  }
+
+  const actor = await requireTournamentRoleSession(req, res, tournamentId);
+  if (!actor) return;
+  if (!actor.access.canPublishAnnouncements) {
+    return res.status(403).json({ error: 'This role cannot backfill tournament match facts.' });
+  }
+
+  const consumerKey = process.env.CHPP_CONSUMER_KEY;
+  const consumerSecret = process.env.CHPP_CONSUMER_SECRET;
+  if (!consumerKey || !consumerSecret) {
+    return res.status(500).json({ error: 'CHPP server configuration is unavailable.' });
+  }
+
+  const supabase = getServiceSupabase();
+  const credentials = await getManagerChppCredentials(supabase, actor.userId);
+  if (!credentials) return res.status(401).json({ error: 'Please link Hattrick before refreshing match details.' });
+
+  const { data: round, error: roundError } = await supabase
+    .from('rounds')
+    .select('id')
+    .eq('tournament_id', tournamentId)
+    .eq('season_number', seasonNumber)
+    .eq('round_number', roundNumber)
+    .maybeSingle();
+  if (roundError) throw roundError;
+  if (!round) return res.status(404).json({ error: 'Round not found.' });
+
+  const { data: matches, error: matchesError } = await supabase
+    .from('matches')
+    .select('id, ht_match_id, home_team:teams!matches_home_team_id_fkey(ht_team_id), away_team:teams!matches_away_team_id_fkey(ht_team_id)')
+    .eq('round_id', round.id)
+    .not('ht_match_id', 'is', null);
+  if (matchesError) throw matchesError;
+  if (!matches?.length) return res.status(422).json({ error: 'Round has no linked Hattrick matches.' });
+  if (matches.length > 10) return res.status(422).json({ error: 'Backfill is limited to ten matches per request.' });
+
+  const chppUrl = 'https://chpp.hattrick.org/chppxml.ashx';
+  const refreshed: Array<Record<string, unknown>> = [];
+  for (const match of matches) {
+    const htMatchId = Number(match.ht_match_id);
+    const params = { file: 'matchdetails', version: '3.1', matchID: String(htMatchId), matchEvents: 'true' };
+    const authorization = getAuthHeader(
+      'GET', chppUrl, params, consumerKey, consumerSecret,
+      credentials.oauth_token, credentials.oauth_token_secret,
+    );
+    const response = await fetch(
+      `${chppUrl}?file=matchdetails&version=3.1&matchEvents=true&matchID=${htMatchId}`,
+      { headers: { Authorization: authorization } },
+    );
+    const xml = await response.text();
+    if (!response.ok || /<Error/i.test(xml)) {
+      refreshed.push({ matchId: match.id, htMatchId, refreshed: false, error: 'CHPP MatchDetails was unavailable.' });
+      continue;
+    }
+
+    const homeTeam = match.home_team as { ht_team_id?: number | null } | null;
+    const awayTeam = match.away_team as { ht_team_id?: number | null } | null;
+    const details = mapMatchEventDetailsToFixture(
+      parseMatchEventDetails(xml),
+      typeof homeTeam?.ht_team_id === 'number' ? homeTeam.ht_team_id : null,
+      typeof awayTeam?.ht_team_id === 'number' ? awayTeam.ht_team_id : null,
+    );
+    const footballScore = getFootballScore(details);
+    const shootout = getPenaltyShootoutScore(details);
+    if (apply) {
+      const { error } = await supabase.from('matches').update({
+        match_event_details: details,
+        home_goals: footballScore?.home ?? null,
+        away_goals: footballScore?.away ?? null,
+        went_120: details.result?.reached120 ?? false,
+        penalty_shootout_home_goals: shootout.home,
+        penalty_shootout_away_goals: shootout.away,
+      }).eq('id', match.id);
+      if (error) throw error;
+    }
+    refreshed.push({
+      matchId: match.id,
+      htMatchId,
+      refreshed: true,
+      persisted: apply,
+      version: details.version,
+      result: details.result,
+      // The dry-run is an explicit admin inspection operation. Return parsed,
+      // non-secret facts so a backfill can be reviewed before it is persisted;
+      // never return the source XML or CHPP credentials.
+      ...(apply ? {} : { details }),
+    });
+  }
+
+  return res.status(200).json({
+    tournamentId,
+    seasonNumber,
+    roundNumber,
+    dryRun: !apply,
+    refreshed,
+  });
 }
 
 async function handleGenerateRoundSummary(req: VercelRequest, res: VercelResponse) {
@@ -708,6 +867,15 @@ async function handleGenerateRoundSummary(req: VercelRequest, res: VercelRespons
     if (!snapshot?.rounds) return res.status(422).json({ error: `Season ${seasonNumber} has no archived fixture data.` });
     const snapshotTeams = snapshotTeamsFromRounds(snapshot);
     rounds = roundPressRounds(snapshot.rounds as unknown as unknown[], snapshotTeams);
+    const historicalRoundIds = rounds.map((round) => round.id);
+    if (historicalRoundIds.length > 0) {
+      const { data: persistedMatchFacts, error: persistedMatchFactsError } = await supabase
+        .from('matches')
+        .select('id, home_goals, away_goals, went_120, total_minutes, penalty_shootout_home_goals, penalty_shootout_away_goals, match_event_details')
+        .in('round_id', historicalRoundIds);
+      if (persistedMatchFactsError) throw persistedMatchFactsError;
+      rounds = hydrateHistoricalRoundPressFacts(rounds, persistedMatchFacts || []);
+    }
     teams = Array.from(snapshotTeams.values());
   } else {
     const [{ data: roundRows, error: roundsError }, { data: teamRows, error: teamsError }] = await Promise.all([
@@ -751,6 +919,7 @@ async function handleGenerateRoundSummary(req: VercelRequest, res: VercelRespons
     teams,
   });
   const startedAt = Date.now();
+  console.log('[Round press input]', JSON.stringify(input, null, 2));
   let provider = 'unknown';
   let model = 'unknown';
   try {
@@ -1239,6 +1408,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         return await handleSeasonSlotReplacement(req, res);
       case 'fixture-challenge':
         return await handleFixtureChallenge(req, res);
+      case 'backfill-round-matchdetails':
+        return await handleRoundPressMatchDetailsBackfill(req, res);
       case 'generate-round-summary':
         return await handleGenerateRoundSummary(req, res);
       case 'activity':

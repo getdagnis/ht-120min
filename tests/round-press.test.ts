@@ -113,6 +113,46 @@ test('structured card and injury facts are converted without localized event tex
   assert.equal(input.matches[0].homeFacts.goals[0].minute, 22);
 });
 
+test('round input retains version 2 result semantics and performance facts', () => {
+  const source = match('match-2', 'round-2');
+  source.match_event_details = {
+    version: 2,
+    source: 'matchdetails-3.1',
+    actualHomeTeamId: 1,
+    actualAwayTeamId: 2,
+    hasPenaltyShootout: true,
+    result: {
+      scoreAfterRegulation: { home: 0, away: 0 },
+      scoreAfterExtraTime: { home: 0, away: 0 },
+      penaltyShootout: { home: 3, away: 2 },
+      decisionType: 'penalty_shootout',
+      winnerTeamId: 1,
+      reached120: true,
+    },
+    home: {
+      teamId: 1,
+      cards: [], injuries: [], goals: [], penaltyShootoutGoals: 3,
+      performance: {
+        formation: '5-5-0', tacticType: 1, tacticName: 'Pressing', tacticSkill: 7,
+        possessionFirstHalf: 50, possessionSecondHalf: 51,
+        ratings: { midfield: 10, rightDefence: 20, centralDefence: 21, leftDefence: 20, rightAttack: 3, centralAttack: 2, leftAttack: 3 },
+        chances: { left: 1, centre: 2, right: 3, specialEvents: 0, other: 1 },
+      },
+    },
+    away: { teamId: 2, cards: [], injuries: [], goals: [], penaltyShootoutGoals: 2 },
+  };
+  const input = buildRoundPressInput({
+    tournament: { id: 'tournament', name: 'Cup', scoringMode: '120min' },
+    seasonNumber: 1,
+    roundNumber: 2,
+    rounds: [{ id: 'round-2', round_number: 2, matches: [source] }],
+    teams: [home, away],
+  });
+  assert.deepEqual(input.matches[0].result.scoreAfterExtraTime, { home: 0, away: 0 });
+  assert.equal(input.matches[0].result.decisionType, 'penalty_shootout');
+  assert.equal(input.matches[0].homeFacts.performance?.tacticName, 'Pressing');
+});
+
 test('validator accepts a complete draft and rejects duplicate, missing, and foreign matches', () => {
   const valid = {
     title: 'Round 2 — Extra time arrives',
