@@ -5042,6 +5042,16 @@ export const TournamentView: React.FC<{ initialData?: TournamentInitialData }> =
             }}
           />
           <aside className={styles.statsSidebar}>
+            {tournament.forum_id && tournament.forum_id > 0 && (
+              <a
+                href={`https://www.hattrick.org/goto.ashx?path=/Forum/Read.aspx?t=${tournament.forum_id}`}
+                target="_blank"
+                rel="noopener noreferrer"
+                className={`${buttonStyles.button} ${buttonStyles.primary} ${buttonStyles.sm} ${styles.standingsSeasonsButton} ${styles.standingsForumButton}`}
+              >
+                Tournament HT Forum <ArrowRight size={16} weight="bold" aria-hidden="true" />
+              </a>
+            )}
             {availableSeasonNumbers.length > 1 && (
               <div className={styles.standingsSeasonMenu}>
                 <Button
@@ -5074,16 +5084,6 @@ export const TournamentView: React.FC<{ initialData?: TournamentInitialData }> =
                   </div>
                 )}
               </div>
-            )}
-            {tournament.forum_id && tournament.forum_id > 0 && (
-              <a
-                href={`https://www.hattrick.org/goto.ashx?path=/Forum/Read.aspx?t=${tournament.forum_id}`}
-                target="_blank"
-                rel="noopener noreferrer"
-                className={`${buttonStyles.button} ${buttonStyles.zero} ${buttonStyles.sm} ${styles.standingsSeasonsButton} ${styles.standingsForumButton}`}
-              >
-                Tournament HT Forum <ArrowRight size={16} weight="bold" aria-hidden="true" />
-              </a>
             )}
             <MottoWidget items={TOURNAMENT_DEFAULT} theme="dark" variant="sidebar" />
             <ChatView

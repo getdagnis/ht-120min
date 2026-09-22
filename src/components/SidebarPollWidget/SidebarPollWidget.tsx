@@ -139,7 +139,7 @@ export const SidebarPollWidget: React.FC<SidebarPollWidgetProps> = ({
                 <span>{team.name}</span>
                 <span className={styles.voteCount}>
                   {team.votes}
-                  {team.id === existingVote?.team_id && ' (yours)'}
+                  {team.id === existingVote?.team_id && ' (voted)'}
                 </span>
               </li>
             ))}
@@ -178,7 +178,11 @@ export const SidebarPollWidget: React.FC<SidebarPollWidgetProps> = ({
         </div>
       )}
       <span className={styles.closeDateNotice}>Ends: {closeDateLabel}</span>
-      {error && <p className={styles.error} role="alert">{error}</p>}
+      {error && (
+        <p className={styles.error} role="alert">
+          {error}
+        </p>
+      )}
     </ReusableWidget>
   );
 };
