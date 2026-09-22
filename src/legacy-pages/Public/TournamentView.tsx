@@ -150,11 +150,11 @@ const TOURNAMENT_VIEW_MODALS_OPEN_BY_DEFAULT = {
 };
 const ADMIN_PANELS = [
   { id: 'settings', label: 'Tournament Settings', description: 'General tournament settings' },
-  { id: 'schedule', label: 'Manage schedule', description: 'Generate, reschedule, or add tournament matches' },
-  { id: 'results', label: 'Results Entry', description: "Manage current season's fixtures" },
+  { id: 'schedule', label: 'Generate Schedule', description: 'Generate, reschedule, or add tournament matches' },
+  { id: 'results', label: 'Edit Results', description: "Manage current season's fixtures" },
   { id: 'teams', label: 'Manage Teams', description: 'Add new or remove teams' },
-  { id: 'season', label: 'Season planner', description: 'Close or add new seasons, generate season reports' },
-  { id: 'announcements', label: 'Admin announcements', description: 'Create tournament announcements' },
+  { id: 'season', label: 'Manage Season', description: 'Close or add new seasons, generate season reports' },
+  { id: 'announcements', label: 'Cup Announcements', description: 'Create tournament announcements' },
   { id: 'lifecycle', label: 'Tournament status', description: 'Manage tournament status' },
   { id: 'roles', label: 'Roles & Access', description: 'Manage delegated tournament roles' },
 ] as const;
@@ -1140,15 +1140,21 @@ export const TournamentView: React.FC<{ initialData?: TournamentInitialData }> =
     const stored = readSessionStorage(`settings_collapsed_${slug}`);
     return stored === null ? null : readStoredSessionBoolean(`settings_collapsed_${slug}`, false);
   });
-  const [isTeamsCollapsed, setIsTeamsCollapsed] = useState(() => readStoredSessionBoolean(`teams_collapsed_${slug}`, true));
+  const [isTeamsCollapsed, setIsTeamsCollapsed] = useState(() =>
+    readStoredSessionBoolean(`teams_collapsed_${slug}`, true),
+  );
   const [isResultsCollapsed, setIsResultsCollapsed] = useState(() =>
     readStoredSessionBoolean(`results_collapsed_${slug}`, true),
   );
-  const [isSeasonCollapsed, setIsSeasonCollapsed] = useState(() => readStoredSessionBoolean(`season_collapsed_${slug}`, true));
+  const [isSeasonCollapsed, setIsSeasonCollapsed] = useState(() =>
+    readStoredSessionBoolean(`season_collapsed_${slug}`, true),
+  );
   const [isAnnouncementsCollapsed, setIsAnnouncementsCollapsed] = useState(() =>
     readStoredSessionBoolean(`announcements_collapsed_${slug}`, true),
   );
-  const [isRolesCollapsed, setIsRolesCollapsed] = useState(() => readStoredSessionBoolean(`roles_collapsed_${slug}`, true));
+  const [isRolesCollapsed, setIsRolesCollapsed] = useState(() =>
+    readStoredSessionBoolean(`roles_collapsed_${slug}`, true),
+  );
   const [scheduleCollapseOverrides, setScheduleCollapseOverrides] = useState<Record<string, boolean>>({});
   const scheduleCollapseStorageKey = slug ? `schedule_collapsed_${slug}` : null;
   const scheduleCollapseOverride = useMemo(() => {
@@ -5992,7 +5998,7 @@ export const TournamentView: React.FC<{ initialData?: TournamentInitialData }> =
 
                       <div id="admin-panel-season">
                         <SectionCard
-                          title="Season planner"
+                          title="Manage Season"
                           className={adminStyles.seasonPlannerCard}
                           collapsible
                           isCollapsed={resolvedSeasonCollapsed}
@@ -6138,7 +6144,7 @@ export const TournamentView: React.FC<{ initialData?: TournamentInitialData }> =
 
                   <div id="admin-panel-announcements">
                     <SectionCard
-                      title="Admin announcements"
+                      title="Cup Announcements"
                       collapsible
                       isCollapsed={isAnnouncementsCollapsed}
                       onToggleCollapse={() =>

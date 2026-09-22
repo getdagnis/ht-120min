@@ -544,7 +544,7 @@ export const AdminResults: React.FC<AdminResultsProps> = ({
 
   return (
     <SectionCard
-      title="Results Entry"
+      title="Manage Results"
       collapsible
       isCollapsed={isResultsCollapsed}
       onToggleCollapse={() => togglePanel('results', !isResultsCollapsed, setIsResultsCollapsed)}
