@@ -203,6 +203,24 @@ export const FixturesView: React.FC<FixturesViewProps> = ({
   const [challengeSuccess, setChallengeSuccess] = React.useState<string | null>(null);
   const [challengeSelection, setChallengeSelection] = React.useState<FixtureChallengeSelection | null>(null);
   const [isSeasonMenuOpen, setIsSeasonMenuOpen] = React.useState(false);
+  const seasonMenuRef = React.useRef<HTMLDivElement | null>(null);
+  React.useEffect(() => {
+    if (!isSeasonMenuOpen) return;
+
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') setIsSeasonMenuOpen(false);
+    };
+    const handlePointerDown = (event: PointerEvent) => {
+      if (!seasonMenuRef.current?.contains(event.target as Node)) setIsSeasonMenuOpen(false);
+    };
+
+    document.addEventListener('keydown', handleKeyDown);
+    document.addEventListener('pointerdown', handlePointerDown);
+    return () => {
+      document.removeEventListener('keydown', handleKeyDown);
+      document.removeEventListener('pointerdown', handlePointerDown);
+    };
+  }, [isSeasonMenuOpen]);
   const currentRound = !isHistorical && upcomingRoundIndex >= 0 ? (rounds[upcomingRoundIndex] ?? null) : null;
   const tournamentId = tournament?.id;
   const currentRoundScrollTargetRef = React.useRef<HTMLDivElement | null>(null);
@@ -422,7 +440,7 @@ export const FixturesView: React.FC<FixturesViewProps> = ({
   return (
     <div className={styles.rounds}>
       <div className={styles.fixturesHeader}>
-        <div className={styles.fixturesSeasonMenu}>
+        <div ref={seasonMenuRef} className={styles.fixturesSeasonMenu}>
           {seasonOptions.length > 1 ? (
             <Button
               variant="zero"

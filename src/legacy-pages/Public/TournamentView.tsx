@@ -630,6 +630,24 @@ export const TournamentView: React.FC<{ initialData?: TournamentInitialData }> =
   const [rebuildingSeasonNumber, setRebuildingSeasonNumber] = useState<number | null>(null);
   const [isFinalizingSeason, setIsFinalizingSeason] = useState(false);
   const [isStandingsSeasonMenuOpen, setIsStandingsSeasonMenuOpen] = useState(false);
+  const standingsSeasonMenuRef = useRef<HTMLDivElement | null>(null);
+  useEffect(() => {
+    if (!isStandingsSeasonMenuOpen) return;
+
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') setIsStandingsSeasonMenuOpen(false);
+    };
+    const handlePointerDown = (event: PointerEvent) => {
+      if (!standingsSeasonMenuRef.current?.contains(event.target as Node)) setIsStandingsSeasonMenuOpen(false);
+    };
+
+    document.addEventListener('keydown', handleKeyDown);
+    document.addEventListener('pointerdown', handlePointerDown);
+    return () => {
+      document.removeEventListener('keydown', handleKeyDown);
+      document.removeEventListener('pointerdown', handlePointerDown);
+    };
+  }, [isStandingsSeasonMenuOpen]);
 
   // Chat states
   const [chatMessages, setChatMessages] = useState<any[]>([]);
@@ -5047,13 +5065,13 @@ export const TournamentView: React.FC<{ initialData?: TournamentInitialData }> =
                 href={`https://www.hattrick.org/goto.ashx?path=/Forum/Read.aspx?t=${tournament.forum_id}`}
                 target="_blank"
                 rel="noopener noreferrer"
-                className={`${buttonStyles.button} ${buttonStyles.primary} ${buttonStyles.sm} ${styles.standingsSeasonsButton} ${styles.standingsForumButton}`}
+                className={`${buttonStyles.button} ${buttonStyles.zero} ${buttonStyles.sm} ${styles.standingsSeasonsButton} ${styles.standingsForumButton}`}
               >
                 Tournament HT Forum <ArrowRight size={16} weight="bold" aria-hidden="true" />
               </a>
             )}
             {availableSeasonNumbers.length > 1 && (
-              <div className={styles.standingsSeasonMenu}>
+              <div ref={standingsSeasonMenuRef} className={styles.standingsSeasonMenu}>
                 <Button
                   variant="zero"
                   size="sm"
@@ -5062,7 +5080,7 @@ export const TournamentView: React.FC<{ initialData?: TournamentInitialData }> =
                   aria-haspopup="listbox"
                   className={styles.standingsSeasonsButton}
                 >
-                  Season {selectedSeasonNumber} standings
+                  Historic standings
                   <CaretDown size={16} weight="bold" aria-hidden="true" />
                 </Button>
                 {isStandingsSeasonMenuOpen && (
@@ -5085,7 +5103,9 @@ export const TournamentView: React.FC<{ initialData?: TournamentInitialData }> =
                 )}
               </div>
             )}
+
             <MottoWidget items={TOURNAMENT_DEFAULT} theme="dark" variant="sidebar" />
+
             <ChatView
               messages={chatMessages}
               onSendMessage={handlePostChat}
