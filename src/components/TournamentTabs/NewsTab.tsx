@@ -320,32 +320,31 @@ export const NewsTab: React.FC<NewsTabProps> = ({
                 )}
               </div>
 
-              {newsMode === 'team' && (
-                <div className={styles.postingTeamBranding}>
-                  {(() => {
-                    const myTeam = myHtUserId
-                      ? teams.find((team) => team.hattrick_user_id === Number(myHtUserId))
-                      : null;
-                    return myTeam ? (
+              <div className={styles.postingTeamBranding}>
+                {(() => {
+                  const myTeam = myHtUserId ? teams.find((team) => team.hattrick_user_id === Number(myHtUserId)) : null;
+
+                  if (newsMode === 'admin') {
+                    return (
                       <div className={styles.branding}>
-                        <img
-                          src={myTeam.logo_url || DEFAULT_TEAM_LOGO}
-                          alt={myTeam.name}
-                          onError={(event) => {
-                            event.currentTarget.onerror = null;
-                            event.currentTarget.src = DEFAULT_TEAM_LOGO;
-                          }}
-                        />
                         <span>
-                          Posting as: <strong>{myTeam.name}</strong>
+                          📰 Author: <strong>Cup Press Release</strong>
                         </span>
                       </div>
-                    ) : (
-                      <p>You don't have a team in this tournament.</p>
                     );
-                  })()}
-                </div>
-              )}
+                  }
+
+                  return myTeam ? (
+                    <div className={styles.branding}>
+                      <span>
+                        📰 Author: <strong>{myTeam.name}</strong>
+                      </span>
+                    </div>
+                  ) : (
+                    <p>You don't have a team in this tournament.</p>
+                  );
+                })()}
+              </div>
 
               <form onSubmit={handlePostMessage} className={styles.postForm}>
                 <div className={styles.newsInputGroup}>
@@ -353,15 +352,13 @@ export const NewsTab: React.FC<NewsTabProps> = ({
                     type="text"
                     value={newNewsTitle}
                     onChange={(event) => setNewNewsTitle(event.target.value)}
-                    placeholder="Article Title..."
+                    placeholder="Title, e.g., Round 3 Objectives"
                     className={styles.postTitleInput}
                   />
                   <textarea
                     value={newNewsContent}
                     onChange={(event) => setNewNewsContent(event.target.value)}
-                    placeholder={
-                      newsMode === 'admin' ? 'Write a tournament announcement...' : "Share your team's news..."
-                    }
+                    placeholder={newsMode === 'admin' ? 'Write a tournament announcement...' : 'Announcement'}
                     className={styles.postTextarea}
                     rows={12}
                   />

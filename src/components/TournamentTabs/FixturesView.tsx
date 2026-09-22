@@ -1000,7 +1000,7 @@ export const FixturesView: React.FC<FixturesViewProps> = ({
               {challengeError && <p className={styles.fixtureChallengeError}>{challengeError}</p>}
               <div className={styles.fixtureChallengeActions}>
                 <Button variant="outlineWhite" fullWidth onClick={submitChallenge} disabled={isSendingChallenge}>
-                  {isSendingChallenge ? 'Sending…' : 'Send'}
+                  {isSendingChallenge ? 'Challenging…' : 'Challenge!'}
                 </Button>
               </div>
             </>
