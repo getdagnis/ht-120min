@@ -4,6 +4,13 @@ import test from 'node:test';
 import appHandler from '../src/server/api/app.js';
 import { buildRoundPressInput, type RoundPressMatchSource, type RoundPressRoundSource, type RoundPressTeamSource } from '../src/server/api/_lib/round-press-input.js';
 import { parseAndValidateRoundPressDraft, validateRoundPressDraft } from '../src/server/api/_lib/round-press-validator.js';
+import {
+  CloudflareAiConfigurationError,
+  CloudflareAiTemporarilyUnavailableError,
+  CLOUDFLARE_ROUND_PRESS_MODEL,
+  generateCloudflareRoundPressDraft,
+} from '../src/server/api/_lib/round-press-cloudflare-writer.js';
+import { generateConfiguredRoundPressDraft, resolveRoundPressProvider } from '../src/server/api/_lib/round-press-provider.js';
 import { GeminiTemporarilyUnavailableError, generateRoundPressDraft } from '../src/server/api/_lib/round-press-writer.js';
 
 const home: RoundPressTeamSource = { id: 'home', name: 'Home FC', ht_team_id: 1 };
@@ -239,4 +246,91 @@ test('structured-output repair remains one additional generation after a valid t
     if (previousKey === undefined) delete process.env.GEMINI_API_KEY;
     else process.env.GEMINI_API_KEY = previousKey;
   }
+});
+
+test('Cloudflare writer sends the shared prompt and exact deterministic input, then validates its response', async () => {
+  const input = writerInput();
+  let requestUrl = '';
+  let requestInit: RequestInit | undefined;
+  const result = await generateCloudflareRoundPressDraft(input, {
+    accountId: 'account-id',
+    apiToken: 'token',
+    fetch: async (url, init) => {
+      requestUrl = url;
+      requestInit = init;
+      return {
+        ok: true,
+        status: 200,
+        json: async () => ({ success: true, result: { response: JSON.parse(validDraft()) } }),
+      };
+    },
+  });
+  assert.equal(requestUrl, `https://api.cloudflare.com/client/v4/accounts/account-id/ai/run/${CLOUDFLARE_ROUND_PRESS_MODEL}`);
+  assert.equal(requestInit?.method, 'POST');
+  assert.equal((requestInit?.headers as Record<string, string>).Authorization, 'Bearer token');
+  const body = JSON.parse(String(requestInit?.body)) as { messages: Array<{ content: string }>; reasoning_effort: string; response_format: { type: string } };
+  assert.equal(body.messages[1]?.content, JSON.stringify(input));
+  assert.equal(body.reasoning_effort, 'low');
+  assert.equal(body.response_format.type, 'json_schema');
+  assert.equal(result.draft.title, 'Round 2 — Extra time arrives');
+  assert.equal(result.repaired, false);
+});
+
+test('Cloudflare 429 and 5xx become typed temporary-unavailability errors', async () => {
+  for (const status of [429, 500]) {
+    await assert.rejects(
+      generateCloudflareRoundPressDraft(writerInput(), {
+        accountId: 'account-id',
+        apiToken: 'token',
+        fetch: async () => ({ ok: false, status, json: async () => ({ success: false, errors: [{ message: 'capacity' }] }) }),
+      }),
+      (error: unknown) => error instanceof CloudflareAiTemporarilyUnavailableError,
+    );
+  }
+});
+
+test('Cloudflare writer fails clearly when server configuration is missing', async () => {
+  const accountId = process.env.CLOUDFLARE_ACCOUNT_ID;
+  const token = process.env.CLOUDFLARE_AI_API_TOKEN;
+  delete process.env.CLOUDFLARE_ACCOUNT_ID;
+  delete process.env.CLOUDFLARE_AI_API_TOKEN;
+  try {
+    await assert.rejects(
+      generateCloudflareRoundPressDraft(writerInput()),
+      (error: unknown) => error instanceof CloudflareAiConfigurationError,
+    );
+  } finally {
+    if (accountId === undefined) delete process.env.CLOUDFLARE_ACCOUNT_ID;
+    else process.env.CLOUDFLARE_ACCOUNT_ID = accountId;
+    if (token === undefined) delete process.env.CLOUDFLARE_AI_API_TOKEN;
+    else process.env.CLOUDFLARE_AI_API_TOKEN = token;
+  }
+});
+
+test('Cloudflare 401 is treated as a server configuration failure', async () => {
+  await assert.rejects(
+    generateCloudflareRoundPressDraft(writerInput(), {
+      accountId: 'account-id',
+      apiToken: 'token',
+      fetch: async () => ({ ok: false, status: 401, json: async () => ({ success: false, errors: [{ message: 'unauthorized' }] }) }),
+    }),
+    (error: unknown) => error instanceof CloudflareAiConfigurationError,
+  );
+});
+
+test('configured writer selects Cloudflare and defaults to Gemini when provider is absent', async () => {
+  const cloudflare = await generateConfiguredRoundPressDraft(writerInput(), {
+    providerValue: 'cloudflare',
+    generateCloudflare: async () => ({ draft: JSON.parse(validDraft()), repaired: false }),
+  });
+  assert.equal(cloudflare.provider, 'cloudflare');
+  assert.equal(cloudflare.model, CLOUDFLARE_ROUND_PRESS_MODEL);
+
+  const defaultProvider = resolveRoundPressProvider('');
+  assert.equal(defaultProvider, 'gemini');
+  const gemini = await generateConfiguredRoundPressDraft(writerInput(), {
+    providerValue: '',
+    generateGemini: async () => ({ draft: JSON.parse(validDraft()), repaired: false }),
+  });
+  assert.equal(gemini.provider, 'gemini');
 });

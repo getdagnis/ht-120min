@@ -33,9 +33,17 @@ import {
 import { fetchManagerTeamsFromChpp, getManagerChppCredentials } from './_lib/matchmaker.js';
 import { buildRoundPressInput, type RoundPressMatchSource, type RoundPressRoundSource, type RoundPressTeamSource } from './_lib/round-press-input.js';
 import {
+  CloudflareAiConfigurationError,
+  CloudflareAiTemporarilyUnavailableError,
+} from './_lib/round-press-cloudflare-writer.js';
+import {
+  generateConfiguredRoundPressDraft,
+  roundPressModelForProvider,
+  RoundPressProviderConfigurationError,
+  resolveRoundPressProvider,
+} from './_lib/round-press-provider.js';
+import {
   GeminiTemporarilyUnavailableError,
-  generateRoundPressDraft,
-  ROUND_PRESS_MODEL,
   ROUND_PRESS_PROMPT_VERSION,
   ROUND_PRESS_THINKING_LEVEL,
 } from './_lib/round-press-writer.js';
@@ -743,14 +751,21 @@ async function handleGenerateRoundSummary(req: VercelRequest, res: VercelRespons
     teams,
   });
   const startedAt = Date.now();
+  let provider = 'unknown';
+  let model = 'unknown';
   try {
-    const result = await generateRoundPressDraft(input);
+    const configuredProvider = resolveRoundPressProvider();
+    provider = configuredProvider;
+    model = roundPressModelForProvider(configuredProvider);
+    const result = await generateConfiguredRoundPressDraft(input, { providerValue: configuredProvider });
     console.info('[Round press] generated', {
       tournamentId,
       seasonNumber,
       roundNumber,
       matchCount: input.matches.length,
-      model: ROUND_PRESS_MODEL,
+      provider,
+      model,
+      success: true,
       thinkingLevel: ROUND_PRESS_THINKING_LEVEL,
       promptVersion: ROUND_PRESS_PROMPT_VERSION,
       repaired: result.repaired,
@@ -762,12 +777,24 @@ async function handleGenerateRoundSummary(req: VercelRequest, res: VercelRespons
       tournamentId,
       seasonNumber,
       roundNumber,
+      provider,
+      model,
+      success: false,
       durationMs: Date.now() - startedAt,
       error: error instanceof Error ? error.message : 'unknown error',
     });
     const message = error instanceof Error ? error.message : '';
     if (error instanceof GeminiTemporarilyUnavailableError) {
       return res.status(503).json({ error: 'Gemini is temporarily unavailable. Please try again shortly.' });
+    }
+    if (error instanceof CloudflareAiTemporarilyUnavailableError) {
+      return res.status(503).json({ error: 'Cloudflare AI is temporarily unavailable. Please try again shortly.' });
+    }
+    if (error instanceof RoundPressProviderConfigurationError) {
+      return res.status(500).json({ error: 'Round press provider configuration is invalid.' });
+    }
+    if (error instanceof CloudflareAiConfigurationError) {
+      return res.status(500).json({ error: 'Cloudflare AI configuration is unavailable.' });
     }
     if (message === 'Gemini configuration is missing.') return res.status(500).json({ error: message });
     return res.status(502).json({ error: 'Could not generate a valid round summary.' });
