@@ -431,7 +431,7 @@ export const Layout: React.FC<LayoutProps> = ({ children }) => {
             href="https://www.hattrick.org/goto.ashx?path=/MyHattrick/Inbox/?actionType=newMail&userId=8777402"
             target="_blank"
           >
-            Send me a HT message!
+            Send author a HT message!
           </a>{' '}
           💌
           <p className={styles.affiliated}>Not affiliated with Hattrick Ltd.</p>

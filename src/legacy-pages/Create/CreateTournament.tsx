@@ -69,8 +69,9 @@ const HAS_CREATED_TOURNAMENT_KEY = 'ht120_has_created_tournament';
 const SCORING_MODE_HELP: Record<string, string> = {
   '120min':
     '120-minute achievements: standings rank teams by how many completed friendlies reached 120 minutes. The match result itself does not award league points.',
-  points: 'Regular 90-minute points: standard football scoring — 3 points for a win, 1 for a draw and 0 for a loss.',
-  appg: "Average Points Per Game for 120-minute tournaments that do not follow a strict schedule (teams play different amount of games). Points are awarded based on 120 min matches, then team's total is divided by its completed matches.",
+  points:
+    "For those who don't like 120min friendlies. Regular 90-minute points: standard football scoring — 3 points for a win, 1 for a draw and 0 for a loss.",
+  appg: "Made on special request from England. Average Points Per Game for 120-minute tournaments that do not follow a strict schedule (teams play different amount of games). Points are awarded based on 120 min matches, then team's total is divided by its completed matches.",
 };
 
 const CreationTipsWidget = () => (
@@ -154,7 +155,7 @@ const getInitialFormData = () => ({
   slug: '',
   scoring_mode: '120min',
   league_category: 'male',
-  registration_type: localStorage.getItem(HAS_CREATED_TOURNAMENT_KEY) === 'true' ? 'validated' : 'sandbox',
+  registration_type: localStorage.getItem(HAS_CREATED_TOURNAMENT_KEY) === 'true' ? 'validated' : 'validated',
   is_private: false,
   country_limit: '',
   include_country_flag: true,
@@ -368,7 +369,7 @@ export const CreateTournament: React.FC = () => {
     setTeams(withoutCreator);
     setStep('info');
     saveProgress(formData, withoutCreator, showDescription, showEmail, null);
-      router.replace(toLocalePath(locale, '/create'));
+    router.replace(toLocalePath(locale, '/create'));
   };
 
   const clearAll = () => {
@@ -383,7 +384,7 @@ export const CreateTournament: React.FC = () => {
     setShowModal(false);
     setIsLinked(false);
     setStep('info');
-      router.replace(toLocalePath(locale, '/create'));
+    router.replace(toLocalePath(locale, '/create'));
   };
 
   const fetchTeamLogoFromChpp = async (
@@ -736,7 +737,7 @@ export const CreateTournament: React.FC = () => {
 
     setStep('teams');
     saveProgress(nextForm);
-      router.replace(toLocalePath(locale, '/create?step=teams'));
+    router.replace(toLocalePath(locale, '/create?step=teams'));
   };
 
   const addLocalTeam = (e: React.FormEvent) => {
@@ -901,21 +902,21 @@ export const CreateTournament: React.FC = () => {
                 organizer_name: organizerName,
               }
             : buildRealTournamentInsert({
-            name: tournamentName,
-            slug,
-            scoringMode: formData.scoring_mode,
-            leagueCategory: formData.league_category,
-            registrationType,
-            adminPassword,
-            isPrivate: formData.is_private,
-            countryLimit: formData.country_limit || null,
-            description: formData.description,
-            showDescription,
-            adminEmail: showEmail ? formData.admin_email : null,
-            maxTeams: formData.max_teams ? Number(formData.max_teams) : null,
-            organizerId,
-            organizerName,
-          }),
+                name: tournamentName,
+                slug,
+                scoringMode: formData.scoring_mode,
+                leagueCategory: formData.league_category,
+                registrationType,
+                adminPassword,
+                isPrivate: formData.is_private,
+                countryLimit: formData.country_limit || null,
+                description: formData.description,
+                showDescription,
+                adminEmail: showEmail ? formData.admin_email : null,
+                maxTeams: formData.max_teams ? Number(formData.max_teams) : null,
+                organizerId,
+                organizerName,
+              }),
         ])
         .select()
         .single();
@@ -1205,10 +1206,10 @@ export const CreateTournament: React.FC = () => {
                   </select>
                   <p className={styles.small}>
                     {registrationType === 'validated'
-                      ? 'Only managers themselves can join with their teams. Automated fixtures and scoring. Managers still arrange their own matches'
+                      ? 'Default tournament type. Automated fixtures and scoring, participatns apply themselves and book their own matches.'
                       : registrationType === 'sandbox'
-                        ? "Create a temporary test tournament with random dummy Hattrick teams. Real teams cannot be added. Test tourneys aren't published. But you can share the link around for others to look."
-                        : "Organiser has more freedom — can add any Hattrick team they want that's available. Can self update scores. Useful when tournament management happens on HT forums. Manager does more, participants less."}
+                        ? 'Play around with a test tournament and dummy teams. Not published. Do what you want.'
+                        : "Organiser has more freedom — can add any Hattrick team they want. Enter scores manually. Don't have to take part themselves. Useful when tournament management happens on HT forums."}
                   </p>
                 </div>
                 <div className={styles.field}>
@@ -1234,8 +1235,8 @@ export const CreateTournament: React.FC = () => {
                     value={formData.max_teams}
                     onChange={(e) => setFormData({ ...formData, max_teams: e.target.value })}
                   >
-                    <option value="">Unlimited&#32; (decide later)</option>
-                    {[2, 4, 6, 8, 16, 32, 64].map((n) => (
+                    <option value="">Unknown&#32; (decide later)</option>
+                    {[2, 4, 6, 8, 10, 12].map((n) => (
                       <option key={n} value={n}>
                         {n} teams
                       </option>
@@ -1374,13 +1375,7 @@ export const CreateTournament: React.FC = () => {
                   <Button type="submit" fullWidth disabled={loading} variant="secondary">
                     Continue <ArrowRight size={18} weight="bold" />
                   </Button>
-                  <Button
-                    type="button"
-                    variant="outlineModal"
-                    size="sm"
-                    onClick={clearAll}
-                    disabled={loading}
-                  >
+                  <Button type="button" variant="outlineModal" size="sm" onClick={clearAll} disabled={loading}>
                     Clear All
                   </Button>
                 </div>

@@ -18,7 +18,7 @@
     "prod": "npm run lint && npm run build && npm run test && vercel --prod"
   },
   "dependencies": {
-    "@google/genai": "^2.9.0",
+    "@google/genai": "^2.23.0",
     "@supabase/supabase-js": "^2.107.0",
     "@vercel/analytics": "^2.0.1",
     "@vercel/node": "^5.8.12",
