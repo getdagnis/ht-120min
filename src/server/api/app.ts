@@ -33,6 +33,7 @@ import {
 import { fetchManagerTeamsFromChpp, getManagerChppCredentials } from './_lib/matchmaker.js';
 import { buildRoundPressInput, type RoundPressMatchSource, type RoundPressRoundSource, type RoundPressTeamSource } from './_lib/round-press-input.js';
 import {
+  GeminiTemporarilyUnavailableError,
   generateRoundPressDraft,
   ROUND_PRESS_MODEL,
   ROUND_PRESS_PROMPT_VERSION,
@@ -765,6 +766,9 @@ async function handleGenerateRoundSummary(req: VercelRequest, res: VercelRespons
       error: error instanceof Error ? error.message : 'unknown error',
     });
     const message = error instanceof Error ? error.message : '';
+    if (error instanceof GeminiTemporarilyUnavailableError) {
+      return res.status(503).json({ error: 'Gemini is temporarily unavailable. Please try again shortly.' });
+    }
     if (message === 'Gemini configuration is missing.') return res.status(500).json({ error: message });
     return res.status(502).json({ error: 'Could not generate a valid round summary.' });
   }

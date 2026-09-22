@@ -4,9 +4,29 @@ import test from 'node:test';
 import appHandler from '../src/server/api/app.js';
 import { buildRoundPressInput, type RoundPressMatchSource, type RoundPressRoundSource, type RoundPressTeamSource } from '../src/server/api/_lib/round-press-input.js';
 import { parseAndValidateRoundPressDraft, validateRoundPressDraft } from '../src/server/api/_lib/round-press-validator.js';
+import { GeminiTemporarilyUnavailableError, generateRoundPressDraft } from '../src/server/api/_lib/round-press-writer.js';
 
 const home: RoundPressTeamSource = { id: 'home', name: 'Home FC', ht_team_id: 1 };
 const away: RoundPressTeamSource = { id: 'away', name: 'Away FC', ht_team_id: 2 };
+
+function writerInput() {
+  return buildRoundPressInput({
+    tournament: { id: 'tournament', name: 'Cup', scoringMode: '120min' },
+    seasonNumber: 1,
+    roundNumber: 2,
+    rounds: [{ id: 'round-2', round_number: 2, matches: [match('match-2', 'round-2')] }],
+    teams: [home, away],
+  });
+}
+
+function validDraft(matchId = 'match-2') {
+  return JSON.stringify({
+    title: 'Round 2 — Extra time arrives',
+    intro: 'The round revealed something useful.',
+    matches: [{ matchId, paragraph: 'The match reached 120 minutes and that shaped the story.' }],
+    outro: 'The next round should show whether this was adaptation or coincidence.',
+  });
+}
 
 function match(id: string, roundId: string, roundCompleted = true): RoundPressMatchSource {
   return {
@@ -131,4 +151,92 @@ test('round summary route rejects unauthenticated callers before loading tournam
   );
   assert.equal(statusCode, 401);
   assert.deepEqual(payload, { error: 'Please sign in with Hattrick first.' });
+});
+
+test('Gemini 503 retries with backoff and succeeds', async () => {
+  const previousKey = process.env.GEMINI_API_KEY;
+  process.env.GEMINI_API_KEY = 'test-key';
+  let attempts = 0;
+  const delays: number[] = [];
+  try {
+    const result = await generateRoundPressDraft(writerInput(), {
+      generateContent: async () => {
+        attempts += 1;
+        if (attempts < 3) throw Object.assign(new Error('high demand'), { status: 503 });
+        return { text: validDraft() };
+      },
+      sleep: async (milliseconds) => delays.push(milliseconds),
+    });
+    assert.equal(result.repaired, false);
+    assert.equal(attempts, 3);
+    assert.deepEqual(delays, [1000, 2000]);
+  } finally {
+    if (previousKey === undefined) delete process.env.GEMINI_API_KEY;
+    else process.env.GEMINI_API_KEY = previousKey;
+  }
+});
+
+test('repeated Gemini 503 failures become a typed temporary-unavailability error', async () => {
+  const previousKey = process.env.GEMINI_API_KEY;
+  process.env.GEMINI_API_KEY = 'test-key';
+  let attempts = 0;
+  try {
+    await assert.rejects(
+      generateRoundPressDraft(writerInput(), {
+        generateContent: async () => {
+          attempts += 1;
+          throw Object.assign(new Error('high demand'), { status: 503 });
+        },
+        sleep: async () => undefined,
+      }),
+      (error: unknown) => error instanceof GeminiTemporarilyUnavailableError,
+    );
+    assert.equal(attempts, 3);
+  } finally {
+    if (previousKey === undefined) delete process.env.GEMINI_API_KEY;
+    else process.env.GEMINI_API_KEY = previousKey;
+  }
+});
+
+test('Gemini 401 is not retried', async () => {
+  const previousKey = process.env.GEMINI_API_KEY;
+  process.env.GEMINI_API_KEY = 'test-key';
+  let attempts = 0;
+  const failure = Object.assign(new Error('unauthorized'), { status: 401 });
+  try {
+    await assert.rejects(
+      generateRoundPressDraft(writerInput(), {
+        generateContent: async () => {
+          attempts += 1;
+          throw failure;
+        },
+        sleep: async () => undefined,
+      }),
+      (error: unknown) => error === failure,
+    );
+    assert.equal(attempts, 1);
+  } finally {
+    if (previousKey === undefined) delete process.env.GEMINI_API_KEY;
+    else process.env.GEMINI_API_KEY = previousKey;
+  }
+});
+
+test('structured-output repair remains one additional generation after a valid transport response', async () => {
+  const previousKey = process.env.GEMINI_API_KEY;
+  process.env.GEMINI_API_KEY = 'test-key';
+  let attempts = 0;
+  try {
+    const result = await generateRoundPressDraft(writerInput(), {
+      generateContent: async () => {
+        attempts += 1;
+        return { text: attempts === 1 ? '{"title":"missing fields"}' : validDraft() };
+      },
+      sleep: async () => undefined,
+    });
+    assert.equal(result.repaired, true);
+    assert.equal(attempts, 2);
+  } finally {
+    if (previousKey === undefined) delete process.env.GEMINI_API_KEY;
+    else process.env.GEMINI_API_KEY = previousKey;
+  }
 });
