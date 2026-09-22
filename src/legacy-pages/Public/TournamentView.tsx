@@ -25,7 +25,11 @@ import {
   isMissingMatchEventDetails,
   type SeasonFixturesSnapshot,
 } from '../../utils/season-fixtures';
-import { getCompatibleLeagueRestrictionOptions, teamMatchesCategory, validateTeamEligibility } from '../../utils/team-eligibility';
+import {
+  getCompatibleLeagueRestrictionOptions,
+  teamMatchesCategory,
+  validateTeamEligibility,
+} from '../../utils/team-eligibility';
 import { normalizeLeagueLimit, resolveCountryRestriction } from '../../../shared/worlddetails';
 import type { MatchEventDetails } from '../../../shared/match-events';
 import { useLiveMatches } from '../../hooks/useLiveMatches';
@@ -59,6 +63,7 @@ import {
 import { Tooltip } from 'react-tooltip';
 import { nanoid } from 'nanoid';
 import { Button } from '../../components/Button/Button';
+import buttonStyles from '../../components/Button/Button.module.sass';
 import { Switch } from '../../components/Switch/Switch';
 import { Modal } from '../../components/Modal/Modal';
 import { ModalTeamCard } from '../../components/ModalTeamCard/ModalTeamCard';
@@ -125,8 +130,8 @@ function readSessionStorage(key: string) {
   return sessionStorage.getItem(key);
 }
 
-function readStoredBoolean(key: string, fallback: boolean) {
-  const value = readLocalStorage(key);
+function readStoredSessionBoolean(key: string, fallback: boolean) {
+  const value = readSessionStorage(key);
   if (value === null) return fallback;
   try {
     return JSON.parse(value) as boolean;
@@ -356,6 +361,7 @@ interface Tournament {
   status: 'open' | 'active' | 'paused' | 'stopped' | 'finished' | 'waiting' | 'archived';
   last_fixtures_refresh: string | null;
   admin_email: string | null;
+  forum_id?: number | null;
   max_teams: number | null;
   schedule_mode?: ScheduleMode | 'manual' | null;
   schedule_start_slot?: string | null;
@@ -387,13 +393,6 @@ interface TournamentSeason {
   fixtures_snapshot_json?: SeasonFixturesSnapshot | null;
   created_at: string;
   updated_at: string;
-}
-
-function hasFinishedAllRealFixtures(rounds: RoundWithMatches[]) {
-  const matches = rounds.flatMap((round) => round.matches || []);
-  const realFixtures = matches.filter((match) => match.home_team_id && match.away_team_id);
-
-  return realFixtures.length > 0 && realFixtures.every((match) => match.completed || match.status === 'misarranged');
 }
 
 function toStandingTeam(team: Team): StandingTeam {
@@ -946,6 +945,7 @@ export const TournamentView: React.FC<{ initialData?: TournamentInitialData }> =
   const [editDescription, setEditDescription] = useState('');
   const [showEditEmail, setShowEditEmail] = useState(false);
   const [editAdminEmail, setEditAdminEmail] = useState('');
+  const [editForumId, setEditForumId] = useState('');
   const [showAdvancedSettings, setShowAdvancedSettings] = useState(false);
   const [hasClosedCreatedTournamentWelcome, setHasClosedCreatedTournamentWelcome] = useState(false);
   const [hasClosedOpenTournamentWelcome, setHasClosedOpenTournamentWelcome] = useState(false);
@@ -1026,7 +1026,7 @@ export const TournamentView: React.FC<{ initialData?: TournamentInitialData }> =
   );
   const showOpenTournamentWelcome = Boolean(
     isHydrationReady &&
-      tournament &&
+    tournament &&
     (TOURNAMENT_VIEW_MODALS_OPEN_BY_DEFAULT.openTournamentWelcome ||
       (tournamentVisitWelcomeKey &&
         slug &&
@@ -1064,6 +1064,7 @@ export const TournamentView: React.FC<{ initialData?: TournamentInitialData }> =
         description: false,
         showEmail: false,
         adminEmail: false,
+        forumId: false,
         scheduleMode: false,
         scheduleStart: false,
         test: false,
@@ -1076,6 +1077,7 @@ export const TournamentView: React.FC<{ initialData?: TournamentInitialData }> =
       tournament.country_limit_format ?? 'league_id',
     );
     const savedAdminEmail = tournament.admin_email || '';
+    const savedForumId = tournament.forum_id ? String(tournament.forum_id) : '';
     const currentScheduleSetting = scheduleSetup === 'manual' ? 'manual' : scheduleMode;
     const savedScheduleSetting =
       tournament.schedule_mode === 'manual' ? 'manual' : normalizeGeneratedScheduleMode(tournament.schedule_mode);
@@ -1093,6 +1095,7 @@ export const TournamentView: React.FC<{ initialData?: TournamentInitialData }> =
       description: editDescription !== (tournament.description || ''),
       showEmail: showEditEmail !== Boolean(tournament.admin_email),
       adminEmail: editAdminEmail !== savedAdminEmail,
+      forumId: editForumId !== savedForumId,
       scheduleMode: currentScheduleSetting !== savedScheduleSetting,
       scheduleStart: !isStartDateLocked && scheduleStartSlotId !== savedStartSlotId,
       test: isTest !== Boolean(tournament.is_test),
@@ -1100,6 +1103,7 @@ export const TournamentView: React.FC<{ initialData?: TournamentInitialData }> =
     };
   }, [
     editAdminEmail,
+    editForumId,
     editChppOnlyJoin,
     editCountryLimit,
     editDescription,
@@ -1131,20 +1135,20 @@ export const TournamentView: React.FC<{ initialData?: TournamentInitialData }> =
   );
 
   // Collapsible states
-  const [, setIsSettingsCollapsed] = useState(() => readStoredBoolean(`settings_collapsed_${slug}`, false));
+  const [, setIsSettingsCollapsed] = useState(() => readStoredSessionBoolean(`settings_collapsed_${slug}`, false));
   const [settingsCollapseOverride, setSettingsCollapseOverride] = useState<boolean | null>(() => {
-    const stored = readLocalStorage(`settings_collapsed_${slug}`);
-    return stored === null ? null : readStoredBoolean(`settings_collapsed_${slug}`, false);
+    const stored = readSessionStorage(`settings_collapsed_${slug}`);
+    return stored === null ? null : readStoredSessionBoolean(`settings_collapsed_${slug}`, false);
   });
-  const [isTeamsCollapsed, setIsTeamsCollapsed] = useState(() => readStoredBoolean(`teams_collapsed_${slug}`, true));
+  const [isTeamsCollapsed, setIsTeamsCollapsed] = useState(() => readStoredSessionBoolean(`teams_collapsed_${slug}`, true));
   const [isResultsCollapsed, setIsResultsCollapsed] = useState(() =>
-    readStoredBoolean(`results_collapsed_${slug}`, true),
+    readStoredSessionBoolean(`results_collapsed_${slug}`, true),
   );
-  const [isSeasonCollapsed, setIsSeasonCollapsed] = useState(() => readStoredBoolean(`season_collapsed_${slug}`, true));
+  const [isSeasonCollapsed, setIsSeasonCollapsed] = useState(() => readStoredSessionBoolean(`season_collapsed_${slug}`, true));
   const [isAnnouncementsCollapsed, setIsAnnouncementsCollapsed] = useState(() =>
-    readStoredBoolean(`announcements_collapsed_${slug}`, false),
+    readStoredSessionBoolean(`announcements_collapsed_${slug}`, true),
   );
-  const [isRolesCollapsed, setIsRolesCollapsed] = useState(() => readStoredBoolean(`roles_collapsed_${slug}`, true));
+  const [isRolesCollapsed, setIsRolesCollapsed] = useState(() => readStoredSessionBoolean(`roles_collapsed_${slug}`, true));
   const [scheduleCollapseOverrides, setScheduleCollapseOverrides] = useState<Record<string, boolean>>({});
   const scheduleCollapseStorageKey = slug ? `schedule_collapsed_${slug}` : null;
   const scheduleCollapseOverride = useMemo(() => {
@@ -1153,7 +1157,7 @@ export const TournamentView: React.FC<{ initialData?: TournamentInitialData }> =
       return scheduleCollapseOverrides[slug];
     }
     if (!isHydrationReady) return null;
-    const stored = readLocalStorage(scheduleCollapseStorageKey);
+    const stored = readSessionStorage(scheduleCollapseStorageKey);
     if (stored === null) return null;
     try {
       return JSON.parse(stored) as boolean;
@@ -1166,12 +1170,12 @@ export const TournamentView: React.FC<{ initialData?: TournamentInitialData }> =
   const togglePanel = (key: string, state: boolean, setter: React.Dispatch<React.SetStateAction<boolean>>) => {
     setter(state);
     if (key === 'settings') setSettingsCollapseOverride(state);
-    if (slug) localStorage.setItem(`${key}_collapsed_${slug}`, JSON.stringify(state));
+    if (slug) sessionStorage.setItem(`${key}_collapsed_${slug}`, JSON.stringify(state));
   };
 
   const setSchedulePanelCollapsed = (state: boolean) => {
     if (slug) setScheduleCollapseOverrides((current) => ({ ...current, [slug]: state }));
-    if (scheduleCollapseStorageKey) localStorage.setItem(scheduleCollapseStorageKey, JSON.stringify(state));
+    if (scheduleCollapseStorageKey) sessionStorage.setItem(scheduleCollapseStorageKey, JSON.stringify(state));
   };
 
   const expandAllAdminPanels = () => {
@@ -1285,13 +1289,10 @@ export const TournamentView: React.FC<{ initialData?: TournamentInitialData }> =
           round.matches.flatMap((match) => [match.home_team_id, match.away_team_id].filter(Boolean) as string[]),
         ),
       );
-      const replacedTeamIds = new Set(
-        teamList.map((team) => team.replacement_for_team_id).filter(Boolean) as string[],
-      );
+      const replacedTeamIds = new Set(teamList.map((team) => team.replacement_for_team_id).filter(Boolean) as string[]);
       const currentSeasonTeams = teamList.filter(
         (team) =>
-          !team.is_placeholder &&
-          (team.active || (currentSeasonTeamIds.has(team.id) && !replacedTeamIds.has(team.id))),
+          !team.is_placeholder && (team.active || (currentSeasonTeamIds.has(team.id) && !replacedTeamIds.has(team.id))),
       );
       if (!currentSeasonTeams.length) return true;
 
@@ -1399,16 +1400,9 @@ export const TournamentView: React.FC<{ initialData?: TournamentInitialData }> =
         : null,
     [rescheduleDraft],
   );
-  const hasSeasonCollapseOverride = Boolean(
-    isHydrationReady && slug && readLocalStorage(`season_collapsed_${slug}`) !== null,
-  );
-  const resolvedScheduleCollapsed = scheduleCollapseOverride ?? isGenerated;
-  const isSeasonCloseAvailable = Boolean(
-    tournament && tournament.status !== 'finished' && isGenerated && hasFinishedAllRealFixtures(rounds),
-  );
-  const resolvedSettingsCollapsed =
-    settingsCollapseOverride ?? Boolean(tournament && (tournament.status !== 'open' || isGenerated));
-  const resolvedSeasonCollapsed = hasSeasonCollapseOverride ? isSeasonCollapsed : !isSeasonCloseAvailable;
+  const resolvedScheduleCollapsed = scheduleCollapseOverride ?? true;
+  const resolvedSettingsCollapsed = settingsCollapseOverride ?? false;
+  const resolvedSeasonCollapsed = isSeasonCollapsed;
 
   const reconcileScheduleSelection = useCallback(
     (nextMode: ScheduleMode, nextStartSlotId: string | null) => {
@@ -1539,9 +1533,14 @@ export const TournamentView: React.FC<{ initialData?: TournamentInitialData }> =
         } else {
           setSeasons([]);
         }
-        const currentSeasonId = (seasonData || []).find((season) => Number(season.season_number) === currentSeasonNumber)?.id;
+        const currentSeasonId = (seasonData || []).find(
+          (season) => Number(season.season_number) === currentSeasonNumber,
+        )?.id;
         const { data: slotData } = currentSeasonId
-          ? await supabase.from('tournament_season_slots').select('id, current_team_id').eq('tournament_season_id', currentSeasonId)
+          ? await supabase
+              .from('tournament_season_slots')
+              .select('id, current_team_id')
+              .eq('tournament_season_id', currentSeasonId)
           : { data: [] as Array<{ id: string; current_team_id: string | null }> };
         setSeasonSlots((slotData || []) as Array<{ id: string; current_team_id: string | null }>);
         setEditName(tournamentData.name);
@@ -1565,6 +1564,7 @@ export const TournamentView: React.FC<{ initialData?: TournamentInitialData }> =
         setEditDescription(tournamentData.description || '');
         setShowEditEmail(!!tournamentData.admin_email);
         setEditAdminEmail(tournamentData.admin_email || '');
+        setEditForumId(tournamentData.forum_id ? String(tournamentData.forum_id) : '');
         setEditMaxTeams(tournamentData.max_teams || null);
         setEditRegistrationOpen(!tournamentData.registration_closed_at);
         setIncludeWeek15WeekendFriendly(false);
@@ -1672,9 +1672,18 @@ export const TournamentView: React.FC<{ initialData?: TournamentInitialData }> =
           );
 
         const rawMatches = matchesDataRaw || [];
-        const assignmentIds = Array.from(new Set(rawMatches.flatMap((match) => [match.home_slot_assignment_id, match.away_slot_assignment_id]).filter((id): id is string => typeof id === 'string')));
+        const assignmentIds = Array.from(
+          new Set(
+            rawMatches
+              .flatMap((match) => [match.home_slot_assignment_id, match.away_slot_assignment_id])
+              .filter((id): id is string => typeof id === 'string'),
+          ),
+        );
         const { data: assignmentRows } = assignmentIds.length
-          ? await supabase.from('tournament_season_slot_assignments').select('id, team_name, ht_team_id, manager_name, hattrick_user_id, logo_url').in('id', assignmentIds)
+          ? await supabase
+              .from('tournament_season_slot_assignments')
+              .select('id, team_name, ht_team_id, manager_name, hattrick_user_id, logo_url')
+              .in('id', assignmentIds)
           : { data: [] as Array<Record<string, unknown>> };
         const assignments = new Map((assignmentRows || []).map((assignment) => [String(assignment.id), assignment]));
         // Completed fixture cards use their frozen assignment identity; upcoming
@@ -1682,19 +1691,30 @@ export const TournamentView: React.FC<{ initialData?: TournamentInitialData }> =
         const matchesData = rawMatches.map((m) => {
           const enrichTeam = (team: typeof m.home_team, assignmentId: unknown) => {
             const enriched = team
-            ? {
-                ...team,
-                manager_name: team.hattrick_user_id
-                  ? nextProfileMap[team.hattrick_user_id]?.manager_name || team.manager_name
-                  : team.manager_name,
-              }
-            : null;
+              ? {
+                  ...team,
+                  manager_name: team.hattrick_user_id
+                    ? nextProfileMap[team.hattrick_user_id]?.manager_name || team.manager_name
+                    : team.manager_name,
+                }
+              : null;
             const assignment = typeof assignmentId === 'string' ? assignments.get(assignmentId) : null;
             return assignment && m.completed
-              ? { ...(enriched || {}), name: assignment.team_name, ht_team_id: assignment.ht_team_id, manager_name: assignment.manager_name, hattrick_user_id: assignment.hattrick_user_id, logo_url: assignment.logo_url }
+              ? {
+                  ...(enriched || {}),
+                  name: assignment.team_name,
+                  ht_team_id: assignment.ht_team_id,
+                  manager_name: assignment.manager_name,
+                  hattrick_user_id: assignment.hattrick_user_id,
+                  logo_url: assignment.logo_url,
+                }
               : enriched;
           };
-          return { ...m, home_team: enrichTeam(m.home_team, m.home_slot_assignment_id), away_team: enrichTeam(m.away_team, m.away_slot_assignment_id) };
+          return {
+            ...m,
+            home_team: enrichTeam(m.home_team, m.home_slot_assignment_id),
+            away_team: enrichTeam(m.away_team, m.away_slot_assignment_id),
+          };
         });
 
         const { data: warningsData } = await supabase
@@ -2061,7 +2081,15 @@ export const TournamentView: React.FC<{ initialData?: TournamentInitialData }> =
       }
       setModalLoading(false);
     },
-    [router, setIsConnecting, setJoinError, setModalLoading, setPendingJoinData, setShowJoinErrorModal, setShowTeamModal],
+    [
+      router,
+      setIsConnecting,
+      setJoinError,
+      setModalLoading,
+      setPendingJoinData,
+      setShowJoinErrorModal,
+      setShowTeamModal,
+    ],
   );
 
   const handleTeamSelect = async (team: ChppTeamOption) => {
@@ -2119,10 +2147,7 @@ export const TournamentView: React.FC<{ initialData?: TournamentInitialData }> =
       };
     }
 
-    const countryLimit = normalizeLeagueLimit(
-      tournament.country_limit,
-      tournament.country_limit_format ?? 'league_id',
-    );
+    const countryLimit = normalizeLeagueLimit(tournament.country_limit, tournament.country_limit_format ?? 'league_id');
     const eligibility = validateTeamEligibility(team, {
       category: tournament.league_category,
       countryLimit,
@@ -3277,6 +3302,7 @@ export const TournamentView: React.FC<{ initialData?: TournamentInitialData }> =
           is_test: isTest,
           show_description: showEditDescription,
           description: editDescription,
+          forum_id: editForumId.trim() ? Number(editForumId) : null,
           admin_email: showEditEmail ? editAdminEmail : null,
           max_teams: editMaxTeams,
           registration_closed_at: editRegistrationOpen
@@ -3605,7 +3631,9 @@ export const TournamentView: React.FC<{ initialData?: TournamentInitialData }> =
   const reviveTeam = async (teamId: string) => {
     const team = teams.find((t) => t.id === teamId);
     if (isGenerated) {
-      alert('Scheduled-season revival is unavailable during peak-season slot compatibility. Use the reviewed replacement flow instead.');
+      alert(
+        'Scheduled-season revival is unavailable during peak-season slot compatibility. Use the reviewed replacement flow instead.',
+      );
       return;
     }
     if (!window.confirm(`This team was previously removed from tournament. Do you want to revive ${team?.name}?`))
@@ -3696,7 +3724,9 @@ export const TournamentView: React.FC<{ initialData?: TournamentInitialData }> =
     let updatedTeams;
     const team = teams.find((t) => t.id === id);
     if (isGenerated) {
-      alert('Scheduled-season removal is unavailable during peak-season slot compatibility. Do not mutate a slot-backed roster directly.');
+      alert(
+        'Scheduled-season removal is unavailable during peak-season slot compatibility. Do not mutate a slot-backed roster directly.',
+      );
       return;
     }
 
@@ -4196,12 +4226,12 @@ export const TournamentView: React.FC<{ initialData?: TournamentInitialData }> =
   );
   const canJoinAnotherTeamBeforeFixtures = Boolean(
     tournament &&
-      canViewerJoinAnotherTeam({
-        isLoggedIn: Boolean(currentHtUserId),
-        isRegistrationOpen,
-        maxTeams: tournament.max_teams,
-        activeTeamsCount: activeRealTeamsCount,
-      }),
+    canViewerJoinAnotherTeam({
+      isLoggedIn: Boolean(currentHtUserId),
+      isRegistrationOpen,
+      maxTeams: tournament.max_teams,
+      activeTeamsCount: activeRealTeamsCount,
+    }),
   );
   const shouldPromptReturningParticipantLogin = Boolean(
     tournamentId &&
@@ -4412,7 +4442,7 @@ export const TournamentView: React.FC<{ initialData?: TournamentInitialData }> =
                       value={quickDescription}
                       onChange={(e) => setQuickDescription(e.target.value)}
                       placeholder="Tournament description..."
-                      rows={4}
+                      rows={6}
                     />
                     <div className={styles.quickAddActions}>
                       <Button
@@ -4931,8 +4961,8 @@ export const TournamentView: React.FC<{ initialData?: TournamentInitialData }> =
               isViewingHistoricalSeason && !selectedSeason?.fixtures_snapshot_json
                 ? `Fixtures for Season ${selectedSeasonNumber} are unavailable because this season has no saved fixture snapshot.`
                 : tournament.status === 'active' && rounds.length === 0
-                ? `Season ${currentSeasonNumber} has a locked roster. A new schedule has not yet been generated.`
-                : undefined
+                  ? `Season ${currentSeasonNumber} has a locked roster. A new schedule has not yet been generated.`
+                  : undefined
             }
             onJoinWithHattrick={() => {
               setIsConnecting(true);
@@ -5014,6 +5044,7 @@ export const TournamentView: React.FC<{ initialData?: TournamentInitialData }> =
                   onClick={() => setIsStandingsSeasonMenuOpen((open) => !open)}
                   aria-expanded={isStandingsSeasonMenuOpen}
                   aria-haspopup="listbox"
+                  className={styles.standingsSeasonsButton}
                 >
                   Season {selectedSeasonNumber} standings
                   <CaretDown size={16} weight="bold" aria-hidden="true" />
@@ -5037,6 +5068,16 @@ export const TournamentView: React.FC<{ initialData?: TournamentInitialData }> =
                   </div>
                 )}
               </div>
+            )}
+            {tournament.forum_id && tournament.forum_id > 0 && (
+              <a
+                href={`https://www.hattrick.org/goto.ashx?path=/Forum/Read.aspx?t=${tournament.forum_id}`}
+                target="_blank"
+                rel="noopener noreferrer"
+                className={`${buttonStyles.button} ${buttonStyles.zero} ${buttonStyles.sm} ${styles.standingsSeasonsButton} ${styles.standingsForumButton}`}
+              >
+                Tournament HT Forum <ArrowRight size={16} weight="bold" aria-hidden="true" />
+              </a>
             )}
             <MottoWidget items={TOURNAMENT_DEFAULT} theme="dark" variant="sidebar" />
             <ChatView
@@ -5463,11 +5504,25 @@ export const TournamentView: React.FC<{ initialData?: TournamentInitialData }> =
                                   value={editDescription}
                                   onChange={(e) => setEditDescription(e.target.value)}
                                   placeholder="Tournament description..."
-                                  rows={4}
+                                  rows={6}
                                 />
                                 {renderUnsavedSettingsNote(unsavedSettingsFields.description)}
                               </div>
                             )}
+
+                            <div className={`${adminStyles.field} ${styles.mt1}`}>
+                              <label htmlFor="tournament-forum-id">Tournament HT Forum ID</label>
+                              <input
+                                id="tournament-forum-id"
+                                type="text"
+                                inputMode="numeric"
+                                pattern="[0-9]*"
+                                value={editForumId}
+                                onChange={(event) => setEditForumId(event.target.value.replace(/\D/g, ''))}
+                                placeholder="17682260"
+                              />
+                              {renderUnsavedSettingsNote(unsavedSettingsFields.forumId)}
+                            </div>
                           </div>
 
                           {showAdvancedSettings && (
@@ -5735,7 +5790,9 @@ export const TournamentView: React.FC<{ initialData?: TournamentInitialData }> =
                               <li key={team.id} className={!team.active ? adminStyles.inactiveTeam : ''}>
                                 <div className={adminStyles.teamInfo}>
                                   <div className={styles.nameRow}>
-                                    <span className={`${adminStyles.name} ${!team.active ? adminStyles.inactiveName : ''}`}>
+                                    <span
+                                      className={`${adminStyles.name} ${!team.active ? adminStyles.inactiveName : ''}`}
+                                    >
                                       {team.active ? team.name : team.name || 'Open slot'}
                                     </span>
                                     {team.joined_via_oauth && <span title="Hattrick Validated Team"></span>}
@@ -5890,11 +5947,7 @@ export const TournamentView: React.FC<{ initialData?: TournamentInitialData }> =
                                           </div>
                                         </div>
                                       ) : (
-                                        <Button
-                                          size="sm"
-                                          variant="zero"
-                                          onClick={() => setReplacingTeamId(team.id)}
-                                        >
+                                        <Button size="sm" variant="zero" onClick={() => setReplacingTeamId(team.id)}>
                                           Replace / invite team
                                         </Button>
                                       )}
@@ -6135,8 +6188,7 @@ export const TournamentView: React.FC<{ initialData?: TournamentInitialData }> =
                     </SectionCard>
                   </div>
 
-
-                                    {!isPressOfficer && oauthRoleAccess && (
+                  {!isPressOfficer && oauthRoleAccess && (
                     <div id="admin-panel-roles">
                       <SectionCard
                         title="Roles & Access"

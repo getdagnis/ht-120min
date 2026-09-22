@@ -226,7 +226,7 @@ export const StandingsView: React.FC<StandingsViewProps> = ({
   useEffect(() => {
     if (!tournament?.id || !seasonNumber) return;
 
-   const fetchLatestNews = async () => {
+    const fetchLatestNews = async () => {
       const { data } = await supabase
         .from('news_posts')
         .select('*')
@@ -275,27 +275,20 @@ export const StandingsView: React.FC<StandingsViewProps> = ({
           }
         },
       )
-      .on(
-        'postgres_changes',
-        { event: '*', schema: 'public', table: 'news_reactions' },
-        (payload) => {
-          const reaction = payload.new as NewsReaction;
-          if (!reaction.post_id) return;
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'news_reactions' }, (payload) => {
+        const reaction = payload.new as NewsReaction;
+        if (!reaction.post_id) return;
 
-          setLatestNewsReactions((current) => {
-            if (!current[reaction.post_id]) return current;
+        setLatestNewsReactions((current) => {
+          if (!current[reaction.post_id]) return current;
 
-            const existing = current[reaction.post_id] || [];
-            return {
-              ...current,
-              [reaction.post_id]: [
-                ...existing.filter((item) => item.user_id !== reaction.user_id),
-                reaction,
-              ],
-            };
-          });
-        },
-      )
+          const existing = current[reaction.post_id] || [];
+          return {
+            ...current,
+            [reaction.post_id]: [...existing.filter((item) => item.user_id !== reaction.user_id), reaction],
+          };
+        });
+      })
       .subscribe();
 
     return () => {
@@ -306,10 +299,9 @@ export const StandingsView: React.FC<StandingsViewProps> = ({
   const handleNewsReaction = async (postId: string, reaction: string) => {
     if (!myHtUserId) return;
 
-    const { error } = await supabase.from('news_reactions').upsert(
-      { post_id: postId, user_id: myHtUserId, reaction },
-      { onConflict: 'post_id,user_id' },
-    );
+    const { error } = await supabase
+      .from('news_reactions')
+      .upsert({ post_id: postId, user_id: myHtUserId, reaction }, { onConflict: 'post_id,user_id' });
 
     if (error) return;
 
@@ -673,17 +665,18 @@ export const StandingsView: React.FC<StandingsViewProps> = ({
                               />
                             )}
                             <div className={styles.teamTextContainer}>
-
                               {isOpenSpot ? (
-                              <div className={styles.canJoinButton}>  <Button
-                                  type="button"
-                                  variant="secondaryAction"
-                                  size="xs"
-                                  onClick={onJoinWithHattrick}
-                                  disabled={!canJoinTournament || isConnecting}
-                                >
-                                  Join with CHPP <ArrowRight size={15} weight="bold" />
-                                </Button></div>
+                                <div className={styles.canJoinButton}>
+                                  <Button
+                                    type="button"
+                                    variant="secondaryAction"
+                                    size="xs"
+                                    onClick={onJoinWithHattrick}
+                                    disabled={!canJoinTournament || isConnecting}
+                                  >
+                                    Join with CHPP <ArrowRight size={15} weight="bold" />
+                                  </Button>
+                                </div>
                               ) : (
                                 <>
                                   <a
@@ -709,7 +702,9 @@ export const StandingsView: React.FC<StandingsViewProps> = ({
                                     managerName={s.managerName}
                                     managerHtId={s.hattrickUserId}
                                     mode="standings"
-                                    lastSeenAt={s.hattrickUserId != null ? (lastSeenMap[s.hattrickUserId] ?? null) : null}
+                                    lastSeenAt={
+                                      s.hattrickUserId != null ? (lastSeenMap[s.hattrickUserId] ?? null) : null
+                                    }
                                   />
                                 </>
                               )}
@@ -883,11 +878,7 @@ export const StandingsView: React.FC<StandingsViewProps> = ({
               : null;
 
             return (
-              <SectionCard
-                key={post.id}
-                title='🗞 120min Weekly'
-                className={newsStyles.weeklyPanel}
-              >
+              <SectionCard key={post.id} title="🗞 120min Weekly" className={newsStyles.weeklyPanel}>
                 <NewsArticle
                   post={post}
                   authorTeam={authorTeam}
@@ -899,11 +890,11 @@ export const StandingsView: React.FC<StandingsViewProps> = ({
               </SectionCard>
             );
           })}
-                  {onVisitNews && (
-          <Button variant="outline" onClick={onVisitNews}>
-            All press releases
-          </Button>
-        )}
+          {onVisitNews && (
+            <Button variant="outline" onClick={onVisitNews}>
+              All press releases
+            </Button>
+          )}
         </div>
       )}
 
