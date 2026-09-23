@@ -4,11 +4,13 @@ import type {
   MatchEventSummary,
   MatchGoalEvent,
   MatchInjuryEvent,
+  MatchNotableEvent,
   MatchResultDetails,
   MatchScore,
   MatchSideEventDetails,
   MatchSidePerformance,
 } from '../../../../shared/match-events.js';
+import { INJURY_LOCATION_LABELS } from '../../../../shared/match-events.js';
 
 const CARD_EVENT_TYPES = new Set([510, 511, 512, 513, 514]);
 const REGULAR_GOAL_EVENT_TYPES = new Set([
@@ -26,10 +28,34 @@ const GOAL_EVENT_TYPES = new Set([
 ]);
 const PENALTY_SHOOTOUT_GOAL_EVENT_TYPES = new Set([55, 56, 57]);
 const PENALTY_SHOOTOUT_EVENT_TYPES = new Set([55, 56, 57, 58, 59, 71, 73]);
+const MISSED_CHANCE_EVENT_TYPES = new Set([
+  ...Array.from({ length: 26 }, (_, index) => 200 + index),
+  ...Array.from({ length: 8 }, (_, index) => 230 + index),
+  ...Array.from({ length: 5 }, (_, index) => 239 + index),
+  ...Array.from({ length: 5 }, (_, index) => 250 + index),
+  ...Array.from({ length: 5 }, (_, index) => 260 + index),
+  ...Array.from({ length: 5 }, (_, index) => 270 + index),
+  ...Array.from({ length: 11 }, (_, index) => 280 + index),
+]);
 const INJURY_LOCATION_EVENT_MIN = 401;
 const INJURY_LOCATION_EVENT_MAX = 422;
 const INJURY_BY_FOUL_EVENT = 423;
 const INJURY_DURATION_EVENT = 454;
+const NOTABLE_EVENT_TYPES = new Set([
+  ...GOAL_EVENT_TYPES,
+  ...PENALTY_SHOOTOUT_EVENT_TYPES,
+  ...CARD_EVENT_TYPES,
+  ...MISSED_CHANCE_EVENT_TYPES,
+  61, 64, 65, 68, 69, 70, 72, 75, 76,
+  90, 91, 92, 93, 94, 95, 96, 97,
+  301, 302, 303, 304, 305, 306, 307, 308, 309, 310, 311,
+  331, 332, 333, 334, 335, 336, 343, 344,
+  350, 351, 352, 360, 361, 362, 370, 371, 372,
+  380, 381, 382, 383, 384, 385, 386, 387, 388, 389, 390, 391,
+  ...Array.from({ length: 22 }, (_, index) => 401 + index),
+  423, 424, 425, 426, 427, 450, 455, 456, 457, 458, 473, 489,
+  650, 651, 700, 701, 702, 703, 704, 812, 813, 818, 819, 820, 821, 822,
+]);
 
 interface ParsedEvent {
   typeId: number;
@@ -300,7 +326,88 @@ function toGoalEvent(event: ParsedEvent): MatchGoalEvent | null {
     category: PENALTY_SHOOTOUT_GOAL_EVENT_TYPES.has(event.typeId)
       ? 'penalty_shootout'
       : REGULAR_GOAL_EVENT_TYPES.has(event.typeId) ? 'regular' : 'other',
+    description: getCanonicalEventDescription(event.typeId),
   };
+}
+
+const EVENT_DESCRIPTIONS: Record<number, string> = {
+  55: 'penalty shootout goal by technical player without nerves',
+  56: 'penalty shootout goal without nerves',
+  57: 'penalty shootout goal despite nerves',
+  58: 'penalty shootout miss because of nerves',
+  59: 'penalty shootout miss despite no nerves',
+  61: 'organisation break', 64: 'team reorganised', 65: 'nerves in an important match',
+  68: 'successful pressing', 69: 'underestimation removed', 70: 'extra time started',
+  71: 'penalty shootout after extra time', 72: 'extra time decided', 73: 'penalty shootout decided by coin toss',
+  75: 'added time announced', 76: 'no added time announced',
+  90: 'injured but continued playing', 91: 'injured and left the field', 92: 'badly injured and left the field',
+  93: 'injured with no replacement', 94: 'injured after foul but continued', 95: 'injured after foul and left the field',
+  96: 'injured after foul with no replacement', 97: 'keeper injured; field player took goal',
+  107: 'long-shot goal', 115: 'quick player scored after a rush', 116: 'quick rush created a goal',
+  117: 'tired defender mistake led to a goal', 118: 'corner created a goal', 119: 'corner goal by a head specialist',
+  125: 'unpredictable own goal', 135: 'experienced forward scored', 136: 'inexperienced defender caused a goal',
+  137: 'winger supplied a head specialist who scored', 138: 'winger supplied a goal', 139: 'technical player beat a head specialist',
+  185: 'indirect free-kick goal', 186: 'counter-attack goal from an indirect free kick', 187: 'long-shot goal',
+  190: 'powerful forward created an extra-chance goal',
+  207: 'long shot missed', 215: 'quick player missed after a rush', 216: 'quick rush failed to produce a goal',
+  217: 'tired defender mistake did not produce a goal', 218: 'corner chance missed', 219: 'head-specialist corner chance missed',
+  225: 'unpredictable own-goal chance missed', 235: 'experienced forward missed', 236: 'inexperienced defender almost caused a goal',
+  237: 'winger-created chance missed', 239: 'technical player failed against a head specialist',
+  240: 'counter-attack chance missed from a free kick', 241: 'counter-attack chance missed through the centre',
+  242: 'counter-attack chance missed on the left', 243: 'counter-attack chance missed on the right',
+  285: 'indirect free-kick chance missed', 286: 'counter-attack chance missed from an indirect free kick',
+  287: 'long-shot chance missed', 288: 'long-shot chance saved', 289: 'quick rush stopped by a quick defender',
+  290: 'powerful forward extra-chance missed',
+  301: 'technical player affected by rain', 302: 'powerful player benefited from rain', 303: 'technical player benefited from sun',
+  304: 'powerful player affected by sun', 305: 'quick player affected by rain', 306: 'quick player affected by sun',
+  307: 'support-player boost succeeded', 308: 'support-player boost failed and organisation dropped', 309: 'support-player boost failed',
+  310: 'powerful defensive player pressed a chance', 311: 'counter-attack triggered by a technical defender',
+  331: 'pressing tactic used', 332: 'counter-attacking tactic used', 333: 'attack through the middle used',
+  334: 'attack on the wings used', 335: 'play creatively tactic used', 336: 'long-shot tactic used',
+  343: 'attack through the middle used', 344: 'attack on the wings used',
+  450: 'third yellow card caused a suspension', 455: 'new star player', 473: 'career-ending injury', 489: 'comeback after a long injury',
+  650: 'Hattrick anniversary', 651: 'team anniversary', 700: 'manager taunted the opponent', 701: 'manager praised the opponent',
+  702: 'manager asked fans for support', 703: 'manager expected a great show', 704: 'manager honoured club legacy',
+  812: 'player birthday', 813: 'new match kit', 818: 'brothers played together', 819: 'parent and child played together',
+  820: 'family members faced each other', 821: 'family members combined for a goal', 822: 'family members faced each other in a penalty',
+};
+
+export function getCanonicalEventDescription(typeId: number): string {
+  if (EVENT_DESCRIPTIONS[typeId]) return EVENT_DESCRIPTIONS[typeId];
+  if (typeId >= 100 && typeId <= 190) {
+    const location = typeId % 10;
+    if (location === 0) return 'free-kick goal';
+    if (location === 1) return 'goal through the centre';
+    if (location === 2) return 'goal on the left';
+    if (location === 3) return 'goal on the right';
+    if (location === 4) return 'penalty goal';
+    return 'goal';
+  }
+  if (MISSED_CHANCE_EVENT_TYPES.has(typeId)) {
+    const location = typeId % 10;
+    if (location === 0) return 'free-kick chance missed';
+    if (location === 1) return 'chance missed through the centre';
+    if (location === 2) return 'chance missed on the left';
+    if (location === 3) return 'chance missed on the right';
+    if (location === 4) return 'penalty chance missed';
+    return 'chance missed';
+  }
+  if (typeId >= 401 && typeId <= 422) return `${INJURY_LOCATION_LABELS[typeId] || 'body part'} injury`;
+  if (typeId === 423) return 'injured after a foul';
+  if (typeId === 424) return 'injured player replaced';
+  if (typeId === 425) return 'injured player had no replacement';
+  if (typeId === 426) return 'field player replaced an injured keeper';
+  if (typeId === 427) return 'injured regainer was bruised';
+  if (CARD_EVENT_TYPES.has(typeId)) return getCardDescription(typeId);
+  return `structured event ${typeId}`;
+}
+
+function getCardDescription(typeId: number): string {
+  if (typeId === 510) return 'yellow card for nasty play';
+  if (typeId === 511) return 'yellow card for cheating';
+  if (typeId === 512) return 'second-yellow red card for nasty play';
+  if (typeId === 513) return 'second-yellow red card for cheating';
+  return 'straight red card';
 }
 
 function attachScorerNames(side: MatchSideEventDetails, scorers: ParsedScorer[]) {
@@ -327,6 +434,53 @@ function attachBookingNames(side: MatchSideEventDetails, bookings: ParsedBooking
   }
 }
 
+function eventCategory(typeId: number): string {
+  if (GOAL_EVENT_TYPES.has(typeId)) return 'goal';
+  if (PENALTY_SHOOTOUT_EVENT_TYPES.has(typeId)) return 'penalty_shootout';
+  if (CARD_EVENT_TYPES.has(typeId)) return 'card';
+  if (typeId >= 90 && typeId <= 97 || typeId >= 401 && typeId <= 427 || typeId === 473) return 'injury';
+  if (MISSED_CHANCE_EVENT_TYPES.has(typeId)) return 'missed_chance';
+  if (typeId === 68 || typeId >= 331 && typeId <= 389) return 'tactical';
+  if (typeId >= 301 && typeId <= 311 || typeId >= 390 && typeId <= 391) return 'conditions';
+  return 'story';
+}
+
+function eventPlayerName(
+  event: ParsedEvent,
+  scorers: ParsedScorer[],
+  bookings: ParsedBooking[],
+  injuries: ParsedInjury[],
+): string | null {
+  const playerId = event.subjectPlayerId;
+  if (!playerId) return null;
+  return (
+    scorers.find((item) => item.playerId === playerId)?.playerName ||
+    bookings.find((item) => item.playerId === playerId)?.playerName ||
+    injuries.find((item) => item.playerId === playerId)?.playerName ||
+    null
+  );
+}
+
+function notableEvents(
+  events: ParsedEvent[],
+  scorers: ParsedScorer[],
+  bookings: ParsedBooking[],
+  injuries: ParsedInjury[],
+): MatchNotableEvent[] {
+  return events
+    .filter((event) => NOTABLE_EVENT_TYPES.has(event.typeId))
+    .map((event) => ({
+      eventTypeId: event.typeId,
+      minute: event.minute,
+      matchPart: event.matchPart,
+      teamId: event.subjectTeamId,
+      playerId: event.subjectPlayerId,
+      playerName: eventPlayerName(event, scorers, bookings, injuries),
+      category: eventCategory(event.typeId),
+    description: getCanonicalEventDescription(event.typeId),
+    }));
+}
+
 function sideForTeam(
   home: MatchSideEventDetails,
   away: MatchSideEventDetails,
@@ -348,6 +502,7 @@ export function parseMatchEventDetails(xml: string): MatchEventDetails {
   const events = getEventBlocks(xml);
   const scorers = getScorers(xml);
   const bookings = getBookings(xml);
+  const parsedInjuries = getInjuryBlocks(xml);
   const hasPenaltyShootout = events.some((event) => PENALTY_SHOOTOUT_EVENT_TYPES.has(event.typeId));
 
   for (const event of events) {
@@ -368,7 +523,7 @@ export function parseMatchEventDetails(xml: string): MatchEventDetails {
   attachBookingNames(home, bookings);
   attachBookingNames(away, bookings);
 
-  for (const injury of getInjuryBlocks(xml)) {
+  for (const injury of parsedInjuries) {
     const side = sideForTeam(home, away, injury.teamId);
     if (!side) continue;
     side.injuries.push({
@@ -432,6 +587,7 @@ export function parseMatchEventDetails(xml: string): MatchEventDetails {
     result: resultDetails(xml, scorers, actualHomeTeamId, actualAwayTeamId, hasPenaltyShootout, penaltyShootout),
     home,
     away,
+    notableEvents: notableEvents(events, scorers, bookings, parsedInjuries),
   };
 }
 
@@ -460,7 +616,14 @@ export function mapMatchEventDetailsToFixture(
       ? {
           teamId,
           cards: source.cards,
-          injuries: source.injuries,
+          injuries: source.injuries.map((injury) => ({
+            ...injury,
+            causedByTeamId: injury.causedByTeamId === details.actualHomeTeamId
+              ? scheduledHomeTeamId
+              : injury.causedByTeamId === details.actualAwayTeamId
+                ? scheduledAwayTeamId
+                : injury.causedByTeamId,
+          })),
           goals: source.goals || [],
           penaltyShootoutGoals: source.penaltyShootoutGoals || 0,
           performance: source.performance,
@@ -482,6 +645,14 @@ export function mapMatchEventDetailsToFixture(
       : undefined,
     home: copySide(scheduledHomeTeamId),
     away: copySide(scheduledAwayTeamId),
+    notableEvents: (details.notableEvents || []).map((event) => ({
+      ...event,
+      teamId: event.teamId === details.actualHomeTeamId
+        ? scheduledHomeTeamId
+        : event.teamId === details.actualAwayTeamId
+          ? scheduledAwayTeamId
+          : event.teamId,
+    })),
   };
 }
 

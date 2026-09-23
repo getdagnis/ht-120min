@@ -11,6 +11,19 @@ export interface MatchGoalEvent {
   minute: number | null;
   matchPart: number | null;
   category: MatchGoalCategory;
+  /** Stable, human-readable subtype derived from EventTypeID (never EventText). */
+  description?: string;
+}
+
+export interface MatchNotableEvent {
+  eventTypeId: number;
+  minute: number | null;
+  matchPart: number | null;
+  teamId: number | null;
+  playerId?: number | null;
+  playerName?: string | null;
+  category: string;
+  description: string;
 }
 
 export interface MatchCardEvent {
@@ -97,6 +110,8 @@ export interface MatchEventDetails {
   result?: MatchResultDetails;
   home: MatchSideEventDetails;
   away: MatchSideEventDetails;
+  /** Optional curated event facts. Missing on older v1/v2 archives. */
+  notableEvents?: MatchNotableEvent[];
 }
 
 export interface MatchEventSummary {

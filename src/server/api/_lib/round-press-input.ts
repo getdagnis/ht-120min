@@ -1,4 +1,5 @@
 import type { MatchEventDetails, MatchSideEventDetails, MatchSidePerformance } from '../../../../shared/match-events.js';
+import { getCanonicalEventDescription } from './chpp-match-events.js';
 import type { PersistedScoringMode } from '../../../../shared/scoring-profile.js';
 import { calculateStandings, type Match, type Team } from '../../../utils/standings.js';
 
@@ -86,6 +87,7 @@ export interface RoundPressInput {
     };
     homeFacts: RoundPressSideFacts;
     awayFacts: RoundPressSideFacts;
+    notableEvents: NonNullable<MatchEventDetails['notableEvents']>;
     scheduledFor: string | null;
   }>;
   nextRound?: {
@@ -103,6 +105,9 @@ export interface RoundPressSideFacts {
     minute: number | null;
     weeks: number | null;
     severity: string | null;
+    locationEventTypeId?: number | null;
+    causedByFoul?: boolean;
+    causedByTeamId?: number | null;
   }>;
   goals: Array<{
     playerId: number | null;
@@ -110,6 +115,17 @@ export interface RoundPressSideFacts {
     minute: number | null;
     matchPart: number | null;
     category: string;
+    eventTypeId: number;
+    description?: string;
+  }>;
+  cards: Array<{
+    eventTypeId: number;
+    playerId: number | null;
+    playerName: string | null;
+    minute: number | null;
+    matchPart: number | null;
+    type: string;
+    reason: string | null;
   }>;
   penaltyShootoutGoals: number;
   performance: MatchSidePerformance | null;
@@ -119,6 +135,17 @@ function sideFacts(side: MatchSideEventDetails | undefined, yellowFallback: numb
   return {
     yellowCards: side ? side.cards.filter((card) => card.type === 'yellow').length : yellowFallback,
     redCards: side ? side.cards.filter((card) => card.type !== 'yellow').length : redFallback,
+    cards: side
+      ? side.cards.map((card) => ({
+          eventTypeId: card.eventTypeId,
+          playerId: card.playerId,
+          playerName: card.playerName ?? null,
+          minute: card.minute,
+          matchPart: card.matchPart,
+          type: card.type,
+          reason: card.reason,
+        }))
+      : [],
     injuries: side
       ? side.injuries.map((injury) => ({
           playerId: injury.playerId,
@@ -126,20 +153,25 @@ function sideFacts(side: MatchSideEventDetails | undefined, yellowFallback: numb
           minute: injury.minute,
           weeks: injury.weeks,
           severity: injury.severity,
+          locationEventTypeId: injury.locationEventTypeId,
+          causedByFoul: injury.causedByFoul,
+          causedByTeamId: injury.causedByTeamId,
         }))
       : Array.from({ length: Math.max(0, injuryFallback) }, () => ({
         playerId: null,
         playerName: null,
         minute: null,
-          weeks: null,
-          severity: null,
-        })),
+        weeks: null,
+        severity: null,
+      })),
     goals: (side?.goals || []).map((goal) => ({
       playerId: goal.playerId,
       playerName: goal.playerName ?? null,
       minute: goal.minute,
       matchPart: goal.matchPart,
       category: goal.category,
+      eventTypeId: goal.eventTypeId,
+      description: goal.description ?? getCanonicalEventDescription(goal.eventTypeId),
     })),
     penaltyShootoutGoals: side?.penaltyShootoutGoals || 0,
     performance: side?.performance || null,
@@ -243,6 +275,7 @@ export function buildRoundPressInput(params: {
       match.away_red_cards ?? 0,
       match.away_injuries ?? 0,
     ),
+    notableEvents: match.match_event_details?.notableEvents || [],
     scheduledFor: match.scheduled_for ?? null,
   }));
   const matches = [

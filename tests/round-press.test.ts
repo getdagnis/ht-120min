@@ -113,6 +113,7 @@ test('structured card and injury facts are converted without localized event tex
       penaltyShootoutGoals: 0,
     },
     away: { teamId: 2, cards: [], injuries: [], goals: [], penaltyShootoutGoals: 0 },
+    notableEvents: [{ eventTypeId: 101, playerId: 46, playerName: 'Scoring Player', teamId: 1, minute: 22, matchPart: 1, category: 'goal', description: 'goal through the centre' }],
   };
   const input = buildRoundPressInput({
     tournament: { id: 'tournament', name: 'Cup', scoringMode: '120min' },
@@ -126,6 +127,25 @@ test('structured card and injury facts are converted without localized event tex
   assert.equal(input.matches[0].homeFacts.injuries[0].playerName, 'Injured Player');
   assert.equal(input.matches[0].homeFacts.goals[0].minute, 22);
   assert.equal(input.matches[0].homeFacts.goals[0].playerName, 'Scoring Player');
+  assert.equal(input.matches[0].homeFacts.goals[0].eventTypeId, 101);
+  assert.equal(input.matches[0].notableEvents[0]?.description, 'goal through the centre');
+});
+
+test('old MatchEventDetails without curated events remains valid input', () => {
+  const source = match('legacy', 'round-2');
+  source.match_event_details = {
+    version: 1,
+    source: 'matchdetails-3.1',
+    actualHomeTeamId: 1,
+    actualAwayTeamId: 2,
+    home: { teamId: 1, cards: [], injuries: [], goals: [] },
+    away: { teamId: 2, cards: [], injuries: [], goals: [] },
+  };
+  const input = buildRoundPressInput({
+    tournament: { id: 'tournament', name: 'Cup', scoringMode: '120min' }, seasonNumber: 1, roundNumber: 2,
+    rounds: [{ id: 'round-2', round_number: 2, matches: [source] }], teams: [home, away],
+  });
+  assert.deepEqual(input.matches[0]?.notableEvents, []);
 });
 
 test('round input retains version 2 result semantics and performance facts', () => {

@@ -197,3 +197,34 @@ test('persists stable MatchDetails performance and named scorer facts without Ev
   assert.deepEqual(parsed.result?.scoreAfterRegulation, { home: 1, away: 0 });
   assert.equal(parsed.result?.decisionType, 'regulation');
 });
+
+test('retains curated journalist event facts and maps them with reversed sides', () => {
+  const xml = matchDetailsXml({
+    injuries: injury(200, 77, 2, 103),
+    events: `
+      ${event(123, 100, 42, 103, 0, 3)}
+      ${event(422, 200, 77, 88)}
+      ${event(423, 200, 77, 103)}
+      ${event(511, 100, 42, 71)}
+      ${event(68, 200, 58, 52)}
+      ${event(242, 200, 58, 64)}
+      ${event(57, 100, 42, 121, 0, 4)}
+    `,
+  });
+  const parsed = parseMatchEventDetails(xml);
+  assert.equal(parsed.home.goals?.[0]?.eventTypeId, 123);
+  assert.equal(parsed.home.goals?.[0]?.description, 'goal on the right');
+  assert.equal(parsed.notableEvents?.find((item) => item.eventTypeId === 422)?.description, 'head injury');
+  assert.equal(parsed.notableEvents?.find((item) => item.eventTypeId === 511)?.description, 'yellow card for cheating');
+  assert.equal(parsed.notableEvents?.find((item) => item.eventTypeId === 68)?.description, 'successful pressing');
+  assert.equal(parsed.notableEvents?.find((item) => item.eventTypeId === 242)?.category, 'missed_chance');
+  assert.equal(parsed.notableEvents?.find((item) => item.eventTypeId === 57)?.category, 'penalty_shootout');
+  assert.notEqual(parsed.notableEvents?.find((item) => item.eventTypeId === 57)?.minute, null);
+
+  const mapped = mapMatchEventDetailsToFixture(parsed, 200, 100);
+  assert.equal(mapped.notableEvents?.find((item) => item.eventTypeId === 123)?.teamId, 200);
+  assert.equal(mapped.notableEvents?.find((item) => item.eventTypeId === 422)?.teamId, 100);
+  const foulInjury = mapped.home.injuries[0];
+  assert.equal(foulInjury?.causedByFoul, true);
+  assert.equal(foulInjury?.causedByTeamId, 200);
+});

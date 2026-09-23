@@ -25,6 +25,7 @@ Current persisted event coverage is deliberately narrow and extensible:
 - Card codes `510-514` retain yellow/second-yellow-red/straight-red state and nasty-play versus cheating subtype.
 - `<InjuryType>1</InjuryType>` is a plaster; type `2` is an injury. Event codes `401-422` provide body location, `423` marks a foul-related injury, and `454` is the doctor-report week count.
 - Details are written in `matches.match_event_details` after mapping from actual CHPP home/away to the scheduled fixture sides. Numeric card/injury columns remain summary fields.
+- Parsed details may also include an optional `notableEvents` array. It is a whitelist of journalistically useful stable EventTypeIDs (goals/chances, cards, injuries, pressing/tactics, shootouts, conditions and a small set of rare story hooks). It contains canonical English labels only; localized `EventText` and routine lifecycle noise are intentionally excluded. Older v1/v2 records without this optional field remain valid.
 - Future tournament types may consume more event codes, but their scoring must be derived from this stable payload rather than added to the CHPP parser as one-off logic.
 
 ## Event Index
