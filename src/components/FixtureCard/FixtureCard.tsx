@@ -76,18 +76,13 @@ export const FixtureCard: React.FC<FixtureCardProps> = ({
   challengeAction,
 }) => {
   const [nowMs, setNowMs] = React.useState(() => Date.now());
-  const [extraTimeAnchorMs, setExtraTimeAnchorMs] = React.useState<number | null>(null);
-  const livePhase = liveClock?.phase;
   React.useEffect(() => {
     if (status !== 'ongoing') return;
     const timer = window.setInterval(() => {
-      const tick = Date.now();
-      setNowMs(tick);
-      if (livePhase === 'extra_time') setExtraTimeAnchorMs((previous) => previous ?? tick);
-      else setExtraTimeAnchorMs(null);
+      setNowMs(Date.now());
     }, 1000);
     return () => window.clearInterval(timer);
-  }, [livePhase, status]);
+  }, [status]);
   const appgOutcomeText =
     completed && appgOutcome && appgOutcome !== 'needs_review' ? appgOutcomeLabel(appgOutcome) : null;
   const badgeContent = (
@@ -104,7 +99,6 @@ export const FixtureCard: React.FC<FixtureCardProps> = ({
               nowMs,
               phase: liveClock?.phase,
               announcedAddedMinutes: liveClock?.announcedAddedMinutes,
-              extraTimeAnchorMs,
             })
           : status.replace('_', ' ').toUpperCase()}{' '}
         {['arranged', 'ongoing', 'finished'].includes(status) && (

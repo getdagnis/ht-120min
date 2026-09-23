@@ -15,7 +15,33 @@ export interface LiveClockDisplayInput {
   nowMs: number;
   phase?: LiveMatchPhase | null;
   announcedAddedMinutes?: number | null;
-  extraTimeAnchorMs?: number | null;
+}
+
+const HALF_TIME_BREAK_MINUTES = 10;
+// Hattrick pauses briefly after regulation before MatchPart 3. This remains
+// part of the shared kickoff timeline, never a browser-observation timestamp.
+const EXTRA_TIME_BREAK_MINUTES = 5;
+
+export function getLiveMatchMinute(input: LiveClockDisplayInput): number | null {
+  const { kickoffMs, phase } = input;
+  if (kickoffMs == null || !Number.isFinite(kickoffMs) || !phase || phase === 'half_time' || phase === 'penalties') {
+    return null;
+  }
+
+  const elapsedMinutes = Math.max(0, Math.floor((input.nowMs - kickoffMs) / 60000));
+  if (phase === 'first_half') return Math.min(45, elapsedMinutes + 1);
+
+  if (phase === 'extra_time') {
+    const addedMinutes = Math.max(0, input.announcedAddedMinutes ?? 0);
+    const extraTimeStart = 45 + HALF_TIME_BREAK_MINUTES + 45 + addedMinutes + EXTRA_TIME_BREAK_MINUTES;
+    return Math.min(120, Math.max(91, 91 + elapsedMinutes - extraTimeStart));
+  }
+
+  const regulationMinute = Math.min(90, Math.max(46, elapsedMinutes - HALF_TIME_BREAK_MINUTES - 45 + 46));
+  if (regulationMinute < 90) return regulationMinute;
+  const announced = input.announcedAddedMinutes;
+  if (announced == null || announced <= 0) return 90;
+  return Math.min(90 + announced, 90 + Math.max(0, elapsedMinutes - (45 + HALF_TIME_BREAK_MINUTES + 45 - 1)));
 }
 
 export function getLiveClockDisplay(input: LiveClockDisplayInput): string {
@@ -32,20 +58,13 @@ export function getLiveClockDisplay(input: LiveClockDisplayInput): string {
   if (phase === 'half_time' || (phase === 'first_half' && elapsedMinutes >= 45 && elapsedMinutes < 55)) {
     return 'HALF-TIME';
   }
-  if (phase === 'first_half') return `${phaseLabel(phase)} · ${Math.min(45, elapsedMinutes + 1)}′`;
-
-  if (phase === 'extra_time') {
-    const anchor = input.extraTimeAnchorMs ?? input.nowMs;
-    const minute = Math.min(120, 91 + Math.max(0, Math.floor((input.nowMs - anchor) / 60000)));
-    return `${phaseLabel(phase)} · ${minute}′`;
-  }
-
-  const regulationElapsed = Math.max(0, elapsedMinutes - 55);
-  const footballMinute = Math.min(90, 45 + regulationElapsed + 1);
-  if (footballMinute < 90) return `${phaseLabel(phase)} · ${footballMinute}′`;
+  const minute = getLiveMatchMinute(input);
+  if (minute == null) return phaseLabel(phase);
+  if (phase === 'first_half' || phase === 'extra_time') return `${phaseLabel(phase)} · ${minute}′`;
+  if (minute < 90) return `${phaseLabel(phase)} · ${minute}′`;
   const announced = input.announcedAddedMinutes;
   if (announced == null || announced <= 0) return `${phaseLabel(phase)} · 90′`;
-  const added = Math.min(announced, Math.max(0, elapsedMinutes - 99));
+  const added = Math.max(0, minute - 90);
   return added > 0 ? `${phaseLabel(phase)} · 90+${added}′` : `${phaseLabel(phase)} · 90′ (+${announced})`;
 }
 
@@ -55,13 +74,19 @@ export interface LivePollCandidate extends Pick<LiveMatchClock, 'phase' | 'lastE
 
 export function getLivePollDelay(matches: LivePollCandidate[], nowMs = Date.now()): number {
   if (matches.some((match) => match.phase === 'penalties')) return 4000;
-  if (matches.some((match) => match.phase === 'extra_time' && (match.lastEventMinute ?? 0) >= 115)) return 5000;
-  if (matches.some((match) => match.phase === 'second_half' && (
-    (match.lastEventMinute ?? 0) >= 85 ||
-    (match.kickoffMs != null && nowMs - match.kickoffMs >= 95 * 60000)
-  ))) return 5000;
+  if (matches.some((match) => {
+    const minute = getLiveMatchMinute({ kickoffMs: match.kickoffMs, nowMs, phase: match.phase });
+    return match.phase === 'extra_time' && (minute ?? match.lastEventMinute ?? 0) >= 115;
+  })) return 5000;
+  if (matches.some((match) => {
+    const minute = getLiveMatchMinute({ kickoffMs: match.kickoffMs, nowMs, phase: match.phase });
+    return match.phase === 'second_half' && (minute ?? match.lastEventMinute ?? 0) >= 85;
+  })) return 5000;
   if (matches.some((match) => match.phase === 'extra_time')) return 15000;
-  if (matches.some((match) => match.phase === 'half_time' || (match.phase === 'first_half' && (match.lastEventMinute ?? 0) >= 40))) return 10000;
+  if (matches.some((match) => {
+    const minute = getLiveMatchMinute({ kickoffMs: match.kickoffMs, nowMs, phase: match.phase });
+    return match.phase === 'half_time' || (match.phase === 'first_half' && (minute ?? match.lastEventMinute ?? 0) >= 40);
+  })) return 10000;
   return 30000;
 }
 

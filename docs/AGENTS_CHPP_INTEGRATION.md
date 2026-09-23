@@ -6,7 +6,7 @@ This document outlines the engineering standards and best practices for interact
 
 - **Match Details (`matchdetails.xml`)**: Authoritative for confirmed completion and final result facts. A real in-progress 3.1 response on 2026-09-23 contained match metadata but no `MatchStatus`, `FinishedDate`, or score. Missing fields mean unknown, not arranged.
 - **Live Feed (`live.xml`)**: Use for positive ongoing presence, current score, and structured events. It must not declare a match finished. Select the requested `MatchID` from `MatchList`; a participant's CHPP authorization can see their tracked match, whereas an arbitrary token may not.
-- **Live clock**: `MatchPart` 1/2/3/4 means first half/second half/extra time/penalties. Display the latest reported event minute, not an interpolated exact clock. Infer half-time only when the last event is in part 1 at minute 45 or later and `NextEventMatchPart` is 2. Keep `NextEventMinute` and `NextEventMatchPart` as internal hints, not displayed future events. A feed without usable clock data may still be ongoing; show the generic ongoing state then.
+- **Live clock**: `MatchPart` 1/2/3/4 means first half/second half/extra time/penalties. Derive the running minute locally from confirmed kickoff and known Hattrick pauses; event minutes are hints and sanity data, not the primary clock. Infer half-time only when the last event is in part 1 at minute 45 or later and `NextEventMatchPart` is 2. Keep `NextEventMinute` and `NextEventMatchPart` as internal hints, not displayed future events. A feed without usable clock data may still be ongoing; show the generic ongoing state then.
 
 ## 2. Robust Finish & Extra-Time Detection
 

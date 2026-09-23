@@ -3,6 +3,7 @@ import 'server-only';
 import { createClient } from '@supabase/supabase-js';
 import { cache } from 'react';
 import { getMatchDateForRound } from '../../utils/match-schedule';
+import { compareFixtures } from '../../utils/fixture-sorting';
 import { getTournamentNextMatchDate } from '../../utils/tournament-next-match';
 import { sortFeaturedFirst } from '../../utils/tournament-sorting';
 import { sortOpenTournaments } from '../../utils/open-tournaments';
@@ -357,15 +358,7 @@ export const loadTournamentInitialData = cache(async (slug: string): Promise<Tou
         const matchDate = getMatchDateForRound(round as never, match as never, homeTeam?.country_name);
         return { ...match, match_date: matchDate.toISOString() };
       })
-      .sort((a, b) => {
-        const aDate = new Date(String(a.match_date)).getTime();
-        const bDate = new Date(String(b.match_date)).getTime();
-        if (aDate !== bDate) return aDate - bDate;
-        const aHtMatchId = Number(a.ht_match_id) || Number.MAX_SAFE_INTEGER;
-        const bHtMatchId = Number(b.ht_match_id) || Number.MAX_SAFE_INTEGER;
-        if (aHtMatchId !== bHtMatchId) return aHtMatchId - bHtMatchId;
-        return String(a.id).localeCompare(String(b.id));
-      }),
+      .sort(compareFixtures),
   }));
 
   // The slot table is optional until the peak-season migration is applied. Its

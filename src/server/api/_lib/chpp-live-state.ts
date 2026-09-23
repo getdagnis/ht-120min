@@ -4,6 +4,16 @@ import type { LiveMatchClock, LiveMatchPhase } from '../../../../shared/live-mat
 export type MatchLifecycle = 'arranged' | 'ongoing' | 'finished';
 export type MatchObservation = MatchLifecycle | 'unknown';
 
+export function shouldFetchMatchDetailsAfterLive(previous: MatchLifecycle, liveMatchPresent: boolean) {
+  return previous === 'finished' || !liveMatchPresent;
+}
+
+function extractAnnouncedAddedMinutes(eventText: string | undefined) {
+  if (!eventText) return null;
+  const amount = eventText.match(/\b([1-9]|1[0-5])\b/)?.[1];
+  return amount ? Number(amount) : null;
+}
+
 export function readMatchDetailsState(xml: string, matchId: number): MatchObservation {
   if (readChppTag(xml, 'FileName') !== 'matchdetails.xml' ||
       Number(readChppTag(xml, 'MatchID')) !== matchId ||
@@ -55,9 +65,7 @@ export function readLiveMatch(xml: string, matchId: number) {
     return key ? Number(key.split('_', 1)[0]) === 75 && readChppTag(event, 'MatchPart') === '2' : false;
   });
   const eventText75 = rawEventKey75 ? readChppTag(rawEventKey75, 'EventText') : undefined;
-  const announcedAddedMinutes = eventText75
-    ? Number(eventText75.match(/(?:circa|about|approximately|aprox(?:imadamente)?)?\s*(\d{1,2})\s*(?:min(?:ute|utes|uti|uto)?|m\b)/i)?.[1] || 0) || null
-    : null;
+  const announcedAddedMinutes = extractAnnouncedAddedMinutes(eventText75);
   const matchPart = (latestEvent?.part ?? Number(readChppTag(block, 'MatchPart'))) || null;
   let phase: LiveMatchPhase | null = null;
   if (matchPart === 1) {

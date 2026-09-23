@@ -4,6 +4,7 @@ import {
   advanceMatchStatus,
   readLiveMatch,
   readMatchDetailsState,
+  shouldFetchMatchDetailsAfterLive,
 } from '../src/server/api/_lib/chpp-live-state.ts';
 import { mergeLiveMatchData } from '../src/hooks/useLiveMatches.ts';
 import { formatLiveMatchStatus, getLiveClockDisplay, getLivePollDelay } from '../shared/live-match.ts';
@@ -41,7 +42,7 @@ test('live feed selects the requested match and its current score', () => {
   assert.equal(readLiveMatch(live(`<MatchID>${matchId}</MatchID><HomeGoals>0</HomeGoals><AwayGoals>0</AwayGoals>`), matchId), null);
 });
 
-test('live clock uses the latest reported event, not the next-event hint as the current minute', () => {
+test('live feed keeps event timing as a diagnostic hint, not the visible clock source', () => {
   const xml = `<HattrickData><FileName>live.xml</FileName><FetchedDate>2026-09-23 05:36:57</FetchedDate>
     <MatchList><Match><MatchID>${matchId}</MatchID><EventList>
       <Event Index="0"><Minute>0</Minute><MatchPart>0</MatchPart></Event>
@@ -58,11 +59,18 @@ test('live clock uses the latest reported event, not the next-event hint as the 
   assert.equal(result?.fetchedAt, '2026-09-23 05:36:57');
 });
 
-test('live feed extracts added time only from EventKey 75 in the second half', () => {
-  const xml = live(`<MatchID>${matchId}</MatchID><EventList>
-    <Event><Minute>89</Minute><MatchPart>2</MatchPart><EventKey>75_4</EventKey><EventText>circa 4 minuti</EventText></Event>
-  </EventList><HomeGoals>0</HomeGoals><AwayGoals>0</AwayGoals>`);
-  assert.equal(readLiveMatch(xml, matchId)?.announcedAddedMinutes, 4);
+test('live feed extracts the first plausible added-time number only from EventKey 75 in the second half', () => {
+  for (const [text, expected] of [
+    ['circa 1 minuto', 1],
+    ['recupero di 2 minuti', 2],
+    ['4 minutos', 4],
+    ['4 分鐘', 4],
+  ] as const) {
+    const xml = live(`<MatchID>${matchId}</MatchID><EventList>
+      <Event><Minute>89</Minute><MatchPart>2</MatchPart><EventKey>75_4</EventKey><EventText>${text}</EventText></Event>
+    </EventList><HomeGoals>0</HomeGoals><AwayGoals>0</AwayGoals>`);
+    assert.equal(readLiveMatch(xml, matchId)?.announcedAddedMinutes, expected);
+  }
 });
 
 test('local live clock accounts for the halftime pause and announced added time', () => {
@@ -74,11 +82,24 @@ test('local live clock accounts for the halftime pause and announced added time'
   assert.equal(getLiveClockDisplay({ kickoffMs, nowMs: kickoffMs + 102 * 60000, phase: 'second_half', announcedAddedMinutes: 4 }), 'SECOND HALF · 90+3′');
 });
 
+test('extra-time clock remains anchored to kickoff after a reload', () => {
+  const kickoffMs = Date.UTC(2026, 8, 23, 4, 15);
+  assert.equal(
+    getLiveClockDisplay({ kickoffMs, nowMs: kickoffMs + 117 * 60000, phase: 'extra_time' }),
+    'EXTRA TIME · 103′',
+  );
+  assert.equal(
+    getLiveClockDisplay({ kickoffMs, nowMs: kickoffMs + 121 * 60000, phase: 'extra_time' }),
+    'EXTRA TIME · 107′',
+  );
+});
+
 test('live polling accelerates for late regulation, extra time and penalties', () => {
-  assert.equal(getLivePollDelay([{ phase: 'first_half', lastEventMinute: 20 }]), 30000);
-  assert.equal(getLivePollDelay([{ phase: 'second_half', lastEventMinute: 86 }]), 5000);
-  assert.equal(getLivePollDelay([{ phase: 'extra_time', lastEventMinute: 100 }]), 15000);
-  assert.equal(getLivePollDelay([{ phase: 'extra_time', lastEventMinute: 115 }]), 5000);
+  const kickoffMs = Date.UTC(2026, 8, 23, 4, 15);
+  assert.equal(getLivePollDelay([{ phase: 'first_half', lastEventMinute: 20, kickoffMs }], kickoffMs + 20 * 60000), 30000);
+  assert.equal(getLivePollDelay([{ phase: 'second_half', lastEventMinute: 70, kickoffMs }], kickoffMs + 94 * 60000), 5000);
+  assert.equal(getLivePollDelay([{ phase: 'extra_time', lastEventMinute: 100, kickoffMs }], kickoffMs + 114 * 60000), 15000);
+  assert.equal(getLivePollDelay([{ phase: 'extra_time', lastEventMinute: 100, kickoffMs }], kickoffMs + 129 * 60000), 5000);
   assert.equal(getLivePollDelay([{ phase: 'penalties', lastEventMinute: 120 }]), 4000);
 });
 
@@ -110,6 +131,13 @@ test('unknown or stale observations never regress an ongoing or finished match',
   assert.equal(advanceMatchStatus('finished', 'ongoing'), 'finished');
   assert.equal(advanceMatchStatus('arranged', 'ongoing'), 'ongoing');
   assert.equal(advanceMatchStatus('ongoing', 'finished'), 'finished');
+});
+
+test('a positive live.xml observation skips MatchDetails, while a disappearance confirms final state', () => {
+  assert.equal(shouldFetchMatchDetailsAfterLive('ongoing', true), false);
+  assert.equal(shouldFetchMatchDetailsAfterLive('ongoing', false), true);
+  assert.equal(shouldFetchMatchDetailsAfterLive('finished', false), true);
+  assert.equal(advanceMatchStatus('ongoing', 'unknown'), 'ongoing');
 });
 
 test('same-score polls replace the full live snapshot, including cards', () => {

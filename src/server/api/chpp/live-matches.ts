@@ -2,7 +2,12 @@ import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { getServiceSupabase } from '../_lib/supabase.js';
 import { getAuthHeader } from '../_lib/chpp-auth.js';
 import { readChppTag } from '../_lib/chpp-xml.js';
-import { advanceMatchStatus, readLiveMatch, readMatchDetailsState } from '../_lib/chpp-live-state.js';
+import {
+  advanceMatchStatus,
+  readLiveMatch,
+  readMatchDetailsState,
+  shouldFetchMatchDetailsAfterLive,
+} from '../_lib/chpp-live-state.js';
 import {
   getFootballScore,
   getPenaltyShootoutScore,
@@ -110,17 +115,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       const htMatchIdNum = parseInt(htMatchId, 10);
       const fixture = matchFixtureMap.get(htMatchIdNum);
       if (!fixture?.oauthToken || !fixture.oauthTokenSecret) continue;
-      const params = { file: 'matchdetails', version: '3.1', matchID: htMatchId, matchEvents: 'true' };
-      const authHeader = getAuthHeader('GET', url, params, process.env.CHPP_CONSUMER_KEY!, process.env.CHPP_CONSUMER_SECRET!, fixture.oauthToken, fixture.oauthTokenSecret);
-
-      const response = await fetch(`${url}?file=matchdetails&version=3.1&matchEvents=true&matchID=${htMatchId}`, { headers: { Authorization: authHeader } });
-      const xml = await response.text();
-
-      const detailsState = response.ok && response.headers.get('content-type')?.includes('xml')
-        ? readMatchDetailsState(xml, htMatchIdNum)
-        : 'unknown';
       let live = null;
-      if (detailsState !== 'finished' && fixture.status !== 'finished') {
+      if (fixture.status !== 'finished') {
         const liveParams = { file: 'live', version: '2.3', actionType: 'view', matchID: htMatchId };
         const liveAuth = getAuthHeader('GET', url, liveParams, process.env.CHPP_CONSUMER_KEY!, process.env.CHPP_CONSUMER_SECRET!, fixture.oauthToken, fixture.oauthTokenSecret);
         const liveResponse = await fetch(`${url}?file=live&version=2.3&actionType=view&matchID=${htMatchId}`, { headers: { Authorization: liveAuth } });
@@ -128,11 +124,32 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
           live = readLiveMatch(await liveResponse.text(), htMatchIdNum);
         }
       }
+
+      let detailsXml: string | null = null;
+      let detailsState: ReturnType<typeof readMatchDetailsState> = 'unknown';
+      // A positive live.xml observation is sufficient proof of an ongoing
+      // match. MatchDetails is reserved for a finished row or a live match
+      // that has disappeared and needs final-result confirmation.
+      if (shouldFetchMatchDetailsAfterLive(fixture.status, Boolean(live))) {
+        const detailsParams = { file: 'matchdetails', version: '3.1', matchID: htMatchId, matchEvents: 'true' };
+        const detailsAuth = getAuthHeader('GET', url, detailsParams, process.env.CHPP_CONSUMER_KEY!, process.env.CHPP_CONSUMER_SECRET!, fixture.oauthToken, fixture.oauthTokenSecret);
+        const detailsResponse = await fetch(
+          `${url}?file=matchdetails&version=3.1&matchEvents=true&matchID=${htMatchId}`,
+          { headers: { Authorization: detailsAuth } },
+        );
+        const xml = await detailsResponse.text();
+        if (detailsResponse.ok && detailsResponse.headers.get('content-type')?.includes('xml')) {
+          detailsXml = xml;
+          detailsState = readMatchDetailsState(xml, htMatchIdNum);
+        }
+      }
+
       const status = advanceMatchStatus(fixture.status, detailsState === 'finished' ? 'finished' : live ? 'ongoing' : detailsState);
       if (status === 'arranged' || (status === 'ongoing' && !live) ||
           (status === 'finished' && detailsState !== 'finished')) continue;
       const finished = status === 'finished';
-      const sourceXml = finished ? xml : live!.xml;
+      const sourceXml = finished ? detailsXml : live?.xml;
+      if (!sourceXml) continue;
 
       const finalHomeGoals = parseInt(readChppTag(sourceXml, 'HomeGoals') || '0', 10);
       const finalAwayGoals = parseInt(readChppTag(sourceXml, 'AwayGoals') || '0', 10);

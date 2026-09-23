@@ -44,6 +44,7 @@ import { buildRescheduleDraft, serializeRescheduleDraftForRpc } from '../../util
 import { buildManualRoundNormalizationPlan } from '../../utils/manual-rounds';
 import { buildClearSeasonResultsPayload, buildResetUnlinkedResultPayload } from '../../utils/season-results';
 import { getMatchDateForRound as resolveMatchDateForRound } from '../../utils/match-schedule';
+import { compareFixtures } from '../../utils/fixture-sorting';
 import {
   canViewerJoinAnotherTeam,
   canViewerJoinTournament,
@@ -478,12 +479,14 @@ function restoreFixtureSnapshot(snapshot: SeasonFixturesSnapshot): RoundWithMatc
     id: round.id,
     round_number: round.round_number,
     created_at: round.created_at,
-    matches: round.matches.map((match) => ({
-      ...match,
-      match_date: match.match_date ? new Date(match.match_date) : undefined,
-      home_team: restoreTeam(match.home_team),
-      away_team: restoreTeam(match.away_team),
-    })),
+    matches: round.matches
+      .map((match) => ({
+        ...match,
+        match_date: match.match_date ? new Date(match.match_date) : undefined,
+        home_team: restoreTeam(match.home_team),
+        away_team: restoreTeam(match.away_team),
+      }))
+      .sort(compareFixtures),
   }));
 }
 
@@ -506,10 +509,12 @@ function isBlockingTeamTournament(
 function reviveInitialRounds(initialData?: TournamentInitialData) {
   return ((initialData?.rounds || []) as Record<string, unknown>[]).map((round) => ({
     ...round,
-    matches: ((round.matches || []) as Record<string, unknown>[]).map((match) => ({
-      ...match,
-      match_date: typeof match.match_date === 'string' ? new Date(match.match_date) : undefined,
-    })),
+    matches: ((round.matches || []) as Record<string, unknown>[])
+      .map((match) => ({
+        ...match,
+        match_date: typeof match.match_date === 'string' ? new Date(match.match_date) : undefined,
+      }))
+      .sort(compareFixtures),
   })) as RoundWithMatches[];
 }
 
@@ -1835,14 +1840,7 @@ export const TournamentView: React.FC<{ initialData?: TournamentInitialData }> =
           if (roundsData) {
             const roundsWithMatches = roundsData.map((r) => ({
               ...r,
-              matches: mergedMatches
-                .filter((m) => m.round_id === r.id)
-                .sort((a, b) => {
-                  const aDate = a.match_date?.getTime() || 0;
-                  const bDate = b.match_date?.getTime() || 0;
-                  if (aDate !== bDate) return aDate - bDate;
-                  return a.id.localeCompare(b.id);
-                }),
+              matches: mergedMatches.filter((m) => m.round_id === r.id).sort(compareFixtures),
             }));
             setRounds(roundsWithMatches as RoundWithMatches[]);
 
@@ -1893,15 +1891,7 @@ export const TournamentView: React.FC<{ initialData?: TournamentInitialData }> =
             ...m,
             match_date: getMatchDateForRound(r as RoundWithMatches, m),
           }))
-          .sort((a, b) => {
-            const aDate = a.match_date?.getTime() || 0;
-            const bDate = b.match_date?.getTime() || 0;
-            if (aDate !== bDate) return aDate - bDate;
-            const aHtMatchId = a.ht_match_id ?? Number.MAX_SAFE_INTEGER;
-            const bHtMatchId = b.ht_match_id ?? Number.MAX_SAFE_INTEGER;
-            if (aHtMatchId !== bHtMatchId) return aHtMatchId - bHtMatchId;
-            return a.id.localeCompare(b.id);
-          }),
+          .sort(compareFixtures),
       }));
       setRounds(newRounds as RoundWithMatches[]);
       setStandings(
@@ -5468,95 +5458,6 @@ export const TournamentView: React.FC<{ initialData?: TournamentInitialData }> =
                             {renderUnsavedSettingsNote(unsavedSettingsFields.private)}
                           </div>
 
-                          {showAdvancedSettings && (
-                            <>
-                              <div className={adminStyles.field}>
-                                {renderSettingsLabel('Schedule setup', '(advanced setting, see FAQ)')}
-                                <select
-                                  value={scheduleSetup}
-                                  onChange={(event) => setScheduleSetup(event.target.value as ScheduleSetup)}
-                                  className={adminStyles.selectField}
-                                >
-                                  <option value="generated">Generated schedule</option>
-                                  <option value="manual">No pre-made schedule</option>
-                                </select>
-                                {renderUnsavedSettingsNote(unsavedSettingsFields.scheduleMode)}
-                              </div>
-
-                              <div className={adminStyles.field}>
-                                {renderSettingsLabel(
-                                  'Tournament Type',
-                                  teams.length > 0 && !isSiteAdmin ? '(locked once teams register)' : undefined,
-                                )}
-                                <select
-                                  value={editRegistrationType}
-                                  onChange={(e) =>
-                                    setEditRegistrationType(normalizeTournamentRegistrationType(e.target.value))
-                                  }
-                                  disabled={teams.length > 0 && !isSiteAdmin}
-                                  className={adminStyles.selectField}
-                                >
-                                  <option value="validated">Hattrick Validated (CHPP)</option>
-                                  <option value="manual">Organizer-Managed</option>
-                                  <option value="sandbox">Sandbox Playground</option>
-                                </select>
-                                {renderUnsavedSettingsNote(unsavedSettingsFields.registrationType)}
-                              </div>
-
-                              <div className={adminStyles.field}>
-                                {renderSettingsLabel('Country limit', '(locked to already registerd teams)')}
-                                <select
-                                  value={editCountryLimit || ''}
-                                  onChange={(e) => {
-                                    const nextCountryLimit = e.target.value || null;
-                                    const mismatch = getActiveTeamRestrictionMismatch(nextCountryLimit);
-                                    if (mismatch) {
-                                      alert(mismatch);
-                                      return;
-                                    }
-                                    setEditCountryLimit(nextCountryLimit);
-                                  }}
-                                  className={adminStyles.selectField}
-                                >
-                                  <option value="">Any country</option>
-                                  {editCountryLimit && !currentLeagueRestrictionIsCompatible && (
-                                    <option value={editCountryLimit} disabled>
-                                      Current setting conflicts with registered teams
-                                    </option>
-                                  )}
-                                  {leagueRestrictionOptions.map((option) => (
-                                    <option key={option.value} value={option.value}>
-                                      {option.label}
-                                    </option>
-                                  ))}
-                                </select>
-                                {(() => {
-                                  const countries = Array.from(
-                                    new Set(
-                                      teams
-                                        .filter((team) => team.active && !team.is_placeholder)
-                                        .map((team) =>
-                                          normalizeLeagueLimit(
-                                            team.country_id ? String(team.country_id) : team.country_name,
-                                          ),
-                                        )
-                                        .filter(Boolean),
-                                    ),
-                                  );
-                                  if (countries.length >= 2) {
-                                    return (
-                                      <p className={adminStyles.smallNote}>
-                                        Teams from at least 2 countries already registered.
-                                      </p>
-                                    );
-                                  }
-                                  return null;
-                                })()}
-                                {renderUnsavedSettingsNote(unsavedSettingsFields.countryLimit)}
-                              </div>
-                            </>
-                          )}
-
                           <div>
                             <div className={adminStyles.checkboxField}>
                               <div className={adminStyles.labelRow}>
@@ -5609,33 +5510,6 @@ export const TournamentView: React.FC<{ initialData?: TournamentInitialData }> =
                             </div>
                           </div>
 
-                          {showAdvancedSettings && (
-                            <div className={styles.mt1}>
-                              <div className={adminStyles.checkboxField}>
-                                <label className={adminStyles.checkboxLabel}>
-                                  <input
-                                    type="checkbox"
-                                    checked={showEditEmail}
-                                    onChange={(e) => setShowEditEmail(e.target.checked)}
-                                  />
-                                  Recovery email address
-                                </label>
-                                {renderUnsavedSettingsNote(unsavedSettingsFields.showEmail)}
-                              </div>
-                              {showEditEmail && (
-                                <div className={`${adminStyles.textField} ${styles.mt1}`}>
-                                  <input
-                                    type="email"
-                                    value={editAdminEmail}
-                                    onChange={(e) => setEditAdminEmail(e.target.value)}
-                                    placeholder="In case you forget your admin password..."
-                                  />
-                                  {renderUnsavedSettingsNote(unsavedSettingsFields.adminEmail)}
-                                </div>
-                              )}
-                            </div>
-                          )}
-
                           {isSiteAdmin && (
                             <div className={`${adminStyles.checkboxField} ${styles.formDivider}`}>
                               <label className={adminStyles.checkboxLabel}>
@@ -5663,7 +5537,12 @@ export const TournamentView: React.FC<{ initialData?: TournamentInitialData }> =
                           )}
                         </div>
                         <div className={adminStyles.settingsActions}>
-                          <Button onClick={updateSettings} disabled={isUpdatingSettings} variant="primary" size="sm">
+                          <Button
+                            onClick={updateSettings}
+                            disabled={isUpdatingSettings}
+                            variant={settingsHasUnsavedChanges ? 'primary' : 'secondaryAction'}
+                            size="sm"
+                          >
                             {isUpdatingSettings ? 'Saving...' : 'Save Settings'}
                           </Button>
                           <Button
@@ -5676,6 +5555,119 @@ export const TournamentView: React.FC<{ initialData?: TournamentInitialData }> =
                           </Button>
                         </div>
                         {renderUnsavedSettingsNote(settingsHasUnsavedChanges)}
+                        {showAdvancedSettings && (
+                          <div className={adminStyles.settingsGroup}>
+                            <div className={adminStyles.field}>
+                              {renderSettingsLabel('Schedule setup', '(advanced setting, see FAQ)')}
+                              <select
+                                value={scheduleSetup}
+                                onChange={(event) => setScheduleSetup(event.target.value as ScheduleSetup)}
+                                className={adminStyles.selectField}
+                              >
+                                <option value="generated">Generated schedule</option>
+                                <option value="manual">No pre-made schedule</option>
+                              </select>
+                              {renderUnsavedSettingsNote(unsavedSettingsFields.scheduleMode)}
+                            </div>
+
+                            <div className={adminStyles.field}>
+                              {renderSettingsLabel(
+                                'Tournament Type',
+                                teams.length > 0 && !isSiteAdmin ? '(locked once teams register)' : undefined,
+                              )}
+                              <select
+                                value={editRegistrationType}
+                                onChange={(e) =>
+                                  setEditRegistrationType(normalizeTournamentRegistrationType(e.target.value))
+                                }
+                                disabled={teams.length > 0 && !isSiteAdmin}
+                                className={adminStyles.selectField}
+                              >
+                                <option value="validated">Hattrick Validated (CHPP)</option>
+                                <option value="manual">Organizer-Managed</option>
+                                <option value="sandbox">Sandbox Playground</option>
+                              </select>
+                              {renderUnsavedSettingsNote(unsavedSettingsFields.registrationType)}
+                            </div>
+
+                            <div className={adminStyles.field}>
+                              {renderSettingsLabel('Country limit', '(locked to already registerd teams)')}
+                              <select
+                                value={editCountryLimit || ''}
+                                onChange={(e) => {
+                                  const nextCountryLimit = e.target.value || null;
+                                  const mismatch = getActiveTeamRestrictionMismatch(nextCountryLimit);
+                                  if (mismatch) {
+                                    alert(mismatch);
+                                    return;
+                                  }
+                                  setEditCountryLimit(nextCountryLimit);
+                                }}
+                                className={adminStyles.selectField}
+                              >
+                                <option value="">Any country</option>
+                                {editCountryLimit && !currentLeagueRestrictionIsCompatible && (
+                                  <option value={editCountryLimit} disabled>
+                                    Current setting conflicts with registered teams
+                                  </option>
+                                )}
+                                {leagueRestrictionOptions.map((option) => (
+                                  <option key={option.value} value={option.value}>
+                                    {option.label}
+                                  </option>
+                                ))}
+                              </select>
+                              {(() => {
+                                const countries = Array.from(
+                                  new Set(
+                                    teams
+                                      .filter((team) => team.active && !team.is_placeholder)
+                                      .map((team) =>
+                                        normalizeLeagueLimit(
+                                          team.country_id ? String(team.country_id) : team.country_name,
+                                        ),
+                                      )
+                                      .filter(Boolean),
+                                  ),
+                                );
+                                if (countries.length >= 2) {
+                                  return (
+                                    <p className={adminStyles.smallNote}>
+                                      Teams from at least 2 countries already registered.
+                                    </p>
+                                  );
+                                }
+                                return null;
+                              })()}
+                              {renderUnsavedSettingsNote(unsavedSettingsFields.countryLimit)}
+                            </div>
+
+                            <div className={styles.mt1}>
+                              <div className={adminStyles.checkboxField}>
+                                <label className={adminStyles.checkboxLabel}>
+                                  <input
+                                    type="checkbox"
+                                    checked={showEditEmail}
+                                    onChange={(e) => setShowEditEmail(e.target.checked)}
+                                  />
+                                  Recovery email address
+                                </label>
+                                {renderUnsavedSettingsNote(unsavedSettingsFields.showEmail)}
+                              </div>
+                              {showEditEmail && (
+                                <div className={`${adminStyles.textField} ${styles.mt1}`}>
+                                  <input
+                                    type="email"
+                                    value={editAdminEmail}
+                                    onChange={(e) => setEditAdminEmail(e.target.value)}
+                                    placeholder="In case you forget your admin password..."
+                                  />
+                                  {renderUnsavedSettingsNote(unsavedSettingsFields.adminEmail)}
+                                </div>
+                              )}
+                            </div>
+                          </div>
+                        )}
                       </SectionCard>
                     </div>
                   )}

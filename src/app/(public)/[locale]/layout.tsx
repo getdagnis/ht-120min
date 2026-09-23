@@ -8,6 +8,15 @@ import { LocaleProvider } from '../../../i18n/LocaleProvider';
 import { locales, isLocale, type Locale } from '../../../i18n/config';
 import '../../../global.sass';
 
+const themeBootstrapScript = `
+  try {
+    const theme = localStorage.getItem('theme');
+    if (theme === 'light' || theme === 'dark') {
+      document.documentElement.dataset.theme = theme;
+    }
+  } catch {}
+`;
+
 export const dynamic = 'force-dynamic';
 
 export function generateStaticParams() {
@@ -51,8 +60,10 @@ export default async function PublicLocaleLayout({
     <html
       className={`${barlow.variable} ${barlowCondensed.variable} ${ibmPlexMono.variable} ${notoColorEmoji.variable}`}
       lang={locale}
+      suppressHydrationWarning
     >
       <body>
+        <script dangerouslySetInnerHTML={{ __html: themeBootstrapScript }} />
         <div id="root">
           <LocaleProvider locale={locale}>
             <ScrollToTop />
