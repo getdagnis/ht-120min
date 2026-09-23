@@ -3,7 +3,7 @@ import { SectionCard } from '../../components/Card/SectionCard';
 import { Button } from '../../components/Button/Button';
 import { Modal } from '../../components/Modal/Modal';
 import { ArrowRight, Check, CopySimple, Recycle, ShieldCheck } from 'phosphor-react';
-import { Tooltip } from 'react-tooltip';
+import { Tooltip } from '../Tooltip/Tooltip';
 import { TeamByline } from '../TeamByline/TeamByline';
 import { SeasonYearbook, type TournamentSeasonComment } from '../TournamentHistory/TournamentHistory';
 import { NewsArticle, type NewsPost, type NewsReaction } from './NewsTab';

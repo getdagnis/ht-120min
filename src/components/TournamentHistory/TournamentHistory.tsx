@@ -14,7 +14,7 @@ import {
   Trophy,
   UsersThree,
 } from 'phosphor-react';
-import { Tooltip } from 'react-tooltip';
+import { Tooltip } from '../Tooltip/Tooltip';
 import { Button } from '../Button/Button';
 import { Modal } from '../Modal/Modal';
 import { TeamByline } from '../TeamByline/TeamByline';

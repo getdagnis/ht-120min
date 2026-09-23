@@ -28,7 +28,8 @@ import styles from './Home.module.sass';
 import type { HomeInitialData } from '../../app/_data/public-data';
 import { useLocale } from '../../i18n/LocaleProvider';
 import { toLocalePath } from '../../next/locale-path';
-import { NewsArticle, type NewsPost } from '../../components/TournamentTabs/NewsTab';
+import { NewsArticle, type NewsPost, type NewsReaction } from '../../components/TournamentTabs/NewsTab';
+import { useAuth } from '../../hooks/useAuth';
 import { formatTournamentName } from '../../utils/tournament-names';
 import {
   EXOTIC_HFI_CAMPAIGN_SLUG_SET,
@@ -223,6 +224,9 @@ export const Home: React.FC<{ initialData?: HomeInitialData }> = ({ initialData 
     () => initialData?.topActiveTournaments || [],
   );
   const [latestWeeklyPosts, setLatestWeeklyPosts] = useState<HomeWeeklyPost[]>([]);
+  const [weeklyReactions, setWeeklyReactions] = useState<Record<string, NewsReaction[]>>({});
+  const { profile } = useAuth();
+  const currentReactionUserId = profile?.hattrick_user_id ? String(profile.hattrick_user_id) : null;
   const faqContent = useMemo(() => getPublishedFaqSections(), []);
 
   const showFaq = faqContent.length > 0 && SHOW_FAQ;
@@ -315,6 +319,44 @@ useEffect(() => {
 
   return () => window.clearTimeout(timer);
 }, [fetchLatestWeeklyPosts]);
+
+useEffect(() => {
+  const postIds = latestWeeklyPosts.map((post) => post.id);
+  if (postIds.length === 0) {
+    return;
+  }
+  let cancelled = false;
+  void supabase
+    .from('news_reactions')
+    .select('post_id, user_id, reaction')
+    .in('post_id', postIds)
+    .then(({ data, error }) => {
+      if (cancelled) return;
+      if (error) {
+        console.error('Could not load frontpage news reactions:', error.message);
+        return;
+      }
+      setWeeklyReactions(Object.groupBy((data as NewsReaction[] | null) || [], (reaction) => reaction.post_id));
+    });
+  return () => {
+    cancelled = true;
+  };
+}, [latestWeeklyPosts]);
+
+const handleWeeklyReaction = async (postId: string, reaction: string) => {
+  if (!currentReactionUserId) return;
+  const { error } = await supabase
+    .from('news_reactions')
+    .upsert({ post_id: postId, user_id: currentReactionUserId, reaction }, { onConflict: 'post_id,user_id' });
+  if (error) return;
+  setWeeklyReactions((current) => ({
+    ...current,
+    [postId]: [
+      ...(current[postId] || []).filter((item) => item.user_id !== currentReactionUserId),
+      { post_id: postId, user_id: currentReactionUserId, reaction },
+    ],
+  }));
+};
 
   useEffect(() => {
     const id = setTimeout(() => {
@@ -801,6 +843,9 @@ useEffect(() => {
   >
             <NewsArticle
               post={normalizedPost}
+              reactions={weeklyReactions[post.id] || []}
+              currentUserId={currentReactionUserId}
+              onReaction={handleWeeklyReaction}
               tournamentImageUrl={post.tournament_image_url}
               adminBylineLabel={post.tournament_display_name}
               adminBylineHref={toLocalePath(locale, `/t/${post.tournament_slug}`)}

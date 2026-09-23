@@ -4,7 +4,7 @@ import { Button } from '../../components/Button/Button';
 import { FixtureCard } from '../../components/FixtureCard/FixtureCard';
 import { Modal } from '../../components/Modal/Modal';
 import { ArrowClockwise, ArrowRight, CaretDown, CopySimple, Check } from 'phosphor-react';
-import { Tooltip } from 'react-tooltip';
+import { Tooltip } from '../Tooltip/Tooltip';
 import { calculateMatchDate } from '../../utils/ht-data';
 import { getHattrickWeekDetails } from '../../utils/hattrick-calendar';
 import { getImportedFixtureRoundPeriod } from '../../utils/manual-rounds';

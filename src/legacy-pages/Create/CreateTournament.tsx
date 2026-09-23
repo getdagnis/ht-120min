@@ -5,7 +5,7 @@ import { supabase } from '../../lib/supabase';
 import { toLocalePath } from '../../next/locale-path';
 import { useLocale } from '../../i18n/LocaleProvider';
 import { trackActivity } from '../../hooks/useActivityTracking';
-import { Tooltip } from 'react-tooltip';
+import { Tooltip } from '../../components/Tooltip/Tooltip';
 import { nanoid } from 'nanoid';
 import { Button } from '../../components/Button/Button';
 import { HeroCard } from '../../components/Card/HeroCard';

@@ -1,6 +1,6 @@
 import React from 'react';
 import { ArrowLeft, ArrowRight, ArrowUpRight, Info } from 'phosphor-react';
-import { Tooltip } from 'react-tooltip';
+import { Tooltip } from '../Tooltip/Tooltip';
 import { TeamByline } from '../TeamByline/TeamByline';
 import { appgOutcomeLabel, type AppgOutcome } from '../../utils/appg';
 import type { MatchSideEventDetails } from '../../../shared/match-events';
@@ -85,11 +85,14 @@ export const FixtureCard: React.FC<FixtureCardProps> = ({
   }, [status]);
   const appgOutcomeText =
     completed && appgOutcome && appgOutcome !== 'needs_review' ? appgOutcomeLabel(appgOutcome) : null;
+  const hasPenaltyShootout = Boolean(
+    penaltyShootout && penaltyShootout.home !== null && penaltyShootout.away !== null && went_120 && completed,
+  );
   const badgeContent = (
     <div className={`${styles.statusBadge} ${styles[status]}`}>
       {completed && (
         <div className={`${styles.minutesBadge} ${went_120 ? styles.achievedMinutes : ''}`}>
-          {totalMinutes ?? (went_120 ? 120 : 90)}'{went_120 ? '!' : ''}
+          {hasPenaltyShootout ? '120+PS!' : `${totalMinutes ?? (went_120 ? 120 : 90)}'${went_120 ? '!' : ''}`}
         </div>
       )}
       <div className={styles.badgeRight}>
@@ -106,10 +109,6 @@ export const FixtureCard: React.FC<FixtureCardProps> = ({
         )}
       </div>
     </div>
-  );
-
-  const hasPenaltyShootout = Boolean(
-    penaltyShootout && penaltyShootout.home !== null && penaltyShootout.away !== null && went_120 && completed,
   );
 
   const matchTypeInfo = matchType ? { ...MATCH_TYPES[matchType] } : null;

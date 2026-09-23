@@ -1,5 +1,5 @@
 import React from 'react';
-import { Tooltip } from 'react-tooltip';
+import { Tooltip } from '../Tooltip/Tooltip';
 import { getCanonicalCountryName, getCountryFlagUrl, getLeagueFlagUrl, formatPresence } from '../../utils/ht-data';
 import {
   getCardEventLabel,

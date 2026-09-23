@@ -1,6 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { usePathname, useRouter, useSearchParams } from 'next/navigation';
-import { Tooltip } from 'react-tooltip';
+import { Tooltip } from '../Tooltip/Tooltip';
 import styles from '../../legacy-pages/Public/TournamentView.module.sass';
 import { Button } from '../Button/Button';
 import { Avatar } from '../Avatar/Avatar';

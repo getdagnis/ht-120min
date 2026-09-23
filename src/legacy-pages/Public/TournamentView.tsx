@@ -61,7 +61,7 @@ import {
   type TournamentAnnouncementVisibility,
 } from '../../utils/tournament-announcements';
 
-import { Tooltip } from 'react-tooltip';
+import { Tooltip } from '../../components/Tooltip/Tooltip';
 import { nanoid } from 'nanoid';
 import { Button } from '../../components/Button/Button';
 import buttonStyles from '../../components/Button/Button.module.sass';

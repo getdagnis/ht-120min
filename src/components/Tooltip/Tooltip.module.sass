@@ -1,0 +1,40 @@
+.tooltip
+  position: fixed
+  z-index: 10000
+  box-sizing: border-box
+  max-width: min(20rem, calc(100vw - 1rem))
+  padding: 0.45rem 0.65rem
+  border: 1px solid rgba(255, 255, 255, 0.16)
+  border-radius: var(--radius-xs)
+  background: var(--borderDark)
+  color: #fff
+  box-shadow: 0 0.2rem 1rem rgba(0, 0, 0, 0.24)
+  font-size: 0.78rem
+  font-weight: 500
+  line-height: 1.35
+  overflow-wrap: anywhere
+  pointer-events: none
+  white-space: pre-line
+  opacity: 0
+
+  &[data-visible='true']
+    opacity: 1
+
+  &::after
+    position: absolute
+    left: 50%
+    width: 0.6rem
+    height: 0.6rem
+    background: var(--borderDark)
+    content: ''
+    transform: translateX(-50%) rotate(45deg)
+
+.top::after
+  bottom: -0.35rem
+  border-right: 1px solid rgba(255, 255, 255, 0.16)
+  border-bottom: 1px solid rgba(255, 255, 255, 0.16)
+
+.bottom::after
+  top: -0.35rem
+  border-top: 1px solid rgba(255, 255, 255, 0.16)
+  border-left: 1px solid rgba(255, 255, 255, 0.16)
