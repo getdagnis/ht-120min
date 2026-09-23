@@ -99,12 +99,14 @@ export interface RoundPressSideFacts {
   redCards: number;
   injuries: Array<{
     playerId: number | null;
+    playerName: string | null;
     minute: number | null;
     weeks: number | null;
     severity: string | null;
   }>;
   goals: Array<{
     playerId: number | null;
+    playerName: string | null;
     minute: number | null;
     matchPart: number | null;
     category: string;
@@ -120,18 +122,21 @@ function sideFacts(side: MatchSideEventDetails | undefined, yellowFallback: numb
     injuries: side
       ? side.injuries.map((injury) => ({
           playerId: injury.playerId,
+          playerName: injury.playerName ?? null,
           minute: injury.minute,
           weeks: injury.weeks,
           severity: injury.severity,
         }))
       : Array.from({ length: Math.max(0, injuryFallback) }, () => ({
-          playerId: null,
-          minute: null,
+        playerId: null,
+        playerName: null,
+        minute: null,
           weeks: null,
           severity: null,
         })),
     goals: (side?.goals || []).map((goal) => ({
       playerId: goal.playerId,
+      playerName: goal.playerName ?? null,
       minute: goal.minute,
       matchPart: goal.matchPart,
       category: goal.category,

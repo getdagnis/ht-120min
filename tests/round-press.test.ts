@@ -95,8 +95,8 @@ test('structured card and injury facts are converted without localized event tex
     home: {
       teamId: 1,
       cards: [{ eventTypeId: 510, playerId: 44, minute: 33, matchPart: 1, type: 'yellow', reason: 'nasty_play' }],
-      injuries: [{ playerId: 45, minute: 55, matchPart: 2, injuryType: 2, severity: 'injury', locationEventTypeId: 401, weeks: 3, causedByFoul: false, causedByTeamId: null }],
-      goals: [{ eventTypeId: 101, playerId: 46, minute: 22, matchPart: 1, category: 'regular' }],
+      injuries: [{ playerId: 45, playerName: 'Injured Player', minute: 55, matchPart: 2, injuryType: 2, severity: 'injury', locationEventTypeId: 401, weeks: 3, causedByFoul: false, causedByTeamId: null }],
+      goals: [{ eventTypeId: 101, playerId: 46, playerName: 'Scoring Player', minute: 22, matchPart: 1, category: 'regular' }],
       penaltyShootoutGoals: 0,
     },
     away: { teamId: 2, cards: [], injuries: [], goals: [], penaltyShootoutGoals: 0 },
@@ -110,7 +110,9 @@ test('structured card and injury facts are converted without localized event tex
   });
   assert.equal(input.matches[0].homeFacts.yellowCards, 1);
   assert.equal(input.matches[0].homeFacts.injuries[0].weeks, 3);
+  assert.equal(input.matches[0].homeFacts.injuries[0].playerName, 'Injured Player');
   assert.equal(input.matches[0].homeFacts.goals[0].minute, 22);
+  assert.equal(input.matches[0].homeFacts.goals[0].playerName, 'Scoring Player');
 });
 
 test('round input retains version 2 result semantics and performance facts', () => {

@@ -1,6 +1,6 @@
 import type { RoundPressInput } from './round-press-input.js';
 import { parseAndValidateRoundPressDraft, validateRoundPressDraft, type RoundPressDraft } from './round-press-validator.js';
-import { ROUND_PRESS_PROMPT_V2 as ROUND_PRESS_PROMPT_V1 } from './round-press-prompts.js';
+import { ROUND_PRESS_PROMPT_V3 as ROUND_PRESS_PROMPT } from './round-press-prompts.js';
 
 export const CLOUDFLARE_ROUND_PRESS_MODEL = '@cf/zai-org/glm-4.7-flash';
 
@@ -103,7 +103,7 @@ export async function generateCloudflareRoundPressDraft(
       },
       body: JSON.stringify({
         messages: [
-          { role: 'system', content: ROUND_PRESS_PROMPT_V1 },
+          { role: 'system', content: ROUND_PRESS_PROMPT },
           { role: 'user', content: JSON.stringify(input) },
         ],
         reasoning_effort: 'low',

@@ -1,11 +1,11 @@
-import { GoogleGenAI, Type, type GenerateContentParameters } from '@google/genai';
+import { GoogleGenAI, ThinkingLevel, Type, type GenerateContentParameters } from '@google/genai';
 import type { RoundPressInput } from './round-press-input.js';
 import { parseAndValidateRoundPressDraft, type RoundPressDraft } from './round-press-validator.js';
-import { ROUND_PRESS_PROMPT_V2 as ROUND_PRESS_PROMPT_V1 } from './round-press-prompts.js';
+import { ROUND_PRESS_PROMPT_V3 as ROUND_PRESS_PROMPT } from './round-press-prompts.js';
 
 export const ROUND_PRESS_PROMPT_VERSION = 1;
 export const ROUND_PRESS_MODEL = 'gemini-3.8-flash';
-export const ROUND_PRESS_THINKING_LEVEL = 'low';
+export const ROUND_PRESS_THINKING_LEVEL = ThinkingLevel.LOW;
 const ROUND_PRESS_MAX_TRANSPORT_ATTEMPTS = 3;
 const ROUND_PRESS_RETRY_DELAYS_MS = [1000, 2000] as const;
 
@@ -103,7 +103,7 @@ export async function generateRoundPressDraft(
       contents,
       config: {
         thinkingConfig: { thinkingLevel: ROUND_PRESS_THINKING_LEVEL },
-        systemInstruction: ROUND_PRESS_PROMPT_V1,
+        systemInstruction: ROUND_PRESS_PROMPT,
         responseMimeType: 'application/json',
         responseSchema: ROUND_PRESS_RESPONSE_SCHEMA,
       },
