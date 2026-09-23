@@ -4,12 +4,12 @@ This document outlines the engineering standards and best practices for interact
 
 ## 1. Source of Truth
 
-- **Match Details (`matchdetails.xml`)**: This is the **authoritative** source of truth for all matches (ongoing or finished). It contains definitive information about match status, final scores, finished dates, and extra time status.
-- **Live Feed (`live.xml`)**: Use this only for lightweight monitoring of ongoing matches (e.g., polling for score updates). **Do not** rely on it for final match states or status transitions.
+- **Match Details (`matchdetails.xml`)**: Authoritative for confirmed completion and final result facts. A real in-progress 3.1 response on 2026-09-23 contained match metadata but no `MatchStatus`, `FinishedDate`, or score. Missing fields mean unknown, not arranged.
+- **Live Feed (`live.xml`)**: Use for positive ongoing presence, current score, and structured events. It must not declare a match finished. Select the requested `MatchID` from `MatchList`; a participant's CHPP authorization can see their tracked match, whereas an arbitrary token may not.
 
 ## 2. Robust Finish & Extra-Time Detection
 
-When implementing match tracking, prioritize `matchdetails.xml`:
+When implementing final-result tracking, prioritize `matchdetails.xml`:
 
 1. **Status Check**: Check `<MatchStatus>2</MatchStatus>` and the presence of a non-empty, non-zero `<FinishedDate>`.
 2. **Extra-Time Detection**:
@@ -26,7 +26,7 @@ When implementing match tracking, prioritize `matchdetails.xml`:
 
 ## 3. Data Integrity & Syncing
 
-- **Ongoing Matches**: Sync live scores and ongoing status continuously.
+- **Ongoing Matches**: Sync live scores and ongoing status from `live.xml` continuously. Failed, missing, or ambiguous polls must preserve the last known state; never downgrade ongoing or finished to arranged. Unfinished event snapshots must not contain final result semantics or final `total_minutes`.
 - **Completed Matches**: Always allow for re-syncing of completed matches to ensure `went_120` and achievement points are calculated correctly. If a match is completed, a re-sync should *not* overwrite `went_120` to `false` if it was already `true`.
 - **UI Refresh**: The UI refresh mechanism must trigger a re-check of both active and recently completed matches (missing achievement metadata) to ensure the standings table is always up-to-date without needing full page reloads.
 
@@ -50,7 +50,7 @@ If code changes do not appear reflected in production:
 
 1. **Verify Execution Path**: Inject a unique log marker (`console.log`) or a temporary failure (`throw new Error`) at the start of the handler to definitively verify the expected code is running.
 2. **Correlate Requests/Logs**: When handling multiple concurrent requests, use a unique `requestId` in both server logs and JSON responses to correlate them.
-3. **Inspect Raw Payloads**: Do not rely on derived boolean logic (e.g., `isExtraTime`). Always log/inspect the *raw* API response payload (e.g., `console.log(xml.substring(...))`) to verify the server is receiving the expected data.
+3. **Inspect Raw Payloads**: Do not rely on derived boolean logic (e.g., `isExtraTime`). Inspect only the necessary sanitized tags/status fragment; never log OAuth headers, tokens, secrets, or full responses.
 4. **Check Routing/Deployment**: Ensure the deployed commit on the server matches the local branch. If changes are ignored, assume a routing or deployment mismatch until proven otherwise.
 
 ## 6. Challenges API (note: this section is a rough draft, update as you proceed, improve it)

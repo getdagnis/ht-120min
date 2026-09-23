@@ -90,7 +90,7 @@ export interface MatchSideEventDetails {
 
 export interface MatchEventDetails {
   version: 1 | 2;
-  source: 'matchdetails-3.1';
+  source: 'matchdetails-3.1' | 'live-2.3';
   actualHomeTeamId: number | null;
   actualAwayTeamId: number | null;
   hasPenaltyShootout?: boolean;

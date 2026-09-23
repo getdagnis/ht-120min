@@ -1,6 +1,6 @@
 # PROJECT_STATE.md
 
-Last updated: 2026-09-20
+Last updated: 2026-09-23
 
 This is the current-status ledger. Update it after meaningful implementation work. Be explicit about what is local, migrated, tested, deployed, or still unknown.
 
@@ -30,6 +30,7 @@ The app currently supports:
 
 | Area | Code | DB migration | Local test | Production |
 | --- | --- | --- | --- | --- |
+| Live CHPP match state | Local endpoint now uses participant-authorized `live.xml` for in-play score/events, MatchDetails only for confirmed final facts, preserves unknown/stale states, and refreshes the full client snapshot each poll. | `migrations/070_allow_ongoing_match_status.sql` prepared only; **not applied**. The current database rejects `ongoing`, so the endpoint returns verified live data without persisting the rejected transition until migration application. | Both Guam S2R1 IDs returned `ongoing` and 0–0 from the repaired local API with live card data; 219 tests and local build passed. | Not deployed or DB-migrated. Apply 070, deploy code, then verify both endpoint and `matches.status` during a real live match; local evidence does not prove the production UI. |
 | Exotic small HFI leagues outreach | Local one-off, dry-run-first seed resolves 20 country-restricted HFI/120min campaign rows from shared worlddetails, inherits the existing Queens organizer at runtime, and groups Guam plus the campaign on the homepage without duplicate generic-list rendering. Country restrictions are explicitly labelled as CountryID values, avoiding overlap with historical LeagueID values on cards. | `migrations/20260920152428_add_country_limit_format.sql` prepared locally; it marks Queens and the fixed campaign slug list only, and must be applied before the corrected card display reaches production | `npm test` (190), `npm run lint`, `npm run build`, server-import validation, and diff check passed locally 2026-09-20 | Apply the migration and deploy the matching frontend, then manually inspect a previously wrong card such as Liechtenstein (CountryID 125) and confirm it reads `Liechtenstein Only`; unrelated historical unmarked restrictions deliberately retain legacy LeagueID interpretation |
 | Peak-season FFC/Zermatt slot compatibility | Local compatibility layer only: slots preserve a physical current-season standings line while completed fixture identity remains frozen; it explicitly does not normalize global team/credential ownership | `20260918165441_add_season_slots_and_assignments.sql` prepared locally; not applied | `npm test` (182), lint, TypeScript, server-import, and diff checks passed locally; no local Supabase transaction test was available | **Blocked:** run the documented read-only FFC/Zermatt preflight, then disposable DB test, migration application, one live action, and post-action verifier. Do not mutate live data on a failed/ambiguous preflight. |
 

@@ -5,7 +5,7 @@ export interface LiveMatchData {
   status: 'arranged' | 'ongoing' | 'finished';
   homeGoals: number;
   awayGoals: number;
-  total_minutes?: number;
+  total_minutes?: number | null;
   went_120?: boolean;
   venue_mismatch?: boolean;
   home_yellow_cards?: number;
@@ -30,6 +30,13 @@ interface Match {
   appg_outcome_source?: 'unclassified' | 'chpp' | 'organizer' | 'csv' | null;
 }
 
+export function mergeLiveMatchData(
+  previous: Record<string, LiveMatchData>,
+  current: Record<string, LiveMatchData>,
+): Record<string, LiveMatchData> {
+  return { ...previous, ...current };
+}
+
 export function useLiveMatches(
   tournamentId: string | undefined,
   matches: Match[],
@@ -43,9 +50,11 @@ export function useLiveMatches(
   const tournamentIdRef = useRef(tournamentId);
   const onMatchFinishedRef = useRef(onMatchFinished);
   const attemptedAppgMatchIdsRef = useRef<Set<number>>(new Set());
+  const notifiedFinishedMatchIdsRef = useRef<Set<string>>(new Set());
 
   useEffect(() => {
     attemptedAppgMatchIdsRef.current.clear();
+    notifiedFinishedMatchIdsRef.current.clear();
   }, [tournamentId]);
 
   useEffect(() => {
@@ -94,26 +103,17 @@ export function useLiveMatches(
             .filter((match) => match.completed && match.ht_match_id)
             .forEach((match) => attemptedAppgMatchIdsRef.current.add(match.ht_match_id!));
 
-          let hasNewFinished = false;
-          setLiveData((prev) => {
-            const next = { ...prev };
-
-            Object.entries(data.results as Record<string, LiveMatchData>).forEach(([id, result]) => {
-              if (
-                !next[id] ||
-                next[id].homeGoals !== result.homeGoals ||
-                next[id].awayGoals !== result.awayGoals ||
-                next[id].status !== result.status
-              ) {
-                next[id] = result;
-                if (result.status === 'finished') hasNewFinished = true;
-              }
-            });
-
-            return next;
-          });
-
-          if (hasNewFinished) onMatchFinishedRef.current?.();
+          const results = data.results as Record<string, LiveMatchData>;
+          let newlyFinished = false;
+          for (const [id, result] of Object.entries(results)) {
+            if (result.status !== 'finished' || notifiedFinishedMatchIdsRef.current.has(id)) continue;
+            notifiedFinishedMatchIdsRef.current.add(id);
+            newlyFinished = true;
+          }
+          if (Object.keys(results).length > 0) {
+            setLiveData((prev) => mergeLiveMatchData(prev, results));
+          }
+          if (newlyFinished) onMatchFinishedRef.current?.();
 
         }
       } catch (error) {

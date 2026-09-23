@@ -745,8 +745,6 @@ export const FixturesView: React.FC<FixturesViewProps> = ({
                       status = 'finished';
                     } else if (liveMatch) {
                       status = liveMatch.status;
-                    } else if (!isHistorical && status === 'ongoing' && !isWithinLiveWindow) {
-                      status = 'arranged';
                     } else if (!isHistorical && isPastStartTime && isWithinLiveWindow && status === 'arranged') {
                       status = 'ongoing';
                     }
@@ -755,6 +753,8 @@ export const FixturesView: React.FC<FixturesViewProps> = ({
                       ? { home: liveMatch.homeGoals, away: liveMatch.awayGoals }
                       : match.completed
                         ? { home: match.home_goals || 0, away: match.away_goals || 0 }
+                        : status === 'ongoing' && match.home_goals !== null && match.away_goals !== null
+                          ? { home: match.home_goals, away: match.away_goals }
                         : !isHistorical && isPastStartTime && isWithinLiveWindow
                           ? { home: 0, away: 0 }
                           : undefined;

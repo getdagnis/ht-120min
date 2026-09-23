@@ -27,8 +27,8 @@ Detailed flow reference: `docs/auth-flow.md`.
 - `managercompendium`: manager identity and owned-team discovery.
 - `teamdetails`: team metadata such as team name/id, logo, arena pointer, gender, country/league fields, and challengeability hints.
 - `matches`: authoritative source for upcoming/recent team fixtures and friendly booking detection.
-- `matchdetails`: authoritative source for ongoing/finished match state and result sync.
-- `live`: lightweight ongoing monitoring only; do not use it for final match state.
+- `matchdetails`: authoritative source for confirmed finish and final result sync. During play it may contain only match metadata, without status or score.
+- `live`: source for ongoing presence, current score, and structured live events. Do not use it to declare a match finished.
 - `challenges`: challengeable/challenge actions when direct friendly management is needed.
 - `worlddetails` and `leaguedetails`: preferred direction for canonical country/league normalization.
 

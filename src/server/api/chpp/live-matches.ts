@@ -1,7 +1,8 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
-import { getSupabase } from '../_lib/supabase.js';
+import { getServiceSupabase } from '../_lib/supabase.js';
 import { getAuthHeader } from '../_lib/chpp-auth.js';
 import { readChppTag } from '../_lib/chpp-xml.js';
+import { advanceMatchStatus, readLiveMatch, readMatchDetailsState } from '../_lib/chpp-live-state.js';
 import {
   getFootballScore,
   getPenaltyShootoutScore,
@@ -16,7 +17,7 @@ interface LiveMatchResult {
   status: 'arranged' | 'ongoing' | 'finished';
   homeGoals: number;
   awayGoals: number;
-  total_minutes?: number;
+  total_minutes?: number | null;
   went_120?: boolean;
   venue_mismatch?: boolean;
   penalty_shootout_home_goals?: number | null;
@@ -36,10 +37,12 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   const { tournament_id, match_ids } = req.query;
   const ids = Array.isArray(match_ids) ? match_ids : (match_ids as string)?.split(',') || [];
 
-  if (!tournament_id || ids.length === 0) return res.status(400).json({ error: 'Missing params' });
+  if (!tournament_id || ids.length === 0 || ids.length > 30 || ids.some((id) => !/^\d+$/.test(id))) {
+    return res.status(400).json({ error: 'Invalid match request' });
+  }
 
   try {
-    const supabase = getSupabase();
+    const supabase = getServiceSupabase();
     const { data: tournament } = await supabase
       .from('tournaments')
       .select('scoring_mode')
@@ -47,21 +50,21 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       .single();
     if (!tournament) return res.status(404).json({ error: 'Tournament not found' });
 
-    const { data: team } = await supabase.from('teams').select('oauth_token, oauth_token_secret').not('oauth_token', 'is', null).limit(1).single();
-    if (!team) return res.status(401).json({ error: 'No auth team' });
+    const { data: rounds, error: roundsError } = await supabase
+      .from('rounds').select('id').eq('tournament_id', String(tournament_id));
+    if (roundsError) throw roundsError;
+    if (!rounds?.length) return res.status(200).json({ results: {} });
 
-    // Fetch all tournament matches in one query so we can resolve home/away team ht_team_id
-    const { data: tournamentMatches } = await supabase
+    const { data: tournamentMatches, error: matchesError } = await supabase
       .from('matches')
       .select(`
-        id,
-        ht_match_id,
-        appg_outcome_source,
-        home_team:home_team_id ( ht_team_id ),
-        away_team:away_team_id ( ht_team_id )
+        id, ht_match_id, status, completed, home_goals, away_goals, appg_outcome_source,
+        home_team:home_team_id ( ht_team_id, oauth_token, oauth_token_secret ),
+        away_team:away_team_id ( ht_team_id, oauth_token, oauth_token_secret )
       `)
-      .eq('tournament_id', String(tournament_id))
+      .in('round_id', rounds.map((round) => round.id))
       .in('ht_match_id', ids.map((id) => parseInt(id, 10)));
+    if (matchesError) throw matchesError;
 
     // Build a lookup: ht_match_id -> { scheduledHomeHtId, scheduledAwayHtId }
     const matchFixtureMap = new Map<
@@ -70,14 +73,28 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         scheduledHomeHtId: number | null;
         scheduledAwayHtId: number | null;
         appgOutcomeSource: string | null;
+        id: string;
+        status: 'arranged' | 'ongoing' | 'finished';
+        completed: boolean;
+        homeGoals: number | null;
+        awayGoals: number | null;
+        oauthToken: string | null;
+        oauthTokenSecret: string | null;
       }
     >();
     if (tournamentMatches) {
       for (const m of tournamentMatches) {
         if (m.ht_match_id) {
-          const homeTeam = m.home_team as { ht_team_id: number | null } | null;
-          const awayTeam = m.away_team as { ht_team_id: number | null } | null;
+          const homeTeam = m.home_team as { ht_team_id: number | null; oauth_token: string | null; oauth_token_secret: string | null } | null;
+          const awayTeam = m.away_team as { ht_team_id: number | null; oauth_token: string | null; oauth_token_secret: string | null } | null;
           matchFixtureMap.set(m.ht_match_id, {
+            id: m.id,
+            status: m.status === 'finished' || m.completed ? 'finished' : m.status === 'ongoing' ? 'ongoing' : 'arranged',
+            completed: m.completed,
+            homeGoals: m.home_goals,
+            awayGoals: m.away_goals,
+            oauthToken: homeTeam?.oauth_token || awayTeam?.oauth_token || null,
+            oauthTokenSecret: homeTeam?.oauth_token_secret || awayTeam?.oauth_token_secret || null,
             scheduledHomeHtId: homeTeam?.ht_team_id ?? null,
             scheduledAwayHtId: awayTeam?.ht_team_id ?? null,
             appgOutcomeSource: m.appg_outcome_source ?? null,
@@ -89,63 +106,66 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     const url = 'https://chpp.hattrick.org/chppxml.ashx';
     const results: Record<string, LiveMatchResult> = {};
     for (const htMatchId of ids) {
+      const htMatchIdNum = parseInt(htMatchId, 10);
+      const fixture = matchFixtureMap.get(htMatchIdNum);
+      if (!fixture?.oauthToken || !fixture.oauthTokenSecret) continue;
       const params = { file: 'matchdetails', version: '3.1', matchID: htMatchId, matchEvents: 'true' };
-      const authHeader = getAuthHeader('GET', url, params, process.env.CHPP_CONSUMER_KEY!, process.env.CHPP_CONSUMER_SECRET!, team.oauth_token!, team.oauth_token_secret!);
+      const authHeader = getAuthHeader('GET', url, params, process.env.CHPP_CONSUMER_KEY!, process.env.CHPP_CONSUMER_SECRET!, fixture.oauthToken, fixture.oauthTokenSecret);
 
       const response = await fetch(`${url}?file=matchdetails&version=3.1&matchEvents=true&matchID=${htMatchId}`, { headers: { Authorization: authHeader } });
       const xml = await response.text();
 
-      const finishedDate = readChppTag(xml, 'FinishedDate');
-      const finished = (finishedDate && finishedDate !== '0001-01-01 00:00:00') || xml.includes('<MatchStatus>2</MatchStatus>');
-      const isOngoing = xml.includes('<MatchStatus>1</MatchStatus>');
-      const status = finished ? 'finished' : isOngoing ? 'ongoing' : 'arranged';
-
-      // For ongoing matches, use the live running score from the last scorer entry.
-      // For finished matches, trust the official HomeGoals/AwayGoals result.
-      const scorersBlock = xml.match(/<Scorers>([\s\S]*?)<\/Scorers>/i)?.[1] ?? '';
-      const allGoals = [...scorersBlock.matchAll(/<Goal[^>]*>([\s\S]*?)<\/Goal>/gi)];
-      const finalHomeGoals = parseInt(readChppTag(xml, 'HomeGoals') || '0', 10);
-      const finalAwayGoals = parseInt(readChppTag(xml, 'AwayGoals') || '0', 10);
-      let liveHomeGoals: number;
-      let liveAwayGoals: number;
-      if (allGoals.length > 0) {
-        const lastGoal = allGoals[allGoals.length - 1][1];
-        liveHomeGoals = parseInt(lastGoal.match(/<ScorerHomeGoals>(\d+)<\/ScorerHomeGoals>/i)?.[1] ?? '0', 10);
-        liveAwayGoals = parseInt(lastGoal.match(/<ScorerAwayGoals>(\d+)<\/ScorerAwayGoals>/i)?.[1] ?? '0', 10);
-      } else {
-        // No goals scored yet (0-0), fall back to team block fields
-        liveHomeGoals = finalHomeGoals;
-        liveAwayGoals = finalAwayGoals;
+      const detailsState = response.ok && response.headers.get('content-type')?.includes('xml')
+        ? readMatchDetailsState(xml, htMatchIdNum)
+        : 'unknown';
+      let live = null;
+      if (detailsState !== 'finished' && fixture.status !== 'finished') {
+        const liveParams = { file: 'live', version: '2.3', actionType: 'view', matchID: htMatchId };
+        const liveAuth = getAuthHeader('GET', url, liveParams, process.env.CHPP_CONSUMER_KEY!, process.env.CHPP_CONSUMER_SECRET!, fixture.oauthToken, fixture.oauthTokenSecret);
+        const liveResponse = await fetch(`${url}?file=live&version=2.3&actionType=view&matchID=${htMatchId}`, { headers: { Authorization: liveAuth } });
+        if (liveResponse.ok && liveResponse.headers.get('content-type')?.includes('xml')) {
+          live = readLiveMatch(await liveResponse.text(), htMatchIdNum);
+        }
       }
+      const status = advanceMatchStatus(fixture.status, detailsState === 'finished' ? 'finished' : live ? 'ongoing' : detailsState);
+      if (status === 'arranged' || (status === 'ongoing' && !live) ||
+          (status === 'finished' && detailsState !== 'finished')) continue;
+      const finished = status === 'finished';
+      const sourceXml = finished ? xml : live!.xml;
+
+      const finalHomeGoals = parseInt(readChppTag(sourceXml, 'HomeGoals') || '0', 10);
+      const finalAwayGoals = parseInt(readChppTag(sourceXml, 'AwayGoals') || '0', 10);
 
       // Actual team IDs from Hattrick MatchDetails
       const actualHtHomeTeamId =
-        parseInt(xml.match(/<HomeTeam>[\s\S]*?<HomeTeamID>(\d+)<\/HomeTeamID>/i)?.[1] || '0', 10) || null;
+        parseInt(sourceXml.match(/<HomeTeam>[\s\S]*?<HomeTeamID>(\d+)<\/HomeTeamID>/i)?.[1] || '0', 10) || null;
       const actualHtAwayTeamId =
-        parseInt(xml.match(/<AwayTeam>[\s\S]*?<AwayTeamID>(\d+)<\/AwayTeamID>/i)?.[1] || '0', 10) || null;
+        parseInt(sourceXml.match(/<AwayTeam>[\s\S]*?<AwayTeamID>(\d+)<\/AwayTeamID>/i)?.[1] || '0', 10) || null;
 
-      const addedMinutes = parseInt(readChppTag(xml, 'AddedMinutes') || '0', 10);
+      const addedMinutes = parseInt(readChppTag(sourceXml, 'AddedMinutes') || '0', 10);
 
       // Robust extra-time detection: Check EventList for Part 3/4
-      const isExtraTime = xml.includes('<MatchPart>3</MatchPart>') || xml.includes('<MatchPart>4</MatchPart>');
+      const isExtraTime = sourceXml.includes('<MatchPart>3</MatchPart>') || sourceXml.includes('<MatchPart>4</MatchPart>');
 
       const baseMinutes = isExtraTime ? 120 : 90;
-      const totalMinutes = baseMinutes + addedMinutes;
-      const actualEventDetails = parseMatchEventDetails(xml);
-      const footballScore = getFootballScore(actualEventDetails);
+      const totalMinutes = finished ? baseMinutes + addedMinutes : null;
+      const actualEventDetails = parseMatchEventDetails(sourceXml);
+      if (!finished) {
+        actualEventDetails.source = 'live-2.3';
+        delete actualEventDetails.result;
+      }
+      const footballScore = finished ? getFootballScore(actualEventDetails) : null;
 
       // Map actual Hattrick goals back to the scheduled fixture perspective.
       // Manual links may intentionally include only one scheduled team, such as
       // a BYE outside-friendly or an admin-approved replacement match.
-      const htMatchIdNum = parseInt(htMatchId, 10);
-      const fixture = matchFixtureMap.get(htMatchIdNum);
       let venueMismatch = false;
-      let homeGoals = footballScore?.home ?? (finished ? finalHomeGoals : liveHomeGoals);
-      let awayGoals = footballScore?.away ?? (finished ? finalAwayGoals : liveAwayGoals);
+      let homeGoals = footballScore?.home ?? (finished ? finalHomeGoals : live!.homeGoals);
+      let awayGoals = footballScore?.away ?? (finished ? finalAwayGoals : live!.awayGoals);
 
       if (fixture && actualHtHomeTeamId !== null && actualHtAwayTeamId !== null) {
-        const actualHomeGoals = footballScore?.home ?? (finished ? finalHomeGoals : liveHomeGoals);
-        const actualAwayGoals = footballScore?.away ?? (finished ? finalAwayGoals : liveAwayGoals);
+        const actualHomeGoals = footballScore?.home ?? (finished ? finalHomeGoals : live!.homeGoals);
+        const actualAwayGoals = footballScore?.away ?? (finished ? finalAwayGoals : live!.awayGoals);
         const scheduledHomeMatchedActualHome = fixture.scheduledHomeHtId === actualHtHomeTeamId;
         const scheduledHomeMatchedActualAway = fixture.scheduledHomeHtId === actualHtAwayTeamId;
         const scheduledAwayMatchedActualHome = fixture.scheduledAwayHtId === actualHtHomeTeamId;
@@ -182,28 +202,28 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         : actualEventDetails;
       const eventSummary = summarizeMatchEventDetails(eventDetails);
       const penaltyShootout = getPenaltyShootoutScore(eventDetails);
-      const appgUpdate = buildChppAppgUpdate({
+      const appgUpdate = finished ? buildChppAppgUpdate({
         scoringMode: tournament.scoring_mode,
         currentSource: fixture?.appgOutcomeSource,
         completed: finished,
         homeGoals: finished ? homeGoals : null,
         awayGoals: finished ? awayGoals : null,
         went120: isExtraTime,
-        totalMinutes,
+        totalMinutes: totalMinutes!,
         penaltyShootoutHomeGoals: penaltyShootout.home,
         penaltyShootoutAwayGoals: penaltyShootout.away,
         eventDetails,
-      });
+      }) : {};
 
       results[htMatchId] = {
         status,
         homeGoals,
         awayGoals,
         total_minutes: totalMinutes,
-        went_120: isExtraTime,
+        went_120: finished ? isExtraTime : false,
         venue_mismatch: venueMismatch,
-        penalty_shootout_home_goals: penaltyShootout.home,
-        penalty_shootout_away_goals: penaltyShootout.away,
+        penalty_shootout_home_goals: finished ? penaltyShootout.home : null,
+        penalty_shootout_away_goals: finished ? penaltyShootout.away : null,
         ...appgUpdate,
         home_yellow_cards: eventSummary.home_yellow_cards,
         home_red_cards: eventSummary.home_red_cards,
@@ -214,16 +234,16 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         match_event_details: eventDetails,
       };
 
-      await supabase.from('matches').update({
-        home_goals: status === 'arranged' ? null : homeGoals,
-        away_goals: status === 'arranged' ? null : awayGoals,
+      const update = supabase.from('matches').update({
+        home_goals: homeGoals,
+        away_goals: awayGoals,
         completed: finished,
         status,
         total_minutes: totalMinutes,
-        went_120: isExtraTime,
+        went_120: finished ? isExtraTime : false,
         venue_mismatch: venueMismatch,
-        penalty_shootout_home_goals: penaltyShootout.home,
-        penalty_shootout_away_goals: penaltyShootout.away,
+        penalty_shootout_home_goals: finished ? penaltyShootout.home : null,
+        penalty_shootout_away_goals: finished ? penaltyShootout.away : null,
         ...appgUpdate,
         home_yellow_cards: eventSummary.home_yellow_cards,
         home_red_cards: eventSummary.home_red_cards,
@@ -235,11 +255,24 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         actual_ht_home_team_id: actualHtHomeTeamId,
         actual_ht_away_team_id: actualHtAwayTeamId,
       })
-        .eq('tournament_id', String(tournament_id))
-        .eq('ht_match_id', htMatchIdNum);
+        .eq('id', fixture.id);
+      const { error: updateError } = finished ? await update : await update.eq('completed', false);
+      if (updateError) {
+        // Older databases still exclude 'ongoing' from matches_status_check.
+        // Keep the verified live response available until migration 070 is applied.
+        if (!finished && updateError.code === '23514' && updateError.message.includes('matches_status_check')) {
+          console.warn('[live-matches] ongoing state not persisted: apply migration 070');
+        } else {
+          throw updateError;
+        }
+      }
     }
     return res.status(200).json({ results });
   } catch (error) {
-    return res.status(500).json({ error: String(error) });
+    const message = error && typeof error === 'object' && 'message' in error
+      ? String(error.message)
+      : 'Unknown error';
+    console.error('[live-matches] poll failed:', message);
+    return res.status(500).json({ error: 'Could not refresh live matches.' });
   }
 }
