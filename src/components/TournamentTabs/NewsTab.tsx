@@ -3,6 +3,8 @@
 import React, { useEffect, useState } from 'react';
 import { Question } from 'phosphor-react';
 import { Button } from '../Button/Button';
+import { NoticeDialog } from '../Modal/NoticeDialog';
+import { useNoticeDialog } from '../Modal/useNoticeDialog';
 import { SectionCard } from '../Card/SectionCard';
 import { CompactAccordionWidget, type CompactAccordionItem } from '../CompactAccordionWidget/CompactAccordionWidget';
 import { supabase } from '../../lib/supabase';
@@ -54,6 +56,7 @@ interface NewsTabProps {
   teams: NewsTeam[];
   myHtUserId: string | null;
   isAdminAuthenticated: boolean;
+  canPublishAnnouncements: boolean;
   faqItems: CompactAccordionItem[];
 }
 
@@ -140,12 +143,20 @@ export const NewsTab: React.FC<NewsTabProps> = ({
   teams,
   myHtUserId,
   isAdminAuthenticated,
+  canPublishAnnouncements,
   faqItems,
 }) => {
+  const { notice, showNotice: alert, closeNotice } = useNoticeDialog();
   const [newsPosts, setNewsPosts] = useState<NewsPost[]>([]);
   const [newNewsTitle, setNewNewsTitle] = useState('');
   const [newNewsContent, setNewNewsContent] = useState('');
   const [isPostingNews, setIsPostingNews] = useState(false);
+  const [isCreatingRoundSummary, setIsCreatingRoundSummary] = useState(false);
+  const [roundSummaryEligibility, setRoundSummaryEligibility] = useState<{
+    seasonNumber: number;
+    roundNumber: number;
+  } | null>(null);
+  const [roundSummaryError, setRoundSummaryError] = useState<string | null>(null);
   const [newsMode, setNewsMode] = useState<'admin' | 'team'>('team');
   const [newsReactions, setNewsReactions] = useState<Record<string, NewsReaction[]>>({});
   const reactionAuthorNames = Object.fromEntries(
@@ -214,6 +225,36 @@ export const NewsTab: React.FC<NewsTabProps> = ({
     };
   }, [isActive, seasonNumber, tournamentId]);
 
+  useEffect(() => {
+    if (!isActive || !canPublishAnnouncements) return;
+
+    let cancelled = false;
+    const checkEligibility = async () => {
+      try {
+        const response = await fetch(
+          `/api/app?route=generate-round-summary&tournamentId=${encodeURIComponent(tournamentId)}`,
+          { credentials: 'include' },
+        );
+        if (!response.ok) {
+          if (!cancelled) setRoundSummaryEligibility(null);
+          return;
+        }
+        const result = (await response.json()) as { available?: boolean; roundNumber?: number };
+        if (!cancelled) {
+          setRoundSummaryEligibility(
+            result.available && result.roundNumber ? { seasonNumber, roundNumber: result.roundNumber } : null,
+          );
+        }
+      } catch {
+        if (!cancelled) setRoundSummaryEligibility(null);
+      }
+    };
+    void checkEligibility();
+    return () => {
+      cancelled = true;
+    };
+  }, [canPublishAnnouncements, isActive, seasonNumber, tournamentId]);
+
   const handlePostMessage = async (event: React.FormEvent) => {
     event.preventDefault();
     if (!newNewsContent.trim()) return;
@@ -241,6 +282,45 @@ export const NewsTab: React.FC<NewsTabProps> = ({
     }
   };
 
+  const handleCreateRoundSummary = async () => {
+    const roundSummaryRoundNumber = roundSummaryEligibility?.seasonNumber === seasonNumber
+      ? roundSummaryEligibility.roundNumber
+      : null;
+    if (!roundSummaryRoundNumber || isCreatingRoundSummary || newsMode !== 'admin') return;
+    setIsCreatingRoundSummary(true);
+    setRoundSummaryError(null);
+    try {
+      const response = await fetch('/api/app?route=generate-round-summary', {
+        method: 'POST',
+        credentials: 'include',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          tournamentId,
+          seasonNumber,
+          roundNumber: roundSummaryRoundNumber,
+        }),
+      });
+      const result = (await response.json()) as {
+        title?: string;
+        intro?: string;
+        matches?: Array<{ paragraph?: string }>;
+        outro?: string;
+        error?: string;
+      };
+      if (!response.ok) throw new Error(result.error || 'Could not create the round summary.');
+      setNewNewsTitle(result.title || '');
+      setNewNewsContent([
+        result.intro,
+        ...(result.matches || []).map((match) => match.paragraph),
+        result.outro,
+      ].filter(Boolean).join('\n\n'));
+    } catch (error) {
+      setRoundSummaryError(error instanceof Error ? error.message : 'Could not create the round summary.');
+    } finally {
+      setIsCreatingRoundSummary(false);
+    }
+  };
+
   const handleAddReaction = async (postId: string, reaction: string) => {
     const userId = localStorage.getItem('my_ht_user_id');
     if (!userId) return;
@@ -265,13 +345,14 @@ export const NewsTab: React.FC<NewsTabProps> = ({
 
   return (
     <div className={styles.newsLayout}>
+      <NoticeDialog message={notice} onClose={closeNotice} />
       <div className={styles.guestbook}>
-        {newsPosts.length === 0 ? (
-          <SectionCard title="🗞 120min Weekly">
-            <p className={styles.noPosts}>No news yet.</p>
-          </SectionCard>
-        ) : (
-          <div className={styles.weeklyPanels}>
+        <div className={styles.weeklyPanels}>
+            {newsPosts.length === 0 && (
+              <SectionCard title="🗞 120min Weekly" className={styles.weeklyPanel}>
+                <p className={styles.noPosts}>No news yet.</p>
+              </SectionCard>
+            )}
             {latestPost && (
               <SectionCard title="🗞 120min Weekly" className={styles.weeklyPanel}>
                 <NewsArticle
@@ -311,9 +392,9 @@ export const NewsTab: React.FC<NewsTabProps> = ({
                 <button className={newsMode === 'team' ? styles.active : ''} onClick={() => setNewsMode('team')}>
                   Team News
                 </button>
-                {isAdminAuthenticated && (
+                {isAdminAuthenticated && canPublishAnnouncements && (
                   <button className={newsMode === 'admin' ? styles.active : ''} onClick={() => setNewsMode('admin')}>
-                    Announcement
+                    Offical Cup Press Release
                   </button>
                 )}
               </div>
@@ -326,7 +407,7 @@ export const NewsTab: React.FC<NewsTabProps> = ({
                     return (
                       <div className={styles.branding}>
                         <span>
-                          📰 Author: <strong>Cup Press Release</strong>
+                          📰 Posting as: <strong>Offical Cup Press Release</strong>
                         </span>
                       </div>
                     );
@@ -335,7 +416,7 @@ export const NewsTab: React.FC<NewsTabProps> = ({
                   return myTeam ? (
                     <div className={styles.branding}>
                       <span>
-                        📰 Author: <strong>{myTeam.name}</strong>
+                        📰 Posting as: <strong>{myTeam.name}</strong>
                       </span>
                     </div>
                   ) : (
@@ -356,20 +437,34 @@ export const NewsTab: React.FC<NewsTabProps> = ({
                   <textarea
                     value={newNewsContent}
                     onChange={(event) => setNewNewsContent(event.target.value)}
-                    placeholder={newsMode === 'admin' ? 'Write a tournament announcement...' : 'Announcement'}
+                    placeholder={
+                      newsMode === 'admin' ? 'Write a tournament announcement...' : 'How is your team doing?'
+                    }
                     className={styles.postTextarea}
                     rows={12}
                   />
                 </div>
+                {roundSummaryError && newsMode === 'admin' && (
+                  <p className={styles.roundSummaryError} role="alert">{roundSummaryError}</p>
+                )}
                 <div className={styles.postActions}>
+                  {newsMode === 'admin' && canPublishAnnouncements && roundSummaryEligibility?.seasonNumber === seasonNumber && (
+                    <Button
+                      type="button"
+                      variant="secondary"
+                      disabled={isCreatingRoundSummary}
+                      onClick={() => void handleCreateRoundSummary()}
+                    >
+                      {isCreatingRoundSummary ? 'Creating summary…' : 'Create round summary'}
+                    </Button>
+                  )}
                   <Button type="submit" variant="primary" disabled={isPostingNews || !newNewsContent.trim()}>
                     {isPostingNews ? 'Posting...' : 'Post News'}
                   </Button>
                 </div>
               </form>
             </SectionCard>
-          </div>
-        )}
+        </div>
       </div>
 
       <aside className={styles.newsSidebar}>

@@ -938,7 +938,9 @@ export const TournamentSchedulePanel: React.FC<TournamentSchedulePanelProps> = (
 
   return (
     <SectionCard
-      title={scheduleSetup === 'manual' ? 'Add HT matches' : isGenerated ? 'Manage schedule' : 'Generate a schedule'}
+      title={
+        scheduleSetup === 'manual' ? 'Add HT matches' : isGenerated ? 'Regenerate schedule' : 'Generate a schedule'
+      }
       className={adminStyles.scheduleCard}
       collapsible
       isCollapsed={isCollapsed}
@@ -1154,10 +1156,7 @@ export const TournamentSchedulePanel: React.FC<TournamentSchedulePanelProps> = (
                     <option
                       key={option.slot.id}
                       value={option.slot.id}
-                      disabled={
-                        !option.slot.selectable ||
-                        !rescheduleValidStartSlotIds.has(option.slot.id)
-                      }
+                      disabled={!option.slot.selectable || !rescheduleValidStartSlotIds.has(option.slot.id)}
                     >
                       {formatStartOption(option.slot, {
                         current: option.slot.id === rescheduleDraft.currentStartSlotId,
@@ -1285,16 +1284,19 @@ export const TournamentSchedulePanel: React.FC<TournamentSchedulePanelProps> = (
             </div>
           )}
 
-          {hasSelectedRescheduleStart && rescheduleDraft.rounds.length > 0 && onShuffleFixtures && draft.teamCount > 1 && (
-            <button
-              type="button"
-              className={adminStyles.textLinkButton}
-              onClick={onShuffleFixtures}
-              disabled={isRescheduling}
-            >
-              Re-shuffle fixtures
-            </button>
-          )}
+          {hasSelectedRescheduleStart &&
+            rescheduleDraft.rounds.length > 0 &&
+            onShuffleFixtures &&
+            draft.teamCount > 1 && (
+              <button
+                type="button"
+                className={adminStyles.textLinkButton}
+                onClick={onShuffleFixtures}
+                disabled={isRescheduling}
+              >
+                Re-shuffle fixtures
+              </button>
+            )}
         </div>
       ) : (
         <div className={adminStyles.scheduleLockedState}>

@@ -10,6 +10,8 @@ import { nanoid } from 'nanoid';
 import { Button } from '../../components/Button/Button';
 import { HeroCard } from '../../components/Card/HeroCard';
 import { Modal } from '../../components/Modal/Modal';
+import { NoticeDialog } from '../../components/Modal/NoticeDialog';
+import { useNoticeDialog } from '../../components/Modal/useNoticeDialog';
 import { ReusableWidget } from '../../components/ReusableWidget/ReusableWidget';
 import { CompactAccordionWidget } from '../../components/CompactAccordionWidget/CompactAccordionWidget';
 import {
@@ -178,6 +180,7 @@ interface FetchedTeamData {
 }
 
 export const CreateTournament: React.FC = () => {
+  const { notice, showNotice: alert, closeNotice } = useNoticeDialog();
   const router = useRouter();
   const { locale } = useLocale();
   const nameInputRef = useRef<HTMLInputElement | null>(null);
@@ -294,7 +297,7 @@ export const CreateTournament: React.FC = () => {
 
     setLinkedManager(data);
     setStep('teams');
-  }, []);
+  }, [alert]);
 
   useEffect(() => {
     if (linkingParamsHandledRef.current) return;
@@ -314,7 +317,7 @@ export const CreateTournament: React.FC = () => {
       linkingParamsHandledRef.current = true;
       alert(decodeURIComponent(error));
     }
-  }, [fetchPendingSession]);
+  }, [alert, fetchPendingSession]);
 
   useEffect(() => {
     window.scrollTo({ top: 0, left: 0, behavior: 'auto' });
@@ -482,22 +485,25 @@ export const CreateTournament: React.FC = () => {
 
   const handleOrganizerNoJoin = async () => {
     if (!linkedManager) return;
-
-    const updatedOrganizerProfile = {
-      managerName: linkedManager.manager_name,
-      hattrickUserId: linkedManager.hattrick_user_id,
-    };
-
-    if (linkedManager?.selection_token) {
+    setModalLoading(true);
+    try {
+      const updatedOrganizerProfile = {
+        managerName: linkedManager.manager_name,
+        hattrickUserId: linkedManager.hattrick_user_id,
+      };
       await establishCreationSession(linkedManager.selection_token);
       await clearPendingJoin(linkedManager.selection_token);
+      setOrganizerProfile(updatedOrganizerProfile);
+      setIsLinked(true);
+      setShowModal(false);
+      setLinkedManager(null);
+      saveProgress(formData, teams, showDescription, showEmail, updatedOrganizerProfile);
+      router.replace(toLocalePath(locale, '/create?step=teams'));
+    } catch (error) {
+      alert(error instanceof Error ? error.message : 'Could not link the organizer profile.');
+    } finally {
+      setModalLoading(false);
     }
-    setOrganizerProfile(updatedOrganizerProfile);
-    setIsLinked(true);
-    setShowModal(false);
-    setLinkedManager(null);
-    saveProgress(formData, teams, showDescription, showEmail, updatedOrganizerProfile);
-    router.replace(toLocalePath(locale, '/create?step=teams'));
   };
 
   const [newTeamId, setNewTeamId] = useState('');
@@ -827,6 +833,10 @@ export const CreateTournament: React.FC = () => {
         return;
       }
     } else if (isSandbox) {
+      if (!organizerProfile?.hattrickUserId) {
+        alert('Link your Hattrick organizer profile before creating a test tournament.');
+        return;
+      }
       if (teams.length < 2) {
         alert('Add at least two sandbox teams.');
         return;
@@ -1020,7 +1030,7 @@ export const CreateTournament: React.FC = () => {
   const registrationType = normalizeTournamentRegistrationType(formData.registration_type);
   const isValidated = registrationType === 'validated';
   const isSandbox = registrationType === 'sandbox';
-  const canCreate = isValidated ? !!creator : isSandbox ? teams.length >= 2 : isLinked && teams.length >= 2;
+  const canCreate = isValidated ? !!creator : isSandbox ? Boolean(organizerProfile?.hattrickUserId) && teams.length >= 2 : isLinked && teams.length >= 2;
   const leagueRestrictionLabel = formData.league_category === 'hfi' ? 'Only HFI teams' : 'Any male';
   const countryRestrictionLabel = isSandbox
     ? 'Any country'
@@ -1045,6 +1055,7 @@ export const CreateTournament: React.FC = () => {
   if (step === 'info') {
     return (
       <div className={styles.wrapper}>
+        <NoticeDialog message={notice} onClose={closeNotice} />
         <div className={styles.main}>
           <div className={styles.container}>
             <div className={styles.headerRow}>
@@ -1407,7 +1418,9 @@ export const CreateTournament: React.FC = () => {
                   <p>Loading your teams…</p>
                 ) : (
                   <>
-                    {!isValidated ? (
+                    {isSandbox ? (
+                      <p>Link your organizer profile. Your test teams can stay separate from your own Hattrick teams.</p>
+                    ) : !isValidated ? (
                       <p>
                         A self-organized cup you can join with one of your teams, or organise it without playing. These
                         teams are eligible for this cup.
@@ -1424,13 +1437,13 @@ export const CreateTournament: React.FC = () => {
                       </p>
                     )}
 
-                    {eligibleTeams.length === 0 && !modalLoading && (
+                    {!isSandbox && eligibleTeams.length === 0 && !modalLoading && (
                       <p className={styles.empty}>
                         None of your teams match this tournament category ({categoryLabel}).
                       </p>
                     )}
 
-                    <div className={styles.teamOptionsList}>
+                    {!isSandbox && <div className={styles.teamOptionsList}>
                       {eligibleTeams.map((team) => (
                         <div
                           key={team.teamId}
@@ -1446,11 +1459,11 @@ export const CreateTournament: React.FC = () => {
                           <CaretLeft size={20} weight="bold" className="r-180" />
                         </div>
                       ))}
-                    </div>
+                    </div>}
 
                     {!isValidated && (
                       <Button variant="outline" fullWidth onClick={() => void handleOrganizerNoJoin()}>
-                        I will not join with a team
+                        {isSandbox ? 'Continue as organizer' : 'I will not join with a team'}
                       </Button>
                     )}
 
@@ -1463,6 +1476,7 @@ export const CreateTournament: React.FC = () => {
                 )}
               </div>
             </Modal>
+            <NoticeDialog message={notice} onClose={closeNotice} />
           </div>
         </div>
         <SidebarContent openTournaments={openTournaments} locale={locale} />
@@ -1472,6 +1486,7 @@ export const CreateTournament: React.FC = () => {
 
   return (
     <div className={styles.wrapper}>
+      <NoticeDialog message={notice} onClose={closeNotice} />
       <div className={styles.main}>
         <div className={styles.container}>
           <div className={styles.headerRow}>
@@ -1485,11 +1500,12 @@ export const CreateTournament: React.FC = () => {
             <h2 className={styles.teamStepTitle}>{formData.name}</h2>
             <p className={styles.teamStepHelper}>{teamStepHelper}</p>
 
-            {!isSandbox && !isLinked && (
+            {!isLinked && (
               <div className={styles.linkSection}>
                 <Button size="lg" variant="primary" onClick={handleHattrickLink} disabled={loading}>
                   <ArrowRight size={20} weight="bold" /> {isValidated ? 'Link with Hattrick' : 'Link Organizer Profile'}
                 </Button>
+                {isSandbox && <p>Required to manage the test tournament as its organizer and use Cup Press Release tools.</p>}
               </div>
             )}
 

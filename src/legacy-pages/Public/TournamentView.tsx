@@ -66,6 +66,8 @@ import { Button } from '../../components/Button/Button';
 import buttonStyles from '../../components/Button/Button.module.sass';
 import { Switch } from '../../components/Switch/Switch';
 import { Modal } from '../../components/Modal/Modal';
+import { NoticeDialog } from '../../components/Modal/NoticeDialog';
+import { useNoticeDialog } from '../../components/Modal/useNoticeDialog';
 import { ModalTeamCard } from '../../components/ModalTeamCard/ModalTeamCard';
 import { HeroCard } from '../../components/Card/HeroCard';
 import { SectionCard } from '../../components/Card/SectionCard';
@@ -512,6 +514,7 @@ function reviveInitialRounds(initialData?: TournamentInitialData) {
 }
 
 export const TournamentView: React.FC<{ initialData?: TournamentInitialData }> = ({ initialData }) => {
+  const { notice, showNotice: alert, closeNotice } = useNoticeDialog();
   const { slug: rawSlug } = useParams<{ slug: string }>();
   const slug = typeof rawSlug === 'string' ? rawSlug : '';
   const pathname = usePathname() || '/';
@@ -694,6 +697,8 @@ export const TournamentView: React.FC<{ initialData?: TournamentInitialData }> =
   const [isFetchingSandboxTeam, setIsFetchingSandboxTeam] = useState(false);
   const [isSavingTeam, setIsSavingTeam] = useState(false);
   const [isGenerating, setIsGenerating] = useState(false);
+  const [scheduleNotice, setScheduleNotice] = useState<{ title: string; message: string; showMatches?: boolean } | null>(null);
+  const [isScheduleConfirmationOpen, setIsScheduleConfirmationOpen] = useState(false);
   const [isRescheduling, setIsRescheduling] = useState(false);
   const [editingMatch, setEditingMatch] = useState<string | null>(null);
   const [matchData, setMatchData] = useState<Record<string, Partial<MatchWithTeams>>>({});
@@ -1239,6 +1244,15 @@ export const TournamentView: React.FC<{ initialData?: TournamentInitialData }> =
       const top = Math.max(window.scrollY + target.getBoundingClientRect().top - offsetPx, 0);
       window.scrollTo({ top, behavior: 'smooth' });
     }, 80);
+  };
+
+  const closeScheduleNotice = () => {
+    const showMatches = scheduleNotice?.showMatches;
+    setScheduleNotice(null);
+    if (showMatches) {
+      collapseAllAdminPanels();
+      scrollToAdminPanel('results');
+    }
   };
 
   // Join states
@@ -2257,6 +2271,18 @@ export const TournamentView: React.FC<{ initialData?: TournamentInitialData }> =
       return () => clearTimeout(timer);
     }
   }, [password, roleAccess, roleAccessLoading, tournament, slug, isAdminAuthenticated]);
+
+  useEffect(() => {
+    if (!tournament || !isAdminAuthenticated || adminAuthSource !== 'legacy_password' || !roleAccess?.canViewAdmin) return;
+    const timer = window.setTimeout(() => {
+      setAdminAuthSource('oauth_role');
+      sessionStorage.setItem(getOrganizerAdminSessionStorageKey(tournament.id, roleAccess.viewerUserId), 'oauth_role');
+      localStorage.setItem(`admin_auth_${slug}`, 'organizer');
+      localStorage.removeItem(`admin_pw_${slug}`);
+      setPassword('');
+    }, 0);
+    return () => window.clearTimeout(timer);
+  }, [adminAuthSource, isAdminAuthenticated, roleAccess, slug, tournament]);
 
   useEffect(() => {
     const init = async () => {
@@ -3770,41 +3796,38 @@ export const TournamentView: React.FC<{ initialData?: TournamentInitialData }> =
     }
   };
 
-  const generateSchedule = async () => {
+  const generateSchedule = () => {
     if (!isHealthQuotaMet()) {
-      alert(
-        'Cannot generate schedule: Too many inactive teams. Please replace or revive teams to meet the minimum quota.',
-      );
+      setScheduleNotice({ title: 'Cannot generate schedule', message: 'Too many inactive teams. Please replace or revive teams to meet the minimum quota.' });
       return;
     }
 
     if (!scheduleStartSlotId || !scheduleDraft.valid || !scheduleDraft.selectedStartSlot) {
-      alert(scheduleDraft.reason || 'Choose a valid start date first.');
+      setScheduleNotice({ title: 'Cannot generate schedule', message: scheduleDraft.reason || 'Choose a valid start date first.' });
       return;
     }
     if (!serializedScheduleDraft) {
-      alert('Unable to serialize the selected schedule draft.');
+      setScheduleNotice({ title: 'Cannot generate schedule', message: 'Unable to prepare the selected schedule draft.' });
       return;
     }
     const scheduleAdminPassword = password.trim() || tournament?.admin_password || '';
     if (!scheduleAdminPassword) {
-      alert('Unable to confirm organizer access. Please reload the page and try again.');
+      setScheduleNotice({ title: 'Cannot generate schedule', message: 'Unable to confirm organizer access. Please reload the page and try again.' });
       return;
     }
 
-    const activeTeamCount = activeScheduleTeams.length;
-    let confirmMsg = `Are you sure you want to generate the schedule with ${activeTeamCount} teams?`;
-    if (activeTeamCount % 2 !== 0) {
-      confirmMsg +=
-        '\n\n⚠️ ODD NUMBER OF TEAMS: Each round one team will have a BYE. BYE rules: teams with a BYE can challenge anyone outside the tournament that round and still get points if organizer manually adds such results. Whether or not to do that you can add a custom tournament house-rule.';
-    }
+    setIsScheduleConfirmationOpen(true);
+  };
 
-    if (!window.confirm(confirmMsg)) return;
-
+  const confirmGenerateSchedule = async () => {
+    setIsScheduleConfirmationOpen(false);
+    if (!tournament || !serializedScheduleDraft || !scheduleDraft.selectedStartSlot) return;
+    const scheduleAdminPassword = password.trim() || tournament.admin_password || '';
+    if (!scheduleAdminPassword) return;
     setIsGenerating(true);
     try {
       const { error } = await supabase.rpc('generate_tournament_schedule', {
-        p_tournament_id: tournament?.id,
+        p_tournament_id: tournament.id,
         p_schedule_payload: serializedScheduleDraft,
         p_admin_password: scheduleAdminPassword,
         p_schedule_mode: scheduleDraft.mode,
@@ -3813,11 +3836,10 @@ export const TournamentView: React.FC<{ initialData?: TournamentInitialData }> =
       });
 
       if (error) throw error;
-      setSchedulePanelCollapsed(true);
-      await supabase.from('tournament_seasons').upsert(
+      const { error: seasonError } = await supabase.from('tournament_seasons').upsert(
         {
-          tournament_id: tournament?.id,
-          season_number: tournament?.season || 1,
+          tournament_id: tournament.id,
+          season_number: tournament.season || 1,
           status: 'ongoing',
           planned_start_slot: scheduleDraft.selectedStartSlot.nominalDate.toISOString(),
           started_at: new Date().toISOString(),
@@ -3825,6 +3847,7 @@ export const TournamentView: React.FC<{ initialData?: TournamentInitialData }> =
         },
         { onConflict: 'tournament_id,season_number' },
       );
+      if (seasonError) console.warn('Schedule generated, but season status could not be updated.', seasonError);
       try {
         await createAnnouncement({
           content: 'Tournament schedule dates were updated, please check Fixtures & Results.',
@@ -3839,6 +3862,13 @@ export const TournamentView: React.FC<{ initialData?: TournamentInitialData }> =
         );
       }
       await fetchData();
+      setScheduleNotice({
+        title: 'Schedule generated',
+        message: seasonError
+          ? 'The matches are ready, but the season status could not be saved. Please review the season panel before continuing.'
+          : 'The season is ongoing and its matches are ready to review.',
+        showMatches: !seasonError,
+      });
     } catch (err: unknown) {
       const message =
         err instanceof Error
@@ -3846,7 +3876,7 @@ export const TournamentView: React.FC<{ initialData?: TournamentInitialData }> =
           : err && typeof err === 'object' && 'message' in err && typeof err.message === 'string'
             ? err.message
             : 'Unknown error';
-      alert('Error generating schedule: ' + message);
+      setScheduleNotice({ title: 'Could not generate schedule', message });
     } finally {
       setIsGenerating(false);
     }
@@ -5003,6 +5033,7 @@ export const TournamentView: React.FC<{ initialData?: TournamentInitialData }> =
         teams={teams}
         myHtUserId={myHtUserId}
         isAdminAuthenticated={isAdminAuthenticated}
+        canPublishAnnouncements={Boolean(roleAccess?.canPublishAnnouncements)}
         faqItems={tournamentFaqItems}
       />
 
@@ -6361,6 +6392,40 @@ export const TournamentView: React.FC<{ initialData?: TournamentInitialData }> =
           )}
         </div>
       )}
+
+      <NoticeDialog message={notice} onClose={closeNotice} />
+
+      <Modal
+        isOpen={isScheduleConfirmationOpen}
+        onClose={() => setIsScheduleConfirmationOpen(false)}
+        title="Generate schedule?"
+        appearance="plain"
+        maxWidth="520px"
+      >
+        <p>Generate the schedule with {activeScheduleTeams.length} teams and start Season {tournament.season}?</p>
+        {activeScheduleTeams.length % 2 !== 0 && (
+          <p>One team will have a BYE each round. You can define a house rule for how those teams earn points.</p>
+        )}
+        <div className={styles.modalFooter}>
+          <Button type="button" variant="secondary" onClick={() => setIsScheduleConfirmationOpen(false)}>Cancel</Button>
+          <Button type="button" variant="primary" onClick={() => void confirmGenerateSchedule()}>Generate schedule</Button>
+        </div>
+      </Modal>
+
+      <Modal
+        isOpen={Boolean(scheduleNotice)}
+        onClose={closeScheduleNotice}
+        title={scheduleNotice?.title}
+        appearance="plain"
+        maxWidth="520px"
+      >
+        <p>{scheduleNotice?.message}</p>
+        <div className={styles.modalFooter}>
+          <Button type="button" variant="primary" onClick={closeScheduleNotice}>
+            {scheduleNotice?.showMatches ? 'OK · View matches' : 'OK'}
+          </Button>
+        </div>
+      </Modal>
 
       <WelcomeModal
         isOpen={showCreatedTournamentWelcomeVisible}

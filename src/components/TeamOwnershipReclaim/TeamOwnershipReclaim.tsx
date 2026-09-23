@@ -2,6 +2,8 @@ import { useEffect, useMemo, useState } from 'react';
 import { Check, ClockCounterClockwise } from 'phosphor-react';
 import { Button } from '../Button/Button';
 import { Modal } from '../Modal/Modal';
+import { NoticeDialog } from '../Modal/NoticeDialog';
+import { useNoticeDialog } from '../Modal/useNoticeDialog';
 import { supabase } from '../../lib/supabase';
 import type { UserProfile } from '../../hooks/useAuth';
 import styles from './TeamOwnershipReclaim.module.sass';
@@ -46,6 +48,7 @@ function getDismissKey(userId: number) {
 }
 
 export function TeamOwnershipReclaim({ profile, onClaimed }: TeamOwnershipReclaimProps) {
+  const { notice, showNotice: alert, closeNotice } = useNoticeDialog();
   const [teamRows, setTeamRows] = useState<ClaimableTeamRow[]>([]);
   const [isFetching, setIsFetching] = useState(false);
   const [isClaiming, setIsClaiming] = useState(false);
@@ -183,6 +186,7 @@ export function TeamOwnershipReclaim({ profile, onClaimed }: TeamOwnershipReclai
   };
 
   return (
+    <>
     <Modal
       isOpen={isOpen}
       onClose={askNextTime}
@@ -227,5 +231,7 @@ export function TeamOwnershipReclaim({ profile, onClaimed }: TeamOwnershipReclai
         </div>
       </div>
     </Modal>
+    <NoticeDialog message={notice} onClose={closeNotice} />
+    </>
   );
 }

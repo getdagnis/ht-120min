@@ -2,6 +2,8 @@ import { useState } from 'react';
 import { Trash } from 'phosphor-react';
 
 import { Button } from '../../Button/Button';
+import { NoticeDialog } from '../../Modal/NoticeDialog';
+import { useNoticeDialog } from '../../Modal/useNoticeDialog';
 import adminStyles from '../../../legacy-pages/Public/TournamentAdmin.module.sass';
 import { TOURNAMENT_ROLE_LABELS, type TournamentRole } from '../../../../shared/tournament-roles';
 
@@ -36,6 +38,7 @@ export function TournamentRolesPanel({
   canManageCoOrganizer,
   onRolesChanged,
 }: TournamentRolesPanelProps) {
+  const { notice, showNotice: alert, closeNotice } = useNoticeDialog();
   const [role, setRole] = useState<TournamentRole>('admin');
   const [hattrickUserId, setHattrickUserId] = useState('');
   const [isSaving, setIsSaving] = useState(false);
@@ -62,6 +65,7 @@ export function TournamentRolesPanel({
 
   return (
     <div className={adminStyles.rolesPanel}>
+      <NoticeDialog message={notice} onClose={closeNotice} />
       <div className={adminStyles.roleGroup}>
         <div className={adminStyles.roleGroupHeader}><strong>Original organiser</strong><span>Permanent tournament owner</span></div>
         <div className={adminStyles.roleRow}>

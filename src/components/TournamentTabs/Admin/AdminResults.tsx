@@ -1,6 +1,8 @@
 import React from 'react';
 import { SectionCard } from '../../Card/SectionCard';
 import { Button } from '../../Button/Button';
+import { NoticeDialog } from '../../Modal/NoticeDialog';
+import { useNoticeDialog } from '../../Modal/useNoticeDialog';
 import { Check, ArrowClockwise, ArrowUpRight, X, PencilSimple, LinkSimple, Trash } from 'phosphor-react';
 import { getCountryFlagUrl } from '../../../utils/ht-data';
 import { getHattrickWeekDetails } from '../../../utils/hattrick-calendar';
@@ -218,6 +220,7 @@ export const AdminResults: React.FC<AdminResultsProps> = ({
   canRemoveFixtures = false,
   onRemoveFixture,
 }) => {
+  const { notice, showNotice: alert, closeNotice } = useNoticeDialog();
   const [linkingMatchId, setLinkingMatchId] = React.useState<string | null>(null);
   const [linkInput, setLinkInput] = React.useState('');
   const [linkPreview, setLinkPreview] = React.useState<HtMatchLinkPreview | null>(null);
@@ -543,8 +546,10 @@ export const AdminResults: React.FC<AdminResultsProps> = ({
   );
 
   return (
+    <>
+    <NoticeDialog message={notice} onClose={closeNotice} />
     <SectionCard
-      title="Manage Results"
+      title="Edit Results"
       collapsible
       isCollapsed={isResultsCollapsed}
       onToggleCollapse={() => togglePanel('results', !isResultsCollapsed, setIsResultsCollapsed)}
@@ -1119,5 +1124,6 @@ export const AdminResults: React.FC<AdminResultsProps> = ({
         </div>
       )}
     </SectionCard>
+    </>
   );
 };

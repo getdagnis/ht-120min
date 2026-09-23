@@ -39,6 +39,7 @@ import {
   parseMatchEventDetails,
 } from './_lib/chpp-match-events.js';
 import { buildRoundPressInput, type RoundPressMatchSource, type RoundPressRoundSource, type RoundPressTeamSource } from './_lib/round-press-input.js';
+import { getEligibleRoundPressNumber, type RoundPressEligibilityRound } from './_lib/round-press-eligibility.js';
 import {
   CloudflareAiConfigurationError,
   CloudflareAiTemporarilyUnavailableError,
@@ -823,6 +824,46 @@ async function handleRoundPressMatchDetailsBackfill(req: VercelRequest, res: Ver
   });
 }
 
+async function loadRoundPressEligibility(
+  supabase: ReturnType<typeof getServiceSupabase>,
+  tournamentId: string,
+  seasonNumber: number,
+) {
+  const { data, error } = await supabase
+    .from('rounds')
+    .select('round_number, matches(home_team_id, away_team_id, completed, status, scheduled_for, match_date)')
+    .eq('tournament_id', tournamentId)
+    .eq('season_number', seasonNumber)
+    .order('round_number', { ascending: true });
+  if (error) throw error;
+  return getEligibleRoundPressNumber((data || []) as RoundPressEligibilityRound[]);
+}
+
+async function handleRoundSummaryEligibility(req: VercelRequest, res: VercelResponse) {
+  if (req.method !== 'GET') return res.status(405).json({ error: 'Method not allowed.' });
+  const tournamentId = readString(req.query.tournamentId);
+  if (!tournamentId) return res.status(400).json({ error: 'Missing tournamentId.' });
+
+  const actor = await requireTournamentRoleSession(req, res, tournamentId);
+  if (!actor) return;
+  if (!actor.access.canPublishAnnouncements) return res.status(403).json({ error: 'Not available.' });
+
+  const supabase = getServiceSupabase();
+  const { data: tournament, error } = await supabase
+    .from('tournaments')
+    .select('season')
+    .eq('id', tournamentId)
+    .maybeSingle();
+  if (error) throw error;
+  if (!tournament) return res.status(404).json({ error: 'Tournament not found.' });
+
+  const seasonNumber = positiveInteger(tournament.season) || 1;
+  const roundNumber = await loadRoundPressEligibility(supabase, tournamentId, seasonNumber);
+  return res.status(200).json(roundNumber === null
+    ? { available: false }
+    : { available: true, roundNumber });
+}
+
 async function handleGenerateRoundSummary(req: VercelRequest, res: VercelResponse) {
   if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed.' });
   const tournamentId = readString(req.body?.tournamentId);
@@ -848,6 +889,16 @@ async function handleGenerateRoundSummary(req: VercelRequest, res: VercelRespons
   if (!tournament) return res.status(404).json({ error: 'Tournament not found.' });
 
   const currentSeasonNumber = positiveInteger(tournament.season) || 1;
+  const protectedHistoricalRequest = isForgeAdminRequest(req) || hasSuperAdminBypassCookie(req.headers.cookie);
+  if (seasonNumber !== currentSeasonNumber && !protectedHistoricalRequest) {
+    return res.status(400).json({ error: 'Public round summaries are available only for the current season.' });
+  }
+  if (seasonNumber === currentSeasonNumber || !protectedHistoricalRequest) {
+    const eligibleRoundNumber = await loadRoundPressEligibility(supabase, tournamentId, currentSeasonNumber);
+    if (eligibleRoundNumber !== roundNumber) {
+      return res.status(409).json({ error: 'This round is not currently eligible for a public summary.' });
+    }
+  }
   const scoringMode: PersistedScoringMode = tournament.scoring_mode === 'points' || tournament.scoring_mode === 'appg' || tournament.scoring_mode === '120m'
     ? tournament.scoring_mode
     : '120min';
@@ -1411,7 +1462,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       case 'backfill-round-matchdetails':
         return await handleRoundPressMatchDetailsBackfill(req, res);
       case 'generate-round-summary':
-        return await handleGenerateRoundSummary(req, res);
+        return req.method === 'GET'
+          ? await handleRoundSummaryEligibility(req, res)
+          : await handleGenerateRoundSummary(req, res);
       case 'activity':
       default:
         return await handleActivity(req, res);

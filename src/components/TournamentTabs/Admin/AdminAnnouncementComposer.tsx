@@ -2,6 +2,8 @@ import React, { useCallback, useState } from 'react';
 import { X } from 'phosphor-react';
 
 import { Button } from '../../Button/Button';
+import { NoticeDialog } from '../../Modal/NoticeDialog';
+import { useNoticeDialog } from '../../Modal/useNoticeDialog';
 import { ANNOUNCEMENT_TEMPLATES, type TournamentAnnouncementVisibility } from '../../../utils/tournament-announcements';
 import adminStyles from '../../../legacy-pages/Public/TournamentAdmin.module.sass';
 import styles from '../../../legacy-pages/Public/TournamentView.module.sass';
@@ -19,6 +21,7 @@ interface AdminAnnouncementComposerProps {
 export const AdminAnnouncementComposer = React.memo(function AdminAnnouncementComposer({
   onPublishAnnouncement,
 }: AdminAnnouncementComposerProps) {
+  const { notice, showNotice: alert, closeNotice } = useNoticeDialog();
   const [announcementContent, setAnnouncementContent] = useState('');
   const [selectedAnnouncementTemplate, setSelectedAnnouncementTemplate] = useState<string | null>(null);
   const [isPublicAnnouncement, setIsPublicAnnouncement] = useState(false);
@@ -47,10 +50,11 @@ export const AdminAnnouncementComposer = React.memo(function AdminAnnouncementCo
     } finally {
       setIsPublishingAnnouncement(false);
     }
-  }, [announcementContent, isPublicAnnouncement, onPublishAnnouncement, selectedAnnouncementTemplate]);
+  }, [alert, announcementContent, isPublicAnnouncement, onPublishAnnouncement, selectedAnnouncementTemplate]);
 
   return (
     <div className={adminStyles.inviteActionArea}>
+      <NoticeDialog message={notice} onClose={closeNotice} />
       <textarea
         value={announcementContent}
         onChange={(e) => setAnnouncementContent(e.target.value)}

@@ -18,5 +18,9 @@ export default defineConfig([
     languageOptions: {
       globals: globals.browser,
     },
+    rules: {
+      'no-restricted-globals': ['error', { name: 'alert', message: 'Use the app NoticeDialog instead of browser alerts.' }],
+      'no-restricted-properties': ['error', { object: 'window', property: 'alert', message: 'Use the app NoticeDialog instead of browser alerts.' }],
+    },
   },
 ])

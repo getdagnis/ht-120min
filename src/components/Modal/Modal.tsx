@@ -1,4 +1,4 @@
-import React, { useEffect } from 'react';
+import React, { useEffect, useId } from 'react';
 import styles from './Modal.module.sass';
 import { X } from 'phosphor-react';
 
@@ -14,6 +14,7 @@ interface ModalProps {
   headerClassName?: string;
   contentClassName?: string;
   useContentPanel?: boolean;
+  appearance?: 'grass' | 'plain';
 }
 
 export const Modal: React.FC<ModalProps> = ({
@@ -28,7 +29,9 @@ export const Modal: React.FC<ModalProps> = ({
   headerClassName = '',
   contentClassName = '',
   useContentPanel = true,
+  appearance = 'grass',
 }) => {
+  const titleId = useId();
   useEffect(() => {
     if (isOpen) {
       document.body.style.overflow = 'hidden';
@@ -57,10 +60,17 @@ export const Modal: React.FC<ModalProps> = ({
 
   return (
     <div className={styles.overlay} onClick={onClose}>
-        <div className={[styles.modal, modalClassName].filter(Boolean).join(' ')} style={{ maxWidth }} onClick={(e) => e.stopPropagation()}>
+        <div
+          className={[styles.modal, appearance === 'plain' ? styles.plain : '', modalClassName].filter(Boolean).join(' ')}
+          style={{ maxWidth }}
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby={title && showHeader ? titleId : undefined}
+          onClick={(e) => e.stopPropagation()}
+        >
           {showHeader && (
           <div className={[styles.header, headerClassName].filter(Boolean).join(' ')}>
-            {title && <h2 className={styles.title}>{title}</h2>}
+            {title && <h2 id={titleId} className={styles.title}>{title}</h2>}
             <button
               className={[styles.closeBtn, closeButtonClassName].filter(Boolean).join(' ')}
               onClick={onClose}
