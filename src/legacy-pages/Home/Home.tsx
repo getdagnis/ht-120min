@@ -29,6 +29,7 @@ import type { HomeInitialData } from '../../app/_data/public-data';
 import { useLocale } from '../../i18n/LocaleProvider';
 import { toLocalePath } from '../../next/locale-path';
 import { NewsArticle, type NewsPost } from '../../components/TournamentTabs/NewsTab';
+import { formatTournamentName } from '../../utils/tournament-names';
 import {
   EXOTIC_HFI_CAMPAIGN_SLUG_SET,
   EXOTIC_HFI_GROUP_TITLE,
@@ -124,6 +125,7 @@ interface HomeWeeklyPost {
   tournament_id: string;
   tournament_slug: string;
   tournament_name: string;
+  tournament_display_name: string;
   title: string | null;
   content: string;
   author_name: string;
@@ -153,6 +155,8 @@ interface HomeWeeklyRawPost {
         status?: string | null;
         is_archived?: boolean | null;
         image_url?: string | null;
+        country_limit?: string | number | null;
+        country_limit_format?: 'country_id' | 'league_id' | null;
       }
     | {
         id: string;
@@ -163,6 +167,8 @@ interface HomeWeeklyRawPost {
         status?: string | null;
         is_archived?: boolean | null;
         image_url?: string | null;
+        country_limit?: string | number | null;
+        country_limit_format?: 'country_id' | 'league_id' | null;
       }[]
     | null;
 }
@@ -245,7 +251,9 @@ const fetchLatestWeeklyPosts = useCallback(async () => {
         is_test,
         status,
         is_archived,
-        image_url
+        image_url,
+        country_limit,
+        country_limit_format
       )
     `,
     )
@@ -283,6 +291,10 @@ const fetchLatestWeeklyPosts = useCallback(async () => {
       tournament_id: post.tournament_id,
       tournament_slug: tournament?.slug || '',
       tournament_name: tournament?.name || 'Tournament',
+      tournament_display_name: formatTournamentName(tournament?.name || 'Tournament', {
+        countryLimit: tournament?.country_limit,
+        includeCountryFlag: true,
+      }),
       title: post.title,
       content: post.content,
       author_name: tournament?.name || post.author_name,
@@ -790,6 +802,8 @@ useEffect(() => {
             <NewsArticle
               post={normalizedPost}
               tournamentImageUrl={post.tournament_image_url}
+              adminBylineLabel={post.tournament_display_name}
+              adminBylineHref={toLocalePath(locale, `/t/${post.tournament_slug}`)}
               visitHref={toLocalePath(locale, `/t/${post.tournament_slug}`)}
               visitLabel="Visit cup"
             />

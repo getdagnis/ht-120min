@@ -49,6 +49,8 @@ export interface NewsArticleProps {
   reactionAuthorNames?: Record<string, string>;
   onReaction?: (postId: string, reaction: string) => void;
   tournamentImageUrl?: string | null;
+  adminBylineLabel?: string | null;
+  adminBylineHref?: string | null;
   visitHref?: string;
   visitLabel?: string;
 }
@@ -146,6 +148,8 @@ export const NewsArticle: React.FC<NewsArticleProps> = ({
   reactionAuthorNames = {},
   onReaction,
   tournamentImageUrl,
+  adminBylineLabel,
+  adminBylineHref,
   visitHref,
   visitLabel = 'Visit cup',
 }) => {
@@ -159,10 +163,16 @@ export const NewsArticle: React.FC<NewsArticleProps> = ({
         {authorTeam?.logo_url && <img src={authorTeam.logo_url} className={styles.postLogo} alt="" />}
         <span className={styles.postAuthor}>
           {post.is_admin ? (
-            <>
-              <strong>{OFFICIAL_PRESS_BYLINE}</strong>
+            adminBylineHref ? (
+              <a href={adminBylineHref} className={styles.postAuthorLink}>
+                <strong>{adminBylineLabel || OFFICIAL_PRESS_BYLINE}</strong>
+              </a>
+            ) : (
+              <>
+                <strong>{adminBylineLabel || OFFICIAL_PRESS_BYLINE}</strong>
               {officialPressAuthor && <span className={styles.officialPressAuthor}> (by {officialPressAuthor})</span>}
-            </>
+              </>
+            )
           ) : (
             post.author_name
           )}
