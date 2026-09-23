@@ -42,7 +42,7 @@ import {
 } from '../../utils/schedule-draft';
 import { buildRescheduleDraft, serializeRescheduleDraftForRpc } from '../../utils/reschedule-draft';
 import { buildManualRoundNormalizationPlan } from '../../utils/manual-rounds';
-import { buildClearSeasonResultsPayload } from '../../utils/season-results';
+import { buildClearSeasonResultsPayload, buildResetUnlinkedResultPayload } from '../../utils/season-results';
 import { getMatchDateForRound as resolveMatchDateForRound } from '../../utils/match-schedule';
 import {
   canViewerJoinAnotherTeam,
@@ -2369,7 +2369,7 @@ export const TournamentView: React.FC<{ initialData?: TournamentInitialData }> =
   }, [tournament, isRefreshingFixtures, fetchFixturesOnly, allMatches]);
 
   const requestHtMatchLink = useCallback(
-    async (matchId: string, htMatchId: string, dryRun: boolean): Promise<HtMatchLinkPreview> => {
+    async (matchId: string, htMatchId: string, dryRun: boolean, resetResult = false): Promise<HtMatchLinkPreview> => {
       if (!tournament) throw new Error('Tournament is not loaded.');
 
       const response = await fetch('/api/teams/refresh-fixtures', {
@@ -2381,6 +2381,8 @@ export const TournamentView: React.FC<{ initialData?: TournamentInitialData }> =
           matchId,
           htMatchId,
           dryRun,
+          resetResult,
+          ...(resetResult ? { adminPassword: password.trim() || tournament.admin_password || '' } : {}),
         }),
       });
       const payload = (await response.json().catch(() => null)) as {
@@ -2394,7 +2396,7 @@ export const TournamentView: React.FC<{ initialData?: TournamentInitialData }> =
 
       return payload.preview;
     },
-    [tournament],
+    [password, tournament],
   );
 
   const previewHtMatchLink = useCallback(
@@ -3983,6 +3985,31 @@ export const TournamentView: React.FC<{ initialData?: TournamentInitialData }> =
         return next;
       });
     }
+  };
+
+  const resetMatchResult = async (matchId: string) => {
+    const match = rounds.flatMap((round) => round.matches).find((item) => item.id === matchId);
+    if (!match) throw new Error('Tournament match not found.');
+
+    if (match.ht_match_id) {
+      await requestHtMatchLink(matchId, String(match.ht_match_id), false, true);
+    } else {
+      const { data, error } = await supabase.from('matches')
+        .update(buildResetUnlinkedResultPayload())
+        .eq('id', matchId)
+        .is('ht_match_id', null)
+        .select('id')
+        .single();
+      if (error || !data) throw new Error(error?.message || 'Could not reset this result.');
+    }
+
+    await fetchFixturesOnly();
+    setEditingMatch(null);
+    setMatchData((current) => {
+      const next = { ...current };
+      delete next[matchId];
+      return next;
+    });
   };
 
   const removeFixture = async (matchId: string) => {
@@ -5723,6 +5750,7 @@ export const TournamentView: React.FC<{ initialData?: TournamentInitialData }> =
                             editingMatch={editingMatch}
                             setEditingMatch={setEditingMatch}
                             updateMatch={updateMatch}
+                            resetMatchResult={resetMatchResult}
                             isResultsCollapsed={isResultsCollapsed}
                             setIsResultsCollapsed={setIsResultsCollapsed}
                             togglePanel={togglePanel}

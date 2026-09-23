@@ -2,6 +2,7 @@ import React from 'react';
 import { SectionCard } from '../../Card/SectionCard';
 import { Button } from '../../Button/Button';
 import { NoticeDialog } from '../../Modal/NoticeDialog';
+import { Modal } from '../../Modal/Modal';
 import { useNoticeDialog } from '../../Modal/useNoticeDialog';
 import { Check, ArrowClockwise, ArrowUpRight, X, PencilSimple, LinkSimple, Trash } from 'phosphor-react';
 import { getCountryFlagUrl } from '../../../utils/ht-data';
@@ -62,6 +63,7 @@ interface AdminResultsProps {
   editingMatch: string | null;
   setEditingMatch: (matchId: string | null) => void;
   updateMatch: (matchId: string) => Promise<void>;
+  resetMatchResult: (matchId: string) => Promise<void>;
   isResultsCollapsed: boolean;
   setIsResultsCollapsed: React.Dispatch<React.SetStateAction<boolean>>;
   togglePanel: (key: string, state: boolean, setter: React.Dispatch<React.SetStateAction<boolean>>) => void;
@@ -203,6 +205,7 @@ export const AdminResults: React.FC<AdminResultsProps> = ({
   editingMatch,
   setEditingMatch,
   updateMatch,
+  resetMatchResult,
   isResultsCollapsed,
   setIsResultsCollapsed,
   togglePanel,
@@ -235,6 +238,8 @@ export const AdminResults: React.FC<AdminResultsProps> = ({
   const [bulkEditScope, setBulkEditScope] = React.useState<'season' | 'round' | null>(null);
   const [removingMatchId, setRemovingMatchId] = React.useState<string | null>(null);
   const [resultNotice, setResultNotice] = React.useState('');
+  const [resetCandidate, setResetCandidate] = React.useState<MatchWithTeams | null>(null);
+  const [isResettingResult, setIsResettingResult] = React.useState(false);
   const fileInputRef = React.useRef<HTMLInputElement | null>(null);
 
   const bulkMatches = React.useMemo(
@@ -379,6 +384,20 @@ export const AdminResults: React.FC<AdminResultsProps> = ({
       alert(error instanceof Error ? error.message : 'Could not clear season fixtures.');
     } finally {
       setIsClearingFixtures(false);
+    }
+  };
+
+  const handleResetResult = async () => {
+    if (!resetCandidate) return;
+    setIsResettingResult(true);
+    try {
+      await resetMatchResult(resetCandidate.id);
+      setResultNotice(resetCandidate.ht_match_id ? 'Result restored from Hattrick.' : 'Saved result cleared.');
+      setResetCandidate(null);
+    } catch (error) {
+      alert(error instanceof Error ? error.message : 'Could not reset this result.');
+    } finally {
+      setIsResettingResult(false);
     }
   };
 
@@ -548,6 +567,25 @@ export const AdminResults: React.FC<AdminResultsProps> = ({
   return (
     <>
     <NoticeDialog message={notice} onClose={closeNotice} />
+    <Modal
+      isOpen={resetCandidate !== null}
+      onClose={() => { if (!isResettingResult) setResetCandidate(null); }}
+      title="Reset result"
+      appearance="plain"
+      maxWidth="520px"
+    >
+      <p>
+        {resetCandidate?.ht_match_id
+          ? 'Replace the saved result and your unsaved edits with the current Hattrick match data?'
+          : 'Clear the saved result and your unsaved edits? The fixture and its status will remain.'}
+      </p>
+      <Button type="button" variant="action" onClick={() => setResetCandidate(null)} disabled={isResettingResult}>
+        Cancel
+      </Button>{' '}
+      <Button type="button" variant="primaryDanger" onClick={handleResetResult} disabled={isResettingResult}>
+        {isResettingResult ? 'Resetting…' : 'Reset result'}
+      </Button>
+    </Modal>
     <SectionCard
       title="Edit Results"
       collapsible
@@ -975,23 +1013,10 @@ export const AdminResults: React.FC<AdminResultsProps> = ({
                               <Button
                                 size="xs"
                                 variant="action"
-                                title={match.completed ? 'Reset unsaved changes' : 'Clear form'}
-                                onClick={() => {
-                                  setMatchData({
-                                    ...matchData,
-                                    [match.id]: match.completed
-                                      ? match
-                                      : {
-                                          ...match,
-                                          home_goals: null,
-                                          away_goals: null,
-                                          went_120: false,
-                                          total_minutes: 90,
-                                        },
-                                  });
-                                }}
+                                title="Reset saved result"
+                                onClick={() => setResetCandidate(match)}
                                 data-tooltip-id="admin-tooltip"
-                                data-tooltip-content={match.completed ? 'Reset unsaved changes' : 'Clear form'}
+                                data-tooltip-content={match.ht_match_id ? 'Restore result from Hattrick' : 'Clear saved result'}
                               >
                                 <ArrowClockwise size={16} />
                               </Button>

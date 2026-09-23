@@ -11,3 +11,16 @@ export function buildClearSeasonResultsPayload() {
     appg_outcome_source: 'unclassified' as const,
   };
 }
+
+export function buildResetUnlinkedResultPayload() {
+  return {
+    ...buildClearSeasonResultsPayload(),
+    match_event_details: null,
+    home_yellow_cards: 0,
+    home_red_cards: 0,
+    home_injuries: 0,
+    away_yellow_cards: 0,
+    away_red_cards: 0,
+    away_injuries: 0,
+  };
+}

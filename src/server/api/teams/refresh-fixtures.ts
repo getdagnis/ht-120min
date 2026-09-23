@@ -522,6 +522,7 @@ async function handleManualMatchLink(req: VercelRequest, res: VercelResponse) {
   const matchId = String(getBodyValue(req, 'matchId') || '');
   const htMatchId = String(getBodyValue(req, 'htMatchId') || '').replace(/\D/g, '');
   const dryRun = Boolean(getBodyValue(req, 'dryRun'));
+  const resetResult = getBodyValue(req, 'resetResult') === true;
 
   if (!matchId || !htMatchId) return res.status(400).json({ error: 'Missing match id.' });
 
@@ -543,6 +544,7 @@ async function handleManualMatchLink(req: VercelRequest, res: VercelResponse) {
       home_team_id,
       away_team_id,
       appg_outcome_source,
+      ht_match_id,
       home_team:teams!matches_home_team_id_fkey(ht_team_id, name),
       away_team:teams!matches_away_team_id_fkey(ht_team_id, name)
     `,
@@ -551,6 +553,20 @@ async function handleManualMatchLink(req: VercelRequest, res: VercelResponse) {
     .single();
 
   if (!match) return res.status(404).json({ error: 'Tournament match not found.' });
+  if (resetResult && match.ht_match_id !== Number(htMatchId)) {
+    return res.status(400).json({ error: 'This fixture is no longer linked to that Hattrick match.' });
+  }
+  if (resetResult) {
+    const { data: tournament } = await supabase.from('tournaments')
+      .select('admin_password')
+      .eq('id', match.tournament_id)
+      .single();
+    const adminPassword = getBodyValue(req, 'adminPassword');
+    if (!tournament || typeof adminPassword !== 'string' ||
+        !adminPassword || adminPassword !== tournament.admin_password) {
+      return res.status(403).json({ error: 'Organizer access is required.' });
+    }
+  }
 
   const { data: scoringTournament } = await supabase
     .from('tournaments')
@@ -571,7 +587,7 @@ async function handleManualMatchLink(req: VercelRequest, res: VercelResponse) {
   const penaltyShootout = getPenaltyShootoutScore(mapping.eventDetails);
   const appgUpdate = buildChppAppgUpdate({
     scoringMode: scoringTournament?.scoring_mode,
-    currentSource: match.appg_outcome_source,
+    currentSource: resetResult ? 'unclassified' : match.appg_outcome_source,
     completed: details.completed,
     homeGoals: mapping.homeGoals,
     awayGoals: mapping.awayGoals,

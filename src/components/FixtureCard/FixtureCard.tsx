@@ -4,6 +4,7 @@ import { Tooltip } from 'react-tooltip';
 import { TeamByline } from '../TeamByline/TeamByline';
 import { appgOutcomeLabel, type AppgOutcome } from '../../utils/appg';
 import type { MatchSideEventDetails } from '../../../shared/match-events';
+import { getLiveClockDisplay, type LiveMatchClock } from '../../../shared/live-match';
 import styles from './FixtureCard.module.sass';
 
 interface TeamProps {
@@ -28,6 +29,8 @@ interface FixtureCardProps {
   homeTeam: TeamProps;
   awayTeam: TeamProps;
   status: 'arranged' | 'not_arranged' | 'ongoing' | 'misarranged' | 'finished';
+  liveClock?: Partial<LiveMatchClock>;
+  liveKickoff?: Date | string;
   score?: { home: number; away: number };
   penaltyShootout?: { home: number; away: number } | null;
   date?: string;
@@ -58,6 +61,8 @@ export const FixtureCard: React.FC<FixtureCardProps> = ({
   homeTeam,
   awayTeam,
   status,
+  liveClock,
+  liveKickoff,
   score,
   penaltyShootout,
   date,
@@ -70,6 +75,19 @@ export const FixtureCard: React.FC<FixtureCardProps> = ({
   appgOutcome,
   challengeAction,
 }) => {
+  const [nowMs, setNowMs] = React.useState(() => Date.now());
+  const [extraTimeAnchorMs, setExtraTimeAnchorMs] = React.useState<number | null>(null);
+  const livePhase = liveClock?.phase;
+  React.useEffect(() => {
+    if (status !== 'ongoing') return;
+    const timer = window.setInterval(() => {
+      const tick = Date.now();
+      setNowMs(tick);
+      if (livePhase === 'extra_time') setExtraTimeAnchorMs((previous) => previous ?? tick);
+      else setExtraTimeAnchorMs(null);
+    }, 1000);
+    return () => window.clearInterval(timer);
+  }, [livePhase, status]);
   const appgOutcomeText =
     completed && appgOutcome && appgOutcome !== 'needs_review' ? appgOutcomeLabel(appgOutcome) : null;
   const badgeContent = (
@@ -80,7 +98,15 @@ export const FixtureCard: React.FC<FixtureCardProps> = ({
         </div>
       )}
       <div className={styles.badgeRight}>
-        {status.replace('_', ' ').toUpperCase()}{' '}
+        {status === 'ongoing'
+          ? getLiveClockDisplay({
+              kickoffMs: liveKickoff ? new Date(liveKickoff).getTime() : null,
+              nowMs,
+              phase: liveClock?.phase,
+              announcedAddedMinutes: liveClock?.announcedAddedMinutes,
+              extraTimeAnchorMs,
+            })
+          : status.replace('_', ' ').toUpperCase()}{' '}
         {['arranged', 'ongoing', 'finished'].includes(status) && (
           <ArrowUpRight size={16} weight="bold" className={styles.statusBadgeIcon} />
         )}

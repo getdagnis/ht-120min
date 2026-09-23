@@ -12,6 +12,7 @@ import { getMatchDateForRound } from '../../utils/match-schedule';
 import { useClientNow } from '../../hooks/useHydratedBrowserState';
 import type { AppgOutcome } from '../../utils/appg';
 import type { MatchEventDetails } from '../../../shared/match-events';
+import type { LiveMatchClock } from '../../../shared/live-match';
 import styles from '../../legacy-pages/Public/TournamentView.module.sass';
 
 export interface FixtureMatch {
@@ -114,7 +115,7 @@ interface FixturesViewProps {
       away_red_cards?: number;
       away_injuries?: number;
       match_event_details?: MatchEventDetails;
-    }
+    } & Partial<LiveMatchClock>
   >;
   canJoinTournament: boolean;
   canJoinAnotherTeam?: boolean;
@@ -812,6 +813,8 @@ export const FixturesView: React.FC<FixturesViewProps> = ({
                         key={match.id}
                         date={status === 'misarranged' ? '' : isPostponed ? 'POSTPONED' : formattedDate}
                         status={status}
+                        liveClock={status === 'ongoing' ? liveMatch ?? undefined : undefined}
+                        liveKickoff={status === 'ongoing' ? match.match_date : undefined}
                         htMatchId={match.ht_match_id || undefined}
                         score={currentScore}
                         penaltyShootout={penaltyShootout}

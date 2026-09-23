@@ -5,7 +5,7 @@ import {
   getImportedFixtureRoundKey,
   getImportedFixtureRoundPeriod,
 } from '../src/utils/manual-rounds';
-import { buildClearSeasonResultsPayload } from '../src/utils/season-results';
+import { buildClearSeasonResultsPayload, buildResetUnlinkedResultPayload } from '../src/utils/season-results';
 
 test('persisted scheduled_for dates become chronological rounds and share same-date rounds', () => {
   const plan = buildManualRoundNormalizationPlan([
@@ -59,6 +59,19 @@ test('clear results uses valid unclassified APPG values without changing fixture
   assert.equal(payload.completed, false);
   assert.equal(payload.home_goals, null);
   assert.equal(payload.away_goals, null);
+});
+
+test('resetting an unlinked result clears saved scores and event facts without changing the fixture', () => {
+  const payload = buildResetUnlinkedResultPayload();
+  assert.equal(payload.home_goals, null);
+  assert.equal(payload.away_goals, null);
+  assert.equal(payload.completed, false);
+  assert.equal(payload.match_event_details, null);
+  assert.equal(payload.home_yellow_cards, 0);
+  assert.equal(payload.away_injuries, 0);
+  assert.equal(payload.appg_outcome_source, 'unclassified');
+  assert.equal('status' in payload, false);
+  assert.equal('ht_match_id' in payload, false);
 });
 
 test('normalization preserves 58 matches, groups dates, and is idempotent', () => {

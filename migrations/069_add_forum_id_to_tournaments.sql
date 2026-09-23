@@ -4,3 +4,5 @@ ALTER TABLE public.tournaments
 
 COMMENT ON COLUMN public.tournaments.forum_id IS
   'Optional Hattrick forum thread ID for the tournament discussion link.';
+
+-- applied!

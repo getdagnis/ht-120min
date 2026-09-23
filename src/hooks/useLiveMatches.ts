@@ -1,7 +1,8 @@
 import { useState, useEffect, useRef } from 'react';
 import type { MatchEventDetails } from '../../shared/match-events';
+import { getLivePollDelay, type LivePollCandidate } from '../../shared/live-match';
 
-export interface LiveMatchData {
+export interface LiveMatchData extends Partial<LiveMatchClock> {
   status: 'arranged' | 'ongoing' | 'finished';
   homeGoals: number;
   awayGoals: number;
@@ -51,10 +52,12 @@ export function useLiveMatches(
   const onMatchFinishedRef = useRef(onMatchFinished);
   const attemptedAppgMatchIdsRef = useRef<Set<number>>(new Set());
   const notifiedFinishedMatchIdsRef = useRef<Set<string>>(new Set());
+  const liveDataRef = useRef<Record<string, LiveMatchData>>({});
 
   useEffect(() => {
     attemptedAppgMatchIdsRef.current.clear();
     notifiedFinishedMatchIdsRef.current.clear();
+    liveDataRef.current = {};
   }, [tournamentId]);
 
   useEffect(() => {
@@ -111,7 +114,11 @@ export function useLiveMatches(
             newlyFinished = true;
           }
           if (Object.keys(results).length > 0) {
-            setLiveData((prev) => mergeLiveMatchData(prev, results));
+            setLiveData((prev) => {
+              const merged = mergeLiveMatchData(prev, results);
+              liveDataRef.current = merged;
+              return merged;
+            });
           }
           if (newlyFinished) onMatchFinishedRef.current?.();
 
@@ -121,10 +128,32 @@ export function useLiveMatches(
       }
     };
 
-    checkLiveMatches();
-    const interval = setInterval(checkLiveMatches, 30000);
-    return () => clearInterval(interval);
+    let cancelled = false;
+    let timer: number | undefined;
+    const run = async () => {
+      await checkLiveMatches();
+      if (cancelled) return;
+      const activeClock = currentMatchesForPolling(matchesRef.current, liveDataRef.current);
+      timer = window.setTimeout(run, getLivePollDelay(activeClock));
+    };
+    void run();
+    return () => {
+      cancelled = true;
+      if (timer !== undefined) window.clearTimeout(timer);
+    };
   }, [tournamentId, enabled, reclassifyAppg]);
 
   return { liveData };
+}
+
+function currentMatchesForPolling(
+  matches: Match[],
+  liveData: Record<string, LiveMatchData>,
+): LivePollCandidate[] {
+  return matches
+    .filter((match) => match.ht_match_id && liveData[String(match.ht_match_id)]?.status === 'ongoing')
+    .map((match) => ({
+      ...liveData[String(match.ht_match_id!)],
+      kickoffMs: match.match_date ? new Date(match.match_date).getTime() : null,
+    }));
 }

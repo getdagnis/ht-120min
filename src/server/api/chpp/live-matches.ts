@@ -12,8 +12,9 @@ import {
 } from '../_lib/chpp-match-events.js';
 import { buildChppAppgUpdate } from '../_lib/appg-chpp-classifier.js';
 import type { MatchEventDetails } from '../../../../shared/match-events.js';
+import type { LiveMatchClock } from '../../../../shared/live-match.js';
 
-interface LiveMatchResult {
+interface LiveMatchResult extends LiveMatchClock {
   status: 'arranged' | 'ongoing' | 'finished';
   homeGoals: number;
   awayGoals: number;
@@ -217,6 +218,13 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
       results[htMatchId] = {
         status,
+        phase: finished ? null : live?.phase ?? null,
+        matchPart: finished ? null : live?.matchPart ?? null,
+        lastEventMinute: finished ? null : live?.lastEventMinute ?? null,
+        nextEventMinute: finished ? null : live?.nextEventMinute ?? null,
+        nextEventMatchPart: finished ? null : live?.nextEventMatchPart ?? null,
+        announcedAddedMinutes: finished ? null : live?.announcedAddedMinutes ?? null,
+        fetchedAt: finished ? null : live?.fetchedAt ?? null,
         homeGoals,
         awayGoals,
         total_minutes: totalMinutes,

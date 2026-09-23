@@ -6,3 +6,5 @@ ALTER TABLE public.matches
 ALTER TABLE public.matches
   ADD CONSTRAINT matches_status_check
   CHECK (status IN ('not_arranged', 'arranged', 'ongoing', 'misarranged', 'finished'));
+
+-- applied!
