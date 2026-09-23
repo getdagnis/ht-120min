@@ -2548,6 +2548,9 @@ export const TournamentView: React.FC<{ initialData?: TournamentInitialData }> =
       setQuickDescription('');
       const nextParams = new URLSearchParams(searchParams.toString());
       nextParams.set('tab', tab);
+      // A historical season is a view-local inspection state. Do not let it
+      // follow visitors into another tab where live season data is expected.
+      nextParams.delete('season');
       setSearchParams(nextParams);
     }
   };
