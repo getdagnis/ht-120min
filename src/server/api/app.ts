@@ -828,6 +828,7 @@ async function loadRoundPressEligibility(
   supabase: ReturnType<typeof getServiceSupabase>,
   tournamentId: string,
   seasonNumber: number,
+  allowMultipleReports = false,
 ) {
   const { data, error } = await supabase
     .from('rounds')
@@ -836,7 +837,19 @@ async function loadRoundPressEligibility(
     .eq('season_number', seasonNumber)
     .order('round_number', { ascending: true });
   if (error) throw error;
-  return getEligibleRoundPressNumber((data || []) as RoundPressEligibilityRound[]);
+  const eligibleRoundNumber = getEligibleRoundPressNumber((data || []) as RoundPressEligibilityRound[]);
+  if (eligibleRoundNumber === null || allowMultipleReports) return eligibleRoundNumber;
+
+  const { data: reports, error: reportsError } = await supabase
+    .from('news_posts')
+    .select('id')
+    .eq('tournament_id', tournamentId)
+    .eq('season_number', seasonNumber)
+    .eq('round_number', eligibleRoundNumber)
+    .eq('is_round_report', true)
+    .limit(1);
+  if (reportsError) throw reportsError;
+  return reports && reports.length > 0 ? null : eligibleRoundNumber;
 }
 
 async function handleRoundSummaryEligibility(req: VercelRequest, res: VercelResponse) {
@@ -851,14 +864,19 @@ async function handleRoundSummaryEligibility(req: VercelRequest, res: VercelResp
   const supabase = getServiceSupabase();
   const { data: tournament, error } = await supabase
     .from('tournaments')
-    .select('season')
+    .select('season, registration_type')
     .eq('id', tournamentId)
     .maybeSingle();
   if (error) throw error;
   if (!tournament) return res.status(404).json({ error: 'Tournament not found.' });
 
   const seasonNumber = positiveInteger(tournament.season) || 1;
-  const roundNumber = await loadRoundPressEligibility(supabase, tournamentId, seasonNumber);
+  const roundNumber = await loadRoundPressEligibility(
+    supabase,
+    tournamentId,
+    seasonNumber,
+    tournament.registration_type === 'sandbox',
+  );
   return res.status(200).json(roundNumber === null
     ? { available: false }
     : { available: true, roundNumber });
@@ -882,7 +900,7 @@ async function handleGenerateRoundSummary(req: VercelRequest, res: VercelRespons
   const supabase = getServiceSupabase();
   const { data: tournament, error: tournamentError } = await supabase
     .from('tournaments')
-    .select('id, name, season, scoring_mode')
+    .select('id, name, season, scoring_mode, registration_type')
     .eq('id', tournamentId)
     .maybeSingle();
   if (tournamentError) throw tournamentError;
@@ -894,7 +912,12 @@ async function handleGenerateRoundSummary(req: VercelRequest, res: VercelRespons
     return res.status(400).json({ error: 'Public round summaries are available only for the current season.' });
   }
   if (seasonNumber === currentSeasonNumber || !protectedHistoricalRequest) {
-    const eligibleRoundNumber = await loadRoundPressEligibility(supabase, tournamentId, currentSeasonNumber);
+    const eligibleRoundNumber = await loadRoundPressEligibility(
+      supabase,
+      tournamentId,
+      currentSeasonNumber,
+      tournament.registration_type === 'sandbox',
+    );
     if (eligibleRoundNumber !== roundNumber) {
       return res.status(409).json({ error: 'This round is not currently eligible for a public summary.' });
     }
@@ -991,7 +1014,10 @@ async function handleGenerateRoundSummary(req: VercelRequest, res: VercelRespons
       repaired: result.repaired,
       durationMs: Date.now() - startedAt,
     });
-    return res.status(200).json(result.draft);
+    return res.status(200).json({
+      ...result.draft,
+      promptRevision: ROUND_PRESS_PROMPT_VERSION,
+    });
   } catch (error) {
     console.error('[Round press] generation failed', {
       tournamentId,
@@ -1019,6 +1045,58 @@ async function handleGenerateRoundSummary(req: VercelRequest, res: VercelRespons
     if (message === 'Gemini configuration is missing.') return res.status(500).json({ error: message });
     return res.status(502).json({ error: 'Could not generate a valid round summary.' });
   }
+}
+
+async function handlePostRoundSummary(req: VercelRequest, res: VercelResponse) {
+  if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed.' });
+  const tournamentId = readString(req.body?.tournamentId);
+  const seasonNumber = positiveInteger(req.body?.seasonNumber);
+  const roundNumber = positiveInteger(req.body?.roundNumber);
+  const title = readString(req.body?.title);
+  const content = readString(req.body?.content);
+  if (!tournamentId || !seasonNumber || !roundNumber || !content) {
+    return res.status(400).json({ error: 'tournamentId, seasonNumber, roundNumber, and content are required.' });
+  }
+
+  const actor = await requireTournamentRoleSession(req, res, tournamentId);
+  if (!actor) return;
+  if (!actor.access.canPublishAnnouncements) return res.status(403).json({ error: 'Not available.' });
+
+  const supabase = getServiceSupabase();
+  const [{ data: tournament, error: tournamentError }, { data: round, error: roundError }] = await Promise.all([
+    supabase.from('tournaments').select('registration_type').eq('id', tournamentId).maybeSingle(),
+    supabase
+      .from('rounds')
+      .select('id')
+      .eq('tournament_id', tournamentId)
+      .eq('season_number', seasonNumber)
+      .eq('round_number', roundNumber)
+      .maybeSingle(),
+  ]);
+  if (tournamentError) throw tournamentError;
+  if (roundError) throw roundError;
+  if (!tournament || !round) return res.status(404).json({ error: 'Round not found.' });
+
+  const { data: post, error: postError } = await supabase
+    .from('news_posts')
+    .insert({
+      tournament_id: tournamentId,
+      season_number: seasonNumber,
+      round_number: roundNumber,
+      is_round_report: tournament.registration_type !== 'sandbox',
+      title: title || null,
+      content,
+      author_name: `Cup Press Release by ${actor.access.viewerManagerName || 'Tournament organizer'}`,
+      author_team_id: null,
+      is_admin: true,
+    })
+    .select('*')
+    .single();
+  if (postError?.code === '23505') {
+    return res.status(409).json({ error: `A Round ${roundNumber} report has already been published.` });
+  }
+  if (postError) throw postError;
+  return res.status(201).json(post);
 }
 
 function routeFor(request: VercelRequest) {
@@ -1465,6 +1543,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         return req.method === 'GET'
           ? await handleRoundSummaryEligibility(req, res)
           : await handleGenerateRoundSummary(req, res);
+      case 'post-round-summary':
+        return await handlePostRoundSummary(req, res);
       case 'activity':
       default:
         return await handleActivity(req, res);

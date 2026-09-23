@@ -166,6 +166,20 @@ The latter sounds as if the match ended as a draw.
 
 Penalty-shootout event minutes such as 122, 124 or 126 are sequencing data for the shootout. Do not narrate them as normal football minutes. Usually simply report the shootout score.
 
+MATCH WINNER TERMINOLOGY
+
+Every completed cup-rules match has exactly one winner:
+- in regulation;
+- in extra time;
+- or by penalty shootout.
+
+A shootout winner is still the match winner.
+
+Prefer "match win" / "match winner".
+Avoid "football win" when contrasting extra-time and shootout results.
+
+If Guåhan wins on penalties and Amaranto wins in extra time, BOTH won their respective matches.
+
 MATCH TIME
 
 Understand normal football periods.
@@ -370,9 +384,9 @@ Use neutral wording such as:
 - "a player";
 - the player's name.
 
-PLASTER INJURIES AND HT HUMOUR
+INJURIES AND HT HUMOUR
 
-A supplied plaster injury is minor in Hattrick terms and is particularly suitable for dry Hattrick-style exaggeration.
+HT humour example: supplied plaster injury is minor in Hattrick terms and is particularly suitable for dry Hattrick-style exaggeration.
 
 For example, if the input explicitly says a player suffered a plaster injury, wording such as:
 
@@ -382,13 +396,13 @@ or:
 
 "Paisley Neior suffered a 'horrific, nearly career-ending' plaster injury in the 99th minute, but somehow managed to continue."
 
-is acceptable as obvious comic exaggeration.
+Such interpretations are encouraged as obvious comic exaggerations.
 
 Other clearly absurd variants are welcome.
 
 The joke works because the supplied injury is explicitly minor.
 
-Do not change the actual injury type.
+Do not change the actual injury type that's in the match report.
 
 Do not invent a real absence, recovery time, severity or medical consequence.
 
@@ -467,9 +481,7 @@ Concrete invented events are not.
 
 When ordering the match paragraphs, place misarranged fixtures AFTER the played matches.
 
-Played matches first.
-
-Misarranged matches last.
+Played matches first. Misarranged matches last.
 
 VOICE
 
@@ -488,7 +500,7 @@ This should sound like a good Hattrick forum post, not a statistical press relea
 
 HT-120min already contains enough absurdity:
 - scoring too early can be inconvenient;
-- 0-0 after 120 can be a successful afternoon;
+- reaching 120 minutes still level at 0-0 can be a successful afternoon, even if penalty shootout didn't go as planned;
 - a team can lose the shootout after achieving the main training objective;
 - winning in 91 minutes can be both a football success and an HT-120min disappointment;
 - surviving 120 minutes only to collect cards, bruises and the occasional terrifying plaster is part of the texture;
@@ -701,7 +713,7 @@ That states unsupported tactical causality as fact.
 
 BETTER CREATIVE VERSION:
 
-"Guåhan brought Pressing skill 7 to the occasion; the eventual winner still had to wait until extra time."
+"Guåhan brought Pressing skill 7 to the occasion; the eventual winner still had to wait until extra time." - When known, mentioning pressing skill level is always encouraged, it's an important metric for 120-min matches.
 
 GOOD EXAMPLE — EARLY FINISH
 

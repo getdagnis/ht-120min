@@ -213,7 +213,7 @@ export function buildRoundPressInput(params: {
   const selectedRound = params.rounds.find((round) => round.round_number === params.roundNumber);
   if (!selectedRound) throw new Error(`Round ${params.roundNumber} was not found.`);
 
-  const matches = selectedRound.matches.map((match) => ({
+  const mappedMatches = selectedRound.matches.map((match) => ({
     matchId: match.id,
     home: match.home_team,
     away: match.away_team,
@@ -245,6 +245,10 @@ export function buildRoundPressInput(params: {
     ),
     scheduledFor: match.scheduled_for ?? null,
   }));
+  const matches = [
+    ...mappedMatches.filter((match) => match.result.status !== 'misarranged'),
+    ...mappedMatches.filter((match) => match.result.status === 'misarranged'),
+  ];
 
   const next = params.rounds.find((round) => round.round_number === params.roundNumber + 1);
   const nextRound = next

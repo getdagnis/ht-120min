@@ -22,6 +22,8 @@ interface NewsTeam {
 export interface NewsPost {
   id: string;
   tournament_id?: string | null;
+  season_number?: number | null;
+  round_number?: number | null;
   tournament_slug?: string | null;
   tournament_name?: string | null;
   title?: string | null;
@@ -29,6 +31,7 @@ export interface NewsPost {
   author_name: string;
   author_team_id?: string | null;
   is_admin?: boolean;
+  is_round_report?: boolean;
   created_at: string;
 }
 
@@ -66,6 +69,7 @@ type NewsMode = 'admin' | 'team';
 interface NewsDraft {
   title: string;
   content: string;
+  roundSummaryRoundNumber?: number;
 }
 
 function getNewsDraftStorageKey(tournamentId: string, seasonNumber: number, mode: NewsMode, managerId: string | null) {
@@ -99,7 +103,14 @@ function readNewsDraft(storageKey: string): NewsDraft | null {
     if (!value) return null;
     const parsed = JSON.parse(value) as Partial<NewsDraft>;
     if (typeof parsed.title !== 'string' || typeof parsed.content !== 'string') return null;
-    return { title: parsed.title, content: parsed.content };
+    return {
+      title: parsed.title,
+      content: parsed.content,
+      roundSummaryRoundNumber:
+        typeof parsed.roundSummaryRoundNumber === 'number' && Number.isInteger(parsed.roundSummaryRoundNumber)
+          ? parsed.roundSummaryRoundNumber
+          : undefined,
+    };
   } catch {
     return null;
   }
@@ -112,6 +123,10 @@ function persistNewsDraft(storageKey: string, draft: NewsDraft) {
   } catch {
     // Session storage can be unavailable or full; the in-memory editor remains usable.
   }
+}
+
+function prependNewsPost(posts: NewsPost[], post: NewsPost) {
+  return [post, ...posts.filter((current) => current.id !== post.id)];
 }
 
 export const NewsArticle: React.FC<NewsArticleProps> = ({
@@ -208,6 +223,8 @@ export const NewsTab: React.FC<NewsTabProps> = ({
   const [isPostingNews, setIsPostingNews] = useState(false);
   const [isCreatingRoundSummary, setIsCreatingRoundSummary] = useState(false);
   const [hasGeneratedRoundSummary, setHasGeneratedRoundSummary] = useState(false);
+  const [generatedRoundNumber, setGeneratedRoundNumber] = useState<number | null>(null);
+  const [roundSummaryPromptRevision, setRoundSummaryPromptRevision] = useState<string | null>(null);
   const [roundSummaryElapsedSeconds, setRoundSummaryElapsedSeconds] = useState(0);
   const roundSummaryTimerRef = useRef<number | null>(null);
   const [roundSummaryEligibility, setRoundSummaryEligibility] = useState<{
@@ -231,7 +248,7 @@ export const NewsTab: React.FC<NewsTabProps> = ({
   );
   const myTeam = myHtUserId ? teams.find((team) => team.hattrick_user_id === Number(myHtUserId)) : null;
   const cupPressAuthorName = myTeam?.manager_name || myManagerName || myTeam?.name || 'Tournament organizer';
-  const cupPressByline = `Cup Press Release by ${cupPressAuthorName}`;
+  const cupPressByline = `Cup Press Release (${cupPressAuthorName})`;
 
   useEffect(
     () => () => {
@@ -243,9 +260,13 @@ export const NewsTab: React.FC<NewsTabProps> = ({
   useEffect(() => {
     currentDraftRef.current = {
       storageKey: draftStorageKey,
-      draft: { title: newNewsTitle, content: newNewsContent },
+      draft: {
+        title: newNewsTitle,
+        content: newNewsContent,
+        roundSummaryRoundNumber: newsMode === 'admin' ? generatedRoundNumber || undefined : undefined,
+      },
     };
-  }, [draftStorageKey, newNewsContent, newNewsTitle]);
+  }, [draftStorageKey, generatedRoundNumber, newNewsContent, newNewsTitle, newsMode]);
 
   useEffect(() => {
     const restoreTimer = window.setTimeout(() => {
@@ -260,16 +281,23 @@ export const NewsTab: React.FC<NewsTabProps> = ({
       const draft = readNewsDraft(draftStorageKey);
       setNewNewsTitle(draft?.title || '');
       setNewNewsContent(draft?.content || '');
+      const savedRoundNumber = newsMode === 'admin' ? draft?.roundSummaryRoundNumber || null : null;
+      setGeneratedRoundNumber(savedRoundNumber);
+      setHasGeneratedRoundSummary(savedRoundNumber !== null);
     };
     restoreDraft();
-  }, [draftStorageKey]);
+  }, [draftStorageKey, newsMode]);
 
   useEffect(() => {
     const timer = window.setTimeout(() => {
-      persistNewsDraft(draftStorageKey, { title: newNewsTitle, content: newNewsContent });
+      persistNewsDraft(draftStorageKey, {
+        title: newNewsTitle,
+        content: newNewsContent,
+        roundSummaryRoundNumber: newsMode === 'admin' ? generatedRoundNumber || undefined : undefined,
+      });
     }, 5000);
     return () => window.clearTimeout(timer);
-  }, [draftStorageKey, newNewsContent, newNewsTitle]);
+  }, [draftStorageKey, generatedRoundNumber, newNewsContent, newNewsTitle, newsMode]);
 
   useEffect(() => {
     const flushDraft = () => persistNewsDraft(currentDraftRef.current.storageKey, currentDraftRef.current.draft);
@@ -313,9 +341,10 @@ export const NewsTab: React.FC<NewsTabProps> = ({
           filter: `tournament_id=eq.${tournamentId}`,
         },
         (payload) => {
-          const post = payload.new as NewsPost & { season_number?: number | null };
+          const post = payload.new as NewsPost;
           if (post.season_number === seasonNumber) {
-            setNewsPosts((current) => [post, ...current]);
+            setNewsPosts((current) => prependNewsPost(current, post));
+            if (post.is_round_report) setRoundSummaryEligibility(null);
           }
         },
       )
@@ -380,21 +409,50 @@ export const NewsTab: React.FC<NewsTabProps> = ({
 
     setIsPostingNews(true);
     try {
-      const { error } = await supabase.from('news_posts').insert({
-        tournament_id: tournamentId,
-        season_number: seasonNumber,
-        title: newNewsTitle.trim(),
-        content: newNewsContent.trim(),
-        author_name: newsMode === 'admin' ? cupPressByline : myTeam?.name || 'Guest',
-        author_team_id: newsMode === 'admin' ? null : myTeam?.id || null,
-        is_admin: newsMode === 'admin',
-      });
+      const isRoundReport = newsMode === 'admin' && hasGeneratedRoundSummary && generatedRoundNumber !== null;
+      let createdPost: NewsPost | null = null;
+      if (isRoundReport) {
+        const response = await fetch('/api/app?route=post-round-summary', {
+          method: 'POST',
+          credentials: 'include',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            tournamentId,
+            seasonNumber,
+            roundNumber: generatedRoundNumber,
+            title: newNewsTitle.trim(),
+            content: newNewsContent.trim(),
+          }),
+        });
+        const result = (await response.json()) as NewsPost & { error?: string };
+        if (!response.ok) throw new Error(result.error || 'Could not post the round report.');
+        createdPost = result;
+        if (createdPost.is_round_report) setRoundSummaryEligibility(null);
+      } else {
+        const { data, error } = await supabase
+          .from('news_posts')
+          .insert({
+            tournament_id: tournamentId,
+            season_number: seasonNumber,
+            title: newNewsTitle.trim(),
+            content: newNewsContent.trim(),
+            author_name: newsMode === 'admin' ? cupPressByline : myTeam?.name || 'Guest',
+            author_team_id: newsMode === 'admin' ? null : myTeam?.id || null,
+            is_admin: newsMode === 'admin',
+          })
+          .select('*')
+          .single();
+        if (error) throw error;
+        createdPost = data as NewsPost;
+      }
 
-      if (error) throw error;
+      if (createdPost) setNewsPosts((current) => prependNewsPost(current, createdPost));
       persistNewsDraft(draftStorageKey, { title: '', content: '' });
       currentDraftRef.current = { storageKey: draftStorageKey, draft: { title: '', content: '' } };
       setNewNewsContent('');
       setNewNewsTitle('');
+      setHasGeneratedRoundSummary(false);
+      setGeneratedRoundNumber(null);
     } catch (error) {
       alert(error instanceof Error ? error.message : 'Could not post news.');
     } finally {
@@ -412,7 +470,11 @@ export const NewsTab: React.FC<NewsTabProps> = ({
   const handleNewsTitleChange = (title: string) => {
     currentDraftRef.current = {
       storageKey: draftStorageKey,
-      draft: { title, content: newNewsContent },
+      draft: {
+        title,
+        content: newNewsContent,
+        roundSummaryRoundNumber: newsMode === 'admin' ? generatedRoundNumber || undefined : undefined,
+      },
     };
     setNewNewsTitle(title);
   };
@@ -420,17 +482,26 @@ export const NewsTab: React.FC<NewsTabProps> = ({
   const handleNewsContentChange = (content: string) => {
     currentDraftRef.current = {
       storageKey: draftStorageKey,
-      draft: { title: newNewsTitle, content },
+      draft: {
+        title: newNewsTitle,
+        content,
+        roundSummaryRoundNumber: newsMode === 'admin' ? generatedRoundNumber || undefined : undefined,
+      },
     };
     if (content === '') setHasGeneratedRoundSummary(false);
+    if (content === '') setGeneratedRoundNumber(null);
+    if (content === '') setRoundSummaryPromptRevision(null);
     setNewNewsContent(content);
   };
 
   const handleClearRoundSummary = () => {
     currentDraftRef.current = { storageKey: draftStorageKey, draft: { title: '', content: '' } };
+    persistNewsDraft(draftStorageKey, { title: '', content: '' });
     setNewNewsTitle('');
     setNewNewsContent('');
     setHasGeneratedRoundSummary(false);
+    setGeneratedRoundNumber(null);
+    setRoundSummaryPromptRevision(null);
   };
 
   const handleCreateRoundSummary = async () => {
@@ -440,6 +511,7 @@ export const NewsTab: React.FC<NewsTabProps> = ({
     setIsCreatingRoundSummary(true);
     setRoundSummaryElapsedSeconds(0);
     setRoundSummaryError(null);
+    setRoundSummaryPromptRevision(null);
     const startedAt = Date.now();
     roundSummaryTimerRef.current = window.setInterval(() => {
       setRoundSummaryElapsedSeconds(Math.floor((Date.now() - startedAt) / 1000));
@@ -460,6 +532,7 @@ export const NewsTab: React.FC<NewsTabProps> = ({
         intro?: string;
         matches?: Array<{ paragraph?: string }>;
         outro?: string;
+        promptRevision?: string;
         error?: string;
       };
       if (!response.ok) throw new Error(result.error || 'Could not create the round summary.');
@@ -467,10 +540,15 @@ export const NewsTab: React.FC<NewsTabProps> = ({
       const content = [result.intro, ...(result.matches || []).map((match) => match.paragraph), result.outro]
         .filter(Boolean)
         .join('\n\n');
-      currentDraftRef.current = { storageKey: draftStorageKey, draft: { title, content } };
+      currentDraftRef.current = {
+        storageKey: draftStorageKey,
+        draft: { title, content, roundSummaryRoundNumber: roundSummaryRoundNumber },
+      };
       setNewNewsTitle(title);
       setNewNewsContent(content);
       setHasGeneratedRoundSummary(true);
+      setGeneratedRoundNumber(roundSummaryRoundNumber);
+      setRoundSummaryPromptRevision(result.promptRevision || null);
     } catch (error) {
       setRoundSummaryError(error instanceof Error ? error.message : 'Could not create the round summary.');
     } finally {
@@ -617,6 +695,9 @@ export const NewsTab: React.FC<NewsTabProps> = ({
                   {String(Math.floor(roundSummaryElapsedSeconds / 60)).padStart(2, '0')}:
                   {String(roundSummaryElapsedSeconds % 60).padStart(2, '0')}
                 </p>
+              )}
+              {roundSummaryPromptRevision && newsMode === 'admin' && (
+                <p className={styles.roundSummaryStatus}>Debug: prompt revision {roundSummaryPromptRevision}</p>
               )}
               {roundSummaryEligibilityError && newsMode === 'admin' && (
                 <p className={styles.roundSummaryError} role="alert">

@@ -85,6 +85,19 @@ test('round input includes next fixtures and only pre-round standings context', 
   assert.equal(JSON.stringify(input).includes('future-match'), false);
 });
 
+test('round input places misarranged fixtures after played fixtures', () => {
+  const played = match('played', 'round-2');
+  const misarranged = { ...match('misarranged', 'round-2'), completed: false, status: 'misarranged' };
+  const input = buildRoundPressInput({
+    tournament: { id: 'tournament', name: 'Cup', scoringMode: '120min' },
+    seasonNumber: 1,
+    roundNumber: 2,
+    rounds: [{ id: 'round-2', round_number: 2, matches: [misarranged, played] }],
+    teams: [home, away],
+  });
+  assert.deepEqual(input.matches.map((item) => item.matchId), ['played', 'misarranged']);
+});
+
 test('structured card and injury facts are converted without localized event text', () => {
   const source = match('match-2', 'round-2');
   source.match_event_details = {
