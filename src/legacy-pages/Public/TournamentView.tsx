@@ -702,7 +702,11 @@ export const TournamentView: React.FC<{ initialData?: TournamentInitialData }> =
   const [isFetchingSandboxTeam, setIsFetchingSandboxTeam] = useState(false);
   const [isSavingTeam, setIsSavingTeam] = useState(false);
   const [isGenerating, setIsGenerating] = useState(false);
-  const [scheduleNotice, setScheduleNotice] = useState<{ title: string; message: string; showMatches?: boolean } | null>(null);
+  const [scheduleNotice, setScheduleNotice] = useState<{
+    title: string;
+    message: string;
+    showMatches?: boolean;
+  } | null>(null);
   const [isScheduleConfirmationOpen, setIsScheduleConfirmationOpen] = useState(false);
   const [isRescheduling, setIsRescheduling] = useState(false);
   const [editingMatch, setEditingMatch] = useState<string | null>(null);
@@ -2263,7 +2267,8 @@ export const TournamentView: React.FC<{ initialData?: TournamentInitialData }> =
   }, [password, roleAccess, roleAccessLoading, tournament, slug, isAdminAuthenticated]);
 
   useEffect(() => {
-    if (!tournament || !isAdminAuthenticated || adminAuthSource !== 'legacy_password' || !roleAccess?.canViewAdmin) return;
+    if (!tournament || !isAdminAuthenticated || adminAuthSource !== 'legacy_password' || !roleAccess?.canViewAdmin)
+      return;
     const timer = window.setTimeout(() => {
       setAdminAuthSource('oauth_role');
       sessionStorage.setItem(getOrganizerAdminSessionStorageKey(tournament.id, roleAccess.viewerUserId), 'oauth_role');
@@ -3790,21 +3795,33 @@ export const TournamentView: React.FC<{ initialData?: TournamentInitialData }> =
 
   const generateSchedule = () => {
     if (!isHealthQuotaMet()) {
-      setScheduleNotice({ title: 'Cannot generate schedule', message: 'Too many inactive teams. Please replace or revive teams to meet the minimum quota.' });
+      setScheduleNotice({
+        title: 'Cannot generate schedule',
+        message: 'Too many inactive teams. Please replace or revive teams to meet the minimum quota.',
+      });
       return;
     }
 
     if (!scheduleStartSlotId || !scheduleDraft.valid || !scheduleDraft.selectedStartSlot) {
-      setScheduleNotice({ title: 'Cannot generate schedule', message: scheduleDraft.reason || 'Choose a valid start date first.' });
+      setScheduleNotice({
+        title: 'Cannot generate schedule',
+        message: scheduleDraft.reason || 'Choose a valid start date first.',
+      });
       return;
     }
     if (!serializedScheduleDraft) {
-      setScheduleNotice({ title: 'Cannot generate schedule', message: 'Unable to prepare the selected schedule draft.' });
+      setScheduleNotice({
+        title: 'Cannot generate schedule',
+        message: 'Unable to prepare the selected schedule draft.',
+      });
       return;
     }
     const scheduleAdminPassword = password.trim() || tournament?.admin_password || '';
     if (!scheduleAdminPassword) {
-      setScheduleNotice({ title: 'Cannot generate schedule', message: 'Unable to confirm organizer access. Please reload the page and try again.' });
+      setScheduleNotice({
+        title: 'Cannot generate schedule',
+        message: 'Unable to confirm organizer access. Please reload the page and try again.',
+      });
       return;
     }
 
@@ -3984,7 +4001,8 @@ export const TournamentView: React.FC<{ initialData?: TournamentInitialData }> =
     if (match.ht_match_id) {
       await requestHtMatchLink(matchId, String(match.ht_match_id), false, true);
     } else {
-      const { data, error } = await supabase.from('matches')
+      const { data, error } = await supabase
+        .from('matches')
         .update(buildResetUnlinkedResultPayload())
         .eq('id', matchId)
         .is('ht_match_id', null)
@@ -4611,9 +4629,10 @@ export const TournamentView: React.FC<{ initialData?: TournamentInitialData }> =
                   <p className={styles.helpContent}>
                     Teams in this tournament compete to collect as many completed 120-minute training matches as
                     possible. Standings are ranked first by <strong>120min achievements</strong>. If teams are tied, the
-                    current tie-breakers are <strong>goal difference</strong>, then <strong>goals scored</strong>, then
-                    fewer matches played. In other words: get the match to 120 minutes first; after that, football still
-                    settles the close calls.
+                    current tie-breakers are <strong>regular victory points</strong> (3p for a win, 2p for a shootout
+                    win, 1pt for a regular-time tie), then <strong>goal difference</strong>, then{' '}
+                    <strong>goals scored</strong>, then fewer matches played. In other words: get the match to 120
+                    minutes first; after that, football still settles the close calls.
                   </p>
                 )}
               </div>
@@ -4624,9 +4643,9 @@ export const TournamentView: React.FC<{ initialData?: TournamentInitialData }> =
                 </p>
                 {showScoringHelp && (
                   <p className={styles.helpContent}>
-                    Standard competitive tournament. Teams earn 3 points for a win and 1 point for a draw. Standings are
-                    ranked by <strong>Total Points</strong>, then goal difference and goals scored. 120min games mean
-                    nothing here.
+                    Standard competitive tournament. Teams earn 3 points for a win, 2 points for a shootout win, and 1
+                    point for a regular-time tie. Standings are ranked by <strong>Total Points</strong>, then goal
+                    difference and goals scored. 120min games mean nothing here.
                   </p>
                 )}
               </div>
@@ -5052,6 +5071,7 @@ export const TournamentView: React.FC<{ initialData?: TournamentInitialData }> =
         myManagerName={storedHtManagerName}
         isAdminAuthenticated={isAdminAuthenticated}
         canPublishAnnouncements={Boolean(roleAccess?.canPublishAnnouncements)}
+        tournamentImageUrl={tournament.image_url}
         faqItems={tournamentFaqItems}
       />
 
@@ -5382,8 +5402,8 @@ export const TournamentView: React.FC<{ initialData?: TournamentInitialData }> =
                               onChange={(e) => setEditMaxTeams(e.target.value ? Number(e.target.value) : null)}
                               className={adminStyles.selectField}
                             >
-                              <option value="">Unlimited (decide when ready)</option>
-                              {[2, 4, 6, 8, 16, 32, 64].map((n) => (
+                              <option value="">Undecided (open till start)</option>
+                              {[2, 4, 6, 8, 10, 12].map((n) => (
                                 <option key={n} value={n}>
                                   {n} teams
                                 </option>
@@ -6423,13 +6443,19 @@ export const TournamentView: React.FC<{ initialData?: TournamentInitialData }> =
         appearance="plain"
         maxWidth="520px"
       >
-        <p>Generate the schedule with {activeScheduleTeams.length} teams and start Season {tournament.season}?</p>
+        <p>
+          Generate the schedule with {activeScheduleTeams.length} teams and start Season {tournament.season}?
+        </p>
         {activeScheduleTeams.length % 2 !== 0 && (
           <p>One team will have a BYE each round. You can define a house rule for how those teams earn points.</p>
         )}
         <div className={styles.modalFooter}>
-          <Button type="button" variant="secondary" onClick={() => setIsScheduleConfirmationOpen(false)}>Cancel</Button>
-          <Button type="button" variant="primary" onClick={() => void confirmGenerateSchedule()}>Generate schedule</Button>
+          <Button type="button" variant="secondary" onClick={() => setIsScheduleConfirmationOpen(false)}>
+            Cancel
+          </Button>
+          <Button type="button" variant="primary" onClick={() => void confirmGenerateSchedule()}>
+            Generate schedule
+          </Button>
         </div>
       </Modal>
 

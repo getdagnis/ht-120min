@@ -1086,7 +1086,7 @@ async function handlePostRoundSummary(req: VercelRequest, res: VercelResponse) {
       is_round_report: tournament.registration_type !== 'sandbox',
       title: title || null,
       content,
-      author_name: `Cup Press Release by ${actor.access.viewerManagerName || 'Tournament organizer'}`,
+      author_name: `Tournament Update (by ${actor.access.viewerManagerName || 'Tournament organizer'})`,
       author_team_id: null,
       is_admin: true,
     })

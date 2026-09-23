@@ -504,6 +504,7 @@ export const TournamentHistory: React.FC<TournamentHistoryProps> = ({
     }
     if (historyScoringMode === '120min') {
       if (b.achievements120min !== a.achievements120min) return b.achievements120min - a.achievements120min;
+      if (b.pts !== a.pts) return b.pts - a.pts;
       if (b.gd !== a.gd) return b.gd - a.gd;
       if (b.gf !== a.gf) return b.gf - a.gf;
       return a.played - b.played;
@@ -1066,6 +1067,7 @@ export const TournamentHistory: React.FC<TournamentHistoryProps> = ({
                     ) : historyScoringMode === '120min' ? (
                       <>
                         <th>120m</th>
+                        <th>Pts</th>
                         <th>Mins</th>
                         <th>Pld</th>
                         <th>Dif</th>
@@ -1102,6 +1104,7 @@ export const TournamentHistory: React.FC<TournamentHistoryProps> = ({
                         ) : historyScoringMode === '120min' ? (
                           <>
                             <td className={styles.accentStat}>{standing.achievements120min}</td>
+                            <td>{standing.pts}</td>
                             <td>{standing.totalMinutes}</td>
                             <td>{standing.played}</td>
                             <td>{standing.gd > 0 ? `+${standing.gd}` : standing.gd}</td>

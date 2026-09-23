@@ -129,6 +129,7 @@ interface HomeWeeklyPost {
   author_name: string;
   author_team_id: string | null;
   author_team_name: string | null;
+  tournament_image_url: string | null;
   is_admin: boolean | null;
   created_at: string;
 }
@@ -151,6 +152,7 @@ interface HomeWeeklyRawPost {
         is_test?: boolean | null;
         status?: string | null;
         is_archived?: boolean | null;
+        image_url?: string | null;
       }
     | {
         id: string;
@@ -160,6 +162,7 @@ interface HomeWeeklyRawPost {
         is_test?: boolean | null;
         status?: string | null;
         is_archived?: boolean | null;
+        image_url?: string | null;
       }[]
     | null;
 }
@@ -241,7 +244,8 @@ const fetchLatestWeeklyPosts = useCallback(async () => {
         is_private,
         is_test,
         status,
-        is_archived
+        is_archived,
+        image_url
       )
     `,
     )
@@ -284,6 +288,7 @@ const fetchLatestWeeklyPosts = useCallback(async () => {
       author_name: tournament?.name || post.author_name,
       author_team_id: null,
       author_team_name: null,
+      tournament_image_url: tournament?.image_url || null,
       is_admin: true,
       created_at: post.created_at,
     }));
@@ -784,6 +789,7 @@ useEffect(() => {
   >
             <NewsArticle
               post={normalizedPost}
+              tournamentImageUrl={post.tournament_image_url}
               visitHref={toLocalePath(locale, `/t/${post.tournament_slug}`)}
               visitLabel="Visit cup"
             />

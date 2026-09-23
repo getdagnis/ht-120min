@@ -37,6 +37,33 @@ test('completed BYE result counts for the one tournament team', () => {
   assert.equal(standings[0].totalMinutes, 121);
 });
 
+test('penalty shootouts award 2 points to the winner and 1 point to the loser', () => {
+  const teams = [
+    { id: 'away', name: 'Away', ht_team_id: 2, hattrick_user_id: 2, active: true, replacement_for_team_id: null },
+    { id: 'home', name: 'Home', ht_team_id: 1, hattrick_user_id: 1, active: true, replacement_for_team_id: null },
+  ];
+  const shootout = {
+    home_team_id: 'home',
+    away_team_id: 'away',
+    home_goals: 0,
+    away_goals: 0,
+    penalty_shootout_home_goals: 3,
+    penalty_shootout_away_goals: 2,
+    went_120: true,
+    completed: true,
+  };
+
+  const pointsStandings = calculateStandings(teams, [shootout], 'points');
+  assert.equal(pointsStandings[0].teamId, 'home');
+  assert.equal(pointsStandings[0].pts, 2);
+  assert.equal(pointsStandings[1].pts, 1);
+
+  const standings120min = calculateStandings(teams, [shootout], '120min');
+  assert.equal(standings120min[0].teamId, 'home');
+  assert.equal(standings120min[0].achievements120min, 1);
+  assert.equal(standings120min[0].pts, 2);
+});
+
 test('inactive current-season teams keep their stats as an open spot', () => {
   const standings = calculateStandings(
     [

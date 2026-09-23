@@ -188,6 +188,11 @@
   font-weight: 700
   color: var(--text-h)
 
+.officialPressAuthor
+  font-weight: 400
+  font-size: 0.85rem
+  padding-left: 0.25rem
+
 .postTime
   margin-left: auto
   font-size: 0.8rem
@@ -199,6 +204,27 @@
   color: var(--text)
   white-space: pre-wrap
   word-break: break-word
+
+  &::after
+    content: ''
+    display: table
+    clear: both
+
+.tournamentPressImage
+  float: right
+  shape-outside: margin-box
+  width: clamp(14rem, 28%, 18rem)
+  aspect-ratio: 3 / 2
+  object-fit: cover
+  margin: 0 0 0.9rem 1rem
+  border-radius: var(--radius-sm)
+  border: 1px solid var(--border)
+
+  @media (max-width: 640px)
+    float: none
+    display: block
+    width: 100%
+    margin: 0 0 1rem
 
 .noPosts
   text-align: center

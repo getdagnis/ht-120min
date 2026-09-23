@@ -404,9 +404,10 @@ Administrators can inspect the linked match and correct the tournament record wh
 The current standings order is:
 
 1. number of completed matches that reached 120 minutes;
-2. goal difference;
-3. goals scored;
-4. fewer matches played, when the earlier values are still equal.
+2. regular victory points (3p for a win, 2p for a shootout win, 1pt for a regular-time tie);
+3. goal difference;
+4. goals scored;
+5. fewer matches played, when the earlier values are still equal.
 
 Both teams receive a 120-minute achievement when a completed match reaches extra time.`,
         status: 'current',
@@ -417,7 +418,8 @@ Both teams receive a 120-minute achievement when a completed match reaches extra
         answer: `In **points mode**, HT-120min uses conventional league points:
 
 - 3 points for a win;
-- 1 point for a draw;
+- 2 points for a shootout win;
+- 1 point for a regular-time tie;
 - 0 points for a loss.
 
 Teams are then separated by goal difference and goals scored.`,

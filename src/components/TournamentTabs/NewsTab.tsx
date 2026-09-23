@@ -48,6 +48,7 @@ export interface NewsArticleProps {
   currentUserId?: string | null;
   reactionAuthorNames?: Record<string, string>;
   onReaction?: (postId: string, reaction: string) => void;
+  tournamentImageUrl?: string | null;
   visitHref?: string;
   visitLabel?: string;
 }
@@ -61,6 +62,7 @@ interface NewsTabProps {
   myManagerName: string | null;
   isAdminAuthenticated: boolean;
   canPublishAnnouncements: boolean;
+  tournamentImageUrl?: string | null;
   faqItems: CompactAccordionItem[];
 }
 
@@ -70,6 +72,13 @@ interface NewsDraft {
   title: string;
   content: string;
   roundSummaryRoundNumber?: number;
+}
+
+const OFFICIAL_PRESS_BYLINE = 'Tournament Update';
+
+function getOfficialPressAuthor(authorName: string) {
+  const legacyByline = /^(?:Cup Press Release|Tournament Update)(?:\s+\(?(?:by\s+)?(.+?)\)?)?$/i.exec(authorName.trim());
+  return legacyByline?.[1]?.trim() || null;
 }
 
 function getNewsDraftStorageKey(tournamentId: string, seasonNumber: number, mode: NewsMode, managerId: string | null) {
@@ -136,17 +145,28 @@ export const NewsArticle: React.FC<NewsArticleProps> = ({
   currentUserId,
   reactionAuthorNames = {},
   onReaction,
+  tournamentImageUrl,
   visitHref,
   visitLabel = 'Visit cup',
 }) => {
   const { locale } = useLocale();
   const dateLocale = locale === 'lv' ? 'lv-LV' : 'en-GB';
+  const officialPressAuthor = post.is_admin ? getOfficialPressAuthor(post.author_name) : null;
 
   return (
     <article className={`${styles.post} ${post.is_admin ? styles.adminPost : ''}`}>
       <div className={styles.postHeader}>
         {authorTeam?.logo_url && <img src={authorTeam.logo_url} className={styles.postLogo} alt="" />}
-        <span className={styles.postAuthor}>{post.author_name}</span>
+        <span className={styles.postAuthor}>
+          {post.is_admin ? (
+            <>
+              <strong>{OFFICIAL_PRESS_BYLINE}</strong>
+              {officialPressAuthor && <span className={styles.officialPressAuthor}> (by {officialPressAuthor})</span>}
+            </>
+          ) : (
+            post.author_name
+          )}
+        </span>
         <span className={styles.postTime}>
           {new Date(post.created_at).toLocaleString(dateLocale, {
             month: 'short',
@@ -158,7 +178,12 @@ export const NewsArticle: React.FC<NewsArticleProps> = ({
         </span>
       </div>
       {post.title && <h4 className={styles.postTitle}>{post.title}</h4>}
-      <div className={styles.postContent}>{post.content}</div>
+      <div className={styles.postContent}>
+        {post.is_admin && tournamentImageUrl && (
+          <img src={tournamentImageUrl} className={styles.tournamentPressImage} alt="" />
+        )}
+        {post.content}
+      </div>
       {reactions.length > 0 && (
         <div className={styles.usedReactions} aria-label="Used reactions">
           {reactions.map((item, index) => (
@@ -214,6 +239,7 @@ export const NewsTab: React.FC<NewsTabProps> = ({
   myManagerName,
   isAdminAuthenticated,
   canPublishAnnouncements,
+  tournamentImageUrl = null,
   faqItems,
 }) => {
   const { notice, showNotice: alert, closeNotice } = useNoticeDialog();
@@ -248,7 +274,7 @@ export const NewsTab: React.FC<NewsTabProps> = ({
   );
   const myTeam = myHtUserId ? teams.find((team) => team.hattrick_user_id === Number(myHtUserId)) : null;
   const cupPressAuthorName = myTeam?.manager_name || myManagerName || myTeam?.name || 'Tournament organizer';
-  const cupPressByline = `Cup Press Release (${cupPressAuthorName})`;
+  const cupPressByline = `${OFFICIAL_PRESS_BYLINE} (by ${cupPressAuthorName})`;
 
   useEffect(
     () => () => {
@@ -603,6 +629,7 @@ export const NewsTab: React.FC<NewsTabProps> = ({
                 currentUserId={myHtUserId}
                 reactionAuthorNames={reactionAuthorNames}
                 onReaction={handleAddReaction}
+                tournamentImageUrl={tournamentImageUrl}
                 visitHref={window.location.pathname}
               />
             </SectionCard>
@@ -620,6 +647,7 @@ export const NewsTab: React.FC<NewsTabProps> = ({
                   currentUserId={myHtUserId}
                   reactionAuthorNames={reactionAuthorNames}
                   onReaction={handleAddReaction}
+                  tournamentImageUrl={tournamentImageUrl}
                   visitHref={window.location.pathname}
                 />
               </SectionCard>
@@ -636,7 +664,7 @@ export const NewsTab: React.FC<NewsTabProps> = ({
                   className={newsMode === 'admin' ? styles.active : ''}
                   onClick={() => handleNewsModeChange('admin')}
                 >
-                  Offical Cup Press Release
+                  Official Tournament Update
                 </button>
               )}
             </div>

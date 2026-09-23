@@ -36,6 +36,16 @@ function recordAppgClassification(standing: TeamStanding, outcome: AppgOutcome |
   }
 }
 
+function hasDecisivePenaltyShootout(match: Match) {
+  const homeShootoutGoals = match.penalty_shootout_home_goals;
+  const awayShootoutGoals = match.penalty_shootout_away_goals;
+  return (
+    typeof homeShootoutGoals === 'number' &&
+    typeof awayShootoutGoals === 'number' &&
+    homeShootoutGoals !== awayShootoutGoals
+  );
+}
+
 export interface Team {
   id: string;
   name: string;
@@ -199,8 +209,18 @@ export function calculateStandings(
     } else {
       home.drawn++;
       away.drawn++;
-      home.pts += 1;
-      away.pts += 1;
+      if (hasDecisivePenaltyShootout(m)) {
+        if (m.penalty_shootout_home_goals! > m.penalty_shootout_away_goals!) {
+          home.pts += 2;
+          away.pts += 1;
+        } else {
+          home.pts += 1;
+          away.pts += 2;
+        }
+      } else {
+        home.pts += 1;
+        away.pts += 1;
+      }
     }
 
     const appgPoints = getAppgPoints(m);
@@ -233,10 +253,13 @@ export function calculateStandings(
       // 1. Primary: 120-minute matches achieved (descending)
       if (b.achievements120min !== a.achievements120min) return b.achievements120min - a.achievements120min;
 
-      // 2. Tie settler 1: Goal difference (descending – higher is better)
+      // 2. Tie settler 1: Regular victory points (descending)
+      if (b.pts !== a.pts) return b.pts - a.pts;
+
+      // 3. Tie settler 2: Goal difference (descending – higher is better)
       if (b.gd !== a.gd) return b.gd - a.gd;
 
-      // 3. Tie settler 2: Goals scored (descending)
+      // 4. Tie settler 3: Goals scored (descending)
       if (b.gf !== a.gf) return b.gf - a.gf;
 
       return a.played - b.played;

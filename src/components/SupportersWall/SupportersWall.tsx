@@ -213,20 +213,23 @@ export const SupportersWall: React.FC<SupportersWallProps> = ({ variant = 'compa
     void loadSupporters();
   }, []);
 
-  const renderPioneerMessage = useCallback((supporterId: string) => {
-    const cup = pioneerCupS1[supporterId as keyof typeof pioneerCupS1];
-    if (!cup) return MESSAGES.founding[0];
+  const renderPioneerMessage = useCallback(
+    (supporterId: string) => {
+      const cup = pioneerCupS1[supporterId as keyof typeof pioneerCupS1];
+      if (!cup) return MESSAGES.founding[0];
 
-    return (
-      <>
-        An honorary pioneer member of HT-120min and participant of{' '}
-        <Link href={toLocalePath(locale, cup.href)} className={styles.cupLink}>
-          {cup.label}
-        </Link>{' '}
-        in Season 1.
-      </>
-    );
-  }, [locale]);
+      return (
+        <>
+          An honorary pioneer member of HT-120min and participant of{' '}
+          <Link href={toLocalePath(locale, cup.href)} className={styles.cupLink}>
+            {cup.label}
+          </Link>{' '}
+          in Season 1.
+        </>
+      );
+    },
+    [locale],
+  );
 
   const displayedSupporters = useMemo(() => {
     const resolvedSupporters = SUPPORTER_SEEDS.map((supporter) => {
@@ -246,8 +249,14 @@ export const SupportersWall: React.FC<SupportersWallProps> = ({ variant = 'compa
 
     if (variant === 'full') return resolvedSupporters;
 
-    const founding = shuffleWithSeed(resolvedSupporters.filter((s) => s.type === 'founding'), shuffleSeed + 1).slice(0, 3);
-    const pioneers = shuffleWithSeed(resolvedSupporters.filter((s) => s.type === 'pioneer'), shuffleSeed + 2).slice(0, 3);
+    const founding = shuffleWithSeed(
+      resolvedSupporters.filter((s) => s.type === 'founding'),
+      shuffleSeed + 1,
+    ).slice(0, 3);
+    const pioneers = shuffleWithSeed(
+      resolvedSupporters.filter((s) => s.type === 'pioneer'),
+      shuffleSeed + 2,
+    ).slice(0, 3);
 
     return [...founding, ...pioneers];
   }, [lookupById, variant, shuffleSeed, renderPioneerMessage]);
@@ -258,10 +267,7 @@ export const SupportersWall: React.FC<SupportersWallProps> = ({ variant = 'compa
         <div className={styles.titleGroup}>
           <h2>Wall of Honorary Mentions</h2>
         </div>
-        <p className={styles.intro}>
-          Thank you for helping build the project by being an early part of it! When PRO accounts are introduced all
-          those on this wall will enjoy a permanent discount!
-        </p>
+        <p className={styles.intro}>Thank you for helping build the project by being an early part of it!</p>
       </div>
 
       <div className={styles.grid}>
@@ -272,8 +278,8 @@ export const SupportersWall: React.FC<SupportersWallProps> = ({ variant = 'compa
             style={{ animationDelay: `${idx * 0.1}s` }}
           >
             <div className={styles.badge}>
-              {s.type === 'founding' ? <Trophy size={14} weight="bold" /> : <BeerBottle size={14} weight="bold" />}
-              {s.type === 'founding' ? 'Early Supporter' : 'Pioneer User'}
+              {s.type === 'pioneer' ? <Trophy size={14} weight="bold" /> : <BeerBottle size={14} weight="bold" />}
+              {s.type === 'pioneer' ? 'Early Supporter' : 'Pioneer User'}
             </div>
             <div className={styles.cardFrame}>
               <div className={styles.name}>{s.name}</div>
@@ -296,7 +302,12 @@ export const SupportersWall: React.FC<SupportersWallProps> = ({ variant = 'compa
           >
             <ArrowClockwise size={18} /> Shuffle
           </Button>
-          <Button variant="outlineWhite" size="sm" onClick={() => router.push(toLocalePath(locale, '/supporters'))} className={styles.actionBtn}>
+          <Button
+            variant="outlineWhite"
+            size="sm"
+            onClick={() => router.push(toLocalePath(locale, '/supporters'))}
+            className={styles.actionBtn}
+          >
             <ArrowsOut size={18} /> Show All
           </Button>
         </div>

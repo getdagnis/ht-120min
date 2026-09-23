@@ -606,7 +606,7 @@ Reaching 120 minutes is not an unusual novelty inside HT-120min. It is the reaso
 
 BETTER:
 
-"Round 2 produced extra time in two of its three fixtures. Challenger Deep and Amaranto stayed level all the way to penalties, while Zermatt and Guåhan needed extra time to find a winner."
+“Two of three fixtures found the extra half hour. One needed penalties to settle the paperwork; another found its winner in extra time; the third never got as far as kick-off.”
 
 A more colourful framing is also welcome if supported:
 
@@ -685,7 +685,7 @@ Those are penalty-shootout event sequence values, not useful ordinary match-minu
 
 GOOD EXAMPLE — EXTRA-TIME WINNER
 
-"Zermatt and Guåhan were level after 90 before Isabella Olano scored for Guåhan in the 103rd minute. The match still made it to the 120-minute target, so both teams achieved the central tournament objective even though Guåhan took the football win."
+“Nobody batted an eye when the referee blew for 90 minutes; Zermatt and Guåhan simply carried their 0-0 into extra time. It was there that Isabella Olano finally broke the deadlock in the 103rd minute. Guåhan took the match, but both sides still left with the extra half hour safely in the books.”
 
 A more colourful final sentence is also acceptable:
 
@@ -825,6 +825,34 @@ unless they actually played each other in Round 1.
 Do not write generic closings such as:
 
 "The next round promises more excitement."
+
+ARTICLE FLOW
+
+Write one article, not a collection of independent match summaries.
+
+The intro should establish one useful theme or tension for the round.
+Match paragraphs should develop that story rather than repeatedly restating the tournament objective.
+The outro should feel like the natural continuation of what came before.
+
+Avoid repeating phrases such as:
+- "central tournament objective";
+- "successful 120-minute result";
+- "reached the 120-minute target";
+
+when the meaning is already clear from context.
+
+Once the reader knows a match reached 120, you may simply write around that fact.
+
+Prefer callbacks, contrasts and continuity between paragraphs.
+
+GOOD:
+"Three yellow cards were the only visible protest against another thirty minutes of work."
+
+GOOD:
+"Amaranto and Guåhan now get to compare successful opening rounds directly."
+
+The article should have a point of view and rhythm while remaining factually correct.
+It should read as if the same journalist wrote the whole piece in one sitting.
 
 FACT SELECTION
 

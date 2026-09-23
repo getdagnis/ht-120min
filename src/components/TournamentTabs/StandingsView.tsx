@@ -165,6 +165,7 @@ export const StandingsView: React.FC<StandingsViewProps> = ({
     const compareDefault = (a: TeamStanding, b: TeamStanding) => {
       if (scoringMode === '120min') {
         if (b.achievements120min !== a.achievements120min) return b.achievements120min - a.achievements120min;
+        if (b.pts !== a.pts) return b.pts - a.pts;
         if (b.gd !== a.gd) return b.gd - a.gd;
         if (b.gf !== a.gf) return b.gf - a.gf;
         return a.played - b.played;
@@ -374,12 +375,13 @@ export const StandingsView: React.FC<StandingsViewProps> = ({
       }
 
       if (show120minScoring) {
-        return `[table]\n${forumHeader(['#', 'Team', '120m', '120m%', 'Mins', 'Dif', 'Goals'])}\n${rows
+        return `[table]\n${forumHeader(['#', 'Team', '120m', 'Pts', '120m%', 'Mins', 'Dif', 'Goals'])}\n${rows
           .map((standing, index) =>
             forumRow([
               index + 1,
               forumTeamName(standing),
               standing.achievements120min,
+              standing.pts,
               `${percentage120min(standing).toFixed(0)}%`,
               standing.totalMinutes,
               signedGoalDifference(standing.gd),
@@ -547,6 +549,7 @@ export const StandingsView: React.FC<StandingsViewProps> = ({
                 {show120minScoring ? (
                   <>
                     {sortableHeader('120m', 'achievements120min', styles.center120)}
+                    {sortableHeader('Pts', 'pts', `${styles.center} ${styles.pointsHeader}`)}
                     {sortableHeader(
                       '120m%',
                       'achievements120minPercent',
@@ -722,6 +725,7 @@ export const StandingsView: React.FC<StandingsViewProps> = ({
                       {show120minScoring ? (
                         <>
                           <td className={`${styles.highlight} ${styles.center}`}>{s.achievements120min}</td>
+                          <td className={styles.center}>{s.pts}</td>
                           <td className={styles.center}>{percentage120min(s).toFixed(0)}%</td>
                           <td className={styles.center}>{s.totalMinutes}</td>
                           <td className={styles.center}>{s.gd > 0 ? `+${s.gd}` : s.gd}</td>
@@ -886,6 +890,7 @@ export const StandingsView: React.FC<StandingsViewProps> = ({
                   currentUserId={myHtUserId}
                   reactionAuthorNames={reactionAuthorNames}
                   onReaction={handleNewsReaction}
+                  tournamentImageUrl={tournament?.image_url}
                 />
               </SectionCard>
             );
