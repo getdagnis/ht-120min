@@ -5049,6 +5049,7 @@ export const TournamentView: React.FC<{ initialData?: TournamentInitialData }> =
         seasonNumber={currentSeasonNumber}
         teams={teams}
         myHtUserId={myHtUserId}
+        myManagerName={storedHtManagerName}
         isAdminAuthenticated={isAdminAuthenticated}
         canPublishAnnouncements={Boolean(roleAccess?.canPublishAnnouncements)}
         faqItems={tournamentFaqItems}

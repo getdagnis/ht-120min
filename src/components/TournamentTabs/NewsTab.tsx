@@ -55,6 +55,7 @@ interface NewsTabProps {
   seasonNumber: number;
   teams: NewsTeam[];
   myHtUserId: string | null;
+  myManagerName: string | null;
   isAdminAuthenticated: boolean;
   canPublishAnnouncements: boolean;
   faqItems: CompactAccordionItem[];
@@ -195,6 +196,7 @@ export const NewsTab: React.FC<NewsTabProps> = ({
   seasonNumber,
   teams,
   myHtUserId,
+  myManagerName,
   isAdminAuthenticated,
   canPublishAnnouncements,
   faqItems,
@@ -205,6 +207,7 @@ export const NewsTab: React.FC<NewsTabProps> = ({
   const [newNewsContent, setNewNewsContent] = useState('');
   const [isPostingNews, setIsPostingNews] = useState(false);
   const [isCreatingRoundSummary, setIsCreatingRoundSummary] = useState(false);
+  const [hasGeneratedRoundSummary, setHasGeneratedRoundSummary] = useState(false);
   const [roundSummaryElapsedSeconds, setRoundSummaryElapsedSeconds] = useState(0);
   const roundSummaryTimerRef = useRef<number | null>(null);
   const [roundSummaryEligibility, setRoundSummaryEligibility] = useState<{
@@ -226,10 +229,16 @@ export const NewsTab: React.FC<NewsTabProps> = ({
       .filter((team) => team.hattrick_user_id)
       .map((team) => [String(team.hattrick_user_id), team.manager_name || team.name]),
   );
+  const myTeam = myHtUserId ? teams.find((team) => team.hattrick_user_id === Number(myHtUserId)) : null;
+  const cupPressAuthorName = myTeam?.manager_name || myManagerName || myTeam?.name || 'Tournament organizer';
+  const cupPressByline = `Cup Press Release by ${cupPressAuthorName}`;
 
-  useEffect(() => () => {
-    if (roundSummaryTimerRef.current !== null) window.clearInterval(roundSummaryTimerRef.current);
-  }, []);
+  useEffect(
+    () => () => {
+      if (roundSummaryTimerRef.current !== null) window.clearInterval(roundSummaryTimerRef.current);
+    },
+    [],
+  );
 
   useEffect(() => {
     currentDraftRef.current = {
@@ -371,13 +380,12 @@ export const NewsTab: React.FC<NewsTabProps> = ({
 
     setIsPostingNews(true);
     try {
-      const myTeam = myHtUserId ? teams.find((team) => team.hattrick_user_id === Number(myHtUserId)) : null;
       const { error } = await supabase.from('news_posts').insert({
         tournament_id: tournamentId,
         season_number: seasonNumber,
         title: newNewsTitle.trim(),
         content: newNewsContent.trim(),
-        author_name: newsMode === 'admin' ? 'Cup Press Release' : myTeam?.name || 'Guest',
+        author_name: newsMode === 'admin' ? cupPressByline : myTeam?.name || 'Guest',
         author_team_id: newsMode === 'admin' ? null : myTeam?.id || null,
         is_admin: newsMode === 'admin',
       });
@@ -414,7 +422,15 @@ export const NewsTab: React.FC<NewsTabProps> = ({
       storageKey: draftStorageKey,
       draft: { title: newNewsTitle, content },
     };
+    if (content === '') setHasGeneratedRoundSummary(false);
     setNewNewsContent(content);
+  };
+
+  const handleClearRoundSummary = () => {
+    currentDraftRef.current = { storageKey: draftStorageKey, draft: { title: '', content: '' } };
+    setNewNewsTitle('');
+    setNewNewsContent('');
+    setHasGeneratedRoundSummary(false);
   };
 
   const handleCreateRoundSummary = async () => {
@@ -454,6 +470,7 @@ export const NewsTab: React.FC<NewsTabProps> = ({
       currentDraftRef.current = { storageKey: draftStorageKey, draft: { title, content } };
       setNewNewsTitle(title);
       setNewNewsContent(content);
+      setHasGeneratedRoundSummary(true);
     } catch (error) {
       setRoundSummaryError(error instanceof Error ? error.message : 'Could not create the round summary.');
     } finally {
@@ -537,7 +554,10 @@ export const NewsTab: React.FC<NewsTabProps> = ({
                 Team News
               </button>
               {isAdminAuthenticated && canPublishAnnouncements && (
-                <button className={newsMode === 'admin' ? styles.active : ''} onClick={() => handleNewsModeChange('admin')}>
+                <button
+                  className={newsMode === 'admin' ? styles.active : ''}
+                  onClick={() => handleNewsModeChange('admin')}
+                >
                   Offical Cup Press Release
                 </button>
               )}
@@ -545,13 +565,11 @@ export const NewsTab: React.FC<NewsTabProps> = ({
 
             <div className={styles.postingTeamBranding}>
               {(() => {
-                const myTeam = myHtUserId ? teams.find((team) => team.hattrick_user_id === Number(myHtUserId)) : null;
-
                 if (newsMode === 'admin') {
                   return (
                     <div className={styles.branding}>
                       <span>
-                        📰 Posting as: <strong>Offical Cup Press Release</strong>
+                        📰 Posting as: <strong>{cupPressByline}</strong>
                       </span>
                     </div>
                   );
@@ -583,7 +601,7 @@ export const NewsTab: React.FC<NewsTabProps> = ({
                   onChange={(event) => handleNewsContentChange(event.target.value)}
                   placeholder={newsMode === 'admin' ? 'Write a tournament announcement...' : 'How is your team doing?'}
                   className={styles.postTextarea}
-                  rows={12}
+                  rows={16}
                 />
               </div>
               {roundSummaryError && newsMode === 'admin' && (
@@ -593,7 +611,11 @@ export const NewsTab: React.FC<NewsTabProps> = ({
               )}
               {isCreatingRoundSummary && newsMode === 'admin' && (
                 <p className={styles.roundSummaryStatus} role="status">
-                  Generating. Can take up to a minute... {String(Math.floor(roundSummaryElapsedSeconds / 60)).padStart(2, '0')}:{String(roundSummaryElapsedSeconds % 60).padStart(2, '0')}
+                  {roundSummaryElapsedSeconds > 65
+                    ? 'Generating. Takes about a minute. Or more...'
+                    : 'Generating. Takes about a minute...'}{' '}
+                  {String(Math.floor(roundSummaryElapsedSeconds / 60)).padStart(2, '0')}:
+                  {String(roundSummaryElapsedSeconds % 60).padStart(2, '0')}
                 </p>
               )}
               {roundSummaryEligibilityError && newsMode === 'admin' && (
@@ -604,18 +626,25 @@ export const NewsTab: React.FC<NewsTabProps> = ({
               <div className={styles.postActions}>
                 {newsMode === 'admin' &&
                   canPublishAnnouncements &&
-                  roundSummaryEligibility?.seasonNumber === seasonNumber && (
+                  roundSummaryEligibility?.seasonNumber === seasonNumber &&
+                  (hasGeneratedRoundSummary ? (
+                    <Button type="button" variant="secondaryAction" onClick={handleClearRoundSummary}>
+                      Clear report
+                    </Button>
+                  ) : (
                     <Button
                       type="button"
                       variant="primary"
                       disabled={isCreatingRoundSummary}
                       onClick={() => void handleCreateRoundSummary()}
                     >
-                      {isCreatingRoundSummary ? 'Creating summary…' : 'Generate round review'}
+                      {isCreatingRoundSummary
+                        ? 'Creating summary…'
+                        : `Generate round ${roundSummaryEligibility.roundNumber} report`}
                     </Button>
-                  )}
+                  ))}
                 <Button type="submit" variant="primary" disabled={isPostingNews || !newNewsContent.trim()}>
-                  {isPostingNews ? 'Posting...' : 'Post News'}
+                  {isPostingNews ? 'Posting...' : 'Post Announcement'}
                 </Button>
               </div>
             </form>
