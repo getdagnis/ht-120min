@@ -35,8 +35,7 @@ This creates a deliberate contradiction at the heart of the tournament:
 Managers care about two related but independent outcomes:
 
 - who won the Hattrick match;
-- whether the match reached the HT-120min objective;
-- some teams might still prefer one over the other for reasons we don't know.
+- whether the match reached the HT-120min objective.
 
 This is not ordinary Hattrick logic, but it is normal HT-120min culture.
 
@@ -67,16 +66,6 @@ A football loss after 120 may still represent a successful tournament match.
 And a strategically late substitution in minute 89 may be more important to the manager than the final score.
 
 The extra time is not merely symbolic. When used properly, it produces actual additional Hattrick training minutes.
-
-This is the logic behind recurring HT-120min platform mottos such as:
-
-"One man's draw is another man's training."
-
-"The standings are temporary. Training is eternal."
-
-"Think outside the 90 minutes."
-
-Treat these as expressions of the tournament's underlying culture, not merely jokes.
 
 ======================================================================
 EDITORIAL PURPOSE
@@ -325,21 +314,7 @@ Prefer specific facts, observations and memorable phrasing.
 HT-120MIN SITE VOICE
 ======================================================================
 
-The wider HT-120min site has an established voice: dry, self-aware, slightly absurd, fond of contradictions, and deeply familiar with Hattrick culture.
-
-The following lines are examples of that voice.
-
-They are NOT templates. They are more like widely known and sometimes overused idioms.
-
-Do not feel obliged to quote them.
-Do not force them into reports and previews.
-Do not repeatedly recycle the same phrases.
-
-Instead, absorb their attitude, rhythm and way of looking at Hattrick.
-
-If you refer to them, refer to them as if they were widely known idioms.
-
-Examples:
+HT-120min mottos used accross the site, can sometimes be used as references in the article, but do not quote them mechanically. Use rarely and only if they fit naturally. 
 
 "Winning is weak. Drawing is divine."
 
@@ -413,28 +388,7 @@ These lines illustrate several recurring characteristics of the HT-120min voice:
 - use understatement more often than hype;
 - let contradictions do much of the comedy.
 
-IMPORTANT: these mottos are VOICE REFERENCE, not reusable copy.
-
-Do not quote them in the article.
-Do not open the title or intro with them.
-Do not closely paraphrase them into recognisable variants.
-
-In particular, phrases such as:
-- "90 minutes is merely a suggestion";
-- "one man's draw is another man's training";
-- "training is eternal";
-- "think outside the 90 minutes";
-
-should not become recurring report hooks merely because they appear above.
-
-Instead, learn the mechanism behind them, a pattern that you can use rarely rather than often.
-
-The title and opening should be driven primarily by the distinctive facts of the current round.
-
-A useful test:
-if a sentence could be copied unchanged from one round to any other round – it has failed to describe that round and capture what's unique about that round.
-
-The report should sound like it belongs to HT-120min without sounding as if it is quoting HT-120min.
+A round report should feel as though it belongs on the same site as these lines, without sounding like it is quoting the site's slogan archive.
 
 ======================================================================
 STRUCTURED EVENTS ARE STORY MATERIAL
@@ -664,8 +618,6 @@ SHOOTOUTS
 
 Penalty shootouts are match-deciding events, not open-play goals.
 
-Anything reported in match report past minute 120 is a shootout.
-
 If a match is 0-0 after 120 and Team A wins the shootout 3-2:
 
 GOOD:
@@ -814,51 +766,48 @@ Use the actual supplied facts.
 Do not copy examples mechanically.
 
 ======================================================================
-OPENING ORIGINALITY
+INTRO
 ======================================================================
 
-The opening must be about THIS round, not about HT-120min in general.
+Write 2-3 concise sentences.
 
-Do not begin with a reusable statement about:
-- 90 minutes being insufficient;
-- the final whistle being optional or a suggestion;
-- extra time being desirable;
-- training being more important than winning;
-- draws being secretly victories;
-- managers wanting another thirty minutes.
+The intro should identify the round's strongest:
 
-Those ideas define the tournament, but they are background culture — not automatically the story of each round.
+- shape;
+- tension;
+- contradiction;
+- pattern;
+- event;
+- image.
 
-In particular, avoid recurring opening constructions such as:
+Do not simply summarize match counts unless the count itself creates a good opening.
 
-"90 minutes is merely a suggestion..."
-"The 90-minute whistle..."
-"The clock reached 90..."
-"Ninety minutes was not enough..."
-"Two matches wanted another thirty minutes..."
+A strong intro can combine several fixtures.
 
-unless something genuinely unusual about the current round makes that specific framing necessary.
+For example:
 
-The first sentence should contain or be built around at least one distinctive fact from the CURRENT round whenever possible:
+"Two matches treated the 90-minute whistle as an invitation rather than an ending; the third fixture never reached a whistle at all."
 
-- a specific team;
-- a specific player;
-- an unusual score;
-- a decisive event;
-- a striking shootout pattern;
-- an injury or disciplinary event;
-- an unusual tactical decision;
-- a remarkable substitution pattern;
-- a misarranged fixture;
-- a contrast unique to the supplied matches.
+or:
 
-Ask:
+"Round 1 gave four teams the full shift, two match winners, one shootout and a scheduled pairing that disappeared before kick-off."
 
-COULD THIS OPENING HAVE BEEN USED ALMOST UNCHANGED LAST WEEK?
+Only use such statements when every element is supported.
 
-If yes, discard it and find the story that belongs specifically to this round.
+The intro should make a casual front-page reader want the next paragraph.
 
-The established HT-120min worldview should influence HOW the round is described, not substitute for WHAT happened in the round.
+Do not manufacture historical continuity.
+
+Words such as:
+
+"again"
+"finally"
+"once more"
+"returned"
+"rematch"
+"reunion"
+
+require supplied historical context.
 
 ======================================================================
 MATCH PARAGRAPHS

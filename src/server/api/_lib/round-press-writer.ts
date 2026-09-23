@@ -1,7 +1,7 @@
 import { GoogleGenAI, ThinkingLevel, Type, type GenerateContentParameters } from '@google/genai';
 import type { RoundPressInput } from './round-press-input.js';
 import { parseAndValidateRoundPressDraft, type RoundPressDraft } from './round-press-validator.js';
-import { ROUND_PRESS_PROMPT_V3 as ROUND_PRESS_PROMPT } from './round-press-prompts.js';
+import { ROUND_PRESS_PROMPT as ROUND_PRESS_PROMPT } from './round-press-prompts.js';
 
 export const ROUND_PRESS_PROMPT_VERSION = 'v3';
 export const ROUND_PRESS_MODEL = 'gemini-3.8-flash';

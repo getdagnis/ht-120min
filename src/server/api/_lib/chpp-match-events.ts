@@ -129,6 +129,40 @@ function getEventBlocks(xml: string): ParsedEvent[] {
     .filter((event): event is ParsedEvent => Boolean(event));
 }
 
+function decodePlayerLinkTitle(value: string): string {
+  return value
+    .replace(/&amp;/gi, '&')
+    .replace(/&#x([0-9a-f]+);/gi, (_, hex: string) => String.fromCodePoint(Number.parseInt(hex, 16)))
+    .replace(/&#(\d+);/g, (_, decimal: string) => String.fromCodePoint(Number.parseInt(decimal, 10)))
+    .replace(/&quot;/gi, '"')
+    .replace(/&apos;/gi, "'")
+    .replace(/&lt;/gi, '<')
+    .replace(/&gt;/gi, '>')
+    .trim();
+}
+
+/**
+ * Extracts only stable player-link metadata from EventText. The localized
+ * commentary itself is never interpreted or passed to downstream consumers.
+ */
+function getEventPlayerNames(xml: string): Map<number, string> {
+  const names = new Map<number, string>();
+  const eventBlocks = xml.match(/<Event(?:\s[^>]*)?>[\s\S]*?<\/Event>/gi) || [];
+  for (const eventXml of eventBlocks) {
+    const eventText = readText(eventXml, 'EventText');
+    if (!eventText) continue;
+    const links = eventText.match(/(?:&lt;|<)a\b[\s\S]*?(?:&gt;|>)/gi) || [];
+    for (const link of links) {
+      const playerId = link.match(/playerId=(\d+)/i)?.[1];
+      const title = link.match(/title=(?:"|&quot;)(.*?)(?:"|&quot;)/i)?.[1];
+      if (!playerId || !title) continue;
+      const name = decodePlayerLinkTitle(title);
+      if (name) names.set(Number.parseInt(playerId, 10), name);
+    }
+  }
+  return names;
+}
+
 function getInjuryBlocks(xml: string): ParsedInjury[] {
   const injuriesBlock = xml.match(/<Injuries>([\s\S]*?)<\/Injuries>/i)?.[1] || '';
   return (injuriesBlock.match(/<Injury(?:\s[^>]*)?>[\s\S]*?<\/Injury>/gi) || [])
@@ -365,7 +399,17 @@ const EVENT_DESCRIPTIONS: Record<number, string> = {
   331: 'pressing tactic used', 332: 'counter-attacking tactic used', 333: 'attack through the middle used',
   334: 'attack on the wings used', 335: 'play creatively tactic used', 336: 'long-shot tactic used',
   343: 'attack through the middle used', 344: 'attack on the wings used',
+  350: 'substitution while team was behind', 351: 'substitution while team was ahead', 352: 'substitution',
+  360: 'tactical change while team was behind', 361: 'tactical change while team was ahead', 362: 'tactical change',
+  370: 'position swap while team was behind', 371: 'position swap while team was ahead', 372: 'position swap',
+  380: 'successful short-distance man marking', 381: 'successful long-distance man marking',
+  382: 'man marking changed from short to long distance', 383: 'man marking changed from long to short distance',
+  384: 'man-marking penalty: no opponent was marked', 385: 'man marker changed from short to long distance',
+  386: 'man marker changed from long to short distance', 387: 'man-marking penalty: opponent was out of position',
+  388: 'man-marking penalty: marker was out of position', 389: 'man-marking penalty: no opponent was available',
+  390: 'rain affected many players', 391: 'sun affected many players',
   450: 'third yellow card caused a suspension', 455: 'new star player', 473: 'career-ending injury', 489: 'comeback after a long injury',
+  456: 'player reached a career-goal milestone', 457: 'player reached a league-goal milestone', 458: 'player reached a cup-goal milestone',
   650: 'Hattrick anniversary', 651: 'team anniversary', 700: 'manager taunted the opponent', 701: 'manager praised the opponent',
   702: 'manager asked fans for support', 703: 'manager expected a great show', 704: 'manager honoured club legacy',
   812: 'player birthday', 813: 'new match kit', 818: 'brothers played together', 819: 'parent and child played together',
@@ -410,7 +454,7 @@ function getCardDescription(typeId: number): string {
   return 'straight red card';
 }
 
-function attachScorerNames(side: MatchSideEventDetails, scorers: ParsedScorer[]) {
+function attachScorerNames(side: MatchSideEventDetails, scorers: ParsedScorer[], eventPlayerNames: Map<number, string>) {
   for (const goal of side.goals || []) {
     const scorer = scorers.find((candidate) =>
       candidate.teamId === side.teamId &&
@@ -418,11 +462,13 @@ function attachScorerNames(side: MatchSideEventDetails, scorers: ParsedScorer[])
       candidate.minute === goal.minute &&
       candidate.matchPart === goal.matchPart,
     );
-    if (scorer?.playerName) goal.playerName = scorer.playerName;
+    if (scorer?.playerName || goal.playerId !== null) {
+      goal.playerName = scorer?.playerName || eventPlayerNames.get(goal.playerId as number) || null;
+    }
   }
 }
 
-function attachBookingNames(side: MatchSideEventDetails, bookings: ParsedBooking[]) {
+function attachBookingNames(side: MatchSideEventDetails, bookings: ParsedBooking[], eventPlayerNames: Map<number, string>) {
   for (const card of side.cards) {
     const booking = bookings.find((candidate) =>
       candidate.teamId === side.teamId &&
@@ -430,7 +476,9 @@ function attachBookingNames(side: MatchSideEventDetails, bookings: ParsedBooking
       candidate.minute === card.minute &&
       candidate.matchPart === card.matchPart,
     );
-    if (booking?.playerName) card.playerName = booking.playerName;
+    if (booking?.playerName || card.playerId !== null) {
+      card.playerName = booking?.playerName || eventPlayerNames.get(card.playerId as number) || null;
+    }
   }
 }
 
@@ -450,6 +498,7 @@ function eventPlayerName(
   scorers: ParsedScorer[],
   bookings: ParsedBooking[],
   injuries: ParsedInjury[],
+  eventPlayerNames: Map<number, string>,
 ): string | null {
   const playerId = event.subjectPlayerId;
   if (!playerId) return null;
@@ -457,6 +506,7 @@ function eventPlayerName(
     scorers.find((item) => item.playerId === playerId)?.playerName ||
     bookings.find((item) => item.playerId === playerId)?.playerName ||
     injuries.find((item) => item.playerId === playerId)?.playerName ||
+    eventPlayerNames.get(playerId) ||
     null
   );
 }
@@ -466,6 +516,7 @@ function notableEvents(
   scorers: ParsedScorer[],
   bookings: ParsedBooking[],
   injuries: ParsedInjury[],
+  eventPlayerNames: Map<number, string>,
 ): MatchNotableEvent[] {
   return events
     .filter((event) => NOTABLE_EVENT_TYPES.has(event.typeId))
@@ -475,7 +526,7 @@ function notableEvents(
       matchPart: event.matchPart,
       teamId: event.subjectTeamId,
       playerId: event.subjectPlayerId,
-      playerName: eventPlayerName(event, scorers, bookings, injuries),
+      playerName: eventPlayerName(event, scorers, bookings, injuries, eventPlayerNames),
       category: eventCategory(event.typeId),
     description: getCanonicalEventDescription(event.typeId),
     }));
@@ -493,13 +544,15 @@ function sideForTeam(
 }
 
 /**
- * Parses only structured CHPP match event fields. It never interprets localized EventText.
+ * Parses structured CHPP match event fields. Localized EventText prose is not
+ * interpreted; only stable player-link metadata is extracted for name lookup.
  */
 export function parseMatchEventDetails(xml: string): MatchEventDetails {
   const { actualHomeTeamId, actualAwayTeamId } = getActualTeamIds(xml);
   const home = createSide(actualHomeTeamId);
   const away = createSide(actualAwayTeamId);
   const events = getEventBlocks(xml);
+  const eventPlayerNames = getEventPlayerNames(xml);
   const scorers = getScorers(xml);
   const bookings = getBookings(xml);
   const parsedInjuries = getInjuryBlocks(xml);
@@ -518,17 +571,17 @@ export function parseMatchEventDetails(xml: string): MatchEventDetails {
     }
   }
 
-  attachScorerNames(home, scorers);
-  attachScorerNames(away, scorers);
-  attachBookingNames(home, bookings);
-  attachBookingNames(away, bookings);
+  attachScorerNames(home, scorers, eventPlayerNames);
+  attachScorerNames(away, scorers, eventPlayerNames);
+  attachBookingNames(home, bookings, eventPlayerNames);
+  attachBookingNames(away, bookings, eventPlayerNames);
 
   for (const injury of parsedInjuries) {
     const side = sideForTeam(home, away, injury.teamId);
     if (!side) continue;
     side.injuries.push({
       playerId: injury.playerId,
-      playerName: injury.playerName,
+      playerName: injury.playerName || (injury.playerId === null ? null : eventPlayerNames.get(injury.playerId) || null),
       minute: injury.minute,
       matchPart: injury.matchPart,
       injuryType: injury.injuryType,
@@ -587,7 +640,7 @@ export function parseMatchEventDetails(xml: string): MatchEventDetails {
     result: resultDetails(xml, scorers, actualHomeTeamId, actualAwayTeamId, hasPenaltyShootout, penaltyShootout),
     home,
     away,
-    notableEvents: notableEvents(events, scorers, bookings, parsedInjuries),
+    notableEvents: notableEvents(events, scorers, bookings, parsedInjuries, eventPlayerNames),
   };
 }
 
@@ -616,14 +669,9 @@ export function mapMatchEventDetailsToFixture(
       ? {
           teamId,
           cards: source.cards,
-          injuries: source.injuries.map((injury) => ({
-            ...injury,
-            causedByTeamId: injury.causedByTeamId === details.actualHomeTeamId
-              ? scheduledHomeTeamId
-              : injury.causedByTeamId === details.actualAwayTeamId
-                ? scheduledAwayTeamId
-                : injury.causedByTeamId,
-          })),
+          // Team IDs identify clubs, not fixture sides. Keep nested event
+          // attribution unchanged when actual Hattrick home/away is reversed.
+          injuries: source.injuries,
           goals: source.goals || [],
           penaltyShootoutGoals: source.penaltyShootoutGoals || 0,
           performance: source.performance,
@@ -645,14 +693,9 @@ export function mapMatchEventDetailsToFixture(
       : undefined,
     home: copySide(scheduledHomeTeamId),
     away: copySide(scheduledAwayTeamId),
-    notableEvents: (details.notableEvents || []).map((event) => ({
-      ...event,
-      teamId: event.teamId === details.actualHomeTeamId
-        ? scheduledHomeTeamId
-        : event.teamId === details.actualAwayTeamId
-          ? scheduledAwayTeamId
-          : event.teamId,
-    })),
+    // `teamId` is stable team identity; moving the event to the scheduled
+    // home/away side must never rewrite it to the opponent's ID.
+    notableEvents: details.notableEvents || [],
   };
 }
 

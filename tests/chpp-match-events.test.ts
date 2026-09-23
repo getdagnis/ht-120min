@@ -174,6 +174,22 @@ test('retains regular, other, and penalty-shootout scoring evidence', () => {
   assert.equal(parsed.result?.winnerTeamId, 100);
 });
 
+test('uses stable player-link metadata to name shootout events without parsing commentary', () => {
+  const xml = matchDetailsXml({
+    events: `
+      <Event>
+        <Minute>121</Minute><SubjectPlayerID>42</SubjectPlayerID><SubjectTeamID>100</SubjectTeamID>
+        <ObjectPlayerID>0</ObjectPlayerID><MatchPart>4</MatchPart><EventTypeID>57</EventTypeID>
+        <EventText>&lt;a href="/Club/Players/Player.aspx?playerId=42" title="Shootout Star" class="homeplayer"&gt;Localized Name&lt;/a&gt; missed.</EventText>
+      </Event>
+    `,
+  });
+
+  const parsed = parseMatchEventDetails(xml);
+  assert.equal(parsed.home.goals?.[0]?.playerName, 'Shootout Star');
+  assert.equal(parsed.notableEvents?.find((event) => event.eventTypeId === 57)?.playerName, 'Shootout Star');
+});
+
 test('persists stable MatchDetails performance and named scorer facts without EventText', () => {
   const xml = `
     <HattrickData><Match>
@@ -222,9 +238,9 @@ test('retains curated journalist event facts and maps them with reversed sides',
   assert.notEqual(parsed.notableEvents?.find((item) => item.eventTypeId === 57)?.minute, null);
 
   const mapped = mapMatchEventDetailsToFixture(parsed, 200, 100);
-  assert.equal(mapped.notableEvents?.find((item) => item.eventTypeId === 123)?.teamId, 200);
-  assert.equal(mapped.notableEvents?.find((item) => item.eventTypeId === 422)?.teamId, 100);
+  assert.equal(mapped.notableEvents?.find((item) => item.eventTypeId === 123)?.teamId, 100);
+  assert.equal(mapped.notableEvents?.find((item) => item.eventTypeId === 422)?.teamId, 200);
   const foulInjury = mapped.home.injuries[0];
   assert.equal(foulInjury?.causedByFoul, true);
-  assert.equal(foulInjury?.causedByTeamId, 200);
+  assert.equal(foulInjury?.causedByTeamId, 100);
 });

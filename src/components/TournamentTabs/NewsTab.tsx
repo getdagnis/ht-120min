@@ -2,6 +2,7 @@
 
 import React, { useEffect, useRef, useState } from 'react';
 import { Question } from 'phosphor-react';
+import { Tooltip } from '../Tooltip/Tooltip';
 import { Button } from '../Button/Button';
 import { NoticeDialog } from '../Modal/NoticeDialog';
 import { useNoticeDialog } from '../Modal/useNoticeDialog';
@@ -199,11 +200,13 @@ export const NewsArticle: React.FC<NewsArticleProps> = ({
           {reactions.map((item, index) => (
             <span key={`${item.user_id}-${index}`} className={styles.usedReaction}>
               <span
-                title={reactionAuthorNames[item.user_id] || `CHPP user ${item.user_id}`}
+                data-tooltip-id={`reaction-author-${post.id}-${index}`}
+                data-tooltip-content={reactionAuthorNames[item.user_id] || `CHPP user ${item.user_id}`}
                 aria-label={`${reactionAuthorNames[item.user_id] || `CHPP user ${item.user_id}`} reacted ${item.reaction}`}
               >
                 {item.reaction}
               </span>
+              <Tooltip id={`reaction-author-${post.id}-${index}`} />
             </span>
           ))}
         </div>
@@ -216,6 +219,7 @@ export const NewsArticle: React.FC<NewsArticleProps> = ({
               onClick={() => onReaction(post.id, emoji)}
               className={`${styles.reactionBtn} ${reactions.some((item) => item.user_id === currentUserId && item.reaction === emoji) ? styles.reactionSelected : ''}`}
               disabled={!currentUserId}
+              aria-label={`React with ${emoji}`}
             >
               {emoji}
             </button>
@@ -640,7 +644,6 @@ export const NewsTab: React.FC<NewsTabProps> = ({
                 reactionAuthorNames={reactionAuthorNames}
                 onReaction={handleAddReaction}
                 tournamentImageUrl={tournamentImageUrl}
-                visitHref={window.location.pathname}
               />
             </SectionCard>
           )}
@@ -658,7 +661,6 @@ export const NewsTab: React.FC<NewsTabProps> = ({
                   reactionAuthorNames={reactionAuthorNames}
                   onReaction={handleAddReaction}
                   tournamentImageUrl={tournamentImageUrl}
-                  visitHref={window.location.pathname}
                 />
               </SectionCard>
             );
