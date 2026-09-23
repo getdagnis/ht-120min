@@ -27,6 +27,20 @@ test('completed round is available before the next kickoff', () => {
   assert.equal(getEligibleRoundPressNumber(rounds, now), 1);
 });
 
+test('finished and misarranged playable fixtures resolve a round', () => {
+  const rounds: RoundPressEligibilityRound[] = [
+    {
+      round_number: 1,
+      matches: [
+        { ...fixture('finished', false), status: 'finished' },
+        { ...fixture('misarranged', false), status: 'misarranged' },
+      ],
+    },
+    { round_number: 2, matches: [fixture('r2', false, '2026-09-23T12:00:00Z')] },
+  ];
+  assert.equal(getEligibleRoundPressNumber(rounds, now), 1);
+});
+
 test('the next kickoff is an exclusive cutoff', () => {
   const rounds: RoundPressEligibilityRound[] = [
     { round_number: 1, matches: [fixture('r1', true)] },

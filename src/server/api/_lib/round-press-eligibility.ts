@@ -4,7 +4,6 @@ export interface RoundPressEligibilityMatch {
   completed?: boolean | null;
   status?: string | null;
   scheduled_for?: string | Date | null;
-  match_date?: string | Date | null;
 }
 
 export interface RoundPressEligibilityRound {
@@ -17,11 +16,11 @@ function isPlayable(match: RoundPressEligibilityMatch) {
 }
 
 function isFinished(match: RoundPressEligibilityMatch) {
-  return match.completed === true || match.status === 'misarranged';
+  return match.completed === true || match.status === 'finished' || match.status === 'misarranged';
 }
 
 function scheduledTime(match: RoundPressEligibilityMatch) {
-  const value = match.scheduled_for ?? match.match_date;
+  const value = match.scheduled_for;
   if (!value) return null;
   const timestamp = new Date(value).getTime();
   return Number.isFinite(timestamp) ? timestamp : null;

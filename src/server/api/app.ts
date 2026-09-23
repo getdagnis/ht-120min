@@ -831,7 +831,7 @@ async function loadRoundPressEligibility(
 ) {
   const { data, error } = await supabase
     .from('rounds')
-    .select('round_number, matches(home_team_id, away_team_id, completed, status, scheduled_for, match_date)')
+    .select('round_number, matches(home_team_id, away_team_id, completed, status, scheduled_for)')
     .eq('tournament_id', tournamentId)
     .eq('season_number', seasonNumber)
     .order('round_number', { ascending: true });
@@ -889,7 +889,7 @@ async function handleGenerateRoundSummary(req: VercelRequest, res: VercelRespons
   if (!tournament) return res.status(404).json({ error: 'Tournament not found.' });
 
   const currentSeasonNumber = positiveInteger(tournament.season) || 1;
-  const protectedHistoricalRequest = isForgeAdminRequest(req) || hasSuperAdminBypassCookie(req.headers.cookie);
+  const protectedHistoricalRequest = isForgeAdminRequest(req.headers.cookie) || hasSuperAdminBypassCookie(req.headers.cookie);
   if (seasonNumber !== currentSeasonNumber && !protectedHistoricalRequest) {
     return res.status(400).json({ error: 'Public round summaries are available only for the current season.' });
   }

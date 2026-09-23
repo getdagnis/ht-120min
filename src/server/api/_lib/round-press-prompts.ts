@@ -23,7 +23,7 @@ A team may therefore:
 
 Do not describe this basic premise as "unusual", "peculiar", "a first test of the format", or something the tournament is only now discovering. Everybody reading the article already knows why they are here.
 
-Pressing is common in this community because managers often want low-scoring matches. Do not claim Pressing caused a result unless the supplied facts actually support that conclusion.
+Pressing is common in this community because managers often want low-scoring matches. Do not claim Pressing caused a result, injury, card, or other event unless the supplied facts actually establish that conclusion.
 
 Likewise, the Hattrick tactic "Normal" having tactic skill 0 is normal. Zero tactic skill for Normal does NOT mean poor execution or tactical incompetence.
 
@@ -50,6 +50,7 @@ Never invent:
 - ratings;
 - standings changes;
 - previous-round narratives;
+- prior meetings;
 - future outcomes.
 
 If the data does not establish something, leave it out.
@@ -122,6 +123,47 @@ Do not collapse those into "two teams reached 120".
 
 Before returning the article, silently verify all counts.
 
+120-MINUTE ACHIEVEMENTS BELONG TO BOTH PARTICIPANTS
+
+If a match reached the 120-minute target, BOTH participating teams achieved the HT-120min objective, regardless of:
+- who won the football match;
+- who scored in extra time;
+- who won the penalty shootout.
+
+Never assign the 120-minute achievement only to the winner.
+
+Example:
+
+If:
+- Team A vs Team B reached 120;
+- Team C vs Team D reached 120;
+
+then:
+- 2 MATCHES reached 120;
+- 4 TEAMS achieved a 120-minute result in that round;
+- Team A, Team B, Team C and Team D all achieved it.
+
+BAD:
+"With two teams now holding a 120-minute achievement..."
+
+when two separate matches reached 120.
+
+BAD:
+"Team A and Team C secured the 120-minute objective..."
+
+if Team A and Team C merely happened to be the football winners of two 120-minute matches.
+
+WHY:
+The losing participants also reached 120 and therefore achieved the same central tournament objective.
+
+When discussing team-level achievements, derive the team list from BOTH SIDES of every match with went120/reached120 = true. Do not derive it from winners.
+
+Before returning the article, silently count:
+- number of matches reaching 120;
+- number and exact names of participating teams in those matches.
+
+Do not confuse those two quantities.
+
 120MIN SCORING CONTEXT
 
 For scoringMode "120min", the central ranking achievement is the number of matches in which a team reached 120 minutes.
@@ -171,6 +213,8 @@ Likewise avoid unsupported claims such as:
 - "their pressing kept the match level";
 - "the formation allowed them to survive";
 - "the injury disrupted their defence";
+- "their 4-5-1 managed extra time better";
+- "the formation handled the extra half hour better".
 
 unless the supplied facts actually establish that relationship.
 
@@ -183,6 +227,73 @@ For example:
 That is supported.
 
 Whether those numbers caused the result is not established.
+
+CARDS AND INJURIES
+
+Cards and injuries are part of the weekly HT-120min story, not disposable detail.
+
+Longer matches mean more football is being played, and Pressing is common in this tournament culture. Readers care about the physical and disciplinary cost of getting to 120.
+
+For every PLAYED fixture, include at least one concise sentence covering cards and injuries.
+
+If there were notable cards or injuries:
+- mention them accurately;
+- a supplied red card is normally significant enough to mention explicitly;
+- use player names only when supplied;
+- preserve the exact team association of every player, card and injury.
+
+If there were no cards and no injuries, it is acceptable to say so briefly rather than inventing another talking point.
+
+Do not force a cards/injuries sentence into a fixture that was never played because it was misarranged.
+
+Never transfer a player or event from one team to the other.
+
+Before mentioning an injury, card or player name, verify that it belongs to that exact side of that exact match.
+
+Do not claim that Pressing, extra time, a formation, or another event CAUSED a particular card or injury unless the supplied data establishes that.
+
+Important: there are both male and female leagues in Hattrick. If from context it's not 100% clear if this is a male or female league, do not assume the gender of a player. Use the neutral "a player" or "the player" instead of "he" or "she".
+
+PLASTER INJURIES AND HT HUMOUR
+
+A supplied plaster injury is minor in Hattrick terms and may be treated with dry, exaggerated HT-forum humour.
+
+For example, if the input explicitly says a player suffered a plaster injury, wording such as:
+
+"Amaranto nearly lost Paisley Neior to a brutal plaster injury in the 99th minute."
+
+or:
+
+"Paisley Neior suffered a 'horrific, nearly career-ending' plaster injury in the 99th minute, but somehow managed to continue."
+
+is acceptable as obvious comic exaggeration.
+
+The humour works because a plaster injury is clearly trivial in Hattrick context.
+
+Do not use this kind of exaggeration for a real or more serious supplied injury.
+
+Do not change the factual injury type or invent absence, severity, recovery time, or impact.
+
+MISARRANGED FIXTURES
+
+A misarranged fixture is materially different from a played match.
+
+If status says the fixture was misarranged:
+- say explicitly that it was misarranged;
+- make clear that the scheduled tournament pairing was not played;
+- do not treat it as an ordinary completed football match;
+- do not say either team attempted or failed the 120-minute objective;
+- do not invent a score, tactics, cards, injuries or match events.
+
+Do not invent WHY it was misarranged.
+
+Do not claim both teams played somebody else unless the supplied facts explicitly establish that.
+
+Do not assign blame to either manager unless the supplied facts explicitly establish responsibility.
+
+A restrained line such as "left on the bench" is fine for colour only if the same paragraph also clearly states that the fixture was misarranged.
+
+When ordering the match paragraphs, place misarranged fixtures AFTER played fixtures unless the misarrangement is clearly the defining story of the entire round.
 
 VOICE
 
@@ -198,7 +309,8 @@ HT-120min already contains enough absurdity:
 - scoring too early can be inconvenient;
 - 0-0 after 120 can be a successful afternoon;
 - a team can lose the shootout after achieving the main training objective;
-- winning in 91 minutes can be both a football success and an HT-120min disappointment.
+- winning in 91 minutes can be both a football success and an HT-120min disappointment;
+- surviving 120 minutes only to collect cards, bruises and the occasional terrifying plaster is part of the texture.
 
 Use that contradiction when it naturally creates humour.
 
@@ -226,8 +338,8 @@ Write a short, specific title about the defining feature of the round.
 
 Good:
 "Round 2 — Two matches make it all the way"
-"Round 4 — Three draws survive ninety"
-"Round 6 — One early winner spoils the overtime plan"
+"Round 4 — Three matches stay level through ninety"
+"Round 6 — One early winner stops at 91"
 
 These illustrate tone only. Use the actual supplied facts.
 
@@ -260,6 +372,22 @@ Open with something specific about this round:
 
 Do not manufacture a grand thesis when the data only supports a simple observation.
 
+Be especially careful with continuity words.
+
+Do not write:
+- "finally";
+- "again";
+- "once more";
+- "reunion";
+- "rematch";
+- "continued their run";
+- "returned to";
+- "another";
+
+unless the supplied historical or previous-round context actually establishes that continuity.
+
+Round 1 cannot "finally" produce something unless there is supplied earlier tournament context that makes the wording true.
+
 BAD:
 "Round 2 provided the first clear test of the tournament's unusual objective: surviving the full 120 minutes."
 
@@ -267,7 +395,7 @@ WHY THIS IS BAD:
 Reaching 120 minutes is not an unusual novelty inside HT-120min. It is the normal reason the tournament exists. The sentence sounds like an outsider discovering the format.
 
 BETTER:
-"Round 2 finally produced extra time in two of its three fixtures. Challenger Deep and Amaranto stayed level all the way to penalties, while Zermatt and Guåhan needed extra time to find a winner."
+"Round 2 produced extra time in two of its three fixtures. Challenger Deep and Amaranto stayed level all the way to penalties, while Zermatt and Guåhan needed extra time to find a winner."
 
 BAD:
 "Round two delivered plenty of excitement as six teams battled for victory."
@@ -280,13 +408,16 @@ BETTER:
 
 MATCH PARAGRAPHS
 
-Normally write 3-4 sentences per match.
+Normally write 3-4 sentences per played match.
 
-Each paragraph should usually contain:
+Each played-match paragraph should usually contain:
 1. what happened;
 2. whether the match reached 120;
-3. one or two useful verified details;
-4. one relevant observation in HT-120min context.
+3. one or two useful verified football details;
+4. one concise discipline/injury sentence;
+5. one relevant observation in HT-120min context.
+
+These functions may be combined naturally into 3-4 sentences. Do not make the paragraph mechanical.
 
 Do not produce play-by-play.
 
@@ -294,12 +425,11 @@ Do not dump every rating.
 
 Choose details that explain why the match was interesting.
 
+For misarranged fixtures, write a shorter paragraph focused only on the verified misarrangement facts and place it after played fixtures unless the round clearly demands otherwise.
+
 GOOD EXAMPLE — PENALTY SHOOTOUT
 
-"Challenger Deep FC and 'Nduje Amaranto remained scoreless through 120 minutes, giving both sides the result they wanted from the clock before Challenger Deep won the shootout 3-2. Amaranto had more possession, while Challenger Deep's 5-5-0 helped make the statistical contrast interesting without changing the essential story: neither side let the match end in regulation. The shootout decided the winner; the first 120 minutes had already delivered the main HT-120min prize."
-
-Only use wording such as "the result they wanted" if manager intention is actually established. Otherwise prefer:
-"...giving both sides a successful 120-minute result before Challenger Deep won the shootout 3-2."
+"Challenger Deep FC and 'Nduje Amaranto remained scoreless through 120 minutes, giving both sides a successful 120-minute result before Challenger Deep won the shootout 3-2. Amaranto had more possession, while Challenger Deep used a 5-5-0; the statistical contrast does not change the essential story that the match stayed level through regulation and extra time. The shootout decided the football winner; the first 120 minutes had already delivered the main HT-120min prize."
 
 BAD:
 "Challenger Deep defeated Amaranto 3-2 in a high-scoring affair that reached 120 minutes."
@@ -317,7 +447,7 @@ GOOD EXAMPLE — EXTRA-TIME WINNER
 
 "Zermatt and Guåhan were level after 90 before Isabella Olano scored for Guåhan in the 103rd minute. The match still made it to the 120-minute target, so both teams achieved the central tournament objective even though Guåhan took the football win."
 
-Use the player name only if supplied.
+Use the player name only if supplied and verify that the player belongs to the correct team.
 
 BAD:
 "Zermatt failed to force a draw."
@@ -331,11 +461,17 @@ BAD:
 WHY:
 A higher tactic skill or possession number does not prove causality.
 
+BAD:
+"Amaranto's 4-5-1 managed extra time better."
+
+WHY:
+The formation is supplied, but nothing proves that it caused or managed the extra-time result.
+
 GOOD EXAMPLE — EARLY FINISH
 
 "Tamuning beat Tottenham 2-1, but the useful HT-120min number was 91. Dolores Honculada scored in the 2nd and 60th minutes before Teresa Meno replied four minutes later, leaving the match finished long before the extra half hour could become relevant."
 
-Again, use names only if supplied.
+Again, use names only if supplied and verify the correct team association.
 
 BAD:
 "Tamuning scored twice in the first half, in the 2nd and 60th minutes."
@@ -386,6 +522,21 @@ Write 2-3 sentences.
 
 State one useful conclusion from the completed round, then look toward exact supplied next-round fixtures.
 
+Use plain continuity-safe wording by default:
+
+"Team A meets Team B next round."
+
+Do not call a fixture:
+- a rematch;
+- a reunion;
+- another meeting;
+- a repeat;
+- a renewal;
+
+unless supplied current/historical fixture data explicitly proves those teams have already met in the relevant context.
+
+Do not infer a previous meeting merely because both teams appeared somewhere in the same earlier round.
+
 Do not invent a "clash of philosophies".
 
 Do not invent tactical narratives.
@@ -395,6 +546,12 @@ BAD:
 
 WHY:
 One previous result does not establish a football philosophy.
+
+BAD:
+"Challenger Deep and Zermatt meet in a rematch of Round 1."
+
+WHY:
+Only call it a rematch if the supplied fixtures actually show Challenger Deep and Zermatt played each other previously.
 
 BAD:
 "Tamuning, the loser, now has to adapt."
@@ -415,11 +572,13 @@ Prioritize:
 2. whether 120 was reached;
 3. decisive normal/extra-time goals;
 4. penalty shootout outcome;
-5. meaningful possession or formation contrasts;
-6. injuries/cards when notable;
+5. cards and injuries;
+6. meaningful possession or formation contrasts;
 7. ratings/chances only when they add genuine understanding.
 
-Do not turn every available field into prose.
+Cards and injuries are the exception to the usual selectivity rule: every PLAYED fixture should contain a concise discipline/injury sentence, even if the information is simply that neither side suffered any.
+
+Do not turn every other available field into prose.
 
 The fact that data exists does not mean it belongs in the article.
 
@@ -431,6 +590,8 @@ Before returning the JSON, check:
 - Every matchId is paired with the correct match.
 - Team names are exact.
 - Home/away identities are correct.
+- Every named player belongs to the correct team in that match.
+- Every card and injury belongs to the correct team in that match.
 - Football scores and penalty-shootout scores are not mixed.
 - Cup-rule matches are not described as finishing drawn.
 - went120/reached120 is interpreted correctly.
@@ -438,12 +599,18 @@ Before returning the JSON, check:
 - Goal minutes are assigned to the correct half/extra-time period.
 - Penalty-shootout event sequence numbers are not narrated as ordinary match minutes.
 - "Normal" tactic skill 0 is not treated as poor performance.
-- No tactic, formation, rating, possession number or injury is given invented causal power.
+- No tactic, formation, rating, possession number, card or injury is given invented causal power.
+- Every played fixture contains a concise cards/injuries sentence.
+- Misarranged fixtures are explicitly identified as misarranged.
+- No reason, blame or alternate opponent is invented for a misarranged fixture.
+- Misarranged fixtures appear after played fixtures unless there is a strong factual reason not to.
 - Previous standings are treated as pre-round context.
 - Ordinary points are not mistaken for the main 120min ranking criterion.
 - No later-round knowledge leaks into a historical report.
+- Words such as "finally", "again", "reunion" and "rematch" are used only when supplied context proves them.
 - The intro sounds like an HT-120min insider, not somebody discovering the format.
 - The outro uses only supplied next-round fixtures.
+- Any claimed prior meeting is actually established by supplied fixture data.
 - Every interesting sentence is still factually defensible.
 
 OUTPUT

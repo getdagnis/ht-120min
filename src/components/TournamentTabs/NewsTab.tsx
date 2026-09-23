@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { Question } from 'phosphor-react';
 import { Button } from '../Button/Button';
 import { NoticeDialog } from '../Modal/NoticeDialog';
@@ -58,6 +58,59 @@ interface NewsTabProps {
   isAdminAuthenticated: boolean;
   canPublishAnnouncements: boolean;
   faqItems: CompactAccordionItem[];
+}
+
+type NewsMode = 'admin' | 'team';
+
+interface NewsDraft {
+  title: string;
+  content: string;
+}
+
+function getNewsDraftStorageKey(tournamentId: string, seasonNumber: number, mode: NewsMode, managerId: string | null) {
+  return `ht120:news-draft:${tournamentId}:${seasonNumber}:${mode}:${mode === 'admin' ? 'cup-press' : managerId || 'guest'}`;
+}
+
+function getNewsModeStorageKey(tournamentId: string, managerId: string | null) {
+  return `ht120:news-mode:${tournamentId}:${managerId || 'guest'}`;
+}
+
+function readNewsMode(storageKey: string): NewsMode | null {
+  try {
+    const value = sessionStorage.getItem(storageKey);
+    return value === 'admin' || value === 'team' ? value : null;
+  } catch {
+    return null;
+  }
+}
+
+function persistNewsMode(storageKey: string, mode: NewsMode) {
+  try {
+    sessionStorage.setItem(storageKey, mode);
+  } catch {
+    // Session storage can be unavailable; falling back to Team News is safe.
+  }
+}
+
+function readNewsDraft(storageKey: string): NewsDraft | null {
+  try {
+    const value = sessionStorage.getItem(storageKey);
+    if (!value) return null;
+    const parsed = JSON.parse(value) as Partial<NewsDraft>;
+    if (typeof parsed.title !== 'string' || typeof parsed.content !== 'string') return null;
+    return { title: parsed.title, content: parsed.content };
+  } catch {
+    return null;
+  }
+}
+
+function persistNewsDraft(storageKey: string, draft: NewsDraft) {
+  try {
+    if (!draft.title && !draft.content) sessionStorage.removeItem(storageKey);
+    else sessionStorage.setItem(storageKey, JSON.stringify(draft));
+  } catch {
+    // Session storage can be unavailable or full; the in-memory editor remains usable.
+  }
 }
 
 export const NewsArticle: React.FC<NewsArticleProps> = ({
@@ -152,18 +205,68 @@ export const NewsTab: React.FC<NewsTabProps> = ({
   const [newNewsContent, setNewNewsContent] = useState('');
   const [isPostingNews, setIsPostingNews] = useState(false);
   const [isCreatingRoundSummary, setIsCreatingRoundSummary] = useState(false);
+  const [roundSummaryElapsedSeconds, setRoundSummaryElapsedSeconds] = useState(0);
+  const roundSummaryTimerRef = useRef<number | null>(null);
   const [roundSummaryEligibility, setRoundSummaryEligibility] = useState<{
     seasonNumber: number;
     roundNumber: number;
   } | null>(null);
+  const [roundSummaryEligibilityError, setRoundSummaryEligibilityError] = useState<string | null>(null);
   const [roundSummaryError, setRoundSummaryError] = useState<string | null>(null);
-  const [newsMode, setNewsMode] = useState<'admin' | 'team'>('team');
+  const [newsMode, setNewsMode] = useState<NewsMode>('team');
   const [newsReactions, setNewsReactions] = useState<Record<string, NewsReaction[]>>({});
+  const newsModeStorageKey = getNewsModeStorageKey(tournamentId, myHtUserId);
+  const draftStorageKey = getNewsDraftStorageKey(tournamentId, seasonNumber, newsMode, myHtUserId);
+  const currentDraftRef = useRef<{ storageKey: string; draft: NewsDraft }>({
+    storageKey: draftStorageKey,
+    draft: { title: newNewsTitle, content: newNewsContent },
+  });
   const reactionAuthorNames = Object.fromEntries(
     teams
       .filter((team) => team.hattrick_user_id)
       .map((team) => [String(team.hattrick_user_id), team.manager_name || team.name]),
   );
+
+  useEffect(() => () => {
+    if (roundSummaryTimerRef.current !== null) window.clearInterval(roundSummaryTimerRef.current);
+  }, []);
+
+  useEffect(() => {
+    currentDraftRef.current = {
+      storageKey: draftStorageKey,
+      draft: { title: newNewsTitle, content: newNewsContent },
+    };
+  }, [draftStorageKey, newNewsContent, newNewsTitle]);
+
+  useEffect(() => {
+    const restoreTimer = window.setTimeout(() => {
+      const savedMode = readNewsMode(newsModeStorageKey);
+      setNewsMode(savedMode === 'admin' && canPublishAnnouncements ? 'admin' : 'team');
+    }, 0);
+    return () => window.clearTimeout(restoreTimer);
+  }, [canPublishAnnouncements, newsModeStorageKey]);
+
+  useEffect(() => {
+    const restoreDraft = () => {
+      const draft = readNewsDraft(draftStorageKey);
+      setNewNewsTitle(draft?.title || '');
+      setNewNewsContent(draft?.content || '');
+    };
+    restoreDraft();
+  }, [draftStorageKey]);
+
+  useEffect(() => {
+    const timer = window.setTimeout(() => {
+      persistNewsDraft(draftStorageKey, { title: newNewsTitle, content: newNewsContent });
+    }, 5000);
+    return () => window.clearTimeout(timer);
+  }, [draftStorageKey, newNewsContent, newNewsTitle]);
+
+  useEffect(() => {
+    const flushDraft = () => persistNewsDraft(currentDraftRef.current.storageKey, currentDraftRef.current.draft);
+    window.addEventListener('pagehide', flushDraft);
+    return () => window.removeEventListener('pagehide', flushDraft);
+  }, []);
 
   useEffect(() => {
     if (!isActive) return;
@@ -236,17 +339,24 @@ export const NewsTab: React.FC<NewsTabProps> = ({
           { credentials: 'include' },
         );
         if (!response.ok) {
-          if (!cancelled) setRoundSummaryEligibility(null);
+          if (!cancelled) {
+            setRoundSummaryEligibility(null);
+            setRoundSummaryEligibilityError('Could not check round-summary availability. Please reload and try again.');
+          }
           return;
         }
         const result = (await response.json()) as { available?: boolean; roundNumber?: number };
         if (!cancelled) {
+          setRoundSummaryEligibilityError(null);
           setRoundSummaryEligibility(
             result.available && result.roundNumber ? { seasonNumber, roundNumber: result.roundNumber } : null,
           );
         }
       } catch {
-        if (!cancelled) setRoundSummaryEligibility(null);
+        if (!cancelled) {
+          setRoundSummaryEligibility(null);
+          setRoundSummaryEligibilityError('Could not check round-summary availability. Please reload and try again.');
+        }
       }
     };
     void checkEligibility();
@@ -273,6 +383,8 @@ export const NewsTab: React.FC<NewsTabProps> = ({
       });
 
       if (error) throw error;
+      persistNewsDraft(draftStorageKey, { title: '', content: '' });
+      currentDraftRef.current = { storageKey: draftStorageKey, draft: { title: '', content: '' } };
       setNewNewsContent('');
       setNewNewsTitle('');
     } catch (error) {
@@ -282,13 +394,40 @@ export const NewsTab: React.FC<NewsTabProps> = ({
     }
   };
 
+  const handleNewsModeChange = (mode: NewsMode) => {
+    if (mode === newsMode) return;
+    persistNewsDraft(draftStorageKey, { title: newNewsTitle, content: newNewsContent });
+    persistNewsMode(newsModeStorageKey, mode);
+    setNewsMode(mode);
+  };
+
+  const handleNewsTitleChange = (title: string) => {
+    currentDraftRef.current = {
+      storageKey: draftStorageKey,
+      draft: { title, content: newNewsContent },
+    };
+    setNewNewsTitle(title);
+  };
+
+  const handleNewsContentChange = (content: string) => {
+    currentDraftRef.current = {
+      storageKey: draftStorageKey,
+      draft: { title: newNewsTitle, content },
+    };
+    setNewNewsContent(content);
+  };
+
   const handleCreateRoundSummary = async () => {
-    const roundSummaryRoundNumber = roundSummaryEligibility?.seasonNumber === seasonNumber
-      ? roundSummaryEligibility.roundNumber
-      : null;
+    const roundSummaryRoundNumber =
+      roundSummaryEligibility?.seasonNumber === seasonNumber ? roundSummaryEligibility.roundNumber : null;
     if (!roundSummaryRoundNumber || isCreatingRoundSummary || newsMode !== 'admin') return;
     setIsCreatingRoundSummary(true);
+    setRoundSummaryElapsedSeconds(0);
     setRoundSummaryError(null);
+    const startedAt = Date.now();
+    roundSummaryTimerRef.current = window.setInterval(() => {
+      setRoundSummaryElapsedSeconds(Math.floor((Date.now() - startedAt) / 1000));
+    }, 1000);
     try {
       const response = await fetch('/api/app?route=generate-round-summary', {
         method: 'POST',
@@ -308,15 +447,20 @@ export const NewsTab: React.FC<NewsTabProps> = ({
         error?: string;
       };
       if (!response.ok) throw new Error(result.error || 'Could not create the round summary.');
-      setNewNewsTitle(result.title || '');
-      setNewNewsContent([
-        result.intro,
-        ...(result.matches || []).map((match) => match.paragraph),
-        result.outro,
-      ].filter(Boolean).join('\n\n'));
+      const title = result.title || '';
+      const content = [result.intro, ...(result.matches || []).map((match) => match.paragraph), result.outro]
+        .filter(Boolean)
+        .join('\n\n');
+      currentDraftRef.current = { storageKey: draftStorageKey, draft: { title, content } };
+      setNewNewsTitle(title);
+      setNewNewsContent(content);
     } catch (error) {
       setRoundSummaryError(error instanceof Error ? error.message : 'Could not create the round summary.');
     } finally {
+      if (roundSummaryTimerRef.current !== null) {
+        window.clearInterval(roundSummaryTimerRef.current);
+        roundSummaryTimerRef.current = null;
+      }
       setIsCreatingRoundSummary(false);
     }
   };
@@ -348,122 +492,134 @@ export const NewsTab: React.FC<NewsTabProps> = ({
       <NoticeDialog message={notice} onClose={closeNotice} />
       <div className={styles.guestbook}>
         <div className={styles.weeklyPanels}>
-            {newsPosts.length === 0 && (
-              <SectionCard title="🗞 120min Weekly" className={styles.weeklyPanel}>
-                <p className={styles.noPosts}>No news yet.</p>
-              </SectionCard>
-            )}
-            {latestPost && (
-              <SectionCard title="🗞 120min Weekly" className={styles.weeklyPanel}>
+          {newsPosts.length === 0 && (
+            <SectionCard title="🗞 120min Weekly" className={styles.weeklyPanel}>
+              <p className={styles.noPosts}>No news yet.</p>
+            </SectionCard>
+          )}
+          {latestPost && (
+            <SectionCard title="🗞 120min Weekly" className={styles.weeklyPanel}>
+              <NewsArticle
+                post={latestPost}
+                authorTeam={
+                  latestPost.author_team_id ? teams.find((team) => team.id === latestPost.author_team_id) : null
+                }
+                reactions={newsReactions[latestPost.id]}
+                currentUserId={myHtUserId}
+                reactionAuthorNames={reactionAuthorNames}
+                onReaction={handleAddReaction}
+                visitHref={window.location.pathname}
+              />
+            </SectionCard>
+          )}
+
+          {olderPosts.map((post) => {
+            const authorTeam = post.author_team_id ? teams.find((team) => team.id === post.author_team_id) : null;
+
+            return (
+              <SectionCard key={post.id} title="🗞 120min Weekly" className={styles.weeklyPanel}>
                 <NewsArticle
-                  post={latestPost}
-                  authorTeam={
-                    latestPost.author_team_id ? teams.find((team) => team.id === latestPost.author_team_id) : null
-                  }
-                  reactions={newsReactions[latestPost.id]}
+                  post={post}
+                  authorTeam={authorTeam}
+                  reactions={newsReactions[post.id]}
                   currentUserId={myHtUserId}
                   reactionAuthorNames={reactionAuthorNames}
                   onReaction={handleAddReaction}
                   visitHref={window.location.pathname}
                 />
               </SectionCard>
-            )}
+            );
+          })}
 
-            {olderPosts.map((post) => {
-              const authorTeam = post.author_team_id ? teams.find((team) => team.id === post.author_team_id) : null;
-
-              return (
-                <SectionCard key={post.id} title="🗞 120min Weekly" className={styles.weeklyPanel}>
-                  <NewsArticle
-                    post={post}
-                    authorTeam={authorTeam}
-                    reactions={newsReactions[post.id]}
-                    currentUserId={myHtUserId}
-                    reactionAuthorNames={reactionAuthorNames}
-                    onReaction={handleAddReaction}
-                    visitHref={window.location.pathname}
-                  />
-                </SectionCard>
-              );
-            })}
-
-            <SectionCard title="Write a press release">
-              <div className={styles.newsTabs}>
-                <button className={newsMode === 'team' ? styles.active : ''} onClick={() => setNewsMode('team')}>
-                  Team News
+          <SectionCard title="Write a press release">
+            <div className={styles.newsTabs}>
+              <button className={newsMode === 'team' ? styles.active : ''} onClick={() => handleNewsModeChange('team')}>
+                Team News
+              </button>
+              {isAdminAuthenticated && canPublishAnnouncements && (
+                <button className={newsMode === 'admin' ? styles.active : ''} onClick={() => handleNewsModeChange('admin')}>
+                  Offical Cup Press Release
                 </button>
-                {isAdminAuthenticated && canPublishAnnouncements && (
-                  <button className={newsMode === 'admin' ? styles.active : ''} onClick={() => setNewsMode('admin')}>
-                    Offical Cup Press Release
-                  </button>
-                )}
-              </div>
+              )}
+            </div>
 
-              <div className={styles.postingTeamBranding}>
-                {(() => {
-                  const myTeam = myHtUserId ? teams.find((team) => team.hattrick_user_id === Number(myHtUserId)) : null;
+            <div className={styles.postingTeamBranding}>
+              {(() => {
+                const myTeam = myHtUserId ? teams.find((team) => team.hattrick_user_id === Number(myHtUserId)) : null;
 
-                  if (newsMode === 'admin') {
-                    return (
-                      <div className={styles.branding}>
-                        <span>
-                          📰 Posting as: <strong>Offical Cup Press Release</strong>
-                        </span>
-                      </div>
-                    );
-                  }
-
-                  return myTeam ? (
+                if (newsMode === 'admin') {
+                  return (
                     <div className={styles.branding}>
                       <span>
-                        📰 Posting as: <strong>{myTeam.name}</strong>
+                        📰 Posting as: <strong>Offical Cup Press Release</strong>
                       </span>
                     </div>
-                  ) : (
-                    <p>You don't have a team in this tournament.</p>
                   );
-                })()}
-              </div>
+                }
 
-              <form onSubmit={handlePostMessage} className={styles.postForm}>
-                <div className={styles.newsInputGroup}>
-                  <input
-                    type="text"
-                    value={newNewsTitle}
-                    onChange={(event) => setNewNewsTitle(event.target.value)}
-                    placeholder="Title, e.g., Round 3 Objectives"
-                    className={styles.postTitleInput}
-                  />
-                  <textarea
-                    value={newNewsContent}
-                    onChange={(event) => setNewNewsContent(event.target.value)}
-                    placeholder={
-                      newsMode === 'admin' ? 'Write a tournament announcement...' : 'How is your team doing?'
-                    }
-                    className={styles.postTextarea}
-                    rows={12}
-                  />
-                </div>
-                {roundSummaryError && newsMode === 'admin' && (
-                  <p className={styles.roundSummaryError} role="alert">{roundSummaryError}</p>
-                )}
-                <div className={styles.postActions}>
-                  {newsMode === 'admin' && canPublishAnnouncements && roundSummaryEligibility?.seasonNumber === seasonNumber && (
+                return myTeam ? (
+                  <div className={styles.branding}>
+                    <span>
+                      📰 Posting as: <strong>{myTeam.name}</strong>
+                    </span>
+                  </div>
+                ) : (
+                  <p>You don't have a team in this tournament.</p>
+                );
+              })()}
+            </div>
+
+            <form onSubmit={handlePostMessage} className={styles.postForm}>
+              <div className={styles.newsInputGroup}>
+                <input
+                  type="text"
+                  value={newNewsTitle}
+                  onChange={(event) => handleNewsTitleChange(event.target.value)}
+                  placeholder="Title, e.g., Round 3 Objectives"
+                  className={styles.postTitleInput}
+                />
+                <textarea
+                  value={newNewsContent}
+                  onChange={(event) => handleNewsContentChange(event.target.value)}
+                  placeholder={newsMode === 'admin' ? 'Write a tournament announcement...' : 'How is your team doing?'}
+                  className={styles.postTextarea}
+                  rows={12}
+                />
+              </div>
+              {roundSummaryError && newsMode === 'admin' && (
+                <p className={styles.roundSummaryError} role="alert">
+                  {roundSummaryError}
+                </p>
+              )}
+              {isCreatingRoundSummary && newsMode === 'admin' && (
+                <p className={styles.roundSummaryStatus} role="status">
+                  Generating. Can take up to a minute... {String(Math.floor(roundSummaryElapsedSeconds / 60)).padStart(2, '0')}:{String(roundSummaryElapsedSeconds % 60).padStart(2, '0')}
+                </p>
+              )}
+              {roundSummaryEligibilityError && newsMode === 'admin' && (
+                <p className={styles.roundSummaryError} role="alert">
+                  {roundSummaryEligibilityError}
+                </p>
+              )}
+              <div className={styles.postActions}>
+                {newsMode === 'admin' &&
+                  canPublishAnnouncements &&
+                  roundSummaryEligibility?.seasonNumber === seasonNumber && (
                     <Button
                       type="button"
-                      variant="secondary"
+                      variant="primary"
                       disabled={isCreatingRoundSummary}
                       onClick={() => void handleCreateRoundSummary()}
                     >
-                      {isCreatingRoundSummary ? 'Creating summary…' : 'Create round summary'}
+                      {isCreatingRoundSummary ? 'Creating summary…' : 'Generate round review'}
                     </Button>
                   )}
-                  <Button type="submit" variant="primary" disabled={isPostingNews || !newNewsContent.trim()}>
-                    {isPostingNews ? 'Posting...' : 'Post News'}
-                  </Button>
-                </div>
-              </form>
-            </SectionCard>
+                <Button type="submit" variant="primary" disabled={isPostingNews || !newNewsContent.trim()}>
+                  {isPostingNews ? 'Posting...' : 'Post News'}
+                </Button>
+              </div>
+            </form>
+          </SectionCard>
         </div>
       </div>
 
