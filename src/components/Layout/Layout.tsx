@@ -25,6 +25,7 @@ import { useActivityTracking } from '../../hooks/useActivityTracking';
 import { ProfileModal } from '../ProfileModal/ProfileModal';
 import { BeerBanner } from '../BeerBanner/BeerBanner';
 import { TeamOwnershipReclaim } from '../TeamOwnershipReclaim/TeamOwnershipReclaim';
+import { ToastProvider } from '../Toast/Toast';
 import { LocaleSwitcher } from '../../i18n/LocaleSwitcher';
 import { useLocale } from '../../i18n/LocaleProvider';
 import { toLocalePath } from '../../next/locale-path';
@@ -184,7 +185,8 @@ export const Layout: React.FC<LayoutProps> = ({ children }) => {
   };
 
   return (
-    <div className={styles.wrapper}>
+    <ToastProvider>
+      <div className={styles.wrapper}>
       <header className={styles.header}>
         <div className={styles.container}>
           <div className={styles.headerContent}>
@@ -459,6 +461,7 @@ export const Layout: React.FC<LayoutProps> = ({ children }) => {
       <TeamOwnershipReclaim profile={profile} onClaimed={refreshProfile} />
 
       <Analytics />
-    </div>
+      </div>
+    </ToastProvider>
   );
 };

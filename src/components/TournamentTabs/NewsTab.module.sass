@@ -186,8 +186,10 @@
     outline-offset: 2px
 
 .postAuthor
-  font-weight: 700
-  color: var(--text-h)
+  font-weight: 400
+  color: var(--textMuted)
+  font-size: 0.8rem
+  opacity: 0.5
 
 .postAuthorLink
   color: inherit
@@ -206,6 +208,23 @@
   margin-left: auto
   font-size: 0.8rem
   opacity: 0.5
+
+.postManagementActions
+  display: inline-flex
+  gap: 0.5rem
+  font-size: 0.8rem
+  opacity: 0.5
+
+  button
+    padding: 0
+    border: 0
+    background: transparent
+    color: inherit
+    font: inherit
+    cursor: pointer
+
+    &:hover
+      text-decoration: underline
 
 .postContent
   font-size: 1rem

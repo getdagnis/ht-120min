@@ -5074,6 +5074,9 @@ export const TournamentView: React.FC<{ initialData?: TournamentInitialData }> =
         myManagerName={storedHtManagerName}
         isAdminAuthenticated={isAdminAuthenticated}
         canPublishAnnouncements={Boolean(roleAccess?.canPublishAnnouncements)}
+        viewerRole={roleAccess?.effectiveRole || null}
+        isOriginalOrganizer={Boolean(roleAccess?.isOriginalOrganizer)}
+        organizerUserId={roleAccess?.organizerUserId || null}
         tournamentImageUrl={tournament.image_url}
         faqItems={tournamentFaqItems}
       />
@@ -5184,6 +5187,19 @@ export const TournamentView: React.FC<{ initialData?: TournamentInitialData }> =
               myHtUserId={myHtUserId ? Number(myHtUserId) : null}
               leagueManagerIds={teams.map((t) => t.hattrick_user_id).filter((id): id is number => !!id)}
               teamNames={teams.reduce((acc, t) => ({ ...acc, [t.hattrick_user_id || 0]: t.name }), {})}
+              teamDetails={teams.reduce(
+                (acc, team) => {
+                  if (team.hattrick_user_id) {
+                    acc[team.hattrick_user_id] = {
+                      name: team.name,
+                      countryName: team.country_name,
+                      countryId: team.country_id,
+                    };
+                  }
+                  return acc;
+                },
+                {} as Record<number, { name: string; countryName?: string; countryId?: number | null }>,
+              )}
             />
             <SidebarPollWidget
               seasonId={currentSeason?.id}

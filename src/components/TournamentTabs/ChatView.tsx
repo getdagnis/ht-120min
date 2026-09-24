@@ -6,6 +6,7 @@ import { Button } from '../Button/Button';
 import { Avatar } from '../Avatar/Avatar';
 import { ArrowRight, PaperPlaneTilt, User } from 'phosphor-react';
 import { useClientNow } from '../../hooks/useHydratedBrowserState';
+import { getCanonicalCountryName, getCountryFlagUrl } from '../../utils/ht-data';
 
 interface ChatMessage {
   id: string;
@@ -27,7 +28,42 @@ interface ChatViewProps {
   myHtUserId: number | null;
   leagueManagerIds: number[];
   teamNames: Record<number, string>;
+  teamDetails?: Record<number, { name: string; countryName?: string | null; countryId?: number | null }>;
 }
+
+export interface AuthorTooltipProps {
+  id: string;
+  authorName: string;
+  teamName?: string | null;
+  countryName?: string | null;
+  countryId?: number | null;
+  avatar?: React.ComponentProps<typeof Avatar>['avatar'];
+}
+
+export const AuthorTooltip = ({ id, authorName, teamName, countryName: rawCountryName, countryId, avatar }: AuthorTooltipProps) => {
+  const countryName = getCanonicalCountryName(rawCountryName, countryId);
+  const flagUrl = getCountryFlagUrl(countryId, countryName);
+
+  return (
+    <Tooltip id={id} className={styles.chatAuthorTooltip}>
+      {avatar && (
+        <div className={styles.tooltipAvatar}>
+          <Avatar className={styles.tooltipAvatarImg} avatar={avatar} variant="circle" size={52} />
+        </div>
+      )}
+      <div className={styles.tooltipDetails}>
+        <strong className={styles.tooltipManagerName}>{authorName}</strong>
+        {teamName && <span className={styles.tooltipTeamName}>{teamName}</span>}
+        {countryName && (
+          <span className={styles.tooltipCountry}>
+            {flagUrl && <img src={flagUrl} alt="" />}
+            {countryName}
+          </span>
+        )}
+      </div>
+    </Tooltip>
+  );
+};
 
 const isBigEmojiMessage = (content: string): boolean => {
   const trimmed = content.trim();
@@ -79,6 +115,7 @@ export const ChatView: React.FC<ChatViewProps> = ({
   myHtUserId,
   leagueManagerIds,
   teamNames,
+  teamDetails = {},
 }) => {
   const [newChatContent, setNewChatContent] = useState('');
   const pathname = usePathname() || '/';
@@ -174,16 +211,14 @@ export const ChatView: React.FC<ChatViewProps> = ({
                       >
                         {msg.author_name}
                       </button>
-                      <Tooltip id={`author-tooltip-${msg.id}`} className={styles.chatAuthorTooltip}>
-                        <div className={styles.tooltipAvatar}>
-                          <Avatar
-                            className={styles.tooltipAvatarImg}
-                            avatar={msg.profiles?.avatar_json || null}
-                            variant="circle"
-                          />
-                        </div>
-                        <span className={styles.tooltipTeamName}>{teamNames[msg.author_ht_id] || 'Guest'}</span>
-                      </Tooltip>
+                      <AuthorTooltip
+                        id={`author-tooltip-${msg.id}`}
+                        authorName={msg.author_name}
+                        teamName={teamDetails[msg.author_ht_id]?.name || teamNames[msg.author_ht_id] || 'Guest'}
+                        countryName={teamDetails[msg.author_ht_id]?.countryName}
+                        countryId={teamDetails[msg.author_ht_id]?.countryId}
+                        avatar={msg.profiles?.avatar_json || null}
+                      />
                     </>
                   )}
                   <div className={`${styles.chatBubble} ${isBigEmoji ? styles.bigEmojiBubble : ''}`}>

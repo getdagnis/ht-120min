@@ -4,6 +4,7 @@ import { getCanonicalCountryName, getCountryFlagUrl, getLeagueFlagUrl, formatPre
 import {
   getCardEventLabel,
   getInjuryEventLabel,
+  getCanonicalEventDescription,
   type MatchSideEventDetails,
 } from '../../../shared/match-events';
 import styles from './TeamByline.module.sass';
@@ -59,8 +60,10 @@ export const TeamByline: React.FC<TeamBylineProps> = ({
     matchSummary && (matchSummary.yellowCards > 0 || matchSummary.redCards > 0 || matchSummary.injuries > 0)
       ? matchSummary
       : null;
-  const detailedCards = summary?.eventDetails?.cards ?? [];
-  const detailedInjuries = summary?.eventDetails?.injuries ?? [];
+  const eventDetails = matchSummary?.eventDetails ?? null;
+  const detailedCards = eventDetails?.cards ?? [];
+  const detailedInjuries = eventDetails?.injuries ?? [];
+  const detailedGoals = (eventDetails?.goals ?? []).filter((goal) => goal.category !== 'penalty_shootout');
   const hasDetailedEvents = detailedCards.length > 0 || detailedInjuries.length > 0;
   const summaryTooltipParts = summary
     ? [
@@ -84,42 +87,95 @@ export const TeamByline: React.FC<TeamBylineProps> = ({
     ));
 
   const formatEventTooltip = (minute: number | null, label: string) => (minute === null ? label : `${minute}' - ${label}`);
+  const eventMinute = (minute: number | null) => (minute === null ? '' : ` (${minute}')`);
+  const playerLabel = (playerName: string | null | undefined) => playerName || 'Player';
+  const shortPlayerLabel = (playerName: string | null | undefined) => {
+    const name = playerLabel(playerName);
+    if (name === 'Player') return name;
+    const parts = name.trim().split(/\s+/);
+    return parts.length > 1 ? `${parts[0]?.[0]}. ${parts[parts.length - 1]}` : name;
+  };
+  const goalDescription = (goal: NonNullable<MatchSideEventDetails['goals']>[number]) => {
+    let description = goal.description || getCanonicalEventDescription(goal.eventTypeId);
+    if (goal.category === 'regular') {
+      const location = goal.eventTypeId % 10;
+      const side = location === 1 ? 'Centre Attack' : location === 2 ? 'Left Attack' : location === 3 ? 'Right Attack' : null;
+      description = side ? `${side} regular goal` : `${description} regular goal`;
+    }
+    return goal.minute === null ? description : `${goal.minute}' - ${description}`;
+  };
+  const groupedGoals = detailedGoals.reduce<Array<{ key: string; playerName: string | null; minutes: number[]; descriptions: string[] }>>((groups, goal) => {
+    const key = String(goal.playerId ?? goal.playerName ?? 'unknown');
+    const group = groups.find((item) => item.key === key);
+    if (group) {
+      if (goal.minute !== null) group.minutes.push(goal.minute);
+      group.descriptions.push(goalDescription(goal));
+    } else {
+      groups.push({
+        key,
+        playerName: goal.playerName ?? null,
+        minutes: goal.minute === null ? [] : [goal.minute],
+        descriptions: [goalDescription(goal)],
+      });
+    }
+    return groups;
+  }, []);
+  const groupedCards = detailedCards.reduce<Array<{ key: string; playerName: string | null; cards: typeof detailedCards }>>((groups, card) => {
+    const key = String(card.playerId ?? card.playerName ?? `unknown-${card.minute ?? 'time'}`);
+    const group = groups.find((item) => item.key === key);
+    if (group) group.cards.push(card);
+    else groups.push({ key, playerName: card.playerName ?? null, cards: [card] });
+    return groups;
+  }, []);
 
   const detailedEventIcons = hasDetailedEvents ? (
     <>
-      {detailedCards.map((card, index) => {
-        const tooltip = formatEventTooltip(card.minute, getCardEventLabel(card));
-        const key = `card-${card.eventTypeId}-${card.playerId ?? 'unknown'}-${card.minute ?? index}-${index}`;
+      {groupedCards.map((group) => {
+        const hasSecondYellowRed = group.cards.some((item) => item.type === 'second_yellow_red');
+        const hasStraightRed = group.cards.some((item) => item.type === 'straight_red');
+        const tooltip = group.cards.map((item) => formatEventTooltip(item.minute, getCardEventLabel(item))).join(', ');
+        const minutes = group.cards
+          .map((item) => item.minute)
+          .filter((minute): minute is number => minute !== null)
+          .map((minute) => `${minute}'`)
+          .join(', ');
 
-        if (card.type === 'second_yellow_red') {
+        if (hasSecondYellowRed) {
           return (
-            <span key={key} className={styles.secondYellowRed} data-tooltip-id={`${tooltipIdBase}-summary`} data-tooltip-content={tooltip}>
-              <img src="/svg/match-yellow.svg" alt="Yellow card" className={styles.summaryIcon} />
-              <img src="/svg/match-card.svg" alt="Red card" className={`${styles.summaryIcon} ${styles.redOverlay}`} />
+            <span key={group.key} className={styles.eventItem} data-tooltip-id={`${tooltipIdBase}-summary`} data-tooltip-content={tooltip}>
+              <span className={styles.secondYellowRed} aria-hidden="true">
+                <img src="/svg/match-yellow.svg" alt="" className={styles.summaryIcon} />
+                <img src="/svg/match-card.svg" alt="" className={`${styles.summaryIcon} ${styles.redOverlay}`} />
+              </span>
+              <span className={styles.eventLabel}>{shortPlayerLabel(group.playerName)}{minutes ? ` (${minutes})` : ''}</span>
             </span>
           );
         }
 
         return (
-          <img
-            key={key}
-            src={card.type === 'yellow' ? '/svg/match-yellow.svg' : '/svg/match-card.svg'}
-            alt={getCardEventLabel(card)}
-            className={styles.summaryIcon}
+          <span
+            key={group.key}
+            className={styles.eventItem}
             data-tooltip-id={`${tooltipIdBase}-summary`}
             data-tooltip-content={tooltip}
-          />
+          >
+            <img src={hasStraightRed ? '/svg/match-card.svg' : '/svg/match-yellow.svg'} alt="" className={styles.summaryIcon} />
+            <span className={styles.eventLabel}>{shortPlayerLabel(group.playerName)}{minutes ? ` (${minutes})` : ''}</span>
+          </span>
         );
       })}
       {detailedInjuries.map((injury, index) => (
-        <img
+        <span
           key={`injury-${injury.playerId ?? 'unknown'}-${injury.minute ?? index}-${index}`}
-          src={injury.severity === 'plaster' ? '/svg/plaster.svg' : '/svg/match-cross.svg'}
-          alt={getInjuryEventLabel(injury)}
-          className={styles.summaryIcon}
+          className={styles.eventItem}
           data-tooltip-id={`${tooltipIdBase}-summary`}
           data-tooltip-content={formatEventTooltip(injury.minute, getInjuryEventLabel(injury))}
-        />
+        >
+          <img src={injury.severity === 'plaster' ? '/svg/plaster.svg' : '/svg/match-cross.svg'} alt="" className={styles.summaryIcon} />
+          <span className={styles.eventLabel}>
+            {injury.weeks ? `+${injury.weeks} ` : ''}{shortPlayerLabel(injury.playerName)}{eventMinute(injury.minute)}
+          </span>
+        </span>
       ))}
     </>
   ) : null;
@@ -183,6 +239,27 @@ export const TeamByline: React.FC<TeamBylineProps> = ({
           </>
         )}
       </div>
+      {mode === 'fixtures' && groupedGoals.length > 0 && (
+        <div className={styles.goalsRow} aria-label="Goals">
+          {groupedGoals.map((goal) => (
+            <React.Fragment key={goal.key}>
+              <span
+                className={styles.goalItem}
+                data-tooltip-id={`${tooltipIdBase}-goal-${goal.key}`}
+                data-tooltip-content={Array.from(new Set(goal.descriptions)).join(', ')}
+              >
+                <span aria-hidden="true">⚽️</span> {shortPlayerLabel(goal.playerName)}
+                {goal.minutes.length > 0 && ` (${goal.minutes.map((minute) => `${minute}'`).join(', ')})`}
+              </span>
+              <Tooltip
+                id={`${tooltipIdBase}-goal-${goal.key}`}
+                content={Array.from(new Set(goal.descriptions)).join(', ')}
+                className="tooltip"
+              />
+            </React.Fragment>
+          ))}
+        </div>
+      )}
       {mode === 'fixtures' && summary && (
         <div className={styles.summaryRow} data-tooltip-id={`${tooltipIdBase}-summary`} aria-label={summaryTooltip}>
           {detailedEventIcons || (

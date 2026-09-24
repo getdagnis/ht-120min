@@ -1,10 +1,12 @@
 'use client';
 
 import React, { useEffect, useRef, useState } from 'react';
+import { usePathname, useSearchParams } from 'next/navigation';
 import { Question } from 'phosphor-react';
-import { Tooltip } from '../Tooltip/Tooltip';
+import { AuthorTooltip } from './ChatView';
 import { Button } from '../Button/Button';
 import { NoticeDialog } from '../Modal/NoticeDialog';
+import { DeleteConfirmationFlow } from '../Modal/DeleteConfirmationFlow';
 import { useNoticeDialog } from '../Modal/useNoticeDialog';
 import { SectionCard } from '../Card/SectionCard';
 import { CompactAccordionWidget, type CompactAccordionItem } from '../CompactAccordionWidget/CompactAccordionWidget';
@@ -31,6 +33,7 @@ export interface NewsPost {
   content: string;
   author_name: string;
   author_team_id?: string | null;
+  author_ht_user_id?: number | null;
   is_admin?: boolean;
   is_round_report?: boolean;
   created_at: string;
@@ -54,6 +57,8 @@ export interface NewsArticleProps {
   adminBylineHref?: string | null;
   visitHref?: string;
   visitLabel?: string;
+  onEdit?: () => void;
+  onDelete?: () => void;
 }
 
 interface NewsTabProps {
@@ -65,6 +70,9 @@ interface NewsTabProps {
   myManagerName: string | null;
   isAdminAuthenticated: boolean;
   canPublishAnnouncements: boolean;
+  viewerRole?: string | null;
+  isOriginalOrganizer?: boolean;
+  organizerUserId?: number | null;
   tournamentImageUrl?: string | null;
   faqItems: CompactAccordionItem[];
 }
@@ -80,7 +88,9 @@ interface NewsDraft {
 const OFFICIAL_PRESS_BYLINE = 'Tournament Update';
 
 function getOfficialPressAuthor(authorName: string) {
-  const legacyByline = /^(?:Cup Press Release|Tournament Update)(?:\s+\(?(?:by\s+)?(.+?)\)?)?$/i.exec(authorName.trim());
+  const legacyByline = /^(?:Cup Press Release|Tournament Update)(?:\s+\(?(?:by\s+)?(.+?)\)?)?$/i.exec(
+    authorName.trim(),
+  );
   return legacyByline?.[1]?.trim() || null;
 }
 
@@ -141,6 +151,23 @@ function prependNewsPost(posts: NewsPost[], post: NewsPost) {
   return [post, ...posts.filter((current) => current.id !== post.id)];
 }
 
+function renderHattrickAnnouncementMarkup(content: string): React.ReactNode {
+  const parts: React.ReactNode[] = [];
+  const tagPattern = /\[b\]([\s\S]*?)\[\/b\]/gi;
+  let cursor = 0;
+  let match: RegExpExecArray | null;
+  let key = 0;
+
+  while ((match = tagPattern.exec(content))) {
+    if (match.index > cursor) parts.push(content.slice(cursor, match.index));
+    parts.push(<strong key={`announcement-bold-${key++}`}>{match[1]}</strong>);
+    cursor = match.index + match[0].length;
+  }
+
+  if (cursor < content.length) parts.push(content.slice(cursor));
+  return parts.length > 0 ? parts : content;
+}
+
 export const NewsArticle: React.FC<NewsArticleProps> = ({
   post,
   authorTeam,
@@ -153,10 +180,21 @@ export const NewsArticle: React.FC<NewsArticleProps> = ({
   adminBylineHref,
   visitHref,
   visitLabel = 'Visit cup',
+  onEdit,
+  onDelete,
 }) => {
   const { locale } = useLocale();
+  const pathname = usePathname() || '/';
+  const searchParams = useSearchParams();
   const dateLocale = locale === 'lv' ? 'lv-LV' : 'en-GB';
   const officialPressAuthor = post.is_admin ? getOfficialPressAuthor(post.author_name) : null;
+  const profileHref = post.author_ht_user_id
+    ? `${pathname}?${(() => {
+        const params = new URLSearchParams(searchParams.toString());
+        params.set('profileId', String(post.author_ht_user_id));
+        return params.toString();
+      })()}`
+    : null;
 
   return (
     <article className={`${styles.post} ${post.is_admin ? styles.adminPost : ''}`}>
@@ -165,15 +203,48 @@ export const NewsArticle: React.FC<NewsArticleProps> = ({
         <span className={styles.postAuthor}>
           {post.is_admin ? (
             adminBylineHref ? (
-              <a href={adminBylineHref} className={styles.postAuthorLink}>
-                <strong>{adminBylineLabel || OFFICIAL_PRESS_BYLINE}</strong>
-              </a>
+              <>
+                <a href={adminBylineHref} className={styles.postAuthorLink}>
+                  {adminBylineLabel || OFFICIAL_PRESS_BYLINE}
+                </a>
+                {officialPressAuthor && (
+                  <span>
+                    {' '}
+                    (by{' '}
+                    {profileHref ? (
+                      <a href={profileHref} className={styles.postAuthorLink}>
+                        {officialPressAuthor}
+                      </a>
+                    ) : (
+                      officialPressAuthor
+                    )}
+                    )
+                  </span>
+                )}
+              </>
             ) : (
               <>
-                <strong>{adminBylineLabel || OFFICIAL_PRESS_BYLINE}</strong>
-              {officialPressAuthor && <span className={styles.officialPressAuthor}> (by {officialPressAuthor})</span>}
+                {adminBylineLabel || OFFICIAL_PRESS_BYLINE}
+                {officialPressAuthor && (
+                  <span>
+                    {' '}
+                    (by{' '}
+                    {profileHref ? (
+                      <a href={profileHref} className={styles.postAuthorLink}>
+                        {officialPressAuthor}
+                      </a>
+                    ) : (
+                      officialPressAuthor
+                    )}
+                    )
+                  </span>
+                )}
               </>
             )
+          ) : profileHref ? (
+            <a href={profileHref} className={styles.postAuthorLink}>
+              {post.author_name}
+            </a>
           ) : (
             post.author_name
           )}
@@ -187,13 +258,27 @@ export const NewsArticle: React.FC<NewsArticleProps> = ({
             timeZone: 'Europe/Riga',
           })}
         </span>
+        {(onEdit || onDelete) && (
+          <span className={styles.postManagementActions}>
+            {onEdit && (
+              <button type="button" onClick={onEdit}>
+                Edit
+              </button>
+            )}
+            {onDelete && (
+              <button type="button" onClick={onDelete}>
+                Delete
+              </button>
+            )}
+          </span>
+        )}
       </div>
       {post.title && <h4 className={styles.postTitle}>{post.title}</h4>}
       <div className={styles.postContent}>
         {post.is_admin && tournamentImageUrl && (
           <img src={tournamentImageUrl} className={styles.tournamentPressImage} alt="" />
         )}
-        {post.content}
+        {post.is_admin ? renderHattrickAnnouncementMarkup(post.content) : post.content}
       </div>
       {reactions.length > 0 && (
         <div className={styles.usedReactions} aria-label="Used reactions">
@@ -201,12 +286,14 @@ export const NewsArticle: React.FC<NewsArticleProps> = ({
             <span key={`${item.user_id}-${index}`} className={styles.usedReaction}>
               <span
                 data-tooltip-id={`reaction-author-${post.id}-${index}`}
-                data-tooltip-content={reactionAuthorNames[item.user_id] || `CHPP user ${item.user_id}`}
                 aria-label={`${reactionAuthorNames[item.user_id] || `CHPP user ${item.user_id}`} reacted ${item.reaction}`}
               >
                 {item.reaction}
               </span>
-              <Tooltip id={`reaction-author-${post.id}-${index}`} />
+              <AuthorTooltip
+                id={`reaction-author-${post.id}-${index}`}
+                authorName={reactionAuthorNames[item.user_id] || `CHPP user ${item.user_id}`}
+              />
             </span>
           ))}
         </div>
@@ -253,6 +340,9 @@ export const NewsTab: React.FC<NewsTabProps> = ({
   myManagerName,
   isAdminAuthenticated,
   canPublishAnnouncements,
+  viewerRole = null,
+  isOriginalOrganizer = false,
+  organizerUserId = null,
   tournamentImageUrl = null,
   faqItems,
 }) => {
@@ -273,6 +363,8 @@ export const NewsTab: React.FC<NewsTabProps> = ({
   } | null>(null);
   const [roundSummaryEligibilityError, setRoundSummaryEligibilityError] = useState<string | null>(null);
   const [roundSummaryError, setRoundSummaryError] = useState<string | null>(null);
+  const [editingPostId, setEditingPostId] = useState<string | null>(null);
+  const [pendingDeletePost, setPendingDeletePost] = useState<NewsPost | null>(null);
   const [newsMode, setNewsMode] = useState<NewsMode>('team');
   const [newsReactions, setNewsReactions] = useState<Record<string, NewsReaction[]>>({});
   const newsModeStorageKey = getNewsModeStorageKey(tournamentId, myHtUserId);
@@ -289,6 +381,43 @@ export const NewsTab: React.FC<NewsTabProps> = ({
   const myTeam = myHtUserId ? teams.find((team) => team.hattrick_user_id === Number(myHtUserId)) : null;
   const cupPressAuthorName = myTeam?.manager_name || myManagerName || myTeam?.name || 'Tournament organizer';
   const cupPressByline = `${OFFICIAL_PRESS_BYLINE} (by ${cupPressAuthorName})`;
+
+  const canMutatePost = (post: NewsPost) => {
+    const viewerId = Number(myHtUserId) || null;
+    const isAuthor = viewerId !== null && Number(post.author_ht_user_id) === viewerId;
+    const isOrganizerPost = organizerUserId !== null && Number(post.author_ht_user_id) === organizerUserId;
+    if (isOriginalOrganizer || viewerRole === 'co_organizer' || isAuthor) return true;
+    if (isOrganizerPost || !post.author_ht_user_id) return false;
+    if (viewerRole === 'press_officer') return Boolean(post.is_admin);
+    if (viewerRole === 'admin') return true;
+    return false;
+  };
+
+  const startEditingPost = (post: NewsPost) => {
+    setEditingPostId(post.id);
+    setNewNewsTitle(post.title || '');
+    setNewNewsContent(post.content);
+    setNewsMode(post.is_admin ? 'admin' : 'team');
+    window.scrollTo({ top: document.body.scrollHeight, behavior: 'smooth' });
+  };
+
+  const handleDeletePost = async (post: NewsPost) => {
+    const response = await fetch('/api/app?route=delete-news-post', {
+      method: 'DELETE',
+      credentials: 'include',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ postId: post.id }),
+    });
+    if (!response.ok) {
+      const result = (await response.json().catch(() => ({}))) as { error?: string };
+      alert(result.error || 'Could not delete this post.');
+      return;
+    }
+    setNewsPosts((current) => current.filter((item) => item.id !== post.id));
+    setPendingDeletePost(null);
+    setFinalDeletePost(null);
+    setUltimateDeletePost(null);
+  };
 
   useEffect(
     () => () => {
@@ -449,6 +578,23 @@ export const NewsTab: React.FC<NewsTabProps> = ({
 
     setIsPostingNews(true);
     try {
+      if (editingPostId) {
+        const response = await fetch('/api/app?route=edit-news-post', {
+          method: 'PATCH',
+          credentials: 'include',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ postId: editingPostId, title: newNewsTitle.trim(), content: newNewsContent.trim() }),
+        });
+        const result = (await response.json()) as NewsPost & { error?: string };
+        if (!response.ok) throw new Error(result.error || 'Could not edit news.');
+        setNewsPosts((current) => current.map((post) => (post.id === result.id ? result : post)));
+        setEditingPostId(null);
+        persistNewsDraft(draftStorageKey, { title: '', content: '' });
+        currentDraftRef.current = { storageKey: draftStorageKey, draft: { title: '', content: '' } };
+        setNewNewsContent('');
+        setNewNewsTitle('');
+        return;
+      }
       const isRoundReport = newsMode === 'admin' && hasGeneratedRoundSummary && generatedRoundNumber !== null;
       let createdPost: NewsPost | null = null;
       if (isRoundReport) {
@@ -469,21 +615,21 @@ export const NewsTab: React.FC<NewsTabProps> = ({
         createdPost = result;
         if (createdPost.is_round_report) setRoundSummaryEligibility(null);
       } else {
-        const { data, error } = await supabase
-          .from('news_posts')
-          .insert({
-            tournament_id: tournamentId,
-            season_number: seasonNumber,
+        const response = await fetch('/api/app?route=create-news-post', {
+          method: 'POST',
+          credentials: 'include',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            tournamentId,
+            seasonNumber,
             title: newNewsTitle.trim(),
             content: newNewsContent.trim(),
-            author_name: newsMode === 'admin' ? cupPressByline : myTeam?.name || 'Guest',
-            author_team_id: newsMode === 'admin' ? null : myTeam?.id || null,
-            is_admin: newsMode === 'admin',
-          })
-          .select('*')
-          .single();
-        if (error) throw error;
-        createdPost = data as NewsPost;
+            isAdmin: newsMode === 'admin',
+          }),
+        });
+        const result = (await response.json()) as NewsPost & { error?: string };
+        if (!response.ok) throw new Error(result.error || 'Could not post news.');
+        createdPost = result;
       }
 
       if (createdPost) setNewsPosts((current) => prependNewsPost(current, createdPost));
@@ -625,6 +771,11 @@ export const NewsTab: React.FC<NewsTabProps> = ({
   return (
     <div className={styles.newsLayout}>
       <NoticeDialog message={notice} onClose={closeNotice} />
+      <DeleteConfirmationFlow
+        isOpen={Boolean(pendingDeletePost)}
+        onClose={() => setPendingDeletePost(null)}
+        onConfirm={() => pendingDeletePost && void handleDeletePost(pendingDeletePost)}
+      />
       <div className={styles.guestbook}>
         <div className={styles.weeklyPanels}>
           {newsPosts.length === 0 && (
@@ -644,6 +795,8 @@ export const NewsTab: React.FC<NewsTabProps> = ({
                 reactionAuthorNames={reactionAuthorNames}
                 onReaction={handleAddReaction}
                 tournamentImageUrl={tournamentImageUrl}
+                onEdit={canMutatePost(latestPost) ? () => startEditingPost(latestPost) : undefined}
+                onDelete={canMutatePost(latestPost) ? () => setPendingDeletePost(latestPost) : undefined}
               />
             </SectionCard>
           )}
@@ -661,12 +814,14 @@ export const NewsTab: React.FC<NewsTabProps> = ({
                   reactionAuthorNames={reactionAuthorNames}
                   onReaction={handleAddReaction}
                   tournamentImageUrl={tournamentImageUrl}
+                  onEdit={canMutatePost(post) ? () => startEditingPost(post) : undefined}
+                  onDelete={canMutatePost(post) ? () => setPendingDeletePost(post) : undefined}
                 />
               </SectionCard>
             );
           })}
 
-          <SectionCard title="Write a press release">
+          <SectionCard title={editingPostId ? 'Edit news post' : 'Write a press release'}>
             <div className={styles.newsTabs}>
               <button className={newsMode === 'team' ? styles.active : ''} onClick={() => handleNewsModeChange('team')}>
                 Team News
@@ -765,8 +920,13 @@ export const NewsTab: React.FC<NewsTabProps> = ({
                     </Button>
                   ))}
                 <Button type="submit" variant="primary" disabled={isPostingNews || !newNewsContent.trim()}>
-                  {isPostingNews ? 'Posting...' : 'Post Announcement'}
+                  {isPostingNews ? 'Saving...' : editingPostId ? 'Save changes' : 'Post Announcement'}
                 </Button>
+                {editingPostId && (
+                  <Button type="button" variant="secondaryAction" onClick={() => setEditingPostId(null)}>
+                    Cancel
+                  </Button>
+                )}
               </div>
             </form>
           </SectionCard>

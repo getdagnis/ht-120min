@@ -1088,6 +1088,7 @@ async function handlePostRoundSummary(req: VercelRequest, res: VercelResponse) {
       content,
       author_name: `Tournament Update (by ${actor.access.viewerManagerName || 'Tournament organizer'})`,
       author_team_id: null,
+      author_ht_user_id: actor.userId,
       is_admin: true,
     })
     .select('*')
@@ -1097,6 +1098,128 @@ async function handlePostRoundSummary(req: VercelRequest, res: VercelResponse) {
   }
   if (postError) throw postError;
   return res.status(201).json(post);
+}
+
+async function loadNewsPostMutationAccess(
+  req: VercelRequest,
+  res: VercelResponse,
+  postId: string,
+  action: 'edit' | 'delete',
+) {
+  const supabase = getServiceSupabase();
+  const { data: post, error } = await supabase
+    .from('news_posts')
+    .select('id, tournament_id, author_team_id, author_ht_user_id, is_admin')
+    .eq('id', postId)
+    .maybeSingle();
+  if (error) throw error;
+  if (!post?.tournament_id) {
+    res.status(404).json({ error: 'News post not found.' });
+    return null;
+  }
+
+  const actor = await requireTournamentRoleSession(req, res, post.tournament_id);
+  if (!actor) return null;
+  const isOrganizer = actor.access.isOriginalOrganizer;
+  const isAuthor = Number(post.author_ht_user_id) === actor.userId;
+  const isOrganizerAuthored =
+    Number(post.author_ht_user_id) === Number(actor.access.organizerUserId) && Number(actor.access.organizerUserId) > 0;
+  const role = actor.access.effectiveRole;
+  const isOrganizerRole = role === 'co_organizer';
+  const isAdminRole = role === 'admin';
+  const isPressOfficer = role === 'press_officer';
+  const legacyUnknownOfficialPost = Boolean(post.is_admin) && !post.author_ht_user_id;
+
+  const allowed =
+    isOrganizer ||
+    isOrganizerRole ||
+    isAuthor ||
+    (!isOrganizerAuthored && !legacyUnknownOfficialPost && isAdminRole) ||
+    (!isOrganizerAuthored && !legacyUnknownOfficialPost && isPressOfficer && Boolean(post.is_admin));
+  if (!allowed) {
+    res.status(403).json({ error: `You cannot ${action} this news post.` });
+    return null;
+  }
+  return { supabase, actor, post };
+}
+
+async function handleCreateNewsPost(req: VercelRequest, res: VercelResponse) {
+  if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed.' });
+  const tournamentId = readString(req.body?.tournamentId);
+  const seasonNumber = positiveInteger(req.body?.seasonNumber);
+  const title = readString(req.body?.title);
+  const content = readString(req.body?.content);
+  const isAdmin = req.body?.isAdmin === true;
+  if (!tournamentId || !seasonNumber || !content) {
+    return res.status(400).json({ error: 'tournamentId, seasonNumber, and content are required.' });
+  }
+
+  const actor = await requireTournamentRoleSession(req, res, tournamentId);
+  if (!actor) return;
+  const supabase = getServiceSupabase();
+  let authorTeamId: string | null = null;
+  let authorName: string;
+  if (isAdmin) {
+    if (!actor.access.canPublishAnnouncements) return res.status(403).json({ error: 'Not available.' });
+    authorName = `Tournament Update (by ${actor.access.viewerManagerName || 'Tournament organizer'})`;
+  } else {
+    const { data: team, error } = await supabase
+      .from('teams')
+      .select('id, name')
+      .eq('tournament_id', tournamentId)
+      .eq('hattrick_user_id', actor.userId)
+      .maybeSingle();
+    if (error) throw error;
+    if (!team) return res.status(403).json({ error: 'Join a tournament team before posting team news.' });
+    authorTeamId = team.id;
+    authorName = team.name;
+  }
+
+  const { data: post, error } = await supabase
+    .from('news_posts')
+    .insert({
+      tournament_id: tournamentId,
+      season_number: seasonNumber,
+      title: title || null,
+      content,
+      author_name: authorName,
+      author_team_id: authorTeamId,
+      author_ht_user_id: actor.userId,
+      is_admin: isAdmin,
+    })
+    .select('*')
+    .single();
+  if (error) throw error;
+  return res.status(201).json(post);
+}
+
+async function handleEditNewsPost(req: VercelRequest, res: VercelResponse) {
+  if (req.method !== 'PATCH') return res.status(405).json({ error: 'Method not allowed.' });
+  const postId = readString(req.body?.postId);
+  const title = readString(req.body?.title);
+  const content = readString(req.body?.content);
+  if (!postId || !content) return res.status(400).json({ error: 'postId and content are required.' });
+  const mutation = await loadNewsPostMutationAccess(req, res, postId, 'edit');
+  if (!mutation) return;
+  const { data: post, error } = await mutation.supabase
+    .from('news_posts')
+    .update({ title: title || null, content })
+    .eq('id', postId)
+    .select('*')
+    .single();
+  if (error) throw error;
+  return res.status(200).json(post);
+}
+
+async function handleDeleteNewsPost(req: VercelRequest, res: VercelResponse) {
+  if (req.method !== 'DELETE') return res.status(405).json({ error: 'Method not allowed.' });
+  const postId = readString(req.body?.postId) || readString(req.query.postId);
+  if (!postId) return res.status(400).json({ error: 'postId is required.' });
+  const mutation = await loadNewsPostMutationAccess(req, res, postId, 'delete');
+  if (!mutation) return;
+  const { error } = await mutation.supabase.from('news_posts').delete().eq('id', postId);
+  if (error) throw error;
+  return res.status(204).end();
 }
 
 function routeFor(request: VercelRequest) {
@@ -1545,6 +1668,12 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
           : await handleGenerateRoundSummary(req, res);
       case 'post-round-summary':
         return await handlePostRoundSummary(req, res);
+      case 'create-news-post':
+        return await handleCreateNewsPost(req, res);
+      case 'edit-news-post':
+        return await handleEditNewsPost(req, res);
+      case 'delete-news-post':
+        return await handleDeleteNewsPost(req, res);
       case 'activity':
       default:
         return await handleActivity(req, res);

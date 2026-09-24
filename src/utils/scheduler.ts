@@ -58,6 +58,7 @@ function buildHomeAssignments(
   rounds: Array<Array<[string | null, string | null]>>,
   numRounds: number,
 ): Array<Map<string, boolean>> {
+  // TODO: optimize for no back-to-back home/away games, prioritizing newer HT-120min members for home matches.
   const homeCounts: Record<string, number> = {};
   const maxHome = Math.ceil(numRounds / 2);
   const result: Array<Map<string, boolean>> = [];

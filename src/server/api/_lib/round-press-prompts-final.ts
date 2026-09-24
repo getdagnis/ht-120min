@@ -314,7 +314,7 @@ Prefer specific facts, observations and memorable phrasing.
 HT-120MIN SITE VOICE
 ======================================================================
 
-HT-120min mottos used accross the site, can sometimes be used as references in the article, but do not quote them mechanically. Use rarely and only if they fit naturally. 
+HT-120min mottos used accross the site, can sometimes be used as references in the article. Use them as cultural shorthand or idioms, but do not overuse them or use too frequenly. 
 
 "Winning is weak. Drawing is divine."
 
