@@ -39,6 +39,7 @@ import {
 
 const FORUM_LINK = 'https://www.hattrick.org/goto.ashx?path=/Forum/Read.aspx?n=1&nm=32&t=17685273&v=0';
 const SHOW_FAQ = true;
+const EXOTIC_HFI_ANCHOR_ID = 'exotic-small-hfi-leagues';
 
 interface DBTeamMatch {
   id: string;
@@ -323,6 +324,22 @@ useEffect(() => {
 
   return () => window.clearTimeout(timer);
 }, [fetchLatestWeeklyPosts]);
+
+useEffect(() => {
+  if (window.location.hash !== `#${EXOTIC_HFI_ANCHOR_ID}` || exoticHfiTournaments.length === 0) return;
+
+  let secondFrame = 0;
+  const firstFrame = window.requestAnimationFrame(() => {
+    secondFrame = window.requestAnimationFrame(() => {
+      document.getElementById(EXOTIC_HFI_ANCHOR_ID)?.scrollIntoView({ block: 'start' });
+    });
+  });
+
+  return () => {
+    window.cancelAnimationFrame(firstFrame);
+    if (secondFrame) window.cancelAnimationFrame(secondFrame);
+  };
+}, [exoticHfiTournaments.length]);
 
 useEffect(() => {
   const postIds = latestWeeklyPosts.map((post) => post.id);
@@ -791,7 +808,7 @@ const handleWeeklyReaction = async (postId: string, reaction: string) => {
               <section className={styles.activeSection}>
                 <div className={styles.sectionHeader}>
                   <Trophy size={24} weight="regular" className={styles.sectionIcon} />
-                  <h2 id="exotic-small-hfi-leagues" className={styles.anchorTarget}>
+                  <h2 id={EXOTIC_HFI_ANCHOR_ID} className={styles.anchorTarget}>
                     {EXOTIC_HFI_GROUP_TITLE}
                   </h2>
                 </div>

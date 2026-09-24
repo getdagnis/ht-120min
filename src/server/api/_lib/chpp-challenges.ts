@@ -101,21 +101,40 @@ export function parseChallengeableResponse(xml: string): ChppChallengeableParse 
   const base = parseChppBaseResponse(xml);
   const teams: ChppChallengeableTeamResult[] = [];
 
-  for (const blockMatch of xml.matchAll(/<SuggestedTeam>([\s\S]*?)<\/SuggestedTeam>/gi)) {
-    const block = blockMatch[1];
-    const teamIdRaw = block.match(/<TeamID>(\d+)<\/TeamID>/i)?.[1];
-    if (!teamIdRaw) continue;
+  for (const resultMatch of xml.matchAll(/<ChallengeableResult>([\s\S]*?)<\/ChallengeableResult>/gi)) {
+    const resultBlock = resultMatch[1];
+    for (const opponentMatch of resultBlock.matchAll(/<Opponent>([\s\S]*?)<\/Opponent>/gi)) {
+      const opponentBlock = opponentMatch[1];
+      // CHPP challenges 1.6 uses <TeamId>, while older response shapes use <TeamID>.
+      const teamIdRaw = readChppTag(opponentBlock, 'TeamID');
+      const challengeableRaw = readChppTag(opponentBlock, 'IsChallengeable');
+      if (!teamIdRaw || challengeableRaw === undefined) continue;
 
-    const challengeableRaw =
-      readChppTag(block, 'Challengeable') ||
-      readChppTag(block, 'IsChallengeable') ||
-      readChppTag(block, 'PossibleToChallenge');
+      teams.push({
+        teamId: parseInt(teamIdRaw, 10),
+        challengeable: parseBooleanTag(challengeableRaw),
+        reason: readChppTag(opponentBlock, 'Reason') || readChppTag(opponentBlock, 'ErrorMessage'),
+      });
+    }
+  }
 
-    teams.push({
-      teamId: parseInt(teamIdRaw, 10),
-      challengeable: parseBooleanTag(challengeableRaw),
-      reason: readChppTag(block, 'Reason') || readChppTag(block, 'ErrorMessage'),
-    });
+  if (teams.length === 0) {
+    for (const blockMatch of xml.matchAll(/<SuggestedTeam>([\s\S]*?)<\/SuggestedTeam>/gi)) {
+      const block = blockMatch[1];
+      const teamIdRaw = block.match(/<TeamID>(\d+)<\/TeamID>/i)?.[1];
+      if (!teamIdRaw) continue;
+
+      const challengeableRaw =
+        readChppTag(block, 'Challengeable') ||
+        readChppTag(block, 'IsChallengeable') ||
+        readChppTag(block, 'PossibleToChallenge');
+
+      teams.push({
+        teamId: parseInt(teamIdRaw, 10),
+        challengeable: parseBooleanTag(challengeableRaw),
+        reason: readChppTag(block, 'Reason') || readChppTag(block, 'ErrorMessage'),
+      });
+    }
   }
 
   if (teams.length === 0) {
