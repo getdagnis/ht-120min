@@ -4,6 +4,8 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { usePathname, useParams, useRouter, useSearchParams as useNextSearchParams } from 'next/navigation';
 import { supabase } from '../../lib/supabase';
+import { useLocale } from '../../i18n/LocaleProvider';
+import { toLocalePath } from '../../next/locale-path';
 
 import adminStyles from './TournamentAdmin.module.sass';
 import styles from './TournamentView.module.sass';
@@ -520,6 +522,7 @@ function reviveInitialRounds(initialData?: TournamentInitialData) {
 
 export const TournamentView: React.FC<{ initialData?: TournamentInitialData }> = ({ initialData }) => {
   const { notice, showNotice: alert, closeNotice } = useNoticeDialog();
+  const { locale } = useLocale();
   const { slug: rawSlug } = useParams<{ slug: string }>();
   const slug = typeof rawSlug === 'string' ? rawSlug : '';
   const pathname = usePathname() || '/';
@@ -2167,15 +2170,15 @@ export const TournamentView: React.FC<{ initialData?: TournamentInitialData }> =
   const getJoinTeamCardState = (
     team: ChppTeamOption,
   ): { disabled: boolean; status: React.ReactNode; statusDanger: boolean } => {
-    if (!tournament) return { disabled: true, status: '⛔️ Tournament details are unavailable.', statusDanger: true };
+    if (!tournament) return { disabled: true, status: 'Tournament details are unavailable.', statusDanger: true };
     if (!teamMatchesCategory(team, tournament.league_category)) {
       return {
         disabled: true,
         statusDanger: true,
         status:
           tournament.league_category === 'hfi'
-            ? '⛔️ Not eligible! This tournament is for HFI teams only.'
-            : '⛔️ Not eligible! This tournament is for regular male teams.',
+            ? 'Not eligible! This tournament is for HFI teams only.'
+            : 'Not eligible! This tournament is for regular male teams.',
       };
     }
 
@@ -2194,8 +2197,8 @@ export const TournamentView: React.FC<{ initialData?: TournamentInitialData }> =
         disabled: true,
         statusDanger: true,
         status: restrictedCountry
-          ? `⛔️ Not eligible! Must be based in ${restrictedCountry}.`
-          : `⛔️ Not eligible! ${eligibility.reason || 'This team cannot join this tournament.'}`,
+          ? `Not eligible! Must be based in ${restrictedCountry}.`
+          : `Not eligible! ${eligibility.reason || 'This team cannot join this tournament.'}`,
       };
     }
 
@@ -2205,7 +2208,7 @@ export const TournamentView: React.FC<{ initialData?: TournamentInitialData }> =
         statusDanger: true,
         status: (
           <>
-            ⛔️ Already active in:{' '}
+            Already active in:{' '}
             <a href={toLocalePath(locale, `/t/${team.activeTournament.slug}`)}>{team.activeTournament.name}</a>
           </>
         ),

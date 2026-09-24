@@ -1086,7 +1086,7 @@ async function handlePostRoundSummary(req: VercelRequest, res: VercelResponse) {
       is_round_report: tournament.registration_type !== 'sandbox',
       title: title || null,
       content,
-      author_name: `Tournament Update (by ${actor.access.viewerManagerName || 'Tournament organizer'})`,
+      author_name: actor.access.viewerManagerName || 'Tournament organizer',
       author_team_id: null,
       author_ht_user_id: actor.userId,
       is_admin: true,
@@ -1161,7 +1161,7 @@ async function handleCreateNewsPost(req: VercelRequest, res: VercelResponse) {
   let authorName: string;
   if (isAdmin) {
     if (!actor.access.canPublishAnnouncements) return res.status(403).json({ error: 'Not available.' });
-    authorName = `Tournament Update (by ${actor.access.viewerManagerName || 'Tournament organizer'})`;
+    authorName = actor.access.viewerManagerName || 'Tournament organizer';
   } else {
     const { data: team, error } = await supabase
       .from('teams')
@@ -1172,7 +1172,7 @@ async function handleCreateNewsPost(req: VercelRequest, res: VercelResponse) {
     if (error) throw error;
     if (!team) return res.status(403).json({ error: 'Join a tournament team before posting team news.' });
     authorTeamId = team.id;
-    authorName = team.name;
+    authorName = actor.access.viewerManagerName || team.name;
   }
 
   const { data: post, error } = await supabase

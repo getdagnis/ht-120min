@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useEffect, useRef, useState } from 'react';
-import { usePathname, useSearchParams } from 'next/navigation';
+import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import { Question } from 'phosphor-react';
 import { AuthorTooltip } from './ChatView';
 import { Button } from '../Button/Button';
@@ -53,8 +53,8 @@ export interface NewsArticleProps {
   reactionAuthorNames?: Record<string, string>;
   onReaction?: (postId: string, reaction: string) => void;
   tournamentImageUrl?: string | null;
-  adminBylineLabel?: string | null;
-  adminBylineHref?: string | null;
+  taglineLabel?: string | null;
+  taglineHref?: string | null;
   visitHref?: string;
   visitLabel?: string;
   onEdit?: () => void;
@@ -85,13 +85,14 @@ interface NewsDraft {
   roundSummaryRoundNumber?: number;
 }
 
-const OFFICIAL_PRESS_BYLINE = 'Tournament Update';
+const OFFICIAL_PRESS_TAGLINE = 'Tournament Update';
 
-function getOfficialPressAuthor(authorName: string) {
+function getOfficialPostAuthorName(authorName: string) {
   const legacyByline = /^(?:Cup Press Release|Tournament Update)(?:\s+\(?(?:by\s+)?(.+?)\)?)?$/i.exec(
     authorName.trim(),
   );
-  return legacyByline?.[1]?.trim() || null;
+  if (legacyByline) return legacyByline[1]?.trim() || null;
+  return authorName.trim() || null;
 }
 
 function getNewsDraftStorageKey(tournamentId: string, seasonNumber: number, mode: NewsMode, managerId: string | null) {
@@ -176,8 +177,8 @@ export const NewsArticle: React.FC<NewsArticleProps> = ({
   reactionAuthorNames = {},
   onReaction,
   tournamentImageUrl,
-  adminBylineLabel,
-  adminBylineHref,
+  taglineLabel,
+  taglineHref,
   visitHref,
   visitLabel = 'Visit cup',
   onEdit,
@@ -186,66 +187,46 @@ export const NewsArticle: React.FC<NewsArticleProps> = ({
   const { locale } = useLocale();
   const [isImageOpen, setIsImageOpen] = useState(false);
   const pathname = usePathname() || '/';
+  const router = useRouter();
   const searchParams = useSearchParams();
   const dateLocale = locale === 'lv' ? 'lv-LV' : 'en-GB';
-  const officialPressAuthor = post.is_admin ? getOfficialPressAuthor(post.author_name) : null;
-  const profileHref = post.author_ht_user_id
-    ? `${pathname}?${(() => {
-        const params = new URLSearchParams(searchParams.toString());
-        params.set('profileId', String(post.author_ht_user_id));
-        return params.toString();
-      })()}`
-    : null;
+  const tagline = post.is_admin ? taglineLabel || OFFICIAL_PRESS_TAGLINE : authorTeam?.name || post.author_name;
+  const authorName = post.is_admin
+    ? getOfficialPostAuthorName(post.author_name)
+    : authorTeam?.manager_name || (post.author_ht_user_id ? post.author_name : null);
+  const authorProfileId = post.author_ht_user_id ?? authorTeam?.hattrick_user_id ?? null;
+  const handleOpenProfile = () => {
+    if (!authorProfileId) return;
+    const nextParams = new URLSearchParams(searchParams.toString());
+    nextParams.set('profileId', String(authorProfileId));
+    router.push(`${pathname}?${nextParams.toString()}`);
+  };
 
   return (
     <article className={`${styles.post} ${post.is_admin ? styles.adminPost : ''}`}>
       <div className={styles.postHeader}>
         {authorTeam?.logo_url && <img src={authorTeam.logo_url} className={styles.postLogo} alt="" />}
-        <span className={`${styles.postAuthor} ${post.is_admin ? styles.adminPostByline : ''}`}>
-          {post.is_admin ? (
-            adminBylineHref ? (
-              <>
-                <a href={adminBylineHref} className={`${styles.postAuthorLink} ${styles.adminBylineLink}`}>
-                  {adminBylineLabel || OFFICIAL_PRESS_BYLINE}
-                </a>
-                {officialPressAuthor && (
-                  <span className={styles.officialPressAuthor}>
-                    {' by '}
-                    {profileHref ? (
-                      <a href={profileHref} className={styles.postAuthorLink}>
-                        {officialPressAuthor}
-                      </a>
-                    ) : (
-                      officialPressAuthor
-                    )}
-                  </span>
-                )}
-              </>
-            ) : (
-              <>
-                {adminBylineLabel || OFFICIAL_PRESS_BYLINE}
-                {officialPressAuthor && (
-                  <span className={styles.officialPressAuthor}>
-                    {' by '}
-                    {profileHref ? (
-                      <a href={profileHref} className={styles.postAuthorLink}>
-                        {officialPressAuthor}
-                      </a>
-                    ) : (
-                      officialPressAuthor
-                    )}
-                  </span>
-                )}
-              </>
-            )
-          ) : profileHref ? (
-            <a href={profileHref} className={styles.postAuthorLink}>
-              {post.author_name}
+        <span className={styles.postTagline}>
+          {taglineHref ? (
+            <a href={taglineHref} className={styles.postTaglineLink}>
+              {tagline}
             </a>
           ) : (
-            post.author_name
+            tagline
           )}
         </span>
+        {authorName && (
+          <span className={styles.postAuthor}>
+            {' by '}
+            {authorProfileId ? (
+              <button type="button" className={styles.postAuthorLink} onClick={handleOpenProfile}>
+                {authorName}
+              </button>
+            ) : (
+              authorName
+            )}
+          </span>
+        )}
         <span className={styles.postTime}>
           {new Date(post.created_at).toLocaleString(dateLocale, {
             month: 'short',
@@ -399,7 +380,7 @@ export const NewsTab: React.FC<NewsTabProps> = ({
   );
   const myTeam = myHtUserId ? teams.find((team) => team.hattrick_user_id === Number(myHtUserId)) : null;
   const cupPressAuthorName = myTeam?.manager_name || myManagerName || myTeam?.name || 'Tournament organizer';
-  const cupPressByline = `${OFFICIAL_PRESS_BYLINE} (by ${cupPressAuthorName})`;
+  const cupPressByline = `${OFFICIAL_PRESS_TAGLINE} by ${cupPressAuthorName}`;
 
   const canMutatePost = (post: NewsPost) => {
     const viewerId = Number(myHtUserId) || null;

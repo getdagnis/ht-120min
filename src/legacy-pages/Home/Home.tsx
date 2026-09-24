@@ -131,6 +131,7 @@ interface HomeWeeklyPost {
   content: string;
   author_name: string;
   author_team_id: string | null;
+  author_ht_user_id: number | null;
   author_team_name: string | null;
   tournament_image_url: string | null;
   is_admin: boolean | null;
@@ -144,6 +145,7 @@ interface HomeWeeklyRawPost {
   content: string;
   author_name: string;
   author_team_id: string | null;
+  author_ht_user_id: number | null;
   is_admin: boolean | null;
   created_at: string;
   tournament:
@@ -245,6 +247,7 @@ const fetchLatestWeeklyPosts = useCallback(async () => {
       content,
       author_name,
       author_team_id,
+      author_ht_user_id,
       is_admin,
       created_at,
       tournament:tournaments!news_posts_tournament_id_fkey (
@@ -301,8 +304,9 @@ const fetchLatestWeeklyPosts = useCallback(async () => {
       }),
       title: post.title,
       content: post.content,
-      author_name: tournament?.name || post.author_name,
+      author_name: post.author_name,
       author_team_id: null,
+      author_ht_user_id: post.author_ht_user_id,
       author_team_name: null,
       tournament_image_url: tournament?.image_url || null,
       is_admin: true,
@@ -831,8 +835,9 @@ const handleWeeklyReaction = async (postId: string, reaction: string) => {
           tournament_name: post.tournament_name,
           title: post.title,
           content: post.content,
-          author_name: post.is_admin ? post.tournament_name : post.author_name,
+          author_name: post.author_name,
           author_team_id: post.author_team_id,
+          author_ht_user_id: post.author_ht_user_id,
           is_admin: Boolean(post.is_admin),
           created_at: post.created_at,
         };
@@ -849,8 +854,8 @@ const handleWeeklyReaction = async (postId: string, reaction: string) => {
               currentUserId={currentReactionUserId}
               onReaction={handleWeeklyReaction}
               tournamentImageUrl={post.tournament_image_url}
-              adminBylineLabel={post.tournament_display_name}
-              adminBylineHref={toLocalePath(locale, `/t/${post.tournament_slug}`)}
+              taglineLabel={post.tournament_display_name}
+              taglineHref={toLocalePath(locale, `/t/${post.tournament_slug}`)}
               visitHref={toLocalePath(locale, `/t/${post.tournament_slug}`)}
               visitLabel="Visit cup"
             />

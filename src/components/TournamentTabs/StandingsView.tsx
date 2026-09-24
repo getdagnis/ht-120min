@@ -893,7 +893,7 @@ export const StandingsView: React.FC<StandingsViewProps> = ({
             );
           })}
           {onVisitNews && (
-            <Button variant="outline" onClick={onVisitNews}>
+            <Button variant="zero" onClick={onVisitNews}>
               All press releases
             </Button>
           )}
