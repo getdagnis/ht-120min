@@ -184,6 +184,7 @@ export const NewsArticle: React.FC<NewsArticleProps> = ({
   onDelete,
 }) => {
   const { locale } = useLocale();
+  const [isImageOpen, setIsImageOpen] = useState(false);
   const pathname = usePathname() || '/';
   const searchParams = useSearchParams();
   const dateLocale = locale === 'lv' ? 'lv-LV' : 'en-GB';
@@ -200,17 +201,16 @@ export const NewsArticle: React.FC<NewsArticleProps> = ({
     <article className={`${styles.post} ${post.is_admin ? styles.adminPost : ''}`}>
       <div className={styles.postHeader}>
         {authorTeam?.logo_url && <img src={authorTeam.logo_url} className={styles.postLogo} alt="" />}
-        <span className={styles.postAuthor}>
+        <span className={`${styles.postAuthor} ${post.is_admin ? styles.adminPostByline : ''}`}>
           {post.is_admin ? (
             adminBylineHref ? (
               <>
-                <a href={adminBylineHref} className={styles.postAuthorLink}>
+                <a href={adminBylineHref} className={`${styles.postAuthorLink} ${styles.adminBylineLink}`}>
                   {adminBylineLabel || OFFICIAL_PRESS_BYLINE}
                 </a>
                 {officialPressAuthor && (
-                  <span>
-                    {' '}
-                    (by{' '}
+                  <span className={styles.officialPressAuthor}>
+                    {' by '}
                     {profileHref ? (
                       <a href={profileHref} className={styles.postAuthorLink}>
                         {officialPressAuthor}
@@ -218,7 +218,6 @@ export const NewsArticle: React.FC<NewsArticleProps> = ({
                     ) : (
                       officialPressAuthor
                     )}
-                    )
                   </span>
                 )}
               </>
@@ -226,9 +225,8 @@ export const NewsArticle: React.FC<NewsArticleProps> = ({
               <>
                 {adminBylineLabel || OFFICIAL_PRESS_BYLINE}
                 {officialPressAuthor && (
-                  <span>
-                    {' '}
-                    (by{' '}
+                  <span className={styles.officialPressAuthor}>
+                    {' by '}
                     {profileHref ? (
                       <a href={profileHref} className={styles.postAuthorLink}>
                         {officialPressAuthor}
@@ -236,7 +234,6 @@ export const NewsArticle: React.FC<NewsArticleProps> = ({
                     ) : (
                       officialPressAuthor
                     )}
-                    )
                   </span>
                 )}
               </>
@@ -276,7 +273,14 @@ export const NewsArticle: React.FC<NewsArticleProps> = ({
       {post.title && <h4 className={styles.postTitle}>{post.title}</h4>}
       <div className={styles.postContent}>
         {post.is_admin && tournamentImageUrl && (
-          <img src={tournamentImageUrl} className={styles.tournamentPressImage} alt="" />
+          <button
+            type="button"
+            className={styles.tournamentPressImageButton}
+            onClick={() => setIsImageOpen(true)}
+            aria-label="Open tournament image"
+          >
+            <img src={tournamentImageUrl} className={styles.tournamentPressImage} alt="" />
+          </button>
         )}
         {post.is_admin ? renderHattrickAnnouncementMarkup(post.content) : post.content}
       </div>
@@ -325,6 +329,21 @@ export const NewsArticle: React.FC<NewsArticleProps> = ({
           >
             {visitLabel}
           </Button>
+        </div>
+      )}
+      {isImageOpen && tournamentImageUrl && (
+        <div
+          className={styles.imageModalOverlay}
+          role="dialog"
+          aria-modal="true"
+          aria-label="Tournament image"
+          tabIndex={-1}
+          onClick={() => setIsImageOpen(false)}
+          onKeyDown={(event) => {
+            if (event.key === 'Escape') setIsImageOpen(false);
+          }}
+        >
+          <img src={tournamentImageUrl} alt="Tournament" className={styles.imageModalContent} />
         </div>
       )}
     </article>

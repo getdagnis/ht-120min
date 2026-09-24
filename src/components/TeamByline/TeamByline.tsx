@@ -86,7 +86,8 @@ export const TeamByline: React.FC<TeamBylineProps> = ({
       />
     ));
 
-  const formatEventTooltip = (minute: number | null, label: string) => (minute === null ? label : `${minute}' - ${label}`);
+  const formatEventTooltip = (minute: number | null, label: string) =>
+    minute === null ? label : `${minute}' - ${label}`;
   const eventMinute = (minute: number | null) => (minute === null ? '' : ` (${minute}')`);
   const playerLabel = (playerName: string | null | undefined) => playerName || 'Player';
   const shortPlayerLabel = (playerName: string | null | undefined) => {
@@ -96,15 +97,12 @@ export const TeamByline: React.FC<TeamBylineProps> = ({
     return parts.length > 1 ? `${parts[0]?.[0]}. ${parts[parts.length - 1]}` : name;
   };
   const goalDescription = (goal: NonNullable<MatchSideEventDetails['goals']>[number]) => {
-    let description = goal.description || getCanonicalEventDescription(goal.eventTypeId);
-    if (goal.category === 'regular') {
-      const location = goal.eventTypeId % 10;
-      const side = location === 1 ? 'Centre Attack' : location === 2 ? 'Left Attack' : location === 3 ? 'Right Attack' : null;
-      description = side ? `${side} regular goal` : `${description} regular goal`;
-    }
+    const description = goal.description || getCanonicalEventDescription(goal.eventTypeId);
     return goal.minute === null ? description : `${goal.minute}' - ${description}`;
   };
-  const groupedGoals = detailedGoals.reduce<Array<{ key: string; playerName: string | null; minutes: number[]; descriptions: string[] }>>((groups, goal) => {
+  const groupedGoals = detailedGoals.reduce<
+    Array<{ key: string; playerName: string | null; minutes: number[]; descriptions: string[] }>
+  >((groups, goal) => {
     const key = String(goal.playerId ?? goal.playerName ?? 'unknown');
     const group = groups.find((item) => item.key === key);
     if (group) {
@@ -120,7 +118,9 @@ export const TeamByline: React.FC<TeamBylineProps> = ({
     }
     return groups;
   }, []);
-  const groupedCards = detailedCards.reduce<Array<{ key: string; playerName: string | null; cards: typeof detailedCards }>>((groups, card) => {
+  const groupedCards = detailedCards.reduce<
+    Array<{ key: string; playerName: string | null; cards: typeof detailedCards }>
+  >((groups, card) => {
     const key = String(card.playerId ?? card.playerName ?? `unknown-${card.minute ?? 'time'}`);
     const group = groups.find((item) => item.key === key);
     if (group) group.cards.push(card);
@@ -142,12 +142,20 @@ export const TeamByline: React.FC<TeamBylineProps> = ({
 
         if (hasSecondYellowRed) {
           return (
-            <span key={group.key} className={styles.eventItem} data-tooltip-id={`${tooltipIdBase}-summary`} data-tooltip-content={tooltip}>
+            <span
+              key={group.key}
+              className={styles.eventItem}
+              data-tooltip-id={`${tooltipIdBase}-summary`}
+              data-tooltip-content={tooltip}
+            >
               <span className={styles.secondYellowRed} aria-hidden="true">
                 <img src="/svg/match-yellow.svg" alt="" className={styles.summaryIcon} />
                 <img src="/svg/match-card.svg" alt="" className={`${styles.summaryIcon} ${styles.redOverlay}`} />
               </span>
-              <span className={styles.eventLabel}>{shortPlayerLabel(group.playerName)}{minutes ? ` (${minutes})` : ''}</span>
+              <span className={styles.eventLabel}>
+                {shortPlayerLabel(group.playerName)}
+                {minutes ? ` (${minutes})` : ''}
+              </span>
             </span>
           );
         }
@@ -159,8 +167,15 @@ export const TeamByline: React.FC<TeamBylineProps> = ({
             data-tooltip-id={`${tooltipIdBase}-summary`}
             data-tooltip-content={tooltip}
           >
-            <img src={hasStraightRed ? '/svg/match-card.svg' : '/svg/match-yellow.svg'} alt="" className={styles.summaryIcon} />
-            <span className={styles.eventLabel}>{shortPlayerLabel(group.playerName)}{minutes ? ` (${minutes})` : ''}</span>
+            <img
+              src={hasStraightRed ? '/svg/match-card.svg' : '/svg/match-yellow.svg'}
+              alt=""
+              className={styles.summaryIcon}
+            />
+            <span className={styles.eventLabel}>
+              {shortPlayerLabel(group.playerName)}
+              {minutes ? ` (${minutes})` : ''}
+            </span>
           </span>
         );
       })}
@@ -171,9 +186,15 @@ export const TeamByline: React.FC<TeamBylineProps> = ({
           data-tooltip-id={`${tooltipIdBase}-summary`}
           data-tooltip-content={formatEventTooltip(injury.minute, getInjuryEventLabel(injury))}
         >
-          <img src={injury.severity === 'plaster' ? '/svg/plaster.svg' : '/svg/match-cross.svg'} alt="" className={styles.summaryIcon} />
+          <img
+            src={injury.severity === 'plaster' ? '/svg/plaster.svg' : '/svg/match-cross.svg'}
+            alt=""
+            className={styles.summaryIcon}
+          />
           <span className={styles.eventLabel}>
-            {injury.weeks ? `+${injury.weeks} ` : ''}{shortPlayerLabel(injury.playerName)}{eventMinute(injury.minute)}
+            {injury.weeks ? `+${injury.weeks} ` : ''}
+            {shortPlayerLabel(injury.playerName)}
+            {eventMinute(injury.minute)}
           </span>
         </span>
       ))}
@@ -186,7 +207,9 @@ export const TeamByline: React.FC<TeamBylineProps> = ({
         {(countryFlagUrl || leagueFlagUrl) && (
           <>
             {leagueFlagUrl && <img src={leagueFlagUrl} alt="League" className={styles.flagIcon} />}
-            {countryFlagUrl && <img src={countryFlagUrl} alt={displayCountryName || 'Country'} className={styles.flagIcon} />}
+            {countryFlagUrl && (
+              <img src={countryFlagUrl} alt={displayCountryName || 'Country'} className={styles.flagIcon} />
+            )}
             <span className={styles.separator}>|</span>
           </>
         )}
@@ -206,7 +229,11 @@ export const TeamByline: React.FC<TeamBylineProps> = ({
 
         {mode === 'standings' ? (
           <>
-            <button onClick={openProfile} className={styles.managerNameLink} data-tooltip-id={`${tooltipIdBase}-manager`}>
+            <button
+              onClick={openProfile}
+              className={styles.managerNameLink}
+              data-tooltip-id={`${tooltipIdBase}-manager`}
+            >
               {managerName || ''}
             </button>
             <Tooltip id={`${tooltipIdBase}-manager`} content="View Profile" className="tooltip" />

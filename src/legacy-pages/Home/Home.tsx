@@ -787,7 +787,9 @@ const handleWeeklyReaction = async (postId: string, reaction: string) => {
               <section className={styles.activeSection}>
                 <div className={styles.sectionHeader}>
                   <Trophy size={24} weight="regular" className={styles.sectionIcon} />
-                  <h2>{EXOTIC_HFI_GROUP_TITLE}</h2>
+                  <h2 id="exotic-small-hfi-leagues" className={styles.anchorTarget}>
+                    {EXOTIC_HFI_GROUP_TITLE}
+                  </h2>
                 </div>
                 <div className={styles.tournamentGrid}>
                   {exoticHfiTournaments.map((t) => renderTournamentCard(t))}
