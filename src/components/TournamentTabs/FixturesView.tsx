@@ -756,9 +756,9 @@ export const FixturesView: React.FC<FixturesViewProps> = ({
                         ? { home: match.home_goals || 0, away: match.away_goals || 0 }
                         : status === 'ongoing' && match.home_goals !== null && match.away_goals !== null
                           ? { home: match.home_goals, away: match.away_goals }
-                        : !isHistorical && isPastStartTime && isWithinLiveWindow
-                          ? { home: 0, away: 0 }
-                          : undefined;
+                          : !isHistorical && isPastStartTime && isWithinLiveWindow
+                            ? { home: 0, away: 0 }
+                            : undefined;
                     const isPostponed =
                       !isHistorical && tournament?.status === 'paused' && !match.completed && status !== 'misarranged';
                     const homeSummary = liveMatch
@@ -813,7 +813,7 @@ export const FixturesView: React.FC<FixturesViewProps> = ({
                         key={match.id}
                         date={status === 'misarranged' ? '' : isPostponed ? 'POSTPONED' : formattedDate}
                         status={status}
-                        liveClock={status === 'ongoing' ? liveMatch ?? undefined : undefined}
+                        liveClock={status === 'ongoing' ? (liveMatch ?? undefined) : undefined}
                         liveKickoff={status === 'ongoing' ? match.match_date : undefined}
                         htMatchId={match.ht_match_id || undefined}
                         score={currentScore}
@@ -926,8 +926,9 @@ export const FixturesView: React.FC<FixturesViewProps> = ({
                 fullWidth
                 onClick={() => window.open(HATTRICK_CHALLENGES_URL, '_blank', 'noopener,noreferrer')}
               >
-                View on Hattrick
+                View on Hattrick <span style={{ fontFamily: 'var(--sans)' }}>*</span>
               </Button>
+              <p className={styles.fixtureChallengeHattrickHint}>* might need switching to the correct team</p>
             </>
           ) : (
             <>

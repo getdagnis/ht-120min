@@ -19,9 +19,7 @@ import { isTournamentRole, type TournamentRole } from '../../../shared/tournamen
 import { isForgeEnabled } from '../forge-availability.js';
 import { isTournamentRegistrationOpen } from '../../utils/tournament-joinability.js';
 import {
-  checkChppChallengeable,
-  isOpponentChallengeable,
-  sendChppChallenge,
+  sendChppChallengeDirect,
 } from './_lib/chpp-challenges.js';
 import {
   getFixtureChallengeMatchPlace,
@@ -514,21 +512,6 @@ async function handleFixtureChallenge(req: VercelRequest, res: VercelResponse) {
     return res.status(403).json({ error: 'Your Hattrick account no longer owns this fixture team.' });
   }
 
-  const challengeable = await checkChppChallengeable({
-    consumerKey,
-    consumerSecret,
-    oauthToken: credentials.oauth_token,
-    oauthTokenSecret: credentials.oauth_token_secret,
-    teamId: actorTeamId,
-    suggestedTeamIds: [opponentTeamId],
-    isWeekendFriendly: 0,
-  });
-  const check = isOpponentChallengeable(challengeable.parsed, opponentTeamId);
-  if (!check.ok) {
-    const body = fixtureChallengeUnavailable(check.reason || 'This opponent cannot be challenged right now.');
-    return res.status(req.method === 'GET' ? 200 : 409).json(body);
-  }
-
   const availability = {
     available: true as const,
     side: resolved.side,
@@ -538,7 +521,7 @@ async function handleFixtureChallenge(req: VercelRequest, res: VercelResponse) {
   };
   if (req.method === 'GET') return res.status(200).json(availability);
 
-  const sent = await sendChppChallenge({
+  const sent = await sendChppChallengeDirect({
     consumerKey,
     consumerSecret,
     oauthToken: credentials.oauth_token,

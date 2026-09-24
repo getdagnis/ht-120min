@@ -154,6 +154,33 @@ function getMatchTargetDate(match: { scheduled_for?: string | null }, round: { c
   return match.scheduled_for ? new Date(match.scheduled_for) : calculateMatchDate(round.created_at, round.round_number, countryName);
 }
 
+export type FixtureWarningRecord = { round_id: string; team_id: string };
+
+export function planFixtureWarningRefresh<T extends FixtureWarningRecord>(
+  existingWarnings: T[] | null | undefined,
+  upcomingRoundId: string,
+  currentRoundWarnings: T[],
+) {
+  const historicalWarnings = (existingWarnings || []).filter((warning) => warning.round_id !== upcomingRoundId);
+  return {
+    historicalWarnings,
+    currentRoundWarnings,
+    resultingWarnings: [...historicalWarnings, ...currentRoundWarnings],
+  };
+}
+
+export function getMisarrangedWarningTeamIds(input: {
+  homeTeamId: string;
+  awayTeamId: string;
+  homeOffending: boolean;
+  awayOffending: boolean;
+}) {
+  return [
+    ...(input.homeOffending ? [input.homeTeamId] : []),
+    ...(input.awayOffending ? [input.awayTeamId] : []),
+  ];
+}
+
 async function fetchWorldDetailsContext(
   consumerKey: string,
   consumerSecret: string,
@@ -1086,31 +1113,27 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       }
     };
 
-    // Clear warnings for the upcoming round — stale warnings from the current
-    // pass must not persist.
     const futureRoundIds = [upcomingRound.id];
-    await supabase
-      .from('fixture_warnings')
-      .delete()
-      .eq('tournament_id', tournament_id)
-      .in('round_id', futureRoundIds);
-
-    const existingWarningsOutsideRefresh = existingWarnings?.filter((w) => !futureRoundIds.includes(w.round_id)) || [];
-    const freshWarnings: { round_id: string; team_id: string }[] = [];
+    const existingWarningsOutsideRefresh = planFixtureWarningRefresh(existingWarnings, upcomingRound.id, []).historicalWarnings;
+    const freshWarnings: {
+      round_id: string;
+      team_id: string;
+      type: 'yellow' | 'red';
+      reason: 'misarranged';
+    }[] = [];
     const getWarningHistory = (teamId: string) => [
       ...existingWarningsOutsideRefresh.filter((w) => w.team_id === teamId),
       ...freshWarnings.filter((w) => w.team_id === teamId),
     ];
 
-    // Only process matches in the upcoming round that are eligible:
-    // status ∈ {not_arranged, arranged} AND completed = false
-    // Never touch: finished, misarranged, or completed=true
+    // Re-check misarranged fixtures: a team can correct its booking, but an
+    // unchanged wrong booking must recreate its warning after this refresh.
     const linkedMatchIds: number[] = [];
 
     for (const match of upcomingRound.matches) {
       if (match.completed) continue;
       const currentStatus = match.status ?? 'not_arranged';
-      if (!['not_arranged', 'arranged'].includes(currentStatus)) continue;
+      if (!['not_arranged', 'arranged', 'misarranged'].includes(currentStatus)) continue;
 
       // If already has ht_match_id and match_type, we can skip
       if (currentStatus === 'arranged' && match.ht_match_id && match.match_type) continue;
@@ -1132,6 +1155,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       const homeCorrectMatch = homeFriendlies.find((fixture) => withinWindow(fixture) && isCorrectMatch(fixture));
       const awayCorrectMatch = awayFriendlies.find((fixture) => withinWindow(fixture) && isCorrectMatch(fixture));
       const confirmedMatch = homeCorrectMatch ?? awayCorrectMatch;
+      const homeOffending = homeFriendlies.some((fixture) => withinWindow(fixture) && !isCorrectMatch(fixture));
+      const awayOffending = awayFriendlies.some((fixture) => withinWindow(fixture) && !isCorrectMatch(fixture));
 
       let status: 'not_arranged' | 'arranged' | 'misarranged' = 'not_arranged';
       let htMatchId: number | null = null;
@@ -1149,9 +1174,6 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         venueMismatch = confirmedMatch.homeId === awayTeam.ht_team_id && confirmedMatch.awayId === homeTeam.ht_team_id;
         linkedMatchIds.push(confirmedMatch.matchId);
       } else {
-        const homeOffending = homeFriendlies.find((fixture) => withinWindow(fixture) && !isCorrectMatch(fixture));
-        const awayOffending = awayFriendlies.find((fixture) => withinWindow(fixture) && !isCorrectMatch(fixture));
-
         if (homeOffending || awayOffending) {
           status = 'misarranged';
         }
@@ -1180,31 +1202,41 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         const isConsecutive = teamWarnings.some((w) => prevRound && w.round_id === prevRound.id);
         const type = isConsecutive || teamWarnings.length >= 2 ? 'red' : 'yellow';
 
-        await supabase.from('fixture_warnings').insert({
-          tournament_id,
+        freshWarnings.push({
           round_id: upcomingRound.id,
           team_id: teamId,
           type,
           reason: 'misarranged',
         });
-        freshWarnings.push({ round_id: upcomingRound.id, team_id: teamId });
       };
 
-      const homeAlreadyWarned = freshWarnings.some((w) => w.round_id === upcomingRound.id && w.team_id === homeTeam.id);
-      const awayAlreadyWarned = freshWarnings.some((w) => w.round_id === upcomingRound.id && w.team_id === awayTeam.id);
-      const homeOffending = !!homeFriendlies.find((fixture) => withinWindow(fixture) && !isCorrectMatch(fixture));
-      const awayOffending = !!awayFriendlies.find((fixture) => withinWindow(fixture) && !isCorrectMatch(fixture));
-
-      if (homeOffending && awayOffending) {
-        if (!homeAlreadyWarned && !awayAlreadyWarned) {
-          await recordWarning(homeTeam.id);
-          await recordWarning(awayTeam.id);
-        }
-      } else if (homeOffending) {
-        if (!awayAlreadyWarned) await recordWarning(homeTeam.id);
-      } else if (awayOffending) {
-        if (!homeAlreadyWarned) await recordWarning(awayTeam.id);
+      for (const teamId of getMisarrangedWarningTeamIds({
+        homeTeamId: homeTeam.id,
+        awayTeamId: awayTeam.id,
+        homeOffending,
+        awayOffending,
+      })) {
+        await recordWarning(teamId);
       }
+    }
+
+    // Replace only the upcoming round's warning snapshot after every eligible
+    // fixture has been rechecked. Earlier-round history remains untouched.
+    await supabase
+      .from('fixture_warnings')
+      .delete()
+      .eq('tournament_id', tournament_id)
+      .in('round_id', futureRoundIds);
+    if (freshWarnings.length > 0) {
+      await supabase.from('fixture_warnings').insert(
+        freshWarnings.map(({ round_id, team_id, type, reason }) => ({
+          tournament_id,
+          round_id,
+          team_id,
+          type,
+          reason,
+        })),
+      );
     }
 
     // Update tournament refresh timestamp
