@@ -795,6 +795,20 @@ export const StandingsView: React.FC<StandingsViewProps> = ({
           </table>
           <Tooltip id="appg-breakdown-tooltip" className="tooltip" />
         </div>
+        {canJoinTournament && onJoinWithHattrick && (
+          <div className={styles.standingsJoinCta}>
+            <Button
+              type="button"
+              variant="primary"
+              size="sm"
+              className={styles.joinButton}
+              onClick={onJoinWithHattrick}
+              disabled={isConnecting}
+            >
+              <ArrowRight size={18} weight="bold" /> Join with Hattrick
+            </Button>
+          </div>
+        )}
       </SectionCard>
       {seasonId && seasonStatus === 'finished' && (
         <SeasonYearbook
