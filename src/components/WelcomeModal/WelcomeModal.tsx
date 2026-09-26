@@ -4,6 +4,9 @@ import { Button } from '../Button/Button';
 import { Modal } from '../Modal/Modal';
 import styles from './WelcomeModal.module.sass';
 
+// Temporary global switch: set to true to restore every welcome modal.
+export const WELCOME_MODALS_ENABLED = false;
+
 interface WelcomeModalProps {
   isOpen: boolean;
   onClose: () => void;
@@ -27,6 +30,8 @@ export const WelcomeModal: React.FC<WelcomeModalProps> = ({
   children,
   variant = 'default',
 }) => {
+  if (!WELCOME_MODALS_ENABLED) return null;
+
   return (
     <Modal
       isOpen={isOpen}

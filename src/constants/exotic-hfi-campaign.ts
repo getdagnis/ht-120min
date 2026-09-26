@@ -69,15 +69,67 @@ export const EXOTIC_HFI_TOURNAMENTS: readonly ExoticHfiTournamentTarget[] = EXOT
   },
 );
 
-export const EXOTIC_HFI_CAMPAIGN_SLUGS = [EXOTIC_HFI_QUEENS_SLUG, ...EXOTIC_HFI_TOURNAMENTS.map((target) => target.slug)] as const;
+export const EXOTIC_HFI_CAMPAIGN_SLUGS = [
+  EXOTIC_HFI_QUEENS_SLUG,
+  'exotic-hfi-san-marino',
+  ...EXOTIC_HFI_TOURNAMENTS.map((target) => target.slug).filter((slug) => slug !== 'exotic-hfi-san-marino'),
+] as const;
 export const EXOTIC_HFI_CAMPAIGN_SLUG_SET = new Set<string>(EXOTIC_HFI_CAMPAIGN_SLUGS);
 
 const EXOTIC_HFI_CAMPAIGN_ORDER = new Map(EXOTIC_HFI_CAMPAIGN_SLUGS.map((slug, index) => [slug, index]));
 
-export function orderExoticHfiTournaments<T extends { slug: string }>(tournaments: T[]) {
-  return [...tournaments].sort(
-    (left, right) =>
+type ExoticHfiMatch = {
+  completed: boolean;
+  status?: string | null;
+};
+
+type ExoticHfiRound = {
+  round_number: number;
+  matches: ExoticHfiMatch[] | null;
+};
+
+type ExoticHfiSortable = {
+  slug: string;
+  status?: string | null;
+  rounds: ExoticHfiRound[];
+};
+
+function isCompletedMatch(match: ExoticHfiMatch) {
+  return match.completed || match.status === 'misarranged';
+}
+
+function getExoticHfiProgress(tournament: ExoticHfiSortable) {
+  const matches = tournament.rounds.flatMap((round) => round.matches || []);
+  const completedMatches = matches.filter(isCompletedMatch).length;
+  const completedRounds = tournament.rounds
+    .filter((round) => {
+      const roundMatches = round.matches || [];
+      return roundMatches.length > 0 && roundMatches.every(isCompletedMatch);
+    })
+    .toSorted((left, right) => right.round_number - left.round_number);
+  const lastCompletedRoundMatchCount = completedRounds[0]?.matches?.length || 0;
+
+  return {
+    isActive: tournament.rounds.length > 0 && matches.length > completedMatches && tournament.status !== 'finished',
+    hasCompletedRound: completedRounds.length > 0,
+    lastCompletedRoundMatchCount,
+  };
+}
+
+export function orderExoticHfiTournaments<T extends ExoticHfiSortable>(tournaments: T[]) {
+  return [...tournaments].sort((left, right) => {
+    const leftProgress = getExoticHfiProgress(left);
+    const rightProgress = getExoticHfiProgress(right);
+
+    if (leftProgress.isActive !== rightProgress.isActive) return leftProgress.isActive ? -1 : 1;
+    if (leftProgress.hasCompletedRound !== rightProgress.hasCompletedRound) return leftProgress.hasCompletedRound ? -1 : 1;
+    if (leftProgress.lastCompletedRoundMatchCount !== rightProgress.lastCompletedRoundMatchCount) {
+      return rightProgress.lastCompletedRoundMatchCount - leftProgress.lastCompletedRoundMatchCount;
+    }
+
+    return (
       (EXOTIC_HFI_CAMPAIGN_ORDER.get(left.slug) ?? Number.MAX_SAFE_INTEGER) -
-      (EXOTIC_HFI_CAMPAIGN_ORDER.get(right.slug) ?? Number.MAX_SAFE_INTEGER),
-  );
+      (EXOTIC_HFI_CAMPAIGN_ORDER.get(right.slug) ?? Number.MAX_SAFE_INTEGER)
+    );
+  });
 }
