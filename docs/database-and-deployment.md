@@ -79,6 +79,7 @@ budget is explicitly rechecked.
 - `SUPABASE_SECRET_KEY` is required for server-authorized writes such as immutable season yearbook comments. Never expose it to browser code.
 - `APP_SESSION_SECRET` must be present in production. Do not fall back to `CHPP_CONSUMER_SECRET` for session signing.
 - `FORGE_SUPERADMIN_HT_ID` is server-only configuration for the Forge superadmin.
+- `ANALYTICS_EXCLUDED_HT_USER_ID` is optional server-only configuration. When its Hattrick ID matches a verified app session, Vercel Web Analytics is not loaded for that visitor.
 - Activity events contain operational metadata, including raw user-agent and IP fields. They are service-role-only tables with no anon/authenticated grants; the Forge stats route is the only application read path and raw events are intended to be removed after 90 days. Authenticated events store the Hattrick manager nickname from `profiles`, and the stats service may associate earlier events from the same visitor cookie with that nickname. Keep raw IP/user-agent values out of Forge UI responses.
 - The superadmin bypass cookie is dev-only. Keep its token out of production and do not surface it in the UI.
 

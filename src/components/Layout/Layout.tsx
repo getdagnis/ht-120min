@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useEffect, useMemo, useRef, useSyncExternalStore } from 'react';
-import { Analytics } from '@vercel/analytics/react';
+import { Analytics, type BeforeSendEvent } from '@vercel/analytics/next';
 import Link from 'next/link';
 import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import {
@@ -33,6 +33,7 @@ import styles from './Layout.module.sass';
 
 interface LayoutProps {
   children: React.ReactNode;
+  excludeAnalytics?: boolean;
 }
 
 const VISIT_COUNT_KEY = 'visitCount';
@@ -86,7 +87,14 @@ function getServerThemeSnapshot(): ThemePreference {
   return 'system';
 }
 
-export const Layout: React.FC<LayoutProps> = ({ children }) => {
+function excludeLocalAnalytics(event: BeforeSendEvent) {
+  const hostname = window.location.hostname;
+  return hostname === 'localhost' || hostname === '127.0.0.1' || hostname === '[::1]' || hostname === '::1'
+    ? null
+    : event;
+}
+
+export const Layout: React.FC<LayoutProps> = ({ children, excludeAnalytics = false }) => {
   const router = useRouter();
   const pathname = usePathname() || '/';
   const isTinderPage = pathname.endsWith('/matchmaker') || pathname.endsWith('/tinder');
@@ -460,7 +468,7 @@ export const Layout: React.FC<LayoutProps> = ({ children }) => {
 
       <TeamOwnershipReclaim profile={profile} onClaimed={refreshProfile} />
 
-      <Analytics />
+      {!excludeAnalytics && <Analytics beforeSend={excludeLocalAnalytics} />}
       </div>
     </ToastProvider>
   );

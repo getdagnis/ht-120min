@@ -1,3 +1,4 @@
+import { cookies } from 'next/headers';
 import { notFound } from 'next/navigation';
 import Script from 'next/script';
 import type { Metadata } from 'next';
@@ -7,6 +8,7 @@ import { ScrollToTop } from '../../../components/ScrollToTop';
 import { barlow, barlowCondensed, ibmPlexMono, notoColorEmoji } from '../../../fonts';
 import { LocaleProvider } from '../../../i18n/LocaleProvider';
 import { locales, isLocale, type Locale } from '../../../i18n/config';
+import { getAppSessionSecret, verifyAppSessionCookie } from '../../../server/api/_lib/app-session';
 import '../../../global.sass';
 
 const themeBootstrapScript = `
@@ -19,6 +21,11 @@ const themeBootstrapScript = `
 `;
 
 export const dynamic = 'force-dynamic';
+
+function getAnalyticsExcludedUserId() {
+  const userId = Number(process.env.ANALYTICS_EXCLUDED_HT_USER_ID || '');
+  return Number.isSafeInteger(userId) && userId > 0 ? userId : null;
+}
 
 export function generateStaticParams() {
   return locales.map((locale) => ({ locale }));
@@ -56,6 +63,11 @@ export default async function PublicLocaleLayout({
   const { locale: rawLocale } = await params;
   if (!isLocale(rawLocale)) notFound();
   const locale = rawLocale as Locale;
+  const sessionToken = (await cookies()).get('ht_session')?.value;
+  const sessionSecret = getAppSessionSecret();
+  const session =
+    sessionToken && sessionSecret ? verifyAppSessionCookie(`ht_session=${sessionToken}`, sessionSecret) : null;
+  const excludeAnalytics = session?.userId === getAnalyticsExcludedUserId();
 
   return (
     <html
@@ -74,7 +86,7 @@ export default async function PublicLocaleLayout({
         <div id="root">
           <LocaleProvider locale={locale}>
             <ScrollToTop />
-            <Layout>{children}</Layout>
+            <Layout excludeAnalytics={excludeAnalytics}>{children}</Layout>
           </LocaleProvider>
         </div>
       </body>

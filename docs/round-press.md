@@ -1,4 +1,4 @@
-# AI round press drafts
+# AI round press announcement drafts
 
 The server-only `POST /api/app?route=generate-round-summary` endpoint creates an editable draft for a completed tournament round. The News editor can place that draft into its title and body fields; generation does not write to `news_posts` or publish anything.
 
