@@ -5,7 +5,7 @@ import { Modal } from '../Modal/Modal';
 import styles from './WelcomeModal.module.sass';
 
 // Temporary global switch: set to true to restore every welcome modal.
-export const WELCOME_MODALS_ENABLED = false;
+const WELCOME_MODALS_ENABLED = false;
 
 interface WelcomeModalProps {
   isOpen: boolean;
