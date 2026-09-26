@@ -1,4 +1,5 @@
 import { notFound } from 'next/navigation';
+import Script from 'next/script';
 import type { Metadata } from 'next';
 import type { ReactNode } from 'react';
 import { Layout } from '../../../components/Layout/Layout';
@@ -64,6 +65,12 @@ export default async function PublicLocaleLayout({
     >
       <body>
         <script dangerouslySetInnerHTML={{ __html: themeBootstrapScript }} />
+        <Script
+          src="https://cdn.counter.dev/script.js"
+          data-id="b00ddeff-7e76-4ab9-864b-fb21b6a22fa3"
+          data-utcoffset="2"
+          strategy="afterInteractive"
+        />
         <div id="root">
           <LocaleProvider locale={locale}>
             <ScrollToTop />

@@ -4926,6 +4926,9 @@ export const TournamentView: React.FC<{ initialData?: TournamentInitialData }> =
         <button className={activeTab === 'fixtures' ? styles.active : ''} onClick={() => handleTabChange('fixtures')}>
           Fixtures <span className="hideOnMobile">& Results</span>
         </button>
+        <button className={isNewsTab ? styles.active : ''} onClick={() => handleTabChange('news')}>
+          News
+        </button>
         <button className={activeTab === 'history' ? styles.active : ''} onClick={() => handleTabChange('history')}>
           History
           {historyTabBadgeCount > 0 && (
@@ -4933,9 +4936,6 @@ export const TournamentView: React.FC<{ initialData?: TournamentInitialData }> =
               {historyTabBadgeCount}
             </span>
           )}
-        </button>
-        <button className={isNewsTab ? styles.active : ''} onClick={() => handleTabChange('news')}>
-          News
         </button>
         <button className={activeTab === 'admin' ? styles.active : ''} onClick={() => handleTabChange('admin')}>
           Admin
