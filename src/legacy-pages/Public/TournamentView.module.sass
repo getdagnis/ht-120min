@@ -1441,14 +1441,15 @@
   font-size: 1rem
   line-height: 1
   cursor: pointer
-  padding: 0.35rem
-  min-width: 2.1rem
+  padding: 0.3rem
+  min-width: 1.9rem
   filter: grayscale(1)
-  transition: all 0.2s ease-out
+  transition: opacity 0.2s ease-out, filter 0.2s ease-out
   opacity: 0.5
   &:hover
     opacity: 1
     filter: none
+    scale: 1.1
 
   &:hover
     border-color: var(--border-transp)

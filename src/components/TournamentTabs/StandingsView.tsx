@@ -10,6 +10,7 @@ import { NewsArticle, type NewsPost, type NewsReaction } from './NewsTab';
 import { supabase } from '../../lib/supabase';
 import historyStyles from '../TournamentHistory/TournamentHistory.module.sass';
 import newsStyles from './NewsTab.module.sass';
+import type { TournamentEmojiContext } from '../../utils/tournament-emoji-options';
 
 import { getAppgStandingsQuota, meetsAppgStandingsQuota, type TeamStanding } from '../../utils/standings';
 import { isAppg120ScoringMode } from '../../../shared/scoring-profile';
@@ -25,6 +26,8 @@ interface StandingsViewProps {
     name?: string;
     slug?: string;
     league_category?: string | null;
+    country_limit?: string | number | null;
+    country_limit_format?: 'country_id' | 'league_id' | null;
     thumbnail_index?: number;
     image_url?: string | null;
     scoring_mode?: string | null;
@@ -902,6 +905,13 @@ export const StandingsView: React.FC<StandingsViewProps> = ({
                   reactionAuthorNames={reactionAuthorNames}
                   onReaction={handleNewsReaction}
                   tournamentImageUrl={tournament?.image_url}
+                  tournamentEmojiContext={
+                    {
+                      leagueCategory: tournament?.league_category,
+                      countryLimit: tournament?.country_limit,
+                      countryLimitFormat: tournament?.country_limit_format,
+                    } satisfies TournamentEmojiContext
+                  }
                 />
               </SectionCard>
             );

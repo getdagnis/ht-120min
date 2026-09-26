@@ -13,6 +13,11 @@ import { CompactAccordionWidget, type CompactAccordionItem } from '../CompactAcc
 import { supabase } from '../../lib/supabase';
 import { useLocale } from '../../i18n/LocaleProvider';
 import styles from './NewsTab.module.sass';
+import {
+  buildTournamentEmojiOptions,
+  TOURNAMENT_EMOJI_OPTIONS,
+  type TournamentEmojiContext,
+} from '../../utils/tournament-emoji-options';
 
 interface NewsTeam {
   id: string;
@@ -59,6 +64,7 @@ export interface NewsArticleProps {
   visitLabel?: string;
   onEdit?: () => void;
   onDelete?: () => void;
+  tournamentEmojiContext?: TournamentEmojiContext;
 }
 
 interface NewsTabProps {
@@ -75,6 +81,7 @@ interface NewsTabProps {
   organizerUserId?: number | null;
   tournamentImageUrl?: string | null;
   faqItems: CompactAccordionItem[];
+  tournamentEmojiContext?: TournamentEmojiContext;
 }
 
 type NewsMode = 'admin' | 'team';
@@ -183,6 +190,7 @@ export const NewsArticle: React.FC<NewsArticleProps> = ({
   visitLabel = 'Visit cup',
   onEdit,
   onDelete,
+  tournamentEmojiContext,
 }) => {
   const { locale } = useLocale();
   const [isImageOpen, setIsImageOpen] = useState(false);
@@ -285,7 +293,7 @@ export const NewsArticle: React.FC<NewsArticleProps> = ({
       )}
       {onReaction && (
         <div className={styles.reactionBar}>
-          {['🙂', '😂', '😢', '🥶', '🏆', '💪', '🔥', '❤️', '🍺', '⚽️'].map((emoji) => (
+          {buildTournamentEmojiOptions(TOURNAMENT_EMOJI_OPTIONS, tournamentEmojiContext).map((emoji) => (
             <button
               key={emoji}
               onClick={() => onReaction(post.id, emoji)}
@@ -345,6 +353,7 @@ export const NewsTab: React.FC<NewsTabProps> = ({
   organizerUserId = null,
   tournamentImageUrl = null,
   faqItems,
+  tournamentEmojiContext,
 }) => {
   const { notice, showNotice: alert, closeNotice } = useNoticeDialog();
   const [newsPosts, setNewsPosts] = useState<NewsPost[]>([]);
@@ -795,6 +804,7 @@ export const NewsTab: React.FC<NewsTabProps> = ({
                 reactionAuthorNames={reactionAuthorNames}
                 onReaction={handleAddReaction}
                 tournamentImageUrl={tournamentImageUrl}
+                tournamentEmojiContext={tournamentEmojiContext}
                 onEdit={canMutatePost(latestPost) ? () => startEditingPost(latestPost) : undefined}
                 onDelete={canMutatePost(latestPost) ? () => setPendingDeletePost(latestPost) : undefined}
               />
@@ -814,6 +824,7 @@ export const NewsTab: React.FC<NewsTabProps> = ({
                   reactionAuthorNames={reactionAuthorNames}
                   onReaction={handleAddReaction}
                   tournamentImageUrl={tournamentImageUrl}
+                  tournamentEmojiContext={tournamentEmojiContext}
                   onEdit={canMutatePost(post) ? () => startEditingPost(post) : undefined}
                   onDelete={canMutatePost(post) ? () => setPendingDeletePost(post) : undefined}
                 />

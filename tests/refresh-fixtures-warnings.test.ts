@@ -40,13 +40,47 @@ test('a later refresh with the same wrong booking keeps exactly that warning', (
   assert.deepEqual(plan.resultingWarnings, [warning(upcomingRoundId, homeTeamId)]);
 });
 
-test('the innocent opponent is not warned for the other side booking a wrong friendly', () => {
+test('a later refresh does not warn the opponent after the first team was already detected', () => {
   assert.deepEqual(getMisarrangedWarningTeamIds({
     homeTeamId,
     awayTeamId,
     homeOffending: false,
     awayOffending: true,
-  }), [awayTeamId]);
+    homeAlreadyWarned: true,
+  }), []);
+
+  const plan = planFixtureWarningRefresh(
+    [warning(upcomingRoundId, homeTeamId)],
+    upcomingRoundId,
+    [],
+  );
+  assert.deepEqual(plan.resultingWarnings, [warning(upcomingRoundId, homeTeamId)]);
+});
+
+test('both teams are warned when both are first detected in the same refresh', () => {
+  assert.deepEqual(getMisarrangedWarningTeamIds({
+    homeTeamId,
+    awayTeamId,
+    homeOffending: true,
+    awayOffending: true,
+  }), [homeTeamId, awayTeamId]);
+
+  assert.deepEqual(getMisarrangedWarningTeamIds({
+    homeTeamId,
+    awayTeamId,
+    homeOffending: true,
+    awayOffending: true,
+    homeAlreadyWarned: true,
+  }), []);
+});
+
+test('the innocent opponent is not warned when only the other side is offending', () => {
+  assert.deepEqual(getMisarrangedWarningTeamIds({
+    homeTeamId,
+    awayTeamId,
+    homeOffending: true,
+    awayOffending: false,
+  }), [homeTeamId]);
 });
 
 test('historical warning records survive a later upcoming-round refresh', () => {
@@ -54,9 +88,9 @@ test('historical warning records survive a later upcoming-round refresh', () => 
   const plan = planFixtureWarningRefresh(
     [historicalWarning, warning(upcomingRoundId, homeTeamId)],
     upcomingRoundId,
-    [warning(upcomingRoundId, awayTeamId)],
+    [],
   );
 
   assert.deepEqual(plan.historicalWarnings, [historicalWarning]);
-  assert.deepEqual(plan.resultingWarnings, [historicalWarning, warning(upcomingRoundId, awayTeamId)]);
+  assert.deepEqual(plan.resultingWarnings, [historicalWarning, warning(upcomingRoundId, homeTeamId)]);
 });

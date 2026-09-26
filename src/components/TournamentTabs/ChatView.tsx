@@ -7,6 +7,11 @@ import { Avatar } from '../Avatar/Avatar';
 import { ArrowRight, PaperPlaneTilt, User } from 'phosphor-react';
 import { useClientNow } from '../../hooks/useHydratedBrowserState';
 import { getCanonicalCountryName, getCountryFlagUrl } from '../../utils/ht-data';
+import {
+  buildTournamentEmojiOptions,
+  TOURNAMENT_EMOJI_OPTIONS,
+  type TournamentEmojiContext,
+} from '../../utils/tournament-emoji-options';
 
 interface ChatMessage {
   id: string;
@@ -29,6 +34,7 @@ interface ChatViewProps {
   leagueManagerIds: number[];
   teamNames: Record<number, string>;
   teamDetails?: Record<number, { name: string; countryName?: string | null; countryId?: number | null }>;
+  tournamentEmojiContext?: TournamentEmojiContext;
 }
 
 export interface AuthorTooltipProps {
@@ -116,6 +122,7 @@ export const ChatView: React.FC<ChatViewProps> = ({
   leagueManagerIds,
   teamNames,
   teamDetails = {},
+  tournamentEmojiContext,
 }) => {
   const [newChatContent, setNewChatContent] = useState('');
   const pathname = usePathname() || '/';
@@ -125,7 +132,7 @@ export const ChatView: React.FC<ChatViewProps> = ({
   const chatInputRef = useRef<HTMLInputElement>(null);
   const [visibleMessageCount, setVisibleMessageCount] = useState(20);
   const nowMs = useClientNow(30_000);
-  const emojiOptions = ['😀', '😢', '🥶', '💪', '🍻', '🏆', '🎯', '👀', '🧘'];
+  const emojiOptions = buildTournamentEmojiOptions(TOURNAMENT_EMOJI_OPTIONS, tournamentEmojiContext);
 
   useEffect(() => {
     if (chatContainerRef.current) {

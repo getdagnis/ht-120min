@@ -29,6 +29,7 @@ import type { HomeInitialData } from '../../app/_data/public-data';
 import { useLocale } from '../../i18n/LocaleProvider';
 import { toLocalePath } from '../../next/locale-path';
 import { NewsArticle, type NewsPost, type NewsReaction } from '../../components/TournamentTabs/NewsTab';
+import type { TournamentEmojiContext } from '../../utils/tournament-emoji-options';
 import { useAuth } from '../../hooks/useAuth';
 import { formatTournamentName } from '../../utils/tournament-names';
 import {
@@ -135,6 +136,9 @@ interface HomeWeeklyPost {
   author_ht_user_id: number | null;
   author_team_name: string | null;
   tournament_image_url: string | null;
+  tournament_league_category: string | null | undefined;
+  tournament_country_limit: string | number | null | undefined;
+  tournament_country_limit_format: 'country_id' | 'league_id' | null | undefined;
   is_admin: boolean | null;
   created_at: string;
 }
@@ -161,6 +165,7 @@ interface HomeWeeklyRawPost {
         image_url?: string | null;
         country_limit?: string | number | null;
         country_limit_format?: 'country_id' | 'league_id' | null;
+        league_category?: string | null;
       }
     | {
         id: string;
@@ -173,6 +178,7 @@ interface HomeWeeklyRawPost {
         image_url?: string | null;
         country_limit?: string | number | null;
         country_limit_format?: 'country_id' | 'league_id' | null;
+        league_category?: string | null;
       }[]
     | null;
 }
@@ -261,7 +267,8 @@ const fetchLatestWeeklyPosts = useCallback(async () => {
         is_archived,
         image_url,
         country_limit,
-        country_limit_format
+        country_limit_format,
+        league_category
       )
     `,
     )
@@ -310,6 +317,9 @@ const fetchLatestWeeklyPosts = useCallback(async () => {
       author_ht_user_id: post.author_ht_user_id,
       author_team_name: null,
       tournament_image_url: tournament?.image_url || null,
+      tournament_league_category: tournament?.league_category,
+      tournament_country_limit: tournament?.country_limit,
+      tournament_country_limit_format: tournament?.country_limit_format,
       is_admin: true,
       created_at: post.created_at,
     }));
@@ -875,6 +885,13 @@ const handleWeeklyReaction = async (postId: string, reaction: string) => {
               taglineHref={toLocalePath(locale, `/t/${post.tournament_slug}`)}
               visitHref={toLocalePath(locale, `/t/${post.tournament_slug}`)}
               visitLabel="Visit cup"
+              tournamentEmojiContext={
+                {
+                  leagueCategory: post.tournament_league_category,
+                  countryLimit: post.tournament_country_limit,
+                  countryLimitFormat: post.tournament_country_limit_format,
+                } satisfies TournamentEmojiContext
+              }
             />
           </SectionCard>
         );

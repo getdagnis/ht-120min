@@ -55,6 +55,7 @@ import {
 import { markAuthRefreshCurrent, needsAuthRefresh } from '../../utils/auth-refresh';
 import { formatTournamentName } from '../../utils/tournament-names';
 import { isSandboxTournament, normalizeTournamentRegistrationType } from '../../utils/tournament-types';
+import type { TournamentEmojiContext } from '../../utils/tournament-emoji-options';
 import {
   JOINED_NOTICE_KEY,
   selectTournamentMessage,
@@ -5082,6 +5083,13 @@ export const TournamentView: React.FC<{ initialData?: TournamentInitialData }> =
         organizerUserId={roleAccess?.organizerUserId || null}
         tournamentImageUrl={tournament.image_url}
         faqItems={tournamentFaqItems}
+        tournamentEmojiContext={
+          {
+            leagueCategory: tournament.league_category,
+            countryLimit: tournament.country_limit,
+            countryLimitFormat: tournament.country_limit_format,
+          } satisfies TournamentEmojiContext
+        }
       />
 
       {activeTab === 'standings' && (
@@ -5203,6 +5211,13 @@ export const TournamentView: React.FC<{ initialData?: TournamentInitialData }> =
                 },
                 {} as Record<number, { name: string; countryName?: string; countryId?: number | null }>,
               )}
+              tournamentEmojiContext={
+                {
+                  leagueCategory: tournament.league_category,
+                  countryLimit: tournament.country_limit,
+                  countryLimitFormat: tournament.country_limit_format,
+                } satisfies TournamentEmojiContext
+              }
             />
             <SidebarPollWidget
               seasonId={currentSeason?.id}
