@@ -119,6 +119,7 @@ export const Layout: React.FC<LayoutProps> = ({ children, excludeAnalytics = fal
     const activeTournamentIds = new Set(activeTournaments.map((tournament) => tournament.id));
     return organizerTournaments.filter((tournament) => !activeTournamentIds.has(tournament.id));
   }, [activeTournaments, organizerTournaments]);
+  const organizerPreview = visibleOrganizerTournaments.slice(0, 5);
 
   const theme = useSyncExternalStore(subscribeToTheme, getThemeSnapshot, getServerThemeSnapshot);
 
@@ -300,7 +301,7 @@ export const Layout: React.FC<LayoutProps> = ({ children, excludeAnalytics = fal
                           <div className={styles.dropdownInfo}>
                             <span>Organizer:</span>
                             <div className={styles.activeTournamentsList}>
-                              {visibleOrganizerTournaments.map((t) => (
+                              {organizerPreview.map((t) => (
                                 <div key={t.id} className={styles.tourItem}>
                                   <Link
                                     href={toLocalePath(locale, `/t/${t.slug}`)}
@@ -313,6 +314,14 @@ export const Layout: React.FC<LayoutProps> = ({ children, excludeAnalytics = fal
                                 </div>
                               ))}
                             </div>
+                            <Link
+                              href={`${toLocalePath(locale, '/profile')}#organized-tournaments`}
+                              className={styles.dropdownItem}
+                              onClick={() => setIsUserDropdownOpen(false)}
+                            >
+                              <ArrowRight size={18} weight="bold" />
+                              Show all tournaments
+                            </Link>
                           </div>
                         )}
                         {testTournaments.length > 0 && (
@@ -347,7 +356,7 @@ export const Layout: React.FC<LayoutProps> = ({ children, excludeAnalytics = fal
                         <button
                           className={styles.dropdownItem}
                           onClick={() => {
-                            router.push(`${pathname}?profileId=${profile?.hattrick_user_id}`);
+                            router.push(toLocalePath(locale, '/profile'));
                             setIsUserDropdownOpen(false);
                           }}
                         >
