@@ -51,3 +51,15 @@ test('Exotic HFI home ordering prioritizes active and played cups before the cam
     ],
   );
 });
+
+test('tournament activity ordering uses recency after the campaign order', () => {
+  const tournaments = [
+    { slug: 'community-cup-older', rounds: [], created_at: '2026-01-01T00:00:00.000Z' },
+    { slug: 'community-cup-newer', rounds: [], created_at: '2026-02-01T00:00:00.000Z' },
+  ];
+
+  assert.deepEqual(
+    orderExoticHfiTournaments(tournaments).map((tournament) => tournament.slug),
+    ['community-cup-newer', 'community-cup-older'],
+  );
+});

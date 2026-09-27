@@ -3,6 +3,7 @@ import { supabase } from '../lib/supabase';
 import { getTournamentNextMatchDate } from '../utils/tournament-next-match';
 import { sortFeaturedFirst } from '../utils/tournament-sorting';
 import { clearMainAuthSession } from '../utils/auth-storage';
+import { orderExoticHfiTournaments } from '../constants/exotic-hfi-campaign';
 
 export interface AvatarLayer {
   x?: number;
@@ -57,6 +58,17 @@ export interface OrganizerTournament {
   is_featured: boolean;
   status: string | null;
   created_at: string;
+  rounds: OrganizerTournamentRound[];
+}
+
+export interface OrganizerTournamentRound {
+  round_number: number | null;
+  matches: OrganizerTournamentMatch[] | null;
+}
+
+export interface OrganizerTournamentMatch {
+  completed: boolean | null;
+  status: string | null;
 }
 
 export interface TestTournament {
@@ -113,6 +125,7 @@ interface DBOrganizerTournament {
   is_test?: boolean | null;
   registration_type?: string | null;
   created_at: string;
+  rounds?: OrganizerTournamentRound[] | null;
 }
 
 interface DBWarning {
@@ -256,7 +269,18 @@ export const useAuth = () => {
 
       const { data: organizerDataRaw } = await supabase
         .from('tournaments')
-        .select('id, name, slug, status, is_archived, is_test, registration_type, created_at, is_featured')
+        .select(`
+          id,
+          name,
+          slug,
+          status,
+          is_archived,
+          is_test,
+          registration_type,
+          created_at,
+          is_featured,
+          rounds ( round_number, matches ( completed, status ) )
+        `)
         .eq('organizer_id', uid)
         .neq('status', 'archived')
         .order('created_at', { ascending: false });
@@ -287,6 +311,7 @@ export const useAuth = () => {
         is_featured: Boolean(tournament.is_featured),
         status: tournament.status,
         created_at: tournament.created_at,
+        rounds: tournament.rounds ?? [],
       });
 
       const testTours = managedRows
@@ -302,12 +327,11 @@ export const useAuth = () => {
           is_featured: Boolean(tournament.is_featured),
           status: tournament.status,
           created_at: tournament.created_at,
+          rounds: tournament.rounds ?? [],
         }));
 
       setOrganizerTournaments(
-        sortFeaturedFirst(organizerTours, (a, b) =>
-          new Date(b.created_at).getTime() - new Date(a.created_at).getTime(),
-        ),
+        orderExoticHfiTournaments(organizerTours),
       );
       setTestTournaments(
         sortFeaturedFirst(testTours, (a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime()),

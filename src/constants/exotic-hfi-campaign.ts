@@ -79,43 +79,51 @@ export const EXOTIC_HFI_CAMPAIGN_SLUG_SET = new Set<string>(EXOTIC_HFI_CAMPAIGN_
 const EXOTIC_HFI_CAMPAIGN_ORDER = new Map(EXOTIC_HFI_CAMPAIGN_SLUGS.map((slug, index) => [slug, index]));
 
 type ExoticHfiMatch = {
-  completed: boolean;
+  completed?: boolean | null;
   status?: string | null;
 };
 
 type ExoticHfiRound = {
-  round_number: number;
-  matches: ExoticHfiMatch[] | null;
+  round_number?: number | null;
+  matches?: ExoticHfiMatch[] | null;
 };
 
 type ExoticHfiSortable = {
   slug: string;
   status?: string | null;
-  rounds: ExoticHfiRound[];
+  created_at?: string | Date | null;
+  rounds?: ExoticHfiRound[] | null;
 };
 
 function isCompletedMatch(match: ExoticHfiMatch) {
-  return match.completed || match.status === 'misarranged';
+  return Boolean(match.completed) || match.status === 'misarranged';
 }
 
 function getExoticHfiProgress(tournament: ExoticHfiSortable) {
-  const matches = tournament.rounds.flatMap((round) => round.matches || []);
+  const rounds = tournament.rounds ?? [];
+  const matches = rounds.flatMap((round) => round.matches || []);
   const completedMatches = matches.filter(isCompletedMatch).length;
-  const completedRounds = tournament.rounds
+  const completedRounds = rounds
     .filter((round) => {
       const roundMatches = round.matches || [];
       return roundMatches.length > 0 && roundMatches.every(isCompletedMatch);
     })
-    .toSorted((left, right) => right.round_number - left.round_number);
+    .toSorted((left, right) => (right.round_number ?? 0) - (left.round_number ?? 0));
   const lastCompletedRoundMatchCount = completedRounds[0]?.matches?.length || 0;
 
   return {
-    isActive: tournament.rounds.length > 0 && matches.length > completedMatches && tournament.status !== 'finished',
+    isActive: rounds.length > 0 && matches.length > completedMatches && tournament.status !== 'finished',
     hasCompletedRound: completedRounds.length > 0,
     lastCompletedRoundMatchCount,
   };
 }
 
+function getCreatedAtTimestamp(value: string | Date | null | undefined) {
+  const timestamp = value ? new Date(value).getTime() : 0;
+  return Number.isFinite(timestamp) ? timestamp : 0;
+}
+
+// Keep the public campaign list and authenticated organizer lists on one activity ordering.
 export function orderExoticHfiTournaments<T extends ExoticHfiSortable>(tournaments: T[]) {
   return [...tournaments].sort((left, right) => {
     const leftProgress = getExoticHfiProgress(left);
@@ -127,9 +135,11 @@ export function orderExoticHfiTournaments<T extends ExoticHfiSortable>(tournamen
       return rightProgress.lastCompletedRoundMatchCount - leftProgress.lastCompletedRoundMatchCount;
     }
 
-    return (
+    const campaignOrder =
       (EXOTIC_HFI_CAMPAIGN_ORDER.get(left.slug) ?? Number.MAX_SAFE_INTEGER) -
-      (EXOTIC_HFI_CAMPAIGN_ORDER.get(right.slug) ?? Number.MAX_SAFE_INTEGER)
-    );
+      (EXOTIC_HFI_CAMPAIGN_ORDER.get(right.slug) ?? Number.MAX_SAFE_INTEGER);
+    if (campaignOrder !== 0) return campaignOrder;
+
+    return getCreatedAtTimestamp(right.created_at) - getCreatedAtTimestamp(left.created_at);
   });
 }

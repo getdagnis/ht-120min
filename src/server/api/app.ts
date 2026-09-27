@@ -111,7 +111,18 @@ async function handleManagedTournaments(req: VercelRequest, res: VercelResponse)
 
   const { data: tournaments, error: tournamentsError } = await supabase
     .from('tournaments')
-    .select('id, name, slug, is_featured, status, is_archived, is_test, registration_type, created_at')
+    .select(`
+      id,
+      name,
+      slug,
+      is_featured,
+      status,
+      is_archived,
+      is_test,
+      registration_type,
+      created_at,
+      rounds ( round_number, matches ( completed, status ) )
+    `)
     .in('id', tournamentIds)
     .neq('status', 'archived');
   if (tournamentsError) throw tournamentsError;
