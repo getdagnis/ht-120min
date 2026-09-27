@@ -2,6 +2,8 @@ import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { getSupabase } from '../_lib/supabase.js';
 import { getAuthHeader } from '../_lib/chpp-auth.js';
 import { readChppTag } from '../_lib/chpp-xml.js';
+import { fetchArenaDetailsFromChpp, fetchTeamDetailsFromChpp } from '../_lib/matchmaker.js';
+import { buildArrangedFixtureStory, type FixtureStoryTeam } from '../../../utils/fixture-story.js';
 import {
   getFootballScore,
   getPenaltyShootoutScore,
@@ -19,6 +21,7 @@ import {
 import { isFriendlyInsideAcceptedWindow } from '../_lib/match-window.js';
 import type { MatchEventDetails } from '../../../../shared/match-events.js';
 import { serializeStoredStockholmDate } from '../../../../shared/chpp-dates.js';
+import type { TournamentMatchArrangeStorySnapshot } from '../../../types/tournament-activity.js';
 import {
   buildArchiveDateChunks,
   mergeChppMatchesById,
@@ -398,10 +401,12 @@ async function fetchTeamFriendlies(
 
 interface TeamWithAuth {
   id: string;
+  name: string;
   ht_team_id: number;
   oauth_token: string | null;
   oauth_token_secret: string | null;
   country_name?: string;
+  country_id?: number | null;
 }
 
 interface ManualLinkMatchRow {
@@ -1138,6 +1143,85 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       }
     };
 
+    const teamDetailsCache = new Map<number, ReturnType<typeof fetchTeamDetailsFromChpp>>();
+    const arenaDetailsCache = new Map<number, ReturnType<typeof fetchArenaDetailsFromChpp>>();
+    const getStoryTeamDetails = async (team: TeamWithAuth) => {
+      if (!consumerKey || !consumerSecret || !team.oauth_token) return null;
+      const cached = teamDetailsCache.get(team.ht_team_id);
+      if (cached) return cached;
+      const request = fetchTeamDetailsFromChpp(consumerKey, consumerSecret, team, team.ht_team_id).catch((error) => {
+        console.error(`Error fetching story details for team ${team.id}:`, error);
+        return null;
+      });
+      teamDetailsCache.set(team.ht_team_id, request);
+      return request;
+    };
+    const getStoryArenaDetails = async (team: TeamWithAuth, arenaId: number) => {
+      if (!consumerKey || !consumerSecret || !team.oauth_token) return null;
+      const cached = arenaDetailsCache.get(arenaId);
+      if (cached) return cached;
+      const request = fetchArenaDetailsFromChpp(consumerKey, consumerSecret, team, arenaId).catch((error) => {
+        console.error(`Error fetching arena details for team ${team.id}:`, error);
+        return null;
+      });
+      arenaDetailsCache.set(arenaId, request);
+      return request;
+    };
+
+    const buildArrangeStorySnapshot = async (
+      match: {
+        next_match_arrange_story?: TournamentMatchArrangeStorySnapshot | null;
+        home_team_id: string | null;
+        away_team_id: string | null;
+        venue_mismatch?: boolean | null;
+      },
+      round: { round_number: number },
+      confirmedMatch: { date: Date; homeId: number; awayId: number } | null,
+      eventAt: string | null,
+    ): Promise<TournamentMatchArrangeStorySnapshot | null> => {
+      if (match.next_match_arrange_story || !confirmedMatch || !Number.isFinite(confirmedMatch.date.getTime())) return null;
+
+      const actualHomeTeam = teams.find((team) => team.ht_team_id === confirmedMatch.homeId);
+      const actualAwayTeam = teams.find((team) => team.ht_team_id === confirmedMatch.awayId);
+      if (!actualHomeTeam || !actualAwayTeam) return null;
+      if (actualHomeTeam.id !== match.home_team_id && actualHomeTeam.id !== match.away_team_id) return null;
+      if (actualAwayTeam.id !== match.home_team_id && actualAwayTeam.id !== match.away_team_id) return null;
+
+      const homeDetails = await getStoryTeamDetails(actualHomeTeam);
+      const arenaDetails = homeDetails?.arenaId
+        ? await getStoryArenaDetails(actualHomeTeam, homeDetails.arenaId)
+        : null;
+      const homeStoryTeam: FixtureStoryTeam = {
+        name: actualHomeTeam.name,
+        htTeamId: actualHomeTeam.ht_team_id,
+        countryName: homeDetails?.countryName ?? actualHomeTeam.country_name,
+        countryId: homeDetails?.countryId ?? actualHomeTeam.country_id,
+        regionName: homeDetails?.regionName,
+        regionId: homeDetails?.regionId,
+      };
+      const awayStoryTeam: FixtureStoryTeam = {
+        name: actualAwayTeam.name,
+        htTeamId: actualAwayTeam.ht_team_id,
+        countryName: actualAwayTeam.country_name,
+        countryId: actualAwayTeam.country_id,
+      };
+
+      return {
+        eventAt,
+        story: buildArrangedFixtureStory({
+          roundNumber: round.round_number,
+          matchDate: confirmedMatch.date,
+          homeTeam: homeStoryTeam,
+          awayTeam: awayStoryTeam,
+          venue: {
+            arenaName: arenaDetails?.arenaName ?? homeDetails?.arenaName,
+            capacity: arenaDetails?.capacity,
+            fanclubSize: homeDetails?.fanclubSize,
+          },
+        }),
+      };
+    };
+
     // Active-round warnings are intentionally sticky. The first refresh that
     // detects a conflict decides who is warned; later CHPP state must not add
     // a warning to the opponent who had to arrange elsewhere afterward.
@@ -1151,6 +1235,34 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
     const linkedMatchIds: number[] = [];
 
+    const findConfirmedMatch = (
+      match: {
+        ht_match_id?: number | null;
+        home_team_id: string | null;
+        away_team_id: string | null;
+        schedule_slot_type?: string | null;
+        scheduled_for?: string | null;
+      },
+      round: { created_at: string; round_number: number },
+      homeTeam: TeamWithAuth,
+      awayTeam: TeamWithAuth,
+      homeFriendlies: Array<{ homeId: number; awayId: number; date: Date; matchId: number; matchType: number }>,
+      awayFriendlies: Array<{ homeId: number; awayId: number; date: Date; matchId: number; matchType: number }>,
+    ) => {
+      const candidates = [...homeFriendlies, ...awayFriendlies];
+      const isCorrectMatch = (fixture: { homeId: number; awayId: number }) =>
+        (fixture.homeId === homeTeam.ht_team_id && fixture.awayId === awayTeam.ht_team_id) ||
+        (fixture.homeId === awayTeam.ht_team_id && fixture.awayId === homeTeam.ht_team_id);
+      const exactMatch = match.ht_match_id
+        ? candidates.find((fixture) => fixture.matchId === match.ht_match_id && isCorrectMatch(fixture))
+        : null;
+      if (exactMatch) return exactMatch;
+      const targetDate = getMatchTargetDate(match, round, homeTeam.country_name);
+      return candidates.find(
+        (fixture) => isFriendlyInsideAcceptedWindow(fixture.date, targetDate, match.schedule_slot_type) && isCorrectMatch(fixture),
+      ) || null;
+    };
+
     for (const match of upcomingRound.matches) {
       if (match.completed) continue;
       const currentStatus = match.status ?? 'not_arranged';
@@ -1158,8 +1270,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       // Do not re-open that decision from later CHPP changes.
       if (!['not_arranged', 'arranged'].includes(currentStatus)) continue;
 
-      // If already has ht_match_id and match_type, we can skip
-      if (currentStatus === 'arranged' && match.ht_match_id && match.match_type) continue;
+      // Already-arranged matches only need a pass when their activity snapshot is missing.
+      if (currentStatus === 'arranged' && match.ht_match_id && match.match_type && match.next_match_arrange_story) continue;
 
       const homeTeam = teams.find((t) => t.id === match.home_team_id);
       const awayTeam = teams.find((t) => t.id === match.away_team_id);
@@ -1175,9 +1287,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
       const withinWindow = (f: { date: Date }) =>
         isFriendlyInsideAcceptedWindow(f.date, targetDate, match.schedule_slot_type);
-      const homeCorrectMatch = homeFriendlies.find((fixture) => withinWindow(fixture) && isCorrectMatch(fixture));
-      const awayCorrectMatch = awayFriendlies.find((fixture) => withinWindow(fixture) && isCorrectMatch(fixture));
-      const confirmedMatch = homeCorrectMatch ?? awayCorrectMatch;
+      const confirmedMatch = findConfirmedMatch(match, upcomingRound, homeTeam, awayTeam, homeFriendlies, awayFriendlies);
       const homeOffending = homeFriendlies.some((fixture) => withinWindow(fixture) && !isCorrectMatch(fixture));
       const awayOffending = awayFriendlies.some((fixture) => withinWindow(fixture) && !isCorrectMatch(fixture));
 
@@ -1202,6 +1312,16 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         }
       }
 
+      const arrangeStory =
+        status === 'arranged'
+          ? await buildArrangeStorySnapshot(
+              match,
+              upcomingRound,
+              confirmedMatch,
+              currentStatus === 'arranged' ? null : new Date().toISOString(),
+            )
+          : null;
+
       // Update match status and HT Match ID
       await supabase
         .from('matches')
@@ -1212,6 +1332,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
           venue_mismatch: venueMismatch,
           actual_ht_home_team_id: actualHtHomeTeamId,
           actual_ht_away_team_id: actualHtAwayTeamId,
+          ...(arrangeStory ? { next_match_arrange_story: arrangeStory } : {}),
         })
         .eq('id', match.id);
 
@@ -1256,6 +1377,25 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         ),
       })) {
         await recordWarning(teamId);
+      }
+    }
+
+    // Backfill story snapshots for recent or historical linked matches when the
+    // exact CHPP friendly is still available. Their transition timestamp remains
+    // null because the old transition cannot be reconstructed safely.
+    for (const round of rounds) {
+      for (const match of round.matches) {
+        if (match.completed === false && !['arranged', 'ongoing', 'finished'].includes(match.status || '')) continue;
+        if (match.next_match_arrange_story || !match.ht_match_id) continue;
+        const homeTeam = teams.find((team) => team.id === match.home_team_id);
+        const awayTeam = teams.find((team) => team.id === match.away_team_id);
+        if (!homeTeam || !awayTeam) continue;
+        const homeFriendlies = await getFriendlies(homeTeam);
+        const awayFriendlies = await getFriendlies(awayTeam);
+        const confirmedMatch = findConfirmedMatch(match, round, homeTeam, awayTeam, homeFriendlies, awayFriendlies);
+        const arrangeStory = await buildArrangeStorySnapshot(match, round, confirmedMatch, null);
+        if (!arrangeStory) continue;
+        await supabase.from('matches').update({ next_match_arrange_story: arrangeStory }).eq('id', match.id);
       }
     }
 

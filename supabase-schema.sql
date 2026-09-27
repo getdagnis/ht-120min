@@ -34,6 +34,7 @@ CREATE TABLE teams (
   oauth_scope TEXT,
   can_manage_challenges BOOLEAN DEFAULT FALSE,
   manager_name TEXT,
+  join_story JSONB,
   hattrick_team_id TEXT, -- Legacy
   created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
   CONSTRAINT unique_tournament_team UNIQUE (tournament_id, ht_team_id)
@@ -77,6 +78,7 @@ CREATE TABLE matches (
   venue_type TEXT DEFAULT 'home_away',
   scheduled_for TIMESTAMP WITH TIME ZONE,
   schedule_slot_type TEXT,
+  next_match_arrange_story JSONB,
   created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 

@@ -34,6 +34,7 @@ import {
 } from '../../utils/team-eligibility';
 import { normalizeLeagueLimit, resolveCountryRestriction } from '../../../shared/worlddetails';
 import type { MatchEventDetails } from '../../../shared/match-events';
+import type { TournamentJoinStory } from '../../types/tournament-activity';
 import { useLiveMatches } from '../../hooks/useLiveMatches';
 import { trackActivity } from '../../hooks/useActivityTracking';
 import {
@@ -119,6 +120,7 @@ import {
   X,
 } from 'phosphor-react';
 import type { TournamentInitialData } from '../../app/_data/public-data';
+import type { TournamentMatchArrangeStorySnapshot } from '../../types/tournament-activity';
 
 const FORUM_LINK = 'https://www.hattrick.org/goto.ashx?path=/Forum/Read.aspx?n=1&nm=32&t=17685273&v=0';
 const UNSAVED_SETTINGS_MESSAGE = 'Use save button to apply changes!';
@@ -279,6 +281,7 @@ interface MatchWithTeams {
   status: 'not_arranged' | 'arranged' | 'ongoing' | 'misarranged' | 'finished';
   ht_match_id: number | null;
   match_type: number | null;
+  next_match_arrange_story?: TournamentMatchArrangeStorySnapshot | null;
   venue_type?: 'home_away' | null;
   scheduled_for?: string | null;
   schedule_slot_type?: 'midweek_friendly' | 'weekend_friendly' | 'week15_weekend_friendly' | null;
@@ -327,6 +330,7 @@ interface Team {
   league_level?: number | null;
   league_id?: number | null;
   gender_id?: number | null;
+  join_story?: TournamentJoinStory | null;
   reapply_season_number?: number | null;
 }
 
@@ -601,6 +605,7 @@ export const TournamentView: React.FC<{ initialData?: TournamentInitialData }> =
   const [rounds, setRounds] = useState<RoundWithMatches[]>(() => reviveInitialRounds(initialData));
   const [teams, setTeams] = useState<Team[]>(() => (initialData?.teams as unknown as Team[] | undefined) || []);
   const [warnings, setWarnings] = useState<any[]>(() => initialData?.warnings || []);
+  const [activityWarnings, setActivityWarnings] = useState<any[]>(() => initialData?.activityWarnings || initialData?.warnings || []);
   const [lastSeenMap, setLastSeenMap] = useState<Record<number, string | null>>({});
   const [playingElsewhereTeamIds, setPlayingElsewhereTeamIds] = useState<Set<number>>(new Set());
 
@@ -1875,7 +1880,7 @@ export const TournamentView: React.FC<{ initialData?: TournamentInitialData }> =
     if (!roundsData) return;
 
     const roundIds = roundsData.map((r: { id: string }) => r.id);
-    const [{ data: matchesData }, { data: warningsData }, { data: tournamentMeta }] = await Promise.all([
+    const [{ data: matchesData }, { data: warningsData }, { data: activityWarningsData }, { data: tournamentMeta }] = await Promise.all([
       supabase
         .from('matches')
         .select(
@@ -1887,6 +1892,7 @@ export const TournamentView: React.FC<{ initialData?: TournamentInitialData }> =
         )
         .in('round_id', roundIds),
       supabase.from('fixture_warnings').select('*').eq('tournament_id', tournament.id).eq('active', true),
+      supabase.from('fixture_warnings').select('id, round_id, team_id, created_at').eq('tournament_id', tournament.id),
       supabase.from('tournaments').select('last_fixtures_refresh').eq('id', tournament.id).single(),
     ]);
 
@@ -1927,6 +1933,7 @@ export const TournamentView: React.FC<{ initialData?: TournamentInitialData }> =
       );
     }
     if (warningsData) setWarnings(warningsData);
+    if (activityWarningsData) setActivityWarnings(activityWarningsData);
     if (tournamentMeta)
       setTournament((prev) => (prev ? { ...prev, last_fixtures_refresh: tournamentMeta.last_fixtures_refresh } : prev));
   }, [tournament, teams, seasonSlots, getMatchDateForRound]);
@@ -5110,6 +5117,17 @@ export const TournamentView: React.FC<{ initialData?: TournamentInitialData }> =
             seasonId={selectedSeason?.id}
             seasonNumber={selectedSeason?.season_number ?? selectedSeasonNumber}
             seasonStatus={selectedSeason?.status}
+            rounds={fixtureRounds}
+            activityTeams={isViewingHistoricalSeason || isSandbox || tournament.is_test ? [] : teams}
+            activityMatches={
+              isViewingHistoricalSeason || isSandbox || tournament.is_test
+                ? []
+                : fixtureRounds.flatMap((round) =>
+                    round.matches.map((match) => ({ ...match, round_number: round.round_number })),
+                  )
+            }
+            activityWarnings={isViewingHistoricalSeason || isSandbox || tournament.is_test ? [] : activityWarnings}
+            onVisitFixtures={() => handleTabChange('fixtures')}
             onCommentsLoaded={handleHistoryCommentsLoaded}
             onCommentSubmitted={handleHistoryCommentSubmitted}
             loadComments={loadHistoryComments}

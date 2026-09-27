@@ -14,6 +14,13 @@ import type { TournamentEmojiContext } from '../../utils/tournament-emoji-option
 
 import { getAppgStandingsQuota, meetsAppgStandingsQuota, type TeamStanding } from '../../utils/standings';
 import { isAppg120ScoringMode } from '../../../shared/scoring-profile';
+import { StandingsRoundPreview, type StandingsPreviewRound } from './StandingsRoundPreview';
+import {
+  TournamentActivity,
+  type TournamentActivityMatch,
+  type TournamentActivityTeam,
+  type TournamentActivityWarning,
+} from './TournamentActivity';
 
 import styles from '../../legacy-pages/Public/TournamentView.module.sass';
 
@@ -40,6 +47,11 @@ interface StandingsViewProps {
   onJoinWithHattrick?: () => void;
   onVisitHistory?: () => void;
   onVisitNews?: () => void;
+  onVisitFixtures?: () => void;
+  rounds?: StandingsPreviewRound[];
+  activityTeams?: TournamentActivityTeam[];
+  activityMatches?: TournamentActivityMatch[];
+  activityWarnings?: TournamentActivityWarning[];
   reactionAuthorNames?: Record<string, string>;
   canAddSeasonComment?: boolean;
   onCommentsLoaded?: (seasonId: string, commentCount: number) => void;
@@ -105,6 +117,11 @@ export const StandingsView: React.FC<StandingsViewProps> = ({
   onJoinWithHattrick,
   onVisitHistory,
   onVisitNews,
+  onVisitFixtures,
+  rounds = [],
+  activityTeams = [],
+  activityMatches = [],
+  activityWarnings = [],
   reactionAuthorNames = {},
   canAddSeasonComment = false,
   onCommentsLoaded,
@@ -136,6 +153,16 @@ export const StandingsView: React.FC<StandingsViewProps> = ({
   const [standingsCopied, setStandingsCopied] = useState(false);
   const [loadedSeasonCommentsId, setLoadedSeasonCommentsId] = useState<string | null>(null);
   const seasonCommentsLoading = Boolean(seasonId && loadedSeasonCommentsId !== seasonId);
+  const myHtTeamIds = useMemo(() => {
+    if (!myHtUserId) return new Set<number>();
+
+    return new Set(
+      standings
+        .filter((standing) => Number(standing.hattrickUserId) === Number(myHtUserId))
+        .map((standing) => standing.htTeamId)
+        .filter((htTeamId): htTeamId is number => typeof htTeamId === 'number'),
+    );
+  }, [myHtUserId, standings]);
   const eligibleCommentStandings = useMemo(() => {
     if (seasonStatus !== 'finished' || !myHtUserId) return [];
     const participantIds = new Set(seasonParticipantIds);
@@ -813,6 +840,13 @@ export const StandingsView: React.FC<StandingsViewProps> = ({
           </div>
         )}
       </SectionCard>
+      <StandingsRoundPreview
+        rounds={rounds}
+        seasonStatus={seasonStatus}
+        onVisitFixtures={onVisitFixtures}
+        myHtTeamIds={myHtTeamIds}
+      />
+      <TournamentActivity teams={activityTeams} matches={activityMatches} warnings={activityWarnings} />
       {seasonId && seasonStatus === 'finished' && (
         <SeasonYearbook
           seasonNumber={seasonNumber}

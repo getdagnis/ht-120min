@@ -1,5 +1,5 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
-import type { ChppTeamOption } from '../_lib/chpp-xml.js';
+import type { ChppTeamOption, ParsedManagerCompendium } from '../_lib/chpp-xml.js';
 import { getServiceSupabase } from '../_lib/supabase.js';
 import { registerOAuthTeam } from '../_lib/chpp-register.js';
 import { getAuthHeader } from '../_lib/chpp-auth.js';
@@ -14,6 +14,7 @@ import {
   fetchManagerTeamsFromChpp,
   ManagerCompendiumRequestError,
 } from '../_lib/manager-compendium.js';
+import { buildTournamentJoinStory } from '../_lib/join-story.js';
 
 interface CompleteAuthBody {
   action?: 'claim_teams' | 'create_session' | 'clear_session';
@@ -258,6 +259,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     let countryId: number | undefined;
     let countryName: string | undefined;
     let teamDetails: ReturnType<typeof parseTeamDetailsXml> | undefined;
+    let managerCompendium: ParsedManagerCompendium | undefined;
 
     if (pending.tournament_id && team_id && team_name) {
       try {
@@ -295,6 +297,18 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       }
     }
 
+    try {
+      managerCompendium = await fetchManagerTeamsFromChpp(consumerKey, consumerSecret, {
+        oauth_token: pending.access_token,
+        oauth_token_secret: pending.access_token_secret,
+      });
+    } catch (error) {
+      console.warn(
+        'Failed to refresh managercompendium during join, using cached teams_json:',
+        error instanceof ManagerCompendiumRequestError ? error.status : error,
+      );
+    }
+
     // 3. Register the specific team (Standard joining flow)
     let redirectUrl = `/`;
 
@@ -327,6 +341,27 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         throw new Error(`This team is not from the required league (${tournament.country_limit}).`);
       }
 
+      const selectedManagerTeam =
+        managerCompendium?.teams.find((team) => team.teamId === Number(team_id)) ?? {
+          teamId: Number(team_id),
+          teamName: team_name,
+          leagueId: teamDetails?.leagueId,
+          leagueSystemId: teamDetails?.leagueSystemId,
+          leagueName: teamDetails?.leagueName,
+          leagueLevel: teamDetails?.leagueLevel,
+          leagueLevelUnitName: teamDetails?.leagueLevelUnitName,
+          countryId,
+          countryName,
+          regionName: teamDetails?.regionName,
+        };
+      const joinStory = buildTournamentJoinStory({
+        manager: managerCompendium,
+        managerName: pending.manager_name,
+        managerId: pending.hattrick_user_id,
+        team: selectedManagerTeam,
+        teamDetails,
+      });
+
       await registerOAuthTeam(supabase, {
         tournamentId: pending.tournament_id!,
         team: {
@@ -339,6 +374,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
           genderId: teamDetails?.genderId,
           countryId,
           countryName,
+          leagueLevelUnitName: teamDetails?.leagueLevelUnitName,
         },
         managerName: pending.manager_name,
         hattrickUserId: pending.hattrick_user_id,
@@ -347,6 +383,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         logoUrl,
         countryId,
         countryName,
+        joinStory,
         skipMembershipCheck: isSuperAdmin,
       });
 
@@ -362,10 +399,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       let teamsJson = pending.teams_json;
 
       try {
-        const mParsed = await fetchManagerTeamsFromChpp(consumerKey, consumerSecret, {
-          oauth_token: pending.access_token,
-          oauth_token_secret: pending.access_token_secret,
-        });
+        const mParsed = managerCompendium;
+        if (!mParsed) throw new Error('managercompendium unavailable');
         countryId = mParsed.countryId;
         countryName = mParsed.countryName;
         leagueId = mParsed.leagueId;

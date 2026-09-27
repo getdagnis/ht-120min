@@ -98,6 +98,7 @@ export interface TournamentInitialData {
   rounds: Record<string, unknown>[];
   standings: Record<string, unknown>[];
   warnings: Record<string, unknown>[];
+  activityWarnings: Record<string, unknown>[];
   seasons: Record<string, unknown>[];
   announcements: Record<string, unknown>[];
   organizerProfileName: string | null;
@@ -283,7 +284,7 @@ export const loadTournamentInitialData = cache(async (slug: string): Promise<Tou
   const seasonNumber = Number(tournament.season || 1);
   const organizerId = Number(tournament.organizer_id || 0);
 
-  const [{ data: teamsRaw }, { data: roundsRaw }, { data: seasonsRaw }, { data: warningsRaw }, { data: announcementsRaw }, organizerResult] =
+  const [{ data: teamsRaw }, { data: roundsRaw }, { data: seasonsRaw }, { data: warningsRaw }, { data: activityWarningsRaw }, { data: announcementsRaw }, organizerResult] =
     await Promise.all([
       supabase.from('teams').select('*').eq('tournament_id', tournamentId).order('created_at', { ascending: true }),
       supabase
@@ -294,6 +295,7 @@ export const loadTournamentInitialData = cache(async (slug: string): Promise<Tou
         .order('round_number', { ascending: true }),
       supabase.from('tournament_seasons').select('*').eq('tournament_id', tournamentId).order('season_number', { ascending: true }),
       supabase.from('fixture_warnings').select('*').eq('tournament_id', tournamentId).eq('active', true),
+      supabase.from('fixture_warnings').select('id, round_id, team_id, created_at').eq('tournament_id', tournamentId),
       supabase.from('tournament_announcements').select('*').eq('tournament_id', tournamentId).order('created_at', { ascending: false }),
       organizerId
         ? supabase.from('profiles').select('manager_name').eq('hattrick_user_id', organizerId).maybeSingle()
@@ -404,6 +406,7 @@ export const loadTournamentInitialData = cache(async (slug: string): Promise<Tou
     rounds: roundWithMatches,
     standings,
     warnings: (warningsRaw || []) as Record<string, unknown>[],
+    activityWarnings: (activityWarningsRaw || []) as Record<string, unknown>[],
     seasons: (seasonsRaw || []) as Record<string, unknown>[],
     announcements: (announcementsRaw || []) as Record<string, unknown>[],
     organizerProfileName: (organizerResult.data as { manager_name?: string } | null)?.manager_name || null,

@@ -1,5 +1,6 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import type { ChppTeamOption } from './chpp-xml.js';
+import type { TournamentJoinStory } from '../../../types/tournament-activity.js';
 
 interface TeamTournamentCheck {
   tournament_id: string;
@@ -74,6 +75,7 @@ export async function registerOAuthTeam(
     logoUrl?: string;
     countryId?: number | null;
     countryName?: string;
+    joinStory?: TournamentJoinStory | null;
     skipMembershipCheck?: boolean;
   },
 ) {
@@ -115,6 +117,7 @@ export async function registerOAuthTeam(
         league_id: input.team.leagueId ?? null,
         gender_id: input.team.genderId ?? null,
         league_level: input.team.leagueLevel ?? null,
+        join_story: input.joinStory ?? null,
         oauth_token: input.accessToken,
         oauth_token_secret: input.accessTokenSecret,
         hattrick_user_id: input.hattrickUserId,
@@ -210,6 +213,7 @@ export async function registerOAuthTeam(
       active: true,
       reapply_season_number: null,
       replacement_for_team_id: replacementForId,
+      join_story: input.joinStory ?? null,
     })
     .select()
     .single();
