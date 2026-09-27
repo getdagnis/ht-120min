@@ -1,0 +1,138 @@
+.preview
+  display: grid
+  grid-template-columns: repeat(2, minmax(0, 1fr))
+  gap: 0.75rem
+  margin: 1rem 0
+
+  @media (max-width: 620px)
+    grid-template-columns: 1fr
+
+.panel
+  min-width: 0
+  overflow: hidden
+  background: var(--bg-transp2)
+  border: 1px solid var(--border-weak)
+  border-radius: var(--radius-sm)
+  backdrop-filter: blur(8px)
+
+.panelHeader
+  display: flex
+  align-items: center
+  justify-content: space-between
+  gap: 0.75rem
+  min-height: 2.75rem
+  padding: 0.45rem 0.7rem
+  background: var(--table-bg-main)
+  border-bottom: 1px solid var(--border-transp)
+
+  h3
+    display: flex
+    align-items: baseline
+    gap: 0.45rem
+    min-width: 0
+    margin: 0
+    color: var(--text60)
+    font-size: 1rem
+    text-transform: uppercase
+    font-weight: 600
+    letter-spacing: 0.02em
+
+    span
+      color: var(--text50)
+      font-size: 0.8rem
+      font-weight: 600
+      letter-spacing: 0.04em
+      text-transform: uppercase
+
+.fullFixturesLink
+  display: inline-flex
+  align-items: center
+  flex-shrink: 0
+  gap: 0.25rem
+  padding: 0
+  border: 0
+  background: transparent
+  color: var(--text60)
+  font: inherit
+  font-size: 0.9rem
+  font-weight: 600
+  cursor: pointer
+
+  &:hover,
+  &:focus-visible
+    color: var(--text-h)
+    text-decoration: underline
+
+.matches
+  padding: 0.2rem 0.7rem
+  background: var(--table-bg)
+  margin-bottom: 1remd
+
+.match
+  display: grid
+  grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr)
+  align-items: center
+  gap: 0.55rem
+  min-height: 3rem
+  border-bottom: 1px solid var(--border-transp)
+  font-family: var(--heading)
+  font-size: 1rem
+
+  &:last-child
+    border-bottom: 0
+
+  a,
+  .bye
+    overflow: hidden
+    color: var(--text)
+    font-weight: 600
+    text-overflow: ellipsis
+    white-space: nowrap
+
+  a
+    text-decoration: none
+
+    &:hover,
+    &:focus-visible
+      color: var(--accent)
+      text-decoration: underline
+
+  .teamRight
+    display: block
+    text-align: right
+
+.teamOwn
+  color: var(--accent-2) !important
+
+.result
+  min-width: 2.4rem
+  color: var(--text60)
+  font-size: 0.9rem
+  font-weight: 600
+  text-align: center
+
+.resultStack
+  display: inline-flex
+  flex-direction: column
+  align-items: center
+  justify-content: center
+  min-width: 2.4rem
+
+.minutesChip
+  display: inline-flex
+  align-items: center
+  justify-content: center
+  min-width: fit-content
+  height: 0.85rem
+  padding: 0 0.25rem
+  border-radius: 0.25rem
+  margin-bottom: 0.25rem
+  background: var(--accent-2)
+  color: #fff
+  font-family: var(--mono)
+  font-size: 0.65rem
+  font-weight: 700
+  line-height: 1
+
+.bye
+  color: var(--text50) !important
