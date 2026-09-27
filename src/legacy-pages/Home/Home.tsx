@@ -203,8 +203,8 @@ const ForumWidget = () => (
     title="Official ht-120min CHPP forum"
     icon={<ChatText size={20} weight="bold" />}
     footer={
-      <a href="https://www.hattrick.org/goto.ashx?path=/Forum/Overview.aspx?v=0&f=1558036" target='_blank'>
-        CHPP HT-120min forum <ArrowRight size={12} weight="bold" />
+      <a href="https://www.hattrick.org/goto.ashx?path=/Forum/Overview.aspx?v=0&f=1558036" target="_blank">
+        HT-120min forum <ArrowRight size={12} weight="bold" />
       </a>
     }
   >
@@ -240,14 +240,14 @@ export const Home: React.FC<{ initialData?: HomeInitialData }> = ({ initialData 
 
   const showFaq = faqContent.length > 0 && SHOW_FAQ;
 
-const fetchLatestWeeklyPosts = useCallback(async () => {
-  const twoMonthsAgo = new Date();
-  twoMonthsAgo.setMonth(twoMonthsAgo.getMonth() - 2);
+  const fetchLatestWeeklyPosts = useCallback(async () => {
+    const twoMonthsAgo = new Date();
+    twoMonthsAgo.setMonth(twoMonthsAgo.getMonth() - 2);
 
-  const { data, error } = await supabase
-    .from('news_posts')
-    .select(
-      `
+    const { data, error } = await supabase
+      .from('news_posts')
+      .select(
+        `
       id,
       tournament_id,
       title,
@@ -271,123 +271,123 @@ const fetchLatestWeeklyPosts = useCallback(async () => {
         league_category
       )
     `,
-    )
-    .eq('is_admin', true)
-    .gte('created_at', twoMonthsAgo.toISOString())
-    .order('created_at', { ascending: false })
-    .limit(3);
+      )
+      .eq('is_admin', true)
+      .gte('created_at', twoMonthsAgo.toISOString())
+      .order('created_at', { ascending: false })
+      .limit(3);
 
-  if (error) {
-    console.error('Could not load 120min Weekly frontpage posts:', error.message);
-    return;
-  }
+    if (error) {
+      console.error('Could not load 120min Weekly frontpage posts:', error.message);
+      return;
+    }
 
-  const rows = ((data || []) as unknown as HomeWeeklyRawPost[])
-    .map((post) => {
-      const tournament = firstRelation(post.tournament);
+    const rows = ((data || []) as unknown as HomeWeeklyRawPost[])
+      .map((post) => {
+        const tournament = firstRelation(post.tournament);
 
-      return {
-        post,
-        tournament,
-      };
-    })
-    .filter(({ tournament }) => {
-      return (
-        tournament &&
-        !tournament.is_private &&
-        !tournament.is_test &&
-        !tournament.is_archived &&
-        tournament.status !== 'stopped' &&
-        tournament.status !== 'archived'
-      );
-    })
-    .map(({ post, tournament }) => ({
-      id: post.id,
-      tournament_id: post.tournament_id,
-      tournament_slug: tournament?.slug || '',
-      tournament_name: tournament?.name || 'Tournament',
-      tournament_display_name: formatTournamentName(tournament?.name || 'Tournament', {
-        countryLimit: tournament?.country_limit,
-        includeCountryFlag: true,
-      }),
-      title: post.title,
-      content: post.content,
-      author_name: post.author_name,
-      author_team_id: null,
-      author_ht_user_id: post.author_ht_user_id,
-      author_team_name: null,
-      tournament_image_url: tournament?.image_url || null,
-      tournament_league_category: tournament?.league_category,
-      tournament_country_limit: tournament?.country_limit,
-      tournament_country_limit_format: tournament?.country_limit_format,
-      is_admin: true,
-      created_at: post.created_at,
+        return {
+          post,
+          tournament,
+        };
+      })
+      .filter(({ tournament }) => {
+        return (
+          tournament &&
+          !tournament.is_private &&
+          !tournament.is_test &&
+          !tournament.is_archived &&
+          tournament.status !== 'stopped' &&
+          tournament.status !== 'archived'
+        );
+      })
+      .map(({ post, tournament }) => ({
+        id: post.id,
+        tournament_id: post.tournament_id,
+        tournament_slug: tournament?.slug || '',
+        tournament_name: tournament?.name || 'Tournament',
+        tournament_display_name: formatTournamentName(tournament?.name || 'Tournament', {
+          countryLimit: tournament?.country_limit,
+          includeCountryFlag: true,
+        }),
+        title: post.title,
+        content: post.content,
+        author_name: post.author_name,
+        author_team_id: null,
+        author_ht_user_id: post.author_ht_user_id,
+        author_team_name: null,
+        tournament_image_url: tournament?.image_url || null,
+        tournament_league_category: tournament?.league_category,
+        tournament_country_limit: tournament?.country_limit,
+        tournament_country_limit_format: tournament?.country_limit_format,
+        is_admin: true,
+        created_at: post.created_at,
+      }));
+
+    setLatestWeeklyPosts(rows);
+  }, []);
+
+  useEffect(() => {
+    const timer = window.setTimeout(() => {
+      void fetchLatestWeeklyPosts();
+    }, 0);
+
+    return () => window.clearTimeout(timer);
+  }, [fetchLatestWeeklyPosts]);
+
+  useEffect(() => {
+    if (window.location.hash !== `#${EXOTIC_HFI_ANCHOR_ID}` || exoticHfiTournaments.length === 0) return;
+
+    let secondFrame = 0;
+    const firstFrame = window.requestAnimationFrame(() => {
+      secondFrame = window.requestAnimationFrame(() => {
+        document.getElementById(EXOTIC_HFI_ANCHOR_ID)?.scrollIntoView({ block: 'start' });
+      });
+    });
+
+    return () => {
+      window.cancelAnimationFrame(firstFrame);
+      if (secondFrame) window.cancelAnimationFrame(secondFrame);
+    };
+  }, [exoticHfiTournaments.length]);
+
+  useEffect(() => {
+    const postIds = latestWeeklyPosts.map((post) => post.id);
+    if (postIds.length === 0) {
+      return;
+    }
+    let cancelled = false;
+    void supabase
+      .from('news_reactions')
+      .select('post_id, user_id, reaction')
+      .in('post_id', postIds)
+      .then(({ data, error }) => {
+        if (cancelled) return;
+        if (error) {
+          console.error('Could not load frontpage news reactions:', error.message);
+          return;
+        }
+        setWeeklyReactions(Object.groupBy((data as NewsReaction[] | null) || [], (reaction) => reaction.post_id));
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [latestWeeklyPosts]);
+
+  const handleWeeklyReaction = async (postId: string, reaction: string) => {
+    if (!currentReactionUserId) return;
+    const { error } = await supabase
+      .from('news_reactions')
+      .upsert({ post_id: postId, user_id: currentReactionUserId, reaction }, { onConflict: 'post_id,user_id' });
+    if (error) return;
+    setWeeklyReactions((current) => ({
+      ...current,
+      [postId]: [
+        ...(current[postId] || []).filter((item) => item.user_id !== currentReactionUserId),
+        { post_id: postId, user_id: currentReactionUserId, reaction },
+      ],
     }));
-
-  setLatestWeeklyPosts(rows);
-}, []);
-
-useEffect(() => {
-  const timer = window.setTimeout(() => {
-    void fetchLatestWeeklyPosts();
-  }, 0);
-
-  return () => window.clearTimeout(timer);
-}, [fetchLatestWeeklyPosts]);
-
-useEffect(() => {
-  if (window.location.hash !== `#${EXOTIC_HFI_ANCHOR_ID}` || exoticHfiTournaments.length === 0) return;
-
-  let secondFrame = 0;
-  const firstFrame = window.requestAnimationFrame(() => {
-    secondFrame = window.requestAnimationFrame(() => {
-      document.getElementById(EXOTIC_HFI_ANCHOR_ID)?.scrollIntoView({ block: 'start' });
-    });
-  });
-
-  return () => {
-    window.cancelAnimationFrame(firstFrame);
-    if (secondFrame) window.cancelAnimationFrame(secondFrame);
   };
-}, [exoticHfiTournaments.length]);
-
-useEffect(() => {
-  const postIds = latestWeeklyPosts.map((post) => post.id);
-  if (postIds.length === 0) {
-    return;
-  }
-  let cancelled = false;
-  void supabase
-    .from('news_reactions')
-    .select('post_id, user_id, reaction')
-    .in('post_id', postIds)
-    .then(({ data, error }) => {
-      if (cancelled) return;
-      if (error) {
-        console.error('Could not load frontpage news reactions:', error.message);
-        return;
-      }
-      setWeeklyReactions(Object.groupBy((data as NewsReaction[] | null) || [], (reaction) => reaction.post_id));
-    });
-  return () => {
-    cancelled = true;
-  };
-}, [latestWeeklyPosts]);
-
-const handleWeeklyReaction = async (postId: string, reaction: string) => {
-  if (!currentReactionUserId) return;
-  const { error } = await supabase
-    .from('news_reactions')
-    .upsert({ post_id: postId, user_id: currentReactionUserId, reaction }, { onConflict: 'post_id,user_id' });
-  if (error) return;
-  setWeeklyReactions((current) => ({
-    ...current,
-    [postId]: [
-      ...(current[postId] || []).filter((item) => item.user_id !== currentReactionUserId),
-      { post_id: postId, user_id: currentReactionUserId, reaction },
-    ],
-  }));
-};
 
   useEffect(() => {
     const id = setTimeout(() => {
@@ -822,9 +822,7 @@ const handleWeeklyReaction = async (postId: string, reaction: string) => {
                     {EXOTIC_HFI_GROUP_TITLE}
                   </h2>
                 </div>
-                <div className={styles.tournamentGrid}>
-                  {exoticHfiTournaments.map((t) => renderTournamentCard(t))}
-                </div>
+                <div className={styles.tournamentGrid}>{exoticHfiTournaments.map((t) => renderTournamentCard(t))}</div>
               </section>
             )}
 
@@ -852,53 +850,53 @@ const handleWeeklyReaction = async (postId: string, reaction: string) => {
             )}
 
             {latestWeeklyPosts.length > 0 && (
-  <section className={styles.homeWeekly}>
-    <div className={styles.homeWeeklyList}>
-      {latestWeeklyPosts.map((post) => {
-        const normalizedPost: NewsPost = {
-          id: post.id,
-          tournament_id: post.tournament_id,
-          tournament_slug: post.tournament_slug,
-          tournament_name: post.tournament_name,
-          title: post.title,
-          content: post.content,
-          author_name: post.author_name,
-          author_team_id: post.author_team_id,
-          author_ht_user_id: post.author_ht_user_id,
-          is_admin: Boolean(post.is_admin),
-          created_at: post.created_at,
-        };
+              <section className={styles.homeWeekly}>
+                <div className={styles.homeWeeklyList}>
+                  {latestWeeklyPosts.map((post) => {
+                    const normalizedPost: NewsPost = {
+                      id: post.id,
+                      tournament_id: post.tournament_id,
+                      tournament_slug: post.tournament_slug,
+                      tournament_name: post.tournament_name,
+                      title: post.title,
+                      content: post.content,
+                      author_name: post.author_name,
+                      author_team_id: post.author_team_id,
+                      author_ht_user_id: post.author_ht_user_id,
+                      is_admin: Boolean(post.is_admin),
+                      created_at: post.created_at,
+                    };
 
-        return (
-  <SectionCard
-    key={post.id}
-    title="🗞 120min Weekly: In the tournaments"
-    className={styles.homeWeeklyCard}
-  >
-            <NewsArticle
-              post={normalizedPost}
-              reactions={weeklyReactions[post.id] || []}
-              currentUserId={currentReactionUserId}
-              onReaction={handleWeeklyReaction}
-              tournamentImageUrl={post.tournament_image_url}
-              taglineLabel={post.tournament_display_name}
-              taglineHref={toLocalePath(locale, `/t/${post.tournament_slug}`)}
-              visitHref={toLocalePath(locale, `/t/${post.tournament_slug}`)}
-              visitLabel="Visit cup"
-              tournamentEmojiContext={
-                {
-                  leagueCategory: post.tournament_league_category,
-                  countryLimit: post.tournament_country_limit,
-                  countryLimitFormat: post.tournament_country_limit_format,
-                } satisfies TournamentEmojiContext
-              }
-            />
-          </SectionCard>
-        );
-      })}
-    </div>
-  </section>
-)}
+                    return (
+                      <SectionCard
+                        key={post.id}
+                        title="🗞 120min Weekly: In the tournaments"
+                        className={styles.homeWeeklyCard}
+                      >
+                        <NewsArticle
+                          post={normalizedPost}
+                          reactions={weeklyReactions[post.id] || []}
+                          currentUserId={currentReactionUserId}
+                          onReaction={handleWeeklyReaction}
+                          tournamentImageUrl={post.tournament_image_url}
+                          taglineLabel={post.tournament_display_name}
+                          taglineHref={toLocalePath(locale, `/t/${post.tournament_slug}`)}
+                          visitHref={toLocalePath(locale, `/t/${post.tournament_slug}`)}
+                          visitLabel="Visit cup"
+                          tournamentEmojiContext={
+                            {
+                              leagueCategory: post.tournament_league_category,
+                              countryLimit: post.tournament_country_limit,
+                              countryLimitFormat: post.tournament_country_limit_format,
+                            } satisfies TournamentEmojiContext
+                          }
+                        />
+                      </SectionCard>
+                    );
+                  })}
+                </div>
+              </section>
+            )}
 
             {showFaq && <FaqRenderer sections={faqContent} className={styles.faqRenderer} />}
           </div>
