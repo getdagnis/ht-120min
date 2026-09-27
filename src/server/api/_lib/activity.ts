@@ -1,6 +1,7 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { randomUUID } from 'crypto';
 import { getAppSessionSecret, verifyAppSessionCookie } from './app-session.js';
+import { getAnalyticsExcludedHtUserId } from './analytics.js';
 import { getServiceSupabase } from './supabase.js';
 import { createVisitorId } from './forge-session.js';
 
@@ -98,6 +99,11 @@ function setTrackingCookies(response: VercelResponse, visitorId: string, visitId
 
 export async function recordActivity(request: VercelRequest, response: VercelResponse, input: ActivityInput) {
   const context = requestContext(request);
+  if (context.session?.userId === getAnalyticsExcludedHtUserId()) {
+    setTrackingCookies(response, context.visitorId, context.visitId);
+    return { userId: context.session.userId, visitorId: context.visitorId };
+  }
+
   const supabase = getServiceSupabase();
   let managerName = input.managerName || null;
 

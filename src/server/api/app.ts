@@ -6,6 +6,7 @@ import {
   isForgeAdminRequest,
   verifyForgeSessionCookie,
 } from './_lib/forge-session.js';
+import { getAnalyticsExcludedHtUserId } from './_lib/analytics.js';
 import { cleanupActivityEvents, recordActivity } from './_lib/activity.js';
 import { findSeasonParticipant, validateSeasonComment } from './_lib/season-comments.js';
 import { validateTournamentLeave } from './_lib/tournament-participation.js';
@@ -1479,6 +1480,7 @@ async function handleForgeStats(req: VercelRequest, res: VercelResponse) {
   const selectedVisitorId = readString(req.query.visitorId) || null;
   const includeAdmin = String(req.query.includeAdmin || '') === '1';
   const adminId = getForgeSuperadminId();
+  const analyticsExcludedUserId = getAnalyticsExcludedHtUserId();
   const supabase = getServiceSupabase();
 
   await cleanupActivityEvents().catch((error) => console.warn('Activity cleanup failed:', error));
@@ -1496,8 +1498,18 @@ async function handleForgeStats(req: VercelRequest, res: VercelResponse) {
       .filter((event) => adminId && event.hattrick_user_id === adminId)
       .map((event) => event.visitor_id),
   );
+  const analyticsExcludedVisitorIds = new Set(
+    (rawEvents || [])
+      .filter((event) => analyticsExcludedUserId && event.hattrick_user_id === analyticsExcludedUserId)
+      .map((event) => event.visitor_id),
+  );
   const visibleEvents = (rawEvents || []).filter(
-    (event) => includeAdmin || (event.hattrick_user_id !== adminId && !adminVisitorIds.has(event.visitor_id)),
+    (event) => {
+      if (analyticsExcludedUserId && (event.hattrick_user_id === analyticsExcludedUserId || analyticsExcludedVisitorIds.has(event.visitor_id))) {
+        return false;
+      }
+      return includeAdmin || (event.hattrick_user_id !== adminId && !adminVisitorIds.has(event.visitor_id));
+    },
   );
   const identityByVisitor = new Map<string, { userId: number; managerName: string | null }>();
   for (const event of visibleEvents) {
@@ -1624,12 +1636,29 @@ async function handleForgeStats(req: VercelRequest, res: VercelResponse) {
   const metadataValues = (key: string) =>
     events.map((event) => (typeof event.metadata?.[key] === 'string' ? String(event.metadata[key]) : null));
 
-  const { data: daily, error: dailyError } = await supabase
-    .from('activity_daily')
-    .select('activity_date, event_type, route, event_count')
-    .gte('activity_date', since.toISOString().slice(0, 10))
-    .order('activity_date', { ascending: true });
-  if (dailyError) throw dailyError;
+  let daily: Array<{ activity_date: string; event_type: string; route: string; event_count: number }>;
+  if (analyticsExcludedUserId) {
+    const dailyByKey = new Map<string, { activity_date: string; event_type: string; route: string; event_count: number }>();
+    for (const event of events) {
+      const activityDate = event.occurred_at.slice(0, 10);
+      const route = event.route || '';
+      const key = `${activityDate}\u0000${event.event_type}\u0000${route}`;
+      const existing = dailyByKey.get(key);
+      if (existing) existing.event_count += 1;
+      else dailyByKey.set(key, { activity_date: activityDate, event_type: event.event_type, route, event_count: 1 });
+    }
+    daily = Array.from(dailyByKey.values()).sort(
+      (left, right) => left.activity_date.localeCompare(right.activity_date) || left.event_type.localeCompare(right.event_type) || left.route.localeCompare(right.route),
+    );
+  } else {
+    const { data, error: dailyError } = await supabase
+      .from('activity_daily')
+      .select('activity_date, event_type, route, event_count')
+      .gte('activity_date', since.toISOString().slice(0, 10))
+      .order('activity_date', { ascending: true });
+    if (dailyError) throw dailyError;
+    daily = data || [];
+  }
 
   return res.status(200).json({
     since: since.toISOString(),

@@ -9,6 +9,7 @@ import { barlow, barlowCondensed, ibmPlexMono, notoColorEmoji } from '../../../f
 import { LocaleProvider } from '../../../i18n/LocaleProvider';
 import { locales, isLocale, type Locale } from '../../../i18n/config';
 import { getAppSessionSecret, verifyAppSessionCookie } from '../../../server/api/_lib/app-session';
+import { getAnalyticsExcludedHtUserId } from '../../../server/api/_lib/analytics';
 import '../../../global.sass';
 
 const themeBootstrapScript = `
@@ -21,11 +22,6 @@ const themeBootstrapScript = `
 `;
 
 export const dynamic = 'force-dynamic';
-
-function getAnalyticsExcludedUserId() {
-  const userId = Number(process.env.ANALYTICS_EXCLUDED_HT_USER_ID || '');
-  return Number.isSafeInteger(userId) && userId > 0 ? userId : null;
-}
 
 export function generateStaticParams() {
   return locales.map((locale) => ({ locale }));
@@ -67,7 +63,7 @@ export default async function PublicLocaleLayout({
   const sessionSecret = getAppSessionSecret();
   const session =
     sessionToken && sessionSecret ? verifyAppSessionCookie(`ht_session=${sessionToken}`, sessionSecret) : null;
-  const excludeAnalytics = session?.userId === getAnalyticsExcludedUserId();
+  const excludeAnalytics = session?.userId === getAnalyticsExcludedHtUserId();
 
   return (
     <html
