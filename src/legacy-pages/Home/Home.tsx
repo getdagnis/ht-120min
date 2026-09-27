@@ -15,6 +15,7 @@ import { ReusableWidget } from '../../components/ReusableWidget/ReusableWidget';
 import { TinderWidget } from '../../components/TinderWidget/TinderWidget';
 import { SupportersWall } from '../../components/SupportersWall/SupportersWall';
 import { WelcomeModal } from '../../components/WelcomeModal/WelcomeModal';
+import { GlobalChatWidget } from '../../components/GlobalChatWidget/GlobalChatWidget';
 import { Link as ScrollTo, Element } from 'react-scroll';
 import { sortOpenTournaments } from '../../utils/open-tournaments';
 import { getMatchDateForRound } from '../../utils/match-schedule';
@@ -200,7 +201,7 @@ function reviveInitialTournament(tournament: HomeInitialData['featuredTournament
 
 const ForumWidget = () => (
   <ReusableWidget
-    title="Official ht-120min CHPP forum"
+    title="Official HT-120min Hattrick forum"
     icon={<ChatText size={20} weight="bold" />}
     footer={
       <a href="https://www.hattrick.org/goto.ashx?path=/Forum/Overview.aspx?v=0&f=1558036" target="_blank">
@@ -208,7 +209,10 @@ const ForumWidget = () => (
       </a>
     }
   >
-    <p>Have a question, an idea, found a bug or just to say hi? Come and do so on our official ht-120min forum!</p>
+    <p>
+      Have a question, an idea, found a bug or just want to say hi? Come and do so on our Hattrick forum! They somehow
+      gave us one of our own! 😍
+    </p>
   </ReusableWidget>
 );
 
@@ -905,6 +909,7 @@ export const Home: React.FC<{ initialData?: HomeInitialData }> = ({ initialData 
             <div className={styles.tinderSlot}>
               <TinderWidget className={styles.marketplaceWrapper} />
             </div>
+            <GlobalChatWidget myHtUserId={profile?.hattrick_user_id ?? null} />
             <ForumWidget />
             <div className={styles.sidebarRest}>
               <SupportersWall />

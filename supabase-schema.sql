@@ -49,6 +49,14 @@ CREATE TABLE profiles (
   created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 
+CREATE TABLE global_chat (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  author_name TEXT NOT NULL,
+  author_ht_id BIGINT NOT NULL DEFAULT 0,
+  content TEXT NOT NULL,
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
 CREATE TABLE oauth_temp_sessions (
   oauth_token TEXT PRIMARY KEY,
   oauth_token_secret TEXT NOT NULL,
@@ -88,12 +96,14 @@ CREATE TABLE matches (
 ALTER TABLE tournaments ENABLE ROW LEVEL SECURITY;
 ALTER TABLE teams ENABLE ROW LEVEL SECURITY;
 ALTER TABLE profiles ENABLE ROW LEVEL SECURITY;
+ALTER TABLE global_chat ENABLE ROW LEVEL SECURITY;
 ALTER TABLE rounds ENABLE ROW LEVEL SECURITY;
 ALTER TABLE matches ENABLE ROW LEVEL SECURITY;
 
 CREATE POLICY "Public Read" ON tournaments FOR SELECT USING (true);
 CREATE POLICY "Public Read" ON teams FOR SELECT USING (true);
 CREATE POLICY "Public Read" ON profiles FOR SELECT USING (true);
+CREATE POLICY "Public Read" ON global_chat FOR SELECT USING (true);
 CREATE POLICY "Public Read" ON rounds FOR SELECT USING (true);
 CREATE POLICY "Public Read" ON matches FOR SELECT USING (true);
 

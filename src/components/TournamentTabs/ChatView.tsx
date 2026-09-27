@@ -13,7 +13,7 @@ import {
   type TournamentEmojiContext,
 } from '../../utils/tournament-emoji-options';
 
-interface ChatMessage {
+export interface ChatMessage {
   id: string;
   author_name: string;
   content: string;
@@ -31,10 +31,13 @@ interface ChatViewProps {
   messages: ChatMessage[];
   onSendMessage: (content: string) => void;
   myHtUserId: number | null;
-  leagueManagerIds: number[];
-  teamNames: Record<number, string>;
+  leagueManagerIds?: number[];
+  teamNames?: Record<number, string>;
   teamDetails?: Record<number, { name: string; countryName?: string | null; countryId?: number | null }>;
   tournamentEmojiContext?: TournamentEmojiContext;
+  showGuestTeam?: boolean;
+  markUnknownAuthorsExternal?: boolean;
+  maxMessageLength?: number;
 }
 
 export interface AuthorTooltipProps {
@@ -119,10 +122,13 @@ export const ChatView: React.FC<ChatViewProps> = ({
   messages,
   onSendMessage,
   myHtUserId,
-  leagueManagerIds,
-  teamNames,
+  leagueManagerIds = [],
+  teamNames = {},
   teamDetails = {},
   tournamentEmojiContext,
+  showGuestTeam = true,
+  markUnknownAuthorsExternal = true,
+  maxMessageLength,
 }) => {
   const [newChatContent, setNewChatContent] = useState('');
   const pathname = usePathname() || '/';
@@ -192,6 +198,7 @@ export const ChatView: React.FC<ChatViewProps> = ({
             const isLeagueManager = leagueManagerIds.includes(msg.author_ht_id);
             const isSystem = msg.author_ht_id === 0;
             const isBigEmoji = isBigEmojiMessage(msg.content);
+            const isExternalManager = markUnknownAuthorsExternal && !isLeagueManager && !isOwnMessage;
 
             if (isSystem) {
               return (
@@ -206,7 +213,7 @@ export const ChatView: React.FC<ChatViewProps> = ({
             return (
               <div
                 key={msg.id}
-                className={`${styles.chatMessage} ${isOwnMessage ? styles.ownMessage : styles.otherMessage} ${!isLeagueManager && !isOwnMessage ? styles.externalManager : ''}`}
+                className={`${styles.chatMessage} ${isOwnMessage ? styles.ownMessage : styles.otherMessage} ${isExternalManager ? styles.externalManager : ''}`}
               >
                 <div className={styles.chatMessageContent}>
                   {!isOwnMessage && (
@@ -221,7 +228,11 @@ export const ChatView: React.FC<ChatViewProps> = ({
                       <AuthorTooltip
                         id={`author-tooltip-${msg.id}`}
                         authorName={msg.author_name}
-                        teamName={teamDetails[msg.author_ht_id]?.name || teamNames[msg.author_ht_id] || 'Guest'}
+                        teamName={
+                          teamDetails[msg.author_ht_id]?.name ||
+                          teamNames[msg.author_ht_id] ||
+                          (showGuestTeam ? 'Guest' : undefined)
+                        }
                         countryName={teamDetails[msg.author_ht_id]?.countryName}
                         countryId={teamDetails[msg.author_ht_id]?.countryId}
                         avatar={msg.profiles?.avatar_json || null}
@@ -247,6 +258,7 @@ export const ChatView: React.FC<ChatViewProps> = ({
                 value={newChatContent}
                 onChange={(e) => setNewChatContent(e.target.value)}
                 placeholder="Say something..."
+                maxLength={maxMessageLength}
                 className={styles.postTextarea}
               />
               <button type="submit" className={styles.sendBtn}>

@@ -14,6 +14,7 @@ Important tables used by current code:
 - `profiles`
 - `oauth_temp_sessions`
 - `tournament_chat`
+- `global_chat`
 - `news_posts`
 - `news_reactions`
 - `tournament_announcements`

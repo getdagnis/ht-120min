@@ -18,6 +18,7 @@ import {
 import { isTournamentRole, type TournamentRole } from '../../../shared/tournament-roles.js';
 import { isForgeEnabled } from '../forge-availability.js';
 import { isTournamentRegistrationOpen } from '../../utils/tournament-joinability.js';
+import { normalizeGlobalChatContent } from '../../utils/global-chat.js';
 import {
   sendChppChallengeDirect,
 } from './_lib/chpp-challenges.js';
@@ -1221,6 +1222,38 @@ function routeFor(request: VercelRequest) {
   return readString(Array.isArray(raw) ? raw[0] : raw) || 'activity';
 }
 
+async function handleGlobalChat(req: VercelRequest, res: VercelResponse) {
+  if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed.' });
+
+  const secret = getAppSessionSecret();
+  const session = secret ? verifyAppSessionCookie(req.headers.cookie, secret) : null;
+  if (!session) return res.status(401).json({ error: 'Please sign in with Hattrick first.' });
+
+  const content = normalizeGlobalChatContent(req.body?.content);
+  if (!content) return res.status(400).json({ error: 'Message must contain 1–500 characters.' });
+
+  const supabase = getServiceSupabase();
+  const { data: profile, error: profileError } = await supabase
+    .from('profiles')
+    .select('manager_name')
+    .eq('hattrick_user_id', session.userId)
+    .maybeSingle();
+  if (profileError) throw profileError;
+
+  const { data: message, error: insertError } = await supabase
+    .from('global_chat')
+    .insert({
+      author_name: profile?.manager_name || 'Hattrick manager',
+      author_ht_id: session.userId,
+      content,
+    })
+    .select('id, author_name, author_ht_id, content, created_at')
+    .single();
+  if (insertError) throw insertError;
+
+  return res.status(201).json(message);
+}
+
 function isSecureRequest(request: VercelRequest) {
   const host = String(request.headers.host || '').split(':')[0].toLowerCase();
   return host !== 'localhost' && host !== '127.0.0.1' && host !== '::1';
@@ -1668,6 +1701,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         return await handleEditNewsPost(req, res);
       case 'delete-news-post':
         return await handleDeleteNewsPost(req, res);
+      case 'global-chat':
+        return await handleGlobalChat(req, res);
       case 'activity':
       default:
         return await handleActivity(req, res);
