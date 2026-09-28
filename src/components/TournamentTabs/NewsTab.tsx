@@ -356,6 +356,9 @@ export const NewsTab: React.FC<NewsTabProps> = ({
   tournamentEmojiContext,
 }) => {
   const { notice, showNotice: alert, closeNotice } = useNoticeDialog();
+  const searchParams = useSearchParams();
+  const composeParam = searchParams.get('compose');
+  const composerRef = useRef<HTMLDivElement | null>(null);
   const [newsPosts, setNewsPosts] = useState<NewsPost[]>([]);
   const [newNewsTitle, setNewNewsTitle] = useState('');
   const [newNewsContent, setNewNewsContent] = useState('');
@@ -390,6 +393,7 @@ export const NewsTab: React.FC<NewsTabProps> = ({
   const myTeam = myHtUserId ? teams.find((team) => team.hattrick_user_id === Number(myHtUserId)) : null;
   const cupPressAuthorName = myTeam?.manager_name || myManagerName || myTeam?.name || 'Tournament organizer';
   const cupPressByline = `${OFFICIAL_PRESS_TAGLINE} by ${cupPressAuthorName}`;
+  const canShowComposer = Boolean(editingPostId || myTeam || (isAdminAuthenticated && canPublishAnnouncements));
 
   const canMutatePost = (post: NewsPost) => {
     const viewerId = Number(myHtUserId) || null;
@@ -453,6 +457,29 @@ export const NewsTab: React.FC<NewsTabProps> = ({
     }, 0);
     return () => window.clearTimeout(restoreTimer);
   }, [canPublishAnnouncements, newsModeStorageKey]);
+
+  useEffect(() => {
+    if (!isActive || !canPublishAnnouncements || composeParam !== 'announcement') return;
+
+    let firstFrame = 0;
+    let secondFrame = 0;
+    const timer = window.setTimeout(() => {
+      persistNewsMode(newsModeStorageKey, 'admin');
+      setNewsMode('admin');
+      firstFrame = window.requestAnimationFrame(() => {
+        secondFrame = window.requestAnimationFrame(() => {
+          composerRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+          composerRef.current?.querySelector<HTMLTextAreaElement>('textarea')?.focus();
+        });
+      });
+    }, 0);
+
+    return () => {
+      window.clearTimeout(timer);
+      if (firstFrame) window.cancelAnimationFrame(firstFrame);
+      if (secondFrame) window.cancelAnimationFrame(secondFrame);
+    };
+  }, [canPublishAnnouncements, composeParam, isActive, newsModeStorageKey]);
 
   useEffect(() => {
     const restoreDraft = () => {
@@ -832,7 +859,9 @@ export const NewsTab: React.FC<NewsTabProps> = ({
             );
           })}
 
-          <SectionCard title={editingPostId ? 'Edit news post' : 'Write a press release'}>
+          {canShowComposer && (
+            <div ref={composerRef}>
+              <SectionCard title={editingPostId ? 'Edit news post' : 'Write a press release'}>
             <div className={styles.newsTabs}>
               <button className={newsMode === 'team' ? styles.active : ''} onClick={() => handleNewsModeChange('team')}>
                 Team News
@@ -940,7 +969,9 @@ export const NewsTab: React.FC<NewsTabProps> = ({
                 )}
               </div>
             </form>
-          </SectionCard>
+              </SectionCard>
+            </div>
+          )}
         </div>
       </div>
 
