@@ -17,6 +17,7 @@ import {
   loadTournamentRoleRecords,
 } from './_lib/tournament-access.js';
 import { isTournamentRole, type TournamentRole } from '../../../shared/tournament-roles.js';
+import { normalizeLeagueLimit } from '../../../shared/worlddetails.js';
 import { isForgeEnabled } from '../forge-availability.js';
 import { isTournamentRegistrationOpen } from '../../utils/tournament-joinability.js';
 import { normalizeGlobalChatContent } from '../../utils/global-chat.js';
@@ -30,7 +31,10 @@ import {
   getFixtureChallengeSide,
   type FixtureChallengeSide,
 } from './_lib/fixture-challenge.js';
-import { fetchManagerTeamsFromChpp, getManagerChppCredentials } from './_lib/matchmaker.js';
+import { fetchManagerTeamsFromChpp, fetchTeamDetailsFromChpp, getManagerChppCredentials } from './_lib/matchmaker.js';
+import { validateTeamEligibility } from './_lib/eligibility.js';
+import { registerReserveTeam } from './_lib/chpp-register.js';
+import type { ChppTeamOption } from './_lib/chpp-xml.js';
 import { getAuthHeader } from './_lib/chpp-auth.js';
 import {
   getFootballScore,
@@ -335,6 +339,10 @@ async function handleTournamentRoles(req: VercelRequest, res: VercelResponse) {
 
 function readString(value: unknown) {
   return typeof value === 'string' ? value.trim() : '';
+}
+
+function firstRelation<T>(value: T | T[] | null | undefined): T | null {
+  return Array.isArray(value) ? value[0] ?? null : value ?? null;
 }
 
 type FixtureChallengeTeamRow = {
@@ -751,7 +759,7 @@ async function handleRoundPressMatchDetailsBackfill(req: VercelRequest, res: Ver
 
   const { data: matches, error: matchesError } = await supabase
     .from('matches')
-    .select('id, ht_match_id, home_team:teams!matches_home_team_id_fkey(ht_team_id), away_team:teams!matches_away_team_id_fkey(ht_team_id)')
+    .select('id, ht_match_id, home_team_id, away_team_id, reserve_replaces_team_id, reserve_team:teams!matches_reserve_team_id_fkey(ht_team_id), home_team:teams!matches_home_team_id_fkey(ht_team_id), away_team:teams!matches_away_team_id_fkey(ht_team_id)')
     .eq('round_id', round.id)
     .not('ht_match_id', 'is', null);
   if (matchesError) throw matchesError;
@@ -777,12 +785,19 @@ async function handleRoundPressMatchDetailsBackfill(req: VercelRequest, res: Ver
       continue;
     }
 
-    const homeTeam = match.home_team as { ht_team_id?: number | null } | null;
-    const awayTeam = match.away_team as { ht_team_id?: number | null } | null;
+    const homeTeam = firstRelation(match.home_team as { ht_team_id?: number | null } | { ht_team_id?: number | null }[] | null);
+    const awayTeam = firstRelation(match.away_team as { ht_team_id?: number | null } | { ht_team_id?: number | null }[] | null);
+    const reserveTeam = firstRelation(match.reserve_team as { ht_team_id?: number | null } | { ht_team_id?: number | null }[] | null);
     const details = mapMatchEventDetailsToFixture(
       parseMatchEventDetails(xml),
       typeof homeTeam?.ht_team_id === 'number' ? homeTeam.ht_team_id : null,
       typeof awayTeam?.ht_team_id === 'number' ? awayTeam.ht_team_id : null,
+      match.reserve_replaces_team_id === match.home_team_id && typeof reserveTeam?.ht_team_id === 'number'
+        ? [reserveTeam.ht_team_id]
+        : [],
+      match.reserve_replaces_team_id === match.away_team_id && typeof reserveTeam?.ht_team_id === 'number'
+        ? [reserveTeam.ht_team_id]
+        : [],
     );
     const footballScore = getFootballScore(details);
     const shootout = getPenaltyShootoutScore(details);
@@ -1253,6 +1268,169 @@ async function handleGlobalChat(req: VercelRequest, res: VercelResponse) {
   if (insertError) throw insertError;
 
   return res.status(201).json(message);
+}
+
+function publicReserveTeam(row: Record<string, unknown>) {
+  return {
+    id: row.id,
+    name: row.name,
+    ht_team_id: row.ht_team_id,
+    logo_url: row.logo_url,
+    country_name: row.country_name,
+    country_id: row.country_id,
+    manager_name: row.manager_name,
+    hattrick_user_id: row.hattrick_user_id,
+    reserve_joined_at: row.reserve_joined_at,
+  };
+}
+
+async function handleReserveTeams(req: VercelRequest, res: VercelResponse) {
+  if (!['GET', 'POST'].includes(req.method || '')) return res.status(405).json({ error: 'Method not allowed.' });
+
+  const tournamentId = readString(req.query.tournamentId || req.body?.tournamentId);
+  if (!tournamentId) return res.status(400).json({ error: 'Missing tournamentId.' });
+
+  const supabase = getServiceSupabase();
+  const [{ data: tournament, error: tournamentError }, { data: teamRows, error: teamsError }] = await Promise.all([
+    supabase
+      .from('tournaments')
+      .select('id, league_category, country_limit, country_limit_format')
+      .eq('id', tournamentId)
+      .maybeSingle(),
+    supabase
+      .from('teams')
+      .select('id, name, ht_team_id, active, is_placeholder, reserve_active, reserve_joined_at, logo_url, country_name, country_id, manager_name, hattrick_user_id')
+      .eq('tournament_id', tournamentId)
+      .order('reserve_joined_at', { ascending: false, nullsFirst: false }),
+  ]);
+  if (tournamentError) throw tournamentError;
+  if (teamsError) throw teamsError;
+  if (!tournament) return res.status(404).json({ error: 'Tournament not found.' });
+
+  const rows = (teamRows || []) as unknown as Array<Record<string, unknown>>;
+  const reserveTeams = rows
+    .filter((row) => row.reserve_active === true && row.is_placeholder !== true)
+    .map(publicReserveTeam);
+  if (req.method === 'GET') {
+    const secret = getAppSessionSecret();
+    const session = secret ? verifyAppSessionCookie(req.headers.cookie, secret) : null;
+    if (!session) return res.status(200).json({ authenticated: false, reserveTeams, myTeams: [] });
+
+    const { data: profile, error: profileError } = await supabase
+      .from('profiles')
+      .select('manager_name, teams_json')
+      .eq('hattrick_user_id', session.userId)
+      .maybeSingle();
+    if (profileError) throw profileError;
+    const profileTeams = Array.isArray(profile?.teams_json) ? (profile.teams_json as ChppTeamOption[]) : [];
+    const category = tournament.league_category === 'hfi' ? 'hfi' : 'male';
+    const countryLimit = normalizeLeagueLimit(
+      tournament.country_limit,
+      tournament.country_limit_format ?? 'league_id',
+    );
+    const myTeams = profileTeams
+      .map((team) => {
+        const eligibility = validateTeamEligibility(team, { category, countryLimit });
+        const existing = rows.find((row) => Number(row.ht_team_id) === team.teamId);
+        return {
+          team_id: team.teamId,
+          name: team.teamName,
+          logo_url: team.logoUrl,
+          country_name: team.countryName,
+          country_id: team.countryId,
+          eligible: eligibility.eligible,
+          reason: eligibility.reason,
+          state: existing?.active ? 'participant' : existing?.reserve_active ? 'reserve' : 'available',
+          existing_team_id: existing?.id || null,
+        };
+      })
+      .filter((team) => team.eligible || team.state === 'reserve');
+    return res.status(200).json({ authenticated: true, reserveTeams, myTeams });
+  }
+
+  const secret = getAppSessionSecret();
+  if (!secret) return res.status(500).json({ error: 'Session configuration is missing.' });
+  const session = verifyAppSessionCookie(req.headers.cookie, secret);
+  if (!session) return res.status(401).json({ error: 'Please sign in with Hattrick first.' });
+
+  const action = readString(req.body?.action);
+  const requestedTeamId = readString(req.body?.teamId);
+  if (!['join', 'leave'].includes(action) || !requestedTeamId) {
+    return res.status(400).json({ error: 'Choose a team and an action.' });
+  }
+
+  if (action === 'leave') {
+    const { data: leftTeam, error } = await supabase
+      .from('teams')
+      .update({ reserve_active: false, reserve_joined_at: null })
+      .eq('id', requestedTeamId)
+      .eq('tournament_id', tournamentId)
+      .eq('hattrick_user_id', session.userId)
+      .eq('active', false)
+      .eq('reserve_active', true)
+      .select('id')
+      .maybeSingle();
+    if (error) throw error;
+    if (!leftTeam) return res.status(404).json({ error: 'Reserve team not found.' });
+    return res.status(200).json({ ok: true, teamId: leftTeam.id });
+  }
+
+  const selectedTeamId = Number(requestedTeamId);
+  if (!Number.isSafeInteger(selectedTeamId) || selectedTeamId <= 0) {
+    return res.status(400).json({ error: 'Invalid team.' });
+  }
+  const credentials = await getManagerChppCredentials(supabase, session.userId);
+  if (!credentials) return res.status(401).json({ error: 'Please sign in with Hattrick first.' });
+
+  const consumerKey = process.env.CHPP_CONSUMER_KEY;
+  const consumerSecret = process.env.CHPP_CONSUMER_SECRET;
+  if (!consumerKey || !consumerSecret) return res.status(500).json({ error: 'CHPP configuration is missing.' });
+
+  let ownedTeams;
+  try {
+    ownedTeams = await fetchManagerTeamsFromChpp(consumerKey, consumerSecret, credentials, session.userId);
+  } catch {
+    return res.status(502).json({ error: 'Could not verify your Hattrick teams right now.' });
+  }
+  const cachedTeam = ownedTeams.teams.find((team) => team.teamId === selectedTeamId);
+  if (!cachedTeam) return res.status(400).json({ error: 'That team is not available from your Hattrick profile.' });
+
+  let details: Awaited<ReturnType<typeof fetchTeamDetailsFromChpp>> | null = null;
+  try {
+    details = await fetchTeamDetailsFromChpp(consumerKey, consumerSecret, credentials, selectedTeamId);
+  } catch (error) {
+    console.warn('Reserve registration teamdetails refresh failed; using managercompendium metadata.', error);
+  }
+  const team: ChppTeamOption = {
+    ...cachedTeam,
+    teamName: details?.teamName || cachedTeam.teamName,
+    leagueId: details?.leagueId ?? cachedTeam.leagueId,
+    leagueSystemId: details?.leagueSystemId ?? cachedTeam.leagueSystemId,
+    leagueName: details?.leagueName ?? cachedTeam.leagueName,
+    leagueLevel: details?.leagueLevel ?? cachedTeam.leagueLevel,
+    genderId: details?.genderId ?? cachedTeam.genderId,
+    countryId: details?.countryId ?? cachedTeam.countryId,
+    countryName: details?.countryName ?? cachedTeam.countryName,
+    logoUrl: details?.logoUrl ?? cachedTeam.logoUrl,
+  };
+  const eligibility = validateTeamEligibility(team, {
+    category: tournament.league_category === 'hfi' ? 'hfi' : 'male',
+    countryLimit: normalizeLeagueLimit(tournament.country_limit, tournament.country_limit_format ?? 'league_id'),
+  });
+  if (!eligibility.eligible) return res.status(400).json({ error: eligibility.reason || 'This team is not eligible.' });
+
+  const teamRowId = await registerReserveTeam(supabase, {
+    tournamentId,
+    team,
+    managerName: credentials.manager_name,
+    hattrickUserId: session.userId,
+    accessToken: credentials.oauth_token,
+    accessTokenSecret: credentials.oauth_token_secret,
+    logoUrl: details?.logoUrl ?? cachedTeam.logoUrl,
+    countryId: team.countryId,
+    countryName: team.countryName,
+  });
+  return res.status(200).json({ ok: true, teamId: teamRowId });
 }
 
 function isSecureRequest(request: VercelRequest) {
@@ -1732,6 +1910,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         return await handleDeleteNewsPost(req, res);
       case 'global-chat':
         return await handleGlobalChat(req, res);
+      case 'reserve-teams':
+        return await handleReserveTeams(req, res);
       case 'activity':
       default:
         return await handleActivity(req, res);

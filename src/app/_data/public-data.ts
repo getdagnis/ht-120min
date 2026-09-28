@@ -42,6 +42,7 @@ interface HomeTeam {
   joined_via_oauth: boolean;
   created_at?: string | null;
   active?: boolean | null;
+  reserve_active?: boolean | null;
   is_placeholder?: boolean | null;
   manager_name?: string | null;
   hattrick_user_id?: number | null;
@@ -181,7 +182,7 @@ export const loadHomeInitialData = cache(async (): Promise<HomeInitialData> => {
               home_team:teams!matches_home_team_id_fkey(country_name)
             )
           ),
-          teams (id, name, ht_team_id, joined_via_oauth, created_at, active, is_placeholder, manager_name, hattrick_user_id, join_story)
+          teams (id, name, ht_team_id, joined_via_oauth, created_at, active, reserve_active, is_placeholder, manager_name, hattrick_user_id, join_story)
         `,
         )
         .eq('is_private', false),
@@ -352,7 +353,7 @@ export const loadHomeInitialData = cache(async (): Promise<HomeInitialData> => {
     const item: HomeTournament = {
       ...tournament,
       rounds: currentRounds,
-      validatedTeamCount: tournament.teams.filter((team) => team.joined_via_oauth).length,
+      validatedTeamCount: tournament.teams.filter((team) => team.active !== false && team.joined_via_oauth && !team.reserve_active && !team.is_placeholder).length,
       totalRounds: currentRounds.length,
       completedRounds: currentRounds.filter((round) => {
         const roundMatches = round.matches || [];
@@ -361,7 +362,7 @@ export const loadHomeInitialData = cache(async (): Promise<HomeInitialData> => {
       totalMatches: matches.length,
       completedMatches,
       activityScore: completedMatches,
-      teamCount: tournament.teams.length,
+      teamCount: tournament.teams.filter((team) => team.active !== false && !team.reserve_active && !team.is_placeholder).length,
       nextMatchDate: serializeDate(isGenerated && !isClosed ? getTournamentNextMatchDate(currentRounds, warnings) : null),
       plannedStartDate: serializeDate(plannedStartDate),
       startedAt: serializeDate(startedAt),
@@ -467,7 +468,8 @@ export const loadTournamentInitialData = cache(async (slug: string): Promise<Tou
             `
               *, status, ht_match_id, match_type,
               home_team:teams!matches_home_team_id_fkey(name, ht_team_id, logo_url, country_name, country_id, league_id, league_level, active, manager_name, hattrick_user_id),
-              away_team:teams!matches_away_team_id_fkey(name, ht_team_id, logo_url, country_name, country_id, league_id, league_level, active, manager_name, hattrick_user_id)
+              away_team:teams!matches_away_team_id_fkey(name, ht_team_id, logo_url, country_name, country_id, league_id, league_level, active, manager_name, hattrick_user_id),
+              reserve_team:teams!matches_reserve_team_id_fkey(name, ht_team_id, logo_url, country_name, country_id, league_id, league_level, active, reserve_active, manager_name, hattrick_user_id)
             `,
           )
           .in('round_id', roundIds)
@@ -497,7 +499,19 @@ export const loadTournamentInitialData = cache(async (slug: string): Promise<Tou
       if (!assignment || !match.completed) return enrichTeam(team);
       return { ...(enrichTeam(team) || {}), name: assignment.team_name, ht_team_id: assignment.ht_team_id, manager_name: assignment.manager_name, hattrick_user_id: assignment.hattrick_user_id, logo_url: assignment.logo_url };
     };
-    return { ...match, home_team: historicalTeam(match.home_team, match.home_slot_assignment_id), away_team: historicalTeam(match.away_team, match.away_slot_assignment_id) };
+    const homeTeam = historicalTeam(match.home_team, match.home_slot_assignment_id);
+    const awayTeam = historicalTeam(match.away_team, match.away_slot_assignment_id);
+    const reserveTeam = enrichTeam(match.reserve_team);
+    if (!reserveTeam || !match.reserve_team_id || !match.reserve_replaces_team_id) {
+      return { ...match, home_team: homeTeam, away_team: awayTeam };
+    }
+    const replacingTeam = match.reserve_replaces_team_id === match.home_team_id ? homeTeam : awayTeam;
+    const displayReserve = { ...reserveTeam, reserve_active: true, reserve_replacing_name: replacingTeam?.name };
+    return {
+      ...match,
+      home_team: match.reserve_replaces_team_id === match.home_team_id ? displayReserve : homeTeam,
+      away_team: match.reserve_replaces_team_id === match.away_team_id ? displayReserve : awayTeam,
+    };
   });
 
   const roundWithMatches = rounds.map((round) => ({
@@ -530,6 +544,7 @@ export const loadTournamentInitialData = cache(async (slug: string): Promise<Tou
       logo_url: (team.logo_url as string | null) || undefined,
       manager_name: profileMap[Number(team.hattrick_user_id || 0)] || (team.manager_name as string | null) || undefined,
       is_placeholder: Boolean(team.is_placeholder),
+      reserve_active: Boolean(team.reserve_active),
     })),
     matches.map((match) => ({
       home_team_id: (match.home_team_id as string | null) || null,

@@ -24,7 +24,7 @@ type OpenTournamentRow = {
   max_teams?: number | null;
   season: number | null;
   rounds: { id: string; season_number: number | null }[] | null;
-  teams: { id: string; joined_via_oauth: boolean }[] | null;
+  teams: { id: string; joined_via_oauth: boolean; active?: boolean | null; reserve_active?: boolean | null; is_placeholder?: boolean | null }[] | null;
 };
 
 export const sortOpenTournaments = <T extends { teamCount: number; max_teams?: number | null; is_featured?: boolean | null }>(
@@ -61,7 +61,7 @@ export const fetchOpenTournaments = async (): Promise<OpenTournamentSummary[]> =
       season,
       rounds ( id, season_number ),
       max_teams,
-      teams ( id, joined_via_oauth )
+      teams ( id, joined_via_oauth, active, reserve_active, is_placeholder )
     `,
     )
     .eq('is_private', false);
@@ -88,8 +88,8 @@ export const fetchOpenTournaments = async (): Promise<OpenTournamentSummary[]> =
       created_at: tournament.created_at,
       is_featured: tournament.is_featured ?? false,
       max_teams: tournament.max_teams ?? null,
-      teamCount: tournament.teams?.length ?? 0,
-      validatedTeamCount: tournament.teams?.filter((team) => team.joined_via_oauth).length ?? 0,
+      teamCount: tournament.teams?.filter((team) => team.active !== false && !team.reserve_active && !team.is_placeholder).length ?? 0,
+      validatedTeamCount: tournament.teams?.filter((team) => team.active !== false && !team.reserve_active && !team.is_placeholder && team.joined_via_oauth).length ?? 0,
     }));
 
   return sortOpenTournaments(open);

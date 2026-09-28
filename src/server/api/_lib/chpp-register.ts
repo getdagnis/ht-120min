@@ -95,12 +95,12 @@ export async function registerOAuthTeam(
   // 2. Check if team already exists in THIS tournament
   const { data: existingInThis } = await supabase
     .from('teams')
-    .select('id, active')
+    .select('id, active, reserve_active')
     .eq('tournament_id', input.tournamentId)
     .eq('ht_team_id', input.team.teamId)
     .maybeSingle();
 
-  if (existingInThis) {
+  if (existingInThis && existingInThis.reserve_active !== true) {
     // Reactivate the existing season participant and verify that the write
     // actually matched a row. PostgREST can otherwise report no error when
     // RLS filters an update down to zero rows.
@@ -108,6 +108,8 @@ export async function registerOAuthTeam(
       .from('teams')
       .update({
         active: true,
+        reserve_active: false,
+        reserve_joined_at: null,
         reapply_season_number: null,
         name: input.team.teamName,
         manager_name: input.managerName,
@@ -173,7 +175,7 @@ export async function registerOAuthTeam(
     // Try to find an inactive spot to fill
     const { data: allTeams } = await supabase
       .from('teams')
-      .select('id, active')
+      .select('id, active, reserve_active')
       .eq('tournament_id', input.tournamentId);
 
     // Find teams that are inactive and NOT already replaced by someone else
@@ -184,7 +186,9 @@ export async function registerOAuthTeam(
       .not('replacement_for_team_id', 'is', null);
 
     const replacedIds = new Set(replacements?.map((r) => r.replacement_for_team_id));
-    const openInactiveTeam = allTeams?.find((t) => !t.active && !replacedIds.has(t.id));
+    const openInactiveTeam = allTeams?.find(
+      (t) => t.id !== existingInThis?.id && !t.active && t.reserve_active !== true && !replacedIds.has(t.id),
+    );
 
     if (openInactiveTeam) {
       replacementForId = openInactiveTeam.id;
@@ -192,31 +196,43 @@ export async function registerOAuthTeam(
   }
 
   // 5. Register the team
-  const { data: newTeam, error } = await supabase
-    .from('teams')
-    .insert({
-      tournament_id: input.tournamentId,
-      ht_team_id: input.team.teamId,
-      name: input.team.teamName,
-      ht_team_name: input.team.teamName,
-      manager_name: input.managerName,
-      hattrick_user_id: input.hattrickUserId,
-      country_id: input.countryId ?? null,
-      country_name: input.countryName ?? null,
-      league_id: input.team.leagueId ?? null,
-      gender_id: input.team.genderId ?? null,
-      league_level: input.team.leagueLevel ?? null,
-      logo_url: input.logoUrl ?? null,
-      oauth_token: input.accessToken,
-      oauth_token_secret: input.accessTokenSecret,
-      joined_via_oauth: true,
-      active: true,
-      reapply_season_number: null,
-      replacement_for_team_id: replacementForId,
-      join_story: input.joinStory ?? null,
-    })
-    .select()
-    .single();
+  const registrationValues = {
+    name: input.team.teamName,
+    ht_team_name: input.team.teamName,
+    manager_name: input.managerName,
+    hattrick_user_id: input.hattrickUserId,
+    country_id: input.countryId ?? null,
+    country_name: input.countryName ?? null,
+    league_id: input.team.leagueId ?? null,
+    gender_id: input.team.genderId ?? null,
+    league_level: input.team.leagueLevel ?? null,
+    logo_url: input.logoUrl ?? null,
+    oauth_token: input.accessToken,
+    oauth_token_secret: input.accessTokenSecret,
+    joined_via_oauth: true,
+    active: true,
+    reserve_active: false,
+    reserve_joined_at: null,
+    reapply_season_number: null,
+    replacement_for_team_id: replacementForId,
+    join_story: input.joinStory ?? null,
+  };
+  const { data: newTeam, error } = existingInThis
+    ? await supabase
+        .from('teams')
+        .update(registrationValues)
+        .eq('id', existingInThis.id)
+        .select()
+        .single()
+    : await supabase
+        .from('teams')
+        .insert({
+          tournament_id: input.tournamentId,
+          ht_team_id: input.team.teamId,
+          ...registrationValues,
+        })
+        .select()
+        .single();
 
   if (error) throw new Error(error.message);
 
@@ -259,4 +275,100 @@ export async function registerOAuthTeam(
   }
 
   return newTeam?.id;
+}
+
+/**
+ * Register an emergency replacement candidate without touching the normal
+ * participant roster, season slots, replacement links, or fixture rows.
+ */
+export async function registerReserveTeam(
+  supabase: SupabaseClient,
+  input: {
+    tournamentId: string;
+    team: ChppTeamOption;
+    managerName: string;
+    hattrickUserId: number;
+    accessToken: string;
+    accessTokenSecret: string;
+    logoUrl?: string;
+    countryId?: number | null;
+    countryName?: string | null;
+  },
+) {
+  const conflict = (await getActiveTournamentConflicts(supabase, [input.team.teamId], input.tournamentId)).get(
+    input.team.teamId,
+  );
+  if (conflict) {
+    throw new Error(
+      `Team ${input.team.teamName} (${input.team.teamId}) is already active in another tournament: "${conflict.name}". It must leave that tournament first.`,
+    );
+  }
+
+  const { data: existing, error: existingError } = await supabase
+    .from('teams')
+    .select('id, active, reserve_active')
+    .eq('tournament_id', input.tournamentId)
+    .eq('ht_team_id', input.team.teamId)
+    .maybeSingle();
+  if (existingError) throw new Error(existingError.message);
+  if (existing?.active) throw new Error('This team is already a tournament participant.');
+  if (existing && existing.reserve_active !== true) {
+    const [{ data: openMatch, error: matchError }, { data: currentSlot, error: slotError }] = await Promise.all([
+      supabase
+        .from('matches')
+        .select('id')
+        .or(`home_team_id.eq.${existing.id},away_team_id.eq.${existing.id}`)
+        .eq('completed', false)
+        .limit(1)
+        .maybeSingle(),
+      supabase
+        .from('tournament_season_slots')
+        .select('id')
+        .eq('current_team_id', existing.id)
+        .limit(1)
+        .maybeSingle(),
+    ]);
+    if (matchError) throw new Error(matchError.message);
+    if (slotError && slotError.code !== '42P01' && slotError.code !== 'PGRST205') {
+      throw new Error(slotError.message);
+    }
+    if (openMatch || currentSlot) {
+      throw new Error('This inactive tournament row is still tied to a tournament slot. It cannot join the reserve list.');
+    }
+  }
+
+  const values = {
+    name: input.team.teamName,
+    ht_team_name: input.team.teamName,
+    manager_name: input.managerName,
+    hattrick_user_id: input.hattrickUserId,
+    country_id: input.countryId ?? null,
+    country_name: input.countryName ?? null,
+    league_id: input.team.leagueId ?? null,
+    gender_id: input.team.genderId ?? null,
+    league_level: input.team.leagueLevel ?? null,
+    logo_url: input.logoUrl ?? null,
+    oauth_token: input.accessToken,
+    oauth_token_secret: input.accessTokenSecret,
+    joined_via_oauth: true,
+    active: false,
+    reapply_season_number: null,
+    reserve_active: true,
+    reserve_joined_at: new Date().toISOString(),
+  };
+
+  const query = existing
+    ? supabase.from('teams').update(values).eq('id', existing.id).select('id, active, reserve_active').maybeSingle()
+    : supabase
+        .from('teams')
+        .insert({ tournament_id: input.tournamentId, ht_team_id: input.team.teamId, ...values })
+        .select('id, active, reserve_active')
+        .single();
+  const { data: reserveTeam, error } = await query;
+  if (error) throw new Error(error.message);
+  if (!reserveTeam || reserveTeam.active !== false || reserveTeam.reserve_active !== true) {
+    throw new Error(`Could not add ${input.team.teamName} to the reserve list.`);
+  }
+
+  return reserveTeam.id as string;
 }

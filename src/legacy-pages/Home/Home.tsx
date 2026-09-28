@@ -85,6 +85,9 @@ interface DBTournament {
     name: string;
     ht_team_id: number;
     joined_via_oauth: boolean;
+    active?: boolean | null;
+    reserve_active?: boolean | null;
+    is_placeholder?: boolean | null;
   }[];
 }
 
@@ -458,7 +461,10 @@ export const Home: React.FC<{ initialData?: HomeInitialData }> = ({ initialData 
             id,
             name,
             ht_team_id,
-            joined_via_oauth
+            joined_via_oauth,
+            active,
+            reserve_active,
+            is_placeholder
           )
         `,
         )
@@ -485,7 +491,8 @@ export const Home: React.FC<{ initialData?: HomeInitialData }> = ({ initialData 
           .forEach((t: DBTournament) => {
             const currentRounds = (t.rounds ?? []).filter((round) => (round.season_number ?? t.season) === t.season);
             // Count validated teams
-            const validatedTeamCount = t.teams.filter((team) => team.joined_via_oauth).length;
+            const participantTeams = t.teams.filter((team) => team.active !== false && !team.reserve_active && !team.is_placeholder);
+            const validatedTeamCount = participantTeams.filter((team) => team.joined_via_oauth).length;
 
             const totalRounds = currentRounds.length;
             const completedRounds =
@@ -539,7 +546,7 @@ export const Home: React.FC<{ initialData?: HomeInitialData }> = ({ initialData 
               totalMatches,
               completedMatches,
               activityScore: completedMatches,
-              teamCount: t.teams.length,
+              teamCount: participantTeams.length,
               nextMatchDate,
               plannedStartDate,
               startedAt,
@@ -723,12 +730,16 @@ export const Home: React.FC<{ initialData?: HomeInitialData }> = ({ initialData 
             </span>
           </div>
           <div className={styles.tTeams}>
-            {t.teams.slice(0, 8).map((team) => (
+            {t.teams.filter((team) => team.active !== false && !team.reserve_active && !team.is_placeholder).slice(0, 8).map((team) => (
               <span key={team.id} className={styles.teamChip}>
                 {team.name}
               </span>
             ))}
-            {t.teams.length > 6 && <span className={styles.teamChipMore}>+{t.teams.length - 6} more</span>}
+            {t.teams.filter((team) => team.active !== false && !team.reserve_active && !team.is_placeholder).length > 6 && (
+              <span className={styles.teamChipMore}>
+                +{t.teams.filter((team) => team.active !== false && !team.reserve_active && !team.is_placeholder).length - 6} more
+              </span>
+            )}
           </div>
         </div>
       </TournamentCard>

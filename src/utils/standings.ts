@@ -60,6 +60,7 @@ export interface Team {
   logo_url?: string | null;
   manager_name?: string | null;
   is_placeholder?: boolean;
+  reserve_active?: boolean;
 }
 
 export interface TeamStanding {
@@ -110,7 +111,7 @@ export function calculateStandings(
   );
 
   // Initialize teams
-  teams.forEach((team) => {
+  teams.filter((team) => !team.reserve_active).forEach((team) => {
     standingsMap[team.id] = {
       teamId: team.id,
       teamName: team.active ? team.name : 'Open spot',
@@ -244,7 +245,10 @@ export function calculateStandings(
 
   // Keep inactive teams that participated this season so their stats remain visible.
   const standings = Object.values(standingsMap).filter(
-    (standing) => teams.find((team) => team.id === standing.teamId)?.active || participatingTeamIds.has(standing.teamId),
+    (standing) => {
+      const team = teams.find((candidate) => candidate.id === standing.teamId);
+      return Boolean(team && !team.reserve_active && (team.active || participatingTeamIds.has(standing.teamId)));
+    },
   );
 
   // Sorting logic based on mode

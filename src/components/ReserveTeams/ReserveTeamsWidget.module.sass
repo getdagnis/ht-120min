@@ -1,0 +1,104 @@
+.widget
+  margin-top: 1rem
+  padding: 0.25rem 0
+  color: var(--text)
+
+  h2
+    display: flex
+    align-items: center
+    gap: 0.45rem
+    margin: 0 0 0.45rem
+    color: var(--text-h)
+    font-family: var(--heading)
+    font-size: 1.1rem
+
+.intro
+  margin: 0 0 0.75rem
+  color: var(--text60)
+  font-size: 0.82rem
+  line-height: 1.35
+
+.list
+  border-top: 1px solid var(--border-transp)
+
+.team
+  display: flex
+  align-items: center
+  gap: 0.55rem
+  padding: 0.55rem 0
+  border-bottom: 1px solid var(--border-transp)
+
+  img
+    width: 2rem
+    height: 2rem
+    object-fit: contain
+
+  div
+    min-width: 0
+
+  a
+    display: block
+    color: var(--text-h)
+    font-weight: 600
+    text-decoration: none
+
+    &:hover
+      text-decoration: underline
+
+  span
+    display: block
+    color: var(--text60)
+    font-size: 0.78rem
+
+    a
+      display: inline
+      color: inherit
+      font-weight: 400
+
+.empty,
+.error
+  margin: 0.55rem 0
+  color: var(--text60)
+  font-size: 0.8rem
+
+.error
+  color: var(--warning)
+
+.actions
+  display: flex
+  flex-wrap: wrap
+  gap: 0.45rem
+  margin-top: 0.7rem
+
+  button,
+  select
+    min-height: 2rem
+    border: 1px solid var(--border)
+    border-radius: 0.25rem
+    padding: 0.25rem 0.55rem
+    background: transparent
+    color: var(--text)
+    font: inherit
+    font-size: 0.78rem
+
+  button
+    cursor: pointer
+
+    &:hover
+      border-color: var(--accent)
+      color: var(--accent)
+
+.joinAction
+  display: flex
+  flex-wrap: wrap
+  gap: 0.45rem
+
+.login
+  margin-top: 0.7rem
+  border: 0
+  padding: 0
+  background: transparent
+  color: var(--accent)
+  font: inherit
+  font-size: 0.8rem
+  cursor: pointer
