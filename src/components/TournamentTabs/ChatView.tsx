@@ -12,6 +12,10 @@ import {
   TOURNAMENT_EMOJI_OPTIONS,
   type TournamentEmojiContext,
 } from '../../utils/tournament-emoji-options';
+import {
+  DEFAULT_TOURNAMENT_CHAT_WELCOME,
+  withChatWelcome,
+} from '../../utils/chat-welcome';
 
 export interface ChatMessage {
   id: string;
@@ -38,6 +42,7 @@ interface ChatViewProps {
   showGuestTeam?: boolean;
   markUnknownAuthorsExternal?: boolean;
   maxMessageLength?: number;
+  welcomeMessage?: string;
 }
 
 export interface AuthorTooltipProps {
@@ -129,6 +134,7 @@ export const ChatView: React.FC<ChatViewProps> = ({
   showGuestTeam = true,
   markUnknownAuthorsExternal = true,
   maxMessageLength,
+  welcomeMessage = DEFAULT_TOURNAMENT_CHAT_WELCOME,
 }) => {
   const [newChatContent, setNewChatContent] = useState('');
   const pathname = usePathname() || '/';
@@ -139,6 +145,7 @@ export const ChatView: React.FC<ChatViewProps> = ({
   const [visibleMessageCount, setVisibleMessageCount] = useState(20);
   const nowMs = useClientNow(30_000);
   const emojiOptions = buildTournamentEmojiOptions(TOURNAMENT_EMOJI_OPTIONS, tournamentEmojiContext);
+  const displayMessages = withChatWelcome(messages, welcomeMessage);
 
   useEffect(() => {
     if (chatContainerRef.current) {
@@ -188,12 +195,12 @@ export const ChatView: React.FC<ChatViewProps> = ({
     <>
       <div className={styles.chatSection}>
         <div className={styles.chatMessages} ref={chatContainerRef}>
-          {messages.length > visibleMessageCount && (
+          {displayMessages.length > visibleMessageCount && (
             <button className={styles.loadMoreBtn} onClick={() => setVisibleMessageCount((prev) => prev + 20)}>
               Load More
             </button>
           )}
-          {messages.slice(-visibleMessageCount).map((msg) => {
+          {displayMessages.slice(-visibleMessageCount).map((msg) => {
             const isOwnMessage = msg.author_ht_id === myHtUserId;
             const isLeagueManager = leagueManagerIds.includes(msg.author_ht_id);
             const isSystem = msg.author_ht_id === 0;

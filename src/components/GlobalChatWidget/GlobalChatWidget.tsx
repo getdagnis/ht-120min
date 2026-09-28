@@ -7,6 +7,7 @@ import { GLOBAL_CHAT_MAX_LENGTH } from '../../utils/global-chat';
 import { NoticeDialog } from '../Modal/NoticeDialog';
 import { useNoticeDialog } from '../Modal/useNoticeDialog';
 import { ChatView, type ChatMessage } from '../TournamentTabs/ChatView';
+import { DEFAULT_GLOBAL_CHAT_WELCOME } from '../../utils/chat-welcome';
 import styles from './GlobalChatWidget.module.sass';
 
 interface GlobalChatWidgetProps {
@@ -115,6 +116,7 @@ export const GlobalChatWidget: React.FC<GlobalChatWidgetProps> = ({ myHtUserId }
           showGuestTeam={false}
           markUnknownAuthorsExternal={false}
           maxMessageLength={GLOBAL_CHAT_MAX_LENGTH}
+          welcomeMessage={DEFAULT_GLOBAL_CHAT_WELCOME}
         />
       </section>
       <NoticeDialog message={notice} onClose={closeNotice} />
