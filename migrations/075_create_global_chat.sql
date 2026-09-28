@@ -38,3 +38,5 @@ BEGIN
     ALTER PUBLICATION supabase_realtime ADD TABLE public.global_chat;
   END IF;
 END $$;
+
+-- applied!

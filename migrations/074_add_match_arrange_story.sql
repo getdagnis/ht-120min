@@ -4,4 +4,4 @@ ALTER TABLE public.matches
 COMMENT ON COLUMN public.matches.next_match_arrange_story IS
   'Snapshot of the editorial arranged-fixture activity story and its transition timestamp.';
 
--- MIGRATION APPLIED!
+-- migration applied by user!
