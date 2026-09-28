@@ -1,9 +1,9 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
-import { getSupabase } from '../_lib/supabase.js';
+import { getServiceSupabase, getSupabase } from '../_lib/supabase.js';
 import { getAuthHeader } from '../_lib/chpp-auth.js';
 import { readChppTag } from '../_lib/chpp-xml.js';
 import { fetchArenaDetailsFromChpp, fetchTeamDetailsFromChpp } from '../_lib/matchmaker.js';
-import { buildArrangedFixtureStory, type FixtureStoryTeam } from '../../../utils/fixture-story.js';
+import { buildArrangedFixtureStory, buildReserveFixtureStory, type FixtureStoryTeam } from '../../../utils/fixture-story.js';
 import {
   getFootballScore,
   getPenaltyShootoutScore,
@@ -21,7 +21,11 @@ import {
 import { isFriendlyInsideAcceptedWindow } from '../_lib/match-window.js';
 import type { MatchEventDetails } from '../../../../shared/match-events.js';
 import { parseChppStockholmDate, serializeStoredStockholmDate } from '../../../../shared/chpp-dates.js';
-import type { TournamentMatchArrangeStorySnapshot } from '../../../types/tournament-activity.js';
+import type {
+  TournamentMatchArrangeStorySnapshot,
+  TournamentReserveStorySnapshot,
+} from '../../../types/tournament-activity.js';
+import { findReserveFixtureMatch, isReserveUseAllowed } from './reserve-matching.js';
 import {
   buildArchiveDateChunks,
   mergeChppMatchesById,
@@ -155,6 +159,23 @@ function calculateMatchDate(tournamentCreatedAt: string, roundNumber: number, co
 
 function getMatchTargetDate(match: { scheduled_for?: string | null }, round: { created_at: string; round_number: number }, countryName?: string) {
   return match.scheduled_for ? new Date(match.scheduled_for) : calculateMatchDate(round.created_at, round.round_number, countryName);
+}
+
+export function selectUpcomingRefreshRound<
+  Round extends {
+    id: string;
+    round_number: number;
+    created_at: string;
+    matches: Array<{ completed: boolean | null; status: string | null; scheduled_for?: string | null }>;
+  },
+>(rounds: Round[], now = new Date(), countryName?: string) {
+  return rounds.find((round) =>
+    round.matches.some((match) => {
+      if (match.completed) return false;
+      if (match.status !== 'misarranged') return true;
+      return getMatchTargetDate(match, round, countryName).getTime() > now.getTime();
+    }),
+  );
 }
 
 export type FixtureWarningRecord = { round_id: string; team_id: string };
@@ -405,6 +426,9 @@ interface TeamWithAuth {
   ht_team_id: number;
   oauth_token: string | null;
   oauth_token_secret: string | null;
+  active?: boolean | null;
+  reserve_active?: boolean | null;
+  reserve_joined_at?: string | null;
   country_name?: string;
   country_id?: number | null;
 }
@@ -417,6 +441,9 @@ interface ManualLinkMatchRow {
   appg_outcome_source: string | null;
   home_team: { ht_team_id: number | null; name: string | null } | null;
   away_team: { ht_team_id: number | null; name: string | null } | null;
+  reserve_team_id?: string | null;
+  reserve_replaces_team_id?: string | null;
+  reserve_team?: { ht_team_id: number | null } | null;
 }
 
 interface ChppMatchDetails {
@@ -529,13 +556,18 @@ async function fetchMatchDetailsById(
 function mapHattrickMatchToFixture(match: ManualLinkMatchRow, details: ChppMatchDetails) {
   const scheduledHomeHtId = match.home_team?.ht_team_id ?? null;
   const scheduledAwayHtId = match.away_team?.ht_team_id ?? null;
+  const reserveHtId = match.reserve_team?.ht_team_id ?? null;
+  const homeAliases = match.reserve_replaces_team_id === match.home_team_id && reserveHtId ? [reserveHtId] : [];
+  const awayAliases = match.reserve_replaces_team_id === match.away_team_id && reserveHtId ? [reserveHtId] : [];
   const actualHomeHtId = details.actualHtHomeTeamId;
   const actualAwayHtId = details.actualHtAwayTeamId;
 
-  const homeSideMatchesActualHome = scheduledHomeHtId !== null && scheduledHomeHtId === actualHomeHtId;
-  const homeSideMatchesActualAway = scheduledHomeHtId !== null && scheduledHomeHtId === actualAwayHtId;
-  const awaySideMatchesActualHome = scheduledAwayHtId !== null && scheduledAwayHtId === actualHomeHtId;
-  const awaySideMatchesActualAway = scheduledAwayHtId !== null && scheduledAwayHtId === actualAwayHtId;
+  const homeIds = new Set([scheduledHomeHtId, ...homeAliases].filter((id): id is number => id !== null));
+  const awayIds = new Set([scheduledAwayHtId, ...awayAliases].filter((id): id is number => id !== null));
+  const homeSideMatchesActualHome = actualHomeHtId !== null && homeIds.has(actualHomeHtId);
+  const homeSideMatchesActualAway = actualAwayHtId !== null && homeIds.has(actualAwayHtId);
+  const awaySideMatchesActualHome = actualHomeHtId !== null && awayIds.has(actualHomeHtId);
+  const awaySideMatchesActualAway = actualAwayHtId !== null && awayIds.has(actualAwayHtId);
   const matchedSides = [
     homeSideMatchesActualHome || homeSideMatchesActualAway ? 'home' : null,
     awaySideMatchesActualHome || awaySideMatchesActualAway ? 'away' : null,
@@ -576,7 +608,7 @@ function mapHattrickMatchToFixture(match: ManualLinkMatchRow, details: ChppMatch
     matchedBothTournamentTeams:
       Boolean(scheduledHomeHtId && (homeSideMatchesActualHome || homeSideMatchesActualAway)) &&
       Boolean(scheduledAwayHtId && (awaySideMatchesActualHome || awaySideMatchesActualAway)),
-    eventDetails: mapMatchEventDetailsToFixture(details.eventDetails, scheduledHomeHtId, scheduledAwayHtId),
+    eventDetails: mapMatchEventDetailsToFixture(details.eventDetails, scheduledHomeHtId, scheduledAwayHtId, homeAliases, awayAliases),
   };
 }
 
@@ -609,7 +641,9 @@ async function handleManualMatchLink(req: VercelRequest, res: VercelResponse) {
       appg_outcome_source,
       ht_match_id,
       home_team:teams!matches_home_team_id_fkey(ht_team_id, name),
-      away_team:teams!matches_away_team_id_fkey(ht_team_id, name)
+      away_team:teams!matches_away_team_id_fkey(ht_team_id, name),
+      reserve_replaces_team_id,
+      reserve_team:teams!matches_reserve_team_id_fkey(ht_team_id)
     `,
     )
     .eq('id', matchId)
@@ -1074,7 +1108,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   const contextOnly = String(req.query.context_only || req.query.contextOnly || '') === '1';
 
   try {
-    const supabase = getSupabase();
+    const supabase = getServiceSupabase();
     const { data: tournament } = await supabase.from('tournaments').select('*').eq('id', tournament_id).single();
     const { data: rounds } = await supabase
       .from('rounds')
@@ -1118,25 +1152,22 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       });
     }
 
-    // Identify the closest upcoming round (the first round that has non-resolved matches).
+    // Identify the closest actionable round. A past misarranged fixture no longer
+    // needs reserve recovery and must not keep an older round selected.
     const now = new Date();
-    const upcomingRound = rounds.find((r) => {
-      return r.matches.some((m: { completed: boolean; status: string }) => {
-        if (m.completed) return false;
-        if (m.status === 'misarranged') {
-          // If misarranged but the match time has already passed, consider it "resolved" for refresh purposes.
-          const matchDate = getMatchTargetDate(m as { scheduled_for?: string | null }, r, teams[0].country_name);
-          if (now > matchDate) return false;
-        }
-        return true;
-      });
-    });
+    const upcomingRound = selectUpcomingRefreshRound(rounds, now, teams[0]?.country_name);
     if (!upcomingRound) return res.status(200).json({ status: 'No upcoming rounds to refresh' });
 
-    const teamCache: Record<string, { homeId: number; awayId: number; date: Date; matchId: number; matchType: number }[]> = {};
+    const teamCache: Record<
+      string,
+      { homeId: number; awayId: number; date: Date; matchId: number; matchType: number }[] | null
+    > = {};
     const getFriendlies = async (team: TeamWithAuth) => {
-      if (teamCache[team.id]) return teamCache[team.id];
-      if (!team.oauth_token) return [];
+      if (Object.prototype.hasOwnProperty.call(teamCache, team.id)) return teamCache[team.id];
+      if (!team.oauth_token) {
+        teamCache[team.id] = null;
+        return null;
+      }
       try {
         const secret = team.oauth_token_secret || '';
         const data = await fetchTeamFriendlies(team.ht_team_id.toString(), team.oauth_token, secret, {
@@ -1147,7 +1178,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         return data.matches;
       } catch (e) {
         console.error(`Error fetching friendlies for team ${team.id}:`, e);
-        return [];
+        teamCache[team.id] = null;
+        return null;
       }
     };
 
@@ -1230,10 +1262,42 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       };
     };
 
+    const buildReserveStorySnapshot = (
+      match: { reserve_story?: TournamentReserveStorySnapshot | null },
+      round: { round_number: number },
+      reserveMatch: {
+        reserve: TeamWithAuth;
+        replaces: 'home' | 'away';
+      },
+      homeTeam: TeamWithAuth,
+      awayTeam: TeamWithAuth,
+      eventAt: string | null,
+    ): TournamentReserveStorySnapshot | null => {
+      if (match.reserve_story) return null;
+      const replacedTeam = reserveMatch.replaces === 'home' ? homeTeam : awayTeam;
+      const opponentTeam = reserveMatch.replaces === 'home' ? awayTeam : homeTeam;
+      const toStoryTeam = (team: TeamWithAuth): FixtureStoryTeam => ({
+        name: team.name,
+        htTeamId: team.ht_team_id,
+        countryName: team.country_name,
+        countryId: team.country_id,
+      });
+      return {
+        eventAt,
+        story: buildReserveFixtureStory({
+          roundNumber: round.round_number,
+          reserveTeam: toStoryTeam(reserveMatch.reserve),
+          replacedTeam: toStoryTeam(replacedTeam),
+          opponentTeam: toStoryTeam(opponentTeam),
+        }),
+      };
+    };
+
     // Active-round warnings are intentionally sticky. The first refresh that
     // detects a conflict decides who is warned; later CHPP state must not add
     // a warning to the opponent who had to arrange elsewhere afterward.
-    const warningPlan = planFixtureWarningRefresh(existingWarnings, upcomingRound.id, []);
+    const activeExistingWarnings = (existingWarnings || []).filter((warning) => warning.active !== false);
+    const warningPlan = planFixtureWarningRefresh(activeExistingWarnings, upcomingRound.id, []);
     const existingWarningsOutsideRefresh = warningPlan.historicalWarnings;
     const currentRoundWarnings = warningPlan.currentRoundWarnings;
     const getWarningHistory = (teamId: string) => [
@@ -1271,15 +1335,27 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       ) || null;
     };
 
+    const reserveTeams = teams.filter(
+      (team) => team.active === false && team.reserve_active === true && team.ht_team_id > 0,
+    );
+
     for (const match of upcomingRound.matches) {
       if (match.completed) continue;
       const currentStatus = match.status ?? 'not_arranged';
-      // A misarranged fixture has already been adjudicated by a prior refresh.
-      // Do not re-open that decision from later CHPP changes.
-      if (!['not_arranged', 'arranged'].includes(currentStatus)) continue;
+      if (!['not_arranged', 'arranged', 'misarranged'].includes(currentStatus)) continue;
 
       // Already-arranged matches only need a pass when their activity snapshot is missing.
-      if (currentStatus === 'arranged' && match.ht_match_id && match.match_type && match.next_match_arrange_story) continue;
+      if (
+        currentStatus === 'arranged' &&
+        match.ht_match_id &&
+        match.match_type &&
+        (match.next_match_arrange_story || match.reserve_story || match.reserve_team_id) &&
+        !currentRoundWarnings.some(
+            (warning) =>
+              warning.round_id === upcomingRound.id &&
+              (warning.team_id === match.home_team_id || warning.team_id === match.away_team_id),
+        )
+      ) continue;
 
       const homeTeam = teams.find((t) => t.id === match.home_team_id);
       const awayTeam = teams.find((t) => t.id === match.away_team_id);
@@ -1288,6 +1364,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       const targetDate = getMatchTargetDate(match, upcomingRound, homeTeam.country_name);
       const homeFriendlies = await getFriendlies(homeTeam);
       const awayFriendlies = await getFriendlies(awayTeam);
+      if (!homeFriendlies || !awayFriendlies) continue;
 
       const isCorrectMatch = (f: { homeId: number; awayId: number }) =>
         (f.homeId === homeTeam.ht_team_id && f.awayId === awayTeam.ht_team_id) ||
@@ -1296,6 +1373,20 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       const withinWindow = (f: { date: Date }) =>
         isFriendlyInsideAcceptedWindow(f.date, targetDate, match.schedule_slot_type);
       const confirmedMatch = findConfirmedMatch(match, upcomingRound, homeTeam, awayTeam, homeFriendlies, awayFriendlies);
+      const reserveAllowed = isReserveUseAllowed({ status: currentStatus, targetDate, now });
+      const reserveResolution = confirmedMatch
+        ? null
+        : findReserveFixtureMatch({
+            homeHtTeamId: homeTeam.ht_team_id,
+            awayHtTeamId: awayTeam.ht_team_id,
+            homeFriendlies,
+            awayFriendlies,
+            reserveTeams,
+            targetDate,
+            isInsideWindow: (friendlyDate, expectedTargetDate) =>
+              isFriendlyInsideAcceptedWindow(friendlyDate, expectedTargetDate, match.schedule_slot_type),
+            reserveAllowed,
+          });
       const homeOffending = homeFriendlies.some((fixture) => withinWindow(fixture) && !isCorrectMatch(fixture));
       const awayOffending = awayFriendlies.some((fixture) => withinWindow(fixture) && !isCorrectMatch(fixture));
 
@@ -1305,6 +1396,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       let venueMismatch = false;
       let actualHtHomeTeamId: number | null = null;
       let actualHtAwayTeamId: number | null = null;
+      let reserveTeamId: string | null = null;
+      let reserveReplacesTeamId: string | null = null;
 
       if (confirmedMatch) {
         status = 'arranged';
@@ -1314,8 +1407,17 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         actualHtAwayTeamId = confirmedMatch.awayId;
         venueMismatch = confirmedMatch.homeId === awayTeam.ht_team_id && confirmedMatch.awayId === homeTeam.ht_team_id;
         linkedMatchIds.push(confirmedMatch.matchId);
+      } else if (reserveResolution?.kind === 'reserve') {
+        status = 'arranged';
+        htMatchId = reserveResolution.fixture.matchId;
+        matchType = reserveResolution.fixture.matchType;
+        actualHtHomeTeamId = reserveResolution.fixture.homeId;
+        actualHtAwayTeamId = reserveResolution.fixture.awayId;
+        reserveTeamId = reserveResolution.reserve.id;
+        reserveReplacesTeamId = reserveResolution.replaces === 'home' ? homeTeam.id : awayTeam.id;
+        linkedMatchIds.push(reserveResolution.fixture.matchId);
       } else {
-        if (homeOffending || awayOffending) {
+        if (reserveResolution?.kind === 'both-reserves' || homeOffending || awayOffending) {
           status = 'misarranged';
         }
       }
@@ -1327,11 +1429,22 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
               upcomingRound,
               confirmedMatch,
               currentStatus === 'arranged' ? null : new Date().toISOString(),
+          )
+          : null;
+      const reserveStory =
+        status === 'arranged' && reserveResolution?.kind === 'reserve'
+          ? buildReserveStorySnapshot(
+              match,
+              upcomingRound,
+              reserveResolution,
+              homeTeam,
+              awayTeam,
+              currentStatus === 'arranged' ? null : new Date().toISOString(),
             )
           : null;
 
       // Update match status and HT Match ID
-      await supabase
+      const { error: matchUpdateError } = await supabase
         .from('matches')
         .update({
           status,
@@ -1340,9 +1453,24 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
           venue_mismatch: venueMismatch,
           actual_ht_home_team_id: actualHtHomeTeamId,
           actual_ht_away_team_id: actualHtAwayTeamId,
+          reserve_team_id: reserveTeamId,
+          reserve_replaces_team_id: reserveReplacesTeamId,
           ...(arrangeStory ? { next_match_arrange_story: arrangeStory } : {}),
+          ...(reserveStory ? { reserve_story: reserveStory } : {}),
         })
         .eq('id', match.id);
+      if (matchUpdateError) throw matchUpdateError;
+
+      if (reserveResolution?.kind === 'reserve') {
+        const { error: warningError } = await supabase
+          .from('fixture_warnings')
+          .update({ active: false })
+          .eq('tournament_id', tournament_id)
+          .eq('round_id', upcomingRound.id)
+          .in('team_id', [homeTeam.id, awayTeam.id])
+          .eq('active', true);
+        if (warningError) throw warningError;
+      }
 
       // Warning Logic Helper
       const recordWarning = async (teamId: string) => {
@@ -1372,19 +1500,21 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         } as (typeof currentRoundWarnings)[number]);
       };
 
-      for (const teamId of getMisarrangedWarningTeamIds({
-        homeTeamId: homeTeam.id,
-        awayTeamId: awayTeam.id,
-        homeOffending,
-        awayOffending,
-        homeAlreadyWarned: currentRoundWarnings.some(
-          (warning) => warning.round_id === upcomingRound.id && warning.team_id === homeTeam.id,
-        ),
-        awayAlreadyWarned: currentRoundWarnings.some(
-          (warning) => warning.round_id === upcomingRound.id && warning.team_id === awayTeam.id,
-        ),
-      })) {
-        await recordWarning(teamId);
+      if (reserveResolution?.kind !== 'reserve') {
+        for (const teamId of getMisarrangedWarningTeamIds({
+          homeTeamId: homeTeam.id,
+          awayTeamId: awayTeam.id,
+          homeOffending,
+          awayOffending,
+          homeAlreadyWarned: currentRoundWarnings.some(
+            (warning) => warning.round_id === upcomingRound.id && warning.team_id === homeTeam.id,
+          ),
+          awayAlreadyWarned: currentRoundWarnings.some(
+            (warning) => warning.round_id === upcomingRound.id && warning.team_id === awayTeam.id,
+          ),
+        })) {
+          await recordWarning(teamId);
+        }
       }
     }
 
@@ -1393,6 +1523,29 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     // null because the old transition cannot be reconstructed safely.
     for (const round of rounds) {
       for (const match of round.matches) {
+        if (match.reserve_team_id && !match.reserve_story) {
+          const reserveTeam = teams.find((team) => team.id === match.reserve_team_id);
+          const homeTeam = teams.find((team) => team.id === match.home_team_id);
+          const awayTeam = teams.find((team) => team.id === match.away_team_id);
+          const replacedTeam = teams.find((team) => team.id === match.reserve_replaces_team_id);
+          const opponentTeam = replacedTeam?.id === homeTeam?.id ? awayTeam : homeTeam;
+          if (reserveTeam && replacedTeam && opponentTeam && homeTeam && awayTeam) {
+            const reserveStory = buildReserveStorySnapshot(
+              match,
+              round,
+              {
+                reserve: reserveTeam,
+                replaces: replacedTeam.id === homeTeam?.id ? 'home' : 'away',
+              },
+              homeTeam,
+              awayTeam,
+              null,
+            );
+            if (reserveStory) {
+              await supabase.from('matches').update({ reserve_story: reserveStory }).eq('id', match.id);
+            }
+          }
+        }
         if (match.completed === false && !['arranged', 'ongoing', 'finished'].includes(match.status || '')) continue;
         if (match.next_match_arrange_story || !match.ht_match_id) continue;
         const homeTeam = teams.find((team) => team.id === match.home_team_id);
@@ -1400,6 +1553,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         if (!homeTeam || !awayTeam) continue;
         const homeFriendlies = await getFriendlies(homeTeam);
         const awayFriendlies = await getFriendlies(awayTeam);
+        if (!homeFriendlies || !awayFriendlies) continue;
         const confirmedMatch = findConfirmedMatch(match, round, homeTeam, awayTeam, homeFriendlies, awayFriendlies);
         const arrangeStory = await buildArrangeStorySnapshot(match, round, confirmedMatch, null);
         if (!arrangeStory) continue;

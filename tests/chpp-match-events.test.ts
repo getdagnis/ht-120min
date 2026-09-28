@@ -150,6 +150,19 @@ test('maps event details to scheduled fixture sides and leaves an unmatched BYE 
   assert.equal(bye.away.cards.length, 1);
 });
 
+test('maps a reserve team back to the replaced logical fixture side', () => {
+  const xml = `
+    <HattrickData><Match>
+      <HomeTeam><HomeTeamID>100</HomeTeamID></HomeTeam>
+      <AwayTeam><AwayTeamID>300</AwayTeamID></AwayTeam>
+      <EventList>${event(510, 300, 1, 42)}</EventList>
+    </Match></HattrickData>`;
+  const parsed = parseMatchEventDetails(xml);
+  const mapped = mapMatchEventDetailsToFixture(parsed, 100, 200, [], [300]);
+  assert.equal(mapped.home.cards.length, 0);
+  assert.equal(mapped.away.cards.length, 1);
+});
+
 test('retains regular, other, and penalty-shootout scoring evidence', () => {
   const xml = matchDetailsXml({
     events: `

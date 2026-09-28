@@ -40,6 +40,10 @@ interface LiveMatchResult extends LiveMatchClock {
   match_event_details?: MatchEventDetails;
 }
 
+function firstRelation<T>(value: T | T[] | null | undefined): T | null {
+  return Array.isArray(value) ? value[0] ?? null : value ?? null;
+}
+
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   const { tournament_id, match_ids } = req.query;
   const ids = Array.isArray(match_ids) ? match_ids : (match_ids as string)?.split(',') || [];
@@ -66,8 +70,11 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       .from('matches')
       .select(`
         id, ht_match_id, status, completed, home_goals, away_goals, appg_outcome_source,
+        home_team_id, away_team_id,
         home_team:home_team_id ( ht_team_id, oauth_token, oauth_token_secret ),
-        away_team:away_team_id ( ht_team_id, oauth_token, oauth_token_secret )
+        away_team:away_team_id ( ht_team_id, oauth_token, oauth_token_secret ),
+        reserve_team_id, reserve_replaces_team_id,
+        reserve_team:teams!matches_reserve_team_id_fkey ( ht_team_id )
       `)
       .in('round_id', rounds.map((round) => round.id))
       .in('ht_match_id', ids.map((id) => parseInt(id, 10)));
@@ -87,13 +94,16 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         awayGoals: number | null;
         oauthToken: string | null;
         oauthTokenSecret: string | null;
+        reserveHtTeamId: number | null;
+        reserveReplacesSide: 'home' | 'away' | null;
       }
     >();
     if (tournamentMatches) {
       for (const m of tournamentMatches) {
         if (m.ht_match_id) {
-          const homeTeam = m.home_team as { ht_team_id: number | null; oauth_token: string | null; oauth_token_secret: string | null } | null;
-          const awayTeam = m.away_team as { ht_team_id: number | null; oauth_token: string | null; oauth_token_secret: string | null } | null;
+          const homeTeam = firstRelation(m.home_team as { ht_team_id: number | null; oauth_token: string | null; oauth_token_secret: string | null } | { ht_team_id: number | null; oauth_token: string | null; oauth_token_secret: string | null }[] | null);
+          const awayTeam = firstRelation(m.away_team as { ht_team_id: number | null; oauth_token: string | null; oauth_token_secret: string | null } | { ht_team_id: number | null; oauth_token: string | null; oauth_token_secret: string | null }[] | null);
+          const reserveTeam = firstRelation(m.reserve_team as { ht_team_id: number | null } | { ht_team_id: number | null }[] | null);
           matchFixtureMap.set(m.ht_match_id, {
             id: m.id,
             status: m.status === 'finished' || m.completed ? 'finished' : m.status === 'ongoing' ? 'ongoing' : 'arranged',
@@ -105,6 +115,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             scheduledHomeHtId: homeTeam?.ht_team_id ?? null,
             scheduledAwayHtId: awayTeam?.ht_team_id ?? null,
             appgOutcomeSource: m.appg_outcome_source ?? null,
+            reserveHtTeamId: reserveTeam?.ht_team_id ?? null,
+            reserveReplacesSide:
+              m.reserve_replaces_team_id === m.home_team_id ? 'home' : m.reserve_replaces_team_id === m.away_team_id ? 'away' : null,
           });
         }
       }
@@ -190,10 +203,12 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       if (fixture && actualHtHomeTeamId !== null && actualHtAwayTeamId !== null) {
         const actualHomeGoals = footballScore?.home ?? (finished ? finalHomeGoals : live!.homeGoals);
         const actualAwayGoals = footballScore?.away ?? (finished ? finalAwayGoals : live!.awayGoals);
-        const scheduledHomeMatchedActualHome = fixture.scheduledHomeHtId === actualHtHomeTeamId;
-        const scheduledHomeMatchedActualAway = fixture.scheduledHomeHtId === actualHtAwayTeamId;
-        const scheduledAwayMatchedActualHome = fixture.scheduledAwayHtId === actualHtHomeTeamId;
-        const scheduledAwayMatchedActualAway = fixture.scheduledAwayHtId === actualHtAwayTeamId;
+        const homeIds = new Set([fixture.scheduledHomeHtId, fixture.reserveReplacesSide === 'home' ? fixture.reserveHtTeamId : null].filter((id): id is number => id !== null));
+        const awayIds = new Set([fixture.scheduledAwayHtId, fixture.reserveReplacesSide === 'away' ? fixture.reserveHtTeamId : null].filter((id): id is number => id !== null));
+        const scheduledHomeMatchedActualHome = homeIds.has(actualHtHomeTeamId);
+        const scheduledHomeMatchedActualAway = homeIds.has(actualHtAwayTeamId);
+        const scheduledAwayMatchedActualHome = awayIds.has(actualHtHomeTeamId);
+        const scheduledAwayMatchedActualAway = awayIds.has(actualHtAwayTeamId);
 
         if (scheduledHomeMatchedActualHome) {
           homeGoals = actualHomeGoals;
@@ -222,6 +237,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             actualEventDetails,
             fixture.scheduledHomeHtId,
             fixture.scheduledAwayHtId,
+            fixture.reserveReplacesSide === 'home' && fixture.reserveHtTeamId ? [fixture.reserveHtTeamId] : [],
+            fixture.reserveReplacesSide === 'away' && fixture.reserveHtTeamId ? [fixture.reserveHtTeamId] : [],
           )
         : actualEventDetails;
       const eventSummary = summarizeMatchEventDetails(eventDetails);

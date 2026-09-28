@@ -656,15 +656,20 @@ export function mapMatchEventDetailsToFixture(
   details: MatchEventDetails,
   scheduledHomeTeamId: number | null,
   scheduledAwayTeamId: number | null,
+  scheduledHomeTeamAliases: number[] = [],
+  scheduledAwayTeamAliases: number[] = [],
 ): MatchEventDetails {
-  const actualSideFor = (teamId: number | null) => {
-    if (teamId === details.actualHomeTeamId) return details.home;
-    if (teamId === details.actualAwayTeamId) return details.away;
+  const homeIds = new Set([scheduledHomeTeamId, ...scheduledHomeTeamAliases].filter((id): id is number => id !== null));
+  const awayIds = new Set([scheduledAwayTeamId, ...scheduledAwayTeamAliases].filter((id): id is number => id !== null));
+  const actualSideFor = (teamId: number | null, sideIds: Set<number>) => {
+    if (teamId === null || sideIds.size === 0) return null;
+    if (details.actualHomeTeamId !== null && sideIds.has(details.actualHomeTeamId)) return details.home;
+    if (details.actualAwayTeamId !== null && sideIds.has(details.actualAwayTeamId)) return details.away;
     return null;
   };
 
-  const copySide = (teamId: number | null): MatchSideEventDetails => {
-    const source = actualSideFor(teamId);
+  const copySide = (teamId: number | null, sideIds: Set<number>): MatchSideEventDetails => {
+    const source = actualSideFor(teamId, sideIds);
     return source
       ? {
           teamId,
@@ -684,24 +689,24 @@ export function mapMatchEventDetailsToFixture(
     result: details.result
       ? {
           ...details.result,
-          scoreAfterRegulation: mapScoreToFixture(details.result.scoreAfterRegulation, details.actualHomeTeamId, scheduledHomeTeamId),
-          scoreAfterExtraTime: mapScoreToFixture(details.result.scoreAfterExtraTime, details.actualHomeTeamId, scheduledHomeTeamId),
+          scoreAfterRegulation: mapScoreToFixture(details.result.scoreAfterRegulation, details.actualHomeTeamId, homeIds),
+          scoreAfterExtraTime: mapScoreToFixture(details.result.scoreAfterExtraTime, details.actualHomeTeamId, homeIds),
           penaltyShootout: details.result.penaltyShootout
-            ? mapScoreToFixture(details.result.penaltyShootout, details.actualHomeTeamId, scheduledHomeTeamId)
+            ? mapScoreToFixture(details.result.penaltyShootout, details.actualHomeTeamId, homeIds)
             : null,
         }
       : undefined,
-    home: copySide(scheduledHomeTeamId),
-    away: copySide(scheduledAwayTeamId),
+    home: copySide(scheduledHomeTeamId, homeIds),
+    away: copySide(scheduledAwayTeamId, awayIds),
     // `teamId` is stable team identity; moving the event to the scheduled
     // home/away side must never rewrite it to the opponent's ID.
     notableEvents: details.notableEvents || [],
   };
 }
 
-function mapScoreToFixture(score: MatchScore, actualHomeTeamId: number | null, scheduledHomeTeamId: number | null): MatchScore {
-  if (actualHomeTeamId === null || scheduledHomeTeamId === null) return score;
-  return actualHomeTeamId === scheduledHomeTeamId
+function mapScoreToFixture(score: MatchScore, actualHomeTeamId: number | null, scheduledHomeTeamIds: Set<number>): MatchScore {
+  if (actualHomeTeamId === null || scheduledHomeTeamIds.size === 0) return score;
+  return scheduledHomeTeamIds.has(actualHomeTeamId)
     ? score
     : { home: score.away, away: score.home };
 }
