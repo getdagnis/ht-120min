@@ -110,3 +110,19 @@ test('teamdetails parser uses CountryID from worlddetails as canonical country n
   assert.equal(parseApiTeamDetailsXml(xml, 123456).countryName, 'Finland');
   assert.equal(parseClientTeamDetailsXml(xml, 123456).countryName, 'Finland');
 });
+
+test('teamdetails parsers decode XML entities in team names', () => {
+  const xml = `
+    <HattrickData>
+      <Teams>
+        <Team>
+          <TeamID>3228058</TeamID>
+          <TeamName>FC SK&amp;N Womans Team</TeamName>
+        </Team>
+      </Teams>
+    </HattrickData>
+  `;
+
+  assert.equal(parseApiTeamDetailsXml(xml, 3228058).teamName, 'FC SK&N Womans Team');
+  assert.equal(parseClientTeamDetailsXml(xml, 3228058).teamName, 'FC SK&N Womans Team');
+});

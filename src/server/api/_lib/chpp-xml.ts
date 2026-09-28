@@ -1,5 +1,6 @@
 import { getLeagueNameById } from '../../../../shared/worlddetails.js';
 import { normalizeChppCountryName } from '../../../../shared/chpp-country.js';
+import { decodeXmlEntities } from '../../../../shared/xml-entities.js';
 
 export interface ChppTeamOption {
   teamId: number;
@@ -44,7 +45,7 @@ export interface ParsedManagerCompendium {
 
 export function readChppTag(block: string, tag: string): string | undefined {
   const match = block.match(new RegExp(`<${tag}>(?:<!\\[CDATA\\[)?([\\s\\S]*?)(?:\\]\\]>)?<\\/${tag}>`, 'i'));
-  const value = match?.[1]?.trim();
+  const value = match?.[1] ? decodeXmlEntities(match[1].trim()) : undefined;
   return value || undefined;
 }
 

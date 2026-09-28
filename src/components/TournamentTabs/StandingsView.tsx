@@ -58,6 +58,7 @@ interface StandingsViewProps {
   activityFixturesHref?: string;
   activityNewsHref?: string;
   canPublishAnnouncements?: boolean;
+  mobileChat?: React.ReactNode;
   reactionAuthorNames?: Record<string, string>;
   canAddSeasonComment?: boolean;
   onCommentsLoaded?: (seasonId: string, commentCount: number) => void;
@@ -134,6 +135,7 @@ export const StandingsView: React.FC<StandingsViewProps> = ({
   activityFixturesHref,
   activityNewsHref,
   canPublishAnnouncements = false,
+  mobileChat,
   reactionAuthorNames = {},
   canAddSeasonComment = false,
   onCommentsLoaded,
@@ -852,6 +854,7 @@ export const StandingsView: React.FC<StandingsViewProps> = ({
           </div>
         )}
       </SectionCard>
+      {mobileChat}
       <StandingsRoundPreview
         rounds={rounds}
         seasonStatus={seasonStatus}

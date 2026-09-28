@@ -642,6 +642,15 @@ export const TournamentView: React.FC<{ initialData?: TournamentInitialData }> =
   const [tournament, setTournament] = useState<Tournament | null>(
     () => (initialData?.tournament as unknown as Tournament | undefined) || null,
   );
+  useEffect(() => {
+    if (!tournament?.name) return;
+
+    const previousTitle = document.title;
+    document.title = `${tournament.name} | HT-120min`;
+    return () => {
+      document.title = previousTitle;
+    };
+  }, [tournament?.name]);
   const [standings, setStandings] = useState<TeamStanding[]>(
     () => (initialData?.standings as unknown as TeamStanding[] | undefined) || [],
   );
@@ -4561,6 +4570,36 @@ export const TournamentView: React.FC<{ initialData?: TournamentInitialData }> =
   const historyTabBadgeCount =
     activeTab !== 'history' ? Math.max(latestHistoryUnreadCount, hasNewHistoryReportBadge ? 1 : 0) : 0;
 
+  const tournamentChat = (
+    <ChatView
+      messages={chatMessages}
+      onSendMessage={handlePostChat}
+      myHtUserId={myHtUserId ? Number(myHtUserId) : null}
+      leagueManagerIds={teams.filter((t) => !t.reserve_active).map((t) => t.hattrick_user_id).filter((id): id is number => !!id)}
+      teamNames={teams.filter((t) => !t.reserve_active).reduce((acc, t) => ({ ...acc, [t.hattrick_user_id || 0]: t.name }), {})}
+      teamDetails={teams.filter((t) => !t.reserve_active).reduce(
+        (acc, team) => {
+          if (team.hattrick_user_id) {
+            acc[team.hattrick_user_id] = {
+              name: team.name,
+              countryName: team.country_name,
+              countryId: team.country_id,
+            };
+          }
+          return acc;
+        },
+        {} as Record<number, { name: string; countryName?: string; countryId?: number | null }>,
+      )}
+      tournamentEmojiContext={
+        {
+          leagueCategory: tournament.league_category,
+          countryLimit: tournament.country_limit,
+          countryLimitFormat: tournament.country_limit_format,
+        } satisfies TournamentEmojiContext
+      }
+    />
+  );
+
   return (
     <div className={styles.view}>
       <div className={styles.tHeader}>
@@ -5180,6 +5219,7 @@ export const TournamentView: React.FC<{ initialData?: TournamentInitialData }> =
             activityFixturesHref={toLocalePath(locale, `/t/${tournament.slug}?tab=fixtures`)}
             activityNewsHref={toLocalePath(locale, `/t/${tournament.slug}?tab=news`)}
             canPublishAnnouncements={Boolean(roleAccess?.canPublishAnnouncements)}
+            mobileChat={isMobile ? tournamentChat : null}
             onVisitFixtures={() => handleTabChange('fixtures')}
             onCommentsLoaded={handleHistoryCommentsLoaded}
             onCommentSubmitted={handleHistoryCommentSubmitted}
@@ -5263,33 +5303,7 @@ export const TournamentView: React.FC<{ initialData?: TournamentInitialData }> =
 
             <MottoWidget items={TOURNAMENT_DEFAULT} theme="dark" variant="sidebar" />
 
-            <ChatView
-              messages={chatMessages}
-              onSendMessage={handlePostChat}
-              myHtUserId={myHtUserId ? Number(myHtUserId) : null}
-              leagueManagerIds={teams.filter((t) => !t.reserve_active).map((t) => t.hattrick_user_id).filter((id): id is number => !!id)}
-              teamNames={teams.filter((t) => !t.reserve_active).reduce((acc, t) => ({ ...acc, [t.hattrick_user_id || 0]: t.name }), {})}
-              teamDetails={teams.filter((t) => !t.reserve_active).reduce(
-                (acc, team) => {
-                  if (team.hattrick_user_id) {
-                    acc[team.hattrick_user_id] = {
-                      name: team.name,
-                      countryName: team.country_name,
-                      countryId: team.country_id,
-                    };
-                  }
-                  return acc;
-                },
-                {} as Record<number, { name: string; countryName?: string; countryId?: number | null }>,
-              )}
-              tournamentEmojiContext={
-                {
-                  leagueCategory: tournament.league_category,
-                  countryLimit: tournament.country_limit,
-                  countryLimitFormat: tournament.country_limit_format,
-                } satisfies TournamentEmojiContext
-              }
-            />
+            {!isMobile && tournamentChat}
             <ReserveTeamsWidget tournamentId={tournament.id} />
             <SidebarPollWidget
               seasonId={currentSeason?.id}

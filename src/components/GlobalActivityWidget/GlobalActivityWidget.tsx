@@ -87,10 +87,10 @@ function activityCopy(entry: HomeActivityEntry, locale: string) {
     return (
       <>
         {team || manager}
-        {entry.team_flag ? ` ${entry.team_flag}` : ''}
+        {/* {entry.team_flag ? ` ${entry.team_flag}` : ''} */}
         {team && manager ? ' led by ' : ''}
         {team ? manager : null}
-        {/*entry.manager_flag ? ` ${entry.manager_flag}` : ''*/} {team ? 'has' : 'joined'} {team ? 'joined ' : ''}
+        {entry.manager_flag ? ` ${entry.manager_flag}` : ''} {team ? 'have' : 'joined'} {team ? 'joined ' : ''}
         {tournament}
       </>
     );
