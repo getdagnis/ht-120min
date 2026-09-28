@@ -30,8 +30,8 @@ import styles from './Home.module.sass';
 import type { HomeInitialData } from '../../app/_data/public-data';
 import { useLocale } from '../../i18n/LocaleProvider';
 import { toLocalePath } from '../../next/locale-path';
-import { NewsArticle, type NewsPost, type NewsReaction } from '../../components/TournamentTabs/NewsTab';
-import type { TournamentEmojiContext } from '../../utils/tournament-emoji-options';
+import { NewsArticle, type NewsPost } from '../../components/TournamentTabs/NewsTab';
+import { buildNewsArticlePreview } from '../../utils/news-preview';
 import { useAuth } from '../../hooks/useAuth';
 import { formatTournamentName } from '../../utils/tournament-names';
 import {
@@ -242,9 +242,7 @@ export const Home: React.FC<{ initialData?: HomeInitialData }> = ({ initialData 
     () => initialData?.topActiveTournaments || [],
   );
   const [latestWeeklyPosts, setLatestWeeklyPosts] = useState<HomeWeeklyPost[]>([]);
-  const [weeklyReactions, setWeeklyReactions] = useState<Record<string, NewsReaction[]>>({});
   const { profile } = useAuth();
-  const currentReactionUserId = profile?.hattrick_user_id ? String(profile.hattrick_user_id) : null;
   const faqContent = useMemo(() => getPublishedFaqSections(), []);
 
   const showFaq = faqContent.length > 0 && SHOW_FAQ;
@@ -361,44 +359,6 @@ export const Home: React.FC<{ initialData?: HomeInitialData }> = ({ initialData 
       if (secondFrame) window.cancelAnimationFrame(secondFrame);
     };
   }, [exoticHfiTournaments.length]);
-
-  useEffect(() => {
-    const postIds = latestWeeklyPosts.map((post) => post.id);
-    if (postIds.length === 0) {
-      return;
-    }
-    let cancelled = false;
-    void supabase
-      .from('news_reactions')
-      .select('post_id, user_id, reaction')
-      .in('post_id', postIds)
-      .then(({ data, error }) => {
-        if (cancelled) return;
-        if (error) {
-          console.error('Could not load frontpage news reactions:', error.message);
-          return;
-        }
-        setWeeklyReactions(Object.groupBy((data as NewsReaction[] | null) || [], (reaction) => reaction.post_id));
-      });
-    return () => {
-      cancelled = true;
-    };
-  }, [latestWeeklyPosts]);
-
-  const handleWeeklyReaction = async (postId: string, reaction: string) => {
-    if (!currentReactionUserId) return;
-    const { error } = await supabase
-      .from('news_reactions')
-      .upsert({ post_id: postId, user_id: currentReactionUserId, reaction }, { onConflict: 'post_id,user_id' });
-    if (error) return;
-    setWeeklyReactions((current) => ({
-      ...current,
-      [postId]: [
-        ...(current[postId] || []).filter((item) => item.user_id !== currentReactionUserId),
-        { post_id: postId, user_id: currentReactionUserId, reaction },
-      ],
-    }));
-  };
 
   useEffect(() => {
     const id = setTimeout(() => {
@@ -872,6 +832,7 @@ export const Home: React.FC<{ initialData?: HomeInitialData }> = ({ initialData 
               <section className={styles.homeWeekly}>
                 <div className={styles.homeWeeklyList}>
                   {latestWeeklyPosts.map((post) => {
+                    const preview = buildNewsArticlePreview(post);
                     const normalizedPost: NewsPost = {
                       id: post.id,
                       tournament_id: post.tournament_id,
@@ -895,21 +856,15 @@ export const Home: React.FC<{ initialData?: HomeInitialData }> = ({ initialData 
                       >
                         <NewsArticle
                           post={normalizedPost}
-                          reactions={weeklyReactions[post.id] || []}
-                          currentUserId={currentReactionUserId}
-                          onReaction={handleWeeklyReaction}
+                          preview={preview}
                           tournamentImageUrl={post.tournament_image_url}
                           taglineLabel={post.tournament_display_name}
                           taglineHref={toLocalePath(locale, `/t/${post.tournament_slug}`)}
-                          visitHref={toLocalePath(locale, `/t/${post.tournament_slug}`)}
-                          visitLabel="Visit cup"
-                          tournamentEmojiContext={
-                            {
-                              leagueCategory: post.tournament_league_category,
-                              countryLimit: post.tournament_country_limit,
-                              countryLimitFormat: post.tournament_country_limit_format,
-                            } satisfies TournamentEmojiContext
-                          }
+                          visitHref={toLocalePath(
+                            locale,
+                            preview.truncated ? `/t/${post.tournament_slug}?tab=news` : `/t/${post.tournament_slug}`,
+                          )}
+                          visitLabel={preview.truncated ? 'Read full' : 'Visit cup'}
                         />
                       </SectionCard>
                     );

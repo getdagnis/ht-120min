@@ -18,6 +18,7 @@ import {
   TOURNAMENT_EMOJI_OPTIONS,
   type TournamentEmojiContext,
 } from '../../utils/tournament-emoji-options';
+import type { NewsArticlePreview } from '../../utils/news-preview';
 
 interface NewsTeam {
   id: string;
@@ -66,6 +67,7 @@ export interface NewsArticleProps {
   onEdit?: () => void;
   onDelete?: () => void;
   tournamentEmojiContext?: TournamentEmojiContext;
+  preview?: NewsArticlePreview;
 }
 
 interface NewsTabProps {
@@ -194,6 +196,7 @@ export const NewsArticle: React.FC<NewsArticleProps> = ({
   onEdit,
   onDelete,
   tournamentEmojiContext,
+  preview,
 }) => {
   const { locale } = useLocale();
   const customImageUrl = post.image_url?.trim() || null;
@@ -283,7 +286,9 @@ export const NewsArticle: React.FC<NewsArticleProps> = ({
           </span>
         )}
       </div>
-      {post.title && <h4 className={styles.postTitle}>{post.title}</h4>}
+      {(preview ? preview.title : post.title) && (
+        <h4 className={styles.postTitle}>{preview ? preview.title : post.title}</h4>
+      )}
       <div className={styles.postContent}>
         {post.is_admin && articleImageUrl && (
           <button
@@ -295,9 +300,11 @@ export const NewsArticle: React.FC<NewsArticleProps> = ({
             <img src={articleImageUrl} className={styles.tournamentPressImage} alt="" onError={handleImageError} />
           </button>
         )}
-        {post.is_admin ? renderHattrickAnnouncementMarkup(post.content) : post.content}
+        {post.is_admin
+          ? renderHattrickAnnouncementMarkup(preview ? preview.content : post.content)
+          : preview ? preview.content : post.content}
       </div>
-      {reactions.length > 0 && (
+      {!preview && reactions.length > 0 && (
         <div className={styles.usedReactions} aria-label="Used reactions">
           {reactions.map((item, index) => (
             <span key={`${item.user_id}-${index}`} className={styles.usedReaction}>
@@ -315,7 +322,7 @@ export const NewsArticle: React.FC<NewsArticleProps> = ({
           ))}
         </div>
       )}
-      {onReaction && (
+      {!preview && onReaction && (
         <div className={styles.reactionBar}>
           {buildTournamentEmojiOptions(TOURNAMENT_EMOJI_OPTIONS, tournamentEmojiContext).map((emoji) => (
             <button
