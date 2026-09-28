@@ -903,7 +903,7 @@ export const Home: React.FC<{ initialData?: HomeInitialData }> = ({ initialData 
               </section>
             )}
 
-            {showFaq && <FaqRenderer sections={faqContent} className={styles.faqRenderer} />}
+            {showFaq && <FaqRenderer sections={faqContent} className={`${styles.faqRenderer} ${styles.faqDesktop}`} />}
           </div>
 
           <aside className={styles.rightColumn}>
@@ -991,6 +991,7 @@ export const Home: React.FC<{ initialData?: HomeInitialData }> = ({ initialData 
             </Button>
           </ScrollTo>
         </div>
+        {showFaq && <FaqRenderer sections={faqContent} className={`${styles.faqRenderer} ${styles.faqMobile}`} />}
       </div>
     </div>
   );

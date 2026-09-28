@@ -23,7 +23,7 @@
   box-sizing: border-box
 
   @media (max-width: 620px)
-    padding: 0 1rem
+    padding: 0 0.5rem
 
 .footer .container
   padding: 0.25rem
@@ -80,6 +80,10 @@
 
   span
     display: flex
+
+  @media (max-width: 640px)
+    .hideMobile
+      display: none
 
   &:hover
     border: 1px solid black !important
