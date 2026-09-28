@@ -284,6 +284,7 @@ interface MatchWithTeams {
   next_match_arrange_story?: TournamentMatchArrangeStorySnapshot | null;
   venue_type?: 'home_away' | null;
   scheduled_for?: string | null;
+  finished_at?: string | null;
   schedule_slot_type?: 'midweek_friendly' | 'weekend_friendly' | 'week15_weekend_friendly' | null;
   home_team: {
     name: string;
@@ -5127,6 +5128,12 @@ export const TournamentView: React.FC<{ initialData?: TournamentInitialData }> =
                   )
             }
             activityWarnings={isViewingHistoricalSeason || isSandbox || tournament.is_test ? [] : activityWarnings}
+            activityTournamentId={isViewingHistoricalSeason ? null : tournament.id}
+            activitySeasonId={isViewingHistoricalSeason ? null : selectedSeason?.id || null}
+            activitySeasonStartedAt={isViewingHistoricalSeason ? null : tournament.schedule_generated_at || selectedSeason?.started_at || null}
+            activityFixturesHref={toLocalePath(locale, `/t/${tournament.slug}?tab=fixtures`)}
+            activityNewsHref={toLocalePath(locale, `/t/${tournament.slug}?tab=news`)}
+            canPublishAnnouncements={Boolean(roleAccess?.canPublishAnnouncements)}
             onVisitFixtures={() => handleTabChange('fixtures')}
             onCommentsLoaded={handleHistoryCommentsLoaded}
             onCommentSubmitted={handleHistoryCommentSubmitted}

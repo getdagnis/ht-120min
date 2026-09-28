@@ -48,6 +48,10 @@ Recent important migrations:
 - `057_tournament_seasons_history.sql`
 - `058_tournament_season_yearbook_comments.sql`
 - `059_activity_ledger.sql`
+- `073_add_join_story_to_teams.sql`
+- `074_add_match_arrange_story.sql`
+- `075_create_global_chat.sql`
+- `076_add_finished_at_to_matches.sql`
 
 ## RLS And Access Assumptions
 

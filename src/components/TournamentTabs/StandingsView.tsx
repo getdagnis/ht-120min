@@ -52,6 +52,12 @@ interface StandingsViewProps {
   activityTeams?: TournamentActivityTeam[];
   activityMatches?: TournamentActivityMatch[];
   activityWarnings?: TournamentActivityWarning[];
+  activityTournamentId?: string | null;
+  activitySeasonId?: string | null;
+  activitySeasonStartedAt?: string | null;
+  activityFixturesHref?: string;
+  activityNewsHref?: string;
+  canPublishAnnouncements?: boolean;
   reactionAuthorNames?: Record<string, string>;
   canAddSeasonComment?: boolean;
   onCommentsLoaded?: (seasonId: string, commentCount: number) => void;
@@ -122,6 +128,12 @@ export const StandingsView: React.FC<StandingsViewProps> = ({
   activityTeams = [],
   activityMatches = [],
   activityWarnings = [],
+  activityTournamentId = null,
+  activitySeasonId = null,
+  activitySeasonStartedAt = null,
+  activityFixturesHref,
+  activityNewsHref,
+  canPublishAnnouncements = false,
   reactionAuthorNames = {},
   canAddSeasonComment = false,
   onCommentsLoaded,
@@ -846,7 +858,18 @@ export const StandingsView: React.FC<StandingsViewProps> = ({
         onVisitFixtures={onVisitFixtures}
         myHtTeamIds={myHtTeamIds}
       />
-      <TournamentActivity teams={activityTeams} matches={activityMatches} warnings={activityWarnings} />
+      <TournamentActivity
+        teams={activityTeams}
+        matches={activityMatches}
+        warnings={activityWarnings}
+        tournamentId={activityTournamentId}
+        seasonId={activitySeasonId}
+        seasonNumber={seasonNumber}
+        seasonStartedAt={activitySeasonStartedAt}
+        fixturesHref={activityFixturesHref}
+        newsHref={activityNewsHref}
+        canPublishAnnouncements={canPublishAnnouncements}
+      />
       {seasonId && seasonStatus === 'finished' && (
         <SeasonYearbook
           seasonNumber={seasonNumber}

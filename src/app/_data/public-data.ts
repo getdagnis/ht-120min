@@ -8,6 +8,8 @@ import { getTournamentNextMatchDate } from '../../utils/tournament-next-match';
 import { sortFeaturedFirst } from '../../utils/tournament-sorting';
 import { sortOpenTournaments } from '../../utils/open-tournaments';
 import { calculateSeasonSlotStandings } from '../../utils/standings';
+import { formatTournamentName } from '../../utils/tournament-names';
+import { getJoinStoryManagerSummary } from '../../utils/tournament-activity';
 import {
   EXOTIC_HFI_CAMPAIGN_SLUG_SET,
   orderExoticHfiTournaments,
@@ -21,6 +23,7 @@ interface HomeMatch {
   home_team_id: string | null;
   away_team_id: string | null;
   scheduled_for?: string | null;
+  finished_at?: string | null;
   home_team: { country_name: string } | null;
 }
 
@@ -37,6 +40,12 @@ interface HomeTeam {
   name: string;
   ht_team_id: number;
   joined_via_oauth: boolean;
+  created_at?: string | null;
+  active?: boolean | null;
+  is_placeholder?: boolean | null;
+  manager_name?: string | null;
+  hattrick_user_id?: number | null;
+  join_story?: unknown;
 }
 
 interface HomeTournamentRow {
@@ -45,6 +54,7 @@ interface HomeTournamentRow {
   slug: string;
   created_at: string;
   schedule_start_slot?: string | null;
+  schedule_generated_at?: string | null;
   is_featured?: boolean | null;
   is_private: boolean;
   is_test?: boolean | null;
@@ -90,6 +100,31 @@ export interface HomeInitialData {
   exoticHfiTournaments: HomeTournament[];
   topTeams: { name: string; ht_team_id: number; achievements120min: number }[];
   topActiveTournaments: { name: string; slug: string; completedMatches: number }[];
+  activity: HomeActivityEntry[];
+}
+
+export interface HomeActivityEntry {
+  id: string;
+  type: 'join' | 'season-start' | 'round-start' | 'round-finish' | 'round-report';
+  occurred_at: string;
+  tournament_id: string;
+  tournament_slug: string;
+  tournament_display_name: string;
+  tournament_name: string;
+  manager_name?: string | null;
+  manager_href?: string | null;
+  manager_flag?: string | null;
+  season_number?: number;
+  round_number?: number;
+  report_id?: string;
+}
+
+interface HomeReportRow {
+  id: string;
+  tournament_id: string;
+  season_number: number | null;
+  round_number: number | null;
+  created_at: string;
 }
 
 export interface TournamentInitialData {
@@ -125,27 +160,28 @@ function serializeDate(value: Date | null) {
 export const loadHomeInitialData = cache(async (): Promise<HomeInitialData> => {
   const supabase = getPublicSupabase();
   if (!supabase) {
-    return { featuredTournaments: [], activeTournaments: [], openTournaments: [], exoticHfiTournaments: [], topTeams: [], topActiveTournaments: [] };
+    return { featuredTournaments: [], activeTournaments: [], openTournaments: [], exoticHfiTournaments: [], topTeams: [], topActiveTournaments: [], activity: [] };
   }
 
   let tournamentsRaw: unknown[] | null;
   let warningsRaw: unknown[] | null;
+  let reportRows: HomeReportRow[] = [];
   try {
     const [tournamentsResult, warningsResult] = await Promise.all([
       supabase
         .from('tournaments')
         .select(
           `
-          id, name, slug, created_at, schedule_start_slot, is_featured, is_private, is_test, status, is_archived,
+          id, name, slug, created_at, schedule_start_slot, schedule_generated_at, is_featured, is_private, is_test, status, is_archived,
           season, thumbnail_index, image_url, country_limit, country_limit_format, scoring_mode, league_category, max_teams,
           rounds (
             id, created_at, round_number, season_number,
             matches (
-              id, completed, status, home_team_id, away_team_id, scheduled_for, went_120,
+              id, completed, status, home_team_id, away_team_id, scheduled_for, finished_at, went_120,
               home_team:teams!matches_home_team_id_fkey(country_name)
             )
           ),
-          teams (id, name, ht_team_id, joined_via_oauth)
+          teams (id, name, ht_team_id, joined_via_oauth, created_at, active, is_placeholder, manager_name, hattrick_user_id, join_story)
         `,
         )
         .eq('is_private', false),
@@ -153,13 +189,30 @@ export const loadHomeInitialData = cache(async (): Promise<HomeInitialData> => {
     ]);
     if (tournamentsResult.error) {
       console.error('Could not load Home tournaments on the server:', tournamentsResult.error.message);
-      return { featuredTournaments: [], activeTournaments: [], openTournaments: [], exoticHfiTournaments: [], topTeams: [], topActiveTournaments: [] };
+      return { featuredTournaments: [], activeTournaments: [], openTournaments: [], exoticHfiTournaments: [], topTeams: [], topActiveTournaments: [], activity: [] };
     }
     tournamentsRaw = tournamentsResult.data;
     warningsRaw = warningsResult.data;
   } catch (error) {
     console.error('Could not load Home tournaments on the server:', error instanceof Error ? error.message : 'Unknown error');
-    return { featuredTournaments: [], activeTournaments: [], openTournaments: [], exoticHfiTournaments: [], topTeams: [], topActiveTournaments: [] };
+    return { featuredTournaments: [], activeTournaments: [], openTournaments: [], exoticHfiTournaments: [], topTeams: [], topActiveTournaments: [], activity: [] };
+  }
+
+  const activityCutoff = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString();
+  const publicTournamentIds = ((tournamentsRaw || []) as HomeTournamentRow[])
+    .filter((tournament) => !tournament.is_test && !tournament.is_archived && tournament.status !== 'stopped' && tournament.status !== 'archived')
+    .map((tournament) => tournament.id);
+  if (publicTournamentIds.length > 0) {
+    const { data, error } = await supabase
+      .from('news_posts')
+      .select('id, tournament_id, season_number, round_number, created_at')
+      .eq('is_round_report', true)
+      .gte('created_at', activityCutoff)
+      .in('tournament_id', publicTournamentIds)
+      .order('created_at', { ascending: false })
+      .limit(50);
+    if (error) console.error('Could not load Home round-report activity:', error.message);
+    reportRows = (data || []) as HomeReportRow[];
   }
 
   const warnings = (warningsRaw || []) as HomeWarning[];
@@ -168,6 +221,8 @@ export const loadHomeInitialData = cache(async (): Promise<HomeInitialData> => {
   const open: HomeTournament[] = [];
   const exoticHfi: HomeTournament[] = [];
   const team120Stats: Record<number, { name: string; count: number }> = {};
+  const activity: HomeActivityEntry[] = [];
+  const now = Date.now();
 
   for (const tournament of (tournamentsRaw || []) as unknown as HomeTournamentRow[]) {
     if (tournament.is_test || tournament.status === 'stopped' || tournament.status === 'archived' || tournament.is_archived) {
@@ -178,6 +233,96 @@ export const loadHomeInitialData = cache(async (): Promise<HomeInitialData> => {
       (round) => (round.season_number ?? tournament.season) === tournament.season,
     );
     const matches = currentRounds.flatMap((round) => round.matches || []);
+    const tournamentDisplayName = formatTournamentName(tournament.name, {
+      countryLimit: tournament.country_limit,
+      leagueCategory: tournament.league_category,
+      includeCountryFlag: true,
+    });
+    const inActivityWindow = (value: string | null | undefined) => {
+      const timestamp = value ? Date.parse(value) : NaN;
+      return Number.isFinite(timestamp) && timestamp >= Date.parse(activityCutoff) && timestamp <= now;
+    };
+    const addActivity = (entry: Omit<HomeActivityEntry, 'tournament_id' | 'tournament_slug' | 'tournament_name' | 'tournament_display_name'>) => {
+      activity.push({
+        ...entry,
+        tournament_id: tournament.id,
+        tournament_slug: tournament.slug,
+        tournament_name: tournament.name,
+        tournament_display_name: tournamentDisplayName,
+      });
+    };
+
+    for (const team of tournament.teams) {
+      if (team.active === false || team.is_placeholder || !team.created_at || !inActivityWindow(team.created_at)) continue;
+      const manager = getJoinStoryManagerSummary(team.join_story);
+      addActivity({
+        id: `join:${team.id}`,
+        type: 'join',
+        occurred_at: team.created_at,
+        manager_name: manager.name || team.manager_name || null,
+        manager_href: manager.href,
+        manager_flag: manager.flag,
+      });
+    }
+
+    const seasonStartAt = tournament.schedule_generated_at;
+    if (inActivityWindow(seasonStartAt)) {
+      addActivity({
+        id: `season-start:${tournament.id}:${tournament.season}`,
+        type: 'season-start',
+        occurred_at: seasonStartAt!,
+        season_number: tournament.season,
+      });
+    }
+
+    for (const round of currentRounds) {
+      const playableMatches = (round.matches || []).filter((match) => match.home_team_id && match.away_team_id);
+      if (playableMatches.length === 0) continue;
+      const scheduledTimes = playableMatches
+        .map((match) => (match.scheduled_for ? Date.parse(match.scheduled_for) : NaN))
+        .filter((value) => Number.isFinite(value));
+      const startedAt = scheduledTimes.length > 0 ? new Date(Math.min(...scheduledTimes)).toISOString() : null;
+      if (startedAt && inActivityWindow(startedAt)) {
+        addActivity({
+          id: `round-start:${round.id}`,
+          type: 'round-start',
+          occurred_at: startedAt,
+          round_number: round.round_number,
+        });
+      }
+
+      const playedMatches = playableMatches.filter(
+        (match) => (match.completed || match.status === 'finished') && match.status !== 'misarranged',
+      );
+      const isFinished = playableMatches.every((match) => match.completed || match.status === 'finished' || match.status === 'misarranged') && playedMatches.length > 0;
+      if (isFinished) {
+        const finishTimes = playedMatches
+          .map((match) => match.finished_at || match.scheduled_for)
+          .filter((value): value is string => Boolean(value) && Number.isFinite(Date.parse(value)));
+        const finishedAt = finishTimes.length > 0 ? finishTimes.map(Date.parse).sort((a, b) => b - a)[0] : NaN;
+        if (Number.isFinite(finishedAt)) {
+          addActivity({
+            id: `round-finish:${round.id}`,
+            type: 'round-finish',
+            occurred_at: new Date(finishedAt).toISOString(),
+            round_number: round.round_number,
+          });
+        }
+      }
+    }
+
+    reportRows
+      .filter((report) => report.tournament_id === tournament.id && report.season_number === tournament.season && report.round_number)
+      .filter((report) => inActivityWindow(report.created_at))
+      .forEach((report) => {
+        addActivity({
+          id: `round-report:${report.id}`,
+          type: 'round-report',
+          occurred_at: report.created_at,
+          round_number: report.round_number || undefined,
+          report_id: report.id,
+        });
+      });
     const completedMatches = matches.filter((match) => match.completed || match.status === 'misarranged').length;
     const isGenerated = currentRounds.length > 0;
     const isClosed = matches.length > 0 && matches.length === completedMatches;
@@ -269,6 +414,10 @@ export const loadHomeInitialData = cache(async (): Promise<HomeInitialData> => {
       }))
       .toSorted((a, b) => b.completedMatches - a.completedMatches)
       .slice(0, 10),
+    activity: activity
+      .filter((entry) => Number.isFinite(Date.parse(entry.occurred_at)))
+      .toSorted((a, b) => Date.parse(b.occurred_at) - Date.parse(a.occurred_at))
+      .slice(0, 5),
   };
 });
 

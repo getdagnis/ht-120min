@@ -16,6 +16,7 @@ import { TinderWidget } from '../../components/TinderWidget/TinderWidget';
 import { SupportersWall } from '../../components/SupportersWall/SupportersWall';
 import { WelcomeModal } from '../../components/WelcomeModal/WelcomeModal';
 import { GlobalChatWidget } from '../../components/GlobalChatWidget/GlobalChatWidget';
+import { GlobalActivityWidget } from '../../components/GlobalActivityWidget/GlobalActivityWidget';
 import { Link as ScrollTo, Element } from 'react-scroll';
 import { sortOpenTournaments } from '../../utils/open-tournaments';
 import { getMatchDateForRound } from '../../utils/match-schedule';
@@ -910,6 +911,7 @@ export const Home: React.FC<{ initialData?: HomeInitialData }> = ({ initialData 
               <TinderWidget className={styles.marketplaceWrapper} />
             </div>
             <GlobalChatWidget myHtUserId={profile?.hattrick_user_id ?? null} />
+            <GlobalActivityWidget initialEntries={initialData?.activity || []} locale={locale} />
             <ForumWidget />
             <div className={styles.sidebarRest}>
               <SupportersWall />

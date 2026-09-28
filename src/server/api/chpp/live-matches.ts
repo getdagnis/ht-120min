@@ -18,6 +18,7 @@ import {
 import { buildChppAppgUpdate } from '../_lib/appg-chpp-classifier.js';
 import type { MatchEventDetails } from '../../../../shared/match-events.js';
 import type { LiveMatchClock } from '../../../../shared/live-match.js';
+import { parseChppStockholmDate } from '../../../../shared/chpp-dates.js';
 
 interface LiveMatchResult extends LiveMatchClock {
   status: 'arranged' | 'ongoing' | 'finished';
@@ -168,6 +169,11 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       const baseMinutes = isExtraTime ? 120 : 90;
       const totalMinutes = finished ? baseMinutes + addedMinutes : null;
       const actualEventDetails = parseMatchEventDetails(sourceXml);
+      const finishedDate = readChppTag(sourceXml, 'FinishedDate');
+      const finishedAt =
+        finished && finishedDate && finishedDate !== '0001-01-01 00:00:00'
+          ? parseChppStockholmDate(finishedDate)?.toISOString() || null
+          : null;
       if (!finished) {
         actualEventDetails.source = 'live-2.3';
         delete actualEventDetails.result;
@@ -257,6 +263,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         away_red_cards: eventSummary.away_red_cards,
         away_injuries: eventSummary.away_injuries,
         match_event_details: eventDetails,
+        finished_at: finishedAt,
       };
 
       const update = supabase.from('matches').update({
@@ -279,6 +286,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         match_event_details: eventDetails,
         actual_ht_home_team_id: actualHtHomeTeamId,
         actual_ht_away_team_id: actualHtAwayTeamId,
+        finished_at: finishedAt,
       })
         .eq('id', fixture.id);
       const { error: updateError } = finished ? await update : await update.eq('completed', false);

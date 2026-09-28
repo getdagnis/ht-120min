@@ -20,7 +20,7 @@ import {
 } from '../_lib/hattrick-time.js';
 import { isFriendlyInsideAcceptedWindow } from '../_lib/match-window.js';
 import type { MatchEventDetails } from '../../../../shared/match-events.js';
-import { serializeStoredStockholmDate } from '../../../../shared/chpp-dates.js';
+import { parseChppStockholmDate, serializeStoredStockholmDate } from '../../../../shared/chpp-dates.js';
 import type { TournamentMatchArrangeStorySnapshot } from '../../../types/tournament-activity.js';
 import {
   buildArchiveDateChunks,
@@ -423,6 +423,7 @@ interface ChppMatchDetails {
   htMatchId: number;
   matchType: number | null;
   matchDate: Date | null;
+  finishedAt: string | null;
   actualHtHomeTeamId: number | null;
   actualHtAwayTeamId: number | null;
   actualHomeTeamName: string | null;
@@ -498,6 +499,10 @@ async function fetchMatchDetailsById(
   const addedMinutes = parseInt(readChppTag(xml, 'AddedMinutes') || '0', 10);
   const went120 = xml.includes('<MatchPart>3</MatchPart>') || xml.includes('<MatchPart>4</MatchPart>');
   const storedMatchDate = serializeStoredStockholmDate(matchDateText);
+  const storedFinishedAt =
+    finishedDate && finishedDate !== '0001-01-01 00:00:00'
+      ? parseChppStockholmDate(finishedDate)?.toISOString() || null
+      : null;
   const eventDetails = parseMatchEventDetails(xml);
   const footballScore = getFootballScore(eventDetails);
 
@@ -505,6 +510,7 @@ async function fetchMatchDetailsById(
     htMatchId: parseInt(htMatchId, 10),
     matchType,
     matchDate,
+    finishedAt: storedFinishedAt,
     storedMatchDate,
     actualHtHomeTeamId,
     actualHtAwayTeamId,
@@ -692,6 +698,7 @@ async function handleManualMatchLink(req: VercelRequest, res: VercelResponse) {
       ...appgUpdate,
       actual_ht_home_team_id: details.actualHtHomeTeamId,
       actual_ht_away_team_id: details.actualHtAwayTeamId,
+      finished_at: details.finishedAt,
       ...summarizeMatchEventDetails(mapping.eventDetails),
       match_event_details: mapping.eventDetails,
     };
@@ -1032,6 +1039,7 @@ async function handleAddHtMatch(req: VercelRequest, res: VercelResponse) {
       ht_match_id: details.htMatchId,
       match_type: details.matchType,
       scheduled_for: details.storedMatchDate,
+      finished_at: details.finishedAt,
       actual_ht_home_team_id: details.actualHtHomeTeamId,
       actual_ht_away_team_id: details.actualHtAwayTeamId,
       penalty_shootout_home_goals: penaltyShootout.home,
