@@ -174,6 +174,12 @@ API or CHPP changes:
 - Use endpoint-specific test routes inside `src/server/api/testing/index.ts`.
 - Inspect raw XML when parser behavior is uncertain.
 
+Migration marker rule:
+
+- Migration applied markers are the project owner's bookkeeping for whether a migration was run in Supabase.
+- Agents must not add, remove, normalize, capitalize, lowercase, or otherwise rewrite an applied marker without the owner's explicit instruction.
+- A migration file's marker is not evidence that the SQL was executed; preserve the marker exactly as found and keep schema-file state separate from live Supabase verification.
+
 Database changes:
 
 - Create migrations intentionally.
