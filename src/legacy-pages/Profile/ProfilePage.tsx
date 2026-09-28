@@ -77,7 +77,7 @@ const ProfileTournamentList = ({
 
 export const ProfilePage: React.FC = () => {
   const { locale } = useLocale();
-  const { profile, activeTournaments, finishedTournaments, organizerTournaments, authReady, loading } = useAuth();
+  const { profile, activeTournaments, finishedTournaments, organizerTournaments, stoppedTournaments, authReady, loading } = useAuth();
   const [teams, setTeams] = useState<ProfileTeam[]>([]);
   const [teamsLoaded, setTeamsLoaded] = useState(false);
 
@@ -283,6 +283,12 @@ export const ProfilePage: React.FC = () => {
               )}
             </div>
           </SectionCard>
+
+          {stoppedTournaments.length > 0 && (
+            <SectionCard title="Stopped tournaments">
+              <ProfileTournamentList tournaments={stoppedTournaments} emptyMessage="No stopped tournaments." />
+            </SectionCard>
+          )}
         </div>
       </div>
     </main>

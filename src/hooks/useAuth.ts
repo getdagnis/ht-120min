@@ -141,6 +141,7 @@ export const useAuth = () => {
   const [activeTournaments, setActiveTournaments] = useState<ActiveTournament[]>([]);
   const [finishedTournaments, setFinishedTournaments] = useState<FinishedTournament[]>([]);
   const [organizerTournaments, setOrganizerTournaments] = useState<OrganizerTournament[]>([]);
+  const [stoppedTournaments, setStoppedTournaments] = useState<OrganizerTournament[]>([]);
   const [testTournaments, setTestTournaments] = useState<TestTournament[]>([]);
   const [loading, setLoading] = useState(false);
   const [authReady, setAuthReady] = useState(false);
@@ -315,11 +316,17 @@ export const useAuth = () => {
       });
 
       const testTours = managedRows
-        .filter((tournament) => tournament.registration_type === 'sandbox' || tournament.is_test)
+        .filter(
+          (tournament) =>
+            tournament.status !== 'stopped' && (tournament.registration_type === 'sandbox' || tournament.is_test),
+        )
         .map(mapMenuTournament);
 
       const organizerTours = managedRows
-        .filter((tournament) => tournament.registration_type !== 'sandbox' && !tournament.is_test)
+        .filter(
+          (tournament) =>
+            tournament.status !== 'stopped' && tournament.registration_type !== 'sandbox' && !tournament.is_test,
+        )
         .map((tournament) => ({
           id: tournament.id,
           name: tournament.name,
@@ -330,8 +337,13 @@ export const useAuth = () => {
           rounds: tournament.rounds ?? [],
         }));
 
+      const stoppedTours = managedRows.filter((tournament) => tournament.status === 'stopped').map(mapMenuTournament);
+
       setOrganizerTournaments(
         orderExoticHfiTournaments(organizerTours),
+      );
+      setStoppedTournaments(
+        sortFeaturedFirst(stoppedTours, (a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime()),
       );
       setTestTournaments(
         sortFeaturedFirst(testTours, (a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime()),
@@ -371,6 +383,7 @@ export const useAuth = () => {
     setActiveTournaments([]);
     setFinishedTournaments([]);
     setOrganizerTournaments([]);
+    setStoppedTournaments([]);
     setTestTournaments([]);
   };
 
@@ -380,6 +393,7 @@ export const useAuth = () => {
     activeTournaments,
     finishedTournaments,
     organizerTournaments,
+    stoppedTournaments,
     testTournaments,
     loading,
     authReady,
