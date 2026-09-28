@@ -341,6 +341,24 @@ function readString(value: unknown) {
   return typeof value === 'string' ? value.trim() : '';
 }
 
+function readOptionalNewsImageUrl(value: unknown) {
+  const imageUrl = readString(value);
+  if (!imageUrl) return { imageUrl: null, error: null };
+  if (imageUrl.length > 2048) return { imageUrl: null, error: 'Image URL must be 2048 characters or fewer.' };
+  if (imageUrl.startsWith('/') && !imageUrl.startsWith('//')) return { imageUrl, error: null };
+
+  try {
+    const parsed = new URL(imageUrl);
+    if (parsed.protocol !== 'http:' && parsed.protocol !== 'https:') {
+      return { imageUrl: null, error: 'Image URL must use http or https.' };
+    }
+  } catch {
+    return { imageUrl: null, error: 'Enter a valid image URL.' };
+  }
+
+  return { imageUrl, error: null };
+}
+
 function firstRelation<T>(value: T | T[] | null | undefined): T | null {
   return Array.isArray(value) ? value[0] ?? null : value ?? null;
 }
@@ -1065,9 +1083,11 @@ async function handlePostRoundSummary(req: VercelRequest, res: VercelResponse) {
   const roundNumber = positiveInteger(req.body?.roundNumber);
   const title = readString(req.body?.title);
   const content = readString(req.body?.content);
+  const imageUrlResult = readOptionalNewsImageUrl(req.body?.imageUrl);
   if (!tournamentId || !seasonNumber || !roundNumber || !content) {
     return res.status(400).json({ error: 'tournamentId, seasonNumber, roundNumber, and content are required.' });
   }
+  if (imageUrlResult.error) return res.status(400).json({ error: imageUrlResult.error });
 
   const actor = await requireTournamentRoleSession(req, res, tournamentId);
   if (!actor) return;
@@ -1097,6 +1117,7 @@ async function handlePostRoundSummary(req: VercelRequest, res: VercelResponse) {
       is_round_report: tournament.registration_type !== 'sandbox',
       title: title || null,
       content,
+      image_url: imageUrlResult.imageUrl,
       author_name: actor.access.viewerManagerName || 'Tournament organizer',
       author_team_id: null,
       author_ht_user_id: actor.userId,
@@ -1160,10 +1181,12 @@ async function handleCreateNewsPost(req: VercelRequest, res: VercelResponse) {
   const seasonNumber = positiveInteger(req.body?.seasonNumber);
   const title = readString(req.body?.title);
   const content = readString(req.body?.content);
+  const imageUrlResult = readOptionalNewsImageUrl(req.body?.imageUrl);
   const isAdmin = req.body?.isAdmin === true;
   if (!tournamentId || !seasonNumber || !content) {
     return res.status(400).json({ error: 'tournamentId, seasonNumber, and content are required.' });
   }
+  if (imageUrlResult.error) return res.status(400).json({ error: imageUrlResult.error });
 
   const actor = await requireTournamentRoleSession(req, res, tournamentId);
   if (!actor) return;
@@ -1193,6 +1216,7 @@ async function handleCreateNewsPost(req: VercelRequest, res: VercelResponse) {
       season_number: seasonNumber,
       title: title || null,
       content,
+      image_url: imageUrlResult.imageUrl,
       author_name: authorName,
       author_team_id: authorTeamId,
       author_ht_user_id: actor.userId,
@@ -1209,12 +1233,14 @@ async function handleEditNewsPost(req: VercelRequest, res: VercelResponse) {
   const postId = readString(req.body?.postId);
   const title = readString(req.body?.title);
   const content = readString(req.body?.content);
+  const imageUrlResult = readOptionalNewsImageUrl(req.body?.imageUrl);
   if (!postId || !content) return res.status(400).json({ error: 'postId and content are required.' });
+  if (imageUrlResult.error) return res.status(400).json({ error: imageUrlResult.error });
   const mutation = await loadNewsPostMutationAccess(req, res, postId, 'edit');
   if (!mutation) return;
   const { data: post, error } = await mutation.supabase
     .from('news_posts')
-    .update({ title: title || null, content })
+    .update({ title: title || null, content, image_url: imageUrlResult.imageUrl })
     .eq('id', postId)
     .select('*')
     .single();

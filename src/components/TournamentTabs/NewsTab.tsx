@@ -36,6 +36,7 @@ export interface NewsPost {
   tournament_name?: string | null;
   title?: string | null;
   content: string;
+  image_url?: string | null;
   author_name: string;
   author_team_id?: string | null;
   author_ht_user_id?: number | null;
@@ -89,6 +90,7 @@ type NewsMode = 'admin' | 'team';
 interface NewsDraft {
   title: string;
   content: string;
+  imageUrl?: string;
   roundSummaryRoundNumber?: number;
 }
 
@@ -136,6 +138,7 @@ function readNewsDraft(storageKey: string): NewsDraft | null {
     return {
       title: parsed.title,
       content: parsed.content,
+      imageUrl: typeof parsed.imageUrl === 'string' ? parsed.imageUrl : undefined,
       roundSummaryRoundNumber:
         typeof parsed.roundSummaryRoundNumber === 'number' && Number.isInteger(parsed.roundSummaryRoundNumber)
           ? parsed.roundSummaryRoundNumber
@@ -193,7 +196,18 @@ export const NewsArticle: React.FC<NewsArticleProps> = ({
   tournamentEmojiContext,
 }) => {
   const { locale } = useLocale();
+  const customImageUrl = post.image_url?.trim() || null;
+  const fallbackImageUrl = post.is_admin ? tournamentImageUrl?.trim() || null : null;
   const [isImageOpen, setIsImageOpen] = useState(false);
+  const [failedImageIdentity, setFailedImageIdentity] = useState<string | null>(null);
+  const imageIdentity = [post.id, customImageUrl || '', fallbackImageUrl || ''].join('|');
+  const customImageFailed = failedImageIdentity === `${imageIdentity}:custom`;
+  const fallbackImageFailed = failedImageIdentity === `${imageIdentity}:fallback`;
+  const articleImageUrl = fallbackImageFailed
+    ? null
+    : customImageFailed
+      ? fallbackImageUrl
+      : customImageUrl || fallbackImageUrl;
   const pathname = usePathname() || '/';
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -203,6 +217,16 @@ export const NewsArticle: React.FC<NewsArticleProps> = ({
     ? getOfficialPostAuthorName(post.author_name)
     : authorTeam?.manager_name || (post.author_ht_user_id ? post.author_name : null);
   const authorProfileId = post.author_ht_user_id ?? authorTeam?.hattrick_user_id ?? null;
+
+  const handleImageError = () => {
+    if (customImageUrl && articleImageUrl === customImageUrl && fallbackImageUrl && fallbackImageUrl !== customImageUrl) {
+      setFailedImageIdentity(`${imageIdentity}:custom`);
+      return;
+    }
+    setFailedImageIdentity(`${imageIdentity}:fallback`);
+    setIsImageOpen(false);
+  };
+
   const handleOpenProfile = () => {
     if (!authorProfileId) return;
     const nextParams = new URLSearchParams(searchParams.toString());
@@ -261,14 +285,14 @@ export const NewsArticle: React.FC<NewsArticleProps> = ({
       </div>
       {post.title && <h4 className={styles.postTitle}>{post.title}</h4>}
       <div className={styles.postContent}>
-        {post.is_admin && tournamentImageUrl && (
+        {post.is_admin && articleImageUrl && (
           <button
             type="button"
             className={styles.tournamentPressImageButton}
             onClick={() => setIsImageOpen(true)}
             aria-label="Open tournament image"
           >
-            <img src={tournamentImageUrl} className={styles.tournamentPressImage} alt="" />
+            <img src={articleImageUrl} className={styles.tournamentPressImage} alt="" onError={handleImageError} />
           </button>
         )}
         {post.is_admin ? renderHattrickAnnouncementMarkup(post.content) : post.content}
@@ -320,7 +344,7 @@ export const NewsArticle: React.FC<NewsArticleProps> = ({
           </Button>
         </div>
       )}
-      {isImageOpen && tournamentImageUrl && (
+      {isImageOpen && articleImageUrl && (
         <div
           className={styles.imageModalOverlay}
           role="dialog"
@@ -332,7 +356,7 @@ export const NewsArticle: React.FC<NewsArticleProps> = ({
             if (event.key === 'Escape') setIsImageOpen(false);
           }}
         >
-          <img src={tournamentImageUrl} alt="Tournament" className={styles.imageModalContent} />
+          <img src={articleImageUrl} alt="Tournament" className={styles.imageModalContent} onError={handleImageError} />
         </div>
       )}
     </article>
@@ -362,6 +386,7 @@ export const NewsTab: React.FC<NewsTabProps> = ({
   const [newsPosts, setNewsPosts] = useState<NewsPost[]>([]);
   const [newNewsTitle, setNewNewsTitle] = useState('');
   const [newNewsContent, setNewNewsContent] = useState('');
+  const [newNewsImageUrl, setNewNewsImageUrl] = useState('');
   const [isPostingNews, setIsPostingNews] = useState(false);
   const [isCreatingRoundSummary, setIsCreatingRoundSummary] = useState(false);
   const [hasGeneratedRoundSummary, setHasGeneratedRoundSummary] = useState(false);
@@ -383,7 +408,7 @@ export const NewsTab: React.FC<NewsTabProps> = ({
   const draftStorageKey = getNewsDraftStorageKey(tournamentId, seasonNumber, newsMode, myHtUserId);
   const currentDraftRef = useRef<{ storageKey: string; draft: NewsDraft }>({
     storageKey: draftStorageKey,
-    draft: { title: newNewsTitle, content: newNewsContent },
+    draft: { title: newNewsTitle, content: newNewsContent, imageUrl: newNewsImageUrl },
   });
   const reactionAuthorNames = Object.fromEntries(
     teams
@@ -410,6 +435,7 @@ export const NewsTab: React.FC<NewsTabProps> = ({
     setEditingPostId(post.id);
     setNewNewsTitle(post.title || '');
     setNewNewsContent(post.content);
+    setNewNewsImageUrl(post.image_url || '');
     setNewsMode(post.is_admin ? 'admin' : 'team');
     window.scrollTo({ top: document.body.scrollHeight, behavior: 'smooth' });
   };
@@ -445,10 +471,11 @@ export const NewsTab: React.FC<NewsTabProps> = ({
       draft: {
         title: newNewsTitle,
         content: newNewsContent,
+        imageUrl: newNewsImageUrl,
         roundSummaryRoundNumber: newsMode === 'admin' ? generatedRoundNumber || undefined : undefined,
       },
     };
-  }, [draftStorageKey, generatedRoundNumber, newNewsContent, newNewsTitle, newsMode]);
+  }, [draftStorageKey, generatedRoundNumber, newNewsContent, newNewsImageUrl, newNewsTitle, newsMode]);
 
   useEffect(() => {
     const restoreTimer = window.setTimeout(() => {
@@ -482,27 +509,31 @@ export const NewsTab: React.FC<NewsTabProps> = ({
   }, [canPublishAnnouncements, composeParam, isActive, newsModeStorageKey]);
 
   useEffect(() => {
+    if (editingPostId) return;
+
     const restoreDraft = () => {
       const draft = readNewsDraft(draftStorageKey);
       setNewNewsTitle(draft?.title || '');
       setNewNewsContent(draft?.content || '');
+      setNewNewsImageUrl(draft?.imageUrl || '');
       const savedRoundNumber = newsMode === 'admin' ? draft?.roundSummaryRoundNumber || null : null;
       setGeneratedRoundNumber(savedRoundNumber);
       setHasGeneratedRoundSummary(savedRoundNumber !== null);
     };
     restoreDraft();
-  }, [draftStorageKey, newsMode]);
+  }, [draftStorageKey, editingPostId, newsMode]);
 
   useEffect(() => {
     const timer = window.setTimeout(() => {
       persistNewsDraft(draftStorageKey, {
         title: newNewsTitle,
         content: newNewsContent,
+        imageUrl: newNewsImageUrl,
         roundSummaryRoundNumber: newsMode === 'admin' ? generatedRoundNumber || undefined : undefined,
       });
     }, 5000);
     return () => window.clearTimeout(timer);
-  }, [draftStorageKey, generatedRoundNumber, newNewsContent, newNewsTitle, newsMode]);
+  }, [draftStorageKey, generatedRoundNumber, newNewsContent, newNewsImageUrl, newNewsTitle, newsMode]);
 
   useEffect(() => {
     const flushDraft = () => persistNewsDraft(currentDraftRef.current.storageKey, currentDraftRef.current.draft);
@@ -619,16 +650,22 @@ export const NewsTab: React.FC<NewsTabProps> = ({
           method: 'PATCH',
           credentials: 'include',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ postId: editingPostId, title: newNewsTitle.trim(), content: newNewsContent.trim() }),
+          body: JSON.stringify({
+            postId: editingPostId,
+            title: newNewsTitle.trim(),
+            content: newNewsContent.trim(),
+            imageUrl: newNewsImageUrl.trim() || null,
+          }),
         });
         const result = (await response.json()) as NewsPost & { error?: string };
         if (!response.ok) throw new Error(result.error || 'Could not edit news.');
         setNewsPosts((current) => current.map((post) => (post.id === result.id ? result : post)));
         setEditingPostId(null);
-        persistNewsDraft(draftStorageKey, { title: '', content: '' });
-        currentDraftRef.current = { storageKey: draftStorageKey, draft: { title: '', content: '' } };
+        persistNewsDraft(draftStorageKey, { title: '', content: '', imageUrl: '' });
+        currentDraftRef.current = { storageKey: draftStorageKey, draft: { title: '', content: '', imageUrl: '' } };
         setNewNewsContent('');
         setNewNewsTitle('');
+        setNewNewsImageUrl('');
         return;
       }
       const isRoundReport = newsMode === 'admin' && hasGeneratedRoundSummary && generatedRoundNumber !== null;
@@ -644,6 +681,7 @@ export const NewsTab: React.FC<NewsTabProps> = ({
             roundNumber: generatedRoundNumber,
             title: newNewsTitle.trim(),
             content: newNewsContent.trim(),
+            imageUrl: newNewsImageUrl.trim() || null,
           }),
         });
         const result = (await response.json()) as NewsPost & { error?: string };
@@ -660,6 +698,7 @@ export const NewsTab: React.FC<NewsTabProps> = ({
             seasonNumber,
             title: newNewsTitle.trim(),
             content: newNewsContent.trim(),
+            imageUrl: newNewsImageUrl.trim() || null,
             isAdmin: newsMode === 'admin',
           }),
         });
@@ -669,10 +708,11 @@ export const NewsTab: React.FC<NewsTabProps> = ({
       }
 
       if (createdPost) setNewsPosts((current) => prependNewsPost(current, createdPost));
-      persistNewsDraft(draftStorageKey, { title: '', content: '' });
-      currentDraftRef.current = { storageKey: draftStorageKey, draft: { title: '', content: '' } };
+      persistNewsDraft(draftStorageKey, { title: '', content: '', imageUrl: '' });
+      currentDraftRef.current = { storageKey: draftStorageKey, draft: { title: '', content: '', imageUrl: '' } };
       setNewNewsContent('');
       setNewNewsTitle('');
+      setNewNewsImageUrl('');
       setHasGeneratedRoundSummary(false);
       setGeneratedRoundNumber(null);
     } catch (error) {
@@ -684,7 +724,7 @@ export const NewsTab: React.FC<NewsTabProps> = ({
 
   const handleNewsModeChange = (mode: NewsMode) => {
     if (mode === newsMode) return;
-    persistNewsDraft(draftStorageKey, { title: newNewsTitle, content: newNewsContent });
+    persistNewsDraft(draftStorageKey, { title: newNewsTitle, content: newNewsContent, imageUrl: newNewsImageUrl });
     persistNewsMode(newsModeStorageKey, mode);
     setNewsMode(mode);
   };
@@ -695,10 +735,24 @@ export const NewsTab: React.FC<NewsTabProps> = ({
       draft: {
         title,
         content: newNewsContent,
+        imageUrl: newNewsImageUrl,
         roundSummaryRoundNumber: newsMode === 'admin' ? generatedRoundNumber || undefined : undefined,
       },
     };
     setNewNewsTitle(title);
+  };
+
+  const handleNewsImageUrlChange = (imageUrl: string) => {
+    currentDraftRef.current = {
+      storageKey: draftStorageKey,
+      draft: {
+        title: newNewsTitle,
+        content: newNewsContent,
+        imageUrl,
+        roundSummaryRoundNumber: newsMode === 'admin' ? generatedRoundNumber || undefined : undefined,
+      },
+    };
+    setNewNewsImageUrl(imageUrl);
   };
 
   const handleNewsContentChange = (content: string) => {
@@ -707,6 +761,7 @@ export const NewsTab: React.FC<NewsTabProps> = ({
       draft: {
         title: newNewsTitle,
         content,
+        imageUrl: newNewsImageUrl,
         roundSummaryRoundNumber: newsMode === 'admin' ? generatedRoundNumber || undefined : undefined,
       },
     };
@@ -717,10 +772,11 @@ export const NewsTab: React.FC<NewsTabProps> = ({
   };
 
   const handleClearRoundSummary = () => {
-    currentDraftRef.current = { storageKey: draftStorageKey, draft: { title: '', content: '' } };
-    persistNewsDraft(draftStorageKey, { title: '', content: '' });
+    currentDraftRef.current = { storageKey: draftStorageKey, draft: { title: '', content: '', imageUrl: '' } };
+    persistNewsDraft(draftStorageKey, { title: '', content: '', imageUrl: '' });
     setNewNewsTitle('');
     setNewNewsContent('');
+    setNewNewsImageUrl('');
     setHasGeneratedRoundSummary(false);
     setGeneratedRoundNumber(null);
     setRoundSummaryPromptRevision(null);
@@ -764,7 +820,7 @@ export const NewsTab: React.FC<NewsTabProps> = ({
         .join('\n\n');
       currentDraftRef.current = {
         storageKey: draftStorageKey,
-        draft: { title, content, roundSummaryRoundNumber: roundSummaryRoundNumber },
+        draft: { title, content, imageUrl: newNewsImageUrl, roundSummaryRoundNumber: roundSummaryRoundNumber },
       };
       setNewNewsTitle(title);
       setNewNewsContent(content);
@@ -912,6 +968,18 @@ export const NewsTab: React.FC<NewsTabProps> = ({
                       placeholder="Title, e.g., Round 3 Objectives"
                       className={styles.postTitleInput}
                     />
+                    {newsMode === 'admin' && (
+                      <label className={styles.imageUrlField}>
+                        <span>Custom image URL <em>(optional)</em></span>
+                        <input
+                          type="text"
+                          value={newNewsImageUrl}
+                          onChange={(event) => handleNewsImageUrlChange(event.target.value)}
+                          placeholder="https://example.com/image.jpg or /s/image.jpg"
+                          className={styles.postTitleInput}
+                        />
+                      </label>
+                    )}
                     <textarea
                       value={newNewsContent}
                       onChange={(event) => handleNewsContentChange(event.target.value)}

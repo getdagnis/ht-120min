@@ -136,6 +136,7 @@ interface HomeWeeklyPost {
   tournament_display_name: string;
   title: string | null;
   content: string;
+  image_url: string | null;
   author_name: string;
   author_team_id: string | null;
   author_ht_user_id: number | null;
@@ -260,6 +261,7 @@ export const Home: React.FC<{ initialData?: HomeInitialData }> = ({ initialData 
       tournament_id,
       title,
       content,
+      image_url,
       author_name,
       author_team_id,
       author_ht_user_id,
@@ -320,6 +322,7 @@ export const Home: React.FC<{ initialData?: HomeInitialData }> = ({ initialData 
         }),
         title: post.title,
         content: post.content,
+        image_url: post.image_url || null,
         author_name: post.author_name,
         author_team_id: null,
         author_ht_user_id: post.author_ht_user_id,
@@ -876,6 +879,7 @@ export const Home: React.FC<{ initialData?: HomeInitialData }> = ({ initialData 
                       tournament_name: post.tournament_name,
                       title: post.title,
                       content: post.content,
+                      image_url: post.image_url,
                       author_name: post.author_name,
                       author_team_id: post.author_team_id,
                       author_ht_user_id: post.author_ht_user_id,
