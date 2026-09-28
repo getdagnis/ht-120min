@@ -30,11 +30,7 @@ const HATTRICK_TEAM_URL = 'https://www.hattrick.org/goto.ashx?path=/Club/?TeamID
 
 const isFinishedMatch = (match: StandingsPreviewMatch) => match.completed || match.status === 'misarranged';
 
-const renderTeam = (
-  team: StandingsPreviewMatch['home_team'],
-  isRight: boolean,
-  isOwnTeam: boolean,
-) => {
+const renderTeam = (team: StandingsPreviewMatch['home_team'], isRight: boolean, isOwnTeam: boolean) => {
   if (!team) return <span className={styles.bye}>BYE</span>;
 
   const teamClassName = [isRight ? styles.teamRight : null, isOwnTeam ? styles.teamOwn : null]
@@ -82,18 +78,26 @@ const RoundPanel: React.FC<{
         return (
           <div className={styles.match} key={match.id}>
             <div>
-              {renderTeam(match.home_team, false, Boolean(match.home_team && myHtTeamIds.has(match.home_team.ht_team_id)))}
+              {renderTeam(
+                match.home_team,
+                false,
+                Boolean(match.home_team && myHtTeamIds.has(match.home_team.ht_team_id)),
+              )}
             </div>
             <span className={styles.resultStack}>
               <span className={styles.result}>{isLastRound ? matchResult : '–'}</span>
               {isLastRound && match.went_120 === true && (
                 <span className={styles.minutesChip} title="120 minutes achieved">
-                  120
+                  120m
                 </span>
               )}
             </span>
             <div>
-              {renderTeam(match.away_team, true, Boolean(match.away_team && myHtTeamIds.has(match.away_team.ht_team_id)))}
+              {renderTeam(
+                match.away_team,
+                true,
+                Boolean(match.away_team && myHtTeamIds.has(match.away_team.ht_team_id)),
+              )}
             </div>
           </div>
         );
