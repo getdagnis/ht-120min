@@ -816,7 +816,7 @@ export const NewsTab: React.FC<NewsTabProps> = ({
         <div className={styles.weeklyPanels}>
           {newsPosts.length === 0 && (
             <SectionCard title="🗞 120min Weekly" className={styles.weeklyPanel}>
-              <p className={styles.noPosts}>No news yet.</p>
+              <p className={styles.noPosts}>No news loaded</p>
             </SectionCard>
           )}
           {latestPost && (
@@ -862,113 +862,118 @@ export const NewsTab: React.FC<NewsTabProps> = ({
           {canShowComposer && (
             <div ref={composerRef}>
               <SectionCard title={editingPostId ? 'Edit news post' : 'Write a press release'}>
-            <div className={styles.newsTabs}>
-              <button className={newsMode === 'team' ? styles.active : ''} onClick={() => handleNewsModeChange('team')}>
-                Team News
-              </button>
-              {isAdminAuthenticated && canPublishAnnouncements && (
-                <button
-                  className={newsMode === 'admin' ? styles.active : ''}
-                  onClick={() => handleNewsModeChange('admin')}
-                >
-                  Official Tournament Update
-                </button>
-              )}
-            </div>
-
-            <div className={styles.postingTeamBranding}>
-              {(() => {
-                if (newsMode === 'admin') {
-                  return (
-                    <div className={styles.branding}>
-                      <span>
-                        📰 Posting as: <strong>{cupPressByline}</strong>
-                      </span>
-                    </div>
-                  );
-                }
-
-                return myTeam ? (
-                  <div className={styles.branding}>
-                    <span>
-                      📰 Posting as: <strong>{myTeam.name}</strong>
-                    </span>
-                  </div>
-                ) : (
-                  <p>You don't have a team in this tournament.</p>
-                );
-              })()}
-            </div>
-
-            <form onSubmit={handlePostMessage} className={styles.postForm}>
-              <div className={styles.newsInputGroup}>
-                <input
-                  type="text"
-                  value={newNewsTitle}
-                  onChange={(event) => handleNewsTitleChange(event.target.value)}
-                  placeholder="Title, e.g., Round 3 Objectives"
-                  className={styles.postTitleInput}
-                />
-                <textarea
-                  value={newNewsContent}
-                  onChange={(event) => handleNewsContentChange(event.target.value)}
-                  placeholder={newsMode === 'admin' ? 'Write a tournament announcement...' : 'How is your team doing?'}
-                  className={styles.postTextarea}
-                  rows={16}
-                />
-              </div>
-              {roundSummaryError && newsMode === 'admin' && (
-                <p className={styles.roundSummaryError} role="alert">
-                  {roundSummaryError}
-                </p>
-              )}
-              {isCreatingRoundSummary && newsMode === 'admin' && (
-                <p className={styles.roundSummaryStatus} role="status">
-                  {roundSummaryElapsedSeconds > 65
-                    ? 'Generating. Takes about a minute. Or more...'
-                    : 'Generating. Takes about a minute...'}{' '}
-                  {String(Math.floor(roundSummaryElapsedSeconds / 60)).padStart(2, '0')}:
-                  {String(roundSummaryElapsedSeconds % 60).padStart(2, '0')}
-                </p>
-              )}
-              {roundSummaryPromptRevision && newsMode === 'admin' && (
-                <p className={styles.roundSummaryStatus}>Debug: prompt revision {roundSummaryPromptRevision}</p>
-              )}
-              {roundSummaryEligibilityError && newsMode === 'admin' && (
-                <p className={styles.roundSummaryError} role="alert">
-                  {roundSummaryEligibilityError}
-                </p>
-              )}
-              <div className={styles.postActions}>
-                {newsMode === 'admin' &&
-                  canPublishAnnouncements &&
-                  roundSummaryEligibility?.seasonNumber === seasonNumber &&
-                  (hasGeneratedRoundSummary ? (
-                    <Button type="button" variant="secondaryAction" onClick={handleClearRoundSummary}>
-                      Clear report
-                    </Button>
-                  ) : (
-                    <Button
-                      type="button"
-                      variant="primary"
-                      disabled={isCreatingRoundSummary}
-                      onClick={() => void handleCreateRoundSummary()}
+                <div className={styles.newsTabs}>
+                  <button
+                    className={newsMode === 'team' ? styles.active : ''}
+                    onClick={() => handleNewsModeChange('team')}
+                  >
+                    Team News
+                  </button>
+                  {isAdminAuthenticated && canPublishAnnouncements && (
+                    <button
+                      className={newsMode === 'admin' ? styles.active : ''}
+                      onClick={() => handleNewsModeChange('admin')}
                     >
-                      {isCreatingRoundSummary
-                        ? 'Creating summary…'
-                        : `Generate round ${roundSummaryEligibility.roundNumber} report`}
+                      Official Tournament Update
+                    </button>
+                  )}
+                </div>
+
+                <div className={styles.postingTeamBranding}>
+                  {(() => {
+                    if (newsMode === 'admin') {
+                      return (
+                        <div className={styles.branding}>
+                          <span>
+                            📰 Posting as: <strong>{cupPressByline}</strong>
+                          </span>
+                        </div>
+                      );
+                    }
+
+                    return myTeam ? (
+                      <div className={styles.branding}>
+                        <span>
+                          📰 Posting as: <strong>{myTeam.name}</strong>
+                        </span>
+                      </div>
+                    ) : (
+                      <p>You don't have a team in this tournament.</p>
+                    );
+                  })()}
+                </div>
+
+                <form onSubmit={handlePostMessage} className={styles.postForm}>
+                  <div className={styles.newsInputGroup}>
+                    <input
+                      type="text"
+                      value={newNewsTitle}
+                      onChange={(event) => handleNewsTitleChange(event.target.value)}
+                      placeholder="Title, e.g., Round 3 Objectives"
+                      className={styles.postTitleInput}
+                    />
+                    <textarea
+                      value={newNewsContent}
+                      onChange={(event) => handleNewsContentChange(event.target.value)}
+                      placeholder={
+                        newsMode === 'admin' ? 'Write a tournament announcement...' : 'How is your team doing?'
+                      }
+                      className={styles.postTextarea}
+                      rows={16}
+                    />
+                  </div>
+                  {roundSummaryError && newsMode === 'admin' && (
+                    <p className={styles.roundSummaryError} role="alert">
+                      {roundSummaryError}
+                    </p>
+                  )}
+                  {isCreatingRoundSummary && newsMode === 'admin' && (
+                    <p className={styles.roundSummaryStatus} role="status">
+                      {roundSummaryElapsedSeconds > 65
+                        ? 'Generating. Takes about a minute. Or more...'
+                        : 'Generating. Takes about a minute...'}{' '}
+                      {String(Math.floor(roundSummaryElapsedSeconds / 60)).padStart(2, '0')}:
+                      {String(roundSummaryElapsedSeconds % 60).padStart(2, '0')}
+                    </p>
+                  )}
+                  {roundSummaryPromptRevision && newsMode === 'admin' && (
+                    <p className={styles.roundSummaryStatus}>Debug: prompt revision {roundSummaryPromptRevision}</p>
+                  )}
+                  {roundSummaryEligibilityError && newsMode === 'admin' && (
+                    <p className={styles.roundSummaryError} role="alert">
+                      {roundSummaryEligibilityError}
+                    </p>
+                  )}
+                  <div className={styles.postActions}>
+                    {newsMode === 'admin' &&
+                      canPublishAnnouncements &&
+                      roundSummaryEligibility?.seasonNumber === seasonNumber &&
+                      (hasGeneratedRoundSummary ? (
+                        <Button type="button" variant="secondaryAction" onClick={handleClearRoundSummary}>
+                          Clear report
+                        </Button>
+                      ) : (
+                        <Button
+                          type="button"
+                          variant="primary"
+                          disabled={isCreatingRoundSummary}
+                          onClick={() => void handleCreateRoundSummary()}
+                        >
+                          {isCreatingRoundSummary
+                            ? 'Creating summary…'
+                            : `Generate round ${roundSummaryEligibility.roundNumber} report`}
+                        </Button>
+                      ))}
+                    <Button type="submit" variant="primary" disabled={isPostingNews || !newNewsContent.trim()}>
+                      {isPostingNews ? 'Saving...' : editingPostId ? 'Save changes' : 'Post Announcement'}
                     </Button>
-                  ))}
-                <Button type="submit" variant="primary" disabled={isPostingNews || !newNewsContent.trim()}>
-                  {isPostingNews ? 'Saving...' : editingPostId ? 'Save changes' : 'Post Announcement'}
-                </Button>
-                {editingPostId && (
-                  <Button type="button" variant="secondaryAction" onClick={() => setEditingPostId(null)}>
-                    Cancel
-                  </Button>
-                )}
-              </div>
-            </form>
+                    {editingPostId && (
+                      <Button type="button" variant="secondaryAction" onClick={() => setEditingPostId(null)}>
+                        Cancel
+                      </Button>
+                    )}
+                  </div>
+                </form>
               </SectionCard>
             </div>
           )}
