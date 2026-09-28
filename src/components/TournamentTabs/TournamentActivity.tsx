@@ -472,12 +472,21 @@ export const TournamentActivity: React.FC<TournamentActivityProps> = ({
               <time className={styles.date} dateTime={new Date(group.date).toISOString()}>
                 {formatActivityDay(group.date)}
               </time>
+              <span aria-hidden="true">, </span>
+              <time dateTime={new Date(group.entries[0].createdAt).toISOString()}>
+                {formatActivityTime(group.entries[0].createdAt)}
+              </time>
             </li>
-            {group.entries.map((entry) => (
-              <li key={`${entry.type}-${entry.id}`} className={styles.entry}>
-                <time className={styles.time} dateTime={new Date(entry.createdAt).toISOString()}>
-                  {formatActivityTime(entry.createdAt)}
-                </time>
+            {group.entries.map((entry, index) => (
+              <li
+                key={`${entry.type}-${entry.id}`}
+                className={`${styles.entry}${index > 0 ? ` ${styles.inline}` : ''}`}
+              >
+                {index > 0 && (
+                  <time className={styles.time} dateTime={new Date(entry.createdAt).toISOString()}>
+                    {formatActivityTime(entry.createdAt)}
+                  </time>
+                )}
                 <p>{entry.story}</p>
               </li>
             ))}

@@ -37,13 +37,6 @@ function formatActivityDay(value: string) {
   return date.toLocaleDateString('lv-LV', { day: '2-digit', month: '2-digit', year: 'numeric' });
 }
 
-function formatActivityTime(value: string) {
-  return new Date(value).toLocaleTimeString('en-GB', {
-    hour: '2-digit',
-    minute: '2-digit',
-  });
-}
-
 function activityDayKey(value: string) {
   const date = new Date(value);
   return `${date.getFullYear()}-${date.getMonth()}-${date.getDate()}`;
@@ -206,7 +199,6 @@ export const GlobalActivityWidget: React.FC<GlobalActivityWidgetProps> = ({ init
             </li>
             {group.entries.map((entry) => (
               <li key={entry.id} className={styles.entry}>
-                <time dateTime={entry.occurred_at}>{formatActivityTime(entry.occurred_at)}</time>
                 <p>{activityCopy(entry, locale)}</p>
               </li>
             ))}

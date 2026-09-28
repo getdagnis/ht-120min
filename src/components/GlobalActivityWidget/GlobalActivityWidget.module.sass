@@ -17,18 +17,15 @@
   list-style: none
   margin: 0
   padding: 0
-  border-top: 1px solid var(--border-transp)
+  border-top: 1px solid var(--borderWeak)
 
 .entry
-  padding: 0.7rem 0
+  padding: 0.75rem 0.25rem
   border-bottom: 1px solid var(--borderWeak)
 
-  time
-    display: block
-    margin-bottom: 0.25rem
-    color: var(--text60)
-    font-family: var(--mono)
-    font-size: 0.72rem
+  &:last-child
+    border: none
+    margin-bottom: 1rem
 
   p
     margin: 0
@@ -46,10 +43,11 @@
         color: var(--text-h)
 
 .dateGroup
-  padding: 0.7rem 0 0.25rem
+  padding: 0.7rem 0.25rem 0
   color: var(--text60)
-  font-family: var(--mono)
-  font-size: 0.72rem
+  font-family: var(--heading)
+  font-size: 0.8rem
+  margin-bottom: -.25rem
 
   &:first-child
     padding-top: 0.55rem
