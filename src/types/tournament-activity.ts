@@ -11,3 +11,8 @@ export interface TournamentMatchArrangeStorySnapshot {
   eventAt: string | null;
   story: TournamentActivityStory;
 }
+
+export interface TournamentReserveStorySnapshot {
+  eventAt: string | null;
+  story: TournamentActivityStory;
+}

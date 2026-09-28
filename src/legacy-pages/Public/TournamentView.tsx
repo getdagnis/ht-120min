@@ -91,6 +91,7 @@ import { CompactAccordionWidget } from '../../components/CompactAccordionWidget/
 import { ReusableWidget } from '../../components/ReusableWidget/ReusableWidget';
 import { MottoWidget } from '../../components/MottoWidget/MottoWidget';
 import { SidebarPollWidget } from '../../components/SidebarPollWidget/SidebarPollWidget';
+import { ReserveTeamsWidget } from '../../components/ReserveTeams/ReserveTeamsWidget';
 import { StandingsView } from '../../components/TournamentTabs/StandingsView';
 import { TournamentHistory, type TournamentSeasonComment } from '../../components/TournamentHistory/TournamentHistory';
 import { WelcomeModal } from '../../components/WelcomeModal/WelcomeModal';
@@ -282,6 +283,22 @@ interface MatchWithTeams {
   ht_match_id: number | null;
   match_type: number | null;
   next_match_arrange_story?: TournamentMatchArrangeStorySnapshot | null;
+  reserve_team_id?: string | null;
+  reserve_replaces_team_id?: string | null;
+  reserve_story?: TournamentMatchArrangeStorySnapshot | null;
+  reserve_team?: {
+    name: string;
+    ht_team_id: number;
+    active: boolean;
+    reserve_active?: boolean;
+    logo_url?: string;
+    country_name?: string;
+    country_id?: number;
+    league_id?: number;
+    league_level?: number | null;
+    manager_name?: string;
+    hattrick_user_id?: number;
+  } | null;
   venue_type?: 'home_away' | null;
   scheduled_for?: string | null;
   finished_at?: string | null;
@@ -297,6 +314,8 @@ interface MatchWithTeams {
     league_level?: number | null;
     manager_name?: string;
     hattrick_user_id?: number;
+    reserve_active?: boolean;
+    reserve_replacing_name?: string;
   } | null;
   away_team: {
     name: string;
@@ -309,6 +328,8 @@ interface MatchWithTeams {
     league_level?: number | null;
     manager_name?: string;
     hattrick_user_id?: number;
+    reserve_active?: boolean;
+    reserve_replacing_name?: string;
   } | null;
   match_date?: Date;
 }
@@ -333,6 +354,8 @@ interface Team {
   gender_id?: number | null;
   join_story?: TournamentJoinStory | null;
   reapply_season_number?: number | null;
+  reserve_active?: boolean;
+  reserve_joined_at?: string | null;
 }
 
 interface FetchedTeamData {
@@ -421,6 +444,7 @@ function toStandingTeam(team: Team): StandingTeam {
     logo_url: team.logo_url,
     manager_name: team.manager_name,
     is_placeholder: team.is_placeholder,
+    reserve_active: team.reserve_active,
   };
 }
 
@@ -436,6 +460,25 @@ function toStandingMatch(match: MatchWithTeams) {
     appg_outcome: match.appg_outcome,
     penalty_shootout_home_goals: match.penalty_shootout_home_goals,
     penalty_shootout_away_goals: match.penalty_shootout_away_goals,
+  };
+}
+
+function applyReserveDisplay(match: MatchWithTeams): MatchWithTeams {
+  const reserveTeam = match.reserve_team;
+  if (!reserveTeam || !match.reserve_team_id || !match.reserve_replaces_team_id) return match;
+
+  const replacingTeam =
+    match.reserve_replaces_team_id === match.home_team_id ? match.home_team : match.away_team;
+  const displayReserve = {
+    ...reserveTeam,
+    reserve_active: true,
+    reserve_replacing_name: replacingTeam?.name,
+  };
+
+  return {
+    ...match,
+    home_team: match.reserve_replaces_team_id === match.home_team_id ? displayReserve : match.home_team,
+    away_team: match.reserve_replaces_team_id === match.away_team_id ? displayReserve : match.away_team,
   };
 }
 
@@ -1338,6 +1381,7 @@ export const TournamentView: React.FC<{ initialData?: TournamentInitialData }> =
 
   const allMatches = rounds.flatMap((r) => r.matches);
   const isGenerated = rounds.length > 0;
+  const participantTeams = teams.filter((team) => !team.is_placeholder && !team.reserve_active);
 
   const isHealthQuotaMet = useCallback(
     (teamList: Team[] = teams) => {
@@ -1349,7 +1393,7 @@ export const TournamentView: React.FC<{ initialData?: TournamentInitialData }> =
       const replacedTeamIds = new Set(teamList.map((team) => team.replacement_for_team_id).filter(Boolean) as string[]);
       const currentSeasonTeams = teamList.filter(
         (team) =>
-          !team.is_placeholder && (team.active || (currentSeasonTeamIds.has(team.id) && !replacedTeamIds.has(team.id))),
+          !team.is_placeholder && !team.reserve_active && (team.active || (currentSeasonTeamIds.has(team.id) && !replacedTeamIds.has(team.id))),
       );
       if (!currentSeasonTeams.length) return true;
 
@@ -1720,7 +1764,8 @@ export const TournamentView: React.FC<{ initialData?: TournamentInitialData }> =
           ht_match_id,
           match_type,
           home_team:teams!matches_home_team_id_fkey(name, ht_team_id, logo_url, country_name, country_id, league_id, league_level, active, manager_name, hattrick_user_id),
-          away_team:teams!matches_away_team_id_fkey(name, ht_team_id, logo_url, country_name, country_id, league_id, league_level, active, manager_name, hattrick_user_id)
+          away_team:teams!matches_away_team_id_fkey(name, ht_team_id, logo_url, country_name, country_id, league_id, league_level, active, manager_name, hattrick_user_id),
+          reserve_team:teams!matches_reserve_team_id_fkey(name, ht_team_id, logo_url, country_name, country_id, league_id, league_level, active, reserve_active, manager_name, hattrick_user_id)
         `,
           )
           .in(
@@ -1772,7 +1817,7 @@ export const TournamentView: React.FC<{ initialData?: TournamentInitialData }> =
             home_team: enrichTeam(m.home_team, m.home_slot_assignment_id),
             away_team: enrichTeam(m.away_team, m.away_slot_assignment_id),
           };
-        });
+        }).map((match) => applyReserveDisplay(match as unknown as MatchWithTeams));
 
         const { data: warningsData } = await supabase
           .from('fixture_warnings')
@@ -1888,7 +1933,8 @@ export const TournamentView: React.FC<{ initialData?: TournamentInitialData }> =
           `
         *, status, ht_match_id, match_type,
         home_team:teams!matches_home_team_id_fkey(name, ht_team_id, logo_url, country_name, country_id, league_id, league_level, active, manager_name, hattrick_user_id),
-        away_team:teams!matches_away_team_id_fkey(name, ht_team_id, logo_url, country_name, country_id, league_id, league_level, active, manager_name, hattrick_user_id)
+        away_team:teams!matches_away_team_id_fkey(name, ht_team_id, logo_url, country_name, country_id, league_id, league_level, active, manager_name, hattrick_user_id),
+        reserve_team:teams!matches_reserve_team_id_fkey(name, ht_team_id, logo_url, country_name, country_id, league_id, league_level, active, reserve_active, manager_name, hattrick_user_id)
       `,
         )
         .in('round_id', roundIds),
@@ -1903,7 +1949,7 @@ export const TournamentView: React.FC<{ initialData?: TournamentInitialData }> =
         matches: (matchesData as MatchWithTeams[])
           .filter((m) => m.round_id === r.id)
           .map((m) => ({
-            ...m,
+            ...applyReserveDisplay(m),
             match_date: getMatchDateForRound(r as RoundWithMatches, m),
           }))
           .sort(compareFixtures),
@@ -3755,7 +3801,7 @@ export const TournamentView: React.FC<{ initialData?: TournamentInitialData }> =
     if (!tournament || isSandbox) return;
     if (tournament.status === 'stopped' || tournament.status === 'finished') return;
 
-    const registeredTeams = updatedTeams.filter((team) => !team.is_placeholder);
+    const registeredTeams = updatedTeams.filter((team) => !team.is_placeholder && !team.reserve_active);
     const activeTeams = registeredTeams.filter((team) => team.active);
 
     if (isGenerated) {
@@ -5221,9 +5267,9 @@ export const TournamentView: React.FC<{ initialData?: TournamentInitialData }> =
               messages={chatMessages}
               onSendMessage={handlePostChat}
               myHtUserId={myHtUserId ? Number(myHtUserId) : null}
-              leagueManagerIds={teams.map((t) => t.hattrick_user_id).filter((id): id is number => !!id)}
-              teamNames={teams.reduce((acc, t) => ({ ...acc, [t.hattrick_user_id || 0]: t.name }), {})}
-              teamDetails={teams.reduce(
+              leagueManagerIds={teams.filter((t) => !t.reserve_active).map((t) => t.hattrick_user_id).filter((id): id is number => !!id)}
+              teamNames={teams.filter((t) => !t.reserve_active).reduce((acc, t) => ({ ...acc, [t.hattrick_user_id || 0]: t.name }), {})}
+              teamDetails={teams.filter((t) => !t.reserve_active).reduce(
                 (acc, team) => {
                   if (team.hattrick_user_id) {
                     acc[team.hattrick_user_id] = {
@@ -5244,6 +5290,7 @@ export const TournamentView: React.FC<{ initialData?: TournamentInitialData }> =
                 } satisfies TournamentEmojiContext
               }
             />
+            <ReserveTeamsWidget tournamentId={tournament.id} />
             <SidebarPollWidget
               seasonId={currentSeason?.id}
               seasonStatus={currentSeason?.status}
@@ -5443,12 +5490,12 @@ export const TournamentView: React.FC<{ initialData?: TournamentInitialData }> =
                           <div className={adminStyles.field}>
                             {renderSettingsLabel(
                               'Tournament Category',
-                              teams.length > 0 && !isSiteAdmin ? '(locked once teams register)' : undefined,
+                              participantTeams.length > 0 && !isSiteAdmin ? '(locked once teams register)' : undefined,
                             )}
                             <select
                               value={editLeagueCategory}
                               onChange={(e) => setEditLeagueCategory(e.target.value as any)}
-                              disabled={teams.length > 0 && !isSiteAdmin}
+                              disabled={participantTeams.length > 0 && !isSiteAdmin}
                               className={adminStyles.selectField}
                             >
                               <option value="male">Regular league (male)</option>
@@ -5656,14 +5703,14 @@ export const TournamentView: React.FC<{ initialData?: TournamentInitialData }> =
                             <div className={adminStyles.field}>
                               {renderSettingsLabel(
                                 'Tournament Type',
-                                teams.length > 0 && !isSiteAdmin ? '(locked once teams register)' : undefined,
+                                participantTeams.length > 0 && !isSiteAdmin ? '(locked once teams register)' : undefined,
                               )}
                               <select
                                 value={editRegistrationType}
                                 onChange={(e) =>
                                   setEditRegistrationType(normalizeTournamentRegistrationType(e.target.value))
                                 }
-                                disabled={teams.length > 0 && !isSiteAdmin}
+                                disabled={participantTeams.length > 0 && !isSiteAdmin}
                                 className={adminStyles.selectField}
                               >
                                 <option value="validated">Hattrick Validated (CHPP)</option>
@@ -5855,7 +5902,7 @@ export const TournamentView: React.FC<{ initialData?: TournamentInitialData }> =
                           isCollapsed={isTeamsCollapsed}
                           onToggleCollapse={() => togglePanel('teams', !isTeamsCollapsed, setIsTeamsCollapsed)}
                         >
-                          {(!isGenerated || teams.some((t) => !t.active) || teams.length % 2 !== 0) && (
+                          {(!isGenerated || participantTeams.some((t) => !t.active) || participantTeams.length % 2 !== 0) && (
                             <div className={adminStyles.addTeamSection}>
                               <h3 className={adminStyles.sectionTitle}>
                                 {isValidatedTournament ? 'Invite Team' : 'Add Team'}
@@ -5946,7 +5993,7 @@ export const TournamentView: React.FC<{ initialData?: TournamentInitialData }> =
                             </div>
                           )}
                           <ul className={adminStyles.teamList}>
-                            {teams.map((team) => (
+                            {teams.filter((team) => !team.reserve_active).map((team) => (
                               <li key={team.id} className={!team.active ? adminStyles.inactiveTeam : ''}>
                                 <div className={adminStyles.teamInfo}>
                                   <div className={styles.nameRow}>

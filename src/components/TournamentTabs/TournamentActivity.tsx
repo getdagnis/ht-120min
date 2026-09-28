@@ -4,6 +4,7 @@ import type {
   TournamentActivityStory,
   TournamentJoinStory,
   TournamentMatchArrangeStorySnapshot,
+  TournamentReserveStorySnapshot,
 } from '../../types/tournament-activity';
 import { getCanonicalCountryName } from '../../utils/ht-data';
 import { useClientNow } from '../../hooks/useHydratedBrowserState';
@@ -38,6 +39,7 @@ export interface TournamentActivityMatch {
   home_team: { name: string; ht_team_id: number } | null;
   away_team: { name: string; ht_team_id: number } | null;
   next_match_arrange_story?: TournamentMatchArrangeStorySnapshot | null;
+  reserve_story?: TournamentReserveStorySnapshot | null;
 }
 
 export interface TournamentActivityWarning {
@@ -61,7 +63,15 @@ interface TournamentActivityProps {
 }
 
 interface TournamentActivityEntry {
-  type: 'join' | 'arranged' | 'misarranged' | 'season-start' | 'round-start' | 'round-finish' | 'round-report';
+  type:
+    | 'join'
+    | 'arranged'
+    | 'reserve-arranged'
+    | 'misarranged'
+    | 'season-start'
+    | 'round-start'
+    | 'round-finish'
+    | 'round-report';
   id: string;
   createdAt: number;
   story: React.ReactNode;
@@ -117,17 +127,18 @@ function buildJoinStory(team: TournamentActivityTeam): React.ReactNode {
       {countryDetails?.emoji}
     </>
   ) : null;
-  const managerLabel = managerName && team.hattrick_user_id ? (
-    <a
-      href={`https://www.hattrick.org/goto.ashx?path=/Club/Manager/?userId=${team.hattrick_user_id}`}
-      target="_blank"
-      rel="noopener noreferrer"
-    >
-      {managerName}
-    </a>
-  ) : (
-    managerName
-  );
+  const managerLabel =
+    managerName && team.hattrick_user_id ? (
+      <a
+        href={`https://www.hattrick.org/goto.ashx?path=/Club/Manager/?userId=${team.hattrick_user_id}`}
+        target="_blank"
+        rel="noopener noreferrer"
+      >
+        {managerName}
+      </a>
+    ) : (
+      managerName
+    );
   const teamLabel = team.ht_team_id ? (
     <a
       href={`https://www.hattrick.org/goto.ashx?path=/Club/?TeamID=${team.ht_team_id}`}
@@ -208,10 +219,11 @@ function renderJoinStory(team: TournamentActivityTeam): React.ReactNode {
 function isArrangeStorySnapshot(value: unknown): value is TournamentMatchArrangeStorySnapshot {
   if (!value || typeof value !== 'object') return false;
   const snapshot = value as { eventAt?: unknown; story?: unknown };
-  return (
-    (snapshot.eventAt === null || typeof snapshot.eventAt === 'string') &&
-    isTournamentStory(snapshot.story)
-  );
+  return (snapshot.eventAt === null || typeof snapshot.eventAt === 'string') && isTournamentStory(snapshot.story);
+}
+
+function isReserveStorySnapshot(value: unknown): value is TournamentReserveStorySnapshot {
+  return isArrangeStorySnapshot(value);
 }
 
 function toFixtureStoryTeam(team: { name: string; ht_team_id: number } | null): FixtureStoryTeam | null {
@@ -222,16 +234,17 @@ function toFixtureStoryTeam(team: { name: string; ht_team_id: number } | null): 
 function buildMisarrangedStory(
   match: TournamentActivityMatch,
   warnings: TournamentActivityWarning[],
+  teams: TournamentActivityTeam[],
 ): { story: TournamentActivityStory; createdAt: number } | null {
   const matchWarnings = warnings.filter(
     (warning) =>
       warning.round_id === match.round_id &&
       (warning.team_id === match.home_team_id || warning.team_id === match.away_team_id),
   );
-  if (match.status !== 'misarranged' || matchWarnings.length === 0) return null;
+  if (matchWarnings.length === 0) return null;
 
-  const homeTeam = toFixtureStoryTeam(match.home_team);
-  const awayTeam = toFixtureStoryTeam(match.away_team);
+  const homeTeam = toFixtureStoryTeam(teams.find((team) => team.id === match.home_team_id) || match.home_team);
+  const awayTeam = toFixtureStoryTeam(teams.find((team) => team.id === match.away_team_id) || match.away_team);
   if (!homeTeam || !awayTeam) return null;
 
   const offendingIds = new Set(
@@ -332,19 +345,33 @@ export const TournamentActivity: React.FC<TournamentActivityProps> = ({
       }));
     const arrangedEntries = matches.flatMap((match) => {
       if (!isArrangeStorySnapshot(match.next_match_arrange_story)) return [];
-      const createdAt = match.next_match_arrange_story.eventAt ? Date.parse(match.next_match_arrange_story.eventAt) : NaN;
+      const createdAt = match.next_match_arrange_story.eventAt
+        ? Date.parse(match.next_match_arrange_story.eventAt)
+        : NaN;
       if (!Number.isFinite(createdAt) || createdAt < cutoff || createdAt > now) return [];
-      return [{
-        type: 'arranged' as const,
-        id: match.id,
-        createdAt,
-        story: renderStory(match.next_match_arrange_story.story),
-      }];
+      return [
+        {
+          type: 'arranged' as const,
+          id: match.id,
+          createdAt,
+          story: renderStory(match.next_match_arrange_story.story),
+        },
+      ];
     });
     const misarrangedEntries = matches.flatMap((match) => {
-      const built = buildMisarrangedStory(match, warnings);
+      const built = buildMisarrangedStory(match, warnings, teams);
       if (!built || built.createdAt < cutoff || built.createdAt > now) return [];
-      return [{ type: 'misarranged' as const, id: match.id, createdAt: built.createdAt, story: renderStory(built.story) }];
+      return [
+        { type: 'misarranged' as const, id: match.id, createdAt: built.createdAt, story: renderStory(built.story) },
+      ];
+    });
+    const reserveEntries = matches.flatMap((match) => {
+      if (!isReserveStorySnapshot(match.reserve_story)) return [];
+      const createdAt = match.reserve_story.eventAt ? Date.parse(match.reserve_story.eventAt) : NaN;
+      if (!Number.isFinite(createdAt) || createdAt < cutoff || createdAt > now) return [];
+      return [
+        { type: 'reserve-arranged' as const, id: match.id, createdAt, story: renderStory(match.reserve_story.story) },
+      ];
     });
 
     const roundGroups = new Map<string, { roundNumber: number; matches: TournamentActivityMatch[] }>();
@@ -389,7 +416,10 @@ export const TournamentActivity: React.FC<TournamentActivityProps> = ({
           id: `round-start:${roundId}`,
           createdAt: earliestScheduledAt,
           story: (
-            <>Round {roundNumber} matches are now being played! Follow them live from {renderActionLink('the Fixtures page', fixturesHref)}.</>
+            <>
+              ⚽️ <strong>Round {roundNumber} matches are now being played!</strong> Follow them live from{' '}
+              {renderActionLink('the Fixtures page', fixturesHref)}.
+            </>
           ),
         });
       }
@@ -400,7 +430,8 @@ export const TournamentActivity: React.FC<TournamentActivityProps> = ({
           createdAt: finishedAt,
           story: (
             <>
-              Round {roundNumber} matches are now finished! Check the results on {renderActionLink('the Fixtures page', fixturesHref)}.
+              🏁 <strong>Round {roundNumber} matches are now finished!</strong> Check the results on{' '}
+              {renderActionLink('the Fixtures page', fixturesHref)}.
               {canPublishAnnouncements && roundReportsLoaded && !reportExists && newsHref && (
                 <>
                   <br />
@@ -423,7 +454,10 @@ export const TournamentActivity: React.FC<TournamentActivityProps> = ({
               id: `season-start:${seasonId || seasonNumber}`,
               createdAt: seasonStartAt,
               story: (
-                <>Season {seasonNumber} has started! The tournament schedule has been published and the first fixtures are ready. Check them on {renderActionLink('the Fixtures page', fixturesHref)}.</>
+                <>
+                  Season {seasonNumber} has started! The <strong>tournament schedule has been published</strong> and the
+                  first fixtures are ready. Check them on {renderActionLink('the Fixtures page', fixturesHref)}.
+                </>
               ),
             },
           ]
@@ -431,36 +465,70 @@ export const TournamentActivity: React.FC<TournamentActivityProps> = ({
 
     const reportEntries = roundReports.flatMap((report) => {
       const createdAt = Date.parse(report.created_at);
-      if (report.season_number !== seasonNumber || !Number.isFinite(createdAt) || createdAt < cutoff || createdAt > now) return [];
+      if (report.season_number !== seasonNumber || !Number.isFinite(createdAt) || createdAt < cutoff || createdAt > now)
+        return [];
       return [
         {
           type: 'round-report' as const,
           id: `round-report:${report.id}`,
           createdAt,
           story: (
-            <>Round {report.round_number} full press report has been published{newsHref ? <>! Read it on <a href={newsHref}>the News page</a>.</> : '!'}</>
+            <>
+              📰 <strong>Round {report.round_number} Press Report has been published</strong>
+              {newsHref ? (
+                <>
+                  ! Read it below or on <a href={newsHref}>the News page</a>.
+                </>
+              ) : (
+                '!'
+              )}
+            </>
           ),
         },
       ];
     });
 
-    return [...joinEntries, ...arrangedEntries, ...misarrangedEntries, ...seasonEntries, ...roundEntries, ...reportEntries]
+    return [
+      ...joinEntries,
+      ...arrangedEntries,
+      ...reserveEntries,
+      ...misarrangedEntries,
+      ...seasonEntries,
+      ...roundEntries,
+      ...reportEntries,
+    ]
       .sort((a, b) => b.createdAt - a.createdAt)
       .slice(0, MAX_ACTIVITY_ENTRIES);
-  }, [canPublishAnnouncements, fixturesHref, matches, newsHref, now, roundReports, roundReportsLoaded, seasonId, seasonNumber, seasonStartedAt, teams, warnings]);
+  }, [
+    canPublishAnnouncements,
+    fixturesHref,
+    matches,
+    newsHref,
+    now,
+    roundReports,
+    roundReportsLoaded,
+    seasonId,
+    seasonNumber,
+    seasonStartedAt,
+    teams,
+    warnings,
+  ]);
 
   if (entries.length === 0) return null;
 
-  const groupedEntries = entries.reduce<Array<{ key: string; date: number; entries: TournamentActivityEntry[] }>>((groups, entry) => {
-    const key = activityDayKey(entry.createdAt);
-    const existingGroup = groups[groups.length - 1];
-    if (existingGroup?.key === key) {
-      existingGroup.entries.push(entry);
-    } else {
-      groups.push({ key, date: entry.createdAt, entries: [entry] });
-    }
-    return groups;
-  }, []);
+  const groupedEntries = entries.reduce<Array<{ key: string; date: number; entries: TournamentActivityEntry[] }>>(
+    (groups, entry) => {
+      const key = activityDayKey(entry.createdAt);
+      const existingGroup = groups[groups.length - 1];
+      if (existingGroup?.key === key) {
+        existingGroup.entries.push(entry);
+      } else {
+        groups.push({ key, date: entry.createdAt, entries: [entry] });
+      }
+      return groups;
+    },
+    [],
+  );
 
   return (
     <section className={styles.activity} aria-labelledby="tournament-activity-title">
@@ -468,21 +536,25 @@ export const TournamentActivity: React.FC<TournamentActivityProps> = ({
       <ul className={styles.entries}>
         {groupedEntries.map((group) => (
           <React.Fragment key={group.key}>
-            <li className={styles.dateGroup}>
-              <time className={styles.date} dateTime={new Date(group.date).toISOString()}>
-                {formatActivityDay(group.date)}
-              </time>
-              <span aria-hidden="true">, </span>
-              <time dateTime={new Date(group.entries[0].createdAt).toISOString()}>
-                {formatActivityTime(group.entries[0].createdAt)}
-              </time>
-            </li>
-            {group.entries.map((entry, index) => (
+            {group.entries.length > 1 ? (
+              <li className={styles.dateGroup}>
+                <time className={styles.date} dateTime={new Date(group.date).toISOString()}>
+                  {formatActivityDay(group.date)}
+                </time>
+              </li>
+            ) : null}
+            {group.entries.map((entry) => (
               <li
                 key={`${entry.type}-${entry.id}`}
-                className={`${styles.entry}${index > 0 ? ` ${styles.inline}` : ''}`}
+                className={`${styles.entry}${group.entries.length > 1 ? ` ${styles.inline}` : ''}`}
               >
-                {index > 0 && (
+                {group.entries.length === 1 ? (
+                  <time className={styles.time} dateTime={new Date(entry.createdAt).toISOString()}>
+                    {formatActivityDay(entry.createdAt)}
+                    <span aria-hidden="true">, </span>
+                    {formatActivityTime(entry.createdAt)}
+                  </time>
+                ) : (
                   <time className={styles.time} dateTime={new Date(entry.createdAt).toISOString()}>
                     {formatActivityTime(entry.createdAt)}
                   </time>

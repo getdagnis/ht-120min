@@ -121,13 +121,13 @@ export function buildMisarrangedFixtureStory(input: {
   offendingTeams: FixtureStoryTeam[];
   opponentTeams: FixtureStoryTeam[];
 }): TournamentActivityStory {
-  const story: TournamentActivityStory = [text('Oh no! ')];
+  const story: TournamentActivityStory = [text('⚠️ Oh no! ')];
   appendTeamList(story, input.offendingTeams);
   story.push(
     text(
       input.offendingTeams.length === 1
-        ? ' has been detected arranging a friendly outside the tournament. The team has been issued a warning, so its'
-        : ' have been detected arranging friendlies outside the tournament. The teams have been issued warnings, so their',
+        ? ' has been detected arranging a friendly outside the tournament. Its'
+        : ' have been detected arranging friendlies outside the tournament. Their',
     ),
     text(` Round ${input.roundNumber} fixture can no longer be played as scheduled.`),
   );
@@ -145,4 +145,21 @@ export function buildMisarrangedFixtureStory(input: {
   }
 
   return story;
+}
+
+export function buildReserveFixtureStory(input: {
+  roundNumber: number;
+  reserveTeam: FixtureStoryTeam;
+  replacedTeam: FixtureStoryTeam;
+  opponentTeam: FixtureStoryTeam;
+}): TournamentActivityStory {
+  return [
+    text('💪 A reserve team has stepped in for the rescue! '),
+    teamLink(input.reserveTeam),
+    text(' have replaced '),
+    teamLink(input.replacedTeam),
+    text(` and arranged the Round ${input.roundNumber} match against `),
+    teamLink(input.opponentTeam),
+    text('.'),
+  ];
 }

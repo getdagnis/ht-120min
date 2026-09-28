@@ -41,6 +41,7 @@ export interface FixtureMatch {
   scheduled_for?: string | null;
   schedule_slot_type?: string | null;
   fixture_source?: string | null;
+  reserve_replaces_team_id?: string | null;
   appg_outcome?: AppgOutcome | null;
   home_team: {
     name: string;
@@ -51,6 +52,8 @@ export interface FixtureMatch {
     country_id?: number;
     manager_name?: string;
     hattrick_user_id?: number;
+    reserve_active?: boolean;
+    reserve_replacing_name?: string;
   } | null;
   away_team: {
     name: string;
@@ -61,6 +64,8 @@ export interface FixtureMatch {
     country_id?: number;
     manager_name?: string;
     hattrick_user_id?: number;
+    reserve_active?: boolean;
+    reserve_replacing_name?: string;
   } | null;
 }
 
@@ -794,8 +799,8 @@ export const FixturesView: React.FC<FixturesViewProps> = ({
                             away: match.penalty_shootout_away_goals ?? 0,
                           }
                         : null;
-                    const homeIsBye = !match.home_team || (!isHistorical && match.home_team.active === false);
-                    const awayIsBye = !match.away_team || (!isHistorical && match.away_team.active === false);
+                    const homeIsBye = !match.home_team || (!isHistorical && match.home_team.active === false && !match.home_team.reserve_active);
+                    const awayIsBye = !match.away_team || (!isHistorical && match.away_team.active === false && !match.away_team.reserve_active);
                     const availableChallenge = challengeAvailability[match.id];
                     const fixtureChallengeAction =
                       !isHistorical &&
@@ -835,6 +840,7 @@ export const FixturesView: React.FC<FixturesViewProps> = ({
                           countryName: homeIsBye ? undefined : match.home_team?.country_name,
                           countryId: homeIsBye ? undefined : match.home_team?.country_id,
                           matchSummary: homeSummary,
+                          reserveReplacingName: homeIsBye ? undefined : match.home_team?.reserve_replacing_name,
                           isBye: homeIsBye,
                         }}
                         awayTeam={{
@@ -847,6 +853,7 @@ export const FixturesView: React.FC<FixturesViewProps> = ({
                           countryName: awayIsBye ? undefined : match.away_team?.country_name,
                           countryId: awayIsBye ? undefined : match.away_team?.country_id,
                           matchSummary: awaySummary,
+                          reserveReplacingName: awayIsBye ? undefined : match.away_team?.reserve_replacing_name,
                           isBye: awayIsBye,
                         }}
                       />
