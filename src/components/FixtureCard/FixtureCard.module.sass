@@ -98,6 +98,35 @@
 .warn
   margin-left: .25rem
 
+.reserveRow
+  display: inline-flex
+  align-items: center
+  width: fit-content
+  max-width: 100%
+  margin-bottom: 0.25rem
+  padding: 0.2rem 0.30rem
+  background: var(--warning)
+  border-radius: var(--radius-sm)
+  font-family: var(--sans)
+  font-size: 0.8rem
+  font-weight: 700
+  line-height: 1
+  letter-spacing: 0.02em
+  color: white
+  text-transform: uppercase
+  white-space: nowrap
+  overflow: hidden
+  text-overflow: ellipsis
+
+  @media (max-width: 768px)
+    align-self: center
+
+.teamDetails.right .reserveRow
+  align-self: flex-end
+
+  @media (max-width: 768px)
+    align-self: center
+
 .teamName
   font-size: 1.75rem
   font-weight: 700
@@ -268,6 +297,9 @@
 
   &.arranged
     background-color: var(--accent)
+    color: white
+  &.replaced
+    background-color: var(--warning)
     color: white
   &.ongoing
     background-color: var(--lighter)

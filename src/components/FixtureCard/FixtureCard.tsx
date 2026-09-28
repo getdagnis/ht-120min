@@ -15,6 +15,7 @@ interface TeamProps {
   htTeamId: number;
   logoUrl?: string;
   warning?: 'yellow' | 'red';
+  reserveReplacingName?: string;
   countryName?: string;
   countryId?: number;
   matchSummary?: {
@@ -88,8 +89,9 @@ export const FixtureCard: React.FC<FixtureCardProps> = ({
   const hasPenaltyShootout = Boolean(
     penaltyShootout && penaltyShootout.home !== null && penaltyShootout.away !== null && went_120 && completed,
   );
+  const isReserveReplacement = Boolean(homeTeam.reserveReplacingName || awayTeam.reserveReplacingName);
   const badgeContent = (
-    <div className={`${styles.statusBadge} ${styles[status]}`}>
+    <div className={`${styles.statusBadge} ${styles[status]} ${isReserveReplacement && status === 'arranged' ? styles.replaced : ''}`}>
       {completed && (
         <div className={`${styles.minutesBadge} ${went_120 ? styles.achievedMinutes : ''}`}>
           {hasPenaltyShootout ? '120+PS!' : `${totalMinutes ?? (went_120 ? 120 : 90)}'${went_120 ? '!' : ''}`}
@@ -103,7 +105,9 @@ export const FixtureCard: React.FC<FixtureCardProps> = ({
               phase: liveClock?.phase,
               announcedAddedMinutes: liveClock?.announcedAddedMinutes,
             })
-          : status.replace('_', ' ').toUpperCase()}{' '}
+          : status === 'arranged' && isReserveReplacement
+            ? 'REPLACED'
+            : status.replace('_', ' ').toUpperCase()}{' '}
         {['arranged', 'ongoing', 'finished'].includes(status) && (
           <ArrowUpRight size={16} weight="bold" className={styles.statusBadgeIcon} />
         )}
@@ -123,6 +127,11 @@ export const FixtureCard: React.FC<FixtureCardProps> = ({
 
   const renderTeamInfo = (team: TeamProps, isRight?: boolean) => (
     <>
+      {team.reserveReplacingName && (
+        <div className={styles.reserveRow}>
+          <span>REPLACING {team.reserveReplacingName}</span>
+        </div>
+      )}
       <div className={styles.teamName}>{team.name.toUpperCase()}</div>
       {!team.isBye && (
         <TeamByline
