@@ -23,8 +23,14 @@ export function getJoinStoryManagerSummary(value: unknown): JoinStoryManagerSumm
   if (!isStory(value) || value.length === 0) return { name: null, href: null, flag: null };
 
   const manager = value[0];
-  const origin = value.slice(1).find((part) => part.text.includes(' from '));
-  const flag = origin?.text.match(/[\u{1F1E6}-\u{1F1FF}]{2}/u)?.[0] || null;
+  const storyTextAfterManager = value
+    .slice(1)
+    .map((part) => part.text)
+    .join('');
+  const originStart = storyTextAfterManager.indexOf(' from ');
+  const joinStart = storyTextAfterManager.indexOf(' joined tournament', originStart);
+  const originText = originStart >= 0 ? storyTextAfterManager.slice(originStart, joinStart >= 0 ? joinStart : undefined) : '';
+  const flag = originText.match(/[\u{1F1E6}-\u{1F1FF}]{2}/u)?.[0] || null;
 
   return {
     name: manager.text.trim() || null,

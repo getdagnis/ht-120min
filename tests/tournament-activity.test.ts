@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 
 import { buildArrangedFixtureStory, buildMisarrangedFixtureStory } from '../src/utils/fixture-story.js';
+import { getJoinStoryManagerSummary } from '../src/utils/tournament-activity';
 import { buildTournamentJoinStory } from '../src/server/api/_lib/join-story.js';
 
 test('join story preserves manager nickname and captures the registration snapshot', () => {
@@ -55,6 +56,23 @@ test('join story preserves manager nickname and captures the registration snapsh
   assert.equal(story.find((part) => part.text === 'klaus82')?.href, 'https://www.hattrick.org/goto.ashx?path=/Club/Manager/?userId=12895530');
   assert.equal(story.find((part) => part.text === 'VI.492')?.href, 'https://www.hattrick.org/goto.ashx?path=/World/Series/?LeagueLevelUnitID=272168');
   assert.equal(story.find((part) => part.text === 'Acquaviva')?.href, 'https://www.hattrick.org/goto.ashx?path=/World/Regions/Region.aspx?RegionID=2901');
+});
+
+test('join activity extracts the manager flag across split story parts', () => {
+  const story = buildTournamentJoinStory({
+    manager: {
+      hattrickUserId: 12895530,
+      managerName: 'klaus82',
+      countryId: 4,
+      countryName: 'Italy',
+      teams: [{ teamId: 723264, teamName: 'Oracolo', isPrimaryClub: true, regionName: 'Liguria', countryId: 4, countryName: 'Italy' }],
+    },
+    managerName: 'klaus82',
+    managerId: 12895530,
+    team: { teamId: 999, teamName: 'FC Potatoes Woman', countryId: 191, countryName: 'San Marino' },
+  });
+
+  assert.equal(getJoinStoryManagerSummary(story).flag, '🇮🇹');
 });
 
 test('arranged fixture story uses the confirmed home venue and keeps links in the snapshot', () => {

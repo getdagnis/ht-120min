@@ -42,6 +42,14 @@ function activityDayKey(value: string) {
   return `${date.getFullYear()}-${date.getMonth()}-${date.getDate()}`;
 }
 
+function openManagerProfile(event: React.MouseEvent<HTMLAnchorElement>, managerHtId: number) {
+  event.preventDefault();
+  const params = new URLSearchParams(window.location.search);
+  params.set('profileId', managerHtId.toString());
+  window.history.pushState({}, '', `${window.location.pathname}?${params.toString()}`);
+  window.dispatchEvent(new Event('popstate'));
+}
+
 function activityCopy(entry: HomeActivityEntry, locale: string) {
   const tournamentHref = toLocalePath(locale, `/t/${entry.tournament_slug}`);
   const newsHref = toLocalePath(locale, `/t/${entry.tournament_slug}?tab=news`);
@@ -49,8 +57,11 @@ function activityCopy(entry: HomeActivityEntry, locale: string) {
 
   if (entry.type === 'join') {
     const manager = entry.manager_name ? (
-      entry.manager_href ? (
-        <a href={entry.manager_href} target="_blank" rel="noopener noreferrer">
+      entry.manager_ht_id ? (
+        <a
+          href={`${toLocalePath(locale, '/')}?profileId=${entry.manager_ht_id}`}
+          onClick={(event) => openManagerProfile(event, entry.manager_ht_id!)}
+        >
           {entry.manager_name}
         </a>
       ) : (
@@ -59,10 +70,28 @@ function activityCopy(entry: HomeActivityEntry, locale: string) {
     ) : (
       'A new team'
     );
+    const team = entry.team_name ? (
+      entry.team_ht_id ? (
+        <a
+          href={`https://www.hattrick.org/goto.ashx?path=/Club/?TeamID=${entry.team_ht_id}`}
+          target="_blank"
+          rel="noopener noreferrer"
+        >
+          {entry.team_name}
+        </a>
+      ) : (
+        entry.team_name
+      )
+    ) : null;
+
     return (
       <>
-        {manager}
-        {entry.manager_flag ? ` ${entry.manager_flag}` : ''} joined {tournament}
+        {team || manager}
+        {entry.team_flag ? ` ${entry.team_flag}` : ''}
+        {team && manager ? ' led by ' : ''}
+        {team ? manager : null}
+        {/*entry.manager_flag ? ` ${entry.manager_flag}` : ''*/} {team ? 'has' : 'joined'} {team ? 'joined ' : ''}
+        {tournament}
       </>
     );
   }
@@ -150,7 +179,6 @@ export const GlobalActivityWidget: React.FC<GlobalActivityWidgetProps> = ({ init
               tournament_name: publicTournament.name,
               tournament_display_name: formatTournamentName(publicTournament.name, {
                 countryLimit: publicTournament.country_limit,
-                leagueCategory: publicTournament.league_category,
                 includeCountryFlag: true,
               }),
               round_number: report.round_number || undefined,
@@ -158,7 +186,7 @@ export const GlobalActivityWidget: React.FC<GlobalActivityWidgetProps> = ({ init
             };
             return [next, ...current.filter((entry) => entry.id !== next.id)]
               .sort((a, b) => Date.parse(b.occurred_at) - Date.parse(a.occurred_at))
-              .slice(0, 5);
+              .slice(0, 7);
           });
         },
       )
@@ -189,7 +217,7 @@ export const GlobalActivityWidget: React.FC<GlobalActivityWidgetProps> = ({ init
     <section className={styles.widget} aria-labelledby="global-activity-title">
       <h2 id="global-activity-title" className={styles.header}>
         <Activity size={20} weight="bold" aria-hidden="true" />
-        <span>HT-120min activity</span>
+        <span>HT-120min latest activity</span>
       </h2>
       <ul className={styles.entries}>
         {groupedEntries.map((group) => (

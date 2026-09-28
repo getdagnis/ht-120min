@@ -1,5 +1,8 @@
 import { useEffect } from 'react';
 
+// Activity tracking is temporarily paused for usage control; restore this gate here when tracking should resume.
+const ACTIVITY_TRACKING_PAUSED = true;
+
 export interface ActivityEventPayload {
   route?: string;
   tournamentId?: string;
@@ -8,6 +11,8 @@ export interface ActivityEventPayload {
 }
 
 export async function trackActivity(eventType: string, payload: ActivityEventPayload = {}) {
+  if (ACTIVITY_TRACKING_PAUSED) return;
+
   try {
     await fetch('/api/app?route=activity', {
       method: 'POST',

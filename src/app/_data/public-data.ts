@@ -9,6 +9,7 @@ import { sortFeaturedFirst } from '../../utils/tournament-sorting';
 import { sortOpenTournaments } from '../../utils/open-tournaments';
 import { calculateSeasonSlotStandings } from '../../utils/standings';
 import { formatTournamentName } from '../../utils/tournament-names';
+import { getCountryWorldDetails } from '../../../shared/worlddetails';
 import { getJoinStoryManagerSummary } from '../../utils/tournament-activity';
 import {
   EXOTIC_HFI_CAMPAIGN_SLUG_SET,
@@ -46,6 +47,8 @@ interface HomeTeam {
   is_placeholder?: boolean | null;
   manager_name?: string | null;
   hattrick_user_id?: number | null;
+  country_id?: number | null;
+  country_name?: string | null;
   join_story?: unknown;
 }
 
@@ -115,6 +118,10 @@ export interface HomeActivityEntry {
   manager_name?: string | null;
   manager_href?: string | null;
   manager_flag?: string | null;
+  manager_ht_id?: number | null;
+  team_name?: string | null;
+  team_ht_id?: number | null;
+  team_flag?: string | null;
   season_number?: number;
   round_number?: number;
   report_id?: string;
@@ -182,7 +189,7 @@ export const loadHomeInitialData = cache(async (): Promise<HomeInitialData> => {
               home_team:teams!matches_home_team_id_fkey(country_name)
             )
           ),
-          teams (id, name, ht_team_id, joined_via_oauth, created_at, active, reserve_active, is_placeholder, manager_name, hattrick_user_id, join_story)
+          teams (id, name, ht_team_id, joined_via_oauth, created_at, active, reserve_active, is_placeholder, manager_name, hattrick_user_id, country_id, country_name, join_story)
         `,
         )
         .eq('is_private', false),
@@ -236,7 +243,6 @@ export const loadHomeInitialData = cache(async (): Promise<HomeInitialData> => {
     const matches = currentRounds.flatMap((round) => round.matches || []);
     const tournamentDisplayName = formatTournamentName(tournament.name, {
       countryLimit: tournament.country_limit,
-      leagueCategory: tournament.league_category,
       includeCountryFlag: true,
     });
     const inActivityWindow = (value: string | null | undefined) => {
@@ -263,6 +269,10 @@ export const loadHomeInitialData = cache(async (): Promise<HomeInitialData> => {
         manager_name: manager.name || team.manager_name || null,
         manager_href: manager.href,
         manager_flag: manager.flag,
+        manager_ht_id: team.hattrick_user_id || null,
+        team_name: team.name,
+        team_ht_id: team.ht_team_id,
+        team_flag: getCountryWorldDetails(team.country_id ?? undefined)?.emoji || null,
       });
     }
 
@@ -418,7 +428,7 @@ export const loadHomeInitialData = cache(async (): Promise<HomeInitialData> => {
     activity: activity
       .filter((entry) => Number.isFinite(Date.parse(entry.occurred_at)))
       .toSorted((a, b) => Date.parse(b.occurred_at) - Date.parse(a.occurred_at))
-      .slice(0, 5),
+      .slice(0, 7),
   };
 });
 
