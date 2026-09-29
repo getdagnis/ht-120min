@@ -85,7 +85,7 @@ interface RoundReportActivity {
 }
 
 const ACTIVITY_WINDOW_MS = 7 * 24 * 60 * 60 * 1000;
-const MAX_ACTIVITY_ENTRIES = 7;
+const INITIAL_ACTIVITY_ENTRIES = 5;
 
 function formatActivityDay(createdAt: number) {
   return new Date(createdAt).toLocaleDateString('lv-LV', {
@@ -290,6 +290,7 @@ export const TournamentActivity: React.FC<TournamentActivityProps> = ({
   const now = useClientNow(60_000);
   const [roundReports, setRoundReports] = useState<RoundReportActivity[]>([]);
   const [roundReportsLoaded, setRoundReportsLoaded] = useState(!tournamentId);
+  const [showAllEntries, setShowAllEntries] = useState(false);
 
   useEffect(() => {
     if (!tournamentId) return;
@@ -336,7 +337,6 @@ export const TournamentActivity: React.FC<TournamentActivityProps> = ({
       .map((team) => ({ team, createdAt: Date.parse(team.created_at) }))
       .filter(({ createdAt }) => Number.isFinite(createdAt) && createdAt >= cutoff && createdAt <= now)
       .sort((a, b) => b.createdAt - a.createdAt)
-      .slice(0, MAX_ACTIVITY_ENTRIES)
       .map(({ team, createdAt }) => ({
         type: 'join',
         id: team.id,
@@ -497,8 +497,7 @@ export const TournamentActivity: React.FC<TournamentActivityProps> = ({
       ...roundEntries,
       ...reportEntries,
     ]
-      .sort((a, b) => b.createdAt - a.createdAt)
-      .slice(0, MAX_ACTIVITY_ENTRIES);
+      .sort((a, b) => b.createdAt - a.createdAt);
   }, [
     canPublishAnnouncements,
     fixturesHref,
@@ -516,7 +515,9 @@ export const TournamentActivity: React.FC<TournamentActivityProps> = ({
 
   if (entries.length === 0) return null;
 
-  const groupedEntries = entries.reduce<Array<{ key: string; date: number; entries: TournamentActivityEntry[] }>>(
+  const visibleEntries = showAllEntries ? entries : entries.slice(0, INITIAL_ACTIVITY_ENTRIES);
+
+  const groupedEntries = visibleEntries.reduce<Array<{ key: string; date: number; entries: TournamentActivityEntry[] }>>(
     (groups, entry) => {
       const key = activityDayKey(entry.createdAt);
       const existingGroup = groups[groups.length - 1];
@@ -565,6 +566,16 @@ export const TournamentActivity: React.FC<TournamentActivityProps> = ({
           </React.Fragment>
         ))}
       </ul>
+      {entries.length > INITIAL_ACTIVITY_ENTRIES && (
+        <button
+          type="button"
+          className={styles.showMore}
+          onClick={() => setShowAllEntries((current) => !current)}
+          aria-expanded={showAllEntries}
+        >
+          {showAllEntries ? 'Show less' : 'Show more'}
+        </button>
+      )}
     </section>
   );
 };
