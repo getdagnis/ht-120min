@@ -172,6 +172,89 @@
   line-height: 1
   cursor: pointer
 
+.newsComments
+  margin-top: 1.25rem
+  padding-top: 1rem
+  border-top: 1px solid var(--border-transp)
+  box-shadow: none
+
+.commentComposer
+  display: flex
+  flex-direction: column
+  gap: 0.65rem
+  box-shadow: none
+
+.commentAuthor
+  display: flex
+  align-items: center
+  gap: 0.6rem
+  color: var(--text-h)
+
+.commentAvatar
+  flex: 0 0 auto
+
+.commentComposer textarea
+  width: 100%
+  min-height: 5rem
+  box-sizing: border-box
+  resize: vertical
+  padding: 0.7rem 0.8rem
+  border: 1px solid var(--borderWeak)
+  border-radius: var(--radius-sm)
+  background: var(--bg-transp)
+  color: var(--text)
+  font: inherit
+
+  &:focus
+    outline: none
+    border-color: var(--text60)
+
+.commentComposerActions
+  display: flex
+  justify-content: flex-end
+
+.commentError
+  margin: 0
+  color: var(--danger, #b42318)
+  font-size: 0.85rem
+
+.commentList
+  display: flex
+  flex-direction: column
+  gap: 1rem
+  margin-top: 1.25rem
+  box-shadow: none
+
+.commentItem
+  display: flex
+  align-items: flex-start
+  gap: 0.65rem
+  box-shadow: none
+
+.commentBody
+  min-width: 0
+  flex: 1
+
+.commentMeta
+  display: flex
+  align-items: baseline
+  gap: 0.6rem
+  flex-wrap: wrap
+
+  strong
+    color: var(--text-h)
+
+  time
+    color: var(--text60)
+    font-size: 0.75rem
+
+.commentBody p
+  margin: 0.25rem 0 0
+  color: var(--text)
+  line-height: 1.45
+  white-space: pre-wrap
+  overflow-wrap: anywhere
+
 .reactionBtn
   background: var(--lighter-less)
   border: 0.5px solid var(--border-transp)

@@ -13,6 +13,8 @@ import { CompactAccordionWidget, type CompactAccordionItem } from '../CompactAcc
 import { supabase } from '../../lib/supabase';
 import { useLocale } from '../../i18n/LocaleProvider';
 import styles from './NewsTab.module.sass';
+import { NewsComments } from './NewsComments';
+import { useNewsComments, type NewsComment, type NewsCommentAuthor } from './useNewsComments';
 import {
   buildTournamentEmojiOptions,
   TOURNAMENT_EMOJI_OPTIONS,
@@ -68,6 +70,10 @@ export interface NewsArticleProps {
   onDelete?: () => void;
   tournamentEmojiContext?: TournamentEmojiContext;
   preview?: NewsArticlePreview;
+  comments?: NewsComment[];
+  commentAuthor?: NewsCommentAuthor | null;
+  onCommentSubmit?: (postId: string, content: string) => Promise<void>;
+  commentSubmitting?: boolean;
 }
 
 interface NewsTabProps {
@@ -197,6 +203,10 @@ export const NewsArticle: React.FC<NewsArticleProps> = ({
   onDelete,
   tournamentEmojiContext,
   preview,
+  comments,
+  commentAuthor,
+  onCommentSubmit,
+  commentSubmitting = false,
 }) => {
   const { locale } = useLocale();
   const customImageUrl = post.image_url?.trim() || null;
@@ -337,6 +347,14 @@ export const NewsArticle: React.FC<NewsArticleProps> = ({
           ))}
         </div>
       )}
+      {!preview && onCommentSubmit && comments !== undefined && (
+        <NewsComments
+          comments={comments}
+          currentAuthor={commentAuthor || null}
+          onSubmit={(content) => onCommentSubmit(post.id, content)}
+          isSubmitting={commentSubmitting}
+        />
+      )}
       {visitHref && (
         <div className={styles.visitCupRow}>
           <Button
@@ -411,6 +429,16 @@ export const NewsTab: React.FC<NewsTabProps> = ({
   const [pendingDeletePost, setPendingDeletePost] = useState<NewsPost | null>(null);
   const [newsMode, setNewsMode] = useState<NewsMode>('team');
   const [newsReactions, setNewsReactions] = useState<Record<string, NewsReaction[]>>({});
+  const {
+    commentsByPost,
+    currentAuthor: newsCommentAuthor,
+    submitComment: submitNewsComment,
+    submittingPostId: submittingNewsCommentPostId,
+  } = useNewsComments(
+    newsPosts.map((post) => post.id),
+    myHtUserId,
+    myManagerName,
+  );
   const newsModeStorageKey = getNewsModeStorageKey(tournamentId, myHtUserId);
   const draftStorageKey = getNewsDraftStorageKey(tournamentId, seasonNumber, newsMode, myHtUserId);
   const currentDraftRef = useRef<{ storageKey: string; draft: NewsDraft }>({
@@ -487,10 +515,19 @@ export const NewsTab: React.FC<NewsTabProps> = ({
   useEffect(() => {
     const restoreTimer = window.setTimeout(() => {
       const savedMode = readNewsMode(newsModeStorageKey);
-      setNewsMode(savedMode === 'admin' && canPublishAnnouncements ? 'admin' : 'team');
+      const canUseOfficialMode = isAdminAuthenticated && canPublishAnnouncements;
+      setNewsMode(
+        savedMode === 'admin' && canUseOfficialMode
+          ? 'admin'
+          : savedMode === 'team'
+            ? 'team'
+            : canUseOfficialMode
+              ? 'admin'
+              : 'team',
+      );
     }, 0);
     return () => window.clearTimeout(restoreTimer);
-  }, [canPublishAnnouncements, newsModeStorageKey]);
+  }, [canPublishAnnouncements, isAdminAuthenticated, newsModeStorageKey]);
 
   useEffect(() => {
     if (!isActive || !canPublishAnnouncements || composeParam !== 'announcement') return;
@@ -897,6 +934,10 @@ export const NewsTab: React.FC<NewsTabProps> = ({
                 tournamentEmojiContext={tournamentEmojiContext}
                 onEdit={canMutatePost(latestPost) ? () => startEditingPost(latestPost) : undefined}
                 onDelete={canMutatePost(latestPost) ? () => setPendingDeletePost(latestPost) : undefined}
+                comments={commentsByPost[latestPost.id] || []}
+                commentAuthor={newsCommentAuthor}
+                onCommentSubmit={submitNewsComment}
+                commentSubmitting={submittingNewsCommentPostId === latestPost.id}
               />
             </SectionCard>
           )}
@@ -917,6 +958,10 @@ export const NewsTab: React.FC<NewsTabProps> = ({
                   tournamentEmojiContext={tournamentEmojiContext}
                   onEdit={canMutatePost(post) ? () => startEditingPost(post) : undefined}
                   onDelete={canMutatePost(post) ? () => setPendingDeletePost(post) : undefined}
+                  comments={commentsByPost[post.id] || []}
+                  commentAuthor={newsCommentAuthor}
+                  onCommentSubmit={submitNewsComment}
+                  commentSubmitting={submittingNewsCommentPostId === post.id}
                 />
               </SectionCard>
             );

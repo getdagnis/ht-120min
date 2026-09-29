@@ -7,6 +7,7 @@ import { Tooltip } from '../Tooltip/Tooltip';
 import { TeamByline } from '../TeamByline/TeamByline';
 import { SeasonYearbook, type TournamentSeasonComment } from '../TournamentHistory/TournamentHistory';
 import { NewsArticle, type NewsPost, type NewsReaction } from './NewsTab';
+import { useNewsComments } from './useNewsComments';
 import { supabase } from '../../lib/supabase';
 import historyStyles from '../TournamentHistory/TournamentHistory.module.sass';
 import newsStyles from './NewsTab.module.sass';
@@ -28,6 +29,7 @@ interface StandingsViewProps {
   standings: TeamStanding[];
   is120minMode: boolean;
   myHtUserId: string | null;
+  myManagerName?: string | null;
   tournament: {
     id?: string;
     name?: string;
@@ -115,6 +117,7 @@ export const StandingsView: React.FC<StandingsViewProps> = ({
   standings,
   is120minMode,
   myHtUserId,
+  myManagerName = null,
   tournament,
   seasonStatus,
   lastSeenMap = {},
@@ -160,6 +163,16 @@ export const StandingsView: React.FC<StandingsViewProps> = ({
   const [seasonComments, setSeasonComments] = useState<TournamentSeasonComment[]>([]);
   const [latestNewsPosts, setLatestNewsPosts] = useState<NewsPost[]>([]);
   const [latestNewsReactions, setLatestNewsReactions] = useState<Record<string, NewsReaction[]>>({});
+  const {
+    commentsByPost: newsCommentsByPost,
+    currentAuthor: newsCommentAuthor,
+    submitComment: submitNewsComment,
+    submittingPostId: submittingNewsCommentPostId,
+  } = useNewsComments(
+    latestNewsPosts.map((post) => post.id),
+    myHtUserId,
+    myManagerName,
+  );
   const [commentDrafts, setCommentDrafts] = useState<Record<string, string>>({});
   const [pendingCommentStanding, setPendingCommentStanding] = useState<TeamStanding | null>(null);
   const [submittingTeamId, setSubmittingTeamId] = useState<string | null>(null);
@@ -964,6 +977,10 @@ export const StandingsView: React.FC<StandingsViewProps> = ({
                   currentUserId={myHtUserId}
                   reactionAuthorNames={reactionAuthorNames}
                   onReaction={handleNewsReaction}
+                  comments={newsCommentsByPost[post.id] || []}
+                  commentAuthor={newsCommentAuthor}
+                  onCommentSubmit={submitNewsComment}
+                  commentSubmitting={submittingNewsCommentPostId === post.id}
                   tournamentImageUrl={tournament?.image_url}
                   tournamentEmojiContext={
                     {

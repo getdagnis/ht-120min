@@ -5269,6 +5269,7 @@ export const TournamentView: React.FC<{ initialData?: TournamentInitialData }> =
             standings={isViewingHistoricalSeason ? selectedSeason?.snapshot_json?.standings || [] : standings}
             is120minMode={is120minMode}
             myHtUserId={myHtUserId}
+            myManagerName={storedHtManagerName}
             tournament={tournament}
             lastSeenMap={lastSeenMap}
             onRefreshPresence={fetchPresenceOnly}

@@ -8,6 +8,7 @@ import {
 } from './_lib/forge-session.js';
 import { getAnalyticsExcludedHtUserId } from './_lib/analytics.js';
 import { cleanupActivityEvents, recordActivity } from './_lib/activity.js';
+import { validateNewsComment } from './_lib/news-comments.js';
 import { findSeasonParticipant, validateSeasonComment } from './_lib/season-comments.js';
 import { validateTournamentLeave } from './_lib/tournament-participation.js';
 import { getServiceSupabase, getSupabase } from './_lib/supabase.js';
@@ -64,6 +65,7 @@ import type { PersistedScoringMode } from '../../../shared/scoring-profile.js';
 import type { SeasonFixturesSnapshot } from '../../utils/season-fixtures.js';
 
 const COMMENT_SELECT = 'id, season_id, team_id, team_name, manager_name, comment, created_at';
+const NEWS_COMMENT_SELECT = 'id, post_id, hattrick_user_id, author_name, content, created_at';
 const HISTORY_REPORT_DISMISSED_NOTICE = 'history-report-dismissed';
 const HISTORY_REPORT_VIEWED_NOTICE = 'history-report-viewed';
 const HISTORY_REPORT_STATUS_NOTICE = 'history-report-status';
@@ -1666,6 +1668,114 @@ async function handleHistory(req: VercelRequest, res: VercelResponse) {
   return res.status(201).json({ comment: data });
 }
 
+type NewsCommentRow = {
+  id: string;
+  post_id: string;
+  hattrick_user_id: number;
+  author_name: string;
+  content: string;
+  created_at: string;
+};
+
+const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+
+function readNewsCommentPostIds(value: unknown) {
+  const raw = Array.isArray(value) ? value.join(',') : readString(value);
+  return Array.from(new Set(raw.split(',').map((item) => item.trim()).filter((item) => UUID_PATTERN.test(item)))).slice(0, 100);
+}
+
+async function hydrateNewsComments(
+  supabase: ReturnType<typeof getSupabase>,
+  comments: NewsCommentRow[],
+) {
+  const authorIds = Array.from(new Set(comments.map((comment) => comment.hattrick_user_id).filter((id) => id > 0)));
+  if (authorIds.length === 0) return comments.map((comment) => ({ ...comment, avatar_json: null }));
+
+  const { data: profiles, error } = await supabase
+    .from('profiles')
+    .select('hattrick_user_id, avatar_json')
+    .in('hattrick_user_id', authorIds);
+  if (error) throw error;
+
+  const avatars = new Map<number, unknown>(
+    (profiles || []).map((profile) => [Number(profile.hattrick_user_id), profile.avatar_json || null]),
+  );
+  return comments.map((comment) => ({ ...comment, avatar_json: avatars.get(comment.hattrick_user_id) || null }));
+}
+
+async function handleNewsComments(req: VercelRequest, res: VercelResponse) {
+  if (req.method === 'GET') {
+    const postIds = readNewsCommentPostIds(req.query.postIds || req.query.postId);
+    if (postIds.length === 0) return res.status(400).json({ error: 'Missing news post.' });
+
+    const supabase = getSupabase();
+    const { data, error } = await supabase
+      .from('news_comments')
+      .select(NEWS_COMMENT_SELECT)
+      .in('post_id', postIds)
+      .order('created_at', { ascending: true });
+    if (error) throw error;
+
+    const comments = await hydrateNewsComments(supabase, (data || []) as NewsCommentRow[]);
+    const viewerId = positiveInteger(req.query.viewerId);
+    let viewer: { manager_name: string | null; avatar_json: unknown } | null = null;
+    if (viewerId) {
+      const { data: profile, error: profileError } = await supabase
+        .from('profiles')
+        .select('manager_name, avatar_json')
+        .eq('hattrick_user_id', viewerId)
+        .maybeSingle();
+      if (profileError) throw profileError;
+      viewer = profile
+        ? { manager_name: profile.manager_name || null, avatar_json: profile.avatar_json || null }
+        : null;
+    }
+
+    return res.status(200).json({ comments, viewer });
+  }
+
+  if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed.' });
+  const postId = readString(req.body?.postId);
+  if (!UUID_PATTERN.test(postId)) return res.status(400).json({ error: 'Invalid news post.' });
+  const validatedComment = validateNewsComment(req.body?.content);
+  if (validatedComment.error) return res.status(400).json({ error: validatedComment.error });
+
+  const secret = getAppSessionSecret();
+  if (!secret) return res.status(500).json({ error: 'Session configuration is missing.' });
+  const session = verifyAppSessionCookie(req.headers.cookie, secret);
+  if (!session) return res.status(401).json({ error: 'Please sign in with Hattrick first.' });
+
+  const supabase = getServiceSupabase();
+  const { data: post, error: postError } = await supabase
+    .from('news_posts')
+    .select('id')
+    .eq('id', postId)
+    .maybeSingle();
+  if (postError) throw postError;
+  if (!post) return res.status(404).json({ error: 'News post not found.' });
+
+  const { data: profile, error: profileError } = await supabase
+    .from('profiles')
+    .select('manager_name, avatar_json')
+    .eq('hattrick_user_id', session.userId)
+    .maybeSingle();
+  if (profileError) throw profileError;
+  if (!profile?.manager_name) return res.status(403).json({ error: 'Your manager profile is not available.' });
+
+  const { data, error } = await supabase
+    .from('news_comments')
+    .insert({
+      post_id: postId,
+      hattrick_user_id: session.userId,
+      author_name: profile.manager_name,
+      content: validatedComment.comment,
+    })
+    .select(NEWS_COMMENT_SELECT)
+    .single();
+  if (error) throw error;
+  return res.status(201).json({ comment: { ...data, avatar_json: profile.avatar_json || null } });
+}
+
 function toDate(value: unknown, fallback: Date) {
   const parsed = typeof value === 'string' ? new Date(value) : fallback;
   return Number.isFinite(parsed.getTime()) ? parsed : fallback;
@@ -1904,6 +2014,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         return await handlePresence(req, res);
       case 'history':
         return await handleHistory(req, res);
+      case 'news-comments':
+        return await handleNewsComments(req, res);
       case 'forge-session':
         return await handleForgeSession(req, res);
       case 'forge-stats':
