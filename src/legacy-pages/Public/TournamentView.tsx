@@ -2710,11 +2710,18 @@ export const TournamentView: React.FC<{ initialData?: TournamentInitialData }> =
       if (authorIds.length > 0) {
         const { data: profileData } = await supabase
           .from('profiles')
-          .select('hattrick_user_id, avatar_json')
+          .select('hattrick_user_id, avatar_json, country_name, country_id')
           .in('hattrick_user_id', authorIds);
 
         const profileMap = Object.fromEntries(
-          (profileData || []).map((p) => [p.hattrick_user_id, { avatar_json: p.avatar_json }]),
+          (profileData || []).map((p) => [
+            p.hattrick_user_id,
+            {
+              avatar_json: p.avatar_json,
+              country_name: p.country_name,
+              country_id: p.country_id,
+            },
+          ]),
         );
 
         setChatMessages(
@@ -2746,7 +2753,7 @@ export const TournamentView: React.FC<{ initialData?: TournamentInitialData }> =
           // Fetch the profile for the author to get the avatar immediately
           const { data: profile } = await supabase
             .from('profiles')
-            .select('avatar_json')
+            .select('avatar_json, country_name, country_id')
             .eq('hattrick_user_id', newMessage.author_ht_id)
             .single();
 

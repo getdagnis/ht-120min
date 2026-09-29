@@ -37,10 +37,17 @@ export const GlobalChatWidget: React.FC<GlobalChatWidgetProps> = ({ myHtUserId }
 
     const { data: profiles } = await supabase
       .from('profiles')
-      .select('hattrick_user_id, avatar_json')
+      .select('hattrick_user_id, avatar_json, country_name, country_id')
       .in('hattrick_user_id', authorIds);
     const profileMap = new Map<number, ProfileAvatar>(
-      (profiles || []).map((profile) => [profile.hattrick_user_id, { avatar_json: profile.avatar_json }]),
+      (profiles || []).map((profile) => [
+        profile.hattrick_user_id,
+        {
+          avatar_json: profile.avatar_json,
+          country_name: profile.country_name,
+          country_id: profile.country_id,
+        },
+      ]),
     );
 
     return chatMessages.map((message) => ({

@@ -28,6 +28,8 @@ export interface ChatMessage {
       backgroundImage: string;
       layers?: { image: string; x: number; y: number }[];
     } | null;
+    country_name?: string | null;
+    country_id?: number | null;
   };
 }
 
@@ -51,12 +53,25 @@ export interface AuthorTooltipProps {
   teamName?: string | null;
   countryName?: string | null;
   countryId?: number | null;
+  managerCountryName?: string | null;
+  managerCountryId?: number | null;
   avatar?: React.ComponentProps<typeof Avatar>['avatar'];
 }
 
-export const AuthorTooltip = ({ id, authorName, teamName, countryName: rawCountryName, countryId, avatar }: AuthorTooltipProps) => {
+export const AuthorTooltip = ({
+  id,
+  authorName,
+  teamName,
+  countryName: rawCountryName,
+  countryId,
+  managerCountryName: rawManagerCountryName,
+  managerCountryId,
+  avatar,
+}: AuthorTooltipProps) => {
   const countryName = getCanonicalCountryName(rawCountryName, countryId);
   const flagUrl = getCountryFlagUrl(countryId, countryName);
+  const managerCountryName = getCanonicalCountryName(rawManagerCountryName, managerCountryId);
+  const managerFlagUrl = getCountryFlagUrl(managerCountryId, managerCountryName);
 
   return (
     <Tooltip id={id} className={styles.chatAuthorTooltip}>
@@ -66,7 +81,10 @@ export const AuthorTooltip = ({ id, authorName, teamName, countryName: rawCountr
         </div>
       )}
       <div className={styles.tooltipDetails}>
-        <strong className={styles.tooltipManagerName}>{authorName}</strong>
+        <strong className={styles.tooltipManagerName}>
+          {authorName}
+          {managerFlagUrl && <img src={managerFlagUrl} alt="" className={styles.tooltipManagerFlag} />}
+        </strong>
         {teamName && <span className={styles.tooltipTeamName}>{teamName}</span>}
         {countryName && (
           <span className={styles.tooltipCountry}>
@@ -242,6 +260,8 @@ export const ChatView: React.FC<ChatViewProps> = ({
                         }
                         countryName={teamDetails[msg.author_ht_id]?.countryName}
                         countryId={teamDetails[msg.author_ht_id]?.countryId}
+                        managerCountryName={msg.profiles?.country_name}
+                        managerCountryId={msg.profiles?.country_id}
                         avatar={msg.profiles?.avatar_json || null}
                       />
                     </>

@@ -43,6 +43,7 @@ import {
 const FORUM_LINK = 'https://www.hattrick.org/goto.ashx?path=/Forum/Read.aspx?n=1&nm=32&t=17685273&v=0';
 const SHOW_FAQ = true;
 const EXOTIC_HFI_ANCHOR_ID = 'exotic-small-hfi-leagues';
+const INITIAL_EXOTIC_HFI_TOURNAMENTS = 8;
 
 interface DBTeamMatch {
   id: string;
@@ -237,6 +238,7 @@ export const Home: React.FC<{ initialData?: HomeInitialData }> = ({ initialData 
   const [exoticHfiTournaments, setExoticHfiTournaments] = useState<Tournament[]>(() =>
     (initialData?.exoticHfiTournaments || []).map(reviveInitialTournament),
   );
+  const [showAllExoticHfi, setShowAllExoticHfi] = useState(false);
   const [topTeams, setTopTeams] = useState<TopTeam[]>(() => initialData?.topTeams || []);
   const [topActiveTournaments, setTopActiveTournaments] = useState<TopTournament[]>(
     () => initialData?.topActiveTournaments || [],
@@ -246,6 +248,9 @@ export const Home: React.FC<{ initialData?: HomeInitialData }> = ({ initialData 
   const faqContent = useMemo(() => getPublishedFaqSections(), []);
 
   const showFaq = faqContent.length > 0 && SHOW_FAQ;
+  const visibleExoticHfiTournaments = showAllExoticHfi
+    ? exoticHfiTournaments
+    : exoticHfiTournaments.slice(0, INITIAL_EXOTIC_HFI_TOURNAMENTS);
 
   const fetchLatestWeeklyPosts = useCallback(async () => {
     const twoMonthsAgo = new Date();
@@ -454,7 +459,9 @@ export const Home: React.FC<{ initialData?: HomeInitialData }> = ({ initialData 
           .forEach((t: DBTournament) => {
             const currentRounds = (t.rounds ?? []).filter((round) => (round.season_number ?? t.season) === t.season);
             // Count validated teams
-            const participantTeams = t.teams.filter((team) => team.active !== false && !team.reserve_active && !team.is_placeholder);
+            const participantTeams = t.teams.filter(
+              (team) => team.active !== false && !team.reserve_active && !team.is_placeholder,
+            );
             const validatedTeamCount = participantTeams.filter((team) => team.joined_via_oauth).length;
 
             const totalRounds = currentRounds.length;
@@ -693,14 +700,21 @@ export const Home: React.FC<{ initialData?: HomeInitialData }> = ({ initialData 
             </span>
           </div>
           <div className={styles.tTeams}>
-            {t.teams.filter((team) => team.active !== false && !team.reserve_active && !team.is_placeholder).slice(0, 8).map((team) => (
-              <span key={team.id} className={styles.teamChip}>
-                {team.name}
-              </span>
-            ))}
-            {t.teams.filter((team) => team.active !== false && !team.reserve_active && !team.is_placeholder).length > 6 && (
+            {t.teams
+              .filter((team) => team.active !== false && !team.reserve_active && !team.is_placeholder)
+              .slice(0, 8)
+              .map((team) => (
+                <span key={team.id} className={styles.teamChip}>
+                  {team.name}
+                </span>
+              ))}
+            {t.teams.filter((team) => team.active !== false && !team.reserve_active && !team.is_placeholder).length >
+              6 && (
               <span className={styles.teamChipMore}>
-                +{t.teams.filter((team) => team.active !== false && !team.reserve_active && !team.is_placeholder).length - 6} more
+                +
+                {t.teams.filter((team) => team.active !== false && !team.reserve_active && !team.is_placeholder)
+                  .length - 6}{' '}
+                more
               </span>
             )}
           </div>
@@ -801,7 +815,21 @@ export const Home: React.FC<{ initialData?: HomeInitialData }> = ({ initialData 
                     {EXOTIC_HFI_GROUP_TITLE}
                   </h2>
                 </div>
-                <div className={styles.tournamentGrid}>{exoticHfiTournaments.map((t) => renderTournamentCard(t))}</div>
+                <div id={`${EXOTIC_HFI_ANCHOR_ID}-list`} className={styles.tournamentGrid}>
+                  {visibleExoticHfiTournaments.map((t) => renderTournamentCard(t))}
+                </div>
+                {exoticHfiTournaments.length > INITIAL_EXOTIC_HFI_TOURNAMENTS && (
+                  <Button
+                    type="button"
+                    variant="showMore"
+                    size="sm"
+                    onClick={() => setShowAllExoticHfi((current) => !current)}
+                    aria-expanded={showAllExoticHfi}
+                    aria-controls={`${EXOTIC_HFI_ANCHOR_ID}-list`}
+                  >
+                    {showAllExoticHfi ? 'Show less' : 'Show more'}
+                  </Button>
+                )}
               </section>
             )}
 

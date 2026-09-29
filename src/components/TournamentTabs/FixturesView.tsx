@@ -799,8 +799,12 @@ export const FixturesView: React.FC<FixturesViewProps> = ({
                             away: match.penalty_shootout_away_goals ?? 0,
                           }
                         : null;
-                    const homeIsBye = !match.home_team || (!isHistorical && match.home_team.active === false && !match.home_team.reserve_active);
-                    const awayIsBye = !match.away_team || (!isHistorical && match.away_team.active === false && !match.away_team.reserve_active);
+                    const homeIsBye =
+                      !match.home_team ||
+                      (!isHistorical && match.home_team.active === false && !match.home_team.reserve_active);
+                    const awayIsBye =
+                      !match.away_team ||
+                      (!isHistorical && match.away_team.active === false && !match.away_team.reserve_active);
                     const availableChallenge = challengeAvailability[match.id];
                     const fixtureChallengeAction =
                       !isHistorical &&
@@ -868,7 +872,7 @@ export const FixturesView: React.FC<FixturesViewProps> = ({
       {visibleRoundsCount < filteredRounds.length && (
         <div className={styles.formActionRow}>
           <Button
-            variant="action"
+            variant="showMore"
             onClick={() =>
               setManualVisibleRoundsCount((prev) => {
                 const base = prev ?? defaultVisibleRoundsCount;

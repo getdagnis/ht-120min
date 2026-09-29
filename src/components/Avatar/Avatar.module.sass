@@ -4,8 +4,45 @@
   display: flex
   align-items: center
   justify-content: center
-  // Ensure we don't have clashing backgrounds
-  background: transparent 
+  background: transparent
+
+.size36
+  width: 36px
+  height: 36px
+  --avatar-size: 36px
+
+  .canvas
+    --avatar-scale: 0.2608696
+
+  &.circle .canvas
+    --avatar-scale: 0.4
+
+.size52
+  width: 52px
+  height: 52px
+  --avatar-size: 52px
+
+  .canvas
+    --avatar-scale: 0.43
+
+  &.circle .canvas
+    --avatar-scale: 0.4333333
+
+.size120
+  width: 120px
+  height: 120px
+  --avatar-size: 120px
+
+  .canvas
+    --avatar-scale: 1
+
+  &.circle .canvas
+    transform: translate(-48%, -49%)
+    --avatar-scale: 1
+
+.sizeCustom
+  width: var(--avatar-size)
+  height: var(--avatar-size)
 
 .circle
   border-radius: 999px
@@ -13,8 +50,31 @@
 .rect
   border-radius: var(--radius-sm)
 
+.fallback
+  background: var(--borderWeak)
+
+.fallbackIcon
+  color: var(--text60)
+  font-size: calc(var(--avatar-size, 120px) / 2)
+
+.canvas
+  position: absolute
+  left: 50%
+  top: 50%
+  width: 120px
+  height: 138px
+  transform: translate(-48%, -49%) scale(var(--avatar-scale))
+  transform-origin: center center
+
+.background
+  display: block
+  width: 120px
+  height: 138px
+
 .layer
   position: absolute
-  top: 0
-  left: 0
+  left: var(--layer-x, 0px)
+  top: var(--layer-y, 0px)
+  width: auto
+  height: auto
   display: block
