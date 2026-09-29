@@ -76,7 +76,7 @@ import { useNoticeDialog } from '../../components/Modal/useNoticeDialog';
 import { ModalTeamCard } from '../../components/ModalTeamCard/ModalTeamCard';
 import { HeroCard } from '../../components/Card/HeroCard';
 import { SectionCard } from '../../components/Card/SectionCard';
-import { ChatView } from '../../components/TournamentTabs/ChatView';
+import { ChatView, type ChatAuthorProfile } from '../../components/TournamentTabs/ChatView';
 import { FixturesView } from '../../components/TournamentTabs/FixturesView';
 import { NewsTab } from '../../components/TournamentTabs/NewsTab';
 import { AdminResults, type BulkMatchUpdate } from '../../components/TournamentTabs/Admin/AdminResults';
@@ -667,6 +667,7 @@ export const TournamentView: React.FC<{ initialData?: TournamentInitialData }> =
     () => initialData?.activityWarnings || initialData?.warnings || [],
   );
   const [lastSeenMap, setLastSeenMap] = useState<Record<number, string | null>>({});
+  const [managerProfiles, setManagerProfiles] = useState<Record<number, ChatAuthorProfile>>({});
   const [playingElsewhereTeamIds, setPlayingElsewhereTeamIds] = useState<Set<number>>(new Set());
 
   // Sync activeTab with URL search param 'tab'
@@ -2706,12 +2707,17 @@ export const TournamentView: React.FC<{ initialData?: TournamentInitialData }> =
       if (chatError || !chatData) return;
 
       const authorIds = [...new Set(chatData.map((m) => m.author_ht_id).filter((id) => id && id !== 0))];
+      const standingsManagerIds = teams
+        .filter((team) => !team.reserve_active)
+        .map((team) => team.hattrick_user_id)
+        .filter((id): id is number => !!id);
+      const profileIds = [...new Set([...authorIds, ...standingsManagerIds])];
 
-      if (authorIds.length > 0) {
+      if (profileIds.length > 0) {
         const { data: profileData } = await supabase
           .from('profiles')
           .select('hattrick_user_id, avatar_json, country_name, country_id')
-          .in('hattrick_user_id', authorIds);
+          .in('hattrick_user_id', profileIds);
 
         const profileMap = Object.fromEntries(
           (profileData || []).map((p) => [
@@ -2722,7 +2728,9 @@ export const TournamentView: React.FC<{ initialData?: TournamentInitialData }> =
               country_id: p.country_id,
             },
           ]),
-        );
+        ) as Record<number, ChatAuthorProfile>;
+
+        setManagerProfiles(profileMap);
 
         setChatMessages(
           chatData.map((m) => ({
@@ -2731,6 +2739,7 @@ export const TournamentView: React.FC<{ initialData?: TournamentInitialData }> =
           })),
         );
       } else {
+        setManagerProfiles({});
         setChatMessages(chatData);
       }
     };
@@ -2765,7 +2774,7 @@ export const TournamentView: React.FC<{ initialData?: TournamentInitialData }> =
     return () => {
       supabase.removeChannel(channel);
     };
-  }, [activeTab, tournament]);
+  }, [activeTab, teams, tournament]);
 
   const handlePostChat = async (content: string) => {
     // Accept content here
@@ -5310,6 +5319,7 @@ export const TournamentView: React.FC<{ initialData?: TournamentInitialData }> =
             is120minMode={is120minMode}
             myHtUserId={myHtUserId}
             myManagerName={storedHtManagerName}
+            managerProfiles={managerProfiles}
             tournament={tournament}
             lastSeenMap={lastSeenMap}
             onRefreshPresence={fetchPresenceOnly}
@@ -5761,7 +5771,7 @@ export const TournamentView: React.FC<{ initialData?: TournamentInitialData }> =
                             )}
 
                             <div className={`${adminStyles.field} ${styles.mt1}`}>
-                              <label htmlFor="tournament-forum-id">Tournament HT Forum ID</label>
+                              <label htmlFor="tournament-forum-id">Tournament HT-Forum thread ID</label>
                               <input
                                 id="tournament-forum-id"
                                 type="text"

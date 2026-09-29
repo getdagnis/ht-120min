@@ -663,6 +663,9 @@ export const Home: React.FC<{ initialData?: HomeInitialData }> = ({ initialData 
   };
 
   const renderTournamentCard = (t: Tournament, options: { join?: boolean } = {}) => {
+    const hasRounds = (t.rounds?.length ?? 0) > 0;
+    const isFinished =
+      t.status === 'finished' || (t.totalMatches > 0 && t.totalMatches === t.completedMatches);
     const card = (
       <TournamentCard
         id={t.id}
@@ -673,8 +676,6 @@ export const Home: React.FC<{ initialData?: HomeInitialData }> = ({ initialData 
         countryLimitFormat={t.country_limit_format}
         scoringMode={t.scoring_mode}
         leagueCategory={t.league_category}
-        maxTeams={t.max_teams}
-        teamCount={t.teamCount}
         joinHref={options.join ? toLocalePath(locale, `/t/${t.slug}`) : undefined}
       >
         <div className={styles.tInfo}>
@@ -686,16 +687,17 @@ export const Home: React.FC<{ initialData?: HomeInitialData }> = ({ initialData 
             <CaretLeft size={18} weight="regular" className={styles.tArrow} />
           </div>
           <div className={styles.tMeta}>
-            {(t.rounds?.length ?? 0) > 0 ? (
-              <span title="Completed Matches">
-                <Trophy size={14} weight="regular" /> {t.completedRounds} / {t.totalRounds} rounds
-              </span>
-            ) : (
+            {(!hasRounds || !isFinished) && (
               <span title="Registered Teams">
                 <TeamsIcon size={14} />{' '}
                 {t.max_teams != null && t.max_teams > 0 ? `${t.teamCount}/${t.max_teams}` : t.teamCount} teams
               </span>
             )}
+            {hasRounds ? (
+              <span title="Completed Matches">
+                <Trophy size={14} weight="regular" /> {t.completedRounds} / {t.totalRounds} rounds
+              </span>
+            ) : null}
             <span title="Tournament date">
               <CalendarBlank size={14} weight="regular" /> {getTournamentDateLabel(t)}
             </span>

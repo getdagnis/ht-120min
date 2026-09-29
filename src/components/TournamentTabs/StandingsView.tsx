@@ -5,6 +5,7 @@ import { Modal } from '../../components/Modal/Modal';
 import { ArrowRight, Check, CopySimple, Recycle, ShieldCheck } from 'phosphor-react';
 import { Tooltip } from '../Tooltip/Tooltip';
 import { TeamByline } from '../TeamByline/TeamByline';
+import type { ChatAuthorProfile } from './ChatView';
 import { SeasonYearbook, type TournamentSeasonComment } from '../TournamentHistory/TournamentHistory';
 import { NewsArticle, type NewsPost, type NewsReaction } from './NewsTab';
 import { useNewsComments } from './useNewsComments';
@@ -30,6 +31,7 @@ interface StandingsViewProps {
   is120minMode: boolean;
   myHtUserId: string | null;
   myManagerName?: string | null;
+  managerProfiles?: Record<number, ChatAuthorProfile>;
   tournament: {
     id?: string;
     name?: string;
@@ -118,6 +120,7 @@ export const StandingsView: React.FC<StandingsViewProps> = ({
   is120minMode,
   myHtUserId,
   myManagerName = null,
+  managerProfiles: managerProfilesById = {},
   tournament,
   seasonStatus,
   lastSeenMap = {},
@@ -757,8 +760,12 @@ export const StandingsView: React.FC<StandingsViewProps> = ({
                                     countryId={s.countryId}
                                     leagueId={s.leagueId}
                                     teamId={s.htTeamId}
+                                    teamName={s.teamName}
                                     managerName={s.managerName}
                                     managerHtId={s.hattrickUserId}
+                                    managerProfile={
+                                      s.hattrickUserId != null ? managerProfilesById[s.hattrickUserId] || null : null
+                                    }
                                     mode="standings"
                                     lastSeenAt={
                                       s.hattrickUserId != null ? (lastSeenMap[s.hattrickUserId] ?? null) : null

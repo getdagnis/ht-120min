@@ -1,5 +1,6 @@
 import React from 'react';
 import { Tooltip } from '../Tooltip/Tooltip';
+import { AuthorTooltip, type ChatAuthorProfile } from '../TournamentTabs/ChatView';
 import { getCanonicalCountryName, getCountryFlagUrl, getLeagueFlagUrl, formatPresence } from '../../utils/ht-data';
 import {
   getCardEventLabel,
@@ -14,8 +15,10 @@ interface TeamBylineProps {
   countryId?: number | null;
   leagueId?: number | null;
   teamId: number | null;
+  teamName?: string | null;
   managerName?: string | null;
   managerHtId?: number | null;
+  managerProfile?: ChatAuthorProfile | null;
   mode: 'standings' | 'fixtures';
   isRight?: boolean;
   lastSeenAt?: string | null;
@@ -32,8 +35,10 @@ export const TeamByline: React.FC<TeamBylineProps> = ({
   countryId,
   leagueId,
   teamId,
+  teamName,
   managerName,
   managerHtId,
+  managerProfile,
   mode,
   isRight,
   lastSeenAt,
@@ -236,7 +241,16 @@ export const TeamByline: React.FC<TeamBylineProps> = ({
             >
               {managerName || ''}
             </button>
-            <Tooltip id={`${tooltipIdBase}-manager`} content="View Profile" className="tooltip" />
+            <AuthorTooltip
+              id={`${tooltipIdBase}-manager`}
+              authorName={managerName || ''}
+              teamName={teamName}
+              countryName={countryName}
+              countryId={countryId}
+              managerCountryName={managerProfile?.country_name}
+              managerCountryId={managerProfile?.country_id}
+              avatar={managerProfile?.avatar_json || null}
+            />
           </>
         ) : (
           <>

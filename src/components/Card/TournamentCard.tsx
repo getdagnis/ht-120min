@@ -20,8 +20,6 @@ interface TournamentCardProps {
   countryLimitFormat?: CountryRestrictionFormat | null;
   scoringMode?: string | null;
   leagueCategory?: string | null;
-  teamCount?: number;
-  maxTeams?: number | null;
   joinHref?: string;
 }
 
@@ -35,12 +33,9 @@ export const TournamentCard: React.FC<TournamentCardProps> = ({
   countryLimitFormat,
   scoringMode,
   leagueCategory,
-  teamCount,
-  maxTeams,
   joinHref,
 }) => {
   const bgStyle = getTournamentBackgroundStyle(id, imageUrl);
-  const isFull = maxTeams != null && (teamCount ?? 0) >= maxTeams;
 
   return (
     <div className={`${styles.card} ${className}`}>
@@ -55,11 +50,6 @@ export const TournamentCard: React.FC<TournamentCardProps> = ({
           leagueCategory={leagueCategory}
           scoringMode={scoringMode}
         >
-          {maxTeams != null && (
-            <div className={`${styles.badge} ${isFull ? styles.badgeFull : ''}`}>
-              {isFull ? `${teamCount ?? 0}/${maxTeams} — Full` : `${teamCount ?? 0}/${maxTeams} teams`}
-            </div>
-          )}
           {joinHref && (
             <Link href={joinHref} className={styles.joinLink}>
               Join <ArrowRight size={12} weight="bold" />

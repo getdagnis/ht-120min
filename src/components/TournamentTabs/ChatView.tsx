@@ -23,14 +23,13 @@ export interface ChatMessage {
   content: string;
   created_at: string;
   author_ht_id: number;
-  profiles?: {
-    avatar_json: {
-      backgroundImage: string;
-      layers?: { image: string; x: number; y: number }[];
-    } | null;
-    country_name?: string | null;
-    country_id?: number | null;
-  };
+  profiles?: ChatAuthorProfile | null;
+}
+
+export interface ChatAuthorProfile {
+  avatar_json: React.ComponentProps<typeof Avatar>['avatar'];
+  country_name?: string | null;
+  country_id?: number | null;
 }
 
 interface ChatViewProps {
@@ -77,7 +76,7 @@ export const AuthorTooltip = ({
     <Tooltip id={id} className={styles.chatAuthorTooltip}>
       {avatar && (
         <div className={styles.tooltipAvatar}>
-          <Avatar className={styles.tooltipAvatarImg} avatar={avatar} variant="circle" size={52} />
+          <Avatar className={styles.tooltipAvatarImg} avatar={avatar} variant="circle" size={64} />
         </div>
       )}
       <div className={styles.tooltipDetails}>
