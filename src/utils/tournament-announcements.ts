@@ -46,6 +46,7 @@ export interface TournamentAnnouncementDismissal {
 export type TournamentMessageSelection =
   | { type: 'join' }
   | { type: 'participant_open' }
+  | { type: 'reserve' }
   | { type: 'joined_notice' }
   | { type: 'reauth'; reason: ReauthPromptReason }
   | { type: 'announcement'; announcement: TournamentAnnouncement }
@@ -53,6 +54,7 @@ export type TournamentMessageSelection =
 
 interface SelectTournamentMessageInput {
   canJoin: boolean;
+  canJoinReserve?: boolean;
   isOpenParticipant?: boolean;
   hasJoined: boolean;
   currentHtUserId: number | null;
@@ -81,6 +83,7 @@ function isAnnouncementVisibleToViewer(
 
 export function selectTournamentMessage({
   canJoin,
+  canJoinReserve = false,
   isOpenParticipant = false,
   hasJoined,
   currentHtUserId,
@@ -92,6 +95,7 @@ export function selectTournamentMessage({
 }: SelectTournamentMessageInput): TournamentMessageSelection {
   if (hasJoined && isOpenParticipant) return { type: 'participant_open' };
   if (canJoin) return { type: 'join' };
+  if (canJoinReserve && !hasJoined) return { type: 'reserve' };
   if (hasJoined && !joinedNoticeDismissed) return { type: 'joined_notice' };
   if (reauthPromptReason === 'auth_refresh_needed' && currentHtUserId) {
     return { type: 'reauth', reason: reauthPromptReason };

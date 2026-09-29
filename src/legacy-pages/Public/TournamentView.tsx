@@ -4452,6 +4452,15 @@ export const TournamentView: React.FC<{ initialData?: TournamentInitialData }> =
       registrationClosedAt: tournament.registration_closed_at,
     }),
   );
+  const canJoinReserve = Boolean(
+    tournament &&
+    !isSandbox &&
+    !tournament.is_test &&
+    !['stopped', 'finished', 'archived'].includes(tournament.status) &&
+    tournament.max_teams != null &&
+    tournament.max_teams > 0 &&
+    activeRealTeamsCount >= tournament.max_teams,
+  );
   const isRegistrationOpen = Boolean(
     tournament &&
     !isSandbox &&
@@ -4499,6 +4508,7 @@ export const TournamentView: React.FC<{ initialData?: TournamentInitialData }> =
     announcementDismissals.some((dismissal) => dismissal.notice_key === JOINED_NOTICE_KEY);
   const selectedTournamentMessage = selectTournamentMessage({
     canJoin: canJoinTournament,
+    canJoinReserve,
     isOpenParticipant: hasJoined && isRegistrationOpen,
     hasJoined,
     currentHtUserId,
@@ -5032,6 +5042,29 @@ export const TournamentView: React.FC<{ initialData?: TournamentInitialData }> =
                 <ArrowRight size={18} weight="bold" /> Join with Hattrick
               </Button>
             )}
+          </div>
+        </div>
+      )}
+
+      {selectedTournamentMessage?.type === 'reserve' && (
+        <div className={styles.registrationStatus}>
+          <div className={styles.helpContent}>
+            <p>
+              Tournament is full. You can join the reserve list to show your interest and be first in line when a slot
+              opens.
+            </p>
+            <Button
+              onClick={() => {
+                setIsConnecting(true);
+                window.location.href = `/api/auth/init?tournament_id=${tournament.id}`;
+              }}
+              variant="primary"
+              size="sm"
+              className={styles.joinButton}
+              disabled={isConnecting}
+            >
+              <ArrowRight size={18} weight="bold" /> Join reserve list
+            </Button>
           </div>
         </div>
       )}

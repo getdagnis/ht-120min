@@ -54,6 +54,22 @@ test('joined notice suppresses announcements until dismissed', () => {
   assert.equal(selected?.type, 'joined_notice');
 });
 
+test('full tournament offers reserve registration before reauthentication prompts', () => {
+  const selected = selectTournamentMessage({
+    canJoin: false,
+    canJoinReserve: true,
+    hasJoined: false,
+    currentHtUserId: null,
+    joinedNoticeDismissed: true,
+    reauthPromptReason: 'returning_participant',
+    announcements: [announcement({ visibility: 'public' })],
+    dismissedAnnouncementIds: new Set(),
+    publicDismissedAnnouncementIds: new Set(),
+  });
+
+  assert.equal(selected?.type, 'reserve');
+});
+
 test('open registration keeps the participant message visible after an older joined notice was dismissed', () => {
   const selected = selectTournamentMessage({
     canJoin: false,
