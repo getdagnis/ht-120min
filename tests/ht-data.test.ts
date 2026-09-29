@@ -46,6 +46,7 @@ test('teamdetails parser keeps CHPP CountryID but canonicalizes Latvia display n
           <Team>
             <TeamID>681813</TeamID>
             <TeamName>This bot team is a bot</TeamName>
+            <Cup><StillInCup>True</StillInCup></Cup>
             <GenderID>1</GenderID>
             <LeagueSystemID>1</LeagueSystemID>
             <League>
@@ -85,6 +86,15 @@ test('teamdetails parser keeps CHPP CountryID but canonicalizes Latvia display n
   assert.equal(parsed.regionName, 'Talsi');
   assert.equal(parsed.foundedDate, '2026-03-16 11:32:00');
   assert.equal(parsed.teamRank, 4);
+  assert.equal(parsed.stillInCup, true);
+  assert.equal(parseClientTeamDetailsXml(
+    `
+      <HattrickData>
+        <Teams><Team><TeamID>681813</TeamID><Cup><StillInCup>True</StillInCup></Cup></Team></Teams>
+      </HattrickData>
+    `,
+    681813,
+  ).stillInCup, true);
 });
 
 test('teamdetails parser uses CountryID from worlddetails as canonical country name over localized XML text', () => {

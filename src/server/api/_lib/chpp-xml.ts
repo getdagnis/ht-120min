@@ -78,6 +78,7 @@ export interface ParsedTeamDetails {
   arenaName?: string;
   fanclubSize?: number;
   friendlyTeamId?: number | null;
+  stillInCup?: boolean;
   possibleToChallengeMidweek?: boolean;
   possibleToChallengeWeekend?: boolean;
   errorCode?: number;
@@ -111,6 +112,7 @@ export function parseTeamDetailsXml(xml: string, teamId: number): ParsedTeamDeta
     const countryId = countryIdRaw ? parseInt(countryIdRaw, 10) : undefined;
     const leagueId = leagueIdRaw ? parseInt(leagueIdRaw, 10) : undefined;
     const friendlyTeamIdRaw = block.match(/<FriendlyTeamID>(\d+)<\/FriendlyTeamID>/i)?.[1];
+    const stillInCupRaw = readChppTag(block, 'StillInCup');
     const possibleToChallengeMidweekRaw = readChppTag(block, 'PossibleToChallengeMidweek');
     const possibleToChallengeWeekendRaw = readChppTag(block, 'PossibleToChallengeWeekend');
 
@@ -135,6 +137,8 @@ export function parseTeamDetailsXml(xml: string, teamId: number): ParsedTeamDeta
       fanclubSize: fanclubSizeRaw ? parseInt(fanclubSizeRaw, 10) : undefined,
       genderId: genderIdRaw ? parseInt(genderIdRaw, 10) : undefined,
       friendlyTeamId: friendlyTeamIdRaw ? parseInt(friendlyTeamIdRaw, 10) : 0,
+      stillInCup:
+        stillInCupRaw === undefined ? undefined : stillInCupRaw.toLowerCase() === 'true',
       possibleToChallengeMidweek:
         possibleToChallengeMidweekRaw === undefined
           ? undefined

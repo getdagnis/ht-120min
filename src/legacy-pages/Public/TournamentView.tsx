@@ -358,6 +358,11 @@ interface Team {
   reserve_joined_at?: string | null;
 }
 
+interface TeamPlanningStatus {
+  inCup: boolean | null;
+  bookedOutsideTournament: boolean;
+}
+
 interface FetchedTeamData {
   teamId: number;
   teamName: string;
@@ -777,6 +782,9 @@ export const TournamentView: React.FC<{ initialData?: TournamentInitialData }> =
   const [replacementHtId, setReplacementHtId] = useState('');
   const [replacementName, setReplacementName] = useState('');
   const [isFetchingTeamData, setIsFetchingTeamData] = useState(false);
+  const [teamPlanningStatuses, setTeamPlanningStatuses] = useState<Record<string, TeamPlanningStatus>>({});
+  const [isRefreshingTeamStatuses, setIsRefreshingTeamStatuses] = useState(false);
+  const [teamStatusNotice, setTeamStatusNotice] = useState<string | null>(null);
   const [scheduleMode, setScheduleMode] = useState<ScheduleMode>('single');
   const [scheduleSetup, setScheduleSetup] = useState<ScheduleSetup>('generated');
   const [scheduleStartSlotId, setScheduleStartSlotId] = useState('');
@@ -2562,6 +2570,59 @@ export const TournamentView: React.FC<{ initialData?: TournamentInitialData }> =
     },
     [password, tournament],
   );
+
+  const refreshTeamPlanningStatuses = useCallback(async () => {
+    if (!tournament || isRefreshingTeamStatuses) return;
+
+    const adminPassword = password.trim() || tournament.admin_password || '';
+    if (!adminPassword) {
+      setTeamStatusNotice('Organizer password is required.');
+      return;
+    }
+
+    setIsRefreshingTeamStatuses(true);
+    setTeamStatusNotice(null);
+    try {
+      const response = await fetch('/api/teams/refresh-fixtures', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          action: 'team_planning_statuses',
+          tournamentId: tournament.id,
+          adminPassword,
+        }),
+      });
+      const payload = (await response.json().catch(() => null)) as {
+        error?: string;
+        statuses?: Array<{
+          teamId: string;
+          inCup: boolean | null;
+          bookedOutsideTournament: boolean;
+        }>;
+      } | null;
+
+      if (!response.ok || !payload?.statuses) {
+        throw new Error(payload?.error || 'Could not refresh team statuses.');
+      }
+
+      setTeamPlanningStatuses(
+        Object.fromEntries(
+          payload.statuses.map((status) => [
+            status.teamId,
+            {
+              inCup: status.inCup,
+              bookedOutsideTournament: status.bookedOutsideTournament,
+            },
+          ]),
+        ),
+      );
+      setTeamStatusNotice(`Checked ${payload.statuses.length} team${payload.statuses.length === 1 ? '' : 's'}.`);
+    } catch (error) {
+      setTeamStatusNotice(error instanceof Error ? error.message : 'Could not refresh team statuses.');
+    } finally {
+      setIsRefreshingTeamStatuses(false);
+    }
+  }, [isRefreshingTeamStatuses, password, tournament]);
 
   useEffect(() => {
     if (
@@ -6006,6 +6067,27 @@ export const TournamentView: React.FC<{ initialData?: TournamentInitialData }> =
                               </form>
                             </div>
                           )}
+                          {canManageOperationalAdmin && (
+                            <div className={adminStyles.teamPlanningTools}>
+                              <div>
+                                <p className={adminStyles.smallNote}>
+                                  Check current Hattrick cup and next-friendly status before generating a schedule.
+                                </p>
+                                {teamStatusNotice && (
+                                  <p className={adminStyles.teamPlanningNotice}>{teamStatusNotice}</p>
+                                )}
+                              </div>
+                              <Button
+                                type="button"
+                                size="sm"
+                                variant="secondaryAction"
+                                onClick={() => void refreshTeamPlanningStatuses()}
+                                disabled={isRefreshingTeamStatuses}
+                              >
+                                {isRefreshingTeamStatuses ? 'Checking Hattrick...' : 'Check Hattrick status'}
+                              </Button>
+                            </div>
+                          )}
                           <ul className={adminStyles.teamList}>
                             {teams.filter((team) => !team.reserve_active).map((team) => (
                               <li key={team.id} className={!team.active ? adminStyles.inactiveTeam : ''}>
@@ -6016,6 +6098,14 @@ export const TournamentView: React.FC<{ initialData?: TournamentInitialData }> =
                                     >
                                       {team.active ? team.name : team.name || 'Open slot'}
                                     </span>
+                                    {teamPlanningStatuses[team.id]?.inCup === true && (
+                                      <span className={adminStyles.planningStatus}>[in cup]</span>
+                                    )}
+                                    {teamPlanningStatuses[team.id]?.bookedOutsideTournament && (
+                                      <span className={`${adminStyles.planningStatus} ${adminStyles.planningStatusBooked}`}>
+                                        [booked]
+                                      </span>
+                                    )}
                                     {team.joined_via_oauth && <span title="Hattrick Validated Team"></span>}
                                     {isStoppedTournament &&
                                       team.active &&

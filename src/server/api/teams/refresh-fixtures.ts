@@ -2,7 +2,11 @@ import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { getServiceSupabase, getSupabase } from '../_lib/supabase.js';
 import { getAuthHeader } from '../_lib/chpp-auth.js';
 import { readChppTag } from '../_lib/chpp-xml.js';
-import { fetchArenaDetailsFromChpp, fetchTeamDetailsFromChpp } from '../_lib/matchmaker.js';
+import {
+  fetchArenaDetailsFromChpp,
+  fetchTeamBookingStatus,
+  fetchTeamDetailsFromChpp,
+} from '../_lib/matchmaker.js';
 import { buildArrangedFixtureStory, buildReserveFixtureStory, type FixtureStoryTeam } from '../../../utils/fixture-story.js';
 import {
   getFootballScore,
@@ -429,6 +433,7 @@ interface TeamWithAuth {
   active?: boolean | null;
   reserve_active?: boolean | null;
   reserve_joined_at?: string | null;
+  is_placeholder?: boolean | null;
   country_name?: string;
   country_id?: number | null;
 }
@@ -1092,6 +1097,83 @@ async function handleAddHtMatch(req: VercelRequest, res: VercelResponse) {
   });
 }
 
+async function handleTeamPlanningStatuses(req: VercelRequest, res: VercelResponse) {
+  const tournamentId = String(getBodyValue(req, 'tournamentId') || '');
+  const adminPassword = String(getBodyValue(req, 'adminPassword') || '');
+  if (!tournamentId) return res.status(400).json({ error: 'Missing tournament.' });
+
+  const consumerKey = process.env.CHPP_CONSUMER_KEY;
+  const consumerSecret = process.env.CHPP_CONSUMER_SECRET;
+  if (!consumerKey || !consumerSecret) return res.status(500).json({ error: 'CHPP is not configured.' });
+
+  const supabase = getServiceSupabase();
+  const { data: tournament } = await supabase
+    .from('tournaments')
+    .select('id, admin_password')
+    .eq('id', tournamentId)
+    .single();
+  if (!tournament) return res.status(404).json({ error: 'Tournament not found.' });
+  if (!adminPassword || adminPassword !== tournament.admin_password) {
+    return res.status(403).json({ error: 'Organizer password is required.' });
+  }
+
+  const { data: teamRows, error: teamsError } = await supabase
+    .from('teams')
+    .select('id, ht_team_id, oauth_token, oauth_token_secret, active, is_placeholder')
+    .eq('tournament_id', tournamentId);
+  if (teamsError) return res.status(500).json({ error: teamsError.message });
+
+  const teams = (teamRows || []) as TeamWithAuth[];
+  const eligibleTeams = teams.filter(
+    (team) => team.active && !team.is_placeholder && Number(team.ht_team_id) > 0,
+  );
+  const authTeam = eligibleTeams.find((team) => team.oauth_token && team.oauth_token_secret);
+  if (!authTeam) return res.status(401).json({ error: 'No CHPP-authenticated team available.' });
+
+  const { data: roundRows, error: roundsError } = await supabase
+    .from('rounds')
+    .select('matches(ht_match_id)')
+    .eq('tournament_id', tournamentId);
+  if (roundsError) return res.status(500).json({ error: roundsError.message });
+
+  const tournamentMatchIds = new Set<number>();
+  for (const round of roundRows || []) {
+    const roundMatches = Array.isArray(round.matches) ? round.matches : round.matches ? [round.matches] : [];
+    for (const match of roundMatches) {
+      if (match.ht_match_id) tournamentMatchIds.add(Number(match.ht_match_id));
+    }
+  }
+
+  const statuses = [];
+  for (const team of eligibleTeams) {
+    const credentials = team.oauth_token && team.oauth_token_secret ? team : authTeam;
+    let details: Awaited<ReturnType<typeof fetchTeamDetailsFromChpp>> | null = null;
+    let booking: Awaited<ReturnType<typeof fetchTeamBookingStatus>> | null = null;
+
+    try {
+      details = await fetchTeamDetailsFromChpp(consumerKey, consumerSecret, credentials, Number(team.ht_team_id));
+    } catch {
+      // Keep the other team's status usable if one CHPP request fails.
+    }
+
+    try {
+      booking = await fetchTeamBookingStatus(consumerKey, consumerSecret, credentials, Number(team.ht_team_id));
+    } catch {
+      // Booking is optional enrichment; do not fail the whole planning refresh.
+    }
+
+    const bookedMatchId = booking?.match?.matchId ? Number(booking.match.matchId) : null;
+    statuses.push({
+      teamId: team.id,
+      htTeamId: Number(team.ht_team_id),
+      inCup: typeof details?.stillInCup === 'boolean' ? details.stillInCup : null,
+      bookedOutsideTournament: bookedMatchId !== null && !tournamentMatchIds.has(bookedMatchId),
+    });
+  }
+
+  return res.status(200).json({ statuses, checkedAt: new Date().toISOString() });
+}
+
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   if (req.method === 'POST' && getBodyValue(req, 'action') === 'link_match') {
     return handleManualMatchLink(req, res);
@@ -1101,6 +1183,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   }
   if (req.method === 'POST' && getBodyValue(req, 'action') === 'suggest_ht_matches') {
     return handleSuggestHtMatches(req, res);
+  }
+  if (req.method === 'POST' && getBodyValue(req, 'action') === 'team_planning_statuses') {
+    return handleTeamPlanningStatuses(req, res);
   }
 
   const { tournament_id } = req.query;

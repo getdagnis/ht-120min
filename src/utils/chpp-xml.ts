@@ -51,6 +51,7 @@ export interface ParsedTeamDetails {
   foundedDate?: string;
   teamRank?: number;
   logoUrl?: string;
+  stillInCup?: boolean;
   errorCode?: number;
 }
 
@@ -78,6 +79,7 @@ export function parseTeamDetailsXml(xml: string, teamId: number): ParsedTeamDeta
     const countryIdRaw = block.match(/<Country>[\s\S]*?<CountryID>(\d+)<\/CountryID>/i)?.[1];
     const regionIdRaw = block.match(/<Region>[\s\S]*?<RegionID>(\d+)<\/RegionID>/i)?.[1];
     const teamRankRaw = readChppTag(block, 'TeamRank');
+    const stillInCupRaw = readChppTag(block, 'StillInCup');
     const leagueId = leagueIdRaw ? parseInt(leagueIdRaw, 10) : undefined;
     const countryId = countryIdRaw ? parseInt(countryIdRaw, 10) : undefined;
 
@@ -99,6 +101,7 @@ export function parseTeamDetailsXml(xml: string, teamId: number): ParsedTeamDeta
       foundedDate: readChppTag(block, 'FoundedDate'),
       teamRank: teamRankRaw ? parseInt(teamRankRaw, 10) : undefined,
       logoUrl,
+      stillInCup: stillInCupRaw === undefined ? undefined : stillInCupRaw.toLowerCase() === 'true',
     };
   };
 

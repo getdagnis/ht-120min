@@ -154,7 +154,7 @@ export function buildReserveFixtureStory(input: {
   opponentTeam: FixtureStoryTeam;
 }): TournamentActivityStory {
   return [
-    text('💪 A reserve team has stepped in for the rescue! '),
+    text('✅💪 A reserve team has stepped in for the rescue! '),
     teamLink(input.reserveTeam),
     text(' have replaced '),
     teamLink(input.replacedTeam),
