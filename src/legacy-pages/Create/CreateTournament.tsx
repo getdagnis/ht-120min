@@ -119,6 +119,7 @@ interface LocalTeam {
   leagueId?: number;
   genderId?: number;
   leagueLevel?: number;
+  teamRank?: number;
 }
 
 interface LinkedOrganizer {
@@ -399,6 +400,7 @@ export const CreateTournament: React.FC = () => {
     leagueId?: number;
     genderId?: number;
     leagueLevel?: number;
+    teamRank?: number;
   }> => {
     try {
       const res = await fetch(`/api/teams/info?team_id=${teamId}`);
@@ -411,6 +413,7 @@ export const CreateTournament: React.FC = () => {
         leagueId: data.leagueId ?? undefined,
         genderId: data.genderId ?? undefined,
         leagueLevel: data.leagueLevel ?? undefined,
+        teamRank: data.teamRank ?? undefined,
       };
     } catch {
       return {};
@@ -436,7 +439,7 @@ export const CreateTournament: React.FC = () => {
       }
 
       // 2. Fetch logo
-      const { logoUrl, countryName, countryId, leagueId, genderId, leagueLevel } = await fetchTeamLogoFromChpp(
+      const { logoUrl, countryName, countryId, leagueId, genderId, leagueLevel, teamRank } = await fetchTeamLogoFromChpp(
         team.teamId,
       );
 
@@ -455,6 +458,7 @@ export const CreateTournament: React.FC = () => {
         leagueId,
         genderId,
         leagueLevel,
+        teamRank,
       };
 
       const updatedTeams =
@@ -765,6 +769,7 @@ export const CreateTournament: React.FC = () => {
         leagueId: newTeamData?.leagueId,
         genderId: newTeamData?.genderId,
         leagueLevel: newTeamData?.leagueLevel,
+        teamRank: newTeamData?.teamRank,
         managerName: newTeamData ? 'Bot team' : undefined,
       },
     ];
@@ -795,6 +800,7 @@ export const CreateTournament: React.FC = () => {
         leagueId: sandboxCandidate.leagueId,
         genderId: sandboxCandidate.genderId,
         leagueLevel: sandboxCandidate.leagueLevel,
+        teamRank: sandboxCandidate.teamRank,
         managerName: 'Bot team',
       },
     ];
@@ -976,6 +982,7 @@ export const CreateTournament: React.FC = () => {
         league_id: t.leagueId ?? null,
         gender_id: t.genderId ?? null,
         league_level: t.leagueLevel ?? null,
+        team_rank: t.teamRank ?? null,
       }));
 
       const { error: teamsError } = await supabase.from('teams').insert(teamsToInsert);

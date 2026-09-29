@@ -54,6 +54,7 @@ const registrationInput = {
   hattrickUserId: 8777402,
   accessToken: 'oauth-token',
   accessTokenSecret: 'oauth-secret',
+  teamRank: 1278,
   skipMembershipCheck: true,
 };
 
@@ -69,6 +70,7 @@ test('rejoining an existing Season 2 team activates the row and clears its sugge
   assert.equal(teamId, 'existing-team');
   assert.equal(mock.getUpdatePayload()?.active, true);
   assert.equal(mock.getUpdatePayload()?.reapply_season_number, null);
+  assert.equal(mock.getUpdatePayload()?.team_rank, 1278);
 });
 
 test('rejoining fails instead of reporting success when the activation update matches no row', async () => {

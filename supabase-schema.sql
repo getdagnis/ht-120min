@@ -30,6 +30,7 @@ CREATE TABLE teams (
   logo_url TEXT,
   country_name TEXT,
   league_level INTEGER,
+  team_rank INTEGER,
   joined_via_oauth BOOLEAN DEFAULT FALSE,
   oauth_scope TEXT,
   can_manage_challenges BOOLEAN DEFAULT FALSE,

@@ -1,4 +1,4 @@
-import { getCountryWorldDetails, getLeagueWorldDetails, HATTRICK_WORLD_DETAILS } from '../../shared/worlddetails';
+import { getCountryWorldDetails, getLeagueWorldDetails, HATTRICK_WORLD_DETAILS } from '../../shared/worlddetails.js';
 
 export const normalizeTournamentName = (value: string) =>
   value

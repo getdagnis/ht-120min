@@ -357,6 +357,7 @@ interface Team {
   reapply_season_number?: number | null;
   reserve_active?: boolean;
   reserve_joined_at?: string | null;
+  team_rank?: number | null;
 }
 
 interface TeamPlanningStatus {
@@ -373,6 +374,7 @@ interface FetchedTeamData {
   leagueId?: number;
   genderId?: number;
   leagueLevel?: number;
+  teamRank?: number;
 }
 
 interface Tournament {
@@ -451,6 +453,7 @@ function toStandingTeam(team: Team): StandingTeam {
     manager_name: team.manager_name,
     is_placeholder: team.is_placeholder,
     reserve_active: team.reserve_active,
+    team_rank: team.team_rank ?? null,
   };
 }
 
@@ -763,6 +766,7 @@ export const TournamentView: React.FC<{ initialData?: TournamentInitialData }> =
   const [isEditingImage, setIsEditingImage] = useState(false);
   const [newImageUrl, setNewImageUrl] = useState('');
   const [isUpdatingImage, setIsUpdatingImage] = useState(false);
+  const [isDuplicatingSandbox, setIsDuplicatingSandbox] = useState(false);
   const [showFullImage, setShowFullImage] = useState(false);
   const [newTeamId, setNewTeamId] = useState('');
   const [newTeamName, setNewTeamName] = useState('');
@@ -1895,6 +1899,7 @@ export const TournamentView: React.FC<{ initialData?: TournamentInitialData }> =
               country_name: t.country_name,
               country_id: t.country_id ?? null,
               league_id: t.league_id ?? null,
+              team_rank: t.team_rank ?? null,
               logo_url: t.logo_url,
               manager_name: t.hattrick_user_id
                 ? nextProfileMap[t.hattrick_user_id]?.manager_name || t.manager_name
@@ -3588,6 +3593,31 @@ export const TournamentView: React.FC<{ initialData?: TournamentInitialData }> =
     }
   };
 
+  const duplicateAsSandbox = async () => {
+    if (!tournament || isDuplicatingSandbox) return;
+    const confirmed = window.confirm(
+      `Create a fresh private sandbox from ${tournament.name} and its current roster? No fixtures, results, history, or manager ownership will be copied.`,
+    );
+    if (!confirmed) return;
+
+    setIsDuplicatingSandbox(true);
+    try {
+      const response = await fetch('/api/app?route=duplicate-tournament-sandbox', {
+        method: 'POST',
+        credentials: 'include',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ tournamentId: tournament.id }),
+      });
+      const data = (await response.json()) as { slug?: string; error?: string };
+      if (!response.ok || !data.slug) throw new Error(data.error || 'Sandbox copy could not be created.');
+      router.push(toLocalePath(locale, `/t/${data.slug}?tab=admin&welcome=created`));
+    } catch (error) {
+      alert(error instanceof Error ? error.message : 'Sandbox copy could not be created.');
+    } finally {
+      setIsDuplicatingSandbox(false);
+    }
+  };
+
   const fetchTeamData = async (htId: string, isReplacement: boolean) => {
     if (!htId || htId.length < 6) return;
     setIsFetchingTeamData(true);
@@ -3693,6 +3723,7 @@ export const TournamentView: React.FC<{ initialData?: TournamentInitialData }> =
         league_id: sandboxCandidate.leagueId ?? null,
         gender_id: sandboxCandidate.genderId ?? null,
         league_level: sandboxCandidate.leagueLevel ?? null,
+        team_rank: sandboxCandidate.teamRank ?? null,
       });
       if (error) throw error;
 
@@ -3766,6 +3797,7 @@ export const TournamentView: React.FC<{ initialData?: TournamentInitialData }> =
             league_id: fetchedTeamData?.leagueId ?? null,
             gender_id: fetchedTeamData?.genderId ?? null,
             league_level: fetchedTeamData?.leagueLevel ?? null,
+            team_rank: fetchedTeamData?.teamRank ?? null,
             manager_name: fetchedTeamData ? 'Bot team' : null,
           },
         ])
@@ -4422,6 +4454,7 @@ export const TournamentView: React.FC<{ initialData?: TournamentInitialData }> =
           league_id: team.leagueId ?? null,
           gender_id: team.genderId ?? null,
           league_level: team.leagueLevel ?? null,
+          team_rank: team.teamRank ?? null,
         })),
       );
       if (error) throw error;
@@ -5558,15 +5591,35 @@ export const TournamentView: React.FC<{ initialData?: TournamentInitialData }> =
               <div className={adminStyles.mainGrid}>
                 <section className={`${adminStyles.teamsSection} ${isPressOfficer ? adminStyles.pressOnlyAdmin : ''}`}>
                   {!isPressOfficer && (
-                    <div id="admin-panel-settings">
-                      <SectionCard
-                        title="Tournament Settings"
-                        collapsible
-                        isCollapsed={resolvedSettingsCollapsed}
-                        onToggleCollapse={() =>
-                          togglePanel('settings', !resolvedSettingsCollapsed, setIsSettingsCollapsed)
-                        }
-                      >
+                    <>
+                      {isSiteAdmin && !isSandbox && (
+                        <SectionCard title="Site admin tools">
+                          <p className={adminStyles.smallNote}>
+                            Create a private, detached sandbox using the current competition settings and effective
+                            roster. Team metadata is refreshed from Hattrick before the copy is created.
+                          </p>
+                          <div className={adminStyles.settingsActions}>
+                            <Button
+                              type="button"
+                              variant="secondaryAction"
+                              size="sm"
+                              onClick={duplicateAsSandbox}
+                              disabled={isDuplicatingSandbox}
+                            >
+                              {isDuplicatingSandbox ? 'Creating sandbox…' : 'Duplicate as sandbox'}
+                            </Button>
+                          </div>
+                        </SectionCard>
+                      )}
+                      <div id="admin-panel-settings">
+                        <SectionCard
+                          title="Tournament Settings"
+                          collapsible
+                          isCollapsed={resolvedSettingsCollapsed}
+                          onToggleCollapse={() =>
+                            togglePanel('settings', !resolvedSettingsCollapsed, setIsSettingsCollapsed)
+                          }
+                        >
                         <div className={adminStyles.settingsGroup}>
                           {/* EDIT TOURNAMENT NAME **
                       <div className={adminStyles.field}>
@@ -5945,8 +5998,9 @@ export const TournamentView: React.FC<{ initialData?: TournamentInitialData }> =
                             </div>
                           </div>
                         )}
-                      </SectionCard>
-                    </div>
+                        </SectionCard>
+                      </div>
+                    </>
                   )}
 
                   {!isPressOfficer && (

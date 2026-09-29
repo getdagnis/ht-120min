@@ -75,6 +75,7 @@ export async function registerOAuthTeam(
     logoUrl?: string;
     countryId?: number | null;
     countryName?: string;
+    teamRank?: number | null;
     joinStory?: TournamentJoinStory | null;
     skipMembershipCheck?: boolean;
   },
@@ -119,6 +120,7 @@ export async function registerOAuthTeam(
         league_id: input.team.leagueId ?? null,
         gender_id: input.team.genderId ?? null,
         league_level: input.team.leagueLevel ?? null,
+        team_rank: input.teamRank ?? null,
         join_story: input.joinStory ?? null,
         oauth_token: input.accessToken,
         oauth_token_secret: input.accessTokenSecret,
@@ -206,6 +208,7 @@ export async function registerOAuthTeam(
     league_id: input.team.leagueId ?? null,
     gender_id: input.team.genderId ?? null,
     league_level: input.team.leagueLevel ?? null,
+    team_rank: input.teamRank ?? null,
     logo_url: input.logoUrl ?? null,
     oauth_token: input.accessToken,
     oauth_token_secret: input.accessTokenSecret,
@@ -293,6 +296,7 @@ export async function registerReserveTeam(
     logoUrl?: string;
     countryId?: number | null;
     countryName?: string | null;
+    teamRank?: number | null;
   },
 ) {
   const conflict = (await getActiveTournamentConflicts(supabase, [input.team.teamId], input.tournamentId)).get(
@@ -347,6 +351,7 @@ export async function registerReserveTeam(
     league_id: input.team.leagueId ?? null,
     gender_id: input.team.genderId ?? null,
     league_level: input.team.leagueLevel ?? null,
+    team_rank: input.teamRank ?? null,
     logo_url: input.logoUrl ?? null,
     oauth_token: input.accessToken,
     oauth_token_secret: input.accessTokenSecret,
