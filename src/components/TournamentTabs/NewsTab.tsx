@@ -438,6 +438,7 @@ export const NewsTab: React.FC<NewsTabProps> = ({
     newsPosts.map((post) => post.id),
     myHtUserId,
     myManagerName,
+    isActive,
   );
   const newsModeStorageKey = getNewsModeStorageKey(tournamentId, myHtUserId);
   const draftStorageKey = getNewsDraftStorageKey(tournamentId, seasonNumber, newsMode, myHtUserId);

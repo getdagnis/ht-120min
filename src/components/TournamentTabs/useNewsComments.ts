@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useId, useMemo, useRef, useState } from 'react';
 import { Avatar } from '../Avatar/Avatar';
 import { supabase } from '../../lib/supabase';
 
@@ -47,7 +47,10 @@ export function useNewsComments(
   postIds: string[],
   currentUserId: string | null,
   currentManagerName: string | null,
+  enabled = true,
 ) {
+  const channelInstanceId = useId().replaceAll(':', '');
+  const channelGenerationRef = useRef(0);
   const postKey = useMemo(() => postIds.join('|'), [postIds]);
   const viewerId = Number(currentUserId) || null;
   const [commentsByPost, setCommentsByPost] = useState<Record<string, NewsComment[]>>({});
@@ -57,7 +60,7 @@ export function useNewsComments(
 
   useEffect(() => {
     const ids = postKey ? postKey.split('|').filter(Boolean) : [];
-    if (ids.length === 0) return;
+    if (!enabled || ids.length === 0) return;
 
     let cancelled = false;
     const query = new URLSearchParams({
@@ -87,8 +90,12 @@ export function useNewsComments(
     void loadComments();
 
     const postIdSet = new Set(ids);
+    // Supabase reuses channel topics while an async cleanup is pending. Give
+    // each hook effect a unique topic so News/Standings transitions cannot
+    // attach callbacks to an already-subscribed channel.
+    const channelGeneration = ++channelGenerationRef.current;
     const channel = supabase
-      .channel(`news-comments:${postKey}`)
+      .channel(`news-comments:${channelInstanceId}:${channelGeneration}:${postKey}`)
       .on(
         'postgres_changes',
         { event: 'INSERT', schema: 'public', table: 'news_comments' },
@@ -114,7 +121,7 @@ export function useNewsComments(
       cancelled = true;
       void supabase.removeChannel(channel);
     };
-  }, [currentManagerName, postKey, viewerId]);
+  }, [channelInstanceId, currentManagerName, enabled, postKey, viewerId]);
 
   const submitComment = async (postId: string, content: string) => {
     if (!viewerId || !content.trim()) return;
