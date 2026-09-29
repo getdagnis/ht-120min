@@ -692,7 +692,8 @@ export const Home: React.FC<{ initialData?: HomeInitialData }> = ({ initialData 
               </span>
             ) : (
               <span title="Registered Teams">
-                <TeamsIcon size={14} /> {t.teamCount} teams
+                <TeamsIcon size={14} />{' '}
+                {t.max_teams != null && t.max_teams > 0 ? `${t.teamCount}/${t.max_teams}` : t.teamCount} teams
               </span>
             )}
             <span title="Tournament date">

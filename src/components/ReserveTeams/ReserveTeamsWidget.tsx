@@ -38,8 +38,22 @@ interface ReserveTeamsWidgetProps {
   tournamentId: string;
 }
 
-const teamHref = (teamId: number) =>
-  `https://www.hattrick.org/goto.ashx?path=/Club/?TeamID=${teamId}`;
+const teamHref = (teamId: number) => `https://www.hattrick.org/goto.ashx?path=/Club/?TeamID=${teamId}`;
+
+const reserveTeamsPreviewMode =
+  process.env.NODE_ENV !== 'production' && process.env.NEXT_PUBLIC_RESERVE_TEAMS_PREVIEW === '1';
+const previewTeamId = 900101;
+const previewTeamRowId = 'reserve-preview-team';
+const previewTeam: MyReserveTeam = {
+  team_id: previewTeamId,
+  name: 'Preview Reserve FC',
+  logo_url: null,
+  country_name: 'Guam',
+  country_id: 117,
+  eligible: true,
+  state: 'available',
+  existing_team_id: null,
+};
 
 export const ReserveTeamsWidget: React.FC<ReserveTeamsWidgetProps> = ({ tournamentId }) => {
   const [data, setData] = useState<ReserveTeamsResponse | null>(null);
@@ -48,15 +62,31 @@ export const ReserveTeamsWidget: React.FC<ReserveTeamsWidgetProps> = ({ tourname
   const [error, setError] = useState<string | null>(null);
 
   const readData = useCallback(async () => {
-    const response = await fetch(`/api/app?route=reserve-teams&tournamentId=${encodeURIComponent(tournamentId)}`);
-    const next = (await response.json()) as ReserveTeamsResponse & { error?: string };
-    if (!response.ok) throw new Error(next.error || 'Could not load reserve teams.');
-    return next;
+    try {
+      const response = await fetch(`/api/app?route=reserve-teams&tournamentId=${encodeURIComponent(tournamentId)}`);
+      const next = (await response.json()) as ReserveTeamsResponse & { error?: string };
+      if (!response.ok) throw new Error(next.error || 'Could not load reserve teams.');
+      if (!reserveTeamsPreviewMode) return next;
+      return {
+        ...next,
+        authenticated: true,
+        myTeams: [previewTeam],
+      };
+    } catch (reason: unknown) {
+      if (!reserveTeamsPreviewMode) throw reason;
+      return {
+        authenticated: true,
+        reserveTeams: [],
+        myTeams: [previewTeam],
+      } satisfies ReserveTeamsResponse;
+    }
   }, [tournamentId]);
 
   const applyData = useCallback((next: ReserveTeamsResponse) => {
     setData(next);
-    setSelectedTeamId((current) => current || String(next.myTeams.find((team) => team.state === 'available')?.team_id || ''));
+    setSelectedTeamId(
+      (current) => current || String(next.myTeams.find((team) => team.state === 'available')?.team_id || ''),
+    );
   }, []);
 
   useEffect(() => {
@@ -73,16 +103,44 @@ export const ReserveTeamsWidget: React.FC<ReserveTeamsWidgetProps> = ({ tourname
     };
   }, [applyData, readData]);
 
-  const availableTeams = useMemo(
-    () => data?.myTeams.filter((team) => team.state === 'available') || [],
-    [data],
-  );
+  const availableTeams = useMemo(() => data?.myTeams.filter((team) => team.state === 'available') || [], [data]);
   const ownReserve = data?.myTeams.filter((team) => team.state === 'reserve') || [];
 
   const post = async (action: 'join' | 'leave', teamId: string) => {
     setBusy(true);
     setError(null);
     try {
+      if (reserveTeamsPreviewMode) {
+        setData((current) => {
+          if (!current) return current;
+          const isJoining = action === 'join';
+          const nextTeam = {
+            ...previewTeam,
+            state: isJoining ? ('reserve' as const) : ('available' as const),
+            existing_team_id: isJoining ? previewTeamRowId : null,
+          };
+          return {
+            ...current,
+            reserveTeams: isJoining
+              ? [
+                  ...current.reserveTeams,
+                  {
+                    id: previewTeamRowId,
+                    name: previewTeam.name,
+                    ht_team_id: previewTeam.team_id,
+                    logo_url: previewTeam.logo_url,
+                    country_name: previewTeam.country_name,
+                    country_id: previewTeam.country_id,
+                    manager_name: 'Preview manager',
+                    hattrick_user_id: 9001001,
+                  },
+                ]
+              : current.reserveTeams.filter((team) => team.id !== previewTeamRowId),
+            myTeams: [nextTeam],
+          };
+        });
+        return;
+      }
       const response = await fetch('/api/app?route=reserve-teams', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -105,20 +163,36 @@ export const ReserveTeamsWidget: React.FC<ReserveTeamsWidgetProps> = ({ tourname
 
   return (
     <section className={styles.widget} aria-labelledby="reserve-teams-title">
-      <h2 id="reserve-teams-title"><ShieldCheck size={18} weight="bold" /> Reserve teams</h2>
-      <p className={styles.intro}>Emergency opponents who are willing to step in when a fixture loses a team.</p>
+      <h2 id="reserve-teams-title">
+        <ShieldCheck size={18} weight="bold" /> Reserve teams
+      </h2>
+      <p className={styles.intro}>
+        Teams in the reserve list will be contacted first if a position opens in the tournament. They are also valid
+        opponents that can replace your planned fixture partner when necessary.
+      </p>
+      {reserveTeamsPreviewMode && (
+        <p className={styles.previewNote}>Local preview only. Join and Leave do not contact Supabase or Hattrick.</p>
+      )}
       <div className={styles.list}>
         {(data?.reserveTeams || []).map((team) => (
           <div className={styles.team} key={team.id}>
             <img src={team.logo_url || '/default-logo.png'} alt="" />
             <div>
-              <a href={teamHref(team.ht_team_id)} target="_blank" rel="noopener noreferrer">{team.name}</a>
+              <a href={teamHref(team.ht_team_id)} target="_blank" rel="noopener noreferrer">
+                {team.name}
+              </a>
               <span>
                 {team.manager_name && team.hattrick_user_id ? (
-                  <a href={`https://www.hattrick.org/goto.ashx?path=/Club/Manager/?userId=${team.hattrick_user_id}`} target="_blank" rel="noopener noreferrer">
+                  <a
+                    href={`https://www.hattrick.org/goto.ashx?path=/Club/Manager/?userId=${team.hattrick_user_id}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                  >
                     {team.manager_name}
                   </a>
-                ) : team.manager_name}
+                ) : (
+                  team.manager_name
+                )}
                 {team.country_id ? ` ${getCountryWorldDetails(team.country_id)?.emoji || ''}` : ''}
               </span>
             </div>
@@ -129,15 +203,28 @@ export const ReserveTeamsWidget: React.FC<ReserveTeamsWidgetProps> = ({ tourname
       {data?.authenticated ? (
         <div className={styles.actions}>
           {ownReserve.map((team) => (
-            <button type="button" key={team.team_id} onClick={() => post('leave', team.existing_team_id || '')} disabled={busy}>
+            <button
+              type="button"
+              key={team.team_id}
+              onClick={() => post('leave', team.existing_team_id || '')}
+              disabled={busy}
+            >
               Leave {team.name}
             </button>
           ))}
           {availableTeams.length > 0 && (
             <div className={styles.joinAction}>
               {availableTeams.length > 1 && (
-                <select value={selectedTeamId} onChange={(event) => setSelectedTeamId(event.target.value)} disabled={busy}>
-                  {availableTeams.map((team) => <option key={team.team_id} value={team.team_id}>{team.name}</option>)}
+                <select
+                  value={selectedTeamId}
+                  onChange={(event) => setSelectedTeamId(event.target.value)}
+                  disabled={busy}
+                >
+                  {availableTeams.map((team) => (
+                    <option key={team.team_id} value={team.team_id}>
+                      {team.name}
+                    </option>
+                  ))}
                 </select>
               )}
               <button type="button" onClick={() => post('join', selectedTeamId)} disabled={busy || !selectedTeamId}>
@@ -147,9 +234,13 @@ export const ReserveTeamsWidget: React.FC<ReserveTeamsWidgetProps> = ({ tourname
           )}
         </div>
       ) : (
-        <button type="button" className={styles.login} onClick={login}>Login to join reserve list</button>
+        <button type="button" className={styles.login} onClick={login}>
+          Login to join reserve list
+        </button>
       )}
-      {(error || availableTeams.some((team) => team.reason)) && <p className={styles.error}>{error || availableTeams.find((team) => team.reason)?.reason}</p>}
+      {(error || availableTeams.some((team) => team.reason)) && (
+        <p className={styles.error}>{error || availableTeams.find((team) => team.reason)?.reason}</p>
+      )}
     </section>
   );
 };
