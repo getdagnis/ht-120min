@@ -46,6 +46,66 @@ The database is not merely "messy because it has duplicate rows". The duplicates
 
 ---
 
+## 2.1 First-class product concepts must have an explicit data owner
+
+A second recurring problem is that some visible product concepts exist only as
+projections assembled from unrelated tables.
+
+Current examples include:
+
+- **Tournament activity** — presented in the product as a coherent event stream,
+  but reconstructed from `teams`, `matches`, `fixture_warnings`, season/round
+  timestamps, reports and other records.
+- **Home/global activity** — presented as a global activity stream, but similarly
+  derived at read time from multiple unrelated domain tables.
+
+There are currently no first-class `tournament_activity` or `global_activity`
+models.
+
+This is difficult to discover, inspect and reason about. It also means an event
+can change retrospectively when the source row changes. For example, an
+organizer-added "Bot team" registration can later acquire the real manager
+identity, causing an old activity story to render differently even though the
+original event itself did not change.
+
+During the off-season refactor, audit other similar cases where a named product
+concept is implicitly reconstructed from fields owned by unrelated entities.
+
+Do not automatically create a table for every UI view. A projection is entirely
+appropriate when it is genuinely derived state.
+
+However, when something represents a meaningful domain event with its own:
+
+- occurrence time;
+- actor;
+- subject;
+- event type;
+- historical meaning;
+- visibility/audience;
+- immutable or intentionally frozen presentation data;
+
+consider making that event a first-class persisted model rather than inferring
+it later from whichever source tables happen to contain enough information.
+
+The architecture should make it obvious:
+
+1. which table/model owns the canonical fact;
+2. which data is immutable historical truth;
+3. which UI surfaces are projections of that fact;
+4. whether global and tournament-scoped views are projections of the same event
+   model rather than separately reconstructed streams.
+
+A likely direction worth evaluating is a common domain-event/activity model with
+optional tournament, season, team, manager, fixture, report or other references,
+from which tournament activity and Home/global activity can both be projected.
+
+The implementation should determine whether one shared event table, several
+domain-specific event tables, or another explicit model is most appropriate.
+The important requirement is **clear ownership and discoverability**, not a
+particular table name.
+
+---
+
 ## 3. `profiles` is already close to the correct manager layer
 
 `profiles` should not be treated as display-only data.
@@ -636,6 +696,11 @@ After the refactor, these statements should all be true:
     a team occupies a slot through an assignment
 
     replacement changes slot occupancy, not team identity
+
+    meaningful historical events have an explicit canonical owner
+
+    public activity streams project from those events rather than
+    reverse-engineering history from unrelated mutable rows
 
     live standings belong to the slot
 
