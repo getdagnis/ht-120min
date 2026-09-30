@@ -1130,9 +1130,7 @@ export const TournamentView: React.FC<{ initialData?: TournamentInitialData }> =
     ((adminAuthSource === 'oauth_role' && roleAccess?.canManageOperations) || adminAuthSource === 'legacy_password'),
   );
   const canToggleArchiveTournament = Boolean(
-    tournament &&
-    ['finished', 'stopped'].includes(tournament.status) &&
-    canManageOperationalAdmin,
+    tournament && ['finished', 'stopped'].includes(tournament.status) && canManageOperationalAdmin,
   );
   const adminAccessMode = oauthRoleAccess
     ? roleAccess?.isImplicitSuperadmin && !delegatedRole
@@ -6390,42 +6388,44 @@ export const TournamentView: React.FC<{ initialData?: TournamentInitialData }> =
                                 <Button
                                   type="button"
                                   size="sm"
-                                  variant="primaryAction"
+                                  variant="secondaryAction"
                                   onClick={() => void refreshTeamPlanningStatuses()}
                                   disabled={isRefreshingTeamStatuses}
                                 >
-                                  {isRefreshingTeamStatuses ? 'Checking Hattrick...' : 'Check Hattrick status'}
+                                  {isRefreshingTeamStatuses ? 'Chatting with Hattrick...' : 'Check booking status'}
                                 </Button>
                               </div>
-                              {tournament.league_category === 'hfi' && oauthRoleAccess && roleAccess?.canManageOperations && (
-                                <div className={adminStyles.teamPlanningRow}>
-                                  <div>
-                                    <p className={adminStyles.smallNote}>
-                                      Refresh current HFI ranks before generating a schedule.
-                                    </p>
-                                    {hfiRankNotice && (
-                                      <p
-                                        className={`${adminStyles.teamPlanningNotice} ${
-                                          hfiRankNoticeIsError
-                                            ? adminStyles.teamPlanningNoticeError
-                                            : adminStyles.teamPlanningNoticeSuccess
-                                        }`}
-                                      >
-                                        {hfiRankNotice}
+                              {tournament.league_category === 'hfi' &&
+                                oauthRoleAccess &&
+                                roleAccess?.canManageOperations && (
+                                  <div className={adminStyles.teamPlanningRow}>
+                                    <div>
+                                      <p className={adminStyles.smallNote}>
+                                        Refresh current HFI ranks before generating a schedule.
                                       </p>
-                                    )}
+                                      {hfiRankNotice && (
+                                        <p
+                                          className={`${adminStyles.teamPlanningNotice} ${
+                                            hfiRankNoticeIsError
+                                              ? adminStyles.teamPlanningNoticeError
+                                              : adminStyles.teamPlanningNoticeSuccess
+                                          }`}
+                                        >
+                                          {hfiRankNotice}
+                                        </p>
+                                      )}
+                                    </div>
+                                    <Button
+                                      type="button"
+                                      size="sm"
+                                      variant="secondaryAction"
+                                      onClick={() => void updateHfiRanks()}
+                                      disabled={isUpdatingHfiRanks}
+                                    >
+                                      {isUpdatingHfiRanks ? 'Updating ranks...' : 'Update HFI ranks'}
+                                    </Button>
                                   </div>
-                                  <Button
-                                    type="button"
-                                    size="sm"
-                                    variant="secondaryAction"
-                                    onClick={() => void updateHfiRanks()}
-                                    disabled={isUpdatingHfiRanks}
-                                  >
-                                    {isUpdatingHfiRanks ? 'Updating ranks...' : 'Update HFI ranks'}
-                                  </Button>
-                                </div>
-                              )}
+                                )}
                             </div>
                           )}
                           <ul className={adminStyles.teamList}>
@@ -7055,8 +7055,19 @@ export const TournamentView: React.FC<{ initialData?: TournamentInitialData }> =
                             Finished
                           </Button>
                           {canToggleArchiveTournament && (
-                            <Button variant={tournament.is_archived ? 'secondaryAction' : 'danger'} size="sm" onClick={() => void handleArchiveTournament()} disabled={isArchivingTournament}>
-                              {isArchivingTournament ? (tournament.is_archived ? 'Unarchiving...' : 'Archiving...') : tournament.is_archived ? 'Unarchive' : 'Archive'}
+                            <Button
+                              variant={tournament.is_archived ? 'secondaryAction' : 'danger'}
+                              size="sm"
+                              onClick={() => void handleArchiveTournament()}
+                              disabled={isArchivingTournament}
+                            >
+                              {isArchivingTournament
+                                ? tournament.is_archived
+                                  ? 'Unarchiving...'
+                                  : 'Archiving...'
+                                : tournament.is_archived
+                                  ? 'Unarchive'
+                                  : 'Archive'}
                             </Button>
                           )}
                         </div>
@@ -7072,8 +7083,19 @@ export const TournamentView: React.FC<{ initialData?: TournamentInitialData }> =
                             Full stopped. Move to paused.
                           </Button>
                           {canToggleArchiveTournament && (
-                            <Button variant={tournament.is_archived ? 'secondaryAction' : 'danger'} size="sm" onClick={() => void handleArchiveTournament()} disabled={isArchivingTournament}>
-                              {isArchivingTournament ? (tournament.is_archived ? 'Unarchiving...' : 'Archiving...') : tournament.is_archived ? 'Unarchive' : 'Archive'}
+                            <Button
+                              variant={tournament.is_archived ? 'secondaryAction' : 'danger'}
+                              size="sm"
+                              onClick={() => void handleArchiveTournament()}
+                              disabled={isArchivingTournament}
+                            >
+                              {isArchivingTournament
+                                ? tournament.is_archived
+                                  ? 'Unarchiving...'
+                                  : 'Archiving...'
+                                : tournament.is_archived
+                                  ? 'Unarchive'
+                                  : 'Archive'}
                             </Button>
                           )}
                         </div>

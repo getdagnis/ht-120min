@@ -101,6 +101,7 @@ type StandingsScoringMode = keyof typeof STANDINGS_SCORING_MODES;
 type StandingsSortKey =
   | 'default'
   | 'team'
+  | 'teamRank'
   | 'achievements120min'
   | 'achievements120minPercent'
   | 'totalMinutes'
@@ -254,17 +255,27 @@ export const StandingsView: React.FC<StandingsViewProps> = ({
         return sortDirection === 'asc' ? result : -result;
       }
 
+      if (sortKey === 'teamRank') {
+        const aMissing = a.teamRank == null;
+        const bMissing = b.teamRank == null;
+        if (aMissing !== bMissing) return aMissing ? 1 : -1;
+      }
+
       const aValue =
         sortKey === 'appg'
           ? averagePointsPerGame(a)
           : sortKey === 'achievements120minPercent'
             ? percentage120min(a)
+            : sortKey === 'teamRank'
+              ? (a.teamRank ?? 0)
             : Number(a[sortKey]);
       const bValue =
         sortKey === 'appg'
           ? averagePointsPerGame(b)
           : sortKey === 'achievements120minPercent'
             ? percentage120min(b)
+            : sortKey === 'teamRank'
+              ? (b.teamRank ?? 0)
             : Number(b[sortKey]);
       const result = bValue - aValue;
       if (result !== 0) return sortDirection === 'asc' ? -result : result;
@@ -390,7 +401,7 @@ export const StandingsView: React.FC<StandingsViewProps> = ({
       return;
     }
     setSortKey(nextKey);
-    setSortDirection(nextKey === 'team' ? 'asc' : 'desc');
+    setSortDirection(nextKey === 'team' || nextKey === 'teamRank' ? 'asc' : 'desc');
   };
 
   const sortIndicator = (key: StandingsSortKey) => (sortKey === key ? (sortDirection === 'asc' ? ' ↑' : ' ↓') : '');
@@ -478,17 +489,29 @@ export const StandingsView: React.FC<StandingsViewProps> = ({
     setStandingsCopied(true);
     window.setTimeout(() => setStandingsCopied(false), 2000);
   };
-  const sortableHeader = (label: string, key: StandingsSortKey, className = '', title?: string) => (
-    <th
-      className={className}
-      aria-sort={sortKey === key ? (sortDirection === 'asc' ? 'ascending' : 'descending') : 'none'}
-    >
-      <button type="button" className={styles.sortHeader} onClick={() => handleSort(key)} title={title}>
+  const sortableHeader = (label: string, key: StandingsSortKey, className = '', tooltip?: string) => {
+    const button = (
+      <button type="button" className={styles.sortHeader} onClick={() => handleSort(key)}>
         {label}
         <span aria-hidden="true">{sortIndicator(key)}</span>
       </button>
-    </th>
-  );
+    );
+
+    return (
+      <th
+        className={className}
+        aria-sort={sortKey === key ? (sortDirection === 'asc' ? 'ascending' : 'descending') : 'none'}
+      >
+        {tooltip ? (
+          <Tooltip id={`standings-header-${key}`} content={tooltip} className="tooltip">
+            {button}
+          </Tooltip>
+        ) : (
+          button
+        )}
+      </th>
+    );
+  };
 
   useEffect(() => {
     const tick = setInterval(() => setPresencePulse((value) => value + 1), 60_000);
@@ -607,15 +630,20 @@ export const StandingsView: React.FC<StandingsViewProps> = ({
               <tr>
                 <th>#</th>
                 {sortableHeader('Team', 'team')}
-                {showHfiRank && <th className={styles.rankColumn} title="Hattrick Femme International rank">HFI</th>}
+                {showHfiRank && sortableHeader('HFI', 'teamRank', styles.rankColumn, 'HFI league rank')}
                 {show120minScoring ? (
                   <>
-                    {sortableHeader('120m', 'achievements120min', styles.center120)}
+                    {sortableHeader(
+                      '120m',
+                      'achievements120min',
+                      styles.center120,
+                      '1 point per 120 min game achieved',
+                    )}
                     {sortableHeader(
                       '120m%',
                       'achievements120minPercent',
                       styles.center,
-                      '120-minute matches as a percentage of played matches',
+                      '% of 120m matches',
                     )}
                     {sortableHeader('Mins', 'totalMinutes', styles.center)}
                     {sortableHeader('Dif', 'gd', styles.center)}
@@ -628,7 +656,7 @@ export const StandingsView: React.FC<StandingsViewProps> = ({
                       '120m%',
                       'achievements120minPercent',
                       styles.center,
-                      '120-minute matches as a percentage of played matches',
+                      '% of 120m matches',
                     )}
                     {sortableHeader('Pld', 'played', styles.center)}
                     {sortableHeader('Dif', 'gd', styles.center)}
