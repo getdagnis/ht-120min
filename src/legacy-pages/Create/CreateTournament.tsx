@@ -1052,7 +1052,9 @@ export const CreateTournament: React.FC = () => {
     : 'Get random';
   const restrictionsSummary = `League type: ${leagueRestrictionLabel}, Country limit: ${countryRestrictionLabel}, Team limit: ${teamLimitLabel}.`;
   const teamStepHelper = isValidated
-    ? `First link your Hattrick account to register your team for this tournament.`
+    ? !isLinked
+      ? `First link your Hattrick account to register your team for this tournament.`
+      : null
     : isSandbox
       ? `Add at least two random test teams. They use real Hattrick metadata but no real manager joins this tournament. ${restrictionsSummary}`
       : isLinked
@@ -1505,7 +1507,7 @@ export const CreateTournament: React.FC = () => {
             <h1>{isValidated ? 'Confirm your team' : isSandbox ? 'Build a test tournament' : 'Add Teams'}</h1>
             <img src="/register2.png" alt="Add Teams" />
             <h2 className={styles.teamStepTitle}>{formData.name}</h2>
-            <p className={styles.teamStepHelper}>{teamStepHelper}</p>
+            {teamStepHelper && <p className={styles.teamStepHelper}>{teamStepHelper}</p>}
 
             {!isLinked && (
               <div className={styles.linkSection}>

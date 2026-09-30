@@ -1,11 +1,32 @@
 import { readChppTag } from './chpp-xml.js';
 import type { LiveMatchClock, LiveMatchPhase } from '../../../../shared/live-match.js';
+import { parseChppStockholmDate } from '../../../../shared/chpp-dates.js';
 
 export type MatchLifecycle = 'arranged' | 'ongoing' | 'finished';
 export type MatchObservation = MatchLifecycle | 'unknown';
 
-export function shouldFetchMatchDetailsAfterLive(previous: MatchLifecycle, liveMatchPresent: boolean) {
-  return previous === 'finished' || !liveMatchPresent;
+const LIVE_SNAPSHOT_STALE_AFTER_MS = 10 * 60 * 1000;
+type LiveCompletionHint = Pick<
+  LiveMatchClock,
+  'fetchedAt' | 'phase' | 'lastEventMinute' | 'nextEventMinute' | 'nextEventMatchPart'
+>;
+
+export function shouldFetchMatchDetailsAfterLive(
+  previous: MatchLifecycle,
+  liveMatch: LiveCompletionHint | null,
+  nowMs = Date.now(),
+) {
+  if (previous === 'finished' || !liveMatch) return true;
+
+  const fetchedAtMs = parseChppStockholmDate(liveMatch.fetchedAt)?.getTime();
+  const stale = fetchedAtMs !== undefined && fetchedAtMs !== null && nowMs - fetchedAtMs >= LIVE_SNAPSHOT_STALE_AFTER_MS;
+  const noNextEvent = liveMatch.nextEventMinute == null && liveMatch.nextEventMatchPart == null;
+  const terminalPhase =
+    (liveMatch.phase === 'second_half' && (liveMatch.lastEventMinute ?? 0) >= 90) ||
+    (liveMatch.phase === 'extra_time' && (liveMatch.lastEventMinute ?? 0) >= 120) ||
+    liveMatch.phase === 'penalties';
+
+  return stale || (noNextEvent && terminalPhase);
 }
 
 function extractAnnouncedAddedMinutes(eventText: string | undefined) {

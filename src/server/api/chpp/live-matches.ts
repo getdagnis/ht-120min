@@ -141,10 +141,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
       let detailsXml: string | null = null;
       let detailsState: ReturnType<typeof readMatchDetailsState> = 'unknown';
-      // A positive live.xml observation is sufficient proof of an ongoing
-      // match. MatchDetails is reserved for a finished row or a live match
-      // that has disappeared and needs final-result confirmation.
-      if (shouldFetchMatchDetailsAfterLive(fixture.status, Boolean(live))) {
+      // A fresh live.xml observation is sufficient proof of an ongoing match.
+      // If the feed is stale, re-check MatchDetails because live.xml can retain
+      // an old in-progress snapshot after the Hattrick match has finished.
+      if (shouldFetchMatchDetailsAfterLive(fixture.status, live)) {
         const detailsParams = { file: 'matchdetails', version: '3.1', matchID: htMatchId, matchEvents: 'true' };
         const detailsAuth = getAuthHeader('GET', url, detailsParams, process.env.CHPP_CONSUMER_KEY!, process.env.CHPP_CONSUMER_SECRET!, fixture.oauthToken, fixture.oauthTokenSecret);
         const detailsResponse = await fetch(

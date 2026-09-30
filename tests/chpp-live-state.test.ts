@@ -133,10 +133,28 @@ test('unknown or stale observations never regress an ongoing or finished match',
   assert.equal(advanceMatchStatus('ongoing', 'finished'), 'finished');
 });
 
-test('a positive live.xml observation skips MatchDetails, while a disappearance confirms final state', () => {
-  assert.equal(shouldFetchMatchDetailsAfterLive('ongoing', true), false);
-  assert.equal(shouldFetchMatchDetailsAfterLive('ongoing', false), true);
-  assert.equal(shouldFetchMatchDetailsAfterLive('finished', false), true);
+test('fresh live.xml skips MatchDetails, while stale or missing live data triggers final-state confirmation', () => {
+  const nowMs = Date.parse('2026-09-23T06:00:00.000Z');
+  const freshLive = {
+    fetchedAt: '2026-09-23 07:55:00',
+    phase: 'second_half' as const,
+    lastEventMinute: 85,
+    nextEventMinute: 88,
+    nextEventMatchPart: 2,
+  };
+  assert.equal(shouldFetchMatchDetailsAfterLive('ongoing', freshLive, nowMs), false);
+  assert.equal(shouldFetchMatchDetailsAfterLive('ongoing', { ...freshLive, fetchedAt: '2026-09-23 07:40:00' }, nowMs), true);
+  assert.equal(shouldFetchMatchDetailsAfterLive('ongoing', { ...freshLive, fetchedAt: null }, nowMs), false);
+  assert.equal(
+    shouldFetchMatchDetailsAfterLive(
+      'ongoing',
+      { ...freshLive, lastEventMinute: 92, nextEventMinute: null, nextEventMatchPart: null },
+      nowMs,
+    ),
+    true,
+  );
+  assert.equal(shouldFetchMatchDetailsAfterLive('ongoing', null, nowMs), true);
+  assert.equal(shouldFetchMatchDetailsAfterLive('finished', freshLive, nowMs), true);
   assert.equal(advanceMatchStatus('ongoing', 'unknown'), 'ongoing');
 });
 
