@@ -6100,7 +6100,7 @@ export const TournamentView: React.FC<{ initialData?: TournamentInitialData }> =
                                 className={adminStyles.selectField}
                               >
                                 <option value="">Undecided (open till start)</option>
-                                {[2, 4, 6, 8, 10, 12, 14].map((n) => (
+                                {[2, 4, 6, 8, 10, 12, 14, 16].map((n) => (
                                   <option key={n} value={n}>
                                     {n} teams
                                   </option>
@@ -6114,7 +6114,7 @@ export const TournamentView: React.FC<{ initialData?: TournamentInitialData }> =
                                 isStartDateLocked ? 'Start date' : 'Planned start date',
                                 isStartDateLocked
                                   ? '(locked by first fixture)'
-                                  : '(will lock to first fixture when present)',
+                                  : '(indicative, will lock to first fixture when present)',
                               )}
                               {isStartDateLocked && firstKnownFixtureDate ? (
                                 <>
@@ -6511,7 +6511,7 @@ export const TournamentView: React.FC<{ initialData?: TournamentInitialData }> =
 
                       <div id="admin-panel-teams">
                         <SectionCard
-                          title="Manage Teams"
+                          title={`Manage Teams (${activeParticipantCount})`}
                           collapsible
                           isCollapsed={isTeamsCollapsed}
                           onToggleCollapse={() => togglePanel('teams', !isTeamsCollapsed, setIsTeamsCollapsed)}
