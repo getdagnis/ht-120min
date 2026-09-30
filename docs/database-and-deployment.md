@@ -52,6 +52,7 @@ Recent important migrations:
 - `074_add_match_arrange_story.sql`
 - `075_create_global_chat.sql`
 - `076_add_finished_at_to_matches.sql`
+- `082_reset_season_and_vacate_slot.sql`
 
 ## RLS And Access Assumptions
 
@@ -62,6 +63,9 @@ The current MVP uses permissive policies in several public-facing areas. When ch
 - Do not use `auth.role()` in new policies.
 - Do not use user-editable metadata for authorization.
 - Be careful with `SECURITY DEFINER`; it can bypass RLS and is public-callable unless privileges are revoked.
+- Current-season reset and scheduled-team removal use service-role-only RPCs. The
+  consolidated API checks tournament operational access before invoking them;
+  browser clients do not write lifecycle, slot, or assignment state directly.
 - Remember that Postgres UPDATE policies also need SELECT visibility.
 
 ## Vercel Function Limit

@@ -284,7 +284,7 @@ async function handleSeasonSlotReplacement(req: VercelRequest, res: VercelRespon
   if (!actor) return;
   if (!actor.access.canManageOperations) return res.status(403).json({ error: 'This role cannot replace a scheduled team.' });
 
-  const { data, error } = await getServiceSupabase().rpc('replace_known_team_in_current_season', {
+  const { data, error } = await getServiceSupabase().rpc('replace_or_fill_known_team_in_current_season', {
     p_tournament_id: tournamentId,
     p_season_number: seasonNumber,
     p_former_team_id: formerTeamId,
@@ -295,6 +295,58 @@ async function handleSeasonSlotReplacement(req: VercelRequest, res: VercelRespon
     return res.status(status).json({ error: error.message });
   }
   return res.status(200).json({ replacement: Array.isArray(data) ? data[0] : data });
+}
+
+async function handleResetSeasonToPlanning(req: VercelRequest, res: VercelResponse) {
+  if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed.' });
+  const tournamentId = readString(req.body?.tournamentId);
+  const seasonNumber = Number(req.body?.seasonNumber);
+  if (!tournamentId || !Number.isSafeInteger(seasonNumber) || seasonNumber < 1) {
+    return res.status(400).json({ error: 'Invalid season reset request.' });
+  }
+
+  const actor = await requireTournamentRoleSession(req, res, tournamentId);
+  if (!actor) return;
+  if (!actor.access.canManageOperations) {
+    return res.status(403).json({ error: 'This role cannot manage the tournament season.' });
+  }
+
+  const { data, error } = await getServiceSupabase().rpc('reset_current_season_to_planning', {
+    p_tournament_id: tournamentId,
+    p_season_number: seasonNumber,
+  });
+  if (error) {
+    const status = ['22023', '55000', 'P0002'].includes(error.code || '') ? 409 : 500;
+    return res.status(status).json({ error: error.message });
+  }
+  return res.status(200).json({ reset: data });
+}
+
+async function handleScheduledTeamRemoval(req: VercelRequest, res: VercelResponse) {
+  if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed.' });
+  const tournamentId = readString(req.body?.tournamentId);
+  const teamId = readString(req.body?.teamId);
+  const seasonNumber = Number(req.body?.seasonNumber);
+  if (!tournamentId || !teamId || !Number.isSafeInteger(seasonNumber) || seasonNumber < 1) {
+    return res.status(400).json({ error: 'Invalid scheduled-team removal request.' });
+  }
+
+  const actor = await requireTournamentRoleSession(req, res, tournamentId);
+  if (!actor) return;
+  if (!actor.access.canManageOperations) {
+    return res.status(403).json({ error: 'This role cannot manage tournament teams.' });
+  }
+
+  const { data, error } = await getServiceSupabase().rpc('vacate_team_slot_in_current_season', {
+    p_tournament_id: tournamentId,
+    p_season_number: seasonNumber,
+    p_team_id: teamId,
+  });
+  if (error) {
+    const status = ['22023', 'P0002'].includes(error.code || '') ? 409 : 500;
+    return res.status(status).json({ error: error.message });
+  }
+  return res.status(200).json({ removal: Array.isArray(data) ? data[0] : data });
 }
 
 async function handleAdminTeamReserveTransition(req: VercelRequest, res: VercelResponse) {
@@ -2180,6 +2232,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         return await handleTournamentParticipation(req, res);
       case 'season-slot-replacement':
         return await handleSeasonSlotReplacement(req, res);
+      case 'reset-season-to-planning':
+        return await handleResetSeasonToPlanning(req, res);
+      case 'scheduled-team-removal':
+        return await handleScheduledTeamRemoval(req, res);
       case 'admin-team-reserve-transition':
         return await handleAdminTeamReserveTransition(req, res);
       case 'fixture-challenge':

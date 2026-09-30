@@ -7,7 +7,7 @@ import { compareFixtures } from '../../utils/fixture-sorting';
 import { getTournamentNextMatchDate } from '../../utils/tournament-next-match';
 import { sortFeaturedFirst } from '../../utils/tournament-sorting';
 import { sortOpenTournaments } from '../../utils/open-tournaments';
-import { calculateSeasonSlotStandings } from '../../utils/standings';
+import { calculateSeasonSlotStandings, type SeasonSlotAssignment } from '../../utils/standings';
 import { formatTournamentName } from '../../utils/tournament-names';
 import { getCountryWorldDetails } from '../../../shared/worlddetails';
 import { getJoinStoryManagerSummary } from '../../utils/tournament-activity';
@@ -468,6 +468,13 @@ export const loadTournamentInitialData = cache(async (slug: string): Promise<Tou
   const { data: slotsRaw } = currentSeasonId
     ? await supabase.from('tournament_season_slots').select('id, current_team_id').eq('tournament_season_id', currentSeasonId)
     : { data: [] as unknown[] };
+  const slotIds = (slotsRaw || []).map((slot) => String((slot as Record<string, unknown>).id));
+  const { data: slotAssignmentsRaw } = slotIds.length
+    ? await supabase
+        .from('tournament_season_slot_assignments')
+        .select('id, tournament_season_slot_id, team_id, assigned_at, released_at, team_name, ht_team_id, manager_name, hattrick_user_id, logo_url')
+        .in('tournament_season_slot_id', slotIds)
+    : { data: [] as unknown[] };
   const roundIds = rounds.map((round) => String(round.id));
   const userIds = teams.map((team) => Number(team.hattrick_user_id || 0)).filter(Boolean);
   const [matchesResult, profilesResult] = await Promise.all([
@@ -539,6 +546,7 @@ export const loadTournamentInitialData = cache(async (slug: string): Promise<Tou
   // The slot table is optional until the peak-season migration is applied. Its
   // query intentionally degrades to the legacy team-based view on old projects.
   const slots = (slotsRaw || []) as { id: string; current_team_id: string | null }[];
+  const slotAssignments = (slotAssignmentsRaw || []) as SeasonSlotAssignment[];
   const standings = calculateSeasonSlotStandings(
     teams.map((team) => ({
       id: String(team.id),
@@ -573,6 +581,7 @@ export const loadTournamentInitialData = cache(async (slug: string): Promise<Tou
     })),
     slots,
     String(tournament.scoring_mode || '120min'),
+    slotAssignments,
   ) as Record<string, unknown>[];
 
   return {

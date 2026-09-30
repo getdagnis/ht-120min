@@ -21,6 +21,19 @@ export interface SeasonSlot {
   current_team_id: string | null;
 }
 
+export interface SeasonSlotAssignment {
+  id?: string;
+  tournament_season_slot_id: string;
+  team_id: string | null;
+  assigned_at: string;
+  released_at: string | null;
+  team_name: string;
+  ht_team_id: number | null;
+  manager_name: string | null;
+  hattrick_user_id: number | null;
+  logo_url: string | null;
+}
+
 export const APPG_CLASSIFICATIONS = ['ET3', 'ET2', 'PS1', 'RT0', 'OPW'] as const;
 export type AppgClassification = (typeof APPG_CLASSIFICATIONS)[number];
 
@@ -302,13 +315,56 @@ export function calculateSeasonSlotStandings(
   matches: Match[],
   slots: SeasonSlot[],
   scoringMode: PersistedScoringMode,
+  slotAssignments: SeasonSlotAssignment[] = [],
 ): TeamStanding[] {
   if (slots.length === 0) return calculateStandings(teams, matches, scoringMode);
 
   const teamsById = new Map(teams.map((team) => [team.id, team]));
+  const assignmentsBySlot = new Map<string, SeasonSlotAssignment[]>();
+  slotAssignments.forEach((assignment) => {
+    const current = assignmentsBySlot.get(assignment.tournament_season_slot_id) || [];
+    current.push(assignment);
+    assignmentsBySlot.set(assignment.tournament_season_slot_id, current);
+  });
   const slotTeams: Team[] = slots.flatMap((slot) => {
-    const team = slot.current_team_id ? teamsById.get(slot.current_team_id) : null;
-    return team ? [{ ...team, id: slot.id, active: true }] : [];
+    if (slot.current_team_id) {
+      const currentTeam = teamsById.get(slot.current_team_id);
+      return currentTeam ? [{ ...currentTeam, id: slot.id, active: true }] : [];
+    }
+
+    // A vacant slot can have several historical occupants. Assignment
+    // chronology, rather than arbitrary fixture order, identifies the last
+    // team whose results belong to this physical standings position.
+    const historicalAssignment = [...(assignmentsBySlot.get(slot.id) || [])].sort((a, b) => {
+      const aChronology = new Date(a.released_at || a.assigned_at).getTime();
+      const bChronology = new Date(b.released_at || b.assigned_at).getTime();
+      if (bChronology !== aChronology) return bChronology - aChronology;
+      return (b.assigned_at || '').localeCompare(a.assigned_at || '');
+    })[0];
+    if (!historicalAssignment) return [];
+
+    const sourceTeam = historicalAssignment.team_id ? teamsById.get(historicalAssignment.team_id) : undefined;
+    const historicalTeam: Team = sourceTeam
+      ? {
+          ...sourceTeam,
+          name: historicalAssignment.team_name,
+          ht_team_id: historicalAssignment.ht_team_id ?? sourceTeam.ht_team_id,
+          manager_name: historicalAssignment.manager_name ?? sourceTeam.manager_name ?? null,
+          hattrick_user_id: historicalAssignment.hattrick_user_id ?? sourceTeam.hattrick_user_id,
+          logo_url: historicalAssignment.logo_url ?? sourceTeam.logo_url ?? null,
+        }
+      : {
+          id: historicalAssignment.team_id || `historical-${slot.id}`,
+          name: historicalAssignment.team_name,
+          ht_team_id: historicalAssignment.ht_team_id,
+          hattrick_user_id: historicalAssignment.hattrick_user_id,
+          active: false,
+          replacement_for_team_id: null,
+          manager_name: historicalAssignment.manager_name,
+          logo_url: historicalAssignment.logo_url,
+        };
+
+    return [{ ...historicalTeam, id: slot.id, active: true, reserve_active: false }];
   });
   return calculateStandings(
     slotTeams,

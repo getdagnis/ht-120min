@@ -24,6 +24,10 @@ keeps the same slot.
 - Completed `matches.home_team_id` / `away_team_id` and their assignment IDs are
   never rewritten.
 - Incomplete sides change team identity and retain their slot.
+- Removing a current-season team releases its live assignment and sets the slot's
+  `current_team_id` to `NULL`; only incomplete fixture sides are vacated. A slot
+  with completed results remains visible in standings through its historical
+  fixture identity until it is filled again.
 - The replacement RPC is one transaction and is the only write path for this
   compatibility operation. Browser clients receive no slot-table write policy.
 - Legacy seasons without slots keep their existing team-based reads.
@@ -52,13 +56,26 @@ The database transaction is the rollback boundary: a rejected precondition rolls
 back all new slots, assignments, and match changes. A successful live action is
 not a general undo workflow; investigate from the recorded assignment history.
 
+## Current-season removal and reset
+
+The server-authorized scheduled-team removal action vacates the outgoing team's
+current slot instead of deleting it. Completed fixtures and assignment snapshots
+remain immutable; future incomplete sides become empty/BYE sides. The existing
+replacement flow can fill a released slot by using the former team's released
+assignment as the slot lineage.
+
+An ongoing current season can also be reset to planning before any match is
+ongoing or finished. The atomic reset clears only that season's rounds, matches,
+and generated slot state, resets the season lifecycle fields, and preserves the
+current registration-closed state. Historical season rows are not changed.
+
 ## Forbidden shortcuts
 
 - Do not write scheduled-team lifecycle fields from the browser.
 - Do not insert a raw team for a known HT team.
 - Do not rewrite completed fixture participants.
-- Do not invoke or apply this migration until the named production preflight has
-  passed for the exact FFC/Zermatt case.
+- Do not invoke or apply the season-slot migration until the named production
+  preflight has passed for the exact FFC/Zermatt case.
 - Do not extend this into registration, Season 2, global identity, credential,
   matchmaker, or scheduling work during peak season.
 

@@ -209,7 +209,7 @@ export const ReserveTeamsWidget: React.FC<ReserveTeamsWidgetProps> = ({ tourname
               onClick={() => post('leave', team.existing_team_id || '')}
               disabled={busy}
             >
-              Leave {team.name}
+              Remove {team.name}
             </button>
           ))}
           {availableTeams.length > 0 && (

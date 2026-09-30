@@ -14,7 +14,7 @@ import { getTournamentBackgroundStyle } from '../../utils/visuals';
 import { calculateSeasonSlotStandings, calculateStandings } from '../../utils/standings';
 import { validateAppgOutcome } from '../../utils/appg';
 import { isAppg120ScoringMode } from '../../../shared/scoring-profile';
-import type { TeamStanding, Team as StandingTeam } from '../../utils/standings';
+import type { SeasonSlotAssignment, TeamStanding, Team as StandingTeam } from '../../utils/standings';
 import {
   buildSeasonHistorySnapshot,
   resolveSeasonFinishedAt,
@@ -663,6 +663,7 @@ export const TournamentView: React.FC<{ initialData?: TournamentInitialData }> =
     () => (initialData?.standings as unknown as TeamStanding[] | undefined) || [],
   );
   const [seasonSlots, setSeasonSlots] = useState<Array<{ id: string; current_team_id: string | null }>>([]);
+  const [seasonSlotAssignments, setSeasonSlotAssignments] = useState<SeasonSlotAssignment[]>([]);
   const [rounds, setRounds] = useState<RoundWithMatches[]>(() => reviveInitialRounds(initialData));
   const [teams, setTeams] = useState<Team[]>(() => (initialData?.teams as unknown as Team[] | undefined) || []);
   const [warnings, setWarnings] = useState<any[]>(() => initialData?.warnings || []);
@@ -1674,6 +1675,14 @@ export const TournamentView: React.FC<{ initialData?: TournamentInitialData }> =
               .eq('tournament_season_id', currentSeasonId)
           : { data: [] as Array<{ id: string; current_team_id: string | null }> };
         setSeasonSlots((slotData || []) as Array<{ id: string; current_team_id: string | null }>);
+        const slotIds = (slotData || []).map((slot) => slot.id);
+        const { data: slotAssignmentData } = slotIds.length
+          ? await supabase
+              .from('tournament_season_slot_assignments')
+              .select('id, tournament_season_slot_id, team_id, assigned_at, released_at, team_name, ht_team_id, manager_name, hattrick_user_id, logo_url')
+              .in('tournament_season_slot_id', slotIds)
+          : { data: [] as SeasonSlotAssignment[] };
+        setSeasonSlotAssignments((slotAssignmentData || []) as SeasonSlotAssignment[]);
         setEditName(tournamentData.name);
         setEditIsPrivate(tournamentData.is_private);
         setEditChppOnlyJoin(tournamentData.chpp_only_join);
@@ -1925,6 +1934,7 @@ export const TournamentView: React.FC<{ initialData?: TournamentInitialData }> =
             })),
             (slotData || []) as Array<{ id: string; current_team_id: string | null }>,
             tournamentData.scoring_mode as any,
+            (slotAssignmentData || []) as SeasonSlotAssignment[],
           );
 
           setStandings(calculated);
@@ -2013,6 +2023,7 @@ export const TournamentView: React.FC<{ initialData?: TournamentInitialData }> =
           ),
           seasonSlots,
           tournament.scoring_mode as '120m' | '120min' | 'points' | 'appg',
+          seasonSlotAssignments,
         ),
       );
     }
@@ -2020,7 +2031,7 @@ export const TournamentView: React.FC<{ initialData?: TournamentInitialData }> =
     if (activityWarningsData) setActivityWarnings(activityWarningsData);
     if (tournamentMeta)
       setTournament((prev) => (prev ? { ...prev, last_fixtures_refresh: tournamentMeta.last_fixtures_refresh } : prev));
-  }, [tournament, teams, seasonSlots, getMatchDateForRound]);
+  }, [tournament, teams, seasonSlots, seasonSlotAssignments, getMatchDateForRound]);
 
   const normalizeManualRounds = useCallback(async () => {
     if (!tournament) return;
@@ -3148,6 +3159,67 @@ export const TournamentView: React.FC<{ initialData?: TournamentInitialData }> =
     }
   };
 
+  const handleResetSeasonToPlanning = async () => {
+    if (!tournament || !currentSeason || isFinalizingSeason || currentSeason.status !== 'ongoing') return;
+    const hasSchedule = rounds.length > 0;
+    const hasLinkedHattrickFixture = allMatches.some((match) => Boolean(match.ht_match_id));
+    const externalFriendlyNote = hasLinkedHattrickFixture
+      ? '\n\nThis removes only the HT-120min schedule reference. It does not cancel any friendly in Hattrick.'
+      : '';
+    const confirmed = window.confirm(
+      hasSchedule
+        ? `Reset Season ${currentSeason.season_number} to planning?\n\nBecause the season has a generated schedule, all current-season fixtures and their slot assignments will be cleared. Teams and tournament settings stay in place. This is only allowed before a match has started or finished.${externalFriendlyNote}`
+        : `Reset Season ${currentSeason.season_number} to planning?\n\nNo current-season fixtures will be removed. Teams and tournament settings stay in place. This is only allowed before a match has started or finished.`,
+    );
+    if (!confirmed) return;
+
+    setIsFinalizingSeason(true);
+    try {
+      const response = await fetch('/api/app?route=reset-season-to-planning', {
+        method: 'POST',
+        credentials: 'same-origin',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ tournamentId: tournament.id, seasonNumber: currentSeason.season_number }),
+      });
+      const result = (await response.json()) as { error?: string; reset?: { tournament_status?: TournamentStatus } };
+      if (!response.ok) throw new Error(result.error || 'The season could not be reset to planning.');
+
+      setRounds([]);
+      setSeasonSlots([]);
+      setSeasonSlotAssignments([]);
+      setStandings([]);
+      setSeasons((current) =>
+        current.map((season) =>
+          season.id === currentSeason.id
+            ? {
+                ...season,
+                status: 'planned',
+                started_at: null,
+                finished_at: null,
+                snapshot_json: null,
+                fixtures_snapshot_json: null,
+              }
+            : season,
+        ),
+      );
+      setTournament((current) =>
+        current
+          ? {
+              ...current,
+              status: result.reset?.tournament_status || current.status,
+              schedule_locked_at: null,
+              schedule_generated_at: null,
+            }
+          : current,
+      );
+      await fetchData({ showLoader: false });
+    } catch (error) {
+      alert(error instanceof Error ? error.message : 'The season could not be reset to planning.');
+    } finally {
+      setIsFinalizingSeason(false);
+    }
+  };
+
   const handleRebuildSeasonSnapshot = async (season: TournamentSeason) => {
     if (!tournament || rebuildingSeasonNumber !== null) return;
     setRebuildingSeasonNumber(season.season_number);
@@ -3988,14 +4060,37 @@ export const TournamentView: React.FC<{ initialData?: TournamentInitialData }> =
   const deleteTeam = async (id: string) => {
     let updatedTeams;
     const team = teams.find((t) => t.id === id);
+    if (!team || !tournament) return;
     if (isGenerated) {
-      alert(
-        'Scheduled-season removal is unavailable during peak-season slot compatibility. Do not mutate a slot-backed roster directly.',
+      const confirmed = window.confirm(
+        `Remove ${team.name} from the scheduled season?\n\nCompleted matches stay in history. Future fixtures for this team become BYEs until the vacant slot is filled by a replacement.`,
       );
+      if (!confirmed) return;
+
+      setIsSavingTeam(true);
+      try {
+        const response = await fetch('/api/app?route=scheduled-team-removal', {
+          method: 'POST',
+          credentials: 'same-origin',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            tournamentId: tournament.id,
+            seasonNumber: Number(tournament.season || 1),
+            teamId: team.id,
+          }),
+        });
+        const result = (await response.json()) as { error?: string };
+        if (!response.ok) throw new Error(result.error || 'The team could not be removed from the scheduled season.');
+        await fetchData({ showLoader: false });
+      } catch (error) {
+        alert(error instanceof Error ? error.message : 'The team could not be removed from the scheduled season.');
+      } finally {
+        setIsSavingTeam(false);
+      }
       return;
     }
 
-    if (window.confirm(`Remove ${team?.name} from the tournament?`)) {
+    if (window.confirm(`Remove ${team.name} from the tournament?`)) {
       if (!confirmAdminPassword()) return;
       // If NOT generated, we just destroy the relationship for this season/tournament
       // Since tournament_id is currently the only link, setting it to null (if schema allowed)
@@ -5121,8 +5216,7 @@ export const TournamentView: React.FC<{ initialData?: TournamentInitialData }> =
         <div className={styles.registrationStatus}>
           <div className={styles.helpContent}>
             <p>
-              Tournament is full. You can join the reserve list to show your interest and be first in line when a slot
-              opens.
+              <p>Tournament is full. Please join Reserve list! You will be first in line if a spot opens!</p>
             </p>
             <Button
               onClick={() => {
@@ -5134,7 +5228,7 @@ export const TournamentView: React.FC<{ initialData?: TournamentInitialData }> =
               className={styles.joinButton}
               disabled={isConnecting}
             >
-              <ArrowRight size={18} weight="bold" /> Join reserve list
+              <ArrowRight size={18} weight="bold" /> Join Reserve list
             </Button>
           </div>
         </div>
@@ -6346,20 +6440,20 @@ export const TournamentView: React.FC<{ initialData?: TournamentInitialData }> =
                                             <div className={adminStyles.replaceActions}>
                                               {replacementHtId.length >= 6 && !replacementName && (
                                                 <Button
-                                                  size="sm"
+                                                  size="xs"
                                                   onClick={() => fetchTeamData(replacementHtId, true)}
                                                   disabled={isFetchingTeamData}
-                                                  variant="primary"
+                                                  variant="action"
                                                 >
                                                   Check
                                                 </Button>
                                               )}
                                               {replacementName && (
                                                 <Button
-                                                  size="sm"
+                                                  size="xs"
                                                   onClick={() => replaceTeam(team.id)}
                                                   disabled={isSavingTeam}
-                                                  variant="primary"
+                                                  variant="action"
                                                 >
                                                   Save
                                                 </Button>
@@ -6378,32 +6472,31 @@ export const TournamentView: React.FC<{ initialData?: TournamentInitialData }> =
                                             </div>
                                           </div>
                                         ) : (
-                                          <Button size="sm" variant="zero" onClick={() => setReplacingTeamId(team.id)}>
+                                          <Button
+                                            size="xs"
+                                            variant="action"
+                                            onClick={() => setReplacingTeamId(team.id)}
+                                          >
                                             <ArrowClockwise size={16} /> Replace
                                           </Button>
                                         )}
                                         {!isGenerated && roleAccess?.canManageOperations && (
                                           <Button
-                                            size="sm"
-                                            variant="secondary"
+                                            size="xs"
+                                            variant="action"
                                             onClick={() => void transitionTeamReserveStatus(team, 'to_reserve')}
                                             disabled={isSavingTeam}
                                           >
-                                            Move to reserves
+                                            Reserve
                                           </Button>
                                         )}
                                         <Button
-                                          size="sm"
+                                          size="xs"
                                           variant="danger"
-                                          onClick={() => {
-                                            const action = isGenerated ? 'deactivate' : 'delete';
-                                            if (window.confirm(`Are you sure you want to ${action} this team?`)) {
-                                              deleteTeam(team.id);
-                                            }
-                                          }}
-                                          title={isGenerated ? 'Deactivate Team' : 'Delete Team'}
+                                          onClick={() => void deleteTeam(team.id)}
+                                          title="Remove team"
                                         >
-                                          <Trash size={16} /> Deactivate
+                                          <Trash size={16} /> Remove
                                         </Button>
                                       </>
                                     ) : (
@@ -6541,7 +6634,7 @@ export const TournamentView: React.FC<{ initialData?: TournamentInitialData }> =
                                     {!isGenerated && roleAccess?.canManageOperations && maxTeamsAllowsPromotion && (
                                       <div className={adminStyles.teamActions}>
                                         <Button
-                                          size="sm"
+                                          size="xs"
                                           variant="primary"
                                           onClick={() => void transitionTeamReserveStatus(team, 'to_participant')}
                                           disabled={isSavingTeam}
@@ -6660,6 +6753,16 @@ export const TournamentView: React.FC<{ initialData?: TournamentInitialData }> =
                                     disabled={isFinalizingSeason}
                                   >
                                     {isFinalizingSeason ? 'Starting...' : 'Set season as started'}
+                                  </Button>
+                                )}
+                                {currentSeason?.status === 'ongoing' && canManageOperationalAdmin && (
+                                  <Button
+                                    variant="secondaryAction"
+                                    size="sm"
+                                    onClick={() => void handleResetSeasonToPlanning()}
+                                    disabled={isFinalizingSeason}
+                                  >
+                                    {isFinalizingSeason ? 'Resetting...' : 'Reset to planning'}
                                   </Button>
                                 )}
                                 {canMarkSeasonFinished && (
