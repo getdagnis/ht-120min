@@ -36,6 +36,7 @@ import {
   parseChppMatchesXml,
   type ParsedChppMatch,
 } from '../../../../shared/matches-archive.js';
+import { progressLengthSchedule } from '../_lib/length-schedule-service.js';
 
 // Simplified helper for match date calculation on server
 // Compare with docs/global-match-time.json before actual implementation
@@ -743,6 +744,17 @@ async function handleManualMatchLink(req: VercelRequest, res: VercelResponse) {
     };
     const { error } = await supabase.from('matches').update(updatePayload).eq('id', matchId);
     if (error) return res.status(500).json({ error: error.message });
+    if (details.completed) {
+      const serviceSupabase = getServiceSupabase();
+      const { data: linkedTournament } = await serviceSupabase
+        .from('tournaments')
+        .select('schedule_mode, season')
+        .eq('id', match.tournament_id)
+        .maybeSingle();
+      if (linkedTournament?.schedule_mode === 'length') {
+        await progressLengthSchedule(serviceSupabase, match.tournament_id, Number(linkedTournament.season || 1));
+      }
+    }
   }
 
   return res.status(200).json({ ok: true, preview });
@@ -1244,7 +1256,12 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     // needs reserve recovery and must not keep an older round selected.
     const now = new Date();
     const upcomingRound = selectUpcomingRefreshRound(rounds, now, teams[0]?.country_name);
-    if (!upcomingRound) return res.status(200).json({ status: 'No upcoming rounds to refresh' });
+    if (!upcomingRound) {
+      if (tournament.schedule_mode === 'length') {
+        await progressLengthSchedule(supabase, String(tournament_id), Number(tournament.season || 1));
+      }
+      return res.status(200).json({ status: 'No upcoming rounds to refresh' });
+    }
 
     const teamCache: Record<
       string,
@@ -1651,6 +1668,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
     // Update tournament refresh timestamp
     await supabase.from('tournaments').update({ last_fixtures_refresh: new Date().toISOString() }).eq('id', tournament_id);
+
+    if (tournament.schedule_mode === 'length') {
+      await progressLengthSchedule(supabase, String(tournament_id), Number(tournament.season || 1));
+    }
 
     return res.status(200).json({ status: 'Refresh successful', hattrick_context: hattrickContext, linked_match_ids: linkedMatchIds });
   } catch (error) {

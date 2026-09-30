@@ -10,6 +10,7 @@ import {
 } from '../../../utils/hattrick-calendar';
 import type { ScheduleDraftPreview, ScheduleMode } from '../../../utils/schedule-draft';
 import type { RescheduleDraftPreview } from '../../../utils/reschedule-draft';
+import { getFullRoundRobinRoundCount, type LengthScheduleDraft } from '../../../utils/length-schedule';
 
 type ScheduleSetup = 'generated' | 'manual';
 type MatchFetchWindow = 'current' | 'previous' | 'last50';
@@ -120,6 +121,20 @@ interface TournamentSchedulePanelProps {
     hasMore: boolean;
     diagnostics?: HtMatchFetchDiagnostics;
   }>;
+  lengthDraft?: LengthScheduleDraft | null;
+  onLengthFormatChange?: (formatId: string) => void;
+  customLengthRoundCount?: number;
+  onCustomLengthRoundCountChange?: (roundCount: number) => void;
+  lengthRounds?: Array<{
+    id: string;
+    round_number: number;
+    phase?: 'regular' | 'postseason';
+    phase_status?: 'pending' | 'materialized' | 'completed';
+    reserved_slot_date?: string | null;
+    matches: Array<{ id: string; home_team?: { name?: string } | null; away_team?: { name?: string } | null }>;
+  }>;
+  isRepairingRound?: boolean;
+  onRepairRound?: () => void;
 }
 
 function formatModeLabel(mode: ScheduleMode) {
@@ -234,6 +249,13 @@ export const TournamentSchedulePanel: React.FC<TournamentSchedulePanelProps> = (
   onRefreshFixtures,
   onNormalizeManualRounds,
   fetchHtMatchSuggestions,
+  lengthDraft,
+  onLengthFormatChange,
+  customLengthRoundCount = 1,
+  onCustomLengthRoundCountChange,
+  lengthRounds = [],
+  isRepairingRound = false,
+  onRepairRound,
 }) => {
   const [expandedRounds, setExpandedRounds] = useState<Record<number, boolean>>({});
   const [manualAddOpen, setManualAddOpen] = useState(false);
@@ -936,10 +958,160 @@ export const TournamentSchedulePanel: React.FC<TournamentSchedulePanelProps> = (
     </div>
   );
 
+  const renderLengthPlanner = () => {
+    if (!lengthDraft) return null;
+    const selectedFormatId = lengthDraft.selectedFormat?.id || '';
+    const customSelected = selectedFormatId.startsWith('custom-');
+    return (
+      <div className={adminStyles.genOptions}>
+        <div className={adminStyles.scheduleIntro}>
+          <h2>{lengthDraft.teamCount} team tournament</h2>
+          <p className={adminStyles.scheduleSubtitle}>
+            {lengthDraft.selectedStartSlot
+              ? `Closest start date: ${formatCalendarDate(lengthDraft.selectedStartSlot.nominalDate)} (${formatLeadTime(lengthDraft.daysUntilStart)})`
+              : 'No valid start window found'}
+          </p>
+          {lengthDraft.htSeason && (
+            <p className={adminStyles.smallNote}>
+              {lengthDraft.safeRoundCount} safe friendly rounds left in HT S{lengthDraft.htSeason}
+            </p>
+          )}
+        </div>
+
+        <div className={adminStyles.startSlotGroup}>
+          <label className={adminStyles.startSlotLabel}>Closest start date</label>
+          <select
+            className={adminStyles.startSlotSelect}
+            value={lengthDraft.selectedStartSlotId || ''}
+            onChange={(event) => onSelectedStartSlotIdChange(event.target.value)}
+          >
+            {lengthDraft.startSlotOptions.map((slot) => (
+              <option key={slot.id} value={slot.id}>{formatStartOption(slot)}</option>
+            ))}
+          </select>
+        </div>
+
+        <div className={adminStyles.checkboxGroup}>
+          <h3 className={adminStyles.startSlotLabel}>Tournament length</h3>
+          {lengthDraft.formats.map((format) => (
+            <label key={format.id} className={adminStyles.checkboxLabel}>
+              <input
+                type="radio"
+                name="lengthScheduleFormat"
+                checked={!customSelected && selectedFormatId === format.id}
+                onChange={() => onLengthFormatChange?.(format.id)}
+              />
+              <div className={adminStyles.labelRow}>
+                <strong>{format.totalRounds} rounds</strong>
+                <span className={adminStyles.smallNote}>{format.label}</span>
+              </div>
+            </label>
+          ))}
+          <label className={adminStyles.checkboxLabel}>
+            <input
+              type="radio"
+              name="lengthScheduleFormat"
+              checked={customSelected}
+              onChange={() => onLengthFormatChange?.(`custom-${customLengthRoundCount}`)}
+            />
+            <div className={adminStyles.labelRow}>
+              <input
+                type="number"
+                min={1}
+                max={Math.max(1, Math.min(lengthDraft.safeRoundCount, getFullRoundRobinRoundCount(lengthDraft.teamCount)))}
+                value={customLengthRoundCount}
+                onFocus={() => onLengthFormatChange?.(`custom-${customLengthRoundCount}`)}
+                onChange={(event) => onCustomLengthRoundCountChange?.(Number(event.target.value))}
+              />
+              <span className={adminStyles.smallNote}>Custom number of regular rounds</span>
+            </div>
+          </label>
+        </div>
+
+        {lengthDraft.rounds.length > 0 && (
+          <div className={adminStyles.schedulePreview}>
+            <h3>Reserved season</h3>
+            {lengthDraft.rounds.map((round) => (
+              <div key={round.roundNumber} className={adminStyles.previewRow}>
+                <strong>Round {round.roundNumber}{round.phase === 'postseason' ? ' — Championship Final' : ''}: </strong>
+                <span>{round.displayDateLabel}</span>
+                <div className={adminStyles.previewMatches}>
+                  {round.phaseStatus === 'pending' ? (
+                    <span className={adminStyles.smallNote}>
+                      {round.phase === 'postseason'
+                        ? `Top 2 after Round ${lengthDraft.selectedFormat?.regularRounds || round.roundNumber - 1}`
+                        : `Pairings generated after Round ${round.roundNumber - 1}`}
+                    </span>
+                  ) : round.matches.map((match) => (
+                    <div key={`${round.roundNumber}-${match.homeTeamId}-${match.awayTeamId}`} className={adminStyles.roundRow}>
+                      {match.isBye ? `${match.homeTeamName} has a BYE` : `${match.homeTeamName} vs ${match.awayTeamName}`}
+                    </div>
+                  ))}
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+
+        {lengthDraft.reason && <p className={adminStyles.scheduleReason}>{lengthDraft.reason}</p>}
+        <div className={adminStyles.scheduleAction}>
+          <Button variant="primary" size="lg" fullWidth onClick={onGenerate} disabled={!lengthDraft.valid || isGenerating}>
+            {isGenerating ? 'Generating schedule...' : 'Generate a schedule'}
+          </Button>
+        </div>
+        <p className="center w-100">Generating a schedule closes registration and freezes the current HFI ranks.</p>
+      </div>
+    );
+  };
+
+  const renderLengthGenerated = () => {
+    const currentRound = lengthRounds.find((round) => round.phase_status === 'materialized');
+    return (
+      <div className={adminStyles.genOptions}>
+        <div className={adminStyles.scheduleIntro}>
+          <h2>Reserved season</h2>
+          <p className={adminStyles.scheduleSubtitle}>Pairings are generated one actionable round at a time.</p>
+        </div>
+        <div className={adminStyles.schedulePreview}>
+          {lengthRounds.map((round) => (
+            <div key={round.id} className={adminStyles.previewRow}>
+              <strong>Round {round.round_number}{round.phase === 'postseason' ? ' — Championship Final' : ''}</strong>
+              {round.reserved_slot_date && <span> · {formatLongDate(new Date(round.reserved_slot_date))}</span>}
+              {round.phase_status === 'pending' ? (
+                <p className={adminStyles.smallNote}>
+                  {round.phase === 'postseason' ? 'Top 2 after the regular season' : `Pairings generated after Round ${round.round_number - 1}`}
+                </p>
+              ) : (
+                round.matches.map((match) => (
+                  <div key={match.id} className={adminStyles.roundRow}>
+                    {match.home_team?.name || 'BYE'} <span className={adminStyles.rowmiddle}>vs</span>{' '}
+                    {match.away_team?.name || 'BYE'}
+                  </div>
+                ))
+              )}
+            </div>
+          ))}
+        </div>
+        {currentRound?.phase === 'regular' && onRepairRound && (
+          <Button variant="secondaryAction" onClick={onRepairRound} disabled={isRepairingRound}>
+            {isRepairingRound ? `Repairing Round ${currentRound.round_number}...` : `Repair Round ${currentRound.round_number}`}
+          </Button>
+        )}
+        <p className={adminStyles.smallNote}>Refresh fixture status before repairing. Correctly arranged fixtures stay locked.</p>
+      </div>
+    );
+  };
+
   return (
     <SectionCard
       title={
-        scheduleSetup === 'manual' ? 'Add HT matches' : isGenerated ? 'Regenerate schedule' : 'Generate a schedule'
+        scheduleSetup === 'manual'
+          ? 'Add HT matches'
+          : isGenerated && lengthDraft
+            ? 'Generated schedule'
+            : isGenerated
+              ? 'Regenerate schedule'
+              : 'Generate a schedule'
       }
       className={adminStyles.scheduleCard}
       collapsible
@@ -948,6 +1120,10 @@ export const TournamentSchedulePanel: React.FC<TournamentSchedulePanelProps> = (
     >
       {scheduleSetup === 'manual' ? (
         renderManualScheduleTools()
+      ) : !isGenerated && lengthDraft ? (
+        renderLengthPlanner()
+      ) : isGenerated && lengthDraft ? (
+        renderLengthGenerated()
       ) : !isGenerated ? (
         <div className={adminStyles.genOptions}>
           <div className={adminStyles.scheduleIntro}>

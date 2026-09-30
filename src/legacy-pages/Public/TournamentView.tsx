@@ -44,6 +44,12 @@ import {
   type ScheduleMode,
 } from '../../utils/schedule-draft';
 import { buildRescheduleDraft, serializeRescheduleDraftForRpc } from '../../utils/reschedule-draft';
+import {
+  buildLengthScheduleDraft,
+  getFullRoundRobinRoundCount,
+  getRegularPhaseMatches,
+  serializeLengthScheduleDraft,
+} from '../../utils/length-schedule';
 import { buildManualRoundNormalizationPlan } from '../../utils/manual-rounds';
 import { buildClearSeasonResultsPayload, buildResetUnlinkedResultPayload } from '../../utils/season-results';
 import { getMatchDateForRound as resolveMatchDateForRound } from '../../utils/match-schedule';
@@ -414,7 +420,7 @@ interface Tournament {
   admin_email: string | null;
   forum_id?: number | null;
   max_teams: number | null;
-  schedule_mode?: ScheduleMode | 'manual' | null;
+  schedule_mode?: ScheduleMode | 'manual' | 'length' | null;
   schedule_start_slot?: string | null;
   schedule_locked_at?: string | null;
   registration_closed_at?: string | null;
@@ -426,6 +432,12 @@ interface RoundWithMatches {
   round_number: number;
   created_at: string;
   season_number?: number;
+  phase?: 'regular' | 'postseason';
+  phase_round_number?: number;
+  phase_status?: 'pending' | 'materialized' | 'completed';
+  reserved_slot_id?: string | null;
+  reserved_slot_kind?: string | null;
+  reserved_slot_date?: string | null;
   matches: MatchWithTeams[];
 }
 
@@ -442,6 +454,8 @@ interface TournamentSeason {
   finished_at: string | null;
   snapshot_json: SeasonHistorySnapshot | null;
   fixtures_snapshot_json?: SeasonFixturesSnapshot | null;
+  champion_team_id?: string | null;
+  champion_decided_at?: string | null;
   created_at: string;
   updated_at: string;
 }
@@ -478,7 +492,13 @@ function toStandingMatch(match: MatchWithTeams) {
     appg_outcome: match.appg_outcome,
     penalty_shootout_home_goals: match.penalty_shootout_home_goals,
     penalty_shootout_away_goals: match.penalty_shootout_away_goals,
+    home_slot_id: match.home_slot_id,
+    away_slot_id: match.away_slot_id,
   };
+}
+
+function getRegularStandingMatches(rounds: RoundWithMatches[]) {
+  return getRegularPhaseMatches(rounds).map(toStandingMatch);
 }
 
 function applyReserveDisplay(match: MatchWithTeams): MatchWithTeams {
@@ -547,6 +567,9 @@ function restoreFixtureSnapshot(snapshot: SeasonFixturesSnapshot): RoundWithMatc
     id: round.id,
     round_number: round.round_number,
     created_at: round.created_at,
+    phase: round.phase,
+    phase_status: round.phase_status,
+    reserved_slot_date: round.reserved_slot_date,
     matches: round.matches
       .map((match) => ({
         ...match,
@@ -626,7 +649,7 @@ export const TournamentView: React.FC<{ initialData?: TournamentInitialData }> =
       {
         id: 'admin-faq-schedule',
         title: 'Schedule setup',
-        body: 'Generated schedule builds the normal round-robin calendar. No pre-made schedule skips that and lets you add real Hattrick matches one by one instead.',
+        body: 'Generated schedule reserves a safe Hattrick calendar and builds tournament pairings. HFI tournaments choose a round length and generate one actionable round at a time. No pre-made schedule lets you add real Hattrick matches manually.',
       },
       {
         id: 'admin-faq-team-limit',
@@ -810,6 +833,9 @@ export const TournamentView: React.FC<{ initialData?: TournamentInitialData }> =
   const [scheduleSetup, setScheduleSetup] = useState<ScheduleSetup>('generated');
   const [scheduleStartSlotId, setScheduleStartSlotId] = useState('');
   const [scheduleTeamOrder, setScheduleTeamOrder] = useState<string[] | null>(null);
+  const [lengthFormatId, setLengthFormatId] = useState<string | null>(null);
+  const [customLengthRoundCount, setCustomLengthRoundCount] = useState(1);
+  const [isRepairingRound, setIsRepairingRound] = useState(false);
   const [includeWeek15WeekendFriendly, setIncludeWeek15WeekendFriendly] = useState(false);
   const [rescheduleFromRoundNumber, setRescheduleFromRoundNumber] = useState<number | null>(null);
   const [rescheduleStartSlotId, setRescheduleStartSlotId] = useState('');
@@ -1204,9 +1230,14 @@ export const TournamentView: React.FC<{ initialData?: TournamentInitialData }> =
     );
     const savedAdminEmail = tournament.admin_email || '';
     const savedForumId = tournament.forum_id ? String(tournament.forum_id) : '';
-    const currentScheduleSetting = scheduleSetup === 'manual' ? 'manual' : scheduleMode;
+    const currentScheduleSetting =
+      tournament.schedule_mode === 'length' ? 'length' : scheduleSetup === 'manual' ? 'manual' : scheduleMode;
     const savedScheduleSetting =
-      tournament.schedule_mode === 'manual' ? 'manual' : normalizeGeneratedScheduleMode(tournament.schedule_mode);
+      tournament.schedule_mode === 'length'
+        ? 'length'
+        : tournament.schedule_mode === 'manual'
+          ? 'manual'
+          : normalizeGeneratedScheduleMode(tournament.schedule_mode);
 
     return {
       name: editName !== tournament.name,
@@ -1462,7 +1493,7 @@ export const TournamentView: React.FC<{ initialData?: TournamentInitialData }> =
   const activeScheduleTeams = useMemo(
     () =>
       teams
-        .filter((team) => team.active && !team.is_placeholder)
+        .filter((team) => team.active && !team.reserve_active && !team.is_placeholder)
         .map((team) => ({
           id: team.id,
           name: team.name,
@@ -1470,6 +1501,7 @@ export const TournamentView: React.FC<{ initialData?: TournamentInitialData }> =
           isPlaceholder: team.is_placeholder,
           countryName: team.country_name ?? null,
           leagueLevel: team.league_level ?? null,
+          teamRank: team.team_rank ?? null,
         })),
     [teams],
   );
@@ -1502,6 +1534,22 @@ export const TournamentView: React.FC<{ initialData?: TournamentInitialData }> =
         ? serializeScheduleDraftForRpc(scheduleDraft)
         : null,
     [scheduleDraft, scheduleStartSlotId],
+  );
+  const usesLengthSchedulePlanner = tournament?.league_category === 'hfi' && scheduleSetup === 'generated';
+  const lengthScheduleDraft = useMemo(
+    () =>
+      buildLengthScheduleDraft({
+        teams: activeScheduleTeams,
+        startSlotId: scheduleStartSlotId || null,
+        selectedFormatId: lengthFormatId,
+        customRoundCount: customLengthRoundCount,
+        now: new Date(),
+      }),
+    [activeScheduleTeams, customLengthRoundCount, lengthFormatId, scheduleStartSlotId],
+  );
+  const serializedLengthScheduleDraft = useMemo(
+    () => (lengthScheduleDraft.valid ? serializeLengthScheduleDraft(lengthScheduleDraft) : null),
+    [lengthScheduleDraft],
   );
   const rescheduleInputRounds = useMemo(
     () =>
@@ -1917,6 +1965,9 @@ export const TournamentView: React.FC<{ initialData?: TournamentInitialData }> =
           });
 
           const mergedMatches = matchesWithDates;
+          const regularRoundIds = new Set(
+            (roundsData || []).filter((round) => round.phase !== 'postseason').map((round) => round.id),
+          );
 
           const calculated = calculateSeasonSlotStandings(
             teamsData.map((t) => ({
@@ -1936,7 +1987,7 @@ export const TournamentView: React.FC<{ initialData?: TournamentInitialData }> =
                 ? nextProfileMap[t.hattrick_user_id]?.manager_name || t.manager_name
                 : t.manager_name,
             })),
-            mergedMatches.map((m) => ({
+            mergedMatches.filter((match) => regularRoundIds.has(match.round_id)).map((m) => ({
               home_team_id: m.home_team_id,
               away_team_id: m.away_team_id,
               home_slot_id: m.home_slot_id,
@@ -2023,22 +2074,7 @@ export const TournamentView: React.FC<{ initialData?: TournamentInitialData }> =
       setStandings(
         calculateSeasonSlotStandings(
           teams.map((team) => toStandingTeam(team)),
-          newRounds.flatMap((round) =>
-            round.matches.map((match) => ({
-              home_team_id: match.home_team_id,
-              away_team_id: match.away_team_id,
-              home_slot_id: match.home_slot_id,
-              away_slot_id: match.away_slot_id,
-              home_goals: match.home_goals,
-              away_goals: match.away_goals,
-              completed: match.completed,
-              went_120: match.went_120,
-              total_minutes: match.total_minutes,
-              appg_outcome: match.appg_outcome,
-              penalty_shootout_home_goals: match.penalty_shootout_home_goals,
-              penalty_shootout_away_goals: match.penalty_shootout_away_goals,
-            })),
-          ),
+          getRegularStandingMatches(newRounds as RoundWithMatches[]),
           seasonSlots,
           tournament.scoring_mode as '120m' | '120min' | 'points' | 'appg',
           seasonSlotAssignments,
@@ -3044,7 +3080,9 @@ export const TournamentView: React.FC<{ initialData?: TournamentInitialData }> =
     if (!tournament) return null;
     return buildSeasonHistorySnapshot(
       teams.map((team) => toStandingTeam(team)),
-      rounds.flatMap((round) => round.matches.map((match) => toSeasonHistoryMatch(match, round.round_number))),
+      rounds
+        .filter((round) => round.phase !== 'postseason')
+        .flatMap((round) => round.matches.map((match) => toSeasonHistoryMatch(match, round.round_number))),
       tournament.scoring_mode as any,
     );
   }, [rounds, teams, tournament]);
@@ -3159,6 +3197,16 @@ export const TournamentView: React.FC<{ initialData?: TournamentInitialData }> =
 
   const handleFinishSeason = async () => {
     if (!tournament || isFinalizingSeason) return;
+    if (tournament.schedule_mode === 'length') {
+      if (rounds.some((round) => round.phase_status !== 'completed')) {
+        alert('Resolve every reserved round before finishing this staged season.');
+        return;
+      }
+      if (rounds.some((round) => round.phase === 'postseason') && !currentSeason?.champion_team_id) {
+        alert('The Championship Final must have a decisive champion before the season can be finished.');
+        return;
+      }
+    }
     const confirmed = window.confirm(
       `Finish Season ${tournament.season}?\n\nThis closes the season and allows participating teams to join other tournaments. You can generate its History report separately afterwards.`,
     );
@@ -3683,7 +3731,12 @@ export const TournamentView: React.FC<{ initialData?: TournamentInitialData }> =
           registration_closed_at: editRegistrationOpen
             ? null
             : (tournament?.registration_closed_at ?? new Date().toISOString()),
-          schedule_mode: scheduleSetup === 'manual' ? 'manual' : scheduleMode,
+          schedule_mode:
+            tournament?.schedule_mode === 'length'
+              ? 'length'
+              : scheduleSetup === 'manual'
+                ? 'manual'
+                : scheduleMode,
           schedule_start_slot: nextPlannedStartSlot,
           ...(canManageFeaturedTournaments ? { is_featured: editIsFeatured } : {}),
         })
@@ -4213,14 +4266,15 @@ export const TournamentView: React.FC<{ initialData?: TournamentInitialData }> =
       return;
     }
 
-    if (!scheduleStartSlotId || !scheduleDraft.valid || !scheduleDraft.selectedStartSlot) {
+    const selectedDraft = usesLengthSchedulePlanner ? lengthScheduleDraft : scheduleDraft;
+    if (!selectedDraft.valid || !selectedDraft.selectedStartSlot) {
       setScheduleNotice({
         title: 'Cannot generate schedule',
-        message: scheduleDraft.reason || 'Choose a valid start date first.',
+        message: selectedDraft.reason || 'Choose a valid start date first.',
       });
       return;
     }
-    if (!serializedScheduleDraft) {
+    if (usesLengthSchedulePlanner ? !serializedLengthScheduleDraft : !serializedScheduleDraft) {
       setScheduleNotice({
         title: 'Cannot generate schedule',
         message: 'Unable to prepare the selected schedule draft.',
@@ -4228,7 +4282,7 @@ export const TournamentView: React.FC<{ initialData?: TournamentInitialData }> =
       return;
     }
     const scheduleAdminPassword = password.trim() || tournament?.admin_password || '';
-    if (!scheduleAdminPassword) {
+    if (!usesLengthSchedulePlanner && !scheduleAdminPassword) {
       setScheduleNotice({
         title: 'Cannot generate schedule',
         message: 'Unable to confirm organizer access. Please reload the page and try again.',
@@ -4241,33 +4295,51 @@ export const TournamentView: React.FC<{ initialData?: TournamentInitialData }> =
 
   const confirmGenerateSchedule = async () => {
     setIsScheduleConfirmationOpen(false);
-    if (!tournament || !serializedScheduleDraft || !scheduleDraft.selectedStartSlot) return;
+    if (!tournament) return;
+    if (usesLengthSchedulePlanner) {
+      if (!serializedLengthScheduleDraft || !lengthScheduleDraft.selectedStartSlot) return;
+    } else if (!serializedScheduleDraft || !scheduleDraft.selectedStartSlot) return;
     const scheduleAdminPassword = password.trim() || tournament.admin_password || '';
-    if (!scheduleAdminPassword) return;
+    if (!usesLengthSchedulePlanner && !scheduleAdminPassword) return;
     setIsGenerating(true);
     try {
-      const { error } = await supabase.rpc('generate_tournament_schedule', {
-        p_tournament_id: tournament.id,
-        p_schedule_payload: serializedScheduleDraft,
-        p_admin_password: scheduleAdminPassword,
-        p_schedule_mode: scheduleDraft.mode,
-        p_schedule_start_slot: scheduleDraft.selectedStartSlot.nominalDate.toISOString(),
-        p_include_week15_weekend_friendly: scheduleDraft.consumesWeek15WeekendFriendly,
-      });
-
-      if (error) throw error;
-      const { error: seasonError } = await supabase.from('tournament_seasons').upsert(
-        {
-          tournament_id: tournament.id,
-          season_number: tournament.season || 1,
-          status: 'ongoing',
-          planned_start_slot: scheduleDraft.selectedStartSlot.nominalDate.toISOString(),
-          started_at: new Date().toISOString(),
-          updated_at: new Date().toISOString(),
-        },
-        { onConflict: 'tournament_id,season_number' },
-      );
-      if (seasonError) console.warn('Schedule generated, but season status could not be updated.', seasonError);
+      let seasonError: { message: string } | null = null;
+      if (usesLengthSchedulePlanner) {
+        const response = await fetch('/api/app?route=generate-length-schedule', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            tournamentId: tournament.id,
+            seasonNumber: tournament.season || 1,
+            schedulePayload: serializedLengthScheduleDraft,
+          }),
+        });
+        const body = await response.json().catch(() => ({}));
+        if (!response.ok) throw new Error(body.error || 'Could not generate the schedule.');
+      } else {
+        const { error } = await supabase.rpc('generate_tournament_schedule', {
+          p_tournament_id: tournament.id,
+          p_schedule_payload: serializedScheduleDraft,
+          p_admin_password: scheduleAdminPassword,
+          p_schedule_mode: scheduleDraft.mode,
+          p_schedule_start_slot: scheduleDraft.selectedStartSlot.nominalDate.toISOString(),
+          p_include_week15_weekend_friendly: scheduleDraft.consumesWeek15WeekendFriendly,
+        });
+        if (error) throw error;
+        const seasonResult = await supabase.from('tournament_seasons').upsert(
+          {
+            tournament_id: tournament.id,
+            season_number: tournament.season || 1,
+            status: 'ongoing',
+            planned_start_slot: scheduleDraft.selectedStartSlot.nominalDate.toISOString(),
+            started_at: new Date().toISOString(),
+            updated_at: new Date().toISOString(),
+          },
+          { onConflict: 'tournament_id,season_number' },
+        );
+        seasonError = seasonResult.error;
+        if (seasonError) console.warn('Schedule generated, but season status could not be updated.', seasonError);
+      }
       try {
         await createAnnouncement({
           content: 'Tournament schedule dates were updated, please check Fixtures & Results.',
@@ -4299,6 +4371,35 @@ export const TournamentView: React.FC<{ initialData?: TournamentInitialData }> =
       setScheduleNotice({ title: 'Could not generate schedule', message });
     } finally {
       setIsGenerating(false);
+    }
+  };
+
+  const repairCurrentLengthRound = async () => {
+    if (!tournament || tournament.schedule_mode !== 'length') return;
+    const currentRound = rounds.find((round) => round.phase_status === 'materialized' && round.phase === 'regular');
+    if (!currentRound) return;
+    if (!window.confirm(`Repair Round ${currentRound.round_number}? Correctly arranged fixtures will stay unchanged.`)) return;
+    setIsRepairingRound(true);
+    try {
+      const response = await fetch('/api/app?route=repair-length-round', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ tournamentId: tournament.id, seasonNumber: tournament.season || 1 }),
+      });
+      const body = await response.json().catch(() => ({}));
+      if (!response.ok) throw new Error(body.error || 'Could not repair this round.');
+      await fetchData();
+      setScheduleNotice({
+        title: `Round ${currentRound.round_number} repaired`,
+        message: `${body.lockedFixtures || 0} arranged fixtures stayed locked. ${body.repairedPlayableFixtures || 0} playable fixtures were rebuilt.`,
+      });
+    } catch (error) {
+      setScheduleNotice({
+        title: 'Could not repair round',
+        message: error instanceof Error ? error.message : 'The round could not be repaired.',
+      });
+    } finally {
+      setIsRepairingRound(false);
     }
   };
 
@@ -4380,6 +4481,40 @@ export const TournamentView: React.FC<{ initialData?: TournamentInitialData }> =
       penalty_shootout_away_goals: data.penalty_shootout_away_goals ?? null,
       ...(data.appg_outcome ? { appg_outcome: data.appg_outcome, appg_outcome_source: 'organizer' as const } : {}),
     };
+    if (tournament?.schedule_mode === 'length') {
+      const response = await fetch('/api/app?route=save-length-results', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          tournamentId: tournament.id,
+          seasonNumber: tournament.season || 1,
+          updates: [{
+            matchId,
+            homeGoals: payload.home_goals,
+            awayGoals: payload.away_goals,
+            went120: payload.went_120,
+            totalMinutes: payload.total_minutes,
+            penaltyShootoutHomeGoals: payload.penalty_shootout_home_goals,
+            penaltyShootoutAwayGoals: payload.penalty_shootout_away_goals,
+            appgOutcome: data.appg_outcome ?? null,
+            appgOutcomeSource: data.appg_outcome ? 'organizer' : null,
+          }],
+        }),
+      });
+      const body = await response.json().catch(() => ({}));
+      if (!response.ok) {
+        alert(body.error || 'Could not save this result.');
+        if (!body.resultsSaved) return;
+      }
+      setEditingMatch(null);
+      setMatchData((current) => {
+        const next = { ...current };
+        delete next[matchId];
+        return next;
+      });
+      await fetchData();
+      return;
+    }
     const { error } = await supabase.from('matches').update(payload).eq('id', matchId);
 
     if (error) alert(error.message);
@@ -4393,7 +4528,7 @@ export const TournamentView: React.FC<{ initialData?: TournamentInitialData }> =
       setStandings(
         calculateStandings(
           teams.map((team) => toStandingTeam(team)),
-          nextRounds.flatMap((round) => round.matches.map(toStandingMatch)),
+          getRegularStandingMatches(nextRounds),
           (tournament?.scoring_mode || '120min') as '120m' | '120min' | 'points' | 'appg',
         ),
       );
@@ -4408,6 +4543,10 @@ export const TournamentView: React.FC<{ initialData?: TournamentInitialData }> =
   const resetMatchResult = async (matchId: string) => {
     const match = rounds.flatMap((round) => round.matches).find((item) => item.id === matchId);
     if (!match) throw new Error('Tournament match not found.');
+    const matchRound = rounds.find((round) => round.id === match.round_id);
+    if (tournament?.schedule_mode === 'length' && matchRound?.phase_status !== 'materialized') {
+      throw new Error('A completed staged round cannot be rewritten after tournament progression. Use an explicit season repair workflow.');
+    }
 
     if (match.ht_match_id) {
       await requestHtMatchLink(matchId, String(match.ht_match_id), false, true);
@@ -4434,6 +4573,10 @@ export const TournamentView: React.FC<{ initialData?: TournamentInitialData }> =
   const removeFixture = async (matchId: string) => {
     const match = rounds.flatMap((round) => round.matches).find((item) => item.id === matchId);
     if (!match) return;
+    if (tournament?.schedule_mode === 'length') {
+      alert('Fixtures in a staged schedule are managed through Repair Round and cannot be deleted individually.');
+      return;
+    }
 
     const roundId = match.round_id;
     const homeName = match.home_team?.name || 'Home team';
@@ -4476,7 +4619,7 @@ export const TournamentView: React.FC<{ initialData?: TournamentInitialData }> =
     setStandings(
       calculateStandings(
         teams.map((team) => toStandingTeam(team)),
-        nextRounds.flatMap((round) => round.matches.map(toStandingMatch)),
+        getRegularStandingMatches(nextRounds),
         (tournament?.scoring_mode || '120min') as '120m' | '120min' | 'points' | 'appg',
       ),
     );
@@ -4521,6 +4664,34 @@ export const TournamentView: React.FC<{ initialData?: TournamentInitialData }> =
       };
       return [matchId, payload] as const;
     });
+    if (tournament?.schedule_mode === 'length') {
+      const response = await fetch('/api/app?route=save-length-results', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          tournamentId: tournament.id,
+          seasonNumber: tournament.season || 1,
+          updates: preparedUpdates.map(([matchId, payload]) => ({
+            matchId,
+            homeGoals: payload.home_goals,
+            awayGoals: payload.away_goals,
+            went120: payload.went_120,
+            totalMinutes: payload.total_minutes,
+            penaltyShootoutHomeGoals: payload.penalty_shootout_home_goals,
+            penaltyShootoutAwayGoals: payload.penalty_shootout_away_goals,
+            appgOutcome: 'appg_outcome' in payload ? payload.appg_outcome : null,
+            appgOutcomeSource: 'appg_outcome_source' in payload ? payload.appg_outcome_source : null,
+          })),
+        }),
+      });
+      const body = await response.json().catch(() => ({}));
+      if (!response.ok) {
+        if (body.resultsSaved) await fetchData();
+        throw new Error(body.error || 'Could not save the results.');
+      }
+      await fetchData();
+      return;
+    }
     const results = await Promise.all(
       preparedUpdates.map(async ([matchId, payload]) => {
         const { error } = await supabase.from('matches').update(payload).eq('id', matchId);
@@ -4537,13 +4708,16 @@ export const TournamentView: React.FC<{ initialData?: TournamentInitialData }> =
     setStandings(
       calculateStandings(
         teams.map((team) => toStandingTeam(team)),
-        nextRounds.flatMap((round) => round.matches.map(toStandingMatch)),
+        getRegularStandingMatches(nextRounds),
         (tournament?.scoring_mode || '120min') as '120m' | '120min' | 'points' | 'appg',
       ),
     );
   };
 
   const clearSeasonResults = async () => {
+    if (tournament?.schedule_mode === 'length') {
+      throw new Error('Staged schedule results cannot be cleared after progression. Reset the season before play begins instead.');
+    }
     const matchIds = rounds.flatMap((round) => round.matches.map((match) => match.id));
     if (matchIds.length === 0) return;
 
@@ -4559,7 +4733,7 @@ export const TournamentView: React.FC<{ initialData?: TournamentInitialData }> =
     setStandings(
       calculateStandings(
         teams.map((team) => toStandingTeam(team)),
-        nextRounds.flatMap((round) => round.matches.map(toStandingMatch)),
+        getRegularStandingMatches(nextRounds),
         (tournament?.scoring_mode || '120min') as '120m' | '120min' | 'points' | 'appg',
       ),
     );
@@ -4850,6 +5024,9 @@ export const TournamentView: React.FC<{ initialData?: TournamentInitialData }> =
   const previousSeasons = seasons.filter((season) => season.season_number < currentSeasonNumber);
   const currentSeason = seasons.find((season) => season.season_number === currentSeasonNumber);
   const selectedSeason = seasons.find((season) => season.season_number === selectedSeasonNumber) || currentSeason;
+  const selectedSeasonChampion = selectedSeason?.champion_team_id
+    ? teams.find((team) => team.id === selectedSeason.champion_team_id) || null
+    : null;
   const isViewingHistoricalSeason = selectedSeasonNumber < currentSeasonNumber;
   const isCurrentSeasonPlanned = currentSeason?.status === 'planned';
   const canMarkSeasonFinished = Boolean(tournament.status !== 'finished' && currentSeason?.status === 'ongoing');
@@ -5566,6 +5743,12 @@ export const TournamentView: React.FC<{ initialData?: TournamentInitialData }> =
 
       {activeTab === 'standings' && (
         <div className={styles.standingsContainer}>
+          {selectedSeasonChampion && (
+            <SectionCard title="Champion">
+              <strong>{selectedSeasonChampion.name}</strong>
+              <p>Championship Final winner</p>
+            </SectionCard>
+          )}
           <StandingsView
             standings={isViewingHistoricalSeason ? selectedSeason?.snapshot_json?.standings || [] : standings}
             is120minMode={is120minMode}
@@ -6233,6 +6416,21 @@ export const TournamentView: React.FC<{ initialData?: TournamentInitialData }> =
                             onRefreshFixtures={fetchFixturesOnly}
                             onNormalizeManualRounds={scheduleSetup === 'manual' ? normalizeManualRounds : undefined}
                             fetchHtMatchSuggestions={fetchHtMatchSuggestions}
+                            lengthDraft={usesLengthSchedulePlanner ? lengthScheduleDraft : null}
+                            onLengthFormatChange={setLengthFormatId}
+                            customLengthRoundCount={customLengthRoundCount}
+                            onCustomLengthRoundCountChange={(roundCount) => {
+                              const next = Math.max(
+                                1,
+                                Math.min(
+                                  lengthScheduleDraft.safeRoundCount || 1,
+                                  getFullRoundRobinRoundCount(activeScheduleTeams.length),
+                                  roundCount || 1,
+                                ),
+                              );
+                              setCustomLengthRoundCount(next);
+                              setLengthFormatId(`custom-${next}`);
+                            }}
                           />
                         </div>
                       )}
@@ -6268,6 +6466,10 @@ export const TournamentView: React.FC<{ initialData?: TournamentInitialData }> =
                             onRefreshFixtures={fetchFixturesOnly}
                             onNormalizeManualRounds={scheduleSetup === 'manual' ? normalizeManualRounds : undefined}
                             fetchHtMatchSuggestions={fetchHtMatchSuggestions}
+                            lengthDraft={tournament.schedule_mode === 'length' ? lengthScheduleDraft : null}
+                            lengthRounds={tournament.schedule_mode === 'length' ? rounds : []}
+                            isRepairingRound={isRepairingRound}
+                            onRepairRound={tournament.schedule_mode === 'length' ? repairCurrentLengthRound : undefined}
                           />
                         </div>
                       )}
@@ -7212,8 +7414,15 @@ export const TournamentView: React.FC<{ initialData?: TournamentInitialData }> =
         maxWidth="520px"
       >
         <p>
-          Generate the schedule with {activeScheduleTeams.length} teams and start Season {tournament.season}?
+          Generate{' '}
+          {usesLengthSchedulePlanner && lengthScheduleDraft.selectedFormat
+            ? `${lengthScheduleDraft.selectedFormat.totalRounds} reserved rounds`
+            : 'the schedule'}{' '}
+          with {activeScheduleTeams.length} teams and start Season {tournament.season}?
         </p>
+        {usesLengthSchedulePlanner && (
+          <p>Only Round 1 is paired now. Later rounds are generated after the current round is resolved.</p>
+        )}
         {activeScheduleTeams.length % 2 !== 0 && (
           <p>One team will have a BYE each round. You can define a house rule for how those teams earn points.</p>
         )}

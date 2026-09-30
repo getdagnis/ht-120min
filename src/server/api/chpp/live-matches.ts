@@ -19,6 +19,7 @@ import { buildChppAppgUpdate } from '../_lib/appg-chpp-classifier.js';
 import type { MatchEventDetails } from '../../../../shared/match-events.js';
 import type { LiveMatchClock } from '../../../../shared/live-match.js';
 import { parseChppStockholmDate } from '../../../../shared/chpp-dates.js';
+import { progressLengthSchedule } from '../_lib/length-schedule-service.js';
 
 interface LiveMatchResult extends LiveMatchClock {
   status: 'arranged' | 'ongoing' | 'finished';
@@ -56,7 +57,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     const supabase = getServiceSupabase();
     const { data: tournament } = await supabase
       .from('tournaments')
-      .select('scoring_mode')
+      .select('scoring_mode, schedule_mode, season')
       .eq('id', String(tournament_id))
       .single();
     if (!tournament) return res.status(404).json({ error: 'Tournament not found' });
@@ -316,6 +317,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
           throw updateError;
         }
       }
+    }
+    if (tournament.schedule_mode === 'length') {
+      await progressLengthSchedule(supabase, String(tournament_id), Number(tournament.season || 1));
     }
     return res.status(200).json({ results });
   } catch (error) {

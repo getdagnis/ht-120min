@@ -48,6 +48,9 @@ export interface SeasonFixtureRoundSnapshot {
   id: string;
   round_number: number;
   created_at: string;
+  phase?: 'regular' | 'postseason';
+  phase_status?: 'pending' | 'materialized' | 'completed';
+  reserved_slot_date?: string | null;
   matches: SeasonFixtureMatchSnapshot[];
 }
 
@@ -118,6 +121,9 @@ interface SnapshotSourceRound {
   id: string;
   round_number: number;
   created_at: string;
+  phase?: 'regular' | 'postseason';
+  phase_status?: 'pending' | 'materialized' | 'completed';
+  reserved_slot_date?: string | null;
   matches: SnapshotSourceMatch[];
 }
 
@@ -149,6 +155,9 @@ export function buildSeasonFixturesSnapshot(
       id: round.id,
       round_number: round.round_number,
       created_at: round.created_at,
+      ...(round.phase ? { phase: round.phase } : {}),
+      ...(round.phase_status ? { phase_status: round.phase_status } : {}),
+      ...(round.reserved_slot_date !== undefined ? { reserved_slot_date: round.reserved_slot_date } : {}),
       matches: round.matches.map((match) => ({
         id: match.id,
         round_id: match.round_id,

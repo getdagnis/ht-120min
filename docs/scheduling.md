@@ -18,7 +18,37 @@ Core implementation:
 - `src/utils/schedule-draft.ts`
 - `src/utils/reschedule-draft.ts`
 - `src/utils/scheduler.ts`
+- `src/utils/length-schedule.ts`
 - `src/components/TournamentTabs/Admin/TournamentSchedulePanel.tsx`
+
+## Length-based staged schedules
+
+New HFI generated seasons use `schedule_mode = length`. The organizer chooses a
+round count from safe friendly slots remaining in the selected Hattrick season;
+the planner never spills into the next HT season and excludes the W15 weekend.
+The chosen TeamRank values are frozen on `tournament_seasons` at generation.
+
+The full calendar is reserved atomically, but only the current actionable round
+has match rows. Later `rounds` rows remain `pending` with authoritative reserved
+slot metadata. Once every current-round fixture is either played, a BYE, or
+explicitly finalized unplayed, the shared server progression service materializes
+the next round. Pairings use the frozen rank order, actual played-opponent/BYE
+history, and current season-slot occupants.
+
+A complete round robin plus one remaining safe slot may reserve that final slot
+as a Championship Final. It is materialized as regular-season #1 versus #2 only
+after the regular phase resolves. Postseason matches are excluded from regular
+standings, and the champion is stored separately on the season. The 120-minute
+final rule deliberately reverses a regulation-time winner; after extra time is
+reached, the normal extra-time or shootout winner is champion.
+
+`Repair Round` is distinct from date regeneration. It locks linked/arranged
+fixtures, refuses started or past-kickoff rounds, contains booked-elsewhere teams,
+and re-pairs only the unresolved current-round remainder. Finalized unplayed
+containment rows do not become opponent history.
+
+Legacy `single`, `double`, `recurring`, and `manual` seasons retain their existing
+generation and management paths.
 
 ## Generation
 
@@ -101,6 +131,7 @@ Relevant tests:
 - `tests/schedule-draft.test.ts`
 - `tests/reschedule-draft.test.ts`
 - `tests/match-schedule.test.ts`
+- `tests/length-schedule.test.ts`
 
 Manual SQL helper:
 
@@ -115,6 +146,7 @@ That helper is a disposable SQL smoke test reference, not proof that production 
 - `migrations/048_add_schedule_metadata_and_generation_rpc.sql`
 - `migrations/049_reschedule_tournament_rounds_rpc.sql`
 - `migrations/051_correct_week15_week16_weekend_schedule.sql`
+- `migrations/085_length_schedule_progression.sql`
 - `src/utils/hattrick-calendar.ts`
 - `src/utils/schedule-draft.ts`
 - `src/utils/reschedule-draft.ts`

@@ -73,6 +73,7 @@ import {
 import type { MatchEventDetails } from '../../../shared/match-events.js';
 import type { PersistedScoringMode } from '../../../shared/scoring-profile.js';
 import type { SeasonFixturesSnapshot } from '../../utils/season-fixtures.js';
+import { progressLengthSchedule, repairLengthRound } from './_lib/length-schedule-service.js';
 
 const COMMENT_SELECT = 'id, season_id, team_id, team_name, manager_name, comment, created_at';
 const NEWS_COMMENT_SELECT = 'id, post_id, hattrick_user_id, author_name, content, created_at';
@@ -231,6 +232,150 @@ async function handleUpdateHfiRanks(req: VercelRequest, res: VercelResponse) {
   } catch (error) {
     const message = error instanceof Error ? error.message : 'Could not update HFI ranks.';
     return res.status(422).json({ error: message });
+  }
+}
+
+async function handleGenerateLengthSchedule(req: VercelRequest, res: VercelResponse) {
+  if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed.' });
+  const tournamentId = readString(req.body?.tournamentId);
+  const seasonNumber = Number(req.body?.seasonNumber);
+  const schedulePayload = req.body?.schedulePayload;
+  if (!tournamentId || !Number.isInteger(seasonNumber) || seasonNumber < 1 || !schedulePayload) {
+    return res.status(400).json({ error: 'Invalid length schedule request.' });
+  }
+
+  const actor = await requireTournamentRoleSession(req, res, tournamentId);
+  if (!actor) return;
+  if (!actor.access.canManageOperations) {
+    return res.status(403).json({ error: 'You do not have permission to generate this schedule.' });
+  }
+
+  const supabase = getServiceSupabase();
+  const { data: tournament, error: tournamentError } = await supabase
+    .from('tournaments')
+    .select('id, league_category')
+    .eq('id', tournamentId)
+    .maybeSingle();
+  if (tournamentError) throw tournamentError;
+  if (!tournament) return res.status(404).json({ error: 'Tournament not found.' });
+  if (tournament.league_category !== 'hfi') {
+    return res.status(422).json({ error: 'Length scheduling is currently available for HFI tournaments.' });
+  }
+
+  const { data, error } = await supabase.rpc('generate_length_tournament_schedule', {
+    p_tournament_id: tournamentId,
+    p_season_number: seasonNumber,
+    p_schedule_payload: schedulePayload,
+  });
+  if (error) return res.status(422).json({ error: error.message });
+  return res.status(201).json(data);
+}
+
+async function handleRepairLengthRound(req: VercelRequest, res: VercelResponse) {
+  if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed.' });
+  const tournamentId = readString(req.body?.tournamentId);
+  const seasonNumber = Number(req.body?.seasonNumber);
+  if (!tournamentId || !Number.isInteger(seasonNumber) || seasonNumber < 1) {
+    return res.status(400).json({ error: 'Invalid round repair request.' });
+  }
+  const actor = await requireTournamentRoleSession(req, res, tournamentId);
+  if (!actor) return;
+  if (!actor.access.canManageOperations) {
+    return res.status(403).json({ error: 'You do not have permission to repair this round.' });
+  }
+  try {
+    const result = await repairLengthRound(getServiceSupabase(), tournamentId, seasonNumber);
+    return res.status(200).json(result);
+  } catch (error) {
+    const message = error instanceof Error ? error.message : 'The round could not be repaired.';
+    return res.status(422).json({ error: message });
+  }
+}
+
+interface LengthResultUpdate {
+  matchId: string;
+  homeGoals: number;
+  awayGoals: number;
+  went120: boolean;
+  totalMinutes: number;
+  penaltyShootoutHomeGoals: number | null;
+  penaltyShootoutAwayGoals: number | null;
+  appgOutcome?: string | null;
+  appgOutcomeSource?: string | null;
+}
+
+function parseLengthResultUpdates(value: unknown): LengthResultUpdate[] | null {
+  if (!Array.isArray(value) || value.length === 0) return null;
+  const updates: LengthResultUpdate[] = [];
+  for (const item of value) {
+    if (!item || typeof item !== 'object') return null;
+    const source = item as Record<string, unknown>;
+    const matchId = typeof source.matchId === 'string' ? source.matchId : '';
+    const homeGoals = Number(source.homeGoals);
+    const awayGoals = Number(source.awayGoals);
+    const totalMinutes = Number(source.totalMinutes);
+    const homeShootout = source.penaltyShootoutHomeGoals == null ? null : Number(source.penaltyShootoutHomeGoals);
+    const awayShootout = source.penaltyShootoutAwayGoals == null ? null : Number(source.penaltyShootoutAwayGoals);
+    if (!matchId || !Number.isInteger(homeGoals) || homeGoals < 0 || !Number.isInteger(awayGoals) || awayGoals < 0) {
+      return null;
+    }
+    if (
+      (homeShootout !== null && (!Number.isInteger(homeShootout) || homeShootout < 0)) ||
+      (awayShootout !== null && (!Number.isInteger(awayShootout) || awayShootout < 0))
+    ) return null;
+    updates.push({
+      matchId,
+      homeGoals,
+      awayGoals,
+      went120: source.went120 === true,
+      totalMinutes: Number.isFinite(totalMinutes) && totalMinutes > 0 ? totalMinutes : 90,
+      penaltyShootoutHomeGoals: homeShootout,
+      penaltyShootoutAwayGoals: awayShootout,
+      appgOutcome: typeof source.appgOutcome === 'string' ? source.appgOutcome : null,
+      appgOutcomeSource: typeof source.appgOutcomeSource === 'string' ? source.appgOutcomeSource : null,
+    });
+  }
+  return updates;
+}
+
+async function handleSaveLengthResults(req: VercelRequest, res: VercelResponse) {
+  if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed.' });
+  const tournamentId = readString(req.body?.tournamentId);
+  const seasonNumber = Number(req.body?.seasonNumber);
+  const updates = parseLengthResultUpdates(req.body?.updates);
+  if (!tournamentId || !Number.isInteger(seasonNumber) || seasonNumber < 1 || !updates) {
+    return res.status(400).json({ error: 'Invalid result update request.' });
+  }
+  const actor = await requireTournamentRoleSession(req, res, tournamentId);
+  if (!actor) return;
+  if (!actor.access.canManageOperations) {
+    return res.status(403).json({ error: 'You do not have permission to update these results.' });
+  }
+
+  const supabase = getServiceSupabase();
+  const payload = updates.map((update) => ({
+    match_id: update.matchId,
+    home_goals: update.homeGoals,
+    away_goals: update.awayGoals,
+    went_120: update.went120,
+    total_minutes: update.totalMinutes,
+    penalty_shootout_home_goals: update.penaltyShootoutHomeGoals,
+    penalty_shootout_away_goals: update.penaltyShootoutAwayGoals,
+    appg_outcome: update.appgOutcome,
+    appg_outcome_source: update.appgOutcomeSource,
+  }));
+  const { data, error } = await supabase.rpc('save_length_schedule_results', {
+    p_tournament_id: tournamentId,
+    p_season_number: seasonNumber,
+    p_updates: payload,
+  });
+  if (error) return res.status(422).json({ error: error.message });
+  try {
+    const progression = await progressLengthSchedule(supabase, tournamentId, seasonNumber);
+    return res.status(200).json({ saved: data, progression });
+  } catch (error) {
+    const message = error instanceof Error ? error.message : 'Round progression could not be completed.';
+    return res.status(409).json({ error: `Results were saved, but ${message}`, resultsSaved: true });
   }
 }
 
@@ -2350,6 +2495,12 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         return await handleDuplicateTournamentAsSandbox(req, res);
       case 'update-hfi-ranks':
         return await handleUpdateHfiRanks(req, res);
+      case 'generate-length-schedule':
+        return await handleGenerateLengthSchedule(req, res);
+      case 'repair-length-round':
+        return await handleRepairLengthRound(req, res);
+      case 'save-length-results':
+        return await handleSaveLengthResults(req, res);
       case 'managed-tournaments':
         return await handleManagedTournaments(req, res);
       case 'tournament-participation':
