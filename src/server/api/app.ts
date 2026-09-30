@@ -35,6 +35,10 @@ import {
 import { fetchManagerTeamsFromChpp, fetchTeamDetailsFromChpp, getManagerChppCredentials } from './_lib/matchmaker.js';
 import { validateTeamEligibility } from './_lib/eligibility.js';
 import { registerReserveTeam } from './_lib/chpp-register.js';
+import {
+  validateTeamReserveTransition,
+  type TeamReserveTransitionAction,
+} from './_lib/team-reserve-transition.js';
 import type { ChppTeamOption } from './_lib/chpp-xml.js';
 import { getAuthHeader } from './_lib/chpp-auth.js';
 import {
@@ -235,6 +239,93 @@ async function handleSeasonSlotReplacement(req: VercelRequest, res: VercelRespon
     return res.status(status).json({ error: error.message });
   }
   return res.status(200).json({ replacement: Array.isArray(data) ? data[0] : data });
+}
+
+async function handleAdminTeamReserveTransition(req: VercelRequest, res: VercelResponse) {
+  if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed.' });
+
+  const tournamentId = readString(req.body?.tournamentId);
+  const teamId = readString(req.body?.teamId);
+  const action = readString(req.body?.action) as TeamReserveTransitionAction;
+  if (!tournamentId || !teamId || !['to_reserve', 'to_participant'].includes(action)) {
+    return res.status(400).json({ error: 'Invalid team reserve transition request.' });
+  }
+
+  const actor = await requireTournamentRoleSession(req, res, tournamentId);
+  if (!actor) return;
+  if (!actor.access.canManageOperations) {
+    return res.status(403).json({ error: 'This role cannot manage tournament teams.' });
+  }
+
+  const supabase = getServiceSupabase();
+  const [{ data: tournament, error: tournamentError }, { data: team, error: teamError }] = await Promise.all([
+    supabase.from('tournaments').select('id, season, max_teams').eq('id', tournamentId).maybeSingle(),
+    supabase
+      .from('teams')
+      .select('id, active, reserve_active, is_placeholder')
+      .eq('id', teamId)
+      .eq('tournament_id', tournamentId)
+      .maybeSingle(),
+  ]);
+  if (tournamentError) throw tournamentError;
+  if (teamError) throw teamError;
+  if (!tournament) return res.status(404).json({ error: 'Tournament not found.' });
+  if (!team) return res.status(404).json({ error: 'Team not found in this tournament.' });
+
+  const [{ count: roundCount, error: roundCountError }, { count: activeParticipantCount, error: participantCountError }] =
+    await Promise.all([
+      supabase
+        .from('rounds')
+        .select('id', { count: 'exact', head: true })
+        .eq('tournament_id', tournamentId)
+        .eq('season_number', tournament.season),
+      supabase
+        .from('teams')
+        .select('id', { count: 'exact', head: true })
+        .eq('tournament_id', tournamentId)
+        .eq('active', true)
+        .eq('reserve_active', false)
+        .eq('is_placeholder', false),
+    ]);
+  if (roundCountError) throw roundCountError;
+  if (participantCountError) throw participantCountError;
+
+  const validation = validateTeamReserveTransition({
+    action,
+    team,
+    hasGeneratedRounds: (roundCount ?? 0) > 0,
+    activeParticipantCount: activeParticipantCount ?? 0,
+    maxTeams:
+      tournament.max_teams === null || tournament.max_teams === undefined
+        ? null
+        : Number.isSafeInteger(Number(tournament.max_teams)) && Number(tournament.max_teams) > 0
+          ? Number(tournament.max_teams)
+          : null,
+  });
+  if (!validation.ok) return res.status(validation.status).json({ error: validation.error });
+
+  const expectedState = action === 'to_reserve'
+    ? { active: true, reserve_active: false }
+    : { active: false, reserve_active: true };
+  const update = action === 'to_reserve'
+    ? { ...validation.values, reserve_joined_at: new Date().toISOString() }
+    : { ...validation.values, reserve_joined_at: null };
+  const { data: updatedTeam, error: updateError } = await supabase
+    .from('teams')
+    .update(update)
+    .eq('id', teamId)
+    .eq('tournament_id', tournamentId)
+    .eq('active', expectedState.active)
+    .eq('reserve_active', expectedState.reserve_active)
+    .eq('is_placeholder', false)
+    .select('id, active, reserve_active, reserve_joined_at')
+    .maybeSingle();
+  if (updateError) throw updateError;
+  if (!updatedTeam) {
+    return res.status(409).json({ error: 'The team state changed. Refresh and try again.' });
+  }
+
+  return res.status(200).json({ team: updatedTeam });
 }
 
 async function handleTournamentRoles(req: VercelRequest, res: VercelResponse) {
@@ -2030,6 +2121,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         return await handleTournamentParticipation(req, res);
       case 'season-slot-replacement':
         return await handleSeasonSlotReplacement(req, res);
+      case 'admin-team-reserve-transition':
+        return await handleAdminTeamReserveTransition(req, res);
       case 'fixture-challenge':
         return await handleFixtureChallenge(req, res);
       case 'backfill-round-matchdetails':

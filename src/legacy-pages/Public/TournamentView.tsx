@@ -1402,6 +1402,10 @@ export const TournamentView: React.FC<{ initialData?: TournamentInitialData }> =
   const allMatches = rounds.flatMap((r) => r.matches);
   const isGenerated = rounds.length > 0;
   const participantTeams = teams.filter((team) => !team.is_placeholder && !team.reserve_active);
+  const reserveTeams = teams.filter((team) => !team.is_placeholder && team.reserve_active);
+  const activeParticipantCount = participantTeams.filter((team) => team.active).length;
+  const maxTeamsAllowsPromotion =
+    !tournament?.max_teams || tournament.max_teams <= 0 || activeParticipantCount < tournament.max_teams;
 
   const isHealthQuotaMet = useCallback(
     (teamList: Team[] = teams) => {
@@ -3848,6 +3852,31 @@ export const TournamentView: React.FC<{ initialData?: TournamentInitialData }> =
       const { error } = await supabase.from('teams').update({ active: true }).eq('id', teamId);
       if (error) throw error;
       fetchData();
+    } catch (error: any) {
+      alert(error.message);
+    } finally {
+      setIsSavingTeam(false);
+    }
+  };
+
+  const transitionTeamReserveStatus = async (team: Team, action: 'to_reserve' | 'to_participant') => {
+    if (!tournament || isGenerated || !roleAccess?.canManageOperations) return;
+
+    const isPromoting = action === 'to_participant';
+    const nextState = isPromoting ? 'tournament participant' : 'reserve list';
+    if (!window.confirm(`${isPromoting ? 'Promote' : 'Move'} ${team.name} to the ${nextState}?`)) return;
+
+    setIsSavingTeam(true);
+    try {
+      const response = await fetch('/api/app?route=admin-team-reserve-transition', {
+        method: 'POST',
+        credentials: 'same-origin',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ tournamentId: tournament.id, teamId: team.id, action }),
+      });
+      const result = (await response.json()) as { error?: string };
+      if (!response.ok) throw new Error(result.error || 'The team status could not be changed.');
+      await fetchData();
     } catch (error: any) {
       alert(error.message);
     } finally {
@@ -6312,6 +6341,16 @@ export const TournamentView: React.FC<{ initialData?: TournamentInitialData }> =
                                             <ArrowClockwise size={16} /> Replace
                                           </Button>
                                         )}
+                                        {!isGenerated && roleAccess?.canManageOperations && (
+                                          <Button
+                                            size="sm"
+                                            variant="secondary"
+                                            onClick={() => void transitionTeamReserveStatus(team, 'to_reserve')}
+                                            disabled={isSavingTeam}
+                                          >
+                                            Move to reserves
+                                          </Button>
+                                        )}
                                         <Button
                                           size="sm"
                                           variant="danger"
@@ -6394,6 +6433,87 @@ export const TournamentView: React.FC<{ initialData?: TournamentInitialData }> =
                                 </li>
                               ))}
                           </ul>
+
+                          {reserveTeams.length > 0 && (
+                            <>
+                              <h3 className={adminStyles.sectionTitle}>Reserve teams</h3>
+                              <ul className={adminStyles.teamList}>
+                                {reserveTeams.map((team) => (
+                                  <li key={team.id}>
+                                    <div className={adminStyles.teamCard}>
+                                      <img
+                                        src={team.logo_url || DEFAULT_TEAM_LOGO}
+                                        alt=""
+                                        className={adminStyles.teamLogo}
+                                        onError={(event) => {
+                                          event.currentTarget.onerror = null;
+                                          event.currentTarget.src = DEFAULT_TEAM_LOGO;
+                                        }}
+                                      />
+                                      <div className={adminStyles.teamInfo}>
+                                        <div className={adminStyles.teamNameRow}>
+                                          {team.ht_team_id ? (
+                                            <a
+                                              href={`https://www.hattrick.org/goto.ashx?path=/Club/?TeamID=${team.ht_team_id}`}
+                                              target="_blank"
+                                              rel="noopener noreferrer"
+                                              className={adminStyles.teamLink}
+                                            >
+                                              {team.name}
+                                            </a>
+                                          ) : (
+                                            <span className={adminStyles.name}>{team.name || 'Reserve team'}</span>
+                                          )}
+                                        </div>
+                                        <div className={adminStyles.teamMeta}>
+                                          {team.ht_team_id && (
+                                            <a
+                                              href={`https://www.hattrick.org/goto.ashx?path=/Club/?TeamID=${team.ht_team_id}`}
+                                              target="_blank"
+                                              rel="noopener noreferrer"
+                                              className={adminStyles.teamMetaLink}
+                                            >
+                                              ID: {team.ht_team_id}
+                                            </a>
+                                          )}
+                                          {team.manager_name && (
+                                            <>
+                                              <span className={adminStyles.teamMetaSeparator}>·</span>
+                                              {team.hattrick_user_id ? (
+                                                <a
+                                                  href={`https://www.hattrick.org/goto.ashx?path=/Club/Manager/?userId=${team.hattrick_user_id}`}
+                                                  target="_blank"
+                                                  rel="noopener noreferrer"
+                                                  className={adminStyles.teamMetaLink}
+                                                >
+                                                  {team.manager_name}
+                                                </a>
+                                              ) : (
+                                                <span>{team.manager_name}</span>
+                                              )}
+                                            </>
+                                          )}
+                                        </div>
+                                        <span className={adminStyles.statusBadge}>Reserve</span>
+                                      </div>
+                                    </div>
+                                    {!isGenerated && roleAccess?.canManageOperations && maxTeamsAllowsPromotion && (
+                                      <div className={adminStyles.teamActions}>
+                                        <Button
+                                          size="sm"
+                                          variant="primary"
+                                          onClick={() => void transitionTeamReserveStatus(team, 'to_participant')}
+                                          disabled={isSavingTeam}
+                                        >
+                                          Promote to tournament
+                                        </Button>
+                                      </div>
+                                    )}
+                                  </li>
+                                ))}
+                              </ul>
+                            </>
+                          )}
 
                           <div className={adminStyles.inviteTemplate}>
                             <Button
