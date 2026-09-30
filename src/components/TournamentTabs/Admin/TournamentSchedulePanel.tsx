@@ -1053,7 +1053,17 @@ export const TournamentSchedulePanel: React.FC<TournamentSchedulePanelProps> = (
           </div>
         )}
 
-        {lengthDraft.reason && <p className={adminStyles.scheduleReason}>{lengthDraft.reason}</p>}
+        {lengthDraft.reason && (
+          <p
+            className={`${adminStyles.scheduleReason} ${
+              lengthDraft.reason === 'Update HFI ranks before generating this schedule.'
+                ? adminStyles.scheduleReasonCritical
+                : ''
+            }`}
+          >
+            {lengthDraft.reason}
+          </p>
+        )}
         <div className={adminStyles.scheduleAction}>
           <Button variant="primary" size="lg" fullWidth onClick={onGenerate} disabled={!lengthDraft.valid || isGenerating}>
             {isGenerating ? 'Generating schedule...' : 'Generate a schedule'}
