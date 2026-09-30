@@ -666,6 +666,7 @@ export const Home: React.FC<{ initialData?: HomeInitialData }> = ({ initialData 
     const hasRounds = (t.rounds?.length ?? 0) > 0;
     const isFinished =
       t.status === 'finished' || (t.totalMatches > 0 && t.totalMatches === t.completedMatches);
+    const isOngoing = hasRounds && !isFinished && t.status !== 'paused';
     const tournamentHref = toLocalePath(locale, `/t/${t.slug}`);
     const card = (
       <TournamentCard
@@ -683,7 +684,9 @@ export const Home: React.FC<{ initialData?: HomeInitialData }> = ({ initialData 
           <div className={styles.tTitleRow}>
             <div className={styles.tHeading}>
               <h3 className={styles.tName}>{t.name}</h3>
-              <span className={styles.tState}>{getTournamentStateLabel(t)}</span>
+              <span className={`${styles.tState} ${isOngoing ? styles.tStateOngoing : ''}`}>
+                {getTournamentStateLabel(t)}
+              </span>
             </div>
             <CaretLeft size={18} weight="regular" className={styles.tArrow} />
           </div>
