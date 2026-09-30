@@ -1,0 +1,184 @@
+diff --git a/src/utils/length-schedule.ts b/src/utils/length-schedule.ts
+--- a/src/utils/length-schedule.ts
++++ b/src/utils/length-schedule.ts
+@@ -256,17 +256,27 @@
+   const normalized = normalizeTeams(teams);
+   const teamIds: Array<string | null> = normalized.map((team) => team.id);
+   if (teamIds.length % 2 !== 0) teamIds.push(null);
+-  const usedPairs = new Set((history.playedPairs || []).map(([a, b]) => pairKey(a, b)));
+-  const candidates = enumerateRoundMatchings(teamIds, usedPairs);
+-  if (candidates.length === 0) {
+-    throw new Error('No valid no-rematch pairing remains for this round.');
+-  }
+-  const teamsById = new Map(normalized.map((team) => [team.id, team]));
+-  candidates.sort((left, right) => {
+-    const scoreDelta = scoreMatching(left, teamsById, history) - scoreMatching(right, teamsById, history);
+-    if (scoreDelta !== 0) return scoreDelta;
+-    return JSON.stringify(left).localeCompare(JSON.stringify(right));
+-  });
++  const usedPairs = new Set((history.playedPairs || []).map(([a, b]) => pairKey(a, b)));
++  const strictCandidates = enumerateRoundMatchings(teamIds, usedPairs);
++  // Real-world missed/repaired rounds can exhaust the perfect no-rematch graph
++  // before the planned regular season ends. Prefer zero rematches whenever a
++  // complete matching exists; otherwise allow the smallest possible number.
++  const candidates = strictCandidates.length > 0
++    ? strictCandidates
++    : enumerateRoundMatchings(teamIds, new Set());
++  const teamsById = new Map(normalized.map((team) => [team.id, team]));
++  const countRematches = (pairs: Array<[string | null, string | null]>) =>
++    pairs.reduce(
++      (count, [a, b]) => count + (a && b && usedPairs.has(pairKey(a, b)) ? 1 : 0),
++      0,
++    );
++  candidates.sort((left, right) => {
++    const rematchDelta = countRematches(left) - countRematches(right);
++    if (rematchDelta !== 0) return rematchDelta;
++    const scoreDelta = scoreMatching(left, teamsById, history) - scoreMatching(right, teamsById, history);
++    if (scoreDelta !== 0) return scoreDelta;
++    return JSON.stringify(left).localeCompare(JSON.stringify(right));
++  });
+   const homeCounts = { ...(history.homeCounts || {}) };
+   return candidates[0]!.map(([a, b]) => orientPair(a, b, homeCounts, roundIndex));
+ }
+
+diff --git a/src/app/_data/public-data.ts b/src/app/_data/public-data.ts
+--- a/src/app/_data/public-data.ts
++++ b/src/app/_data/public-data.ts
+@@ -545,9 +545,15 @@
+
+   // The slot table is optional until the peak-season migration is applied. Its
+   // query intentionally degrades to the legacy team-based view on old projects.
+-  const slots = (slotsRaw || []) as { id: string; current_team_id: string | null }[];
+-  const slotAssignments = (slotAssignmentsRaw || []) as SeasonSlotAssignment[];
+-  const standings = calculateSeasonSlotStandings(
++  const slots = (slotsRaw || []) as { id: string; current_team_id: string | null }[];
++  const slotAssignments = (slotAssignmentsRaw || []) as SeasonSlotAssignment[];
++  const regularRoundIds = new Set(
++    rounds
++      .filter((round) => round.phase !== 'postseason')
++      .map((round) => String(round.id)),
++  );
++  const regularStandingMatches = matches.filter((match) => regularRoundIds.has(String(match.round_id)));
++  const standings = calculateSeasonSlotStandings(
+     teams.map((team) => ({
+       id: String(team.id),
+       name: String(team.name),
+@@ -565,8 +571,8 @@
+       reserve_active: Boolean(team.reserve_active),
+       team_rank: Number(team.team_rank || 0) || null,
+     })),
+-    matches.map((match) => ({
+-      home_team_id: (match.home_team_id as string | null) || null,
++    regularStandingMatches.map((match) => ({
++      home_team_id: (match.home_team_id as string | null) || null,
+       away_team_id: (match.away_team_id as string | null) || null,
+       home_slot_id: (match.home_slot_id as string | null) || null,
+       away_slot_id: (match.away_slot_id as string | null) || null,
+
+diff --git a/migrations/085_length_schedule_progression.sql b/migrations/085_length_schedule_progression.sql
+--- a/migrations/085_length_schedule_progression.sql
++++ b/migrations/085_length_schedule_progression.sql
+@@ -419,9 +419,15 @@
+       OR (v_round_index > 1 AND v_round->>'phase_status' IS DISTINCT FROM 'pending') THEN
+       RAISE EXCEPTION 'Only the first round may be materialized initially' USING ERRCODE = '22023';
+     END IF;
+-    IF v_round->>'slot_kind' NOT IN ('midweek_friendly', 'weekend_friendly') THEN
+-      RAISE EXCEPTION 'Invalid reserved friendly slot' USING ERRCODE = '22023';
+-    END IF;
++    -- reserved_slot_date identifies the HT-week slot only. Real Hattrick
++    -- friendly kickoff times remain country-specific (and may be Tuesday,
++    -- Wednesday or Thursday) via scheduled_for. Do not canonicalize them here.
++    -- The only weekend slot used by the length planner is HT Week 16; W15
++    -- weekend stays excluded because qualification participation is known too
++    -- late for reliable tournament scheduling.
++    IF v_round->>'slot_kind' NOT IN ('midweek_friendly', 'weekend_friendly') THEN
++      RAISE EXCEPTION 'Invalid reserved friendly slot' USING ERRCODE = '22023';
++    END IF;
+     v_slot_id := NULLIF(v_round->>'slot_id', '');
+     v_slot_date := NULLIF(v_round->>'slot_date', '')::timestamptz;
+     IF v_slot_date IS NULL OR v_slot_date <= v_now THEN
+@@ -600,10 +606,26 @@
+   IF v_completed.phase_status = 'completed' THEN
+     RETURN jsonb_build_object('advanced', false, 'reason', 'already_completed');
+   END IF;
+-  IF v_completed.phase_status <> 'materialized' THEN
+-    RAISE EXCEPTION 'Round is not materialized' USING ERRCODE = '22023';
+-  END IF;
+-  IF EXISTS (
++  IF v_completed.phase_status <> 'materialized' THEN
++    RAISE EXCEPTION 'Round is not materialized' USING ERRCODE = '22023';
++  END IF;
++
++  -- An unlinked fixture whose precise country-specific scheduled kickoff has
++  -- passed can no longer be arranged for this round. Finalize it as DNP so a
++  -- forgotten booking or external friendly cannot block staged progression
++  -- forever. Linked/arranged/ongoing fixtures are deliberately untouched.
++  UPDATE public.matches
++  SET schedule_resolution = 'finalized_unplayed',
++      status = 'misarranged'
++  WHERE round_id = v_completed.id
++    AND COALESCE(completed, false) = false
++    AND ht_match_id IS NULL
++    AND COALESCE(status, 'not_arranged') IN ('not_arranged', 'misarranged')
++    AND scheduled_for IS NOT NULL
++    AND scheduled_for <= v_now
++    AND schedule_resolution IS DISTINCT FROM 'finalized_unplayed';
++
++  IF EXISTS (
+     SELECT 1 FROM public.matches m
+     WHERE m.round_id = v_completed.id
+       AND m.home_team_id IS NOT NULL AND m.away_team_id IS NOT NULL
+
+diff --git a/tests/length-schedule.test.ts b/tests/length-schedule.test.ts
+--- a/tests/length-schedule.test.ts
++++ b/tests/length-schedule.test.ts
+@@ -148,7 +148,48 @@
+   );
+ });
+
+-test('progressive full round robins contain every opponent pair exactly once', () => {
++test('balanced round falls back to the minimum number of rematches when strict pairing is impossible', () => {
++  const teams = rankedTeams(4);
++  const playedPairs: Array<[string, string]> = [
++    ['team-1', 'team-2'],
++    ['team-3', 'team-4'],
++    ['team-1', 'team-3'],
++    ['team-1', 'team-4'],
++  ];
++  const used = new Set(playedPairs.map(([a, b]) => [a, b].sort().join(':')));
++  const pairings = generateBalancedRound(teams, { playedPairs }, 3);
++  const rematches = pairings.filter(
++    (pairing) =>
++      pairing.homeTeamId &&
++      pairing.awayTeamId &&
++      used.has([pairing.homeTeamId, pairing.awayTeamId].sort().join(':')),
++  );
++  assert.equal(rematches.length, 1);
++});
++
++test('length schedule preserves country-specific kickoff times and only uses the safe W16 weekend', () => {
++  const teams = rankedTeams(2).map((team) => ({ ...team, countryName: 'England' }));
++  const draft = buildLengthScheduleDraft({
++    teams,
++    startSlotId: 'S95-W12-midweek',
++    selectedFormatId: 'round-robin-1',
++    now: new Date('2026-09-30T00:00:00Z'),
++  });
++  assert.equal(draft.valid, true);
++  // England's configured friendly is Tuesday 21:00 Stockholm-local here,
++  // proving that the nominal midweek slot is not rewritten to Wednesday.
++  assert.equal(draft.rounds[0]?.matches[0]?.scheduledFor.toISOString(), '2026-10-06T19:00:00.000Z');
++  assert.equal(
++    draft.safeSlots.some((slot) => slot.kind === 'weekend_friendly' && slot.htWeek === 15),
++    false,
++  );
++  assert.equal(
++    draft.safeSlots.some((slot) => slot.kind === 'weekend_friendly' && slot.htWeek === 16),
++    true,
++  );
++});
++
++test('progressive full round robins contain every opponent pair exactly once', () => {
+   for (const teamCount of [5, 6, 8, 10, 12]) {
+     const teams = rankedTeams(teamCount);
+     const playedPairs: Array<[string, string]> = [];

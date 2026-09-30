@@ -547,6 +547,12 @@ export const loadTournamentInitialData = cache(async (slug: string): Promise<Tou
   // query intentionally degrades to the legacy team-based view on old projects.
   const slots = (slotsRaw || []) as { id: string; current_team_id: string | null }[];
   const slotAssignments = (slotAssignmentsRaw || []) as SeasonSlotAssignment[];
+  const regularRoundIds = new Set(
+    rounds
+      .filter((round) => round.phase !== 'postseason')
+      .map((round) => String(round.id)),
+  );
+  const regularStandingMatches = matches.filter((match) => regularRoundIds.has(String(match.round_id)));
   const standings = calculateSeasonSlotStandings(
     teams.map((team) => ({
       id: String(team.id),
@@ -565,7 +571,7 @@ export const loadTournamentInitialData = cache(async (slug: string): Promise<Tou
       reserve_active: Boolean(team.reserve_active),
       team_rank: Number(team.team_rank || 0) || null,
     })),
-    matches.map((match) => ({
+    regularStandingMatches.map((match) => ({
       home_team_id: (match.home_team_id as string | null) || null,
       away_team_id: (match.away_team_id as string | null) || null,
       home_slot_id: (match.home_slot_id as string | null) || null,

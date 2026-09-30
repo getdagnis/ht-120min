@@ -257,12 +257,22 @@ export function generateBalancedRound(
   const teamIds: Array<string | null> = normalized.map((team) => team.id);
   if (teamIds.length % 2 !== 0) teamIds.push(null);
   const usedPairs = new Set((history.playedPairs || []).map(([a, b]) => pairKey(a, b)));
-  const candidates = enumerateRoundMatchings(teamIds, usedPairs);
-  if (candidates.length === 0) {
-    throw new Error('No valid no-rematch pairing remains for this round.');
-  }
+  const strictCandidates = enumerateRoundMatchings(teamIds, usedPairs);
+  // Real-world missed/repaired rounds can exhaust the perfect no-rematch graph
+  // before the planned regular season ends. Prefer zero rematches whenever a
+  // complete matching exists; otherwise allow the smallest possible number.
+  const candidates = strictCandidates.length > 0
+    ? strictCandidates
+    : enumerateRoundMatchings(teamIds, new Set());
   const teamsById = new Map(normalized.map((team) => [team.id, team]));
+  const countRematches = (pairs: Array<[string | null, string | null]>) =>
+    pairs.reduce(
+      (count, [a, b]) => count + (a && b && usedPairs.has(pairKey(a, b)) ? 1 : 0),
+      0,
+    );
   candidates.sort((left, right) => {
+    const rematchDelta = countRematches(left) - countRematches(right);
+    if (rematchDelta !== 0) return rematchDelta;
     const scoreDelta = scoreMatching(left, teamsById, history) - scoreMatching(right, teamsById, history);
     if (scoreDelta !== 0) return scoreDelta;
     return JSON.stringify(left).localeCompare(JSON.stringify(right));

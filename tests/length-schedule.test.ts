@@ -148,6 +148,47 @@ test('played opponents are excluded and odd fields receive one fair bye', () => 
   );
 });
 
+test('balanced round falls back to the minimum number of rematches when strict pairing is impossible', () => {
+  const teams = rankedTeams(4);
+  const playedPairs: Array<[string, string]> = [
+    ['team-1', 'team-2'],
+    ['team-3', 'team-4'],
+    ['team-1', 'team-3'],
+    ['team-1', 'team-4'],
+  ];
+  const used = new Set(playedPairs.map(([a, b]) => [a, b].sort().join(':')));
+  const pairings = generateBalancedRound(teams, { playedPairs }, 3);
+  const rematches = pairings.filter(
+    (pairing) =>
+      pairing.homeTeamId &&
+      pairing.awayTeamId &&
+      used.has([pairing.homeTeamId, pairing.awayTeamId].sort().join(':')),
+  );
+  assert.equal(rematches.length, 1);
+});
+
+test('length schedule preserves country-specific kickoff times and only uses the safe W16 weekend', () => {
+  const teams = rankedTeams(2).map((team) => ({ ...team, countryName: 'England' }));
+  const draft = buildLengthScheduleDraft({
+    teams,
+    startSlotId: 'S95-W12-midweek',
+    selectedFormatId: 'round-robin-1',
+    now: new Date('2026-09-30T00:00:00Z'),
+  });
+  assert.equal(draft.valid, true);
+  // England's configured friendly is Tuesday 21:00 Stockholm-local here,
+  // proving that the nominal midweek slot is not rewritten to Wednesday.
+  assert.equal(draft.rounds[0]?.matches[0]?.scheduledFor.toISOString(), '2026-10-06T19:00:00.000Z');
+  assert.equal(
+    draft.safeSlots.some((slot) => slot.kind === 'weekend_friendly' && slot.htWeek === 15),
+    false,
+  );
+  assert.equal(
+    draft.safeSlots.some((slot) => slot.kind === 'weekend_friendly' && slot.htWeek === 16),
+    true,
+  );
+});
+
 test('progressive full round robins contain every opponent pair exactly once', () => {
   for (const teamCount of [5, 6, 8, 10, 12]) {
     const teams = rankedTeams(teamCount);
