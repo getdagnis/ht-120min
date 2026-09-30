@@ -12,6 +12,8 @@ Current positioning: "The easiest way to organize recurring Hattrick friendlies.
 
 Target users are small Hattrick communities, private leagues, regional groups, and friendly tournament organizers. Optimize for organizer efficiency, not participant customization.
 
+Official/public soundbox tournaments are organizer training environments, not primarily private experimentation tools. They should reproduce the real tournament admin experience as closely as possible, with only deliberate training affordances such as broader available options and controlled time travel. See `docs/soundbox-tournaments.md` for the product distinction and acceptance intent.
+
 ## Current Priority
 
 Early MVP before Beta.
@@ -103,6 +105,7 @@ When updating status, distinguish local code, migration file, applied migration,
 | Frontend structure, reusable UI, page ownership | `docs/architecture.md` |
 | Current blockers, migration state, validation state | `PROJECT_STATE.md` |
 | Product direction | `ROADMAP.md` |
+| Soundbox/training tournament behavior | `docs/soundbox-tournaments.md` |
 | Broad first-pass project familiarization | `AGENT_ONBOARDING.md` |
 
 For CHPP tasks, also inspect the relevant endpoint schemas/examples in `docs/` before changing parser or sync logic.

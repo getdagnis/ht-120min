@@ -128,7 +128,7 @@ Production means live deployed behavior. If it has not been checked against the 
 - Featured tournaments are ordered oldest-first within each pinned list.
 - Account dropdown now separates current active participations from finished participations and labels the active section as `ACTIVE:`.
 - Superadmin bypass is env-backed, dev-only, and no longer exposed as a hardcoded cookie value; production session signing now requires `APP_SESSION_SECRET`.
-- Sandbox Playground is available as a public create-flow tournament type. It creates unlisted test tournaments with random real CHPP team metadata, stores sandbox metadata for future expiry cleanup, and excludes test tournaments from normal public discovery lists.
+- Sandbox Playground is available as a public create-flow tournament type. Product direction is now explicit: official/public soundboxes are organizer training environments intended to mirror real tournament administration, not primarily private site-owner experiments. They should eventually expose supported options broadly and provide controlled time travel/round simulation so organizers can learn a full season without waiting for real dates. The current implementation still creates unlisted test tournaments with random real CHPP team metadata, stores sandbox metadata for future expiry cleanup, and excludes test tournaments from normal public discovery lists.
 - Generate schedule now shows a clearer empty-state reason, waits for a picked start date before previewing, and uses a no-teams placeholder label.
 - Tournament cards use canonical league names and avoid mobile overflow on the home grid.
 - Chat shows a login button when the viewer is not authenticated.

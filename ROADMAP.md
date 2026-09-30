@@ -158,6 +158,16 @@ Core features:
 
 Scope constraint: keep minimal — only what supports competition.
 
+### 4. Soundbox tournaments: organizer training
+
+Official/public soundbox tournaments are a learning surface for new tournament organizers. They should feel like real tournaments, not like a special toy mode or a private site-owner laboratory.
+
+The training target is the complete organizer workflow: settings, restrictions, roster management, schedule generation, fixtures, warnings, results, standings, news, activity, and season lifecycle. Soundboxes may make a few real-tournament limitations more permissive so that all otherwise-supported options can be demonstrated.
+
+Because waiting through a real season defeats the purpose, soundboxes also need controlled time travel or round simulation. An organizer should be able to advance through round deadlines and lifecycle states on demand while learning the same rules and admin responsibilities used in production tournaments.
+
+See `docs/soundbox-tournaments.md` for the durable product definition and the distinction between public training soundboxes and detached administrative copies.
+
 ---
 
 ## Development Phases
