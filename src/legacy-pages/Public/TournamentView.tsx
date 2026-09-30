@@ -1679,7 +1679,9 @@ export const TournamentView: React.FC<{ initialData?: TournamentInitialData }> =
         const { data: slotAssignmentData } = slotIds.length
           ? await supabase
               .from('tournament_season_slot_assignments')
-              .select('id, tournament_season_slot_id, team_id, assigned_at, released_at, team_name, ht_team_id, manager_name, hattrick_user_id, logo_url')
+              .select(
+                'id, tournament_season_slot_id, team_id, assigned_at, released_at, team_name, ht_team_id, manager_name, hattrick_user_id, logo_url',
+              )
               .in('tournament_season_slot_id', slotIds)
           : { data: [] as SeasonSlotAssignment[] };
         setSeasonSlotAssignments((slotAssignmentData || []) as SeasonSlotAssignment[]);
@@ -5215,9 +5217,7 @@ export const TournamentView: React.FC<{ initialData?: TournamentInitialData }> =
       {selectedTournamentMessage?.type === 'reserve' && (
         <div className={styles.registrationStatus}>
           <div className={styles.helpContent}>
-            <p>
-              <p>Tournament is full. Please join Reserve list! You will be first in line if a spot opens!</p>
-            </p>
+            <p>Tournament is full. Please join Reserve list! You will be first in line if a spot opens!</p>
             <Button
               onClick={() => {
                 setIsConnecting(true);
@@ -6218,12 +6218,12 @@ export const TournamentView: React.FC<{ initialData?: TournamentInitialData }> =
                             participantTeams.length % 2 !== 0) && (
                             <div className={adminStyles.addTeamSection}>
                               <h3 className={adminStyles.sectionTitle}>
-                                {isValidatedTournament ? 'Invite Team' : 'Add Team'}
+                                {isValidatedTournament ? 'Add placeholder' : 'Add Team'}
                               </h3>
                               {isValidatedTournament && (
                                 <p className={styles.helperText}>
-                                  In a self-validated tournament, you can't add teams manually. Use this tool to get
-                                  team data and then send them an invitation.
+                                  Add a local placeholder using the team&apos;s Hattrick data, or use the invitation
+                                  template to ask its manager to register.
                                 </p>
                               )}
                               <form onSubmit={(e) => addTeam(e, false)} className={adminStyles.teamForm}>
@@ -6265,36 +6265,9 @@ export const TournamentView: React.FC<{ initialData?: TournamentInitialData }> =
                                 {newTeamName && (
                                   <>
                                     {isValidatedTournament ? (
-                                      <div className={styles.inviteSection}>
-                                        <Button
-                                          variant="secondary"
-                                          size="sm"
-                                          onClick={() => setIsInviteExpanded(!isInviteExpanded)}
-                                          className={styles.mt05}
-                                        >
-                                          {isInviteExpanded ? 'Hide Invitation Template' : 'Show invitation template'}
-                                        </Button>
-                                        {isInviteExpanded && (
-                                          <div className={styles.inviteTemplateWrapper}>
-                                            <textarea
-                                              readOnly
-                                              className={styles.inviteTextarea}
-                                              value={`Join our tournament "${tournament.name}" on HT-120min! We have a spot for ${newTeamName}. Register here: ${publicUrl}`}
-                                            />
-                                            <Button
-                                              type="button"
-                                              variant="secondary"
-                                              className={styles.copyInviteButton}
-                                              onClick={() => {
-                                                navigator.clipboard.writeText(
-                                                  `Join our tournament "${tournament.name}" on HT-120min! We have a spot for ${newTeamName}. Register here: ${publicUrl}`,
-                                                );
-                                                alert('Invitation template for ' + newTeamName + ' copied!');
-                                              }}
-                                            ></Button>
-                                          </div>
-                                        )}
-                                      </div>
+                                      <Button type="submit" disabled={isSavingTeam} variant="primary">
+                                        {isSavingTeam ? 'Saving...' : 'Add placeholder'}
+                                      </Button>
                                     ) : (
                                       <Button type="submit" disabled={isSavingTeam} variant="primary">
                                         {isSavingTeam ? 'Saving...' : 'Add team to tournament'}
@@ -6666,25 +6639,27 @@ export const TournamentView: React.FC<{ initialData?: TournamentInitialData }> =
                               onClick={() => setIsInviteExpanded(!isInviteExpanded)}
                               className={adminStyles.inviteBtn}
                             >
-                              {isInviteExpanded ? 'Invitation template' : 'Invite a Team'}
+                              {isInviteExpanded ? 'Hide invitation' : 'Invite a Team'}
                             </Button>
                             {isInviteExpanded && (
                               <div className={adminStyles.templateBox}>
-                                <label className={adminStyles.inviteLabel}>Share this with your Hattrick buddies</label>
+                                <label className={adminStyles.inviteLabel}>Invitation with Hattrick formatting</label>
                                 <textarea
                                   readOnly
-                                  value={`I'd like to invite you to join "${tournament.name}" (Season ${tournament.season}) tournament on HT-120min! Register your team here: ${publicUrl}`}
+                                  value={`An invitation to join [b]${tournament.name}[/b] (Season ${tournament.season}) tournament on HT-120min! Register your team here: [link=${publicUrl}]`}
                                 />
                                 <Button
                                   size="sm"
-                                  variant="zero"
+                                  variant="primary"
                                   onClick={() => {
                                     navigator.clipboard.writeText(
                                       `I'd like to invite you to join "${tournament.name}" (Season ${tournament.season}) tournament on HT-120min! Register your team here: ${publicUrl}`,
                                     );
                                     alert('Invitation copied!');
                                   }}
-                                ></Button>
+                                >
+                                  Copy to clipboard
+                                </Button>
                               </div>
                             )}
                           </div>
