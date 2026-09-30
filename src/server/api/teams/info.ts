@@ -170,6 +170,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       countryName,
       genderId: genderId ? parseInt(genderId) : undefined,
       logoUrl: parsed.logoUrl,
+      teamRank: parsed.teamRank,
     });
   } catch (error) {
     return res.status(500).json({ error: error instanceof Error ? error.message : 'An unknown error occurred' });

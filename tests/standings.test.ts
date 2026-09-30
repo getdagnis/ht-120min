@@ -37,6 +37,16 @@ test('completed BYE result counts for the one tournament team', () => {
   assert.equal(standings[0].totalMinutes, 121);
 });
 
+test('stored TeamRank is carried into standings as informational team metadata', () => {
+  const standings = calculateStandings(
+    [{ id: 'team-a', name: 'Team A', ht_team_id: 123, hattrick_user_id: 456, active: true, replacement_for_team_id: null, team_rank: 27 }],
+    [],
+    'points',
+  );
+
+  assert.equal(standings[0].teamRank, 27);
+});
+
 test('penalty shootouts award 2 points to the winner and 1 point to the loser', () => {
   const teams = [
     { id: 'away', name: 'Away', ht_team_id: 2, hattrick_user_id: 2, active: true, replacement_for_team_id: null },

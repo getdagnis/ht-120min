@@ -61,6 +61,7 @@ export interface Team {
   manager_name?: string | null;
   is_placeholder?: boolean;
   reserve_active?: boolean;
+  team_rank?: number | null;
 }
 
 export interface TeamStanding {
@@ -89,6 +90,7 @@ export interface TeamStanding {
   leagueId: number | null;
   logoUrl: string | null;
   managerName: string | null;
+  teamRank?: number | null;
 }
 
 export function getAppgStandingsQuota(standings: Array<Pick<TeamStanding, 'played'>>): number {
@@ -138,6 +140,7 @@ export function calculateStandings(
       leagueId: team.league_id || null,
       logoUrl: team.logo_url || null,
       managerName: team.manager_name || null,
+      teamRank: team.team_rank ?? null,
     };
   });
 

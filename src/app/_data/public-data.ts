@@ -555,6 +555,7 @@ export const loadTournamentInitialData = cache(async (slug: string): Promise<Tou
       manager_name: profileMap[Number(team.hattrick_user_id || 0)] || (team.manager_name as string | null) || undefined,
       is_placeholder: Boolean(team.is_placeholder),
       reserve_active: Boolean(team.reserve_active),
+      team_rank: Number(team.team_rank || 0) || null,
     })),
     matches.map((match) => ({
       home_team_id: (match.home_team_id as string | null) || null,
