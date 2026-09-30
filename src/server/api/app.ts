@@ -39,6 +39,7 @@ import {
   validateTeamReserveTransition,
   type TeamReserveTransitionAction,
 } from './_lib/team-reserve-transition.js';
+import { buildSandboxCopyIdentity, loadSandboxSnapshotInput } from './_lib/sandbox-duplicate.js';
 import type { ChppTeamOption } from './_lib/chpp-xml.js';
 import { getAuthHeader } from './_lib/chpp-auth.js';
 import {
@@ -99,6 +100,61 @@ async function handleTournamentAccess(req: VercelRequest, res: VercelResponse) {
   const actor = await requireTournamentRoleSession(req, res, tournamentId);
   if (!actor) return;
   return res.status(200).json(actor.access);
+}
+
+async function handleDuplicateTournamentAsSandbox(req: VercelRequest, res: VercelResponse) {
+  if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed.' });
+  const tournamentId = readString(req.body?.tournamentId);
+  if (!tournamentId) return res.status(400).json({ error: 'Missing tournamentId.' });
+
+  const actor = await requireTournamentRoleSession(req, res, tournamentId);
+  if (!actor) return;
+  if (!actor.access.isImplicitSuperadmin) {
+    return res.status(403).json({ error: 'This action is not available.' });
+  }
+
+  const consumerKey = process.env.CHPP_CONSUMER_KEY;
+  const consumerSecret = process.env.CHPP_CONSUMER_SECRET;
+  if (!consumerKey || !consumerSecret) {
+    return res.status(500).json({ error: 'CHPP configuration is missing.' });
+  }
+
+  const supabase = getServiceSupabase();
+  const credentials = await getManagerChppCredentials(supabase, actor.userId);
+  if (!credentials) {
+    return res.status(409).json({ error: 'Refresh your Hattrick login before creating a sandbox copy.' });
+  }
+
+  try {
+    const snapshot = await loadSandboxSnapshotInput(supabase, {
+      sourceTournamentId: tournamentId,
+      consumerKey,
+      consumerSecret,
+      credentials,
+    });
+    const identity = buildSandboxCopyIdentity(snapshot.source.name);
+    const { data, error } = await supabase.rpc('duplicate_tournament_as_sandbox', {
+      p_source_tournament_id: tournamentId,
+      p_name: identity.name,
+      p_slug: identity.slug,
+      p_admin_password: identity.adminPassword,
+      p_organizer_id: actor.userId,
+      p_organizer_name: actor.access.viewerManagerName || credentials.manager_name,
+      p_teams: snapshot.teams,
+    });
+    if (error) throw error;
+    const created = Array.isArray(data) ? data[0] : data;
+    if (!created?.tournament_id || !created?.slug) throw new Error('Sandbox copy was not created.');
+    return res.status(201).json({ tournamentId: created.tournament_id, slug: created.slug });
+  } catch (error) {
+    const message =
+      error instanceof Error
+        ? error.message
+        : typeof error === 'object' && error && 'message' in error && typeof error.message === 'string'
+          ? error.message
+          : 'Sandbox copy could not be created.';
+    return res.status(422).json({ error: message });
+  }
 }
 
 async function handleManagedTournaments(req: VercelRequest, res: VercelResponse) {
@@ -1548,6 +1604,7 @@ async function handleReserveTeams(req: VercelRequest, res: VercelResponse) {
     logoUrl: details?.logoUrl ?? cachedTeam.logoUrl,
     countryId: team.countryId,
     countryName: team.countryName,
+    teamRank: details?.teamRank ?? null,
   });
   return res.status(200).json({ ok: true, teamId: teamRowId });
 }
@@ -2115,6 +2172,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         return await handleTournamentRoles(req, res);
       case 'tournament-access':
         return await handleTournamentAccess(req, res);
+      case 'duplicate-tournament-sandbox':
+        return await handleDuplicateTournamentAsSandbox(req, res);
       case 'managed-tournaments':
         return await handleManagedTournaments(req, res);
       case 'tournament-participation':

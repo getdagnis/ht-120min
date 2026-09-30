@@ -383,6 +383,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         logoUrl,
         countryId,
         countryName,
+        teamRank: teamDetails?.teamRank ?? null,
         joinStory,
         skipMembershipCheck: isSuperAdmin,
       });

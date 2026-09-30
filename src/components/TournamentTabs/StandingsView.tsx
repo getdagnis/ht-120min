@@ -273,6 +273,7 @@ export const StandingsView: React.FC<StandingsViewProps> = ({
 
     return rows;
   }, [appgMatchQuota, scoringMode, sortDirection, sortKey, standings]);
+  const showHfiRank = tournament?.league_category === 'hfi';
 
   useEffect(() => {
     const defaultMode: StandingsScoringMode = isAppgSupported ? 'appg' : is120minMode ? '120min' : '90min';
@@ -606,6 +607,7 @@ export const StandingsView: React.FC<StandingsViewProps> = ({
               <tr>
                 <th>#</th>
                 {sortableHeader('Team', 'team')}
+                {showHfiRank && <th className={styles.rankColumn} title="Hattrick Femme International rank">HFI</th>}
                 {show120minScoring ? (
                   <>
                     {sortableHeader('120m', 'achievements120min', styles.center120)}
@@ -667,6 +669,7 @@ export const StandingsView: React.FC<StandingsViewProps> = ({
                       </div>
                     </div>
                   </td>
+                  {showHfiRank && <td className={styles.rankColumn}>—</td>}
                   {show120minScoring ? (
                     <>
                       <td className={`${styles.highlight} ${styles.center}`}>0</td>
@@ -705,7 +708,7 @@ export const StandingsView: React.FC<StandingsViewProps> = ({
                   <React.Fragment key={s.teamId}>
                     {showAppgScoring && idx === qualifiedAppgCount && qualifiedAppgCount < sortedStandings.length && (
                       <tr>
-                        <th colSpan={7} className={styles.appgQuotaLabel}>
+                        <th colSpan={showHfiRank ? 8 : 7} className={styles.appgQuotaLabel}>
                           Does not reach quota
                         </th>
                       </tr>
@@ -784,6 +787,7 @@ export const StandingsView: React.FC<StandingsViewProps> = ({
                           )}
                         </div>
                       </td>
+                      {showHfiRank && <td className={styles.rankColumn}>{s.teamRank ?? '—'}</td>}
                       {show120minScoring ? (
                         <>
                           <td className={`${styles.highlight} ${styles.center}`}>{s.achievements120min}</td>
@@ -851,6 +855,7 @@ export const StandingsView: React.FC<StandingsViewProps> = ({
                         )}
                       </div>
                     </td>
+                    {showHfiRank && <td className={styles.rankColumn}>—</td>}
                     <td colSpan={show120minScoring ? 5 : showAppgScoring ? 5 : 6} />
                   </tr>
                 );
