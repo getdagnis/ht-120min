@@ -5592,25 +5592,6 @@ export const TournamentView: React.FC<{ initialData?: TournamentInitialData }> =
                 <section className={`${adminStyles.teamsSection} ${isPressOfficer ? adminStyles.pressOnlyAdmin : ''}`}>
                   {!isPressOfficer && (
                     <>
-                      {isSiteAdmin && !isSandbox && (
-                        <SectionCard title="Site admin tools">
-                          <p className={adminStyles.smallNote}>
-                            Create a private, detached sandbox using the current competition settings and effective
-                            roster. Team metadata is refreshed from Hattrick before the copy is created.
-                          </p>
-                          <div className={adminStyles.settingsActions}>
-                            <Button
-                              type="button"
-                              variant="secondaryAction"
-                              size="sm"
-                              onClick={duplicateAsSandbox}
-                              disabled={isDuplicatingSandbox}
-                            >
-                              {isDuplicatingSandbox ? 'Creating sandbox…' : 'Duplicate as sandbox'}
-                            </Button>
-                          </div>
-                        </SectionCard>
-                      )}
                       <div id="admin-panel-settings">
                         <SectionCard
                           title="Tournament Settings"
@@ -5620,8 +5601,8 @@ export const TournamentView: React.FC<{ initialData?: TournamentInitialData }> =
                             togglePanel('settings', !resolvedSettingsCollapsed, setIsSettingsCollapsed)
                           }
                         >
-                        <div className={adminStyles.settingsGroup}>
-                          {/* EDIT TOURNAMENT NAME **
+                          <div className={adminStyles.settingsGroup}>
+                            {/* EDIT TOURNAMENT NAME **
                       <div className={adminStyles.field}>
 
                         <div className={adminStyles.labelRow}>
@@ -5633,371 +5614,377 @@ export const TournamentView: React.FC<{ initialData?: TournamentInitialData }> =
                         <input type="text" value={editName} onChange={(e) => setEditName(e.target.value)} />
                       </div> */}
 
-                          <div className={adminStyles.meta}>
-                            <div className={adminStyles.metaItem}>
-                              {!isMobile ? (
-                                <span className={adminStyles.label}>Public URL:</span>
-                              ) : (
-                                <span className={adminStyles.label}>URL:</span>
-                              )}
-                              <a href={publicUrl} target="_blank" className={styles.publicUrl}>
-                                <code>{publicUrlDisplay}</code>
-                              </a>
-                              <CopySimple
-                                size={24}
-                                onClick={() => {
-                                  navigator.clipboard.writeText(publicUrl);
-                                  alert('URL copied!');
-                                }}
-                                weight="bold"
-                                className={adminStyles.copyIcon}
-                              />
-                            </div>
-                            <div className={adminStyles.metaItem}>
-                              {!isMobile ? (
-                                <span className={adminStyles.label}>Admin Password:</span>
-                              ) : (
-                                <span className={adminStyles.label}>Password:</span>
-                              )}
-
-                              <code>{tournament.admin_password}</code>
-                              {canLoginAsOrganizer && (
-                                <button
-                                  type="button"
-                                  onClick={handleResetAdminPassword}
+                            <div className={adminStyles.meta}>
+                              <div className={adminStyles.metaItem}>
+                                {!isMobile ? (
+                                  <span className={adminStyles.label}>Public URL:</span>
+                                ) : (
+                                  <span className={adminStyles.label}>URL:</span>
+                                )}
+                                <a href={publicUrl} target="_blank" className={styles.publicUrl}>
+                                  <code>{publicUrlDisplay}</code>
+                                </a>
+                                <CopySimple
+                                  size={24}
+                                  onClick={() => {
+                                    navigator.clipboard.writeText(publicUrl);
+                                    alert('URL copied!');
+                                  }}
+                                  weight="bold"
                                   className={adminStyles.copyIcon}
-                                  title="Reset password"
-                                  aria-label="Reset tournament admin password"
-                                  disabled={isResettingAdminPassword}
-                                >
-                                  <ArrowClockwise size={18} weight="bold" />
-                                </button>
-                              )}
-                              <CopySimple
-                                size={24}
-                                onClick={() => {
-                                  navigator.clipboard.writeText(tournament.admin_password);
-                                  alert("Password copied! Don't lose it.");
-                                }}
-                                weight="bold"
-                                className={adminStyles.copyIcon}
-                              />
-                            </div>
-                          </div>
-
-                          <div className={adminStyles.field}>
-                            {renderSettingsLabel(
-                              'Tournament Category',
-                              participantTeams.length > 0 && !isSiteAdmin ? '(locked once teams register)' : undefined,
-                            )}
-                            <select
-                              value={editLeagueCategory}
-                              onChange={(e) => setEditLeagueCategory(e.target.value as any)}
-                              disabled={participantTeams.length > 0 && !isSiteAdmin}
-                              className={adminStyles.selectField}
-                            >
-                              <option value="male">Regular league (male)</option>
-                              <option value="hfi">Hattrick Femme International (HFI)</option>
-                            </select>
-                            {renderUnsavedSettingsNote(unsavedSettingsFields.leagueCategory)}
-                          </div>
-
-                          <div className={adminStyles.field}>
-                            {renderSettingsLabel('Team limit', '(set maximum allowed, minimum is 2)')}
-                            <select
-                              value={editMaxTeams ?? ''}
-                              onChange={(e) => setEditMaxTeams(e.target.value ? Number(e.target.value) : null)}
-                              className={adminStyles.selectField}
-                            >
-                              <option value="">Undecided (open till start)</option>
-                              {[2, 4, 6, 8, 10, 12].map((n) => (
-                                <option key={n} value={n}>
-                                  {n} teams
-                                </option>
-                              ))}
-                            </select>
-                            {renderUnsavedSettingsNote(unsavedSettingsFields.maxTeams)}
-                          </div>
-
-                          <div className={adminStyles.field}>
-                            {renderSettingsLabel(
-                              isStartDateLocked ? 'Start date' : 'Planned start date',
-                              isStartDateLocked
-                                ? '(locked by first fixture)'
-                                : '(will lock to first fixture when present)',
-                            )}
-                            {isStartDateLocked && firstKnownFixtureDate ? (
-                              <>
-                                <input
-                                  type="text"
-                                  value={formatCalendarDateWithWeek(firstKnownFixtureDate, 'short')}
-                                  disabled
-                                  className={adminStyles.selectField}
                                 />
-                              </>
-                            ) : (
-                              <>
-                                <select
-                                  value={scheduleStartSlotId}
-                                  onChange={(e) => setScheduleStartSlotId(e.target.value)}
-                                  disabled={scheduleDraft.startSlotOptions.length === 0}
-                                  className={adminStyles.selectField}
-                                >
-                                  <option value="" disabled>
-                                    {scheduleDraft.startSlotOptions.length > 0
-                                      ? 'Select a start date...'
-                                      : 'Not enough teams'}
-                                  </option>
-                                  {scheduleDraft.startSlotOptions.map((slot) => (
-                                    <option key={slot.id} value={slot.id}>
-                                      {`HT S${slot.ht120minSeason} W${slot.htWeek} • ${formatCalendarDateWithWeek(slot.nominalDate, 'short')}`}
-                                    </option>
-                                  ))}
-                                </select>
-                              </>
-                            )}
-                            {renderUnsavedSettingsNote(unsavedSettingsFields.scheduleStart)}
-                          </div>
+                              </div>
+                              <div className={adminStyles.metaItem}>
+                                {!isMobile ? (
+                                  <span className={adminStyles.label}>Admin Password:</span>
+                                ) : (
+                                  <span className={adminStyles.label}>Password:</span>
+                                )}
 
-                          <div className={adminStyles.field}>
-                            {renderSettingsLabel('Registration')}
-                            <Switch
-                              checked={editRegistrationOpen}
-                              onChange={setEditRegistrationOpen}
-                              size="sm"
-                              label={
-                                editRegistrationOpen
-                                  ? 'Tournament open for registration'
-                                  : 'Tournament closed for registration'
-                              }
-                            />
-                            {renderUnsavedSettingsNote(unsavedSettingsFields.registrationOpen)}
-                          </div>
-
-                          <div className={adminStyles.checkboxField}>
-                            <label className={adminStyles.checkboxLabel}>
-                              <input
-                                type="checkbox"
-                                checked={editIsPrivate}
-                                onChange={(e) => setEditIsPrivate(e.target.checked)}
-                              />
-                              Private Tournament (unlisted on home page)
-                            </label>
-                            {renderUnsavedSettingsNote(unsavedSettingsFields.private)}
-                          </div>
-
-                          <div>
-                            <div className={adminStyles.checkboxField}>
-                              <div className={adminStyles.labelRow}>
-                                <label className={adminStyles.checkboxLabel}>
-                                  <input
-                                    type="checkbox"
-                                    checked={showEditDescription}
-                                    onChange={(e) => setShowEditDescription(e.target.checked)}
-                                  />
-                                  Show Description
-                                </label>
-                                {showEditDescription && (
+                                <code>{tournament.admin_password}</code>
+                                {canLoginAsOrganizer && (
                                   <button
                                     type="button"
-                                    onClick={() => regenerateDescription(false)}
-                                    className={adminStyles.iconBtn}
-                                    title="Regenerate description"
+                                    onClick={handleResetAdminPassword}
+                                    className={adminStyles.copyIcon}
+                                    title="Reset password"
+                                    aria-label="Reset tournament admin password"
+                                    disabled={isResettingAdminPassword}
                                   >
-                                    <ArrowClockwise size={20} weight="bold" />
+                                    <ArrowClockwise size={18} weight="bold" />
                                   </button>
                                 )}
-                              </div>
-                              {renderUnsavedSettingsNote(unsavedSettingsFields.showDescription)}
-                            </div>
-
-                            {showEditDescription && (
-                              <div className={`${adminStyles.textField} ${styles.mt1}`}>
-                                <textarea
-                                  value={editDescription}
-                                  onChange={(e) => setEditDescription(e.target.value)}
-                                  placeholder="Tournament description..."
-                                  rows={6}
+                                <CopySimple
+                                  size={24}
+                                  onClick={() => {
+                                    navigator.clipboard.writeText(tournament.admin_password);
+                                    alert("Password copied! Don't lose it.");
+                                  }}
+                                  weight="bold"
+                                  className={adminStyles.copyIcon}
                                 />
-                                {renderUnsavedSettingsNote(unsavedSettingsFields.description)}
                               </div>
-                            )}
-
-                            <div className={`${adminStyles.field} ${styles.mt1}`}>
-                              <label htmlFor="tournament-forum-id">Tournament HT-Forum thread ID</label>
-                              <input
-                                id="tournament-forum-id"
-                                type="text"
-                                inputMode="numeric"
-                                pattern="[0-9]*"
-                                value={editForumId}
-                                onChange={(event) => setEditForumId(event.target.value.replace(/\D/g, ''))}
-                                placeholder="17682260"
-                              />
-                              {renderUnsavedSettingsNote(unsavedSettingsFields.forumId)}
-                            </div>
-                          </div>
-
-                          {isSiteAdmin && (
-                            <div className={`${adminStyles.checkboxField} ${styles.formDivider}`}>
-                              <label className={adminStyles.checkboxLabel}>
-                                <input type="checkbox" checked={isTest} onChange={(e) => setIsTest(e.target.checked)} />
-                                Testing Ground
-                              </label>
-                              {renderUnsavedSettingsNote(unsavedSettingsFields.test)}
-                            </div>
-                          )}
-
-                          {canManageFeaturedTournaments && (
-                            <div className={`${adminStyles.checkboxField} ${styles.formDivider}`}>
-                              <label className={adminStyles.checkboxLabel}>
-                                <input
-                                  type="checkbox"
-                                  checked={editIsFeatured}
-                                  onChange={(e) => setEditIsFeatured(e.target.checked)}
-                                />
-                                <Star size={16} weight="bold" />
-                                Featured tournament
-                              </label>
-                              <p className={adminStyles.smallNote}>Pinned to the top of its public lists.</p>
-                              {renderUnsavedSettingsNote(unsavedSettingsFields.featured)}
-                            </div>
-                          )}
-                        </div>
-                        <div className={adminStyles.settingsActions}>
-                          <Button
-                            onClick={updateSettings}
-                            disabled={isUpdatingSettings}
-                            variant={settingsHasUnsavedChanges ? 'primary' : 'secondaryAction'}
-                            size="sm"
-                          >
-                            {isUpdatingSettings ? 'Saving...' : 'Save Settings'}
-                          </Button>
-                          <Button
-                            type="button"
-                            onClick={() => setShowAdvancedSettings((current) => !current)}
-                            variant="secondaryAction"
-                            size="sm"
-                          >
-                            {showAdvancedSettings ? 'Hide more settings' : 'Show more settings'}
-                          </Button>
-                        </div>
-                        {renderUnsavedSettingsNote(settingsHasUnsavedChanges)}
-                        {showAdvancedSettings && (
-                          <div className={adminStyles.settingsGroup}>
-                            <div className={adminStyles.field}>
-                              {renderSettingsLabel('Schedule setup', '(advanced setting, see FAQ)')}
-                              <select
-                                value={scheduleSetup}
-                                onChange={(event) => setScheduleSetup(event.target.value as ScheduleSetup)}
-                                className={adminStyles.selectField}
-                              >
-                                <option value="generated">Generated schedule</option>
-                                <option value="manual">No pre-made schedule</option>
-                              </select>
-                              {renderUnsavedSettingsNote(unsavedSettingsFields.scheduleMode)}
                             </div>
 
                             <div className={adminStyles.field}>
                               {renderSettingsLabel(
-                                'Tournament Type',
+                                'Tournament Category',
                                 participantTeams.length > 0 && !isSiteAdmin
                                   ? '(locked once teams register)'
                                   : undefined,
                               )}
                               <select
-                                value={editRegistrationType}
-                                onChange={(e) =>
-                                  setEditRegistrationType(normalizeTournamentRegistrationType(e.target.value))
-                                }
+                                value={editLeagueCategory}
+                                onChange={(e) => setEditLeagueCategory(e.target.value as any)}
                                 disabled={participantTeams.length > 0 && !isSiteAdmin}
                                 className={adminStyles.selectField}
                               >
-                                <option value="validated">Hattrick Validated (CHPP)</option>
-                                <option value="manual">Organizer-Managed</option>
-                                <option value="sandbox">Sandbox Playground</option>
+                                <option value="male">Regular league (male)</option>
+                                <option value="hfi">Hattrick Femme International (HFI)</option>
                               </select>
-                              {renderUnsavedSettingsNote(unsavedSettingsFields.registrationType)}
+                              {renderUnsavedSettingsNote(unsavedSettingsFields.leagueCategory)}
                             </div>
 
                             <div className={adminStyles.field}>
-                              {renderSettingsLabel('Country limit', '(locked to already registerd teams)')}
+                              {renderSettingsLabel('Team limit', '(set maximum allowed, minimum is 2)')}
                               <select
-                                value={editCountryLimit || ''}
-                                onChange={(e) => {
-                                  const nextCountryLimit = e.target.value || null;
-                                  const mismatch = getActiveTeamRestrictionMismatch(nextCountryLimit);
-                                  if (mismatch) {
-                                    alert(mismatch);
-                                    return;
-                                  }
-                                  setEditCountryLimit(nextCountryLimit);
-                                }}
+                                value={editMaxTeams ?? ''}
+                                onChange={(e) => setEditMaxTeams(e.target.value ? Number(e.target.value) : null)}
                                 className={adminStyles.selectField}
                               >
-                                <option value="">Any country</option>
-                                {editCountryLimit && !currentLeagueRestrictionIsCompatible && (
-                                  <option value={editCountryLimit} disabled>
-                                    Current setting conflicts with registered teams
-                                  </option>
-                                )}
-                                {leagueRestrictionOptions.map((option) => (
-                                  <option key={option.value} value={option.value}>
-                                    {option.label}
+                                <option value="">Undecided (open till start)</option>
+                                {[2, 4, 6, 8, 10, 12].map((n) => (
+                                  <option key={n} value={n}>
+                                    {n} teams
                                   </option>
                                 ))}
                               </select>
-                              {(() => {
-                                const countries = Array.from(
-                                  new Set(
-                                    teams
-                                      .filter((team) => team.active && !team.is_placeholder)
-                                      .map((team) =>
-                                        normalizeLeagueLimit(
-                                          team.country_id ? String(team.country_id) : team.country_name,
-                                        ),
-                                      )
-                                      .filter(Boolean),
-                                  ),
-                                );
-                                if (countries.length >= 2) {
-                                  return (
-                                    <p className={adminStyles.smallNote}>
-                                      Teams from at least 2 countries already registered.
-                                    </p>
-                                  );
-                                }
-                                return null;
-                              })()}
-                              {renderUnsavedSettingsNote(unsavedSettingsFields.countryLimit)}
+                              {renderUnsavedSettingsNote(unsavedSettingsFields.maxTeams)}
                             </div>
 
-                            <div className={styles.mt1}>
+                            <div className={adminStyles.field}>
+                              {renderSettingsLabel(
+                                isStartDateLocked ? 'Start date' : 'Planned start date',
+                                isStartDateLocked
+                                  ? '(locked by first fixture)'
+                                  : '(will lock to first fixture when present)',
+                              )}
+                              {isStartDateLocked && firstKnownFixtureDate ? (
+                                <>
+                                  <input
+                                    type="text"
+                                    value={formatCalendarDateWithWeek(firstKnownFixtureDate, 'short')}
+                                    disabled
+                                    className={adminStyles.selectField}
+                                  />
+                                </>
+                              ) : (
+                                <>
+                                  <select
+                                    value={scheduleStartSlotId}
+                                    onChange={(e) => setScheduleStartSlotId(e.target.value)}
+                                    disabled={scheduleDraft.startSlotOptions.length === 0}
+                                    className={adminStyles.selectField}
+                                  >
+                                    <option value="" disabled>
+                                      {scheduleDraft.startSlotOptions.length > 0
+                                        ? 'Select a start date...'
+                                        : 'Not enough teams'}
+                                    </option>
+                                    {scheduleDraft.startSlotOptions.map((slot) => (
+                                      <option key={slot.id} value={slot.id}>
+                                        {`HT S${slot.ht120minSeason} W${slot.htWeek} • ${formatCalendarDateWithWeek(slot.nominalDate, 'short')}`}
+                                      </option>
+                                    ))}
+                                  </select>
+                                </>
+                              )}
+                              {renderUnsavedSettingsNote(unsavedSettingsFields.scheduleStart)}
+                            </div>
+
+                            <div className={adminStyles.field}>
+                              {renderSettingsLabel('Registration')}
+                              <Switch
+                                checked={editRegistrationOpen}
+                                onChange={setEditRegistrationOpen}
+                                size="sm"
+                                label={
+                                  editRegistrationOpen
+                                    ? 'Tournament open for registration'
+                                    : 'Tournament closed for registration'
+                                }
+                              />
+                              {renderUnsavedSettingsNote(unsavedSettingsFields.registrationOpen)}
+                            </div>
+
+                            <div className={adminStyles.checkboxField}>
+                              <label className={adminStyles.checkboxLabel}>
+                                <input
+                                  type="checkbox"
+                                  checked={editIsPrivate}
+                                  onChange={(e) => setEditIsPrivate(e.target.checked)}
+                                />
+                                Private Tournament (unlisted on home page)
+                              </label>
+                              {renderUnsavedSettingsNote(unsavedSettingsFields.private)}
+                            </div>
+
+                            <div>
                               <div className={adminStyles.checkboxField}>
+                                <div className={adminStyles.labelRow}>
+                                  <label className={adminStyles.checkboxLabel}>
+                                    <input
+                                      type="checkbox"
+                                      checked={showEditDescription}
+                                      onChange={(e) => setShowEditDescription(e.target.checked)}
+                                    />
+                                    Show Description
+                                  </label>
+                                  {showEditDescription && (
+                                    <button
+                                      type="button"
+                                      onClick={() => regenerateDescription(false)}
+                                      className={adminStyles.iconBtn}
+                                      title="Regenerate description"
+                                    >
+                                      <ArrowClockwise size={20} weight="bold" />
+                                    </button>
+                                  )}
+                                </div>
+                                {renderUnsavedSettingsNote(unsavedSettingsFields.showDescription)}
+                              </div>
+
+                              {showEditDescription && (
+                                <div className={`${adminStyles.textField} ${styles.mt1}`}>
+                                  <textarea
+                                    value={editDescription}
+                                    onChange={(e) => setEditDescription(e.target.value)}
+                                    placeholder="Tournament description..."
+                                    rows={6}
+                                  />
+                                  {renderUnsavedSettingsNote(unsavedSettingsFields.description)}
+                                </div>
+                              )}
+
+                              <div className={`${adminStyles.field} ${styles.mt1}`}>
+                                <label htmlFor="tournament-forum-id">Tournament HT-Forum thread ID</label>
+                                <input
+                                  id="tournament-forum-id"
+                                  type="text"
+                                  inputMode="numeric"
+                                  pattern="[0-9]*"
+                                  value={editForumId}
+                                  onChange={(event) => setEditForumId(event.target.value.replace(/\D/g, ''))}
+                                  placeholder="17682260"
+                                />
+                                {renderUnsavedSettingsNote(unsavedSettingsFields.forumId)}
+                              </div>
+                            </div>
+
+                            {isSiteAdmin && (
+                              <div className={`${adminStyles.checkboxField} ${styles.formDivider}`}>
                                 <label className={adminStyles.checkboxLabel}>
                                   <input
                                     type="checkbox"
-                                    checked={showEditEmail}
-                                    onChange={(e) => setShowEditEmail(e.target.checked)}
+                                    checked={isTest}
+                                    onChange={(e) => setIsTest(e.target.checked)}
                                   />
-                                  Recovery email address
+                                  Testing Ground
                                 </label>
-                                {renderUnsavedSettingsNote(unsavedSettingsFields.showEmail)}
+                                {renderUnsavedSettingsNote(unsavedSettingsFields.test)}
                               </div>
-                              {showEditEmail && (
-                                <div className={`${adminStyles.textField} ${styles.mt1}`}>
+                            )}
+
+                            {canManageFeaturedTournaments && (
+                              <div className={`${adminStyles.checkboxField} ${styles.formDivider}`}>
+                                <label className={adminStyles.checkboxLabel}>
                                   <input
-                                    type="email"
-                                    value={editAdminEmail}
-                                    onChange={(e) => setEditAdminEmail(e.target.value)}
-                                    placeholder="In case you forget your admin password..."
+                                    type="checkbox"
+                                    checked={editIsFeatured}
+                                    onChange={(e) => setEditIsFeatured(e.target.checked)}
                                   />
-                                  {renderUnsavedSettingsNote(unsavedSettingsFields.adminEmail)}
-                                </div>
-                              )}
-                            </div>
+                                  <Star size={16} weight="bold" />
+                                  Featured tournament
+                                </label>
+                                <p className={adminStyles.smallNote}>Pinned to the top of its public lists.</p>
+                                {renderUnsavedSettingsNote(unsavedSettingsFields.featured)}
+                              </div>
+                            )}
                           </div>
-                        )}
+                          <div className={adminStyles.settingsActions}>
+                            <Button
+                              onClick={updateSettings}
+                              disabled={isUpdatingSettings}
+                              variant={settingsHasUnsavedChanges ? 'primary' : 'secondaryAction'}
+                              size="sm"
+                            >
+                              {isUpdatingSettings ? 'Saving...' : 'Save Settings'}
+                            </Button>
+                            <Button
+                              type="button"
+                              onClick={() => setShowAdvancedSettings((current) => !current)}
+                              variant="secondaryAction"
+                              size="sm"
+                            >
+                              {showAdvancedSettings ? 'Hide more settings' : 'Show more settings'}
+                            </Button>
+                          </div>
+                          {renderUnsavedSettingsNote(settingsHasUnsavedChanges)}
+                          {showAdvancedSettings && (
+                            <div className={adminStyles.settingsGroup}>
+                              <div className={adminStyles.field}>
+                                {renderSettingsLabel('Schedule setup', '(advanced setting, see FAQ)')}
+                                <select
+                                  value={scheduleSetup}
+                                  onChange={(event) => setScheduleSetup(event.target.value as ScheduleSetup)}
+                                  className={adminStyles.selectField}
+                                >
+                                  <option value="generated">Generated schedule</option>
+                                  <option value="manual">No pre-made schedule</option>
+                                </select>
+                                {renderUnsavedSettingsNote(unsavedSettingsFields.scheduleMode)}
+                              </div>
+
+                              <div className={adminStyles.field}>
+                                {renderSettingsLabel(
+                                  'Tournament Type',
+                                  participantTeams.length > 0 && !isSiteAdmin
+                                    ? '(locked once teams register)'
+                                    : undefined,
+                                )}
+                                <select
+                                  value={editRegistrationType}
+                                  onChange={(e) =>
+                                    setEditRegistrationType(normalizeTournamentRegistrationType(e.target.value))
+                                  }
+                                  disabled={participantTeams.length > 0 && !isSiteAdmin}
+                                  className={adminStyles.selectField}
+                                >
+                                  <option value="validated">Hattrick Validated (CHPP)</option>
+                                  <option value="manual">Organizer-Managed</option>
+                                  <option value="sandbox">Sandbox Playground</option>
+                                </select>
+                                {renderUnsavedSettingsNote(unsavedSettingsFields.registrationType)}
+                              </div>
+
+                              <div className={adminStyles.field}>
+                                {renderSettingsLabel('Country limit', '(locked to already registerd teams)')}
+                                <select
+                                  value={editCountryLimit || ''}
+                                  onChange={(e) => {
+                                    const nextCountryLimit = e.target.value || null;
+                                    const mismatch = getActiveTeamRestrictionMismatch(nextCountryLimit);
+                                    if (mismatch) {
+                                      alert(mismatch);
+                                      return;
+                                    }
+                                    setEditCountryLimit(nextCountryLimit);
+                                  }}
+                                  className={adminStyles.selectField}
+                                >
+                                  <option value="">Any country</option>
+                                  {editCountryLimit && !currentLeagueRestrictionIsCompatible && (
+                                    <option value={editCountryLimit} disabled>
+                                      Current setting conflicts with registered teams
+                                    </option>
+                                  )}
+                                  {leagueRestrictionOptions.map((option) => (
+                                    <option key={option.value} value={option.value}>
+                                      {option.label}
+                                    </option>
+                                  ))}
+                                </select>
+                                {(() => {
+                                  const countries = Array.from(
+                                    new Set(
+                                      teams
+                                        .filter((team) => team.active && !team.is_placeholder)
+                                        .map((team) =>
+                                          normalizeLeagueLimit(
+                                            team.country_id ? String(team.country_id) : team.country_name,
+                                          ),
+                                        )
+                                        .filter(Boolean),
+                                    ),
+                                  );
+                                  if (countries.length >= 2) {
+                                    return (
+                                      <p className={adminStyles.smallNote}>
+                                        Teams from at least 2 countries already registered.
+                                      </p>
+                                    );
+                                  }
+                                  return null;
+                                })()}
+                                {renderUnsavedSettingsNote(unsavedSettingsFields.countryLimit)}
+                              </div>
+
+                              <div className={styles.mt1}>
+                                <div className={adminStyles.checkboxField}>
+                                  <label className={adminStyles.checkboxLabel}>
+                                    <input
+                                      type="checkbox"
+                                      checked={showEditEmail}
+                                      onChange={(e) => setShowEditEmail(e.target.checked)}
+                                    />
+                                    Recovery email address
+                                  </label>
+                                  {renderUnsavedSettingsNote(unsavedSettingsFields.showEmail)}
+                                </div>
+                                {showEditEmail && (
+                                  <div className={`${adminStyles.textField} ${styles.mt1}`}>
+                                    <input
+                                      type="email"
+                                      value={editAdminEmail}
+                                      onChange={(e) => setEditAdminEmail(e.target.value)}
+                                      placeholder="In case you forget your admin password..."
+                                    />
+                                    {renderUnsavedSettingsNote(unsavedSettingsFields.adminEmail)}
+                                  </div>
+                                )}
+                              </div>
+                            </div>
+                          )}
                         </SectionCard>
                       </div>
                     </>
@@ -6698,6 +6685,25 @@ export const TournamentView: React.FC<{ initialData?: TournamentInitialData }> =
                         />
                       </SectionCard>
                     </div>
+                  )}
+                  {isSiteAdmin && !isSandbox && (
+                    <SectionCard title="Site admin tools">
+                      <p className={adminStyles.smallNote}>
+                        Create a private, detached sandbox using the current competition settings and effective roster.
+                        Team metadata is refreshed from Hattrick before the copy is created.
+                      </p>
+                      <div className={adminStyles.settingsActions}>
+                        <Button
+                          type="button"
+                          variant="secondaryAction"
+                          size="sm"
+                          onClick={duplicateAsSandbox}
+                          disabled={isDuplicatingSandbox}
+                        >
+                          {isDuplicatingSandbox ? 'Creating sandbox…' : 'Duplicate as sandbox'}
+                        </Button>
+                      </div>
+                    </SectionCard>
                   )}
 
                   <div id="admin-panel-lifecycle" className={adminStyles.footerActions}>
