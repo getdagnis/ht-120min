@@ -120,6 +120,10 @@ interface LocalTeam {
   genderId?: number;
   leagueLevel?: number;
   teamRank?: number;
+  powerRating?: number;
+  powerGlobalRank?: number;
+  powerLeagueRank?: number;
+  powerRegionRank?: number;
 }
 
 interface LinkedOrganizer {
@@ -401,6 +405,10 @@ export const CreateTournament: React.FC = () => {
     genderId?: number;
     leagueLevel?: number;
     teamRank?: number;
+    powerRating?: number;
+    powerGlobalRank?: number;
+    powerLeagueRank?: number;
+    powerRegionRank?: number;
   }> => {
     try {
       const res = await fetch(`/api/teams/info?team_id=${teamId}`);
@@ -414,6 +422,10 @@ export const CreateTournament: React.FC = () => {
         genderId: data.genderId ?? undefined,
         leagueLevel: data.leagueLevel ?? undefined,
         teamRank: data.teamRank ?? undefined,
+        powerRating: data.powerRating ?? undefined,
+        powerGlobalRank: data.powerGlobalRank ?? undefined,
+        powerLeagueRank: data.powerLeagueRank ?? undefined,
+        powerRegionRank: data.powerRegionRank ?? undefined,
       };
     } catch {
       return {};
@@ -439,7 +451,19 @@ export const CreateTournament: React.FC = () => {
       }
 
       // 2. Fetch logo
-      const { logoUrl, countryName, countryId, leagueId, genderId, leagueLevel, teamRank } = await fetchTeamLogoFromChpp(
+      const {
+        logoUrl,
+        countryName,
+        countryId,
+        leagueId,
+        genderId,
+        leagueLevel,
+        teamRank,
+        powerRating,
+        powerGlobalRank,
+        powerLeagueRank,
+        powerRegionRank,
+      } = await fetchTeamLogoFromChpp(
         team.teamId,
       );
 
@@ -459,6 +483,10 @@ export const CreateTournament: React.FC = () => {
         genderId,
         leagueLevel,
         teamRank,
+        powerRating,
+        powerGlobalRank,
+        powerLeagueRank,
+        powerRegionRank,
       };
 
       const updatedTeams =
@@ -770,6 +798,10 @@ export const CreateTournament: React.FC = () => {
         genderId: newTeamData?.genderId,
         leagueLevel: newTeamData?.leagueLevel,
         teamRank: newTeamData?.teamRank,
+        powerRating: newTeamData?.powerRating,
+        powerGlobalRank: newTeamData?.powerGlobalRank,
+        powerLeagueRank: newTeamData?.powerLeagueRank,
+        powerRegionRank: newTeamData?.powerRegionRank,
         managerName: newTeamData ? 'Bot team' : undefined,
       },
     ];
@@ -801,6 +833,10 @@ export const CreateTournament: React.FC = () => {
         genderId: sandboxCandidate.genderId,
         leagueLevel: sandboxCandidate.leagueLevel,
         teamRank: sandboxCandidate.teamRank,
+        powerRating: sandboxCandidate.powerRating,
+        powerGlobalRank: sandboxCandidate.powerGlobalRank,
+        powerLeagueRank: sandboxCandidate.powerLeagueRank,
+        powerRegionRank: sandboxCandidate.powerRegionRank,
         managerName: 'Bot team',
       },
     ];
@@ -983,6 +1019,10 @@ export const CreateTournament: React.FC = () => {
         gender_id: t.genderId ?? null,
         league_level: t.leagueLevel ?? null,
         team_rank: t.teamRank ?? null,
+        power_rating: t.powerRating ?? null,
+        power_global_rank: t.powerGlobalRank ?? null,
+        power_league_rank: t.powerLeagueRank ?? null,
+        power_region_rank: t.powerRegionRank ?? null,
       }));
 
       const { error: teamsError } = await supabase.from('teams').insert(teamsToInsert);

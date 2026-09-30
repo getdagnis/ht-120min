@@ -384,6 +384,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         countryId,
         countryName,
         teamRank: teamDetails?.teamRank ?? null,
+        powerRating: teamDetails?.powerRating ?? null,
+        powerGlobalRank: teamDetails?.powerGlobalRank ?? null,
+        powerLeagueRank: teamDetails?.powerLeagueRank ?? null,
+        powerRegionRank: teamDetails?.powerRegionRank ?? null,
         joinStory,
         skipMembershipCheck: isSuperAdmin,
       });

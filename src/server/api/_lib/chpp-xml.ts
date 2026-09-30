@@ -72,6 +72,10 @@ export interface ParsedTeamDetails {
   regionName?: string;
   foundedDate?: string;
   teamRank?: number;
+  powerRating?: number;
+  powerGlobalRank?: number;
+  powerLeagueRank?: number;
+  powerRegionRank?: number;
   logoUrl?: string;
   genderId?: number;
   arenaId?: number;
@@ -109,6 +113,12 @@ export function parseTeamDetailsXml(xml: string, teamId: number): ParsedTeamDeta
     const countryIdRaw = block.match(/<Country>[\s\S]*?<CountryID>(\d+)<\/CountryID>/i)?.[1];
     const regionIdRaw = block.match(/<Region>[\s\S]*?<RegionID>(\d+)<\/RegionID>/i)?.[1];
     const teamRankRaw = readChppTag(block, 'TeamRank');
+    const powerRatingRaw =
+      block.match(/<PowerRating>[\s\S]*?<PowerRating>\s*(\d+)\s*<\/PowerRating>/i)?.[1] ??
+      block.match(/<PowerRating>\s*(\d+)\s*<\/PowerRating>/i)?.[1];
+    const powerGlobalRankRaw = readChppTag(block, 'GlobalRanking') ?? readChppTag(block, 'PowerGlobalRank');
+    const powerLeagueRankRaw = readChppTag(block, 'LeagueRanking') ?? readChppTag(block, 'PowerLeagueRank');
+    const powerRegionRankRaw = readChppTag(block, 'RegionRanking') ?? readChppTag(block, 'PowerRegionRank');
     const countryId = countryIdRaw ? parseInt(countryIdRaw, 10) : undefined;
     const leagueId = leagueIdRaw ? parseInt(leagueIdRaw, 10) : undefined;
     const friendlyTeamIdRaw = block.match(/<FriendlyTeamID>(\d+)<\/FriendlyTeamID>/i)?.[1];
@@ -131,6 +141,10 @@ export function parseTeamDetailsXml(xml: string, teamId: number): ParsedTeamDeta
       regionName: readChppTag(block, 'RegionName'),
       foundedDate: readChppTag(block, 'FoundedDate'),
       teamRank: teamRankRaw ? parseInt(teamRankRaw, 10) : undefined,
+      powerRating: powerRatingRaw ? parseInt(powerRatingRaw, 10) : undefined,
+      powerGlobalRank: powerGlobalRankRaw ? parseInt(powerGlobalRankRaw, 10) : undefined,
+      powerLeagueRank: powerLeagueRankRaw ? parseInt(powerLeagueRankRaw, 10) : undefined,
+      powerRegionRank: powerRegionRankRaw ? parseInt(powerRegionRankRaw, 10) : undefined,
       logoUrl,
       arenaId: arenaIdRaw ? parseInt(arenaIdRaw, 10) : undefined,
       arenaName: readChppTag(block, 'ArenaName'),

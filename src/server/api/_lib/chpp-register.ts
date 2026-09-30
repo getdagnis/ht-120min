@@ -76,6 +76,10 @@ export async function registerOAuthTeam(
     countryId?: number | null;
     countryName?: string;
     teamRank?: number | null;
+    powerRating?: number | null;
+    powerGlobalRank?: number | null;
+    powerLeagueRank?: number | null;
+    powerRegionRank?: number | null;
     joinStory?: TournamentJoinStory | null;
     skipMembershipCheck?: boolean;
   },
@@ -121,6 +125,10 @@ export async function registerOAuthTeam(
         gender_id: input.team.genderId ?? null,
         league_level: input.team.leagueLevel ?? null,
         team_rank: input.teamRank ?? null,
+        power_rating: input.powerRating ?? null,
+        power_global_rank: input.powerGlobalRank ?? null,
+        power_league_rank: input.powerLeagueRank ?? null,
+        power_region_rank: input.powerRegionRank ?? null,
         join_story: input.joinStory ?? null,
         oauth_token: input.accessToken,
         oauth_token_secret: input.accessTokenSecret,
@@ -209,6 +217,10 @@ export async function registerOAuthTeam(
     gender_id: input.team.genderId ?? null,
     league_level: input.team.leagueLevel ?? null,
     team_rank: input.teamRank ?? null,
+    power_rating: input.powerRating ?? null,
+    power_global_rank: input.powerGlobalRank ?? null,
+    power_league_rank: input.powerLeagueRank ?? null,
+    power_region_rank: input.powerRegionRank ?? null,
     logo_url: input.logoUrl ?? null,
     oauth_token: input.accessToken,
     oauth_token_secret: input.accessTokenSecret,
@@ -297,6 +309,10 @@ export async function registerReserveTeam(
     countryId?: number | null;
     countryName?: string | null;
     teamRank?: number | null;
+    powerRating?: number | null;
+    powerGlobalRank?: number | null;
+    powerLeagueRank?: number | null;
+    powerRegionRank?: number | null;
   },
 ) {
   const conflict = (await getActiveTournamentConflicts(supabase, [input.team.teamId], input.tournamentId)).get(
@@ -352,6 +368,10 @@ export async function registerReserveTeam(
     gender_id: input.team.genderId ?? null,
     league_level: input.team.leagueLevel ?? null,
     team_rank: input.teamRank ?? null,
+    power_rating: input.powerRating ?? null,
+    power_global_rank: input.powerGlobalRank ?? null,
+    power_league_rank: input.powerLeagueRank ?? null,
+    power_region_rank: input.powerRegionRank ?? null,
     logo_url: input.logoUrl ?? null,
     oauth_token: input.accessToken,
     oauth_token_secret: input.accessTokenSecret,

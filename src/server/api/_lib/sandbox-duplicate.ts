@@ -117,6 +117,10 @@ export async function loadSandboxSnapshotInput(
       gender_id: details.genderId ?? null,
       league_level: details.leagueLevel ?? null,
       team_rank: details.teamRank ?? null,
+      power_rating: details.powerRating ?? null,
+      power_global_rank: details.powerGlobalRank ?? null,
+      power_league_rank: details.powerLeagueRank ?? null,
+      power_region_rank: details.powerRegionRank ?? null,
       manager_name: team.manager_name || null,
     });
   }

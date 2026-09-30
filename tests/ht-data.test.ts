@@ -67,6 +67,12 @@ test('teamdetails parser keeps CHPP CountryID but canonicalizes Latvia display n
               <LeagueLevelUnitName>IV.35</LeagueLevelUnitName>
               <LeagueLevel>4</LeagueLevel>
             </LeagueLevelUnit>
+            <PowerRating>
+              <GlobalRanking>30136</GlobalRanking>
+              <LeagueRanking>222</LeagueRanking>
+              <RegionRanking>9</RegionRanking>
+              <PowerRating>967</PowerRating>
+            </PowerRating>
             <TeamRank>4</TeamRank>
           </Team>
         </Teams>
@@ -86,6 +92,10 @@ test('teamdetails parser keeps CHPP CountryID but canonicalizes Latvia display n
   assert.equal(parsed.regionName, 'Talsi');
   assert.equal(parsed.foundedDate, '2026-03-16 11:32:00');
   assert.equal(parsed.teamRank, 4);
+  assert.equal(parsed.powerRating, 967);
+  assert.equal(parsed.powerGlobalRank, 30136);
+  assert.equal(parsed.powerLeagueRank, 222);
+  assert.equal(parsed.powerRegionRank, 9);
   assert.equal(parsed.stillInCup, true);
   assert.equal(parseClientTeamDetailsXml(
     `
