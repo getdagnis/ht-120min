@@ -361,8 +361,8 @@ async function handleSaveLengthResults(req: VercelRequest, res: VercelResponse) 
     total_minutes: update.totalMinutes,
     penalty_shootout_home_goals: update.penaltyShootoutHomeGoals,
     penalty_shootout_away_goals: update.penaltyShootoutAwayGoals,
-    appg_outcome: update.appgOutcome,
-    appg_outcome_source: update.appgOutcomeSource,
+    appg_outcome: update.appgOutcome ?? 'needs_review',
+    appg_outcome_source: update.appgOutcomeSource ?? 'unclassified',
   }));
   const { data, error } = await supabase.rpc('save_length_schedule_results', {
     p_tournament_id: tournamentId,

@@ -411,8 +411,12 @@ BEGIN
     IF v_round->>'phase' IS DISTINCT FROM v_expected_phase THEN
       RAISE EXCEPTION 'Round phase does not match the season plan' USING ERRCODE = '22023';
     END IF;
-    IF NULLIF(v_round->>'phase_round_number', '')::integer IS DISTINCT FROM
-      CASE WHEN v_expected_phase = 'regular' THEN v_round_index ELSE v_round_index - v_regular_rounds END THEN
+    IF NULLIF(v_round->>'phase_round_number', '')::integer IS DISTINCT FROM (
+      CASE
+        WHEN v_expected_phase = 'regular' THEN v_round_index
+        ELSE v_round_index - v_regular_rounds
+      END
+    ) THEN
       RAISE EXCEPTION 'Phase round numbers must be sequential' USING ERRCODE = '22023';
     END IF;
     IF (v_round_index = 1 AND v_round->>'phase_status' IS DISTINCT FROM 'materialized')
@@ -949,3 +953,5 @@ GRANT EXECUTE ON FUNCTION public.repair_length_schedule_round(uuid, integer, uui
 GRANT EXECUTE ON FUNCTION public.save_length_schedule_results(uuid, integer, jsonb) TO service_role;
 
 COMMIT;
+
+-- applied!

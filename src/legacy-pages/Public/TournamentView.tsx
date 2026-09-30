@@ -1987,20 +1987,22 @@ export const TournamentView: React.FC<{ initialData?: TournamentInitialData }> =
                 ? nextProfileMap[t.hattrick_user_id]?.manager_name || t.manager_name
                 : t.manager_name,
             })),
-            mergedMatches.filter((match) => regularRoundIds.has(match.round_id)).map((m) => ({
-              home_team_id: m.home_team_id,
-              away_team_id: m.away_team_id,
-              home_slot_id: m.home_slot_id,
-              away_slot_id: m.away_slot_id,
-              home_goals: m.home_goals,
-              away_goals: m.away_goals,
-              completed: m.completed,
-              went_120: m.went_120,
-              total_minutes: m.total_minutes,
-              appg_outcome: m.appg_outcome,
-              penalty_shootout_home_goals: m.penalty_shootout_home_goals,
-              penalty_shootout_away_goals: m.penalty_shootout_away_goals,
-            })),
+            mergedMatches
+              .filter((match) => regularRoundIds.has(match.round_id))
+              .map((m) => ({
+                home_team_id: m.home_team_id,
+                away_team_id: m.away_team_id,
+                home_slot_id: m.home_slot_id,
+                away_slot_id: m.away_slot_id,
+                home_goals: m.home_goals,
+                away_goals: m.away_goals,
+                completed: m.completed,
+                went_120: m.went_120,
+                total_minutes: m.total_minutes,
+                appg_outcome: m.appg_outcome,
+                penalty_shootout_home_goals: m.penalty_shootout_home_goals,
+                penalty_shootout_away_goals: m.penalty_shootout_away_goals,
+              })),
             (slotData || []) as Array<{ id: string; current_team_id: string | null }>,
             tournamentData.scoring_mode as any,
             (slotAssignmentData || []) as SeasonSlotAssignment[],
@@ -3732,11 +3734,7 @@ export const TournamentView: React.FC<{ initialData?: TournamentInitialData }> =
             ? null
             : (tournament?.registration_closed_at ?? new Date().toISOString()),
           schedule_mode:
-            tournament?.schedule_mode === 'length'
-              ? 'length'
-              : scheduleSetup === 'manual'
-                ? 'manual'
-                : scheduleMode,
+            tournament?.schedule_mode === 'length' ? 'length' : scheduleSetup === 'manual' ? 'manual' : scheduleMode,
           schedule_start_slot: nextPlannedStartSlot,
           ...(canManageFeaturedTournaments ? { is_featured: editIsFeatured } : {}),
         })
@@ -4378,7 +4376,8 @@ export const TournamentView: React.FC<{ initialData?: TournamentInitialData }> =
     if (!tournament || tournament.schedule_mode !== 'length') return;
     const currentRound = rounds.find((round) => round.phase_status === 'materialized' && round.phase === 'regular');
     if (!currentRound) return;
-    if (!window.confirm(`Repair Round ${currentRound.round_number}? Correctly arranged fixtures will stay unchanged.`)) return;
+    if (!window.confirm(`Repair Round ${currentRound.round_number}? Correctly arranged fixtures will stay unchanged.`))
+      return;
     setIsRepairingRound(true);
     try {
       const response = await fetch('/api/app?route=repair-length-round', {
@@ -4488,17 +4487,19 @@ export const TournamentView: React.FC<{ initialData?: TournamentInitialData }> =
         body: JSON.stringify({
           tournamentId: tournament.id,
           seasonNumber: tournament.season || 1,
-          updates: [{
-            matchId,
-            homeGoals: payload.home_goals,
-            awayGoals: payload.away_goals,
-            went120: payload.went_120,
-            totalMinutes: payload.total_minutes,
-            penaltyShootoutHomeGoals: payload.penalty_shootout_home_goals,
-            penaltyShootoutAwayGoals: payload.penalty_shootout_away_goals,
-            appgOutcome: data.appg_outcome ?? null,
-            appgOutcomeSource: data.appg_outcome ? 'organizer' : null,
-          }],
+          updates: [
+            {
+              matchId,
+              homeGoals: payload.home_goals,
+              awayGoals: payload.away_goals,
+              went120: payload.went_120,
+              totalMinutes: payload.total_minutes,
+              penaltyShootoutHomeGoals: payload.penalty_shootout_home_goals,
+              penaltyShootoutAwayGoals: payload.penalty_shootout_away_goals,
+              appgOutcome: data.appg_outcome ?? null,
+              appgOutcomeSource: data.appg_outcome ? 'organizer' : null,
+            },
+          ],
         }),
       });
       const body = await response.json().catch(() => ({}));
@@ -4545,7 +4546,9 @@ export const TournamentView: React.FC<{ initialData?: TournamentInitialData }> =
     if (!match) throw new Error('Tournament match not found.');
     const matchRound = rounds.find((round) => round.id === match.round_id);
     if (tournament?.schedule_mode === 'length' && matchRound?.phase_status !== 'materialized') {
-      throw new Error('A completed staged round cannot be rewritten after tournament progression. Use an explicit season repair workflow.');
+      throw new Error(
+        'A completed staged round cannot be rewritten after tournament progression. Use an explicit season repair workflow.',
+      );
     }
 
     if (match.ht_match_id) {
@@ -4716,7 +4719,9 @@ export const TournamentView: React.FC<{ initialData?: TournamentInitialData }> =
 
   const clearSeasonResults = async () => {
     if (tournament?.schedule_mode === 'length') {
-      throw new Error('Staged schedule results cannot be cleared after progression. Reset the season before play begins instead.');
+      throw new Error(
+        'Staged schedule results cannot be cleared after progression. Reset the season before play begins instead.',
+      );
     }
     const matchIds = rounds.flatMap((round) => round.matches.map((match) => match.id));
     if (matchIds.length === 0) return;
@@ -6095,7 +6100,7 @@ export const TournamentView: React.FC<{ initialData?: TournamentInitialData }> =
                                 className={adminStyles.selectField}
                               >
                                 <option value="">Undecided (open till start)</option>
-                                {[2, 4, 6, 8, 10, 12].map((n) => (
+                                {[2, 4, 6, 8, 10, 12, 14].map((n) => (
                                   <option key={n} value={n}>
                                     {n} teams
                                   </option>
