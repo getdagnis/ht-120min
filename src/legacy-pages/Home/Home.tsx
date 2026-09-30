@@ -666,6 +666,7 @@ export const Home: React.FC<{ initialData?: HomeInitialData }> = ({ initialData 
     const hasRounds = (t.rounds?.length ?? 0) > 0;
     const isFinished =
       t.status === 'finished' || (t.totalMatches > 0 && t.totalMatches === t.completedMatches);
+    const tournamentHref = toLocalePath(locale, `/t/${t.slug}`);
     const card = (
       <TournamentCard
         id={t.id}
@@ -676,7 +677,7 @@ export const Home: React.FC<{ initialData?: HomeInitialData }> = ({ initialData 
         countryLimitFormat={t.country_limit_format}
         scoringMode={t.scoring_mode}
         leagueCategory={t.league_category}
-        joinHref={options.join ? toLocalePath(locale, `/t/${t.slug}`) : undefined}
+        joinHref={options.join ? tournamentHref : undefined}
       >
         <div className={styles.tInfo}>
           <div className={styles.tTitleRow}>
@@ -726,11 +727,26 @@ export const Home: React.FC<{ initialData?: HomeInitialData }> = ({ initialData 
     );
 
     return options.join ? (
-      <div key={t.id} className={styles.tournamentLink}>
+      <div
+        key={t.id}
+        className={styles.tournamentLink}
+        role="link"
+        tabIndex={0}
+        onClick={(event) => {
+          if (event.target instanceof HTMLElement && event.target.closest('a,button')) return;
+          router.push(tournamentHref);
+        }}
+        onKeyDown={(event) => {
+          if (event.target !== event.currentTarget) return;
+          if (event.key !== 'Enter' && event.key !== ' ') return;
+          event.preventDefault();
+          router.push(tournamentHref);
+        }}
+      >
         {card}
       </div>
     ) : (
-      <Link key={t.id} href={toLocalePath(locale, `/t/${t.slug}`)} className={styles.tournamentLink}>
+      <Link key={t.id} href={tournamentHref} className={styles.tournamentLink}>
         {card}
       </Link>
     );
