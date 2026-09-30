@@ -79,6 +79,9 @@ interface FixturesViewProps {
     id: string;
     round_number: number;
     created_at: string;
+    phase?: 'regular' | 'postseason';
+    phase_status?: 'pending' | 'materialized' | 'completed';
+    reserved_slot_date?: string | null;
     matches: FixtureMatch[];
   }[];
   season: number;
@@ -263,6 +266,7 @@ export const FixturesView: React.FC<FixturesViewProps> = ({
     let latestFinishedRoundNumber: number | null = null;
 
     for (const round of rounds) {
+      if (round.phase_status === 'pending' || round.matches.length === 0) continue;
       const isFinished = round.matches.every((match) => match.completed || match.status === 'misarranged');
       if (isFinished) latestFinishedRoundNumber = round.round_number;
     }
@@ -561,6 +565,7 @@ export const FixturesView: React.FC<FixturesViewProps> = ({
 
       {filteredRounds.slice(0, visibleRoundsCount).map((round) => {
         const isNextRound = round.id === currentRound?.id;
+        const isPendingRound = round.phase_status === 'pending';
 
         const isExpanded =
           expandedRounds[round.id] ??
@@ -568,11 +573,15 @@ export const FixturesView: React.FC<FixturesViewProps> = ({
             ? true
             : round.round_number >= lastFinishedRoundNumber);
 
-        const allFinished = round.matches.every((m) => m.completed || m.status === 'misarranged');
+        const allFinished = !isPendingRound && round.matches.length > 0 && round.matches.every((m) => m.completed || m.status === 'misarranged');
 
         const nextRound = filteredRounds[filteredRounds.findIndex((r) => r.id === round.id) + 1];
 
-        const roundDate = round.matches[0] ? resolveMatchDate(round, round.matches[0]) : null;
+        const roundDate = round.matches[0]
+          ? resolveMatchDate(round, round.matches[0])
+          : round.reserved_slot_date
+            ? new Date(round.reserved_slot_date)
+            : null;
         const roundTimeZone = round.matches[0] ? getFixtureDisplayTimeZone(round.matches[0]) : undefined;
         const roundWeek = roundDate ? getHattrickWeekDetails(roundDate) : null;
         const roundPeriod = roundDate ? getImportedFixtureRoundPeriod(roundDate) : null;
@@ -627,7 +636,7 @@ export const FixturesView: React.FC<FixturesViewProps> = ({
               title={
                 <div className={styles.roundHeader}>
                   <>
-                    <span>Round {round.round_number}</span>
+                    <span>Round {round.round_number}{round.phase === 'postseason' ? ' — Championship Final' : ''}</span>
                     {roundDate && roundWeek && (
                       <span className={styles.roundDate}>
                         HT Week {roundWeek.htWeek}
@@ -706,6 +715,15 @@ export const FixturesView: React.FC<FixturesViewProps> = ({
             >
               {isExpanded && (
                 <div className={styles.matchesGrid}>
+                  {isPendingRound && (
+                    <div className={`${styles.emptyFixtures} ${styles.registrationStatus}`}>
+                      <p>
+                        {round.phase === 'postseason'
+                          ? 'The top two teams are paired after the regular season is resolved.'
+                          : `Pairings are generated after Round ${round.round_number - 1} is resolved.`}
+                      </p>
+                    </div>
+                  )}
                   {round.matches.map((match) => {
                     const matchDate = resolveMatchDate(round, match);
 
