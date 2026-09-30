@@ -6598,6 +6598,16 @@ export const TournamentView: React.FC<{ initialData?: TournamentInitialData }> =
                                           ) : (
                                             <span className={adminStyles.name}>{team.name || 'Reserve team'}</span>
                                           )}
+                                          {teamPlanningStatuses[team.id]?.inCup === true && (
+                                            <span className={adminStyles.planningStatus}>[in cup]</span>
+                                          )}
+                                          {teamPlanningStatuses[team.id]?.bookedOutsideTournament && (
+                                            <span
+                                              className={`${adminStyles.planningStatus} ${adminStyles.planningStatusBooked}`}
+                                            >
+                                              [booked]
+                                            </span>
+                                          )}
                                         </div>
                                         <div className={adminStyles.teamMeta}>
                                           {team.ht_team_id && (

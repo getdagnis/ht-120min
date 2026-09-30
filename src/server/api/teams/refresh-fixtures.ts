@@ -1119,13 +1119,16 @@ async function handleTeamPlanningStatuses(req: VercelRequest, res: VercelRespons
 
   const { data: teamRows, error: teamsError } = await supabase
     .from('teams')
-    .select('id, ht_team_id, oauth_token, oauth_token_secret, active, is_placeholder')
+    .select('id, ht_team_id, oauth_token, oauth_token_secret, active, reserve_active, is_placeholder')
     .eq('tournament_id', tournamentId);
   if (teamsError) return res.status(500).json({ error: teamsError.message });
 
   const teams = (teamRows || []) as TeamWithAuth[];
   const eligibleTeams = teams.filter(
-    (team) => team.active && !team.is_placeholder && Number(team.ht_team_id) > 0,
+    (team) =>
+      (team.active || team.reserve_active) &&
+      !team.is_placeholder &&
+      Number(team.ht_team_id) > 0,
   );
   const authTeam = eligibleTeams.find((team) => team.oauth_token && team.oauth_token_secret);
   if (!authTeam) return res.status(401).json({ error: 'No CHPP-authenticated team available.' });
