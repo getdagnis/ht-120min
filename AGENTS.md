@@ -40,6 +40,14 @@ Decision check:
 
 If any answer is no, reconsider the scope.
 
+## Domain Modeling Rule
+
+Do not implement a new first-class product concept merely as a projection over unrelated existing tables without
+explicitly presenting that architectural choice. If the UI or domain names something as an entity or event stream,
+consider whether it deserves a first-class table or model. Prefer coherent ownership and discoverability over avoiding
+a migration. A derived projection can still be the right choice, but document its source-of-truth tables, ownership,
+lifecycle, and query contract before treating it as the product's canonical concept.
+
 ## Collaboration Rule
 
 When a task is not completely obvious and trivial, first inspect the issue and explain the likely cause, then ask whether the user prefers a manual fix, a small targeted change, or a broader implementation. Do not start an elaborate workaround before confirming that direction; the user may prefer to clean up data or make the decision themselves.
