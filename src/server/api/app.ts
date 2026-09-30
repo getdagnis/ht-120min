@@ -40,6 +40,11 @@ import {
   type TeamReserveTransitionAction,
 } from './_lib/team-reserve-transition.js';
 import { buildSandboxCopyIdentity, loadSandboxSnapshotInput } from './_lib/sandbox-duplicate.js';
+import {
+  refreshCurrentHfiTeamRanks,
+  validateHfiRankRefreshAccess,
+  type HfiRankParticipant,
+} from './_lib/hfi-rank-refresh.js';
 import type { ChppTeamOption } from './_lib/chpp-xml.js';
 import { getAuthHeader } from './_lib/chpp-auth.js';
 import {
@@ -153,6 +158,78 @@ async function handleDuplicateTournamentAsSandbox(req: VercelRequest, res: Verce
         : typeof error === 'object' && error && 'message' in error && typeof error.message === 'string'
           ? error.message
           : 'Sandbox copy could not be created.';
+    return res.status(422).json({ error: message });
+  }
+}
+
+async function handleUpdateHfiRanks(req: VercelRequest, res: VercelResponse) {
+  if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed.' });
+  const tournamentId = readString(req.body?.tournamentId);
+  if (!tournamentId) return res.status(400).json({ error: 'Missing tournamentId.' });
+
+  const actor = await requireTournamentRoleSession(req, res, tournamentId);
+  if (!actor) return;
+
+  const supabase = getServiceSupabase();
+  const { data: tournament, error: tournamentError } = await supabase
+    .from('tournaments')
+    .select('id, league_category')
+    .eq('id', tournamentId)
+    .maybeSingle();
+  if (tournamentError) throw tournamentError;
+  if (!tournament) return res.status(404).json({ error: 'Tournament not found.' });
+
+  const accessError = validateHfiRankRefreshAccess({
+    canManageOperations: actor.access.canManageOperations,
+    leagueCategory: tournament.league_category,
+  });
+  if (accessError) return res.status(403).json({ error: accessError });
+
+  const consumerKey = process.env.CHPP_CONSUMER_KEY;
+  const consumerSecret = process.env.CHPP_CONSUMER_SECRET;
+  if (!consumerKey || !consumerSecret) {
+    return res.status(500).json({ error: 'CHPP configuration is missing.' });
+  }
+
+  const credentials = await getManagerChppCredentials(supabase, actor.userId);
+  if (!credentials) {
+    return res.status(409).json({ error: 'Refresh your Hattrick login before updating HFI ranks.' });
+  }
+
+  const { data: teamRows, error: teamsError } = await supabase
+    .from('teams')
+    .select('id, name, ht_team_id, active, reserve_active, is_placeholder')
+    .eq('tournament_id', tournamentId)
+    .eq('active', true);
+  if (teamsError) throw teamsError;
+
+  try {
+    const result = await refreshCurrentHfiTeamRanks({
+      participants: (teamRows || []) as HfiRankParticipant[],
+      fetchTeamDetails: (teamId) =>
+        fetchTeamDetailsFromChpp(consumerKey, consumerSecret, credentials, teamId),
+      updateTeamMetadata: async (teamId, update) => {
+        const { data, error } = await supabase
+          .from('teams')
+          .update({
+            team_rank: update.teamRank,
+            power_rating: update.powerRating,
+            power_global_rank: update.powerGlobalRank,
+            power_league_rank: update.powerLeagueRank,
+            power_region_rank: update.powerRegionRank,
+          })
+          .eq('id', teamId)
+          .eq('tournament_id', tournamentId)
+          .select('id')
+          .maybeSingle();
+        if (error) throw error;
+        if (!data) throw new Error('The participant roster changed while ranks were being updated.');
+      },
+    });
+
+    return res.status(200).json(result);
+  } catch (error) {
+    const message = error instanceof Error ? error.message : 'Could not update HFI ranks.';
     return res.status(422).json({ error: message });
   }
 }
@@ -320,6 +397,47 @@ async function handleResetSeasonToPlanning(req: VercelRequest, res: VercelRespon
     return res.status(status).json({ error: error.message });
   }
   return res.status(200).json({ reset: data });
+}
+
+async function handleArchiveTournament(req: VercelRequest, res: VercelResponse) {
+  if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed.' });
+  const tournamentId = readString(req.body?.tournamentId);
+  if (!tournamentId) return res.status(400).json({ error: 'Missing tournamentId.' });
+  if (typeof req.body?.archived !== 'boolean') {
+    return res.status(400).json({ error: 'Missing archived state.' });
+  }
+  const shouldArchive = req.body.archived;
+
+  const actor = await requireTournamentRoleSession(req, res, tournamentId);
+  if (!actor) return;
+  if (!actor.access.canManageOperations) {
+    return res.status(403).json({ error: 'This role cannot archive the tournament.' });
+  }
+
+  const supabase = getServiceSupabase();
+  const { data: tournament, error: tournamentError } = await supabase
+    .from('tournaments')
+    .select('id, status, is_archived')
+    .eq('id', tournamentId)
+    .maybeSingle();
+  if (tournamentError) throw tournamentError;
+  if (!tournament) return res.status(404).json({ error: 'Tournament not found.' });
+  if (!['finished', 'stopped'].includes(tournament.status || '')) {
+    return res.status(409).json({ error: 'Only finished or stopped tournaments can be archived or unarchived.' });
+  }
+  if (Boolean(tournament.is_archived) === shouldArchive) return res.status(200).json({ archived: shouldArchive });
+
+  const { data, error } = await supabase
+    .from('tournaments')
+    .update({ is_archived: shouldArchive })
+    .eq('id', tournamentId)
+    .eq('is_archived', !shouldArchive)
+    .select('id')
+    .maybeSingle();
+  if (error) throw error;
+  if (!data) return res.status(409).json({ error: 'The tournament changed while its archived state was being updated.' });
+
+  return res.status(200).json({ archived: shouldArchive });
 }
 
 async function handleScheduledTeamRemoval(req: VercelRequest, res: VercelResponse) {
@@ -1657,6 +1775,10 @@ async function handleReserveTeams(req: VercelRequest, res: VercelResponse) {
     countryId: team.countryId,
     countryName: team.countryName,
     teamRank: details?.teamRank ?? null,
+    powerRating: details?.powerRating ?? null,
+    powerGlobalRank: details?.powerGlobalRank ?? null,
+    powerLeagueRank: details?.powerLeagueRank ?? null,
+    powerRegionRank: details?.powerRegionRank ?? null,
   });
   return res.status(200).json({ ok: true, teamId: teamRowId });
 }
@@ -2226,6 +2348,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         return await handleTournamentAccess(req, res);
       case 'duplicate-tournament-sandbox':
         return await handleDuplicateTournamentAsSandbox(req, res);
+      case 'update-hfi-ranks':
+        return await handleUpdateHfiRanks(req, res);
       case 'managed-tournaments':
         return await handleManagedTournaments(req, res);
       case 'tournament-participation':
@@ -2234,6 +2358,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         return await handleSeasonSlotReplacement(req, res);
       case 'reset-season-to-planning':
         return await handleResetSeasonToPlanning(req, res);
+      case 'archive-tournament':
+        return await handleArchiveTournament(req, res);
       case 'scheduled-team-removal':
         return await handleScheduledTeamRemoval(req, res);
       case 'admin-team-reserve-transition':
