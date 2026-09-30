@@ -220,7 +220,7 @@ export const FixtureCard: React.FC<FixtureCardProps> = ({
             onClick={challengeAction.onClick}
           >
             {challengeAction.direction === 'left' ? <ArrowLeft size={18} weight="bold" /> : null}
-            Send Challenge
+            Send Challenge!
             {challengeAction.direction === 'right' ? <ArrowRight size={18} weight="bold" /> : null}
           </button>
         ) : ['arranged', 'ongoing', 'finished'].includes(status) && htMatchId ? (
