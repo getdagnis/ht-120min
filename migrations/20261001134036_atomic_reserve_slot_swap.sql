@@ -153,9 +153,9 @@ BEGIN
     WHERE r.tournament_id = p_tournament_id
       AND r.season_number = p_season_number
       AND (m.home_slot_id = v_slot.id OR m.away_slot_id = v_slot.id)
+      AND m.completed IS NOT TRUE
       AND (
-        m.completed IS DISTINCT FROM true
-        OR m.ht_match_id IS NOT NULL
+        m.ht_match_id IS NOT NULL
         OR COALESCE(m.status, 'not_arranged') NOT IN ('not_arranged', 'misarranged')
         OR m.finished_at IS NOT NULL
         OR m.home_goals IS NOT NULL
@@ -210,7 +210,7 @@ BEGIN
     AND r.tournament_id = p_tournament_id
     AND r.season_number = p_season_number
     AND (m.home_slot_id = v_slot.id OR m.away_slot_id = v_slot.id)
-    AND m.completed = false
+    AND m.completed IS NOT TRUE
     AND m.ht_match_id IS NULL
     AND COALESCE(m.status, 'not_arranged') IN ('not_arranged', 'misarranged')
     AND m.finished_at IS NULL
@@ -327,9 +327,9 @@ BEGIN
     WHERE r.tournament_id = p_tournament_id
       AND r.season_number = p_season_number
       AND (m.home_slot_id = v_slot.id OR m.away_slot_id = v_slot.id)
+      AND m.completed IS NOT TRUE
       AND (
-        m.completed IS DISTINCT FROM true
-        OR m.ht_match_id IS NOT NULL
+        m.ht_match_id IS NOT NULL
         OR COALESCE(m.status, 'not_arranged') NOT IN ('not_arranged', 'misarranged')
         OR m.finished_at IS NOT NULL
         OR m.home_goals IS NOT NULL
@@ -373,7 +373,7 @@ BEGIN
     AND r.tournament_id = p_tournament_id
     AND r.season_number = p_season_number
     AND (m.home_slot_id = v_slot.id OR m.away_slot_id = v_slot.id)
-    AND m.completed = false
+    AND m.completed IS NOT TRUE
     AND m.ht_match_id IS NULL
     AND COALESCE(m.status, 'not_arranged') IN ('not_arranged', 'misarranged')
     AND m.finished_at IS NULL
@@ -436,7 +436,7 @@ BEGIN
     WHERE r.tournament_id = p_tournament_id
       AND r.season_number = p_season_number
       AND (m.home_team_id = p_team_id OR m.away_team_id = p_team_id)
-      AND m.completed IS DISTINCT FROM true
+      AND m.completed IS NOT TRUE
   ) THEN
     RAISE EXCEPTION 'Team still has an unresolved current-season fixture' USING ERRCODE = '55000';
   END IF;

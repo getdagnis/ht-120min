@@ -21,6 +21,18 @@ export interface SeasonSlot {
   current_team_id: string | null;
 }
 
+export function mapWarningTeamIdsToStandingsIds(
+  warningTeamIds: Iterable<string>,
+  slots: SeasonSlot[],
+): Set<string> {
+  const slotIdByTeamId = new Map(
+    slots
+      .filter((slot): slot is SeasonSlot & { current_team_id: string } => Boolean(slot.current_team_id))
+      .map((slot) => [slot.current_team_id, slot.id]),
+  );
+  return new Set(Array.from(warningTeamIds, (teamId) => slotIdByTeamId.get(teamId) || teamId));
+}
+
 export interface SeasonSlotAssignment {
   id?: string;
   tournament_season_slot_id: string;

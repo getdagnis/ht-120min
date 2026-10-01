@@ -228,7 +228,7 @@ export const TeamByline: React.FC<TeamBylineProps> = ({
         >
           ID: {teamId}
         </a>
-        <Tooltip id={`${tooltipIdBase}-id`} content="View on Hattrick" className="tooltip" />
+        <Tooltip id={`${tooltipIdBase}-id`} content="View team on Hattrick" className="tooltip" />
 
         <span className={styles.separator}>|</span>
 

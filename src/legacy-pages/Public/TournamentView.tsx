@@ -12,7 +12,11 @@ import adminStyles from './TournamentAdmin.module.sass';
 import styles from './TournamentView.module.sass';
 import { buildCalendarSlots, formatCalendarDateWithWeek } from '../../utils/hattrick-calendar';
 import { getTournamentBackgroundStyle } from '../../utils/visuals';
-import { calculateSeasonSlotStandings, calculateStandings } from '../../utils/standings';
+import {
+  calculateSeasonSlotStandings,
+  calculateStandings,
+  mapWarningTeamIdsToStandingsIds,
+} from '../../utils/standings';
 import { validateAppgOutcome } from '../../utils/appg';
 import { isCurrentParticipantTeam } from '../../utils/team-state';
 import { isAppg120ScoringMode } from '../../../shared/scoring-profile';
@@ -5251,8 +5255,7 @@ export const TournamentView: React.FC<{ initialData?: TournamentInitialData }> =
       return round.reserved_slot_date ? new Date(round.reserved_slot_date).getTime() : null;
     });
 
-    return new Set(
-      warnings
+    const warningTeamIds = warnings
         .filter((warning) => warning.active !== false && typeof warning.team_id === 'string')
         .filter((warning) => {
           const warningRoundIndex = rounds.findIndex((round) => round.id === warning.round_id);
@@ -5261,8 +5264,9 @@ export const TournamentView: React.FC<{ initialData?: TournamentInitialData }> =
             .slice(warningRoundIndex + 1)
             .some((roundStart) => roundStart !== null && roundStart <= renderTimestamp);
         })
-        .map((warning) => warning.team_id as string),
-    );
+        .map((warning) => warning.team_id as string);
+
+    return mapWarningTeamIdsToStandingsIds(warningTeamIds, seasonSlots);
   })();
   const handleSeasonChange = (seasonNumber: number) => {
     const nextParams = new URLSearchParams(searchParams.toString());

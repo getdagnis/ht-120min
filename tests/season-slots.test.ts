@@ -1,7 +1,17 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { getSeasonSlotBoxSize, getSeasonSlotIndexes } from '../src/utils/season-slots';
-import { calculateSeasonSlotStandings } from '../src/utils/standings';
+import { calculateSeasonSlotStandings, mapWarningTeamIdsToStandingsIds } from '../src/utils/standings';
+
+test('maps fixture warning team IDs to physical standings slot IDs', () => {
+  assert.deepEqual(
+    mapWarningTeamIdsToStandingsIds(new Set(['team-a', 'team-c']), [
+      { id: 'slot-1', current_team_id: 'team-a' },
+      { id: 'slot-2', current_team_id: 'team-b' },
+    ]),
+    new Set(['slot-1', 'team-c']),
+  );
+});
 
 test('season slot boxes are always even and preserve one physical slot for odd rosters', () => {
   assert.equal(getSeasonSlotBoxSize(2), 2);

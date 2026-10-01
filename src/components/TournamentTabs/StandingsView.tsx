@@ -270,7 +270,7 @@ export const StandingsView: React.FC<StandingsViewProps> = ({
             ? percentage120min(a)
             : sortKey === 'teamRank'
               ? (a.teamRank ?? 0)
-            : Number(a[sortKey]);
+              : Number(a[sortKey]);
       const bValue =
         sortKey === 'appg'
           ? averagePointsPerGame(b)
@@ -278,7 +278,7 @@ export const StandingsView: React.FC<StandingsViewProps> = ({
             ? percentage120min(b)
             : sortKey === 'teamRank'
               ? (b.teamRank ?? 0)
-            : Number(b[sortKey]);
+              : Number(b[sortKey]);
       const result = bValue - aValue;
       if (result !== 0) return sortDirection === 'asc' ? -result : result;
       return a.teamName.localeCompare(b.teamName, undefined, { sensitivity: 'base' });
@@ -641,12 +641,7 @@ export const StandingsView: React.FC<StandingsViewProps> = ({
                       styles.center120,
                       '1 point per 120 min game achieved',
                     )}
-                    {sortableHeader(
-                      '120m%',
-                      'achievements120minPercent',
-                      styles.center,
-                      '% of 120m matches',
-                    )}
+                    {sortableHeader('120m%', 'achievements120minPercent', styles.center, '% of 120m matches')}
                     {sortableHeader('Mins', 'totalMinutes', styles.center)}
                     {sortableHeader('Dif', 'gd', styles.center)}
                     {sortableHeader('Goals', 'gf', styles.center)}
@@ -654,12 +649,7 @@ export const StandingsView: React.FC<StandingsViewProps> = ({
                 ) : showAppgScoring ? (
                   <>
                     {sortableHeader('APPG', 'appg', `${styles.center} ${styles.pointsHeader}`)}
-                    {sortableHeader(
-                      '120m%',
-                      'achievements120minPercent',
-                      styles.center,
-                      '% of 120m matches',
-                    )}
+                    {sortableHeader('120m%', 'achievements120minPercent', styles.center, '% of 120m matches')}
                     {sortableHeader('Pld', 'played', styles.center)}
                     {sortableHeader('Dif', 'gd', styles.center)}
                     {sortableHeader('Goals', 'gf', styles.center)}
@@ -787,7 +777,7 @@ export const StandingsView: React.FC<StandingsViewProps> = ({
                                         </span>
                                       )}
                                       {warningTeamIds.has(s.teamId) && (
-                                        <span title="Warning issued for this round">
+                                        <span title="Misarranged match this round">
                                           <img
                                             src="/warn-red.png"
                                             alt="Warning issued"
