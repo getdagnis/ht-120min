@@ -124,6 +124,21 @@ interface TopTeam {
   achievements120min: number;
 }
 
+function getActiveRoundNumber(rounds: DBRound[], totalRounds: number) {
+  const activeRound = [...rounds]
+    .filter((round) => (round.matches ?? []).length > 0)
+    .sort((left, right) => left.round_number - right.round_number)
+    .find((round) => !(round.matches ?? []).every((match) => match.completed || match.status === 'misarranged'));
+
+  return activeRound?.round_number ?? (totalRounds > 0 ? Math.min(
+    rounds.filter((round) => {
+      const matches = round.matches ?? [];
+      return matches.length > 0 && matches.every((match) => match.completed || match.status === 'misarranged');
+    }).length + 1,
+    totalRounds,
+  ) : null);
+}
+
 interface TopTournament {
   name: string;
   slug: string;
@@ -663,6 +678,7 @@ export const Home: React.FC<{ initialData?: HomeInitialData }> = ({ initialData 
 
   const renderTournamentCard = (t: Tournament, options: { join?: boolean } = {}) => {
     const hasRounds = (t.rounds?.length ?? 0) > 0;
+    const activeRoundNumber = getActiveRoundNumber(t.rounds ?? [], t.totalRounds);
     const isFinished =
       t.status === 'finished' || (t.totalMatches > 0 && t.totalMatches === t.completedMatches);
     const isOngoing = hasRounds && !isFinished && t.status !== 'paused';
@@ -697,8 +713,8 @@ export const Home: React.FC<{ initialData?: HomeInitialData }> = ({ initialData 
               </span>
             )}
             {hasRounds ? (
-              <span title="Completed Matches">
-                <Trophy size={14} weight="regular" /> {t.completedRounds} / {t.totalRounds} rounds
+              <span title="Current Round">
+                <Trophy size={14} weight="regular" /> Round {activeRoundNumber}/{t.totalRounds}
               </span>
             ) : null}
             <span title="Tournament date">
