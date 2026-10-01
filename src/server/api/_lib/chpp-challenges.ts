@@ -46,6 +46,8 @@ export interface ChppChallengeOffer {
   isAgreed: boolean;
 }
 
+export type ChppOutgoingChallenge = ChppChallengeOffer;
+
 export interface SendChppChallengeInput {
   consumerKey: string;
   consumerSecret: string;
@@ -187,6 +189,27 @@ export function parseChppChallengeOffers(xml: string): ChppChallengeOffer[] {
       } satisfies ChppChallengeOffer;
     })
     .filter((offer) => offer.opponentTeamId > 0);
+}
+
+export function parseChppOutgoingChallenges(xml: string): ChppOutgoingChallenge[] {
+  const section = xml.match(/<ChallengesByMe>([\s\S]*?)<\/ChallengesByMe>/i)?.[1] || '';
+  return [...section.matchAll(/<Challenge>([\s\S]*?)<\/Challenge>/gi)]
+    .map((match) => {
+      const block = match[1];
+      const opponentBlock = block.match(/<Opponent>([\s\S]*?)<\/Opponent>/i)?.[1] || '';
+      const opponentTeamId = Number(readChppTag(opponentBlock, 'TeamID') || '0');
+      const trainingMatchId = Number(readChppTag(block, 'TrainingMatchID') || '0');
+      const friendlyTypeRaw = readChppTag(block, 'FriendlyType');
+      const friendlyType = friendlyTypeRaw === undefined ? undefined : Number(friendlyTypeRaw);
+      const isAgreedRaw = readChppTag(block, 'IsAgreed')?.toLowerCase();
+      return {
+        opponentTeamId,
+        trainingMatchId: trainingMatchId > 0 ? trainingMatchId : undefined,
+        friendlyType: friendlyType !== undefined && Number.isInteger(friendlyType) ? friendlyType : undefined,
+        isAgreed: isAgreedRaw === 'true' || isAgreedRaw === '1',
+      } satisfies ChppOutgoingChallenge;
+    })
+    .filter((challenge) => challenge.opponentTeamId > 0);
 }
 
 function parseChallengeSendResponse(xml: string, request?: Pick<ChppChallengesRawResult, 'requestUrl' | 'requestQuery'>) {

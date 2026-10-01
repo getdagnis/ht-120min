@@ -41,7 +41,7 @@ import {
   getManagerChppCredentials,
 } from './_lib/matchmaker.js';
 import { validateTeamEligibility } from './_lib/eligibility.js';
-import { registerReserveTeam } from './_lib/chpp-register.js';
+import { getActiveTournamentConflicts, registerReserveTeam } from './_lib/chpp-register.js';
 import {
   validateTeamReserveTransition,
   type TeamReserveTransitionAction,
@@ -725,6 +725,127 @@ async function handleAdminTeamReserveTransition(req: VercelRequest, res: VercelR
   }
 
   return res.status(200).json({ team: updatedTeam });
+}
+
+async function handleAdminAddReserveTeam(req: VercelRequest, res: VercelResponse) {
+  if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed.' });
+
+  const tournamentId = readString(req.body?.tournamentId);
+  const teamId = positiveInteger(req.body?.teamId);
+  if (!tournamentId || teamId === null) {
+    return res.status(400).json({ error: 'A tournament and valid Hattrick team ID are required.' });
+  }
+
+  const actor = await requireTournamentRoleSession(req, res, tournamentId);
+  if (!actor) return;
+  if (!actor.access.canManageOperations) {
+    return res.status(403).json({ error: 'This role cannot manage tournament teams.' });
+  }
+
+  const supabase = getServiceSupabase();
+  const { data: tournament, error: tournamentError } = await supabase
+    .from('tournaments')
+    .select('id, league_category, country_limit, status, is_archived')
+    .eq('id', tournamentId)
+    .maybeSingle();
+  if (tournamentError) throw tournamentError;
+  if (!tournament) return res.status(404).json({ error: 'Tournament not found.' });
+  if (tournament.is_archived || ['finished', 'stopped', 'archived'].includes(tournament.status || '')) {
+    return res.status(409).json({ error: 'Reserve teams cannot be added to a finished tournament.' });
+  }
+
+  const { data: existingTeam, error: existingTeamError } = await supabase
+    .from('teams')
+    .select('id, active, reserve_active')
+    .eq('tournament_id', tournamentId)
+    .eq('ht_team_id', teamId)
+    .maybeSingle();
+  if (existingTeamError) throw existingTeamError;
+  if (existingTeam?.active) return res.status(409).json({ error: 'This team is already a tournament participant.' });
+  if (existingTeam?.reserve_active) return res.status(409).json({ error: 'This team is already on the reserve list.' });
+  if (existingTeam) {
+    return res.status(409).json({ error: 'An inactive row for this team already exists; resolve that row before adding a reserve.' });
+  }
+
+  const conflict = (await getActiveTournamentConflicts(supabase, [teamId], tournamentId)).get(teamId);
+  if (conflict) {
+    return res.status(409).json({
+      error: `This team is already active in another tournament: "${conflict.name}". It must leave that tournament first.`,
+    });
+  }
+
+  const { data: gateway, error: gatewayError } = await supabase
+    .from('teams')
+    .select('oauth_token, oauth_token_secret')
+    .not('oauth_token', 'is', null)
+    .not('oauth_token_secret', 'is', null)
+    .limit(1)
+    .maybeSingle();
+  if (gatewayError) throw gatewayError;
+  if (!gateway?.oauth_token || !gateway.oauth_token_secret) {
+    return res.status(503).json({ error: 'No CHPP gateway is available. Link a team first.' });
+  }
+
+  const consumerKey = process.env.CHPP_CONSUMER_KEY;
+  const consumerSecret = process.env.CHPP_CONSUMER_SECRET;
+  if (!consumerKey || !consumerSecret) return res.status(500).json({ error: 'CHPP configuration is missing.' });
+
+  const details = await fetchTeamDetailsFromChpp(
+    consumerKey,
+    consumerSecret,
+    { oauth_token: gateway.oauth_token, oauth_token_secret: gateway.oauth_token_secret },
+    teamId,
+  );
+  const teamName = details.teamName?.trim();
+  if (!teamName) return res.status(404).json({ error: `Team ID ${teamId} was not found.` });
+
+  const eligibility = validateTeamEligibility(
+    {
+      leagueName: details.leagueName,
+      leagueId: details.leagueId,
+      leagueSystemId: details.leagueSystemId,
+      leagueLevel: details.leagueLevel,
+      countryId: details.countryId,
+      countryName: details.countryName,
+      genderId: details.genderId,
+    },
+    {
+      category: tournament.league_category === 'hfi' ? 'hfi' : 'male',
+      countryLimit: tournament.country_limit,
+    },
+  );
+  if (!eligibility.eligible) return res.status(400).json({ error: eligibility.reason || 'This team is not eligible.' });
+
+  const { data: reserveTeam, error: insertError } = await supabase
+    .from('teams')
+    .insert({
+      tournament_id: tournamentId,
+      ht_team_id: teamId,
+      ht_team_name: teamName,
+      name: teamName,
+      manager_name: null,
+      hattrick_user_id: null,
+      country_id: details.countryId ?? null,
+      country_name: details.countryName ?? null,
+      league_id: details.leagueId ?? null,
+      gender_id: details.genderId ?? null,
+      league_level: details.leagueLevel ?? null,
+      team_rank: details.teamRank ?? null,
+      power_rating: details.powerRating ?? null,
+      power_global_rank: details.powerGlobalRank ?? null,
+      power_league_rank: details.powerLeagueRank ?? null,
+      power_region_rank: details.powerRegionRank ?? null,
+      logo_url: details.logoUrl ?? null,
+      joined_via_oauth: false,
+      active: false,
+      reserve_active: true,
+      reserve_joined_at: new Date().toISOString(),
+    })
+    .select('id, name, ht_team_id, active, reserve_active')
+    .single();
+  if (insertError) throw insertError;
+
+  return res.status(200).json({ team: reserveTeam });
 }
 
 async function handleTournamentRoles(req: VercelRequest, res: VercelResponse) {
@@ -2725,6 +2846,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         return await handleScheduledTeamRemoval(req, res);
       case 'admin-team-reserve-transition':
         return await handleAdminTeamReserveTransition(req, res);
+      case 'admin-add-reserve-team':
+        return await handleAdminAddReserveTeam(req, res);
       case 'fixture-challenge':
         return await handleFixtureChallenge(req, res);
       case 'backfill-round-matchdetails':

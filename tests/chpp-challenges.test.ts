@@ -1,7 +1,11 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 
-import { parseChallengeableResponse, parseChppChallengeOffers } from '../src/server/api/_lib/chpp-challenges.js';
+import {
+  parseChallengeableResponse,
+  parseChppChallengeOffers,
+  parseChppOutgoingChallenges,
+} from '../src/server/api/_lib/chpp-challenges.js';
 
 function challengeableXml(value: 'True' | 'False') {
   return `<?xml version="1.0" encoding="utf-8"?>
@@ -57,5 +61,22 @@ test('parses incoming challenge offers with challenger, rules, and acceptance st
   assert.deepEqual(parseChppChallengeOffers(xml), [
     { opponentTeamId: 2153211, trainingMatchId: 123456, friendlyType: 1, isAgreed: false },
     { opponentTeamId: 2153212, trainingMatchId: 123457, friendlyType: 0, isAgreed: true },
+  ]);
+});
+
+test('parses outgoing challenges for exact-opponent duplicate detection', () => {
+  const xml = `<HattrickData>
+    <ChallengesByMe>
+      <Challenge>
+        <TrainingMatchID>456789</TrainingMatchID>
+        <FriendlyType>1</FriendlyType>
+        <Opponent><TeamID>2153211</TeamID></Opponent>
+        <IsAgreed>False</IsAgreed>
+      </Challenge>
+    </ChallengesByMe>
+  </HattrickData>`;
+
+  assert.deepEqual(parseChppOutgoingChallenges(xml), [
+    { opponentTeamId: 2153211, trainingMatchId: 456789, friendlyType: 1, isAgreed: false },
   ]);
 });

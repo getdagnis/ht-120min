@@ -12,6 +12,7 @@ import matchmakerTeamsHandler from '../../../server/api/matchmaker/teams.js';
 import teamInfoHandler from '../../../server/api/teams/info.js';
 import refreshFixturesHandler from '../../../server/api/teams/refresh-fixtures.js';
 import testingHandler from '../../../server/api/testing/index.js';
+import forgeMatchesHandler from '../../../server/api/forge/matches.js';
 
 const cookieHeaderToObject = (value: string | null) => {
   const cookies: Record<string, string> = {};
@@ -51,6 +52,8 @@ function selectHandler(request: NextRequest, query: Record<string, string | stri
     case 'forge/stats':
       query.route = 'forge-stats';
       return appHandler;
+    case 'forge/matches':
+      return forgeMatchesHandler;
     case 'auth/init':
       return authInitHandler;
     case 'auth/callback':

@@ -1,0 +1,162 @@
+.page
+  display: flex
+  flex-direction: column
+  gap: 1rem
+
+.toolbar
+  display: grid
+  grid-template-columns: minmax(0, 1fr)
+  gap: 0.45rem
+
+.label
+  color: var(--text60)
+  font-size: 0.82rem
+  font-weight: 700
+  letter-spacing: 0.04em
+  text-transform: uppercase
+
+.select
+  width: 100%
+  border: 1px solid var(--border)
+  border-radius: var(--radius-xs)
+  background: var(--bg)
+  color: var(--text-h)
+  padding: 0.75rem 0.9rem
+  font: inherit
+
+.roundHeading
+  display: flex
+  align-items: baseline
+  justify-content: space-between
+  gap: 1rem
+  margin-bottom: 1rem
+
+.roundTitle
+  margin: 0
+  color: var(--text-h)
+  font-family: var(--heading)
+  font-size: 1.45rem
+
+.roundMeta
+  color: var(--text60)
+  font-size: 0.9rem
+
+.fixtureList
+  display: flex
+  flex-direction: column
+  gap: 1rem
+
+.fixture
+  border: 1px solid var(--border)
+  border-radius: var(--radius-xs)
+  background: #f8fafc
+  overflow: hidden
+
+.fixtureHeader
+  display: flex
+  align-items: center
+  justify-content: space-between
+  gap: 1rem
+  padding: 0.75rem 1rem
+  border-bottom: 1px solid var(--border)
+
+.fixtureNumber
+  color: var(--text-h)
+  font-weight: 700
+
+.fixtureStatus
+  color: var(--text60)
+  font-size: 0.78rem
+  font-weight: 800
+  letter-spacing: 0.04em
+
+.fixtureStatusDanger
+  color: var(--danger)
+
+.fixtureTeams
+  display: grid
+  grid-template-columns: repeat(2, minmax(0, 1fr))
+
+.teamRow
+  min-width: 0
+  padding: 1rem
+
+  &:first-child
+    border-right: 1px solid var(--border)
+
+.teamIdentity
+  min-width: 0
+  margin-bottom: 0.85rem
+
+.teamName
+  overflow: hidden
+  color: var(--text-h)
+  font-size: 1.05rem
+  font-weight: 700
+  text-overflow: ellipsis
+  white-space: nowrap
+
+.managerName
+  overflow: hidden
+  color: var(--text60)
+  text-overflow: ellipsis
+  white-space: nowrap
+
+.stateRow
+  display: flex
+  align-items: center
+  gap: 0.45rem
+  margin-bottom: 0.7rem
+
+.stateBadge
+  display: inline-flex
+  align-items: center
+  min-height: 1.45rem
+  padding: 0.18rem 0.5rem
+  border: 1px solid var(--border)
+  border-radius: var(--radius-md)
+  color: var(--accent-2)
+  font-size: 0.7rem
+  font-weight: 800
+  letter-spacing: 0.03em
+
+.stateBadgeDanger
+  color: var(--danger)
+  border-color: #c33f6744
+  background: var(--bg-danger)
+
+.stateReason
+  margin: 0 0 0.8rem
+  color: var(--text60)
+  font-size: 0.86rem
+  line-height: 1.4
+
+.actions
+  display: flex
+  flex-wrap: wrap
+  gap: 0.5rem
+
+.empty
+  margin: 0
+  color: var(--text60)
+
+.error
+  margin: 0
+  color: var(--danger)
+
+.success
+  margin: 0
+  color: var(--accent-2)
+
+@media (max-width: 720px)
+  .roundHeading,
+  .fixtureHeader
+    align-items: flex-start
+    flex-direction: column
+
+  .fixtureTeams
+    grid-template-columns: 1fr
+
+  .teamRow:first-child
+    border-right: 0
+    border-bottom: 1px solid var(--border)

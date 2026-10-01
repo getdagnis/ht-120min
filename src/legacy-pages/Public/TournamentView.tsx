@@ -2,6 +2,7 @@
 'use client';
 
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import Link from 'next/link';
 import { usePathname, useParams, useRouter, useSearchParams as useNextSearchParams } from 'next/navigation';
 import { supabase } from '../../lib/supabase';
 import { useLocale } from '../../i18n/LocaleProvider';
@@ -806,6 +807,9 @@ export const TournamentView: React.FC<{ initialData?: TournamentInitialData }> =
   const [newTeamId, setNewTeamId] = useState('');
   const [newTeamName, setNewTeamName] = useState('');
   const [newTeamData, setNewTeamData] = useState<FetchedTeamData | null>(null);
+  const [isReserveTeamFormOpen, setIsReserveTeamFormOpen] = useState(false);
+  const [reserveTeamId, setReserveTeamId] = useState('');
+  const [reserveTeamName, setReserveTeamName] = useState('');
   const [sandboxCandidate, setSandboxCandidate] = useState<FetchedTeamData | null>(null);
   const [sandboxFetchError, setSandboxFetchError] = useState('');
   const [isFetchingSandboxTeam, setIsFetchingSandboxTeam] = useState(false);
@@ -2803,13 +2807,15 @@ export const TournamentView: React.FC<{ initialData?: TournamentInitialData }> =
       }
       setIsAddingDescription(false);
       setQuickDescription('');
-      const nextParams = new URLSearchParams(searchParams.toString());
-      nextParams.set('tab', tab);
-      // A historical season is a view-local inspection state. Do not let it
-      // follow visitors into another tab where live season data is expected.
-      nextParams.delete('season');
-      setSearchParams(nextParams);
     }
+  };
+
+  const getTabHref = (tab: 'standings' | 'fixtures' | 'history' | 'guestbook' | 'news' | 'admin') => {
+    const nextParams = new URLSearchParams(searchParams.toString());
+    nextParams.set('tab', tab);
+    nextParams.delete('season');
+    const query = nextParams.toString();
+    return `${pathname}${query ? `?${query}` : ''}`;
   };
 
   useEffect(() => {
@@ -3844,7 +3850,7 @@ export const TournamentView: React.FC<{ initialData?: TournamentInitialData }> =
     }
   };
 
-  const fetchTeamData = async (htId: string, isReplacement: boolean) => {
+  const fetchTeamData = async (htId: string, isReplacement: boolean, isReserve = false) => {
     if (!htId || htId.length < 6) return;
     setIsFetchingTeamData(true);
     try {
@@ -3865,6 +3871,8 @@ export const TournamentView: React.FC<{ initialData?: TournamentInitialData }> =
 
       if (isReplacement) {
         setReplacementName(data.teamName);
+      } else if (isReserve) {
+        setReserveTeamName(data.teamName);
       } else {
         setNewTeamName(data.teamName);
         setNewTeamData(data);
@@ -3972,10 +3980,10 @@ export const TournamentView: React.FC<{ initialData?: TournamentInitialData }> =
     }
   };
 
-  const addTeam = async (e: React.FormEvent, isJoin: boolean = false) => {
+  const addTeam = async (e: React.FormEvent, isJoin: boolean = false, addAsReserve: boolean = false) => {
     if (e) e.preventDefault();
-    const name = isJoin ? joinTeamName : newTeamName;
-    const htId = isJoin ? joinTeamId : newTeamId;
+    const name = isJoin ? joinTeamName : addAsReserve ? reserveTeamName : newTeamName;
+    const htId = isJoin ? joinTeamId : addAsReserve ? reserveTeamId : newTeamId;
 
     if (!name.trim() || !htId.trim()) {
       alert('Both Team Name and HT ID are required.');
@@ -3988,17 +3996,37 @@ export const TournamentView: React.FC<{ initialData?: TournamentInitialData }> =
     }
 
     const htIdInt = parseInt(htId.trim());
-    if (teams.some((t) => t.ht_team_id === htIdInt && t.active)) {
-      alert('This team is already active in the tournament.');
+    if (teams.some((t) => t.ht_team_id === htIdInt && !t.is_placeholder && (addAsReserve || t.active))) {
+      alert('This team is already in the tournament roster or reserve list.');
       return;
     }
 
-    if (!window.confirm(`Are you sure you want to add ${name} (ID: ${htId})?`)) {
+    if (!window.confirm(
+      addAsReserve
+        ? `Add ${name} (ID: ${htId}) to the reserve list? This will not change the schedule or registration status.`
+        : `Are you sure you want to add ${name} (ID: ${htId})?`,
+    )) {
       return;
     }
 
     setIsSavingTeam(true);
     try {
+      if (addAsReserve) {
+        const response = await fetch('/api/app?route=admin-add-reserve-team', {
+          method: 'POST',
+          credentials: 'same-origin',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ tournamentId: tournament?.id, teamId: htIdInt }),
+        });
+        const result = (await response.json()) as { error?: string };
+        if (!response.ok) throw new Error(result.error || 'The reserve team could not be added.');
+        setReserveTeamId('');
+        setReserveTeamName('');
+        setIsReserveTeamFormOpen(false);
+        await fetchData();
+        return;
+      }
+
       let finalTeamId: string | null = null;
       let oldTeamToReplaceId: string | null = null;
 
@@ -5651,26 +5679,46 @@ export const TournamentView: React.FC<{ initialData?: TournamentInitialData }> =
       )}
 
       <div className={styles.tabs}>
-        <button className={activeTab === 'standings' ? styles.active : ''} onClick={() => handleTabChange('standings')}>
+        <Link
+          href={getTabHref('standings')}
+          className={activeTab === 'standings' ? styles.active : ''}
+          onClick={() => handleTabChange('standings')}
+        >
           Standings
-        </button>
-        <button className={activeTab === 'fixtures' ? styles.active : ''} onClick={() => handleTabChange('fixtures')}>
+        </Link>
+        <Link
+          href={getTabHref('fixtures')}
+          className={activeTab === 'fixtures' ? styles.active : ''}
+          onClick={() => handleTabChange('fixtures')}
+        >
           Fixtures <span className="hideOnMobile">& Results</span>
-        </button>
-        <button className={isNewsTab ? styles.active : ''} onClick={() => handleTabChange('news')}>
+        </Link>
+        <Link
+          href={getTabHref('news')}
+          className={isNewsTab ? styles.active : ''}
+          onClick={() => handleTabChange('news')}
+        >
           News
-        </button>
-        <button className={activeTab === 'history' ? styles.active : ''} onClick={() => handleTabChange('history')}>
+        </Link>
+        <Link
+          href={getTabHref('history')}
+          className={activeTab === 'history' ? styles.active : ''}
+          onClick={() => handleTabChange('history')}
+        >
           History
           {historyTabBadgeCount > 0 && (
             <span className={styles.historyTabBadge} aria-label="New season history activity">
               {historyTabBadgeCount}
             </span>
           )}
-        </button>
-        <button className={activeTab === 'admin' ? styles.active : ''} onClick={() => handleTabChange('admin')}>
+        </Link>
+        <Link
+          href={getTabHref('admin')}
+          className={activeTab === 'admin' ? styles.active : ''}
+          onClick={() => handleTabChange('admin')}
+        >
           Admin
-        </button>
+        </Link>
       </div>
 
       <Modal
@@ -6728,6 +6776,73 @@ export const TournamentView: React.FC<{ initialData?: TournamentInitialData }> =
                                       {isUpdatingHfiRanks ? 'Updating ranks...' : 'Update HFI ranks'}
                                     </Button>
                                   </div>
+                                )}
+                              {!isRegistrationOpen &&
+                                canManageOperationalAdmin &&
+                                !['finished', 'stopped', 'archived'].includes(tournament.status) && (
+                                  <>
+                                    <div className={adminStyles.teamPlanningRow}>
+                                      <div>
+                                        <p className={adminStyles.smallNote}>
+                                          Add a manually selected Hattrick team to the reserve list without reopening registration.
+                                        </p>
+                                      </div>
+                                      <Button
+                                        type="button"
+                                        size="sm"
+                                        variant="secondaryAction"
+                                        onClick={() => setIsReserveTeamFormOpen((open) => !open)}
+                                      >
+                                        {isReserveTeamFormOpen ? 'Cancel reserve team' : 'Add reserve team'}
+                                      </Button>
+                                    </div>
+                                    {isReserveTeamFormOpen && (
+                                      <form onSubmit={(e) => void addTeam(e, false, true)} className={adminStyles.teamForm}>
+                                        <p className={adminStyles.smallNote}>
+                                          Enter the Hattrick team ID. Team data and eligibility will be checked before it is added.
+                                        </p>
+                                        <div className={adminStyles.inputGroup}>
+                                          <input
+                                            name="reserve_team_ht_id"
+                                            type="text"
+                                            placeholder="HT Team ID"
+                                            value={reserveTeamId}
+                                            onChange={(e) => {
+                                              setReserveTeamId(e.target.value.replace(/\D/g, ''));
+                                              setReserveTeamName('');
+                                            }}
+                                            minLength={6}
+                                            maxLength={9}
+                                            required
+                                          />
+                                          <input
+                                            name="reserve_team_name"
+                                            type="text"
+                                            placeholder="Team Name"
+                                            value={reserveTeamName}
+                                            readOnly
+                                            className={!reserveTeamName ? styles.opacity06 : ''}
+                                            required
+                                          />
+                                        </div>
+                                        {reserveTeamId.length >= 6 && !reserveTeamName && (
+                                          <Button
+                                            type="button"
+                                            onClick={() => void fetchTeamData(reserveTeamId, false, true)}
+                                            disabled={isFetchingTeamData}
+                                            variant="primary"
+                                          >
+                                            {isFetchingTeamData ? 'Fetching...' : 'Get team data'}
+                                          </Button>
+                                        )}
+                                        {reserveTeamName && (
+                                          <Button type="submit" disabled={isSavingTeam} variant="primary">
+                                            {isSavingTeam ? 'Saving...' : 'Add reserve team'}
+                                          </Button>
+                                        )}
+                                      </form>
+                                    )}
+                                  </>
                                 )}
                             </div>
                           )}
