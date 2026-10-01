@@ -110,6 +110,46 @@ interface ForgeStatsResponse {
   daily: ForgeStatsDaily[];
 }
 
+interface BatchChallengeCandidate {
+  teamId: number;
+  challengeable: boolean | null;
+  alreadyChallenged: boolean;
+  existingTrainingMatchId?: number;
+  existingChallengeAgreed: boolean;
+  reason?: string;
+  sendable: boolean;
+}
+
+interface BatchChallengePreview {
+  candidates: BatchChallengeCandidate[];
+  sendableCount: number;
+  mode?: 'send' | 'accept';
+}
+
+function useForgeSessionStorage<T>(key: string, fallback: T | (() => T)) {
+  const resolveFallback = () => (typeof fallback === 'function' ? (fallback as () => T)() : fallback);
+  const [value, setValue] = useState<T>(() => {
+    const defaultValue = resolveFallback();
+    if (typeof window === 'undefined') return defaultValue;
+    try {
+      const stored = window.sessionStorage.getItem(key);
+      return stored === null ? defaultValue : (JSON.parse(stored) as T);
+    } catch {
+      return defaultValue;
+    }
+  });
+
+  useEffect(() => {
+    try {
+      window.sessionStorage.setItem(key, JSON.stringify(value));
+    } catch {
+      // Session storage may be unavailable in privacy-restricted browser contexts.
+    }
+  }, [key, value]);
+
+  return [value, setValue] as const;
+}
+
 const sidebarItems = [
   { to: '/forge', label: 'Dashboard', icon: <House size={18} weight="bold" /> },
   { to: '/forge/stats', label: 'Statistics', icon: <ChartLineUp size={18} weight="bold" /> },
@@ -960,12 +1000,26 @@ function ForgeFaqEditor() {
 }
 
 function ForgeTestingSection() {
-  const [managerId, setManagerId] = useState(() => localStorage.getItem('forge_ht_user_id') || '');
-  const [teamId, setTeamId] = useState('');
-  const [opponentTeamId, setOpponentTeamId] = useState('');
-  const [weekend, setWeekend] = useState(false);
+  const [managerId, setManagerId] = useForgeSessionStorage(
+    'forge.testing.managerId',
+    () => (typeof window !== 'undefined' ? window.localStorage.getItem('forge_ht_user_id') || '' : ''),
+  );
+  const [teamId, setTeamId] = useForgeSessionStorage('forge.testing.teamId', '');
+  const [opponentTeamId, setOpponentTeamId] = useForgeSessionStorage('forge.testing.opponentTeamId', '');
+  const [weekend, setWeekend] = useForgeSessionStorage('forge.testing.weekend', false);
   const [output, setOutput] = useState('');
   const [loading, setLoading] = useState(false);
+  const [batchSenderTeamId, setBatchSenderTeamId] = useForgeSessionStorage('forge.batchChallenge.senderTeamId', '');
+  const [batchCandidateIds, setBatchCandidateIds] = useForgeSessionStorage('forge.batchChallenge.candidateIds', '');
+  const [batchMode, setBatchMode] = useForgeSessionStorage<'send' | 'accept'>('forge.batchChallenge.mode', 'send');
+  const [batchMatchType, setBatchMatchType] = useForgeSessionStorage<'any' | 'cup_rules' | 'normal'>('forge.batchChallenge.matchType', 'cup_rules');
+  const [batchMatchPlace, setBatchMatchPlace] = useForgeSessionStorage<'home' | 'away'>('forge.batchChallenge.matchPlace', 'home');
+  const [batchWeekend, setBatchWeekend] = useForgeSessionStorage('forge.batchChallenge.weekend', false);
+  const [batchPreview, setBatchPreview] = useState<BatchChallengePreview | null>(null);
+  const [batchOutput, setBatchOutput] = useState('');
+  const [batchLoading, setBatchLoading] = useState(false);
+
+  const isLocalHost = typeof window !== 'undefined' && ['localhost', '127.0.0.1', '::1'].includes(window.location.hostname);
 
   const runTool = async (tool: string, sideEffect = false) => {
     if (sideEffect && !window.confirm('This can send a real Hattrick challenge. Continue?')) return;
@@ -981,6 +1035,68 @@ function ForgeTestingSection() {
       setOutput(error instanceof Error ? error.message : 'Testing request failed.');
     } finally {
       setLoading(false);
+    }
+  };
+
+  const runBatchChallenge = async (phase: 'preview' | 'send') => {
+    if (!isLocalHost) {
+      setBatchOutput('This tool is available only when Forge is running on localhost.');
+      return;
+    }
+    if (phase === 'send') {
+      const sendableIds = batchPreview?.candidates.filter((candidate) => candidate.sendable).map((candidate) => candidate.teamId) || [];
+      const challengeableWarnings = batchPreview?.candidates.filter((candidate) => candidate.sendable && candidate.challengeable !== true).length || 0;
+      if (sendableIds.length === 0) {
+        setBatchOutput('Run a preflight first and keep at least one eligible candidate.');
+        return;
+      }
+      const confirmed = window.confirm(
+        batchMode === 'accept'
+          ? `Accept ${sendableIds.length} incoming Hattrick friendlies for team ${batchSenderTeamId}?\n\n` +
+            `Rules filter: ${batchMatchType === 'any' ? 'Any' : batchMatchType === 'cup_rules' ? 'Cup Rules' : 'Normal Friendly'}\n` +
+            `Challenger IDs: ${sendableIds.join(', ')}\n\n` +
+            'This accepts matching offers in Hattrick and does not add anyone to the tournament.'
+          : `Send ${sendableIds.length} real Hattrick challenges from team ${batchSenderTeamId}?\n\n` +
+            `Rules: ${batchMatchType === 'cup_rules' ? 'Cup Rules' : 'Normal Friendly'}\n` +
+            `Venue: ${batchMatchPlace}\n` +
+            `Candidate IDs: ${sendableIds.join(', ')}\n\n` +
+          (challengeableWarnings > 0
+            ? `${challengeableWarnings} candidate(s) were not confirmed by CHPP preflight; the direct challenge will still be attempted.\n\n`
+            : '') +
+          'This sends real Hattrick challenges and does not add anyone to the tournament.',
+      );
+      if (!confirmed) return;
+    }
+
+    setBatchLoading(true);
+    try {
+      const response = await fetch('/api/testing?tool=challenge-batch', {
+        method: 'POST',
+        credentials: 'include',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          phase,
+          mode: batchMode,
+          managerId,
+          teamId: batchSenderTeamId,
+          ...(batchMode === 'accept' ? { challengerTeamIds: batchCandidateIds } : { candidateTeamIds: batchCandidateIds }),
+          matchType: batchMatchType,
+          matchPlace: batchMatchPlace,
+          isWeekendFriendly: batchWeekend,
+          confirm: phase === 'send',
+        }),
+      });
+      const json = (await response.json()) as BatchChallengePreview & { error?: string; results?: unknown[] };
+      setBatchOutput(JSON.stringify(json, null, 2));
+      if (response.ok && phase === 'preview') {
+        setBatchPreview(json);
+      }
+      if (!response.ok) setBatchPreview(null);
+    } catch (error) {
+      setBatchOutput(error instanceof Error ? error.message : 'Batch challenge request failed.');
+      if (phase === 'preview') setBatchPreview(null);
+    } finally {
+      setBatchLoading(false);
     }
   };
 
@@ -1007,6 +1123,103 @@ function ForgeTestingSection() {
         </div>
         <p className={styles.smallNote}>Challenge send has a real Hattrick side effect and is never run without confirmation.</p>
         {output && <pre className={styles.testingOutput}>{output}</pre>}
+      </SectionCard>
+
+      <SectionCard
+        title="Local batch challenge rescue"
+        subtitle="Send challenges or accept matching incoming friendlies for a reviewed list of HFI teams."
+        className={styles.surfaceCard}
+      >
+        <p className={styles.smallNote}>
+          Localhost and Forge-admin only. The selected team must belong to the OAuth-authorized manager. Sending asks Hattrick
+          to create challenges; accepting acts only on matching incoming offers. Neither action sets a tournament date or
+          enrolls teams.
+        </p>
+        <div className={styles.testingGrid}>
+          <label className={styles.testingField}>
+            <span>Manager ID</span>
+            <input value={managerId} onChange={(event) => setManagerId(event.target.value)} placeholder="Hattrick manager ID" />
+          </label>
+          <label className={styles.testingField}>
+            <span>{batchMode === 'accept' ? 'Accepting team ID' : 'Sender team ID'}</span>
+            <input value={batchSenderTeamId} onChange={(event) => setBatchSenderTeamId(event.target.value)} placeholder="Hattrick team ID" />
+          </label>
+          <label className={styles.testingField}>
+            <span>Batch action</span>
+            <select
+              value={batchMode}
+              onChange={(event) => {
+                const nextMode = event.target.value as 'send' | 'accept';
+                setBatchMode(nextMode);
+                setBatchMatchType(nextMode === 'accept' ? 'any' : 'cup_rules');
+                setBatchPreview(null);
+              }}
+            >
+              <option value="send">Send challenges</option>
+              <option value="accept">Accept incoming offers</option>
+            </select>
+          </label>
+          <label className={styles.testingField}>
+            <span>{batchMode === 'accept' ? 'Rules filter' : 'Friendly rules'}</span>
+            <select
+              value={batchMatchType}
+              onChange={(event) => {
+                setBatchMatchType(event.target.value as 'any' | 'cup_rules' | 'normal');
+                setBatchPreview(null);
+              }}
+            >
+              {batchMode === 'accept' && <option value="any">Any</option>}
+              <option value="cup_rules">Cup Rules</option>
+              <option value="normal">Normal friendly</option>
+            </select>
+          </label>
+          {batchMode === 'send' && (
+            <label className={styles.testingField}>
+              <span>Venue</span>
+              <select value={batchMatchPlace} onChange={(event) => setBatchMatchPlace(event.target.value as 'home' | 'away')}>
+                <option value="home">Home</option>
+                <option value="away">Away</option>
+              </select>
+            </label>
+          )}
+        </div>
+        <label className={styles.testingField}>
+          <span>{batchMode === 'accept' ? 'Challenger team IDs, one per line or separated by commas' : 'Candidate team IDs, one per line or separated by commas'}</span>
+          <textarea
+            className={styles.testingTextarea}
+            value={batchCandidateIds}
+            onChange={(event) => {
+              setBatchCandidateIds(event.target.value);
+              setBatchPreview(null);
+            }}
+            rows={6}
+            placeholder="1234567\n2345678\n3456789"
+          />
+        </label>
+        <label className={styles.testingCheckbox}>
+          <input type="checkbox" checked={batchWeekend} onChange={(event) => setBatchWeekend(event.target.checked)} />
+          Weekend friendly
+        </label>
+        <div className={styles.editorActions}>
+          <Button variant="outline" disabled={batchLoading || !isLocalHost} onClick={() => void runBatchChallenge('preview')}>
+            {batchMode === 'accept' ? 'Find incoming offers' : 'Preflight candidates'}
+          </Button>
+          <Button
+            variant="secondaryYellow"
+            disabled={batchLoading || !isLocalHost || !batchPreview?.sendableCount}
+            onClick={() => void runBatchChallenge('send')}
+          >
+            {batchMode === 'accept' ? 'Accept reviewed offers' : 'Send reviewed challenges'}
+          </Button>
+        </div>
+        <p className={styles.smallNote}>
+          {isLocalHost
+            ? batchMode === 'accept'
+              ? 'Preflight reads incoming Hattrick offers from the specified challenger IDs and applies the selected rules filter before acceptance.'
+              : 'Preflight checks existing outgoing offers. CHPP challengeable results are diagnostic; the direct challenge response decides each send.'
+            : 'Start Forge on localhost to enable this tool.'}
+        </p>
+        {batchOutput && <pre className={styles.testingOutput}>{batchOutput}</pre>}
       </SectionCard>
     </section>
   );

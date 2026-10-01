@@ -39,6 +39,13 @@ export interface ChppChallengeableParse extends ChppChallengesBaseParse {
   teams: ChppChallengeableTeamResult[];
 }
 
+export interface ChppChallengeOffer {
+  trainingMatchId?: number;
+  opponentTeamId: number;
+  friendlyType?: number;
+  isAgreed: boolean;
+}
+
 export interface SendChppChallengeInput {
   consumerKey: string;
   consumerSecret: string;
@@ -159,6 +166,27 @@ export function parseChallengeableResponse(xml: string): ChppChallengeableParse 
   }
 
   return { ...base, teams };
+}
+
+export function parseChppChallengeOffers(xml: string): ChppChallengeOffer[] {
+  const section = xml.match(/<OffersByOthers>([\s\S]*?)<\/OffersByOthers>/i)?.[1] || '';
+  return [...section.matchAll(/<Offer>([\s\S]*?)<\/Offer>/gi)]
+    .map((match) => {
+      const block = match[1];
+      const opponentBlock = block.match(/<Opponent>([\s\S]*?)<\/Opponent>/i)?.[1] || '';
+      const opponentTeamId = Number(readChppTag(opponentBlock, 'TeamID') || '0');
+      const trainingMatchId = Number(readChppTag(block, 'TrainingMatchID') || '0');
+      const friendlyTypeRaw = readChppTag(block, 'FriendlyType');
+      const friendlyType = friendlyTypeRaw === undefined ? undefined : Number(friendlyTypeRaw);
+      const isAgreedRaw = readChppTag(block, 'IsAgreed')?.toLowerCase();
+      return {
+        opponentTeamId,
+        trainingMatchId: trainingMatchId > 0 ? trainingMatchId : undefined,
+        friendlyType: friendlyType !== undefined && Number.isInteger(friendlyType) ? friendlyType : undefined,
+        isAgreed: isAgreedRaw === 'true' || isAgreedRaw === '1',
+      } satisfies ChppChallengeOffer;
+    })
+    .filter((offer) => offer.opponentTeamId > 0);
 }
 
 function parseChallengeSendResponse(xml: string, request?: Pick<ChppChallengesRawResult, 'requestUrl' | 'requestQuery'>) {
@@ -418,38 +446,84 @@ export async function sendChppChallengeDirect(input: SendChppChallengeInput): Pr
   };
 }
 
+export interface AcceptChppChallengeInput {
+  consumerKey: string;
+  consumerSecret: string;
+  oauthToken: string;
+  oauthTokenSecret: string;
+  teamId: number;
+  trainingMatchId: number;
+  isWeekendFriendly?: 0 | 1;
+  requestOptions?: ChppChallengesRequestOptions;
+}
+
+export interface ChppChallengeActionResult {
+  success: boolean;
+  errorCode?: number;
+  errorMessage?: string;
+  rawXml?: string;
+  requestUrl?: string;
+  requestQuery?: string;
+}
+
+export async function acceptChppChallengeDirect(input: AcceptChppChallengeInput): Promise<ChppChallengeActionResult> {
+  const resolved = resolveRequestOptions(input.requestOptions);
+  const extraParams: Record<string, string | number | undefined> = {
+    trainingMatchId: input.trainingMatchId,
+  };
+  if (resolved.includeWeekendParam) {
+    extraParams.isWeekendFriendly = input.isWeekendFriendly ?? 0;
+  }
+
+  const raw = await fetchChppChallengesRaw({
+    consumerKey: input.consumerKey,
+    consumerSecret: input.consumerSecret,
+    oauthToken: input.oauthToken,
+    oauthTokenSecret: input.oauthTokenSecret,
+    actionType: 'accept',
+    teamId: input.teamId,
+    extraParams,
+    requestOptions: input.requestOptions,
+  });
+  const parsed = parseChppBaseResponse(raw.rawXml);
+  const success = raw.httpStatus >= 200 && raw.httpStatus < 300 && (parsed.errorCode === undefined || parsed.errorCode === 0);
+  return {
+    success,
+    errorCode: parsed.errorCode,
+    errorMessage: success ? undefined : parsed.errorMessage || `CHPP challenges request failed (${raw.httpStatus})`,
+    rawXml: raw.rawXml,
+    requestUrl: raw.requestUrl,
+    requestQuery: raw.requestQuery,
+  };
+}
+
 export async function sendChppChallenge(input: SendChppChallengeInput): Promise<SendChppChallengeResult> {
   if (!shouldRequireChallengeableCheck()) {
     return sendChppChallengeDirect(input);
   }
 
-  const challengeable = await checkChppChallengeable({
-    consumerKey: input.consumerKey,
-    consumerSecret: input.consumerSecret,
-    oauthToken: input.oauthToken,
-    oauthTokenSecret: input.oauthTokenSecret,
-    teamId: input.teamId,
-    suggestedTeamIds: [input.opponentTeamId],
-    isWeekendFriendly: input.isWeekendFriendly ?? 0,
-    requestOptions: input.requestOptions,
-  });
-
-  const challengeableCheck = isOpponentChallengeable(challengeable.parsed, input.opponentTeamId);
-  if (!challengeableCheck.ok) {
-    return {
-      success: false,
-      errorCode: challengeable.parsed.errorCode,
-      errorMessage: challengeableCheck.reason,
-      rawXml: challengeable.rawXml,
-      requestUrl: challengeable.requestUrl,
-      requestQuery: challengeable.requestQuery,
-      challengeable: challengeable.parsed,
-      skippedChallengeableCheck: false,
-    };
+  // CHPP's challengeable response is advisory. Hattrick can report false here
+  // while still accepting the direct challenge action, so only the challenge
+  // response itself is allowed to decide whether the send succeeded.
+  let challengeable: ChppChallengeableParse | undefined;
+  try {
+    const preflight = await checkChppChallengeable({
+      consumerKey: input.consumerKey,
+      consumerSecret: input.consumerSecret,
+      oauthToken: input.oauthToken,
+      oauthTokenSecret: input.oauthTokenSecret,
+      teamId: input.teamId,
+      suggestedTeamIds: [input.opponentTeamId],
+      isWeekendFriendly: input.isWeekendFriendly ?? 0,
+      requestOptions: input.requestOptions,
+    });
+    challengeable = preflight.parsed;
+  } catch {
+    // Continue to the authoritative direct challenge request.
   }
 
   const result = await sendChppChallengeDirect(input);
-  return { ...result, challengeable: challengeable.parsed, skippedChallengeableCheck: false };
+  return { ...result, challengeable, skippedChallengeableCheck: false };
 }
 
 export function parseChppRequestOptionsFromQuery(query: Record<string, string | string[] | undefined>): ChppChallengesRequestOptions {

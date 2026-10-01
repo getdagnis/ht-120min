@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 
 import {
+  getFixtureWarningRoundIdsToDeactivate,
   getMisarrangedWarningTeamIds,
   planFixtureWarningRefresh,
 } from '../src/server/api/teams/refresh-fixtures.js';
@@ -93,4 +94,38 @@ test('historical warning records survive a later upcoming-round refresh', () => 
 
   assert.deepEqual(plan.historicalWarnings, [historicalWarning]);
   assert.deepEqual(plan.resultingWarnings, [historicalWarning, warning(upcomingRoundId, homeTeamId)]);
+});
+
+test('warning stays visible until a later round has started', () => {
+  const rounds = [
+    {
+      id: 'round-1',
+      round_number: 1,
+      created_at: '2026-09-30T12:00:00Z',
+      matches: [{ home_team_id: homeTeamId, away_team_id: awayTeamId, scheduled_for: '2026-10-07T17:45:00Z' }],
+    },
+    {
+      id: 'round-2',
+      round_number: 2,
+      created_at: '2026-09-30T12:00:00Z',
+      matches: [{ home_team_id: homeTeamId, away_team_id: awayTeamId, scheduled_for: '2026-10-14T17:45:00Z' }],
+    },
+  ];
+
+  assert.deepEqual(
+    getFixtureWarningRoundIdsToDeactivate({
+      warnings: [{ round_id: 'round-1' }],
+      rounds,
+      now: new Date('2026-10-07T18:00:00Z'),
+    }),
+    [],
+  );
+  assert.deepEqual(
+    getFixtureWarningRoundIdsToDeactivate({
+      warnings: [{ round_id: 'round-1' }],
+      rounds,
+      now: new Date('2026-10-14T18:00:00Z'),
+    }),
+    ['round-1'],
+  );
 });

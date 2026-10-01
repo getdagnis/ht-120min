@@ -209,6 +209,46 @@ export function planFixtureWarningRefresh<T extends FixtureWarningRecord>(
   };
 }
 
+export function getFixtureWarningRoundIdsToDeactivate(input: {
+  warnings: Array<{ round_id: string; active?: boolean | null }>;
+  rounds: Array<{
+    id: string;
+    round_number: number;
+    created_at: string;
+    matches: Array<{
+      home_team_id?: string | null;
+      away_team_id?: string | null;
+      scheduled_for?: string | null;
+    }>;
+  }>;
+  now?: Date;
+  countryName?: string;
+}) {
+  const nowMs = (input.now || new Date()).getTime();
+  const roundStarts = input.rounds.map((round) => {
+    const matchStarts = round.matches
+      .filter((match) => match.home_team_id && match.away_team_id)
+      .map((match) => getMatchTargetDate(match, round, input.countryName).getTime())
+      .filter(Number.isFinite);
+    return matchStarts.length > 0 ? Math.min(...matchStarts) : null;
+  });
+
+  return [
+    ...new Set(
+      input.warnings
+        .filter((warning) => warning.active !== false)
+        .filter((warning) => {
+          const warningRoundIndex = input.rounds.findIndex((round) => round.id === warning.round_id);
+          if (warningRoundIndex < 0) return false;
+          return roundStarts
+            .slice(warningRoundIndex + 1)
+            .some((roundStart) => roundStart !== null && roundStart <= nowMs);
+        })
+        .map((warning) => warning.round_id),
+    ),
+  ];
+}
+
 export function getMisarrangedWarningTeamIds(input: {
   homeTeamId: string;
   awayTeamId: string;
@@ -1263,6 +1303,22 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       return res.status(200).json({ status: 'No upcoming rounds to refresh' });
     }
 
+    const warningRoundIdsToDeactivate = getFixtureWarningRoundIdsToDeactivate({
+      warnings: existingWarnings || [],
+      rounds,
+      now,
+      countryName: teams[0]?.country_name,
+    });
+    if (warningRoundIdsToDeactivate.length > 0) {
+      const { error: expiredWarningError } = await supabase
+        .from('fixture_warnings')
+        .update({ active: false })
+        .eq('tournament_id', tournament_id)
+        .in('round_id', warningRoundIdsToDeactivate)
+        .eq('active', true);
+      if (expiredWarningError) throw expiredWarningError;
+    }
+
     const teamCache: Record<
       string,
       { homeId: number; awayId: number; date: Date; matchId: number; matchType: number }[] | null
@@ -1291,10 +1347,11 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     const teamDetailsCache = new Map<number, ReturnType<typeof fetchTeamDetailsFromChpp>>();
     const arenaDetailsCache = new Map<number, ReturnType<typeof fetchArenaDetailsFromChpp>>();
     const getStoryTeamDetails = async (team: TeamWithAuth) => {
-      if (!consumerKey || !consumerSecret || !team.oauth_token) return null;
+      const credentials = team.oauth_token && team.oauth_token_secret ? team : authTeam;
+      if (!consumerKey || !consumerSecret || !credentials?.oauth_token || !credentials.oauth_token_secret) return null;
       const cached = teamDetailsCache.get(team.ht_team_id);
       if (cached) return cached;
-      const request = fetchTeamDetailsFromChpp(consumerKey, consumerSecret, team, team.ht_team_id).catch((error) => {
+      const request = fetchTeamDetailsFromChpp(consumerKey, consumerSecret, credentials, team.ht_team_id).catch((error) => {
         console.error(`Error fetching story details for team ${team.id}:`, error);
         return null;
       });
@@ -1401,14 +1458,45 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     // Active-round warnings are intentionally sticky. The first refresh that
     // detects a conflict decides who is warned; later CHPP state must not add
     // a warning to the opponent who had to arrange elsewhere afterward.
-    const activeExistingWarnings = (existingWarnings || []).filter((warning) => warning.active !== false);
+    const warningRoundIdsToDeactivateSet = new Set(warningRoundIdsToDeactivate);
+    const activeExistingWarnings = (existingWarnings || []).filter(
+      (warning) => warning.active !== false && !warningRoundIdsToDeactivateSet.has(warning.round_id),
+    );
     const warningPlan = planFixtureWarningRefresh(activeExistingWarnings, upcomingRound.id, []);
     const existingWarningsOutsideRefresh = warningPlan.historicalWarnings;
     const currentRoundWarnings = warningPlan.currentRoundWarnings;
+    const knownCupStatuses = new Map<string, boolean>();
     const getWarningHistory = (teamId: string) => [
       ...existingWarningsOutsideRefresh.filter((w) => w.team_id === teamId),
       ...currentRoundWarnings.filter((w) => w.team_id === teamId),
     ];
+
+    const recordWarning = async (teamId: string, reason: 'misarranged' | 'in_cup' = 'misarranged') => {
+      const alreadyHasWarning = currentRoundWarnings.some(
+        (w) => w.round_id === upcomingRound.id && w.team_id === teamId,
+      );
+      if (alreadyHasWarning) return;
+
+      const teamWarnings = getWarningHistory(teamId);
+      const prevRound = rounds.find((r) => r.round_number === upcomingRound.round_number - 1);
+      const isConsecutive = teamWarnings.some((w) => prevRound && w.round_id === prevRound.id);
+      const type = reason === 'in_cup' ? 'yellow' : isConsecutive || teamWarnings.length >= 2 ? 'red' : 'yellow';
+
+      await supabase.from('fixture_warnings').insert({
+        tournament_id,
+        round_id: upcomingRound.id,
+        team_id: teamId,
+        type,
+        reason,
+      });
+
+      currentRoundWarnings.push({
+        round_id: upcomingRound.id,
+        team_id: teamId,
+        type,
+        reason,
+      } as (typeof currentRoundWarnings)[number]);
+    };
 
     const linkedMatchIds: number[] = [];
 
@@ -1465,6 +1553,15 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       const homeTeam = teams.find((t) => t.id === match.home_team_id);
       const awayTeam = teams.find((t) => t.id === match.away_team_id);
       if (!homeTeam || !awayTeam) continue;
+
+      const [homeDetails, awayDetails] = await Promise.all([
+        getStoryTeamDetails(homeTeam),
+        getStoryTeamDetails(awayTeam),
+      ]);
+      if (typeof homeDetails?.stillInCup === 'boolean') knownCupStatuses.set(homeTeam.id, homeDetails.stillInCup);
+      if (typeof awayDetails?.stillInCup === 'boolean') knownCupStatuses.set(awayTeam.id, awayDetails.stillInCup);
+      if (homeDetails?.stillInCup === true) await recordWarning(homeTeam.id, 'in_cup');
+      if (awayDetails?.stillInCup === true) await recordWarning(awayTeam.id, 'in_cup');
 
       const targetDate = getMatchTargetDate(match, upcomingRound, homeTeam.country_name);
       const homeFriendlies = await getFriendlies(homeTeam);
@@ -1577,34 +1674,6 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         if (warningError) throw warningError;
       }
 
-      // Warning Logic Helper
-      const recordWarning = async (teamId: string) => {
-        const alreadyHasWarning = currentRoundWarnings.some(
-          (w) => w.round_id === upcomingRound.id && w.team_id === teamId,
-        );
-        if (alreadyHasWarning) return;
-
-        const teamWarnings = getWarningHistory(teamId);
-        const prevRound = rounds.find((r) => r.round_number === upcomingRound.round_number - 1);
-        const isConsecutive = teamWarnings.some((w) => prevRound && w.round_id === prevRound.id);
-        const type = isConsecutive || teamWarnings.length >= 2 ? 'red' : 'yellow';
-
-        await supabase.from('fixture_warnings').insert({
-          tournament_id,
-          round_id: upcomingRound.id,
-          team_id: teamId,
-          type,
-          reason: 'misarranged',
-        });
-
-        currentRoundWarnings.push({
-          round_id: upcomingRound.id,
-          team_id: teamId,
-          type,
-          reason: 'misarranged',
-        } as (typeof currentRoundWarnings)[number]);
-      };
-
       if (reserveResolution?.kind !== 'reserve') {
         for (const teamId of getMisarrangedWarningTeamIds({
           homeTeamId: homeTeam.id,
@@ -1619,6 +1688,27 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
           ),
         })) {
           await recordWarning(teamId);
+        }
+      }
+    }
+
+    const staleCupWarningTeamIds = currentRoundWarnings
+      .filter((warning) => warning.reason === 'in_cup' && knownCupStatuses.get(warning.team_id) === false)
+      .map((warning) => warning.team_id);
+    if (staleCupWarningTeamIds.length > 0) {
+      const { error: staleCupWarningError } = await supabase
+        .from('fixture_warnings')
+        .update({ active: false })
+        .eq('tournament_id', tournament_id)
+        .eq('round_id', upcomingRound.id)
+        .in('team_id', Array.from(new Set(staleCupWarningTeamIds)))
+        .eq('reason', 'in_cup')
+        .eq('active', true);
+      if (staleCupWarningError) throw staleCupWarningError;
+      for (let index = currentRoundWarnings.length - 1; index >= 0; index -= 1) {
+        const warning = currentRoundWarnings[index];
+        if (warning?.reason === 'in_cup' && knownCupStatuses.get(warning.team_id) === false) {
+          currentRoundWarnings.splice(index, 1);
         }
       }
     }

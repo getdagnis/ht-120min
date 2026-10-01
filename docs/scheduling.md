@@ -47,6 +47,14 @@ fixtures, refuses started or past-kickoff rounds, contains booked-elsewhere team
 and re-pairs only the unresolved current-round remainder. Finalized unplayed
 containment rows do not become opponent history.
 
+The admin-only Round 1 recovery action is separate from `Repair Round`. It is a
+one-off recovery for the destructive Round 1 repair failure: it ignores current
+Round 1 pairings, reconstructs the deterministic original from the frozen
+`ranking_snapshot_json`, current season slot occupants, and
+`generateBalancedRound(..., {}, 0)`, then replaces only that round's fixture
+rows using its reserved slot and `buildStoredPairings()` kickoff times. It does
+not change the round, later rounds, rankings, or season slots.
+
 Legacy `single`, `double`, `recurring`, and `manual` seasons retain their existing
 generation and management paths.
 

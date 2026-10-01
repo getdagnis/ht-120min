@@ -187,6 +187,35 @@ function toLengthTeams(teams: TeamRow[], ranks: Map<string, number>): LengthSche
   }));
 }
 
+function toOriginalRoundTeams(
+  teams: TeamRow[],
+  slots: SlotRow[],
+  snapshot: unknown,
+): LengthScheduleTeam[] {
+  const rosterIds = slots.map((slot) => slot.current_team_id).filter((id): id is string => Boolean(id));
+  const rosterIdSet = new Set(rosterIds);
+  const snapshotRows = Array.isArray(snapshot)
+    ? snapshot.filter((row): row is Record<string, unknown> => Boolean(row) && typeof row === 'object')
+    : [];
+  const snapshotIds = snapshotRows.map((row) => (typeof row.team_id === 'string' ? row.team_id : ''));
+  const snapshotRanks = rankingMap(snapshot);
+
+  if (
+    rosterIds.length < 2 ||
+    rosterIdSet.size !== rosterIds.length ||
+    snapshotRows.length !== rosterIds.length ||
+    new Set(snapshotIds).size !== snapshotIds.length ||
+    snapshotIds.some((id) => !rosterIdSet.has(id)) ||
+    snapshotRanks.size !== rosterIds.length ||
+    teams.length !== rosterIds.length ||
+    teams.some((team) => !rosterIdSet.has(team.id) || !snapshotRanks.has(team.id))
+  ) {
+    throw new Error('Round 1 recovery requires a complete ranking snapshot for the current season roster.');
+  }
+
+  return toLengthTeams(teams, snapshotRanks);
+}
+
 function buildStoredPairings(round: StoredRound, pairings: LengthSchedulePairing[], teams: LengthScheduleTeam[]) {
   if (!round.reserved_slot_date || !round.reserved_slot_id || !round.reserved_slot_kind) {
     throw new Error(`Round ${round.round_number} has no reserved calendar slot.`);
@@ -311,6 +340,40 @@ export async function progressLengthSchedule(
   return data;
 }
 
+export async function recoverLengthRoundOne(
+  supabase: ServiceSupabase,
+  tournamentId: string,
+  seasonNumber: number,
+) {
+  const state = await loadLengthSeason(supabase, tournamentId, seasonNumber);
+  if (!state) throw new Error('This tournament does not use staged length scheduling.');
+  const roundOne = state.rounds.find((round) => round.round_number === 1);
+  if (!roundOne || roundOne.round_number !== 1) throw new Error('Round 1 was not found.');
+  if (roundOne.phase !== 'regular') throw new Error('Round 1 recovery requires the regular phase.');
+  if (state.tournament.schedule_mode !== 'length') {
+    throw new Error('Round 1 recovery requires length scheduling.');
+  }
+
+  // This deliberately ignores current Round 1 matches. The frozen TeamRank
+  // snapshot plus current physical season-slot occupants are the only inputs
+  // used to recreate the original deterministic pairing and orientation.
+  const originalTeams = toOriginalRoundTeams(state.teams, state.slots, state.season.ranking_snapshot_json);
+  const originalPairings = generateBalancedRound(originalTeams, {}, 0);
+  const replacementMatches = buildStoredPairings(roundOne, originalPairings, originalTeams);
+  const { data, error } = await supabase.rpc('recover_length_schedule_round_one', {
+    p_tournament_id: tournamentId,
+    p_season_number: seasonNumber,
+    p_round_id: roundOne.id,
+    p_matches: replacementMatches,
+  });
+  if (error) throw error;
+  return {
+    ...(firstRelation(data as Record<string, unknown> | Record<string, unknown>[] | null) || {}),
+    roundNumber: 1,
+    reconstructedFixtures: replacementMatches.length,
+  };
+}
+
 export async function repairLengthRound(
   supabase: ServiceSupabase,
   tournamentId: string,
@@ -352,12 +415,22 @@ export async function repairLengthRound(
   if (warningsResult.error) throw warningsResult.error;
   const unavailableTeamIds = Array.from(new Set((warningsResult.data || []).map((warning) => warning.team_id)));
   if (unavailableTeamIds.length === 0) throw new Error('No booked-elsewhere teams were detected in this round.');
+  const affectedMatches = current.matches.filter(
+    (match) =>
+      !protectedMatches.includes(match) &&
+      Boolean(
+        (match.home_team_id && unavailableTeamIds.includes(match.home_team_id)) ||
+          (match.away_team_id && unavailableTeamIds.includes(match.away_team_id)),
+      ),
+  );
+  if (affectedMatches.length === 0) throw new Error('No repairable affected fixtures were detected.');
+  const untouchedMatches = current.matches.filter((match) => !affectedMatches.includes(match));
   const ranks = rankingMap(state.season.ranking_snapshot_json);
   const lengthTeams = toLengthTeams(state.teams, ranks);
   const history = buildPairingHistory(state.rounds.filter((round) => round.round_number < current.round_number));
   const repair = buildRoundRepair({
     teams: lengthTeams,
-    lockedPairs: protectedMatches.flatMap((match) =>
+    lockedPairs: untouchedMatches.flatMap((match) =>
       match.home_team_id && match.away_team_id ? [[match.home_team_id, match.away_team_id] as [string, string]] : [],
     ),
     unavailableTeamIds,
@@ -377,7 +450,7 @@ export async function repairLengthRound(
   if (error) throw error;
   return {
     ...(firstRelation(data as Record<string, unknown> | Record<string, unknown>[] | null) || {}),
-    lockedFixtures: protectedMatches.length,
+    lockedFixtures: untouchedMatches.filter((match) => match.home_team_id && match.away_team_id).length,
     unavailableTeams: unavailableTeamIds.length,
     repairedPlayableFixtures: repair.repairedPairs.filter((pairing) => !pairing.isBye).length,
   };

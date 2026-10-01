@@ -30,9 +30,16 @@ import {
   getFixtureChallengeMatchType,
   resolveFixtureChallengeOptions,
   getFixtureChallengeSide,
+  resolveChallengeManagementStatus,
+  type ChallengeManagementStatus,
   type FixtureChallengeSide,
 } from './_lib/fixture-challenge.js';
-import { fetchManagerTeamsFromChpp, fetchTeamDetailsFromChpp, getManagerChppCredentials } from './_lib/matchmaker.js';
+import {
+  fetchManagerTeamsFromChpp,
+  fetchTeamBookingStatus,
+  fetchTeamDetailsFromChpp,
+  getManagerChppCredentials,
+} from './_lib/matchmaker.js';
 import { validateTeamEligibility } from './_lib/eligibility.js';
 import { registerReserveTeam } from './_lib/chpp-register.js';
 import {
@@ -73,7 +80,7 @@ import {
 import type { MatchEventDetails } from '../../../shared/match-events.js';
 import type { PersistedScoringMode } from '../../../shared/scoring-profile.js';
 import type { SeasonFixturesSnapshot } from '../../utils/season-fixtures.js';
-import { progressLengthSchedule, repairLengthRound } from './_lib/length-schedule-service.js';
+import { progressLengthSchedule, recoverLengthRoundOne, repairLengthRound } from './_lib/length-schedule-service.js';
 
 const COMMENT_SELECT = 'id, season_id, team_id, team_name, manager_name, comment, created_at';
 const NEWS_COMMENT_SELECT = 'id, post_id, hattrick_user_id, author_name, content, created_at';
@@ -288,6 +295,27 @@ async function handleRepairLengthRound(req: VercelRequest, res: VercelResponse) 
     return res.status(200).json(result);
   } catch (error) {
     const message = error instanceof Error ? error.message : 'The round could not be repaired.';
+    return res.status(422).json({ error: message });
+  }
+}
+
+async function handleRecoverLengthRoundOne(req: VercelRequest, res: VercelResponse) {
+  if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed.' });
+  const tournamentId = readString(req.body?.tournamentId);
+  const seasonNumber = Number(req.body?.seasonNumber);
+  if (!tournamentId || !Number.isInteger(seasonNumber) || seasonNumber < 1) {
+    return res.status(400).json({ error: 'Invalid Round 1 recovery request.' });
+  }
+  const actor = await requireTournamentRoleSession(req, res, tournamentId);
+  if (!actor) return;
+  if (!actor.access.canManageOperations) {
+    return res.status(403).json({ error: 'You do not have permission to recover Round 1.' });
+  }
+  try {
+    const result = await recoverLengthRoundOne(getServiceSupabase(), tournamentId, seasonNumber);
+    return res.status(200).json(result);
+  } catch (error) {
+    const message = error instanceof Error ? error.message : 'Round 1 could not be recovered.';
     return res.status(422).json({ error: message });
   }
 }
@@ -834,6 +862,8 @@ type FixtureChallengeTeamRow = {
   active: boolean | null;
   is_placeholder: boolean | null;
   name: string | null;
+  oauth_scope: string | null;
+  can_manage_challenges: boolean | null;
 };
 
 type FixtureChallengeMatchRow = {
@@ -857,7 +887,24 @@ type ResolvedFixtureChallenge = {
   opponentTeam: FixtureChallengeTeamRow;
   matchType: 0 | 1;
   matchPlace: 0 | 1;
+  challengeManagementStatus: ChallengeManagementStatus;
 };
+
+type FixtureChallengeConsentRow = {
+  auto_send_challenge: boolean;
+  auto_accept_challenge: boolean;
+  consented_at: string | null;
+  updated_at: string;
+};
+
+function formatFixtureChallengeConsent(row?: FixtureChallengeConsentRow | null) {
+  return {
+    autoSendChallenge: row?.auto_send_challenge === true,
+    autoAcceptChallenge: row?.auto_accept_challenge === true,
+    consentedAt: row?.consented_at ?? null,
+    updatedAt: row?.updated_at ?? null,
+  };
+}
 
 function fixtureChallengeUnavailable(reason: string) {
   return { available: false as const, reason };
@@ -916,8 +963,8 @@ async function resolveFixtureChallenge(
       round_id,
       status,
       completed,
-      home_team:teams!matches_home_team_id_fkey(id, ht_team_id, hattrick_user_id, active, is_placeholder, name),
-      away_team:teams!matches_away_team_id_fkey(id, ht_team_id, hattrick_user_id, active, is_placeholder, name)
+      home_team:teams!matches_home_team_id_fkey(id, ht_team_id, hattrick_user_id, active, is_placeholder, name, oauth_scope, can_manage_challenges),
+      away_team:teams!matches_away_team_id_fkey(id, ht_team_id, hattrick_user_id, active, is_placeholder, name, oauth_scope, can_manage_challenges)
     `)
     .eq('id', matchId)
     .eq('round_id', currentRound.id)
@@ -961,6 +1008,16 @@ async function resolveFixtureChallenge(
     return null;
   }
 
+  const { data: profile, error: profileError } = await supabase
+    .from('profiles')
+    .select('oauth_scope')
+    .eq('hattrick_user_id', session.userId)
+    .maybeSingle();
+  if (profileError) throw profileError;
+
+  const oauthScope = profile?.oauth_scope?.trim() || actorTeam.oauth_scope;
+  const challengeManagementStatus = resolveChallengeManagementStatus(oauthScope, actorTeam.can_manage_challenges);
+
   return {
     sessionUserId: session.userId,
     tournamentId,
@@ -971,6 +1028,7 @@ async function resolveFixtureChallenge(
       opponentTeam,
       matchType: getFixtureChallengeMatchType(tournament.scoring_mode),
       matchPlace: getFixtureChallengeMatchPlace(side),
+      challengeManagementStatus,
     },
   };
 }
@@ -980,10 +1038,28 @@ async function handleFixtureChallenge(req: VercelRequest, res: VercelResponse) {
     return res.status(405).json({ error: 'Method not allowed.' });
   }
 
+  if (req.method === 'POST' && readString(req.body?.action) === 'save-consent') {
+    return handleFixtureChallengeConsent(req, res);
+  }
+
   const resolvedRequest = await resolveFixtureChallenge(req, res);
   if (!resolvedRequest?.resolved) return;
 
   const { sessionUserId, resolved } = resolvedRequest;
+  const supabase = getServiceSupabase();
+  const { data: consent, error: consentError } = await supabase
+    .from('tournament_challenge_consents')
+    .select('auto_send_challenge, auto_accept_challenge, consented_at, updated_at')
+    .eq('tournament_id', resolvedRequest.tournamentId)
+    .eq('team_id', resolved.actorTeam.id)
+    .maybeSingle();
+  if (consentError) throw consentError;
+
+  const challengeManagement = {
+    status: resolved.challengeManagementStatus,
+    supported: resolved.challengeManagementStatus === 'enabled',
+  };
+  const formattedConsent = formatFixtureChallengeConsent(consent as FixtureChallengeConsentRow | null);
   const options = resolveFixtureChallengeOptions(
     req.method === 'POST'
       ? {
@@ -996,7 +1072,6 @@ async function handleFixtureChallenge(req: VercelRequest, res: VercelResponse) {
   if (!options) {
     return res.status(400).json({ error: 'Challenge type and venue must be Cup Rules or Normal Rules, and Home or Away.' });
   }
-  const supabase = getServiceSupabase();
   const credentials = await getManagerChppCredentials(supabase, sessionUserId);
   if (!credentials) {
     return res.status(401).json({ error: 'Your Hattrick authorization has expired. Please sign in with Hattrick again.' });
@@ -1021,6 +1096,8 @@ async function handleFixtureChallenge(req: VercelRequest, res: VercelResponse) {
     opponent: { name: resolved.opponentTeam.name || 'opposing team', htTeamId: opponentTeamId },
     matchType: options.matchType === 1 ? 'cup_rules' : 'normal',
     venue: options.matchPlace === 0 ? 'home' : 'away',
+    consent: formattedConsent,
+    challengeManagement,
   };
   if (req.method === 'GET') return res.status(200).json(availability);
 
@@ -1060,6 +1137,50 @@ async function handleFixtureChallenge(req: VercelRequest, res: VercelResponse) {
     sent: true,
     trainingMatchId: sent.trainingMatchId,
     message: 'Challenge sent. Waiting for the opponent to accept.',
+  });
+}
+
+async function handleFixtureChallengeConsent(req: VercelRequest, res: VercelResponse) {
+  const autoArrangeEnabled = req.body?.autoArrangeEnabled;
+  if (typeof autoArrangeEnabled !== 'boolean') {
+    return res.status(400).json({ error: 'autoArrangeEnabled must be a boolean.' });
+  }
+
+  const resolvedRequest = await resolveFixtureChallenge(req, res);
+  if (!resolvedRequest?.resolved) return;
+
+  const { resolved } = resolvedRequest;
+  const supabase = getServiceSupabase();
+  const now = new Date().toISOString();
+  const { data, error } = await supabase
+    .from('tournament_challenge_consents')
+    .upsert(
+      {
+        tournament_id: resolvedRequest.tournamentId,
+        team_id: resolved.actorTeam.id,
+        auto_send_challenge: autoArrangeEnabled,
+        auto_accept_challenge: autoArrangeEnabled,
+        consented_at: autoArrangeEnabled ? now : null,
+        updated_at: now,
+      },
+      { onConflict: 'tournament_id,team_id' },
+    )
+    .select('auto_send_challenge, auto_accept_challenge, consented_at, updated_at')
+    .single();
+
+  if (error || !data) {
+    throw new Error(error?.message || 'Could not save challenge automation preference.');
+  }
+
+  return res.status(200).json({
+    consent: formatFixtureChallengeConsent(data as FixtureChallengeConsentRow),
+    challengeManagement: {
+      status: resolved.challengeManagementStatus,
+      supported: resolved.challengeManagementStatus === 'enabled',
+    },
+    message: autoArrangeEnabled
+      ? 'Preference saved. Automatic challenge actions are not active yet.'
+      : 'Automatic challenge preference disabled for this tournament team.',
   });
 }
 
@@ -1760,7 +1881,12 @@ async function handleGlobalChat(req: VercelRequest, res: VercelResponse) {
   return res.status(201).json(message);
 }
 
-function publicReserveTeam(row: Record<string, unknown>) {
+interface PublicReservePlanningStatus {
+  inCup: boolean | null;
+  bookedOutsideTournament: boolean;
+}
+
+function publicReserveTeam(row: Record<string, unknown>, planningStatus: PublicReservePlanningStatus | null) {
   return {
     id: row.id,
     name: row.name,
@@ -1771,7 +1897,81 @@ function publicReserveTeam(row: Record<string, unknown>) {
     manager_name: row.manager_name,
     hattrick_user_id: row.hattrick_user_id,
     reserve_joined_at: row.reserve_joined_at,
+    planning_status: planningStatus,
   };
+}
+
+async function loadPublicReservePlanningStatuses(
+  supabase: ReturnType<typeof getServiceSupabase>,
+  tournamentId: string,
+  rows: Array<Record<string, unknown>>,
+  reserveRows: Array<Record<string, unknown>>,
+) {
+  const statuses = new Map<string, PublicReservePlanningStatus>();
+  if (reserveRows.length === 0) return statuses;
+
+  const consumerKey = process.env.CHPP_CONSUMER_KEY;
+  const consumerSecret = process.env.CHPP_CONSUMER_SECRET;
+  if (!consumerKey || !consumerSecret) return statuses;
+
+  const authRow = rows.find(
+    (row) =>
+      row.is_placeholder !== true &&
+      (row.active === true || row.reserve_active === true) &&
+      typeof row.oauth_token === 'string' &&
+      typeof row.oauth_token_secret === 'string',
+  );
+  if (!authRow) return statuses;
+
+  const authCredentials = {
+    oauth_token: String(authRow.oauth_token),
+    oauth_token_secret: String(authRow.oauth_token_secret),
+  };
+  const { data: roundRows, error: roundsError } = await supabase
+    .from('rounds')
+    .select('matches(ht_match_id)')
+    .eq('tournament_id', tournamentId);
+  if (roundsError) return statuses;
+
+  const tournamentMatchIds = new Set<number>();
+  for (const round of roundRows || []) {
+    const matches = Array.isArray(round.matches) ? round.matches : round.matches ? [round.matches] : [];
+    for (const match of matches) {
+      const htMatchId = Number((match as { ht_match_id?: unknown }).ht_match_id);
+      if (Number.isSafeInteger(htMatchId) && htMatchId > 0) tournamentMatchIds.add(htMatchId);
+    }
+  }
+
+  for (const row of reserveRows) {
+    const teamId = Number(row.ht_team_id);
+    if (!Number.isSafeInteger(teamId) || teamId <= 0) continue;
+
+    const credentials =
+      typeof row.oauth_token === 'string' && typeof row.oauth_token_secret === 'string'
+        ? { oauth_token: row.oauth_token, oauth_token_secret: row.oauth_token_secret }
+        : authCredentials;
+    let inCup: boolean | null = null;
+    let bookedOutsideTournament = false;
+
+    try {
+      const details = await fetchTeamDetailsFromChpp(consumerKey, consumerSecret, credentials, teamId);
+      inCup = typeof details.stillInCup === 'boolean' ? details.stillInCup : null;
+    } catch {
+      // Keep the booking status usable if the teamdetails request fails.
+    }
+
+    try {
+      const booking = await fetchTeamBookingStatus(consumerKey, consumerSecret, credentials, teamId);
+      const bookedMatchId = booking.match?.matchId ? Number(booking.match.matchId) : null;
+      bookedOutsideTournament = bookedMatchId !== null && !tournamentMatchIds.has(bookedMatchId);
+    } catch {
+      // Keep the reserve widget available if the matches request fails.
+    }
+
+    statuses.set(String(row.id), { inCup, bookedOutsideTournament });
+  }
+
+  return statuses;
 }
 
 async function handleReserveTeams(req: VercelRequest, res: VercelResponse) {
@@ -1789,7 +1989,9 @@ async function handleReserveTeams(req: VercelRequest, res: VercelResponse) {
       .maybeSingle(),
     supabase
       .from('teams')
-      .select('id, name, ht_team_id, active, is_placeholder, reserve_active, reserve_joined_at, logo_url, country_name, country_id, manager_name, hattrick_user_id')
+      .select(
+        'id, name, ht_team_id, active, is_placeholder, reserve_active, reserve_joined_at, logo_url, country_name, country_id, manager_name, hattrick_user_id, oauth_token, oauth_token_secret',
+      )
       .eq('tournament_id', tournamentId)
       .order('reserve_joined_at', { ascending: false, nullsFirst: false }),
   ]);
@@ -1798,11 +2000,11 @@ async function handleReserveTeams(req: VercelRequest, res: VercelResponse) {
   if (!tournament) return res.status(404).json({ error: 'Tournament not found.' });
 
   const rows = (teamRows || []) as unknown as Array<Record<string, unknown>>;
-  const reserveTeams = rows
-    .filter((row) => row.reserve_active === true && row.is_placeholder !== true)
-    .map(publicReserveTeam);
+  const reserveRows = rows.filter((row) => row.reserve_active === true && row.is_placeholder !== true);
   const allowReserveRegistration = tournament.allow_reserve_registration !== false;
   if (req.method === 'GET') {
+    const planningStatuses = await loadPublicReservePlanningStatuses(supabase, tournamentId, rows, reserveRows);
+    const reserveTeams = reserveRows.map((row) => publicReserveTeam(row, planningStatuses.get(String(row.id)) || null));
     const secret = getAppSessionSecret();
     const session = secret ? verifyAppSessionCookie(req.headers.cookie, secret) : null;
     if (!session) {
@@ -2505,6 +2707,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         return await handleGenerateLengthSchedule(req, res);
       case 'repair-length-round':
         return await handleRepairLengthRound(req, res);
+      case 'recover-length-round-one':
+        return await handleRecoverLengthRoundOne(req, res);
       case 'save-length-results':
         return await handleSaveLengthResults(req, res);
       case 'managed-tournaments':

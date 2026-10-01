@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
 import test from 'node:test';
 
 import {
@@ -12,6 +13,15 @@ import {
   serializeLengthScheduleDraft,
   type LengthScheduleTeam,
 } from '../src/utils/length-schedule';
+
+const repairMigration = readFileSync(
+  new URL('../migrations/20261001090135_repair_length_schedule_affected_fixtures.sql', import.meta.url),
+  'utf8',
+);
+const roundOneRecoveryMigration = readFileSync(
+  new URL('../migrations/20261001090921_recover_length_round_one.sql', import.meta.url),
+  'utf8',
+);
 
 function rankedTeams(count: number): LengthScheduleTeam[] {
   return Array.from({ length: count }, (_, index) => ({
@@ -243,6 +253,43 @@ test('repair with odd unavailable and free groups minimizes the unavoidable affe
     .filter(Boolean);
   assert.equal(allIds.length, 6);
   assert.equal(new Set(allIds).size, 6);
+});
+
+test('repair only pools warned fixtures and preserves untouched unarranged pairs', () => {
+  const result = buildRoundRepair({
+    teams: rankedTeams(8),
+    lockedPairs: [['team-5', 'team-6'], ['team-7', 'team-8']],
+    unavailableTeamIds: ['team-1', 'team-3'],
+  });
+  assert.deepEqual(result.lockedPairs, [['team-5', 'team-6'], ['team-7', 'team-8']]);
+  assert.deepEqual(
+    new Set([result.containmentPairs[0]?.homeTeamId, result.containmentPairs[0]?.awayTeamId]),
+    new Set(['team-1', 'team-3']),
+  );
+  assert.deepEqual(
+    new Set([result.repairedPairs[0]?.homeTeamId, result.repairedPairs[0]?.awayTeamId]),
+    new Set(['team-2', 'team-4']),
+  );
+});
+
+test('repair migration deletes only fixtures containing unlocked participants', () => {
+  const deleteBlock = repairMigration.slice(
+    repairMigration.indexOf('  DELETE FROM public.matches'),
+    repairMigration.indexOf('  GET DIAGNOSTICS v_deleted = ROW_COUNT;'),
+  );
+  assert.match(repairMigration, /v_repair_team_ids uuid\[\]/);
+  assert.match(repairMigration, /array_agg\(DISTINCT team_id\)/);
+  assert.match(deleteBlock, /home_team_id = ANY\(v_repair_team_ids\)/);
+  assert.match(deleteBlock, /away_team_id = ANY\(v_repair_team_ids\)/);
+});
+
+test('Round 1 recovery is guarded and only replaces that round fixtures', () => {
+  assert.match(roundOneRecoveryMigration, /schedule_mode = 'length'/);
+  assert.match(roundOneRecoveryMigration, /v_round\.round_number <> 1/);
+  assert.match(roundOneRecoveryMigration, /v_round\.phase <> 'regular'/);
+  assert.match(roundOneRecoveryMigration, /DELETE FROM public\.matches\s+WHERE round_id = p_round_id/);
+  assert.doesNotMatch(roundOneRecoveryMigration, /DELETE FROM public\.rounds/);
+  assert.match(roundOneRecoveryMigration, /GRANT EXECUTE ON FUNCTION public\.recover_length_schedule_round_one/);
 });
 
 test('regular standings input excludes postseason rounds', () => {
