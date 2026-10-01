@@ -53,6 +53,7 @@ Recent important migrations:
 - `075_create_global_chat.sql`
 - `076_add_finished_at_to_matches.sql`
 - `082_reset_season_and_vacate_slot.sql`
+- `086_allow_reserve_registration.sql` (prepared locally; not applied)
 
 ## RLS And Access Assumptions
 
