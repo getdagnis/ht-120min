@@ -1,5 +1,8 @@
+import { isCurrentParticipantTeam } from './team-state.js';
+
 interface TournamentJoinabilityTeam {
   active: boolean;
+  reserve_active?: boolean | null;
   is_placeholder?: boolean | null;
 }
 
@@ -54,8 +57,10 @@ export function canViewerJoinTournament({
   // An active tournament without current-season fixtures is an auto-started, roster-locked season.
   if (status === 'active' && !isGenerated) return false;
 
-  const activeRealTeams = teams.filter((team) => team.active && !team.is_placeholder);
-  const hasInactiveRealSpot = teams.some((team) => !team.active && !team.is_placeholder);
+  const activeRealTeams = teams.filter(isCurrentParticipantTeam);
+  const hasInactiveRealSpot = teams.some(
+    (team) => !team.active && !team.reserve_active && !team.is_placeholder,
+  );
   const hasOddGeneratedByeSpot = isGenerated && activeRealTeams.length % 2 !== 0;
 
   if (isGenerated) {

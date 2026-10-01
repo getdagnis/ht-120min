@@ -53,6 +53,7 @@ interface StandingsViewProps {
   onVisitNews?: () => void;
   onVisitFixtures?: () => void;
   rounds?: StandingsPreviewRound[];
+  warningTeamIds?: ReadonlySet<string>;
   activityTeams?: TournamentActivityTeam[];
   activityMatches?: TournamentActivityMatch[];
   activityWarnings?: TournamentActivityWarning[];
@@ -133,6 +134,7 @@ export const StandingsView: React.FC<StandingsViewProps> = ({
   onVisitNews,
   onVisitFixtures,
   rounds = [],
+  warningTeamIds = new Set<string>(),
   activityTeams = [],
   activityMatches = [],
   activityWarnings = [],
@@ -782,6 +784,15 @@ export const StandingsView: React.FC<StandingsViewProps> = ({
                                       {s.joinedViaOauth && (
                                         <span title="Hattrick Validated Team">
                                           <ShieldCheck size={14} weight="bold" className={styles.validatedIcon} />
+                                        </span>
+                                      )}
+                                      {warningTeamIds.has(s.teamId) && (
+                                        <span title="Warning issued for this round">
+                                          <img
+                                            src="/warn-red.png"
+                                            alt="Warning issued"
+                                            className={styles.standingWarningIcon}
+                                          />
                                         </span>
                                       )}
                                     </div>

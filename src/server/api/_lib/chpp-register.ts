@@ -46,6 +46,7 @@ export async function getActiveTournamentConflicts(
     .select('ht_team_id, tournament_id, tournaments(name, slug, status, is_test, registration_type)')
     .in('ht_team_id', teamIds)
     .eq('active', true)
+    .eq('reserve_active', false)
     .neq('tournament_id', targetTournamentId);
 
   if (error) throw new Error(error.message);
@@ -164,7 +165,8 @@ export async function registerOAuthTeam(
       .from('teams')
       .select('id', { count: 'exact', head: true })
       .eq('tournament_id', input.tournamentId)
-      .eq('active', true);
+      .eq('active', true)
+      .eq('reserve_active', false);
 
     if ((count ?? 0) >= tournamentMeta.max_teams) {
       throw new Error('This tournament is full. No more teams can join.');

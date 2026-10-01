@@ -33,6 +33,7 @@ import { toLocalePath } from '../../next/locale-path';
 import { NewsArticle, type NewsPost } from '../../components/TournamentTabs/NewsTab';
 import { buildNewsArticlePreview } from '../../utils/news-preview';
 import { useAuth } from '../../hooks/useAuth';
+import { isCurrentParticipantTeam } from '../../utils/team-state';
 import { formatTournamentName } from '../../utils/tournament-names';
 import {
   EXOTIC_HFI_CAMPAIGN_SLUG_SET,
@@ -459,9 +460,7 @@ export const Home: React.FC<{ initialData?: HomeInitialData }> = ({ initialData 
           .forEach((t: DBTournament) => {
             const currentRounds = (t.rounds ?? []).filter((round) => (round.season_number ?? t.season) === t.season);
             // Count validated teams
-            const participantTeams = t.teams.filter(
-              (team) => team.active !== false && !team.reserve_active && !team.is_placeholder,
-            );
+            const participantTeams = t.teams.filter(isCurrentParticipantTeam);
             const validatedTeamCount = participantTeams.filter((team) => team.joined_via_oauth).length;
 
             const totalRounds = currentRounds.length;
@@ -708,18 +707,18 @@ export const Home: React.FC<{ initialData?: HomeInitialData }> = ({ initialData 
           </div>
           <div className={styles.tTeams}>
             {t.teams
-              .filter((team) => team.active !== false && !team.reserve_active && !team.is_placeholder)
+              .filter(isCurrentParticipantTeam)
               .slice(0, 8)
               .map((team) => (
                 <span key={team.id} className={styles.teamChip}>
                   {team.name}
                 </span>
               ))}
-            {t.teams.filter((team) => team.active !== false && !team.reserve_active && !team.is_placeholder).length >
+            {t.teams.filter(isCurrentParticipantTeam).length >
               6 && (
               <span className={styles.teamChipMore}>
                 +
-                {t.teams.filter((team) => team.active !== false && !team.reserve_active && !team.is_placeholder)
+                {t.teams.filter(isCurrentParticipantTeam)
                   .length - 6}{' '}
                 more
               </span>

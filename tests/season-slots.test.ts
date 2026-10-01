@@ -107,6 +107,27 @@ test('vacant slots without completed results do not create a standings row', () 
   assert.deepEqual(standings.map((standing) => standing.teamName), ['Team A']);
 });
 
+test('current slot occupants remain standings members even if a stale reserve flag exists', () => {
+  const standings = calculateSeasonSlotStandings(
+    [
+      {
+        id: 'incoming',
+        name: 'Incoming Reserve',
+        ht_team_id: 3,
+        hattrick_user_id: 30,
+        active: true,
+        reserve_active: true,
+        replacement_for_team_id: null,
+      },
+    ],
+    [],
+    [{ id: 'slot-a', current_team_id: 'incoming' }],
+    '120min',
+  );
+
+  assert.deepEqual(standings.map((standing) => standing.teamName), ['Incoming Reserve']);
+});
+
 test('vacant slots use the latest released assignment instead of arbitrary match order', () => {
   const standings = calculateSeasonSlotStandings(
     [

@@ -329,7 +329,7 @@ export function calculateSeasonSlotStandings(
   const slotTeams: Team[] = slots.flatMap((slot) => {
     if (slot.current_team_id) {
       const currentTeam = teamsById.get(slot.current_team_id);
-      return currentTeam ? [{ ...currentTeam, id: slot.id, active: true }] : [];
+      return currentTeam ? [{ ...currentTeam, id: slot.id, active: true, reserve_active: false }] : [];
     }
 
     // A vacant slot can have several historical occupants. Assignment

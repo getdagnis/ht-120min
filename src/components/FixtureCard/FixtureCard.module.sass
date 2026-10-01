@@ -296,11 +296,19 @@
   text-align: center
 
   &.arranged
-    background-color: var(--accent-2)
+    background-color: var(--accent-3)
+    border: 1px solid var(--accent-2)
     color: white
+    &:hover
+      background-color: var(--accent)
+      border: 1px solid var(--accent-2)
   &.replaced
-    background-color: var(--accent-2)
+    background-color: var(--tinder-bg)
+    border: 1px solid var(--tinder-bright)
     color: white
+    &:hover
+      background-color: var(--tinder)
+      border: 1px solid var(--tinder-bright)
   &.ongoing
     background-color: var(--lighter)
     color: var(--accent)

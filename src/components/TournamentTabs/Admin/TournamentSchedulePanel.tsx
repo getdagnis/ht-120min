@@ -11,6 +11,7 @@ import {
 import type { ScheduleDraftPreview, ScheduleMode } from '../../../utils/schedule-draft';
 import type { RescheduleDraftPreview } from '../../../utils/reschedule-draft';
 import { getFullRoundRobinRoundCount, type LengthScheduleDraft } from '../../../utils/length-schedule';
+import { isCurrentParticipantTeam } from '../../../utils/team-state';
 
 type ScheduleSetup = 'generated' | 'manual';
 type MatchFetchWindow = 'current' | 'previous' | 'last50';
@@ -74,6 +75,7 @@ interface SchedulePanelTeam {
   ht_team_id: number;
   logo_url?: string | null;
   active?: boolean;
+  reserve_active?: boolean | null;
   is_placeholder?: boolean;
 }
 
@@ -352,7 +354,7 @@ export const TournamentSchedulePanel: React.FC<TournamentSchedulePanelProps> = (
         : draft.reason || 'No valid start date';
   const invalidReason = !draft.valid ? draft.blockingReasons[0] || draft.reason : null;
   const canAddFetchedMatch = Boolean(addMatchPreview?.home_team_known && addMatchPreview?.away_team_known);
-  const activeTeams = teams.filter((team) => team.active !== false && !team.is_placeholder && team.ht_team_id);
+  const activeTeams = teams.filter((team) => isCurrentParticipantTeam(team) && team.ht_team_id);
   const showPerTeamSuggestions = activeTeams.length > 4;
   const selectedSuggestionTeam = suggestionTeamId
     ? activeTeams.find((team) => Number(team.ht_team_id) === suggestionTeamId) || null

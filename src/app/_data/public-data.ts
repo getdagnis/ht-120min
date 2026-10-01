@@ -11,6 +11,7 @@ import { calculateSeasonSlotStandings, type SeasonSlotAssignment } from '../../u
 import { formatTournamentName } from '../../utils/tournament-names';
 import { getCountryWorldDetails } from '../../../shared/worlddetails';
 import { getJoinStoryManagerSummary } from '../../utils/tournament-activity';
+import { isCurrentParticipantTeam } from '../../utils/team-state.js';
 import {
   EXOTIC_HFI_CAMPAIGN_SLUG_SET,
   orderExoticHfiTournaments,
@@ -363,7 +364,7 @@ export const loadHomeInitialData = cache(async (): Promise<HomeInitialData> => {
     const item: HomeTournament = {
       ...tournament,
       rounds: currentRounds,
-      validatedTeamCount: tournament.teams.filter((team) => team.active !== false && team.joined_via_oauth && !team.reserve_active && !team.is_placeholder).length,
+      validatedTeamCount: tournament.teams.filter((team) => isCurrentParticipantTeam(team) && team.joined_via_oauth).length,
       totalRounds: currentRounds.length,
       completedRounds: currentRounds.filter((round) => {
         const roundMatches = round.matches || [];
@@ -372,7 +373,7 @@ export const loadHomeInitialData = cache(async (): Promise<HomeInitialData> => {
       totalMatches: matches.length,
       completedMatches,
       activityScore: completedMatches,
-      teamCount: tournament.teams.filter((team) => team.active !== false && !team.reserve_active && !team.is_placeholder).length,
+      teamCount: tournament.teams.filter(isCurrentParticipantTeam).length,
       nextMatchDate: serializeDate(isGenerated && !isClosed ? getTournamentNextMatchDate(currentRounds, warnings) : null),
       plannedStartDate: serializeDate(plannedStartDate),
       startedAt: serializeDate(startedAt),

@@ -7,6 +7,7 @@ import type {
   TournamentReserveStorySnapshot,
 } from '../../types/tournament-activity';
 import { getCanonicalCountryName } from '../../utils/ht-data';
+import { isCurrentParticipantTeam } from '../../utils/team-state';
 import { useClientNow } from '../../hooks/useHydratedBrowserState';
 import { supabase } from '../../lib/supabase';
 import styles from './TournamentActivity.module.sass';
@@ -16,6 +17,7 @@ export interface TournamentActivityTeam {
   name: string;
   created_at: string;
   active: boolean;
+  reserve_active?: boolean | null;
   is_placeholder?: boolean;
   manager_name?: string | null;
   hattrick_user_id?: number | null;
@@ -280,7 +282,7 @@ export const TournamentActivity: React.FC<TournamentActivityProps> = ({
 
     const cutoff = now - ACTIVITY_WINDOW_MS;
     const joinEntries = teams
-      .filter((team) => team.active && !team.is_placeholder)
+      .filter(isCurrentParticipantTeam)
       .map((team) => ({ team, createdAt: Date.parse(team.created_at) }))
       .filter(({ createdAt }) => Number.isFinite(createdAt) && createdAt >= cutoff && createdAt <= now)
       .sort((a, b) => b.createdAt - a.createdAt)

@@ -1,5 +1,6 @@
 import { supabase } from '../lib/supabase';
 import { sortFeaturedFirst } from './tournament-sorting';
+import { isCurrentParticipantTeam } from './team-state.js';
 
 export interface OpenTournamentSummary {
   id: string;
@@ -88,8 +89,8 @@ export const fetchOpenTournaments = async (): Promise<OpenTournamentSummary[]> =
       created_at: tournament.created_at,
       is_featured: tournament.is_featured ?? false,
       max_teams: tournament.max_teams ?? null,
-      teamCount: tournament.teams?.filter((team) => team.active !== false && !team.reserve_active && !team.is_placeholder).length ?? 0,
-      validatedTeamCount: tournament.teams?.filter((team) => team.active !== false && !team.reserve_active && !team.is_placeholder && team.joined_via_oauth).length ?? 0,
+      teamCount: tournament.teams?.filter(isCurrentParticipantTeam).length ?? 0,
+      validatedTeamCount: tournament.teams?.filter((team) => isCurrentParticipantTeam(team) && team.joined_via_oauth).length ?? 0,
     }));
 
   return sortOpenTournaments(open);
