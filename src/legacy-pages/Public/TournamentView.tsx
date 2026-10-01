@@ -415,6 +415,7 @@ interface Tournament {
   season: number;
   is_test: boolean;
   is_archived?: boolean | null;
+  allow_reserve_registration?: boolean;
   status: 'open' | 'active' | 'paused' | 'stopped' | 'finished' | 'waiting' | 'archived';
   last_fixtures_refresh: string | null;
   admin_email: string | null;
@@ -1090,6 +1091,7 @@ export const TournamentView: React.FC<{ initialData?: TournamentInitialData }> =
   const [editCountryLimit, setEditCountryLimit] = useState<string | null>(null);
   const [editMaxTeams, setEditMaxTeams] = useState<number | null>(null);
   const [editRegistrationOpen, setEditRegistrationOpen] = useState(true);
+  const [editAllowReserveRegistration, setEditAllowReserveRegistration] = useState(true);
   const [showEditDescription, setShowEditDescription] = useState(false);
   const [editDescription, setEditDescription] = useState('');
   const [showEditEmail, setShowEditEmail] = useState(false);
@@ -1212,6 +1214,7 @@ export const TournamentView: React.FC<{ initialData?: TournamentInitialData }> =
         countryLimit: false,
         maxTeams: false,
         registrationOpen: false,
+        allowReserveRegistration: false,
         showDescription: false,
         description: false,
         showEmail: false,
@@ -1248,6 +1251,8 @@ export const TournamentView: React.FC<{ initialData?: TournamentInitialData }> =
       countryLimit: editCountryLimit !== savedCountryLimit,
       maxTeams: editMaxTeams !== (tournament.max_teams || null),
       registrationOpen: editRegistrationOpen !== !tournament.registration_closed_at,
+      allowReserveRegistration:
+        editAllowReserveRegistration !== (tournament.allow_reserve_registration !== false),
       showDescription: showEditDescription !== tournament.show_description,
       description: editDescription !== (tournament.description || ''),
       showEmail: showEditEmail !== Boolean(tournament.admin_email),
@@ -1269,6 +1274,7 @@ export const TournamentView: React.FC<{ initialData?: TournamentInitialData }> =
     editMaxTeams,
     editName,
     editRegistrationOpen,
+    editAllowReserveRegistration,
     editRegistrationType,
     isStartDateLocked,
     isTest,
@@ -1773,6 +1779,7 @@ export const TournamentView: React.FC<{ initialData?: TournamentInitialData }> =
         setEditForumId(tournamentData.forum_id ? String(tournamentData.forum_id) : '');
         setEditMaxTeams(tournamentData.max_teams || null);
         setEditRegistrationOpen(!tournamentData.registration_closed_at);
+        setEditAllowReserveRegistration(tournamentData.allow_reserve_registration !== false);
         setIncludeWeek15WeekendFriendly(false);
         setIncludeWeek15WeekendFriendlyForReschedule(Boolean(tournamentData.include_week15_weekend_friendly));
         setEditIsFeatured(Boolean(tournamentData.is_featured));
@@ -3733,6 +3740,7 @@ export const TournamentView: React.FC<{ initialData?: TournamentInitialData }> =
           registration_closed_at: editRegistrationOpen
             ? null
             : (tournament?.registration_closed_at ?? new Date().toISOString()),
+          allow_reserve_registration: editAllowReserveRegistration,
           schedule_mode:
             tournament?.schedule_mode === 'length' ? 'length' : scheduleSetup === 'manual' ? 'manual' : scheduleMode,
           schedule_start_slot: nextPlannedStartSlot,
@@ -4899,6 +4907,7 @@ export const TournamentView: React.FC<{ initialData?: TournamentInitialData }> =
     tournament &&
     !isSandbox &&
     !tournament.is_test &&
+    tournament.allow_reserve_registration !== false &&
     !['stopped', 'finished', 'archived'].includes(tournament.status) &&
     tournament.max_teams != null &&
     tournament.max_teams > 0 &&
@@ -5498,15 +5507,15 @@ export const TournamentView: React.FC<{ initialData?: TournamentInitialData }> =
             <p>Tournament is full. Please join Reserve list! You will be first in line if a spot opens!</p>
             <Button
               onClick={() => {
-                setIsConnecting(true);
-                window.location.href = `/api/auth/init?tournament_id=${tournament.id}`;
+                const reserveWidget = document.getElementById('reserve-teams-widget');
+                reserveWidget?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                reserveWidget?.focus({ preventScroll: true });
               }}
               variant="primary"
               size="sm"
               className={styles.joinButton}
-              disabled={isConnecting}
             >
-              <ArrowRight size={18} weight="bold" /> Join Reserve list
+              <ArrowRight size={18} weight="bold" /> Choose a team for the reserve list
             </Button>
           </div>
         </div>
@@ -5875,7 +5884,9 @@ export const TournamentView: React.FC<{ initialData?: TournamentInitialData }> =
             <MottoWidget items={TOURNAMENT_DEFAULT} theme="dark" variant="sidebar" />
 
             {!isMobile && tournamentChat}
-            <ReserveTeamsWidget tournamentId={tournament.id} />
+            {(tournament.allow_reserve_registration !== false || reserveTeams.length > 0) && (
+              <ReserveTeamsWidget tournamentId={tournament.id} />
+            )}
             <SidebarPollWidget
               seasonId={currentSeason?.id}
               seasonStatus={currentSeason?.status}
@@ -6162,6 +6173,20 @@ export const TournamentView: React.FC<{ initialData?: TournamentInitialData }> =
                                 }
                               />
                               {renderUnsavedSettingsNote(unsavedSettingsFields.registrationOpen)}
+                            </div>
+
+                            <div className={adminStyles.field}>
+                              {renderSettingsLabel('Reserve team registration')}
+                              <Switch
+                                checked={editAllowReserveRegistration}
+                                onChange={setEditAllowReserveRegistration}
+                                size="sm"
+                                label="Allow reserve team registration"
+                              />
+                              <p className={adminStyles.smallNote}>
+                                Controls new reserve sign-ups independently of tournament registration.
+                              </p>
+                              {renderUnsavedSettingsNote(unsavedSettingsFields.allowReserveRegistration)}
                             </div>
 
                             <div className={adminStyles.checkboxField}>

@@ -1784,7 +1784,7 @@ async function handleReserveTeams(req: VercelRequest, res: VercelResponse) {
   const [{ data: tournament, error: tournamentError }, { data: teamRows, error: teamsError }] = await Promise.all([
     supabase
       .from('tournaments')
-      .select('id, league_category, country_limit, country_limit_format')
+      .select('id, league_category, country_limit, country_limit_format, allow_reserve_registration')
       .eq('id', tournamentId)
       .maybeSingle(),
     supabase
@@ -1801,10 +1801,13 @@ async function handleReserveTeams(req: VercelRequest, res: VercelResponse) {
   const reserveTeams = rows
     .filter((row) => row.reserve_active === true && row.is_placeholder !== true)
     .map(publicReserveTeam);
+  const allowReserveRegistration = tournament.allow_reserve_registration !== false;
   if (req.method === 'GET') {
     const secret = getAppSessionSecret();
     const session = secret ? verifyAppSessionCookie(req.headers.cookie, secret) : null;
-    if (!session) return res.status(200).json({ authenticated: false, reserveTeams, myTeams: [] });
+    if (!session) {
+      return res.status(200).json({ authenticated: false, allowReserveRegistration, reserveTeams, myTeams: [] });
+    }
 
     const { data: profile, error: profileError } = await supabase
       .from('profiles')
@@ -1835,7 +1838,7 @@ async function handleReserveTeams(req: VercelRequest, res: VercelResponse) {
         };
       })
       .filter((team) => team.eligible || team.state === 'reserve');
-    return res.status(200).json({ authenticated: true, reserveTeams, myTeams });
+    return res.status(200).json({ authenticated: true, allowReserveRegistration, reserveTeams, myTeams });
   }
 
   const secret = getAppSessionSecret();
@@ -1847,6 +1850,9 @@ async function handleReserveTeams(req: VercelRequest, res: VercelResponse) {
   const requestedTeamId = readString(req.body?.teamId);
   if (!['join', 'leave'].includes(action) || !requestedTeamId) {
     return res.status(400).json({ error: 'Choose a team and an action.' });
+  }
+  if (action === 'join' && !allowReserveRegistration) {
+    return res.status(409).json({ error: 'Reserve team registration is currently closed.' });
   }
 
   if (action === 'leave') {

@@ -30,6 +30,7 @@ interface MyReserveTeam {
 
 interface ReserveTeamsResponse {
   authenticated: boolean;
+  allowReserveRegistration: boolean;
   reserveTeams: ReserveTeam[];
   myTeams: MyReserveTeam[];
 }
@@ -106,6 +107,8 @@ export const ReserveTeamsWidget: React.FC<ReserveTeamsWidgetProps> = ({ tourname
   const availableTeams = useMemo(() => data?.myTeams.filter((team) => team.state === 'available') || [], [data]);
   const ownReserve = data?.myTeams.filter((team) => team.state === 'reserve') || [];
 
+  if (data && !data.allowReserveRegistration && data.reserveTeams.length === 0) return null;
+
   const post = async (action: 'join' | 'leave', teamId: string) => {
     setBusy(true);
     setError(null);
@@ -162,7 +165,12 @@ export const ReserveTeamsWidget: React.FC<ReserveTeamsWidgetProps> = ({ tourname
   };
 
   return (
-    <section className={styles.widget} aria-labelledby="reserve-teams-title">
+    <section
+      id="reserve-teams-widget"
+      className={styles.widget}
+      aria-labelledby="reserve-teams-title"
+      tabIndex={-1}
+    >
       <h2 id="reserve-teams-title">
         <ShieldCheck size={18} weight="bold" /> Reserve teams
       </h2>
@@ -170,6 +178,9 @@ export const ReserveTeamsWidget: React.FC<ReserveTeamsWidgetProps> = ({ tourname
         Teams in the reserve list will be contacted first if a position opens in the tournament. They are also valid
         opponents that can replace your planned fixture partner when necessary.
       </p>
+      {data && !data.allowReserveRegistration && (
+        <p className={styles.previewNote}>Reserve team registration is currently closed.</p>
+      )}
       {reserveTeamsPreviewMode && (
         <p className={styles.previewNote}>Local preview only. Join and Leave do not contact Supabase or Hattrick.</p>
       )}
@@ -212,7 +223,7 @@ export const ReserveTeamsWidget: React.FC<ReserveTeamsWidgetProps> = ({ tourname
               Remove {team.name}
             </button>
           ))}
-          {availableTeams.length > 0 && (
+          {data.allowReserveRegistration && availableTeams.length > 0 && (
             <div className={styles.joinAction}>
               {availableTeams.length > 1 && (
                 <select
@@ -233,11 +244,11 @@ export const ReserveTeamsWidget: React.FC<ReserveTeamsWidgetProps> = ({ tourname
             </div>
           )}
         </div>
-      ) : (
+      ) : data?.allowReserveRegistration ? (
         <button type="button" className={styles.login} onClick={login}>
           Login to join reserve list
         </button>
-      )}
+      ) : null}
       {(error || availableTeams.some((team) => team.reason)) && (
         <p className={styles.error}>{error || availableTeams.find((team) => team.reason)?.reason}</p>
       )}
