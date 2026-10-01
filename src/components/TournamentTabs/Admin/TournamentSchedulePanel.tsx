@@ -135,6 +135,8 @@ interface TournamentSchedulePanelProps {
   }>;
   isRepairingRound?: boolean;
   onRepairRound?: () => void;
+  isRecoveringRoundOne?: boolean;
+  onRecoverRoundOne?: () => void;
 }
 
 function formatModeLabel(mode: ScheduleMode) {
@@ -256,6 +258,8 @@ export const TournamentSchedulePanel: React.FC<TournamentSchedulePanelProps> = (
   lengthRounds = [],
   isRepairingRound = false,
   onRepairRound,
+  isRecoveringRoundOne = false,
+  onRecoverRoundOne,
 }) => {
   const [expandedRounds, setExpandedRounds] = useState<Record<number, boolean>>({});
   const [manualAddOpen, setManualAddOpen] = useState(false);
@@ -1102,6 +1106,16 @@ export const TournamentSchedulePanel: React.FC<TournamentSchedulePanelProps> = (
             </div>
           ))}
         </div>
+        {currentRound?.round_number === 1 && currentRound.phase === 'regular' && onRecoverRoundOne && (
+          <div>
+            <Button variant="danger" onClick={onRecoverRoundOne} disabled={isRecoveringRoundOne || isRepairingRound}>
+              {isRecoveringRoundOne ? 'Restoring original Round 1...' : 'Restore original Round 1'}
+            </Button>
+            <p className={adminStyles.smallNote}>
+              One-off recovery: replaces only Round 1 fixtures from the frozen original ranking snapshot.
+            </p>
+          </div>
+        )}
         {currentRound?.phase === 'regular' && onRepairRound && (
           <Button variant="secondaryAction" onClick={onRepairRound} disabled={isRepairingRound}>
             {isRepairingRound ? `Repairing Round ${currentRound.round_number}...` : `Repair Round ${currentRound.round_number}`}

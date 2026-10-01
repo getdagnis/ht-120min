@@ -209,6 +209,46 @@ export function planFixtureWarningRefresh<T extends FixtureWarningRecord>(
   };
 }
 
+export function getFixtureWarningRoundIdsToDeactivate(input: {
+  warnings: Array<{ round_id: string; active?: boolean | null }>;
+  rounds: Array<{
+    id: string;
+    round_number: number;
+    created_at: string;
+    matches: Array<{
+      home_team_id?: string | null;
+      away_team_id?: string | null;
+      scheduled_for?: string | null;
+    }>;
+  }>;
+  now?: Date;
+  countryName?: string;
+}) {
+  const nowMs = (input.now || new Date()).getTime();
+  const roundStarts = input.rounds.map((round) => {
+    const matchStarts = round.matches
+      .filter((match) => match.home_team_id && match.away_team_id)
+      .map((match) => getMatchTargetDate(match, round, input.countryName).getTime())
+      .filter(Number.isFinite);
+    return matchStarts.length > 0 ? Math.min(...matchStarts) : null;
+  });
+
+  return [
+    ...new Set(
+      input.warnings
+        .filter((warning) => warning.active !== false)
+        .filter((warning) => {
+          const warningRoundIndex = input.rounds.findIndex((round) => round.id === warning.round_id);
+          if (warningRoundIndex < 0) return false;
+          return roundStarts
+            .slice(warningRoundIndex + 1)
+            .some((roundStart) => roundStart !== null && roundStart <= nowMs);
+        })
+        .map((warning) => warning.round_id),
+    ),
+  ];
+}
+
 export function getMisarrangedWarningTeamIds(input: {
   homeTeamId: string;
   awayTeamId: string;
@@ -1263,6 +1303,22 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       return res.status(200).json({ status: 'No upcoming rounds to refresh' });
     }
 
+    const warningRoundIdsToDeactivate = getFixtureWarningRoundIdsToDeactivate({
+      warnings: existingWarnings || [],
+      rounds,
+      now,
+      countryName: teams[0]?.country_name,
+    });
+    if (warningRoundIdsToDeactivate.length > 0) {
+      const { error: expiredWarningError } = await supabase
+        .from('fixture_warnings')
+        .update({ active: false })
+        .eq('tournament_id', tournament_id)
+        .in('round_id', warningRoundIdsToDeactivate)
+        .eq('active', true);
+      if (expiredWarningError) throw expiredWarningError;
+    }
+
     const teamCache: Record<
       string,
       { homeId: number; awayId: number; date: Date; matchId: number; matchType: number }[] | null
@@ -1402,7 +1458,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     // Active-round warnings are intentionally sticky. The first refresh that
     // detects a conflict decides who is warned; later CHPP state must not add
     // a warning to the opponent who had to arrange elsewhere afterward.
-    const activeExistingWarnings = (existingWarnings || []).filter((warning) => warning.active !== false);
+    const warningRoundIdsToDeactivateSet = new Set(warningRoundIdsToDeactivate);
+    const activeExistingWarnings = (existingWarnings || []).filter(
+      (warning) => warning.active !== false && !warningRoundIdsToDeactivateSet.has(warning.round_id),
+    );
     const warningPlan = planFixtureWarningRefresh(activeExistingWarnings, upcomingRound.id, []);
     const existingWarningsOutsideRefresh = warningPlan.historicalWarnings;
     const currentRoundWarnings = warningPlan.currentRoundWarnings;

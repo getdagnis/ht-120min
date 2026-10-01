@@ -1,6 +1,8 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import {
+  acceptChppChallengeDirect,
   checkChppChallengeable,
+  parseChppChallengeOffers,
   parseChppRequestOptionsFromQuery,
   sendChppChallengeDirect,
   viewChppChallenges,
@@ -65,9 +67,11 @@ function rejectIfBatchChallengeNotLocal(req: VercelRequest, res: VercelResponse)
 const MAX_BATCH_CANDIDATES = 25;
 
 interface BatchChallengeInput {
+  mode: 'send' | 'accept';
   teamId: number;
   candidateTeamIds: number[];
   matchType: 0 | 1;
+  ruleFilter: 'any' | 'cup_rules' | 'normal';
   matchPlace: 0 | 1;
   isWeekendFriendly: 0 | 1;
 }
@@ -90,12 +94,20 @@ function parseCandidateTeamIds(raw: unknown) {
 }
 
 function parseBatchInput(req: VercelRequest): BatchChallengeInput {
+  const mode = requestString(req, 'mode') || 'send';
+  if (mode !== 'send' && mode !== 'accept') throw new Error('Batch mode must be send or accept.');
+
   const teamId = requestNumber(req, 'teamId');
-  if (!teamId || !Number.isSafeInteger(teamId) || teamId <= 0) throw new Error('Missing sender team ID.');
+  if (!teamId || !Number.isSafeInteger(teamId) || teamId <= 0) {
+    throw new Error(`Missing ${mode === 'accept' ? 'accepting' : 'sender'} team ID.`);
+  }
 
   const matchType = requestString(req, 'matchType');
-  if (matchType && matchType !== 'cup_rules' && matchType !== 'normal') {
-    throw new Error('Match type must be cup_rules or normal.');
+  if (matchType && matchType !== 'cup_rules' && matchType !== 'normal' && matchType !== 'any') {
+    throw new Error('Friendly rules must be any, cup_rules, or normal.');
+  }
+  if (mode === 'send' && matchType === 'any') {
+    throw new Error('Sending a challenge requires a specific friendly rules selection.');
   }
 
   const matchPlace = requestString(req, 'matchPlace');
@@ -105,10 +117,15 @@ function parseBatchInput(req: VercelRequest): BatchChallengeInput {
 
   const weekendRaw = requestValue(req, 'isWeekendFriendly');
   const isWeekendFriendly = weekendRaw === true || String(weekendRaw ?? '') === '1' ? 1 : 0;
+  const candidateIds = mode === 'accept'
+    ? requestValue(req, 'challengerTeamIds') ?? requestValue(req, 'candidateTeamIds')
+    : requestValue(req, 'candidateTeamIds');
   return {
+    mode,
     teamId,
-    candidateTeamIds: parseCandidateTeamIds(requestValue(req, 'candidateTeamIds')),
+    candidateTeamIds: parseCandidateTeamIds(candidateIds),
     matchType: matchType === 'normal' ? 0 : 1,
+    ruleFilter: matchType === 'normal' ? 'normal' : matchType === 'any' || (mode === 'accept' && !matchType) ? 'any' : 'cup_rules',
     matchPlace: matchPlace === 'away' ? 1 : 0,
     isWeekendFriendly,
   };
@@ -152,7 +169,7 @@ async function resolveBatchOwner(req: VercelRequest, input: BatchChallengeInput)
   if (!sender) {
     return {
       context,
-      error: 'The selected sender team is not owned by the OAuth-authorized manager.',
+      error: `The selected ${input.mode === 'accept' ? 'accepting' : 'sender'} team is not owned by the OAuth-authorized manager.`,
     } as const;
   }
   return { context, sender, managerTeams } as const;
@@ -233,6 +250,74 @@ async function loadBatchPreflight(context: Awaited<ReturnType<typeof resolveMana
   };
 }
 
+function friendlyRuleLabel(ruleFilter: BatchChallengeInput['ruleFilter']) {
+  if (ruleFilter === 'any') return 'Any';
+  return ruleFilter === 'cup_rules' ? 'Cup Rules' : 'Normal Friendly';
+}
+
+function offerMatchesRule(offer: ReturnType<typeof parseChppChallengeOffers>[number], ruleFilter: BatchChallengeInput['ruleFilter']) {
+  if (ruleFilter === 'any') return true;
+  return offer.friendlyType === (ruleFilter === 'cup_rules' ? 1 : 0);
+}
+
+async function loadBatchAcceptPreflight(context: Awaited<ReturnType<typeof resolveManager>> & object, input: BatchChallengeInput) {
+  if ('error' in context) throw new Error(context.error);
+  const auth = authInput(context);
+  if (!auth) throw new Error('CHPP credentials are unavailable.');
+  const existing = await viewChppChallenges({
+    ...auth,
+    teamId: input.teamId,
+    isWeekendFriendly: input.isWeekendFriendly,
+    requestOptions: parseChppRequestOptionsFromQuery({}),
+  });
+  if (existing.httpStatus < 200 || existing.httpStatus >= 300) {
+    throw new Error(`CHPP challenge view failed (${existing.httpStatus}).`);
+  }
+  if (existing.parsed.errorCode !== undefined && existing.parsed.errorCode !== 0) {
+    throw new Error(existing.parsed.errorMessage || `CHPP challenge view failed (${existing.parsed.errorCode}).`);
+  }
+
+  const offers = parseChppChallengeOffers(existing.rawXml);
+  const offersByOpponent = new Map<number, ReturnType<typeof parseChppChallengeOffers>>();
+  for (const offer of offers) {
+    const current = offersByOpponent.get(offer.opponentTeamId) || [];
+    current.push(offer);
+    offersByOpponent.set(offer.opponentTeamId, current);
+  }
+
+  const candidates = input.candidateTeamIds.map((teamId) => {
+    const teamOffers = offersByOpponent.get(teamId) || [];
+    const matchingOffer = teamOffers.find(
+      (offer) => !offer.isAgreed && offer.trainingMatchId && offerMatchesRule(offer, input.ruleFilter),
+    );
+    const acceptedOffer = teamOffers.find((offer) => offer.isAgreed);
+    const anyOffer = teamOffers.find((offer) => offer.trainingMatchId);
+    return {
+      teamId,
+      challengeable: null,
+      alreadyChallenged: teamOffers.length > 0,
+      existingTrainingMatchId: matchingOffer?.trainingMatchId || acceptedOffer?.trainingMatchId || anyOffer?.trainingMatchId,
+      existingChallengeAgreed: Boolean(acceptedOffer),
+      reason: matchingOffer
+        ? `Pending incoming offer matches ${friendlyRuleLabel(input.ruleFilter)}.`
+        : acceptedOffer
+          ? 'Challenge already accepted.'
+          : teamOffers.length > 0
+            ? `Incoming offer exists, but no pending ${friendlyRuleLabel(input.ruleFilter)} offer matched.`
+            : 'No incoming challenge from this team.',
+      sendable: Boolean(matchingOffer),
+    };
+  });
+
+  return {
+    candidates,
+    sendableCount: candidates.filter((candidate) => candidate.sendable).length,
+    challengeableError: undefined,
+    challengeableRequestParams: undefined,
+    viewRequestParams: existing.params,
+  };
+}
+
 function isGlobalChallengeFailure(errorMessage?: string) {
   return /401|403|permission|scope|oauth|authorization|not authorized/i.test(errorMessage || '');
 }
@@ -242,26 +327,31 @@ async function handleBatchChallenge(req: VercelRequest, res: VercelResponse) {
   const owner = await resolveBatchOwner(req, input);
   if ('error' in owner) return res.status(400).json({ error: owner.error });
 
-  const preflight = await loadBatchPreflight(owner.context, input);
+  const preflight = input.mode === 'accept'
+    ? await loadBatchAcceptPreflight(owner.context, input)
+    : await loadBatchPreflight(owner.context, input);
   const phase = requestString(req, 'phase') || 'preview';
   const base = {
     tool: 'challenge-batch',
+    mode: input.mode,
     phase,
     managerId: owner.context.managerId,
     sender: { teamId: owner.sender.teamId, teamName: owner.sender.teamName },
     settings: {
-      matchType: input.matchType === 1 ? 'cup_rules' : 'normal',
-      matchPlace: input.matchPlace === 0 ? 'home' : 'away',
+      rules: friendlyRuleLabel(input.ruleFilter),
+      ...(input.mode === 'send' ? { matchPlace: input.matchPlace === 0 ? 'home' : 'away' } : {}),
       isWeekendFriendly: input.isWeekendFriendly === 1,
     },
     candidates: preflight.candidates,
     sendableCount: preflight.sendableCount,
-    warning: 'CHPP challengeable is diagnostic only. The direct CHPP challenge response decides whether each send succeeds. This does not enroll a team in a tournament.',
+    warning: input.mode === 'send'
+      ? 'CHPP challengeable is diagnostic only. The direct CHPP challenge response decides whether each send succeeds. This does not enroll a team in a tournament.'
+      : 'Accepting an incoming challenge only acts on the matching Hattrick offer. This does not enroll a team in a tournament.',
   };
 
   if (phase !== 'send') return res.status(200).json(base);
   if (requestString(req, 'confirm') !== '1' && requestValue(req, 'confirm') !== true) {
-    return res.status(400).json({ error: 'Confirm the batch side effect before sending.' });
+    return res.status(400).json({ error: `Confirm the batch side effect before ${input.mode === 'accept' ? 'accepting' : 'sending'}.` });
   }
 
   const results = [];
@@ -273,19 +363,27 @@ async function handleBatchChallenge(req: VercelRequest, res: VercelResponse) {
       continue;
     }
 
-    const result = await sendChppChallengeDirect({
-      ...auth,
-      teamId: input.teamId,
-      opponentTeamId: candidate.teamId,
-      matchType: input.matchType,
-      matchPlace: input.matchPlace,
-      isWeekendFriendly: input.isWeekendFriendly,
-      requestOptions: parseChppRequestOptionsFromQuery({}),
-    });
+    const result = input.mode === 'accept'
+      ? await acceptChppChallengeDirect({
+          ...auth,
+          teamId: input.teamId,
+          trainingMatchId: candidate.existingTrainingMatchId!,
+          isWeekendFriendly: input.isWeekendFriendly,
+          requestOptions: parseChppRequestOptionsFromQuery({}),
+        })
+      : await sendChppChallengeDirect({
+          ...auth,
+          teamId: input.teamId,
+          opponentTeamId: candidate.teamId,
+          matchType: input.matchType,
+          matchPlace: input.matchPlace,
+          isWeekendFriendly: input.isWeekendFriendly,
+          requestOptions: parseChppRequestOptionsFromQuery({}),
+        });
     results.push({
       ...candidate,
-      status: result.success ? ('sent' as const) : ('failed' as const),
-      trainingMatchId: result.trainingMatchId,
+      status: result.success ? (input.mode === 'accept' ? ('accepted' as const) : ('sent' as const)) : ('failed' as const),
+      trainingMatchId: 'trainingMatchId' in result ? result.trainingMatchId : candidate.existingTrainingMatchId,
       error: result.errorMessage,
     });
 
@@ -300,6 +398,7 @@ async function handleBatchChallenge(req: VercelRequest, res: VercelResponse) {
     phase: 'send',
     results,
     sentCount: results.filter((result) => result.status === 'sent').length,
+    acceptedCount: results.filter((result) => result.status === 'accepted').length,
     stoppedEarly,
   });
 }

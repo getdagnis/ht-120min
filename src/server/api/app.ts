@@ -80,7 +80,7 @@ import {
 import type { MatchEventDetails } from '../../../shared/match-events.js';
 import type { PersistedScoringMode } from '../../../shared/scoring-profile.js';
 import type { SeasonFixturesSnapshot } from '../../utils/season-fixtures.js';
-import { progressLengthSchedule, repairLengthRound } from './_lib/length-schedule-service.js';
+import { progressLengthSchedule, recoverLengthRoundOne, repairLengthRound } from './_lib/length-schedule-service.js';
 
 const COMMENT_SELECT = 'id, season_id, team_id, team_name, manager_name, comment, created_at';
 const NEWS_COMMENT_SELECT = 'id, post_id, hattrick_user_id, author_name, content, created_at';
@@ -295,6 +295,27 @@ async function handleRepairLengthRound(req: VercelRequest, res: VercelResponse) 
     return res.status(200).json(result);
   } catch (error) {
     const message = error instanceof Error ? error.message : 'The round could not be repaired.';
+    return res.status(422).json({ error: message });
+  }
+}
+
+async function handleRecoverLengthRoundOne(req: VercelRequest, res: VercelResponse) {
+  if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed.' });
+  const tournamentId = readString(req.body?.tournamentId);
+  const seasonNumber = Number(req.body?.seasonNumber);
+  if (!tournamentId || !Number.isInteger(seasonNumber) || seasonNumber < 1) {
+    return res.status(400).json({ error: 'Invalid Round 1 recovery request.' });
+  }
+  const actor = await requireTournamentRoleSession(req, res, tournamentId);
+  if (!actor) return;
+  if (!actor.access.canManageOperations) {
+    return res.status(403).json({ error: 'You do not have permission to recover Round 1.' });
+  }
+  try {
+    const result = await recoverLengthRoundOne(getServiceSupabase(), tournamentId, seasonNumber);
+    return res.status(200).json(result);
+  } catch (error) {
+    const message = error instanceof Error ? error.message : 'Round 1 could not be recovered.';
     return res.status(422).json({ error: message });
   }
 }
@@ -2686,6 +2707,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         return await handleGenerateLengthSchedule(req, res);
       case 'repair-length-round':
         return await handleRepairLengthRound(req, res);
+      case 'recover-length-round-one':
+        return await handleRecoverLengthRoundOne(req, res);
       case 'save-length-results':
         return await handleSaveLengthResults(req, res);
       case 'managed-tournaments':

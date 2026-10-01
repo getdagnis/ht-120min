@@ -838,6 +838,7 @@ export const TournamentView: React.FC<{ initialData?: TournamentInitialData }> =
   const [lengthFormatId, setLengthFormatId] = useState<string | null>(null);
   const [customLengthRoundCount, setCustomLengthRoundCount] = useState(1);
   const [isRepairingRound, setIsRepairingRound] = useState(false);
+  const [isRecoveringRoundOne, setIsRecoveringRoundOne] = useState(false);
   const [includeWeek15WeekendFriendly, setIncludeWeek15WeekendFriendly] = useState(false);
   const [rescheduleFromRoundNumber, setRescheduleFromRoundNumber] = useState<number | null>(null);
   const [rescheduleStartSlotId, setRescheduleStartSlotId] = useState('');
@@ -4431,7 +4432,7 @@ export const TournamentView: React.FC<{ initialData?: TournamentInitialData }> =
       await fetchData();
       setScheduleNotice({
         title: `Round ${currentRound.round_number} repaired`,
-        message: `${body.lockedFixtures || 0} arranged fixtures stayed locked. ${body.repairedPlayableFixtures || 0} playable fixtures were rebuilt.`,
+        message: `${body.lockedFixtures || 0} unaffected fixtures stayed locked. ${body.repairedPlayableFixtures || 0} playable fixtures were rebuilt.`,
       });
     } catch (error) {
       setScheduleNotice({
@@ -4440,6 +4441,39 @@ export const TournamentView: React.FC<{ initialData?: TournamentInitialData }> =
       });
     } finally {
       setIsRepairingRound(false);
+    }
+  };
+
+  const recoverOriginalLengthRoundOne = async () => {
+    if (!tournament || tournament.schedule_mode !== 'length') return;
+    const roundOne = rounds.find((round) => round.round_number === 1);
+    if (!roundOne || roundOne.phase !== 'regular') return;
+    if (
+      !window.confirm(
+        'Restore the original deterministic Round 1 pairings?\n\nThis replaces only Round 1 fixture rows from the frozen ranking snapshot. Do not use this after Round 1 has been played.',
+      )
+    ) return;
+    setIsRecoveringRoundOne(true);
+    try {
+      const response = await fetch('/api/app?route=recover-length-round-one', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ tournamentId: tournament.id, seasonNumber: tournament.season || 1 }),
+      });
+      const body = await response.json().catch(() => ({}));
+      if (!response.ok) throw new Error(body.error || 'Could not restore original Round 1.');
+      await fetchData();
+      setScheduleNotice({
+        title: 'Original Round 1 restored',
+        message: `${body.reconstructedFixtures || 0} deterministic fixtures were recreated. Refresh Fixtures can now reconcile accepted Hattrick matches.`,
+      });
+    } catch (error) {
+      setScheduleNotice({
+        title: 'Could not restore Round 1',
+        message: error instanceof Error ? error.message : 'Round 1 could not be recovered.',
+      });
+    } finally {
+      setIsRecoveringRoundOne(false);
     }
   };
 
@@ -6533,6 +6567,10 @@ export const TournamentView: React.FC<{ initialData?: TournamentInitialData }> =
                             lengthRounds={tournament.schedule_mode === 'length' ? rounds : []}
                             isRepairingRound={isRepairingRound}
                             onRepairRound={tournament.schedule_mode === 'length' ? repairCurrentLengthRound : undefined}
+                            isRecoveringRoundOne={isRecoveringRoundOne}
+                            onRecoverRoundOne={
+                              tournament.schedule_mode === 'length' ? recoverOriginalLengthRoundOne : undefined
+                            }
                           />
                         </div>
                       )}

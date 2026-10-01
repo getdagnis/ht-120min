@@ -517,6 +517,25 @@ export const FixturesView: React.FC<FixturesViewProps> = ({
     [],
   );
 
+  const visibleWarnings = React.useMemo(() => {
+    const roundStartTimes = rounds.map((round) => {
+      const matchStarts = round.matches
+        .filter((match) => match.home_team && match.away_team)
+        .map((match) => resolveMatchDate(round, match).getTime())
+        .filter(Number.isFinite);
+      if (matchStarts.length > 0) return Math.min(...matchStarts);
+      return round.reserved_slot_date ? new Date(round.reserved_slot_date).getTime() : null;
+    });
+
+    return warnings.filter((warning) => {
+      const warningRoundIndex = rounds.findIndex((round) => round.id === warning.round_id);
+      if (warningRoundIndex < 0 || nowMs <= 0) return true;
+      return !roundStartTimes
+        .slice(warningRoundIndex + 1)
+        .some((roundStart) => roundStart !== null && roundStart <= nowMs);
+    });
+  }, [nowMs, resolveMatchDate, rounds, warnings]);
+
   return (
     <div className={styles.rounds}>
       <div className={styles.fixturesHeader}>
@@ -816,10 +835,10 @@ export const FixturesView: React.FC<FixturesViewProps> = ({
                     });
                     const formattedDate = `${day} / ${datePart} / ${timePart}`;
 
-                    const homeWarning = warnings.find(
+                    const homeWarning = visibleWarnings.find(
                       (w) => w.team_id === match.home_team_id && w.round_id === round.id,
                     );
-                    const awayWarning = warnings.find(
+                    const awayWarning = visibleWarnings.find(
                       (w) => w.team_id === match.away_team_id && w.round_id === round.id,
                     );
 
