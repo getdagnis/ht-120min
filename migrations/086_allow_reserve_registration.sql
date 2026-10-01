@@ -7,3 +7,5 @@ COMMENT ON COLUMN public.tournaments.allow_reserve_registration IS
   'Whether new teams may join this tournament reserve list; independent of participant registration.';
 
 COMMIT;
+
+--applied!
