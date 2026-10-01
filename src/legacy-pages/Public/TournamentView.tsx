@@ -816,6 +816,7 @@ export const TournamentView: React.FC<{ initialData?: TournamentInitialData }> =
     message: string;
     showMatches?: boolean;
   } | null>(null);
+  const [schedulePreflightWarning, setSchedulePreflightWarning] = useState<string | null>(null);
   const [isScheduleConfirmationOpen, setIsScheduleConfirmationOpen] = useState(false);
   const [isRescheduling, setIsRescheduling] = useState(false);
   const [editingMatch, setEditingMatch] = useState<string | null>(null);
@@ -4262,7 +4263,7 @@ export const TournamentView: React.FC<{ initialData?: TournamentInitialData }> =
     }
   };
 
-  const generateSchedule = () => {
+  const generateSchedule = async () => {
     if (!isHealthQuotaMet()) {
       setScheduleNotice({
         title: 'Cannot generate schedule',
@@ -4295,6 +4296,33 @@ export const TournamentView: React.FC<{ initialData?: TournamentInitialData }> =
       return;
     }
 
+    setSchedulePreflightWarning(null);
+    try {
+      const response = await fetch('/api/teams/refresh-fixtures', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          action: 'team_planning_statuses',
+          tournamentId: tournament.id,
+          adminPassword: scheduleAdminPassword,
+        }),
+      });
+      const payload = (await response.json().catch(() => null)) as {
+        statuses?: Array<{ teamId: string; inCup: boolean | null }>;
+      } | null;
+      if (response.ok && payload?.statuses) {
+        const teamsInCup = payload.statuses
+          .filter((status) => status.inCup === true)
+          .map((status) => teams.find((team) => team.id === status.teamId)?.name || 'A tournament team');
+        if (teamsInCup.length > 0) {
+          setSchedulePreflightWarning(
+            `${teamsInCup.join(', ')} ${teamsInCup.length === 1 ? 'is' : 'are'} still in the Hattrick cup. The schedule can be generated, but the affected fixture${teamsInCup.length === 1 ? '' : 's'} will be marked with a warning.`,
+          );
+        }
+      }
+    } catch {
+      // The preflight is advisory; the post-generation fixture refresh remains authoritative.
+    }
     setIsScheduleConfirmationOpen(true);
   };
 
@@ -4344,6 +4372,12 @@ export const TournamentView: React.FC<{ initialData?: TournamentInitialData }> =
         );
         seasonError = seasonResult.error;
         if (seasonError) console.warn('Schedule generated, but season status could not be updated.', seasonError);
+      }
+      try {
+        const refreshResponse = await fetch(`/api/teams/refresh-fixtures?tournament_id=${tournament.id}`);
+        if (!refreshResponse.ok) console.warn('Schedule generated, but the initial fixture status refresh failed.');
+      } catch (refreshError) {
+        console.warn('Schedule generated, but the initial fixture status refresh failed.', refreshError);
       }
       try {
         await createAnnouncement({
@@ -7452,6 +7486,7 @@ export const TournamentView: React.FC<{ initialData?: TournamentInitialData }> =
         {usesLengthSchedulePlanner && (
           <p>Only Round 1 is paired now. Later rounds are generated after the current round is resolved.</p>
         )}
+        {schedulePreflightWarning && <p className={adminStyles.scheduleWarning}>⚠️ {schedulePreflightWarning}</p>}
         {activeScheduleTeams.length % 2 !== 0 && (
           <p>One team will have a BYE each round. You can define a house rule for how those teams earn points.</p>
         )}

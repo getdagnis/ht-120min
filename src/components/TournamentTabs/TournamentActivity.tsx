@@ -8,7 +8,6 @@ import type {
 } from '../../types/tournament-activity';
 import { getCanonicalCountryName } from '../../utils/ht-data';
 import { useClientNow } from '../../hooks/useHydratedBrowserState';
-import { buildMisarrangedFixtureStory, type FixtureStoryTeam } from '../../utils/fixture-story';
 import { supabase } from '../../lib/supabase';
 import styles from './TournamentActivity.module.sass';
 
@@ -65,9 +64,7 @@ interface TournamentActivityProps {
 interface TournamentActivityEntry {
   type:
     | 'join'
-    | 'arranged'
     | 'reserve-arranged'
-    | 'misarranged'
     | 'season-start'
     | 'round-start'
     | 'round-finish'
@@ -226,59 +223,9 @@ function isReserveStorySnapshot(value: unknown): value is TournamentReserveStory
   return isArrangeStorySnapshot(value);
 }
 
-function toFixtureStoryTeam(team: { name: string; ht_team_id: number } | null): FixtureStoryTeam | null {
-  if (!team) return null;
-  return { name: team.name, htTeamId: team.ht_team_id };
-}
-
-function buildMisarrangedStory(
-  match: TournamentActivityMatch,
-  warnings: TournamentActivityWarning[],
-  teams: TournamentActivityTeam[],
-): { story: TournamentActivityStory; createdAt: number } | null {
-  const matchWarnings = warnings.filter(
-    (warning) =>
-      warning.round_id === match.round_id &&
-      (warning.team_id === match.home_team_id || warning.team_id === match.away_team_id),
-  );
-  if (matchWarnings.length === 0) return null;
-
-  const homeTeam = toFixtureStoryTeam(teams.find((team) => team.id === match.home_team_id) || match.home_team);
-  const awayTeam = toFixtureStoryTeam(teams.find((team) => team.id === match.away_team_id) || match.away_team);
-  if (!homeTeam || !awayTeam) return null;
-
-  const offendingIds = new Set(
-    matchWarnings
-      .map((warning) => warning.team_id)
-      .filter((teamId) => teamId === match.home_team_id || teamId === match.away_team_id),
-  );
-  const offendingTeams = [
-    offendingIds.has(match.home_team_id || '') ? homeTeam : null,
-    offendingIds.has(match.away_team_id || '') ? awayTeam : null,
-  ].filter((team): team is FixtureStoryTeam => Boolean(team));
-  if (offendingTeams.length === 0) return null;
-
-  const opponentTeams = [
-    match.home_team_id && !offendingIds.has(match.home_team_id) ? homeTeam : null,
-    match.away_team_id && !offendingIds.has(match.away_team_id) ? awayTeam : null,
-  ].filter((team): team is FixtureStoryTeam => Boolean(team));
-  const createdAt = Math.max(...matchWarnings.map((warning) => Date.parse(warning.created_at)));
-  if (!Number.isFinite(createdAt)) return null;
-
-  return {
-    story: buildMisarrangedFixtureStory({
-      roundNumber: match.round_number,
-      offendingTeams,
-      opponentTeams,
-    }),
-    createdAt,
-  };
-}
-
 export const TournamentActivity: React.FC<TournamentActivityProps> = ({
   teams,
   matches = [],
-  warnings = [],
   tournamentId = null,
   seasonId = null,
   seasonNumber = 1,
@@ -343,28 +290,6 @@ export const TournamentActivity: React.FC<TournamentActivityProps> = ({
         createdAt,
         story: renderJoinStory(team),
       }));
-    const arrangedEntries = matches.flatMap((match) => {
-      if (!isArrangeStorySnapshot(match.next_match_arrange_story)) return [];
-      const createdAt = match.next_match_arrange_story.eventAt
-        ? Date.parse(match.next_match_arrange_story.eventAt)
-        : NaN;
-      if (!Number.isFinite(createdAt) || createdAt < cutoff || createdAt > now) return [];
-      return [
-        {
-          type: 'arranged' as const,
-          id: match.id,
-          createdAt,
-          story: renderStory(match.next_match_arrange_story.story),
-        },
-      ];
-    });
-    const misarrangedEntries = matches.flatMap((match) => {
-      const built = buildMisarrangedStory(match, warnings, teams);
-      if (!built || built.createdAt < cutoff || built.createdAt > now) return [];
-      return [
-        { type: 'misarranged' as const, id: match.id, createdAt: built.createdAt, story: renderStory(built.story) },
-      ];
-    });
     const reserveEntries = matches.flatMap((match) => {
       if (!isReserveStorySnapshot(match.reserve_story)) return [];
       const createdAt = match.reserve_story.eventAt ? Date.parse(match.reserve_story.eventAt) : NaN;
@@ -490,9 +415,7 @@ export const TournamentActivity: React.FC<TournamentActivityProps> = ({
 
     return [
       ...joinEntries,
-      ...arrangedEntries,
       ...reserveEntries,
-      ...misarrangedEntries,
       ...seasonEntries,
       ...roundEntries,
       ...reportEntries,
@@ -510,7 +433,6 @@ export const TournamentActivity: React.FC<TournamentActivityProps> = ({
     seasonNumber,
     seasonStartedAt,
     teams,
-    warnings,
   ]);
 
   if (entries.length === 0) return null;

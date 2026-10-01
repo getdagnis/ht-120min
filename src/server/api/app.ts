@@ -34,7 +34,12 @@ import {
   type ChallengeManagementStatus,
   type FixtureChallengeSide,
 } from './_lib/fixture-challenge.js';
-import { fetchManagerTeamsFromChpp, fetchTeamDetailsFromChpp, getManagerChppCredentials } from './_lib/matchmaker.js';
+import {
+  fetchManagerTeamsFromChpp,
+  fetchTeamBookingStatus,
+  fetchTeamDetailsFromChpp,
+  getManagerChppCredentials,
+} from './_lib/matchmaker.js';
 import { validateTeamEligibility } from './_lib/eligibility.js';
 import { registerReserveTeam } from './_lib/chpp-register.js';
 import {
@@ -1855,7 +1860,12 @@ async function handleGlobalChat(req: VercelRequest, res: VercelResponse) {
   return res.status(201).json(message);
 }
 
-function publicReserveTeam(row: Record<string, unknown>) {
+interface PublicReservePlanningStatus {
+  inCup: boolean | null;
+  bookedOutsideTournament: boolean;
+}
+
+function publicReserveTeam(row: Record<string, unknown>, planningStatus: PublicReservePlanningStatus | null) {
   return {
     id: row.id,
     name: row.name,
@@ -1866,7 +1876,81 @@ function publicReserveTeam(row: Record<string, unknown>) {
     manager_name: row.manager_name,
     hattrick_user_id: row.hattrick_user_id,
     reserve_joined_at: row.reserve_joined_at,
+    planning_status: planningStatus,
   };
+}
+
+async function loadPublicReservePlanningStatuses(
+  supabase: ReturnType<typeof getServiceSupabase>,
+  tournamentId: string,
+  rows: Array<Record<string, unknown>>,
+  reserveRows: Array<Record<string, unknown>>,
+) {
+  const statuses = new Map<string, PublicReservePlanningStatus>();
+  if (reserveRows.length === 0) return statuses;
+
+  const consumerKey = process.env.CHPP_CONSUMER_KEY;
+  const consumerSecret = process.env.CHPP_CONSUMER_SECRET;
+  if (!consumerKey || !consumerSecret) return statuses;
+
+  const authRow = rows.find(
+    (row) =>
+      row.is_placeholder !== true &&
+      (row.active === true || row.reserve_active === true) &&
+      typeof row.oauth_token === 'string' &&
+      typeof row.oauth_token_secret === 'string',
+  );
+  if (!authRow) return statuses;
+
+  const authCredentials = {
+    oauth_token: String(authRow.oauth_token),
+    oauth_token_secret: String(authRow.oauth_token_secret),
+  };
+  const { data: roundRows, error: roundsError } = await supabase
+    .from('rounds')
+    .select('matches(ht_match_id)')
+    .eq('tournament_id', tournamentId);
+  if (roundsError) return statuses;
+
+  const tournamentMatchIds = new Set<number>();
+  for (const round of roundRows || []) {
+    const matches = Array.isArray(round.matches) ? round.matches : round.matches ? [round.matches] : [];
+    for (const match of matches) {
+      const htMatchId = Number((match as { ht_match_id?: unknown }).ht_match_id);
+      if (Number.isSafeInteger(htMatchId) && htMatchId > 0) tournamentMatchIds.add(htMatchId);
+    }
+  }
+
+  for (const row of reserveRows) {
+    const teamId = Number(row.ht_team_id);
+    if (!Number.isSafeInteger(teamId) || teamId <= 0) continue;
+
+    const credentials =
+      typeof row.oauth_token === 'string' && typeof row.oauth_token_secret === 'string'
+        ? { oauth_token: row.oauth_token, oauth_token_secret: row.oauth_token_secret }
+        : authCredentials;
+    let inCup: boolean | null = null;
+    let bookedOutsideTournament = false;
+
+    try {
+      const details = await fetchTeamDetailsFromChpp(consumerKey, consumerSecret, credentials, teamId);
+      inCup = typeof details.stillInCup === 'boolean' ? details.stillInCup : null;
+    } catch {
+      // Keep the booking status usable if the teamdetails request fails.
+    }
+
+    try {
+      const booking = await fetchTeamBookingStatus(consumerKey, consumerSecret, credentials, teamId);
+      const bookedMatchId = booking.match?.matchId ? Number(booking.match.matchId) : null;
+      bookedOutsideTournament = bookedMatchId !== null && !tournamentMatchIds.has(bookedMatchId);
+    } catch {
+      // Keep the reserve widget available if the matches request fails.
+    }
+
+    statuses.set(String(row.id), { inCup, bookedOutsideTournament });
+  }
+
+  return statuses;
 }
 
 async function handleReserveTeams(req: VercelRequest, res: VercelResponse) {
@@ -1884,7 +1968,9 @@ async function handleReserveTeams(req: VercelRequest, res: VercelResponse) {
       .maybeSingle(),
     supabase
       .from('teams')
-      .select('id, name, ht_team_id, active, is_placeholder, reserve_active, reserve_joined_at, logo_url, country_name, country_id, manager_name, hattrick_user_id')
+      .select(
+        'id, name, ht_team_id, active, is_placeholder, reserve_active, reserve_joined_at, logo_url, country_name, country_id, manager_name, hattrick_user_id, oauth_token, oauth_token_secret',
+      )
       .eq('tournament_id', tournamentId)
       .order('reserve_joined_at', { ascending: false, nullsFirst: false }),
   ]);
@@ -1893,11 +1979,11 @@ async function handleReserveTeams(req: VercelRequest, res: VercelResponse) {
   if (!tournament) return res.status(404).json({ error: 'Tournament not found.' });
 
   const rows = (teamRows || []) as unknown as Array<Record<string, unknown>>;
-  const reserveTeams = rows
-    .filter((row) => row.reserve_active === true && row.is_placeholder !== true)
-    .map(publicReserveTeam);
+  const reserveRows = rows.filter((row) => row.reserve_active === true && row.is_placeholder !== true);
   const allowReserveRegistration = tournament.allow_reserve_registration !== false;
   if (req.method === 'GET') {
+    const planningStatuses = await loadPublicReservePlanningStatuses(supabase, tournamentId, rows, reserveRows);
+    const reserveTeams = reserveRows.map((row) => publicReserveTeam(row, planningStatuses.get(String(row.id)) || null));
     const secret = getAppSessionSecret();
     const session = secret ? verifyAppSessionCookie(req.headers.cookie, secret) : null;
     if (!session) {

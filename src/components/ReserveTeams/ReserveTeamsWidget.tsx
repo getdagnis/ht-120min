@@ -14,6 +14,10 @@ interface ReserveTeam {
   country_id?: number | null;
   manager_name?: string | null;
   hattrick_user_id?: number | null;
+  planning_status?: {
+    inCup: boolean | null;
+    bookedOutsideTournament: boolean;
+  } | null;
 }
 
 interface MyReserveTeam {
@@ -64,7 +68,9 @@ export const ReserveTeamsWidget: React.FC<ReserveTeamsWidgetProps> = ({ tourname
 
   const readData = useCallback(async () => {
     try {
-      const response = await fetch(`/api/app?route=reserve-teams&tournamentId=${encodeURIComponent(tournamentId)}`);
+      const response = await fetch(`/api/app?route=reserve-teams&tournamentId=${encodeURIComponent(tournamentId)}`, {
+        cache: 'no-store',
+      });
       const next = (await response.json()) as ReserveTeamsResponse & { error?: string };
       if (!response.ok) throw new Error(next.error || 'Could not load reserve teams.');
       if (!reserveTeamsPreviewMode) return next;
@@ -185,30 +191,43 @@ export const ReserveTeamsWidget: React.FC<ReserveTeamsWidgetProps> = ({ tourname
         <p className={styles.previewNote}>Local preview only. Join and Leave do not contact Supabase or Hattrick.</p>
       )}
       <div className={styles.list}>
-        {(data?.reserveTeams || []).map((team) => (
-          <div className={styles.team} key={team.id}>
-            <img src={team.logo_url || '/default-logo.png'} alt="" />
-            <div>
-              <a href={teamHref(team.ht_team_id)} target="_blank" rel="noopener noreferrer">
-                {team.name}
-              </a>
-              <span>
-                {team.manager_name && team.hattrick_user_id ? (
-                  <a
-                    href={`https://www.hattrick.org/goto.ashx?path=/Club/Manager/?userId=${team.hattrick_user_id}`}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                  >
-                    {team.manager_name}
+        {(data?.reserveTeams || []).map((team) => {
+          const planningStatus = team.planning_status;
+          const hasPlanningStatus = planningStatus?.inCup === true || planningStatus?.bookedOutsideTournament;
+          return (
+            <div className={styles.team} key={team.id}>
+              <img src={team.logo_url || '/default-logo.png'} alt="" />
+              <div>
+                <div className={styles.teamName}>
+                  <a href={teamHref(team.ht_team_id)} target="_blank" rel="noopener noreferrer">
+                    {team.name}
                   </a>
-                ) : (
-                  team.manager_name
-                )}
-                {team.country_id ? ` ${getCountryWorldDetails(team.country_id)?.emoji || ''}` : ''}
-              </span>
+                  {hasPlanningStatus && (
+                    <span className={styles.planningStatus}>
+                      {planningStatus.inCup === true && '[in cup]'}
+                      {planningStatus.inCup === true && planningStatus.bookedOutsideTournament && ' '}
+                      {planningStatus.bookedOutsideTournament && '[booked]'}
+                    </span>
+                  )}
+                </div>
+                <span>
+                  {team.manager_name && team.hattrick_user_id ? (
+                    <a
+                      href={`https://www.hattrick.org/goto.ashx?path=/Club/Manager/?userId=${team.hattrick_user_id}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                    >
+                      {team.manager_name}
+                    </a>
+                  ) : (
+                    team.manager_name
+                  )}
+                  {team.country_id ? ` ${getCountryWorldDetails(team.country_id)?.emoji || ''}` : ''}
+                </span>
+              </div>
             </div>
-          </div>
-        ))}
+          );
+        })}
         {data && data.reserveTeams.length === 0 && <p className={styles.empty}>No reserve teams yet.</p>}
       </div>
       {data?.authenticated ? (
