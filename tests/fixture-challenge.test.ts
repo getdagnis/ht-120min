@@ -5,6 +5,7 @@ import {
   getFixtureChallengeMatchPlace,
   getFixtureChallengeMatchType,
   getFixtureChallengeSide,
+  resolveChallengeManagementStatus,
   resolveFixtureChallengeOptions,
 } from '../src/server/api/_lib/fixture-challenge.js';
 import { mapAdHomeAwayToChppMatchPlace } from '../src/server/api/_lib/chpp-challenges.js';
@@ -14,6 +15,13 @@ test('fixture challenges use cup rules for both supported 120-minute scoring val
   assert.equal(getFixtureChallengeMatchType('120min'), 1);
   assert.equal(getFixtureChallengeMatchType('points'), 0);
   assert.equal(getFixtureChallengeMatchType(null), 0);
+});
+
+test('fixture challenge authorization reports the stored manage_challenges capability', () => {
+  assert.equal(resolveChallengeManagementStatus('basic,manage_challenges'), 'enabled');
+  assert.equal(resolveChallengeManagementStatus(null, true), 'enabled');
+  assert.equal(resolveChallengeManagementStatus('basic'), 'reauthorization_required');
+  assert.equal(resolveChallengeManagementStatus(null), 'unknown');
 });
 
 test('fixture challenge venue follows the logged-in team fixture side', () => {

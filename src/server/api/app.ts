@@ -30,6 +30,8 @@ import {
   getFixtureChallengeMatchType,
   resolveFixtureChallengeOptions,
   getFixtureChallengeSide,
+  resolveChallengeManagementStatus,
+  type ChallengeManagementStatus,
   type FixtureChallengeSide,
 } from './_lib/fixture-challenge.js';
 import { fetchManagerTeamsFromChpp, fetchTeamDetailsFromChpp, getManagerChppCredentials } from './_lib/matchmaker.js';
@@ -834,6 +836,8 @@ type FixtureChallengeTeamRow = {
   active: boolean | null;
   is_placeholder: boolean | null;
   name: string | null;
+  oauth_scope: string | null;
+  can_manage_challenges: boolean | null;
 };
 
 type FixtureChallengeMatchRow = {
@@ -857,7 +861,24 @@ type ResolvedFixtureChallenge = {
   opponentTeam: FixtureChallengeTeamRow;
   matchType: 0 | 1;
   matchPlace: 0 | 1;
+  challengeManagementStatus: ChallengeManagementStatus;
 };
+
+type FixtureChallengeConsentRow = {
+  auto_send_challenge: boolean;
+  auto_accept_challenge: boolean;
+  consented_at: string | null;
+  updated_at: string;
+};
+
+function formatFixtureChallengeConsent(row?: FixtureChallengeConsentRow | null) {
+  return {
+    autoSendChallenge: row?.auto_send_challenge === true,
+    autoAcceptChallenge: row?.auto_accept_challenge === true,
+    consentedAt: row?.consented_at ?? null,
+    updatedAt: row?.updated_at ?? null,
+  };
+}
 
 function fixtureChallengeUnavailable(reason: string) {
   return { available: false as const, reason };
@@ -916,8 +937,8 @@ async function resolveFixtureChallenge(
       round_id,
       status,
       completed,
-      home_team:teams!matches_home_team_id_fkey(id, ht_team_id, hattrick_user_id, active, is_placeholder, name),
-      away_team:teams!matches_away_team_id_fkey(id, ht_team_id, hattrick_user_id, active, is_placeholder, name)
+      home_team:teams!matches_home_team_id_fkey(id, ht_team_id, hattrick_user_id, active, is_placeholder, name, oauth_scope, can_manage_challenges),
+      away_team:teams!matches_away_team_id_fkey(id, ht_team_id, hattrick_user_id, active, is_placeholder, name, oauth_scope, can_manage_challenges)
     `)
     .eq('id', matchId)
     .eq('round_id', currentRound.id)
@@ -961,6 +982,16 @@ async function resolveFixtureChallenge(
     return null;
   }
 
+  const { data: profile, error: profileError } = await supabase
+    .from('profiles')
+    .select('oauth_scope')
+    .eq('hattrick_user_id', session.userId)
+    .maybeSingle();
+  if (profileError) throw profileError;
+
+  const oauthScope = profile?.oauth_scope?.trim() || actorTeam.oauth_scope;
+  const challengeManagementStatus = resolveChallengeManagementStatus(oauthScope, actorTeam.can_manage_challenges);
+
   return {
     sessionUserId: session.userId,
     tournamentId,
@@ -971,6 +1002,7 @@ async function resolveFixtureChallenge(
       opponentTeam,
       matchType: getFixtureChallengeMatchType(tournament.scoring_mode),
       matchPlace: getFixtureChallengeMatchPlace(side),
+      challengeManagementStatus,
     },
   };
 }
@@ -980,10 +1012,28 @@ async function handleFixtureChallenge(req: VercelRequest, res: VercelResponse) {
     return res.status(405).json({ error: 'Method not allowed.' });
   }
 
+  if (req.method === 'POST' && readString(req.body?.action) === 'save-consent') {
+    return handleFixtureChallengeConsent(req, res);
+  }
+
   const resolvedRequest = await resolveFixtureChallenge(req, res);
   if (!resolvedRequest?.resolved) return;
 
   const { sessionUserId, resolved } = resolvedRequest;
+  const supabase = getServiceSupabase();
+  const { data: consent, error: consentError } = await supabase
+    .from('tournament_challenge_consents')
+    .select('auto_send_challenge, auto_accept_challenge, consented_at, updated_at')
+    .eq('tournament_id', resolvedRequest.tournamentId)
+    .eq('team_id', resolved.actorTeam.id)
+    .maybeSingle();
+  if (consentError) throw consentError;
+
+  const challengeManagement = {
+    status: resolved.challengeManagementStatus,
+    supported: resolved.challengeManagementStatus === 'enabled',
+  };
+  const formattedConsent = formatFixtureChallengeConsent(consent as FixtureChallengeConsentRow | null);
   const options = resolveFixtureChallengeOptions(
     req.method === 'POST'
       ? {
@@ -996,7 +1046,6 @@ async function handleFixtureChallenge(req: VercelRequest, res: VercelResponse) {
   if (!options) {
     return res.status(400).json({ error: 'Challenge type and venue must be Cup Rules or Normal Rules, and Home or Away.' });
   }
-  const supabase = getServiceSupabase();
   const credentials = await getManagerChppCredentials(supabase, sessionUserId);
   if (!credentials) {
     return res.status(401).json({ error: 'Your Hattrick authorization has expired. Please sign in with Hattrick again.' });
@@ -1021,6 +1070,8 @@ async function handleFixtureChallenge(req: VercelRequest, res: VercelResponse) {
     opponent: { name: resolved.opponentTeam.name || 'opposing team', htTeamId: opponentTeamId },
     matchType: options.matchType === 1 ? 'cup_rules' : 'normal',
     venue: options.matchPlace === 0 ? 'home' : 'away',
+    consent: formattedConsent,
+    challengeManagement,
   };
   if (req.method === 'GET') return res.status(200).json(availability);
 
@@ -1060,6 +1111,50 @@ async function handleFixtureChallenge(req: VercelRequest, res: VercelResponse) {
     sent: true,
     trainingMatchId: sent.trainingMatchId,
     message: 'Challenge sent. Waiting for the opponent to accept.',
+  });
+}
+
+async function handleFixtureChallengeConsent(req: VercelRequest, res: VercelResponse) {
+  const autoArrangeEnabled = req.body?.autoArrangeEnabled;
+  if (typeof autoArrangeEnabled !== 'boolean') {
+    return res.status(400).json({ error: 'autoArrangeEnabled must be a boolean.' });
+  }
+
+  const resolvedRequest = await resolveFixtureChallenge(req, res);
+  if (!resolvedRequest?.resolved) return;
+
+  const { resolved } = resolvedRequest;
+  const supabase = getServiceSupabase();
+  const now = new Date().toISOString();
+  const { data, error } = await supabase
+    .from('tournament_challenge_consents')
+    .upsert(
+      {
+        tournament_id: resolvedRequest.tournamentId,
+        team_id: resolved.actorTeam.id,
+        auto_send_challenge: autoArrangeEnabled,
+        auto_accept_challenge: autoArrangeEnabled,
+        consented_at: autoArrangeEnabled ? now : null,
+        updated_at: now,
+      },
+      { onConflict: 'tournament_id,team_id' },
+    )
+    .select('auto_send_challenge, auto_accept_challenge, consented_at, updated_at')
+    .single();
+
+  if (error || !data) {
+    throw new Error(error?.message || 'Could not save challenge automation preference.');
+  }
+
+  return res.status(200).json({
+    consent: formatFixtureChallengeConsent(data as FixtureChallengeConsentRow),
+    challengeManagement: {
+      status: resolved.challengeManagementStatus,
+      supported: resolved.challengeManagementStatus === 'enabled',
+    },
+    message: autoArrangeEnabled
+      ? 'Preference saved. Automatic challenge actions are not active yet.'
+      : 'Automatic challenge preference disabled for this tournament team.',
   });
 }
 

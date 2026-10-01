@@ -25,6 +25,7 @@ The app currently supports:
 - Schedule generation and schedule regeneration for future unarranged rounds.
 - Manual result entry and CHPP-based match/result refresh.
 - Matchmaker ad publishing, browsing, availability checks, interest flow, and challenge-send path.
+- Fixture challenge consent is now stored per tournament/team with separate future auto-send and auto-accept capabilities; the UI shows the stored `manage_challenges` authorization state, but no automatic CHPP action is active yet.
 - Tournament activity now has local join, arranged-fixture, and misarranged-fixture story support. Arranged stories snapshot temporary editorial data on the match; the migration and live CHPP/production behavior remain unverified.
 - Home now has a public-read, session-authenticated global HT-120min chat widget with realtime updates; migration and live Supabase/Realtime behavior remain unverified.
 
@@ -73,6 +74,7 @@ The app currently supports:
 | Team ownership reclaim | Implemented locally; existing organizer-added/bot/incomplete team rows are upgraded when the owner joins that exact tournament via CHPP, and logged-in users now get a global reclaim prompt for active non-sandbox teams that match their CHPP team list but are not fully OAuth-linked | No migration; uses existing team OAuth/profile fields | `npm run build`, `npm test` (69), and `git diff --check` passed 2026-07-15 | Confirm after deployment with a real owner login |
 | CHPP country/league display and flag normalization | Implemented locally from `src/utils/worlddetails.xml` v1.2 through the shared `worlddetails` catalogue. `leagueName` is the single short English UI name, `fullName` is the full English name, and `countryName` preserves Hattrick's original local country name. ISO codes and emoji are stored with the same record. Parent LeagueID and associated CountryID remain separate; country-backed teams use one Hattrick parent-league flag, while countryless leagues use an additional Hattrick league flag. CHPP country-name normalization is shared by the browser and API parsers | No migration; existing rows are resolved by `country_id`, future CHPP writes use canonical shared names | `npm run build` passed 2026-07-14; `npm test` has one unrelated existing world-details flag assertion failure | Confirm against live HFI refresh; existing translated `country_name` values are not backfilled |
 | Matchmaker challenge send | Partially implemented | Existing matchmaker/profile/token migrations | Requires real CHPP reauth and endpoint confirmation | Confirm |
+| Fixture challenge automation consent | Implemented locally; the fixture modal can persist combined consent as separate future auto-send/auto-accept capabilities and reports the stored challenge-management authorization state. No worker or automatic CHPP action is enabled. | `20261001050614_add_fixture_challenge_consents.sql` prepared locally; **not applied** | `npm test` (305), `npm run lint`, server-import validation, `npm run build`, and `git diff --check` passed locally; no live Supabase verification | Apply the migration and verify consent read/write, RLS/service access, scope messaging, and unchanged manual challenge behavior with real sessions |
 
 Production means live deployed behavior. If it has not been checked against the live Supabase/Vercel deployment, leave it as `Confirm`.
 
@@ -114,6 +116,7 @@ Production means live deployed behavior. If it has not been checked against the 
 - CHPP country data is normalized from CountryID, independent of the manager's CHPP language; league flags use LeagueID separately. Existing translated database text remains until a data backfill or team refresh.
 - Fixture booking/reconciliation uses `matches`.
 - The active fixture round can offer a server-authorized CHPP challenge to the signed-in fixture owner. Preflight and send derive the current round, owner team, and opponent from the stored fixture; browser input is limited to tournament/fixture ids plus one validated Cup/Normal and Home/Away choice. Defaults follow the scheduled fixture and scoring mode, but managers may override either to accommodate an agreed venue or 90-minute exception. All current fixture challenges are midweek.
+- The fixture challenge modal can save per-tournament/team combined automation consent as separate `auto_send_challenge` and `auto_accept_challenge` capabilities, and reports whether the stored OAuth scope includes `manage_challenges`; saving consent does not send or accept anything.
 - Live/finished result sync uses `matchdetails` v3.1 with structured match events. Card/injury details require migration `063` before live persistence.
 - Reversed home/away friendly location is treated as arranged, with venue mismatch metadata recorded.
 
@@ -147,7 +150,7 @@ Production means live deployed behavior. If it has not been checked against the 
 - Vercel Hobby is at `12/12` serverless functions. New endpoints require consolidation.
 - Production status for migrations `050` and `051` was not independently verified in this docs pass; files are marked applied locally.
 - CHPP `challengeable` / `challenge` can return 401 for users whose tokens predate the `manage_challenges` scope. Those users must reauthorize.
-- Fixture challenge availability is a live CHPP preflight, and a sent challenge remains pending until the opponent accepts; local build/test checks do not prove a real CHPP send or acceptance.
+- Fixture challenge availability verifies the current app fixture, signed-in ownership, and stored challenge-management scope; it is not yet a full CHPP `challengeable` preflight. Consent is persisted, but no automatic sender, acceptor, worker, cancellation reconciliation, retry, or audit trail exists yet.
 - Matchmaker `handleAccept` remains incomplete as a full server-side booking/match creation loop.
 - Race protection for simultaneous Matchmaker accepts is not complete.
 - Stale Matchmaker ads can remain visible until availability sync runs.

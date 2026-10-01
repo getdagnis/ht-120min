@@ -9,6 +9,22 @@ export type FixtureChallengeOptions = {
   matchPlace: ChppChallengeMatchPlace;
 };
 
+export type ChallengeManagementStatus = 'enabled' | 'reauthorization_required' | 'unknown';
+
+export function resolveChallengeManagementStatus(
+  oauthScope?: string | null,
+  legacyCapabilityFlag?: boolean | null,
+): ChallengeManagementStatus {
+  if (
+    legacyCapabilityFlag === true ||
+    (typeof oauthScope === 'string' && oauthScope.split(/[\s,]+/).includes('manage_challenges'))
+  ) {
+    return 'enabled';
+  }
+
+  return typeof oauthScope === 'string' && oauthScope.trim().length > 0 ? 'reauthorization_required' : 'unknown';
+}
+
 export function getFixtureChallengeMatchType(scoringMode?: string | null): ChppChallengeMatchType {
   return scoringMode === '120m' || scoringMode === '120min' ? 1 : 0;
 }

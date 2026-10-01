@@ -181,6 +181,16 @@ export const FixturesView: React.FC<FixturesViewProps> = ({
     venue?: 'home' | 'away';
     reason?: string;
     sent?: boolean;
+    consent?: {
+      autoSendChallenge: boolean;
+      autoAcceptChallenge: boolean;
+      consentedAt: string | null;
+      updatedAt: string | null;
+    };
+    challengeManagement?: {
+      status: 'enabled' | 'reauthorization_required' | 'unknown';
+      supported: boolean;
+    };
   };
   type FixtureChallengeSelection = {
     matchType: 'cup_rules' | 'normal';
@@ -209,7 +219,9 @@ export const FixturesView: React.FC<FixturesViewProps> = ({
   const [challengeMatchId, setChallengeMatchId] = React.useState<string | null>(null);
   const [challengeError, setChallengeError] = React.useState<string | null>(null);
   const [isSendingChallenge, setIsSendingChallenge] = React.useState(false);
+  const [isSavingChallengeConsent, setIsSavingChallengeConsent] = React.useState(false);
   const [challengeSuccess, setChallengeSuccess] = React.useState<string | null>(null);
+  const [challengeConsentError, setChallengeConsentError] = React.useState<string | null>(null);
   const [challengeSelection, setChallengeSelection] = React.useState<FixtureChallengeSelection | null>(null);
   const [isSeasonMenuOpen, setIsSeasonMenuOpen] = React.useState(false);
   const seasonMenuRef = React.useRef<HTMLDivElement | null>(null);
@@ -320,6 +332,7 @@ export const FixturesView: React.FC<FixturesViewProps> = ({
     (matchId: string) => {
       const challenge = challengeAvailability[matchId];
       setChallengeError(null);
+      setChallengeConsentError(null);
       setChallengeSuccess(null);
       setChallengeSelection({
         matchType: challenge?.matchType === 'normal' ? 'normal' : 'cup_rules',
@@ -334,9 +347,65 @@ export const FixturesView: React.FC<FixturesViewProps> = ({
     if (isSendingChallenge) return;
     setChallengeMatchId(null);
     setChallengeError(null);
+    setChallengeConsentError(null);
     setChallengeSuccess(null);
     setChallengeSelection(null);
   }, [isSendingChallenge]);
+
+  const saveChallengeConsent = React.useCallback(
+    async (enabled: boolean) => {
+      if (!tournamentId || !challengeMatchId || isSavingChallengeConsent) return;
+
+      const previousEnabled = challengeAvailability[challengeMatchId]?.consent?.autoSendChallenge === true;
+      setIsSavingChallengeConsent(true);
+      setChallengeConsentError(null);
+      try {
+        const response = await fetch('/api/app?route=fixture-challenge', {
+          method: 'POST',
+          credentials: 'include',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            action: 'save-consent',
+            tournamentId,
+            matchId: challengeMatchId,
+            autoArrangeEnabled: enabled,
+          }),
+        });
+        const payload = (await response.json()) as FixtureChallengeAvailability & { error?: string };
+        if (!response.ok || !payload.consent) {
+          throw new Error(payload.error || 'Could not save this preference.');
+        }
+        setChallengeAvailability((previous) => ({
+          ...previous,
+          [challengeMatchId]: {
+            ...previous[challengeMatchId],
+            consent: payload.consent,
+            challengeManagement: payload.challengeManagement,
+          },
+        }));
+      } catch (error) {
+        setChallengeConsentError(error instanceof Error ? error.message : 'Could not save this preference.');
+        setChallengeAvailability((previous) => ({
+          ...previous,
+          [challengeMatchId]: {
+            ...previous[challengeMatchId],
+            consent: {
+              ...(previous[challengeMatchId]?.consent || {
+                autoAcceptChallenge: previousEnabled,
+                consentedAt: null,
+                updatedAt: null,
+              }),
+              autoSendChallenge: previousEnabled,
+              autoAcceptChallenge: previousEnabled,
+            },
+          },
+        }));
+      } finally {
+        setIsSavingChallengeConsent(false);
+      }
+    },
+    [challengeAvailability, challengeMatchId, isSavingChallengeConsent, tournamentId],
+  );
 
   const submitChallenge = React.useCallback(async () => {
     if (!tournamentId || !challengeMatchId || isSendingChallenge) return;
@@ -388,6 +457,7 @@ export const FixturesView: React.FC<FixturesViewProps> = ({
     matchType: selectedChallenge?.matchType === 'normal' ? 'normal' : 'cup_rules',
     venue: selectedChallenge?.venue === 'away' ? 'away' : 'home',
   };
+  const selectedChallengeConsentEnabled = selectedChallenge?.consent?.autoSendChallenge === true;
   const seasonOptions = React.useMemo(
     () => [...new Set([season, ...availableSeasonNumbers])].sort((a, b) => b - a),
     [availableSeasonNumbers, season],
@@ -1047,6 +1117,33 @@ export const FixturesView: React.FC<FixturesViewProps> = ({
                     </label>
                   </div>
                 </div>
+              </div>
+              <div className={styles.fixtureChallengeConsent}>
+                <label>
+                  <input
+                    type="checkbox"
+                    checked={selectedChallengeConsentEnabled}
+                    onChange={(event) => void saveChallengeConsent(event.target.checked)}
+                    disabled={isSavingChallengeConsent}
+                  />
+                  <span>
+                    <strong>Automatically arrange my HT-120min tournament friendlies</strong>
+                    <small>
+                      HT-120min may send and accept Hattrick friendly challenges for this tournament when they match my
+                      published fixture. You can disable this at any time.
+                    </small>
+                  </span>
+                </label>
+                {isSavingChallengeConsent && <small>Saving preference…</small>}
+                {challengeConsentError && <small className={styles.fixtureChallengeError}>{challengeConsentError}</small>}
+                {selectedChallenge?.challengeManagement?.status === 'enabled' ? (
+                  <small>Hattrick challenge management is authorized for this account.</small>
+                ) : selectedChallenge?.challengeManagement?.status === 'reauthorization_required' ? (
+                  <small>Reauthorize Hattrick to grant challenge-management permission before automation can work.</small>
+                ) : (
+                  <small>Hattrick challenge-management permission could not be confirmed yet.</small>
+                )}
+                <small>Preference saved for the future; automatic challenge actions are not active yet.</small>
               </div>
               {challengeError && <p className={styles.fixtureChallengeError}>{challengeError}</p>}
               <div className={styles.fixtureChallengeActions}>
