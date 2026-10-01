@@ -1251,8 +1251,7 @@ export const TournamentView: React.FC<{ initialData?: TournamentInitialData }> =
       countryLimit: editCountryLimit !== savedCountryLimit,
       maxTeams: editMaxTeams !== (tournament.max_teams || null),
       registrationOpen: editRegistrationOpen !== !tournament.registration_closed_at,
-      allowReserveRegistration:
-        editAllowReserveRegistration !== (tournament.allow_reserve_registration !== false),
+      allowReserveRegistration: editAllowReserveRegistration !== (tournament.allow_reserve_registration !== false),
       showDescription: showEditDescription !== tournament.show_description,
       description: editDescription !== (tournament.description || ''),
       showEmail: showEditEmail !== Boolean(tournament.admin_email),
@@ -5515,7 +5514,7 @@ export const TournamentView: React.FC<{ initialData?: TournamentInitialData }> =
               size="sm"
               className={styles.joinButton}
             >
-              <ArrowRight size={18} weight="bold" /> Choose a team for the reserve list
+              <ArrowRight size={18} weight="bold" /> Join reserve list
             </Button>
           </div>
         </div>
