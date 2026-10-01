@@ -29,8 +29,283 @@ function numberValue(req: VercelRequest, key: string) {
   return Number.isFinite(parsed) ? parsed : null;
 }
 
+function bodyRecord(req: VercelRequest): Record<string, unknown> | null {
+  return req.body && typeof req.body === 'object' && !Array.isArray(req.body)
+    ? (req.body as Record<string, unknown>)
+    : null;
+}
+
+function requestValue(req: VercelRequest, key: string): unknown {
+  return bodyRecord(req)?.[key] ?? req.query[key];
+}
+
+function requestString(req: VercelRequest, key: string) {
+  const raw = requestValue(req, key);
+  if (Array.isArray(raw)) return String(raw[0] ?? '').trim();
+  return String(raw ?? '').trim();
+}
+
+function requestNumber(req: VercelRequest, key: string) {
+  const parsed = Number(requestString(req, key));
+  return Number.isFinite(parsed) ? parsed : null;
+}
+
+function isLocalRequest(req: VercelRequest) {
+  const rawHost = String(req.headers.host || '').toLowerCase();
+  const host = rawHost.startsWith('[') ? rawHost.slice(1, rawHost.indexOf(']')) : rawHost.split(':')[0];
+  return process.env.NODE_ENV !== 'production' && ['localhost', '127.0.0.1', '::1'].includes(host);
+}
+
+function rejectIfBatchChallengeNotLocal(req: VercelRequest, res: VercelResponse) {
+  if (isLocalRequest(req)) return false;
+  res.status(404).json({ error: 'Batch challenge tools are available only from local Forge development.' });
+  return true;
+}
+
+const MAX_BATCH_CANDIDATES = 25;
+
+interface BatchChallengeInput {
+  teamId: number;
+  candidateTeamIds: number[];
+  matchType: 0 | 1;
+  matchPlace: 0 | 1;
+  isWeekendFriendly: 0 | 1;
+}
+
+function parseCandidateTeamIds(raw: unknown) {
+  const values = Array.isArray(raw) ? raw : [raw];
+  const tokens = values
+    .flatMap((value) => String(value ?? '').split(/[\s,]+/))
+    .map((token) => token.trim())
+    .filter(Boolean);
+  const invalid = tokens.filter((token) => !/^\d+$/.test(token));
+  if (invalid.length > 0) throw new Error(`Candidate team IDs must be numbers: ${invalid.slice(0, 3).join(', ')}`);
+
+  const ids = [...new Set(tokens.map((token) => Number(token)).filter((id) => Number.isSafeInteger(id) && id > 0))];
+  if (ids.length === 0) throw new Error('Enter at least one candidate Hattrick team ID.');
+  if (ids.length > MAX_BATCH_CANDIDATES) {
+    throw new Error(`Batch challenge is limited to ${MAX_BATCH_CANDIDATES} candidates per run.`);
+  }
+  return ids;
+}
+
+function parseBatchInput(req: VercelRequest): BatchChallengeInput {
+  const teamId = requestNumber(req, 'teamId');
+  if (!teamId || !Number.isSafeInteger(teamId) || teamId <= 0) throw new Error('Missing sender team ID.');
+
+  const matchType = requestString(req, 'matchType');
+  if (matchType && matchType !== 'cup_rules' && matchType !== 'normal') {
+    throw new Error('Match type must be cup_rules or normal.');
+  }
+
+  const matchPlace = requestString(req, 'matchPlace');
+  if (matchPlace && matchPlace !== 'home' && matchPlace !== 'away') {
+    throw new Error('Venue must be home or away.');
+  }
+
+  const weekendRaw = requestValue(req, 'isWeekendFriendly');
+  const isWeekendFriendly = weekendRaw === true || String(weekendRaw ?? '') === '1' ? 1 : 0;
+  return {
+    teamId,
+    candidateTeamIds: parseCandidateTeamIds(requestValue(req, 'candidateTeamIds')),
+    matchType: matchType === 'normal' ? 0 : 1,
+    matchPlace: matchPlace === 'away' ? 1 : 0,
+    isWeekendFriendly,
+  };
+}
+
+interface ExistingChallenge {
+  opponentTeamId: number;
+  trainingMatchId?: number;
+  isAgreed: boolean;
+}
+
+function parseExistingChallenges(xml: string): ExistingChallenge[] {
+  const section = xml.match(/<ChallengesByMe>([\s\S]*?)<\/ChallengesByMe>/i)?.[1] || '';
+  return [...section.matchAll(/<Challenge>([\s\S]*?)<\/Challenge>/gi)]
+    .map((match) => {
+      const block = match[1];
+      const opponentBlock = block.match(/<Opponent>([\s\S]*?)<\/Opponent>/i)?.[1] || '';
+      const opponentTeamId = Number(opponentBlock.match(/<TeamID>(\d+)<\/TeamID>/i)?.[1] || '0');
+      const trainingMatchId = Number(block.match(/<TrainingMatchID>(\d+)<\/TrainingMatchID>/i)?.[1] || '0');
+      const isAgreed = /<IsAgreed>\s*(true|1)\s*<\/IsAgreed>/i.test(block);
+      return {
+        opponentTeamId,
+        trainingMatchId: trainingMatchId > 0 ? trainingMatchId : undefined,
+        isAgreed,
+      };
+    })
+    .filter((challenge) => challenge.opponentTeamId > 0);
+}
+
+async function resolveBatchOwner(req: VercelRequest, input: BatchChallengeInput) {
+  const context = await resolveManager(req);
+  if ('error' in context) return { context, error: context.error } as const;
+
+  const managerTeams = await fetchManagerTeamsFromChpp(
+    context.consumerKey,
+    context.consumerSecret,
+    context.credentials,
+    context.managerId,
+  );
+  const sender = managerTeams.teams.find((team) => team.teamId === input.teamId);
+  if (!sender) {
+    return {
+      context,
+      error: 'The selected sender team is not owned by the OAuth-authorized manager.',
+    } as const;
+  }
+  return { context, sender, managerTeams } as const;
+}
+
+async function loadBatchPreflight(context: Awaited<ReturnType<typeof resolveManager>> & object, input: BatchChallengeInput) {
+  if ('error' in context) throw new Error(context.error);
+  const auth = authInput(context);
+  if (!auth) throw new Error('CHPP credentials are unavailable.');
+  const requestOptions = parseChppRequestOptionsFromQuery({});
+  let challengeable: Awaited<ReturnType<typeof checkChppChallengeable>> | null = null;
+  let challengeableError: string | undefined;
+  try {
+    const result = await checkChppChallengeable({
+      ...auth,
+      teamId: input.teamId,
+      suggestedTeamIds: input.candidateTeamIds,
+      isWeekendFriendly: input.isWeekendFriendly,
+      requestOptions,
+    });
+    if (result.httpStatus < 200 || result.httpStatus >= 300) {
+      challengeableError = `CHPP challengeable preflight failed (${result.httpStatus}).`;
+    } else if (result.parsed.errorCode !== undefined && result.parsed.errorCode !== 0) {
+      challengeableError = result.parsed.errorMessage || `CHPP challengeable preflight failed (${result.parsed.errorCode}).`;
+    } else {
+      challengeable = result;
+    }
+  } catch (error) {
+    challengeableError = error instanceof Error ? error.message : 'CHPP challengeable preflight was unavailable.';
+  }
+
+  const existing = await viewChppChallenges({
+    ...auth,
+    teamId: input.teamId,
+    isWeekendFriendly: input.isWeekendFriendly,
+    requestOptions,
+  });
+  if (existing.httpStatus < 200 || existing.httpStatus >= 300) {
+    throw new Error(`CHPP challenge view failed (${existing.httpStatus}).`);
+  }
+  if (existing.parsed.errorCode !== undefined && existing.parsed.errorCode !== 0) {
+    throw new Error(existing.parsed.errorMessage || `CHPP challenge view failed (${existing.parsed.errorCode}).`);
+  }
+
+  const existingByOpponent = new Map(
+    parseExistingChallenges(existing.rawXml).map((challenge) => [challenge.opponentTeamId, challenge]),
+  );
+  const challengeableByTeam = new Map(challengeable?.parsed.teams.map((team) => [team.teamId, team]) || []);
+  const candidates = input.candidateTeamIds.map((teamId) => {
+    const existingChallenge = existingByOpponent.get(teamId);
+    const challengeableTeam = challengeableByTeam.get(teamId);
+    const challengeableNow = challengeableTeam?.challengeable ?? null;
+    return {
+      teamId,
+      challengeable: challengeableNow,
+      alreadyChallenged: Boolean(existingChallenge),
+      existingTrainingMatchId: existingChallenge?.trainingMatchId,
+      existingChallengeAgreed: existingChallenge?.isAgreed ?? false,
+      reason: existingChallenge
+        ? existingChallenge.isAgreed
+          ? 'Challenge already accepted.'
+          : 'Challenge already sent.'
+        : challengeableNow === false
+          ? challengeableTeam?.reason || 'CHPP preflight says not challengeable; direct challenge will still be attempted.'
+          : challengeableNow === null
+            ? 'CHPP challengeable preflight did not return a result; direct challenge will still be attempted.'
+            : challengeableTeam?.reason,
+      sendable: !existingChallenge,
+    };
+  });
+
+  return {
+    candidates,
+    sendableCount: candidates.filter((candidate) => candidate.sendable).length,
+    challengeableError,
+    challengeableRequestParams: challengeable?.params,
+    viewRequestParams: existing.params,
+  };
+}
+
+function isGlobalChallengeFailure(errorMessage?: string) {
+  return /401|403|permission|scope|oauth|authorization|not authorized/i.test(errorMessage || '');
+}
+
+async function handleBatchChallenge(req: VercelRequest, res: VercelResponse) {
+  const input = parseBatchInput(req);
+  const owner = await resolveBatchOwner(req, input);
+  if ('error' in owner) return res.status(400).json({ error: owner.error });
+
+  const preflight = await loadBatchPreflight(owner.context, input);
+  const phase = requestString(req, 'phase') || 'preview';
+  const base = {
+    tool: 'challenge-batch',
+    phase,
+    managerId: owner.context.managerId,
+    sender: { teamId: owner.sender.teamId, teamName: owner.sender.teamName },
+    settings: {
+      matchType: input.matchType === 1 ? 'cup_rules' : 'normal',
+      matchPlace: input.matchPlace === 0 ? 'home' : 'away',
+      isWeekendFriendly: input.isWeekendFriendly === 1,
+    },
+    candidates: preflight.candidates,
+    sendableCount: preflight.sendableCount,
+    warning: 'CHPP challengeable is diagnostic only. The direct CHPP challenge response decides whether each send succeeds. This does not enroll a team in a tournament.',
+  };
+
+  if (phase !== 'send') return res.status(200).json(base);
+  if (requestString(req, 'confirm') !== '1' && requestValue(req, 'confirm') !== true) {
+    return res.status(400).json({ error: 'Confirm the batch side effect before sending.' });
+  }
+
+  const results = [];
+  let stoppedEarly = false;
+  const auth = authInput(owner.context)!;
+  for (const candidate of preflight.candidates) {
+    if (!candidate.sendable) {
+      results.push({ ...candidate, status: 'skipped' as const });
+      continue;
+    }
+
+    const result = await sendChppChallengeDirect({
+      ...auth,
+      teamId: input.teamId,
+      opponentTeamId: candidate.teamId,
+      matchType: input.matchType,
+      matchPlace: input.matchPlace,
+      isWeekendFriendly: input.isWeekendFriendly,
+      requestOptions: parseChppRequestOptionsFromQuery({}),
+    });
+    results.push({
+      ...candidate,
+      status: result.success ? ('sent' as const) : ('failed' as const),
+      trainingMatchId: result.trainingMatchId,
+      error: result.errorMessage,
+    });
+
+    if (!result.success && isGlobalChallengeFailure(result.errorMessage)) {
+      stoppedEarly = true;
+      break;
+    }
+  }
+
+  return res.status(200).json({
+    ...base,
+    phase: 'send',
+    results,
+    sentCount: results.filter((result) => result.status === 'sent').length,
+    stoppedEarly,
+  });
+}
+
 async function resolveManager(req: VercelRequest) {
-  const managerId = numberValue(req, 'managerId');
+  const managerId = requestNumber(req, 'managerId') ?? numberValue(req, 'managerId');
   if (!managerId) return { error: 'Missing managerId.' } as const;
   const consumerKey = process.env.CHPP_CONSUMER_KEY;
   const consumerSecret = process.env.CHPP_CONSUMER_SECRET;
@@ -59,6 +334,7 @@ function manifest() {
       { id: 'challenges-compare', label: 'Challenges comparison' },
       { id: 'booking-status', label: 'Booking status' },
       { id: 'challenge-send', label: 'Challenge send', sideEffect: true },
+      { id: 'challenge-batch', label: 'Batch challenge rescue', sideEffect: true, localOnly: true },
       { id: 'round-press-matchdetails-backfill', label: 'Round press MatchDetails backfill', sideEffect: true },
     ],
   };
@@ -296,6 +572,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   }
 
   const tool = value(req, 'tool').replace(/^\//, '') || 'manifest';
+  if (tool === 'challenge-batch' && rejectIfBatchChallengeNotLocal(req, res)) return;
   try {
     switch (tool) {
       case 'credentials-check': return await handleCredentials(req, res);
@@ -304,6 +581,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       case 'challenges-compare': return await handleCompare(req, res);
       case 'booking-status': return await handleBooking(req, res);
       case 'challenge-send': return await handleSend(req, res);
+      case 'challenge-batch': return await handleBatchChallenge(req, res);
       case 'round-press-matchdetails-backfill': return await handleRoundPressMatchDetailsBackfill(req, res);
       case 'manifest': return res.status(200).json(manifest());
       default: return res.status(404).json({ error: 'Unknown testing tool.' });

@@ -423,33 +423,28 @@ export async function sendChppChallenge(input: SendChppChallengeInput): Promise<
     return sendChppChallengeDirect(input);
   }
 
-  const challengeable = await checkChppChallengeable({
-    consumerKey: input.consumerKey,
-    consumerSecret: input.consumerSecret,
-    oauthToken: input.oauthToken,
-    oauthTokenSecret: input.oauthTokenSecret,
-    teamId: input.teamId,
-    suggestedTeamIds: [input.opponentTeamId],
-    isWeekendFriendly: input.isWeekendFriendly ?? 0,
-    requestOptions: input.requestOptions,
-  });
-
-  const challengeableCheck = isOpponentChallengeable(challengeable.parsed, input.opponentTeamId);
-  if (!challengeableCheck.ok) {
-    return {
-      success: false,
-      errorCode: challengeable.parsed.errorCode,
-      errorMessage: challengeableCheck.reason,
-      rawXml: challengeable.rawXml,
-      requestUrl: challengeable.requestUrl,
-      requestQuery: challengeable.requestQuery,
-      challengeable: challengeable.parsed,
-      skippedChallengeableCheck: false,
-    };
+  // CHPP's challengeable response is advisory. Hattrick can report false here
+  // while still accepting the direct challenge action, so only the challenge
+  // response itself is allowed to decide whether the send succeeded.
+  let challengeable: ChppChallengeableParse | undefined;
+  try {
+    const preflight = await checkChppChallengeable({
+      consumerKey: input.consumerKey,
+      consumerSecret: input.consumerSecret,
+      oauthToken: input.oauthToken,
+      oauthTokenSecret: input.oauthTokenSecret,
+      teamId: input.teamId,
+      suggestedTeamIds: [input.opponentTeamId],
+      isWeekendFriendly: input.isWeekendFriendly ?? 0,
+      requestOptions: input.requestOptions,
+    });
+    challengeable = preflight.parsed;
+  } catch {
+    // Continue to the authoritative direct challenge request.
   }
 
   const result = await sendChppChallengeDirect(input);
-  return { ...result, challengeable: challengeable.parsed, skippedChallengeableCheck: false };
+  return { ...result, challengeable, skippedChallengeableCheck: false };
 }
 
 export function parseChppRequestOptionsFromQuery(query: Record<string, string | string[] | undefined>): ChppChallengesRequestOptions {
