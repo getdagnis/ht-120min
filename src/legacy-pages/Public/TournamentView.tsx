@@ -1474,7 +1474,8 @@ export const TournamentView: React.FC<{ initialData?: TournamentInitialData }> =
   const participantTeams = teams.filter((team) => !team.is_placeholder && !team.reserve_active);
   const reserveTeams = teams.filter((team) => !team.is_placeholder && team.reserve_active);
   const currentSeasonSlotTeamIds = useMemo(
-    () => new Set(seasonSlots.map((slot) => slot.current_team_id).filter((teamId): teamId is string => Boolean(teamId))),
+    () =>
+      new Set(seasonSlots.map((slot) => slot.current_team_id).filter((teamId): teamId is string => Boolean(teamId))),
     [seasonSlots],
   );
   const activeParticipantCount = participantTeams.filter((team) => team.active).length;
@@ -1514,17 +1515,15 @@ export const TournamentView: React.FC<{ initialData?: TournamentInitialData }> =
 
   const activeScheduleTeams = useMemo(
     () =>
-      teams
-        .filter(isCurrentParticipantTeam)
-        .map((team) => ({
-          id: team.id,
-          name: team.name,
-          active: team.active,
-          isPlaceholder: team.is_placeholder,
-          countryName: team.country_name ?? null,
-          leagueLevel: team.league_level ?? null,
-          teamRank: team.team_rank ?? null,
-        })),
+      teams.filter(isCurrentParticipantTeam).map((team) => ({
+        id: team.id,
+        name: team.name,
+        active: team.active,
+        isPlaceholder: team.is_placeholder,
+        countryName: team.country_name ?? null,
+        leagueLevel: team.league_level ?? null,
+        teamRank: team.team_rank ?? null,
+      })),
     [teams],
   );
   const scheduleDraftTeams = useMemo(() => {
@@ -1856,16 +1855,14 @@ export const TournamentView: React.FC<{ initialData?: TournamentInitialData }> =
           setPlayingElsewhereTeamIds(new Set());
         }
 
-        const fetchedScheduleTeams = teamsData
-          .filter(isCurrentParticipantTeam)
-          .map((team) => ({
-            id: team.id,
-            name: team.name,
-            active: team.active,
-            isPlaceholder: team.is_placeholder,
-            countryName: team.country_name ?? null,
-            leagueLevel: team.league_level ?? null,
-          }));
+        const fetchedScheduleTeams = teamsData.filter(isCurrentParticipantTeam).map((team) => ({
+          id: team.id,
+          name: team.name,
+          active: team.active,
+          isPlaceholder: team.is_placeholder,
+          countryName: team.country_name ?? null,
+          leagueLevel: team.league_level ?? null,
+        }));
         const reconciledDraft = buildScheduleDraft({
           teams: fetchedScheduleTeams,
           mode: normalizeGeneratedScheduleMode(tournamentData.schedule_mode),
@@ -3705,16 +3702,14 @@ export const TournamentView: React.FC<{ initialData?: TournamentInitialData }> =
   };
 
   const leagueRestrictionOptions = getCompatibleLeagueRestrictionOptions(
-    teams
-      .filter(isCurrentParticipantTeam)
-      .map((team) => ({
-        leagueName: '',
-        leagueId: team.league_id ?? undefined,
-        leagueSystemId: team.league_id === 3000 || team.gender_id === 2 ? 2 : undefined,
-        genderId: team.gender_id ?? undefined,
-        countryId: team.country_id ?? undefined,
-        countryName: team.country_name,
-      })),
+    teams.filter(isCurrentParticipantTeam).map((team) => ({
+      leagueName: '',
+      leagueId: team.league_id ?? undefined,
+      leagueSystemId: team.league_id === 3000 || team.gender_id === 2 ? 2 : undefined,
+      genderId: team.gender_id ?? undefined,
+      countryId: team.country_id ?? undefined,
+      countryName: team.country_name,
+    })),
     editLeagueCategory,
   );
   const currentLeagueRestrictionIsCompatible =
@@ -4012,11 +4007,13 @@ export const TournamentView: React.FC<{ initialData?: TournamentInitialData }> =
       return;
     }
 
-    if (!window.confirm(
-      addAsReserve
-        ? `Add ${name} (ID: ${htId}) to the reserve list? This will not change the schedule or registration status.`
-        : `Are you sure you want to add ${name} (ID: ${htId})?`,
-    )) {
+    if (
+      !window.confirm(
+        addAsReserve
+          ? `Add ${name} (ID: ${htId}) to the reserve list? This will not change the schedule or registration status.`
+          : `Are you sure you want to add ${name} (ID: ${htId})?`,
+      )
+    ) {
       return;
     }
 
@@ -4575,7 +4572,8 @@ export const TournamentView: React.FC<{ initialData?: TournamentInitialData }> =
       !window.confirm(
         'Restore the original deterministic Round 1 pairings?\n\nThis replaces only Round 1 fixture rows from the frozen ranking snapshot. Do not use this after Round 1 has been played.',
       )
-    ) return;
+    )
+      return;
     setIsRecoveringRoundOne(true);
     try {
       const response = await fetch('/api/app?route=recover-length-round-one', {
@@ -5256,15 +5254,15 @@ export const TournamentView: React.FC<{ initialData?: TournamentInitialData }> =
     });
 
     const warningTeamIds = warnings
-        .filter((warning) => warning.active !== false && typeof warning.team_id === 'string')
-        .filter((warning) => {
-          const warningRoundIndex = rounds.findIndex((round) => round.id === warning.round_id);
-          if (warningRoundIndex < 0 || renderTimestamp <= 0) return true;
-          return !roundStartTimes
-            .slice(warningRoundIndex + 1)
-            .some((roundStart) => roundStart !== null && roundStart <= renderTimestamp);
-        })
-        .map((warning) => warning.team_id as string);
+      .filter((warning) => warning.active !== false && typeof warning.team_id === 'string')
+      .filter((warning) => {
+        const warningRoundIndex = rounds.findIndex((round) => round.id === warning.round_id);
+        if (warningRoundIndex < 0 || renderTimestamp <= 0) return true;
+        return !roundStartTimes
+          .slice(warningRoundIndex + 1)
+          .some((roundStart) => roundStart !== null && roundStart <= renderTimestamp);
+      })
+      .map((warning) => warning.team_id as string);
 
     return mapWarningTeamIdsToStandingsIds(warningTeamIds, seasonSlots);
   })();
@@ -5277,7 +5275,10 @@ export const TournamentView: React.FC<{ initialData?: TournamentInitialData }> =
     ? teams
         .filter(
           (team) =>
-            !team.active && !team.reserve_active && !team.is_placeholder && team.reapply_season_number === currentSeasonNumber,
+            !team.active &&
+            !team.reserve_active &&
+            !team.is_placeholder &&
+            team.reapply_season_number === currentSeasonNumber,
         )
         .map((team) => ({
           id: team.id,
@@ -6131,9 +6132,7 @@ export const TournamentView: React.FC<{ initialData?: TournamentInitialData }> =
             <SidebarPollWidget
               seasonId={currentSeason?.id}
               seasonStatus={currentSeason?.status}
-              teams={teams
-                .filter(isCurrentParticipantTeam)
-                .map((team) => ({ id: team.id, name: team.name }))}
+              teams={teams.filter(isCurrentParticipantTeam).map((team) => ({ id: team.id, name: team.name }))}
               rounds={rounds}
               is120minMode={is120minMode}
               myHtUserId={myHtUserId ? Number(myHtUserId) : null}
@@ -6910,7 +6909,8 @@ export const TournamentView: React.FC<{ initialData?: TournamentInitialData }> =
                                     <div className={adminStyles.teamPlanningRow}>
                                       <div>
                                         <p className={adminStyles.smallNote}>
-                                          Add a manually selected Hattrick team to the reserve list without reopening registration.
+                                          Add a manually selected Hattrick team to the reserve list without reopening
+                                          registration.
                                         </p>
                                       </div>
                                       <Button
@@ -6923,9 +6923,13 @@ export const TournamentView: React.FC<{ initialData?: TournamentInitialData }> =
                                       </Button>
                                     </div>
                                     {isReserveTeamFormOpen && (
-                                      <form onSubmit={(e) => void addTeam(e, false, true)} className={adminStyles.teamForm}>
+                                      <form
+                                        onSubmit={(e) => void addTeam(e, false, true)}
+                                        className={adminStyles.teamForm}
+                                      >
                                         <p className={adminStyles.smallNote}>
-                                          Enter the Hattrick team ID. Team data and eligibility will be checked before it is added.
+                                          Enter the Hattrick team ID. Team data and eligibility will be checked before
+                                          it is added.
                                         </p>
                                         <div className={adminStyles.inputGroup}>
                                           <input
@@ -7061,8 +7065,10 @@ export const TournamentView: React.FC<{ initialData?: TournamentInitialData }> =
                                   <div className={adminStyles.teamActions}>
                                     {team.active ? (
                                       <>
-                                        {isGenerated && roleAccess?.canManageOperations && reserveTeams.length > 0 && (
-                                          reserveReplacingTeamId === team.id ? (
+                                        {isGenerated &&
+                                          roleAccess?.canManageOperations &&
+                                          reserveTeams.length > 0 &&
+                                          (reserveReplacingTeamId === team.id ? (
                                             <div className={adminStyles.inlineReplace}>
                                               <select
                                                 className={adminStyles.selectField}
@@ -7110,8 +7116,7 @@ export const TournamentView: React.FC<{ initialData?: TournamentInitialData }> =
                                             >
                                               Replace with reserve
                                             </Button>
-                                          )
-                                        )}
+                                          ))}
                                         {!isGenerated && replacingTeamId === team.id ? (
                                           <div className={adminStyles.inlineReplace}>
                                             <input
@@ -7355,21 +7360,21 @@ export const TournamentView: React.FC<{ initialData?: TournamentInitialData }> =
                                     {roleAccess?.canManageOperations &&
                                       ((isGenerated && seasonSlots.some((slot) => slot.current_team_id === null)) ||
                                         (!isGenerated && maxTeamsAllowsPromotion)) && (
-                                      <div className={adminStyles.teamActions}>
-                                        <Button
-                                          size="xs"
-                                          variant="primary"
-                                          onClick={() =>
-                                            void (isGenerated
-                                              ? fillVacantSlotWithReserve(team)
-                                              : transitionTeamReserveStatus(team, 'to_participant'))
-                                          }
-                                          disabled={isSavingTeam}
-                                        >
-                                          {isGenerated ? 'Fill vacant slot' : 'Promote to tournament'}
-                                        </Button>
-                                      </div>
-                                    )}
+                                        <div className={adminStyles.teamActions}>
+                                          <Button
+                                            size="xs"
+                                            variant="primary"
+                                            onClick={() =>
+                                              void (isGenerated
+                                                ? fillVacantSlotWithReserve(team)
+                                                : transitionTeamReserveStatus(team, 'to_participant'))
+                                            }
+                                            disabled={isSavingTeam}
+                                          >
+                                            {isGenerated ? 'Fill vacant slot' : 'Promote to tournament'}
+                                          </Button>
+                                        </div>
+                                      )}
                                   </li>
                                 ))}
                               </ul>
@@ -7501,7 +7506,7 @@ export const TournamentView: React.FC<{ initialData?: TournamentInitialData }> =
                                     onClick={handleFinishSeason}
                                     disabled={isFinalizingSeason}
                                   >
-                                    {isFinalizingSeason ? 'Finishing...' : 'Mark season finished'}
+                                    {isFinalizingSeason ? 'Finishing...' : 'Mark as finished'}
                                   </Button>
                                 )}
                                 {tournament.status === 'finished' && !currentSeason?.snapshot_json && (
