@@ -531,7 +531,7 @@ export const StandingsView: React.FC<StandingsViewProps> = ({
 
     refresh();
 
-    const interval = setInterval(refresh, 2.5 * 60 * 1000);
+    const interval = setInterval(refresh, 10 * 60 * 1000);
     document.addEventListener('visibilitychange', refresh);
 
     return () => {

@@ -1,6 +1,6 @@
 import { useEffect, useRef } from 'react';
 
-const INTERVAL_MS = 60 * 1000; // 1 minute while visible
+const INTERVAL_MS = 5 * 60 * 1000; // 5 minutes while visible
 
 async function ping() {
   try {

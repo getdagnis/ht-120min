@@ -1,8 +1,9 @@
 import { useEffect } from 'react';
 import { resolveEffectiveTheme } from '../utils/theme';
 
-// Activity tracking is temporarily paused for usage control; restore this gate here when tracking should resume.
-const ACTIVITY_TRACKING_PAUSED = true;
+// Keep low-volume visits and explicit product actions enabled. Generic controls
+// are opt-in via data-track so analytics cannot become a high-volume event stream.
+const ACTIVITY_TRACKING_PAUSED = false;
 
 export interface ActivityEventPayload {
   route?: string;
@@ -68,23 +69,13 @@ export function useActivityTracking(route: string, enabled = true) {
     if (!enabled) return;
 
     const startedAt = Date.now();
-    const scrollMilestones = new Set<number>();
-    let maxScrollPercent = 0;
     let exitSent = false;
+    let maxScrollPercent = 0;
 
-    const emitScrollMilestone = () => {
+    const updateMaxScroll = () => {
       const scrollableHeight = document.documentElement.scrollHeight - window.innerHeight;
       const percent = scrollableHeight > 0 ? Math.min(100, Math.round((window.scrollY / scrollableHeight) * 100)) : 100;
       maxScrollPercent = Math.max(maxScrollPercent, percent);
-      for (const milestone of [25, 50, 75, 90, 100]) {
-        if (percent >= milestone && !scrollMilestones.has(milestone)) {
-          scrollMilestones.add(milestone);
-          void trackActivity('scroll_depth', {
-            route,
-            metadata: { ...currentPageContext(), depth: milestone },
-          });
-        }
-      }
     };
 
     const emitPageExit = (reason: string) => {
@@ -102,7 +93,7 @@ export function useActivityTracking(route: string, enabled = true) {
     };
 
     const handleClick = (event: MouseEvent) => {
-      const target = event.target instanceof Element ? event.target.closest('button, a, [data-track]') : null;
+      const target = event.target instanceof Element ? event.target.closest('[data-track]') : null;
       if (!target) return;
       void trackActivity('control_click', {
         route,
@@ -113,6 +104,7 @@ export function useActivityTracking(route: string, enabled = true) {
     const handleChange = (event: Event) => {
       const target = event.target;
       if (!(target instanceof HTMLSelectElement || target instanceof HTMLInputElement)) return;
+      if (!target.closest('[data-track]')) return;
       if (target instanceof HTMLInputElement && !['checkbox', 'radio', 'range'].includes(target.type)) return;
       void trackActivity('option_change', {
         route,
@@ -130,14 +122,14 @@ export function useActivityTracking(route: string, enabled = true) {
     const handlePageHide = () => emitPageExit('pagehide');
 
     void trackActivity('page_view', { route, metadata: currentPageContext() });
-    window.addEventListener('scroll', emitScrollMilestone, { passive: true });
+    window.addEventListener('scroll', updateMaxScroll, { passive: true });
     document.addEventListener('click', handleClick);
     document.addEventListener('change', handleChange);
     document.addEventListener('visibilitychange', handleVisibilityChange);
     window.addEventListener('pagehide', handlePageHide);
 
     return () => {
-      window.removeEventListener('scroll', emitScrollMilestone);
+      window.removeEventListener('scroll', updateMaxScroll);
       document.removeEventListener('click', handleClick);
       document.removeEventListener('change', handleChange);
       document.removeEventListener('visibilitychange', handleVisibilityChange);
