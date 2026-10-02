@@ -36,6 +36,8 @@ export interface ChppChallengeableTeamResult {
 }
 
 export interface ChppChallengeableParse extends ChppChallengesBaseParse {
+  responseTeamId?: number;
+  responseTeamName?: string;
   teams: ChppChallengeableTeamResult[];
 }
 
@@ -109,6 +111,10 @@ function parseBooleanTag(value?: string): boolean | undefined {
 export function parseChallengeableResponse(xml: string): ChppChallengeableParse {
   const base = parseChppBaseResponse(xml);
   const teams: ChppChallengeableTeamResult[] = [];
+  const responseTeamBlock = xml.match(/<Team>([\s\S]*?)<\/Team>/i)?.[1] || '';
+  const responseTeamIdRaw = readChppTag(responseTeamBlock, 'TeamID') || readChppTag(responseTeamBlock, 'TeamId');
+  const responseTeamId = responseTeamIdRaw ? Number(responseTeamIdRaw) : NaN;
+  const responseTeamName = readChppTag(responseTeamBlock, 'TeamName');
 
   for (const resultMatch of xml.matchAll(/<ChallengeableResult>([\s\S]*?)<\/ChallengeableResult>/gi)) {
     const resultBlock = resultMatch[1];
@@ -167,7 +173,12 @@ export function parseChallengeableResponse(xml: string): ChppChallengeableParse 
     }
   }
 
-  return { ...base, teams };
+  return {
+    ...base,
+    ...(Number.isSafeInteger(responseTeamId) && responseTeamId > 0 ? { responseTeamId } : {}),
+    ...(responseTeamName ? { responseTeamName } : {}),
+    teams,
+  };
 }
 
 export function parseChppChallengeOffers(xml: string): ChppChallengeOffer[] {

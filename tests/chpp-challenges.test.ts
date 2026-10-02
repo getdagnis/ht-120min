@@ -29,9 +29,12 @@ function challengeableXml(value: 'True' | 'False') {
 }
 
 test('parses the CHPP 1.6 ChallengeableResult opponent as not challengeable', () => {
-  assert.deepEqual(parseChallengeableResponse(challengeableXml('False')).teams, [
+  const parsed = parseChallengeableResponse(challengeableXml('False'));
+  assert.deepEqual(parsed.teams, [
     { teamId: 3220504, challengeable: false, reason: undefined },
   ]);
+  assert.equal(parsed.responseTeamId, 681813);
+  assert.equal(parsed.responseTeamName, 'This bot team is a bot');
 });
 
 test('parses a positive CHPP 1.6 ChallengeableResult opponent', () => {

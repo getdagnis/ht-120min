@@ -1,4 +1,5 @@
 import { useEffect } from 'react';
+import { resolveEffectiveTheme } from '../utils/theme';
 
 // Activity tracking is temporarily paused for usage control; restore this gate here when tracking should resume.
 const ACTIVITY_TRACKING_PAUSED = true;
@@ -27,8 +28,19 @@ export async function trackActivity(eventType: string, payload: ActivityEventPay
 }
 
 function currentPageContext() {
+  let storedPreference: string | null = null;
+  try {
+    storedPreference = window.localStorage.getItem('theme');
+  } catch {
+    // Theme telemetry should still work when browser storage is unavailable.
+  }
+
   return {
-    theme: document.documentElement.getAttribute('data-theme') || 'unknown',
+    theme: resolveEffectiveTheme({
+      storedPreference,
+      dataTheme: document.documentElement.getAttribute('data-theme'),
+      prefersDark: typeof window.matchMedia === 'function' && window.matchMedia('(prefers-color-scheme: dark)').matches,
+    }),
     viewport: `${window.innerWidth}x${window.innerHeight}`,
     screen: `${window.screen.width}x${window.screen.height}`,
   };

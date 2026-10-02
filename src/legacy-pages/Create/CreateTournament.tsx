@@ -282,27 +282,30 @@ export const CreateTournament: React.FC = () => {
     [formData, teams, showDescription, showEmail, organizerProfile],
   );
 
-  const fetchPendingSession = useCallback(async (token: string) => {
-    setShowModal(true);
-    setModalLoading(true);
+  const fetchPendingSession = useCallback(
+    async (token: string) => {
+      setShowModal(true);
+      setModalLoading(true);
 
-    const { data, error } = await supabase
-      .from('oauth_temp_sessions')
-      .select('*')
-      .eq('selection_token', token)
-      .single();
+      const { data, error } = await supabase
+        .from('oauth_temp_sessions')
+        .select('*')
+        .eq('selection_token', token)
+        .single();
 
-    setModalLoading(false);
+      setModalLoading(false);
 
-    if (error || !data) {
-      setShowModal(false);
-      alert('Invalid or expired linking session.');
-      return;
-    }
+      if (error || !data) {
+        setShowModal(false);
+        alert('Invalid or expired linking session.');
+        return;
+      }
 
-    setLinkedManager(data);
-    setStep('teams');
-  }, [alert]);
+      setLinkedManager(data);
+      setStep('teams');
+    },
+    [alert],
+  );
 
   useEffect(() => {
     if (linkingParamsHandledRef.current) return;
@@ -463,9 +466,7 @@ export const CreateTournament: React.FC = () => {
         powerGlobalRank,
         powerLeagueRank,
         powerRegionRank,
-      } = await fetchTeamLogoFromChpp(
-        team.teamId,
-      );
+      } = await fetchTeamLogoFromChpp(team.teamId);
 
       const creatorTeam: LocalTeam = {
         tempId: nanoid(),
@@ -1077,7 +1078,11 @@ export const CreateTournament: React.FC = () => {
   const registrationType = normalizeTournamentRegistrationType(formData.registration_type);
   const isValidated = registrationType === 'validated';
   const isSandbox = registrationType === 'sandbox';
-  const canCreate = isValidated ? !!creator : isSandbox ? Boolean(organizerProfile?.hattrickUserId) && teams.length >= 2 : isLinked && teams.length >= 2;
+  const canCreate = isValidated
+    ? !!creator
+    : isSandbox
+      ? Boolean(organizerProfile?.hattrickUserId) && teams.length >= 2
+      : isLinked && teams.length >= 2;
   const leagueRestrictionLabel = formData.league_category === 'hfi' ? 'Only HFI teams' : 'Any male';
   const countryRestrictionLabel = isSandbox
     ? 'Any country'
@@ -1468,7 +1473,9 @@ export const CreateTournament: React.FC = () => {
                 ) : (
                   <>
                     {isSandbox ? (
-                      <p>Link your organizer profile. Your test teams can stay separate from your own Hattrick teams.</p>
+                      <p>
+                        Link your organizer profile. Your test teams can stay separate from your own Hattrick teams.
+                      </p>
                     ) : !isValidated ? (
                       <p>
                         A self-organized cup you can join with one of your teams, or organise it without playing. These
@@ -1492,23 +1499,27 @@ export const CreateTournament: React.FC = () => {
                       </p>
                     )}
 
-                    {!isSandbox && <div className={styles.teamOptionsList}>
-                      {eligibleTeams.map((team) => (
-                        <div
-                          key={team.teamId}
-                          className={styles.teamOptionCard}
-                          onClick={() => void handleCreatorTeamSelect(team)}
-                        >
-                          <div className={styles.teamOptionInfo}>
-                            <strong>{team.teamName}</strong>
-                            <span>
-                              {[team.leagueName, team.leagueLevelUnitName, team.regionName].filter(Boolean).join(' • ')}
-                            </span>
+                    {!isSandbox && (
+                      <div className={styles.teamOptionsList}>
+                        {eligibleTeams.map((team) => (
+                          <div
+                            key={team.teamId}
+                            className={styles.teamOptionCard}
+                            onClick={() => void handleCreatorTeamSelect(team)}
+                          >
+                            <div className={styles.teamOptionInfo}>
+                              <strong>{team.teamName}</strong>
+                              <span>
+                                {[team.leagueName, team.leagueLevelUnitName, team.regionName]
+                                  .filter(Boolean)
+                                  .join(' • ')}
+                              </span>
+                            </div>
+                            <CaretLeft size={20} weight="bold" className="r-180" />
                           </div>
-                          <CaretLeft size={20} weight="bold" className="r-180" />
-                        </div>
-                      ))}
-                    </div>}
+                        ))}
+                      </div>
+                    )}
 
                     {!isValidated && (
                       <Button variant="outline" fullWidth onClick={() => void handleOrganizerNoJoin()}>
@@ -1554,7 +1565,9 @@ export const CreateTournament: React.FC = () => {
                 <Button size="lg" variant="primary" onClick={handleHattrickLink} disabled={loading}>
                   <ArrowRight size={20} weight="bold" /> {isValidated ? 'Link with Hattrick' : 'Link Organizer Profile'}
                 </Button>
-                {isSandbox && <p>Required to manage the test tournament as its organizer and use Cup Press Release tools.</p>}
+                {isSandbox && (
+                  <p>Required to manage the test tournament as its organizer and use Cup Press Release tools.</p>
+                )}
               </div>
             )}
 

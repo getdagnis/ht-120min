@@ -220,8 +220,13 @@ async function handleChallengeable(req: VercelRequest, res: VercelResponse) {
     isWeekendFriendly: value(req, 'isWeekendFriendly') === '1' ? 1 : 0,
     requestOptions: parseChppRequestOptionsFromQuery(req.query),
   });
+  const { responseTeamId, responseTeamName, teams } = result.parsed;
   return res.status(200).json({
     tool: 'challengeable',
+    requestedTeamId: teamId,
+    responseTeamId,
+    responseTeamName,
+    teams,
     chppHttpStatus: result.httpStatus,
     requestUrl: result.requestUrl,
     requestParams: result.params,
