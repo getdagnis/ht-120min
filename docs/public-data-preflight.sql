@@ -4,7 +4,15 @@ BEGIN READ ONLY;
 
 SELECT current_setting('server_version') AS postgres_version;
 SELECT extname, extversion FROM pg_extension
-  WHERE extname IN ('pg_cron', 'pg_net', 'pgcrypto', 'pg_jsonschema') ORDER BY extname;
+  WHERE extname IN ('pg_cron', 'pg_net', 'supabase_vault', 'pgcrypto', 'pg_jsonschema') ORDER BY extname;
+
+SELECT current_setting('cron.timezone', true) AS cron_timezone;
+-- These relations can expose dispatch credentials; inspect grants, never contents.
+SELECT table_schema, table_name, grantee, privilege_type
+FROM information_schema.table_privileges
+WHERE table_schema IN ('vault', 'net', 'cron')
+  AND grantee IN ('PUBLIC', 'anon', 'authenticated', 'service_role')
+ORDER BY table_schema, table_name, grantee, privilege_type;
 
 SELECT table_name, column_name, data_type
 FROM information_schema.columns

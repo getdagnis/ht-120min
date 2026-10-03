@@ -49,8 +49,9 @@ extensions for relative imports.
 
 The [public data architecture plan](../plans/public-data-architecture-plan.md) introduces current durable publications
 and immutable historical audit revisions. Owner reports 088 applied/merged. Home has a locally implemented,
-opt-in directory/activity/Weekly builder, fenced worker and shared Data Cache path, with prepared 089 transaction
-hooks; no live Home cutover/scheduler or deployment was performed. Cookies retain dynamic personalized HTML;
+opt-in directory/activity/Weekly builder, fenced worker and shared Data Cache path, with 089 transaction
+hooks and prepared 090 post-commit mutation/due-boundary dispatch plus sparse database-local recovery (no idle Vercel polling).
+No live Home cutover/scheduler or deployment was performed. Cookies retain dynamic personalized HTML;
 cached payload delivery does not mean static HTML. Tournament/CHPP automatic producers are unchanged. See
 [implementation state and activation order](public-data-implementation.md) before enabling Home. Broader cutover
 still requires verified withdrawal propagation and a fenced automatic replacement.

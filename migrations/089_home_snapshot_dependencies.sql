@@ -68,3 +68,5 @@ $$;
 REVOKE ALL ON FUNCTION public.dirty_home_snapshot_time_boundary() FROM PUBLIC, anon, authenticated, service_role;
 GRANT EXECUTE ON FUNCTION public.dirty_home_snapshot_time_boundary() TO service_role;
 COMMIT;
+
+-- applied!
