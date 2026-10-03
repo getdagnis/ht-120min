@@ -13,6 +13,12 @@ import { getCountryWorldDetails } from '../../../shared/worlddetails';
 import { getJoinStoryManagerSummary } from '../../utils/tournament-activity';
 import { isCurrentParticipantTeam } from '../../utils/team-state.js';
 import {
+  buildManagerSpotlight,
+  getUtcDateKey,
+  type ManagerSpotlight,
+  type ManagerSpotlightProfile,
+} from '../../utils/manager-spotlight';
+import {
   EXOTIC_HFI_CAMPAIGN_SLUG_SET,
   orderExoticHfiTournaments,
 } from '../../constants/exotic-hfi-campaign';
@@ -146,6 +152,7 @@ export interface TournamentInitialData {
   seasons: Record<string, unknown>[];
   announcements: Record<string, unknown>[];
   organizerProfileName: string | null;
+  managerSpotlight: ManagerSpotlight | null;
 }
 
 function getPublicSupabase() {
@@ -493,12 +500,39 @@ export const loadTournamentInitialData = cache(async (slug: string): Promise<Tou
           .in('round_id', roundIds)
       : Promise.resolve({ data: [] }),
     userIds.length
-      ? supabase.from('profiles').select('hattrick_user_id, manager_name, last_seen_at').in('hattrick_user_id', userIds)
+      ? supabase
+          .from('profiles')
+          .select('hattrick_user_id, manager_name, last_seen_at, avatar_json, country_id, country_name, language_name, teams_json')
+          .in('hattrick_user_id', userIds)
       : Promise.resolve({ data: [] }),
   ]);
 
-  const profiles = (profilesResult.data || []) as { hattrick_user_id: number; manager_name: string; last_seen_at: string | null }[];
+  let profileRows = profilesResult.data;
+  if (profilesResult.error && userIds.length) {
+    // Keep public tournament rendering usable while the small profile-language migration is rolling out.
+    const fallbackProfiles = await supabase
+      .from('profiles')
+      .select('hattrick_user_id, manager_name, last_seen_at, avatar_json, country_id, country_name, teams_json')
+      .in('hattrick_user_id', userIds);
+    profileRows = fallbackProfiles.data;
+  }
+  const profiles = (profileRows || []) as Array<ManagerSpotlightProfile & { last_seen_at: string | null }>;
   const profileMap = Object.fromEntries(profiles.map((profile) => [profile.hattrick_user_id, profile.manager_name]));
+  const managerSpotlight = buildManagerSpotlight({
+    tournamentId,
+    participants: teams.filter(isCurrentParticipantTeam) as Array<{
+      id: string;
+      ht_team_id?: number | null;
+      name?: string | null;
+      logo_url?: string | null;
+      country_id?: number | null;
+      country_name?: string | null;
+      manager_name?: string | null;
+      hattrick_user_id?: number | null;
+    }>,
+    profiles,
+    dateKey: getUtcDateKey(),
+  });
   const rawMatches = (matchesResult.data || []) as Record<string, unknown>[];
   const assignmentIds = Array.from(new Set(rawMatches.flatMap((match) => [match.home_slot_assignment_id, match.away_slot_assignment_id]).filter((id): id is string => typeof id === 'string')));
   const { data: assignmentRows } = assignmentIds.length
@@ -601,5 +635,6 @@ export const loadTournamentInitialData = cache(async (slug: string): Promise<Tou
     seasons: (seasonsRaw || []) as Record<string, unknown>[],
     announcements: (announcementsRaw || []) as Record<string, unknown>[],
     organizerProfileName: (organizerResult.data as { manager_name?: string } | null)?.manager_name || null,
+    managerSpotlight,
   };
 });

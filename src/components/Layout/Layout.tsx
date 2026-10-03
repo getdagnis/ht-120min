@@ -455,7 +455,7 @@ export const Layout: React.FC<LayoutProps> = ({ children, excludeAnalytics = fal
             💌
             <p className={styles.affiliated}>Not affiliated with Hattrick Ltd.</p>
           </div>
-          <h3>Rate this app on Hattrick!</h3>
+          <h3>Click the CHPP logo to rate this app on Hattrick!</h3>
           <a
             href="https://www.hattrick.org/goto.ashx?path=/Community/CHPP/ChppProgramDetails.aspx?ApplicationId=5363"
             target="_blank"

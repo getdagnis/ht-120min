@@ -16,6 +16,7 @@ export interface ChppTeamOption {
   regionName?: string;
   countryId?: number;
   countryName?: string;
+  foundedDate?: string;
   activeTournament?: {
     name: string;
     slug: string;
@@ -36,6 +37,8 @@ export interface Avatar {
 export interface ParsedManagerCompendium {
   hattrickUserId: number | null;
   managerName: string;
+  languageId?: number;
+  languageName?: string;
   countryId?: number;
   countryName?: string;
   leagueId?: number;
@@ -215,6 +218,10 @@ export function parseArenaDetailsXml(xml: string): ParsedArenaDetails {
 export function parseManagerCompendiumXml(xml: string): ParsedManagerCompendium {
   const userIdRaw = xml.match(/<UserId>(\d+)<\/UserId>/i)?.[1] ?? xml.match(/<UserID>(\d+)<\/UserID>/i)?.[1];
   const managerName = readChppTag(xml, 'Loginname') ?? 'Unknown';
+  const languageIdRaw = xml.match(/<Language>[\s\S]*?<LanguageId>(\d+)<\/LanguageId>/i)?.[1]
+    ?? xml.match(/<Language>[\s\S]*?<LanguageID>(\d+)<\/LanguageID>/i)?.[1];
+  const languageId = languageIdRaw ? parseInt(languageIdRaw, 10) : undefined;
+  const languageName = readChppTag(xml, 'LanguageName');
 
   const countryIdRaw = xml.match(/<Country>[\s\S]*?<CountryId>(\d+)<\/CountryId>/i)?.[1];
   const countryId = countryIdRaw ? parseInt(countryIdRaw, 10) : undefined;
@@ -280,6 +287,8 @@ export function parseManagerCompendiumXml(xml: string): ParsedManagerCompendium 
   return {
     hattrickUserId: userIdRaw ? parseInt(userIdRaw, 10) : null,
     managerName,
+    languageId,
+    languageName,
     countryId,
     countryName,
     leagueId: teams[0]?.leagueId,

@@ -14,6 +14,7 @@ import {
   fetchManagerTeamsFromChpp,
   ManagerCompendiumRequestError,
 } from '../_lib/manager-compendium.js';
+import { fetchTeamDetailsFromChpp } from '../_lib/matchmaker.js';
 import { buildTournamentJoinStory } from '../_lib/join-story.js';
 
 interface CompleteAuthBody {
@@ -410,7 +411,31 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         countryName = mParsed.countryName;
         leagueId = mParsed.leagueId;
         avatar = mParsed.avatar ?? null;
-        teamsJson = mParsed.teams;
+        const detailedTeams = await Promise.all(
+          mParsed.teams.map(async (team) => {
+            try {
+              const details = await fetchTeamDetailsFromChpp(
+                consumerKey,
+                consumerSecret,
+                { oauth_token: pending.access_token, oauth_token_secret: pending.access_token_secret },
+                team.teamId,
+              );
+              return {
+                ...team,
+                logoUrl: team.logoUrl ?? details.logoUrl,
+                foundedDate: details.foundedDate,
+                leagueName: team.leagueName ?? details.leagueName,
+                leagueLevel: team.leagueLevel ?? details.leagueLevel,
+                leagueLevelUnitName: team.leagueLevelUnitName ?? details.leagueLevelUnitName,
+                countryId: team.countryId ?? details.countryId,
+                countryName: team.countryName ?? details.countryName,
+              };
+            } catch {
+              return team;
+            }
+          }),
+        );
+        teamsJson = detailedTeams;
       } catch (error) {
         console.warn(
           'Failed to refresh managercompendium during login, using cached teams_json:',
@@ -418,12 +443,14 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         );
       }
 
-      await supabase.from('profiles').upsert({
+      const profilePayload = {
         hattrick_user_id: pending.hattrick_user_id,
         manager_name: pending.manager_name,
         country_id: countryId ?? null,
         country_name: countryName ?? null,
         league_id: leagueId ?? null,
+        language_id: managerCompendium?.languageId ?? null,
+        language_name: managerCompendium?.languageName ?? null,
         avatar_json: avatar,
         teams_json: teamsJson,
         oauth_token: pending.access_token,
@@ -431,7 +458,14 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         oauth_scope: pending.oauth_scope ?? null,
         chpp_synced_at: new Date().toISOString(),
         last_seen_at: new Date().toISOString(),
-      });
+      };
+      const profileWrite = await supabase.from('profiles').upsert(profilePayload);
+      if (profileWrite.error && /language_(id|name)/i.test(profileWrite.error.message)) {
+        const { language_id: _languageId, language_name: _languageName, ...legacyProfilePayload } = profilePayload;
+        void _languageId;
+        void _languageName;
+        await supabase.from('profiles').upsert(legacyProfilePayload);
+      }
     } catch (e) {
       console.error('Failed to update profile during login:', e);
     }

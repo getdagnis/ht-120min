@@ -45,8 +45,18 @@
     background-color: var(--tinder-bg)
     border: 1px solid var(--darker-less)
 
+.secondaryDanger
+  color: var(--action-text)
+  background-color: var(--border)
+
+  &:hover:not(:disabled)
+    background-color: var(--danger)
+    border: 1px solid var(--darker-less)
+
 .primary:hover:not(:disabled)
   border-color: var(--darker-less)
+  background-color: var(--danger)
+  border: 1px solid var(--darker-less)
 
 .secondary
   background-color: var(--accent-3)

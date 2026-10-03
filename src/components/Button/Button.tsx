@@ -5,6 +5,7 @@ interface ButtonProps extends React.ButtonHTMLAttributes<HTMLButtonElement> {
   variant?:
     | 'primary' // the actual secondary (neutral green)
     | 'primaryDanger'
+    | 'secondaryDanger'
     | 'secondary'
     | 'secondaryInverse'
     | 'secondaryHero'
