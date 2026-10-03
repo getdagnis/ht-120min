@@ -110,6 +110,7 @@ When updating status, distinguish local code, migration file, applied migration,
 | Any CHPP/OAuth/match refresh work | `docs/chpp.md`, then `docs/AGENTS_CHPP_INTEGRATION.md` |
 | Schedule generation, rescheduling, fixtures dates, BYEs | `docs/scheduling.md` |
 | Supabase schema, migrations, RLS, Vercel functions | `docs/database-and-deployment.md` |
+| Public data caching/publication rollout | `docs/public-data-implementation.md`, then `plans/public-data-architecture-plan.md` |
 | Frontend structure, reusable UI, page ownership | `docs/architecture.md` |
 | Current blockers, migration state, validation state | `PROJECT_STATE.md` |
 | Product direction | `ROADMAP.md` |
@@ -197,7 +198,7 @@ Database changes:
 - `migrations/history/` is an archived legacy area.
 - Active migrations must use the root `migrations/` directory.
 - Continue the numeric sequence from the latest active migration.
-- The current sequence ends at `086`; the next migration must be `087_...sql`.
+- The current active sequence ends at prepared `088_public_data_publications.sql`; the next migration must be `089_...sql`. Recheck the files before choosing a number; file existence is not live application evidence.
 - Do not create timestamp-prefixed migration names such as `20261001050614_...`.
 - Treat a migration ending in `-- MIGRATION APPLIED!` as immutable. Never edit it: put every follow-up schema, RPC, or function change in the next migration. If it was edited by mistake after application, restore its applied content and move the later changes into a new migration before continuing.
 - Preserve RLS assumptions.

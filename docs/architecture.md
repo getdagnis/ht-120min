@@ -47,6 +47,12 @@ Server implementation is under `src/server/api/`. The App Router adapter preserv
 dispatching them to the current handlers. Any source imported by that server tree must use explicit runtime `.js`
 extensions for relative imports.
 
+The [public data architecture plan](../plans/public-data-architecture-plan.md) introduces current durable publications
+and immutable historical audit revisions. Its first persistence slice is prepared locally but **not connected to
+public reads**; current request/hydration and automatic refresh behavior remains in place. See
+[implementation state and preflight](public-data-implementation.md) before extending or enabling it. Public cutover
+requires safe component DTOs, mutation coupling, verified withdrawal propagation and a fenced automatic replacement.
+
 ## Hydration and time rules
 
 The first server render must not depend on browser-only identity, localStorage, viewport measurements, current time,
