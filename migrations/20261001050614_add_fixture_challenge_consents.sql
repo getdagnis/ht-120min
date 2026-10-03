@@ -19,3 +19,5 @@ ALTER TABLE public.tournament_challenge_consents ENABLE ROW LEVEL SECURITY;
 
 REVOKE ALL ON TABLE public.tournament_challenge_consents FROM anon, authenticated;
 GRANT ALL ON TABLE public.tournament_challenge_consents TO service_role;
+
+--APPLIED!

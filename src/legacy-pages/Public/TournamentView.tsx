@@ -104,6 +104,7 @@ import { ReusableWidget } from '../../components/ReusableWidget/ReusableWidget';
 import { MottoWidget } from '../../components/MottoWidget/MottoWidget';
 import { SidebarPollWidget } from '../../components/SidebarPollWidget/SidebarPollWidget';
 import { ReserveTeamsWidget } from '../../components/ReserveTeams/ReserveTeamsWidget';
+import { ManagerSpotlight } from '../../components/ManagerSpotlight/ManagerSpotlight';
 import { StandingsView } from '../../components/TournamentTabs/StandingsView';
 import { TournamentHistory, type TournamentSeasonComment } from '../../components/TournamentHistory/TournamentHistory';
 import { WelcomeModal } from '../../components/WelcomeModal/WelcomeModal';
@@ -705,6 +706,7 @@ export const TournamentView: React.FC<{ initialData?: TournamentInitialData }> =
   const [seasonSlotAssignments, setSeasonSlotAssignments] = useState<SeasonSlotAssignment[]>([]);
   const [rounds, setRounds] = useState<RoundWithMatches[]>(() => reviveInitialRounds(initialData));
   const [teams, setTeams] = useState<Team[]>(() => (initialData?.teams as unknown as Team[] | undefined) || []);
+  const managerSpotlight = initialData?.managerSpotlight || null;
   const [warnings, setWarnings] = useState<any[]>(() => initialData?.warnings || []);
   const [activityWarnings, setActivityWarnings] = useState<any[]>(
     () => initialData?.activityWarnings || initialData?.warnings || [],
@@ -6129,6 +6131,7 @@ export const TournamentView: React.FC<{ initialData?: TournamentInitialData }> =
             {(tournament.allow_reserve_registration !== false || reserveTeams.length > 0) && (
               <ReserveTeamsWidget tournamentId={tournament.id} />
             )}
+            <ManagerSpotlight spotlight={managerSpotlight} />
             <SidebarPollWidget
               seasonId={currentSeason?.id}
               seasonStatus={currentSeason?.status}
@@ -7476,7 +7479,7 @@ export const TournamentView: React.FC<{ initialData?: TournamentInitialData }> =
                                     ? 'This season is finished and preserved in History. You can now add a new season.'
                                     : isCurrentSeasonPlanned
                                       ? 'Set the season as started to close registration. You can then add fixtures manually or generate a schedule.'
-                                      : 'Mark the season finished when its competition is complete. This preserves its final History report.'}
+                                      : "Mark the season finished when it's complete. That lets you generate History report and start a new one.\nReset to planning to start from scratch (only available when no matches played, otherwise reschedule rounds)."}
                               </p>
                               <div className={adminStyles.seasonActions}>
                                 {isCurrentSeasonPlanned && (
@@ -7491,7 +7494,7 @@ export const TournamentView: React.FC<{ initialData?: TournamentInitialData }> =
                                 )}
                                 {currentSeason?.status === 'ongoing' && canManageOperationalAdmin && (
                                   <Button
-                                    variant="secondaryAction"
+                                    variant="secondaryDanger"
                                     size="sm"
                                     onClick={() => void handleResetSeasonToPlanning()}
                                     disabled={isFinalizingSeason}
@@ -7501,7 +7504,7 @@ export const TournamentView: React.FC<{ initialData?: TournamentInitialData }> =
                                 )}
                                 {canMarkSeasonFinished && (
                                   <Button
-                                    variant="primaryDanger"
+                                    variant="secondaryDanger"
                                     size="sm"
                                     onClick={handleFinishSeason}
                                     disabled={isFinalizingSeason}

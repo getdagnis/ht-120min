@@ -33,6 +33,8 @@ test('requests managercompendium v1.7 and returns the eligible HFI team from a m
     assert.equal(url.searchParams.get('file'), 'managercompendium');
     assert.equal(url.searchParams.get('version'), MANAGER_COMPENDIUM_VERSION);
     assert.match(authorizationHeader, /^OAuth /);
+    assert.equal(snapshot.languageId, 4);
+    assert.equal(snapshot.languageName, 'Italiano');
     assert.deepEqual(
       snapshot.teams.map((team) => [team.teamId, team.teamName]),
       [

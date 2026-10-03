@@ -13,6 +13,8 @@ import type { RescheduleDraftPreview } from '../../../utils/reschedule-draft';
 import { getFullRoundRobinRoundCount, type LengthScheduleDraft } from '../../../utils/length-schedule';
 import { isCurrentParticipantTeam } from '../../../utils/team-state';
 
+const RESTORE_ROUND_1_PANIC_MODE = false;
+
 type ScheduleSetup = 'generated' | 'manual';
 type MatchFetchWindow = 'current' | 'previous' | 'last50';
 type MatchFetchCategory = 'friendlies' | 'cup' | 'league';
@@ -992,7 +994,9 @@ export const TournamentSchedulePanel: React.FC<TournamentSchedulePanelProps> = (
             onChange={(event) => onSelectedStartSlotIdChange(event.target.value)}
           >
             {lengthDraft.startSlotOptions.map((slot) => (
-              <option key={slot.id} value={slot.id}>{formatStartOption(slot)}</option>
+              <option key={slot.id} value={slot.id}>
+                {formatStartOption(slot)}
+              </option>
             ))}
           </select>
         </div>
@@ -1024,7 +1028,10 @@ export const TournamentSchedulePanel: React.FC<TournamentSchedulePanelProps> = (
               <input
                 type="number"
                 min={1}
-                max={Math.max(1, Math.min(lengthDraft.safeRoundCount, getFullRoundRobinRoundCount(lengthDraft.teamCount)))}
+                max={Math.max(
+                  1,
+                  Math.min(lengthDraft.safeRoundCount, getFullRoundRobinRoundCount(lengthDraft.teamCount)),
+                )}
                 value={customLengthRoundCount}
                 onFocus={() => onLengthFormatChange?.(`custom-${customLengthRoundCount}`)}
                 onChange={(event) => onCustomLengthRoundCountChange?.(Number(event.target.value))}
@@ -1039,7 +1046,10 @@ export const TournamentSchedulePanel: React.FC<TournamentSchedulePanelProps> = (
             <h3>Reserved season</h3>
             {lengthDraft.rounds.map((round) => (
               <div key={round.roundNumber} className={adminStyles.previewRow}>
-                <strong>Round {round.roundNumber}{round.phase === 'postseason' ? ' — Championship Final' : ''}: </strong>
+                <strong>
+                  Round {round.roundNumber}
+                  {round.phase === 'postseason' ? ' — Championship Final' : ''}:{' '}
+                </strong>
                 <span>{round.displayDateLabel}</span>
                 <div className={adminStyles.previewMatches}>
                   {round.phaseStatus === 'pending' ? (
@@ -1048,11 +1058,18 @@ export const TournamentSchedulePanel: React.FC<TournamentSchedulePanelProps> = (
                         ? `Top 2 after Round ${lengthDraft.selectedFormat?.regularRounds || round.roundNumber - 1}`
                         : `Pairings generated after Round ${round.roundNumber - 1}`}
                     </span>
-                  ) : round.matches.map((match) => (
-                    <div key={`${round.roundNumber}-${match.homeTeamId}-${match.awayTeamId}`} className={adminStyles.roundRow}>
-                      {match.isBye ? `${match.homeTeamName} has a BYE` : `${match.homeTeamName} vs ${match.awayTeamName}`}
-                    </div>
-                  ))}
+                  ) : (
+                    round.matches.map((match) => (
+                      <div
+                        key={`${round.roundNumber}-${match.homeTeamId}-${match.awayTeamId}`}
+                        className={adminStyles.roundRow}
+                      >
+                        {match.isBye
+                          ? `${match.homeTeamName} has a BYE`
+                          : `${match.homeTeamName} vs ${match.awayTeamName}`}
+                      </div>
+                    ))
+                  )}
                 </div>
               </div>
             ))}
@@ -1071,7 +1088,13 @@ export const TournamentSchedulePanel: React.FC<TournamentSchedulePanelProps> = (
           </p>
         )}
         <div className={adminStyles.scheduleAction}>
-          <Button variant="primary" size="lg" fullWidth onClick={onGenerate} disabled={!lengthDraft.valid || isGenerating}>
+          <Button
+            variant="primary"
+            size="lg"
+            fullWidth
+            onClick={onGenerate}
+            disabled={!lengthDraft.valid || isGenerating}
+          >
             {isGenerating ? 'Generating schedule...' : 'Generate a schedule'}
           </Button>
         </div>
@@ -1091,11 +1114,16 @@ export const TournamentSchedulePanel: React.FC<TournamentSchedulePanelProps> = (
         <div className={adminStyles.schedulePreview}>
           {lengthRounds.map((round) => (
             <div key={round.id} className={adminStyles.previewRow}>
-              <strong>Round {round.round_number}{round.phase === 'postseason' ? ' — Championship Final' : ''}</strong>
+              <strong>
+                Round {round.round_number}
+                {round.phase === 'postseason' ? ' — Championship Final' : ''}
+              </strong>
               {round.reserved_slot_date && <span> · {formatLongDate(new Date(round.reserved_slot_date))}</span>}
               {round.phase_status === 'pending' ? (
                 <p className={adminStyles.smallNote}>
-                  {round.phase === 'postseason' ? 'Top 2 after the regular season' : `Pairings generated after Round ${round.round_number - 1}`}
+                  {round.phase === 'postseason'
+                    ? 'Top 2 after the regular season'
+                    : `Pairings generated after Round ${round.round_number - 1}`}
                 </p>
               ) : (
                 round.matches.map((match) => (
@@ -1108,22 +1136,31 @@ export const TournamentSchedulePanel: React.FC<TournamentSchedulePanelProps> = (
             </div>
           ))}
         </div>
-        {currentRound?.round_number === 1 && currentRound.phase === 'regular' && onRecoverRoundOne && (
-          <div>
-            <Button variant="danger" onClick={onRecoverRoundOne} disabled={isRecoveringRoundOne || isRepairingRound}>
-              {isRecoveringRoundOne ? 'Restoring original Round 1...' : 'Restore original Round 1'}
-            </Button>
-            <p className={adminStyles.smallNote}>
-              One-off recovery: replaces only Round 1 fixtures from the frozen original ranking snapshot.
-            </p>
-          </div>
-        )}
+        {RESTORE_ROUND_1_PANIC_MODE &&
+          currentRound?.round_number === 1 &&
+          currentRound.phase === 'regular' &&
+          onRecoverRoundOne && (
+            <div>
+              <Button variant="danger" onClick={onRecoverRoundOne} disabled={isRecoveringRoundOne || isRepairingRound}>
+                {isRecoveringRoundOne ? 'Restoring original Round 1...' : 'Restore original Round 1'}
+              </Button>
+              <p className={adminStyles.smallNote}>
+                One-off recovery: replaces only Round 1 fixtures from the frozen original ranking snapshot.
+              </p>
+            </div>
+          )}
         {currentRound?.phase === 'regular' && onRepairRound && (
           <Button variant="secondaryAction" onClick={onRepairRound} disabled={isRepairingRound}>
-            {isRepairingRound ? `Repairing Round ${currentRound.round_number}...` : `Repair Round ${currentRound.round_number}`}
+            {isRepairingRound
+              ? `Repairing Round ${currentRound.round_number}...`
+              : `Repair Round ${currentRound.round_number}`}
           </Button>
         )}
-        <p className={adminStyles.smallNote}>Refresh fixture status before repairing. Correctly arranged fixtures stay locked.</p>
+        <p className={adminStyles.smallNote}>
+          "Repair Round" option pairs multiple teams with misarranged matches against each other, so their scheduled
+          partners can play each other instead. Refresh fixture status before repairing. Correctly arranged fixtures
+          stay locked.
+        </p>
       </div>
     );
   };
