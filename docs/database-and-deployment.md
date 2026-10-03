@@ -31,6 +31,11 @@ The app treats tournaments, rounds, matches, standings, chat, and admin decision
 ## Migration Conventions
 
 - Add schema/RPC changes as migrations under `migrations/`.
+- `migrations/history/` is an archived legacy area.
+- Active migrations must use the root `migrations/` directory.
+- Continue the numeric sequence from the latest active migration.
+- The current sequence ends at `086`; the next migration must be `087_...sql`.
+- Do not create timestamp-prefixed migration names such as `20261001050614_...`.
 - Keep migrations compatible with existing rows when possible.
 - Record migration state in `PROJECT_STATE.md` only when a schema/RPC/RLS change has architectural, security, product-direction, or substantial behavioral impact. Do not add status entries for routine fixes or small implementation details.
 - Distinguish "migration file exists", "applied locally", "applied to Supabase", and "deployed".

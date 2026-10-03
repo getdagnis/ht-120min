@@ -4,6 +4,8 @@ Last updated: 2026-09-30
 
 This is the current-status ledger. Update it after meaningful implementation work. Be explicit about what is local, migrated, tested, deployed, or still unknown.
 
+The local MVP now includes a server-aggregated Meet the Manager participant spotlight. It uses current owned-team snapshots and optional team founding dates, never SignupDate, and requires the prepared `087_add_profile_language.sql` migration before language appears for newly synced managers. Live migration, CHPP, and deployment status remain unverified.
+
 ## Current Product State
 
 HT-120min is an early MVP for recurring Hattrick friendly tournaments. Tournaments are the core product; Matchmaker is an entry layer for finding friendly opportunities.
