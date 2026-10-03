@@ -16,3 +16,10 @@ export const sortFeaturedFirst = <T extends FeaturedSortable>(items: T[], compar
 
     return comparator(a, b);
   });
+export const sortOpenTournaments = <T extends { teamCount: number; max_teams?: number | null; is_featured?: boolean | null }>(
+  tournaments: T[],
+): T[] => sortFeaturedFirst(tournaments, (a, b) => {
+  const scoreA = a.max_teams && a.max_teams > 0 ? a.teamCount / a.max_teams : a.teamCount;
+  const scoreB = b.max_teams && b.max_teams > 0 ? b.teamCount / b.max_teams : b.teamCount;
+  return scoreB - scoreA;
+});

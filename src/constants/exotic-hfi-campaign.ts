@@ -1,6 +1,6 @@
-import { getCountryIdByName, getCountryWorldDetails, type HattrickWorldLeague } from '../../shared/worlddetails';
-import { formatTournamentSlug } from '../utils/tournament-names';
-import { TOURNAMENT_DEFAULT_120MIN_DEFAULTS } from './descriptions';
+import { getCountryIdByName, getCountryWorldDetails, type HattrickWorldLeague } from '../../shared/worlddetails.js';
+import { formatTournamentSlug } from '../utils/tournament-names.js';
+import { TOURNAMENT_DEFAULT_120MIN_DEFAULTS } from './descriptions.js';
 
 export const EXOTIC_HFI_GROUP_TITLE = 'Exotic small HFI leagues';
 export const EXOTIC_HFI_QUEENS_SLUG = 'queens-of-the-pacific-cup';

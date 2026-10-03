@@ -1,6 +1,7 @@
 import type { NextRequest } from 'next/server';
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import appHandler from '../../../server/api/app.js';
+import homeSnapshotHandler from '../../../server/api/home-snapshot.js';
 import authInitHandler from '../../../server/api/auth/init.js';
 import authCallbackHandler from '../../../server/api/auth/callback.js';
 import authCompleteHandler from '../../../server/api/auth/complete.js';
@@ -38,6 +39,8 @@ function selectHandler(request: NextRequest, query: Record<string, string | stri
   const key = segments.join('/');
 
   switch (key) {
+    case 'public-data/home/refresh':
+      return homeSnapshotHandler;
     case 'app':
       return appHandler;
     case 'presence':

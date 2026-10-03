@@ -198,7 +198,7 @@ Database changes:
 - `migrations/history/` is an archived legacy area.
 - Active migrations must use the root `migrations/` directory.
 - Continue the numeric sequence from the latest active migration.
-- The current active sequence ends at prepared `088_public_data_publications.sql`; the next migration must be `089_...sql`. Recheck the files before choosing a number; file existence is not live application evidence.
+- The current active sequence ends at prepared `089_home_snapshot_dependencies.sql`; the next migration must be `090_...sql`. Owner reports 088 applied; 089 is local-only. Recheck files before numbering and keep reports separate from live inspection.
 - Do not create timestamp-prefixed migration names such as `20261001050614_...`.
 - Treat a migration ending in `-- MIGRATION APPLIED!` as immutable. Never edit it: put every follow-up schema, RPC, or function change in the next migration. If it was edited by mistake after application, restore its applied content and move the later changes into a new migration before continuing.
 - Preserve RLS assumptions.

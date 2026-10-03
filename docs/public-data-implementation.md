@@ -4,13 +4,48 @@ Design: [public data architecture plan](../plans/public-data-architecture-plan.m
 
 ## Current state
 
-The first local persistence slice is prepared, not enabled in the application:
+Migration 088 is applied and its branch merged **as reported by the owner on 2026-10-03**, not independently inspected live. Its applied marker remains untouched. Home now has an opt-in local snapshot path; remaining targets retain existing delivery.
 
 - [`088_public_data_publications.sql`](../migrations/088_public_data_publications.sql) creates two server-only tables. Ordinary artifacts overwrite one row per target/contract; historical revisions are independent, immutable audit records. Retiring a delivery row cannot erase its audits.
 - [`public-snapshot-store.ts`](../src/server/api/_lib/public-snapshot-store.ts) provides scoped published-payload reads and atomic dirty/approve/claim/publish/failure/withdrawal operations. Component-specific allowlisting decoders are mandatory; no source reconstruction or CHPP fallback exists in this adapter.
 - New targets remain draft until explicitly approved. Re-publication after withdrawal needs a new approved generation and build. A lease cannot publish after expiry, a newer mutation, withdrawal, or token replacement; stale failure cleanup cannot release another builder's lease.
 - Withdrawal acceptance persists its original 60-second deadline. Invalidation acknowledgment and withdrawal verification are separate. The private status model returns “Withdrawal pending” on failure/unverified work, flags overdue work, and preserves a breach even if verification eventually succeeds. **No purge/probe worker or status UI is connected yet.**
-- No normalized-source triggers, current archive-pointer writes, correction command, scheduler, public cache reads, authentication retirement, or producer switching has been activated. Automatic fixture/live behavior is unchanged. Snapshot build fencing is implemented here; **automatic producer-generation fencing remains Phase 2 work**, not a delivered guarantee.
+- Home-specific DTO/build/worker/cache and six transactional dependency triggers are implemented locally; 089 is prepared, not applied live. No production scheduler, read cutover, archive pointers, correction command, authentication retirement or producer switching was activated. Automatic fixture/live behavior is unchanged; **automatic producer-generation fencing remains Phase 2 work**, not a delivered guarantee.
+
+## Home path and activation
+
+Home's directory/activity/Weekly are built by [`home-snapshot-builder.ts`](../src/server/api/_lib/home-snapshot-builder.ts) using explicit selects and existing sorting/calculation helpers. [`home-snapshot-contract.ts`](../src/server/api/_lib/home-snapshot-contract.ts) recursively allowlists output, omitting credentials and raw join stories. Source failures abort the build rather than publishing empty success. Activity expiry, Weekly expiry and kickoff have explicit `nextRefreshAt` boundaries, not a blanket TTL. Root/nested 1,000-row bounds fail conservatively; verify actual PostgREST limits before enabling.
+
+[`089_home_snapshot_dependencies.sql`](../migrations/089_home_snapshot_dependencies.sql) couples tournament/team/round/match/warning/news changes to Home dirtiness in their source transaction. Credentials, unchanged projections and refresh clocks do not dirty Home; chat/comments/presence have no hooks. Fixed-target empty-search-path trigger privilege elevation is needed because existing browser writers cannot access publication tables; direct execution is revoked and no target/authority is caller-supplied. Existing source grants/RLS and producer logic are untouched. Measure trigger contention before rollout.
+
+[`home-snapshot-worker.ts`](../src/server/api/_lib/home-snapshot-worker.ts) claims/publishes with 088's generation/token fence, never approves targets, never fetches CHPP, and repairs failed invalidation without a new build. [`home-snapshot.ts`](../src/server/api/home-snapshot.ts) exposes protected POST `/api/public-data/home/refresh` through the existing consolidated route, not a new function. Database requests have five-second deadlines and no independent fetch cache. A concurrent source mutation rejects the builder's stale commit.
+
+`PUBLIC_HOME_SNAPSHOT_ENABLED=true` selects [`home-snapshot.ts`](../src/app/_data/home-snapshot.ts)'s shared Next Data Cache read of only `home:directory`, contract 1. Missing/draft/approved/withdrawn/cold-outage publications fail closed with no source/CHPP fallback. The flag defaults off until the following checks pass. Removing inherited `force-dynamic` permits that cache; cookies still keep shell/HTML dynamic and personalized. **Cached data is not fully static HTML.** Warm hits survive a database outage until eviction/purge; cold hits do not. Home hydrates Weekly without that extra browser query. Auth/chat/presence and activity's existing live report subscription remain separate; this does not promise zero total page/network queries.
+
+Activation order (production-facing steps require separate authority):
+
+1. Review/apply 089; verify real PostgREST joins, columns/grants, provider limits and trigger overhead in an authorized disposable tournament.
+2. Explicitly review/approve the Home publication: read its `source_generation` privately and call `approve_public_snapshot('home:directory', 1, <reviewed_generation>)` as service role. Null means concurrency: review again. Never autoapprove draft/withdrawn targets.
+3. Configure server-only `PUBLIC_HOME_WORKER_SECRET` as a dedicated random secret of at least 32 characters. An authorized scheduler must POST with `Authorization: Bearer <secret>` every **10 seconds**, independent of visitors. Daily Hobby cron and public reads are not replacements. This task does not configure secrets, hosting or a scheduler.
+4. Run the worker, confirm public exposure, source/published generation equality and invalidation acknowledgment. Test source changes, build races, failures, time boundaries and recovery. Measure source-to-directory scheduling/build/purge latency; healthy-operation goal is **60 seconds**, not a proven production SLO.
+5. Enable `PUBLIC_HOME_SNAPSHOT_ENABLED=true` only after production-mode parity and the plan's **60-second regional withdrawal coverage** checks pass. Worker repeatedly purges withdrawals and records purge failures but never verifies without regional probes; status therefore remains “Withdrawal pending”. Full probe/status UI remains outstanding. No downloaded browser copies can be recalled.
+6. Roll back Home reads by disabling the flag; match producers stay untouched. Stop the scheduler separately if retiring the trial; do not undo migrations or discard audits. Do not use rollback to republish withdrawn/restricted content.
+
+Hiding/removing a tournament or deleting news closes admission of the old Home origin artifact (`approved`, not public). The worker purges **before** rebuilding, including failed rebuilds. Whole-target withdrawal uses 088's tombstone/deadline and requires explicit approval before re-publication. Invocation acknowledgment never proves regional propagation.
+
+Local verification:
+
+```sh
+node --import tsx --test tests/home-snapshot.test.ts
+npm run build
+node --import tsx scripts/verify-home-snapshot.mjs
+```
+
+The production-mode script starts/stops only loopback fake PostgREST and Next servers. It checks one cold snapshot request, zero warm HTML/RSC requests across locales, outage survival, refresh purge, withdrawn cold denial and worker authentication. It does not execute a browser or prove real Supabase/CHPP/regional propagation/deployed function counts. The two-calendar-month Weekly cutoff uses UTC and end-of-month clamping to prevent overflow/stale expiry.
+
+Cache choice follows [Next's persistent Data Cache contract](https://nextjs.org/docs/app/api-reference/functions/unstable_cache); hard expiry uses [the documented `revalidateTag` API](https://nextjs.org/docs/app/api-reference/functions/revalidateTag). Installed Next 16.2.12 code and production-mode requests, not documentation alone, verified inherited dynamic configuration and cache reuse. Source hooks follow [Postgres trigger semantics](https://supabase.com/docs/guides/database/postgres/triggers).
+
+For a completely empty **disposable** PostgreSQL cluster, apply `tests/sql/home-snapshot-dependencies.sql`, 088, 089, then `tests/sql/home-snapshot-assertions.sql`. The first file creates synthetic roles/source tables; never run it against an existing/production database. Rollback-only assertions cover transactional dirty coupling, no-op/credential/clock exclusions, rollback, stale builds, time-boundary idempotence, hidden-content admission and public-role denial. Simplified tables do not prove production constraints/trigger ordering/PostgREST.
 
 Schema SQL was executed in an isolated PostgreSQL 16 test cluster with synthetic `anon`, `authenticated` and `service_role` roles. The rollback-only SQL assertions passed under both ordinary and deliberately permissive default grants; the migration explicitly removes inherited public privileges and audit UPDATE/DELETE/TRUNCATE privileges. A two-session claim race passed: one lease, one rejected claim. This is not Supabase/PostgREST/JWT verification, PostgreSQL 17 verification, or live migration application. No applied marker was added.
 
@@ -56,6 +91,6 @@ The smoke file creates synthetic publication rows within a transaction, checks s
 
 For concurrency, prepare an approved dirty synthetic target in that same disposable DB, then run `claim_public_snapshot_build` for it in two concurrent sessions. Keep the winning transaction open briefly; exactly one claim should succeed, the other should return zero rows. Stop and remove the disposable test environment afterward.
 
-**UI inspection:** no new public/admin UI is connected in this slice; Home, current/historical tabs and existing automatic refresh should retain their behavior. Do not interpret unchanged UI as proof that snapshot delivery is enabled. Runtime/browser inspection was not performed in this slice.
+**UI inspection:** compare Home cards/order/counts/activity/Weekly in English/Latvian with the flag off and on after authorized integration setup. Inspect mobile and authenticated states, and confirm Weekly/main directory hydration queries are absent. No browser/visual inspection was performed; the loopback production-mode HTTP check is not UI proof. Current/historical tournament tabs and automatic refresh remain unchanged.
 
-**Real integration:** before enabling anything, verify Supabase grants/PostgREST service-only access, genuine organizer sessions, committed mutation/dirty generation coupling, real cache purge propagation and the fenced shared producer in an authorized disposable tournament. Warm-read query reduction, withdrawal UI, CHPP scheduling and deployed behavior are still unverified and not delivered by this foundation alone.
+**Real integration:** before enabling Home, verify real Supabase/PostgREST projections/grants, committed mutation coupling, worker scheduling/overlap/latency, and regional purge with an authorized disposable tournament. Warm query reduction is proven only against local fake PostgREST. Withdrawal UI/regional probes and CHPP scheduling/deployment remain unverified. The fenced shared producer is required for the later match cutover, not for this Home-only path that preserves its producer.

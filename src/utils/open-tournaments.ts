@@ -1,5 +1,6 @@
 import { supabase } from '../lib/supabase';
-import { sortFeaturedFirst } from './tournament-sorting';
+import { sortOpenTournaments } from './tournament-sorting.js';
+export { sortOpenTournaments } from './tournament-sorting.js';
 import { isCurrentParticipantTeam } from './team-state.js';
 
 export interface OpenTournamentSummary {
@@ -27,15 +28,6 @@ type OpenTournamentRow = {
   rounds: { id: string; season_number: number | null }[] | null;
   teams: { id: string; joined_via_oauth: boolean; active?: boolean | null; reserve_active?: boolean | null; is_placeholder?: boolean | null }[] | null;
 };
-
-export const sortOpenTournaments = <T extends { teamCount: number; max_teams?: number | null; is_featured?: boolean | null }>(
-  tournaments: T[],
-): T[] =>
-  sortFeaturedFirst(tournaments, (a, b) => {
-    const scoreA = a.max_teams && a.max_teams > 0 ? a.teamCount / a.max_teams : a.teamCount;
-    const scoreB = b.max_teams && b.max_teams > 0 ? b.teamCount / b.max_teams : b.teamCount;
-    return scoreB - scoreA;
-  });
 
 export const formatOpenTournamentMeta = (tournament: OpenTournamentSummary) => {
   const teamsLabel =

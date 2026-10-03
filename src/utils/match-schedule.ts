@@ -1,5 +1,5 @@
-import { calculateMatchDate } from './ht-data';
-import { parseStoredStockholmDate } from '../../shared/chpp-dates';
+import { calculateMatchDate } from './ht-data.js';
+import { parseStoredStockholmDate } from '../../shared/chpp-dates.js';
 
 export function getMatchDateForRound(
   round: { created_at: string; round_number: number },

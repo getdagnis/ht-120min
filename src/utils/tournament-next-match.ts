@@ -1,4 +1,4 @@
-import { getMatchDateForRound } from './match-schedule';
+import { getMatchDateForRound } from './match-schedule.js';
 
 interface TournamentWarning {
   round_id: string;

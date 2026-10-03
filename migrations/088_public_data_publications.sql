@@ -299,3 +299,6 @@ GRANT EXECUTE ON FUNCTION public.verify_public_snapshot_withdrawal(text, integer
 GRANT EXECUTE ON FUNCTION public.fail_public_snapshot_withdrawal(text, integer, bigint, text) TO service_role;
 
 COMMIT;
+
+
+-- applied!
