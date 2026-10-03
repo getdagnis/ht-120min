@@ -259,7 +259,7 @@ export const Home: React.FC<{ initialData?: HomeInitialData }> = ({ initialData 
   const [topActiveTournaments, setTopActiveTournaments] = useState<TopTournament[]>(
     () => initialData?.topActiveTournaments || [],
   );
-  const [latestWeeklyPosts, setLatestWeeklyPosts] = useState<HomeWeeklyPost[]>([]);
+  const [latestWeeklyPosts, setLatestWeeklyPosts] = useState<HomeWeeklyPost[]>(() => initialData?.weeklyPosts || []);
   const { profile } = useAuth();
   const faqContent = useMemo(() => getPublishedFaqSections(), []);
 
@@ -358,12 +358,13 @@ export const Home: React.FC<{ initialData?: HomeInitialData }> = ({ initialData 
   }, []);
 
   useEffect(() => {
+    if (initialData?.weeklyPosts) return;
     const timer = window.setTimeout(() => {
       void fetchLatestWeeklyPosts();
     }, 0);
 
     return () => window.clearTimeout(timer);
-  }, [fetchLatestWeeklyPosts]);
+  }, [fetchLatestWeeklyPosts, initialData?.weeklyPosts]);
 
   useEffect(() => {
     if (window.location.hash !== `#${EXOTIC_HFI_ANCHOR_ID}` || exoticHfiTournaments.length === 0) return;

@@ -21,7 +21,8 @@ const themeBootstrapScript = `
   } catch {}
 `;
 
-export const dynamic = 'force-dynamic';
+// cookies() keeps this shell request-specific without disabling the Home Data Cache.
+export const dynamic = 'auto';
 
 export function generateStaticParams() {
   return locales.map((locale) => ({ locale }));

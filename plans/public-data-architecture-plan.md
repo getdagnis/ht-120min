@@ -1,6 +1,6 @@
 # HT-120min public data architecture implementation plan
 
-Status: local implementation started with the dormant publication persistence foundation. `088` is prepared and tested in disposable PostgreSQL 16 only; no live Supabase migration, public-read/automatic-producer cutover, or deployment performed. See [implementation state and preflight](../docs/public-data-implementation.md).
+Status: owner reports 088 applied and branch merged on 2026-10-03. Home's snapshot builder/contract/worker/cache path is implemented locally and opt-in; 089's owner-added applied marker is preserved, not independently verified live. Prepared 090 replaces idle ten-second worker polling with post-commit mutation/due-boundary dispatch and a fifteen-minute database-local recovery check. Local extension-stub tests are not actual pg_net/cron integration proof. No Home scheduler/read cutover, automatic-producer cutover or deployment performed. See [implementation state and activation order](../docs/public-data-implementation.md).
 
 Investigation date: 2026-10-03.
 
@@ -299,7 +299,7 @@ Restrict sensitive team/profile/tournament columns at the database boundary as w
 
 ### Migration and documentation rules
 
-`088_public_data_publications.sql` now prepares the two-table persistence foundation; `087_add_profile_language.sql` is preserved unchanged. The next available active migration is `089`; recheck the sequence before further work and preserve every existing applied marker/applied migration exactly. Future producer selector/generation fields belong in existing tournament state and live lease fields in current match state; they do not require a third publication table. The prepared snapshot-build fence is distinct from the still-unimplemented automatic producer fence.
+`088_public_data_publications.sql` is applied per owner report; `087_add_profile_language.sql` is preserved unchanged. `089_home_snapshot_dependencies.sql` owns Home-only source hooks/time boundaries; its owner-added marker is not live verification. Prepared `090_home_snapshot_event_dispatch.sql` reuses the existing snapshot row, pg_net, Vault and two bounded cron slots rather than adding job tables or idle Vercel polling. Committed mutations dispatch immediately, time boundaries use a replaced/removed minute-resolution wake, and fifteen-minute internal recovery queues HTTP only for due work. Dispatch failures preserve domain writes and dirty state; missed withdrawal dispatch can breach the unchanged 60-second target and must stay pending. Next active number is `091`. Recheck before further work and preserve existing markers/applied migrations exactly. Future producer selector/generation fields belong in existing tournament state and live lease fields in current match state, not a third publication table. The implemented snapshot-build fence is distinct from the still-unimplemented automatic producer fence. Home dispatch does not replace or slow existing match refresh.
 
 Existing normalized tables remain authoritative. Do not rewrite completed fixture participant IDs, scheduling semantics, or legacy timestamp conventions. Preserve the named peak-season slot preflight/hard stops in [season-slot compatibility](../docs/season-slot-compatibility.md).
 

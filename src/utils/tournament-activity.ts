@@ -1,4 +1,4 @@
-import type { TournamentJoinStory } from '../types/tournament-activity';
+import type { TournamentJoinStory } from '../types/tournament-activity.js';
 
 export interface JoinStoryManagerSummary {
   name: string | null;
