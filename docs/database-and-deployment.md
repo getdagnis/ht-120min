@@ -34,7 +34,7 @@ The app treats tournaments, rounds, matches, standings, chat, and admin decision
 - `migrations/history/` is an archived legacy area.
 - Active migrations must use the root `migrations/` directory.
 - Continue the numeric sequence from the latest active migration.
-- The current sequence ends at `086`; the next migration must be `087_...sql`.
+- The current active sequence ends at prepared `088_public_data_publications.sql`; the next migration must be `089_...sql`. Recheck the files before choosing a number.
 - Do not create timestamp-prefixed migration names such as `20261001050614_...`.
 - Keep migrations compatible with existing rows when possible.
 - Record migration state in `PROJECT_STATE.md` only when a schema/RPC/RLS change has architectural, security, product-direction, or substantial behavioral impact. Do not add status entries for routine fixes or small implementation details.
@@ -59,6 +59,11 @@ Recent important migrations:
 - `076_add_finished_at_to_matches.sql`
 - `082_reset_season_and_vacate_slot.sql`
 - `086_allow_reserve_registration.sql` (prepared locally; not applied)
+- `088_public_data_publications.sql` (prepared publication persistence foundation; SQL tested in disposable PostgreSQL 16 only, not applied to live Supabase)
+
+Public publication rollout state, preflight and test boundaries are in
+[`public-data-implementation.md`](public-data-implementation.md). Publication artifacts are server-only; the prepared
+schema does not activate public cached delivery or replace the existing automatic match producer.
 
 ## RLS And Access Assumptions
 
