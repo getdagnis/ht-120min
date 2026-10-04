@@ -117,7 +117,7 @@ When updating status, distinguish local code, migration file, applied migration,
 | Soundbox/training tournament behavior | `docs/soundbox-tournaments.md` |
 | Broad first-pass project familiarization | `AGENT_ONBOARDING.md` |
 
-For CHPP tasks, also inspect the relevant endpoint schemas/examples in `docs/` before changing parser or sync logic.
+For CHPP tasks, also inspect the relevant endpoint schemas/examples in `docs/` before changing parser or sync logic. Check this local CHPP documentation before any web search; search the web only when the local docs do not answer the question or current external verification is needed.
 
 ## Tech Stack
 
@@ -200,7 +200,7 @@ Database changes:
 - `migrations/history/` is an archived legacy area.
 - Active migrations must use the root `migrations/` directory.
 - Continue the numeric sequence from the latest active migration.
-- The current active sequence ends at prepared `090_home_snapshot_event_dispatch.sql`; the next migration must be `091_...sql`. Owner reports 088 applied; 089 carries an owner-added applied marker. Neither marker nor report is independent live inspection. Recheck files before numbering.
+- The current active sequence ends at prepared `091_add_match_kit_urls.sql`; the next migration must be `092_...sql`. Owner reports 088 applied; 089 carries an owner-added applied marker. Neither marker nor report is independent live inspection. Recheck files before numbering.
 - Do not create timestamp-prefixed migration names such as `20261001050614_...`.
 - Treat a migration ending in `-- MIGRATION APPLIED!` as immutable. Never edit it: put every follow-up schema, RPC, or function change in the next migration. If it was edited by mistake after application, restore its applied content and move the later changes into a new migration before continuing.
 - Preserve RLS assumptions.
