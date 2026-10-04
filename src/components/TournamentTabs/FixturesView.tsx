@@ -839,10 +839,14 @@ export const FixturesView: React.FC<FixturesViewProps> = ({
                     });
                     const formattedDate = `${day} / ${datePart} / ${timePart}`;
 
-                    const homeWarning = visibleWarnings.find(
+                    const homeDisplaysReserve = match.reserve_replaces_team_id === match.home_team_id &&
+                      match.home_team?.reserve_active === true;
+                    const awayDisplaysReserve = match.reserve_replaces_team_id === match.away_team_id &&
+                      match.away_team?.reserve_active === true;
+                    const homeWarning = homeDisplaysReserve ? undefined : visibleWarnings.find(
                       (w) => w.team_id === match.home_team_id && w.round_id === round.id,
                     );
-                    const awayWarning = visibleWarnings.find(
+                    const awayWarning = awayDisplaysReserve ? undefined : visibleWarnings.find(
                       (w) => w.team_id === match.away_team_id && w.round_id === round.id,
                     );
 

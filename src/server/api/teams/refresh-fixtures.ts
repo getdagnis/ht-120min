@@ -275,6 +275,17 @@ export function getMisarrangedWarningTeamIds(input: {
   return [];
 }
 
+export function getReplacedTeamWarningId(input: {
+  homeTeamId: string;
+  awayTeamId: string;
+  replaces: 'home' | 'away';
+  homeOffending: boolean;
+  awayOffending: boolean;
+}): string | null {
+  if (input.replaces === 'home') return input.homeOffending ? input.homeTeamId : null;
+  return input.awayOffending ? input.awayTeamId : null;
+}
+
 async function fetchWorldDetailsContext(
   consumerKey: string,
   consumerSecret: string,
@@ -1499,6 +1510,17 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       );
       if (alreadyHasWarning) return;
 
+      const inactiveWarning = (existingWarnings || []).find(
+        (warning) => warning.round_id === upcomingRound.id && warning.team_id === teamId &&
+          warning.reason === reason && warning.active === false,
+      );
+      if (inactiveWarning) {
+        const { error } = await supabase.from('fixture_warnings').update({ active: true }).eq('id', inactiveWarning.id);
+        if (error) throw error;
+        currentRoundWarnings.push({ ...inactiveWarning, active: true });
+        return;
+      }
+
       const teamWarnings = getWarningHistory(teamId);
       const prevRound = rounds.find((r) => r.round_number === upcomingRound.round_number - 1);
       const isConsecutive = teamWarnings.some((w) => prevRound && w.round_id === prevRound.id);
@@ -1608,6 +1630,17 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         }
       }
 
+      // Older reserve refreshes deactivated the replaced team's warning. An
+      // already-linked reserve fixture may otherwise exit before reconciliation.
+      if (currentStatus === 'arranged' && match.reserve_team_id && match.reserve_replaces_team_id &&
+          (existingWarnings || []).some((warning) =>
+            warning.round_id === upcomingRound.id && warning.team_id === match.reserve_replaces_team_id &&
+            warning.reason === 'misarranged' && warning.active === false,
+          )) {
+        await recordWarning(match.reserve_replaces_team_id);
+        continue;
+      }
+
       // Already-arranged matches only need a pass when their activity snapshot is missing.
       if (
         currentStatus === 'arranged' &&
@@ -1616,11 +1649,11 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         match.home_match_kit_url &&
         match.away_match_kit_url &&
         (match.next_match_arrange_story || match.reserve_story || match.reserve_team_id) &&
-        !currentRoundWarnings.some(
+        (match.reserve_team_id || !currentRoundWarnings.some(
             (warning) =>
               warning.round_id === upcomingRound.id &&
               (warning.team_id === match.home_team_id || warning.team_id === match.away_team_id),
-        )
+        ))
       ) continue;
 
       const homeTeam = teams.find((t) => t.id === match.home_team_id);
@@ -1786,17 +1819,15 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       if (matchUpdateError) throw matchUpdateError;
 
       if (reserveResolution?.kind === 'reserve') {
-        const { error: warningError } = await supabase
-          .from('fixture_warnings')
-          .update({ active: false })
-          .eq('tournament_id', tournament_id)
-          .eq('round_id', upcomingRound.id)
-          .in('team_id', [homeTeam.id, awayTeam.id])
-          .eq('active', true);
-        if (warningError) throw warningError;
-      }
-
-      if (reserveResolution?.kind !== 'reserve') {
+        const replacedWarningId = getReplacedTeamWarningId({
+          homeTeamId: homeTeam.id,
+          awayTeamId: awayTeam.id,
+          replaces: reserveResolution.replaces,
+          homeOffending,
+          awayOffending,
+        });
+        if (replacedWarningId) await recordWarning(replacedWarningId);
+      } else {
         for (const teamId of getMisarrangedWarningTeamIds({
           homeTeamId: homeTeam.id,
           awayTeamId: awayTeam.id,

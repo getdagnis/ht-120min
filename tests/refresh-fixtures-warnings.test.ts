@@ -4,6 +4,7 @@ import test from 'node:test';
 import {
   getFixtureWarningRoundIdsToDeactivate,
   getMisarrangedWarningTeamIds,
+  getReplacedTeamWarningId,
   planFixtureWarningRefresh,
 } from '../src/server/api/teams/refresh-fixtures.js';
 
@@ -12,6 +13,30 @@ const homeTeamId = 'home-team';
 const awayTeamId = 'away-team';
 
 const warning = (round_id: string, team_id: string) => ({ round_id, team_id });
+
+test('reserve replacement warns only the original team that booked elsewhere', () => {
+  assert.equal(getReplacedTeamWarningId({
+    homeTeamId,
+    awayTeamId,
+    replaces: 'home',
+    homeOffending: true,
+    awayOffending: true,
+  }), homeTeamId);
+  assert.equal(getReplacedTeamWarningId({
+    homeTeamId,
+    awayTeamId,
+    replaces: 'away',
+    homeOffending: true,
+    awayOffending: true,
+  }), awayTeamId);
+  assert.equal(getReplacedTeamWarningId({
+    homeTeamId,
+    awayTeamId,
+    replaces: 'away',
+    homeOffending: true,
+    awayOffending: false,
+  }), null);
+});
 
 test('first refresh creates one warning for the team with the wrong booking', () => {
   const offendingTeamIds = getMisarrangedWarningTeamIds({
