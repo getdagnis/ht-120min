@@ -12,10 +12,7 @@ import {
   TOURNAMENT_EMOJI_OPTIONS,
   type TournamentEmojiContext,
 } from '../../utils/tournament-emoji-options';
-import {
-  DEFAULT_TOURNAMENT_CHAT_WELCOME,
-  withChatWelcome,
-} from '../../utils/chat-welcome';
+import { DEFAULT_TOURNAMENT_CHAT_WELCOME, withChatWelcome } from '../../utils/chat-welcome';
 
 export interface ChatMessage {
   id: string;
@@ -56,6 +53,8 @@ export interface AuthorTooltipProps {
   managerCountryId?: number | null;
   avatar?: React.ComponentProps<typeof Avatar>['avatar'];
 }
+
+const OFFICIAL_HT_USER_ID = 8777402;
 
 export const AuthorTooltip = ({
   id,
@@ -163,6 +162,7 @@ export const ChatView: React.FC<ChatViewProps> = ({
   const nowMs = useClientNow(30_000);
   const emojiOptions = buildTournamentEmojiOptions(TOURNAMENT_EMOJI_OPTIONS, tournamentEmojiContext);
   const displayMessages = withChatWelcome(messages, welcomeMessage);
+  const visibleMessages = displayMessages.slice(-visibleMessageCount);
 
   useEffect(() => {
     if (chatContainerRef.current) {
@@ -217,12 +217,20 @@ export const ChatView: React.FC<ChatViewProps> = ({
               Load More
             </button>
           )}
-          {displayMessages.slice(-visibleMessageCount).map((msg) => {
+          {visibleMessages.map((msg, index) => {
             const isOwnMessage = msg.author_ht_id === myHtUserId;
             const isLeagueManager = leagueManagerIds.includes(msg.author_ht_id);
             const isSystem = msg.author_ht_id === 0;
             const isBigEmoji = isBigEmojiMessage(msg.content);
             const isExternalManager = markUnknownAuthorsExternal && !isLeagueManager && !isOwnMessage;
+            const timestamp = formatChatTimestamp(msg.created_at, nowMs);
+            const previousMessage = visibleMessages[index - 1];
+            const continuesPrevious =
+              !isSystem &&
+              previousMessage !== undefined &&
+              previousMessage.author_ht_id === msg.author_ht_id &&
+              previousMessage.author_name === msg.author_name &&
+              formatChatTimestamp(previousMessage.created_at, nowMs) === timestamp;
             const authorCountryName = getCanonicalCountryName(msg.profiles?.country_name, msg.profiles?.country_id);
             const authorFlagUrl = getCountryFlagUrl(msg.profiles?.country_id, authorCountryName);
 
@@ -239,10 +247,11 @@ export const ChatView: React.FC<ChatViewProps> = ({
             return (
               <div
                 key={msg.id}
-                className={`${styles.chatMessage} ${isOwnMessage ? styles.ownMessage : styles.otherMessage} ${isExternalManager ? styles.externalManager : ''}`}
+                className={`${styles.chatMessage} ${isOwnMessage ? styles.ownMessage : styles.otherMessage} ${isExternalManager ? styles.externalManager : ''} ${continuesPrevious ? styles.groupedMessage : ''}`}
               >
                 <div className={styles.chatMessageContent}>
-                  {!isOwnMessage && (
+                  {!continuesPrevious && <span className={styles.chatTime}>{timestamp}</span>}
+                  {!isOwnMessage && !continuesPrevious && (
                     <>
                       <button
                         onClick={() => handleOpenProfile(msg.author_ht_id)}
@@ -254,16 +263,22 @@ export const ChatView: React.FC<ChatViewProps> = ({
                         )}
                         <span>{msg.author_name}</span>
                         {authorFlagUrl && (
-                          <img src={authorFlagUrl} alt={authorCountryName || 'Country flag'} className={styles.chatAuthorFlag} />
+                          <img
+                            src={authorFlagUrl}
+                            alt={authorCountryName || 'Country flag'}
+                            className={styles.chatAuthorFlag}
+                          />
                         )}
                       </button>
                       <AuthorTooltip
                         id={`author-tooltip-${msg.id}`}
                         authorName={msg.author_name}
                         teamName={
-                          teamDetails[msg.author_ht_id]?.name ||
-                          teamNames[msg.author_ht_id] ||
-                          (showGuestTeam ? 'Guest' : undefined)
+                          msg.author_ht_id === OFFICIAL_HT_USER_ID
+                            ? 'HT-120min Owner'
+                            : teamDetails[msg.author_ht_id]?.name ||
+                              teamNames[msg.author_ht_id] ||
+                              (showGuestTeam ? 'Guest' : undefined)
                         }
                         countryName={teamDetails[msg.author_ht_id]?.countryName}
                         countryId={teamDetails[msg.author_ht_id]?.countryId}
@@ -276,7 +291,6 @@ export const ChatView: React.FC<ChatViewProps> = ({
                   <div className={`${styles.chatBubble} ${isBigEmoji ? styles.bigEmojiBubble : ''}`}>
                     <span className={`${styles.chatContent} ${isBigEmoji ? styles.bigEmoji : ''}`}>{msg.content}</span>
                   </div>
-                  <span className={styles.chatTime}>{formatChatTimestamp(msg.created_at, nowMs)}</span>
                 </div>
               </div>
             );

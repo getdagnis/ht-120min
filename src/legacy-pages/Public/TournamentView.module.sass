@@ -1245,12 +1245,15 @@
   max-width: 90%
   align-items: flex-start
 
+  &.groupedMessage
+    margin-top: -0.25rem
+
   &.ownMessage
     align-self: flex-end
     flex-direction: row
     .chatBubble
       color: white
-      background: var(--accent-2)
+      background: var(--chat-2)
     .chatMessageContent
       align-items: flex-end
       text-align: right
@@ -1259,7 +1262,7 @@
     align-self: flex-start
     flex-direction: row-reverse
     .chatBubble
-      background: var(--chat-other)
+      background: var(--chat-1)
       color: white
     .chatMessageContent
       align-items: flex-start
@@ -1355,7 +1358,7 @@
 
 .chatTime
   font-size: 0.75rem
-  margin-top: 0.25rem
+  margin-bottom: 0.25rem
 
 .chatAuthorTooltip
   background: #29211f
