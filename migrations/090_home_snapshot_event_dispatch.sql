@@ -139,3 +139,5 @@ END; $$;
 
 REVOKE ALL ON ALL FUNCTIONS IN SCHEMA home_publication_internal FROM PUBLIC, anon, authenticated, service_role;
 COMMIT;
+
+-- applied!

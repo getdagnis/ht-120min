@@ -69,6 +69,7 @@ at the shared parsing/serialization boundary.
 
 - Request `matchdetails` with `version=3.1&matchEvents=true`. Both parameters are required for the event-level payload.
 - `src/server/api/_lib/chpp-match-events.ts` is the shared server parser. Both live refresh and manual match linking must use it; do not create a third parser for event summaries.
+- Pure canonical event descriptions live in `shared/match-events.ts`, shared by the parser and TeamByline's fallback for older goals without stored descriptions. The server parser re-exports the helper for existing callers; browser components must not import the server parser.
 - Store the structured payload in `matches.match_event_details`, mapped to the **scheduled fixture sides**. This keeps cards/injuries correct when CHPP home/away is reversed or an admin links one BYE team to an outside friendly. Version 2 also persists stable MatchDetails result semantics (regulation/extra-time/penalty scores, decision and winner), formations, tactic/skill, possession, ratings, chance counts and scorer names; raw XML is never stored.
 - Existing numeric card/injury columns remain derived compatibility summaries for standings and older snapshots.
 - The parser uses only stable structured IDs and fields, never localized `EventText`:
