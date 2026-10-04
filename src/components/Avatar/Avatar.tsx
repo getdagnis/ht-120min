@@ -19,20 +19,23 @@ interface AvatarProps {
   className?: string;
 }
 
+const fixedSizeClasses: Record<number, string> = {
+  22: styles.size22,
+  36: styles.size36,
+  50: styles.size50,
+  52: styles.size52,
+  120: styles.size120,
+};
+
 export const Avatar: React.FC<AvatarProps> = ({ avatar, variant, size = 120, className }) => {
-  const sizeClass = size === 36
-    ? styles.size36
-    : size === 52
-      ? styles.size52
-      : size === 120
-        ? styles.size120
-        : styles.sizeCustom;
-  const customSizeStyle = sizeClass === styles.sizeCustom
-    ? ({
-        '--avatar-size': `${size}px`,
-        '--avatar-scale': String(size / 138),
-      } as React.CSSProperties)
-    : undefined;
+  const sizeClass = fixedSizeClasses[size] || styles.sizeCustom;
+  const customSizeStyle =
+    sizeClass === styles.sizeCustom
+      ? ({
+          '--avatar-size': `${size}px`,
+          '--avatar-scale': String(size / 138),
+        } as React.CSSProperties)
+      : undefined;
   const rootClassName = [styles.container, styles[variant], sizeClass, className].filter(Boolean).join(' ');
 
   if (!avatar || !avatar.backgroundImage) {
@@ -46,9 +49,6 @@ export const Avatar: React.FC<AvatarProps> = ({ avatar, variant, size = 120, cla
   return (
     <div className={rootClassName} style={customSizeStyle}>
       <div className={styles.canvas}>
-        {/* Background Image */}
-        <img className={styles.background} src={avatar.backgroundImage} alt="Avatar Background" />
-
         {/* Layers */}
         {avatar.layers?.map((layer, idx) => (
           <img

@@ -76,7 +76,7 @@ export const AuthorTooltip = ({
     <Tooltip id={id} className={styles.chatAuthorTooltip}>
       {avatar && (
         <div className={styles.tooltipAvatar}>
-          <Avatar className={styles.tooltipAvatarImg} avatar={avatar} variant="circle" size={64} />
+          <Avatar className={styles.tooltipAvatarImg} avatar={avatar} variant="rect" size={50} />
         </div>
       )}
       <div className={styles.tooltipDetails}>
@@ -223,6 +223,8 @@ export const ChatView: React.FC<ChatViewProps> = ({
             const isSystem = msg.author_ht_id === 0;
             const isBigEmoji = isBigEmojiMessage(msg.content);
             const isExternalManager = markUnknownAuthorsExternal && !isLeagueManager && !isOwnMessage;
+            const authorCountryName = getCanonicalCountryName(msg.profiles?.country_name, msg.profiles?.country_id);
+            const authorFlagUrl = getCountryFlagUrl(msg.profiles?.country_id, authorCountryName);
 
             if (isSystem) {
               return (
@@ -247,7 +249,13 @@ export const ChatView: React.FC<ChatViewProps> = ({
                         className={styles.chatAuthor}
                         data-tooltip-id={`author-tooltip-${msg.id}`}
                       >
-                        {msg.author_name}
+                        {msg.profiles?.avatar_json && (
+                          <Avatar avatar={msg.profiles.avatar_json} variant="rect" size={22} />
+                        )}
+                        <span>{msg.author_name}</span>
+                        {authorFlagUrl && (
+                          <img src={authorFlagUrl} alt={authorCountryName || 'Country flag'} className={styles.chatAuthorFlag} />
+                        )}
                       </button>
                       <AuthorTooltip
                         id={`author-tooltip-${msg.id}`}

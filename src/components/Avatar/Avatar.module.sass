@@ -6,16 +6,33 @@
   justify-content: center
   background: transparent
 
+.size22
+  width: 22px
+  height: 22px
+  flex-shrink: 0
+  --avatar-size: 22px
+
+  .canvas
+    transform: translate(-48%, -49%) scale(0.225)
+
 .size36
   width: 36px
   height: 36px
   --avatar-size: 36px
 
   .canvas
-    --avatar-scale: 0.2608696
+    transform: translate(-47.5%, -49%) scale(0.45)
 
   &.circle .canvas
-    --avatar-scale: 0.4
+    transform: translate(-47.5%, -49%) scale(0.45)
+
+.size50
+  width: 50px
+  height: 50px
+  --avatar-size: 50px
+
+  .canvas
+    transform: translate(-45%, -49%) scale(0.6)
 
 .size52
   width: 52px
@@ -23,10 +40,10 @@
   --avatar-size: 52px
 
   .canvas
-    transform: translate(-48%, -49%) scale(0.575)
+    transform: translate(-47.5%, -49%) scale(0.575)
 
   &.circle .canvas
-    transform: translate(-48%, -49%) scale(0.575)
+    transform: translate(-47.5%, -49%) scale(0.575)
 
 .size120
   width: 120px
@@ -37,8 +54,7 @@
     --avatar-scale: 1
 
   &.circle .canvas
-    transform: translate(-48%, -49%)
-    --avatar-scale: 1
+    transform: translate(-47.5%, -49%) scale(1.1)
 
 .sizeCustom
   width: var(--avatar-size)
@@ -59,11 +75,11 @@
 
 .canvas
   position: absolute
-  left: 50%
-  top: 50%
+  left: 47.5%
+  top: 49%
   width: 120px
   height: 138px
-  transform: translate(-48%, -49%) scale(var(--avatar-scale))
+  transform: translate(-47.5%, -49%) scale(var(--avatar-scale))
   transform-origin: center center
 
 .background

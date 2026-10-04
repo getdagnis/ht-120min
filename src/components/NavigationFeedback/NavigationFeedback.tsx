@@ -42,7 +42,7 @@ export function NavigationFeedback() {
 
   return navigation.pending ? (
     <p className={styles.pending} role="status" aria-live="polite">
-      Loding…
+      🔎 Loading data…
     </p>
   ) : null;
 }

@@ -1250,7 +1250,7 @@
     flex-direction: row
     .chatBubble
       color: white
-      background: var(--accent-3)
+      background: var(--accent-2)
     .chatMessageContent
       align-items: flex-end
       text-align: right
@@ -1259,16 +1259,11 @@
     align-self: flex-start
     flex-direction: row-reverse
     .chatBubble
-      background: var(--beige)
-      color: var(--text-h)
+      background: var(--chat-other)
+      color: white
     .chatMessageContent
       align-items: flex-start
       text-align: left
-
-  &.externalManager
-    .chatAuthor
-      color: var(--accent-3)
-      font-style: italic
 
 .chatAvatarWrapper
   width: 60px
@@ -1287,7 +1282,7 @@
   position: absolute
   top: 50%
   left: 50%
-  transform: translate(-50%, -50%) scale(0.5)
+  transform: translate(-48%, -49%) scale(0.58)
 
 .chatMessageContent
   display: flex
@@ -1296,8 +1291,11 @@
   min-width: 0
 
 .chatAuthor
+  display: inline-flex
+  align-items: center
+  gap: 0.3rem
   font-weight: 700
-  color: var(--accent-3)
+  color: var(--accent-2)
   font-size: 0.85rem
   margin-bottom: 0.25rem
   text-decoration: none
@@ -1307,6 +1305,11 @@
   cursor: pointer
   &:hover
     text-decoration: underline
+
+.chatAuthorFlag
+  width: 1rem
+  height: auto
+  flex-shrink: 0
 
 .chatBubble
   background: var(--beige)
