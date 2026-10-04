@@ -22,17 +22,10 @@ import { getMockMatchmakerRequests, getMockMatchmakerTeams, isMatchmakerMockData
 import { dismissWelcome, hasDismissedWelcome, TINDER_WELCOME_KEY } from '../../utils/welcome-modals';
 import { MatchmakerBrowseDeck } from './MatchmakerBrowseDeck';
 import deckStyles from './MatchmakerBrowseDeck.module.sass';
-import {
-  Heart,
-  Info,
-  Warning,
-  CaretLeft,
-  PencilSimple,
-  Trash,
-} from 'phosphor-react';
+import { Heart, Info, Warning, CaretLeft, PencilSimple, Trash } from 'phosphor-react';
 import styles from './Matchmaker.module.sass';
 
-const DEFAULT_TEAM_LOGO = '/default-logo.png';
+const DEFAULT_TEAM_LOGO = '/matchKitLarge.png';
 const DEFAULT_ARENA_IMAGE = 'https://res.hattrick.org/arenas/default/12000/custom-620-0.jpg';
 const MOCK_MANAGER_ID = 9900001;
 
@@ -1253,7 +1246,9 @@ export const Matchmaker: React.FC = () => {
         </div>
       )}
       <header className={styles.headerContainer}>
-        <div className={`${styles.tinderHeroCard} ${mobileExperience === 'app' ? deckStyles.mobileHiddenWhenActive : ''}`}>
+        <div
+          className={`${styles.tinderHeroCard} ${mobileExperience === 'app' ? deckStyles.mobileHiddenWhenActive : ''}`}
+        >
           <div className={styles.heroImageContainer}>
             <img src="/tinder-date-long-transp.png" alt="Tinder Date" className={styles.heroImage} />
             <div className={styles.heroBranding}>
@@ -1323,214 +1318,217 @@ export const Matchmaker: React.FC = () => {
       )}
 
       <div className={`${deckStyles.appContent} ${mobileExperience === 'app' ? deckStyles.appContentActive : ''}`}>
-      {activeTab === 'browse' || activeTab === 'hfi' || activeTab === 'long-term' ? (
-        <MatchmakerBrowseDeck
-          activeTab={activeTab as 'browse' | 'hfi' | 'long-term'}
-          loading={loading}
-          entries={scoredRequests}
-          cursor={currentIndex}
-          emptyMessage={
-            activeTab === 'hfi'
-              ? 'No female teams are looking for matches right now. Why not post your HFI ad?'
-              : activeTab === 'browse'
-                ? 'No teams are available for friendlies this week. Post your own ad!'
-                : 'No teams are looking for matches right now. Be the first to post an ad!'
-          }
-          endMessage={mockDataEnabled ? mockBrowseEndMessage : "You've seen all suitable listings."}
-          mockDataEnabled={mockDataEnabled}
-          onPostAd={handleStartPosting}
-          onPrevious={() => setCurrentIndex((prev) => Math.max(0, prev - 1))}
-          onPass={() => setCurrentIndex((prev) => advanceMatchmakerDeckCursor(prev, scoredRequests.length))}
-          onPrimaryAction={openBrowseChallengeFlow}
-          onRestart={() => {
-            setCurrentIndex(0);
-          }}
-          onShowBooked={() => {
-            setMockBrowseScope('booked');
-            setCurrentIndex(0);
-          }}
-          onShowAll={() => {
-            setMockBrowseScope('all');
-            setCurrentIndex(0);
-          }}
-        />
-      ) : (
-        <div className={styles.myRequests}>
-          <div className={styles.myAdsHeader}>
-            <h3>Your published ads</h3>
-            <p>Here you can view, modify and see activity on your own ads.</p>
-          </div>
-          {myRequests.length > 0 ? (
-            <div className={styles.requestGrid}>
-              {myRequests.map((req) => (
-                <div key={req.id} className={`${styles.myRequestCard} ${styles[req.status]}`} style={{ padding: 0 }}>
-                  <div className={styles.tinderCard}>
-                    <div className={styles.cardTop}>
-                      <div className={styles.cardArena}>
-                        {(req.team?.arena_image_url || req.team?.arena_id) && (
-                          <div className={styles.arenaFrame}>
-                            <img
-                              src={req.team.arena_image_url || DEFAULT_ARENA_IMAGE}
-                              alt="Arena"
-                              onError={(event) => {
-                                event.currentTarget.onerror = null;
-                                event.currentTarget.src = DEFAULT_ARENA_IMAGE;
+        {activeTab === 'browse' || activeTab === 'hfi' || activeTab === 'long-term' ? (
+          <MatchmakerBrowseDeck
+            activeTab={activeTab as 'browse' | 'hfi' | 'long-term'}
+            loading={loading}
+            entries={scoredRequests}
+            cursor={currentIndex}
+            emptyMessage={
+              activeTab === 'hfi'
+                ? 'No female teams are looking for matches right now. Why not post your HFI ad?'
+                : activeTab === 'browse'
+                  ? 'No teams are available for friendlies this week. Post your own ad!'
+                  : 'No teams are looking for matches right now. Be the first to post an ad!'
+            }
+            endMessage={mockDataEnabled ? mockBrowseEndMessage : "You've seen all suitable listings."}
+            mockDataEnabled={mockDataEnabled}
+            onPostAd={handleStartPosting}
+            onPrevious={() => setCurrentIndex((prev) => Math.max(0, prev - 1))}
+            onPass={() => setCurrentIndex((prev) => advanceMatchmakerDeckCursor(prev, scoredRequests.length))}
+            onPrimaryAction={openBrowseChallengeFlow}
+            onRestart={() => {
+              setCurrentIndex(0);
+            }}
+            onShowBooked={() => {
+              setMockBrowseScope('booked');
+              setCurrentIndex(0);
+            }}
+            onShowAll={() => {
+              setMockBrowseScope('all');
+              setCurrentIndex(0);
+            }}
+          />
+        ) : (
+          <div className={styles.myRequests}>
+            <div className={styles.myAdsHeader}>
+              <h3>Your published ads</h3>
+              <p>Here you can view, modify and see activity on your own ads.</p>
+            </div>
+            {myRequests.length > 0 ? (
+              <div className={styles.requestGrid}>
+                {myRequests.map((req) => (
+                  <div key={req.id} className={`${styles.myRequestCard} ${styles[req.status]}`} style={{ padding: 0 }}>
+                    <div className={styles.tinderCard}>
+                      <div className={styles.cardTop}>
+                        <div className={styles.cardArena}>
+                          {(req.team?.arena_image_url || req.team?.arena_id) && (
+                            <div className={styles.arenaFrame}>
+                              <img
+                                src={req.team.arena_image_url || DEFAULT_ARENA_IMAGE}
+                                alt="Arena"
+                                onError={(event) => {
+                                  event.currentTarget.onerror = null;
+                                  event.currentTarget.src = DEFAULT_ARENA_IMAGE;
+                                }}
+                              />
+                            </div>
+                          )}
+                        </div>
+                        {req.status === 'open' && (
+                          <div className={styles.inlineEditButtons}>
+                            <button
+                              type="button"
+                              className={styles.iconBtn}
+                              title="Edit Ad"
+                              onClick={() => startEditingRequest(req)}
+                            >
+                              <PencilSimple size={18} />
+                            </button>
+                            <button
+                              type="button"
+                              className={styles.iconBtn}
+                              title="Delete Ad"
+                              onClick={async () => {
+                                if (mockDataEnabled) {
+                                  setMyRequests((prev) => prev.filter((item) => item.id !== req.id));
+                                  setRequests((prev) => prev.filter((item) => item.id !== req.id));
+                                  return;
+                                }
+
+                                if (confirm('Delete this friendly ad?')) {
+                                  const { error } = await supabase
+                                    .from('matchmaker_requests')
+                                    .delete()
+                                    .eq('id', req.id);
+                                  if (!error) {
+                                    void fetchMyRequests();
+                                    void fetchRequests();
+                                  }
+                                }
                               }}
-                            />
+                            >
+                              <Trash size={18} />
+                            </button>
+                          </div>
+                        )}
+                        <div className={styles.cardRight}>
+                          <div className={styles.teamInfo}>
+                            <div className={styles.teamMain}>
+                              <img
+                                src={req.team?.logo_url || DEFAULT_TEAM_LOGO}
+                                alt=""
+                                className={styles.teamLogo}
+                                onError={(event) => {
+                                  event.currentTarget.onerror = null;
+                                  event.currentTarget.src = DEFAULT_TEAM_LOGO;
+                                }}
+                              />
+                              <div className={styles.teamText}>
+                                <h2 className={styles.teamName}>
+                                  {getDisplayTeamName(req.team?.name || '', req.team?.gender_id)}
+                                </h2>
+                                <div className={styles.teamMeta}>
+                                  {req.team?.league_id && (
+                                    <img
+                                      src={`https://www.hattrick.org/Img/flags/${req.team.league_id}.png`}
+                                      alt=""
+                                      className={styles.flag}
+                                    />
+                                  )}
+                                  <span>{getDisplayCountryName(req.team)}</span>
+                                </div>
+                              </div>
+                            </div>
+                          </div>
+                          <div className={styles.message} style={{ fontSize: '1.1rem' }}>
+                            {req.message ? `"${req.message}"` : <strong>{getMessagePlaceholder(req)}</strong>}
+                          </div>
+                          <div className={styles.adProfileSummary}>
+                            <span className={styles.summaryLabel}>Looking for</span>
+                            <div className={styles.badges}>
+                              <span className={styles.badge}>
+                                {req.match_type === '120min' ? '120 min training' : '90 min acceptable'}
+                              </span>
+                              <span className={styles.badge}>
+                                {req.home_away === 'home'
+                                  ? 'My place'
+                                  : req.home_away === 'away'
+                                    ? 'Your place'
+                                    : 'Either venue'}
+                              </span>
+                              <span className={styles.badge}>
+                                {req.opponent_location === 'domestic'
+                                  ? `Domestic (${getDisplayCountryName(req.team) || 'same country'})`
+                                  : req.opponent_location === 'international_only'
+                                    ? 'International only'
+                                    : 'Anywhere'}
+                              </span>
+                              <span className={styles.badge}>
+                                {req.is_long_term ? 'Long-term partner' : 'One-off match'}
+                              </span>
+                              {req.is_back_and_forth && <span className={styles.badge}>Home/away exchange</span>}
+                            </div>
+                          </div>
+                          <div className={styles.adMetaRow}>
+                            <span
+                              className={`${styles.availabilityBadge} ${req.status === 'open' ? styles.good : styles.bad}`}
+                              title="Based on how recently the ad was posted."
+                            >
+                              {req.status === 'open' ? getFreshnessLabel(req, nowMs).label : 'Matched'}
+                            </span>
+                          </div>
+                        </div>
+                      </div>
+
+                      {req.status === 'matched' && req.matched_with_team_id && (
+                        <div className={styles.matchNotice} style={{ marginTop: '1rem' }}>
+                          <Heart size={16} weight="fill" color="#ff4b2b" />
+                          <span>
+                            Matched with <strong>{req.matched_team?.name}</strong>
+                          </span>
+                        </div>
+                      )}
+                      <div className={styles.activitySection}>
+                        <div className={styles.activityHeader}>Activity</div>
+                        {(adActivity[req.id] ?? []).length > 0 ? (
+                          <div className={styles.activityList}>
+                            {adActivity[req.id].map((item) => (
+                              <div key={item.id} className={styles.activityItem}>
+                                <div className={styles.activityMeta}>
+                                  <span className={styles.activityDate}>{formatActivityDate(item.created_at)}</span>
+                                  <span className={styles.activitySource}>HT-120min</span>
+                                </div>
+                                <p className={styles.activityHeadline}>{getActivityHeadline(item)}</p>
+                                {item.comment && (
+                                  <div className={styles.activityComment}>
+                                    <span className={styles.activityCommentLabel}>Comment:</span>
+                                    <p>"{item.comment}"</p>
+                                  </div>
+                                )}
+                              </div>
+                            ))}
+                          </div>
+                        ) : (
+                          <div className={styles.activityEmpty}>
+                            <p>No activity yet.</p>
                           </div>
                         )}
                       </div>
-                      {req.status === 'open' && (
-                        <div className={styles.inlineEditButtons}>
-                          <button
-                            type="button"
-                            className={styles.iconBtn}
-                            title="Edit Ad"
-                            onClick={() => startEditingRequest(req)}
-                          >
-                            <PencilSimple size={18} />
-                          </button>
-                          <button
-                            type="button"
-                            className={styles.iconBtn}
-                            title="Delete Ad"
-                            onClick={async () => {
-                              if (mockDataEnabled) {
-                                setMyRequests((prev) => prev.filter((item) => item.id !== req.id));
-                                setRequests((prev) => prev.filter((item) => item.id !== req.id));
-                                return;
-                              }
-
-                              if (confirm('Delete this friendly ad?')) {
-                                const { error } = await supabase.from('matchmaker_requests').delete().eq('id', req.id);
-                                if (!error) {
-                                  void fetchMyRequests();
-                                  void fetchRequests();
-                                }
-                              }
-                            }}
-                          >
-                            <Trash size={18} />
-                          </button>
-                        </div>
-                      )}
-                      <div className={styles.cardRight}>
-                        <div className={styles.teamInfo}>
-                          <div className={styles.teamMain}>
-                            <img
-                              src={req.team?.logo_url || DEFAULT_TEAM_LOGO}
-                              alt=""
-                              className={styles.teamLogo}
-                              onError={(event) => {
-                                event.currentTarget.onerror = null;
-                                event.currentTarget.src = DEFAULT_TEAM_LOGO;
-                              }}
-                            />
-                            <div className={styles.teamText}>
-                              <h2 className={styles.teamName}>
-                                {getDisplayTeamName(req.team?.name || '', req.team?.gender_id)}
-                              </h2>
-                              <div className={styles.teamMeta}>
-                                {req.team?.league_id && (
-                                  <img
-                                    src={`https://www.hattrick.org/Img/flags/${req.team.league_id}.png`}
-                                    alt=""
-                                    className={styles.flag}
-                                  />
-                                )}
-                                <span>{getDisplayCountryName(req.team)}</span>
-                              </div>
-                            </div>
-                          </div>
-                        </div>
-                        <div className={styles.message} style={{ fontSize: '1.1rem' }}>
-                          {req.message ? `"${req.message}"` : <strong>{getMessagePlaceholder(req)}</strong>}
-                        </div>
-                        <div className={styles.adProfileSummary}>
-                          <span className={styles.summaryLabel}>Looking for</span>
-                          <div className={styles.badges}>
-                            <span className={styles.badge}>
-                              {req.match_type === '120min' ? '120 min training' : '90 min acceptable'}
-                            </span>
-                            <span className={styles.badge}>
-                              {req.home_away === 'home'
-                                ? 'My place'
-                                : req.home_away === 'away'
-                                  ? 'Your place'
-                                  : 'Either venue'}
-                            </span>
-                            <span className={styles.badge}>
-                              {req.opponent_location === 'domestic'
-                                ? `Domestic (${getDisplayCountryName(req.team) || 'same country'})`
-                                : req.opponent_location === 'international_only'
-                                  ? 'International only'
-                                  : 'Anywhere'}
-                            </span>
-                            <span className={styles.badge}>
-                              {req.is_long_term ? 'Long-term partner' : 'One-off match'}
-                            </span>
-                            {req.is_back_and_forth && <span className={styles.badge}>Home/away exchange</span>}
-                          </div>
-                        </div>
-                        <div className={styles.adMetaRow}>
-                          <span
-                            className={`${styles.availabilityBadge} ${req.status === 'open' ? styles.good : styles.bad}`}
-                            title="Based on how recently the ad was posted."
-                          >
-                            {req.status === 'open' ? getFreshnessLabel(req, nowMs).label : 'Matched'}
-                          </span>
-                        </div>
-                      </div>
-                    </div>
-
-                    {req.status === 'matched' && req.matched_with_team_id && (
-                      <div className={styles.matchNotice} style={{ marginTop: '1rem' }}>
-                        <Heart size={16} weight="fill" color="#ff4b2b" />
-                        <span>
-                          Matched with <strong>{req.matched_team?.name}</strong>
-                        </span>
-                      </div>
-                    )}
-                    <div className={styles.activitySection}>
-                      <div className={styles.activityHeader}>Activity</div>
-                      {(adActivity[req.id] ?? []).length > 0 ? (
-                        <div className={styles.activityList}>
-                          {adActivity[req.id].map((item) => (
-                            <div key={item.id} className={styles.activityItem}>
-                              <div className={styles.activityMeta}>
-                                <span className={styles.activityDate}>{formatActivityDate(item.created_at)}</span>
-                                <span className={styles.activitySource}>HT-120min</span>
-                              </div>
-                              <p className={styles.activityHeadline}>{getActivityHeadline(item)}</p>
-                              {item.comment && (
-                                <div className={styles.activityComment}>
-                                  <span className={styles.activityCommentLabel}>Comment:</span>
-                                  <p>"{item.comment}"</p>
-                                </div>
-                              )}
-                            </div>
-                          ))}
-                        </div>
-                      ) : (
-                        <div className={styles.activityEmpty}>
-                          <p>No activity yet.</p>
-                        </div>
-                      )}
                     </div>
                   </div>
-                </div>
-              ))}
-            </div>
-          ) : (
-            <div className={styles.emptyState}>
-              <p>You haven't posted any teams this week.</p>
-              <Button size="md" variant="tinder" onClick={handleStartPosting}>
-                Post an Ad
-              </Button>
-            </div>
-          )}
-        </div>
-      )}
+                ))}
+              </div>
+            ) : (
+              <div className={styles.emptyState}>
+                <p>You haven't posted any teams this week.</p>
+                <Button size="md" variant="tinder" onClick={handleStartPosting}>
+                  Post an Ad
+                </Button>
+              </div>
+            )}
+          </div>
+        )}
       </div>
 
       <WelcomeModal
@@ -1614,7 +1612,7 @@ export const Matchmaker: React.FC = () => {
                     })}
                   </optgroup>
                 ))}
-            </select>
+              </select>
             ) : (
               <div className={styles.noTeamsMessage}>
                 <Warning size={20} />
@@ -1721,11 +1719,7 @@ export const Matchmaker: React.FC = () => {
 
           <div className={styles.postActions}>
             <Button type="submit" variant="tinder" fullWidth disabled={!canPublish}>
-              {isSaving
-                ? 'Publishing...'
-                : editingRequestId
-                  ? 'Update Ad'
-                  : 'Publish Request'}
+              {isSaving ? 'Publishing...' : editingRequestId ? 'Update Ad' : 'Publish Request'}
             </Button>
           </div>
         </form>

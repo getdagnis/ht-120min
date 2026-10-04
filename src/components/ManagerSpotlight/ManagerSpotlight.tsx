@@ -7,8 +7,7 @@ import { getCanonicalCountryName, getCountryFlagUrl } from '../../utils/ht-data'
 import type { ManagerSpotlight as ManagerSpotlightViewModel } from '../../utils/manager-spotlight';
 import styles from './ManagerSpotlight.module.sass';
 
-const managerHref = (managerId: number) =>
-  `https://www.hattrick.org/goto.ashx?path=/Club/Manager/?userId=${managerId}`;
+const managerHref = (managerId: number) => `https://www.hattrick.org/goto.ashx?path=/Club/Manager/?userId=${managerId}`;
 const teamHref = (teamId: number) => `https://www.hattrick.org/goto.ashx?path=/Club/?TeamID=${teamId}`;
 
 interface ManagerSpotlightProps {
@@ -26,7 +25,12 @@ export const ManagerSpotlight: React.FC<ManagerSpotlightProps> = ({ spotlight })
       <div className={styles.identity}>
         <Avatar avatar={spotlight.avatar} variant="circle" size={52} className={styles.avatar} />
         <div className={styles.identityDetails}>
-          <a href={managerHref(spotlight.managerId)} target="_blank" rel="noopener noreferrer" className={styles.managerName}>
+          <a
+            href={managerHref(spotlight.managerId)}
+            target="_blank"
+            rel="noopener noreferrer"
+            className={styles.managerName}
+          >
             {spotlight.managerName}
             <ArrowUpRight size={14} weight="bold" aria-hidden="true" />
           </a>
@@ -46,7 +50,7 @@ export const ManagerSpotlight: React.FC<ManagerSpotlightProps> = ({ spotlight })
 
           return (
             <div key={team.teamId} className={`${styles.team} ${team.isTournamentTeam ? styles.tournamentTeam : ''}`}>
-              <img src={team.logoUrl || '/default-logo.png'} alt="" className={styles.teamLogo} />
+              <img src={team.logoUrl || '/matchKitLarge.png'} alt="" className={styles.teamLogo} />
               <div className={styles.teamDetails}>
                 <a href={teamHref(team.teamId)} target="_blank" rel="noopener noreferrer" className={styles.teamName}>
                   {team.teamName}

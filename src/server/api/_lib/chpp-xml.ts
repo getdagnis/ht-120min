@@ -103,7 +103,7 @@ export function parseTeamDetailsXml(xml: string, teamId: number): ParsedTeamDeta
   const extract = (block: string): ParsedTeamDetails => {
     const logoRaw = readChppTag(block, 'LogoURL') ?? readChppTag(block, 'LogoUri');
     const dressRaw = readChppTag(block, 'DressURI');
-    const logoUrl = logoRaw ? normalizeChppAssetUrl(logoRaw) : dressRaw ? normalizeChppAssetUrl(dressRaw) : undefined;
+    const logoUrl = logoRaw ? normalizeChppAssetUrl(logoRaw) : dressRaw ? normalizeChppAssetUrl(dressRaw) : '/matchKitLarge.png';
 
     const arenaIdRaw = block.match(/<Arena>[\s\S]*?<ArenaID>(\d+)<\/ArenaID>/i)?.[1];
     const fanclubSizeRaw = block.match(/<Fanclub>[\s\S]*?<FanclubSize>(\d+)<\/FanclubSize>/i)?.[1];

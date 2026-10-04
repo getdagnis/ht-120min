@@ -32,7 +32,7 @@ import { getAppgStandingsQuota, meetsAppgStandingsQuota } from '../../utils/stan
 import { isAppg120ScoringMode } from '../../../shared/scoring-profile';
 import styles from './TournamentHistory.module.sass';
 
-const DEFAULT_TEAM_LOGO = '/default-logo.png';
+const DEFAULT_TEAM_LOGO = '/matchKitLarge.png';
 const MAX_COMMENT_LENGTH = 480;
 
 const getCommentDraftStorageKey = (seasonId: string, currentHtUserId: number) =>
@@ -496,7 +496,8 @@ export const TournamentHistory: React.FC<TournamentHistoryProps> = ({
       const aQualified = meetsAppgStandingsQuota(a, historyAppgQuota);
       const bQualified = meetsAppgStandingsQuota(b, historyAppgQuota);
       if (aQualified !== bQualified) return aQualified ? -1 : 1;
-      const averageDifference = (b.appgPlayed ? b.appgPoints / b.appgPlayed : 0) - (a.appgPlayed ? a.appgPoints / a.appgPlayed : 0);
+      const averageDifference =
+        (b.appgPlayed ? b.appgPoints / b.appgPlayed : 0) - (a.appgPlayed ? a.appgPoints / a.appgPlayed : 0);
       if (averageDifference !== 0) return averageDifference;
       if (b.appgPoints !== a.appgPoints) return b.appgPoints - a.appgPoints;
       if (b.appgPlayed !== a.appgPlayed) return b.appgPlayed - a.appgPlayed;
@@ -568,9 +569,7 @@ export const TournamentHistory: React.FC<TournamentHistoryProps> = ({
   const currentOwnedTeamIdSet = new Set(currentOwnedTeamIds);
   const eligibleTeams = snapshot.participants.filter(
     (participant) =>
-      currentHtUserId &&
-      currentOwnedTeamIdSet.has(participant.teamId) &&
-      !commentTeamIds.has(participant.teamId),
+      currentHtUserId && currentOwnedTeamIdSet.has(participant.teamId) && !commentTeamIds.has(participant.teamId),
   );
   const commentsLoading = loadedCommentsSeasonId !== selectedSeasonId;
   const seasonStartedAt =
@@ -1135,7 +1134,9 @@ export const TournamentHistory: React.FC<TournamentHistoryProps> = ({
                         return (
                           <tr key={standing.teamId}>
                             <td>-</td>
-                            <td>{participant ? <TeamIdentity participant={participant} compact /> : standing.teamName}</td>
+                            <td>
+                              {participant ? <TeamIdentity participant={participant} compact /> : standing.teamName}
+                            </td>
                             <td className={styles.accentStat}>
                               {standing.appgPlayed ? (standing.appgPoints / standing.appgPlayed).toFixed(2) : '0.00'}
                             </td>

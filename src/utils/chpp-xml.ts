@@ -78,7 +78,7 @@ export function parseTeamDetailsXml(xml: string, teamId: number): ParsedTeamDeta
       ? normalizeChppAssetUrl(logoRaw)
       : dressRaw
         ? normalizeChppAssetUrl(dressRaw)
-        : undefined;
+        : '/matchKitLarge.png';
 
     const leagueIdRaw = block.match(/<League>[\s\S]*?<LeagueID>(\d+)<\/LeagueID>/i)?.[1];
     const leagueLevelUnitIdRaw = block.match(/<LeagueLevelUnit>[\s\S]*?<LeagueLevelUnitID>(\d+)<\/LeagueLevelUnitID>/i)?.[1];

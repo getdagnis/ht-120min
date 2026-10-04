@@ -14,7 +14,7 @@ import {
 import styles from './Matchmaker.module.sass';
 import deckStyles from './MatchmakerBrowseDeck.module.sass';
 
-const DEFAULT_TEAM_LOGO = '/default-logo.png';
+const DEFAULT_TEAM_LOGO = '/matchKitLarge.png';
 const DEFAULT_ARENA_IMAGE = 'https://res.hattrick.org/arenas/default/12000/custom-620-0.jpg';
 
 export interface MatchmakerBrowseEntry {
@@ -152,7 +152,11 @@ export const MatchmakerBrowseDeck: React.FC<MatchmakerBrowseDeckProps> = ({
     return (
       <div className={styles.loadingState} role="status">
         <Handshake size={48} className={styles.spin} />
-        <p>{mockDataEnabled ? 'Synchronising friendly availability...' : 'Checking team availability and loading listings...'}</p>
+        <p>
+          {mockDataEnabled
+            ? 'Synchronising friendly availability...'
+            : 'Checking team availability and loading listings...'}
+        </p>
       </div>
     );
   }
@@ -280,7 +284,9 @@ export const MatchmakerBrowseDeck: React.FC<MatchmakerBrowseDeckProps> = ({
                 </div>
               </div>
               <div className={styles.adMetaRow}>
-                <span className={`${styles.availabilityBadge} ${styles[entry.freshness.tone]}`}>{entry.freshness.label}</span>
+                <span className={`${styles.availabilityBadge} ${styles[entry.freshness.tone]}`}>
+                  {entry.freshness.label}
+                </span>
                 <span
                   className={`${styles.stateBadge} ${styles[request.team?.availabilityStatus || 'unknown']}`}
                   title={request.team?.availabilityReason || 'Availability from CHPP team details.'}
@@ -351,7 +357,12 @@ export const MatchmakerBrowseDeck: React.FC<MatchmakerBrowseDeckProps> = ({
         </div>
       </article>
 
-      <button type="button" className={`${styles.navArrow} ${styles.navArrowRight}`} onClick={onPass} aria-label="Next ad">
+      <button
+        type="button"
+        className={`${styles.navArrow} ${styles.navArrowRight}`}
+        onClick={onPass}
+        aria-label="Next ad"
+      >
         <CaretRight />
       </button>
     </div>

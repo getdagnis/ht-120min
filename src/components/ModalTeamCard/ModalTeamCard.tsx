@@ -4,7 +4,7 @@ import { getCanonicalCountryName } from '../../utils/ht-data';
 import { getCountryWorldDetails, getLeagueWorldDetails } from '../../../shared/worlddetails';
 import styles from './ModalTeamCard.module.sass';
 
-const DEFAULT_TEAM_LOGO = '/default-logo.png';
+const DEFAULT_TEAM_LOGO = '/matchKitLarge.png';
 
 export interface ModalTeamCardTeam {
   teamId: number;
@@ -37,7 +37,8 @@ export const ModalTeamCard: React.FC<ModalTeamCardProps> = ({
   const league = getLeagueWorldDetails(team.leagueId);
   const country = getCountryWorldDetails(team.countryId);
   const leagueName = league?.leagueName ?? team.leagueName ?? 'Unknown league';
-  const countryName = getCanonicalCountryName(team.countryName, team.countryId) ?? team.countryName ?? 'Unknown country';
+  const countryName =
+    getCanonicalCountryName(team.countryName, team.countryId) ?? team.countryName ?? 'Unknown country';
   const leagueEmoji = league?.emoji ?? '⚽';
   const countryEmoji = country?.emoji ?? '🏳️';
   const leagueAndCountryMatch =
@@ -58,7 +59,12 @@ export const ModalTeamCard: React.FC<ModalTeamCardProps> = ({
         <strong className={styles.name}>{team.teamName}</strong>
         <span className={styles.byline}>
           {leagueEmoji} {leagueName}
-          {!leagueAndCountryMatch && <> <span className={styles.separator}>|</span> {countryEmoji} {countryName}</>}
+          {!leagueAndCountryMatch && (
+            <>
+              {' '}
+              <span className={styles.separator}>|</span> {countryEmoji} {countryName}
+            </>
+          )}
           <span className={styles.separator}>|</span> ID: {team.teamId}
         </span>
         <div className={`${styles.status} ${statusDanger ? styles.statusDanger : ''}`}>{status}</div>

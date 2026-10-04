@@ -85,7 +85,7 @@ interface StandingsViewProps {
   onLeaveTournament?: (teamId: string) => void;
 }
 
-const DEFAULT_TEAM_LOGO = '/default-logo.png';
+const DEFAULT_TEAM_LOGO = '/matchKitLarge.png';
 const defaultLoadComments = async (seasonId: string) => {
   const response = await fetch(`/api/app?route=history&seasonId=${encodeURIComponent(seasonId)}`);
   const data = (await response.json()) as { comments?: TournamentSeasonComment[]; error?: string };

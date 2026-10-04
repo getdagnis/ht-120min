@@ -144,7 +144,7 @@ import type { TournamentInitialData } from '../../app/_data/public-data';
 import type { TournamentMatchArrangeStorySnapshot } from '../../types/tournament-activity';
 
 const FORUM_LINK = 'https://www.hattrick.org/goto.ashx?path=/Forum/Read.aspx?n=1&nm=32&t=17685273&v=0';
-const DEFAULT_TEAM_LOGO = '/default-logo.png';
+const DEFAULT_TEAM_LOGO = '/matchKitLarge.png';
 const UNSAVED_SETTINGS_MESSAGE = 'Use save button to apply changes!';
 const getHistoryReportNoticeStorageKey = (seasonId: string) => `ht-120min:history-report-notice-dismissed:${seasonId}`;
 const getOrganizerAdminSessionStorageKey = (tournamentId: string, userId: number) =>

@@ -41,7 +41,7 @@ export const Avatar: React.FC<AvatarProps> = ({ avatar, variant, size = 120, cla
   if (!avatar || !avatar.backgroundImage) {
     return (
       <div className={`${rootClassName} ${styles.fallback}`} style={customSizeStyle}>
-        <span className={styles.fallbackIcon}>👤</span>
+        <span className={styles.fallbackIcon} />
       </div>
     );
   }

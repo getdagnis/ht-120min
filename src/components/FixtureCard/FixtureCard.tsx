@@ -56,7 +56,7 @@ const MATCH_TYPES: Record<number, { initials: string; description: string }> = {
   9: { initials: 'ICR', description: 'International Cup Rules Friendly' },
 };
 
-const DEFAULT_TEAM_LOGO = '/default-logo.png';
+const DEFAULT_TEAM_LOGO = '/matchKitLarge.png';
 
 export const FixtureCard: React.FC<FixtureCardProps> = ({
   homeTeam,

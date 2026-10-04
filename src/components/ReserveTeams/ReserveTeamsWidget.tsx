@@ -171,12 +171,7 @@ export const ReserveTeamsWidget: React.FC<ReserveTeamsWidgetProps> = ({ tourname
   };
 
   return (
-    <section
-      id="reserve-teams-widget"
-      className={styles.widget}
-      aria-labelledby="reserve-teams-title"
-      tabIndex={-1}
-    >
+    <section id="reserve-teams-widget" className={styles.widget} aria-labelledby="reserve-teams-title" tabIndex={-1}>
       <h2 id="reserve-teams-title">
         <ShieldCheck size={18} weight="bold" /> Reserve teams
       </h2>
@@ -196,7 +191,7 @@ export const ReserveTeamsWidget: React.FC<ReserveTeamsWidgetProps> = ({ tourname
           const hasPlanningStatus = planningStatus?.inCup === true || planningStatus?.bookedOutsideTournament;
           return (
             <div className={styles.team} key={team.id}>
-              <img src={team.logo_url || '/default-logo.png'} alt="" />
+              <img src={team.logo_url || '/matchKitLarge.png'} alt="" />
               <div>
                 <div className={styles.teamName}>
                   <a href={teamHref(team.ht_team_id)} target="_blank" rel="noopener noreferrer">

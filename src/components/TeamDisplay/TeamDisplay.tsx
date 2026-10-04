@@ -2,7 +2,7 @@ import React from 'react';
 import { getCountryFlagUrl, getLeagueFlagUrl } from '../../utils/ht-data';
 import styles from './TeamDisplay.module.scss';
 
-const DEFAULT_TEAM_LOGO = '/default-logo.png';
+const DEFAULT_TEAM_LOGO = '/matchKitLarge.png';
 
 interface TeamDisplayProps {
   team?: {
@@ -37,7 +37,9 @@ export const TeamDisplay: React.FC<TeamDisplayProps> = ({ team, side }) => {
           />
         )}
         {leagueFlagUrl && <img src={leagueFlagUrl} alt="League" className={styles.flag} />}
-        {countryFlagUrl && <img src={countryFlagUrl} alt={countryName || 'Country'} className={styles.flag} title={countryName} />}
+        {countryFlagUrl && (
+          <img src={countryFlagUrl} alt={countryName || 'Country'} className={styles.flag} title={countryName} />
+        )}
       </div>
       {team?.name ? (
         <span className={styles.teamName}>{team.name}</span>

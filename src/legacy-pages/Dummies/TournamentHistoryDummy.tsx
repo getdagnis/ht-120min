@@ -22,7 +22,7 @@ const teams: Team[] = [
   country_name: 'Guam',
   country_id: 73,
   league_id: 73,
-  logo_url: '/default-logo.png',
+  logo_url: '/matchKitLarge.png',
   manager_name: `Manager ${userId}`,
 }));
 
