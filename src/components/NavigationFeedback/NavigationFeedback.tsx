@@ -14,7 +14,15 @@ export function NavigationFeedback() {
   useEffect(() => {
     let timeout: ReturnType<typeof setTimeout>;
     const onClick = (event: MouseEvent) => {
-      if (event.button !== 0 || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey || event.defaultPrevented) return;
+      if (
+        event.button !== 0 ||
+        event.metaKey ||
+        event.ctrlKey ||
+        event.shiftKey ||
+        event.altKey ||
+        event.defaultPrevented
+      )
+        return;
       if (!(event.target instanceof Element)) return;
       const link = event.target.closest<HTMLAnchorElement | HTMLElement>('a[href], [data-navigation-href]');
       const href = link?.getAttribute('href') || link?.dataset.navigationHref;
@@ -26,8 +34,15 @@ export function NavigationFeedback() {
       timeout = setTimeout(() => setNavigation({ pathname, pending: false }), 30_000);
     };
     document.addEventListener('click', onClick, true);
-    return () => { clearTimeout(timeout); document.removeEventListener('click', onClick, true); };
+    return () => {
+      clearTimeout(timeout);
+      document.removeEventListener('click', onClick, true);
+    };
   }, [pathname]);
 
-  return navigation.pending ? <p className={styles.pending} role="status" aria-live="polite">Opening page…</p> : null;
+  return navigation.pending ? (
+    <p className={styles.pending} role="status" aria-live="polite">
+      Loding…
+    </p>
+  ) : null;
 }

@@ -1740,15 +1740,17 @@ export const TournamentView: React.FC<{ initialData?: TournamentInitialData }> =
     [],
   );
 
-  const invalidateAfterEdit = useCallback(async () => {
-    if (!tournament?.id) return;
+  const invalidateAfterEdit = useCallback(async (): Promise<boolean> => {
+    if (!tournament?.id) return false;
     try {
       await invalidateTournamentData(tournament.id, readLocalStorage(`admin_pw_${slug}`) || '');
+      return true;
     } catch (error) {
       // The write already succeeded. Keep the local result and explain the
       // fallback instead of reporting the saved edit as failed.
       console.error('Tournament cache invalidation failed:', error);
       alert('Your change was saved, but shared data could not be refreshed. Other visitors may see it after the cache revalidates (about 60 seconds).');
+      return false;
     }
   }, [tournament?.id, slug, alert]);
 
@@ -1773,7 +1775,7 @@ export const TournamentView: React.FC<{ initialData?: TournamentInitialData }> =
       const showLoader = options.showLoader ?? !hasLoadedTournamentRef.current;
       if (showLoader) setLoading(true);
       try {
-        if (options.invalidate !== false) await invalidateAfterEdit();
+        if (options.invalidate !== false && !(await invalidateAfterEdit())) return;
         const data = await readTournamentPublicData(slug);
         if (!data) return;
         const tournamentData = data.tournament as unknown as Tournament;
