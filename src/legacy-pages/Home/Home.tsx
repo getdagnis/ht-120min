@@ -750,6 +750,7 @@ export const Home: React.FC<{ initialData?: HomeInitialData }> = ({ initialData 
         key={t.id}
         className={styles.tournamentLink}
         role="link"
+        data-navigation-href={tournamentHref}
         tabIndex={0}
         onClick={(event) => {
           if (event.target instanceof HTMLElement && event.target.closest('a,button')) return;
@@ -759,7 +760,7 @@ export const Home: React.FC<{ initialData?: HomeInitialData }> = ({ initialData 
           if (event.target !== event.currentTarget) return;
           if (event.key !== 'Enter' && event.key !== ' ') return;
           event.preventDefault();
-          router.push(tournamentHref);
+          event.currentTarget.click();
         }}
       >
         {card}

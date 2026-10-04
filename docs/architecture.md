@@ -43,6 +43,13 @@ the public Supabase key and the same RLS policy as anonymous browser visitors. T
 the hydrated client tree; client effects handle identity, storage preferences, live clocks, viewport state, mutations,
 and interactive tabs.
 
+Tournament public reads now use the standard Next Data Cache with 60-second
+fallback revalidation and tournament-scoped mutation invalidation. Client refreshes
+reuse that loader; hydration uses its initial payload. Password/email and private
+announcements are read separately through authorized uncached server actions.
+Historical season selection reuses existing loaded archives; live scores and
+presence remain separate. See [maintenance and manual deployment checks](tournament-cache.md).
+
 Server implementation is under `src/server/api/`. The App Router adapter preserves the existing public API URLs while
 dispatching them to the current handlers. Any source imported by that server tree must use explicit runtime `.js`
 extensions for relative imports.

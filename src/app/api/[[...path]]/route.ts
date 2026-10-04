@@ -14,6 +14,7 @@ import teamInfoHandler from '../../../server/api/teams/info.js';
 import refreshFixturesHandler from '../../../server/api/teams/refresh-fixtures.js';
 import testingHandler from '../../../server/api/testing/index.js';
 import forgeMatchesHandler from '../../../server/api/forge/matches.js';
+import { invalidatePublicTournament } from '../../../server/api/_lib/tournament-cache.js';
 
 const cookieHeaderToObject = (value: string | null) => {
   const cookies: Record<string, string> = {};
@@ -160,6 +161,41 @@ async function invoke(request: NextRequest) {
   } as unknown as VercelRequest;
 
   await handler(legacyRequest, response);
+
+  // Existing handlers enforce their own authorization. Purge only successful
+  // tournament writes, including CHPP final results, before replying to callers.
+  const result = payload && typeof payload === 'object' ? payload as Record<string, unknown> : {};
+  const input = body && typeof body === 'object' ? body as Record<string, unknown> : {};
+  const mutationRoutes = new Set([
+    'update-hfi-ranks', 'generate-length-schedule', 'repair-length-round', 'recover-length-round-one',
+    'save-length-results', 'tournament-participation', 'season-slot-replacement', 'reserve-team-swap',
+    'reserve-team-fill', 'move-inactive-team-to-reserve', 'reset-season-to-planning', 'archive-tournament',
+    'scheduled-team-removal', 'admin-team-reserve-transition', 'admin-add-reserve-team', 'reserve-teams',
+    'backfill-round-matchdetails',
+  ]);
+  const path = request.nextUrl.pathname;
+  const finishedLiveResult = path === '/api/chpp/live-matches' && result.results &&
+    Object.values(result.results).some((value) => value && typeof value === 'object' && 'status' in value && value.status === 'finished');
+  const isMutation =
+    (path === '/api/app' && request.method !== 'GET' && mutationRoutes.has(String(query.route))) ||
+    (path === '/api/teams/refresh-fixtures' && input.dryRun !== true &&
+      !['suggest_ht_matches', 'team_planning_statuses'].includes(String(input.action))) || finishedLiveResult ||
+    (path === '/api/auth/complete' && (Boolean(result.tournamentId) || Array.isArray(result.tournamentIds))) ||
+    (path.startsWith('/api/testing') && query.apply === '1' && query.tool === 'round-press-matchdetails-backfill');
+  const affectedId = input.tournamentId || input.tournament_id || query.tournamentId || query.tournament_id || result.tournamentId;
+  const affectedIds = path === '/api/auth/complete' && Array.isArray(result.tournamentIds)
+    ? result.tournamentIds.filter((id): id is string => typeof id === 'string')
+    : typeof affectedId === 'string' ? [affectedId] : [];
+  if (isMutation && affectedIds.length && ((statusCode >= 200 && statusCode < 300) || result.resultsSaved)) {
+    try {
+      await Promise.all(affectedIds.map(invalidatePublicTournament));
+    } catch (error) {
+      // A cache failure must not turn a completed registration/write into an
+      // apparent failure and invite duplicate submissions. TTL is the fallback.
+      console.error('Tournament cache invalidation failed:', error);
+      responseHeaders.set('X-Tournament-Cache', 'invalidation-failed');
+    }
+  }
 
   if (redirected) return new Response(null, { status: statusCode, headers: responseHeaders });
   if (payload === undefined) return new Response(null, { status: statusCode, headers: responseHeaders });
