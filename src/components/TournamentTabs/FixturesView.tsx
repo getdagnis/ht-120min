@@ -34,6 +34,8 @@ export interface FixtureMatch {
   away_red_cards?: number;
   away_injuries?: number;
   match_event_details?: MatchEventDetails | null;
+  home_match_kit_url?: string | null;
+  away_match_kit_url?: string | null;
   status: 'not_arranged' | 'arranged' | 'ongoing' | 'misarranged' | 'finished';
   ht_match_id: number | null;
   match_type: number | null;
@@ -123,6 +125,8 @@ interface FixturesViewProps {
       away_red_cards?: number;
       away_injuries?: number;
       match_event_details?: MatchEventDetails;
+      home_match_kit_url?: string | null;
+      away_match_kit_url?: string | null;
     } & Partial<LiveMatchClock>
   >;
   canJoinTournament: boolean;
@@ -947,6 +951,7 @@ export const FixturesView: React.FC<FixturesViewProps> = ({
                           managerHtId: homeIsBye ? undefined : match.home_team?.hattrick_user_id,
                           htTeamId: homeIsBye ? 0 : match.home_team?.ht_team_id || 0,
                           logoUrl: homeIsBye ? undefined : match.home_team?.logo_url,
+                          matchKitUrl: homeIsBye ? null : liveMatch?.home_match_kit_url ?? match.home_match_kit_url,
                           warning: homeIsBye ? undefined : homeWarning?.type,
                           countryName: homeIsBye ? undefined : match.home_team?.country_name,
                           countryId: homeIsBye ? undefined : match.home_team?.country_id,
@@ -960,6 +965,7 @@ export const FixturesView: React.FC<FixturesViewProps> = ({
                           managerHtId: awayIsBye ? undefined : match.away_team?.hattrick_user_id,
                           htTeamId: awayIsBye ? 0 : match.away_team?.ht_team_id || 0,
                           logoUrl: awayIsBye ? undefined : match.away_team?.logo_url,
+                          matchKitUrl: awayIsBye ? null : liveMatch?.away_match_kit_url ?? match.away_match_kit_url,
                           warning: awayIsBye ? undefined : awayWarning?.type,
                           countryName: awayIsBye ? undefined : match.away_team?.country_name,
                           countryId: awayIsBye ? undefined : match.away_team?.country_id,

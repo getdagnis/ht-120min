@@ -8,6 +8,7 @@ import {
   getCanonicalEventDescription,
   type MatchSideEventDetails,
 } from '../../../shared/match-events';
+import { toLargeMatchKitUrl } from '../../../shared/match-kits';
 import styles from './TeamByline.module.sass';
 
 interface TeamBylineProps {
@@ -28,6 +29,7 @@ interface TeamBylineProps {
     injuries: number;
     eventDetails?: MatchSideEventDetails | null;
   } | null;
+  matchKitUrl?: string | null;
 }
 
 export const TeamByline: React.FC<TeamBylineProps> = ({
@@ -43,9 +45,11 @@ export const TeamByline: React.FC<TeamBylineProps> = ({
   isRight,
   lastSeenAt,
   matchSummary,
+  matchKitUrl,
 }) => {
   // Use a unique ID for tooltips to avoid collisions
   const tooltipIdBase = `byline-${teamId}-${managerHtId}-${mode}-${isRight ? 'r' : 'l'}`;
+  const visibleMatchKitUrl = matchKitUrl ? toLargeMatchKitUrl(matchKitUrl) : null;
 
   const openProfile = (e: React.MouseEvent) => {
     e.preventDefault();
@@ -280,41 +284,58 @@ export const TeamByline: React.FC<TeamBylineProps> = ({
           </>
         )}
       </div>
-      {mode === 'fixtures' && groupedGoals.length > 0 && (
-        <div className={styles.goalsRow} aria-label="Goals">
-          {groupedGoals.map((goal) => (
-            <React.Fragment key={goal.key}>
-              <span
-                className={styles.goalItem}
-                data-tooltip-id={`${tooltipIdBase}-goal-${goal.key}`}
-                data-tooltip-content={Array.from(new Set(goal.descriptions)).join(', ')}
-              >
-                <span aria-hidden="true">⚽️</span> {shortPlayerLabel(goal.playerName)}
-                {goal.minutes.length > 0 && ` (${goal.minutes.map((minute) => `${minute}'`).join(', ')})`}
-              </span>
-              <Tooltip
-                id={`${tooltipIdBase}-goal-${goal.key}`}
-                content={Array.from(new Set(goal.descriptions)).join(', ')}
-                className="tooltip"
-              />
-            </React.Fragment>
-          ))}
-        </div>
-      )}
-      {mode === 'fixtures' && summary && (
-        <div className={styles.summaryRow} data-tooltip-id={`${tooltipIdBase}-summary`} aria-label={summaryTooltip}>
-          {detailedEventIcons || (
-            <>
-              {repeatIcons('/svg/match-yellow.svg', 'Yellow card', summary.yellowCards, 'Yellow card')}
-              {repeatIcons('/svg/match-card.svg', 'Red card', summary.redCards, 'Red card')}
-              {repeatIcons('/svg/match-cross.svg', 'Injury', summary.injuries, 'Injury')}
-            </>
+      {mode === 'fixtures' && (visibleMatchKitUrl || groupedGoals.length > 0 || summary) && (
+        <div className={`${styles.matchDetails} ${isRight ? styles.right : ''}`}>
+          {visibleMatchKitUrl && (
+            <img
+              src={visibleMatchKitUrl}
+              alt={`${teamName || 'Team'} match kit`}
+              className={styles.matchKit}
+              loading="lazy"
+              onError={(event) => {
+                event.currentTarget.style.display = 'none';
+              }}
+            />
           )}
-          {hasDetailedEvents ? (
-            <Tooltip id={`${tooltipIdBase}-summary`} className="tooltip" />
-          ) : (
-            <Tooltip id={`${tooltipIdBase}-summary`} content={summaryTooltip} className="tooltip" />
-          )}
+          <div className={styles.matchEvents}>
+            {groupedGoals.length > 0 && (
+              <div className={styles.goalsRow} aria-label="Goals">
+                {groupedGoals.map((goal) => (
+                  <React.Fragment key={goal.key}>
+                    <span
+                      className={styles.goalItem}
+                      data-tooltip-id={`${tooltipIdBase}-goal-${goal.key}`}
+                      data-tooltip-content={Array.from(new Set(goal.descriptions)).join(', ')}
+                    >
+                      <span aria-hidden="true">⚽️</span> {shortPlayerLabel(goal.playerName)}
+                      {goal.minutes.length > 0 && ` (${goal.minutes.map((minute) => `${minute}'`).join(', ')})`}
+                    </span>
+                    <Tooltip
+                      id={`${tooltipIdBase}-goal-${goal.key}`}
+                      content={Array.from(new Set(goal.descriptions)).join(', ')}
+                      className="tooltip"
+                    />
+                  </React.Fragment>
+                ))}
+              </div>
+            )}
+            {summary && (
+              <div className={styles.summaryRow} data-tooltip-id={`${tooltipIdBase}-summary`} aria-label={summaryTooltip}>
+                {detailedEventIcons || (
+                  <>
+                    {repeatIcons('/svg/match-yellow.svg', 'Yellow card', summary.yellowCards, 'Yellow card')}
+                    {repeatIcons('/svg/match-card.svg', 'Red card', summary.redCards, 'Red card')}
+                    {repeatIcons('/svg/match-cross.svg', 'Injury', summary.injuries, 'Injury')}
+                  </>
+                )}
+                {hasDetailedEvents ? (
+                  <Tooltip id={`${tooltipIdBase}-summary`} className="tooltip" />
+                ) : (
+                  <Tooltip id={`${tooltipIdBase}-summary`} content={summaryTooltip} className="tooltip" />
+                )}
+              </div>
+            )}
+          </div>
         </div>
       )}
     </div>

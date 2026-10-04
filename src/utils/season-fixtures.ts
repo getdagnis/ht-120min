@@ -33,6 +33,8 @@ export interface SeasonFixtureMatchSnapshot {
   away_red_cards: number;
   away_injuries: number;
   match_event_details: MatchEventDetails | null;
+  home_match_kit_url?: string | null;
+  away_match_kit_url?: string | null;
   status: 'not_arranged' | 'arranged' | 'ongoing' | 'misarranged' | 'finished';
   ht_match_id: number | null;
   match_type: number | null;
@@ -106,6 +108,8 @@ interface SnapshotSourceMatch {
   away_red_cards?: number | null;
   away_injuries?: number | null;
   match_event_details?: MatchEventDetails | null;
+  home_match_kit_url?: string | null;
+  away_match_kit_url?: string | null;
   status: SeasonFixtureMatchSnapshot['status'];
   ht_match_id: number | null;
   match_type: number | null;
@@ -179,6 +183,8 @@ export function buildSeasonFixturesSnapshot(
         away_red_cards: match.away_red_cards ?? 0,
         away_injuries: match.away_injuries ?? 0,
         match_event_details: match.match_event_details ?? null,
+        home_match_kit_url: match.home_match_kit_url ?? null,
+        away_match_kit_url: match.away_match_kit_url ?? null,
         status: match.status,
         ht_match_id: match.ht_match_id,
         match_type: match.match_type,

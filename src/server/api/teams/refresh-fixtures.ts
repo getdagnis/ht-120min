@@ -1,7 +1,7 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { getServiceSupabase, getSupabase } from '../_lib/supabase.js';
 import { getAuthHeader } from '../_lib/chpp-auth.js';
-import { readChppTag } from '../_lib/chpp-xml.js';
+import { matchKitUrlsForFixture, readChppTag, teamDetailsKitForMatchSide } from '../_lib/chpp-xml.js';
 import {
   fetchArenaDetailsFromChpp,
   fetchTeamBookingStatus,
@@ -508,6 +508,8 @@ interface ChppMatchDetails {
   went120: boolean;
   totalMinutes: number;
   eventDetails: MatchEventDetails;
+  homeMatchKitUrl: string | null;
+  awayMatchKitUrl: string | null;
 }
 
 interface AddHtMatchTeamRow {
@@ -555,6 +557,9 @@ async function fetchMatchDetailsById(
   if (!response.ok || /<Error/i.test(xml)) {
     throw new Error('Could not fetch that Hattrick match.');
   }
+  if (readChppTag(xml, 'FileName') !== 'matchdetails.xml' || Number(readChppTag(xml, 'MatchID')) !== Number(htMatchId)) {
+    throw new Error('CHPP returned details for a different match.');
+  }
 
   const actualHtHomeTeamId =
     parseInt(xml.match(/<HomeTeam>[\s\S]*?<HomeTeamID>(\d+)<\/HomeTeamID>/i)?.[1] || '0', 10) || null;
@@ -577,6 +582,7 @@ async function fetchMatchDetailsById(
       ? parseChppStockholmDate(finishedDate)?.toISOString() || null
       : null;
   const eventDetails = parseMatchEventDetails(xml);
+  const kitUrls = matchKitUrlsForFixture(xml, [actualHtHomeTeamId], [actualHtAwayTeamId]);
   const footballScore = getFootballScore(eventDetails);
 
   return {
@@ -596,6 +602,8 @@ async function fetchMatchDetailsById(
     went120,
     totalMinutes: (went120 ? 120 : 90) + addedMinutes,
     eventDetails,
+    homeMatchKitUrl: kitUrls.home_match_kit_url,
+    awayMatchKitUrl: kitUrls.away_match_kit_url,
   };
 }
 
@@ -650,12 +658,20 @@ function mapHattrickMatchToFixture(match: ManualLinkMatchRow, details: ChppMatch
   return {
     homeGoals,
     awayGoals,
+    home_match_kit_url: kitForFixtureSide(details, [scheduledHomeHtId, ...homeAliases]),
+    away_match_kit_url: kitForFixtureSide(details, [scheduledAwayHtId, ...awayAliases]),
     venueMismatch,
     matchedBothTournamentTeams:
       Boolean(scheduledHomeHtId && (homeSideMatchesActualHome || homeSideMatchesActualAway)) &&
       Boolean(scheduledAwayHtId && (awaySideMatchesActualHome || awaySideMatchesActualAway)),
     eventDetails: mapMatchEventDetailsToFixture(details.eventDetails, scheduledHomeHtId, scheduledAwayHtId, homeAliases, awayAliases),
   };
+}
+
+function kitForFixtureSide(details: ChppMatchDetails, ids: Array<number | null>): string | null {
+  if (details.actualHtHomeTeamId && ids.includes(details.actualHtHomeTeamId)) return details.homeMatchKitUrl;
+  if (details.actualHtAwayTeamId && ids.includes(details.actualHtAwayTeamId)) return details.awayMatchKitUrl;
+  return null;
 }
 
 async function handleManualMatchLink(req: VercelRequest, res: VercelResponse) {
@@ -760,6 +776,8 @@ async function handleManualMatchLink(req: VercelRequest, res: VercelResponse) {
     matched_both_tournament_teams: mapping.matchedBothTournamentTeams,
     ...summarizeMatchEventDetails(mapping.eventDetails),
     match_event_details: mapping.eventDetails,
+    home_match_kit_url: mapping.home_match_kit_url,
+    away_match_kit_url: mapping.away_match_kit_url,
   };
 
   if (!dryRun) {
@@ -781,6 +799,8 @@ async function handleManualMatchLink(req: VercelRequest, res: VercelResponse) {
       finished_at: details.finishedAt,
       ...summarizeMatchEventDetails(mapping.eventDetails),
       match_event_details: mapping.eventDetails,
+      home_match_kit_url: mapping.home_match_kit_url,
+      away_match_kit_url: mapping.away_match_kit_url,
     };
     const { error } = await supabase.from('matches').update(updatePayload).eq('id', matchId);
     if (error) return res.status(500).json({ error: error.message });
@@ -1138,6 +1158,8 @@ async function handleAddHtMatch(req: VercelRequest, res: VercelResponse) {
       ...appgUpdate,
       ...summary,
       match_event_details: eventDetails,
+      home_match_kit_url: details.homeMatchKitUrl,
+      away_match_kit_url: details.awayMatchKitUrl,
     });
     if (matchError) return res.status(500).json({ error: matchError.message });
   }
@@ -1537,11 +1559,62 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       const currentStatus = match.status ?? 'not_arranged';
       if (!['not_arranged', 'arranged', 'misarranged'].includes(currentStatus)) continue;
 
+      // A linked fixture can supply its own kits even when either team cannot
+      // provide a friendlies list. Keep this independent of fixture reconciliation.
+      let checkedExistingKits = false;
+      if (currentStatus === 'arranged' && match.ht_match_id && authTeam?.oauth_token) {
+        const home = teams.find((team) => team.id === match.home_team_id);
+        const away = teams.find((team) => team.id === match.away_team_id);
+        if (home && away) {
+          checkedExistingKits = true;
+          try {
+            let details: ChppMatchDetails | null = null;
+            try {
+              details = await fetchMatchDetailsById(
+                String(match.ht_match_id), authTeam.oauth_token, authTeam.oauth_token_secret || '',
+              );
+            } catch (error) {
+              console.warn('Could not fetch linked match details for kits:', error instanceof Error ? error.message : error);
+            }
+            const reserve = teams.find((team) => team.id === match.reserve_team_id);
+            const fixtureHomeKit = details ? kitForFixtureSide(details, [
+              home.ht_team_id,
+              match.reserve_replaces_team_id === home.id ? reserve?.ht_team_id ?? null : null,
+            ]) : null;
+            const fixtureAwayKit = details ? kitForFixtureSide(details, [
+              away.ht_team_id,
+              match.reserve_replaces_team_id === away.id ? reserve?.ht_team_id ?? null : null,
+            ]) : null;
+            const [homeDetails, awayDetails] = await Promise.all([
+              fixtureHomeKit ? null : getStoryTeamDetails(match.reserve_replaces_team_id === home.id && reserve ? reserve : home),
+              fixtureAwayKit ? null : getStoryTeamDetails(match.reserve_replaces_team_id === away.id && reserve ? reserve : away),
+            ]);
+            const actualHomeTeamId = details?.actualHtHomeTeamId ?? match.actual_ht_home_team_id ?? null;
+            const actualAwayTeamId = details?.actualHtAwayTeamId ?? match.actual_ht_away_team_id ?? null;
+            const homeKit = fixtureHomeKit ?? teamDetailsKitForMatchSide(homeDetails, actualHomeTeamId, actualAwayTeamId);
+            const awayKit = fixtureAwayKit ?? teamDetailsKitForMatchSide(awayDetails, actualHomeTeamId, actualAwayTeamId);
+            const kitUpdate = {
+              ...(homeKit && homeKit !== match.home_match_kit_url ? { home_match_kit_url: homeKit } : {}),
+              ...(awayKit && awayKit !== match.away_match_kit_url ? { away_match_kit_url: awayKit } : {}),
+            };
+            if (Object.keys(kitUpdate).length) {
+              const { error } = await supabase.from('matches').update(kitUpdate).eq('id', match.id);
+              if (error) throw error;
+              Object.assign(match, kitUpdate);
+            }
+          } catch (error) {
+            console.warn('Could not refresh linked match kits:', error instanceof Error ? error.message : error);
+          }
+        }
+      }
+
       // Already-arranged matches only need a pass when their activity snapshot is missing.
       if (
         currentStatus === 'arranged' &&
         match.ht_match_id &&
         match.match_type &&
+        match.home_match_kit_url &&
+        match.away_match_kit_url &&
         (match.next_match_arrange_story || match.reserve_story || match.reserve_team_id) &&
         !currentRoundWarnings.some(
             (warning) =>
@@ -1645,6 +1718,52 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             )
           : null;
 
+      let kitUrls: { home_match_kit_url: string | null; away_match_kit_url: string | null } | null = null;
+      if (htMatchId && authTeam?.oauth_token && !checkedExistingKits &&
+          (htMatchId !== match.ht_match_id || !match.home_match_kit_url || !match.away_match_kit_url)) {
+        try {
+          const details = await fetchMatchDetailsById(htMatchId.toString(), authTeam.oauth_token, authTeam.oauth_token_secret || '');
+          if (details.htMatchId === htMatchId) {
+            const reserveId = reserveResolution?.kind === 'reserve' ? reserveResolution.reserve.ht_team_id : null;
+            kitUrls = {
+              home_match_kit_url: kitForFixtureSide(details, [
+                homeTeam.ht_team_id,
+                reserveReplacesTeamId === homeTeam.id ? reserveId : null,
+              ]) ?? teamDetailsKitForMatchSide(
+                reserveReplacesTeamId === homeTeam.id ? await getStoryTeamDetails(reserveResolution?.kind === 'reserve' ? reserveResolution.reserve : homeTeam) : homeDetails,
+                actualHtHomeTeamId,
+                actualHtAwayTeamId,
+              )
+                ?? (htMatchId === match.ht_match_id ? match.home_match_kit_url : null),
+              away_match_kit_url: kitForFixtureSide(details, [
+                awayTeam.ht_team_id,
+                reserveReplacesTeamId === awayTeam.id ? reserveId : null,
+              ]) ?? teamDetailsKitForMatchSide(
+                reserveReplacesTeamId === awayTeam.id ? await getStoryTeamDetails(reserveResolution?.kind === 'reserve' ? reserveResolution.reserve : awayTeam) : awayDetails,
+                actualHtHomeTeamId,
+                actualHtAwayTeamId,
+              )
+                ?? (htMatchId === match.ht_match_id ? match.away_match_kit_url : null),
+            };
+          }
+        } catch (error) {
+          console.warn('Could not fetch fixture match kits:', error instanceof Error ? error.message : error);
+          const reserveTeam = reserveResolution?.kind === 'reserve' ? reserveResolution.reserve : null;
+          kitUrls = {
+            home_match_kit_url: teamDetailsKitForMatchSide(
+              reserveReplacesTeamId === homeTeam.id && reserveTeam ? await getStoryTeamDetails(reserveTeam) : homeDetails,
+              actualHtHomeTeamId,
+              actualHtAwayTeamId,
+            ),
+            away_match_kit_url: teamDetailsKitForMatchSide(
+              reserveReplacesTeamId === awayTeam.id && reserveTeam ? await getStoryTeamDetails(reserveTeam) : awayDetails,
+              actualHtHomeTeamId,
+              actualHtAwayTeamId,
+            ),
+          };
+        }
+      }
+
       // Update match status and HT Match ID
       const { error: matchUpdateError } = await supabase
         .from('matches')
@@ -1657,6 +1776,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
           actual_ht_away_team_id: actualHtAwayTeamId,
           reserve_team_id: reserveTeamId,
           reserve_replaces_team_id: reserveReplacesTeamId,
+          ...(kitUrls || (htMatchId !== match.ht_match_id
+            ? { home_match_kit_url: null, away_match_kit_url: null }
+            : {})),
           ...(arrangeStory ? { next_match_arrange_story: arrangeStory } : {}),
           ...(reserveStory ? { reserve_story: reserveStory } : {}),
         })

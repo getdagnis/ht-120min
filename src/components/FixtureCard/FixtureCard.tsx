@@ -14,6 +14,7 @@ interface TeamProps {
   managerHtId?: number;
   htTeamId: number;
   logoUrl?: string;
+  matchKitUrl?: string | null;
   warning?: 'yellow' | 'red';
   reserveReplacingName?: string;
   countryName?: string;
@@ -140,11 +141,13 @@ export const FixtureCard: React.FC<FixtureCardProps> = ({
           countryName={team.countryName}
           countryId={team.countryId}
           teamId={team.htTeamId}
+          teamName={team.name}
           managerName={team.managerName}
           managerHtId={team.managerHtId}
           mode="fixtures"
           isRight={isRight}
           matchSummary={team.matchSummary}
+          matchKitUrl={team.warning ? null : team.matchKitUrl}
         />
       )}
       {team.warning && (

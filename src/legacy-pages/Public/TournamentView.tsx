@@ -300,6 +300,8 @@ interface MatchWithTeams {
   away_red_cards?: number;
   away_injuries?: number;
   match_event_details?: MatchEventDetails | null;
+  home_match_kit_url?: string | null;
+  away_match_kit_url?: string | null;
   status: 'not_arranged' | 'arranged' | 'ongoing' | 'misarranged' | 'finished';
   ht_match_id: number | null;
   match_type: number | null;
@@ -1861,7 +1863,7 @@ export const TournamentView: React.FC<{ initialData?: TournamentInitialData }> =
     if (!roundsData) return;
 
     const roundIds = roundsData.map((r: { id: string }) => r.id);
-    const [{ data: matchesData }, { data: warningsData }, { data: activityWarningsData }, { data: tournamentMeta }] =
+    const [{ data: matchesData, error: matchesError }, { data: warningsData }, { data: activityWarningsData }, { data: tournamentMeta }] =
       await Promise.all([
         supabase
           .from('matches')
@@ -1881,6 +1883,11 @@ export const TournamentView: React.FC<{ initialData?: TournamentInitialData }> =
           .eq('tournament_id', tournament.id),
         supabase.from('tournaments').select('last_fixtures_refresh').eq('id', tournament.id).single(),
       ]);
+
+    if (matchesError) {
+      console.error('Could not refresh fixture matches:', matchesError);
+      return;
+    }
 
     if (matchesData) {
       const newRounds = roundsData.map((r: { created_at: string; id: string; round_number: number }) => ({

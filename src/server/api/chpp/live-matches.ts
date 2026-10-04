@@ -1,7 +1,7 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { getServiceSupabase } from '../_lib/supabase.js';
 import { getAuthHeader } from '../_lib/chpp-auth.js';
-import { readChppTag } from '../_lib/chpp-xml.js';
+import { matchKitUrlsForFixture, readChppTag } from '../_lib/chpp-xml.js';
 import {
   advanceMatchStatus,
   readLiveMatch,
@@ -39,6 +39,8 @@ interface LiveMatchResult extends LiveMatchClock {
   appg_outcome?: 'ET3' | 'ET2' | 'PS1' | 'RT0' | 'OPW' | 'needs_review';
   appg_outcome_source?: 'unclassified' | 'chpp';
   match_event_details?: MatchEventDetails;
+  home_match_kit_url?: string | null;
+  away_match_kit_url?: string | null;
 }
 
 function firstRelation<T>(value: T | T[] | null | undefined): T | null {
@@ -160,7 +162,25 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       }
 
       const status = advanceMatchStatus(fixture.status, detailsState === 'finished' ? 'finished' : live ? 'ongoing' : detailsState);
-      if (status === 'arranged' || (status === 'ongoing' && !live) ||
+      const kitUrls = detailsXml
+        ? matchKitUrlsForFixture(
+            detailsXml,
+            [fixture.scheduledHomeHtId, fixture.reserveReplacesSide === 'home' ? fixture.reserveHtTeamId : null],
+            [fixture.scheduledAwayHtId, fixture.reserveReplacesSide === 'away' ? fixture.reserveHtTeamId : null],
+          )
+        : null;
+      const kitUpdates = {
+        ...(kitUrls?.home_match_kit_url ? { home_match_kit_url: kitUrls.home_match_kit_url } : {}),
+        ...(kitUrls?.away_match_kit_url ? { away_match_kit_url: kitUrls.away_match_kit_url } : {}),
+      };
+      if (status === 'arranged') {
+        if (Object.keys(kitUpdates).length) {
+          const { error } = await supabase.from('matches').update(kitUpdates).eq('id', fixture.id);
+          if (error) throw error;
+        }
+        continue;
+      }
+      if ((status === 'ongoing' && !live) ||
           (status === 'finished' && detailsState !== 'finished')) continue;
       const finished = status === 'finished';
       const sourceXml = finished ? detailsXml : live?.xml;
@@ -281,6 +301,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         away_red_cards: eventSummary.away_red_cards,
         away_injuries: eventSummary.away_injuries,
         match_event_details: eventDetails,
+        ...kitUpdates,
         finished_at: finishedAt,
       };
 
@@ -302,6 +323,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         away_red_cards: eventSummary.away_red_cards,
         away_injuries: eventSummary.away_injuries,
         match_event_details: eventDetails,
+        ...kitUpdates,
         actual_ht_home_team_id: actualHtHomeTeamId,
         actual_ht_away_team_id: actualHtAwayTeamId,
         finished_at: finishedAt,

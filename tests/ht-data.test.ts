@@ -2,8 +2,73 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 
 import { getCanonicalCountryName, getFlagUrl, getFriendlyTimeForCountry, getLeagueFlagUrl } from '../src/utils/ht-data';
-import { parseTeamDetailsXml as parseApiTeamDetailsXml } from '../src/server/api/_lib/chpp-xml';
+import { matchKitUrlsForFixture, parseTeamDetailsXml as parseApiTeamDetailsXml, teamDetailsKitForMatchSide } from '../src/server/api/_lib/chpp-xml';
 import { parseTeamDetailsXml as parseClientTeamDetailsXml } from '../src/utils/chpp-xml';
+import { toLargeMatchKitUrl } from '../shared/match-kits';
+
+test('stored kits use the large asset', () => {
+  assert.equal(
+    toLargeMatchKitUrl('https://res.hattrick.org/kits/1/1/1/6/matchKitSmall.png'),
+    'https://res.hattrick.org/kits/1/1/1/6/matchKitLarge.png',
+  );
+  assert.equal(
+    toLargeMatchKitUrl('https://res.hattrick.org/kits/34/335/3350/3349446/matchKitSmall.png'),
+    'https://res.hattrick.org/kits/34/335/3350/3349446/matchKitLarge.png',
+  );
+});
+
+test('MatchDetails kits follow fixture teams when Hattrick home and away are reversed', () => {
+  const xml = `<Match>
+    <HomeTeam><HomeTeamID>22</HomeTeamID><DressURI>//res.hattrick.org/kits/34/335/3350/3349446/matchKitSmall.png</DressURI></HomeTeam>
+    <AwayTeam><AwayTeamID>11</AwayTeamID><DressURI>//res.hattrick.org/kits/34/335/3350/3349447/matchKitSmall.png</DressURI></AwayTeam>
+  </Match>`;
+  assert.deepEqual(matchKitUrlsForFixture(xml, [11], [22]), {
+    home_match_kit_url: 'https://res.hattrick.org/kits/34/335/3350/3349447/matchKitLarge.png',
+    away_match_kit_url: 'https://res.hattrick.org/kits/34/335/3350/3349446/matchKitLarge.png',
+  });
+  assert.deepEqual(matchKitUrlsForFixture(xml, [33, 22], [11]), {
+    home_match_kit_url: 'https://res.hattrick.org/kits/34/335/3350/3349446/matchKitLarge.png',
+    away_match_kit_url: 'https://res.hattrick.org/kits/34/335/3350/3349447/matchKitLarge.png',
+  });
+});
+
+test('MatchDetails kits ignore unrelated hosts and unknown teams', () => {
+  const xml = `<Match><HomeTeam><HomeTeamID>22</HomeTeamID><DressURI>https://other.example/kit.png</DressURI></HomeTeam></Match>`;
+  assert.deepEqual(matchKitUrlsForFixture(xml, [22], [11]), {
+    home_match_kit_url: null,
+    away_match_kit_url: null,
+  });
+});
+
+test('MatchDetails snapshots default and custom kits so default kits need no repeated fetch', () => {
+  const xml = `<Match>
+    <HomeTeam><HomeTeamID>11</HomeTeamID><DressURI>//res.hattrick.org/kits/1/1/1/6/matchKitSmall.png</DressURI></HomeTeam>
+    <AwayTeam><AwayTeamID>22</AwayTeamID><DressURI>//res.hattrick.org/kits/34/335/3350/3349446/matchKitSmall.png</DressURI></AwayTeam>
+  </Match>`;
+  assert.deepEqual(matchKitUrlsForFixture(xml, [11], [22]), {
+    home_match_kit_url: 'https://res.hattrick.org/kits/1/1/1/6/matchKitLarge.png',
+    away_match_kit_url: 'https://res.hattrick.org/kits/34/335/3350/3349446/matchKitLarge.png',
+  });
+  const otherDefault = xml.replace('/kits/1/1/1/6/', '/kits/1/1/1/7/');
+  assert.equal(
+    matchKitUrlsForFixture(otherDefault, [11], [22]).home_match_kit_url,
+    'https://res.hattrick.org/kits/1/1/1/7/matchKitLarge.png',
+  );
+});
+
+test('TeamDetails exposes a current kit URL separately from its logo fallback', () => {
+  const xml = `<TeamDetails><Team><TeamID>11</TeamID><LogoURL>https://res.hattrick.org/teamlogo/11.jpg</LogoURL><DressURI>//res.hattrick.org/kits/34/335/3350/3349446/matchKitSmall.png</DressURI><DressAlternateURI>//res.hattrick.org/kits/34/335/3350/3349447/matchKitSmall.png</DressAlternateURI></Team></TeamDetails>`;
+  const details = parseApiTeamDetailsXml(xml, 11);
+  assert.equal(details.logoUrl, 'https://res.hattrick.org/teamlogo/11.jpg');
+  assert.equal(details.matchKitUrl, 'https://res.hattrick.org/kits/34/335/3350/3349446/matchKitLarge.png');
+  assert.equal(details.alternateMatchKitUrl, 'https://res.hattrick.org/kits/34/335/3350/3349447/matchKitLarge.png');
+  assert.equal(teamDetailsKitForMatchSide(details, 11, 22), details.matchKitUrl);
+  assert.equal(teamDetailsKitForMatchSide(details, 22, 11), details.alternateMatchKitUrl);
+  assert.equal(teamDetailsKitForMatchSide(details, 22, 33), null);
+  const noKits = parseApiTeamDetailsXml('<Team><TeamID>11</TeamID></Team>', 11);
+  assert.equal(noKits.matchKitUrl, undefined);
+  assert.equal(teamDetailsKitForMatchSide(noKits, 22, 11), null);
+});
 
 test('Latvia display is canonicalized from localized CHPP country values', () => {
   assert.equal(getCanonicalCountryName('Lettonia', 48), 'Latvia');

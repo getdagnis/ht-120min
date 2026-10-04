@@ -28,6 +28,34 @@
   min-height: 16px
   opacity: 1
 
+.matchDetails
+  display: flex
+  align-items: flex-start
+  gap: 0.35rem
+  max-width: 100%
+
+  &.right
+    flex-direction: row-reverse
+    text-align: right
+
+    .matchEvents
+      align-items: flex-end
+
+    .goalsRow, .summaryRow
+      justify-content: flex-end
+
+.matchEvents
+  display: flex
+  flex-direction: column
+  gap: 0.1rem
+  min-width: 0
+
+.matchKit
+  width: 2.5rem
+  height: 2.5rem
+  object-fit: contain
+  flex: none
+
 .goalsRow
   display: flex
   align-items: center

@@ -1,6 +1,7 @@
 import { getLeagueNameById } from '../../../../shared/worlddetails.js';
 import { normalizeChppCountryName } from '../../../../shared/chpp-country.js';
 import { decodeXmlEntities } from '../../../../shared/xml-entities.js';
+import { toLargeMatchKitUrl } from '../../../../shared/match-kits.js';
 
 export interface ChppTeamOption {
   teamId: number;
@@ -60,6 +61,36 @@ export function normalizeChppAssetUrl(url: string): string {
   return trimmed;
 }
 
+export function matchKitUrlFromChpp(raw: string | undefined): string | undefined {
+  if (!raw) return undefined;
+  const url = normalizeChppAssetUrl(raw);
+  try {
+    const parsed = new URL(url);
+    if (parsed.protocol === 'https:' &&
+        (parsed.hostname === 'hattrick.org' || parsed.hostname.endsWith('.hattrick.org'))) {
+      return toLargeMatchKitUrl(url);
+    }
+  } catch { /* Ignore malformed CHPP asset URLs. */ }
+  return undefined;
+}
+
+/** MatchDetails DressURI belongs to the actual Hattrick side, which can differ from the fixture side. */
+export function matchKitUrlsForFixture(
+  xml: string,
+  homeTeamIds: Array<number | null>,
+  awayTeamIds: Array<number | null>,
+): { home_match_kit_url: string | null; away_match_kit_url: string | null } {
+  const kits = new Map<number, string>();
+  for (const side of ['Home', 'Away'] as const) {
+    const block = xml.match(new RegExp(`<${side}Team>([\\s\\S]*?)<\\/${side}Team>`, 'i'))?.[1];
+    const id = block ? Number(readChppTag(block, `${side}TeamID`)) : 0;
+    const url = matchKitUrlFromChpp(block ? readChppTag(block, 'DressURI') : undefined);
+    if (id && url) kits.set(id, url);
+  }
+  const find = (ids: Array<number | null>) => ids.map((id) => id ? kits.get(id) : undefined).find(Boolean) ?? null;
+  return { home_match_kit_url: find(homeTeamIds), away_match_kit_url: find(awayTeamIds) };
+}
+
 export interface ParsedTeamDetails {
   teamId: number;
   teamName?: string;
@@ -80,6 +111,8 @@ export interface ParsedTeamDetails {
   powerLeagueRank?: number;
   powerRegionRank?: number;
   logoUrl?: string;
+  matchKitUrl?: string;
+  alternateMatchKitUrl?: string;
   genderId?: number;
   arenaId?: number;
   arenaName?: string;
@@ -89,6 +122,17 @@ export interface ParsedTeamDetails {
   possibleToChallengeMidweek?: boolean;
   possibleToChallengeWeekend?: boolean;
   errorCode?: number;
+}
+
+export function teamDetailsKitForMatchSide(
+  details: ParsedTeamDetails | null,
+  actualHomeTeamId: number | null,
+  actualAwayTeamId: number | null,
+): string | null {
+  if (!details) return null;
+  if (details.teamId === actualHomeTeamId) return details.matchKitUrl ?? null;
+  if (details.teamId === actualAwayTeamId) return details.alternateMatchKitUrl ?? null;
+  return null;
 }
 
 export function parseTeamDetailsXml(xml: string, teamId: number): ParsedTeamDetails {
@@ -149,6 +193,8 @@ export function parseTeamDetailsXml(xml: string, teamId: number): ParsedTeamDeta
       powerLeagueRank: powerLeagueRankRaw ? parseInt(powerLeagueRankRaw, 10) : undefined,
       powerRegionRank: powerRegionRankRaw ? parseInt(powerRegionRankRaw, 10) : undefined,
       logoUrl,
+      matchKitUrl: matchKitUrlFromChpp(dressRaw),
+      alternateMatchKitUrl: matchKitUrlFromChpp(readChppTag(block, 'DressAlternateURI')),
       arenaId: arenaIdRaw ? parseInt(arenaIdRaw, 10) : undefined,
       arenaName: readChppTag(block, 'ArenaName'),
       fanclubSize: fanclubSizeRaw ? parseInt(fanclubSizeRaw, 10) : undefined,

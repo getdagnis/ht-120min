@@ -28,6 +28,7 @@ Detailed flow reference: `docs/auth-flow.md`.
 - `teamdetails`: team metadata such as team name/id, logo, arena pointer, gender, country/league fields, and challengeability hints.
 - `matches`: authoritative source for upcoming/recent team fixtures and friendly booking detection.
 - `matchdetails`: authoritative source for confirmed finish and final result sync. During play it may contain only match metadata, without status or score.
+- `matchdetails` carries each actual side's `DressURI` when available. For scheduled matches whose MatchDetails has no kit URL, fixture refresh uses the current `teamdetails` `DressURI` for the actual home side and `DressAlternateURI` for the actual away side. MatchDetails remains authoritative when it supplies a kit URL. Refresh rechecks linked arranged fixtures so it can correct earlier home-kit snapshots on away sides. URLs are stored on `matches` by scheduled fixture side and rendered directly from Hattrick using `matchKitLarge.png`. Default and custom kits both render when a URL is stored. `matches.xml` does not carry kit URLs.
 - `live`: source for ongoing presence, current score, and structured live events. Do not use it to declare a match finished.
 - `challenges`: challengeable/challenge actions when direct friendly management is needed.
 - `worlddetails` and `leaguedetails`: preferred direction for canonical country/league normalization.

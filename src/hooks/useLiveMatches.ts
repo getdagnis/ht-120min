@@ -20,6 +20,8 @@ export interface LiveMatchData extends Partial<LiveMatchClock> {
   appg_outcome?: 'ET3' | 'ET2' | 'PS1' | 'RT0' | 'OPW' | 'needs_review';
   appg_outcome_source?: 'unclassified' | 'chpp';
   match_event_details?: MatchEventDetails;
+  home_match_kit_url?: string | null;
+  away_match_kit_url?: string | null;
 }
 
 interface Match {
