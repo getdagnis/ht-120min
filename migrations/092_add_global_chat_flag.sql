@@ -1,0 +1,2 @@
+ALTER TABLE public.global_chat
+  ADD COLUMN IF NOT EXISTS global_message BOOLEAN NOT NULL DEFAULT FALSE;

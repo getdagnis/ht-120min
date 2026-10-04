@@ -2741,7 +2741,16 @@ export const TournamentView: React.FC<{ initialData?: TournamentInitialData }> =
 
       if (chatError || !chatData) return;
 
-      const authorIds = [...new Set(chatData.map((m) => m.author_ht_id).filter((id) => id && id !== 0))];
+      const { data: globalData } = await supabase
+        .from('global_chat')
+        .select('id, author_name, author_ht_id, content, created_at, global_message')
+        .eq('global_message', true)
+        .order('created_at', { ascending: true });
+      const allChatData = [...chatData, ...(globalData || [])].sort(
+        (a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime(),
+      );
+
+      const authorIds = [...new Set(allChatData.map((m) => m.author_ht_id).filter((id) => id && id !== 0))];
       const standingsManagerIds = teams
         .filter((team) => !team.reserve_active)
         .map((team) => team.hattrick_user_id)
@@ -2768,14 +2777,14 @@ export const TournamentView: React.FC<{ initialData?: TournamentInitialData }> =
         setManagerProfiles(profileMap);
 
         setChatMessages(
-          chatData.map((m) => ({
+          allChatData.map((m) => ({
             ...m,
             profiles: m.author_ht_id ? profileMap[m.author_ht_id] : null,
           })),
         );
       } else {
         setManagerProfiles({});
-        setChatMessages(chatData);
+        setChatMessages(allChatData);
       }
     };
 
@@ -2806,18 +2815,51 @@ export const TournamentView: React.FC<{ initialData?: TournamentInitialData }> =
       )
       .subscribe();
 
+    const globalChannel = supabase
+      .channel(`global-chat:${tournament.id}`)
+      .on(
+        'postgres_changes',
+        { event: 'INSERT', schema: 'public', table: 'global_chat', filter: 'global_message=eq.true' },
+        async (payload) => {
+          const newMessage = payload.new as any;
+          const { data: profile } = await supabase
+            .from('profiles')
+            .select('avatar_json, country_name, country_id')
+            .eq('hattrick_user_id', newMessage.author_ht_id)
+            .maybeSingle();
+          setChatMessages((previous) => previous.some((message) => message.id === newMessage.id)
+            ? previous
+            : [...previous, { ...newMessage, profiles: profile }].sort(
+                (a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime(),
+              ));
+        },
+      )
+      .subscribe();
+
     return () => {
       supabase.removeChannel(channel);
+      supabase.removeChannel(globalChannel);
     };
   }, [activeTab, teams, tournament]);
 
-  const handlePostChat = async (content: string) => {
+  const handlePostChat = async (content: string, globalMessage = false) => {
     // Accept content here
     if (!content.trim() || !tournament) return;
     try {
       const myHtId = localStorage.getItem('my_ht_user_id');
       const myTeam = myHtId ? teams.find((t) => t.hattrick_user_id === Number(myHtId)) : null;
       const authorName = myTeam?.manager_name || myTeam?.name || localStorage.getItem('my_ht_manager_name') || 'Guest';
+
+      if (globalMessage) {
+        const response = await fetch('/api/app?route=global-chat', {
+          method: 'POST',
+          credentials: 'include',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ content: content.trim(), globalMessage: true }),
+        });
+        if (!response.ok) alert('Could not send the global message.');
+        return;
+      }
 
       await supabase.from('tournament_chat').insert({
         tournament_id: tournament.id,
@@ -5319,6 +5361,7 @@ export const TournamentView: React.FC<{ initialData?: TournamentInitialData }> =
             countryLimitFormat: tournament.country_limit_format,
           } satisfies TournamentEmojiContext
         }
+        allowGlobalMessageControl
       />
     </section>
   );

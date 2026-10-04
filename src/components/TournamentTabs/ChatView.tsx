@@ -20,6 +20,7 @@ export interface ChatMessage {
   content: string;
   created_at: string;
   author_ht_id: number;
+  global_message?: boolean;
   profiles?: ChatAuthorProfile | null;
 }
 
@@ -31,7 +32,7 @@ export interface ChatAuthorProfile {
 
 interface ChatViewProps {
   messages: ChatMessage[];
-  onSendMessage: (content: string) => void;
+  onSendMessage: (content: string, globalMessage?: boolean) => void;
   myHtUserId: number | null;
   leagueManagerIds?: number[];
   teamNames?: Record<number, string>;
@@ -41,6 +42,7 @@ interface ChatViewProps {
   markUnknownAuthorsExternal?: boolean;
   maxMessageLength?: number;
   welcomeMessage?: string;
+  allowGlobalMessageControl?: boolean;
 }
 
 export interface AuthorTooltipProps {
@@ -151,8 +153,11 @@ export const ChatView: React.FC<ChatViewProps> = ({
   markUnknownAuthorsExternal = true,
   maxMessageLength,
   welcomeMessage = DEFAULT_TOURNAMENT_CHAT_WELCOME,
+  allowGlobalMessageControl = false,
 }) => {
   const [newChatContent, setNewChatContent] = useState('');
+  const [globalMessage, setGlobalMessage] = useState(false);
+  const [isLocalhost, setIsLocalhost] = useState(false);
   const pathname = usePathname() || '/';
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -165,6 +170,10 @@ export const ChatView: React.FC<ChatViewProps> = ({
   const visibleMessages = displayMessages.slice(-visibleMessageCount);
 
   useEffect(() => {
+    setIsLocalhost(['localhost', '127.0.0.1', '::1', '[::1]'].includes(window.location.hostname));
+  }, []);
+
+  useEffect(() => {
     if (chatContainerRef.current) {
       chatContainerRef.current.scrollTop = chatContainerRef.current.scrollHeight;
     }
@@ -173,8 +182,9 @@ export const ChatView: React.FC<ChatViewProps> = ({
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!newChatContent.trim()) return;
-    onSendMessage(newChatContent);
+    onSendMessage(newChatContent, globalMessage);
     setNewChatContent('');
+    setGlobalMessage(false);
   };
 
   const handleOpenProfile = (htId: number) => {
@@ -275,10 +285,10 @@ export const ChatView: React.FC<ChatViewProps> = ({
                         authorName={msg.author_name}
                         teamName={
                           msg.author_ht_id === OFFICIAL_HT_USER_ID
-                            ? 'HT-120min Owner'
+                            ? 'admin'
                             : teamDetails[msg.author_ht_id]?.name ||
                               teamNames[msg.author_ht_id] ||
-                              (showGuestTeam ? 'Guest' : undefined)
+                              (showGuestTeam ? 'guest' : undefined)
                         }
                         countryName={teamDetails[msg.author_ht_id]?.countryName}
                         countryId={teamDetails[msg.author_ht_id]?.countryId}
@@ -288,7 +298,9 @@ export const ChatView: React.FC<ChatViewProps> = ({
                       />
                     </>
                   )}
-                  <div className={`${styles.chatBubble} ${isBigEmoji ? styles.bigEmojiBubble : ''}`}>
+                  <div
+                    className={`${styles.chatBubble} ${isBigEmoji ? styles.bigEmojiBubble : ''} ${msg.global_message ? styles.globalMessage : ''}`}
+                  >
                     <span className={`${styles.chatContent} ${isBigEmoji ? styles.bigEmoji : ''}`}>{msg.content}</span>
                   </div>
                 </div>
@@ -326,6 +338,16 @@ export const ChatView: React.FC<ChatViewProps> = ({
                 </button>
               ))}
             </div>
+            {allowGlobalMessageControl && isLocalhost && myHtUserId === 8777402 && (
+              <label className={styles.globalMessageToggle}>
+                <input
+                  type="checkbox"
+                  checked={globalMessage}
+                  onChange={(event) => setGlobalMessage(event.target.checked)}
+                />
+                Global message forall chats
+              </label>
+            )}
           </form>
         ) : (
           <div className={styles.loginToPost}>

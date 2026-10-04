@@ -2079,6 +2079,15 @@ async function handleGlobalChat(req: VercelRequest, res: VercelResponse) {
 
   const content = normalizeGlobalChatContent(req.body?.content);
   if (!content) return res.status(400).json({ error: 'Message must contain 1–500 characters.' });
+  const isGlobalMessage = req.body?.globalMessage === true;
+  if (isGlobalMessage) {
+    const expectedAdminId = Number(process.env.FORGE_SUPERADMIN_HT_ID || '');
+    const host = String(req.headers.host || '').toLowerCase();
+    const isLocalhost = /^(localhost|127(?:\.\d{1,3}){3}|\[?::1\]?)(:\d+)?$/.test(host);
+    if (!isLocalhost || expectedAdminId !== 8777402 || session.userId !== expectedAdminId) {
+      return res.status(403).json({ error: 'Global messages are unavailable.' });
+    }
+  }
 
   const supabase = getServiceSupabase();
   const { data: profile, error: profileError } = await supabase
@@ -2094,8 +2103,9 @@ async function handleGlobalChat(req: VercelRequest, res: VercelResponse) {
       author_name: profile?.manager_name || 'Hattrick manager',
       author_ht_id: session.userId,
       content,
+      global_message: isGlobalMessage,
     })
-    .select('id, author_name, author_ht_id, content, created_at')
+    .select('id, author_name, author_ht_id, content, created_at, global_message')
     .single();
   if (insertError) throw insertError;
 

@@ -59,7 +59,7 @@ export const GlobalChatWidget: React.FC<GlobalChatWidgetProps> = ({ myHtUserId }
   const loadMessages = useCallback(async () => {
     const { data, error } = await supabase
       .from('global_chat')
-      .select('id, author_name, author_ht_id, content, created_at')
+      .select('id, author_name, author_ht_id, content, created_at, global_message')
       .order('created_at', { ascending: true });
     if (error || !data) return;
 
