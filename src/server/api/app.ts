@@ -52,7 +52,7 @@ import {
   validateHfiRankRefreshAccess,
   type HfiRankParticipant,
 } from './_lib/hfi-rank-refresh.js';
-import { matchKitUrlsForFixture, type ChppTeamOption } from './_lib/chpp-xml.js';
+import { type ChppTeamOption } from './_lib/chpp-xml.js';
 import { getAuthHeader } from './_lib/chpp-auth.js';
 import {
   getFootballScore,
@@ -1623,18 +1623,11 @@ async function handleRoundPressMatchDetailsBackfill(req: VercelRequest, res: Ver
         ? [reserveTeam.ht_team_id]
         : [],
     );
-    const kitUrls = matchKitUrlsForFixture(
-      xml,
-      [homeTeam?.ht_team_id ?? null, match.reserve_replaces_team_id === match.home_team_id ? reserveTeam?.ht_team_id ?? null : null],
-      [awayTeam?.ht_team_id ?? null, match.reserve_replaces_team_id === match.away_team_id ? reserveTeam?.ht_team_id ?? null : null],
-    );
     const footballScore = getFootballScore(details);
     const shootout = getPenaltyShootoutScore(details);
     if (apply) {
       const { error } = await supabase.from('matches').update({
         match_event_details: details,
-        ...(kitUrls.home_match_kit_url ? { home_match_kit_url: kitUrls.home_match_kit_url } : {}),
-        ...(kitUrls.away_match_kit_url ? { away_match_kit_url: kitUrls.away_match_kit_url } : {}),
         home_goals: footballScore?.home ?? null,
         away_goals: footballScore?.away ?? null,
         went_120: details.result?.reached120 ?? false,

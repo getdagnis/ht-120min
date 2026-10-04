@@ -2,7 +2,8 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 
 import { getCanonicalCountryName, getFlagUrl, getFriendlyTimeForCountry, getLeagueFlagUrl } from '../src/utils/ht-data';
-import { matchKitUrlsForFixture, parseTeamDetailsXml as parseApiTeamDetailsXml, teamDetailsKitForMatchSide } from '../src/server/api/_lib/chpp-xml';
+import { parseTeamDetailsXml as parseApiTeamDetailsXml, teamDetailsKitForMatchSide } from '../src/server/api/_lib/chpp-xml';
+import { fetchFixtureHomeAwayKits } from '../src/server/api/_lib/chpp-fixture-kits';
 import { parseTeamDetailsXml as parseClientTeamDetailsXml } from '../src/utils/chpp-xml';
 import { toLargeMatchKitUrl } from '../shared/match-kits';
 
@@ -14,45 +15,6 @@ test('stored kits use the large asset', () => {
   assert.equal(
     toLargeMatchKitUrl('https://res.hattrick.org/kits/34/335/3350/3349446/matchKitSmall.png'),
     'https://res.hattrick.org/kits/34/335/3350/3349446/matchKitLarge.png',
-  );
-});
-
-test('MatchDetails kits follow fixture teams when Hattrick home and away are reversed', () => {
-  const xml = `<Match>
-    <HomeTeam><HomeTeamID>22</HomeTeamID><DressURI>//res.hattrick.org/kits/34/335/3350/3349446/matchKitSmall.png</DressURI></HomeTeam>
-    <AwayTeam><AwayTeamID>11</AwayTeamID><DressURI>//res.hattrick.org/kits/34/335/3350/3349447/matchKitSmall.png</DressURI></AwayTeam>
-  </Match>`;
-  assert.deepEqual(matchKitUrlsForFixture(xml, [11], [22]), {
-    home_match_kit_url: 'https://res.hattrick.org/kits/34/335/3350/3349447/matchKitLarge.png',
-    away_match_kit_url: 'https://res.hattrick.org/kits/34/335/3350/3349446/matchKitLarge.png',
-  });
-  assert.deepEqual(matchKitUrlsForFixture(xml, [33, 22], [11]), {
-    home_match_kit_url: 'https://res.hattrick.org/kits/34/335/3350/3349446/matchKitLarge.png',
-    away_match_kit_url: 'https://res.hattrick.org/kits/34/335/3350/3349447/matchKitLarge.png',
-  });
-});
-
-test('MatchDetails kits ignore unrelated hosts and unknown teams', () => {
-  const xml = `<Match><HomeTeam><HomeTeamID>22</HomeTeamID><DressURI>https://other.example/kit.png</DressURI></HomeTeam></Match>`;
-  assert.deepEqual(matchKitUrlsForFixture(xml, [22], [11]), {
-    home_match_kit_url: null,
-    away_match_kit_url: null,
-  });
-});
-
-test('MatchDetails snapshots default and custom kits so default kits need no repeated fetch', () => {
-  const xml = `<Match>
-    <HomeTeam><HomeTeamID>11</HomeTeamID><DressURI>//res.hattrick.org/kits/1/1/1/6/matchKitSmall.png</DressURI></HomeTeam>
-    <AwayTeam><AwayTeamID>22</AwayTeamID><DressURI>//res.hattrick.org/kits/34/335/3350/3349446/matchKitSmall.png</DressURI></AwayTeam>
-  </Match>`;
-  assert.deepEqual(matchKitUrlsForFixture(xml, [11], [22]), {
-    home_match_kit_url: 'https://res.hattrick.org/kits/1/1/1/6/matchKitLarge.png',
-    away_match_kit_url: 'https://res.hattrick.org/kits/34/335/3350/3349446/matchKitLarge.png',
-  });
-  const otherDefault = xml.replace('/kits/1/1/1/6/', '/kits/1/1/1/7/');
-  assert.equal(
-    matchKitUrlsForFixture(otherDefault, [11], [22]).home_match_kit_url,
-    'https://res.hattrick.org/kits/1/1/1/7/matchKitLarge.png',
   );
 });
 
@@ -68,6 +30,30 @@ test('TeamDetails exposes a current kit URL separately from its logo fallback', 
   const noKits = parseApiTeamDetailsXml('<Team><TeamID>11</TeamID></Team>', 11);
   assert.equal(noKits.matchKitUrl, undefined);
   assert.equal(teamDetailsKitForMatchSide(noKits, 22, 11), null);
+});
+
+test('finished fixture kits use TeamDetails home and away dresses across a venue reversal', async () => {
+  const originalFetch = globalThis.fetch;
+  globalThis.fetch = async (input) => {
+    const teamId = new URL(String(input)).searchParams.get('teamID');
+    return new Response(`<HattrickData><Team><TeamID>${teamId}</TeamID><DressURI>//res.hattrick.org/kits/${teamId}/matchKitSmall.png</DressURI><DressAlternateURI>//res.hattrick.org/kits/${teamId}-away/matchKitSmall.png</DressAlternateURI></Team></HattrickData>`);
+  };
+  try {
+    assert.deepEqual(await fetchFixtureHomeAwayKits({
+      consumerKey: 'key',
+      consumerSecret: 'secret',
+      credentials: { oauth_token: 'token', oauth_token_secret: 'token-secret' },
+      actualHomeTeamId: 22,
+      actualAwayTeamId: 11,
+      homeTeamIds: [11],
+      awayTeamIds: [22],
+    }), {
+      home_match_kit_url: 'https://res.hattrick.org/kits/11-away/matchKitLarge.png',
+      away_match_kit_url: 'https://res.hattrick.org/kits/22/matchKitLarge.png',
+    });
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
 });
 
 test('Latvia display is canonicalized from localized CHPP country values', () => {

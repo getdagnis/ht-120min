@@ -1,7 +1,8 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { getServiceSupabase } from '../_lib/supabase.js';
 import { getAuthHeader } from '../_lib/chpp-auth.js';
-import { matchKitUrlsForFixture, readChppTag } from '../_lib/chpp-xml.js';
+import { readChppTag, type ParsedTeamDetails } from '../_lib/chpp-xml.js';
+import { fetchFixtureHomeAwayKits } from '../_lib/chpp-fixture-kits.js';
 import {
   advanceMatchStatus,
   readLiveMatch,
@@ -128,6 +129,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
     const url = 'https://chpp.hattrick.org/chppxml.ashx';
     const results: Record<string, LiveMatchResult> = {};
+    const kitCache = new Map<number, Promise<ParsedTeamDetails | null>>();
     for (const htMatchId of ids) {
       const htMatchIdNum = parseInt(htMatchId, 10);
       const fixture = matchFixtureMap.get(htMatchIdNum);
@@ -162,22 +164,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       }
 
       const status = advanceMatchStatus(fixture.status, detailsState === 'finished' ? 'finished' : live ? 'ongoing' : detailsState);
-      const kitUrls = detailsXml
-        ? matchKitUrlsForFixture(
-            detailsXml,
-            [fixture.scheduledHomeHtId, fixture.reserveReplacesSide === 'home' ? fixture.reserveHtTeamId : null],
-            [fixture.scheduledAwayHtId, fixture.reserveReplacesSide === 'away' ? fixture.reserveHtTeamId : null],
-          )
-        : null;
-      const kitUpdates = {
-        ...(kitUrls?.home_match_kit_url ? { home_match_kit_url: kitUrls.home_match_kit_url } : {}),
-        ...(kitUrls?.away_match_kit_url ? { away_match_kit_url: kitUrls.away_match_kit_url } : {}),
-      };
       if (status === 'arranged') {
-        if (Object.keys(kitUpdates).length) {
-          const { error } = await supabase.from('matches').update(kitUpdates).eq('id', fixture.id);
-          if (error) throw error;
-        }
         continue;
       }
       if ((status === 'ongoing' && !live) ||
@@ -194,6 +181,21 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         parseInt(sourceXml.match(/<HomeTeam>[\s\S]*?<HomeTeamID>(\d+)<\/HomeTeamID>/i)?.[1] || '0', 10) || null;
       const actualHtAwayTeamId =
         parseInt(sourceXml.match(/<AwayTeam>[\s\S]*?<AwayTeamID>(\d+)<\/AwayTeamID>/i)?.[1] || '0', 10) || null;
+
+      const kitUrls = finished ? await fetchFixtureHomeAwayKits({
+        consumerKey: process.env.CHPP_CONSUMER_KEY!,
+        consumerSecret: process.env.CHPP_CONSUMER_SECRET!,
+        credentials: { oauth_token: fixture.oauthToken, oauth_token_secret: fixture.oauthTokenSecret },
+        actualHomeTeamId: actualHtHomeTeamId,
+        actualAwayTeamId: actualHtAwayTeamId,
+        homeTeamIds: [fixture.scheduledHomeHtId, fixture.reserveReplacesSide === 'home' ? fixture.reserveHtTeamId : null],
+        awayTeamIds: [fixture.scheduledAwayHtId, fixture.reserveReplacesSide === 'away' ? fixture.reserveHtTeamId : null],
+        cache: kitCache,
+      }) : null;
+      const kitUpdates = {
+        ...(kitUrls?.home_match_kit_url ? { home_match_kit_url: kitUrls.home_match_kit_url } : {}),
+        ...(kitUrls?.away_match_kit_url ? { away_match_kit_url: kitUrls.away_match_kit_url } : {}),
+      };
 
       const addedMinutes = parseInt(readChppTag(sourceXml, 'AddedMinutes') || '0', 10);
 

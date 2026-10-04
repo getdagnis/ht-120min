@@ -8,7 +8,6 @@ import {
   getCanonicalEventDescription,
   type MatchSideEventDetails,
 } from '../../../shared/match-events';
-import { toLargeMatchKitUrl } from '../../../shared/match-kits';
 import styles from './TeamByline.module.sass';
 
 interface TeamBylineProps {
@@ -49,7 +48,7 @@ export const TeamByline: React.FC<TeamBylineProps> = ({
 }) => {
   // Use a unique ID for tooltips to avoid collisions
   const tooltipIdBase = `byline-${teamId}-${managerHtId}-${mode}-${isRight ? 'r' : 'l'}`;
-  const visibleMatchKitUrl = matchKitUrl ? toLargeMatchKitUrl(matchKitUrl) : null;
+  const visibleMatchKitUrl = matchKitUrl ? matchKitUrl : null;
 
   const openProfile = (e: React.MouseEvent) => {
     e.preventDefault();

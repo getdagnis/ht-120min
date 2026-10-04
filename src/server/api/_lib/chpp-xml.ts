@@ -74,23 +74,6 @@ export function matchKitUrlFromChpp(raw: string | undefined): string | undefined
   return undefined;
 }
 
-/** MatchDetails DressURI belongs to the actual Hattrick side, which can differ from the fixture side. */
-export function matchKitUrlsForFixture(
-  xml: string,
-  homeTeamIds: Array<number | null>,
-  awayTeamIds: Array<number | null>,
-): { home_match_kit_url: string | null; away_match_kit_url: string | null } {
-  const kits = new Map<number, string>();
-  for (const side of ['Home', 'Away'] as const) {
-    const block = xml.match(new RegExp(`<${side}Team>([\\s\\S]*?)<\\/${side}Team>`, 'i'))?.[1];
-    const id = block ? Number(readChppTag(block, `${side}TeamID`)) : 0;
-    const url = matchKitUrlFromChpp(block ? readChppTag(block, 'DressURI') : undefined);
-    if (id && url) kits.set(id, url);
-  }
-  const find = (ids: Array<number | null>) => ids.map((id) => id ? kits.get(id) : undefined).find(Boolean) ?? null;
-  return { home_match_kit_url: find(homeTeamIds), away_match_kit_url: find(awayTeamIds) };
-}
-
 export interface ParsedTeamDetails {
   teamId: number;
   teamName?: string;
@@ -130,8 +113,20 @@ export function teamDetailsKitForMatchSide(
   actualAwayTeamId: number | null,
 ): string | null {
   if (!details) return null;
-  if (details.teamId === actualHomeTeamId) return details.matchKitUrl ?? null;
-  if (details.teamId === actualAwayTeamId) return details.alternateMatchKitUrl ?? null;
+  if (details.teamId === actualHomeTeamId) {
+    const homeKit = details.matchKitUrl;
+    if (details.genderId === 2 && homeKit === 'https://res.hattrick.org/kits/1/1/1/1/matchKitLarge.png') {
+      return 'https://res.hattrick.org/kits/1/1/1/6/matchKitLarge.png';
+    }
+    return homeKit ?? null;
+  }
+  if (details.teamId === actualAwayTeamId) {
+    const awayKit = details.alternateMatchKitUrl;
+    if (details.genderId === 2 && awayKit === 'https://res.hattrick.org/kits/1/1/1/2/matchKitLarge.png') {
+      return 'https://res.hattrick.org/kits/1/1/1/7/matchKitLarge.png';
+    }
+    return awayKit ?? null;
+  }
   return null;
 }
 
