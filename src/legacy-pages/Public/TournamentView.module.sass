@@ -1183,6 +1183,25 @@
     text-transform: uppercase
     letter-spacing: 0.05em
 
+.tournamentChatWidget
+  min-width: 0
+
+.tournamentChatTitle
+  display: flex
+  align-items: center
+  gap: 0.45rem
+  margin: 0 0 0.45rem
+  color: var(--text)
+  font-family: var(--heading)
+  font-size: 1.1rem
+
+  svg
+    flex-shrink: 0
+
+  span
+    min-width: 0
+    overflow-wrap: anywhere
+
 .chatMessages
   display: flex
   flex-direction: column
@@ -1253,7 +1272,7 @@
     flex-direction: row
     .chatBubble
       color: white
-      background: var(--chat-2)
+      background: var(--chat-1)
     .chatMessageContent
       align-items: flex-end
       text-align: right
@@ -1262,8 +1281,8 @@
     align-self: flex-start
     flex-direction: row-reverse
     .chatBubble
-      background: var(--chat-1)
       color: white
+      background: var(--chat-2)
     .chatMessageContent
       align-items: flex-start
       text-align: left
@@ -1440,7 +1459,7 @@
     min-width: 0
 
 .sendBtn
-  background: var(--accent-3)
+  background: var(--accent-4)
   color: white
   border: none
   padding: 0.35rem 1rem
