@@ -165,6 +165,8 @@ Visual tone: Hattrick-friendly, nostalgic, community driven, not generic SaaS or
 
 ## Validation Defaults
 
+For small, isolated UI changes, do not run `npm test`/`npm run test`, `npm run build`, or `npm run lint`. Inspect the affected UI code and final diff, and run `git diff --check`. Use broader checks only when the change goes beyond a small UI adjustment.
+
 Docs-only:
 
 ```bash
@@ -173,7 +175,7 @@ rg "docs/(architecture|scheduling|chpp|database-and-deployment)\\.md|PROJECT_STA
 git diff --check
 ```
 
-Code changes:
+Other code changes:
 
 ```bash
 npm run build
