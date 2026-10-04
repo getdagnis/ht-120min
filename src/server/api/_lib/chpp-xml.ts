@@ -18,6 +18,8 @@ export interface ChppTeamOption {
   countryId?: number;
   countryName?: string;
   foundedDate?: string;
+  youthTeamName?: string;
+  powerLeagueRank?: number;
   activeTournament?: {
     name: string;
     slug: string;
@@ -88,6 +90,7 @@ export interface ParsedTeamDetails {
   regionId?: number;
   regionName?: string;
   foundedDate?: string;
+  youthTeamName?: string;
   teamRank?: number;
   powerRating?: number;
   powerGlobalRank?: number;
@@ -182,6 +185,7 @@ export function parseTeamDetailsXml(xml: string, teamId: number): ParsedTeamDeta
       regionId: regionIdRaw ? parseInt(regionIdRaw, 10) : undefined,
       regionName: readChppTag(block, 'RegionName'),
       foundedDate: readChppTag(block, 'FoundedDate'),
+      youthTeamName: readChppTag(block, 'YouthTeamName'),
       teamRank: teamRankRaw ? parseInt(teamRankRaw, 10) : undefined,
       powerRating: powerRatingRaw ? parseInt(powerRatingRaw, 10) : undefined,
       powerGlobalRank: powerGlobalRankRaw ? parseInt(powerGlobalRankRaw, 10) : undefined,
@@ -222,6 +226,18 @@ export function parseTeamDetailsXml(xml: string, teamId: number): ParsedTeamDeta
   }
 
   return { teamId };
+}
+
+/** teamdetails 3.9 returns every owned team when teamID is omitted. */
+export function parseManagerTeamDetailsXml(xml: string): ParsedTeamDetails[] {
+  const teams: ParsedTeamDetails[] = [];
+  for (const match of xml.matchAll(/<Team>([\s\S]*?)<\/Team>/gi)) {
+    const teamId = Number(match[1].match(/<TeamID>(\d+)<\/TeamID>/i)?.[1]);
+    if (Number.isSafeInteger(teamId) && teamId > 0) {
+      teams.push(parseTeamDetailsXml(match[0], teamId));
+    }
+  }
+  return teams;
 }
 
 export interface ParsedArenaDetails {
