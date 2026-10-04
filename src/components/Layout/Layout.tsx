@@ -280,7 +280,7 @@ export const Layout: React.FC<LayoutProps> = ({ children, excludeAnalytics = fal
                               </div>
                             </div>
                           )}
-                          {finishedTournaments.length > 0 && (
+                          {/* {finishedTournaments.length > 0 && (
                             <div className={styles.dropdownInfo}>
                               <span>Finished:</span>
                               <div className={styles.activeTournamentsList}>
@@ -297,7 +297,7 @@ export const Layout: React.FC<LayoutProps> = ({ children, excludeAnalytics = fal
                                 ))}
                               </div>
                             </div>
-                          )}
+                          )} */}
                           {visibleOrganizerTournaments.length > 0 && (
                             <div className={styles.dropdownInfo}>
                               <span>Organizer:</span>

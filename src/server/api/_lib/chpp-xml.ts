@@ -8,20 +8,56 @@ export interface ChppTeamOption {
   teamName: string;
   isPrimaryClub?: boolean;
   logoUrl?: string;
-  genderId?: number;
+  foundedDate?: string;
+  countryId?: number;
+  countryName?: string;
+  regionId?: number;
+  regionName?: string;
   leagueSystemId?: number;
   leagueName?: string;
   leagueId?: number;
   leagueLevel?: number;
+  leagueLevelUnitId?: number;
   leagueLevelUnitName?: string;
-  regionName?: string;
-  countryId?: number;
-  countryName?: string;
-  foundedDate?: string;
+  teamRank?: number;
+  powerRating?: number;
+  powerGlobalRank?: number;
+  powerLeagueRank?: number;
+  powerRegionRank?: number;
+  youthTeamName?: string;
+  arenaId?: number;
+  arenaName?: string;
+  fanclubSize?: number;
+  trophies?: ChppTrophySummary[];
+  genderId?: number;
   activeTournament?: {
     name: string;
     slug: string;
   };
+}
+
+export type ChppTrophyKind =
+  | 'world_cup_gold' | 'world_cup_silver' | 'world_cup_bronze' | 'masters'
+  | 'masters_top_scorer' | 'national_cup' | 'challenger_cup' | 'consolation_cup'
+  | 'cup' | 'league' | 'series' | 'tournament' | 'tutorial_tournament' | 'other';
+
+export interface ChppTrophySummary {
+  typeId: number;
+  kind: ChppTrophyKind;
+  season?: number;
+  gainedDate?: string;
+  leagueLevel?: number;
+  leagueLevelUnitName?: string;
+  cupLeagueLevel?: number;
+  cupLevel?: number;
+  cupLevelIndex?: number;
+}
+
+export interface ParsedNationalTeamStaffRole {
+  staffType: number;
+  nationalTeamId: number;
+  nationalTeamName: string;
+  isU21: boolean;
 }
 
 export interface AvatarLayer {
@@ -88,6 +124,7 @@ export interface ParsedTeamDetails {
   regionId?: number;
   regionName?: string;
   foundedDate?: string;
+  youthTeamName?: string;
   teamRank?: number;
   powerRating?: number;
   powerGlobalRank?: number;
@@ -97,14 +134,97 @@ export interface ParsedTeamDetails {
   matchKitUrl?: string;
   alternateMatchKitUrl?: string;
   genderId?: number;
+  isPrimaryClub?: boolean;
   arenaId?: number;
   arenaName?: string;
   fanclubSize?: number;
+  trophies?: ChppTrophySummary[];
   friendlyTeamId?: number | null;
   stillInCup?: boolean;
   possibleToChallengeMidweek?: boolean;
   possibleToChallengeWeekend?: boolean;
   errorCode?: number;
+}
+
+function positiveXmlNumber(value: string | undefined): number | undefined {
+  if (!value || !/^\d+$/.test(value)) return undefined;
+  const parsed = Number(value);
+  return Number.isSafeInteger(parsed) ? parsed : undefined;
+}
+
+export function classifyChppTrophy(input: {
+  typeId: number;
+  cupLeagueLevel?: number;
+  cupLevel?: number;
+}): ChppTrophyKind {
+  switch (input.typeId) {
+    case 16:
+      if (input.cupLeagueLevel === 0 && input.cupLevel === 1) return 'national_cup';
+      if (input.cupLevel === 2) return 'challenger_cup';
+      if (input.cupLevel === 3) return 'consolation_cup';
+      return 'cup';
+    case 17: return 'series';
+    case 18: return 'league';
+    case 78: return 'world_cup_gold';
+    case 79: return 'world_cup_silver';
+    case 80: return 'world_cup_bronze';
+    case 91: return 'masters';
+    case 93: return 'masters_top_scorer';
+    case 103: return 'tournament';
+    case 203: return 'tutorial_tournament';
+    default: return 'other';
+  }
+}
+
+function parseTrophies(block: string): ChppTrophySummary[] {
+  const list = block.match(/<TrophyList\b[^>]*>([\s\S]*?)<\/TrophyList>/i)?.[1];
+  if (!list) return [];
+  const trophies: ChppTrophySummary[] = [];
+  for (const match of list.matchAll(/<Trophy>([\s\S]*?)<\/Trophy>/gi)) {
+    const trophy = match[1];
+    const typeId = positiveXmlNumber(readChppTag(trophy, 'TrophyTypeId'));
+    if (typeId === undefined) continue;
+    const cupLeagueLevel = positiveXmlNumber(readChppTag(trophy, 'CupLeagueLevel'));
+    const cupLevel = positiveXmlNumber(readChppTag(trophy, 'CupLevel'));
+    const season = positiveXmlNumber(readChppTag(trophy, 'TrophySeason'));
+    const leagueLevel = positiveXmlNumber(readChppTag(trophy, 'LeagueLevel'));
+    const cupLevelIndex = positiveXmlNumber(readChppTag(trophy, 'CupLevelIndex'));
+    const gainedDate = readChppTag(trophy, 'GainedDate');
+    const leagueLevelUnitName = readChppTag(trophy, 'LeagueLevelUnitName');
+    trophies.push({
+      typeId,
+      kind: classifyChppTrophy({ typeId, cupLeagueLevel, cupLevel }),
+      ...(season === undefined ? {} : { season }),
+      ...(gainedDate ? { gainedDate } : {}),
+      ...(leagueLevel === undefined ? {} : { leagueLevel }),
+      ...(leagueLevelUnitName ? { leagueLevelUnitName } : {}),
+      ...(cupLeagueLevel === undefined ? {} : { cupLeagueLevel }),
+      ...(cupLevel === undefined ? {} : { cupLevel }),
+      ...(cupLevelIndex === undefined ? {} : { cupLevelIndex }),
+    });
+  }
+  return trophies;
+}
+
+export function parseManagerNationalTeamRolesXml(xml: string): ParsedNationalTeamStaffRole[] {
+  const user = xml.match(/<User\b[^>]*>([\s\S]*?)<\/User>/i)?.[1] ?? xml;
+  const nationalTeams = user.match(/<NationalTeams\b[^>]*>([\s\S]*?)<\/NationalTeams>/i)?.[1];
+  if (!nationalTeams) return [];
+  const roles: ParsedNationalTeamStaffRole[] = [];
+  for (const match of nationalTeams.matchAll(/<NationalTeam>([\s\S]*?)<\/NationalTeam>/gi)) {
+    const role = match[1];
+    const staffType = positiveXmlNumber(readChppTag(role, 'NationalTeamStaffType'));
+    const nationalTeamId = positiveXmlNumber(readChppTag(role, 'NationalTeamID'));
+    const nationalTeamName = readChppTag(role, 'NationalTeamName');
+    if (staffType === undefined || staffType > 2 || nationalTeamId === undefined || !nationalTeamName) continue;
+    roles.push({
+      staffType,
+      nationalTeamId,
+      nationalTeamName,
+      isU21: /^U21\b/i.test(nationalTeamName),
+    });
+  }
+  return roles;
 }
 
 export function teamDetailsKitForMatchSide(
@@ -147,6 +267,7 @@ export function parseTeamDetailsXml(xml: string, teamId: number): ParsedTeamDeta
     const arenaIdRaw = block.match(/<Arena>[\s\S]*?<ArenaID>(\d+)<\/ArenaID>/i)?.[1];
     const fanclubSizeRaw = block.match(/<Fanclub>[\s\S]*?<FanclubSize>(\d+)<\/FanclubSize>/i)?.[1];
     const genderIdRaw = block.match(/<GenderID>(\d+)<\/GenderID>/i)?.[1];
+    const isPrimaryClubRaw = readChppTag(block, 'IsPrimaryClub');
     const leagueIdRaw = block.match(/<League>[\s\S]*?<LeagueID>(\d+)<\/LeagueID>/i)?.[1];
     const leagueSystemIdRaw = block.match(/<LeagueSystemID>(\d+)<\/LeagueSystemID>/i)?.[1];
     const leagueLevelUnitIdRaw = block.match(/<LeagueLevelUnit>[\s\S]*?<LeagueLevelUnitID>(\d+)<\/LeagueLevelUnitID>/i)?.[1];
@@ -171,6 +292,7 @@ export function parseTeamDetailsXml(xml: string, teamId: number): ParsedTeamDeta
     return {
       teamId,
       teamName: readChppTag(block, 'TeamName'),
+      isPrimaryClub: isPrimaryClubRaw?.toLowerCase() === 'true',
       leagueId,
       leagueSystemId: leagueSystemIdRaw ? parseInt(leagueSystemIdRaw, 10) : undefined,
       leagueName: getLeagueNameById(leagueId) ?? leagueName,
@@ -182,6 +304,7 @@ export function parseTeamDetailsXml(xml: string, teamId: number): ParsedTeamDeta
       regionId: regionIdRaw ? parseInt(regionIdRaw, 10) : undefined,
       regionName: readChppTag(block, 'RegionName'),
       foundedDate: readChppTag(block, 'FoundedDate'),
+      youthTeamName: readChppTag(block, 'YouthTeamName'),
       teamRank: teamRankRaw ? parseInt(teamRankRaw, 10) : undefined,
       powerRating: powerRatingRaw ? parseInt(powerRatingRaw, 10) : undefined,
       powerGlobalRank: powerGlobalRankRaw ? parseInt(powerGlobalRankRaw, 10) : undefined,
@@ -193,6 +316,7 @@ export function parseTeamDetailsXml(xml: string, teamId: number): ParsedTeamDeta
       arenaId: arenaIdRaw ? parseInt(arenaIdRaw, 10) : undefined,
       arenaName: readChppTag(block, 'ArenaName'),
       fanclubSize: fanclubSizeRaw ? parseInt(fanclubSizeRaw, 10) : undefined,
+      trophies: parseTrophies(block),
       genderId: genderIdRaw ? parseInt(genderIdRaw, 10) : undefined,
       friendlyTeamId: friendlyTeamIdRaw ? parseInt(friendlyTeamIdRaw, 10) : 0,
       stillInCup:
@@ -222,6 +346,18 @@ export function parseTeamDetailsXml(xml: string, teamId: number): ParsedTeamDeta
   }
 
   return { teamId };
+}
+
+/** teamdetails 3.9 returns every owned team when teamID is omitted. */
+export function parseManagerTeamDetailsXml(xml: string): ParsedTeamDetails[] {
+  const teams: ParsedTeamDetails[] = [];
+  for (const match of xml.matchAll(/<Team>([\s\S]*?)<\/Team>/gi)) {
+    const teamId = Number(match[1].match(/<TeamID>(\d+)<\/TeamID>/i)?.[1]);
+    if (Number.isSafeInteger(teamId) && teamId > 0) {
+      teams.push(parseTeamDetailsXml(match[0], teamId));
+    }
+  }
+  return teams;
 }
 
 export interface ParsedArenaDetails {

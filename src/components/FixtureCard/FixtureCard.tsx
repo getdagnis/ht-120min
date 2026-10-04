@@ -153,7 +153,7 @@ export const FixtureCard: React.FC<FixtureCardProps> = ({
       {team.warning && (
         <div className={styles.warningRow}>
           <img src="/warn-red.png" alt="Warning" className={styles.warnIcon} />
-          <span className={styles.warn}>Misarranged their fixture!</span>
+          <span className={styles.warn}>Misarranged fixture!</span>
         </div>
       )}
     </>

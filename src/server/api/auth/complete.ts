@@ -1,9 +1,7 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
-import type { ChppTeamOption, ParsedManagerCompendium } from '../_lib/chpp-xml.js';
+import type { ChppTeamOption, ParsedManagerCompendium, ParsedTeamDetails } from '../_lib/chpp-xml.js';
 import { getServiceSupabase } from '../_lib/supabase.js';
 import { registerOAuthTeam } from '../_lib/chpp-register.js';
-import { getAuthHeader } from '../_lib/chpp-auth.js';
-import { parseTeamDetailsXml } from '../_lib/chpp-xml.js';
 import { validateTeamEligibility } from '../_lib/eligibility.js';
 import { buildAppSessionCookie, clearAppSessionCookie, getAppSessionSecret, verifyAppSessionCookie } from '../_lib/app-session.js';
 import { hasSuperAdminBypassCookie } from '../_lib/superadmin-bypass.js';
@@ -12,6 +10,8 @@ import { buildForgeSessionCookie, getForgeSuperadminId } from '../_lib/forge-ses
 import { isForgeEnabled } from '../../forge-availability.js';
 import {
   fetchManagerTeamsFromChpp,
+  fetchManagerTeamDetailsFromChpp,
+  mergeManagerTeamSnapshot,
   ManagerCompendiumRequestError,
 } from '../_lib/manager-compendium.js';
 import { fetchTeamDetailsFromChpp } from '../_lib/matchmaker.js';
@@ -257,48 +257,16 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       });
     }
 
-    // 2. Fetch additional team details (Logo, Country) - ONLY IF JOINING
+    // 2. Refresh the manager's current club snapshot during authenticated login.
     let logoUrl: string | undefined;
     let countryId: number | undefined;
     let countryName: string | undefined;
-    let teamDetails: ReturnType<typeof parseTeamDetailsXml> | undefined;
+    let teamDetails: ParsedTeamDetails | undefined;
     let managerCompendium: ParsedManagerCompendium | undefined;
-
-    if (pending.tournament_id && team_id && team_name) {
-      try {
-        const chppUrl = 'https://chpp.hattrick.org/chppxml.ashx';
-        const teamIdStr = String(team_id);
-        const chppParams = {
-          file: 'teamdetails',
-          teamID: teamIdStr,
-          version: '3.9',
-        };
-
-        const authHeader = getAuthHeader(
-          'GET',
-          chppUrl,
-          chppParams,
-          consumerKey,
-          consumerSecret,
-          pending.access_token,
-          pending.access_token_secret,
-        );
-
-        const chppRes = await fetch(`${chppUrl}?file=teamdetails&teamID=${teamIdStr}&version=3.9`, {
-          headers: { Authorization: authHeader },
-        });
-
-        if (chppRes.ok) {
-          const xml = await chppRes.text();
-          teamDetails = parseTeamDetailsXml(xml, parseInt(teamIdStr, 10));
-          logoUrl = teamDetails.logoUrl;
-          countryId = teamDetails.countryId;
-          countryName = teamDetails.countryName;
-        }
-      } catch (e) {
-        console.error('Failed to fetch team details:', e);
-      }
-    }
+    let managerTeamDetails: ParsedTeamDetails[] = [];
+    let nationalTeamRoles: Array<{ staffType: number; nationalTeamId: number; nationalTeamName: string; isU21: boolean }> = [];
+    let teamDetailsRefreshed = false;
+    let publicTournamentIds: string[] = [];
 
     try {
       managerCompendium = await fetchManagerTeamsFromChpp(consumerKey, consumerSecret, {
@@ -307,9 +275,40 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       });
     } catch (error) {
       console.warn(
-        'Failed to refresh managercompendium during join, using cached teams_json:',
+        'Failed to refresh managercompendium during login, using cached teams_json:',
         error instanceof ManagerCompendiumRequestError ? error.status : error,
       );
+    }
+    if (managerCompendium) {
+      try {
+        const teamDetailsSnapshot = await fetchManagerTeamDetailsFromChpp(
+          consumerKey, consumerSecret,
+          { oauth_token: pending.access_token, oauth_token_secret: pending.access_token_secret },
+        );
+        managerTeamDetails = teamDetailsSnapshot.teams;
+        nationalTeamRoles = teamDetailsSnapshot.nationalTeamRoles;
+        teamDetailsRefreshed = true;
+        teamDetails = managerTeamDetails.find((details) => details.teamId === Number(team_id));
+        logoUrl = teamDetails?.logoUrl;
+        countryId = teamDetails?.countryId;
+        countryName = teamDetails?.countryName;
+      } catch (error) {
+        console.warn('Failed to refresh manager teamdetails during login:', error);
+      }
+    }
+    if (pending.tournament_id && team_id && !teamDetails) {
+      try {
+        teamDetails = await fetchTeamDetailsFromChpp(
+          consumerKey, consumerSecret,
+          { oauth_token: pending.access_token, oauth_token_secret: pending.access_token_secret },
+          Number(team_id),
+        );
+        logoUrl = teamDetails.logoUrl;
+        countryId = teamDetails.countryId;
+        countryName = teamDetails.countryName;
+      } catch (error) {
+        console.warn('Could not refresh selected teamdetails after manager-wide refresh:', error);
+      }
     }
 
     // 3. Register the specific team (Standard joining flow)
@@ -413,31 +412,11 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         countryName = mParsed.countryName;
         leagueId = mParsed.leagueId;
         avatar = mParsed.avatar ?? null;
-        const detailedTeams = await Promise.all(
-          mParsed.teams.map(async (team) => {
-            try {
-              const details = await fetchTeamDetailsFromChpp(
-                consumerKey,
-                consumerSecret,
-                { oauth_token: pending.access_token, oauth_token_secret: pending.access_token_secret },
-                team.teamId,
-              );
-              return {
-                ...team,
-                logoUrl: team.logoUrl ?? details.logoUrl,
-                foundedDate: details.foundedDate,
-                leagueName: team.leagueName ?? details.leagueName,
-                leagueLevel: team.leagueLevel ?? details.leagueLevel,
-                leagueLevelUnitName: team.leagueLevelUnitName ?? details.leagueLevelUnitName,
-                countryId: team.countryId ?? details.countryId,
-                countryName: team.countryName ?? details.countryName,
-              };
-            } catch {
-              return team;
-            }
-          }),
-        );
-        teamsJson = detailedTeams;
+        const previousProfile = await supabase.from('profiles')
+          .select('teams_json').eq('hattrick_user_id', pending.hattrick_user_id).maybeSingle();
+        const previousTeams = Array.isArray(previousProfile.data?.teams_json)
+          ? previousProfile.data.teams_json as ChppTeamOption[] : [];
+        teamsJson = mergeManagerTeamSnapshot(mParsed.teams, managerTeamDetails, previousTeams);
       } catch (error) {
         console.warn(
           'Failed to refresh managercompendium during login, using cached teams_json:',
@@ -455,18 +434,30 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         language_name: managerCompendium?.languageName ?? null,
         avatar_json: avatar,
         teams_json: teamsJson,
+        ...(teamDetailsRefreshed ? { national_team_roles_json: nationalTeamRoles } : {}),
         oauth_token: pending.access_token,
         oauth_token_secret: pending.access_token_secret,
         oauth_scope: pending.oauth_scope ?? null,
         chpp_synced_at: new Date().toISOString(),
         last_seen_at: new Date().toISOString(),
       };
-      const profileWrite = await supabase.from('profiles').upsert(profilePayload);
+      let profileWrite = await supabase.from('profiles').upsert(profilePayload);
       if (profileWrite.error && /language_(id|name)/i.test(profileWrite.error.message)) {
-        const { language_id: _languageId, language_name: _languageName, ...legacyProfilePayload } = profilePayload;
+        const { language_id: _languageId, language_name: _languageName, ...withoutLanguage } = profilePayload;
         void _languageId;
         void _languageName;
-        await supabase.from('profiles').upsert(legacyProfilePayload);
+        profileWrite = await supabase.from('profiles').upsert(withoutLanguage);
+      }
+      if (profileWrite.error) throw profileWrite.error;
+      const ownedTeamIds = (teamsJson ?? []).map((team) => team.teamId).filter((id) => Number.isSafeInteger(id) && id > 0);
+      if (ownedTeamIds.length) {
+        const { data: linkedTeams, error: linkedTeamsError } = await supabase
+          .from('teams')
+          .select('tournament_id')
+          .in('ht_team_id', ownedTeamIds)
+          .eq('active', true);
+        if (linkedTeamsError) console.warn('Could not resolve public tournaments for refreshed manager identity:', linkedTeamsError.message);
+        else publicTournamentIds = Array.from(new Set((linkedTeams ?? []).map((row) => String(row.tournament_id)).filter(Boolean)));
       }
     } catch (e) {
       console.error('Failed to update profile during login:', e);
@@ -496,6 +487,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       manager_name: pending.manager_name,
       redirect: redirectUrl,
       tournamentId: pending.tournament_id || null,
+      tournamentIds: publicTournamentIds,
     });
   } catch (error: unknown) {
     console.error('Auth Complete Handler Error:', error);

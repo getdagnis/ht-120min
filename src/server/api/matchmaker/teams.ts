@@ -9,6 +9,7 @@ import {
   getManagerChppCredentials,
   type MatchmakerTeamOption,
 } from '../_lib/matchmaker.js';
+import { fetchManagerTeamDetailsFromChpp, mergeManagerTeamSnapshot } from '../_lib/manager-compendium.js';
 
 async function backfillOpenMatchmakerTeams(
   supabase: ReturnType<typeof getSupabase>,
@@ -138,29 +139,32 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       return res.status(500).json({ error: 'CHPP config missing' });
     }
 
-    const snapshot = await fetchManagerTeamsFromChpp(consumerKey, consumerSecret, credentials);
+    const [snapshot, detailSnapshot] = await Promise.all([
+      fetchManagerTeamsFromChpp(consumerKey, consumerSecret, credentials),
+      fetchManagerTeamDetailsFromChpp(consumerKey, consumerSecret, credentials),
+    ]);
+    const canonicalTeams = mergeManagerTeamSnapshot(snapshot.teams, detailSnapshot.teams, credentials.teams_json ?? []);
 
     // Create a map to track DB state
     const { data: dbTeams } = await supabase
       .from('teams')
       .select('ht_team_id, logo_url, arena_id, arena_image_url')
-      .in('ht_team_id', snapshot.teams.map((t) => t.teamId))
+      .in('ht_team_id', canonicalTeams.map((t) => t.teamId))
       .is('tournament_id', null);
 
     const dbTeamMap = new Map(dbTeams?.map((t) => [t.ht_team_id, t]));
 
     // Fetch and update missing assets
     const enrichedTeams = await Promise.all(
-      snapshot.teams.map(async (team) => {
+      canonicalTeams.map(async (team) => {
         const dbEntry = dbTeamMap.get(team.teamId);
         let logoUrl = dbEntry?.logo_url;
         let arenaImageUrl = dbEntry?.arena_image_url;
         let arenaId = dbEntry?.arena_id;
         let bookingResult = null;
-        let teamDetails: Awaited<ReturnType<typeof fetchTeamDetailsFromChpp>> | null = null;
+        const teamDetails = detailSnapshot.teams.find((detail) => detail.teamId === team.teamId) ?? null;
 
         try {
-          teamDetails = await fetchTeamDetailsFromChpp(consumerKey, consumerSecret, credentials, team.teamId);
           // Prefer freshly fetched assets over existing DB values when available
           logoUrl = teamDetails.logoUrl ?? logoUrl;
           arenaId = teamDetails.arenaId ?? arenaId;
@@ -254,20 +258,33 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
     await backfillOpenMatchmakerTeams(supabase, consumerKey, consumerSecret);
 
-    await supabase
+    const profileUpdate = await supabase
       .from('profiles')
       .update({
         manager_name: snapshot.managerName,
         country_id: snapshot.countryId ?? null,
         country_name: snapshot.countryName ?? null,
         league_id: snapshot.leagueId ?? null,
+        language_id: snapshot.languageId ?? null,
+        language_name: snapshot.languageName ?? null,
         avatar_json: snapshot.avatar ?? null,
-        teams_json: snapshot.teams,
+        teams_json: canonicalTeams,
+        national_team_roles_json: detailSnapshot.nationalTeamRoles,
       })
       .eq('hattrick_user_id', credentials.hattrick_user_id);
+    if (profileUpdate.error) throw profileUpdate.error;
+
+    const { data: linkedTeams, error: linkedTeamsError } = await supabase
+      .from('teams')
+      .select('tournament_id')
+      .in('ht_team_id', canonicalTeams.map((team) => team.teamId))
+      .eq('active', true);
+    if (linkedTeamsError) console.warn('Could not resolve tournaments for refreshed manager identity:', linkedTeamsError.message);
+    const tournamentIds = Array.from(new Set((linkedTeams ?? []).map((row) => String(row.tournament_id)).filter(Boolean)));
 
     return res.status(200).json({
       teams,
+      tournamentIds,
       refreshed_at: new Date().toISOString(),
     });
   } catch (error) {

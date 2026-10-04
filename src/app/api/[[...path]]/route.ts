@@ -167,7 +167,7 @@ async function invoke(request: NextRequest) {
   const result = payload && typeof payload === 'object' ? payload as Record<string, unknown> : {};
   const input = body && typeof body === 'object' ? body as Record<string, unknown> : {};
   const mutationRoutes = new Set([
-    'update-hfi-ranks', 'generate-length-schedule', 'repair-length-round', 'recover-length-round-one',
+    'update-hfi-ranks', 'refresh-spotlight-profiles', 'generate-length-schedule', 'repair-length-round', 'recover-length-round-one',
     'save-length-results', 'tournament-participation', 'season-slot-replacement', 'reserve-team-swap',
     'reserve-team-fill', 'move-inactive-team-to-reserve', 'reset-season-to-planning', 'archive-tournament',
     'scheduled-team-removal', 'admin-team-reserve-transition', 'admin-add-reserve-team', 'reserve-teams',
@@ -180,12 +180,14 @@ async function invoke(request: NextRequest) {
     (path === '/api/app' && request.method !== 'GET' && mutationRoutes.has(String(query.route))) ||
     (path === '/api/teams/refresh-fixtures' && input.dryRun !== true &&
       !['suggest_ht_matches', 'team_planning_statuses'].includes(String(input.action))) || finishedLiveResult ||
+    (path === '/api/matchmaker/teams' && Boolean(query.managerId)) ||
     (path === '/api/auth/complete' && (Boolean(result.tournamentId) || Array.isArray(result.tournamentIds))) ||
     (path.startsWith('/api/testing') && query.apply === '1' && query.tool === 'round-press-matchdetails-backfill');
   const affectedId = input.tournamentId || input.tournament_id || query.tournamentId || query.tournament_id || result.tournamentId;
-  const affectedIds = path === '/api/auth/complete' && Array.isArray(result.tournamentIds)
-    ? result.tournamentIds.filter((id): id is string => typeof id === 'string')
-    : typeof affectedId === 'string' ? [affectedId] : [];
+  const affectedIds = Array.from(new Set([
+    ...(Array.isArray(result.tournamentIds) ? result.tournamentIds.filter((id): id is string => typeof id === 'string') : []),
+    ...(typeof affectedId === 'string' ? [affectedId] : []),
+  ]));
   if (isMutation && affectedIds.length && ((statusCode >= 200 && statusCode < 300) || result.resultsSaved)) {
     try {
       await Promise.all(affectedIds.map(invalidatePublicTournament));

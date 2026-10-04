@@ -19,8 +19,39 @@ export interface Avatar {
 export interface HattrickTeam {
   teamId: number;
   teamName: string;
-  countryName: string;
-  leagueId: number;
+  isPrimaryClub?: boolean;
+  logoUrl?: string;
+  foundedDate?: string;
+  countryId?: number;
+  countryName?: string;
+  regionId?: number;
+  regionName?: string;
+  leagueSystemId?: number;
+  leagueName?: string;
+  leagueId?: number;
+  leagueLevel?: number;
+  leagueLevelUnitId?: number;
+  leagueLevelUnitName?: string;
+  teamRank?: number;
+  powerRating?: number;
+  powerGlobalRank?: number;
+  powerLeagueRank?: number;
+  powerRegionRank?: number;
+  youthTeamName?: string;
+  arenaId?: number;
+  arenaName?: string;
+  fanclubSize?: number;
+  trophies?: Array<{
+    typeId: number;
+    kind: string;
+    season?: number;
+    gainedDate?: string;
+    leagueLevel?: number;
+    leagueLevelUnitName?: string;
+    cupLeagueLevel?: number;
+    cupLevel?: number;
+    cupLevelIndex?: number;
+  }>;
 }
 
 export interface UserProfile {
