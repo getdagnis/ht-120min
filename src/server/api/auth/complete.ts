@@ -1,8 +1,7 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
-import type { ChppTeamOption, ParsedManagerCompendium } from '../_lib/chpp-xml.js';
+import type { ChppTeamOption, ParsedManagerCompendium, ParsedTeamDetails } from '../_lib/chpp-xml.js';
 import { getServiceSupabase } from '../_lib/supabase.js';
 import { registerOAuthTeam } from '../_lib/chpp-register.js';
-import { parseTeamDetailsXml } from '../_lib/chpp-xml.js';
 import { validateTeamEligibility } from '../_lib/eligibility.js';
 import { buildAppSessionCookie, clearAppSessionCookie, getAppSessionSecret, verifyAppSessionCookie } from '../_lib/app-session.js';
 import { hasSuperAdminBypassCookie } from '../_lib/superadmin-bypass.js';
@@ -262,9 +261,12 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     let logoUrl: string | undefined;
     let countryId: number | undefined;
     let countryName: string | undefined;
-    let teamDetails: ReturnType<typeof parseTeamDetailsXml> | undefined;
+    let teamDetails: ParsedTeamDetails | undefined;
     let managerCompendium: ParsedManagerCompendium | undefined;
-    let managerTeamDetails: ReturnType<typeof parseTeamDetailsXml>[] = [];
+    let managerTeamDetails: ParsedTeamDetails[] = [];
+    let nationalTeamRoles: Array<{ staffType: number; nationalTeamId: number; nationalTeamName: string; isU21: boolean }> = [];
+    let teamDetailsRefreshed = false;
+    let publicTournamentIds: string[] = [];
 
     try {
       managerCompendium = await fetchManagerTeamsFromChpp(consumerKey, consumerSecret, {
@@ -279,10 +281,13 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     }
     if (managerCompendium) {
       try {
-        managerTeamDetails = await fetchManagerTeamDetailsFromChpp(
+        const teamDetailsSnapshot = await fetchManagerTeamDetailsFromChpp(
           consumerKey, consumerSecret,
           { oauth_token: pending.access_token, oauth_token_secret: pending.access_token_secret },
         );
+        managerTeamDetails = teamDetailsSnapshot.teams;
+        nationalTeamRoles = teamDetailsSnapshot.nationalTeamRoles;
+        teamDetailsRefreshed = true;
         teamDetails = managerTeamDetails.find((details) => details.teamId === Number(team_id));
         logoUrl = teamDetails?.logoUrl;
         countryId = teamDetails?.countryId;
@@ -429,18 +434,30 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         language_name: managerCompendium?.languageName ?? null,
         avatar_json: avatar,
         teams_json: teamsJson,
+        ...(teamDetailsRefreshed ? { national_team_roles_json: nationalTeamRoles } : {}),
         oauth_token: pending.access_token,
         oauth_token_secret: pending.access_token_secret,
         oauth_scope: pending.oauth_scope ?? null,
         chpp_synced_at: new Date().toISOString(),
         last_seen_at: new Date().toISOString(),
       };
-      const profileWrite = await supabase.from('profiles').upsert(profilePayload);
+      let profileWrite = await supabase.from('profiles').upsert(profilePayload);
       if (profileWrite.error && /language_(id|name)/i.test(profileWrite.error.message)) {
-        const { language_id: _languageId, language_name: _languageName, ...legacyProfilePayload } = profilePayload;
+        const { language_id: _languageId, language_name: _languageName, ...withoutLanguage } = profilePayload;
         void _languageId;
         void _languageName;
-        await supabase.from('profiles').upsert(legacyProfilePayload);
+        profileWrite = await supabase.from('profiles').upsert(withoutLanguage);
+      }
+      if (profileWrite.error) throw profileWrite.error;
+      const ownedTeamIds = (teamsJson ?? []).map((team) => team.teamId).filter((id) => Number.isSafeInteger(id) && id > 0);
+      if (ownedTeamIds.length) {
+        const { data: linkedTeams, error: linkedTeamsError } = await supabase
+          .from('teams')
+          .select('tournament_id')
+          .in('ht_team_id', ownedTeamIds)
+          .eq('active', true);
+        if (linkedTeamsError) console.warn('Could not resolve public tournaments for refreshed manager identity:', linkedTeamsError.message);
+        else publicTournamentIds = Array.from(new Set((linkedTeams ?? []).map((row) => String(row.tournament_id)).filter(Boolean)));
       }
     } catch (e) {
       console.error('Failed to update profile during login:', e);
@@ -470,6 +487,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       manager_name: pending.manager_name,
       redirect: redirectUrl,
       tournamentId: pending.tournament_id || null,
+      tournamentIds: publicTournamentIds,
     });
   } catch (error: unknown) {
     console.error('Auth Complete Handler Error:', error);

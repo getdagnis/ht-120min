@@ -40,6 +40,10 @@ import {
   fetchTeamDetailsFromChpp,
   getManagerChppCredentials,
 } from './_lib/matchmaker.js';
+import {
+  fetchManagerTeamDetailsFromChpp,
+  mergeManagerTeamSnapshot,
+} from './_lib/manager-compendium.js';
 import { validateTeamEligibility } from './_lib/eligibility.js';
 import { getActiveTournamentConflicts, registerReserveTeam } from './_lib/chpp-register.js';
 import {
@@ -241,6 +245,80 @@ async function handleUpdateHfiRanks(req: VercelRequest, res: VercelResponse) {
     const message = error instanceof Error ? error.message : 'Could not update HFI ranks.';
     return res.status(422).json({ error: message });
   }
+}
+
+async function handleRefreshSpotlightProfiles(req: VercelRequest, res: VercelResponse) {
+  if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed.' });
+  const tournamentId = readString(req.body?.tournamentId);
+  if (!tournamentId) return res.status(400).json({ error: 'Missing tournamentId.' });
+  const actor = await requireTournamentRoleSession(req, res, tournamentId);
+  if (!actor) return;
+  if (!actor.access.canManageOperations) return res.status(403).json({ error: 'This role cannot refresh manager snapshots.' });
+
+  const consumerKey = process.env.CHPP_CONSUMER_KEY;
+  const consumerSecret = process.env.CHPP_CONSUMER_SECRET;
+  if (!consumerKey || !consumerSecret) return res.status(500).json({ error: 'CHPP configuration is missing.' });
+  const supabase = getServiceSupabase();
+  const { data: participants, error: participantsError } = await supabase
+    .from('teams')
+    .select('hattrick_user_id, reserve_active, is_placeholder')
+    .eq('tournament_id', tournamentId)
+    .eq('active', true)
+    .not('hattrick_user_id', 'is', null);
+  if (participantsError) throw participantsError;
+  const managerIds = Array.from(new Set((participants ?? [])
+    .filter((row) => row.reserve_active !== true && row.is_placeholder !== true)
+    .map((row) => Number(row.hattrick_user_id))
+    .filter((id) => Number.isSafeInteger(id) && id > 0))).sort((a, b) => a - b);
+  if (managerIds.length > 50) return res.status(422).json({ error: 'Refresh is limited to 50 manager profiles per request.' });
+
+  const results: Array<{ managerId: number; refreshed: boolean; teamCount?: number; error?: string }> = [];
+  const refreshedTeamIds = new Set<number>();
+  for (const managerId of managerIds) {
+    try {
+      const credentials = await getManagerChppCredentials(supabase, managerId);
+      if (!credentials) {
+        results.push({ managerId, refreshed: false, error: 'No stored CHPP authorization.' });
+        continue;
+      }
+      const [manager, details] = await Promise.all([
+        fetchManagerTeamsFromChpp(consumerKey, consumerSecret, credentials, managerId),
+        fetchManagerTeamDetailsFromChpp(consumerKey, consumerSecret, credentials),
+      ]);
+      const teams = mergeManagerTeamSnapshot(manager.teams, details.teams, credentials.teams_json ?? []);
+      const { error } = await supabase.from('profiles').update({
+        manager_name: manager.managerName,
+        country_id: manager.countryId ?? null,
+        country_name: manager.countryName ?? null,
+        league_id: manager.leagueId ?? null,
+        language_id: manager.languageId ?? null,
+        language_name: manager.languageName ?? null,
+        avatar_json: manager.avatar ?? null,
+        teams_json: teams,
+        national_team_roles_json: details.nationalTeamRoles,
+        chpp_synced_at: new Date().toISOString(),
+      }).eq('hattrick_user_id', managerId);
+      if (error) throw error;
+      for (const team of teams) refreshedTeamIds.add(team.teamId);
+      results.push({ managerId, refreshed: true, teamCount: teams.length });
+    } catch (error) {
+      results.push({ managerId, refreshed: false, error: error instanceof Error ? error.message : 'CHPP refresh failed.' });
+    }
+  }
+  const tournamentIds = new Set([tournamentId]);
+  if (refreshedTeamIds.size) {
+    const { data: linkedTeams, error: linkedTeamsError } = await supabase
+      .from('teams')
+      .select('tournament_id')
+      .in('ht_team_id', Array.from(refreshedTeamIds))
+      .eq('active', true);
+    if (linkedTeamsError) {
+      console.warn('Could not resolve all public tournaments for refreshed Spotlight profiles:', linkedTeamsError.message);
+    } else {
+      for (const row of linkedTeams ?? []) tournamentIds.add(String(row.tournament_id));
+    }
+  }
+  return res.status(200).json({ tournamentId, tournamentIds: Array.from(tournamentIds), managerCount: managerIds.length, results });
 }
 
 async function handleGenerateLengthSchedule(req: VercelRequest, res: VercelResponse) {
@@ -2934,6 +3012,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         return await handleDuplicateTournamentAsSandbox(req, res);
       case 'update-hfi-ranks':
         return await handleUpdateHfiRanks(req, res);
+      case 'refresh-spotlight-profiles':
+        return await handleRefreshSpotlightProfiles(req, res);
       case 'generate-length-schedule':
         return await handleGenerateLengthSchedule(req, res);
       case 'repair-length-round':

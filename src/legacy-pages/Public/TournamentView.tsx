@@ -824,6 +824,7 @@ export const TournamentView: React.FC<{ initialData?: TournamentInitialData }> =
   const [newImageUrl, setNewImageUrl] = useState('');
   const [isUpdatingImage, setIsUpdatingImage] = useState(false);
   const [isDuplicatingSandbox, setIsDuplicatingSandbox] = useState(false);
+  const [isRefreshingSpotlight, setIsRefreshingSpotlight] = useState(false);
   const [isArchivingTournament, setIsArchivingTournament] = useState(false);
   const [showFullImage, setShowFullImage] = useState(false);
   const [newTeamId, setNewTeamId] = useState('');
@@ -3813,6 +3814,45 @@ export const TournamentView: React.FC<{ initialData?: TournamentInitialData }> =
       alert(error instanceof Error ? error.message : 'Sandbox copy could not be created.');
     } finally {
       setIsDuplicatingSandbox(false);
+    }
+  };
+
+  const refreshSpotlightProfiles = async () => {
+    if (!tournament || isRefreshingSpotlight || isDuplicatingSandbox) return;
+    const confirmed = window.confirm(
+      `Refresh saved Spotlight data for active, non-reserve, non-placeholder managers in ${tournament.name}? This sends managercompendium and one manager-wide teamdetails request for each manager with saved CHPP authorization. The endpoint supports up to 50 managers per tournament.`,
+    );
+    if (!confirmed) return;
+
+    setIsRefreshingSpotlight(true);
+    try {
+      const response = await fetch('/api/app?route=refresh-spotlight-profiles', {
+        method: 'POST',
+        credentials: 'include',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ tournamentId: tournament.id }),
+      });
+      const data = (await response.json()) as {
+        error?: string;
+        managerCount?: number;
+        results?: Array<{ managerId: number; refreshed: boolean; error?: string }>;
+      };
+      if (!response.ok) throw new Error(data.error || 'Spotlight profiles could not be refreshed.');
+
+      const results = data.results ?? [];
+      const refreshedCount = results.filter((result) => result.refreshed).length;
+      const failedResults = results.filter((result) => !result.refreshed);
+      const summary = [`Spotlight refresh complete: ${refreshedCount} of ${data.managerCount ?? results.length} profiles refreshed.`];
+      if (failedResults.length) {
+        summary.push('Not refreshed:');
+        summary.push(...failedResults.map((result) => `Manager ${result.managerId}: ${result.error || 'refresh failed'}`));
+      }
+      alert(summary.join('\n'));
+      if (refreshedCount > 0) router.refresh();
+    } catch (error) {
+      alert(error instanceof Error ? error.message : 'Spotlight profiles could not be refreshed.');
+    } finally {
+      setIsRefreshingSpotlight(false);
     }
   };
 
@@ -7651,15 +7691,27 @@ export const TournamentView: React.FC<{ initialData?: TournamentInitialData }> =
                         Create a private, detached sandbox using the current competition settings and effective roster.
                         Team metadata is refreshed from Hattrick before the copy is created.
                       </p>
+                      <p className={adminStyles.smallNote}>
+                        Refresh saved Manager Spotlight profiles for active managers in this tournament. Reserves and placeholders are excluded.
+                      </p>
                       <div className={adminStyles.settingsActions}>
                         <Button
                           type="button"
                           variant="secondaryAction"
                           size="sm"
                           onClick={duplicateAsSandbox}
-                          disabled={isDuplicatingSandbox}
+                          disabled={isDuplicatingSandbox || isRefreshingSpotlight}
                         >
                           {isDuplicatingSandbox ? 'Creating sandbox…' : 'Duplicate as sandbox'}
+                        </Button>
+                        <Button
+                          type="button"
+                          variant="secondaryAction"
+                          size="sm"
+                          onClick={refreshSpotlightProfiles}
+                          disabled={isDuplicatingSandbox || isRefreshingSpotlight}
+                        >
+                          {isRefreshingSpotlight ? 'Refreshing Spotlight…' : 'Refresh Spotlight profiles'}
                         </Button>
                       </div>
                     </SectionCard>

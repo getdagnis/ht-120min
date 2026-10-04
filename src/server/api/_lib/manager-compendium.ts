@@ -1,5 +1,13 @@
 import { getAuthHeader } from './chpp-auth.js';
-import { parseManagerCompendiumXml, parseManagerTeamDetailsXml, type ChppTeamOption, type ParsedManagerCompendium, type ParsedTeamDetails } from './chpp-xml.js';
+import {
+  parseManagerCompendiumXml,
+  parseManagerNationalTeamRolesXml,
+  parseManagerTeamDetailsXml,
+  type ChppTeamOption,
+  type ParsedManagerCompendium,
+  type ParsedNationalTeamStaffRole,
+  type ParsedTeamDetails,
+} from './chpp-xml.js';
 
 export const MANAGER_COMPENDIUM_VERSION = '1.7';
 
@@ -31,20 +39,36 @@ export function mergeManagerTeamSnapshot(
     return {
       ...previous,
       ...team,
+      isPrimaryClub: detail?.isPrimaryClub ?? team.isPrimaryClub ?? previous?.isPrimaryClub,
       logoUrl: detail?.logoUrl ?? team.logoUrl ?? previous?.logoUrl,
       foundedDate: detail?.foundedDate ?? team.foundedDate ?? previous?.foundedDate,
+      regionId: detail?.regionId ?? previous?.regionId,
       regionName: detail?.regionName ?? team.regionName ?? previous?.regionName,
       leagueId: detail?.leagueId ?? team.leagueId ?? previous?.leagueId,
       leagueSystemId: detail?.leagueSystemId ?? team.leagueSystemId ?? previous?.leagueSystemId,
       leagueName: detail?.leagueName ?? team.leagueName ?? previous?.leagueName,
       leagueLevel: detail?.leagueLevel ?? team.leagueLevel ?? previous?.leagueLevel,
+      leagueLevelUnitId: detail?.leagueLevelUnitId ?? previous?.leagueLevelUnitId,
       leagueLevelUnitName: detail?.leagueLevelUnitName ?? team.leagueLevelUnitName ?? previous?.leagueLevelUnitName,
       countryId: detail?.countryId ?? team.countryId ?? previous?.countryId,
       countryName: detail?.countryName ?? team.countryName ?? previous?.countryName,
       powerLeagueRank: detail?.powerLeagueRank ?? previous?.powerLeagueRank,
+      teamRank: detail?.teamRank ?? previous?.teamRank,
+      powerRating: detail?.powerRating ?? previous?.powerRating,
+      powerGlobalRank: detail?.powerGlobalRank ?? previous?.powerGlobalRank,
+      powerRegionRank: detail?.powerRegionRank ?? previous?.powerRegionRank,
       youthTeamName: detail?.youthTeamName ?? previous?.youthTeamName,
+      arenaId: detail?.arenaId ?? previous?.arenaId,
+      arenaName: detail?.arenaName ?? previous?.arenaName,
+      fanclubSize: detail?.fanclubSize ?? previous?.fanclubSize,
+      trophies: detail?.trophies ?? previous?.trophies ?? [],
     };
   });
+}
+
+export interface ManagerTeamDetailsSnapshot {
+  teams: ParsedTeamDetails[];
+  nationalTeamRoles: ParsedNationalTeamStaffRole[];
 }
 
 export async function fetchManagerTeamsFromChpp(
@@ -93,7 +117,7 @@ export async function fetchManagerTeamDetailsFromChpp(
   consumerKey: string,
   consumerSecret: string,
   credentials: ManagerCompendiumCredentials,
-): Promise<ParsedTeamDetails[]> {
+): Promise<ManagerTeamDetailsSnapshot> {
   const url = 'https://chpp.hattrick.org/chppxml.ashx';
   const params = { file: 'teamdetails', version: '3.9' };
   const authHeader = getAuthHeader(
@@ -105,5 +129,12 @@ export async function fetchManagerTeamDetailsFromChpp(
   });
   const xml = await response.text();
   if (!response.ok) throw new Error(`CHPP teamdetails failed (${response.status})`);
-  return parseManagerTeamDetailsXml(xml);
+  const errorCode = Number(xml.match(/<ErrorCode>\s*(\d+)\s*<\/ErrorCode>/i)?.[1] ?? 0);
+  if (errorCode > 0) throw new Error(`CHPP teamdetails returned error code ${errorCode}`);
+  const teams = parseManagerTeamDetailsXml(xml);
+  if (teams.length === 0) throw new Error('CHPP manager-wide teamdetails returned no team records.');
+  return {
+    teams,
+    nationalTeamRoles: parseManagerNationalTeamRolesXml(xml),
+  };
 }

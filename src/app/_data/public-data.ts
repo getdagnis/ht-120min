@@ -71,8 +71,9 @@ export const loadTournamentInitialData = cache(async (slug: string): Promise<Tou
   if (!tournament) return null;
   // All archived seasons are included and selected locally. Current season and
   // UTC spotlight day are explicit inputs; a season rollover cannot reuse S1.
+  // V2 discards cached Spotlight payloads from the previous string-based story shape.
   return unstable_cache(() => buildTournamentInitialData(tournament),
-    ['tournament-public-v1', String(tournament.id), String(tournament.season || 1), getUtcDateKey(), JSON.stringify(tournament)],
+    ['tournament-public-v2', String(tournament.id), String(tournament.season || 1), getUtcDateKey(), JSON.stringify(tournament)],
     { revalidate: TOURNAMENT_CACHE_SECONDS, tags: [tournamentCacheTag(String(tournament.id)), tournamentSlugCacheTag(slug)] },
   )();
 });
@@ -136,7 +137,7 @@ export async function buildTournamentInitialData(tournament: Record<string, unkn
     userIds.length
       ? supabase
           .from('profiles')
-          .select('hattrick_user_id, manager_name, avatar_json, country_id, country_name, language_name, teams_json')
+          .select('hattrick_user_id, manager_name, avatar_json, country_id, country_name, language_name, national_team_roles_json, teams_json')
           .in('hattrick_user_id', userIds)
       : Promise.resolve({ data: [] }),
     currentSeasonId
@@ -147,11 +148,16 @@ export async function buildTournamentInitialData(tournament: Record<string, unkn
   if ('error' in matchesResult && matchesResult.error) throw matchesResult.error;
   let profileRows = profilesResult.data;
   if ('error' in profilesResult && profilesResult.error && userIds.length) {
-    // Keep public tournament rendering usable while the small profile-language migration is rolling out.
-    const fallbackProfiles = await supabase
+    let fallbackProfiles = await supabase
       .from('profiles')
-      .select('hattrick_user_id, manager_name, avatar_json, country_id, country_name, teams_json')
+      .select('hattrick_user_id, manager_name, avatar_json, country_id, country_name, language_name, teams_json')
       .in('hattrick_user_id', userIds);
+    if (fallbackProfiles.error && /language_(id|name)/i.test(fallbackProfiles.error.message)) {
+      fallbackProfiles = await supabase
+        .from('profiles')
+        .select('hattrick_user_id, manager_name, avatar_json, country_id, country_name, teams_json')
+        .in('hattrick_user_id', userIds);
+    }
     profileRows = fallbackProfiles.data;
   }
   const profiles = (profileRows || []) as ManagerSpotlightProfile[];
