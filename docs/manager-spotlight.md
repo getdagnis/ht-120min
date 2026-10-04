@@ -47,7 +47,7 @@ Only fields actually present in CHPP are written; the sample omits unknown value
 
 ## Rank semantics
 
-`TeamRank` is CHPP's league-rank value. `PowerRating.LeagueRanking` is a different Power Rating ranking. The Spotlight never substitutes one for the other. A positive `TeamRank` can be described as `league rank #N`; it is not labeled as a country rank because CHPP's TeamRank schema does not establish a country-only scope. HFI `TeamRank` is suppressed in both story and team rows until a separately established HFI-specific rank source exists. Rank zero and missing ranks are omitted.
+`TeamRank` is CHPP's league ranking. In regular Hattrick leagues, the league is the country, so prose can say `ranked #N in {country}`. The five special leagues are separate from their clubs' countries: a club may be based in Costa Rica while ranked `#N in HFI`. The Spotlight resolves the rank label through `shared/worlddetails.ts`, keeping club location and rank scope distinct. If the regular league scope is missing, the fallback is generic `league rank #N`. `PowerRating.LeagueRanking` is a different ranking and is never substituted. Rank zero and missing ranks are omitted.
 
 ## Trophy normalization
 
@@ -58,10 +58,12 @@ Mappings use the local CHPP `trophyID`, `CupLevel`, and `CupLevelIndex` document
 - `78/79/80`: World Cup gold/silver/bronze; `91`: Hattrick Masters win; `93`: Masters top scorer.
 - `103`: tournament winner; `203`: tutorial tournament.
 
-The engine currently gives story weight to World Cup medals, Masters wins, National/Challenger/Consolation cups, league/series titles, and tournament wins. Top scorer and tutorial trophies remain represented in the stored summary but do not produce achievement copy. Unknown IDs are preserved as `other`, not described as a specific win.
+The engine currently gives story weight to World Cup medals, Masters wins, National/Challenger/Consolation cups, league titles, and counts of at least five series titles. Individual series titles and generic tournament wins remain represented in the stored summary but do not produce achievement copy. Top scorer and tutorial trophies also remain summary-only. Unknown IDs are preserved as `other`, not described as a specific win.
 
-## Candidate selection
+## Candidate selection and display
 
-Candidates are deterministic and contain typed text/country segments. Selection orders P0 exceptional identity, mandatory P1 tournament participant, P2 primary club, P3 major achievements/notable rank, P4 history/footprint, and P5 youth/arena/fanclub colour. Footprint candidates can identify an all-different country spread, one home club plus a foreign cluster, or clubs sharing a country/region. Same-team duplicate ranks/history/footprints are filtered. Optional ties use a stable hash of manager ID, UTC date key, and candidate ID. The normal target is three sentences, with a four-sentence hard maximum. Only selected facts are passed to the widget.
+Candidates are deterministic and contain typed text/country segments. The story selects an exceptional manager role when available, the actual tournament club, the CHPP primary club, and at most one supporting fact. Regular club rank sentences name the league country with its controlled flag. Special-league sentences state the club country separately from the special-league rank. The main club includes its stored region and country when known. Supporting facts are ordered by major achievement, at least five ordinary series titles, other-club countries, then youth for a sparse profile. Rank and founding year belong in the relevant club sentences; ordinary series titles below five and minor tournament trophies do not receive a separate story sentence. Optional ties use a stable hash of manager ID, UTC date key, and candidate ID. Stories normally have three sentences, with four reserved for a strong supporting achievement after an exceptional role. The hard maximum is four.
+
+The current-club snapshot stays complete for selection. The visible club area shows the tournament club and CHPP primary club only, or one row carrying both labels when they are the same team. The primary row also shows its founded year when known. Other clubs appear only through a country-only supporting sentence, excluding the tournament and primary clubs and their already shown countries. International and special-league short labels come from `shared/worlddetails.ts`; a positive special-league `TeamRank` is labeled with that league, not the club's country.
 
 Country mentions are typed segments independent of flag lookup. The renderer uses the existing Hattrick-controlled flag image URL when available and a neutral, controlled flag-shaped placeholder otherwise; a flag mapping failure never removes known country text from prose or club rows. The story and team rows use separate helpers so text never contains HTML.

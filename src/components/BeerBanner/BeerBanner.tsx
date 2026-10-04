@@ -18,10 +18,10 @@ export const BeerBanner: React.FC<BeerBannerProps> = ({ variant = 'default' }) =
       <div className={styles.bannerImageWrapper} />
       <div className={styles.content}>
         <div className={styles.left}>
-          <h2 className={styles.title}>Help keep the site running!</h2>
+          <h2 className={styles.title}>Keep the dev fueled!</h2>
           <p className={styles.subtitle}>
             Programming boring stuff requires coffee, programming fun stuff demands after-work beer. Fuel more of the
-            cool stuff coming!
+            cool stuff!
           </p>
           <Button
             variant={variant === 'tinder' ? 'tinder' : 'secondaryYellow'}

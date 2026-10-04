@@ -3,7 +3,7 @@ import { ArrowUpRight, UsersThree } from 'phosphor-react';
 
 import { Avatar } from '../Avatar/Avatar';
 import { ReusableWidget } from '../ReusableWidget/ReusableWidget';
-import { countryFlagUrl, countryLabel, getClubRankLabel, SPECIAL_LEAGUES, type CountryMention, type ManagerSpotlight as ManagerSpotlightViewModel, type StorySegment, type StorySentence } from '../../utils/manager-spotlight';
+import { countryFlagUrl, countryLabel, getClubRankLabel, getFoundedYearLabel, getSpecialLeagueLabel, getVisibleClubTeams, type CountryMention, type ManagerSpotlight as ManagerSpotlightViewModel, type StorySegment, type StorySentence } from '../../utils/manager-spotlight';
 import styles from './ManagerSpotlight.module.sass';
 
 const managerHref = (managerId: number) => `https://www.hattrick.org/goto.ashx?path=/Club/Manager/?userId=${managerId}`;
@@ -75,17 +75,18 @@ export const ManagerSpotlight: React.FC<ManagerSpotlightProps> = ({ spotlight })
       </div>
 
       <div className={styles.teams}>
-        {spotlight.currentTeams.map((team) => {
-          const special = team.leagueId ? SPECIAL_LEAGUES[team.leagueId] : null;
+        {getVisibleClubTeams(spotlight).map((team) => {
+          const special = getSpecialLeagueLabel(team.leagueId);
           const details: React.ReactNode[] = [];
           const countryName = countryLabel(team.countryId, team.countryName);
           if (countryName) {
             details.push(<React.Fragment key="country">{countryName}<CountryFlag countryId={team.countryId} countryName={countryName} /></React.Fragment>);
           }
-          if (special) details.push(<span key="special">{special.shortName}</span>);
-          if (team.seriesName) details.push(<span key="division">{team.seriesName}</span>);
+          if (special) details.push(<span key="special">{special}</span>);
+          if (team.seriesName) details.push(<span key="series">{team.seriesName}</span>);
           const rank = getClubRankLabel(team);
           if (rank) details.push(<span key="rank">{rank}</span>);
+          const founded = team.isPrimary ? getFoundedYearLabel(team) : null;
 
           return (
             <div key={team.teamId} className={`${styles.team} ${team.isTournamentTeam ? styles.tournamentTeam : ''}`}>
@@ -97,6 +98,7 @@ export const ManagerSpotlight: React.FC<ManagerSpotlightProps> = ({ spotlight })
                 <span className={styles.teamMeta}>
                   {details.length ? details.map((detail, index) => <React.Fragment key={index}>{index > 0 && ' · '}{detail}</React.Fragment>) : 'Hattrick club'}
                 </span>
+                {founded && <span className={styles.foundedDate}>{founded}</span>}
               </div>
               <div className={styles.teamLabels}>
                 {team.isTournamentTeam && <span className={styles.tournamentLabel}>This tournament</span>}

@@ -1,7 +1,10 @@
 // Generated from src/utils/worlddetails.xml (CHPP worldDetails v1.2).
 // leagueName is the short English display name; fullName is the full English name.
 // countryName preserves Hattrick's local/original country name.
-// LeagueID and CountryID are separate namespaces; special leagues have no country.
+// LeagueID and CountryID are separate namespaces; special leagues have no country
+// Regular leagues have a countryId, but special leagues have null for countryId and countryName
+// For regular leagues country identity and name matches its league identity but IDs differ
+// Leagues are where your team competes. Country is where your team is based - flag, region, National Team etc.
 export interface HattrickWorldLeague {
   leagueId: number;
   /** Short display name used throughout the UI. */
