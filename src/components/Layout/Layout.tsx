@@ -26,6 +26,7 @@ import { ProfileModal } from '../ProfileModal/ProfileModal';
 import { BeerBanner } from '../BeerBanner/BeerBanner';
 import { TeamOwnershipReclaim } from '../TeamOwnershipReclaim/TeamOwnershipReclaim';
 import { ToastProvider } from '../Toast/Toast';
+import { NavigationFeedback } from '../NavigationFeedback/NavigationFeedback';
 import { LocaleSwitcher } from '../../i18n/LocaleSwitcher';
 import { useLocale } from '../../i18n/LocaleProvider';
 import { toLocalePath } from '../../next/locale-path';
@@ -390,6 +391,7 @@ export const Layout: React.FC<LayoutProps> = ({ children, excludeAnalytics = fal
         </header>
 
         <main className={styles.main}>
+          <NavigationFeedback />
           {authError && (
             <section className={styles.authFailure} role="alert">
               <div>

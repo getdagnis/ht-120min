@@ -3,7 +3,9 @@ import { isLocale } from '../../../../../i18n/config';
 import { TournamentView } from '../../../../../legacy-pages/Public/TournamentView';
 import { loadTournamentInitialData } from '../../../../_data/public-data';
 
-export const dynamic = 'force-dynamic';
+// The locale shell reads cookies, so HTML remains request-specific. Allow the
+// explicit public Data Cache instead of forcing every read to bypass it.
+export const dynamic = 'auto';
 
 export default async function TournamentPage({
   params,
@@ -22,5 +24,5 @@ export default async function TournamentPage({
   }
   if (initialData === null) notFound();
 
-  return <TournamentView initialData={initialData} />;
+  return <TournamentView key={slug} initialData={initialData} />;
 }

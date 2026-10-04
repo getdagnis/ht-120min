@@ -2,6 +2,9 @@ import 'server-only';
 
 import { createClient } from '@supabase/supabase-js';
 import { cache } from 'react';
+import { unstable_cache } from 'next/cache';
+import { PUBLIC_TOURNAMENT_FIELDS, PUBLIC_TEAM_FIELDS, PUBLIC_ROUND_FIELDS, PUBLIC_MATCH_FIELDS } from '../../lib/tournament-public-fields.js';
+import { tournamentCacheTag, tournamentSlugCacheTag, TOURNAMENT_CACHE_SECONDS } from '../../server/api/_lib/tournament-cache.js';
 import { getMatchDateForRound } from '../../utils/match-schedule.js';
 import { compareFixtures } from '../../utils/fixture-sorting';
 import { calculateSeasonSlotStandings, type SeasonSlotAssignment } from '../../utils/standings';
@@ -28,6 +31,8 @@ export interface TournamentInitialData {
   announcements: Record<string, unknown>[];
   organizerProfileName: string | null;
   managerSpotlight: ManagerSpotlight | null;
+  seasonSlots: { id: string; current_team_id: string | null }[];
+  seasonSlotAssignments: SeasonSlotAssignment[];
 }
 
 function getPublicSupabase() {
@@ -39,7 +44,7 @@ function getPublicSupabase() {
   return createClient(url, key, {
     auth: { autoRefreshToken: false, persistSession: false },
     global: {
-      fetch: (input, init) => fetch(input, { ...init, signal: init?.signal || AbortSignal.timeout(3_500) }),
+      fetch: (input, init) => fetch(input, { ...init, cache: 'no-store', signal: init?.signal || AbortSignal.timeout(3_500) }),
     },
   });
 }
@@ -51,58 +56,76 @@ export const loadHomeInitialData = cache(async (): Promise<HomeInitialData> => {
   return buildHomeSnapshot(supabase);
 });
 
-export const loadTournamentInitialData = cache(async (slug: string): Promise<TournamentInitialData | null> => {
+const readTournament = async (slug: string) => {
   const supabase = getPublicSupabase();
-  if (!supabase) return null;
+  if (!supabase) throw new Error('Public Supabase configuration missing.');
+  const { data, error } = await supabase.from('tournaments').select(PUBLIC_TOURNAMENT_FIELDS).eq('slug', slug).maybeSingle();
+  if (error) throw error;
+  return data as Record<string, unknown> | null;
+};
 
-  const { data: tournamentRaw, error: tournamentError } = await supabase.from('tournaments').select('*').eq('slug', slug).single();
-  if (tournamentError || !tournamentRaw) return null;
+export const loadTournamentInitialData = cache(async (slug: string): Promise<TournamentInitialData | null> => {
+  const tournament = await unstable_cache(() => readTournament(slug), ['tournament-header-v1', slug], {
+    revalidate: TOURNAMENT_CACHE_SECONDS, tags: [tournamentSlugCacheTag(slug)],
+  })();
+  if (!tournament) return null;
+  // All archived seasons are included and selected locally. Current season and
+  // UTC spotlight day are explicit inputs; a season rollover cannot reuse S1.
+  return unstable_cache(() => buildTournamentInitialData(tournament),
+    ['tournament-public-v1', String(tournament.id), String(tournament.season || 1), getUtcDateKey(), JSON.stringify(tournament)],
+    { revalidate: TOURNAMENT_CACHE_SECONDS, tags: [tournamentCacheTag(String(tournament.id)), tournamentSlugCacheTag(slug)] },
+  )();
+});
 
-  const tournament = tournamentRaw as Record<string, unknown>;
+export async function buildTournamentInitialData(tournament: Record<string, unknown>): Promise<TournamentInitialData> {
+  const supabase = getPublicSupabase();
+  if (!supabase) throw new Error('Public Supabase configuration missing.');
   const tournamentId = String(tournament.id);
   const seasonNumber = Number(tournament.season || 1);
   const organizerId = Number(tournament.organizer_id || 0);
+  // One line per real rebuild helps compare fresh-session visits in Vercel
+  // logs without logging private data or adding a verification endpoint.
+  console.info('[public-tournament] rebuild', { tournamentId, seasonNumber });
 
-  const [{ data: teamsRaw }, { data: roundsRaw }, { data: seasonsRaw }, { data: warningsRaw }, { data: activityWarningsRaw }, { data: announcementsRaw }, organizerResult] =
+  const [teamsResult, roundsResult, seasonsResult, warningsResult, announcementsResult, organizerResult] =
     await Promise.all([
-      supabase.from('teams').select('*').eq('tournament_id', tournamentId).order('created_at', { ascending: true }),
+      supabase.from('teams').select(PUBLIC_TEAM_FIELDS).eq('tournament_id', tournamentId).order('created_at', { ascending: true }),
       supabase
         .from('rounds')
-        .select('*')
+        .select(PUBLIC_ROUND_FIELDS)
         .eq('tournament_id', tournamentId)
         .eq('season_number', seasonNumber)
         .order('round_number', { ascending: true }),
-      supabase.from('tournament_seasons').select('*').eq('tournament_id', tournamentId).order('season_number', { ascending: true }),
-      supabase.from('fixture_warnings').select('*').eq('tournament_id', tournamentId).eq('active', true),
-      supabase.from('fixture_warnings').select('id, round_id, team_id, created_at').eq('tournament_id', tournamentId),
-      supabase.from('tournament_announcements').select('*').eq('tournament_id', tournamentId).order('created_at', { ascending: false }),
+      supabase.from('tournament_seasons').select('id,tournament_id,season_number,status,planned_start_slot,started_at,finished_at,snapshot_json,fixtures_snapshot_json,champion_team_id,champion_decided_at,created_at,updated_at').eq('tournament_id', tournamentId).order('season_number', { ascending: true }),
+      supabase.from('fixture_warnings').select('id,tournament_id,round_id,team_id,type,reason,active,created_at').eq('tournament_id', tournamentId),
+      supabase.from('tournament_announcements').select('id,tournament_id,content,template_key,visibility,source,is_active,created_at,hidden_at').eq('visibility', 'public').eq('is_active', true).eq('tournament_id', tournamentId).order('created_at', { ascending: false }),
       organizerId
         ? supabase.from('profiles').select('manager_name').eq('hattrick_user_id', organizerId).maybeSingle()
         : Promise.resolve({ data: null }),
     ]);
 
+  for (const result of [teamsResult, roundsResult, seasonsResult, warningsResult, announcementsResult]) {
+    if (result.error) throw result.error;
+  }
+  const teamsRaw = teamsResult.data;
+  const roundsRaw = roundsResult.data;
+  const seasonsRaw = seasonsResult.data;
+  const warningsRaw = (warningsResult.data || []).filter((warning) => warning.active);
+  const activityWarningsRaw = (warningsResult.data || []).map(({ id, round_id, team_id, created_at }) => ({ id, round_id, team_id, created_at }));
+  const announcementsRaw = announcementsResult.data;
   const teams = (teamsRaw || []) as Record<string, unknown>[];
   const rounds = (roundsRaw || []) as Record<string, unknown>[];
   const currentSeasonId = String((seasonsRaw || []).find((season) => Number((season as Record<string, unknown>).season_number) === seasonNumber)?.id || '');
-  const { data: slotsRaw } = currentSeasonId
-    ? await supabase.from('tournament_season_slots').select('id, current_team_id').eq('tournament_season_id', currentSeasonId)
-    : { data: [] as unknown[] };
-  const slotIds = (slotsRaw || []).map((slot) => String((slot as Record<string, unknown>).id));
-  const { data: slotAssignmentsRaw } = slotIds.length
-    ? await supabase
-        .from('tournament_season_slot_assignments')
-        .select('id, tournament_season_slot_id, team_id, assigned_at, released_at, team_name, ht_team_id, manager_name, hattrick_user_id, logo_url')
-        .in('tournament_season_slot_id', slotIds)
-    : { data: [] as unknown[] };
   const roundIds = rounds.map((round) => String(round.id));
-  const userIds = teams.map((team) => Number(team.hattrick_user_id || 0)).filter(Boolean);
-  const [matchesResult, profilesResult] = await Promise.all([
+  const userIds = [...new Set(teams.map((team) => Number(team.hattrick_user_id || 0)).filter(Boolean))];
+  // These reads are independent: do not put fixtures/profiles behind the slot chain.
+  const [matchesResult, profilesResult, { data: slotsRaw }] = await Promise.all([
     roundIds.length
       ? supabase
           .from('matches')
           .select(
             `
-              *, status, ht_match_id, match_type,
+              ${PUBLIC_MATCH_FIELDS},
               home_team:teams!matches_home_team_id_fkey(name, ht_team_id, logo_url, country_name, country_id, league_id, league_level, active, manager_name, hattrick_user_id),
               away_team:teams!matches_away_team_id_fkey(name, ht_team_id, logo_url, country_name, country_id, league_id, league_level, active, manager_name, hattrick_user_id),
               reserve_team:teams!matches_reserve_team_id_fkey(name, ht_team_id, logo_url, country_name, country_id, league_id, league_level, active, reserve_active, manager_name, hattrick_user_id)
@@ -113,21 +136,25 @@ export const loadTournamentInitialData = cache(async (slug: string): Promise<Tou
     userIds.length
       ? supabase
           .from('profiles')
-          .select('hattrick_user_id, manager_name, last_seen_at, avatar_json, country_id, country_name, language_name, teams_json')
+          .select('hattrick_user_id, manager_name, avatar_json, country_id, country_name, language_name, teams_json')
           .in('hattrick_user_id', userIds)
       : Promise.resolve({ data: [] }),
+    currentSeasonId
+      ? supabase.from('tournament_season_slots').select('id, current_team_id').eq('tournament_season_id', currentSeasonId)
+      : Promise.resolve({ data: [] as unknown[] }),
   ]);
 
+  if ('error' in matchesResult && matchesResult.error) throw matchesResult.error;
   let profileRows = profilesResult.data;
-  if (profilesResult.error && userIds.length) {
+  if ('error' in profilesResult && profilesResult.error && userIds.length) {
     // Keep public tournament rendering usable while the small profile-language migration is rolling out.
     const fallbackProfiles = await supabase
       .from('profiles')
-      .select('hattrick_user_id, manager_name, last_seen_at, avatar_json, country_id, country_name, teams_json')
+      .select('hattrick_user_id, manager_name, avatar_json, country_id, country_name, teams_json')
       .in('hattrick_user_id', userIds);
     profileRows = fallbackProfiles.data;
   }
-  const profiles = (profileRows || []) as Array<ManagerSpotlightProfile & { last_seen_at: string | null }>;
+  const profiles = (profileRows || []) as ManagerSpotlightProfile[];
   const profileMap = Object.fromEntries(profiles.map((profile) => [profile.hattrick_user_id, profile.manager_name]));
   const managerSpotlight = buildManagerSpotlight({
     tournamentId,
@@ -144,11 +171,29 @@ export const loadTournamentInitialData = cache(async (slug: string): Promise<Tou
     profiles,
     dateKey: getUtcDateKey(),
   });
-  const rawMatches = (matchesResult.data || []) as Record<string, unknown>[];
+  // Never retain a changing live score in the 60-second cache. The live hook
+  // supplies current observations separately; completed results remain stable.
+  const rawMatches = ((matchesResult.data || []) as Record<string, unknown>[]).map((match) =>
+    !match.completed
+      ? { ...match, home_goals: null, away_goals: null, match_event_details: null,
+          total_minutes: 90, went_120: false,
+          penalty_shootout_home_goals: null, penalty_shootout_away_goals: null,
+          home_yellow_cards: 0, home_red_cards: 0, home_injuries: 0,
+          away_yellow_cards: 0, away_red_cards: 0, away_injuries: 0 }
+      : match,
+  );
   const assignmentIds = Array.from(new Set(rawMatches.flatMap((match) => [match.home_slot_assignment_id, match.away_slot_assignment_id]).filter((id): id is string => typeof id === 'string')));
-  const { data: assignmentRows } = assignmentIds.length
-    ? await supabase.from('tournament_season_slot_assignments').select('id, team_name, ht_team_id, manager_name, hattrick_user_id, logo_url').in('id', assignmentIds)
-    : { data: [] as unknown[] };
+  const slotIds = (slotsRaw || []).map((slot) => String((slot as Record<string, unknown>).id));
+  const assignmentFilters = [
+    ...(slotIds.length ? [`tournament_season_slot_id.in.(${slotIds.join(',')})`] : []),
+    ...(assignmentIds.length ? [`id.in.(${assignmentIds.join(',')})`] : []),
+  ];
+  const { data: assignmentRows } = assignmentFilters.length
+    ? await supabase.from('tournament_season_slot_assignments')
+        .select('id,tournament_season_slot_id,team_id,assigned_at,released_at,team_name,ht_team_id,manager_name,hattrick_user_id,logo_url')
+        .or(assignmentFilters.join(','))
+    : { data: [] };
+  const slotAssignmentsRaw = (assignmentRows || []).filter((row) => slotIds.includes(String(row.tournament_season_slot_id)));
   const assignments = new Map((assignmentRows || []).map((row) => [String((row as Record<string, unknown>).id), row as Record<string, unknown>]));
   const matches = rawMatches.map((match) => {
     const enrichTeam = (value: unknown) => {
@@ -247,5 +292,7 @@ export const loadTournamentInitialData = cache(async (slug: string): Promise<Tou
     announcements: (announcementsRaw || []) as Record<string, unknown>[],
     organizerProfileName: (organizerResult.data as { manager_name?: string } | null)?.manager_name || null,
     managerSpotlight,
+    seasonSlots: slots,
+    seasonSlotAssignments: slotAssignments,
   };
-});
+}

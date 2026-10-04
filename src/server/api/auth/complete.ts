@@ -36,6 +36,7 @@ interface ProfileForClaim {
 
 interface TeamForClaim {
   id: string;
+  tournament_id: string;
   ht_team_id: number | null;
   active: boolean | null;
   is_placeholder: boolean | null;
@@ -156,7 +157,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     const { data: teamRowsRaw, error: teamsError } = await supabase
       .from('teams')
       .select(
-        'id, ht_team_id, active, is_placeholder, joined_via_oauth, hattrick_user_id, tournaments(status, registration_type, is_test, is_archived)',
+        'id, tournament_id, ht_team_id, active, is_placeholder, joined_via_oauth, hattrick_user_id, tournaments(status, registration_type, is_test, is_archived)',
       )
       .in('ht_team_id', verifiedRequestedIds)
       .eq('active', true);
@@ -217,6 +218,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
     return res.status(200).json({
       claimed: claimableRows.length,
+      tournamentIds: [...new Set(claimableRows.map((team) => team.tournament_id))],
       teamIds: claimableRows.map((team) => team.ht_team_id).filter(Boolean),
     });
   }
@@ -493,6 +495,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       hattrick_user_id: pending.hattrick_user_id,
       manager_name: pending.manager_name,
       redirect: redirectUrl,
+      tournamentId: pending.tournament_id || null,
     });
   } catch (error: unknown) {
     console.error('Auth Complete Handler Error:', error);

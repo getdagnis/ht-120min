@@ -5,6 +5,8 @@ import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import Link from 'next/link';
 import { usePathname, useParams, useRouter, useSearchParams as useNextSearchParams } from 'next/navigation';
 import { supabase } from '../../lib/supabase';
+import { PUBLIC_ROUND_FIELDS, PUBLIC_MATCH_FIELDS } from '../../lib/tournament-public-fields';
+import { invalidateTournamentData, loadTournamentPrivateData, readTournamentPublicData } from '../../app/_data/tournament-actions';
 import { useLocale } from '../../i18n/LocaleProvider';
 import { toLocalePath } from '../../next/locale-path';
 
@@ -630,10 +632,12 @@ export const TournamentView: React.FC<{ initialData?: TournamentInitialData }> =
       const params = next instanceof URLSearchParams ? next : new URLSearchParams(next);
       const query = params.toString();
       const url = `${pathname}${query ? `?${query}` : ''}`;
-      if (options?.replace) router.replace(url);
-      else router.push(url);
+      // These parameters select client-owned tabs/seasons, not server data.
+      // Next integrates native history with useSearchParams and browser Back.
+      if (options?.replace) window.history.replaceState(null, '', url);
+      else window.history.pushState(null, '', url);
     },
-    [pathname, router],
+    [pathname],
   );
   const tournamentFaqSections = useMemo(() => getTournamentFaqSections(), []);
   const tournamentFaqItems = useMemo(
@@ -702,8 +706,8 @@ export const TournamentView: React.FC<{ initialData?: TournamentInitialData }> =
   const [standings, setStandings] = useState<TeamStanding[]>(
     () => (initialData?.standings as unknown as TeamStanding[] | undefined) || [],
   );
-  const [seasonSlots, setSeasonSlots] = useState<Array<{ id: string; current_team_id: string | null }>>([]);
-  const [seasonSlotAssignments, setSeasonSlotAssignments] = useState<SeasonSlotAssignment[]>([]);
+  const [seasonSlots, setSeasonSlots] = useState<Array<{ id: string; current_team_id: string | null }>>(() => initialData?.seasonSlots || []);
+  const [seasonSlotAssignments, setSeasonSlotAssignments] = useState<SeasonSlotAssignment[]>(() => initialData?.seasonSlotAssignments || []);
   const [rounds, setRounds] = useState<RoundWithMatches[]>(() => reviveInitialRounds(initialData));
   const [teams, setTeams] = useState<Team[]>(() => (initialData?.teams as unknown as Team[] | undefined) || []);
   const managerSpotlight = initialData?.managerSpotlight || null;
@@ -1412,6 +1416,19 @@ export const TournamentView: React.FC<{ initialData?: TournamentInitialData }> =
   // Join states
   const [isJoining, setIsJoining] = useState(false);
   const [isConnecting, setIsConnecting] = useState(false);
+  const connectingRef = useRef(false);
+  const submittingJoinRef = useRef(false);
+  const connectToHattrick = () => {
+    if (connectingRef.current || !tournament) return;
+    connectingRef.current = true;
+    setIsConnecting(true);
+    window.location.href = `/api/auth/init?tournament_id=${tournament.id}`;
+  };
+  useEffect(() => {
+    const reset = () => { connectingRef.current = false; setIsConnecting(false); };
+    window.addEventListener('pageshow', reset);
+    return () => window.removeEventListener('pageshow', reset);
+  }, []);
   const [joinTeamId, setJoinTeamId] = useState('');
   const [joinTeamName, setJoinTeamName] = useState('');
   const [isInviteExpanded, setIsInviteExpanded] = useState(false);
@@ -1469,7 +1486,7 @@ export const TournamentView: React.FC<{ initialData?: TournamentInitialData }> =
 
   const [loading, setLoading] = useState(() => !initialData);
   const [copied, setCopied] = useState<Record<string, boolean>>({});
-  const hasLoadedTournamentRef = useRef(false);
+  const hasLoadedTournamentRef = useRef(Boolean(initialData));
 
   const allMatches = rounds.flatMap((r) => r.matches);
   const isGenerated = rounds.length > 0;
@@ -1723,55 +1740,55 @@ export const TournamentView: React.FC<{ initialData?: TournamentInitialData }> =
     [],
   );
 
+  const invalidateAfterEdit = useCallback(async () => {
+    if (!tournament?.id) return;
+    try {
+      await invalidateTournamentData(tournament.id, readLocalStorage(`admin_pw_${slug}`) || '');
+    } catch (error) {
+      // The write already succeeded. Keep the local result and explain the
+      // fallback instead of reporting the saved edit as failed.
+      console.error('Tournament cache invalidation failed:', error);
+      alert('Your change was saved, but shared data could not be refreshed. Other visitors may see it after the cache revalidates (about 60 seconds).');
+    }
+  }, [tournament?.id, slug, alert]);
+
+  const hydratePrivateData = useCallback(async (adminPassword = '') => {
+    if (!tournament?.id) return false;
+    const result = await loadTournamentPrivateData(tournament.id, adminPassword);
+    if (result.settings) {
+      setTournament((current) => current ? { ...current, ...result.settings } : current);
+      setShowEditEmail(Boolean(result.settings.admin_email));
+      setEditAdminEmail(result.settings.admin_email || '');
+    }
+    setAnnouncements((current) => [
+      ...current.filter((item) => item.visibility === 'public' && !result.announcements.some((incoming) => incoming.id === item.id)),
+      ...result.announcements as TournamentAnnouncement[],
+    ]);
+    setAnnouncementDismissals(result.dismissals as TournamentAnnouncementDismissal[]);
+    return adminPassword ? result.passwordVerified : result.admin;
+  }, [tournament?.id]);
+
   const fetchData = useCallback(
-    async (options: { showLoader?: boolean } = {}) => {
+    async (options: { showLoader?: boolean; invalidate?: boolean } = {}) => {
       const showLoader = options.showLoader ?? !hasLoadedTournamentRef.current;
       if (showLoader) setLoading(true);
-      const { data: tournamentData } = await supabase.from('tournaments').select('*').eq('slug', slug).single();
-
-      if (tournamentData) {
-        setTournament(tournamentData as Tournament);
-        setOrganizerProfileName(null);
-        if (!tournamentData.organizer_name && tournamentData.organizer_id) {
-          const { data: organizerProfile } = await supabase
-            .from('profiles')
-            .select('manager_name')
-            .eq('hattrick_user_id', tournamentData.organizer_id)
-            .maybeSingle();
-          setOrganizerProfileName(organizerProfile?.manager_name || null);
-        }
+      try {
+        if (options.invalidate !== false) await invalidateAfterEdit();
+        const data = await readTournamentPublicData(slug);
+        if (!data) return;
+        const tournamentData = data.tournament as unknown as Tournament;
+        setTournament((current) => ({ ...current, ...tournamentData }));
+        setTeams(data.teams as unknown as Team[]);
+        setRounds(reviveInitialRounds(data));
+        setStandings(data.standings as unknown as TeamStanding[]);
+        setSeasonSlots(data.seasonSlots);
+        setSeasonSlotAssignments(data.seasonSlotAssignments);
+        setSeasons(data.seasons as unknown as TournamentSeason[]);
+        setWarnings(data.warnings);
+        setActivityWarnings(data.activityWarnings);
+        setOrganizerProfileName(data.organizerProfileName);
+        setAnnouncements(data.announcements as unknown as TournamentAnnouncement[]);
         localStorage.setItem('last_viewed_tournament_id', tournamentData.id);
-        const currentSeasonNumber = Number(tournamentData.season || 1);
-        const { data: seasonData, error: seasonError } = await supabase
-          .from('tournament_seasons')
-          .select('*')
-          .eq('tournament_id', tournamentData.id)
-          .order('season_number', { ascending: true });
-        if (!seasonError && seasonData) {
-          setSeasons(seasonData as TournamentSeason[]);
-        } else {
-          setSeasons([]);
-        }
-        const currentSeasonId = (seasonData || []).find(
-          (season) => Number(season.season_number) === currentSeasonNumber,
-        )?.id;
-        const { data: slotData } = currentSeasonId
-          ? await supabase
-              .from('tournament_season_slots')
-              .select('id, current_team_id')
-              .eq('tournament_season_id', currentSeasonId)
-          : { data: [] as Array<{ id: string; current_team_id: string | null }> };
-        setSeasonSlots((slotData || []) as Array<{ id: string; current_team_id: string | null }>);
-        const slotIds = (slotData || []).map((slot) => slot.id);
-        const { data: slotAssignmentData } = slotIds.length
-          ? await supabase
-              .from('tournament_season_slot_assignments')
-              .select(
-                'id, tournament_season_slot_id, team_id, assigned_at, released_at, team_name, ht_team_id, manager_name, hattrick_user_id, logo_url',
-              )
-              .in('tournament_season_slot_id', slotIds)
-          : { data: [] as SeasonSlotAssignment[] };
-        setSeasonSlotAssignments((slotAssignmentData || []) as SeasonSlotAssignment[]);
         setEditName(tournamentData.name);
         setEditIsPrivate(tournamentData.is_private);
         setEditChppOnlyJoin(tournamentData.chpp_only_join);
@@ -1791,8 +1808,6 @@ export const TournamentView: React.FC<{ initialData?: TournamentInitialData }> =
         setIsTest(tournamentData.is_test || false);
         setShowEditDescription(tournamentData.show_description);
         setEditDescription(tournamentData.description || '');
-        setShowEditEmail(!!tournamentData.admin_email);
-        setEditAdminEmail(tournamentData.admin_email || '');
         setEditForumId(tournamentData.forum_id ? String(tournamentData.forum_id) : '');
         setEditMaxTeams(tournamentData.max_teams || null);
         setEditRegistrationOpen(!tournamentData.registration_closed_at);
@@ -1800,253 +1815,16 @@ export const TournamentView: React.FC<{ initialData?: TournamentInitialData }> =
         setIncludeWeek15WeekendFriendly(false);
         setIncludeWeek15WeekendFriendlyForReschedule(Boolean(tournamentData.include_week15_weekend_friendly));
         setEditIsFeatured(Boolean(tournamentData.is_featured));
-        const { data: teamsDataRaw } = await supabase
-          .from('teams')
-          .select('*')
-          .eq('tournament_id', tournamentData.id)
-          .order('created_at', { ascending: true });
-
-        const teamsData = teamsDataRaw || [];
-
-        // Fetch profiles to get country_id and up-to-date manager_name
-        let nextProfileMap: Record<number, { manager_name: string }> = {};
-        let nextLastSeenMap: Record<number, string | null> = {};
-        if (teamsData.length > 0) {
-          const userIds = teamsData.map((t) => t.hattrick_user_id).filter(Boolean);
-          if (userIds.length > 0) {
-            const { data: profilesData } = await supabase
-              .from('profiles')
-              .select('hattrick_user_id, manager_name, last_seen_at')
-              .in('hattrick_user_id', userIds);
-            if (profilesData) {
-              nextProfileMap = Object.fromEntries(
-                profilesData.map((p) => [Number(p.hattrick_user_id), { manager_name: p.manager_name }]),
-              );
-              nextLastSeenMap = Object.fromEntries(
-                profilesData.map((p) => [Number(p.hattrick_user_id), p.last_seen_at ?? null]),
-              );
-            }
-          }
-        }
-
-        setLastSeenMap(nextLastSeenMap);
-
-        setTeams(teamsData);
-
-        const activeHtTeamIds = teamsData
-          .filter((team) => isCurrentParticipantTeam(team) && team.ht_team_id)
-          .map((team) => team.ht_team_id);
-
-        if (activeHtTeamIds.length > 0) {
-          const { data: elsewhereRows } = await supabase
-            .from('teams')
-            .select('ht_team_id, tournament_id, tournaments(name, status, is_test, registration_type)')
-            .in('ht_team_id', activeHtTeamIds)
-            .eq('active', true)
-            .neq('tournament_id', tournamentData.id);
-
-          const elsewhereIds = new Set<number>();
-          (elsewhereRows || []).forEach((row) => {
-            const tournament = Array.isArray(row.tournaments) ? row.tournaments[0] : row.tournaments;
-            if (row.ht_team_id && isBlockingTeamTournament(tournament)) {
-              elsewhereIds.add(Number(row.ht_team_id));
-            }
-          });
-          setPlayingElsewhereTeamIds(elsewhereIds);
-        } else {
-          setPlayingElsewhereTeamIds(new Set());
-        }
-
-        const fetchedScheduleTeams = teamsData.filter(isCurrentParticipantTeam).map((team) => ({
-          id: team.id,
-          name: team.name,
-          active: team.active,
-          isPlaceholder: team.is_placeholder,
-          countryName: team.country_name ?? null,
-          leagueLevel: team.league_level ?? null,
-        }));
-        const reconciledDraft = buildScheduleDraft({
-          teams: fetchedScheduleTeams,
-          mode: normalizeGeneratedScheduleMode(tournamentData.schedule_mode),
-          startSlotId: storedStartSlot?.id || null,
-          includeWeek15WeekendFriendly: false,
-          now: new Date(),
-        });
-        setScheduleMode(reconciledDraft.mode);
-        setScheduleStartSlotId(storedStartSlot?.id || '');
-
-        const { data: roundsData } = await supabase
-          .from('rounds')
-          .select('*')
-          .eq('tournament_id', tournamentData.id)
-          .eq('season_number', currentSeasonNumber)
-          .order('round_number', { ascending: true });
-
-        const { data: matchesDataRaw } = await supabase
-          .from('matches')
-          .select(
-            `
-          *,
-          status,
-          ht_match_id,
-          match_type,
-          home_team:teams!matches_home_team_id_fkey(name, ht_team_id, logo_url, country_name, country_id, league_id, league_level, active, manager_name, hattrick_user_id),
-          away_team:teams!matches_away_team_id_fkey(name, ht_team_id, logo_url, country_name, country_id, league_id, league_level, active, manager_name, hattrick_user_id),
-          reserve_team:teams!matches_reserve_team_id_fkey(name, ht_team_id, logo_url, country_name, country_id, league_id, league_level, active, reserve_active, manager_name, hattrick_user_id)
-        `,
-          )
-          .in(
-            'round_id',
-            (roundsData || []).map((r) => r.id),
-          );
-
-        const rawMatches = matchesDataRaw || [];
-        const assignmentIds = Array.from(
-          new Set(
-            rawMatches
-              .flatMap((match) => [match.home_slot_assignment_id, match.away_slot_assignment_id])
-              .filter((id): id is string => typeof id === 'string'),
-          ),
-        );
-        const { data: assignmentRows } = assignmentIds.length
-          ? await supabase
-              .from('tournament_season_slot_assignments')
-              .select('id, team_name, ht_team_id, manager_name, hattrick_user_id, logo_url')
-              .in('id', assignmentIds)
-          : { data: [] as Array<Record<string, unknown>> };
-        const assignments = new Map((assignmentRows || []).map((assignment) => [String(assignment.id), assignment]));
-        // Completed fixture cards use their frozen assignment identity; upcoming
-        // cards retain the incoming team now occupying the physical slot.
-        const matchesData = rawMatches
-          .map((m) => {
-            const enrichTeam = (team: typeof m.home_team, assignmentId: unknown) => {
-              const enriched = team
-                ? {
-                    ...team,
-                    manager_name: team.hattrick_user_id
-                      ? nextProfileMap[team.hattrick_user_id]?.manager_name || team.manager_name
-                      : team.manager_name,
-                  }
-                : null;
-              const assignment = typeof assignmentId === 'string' ? assignments.get(assignmentId) : null;
-              return assignment && m.completed
-                ? {
-                    ...(enriched || {}),
-                    name: assignment.team_name,
-                    ht_team_id: assignment.ht_team_id,
-                    manager_name: assignment.manager_name,
-                    hattrick_user_id: assignment.hattrick_user_id,
-                    logo_url: assignment.logo_url,
-                  }
-                : enriched;
-            };
-            return {
-              ...m,
-              home_team: enrichTeam(m.home_team, m.home_slot_assignment_id),
-              away_team: enrichTeam(m.away_team, m.away_slot_assignment_id),
-            };
-          })
-          .map((match) => applyReserveDisplay(match as unknown as MatchWithTeams));
-
-        const { data: warningsData } = await supabase
-          .from('fixture_warnings')
-          .select('*')
-          .eq('tournament_id', tournamentData.id)
-          .eq('active', true);
-
-        setWarnings(warningsData || []);
-
-        const { data: announcementData } = await supabase
-          .from('tournament_announcements')
-          .select('*')
-          .eq('tournament_id', tournamentData.id)
-          .order('created_at', { ascending: false });
-        setAnnouncements((announcementData as TournamentAnnouncement[] | null) || []);
-
-        if (currentHtUserId) {
-          const { data: dismissalData } = await supabase
-            .from('tournament_announcement_dismissals')
-            .select('*')
-            .eq('tournament_id', tournamentData.id)
-            .eq('hattrick_user_id', currentHtUserId);
-          setAnnouncementDismissals((dismissalData as TournamentAnnouncementDismissal[] | null) || []);
-        } else {
-          setAnnouncementDismissals([]);
-        }
-
-        if (teamsData) {
-          const matchesWithTeams = matchesData as unknown as MatchWithTeams[];
-
-          // Add calculated match_date to each match for sorting and status detection
-          const matchesWithDates = matchesWithTeams.map((m) => {
-            const round = roundsData?.find((r) => r.id === m.round_id);
-            return {
-              ...m,
-              match_date: round ? getMatchDateForRound(round as RoundWithMatches, m) : undefined,
-            };
-          });
-
-          const mergedMatches = matchesWithDates;
-          const regularRoundIds = new Set(
-            (roundsData || []).filter((round) => round.phase !== 'postseason').map((round) => round.id),
-          );
-
-          const calculated = calculateSeasonSlotStandings(
-            teamsData.map((t) => ({
-              id: t.id,
-              name: t.name,
-              ht_team_id: t.ht_team_id,
-              hattrick_user_id: t.hattrick_user_id,
-              active: t.active,
-              replacement_for_team_id: t.replacement_for_team_id,
-              joined_via_oauth: t.joined_via_oauth,
-              country_name: t.country_name,
-              country_id: t.country_id ?? null,
-              league_id: t.league_id ?? null,
-              team_rank: t.team_rank ?? null,
-              logo_url: t.logo_url,
-              manager_name: t.hattrick_user_id
-                ? nextProfileMap[t.hattrick_user_id]?.manager_name || t.manager_name
-                : t.manager_name,
-            })),
-            mergedMatches
-              .filter((match) => regularRoundIds.has(match.round_id))
-              .map((m) => ({
-                home_team_id: m.home_team_id,
-                away_team_id: m.away_team_id,
-                home_slot_id: m.home_slot_id,
-                away_slot_id: m.away_slot_id,
-                home_goals: m.home_goals,
-                away_goals: m.away_goals,
-                completed: m.completed,
-                went_120: m.went_120,
-                total_minutes: m.total_minutes,
-                appg_outcome: m.appg_outcome,
-                penalty_shootout_home_goals: m.penalty_shootout_home_goals,
-                penalty_shootout_away_goals: m.penalty_shootout_away_goals,
-              })),
-            (slotData || []) as Array<{ id: string; current_team_id: string | null }>,
-            tournamentData.scoring_mode as any,
-            (slotAssignmentData || []) as SeasonSlotAssignment[],
-          );
-
-          setStandings(calculated);
-
-          if (roundsData) {
-            const roundsWithMatches = roundsData.map((r) => ({
-              ...r,
-              matches: mergedMatches.filter((m) => m.round_id === r.id).sort(compareFixtures),
-            }));
-            setRounds(roundsWithMatches as RoundWithMatches[]);
-
-            // Season reports are generated only through explicit admin actions.
-          }
-        }
+        await hydratePrivateData(readLocalStorage(`admin_pw_${slug}`) || '');
+        hasLoadedTournamentRef.current = true;
+      } catch (error) {
+        console.error('Could not refresh tournament data:', error);
+        alert('Could not refresh tournament data. Reload the page to try again.');
+      } finally {
+        if (showLoader) setLoading(false);
       }
-      hasLoadedTournamentRef.current = true;
-      if (showLoader) setLoading(false);
     },
-    [slug, getMatchDateForRound, currentHtUserId],
+    [slug, invalidateAfterEdit, hydratePrivateData, alert],
   );
 
   // Lightweight update: only refresh rounds, matches, warnings and last_fixtures_refresh timestamp.
@@ -2055,7 +1833,7 @@ export const TournamentView: React.FC<{ initialData?: TournamentInitialData }> =
     if (!tournament) return;
     const { data: roundsData } = await supabase
       .from('rounds')
-      .select('*')
+      .select(PUBLIC_ROUND_FIELDS)
       .eq('tournament_id', tournament.id)
       .eq('season_number', tournament.season || 1)
       .order('round_number', { ascending: true });
@@ -2068,7 +1846,7 @@ export const TournamentView: React.FC<{ initialData?: TournamentInitialData }> =
           .from('matches')
           .select(
             `
-        *, status, ht_match_id, match_type,
+        ${PUBLIC_MATCH_FIELDS},
         home_team:teams!matches_home_team_id_fkey(name, ht_team_id, logo_url, country_name, country_id, league_id, league_level, active, manager_name, hattrick_user_id),
         away_team:teams!matches_away_team_id_fkey(name, ht_team_id, logo_url, country_name, country_id, league_id, league_level, active, manager_name, hattrick_user_id),
         reserve_team:teams!matches_reserve_team_id_fkey(name, ht_team_id, logo_url, country_name, country_id, league_id, league_level, active, reserve_active, manager_name, hattrick_user_id)
@@ -2192,6 +1970,7 @@ export const TournamentView: React.FC<{ initialData?: TournamentInitialData }> =
       if (finalError) throw finalError;
     }
 
+    await invalidateAfterEdit();
     const matchesMoved = plan.assignments.filter((assignment) => {
       const targetRoundId = roundIdByDate.get(assignment.dateKey) || null;
       return currentRoundIdByMatchId.get(assignment.matchId) !== targetRoundId;
@@ -2203,7 +1982,7 @@ export const TournamentView: React.FC<{ initialData?: TournamentInitialData }> =
       matchesMoved,
       unchanged: roundsBefore === plan.finalRounds.length && matchesMoved === 0,
     };
-  }, [tournament]);
+  }, [tournament, invalidateAfterEdit]);
 
   const { liveData } = useLiveMatches(
     tournament?.id,
@@ -2266,6 +2045,36 @@ export const TournamentView: React.FC<{ initialData?: TournamentInitialData }> =
     );
   }, [currentRoundId, rounds]);
 
+  useEffect(() => {
+    if (!tournament?.id) return;
+    const htTeamIds = teams.filter(isCurrentParticipantTeam).map((team) => team.ht_team_id).filter(Boolean);
+    if (!htTeamIds.length) return;
+    let cancelled = false;
+    void (async () => {
+      const { data, error } = await supabase.from('teams')
+        .select('ht_team_id,tournament_id,tournaments(name,status,is_test,registration_type)')
+        .in('ht_team_id', htTeamIds).eq('active', true).neq('tournament_id', tournament.id);
+      if (error || cancelled) return;
+      const elsewhereIds = new Set<number>();
+      for (const row of data || []) {
+        const other = Array.isArray(row.tournaments) ? row.tournaments[0] : row.tournaments;
+        if (row.ht_team_id && isBlockingTeamTournament(other)) elsewhereIds.add(Number(row.ht_team_id));
+      }
+      setPlayingElsewhereTeamIds(elsewhereIds);
+    })();
+    return () => { cancelled = true; };
+  }, [teams, tournament?.id]);
+
+  const refreshedInitialLiveRef = useRef(false);
+  useEffect(() => {
+    if (!initialData || refreshedInitialLiveRef.current) return;
+    refreshedInitialLiveRef.current = true;
+    void fetchPresenceOnly();
+    if (rounds.some((round) => round.matches.some((match) => !match.completed && match.ht_match_id && match.match_date && match.match_date.getTime() <= Date.now()))) {
+      void fetchFixturesOnly();
+    }
+  }, [initialData, fetchPresenceOnly, fetchFixturesOnly, rounds]);
+
   const fetchPendingJoinData = useCallback(
     async (token: string) => {
       setShowTeamModal(true);
@@ -2284,7 +2093,7 @@ export const TournamentView: React.FC<{ initialData?: TournamentInitialData }> =
         setJoinError('Your team selection session has expired. Please choose Join with Hattrick again.');
         setShowJoinErrorModal(true);
         const newUrl = window.location.pathname;
-        router.replace(newUrl);
+        window.history.replaceState(null, '', newUrl);
         return;
       }
 
@@ -2309,7 +2118,8 @@ export const TournamentView: React.FC<{ initialData?: TournamentInitialData }> =
   );
 
   const handleTeamSelect = async (team: ChppTeamOption) => {
-    if (!pendingJoinData) return;
+    if (!pendingJoinData || submittingJoinRef.current) return;
+    submittingJoinRef.current = true;
     setJoinError(null);
     setSubmittingJoin(true);
     try {
@@ -2340,10 +2150,11 @@ export const TournamentView: React.FC<{ initialData?: TournamentInitialData }> =
 
       setShowTeamModal(false);
       setPendingJoinData(null);
-      await fetchData({ showLoader: false });
+      await fetchData({ showLoader: false, invalidate: response.headers.get('X-Tournament-Cache') === 'invalidation-failed' });
     } catch (err) {
       setJoinError(err instanceof Error ? err.message : 'Unable to join this tournament. Please try again.');
     } finally {
+      submittingJoinRef.current = false;
       setSubmittingJoin(false);
     }
   };
@@ -2464,16 +2275,52 @@ export const TournamentView: React.FC<{ initialData?: TournamentInitialData }> =
   }, [adminAuthSource, isAdminAuthenticated, roleAccess, slug, tournament]);
 
   useEffect(() => {
-    const init = async () => {
-      if (initialData) {
-        hasLoadedTournamentRef.current = true;
-        await fetchData({ showLoader: false });
-        return;
-      }
-      await fetchData({ showLoader: true });
-    };
-    void init();
+    if (initialData) {
+      hasLoadedTournamentRef.current = true;
+      localStorage.setItem('last_viewed_tournament_id', String(initialData.tournament.id));
+      const initialTournament = initialData.tournament as unknown as Tournament;
+      setEditName(initialTournament.name);
+      setEditIsPrivate(initialTournament.is_private);
+      setEditChppOnlyJoin(initialTournament.chpp_only_join);
+      setEditLeagueCategory(initialTournament.league_category || 'male');
+      setEditRegistrationType(normalizeTournamentRegistrationType(initialTournament.registration_type));
+      setEditCountryLimit(
+        normalizeLeagueLimit(initialTournament.country_limit, initialTournament.country_limit_format ?? 'league_id'),
+      );
+      setScheduleSetup(initialTournament.schedule_mode === 'manual' ? 'manual' : 'generated');
+      setScheduleMode(normalizeGeneratedScheduleMode(initialTournament.schedule_mode));
+      const storedStartSlot = initialTournament.schedule_start_slot
+        ? buildCalendarSlots(new Date(), 160).find(
+            (slot) => slot.nominalDate.toISOString() === initialTournament.schedule_start_slot,
+          )
+        : null;
+      setScheduleStartSlotId(storedStartSlot?.id || '');
+      setIsTest(initialTournament.is_test || false);
+      setShowEditDescription(initialTournament.show_description);
+      setEditDescription(initialTournament.description || '');
+      setEditForumId(initialTournament.forum_id ? String(initialTournament.forum_id) : '');
+      setEditMaxTeams(initialTournament.max_teams || null);
+      setEditRegistrationOpen(!initialTournament.registration_closed_at);
+      setEditAllowReserveRegistration(initialTournament.allow_reserve_registration !== false);
+      setIncludeWeek15WeekendFriendly(false);
+      setIncludeWeek15WeekendFriendlyForReschedule(Boolean(initialTournament.include_week15_weekend_friendly));
+      setEditIsFeatured(Boolean(initialTournament.is_featured));
+      return;
+    }
+    if (hasLoadedTournamentRef.current) return;
+    hasLoadedTournamentRef.current = true;
+    void fetchData({ showLoader: true, invalidate: false }).catch((error) => {
+      console.error('Could not load tournament:', error);
+      setLoading(false);
+    });
   }, [fetchData, initialData]);
+
+  useEffect(() => {
+    if (!isHydrationReady || (!currentHtUserId && !readLocalStorage(`admin_pw_${slug}`))) return;
+    void hydratePrivateData(readLocalStorage(`admin_pw_${slug}`) || '').catch((error) => {
+      console.error('Could not load private tournament data:', error);
+    });
+  }, [currentHtUserId, hydratePrivateData, isHydrationReady, slug]);
 
   useEffect(() => {
     if (paramsHandledRef.current) return;
@@ -2491,7 +2338,7 @@ export const TournamentView: React.FC<{ initialData?: TournamentInitialData }> =
       paramsHandledRef.current = true;
       const newUrl = pathname;
 
-      router.replace(newUrl);
+      window.history.replaceState(null, '', newUrl);
 
       if (errorMsg) {
         window.setTimeout(() => {
@@ -2500,7 +2347,7 @@ export const TournamentView: React.FC<{ initialData?: TournamentInitialData }> =
         }, 0);
       } else if (joined) {
         window.setTimeout(() => {
-          void fetchData({ showLoader: false });
+          void fetchData({ showLoader: false, invalidate: false });
         }, 0);
       } else if (token) {
         window.setTimeout(() => {
@@ -2509,6 +2356,12 @@ export const TournamentView: React.FC<{ initialData?: TournamentInitialData }> =
       }
     }
   }, [fetchData, fetchPendingJoinData, pathname, router]);
+
+  useEffect(() => {
+    const reconnect = () => { void fetchData({ showLoader: false, invalidate: false }); };
+    window.addEventListener('online', reconnect);
+    return () => window.removeEventListener('online', reconnect);
+  }, [fetchData]);
 
   const isNewsTab = activeTab === 'guestbook' || activeTab === 'news';
 
@@ -2754,7 +2607,7 @@ export const TournamentView: React.FC<{ initialData?: TournamentInitialData }> =
       if (!response.ok) throw new Error(payload?.error || 'Could not update HFI ranks.');
 
       setHfiRankNotice(`${payload?.updatedCount ?? 0}/${payload?.participantCount ?? 0} HFI ranks updated.`);
-      await fetchData();
+      await fetchData({ invalidate: response.headers.get('X-Tournament-Cache') === 'invalidation-failed' });
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Could not update HFI ranks.';
       const retryHint = message.startsWith('CHPP did not return a valid HFI rank')
@@ -2929,9 +2782,9 @@ export const TournamentView: React.FC<{ initialData?: TournamentInitialData }> =
     }
   };
 
-  const handleAdminLogin = (e: React.FormEvent) => {
+  const handleAdminLogin = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (tournament && password === tournament.admin_password) {
+    if (tournament && await hydratePrivateData(password).catch(() => false)) {
       setIsAdminAuthenticated(true);
       setAdminAuthSource('legacy_password');
       localStorage.setItem(`admin_pw_${slug}`, password);
@@ -3017,6 +2870,7 @@ export const TournamentView: React.FC<{ initialData?: TournamentInitialData }> =
       return;
     }
 
+    await invalidateAfterEdit();
     setTournament((prev) => (prev ? { ...prev, ...updatePayload } : prev));
   };
 
@@ -3071,6 +2925,7 @@ export const TournamentView: React.FC<{ initialData?: TournamentInitialData }> =
         const result = (await response.json().catch(() => null)) as { error?: string } | null;
         if (!response.ok) throw new Error(result?.error || 'The tournament could not be archived.');
       }
+      await invalidateAfterEdit();
       setTournament((current) => (current ? { ...current, is_archived: shouldArchive } : current));
     } catch (error) {
       alert(error instanceof Error ? error.message : 'The tournament could not be archived.');
@@ -3159,6 +3014,7 @@ export const TournamentView: React.FC<{ initialData?: TournamentInitialData }> =
       .single();
 
     if (error) throw error;
+    await invalidateAfterEdit();
     if (data) {
       setSeasons((current) => {
         const withoutCurrent = current.filter((season) => season.season_number !== currentSeasonNumber);
@@ -3167,7 +3023,7 @@ export const TournamentView: React.FC<{ initialData?: TournamentInitialData }> =
     }
 
     return snapshot;
-  }, [buildCurrentSeasonFixturesArchive, buildCurrentSeasonSnapshot, rounds, seasons, tournament]);
+  }, [buildCurrentSeasonFixturesArchive, buildCurrentSeasonSnapshot, rounds, seasons, tournament, invalidateAfterEdit]);
 
   const handleGenerateHistoryReport = async () => {
     if (!tournament || isFinalizingSeason) return;
@@ -3206,6 +3062,7 @@ export const TournamentView: React.FC<{ initialData?: TournamentInitialData }> =
           `history-report-dismissed:${currentSeason.id}`,
           `history-report-viewed:${currentSeason.id}`,
         ]);
+      await invalidateAfterEdit();
       if (dismissalError) throw dismissalError;
 
       localStorage.removeItem(getHistoryReportNoticeStorageKey(currentSeason.id));
@@ -3261,6 +3118,7 @@ export const TournamentView: React.FC<{ initialData?: TournamentInitialData }> =
       if (seasonError) throw seasonError;
       const { error } = await supabase.from('tournaments').update({ status: 'finished' }).eq('id', tournament.id);
       if (error) throw error;
+      await invalidateAfterEdit();
       if (updatedSeason) {
         setSeasons((current) =>
           current
@@ -3303,6 +3161,7 @@ export const TournamentView: React.FC<{ initialData?: TournamentInitialData }> =
         .update({ status: 'active', registration_closed_at: startedAt })
         .eq('id', tournament.id);
       if (tournamentError) throw tournamentError;
+      await invalidateAfterEdit();
 
       if (updatedSeason) {
         setSeasons((current) =>
@@ -3376,7 +3235,7 @@ export const TournamentView: React.FC<{ initialData?: TournamentInitialData }> =
             }
           : current,
       );
-      await fetchData({ showLoader: false });
+      await fetchData({ showLoader: false, invalidate: response.headers.get('X-Tournament-Cache') === 'invalidation-failed' });
     } catch (error) {
       alert(error instanceof Error ? error.message : 'The season could not be reset to planning.');
     } finally {
@@ -3390,7 +3249,7 @@ export const TournamentView: React.FC<{ initialData?: TournamentInitialData }> =
     try {
       const { data: seasonRounds, error: roundsError } = await supabase
         .from('rounds')
-        .select('*')
+        .select(PUBLIC_ROUND_FIELDS)
         .eq('tournament_id', tournament.id)
         .eq('season_number', season.season_number)
         .order('round_number', { ascending: true });
@@ -3430,6 +3289,7 @@ export const TournamentView: React.FC<{ initialData?: TournamentInitialData }> =
         .select('*')
         .single();
       if (updateError) throw updateError;
+      await invalidateAfterEdit();
 
       setSeasons((current) =>
         current.map((item) => (item.id === season.id ? (updatedSeason as TournamentSeason) : item)),
@@ -3524,7 +3384,7 @@ export const TournamentView: React.FC<{ initialData?: TournamentInitialData }> =
       alert(result.error || 'Could not leave the tournament.');
       return;
     }
-    await fetchData({ showLoader: false });
+    await fetchData({ showLoader: false, invalidate: response.headers.get('X-Tournament-Cache') === 'invalidation-failed' });
   };
 
   const getParticipantAudienceHtUserIds = useCallback(
@@ -3570,10 +3430,11 @@ export const TournamentView: React.FC<{ initialData?: TournamentInitialData }> =
         .single();
 
       if (error) throw error;
+      await invalidateAfterEdit();
       if (data) setAnnouncements((current) => [data as TournamentAnnouncement, ...current]);
       return data as TournamentAnnouncement | null;
     },
-    [currentHtManagerName, currentHtUserId, getParticipantAudienceHtUserIds, tournament],
+    [currentHtManagerName, currentHtUserId, getParticipantAudienceHtUserIds, tournament, invalidateAfterEdit],
   );
 
   const handleAnnouncementPublish = useCallback(
@@ -3610,6 +3471,7 @@ export const TournamentView: React.FC<{ initialData?: TournamentInitialData }> =
       return;
     }
 
+    await invalidateAfterEdit();
     setAnnouncements((current) =>
       current.map((item) => (item.id === announcement.id ? (data as TournamentAnnouncement) : item)),
     );
@@ -4176,7 +4038,7 @@ export const TournamentView: React.FC<{ initialData?: TournamentInitialData }> =
       });
       const result = (await response.json()) as { error?: string };
       if (!response.ok) throw new Error(result.error || 'The team status could not be changed.');
-      await fetchData();
+      await fetchData({ invalidate: response.headers.get('X-Tournament-Cache') === 'invalidation-failed' });
     } catch (error: any) {
       alert(error.message);
     } finally {
@@ -4208,7 +4070,7 @@ export const TournamentView: React.FC<{ initialData?: TournamentInitialData }> =
       if (!response.ok) throw new Error(result.error || 'The reserve replacement could not be completed.');
       setReserveReplacingTeamId(null);
       setSelectedReserveTeamId('');
-      await fetchData({ showLoader: false });
+      await fetchData({ showLoader: false, invalidate: response.headers.get('X-Tournament-Cache') === 'invalidation-failed' });
     } catch (error: any) {
       alert(error.message);
     } finally {
@@ -4234,7 +4096,7 @@ export const TournamentView: React.FC<{ initialData?: TournamentInitialData }> =
       });
       const result = (await response.json()) as { error?: string };
       if (!response.ok) throw new Error(result.error || 'The reserve team could not be promoted.');
-      await fetchData({ showLoader: false });
+      await fetchData({ showLoader: false, invalidate: response.headers.get('X-Tournament-Cache') === 'invalidation-failed' });
     } catch (error: any) {
       alert(error.message);
     } finally {
@@ -4260,7 +4122,7 @@ export const TournamentView: React.FC<{ initialData?: TournamentInitialData }> =
       });
       const result = (await response.json()) as { error?: string };
       if (!response.ok) throw new Error(result.error || 'The team could not be moved to reserves.');
-      await fetchData({ showLoader: false });
+      await fetchData({ showLoader: false, invalidate: response.headers.get('X-Tournament-Cache') === 'invalidation-failed' });
     } catch (error: any) {
       alert(error.message);
     } finally {
@@ -4298,7 +4160,7 @@ export const TournamentView: React.FC<{ initialData?: TournamentInitialData }> =
       setReplacingTeamId(null);
       setReplacementHtId('');
       setReplacementName('');
-      fetchData();
+      fetchData({ invalidate: response.headers.get('X-Tournament-Cache') === 'invalidation-failed' });
     } catch (error: any) {
       alert(error.message);
     } finally {
@@ -4316,14 +4178,18 @@ export const TournamentView: React.FC<{ initialData?: TournamentInitialData }> =
     if (isGenerated) {
       const shouldPause = activeTeams.length === 0 || !isHealthQuotaMet(updatedTeams);
       if (shouldPause && tournament.status !== 'paused') {
-        await supabase.from('tournaments').update({ status: 'paused' }).eq('id', tournament.id);
+        const { error } = await supabase.from('tournaments').update({ status: 'paused' }).eq('id', tournament.id);
+        if (error) throw error;
+        await invalidateAfterEdit();
         alert('This tournament has been paused because too few active teams remain.');
       }
       return;
     }
 
     if (registeredTeams.length === 0 && !tournament.is_private) {
-      await supabase.from('tournaments').update({ is_private: true }).eq('id', tournament.id);
+      const { error } = await supabase.from('tournaments').update({ is_private: true }).eq('id', tournament.id);
+      if (error) throw error;
+      await invalidateAfterEdit();
     }
   };
 
@@ -4379,10 +4245,11 @@ export const TournamentView: React.FC<{ initialData?: TournamentInitialData }> =
       // has teams belonging to a tournament. If I delete it here, it's gone from this tournament.
       // If we had a global teams table, it would be different.
       // For now, I'll just delete the record as it's specific to this tournament instance.
-      await supabase.from('teams').delete().eq('id', id);
+      const { error } = await supabase.from('teams').delete().eq('id', id);
+      if (error) { alert(error.message); return; }
       updatedTeams = teams.filter((t) => t.id !== id);
-      fetchData();
-      reconcileTournamentTeamState(updatedTeams);
+      await reconcileTournamentTeamState(updatedTeams);
+      await fetchData();
     }
   };
 
@@ -4551,7 +4418,7 @@ export const TournamentView: React.FC<{ initialData?: TournamentInitialData }> =
       });
       const body = await response.json().catch(() => ({}));
       if (!response.ok) throw new Error(body.error || 'Could not repair this round.');
-      await fetchData();
+      await fetchData({ invalidate: response.headers.get('X-Tournament-Cache') === 'invalidation-failed' });
       setScheduleNotice({
         title: `Round ${currentRound.round_number} repaired`,
         message: `${body.lockedFixtures || 0} unaffected fixtures stayed locked. ${body.repairedPlayableFixtures || 0} playable fixtures were rebuilt.`,
@@ -4585,7 +4452,7 @@ export const TournamentView: React.FC<{ initialData?: TournamentInitialData }> =
       });
       const body = await response.json().catch(() => ({}));
       if (!response.ok) throw new Error(body.error || 'Could not restore original Round 1.');
-      await fetchData();
+      await fetchData({ invalidate: response.headers.get('X-Tournament-Cache') === 'invalidation-failed' });
       setScheduleNotice({
         title: 'Original Round 1 restored',
         message: `${body.reconstructedFixtures || 0} deterministic fixtures were recreated. Refresh Fixtures can now reconcile accepted Hattrick matches.`,
@@ -4718,6 +4585,7 @@ export const TournamentView: React.FC<{ initialData?: TournamentInitialData }> =
 
     if (error) alert(error.message);
     else {
+      await invalidateAfterEdit();
       setEditingMatch(null);
       const nextRounds = rounds.map((round) => ({
         ...round,
@@ -4760,6 +4628,7 @@ export const TournamentView: React.FC<{ initialData?: TournamentInitialData }> =
         .select('id')
         .single();
       if (error || !data) throw new Error(error?.message || 'Could not reset this result.');
+      await invalidateAfterEdit();
     }
 
     await fetchFixturesOnly();
@@ -4804,6 +4673,7 @@ export const TournamentView: React.FC<{ initialData?: TournamentInitialData }> =
       return;
     }
 
+    await invalidateAfterEdit();
     const nextRounds = rounds
       .map((round) => ({
         ...round,
@@ -4893,14 +4763,17 @@ export const TournamentView: React.FC<{ initialData?: TournamentInitialData }> =
       await fetchData();
       return;
     }
-    const results = await Promise.all(
+    const results = await Promise.allSettled(
       preparedUpdates.map(async ([matchId, payload]) => {
         const { error } = await supabase.from('matches').update(payload).eq('id', matchId);
         if (error) throw error;
         return [matchId, payload] as const;
       }),
     );
-    const saved = Object.fromEntries(results);
+    if (results.some((result) => result.status === 'fulfilled')) await invalidateAfterEdit();
+    const failure = results.find((result) => result.status === 'rejected');
+    if (failure?.status === 'rejected') throw failure.reason;
+    const saved = Object.fromEntries(results.flatMap((result) => result.status === 'fulfilled' ? [result.value] : []));
     const nextRounds = rounds.map((round) => ({
       ...round,
       matches: round.matches.map((match) => (saved[match.id] ? { ...match, ...saved[match.id] } : match)),
@@ -4927,6 +4800,7 @@ export const TournamentView: React.FC<{ initialData?: TournamentInitialData }> =
     const payload = buildClearSeasonResultsPayload();
     const { error } = await supabase.from('matches').update(payload).in('id', matchIds);
     if (error) throw error;
+    await invalidateAfterEdit();
 
     const nextRounds = rounds.map((round) => ({
       ...round,
@@ -4963,6 +4837,7 @@ export const TournamentView: React.FC<{ initialData?: TournamentInitialData }> =
       if (deleteRoundsError) throw deleteRoundsError;
     }
 
+    await invalidateAfterEdit();
     setRounds([]);
     setStandings(
       calculateStandings(
@@ -5683,12 +5558,9 @@ export const TournamentView: React.FC<{ initialData?: TournamentInitialData }> =
                   size="lg"
                   variant="primary"
                   disabled={isConnecting}
-                  onClick={() => {
-                    setIsConnecting(true);
-                    window.location.href = `/api/auth/init?tournament_id=${tournament?.id}`;
-                  }}
+                  onClick={connectToHattrick}
                 >
-                  <ArrowRight size={20} weight="bold" /> Join with Hattrick
+                  <ArrowRight size={20} weight="bold" /> {isConnecting ? 'Connecting to Hattrick…' : 'Join with Hattrick'}
                 </Button>
                 <p className={styles.registrationLinkNote}>
                   Authorize HT-120min to fetch your team data and update results automatically.
@@ -5708,16 +5580,13 @@ export const TournamentView: React.FC<{ initialData?: TournamentInitialData }> =
             </p>
             {!isJoining && (
               <Button
-                onClick={() => {
-                  setIsConnecting(true);
-                  window.location.href = `/api/auth/init?tournament_id=${tournament?.id}`;
-                }}
+                onClick={connectToHattrick}
                 variant="primary"
                 size="sm"
                 className={styles.joinButton}
                 disabled={isConnecting}
               >
-                <ArrowRight size={18} weight="bold" /> Join with Hattrick
+                <ArrowRight size={18} weight="bold" /> {isConnecting ? 'Connecting to Hattrick…' : 'Join with Hattrick'}
               </Button>
             )}
           </div>
@@ -5750,16 +5619,13 @@ export const TournamentView: React.FC<{ initialData?: TournamentInitialData }> =
             <p>You are participating in this cup but it hasn't started yet!</p>
             {canJoinAnotherTeamBeforeFixtures && (
               <Button
-                onClick={() => {
-                  setIsConnecting(true);
-                  window.location.href = `/api/auth/init?tournament_id=${tournament.id}`;
-                }}
+                onClick={connectToHattrick}
                 variant="primary"
                 size="sm"
                 className={styles.joinButton}
                 disabled={isConnecting}
               >
-                <ArrowRight size={18} weight="bold" /> Join with another team
+                <ArrowRight size={18} weight="bold" /> {isConnecting ? 'Connecting to Hattrick…' : 'Join with another team'}
               </Button>
             )}
           </div>
@@ -5809,6 +5675,8 @@ export const TournamentView: React.FC<{ initialData?: TournamentInitialData }> =
       <div className={styles.tabs}>
         <Link
           href={getTabHref('standings')}
+          prefetch={false}
+          onNavigate={(event) => { event.preventDefault(); window.history.pushState(null, '', getTabHref('standings')); }}
           className={activeTab === 'standings' ? styles.active : ''}
           onClick={() => handleTabChange('standings')}
         >
@@ -5816,6 +5684,8 @@ export const TournamentView: React.FC<{ initialData?: TournamentInitialData }> =
         </Link>
         <Link
           href={getTabHref('fixtures')}
+          prefetch={false}
+          onNavigate={(event) => { event.preventDefault(); window.history.pushState(null, '', getTabHref('fixtures')); }}
           className={activeTab === 'fixtures' ? styles.active : ''}
           onClick={() => handleTabChange('fixtures')}
         >
@@ -5823,6 +5693,8 @@ export const TournamentView: React.FC<{ initialData?: TournamentInitialData }> =
         </Link>
         <Link
           href={getTabHref('news')}
+          prefetch={false}
+          onNavigate={(event) => { event.preventDefault(); window.history.pushState(null, '', getTabHref('news')); }}
           className={isNewsTab ? styles.active : ''}
           onClick={() => handleTabChange('news')}
         >
@@ -5830,6 +5702,8 @@ export const TournamentView: React.FC<{ initialData?: TournamentInitialData }> =
         </Link>
         <Link
           href={getTabHref('history')}
+          prefetch={false}
+          onNavigate={(event) => { event.preventDefault(); window.history.pushState(null, '', getTabHref('history')); }}
           className={activeTab === 'history' ? styles.active : ''}
           onClick={() => handleTabChange('history')}
         >
@@ -5842,6 +5716,8 @@ export const TournamentView: React.FC<{ initialData?: TournamentInitialData }> =
         </Link>
         <Link
           href={getTabHref('admin')}
+          prefetch={false}
+          onNavigate={(event) => { event.preventDefault(); window.history.pushState(null, '', getTabHref('admin')); }}
           className={activeTab === 'admin' ? styles.active : ''}
           onClick={() => handleTabChange('admin')}
         >
@@ -5967,10 +5843,7 @@ export const TournamentView: React.FC<{ initialData?: TournamentInitialData }> =
                   ? `Season ${currentSeasonNumber} has a locked roster. A new schedule has not yet been generated.`
                   : undefined
             }
-            onJoinWithHattrick={() => {
-              setIsConnecting(true);
-              window.location.href = `/api/auth/init?tournament_id=${tournament?.id}`;
-            }}
+            onJoinWithHattrick={connectToHattrick}
           />
         </div>
       )}
@@ -6017,10 +5890,7 @@ export const TournamentView: React.FC<{ initialData?: TournamentInitialData }> =
             onRefreshPresence={fetchPresenceOnly}
             canJoinTournament={canJoinTournament}
             isConnecting={isConnecting}
-            onJoinWithHattrick={() => {
-              setIsConnecting(true);
-              window.location.href = `/api/auth/init?tournament_id=${tournament?.id}`;
-            }}
+            onJoinWithHattrick={connectToHattrick}
             seasonId={selectedSeason?.id}
             seasonNumber={selectedSeason?.season_number ?? selectedSeasonNumber}
             seasonStatus={selectedSeason?.status}
@@ -6066,8 +5936,7 @@ export const TournamentView: React.FC<{ initialData?: TournamentInitialData }> =
             onReapplySuggestion={(teamId) => {
               const team = teams.find((item) => item.id === teamId);
               if (!team || team.hattrick_user_id !== Number(myHtUserId)) return;
-              setIsConnecting(true);
-              window.location.href = `/api/auth/init?tournament_id=${tournament.id}`;
+              connectToHattrick();
             }}
             onRemoveReapplySuggestion={(teamId) => {
               const team = teams.find((item) => item.id === teamId);
@@ -7999,7 +7868,7 @@ export const TournamentView: React.FC<{ initialData?: TournamentInitialData }> =
         onClose={() => {
           setShowTeamModal(false);
           const newUrl = pathname;
-          router.replace(newUrl);
+          window.history.replaceState(null, '', newUrl);
         }}
         title={pendingJoinData ? `Welcome, ${pendingJoinData.manager_name}!` : 'Linking Hattrick…'}
       >
@@ -8050,7 +7919,7 @@ export const TournamentView: React.FC<{ initialData?: TournamentInitialData }> =
                   onClick={() => {
                     setShowTeamModal(false);
                     const newUrl = pathname;
-                    router.replace(newUrl);
+                    window.history.replaceState(null, '', newUrl);
                   }}
                   disabled={submittingJoin}
                 >

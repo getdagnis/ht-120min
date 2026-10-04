@@ -645,7 +645,7 @@ export const FixturesView: React.FC<FixturesViewProps> = ({
                 onClick={onJoinWithHattrick}
                 disabled={isConnecting}
               >
-                <ArrowRight size={18} weight="bold" /> Join with Hattrick
+                <ArrowRight size={18} weight="bold" /> {isConnecting ? 'Connecting to Hattrick…' : 'Join with Hattrick'}
               </Button>
             )}
           </div>
