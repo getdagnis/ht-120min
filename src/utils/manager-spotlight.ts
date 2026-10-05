@@ -394,7 +394,7 @@ function buildCandidates(input: {
   if (special) {
     if (tournamentCountry) append(tournament, ', based in ', tournamentCountry);
     if (rank) append(tournament, `, ranked #${rank} in ${special}`);
-    if (tournamentTeam.seriesName) append(tournament, rank ? ' and playing in ' : tournamentCountry ? ' and currently playing in ' : ', currently playing in ', `${special} series ${tournamentTeam.seriesName}`);
+    if (tournamentTeam.seriesName) append(tournament, rank ? ' and playing in ' : tournamentCountry ? ' and currently playing in ' : ', currently playing in ', `series ${tournamentTeam.seriesName}`);
   } else {
     if (tournamentCountry) append(tournament, ', based in ', tournamentCountry);
     if (rank || tournamentTeam.seriesName) {
@@ -416,12 +416,12 @@ function buildCandidates(input: {
     const primaryStyle = stableHash(`${managerId}:${dateKey}:primary-wording`) % 3;
     const parts: StorySegment[] = [
       primaryStyle === 0 ? `Their main club, ${primary.teamName}`
-        : primaryStyle === 1 ? `Their main club, ${primary.teamName}`
-          : `Their main club is ${primary.teamName}`,
+        : primaryStyle === 1 ? `The main club, ${primary.teamName}`
+          : `Their main club ${primary.teamName}`,
     ];
-    if (region) append(parts, ` based in ${region}`);
+    if (region) append(parts, ` is based in ${region}`);
     if (primaryCountry) {
-      append(parts, region ? ', ' : ' based in ', primaryCountry);
+      append(parts, region ? ', ' : ' is based in ', primaryCountry);
     }
     const details: StorySegment[][] = [];
     if (validYear) details.push([`was founded in ${year}`]);
@@ -437,7 +437,7 @@ function buildCandidates(input: {
         primaryCountry ? region ? ', ' : ' in ' : '', primaryCountry);
     }
     details.forEach((detail, index) => append(parts,
-      index === 0 ? primaryStyle === 2 ? '; it ' : ', ' : index === details.length - 1 ? ' and ' : ', ', ...detail));
+      index === 0 ? primaryStyle === 2 ? '. It ' : ', ' : index === details.length - 1 ? ' and ' : ', ', ...detail));
     append(parts, '.');
     if (!sameAsTournament || details.length) candidates.push({ id: `primary:${primary.teamId}`, topic: 'primary-club', tier: 2, score: 100, tags: ['primary-club', `team:${primary.teamId}`], segments: parts });
   }
