@@ -19,8 +19,8 @@ const xml = `<?xml version="1.0"?>
   <Country><CountryID>179</CountryID><CountryName>Guam</CountryName></Country><Region><RegionID>9</RegionID><RegionName>Hagåtña</RegionName></Region>
   <LeagueLevelUnit><LeagueLevelUnitID>100</LeagueLevelUnitID><LeagueLevelUnitName>IV.1</LeagueLevelUnitName><LeagueLevel>4</LeagueLevel></LeagueLevelUnit>
   <TeamRank>12</TeamRank><NumberOfVictories>4</NumberOfVictories><PowerRating><PowerRating>888</PowerRating><GlobalRanking>40</GlobalRanking><LeagueRanking>7</LeagueRanking><RegionRanking>2</RegionRanking></PowerRating>
-  <Flags><HomeFlags><Flag><LeagueID>3000</LeagueID></Flag><Flag><LeagueID>4</LeagueID></Flag><Flag><LeagueID>3000</LeagueID></Flag><Flag><LeagueID>0</LeagueID></Flag><Flag><LeagueID>bad</LeagueID></Flag></HomeFlags>
-    <AwayFlags><Flag><LeagueID>1003</LeagueID></Flag><Flag><LeagueID>3</LeagueID></Flag><Flag><LeagueID>3</LeagueID></Flag></AwayFlags></Flags>
+  <Flags><HomeFlags><Flag><LeagueID>154</LeagueID></Flag><Flag><LeagueID>4</LeagueID></Flag><Flag><LeagueID>154</LeagueID></Flag><Flag><LeagueID>0</LeagueID></Flag><Flag><LeagueID>bad</LeagueID></Flag></HomeFlags>
+    <AwayFlags><Flag><LeagueID>174</LeagueID></Flag><Flag><LeagueID>3</LeagueID></Flag><Flag><LeagueID>3</LeagueID></Flag></AwayFlags></Flags>
   <Arena><ArenaID>3</ArenaID><ArenaName>Primary Arena</ArenaName></Arena><Fanclub><FanclubSize>12345</FanclubSize></Fanclub>
   <YouthTeamName>Youth Club</YouthTeamName><LogoURL>https://res.hattrick.org/teamlogo/example.png</LogoURL>
   <TrophyList>
@@ -51,8 +51,8 @@ test('manager-wide teamdetails parser captures roles, U21 and all owned teams', 
   assert.equal(teams[0]?.leagueLevelUnitName, 'IV.1');
   assert.equal(teams[0]?.teamRank, 12);
   assert.equal(teams[0]?.numberOfVictories, 4);
-  assert.deepEqual(teams[0]?.homeFlagLeagueIds, [4, 3000]);
-  assert.deepEqual(teams[0]?.awayFlagLeagueIds, [3, 1003]);
+  assert.deepEqual(teams[0]?.homeFlagLeagueIds, [4, 154]);
+  assert.deepEqual(teams[0]?.awayFlagLeagueIds, [3, 174]);
   assert.equal(teams[0]?.powerLeagueRank, 7);
   assert.equal(teams[0]?.regionName, 'Hagåtña');
   assert.equal(teams[0]?.arenaName, 'Primary Arena');
@@ -80,8 +80,8 @@ test('profile team snapshot merges managercompendium and details by teamId witho
   assert.equal(teams[0]?.isPrimaryClub, true);
   assert.equal(teams[0]?.teamRank, 12);
   assert.equal(teams[0]?.numberOfVictories, 4);
-  assert.deepEqual(teams[0]?.homeFlagLeagueIds, [4, 3000]);
-  assert.deepEqual(teams[0]?.awayFlagLeagueIds, [3, 1003]);
+  assert.deepEqual(teams[0]?.homeFlagLeagueIds, [4, 154]);
+  assert.deepEqual(teams[0]?.awayFlagLeagueIds, [3, 174]);
   assert.equal(teams[0]?.genderId, 2);
   assert.equal(teams[0]?.powerRating, 888);
   assert.equal(teams[0]?.powerGlobalRank, 40);
