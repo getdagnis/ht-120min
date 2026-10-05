@@ -2,7 +2,7 @@
 
 ## Sources and refresh
 
-Manager and team identity comes from the authenticated CHPP `managercompendium` and one manager-wide `teamdetails` v3.9 response with `teamID` omitted. The responses are joined by Hattrick team ID. Login refresh and `POST /api/app?route=refresh-spotlight-profiles` (available in tournament Site admin tools) persist the result. The route requires a valid app session (or the configured superadmin bypass), then checks `canManageOperations`; this permits the original organizer, co-organizer, tournament admin, or implicit superadmin. Press officers and unassigned participants are denied. The refresh is scoped to active, non-reserve, non-placeholder managers in the selected tournament and is limited to 50 profiles per call. Successful profile refreshes invalidate the selected tournament and other active tournaments linked to the refreshed managers' current clubs.
+Manager and team identity comes from the authenticated CHPP `managercompendium` and one manager-wide `teamdetails` v3.9 response with `teamID` omitted. The responses are joined by Hattrick team ID. Login refresh and `POST /api/app?route=refresh-spotlight-profiles` (available through the tournament's Update manager snapshots button) persist the result. The route requires a valid app session (or the configured superadmin bypass), then checks `canManageOperations`; this permits the original organizer, co-organizer, tournament admin, or implicit superadmin. Press officers and unassigned participants are denied. The refresh is scoped to active, non-reserve, non-placeholder managers in the selected tournament. It rejects more than 25 distinct eligible managers before any CHPP request, capping one manual action at 50 potential CHPP calls. Successful profile refreshes invalidate the selected tournament and other active tournaments linked to the refreshed managers' current clubs.
 
 `profiles.teams_json` remains an array containing the manager's current owned-team snapshots. `profiles.national_team_roles_json` stores manager-level staff roles separately. Public rendering reads those persisted profile snapshots and tournament participant relations; it does not call CHPP. The manager profile table remains the canonical source for this Spotlight read model.
 
@@ -28,6 +28,9 @@ A `profiles.teams_json` entry retains its existing `teamId` / `teamName` identit
   "leagueLevelUnitId": 12345,
   "leagueLevelUnitName": "VI.976",
   "teamRank": 1229,
+  "numberOfVictories": 4,
+  "homeFlagLeagueIds": [4, 154],
+  "awayFlagLeagueIds": [3, 174],
   "powerRating": 888,
   "powerGlobalRank": 40,
   "powerLeagueRank": 7,
@@ -43,7 +46,11 @@ A `profiles.teams_json` entry retains its existing `teamId` / `teamName` identit
 }
 ```
 
-Only fields actually present in CHPP are written; the sample omits unknown values for readability. The manager role array contains `{ staffType, nationalTeamId, nationalTeamName, isU21 }` objects. No CHPP OAuth or private account fields are copied into either public story model.
+Most optional fields are written only when available; the sample omits unknown values for readability. The three new streak/flag fields always have `null` or empty-array defaults when absent. The manager role array contains `{ staffType, nationalTeamId, nationalTeamName, isU21 }` objects. No CHPP OAuth or private account fields are copied into either public story model.
+
+`numberOfVictories` is a point-in-time winning-streak count: a positive CHPP value is stored, while a missing, empty, or zero value becomes `null` and clears any older count. Home and away flag LeagueIDs remain separate, deduplicated ascending arrays; a missing collection becomes `[]`. They are not converted to CountryIDs or interpreted as story facts during refresh. These three fields are team-level snapshot data, and the current Spotlight story selector does not use them yet.
+
+For collected flags, CHPP's `Flag.LeagueID` names a **country-backed Hattrick league**. It reflects the country visited, not the league system in which the match was played. An HFI club can collect another country's flag by visiting an HFI club based there. Special league IDs such as `3000` (HFI) and `1003` (Homegrown) are not destinations or collectible country flags. Keep CHPP's LeagueID in the snapshot and resolve it through `shared/worlddetails.ts` when presenting or counting country flags; do not infer flag geography from the visiting club's `leagueId`.
 
 ## Rank semantics
 
