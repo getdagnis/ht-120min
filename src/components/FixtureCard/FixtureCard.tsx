@@ -431,8 +431,8 @@ export const FixtureCard: React.FC<FixtureCardProps> = ({
                       </button>
                     </div>
                     <p className={styles.ratingsShareHelper}>
-                      Share predicted ratings with your opponent. Your shared snapshot updates when you click Refresh
-                      fixtures.
+                      Share predicted ratings with your opponent. Your shared snapshot will update automatically while
+                      shared (on fixture updates).
                     </p>
                   </div>
                 )}
