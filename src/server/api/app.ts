@@ -42,6 +42,8 @@ import {
 } from './_lib/matchmaker.js';
 import {
   fetchManagerTeamDetailsFromChpp,
+  getEligibleSpotlightManagerIds,
+  getSpotlightRefreshLimitError,
   mergeManagerTeamSnapshot,
 } from './_lib/manager-compendium.js';
 import { validateTeamEligibility } from './_lib/eligibility.js';
@@ -261,16 +263,14 @@ async function handleRefreshSpotlightProfiles(req: VercelRequest, res: VercelRes
   const supabase = getServiceSupabase();
   const { data: participants, error: participantsError } = await supabase
     .from('teams')
-    .select('hattrick_user_id, reserve_active, is_placeholder')
+    .select('hattrick_user_id, active, reserve_active, is_placeholder')
     .eq('tournament_id', tournamentId)
     .eq('active', true)
     .not('hattrick_user_id', 'is', null);
   if (participantsError) throw participantsError;
-  const managerIds = Array.from(new Set((participants ?? [])
-    .filter((row) => row.reserve_active !== true && row.is_placeholder !== true)
-    .map((row) => Number(row.hattrick_user_id))
-    .filter((id) => Number.isSafeInteger(id) && id > 0))).sort((a, b) => a - b);
-  if (managerIds.length > 50) return res.status(422).json({ error: 'Refresh is limited to 50 manager profiles per request.' });
+  const managerIds = getEligibleSpotlightManagerIds(participants ?? []);
+  const limitError = getSpotlightRefreshLimitError(managerIds.length);
+  if (limitError) return res.status(422).json({ error: limitError, managerCount: managerIds.length });
 
   const results: Array<{ managerId: number; refreshed: boolean; teamCount?: number; error?: string }> = [];
   const refreshedTeamIds = new Set<number>();
@@ -318,7 +318,15 @@ async function handleRefreshSpotlightProfiles(req: VercelRequest, res: VercelRes
       for (const row of linkedTeams ?? []) tournamentIds.add(String(row.tournament_id));
     }
   }
-  return res.status(200).json({ tournamentId, tournamentIds: Array.from(tournamentIds), managerCount: managerIds.length, results });
+  return res.status(200).json({
+    tournamentId,
+    tournamentIds: Array.from(tournamentIds),
+    managerCount: managerIds.length,
+    maxChppCalls: managerIds.length * 2,
+    refreshedCount: results.filter((result) => result.refreshed).length,
+    failedCount: results.filter((result) => !result.refreshed).length,
+    results,
+  });
 }
 
 async function handleGenerateLengthSchedule(req: VercelRequest, res: VercelResponse) {

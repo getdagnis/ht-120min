@@ -40,6 +40,7 @@ export function mergeManagerTeamSnapshot(
       ...previous,
       ...team,
       isPrimaryClub: detail?.isPrimaryClub ?? team.isPrimaryClub ?? previous?.isPrimaryClub,
+      genderId: detail?.genderId ?? team.genderId ?? previous?.genderId,
       logoUrl: detail?.logoUrl ?? team.logoUrl ?? previous?.logoUrl,
       foundedDate: detail?.foundedDate ?? team.foundedDate ?? previous?.foundedDate,
       regionId: detail?.regionId ?? previous?.regionId,
@@ -54,6 +55,9 @@ export function mergeManagerTeamSnapshot(
       countryName: detail?.countryName ?? team.countryName ?? previous?.countryName,
       powerLeagueRank: detail?.powerLeagueRank ?? previous?.powerLeagueRank,
       teamRank: detail?.teamRank ?? previous?.teamRank,
+      numberOfVictories: detail?.numberOfVictories ?? null,
+      homeFlagLeagueIds: detail?.homeFlagLeagueIds ?? [],
+      awayFlagLeagueIds: detail?.awayFlagLeagueIds ?? [],
       powerRating: detail?.powerRating ?? previous?.powerRating,
       powerGlobalRank: detail?.powerGlobalRank ?? previous?.powerGlobalRank,
       powerRegionRank: detail?.powerRegionRank ?? previous?.powerRegionRank,
@@ -64,6 +68,27 @@ export function mergeManagerTeamSnapshot(
       trophies: detail?.trophies ?? previous?.trophies ?? [],
     };
   });
+}
+
+export const MAX_SPOTLIGHT_REFRESH_MANAGERS = 25;
+export const MAX_SPOTLIGHT_REFRESH_CHPP_CALLS = MAX_SPOTLIGHT_REFRESH_MANAGERS * 2;
+
+export function getEligibleSpotlightManagerIds(participants: ReadonlyArray<{
+  hattrick_user_id: number | null;
+  active: boolean | null;
+  reserve_active: boolean | null;
+  is_placeholder: boolean | null;
+}>): number[] {
+  return Array.from(new Set(participants
+    .filter((row) => row.active === true && row.reserve_active !== true && row.is_placeholder !== true)
+    .map((row) => Number(row.hattrick_user_id))
+    .filter((id) => Number.isSafeInteger(id) && id > 0))).sort((a, b) => a - b);
+}
+
+export function getSpotlightRefreshLimitError(managerCount: number): string | null {
+  return managerCount > MAX_SPOTLIGHT_REFRESH_MANAGERS
+    ? `This tournament has ${managerCount} eligible managers and exceeds the ${MAX_SPOTLIGHT_REFRESH_MANAGERS}-manager / ${MAX_SPOTLIGHT_REFRESH_CHPP_CALLS}-CHPP-call limit. No profiles were refreshed.`
+    : null;
 }
 
 export interface ManagerTeamDetailsSnapshot {

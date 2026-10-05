@@ -20,6 +20,9 @@ export interface ChppTeamOption {
   leagueLevelUnitId?: number;
   leagueLevelUnitName?: string;
   teamRank?: number;
+  numberOfVictories?: number | null;
+  homeFlagLeagueIds?: number[];
+  awayFlagLeagueIds?: number[];
   powerRating?: number;
   powerGlobalRank?: number;
   powerLeagueRank?: number;
@@ -126,6 +129,9 @@ export interface ParsedTeamDetails {
   foundedDate?: string;
   youthTeamName?: string;
   teamRank?: number;
+  numberOfVictories: number | null;
+  homeFlagLeagueIds: number[];
+  awayFlagLeagueIds: number[];
   powerRating?: number;
   powerGlobalRank?: number;
   powerLeagueRank?: number;
@@ -150,6 +156,18 @@ function positiveXmlNumber(value: string | undefined): number | undefined {
   if (!value || !/^\d+$/.test(value)) return undefined;
   const parsed = Number(value);
   return Number.isSafeInteger(parsed) ? parsed : undefined;
+}
+
+function parseFlagLeagueIds(block: string, collection: 'HomeFlags' | 'AwayFlags'): number[] {
+  const flags = block.match(/<Flags>([\s\S]*?)<\/Flags>/i)?.[1];
+  const group = flags?.match(new RegExp(`<${collection}>([\\s\\S]*?)<\\/${collection}>`, 'i'))?.[1];
+  if (!group) return [];
+  const ids = new Set<number>();
+  for (const match of group.matchAll(/<Flag>([\s\S]*?)<\/Flag>/gi)) {
+    const id = positiveXmlNumber(readChppTag(match[1], 'LeagueID'));
+    if (id && id > 0) ids.add(id);
+  }
+  return [...ids].sort((a, b) => a - b);
 }
 
 export function classifyChppTrophy(input: {
@@ -251,11 +269,12 @@ export function teamDetailsKitForMatchSide(
 }
 
 export function parseTeamDetailsXml(xml: string, teamId: number): ParsedTeamDetails {
+  const emptyDetails = { teamId, numberOfVictories: null, homeFlagLeagueIds: [], awayFlagLeagueIds: [] };
   const errorCodeRaw = xml.match(/<ErrorCode>(\d+)<\/ErrorCode>/i)?.[1];
   if (errorCodeRaw) {
     const errorCode = parseInt(errorCodeRaw, 10);
     if (errorCode !== 0) {
-      return { teamId, errorCode };
+      return { ...emptyDetails, errorCode };
     }
   }
 
@@ -276,6 +295,7 @@ export function parseTeamDetailsXml(xml: string, teamId: number): ParsedTeamDeta
     const countryIdRaw = block.match(/<Country>[\s\S]*?<CountryID>(\d+)<\/CountryID>/i)?.[1];
     const regionIdRaw = block.match(/<Region>[\s\S]*?<RegionID>(\d+)<\/RegionID>/i)?.[1];
     const teamRankRaw = readChppTag(block, 'TeamRank');
+    const numberOfVictories = positiveXmlNumber(readChppTag(block, 'NumberOfVictories'));
     const powerRatingRaw =
       block.match(/<PowerRating>[\s\S]*?<PowerRating>\s*(\d+)\s*<\/PowerRating>/i)?.[1] ??
       block.match(/<PowerRating>\s*(\d+)\s*<\/PowerRating>/i)?.[1];
@@ -306,6 +326,9 @@ export function parseTeamDetailsXml(xml: string, teamId: number): ParsedTeamDeta
       foundedDate: readChppTag(block, 'FoundedDate'),
       youthTeamName: readChppTag(block, 'YouthTeamName'),
       teamRank: teamRankRaw ? parseInt(teamRankRaw, 10) : undefined,
+      numberOfVictories: numberOfVictories && numberOfVictories > 0 ? numberOfVictories : null,
+      homeFlagLeagueIds: parseFlagLeagueIds(block, 'HomeFlags'),
+      awayFlagLeagueIds: parseFlagLeagueIds(block, 'AwayFlags'),
       powerRating: powerRatingRaw ? parseInt(powerRatingRaw, 10) : undefined,
       powerGlobalRank: powerGlobalRankRaw ? parseInt(powerGlobalRankRaw, 10) : undefined,
       powerLeagueRank: powerLeagueRankRaw ? parseInt(powerLeagueRankRaw, 10) : undefined,
@@ -345,7 +368,7 @@ export function parseTeamDetailsXml(xml: string, teamId: number): ParsedTeamDeta
     return extract(xml);
   }
 
-  return { teamId };
+  return emptyDetails;
 }
 
 /** teamdetails 3.9 returns every owned team when teamID is omitted. */

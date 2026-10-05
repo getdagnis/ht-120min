@@ -3820,7 +3820,7 @@ export const TournamentView: React.FC<{ initialData?: TournamentInitialData }> =
   const refreshSpotlightProfiles = async () => {
     if (!tournament || isRefreshingSpotlight || isDuplicatingSandbox) return;
     const confirmed = window.confirm(
-      `Refresh saved Spotlight data for active, non-reserve, non-placeholder managers in ${tournament.name}? This sends managercompendium and one manager-wide teamdetails request for each manager with saved CHPP authorization. The endpoint supports up to 50 managers per tournament.`,
+      `Refresh saved Spotlight data for active, non-reserve, non-placeholder managers in ${tournament.name}? This sends managercompendium and one manager-wide teamdetails request for each manager with saved CHPP authorization. One action supports up to 25 managers (50 CHPP requests).`,
     );
     if (!confirmed) return;
 
@@ -3835,6 +3835,9 @@ export const TournamentView: React.FC<{ initialData?: TournamentInitialData }> =
       const data = (await response.json()) as {
         error?: string;
         managerCount?: number;
+        maxChppCalls?: number;
+        refreshedCount?: number;
+        failedCount?: number;
         results?: Array<{ managerId: number; refreshed: boolean; error?: string }>;
       };
       if (!response.ok) throw new Error(data.error || 'Spotlight profiles could not be refreshed.');
@@ -3842,7 +3845,10 @@ export const TournamentView: React.FC<{ initialData?: TournamentInitialData }> =
       const results = data.results ?? [];
       const refreshedCount = results.filter((result) => result.refreshed).length;
       const failedResults = results.filter((result) => !result.refreshed);
-      const summary = [`Spotlight refresh complete: ${refreshedCount} of ${data.managerCount ?? results.length} profiles refreshed.`];
+      const summary = [
+        `Manager snapshots: ${data.managerCount ?? results.length} eligible, ${data.refreshedCount ?? refreshedCount} refreshed, ${data.failedCount ?? failedResults.length} not refreshed.`,
+        `Up to ${data.maxChppCalls ?? (data.managerCount ?? results.length) * 2} CHPP requests for this action.`,
+      ];
       if (failedResults.length) {
         summary.push('Not refreshed:');
         summary.push(...failedResults.map((result) => `Manager ${result.managerId}: ${result.error || 'refresh failed'}`));
@@ -6170,7 +6176,14 @@ export const TournamentView: React.FC<{ initialData?: TournamentInitialData }> =
             {(tournament.allow_reserve_registration !== false || reserveTeams.length > 0) && (
               <ReserveTeamsWidget tournamentId={tournament.id} />
             )}
-            <ManagerSpotlight spotlight={managerSpotlight} />
+            <ManagerSpotlight
+              spotlight={managerSpotlight}
+              tournament={{
+                name: tournament.name,
+                countryLimit: tournament.country_limit,
+                countryLimitFormat: tournament.country_limit_format,
+              }}
+            />
             <SidebarPollWidget
               seasonId={currentSeason?.id}
               seasonStatus={currentSeason?.status}
@@ -7692,7 +7705,7 @@ export const TournamentView: React.FC<{ initialData?: TournamentInitialData }> =
                         Team metadata is refreshed from Hattrick before the copy is created.
                       </p>
                       <p className={adminStyles.smallNote}>
-                        Refresh saved Manager Spotlight profiles for active managers in this tournament. Reserves and placeholders are excluded.
+                        Update stored manager snapshots for active managers in this tournament. Reserves and placeholders are excluded.
                       </p>
                       <div className={adminStyles.settingsActions}>
                         <Button
@@ -7711,7 +7724,7 @@ export const TournamentView: React.FC<{ initialData?: TournamentInitialData }> =
                           onClick={refreshSpotlightProfiles}
                           disabled={isDuplicatingSandbox || isRefreshingSpotlight}
                         >
-                          {isRefreshingSpotlight ? 'Refreshing Spotlight…' : 'Refresh Spotlight profiles'}
+                          {isRefreshingSpotlight ? 'Updating manager snapshots…' : 'Update manager snapshots'}
                         </Button>
                       </div>
                     </SectionCard>

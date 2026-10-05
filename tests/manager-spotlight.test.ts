@@ -8,291 +8,284 @@ import {
   countryFlagUrl,
   detectOfficialRole,
   getClubRankLabel,
-  mapNationalTeamStaffType,
+  getFoundedYearLabel,
+  getSpecialLeagueLabel,
+  getSpotlightTournamentLabel,
+  getVisibleClubTeams,
   normalizeNationalTeamRoles,
   selectStoryCandidates,
   type ManagerSpotlightTeam,
   type StoryCandidate,
   type StorySegment,
+  type TrophyFact,
 } from '../src/utils/manager-spotlight.js';
 
 const dateKey = '2026-10-04';
-const team = (id: number, name: string, fields: Partial<ManagerSpotlightTeam> = {}): ManagerSpotlightTeam => ({
-  teamId: id, teamName: name, logoUrl: null, countryId: null, countryName: null, regionName: null,
+const club = (teamId: number, teamName: string, fields: Partial<ManagerSpotlightTeam> = {}): ManagerSpotlightTeam => ({
+  teamId, teamName, logoUrl: null, countryId: null, countryName: null, regionName: null,
   leagueId: null, leagueName: null, leagueSystemId: null, seriesName: null, leagueRank: null,
   powerRating: null, powerLeagueRank: null, foundedDate: null, youthTeamName: null, arenaName: null,
   fanclubSize: null, trophies: [], isPrimary: false, isTournamentTeam: false, ...fields,
 });
-const normalized = (input: {
-  managerName: string; roles?: unknown; teams: ManagerSpotlightTeam[]; tournamentId?: number; managerId?: number;
-  managerCountryId?: number | null; managerCountryName?: string | null; targetSentences?: number; maxSentences?: number;
-}) => {
-  const tournament = input.teams.find((item) => item.teamId === (input.tournamentId ?? input.teams.find((x) => x.isTournamentTeam)?.teamId))!;
-  return composeManagerStory({ managerId: input.managerId ?? 1, managerName: input.managerName,
-    nationalTeamRoles: normalizeNationalTeamRoles(input.roles), teams: input.teams, tournamentTeam: tournament,
-    managerCountryId: input.managerCountryId, managerCountryName: input.managerCountryName,
-    dateKey, targetSentences: input.targetSentences, maxSentences: input.maxSentences });
+const seriesTitles = (count: number): TrophyFact[] => Array.from({ length: count }, (_, season) => ({ typeId: 17, kind: 'series', season: season + 1 }));
+const compose = (managerName: string, teams: ManagerSpotlightTeam[], roles: unknown = [], managerId = 1) => {
+  const tournamentTeam = teams.find((team) => team.isTournamentTeam)!;
+  return composeManagerStory({ managerId, managerName, nationalTeamRoles: normalizeNationalTeamRoles(roles), teams, tournamentTeam, dateKey });
 };
-const flat = (segments: StorySegment[]) => segments.map((part) => typeof part === 'string' ? part : part.name).join('');
-const storyText = (sentences: Array<{ segments: StorySegment[] }>) => sentences.map((sentence) => flat(sentence.segments));
+const plain = (segments: StorySegment[]) => segments.map((part) => typeof part === 'string' ? part : part.name).join('');
+const story = (result: ReturnType<typeof compose>) => result.sentences.map((sentence) => plain(sentence.segments));
+const countryMentions = (segments: StorySegment[]) => segments.filter((part): part is Extract<StorySegment, { kind: 'country' }> => typeof part !== 'string');
 
-const ninoTeams = [
-  team(239397, 'Amaranto', { isPrimary: true, countryId: 4, countryName: 'Italy', regionName: 'Calabria', seriesName: 'V.210', foundedDate: '2004-08-04', leagueRank: 2705,
-    trophies: [{ typeId: 17, kind: 'series' }] }),
-  team(1631916, 'Erythrà', { countryId: 97, countryName: 'Malta', seriesName: 'III.2', leagueRank: 162,
-    trophies: [{ typeId: 16, kind: 'national_cup', gainedDate: '2024-03-27', cupLeagueLevel: 0, cupLevel: 1 }] }),
-  team(2132242, 'Athletic Grifo HGL', { countryId: 179, countryName: 'Guam', leagueId: 1003, seriesName: 'V.147', leagueRank: 1496 }),
-  team(2152503, 'Amaranto _B', { countryId: 147, countryName: 'Benin', seriesName: 'III.12', leagueRank: 96 }),
-  team(3220504, "'Nduje Amaranto", { countryId: 179, countryName: 'Guam', leagueId: 3000, seriesName: 'VI.976', leagueRank: 1229, foundedDate: '2026-03-16', isTournamentTeam: true }),
-];
+const fixtures = {
+  cellm8: [
+    club(1, 'Borderline Athletic', { leagueId: 3000, seriesName: 'VII.375', leagueRank: 42, isTournamentTeam: true }),
+    club(2, 'Astonishing Apparatus', { isPrimary: true, foundedDate: '2007-01-01', leagueRank: 410, seriesName: 'IV.7', trophies: seriesTitles(17) }),
+  ],
+  DavidLafata: [
+    club(10, 'Lískači', { isPrimary: true, countryId: 46, countryName: 'Czechia', regionName: 'Kraj Vysočina', leagueId: 52, foundedDate: '2024-09-07', leagueRank: 835, powerLeagueRank: 1756, seriesName: 'V.219' }),
+    club(11, 'Stóra Dímun', { countryId: 71, countryName: 'Faroe Islands', trophies: seriesTitles(1) }),
+    club(12, 'The princesses of Zermatt', { countryId: 179, countryName: 'Guam', leagueId: 3000, seriesName: 'VII.71', leagueRank: 8015, foundedDate: '2026-03-16', isTournamentTeam: true }),
+    club(13, 'Tribute to Penguins', { countryId: 103, countryName: 'Jordan', trophies: seriesTitles(2) }),
+    club(14, 'Wallersee Boys', { countryId: 145, countryName: 'Cambodia' }),
+  ],
+  barreneru: [
+    club(20, 'Las Mamachichos', { leagueId: 3000, seriesName: 'VII.377', isTournamentTeam: true }),
+    club(21, 'Atletico Konoha', { isPrimary: true, foundedDate: '2024-01-01', leagueRank: 461, seriesName: 'VI.654', trophies: seriesTitles(3) }),
+  ],
+  lebotte: [
+    club(30, 'aloha FC', { countryId: 141, countryName: 'Tahiti', leagueId: 3000, seriesName: 'VI.977', isTournamentTeam: true }),
+    club(31, 'FC lebotte', { isPrimary: true, countryId: 5, countryName: 'France', leagueId: 5, foundedDate: '2024-01-01', leagueRank: 1942, seriesName: 'V.12', trophies: seriesTitles(1) }),
+  ],
+  SteFrix: [
+    club(40, 'La Cadrega Witches', { leagueId: 3000, seriesName: 'VI.772', isTournamentTeam: true }),
+    club(41, 'Deportivo La Cadrega', { isPrimary: true, countryId: 4, countryName: 'Italy', leagueId: 4, foundedDate: '2018-01-01', leagueRank: 3001, seriesName: 'VI.129', trophies: seriesTitles(9) }),
+    club(42, 'Another club', { countryId: 145, countryName: 'Cambodia' }),
+  ],
+  branko_zebec93: [
+    club(50, 'Victoria_FC', { leagueId: 3000, seriesName: 'VII.661', isTournamentTeam: true }),
+    club(51, 'AS Red Star 93', { isPrimary: true, countryId: 3, countryName: 'Germany', leagueId: 3, foundedDate: '2008-01-01', leagueRank: 70, seriesName: 'VI.84', trophies: [{ typeId: 16, kind: 'national_cup', cupLeagueLevel: 0, cupLevel: 1, gainedDate: '2021-08-01' }] }),
+  ],
+  NinoMed: [
+    club(239397, 'Amaranto', { isPrimary: true, countryId: 4, countryName: 'Italy', regionName: 'Calabria', leagueId: 4, foundedDate: '2004-08-04', leagueRank: 2705, seriesName: 'V.210', trophies: seriesTitles(17) }),
+    club(1631916, 'Erythrà', { countryId: 97, countryName: 'Malta', trophies: [{ typeId: 16, kind: 'national_cup', cupLeagueLevel: 0, cupLevel: 1, gainedDate: '2024-03-27' }] }),
+    club(2132242, 'Athletic Grifo HGL', { countryId: 179, countryName: 'Guam', leagueId: 1003 }),
+    club(2152503, 'Amaranto _B', { countryId: 147, countryName: 'Benin' }),
+    club(3220504, "'Nduje Amaranto", { countryId: 179, countryName: 'Guam', leagueId: 3000, seriesName: 'VI.976', leagueRank: 1229, isTournamentTeam: true }),
+  ],
+  'LA-Pirats': [
+    club(116432, 'FK Pirates', { isPrimary: true, countryId: 48, countryName: 'Latvia', regionName: 'Rīga', leagueId: 53, foundedDate: '2003-01-01', seriesName: 'III.6' }),
+    club(458425, 'Lemon Pirates', { countryId: 77, countryName: 'Costa Rica', leagueId: 81, leagueRank: 13, seriesName: 'II.1', isTournamentTeam: true }),
+    club(2066977, 'Pirates Academy', { countryId: 190, countryName: 'Puerto Rico' }),
+    club(2130552, 'Homesick Pirates', { countryId: 197, countryName: 'Guyana', leagueId: 1003 }),
+  ],
+};
 const ninoRoles = [
-  { staffType: 1, nationalTeamId: 3174, nationalTeamName: 'Malta' },
   { staffType: 0, nationalTeamId: 3002, nationalTeamName: 'Guam' },
-  { staffType: 2, nationalTeamId: 260, nationalTeamName: 'Zambia' },
-  { staffType: 2, nationalTeamId: 6, nationalTeamName: 'U21 Ísland' },
+  { staffType: 1, nationalTeamId: 3174, nationalTeamName: 'Malta' },
   { staffType: 1, nationalTeamId: 3326, nationalTeamName: 'U21 Bahamas' },
   { staffType: 1, nationalTeamId: 3175, nationalTeamName: 'U21 Malta' },
+  { staffType: 2, nationalTeamId: 260, nationalTeamName: 'Zambia' },
+  { staffType: 2, nationalTeamId: 6, nationalTeamName: 'U21 Ísland' },
   { staffType: 2, nationalTeamId: 3285, nationalTeamName: 'U21 Guam' },
 ];
 
-test('official nickname role is derived with exact supported prefixes', () => {
-  assert.equal(detectOfficialRole('LA-Pirats'), 'language_assistant');
-  assert.equal(detectOfficialRole('Mod-Example'), 'moderator');
-  assert.equal(detectOfficialRole('GM-Example'), 'game_master');
-  assert.equal(detectOfficialRole('HT-Example'), 'hattrick_staff');
-  assert.equal(detectOfficialRole('Moderator'), null);
+
+test('worlddetails supplies every special league label through one formatter', () => {
+  const leagueIds = [1000, 1001, 1002, 1003, 3000];
+  assert.deepEqual(leagueIds.map(getSpecialLeagueLabel), ['HTI', 'AL', 'HAL', 'HGL', 'HFI']);
+  assert.deepEqual(leagueIds.map((leagueId) => getClubRankLabel(club(leagueId, 'Special club', { leagueId, leagueRank: 12 }))),
+    ['#12 in HTI', '#12 in AL', '#12 in HAL', '#12 in HGL', '#12 in HFI']);
+  assert.equal(getSpecialLeagueLabel(4), null);
 });
 
-test('staff types normalize and U21 derives from the national-team name prefix', () => {
-  assert.equal(mapNationalTeamStaffType(0), 'coach');
-  assert.equal(mapNationalTeamStaffType(1), 'assistant');
-  assert.equal(mapNationalTeamStaffType(2), 'scout');
-  assert.equal(mapNationalTeamStaffType(3), null);
-  const roles = normalizeNationalTeamRoles([{ staffType: 1, nationalTeamId: 9, nationalTeamName: 'u21 Bahamas' }]);
-  assert.equal(roles[0]?.isU21, true);
-  const club = team(2, 'Club', { isPrimary: true, isTournamentTeam: true });
-  const story = normalized({ managerName: 'Manager', roles: [{ staffType: 1, nationalTeamId: 172, nationalTeamName: 'U21 Bahamas' }], teams: [club] });
-  assert.match(storyText(story.sentences)[0]!, /assistant coach with the U21 Bahamas/);
-  const country = story.sentences[0]?.segments.find((segment) => typeof segment !== 'string');
-  assert.equal(typeof country === 'string' ? null : country?.name, 'Bahamas');
-  assert.ok(typeof country !== 'string' && country && countryFlagUrl(country.countryId, country.name));
+test('club heading keeps the tournament title and renders its restricted country as a flagged segment', () => {
+  const label = getSpotlightTournamentLabel({ name: 'Exotic HFI — Saint Kitts and Nevis 🇰🇳', countryLimit: '202', countryLimitFormat: 'country_id' });
+  assert.equal(plain(label), 'Exotic HFI — Saint Kitts and Nevis');
+  assert.deepEqual(countryMentions(label).map((mention) => mention.name), ['Saint Kitts and Nevis']);
+  assert.ok(countryFlagUrl(countryMentions(label)[0]!.countryId, countryMentions(label)[0]!.name));
+  assert.equal(plain(getSpotlightTournamentLabel({ name: 'Exotic HFI', countryLimit: '202', countryLimitFormat: 'country_id' })),
+    'Exotic HFI — Saint Kitts and Nevis');
+  assert.equal(plain(getSpotlightTournamentLabel({ name: 'Exotic HFI — Saint Kitts and Nevis 🇰🇳 (test)', countryLimit: '202', countryLimitFormat: 'country_id' })),
+    'Exotic HFI — Saint Kitts and Nevis (test)');
 });
 
-test('NinoMed aggregates NT roles, prioritizes tournament club, main club, then trophy', () => {
-  const result = normalized({ managerName: 'NinoMed', roles: ninoRoles, teams: ninoTeams, managerId: 1587569 });
-  const sentences = storyText(result.sentences);
-  assert.equal(sentences.length, 4);
-  assert.match(sentences[0], /coaches Guam's national team/);
-  assert.match(sentences[0], /six additional national-team staff roles/);
-  assert.match(sentences[1], /'Nduje Amaranto represents NinoMed here, competing in HFI division VI\.976/);
-  assert.doesNotMatch(sentences[1], /rank #1229/);
-  assert.match(sentences[2], /main club, Amaranto/);
-  assert.match(sentences[3], /Erythrà won Malta's National Cup/);
-  const mentions = result.sentences.flatMap((sentence) => sentence.segments)
-    .filter((segment): segment is Extract<StorySegment, { kind: 'country' }> => typeof segment !== 'string');
-  assert.ok(mentions.length > 0);
-  assert.ok(mentions.every((mention) => countryFlagUrl(mention.countryId, mention.name)));
+test('TeamRank follows country leagues or special leagues, separate from PowerRating rank', () => {
+  const regular = fixtures.DavidLafata[0]!;
+  assert.equal(getClubRankLabel(regular), 'League rank #835');
+  assert.match(story(compose('DavidLafata', fixtures.DavidLafata))[1]!, /Kraj Vysočina, Czechia.*league rank #835/);
+  assert.doesNotMatch(story(compose('DavidLafata', fixtures.DavidLafata)).join(' '), /#1756/);
+  const hfi = fixtures.DavidLafata[2]!;
+  assert.equal(getClubRankLabel(hfi), '#8015 in HFI');
+  assert.match(story(compose('DavidLafata', fixtures.DavidLafata))[0]!, /ranked #8015 in HFI/);
+  assert.equal(getClubRankLabel(club(98, 'Homegrown', { leagueId: 1003, leagueRank: 12 })), '#12 in HGL');
+  assert.equal(getClubRankLabel(club(99, 'Zero', { leagueRank: 0 })), null);
 });
 
-test('LA prefix and NT scout role are independent facts in one P0 sentence', () => {
-  const teams = [
-    team(10, 'FK Pirates', { isPrimary: true, countryId: 48, countryName: 'Latvia', regionName: 'Rīga', seriesName: 'III.6', foundedDate: '2003-01-01' }),
-    team(11, 'Lemon Pirates', { countryId: 77, countryName: 'Costa Rica', seriesName: 'II.1', leagueRank: 13, isTournamentTeam: true }),
-  ];
-  const result = normalized({ managerName: 'LA-Pirats', roles: [{ staffType: 2, nationalTeamId: 48, nationalTeamName: 'Latvia' }], teams });
-  const sentences = storyText(result.sentences);
-  assert.match(sentences[0], /Hattrick Language Assistant/);
-  assert.match(sentences[0], /scout for Latvia's national team/);
-  assert.match(sentences[1], /Lemon Pirates represents LA-Pirats here, playing in II\.1 at league rank #13/);
-  assert.match(sentences[1], /league rank #13/);
-  assert.match(sentences[2], /main club, FK Pirates/);
+test('regular TeamRank uses its league country while club mentions keep flagged countries', () => {
+  const result = compose('LA-Pirats', fixtures['LA-Pirats']);
+  const tournament = result.sentences.find((sentence) => sentence.candidateId.startsWith('tournament:'))!.segments;
+  const main = result.sentences.find((sentence) => sentence.candidateId.startsWith('primary:'))!.segments;
+  assert.match(plain(tournament), /Lemon Pirates, currently ranked #13 in Costa Rica/);
+  assert.match(plain(main), /FK Pirates.*Rīga, Latvia.*founded in 2003/);
+  assert.deepEqual(countryMentions(tournament).map((mention) => mention.name), ['Costa Rica']);
+  assert.deepEqual(countryMentions(main).map((mention) => mention.name), ['Latvia']);
+  assert.ok([...countryMentions(tournament), ...countryMentions(main)]
+    .every((mention) => countryFlagUrl(mention.countryId, mention.name)));
 });
 
-test('official-only and NT-only profiles each get an exceptional identity candidate', () => {
-  const club = team(3, 'Club', { isPrimary: true, isTournamentTeam: true, seriesName: 'IV.1' });
-  assert.match(storyText(normalized({ managerName: 'GM-Foo', teams: [club] }).sentences)[0], /Hattrick Game Master/);
-  assert.match(storyText(normalized({ managerName: 'Foo', roles: [{ staffType: 0, nationalTeamId: 48, nationalTeamName: 'Latvia' }], teams: [club] }).sentences)[0], /coaches Latvia's national team/);
+test('special TeamRank uses the special league while country remains club location', () => {
+  const result = compose('LA-Pirats', [
+    club(200, 'FK Pirates', { isPrimary: true, regionName: 'Rīga', countryId: 48, countryName: 'Latvia', foundedDate: '2003-01-01', seriesName: 'III.6' }),
+    club(201, 'Lemon Pirates', { isTournamentTeam: true, leagueId: 3000, countryId: 77, countryName: 'Costa Rica', leagueRank: 1332, seriesName: 'VI.1' }),
+  ]);
+  const tournament = result.sentences.find((sentence) => sentence.candidateId === 'tournament:201')!.segments;
+  assert.match(plain(tournament), /LA-Pirats.*Lemon Pirates, based in Costa Rica, currently ranked #1332 in HFI and playing in series VI\.1/);
+  assert.deepEqual(countryMentions(tournament).map((mention) => mention.name), ['Costa Rica']);
+  assert.equal(getClubRankLabel(club(201, 'Lemon Pirates', { leagueId: 3000, leagueRank: 1332 })), '#1332 in HFI');
+  assert.match(story(result)[2]!, /FK Pirates.*Rīga, Latvia.*founded in 2003/);
 });
 
-test('tournament identity names the club when it is also the primary club', () => {
-  const club = team(4, 'FC Nachos', { isPrimary: true, isTournamentTeam: true, seriesName: 'IV.35', foundedDate: '2005-01-01' });
-  const result = normalized({ managerName: 'procesors', teams: [club] });
-  assert.match(storyText(result.sentences)[0], /FC Nachos, the main club, represents procesors here, playing in IV\.35/);
+test('ordinary series titles below five have no story candidate; five or more may be selected', () => {
+  for (const count of [1, 2, 3, 4]) {
+    const result = compose('Manager', [club(80, 'Cup Club', { isPrimary: true, isTournamentTeam: true, trophies: seriesTitles(count) })]);
+    assert.ok(!result.candidates.some((candidate) => candidate.id.startsWith('series-count:')));
+    assert.doesNotMatch(story(result).join(' '), /series titles?/);
+  }
+  const five = compose('Manager', [club(81, 'Cup Club', { isPrimary: true, isTournamentTeam: true, trophies: seriesTitles(5) })]);
+  assert.match(story(five).join(' '), /five|5 series titles/);
 });
 
-test('TeamRank is the regular league rank; PowerRating league rank is not substituted', () => {
-  const club = team(5, 'Ranked Club', { isPrimary: true, isTournamentTeam: true, countryId: 48, countryName: 'Latvia', seriesName: 'IV.35', leagueRank: 13, powerLeagueRank: 1 });
-  const sentences = storyText(normalized({ managerName: 'Manager', teams: [club] }).sentences);
-  assert.match(sentences[0], /league rank #13/);
-  assert.equal(getClubRankLabel(club), 'League rank #13');
-  assert.doesNotMatch(sentences.join(' '), /#1\b/);
+test('a major trophy wins the optional slot over repeated series success and geography', () => {
+  const result = compose('Manager', [
+    club(82, 'Main', { isPrimary: true, countryId: 3, countryName: 'Germany', trophies: seriesTitles(17) }),
+    club(83, 'Cup Team', { countryId: 97, countryName: 'Malta', trophies: [{ typeId: 16, kind: 'national_cup', gainedDate: '2021-01-01' }] }),
+    club(84, 'Tournament', { leagueId: 3000, countryId: 179, countryName: 'Guam', isTournamentTeam: true }),
+    club(85, 'Other', { countryId: 145, countryName: 'Cambodia' }),
+  ]);
+  assert.match(story(result)[2]!, /Cup Team won the National Cup in Malta in 2021/);
+  assert.doesNotMatch(story(result).join(' '), /17 series titles|Cambodia/);
+  const trophy = result.sentences[2]!.segments;
+  assert.equal(countryMentions(trophy)[0]?.name, 'Malta');
+  assert.ok(countryFlagUrl(97, 'Malta'));
+  assert.doesNotMatch(plain(trophy), /Malta's National Cup/);
 });
 
-test('HFI suppresses TeamRank from story and club rank label regardless of value', () => {
-  const club = team(6, 'HFI Club', { leagueId: 3000, seriesName: 'VI.1', leagueRank: 1, isTournamentTeam: true });
-  const story = storyText(normalized({ managerName: 'Manager', teams: [club] }).sentences).join(' ');
-  assert.match(story, /HFI Club represents Manager here, competing in HFI division VI\.1/);
-  assert.doesNotMatch(story, /rank #1/);
-  assert.equal(getClubRankLabel(club), null);
-});
-
-test('Homegrown league identity is centralized and does not reuse an HFI label', () => {
-  const club = team(63, 'Homesick Pirates', { countryName: 'Guyana', leagueId: 1003, seriesName: 'V.147', isTournamentTeam: true });
-  const story = storyText(normalized({ managerName: 'Manager', teams: [club] }).sentences).join(' ');
-  assert.match(story, /Homesick Pirates represents Manager here, competing in Homegrown division V\.147/);
-  assert.doesNotMatch(story, /HFI/);
-});
-
-test('rank zero is omitted, and a notably ranked non-tournament regular club is an independent fact', () => {
-  const teams = [
-    team(61, 'Tournament Club', { isTournamentTeam: true, countryId: 48, countryName: 'Latvia', seriesName: 'IV.1', leagueRank: 0 }),
-    team(62, 'Ranked Club', { isPrimary: true, countryId: 48, countryName: 'Latvia', seriesName: 'II.1', leagueRank: 13 }),
-  ];
-  const result = normalized({ managerName: 'Manager', teams });
-  assert.doesNotMatch(storyText(result.sentences)[0]!, /rank #0/);
-  assert.ok(result.candidates.some((candidate) => candidate.id === 'rank:62'));
-  assert.match(storyText(result.sentences).join(' '), /Ranked Club holds league rank #13/);
-  assert.doesNotMatch(storyText(result.sentences).join(' '), /#13 in Latvia/);
-});
-
-test('cup, league, series and exceptional trophy IDs are classified from the documented enum', () => {
-  assert.equal(classifyTrophy({ typeId: 16, cupLeagueLevel: 0, cupLevel: 1 }), 'national_cup');
-  assert.equal(classifyTrophy({ typeId: 16, cupLevel: 2 }), 'challenger_cup');
-  assert.equal(classifyTrophy({ typeId: 16, cupLevel: 3 }), 'consolation_cup');
-  assert.equal(classifyTrophy({ typeId: 17 }), 'series');
-  assert.equal(classifyTrophy({ typeId: 18 }), 'league');
-  assert.equal(classifyTrophy({ typeId: 78 }), 'world_cup_gold');
-  assert.equal(classifyTrophy({ typeId: 79 }), 'world_cup_silver');
-  assert.equal(classifyTrophy({ typeId: 80 }), 'world_cup_bronze');
-  assert.equal(classifyTrophy({ typeId: 91 }), 'masters');
-  assert.equal(classifyTrophy({ typeId: 93 }), 'masters_top_scorer');
-  assert.equal(classifyTrophy({ typeId: 103 }), 'tournament');
-  assert.equal(classifyTrophy({ typeId: 203 }), 'tutorial_tournament');
-});
-
-test('major trophy and repeated series-title candidates are available; obscure types do not become wins', () => {
-  const club = team(7, 'Cup Club', { isPrimary: true, isTournamentTeam: true, countryId: 48, countryName: 'Latvia', trophies: [
-    { typeId: 17, kind: 'series', season: 1 }, { typeId: 17, kind: 'series', season: 2 },
-    { typeId: 16, kind: 'national_cup', cupLeagueLevel: 0, cupLevel: 1 }, { typeId: 93, kind: 'masters_top_scorer' },
-  ] });
-  const result = normalized({ managerName: 'Manager', teams: [club], maxSentences: 4 });
-  assert.ok(result.candidates.some((candidate) => candidate.id.startsWith('trophy:7:16')));
-  assert.ok(result.candidates.some((candidate) => candidate.id === 'series-count:7'));
-  assert.ok(!result.candidates.some((candidate) => candidate.segments.some((segment) => typeof segment === 'string' && /top scorer|tutorial tournament/i.test(segment))));
-});
-
-test('single old club gives a factual history and youth fallback', () => {
-  const club = team(8, 'FC Nachos', { isPrimary: true, isTournamentTeam: true, countryId: 48, countryName: 'Latvia', regionName: 'Ogre', seriesName: 'IV.35', foundedDate: '2005-01-01', youthTeamName: 'Raitais solis' });
-  const result = normalized({ managerName: 'procesors', teams: [club] });
-  assert.match(storyText(result.sentences).join(' '), /founded in 2005/);
-  assert.match(storyText(result.sentences).join(' '), /Raitais solis/);
-});
-
-test('single recent club, missing founding date, language, and region degrade cleanly', () => {
-  const recent = team(9, 'Recent Club', { isPrimary: true, isTournamentTeam: true, foundedDate: '2025-03-01', seriesName: 'VI.1' });
-  const withDate = normalized({ managerName: 'Manager', teams: [recent] });
-  assert.match(storyText(withDate.sentences).join(' '), /relatively recent/);
-  const missing = team(10, 'Sparse Club', { isPrimary: true, isTournamentTeam: true, foundedDate: null });
-  const spotlight = buildManagerSpotlight({ tournamentId: 't', participants: [{ id: 'p', hattrick_user_id: 4, ht_team_id: 10 }], profiles: [{ hattrick_user_id: 4, manager_name: 'Manager', language_name: null, country_name: null, teams_json: [missing] }], dateKey });
-  assert.equal(spotlight?.language, null);
-  assert.deepEqual(spotlight?.location, []);
-  assert.doesNotMatch(storyText(spotlight?.story ?? []).join(' '), /undefined|null/);
-});
-
-test('multi-country footprint retains every known country even when a flag mapping is unavailable', () => {
-  const teams = [
-    team(11, 'A', { countryId: 48, countryName: 'Latvia', isPrimary: true }),
-    team(12, 'B', { countryId: 77, countryName: 'Costa Rica', isTournamentTeam: true }),
-    team(13, 'C', { countryId: 179, countryName: 'Guam' }),
-  ];
-  const result = normalized({ managerName: 'Manager', teams });
-  const footprint = result.candidates.find((candidate) => candidate.id === 'footprint');
+test('auxiliary footprint names only other-club countries and keeps structured flag references', () => {
+  const result = compose('DavidLafata', fixtures.DavidLafata);
+  const footprint = result.sentences.find((sentence) => sentence.candidateId === 'footprint');
   assert.ok(footprint);
-  const mentions = footprint!.segments.filter((part): part is Extract<StorySegment, { kind: 'country' }> => typeof part !== 'string');
-  assert.deepEqual(mentions.map((item) => item.name), ['Costa Rica', 'Guam', 'Latvia']);
-  assert.ok(mentions.every((item) => countryFlagUrl(item.countryId, item.name)));
-  const unknown = [
-    team(15, 'Mapped', { countryId: 48, countryName: 'Latvia', isPrimary: true }),
-    team(16, 'Unmapped', { countryId: 999999, countryName: 'Exampleland', isTournamentTeam: true }),
-  ];
-  const unknownResult = normalized({ managerName: 'Manager', teams: unknown });
-  const unknownFootprint = unknownResult.candidates.find((candidate) => candidate.id === 'footprint');
-  assert.ok(unknownFootprint);
-  const unknownMentions = unknownFootprint!.segments.filter((part): part is Extract<StorySegment, { kind: 'country' }> => typeof part !== 'string');
-  assert.deepEqual(unknownMentions.map((item) => item.name), ['Exampleland', 'Latvia']);
+  assert.equal(plain(footprint.segments), 'DavidLafata also runs clubs in the Faroe Islands, Jordan and Cambodia.');
+  assert.deepEqual(countryMentions(footprint.segments).map((mention) => mention.name), ['Faroe Islands', 'Jordan', 'Cambodia']);
+  assert.ok(countryMentions(footprint.segments).every((mention) => countryFlagUrl(mention.countryId, mention.name)));
+  assert.doesNotMatch(plain(footprint.segments), /Czechia|Guam|Stóra|Tribute|Wallersee|spans/);
+});
+
+test('unknown country remains a country segment if a flag URL is unavailable', () => {
+  const result = compose('Manager', [
+    club(90, 'Main', { isPrimary: true, countryId: 48, countryName: 'Latvia' }),
+    club(91, 'Tournament', { isTournamentTeam: true, countryId: 179, countryName: 'Guam' }),
+    club(92, 'Other', { countryId: 999999, countryName: 'Exampleland' }),
+  ]);
+  const footprint = result.sentences.find((sentence) => sentence.candidateId === 'footprint');
+  assert.equal(countryMentions(footprint!.segments)[0]?.name, 'Exampleland');
   assert.equal(countryFlagUrl(999999, 'Exampleland'), null);
 });
 
-test('footprint describes one home club and a foreign-country cluster, and detects shared regions', () => {
-  const spread = [
-    team(31, 'Home', { countryId: 48, countryName: 'Latvia', isPrimary: true }),
-    team(32, 'Away One', { countryId: 179, countryName: 'Guam' }),
-    team(33, 'Away Two', { countryId: 179, countryName: 'Guam', isTournamentTeam: true }),
+test('club rows select only tournament and main, dedupe same club, and expose main founding year', () => {
+  const teams = fixtures.DavidLafata;
+  assert.deepEqual(getVisibleClubTeams({ currentTeams: teams, tournamentTeamId: 12 }).map((item) => item.teamName), ['The princesses of Zermatt', 'Lískači']);
+  assert.equal(getFoundedYearLabel(teams[0]!), 'Founded 2024');
+  assert.equal(getFoundedYearLabel(teams[2]!), 'Founded 2026');
+  const same = club(93, 'FC Nachos', { isPrimary: true, isTournamentTeam: true, foundedDate: '2005-01-01' });
+  assert.deepEqual(getVisibleClubTeams({ currentTeams: [same, club(94, 'Other')], tournamentTeamId: 93 }).map((item) => item.teamId), [93]);
+  assert.equal(getFoundedYearLabel(same), 'Founded 2005');
+});
+
+test('exceptional role, tournament, main club, and major cup fit the four-sentence ceiling', () => {
+  const result = compose('NinoMed', fixtures.NinoMed, ninoRoles, 1587569);
+  assert.equal(result.sentences.length, 4);
+  assert.match(story(result)[0]!, /coaches the national team of Guam and holds six additional/);
+  assert.match(story(result)[1]!, /NinoMed.*'Nduje Amaranto, based in Guam, currently ranked #1229 in HFI and playing in series VI\.976/);
+  assert.match(story(result)[2]!, /main club, Amaranto.*Calabria, Italy.*founded in 2004, holds league rank #2705 and plays in series V\.210/);
+  assert.match(story(result)[3]!, /Erythrà won the National Cup in Malta in 2024/);
+  assert.doesNotMatch(story(result).join(' '), /17 series titles/);
+});
+
+test('official prefix and NT role share P0; U21 comes from the name', () => {
+  assert.equal(detectOfficialRole('LA-Pirats'), 'language_assistant');
+  assert.equal(detectOfficialRole('Moderator'), null);
+  const result = compose('LA-Pirats', fixtures['LA-Pirats'], [{ staffType: 2, nationalTeamId: 48, nationalTeamName: 'Latvia' }]);
+  assert.match(story(result)[0]!, /Hattrick Language Assistant and also serves as a scout for the national team of Latvia/);
+  assert.match(story(result)[1]!, /LA-Pirats.*Lemon Pirates, currently ranked #13 in Costa Rica and playing in series II\.1/);
+  assert.match(story(result)[2]!, /main club, FK Pirates.*Rīga, Latvia.*founded in 2003 and plays in series III\.6/);
+  assert.equal(result.sentences.length, 3);
+  assert.equal(normalizeNationalTeamRoles([{ staffType: 1, nationalTeamId: 1, nationalTeamName: 'U21 Guam' }])[0]?.isU21, true);
+});
+
+test('single old club gets main history and youth fallback without a duplicate row', () => {
+  const single = club(95, 'FC Nachos', { isPrimary: true, isTournamentTeam: true, foundedDate: '2005-01-01', seriesName: 'IV.35', youthTeamName: 'Raitais solis' });
+  const result = compose('procesors', [single]);
+  assert.equal(result.sentences.length, 3);
+  assert.match(story(result)[1]!, /main club, FC Nachos, was founded in 2005/);
+  assert.doesNotMatch(story(result)[1]!, /IV\.35/);
+  assert.match(story(result)[2]!, /Raitais solis/);
+});
+
+test('named ordinary examples use tournament, main, and only a useful optional fact', () => {
+  const expected: Record<'cellm8' | 'DavidLafata' | 'barreneru' | 'lebotte' | 'SteFrix' | 'branko_zebec93', RegExp[]> = {
+    cellm8: [/cellm8.*Borderline Athletic.*ranked #42 in HFI.*series VII\.375/, /main club, Astonishing Apparatus.*2007.*league rank #410.*series IV\.7/, /17 series titles/],
+    DavidLafata: [/DavidLafata.*The princesses of Zermatt.*ranked #8015 in HFI.*series VII\.71/, /main club, Lískači.*Kraj Vysočina, Czechia.*2024.*league rank #835.*series V\.219/, /the Faroe Islands, Jordan and Cambodia/],
+    barreneru: [/barreneru.*Las Mamachichos.*HFI series VII\.377/, /main club, Atletico Konoha.*2024.*league rank #461.*series VI\.654/],
+    lebotte: [/lebotte.*aloha FC.*HFI series VI\.977/, /main club, FC lebotte.*France.*2024.*league rank #1942.*series V\.12/],
+    SteFrix: [/SteFrix.*La Cadrega Witches.*HFI series VI\.772/, /main club, Deportivo La Cadrega.*Italy.*2018.*league rank #3001.*series VI\.129/, /9 series titles/],
+    branko_zebec93: [/branko_zebec93.*Victoria_FC.*HFI series VII\.661/, /main club, AS Red Star 93.*Germany.*2008.*league rank #70.*series VI\.84/, /won the National Cup in Germany in 2021/],
+  };
+  for (const name of Object.keys(expected) as Array<keyof typeof expected>) {
+    const sentences = story(compose(name, fixtures[name]));
+    assert.equal(sentences.length, expected[name].length, name);
+    sentences.forEach((sentence, index) => assert.match(sentence, expected[name][index]!, `${name} sentence ${index + 1}`));
+  }
+});
+
+test('trophy IDs and classification keep major cup semantics', () => {
+  assert.equal(classifyTrophy({ typeId: 16, cupLeagueLevel: 0, cupLevel: 1 }), 'national_cup');
+  assert.equal(classifyTrophy({ typeId: 17 }), 'series');
+  assert.equal(classifyTrophy({ typeId: 18 }), 'league');
+  assert.equal(classifyTrophy({ typeId: 91 }), 'masters');
+  assert.equal(classifyTrophy({ typeId: 103 }), 'tournament');
+});
+
+test('selector is deterministic, deduplicates facts, and never exceeds four sentences', () => {
+  const fact = (id: string, topic: StoryCandidate['topic'], tier: StoryCandidate['tier'], score: number, tags: string[] = [], mandatory = false): StoryCandidate =>
+    ({ id, topic, tier, score, tags, mandatory, segments: [id] });
+  const candidates = [
+    fact('role', 'exceptional-role', 0, 100, [], true),
+    fact('tournament', 'tournament', 1, 100, ['team:1'], true),
+    fact('main', 'primary-club', 2, 100, ['team:2']),
+    fact('major-a', 'achievement', 3, 100, ['team:3']),
+    fact('major-b', 'achievement', 3, 100, ['team:4']),
+    fact('footprint', 'footprint', 4, 50),
   ];
-  const spreadFact = normalized({ managerName: 'Manager', teams: spread, managerCountryId: 48, managerCountryName: 'Latvia' }).candidates.find((candidate) => candidate.id === 'footprint');
-  assert.ok(spreadFact);
-  assert.match(flat(spreadFact!.segments), /one current club in Latvia and two in Guam/);
-  const sameRegion = [
-    team(34, 'One', { countryId: 48, countryName: 'Latvia', regionName: 'Cēsis' }),
-    team(35, 'Two', { countryId: 48, countryName: 'Latvia', regionName: 'Cēsis' }),
-    team(36, 'Three', { countryId: 48, countryName: 'Latvia', regionName: 'Cēsis', isTournamentTeam: true }),
-  ];
-  const regionFact = normalized({ managerName: 'Manager', teams: sameRegion }).candidates.find((candidate) => candidate.id === 'footprint');
-  assert.ok(regionFact);
-  assert.match(flat(regionFact!.segments), /Cēsis region of Latvia/);
+  const first = selectStoryCandidates(candidates, 5, dateKey);
+  assert.equal(first.length, 4);
+  assert.deepEqual(first.map((item) => item.topic), ['exceptional-role', 'tournament', 'primary-club', 'achievement']);
+  assert.deepEqual(selectStoryCandidates(candidates, 5, dateKey).map((item) => item.id), first.map((item) => item.id));
+  const sameTeam = selectStoryCandidates([fact('tournament', 'tournament', 1, 100, [], true), fact('a', 'achievement', 3, 90, ['team:1']), fact('b', 'achievement', 3, 80, ['team:1'])], 1, dateKey);
+  assert.equal(sameTeam.length, 2);
 });
 
-test('primary and tournament clubs remain distinct in the team model', () => {
-  const spotlight = buildManagerSpotlight({ tournamentId: 't', participants: [{ id: 'p', hattrick_user_id: 12, ht_team_id: 16 }], profiles: [{ hattrick_user_id: 12, manager_name: 'Manager', teams_json: [
-    { teamId: 15, teamName: 'Main', isPrimaryClub: true, foundedDate: '2003-01-01' },
-    { teamId: 16, teamName: 'Tournament', isPrimaryClub: false, leagueLevelUnitName: 'II.1' },
-  ] }], dateKey });
-  assert.equal(spotlight?.currentTeams.find((item) => item.isPrimary)?.teamId, 15);
-  assert.equal(spotlight?.currentTeams.find((item) => item.isTournamentTeam)?.teamId, 16);
-});
-
-test('home location prefers primary-club region and falls back to registered-country club without inventing a region', () => {
-  const spotlight = buildManagerSpotlight({ tournamentId: 't', participants: [{ id: 'p', hattrick_user_id: 12, ht_team_id: 16 }], profiles: [{
-    hattrick_user_id: 12, manager_name: 'Manager', country_id: 48, country_name: 'Latvia', teams_json: [
-      { teamId: 15, teamName: 'Main', isPrimaryClub: true, countryId: 179, countryName: 'Guam', regionName: 'Tamuning' },
-      { teamId: 16, teamName: 'Tournament', countryId: 48, countryName: 'Latvia', regionName: 'Rīga' },
+test('snapshot conversion preserves full current-club data while tournament relation stays distinct', () => {
+  const spotlight = buildManagerSpotlight({ tournamentId: 't', dateKey, participants: [{ id: 'p', hattrick_user_id: 12, ht_team_id: 101 }], profiles: [{
+    hattrick_user_id: 12, manager_name: 'Manager', country_id: 48, country_name: 'Latvia', language_name: 'Latviešu', teams_json: [
+      { teamId: 100, teamName: 'Main', isPrimaryClub: true, foundedDate: '2003-01-01', teamRank: 83, powerLeagueRank: 2, countryId: 48, countryName: 'Latvia', regionName: 'Rīga' },
+      { teamId: 101, teamName: 'Tournament', leagueId: 3000, leagueLevelUnitName: 'VI.1', teamRank: 12, countryId: 179, countryName: 'Guam' },
+      { teamId: 102, teamName: 'Other', countryId: 145, countryName: 'Cambodia' },
     ],
-  }], dateKey });
-  assert.equal(typeof spotlight?.location[0], 'string');
-  assert.match(String(spotlight?.location[0]), /^Tamuning, $/);
-  const country = spotlight?.location[1];
-  assert.equal(typeof country === 'string' ? null : country?.name, 'Latvia');
-
-  const noRegion = buildManagerSpotlight({ tournamentId: 't', participants: [{ id: 'p', hattrick_user_id: 12, ht_team_id: 16 }], profiles: [{
-    hattrick_user_id: 12, manager_name: 'Manager', country_id: 48, country_name: 'Latvia', teams_json: [
-      { teamId: 16, teamName: 'Tournament', countryId: 48, countryName: 'Latvia' },
-    ],
-  }], dateKey });
-  assert.equal(noRegion?.location.length, 1);
-  assert.equal(typeof noRegion?.location[0] === 'string' ? null : noRegion?.location[0]?.name, 'Latvia');
-});
-
-test('selector orders priorities, deduplicates, and breaks ties deterministically', () => {
-  const fact = (id: string, tier: StoryCandidate['tier'], score: number, tags: string[] = []): StoryCandidate => ({ id, topic: tier === 2 ? 'primary-club' : 'colour', tier, score, tags, segments: [id] });
-  const candidateList = [fact('fallback', 5, 100), fact('primary', 2, 50), fact('same', 2, 50), fact('other', 3, 50)];
-  const first = selectStoryCandidates(candidateList, 1, dateKey, 3, 4);
-  assert.deepEqual(first.map((item) => item.tier), [2, 2, 3]);
-  assert.deepEqual(selectStoryCandidates(candidateList, 1, dateKey, 3, 4).map((item) => item.id), first.map((item) => item.id));
-  const duplicate = selectStoryCandidates([fact('a', 3, 90, ['team:1']), fact('b', 3, 80, ['team:1'])], 1, dateKey, 3, 4);
-  assert.equal(duplicate.length, 1);
-});
-
-test('normal budget is three and hard budget never exceeds four', () => {
-  const required = (id: string, tier: 0 | 1): StoryCandidate => ({ id, topic: tier === 0 ? 'exceptional-role' : 'tournament', tier, score: 100, mandatory: true, tags: [], segments: [id] });
-  const optional: StoryCandidate[] = Array.from({ length: 8 }, (_, index) => ({ id: `o${index}`, topic: 'colour', tier: 5, score: 100 - index, tags: [], segments: [`o${index}`] }));
-  optional.push({ id: 'major', topic: 'achievement', tier: 3, score: 90, tags: [], segments: ['major'] });
-  assert.equal(selectStoryCandidates([required('p0', 0), required('p1', 1), ...optional], 1, dateKey).length, 3);
-  assert.equal(selectStoryCandidates([required('p0', 0), required('p1', 1), ...optional], 1, dateKey, 10, 4).length, 4);
-});
-
-test('own-manager viewer copy stays third-person', () => {
-  const club = team(20, 'Club', { isPrimary: true, isTournamentTeam: true, countryId: 48, countryName: 'Latvia', seriesName: 'IV.1' });
-  const story = storyText(normalized({ managerName: 'OwnManager', teams: [club] }).sentences).join(' ');
-  assert.match(story, /OwnManager/);
-  assert.doesNotMatch(story, /\byou\b|\byour\b/i);
+  }], });
+  assert.equal(spotlight?.currentTeams.length, 3);
+  assert.deepEqual(getVisibleClubTeams(spotlight!).map((team) => team.teamId), [101, 100]);
+  assert.equal(spotlight?.language, 'Latviešu');
+  assert.equal(spotlight?.currentTeams.find((team) => team.isPrimary)?.leagueRank, 83);
+  assert.equal(spotlight?.currentTeams.find((team) => team.isPrimary)?.powerLeagueRank, 2);
+  assert.equal(spotlight?.location[0], 'Rīga, ');
 });
