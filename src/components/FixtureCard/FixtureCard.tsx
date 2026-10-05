@@ -109,19 +109,36 @@ export const FixtureCard: React.FC<FixtureCardProps> = ({
 }) => {
   const [nowMs, setNowMs] = React.useState(() => Date.now());
   const [busySide, setBusySide] = React.useState<'home' | 'away' | null>(null);
+  const [refreshedSide, setRefreshedSide] = React.useState<'home' | 'away' | null>(null);
+  const refreshedTimer = React.useRef<number | null>(null);
   const [ratingsError, setRatingsError] = React.useState<string | null>(null);
   const act = async (side: 'home' | 'away', action: 'share' | 'update' | 'remove') => {
     if (!ratingsActions || busySide) return;
     setBusySide(side);
+    setRefreshedSide(null);
+    if (refreshedTimer.current !== null) window.clearTimeout(refreshedTimer.current);
     setRatingsError(null);
     try {
       await ratingsActions.onAction(side, action);
+      if (action === 'update') {
+        setRefreshedSide(side);
+        refreshedTimer.current = window.setTimeout(() => {
+          setRefreshedSide(null);
+          refreshedTimer.current = null;
+        }, 3000);
+      }
     } catch (error) {
       setRatingsError(error instanceof Error ? error.message : 'Could not update shared ratings.');
     } finally {
       setBusySide(null);
     }
   };
+  React.useEffect(
+    () => () => {
+      if (refreshedTimer.current !== null) window.clearTimeout(refreshedTimer.current);
+    },
+    [],
+  );
   React.useEffect(() => {
     if (status !== 'ongoing') return;
     const timer = window.setInterval(() => {
@@ -314,15 +331,15 @@ export const FixtureCard: React.FC<FixtureCardProps> = ({
             const sectorRows: Array<Array<[string, string]>> = preview
               ? [
                   [
-                    ['Left attack', preview.ratings.leftAttack],
-                    ['Center attack', preview.ratings.centreAttack],
-                    ['Right attack', preview.ratings.rightAttack],
+                    ['Left attack:', preview.ratings.leftAttack],
+                    ['Center attack:', preview.ratings.centreAttack],
+                    ['Right attack:', preview.ratings.rightAttack],
                   ],
-                  [['Midfield', preview.ratings.midfield]],
+                  [['Midfield (excluding TS effect): ', preview.ratings.midfield]],
                   [
-                    ['Left defence', preview.ratings.leftDefence],
-                    ['Center defence', preview.ratings.centreDefence],
-                    ['Right defence', preview.ratings.rightDefence],
+                    ['Left defence:', preview.ratings.leftDefence],
+                    ['Center defence:', preview.ratings.centreDefence],
+                    ['Right defence:', preview.ratings.rightDefence],
                   ],
                 ]
               : [];
@@ -363,7 +380,7 @@ export const FixtureCard: React.FC<FixtureCardProps> = ({
                         Tactic skill <strong>{preview.tacticSkill}</strong>
                       </span>
                       <span>
-                        Set pieces <strong>{preview.setPieces}</strong>
+                        Set Pieces taker <strong>{preview.setPieces}</strong>
                       </span>
                     </div>
                     <div
@@ -373,7 +390,11 @@ export const FixtureCard: React.FC<FixtureCardProps> = ({
                     >
                       {canManage && (
                         <button type="button" disabled={busySide !== null} onClick={() => void act(side, 'update')}>
-                          Update
+                          {busySide === side
+                            ? 'Updating...'
+                            : refreshedSide === side
+                              ? 'Ratings refreshed'
+                              : 'Refresh ratings'}
                         </button>
                       )}
                       {canManage && (
@@ -383,7 +404,7 @@ export const FixtureCard: React.FC<FixtureCardProps> = ({
                           disabled={busySide !== null}
                           onClick={() => void act(side, 'remove')}
                         >
-                          Remove
+                          Stop sharing
                         </button>
                       )}
                       <span>
