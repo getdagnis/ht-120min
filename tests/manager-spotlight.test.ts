@@ -111,8 +111,8 @@ test('club heading keeps the tournament title and renders its restricted country
 
 test('TeamRank follows country leagues or special leagues, separate from PowerRating rank', () => {
   const regular = fixtures.DavidLafata[0]!;
-  assert.equal(getClubRankLabel(regular), 'Ranked #835 in Czechia');
-  assert.match(story(compose('DavidLafata', fixtures.DavidLafata))[1]!, /Kraj Vysočina.*ranked #835 in Czechia/);
+  assert.equal(getClubRankLabel(regular), 'Ranked #835');
+  assert.match(story(compose('DavidLafata', fixtures.DavidLafata))[1]!, /Kraj Vysočina.*ranked #835/);
   assert.doesNotMatch(story(compose('DavidLafata', fixtures.DavidLafata)).join(' '), /#1756/);
   const hfi = fixtures.DavidLafata[2]!;
   assert.equal(getClubRankLabel(hfi), 'Ranked #8015 in HFI');
@@ -121,11 +121,11 @@ test('TeamRank follows country leagues or special leagues, separate from PowerRa
   assert.equal(getClubRankLabel(club(99, 'Zero', { leagueRank: 0 })), null);
 });
 
-test('regular TeamRank uses its league country while club mentions keep flagged countries', () => {
+test('regular TeamRank omits a redundant country scope while club mentions keep flagged countries', () => {
   const result = compose('LA-Pirats', fixtures['LA-Pirats']);
   const tournament = result.sentences.find((sentence) => sentence.candidateId.startsWith('tournament:'))!.segments;
   const main = result.sentences.find((sentence) => sentence.candidateId.startsWith('primary:'))!.segments;
-  assert.match(plain(tournament), /Lemon Pirates.*ranked #13 in Costa Rica/);
+  assert.match(plain(tournament), /Lemon Pirates.*based in Costa Rica, ranked #13/);
   assert.match(plain(main), /FK Pirates.*Rīga, Latvia.*founded in 2003/);
   assert.deepEqual(countryMentions(tournament).map((mention) => mention.name), ['Costa Rica']);
   assert.deepEqual(countryMentions(main).map((mention) => mention.name), ['Latvia']);
@@ -155,19 +155,48 @@ test('ordinary series titles below five have no story candidate; five or more ma
   assert.match(story(five).join(' '), /five|5 series titles/);
 });
 
-test('a major trophy wins the optional slot over repeated series success and geography', () => {
+test('a third club trophy cannot add a third club to the story', () => {
   const result = compose('Manager', [
     club(82, 'Main', { isPrimary: true, countryId: 3, countryName: 'Germany', trophies: seriesTitles(17) }),
     club(83, 'Cup Team', { countryId: 97, countryName: 'Malta', trophies: [{ typeId: 16, kind: 'national_cup', gainedDate: '2021-01-01' }] }),
     club(84, 'Tournament', { leagueId: 3000, countryId: 179, countryName: 'Guam', isTournamentTeam: true }),
     club(85, 'Other', { countryId: 145, countryName: 'Cambodia' }),
   ]);
-  assert.match(story(result)[2]!, /Cup Team won the National Cup in Malta in 2021/);
-  assert.doesNotMatch(story(result).join(' '), /17 series titles|Cambodia/);
-  const trophy = result.sentences[2]!.segments;
-  assert.equal(countryMentions(trophy)[0]?.name, 'Malta');
-  assert.ok(countryFlagUrl(97, 'Malta'));
-  assert.doesNotMatch(plain(trophy), /Malta's National Cup/);
+  assert.doesNotMatch(story(result).join(' '), /Cup Team|Other/);
+  assert.match(story(result).join(' '), /Main has collected 17 series titles/);
+});
+
+test('story names no more than the tournament club and main club', () => {
+  const result = compose('CCalm', [
+    club(301, 'Rapid Sendling', { isPrimary: true, countryId: 4, countryName: 'Germany' }),
+    club(302, 'Tamuning Amazons', { isTournamentTeam: true, leagueId: 3000, countryId: 179, countryName: 'Guam' }),
+    club(303, 'Kaiser’s krasseste Kicker', { countryId: 179, countryName: 'Guam', powerRating: 979, powerLeagueRank: 34 }),
+  ]);
+  const text = story(result).join(' ');
+  assert.match(text, /Rapid Sendling/);
+  assert.match(text, /Tamuning Amazons/);
+  assert.doesNotMatch(text, /Kaiser’s krasseste Kicker/);
+});
+
+test('main-club sentence avoids repeating the manager name and uses neutral possessive', () => {
+  const result = compose('Mod-visiburn', [
+    club(321, 'visiburn reloaded', { isPrimary: true, foundedDate: '2020-01-01' }),
+    club(322, 'visiburn resurrections', { isTournamentTeam: true, leagueId: 3000, seriesName: 'VI.451' }),
+  ]);
+  const main = story(result).find((sentence) => sentence.includes('visiburn reloaded'))!;
+  assert.match(main, /(?:Their main club,|The main club,|Their main club is) visiburn reloaded/);
+  assert.doesNotMatch(main, /Mod-visiburn/);
+});
+
+test('PowerRating facts use the rating value, never the PowerRating rank', () => {
+  const result = compose('Manager', [
+    club(311, 'Main', { isPrimary: true, powerRating: 979, powerLeagueRank: 34 }),
+    club(312, 'Tournament', { isTournamentTeam: true, leagueId: 3000, leagueRank: 7237, seriesName: 'VI.289', powerRating: 726 }),
+  ]);
+  const mainPower = result.candidates.find((candidate) => candidate.id === 'power-rating:311');
+  assert.equal(plain(mainPower!.segments), 'Main has a PowerRating of 979.');
+  assert.doesNotMatch(plain(mainPower!.segments), /rank|#34/i);
+  assert.ok(!result.candidates.some((candidate) => candidate.id === 'power-rating:312'));
 });
 
 test('auxiliary footprint names only other-club countries and keeps structured flag references', () => {
@@ -206,18 +235,23 @@ test('exceptional role, tournament, main club, and major cup fit the four-senten
   assert.equal(result.sentences.length, 4);
   assert.match(story(result)[0]!, /coaches the national team of Guam and holds six additional/);
   assert.match(story(result)[1]!, /'Nduje Amaranto.*based in Guam, ranked #1229 in HFI and playing in HFI series VI\.976/);
-  assert.match(story(result)[2]!, /Amaranto.*Calabria.*founded in 2004.*ranked #2705 in Italy.*series V\.210/);
-  assert.match(story(result)[3]!, /Erythrà won the National Cup in Malta in 2024/);
-  assert.doesNotMatch(story(result).join(' '), /17 series titles/);
+  assert.match(story(result)[2]!, /Amaranto.*Calabria.*founded in 2004.*ranked #2705.*series V\.210/);
+  assert.doesNotMatch(story(result).join(' '), /Erythrà/);
+  assert.match(story(result)[3]!, /Amaranto has collected 17 series titles/);
 });
 
 test('official prefix and NT role share P0; U21 comes from the name', () => {
   assert.equal(detectOfficialRole('LA-Pirats'), 'language_assistant');
   assert.equal(detectOfficialRole('Moderator'), null);
+  const moderator = compose('Mod-visiburn', [
+    club(320, 'visiburn reloaded', { isPrimary: true }),
+    club(321, 'visiburn resurrections', { isTournamentTeam: true, leagueId: 3000, seriesName: 'VI.451' }),
+  ]);
+  assert.match(story(moderator)[0]!, /^As the title already suggests, Mod-visiburn is a Hattrick moderator\./);
   const result = compose('LA-Pirats', fixtures['LA-Pirats'], [{ staffType: 2, nationalTeamId: 48, nationalTeamName: 'Latvia' }]);
-  assert.match(story(result)[0]!, /Hattrick Language Assistant and also serves as a scout for the national team of Latvia/);
-  assert.match(story(result)[1]!, /Lemon Pirates.*ranked #13 in Costa Rica and playing in series II\.1/);
-  assert.match(story(result)[2]!, /FK Pirates.*Rīga, Latvia.*founded in 2003 and plays in series III\.6/);
+  assert.match(story(result)[0]!, /As the title already suggests, LA-Pirats is a Hattrick Language Assistant and also serves as a scout for the national team of Latvia/);
+  assert.match(story(result)[1]!, /Lemon Pirates.*based in Costa Rica, ranked #13 and playing in series II\.1/);
+  assert.match(story(result)[2]!, /FK Pirates.*Rīga, Latvia.*founded in 2003.*plays in series III\.6/);
   assert.equal(result.sentences.length, 3);
   assert.equal(normalizeNationalTeamRoles([{ staffType: 1, nationalTeamId: 1, nationalTeamName: 'U21 Guam' }])[0]?.isU21, true);
 });
@@ -233,12 +267,12 @@ test('single old club gets main history and youth fallback without a duplicate r
 
 test('named ordinary examples use tournament, main, and only a useful optional fact', () => {
   const expected: Record<'cellm8' | 'DavidLafata' | 'barreneru' | 'lebotte' | 'SteFrix' | 'branko_zebec93', RegExp[]> = {
-    cellm8: [/Borderline Athletic.*ranked #42 in HFI.*series VII\.375/, /Astonishing Apparatus.*2007.*rank #410.*series IV\.7/, /17 series titles/],
-    DavidLafata: [/The princesses of Zermatt.*ranked #8015 in HFI.*series VII\.71/, /Lískači.*Kraj Vysočina.*2024.*ranked #835 in Czechia.*series V\.219/, /the Faroe Islands, Jordan and Cambodia/],
-    barreneru: [/Las Mamachichos.*HFI series VII\.377/, /Atletico Konoha.*2024.*league rank #461.*series VI\.654/],
-    lebotte: [/aloha FC.*HFI series VI\.977/, /FC lebotte.*2024.*ranked #1942 in France.*series V\.12/],
-    SteFrix: [/La Cadrega Witches.*HFI series VI\.772/, /Deportivo La Cadrega.*2018.*ranked #3001 in Italy.*series VI\.129/, /9 series titles/],
-    branko_zebec93: [/Victoria_FC.*HFI series VII\.661/, /AS Red Star 93.*2008.*ranked #70 in Germany.*series VI\.84/, /won the National Cup in Germany in 2021/],
+    cellm8: [/Borderline Athletic.*ranked #42 in HFI.*series VII\.375/, /Astonishing Apparatus.*2007.*ranked #410.*series IV\.7/, /17 series titles/],
+    DavidLafata: [/The princesses of Zermatt.*ranked #8015 in HFI.*series VII\.71/, /Lískači.*Kraj Vysočina.*2024.*ranked #835.*series V\.219/, /the Faroe Islands, Jordan and Cambodia/],
+    barreneru: [/Las Mamachichos.*HFI series VII\.377/, /Atletico Konoha.*2024.*ranked #461.*series VI\.654/],
+    lebotte: [/aloha FC.*HFI series VI\.977/, /FC lebotte.*2024.*ranked #1942.*series V\.12/],
+    SteFrix: [/La Cadrega Witches.*HFI series VI\.772/, /Deportivo La Cadrega.*2018.*ranked #3001.*series VI\.129/, /9 series titles/],
+    branko_zebec93: [/Victoria_FC.*HFI series VII\.661/, /AS Red Star 93.*2008.*ranked #70.*series VI\.84/, /won the National Cup in Germany in 2021/],
   };
   for (const name of Object.keys(expected) as Array<keyof typeof expected>) {
     const sentences = story(compose(name, fixtures[name]));
@@ -262,8 +296,8 @@ test('selector is deterministic, deduplicates facts, and never exceeds four sent
     fact('role', 'exceptional-role', 0, 100, [], true),
     fact('tournament', 'tournament', 1, 100, ['team:1'], true),
     fact('main', 'primary-club', 2, 100, ['team:2']),
-    fact('major-a', 'achievement', 3, 100, ['team:3']),
-    fact('major-b', 'achievement', 3, 100, ['team:4']),
+    fact('major-a', 'achievement', 3, 100, ['team:2']),
+    fact('major-b', 'achievement', 3, 100, ['team:3']),
     fact('footprint', 'footprint', 4, 50),
   ];
   const first = selectStoryCandidates(candidates, 5, dateKey);

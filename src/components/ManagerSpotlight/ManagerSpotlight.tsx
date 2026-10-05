@@ -117,7 +117,7 @@ export const ManagerSpotlight: React.FC<ManagerSpotlightProps> = ({ spotlight })
           const hasRank = team.leagueRank !== null && team.leagueRank > 0;
           if (special && !hasRank) details.push(<span key="special">{special}</span>);
           if (team.seriesName) details.push(<span key="series">{team.seriesName}</span>);
-          const rank = getClubRankLabel(team, false);
+          const rank = getClubRankLabel(team);
           if (rank && !special) details.push(<span key="rank">{rank}</span>);
           const leagueFlag = special && hasRank ? getLeagueFlagUrl(team.leagueId) : null;
           const founded = getFoundedYearLabel(team);
@@ -126,9 +126,11 @@ export const ManagerSpotlight: React.FC<ManagerSpotlightProps> = ({ spotlight })
             <section key={team.teamId} className={styles.clubSection}>
               {team.isTournamentTeam && <h3 className={styles.clubHeading}>Participating in this tournament with:</h3>}
               {team.isPrimary && <h3 className={styles.clubHeading}>Main club:</h3>}
-              {!team.isTournamentTeam && !team.isPrimary &&
-                !visibleTeams.slice(0, index).some((previous) => !previous.isTournamentTeam && !previous.isPrimary) &&
-                <h3 className={styles.clubHeading}>Other clubs:</h3>}
+              {!team.isTournamentTeam &&
+                !team.isPrimary &&
+                !visibleTeams.slice(0, index).some((previous) => !previous.isTournamentTeam && !previous.isPrimary) && (
+                  <h3 className={styles.clubHeading}>Other clubs:</h3>
+                )}
               <div className={`${styles.team} ${team.isTournamentTeam ? styles.tournamentTeam : ''}`}>
                 <img src={team.logoUrl || '/matchKitLarge.png'} alt="" className={styles.teamLogo} />
                 <div className={styles.teamDetails}>
@@ -148,8 +150,7 @@ export const ManagerSpotlight: React.FC<ManagerSpotlightProps> = ({ spotlight })
                   {special && hasRank && (
                     <span className={styles.teamMeta}>
                       Ranked #{team.leagueRank} in{' '}
-                      {leagueFlag && <img src={leagueFlag} alt="" className={styles.leagueFlag} />}{' '}
-                      {special}
+                      {leagueFlag && <img src={leagueFlag} alt="" className={styles.leagueFlag} />} {special}
                     </span>
                   )}
                   {founded && <span className={styles.foundedDate}>{founded}</span>}

@@ -182,14 +182,11 @@ export function getSpecialLeagueLabel(leagueId: number | null): string | null {
   return league && league.countryId === null ? league.suffix ?? league.leagueName : null;
 }
 
-export function getClubRankLabel(team: Pick<ManagerSpotlightTeam, 'leagueRank' | 'leagueId' | 'countryId' | 'countryName'>, includeScope = true): string | null {
+export function getClubRankLabel(team: Pick<ManagerSpotlightTeam, 'leagueRank' | 'leagueId'>): string | null {
   if (!team.leagueRank || team.leagueRank <= 0) return null;
-  if (!includeScope) return `Ranked #${team.leagueRank}`;
   const special = getSpecialLeagueLabel(team.leagueId);
   if (special) return `Ranked #${team.leagueRank} in ${special}`;
-  const league = getLeagueWorldDetails(team.leagueId);
-  const scope = countryLabel(league?.countryId ?? team.countryId, league?.fullName ?? team.countryName);
-  return scope ? `Ranked #${team.leagueRank} in ${scope}` : `Ranked #${team.leagueRank}`;
+  return `Ranked #${team.leagueRank}`;
 }
 
 export function getFoundedYearLabel(team: Pick<ManagerSpotlightTeam, 'foundedDate'>): string | null {
@@ -353,7 +350,7 @@ function roleHeadline(managerName: string, roles: NationalTeamRole[], official: 
   const primaryCountry = primary ? countrySegment({ countryId: primary.countryId, countryName: primary.nationalTeamName.replace(/^U21\s+/i, '') }) : null;
   const parts: StorySegment[] = [`${managerName} `];
   if (official) {
-    append(parts, `is ${roleNames[official]}`);
+    parts[0] = `As the title already suggests, ${managerName} is ${roleNames[official]}`;
     if (primary) append(parts, ' and also ');
   }
   if (primary) {
@@ -376,11 +373,6 @@ function validDisplayRank(team: ManagerSpotlightTeam) {
   return team.leagueRank;
 }
 
-function regularRankCountry(team: ManagerSpotlightTeam): CountryMention | null {
-  const league = getLeagueWorldDetails(team.leagueId);
-  return league?.countryId ? countrySegment({ countryId: league.countryId, countryName: league.fullName }) : null;
-}
-
 function buildCandidates(input: {
   managerId: number; managerName: string; official: OfficialRole | null; roles: NationalTeamRole[];
   teams: ManagerSpotlightTeam[]; tournamentTeam: ManagerSpotlightTeam; dateKey: string;
@@ -392,7 +384,6 @@ function buildCandidates(input: {
 
   const special = getSpecialLeagueLabel(tournamentTeam.leagueId);
   const rank = validDisplayRank(tournamentTeam);
-  const rankCountry = rank ? regularRankCountry(tournamentTeam) : null;
   const tournamentStyle = stableHash(`${managerId}:${dateKey}:tournament-wording`) % 3;
   const tournament: StorySegment[] = [
     tournamentStyle === 0 ? `${managerName} is competing here with ${tournamentTeam.teamName}`
@@ -405,10 +396,9 @@ function buildCandidates(input: {
     if (rank) append(tournament, `, ranked #${rank} in ${special}`);
     if (tournamentTeam.seriesName) append(tournament, rank ? ' and playing in ' : tournamentCountry ? ' and currently playing in ' : ', currently playing in ', `${special} series ${tournamentTeam.seriesName}`);
   } else {
-    if (tournamentCountry && (!rankCountry || tournamentCountry.name !== rankCountry.name)) append(tournament, ', based in ', tournamentCountry);
+    if (tournamentCountry) append(tournament, ', based in ', tournamentCountry);
     if (rank || tournamentTeam.seriesName) {
-      if (rankCountry) append(tournament, `, ranked #${rank} in `, rankCountry);
-      else if (rank) append(tournament, `, at league rank #${rank}`);
+      if (rank) append(tournament, `, ranked #${rank}`);
       if (tournamentTeam.seriesName) append(tournament, rank || tournamentCountry ? ' and playing in ' : ', currently playing in ', `series ${tournamentTeam.seriesName}`);
     }
   }
@@ -422,25 +412,23 @@ function buildCandidates(input: {
     const sameAsTournament = primary.teamId === tournamentTeam.teamId;
     const primaryRank = sameAsTournament ? null : validDisplayRank(primary);
     const primaryCountry = countrySegment(primary);
-    const primaryRankCountry = primaryRank ? regularRankCountry(primary) : null;
     const region = primary.regionName;
     const primaryStyle = stableHash(`${managerId}:${dateKey}:primary-wording`) % 3;
     const parts: StorySegment[] = [
-      primaryStyle === 0 ? `The main club, ${primary.teamName}`
-        : primaryStyle === 1 ? `${managerName}'s main club, ${primary.teamName}`
-          : `For ${managerName}, the main club is ${primary.teamName}`,
+      primaryStyle === 0 ? `Their main club, ${primary.teamName}`
+        : primaryStyle === 1 ? `Their main club, ${primary.teamName}`
+          : `Their main club is ${primary.teamName}`,
     ];
-    if (region) append(parts, ` in ${region}`);
-    if (primaryCountry && (!primaryRankCountry || primaryCountry.name !== primaryRankCountry.name || sameAsTournament)) {
-      append(parts, region ? ', ' : ' in ', primaryCountry);
+    if (region) append(parts, ` based in ${region}`);
+    if (primaryCountry) {
+      append(parts, region ? ', ' : ' based in ', primaryCountry);
     }
     const details: StorySegment[][] = [];
     if (validYear) details.push([`was founded in ${year}`]);
     if (primaryRank) {
       const specialRank = getSpecialLeagueLabel(primary.leagueId);
       details.push(specialRank ? [`is ranked #${primaryRank} in ${specialRank}`]
-        : primaryRankCountry ? asSegments(`is ranked #${primaryRank} in `, primaryRankCountry)
-          : [`holds league rank #${primaryRank}`]);
+        : [`is ranked #${primaryRank}`]);
     }
     if (primary.seriesName && !sameAsTournament) details.push([`plays in series ${primary.seriesName}`]);
     if (!details.length) {
@@ -497,19 +485,11 @@ function buildCandidates(input: {
     });
 
     const rating = team.powerRating ?? 0;
-    const powerRank = team.powerLeagueRank ?? 0;
-    if (rating >= 1000 || (rating >= 850 && powerRank > 0 && powerRank <= 1000)) {
-      const league = getLeagueWorldDetails(team.leagueId);
-      const scope = league?.countryId
-        ? countrySegment({ countryId: league.countryId, countryName: league.fullName })
-        : league ? getSpecialLeagueLabel(team.leagueId) : null;
-      const segments = asSegments(`${team.teamName} has a PowerRating of ${rating}`);
-      if (powerRank > 0) append(segments, `, ranked #${powerRank} in the PowerRating ranking`, scope ? ' for ' : '', scope);
-      append(segments, '.');
+    if (rating >= 850) {
       candidates.push({
         id: `power-rating:${team.teamId}`, topic: 'performance', tier: 3,
-        score: 68 + Math.min(Math.floor((rating - 850) / 50), 15) + (powerRank > 0 && powerRank <= 100 ? 7 : 0),
-        tags: ['power-rating', `team:${team.teamId}`], segments,
+        score: 68 + Math.min(Math.floor((rating - 850) / 50), 15),
+        tags: ['power-rating', `team:${team.teamId}`], segments: [`${team.teamName} has a PowerRating of ${rating}.`],
       });
     }
   }
@@ -546,6 +526,13 @@ function candidateConflicts(candidate: StoryCandidate, selected: StoryCandidate[
     (candidate.topic === 'footprint' || candidate.tags.some((tag) => tag.startsWith('team:') && item.tags.includes(tag)))));
 }
 
+function exceedsNamedClubLimit(candidate: StoryCandidate, selected: StoryCandidate[]) {
+  const teamIds = new Set(
+    [...selected, candidate].flatMap((item) => item.tags.filter((tag) => tag.startsWith('team:'))),
+  );
+  return teamIds.size > 2;
+}
+
 export function selectStoryCandidates(candidates: StoryCandidate[], managerId: number, dateKey: string, targetSentences = 3, maxSentences = 4): StoryCandidate[] {
   const cap = Math.max(2, Math.min(4, Math.floor(maxSentences)));
   const target = Math.max(2, Math.min(cap, Math.floor(targetSentences)));
@@ -553,14 +540,16 @@ export function selectStoryCandidates(candidates: StoryCandidate[], managerId: n
     (stableHash(`${managerId}:${dateKey}:${a.id}`) - stableHash(`${managerId}:${dateKey}:${b.id}`)) || a.id.localeCompare(b.id);
   const selected = candidates.filter((item) => item.mandatory).toSorted(byPriority).slice(0, cap);
   const pool = candidates.filter((item) => !item.mandatory).toSorted(byPriority);
-  const primary = pool.find((candidate) => candidate.topic === 'primary-club' && !candidateConflicts(candidate, selected));
+  const primary = pool.find((candidate) => candidate.topic === 'primary-club' && !candidateConflicts(candidate, selected)
+    && !exceedsNamedClubLimit(candidate, selected));
   if (primary && selected.length < cap) selected.push(primary);
   const exceptional = selected.some((candidate) => candidate.topic === 'exceptional-role');
   const canUseSupportingFact = selected.length < target || (exceptional && selected.length < cap);
   if (canUseSupportingFact) {
     const supporting = pool.find((candidate) => candidate !== primary && candidate.topic !== 'primary-club'
       && (!exceptional || selected.length < target || candidate.score >= 80)
-      && !candidateConflicts(candidate, selected));
+      && !candidateConflicts(candidate, selected)
+      && !exceedsNamedClubLimit(candidate, selected));
     if (supporting) selected.push(supporting);
   }
   return selected.toSorted((a, b) => a.tier - b.tier || byPriority(a, b));
