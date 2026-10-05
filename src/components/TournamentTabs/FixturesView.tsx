@@ -1019,11 +1019,18 @@ export const FixturesView: React.FC<FixturesViewProps> = ({
                             onClick: () => openChallengeConfirmation(match.id),
                           }
                         : undefined;
+                    const ratingsPreviewOwnerSide =
+                      currentHtUserId && Number(match.home_team?.hattrick_user_id) === currentHtUserId
+                        ? 'home'
+                        : currentHtUserId && Number(match.away_team?.hattrick_user_id) === currentHtUserId
+                          ? 'away'
+                          : null;
 
                     return (
                       <FixtureCard
                         key={match.id}
                         ratingsPreview={match.id === ratingsPreviewFixtureId ? MOCK_RATINGS_PREVIEW : undefined}
+                        ratingsPreviewOwnerSide={match.id === ratingsPreviewFixtureId ? ratingsPreviewOwnerSide : null}
                         date={status === 'misarranged' ? '' : isPostponed ? 'POSTPONED' : formattedDate}
                         status={status}
                         liveClock={status === 'ongoing' ? (liveMatch ?? undefined) : undefined}

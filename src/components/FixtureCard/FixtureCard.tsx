@@ -99,6 +99,11 @@ export const FixtureCard: React.FC<FixtureCardProps> = ({
   ratingsPreview,
 }) => {
   const [nowMs, setNowMs] = React.useState(() => Date.now());
+  const [ratingsLastUpdatedAt, setRatingsLastUpdatedAt] = React.useState<Record<'home' | 'away', number | null>>({
+    home: null,
+    away: null,
+  });
+  const [ratingsPreviewRemovedSide, setRatingsPreviewRemovedSide] = React.useState<'home' | 'away' | null>(null);
   React.useEffect(() => {
     if (status !== 'ongoing') return;
     const timer = window.setInterval(() => {
@@ -106,6 +111,11 @@ export const FixtureCard: React.FC<FixtureCardProps> = ({
     }, 1000);
     return () => window.clearInterval(timer);
   }, [status]);
+  React.useEffect(() => {
+    const now = Date.now();
+    setRatingsLastUpdatedAt({ home: now, away: now });
+    setRatingsPreviewRemovedSide(null);
+  }, [ratingsPreview]);
   const appgOutcomeText =
     completed && appgOutcome && appgOutcome !== 'needs_review' ? appgOutcomeLabel(appgOutcome) : null;
   const hasPenaltyShootout = Boolean(
@@ -297,6 +307,8 @@ export const FixtureCard: React.FC<FixtureCardProps> = ({
                 ['Right defence', preview.ratings.rightDefence],
               ],
             ];
+            if (ratingsPreviewRemovedSide === side) return null;
+            const updatedAt = ratingsLastUpdatedAt[side];
             return (
               <div
                 key={side}
@@ -326,6 +338,38 @@ export const FixtureCard: React.FC<FixtureCardProps> = ({
                   <span>Tactic <strong>{preview.tactic}</strong></span>
                   <span>Tactic skill <strong>{preview.tacticSkill}</strong></span>
                   <span>Set pieces <strong>{preview.setPieces}</strong></span>
+                </div>
+                <div
+                  className={`${styles.ratingsPreviewActions} ${styles.ratingsPreviewActionsEdgeAligned} ${
+                    side === 'away' ? styles.ratingsPreviewActionsAway : ''
+                  }`}
+                >
+                  <button
+                    type="button"
+                    onClick={() =>
+                      setRatingsLastUpdatedAt((previous) => ({ ...previous, [side]: Date.now() }))
+                    }
+                  >
+                    Update
+                  </button>
+                  <button
+                    type="button"
+                    className={styles.ratingsPreviewRemove}
+                    onClick={() => setRatingsPreviewRemovedSide(side)}
+                  >
+                    Remove
+                  </button>
+                  <span>
+                    Last updated:{' '}
+                    {updatedAt === null
+                      ? '—'
+                      : new Intl.DateTimeFormat(undefined, {
+                          day: '2-digit',
+                          month: 'short',
+                          hour: '2-digit',
+                          minute: '2-digit',
+                        }).format(updatedAt)}
+                  </span>
                 </div>
               </div>
             );

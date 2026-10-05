@@ -124,6 +124,50 @@
 .ratingsSideAway .ratingsMetadata
   justify-content: flex-end
 
+.ratingsPreviewActions
+  display: flex
+  align-items: center
+  flex-wrap: wrap
+  gap: 0.35rem 0.55rem
+  margin-top: 0.55rem
+  justify-content: flex-end
+  color: var(--text60)
+  font-size: 0.68rem
+
+  button
+    padding: 0.2rem 0.45rem
+    border: 1px solid var(--border)
+    border-radius: var(--radius-sm)
+    background: var(--theme)
+    color: var(--text-h)
+    cursor: pointer
+    font: inherit
+
+    &:hover
+      background: var(--theme2)
+
+  button.ratingsPreviewRemove
+    padding: 0
+    border: 0
+    border-radius: 0
+    background: transparent
+    color: var(--text60)
+    text-decoration: underline
+    text-underline-offset: 2px
+
+    &:hover
+      background: transparent
+      color: var(--text-h)
+
+.ratingsPreviewActionsOwner
+  justify-content: flex-start
+
+.ratingsSideAway .ratingsPreviewActions
+  justify-content: flex-start
+
+.ratingsSideAway .ratingsPreviewActionsOwner
+  flex-direction: row-reverse
+
 .teamContainer
   display: flex
   align-items: center
@@ -317,6 +361,13 @@
 
   .ratingsMetadata
     justify-content: flex-start
+
+  .ratingsPreviewActions,
+  .ratingsSideAway .ratingsPreviewActions
+    justify-content: flex-start
+
+  .ratingsSideAway .ratingsPreviewActionsOwner
+    flex-direction: row
 
 .date
   font-size: 0.8rem
