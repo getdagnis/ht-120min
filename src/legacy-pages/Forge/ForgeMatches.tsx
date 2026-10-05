@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
+import { ArrowClockwise } from 'phosphor-react';
 import { Button } from '../../components/Button/Button';
 import { SectionCard } from '../../components/Card/SectionCard';
 import styles from './ForgeMatches.module.sass';
@@ -51,6 +52,8 @@ interface MatchesResponse {
   error?: string;
 }
 
+const SELECTION_STORAGE_KEY = 'forge.matches.selection';
+
 function stateIsDangerous(state: string) {
   return ['MISARRANGED', 'CHPP CREDENTIALS MISSING', 'CHPP PERMISSION MISSING', 'CHPP OWNERSHIP MISMATCH', 'CHPP ERROR'].includes(state);
 }
@@ -59,6 +62,9 @@ export function ForgeMatchesSection() {
   const [tournaments, setTournaments] = useState<TournamentOption[]>([]);
   const [selectedTournamentId, setSelectedTournamentId] = useState('');
   const [selectedRoundNumber, setSelectedRoundNumber] = useState<number | null>(null);
+  const [selectionRestored, setSelectionRestored] = useState(false);
+  const [tournamentOptionsLoaded, setTournamentOptionsLoaded] = useState(false);
+  const [refreshingData, setRefreshingData] = useState(false);
   const [data, setData] = useState<MatchesResponse | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -73,6 +79,7 @@ export function ForgeMatchesSection() {
       const payload = (await response.json()) as MatchesResponse;
       if (!response.ok) throw new Error(payload.error || 'Could not load Forge tournaments.');
       setTournaments(payload.tournaments || []);
+      setTournamentOptionsLoaded(true);
     } catch (loadError) {
       setError(loadError instanceof Error ? loadError.message : 'Could not load Forge tournaments.');
     } finally {
@@ -80,24 +87,49 @@ export function ForgeMatchesSection() {
     }
   }, []);
 
-  const loadMatches = useCallback(async (tournamentId: string, roundNumber: number | null = null) => {
+  const loadMatches = useCallback(async (
+    tournamentId: string,
+    roundNumber: number | null = null,
+    showLoading = true,
+  ) => {
     if (!tournamentId) {
       setData(null);
       return;
     }
-    setLoading(true);
+    if (showLoading) setLoading(true);
     setError('');
     try {
       const params = new URLSearchParams({ tournamentId });
       if (roundNumber) params.set('roundNumber', String(roundNumber));
-      const response = await fetch(`/api/forge/matches?${params.toString()}`, { credentials: 'include' });
+      const response = await fetch(`/api/forge/matches?${params.toString()}`, { credentials: 'include', cache: 'no-store' });
       const payload = (await response.json()) as MatchesResponse;
       if (!response.ok) throw new Error(payload.error || 'Could not load tournament matches.');
       setData(payload);
     } catch (loadError) {
       setError(loadError instanceof Error ? loadError.message : 'Could not load tournament matches.');
     } finally {
-      setLoading(false);
+      if (showLoading) setLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    try {
+      const savedSelection = sessionStorage.getItem(SELECTION_STORAGE_KEY);
+      if (savedSelection) {
+        const parsed = JSON.parse(savedSelection) as { tournamentId?: unknown; roundNumber?: unknown };
+        if (typeof parsed.tournamentId === 'string') setSelectedTournamentId(parsed.tournamentId);
+        if (typeof parsed.roundNumber === 'number' && Number.isSafeInteger(parsed.roundNumber) && parsed.roundNumber > 0) {
+          setSelectedRoundNumber(parsed.roundNumber);
+        }
+      }
+    } catch {
+      try {
+        sessionStorage.removeItem(SELECTION_STORAGE_KEY);
+      } catch {
+        // Session storage can be unavailable in restricted browser contexts.
+      }
+    } finally {
+      setSelectionRestored(true);
     }
   }, []);
 
@@ -109,11 +141,45 @@ export function ForgeMatchesSection() {
   }, [loadTournamentOptions]);
 
   useEffect(() => {
+    if (!selectionRestored || !tournamentOptionsLoaded) return;
+    if (selectedTournamentId && !tournaments.some((tournament) => tournament.id === selectedTournamentId)) {
+      setSelectedTournamentId('');
+      setSelectedRoundNumber(null);
+      setData(null);
+      setError('');
+      return;
+    }
     const timeoutId = window.setTimeout(() => {
       void loadMatches(selectedTournamentId, selectedRoundNumber);
     }, 0);
     return () => window.clearTimeout(timeoutId);
-  }, [loadMatches, selectedRoundNumber, selectedTournamentId]);
+  }, [loadMatches, selectedRoundNumber, selectedTournamentId, selectionRestored, tournamentOptionsLoaded, tournaments]);
+
+  useEffect(() => {
+    if (!selectionRestored) return;
+    const roundNumber = selectedRoundNumber ?? data?.currentRound?.roundNumber ?? null;
+    try {
+      sessionStorage.setItem(SELECTION_STORAGE_KEY, JSON.stringify({ tournamentId: selectedTournamentId, roundNumber }));
+    } catch {
+      // Keep the page usable when session storage is unavailable.
+    }
+  }, [data?.currentRound?.roundNumber, selectedRoundNumber, selectedTournamentId, selectionRestored]);
+
+  const refreshData = async () => {
+    if (!selectedTournamentId) return;
+    setRefreshingData(true);
+    setError('');
+    setMessage('');
+    try {
+      await loadMatches(
+        selectedTournamentId,
+        selectedRoundNumber ?? data?.currentRound?.roundNumber ?? null,
+        false,
+      );
+    } finally {
+      setRefreshingData(false);
+    }
+  };
 
   const runAction = async (fixture: ForgeFixtureView, team: ForgeTeamView, action: 'challenge' | 'accept') => {
     const opponent = team.side === 'home' ? fixture.away : fixture.home;
@@ -217,7 +283,18 @@ export function ForgeMatchesSection() {
           <div>
             <div className={styles.roundHeading}>
               <h2 className={styles.roundTitle}>{data.tournament?.name}</h2>
-              <span className={styles.roundMeta}>Round {data.currentRound.roundNumber}</span>
+              <div className={styles.roundActions}>
+                <span className={styles.roundMeta}>Round {data.currentRound.roundNumber}</span>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  disabled={loading || refreshingData || Boolean(busyAction)}
+                  onClick={() => void refreshData()}
+                >
+                  <ArrowClockwise size={16} />
+                  {refreshingData ? 'Refreshing...' : 'Refresh data'}
+                </Button>
+              </div>
             </div>
             {message && <p className={styles.success}>{message}</p>}
             <div className={styles.fixtureList}>
