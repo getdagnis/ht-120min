@@ -115,7 +115,7 @@ interface ForgeStatsResponse {
 const sidebarItems = [
   { to: '/', label: 'Dashboard', icon: <House size={18} weight="bold" /> },
   { to: '/stats', label: 'Statistics', icon: <ChartLineUp size={18} weight="bold" /> },
-  { to: '/matches', label: 'Matches', icon: <SoccerBall size={18} weight="bold" /> },
+  { to: '/matches', label: 'Match booking', icon: <SoccerBall size={18} weight="bold" /> },
   { to: '/faq', label: 'FAQ', icon: <ListBullets size={18} weight="bold" /> },
   { to: '/testing', label: 'Testing', icon: <Flask size={18} weight="bold" /> },
   { to: '/admins', label: 'Admins', icon: <Users size={18} weight="bold" /> },

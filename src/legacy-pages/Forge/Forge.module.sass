@@ -1,39 +1,8 @@
 .page
   min-height: 100vh
-  --bg: #f4f6f8
-  --bg-color: #f4f6f8
-  --bg-color-transp: #f4f6f8
-  --bg-transp: #eef1f5
-  --bg-transp2: #e5e9ef
-  --bg-transp3: #dce3ec
-  --bg-dark: #e8edf2
-  --theme: #ffffff
-  --theme2: #ffffff
-  --table-bg: #eef1f5
-  --table-bg-main: #ffffff
-  --chat-bg: #f7f9fb
-  --border: #d9e0e8
-  --border-transp: #d9e0e899
-  --borderDark: #243143
-  --borderWeak: #24314333
-  --lighter: #edf0f5
-  --lighter-less: #f5f7fa
-  --lighter-more: #e5e9f0
-  --darker: #e9edf2
-  --text: #394657
-  --text-h: #172131
-  --text60: #718096
-  --accent: #6854d9
-  --accent-2: #5846c3
-  --accent-3: #6854d9
-  --accent-4: #34445c
-  --yellow: #806de4
-  --warning: #c88718
-  --danger: #c33f67
-  --bg-danger: #c33f6714
-  --sans: 'Barlow', Roboto, system-ui, 'Segoe UI', sans-serif
   background: var(--bg)
   color: var(--text)
+  font-family: var(--sans)
 
   :global(button)
     font-family: var(--sans)
@@ -46,8 +15,8 @@
   position: sticky
   top: 0
   z-index: 20
-  background: #172131
-  border-bottom: 1px solid #2b3a4d
+  background: var(--bg-dark)
+  border-bottom: 1px solid var(--border-transp)
   box-shadow: 0 0.25rem 1rem rgba(16, 25, 38, 0.16)
 
 .headerInner
@@ -63,21 +32,22 @@
   display: inline-flex
   align-items: center
   gap: 0.75rem
-  color: #f5f7fb
+  color: var(--accent-3)
   text-decoration: none
   font-size: 1.4rem
+  font-family: var(--heading)
   font-weight: 700
 
 .headerActions
   position: relative
 
 .userBtn
-  color: #f5f7fb
+  color: var(--text)
 
   &:hover
-    color: #ffffff
-    background: #ffffff14 !important
-    border-color: #ffffff22 !important
+    color: var(--text-h)
+    background: var(--lighter) !important
+    border-color: var(--border) !important
 
 .dropdown
   position: absolute
@@ -140,8 +110,8 @@
 
 .navItemActive
   border-color: transparent
-  color: var(--accent)
-  background: #eeeaff
+  color: var(--accent-3)
+  background: var(--bg-helpText)
 
 .navIcon
   display: inline-flex
@@ -168,7 +138,7 @@
 .metricCard
   border: 1px solid var(--border)
   border-radius: var(--radius-xs)
-  background: #f8fafc
+  background: var(--table-bg-main)
   padding: 1.1rem
   display: flex
   flex-direction: column
@@ -225,7 +195,7 @@
   text-align: center
 
 .gate
-  background: #f4f6f8
+  background: transparent
 
 .gateText
   margin: 0 0 1rem
@@ -365,7 +335,7 @@
   padding: 1rem
   border: 1px solid var(--border)
   border-radius: var(--radius-xs)
-  background: #f8fafc
+  background: var(--table-bg-main)
 
   h3
     margin: 0 0 0.75rem
@@ -435,7 +405,7 @@
 .activityBar
   width: 100%
   min-height: 0.25rem
-  background: var(--accent)
+  background: var(--accent-2)
   border-radius: var(--radius-xs) var(--radius-xs) 0 0
 
 .statsTableWrap
@@ -492,7 +462,7 @@
 .ruleCard
   border: 1px solid var(--border)
   border-radius: var(--radius-xs)
-  background: #f8fafc
+  background: var(--table-bg-main)
   padding: 1rem
 
 .ruleTop
@@ -520,7 +490,7 @@
   flex-shrink: 0
   border: 1px solid var(--border)
   border-radius: var(--radius-md)
-  color: var(--accent)
+  color: var(--accent-2)
   padding: 0.2rem 0.55rem
   font-size: 0.72rem
   text-transform: uppercase

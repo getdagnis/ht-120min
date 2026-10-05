@@ -164,7 +164,7 @@ export function ForgeMatchesSection() {
 
   return (
     <section className={styles.page}>
-      <SectionCard title="Matches" subtitle="Coordinate any materialized tournament round directly from its fixtures." className={styles.surfaceCard}>
+      <SectionCard title="Match booking" subtitle="Coordinate any materialized tournament round directly from its fixtures." className={styles.surfaceCard}>
         <div className={styles.toolbar}>
           <label className={styles.label} htmlFor="forge-matches-tournament">Tournament</label>
           <select

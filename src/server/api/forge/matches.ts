@@ -38,6 +38,7 @@ type ForgeTournamentRow = {
   season: number | null;
   status: string | null;
   is_archived: boolean | null;
+  is_test: boolean | null;
   scoring_mode: string | null;
 };
 
@@ -102,8 +103,8 @@ function relationOne<T>(value: T | T[] | null | undefined): T | null {
   return Array.isArray(value) ? value[0] || null : value || null;
 }
 
-function isRelevantTournament(tournament: Pick<ForgeTournamentRow, 'status' | 'is_archived'>) {
-  return !tournament.is_archived && !TERMINAL_TOURNAMENT_STATUSES.has(tournament.status || '');
+function isRelevantTournament(tournament: Pick<ForgeTournamentRow, 'status' | 'is_archived' | 'is_test'>) {
+  return !tournament.is_test && !tournament.is_archived && !TERMINAL_TOURNAMENT_STATUSES.has(tournament.status || '');
 }
 
 function requireForgeAdmin(req: VercelRequest, res: VercelResponse) {
@@ -119,7 +120,7 @@ function requireForgeAdmin(req: VercelRequest, res: VercelResponse) {
 async function loadTournament(supabase: ReturnType<typeof getServiceSupabase>, tournamentId: string) {
   const { data, error } = await supabase
     .from('tournaments')
-    .select('id, name, slug, season, status, is_archived, scoring_mode')
+    .select('id, name, slug, season, status, is_archived, is_test, scoring_mode')
     .eq('id', tournamentId)
     .maybeSingle();
   if (error) throw error;
@@ -162,7 +163,7 @@ async function loadCurrentRound(
 async function loadTournamentOptions(supabase: ReturnType<typeof getServiceSupabase>) {
   const { data: tournamentRows, error: tournamentError } = await supabase
     .from('tournaments')
-    .select('id, name, slug, season, status, is_archived, scoring_mode')
+    .select('id, name, slug, season, status, is_archived, is_test, scoring_mode')
     .order('name', { ascending: true });
   if (tournamentError) throw tournamentError;
 
