@@ -113,14 +113,20 @@ export function ForgeMatchesSection() {
   }, []);
 
   useEffect(() => {
+    let restoreTimeoutId: number | undefined;
     try {
       const savedSelection = sessionStorage.getItem(SELECTION_STORAGE_KEY);
       if (savedSelection) {
         const parsed = JSON.parse(savedSelection) as { tournamentId?: unknown; roundNumber?: unknown };
-        if (typeof parsed.tournamentId === 'string') setSelectedTournamentId(parsed.tournamentId);
-        if (typeof parsed.roundNumber === 'number' && Number.isSafeInteger(parsed.roundNumber) && parsed.roundNumber > 0) {
-          setSelectedRoundNumber(parsed.roundNumber);
-        }
+        restoreTimeoutId = window.setTimeout(() => {
+          if (typeof parsed.tournamentId === 'string') setSelectedTournamentId(parsed.tournamentId as string);
+          if (typeof parsed.roundNumber === 'number' && Number.isSafeInteger(parsed.roundNumber) && parsed.roundNumber > 0) {
+            setSelectedRoundNumber(parsed.roundNumber);
+          }
+          setSelectionRestored(true);
+        }, 0);
+      } else {
+        restoreTimeoutId = window.setTimeout(() => setSelectionRestored(true), 0);
       }
     } catch {
       try {
@@ -128,9 +134,11 @@ export function ForgeMatchesSection() {
       } catch {
         // Session storage can be unavailable in restricted browser contexts.
       }
-    } finally {
-      setSelectionRestored(true);
+      restoreTimeoutId = window.setTimeout(() => setSelectionRestored(true), 0);
     }
+    return () => {
+      if (restoreTimeoutId !== undefined) window.clearTimeout(restoreTimeoutId);
+    };
   }, []);
 
   useEffect(() => {
@@ -143,11 +151,13 @@ export function ForgeMatchesSection() {
   useEffect(() => {
     if (!selectionRestored || !tournamentOptionsLoaded) return;
     if (selectedTournamentId && !tournaments.some((tournament) => tournament.id === selectedTournamentId)) {
-      setSelectedTournamentId('');
-      setSelectedRoundNumber(null);
-      setData(null);
-      setError('');
-      return;
+      const timeoutId = window.setTimeout(() => {
+        setSelectedTournamentId('');
+        setSelectedRoundNumber(null);
+        setData(null);
+        setError('');
+      }, 0);
+      return () => window.clearTimeout(timeoutId);
     }
     const timeoutId = window.setTimeout(() => {
       void loadMatches(selectedTournamentId, selectedRoundNumber);
