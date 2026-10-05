@@ -99,11 +99,14 @@ export const FixtureCard: React.FC<FixtureCardProps> = ({
   ratingsPreview,
 }) => {
   const [nowMs, setNowMs] = React.useState(() => Date.now());
+  const [sharedRatings, setSharedRatings] = React.useState<Record<'home' | 'away', boolean>>({
+    home: false,
+    away: false,
+  });
   const [ratingsLastUpdatedAt, setRatingsLastUpdatedAt] = React.useState<Record<'home' | 'away', number | null>>({
     home: null,
     away: null,
   });
-  const [ratingsPreviewRemovedSide, setRatingsPreviewRemovedSide] = React.useState<'home' | 'away' | null>(null);
   React.useEffect(() => {
     if (status !== 'ongoing') return;
     const timer = window.setInterval(() => {
@@ -111,11 +114,6 @@ export const FixtureCard: React.FC<FixtureCardProps> = ({
     }, 1000);
     return () => window.clearInterval(timer);
   }, [status]);
-  React.useEffect(() => {
-    const now = Date.now();
-    setRatingsLastUpdatedAt({ home: now, away: now });
-    setRatingsPreviewRemovedSide(null);
-  }, [ratingsPreview]);
   const appgOutcomeText =
     completed && appgOutcome && appgOutcome !== 'needs_review' ? appgOutcomeLabel(appgOutcome) : null;
   const hasPenaltyShootout = Boolean(
@@ -290,10 +288,14 @@ export const FixtureCard: React.FC<FixtureCardProps> = ({
       </div>
       {ratingsPreview && (
         <section className={styles.ratingsPreview} aria-label="Shared predicted ratings preview">
-          <div className={styles.ratingsPreviewTitle}>Predicted ratings</div>
+          {(sharedRatings.home || sharedRatings.away) && (
+            <div className={styles.ratingsPreviewTitle}>Predicted ratings</div>
+          )}
           {(['home', 'away'] as const).map((side) => {
             const team = side === 'home' ? homeTeam : awayTeam;
             const preview = ratingsPreview[side];
+            const isShared = sharedRatings[side];
+            const updatedAt = ratingsLastUpdatedAt[side];
             const sectorRows: Array<Array<[string, string]>> = [
               [
                 ['Left attack', preview.ratings.leftAttack],
@@ -307,8 +309,6 @@ export const FixtureCard: React.FC<FixtureCardProps> = ({
                 ['Right defence', preview.ratings.rightDefence],
               ],
             ];
-            if (ratingsPreviewRemovedSide === side) return null;
-            const updatedAt = ratingsLastUpdatedAt[side];
             return (
               <div
                 key={side}
@@ -318,59 +318,88 @@ export const FixtureCard: React.FC<FixtureCardProps> = ({
                   <span>{side === 'home' ? 'Home' : 'Away'}</span>
                   <strong>{team.name}</strong>
                 </div>
-                <div className={styles.ratingsPitch}>
-                  {sectorRows.map((row, rowIndex) => (
-                    <div
-                      key={rowIndex}
-                      className={`${styles.ratingsSectorRow} ${row.length === 1 ? styles.ratingsMidfieldRow : ''}`}
-                    >
-                      {row.map(([label, value]) => (
-                        <div className={styles.ratingsSector} key={label}>
-                          <span>{label}</span>
-                          <strong>{value}</strong>
+                {isShared ? (
+                  <>
+                    <div className={styles.ratingsPitch}>
+                      {sectorRows.map((row, rowIndex) => (
+                        <div
+                          key={rowIndex}
+                          className={`${styles.ratingsSectorRow} ${row.length === 1 ? styles.ratingsMidfieldRow : ''}`}
+                        >
+                          {row.map(([label, value]) => (
+                            <div className={styles.ratingsSector} key={label}>
+                              <span>{label}</span>
+                              <strong>{value}</strong>
+                            </div>
+                          ))}
                         </div>
                       ))}
                     </div>
-                  ))}
-                </div>
-                <div className={styles.ratingsMetadata}>
-                  <span>Formation <strong>{preview.formation}</strong></span>
-                  <span>Tactic <strong>{preview.tactic}</strong></span>
-                  <span>Tactic skill <strong>{preview.tacticSkill}</strong></span>
-                  <span>Set pieces <strong>{preview.setPieces}</strong></span>
-                </div>
-                <div
-                  className={`${styles.ratingsPreviewActions} ${styles.ratingsPreviewActionsEdgeAligned} ${
-                    side === 'away' ? styles.ratingsPreviewActionsAway : ''
-                  }`}
-                >
-                  <button
-                    type="button"
-                    onClick={() =>
-                      setRatingsLastUpdatedAt((previous) => ({ ...previous, [side]: Date.now() }))
-                    }
-                  >
-                    Update
-                  </button>
-                  <button
-                    type="button"
-                    className={styles.ratingsPreviewRemove}
-                    onClick={() => setRatingsPreviewRemovedSide(side)}
-                  >
-                    Remove
-                  </button>
-                  <span>
-                    Last updated:{' '}
-                    {updatedAt === null
-                      ? '—'
-                      : new Intl.DateTimeFormat(undefined, {
-                          day: '2-digit',
-                          month: 'short',
-                          hour: '2-digit',
-                          minute: '2-digit',
-                        }).format(updatedAt)}
-                  </span>
-                </div>
+                    <div className={styles.ratingsMetadata}>
+                      <span>Formation <strong>{preview.formation}</strong></span>
+                      <span>Tactic <strong>{preview.tactic}</strong></span>
+                      <span>Tactic skill <strong>{preview.tacticSkill}</strong></span>
+                      <span>Set pieces <strong>{preview.setPieces}</strong></span>
+                    </div>
+                    <div
+                      className={`${styles.ratingsPreviewActions} ${styles.ratingsPreviewActionsEdgeAligned} ${
+                        side === 'away' ? styles.ratingsPreviewActionsAway : ''
+                      }`}
+                    >
+                      <button
+                        type="button"
+                        onClick={() =>
+                          setRatingsLastUpdatedAt((previous) => ({ ...previous, [side]: Date.now() }))
+                        }
+                      >
+                        Update
+                      </button>
+                      <button
+                        type="button"
+                        className={styles.ratingsPreviewRemove}
+                        onClick={() => {
+                          setSharedRatings((previous) => ({ ...previous, [side]: false }));
+                          setRatingsLastUpdatedAt((previous) => ({ ...previous, [side]: null }));
+                        }}
+                      >
+                        Remove
+                      </button>
+                      <span>
+                        Last updated:{' '}
+                        {updatedAt === null
+                          ? '—'
+                          : new Intl.DateTimeFormat(undefined, {
+                              day: '2-digit',
+                              month: 'short',
+                              hour: '2-digit',
+                              minute: '2-digit',
+                            }).format(updatedAt)}
+                      </span>
+                    </div>
+                  </>
+                ) : (
+                  <div className={styles.ratingsShareState}>
+                    <div
+                      className={`${styles.ratingsPreviewActions} ${styles.ratingsPreviewActionsEdgeAligned} ${
+                        side === 'away' ? styles.ratingsPreviewActionsAway : ''
+                      }`}
+                    >
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setSharedRatings((previous) => ({ ...previous, [side]: true }));
+                          setRatingsLastUpdatedAt((previous) => ({ ...previous, [side]: Date.now() }));
+                        }}
+                      >
+                        Share predicted ratings
+                      </button>
+                    </div>
+                    <p className={styles.ratingsShareHelper}>
+                      Share predicted ratings with your opponent. Once shared, they update automatically whenever
+                      this fixture is updated.
+                    </p>
+                  </div>
+                )}
               </div>
             );
           })}
