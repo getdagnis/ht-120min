@@ -14,7 +14,7 @@ interface AvatarData {
 
 interface AvatarProps {
   avatar: AvatarData | null;
-  variant: 'circle' | 'rect';
+  variant: 'circle' | 'rect' | 'full';
   size?: number; // Size for the container
   className?: string;
 }
