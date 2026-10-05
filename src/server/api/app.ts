@@ -87,7 +87,7 @@ import type { MatchEventDetails } from '../../../shared/match-events.js';
 import type { PersistedScoringMode } from '../../../shared/scoring-profile.js';
 import type { SeasonFixturesSnapshot } from '../../utils/season-fixtures.js';
 import { progressLengthSchedule, recoverLengthRoundOne, repairLengthRound } from './_lib/length-schedule-service.js';
-import { FixtureRatingsError, saveFixtureRatings } from './_lib/fixture-ratings.js';
+import { FixtureRatingsError, isLocalRatingsAdmin, loadVisibleFixtureRatings, saveFixtureRatings } from './_lib/fixture-ratings.js';
 
 const COMMENT_SELECT = 'id, season_id, team_id, team_name, manager_name, comment, created_at';
 const NEWS_COMMENT_SELECT = 'id, post_id, hattrick_user_id, author_name, content, created_at';
@@ -1567,17 +1567,29 @@ async function handleFixtureChallenge(req: VercelRequest, res: VercelResponse) {
 }
 
 async function handleFixtureRatings(req: VercelRequest, res: VercelResponse) {
-  if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed.' });
-  const fixtureId = readString(req.body?.fixtureId);
-  const side = readString(req.body?.side);
-  const action = readString(req.body?.action);
-  if (!fixtureId || !['home', 'away'].includes(side) || !['share', 'update', 'remove'].includes(action)) {
-    return res.status(400).json({ error: 'Invalid fixture ratings request.' });
-  }
+  if (req.method !== 'GET' && req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed.' });
+  res.setHeader('Cache-Control', 'private, no-store');
+  res.setHeader('Vary', 'Cookie');
   const secret = getAppSessionSecret();
   const session = secret ? verifyAppSessionCookie(req.headers.cookie, secret) : null;
   if (!session) return res.status(401).json({ error: 'Please sign in with Hattrick first.' });
   try {
+    if (req.method === 'GET') {
+      const tournamentId = readString(req.query.tournamentId);
+      if (!tournamentId) return res.status(400).json({ error: 'Missing tournamentId.' });
+      const localAdmin = isLocalRatingsAdmin(
+        String(req.headers.host || ''), process.env.NODE_ENV,
+        process.env.FORGE_SUPERADMIN_HT_ID, session.userId,
+      );
+      const fixtures = await loadVisibleFixtureRatings(getServiceSupabase(), tournamentId, session.userId, localAdmin);
+      return res.status(200).json({ fixtures });
+    }
+    const fixtureId = readString(req.body?.fixtureId);
+    const side = readString(req.body?.side);
+    const action = readString(req.body?.action);
+    if (!fixtureId || !['home', 'away'].includes(side) || !['share', 'update', 'remove'].includes(action)) {
+      return res.status(400).json({ error: 'Invalid fixture ratings request.' });
+    }
     const rating = await saveFixtureRatings(
       getServiceSupabase(), fixtureId, side as 'home' | 'away', session.userId,
       action as 'share' | 'update' | 'remove',

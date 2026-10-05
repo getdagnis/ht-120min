@@ -1,11 +1,11 @@
 import assert from 'node:assert/strict';
 import { afterEach, test } from 'node:test';
 import {
-  assertEligibleFixtureRatings, assertExactClubOwnership, convertSectorRating,
-  parsePredictedRatings, parseSetPiecesSkill, parseSubmittedOrders, prediction, saveFixtureRatings,
+  assertEligibleFixtureRatings, assertExactClubOwnership, convertSectorRating, isLocalRatingsAdmin,
+  loadVisibleFixtureRatings, parsePredictedRatings, parseSetPiecesSkill, parseSubmittedOrders, prediction, saveFixtureRatings,
   updateExistingRatingShare,
 } from '../src/server/api/_lib/fixture-ratings.ts';
-import { attachFixtureRatings, type SharedFixtureRatings } from '../src/types/fixture-ratings.ts';
+import { attachFixtureRatingStatus, PUBLIC_FIXTURE_RATING_STATUS_FIELDS } from '../src/types/fixture-ratings.ts';
 
 const positions = [
   [100, 0], [101, 0], [102, 0], [104, 0], [105, 0],
@@ -87,10 +87,93 @@ test('failed match-order authorization stops before prediction and cannot yield 
 });
 
 test('public attachment drops rows for changed MatchIDs', () => {
-  const row = { id: 'share', fixture_id: 'fixture', team_id: 'team', ht_match_id: 123 } as SharedFixtureRatings;
-  assert.deepEqual(attachFixtureRatings([{ id: 'fixture', ht_match_id: 124, home_team_id: 'team' }], [row])[0].shared_ratings, []);
-  assert.deepEqual(attachFixtureRatings([{ id: 'fixture', ht_match_id: 123, home_team_id: 'other' }], [row])[0].shared_ratings, []);
-  assert.deepEqual(attachFixtureRatings([{ id: 'fixture', ht_match_id: 123, home_team_id: 'team' }], [row])[0].shared_ratings, [row]);
+  const row = { fixture_id: 'fixture', team_id: 'team', ht_match_id: 123 };
+  assert.equal(PUBLIC_FIXTURE_RATING_STATUS_FIELDS, 'fixture_id,team_id,ht_match_id');
+  assert.deepEqual(attachFixtureRatingStatus([{ id: 'fixture', ht_match_id: 124, home_team_id: 'team' }], [row])[0].rating_share_statuses, []);
+  assert.deepEqual(attachFixtureRatingStatus([{ id: 'fixture', ht_match_id: 123, home_team_id: 'other' }], [row])[0].rating_share_statuses, []);
+  assert.deepEqual(attachFixtureRatingStatus([{ id: 'fixture', ht_match_id: 123, home_team_id: 'team' }], [row])[0].rating_share_statuses, [row]);
+});
+
+test('localhost admin exception requires the exact configured and signed-in identity', () => {
+  assert.equal(isLocalRatingsAdmin('localhost:3000', 'development', '8777402', 8777402), true);
+  assert.equal(isLocalRatingsAdmin('127.0.0.1:3000', 'development', '8777402', 8777402), true);
+  assert.equal(isLocalRatingsAdmin('localhost:3000', 'test', '8777402', 8777402), false);
+  assert.equal(isLocalRatingsAdmin('localhost:3000', 'production', '8777402', 8777402), false);
+  assert.equal(isLocalRatingsAdmin('localhost:3000', 'development', '8777402', 7), false);
+  assert.equal(isLocalRatingsAdmin('localhost:3000', 'development', ' 8777402', 8777402), false);
+  assert.equal(isLocalRatingsAdmin('example.com', 'development', '8777402', 8777402), false);
+});
+
+test('private read gives both shares only to exact fixture managers before kickoff, or the local admin', async () => {
+  process.env.CHPP_CONSUMER_KEY = 'test-key';
+  process.env.CHPP_CONSUMER_SECRET = 'test-secret';
+  const future = new Date(Date.now() + 86_400_000).toISOString();
+  const fixture = {
+    id: 'fixture', round_id: 'round', home_team_id: 'home', away_team_id: 'away', ht_match_id: 123,
+    status: 'arranged', completed: false, scheduled_for: future,
+    home_team: { id: 'home', ht_team_id: 11, hattrick_user_id: 7, active: true, is_placeholder: false },
+    away_team: { id: 'away', ht_team_id: 22, hattrick_user_id: 8, active: true, is_placeholder: false },
+  };
+  const shares = [
+    { id: 'share-home', fixture_id: 'fixture', team_id: 'home', ht_match_id: 123, midfield: 10 },
+    { id: 'share-away', fixture_id: 'fixture', team_id: 'away', ht_match_id: 123, midfield: 11 },
+  ];
+  const rows: Record<string, Array<Record<string, unknown>>> = {
+    tournaments: [{ id: 'tournament', season: 1, status: 'active', is_archived: false }],
+    rounds: [{ id: 'round', tournament_id: 'tournament', season_number: 1 }],
+    matches: [fixture],
+    profiles: [
+      { hattrick_user_id: 7, oauth_token: 'home-token', oauth_token_secret: 'secret' },
+      { hattrick_user_id: 8, oauth_token: 'away-token', oauth_token_secret: 'secret' },
+    ],
+    fixture_predicted_rating_shares: shares,
+  };
+  const db = {
+    from(table: string) {
+      const filters: Array<(row: Record<string, unknown>) => boolean> = [];
+      const query = {
+        select() { return query; },
+        eq(key: string, value: unknown) { filters.push((row) => row[key] === value); return query; },
+        in(key: string, values: unknown[]) { filters.push((row) => values.includes(row[key])); return query; },
+        async maybeSingle() { return { data: rows[table].find((row) => filters.every((filter) => filter(row))) || null, error: null }; },
+        then(resolve: (value: { data: Array<Record<string, unknown>>; error: null }) => void) {
+          resolve({ data: rows[table].filter((row) => filters.every((filter) => filter(row))), error: null });
+        },
+      };
+      return query;
+    },
+  };
+  const chppCalls: string[] = [];
+  let wrongClub = false;
+  globalThis.fetch = async (input, init) => {
+    const url = new URL(String(input));
+    chppCalls.push(url.searchParams.get('file') || '');
+    const authorization = String((init?.headers as Record<string, string>)?.Authorization || '');
+    const manager = authorization.includes('home-token') ? 7 : 8;
+    const club = wrongClub ? 33 : manager === 7 ? 11 : 22;
+    return new Response(`<HattrickData><Manager><UserId>${manager}</UserId><Teams><Team><TeamId>${club}</TeamId><TeamName>Fixture club</TeamName></Team><Team><TeamId>99</TeamId><TeamName>Second club</TeamName></Team></Teams></Manager></HattrickData>`);
+  };
+  assert.deepEqual(await loadVisibleFixtureRatings(db as never, 'tournament', 99), []);
+  assert.deepEqual(chppCalls, []);
+  const home = await loadVisibleFixtureRatings(db as never, 'tournament', 7);
+  assert.deepEqual(home[0].ownedSides, ['home']);
+  assert.deepEqual(home[0].ratings.map((row) => row.team_id), ['home', 'away']);
+  const away = await loadVisibleFixtureRatings(db as never, 'tournament', 8);
+  assert.deepEqual(away[0].ownedSides, ['away']);
+  assert.deepEqual(away[0].ratings.map((row) => row.team_id), ['home', 'away']);
+  assert.deepEqual(chppCalls, ['managercompendium', 'managercompendium']);
+  wrongClub = true;
+  assert.deepEqual(await loadVisibleFixtureRatings(db as never, 'tournament', 7), []);
+  wrongClub = false;
+  const admin = await loadVisibleFixtureRatings(db as never, 'tournament', 8777402, true);
+  assert.deepEqual(admin[0].ratings.map((row) => row.team_id), ['home', 'away']);
+  assert.deepEqual(admin[0].ownedSides, []);
+  assert.deepEqual(chppCalls, ['managercompendium', 'managercompendium', 'managercompendium']);
+  shares[1].ht_match_id = 124;
+  assert.deepEqual((await loadVisibleFixtureRatings(db as never, 'tournament', 8777402, true))[0].ratings.map((row) => row.team_id), ['home']);
+  fixture.scheduled_for = new Date(Date.now() - 1000).toISOString();
+  assert.deepEqual(await loadVisibleFixtureRatings(db as never, 'tournament', 7), []);
+  assert.deepEqual(await loadVisibleFixtureRatings(db as never, 'tournament', 8777402, true), []);
 });
 
 test('a multi-club manager can act for either exact club, but another manager or club cannot', () => {

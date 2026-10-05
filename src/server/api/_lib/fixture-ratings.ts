@@ -4,7 +4,7 @@ import { fetchManagerTeamsFromChpp, ManagerCompendiumRequestError } from './mana
 import { getManagerChppCredentials } from './matchmaker.js';
 import { invalidatePublicTournament } from './tournament-cache.js';
 import type { getServiceSupabase } from './supabase.js';
-import type { SharedFixtureRatings } from '../../../types/fixture-ratings.js';
+import { PRIVATE_FIXTURE_RATINGS_FIELDS, type SharedFixtureRatings } from '../../../types/fixture-ratings.js';
 
 type Db = ReturnType<typeof getServiceSupabase>;
 type Side = 'home' | 'away';
@@ -16,12 +16,39 @@ export class FixtureRatingsError extends Error {
   constructor(public status: number, message: string) { super(message); }
 }
 
+export function isLocalRatingsAdmin(host: string, environment: string | undefined, configuredId: string | undefined, sessionId: number) {
+  return environment === 'development' && configuredId === '8777402' && sessionId === 8777402 &&
+    /^(localhost|127(?:\.\d{1,3}){3}|\[?::1\]?)(:\d+)?$/i.test(host);
+}
+
 export function assertExactClubOwnership(
   ownership: { hattrickUserId: number | null; teams: Array<{ teamId: number }> }, userId: number, teamId: number,
 ) {
   if (ownership.hattrickUserId !== userId || !ownership.teams.some((owned) => owned.teamId === teamId)) {
     throw new FixtureRatingsError(403, 'Your Hattrick account no longer owns this fixture club.');
   }
+}
+
+async function verifiedManagerClubs(db: Db, userId: number) {
+  const credentials = await getManagerChppCredentials(db, userId);
+  if (!credentials) throw new FixtureRatingsError(401, 'Your Hattrick authorization is missing. Sign in with Hattrick again.');
+  const consumerKey = process.env.CHPP_CONSUMER_KEY;
+  const consumerSecret = process.env.CHPP_CONSUMER_SECRET;
+  if (!consumerKey || !consumerSecret) throw new FixtureRatingsError(500, 'CHPP is not configured.');
+  let ownership;
+  try {
+    // Omitting userID asks CHPP for the token holder's clubs, not a public manager profile.
+    ownership = await fetchManagerTeamsFromChpp(consumerKey, consumerSecret, credentials);
+  } catch (error) {
+    if (error instanceof ManagerCompendiumRequestError && [401, 403].includes(error.status)) {
+      throw new FixtureRatingsError(403, 'Hattrick denied team access. Reauthorize your Hattrick account.');
+    }
+    throw error;
+  }
+  if (ownership.hattrickUserId !== userId) {
+    throw new FixtureRatingsError(403, 'Your Hattrick account does not match this session. Sign in again.');
+  }
+  return { credentials, teamIds: new Set(ownership.teams.map((team) => team.teamId)) };
 }
 
 function block(xml: string, name: string): string {
@@ -155,6 +182,62 @@ export async function loadFixtureForRatings(db: Db, fixtureId: string) {
   return { fixture, round, tournament };
 }
 
+/** Private, uncached read for the exact managers of upcoming arranged fixtures. */
+export async function loadVisibleFixtureRatings(db: Db, tournamentId: string, userId: number, localAdmin = false) {
+  const { data: tournament, error: tournamentError } = await db.from('tournaments')
+    .select('id,season,status,is_archived').eq('id', tournamentId).maybeSingle();
+  if (tournamentError) throw tournamentError;
+  if (!tournament || tournament.is_archived || ['finished', 'archived', 'cancelled'].includes(tournament.status || '')) {
+    return [];
+  }
+  const { data: rounds, error: roundsError } = await db.from('rounds')
+    .select('id,season_number').eq('tournament_id', tournamentId).eq('season_number', tournament.season);
+  if (roundsError) throw roundsError;
+  const roundIds = (rounds || []).map((round) => round.id);
+  if (!roundIds.length) return [];
+  const { data: matches, error: matchesError } = await db.from('matches')
+    .select('id,round_id,home_team_id,away_team_id,ht_match_id,status,completed,scheduled_for,home_team:teams!matches_home_team_id_fkey(id,ht_team_id,hattrick_user_id,active,is_placeholder),away_team:teams!matches_away_team_id_fkey(id,ht_team_id,hattrick_user_id,active,is_placeholder)')
+    .in('round_id', roundIds).eq('status', 'arranged').eq('completed', false);
+  if (matchesError) throw matchesError;
+  const roundById = new Map((rounds || []).map((round) => [round.id, round]));
+  const candidates = (matches || []).filter((fixture) => {
+    const round = roundById.get(fixture.round_id);
+    if (!round || (!localAdmin && ![fixture.home_team, fixture.away_team].some((team) => Number(team?.hattrick_user_id) === userId))) return false;
+    try { assertEligibleFixtureRatings({ fixture, round, tournament } as Awaited<ReturnType<typeof loadFixtureForRatings>>); return true; }
+    catch { return false; }
+  });
+  if (!candidates.length) return [];
+  const teamIds = localAdmin ? null : (await verifiedManagerClubs(db, userId)).teamIds;
+  const authorized = candidates.flatMap((fixture) => {
+    const ownedSides: Side[] = [];
+    if (Number(fixture.home_team?.hattrick_user_id) === userId && (localAdmin || teamIds?.has(Number(fixture.home_team.ht_team_id)))) ownedSides.push('home');
+    if (Number(fixture.away_team?.hattrick_user_id) === userId && (localAdmin || teamIds?.has(Number(fixture.away_team.ht_team_id)))) ownedSides.push('away');
+    return localAdmin || ownedSides.length ? [{ fixture, ownedSides }] : [];
+  });
+  if (!authorized.length) return [];
+  const fixtureIds = authorized.map(({ fixture }) => fixture.id);
+  const [{ data: shares, error: sharesError }, { data: latestMatches, error: latestError }] = await Promise.all([
+    db.from('fixture_predicted_rating_shares').select(PRIVATE_FIXTURE_RATINGS_FIELDS).in('fixture_id', fixtureIds),
+    db.from('matches').select('id,home_team_id,away_team_id,ht_match_id,status,completed,scheduled_for').in('id', fixtureIds),
+  ]);
+  if (sharesError) throw sharesError;
+  if (latestError) throw latestError;
+  const latestById = new Map((latestMatches || []).map((match) => [match.id, match]));
+  return authorized.flatMap(({ fixture, ownedSides }) => {
+    const latest = latestById.get(fixture.id);
+    if (!latest || latest.home_team_id !== fixture.home_team_id || latest.away_team_id !== fixture.away_team_id ||
+      Number(latest.ht_match_id) !== Number(fixture.ht_match_id) || latest.status !== 'arranged' || latest.completed ||
+      !latest.scheduled_for || new Date(latest.scheduled_for).getTime() <= Date.now()) return [];
+    return [{
+      fixtureId: fixture.id,
+      ownedSides,
+      ratings: ((shares || []) as SharedFixtureRatings[]).filter((share) =>
+        share.fixture_id === fixture.id && Number(share.ht_match_id) === Number(latest.ht_match_id) &&
+        [latest.home_team_id, latest.away_team_id].includes(share.team_id)),
+    }];
+  });
+}
+
 export function assertEligibleFixtureRatings(input: Awaited<ReturnType<typeof loadFixtureForRatings>>) {
   const { fixture, round, tournament } = input;
   const home = fixture.home_team;
@@ -202,22 +285,9 @@ export async function saveFixtureRatings(
   const { data: existing, error: existingError } = await db.from('fixture_predicted_rating_shares').select('id,ht_match_id').eq('fixture_id', fixtureId).eq('team_id', team.id).maybeSingle();
   if (existingError) throw existingError;
   if (action !== 'remove') assertEligibleFixtureRatings(context);
-  const credentials = await getManagerChppCredentials(db, userId);
-  if (!credentials || !team.oauth_token || !team.oauth_token_secret) throw new FixtureRatingsError(401, 'Your Hattrick authorization is missing. Sign in with Hattrick again.');
-  const consumerKey = process.env.CHPP_CONSUMER_KEY;
-  const consumerSecret = process.env.CHPP_CONSUMER_SECRET;
-  if (!consumerKey || !consumerSecret) throw new FixtureRatingsError(500, 'CHPP is not configured.');
-  let ownership;
-  try {
-    // Omit userID: a supplied ID can describe someone else's public clubs.
-    ownership = await fetchManagerTeamsFromChpp(consumerKey, consumerSecret, credentials);
-  } catch (error) {
-    if (error instanceof ManagerCompendiumRequestError && [401, 403].includes(error.status)) {
-      throw new FixtureRatingsError(403, 'Hattrick denied team access. Reauthorize your Hattrick account.');
-    }
-    throw error;
-  }
-  assertExactClubOwnership(ownership, userId, Number(team.ht_team_id));
+  if (!team.oauth_token || !team.oauth_token_secret) throw new FixtureRatingsError(401, 'Your Hattrick authorization is missing. Sign in with Hattrick again.');
+  const { credentials, teamIds } = await verifiedManagerClubs(db, userId);
+  if (!teamIds.has(Number(team.ht_team_id))) throw new FixtureRatingsError(403, 'Your Hattrick account no longer owns this fixture club.');
   if (action === 'remove') {
     if (existing) {
       const { error } = await db.from('fixture_predicted_rating_shares').delete().eq('id', existing.id);

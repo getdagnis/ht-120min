@@ -10,7 +10,8 @@ Important tables used by current code:
 - `teams`
 - `rounds`
 - `matches`
-- `fixture_predicted_rating_shares` (prepared in 095; public reads, service-role writes)
+- `fixture_predicted_rating_shares` (095 has an owner-added applied marker; 096 prepares private base-table reads and service-role writes)
+- `fixture_predicted_rating_share_status` (096 prepared: public status-only view for upcoming shares)
 - `fixture_warnings`
 - `profiles`
 - `oauth_temp_sessions`
@@ -36,7 +37,7 @@ The app treats tournaments, rounds, matches, standings, chat, and admin decision
 - `migrations/history/` is an archived legacy area.
 - Active migrations must use the root `migrations/` directory.
 - Continue the numeric sequence from the latest active migration.
-- The current active sequence includes `092_add_global_chat_flag.sql`, `093_add_profile_national_team_roles.sql`, prepared `094_tournament_team_auto_arrange_preferences.sql`, and prepared `095_fixture_predicted_rating_shares.sql`; the next migration must continue at `096_...sql`. Recheck files before numbering.
+- The current active sequence includes `092_add_global_chat_flag.sql`, `093_add_profile_national_team_roles.sql`, `094_tournament_team_auto_arrange_preferences.sql`, owner-marked-applied `095_fixture_predicted_rating_shares.sql`, and prepared `096_limit_fixture_rating_visibility.sql`; the next migration must continue at `097_...sql`. Recheck files before numbering.
 - Do not create timestamp-prefixed migration names such as `20261001050614_...`.
 - Keep migrations compatible with existing rows when possible.
 - Record migration state in `PROJECT_STATE.md` only when a schema/RPC/RLS change has architectural, security, product-direction, or substantial behavioral impact. Do not add status entries for routine fixes or small implementation details.

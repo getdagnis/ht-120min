@@ -6,7 +6,7 @@ import Link from 'next/link';
 import { usePathname, useParams, useRouter, useSearchParams as useNextSearchParams } from 'next/navigation';
 import { supabase } from '../../lib/supabase';
 import { PUBLIC_ROUND_FIELDS, PUBLIC_MATCH_FIELDS } from '../../lib/tournament-public-fields';
-import { attachFixtureRatings, PUBLIC_FIXTURE_RATINGS_FIELDS, type SharedFixtureRatings } from '../../types/fixture-ratings';
+import { attachFixtureRatingStatus, PUBLIC_FIXTURE_RATING_STATUS_FIELDS, type FixtureRatingShareStatus } from '../../types/fixture-ratings';
 import {
   invalidateTournamentData,
   loadTournamentPrivateData,
@@ -305,7 +305,7 @@ interface MatchWithTeams {
   away_match_kit_url?: string | null;
   status: 'not_arranged' | 'arranged' | 'ongoing' | 'misarranged' | 'finished';
   ht_match_id: number | null;
-  shared_ratings?: SharedFixtureRatings[];
+  rating_share_statuses?: FixtureRatingShareStatus[];
   match_type: number | null;
   next_match_arrange_story?: TournamentMatchArrangeStorySnapshot | null;
   reserve_team_id?: string | null;
@@ -1502,6 +1502,7 @@ export const TournamentView: React.FC<{ initialData?: TournamentInitialData }> =
   };
 
   const [loading, setLoading] = useState(() => !initialData);
+  const [loadError, setLoadError] = useState<string | null>(null);
   const [copied, setCopied] = useState<Record<string, boolean>>({});
   const hasLoadedTournamentRef = useRef(Boolean(initialData));
 
@@ -1798,11 +1799,16 @@ export const TournamentView: React.FC<{ initialData?: TournamentInitialData }> =
   const fetchData = useCallback(
     async (options: { showLoader?: boolean; invalidate?: boolean } = {}) => {
       const showLoader = options.showLoader ?? !hasLoadedTournamentRef.current;
-      if (showLoader) setLoading(true);
+      if (showLoader) {
+        setLoading(true);
+        setLoadError(null);
+      }
       try {
         if (options.invalidate !== false && !(await invalidateAfterEdit())) return;
         const data = await readTournamentPublicData(slug);
         if (!data) return;
+        setLoadError(null);
+        hasLoadedTournamentRef.current = true;
         const tournamentData = data.tournament as unknown as Tournament;
         setTournament((current) => ({ ...current, ...tournamentData }));
         setTeams(data.teams as unknown as Team[]);
@@ -1843,10 +1849,13 @@ export const TournamentView: React.FC<{ initialData?: TournamentInitialData }> =
         setIncludeWeek15WeekendFriendlyForReschedule(Boolean(tournamentData.include_week15_weekend_friendly));
         setEditIsFeatured(Boolean(tournamentData.is_featured));
         await hydratePrivateData(readLocalStorage(`admin_pw_${slug}`) || '');
-        hasLoadedTournamentRef.current = true;
       } catch (error) {
         console.error('Could not refresh tournament data:', error);
-        alert('Could not refresh tournament data. Reload the page to try again.');
+        if (!hasLoadedTournamentRef.current) {
+          setLoadError('Tournament data could not be loaded. Please try again.');
+        } else {
+          alert('Could not refresh tournament data. Reload the page to try again.');
+        }
       } finally {
         if (showLoader) setLoading(false);
       }
@@ -1897,13 +1906,13 @@ export const TournamentView: React.FC<{ initialData?: TournamentInitialData }> =
     if (matchesData) {
       const fixtureIds = (matchesData as { id: string }[]).map((match) => match.id);
       const { data: ratingRows, error: ratingsError } = fixtureIds.length
-        ? await supabase.from('fixture_predicted_rating_shares').select(PUBLIC_FIXTURE_RATINGS_FIELDS).in('fixture_id', fixtureIds)
+        ? await supabase.from('fixture_predicted_rating_share_status').select(PUBLIC_FIXTURE_RATING_STATUS_FIELDS).in('fixture_id', fixtureIds)
         : { data: [], error: null };
       if (ratingsError) {
         console.error('Could not refresh shared fixture ratings:', ratingsError);
         return;
       }
-      const matchesWithRatings = attachFixtureRatings(matchesData, (ratingRows || []) as unknown as SharedFixtureRatings[]);
+      const matchesWithRatings = attachFixtureRatingStatus(matchesData, (ratingRows || []) as FixtureRatingShareStatus[]);
       const newRounds = roundsData.map((r: { created_at: string; id: string; round_number: number }) => ({
         ...r,
         matches: (matchesWithRatings as MatchWithTeams[])
@@ -5254,6 +5263,18 @@ export const TournamentView: React.FC<{ initialData?: TournamentInitialData }> =
     return (
       <div className={styles.view}>
         <div className={styles.loading}>Loading tournament...</div>
+      </div>
+    );
+  }
+  if (!tournament && loadError) {
+    return (
+      <div className={styles.view}>
+        <div className={styles.loading} role="alert">
+          <p>{loadError}</p>
+          <Button variant="primary" onClick={() => void fetchData({ showLoader: true, invalidate: false })}>
+            Try again
+          </Button>
+        </div>
       </div>
     );
   }

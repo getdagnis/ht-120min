@@ -52,6 +52,7 @@ interface FixtureCardProps {
     home: RatingsPreviewTeam | null;
     away: RatingsPreviewTeam | null;
   };
+  ratingsSharedStatus?: { home: boolean; away: boolean };
   ratingsActions?: {
     home: boolean;
     away: boolean;
@@ -103,6 +104,7 @@ export const FixtureCard: React.FC<FixtureCardProps> = ({
   appgOutcome,
   challengeAction,
   ratingsPreview,
+  ratingsSharedStatus,
   ratingsActions,
 }) => {
   const [nowMs, setNowMs] = React.useState(() => Date.now());
@@ -112,9 +114,13 @@ export const FixtureCard: React.FC<FixtureCardProps> = ({
     if (!ratingsActions || busySide) return;
     setBusySide(side);
     setRatingsError(null);
-    try { await ratingsActions.onAction(side, action); }
-    catch (error) { setRatingsError(error instanceof Error ? error.message : 'Could not update shared ratings.'); }
-    finally { setBusySide(null); }
+    try {
+      await ratingsActions.onAction(side, action);
+    } catch (error) {
+      setRatingsError(error instanceof Error ? error.message : 'Could not update shared ratings.');
+    } finally {
+      setBusySide(null);
+    }
   };
   React.useEffect(() => {
     if (status !== 'ongoing') return;
@@ -198,7 +204,7 @@ export const FixtureCard: React.FC<FixtureCardProps> = ({
   );
 
   return (
-    <div className={`${styles.fixtureCard} ${ratingsPreview ? styles.withRatingsPreview : ''}`}>
+    <div className={`${styles.fixtureCard} ${ratingsPreview || ratingsSharedStatus ? styles.withRatingsPreview : ''}`}>
       <div className={styles.teamContainer}>
         <div className={styles.logoWrapper}>
           {!homeTeam.isBye && (
@@ -296,37 +302,39 @@ export const FixtureCard: React.FC<FixtureCardProps> = ({
         </div>
       </div>
       {ratingsPreview && (
-        <section className={styles.ratingsPreview} aria-label="Shared predicted ratings">
+        <section className={styles.ratingsPreview} aria-label="Shared match ratings">
           {(ratingsPreview.home || ratingsPreview.away) && (
-            <div className={styles.ratingsPreviewTitle}>Predicted ratings</div>
+            <div className={styles.ratingsPreviewTitle}>Shared match ratings</div>
           )}
           {(['home', 'away'] as const).map((side) => {
             const team = side === 'home' ? homeTeam : awayTeam;
             const preview = ratingsPreview[side];
             const canManage = ratingsActions?.[side] || false;
-            if (!preview && !canManage) return <div key={side} className={styles.ratingsSide} />;
-            const sectorRows: Array<Array<[string, string]>> = preview ? [
-              [
-                ['Left attack', preview.ratings.leftAttack],
-                ['Center attack', preview.ratings.centreAttack],
-                ['Right attack', preview.ratings.rightAttack],
-              ],
-              [['Midfield', preview.ratings.midfield]],
-              [
-                ['Left defence', preview.ratings.leftDefence],
-                ['Center defence', preview.ratings.centreDefence],
-                ['Right defence', preview.ratings.rightDefence],
-              ],
-            ] : [];
+            if (!preview && !canManage) return null;
+            const sectorRows: Array<Array<[string, string]>> = preview
+              ? [
+                  [
+                    ['Left attack', preview.ratings.leftAttack],
+                    ['Center attack', preview.ratings.centreAttack],
+                    ['Right attack', preview.ratings.rightAttack],
+                  ],
+                  [['Midfield', preview.ratings.midfield]],
+                  [
+                    ['Left defence', preview.ratings.leftDefence],
+                    ['Center defence', preview.ratings.centreDefence],
+                    ['Right defence', preview.ratings.rightDefence],
+                  ],
+                ]
+              : [];
             return (
-              <div
-                key={side}
-                className={`${styles.ratingsSide} ${side === 'away' ? styles.ratingsSideAway : ''}`}
-              >
-                <div className={styles.ratingsTeamHeading}>
-                  <span>{side === 'home' ? 'Home' : 'Away'}</span>
-                  <strong>{team.name}</strong>
-                </div>
+              <div key={side} className={`${styles.ratingsSide} ${side === 'away' ? styles.ratingsSideAway : ''}`}>
+                {preview && (
+                  <div className={styles.ratingsTeamHeading}>
+                    {side === 'home' && <strong>{team.name}</strong>}
+                    <span>{canManage ? 'You shared ratings with opponent' : 'Shared match ratings'}</span>
+                    {side === 'away' && <strong>{team.name}</strong>}
+                  </div>
+                )}
                 {preview ? (
                   <>
                     <div className={styles.ratingsPitch}>
@@ -345,40 +353,48 @@ export const FixtureCard: React.FC<FixtureCardProps> = ({
                       ))}
                     </div>
                     <div className={styles.ratingsMetadata}>
-                      <span>Formation <strong>{preview.formation}</strong></span>
-                      <span>Tactic <strong>{preview.tactic}</strong></span>
-                      <span>Tactic skill <strong>{preview.tacticSkill}</strong></span>
-                      <span>Set pieces <strong>{preview.setPieces}</strong></span>
+                      <span>
+                        Formation <strong>{preview.formation}</strong>
+                      </span>
+                      <span>
+                        Tactic <strong>{preview.tactic}</strong>
+                      </span>
+                      <span>
+                        Tactic skill <strong>{preview.tacticSkill}</strong>
+                      </span>
+                      <span>
+                        Set pieces <strong>{preview.setPieces}</strong>
+                      </span>
                     </div>
                     <div
                       className={`${styles.ratingsPreviewActions} ${styles.ratingsPreviewActionsEdgeAligned} ${
                         side === 'away' ? styles.ratingsPreviewActionsAway : ''
                       }`}
                     >
-                      {canManage && <button
-                        type="button"
-                        disabled={busySide !== null}
-                        onClick={() => void act(side, 'update')}
-                      >
-                        Update
-                      </button>}
-                      {canManage && <button
-                        type="button"
-                        className={styles.ratingsPreviewRemove}
-                        disabled={busySide !== null}
-                        onClick={() => void act(side, 'remove')}
-                      >
-                        Remove
-                      </button>}
+                      {canManage && (
+                        <button type="button" disabled={busySide !== null} onClick={() => void act(side, 'update')}>
+                          Update
+                        </button>
+                      )}
+                      {canManage && (
+                        <button
+                          type="button"
+                          className={styles.ratingsPreviewRemove}
+                          disabled={busySide !== null}
+                          onClick={() => void act(side, 'remove')}
+                        >
+                          Remove
+                        </button>
+                      )}
                       <span>
                         Last updated:{' '}
                         {new Intl.DateTimeFormat('en-GB', {
-                              day: '2-digit',
-                              month: 'short',
-                              hour: '2-digit',
-                              minute: '2-digit',
-                              timeZone: 'Europe/Riga',
-                            }).format(new Date(preview.fetchedAt))}
+                          day: '2-digit',
+                          month: 'short',
+                          hour: '2-digit',
+                          minute: '2-digit',
+                          timeZone: 'Europe/Riga',
+                        }).format(new Date(preview.fetchedAt))}
                       </span>
                     </div>
                   </>
@@ -389,23 +405,30 @@ export const FixtureCard: React.FC<FixtureCardProps> = ({
                         side === 'away' ? styles.ratingsPreviewActionsAway : ''
                       }`}
                     >
-                      <button
-                        type="button"
-                        disabled={busySide !== null}
-                        onClick={() => void act(side, 'share')}
-                      >
+                      <button type="button" disabled={busySide !== null} onClick={() => void act(side, 'share')}>
                         Share predicted ratings
                       </button>
                     </div>
                     <p className={styles.ratingsShareHelper}>
-                      Share predicted ratings with your opponent. Your shared snapshot updates when you click Refresh fixtures.
+                      Share predicted ratings with your opponent. Your shared snapshot updates when you click Refresh
+                      fixtures.
                     </p>
                   </div>
                 )}
               </div>
             );
           })}
-          {ratingsError && <p role="alert" className={styles.ratingsError}>{ratingsError}</p>}
+          {ratingsError && (
+            <p role="alert" className={styles.ratingsError}>
+              {ratingsError}
+            </p>
+          )}
+        </section>
+      )}
+      {ratingsSharedStatus && (
+        <section className={styles.ratingsSharedStatus} aria-label="Shared rating prediction status">
+          {ratingsSharedStatus.home && <p>{homeTeam.name} have shared their predicted ratings! ✅</p>}
+          {ratingsSharedStatus.away && <p>{awayTeam.name} have shared their predicted ratings! ✅</p>}
         </section>
       )}
     </div>

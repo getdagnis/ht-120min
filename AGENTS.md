@@ -200,7 +200,7 @@ Database changes:
 - `migrations/history/` is an archived legacy area.
 - Active migrations must use the root `migrations/` directory.
 - Continue the numeric sequence from the latest active migration.
-- The current active sequence includes `092_add_global_chat_flag.sql`, `093_add_profile_national_team_roles.sql`, prepared `094_tournament_team_auto_arrange_preferences.sql`, and prepared `095_fixture_predicted_rating_shares.sql`; the next migration must continue at `096_...sql`. Owner reports 088 applied; 089 carries an owner-added applied marker. Neither marker nor report is independent live inspection. Recheck files before numbering.
+- The current active sequence includes `092_add_global_chat_flag.sql`, `093_add_profile_national_team_roles.sql`, `094_tournament_team_auto_arrange_preferences.sql`, owner-marked-applied `095_fixture_predicted_rating_shares.sql`, and prepared `096_limit_fixture_rating_visibility.sql`; the next migration must continue at `097_...sql`. Owner reports 088 applied; 089 and 095 carry owner-added applied markers. Neither markers nor reports are independent live inspection. Recheck files before numbering.
 - Do not create timestamp-prefixed migration names such as `20261001050614_...`.
 - Treat a migration ending in `-- MIGRATION APPLIED!` as immutable. Never edit it: put every follow-up schema, RPC, or function change in the next migration. If it was edited by mistake after application, restore its applied content and move the later changes into a new migration before continuing.
 - Preserve RLS assumptions.

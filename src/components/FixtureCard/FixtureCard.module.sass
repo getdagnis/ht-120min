@@ -44,6 +44,19 @@
   color: var(--red, #b44)
   font-size: 0.75rem
 
+.ratingsSharedStatus
+  flex: 0 0 100%
+  margin-top: 1.25rem
+  padding: 0.8rem 1.25rem 0
+  border-top: 1px solid var(--border)
+  color: var(--text60)
+  font-family: var(--sans)
+  font-size: 0.8rem
+  text-align: center
+
+  p
+    margin: 0 0 0.45rem
+
 .ratingsSide
   min-width: 0
   padding: 0.2rem 1.5rem 0.8rem 0
@@ -55,6 +68,7 @@
 
 .ratingsSideAway
   text-align: right
+  grid-column: 2
 
 .ratingsTeamHeading
   display: flex
@@ -368,6 +382,7 @@
   .ratingsSide + .ratingsSide
     padding: 0.45rem 0
     border-left: 0
+    grid-column: auto
 
   .ratingsSide + .ratingsSide
     border-top: 1px solid var(--border)
@@ -394,6 +409,19 @@
   .ratingsSideAway .ratingsShareState
     align-items: flex-start
     text-align: left
+
+@media (max-width: 480px)
+  .ratingsTeamHeading,
+  .ratingsSideAway .ratingsTeamHeading
+    flex-direction: column
+    align-items: center
+    justify-content: center
+    gap: 0.15rem
+    text-align: center
+
+    strong
+      max-width: 100%
+      white-space: normal
 
 .date
   font-size: 0.8rem

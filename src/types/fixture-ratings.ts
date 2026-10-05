@@ -17,14 +17,21 @@ export interface SharedFixtureRatings {
   fetched_at: string;
 }
 
-// Keep this list explicit. The public query must never return private CHPP data.
-export const PUBLIC_FIXTURE_RATINGS_FIELDS =
+export interface FixtureRatingShareStatus {
+  fixture_id: string;
+  team_id: string;
+  ht_match_id: number;
+}
+
+// Only these existence fields may enter the shared public tournament cache.
+export const PUBLIC_FIXTURE_RATING_STATUS_FIELDS = 'fixture_id,team_id,ht_match_id';
+export const PRIVATE_FIXTURE_RATINGS_FIELDS =
   'id,fixture_id,team_id,ht_match_id,left_attack,centre_attack,right_attack,midfield,left_defence,centre_defence,right_defence,formation,tactic,tactic_skill,set_pieces_skill,fetched_at';
 
-export function attachFixtureRatings<T extends { id: unknown; ht_match_id?: unknown; home_team_id?: unknown; away_team_id?: unknown }>(
-  matches: T[], rows: SharedFixtureRatings[],
-): Array<T & { shared_ratings: SharedFixtureRatings[] }> {
-  const byFixture = new Map<string, SharedFixtureRatings[]>();
+export function attachFixtureRatingStatus<T extends { id: unknown; ht_match_id?: unknown; home_team_id?: unknown; away_team_id?: unknown }>(
+  matches: T[], rows: FixtureRatingShareStatus[],
+): Array<T & { rating_share_statuses: FixtureRatingShareStatus[] }> {
+  const byFixture = new Map<string, FixtureRatingShareStatus[]>();
   for (const row of rows) {
     const list = byFixture.get(row.fixture_id) || [];
     list.push(row);
@@ -32,7 +39,7 @@ export function attachFixtureRatings<T extends { id: unknown; ht_match_id?: unkn
   }
   return matches.map((match) => ({
     ...match,
-    shared_ratings: (byFixture.get(String(match.id)) || []).filter((row) =>
+    rating_share_statuses: (byFixture.get(String(match.id)) || []).filter((row) =>
       Number(match.ht_match_id) === Number(row.ht_match_id) &&
       [match.home_team_id, match.away_team_id].includes(row.team_id)),
   }));
