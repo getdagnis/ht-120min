@@ -348,7 +348,7 @@ export const FixtureCard: React.FC<FixtureCardProps> = ({
                 {preview && (
                   <div className={styles.ratingsTeamHeading}>
                     {side === 'home' && <strong>{team.name}</strong>}
-                    <span>{canManage ? 'You shared ratings with opponent' : 'Shared match ratings'}</span>
+                    <span>{side === 'home' ? 'shared their ratings' : 'Shared with opponent by'}</span>
                     {side === 'away' && <strong>{team.name}</strong>}
                   </div>
                 )}
