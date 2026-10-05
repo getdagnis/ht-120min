@@ -5,7 +5,7 @@ import styles from '../../legacy-pages/Public/TournamentView.module.sass';
 import { Button } from '../Button/Button';
 import { Avatar } from '../Avatar/Avatar';
 import { ArrowRight, PaperPlaneTilt, User } from 'phosphor-react';
-import { useClientNow } from '../../hooks/useHydratedBrowserState';
+import { useClientNow, useHydrationReady } from '../../hooks/useHydratedBrowserState';
 import { getCanonicalCountryName, getCountryFlagUrl } from '../../utils/ht-data';
 import {
   buildTournamentEmojiOptions,
@@ -157,7 +157,8 @@ export const ChatView: React.FC<ChatViewProps> = ({
 }) => {
   const [newChatContent, setNewChatContent] = useState('');
   const [globalMessage, setGlobalMessage] = useState(false);
-  const [isLocalhost, setIsLocalhost] = useState(false);
+  const isHydrationReady = useHydrationReady();
+  const isLocalhost = isHydrationReady && ['localhost', '127.0.0.1', '::1', '[::1]'].includes(window.location.hostname);
   const pathname = usePathname() || '/';
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -168,10 +169,6 @@ export const ChatView: React.FC<ChatViewProps> = ({
   const emojiOptions = buildTournamentEmojiOptions(TOURNAMENT_EMOJI_OPTIONS, tournamentEmojiContext);
   const displayMessages = withChatWelcome(messages, welcomeMessage);
   const visibleMessages = displayMessages.slice(-visibleMessageCount);
-
-  useEffect(() => {
-    setIsLocalhost(['localhost', '127.0.0.1', '::1', '[::1]'].includes(window.location.hostname));
-  }, []);
 
   useEffect(() => {
     if (chatContainerRef.current) {

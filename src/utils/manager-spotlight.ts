@@ -31,6 +31,10 @@ export interface ManagerSpotlightTeam {
   leagueRank: number | null;
   powerRating: number | null;
   powerLeagueRank: number | null;
+  numberOfVictories?: number | null;
+  homeFlagLeagueIds?: number[];
+  awayFlagLeagueIds?: number[];
+  genderId?: number | null;
   foundedDate: string | null;
   youthTeamName: string | null;
   arenaName: string | null;
@@ -98,7 +102,7 @@ export interface ManagerSpotlightProfile {
   teams_json?: unknown;
 }
 
-export type StoryTopic = 'exceptional-role' | 'tournament' | 'primary-club' | 'achievement' | 'footprint' | 'colour';
+export type StoryTopic = 'exceptional-role' | 'tournament' | 'primary-club' | 'achievement' | 'performance' | 'collection' | 'footprint' | 'colour';
 export interface StoryCandidate {
   id: string;
   topic: StoryTopic;
@@ -119,6 +123,9 @@ const finiteNonnegative = (value: unknown): number | null => {
   const number = Number(value);
   return Number.isSafeInteger(number) && number >= 0 ? number : null;
 };
+const positiveIds = (value: unknown): number[] => Array.isArray(value)
+  ? [...new Set(value.map(positive).filter((id): id is number => id !== null))].sort((a, b) => a - b)
+  : [];
 const textOrNull = (value: unknown): string | null => typeof value === 'string' && value.trim() ? value.trim() : null;
 const countWord = (n: number) => n <= 9 ? ['zero', 'one', 'two', 'three', 'four', 'five', 'six', 'seven', 'eight', 'nine'][n] : String(n);
 const countrySegment = (team: Pick<ManagerSpotlightTeam, 'countryId' | 'countryName'>): CountryMention | null => {
@@ -188,10 +195,14 @@ export function getFoundedYearLabel(team: Pick<ManagerSpotlightTeam, 'foundedDat
 }
 
 export function getVisibleClubTeams(spotlight: Pick<ManagerSpotlight, 'currentTeams' | 'tournamentTeamId'>): ManagerSpotlightTeam[] {
-  const tournament = spotlight.currentTeams.find((team) => team.teamId === spotlight.tournamentTeamId);
-  const primary = spotlight.currentTeams.find((team) => team.isPrimary);
-  return [tournament, primary].filter((team, index, teams): team is ManagerSpotlightTeam =>
-    Boolean(team) && teams.findIndex((item) => item?.teamId === team?.teamId) === index);
+  return spotlight.currentTeams.toSorted((a, b) => {
+    const aFounded = Date.parse(a.foundedDate?.slice(0, 10) ?? '');
+    const bFounded = Date.parse(b.foundedDate?.slice(0, 10) ?? '');
+    if (Number.isFinite(aFounded) && Number.isFinite(bFounded) && aFounded !== bFounded) return aFounded - bFounded;
+    if (Number.isFinite(aFounded) !== Number.isFinite(bFounded)) return Number.isFinite(aFounded) ? -1 : 1;
+    return Number(b.isTournamentTeam) - Number(a.isTournamentTeam) || Number(b.isPrimary) - Number(a.isPrimary)
+      || a.teamName.localeCompare(b.teamName) || a.teamId - b.teamId;
+  });
 }
 
 export function detectOfficialRole(managerName: string): OfficialRole | null {
@@ -290,6 +301,10 @@ function normalizeTeam(raw: Record<string, unknown>): ManagerSpotlightTeam | nul
     leagueRank: positive(raw.teamRank ?? raw.team_rank),
     powerRating: finiteNonnegative(raw.powerRating ?? raw.power_rating),
     powerLeagueRank: finiteNonnegative(raw.powerLeagueRank ?? raw.power_league_rank),
+    numberOfVictories: positive(raw.numberOfVictories ?? raw.number_of_victories),
+    homeFlagLeagueIds: positiveIds(raw.homeFlagLeagueIds ?? raw.home_flag_league_ids),
+    awayFlagLeagueIds: positiveIds(raw.awayFlagLeagueIds ?? raw.away_flag_league_ids),
+    genderId: positive(raw.genderId ?? raw.gender_id),
     foundedDate: textOrNull(raw.foundedDate ?? raw.founded_date),
     youthTeamName: textOrNull(raw.youthTeamName ?? raw.youth_team_name),
     arenaName: textOrNull(raw.arenaName ?? raw.arena_name),
@@ -362,9 +377,9 @@ function regularRankCountry(team: ManagerSpotlightTeam): CountryMention | null {
 
 function buildCandidates(input: {
   managerId: number; managerName: string; official: OfficialRole | null; roles: NationalTeamRole[];
-  teams: ManagerSpotlightTeam[]; tournamentTeam: ManagerSpotlightTeam;
+  teams: ManagerSpotlightTeam[]; tournamentTeam: ManagerSpotlightTeam; dateKey: string;
 }): StoryCandidate[] {
-  const { managerName, official, roles, teams, tournamentTeam } = input;
+  const { managerId, managerName, official, roles, teams, tournamentTeam, dateKey } = input;
   const candidates: StoryCandidate[] = [];
   const role = roleHeadline(managerName, roles, official);
   if (role) candidates.push({ id: 'exceptional-role', topic: 'exceptional-role', tier: 0, score: 100, mandatory: true, tags: ['manager-role'], segments: role });
@@ -372,18 +387,23 @@ function buildCandidates(input: {
   const special = getSpecialLeagueLabel(tournamentTeam.leagueId);
   const rank = validDisplayRank(tournamentTeam);
   const rankCountry = rank ? regularRankCountry(tournamentTeam) : null;
-  const tournament: StorySegment[] = [`${managerName} is the owner of ${tournamentTeam.teamName}`];
+  const tournamentStyle = stableHash(`${managerId}:${dateKey}:tournament-wording`) % 3;
+  const tournament: StorySegment[] = [
+    tournamentStyle === 0 ? `${managerName} is competing here with ${tournamentTeam.teamName}`
+      : tournamentStyle === 1 ? `${managerName} enters this tournament with ${tournamentTeam.teamName}`
+        : `${tournamentTeam.teamName} is ${managerName}'s side in this tournament`,
+  ];
   const tournamentCountry = countrySegment(tournamentTeam);
   if (special) {
     if (tournamentCountry) append(tournament, ', based in ', tournamentCountry);
-    if (rank) append(tournament, ', currently ranked #', String(rank), ` in ${special}`);
-    if (tournamentTeam.seriesName) append(tournament, rank ? ' and playing in ' : tournamentCountry ? ' and currently playing in ' : ', currently playing in ', rank ? '' : `${special} `, `series ${tournamentTeam.seriesName}`);
+    if (rank) append(tournament, `, ranked #${rank} in ${special}`);
+    if (tournamentTeam.seriesName) append(tournament, rank ? ' and playing in ' : tournamentCountry ? ' and currently playing in ' : ', currently playing in ', `${special} series ${tournamentTeam.seriesName}`);
   } else {
-    if (tournamentCountry && !rankCountry) append(tournament, ' in ', tournamentCountry);
+    if (tournamentCountry && (!rankCountry || tournamentCountry.name !== rankCountry.name)) append(tournament, ', based in ', tournamentCountry);
     if (rank || tournamentTeam.seriesName) {
-      if (rankCountry) append(tournament, `, currently ranked #${rank} in `, rankCountry);
-      else append(tournament, rank ? `, currently at league rank #${rank}` : ', currently');
-      if (tournamentTeam.seriesName) append(tournament, `${rank ? ' and' : ''} playing in series ${tournamentTeam.seriesName}`);
+      if (rankCountry) append(tournament, `, ranked #${rank} in `, rankCountry);
+      else if (rank) append(tournament, `, at league rank #${rank}`);
+      if (tournamentTeam.seriesName) append(tournament, rank || tournamentCountry ? ' and playing in ' : ', currently playing in ', `series ${tournamentTeam.seriesName}`);
     }
   }
   append(tournament, '.');
@@ -396,23 +416,34 @@ function buildCandidates(input: {
     const sameAsTournament = primary.teamId === tournamentTeam.teamId;
     const primaryRank = sameAsTournament ? null : validDisplayRank(primary);
     const primaryCountry = countrySegment(primary);
+    const primaryRankCountry = primaryRank ? regularRankCountry(primary) : null;
     const region = primary.regionName;
-    const parts: StorySegment[] = asSegments(`Their main club, ${primary.teamName}`, region ? ` is registered in ${region}` : '', primaryCountry ? region ? ', ' : ' in ' : '', primaryCountry, ',');
+    const primaryStyle = stableHash(`${managerId}:${dateKey}:primary-wording`) % 3;
+    const parts: StorySegment[] = [
+      primaryStyle === 0 ? `The main club, ${primary.teamName}`
+        : primaryStyle === 1 ? `${managerName}'s main club, ${primary.teamName}`
+          : `For ${managerName}, the main club is ${primary.teamName}`,
+    ];
+    if (region) append(parts, ` in ${region}`);
+    if (primaryCountry && (!primaryRankCountry || primaryCountry.name !== primaryRankCountry.name || sameAsTournament)) {
+      append(parts, region ? ', ' : ' in ', primaryCountry);
+    }
     const details: StorySegment[][] = [];
     if (validYear) details.push([`was founded in ${year}`]);
     if (primaryRank) {
       const specialRank = getSpecialLeagueLabel(primary.leagueId);
-      const rankCountry = primaryCountry ? null : regularRankCountry(primary);
       details.push(specialRank ? [`is ranked #${primaryRank} in ${specialRank}`]
-        : rankCountry ? asSegments(`is ranked #${primaryRank} in `, rankCountry)
+        : primaryRankCountry ? asSegments(`is ranked #${primaryRank} in `, primaryRankCountry)
           : [`holds league rank #${primaryRank}`]);
     }
     if (primary.seriesName && !sameAsTournament) details.push([`plays in series ${primary.seriesName}`]);
-    if (details.length) details.forEach((detail, index) => append(parts, index === 0 ? ' ' : index === details.length - 1 ? ' and ' : ', ', ...detail));
-    else {
+    if (!details.length) {
       parts.length = 0;
-      append(parts, `${primary.teamName} is the manager's main club`, region ? ` in ${region}` : '', primaryCountry ? region ? ', ' : ' in ' : '', primaryCountry);
+      append(parts, `${primary.teamName} is ${managerName}'s main club`, region ? ` in ${region}` : '',
+        primaryCountry ? region ? ', ' : ' in ' : '', primaryCountry);
     }
+    details.forEach((detail, index) => append(parts,
+      index === 0 ? primaryStyle === 2 ? '; it ' : ', ' : index === details.length - 1 ? ' and ' : ', ', ...detail));
     append(parts, '.');
     if (!sameAsTournament || details.length) candidates.push({ id: `primary:${primary.teamId}`, topic: 'primary-club', tier: 2, score: 100, tags: ['primary-club', `team:${primary.teamId}`], segments: parts });
   }
@@ -423,7 +454,7 @@ function buildCandidates(input: {
   };
   for (const team of teams) {
     const repeated = team.trophies.filter((item) => item.kind === 'series').length;
-    if (repeated >= 5) candidates.push({ id: `series-count:${team.teamId}`, topic: 'achievement', tier: 3, score: 60 + Math.min(repeated, 10), tags: ['achievement', `team:${team.teamId}`], segments: [`${team.teamName} has collected ${repeated} series titles.`] });
+    if (repeated >= 5) candidates.push({ id: `series-count:${team.teamId}`, topic: 'achievement', tier: 3, score: 58 + Math.min(repeated * 2, 22), tags: ['achievement', `team:${team.teamId}`], segments: [`${team.teamName} has collected ${repeated} series titles.`] });
     const trophy = team.trophies.toSorted((a, b) => (trophyScores[b.kind] ?? 0) - (trophyScores[a.kind] ?? 0))[0];
     const score = trophy ? trophyScores[trophy.kind] : undefined;
     if (!trophy || score === undefined) continue;
@@ -435,9 +466,46 @@ function buildCandidates(input: {
     else if (trophy.kind === 'world_cup_silver') segments = [`${team.teamName} has a World Cup silver medal${year ? ` from ${year}` : ''}.`];
     else if (trophy.kind === 'world_cup_bronze') segments = [`${team.teamName} has a World Cup bronze medal${year ? ` from ${year}` : ''}.`];
     else if (trophy.kind === 'masters') segments = [`${team.teamName} has won Hattrick Masters${year ? ` in ${year}` : ''}.`];
-    else if (trophy.kind === 'league') segments = [`${team.teamName} has a league title${year ? ` from ${year}` : ''}.`];
-    else segments = [`${team.teamName} has won a cup${year ? ` in ${year}` : ''}.`];
+    else if (trophy.kind === 'league') segments = [`${team.teamName} won a league title${year ? ` in ${year}` : ''}.`];
+    else if (trophy.kind === 'challenger_cup') segments = [`${team.teamName} won the Challenger Cup${year ? ` in ${year}` : ''}.`];
+    else segments = [`${team.teamName} won the Consolation Cup${year ? ` in ${year}` : ''}.`];
     candidates.push({ id: `trophy:${team.teamId}:${trophy.typeId}:${trophy.season ?? ''}`, topic: 'achievement', tier: 3, score, tags: ['achievement', `team:${team.teamId}`], segments });
+  }
+
+  for (const team of teams) {
+    const streak = team.numberOfVictories ?? 0;
+    if (streak >= 3) candidates.push({
+      id: `winning-streak:${team.teamId}`, topic: 'performance', tier: 3,
+      score: 61 + Math.min(streak, 20), tags: ['winning-streak', `team:${team.teamId}`],
+      segments: [`${team.teamName} has won ${streak} consecutive matches.`],
+    });
+
+    const collectedCountries = new Set([...(team.homeFlagLeagueIds ?? []), ...(team.awayFlagLeagueIds ?? [])]
+      .map((leagueId) => getLeagueWorldDetails(leagueId)?.countryId)
+      .filter((countryId): countryId is number => typeof countryId === 'number' && countryId > 0));
+    if (collectedCountries.size > 100) candidates.push({
+      id: `collected-flags:${team.teamId}`, topic: 'collection', tier: 3,
+      score: 65 + Math.min(Math.floor((collectedCountries.size - 100) / 5), 25),
+      tags: ['flag-collection', `team:${team.teamId}`],
+      segments: [`${team.teamName} has collected flags from ${collectedCountries.size} countries.`],
+    });
+
+    const rating = team.powerRating ?? 0;
+    const powerRank = team.powerLeagueRank ?? 0;
+    if (rating >= 1000 || (rating >= 850 && powerRank > 0 && powerRank <= 1000)) {
+      const league = getLeagueWorldDetails(team.leagueId);
+      const scope = league?.countryId
+        ? countrySegment({ countryId: league.countryId, countryName: league.fullName })
+        : league ? getSpecialLeagueLabel(team.leagueId) : null;
+      const segments = asSegments(`${team.teamName} has a PowerRating of ${rating}`);
+      if (powerRank > 0) append(segments, `, ranked #${powerRank} in the PowerRating ranking`, scope ? ' for ' : '', scope);
+      append(segments, '.');
+      candidates.push({
+        id: `power-rating:${team.teamId}`, topic: 'performance', tier: 3,
+        score: 68 + Math.min(Math.floor((rating - 850) / 50), 15) + (powerRank > 0 && powerRank <= 100 ? 7 : 0),
+        tags: ['power-rating', `team:${team.teamId}`], segments,
+      });
+    }
   }
 
   const primaryId = primary?.teamId;
@@ -456,12 +524,12 @@ function buildCandidates(input: {
     const parts: StorySegment[] = [`${managerName} also runs ${otherTeams.length === 1 ? 'a club' : 'clubs'} in `];
     countries.forEach((country, index) => append(parts, country.name === 'Faroe Islands' ? 'the ' : '', country, index < countries.length - 2 ? ', ' : index === countries.length - 2 ? ' and ' : ''));
     append(parts, '.');
-    candidates.push({ id: 'footprint', topic: 'footprint', tier: 4, score: 50, tags: ['footprint'], segments: parts });
+    candidates.push({ id: 'footprint', topic: 'footprint', tier: 3, score: 48 + Math.min(countries.length * 3, 12), tags: ['footprint'], segments: parts });
   }
 
   if (!otherTeams.length) {
     const youth = teams.find((team) => team.youthTeamName);
-    if (youth?.youthTeamName) candidates.push({ id: `youth:${youth.teamId}`, topic: 'colour', tier: 5, score: 25, tags: ['youth', `team:${youth.teamId}`], segments: [`${youth.teamName} also has a youth side, ${youth.youthTeamName}.`] });
+    if (youth?.youthTeamName) candidates.push({ id: `youth:${youth.teamId}`, topic: 'colour', tier: 3, score: 25, tags: ['youth', `team:${youth.teamId}`], segments: [`${youth.teamName} also has a youth side, ${youth.youthTeamName}.`] });
   }
 
   return candidates;
@@ -485,7 +553,7 @@ export function selectStoryCandidates(candidates: StoryCandidate[], managerId: n
   const canUseSupportingFact = selected.length < target || (exceptional && selected.length < cap);
   if (canUseSupportingFact) {
     const supporting = pool.find((candidate) => candidate !== primary && candidate.topic !== 'primary-club'
-      && (!exceptional || selected.length < target || (candidate.topic === 'achievement' && candidate.score >= 65))
+      && (!exceptional || selected.length < target || candidate.score >= 80)
       && !candidateConflicts(candidate, selected));
     if (supporting) selected.push(supporting);
   }
@@ -504,6 +572,7 @@ export function composeManagerStory(input: {
     roles: input.nationalTeamRoles,
     teams: input.teams,
     tournamentTeam: input.tournamentTeam,
+    dateKey: input.dateKey,
   });
   const selected = selectStoryCandidates(candidates, input.managerId, input.dateKey, input.targetSentences, input.maxSentences);
   return {

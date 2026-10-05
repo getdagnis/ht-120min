@@ -1755,10 +1755,11 @@ export const TournamentView: React.FC<{ initialData?: TournamentInitialData }> =
     [],
   );
 
+  const editTournamentId = tournament?.id;
   const invalidateAfterEdit = useCallback(async (): Promise<boolean> => {
-    if (!tournament?.id) return false;
+    if (!editTournamentId) return false;
     try {
-      await invalidateTournamentData(tournament.id, readLocalStorage(`admin_pw_${slug}`) || '');
+      await invalidateTournamentData(editTournamentId, readLocalStorage(`admin_pw_${slug}`) || '');
       return true;
     } catch (error) {
       // The write already succeeded. Keep the local result and explain the
@@ -1769,12 +1770,12 @@ export const TournamentView: React.FC<{ initialData?: TournamentInitialData }> =
       );
       return false;
     }
-  }, [tournament?.id, slug, alert]);
+  }, [editTournamentId, slug, alert]);
 
   const hydratePrivateData = useCallback(
     async (adminPassword = '') => {
-      if (!tournament?.id) return false;
-      const result = await loadTournamentPrivateData(tournament.id, adminPassword);
+      if (!editTournamentId) return false;
+      const result = await loadTournamentPrivateData(editTournamentId, adminPassword);
       if (result.settings) {
         setTournament((current) => (current ? { ...current, ...result.settings } : current));
         setShowEditEmail(Boolean(result.settings.admin_email));
@@ -1789,7 +1790,7 @@ export const TournamentView: React.FC<{ initialData?: TournamentInitialData }> =
       setAnnouncementDismissals(result.dismissals as TournamentAnnouncementDismissal[]);
       return adminPassword ? result.passwordVerified : result.admin;
     },
-    [tournament?.id],
+    [editTournamentId],
   );
 
   const fetchData = useCallback(
@@ -2105,18 +2106,22 @@ export const TournamentView: React.FC<{ initialData?: TournamentInitialData }> =
   const refreshedInitialLiveRef = useRef(false);
   useEffect(() => {
     if (!initialData || refreshedInitialLiveRef.current) return;
-    refreshedInitialLiveRef.current = true;
-    void fetchPresenceOnly();
-    if (
-      rounds.some((round) =>
-        round.matches.some(
-          (match) =>
-            !match.completed && match.ht_match_id && match.match_date && match.match_date.getTime() <= Date.now(),
-        ),
-      )
-    ) {
-      void fetchFixturesOnly();
-    }
+    const timer = window.setTimeout(() => {
+      if (refreshedInitialLiveRef.current) return;
+      refreshedInitialLiveRef.current = true;
+      void fetchPresenceOnly();
+      if (
+        rounds.some((round) =>
+          round.matches.some(
+            (match) =>
+              !match.completed && match.ht_match_id && match.match_date && match.match_date.getTime() <= Date.now(),
+          ),
+        )
+      ) {
+        void fetchFixturesOnly();
+      }
+    }, 0);
+    return () => window.clearTimeout(timer);
   }, [initialData, fetchPresenceOnly, fetchFixturesOnly, rounds]);
 
   const fetchPendingJoinData = useCallback(
@@ -2151,7 +2156,6 @@ export const TournamentView: React.FC<{ initialData?: TournamentInitialData }> =
       setModalLoading(false);
     },
     [
-      router,
       setIsConnecting,
       setJoinError,
       setModalLoading,
@@ -2326,33 +2330,35 @@ export const TournamentView: React.FC<{ initialData?: TournamentInitialData }> =
       hasLoadedTournamentRef.current = true;
       localStorage.setItem('last_viewed_tournament_id', String(initialData.tournament.id));
       const initialTournament = initialData.tournament as unknown as Tournament;
-      setEditName(initialTournament.name);
-      setEditIsPrivate(initialTournament.is_private);
-      setEditChppOnlyJoin(initialTournament.chpp_only_join);
-      setEditLeagueCategory(initialTournament.league_category || 'male');
-      setEditRegistrationType(normalizeTournamentRegistrationType(initialTournament.registration_type));
-      setEditCountryLimit(
-        normalizeLeagueLimit(initialTournament.country_limit, initialTournament.country_limit_format ?? 'league_id'),
-      );
-      setScheduleSetup(initialTournament.schedule_mode === 'manual' ? 'manual' : 'generated');
-      setScheduleMode(normalizeGeneratedScheduleMode(initialTournament.schedule_mode));
-      const storedStartSlot = initialTournament.schedule_start_slot
-        ? buildCalendarSlots(new Date(), 160).find(
-            (slot) => slot.nominalDate.toISOString() === initialTournament.schedule_start_slot,
-          )
-        : null;
-      setScheduleStartSlotId(storedStartSlot?.id || '');
-      setIsTest(initialTournament.is_test || false);
-      setShowEditDescription(initialTournament.show_description);
-      setEditDescription(initialTournament.description || '');
-      setEditForumId(initialTournament.forum_id ? String(initialTournament.forum_id) : '');
-      setEditMaxTeams(initialTournament.max_teams || null);
-      setEditRegistrationOpen(!initialTournament.registration_closed_at);
-      setEditAllowReserveRegistration(initialTournament.allow_reserve_registration !== false);
-      setIncludeWeek15WeekendFriendly(false);
-      setIncludeWeek15WeekendFriendlyForReschedule(Boolean(initialTournament.include_week15_weekend_friendly));
-      setEditIsFeatured(Boolean(initialTournament.is_featured));
-      return;
+      const timer = window.setTimeout(() => {
+        setEditName(initialTournament.name);
+        setEditIsPrivate(initialTournament.is_private);
+        setEditChppOnlyJoin(initialTournament.chpp_only_join);
+        setEditLeagueCategory(initialTournament.league_category || 'male');
+        setEditRegistrationType(normalizeTournamentRegistrationType(initialTournament.registration_type));
+        setEditCountryLimit(
+          normalizeLeagueLimit(initialTournament.country_limit, initialTournament.country_limit_format ?? 'league_id'),
+        );
+        setScheduleSetup(initialTournament.schedule_mode === 'manual' ? 'manual' : 'generated');
+        setScheduleMode(normalizeGeneratedScheduleMode(initialTournament.schedule_mode));
+        const storedStartSlot = initialTournament.schedule_start_slot
+          ? buildCalendarSlots(new Date(), 160).find(
+              (slot) => slot.nominalDate.toISOString() === initialTournament.schedule_start_slot,
+            )
+          : null;
+        setScheduleStartSlotId(storedStartSlot?.id || '');
+        setIsTest(initialTournament.is_test || false);
+        setShowEditDescription(initialTournament.show_description);
+        setEditDescription(initialTournament.description || '');
+        setEditForumId(initialTournament.forum_id ? String(initialTournament.forum_id) : '');
+        setEditMaxTeams(initialTournament.max_teams || null);
+        setEditRegistrationOpen(!initialTournament.registration_closed_at);
+        setEditAllowReserveRegistration(initialTournament.allow_reserve_registration !== false);
+        setIncludeWeek15WeekendFriendly(false);
+        setIncludeWeek15WeekendFriendlyForReschedule(Boolean(initialTournament.include_week15_weekend_friendly));
+        setEditIsFeatured(Boolean(initialTournament.is_featured));
+      }, 0);
+      return () => window.clearTimeout(timer);
     }
     if (hasLoadedTournamentRef.current) return;
     hasLoadedTournamentRef.current = true;
@@ -2364,9 +2370,12 @@ export const TournamentView: React.FC<{ initialData?: TournamentInitialData }> =
 
   useEffect(() => {
     if (!isHydrationReady || (!currentHtUserId && !readLocalStorage(`admin_pw_${slug}`))) return;
-    void hydratePrivateData(readLocalStorage(`admin_pw_${slug}`) || '').catch((error) => {
-      console.error('Could not load private tournament data:', error);
-    });
+    const timer = window.setTimeout(() => {
+      void hydratePrivateData(readLocalStorage(`admin_pw_${slug}`) || '').catch((error) => {
+        console.error('Could not load private tournament data:', error);
+      });
+    }, 0);
+    return () => window.clearTimeout(timer);
   }, [currentHtUserId, hydratePrivateData, isHydrationReady, slug]);
 
   useEffect(() => {

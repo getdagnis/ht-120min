@@ -107,7 +107,6 @@ export const Layout: React.FC<LayoutProps> = ({ children, excludeAnalytics = fal
     managerName,
     profile,
     activeTournaments,
-    finishedTournaments,
     organizerTournaments,
     testTournaments,
     logout,

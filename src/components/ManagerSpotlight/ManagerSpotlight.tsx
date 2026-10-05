@@ -75,7 +75,7 @@ export const ManagerSpotlight: React.FC<ManagerSpotlightProps> = ({ spotlight, t
   return (
     <ReusableWidget title="Meet the manager" icon={<UsersThree size={20} weight="bold" />} className={styles.widget}>
       <div className={styles.identity}>
-        <Avatar avatar={spotlight.avatar} variant="circle" size={52} className={styles.avatar} />
+        <Avatar avatar={spotlight.avatar} variant="full" size={52} className={styles.avatar} />
         <div className={styles.identityDetails}>
           <a
             href={managerHref(spotlight.managerId)}
@@ -84,12 +84,11 @@ export const ManagerSpotlight: React.FC<ManagerSpotlightProps> = ({ spotlight, t
             className={styles.managerName}
           >
             {spotlight.managerName}
-            <ArrowUpRight size={14} weight="bold" aria-hidden="true" />
           </a>
           <div className={styles.managerMeta}>
             <span>{location.map(renderSegment)}</span>
           </div>
-          {spotlight.language && <span className={styles.language}>Hattrick language: {spotlight.language}</span>}
+          {spotlight.language && <span className={styles.language}>HT language: {spotlight.language}</span>}
         </div>
       </div>
 
@@ -110,7 +109,6 @@ export const ManagerSpotlight: React.FC<ManagerSpotlightProps> = ({ spotlight, t
             details.push(
               <React.Fragment key="country">
                 {countryName}
-                {'\u00a0'}
                 <CountryFlag countryId={team.countryId} countryName={countryName} />
               </React.Fragment>,
             );
@@ -123,8 +121,8 @@ export const ManagerSpotlight: React.FC<ManagerSpotlightProps> = ({ spotlight, t
 
           return (
             <section key={team.teamId} className={styles.clubSection}>
-              {team.isTournamentTeam && <h3 className={styles.clubHeading}>Participating in tournament with:</h3>}
-              {team.isPrimary && <h3 className={styles.clubHeading}>Main club:</h3>}
+              {team.isTournamentTeam && <h3 className={styles.clubHeading}>Participating in this tournament with:</h3>}
+              {team.isPrimary && <h3 className={styles.clubHeading}>Other clubs:</h3>}
               <div className={`${styles.team} ${team.isTournamentTeam ? styles.tournamentTeam : ''}`}>
                 <img src={team.logoUrl || '/matchKitLarge.png'} alt="" className={styles.teamLogo} />
                 <div className={styles.teamDetails}>
