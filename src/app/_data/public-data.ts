@@ -9,6 +9,7 @@ import { getMatchDateForRound } from '../../utils/match-schedule.js';
 import { compareFixtures } from '../../utils/fixture-sorting';
 import { calculateSeasonSlotStandings, type SeasonSlotAssignment } from '../../utils/standings';
 import { isCurrentParticipantTeam } from '../../utils/team-state.js';
+import { attachFixtureRatings, PUBLIC_FIXTURE_RATINGS_FIELDS, type SharedFixtureRatings } from '../../types/fixture-ratings.js';
 import {
   buildManagerSpotlight,
   getUtcDateKey,
@@ -146,6 +147,11 @@ export async function buildTournamentInitialData(tournament: Record<string, unkn
   ]);
 
   if ('error' in matchesResult && matchesResult.error) throw matchesResult.error;
+  const matchIds = ((matchesResult.data || []) as { id: string }[]).map((match) => match.id);
+  const sharedRatingsResult = matchIds.length
+    ? await supabase.from('fixture_predicted_rating_shares').select(PUBLIC_FIXTURE_RATINGS_FIELDS).in('fixture_id', matchIds)
+    : { data: [], error: null };
+  if (sharedRatingsResult.error) throw sharedRatingsResult.error;
   let profileRows = profilesResult.data;
   if ('error' in profilesResult && profilesResult.error && userIds.length) {
     let fallbackProfiles = await supabase
@@ -179,7 +185,10 @@ export async function buildTournamentInitialData(tournament: Record<string, unkn
   });
   // Never retain a changing live score in the 60-second cache. The live hook
   // supplies current observations separately; completed results remain stable.
-  const rawMatches = ((matchesResult.data || []) as Record<string, unknown>[]).map((match) =>
+  const rawMatches = attachFixtureRatings(
+    (matchesResult.data || []) as Record<string, unknown>[],
+    (sharedRatingsResult.data || []) as unknown as SharedFixtureRatings[],
+  ).map((match) =>
     !match.completed
       ? { ...match, home_goals: null, away_goals: null, match_event_details: null,
           total_minutes: 90, went_120: false,

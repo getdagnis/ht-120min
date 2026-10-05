@@ -15,6 +15,7 @@ import { useClientNow } from '../../hooks/useHydratedBrowserState';
 import type { AppgOutcome } from '../../utils/appg';
 import type { MatchEventDetails } from '../../../shared/match-events';
 import type { LiveMatchClock } from '../../../shared/live-match';
+import type { SharedFixtureRatings } from '../../types/fixture-ratings';
 import styles from '../../legacy-pages/Public/TournamentView.module.sass';
 
 export interface FixtureMatch {
@@ -40,6 +41,7 @@ export interface FixtureMatch {
   away_match_kit_url?: string | null;
   status: 'not_arranged' | 'arranged' | 'ongoing' | 'misarranged' | 'finished';
   ht_match_id: number | null;
+  shared_ratings?: SharedFixtureRatings[];
   match_type: number | null;
   match_date?: Date;
   scheduled_for?: string | null;
@@ -106,6 +108,7 @@ interface FixturesViewProps {
   } | null;
   isRefreshingFixtures: boolean;
   handleRefreshFixtures: () => Promise<void>;
+  onRatingsChanged: () => Promise<void>;
   copied: Record<string, boolean>;
   setCopied: (val: (prev: Record<string, boolean>) => Record<string, boolean>) => void;
   warnings: {
@@ -152,38 +155,32 @@ const fixtureChallengePreviewMode =
     ? process.env.NEXT_PUBLIC_FIXTURE_CHALLENGE_PREVIEW
     : null;
 
-const MOCK_RATINGS_PREVIEW = {
-  home: {
-    formation: '4-5-1',
-    tactic: 'Pressing',
-    tacticSkill: 'Excellent (8)',
-    setPieces: 'Formidable (9)',
+const SKILL_NAMES = ['non-existent', 'disastrous', 'wretched', 'poor', 'weak', 'inadequate', 'passable',
+  'solid', 'excellent', 'formidable', 'outstanding', 'brilliant', 'magnificent', 'world class',
+  'supernatural', 'titanic', 'extra-terrestrial', 'mythical', 'magical', 'utopian', 'divine'];
+
+function skillDisplay(value: number | null) {
+  if (value === null) return '—';
+  const name = SKILL_NAMES[value];
+  return name ? `${name[0].toUpperCase()}${name.slice(1)} (${value})` : String(value);
+}
+
+function ratingsDisplay(row: SharedFixtureRatings | undefined) {
+  if (!row) return null;
+  const format = (value: number) => Number(value).toFixed(2);
+  return {
+    fetchedAt: row.fetched_at,
+    formation: row.formation,
+    tactic: row.tactic,
+    tacticSkill: skillDisplay(row.tactic_skill),
+    setPieces: skillDisplay(row.set_pieces_skill),
     ratings: {
-      leftAttack: '6.75',
-      centreAttack: '7.50',
-      rightAttack: '6.25',
-      midfield: '9.00',
-      leftDefence: '8.50',
-      centreDefence: '9.25',
-      rightDefence: '8.75',
+      leftAttack: format(row.left_attack), centreAttack: format(row.centre_attack), rightAttack: format(row.right_attack),
+      midfield: format(row.midfield), leftDefence: format(row.left_defence),
+      centreDefence: format(row.centre_defence), rightDefence: format(row.right_defence),
     },
-  },
-  away: {
-    formation: '3-5-2',
-    tactic: 'Attack in the middle',
-    tacticSkill: 'Solid (7)',
-    setPieces: 'Outstanding (10)',
-    ratings: {
-      leftAttack: '8.25',
-      centreAttack: '9.50',
-      rightAttack: '7.75',
-      midfield: '7.50',
-      leftDefence: '7.25',
-      centreDefence: '8.00',
-      rightDefence: '7.00',
-    },
-  },
-};
+  };
+}
 
 export const FixturesView: React.FC<FixturesViewProps> = ({
   rounds,
@@ -197,6 +194,7 @@ export const FixturesView: React.FC<FixturesViewProps> = ({
   tournament,
   isRefreshingFixtures,
   handleRefreshFixtures,
+  onRatingsChanged,
   copied,
   setCopied,
   warnings,
@@ -227,7 +225,6 @@ export const FixturesView: React.FC<FixturesViewProps> = ({
   };
 
   const nowMs = useClientNow(30_000);
-  const [localRatingsPreviewEnabled, setLocalRatingsPreviewEnabled] = React.useState(false);
   const { messages } = useLocale();
   const [manualVisibleRoundsCount, setManualVisibleRoundsCount] = React.useState<number | null>(null);
   const [selectedTeamId, setSelectedTeamId] = React.useState<string | null>(null);
@@ -262,10 +259,6 @@ export const FixturesView: React.FC<FixturesViewProps> = ({
   const [autoArrangeError, setAutoArrangeError] = React.useState<string | null>(null);
   const [isSeasonMenuOpen, setIsSeasonMenuOpen] = React.useState(false);
   const seasonMenuRef = React.useRef<HTMLDivElement | null>(null);
-  React.useEffect(() => {
-    const localHost = ['localhost', '127.0.0.1', '::1', '[::1]'].includes(window.location.hostname);
-    setLocalRatingsPreviewEnabled(process.env.NODE_ENV !== 'production' && localHost);
-  }, []);
 
   React.useEffect(() => {
     if (!isSeasonMenuOpen) return;
@@ -565,15 +558,15 @@ export const FixturesView: React.FC<FixturesViewProps> = ({
     [],
   );
 
-  const ratingsPreviewFixtureId = React.useMemo(() => {
-    if (!localRatingsPreviewEnabled || isHistorical || !currentRound) return null;
-    return currentRound.matches.find((match) => {
-      if (selectedTeamId && match.home_team_id !== selectedTeamId && match.away_team_id !== selectedTeamId) return false;
-      if (match.completed || match.status !== 'arranged' || !match.ht_match_id) return false;
-      if (!match.home_team || !match.away_team || match.home_team.active === false || match.away_team.active === false) return false;
-      return resolveMatchDate(currentRound, match).getTime() > nowMs;
-    })?.id || null;
-  }, [currentRound, isHistorical, localRatingsPreviewEnabled, nowMs, resolveMatchDate, selectedTeamId]);
+  const updateRatings = async (fixtureId: string, side: 'home' | 'away', action: 'share' | 'update' | 'remove') => {
+    const response = await fetch('/api/app?route=fixture-ratings', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ fixtureId, side, action }),
+    });
+    const body = await response.json().catch(() => null) as { error?: string } | null;
+    if (!response.ok) throw new Error(body?.error || 'Could not update shared ratings.');
+    await onRatingsChanged();
+  };
 
   const visibleWarnings = React.useMemo(() => {
     const roundStartTimes = rounds.map((round) => {
@@ -1019,10 +1012,26 @@ export const FixturesView: React.FC<FixturesViewProps> = ({
                             onClick: () => openChallengeConfirmation(match.id),
                           }
                         : undefined;
+                    const ratingsEligible = !isHistorical && status === 'arranged' && !match.completed &&
+                      Boolean(match.ht_match_id && match.scheduled_for) && !homeIsBye && !awayIsBye &&
+                      resolveMatchDate(round, match).getTime() > nowMs;
+                    const homeRatings = match.shared_ratings?.find((row) => row.team_id === match.home_team_id &&
+                      Number(row.ht_match_id) === Number(match.ht_match_id));
+                    const awayRatings = match.shared_ratings?.find((row) => row.team_id === match.away_team_id &&
+                      Number(row.ht_match_id) === Number(match.ht_match_id));
+                    const ownHome = ratingsEligible && Boolean(currentHtUserId) &&
+                      Number(match.home_team?.hattrick_user_id) === currentHtUserId;
+                    const ownAway = ratingsEligible && Boolean(currentHtUserId) &&
+                      Number(match.away_team?.hattrick_user_id) === currentHtUserId;
+                    const showRatings = ratingsEligible && (homeRatings || awayRatings || ownHome || ownAway);
                     return (
                       <FixtureCard
                         key={match.id}
-                        ratingsPreview={match.id === ratingsPreviewFixtureId ? MOCK_RATINGS_PREVIEW : undefined}
+                        ratingsPreview={showRatings ? { home: ratingsDisplay(homeRatings), away: ratingsDisplay(awayRatings) } : undefined}
+                        ratingsActions={showRatings ? {
+                          home: ownHome, away: ownAway,
+                          onAction: (side, action) => updateRatings(match.id, side, action),
+                        } : undefined}
                         date={status === 'misarranged' ? '' : isPostponed ? 'POSTPONED' : formattedDate}
                         status={status}
                         liveClock={status === 'ongoing' ? (liveMatch ?? undefined) : undefined}

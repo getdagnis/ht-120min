@@ -6,6 +6,7 @@ import Link from 'next/link';
 import { usePathname, useParams, useRouter, useSearchParams as useNextSearchParams } from 'next/navigation';
 import { supabase } from '../../lib/supabase';
 import { PUBLIC_ROUND_FIELDS, PUBLIC_MATCH_FIELDS } from '../../lib/tournament-public-fields';
+import { attachFixtureRatings, PUBLIC_FIXTURE_RATINGS_FIELDS, type SharedFixtureRatings } from '../../types/fixture-ratings';
 import {
   invalidateTournamentData,
   loadTournamentPrivateData,
@@ -304,6 +305,7 @@ interface MatchWithTeams {
   away_match_kit_url?: string | null;
   status: 'not_arranged' | 'arranged' | 'ongoing' | 'misarranged' | 'finished';
   ht_match_id: number | null;
+  shared_ratings?: SharedFixtureRatings[];
   match_type: number | null;
   next_match_arrange_story?: TournamentMatchArrangeStorySnapshot | null;
   reserve_team_id?: string | null;
@@ -1893,9 +1895,18 @@ export const TournamentView: React.FC<{ initialData?: TournamentInitialData }> =
     }
 
     if (matchesData) {
+      const fixtureIds = (matchesData as { id: string }[]).map((match) => match.id);
+      const { data: ratingRows, error: ratingsError } = fixtureIds.length
+        ? await supabase.from('fixture_predicted_rating_shares').select(PUBLIC_FIXTURE_RATINGS_FIELDS).in('fixture_id', fixtureIds)
+        : { data: [], error: null };
+      if (ratingsError) {
+        console.error('Could not refresh shared fixture ratings:', ratingsError);
+        return;
+      }
+      const matchesWithRatings = attachFixtureRatings(matchesData, (ratingRows || []) as unknown as SharedFixtureRatings[]);
       const newRounds = roundsData.map((r: { created_at: string; id: string; round_number: number }) => ({
         ...r,
-        matches: (matchesData as MatchWithTeams[])
+        matches: (matchesWithRatings as MatchWithTeams[])
           .filter((m) => m.round_id === r.id)
           .map((m) => ({
             ...applyReserveDisplay(m),
@@ -2417,12 +2428,13 @@ export const TournamentView: React.FC<{ initialData?: TournamentInitialData }> =
 
   const isNewsTab = activeTab === 'guestbook' || activeTab === 'news';
 
-  const handleRefreshFixtures = useCallback(async () => {
+  // The timer passes false; only a clicked fixture refresh opts into match-order reads.
+  const handleRefreshFixtures = useCallback(async (manualRatings = false) => {
     if (!tournament || isRefreshingFixtures) return;
     setIsRefreshingFixtures(true);
     try {
       // 1. Refresh fixtures (detect arranged matches, warnings etc.)
-      const response = await fetch(`/api/teams/refresh-fixtures?tournament_id=${tournament.id}`);
+      const response = await fetch(`/api/teams/refresh-fixtures?tournament_id=${tournament.id}${manualRatings ? '&manual_ratings=1' : ''}`);
       if (!response.ok) throw new Error('Failed to refresh fixtures');
       const refreshResult = (await response.json().catch(() => null)) as { linked_match_ids?: number[] } | null;
 
@@ -6006,7 +6018,8 @@ export const TournamentView: React.FC<{ initialData?: TournamentInitialData }> =
             onCollapseAllRounds={collapseAllRounds}
             tournament={tournament}
             isRefreshingFixtures={isRefreshingFixtures}
-            handleRefreshFixtures={handleRefreshFixtures}
+            handleRefreshFixtures={() => handleRefreshFixtures(true)}
+            onRatingsChanged={fetchFixturesOnly}
             copied={copied}
             setCopied={setCopied}
             warnings={warnings}

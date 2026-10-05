@@ -87,6 +87,7 @@ import type { MatchEventDetails } from '../../../shared/match-events.js';
 import type { PersistedScoringMode } from '../../../shared/scoring-profile.js';
 import type { SeasonFixturesSnapshot } from '../../utils/season-fixtures.js';
 import { progressLengthSchedule, recoverLengthRoundOne, repairLengthRound } from './_lib/length-schedule-service.js';
+import { FixtureRatingsError, saveFixtureRatings } from './_lib/fixture-ratings.js';
 
 const COMMENT_SELECT = 'id, season_id, team_id, team_name, manager_name, comment, created_at';
 const NEWS_COMMENT_SELECT = 'id, post_id, hattrick_user_id, author_name, content, created_at';
@@ -1563,6 +1564,29 @@ async function handleFixtureChallenge(req: VercelRequest, res: VercelResponse) {
     trainingMatchId: sent.trainingMatchId,
     message: 'Challenge sent. Waiting for the opponent to accept.',
   });
+}
+
+async function handleFixtureRatings(req: VercelRequest, res: VercelResponse) {
+  if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed.' });
+  const fixtureId = readString(req.body?.fixtureId);
+  const side = readString(req.body?.side);
+  const action = readString(req.body?.action);
+  if (!fixtureId || !['home', 'away'].includes(side) || !['share', 'update', 'remove'].includes(action)) {
+    return res.status(400).json({ error: 'Invalid fixture ratings request.' });
+  }
+  const secret = getAppSessionSecret();
+  const session = secret ? verifyAppSessionCookie(req.headers.cookie, secret) : null;
+  if (!session) return res.status(401).json({ error: 'Please sign in with Hattrick first.' });
+  try {
+    const rating = await saveFixtureRatings(
+      getServiceSupabase(), fixtureId, side as 'home' | 'away', session.userId,
+      action as 'share' | 'update' | 'remove',
+    );
+    return res.status(200).json({ rating });
+  } catch (error) {
+    if (error instanceof FixtureRatingsError) return res.status(error.status).json({ error: error.message });
+    throw error;
+  }
 }
 
 async function handleFixtureChallengeConsent(req: VercelRequest, res: VercelResponse) {
@@ -3172,6 +3196,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         return await handleAdminAddReserveTeam(req, res);
       case 'fixture-challenge':
         return await handleFixtureChallenge(req, res);
+      case 'fixture-ratings':
+        return await handleFixtureRatings(req, res);
       case 'auto-arrange-preferences':
         return await handleAutoArrangePreferences(req, res);
       case 'backfill-round-matchdetails':

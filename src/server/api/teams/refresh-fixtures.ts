@@ -1,6 +1,9 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { getServiceSupabase, getSupabase } from '../_lib/supabase.js';
 import { getAuthHeader } from '../_lib/chpp-auth.js';
+import { getAppSessionSecret, verifyAppSessionCookie } from '../_lib/app-session.js';
+import { loadTournamentAccess } from '../_lib/tournament-access.js';
+import { refreshSharedFixtureRatings } from '../_lib/fixture-ratings.js';
 import { readChppTag, teamDetailsKitForMatchSide } from '../_lib/chpp-xml.js';
 import { fetchFixtureHomeAwayKits } from '../_lib/chpp-fixture-kits.js';
 import {
@@ -1878,7 +1881,20 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       await progressLengthSchedule(supabase, String(tournament_id), Number(tournament.season || 1));
     }
 
-    return res.status(200).json({ status: 'Refresh successful', hattrick_context: hattrickContext, linked_match_ids: linkedMatchIds });
+    let ratingsRefreshed = 0;
+    if (String(req.query.manual_ratings || '') === '1') {
+      const secret = getAppSessionSecret();
+      const session = secret ? verifyAppSessionCookie(req.headers.cookie, secret) : null;
+      if (session) {
+        const participant = teams.some((team) => team.active && !team.is_placeholder && Number(team.hattrick_user_id) === session.userId);
+        const access = participant ? null : await loadTournamentAccess(supabase, String(tournament_id), session.userId);
+        if (participant || access?.canManageOperations) {
+          ratingsRefreshed = await refreshSharedFixtureRatings(supabase, String(tournament_id), upcomingRound.id);
+        }
+      }
+    }
+
+    return res.status(200).json({ status: 'Refresh successful', hattrick_context: hattrickContext, linked_match_ids: linkedMatchIds, ratings_refreshed: ratingsRefreshed });
   } catch (error) {
     console.error(error);
     return res.status(500).json({ error: error instanceof Error ? error.message : 'An unknown error occurred' });

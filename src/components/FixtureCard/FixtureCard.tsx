@@ -49,12 +49,18 @@ interface FixtureCardProps {
     onClick: () => void;
   };
   ratingsPreview?: {
-    home: RatingsPreviewTeam;
-    away: RatingsPreviewTeam;
+    home: RatingsPreviewTeam | null;
+    away: RatingsPreviewTeam | null;
+  };
+  ratingsActions?: {
+    home: boolean;
+    away: boolean;
+    onAction: (side: 'home' | 'away', action: 'share' | 'update' | 'remove') => Promise<void>;
   };
 }
 
 interface RatingsPreviewTeam {
+  fetchedAt: string;
   formation: string;
   tactic: string;
   tacticSkill: string;
@@ -97,16 +103,19 @@ export const FixtureCard: React.FC<FixtureCardProps> = ({
   appgOutcome,
   challengeAction,
   ratingsPreview,
+  ratingsActions,
 }) => {
   const [nowMs, setNowMs] = React.useState(() => Date.now());
-  const [sharedRatings, setSharedRatings] = React.useState<Record<'home' | 'away', boolean>>({
-    home: false,
-    away: false,
-  });
-  const [ratingsLastUpdatedAt, setRatingsLastUpdatedAt] = React.useState<Record<'home' | 'away', number | null>>({
-    home: null,
-    away: null,
-  });
+  const [busySide, setBusySide] = React.useState<'home' | 'away' | null>(null);
+  const [ratingsError, setRatingsError] = React.useState<string | null>(null);
+  const act = async (side: 'home' | 'away', action: 'share' | 'update' | 'remove') => {
+    if (!ratingsActions || busySide) return;
+    setBusySide(side);
+    setRatingsError(null);
+    try { await ratingsActions.onAction(side, action); }
+    catch (error) { setRatingsError(error instanceof Error ? error.message : 'Could not update shared ratings.'); }
+    finally { setBusySide(null); }
+  };
   React.useEffect(() => {
     if (status !== 'ongoing') return;
     const timer = window.setInterval(() => {
@@ -287,16 +296,16 @@ export const FixtureCard: React.FC<FixtureCardProps> = ({
         </div>
       </div>
       {ratingsPreview && (
-        <section className={styles.ratingsPreview} aria-label="Shared predicted ratings preview">
-          {(sharedRatings.home || sharedRatings.away) && (
+        <section className={styles.ratingsPreview} aria-label="Shared predicted ratings">
+          {(ratingsPreview.home || ratingsPreview.away) && (
             <div className={styles.ratingsPreviewTitle}>Predicted ratings</div>
           )}
           {(['home', 'away'] as const).map((side) => {
             const team = side === 'home' ? homeTeam : awayTeam;
             const preview = ratingsPreview[side];
-            const isShared = sharedRatings[side];
-            const updatedAt = ratingsLastUpdatedAt[side];
-            const sectorRows: Array<Array<[string, string]>> = [
+            const canManage = ratingsActions?.[side] || false;
+            if (!preview && !canManage) return <div key={side} className={styles.ratingsSide} />;
+            const sectorRows: Array<Array<[string, string]>> = preview ? [
               [
                 ['Left attack', preview.ratings.leftAttack],
                 ['Center attack', preview.ratings.centreAttack],
@@ -308,7 +317,7 @@ export const FixtureCard: React.FC<FixtureCardProps> = ({
                 ['Center defence', preview.ratings.centreDefence],
                 ['Right defence', preview.ratings.rightDefence],
               ],
-            ];
+            ] : [];
             return (
               <div
                 key={side}
@@ -318,7 +327,7 @@ export const FixtureCard: React.FC<FixtureCardProps> = ({
                   <span>{side === 'home' ? 'Home' : 'Away'}</span>
                   <strong>{team.name}</strong>
                 </div>
-                {isShared ? (
+                {preview ? (
                   <>
                     <div className={styles.ratingsPitch}>
                       {sectorRows.map((row, rowIndex) => (
@@ -346,34 +355,30 @@ export const FixtureCard: React.FC<FixtureCardProps> = ({
                         side === 'away' ? styles.ratingsPreviewActionsAway : ''
                       }`}
                     >
-                      <button
+                      {canManage && <button
                         type="button"
-                        onClick={() =>
-                          setRatingsLastUpdatedAt((previous) => ({ ...previous, [side]: Date.now() }))
-                        }
+                        disabled={busySide !== null}
+                        onClick={() => void act(side, 'update')}
                       >
                         Update
-                      </button>
-                      <button
+                      </button>}
+                      {canManage && <button
                         type="button"
                         className={styles.ratingsPreviewRemove}
-                        onClick={() => {
-                          setSharedRatings((previous) => ({ ...previous, [side]: false }));
-                          setRatingsLastUpdatedAt((previous) => ({ ...previous, [side]: null }));
-                        }}
+                        disabled={busySide !== null}
+                        onClick={() => void act(side, 'remove')}
                       >
                         Remove
-                      </button>
+                      </button>}
                       <span>
                         Last updated:{' '}
-                        {updatedAt === null
-                          ? '—'
-                          : new Intl.DateTimeFormat(undefined, {
+                        {new Intl.DateTimeFormat('en-GB', {
                               day: '2-digit',
                               month: 'short',
                               hour: '2-digit',
                               minute: '2-digit',
-                            }).format(updatedAt)}
+                              timeZone: 'Europe/Riga',
+                            }).format(new Date(preview.fetchedAt))}
                       </span>
                     </div>
                   </>
@@ -386,23 +391,21 @@ export const FixtureCard: React.FC<FixtureCardProps> = ({
                     >
                       <button
                         type="button"
-                        onClick={() => {
-                          setSharedRatings((previous) => ({ ...previous, [side]: true }));
-                          setRatingsLastUpdatedAt((previous) => ({ ...previous, [side]: Date.now() }));
-                        }}
+                        disabled={busySide !== null}
+                        onClick={() => void act(side, 'share')}
                       >
                         Share predicted ratings
                       </button>
                     </div>
                     <p className={styles.ratingsShareHelper}>
-                      Share predicted ratings with your opponent. Once shared, they update automatically whenever
-                      this fixture is updated.
+                      Share predicted ratings with your opponent. Your shared snapshot updates when you click Refresh fixtures.
                     </p>
                   </div>
                 )}
               </div>
             );
           })}
+          {ratingsError && <p role="alert" className={styles.ratingsError}>{ratingsError}</p>}
         </section>
       )}
     </div>
