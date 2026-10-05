@@ -63,20 +63,20 @@ test('Latvia display is canonicalized from localized CHPP country values', () =>
 });
 
 test('Latvia flag resolves from either CHPP CountryID or localized country name', () => {
-  assert.equal(getFlagUrl('Lettonia', 48), 'https://www.hattrick.org/Img/flags/53.png');
-  assert.equal(getFlagUrl('Latvija'), 'https://www.hattrick.org/Img/flags/53.png');
-  assert.equal(getFlagUrl(undefined, 48), 'https://www.hattrick.org/Img/flags/53.png');
+  assert.equal(getFlagUrl('Lettonia', 48), 'https://flagcdn.com/lv.svg');
+  assert.equal(getFlagUrl('Latvija'), 'https://flagcdn.com/lv.svg');
+  assert.equal(getFlagUrl(undefined, 48), 'https://flagcdn.com/lv.svg');
 });
 
 test('country flags resolve from CountryID even when CHPP returns localized names', () => {
-  assert.equal(getFlagUrl('Croazia', 42), 'https://www.hattrick.org/Img/flags/58.png');
-  assert.equal(getFlagUrl('Polonia', 26), 'https://www.hattrick.org/Img/flags/24.png');
-  assert.equal(getFlagUrl('Repubblica Ceca', 46), 'https://www.hattrick.org/Img/flags/52.png');
-  assert.equal(getFlagUrl('Cuba', 93), 'https://www.hattrick.org/Img/flags/147.png');
+  assert.equal(getFlagUrl('Croazia', 42), 'https://flagcdn.com/hr.svg');
+  assert.equal(getFlagUrl('Polonia', 26), 'https://flagcdn.com/pl.svg');
+  assert.equal(getFlagUrl('Repubblica Ceca', 46), 'https://flagcdn.com/cz.svg');
+  assert.equal(getFlagUrl('Cuba', 93), 'https://flagcdn.com/cu.svg');
 });
 
-test('Guam country ID resolves to Hattrick flag league asset 154', () => {
-  assert.equal(getFlagUrl('Guam', 179), 'https://www.hattrick.org/Img/flags/154.png');
+test('Guam country ID resolves to its FlagCDN ISO asset', () => {
+  assert.equal(getFlagUrl('Guam', 179), 'https://flagcdn.com/gu.svg');
 });
 
 test('only countryless leagues render an additional Hattrick league flag', () => {

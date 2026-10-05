@@ -193,7 +193,8 @@ export function getCountryFlagUrl(countryId?: number | null, countryName?: strin
   const country =
     getCountryWorldDetails(countryId) ??
     Object.values(HATTRICK_WORLD_DETAILS).find((entry) => entry.fullName === canonicalCountryName);
-  return country ? `https://www.hattrick.org/Img/flags/${country.leagueId}.png` : null;
+  const isoCode = country?.isoCode?.toLowerCase();
+  return isoCode ? `https://flagcdn.com/${isoCode}.svg` : null;
 }
 
 export function getLeagueFlagUrl(leagueId?: number | null) {
