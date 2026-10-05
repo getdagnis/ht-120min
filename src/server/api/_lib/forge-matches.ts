@@ -10,6 +10,7 @@ export interface ForgeFixtureTeam {
   htTeamId: number | null;
   active: boolean;
   isPlaceholder: boolean;
+  autoArrangeEnabled?: boolean | null;
 }
 
 export interface ForgeFixtureRecord {

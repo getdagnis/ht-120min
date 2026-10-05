@@ -3,8 +3,10 @@ import { SectionCard } from '../../components/Card/SectionCard';
 import { Button } from '../../components/Button/Button';
 import { FixtureCard } from '../../components/FixtureCard/FixtureCard';
 import { Modal } from '../../components/Modal/Modal';
-import { ArrowClockwise, ArrowRight, CaretDown, CopySimple, Check } from 'phosphor-react';
+import { ArrowClockwise, ArrowRight, CaretDown, CopySimple, Check, Question } from 'phosphor-react';
 import { Tooltip } from '../Tooltip/Tooltip';
+import { Switch } from '../Switch/Switch';
+import { useLocale } from '../../i18n/LocaleProvider';
 import { calculateMatchDate } from '../../utils/ht-data';
 import { getHattrickWeekDetails } from '../../utils/hattrick-calendar';
 import { getImportedFixtureRoundPeriod } from '../../utils/manual-rounds';
@@ -185,16 +187,6 @@ export const FixturesView: React.FC<FixturesViewProps> = ({
     venue?: 'home' | 'away';
     reason?: string;
     sent?: boolean;
-    consent?: {
-      autoSendChallenge: boolean;
-      autoAcceptChallenge: boolean;
-      consentedAt: string | null;
-      updatedAt: string | null;
-    };
-    challengeManagement?: {
-      status: 'enabled' | 'reauthorization_required' | 'unknown';
-      supported: boolean;
-    };
   };
   type FixtureChallengeSelection = {
     matchType: 'cup_rules' | 'normal';
@@ -202,6 +194,7 @@ export const FixturesView: React.FC<FixturesViewProps> = ({
   };
 
   const nowMs = useClientNow(30_000);
+  const { messages } = useLocale();
   const [manualVisibleRoundsCount, setManualVisibleRoundsCount] = React.useState<number | null>(null);
   const [selectedTeamId, setSelectedTeamId] = React.useState<string | null>(null);
   const [isTeamFilterOpen, setIsTeamFilterOpen] = React.useState(false);
@@ -223,10 +216,16 @@ export const FixturesView: React.FC<FixturesViewProps> = ({
   const [challengeMatchId, setChallengeMatchId] = React.useState<string | null>(null);
   const [challengeError, setChallengeError] = React.useState<string | null>(null);
   const [isSendingChallenge, setIsSendingChallenge] = React.useState(false);
-  const [isSavingChallengeConsent, setIsSavingChallengeConsent] = React.useState(false);
   const [challengeSuccess, setChallengeSuccess] = React.useState<string | null>(null);
-  const [challengeConsentError, setChallengeConsentError] = React.useState<string | null>(null);
   const [challengeSelection, setChallengeSelection] = React.useState<FixtureChallengeSelection | null>(null);
+  const [autoArrangePreferences, setAutoArrangePreferences] = React.useState<Array<{
+    teamId: string;
+    teamName: string;
+    enabled: boolean;
+  }>>([]);
+  const [autoArrangeLoading, setAutoArrangeLoading] = React.useState(false);
+  const [autoArrangeSavingTeamId, setAutoArrangeSavingTeamId] = React.useState<string | null>(null);
+  const [autoArrangeError, setAutoArrangeError] = React.useState<string | null>(null);
   const [isSeasonMenuOpen, setIsSeasonMenuOpen] = React.useState(false);
   const seasonMenuRef = React.useRef<HTMLDivElement | null>(null);
   React.useEffect(() => {
@@ -246,6 +245,45 @@ export const FixturesView: React.FC<FixturesViewProps> = ({
       document.removeEventListener('pointerdown', handlePointerDown);
     };
   }, [isSeasonMenuOpen]);
+
+  React.useEffect(() => {
+    if (isHistorical || !tournament?.id || !season || !currentHtUserId) {
+      setAutoArrangePreferences([]);
+      setAutoArrangeLoading(false);
+      setAutoArrangeError(null);
+      return;
+    }
+    let cancelled = false;
+    const loadPreferences = async () => {
+      setAutoArrangeLoading(true);
+      setAutoArrangeError(null);
+      try {
+        const params = new URLSearchParams({
+          route: 'auto-arrange-preferences',
+          tournamentId: tournament.id,
+          seasonNumber: String(season),
+        });
+        const response = await fetch(`/api/app?${params.toString()}`, { credentials: 'include' });
+        const payload = (await response.json()) as {
+          preferences?: Array<{ teamId: string; teamName: string; enabled: boolean }>;
+          error?: string;
+        };
+        if (!response.ok) throw new Error(payload.error || 'Could not load auto-arrange preferences.');
+        if (!cancelled) setAutoArrangePreferences(payload.preferences || []);
+      } catch (error) {
+        if (!cancelled) {
+          setAutoArrangePreferences([]);
+          setAutoArrangeError(error instanceof Error ? error.message : 'Could not load auto-arrange preferences.');
+        }
+      } finally {
+        if (!cancelled) setAutoArrangeLoading(false);
+      }
+    };
+    void loadPreferences();
+    return () => {
+      cancelled = true;
+    };
+  }, [currentHtUserId, isHistorical, season, tournament?.id]);
   const currentRound = !isHistorical && upcomingRoundIndex >= 0 ? (rounds[upcomingRoundIndex] ?? null) : null;
   const tournamentId = tournament?.id;
   const currentRoundScrollTargetRef = React.useRef<HTMLDivElement | null>(null);
@@ -336,7 +374,6 @@ export const FixturesView: React.FC<FixturesViewProps> = ({
     (matchId: string) => {
       const challenge = challengeAvailability[matchId];
       setChallengeError(null);
-      setChallengeConsentError(null);
       setChallengeSuccess(null);
       setChallengeSelection({
         matchType: challenge?.matchType === 'normal' ? 'normal' : 'cup_rules',
@@ -351,65 +388,34 @@ export const FixturesView: React.FC<FixturesViewProps> = ({
     if (isSendingChallenge) return;
     setChallengeMatchId(null);
     setChallengeError(null);
-    setChallengeConsentError(null);
     setChallengeSuccess(null);
     setChallengeSelection(null);
   }, [isSendingChallenge]);
 
-  const saveChallengeConsent = React.useCallback(
-    async (enabled: boolean) => {
-      if (!tournamentId || !challengeMatchId || isSavingChallengeConsent) return;
-
-      const previousEnabled = challengeAvailability[challengeMatchId]?.consent?.autoSendChallenge === true;
-      setIsSavingChallengeConsent(true);
-      setChallengeConsentError(null);
-      try {
-        const response = await fetch('/api/app?route=fixture-challenge', {
-          method: 'POST',
-          credentials: 'include',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            action: 'save-consent',
-            tournamentId,
-            matchId: challengeMatchId,
-            autoArrangeEnabled: enabled,
-          }),
-        });
-        const payload = (await response.json()) as FixtureChallengeAvailability & { error?: string };
-        if (!response.ok || !payload.consent) {
-          throw new Error(payload.error || 'Could not save this preference.');
-        }
-        setChallengeAvailability((previous) => ({
-          ...previous,
-          [challengeMatchId]: {
-            ...previous[challengeMatchId],
-            consent: payload.consent,
-            challengeManagement: payload.challengeManagement,
-          },
-        }));
-      } catch (error) {
-        setChallengeConsentError(error instanceof Error ? error.message : 'Could not save this preference.');
-        setChallengeAvailability((previous) => ({
-          ...previous,
-          [challengeMatchId]: {
-            ...previous[challengeMatchId],
-            consent: {
-              ...(previous[challengeMatchId]?.consent || {
-                autoAcceptChallenge: previousEnabled,
-                consentedAt: null,
-                updatedAt: null,
-              }),
-              autoSendChallenge: previousEnabled,
-              autoAcceptChallenge: previousEnabled,
-            },
-          },
-        }));
-      } finally {
-        setIsSavingChallengeConsent(false);
+  const saveAutoArrangePreference = React.useCallback(async (teamId: string, enabled: boolean) => {
+    if (!tournamentId || !teamId || autoArrangeSavingTeamId) return;
+    setAutoArrangeSavingTeamId(teamId);
+    setAutoArrangeError(null);
+    try {
+      const response = await fetch('/api/app?route=auto-arrange-preferences', {
+        method: 'POST',
+        credentials: 'include',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ tournamentId, seasonNumber: season, teamId, enabled }),
+      });
+      const payload = (await response.json()) as { teamId?: string; enabled?: boolean; error?: string };
+      if (!response.ok || payload.teamId !== teamId || typeof payload.enabled !== 'boolean') {
+        throw new Error(payload.error || 'Could not save auto-arrange preference.');
       }
-    },
-    [challengeAvailability, challengeMatchId, isSavingChallengeConsent, tournamentId],
-  );
+      setAutoArrangePreferences((previous) => previous.map((preference) =>
+        preference.teamId === teamId ? { ...preference, enabled: payload.enabled as boolean } : preference,
+      ));
+    } catch (error) {
+      setAutoArrangeError(error instanceof Error ? error.message : 'Could not save auto-arrange preference.');
+    } finally {
+      setAutoArrangeSavingTeamId(null);
+    }
+  }, [autoArrangeSavingTeamId, season, tournamentId]);
 
   const submitChallenge = React.useCallback(async () => {
     if (!tournamentId || !challengeMatchId || isSendingChallenge) return;
@@ -461,7 +467,6 @@ export const FixturesView: React.FC<FixturesViewProps> = ({
     matchType: selectedChallenge?.matchType === 'normal' ? 'normal' : 'cup_rules',
     venue: selectedChallenge?.venue === 'away' ? 'away' : 'home',
   };
-  const selectedChallengeConsentEnabled = selectedChallenge?.consent?.autoSendChallenge === true;
   const seasonOptions = React.useMemo(
     () => [...new Set([season, ...availableSeasonNumbers])].sort((a, b) => b - a),
     [availableSeasonNumbers, season],
@@ -543,39 +548,73 @@ export const FixturesView: React.FC<FixturesViewProps> = ({
   return (
     <div className={styles.rounds}>
       <div className={styles.fixturesHeader}>
-        <div ref={seasonMenuRef} className={styles.fixturesSeasonMenu}>
-          {seasonOptions.length > 1 ? (
-            <Button
-              variant="zero"
-              size="sm"
-              className={styles.fixturesTitle}
-              onClick={() => setIsSeasonMenuOpen((open) => !open)}
-              aria-expanded={isSeasonMenuOpen}
-              aria-haspopup="listbox"
-            >
-              Season {season} Fixtures
-              <CaretDown size={16} weight="bold" aria-hidden="true" />
-            </Button>
-          ) : (
-            <h3 className={styles.fixturesTitle}>Season {season} Fixtures</h3>
-          )}
-          {isSeasonMenuOpen && seasonOptions.length > 1 && (
-            <div className={styles.fixturesSeasonDropdown} role="listbox" aria-label="Select season">
-              {seasonOptions.map((seasonNumber) => (
-                <button
-                  key={seasonNumber}
-                  type="button"
-                  className={styles.fixturesSeasonOption}
-                  aria-selected={seasonNumber === season}
-                  onClick={() => {
-                    setIsSeasonMenuOpen(false);
-                    onSeasonChange?.(seasonNumber);
-                  }}
-                >
-                  Season {seasonNumber}
-                </button>
-              ))}
+        <div className={styles.fixturesHeaderControls}>
+          <div ref={seasonMenuRef} className={styles.fixturesSeasonMenu}>
+            {seasonOptions.length > 1 ? (
+              <Button
+                variant="zero"
+                size="sm"
+                className={styles.fixturesTitle}
+                onClick={() => setIsSeasonMenuOpen((open) => !open)}
+                aria-expanded={isSeasonMenuOpen}
+                aria-haspopup="listbox"
+              >
+                Season {season} Fixtures
+                <CaretDown size={16} weight="bold" aria-hidden="true" />
+              </Button>
+            ) : (
+              <h3 className={styles.fixturesTitle}>Season {season} Fixtures</h3>
+            )}
+            {isSeasonMenuOpen && seasonOptions.length > 1 && (
+              <div className={styles.fixturesSeasonDropdown} role="listbox" aria-label="Select season">
+                {seasonOptions.map((seasonNumber) => (
+                  <button
+                    key={seasonNumber}
+                    type="button"
+                    className={styles.fixturesSeasonOption}
+                    aria-selected={seasonNumber === season}
+                    onClick={() => {
+                      setIsSeasonMenuOpen(false);
+                      onSeasonChange?.(seasonNumber);
+                    }}
+                  >
+                    Season {seasonNumber}
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
+          {!isHistorical && autoArrangePreferences.length > 0 && (
+            <div className={styles.autoArrangePreferences}>
+              {autoArrangePreferences.map((preference) => {
+                const state = preference.enabled ? messages.fixtures.autoArrangeOn : messages.fixtures.autoArrangeOff;
+                const label = autoArrangePreferences.length === 1
+                  ? messages.fixtures.autoArrangeMyFixtures.replace('{state}', state)
+                  : messages.fixtures.autoArrangeTeamFixtures
+                      .replace('{team}', preference.teamName)
+                      .replace('{state}', state);
+                const tooltipId = `auto-arrange-${tournament?.id}-${season}-${preference.teamId}`;
+                return (
+                  <div className={styles.autoArrangeControl} key={preference.teamId}>
+                    <Switch
+                      checked={preference.enabled}
+                      onChange={(enabled) => void saveAutoArrangePreference(preference.teamId, enabled)}
+                      disabled={autoArrangeLoading || autoArrangeSavingTeamId !== null}
+                      size="sm"
+                      label={label}
+                    />
+                    <Tooltip id={tooltipId} content={messages.fixtures.autoArrangeTooltip}>
+                      <span className={styles.autoArrangeInfo} tabIndex={0} aria-label={messages.fixtures.autoArrangeTooltip}>
+                        <Question size={16} weight="bold" aria-hidden="true" />
+                      </span>
+                    </Tooltip>
+                  </div>
+                );
+              })}
             </div>
+          )}
+          {autoArrangeError && !isHistorical && (
+            <p className={styles.autoArrangeError} role="status">{autoArrangeError}</p>
           )}
         </div>
         {(seasonOptions.length > 1 || rounds.length > 0) && (
@@ -1146,33 +1185,6 @@ export const FixturesView: React.FC<FixturesViewProps> = ({
                     </label>
                   </div>
                 </div>
-              </div>
-              <div className={styles.fixtureChallengeConsent}>
-                <label>
-                  <input
-                    type="checkbox"
-                    checked={selectedChallengeConsentEnabled}
-                    onChange={(event) => void saveChallengeConsent(event.target.checked)}
-                    disabled={isSavingChallengeConsent}
-                  />
-                  <span>
-                    <strong>Automatically arrange my HT-120min tournament friendlies</strong>
-                    <small>
-                      HT-120min may send and accept Hattrick friendly challenges for this tournament when they match my
-                      published fixture. You can disable this at any time.
-                    </small>
-                  </span>
-                </label>
-                {isSavingChallengeConsent && <small>Saving preference…</small>}
-                {challengeConsentError && <small className={styles.fixtureChallengeError}>{challengeConsentError}</small>}
-                {selectedChallenge?.challengeManagement?.status === 'enabled' ? (
-                  <small>Hattrick challenge management is authorized for this account.</small>
-                ) : selectedChallenge?.challengeManagement?.status === 'reauthorization_required' ? (
-                  <small>Reauthorize Hattrick to grant challenge-management permission before automation can work.</small>
-                ) : (
-                  <small>Hattrick challenge-management permission could not be confirmed yet.</small>
-                )}
-                <small>Preference saved for the future; automatic challenge actions are not active yet.</small>
               </div>
               {challengeError && <p className={styles.fixtureChallengeError}>{challengeError}</p>}
               <div className={styles.fixtureChallengeActions}>

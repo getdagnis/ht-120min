@@ -1693,10 +1693,17 @@
   gap: 1rem
   margin-bottom: 0.5rem
 
-  @media (max-width: 620px)
+  @media (max-width: 780px)
     flex-direction: column
     align-items: flex-start
     gap: 0.5rem
+
+.fixturesHeaderControls
+  display: flex
+  align-items: center
+  flex-wrap: wrap
+  gap: 0.5rem
+  min-width: 0
 
 .fixturesTitle
   margin: 0
@@ -1710,6 +1717,36 @@
 
 .fixturesSeasonMenu
   position: relative
+
+.autoArrangePreferences
+  display: flex
+  align-items: center
+  flex-wrap: wrap
+  gap: 0.75rem
+
+.autoArrangeControl
+  display: inline-flex
+  align-items: center
+  gap: 0.35rem
+
+.autoArrangeInfo
+  display: inline-flex
+  align-items: center
+  justify-content: center
+  width: 1.25rem
+  height: 1.25rem
+  color: var(--text60)
+  cursor: help
+
+  &:focus-visible
+    border-radius: 50%
+    outline: 2px solid var(--accent)
+    outline-offset: 2px
+
+.autoArrangeError
+  margin: 0
+  color: var(--danger)
+  font-size: 0.75rem
 
 .fixturesSeasonDropdown
   position: absolute
@@ -1792,14 +1829,17 @@
   display: inline-flex
   align-items: center
   gap: 0.85rem
-  margin-top: 1rem
+  margin-top: 0
   flex-wrap: wrap
+
+  @media (max-width: 780px)
+    align-self: flex-start
 
 .fixturesHeaderAction
   display: inline-flex
   align-items: flex-end
   gap: 0.35rem
-  margin-top: 0.5rem
+  margin-top: 0
   padding: 0
   border: none
   background: transparent
@@ -1826,6 +1866,8 @@
     opacity: 0.35
 
 .fixturesFilterMenu
+  display: flex
+  align-items: center
   position: relative
 
 .fixturesFilterDropdown
@@ -2025,41 +2067,6 @@ div.adminAuthForm > form > button, .authField > input
 .fixtureChallengeActions
   display: flex
   width: 100%
-
-.fixtureChallengeConsent
-  display: grid
-  gap: 0.45rem
-  padding: 0.9rem
-  border: 1px solid var(--text60)
-  border-radius: var(--radius-sm)
-  background: var(--darker-green-1)
-
-  label
-    display: flex
-    align-items: flex-start
-    gap: 0.7rem
-    color: white
-    cursor: pointer
-
-  input
-    width: 1.1rem
-    height: 1.1rem
-    flex: 0 0 auto
-    margin-top: 0.15rem
-    accent-color: var(--accent)
-
-  strong,
-  small
-    display: block
-
-  strong
-    font-size: 0.95rem
-    line-height: 1.3
-
-  small
-    color: rgba(255, 255, 255, 0.78)
-    font-size: 0.8rem
-    line-height: 1.4
 
 .fixtureChallengeError
   color: white

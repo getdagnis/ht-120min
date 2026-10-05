@@ -5,6 +5,14 @@ const messages = {
     english: 'English',
     latvian: 'Latvian',
   },
+  fixtures: {
+    autoArrangeMyFixtures: 'Auto-arrange my fixtures is {state}',
+    autoArrangeTeamFixtures: 'Auto-arrange {team} fixtures is {state}',
+    autoArrangeOn: 'on',
+    autoArrangeOff: 'off',
+    autoArrangeTooltip: 'Your matches will be auto-arranged if the other team has this feature on as well. If not, an automatic challenge will be sent to them.',
+    autoArrangeLoadError: 'Auto-arrange status could not be loaded.',
+  },
 } as const;
 
 export default messages;

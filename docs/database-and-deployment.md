@@ -20,6 +20,7 @@ Important tables used by current code:
 - `tournament_announcements`
 - `tournament_announcement_dismissals`
 - `tournament_seasons`
+- `tournament_team_auto_arrange_preferences`
 - `tournament_season_comments`
 - `matchmaker_requests`
 - `matchmaker_activity`
@@ -34,7 +35,7 @@ The app treats tournaments, rounds, matches, standings, chat, and admin decision
 - `migrations/history/` is an archived legacy area.
 - Active migrations must use the root `migrations/` directory.
 - Continue the numeric sequence from the latest active migration.
-- The current active sequence ends at prepared `091_add_match_kit_urls.sql`; the next migration must be `092_...sql`. Recheck files before numbering.
+- The current active sequence includes `092_add_global_chat_flag.sql`, `093_add_profile_national_team_roles.sql`, and prepared `094_tournament_team_auto_arrange_preferences.sql`; the next migration must continue at `095_...sql`. Recheck files before numbering.
 - Do not create timestamp-prefixed migration names such as `20261001050614_...`.
 - Keep migrations compatible with existing rows when possible.
 - Record migration state in `PROJECT_STATE.md` only when a schema/RPC/RLS change has architectural, security, product-direction, or substantial behavioral impact. Do not add status entries for routine fixes or small implementation details.
@@ -63,6 +64,9 @@ Recent important migrations:
 - `089_home_snapshot_dependencies.sql` (Home transaction hooks/time-boundary RPC; owner-added applied marker preserved, live application not independently verified)
 - `090_home_snapshot_event_dispatch.sql` (prepared only: pg_net post-commit mutation dispatch, one bounded due wake and 15-minute database-local recovery; owner-enabled pg_net/UTC pg_cron/Vault required. Local extension-stub tests are not live integration proof. Activation/grant checks: `docs/public-data-implementation.md`)
 - `091_add_match_kit_urls.sql` (prepared only: nullable fixture-side CHPP kit URLs; apply before deploying code that selects these columns)
+- `092_add_global_chat_flag.sql` (prepared locally; live application unverified)
+- `093_add_profile_national_team_roles.sql` (prepared locally; live application unverified)
+- `094_tournament_team_auto_arrange_preferences.sql` (prepared locally: default-on preference keyed by tournament, season, team, and Hattrick manager; live application unverified)
 
 Public publication rollout state, preflight and test boundaries are in
 [`public-data-implementation.md`](public-data-implementation.md). Publication artifacts are server-only; the prepared

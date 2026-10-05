@@ -1213,6 +1213,124 @@ function formatFixtureChallengeConsent(row?: FixtureChallengeConsentRow | null) 
   };
 }
 
+type AutoArrangePreferenceRow = {
+  team_id: string;
+  hattrick_user_id: number;
+  enabled: boolean;
+};
+
+async function resolveAutoArrangePreferenceContext(req: VercelRequest, res: VercelResponse) {
+  const values = req.method === 'GET' ? req.query : req.body;
+  const tournamentId = readString(Array.isArray(values?.tournamentId) ? values.tournamentId[0] : values?.tournamentId);
+  const rawSeasonNumber = Array.isArray(values?.seasonNumber) ? values.seasonNumber[0] : values?.seasonNumber;
+  const seasonNumber = typeof rawSeasonNumber === 'number' ? rawSeasonNumber : Number(readString(rawSeasonNumber));
+  if (!tournamentId || !Number.isSafeInteger(seasonNumber) || seasonNumber < 1) {
+    res.status(400).json({ error: 'Tournament and season are required.' });
+    return null;
+  }
+
+  const secret = getAppSessionSecret();
+  const session = secret ? verifyAppSessionCookie(req.headers.cookie, secret) : null;
+  if (!session) {
+    res.status(401).json({ error: 'Please sign in with Hattrick first.' });
+    return null;
+  }
+
+  const supabase = getServiceSupabase();
+  const { data: tournament, error: tournamentError } = await supabase
+    .from('tournaments')
+    .select('id, season, status, is_archived')
+    .eq('id', tournamentId)
+    .maybeSingle();
+  if (tournamentError) throw tournamentError;
+  if (!tournament || tournament.is_archived || ['finished', 'archived', 'cancelled'].includes(tournament.status || '')) {
+    res.status(404).json({ error: 'Tournament not found or no longer active.' });
+    return null;
+  }
+  if (seasonNumber !== Number(tournament.season || 1)) {
+    res.status(409).json({ error: 'Auto-arrange preferences can only be changed for the current season.' });
+    return null;
+  }
+
+  const { data: rounds, error: roundsError } = await supabase
+    .from('rounds')
+    .select('matches(home_team_id, away_team_id)')
+    .eq('tournament_id', tournamentId)
+    .eq('season_number', seasonNumber);
+  if (roundsError) throw roundsError;
+  const scheduledTeamIds = [...new Set((rounds || []).flatMap((round) =>
+    (round.matches || []).flatMap((match) => [match.home_team_id, match.away_team_id]),
+  ).filter((teamId): teamId is string => typeof teamId === 'string'))];
+  if (scheduledTeamIds.length === 0) {
+    return { supabase, tournamentId, seasonNumber, userId: session.userId, teams: [] as Array<{ id: string; name: string }> };
+  }
+
+  const { data: teams, error: teamsError } = await supabase
+    .from('teams')
+    .select('id, name')
+    .in('id', scheduledTeamIds)
+    .eq('hattrick_user_id', session.userId);
+  if (teamsError) throw teamsError;
+  return {
+    supabase,
+    tournamentId,
+    seasonNumber,
+    userId: session.userId,
+    teams: (teams || []) as Array<{ id: string; name: string }>,
+  };
+}
+
+async function handleAutoArrangePreferences(req: VercelRequest, res: VercelResponse) {
+  if (req.method !== 'GET' && req.method !== 'POST') {
+    return res.status(405).json({ error: 'Method not allowed.' });
+  }
+  const context = await resolveAutoArrangePreferenceContext(req, res);
+  if (!context) return;
+
+  if (req.method === 'GET') {
+    if (context.teams.length === 0) return res.status(200).json({ preferences: [] });
+    const teamIds = context.teams.map((team) => team.id);
+    const { data, error } = await context.supabase
+      .from('tournament_team_auto_arrange_preferences')
+      .select('team_id, hattrick_user_id, enabled')
+      .eq('tournament_id', context.tournamentId)
+      .eq('season_number', context.seasonNumber)
+      .eq('hattrick_user_id', context.userId)
+      .in('team_id', teamIds);
+    if (error) throw error;
+    const enabledByTeam = new Map(
+      ((data || []) as AutoArrangePreferenceRow[]).map((row) => [row.team_id, row.enabled]),
+    );
+    return res.status(200).json({
+      preferences: context.teams.map((team) => ({
+        teamId: team.id,
+        teamName: team.name,
+        enabled: enabledByTeam.get(team.id) ?? true,
+      })),
+    });
+  }
+
+  const teamId = readString(req.body?.teamId);
+  const enabled = req.body?.enabled;
+  if (typeof enabled !== 'boolean') return res.status(400).json({ error: 'enabled must be a boolean.' });
+  if (!context.teams.some((team) => team.id === teamId)) {
+    return res.status(403).json({ error: 'This team is not managed by the signed-in Hattrick account in this season.' });
+  }
+  const now = new Date().toISOString();
+  const { error } = await context.supabase
+    .from('tournament_team_auto_arrange_preferences')
+    .upsert({
+      tournament_id: context.tournamentId,
+      season_number: context.seasonNumber,
+      team_id: teamId,
+      hattrick_user_id: context.userId,
+      enabled,
+      updated_at: now,
+    }, { onConflict: 'tournament_id,season_number,team_id,hattrick_user_id' });
+  if (error) throw error;
+  return res.status(200).json({ teamId, enabled });
+}
+
 function fixtureChallengeUnavailable(reason: string) {
   return { available: false as const, reason };
 }
@@ -3054,6 +3172,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         return await handleAdminAddReserveTeam(req, res);
       case 'fixture-challenge':
         return await handleFixtureChallenge(req, res);
+      case 'auto-arrange-preferences':
+        return await handleAutoArrangePreferences(req, res);
       case 'backfill-round-matchdetails':
         return await handleRoundPressMatchDetailsBackfill(req, res);
       case 'generate-round-summary':

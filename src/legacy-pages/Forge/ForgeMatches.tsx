@@ -27,6 +27,7 @@ interface ForgeTeamView {
   chppReason: string;
   canChallenge: boolean;
   canAccept: boolean;
+  autoArrangeEnabled: boolean | null;
   challengeDisabledReason: string;
   acceptDisabledReason?: string;
 }
@@ -245,6 +246,11 @@ export function ForgeMatchesSection() {
                             <span className={`${styles.stateBadge} ${stateIsDangerous(team.chppState) ? styles.stateBadgeDanger : ''}`}>
                               {team.chppState}
                             </span>
+                            {team.autoArrangeEnabled !== null && (
+                              <span className={`${styles.stateBadge} ${team.autoArrangeEnabled ? styles.autoArrangeEnabled : styles.autoArrangeDisabled}`}>
+                                AUTO-ARRANGE {team.autoArrangeEnabled ? 'ON' : 'OFF'}
+                              </span>
+                            )}
                           </div>
                           <p className={styles.stateReason}>{team.chppReason}</p>
                           <div className={styles.actions}>

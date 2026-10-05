@@ -429,6 +429,24 @@ async function buildMatchesResponse(
   }
 
   const matchRows = await loadFixtureRows(supabase, round.id);
+  const fixtureTeams = matchRows.flatMap((match) => [relationOne(match.home_team), relationOne(match.away_team)])
+    .filter((team): team is ForgeTeamRow => Boolean(team?.hattrick_user_id && !team.is_placeholder));
+  const teamIds = [...new Set(fixtureTeams.map((team) => team.id))];
+  const managerIdsForPreferences = [...new Set(fixtureTeams.map((team) => Number(team.hattrick_user_id)))];
+  const { data: preferenceRows, error: preferencesError } = teamIds.length > 0
+    ? await supabase
+        .from('tournament_team_auto_arrange_preferences')
+        .select('team_id, hattrick_user_id, enabled')
+        .eq('tournament_id', tournament.id)
+        .eq('season_number', tournament.season || 1)
+        .in('team_id', teamIds)
+        .in('hattrick_user_id', managerIdsForPreferences)
+    : { data: [], error: null };
+  if (preferencesError) throw preferencesError;
+  const autoArrangeByTeamManager = new Map(
+    ((preferenceRows || []) as Array<{ team_id: string; hattrick_user_id: number; enabled: boolean }>)
+      .map((preference) => [`${preference.team_id}:${Number(preference.hattrick_user_id)}`, preference.enabled]),
+  );
   const managerIds = [...new Set(
     matchRows
       .flatMap((match) => [relationOne(match.home_team)?.hattrick_user_id, relationOne(match.away_team)?.hattrick_user_id])
@@ -448,6 +466,12 @@ async function buildMatchesResponse(
     const fixture = toFixture(row);
     const homeTeamRow = relationOne(row.home_team);
     const awayTeamRow = relationOne(row.away_team);
+    const homeAutoArrangeEnabled = fixture.home?.managerHtId
+      ? autoArrangeByTeamManager.get(`${fixture.home.id}:${fixture.home.managerHtId}`) ?? true
+      : null;
+    const awayAutoArrangeEnabled = fixture.away?.managerHtId
+      ? autoArrangeByTeamManager.get(`${fixture.away.id}:${fixture.away.managerHtId}`) ?? true
+      : null;
     const [homeSnapshot, awaySnapshot] = await Promise.all([
       inspectTeamChallenge(
         supabase,
@@ -510,8 +534,18 @@ async function buildMatchesResponse(
       completed: fixture.completed,
       htMatchId: row.ht_match_id,
       scheduledFor: row.scheduled_for,
-      home: { side: 'home', ...(fixture.home || emptyFixtureTeam(fixture.id, 'home')), ...(fixture.home ? homeActions : byeActions) },
-      away: { side: 'away', ...(fixture.away || emptyFixtureTeam(fixture.id, 'away')), ...(fixture.away ? awayActions : byeActions) },
+      home: {
+        side: 'home',
+        ...(fixture.home || emptyFixtureTeam(fixture.id, 'home')),
+        autoArrangeEnabled: homeAutoArrangeEnabled,
+        ...(fixture.home ? homeActions : byeActions),
+      },
+      away: {
+        side: 'away',
+        ...(fixture.away || emptyFixtureTeam(fixture.id, 'away')),
+        autoArrangeEnabled: awayAutoArrangeEnabled,
+        ...(fixture.away ? awayActions : byeActions),
+      },
     });
   }
 
