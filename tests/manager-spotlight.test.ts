@@ -94,7 +94,7 @@ test('worlddetails supplies every special league label through one formatter', (
   const leagueIds = [1000, 1001, 1002, 1003, 3000];
   assert.deepEqual(leagueIds.map(getSpecialLeagueLabel), ['HTI', 'AL', 'HAL', 'HGL', 'HFI']);
   assert.deepEqual(leagueIds.map((leagueId) => getClubRankLabel(club(leagueId, 'Special club', { leagueId, leagueRank: 12 }))),
-    ['#12 in HTI', '#12 in AL', '#12 in HAL', '#12 in HGL', '#12 in HFI']);
+    ['Ranked #12 in HTI', 'Ranked #12 in AL', 'Ranked #12 in HAL', 'Ranked #12 in HGL', 'Ranked #12 in HFI']);
   assert.equal(getSpecialLeagueLabel(4), null);
 });
 
@@ -111,11 +111,11 @@ test('club heading keeps the tournament title and renders its restricted country
 
 test('TeamRank follows country leagues or special leagues, separate from PowerRating rank', () => {
   const regular = fixtures.DavidLafata[0]!;
-  assert.equal(getClubRankLabel(regular), 'League rank #835');
+  assert.equal(getClubRankLabel(regular), 'Ranked #835 in Czechia');
   assert.match(story(compose('DavidLafata', fixtures.DavidLafata))[1]!, /Kraj Vysočina.*ranked #835 in Czechia/);
   assert.doesNotMatch(story(compose('DavidLafata', fixtures.DavidLafata)).join(' '), /#1756/);
   const hfi = fixtures.DavidLafata[2]!;
-  assert.equal(getClubRankLabel(hfi), '#8015 in HFI');
+  assert.equal(getClubRankLabel(hfi), 'Ranked #8015 in HFI');
   assert.match(story(compose('DavidLafata', fixtures.DavidLafata))[0]!, /ranked #8015 in HFI/);
   assert.equal(getClubRankLabel(club(98, 'Homegrown', { leagueId: 1003, leagueRank: 12 })), '#12 in HGL');
   assert.equal(getClubRankLabel(club(99, 'Zero', { leagueRank: 0 })), null);
@@ -141,7 +141,7 @@ test('special TeamRank uses the special league while country remains club locati
   const tournament = result.sentences.find((sentence) => sentence.candidateId === 'tournament:201')!.segments;
   assert.match(plain(tournament), /Lemon Pirates.*based in Costa Rica, ranked #1332 in HFI and playing in HFI series VI\.1/);
   assert.deepEqual(countryMentions(tournament).map((mention) => mention.name), ['Costa Rica']);
-  assert.equal(getClubRankLabel(club(201, 'Lemon Pirates', { leagueId: 3000, leagueRank: 1332 })), '#1332 in HFI');
+  assert.equal(getClubRankLabel(club(201, 'Lemon Pirates', { leagueId: 3000, leagueRank: 1332 })), 'Ranked #1332 in HFI');
   assert.match(story(result)[2]!, /FK Pirates.*Rīga, Latvia.*founded in 2003/);
 });
 
@@ -193,7 +193,7 @@ test('unknown country remains a country segment if a flag URL is unavailable', (
 
 test('club rows include all current clubs, oldest founded first, and expose founding years', () => {
   const teams = fixtures.DavidLafata;
-  assert.deepEqual(getVisibleClubTeams({ currentTeams: teams, tournamentTeamId: 12 }).map((item) => item.teamId), [10, 12, 11, 13, 14]);
+  assert.deepEqual(getVisibleClubTeams({ currentTeams: teams, tournamentTeamId: 12 }).map((item) => item.teamId), [12, 10, 11, 13, 14]);
   assert.equal(getFoundedYearLabel(teams[0]!), 'Founded 2024');
   assert.equal(getFoundedYearLabel(teams[2]!), 'Founded 2026');
   const same = club(93, 'FC Nachos', { isPrimary: true, isTournamentTeam: true, foundedDate: '2005-01-01' });
@@ -283,7 +283,7 @@ test('snapshot conversion preserves full current-club data while tournament rela
     ],
   }], });
   assert.equal(spotlight?.currentTeams.length, 3);
-  assert.deepEqual(getVisibleClubTeams(spotlight!).map((team) => team.teamId), [100, 101, 102]);
+  assert.deepEqual(getVisibleClubTeams(spotlight!).map((team) => team.teamId), [101, 100, 102]);
   assert.equal(spotlight?.language, 'Latviešu');
   assert.equal(spotlight?.currentTeams.find((team) => team.isPrimary)?.leagueRank, 83);
   assert.equal(spotlight?.currentTeams.find((team) => team.isPrimary)?.powerLeagueRank, 2);

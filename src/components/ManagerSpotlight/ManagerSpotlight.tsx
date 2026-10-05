@@ -69,6 +69,7 @@ export const ManagerSpotlight: React.FC<ManagerSpotlightProps> = ({ spotlight })
   if (!spotlight) return null;
   const location = normalizeLocation(spotlight.location);
   const story = normalizeStory(spotlight.story);
+  const visibleTeams = getVisibleClubTeams(spotlight);
 
   return (
     <ReusableWidget title="Meet the manager" icon={<UsersThree size={20} weight="bold" />} className={styles.widget}>
@@ -99,7 +100,7 @@ export const ManagerSpotlight: React.FC<ManagerSpotlightProps> = ({ spotlight })
       </div>
 
       <div className={styles.teams}>
-        {getVisibleClubTeams(spotlight).map((team) => {
+        {visibleTeams.map((team, index) => {
           const special = getSpecialLeagueLabel(team.leagueId);
           const details: React.ReactNode[] = [];
           const countryName = countryLabel(team.countryId, team.countryName);
@@ -107,20 +108,24 @@ export const ManagerSpotlight: React.FC<ManagerSpotlightProps> = ({ spotlight })
             details.push(
               <React.Fragment key="country">
                 {countryName}
+                {'\u00a0'}
                 <CountryFlag countryId={team.countryId} countryName={countryName} />
               </React.Fragment>,
             );
           }
           if (special) details.push(<span key="special">{special}</span>);
           if (team.seriesName) details.push(<span key="series">{team.seriesName}</span>);
-          const rank = getClubRankLabel(team);
+          const rank = getClubRankLabel(team, !special);
           if (rank) details.push(<span key="rank">{rank}</span>);
           const founded = getFoundedYearLabel(team);
 
           return (
             <section key={team.teamId} className={styles.clubSection}>
               {team.isTournamentTeam && <h3 className={styles.clubHeading}>Participating in this tournament with:</h3>}
-              {team.isPrimary && <h3 className={styles.clubHeading}>Other clubs:</h3>}
+              {team.isPrimary && <h3 className={styles.clubHeading}>Main club:</h3>}
+              {!team.isTournamentTeam && !team.isPrimary &&
+                !visibleTeams.slice(0, index).some((previous) => !previous.isTournamentTeam && !previous.isPrimary) &&
+                <h3 className={styles.clubHeading}>Other clubs:</h3>}
               <div className={`${styles.team} ${team.isTournamentTeam ? styles.tournamentTeam : ''}`}>
                 <img src={team.logoUrl || '/matchKitLarge.png'} alt="" className={styles.teamLogo} />
                 <div className={styles.teamDetails}>

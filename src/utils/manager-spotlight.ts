@@ -182,11 +182,13 @@ export function getSpecialLeagueLabel(leagueId: number | null): string | null {
   return league && league.countryId === null ? league.suffix ?? league.leagueName : null;
 }
 
-export function getClubRankLabel(team: Pick<ManagerSpotlightTeam, 'leagueRank' | 'leagueId'>): string | null {
+export function getClubRankLabel(team: Pick<ManagerSpotlightTeam, 'leagueRank' | 'leagueId' | 'countryId' | 'countryName'>, includeSpecialLeague = true): string | null {
   if (!team.leagueRank || team.leagueRank <= 0) return null;
   const special = getSpecialLeagueLabel(team.leagueId);
-  if (special) return `#${team.leagueRank} in ${special}`;
-  return `League rank #${team.leagueRank}`;
+  if (special) return includeSpecialLeague ? `Ranked #${team.leagueRank} in ${special}` : `Ranked #${team.leagueRank}`;
+  const league = getLeagueWorldDetails(team.leagueId);
+  const scope = countryLabel(league?.countryId ?? team.countryId, league?.fullName ?? team.countryName);
+  return scope ? `Ranked #${team.leagueRank} in ${scope}` : `Ranked #${team.leagueRank}`;
 }
 
 export function getFoundedYearLabel(team: Pick<ManagerSpotlightTeam, 'foundedDate'>): string | null {
@@ -196,12 +198,15 @@ export function getFoundedYearLabel(team: Pick<ManagerSpotlightTeam, 'foundedDat
 
 export function getVisibleClubTeams(spotlight: Pick<ManagerSpotlight, 'currentTeams' | 'tournamentTeamId'>): ManagerSpotlightTeam[] {
   return spotlight.currentTeams.toSorted((a, b) => {
+    const aTournament = a.teamId === spotlight.tournamentTeamId;
+    const bTournament = b.teamId === spotlight.tournamentTeamId;
+    if (aTournament !== bTournament) return aTournament ? -1 : 1;
+    if (a.isPrimary !== b.isPrimary) return a.isPrimary ? -1 : 1;
     const aFounded = Date.parse(a.foundedDate?.slice(0, 10) ?? '');
     const bFounded = Date.parse(b.foundedDate?.slice(0, 10) ?? '');
     if (Number.isFinite(aFounded) && Number.isFinite(bFounded) && aFounded !== bFounded) return aFounded - bFounded;
     if (Number.isFinite(aFounded) !== Number.isFinite(bFounded)) return Number.isFinite(aFounded) ? -1 : 1;
-    return Number(b.isTournamentTeam) - Number(a.isTournamentTeam) || Number(b.isPrimary) - Number(a.isPrimary)
-      || a.teamName.localeCompare(b.teamName) || a.teamId - b.teamId;
+    return a.teamName.localeCompare(b.teamName) || a.teamId - b.teamId;
   });
 }
 
