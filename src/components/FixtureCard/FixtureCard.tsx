@@ -48,6 +48,26 @@ interface FixtureCardProps {
     direction: 'left' | 'right';
     onClick: () => void;
   };
+  ratingsPreview?: {
+    home: RatingsPreviewTeam;
+    away: RatingsPreviewTeam;
+  };
+}
+
+interface RatingsPreviewTeam {
+  formation: string;
+  tactic: string;
+  tacticSkill: string;
+  setPieces: string;
+  ratings: {
+    leftAttack: string;
+    centreAttack: string;
+    rightAttack: string;
+    midfield: string;
+    leftDefence: string;
+    centreDefence: string;
+    rightDefence: string;
+  };
 }
 
 const MATCH_TYPES: Record<number, { initials: string; description: string }> = {
@@ -76,6 +96,7 @@ export const FixtureCard: React.FC<FixtureCardProps> = ({
   totalMinutes,
   appgOutcome,
   challengeAction,
+  ratingsPreview,
 }) => {
   const [nowMs, setNowMs] = React.useState(() => Date.now());
   React.useEffect(() => {
@@ -160,7 +181,7 @@ export const FixtureCard: React.FC<FixtureCardProps> = ({
   );
 
   return (
-    <div className={styles.fixtureCard}>
+    <div className={`${styles.fixtureCard} ${ratingsPreview ? styles.withRatingsPreview : ''}`}>
       <div className={styles.teamContainer}>
         <div className={styles.logoWrapper}>
           {!homeTeam.isBye && (
@@ -257,6 +278,60 @@ export const FixtureCard: React.FC<FixtureCardProps> = ({
           )}
         </div>
       </div>
+      {ratingsPreview && (
+        <section className={styles.ratingsPreview} aria-label="Shared predicted ratings preview">
+          <div className={styles.ratingsPreviewTitle}>Predicted ratings</div>
+          {(['home', 'away'] as const).map((side) => {
+            const team = side === 'home' ? homeTeam : awayTeam;
+            const preview = ratingsPreview[side];
+            const sectorRows: Array<Array<[string, string]>> = [
+              [
+                ['Left attack', preview.ratings.leftAttack],
+                ['Center attack', preview.ratings.centreAttack],
+                ['Right attack', preview.ratings.rightAttack],
+              ],
+              [['Midfield', preview.ratings.midfield]],
+              [
+                ['Left defence', preview.ratings.leftDefence],
+                ['Center defence', preview.ratings.centreDefence],
+                ['Right defence', preview.ratings.rightDefence],
+              ],
+            ];
+            return (
+              <div
+                key={side}
+                className={`${styles.ratingsSide} ${side === 'away' ? styles.ratingsSideAway : ''}`}
+              >
+                <div className={styles.ratingsTeamHeading}>
+                  <span>{side === 'home' ? 'Home' : 'Away'}</span>
+                  <strong>{team.name}</strong>
+                </div>
+                <div className={styles.ratingsPitch}>
+                  {sectorRows.map((row, rowIndex) => (
+                    <div
+                      key={rowIndex}
+                      className={`${styles.ratingsSectorRow} ${row.length === 1 ? styles.ratingsMidfieldRow : ''}`}
+                    >
+                      {row.map(([label, value]) => (
+                        <div className={styles.ratingsSector} key={label}>
+                          <span>{label}</span>
+                          <strong>{value}</strong>
+                        </div>
+                      ))}
+                    </div>
+                  ))}
+                </div>
+                <div className={styles.ratingsMetadata}>
+                  <span>Formation <strong>{preview.formation}</strong></span>
+                  <span>Tactic <strong>{preview.tactic}</strong></span>
+                  <span>Tactic skill <strong>{preview.tacticSkill}</strong></span>
+                  <span>Set pieces <strong>{preview.setPieces}</strong></span>
+                </div>
+              </div>
+            );
+          })}
+        </section>
+      )}
     </div>
   );
 };

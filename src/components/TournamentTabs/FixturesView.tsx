@@ -152,6 +152,39 @@ const fixtureChallengePreviewMode =
     ? process.env.NEXT_PUBLIC_FIXTURE_CHALLENGE_PREVIEW
     : null;
 
+const MOCK_RATINGS_PREVIEW = {
+  home: {
+    formation: '4-5-1',
+    tactic: 'Pressing',
+    tacticSkill: 'Excellent (8)',
+    setPieces: 'Formidable (9)',
+    ratings: {
+      leftAttack: '6.75',
+      centreAttack: '7.50',
+      rightAttack: '6.25',
+      midfield: '9.00',
+      leftDefence: '8.50',
+      centreDefence: '9.25',
+      rightDefence: '8.75',
+    },
+  },
+  away: {
+    formation: '3-5-2',
+    tactic: 'Attack in the middle',
+    tacticSkill: 'Solid (7)',
+    setPieces: 'Outstanding (10)',
+    ratings: {
+      leftAttack: '8.25',
+      centreAttack: '9.50',
+      rightAttack: '7.75',
+      midfield: '7.50',
+      leftDefence: '7.25',
+      centreDefence: '8.00',
+      rightDefence: '7.00',
+    },
+  },
+};
+
 export const FixturesView: React.FC<FixturesViewProps> = ({
   rounds,
   season,
@@ -194,6 +227,7 @@ export const FixturesView: React.FC<FixturesViewProps> = ({
   };
 
   const nowMs = useClientNow(30_000);
+  const [localRatingsPreviewEnabled, setLocalRatingsPreviewEnabled] = React.useState(false);
   const { messages } = useLocale();
   const [manualVisibleRoundsCount, setManualVisibleRoundsCount] = React.useState<number | null>(null);
   const [selectedTeamId, setSelectedTeamId] = React.useState<string | null>(null);
@@ -228,6 +262,11 @@ export const FixturesView: React.FC<FixturesViewProps> = ({
   const [autoArrangeError, setAutoArrangeError] = React.useState<string | null>(null);
   const [isSeasonMenuOpen, setIsSeasonMenuOpen] = React.useState(false);
   const seasonMenuRef = React.useRef<HTMLDivElement | null>(null);
+  React.useEffect(() => {
+    const localHost = ['localhost', '127.0.0.1', '::1', '[::1]'].includes(window.location.hostname);
+    setLocalRatingsPreviewEnabled(process.env.NODE_ENV !== 'production' && localHost);
+  }, []);
+
   React.useEffect(() => {
     if (!isSeasonMenuOpen) return;
 
@@ -525,6 +564,16 @@ export const FixturesView: React.FC<FixturesViewProps> = ({
       calculateMatchDate(round.created_at, round.round_number, match.home_team?.country_name),
     [],
   );
+
+  const ratingsPreviewFixtureId = React.useMemo(() => {
+    if (!localRatingsPreviewEnabled || isHistorical || !currentRound) return null;
+    return currentRound.matches.find((match) => {
+      if (selectedTeamId && match.home_team_id !== selectedTeamId && match.away_team_id !== selectedTeamId) return false;
+      if (match.completed || match.status !== 'arranged' || !match.ht_match_id) return false;
+      if (!match.home_team || !match.away_team || match.home_team.active === false || match.away_team.active === false) return false;
+      return resolveMatchDate(currentRound, match).getTime() > nowMs;
+    })?.id || null;
+  }, [currentRound, isHistorical, localRatingsPreviewEnabled, nowMs, resolveMatchDate, selectedTeamId]);
 
   const visibleWarnings = React.useMemo(() => {
     const roundStartTimes = rounds.map((round) => {
@@ -974,6 +1023,7 @@ export const FixturesView: React.FC<FixturesViewProps> = ({
                     return (
                       <FixtureCard
                         key={match.id}
+                        ratingsPreview={match.id === ratingsPreviewFixtureId ? MOCK_RATINGS_PREVIEW : undefined}
                         date={status === 'misarranged' ? '' : isPostponed ? 'POSTPONED' : formattedDate}
                         status={status}
                         liveClock={status === 'ongoing' ? (liveMatch ?? undefined) : undefined}
