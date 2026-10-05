@@ -448,8 +448,12 @@ export const FixtureCard: React.FC<FixtureCardProps> = ({
       )}
       {ratingsSharedStatus && (
         <section className={styles.ratingsSharedStatus} aria-label="Shared rating prediction status">
-          {ratingsSharedStatus.home && <p>{homeTeam.name} have shared their predicted ratings! ✅</p>}
-          {ratingsSharedStatus.away && <p>{awayTeam.name} have shared their predicted ratings! ✅</p>}
+          {ratingsSharedStatus.home && (
+            <p className={styles.ratingsSharedStatusHome}>{homeTeam.name} have shared their predicted ratings! ✅</p>
+          )}
+          {ratingsSharedStatus.away && (
+            <p className={styles.ratingsSharedStatusAway}>{awayTeam.name} have shared their predicted ratings! ✅</p>
+          )}
         </section>
       )}
     </div>
