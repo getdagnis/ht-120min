@@ -3,7 +3,20 @@ import { ArrowUpRight, UsersThree } from 'phosphor-react';
 
 import { Avatar } from '../Avatar/Avatar';
 import { ReusableWidget } from '../ReusableWidget/ReusableWidget';
-import { countryFlagUrl, countryLabel, getClubRankLabel, getFoundedYearLabel, getSpecialLeagueLabel, getVisibleClubTeams, type CountryMention, type ManagerSpotlight as ManagerSpotlightViewModel, type StorySegment, type StorySentence } from '../../utils/manager-spotlight';
+import {
+  countryFlagUrl,
+  countryLabel,
+  getClubRankLabel,
+  getFoundedYearLabel,
+  getSpecialLeagueLabel,
+  getSpotlightTournamentLabel,
+  getVisibleClubTeams,
+  type CountryMention,
+  type ManagerSpotlight as ManagerSpotlightViewModel,
+  type StorySegment,
+  type StorySentence,
+} from '../../utils/manager-spotlight';
+import type { CountryRestrictionFormat } from '../../../shared/worlddetails';
 import styles from './ManagerSpotlight.module.sass';
 
 const managerHref = (managerId: number) => `https://www.hattrick.org/goto.ashx?path=/Club/Manager/?userId=${managerId}`;
@@ -11,9 +24,15 @@ const teamHref = (teamId: number) => `https://www.hattrick.org/goto.ashx?path=/C
 
 const CountryFlag: React.FC<{ countryId: number | null; countryName: string }> = ({ countryId, countryName }) => {
   const flag = countryFlagUrl(countryId, countryName);
-  return flag
-    ? <img src={flag} alt="" className={styles.countryFlag} />
-    : <span aria-hidden="true" className={`${styles.countryFlag} ${styles.countryFlagFallback}`} title={`${countryName} flag unavailable`} />;
+  return flag ? (
+    <img src={flag} alt="" className={styles.countryFlag} />
+  ) : (
+    <span
+      aria-hidden="true"
+      className={`${styles.countryFlag} ${styles.countryFlagFallback}`}
+      title={`${countryName} flag unavailable`}
+    />
+  );
 };
 
 const renderSegment = (segment: StorySegment, key: React.Key) => {
@@ -21,7 +40,9 @@ const renderSegment = (segment: StorySegment, key: React.Key) => {
   const country = segment as CountryMention;
   return (
     <React.Fragment key={key}>
-      {country.name}<CountryFlag countryId={country.countryId} countryName={country.name} />
+      {country.name}
+      {'\u00a0'}
+      <CountryFlag countryId={country.countryId} countryName={country.name} />
     </React.Fragment>
   );
 };
@@ -33,19 +54,23 @@ const normalizeLocation = (value: unknown): StorySegment[] => {
 
 const normalizeStory = (value: unknown): StorySentence[] => {
   if (Array.isArray(value)) return value as StorySentence[];
-  return typeof value === 'string' && value.trim()
-    ? [{ candidateId: 'legacy-story', segments: [value] }]
-    : [];
+  return typeof value === 'string' && value.trim() ? [{ candidateId: 'legacy-story', segments: [value] }] : [];
 };
 
 interface ManagerSpotlightProps {
   spotlight: ManagerSpotlightViewModel | null;
+  tournament: {
+    name: string;
+    countryLimit?: string | null;
+    countryLimitFormat?: CountryRestrictionFormat | null;
+  };
 }
 
-export const ManagerSpotlight: React.FC<ManagerSpotlightProps> = ({ spotlight }) => {
+export const ManagerSpotlight: React.FC<ManagerSpotlightProps> = ({ spotlight, tournament }) => {
   if (!spotlight) return null;
   const location = normalizeLocation(spotlight.location);
   const story = normalizeStory(spotlight.story);
+  const tournamentLabel = getSpotlightTournamentLabel(tournament);
 
   return (
     <ReusableWidget title="Meet the manager" icon={<UsersThree size={20} weight="bold" />} className={styles.widget}>
@@ -70,7 +95,9 @@ export const ManagerSpotlight: React.FC<ManagerSpotlightProps> = ({ spotlight })
 
       <div className={styles.story}>
         {story.map((sentence) => (
-          <p key={sentence.candidateId}>{sentence.segments.map((segment, index) => renderSegment(segment, `${sentence.candidateId}:${index}`))}</p>
+          <p key={sentence.candidateId}>
+            {sentence.segments.map((segment, index) => renderSegment(segment, `${sentence.candidateId}:${index}`))}
+          </p>
         ))}
       </div>
 
@@ -80,31 +107,44 @@ export const ManagerSpotlight: React.FC<ManagerSpotlightProps> = ({ spotlight })
           const details: React.ReactNode[] = [];
           const countryName = countryLabel(team.countryId, team.countryName);
           if (countryName) {
-            details.push(<React.Fragment key="country">{countryName}<CountryFlag countryId={team.countryId} countryName={countryName} /></React.Fragment>);
+            details.push(
+              <React.Fragment key="country">
+                {countryName}
+                {'\u00a0'}
+                <CountryFlag countryId={team.countryId} countryName={countryName} />
+              </React.Fragment>,
+            );
           }
           if (special) details.push(<span key="special">{special}</span>);
           if (team.seriesName) details.push(<span key="series">{team.seriesName}</span>);
           const rank = getClubRankLabel(team);
           if (rank) details.push(<span key="rank">{rank}</span>);
-          const founded = team.isPrimary ? getFoundedYearLabel(team) : null;
+          const founded = getFoundedYearLabel(team);
 
           return (
-            <div key={team.teamId} className={`${styles.team} ${team.isTournamentTeam ? styles.tournamentTeam : ''}`}>
-              <img src={team.logoUrl || '/matchKitLarge.png'} alt="" className={styles.teamLogo} />
-              <div className={styles.teamDetails}>
-                <a href={teamHref(team.teamId)} target="_blank" rel="noopener noreferrer" className={styles.teamName}>
-                  {team.teamName}
-                </a>
-                <span className={styles.teamMeta}>
-                  {details.length ? details.map((detail, index) => <React.Fragment key={index}>{index > 0 && ' · '}{detail}</React.Fragment>) : 'Hattrick club'}
-                </span>
-                {founded && <span className={styles.foundedDate}>{founded}</span>}
+            <section key={team.teamId} className={styles.clubSection}>
+              {team.isTournamentTeam && <h3 className={styles.clubHeading}>Participating in tournament with:</h3>}
+              {team.isPrimary && <h3 className={styles.clubHeading}>Main club:</h3>}
+              <div className={`${styles.team} ${team.isTournamentTeam ? styles.tournamentTeam : ''}`}>
+                <img src={team.logoUrl || '/matchKitLarge.png'} alt="" className={styles.teamLogo} />
+                <div className={styles.teamDetails}>
+                  <a href={teamHref(team.teamId)} target="_blank" rel="noopener noreferrer" className={styles.teamName}>
+                    {team.teamName}
+                  </a>
+                  <span className={styles.teamMeta}>
+                    {details.length
+                      ? details.map((detail, index) => (
+                          <React.Fragment key={index}>
+                            {index > 0 && ' · '}
+                            {detail}
+                          </React.Fragment>
+                        ))
+                      : 'Hattrick club'}
+                  </span>
+                  {founded && <span className={styles.foundedDate}>{founded}</span>}
+                </div>
               </div>
-              <div className={styles.teamLabels}>
-                {team.isTournamentTeam && <span className={styles.tournamentLabel}>This tournament</span>}
-                {team.isPrimary && <span className={styles.primaryLabel}>Main club</span>}
-              </div>
-            </div>
+            </section>
           );
         })}
       </div>

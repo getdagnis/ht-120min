@@ -42,7 +42,6 @@
   height: 0.65rem
   object-fit: cover
   vertical-align: baseline
-  margin-inline-start: 0.22rem
 
 .countryFlagFallback
   display: inline-block
@@ -57,11 +56,23 @@
 .teams
   display: flex
   flex-direction: column
-  gap: 0.35rem
+  gap: 0.55rem
+
+.clubSection
+  display: flex
+  flex-direction: column
+  gap: 0.15rem
+
+.clubHeading
+  margin: 0
+  color: var(--text-muted)
+  font-size: 0.72rem
+  font-weight: 700
+  line-height: 1.4
 
 .team
   display: grid
-  grid-template-columns: 30px minmax(0, 1fr) auto
+  grid-template-columns: 30px minmax(0, 1fr)
   align-items: center
   gap: 0.5rem
   padding: 0.42rem 0.45rem
@@ -101,22 +112,6 @@
 .foundedDate
   color: var(--text-muted)
   font-size: 0.7rem
-
-.teamLabels
-  display: flex
-  flex-direction: column
-  align-items: flex-end
-  gap: 0.12rem
-  font-size: 0.62rem
-  font-weight: 700
-  text-align: right
-  white-space: nowrap
-
-.tournamentLabel
-  color: var(--accent)
-
-.primaryLabel
-  color: var(--text-muted)
 
 .story
   margin: 0

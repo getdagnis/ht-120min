@@ -6170,7 +6170,14 @@ export const TournamentView: React.FC<{ initialData?: TournamentInitialData }> =
             {(tournament.allow_reserve_registration !== false || reserveTeams.length > 0) && (
               <ReserveTeamsWidget tournamentId={tournament.id} />
             )}
-            <ManagerSpotlight spotlight={managerSpotlight} />
+            <ManagerSpotlight
+              spotlight={managerSpotlight}
+              tournament={{
+                name: tournament.name,
+                countryLimit: tournament.country_limit,
+                countryLimitFormat: tournament.country_limit_format,
+              }}
+            />
             <SidebarPollWidget
               seasonId={currentSeason?.id}
               seasonStatus={currentSeason?.status}

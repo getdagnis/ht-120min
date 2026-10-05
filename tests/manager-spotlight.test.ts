@@ -10,6 +10,7 @@ import {
   getClubRankLabel,
   getFoundedYearLabel,
   getSpecialLeagueLabel,
+  getSpotlightTournamentLabel,
   getVisibleClubTeams,
   normalizeNationalTeamRoles,
   selectStoryCandidates,
@@ -43,7 +44,7 @@ const fixtures = {
   DavidLafata: [
     club(10, 'Lískači', { isPrimary: true, countryId: 46, countryName: 'Czechia', regionName: 'Kraj Vysočina', leagueId: 52, foundedDate: '2024-09-07', leagueRank: 835, powerLeagueRank: 1756, seriesName: 'V.219' }),
     club(11, 'Stóra Dímun', { countryId: 71, countryName: 'Faroe Islands', trophies: seriesTitles(1) }),
-    club(12, 'The princesses of Zermatt', { countryId: 179, countryName: 'Guam', leagueId: 3000, seriesName: 'VII.71', leagueRank: 8015, isTournamentTeam: true }),
+    club(12, 'The princesses of Zermatt', { countryId: 179, countryName: 'Guam', leagueId: 3000, seriesName: 'VII.71', leagueRank: 8015, foundedDate: '2026-03-16', isTournamentTeam: true }),
     club(13, 'Tribute to Penguins', { countryId: 103, countryName: 'Jordan', trophies: seriesTitles(2) }),
     club(14, 'Wallersee Boys', { countryId: 145, countryName: 'Cambodia' }),
   ],
@@ -97,6 +98,17 @@ test('worlddetails supplies every special league label through one formatter', (
   assert.equal(getSpecialLeagueLabel(4), null);
 });
 
+test('club heading keeps the tournament title and renders its restricted country as a flagged segment', () => {
+  const label = getSpotlightTournamentLabel({ name: 'Exotic HFI — Saint Kitts and Nevis 🇰🇳', countryLimit: '202', countryLimitFormat: 'country_id' });
+  assert.equal(plain(label), 'Exotic HFI — Saint Kitts and Nevis');
+  assert.deepEqual(countryMentions(label).map((mention) => mention.name), ['Saint Kitts and Nevis']);
+  assert.ok(countryFlagUrl(countryMentions(label)[0]!.countryId, countryMentions(label)[0]!.name));
+  assert.equal(plain(getSpotlightTournamentLabel({ name: 'Exotic HFI', countryLimit: '202', countryLimitFormat: 'country_id' })),
+    'Exotic HFI — Saint Kitts and Nevis');
+  assert.equal(plain(getSpotlightTournamentLabel({ name: 'Exotic HFI — Saint Kitts and Nevis 🇰🇳 (test)', countryLimit: '202', countryLimitFormat: 'country_id' })),
+    'Exotic HFI — Saint Kitts and Nevis (test)');
+});
+
 test('TeamRank follows country leagues or special leagues, separate from PowerRating rank', () => {
   const regular = fixtures.DavidLafata[0]!;
   assert.equal(getClubRankLabel(regular), 'League rank #835');
@@ -114,7 +126,7 @@ test('regular TeamRank uses its league country while club mentions keep flagged 
   const tournament = result.sentences.find((sentence) => sentence.candidateId.startsWith('tournament:'))!.segments;
   const main = result.sentences.find((sentence) => sentence.candidateId.startsWith('primary:'))!.segments;
   assert.match(plain(tournament), /Lemon Pirates, currently ranked #13 in Costa Rica/);
-  assert.match(plain(main), /FK Pirates in Rīga, Latvia, was founded in 2003/);
+  assert.match(plain(main), /FK Pirates.*Rīga, Latvia.*founded in 2003/);
   assert.deepEqual(countryMentions(tournament).map((mention) => mention.name), ['Costa Rica']);
   assert.deepEqual(countryMentions(main).map((mention) => mention.name), ['Latvia']);
   assert.ok([...countryMentions(tournament), ...countryMentions(main)]
@@ -127,10 +139,10 @@ test('special TeamRank uses the special league while country remains club locati
     club(201, 'Lemon Pirates', { isTournamentTeam: true, leagueId: 3000, countryId: 77, countryName: 'Costa Rica', leagueRank: 1332, seriesName: 'VI.1' }),
   ]);
   const tournament = result.sentences.find((sentence) => sentence.candidateId === 'tournament:201')!.segments;
-  assert.equal(plain(tournament), 'LA-Pirats is competing here with Lemon Pirates, based in Costa Rica, currently ranked #1332 in HFI and playing in series VI.1.');
+  assert.match(plain(tournament), /LA-Pirats.*Lemon Pirates, based in Costa Rica, currently ranked #1332 in HFI and playing in series VI\.1/);
   assert.deepEqual(countryMentions(tournament).map((mention) => mention.name), ['Costa Rica']);
   assert.equal(getClubRankLabel(club(201, 'Lemon Pirates', { leagueId: 3000, leagueRank: 1332 })), '#1332 in HFI');
-  assert.match(story(result)[2]!, /FK Pirates in Rīga, Latvia, was founded in 2003/);
+  assert.match(story(result)[2]!, /FK Pirates.*Rīga, Latvia.*founded in 2003/);
 });
 
 test('ordinary series titles below five have no story candidate; five or more may be selected', () => {
@@ -183,7 +195,7 @@ test('club rows select only tournament and main, dedupe same club, and expose ma
   const teams = fixtures.DavidLafata;
   assert.deepEqual(getVisibleClubTeams({ currentTeams: teams, tournamentTeamId: 12 }).map((item) => item.teamName), ['The princesses of Zermatt', 'Lískači']);
   assert.equal(getFoundedYearLabel(teams[0]!), 'Founded 2024');
-  assert.equal(getFoundedYearLabel(teams[2]!), null);
+  assert.equal(getFoundedYearLabel(teams[2]!), 'Founded 2026');
   const same = club(93, 'FC Nachos', { isPrimary: true, isTournamentTeam: true, foundedDate: '2005-01-01' });
   assert.deepEqual(getVisibleClubTeams({ currentTeams: [same, club(94, 'Other')], tournamentTeamId: 93 }).map((item) => item.teamId), [93]);
   assert.equal(getFoundedYearLabel(same), 'Founded 2005');
@@ -193,8 +205,8 @@ test('exceptional role, tournament, main club, and major cup fit the four-senten
   const result = compose('NinoMed', fixtures.NinoMed, ninoRoles, 1587569);
   assert.equal(result.sentences.length, 4);
   assert.match(story(result)[0]!, /coaches the national team of Guam and holds six additional/);
-  assert.match(story(result)[1]!, /NinoMed is competing here with 'Nduje Amaranto, based in Guam, currently ranked #1229 in HFI and playing in series VI\.976/);
-  assert.match(story(result)[2]!, /main club, Amaranto in Calabria, Italy, was founded in 2004, holds league rank #2705 and plays in series V\.210/);
+  assert.match(story(result)[1]!, /NinoMed.*'Nduje Amaranto, based in Guam, currently ranked #1229 in HFI and playing in series VI\.976/);
+  assert.match(story(result)[2]!, /main club, Amaranto.*Calabria, Italy.*founded in 2004, holds league rank #2705 and plays in series V\.210/);
   assert.match(story(result)[3]!, /Erythrà won the National Cup in Malta in 2024/);
   assert.doesNotMatch(story(result).join(' '), /17 series titles/);
 });
@@ -204,8 +216,8 @@ test('official prefix and NT role share P0; U21 comes from the name', () => {
   assert.equal(detectOfficialRole('Moderator'), null);
   const result = compose('LA-Pirats', fixtures['LA-Pirats'], [{ staffType: 2, nationalTeamId: 48, nationalTeamName: 'Latvia' }]);
   assert.match(story(result)[0]!, /Hattrick Language Assistant and also serves as a scout for the national team of Latvia/);
-  assert.match(story(result)[1]!, /LA-Pirats is competing here with Lemon Pirates, currently ranked #13 in Costa Rica and playing in series II\.1/);
-  assert.match(story(result)[2]!, /main club, FK Pirates in Rīga, Latvia, was founded in 2003 and plays in series III\.6/);
+  assert.match(story(result)[1]!, /LA-Pirats.*Lemon Pirates, currently ranked #13 in Costa Rica and playing in series II\.1/);
+  assert.match(story(result)[2]!, /main club, FK Pirates.*Rīga, Latvia.*founded in 2003 and plays in series III\.6/);
   assert.equal(result.sentences.length, 3);
   assert.equal(normalizeNationalTeamRoles([{ staffType: 1, nationalTeamId: 1, nationalTeamName: 'U21 Guam' }])[0]?.isU21, true);
 });
@@ -221,12 +233,12 @@ test('single old club gets main history and youth fallback without a duplicate r
 
 test('named ordinary examples use tournament, main, and only a useful optional fact', () => {
   const expected: Record<'cellm8' | 'DavidLafata' | 'barreneru' | 'lebotte' | 'SteFrix' | 'branko_zebec93', RegExp[]> = {
-    cellm8: [/cellm8 is competing here with Borderline Athletic.*ranked #42 in HFI.*series VII\.375/, /main club, Astonishing Apparatus.*2007.*league rank #410.*series IV\.7/, /17 series titles/],
-    DavidLafata: [/DavidLafata is competing here with The princesses of Zermatt.*ranked #8015 in HFI.*series VII\.71/, /main club, Lískači in Kraj Vysočina, Czechia.*2024.*league rank #835.*series V\.219/, /the Faroe Islands, Jordan and Cambodia/],
-    barreneru: [/barreneru is competing here with Las Mamachichos.*HFI series VII\.377/, /main club, Atletico Konoha.*2024.*league rank #461.*series VI\.654/],
-    lebotte: [/lebotte is competing here with aloha FC.*HFI series VI\.977/, /main club, FC lebotte in France.*2024.*league rank #1942.*series V\.12/],
-    SteFrix: [/SteFrix is competing here with La Cadrega Witches.*HFI series VI\.772/, /main club, Deportivo La Cadrega in Italy.*2018.*league rank #3001.*series VI\.129/, /9 series titles/],
-    branko_zebec93: [/branko_zebec93 is competing here with Victoria_FC.*HFI series VII\.661/, /main club, AS Red Star 93 in Germany.*2008.*league rank #70.*series VI\.84/, /won the National Cup in Germany in 2021/],
+    cellm8: [/cellm8.*Borderline Athletic.*ranked #42 in HFI.*series VII\.375/, /main club, Astonishing Apparatus.*2007.*league rank #410.*series IV\.7/, /17 series titles/],
+    DavidLafata: [/DavidLafata.*The princesses of Zermatt.*ranked #8015 in HFI.*series VII\.71/, /main club, Lískači.*Kraj Vysočina, Czechia.*2024.*league rank #835.*series V\.219/, /the Faroe Islands, Jordan and Cambodia/],
+    barreneru: [/barreneru.*Las Mamachichos.*HFI series VII\.377/, /main club, Atletico Konoha.*2024.*league rank #461.*series VI\.654/],
+    lebotte: [/lebotte.*aloha FC.*HFI series VI\.977/, /main club, FC lebotte.*France.*2024.*league rank #1942.*series V\.12/],
+    SteFrix: [/SteFrix.*La Cadrega Witches.*HFI series VI\.772/, /main club, Deportivo La Cadrega.*Italy.*2018.*league rank #3001.*series VI\.129/, /9 series titles/],
+    branko_zebec93: [/branko_zebec93.*Victoria_FC.*HFI series VII\.661/, /main club, AS Red Star 93.*Germany.*2008.*league rank #70.*series VI\.84/, /won the National Cup in Germany in 2021/],
   };
   for (const name of Object.keys(expected) as Array<keyof typeof expected>) {
     const sentences = story(compose(name, fixtures[name]));

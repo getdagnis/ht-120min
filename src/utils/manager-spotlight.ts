@@ -1,4 +1,4 @@
-import { getCountryIdByName, getCountryWorldDetails, getLeagueWorldDetails, HATTRICK_WORLD_DETAILS } from '../../shared/worlddetails.js';
+import { getCountryIdByName, getCountryWorldDetails, getLeagueWorldDetails, HATTRICK_WORLD_DETAILS, resolveCountryRestriction, type CountryRestrictionFormat } from '../../shared/worlddetails.js';
 import { getCanonicalCountryName, getCountryFlagUrl } from './ht-data.js';
 
 export interface ManagerSpotlightAvatar {
@@ -151,6 +151,23 @@ export function countryLabel(countryId: number | null, countryName: string | nul
 
 export function countryFlagUrl(countryId: number | null, countryName: string | null): string | null {
   return getCountryFlagUrl(countryId, countryName);
+}
+
+export function getSpotlightTournamentLabel(context: {
+  name: string;
+  countryLimit?: string | null;
+  countryLimitFormat?: CountryRestrictionFormat | null;
+}): StorySegment[] {
+  const country = resolveCountryRestriction(context.countryLimit, context.countryLimitFormat);
+  const name = context.name.trim();
+  if (!country?.countryId) return [name || 'this tournament'];
+
+  const title = name.replace(` ${country.emoji}`, '');
+  const countryName = [country.fullName, country.leagueName].find((value) => title.includes(value));
+  const mention: CountryMention = { kind: 'country', countryId: country.countryId, name: countryName || country.fullName };
+  if (!countryName) return [title || 'this tournament', ' — ', mention];
+  const countryIndex = title.lastIndexOf(countryName);
+  return [title.slice(0, countryIndex), mention, title.slice(countryIndex + countryName.length)];
 }
 
 export function getSpecialLeagueLabel(leagueId: number | null): string | null {
@@ -355,7 +372,7 @@ function buildCandidates(input: {
   const special = getSpecialLeagueLabel(tournamentTeam.leagueId);
   const rank = validDisplayRank(tournamentTeam);
   const rankCountry = rank ? regularRankCountry(tournamentTeam) : null;
-  const tournament: StorySegment[] = [`${managerName} is competing here with ${tournamentTeam.teamName}`];
+  const tournament: StorySegment[] = [`${managerName} is the owner of ${tournamentTeam.teamName}`];
   const tournamentCountry = countrySegment(tournamentTeam);
   if (special) {
     if (tournamentCountry) append(tournament, ', based in ', tournamentCountry);
@@ -380,7 +397,7 @@ function buildCandidates(input: {
     const primaryRank = sameAsTournament ? null : validDisplayRank(primary);
     const primaryCountry = countrySegment(primary);
     const region = primary.regionName;
-    const parts: StorySegment[] = asSegments(`The main club, ${primary.teamName}`, region ? ` in ${region}` : '', primaryCountry ? region ? ', ' : ' in ' : '', primaryCountry, ',');
+    const parts: StorySegment[] = asSegments(`Their main club, ${primary.teamName}`, region ? ` is registered in ${region}` : '', primaryCountry ? region ? ', ' : ' in ' : '', primaryCountry, ',');
     const details: StorySegment[][] = [];
     if (validYear) details.push([`was founded in ${year}`]);
     if (primaryRank) {
