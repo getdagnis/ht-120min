@@ -1,5 +1,5 @@
 import React from 'react';
-import { ArrowUpRight, UsersThree } from 'phosphor-react';
+import { UsersThree } from 'phosphor-react';
 
 import { Avatar } from '../Avatar/Avatar';
 import { ReusableWidget } from '../ReusableWidget/ReusableWidget';
@@ -9,7 +9,6 @@ import {
   getClubRankLabel,
   getFoundedYearLabel,
   getSpecialLeagueLabel,
-  getSpotlightTournamentLabel,
   getVisibleClubTeams,
   type CountryMention,
   type ManagerSpotlight as ManagerSpotlightViewModel,
@@ -66,11 +65,10 @@ interface ManagerSpotlightProps {
   };
 }
 
-export const ManagerSpotlight: React.FC<ManagerSpotlightProps> = ({ spotlight, tournament }) => {
+export const ManagerSpotlight: React.FC<ManagerSpotlightProps> = ({ spotlight }) => {
   if (!spotlight) return null;
   const location = normalizeLocation(spotlight.location);
   const story = normalizeStory(spotlight.story);
-  const tournamentLabel = getSpotlightTournamentLabel(tournament);
 
   return (
     <ReusableWidget title="Meet the manager" icon={<UsersThree size={20} weight="bold" />} className={styles.widget}>
