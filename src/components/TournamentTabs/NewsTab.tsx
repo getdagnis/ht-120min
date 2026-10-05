@@ -72,6 +72,7 @@ export interface NewsArticleProps {
   preview?: NewsArticlePreview;
   comments?: NewsComment[];
   commentAuthor?: NewsCommentAuthor | null;
+  managerTeamNames?: Record<number, string>;
   onCommentSubmit?: (postId: string, content: string) => Promise<void>;
   commentSubmitting?: boolean;
 }
@@ -205,6 +206,7 @@ export const NewsArticle: React.FC<NewsArticleProps> = ({
   preview,
   comments,
   commentAuthor,
+  managerTeamNames,
   onCommentSubmit,
   commentSubmitting = false,
 }) => {
@@ -351,6 +353,7 @@ export const NewsArticle: React.FC<NewsArticleProps> = ({
         <NewsComments
           comments={comments}
           currentAuthor={commentAuthor || null}
+          managerTeamNames={managerTeamNames}
           onSubmit={(content) => onCommentSubmit(post.id, content)}
           isSubmitting={commentSubmitting}
         />
@@ -450,6 +453,9 @@ export const NewsTab: React.FC<NewsTabProps> = ({
     teams
       .filter((team) => team.hattrick_user_id)
       .map((team) => [String(team.hattrick_user_id), team.manager_name || team.name]),
+  );
+  const managerTeamNames = Object.fromEntries(
+    teams.flatMap((team) => team.hattrick_user_id ? [[team.hattrick_user_id, team.name] as const] : []),
   );
   const myTeam = myHtUserId ? teams.find((team) => team.hattrick_user_id === Number(myHtUserId)) : null;
   const cupPressAuthorName = myTeam?.manager_name || myManagerName || myTeam?.name || 'Tournament organizer';
@@ -937,6 +943,7 @@ export const NewsTab: React.FC<NewsTabProps> = ({
                 onDelete={canMutatePost(latestPost) ? () => setPendingDeletePost(latestPost) : undefined}
                 comments={commentsByPost[latestPost.id] || []}
                 commentAuthor={newsCommentAuthor}
+                managerTeamNames={managerTeamNames}
                 onCommentSubmit={submitNewsComment}
                 commentSubmitting={submittingNewsCommentPostId === latestPost.id}
               />
@@ -961,6 +968,7 @@ export const NewsTab: React.FC<NewsTabProps> = ({
                   onDelete={canMutatePost(post) ? () => setPendingDeletePost(post) : undefined}
                   comments={commentsByPost[post.id] || []}
                   commentAuthor={newsCommentAuthor}
+                  managerTeamNames={managerTeamNames}
                   onCommentSubmit={submitNewsComment}
                   commentSubmitting={submittingNewsCommentPostId === post.id}
                 />

@@ -282,7 +282,7 @@ export const ChatView: React.FC<ChatViewProps> = ({
                         authorName={msg.author_name}
                         teamName={
                           msg.author_ht_id === OFFICIAL_HT_USER_ID
-                            ? 'admin'
+                            ? 'ht-120min creator'
                             : teamDetails[msg.author_ht_id]?.name ||
                               teamNames[msg.author_ht_id] ||
                               (showGuestTeam ? 'guest' : undefined)

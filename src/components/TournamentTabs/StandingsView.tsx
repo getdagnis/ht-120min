@@ -179,6 +179,11 @@ export const StandingsView: React.FC<StandingsViewProps> = ({
     myHtUserId,
     myManagerName,
   );
+  const managerTeamNames = Object.fromEntries(
+    standings.flatMap((standing) => standing.hattrickUserId
+      ? [[standing.hattrickUserId, standing.teamName] as const]
+      : []),
+  );
   const [commentDrafts, setCommentDrafts] = useState<Record<string, string>>({});
   const [pendingCommentStanding, setPendingCommentStanding] = useState<TeamStanding | null>(null);
   const [submittingTeamId, setSubmittingTeamId] = useState<string | null>(null);
@@ -1014,6 +1019,7 @@ export const StandingsView: React.FC<StandingsViewProps> = ({
                 <NewsArticle
                   post={post}
                   authorTeam={authorTeam}
+                  managerTeamNames={managerTeamNames}
                   reactions={latestNewsReactions[post.id] || []}
                   currentUserId={myHtUserId}
                   reactionAuthorNames={reactionAuthorNames}

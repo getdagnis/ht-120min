@@ -17,6 +17,7 @@ export interface NewsComment {
 }
 
 export interface NewsCommentAuthor {
+  managerId: number;
   managerName: string;
   avatar: NewsCommentAvatar;
 }
@@ -146,7 +147,7 @@ export function useNewsComments(
 
   return {
     commentsByPost,
-    currentAuthor: viewerId && viewerName ? { managerName: viewerName, avatar: viewerAvatar } : null,
+    currentAuthor: viewerId && viewerName ? { managerId: viewerId, managerName: viewerName, avatar: viewerAvatar } : null,
     submitComment,
     submittingPostId,
   };

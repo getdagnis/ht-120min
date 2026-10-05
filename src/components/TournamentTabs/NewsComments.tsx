@@ -9,6 +9,7 @@ import type { NewsComment, NewsCommentAuthor } from './useNewsComments';
 interface NewsCommentsProps {
   comments: NewsComment[];
   currentAuthor: NewsCommentAuthor | null;
+  managerTeamNames?: Record<number, string>;
   onSubmit: (content: string) => Promise<void>;
   isSubmitting: boolean;
 }
@@ -26,6 +27,7 @@ const formatCommentTime = (createdAt: string) =>
 export const NewsComments: React.FC<NewsCommentsProps> = ({
   comments,
   currentAuthor,
+  managerTeamNames = {},
   onSubmit,
   isSubmitting,
 }) => {
@@ -52,7 +54,12 @@ export const NewsComments: React.FC<NewsCommentsProps> = ({
         <form className={styles.commentComposer} onSubmit={handleSubmit}>
           <div className={styles.commentAuthor}>
             <Avatar avatar={currentAuthor.avatar} variant="circle" size={36} className={styles.commentAvatar} />
-            <strong>{currentAuthor.managerName}</strong>
+            <div className={styles.commentIdentity}>
+              <strong>{currentAuthor.managerName}</strong>
+              {managerTeamNames[currentAuthor.managerId] && (
+                <span className={styles.commentTeamName}>{managerTeamNames[currentAuthor.managerId]}</span>
+              )}
+            </div>
           </div>
           <textarea
             value={draft}
@@ -77,7 +84,12 @@ export const NewsComments: React.FC<NewsCommentsProps> = ({
               <Avatar avatar={comment.avatar_json || null} variant="circle" size={36} className={styles.commentAvatar} />
               <div className={styles.commentBody}>
                 <div className={styles.commentMeta}>
-                  <strong>{comment.author_name}</strong>
+                  <div className={styles.commentIdentity}>
+                    <strong>{comment.author_name}</strong>
+                    {managerTeamNames[comment.hattrick_user_id] && (
+                      <span className={styles.commentTeamName}>{managerTeamNames[comment.hattrick_user_id]}</span>
+                    )}
+                  </div>
                   <time dateTime={comment.created_at}>{formatCommentTime(comment.created_at)}</time>
                 </div>
                 <p>{comment.content}</p>

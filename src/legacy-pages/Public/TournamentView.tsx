@@ -1865,26 +1865,27 @@ export const TournamentView: React.FC<{ initialData?: TournamentInitialData }> =
     if (!roundsData) return;
 
     const roundIds = roundsData.map((r: { id: string }) => r.id);
-    const [{ data: matchesData, error: matchesError }, { data: warningsData }, { data: activityWarningsData }, { data: tournamentMeta }] =
-      await Promise.all([
-        supabase
-          .from('matches')
-          .select(
-            `
+    const [
+      { data: matchesData, error: matchesError },
+      { data: warningsData },
+      { data: activityWarningsData },
+      { data: tournamentMeta },
+    ] = await Promise.all([
+      supabase
+        .from('matches')
+        .select(
+          `
         ${PUBLIC_MATCH_FIELDS},
         home_team:teams!matches_home_team_id_fkey(name, ht_team_id, logo_url, country_name, country_id, league_id, league_level, active, manager_name, hattrick_user_id),
         away_team:teams!matches_away_team_id_fkey(name, ht_team_id, logo_url, country_name, country_id, league_id, league_level, active, manager_name, hattrick_user_id),
         reserve_team:teams!matches_reserve_team_id_fkey(name, ht_team_id, logo_url, country_name, country_id, league_id, league_level, active, reserve_active, manager_name, hattrick_user_id)
       `,
-          )
-          .in('round_id', roundIds),
-        supabase.from('fixture_warnings').select('*').eq('tournament_id', tournament.id).eq('active', true),
-        supabase
-          .from('fixture_warnings')
-          .select('id, round_id, team_id, created_at')
-          .eq('tournament_id', tournament.id),
-        supabase.from('tournaments').select('last_fixtures_refresh').eq('id', tournament.id).single(),
-      ]);
+        )
+        .in('round_id', roundIds),
+      supabase.from('fixture_warnings').select('*').eq('tournament_id', tournament.id).eq('active', true),
+      supabase.from('fixture_warnings').select('id, round_id, team_id, created_at').eq('tournament_id', tournament.id),
+      supabase.from('tournaments').select('last_fixtures_refresh').eq('id', tournament.id).single(),
+    ]);
 
     if (matchesError) {
       console.error('Could not refresh fixture matches:', matchesError);
@@ -2155,14 +2156,7 @@ export const TournamentView: React.FC<{ initialData?: TournamentInitialData }> =
       }
       setModalLoading(false);
     },
-    [
-      setIsConnecting,
-      setJoinError,
-      setModalLoading,
-      setPendingJoinData,
-      setShowJoinErrorModal,
-      setShowTeamModal,
-    ],
+    [setIsConnecting, setJoinError, setModalLoading, setPendingJoinData, setShowJoinErrorModal, setShowTeamModal],
   );
 
   const handleTeamSelect = async (team: ChppTeamOption) => {
@@ -2837,11 +2831,13 @@ export const TournamentView: React.FC<{ initialData?: TournamentInitialData }> =
             .select('avatar_json, country_name, country_id')
             .eq('hattrick_user_id', newMessage.author_ht_id)
             .maybeSingle();
-          setChatMessages((previous) => previous.some((message) => message.id === newMessage.id)
-            ? previous
-            : [...previous, { ...newMessage, profiles: profile }].sort(
-                (a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime(),
-              ));
+          setChatMessages((previous) =>
+            previous.some((message) => message.id === newMessage.id)
+              ? previous
+              : [...previous, { ...newMessage, profiles: profile }].sort(
+                  (a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime(),
+                ),
+          );
         },
       )
       .subscribe();
@@ -3860,7 +3856,9 @@ export const TournamentView: React.FC<{ initialData?: TournamentInitialData }> =
       ];
       if (failedResults.length) {
         summary.push('Not refreshed:');
-        summary.push(...failedResults.map((result) => `Manager ${result.managerId}: ${result.error || 'refresh failed'}`));
+        summary.push(
+          ...failedResults.map((result) => `Manager ${result.managerId}: ${result.error || 'refresh failed'}`),
+        );
       }
       alert(summary.join('\n'));
       if (refreshedCount > 0) router.refresh();
@@ -6858,8 +6856,8 @@ export const TournamentView: React.FC<{ initialData?: TournamentInitialData }> =
                               </h3>
                               {isValidatedTournament && (
                                 <p className={styles.helperText}>
-                                  Add a local placeholder using the team&apos;s Hattrick data, or use the invitation
-                                  template to ask its manager to register.
+                                  Add an unverified team placeholder using the team&apos;s Hattrick data. It will work
+                                  for generating schedule and manager will be able to verify it once they log in.
                                 </p>
                               )}
                               <form onSubmit={(e) => addTeam(e, false)} className={adminStyles.teamForm}>
@@ -7714,7 +7712,8 @@ export const TournamentView: React.FC<{ initialData?: TournamentInitialData }> =
                         Team metadata is refreshed from Hattrick before the copy is created.
                       </p>
                       <p className={adminStyles.smallNote}>
-                        Update stored manager snapshots for active managers in this tournament. Reserves and placeholders are excluded.
+                        Update stored manager snapshots for active managers in this tournament. Reserves and
+                        placeholders are excluded.
                       </p>
                       <div className={adminStyles.settingsActions}>
                         <Button
