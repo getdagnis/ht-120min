@@ -182,10 +182,11 @@ export function getSpecialLeagueLabel(leagueId: number | null): string | null {
   return league && league.countryId === null ? league.suffix ?? league.leagueName : null;
 }
 
-export function getClubRankLabel(team: Pick<ManagerSpotlightTeam, 'leagueRank' | 'leagueId' | 'countryId' | 'countryName'>, includeSpecialLeague = true): string | null {
+export function getClubRankLabel(team: Pick<ManagerSpotlightTeam, 'leagueRank' | 'leagueId' | 'countryId' | 'countryName'>, includeScope = true): string | null {
   if (!team.leagueRank || team.leagueRank <= 0) return null;
+  if (!includeScope) return `Ranked #${team.leagueRank}`;
   const special = getSpecialLeagueLabel(team.leagueId);
-  if (special) return includeSpecialLeague ? `Ranked #${team.leagueRank} in ${special}` : `Ranked #${team.leagueRank}`;
+  if (special) return `Ranked #${team.leagueRank} in ${special}`;
   const league = getLeagueWorldDetails(team.leagueId);
   const scope = countryLabel(league?.countryId ?? team.countryId, league?.fullName ?? team.countryName);
   return scope ? `Ranked #${team.leagueRank} in ${scope}` : `Ranked #${team.leagueRank}`;

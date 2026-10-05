@@ -117,7 +117,7 @@ test('TeamRank follows country leagues or special leagues, separate from PowerRa
   const hfi = fixtures.DavidLafata[2]!;
   assert.equal(getClubRankLabel(hfi), 'Ranked #8015 in HFI');
   assert.match(story(compose('DavidLafata', fixtures.DavidLafata))[0]!, /ranked #8015 in HFI/);
-  assert.equal(getClubRankLabel(club(98, 'Homegrown', { leagueId: 1003, leagueRank: 12 })), '#12 in HGL');
+  assert.equal(getClubRankLabel(club(98, 'Homegrown', { leagueId: 1003, leagueRank: 12 })), 'Ranked #12 in HGL');
   assert.equal(getClubRankLabel(club(99, 'Zero', { leagueRank: 0 })), null);
 });
 

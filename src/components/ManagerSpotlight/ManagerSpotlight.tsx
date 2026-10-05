@@ -3,6 +3,7 @@ import { UsersThree } from 'phosphor-react';
 
 import { Avatar } from '../Avatar/Avatar';
 import { ReusableWidget } from '../ReusableWidget/ReusableWidget';
+import { getLeagueFlagUrl } from '../../utils/ht-data';
 import {
   countryFlagUrl,
   countryLabel,
@@ -113,10 +114,12 @@ export const ManagerSpotlight: React.FC<ManagerSpotlightProps> = ({ spotlight })
               </React.Fragment>,
             );
           }
-          if (special) details.push(<span key="special">{special}</span>);
+          const hasRank = team.leagueRank !== null && team.leagueRank > 0;
+          if (special && !hasRank) details.push(<span key="special">{special}</span>);
           if (team.seriesName) details.push(<span key="series">{team.seriesName}</span>);
-          const rank = getClubRankLabel(team, !special);
-          if (rank) details.push(<span key="rank">{rank}</span>);
+          const rank = getClubRankLabel(team, false);
+          if (rank && !special) details.push(<span key="rank">{rank}</span>);
+          const leagueFlag = special && hasRank ? getLeagueFlagUrl(team.leagueId) : null;
           const founded = getFoundedYearLabel(team);
 
           return (
@@ -142,6 +145,13 @@ export const ManagerSpotlight: React.FC<ManagerSpotlightProps> = ({ spotlight })
                         ))
                       : 'Hattrick club'}
                   </span>
+                  {special && hasRank && (
+                    <span className={styles.teamMeta}>
+                      Ranked #{team.leagueRank} in{' '}
+                      {leagueFlag && <img src={leagueFlag} alt="" className={styles.leagueFlag} />}{' '}
+                      {special}
+                    </span>
+                  )}
                   {founded && <span className={styles.foundedDate}>{founded}</span>}
                 </div>
               </div>
