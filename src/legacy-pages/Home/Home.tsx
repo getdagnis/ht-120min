@@ -433,6 +433,7 @@ export const Home: React.FC<{ initialData?: HomeInitialData }> = ({ initialData 
               home_team_id,
               away_team_id,
               scheduled_for,
+              chpp_match_date,
               home_team:teams!matches_home_team_id_fkey(country_name),
               away_team:teams!matches_away_team_id_fkey(country_name)
             )

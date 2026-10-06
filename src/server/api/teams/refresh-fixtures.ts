@@ -28,7 +28,7 @@ import {
 } from '../_lib/hattrick-time.js';
 import { isFriendlyInsideAcceptedWindow } from '../_lib/match-window.js';
 import type { MatchEventDetails } from '../../../../shared/match-events.js';
-import { parseChppStockholmDate, serializeStoredStockholmDate } from '../../../../shared/chpp-dates.js';
+import { parseChppStockholmDate } from '../../../../shared/chpp-dates.js';
 import type {
   TournamentMatchArrangeStorySnapshot,
   TournamentReserveStorySnapshot,
@@ -582,14 +582,13 @@ async function fetchMatchDetailsById(
   const actualAwayTeamName = xml.match(/<AwayTeam>[\s\S]*?<AwayTeamName>([^<]+)<\/AwayTeamName>/i)?.[1] || null;
   const matchType = parseInt(readChppTag(xml, 'MatchType') || '0', 10) || null;
   const matchDateText = readChppTag(xml, 'MatchDate');
-  const matchDate = matchDateText ? new Date(matchDateText.replace(' ', 'T')) : null;
+  const matchDate = parseChppStockholmDate(matchDateText);
   const finishedDate = readChppTag(xml, 'FinishedDate');
   const matchStatus = readChppTag(xml, 'MatchStatus');
   const finished = (finishedDate && finishedDate !== '0001-01-01 00:00:00') || matchStatus === '2';
   const status = finished ? 'finished' : matchStatus === '1' ? 'ongoing' : 'arranged';
   const addedMinutes = parseInt(readChppTag(xml, 'AddedMinutes') || '0', 10);
   const went120 = xml.includes('<MatchPart>3</MatchPart>') || xml.includes('<MatchPart>4</MatchPart>');
-  const storedMatchDate = serializeStoredStockholmDate(matchDateText);
   const storedFinishedAt =
     finishedDate && finishedDate !== '0001-01-01 00:00:00'
       ? parseChppStockholmDate(finishedDate)?.toISOString() || null
@@ -602,7 +601,6 @@ async function fetchMatchDetailsById(
     matchType,
     matchDate,
     finishedAt: storedFinishedAt,
-    storedMatchDate,
     actualHtHomeTeamId,
     actualHtAwayTeamId,
     actualHomeTeamName,
@@ -798,6 +796,7 @@ async function handleManualMatchLink(req: VercelRequest, res: VercelResponse) {
   if (!dryRun) {
     const updatePayload = {
       ht_match_id: details.htMatchId,
+      chpp_match_date: details.matchDate?.toISOString() ?? null,
       match_type: details.matchType,
       status: details.status,
       completed: details.completed,
@@ -1173,7 +1172,7 @@ async function handleAddHtMatch(req: VercelRequest, res: VercelResponse) {
       total_minutes: details.totalMinutes,
       ht_match_id: details.htMatchId,
       match_type: details.matchType,
-      scheduled_for: details.storedMatchDate,
+      chpp_match_date: details.matchDate?.toISOString() ?? null,
       finished_at: details.finishedAt,
       actual_ht_home_team_id: details.actualHtHomeTeamId,
       actual_ht_away_team_id: details.actualHtAwayTeamId,
@@ -1559,6 +1558,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     const findConfirmedMatch = (
       match: {
         ht_match_id?: number | null;
+        chpp_match_date?: string | null;
         home_team_id: string | null;
         away_team_id: string | null;
         schedule_slot_type?: string | null;
@@ -1583,6 +1583,52 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         (fixture) => isFriendlyInsideAcceptedWindow(fixture.date, targetDate, match.schedule_slot_type) && isCorrectMatch(fixture),
       ) || null;
     };
+
+    // Repair already-linked upcoming/just-started fixtures independently of
+    // round reconciliation. Their stored schedule time may be an estimate and
+    // cannot safely decide whether this repair should run.
+    if (authTeam?.oauth_token && authTeam.oauth_token_secret) {
+      for (const round of rounds) {
+        for (const match of round.matches) {
+          if (match.completed || !match.ht_match_id || match.chpp_match_date) continue;
+          const homeTeam = teams.find((team) => team.id === match.home_team_id);
+          const awayTeam = teams.find((team) => team.id === match.away_team_id);
+          if (!homeTeam || !awayTeam) continue;
+
+          try {
+            const details = await fetchMatchDetailsById(
+              String(match.ht_match_id),
+              authTeam.oauth_token,
+              authTeam.oauth_token_secret,
+            );
+            const validTournamentTeamIds = new Set<number>([homeTeam.ht_team_id, awayTeam.ht_team_id]);
+            const reserve = match.reserve_team_id
+              ? teams.find((team) => team.id === match.reserve_team_id)
+              : null;
+            if (reserve?.ht_team_id && match.reserve_replaces_team_id) {
+              validTournamentTeamIds.add(reserve.ht_team_id);
+            }
+            const includesTournamentTeam = [details.actualHtHomeTeamId, details.actualHtAwayTeamId]
+              .some((teamId) => teamId !== null && validTournamentTeamIds.has(teamId));
+            const isUpcomingOrRecentlyStarted = Boolean(
+              details.matchDate && details.matchDate.getTime() >= now.getTime() - 4 * 60 * 60 * 1000,
+            );
+            if (!includesTournamentTeam || !isUpcomingOrRecentlyStarted) continue;
+
+            const chppMatchDate = details.matchDate!.toISOString();
+            const { error } = await supabase
+              .from('matches')
+              .update({ chpp_match_date: chppMatchDate })
+              .eq('id', match.id)
+              .eq('ht_match_id', details.htMatchId);
+            if (error) throw error;
+            match.chpp_match_date = chppMatchDate;
+          } catch (error) {
+            console.warn('Could not repair linked fixture kickoff date:', error instanceof Error ? error.message : error);
+          }
+        }
+      }
+    }
 
     const reserveTeams = teams.filter(
       (team) => team.active === false && team.reserve_active === true && team.ht_team_id > 0,
@@ -1638,6 +1684,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       if (
         currentStatus === 'arranged' &&
         match.ht_match_id &&
+        match.chpp_match_date &&
         match.match_type &&
         match.home_match_kit_url &&
         match.away_match_kit_url &&
@@ -1768,6 +1815,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         .update({
           status,
           ht_match_id: htMatchId,
+          ...(confirmedMatch ? { chpp_match_date: confirmedMatch.date.toISOString() } :
+            htMatchId !== match.ht_match_id ? { chpp_match_date: null } : {}),
           match_type: matchType,
           venue_mismatch: venueMismatch,
           actual_ht_home_team_id: actualHtHomeTeamId,

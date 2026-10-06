@@ -45,6 +45,8 @@ export interface FixtureMatch {
   match_type: number | null;
   match_date?: Date;
   scheduled_for?: string | null;
+  chpp_match_date?: string | null;
+  kickoff_confirmed?: boolean;
   schedule_slot_type?: string | null;
   fixture_source?: string | null;
   reserve_replaces_team_id?: string | null;
@@ -1043,9 +1045,10 @@ export const FixturesView: React.FC<FixturesViewProps> = ({
                     let status = match.status || 'not_arranged';
                     const isMisarranged = status === 'misarranged' || !!homeWarning || !!awayWarning;
                     const now = new Date(nowMs);
-                    const isPastStartTime = match.match_date && now >= match.match_date;
+                    const hasConfirmedKickoff = Boolean(match.kickoff_confirmed || match.chpp_match_date);
+                    const isPastStartTime = hasConfirmedKickoff && match.match_date && now >= match.match_date;
                     const isWithinLiveWindow =
-                      match.match_date && now.getTime() < match.match_date.getTime() + 4 * 60 * 60 * 1000;
+                      hasConfirmedKickoff && match.match_date && now.getTime() < match.match_date.getTime() + 4 * 60 * 60 * 1000;
 
                     if (isMisarranged) {
                       status = 'misarranged';
@@ -1146,9 +1149,10 @@ export const FixturesView: React.FC<FixturesViewProps> = ({
                           onAction: (side, action) => updateRatings(match.id, side, action),
                         } : undefined}
                         date={status === 'misarranged' ? '' : isPostponed ? 'POSTPONED' : formattedDate}
+                        dateIsEstimated={!hasConfirmedKickoff && !match.completed && !isHistorical}
                         status={status}
                         liveClock={status === 'ongoing' ? (liveMatch ?? undefined) : undefined}
-                        liveKickoff={status === 'ongoing' ? match.match_date : undefined}
+                        liveKickoff={status === 'ongoing' && hasConfirmedKickoff ? match.match_date : undefined}
                         htMatchId={match.ht_match_id || undefined}
                         score={currentScore}
                         penaltyShootout={penaltyShootout}

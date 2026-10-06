@@ -29,6 +29,7 @@ interface Match {
   ht_match_id: number | null;
   status: string;
   match_date?: Date | string;
+  kickoff_confirmed?: boolean;
   appg_outcome?: 'ET3' | 'ET2' | 'PS1' | 'RT0' | 'OPW' | 'needs_review' | null;
   appg_outcome_source?: 'unclassified' | 'chpp' | 'organizer' | 'csv' | null;
 }
@@ -89,6 +90,7 @@ export function useLiveMatches(
             !attemptedAppgMatchIdsRef.current.has(m.ht_match_id)
           );
         }
+        if (!m.kickoff_confirmed) return false;
         if (!['arranged', 'ongoing', 'finished'].includes(m.status)) return false;
         const matchDate = m.match_date ? new Date(m.match_date) : null;
         if (!matchDate) return false;

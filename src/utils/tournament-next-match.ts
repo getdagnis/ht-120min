@@ -1,4 +1,4 @@
-import { getMatchDateForRound } from './match-schedule.js';
+import { getMatchDateForRound, hasConfirmedMatchDate } from './match-schedule.js';
 
 interface TournamentWarning {
   round_id: string;
@@ -17,6 +17,7 @@ interface TournamentNextMatchRound {
         home_team_id: string | null;
         away_team_id: string | null;
         scheduled_for?: string | null;
+        chpp_match_date?: string | null;
         home_team?: {
           country_name?: string | null;
         } | null;
@@ -33,6 +34,7 @@ export function getTournamentNextMatchDate(
   const candidateDates = rounds.flatMap((round) =>
     (round.matches ?? [])
       .filter((match) => !match.completed && match.status !== 'misarranged')
+      .filter(hasConfirmedMatchDate)
       .filter(
         (match) =>
           !warnings?.some(

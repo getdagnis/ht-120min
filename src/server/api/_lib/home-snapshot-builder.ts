@@ -17,6 +17,7 @@ interface HomeMatch {
   home_team_id: string | null;
   away_team_id: string | null;
   scheduled_for?: string | null;
+  chpp_match_date?: string | null;
   finished_at?: string | null;
   home_team: { country_name: string } | null;
 }
@@ -166,7 +167,7 @@ export async function buildHomeSnapshot(supabase: SupabaseClient, now = Date.now
           rounds (
             id, created_at, round_number, season_number,
             matches (
-              id, completed, status, home_team_id, away_team_id, scheduled_for, finished_at, went_120,
+              id, completed, status, home_team_id, away_team_id, scheduled_for, chpp_match_date, finished_at, went_120,
               home_team:teams!matches_home_team_id_fkey(country_name)
             )
           ),

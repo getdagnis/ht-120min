@@ -92,35 +92,49 @@ Regeneration also supports the optional W15 weekend flag when applicable and kee
 
 ## Kickoff Times
 
-- Midweek and weekend kickoff times come from `src/utils/global-match-times.json`.
+- Generated midweek kickoff estimates use `COUNTRY_FRIENDLY_TIMES` in `src/utils/ht-data.ts`.
+- Generated weekend kickoff estimates use `src/utils/global-match-times.json`.
 - Weekend scheduling uses league-level-aware lookup where possible.
 - Missing weekend country metadata falls back to a default weekend kickoff.
-- Persisted `scheduled_for` should be preferred over legacy calculated dates.
+- Generated `scheduled_for` values are planned estimates, not proof of the eventual Hattrick kickoff.
+- Exact CHPP kickoff instants are stored separately in `matches.chpp_match_date`.
+- Public fixture dates prefer `chpp_match_date`; a generated schedule time is labeled estimated and does not drive inferred live status or polling.
 
 ### CHPP fixture timestamps
 
 Hattrick's CHPP `MatchDate` is a timezone-less Stockholm wall-clock value. The
-application's existing linked-fixture rows preserve those wall-clock
-components in the legacy `matches.scheduled_for` column, which is a PostgreSQL
-`timestamptz` column. As a result, Supabase may return a value such as
+older linked-fixture rows may preserve those wall-clock components in the
+legacy `matches.scheduled_for` column, which is a PostgreSQL `timestamptz`
+column. As a result, Supabase may return a value such as
 `2026-04-28T21:00:00+00:00`; the `+00:00` suffix is a serialization artifact,
 not a claim that the match began at 21:00 UTC. For a linked Hattrick fixture,
 `21:00` means 21:00 in Europe/Stockholm and displays as 22:00 in Riga during
 the relevant daylight-saving period.
 
-This legacy convention is deliberately interpreted at the fixture boundary:
+New and repaired linked-fixture rows store the parsed exact instant in
+`matches.chpp_match_date` as a normal UTC `timestamptz`; generated `scheduled_for`
+remains untouched and retains its UTC planned-schedule meaning. The old
+`scheduled_for` convention is still interpreted at the fixture boundary for
+legacy rows:
 `shared/chpp-dates.ts` contains the Stockholm parser and
-`src/utils/match-schedule.ts` applies it only to rows with an Hattrick match
-ID. Generated schedule rows remain real UTC instants and continue to use the
-normal `timestamptz`/ISO behavior. Do not add a browser-timezone offset or
-change a linked fixture's stored value to a different instant as a display
-fix. New CHPP-linked writes should use `serializeStoredStockholmDate()` so the
-legacy representation is explicit.
+`src/utils/match-schedule.ts` uses that legacy parser only for linked rows
+without generated slot metadata. New CHPP data is parsed with
+`parseChppStockholmDate()` and stored separately, so `schedule_slot_type` no
+longer changes how an exact kickoff is interpreted. Do not add a browser-timezone
+offset or rewrite generated schedule values as a display fix.
 
-The database column is not being changed here: the schedule-generation RPCs
-and existing migrations rely on `timestamptz`. A future schema migration could
-separate a Stockholm wall-clock field from real instants, but until then the
-two categories must remain distinct in code and documentation.
+After migration `101_add_confirmed_chpp_match_dates.sql` is applied and the
+updated app is deployed, use the existing **Refresh fixtures** action once for
+each affected tournament. A separate repair pass fetches CHPP `MatchDetails`
+for linked, uncompleted fixtures lacking an exact date across the current
+season, verifies a tournament team is in the match, and stores dates that are
+upcoming or within the live-polling window. It does not regenerate the schedule
+or rewrite results. Unlinked generated fixtures have no known CHPP match to
+repair and remain estimated until their Hattrick match is linked.
+
+The schedule-generation RPCs continue writing `scheduled_for` as a real UTC
+instant. The new `chpp_match_date` column keeps that estimate intact while
+recording the exact Hattrick instant independently.
 
 ## Migrations
 

@@ -331,6 +331,7 @@ interface MatchWithTeams {
   } | null;
   venue_type?: 'home_away' | null;
   scheduled_for?: string | null;
+  chpp_match_date?: string | null;
   finished_at?: string | null;
   schedule_slot_type?: 'midweek_friendly' | 'weekend_friendly' | 'week15_weekend_friendly' | null;
   home_team: {
@@ -362,6 +363,7 @@ interface MatchWithTeams {
     reserve_replacing_name?: string;
   } | null;
   match_date?: Date;
+  kickoff_confirmed?: boolean;
 }
 
 interface Team {
@@ -547,7 +549,7 @@ function toSeasonHistoryMatch(match: MatchWithTeams, roundNumber?: number): Seas
   return {
     id: match.id,
     roundNumber,
-    scheduledFor: match.scheduled_for || match.match_date?.toISOString() || null,
+    scheduledFor: match.chpp_match_date || match.scheduled_for || match.match_date?.toISOString() || null,
     homeTeamName: match.home_team?.name || null,
     awayTeamName: match.away_team?.name || null,
     home_team_id: match.home_team_id,
@@ -598,6 +600,7 @@ function restoreFixtureSnapshot(snapshot: SeasonFixturesSnapshot): RoundWithMatc
       .map((match) => ({
         ...match,
         match_date: match.match_date ? new Date(match.match_date) : undefined,
+        kickoff_confirmed: Boolean(match.chpp_match_date),
         home_team: restoreTeam(match.home_team),
         away_team: restoreTeam(match.away_team),
       }))
@@ -628,6 +631,7 @@ function reviveInitialRounds(initialData?: TournamentInitialData) {
       .map((match) => ({
         ...match,
         match_date: typeof match.match_date === 'string' ? new Date(match.match_date) : undefined,
+        kickoff_confirmed: Boolean(match.chpp_match_date),
       }))
       .sort(compareFixtures),
   })) as RoundWithMatches[];
@@ -1934,6 +1938,7 @@ export const TournamentView: React.FC<{
           .map((m) => ({
             ...applyReserveDisplay(m),
             match_date: getMatchDateForRound(r as RoundWithMatches, m),
+            kickoff_confirmed: Boolean(m.chpp_match_date),
           }))
           .sort(compareFixtures),
       }));

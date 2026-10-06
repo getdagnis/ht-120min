@@ -1,3 +1,5 @@
+import { parseChppStockholmDate } from './chpp-dates.js';
+
 export interface ParsedChppMatch {
   matchId: number;
   homeId: number;
@@ -22,8 +24,7 @@ function readTag(block: string, tag: string) {
 }
 
 function parseDate(value: string) {
-  const date = new Date(value.replace(' ', 'T'));
-  return Number.isFinite(date.getTime()) ? date : null;
+  return parseChppStockholmDate(value);
 }
 
 export function parseChppMatchesXml(

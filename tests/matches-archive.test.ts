@@ -46,6 +46,14 @@ test('archive parsing filters categories before team and imported-match filterin
   assert.deepEqual(eligible.map((match) => match.matchId), []);
 });
 
+test('CHPP MatchDate parses as a Stockholm wall clock and returns its exact instant', () => {
+  const parsed = parseChppMatchesXml(matchXml(9, '2026-04-28').replace('12:00:00', '21:00:00'), {
+    archive: true,
+    matchTypes: new Set([4]),
+  });
+  assert.equal(parsed.matches[0]?.date.toISOString(), '2026-04-28T19:00:00.000Z');
+});
+
 test('duplicate archive matches returned through both teams merge by Match ID', () => {
   const match: ParsedChppMatch = {
     matchId: 42,

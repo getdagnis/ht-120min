@@ -40,6 +40,7 @@ export interface SeasonFixtureMatchSnapshot {
   match_type: number | null;
   venue_type: 'home_away' | null;
   scheduled_for: string | null;
+  chpp_match_date: string | null;
   schedule_slot_type: 'midweek_friendly' | 'weekend_friendly' | 'week15_weekend_friendly' | null;
   match_date: string | null;
   home_team: SeasonFixtureTeamSnapshot | null;
@@ -115,6 +116,7 @@ interface SnapshotSourceMatch {
   match_type: number | null;
   venue_type?: 'home_away' | null;
   scheduled_for?: string | null;
+  chpp_match_date?: string | null;
   schedule_slot_type?: SeasonFixtureMatchSnapshot['schedule_slot_type'];
   match_date?: Date | null;
   home_team: SnapshotSourceTeam | null;
@@ -190,6 +192,7 @@ export function buildSeasonFixturesSnapshot(
         match_type: match.match_type,
         venue_type: match.venue_type ?? null,
         scheduled_for: match.scheduled_for ?? null,
+        chpp_match_date: match.chpp_match_date ?? null,
         schedule_slot_type: match.schedule_slot_type ?? null,
         match_date: match.match_date?.toISOString() ?? null,
         home_team: snapshotTeam(match.home_team),

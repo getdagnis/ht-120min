@@ -36,6 +36,7 @@ interface FixtureCardProps {
   score?: { home: number; away: number };
   penaltyShootout?: { home: number; away: number } | null;
   date?: string;
+  dateIsEstimated?: boolean;
   htMatchId?: number;
   matchType?: number;
   is120minMode?: boolean;
@@ -95,6 +96,7 @@ export const FixtureCard: React.FC<FixtureCardProps> = ({
   score,
   penaltyShootout,
   date,
+  dateIsEstimated = false,
   htMatchId,
   matchType,
   is120minMode,
@@ -243,6 +245,7 @@ export const FixtureCard: React.FC<FixtureCardProps> = ({
         {date && (
           <div className={styles.dateRow}>
             <div className={styles.date}>{date}</div>
+            {dateIsEstimated && <span className={styles.estimatedDate} title="Estimated from the planned schedule">Estimated</span>}
             {matchTypeInfo && (
               <>
                 <span
