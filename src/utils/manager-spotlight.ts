@@ -11,10 +11,12 @@ export interface CountryMention {
   countryId: number | null;
   name: string;
 }
-export type StorySegment = string | CountryMention;
+export interface StrongMention { kind: 'strong'; text: string }
+export type StorySegment = string | CountryMention | StrongMention;
 export interface StorySentence {
   candidateId: string;
   segments: StorySegment[];
+  paragraphId?: string;
 }
 
 export interface ManagerSpotlightTeam {
@@ -102,7 +104,7 @@ export interface ManagerSpotlightProfile {
   teams_json?: unknown;
 }
 
-export type StoryTopic = 'exceptional-role' | 'tournament' | 'primary-club' | 'achievement' | 'performance' | 'collection' | 'footprint' | 'colour';
+export type StoryTopic = 'exceptional-role' | 'tournament' | 'primary-club' | 'other-club' | 'club-facts' | 'footprint' | 'history' | 'colour';
 export interface StoryCandidate {
   id: string;
   topic: StoryTopic;
@@ -132,11 +134,20 @@ const countrySegment = (team: Pick<ManagerSpotlightTeam, 'countryId' | 'countryN
   const name = countryLabel(team.countryId, team.countryName);
   return name ? { kind: 'country', countryId: team.countryId, name } : null;
 };
-const append = (base: StorySegment[], ...parts: Array<StorySegment | null | undefined>) => {
-  for (const part of parts) if (part !== null && part !== undefined && part !== '') base.push(part);
-  return base;
-};
-const asSegments = (...parts: Array<StorySegment | null | undefined>) => append([], ...parts);
+const strong = (text: string): StrongMention => ({ kind: 'strong', text });
+type StoryValue = StorySegment | StorySegment[] | number | null | undefined;
+function story(strings: TemplateStringsArray, ...values: StoryValue[]): StorySegment[] {
+  const segments: StorySegment[] = [];
+  const add = (value: StoryValue): void => {
+    if (Array.isArray(value)) { value.forEach(add); return; }
+    if (value === null || value === undefined || value === '') return;
+    const segment = typeof value === 'number' ? String(value) : value;
+    if (typeof segment === 'string' && typeof segments.at(-1) === 'string') segments[segments.length - 1] += segment;
+    else segments.push(segment);
+  };
+  strings.forEach((part, index) => { add(part); if (index < values.length) add(values[index]); });
+  return segments;
+}
 
 const stableHash = (value: string) => {
   let hash = 2166136261;
@@ -335,7 +346,7 @@ function locationSegments(profile: ManagerSpotlightProfile | undefined, teams: M
   const local = teams.find((team) => team.regionName && countryLabel(team.countryId, team.countryName) === countryLabel(countryId, countryName));
   const region = primary?.regionName ?? local?.regionName;
   const country = countrySegment({ countryId, countryName });
-  return country ? asSegments(region ? `${region}, ` : '', country) : [];
+  return country ? story`${region ? `${region}, ` : ''}${country}` : [];
 }
 
 function roleHeadline(managerName: string, roles: NationalTeamRole[], official: OfficialRole | null): StorySegment[] | null {
@@ -348,29 +359,79 @@ function roleHeadline(managerName: string, roles: NationalTeamRole[], official: 
   const ordered = roles.toSorted((a, b) => priority(b) - priority(a) || a.nationalTeamName.localeCompare(b.nationalTeamName));
   const primary = ordered[0];
   const primaryCountry = primary ? countrySegment({ countryId: primary.countryId, countryName: primary.nationalTeamName.replace(/^U21\s+/i, '') }) : null;
-  const parts: StorySegment[] = [`${managerName} `];
-  if (official) {
-    parts[0] = `As the title already suggests, ${managerName} is ${roleNames[official]}`;
-    if (primary) append(parts, ' and also ');
-  }
-  if (primary) {
-    if (primary.type === 'coach') {
-      append(parts, primaryCountry ? (primary.isU21 ? 'currently coaches the U21 national team of ' : 'currently coaches the national team of ') : 'currently coaches a national team', primaryCountry);
-    } else if (primary.type === 'assistant') {
-      append(parts, primaryCountry ? (primary.isU21 ? 'is an assistant coach with the U21 ' : 'is an assistant coach with ') : 'serves on a national team staff', primaryCountry);
-    } else {
-      append(parts, primaryCountry ? (primary.isU21 ? 'serves as a scout for the U21 national team of ' : 'serves as a scout for the national team of ') : 'serves as a national-team scout', primaryCountry);
-    }
-    const additional = ordered.length - 1;
-    if (additional > 0) append(parts, ` and holds ${countWord(additional)} additional national-team staff ${additional === 1 ? 'role' : 'roles'}`);
-  }
-  append(parts, '.');
-  return parts;
+  let duty: StorySegment[] = [];
+  if (primary?.type === 'coach') duty = primaryCountry
+    ? story`currently coaches the ${primary.isU21 ? 'U21 national team' : 'national team'} of ${primaryCountry}`
+    : story`currently coaches a national team`;
+  if (primary?.type === 'assistant') duty = primaryCountry
+    ? story`is an assistant coach with ${primary.isU21 ? 'the U21 ' : ''}${primaryCountry}`
+    : story`serves on a national team staff`;
+  if (primary?.type === 'scout') duty = primaryCountry
+    ? story`serves as a scout for the ${primary.isU21 ? 'U21 national team' : 'national team'} of ${primaryCountry}`
+    : story`serves as a national-team scout`;
+  const additional = ordered.length - 1;
+  const extra = additional > 0 ? story` and holds ${countWord(additional)} additional national-team staff ${additional === 1 ? 'role' : 'roles'}` : [];
+  if (official) return story`As the title already suggests, ${strong(managerName)} is ${roleNames[official]}${primary ? story` and also ${duty}${extra}` : ''}.`;
+  return story`${strong(managerName)} ${duty}${extra}.`;
 }
 
 function validDisplayRank(team: ManagerSpotlightTeam) {
   if (!team.leagueRank || team.leagueRank <= 0) return null;
   return team.leagueRank;
+}
+
+function joinFactPhrases(phrases: StorySegment[][]): StorySegment[] {
+  return phrases.flatMap((phrase, index) => story`${index === 0 ? '' : index === phrases.length - 1 ? phrases.length > 2 ? ', and ' : ' and ' : ', '}${phrase}`);
+}
+
+function buildClubFacts(team: ManagerSpotlightTeam): StoryCandidate | null {
+  const trophyScores: Partial<Record<TrophyKind, number>> = {
+    world_cup_gold: 120, world_cup_silver: 115, world_cup_bronze: 110, masters: 110,
+    national_cup: 125, league: 85, challenger_cup: 80, consolation_cup: 75,
+  };
+  const trophies = team.trophies.toSorted((a, b) => (trophyScores[b.kind] ?? 0) - (trophyScores[a.kind] ?? 0));
+  const nationalCup = trophies.find((item) => item.kind === 'national_cup');
+  const otherTrophy = trophies.find((item) => item.kind !== 'national_cup' && trophyScores[item.kind]);
+  const facts: Array<{ score: number; phrase: StorySegment[] }> = [];
+
+  if (nationalCup) {
+    const year = nationalCup.gainedDate?.slice(0, 4);
+    const country = countrySegment(team);
+    facts.push({ score: 125, phrase: story`National Cup victory${country ? story` in ${country}` : ''}${year ? ` in ${year}` : ''}` });
+  }
+  if (otherTrophy) {
+    const year = otherTrophy.gainedDate?.slice(0, 4);
+    const names: Partial<Record<TrophyKind, string>> = {
+      world_cup_gold: 'World Cup gold medal', world_cup_silver: 'World Cup silver medal',
+      world_cup_bronze: 'World Cup bronze medal', masters: 'Hattrick Masters title',
+      league: 'league title', challenger_cup: 'Challenger Cup win', consolation_cup: 'Consolation Cup win',
+    };
+    facts.push({ score: trophyScores[otherTrophy.kind]!, phrase: story`a ${names[otherTrophy.kind]}${year ? ` in ${year}` : ''}` });
+  }
+  const rating = team.powerRating ?? 0;
+  if (rating >= 850) facts.push({ score: 68 + Math.min(Math.floor((rating - 850) / 50), 15), phrase: story`a Power Rating of ${rating}` });
+  const streak = team.numberOfVictories ?? 0;
+  if (streak >= 3) facts.push({ score: 61 + Math.min(streak, 20), phrase: story`a ${streak}-match winning streak` });
+  const seriesTitles = team.trophies.filter((item) => item.kind === 'series').length;
+  if (seriesTitles >= 1) facts.push({ score: 58 + Math.min(seriesTitles * 2, 22), phrase: story`${countWord(seriesTitles)} series ${seriesTitles === 1 ? 'title' : 'titles'}` });
+  const collectedCountries = new Set([...(team.homeFlagLeagueIds ?? []), ...(team.awayFlagLeagueIds ?? [])]
+    .map((leagueId) => getLeagueWorldDetails(leagueId)?.countryId)
+    .filter((countryId): countryId is number => typeof countryId === 'number' && countryId > 0));
+  if (collectedCountries.size > 100) facts.push({
+    score: 65 + Math.min(Math.floor((collectedCountries.size - 100) / 5), 25),
+    phrase: story`flags from ${collectedCountries.size} countries`,
+  });
+  if (!facts.length) return null;
+
+  // Four distinct facts are enough for a short profile; ordinary titles survive dense profiles before flag counts.
+  const displayed = facts.slice(0, 4);
+  const segments = nationalCup
+    ? story`${strong(team.teamName)}'s ${displayed[0]!.phrase} stands out as a major Hattrick honour${displayed.length > 1 ? story`; the club also has ${joinFactPhrases(displayed.slice(1).map((fact) => fact.phrase))}` : ''}.`
+    : story`${strong(team.teamName)} has ${joinFactPhrases(displayed.map((fact) => fact.phrase))}.`;
+  return {
+    id: `club-facts:${team.teamId}`, topic: 'club-facts', tier: 3,
+    score: Math.max(...facts.map((fact) => fact.score)), tags: [`team:${team.teamId}`], segments,
+  };
 }
 
 function buildCandidates(input: {
@@ -385,116 +446,71 @@ function buildCandidates(input: {
   const special = getSpecialLeagueLabel(tournamentTeam.leagueId);
   const rank = validDisplayRank(tournamentTeam);
   const tournamentStyle = stableHash(`${managerId}:${dateKey}:tournament-wording`) % 3;
-  const tournament: StorySegment[] = [
-    tournamentStyle === 0 ? `${managerName} is competing here with ${tournamentTeam.teamName}`
-      : tournamentStyle === 1 ? `${managerName} enters this tournament with ${tournamentTeam.teamName}`
-        : `${tournamentTeam.teamName} is ${managerName}'s side in this tournament`,
-  ];
+  const tournamentLead = tournamentStyle === 0
+    ? story`${strong(managerName)} is competing here with ${strong(tournamentTeam.teamName)}`
+    : tournamentStyle === 1
+      ? story`${strong(managerName)} enters this tournament with ${strong(tournamentTeam.teamName)}`
+      : story`${strong(tournamentTeam.teamName)} is ${strong(managerName)}'s side in this tournament`;
   const tournamentCountry = countrySegment(tournamentTeam);
-  if (special) {
-    if (tournamentCountry) append(tournament, ', based in ', tournamentCountry);
-    if (rank) append(tournament, `, ranked #${rank} in ${special}`);
-    if (tournamentTeam.seriesName) append(tournament, rank ? ' and playing in ' : tournamentCountry ? ' and currently playing in ' : ', currently playing in ', `series ${tournamentTeam.seriesName}`);
-  } else {
-    if (tournamentCountry) append(tournament, ', based in ', tournamentCountry);
-    if (rank || tournamentTeam.seriesName) {
-      if (rank) append(tournament, `, ranked #${rank}`);
-      if (tournamentTeam.seriesName) append(tournament, rank || tournamentCountry ? ' and playing in ' : ', currently playing in ', `series ${tournamentTeam.seriesName}`);
-    }
-  }
-  append(tournament, '.');
+  const location = tournamentCountry ? story`, based in ${tournamentCountry}` : [];
+  const ranking = rank ? story`, ranked #${rank}${special ? ` in ${special}` : ''}` : [];
+  const series = tournamentTeam.seriesName
+    ? story`${rank ? ' and playing in ' : tournamentCountry ? ' and currently playing in ' : ', currently playing in '}series ${tournamentTeam.seriesName}`
+    : [];
+  const tournament = story`${tournamentLead}${location}${ranking}${series}.`;
   candidates.push({ id: `tournament:${tournamentTeam.teamId}`, topic: 'tournament', tier: 1, score: 100, mandatory: true, tags: ['tournament-team', `team:${tournamentTeam.teamId}`], segments: tournament });
 
   const primary = teams.find((team) => team.isPrimary);
-  if (primary) {
+  if (primary && primary.teamId !== tournamentTeam.teamId) {
     const year = Number(primary.foundedDate?.slice(0, 4));
     const validYear = Number.isInteger(year) && year > 1800;
-    const sameAsTournament = primary.teamId === tournamentTeam.teamId;
-    const primaryRank = sameAsTournament ? null : validDisplayRank(primary);
+    const primaryRank = validDisplayRank(primary);
     const primaryCountry = countrySegment(primary);
     const region = primary.regionName;
     const primaryStyle = stableHash(`${managerId}:${dateKey}:primary-wording`) % 3;
-    const parts: StorySegment[] = [
-      primaryStyle === 0 ? `Their main club, ${primary.teamName}`
-        : primaryStyle === 1 ? `The main club, ${primary.teamName}`
-          : `Their main club ${primary.teamName}`,
-    ];
-    if (region) append(parts, ` is based in ${region}`);
-    if (primaryCountry) {
-      append(parts, region ? ', ' : ' is based in ', primaryCountry);
-    }
-    const details: StorySegment[][] = [];
-    if (validYear) details.push([`was founded in ${year}`]);
-    if (primaryRank) {
-      const specialRank = getSpecialLeagueLabel(primary.leagueId);
-      details.push(specialRank ? [`is ranked #${primaryRank} in ${specialRank}`]
-        : [`is ranked #${primaryRank}`]);
-    }
-    if (primary.seriesName && !sameAsTournament) details.push([`plays in series ${primary.seriesName}`]);
-    if (!details.length) {
-      parts.length = 0;
-      append(parts, `${primary.teamName} is ${managerName}'s main club`, region ? ` in ${region}` : '',
-        primaryCountry ? region ? ', ' : ' in ' : '', primaryCountry);
-    }
-    details.forEach((detail, index) => append(parts,
-      index === 0 ? primaryStyle === 2 ? '. It ' : ', ' : index === details.length - 1 ? ' and ' : ', ', ...detail));
-    append(parts, '.');
-    if (!sameAsTournament || details.length) candidates.push({ id: `primary:${primary.teamId}`, topic: 'primary-club', tier: 2, score: 100, tags: ['primary-club', `team:${primary.teamId}`], segments: parts });
-  }
-
-  const trophyScores: Partial<Record<TrophyKind, number>> = {
-    world_cup_gold: 120, world_cup_silver: 115, world_cup_bronze: 110, masters: 110,
-    national_cup: 100, league: 85, challenger_cup: 80, consolation_cup: 75,
-  };
-  for (const team of teams) {
-    const repeated = team.trophies.filter((item) => item.kind === 'series').length;
-    if (repeated >= 5) candidates.push({ id: `series-count:${team.teamId}`, topic: 'achievement', tier: 3, score: 58 + Math.min(repeated * 2, 22), tags: ['achievement', `team:${team.teamId}`], segments: [`${team.teamName} has collected ${repeated} series titles.`] });
-    const trophy = team.trophies.toSorted((a, b) => (trophyScores[b.kind] ?? 0) - (trophyScores[a.kind] ?? 0))[0];
-    const score = trophy ? trophyScores[trophy.kind] : undefined;
-    if (!trophy || score === undefined) continue;
-    const year = trophy.gainedDate?.slice(0, 4);
-    const country = countrySegment(team);
-    let segments: StorySegment[];
-    if (trophy.kind === 'national_cup') segments = asSegments(`${team.teamName} won the National Cup`, country ? ' in ' : '', country, year ? ` in ${year}.` : '.');
-    else if (trophy.kind === 'world_cup_gold') segments = [`${team.teamName} has a World Cup gold medal${year ? ` from ${year}` : ''}.`];
-    else if (trophy.kind === 'world_cup_silver') segments = [`${team.teamName} has a World Cup silver medal${year ? ` from ${year}` : ''}.`];
-    else if (trophy.kind === 'world_cup_bronze') segments = [`${team.teamName} has a World Cup bronze medal${year ? ` from ${year}` : ''}.`];
-    else if (trophy.kind === 'masters') segments = [`${team.teamName} has won Hattrick Masters${year ? ` in ${year}` : ''}.`];
-    else if (trophy.kind === 'league') segments = [`${team.teamName} won a league title${year ? ` in ${year}` : ''}.`];
-    else if (trophy.kind === 'challenger_cup') segments = [`${team.teamName} won the Challenger Cup${year ? ` in ${year}` : ''}.`];
-    else segments = [`${team.teamName} won the Consolation Cup${year ? ` in ${year}` : ''}.`];
-    candidates.push({ id: `trophy:${team.teamId}:${trophy.typeId}:${trophy.season ?? ''}`, topic: 'achievement', tier: 3, score, tags: ['achievement', `team:${team.teamId}`], segments });
+    const lead = primaryStyle === 0 ? story`Their main club, ${strong(primary.teamName)}`
+      : primaryStyle === 1 ? story`The main club, ${strong(primary.teamName)}`
+        : story`Their main club ${strong(primary.teamName)}`;
+    const location = region ? story` is based in ${strong(region)}${primaryCountry ? story`, ${primaryCountry}` : ''}`
+      : primaryCountry ? story` is based in ${primaryCountry}` : [];
+    const details = [validYear ? `was founded in ${year}` : null,
+      primaryRank ? `is ranked #${primaryRank}${getSpecialLeagueLabel(primary.leagueId) ? ` in ${getSpecialLeagueLabel(primary.leagueId)}` : ''}` : null,
+      primary.seriesName ? `plays in series ${primary.seriesName}` : null].filter((detail): detail is string => !!detail);
+    const detailText = details.map((detail, index) => `${index === 0 ? ', ' : index === details.length - 1 ? ' and ' : ', '}${detail}`).join('');
+    const sentence = details.length
+      ? story`${lead}${location}${detailText}.`
+      : story`${strong(primary.teamName)} is ${strong(managerName)}'s main club${region ? story` in ${strong(region)}` : ''}${primaryCountry ? story`${region ? ', ' : ' in '}${primaryCountry}` : ''}.`;
+    const contextScore = details.length > 1 ? 75 : details.length ? 65 : 50;
+    candidates.push({ id: `primary:${primary.teamId}`, topic: 'primary-club', tier: 2, score: contextScore, tags: ['primary-club', `team:${primary.teamId}`], segments: sentence });
   }
 
   for (const team of teams) {
-    const streak = team.numberOfVictories ?? 0;
-    if (streak >= 3) candidates.push({
-      id: `winning-streak:${team.teamId}`, topic: 'performance', tier: 3,
-      score: 61 + Math.min(streak, 20), tags: ['winning-streak', `team:${team.teamId}`],
-      segments: [`${team.teamName} has won ${streak} consecutive matches.`],
-    });
-
-    const collectedCountries = new Set([...(team.homeFlagLeagueIds ?? []), ...(team.awayFlagLeagueIds ?? [])]
-      .map((leagueId) => getLeagueWorldDetails(leagueId)?.countryId)
-      .filter((countryId): countryId is number => typeof countryId === 'number' && countryId > 0));
-    if (collectedCountries.size > 100) candidates.push({
-      id: `collected-flags:${team.teamId}`, topic: 'collection', tier: 3,
-      score: 65 + Math.min(Math.floor((collectedCountries.size - 100) / 5), 25),
-      tags: ['flag-collection', `team:${team.teamId}`],
-      segments: [`${team.teamName} has collected flags from ${collectedCountries.size} countries.`],
-    });
-
-    const rating = team.powerRating ?? 0;
-    if (rating >= 850) {
-      candidates.push({
-        id: `power-rating:${team.teamId}`, topic: 'performance', tier: 3,
-        score: 68 + Math.min(Math.floor((rating - 850) / 50), 15),
-        tags: ['power-rating', `team:${team.teamId}`], segments: [`${team.teamName} has a PowerRating of ${rating}.`],
-      });
-    }
+    const facts = buildClubFacts(team);
+    if (facts) candidates.push(facts);
   }
 
   const primaryId = primary?.teamId;
+  if (primaryId === tournamentTeam.teamId) {
+    for (const team of teams.filter((item) => item.teamId !== tournamentTeam.teamId)) {
+      const country = countrySegment(team);
+      const rank = validDisplayRank(team);
+      const year = Number(team.foundedDate?.slice(0, 4));
+      const facts = candidates.filter((item) => item.tier === 3 && item.tags.includes(`team:${team.teamId}`));
+      if (!country && !rank && !team.seriesName && !(year > 1800) && !facts.length) continue;
+      const league = getSpecialLeagueLabel(team.leagueId);
+      const location = country ? story` in ${country}` : [];
+      const ranking = rank ? story`, ranked #${rank}${league ? ` in ${league}` : ''}` : [];
+      const series = team.seriesName ? story`${rank ? ' and playing in ' : country ? ', playing in ' : ', currently playing in '}series ${team.seriesName}` : [];
+      const founded = year > 1800 ? story`, founded in ${year}` : [];
+      candidates.push({
+        id: `other:${team.teamId}`, topic: 'other-club', tier: 2,
+        score: Math.max(45 + (country ? 5 : 0) + (rank ? 5 : 0) + (team.seriesName ? 5 : 0) + (year > 1800 ? 5 : 0),
+          ...facts.map((item) => item.score)),
+        tags: ['other-club', `team:${team.teamId}`],
+        segments: story`They also run ${strong(team.teamName)}${location}${ranking}${series}${founded}.`,
+      });
+    }
+  }
   const shownCountries = new Set(
     teams.filter((team) => team.teamId === tournamentTeam.teamId || team.teamId === primaryId)
       .map((team) => countrySegment(team)?.name).filter(Boolean),
@@ -506,24 +522,29 @@ function buildCandidates(input: {
     if (country && !shownCountries.has(country.name)) otherCountries.set(country.name, country);
   }
   const countries = [...otherCountries.values()];
-  if (countries.length) {
-    const parts: StorySegment[] = [`${managerName} also runs ${otherTeams.length === 1 ? 'a club' : 'clubs'} in `];
-    countries.forEach((country, index) => append(parts, country.name === 'Faroe Islands' ? 'the ' : '', country, index < countries.length - 2 ? ', ' : index === countries.length - 2 ? ' and ' : ''));
-    append(parts, '.');
-    candidates.push({ id: 'footprint', topic: 'footprint', tier: 3, score: 48 + Math.min(countries.length * 3, 12), tags: ['footprint'], segments: parts });
+  if (countries.length && primaryId !== tournamentTeam.teamId) {
+    const places = countries.flatMap((country, index): StorySegment[] => story`${country.name === 'Faroe Islands' ? 'the ' : ''}${country}${index < countries.length - 2 ? ', ' : index === countries.length - 2 ? ' and ' : ''}`);
+    candidates.push({ id: 'footprint', topic: 'footprint', tier: 3, score: 48 + Math.min(countries.length * 3, 12), tags: ['footprint'], segments: story`${strong(managerName)} also runs ${otherTeams.length === 1 ? 'a club' : 'clubs'} in ${places}.` });
   }
 
   if (!otherTeams.length) {
+    const year = Number(tournamentTeam.foundedDate?.slice(0, 4));
+    const currentYear = Number(dateKey.slice(0, 4));
+    if (year > 1800 && currentYear - year >= 10) candidates.push({
+      id: `history:${tournamentTeam.teamId}`, topic: 'history', tier: 3, score: 42,
+      tags: ['club-history', `team:${tournamentTeam.teamId}`],
+      segments: story`${strong(tournamentTeam.teamName)} has been part of Hattrick since ${year}.`,
+    });
     const youth = teams.find((team) => team.youthTeamName);
-    if (youth?.youthTeamName) candidates.push({ id: `youth:${youth.teamId}`, topic: 'colour', tier: 3, score: 25, tags: ['youth', `team:${youth.teamId}`], segments: [`${youth.teamName} also has a youth side, ${youth.youthTeamName}.`] });
+    if (youth?.youthTeamName) candidates.push({ id: `youth:${youth.teamId}`, topic: 'colour', tier: 3, score: 25, tags: ['youth', `team:${youth.teamId}`], segments: story`${strong(youth.teamName)} also has a youth side, ${strong(youth.youthTeamName)}.` });
   }
 
   return candidates;
 }
 
 function candidateConflicts(candidate: StoryCandidate, selected: StoryCandidate[]) {
-  return selected.some((item) => item.id === candidate.id || (candidate.topic === item.topic &&
-    (candidate.topic === 'footprint' || candidate.tags.some((tag) => tag.startsWith('team:') && item.tags.includes(tag)))));
+  return selected.some((item) => item.id === candidate.id || (candidate.topic === 'club-facts' && item.topic === 'club-facts'
+    && candidate.tags.some((tag) => tag.startsWith('team:') && item.tags.includes(tag))));
 }
 
 function exceedsNamedClubLimit(candidate: StoryCandidate, selected: StoryCandidate[]) {
@@ -540,19 +561,37 @@ export function selectStoryCandidates(candidates: StoryCandidate[], managerId: n
     (stableHash(`${managerId}:${dateKey}:${a.id}`) - stableHash(`${managerId}:${dateKey}:${b.id}`)) || a.id.localeCompare(b.id);
   const selected = candidates.filter((item) => item.mandatory).toSorted(byPriority).slice(0, cap);
   const pool = candidates.filter((item) => !item.mandatory).toSorted(byPriority);
-  const primary = pool.find((candidate) => candidate.topic === 'primary-club' && !candidateConflicts(candidate, selected)
+  const identity = pool.find((candidate) => (candidate.topic === 'primary-club' || candidate.topic === 'other-club')
     && !exceedsNamedClubLimit(candidate, selected));
-  if (primary && selected.length < cap) selected.push(primary);
+  const strongerOtherFact = identity?.topic === 'primary-club'
+    ? pool.find((candidate) => candidate.tier === 3 && candidate.score > identity.score
+      && candidate.tags.some((tag) => tag.startsWith('team:') && !selected.some((item) => item.tags.includes(tag)) && !identity.tags.includes(tag)))
+    : null;
+  if (strongerOtherFact && !exceedsNamedClubLimit(strongerOtherFact, selected)) selected.push(strongerOtherFact);
+  else if (identity && selected.length < cap) selected.push(identity);
+  const namedTeams = new Set(selected.flatMap((item) => item.tags.filter((tag) => tag.startsWith('team:'))));
+  const namedClubFacts = pool.filter((candidate) => candidate.topic === 'club-facts'
+    && candidate.tags.some((tag) => namedTeams.has(tag))).toSorted(byPriority);
+  for (const candidate of namedClubFacts) {
+    if (selected.length < cap && !candidateConflicts(candidate, selected)) selected.push(candidate);
+  }
   const exceptional = selected.some((candidate) => candidate.topic === 'exceptional-role');
-  const canUseSupportingFact = selected.length < target || (exceptional && selected.length < cap);
-  if (canUseSupportingFact) {
-    const supporting = pool.find((candidate) => candidate !== primary && candidate.topic !== 'primary-club'
+  while (selected.length < target || (exceptional && selected.length < cap)) {
+    const supporting = pool.find((candidate) => candidate.tier === 3
       && (!exceptional || selected.length < target || candidate.score >= 80)
+      && !(candidate.topic === 'footprint' && selected.some((item) => item.tier === 3 && item.tags.some((tag) => tag.startsWith('team:'))))
       && !candidateConflicts(candidate, selected)
       && !exceedsNamedClubLimit(candidate, selected));
-    if (supporting) selected.push(supporting);
+    if (!supporting) break;
+    selected.push(supporting);
   }
-  return selected.toSorted((a, b) => a.tier - b.tier || byPriority(a, b));
+  const tournamentTeamTag = candidates.find((candidate) => candidate.topic === 'tournament')?.tags.find((tag) => tag.startsWith('team:'));
+  const storyOrder = (candidate: StoryCandidate) => candidate.topic === 'exceptional-role' ? 0
+    : candidate.topic === 'tournament' ? 1
+      : candidate.topic === 'club-facts' && candidate.tags.includes(tournamentTeamTag ?? '') ? 1.5
+        : candidate.topic === 'primary-club' || candidate.topic === 'other-club' ? 2
+          : candidate.topic === 'club-facts' ? 2.5 : 3;
+  return selected.toSorted((a, b) => storyOrder(a) - storyOrder(b) || byPriority(a, b));
 }
 
 export function composeManagerStory(input: {
@@ -571,7 +610,12 @@ export function composeManagerStory(input: {
   });
   const selected = selectStoryCandidates(candidates, input.managerId, input.dateKey, input.targetSentences, input.maxSentences);
   return {
-    sentences: selected.map((candidate) => ({ candidateId: candidate.id, segments: candidate.segments })),
+    sentences: selected.map((candidate) => ({
+      candidateId: candidate.id, segments: candidate.segments,
+      paragraphId: candidate.topic === 'tournament' || candidate.topic === 'primary-club'
+        || candidate.topic === 'other-club' || candidate.topic === 'club-facts'
+        ? candidate.tags.find((tag) => tag.startsWith('team:')) : candidate.id,
+    })),
     candidates,
   };
 }

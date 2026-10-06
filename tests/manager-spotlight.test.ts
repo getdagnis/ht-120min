@@ -32,9 +32,9 @@ const compose = (managerName: string, teams: ManagerSpotlightTeam[], roles: unkn
   const tournamentTeam = teams.find((team) => team.isTournamentTeam)!;
   return composeManagerStory({ managerId, managerName, nationalTeamRoles: normalizeNationalTeamRoles(roles), teams, tournamentTeam, dateKey });
 };
-const plain = (segments: StorySegment[]) => segments.map((part) => typeof part === 'string' ? part : part.name).join('');
+const plain = (segments: StorySegment[]) => segments.map((part) => typeof part === 'string' ? part : part.kind === 'country' ? part.name : part.text).join('');
 const story = (result: ReturnType<typeof compose>) => result.sentences.map((sentence) => plain(sentence.segments));
-const countryMentions = (segments: StorySegment[]) => segments.filter((part): part is Extract<StorySegment, { kind: 'country' }> => typeof part !== 'string');
+const countryMentions = (segments: StorySegment[]) => segments.filter((part): part is Extract<StorySegment, { kind: 'country' }> => typeof part !== 'string' && part.kind === 'country');
 
 const fixtures = {
   cellm8: [
@@ -149,37 +149,37 @@ test('special TeamRank uses the special league while country remains club locati
   assert.match(story(result)[2]!, /FK Pirates.*Rīga, Latvia.*founded in 2003/);
 });
 
-test('ordinary series titles below five have no story candidate; five or more may be selected', () => {
+test('ordinary series titles are mentioned starting with one', () => {
   for (const count of [1, 2, 3, 4]) {
     const result = compose('Manager', [club(80, 'Cup Club', { isPrimary: true, isTournamentTeam: true, trophies: seriesTitles(count) })]);
-    assert.ok(!result.candidates.some((candidate) => candidate.id.startsWith('series-count:')));
-    assert.doesNotMatch(story(result).join(' '), /series titles?/);
+    assert.ok(result.candidates.some((candidate) => candidate.id === 'club-facts:80'));
+    assert.match(story(result).join(' '), /series titles?/);
   }
   const five = compose('Manager', [club(81, 'Cup Club', { isPrimary: true, isTournamentTeam: true, trophies: seriesTitles(5) })]);
   assert.match(story(five).join(' '), /five|5 series titles/);
 });
 
-test('a third club trophy cannot add a third club to the story', () => {
+test('a major trophy from another current club can displace routine main-club context', () => {
   const result = compose('Manager', [
     club(82, 'Main', { isPrimary: true, countryId: 3, countryName: 'Germany', trophies: seriesTitles(17) }),
     club(83, 'Cup Team', { countryId: 97, countryName: 'Malta', trophies: [{ typeId: 16, kind: 'national_cup', gainedDate: '2021-01-01' }] }),
     club(84, 'Tournament', { leagueId: 3000, countryId: 179, countryName: 'Guam', isTournamentTeam: true }),
     club(85, 'Other', { countryId: 145, countryName: 'Cambodia' }),
   ]);
-  assert.doesNotMatch(story(result).join(' '), /Cup Team|Other/);
-  assert.match(story(result).join(' '), /Main has collected 17 series titles/);
+  assert.match(story(result).join(' '), /Cup Team's National Cup victory.*major Hattrick honour/);
+  assert.doesNotMatch(story(result).join(' '), /Main|Other/);
 });
 
-test('story names no more than the tournament club and main club', () => {
+test('strong third-club rating can replace sparse main-club context within the two-club limit', () => {
   const result = compose('CCalm', [
     club(301, 'Rapid Sendling', { isPrimary: true, countryId: 4, countryName: 'Germany' }),
     club(302, 'Tamuning Amazons', { isTournamentTeam: true, leagueId: 3000, countryId: 179, countryName: 'Guam' }),
     club(303, 'Kaiser’s krasseste Kicker', { countryId: 179, countryName: 'Guam', powerRating: 979, powerLeagueRank: 34 }),
   ]);
   const text = story(result).join(' ');
-  assert.match(text, /Rapid Sendling/);
   assert.match(text, /Tamuning Amazons/);
-  assert.doesNotMatch(text, /Kaiser’s krasseste Kicker/);
+  assert.match(text, /Kaiser’s krasseste Kicker has a Power Rating of 979/);
+  assert.doesNotMatch(text, /Rapid Sendling/);
 });
 
 test('main-club sentence avoids repeating the manager name and uses neutral possessive', () => {
@@ -197,10 +197,10 @@ test('PowerRating facts use the rating value, never the PowerRating rank', () =>
     club(311, 'Main', { isPrimary: true, powerRating: 979, powerLeagueRank: 34 }),
     club(312, 'Tournament', { isTournamentTeam: true, leagueId: 3000, leagueRank: 7237, seriesName: 'VI.289', powerRating: 726 }),
   ]);
-  const mainPower = result.candidates.find((candidate) => candidate.id === 'power-rating:311');
-  assert.equal(plain(mainPower!.segments), 'Main has a PowerRating of 979.');
+  const mainPower = result.candidates.find((candidate) => candidate.id === 'club-facts:311');
+  assert.equal(plain(mainPower!.segments), 'Main has a Power Rating of 979.');
   assert.doesNotMatch(plain(mainPower!.segments), /rank|#34/i);
-  assert.ok(!result.candidates.some((candidate) => candidate.id === 'power-rating:312'));
+  assert.ok(!result.candidates.some((candidate) => candidate.id === 'club-facts:312'));
 });
 
 test('auxiliary footprint names only other-club countries and keeps structured flag references', () => {
@@ -234,23 +234,17 @@ test('club rows include all current clubs, oldest founded first, and expose foun
   assert.equal(getFoundedYearLabel(same), 'Founded 2005');
 });
 
-test('exceptional role, tournament, main club, and major cup fit the four-sentence ceiling', () => {
+test('exceptional role and a major trophy remain within the sentence ceiling', () => {
   const result = compose('NinoMed', fixtures.NinoMed, ninoRoles, 1587569);
-  assert.equal(result.sentences.length, 4);
+  assert.ok(result.sentences.length <= 4);
   assert.ok(result.sentences.some((sentence) => sentence.candidateId === 'exceptional-role'));
   const tournament = result.sentences.find((sentence) => sentence.candidateId === 'tournament:3220504')!;
   assert.match(plain(tournament.segments), /'Nduje Amaranto/);
   assert.ok(countryMentions(tournament.segments).some((mention) => mention.name === 'Guam'));
   assert.match(plain(tournament.segments), /1229/);
   assert.match(plain(tournament.segments), /VI\.976/);
-  const primary = result.sentences.find((sentence) => sentence.candidateId === 'primary:239397')!;
-  assert.match(plain(primary.segments), /Amaranto/);
-  assert.match(plain(primary.segments), /Calabria/);
-  assert.match(plain(primary.segments), /2004/);
-  assert.match(plain(primary.segments), /2705/);
-  assert.match(plain(primary.segments), /V\.210/);
-  assert.doesNotMatch(story(result).join(' '), /Erythrà/);
-  assert.ok(result.sentences.some((sentence) => sentence.candidateId === 'series-count:239397'));
+  assert.ok(result.sentences.some((sentence) => sentence.candidateId === 'club-facts:1631916'));
+  assert.doesNotMatch(story(result).join(' '), /Athletic Grifo|Amaranto _B/);
 });
 
 test('official prefix and NT role share P0; U21 comes from the name', () => {
@@ -269,13 +263,67 @@ test('official prefix and NT role share P0; U21 comes from the name', () => {
   assert.equal(normalizeNationalTeamRoles([{ staffType: 1, nationalTeamId: 1, nationalTeamName: 'U21 Guam' }])[0]?.isU21, true);
 });
 
-test('single old club gets main history and youth fallback without a duplicate row', () => {
+test('single old club gets history and youth facts without a duplicate introduction', () => {
   const single = club(95, 'FC Nachos', { isPrimary: true, isTournamentTeam: true, foundedDate: '2005-01-01', seriesName: 'IV.35', youthTeamName: 'Raitais solis' });
   const result = compose('procesors', [single]);
   assert.equal(result.sentences.length, 3);
-  assert.match(story(result)[1]!, /FC Nachos.*founded in 2005/);
-  assert.doesNotMatch(story(result)[1]!, /IV\.35/);
+  assert.match(story(result)[1]!, /FC Nachos.*since 2005/);
+  assert.match(story(result)[0]!, /IV\.35/);
   assert.match(story(result)[2]!, /Raitais solis/);
+  assert.equal(story(result).join(' ').match(/main club/g)?.length ?? 0, 0);
+});
+
+test('main tournament club is introduced once and the strongest other club supplies context', () => {
+  const result = compose('Manager', [
+    club(500, 'Main Club', { isPrimary: true, isTournamentTeam: true, countryId: 48, countryName: 'Latvia', leagueId: 53, leagueRank: 266, seriesName: 'IV.35', numberOfVictories: 7 }),
+    club(501, 'Plain Club', { countryId: 3, countryName: 'Germany' }),
+    club(502, 'Second Club', { countryId: 179, countryName: 'Guam', leagueId: 3000, seriesName: 'VI.105', powerRating: 979 }),
+  ]);
+  const lines = story(result);
+  assert.equal(lines.length, 4);
+  assert.match(lines[0]!, /Main Club.*Latvia.*ranked #266.*IV\.35/);
+  assert.match(lines[1]!, /Main Club has a 7-match winning streak/);
+  assert.match(lines[2]!, /They also run Second Club in Guam.*VI\.105/);
+  assert.match(lines[3]!, /Second Club has a Power Rating of 979/);
+  assert.equal(result.sentences[0]!.paragraphId, result.sentences[1]!.paragraphId);
+  assert.equal(result.sentences[2]!.paragraphId, result.sentences[3]!.paragraphId);
+  assert.doesNotMatch(lines.join(' '), /Plain Club|main club/);
+  assert.deepEqual(countryMentions(result.sentences[2]!.segments).map((mention) => mention.name), ['Guam']);
+});
+
+test('one current club can use two independent strong facts without repeating its identity', () => {
+  const result = compose('Manager', [club(510, 'Solo Club', {
+    isPrimary: true, isTournamentTeam: true, countryId: 48, countryName: 'Latvia',
+    numberOfVictories: 7, powerRating: 979,
+    trophies: [{ typeId: 16, kind: 'national_cup', gainedDate: '2024-01-01' }, ...seriesTitles(1)],
+  })]);
+  assert.equal(result.sentences.length, 2);
+  assert.match(story(result).join(' '), /National Cup/);
+  assert.match(story(result).join(' '), /Power Rating of 979/);
+  assert.match(story(result).join(' '), /7-match winning streak/);
+  assert.match(story(result).join(' '), /one series title/);
+  assert.equal(result.sentences[0]!.paragraphId, result.sentences[1]!.paragraphId);
+  assert.ok(!result.sentences.some((sentence) => sentence.candidateId.startsWith('primary:')));
+});
+
+test('a single club may tell distinct streak and Power Rating facts', () => {
+  const result = compose('Manager', [club(511, 'Solo Club', {
+    isPrimary: true, isTournamentTeam: true, numberOfVictories: 3, powerRating: 979,
+  })]);
+  assert.equal(result.sentences.length, 2);
+  assert.match(story(result).join(' '), /3-match winning streak/);
+  assert.match(story(result).join(' '), /Power Rating of 979/);
+});
+
+test('story segments mark manager, club, region, and country for emphasis without losing country metadata', () => {
+  const result = compose('Manager', [
+    club(520, 'Main Club', { isPrimary: true, regionName: 'Rīga', countryId: 48, countryName: 'Latvia' }),
+    club(521, 'Tournament Club', { isTournamentTeam: true, countryId: 179, countryName: 'Guam' }),
+  ]);
+  const segments = result.sentences.flatMap((sentence) => sentence.segments);
+  const strongText = segments.filter((part): part is Extract<StorySegment, { kind: 'strong' }> => typeof part !== 'string' && part.kind === 'strong').map((part) => part.text);
+  assert.ok(['Manager', 'Main Club', 'Tournament Club', 'Rīga'].every((text) => strongText.includes(text)));
+  assert.deepEqual(countryMentions(segments).map((mention) => mention.name), ['Guam', 'Latvia']);
 });
 
 test('trophy IDs and classification keep major cup semantics', () => {
@@ -293,15 +341,15 @@ test('selector is deterministic, deduplicates facts, and never exceeds four sent
     fact('role', 'exceptional-role', 0, 100, [], true),
     fact('tournament', 'tournament', 1, 100, ['team:1'], true),
     fact('main', 'primary-club', 2, 100, ['team:2']),
-    fact('major-a', 'achievement', 3, 100, ['team:2']),
-    fact('major-b', 'achievement', 3, 100, ['team:3']),
+    fact('major-a', 'club-facts', 3, 100, ['team:2']),
+    fact('major-b', 'club-facts', 3, 100, ['team:3']),
     fact('footprint', 'footprint', 4, 50),
   ];
   const first = selectStoryCandidates(candidates, 5, dateKey);
   assert.equal(first.length, 4);
-  assert.deepEqual(first.map((item) => item.topic), ['exceptional-role', 'tournament', 'primary-club', 'achievement']);
+  assert.deepEqual(first.map((item) => item.topic), ['exceptional-role', 'tournament', 'primary-club', 'club-facts']);
   assert.deepEqual(selectStoryCandidates(candidates, 5, dateKey).map((item) => item.id), first.map((item) => item.id));
-  const sameTeam = selectStoryCandidates([fact('tournament', 'tournament', 1, 100, [], true), fact('a', 'achievement', 3, 90, ['team:1']), fact('b', 'achievement', 3, 80, ['team:1'])], 1, dateKey);
+  const sameTeam = selectStoryCandidates([fact('tournament', 'tournament', 1, 100, [], true), fact('a', 'club-facts', 3, 90, ['team:1']), fact('b', 'club-facts', 3, 80, ['team:1'])], 1, dateKey);
   assert.equal(sameTeam.length, 2);
 });
 

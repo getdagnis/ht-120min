@@ -11,7 +11,6 @@ import {
   getFoundedYearLabel,
   getSpecialLeagueLabel,
   getVisibleClubTeams,
-  type CountryMention,
   type ManagerSpotlight as ManagerSpotlightViewModel,
   type StorySegment,
   type StorySentence,
@@ -35,14 +34,14 @@ const CountryFlag: React.FC<{ countryId: number | null; countryName: string }> =
   );
 };
 
-const renderSegment = (segment: StorySegment, key: React.Key) => {
+const renderSegment = (segment: StorySegment, key: React.Key, inStory = false) => {
   if (typeof segment === 'string') return <React.Fragment key={key}>{segment}</React.Fragment>;
-  const country = segment as CountryMention;
+  if (segment.kind === 'strong') return <strong key={key}>{segment.text}</strong>;
   return (
     <React.Fragment key={key}>
-      {country.name}
+      {inStory ? <strong>{segment.name}</strong> : segment.name}
       {'\u00a0'}
-      <CountryFlag countryId={country.countryId} countryName={country.name} />
+      <CountryFlag countryId={segment.countryId} countryName={segment.name} />
     </React.Fragment>
   );
 };
@@ -57,6 +56,13 @@ const normalizeStory = (value: unknown): StorySentence[] => {
   return typeof value === 'string' && value.trim() ? [{ candidateId: 'legacy-story', segments: [value] }] : [];
 };
 
+const groupStoryParagraphs = (sentences: StorySentence[]): StorySentence[][] => sentences.reduce<StorySentence[][]>((paragraphs, sentence) => {
+  const previous = paragraphs.at(-1);
+  if (previous && sentence.paragraphId && previous[0]?.paragraphId === sentence.paragraphId) previous.push(sentence);
+  else paragraphs.push([sentence]);
+  return paragraphs;
+}, []);
+
 interface ManagerSpotlightProps {
   spotlight: ManagerSpotlightViewModel | null;
   tournament: {
@@ -70,6 +76,7 @@ export const ManagerSpotlight: React.FC<ManagerSpotlightProps> = ({ spotlight })
   if (!spotlight) return null;
   const location = normalizeLocation(spotlight.location);
   const story = normalizeStory(spotlight.story);
+  const paragraphs = groupStoryParagraphs(story);
   const visibleTeams = getVisibleClubTeams(spotlight);
 
   return (
@@ -93,9 +100,14 @@ export const ManagerSpotlight: React.FC<ManagerSpotlightProps> = ({ spotlight })
       </div>
 
       <div className={styles.story}>
-        {story.map((sentence) => (
-          <p key={sentence.candidateId}>
-            {sentence.segments.map((segment, index) => renderSegment(segment, `${sentence.candidateId}:${index}`))}
+        {paragraphs.map((paragraph) => (
+          <p key={paragraph[0]!.candidateId}>
+            {paragraph.map((sentence, sentenceIndex) => (
+              <React.Fragment key={sentence.candidateId}>
+                {sentenceIndex > 0 && ' '}
+                {sentence.segments.map((segment, index) => renderSegment(segment, `${sentence.candidateId}:${index}`, true))}
+              </React.Fragment>
+            ))}
           </p>
         ))}
       </div>
@@ -125,7 +137,7 @@ export const ManagerSpotlight: React.FC<ManagerSpotlightProps> = ({ spotlight })
           return (
             <section key={team.teamId} className={styles.clubSection}>
               {team.isTournamentTeam && <h3 className={styles.clubHeading}>Participating in this tournament with:</h3>}
-              {team.isPrimary && <h3 className={styles.clubHeading}>Main club:</h3>}
+              {team.isPrimary && !team.isTournamentTeam && <h3 className={styles.clubHeading}>Main club:</h3>}
               {!team.isTournamentTeam &&
                 !team.isPrimary &&
                 !visibleTeams.slice(0, index).some((previous) => !previous.isTournamentTeam && !previous.isPrimary) && (
