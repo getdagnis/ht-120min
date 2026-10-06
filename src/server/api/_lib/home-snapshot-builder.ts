@@ -1,7 +1,7 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { getMatchDateForRound } from '../../../utils/match-schedule.js';
 import { getTournamentNextMatchDate } from '../../../utils/tournament-next-match.js';
-import { sortFeaturedFirst, sortOpenTournaments } from '../../../utils/tournament-sorting.js';
+import { compareTournamentActivity } from '../../../utils/tournament-card-details.js';
 import { formatTournamentName } from '../../../utils/tournament-names.js';
 import { getCountryWorldDetails } from '../../../../shared/worlddetails.js';
 import { getJoinStoryManagerSummary } from '../../../utils/tournament-activity.js';
@@ -52,6 +52,8 @@ interface HomeTournamentRow {
   schedule_start_slot?: string | null;
   schedule_generated_at?: string | null;
   registration_closed_at?: string | null;
+  description?: string | null;
+  show_description?: boolean | null;
   is_featured?: boolean | null;
   is_private: boolean;
   is_test?: boolean | null;
@@ -148,7 +150,7 @@ export async function buildHomeSnapshot(supabase: SupabaseClient, now = Date.now
   let tournamentsRaw: unknown[] | null;
   let warningsRaw: unknown[] | null;
   let reportRows: HomeReportRow[] = [];
-  let collectionsRaw: Array<{ id: string; slug: string; title: string; description: string; banner_url: string | null; display_order: number }>;
+  let collectionsRaw: Array<{ id: string; slug: string; title: string; description: string; banner_url: string | null; homepage_group: string | null; display_order: number }>;
   let membershipsRaw: Array<{ collection_id: string; tournament_id: string; is_featured: boolean; display_order: number }>;
   try {
     const [tournamentsResult, warningsResult, collectionsResult, membershipsResult] = await Promise.all([
@@ -156,7 +158,7 @@ export async function buildHomeSnapshot(supabase: SupabaseClient, now = Date.now
         .from('tournaments')
         .select(
           `
-          id, name, slug, created_at, schedule_start_slot, schedule_generated_at, registration_closed_at, is_featured, is_private, is_test, status, is_archived,
+          id, name, slug, created_at, schedule_start_slot, schedule_generated_at, registration_closed_at, description, show_description, is_featured, is_private, is_test, status, is_archived,
           season, thumbnail_index, image_url, country_limit, country_limit_format, scoring_mode, league_category, max_teams,
           rounds (
             id, created_at, round_number, season_number,
@@ -170,7 +172,7 @@ export async function buildHomeSnapshot(supabase: SupabaseClient, now = Date.now
         )
         .eq('is_private', false),
       supabase.from('fixture_warnings').select('round_id, team_id').eq('active', true),
-      supabase.from('tournament_collections').select('id,slug,title,description,banner_url,display_order').eq('is_published', true),
+      supabase.from('tournament_collections').select('id,slug,title,description,banner_url,homepage_group,display_order').eq('is_published', true),
       supabase.from('tournament_collection_memberships').select('collection_id,tournament_id,is_featured,display_order'),
     ]);
     if (tournamentsResult.error) {
@@ -375,6 +377,7 @@ export async function buildHomeSnapshot(supabase: SupabaseClient, now = Date.now
 
     const item: HomeTournament = {
       ...tournament,
+      description: tournament.show_description ? (tournament.description || '').trim().slice(0, 600) || null : null,
       rounds: currentRounds,
       validatedTeamCount: tournament.teams.filter((team) => isCurrentParticipantTeam(team) && team.joined_via_oauth).length,
       totalRounds: currentRounds.length,
@@ -394,34 +397,22 @@ export async function buildHomeSnapshot(supabase: SupabaseClient, now = Date.now
     };
     publicCards.set(item.id, item);
 
+    // Global homepage promotion remains independent of collection membership.
+    if (item.is_featured) featured.push(item);
     if (memberIds.has(item.id)) continue;
 
-    if (item.is_featured) featured.push(item);
-    else if (isGenerated && !isClosed && item.status !== 'finished') active.push(item);
+    if (isGenerated && !isClosed && item.status !== 'finished') active.push(item);
     else if (!isGenerated && item.status !== 'finished') open.push(item);
   }
 
-  const featuredTournaments = sortFeaturedFirst(featured, (a, b) => {
-    const statusWeight = (tournament: HomeTournament) => {
-      if (tournament.status === 'finished' || tournament.totalMatches === tournament.completedMatches) return 3;
-      if (tournament.rounds.length > 0) return 1;
-      return 2;
-    };
-    const weightDelta = statusWeight(a) - statusWeight(b);
-    return weightDelta || new Date(a.created_at).getTime() - new Date(b.created_at).getTime();
-  });
-  const activeTournaments = sortFeaturedFirst(active, (a, b) => {
-    if (b.validatedTeamCount !== a.validatedTeamCount) return b.validatedTeamCount - a.validatedTeamCount;
-    if (!a.nextMatchDate && !b.nextMatchDate) return 0;
-    if (!a.nextMatchDate) return 1;
-    if (!b.nextMatchDate) return -1;
-    return new Date(a.nextMatchDate).getTime() - new Date(b.nextMatchDate).getTime();
-  });
+  const featuredTournaments = featured.sort(compareTournamentActivity);
+  const activeTournaments = active.sort(compareTournamentActivity);
 
   const collections: PublicCollection<HomeTournament>[] = collectionsRaw
     .map((collection) => ({
       id: collection.id, slug: collection.slug, title: collection.title,
       description: collection.description, bannerUrl: collection.banner_url,
+      homepageGroup: collection.homepage_group ?? null,
       displayOrder: collection.display_order,
       members: membershipsRaw.filter((membership) => membership.collection_id === collection.id)
         .flatMap((membership) => {
@@ -435,7 +426,7 @@ export async function buildHomeSnapshot(supabase: SupabaseClient, now = Date.now
     nextRefreshAt: getHomeNextRefreshAt(activity, (tournamentsRaw || []) as HomeTournamentRow[], weeklyPosts, now),
     featuredTournaments,
     activeTournaments,
-    openTournaments: sortOpenTournaments(open),
+    openTournaments: open.sort(compareTournamentActivity),
     collections,
     topTeams: Object.entries(team120Stats)
       .map(([id, data]) => ({ ht_team_id: Number(id), name: data.name, achievements120min: data.count }))

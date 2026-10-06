@@ -19,6 +19,7 @@ const team: Shape = {
 const tournament: Shape = {
   id: 'string', name: 'string', slug: 'string', created_at: 'string', season: 'number',
   schedule_start_slot: 'string?', schedule_generated_at: 'string?', registration_closed_at: 'string?', is_featured: 'boolean',
+  description: 'string?',
   is_private: 'boolean', is_test: 'boolean?', status: 'string?', is_archived: 'boolean?',
   thumbnail_index: 'number?', image_url: 'string?', country_limit: 'string?', country_limit_format: 'string?',
   scoring_mode: 'string?', league_category: 'string?', max_teams: 'number?',
@@ -44,7 +45,7 @@ const shape: Shape = {
   featuredTournaments: [tournament], activeTournaments: [tournament], openTournaments: [tournament],
   collections: [{
     id: 'string', slug: 'string', title: 'string', description: 'string',
-    bannerUrl: 'string?', displayOrder: 'number',
+    bannerUrl: 'string?', homepageGroup: 'string?', displayOrder: 'number',
     members: [{ tournament, isFeatured: 'boolean', displayOrder: 'number' }],
   }],
   topTeams: [{ name: 'string', ht_team_id: 'number', achievements120min: 'number' }],
@@ -79,9 +80,9 @@ export function normalizeHomeSnapshot(input: HomeInitialData): HomeInitialData {
     collections: members.length ? [{
       id: 'legacy-exotic-hfi', slug: 'exotic-hfi', title: 'Exotic Small HFI Series',
       description: 'Small Hattrick International friendly leagues from across the world. Find a country, join a league, and follow each season.',
-      bannerUrl: '/series/exotic-tiny-hfi-banner.jpg', displayOrder: 1, members,
+      bannerUrl: '/series/exotic-tiny-hfi-banner.jpg', homepageGroup: 'concept-120min', displayOrder: 1, members,
     }] : [],
-    featuredTournaments: input.featuredTournaments.filter((row) => !memberIds.has(row.id)),
+    featuredTournaments: input.featuredTournaments,
     activeTournaments: input.activeTournaments.filter((row) => !memberIds.has(row.id)),
     openTournaments: input.openTournaments.filter((row) => !memberIds.has(row.id)),
   };

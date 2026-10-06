@@ -1,0 +1,74 @@
+.body
+  display: flex
+  flex: 1
+  flex-direction: column
+  gap: 0.65rem
+  min-width: 0
+
+.titleRow
+  display: flex
+  justify-content: space-between
+  align-items: center
+  gap: 1rem
+  min-width: 0
+
+.heading
+  min-width: 0
+
+.name
+  margin: 0
+  font-size: 1.75rem
+  color: var(--text-h)
+  white-space: nowrap
+  overflow: hidden
+  text-overflow: ellipsis
+
+  @media (max-width: 620px)
+    white-space: normal
+    font-size: 1.3rem
+    line-height: 1.05
+
+.state
+  display: block
+  margin-top: 0.15rem
+  color: var(--text60)
+  font-size: 0.78rem
+  font-family: var(--mono)
+  font-weight: 700
+  text-transform: uppercase
+  letter-spacing: 0.04em
+
+.stateOngoing
+  color: var(--accent-2)
+
+.meta
+  display: flex
+  flex-wrap: wrap
+  gap: 0.4rem 1rem
+  color: var(--text60)
+  font-size: 0.8rem
+
+  span
+    display: inline-flex
+    align-items: center
+    gap: 0.4rem
+
+  @media (max-width: 620px)
+    flex-direction: column
+    align-items: flex-start
+    gap: 0.35rem
+    font-size: 0.75rem
+
+.description
+  display: -webkit-box
+  -webkit-box-orient: vertical
+  -webkit-line-clamp: 4
+  overflow: hidden
+  margin: auto 0 0
+  color: var(--text)
+  font-size: 0.85rem
+  line-height: 1.4
+  white-space: pre-line
+
+  @media (max-width: 620px)
+    -webkit-line-clamp: 2

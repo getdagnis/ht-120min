@@ -2,22 +2,25 @@
 
 import Link from 'next/link';
 import { TournamentCard } from '../../../../../components/Card/TournamentCard';
+import { TournamentCardContent } from '../../../../../components/Card/TournamentCardContent';
 import { ReusableWidget } from '../../../../../components/ReusableWidget/ReusableWidget';
-import { collectionGroup, type PublicCollection } from '../../../../../utils/tournament-collections';
+import { collectionPageGroups, compareCollectionMemberActivity, type PublicCollection } from '../../../../../utils/tournament-collections';
 import type { HomeTournament } from '../../../../../server/api/_lib/home-snapshot-builder';
 import { toLocalePath } from '../../../../../next/locale-path';
 import styles from './CollectionPage.module.sass';
 
 const groups = [
-  ['registration-open', 'Registration open'],
+  ['featured', 'Featured tournaments'],
   ['in-progress', 'In progress'],
+  ['registration-open', 'Registration open'],
   ['upcoming', 'Upcoming'],
+  ['inactive', 'Inactive'],
   ['completed', 'Completed'],
 ] as const;
 
 export function CollectionView({ collection, locale }: { collection: PublicCollection<HomeTournament>; locale: string }) {
   const members = [...collection.members].sort((a, b) =>
-    a.displayOrder - b.displayOrder || a.tournament.slug.localeCompare(b.tournament.slug));
+    compareCollectionMemberActivity(a, b));
   const totalTeams = members.reduce((sum, member) => sum + member.tournament.teamCount, 0);
   const totalMatches = members.reduce((sum, member) => sum + member.tournament.completedMatches, 0);
   return <main className={styles.container}>
@@ -27,20 +30,19 @@ export function CollectionView({ collection, locale }: { collection: PublicColle
       <div className={styles.mainColumn}>
         {members.length === 0 && <p className={styles.empty}>No public tournaments are available in this collection yet.</p>}
         {groups.map(([group, label]) => {
-          const selected = members.filter((member) => collectionGroup(member.tournament) === group);
+          const selected = members.filter((member) => collectionPageGroups(member).includes(group));
           if (!selected.length) return null;
           return <section key={group} className={styles.section}>
             <h2>{label}</h2>
             <div className={styles.cards}>{selected.map(({ tournament }) =>
-              <TournamentCard key={tournament.id} id={tournament.id}
-                imageUrl={tournament.image_url} countryLimit={tournament.country_limit}
-                countryLimitFormat={tournament.country_limit_format}
-                scoringMode={tournament.scoring_mode} leagueCategory={tournament.league_category}>
-                <Link className={styles.cardLink} href={toLocalePath(locale, `/t/${tournament.slug}`)}>
-                  <strong>{tournament.name}</strong>
-                  <span>Season {tournament.season} · {tournament.teamCount} teams</span>
-                </Link>
-              </TournamentCard>)}</div>
+              <Link key={tournament.id} className={styles.cardLink} href={toLocalePath(locale, `/t/${tournament.slug}`)}>
+                <TournamentCard id={tournament.id}
+                  imageUrl={tournament.image_url} countryLimit={tournament.country_limit}
+                  countryLimitFormat={tournament.country_limit_format}
+                  scoringMode={tournament.scoring_mode} leagueCategory={tournament.league_category}>
+                  <TournamentCardContent tournament={tournament} />
+                </TournamentCard>
+              </Link>)}</div>
           </section>;
         })}
       </div>

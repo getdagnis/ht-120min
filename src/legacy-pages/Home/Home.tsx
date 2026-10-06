@@ -8,6 +8,7 @@ import { Button } from '../../components/Button/Button';
 import { Card } from '../../components/Card/Card';
 import { HeroCard } from '../../components/Card/HeroCard';
 import { TournamentCard } from '../../components/Card/TournamentCard';
+import { TournamentCardContent } from '../../components/Card/TournamentCardContent';
 import { SectionCard } from '../../components/Card/SectionCard';
 import { FaqRenderer } from '../../components/Faq/FaqRenderer';
 import { MottoWidget } from '../../components/MottoWidget/MottoWidget';
@@ -18,14 +19,11 @@ import { WelcomeModal } from '../../components/WelcomeModal/WelcomeModal';
 import { GlobalChatWidget } from '../../components/GlobalChatWidget/GlobalChatWidget';
 import { GlobalActivityWidget } from '../../components/GlobalActivityWidget/GlobalActivityWidget';
 import { Link as ScrollTo, Element } from 'react-scroll';
-import { sortOpenTournaments } from '../../utils/open-tournaments';
 import { getMatchDateForRound } from '../../utils/match-schedule';
 import { getTournamentNextMatchDate } from '../../utils/tournament-next-match';
-import { sortFeaturedFirst } from '../../utils/tournament-sorting';
 import { getPublishedFaqSections } from '../../constants/faq-essential';
 import { dismissWelcome, hasDismissedWelcome, HOME_WELCOME_KEY } from '../../utils/welcome-modals';
-import { Trophy, CalendarBlank, Heartbeat, CaretLeft, ArrowRight, Star, FolderOpen, ChatText } from 'phosphor-react';
-import { TeamsIcon } from '../../components/Icons/TeamsIcon';
+import { Trophy, Heartbeat, CaretLeft, ArrowRight, Star, FolderOpen, ChatText } from 'phosphor-react';
 import styles from './Home.module.sass';
 import type { HomeInitialData } from '../../app/_data/public-data';
 import { useLocale } from '../../i18n/LocaleProvider';
@@ -35,8 +33,9 @@ import { buildNewsArticlePreview } from '../../utils/news-preview';
 import { useAuth } from '../../hooks/useAuth';
 import { isCurrentParticipantTeam } from '../../utils/team-state';
 import { formatTournamentName } from '../../utils/tournament-names';
-import { selectCollectionHomepageMembers } from '../../utils/tournament-collections';
+import { groupHomepageCollections, selectCollectionHomepageMembers } from '../../utils/tournament-collections';
 import type { PublicCollection } from '../../utils/tournament-collections';
+import { compareTournamentActivity } from '../../utils/tournament-card-details';
 
 const FORUM_LINK = 'https://www.hattrick.org/goto.ashx?path=/Forum/Read.aspx?n=1&nm=32&t=17685273&v=0';
 const SHOW_FAQ = true;
@@ -70,6 +69,8 @@ interface DBTournament {
   created_at: string;
   schedule_start_slot?: string | null;
   registration_closed_at?: string | null;
+  description?: string | null;
+  show_description?: boolean | null;
   is_featured?: boolean | null;
   is_private: boolean;
   is_test?: boolean | null;
@@ -119,21 +120,6 @@ interface TopTeam {
   name: string;
   ht_team_id: number;
   achievements120min: number;
-}
-
-function getActiveRoundNumber(rounds: DBRound[], totalRounds: number) {
-  const activeRound = [...rounds]
-    .filter((round) => (round.matches ?? []).length > 0)
-    .sort((left, right) => left.round_number - right.round_number)
-    .find((round) => !(round.matches ?? []).every((match) => match.completed || match.status === 'misarranged'));
-
-  return activeRound?.round_number ?? (totalRounds > 0 ? Math.min(
-    rounds.filter((round) => {
-      const matches = round.matches ?? [];
-      return matches.length > 0 && matches.every((match) => match.completed || match.status === 'misarranged');
-    }).length + 1,
-    totalRounds,
-  ) : null);
 }
 
 interface TopTournament {
@@ -411,6 +397,8 @@ export const Home: React.FC<{ initialData?: HomeInitialData }> = ({ initialData 
           created_at,
           schedule_start_slot,
           registration_closed_at,
+          description,
+          show_description,
           is_featured,
           is_private,
           is_test,
@@ -457,7 +445,7 @@ export const Home: React.FC<{ initialData?: HomeInitialData }> = ({ initialData 
 
       if (tournaments) {
         const [collectionResult, membershipResult] = await Promise.all([
-          supabase.from('tournament_collections').select('id,slug,title,description,banner_url,display_order').eq('is_published', true),
+          supabase.from('tournament_collections').select('id,slug,title,description,banner_url,homepage_group,display_order').eq('is_published', true),
           supabase.from('tournament_collection_memberships').select('collection_id,tournament_id,is_featured,display_order'),
         ]);
         if (collectionResult.error || membershipResult.error) throw new Error('Could not load collections.');
@@ -532,6 +520,7 @@ export const Home: React.FC<{ initialData?: HomeInitialData }> = ({ initialData 
 
             const tournamentObj = {
               ...t,
+              description: t.show_description ? (t.description || '').trim().slice(0, 600) || null : null,
               rounds: currentRounds,
               totalRounds,
               completedRounds,
@@ -548,48 +537,23 @@ export const Home: React.FC<{ initialData?: HomeInitialData }> = ({ initialData 
             };
 
             publicCards.set(t.id, tournamentObj as Tournament);
+            if (tournamentObj.is_featured) featured.push(tournamentObj as Tournament);
             if (memberIds.has(t.id)) return;
 
-            if (tournamentObj.is_featured) {
-              featured.push(tournamentObj as Tournament);
-            } else if (isGenerated && !isClosed && t.status !== 'finished') {
+            if (isGenerated && !isClosed && t.status !== 'finished') {
               active.push(tournamentObj as Tournament);
             } else if (!isGenerated && t.status !== 'finished') {
               open.push(tournamentObj as Tournament);
             }
           });
 
-        setFeaturedTournaments(
-          sortFeaturedFirst(featured, (a, b) => {
-            const statusWeight = (tournament: Tournament) => {
-              if (tournament.status === 'finished' || tournament.totalMatches === tournament.completedMatches) return 3;
-              if ((tournament.rounds?.length ?? 0) > 0) return 1;
-              return 2;
-            };
-            const weightDelta = statusWeight(a) - statusWeight(b);
-            if (weightDelta !== 0) return weightDelta;
-            return new Date(a.created_at).getTime() - new Date(b.created_at).getTime();
-          }),
-        );
-
-        // Sort by validated count first, then next match date
-        setActiveTournaments(
-          sortFeaturedFirst(active, (a, b) => {
-            if (b.validatedTeamCount !== a.validatedTeamCount) {
-              return b.validatedTeamCount - a.validatedTeamCount;
-            }
-            if (!a.nextMatchDate && !b.nextMatchDate) return 0;
-            if (!a.nextMatchDate) return 1;
-            if (!b.nextMatchDate) return -1;
-            return a.nextMatchDate.getTime() - b.nextMatchDate.getTime();
-          }),
-        );
-
-        // Sort by fill % when capped, otherwise by registered team count
-        setOpenTournaments(sortOpenTournaments(open));
+        setFeaturedTournaments(featured.sort(compareTournamentActivity));
+        setActiveTournaments(active.sort(compareTournamentActivity));
+        setOpenTournaments(open.sort(compareTournamentActivity));
         setCollections((collectionResult.data || []).map((collection) => ({
           id: collection.id, slug: collection.slug, title: collection.title,
           description: collection.description, bannerUrl: collection.banner_url,
+          homepageGroup: collection.homepage_group ?? null,
           displayOrder: collection.display_order,
           members: (membershipResult.data || []).filter((member) => member.collection_id === collection.id)
             .flatMap((member) => {
@@ -623,77 +587,7 @@ export const Home: React.FC<{ initialData?: HomeInitialData }> = ({ initialData 
     return () => clearTimeout(timer);
   }, [fetchTournaments, initialData]);
 
-  const getTournamentStateLabel = (tournament: Tournament) => {
-    const seasonLabel = `season ${tournament.season}`;
-    const isGenerated = (tournament.rounds?.length ?? 0) > 0;
-    const isFinished =
-      tournament.status === 'finished' ||
-      (tournament.totalMatches > 0 && tournament.totalMatches === tournament.completedMatches);
-
-    if (isFinished) return `${seasonLabel} finished`;
-    if (tournament.status === 'paused') return `${seasonLabel} paused`;
-    if (isGenerated) return `${seasonLabel} ongoing`;
-    return `waiting participants for ${seasonLabel}`;
-  };
-
-  // Initialize with a stable value to avoid calling impure functions during render.
-  const [currentTime, setCurrentTime] = useState<number>(() => 0);
-
-  useEffect(() => {
-    const id = setTimeout(() => {
-      setCurrentTime(Date.now());
-    }, 0);
-
-    return () => clearTimeout(id);
-  }, []);
-
-  const getTournamentDateLabel = (tournament: Tournament) => {
-    const formatDate = (date: Date | null) =>
-      date
-        ? new Intl.DateTimeFormat('en-GB', {
-            day: '2-digit',
-            month: '2-digit',
-            year: 'numeric',
-            timeZone: 'Europe/Riga',
-          }).format(date)
-        : null;
-
-    const isFinished =
-      tournament.status === 'finished' ||
-      (tournament.totalMatches > 0 && tournament.totalMatches === tournament.completedMatches);
-    const plannedStartIsFuture =
-      tournament.plannedStartDate && tournament.plannedStartDate.getTime() > currentTime - 60 * 60 * 1000;
-
-    if (plannedStartIsFuture) {
-      return `Planned: ${formatDate(tournament.plannedStartDate)}`;
-    }
-
-    if (tournament.status === 'waiting') {
-      return `Season ${tournament.season}: ${formatDate(tournament.plannedStartDate || tournament.startedAt || null) ?? formatDate(new Date(tournament.created_at))}`;
-    }
-
-    if (isFinished) {
-      return `Finished: ${formatDate(tournament.finishedAt || tournament.startedAt || tournament.plannedStartDate || new Date(tournament.created_at))}`;
-    }
-
-    if (
-      (tournament.rounds?.length ?? 0) > 0 ||
-      tournament.status === 'active' ||
-      tournament.status === 'paused' ||
-      tournament.status === 'stopped'
-    ) {
-      return `Started: ${formatDate(tournament.startedAt || tournament.plannedStartDate || new Date(tournament.created_at))}`;
-    }
-
-    return `Planned: ${formatDate(tournament.plannedStartDate || new Date(tournament.created_at))}`;
-  };
-
   const renderTournamentCard = (t: Tournament, options: { join?: boolean } = {}) => {
-    const hasRounds = (t.rounds?.length ?? 0) > 0;
-    const activeRoundNumber = getActiveRoundNumber(t.rounds ?? [], t.totalRounds);
-    const isFinished =
-      t.status === 'finished' || (t.totalMatches > 0 && t.totalMatches === t.completedMatches);
-    const isOngoing = hasRounds && !isFinished && t.status !== 'paused';
     const tournamentHref = toLocalePath(locale, `/t/${t.slug}`);
     const card = (
       <TournamentCard
@@ -707,52 +601,8 @@ export const Home: React.FC<{ initialData?: HomeInitialData }> = ({ initialData 
         leagueCategory={t.league_category}
         joinHref={options.join ? tournamentHref : undefined}
       >
-        <div className={styles.tInfo}>
-          <div className={styles.tTitleRow}>
-            <div className={styles.tHeading}>
-              <h3 className={styles.tName}>{t.name}</h3>
-              <span className={`${styles.tState} ${isOngoing ? styles.tStateOngoing : ''}`}>
-                {getTournamentStateLabel(t)}
-              </span>
-            </div>
-            <CaretLeft size={18} weight="regular" className={styles.tArrow} />
-          </div>
-          <div className={styles.tMeta}>
-            {(!hasRounds || !isFinished) && (
-              <span title="Registered Teams">
-                <TeamsIcon size={14} />{' '}
-                {t.max_teams != null && t.max_teams > 0 ? `${t.teamCount}/${t.max_teams}` : t.teamCount} teams
-              </span>
-            )}
-            {hasRounds ? (
-              <span title="Current Round">
-                <Trophy size={14} weight="regular" /> Round {activeRoundNumber}/{t.totalRounds}
-              </span>
-            ) : null}
-            <span title="Tournament date">
-              <CalendarBlank size={14} weight="regular" /> {getTournamentDateLabel(t)}
-            </span>
-          </div>
-          <div className={styles.tTeams}>
-            {t.teams
-              .filter(isCurrentParticipantTeam)
-              .slice(0, 8)
-              .map((team) => (
-                <span key={team.id} className={styles.teamChip}>
-                  {team.name}
-                </span>
-              ))}
-            {t.teams.filter(isCurrentParticipantTeam).length >
-              6 && (
-              <span className={styles.teamChipMore}>
-                +
-                {t.teams.filter(isCurrentParticipantTeam)
-                  .length - 6}{' '}
-                more
-              </span>
-            )}
-          </div>
-        </div>
+        <TournamentCardContent tournament={t}
+          trailing={<CaretLeft size={18} weight="regular" className={styles.tArrow} />} />
       </TournamentCard>
     );
 
@@ -853,29 +703,37 @@ export const Home: React.FC<{ initialData?: HomeInitialData }> = ({ initialData 
                   <Star size={24} weight="regular" className={styles.sectionIcon} />
                   <h2>Featured Tournaments</h2>
                 </div>
-                <div className={styles.tournamentGrid}>{featuredTournaments.map((t) => renderTournamentCard(t))}</div>
+                <div className={styles.tournamentGrid}>{[...featuredTournaments].sort(compareTournamentActivity).map((t) => renderTournamentCard(t))}</div>
               </section>
             )}
 
-            {collections.map((collection) => (
-              <section key={collection.id}
-                id={collection.slug === 'exotic-hfi' ? EXOTIC_HFI_ANCHOR_ID : undefined}
-                className={`${styles.activeSection} ${styles.anchorTarget}`}>
-                {collection.bannerUrl && <Link href={toLocalePath(locale, `/collection/${collection.slug}`)}>
-                  <img className={styles.collectionBanner} src={collection.bannerUrl} alt={collection.title} />
-                </Link>}
-                <div className={collection.bannerUrl ? styles.collectionHeading : styles.sectionHeader}>
+            {groupHomepageCollections(collections).map((group) => (
+              <section key={group.id} className={styles.activeSection}>
+                <div className={styles.sectionHeader}>
                   <Trophy size={24} weight="regular" className={styles.sectionIcon} />
-                  <h2>
-                    {collection.title}
-                  </h2>
+                  <h2>{group.title}</h2>
                 </div>
-                <div className={styles.tournamentGrid}>
-                  {selectCollectionHomepageMembers(collection.members).map((member) => renderTournamentCard(member.tournament))}
-                </div>
-                <Link className={styles.collectionLink} href={toLocalePath(locale, `/collection/${collection.slug}`)}>
-                  {collection.slug === 'exotic-hfi' ? 'View all Exotic HFI leagues' : `View all ${collection.title} tournaments`} →
-                </Link>
+                {group.collections.map((collection) => (
+                  <div key={collection.id}
+                    id={collection.slug === 'exotic-hfi' ? EXOTIC_HFI_ANCHOR_ID : undefined}
+                    className={`${styles.collectionEntry} ${styles.anchorTarget}`}>
+                    {collection.bannerUrl && <Link href={toLocalePath(locale, `/collection/${collection.slug}`)}>
+                      <img className={styles.collectionBanner} src={collection.bannerUrl} alt={collection.title} />
+                    </Link>}
+                    <h3 className={collection.bannerUrl ? styles.collectionHeading : styles.collectionTitle}>
+                      {collection.title}
+                    </h3>
+                    <div className={styles.tournamentGrid}>
+                      {selectCollectionHomepageMembers(collection.members)
+                        .map((member) => renderTournamentCard(member.tournament))}
+                    </div>
+                    <Button type="button" className={styles.collectionLink} variant="secondaryHero" size="lg" fullWidth
+                      onClick={() => router.push(toLocalePath(locale, `/collection/${collection.slug}`))}>
+                      <ArrowRight size={22} weight="regular" />
+                      {collection.slug === 'exotic-hfi' ? 'All Exotic HFI Leagues' : `All ${collection.title} tournaments`}
+                    </Button>
+                  </div>
+                ))}
               </section>
             ))}
 
@@ -885,7 +743,7 @@ export const Home: React.FC<{ initialData?: HomeInitialData }> = ({ initialData 
                   <Heartbeat size={24} weight="regular" className={styles.sectionIcon} />
                   <h2>Ongoing Tournaments</h2>
                 </div>
-                <div className={styles.tournamentGrid}>{activeTournaments.map((t) => renderTournamentCard(t))}</div>
+                <div className={styles.tournamentGrid}>{[...activeTournaments].sort(compareTournamentActivity).map((t) => renderTournamentCard(t))}</div>
               </section>
             )}
 
@@ -897,7 +755,7 @@ export const Home: React.FC<{ initialData?: HomeInitialData }> = ({ initialData 
                 </div>
 
                 <div className={styles.tournamentGrid}>
-                  {openTournaments.map((t) => renderTournamentCard(t, { join: true }))}
+                  {[...openTournaments].sort(compareTournamentActivity).map((t) => renderTournamentCard(t, { join: true }))}
                 </div>
               </section>
             )}

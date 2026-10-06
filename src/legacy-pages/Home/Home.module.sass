@@ -126,6 +126,14 @@
 .leftColumn
   min-width: 0
 
+.collectionEntry + .collectionEntry
+  margin-top: 2.5rem
+
+.collectionTitle
+  margin: 0 0 1rem
+  color: var(--text-h)
+  font-size: 1.25rem
+
 .collectionBanner
   display: block
   width: 100%
@@ -145,10 +153,9 @@
   border: 0
 
 .collectionLink
-  display: inline-block
   margin-top: 1rem
-  color: var(--text-h)
-  font-weight: 700
+  min-width: 0
+  white-space: normal
 
 .rightColumn
   min-width: 0
@@ -230,94 +237,6 @@
     display: flex
     flex-direction: row
     align-items: stretch
-
-.tInfo
-  display: flex
-  flex-direction: column
-  gap: 0.5rem
-
-.tHeading
-  min-width: 0
-
-.tTitleRow
-  display: flex
-  justify-content: space-between
-  align-items: center
-  gap: 1rem
-
-  @media (max-width: 620px)
-    flex-direction: column
-    align-items: flex-start
-    gap: 0.25rem
-
-.tName
-  margin: 0
-  font-size: 1.75rem
-  color: var(--text-h)
-  white-space: nowrap
-  overflow: hidden
-  text-overflow: ellipsis
-
-  @media (max-width: 620px)
-    white-space: normal
-    font-size: 1.3rem
-    line-height: 1.05
-
-.tState
-  display: block
-  margin-top: 0.15rem
-  color: var(--text60)
-  font-size: 0.78rem
-  font-family: var(--mono)
-  font-weight: 700
-  text-transform: uppercase
-  letter-spacing: 0.04em
-
-.tStateOngoing
-  color: var(--accent-2)
-
-.tMeta
-  display: flex
-  gap: 1rem
-  font-size: 0.8rem
-  color: var(--text)
-  flex-wrap: wrap
-
-  span
-    display: flex
-    align-items: center
-    gap: 0.4rem
-
-  @media (max-width: 620px)
-    flex-direction: column
-    gap: 0.35rem
-    font-size: 0.75rem
-
-.nextMatch
-  color: var(--accent)
-  font-weight: 600
-
-.tTeams
-  display: flex
-  flex-wrap: wrap
-  gap: 0.4rem
-  margin-top: 0.25rem
-  padding-right: 1.5rem
-
-  @media (max-width: 620px)
-    display: none
-
-.teamChip, .teamChipMore
-  font-size: 0.7rem
-  background: var(--darker)
-  padding: 0.1rem 0.25rem
-  border-radius: var(--radius-xs)
-  color: var(--text)
-  white-space: nowrap
-
-.teamChipMore
-  border-style: dashed
-  border: 1px solid var(--border)
 
 .statsCard
   margin-bottom: 1.5rem
