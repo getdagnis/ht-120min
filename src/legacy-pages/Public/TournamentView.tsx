@@ -6,7 +6,11 @@ import Link from 'next/link';
 import { usePathname, useParams, useRouter, useSearchParams as useNextSearchParams } from 'next/navigation';
 import { supabase } from '../../lib/supabase';
 import { PUBLIC_ROUND_FIELDS, PUBLIC_MATCH_FIELDS } from '../../lib/tournament-public-fields';
-import { attachFixtureRatingStatus, PUBLIC_FIXTURE_RATING_STATUS_FIELDS, type FixtureRatingShareStatus } from '../../types/fixture-ratings';
+import {
+  attachFixtureRatingStatus,
+  PUBLIC_FIXTURE_RATING_STATUS_FIELDS,
+  type FixtureRatingShareStatus,
+} from '../../types/fixture-ratings';
 import {
   invalidateTournamentData,
   loadTournamentPrivateData,
@@ -1906,13 +1910,19 @@ export const TournamentView: React.FC<{ initialData?: TournamentInitialData }> =
     if (matchesData) {
       const fixtureIds = (matchesData as { id: string }[]).map((match) => match.id);
       const { data: ratingRows, error: ratingsError } = fixtureIds.length
-        ? await supabase.from('fixture_predicted_rating_share_status').select(PUBLIC_FIXTURE_RATING_STATUS_FIELDS).in('fixture_id', fixtureIds)
+        ? await supabase
+            .from('fixture_predicted_rating_share_status')
+            .select(PUBLIC_FIXTURE_RATING_STATUS_FIELDS)
+            .in('fixture_id', fixtureIds)
         : { data: [], error: null };
       if (ratingsError) {
         console.error('Could not refresh shared fixture ratings:', ratingsError);
         return;
       }
-      const matchesWithRatings = attachFixtureRatingStatus(matchesData, (ratingRows || []) as FixtureRatingShareStatus[]);
+      const matchesWithRatings = attachFixtureRatingStatus(
+        matchesData,
+        (ratingRows || []) as FixtureRatingShareStatus[],
+      );
       const newRounds = roundsData.map((r: { created_at: string; id: string; round_number: number }) => ({
         ...r,
         matches: (matchesWithRatings as MatchWithTeams[])
@@ -2438,40 +2448,45 @@ export const TournamentView: React.FC<{ initialData?: TournamentInitialData }> =
   const isNewsTab = activeTab === 'guestbook' || activeTab === 'news';
 
   // The timer passes false; only a clicked fixture refresh opts into match-order reads.
-  const handleRefreshFixtures = useCallback(async (manualRatings = false) => {
-    if (!tournament || isRefreshingFixtures) return;
-    setIsRefreshingFixtures(true);
-    try {
-      // 1. Refresh fixtures (detect arranged matches, warnings etc.)
-      const response = await fetch(`/api/teams/refresh-fixtures?tournament_id=${tournament.id}${manualRatings ? '&manual_ratings=1' : ''}`);
-      if (!response.ok) throw new Error('Failed to refresh fixtures');
-      const refreshResult = (await response.json().catch(() => null)) as { linked_match_ids?: number[] } | null;
+  const handleRefreshFixtures = useCallback(
+    async (manualRatings = false) => {
+      if (!tournament || isRefreshingFixtures) return;
+      setIsRefreshingFixtures(true);
+      try {
+        // 1. Refresh fixtures (detect arranged matches, warnings etc.)
+        const response = await fetch(
+          `/api/teams/refresh-fixtures?tournament_id=${tournament.id}${manualRatings ? '&manual_ratings=1' : ''}`,
+        );
+        if (!response.ok) throw new Error('Failed to refresh fixtures');
+        const refreshResult = (await response.json().catch(() => null)) as { linked_match_ids?: number[] } | null;
 
-      // 2. Also trigger a live check for HT-linked matches that may have result data.
-      //    Finished-but-incomplete rows are included so an accidental manual clear can be recovered from CHPP.
-      const matchesToSync = allMatches.filter(
-        (m) => m.ht_match_id && (['arranged', 'ongoing', 'finished'].includes(m.status) || m.completed),
-      );
-      const matchIdsToSync = new Set<number>();
-      for (const match of matchesToSync) {
-        if (match.ht_match_id) matchIdsToSync.add(match.ht_match_id);
-      }
-      for (const matchId of refreshResult?.linked_match_ids ?? []) {
-        if (matchId) matchIdsToSync.add(matchId);
-      }
+        // 2. Also trigger a live check for HT-linked matches that may have result data.
+        //    Finished-but-incomplete rows are included so an accidental manual clear can be recovered from CHPP.
+        const matchesToSync = allMatches.filter(
+          (m) => m.ht_match_id && (['arranged', 'ongoing', 'finished'].includes(m.status) || m.completed),
+        );
+        const matchIdsToSync = new Set<number>();
+        for (const match of matchesToSync) {
+          if (match.ht_match_id) matchIdsToSync.add(match.ht_match_id);
+        }
+        for (const matchId of refreshResult?.linked_match_ids ?? []) {
+          if (matchId) matchIdsToSync.add(matchId);
+        }
 
-      if (matchIdsToSync.size > 0) {
-        const ids = Array.from(matchIdsToSync).join(',');
-        await fetch(`/api/chpp/live-matches?tournament_id=${tournament.id}&match_ids=${ids}`);
-      }
+        if (matchIdsToSync.size > 0) {
+          const ids = Array.from(matchIdsToSync).join(',');
+          await fetch(`/api/chpp/live-matches?tournament_id=${tournament.id}&match_ids=${ids}`);
+        }
 
-      await fetchFixturesOnly();
-    } catch (err: any) {
-      console.error(err.message);
-    } finally {
-      setIsRefreshingFixtures(false);
-    }
-  }, [tournament, isRefreshingFixtures, fetchFixturesOnly, allMatches]);
+        await fetchFixturesOnly();
+      } catch (err: any) {
+        console.error(err.message);
+      } finally {
+        setIsRefreshingFixtures(false);
+      }
+    },
+    [tournament, isRefreshingFixtures, fetchFixturesOnly, allMatches],
+  );
 
   const requestHtMatchLink = useCallback(
     async (matchId: string, htMatchId: string, dryRun: boolean, resetResult = false): Promise<HtMatchLinkPreview> => {
@@ -5816,7 +5831,9 @@ export const TournamentView: React.FC<{ initialData?: TournamentInitialData }> =
       {selectedTournamentMessage?.type === 'participant_open' && (
         <div className={styles.registrationStatus}>
           <div className={styles.helpContent}>
-            <p>You are participating in this cup but it hasn't started yet!</p>
+            <p>
+              ✅ You have joined this cup! Before it starts — turn of ALL your existing friendly auto-arrange triggers!
+            </p>
             {canJoinAnotherTeamBeforeFixtures && (
               <Button
                 onClick={connectToHattrick}
