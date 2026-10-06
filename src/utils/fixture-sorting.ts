@@ -2,6 +2,7 @@ export interface FixtureSortInput {
   id: string;
   ht_match_id?: number | null;
   match_date?: Date | string | null;
+  status?: string | null;
 }
 
 function fixtureTimestamp(value: FixtureSortInput['match_date']) {
@@ -15,6 +16,11 @@ function fixtureTimestamp(value: FixtureSortInput['match_date']) {
 
 /** Keeps SSR, full refreshes, and fixture-only refreshes in the same display order. */
 export function compareFixtures<T extends FixtureSortInput>(a: T, b: T) {
+  // Misarranged pairings have no real kickoff time. Keep them after playable
+  // fixtures instead of letting a missing/placeholder date pull them to top.
+  const misarrangedDifference = Number(a.status === 'misarranged') - Number(b.status === 'misarranged');
+  if (misarrangedDifference !== 0) return misarrangedDifference;
+
   const dateDifference = fixtureTimestamp(a.match_date) - fixtureTimestamp(b.match_date);
   if (dateDifference !== 0) return dateDifference;
 

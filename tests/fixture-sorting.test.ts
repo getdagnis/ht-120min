@@ -13,3 +13,17 @@ test('fixture order is date, Hattrick match ID, then internal ID across date rep
 
   assert.deepEqual(fixtures.toSorted(compareFixtures).map((fixture) => fixture.id), ['a', 'b', 'z', 'later']);
 });
+
+test('misarranged fixtures stay after scheduled fixtures even without a kickoff date', () => {
+  const fixtures = [
+    { id: 'misarranged-a', status: 'misarranged', match_date: null },
+    { id: 'later', status: 'arranged', match_date: '2026-10-07T21:05:00.000Z' },
+    { id: 'earlier', status: 'not_arranged', match_date: '2026-10-07T19:05:00.000Z' },
+    { id: 'misarranged-b', status: 'misarranged', match_date: null },
+  ];
+
+  assert.deepEqual(
+    fixtures.toSorted(compareFixtures).map((fixture) => fixture.id),
+    ['earlier', 'later', 'misarranged-a', 'misarranged-b'],
+  );
+});
