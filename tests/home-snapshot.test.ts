@@ -6,7 +6,7 @@ import { normalizeHomeSnapshot, parseHomeSnapshot } from '../src/server/api/_lib
 import { runHomeSnapshotWorker } from '../src/server/api/_lib/home-snapshot-worker.js';
 import { isHomeWorkerAuthorized } from '../src/server/api/home-snapshot.js';
 import {
-  collectionPageGroups, groupHomepageCollections, selectCollectionHomepageMembers,
+  collectionPageGroups, compareTournamentListing, groupHomepageCollections, selectCollectionHomepageMembers,
 } from '../src/utils/tournament-collections.js';
 
 const now = Date.parse('2026-10-03T12:00:00Z');
@@ -61,7 +61,7 @@ test('Home builder preserves cards, participant counts and schedules explicit ac
   assert.equal(data.activity[0].type, 'join');
   assert.equal(data.nextRefreshAt, '2026-10-09T12:00:00.001Z');
   assert.deepEqual(data.weeklyPosts, []);
-  assert.equal(requests.length, 6);
+  assert.equal(requests.length, 8);
   assert.ok(requests.every((url) => !url.searchParams.get('select')?.includes('*')));
   assert.ok(!JSON.stringify(data).includes('secret'));
   assert.ok(!JSON.stringify(data).includes('join_story'));
@@ -77,6 +77,23 @@ test('Home publication includes only descriptions enabled for public display', a
   assert.equal(data.openTournaments.find((row) => row.id === 'hidden-desc')?.description, null);
   assert.ok(!JSON.stringify(data).includes('Private draft'));
   assert.ok(!JSON.stringify(data).includes('show_description'));
+});
+
+test('Home publication reads news presence and edit time in batches for public cards', async () => {
+  const { supabase, requests } = client((url) => {
+    if (url.pathname.endsWith('/tournaments') && url.searchParams.get('select') === 'id,updated_at') {
+      return [{ id: 'cup', updated_at: '2026-10-03T08:00:00Z' }];
+    }
+    if (url.pathname.endsWith('/news_posts') && url.searchParams.get('select') === 'tournament_id') {
+      return [{ tournament_id: 'cup' }];
+    }
+    return sources(url);
+  });
+  const data = parseHomeSnapshot(await buildHomeSnapshot(supabase, now));
+  assert.equal(data.openTournaments[0].hasNewsArticle, true);
+  assert.equal(data.openTournaments[0].updated_at, '2026-10-03T08:00:00Z');
+  assert.equal(requests.filter((url) => url.searchParams.get('select') === 'tournament_id').length, 1);
+  assert.equal(requests.filter((url) => url.searchParams.get('select') === 'id,updated_at').length, 1);
 });
 
 test('Home source failure does not build an empty successful publication', async () => {
@@ -245,6 +262,29 @@ test('collection homepage picks eight by activity with ongoing first, independen
   assert.equal(first.length, 8);
   assert.deepEqual(first.map((member) => member.tournament.id), ['5', '4', '3', '2', '1', '0', '11', '10']);
   assert.deepEqual(selectCollectionHomepageMembers([...members].reverse()), first);
+});
+
+test('non-ongoing cards rank participants, image, complete content, then public edit time', () => {
+  const base = {
+    name: 'Cup', created_at: '2026-01-01T00:00:00Z', status: 'waiting', season: 1,
+    rounds: [], totalRounds: 0, completedRounds: 0, totalMatches: 0, completedMatches: 0,
+    teamCount: 0, updated_at: '2026-09-01T00:00:00Z',
+  };
+  const member = (id: string, changes: Partial<typeof base> & {
+    image_url?: string; description?: string; hasNewsArticle?: boolean,
+  } = {}) => ({ tournament: { ...base, ...changes, id, slug: id }, isFeatured: false, displayOrder: 1 });
+  const rows = [
+    member('recent-empty', { updated_at: '2026-10-03T00:00:00Z' }),
+    member('image', { image_url: '/cup.jpg' }),
+    member('ready', { image_url: '/cup.jpg', description: 'Public cup', hasNewsArticle: true }),
+    member('participants', { teamCount: 1 }),
+    member('newer-ready', { image_url: '/cup.jpg', description: 'Public cup', hasNewsArticle: true,
+      updated_at: '2026-10-02T00:00:00Z' }),
+  ];
+  const expected = ['participants', 'newer-ready', 'ready', 'image', 'recent-empty'];
+  assert.deepEqual(selectCollectionHomepageMembers(rows).map((row) => row.tournament.id), expected);
+  assert.deepEqual(selectCollectionHomepageMembers([...rows].reverse()).map((row) => row.tournament.id), expected);
+  assert.deepEqual([...rows].map((row) => row.tournament).sort(compareTournamentListing).map((row) => row.id), expected);
 });
 
 test('collection display order resolves otherwise equal activity scores', () => {

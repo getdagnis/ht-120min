@@ -33,9 +33,9 @@ import { buildNewsArticlePreview } from '../../utils/news-preview';
 import { useAuth } from '../../hooks/useAuth';
 import { isCurrentParticipantTeam } from '../../utils/team-state';
 import { formatTournamentName } from '../../utils/tournament-names';
-import { groupHomepageCollections, selectCollectionHomepageMembers } from '../../utils/tournament-collections';
+import { compareTournamentListing, groupHomepageCollections, selectCollectionHomepageMembers } from '../../utils/tournament-collections';
 import type { PublicCollection } from '../../utils/tournament-collections';
-import { compareTournamentActivity } from '../../utils/tournament-card-details';
+import { loadTournamentListingSignals } from '../../utils/tournament-listing-signals';
 
 const FORUM_LINK = 'https://www.hattrick.org/goto.ashx?path=/Forum/Read.aspx?n=1&nm=32&t=17685273&v=0';
 const SHOW_FAQ = true;
@@ -97,6 +97,8 @@ interface DBWarning {
 }
 
 interface Tournament extends DBTournament {
+  hasNewsArticle?: boolean;
+  updated_at?: string | null;
   scoring_mode: string | null | undefined;
   league_category: string | null | undefined;
   country_limit: string | null;
@@ -465,6 +467,9 @@ export const Home: React.FC<{ initialData?: HomeInitialData }> = ({ initialData 
         const open: Tournament[] = [];
         const team120Stats: Record<number, { name: string; count: number }> = {};
         const tournamentsData = tournaments as unknown as DBTournament[];
+        const listingSignals = await loadTournamentListingSignals(supabase, tournamentsData
+          .filter((t) => !t.is_test && !t.is_archived && t.status !== 'stopped' && t.status !== 'archived')
+          .map((t) => t.id));
 
         tournamentsData
           .filter((t) => !t.is_test && t.status !== 'stopped' && t.status !== 'archived' && !t.is_archived)
@@ -521,6 +526,8 @@ export const Home: React.FC<{ initialData?: HomeInitialData }> = ({ initialData 
             const tournamentObj = {
               ...t,
               description: t.show_description ? (t.description || '').trim().slice(0, 600) || null : null,
+              hasNewsArticle: listingSignals.hasNewsArticle.has(t.id),
+              updated_at: listingSignals.updatedAt.get(t.id) || t.created_at,
               rounds: currentRounds,
               totalRounds,
               completedRounds,
@@ -547,9 +554,9 @@ export const Home: React.FC<{ initialData?: HomeInitialData }> = ({ initialData 
             }
           });
 
-        setFeaturedTournaments(featured.sort(compareTournamentActivity));
-        setActiveTournaments(active.sort(compareTournamentActivity));
-        setOpenTournaments(open.sort(compareTournamentActivity));
+        setFeaturedTournaments(featured.sort(compareTournamentListing));
+        setActiveTournaments(active.sort(compareTournamentListing));
+        setOpenTournaments(open.sort(compareTournamentListing));
         setCollections((collectionResult.data || []).map((collection) => ({
           id: collection.id, slug: collection.slug, title: collection.title,
           description: collection.description, bannerUrl: collection.banner_url,
@@ -703,7 +710,7 @@ export const Home: React.FC<{ initialData?: HomeInitialData }> = ({ initialData 
                   <Star size={24} weight="regular" className={styles.sectionIcon} />
                   <h2>Featured Tournaments</h2>
                 </div>
-                <div className={styles.tournamentGrid}>{[...featuredTournaments].sort(compareTournamentActivity).map((t) => renderTournamentCard(t))}</div>
+                <div className={styles.tournamentGrid}>{[...featuredTournaments].sort(compareTournamentListing).map((t) => renderTournamentCard(t))}</div>
               </section>
             )}
 
@@ -743,7 +750,7 @@ export const Home: React.FC<{ initialData?: HomeInitialData }> = ({ initialData 
                   <Heartbeat size={24} weight="regular" className={styles.sectionIcon} />
                   <h2>Ongoing Tournaments</h2>
                 </div>
-                <div className={styles.tournamentGrid}>{[...activeTournaments].sort(compareTournamentActivity).map((t) => renderTournamentCard(t))}</div>
+                <div className={styles.tournamentGrid}>{[...activeTournaments].sort(compareTournamentListing).map((t) => renderTournamentCard(t))}</div>
               </section>
             )}
 
@@ -755,7 +762,7 @@ export const Home: React.FC<{ initialData?: HomeInitialData }> = ({ initialData 
                 </div>
 
                 <div className={styles.tournamentGrid}>
-                  {[...openTournaments].sort(compareTournamentActivity).map((t) => renderTournamentCard(t, { join: true }))}
+                  {[...openTournaments].sort(compareTournamentListing).map((t) => renderTournamentCard(t, { join: true }))}
                 </div>
               </section>
             )}

@@ -26,6 +26,9 @@ export interface TournamentCardSummary {
   plannedStartDate?: string | Date | null;
   finishedAt?: string | Date | null;
   description?: string | null;
+  image_url?: string | null;
+  hasNewsArticle?: boolean;
+  updated_at?: string | Date | null;
 }
 
 export function getTournamentCardDescription(description: string | null | undefined) {
@@ -95,4 +98,16 @@ export function compareTournamentActivity<T extends TournamentCardSummary>(a: T,
   return compareTournamentActivityScore(a, b) ||
     a.slug.localeCompare(b.slug) ||
     a.id.localeCompare(b.id);
+}
+
+// Unstarted, paused and completed listings use public signs that a tournament
+// is ready to explore. The date is the final criterion, never a replacement for
+// participants or content.
+export function compareTournamentNonOngoingScore<T extends TournamentCardSummary>(a: T, b: T) {
+  const presence = (value: boolean) => Number(value);
+  return presence(b.teamCount > 0) - presence(a.teamCount > 0) ||
+    presence(Boolean(b.image_url)) - presence(Boolean(a.image_url)) ||
+    presence(Boolean(b.image_url && b.description?.trim() && b.hasNewsArticle)) -
+      presence(Boolean(a.image_url && a.description?.trim() && a.hasNewsArticle)) ||
+    timestamp(b.updated_at || b.created_at) - timestamp(a.updated_at || a.created_at);
 }

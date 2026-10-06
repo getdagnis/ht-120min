@@ -1,4 +1,4 @@
-import { compareTournamentActivity, compareTournamentActivityScore, type TournamentCardSummary } from './tournament-card-details.js';
+import { compareTournamentActivityScore, compareTournamentNonOngoingScore, type TournamentCardSummary } from './tournament-card-details.js';
 
 export interface CollectionMember<T> {
   tournament: T;
@@ -70,8 +70,29 @@ export function collectionPageGroups<T extends CollectionTournament>(member: Col
 export function compareCollectionMemberActivity<T extends TournamentCardSummary>(
   a: CollectionMember<T>, b: CollectionMember<T>,
 ) {
-  return compareTournamentActivityScore(a.tournament, b.tournament) ||
-    a.displayOrder - b.displayOrder || compareTournamentActivity(a.tournament, b.tournament);
+  return compareTournamentListingScore(a.tournament, b.tournament) ||
+    a.displayOrder - b.displayOrder || a.tournament.slug.localeCompare(b.tournament.slug) ||
+    a.tournament.id.localeCompare(b.tournament.id);
+}
+
+function listingGroup(tournament: TournamentCardSummary) {
+  return collectionGroup({
+    ...tournament,
+    rounds: tournament.rounds || [],
+  });
+}
+
+function compareTournamentListingScore<T extends TournamentCardSummary>(a: T, b: T) {
+  const aGroup = listingGroup(a);
+  const bGroup = listingGroup(b);
+  if (aGroup === 'in-progress' && bGroup !== 'in-progress') return -1;
+  if (bGroup === 'in-progress' && aGroup !== 'in-progress') return 1;
+  if (aGroup === 'in-progress') return compareTournamentActivityScore(a, b);
+  return compareTournamentNonOngoingScore(a, b);
+}
+
+export function compareTournamentListing<T extends TournamentCardSummary>(a: T, b: T) {
+  return compareTournamentListingScore(a, b) || a.slug.localeCompare(b.slug) || a.id.localeCompare(b.id);
 }
 
 // Public baseline only. Viewer-specific joined/eligible ordering can be layered
@@ -79,12 +100,7 @@ export function compareCollectionMemberActivity<T extends TournamentCardSummary>
 export function selectCollectionHomepageMembers<T extends CollectionTournament & TournamentCardSummary>(
   members: readonly CollectionMember<T>[], limit = 8,
 ): CollectionMember<T>[] {
-  const rank = (member: CollectionMember<T>) => {
-    const group = collectionGroup(member.tournament);
-    return group === 'in-progress' ? 0 : group === 'registration-open' ? 1 :
-      group === 'upcoming' ? 2 : group === 'inactive' ? 3 : 4;
-  };
   return [...members]
-    .sort((a, b) => rank(a) - rank(b) || compareCollectionMemberActivity(a, b))
+    .sort((a, b) => compareCollectionMemberActivity(a, b))
     .slice(0, limit);
 }

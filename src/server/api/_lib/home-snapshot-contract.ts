@@ -20,6 +20,7 @@ const tournament: Shape = {
   id: 'string', name: 'string', slug: 'string', created_at: 'string', season: 'number',
   schedule_start_slot: 'string?', schedule_generated_at: 'string?', registration_closed_at: 'string?', is_featured: 'boolean',
   description: 'string?',
+  hasNewsArticle: 'boolean?', updated_at: 'string?',
   is_private: 'boolean', is_test: 'boolean?', status: 'string?', is_archived: 'boolean?',
   thumbnail_index: 'number?', image_url: 'string?', country_limit: 'string?', country_limit_format: 'string?',
   scoring_mode: 'string?', league_category: 'string?', max_teams: 'number?',

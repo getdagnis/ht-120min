@@ -38,7 +38,7 @@ The app treats tournaments, rounds, matches, standings, chat, and admin decision
 - `migrations/history/` is an archived legacy area.
 - Active migrations must use the root `migrations/` directory.
 - Continue the numeric sequence from the latest active migration.
-- The current active sequence includes owner-marked-applied `095_fixture_predicted_rating_shares.sql`, prepared `096_limit_fixture_rating_visibility.sql`, owner-marked-applied `097_tournament_collections.sql`, prepared `098_publish_home_tournament_descriptions.sql`, and prepared `099_collection_homepage_groups.sql`; the next migration must continue at `100_...sql`. Recheck files before numbering.
+- The current active sequence includes owner-marked-applied `095_fixture_predicted_rating_shares.sql`, prepared `096_limit_fixture_rating_visibility.sql`, owner-marked-applied `097_tournament_collections.sql`, prepared `098_publish_home_tournament_descriptions.sql`, prepared `099_collection_homepage_groups.sql`, and prepared `100_tournament_modification_time.sql`; the next migration must continue at `101_...sql`. Recheck files before numbering.
 - Do not create timestamp-prefixed migration names such as `20261001050614_...`.
 - Keep migrations compatible with existing rows when possible.
 - Record migration state in `PROJECT_STATE.md` only when a schema/RPC/RLS change has architectural, security, product-direction, or substantial behavioral impact. Do not add status entries for routine fixes or small implementation details.
@@ -73,6 +73,7 @@ Recent important migrations:
 - `097_tournament_collections.sql` (owner-marked applied: collection tables, explicit Exotic HFI backfill and Home publication dirty hooks; live state not independently verified)
 - `098_publish_home_tournament_descriptions.sql` (Home description publication dirty hook and initial rebuild request; owner reported a syntax error while applying it on 2026-10-06. The missing SQL comment marker is corrected locally. Its existing owner-added `-- applied!` marker was left untouched and is not evidence of live application.)
 - `099_collection_homepage_groups.sql` (prepared locally: nullable collection homepage group, Exotic backfill and Home publication dirtying; not applied)
+- `100_tournament_modification_time.sql` (prepared locally: public tournament edit timestamp with creation-time backfill and Home publication dirtying; not applied)
 
 Public publication rollout state, preflight and test boundaries are in
 [`public-data-implementation.md`](public-data-implementation.md). Publication artifacts are server-only; the prepared

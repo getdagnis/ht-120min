@@ -1,7 +1,8 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { getMatchDateForRound } from '../../../utils/match-schedule.js';
 import { getTournamentNextMatchDate } from '../../../utils/tournament-next-match.js';
-import { compareTournamentActivity } from '../../../utils/tournament-card-details.js';
+import { compareTournamentListing } from '../../../utils/tournament-collections.js';
+import { loadTournamentListingSignals } from '../../../utils/tournament-listing-signals.js';
 import { formatTournamentName } from '../../../utils/tournament-names.js';
 import { getCountryWorldDetails } from '../../../../shared/worlddetails.js';
 import { getJoinStoryManagerSummary } from '../../../utils/tournament-activity.js';
@@ -77,6 +78,8 @@ interface HomeWarning {
 }
 
 export interface HomeTournament extends HomeTournamentRow {
+  hasNewsArticle?: boolean;
+  updated_at?: string | null;
   rounds: HomeRound[];
   validatedTeamCount: number;
   totalRounds: number;
@@ -219,6 +222,7 @@ export async function buildHomeSnapshot(supabase: SupabaseClient, now = Date.now
   const publicTournamentIds = ((tournamentsRaw || []) as HomeTournamentRow[])
     .filter((tournament) => !tournament.is_test && !tournament.is_archived && tournament.status !== 'stopped' && tournament.status !== 'archived')
     .map((tournament) => tournament.id);
+  const listingSignals = await loadTournamentListingSignals(supabase, publicTournamentIds);
   if (publicTournamentIds.length > 0) {
     const { data, error } = await supabase
       .from('news_posts')
@@ -378,6 +382,8 @@ export async function buildHomeSnapshot(supabase: SupabaseClient, now = Date.now
     const item: HomeTournament = {
       ...tournament,
       description: tournament.show_description ? (tournament.description || '').trim().slice(0, 600) || null : null,
+      hasNewsArticle: listingSignals.hasNewsArticle.has(tournament.id),
+      updated_at: listingSignals.updatedAt.get(tournament.id) || tournament.created_at,
       rounds: currentRounds,
       validatedTeamCount: tournament.teams.filter((team) => isCurrentParticipantTeam(team) && team.joined_via_oauth).length,
       totalRounds: currentRounds.length,
@@ -405,8 +411,8 @@ export async function buildHomeSnapshot(supabase: SupabaseClient, now = Date.now
     else if (!isGenerated && item.status !== 'finished') open.push(item);
   }
 
-  const featuredTournaments = featured.sort(compareTournamentActivity);
-  const activeTournaments = active.sort(compareTournamentActivity);
+  const featuredTournaments = featured.sort(compareTournamentListing);
+  const activeTournaments = active.sort(compareTournamentListing);
 
   const collections: PublicCollection<HomeTournament>[] = collectionsRaw
     .map((collection) => ({
@@ -426,7 +432,7 @@ export async function buildHomeSnapshot(supabase: SupabaseClient, now = Date.now
     nextRefreshAt: getHomeNextRefreshAt(activity, (tournamentsRaw || []) as HomeTournamentRow[], weeklyPosts, now),
     featuredTournaments,
     activeTournaments,
-    openTournaments: open.sort(compareTournamentActivity),
+    openTournaments: open.sort(compareTournamentListing),
     collections,
     topTeams: Object.entries(team120Stats)
       .map(([id, data]) => ({ ht_team_id: Number(id), name: data.name, achievements120min: data.count }))
