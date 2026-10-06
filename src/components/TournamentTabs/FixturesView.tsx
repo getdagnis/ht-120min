@@ -141,6 +141,7 @@ interface FixturesViewProps {
   onJoinWithHattrick: () => void;
   isHistorical?: boolean;
   currentHtUserId?: number | null;
+  onRatingsSignIn: () => void;
   availableSeasonNumbers?: number[];
   onSeasonChange?: (seasonNumber: number) => void;
   emptyStateMessage?: string;
@@ -212,6 +213,7 @@ export const FixturesView: React.FC<FixturesViewProps> = ({
   onJoinWithHattrick,
   isHistorical = false,
   currentHtUserId,
+  onRatingsSignIn,
   availableSeasonNumbers = [],
   onSeasonChange,
   emptyStateMessage,
@@ -245,6 +247,8 @@ export const FixturesView: React.FC<FixturesViewProps> = ({
   const [privateRatingsState, setPrivateRatingsState] = React.useState<{
     tournamentId: string; userId: number; fixtures: Record<string, PrivateFixtureRatings>;
   } | null>(null);
+  const [ratingsAuth, setRatingsAuth] = React.useState<'checking' | 'ready' | 'session-expired' | 'reconnect' | 'unavailable'>('checking');
+  const [ratingsPromptDismissed, setRatingsPromptDismissed] = React.useState(false);
   const ratingsTournamentId = tournament?.id;
   const privateRatings = privateRatingsState && !isHistorical &&
     privateRatingsState.tournamentId === ratingsTournamentId &&
@@ -589,18 +593,31 @@ export const FixturesView: React.FC<FixturesViewProps> = ({
     if (!ratingsTournamentId || !currentHtUserId || isHistorical) return;
     try {
       const response = await fetch(`/api/app?route=fixture-ratings&tournamentId=${encodeURIComponent(ratingsTournamentId)}`, {
-        cache: 'no-store',
+        cache: 'no-store', credentials: 'include',
       });
-      if (!response.ok) throw new Error('Private fixture ratings are unavailable.');
-      const body = await response.json() as { fixtures?: PrivateFixtureRatings[] };
+      const body = await response.json().catch(() => null) as { fixtures?: PrivateFixtureRatings[]; error?: string } | null;
+      if (!response.ok) {
+        if (request === privateRatingsRequest.current) {
+          setPrivateRatingsState(null);
+          setRatingsAuth(response.status === 401 && body?.error === 'Please sign in with Hattrick first.'
+            ? 'session-expired'
+            : body?.error && /authorization|reauthorize|sign in again/i.test(body.error)
+              ? 'reconnect' : 'unavailable');
+        }
+        return;
+      }
       if (request === privateRatingsRequest.current) {
         setPrivateRatingsState({
           tournamentId: ratingsTournamentId, userId: currentHtUserId,
-          fixtures: Object.fromEntries((body.fixtures || []).map((entry) => [entry.fixtureId, entry])),
+          fixtures: Object.fromEntries((body?.fixtures || []).map((entry) => [entry.fixtureId, entry])),
         });
+        setRatingsAuth('ready');
       }
     } catch {
-      if (request === privateRatingsRequest.current) setPrivateRatingsState(null);
+      if (request === privateRatingsRequest.current) {
+        setPrivateRatingsState(null);
+        setRatingsAuth('unavailable');
+      }
     }
   }, [ratingsTournamentId, currentHtUserId, isHistorical]);
 
@@ -614,11 +631,20 @@ export const FixturesView: React.FC<FixturesViewProps> = ({
 
   const updateRatings = async (fixtureId: string, side: 'home' | 'away', action: 'share' | 'update' | 'remove') => {
     const response = await fetch('/api/app?route=fixture-ratings', {
-      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      method: 'POST', credentials: 'include', headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ fixtureId, side, action }),
     });
     const body = await response.json().catch(() => null) as { error?: string } | null;
-    if (!response.ok) throw new Error(body?.error || 'Could not update shared ratings.');
+    if (!response.ok) {
+      if (response.status === 401 && body?.error === 'Please sign in with Hattrick first.') {
+        setPrivateRatingsState(null);
+        setRatingsAuth('session-expired');
+      } else if (body?.error && /authorization|reauthorize|sign in again/i.test(body.error)) {
+        setPrivateRatingsState(null);
+        setRatingsAuth('reconnect');
+      }
+      throw new Error(body?.error || 'Could not update shared ratings.');
+    }
     await onRatingsChanged();
     await reloadPrivateRatings();
   };
@@ -646,6 +672,12 @@ export const FixturesView: React.FC<FixturesViewProps> = ({
         .some((roundStart) => roundStart !== null && roundStart <= nowMs);
     });
   }, [nowMs, resolveMatchDate, rounds, warnings]);
+  const showRatingsAuthPrompt = !isHistorical && Boolean(currentHtUserId) && !ratingsPromptDismissed &&
+    (ratingsAuth === 'session-expired' || ratingsAuth === 'reconnect') &&
+    rounds.some((round) => round.matches.some((match) =>
+      match.status === 'arranged' && !match.completed && Boolean(match.ht_match_id) &&
+      Boolean(match.scheduled_for && new Date(match.scheduled_for).getTime() > nowMs) &&
+      [match.home_team, match.away_team].some((team) => Number(team?.hattrick_user_id) === currentHtUserId)));
 
   return (
     <div className={styles.rounds}>
@@ -776,6 +808,20 @@ export const FixturesView: React.FC<FixturesViewProps> = ({
           </div>
         )}
       </div>
+
+      {showRatingsAuthPrompt && (
+        <div className={styles.ratingsAuthPrompt} role="status">
+          <p>{ratingsAuth === 'session-expired'
+            ? 'Your HT-120min session expired. Sign in with Hattrick to share ratings for your fixtures.'
+            : 'Hattrick authorization is missing or was denied. Reconnect Hattrick to share ratings for your fixtures.'}</p>
+          <div>
+            <Button size="sm" variant="secondary" onClick={onRatingsSignIn}>
+              {ratingsAuth === 'session-expired' ? 'Sign in with Hattrick' : 'Reconnect Hattrick'}
+            </Button>
+            <Button size="sm" variant="zero" onClick={() => setRatingsPromptDismissed(true)}>Continue browsing</Button>
+          </div>
+        </div>
+      )}
 
       {rounds.length === 0 && (
         <SectionCard title="Fixtures & Results">
@@ -1082,10 +1128,10 @@ export const FixturesView: React.FC<FixturesViewProps> = ({
                       Number(row.ht_match_id) === Number(match.ht_match_id));
                     const homeShared = Boolean(match.rating_share_statuses?.some((row) => row.team_id === match.home_team_id));
                     const awayShared = Boolean(match.rating_share_statuses?.some((row) => row.team_id === match.away_team_id));
-                    const ownHome = ratingsEligible && Boolean(currentHtUserId) &&
-                      Number(match.home_team?.hattrick_user_id) === currentHtUserId;
-                    const ownAway = ratingsEligible && Boolean(currentHtUserId) &&
-                      Number(match.away_team?.hattrick_user_id) === currentHtUserId;
+                    const ownHome = ratingsEligible && ratingsAuth === 'ready' &&
+                      Boolean(privateFixture?.ownedSides.includes('home'));
+                    const ownAway = ratingsEligible && ratingsAuth === 'ready' &&
+                      Boolean(privateFixture?.ownedSides.includes('away'));
                     const canManageHome = ownHome && (!homeShared || Boolean(homeRatings));
                     const canManageAway = ownAway && (!awayShared || Boolean(awayRatings));
                     const showRatings = Boolean(ratingsEligible && (homeRatings || awayRatings || canManageHome || canManageAway));

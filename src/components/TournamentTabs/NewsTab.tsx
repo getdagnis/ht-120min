@@ -234,7 +234,12 @@ export const NewsArticle: React.FC<NewsArticleProps> = ({
   const authorProfileId = post.author_ht_user_id ?? authorTeam?.hattrick_user_id ?? null;
 
   const handleImageError = () => {
-    if (customImageUrl && articleImageUrl === customImageUrl && fallbackImageUrl && fallbackImageUrl !== customImageUrl) {
+    if (
+      customImageUrl &&
+      articleImageUrl === customImageUrl &&
+      fallbackImageUrl &&
+      fallbackImageUrl !== customImageUrl
+    ) {
       setFailedImageIdentity(`${imageIdentity}:custom`);
       return;
     }
@@ -314,7 +319,9 @@ export const NewsArticle: React.FC<NewsArticleProps> = ({
         )}
         {post.is_admin
           ? renderHattrickAnnouncementMarkup(preview ? preview.content : post.content)
-          : preview ? preview.content : post.content}
+          : preview
+            ? preview.content
+            : post.content}
       </div>
       {!preview && reactions.length > 0 && (
         <div className={styles.usedReactions} aria-label="Used reactions">
@@ -362,7 +369,7 @@ export const NewsArticle: React.FC<NewsArticleProps> = ({
         <div className={styles.visitCupRow}>
           <Button
             type="button"
-            variant="outline"
+            variant="showMore"
             size="sm"
             onClick={() => {
               window.location.href = visitHref;
@@ -455,7 +462,7 @@ export const NewsTab: React.FC<NewsTabProps> = ({
       .map((team) => [String(team.hattrick_user_id), team.manager_name || team.name]),
   );
   const managerTeamNames = Object.fromEntries(
-    teams.flatMap((team) => team.hattrick_user_id ? [[team.hattrick_user_id, team.name] as const] : []),
+    teams.flatMap((team) => (team.hattrick_user_id ? [[team.hattrick_user_id, team.name] as const] : [])),
   );
   const myTeam = myHtUserId ? teams.find((team) => team.hattrick_user_id === Number(myHtUserId)) : null;
   const cupPressAuthorName = myTeam?.manager_name || myManagerName || myTeam?.name || 'Tournament organizer';
@@ -1031,7 +1038,9 @@ export const NewsTab: React.FC<NewsTabProps> = ({
                     />
                     {newsMode === 'admin' && (
                       <label className={styles.imageUrlField}>
-                        <span>Custom image URL <em>(optional)</em></span>
+                        <span>
+                          Custom image URL <em>(optional)</em>
+                        </span>
                         <input
                           type="text"
                           value={newNewsImageUrl}

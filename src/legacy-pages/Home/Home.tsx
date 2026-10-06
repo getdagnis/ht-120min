@@ -33,7 +33,11 @@ import { buildNewsArticlePreview } from '../../utils/news-preview';
 import { useAuth } from '../../hooks/useAuth';
 import { isCurrentParticipantTeam } from '../../utils/team-state';
 import { formatTournamentName } from '../../utils/tournament-names';
-import { compareTournamentListing, groupHomepageCollections, selectCollectionHomepageMembers } from '../../utils/tournament-collections';
+import {
+  compareTournamentListing,
+  groupHomepageCollections,
+  selectCollectionHomepageMembers,
+} from '../../utils/tournament-collections';
 import type { PublicCollection } from '../../utils/tournament-collections';
 import { loadTournamentListingSignals } from '../../utils/tournament-listing-signals';
 
@@ -239,7 +243,10 @@ export const Home: React.FC<{ initialData?: HomeInitialData }> = ({ initialData 
   const [collections, setCollections] = useState<PublicCollection<Tournament>[]>(() =>
     (initialData?.collections || []).map((collection) => ({
       ...collection,
-      members: collection.members.map((member) => ({ ...member, tournament: reviveInitialTournament(member.tournament) })),
+      members: collection.members.map((member) => ({
+        ...member,
+        tournament: reviveInitialTournament(member.tournament),
+      })),
     })),
   );
   const [topTeams, setTopTeams] = useState<TopTeam[]>(() => initialData?.topTeams || []);
@@ -447,14 +454,21 @@ export const Home: React.FC<{ initialData?: HomeInitialData }> = ({ initialData 
 
       if (tournaments) {
         const [collectionResult, membershipResult] = await Promise.all([
-          supabase.from('tournament_collections').select('id,slug,title,description,banner_url,homepage_group,display_order').eq('is_published', true),
-          supabase.from('tournament_collection_memberships').select('collection_id,tournament_id,is_featured,display_order'),
+          supabase
+            .from('tournament_collections')
+            .select('id,slug,title,description,banner_url,homepage_group,display_order')
+            .eq('is_published', true),
+          supabase
+            .from('tournament_collection_memberships')
+            .select('collection_id,tournament_id,is_featured,display_order'),
         ]);
         if (collectionResult.error || membershipResult.error) throw new Error('Could not load collections.');
         const publishedCollectionIds = new Set((collectionResult.data || []).map((collection) => collection.id));
-        const memberIds = new Set((membershipResult.data || [])
-          .filter((member) => publishedCollectionIds.has(member.collection_id))
-          .map((member) => member.tournament_id));
+        const memberIds = new Set(
+          (membershipResult.data || [])
+            .filter((member) => publishedCollectionIds.has(member.collection_id))
+            .map((member) => member.tournament_id),
+        );
         const publicCards = new Map<string, Tournament>();
         const { data: warningsRaw } = await supabase
           .from('fixture_warnings')
@@ -467,9 +481,12 @@ export const Home: React.FC<{ initialData?: HomeInitialData }> = ({ initialData 
         const open: Tournament[] = [];
         const team120Stats: Record<number, { name: string; count: number }> = {};
         const tournamentsData = tournaments as unknown as DBTournament[];
-        const listingSignals = await loadTournamentListingSignals(supabase, tournamentsData
-          .filter((t) => !t.is_test && !t.is_archived && t.status !== 'stopped' && t.status !== 'archived')
-          .map((t) => t.id));
+        const listingSignals = await loadTournamentListingSignals(
+          supabase,
+          tournamentsData
+            .filter((t) => !t.is_test && !t.is_archived && t.status !== 'stopped' && t.status !== 'archived')
+            .map((t) => t.id),
+        );
 
         tournamentsData
           .filter((t) => !t.is_test && t.status !== 'stopped' && t.status !== 'archived' && !t.is_archived)
@@ -557,17 +574,27 @@ export const Home: React.FC<{ initialData?: HomeInitialData }> = ({ initialData 
         setFeaturedTournaments(featured.sort(compareTournamentListing));
         setActiveTournaments(active.sort(compareTournamentListing));
         setOpenTournaments(open.sort(compareTournamentListing));
-        setCollections((collectionResult.data || []).map((collection) => ({
-          id: collection.id, slug: collection.slug, title: collection.title,
-          description: collection.description, bannerUrl: collection.banner_url,
-          homepageGroup: collection.homepage_group ?? null,
-          displayOrder: collection.display_order,
-          members: (membershipResult.data || []).filter((member) => member.collection_id === collection.id)
-            .flatMap((member) => {
-              const tournament = publicCards.get(member.tournament_id);
-              return tournament ? [{ tournament, isFeatured: member.is_featured, displayOrder: member.display_order }] : [];
-            }),
-        })).sort((a, b) => a.displayOrder - b.displayOrder || a.slug.localeCompare(b.slug)));
+        setCollections(
+          (collectionResult.data || [])
+            .map((collection) => ({
+              id: collection.id,
+              slug: collection.slug,
+              title: collection.title,
+              description: collection.description,
+              bannerUrl: collection.banner_url,
+              homepageGroup: collection.homepage_group ?? null,
+              displayOrder: collection.display_order,
+              members: (membershipResult.data || [])
+                .filter((member) => member.collection_id === collection.id)
+                .flatMap((member) => {
+                  const tournament = publicCards.get(member.tournament_id);
+                  return tournament
+                    ? [{ tournament, isFeatured: member.is_featured, displayOrder: member.display_order }]
+                    : [];
+                }),
+            }))
+            .sort((a, b) => a.displayOrder - b.displayOrder || a.slug.localeCompare(b.slug)),
+        );
 
         const topTeamsList = Object.entries(team120Stats)
           .map(([id, data]) => ({ ht_team_id: parseInt(id), name: data.name, achievements120min: data.count }))
@@ -608,8 +635,10 @@ export const Home: React.FC<{ initialData?: HomeInitialData }> = ({ initialData 
         leagueCategory={t.league_category}
         joinHref={options.join ? tournamentHref : undefined}
       >
-        <TournamentCardContent tournament={t}
-          trailing={<CaretLeft size={18} weight="regular" className={styles.tArrow} />} />
+        <TournamentCardContent
+          tournament={t}
+          trailing={<CaretLeft size={18} weight="regular" className={styles.tArrow} />}
+        />
       </TournamentCard>
     );
 
@@ -710,7 +739,9 @@ export const Home: React.FC<{ initialData?: HomeInitialData }> = ({ initialData 
                   <Star size={24} weight="regular" className={styles.sectionIcon} />
                   <h2>Featured Tournaments</h2>
                 </div>
-                <div className={styles.tournamentGrid}>{[...featuredTournaments].sort(compareTournamentListing).map((t) => renderTournamentCard(t))}</div>
+                <div className={styles.tournamentGrid}>
+                  {[...featuredTournaments].sort(compareTournamentListing).map((t) => renderTournamentCard(t))}
+                </div>
               </section>
             )}
 
@@ -721,23 +752,36 @@ export const Home: React.FC<{ initialData?: HomeInitialData }> = ({ initialData 
                   <h2>{group.title}</h2>
                 </div>
                 {group.collections.map((collection) => (
-                  <div key={collection.id}
+                  <div
+                    key={collection.id}
                     id={collection.slug === 'exotic-hfi' ? EXOTIC_HFI_ANCHOR_ID : undefined}
-                    className={`${styles.collectionEntry} ${styles.anchorTarget}`}>
-                    {collection.bannerUrl && <Link href={toLocalePath(locale, `/collection/${collection.slug}`)}>
-                      <img className={styles.collectionBanner} src={collection.bannerUrl} alt={collection.title} />
-                    </Link>}
+                    className={`${styles.collectionEntry} ${styles.anchorTarget}`}
+                  >
+                    {collection.bannerUrl && (
+                      <Link href={toLocalePath(locale, `/collection/${collection.slug}`)}>
+                        <img className={styles.collectionBanner} src={collection.bannerUrl} alt={collection.title} />
+                      </Link>
+                    )}
                     <h3 className={collection.bannerUrl ? styles.collectionHeading : styles.collectionTitle}>
                       {collection.title}
                     </h3>
                     <div className={styles.tournamentGrid}>
-                      {selectCollectionHomepageMembers(collection.members)
-                        .map((member) => renderTournamentCard(member.tournament))}
+                      {selectCollectionHomepageMembers(collection.members).map((member) =>
+                        renderTournamentCard(member.tournament),
+                      )}
                     </div>
-                    <Button type="button" className={styles.collectionLink} variant="secondaryHero" size="lg" fullWidth
-                      onClick={() => router.push(toLocalePath(locale, `/collection/${collection.slug}`))}>
+                    <Button
+                      type="button"
+                      className={styles.collectionLink}
+                      variant="showMore"
+                      size="lg"
+                      fullWidth
+                      onClick={() => router.push(toLocalePath(locale, `/collection/${collection.slug}`))}
+                    >
                       <ArrowRight size={22} weight="regular" />
-                      {collection.slug === 'exotic-hfi' ? 'All Exotic HFI Leagues' : `All ${collection.title} tournaments`}
+                      {collection.slug === 'exotic-hfi'
+                        ? 'All Exotic HFI Leagues'
+                        : `All ${collection.title} tournaments`}
                     </Button>
                   </div>
                 ))}
@@ -750,7 +794,9 @@ export const Home: React.FC<{ initialData?: HomeInitialData }> = ({ initialData 
                   <Heartbeat size={24} weight="regular" className={styles.sectionIcon} />
                   <h2>Ongoing Tournaments</h2>
                 </div>
-                <div className={styles.tournamentGrid}>{[...activeTournaments].sort(compareTournamentListing).map((t) => renderTournamentCard(t))}</div>
+                <div className={styles.tournamentGrid}>
+                  {[...activeTournaments].sort(compareTournamentListing).map((t) => renderTournamentCard(t))}
+                </div>
               </section>
             )}
 
@@ -762,7 +808,9 @@ export const Home: React.FC<{ initialData?: HomeInitialData }> = ({ initialData 
                 </div>
 
                 <div className={styles.tournamentGrid}>
-                  {[...openTournaments].sort(compareTournamentListing).map((t) => renderTournamentCard(t, { join: true }))}
+                  {[...openTournaments]
+                    .sort(compareTournamentListing)
+                    .map((t) => renderTournamentCard(t, { join: true }))}
                 </div>
               </section>
             )}

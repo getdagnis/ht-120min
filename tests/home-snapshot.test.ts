@@ -6,7 +6,8 @@ import { normalizeHomeSnapshot, parseHomeSnapshot } from '../src/server/api/_lib
 import { runHomeSnapshotWorker } from '../src/server/api/_lib/home-snapshot-worker.js';
 import { isHomeWorkerAuthorized } from '../src/server/api/home-snapshot.js';
 import {
-  collectionPageGroups, compareTournamentListing, groupHomepageCollections, selectCollectionHomepageMembers,
+  COLLECTION_HOMEPAGE_GROUPS, collectionPageGroups, compareTournamentListing, groupHomepageCollections,
+  selectCollectionHomepageMembers,
 } from '../src/utils/tournament-collections.js';
 
 const now = Date.parse('2026-10-03T12:00:00Z');
@@ -175,23 +176,18 @@ test('published collections are many-to-many, exclude nonpublic cards and do not
 });
 
 test('collection homepage groups use stored categories and retain old Exotic publications', () => {
-  const rows = [
-    { id: '1', slug: 'bone-crashers', title: 'Bone Crashers', description: '', bannerUrl: null,
-      homepageGroup: 'virtual-concept', displayOrder: 2, members: [] },
-    { id: '2', slug: 'exotic-hfi', title: 'Exotic', description: '', bannerUrl: null,
-      displayOrder: 1, members: [] },
-    { id: '3', slug: 'global-120', title: 'Global', description: '', bannerUrl: null,
-      homepageGroup: 'hop-on-hop-off', displayOrder: 3, members: [] },
-  ];
-  assert.deepEqual(groupHomepageCollections(rows).map((group) => [group.title, group.collections[0].slug]), [
-    ['Concept 120 min Tournaments', 'exotic-hfi'],
-    ['Virtual Concept Tournaments', 'bone-crashers'],
-    ['Hop-On Hop-Off Tournaments', 'global-120'],
-  ]);
-  assert.deepEqual(groupHomepageCollections(rows.slice(1, 2)).map((group) => group.title),
-    ['Concept 120 min Tournaments']);
-  assert.deepEqual(groupHomepageCollections([{ ...rows[1], homepageGroup: null }]).map((group) => group.title),
-    ['Collections']);
+  const rows = COLLECTION_HOMEPAGE_GROUPS.map((group, index) => ({
+    id: String(index + 1), slug: `member-${index + 1}`, title: `Member ${index + 1}`, description: '',
+    bannerUrl: null, homepageGroup: group.id, displayOrder: index + 1, members: [],
+  }));
+  const grouped = groupHomepageCollections(rows);
+  assert.deepEqual(grouped.map((group) => [group.id, group.title, group.collections.map((collection) => collection.slug)]),
+    COLLECTION_HOMEPAGE_GROUPS.map((group, index) => [group.id, group.title, [`member-${index + 1}`]]));
+
+  const legacyExotic = { ...rows[0], slug: 'exotic-hfi', homepageGroup: undefined };
+  assert.deepEqual(groupHomepageCollections([legacyExotic]).map((group) => [group.id, group.title]),
+    [[COLLECTION_HOMEPAGE_GROUPS[0].id, COLLECTION_HOMEPAGE_GROUPS[0].title]]);
+  assert.deepEqual(groupHomepageCollections([{ ...rows[0], homepageGroup: null }]).map((group) => group.id), ['other']);
 });
 
 test('a featured collection member also remains in its ongoing page group', () => {

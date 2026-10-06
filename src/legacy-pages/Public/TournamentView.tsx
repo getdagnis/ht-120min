@@ -6078,6 +6078,7 @@ export const TournamentView: React.FC<{
             canUpdateFixtures={canManageOperationalAdmin}
             isHistorical={isViewingHistoricalFixtures}
             currentHtUserId={currentHtUserId}
+            onRatingsSignIn={handleRefreshHattrickLogin}
             availableSeasonNumbers={availableSeasonNumbers}
             onSeasonChange={handleSeasonChange}
             emptyStateMessage={

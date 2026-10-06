@@ -18,8 +18,8 @@ export interface PublicCollection<T> {
 }
 
 export const COLLECTION_HOMEPAGE_GROUPS = [
-  { id: 'concept-120min', title: 'Concept 120 min Tournaments' },
-  { id: 'virtual-concept', title: 'Virtual Concept Tournaments' },
+  { id: 'concept-120min', title: 'Concept 120 min Friendly Tournaments' },
+  { id: 'virtual-concept', title: 'Non-Scheduled Concept Tournaments' },
   { id: 'hop-on-hop-off', title: 'Hop-On Hop-Off Tournaments' },
 ] as const;
 
