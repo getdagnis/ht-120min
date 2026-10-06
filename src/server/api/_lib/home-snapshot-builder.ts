@@ -6,7 +6,7 @@ import { formatTournamentName } from '../../../utils/tournament-names.js';
 import { getCountryWorldDetails } from '../../../../shared/worlddetails.js';
 import { getJoinStoryManagerSummary } from '../../../utils/tournament-activity.js';
 import { isCurrentParticipantTeam } from '../../../utils/team-state.js';
-import { EXOTIC_HFI_CAMPAIGN_SLUG_SET, orderExoticHfiTournaments } from '../../../constants/exotic-hfi-campaign.js';
+import type { PublicCollection } from '../../../utils/tournament-collections.js';
 
 interface HomeMatch {
   id: string;
@@ -51,6 +51,7 @@ interface HomeTournamentRow {
   created_at: string;
   schedule_start_slot?: string | null;
   schedule_generated_at?: string | null;
+  registration_closed_at?: string | null;
   is_featured?: boolean | null;
   is_private: boolean;
   is_test?: boolean | null;
@@ -73,7 +74,7 @@ interface HomeWarning {
   team_id: string;
 }
 
-interface HomeTournament extends HomeTournamentRow {
+export interface HomeTournament extends HomeTournamentRow {
   rounds: HomeRound[];
   validatedTeamCount: number;
   totalRounds: number;
@@ -95,7 +96,7 @@ export interface HomeInitialData {
   featuredTournaments: HomeTournament[];
   activeTournaments: HomeTournament[];
   openTournaments: HomeTournament[];
-  exoticHfiTournaments: HomeTournament[];
+  collections: PublicCollection<HomeTournament>[];
   topTeams: { name: string; ht_team_id: number; achievements120min: number }[];
   topActiveTournaments: { name: string; slug: string; completedMatches: number }[];
   activity: HomeActivityEntry[];
@@ -147,13 +148,15 @@ export async function buildHomeSnapshot(supabase: SupabaseClient, now = Date.now
   let tournamentsRaw: unknown[] | null;
   let warningsRaw: unknown[] | null;
   let reportRows: HomeReportRow[] = [];
+  let collectionsRaw: Array<{ id: string; slug: string; title: string; description: string; banner_url: string | null; display_order: number }>;
+  let membershipsRaw: Array<{ collection_id: string; tournament_id: string; is_featured: boolean; display_order: number }>;
   try {
-    const [tournamentsResult, warningsResult] = await Promise.all([
+    const [tournamentsResult, warningsResult, collectionsResult, membershipsResult] = await Promise.all([
       supabase
         .from('tournaments')
         .select(
           `
-          id, name, slug, created_at, schedule_start_slot, schedule_generated_at, is_featured, is_private, is_test, status, is_archived,
+          id, name, slug, created_at, schedule_start_slot, schedule_generated_at, registration_closed_at, is_featured, is_private, is_test, status, is_archived,
           season, thumbnail_index, image_url, country_limit, country_limit_format, scoring_mode, league_category, max_teams,
           rounds (
             id, created_at, round_number, season_number,
@@ -167,18 +170,24 @@ export async function buildHomeSnapshot(supabase: SupabaseClient, now = Date.now
         )
         .eq('is_private', false),
       supabase.from('fixture_warnings').select('round_id, team_id').eq('active', true),
+      supabase.from('tournament_collections').select('id,slug,title,description,banner_url,display_order').eq('is_published', true),
+      supabase.from('tournament_collection_memberships').select('collection_id,tournament_id,is_featured,display_order'),
     ]);
     if (tournamentsResult.error) {
       throw new Error('Home source read failed.');
     }
     if (warningsResult.error) throw new Error('Home warning read failed.');
+    if (collectionsResult.error || membershipsResult.error) throw new Error('Home collection read failed.');
     tournamentsRaw = tournamentsResult.data;
     warningsRaw = warningsResult.data;
+    collectionsRaw = collectionsResult.data || [];
+    membershipsRaw = membershipsResult.data || [];
   } catch (error) {
     throw new Error('Home source read failed.', { cause: error });
   }
 
-  if ((tournamentsRaw || []).length >= 1000 || (warningsRaw || []).length >= 1000) throw new Error('Home source bound exceeded.');
+  if ((tournamentsRaw || []).length >= 1000 || (warningsRaw || []).length >= 1000 ||
+      collectionsRaw.length >= 1000 || membershipsRaw.length >= 1000) throw new Error('Home source bound exceeded.');
   const activityCutoff = new Date(now - 7 * 24 * 60 * 60 * 1000).toISOString();
   const twoMonthsAgo = getHomeWeeklyCutoff(now);
   const { data: weeklyRows, error: weeklyError } = await supabase.from('news_posts')
@@ -225,7 +234,11 @@ export async function buildHomeSnapshot(supabase: SupabaseClient, now = Date.now
   const featured: HomeTournament[] = [];
   const active: HomeTournament[] = [];
   const open: HomeTournament[] = [];
-  const exoticHfi: HomeTournament[] = [];
+  const publicCards = new Map<string, HomeTournament>();
+  const publishedCollectionIds = new Set(collectionsRaw.map((collection) => collection.id));
+  const memberIds = new Set(membershipsRaw
+    .filter((membership) => publishedCollectionIds.has(membership.collection_id))
+    .map((membership) => membership.tournament_id));
   const team120Stats: Record<number, { name: string; count: number }> = {};
   const activity: HomeActivityEntry[] = [];
 
@@ -379,12 +392,9 @@ export async function buildHomeSnapshot(supabase: SupabaseClient, now = Date.now
       finishedAt: serializeDate(finishedAt),
       is_featured: Boolean(tournament.is_featured),
     };
+    publicCards.set(item.id, item);
 
-    if (EXOTIC_HFI_CAMPAIGN_SLUG_SET.has(item.slug)) {
-      exoticHfi.push(item);
-      if (item.is_featured) featured.push(item);
-      continue;
-    }
+    if (memberIds.has(item.id)) continue;
 
     if (item.is_featured) featured.push(item);
     else if (isGenerated && !isClosed && item.status !== 'finished') active.push(item);
@@ -408,13 +418,25 @@ export async function buildHomeSnapshot(supabase: SupabaseClient, now = Date.now
     return new Date(a.nextMatchDate).getTime() - new Date(b.nextMatchDate).getTime();
   });
 
+  const collections: PublicCollection<HomeTournament>[] = collectionsRaw
+    .map((collection) => ({
+      id: collection.id, slug: collection.slug, title: collection.title,
+      description: collection.description, bannerUrl: collection.banner_url,
+      displayOrder: collection.display_order,
+      members: membershipsRaw.filter((membership) => membership.collection_id === collection.id)
+        .flatMap((membership) => {
+          const tournament = publicCards.get(membership.tournament_id);
+          return tournament ? [{ tournament, isFeatured: membership.is_featured, displayOrder: membership.display_order }] : [];
+        }),
+    }))
+    .sort((a, b) => a.displayOrder - b.displayOrder || a.slug.localeCompare(b.slug));
   return {
     weeklyPosts,
     nextRefreshAt: getHomeNextRefreshAt(activity, (tournamentsRaw || []) as HomeTournamentRow[], weeklyPosts, now),
     featuredTournaments,
     activeTournaments,
     openTournaments: sortOpenTournaments(open),
-    exoticHfiTournaments: orderExoticHfiTournaments(exoticHfi),
+    collections,
     topTeams: Object.entries(team120Stats)
       .map(([id, data]) => ({ ht_team_id: Number(id), name: data.name, achievements120min: data.count }))
       .toSorted((a, b) => b.achievements120min - a.achievements120min)

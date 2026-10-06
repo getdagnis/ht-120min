@@ -67,3 +67,41 @@ export async function invalidateTournamentData(tournamentId: string, password = 
   }
   await invalidatePublicTournament(tournamentId);
 }
+
+export async function loadManageableCollections(tournamentId: string, password = '') {
+  const { supabase, canManageOperations } = await viewer(tournamentId, password);
+  if (!canManageOperations) throw new Error('Tournament management required.');
+  const [collections, memberships] = await Promise.all([
+    supabase.from('tournament_collections').select('id,title,is_published,display_order').order('display_order'),
+    supabase.from('tournament_collection_memberships').select('collection_id,is_featured,display_order').eq('tournament_id', tournamentId),
+  ]);
+  if (collections.error || memberships.error) throw new Error('Could not load collections.');
+  return (collections.data || []).map((collection) => ({
+    id: collection.id, title: collection.title, isPublished: collection.is_published,
+    isMember: (memberships.data || []).some((membership) => membership.collection_id === collection.id),
+    isFeatured: (memberships.data || []).find((membership) => membership.collection_id === collection.id)?.is_featured || false,
+    displayOrder: (memberships.data || []).find((membership) => membership.collection_id === collection.id)?.display_order || 0,
+  }));
+}
+
+export async function saveTournamentCollectionMembership(
+  tournamentId: string, collectionId: string,
+  input: { isMember: boolean; isFeatured: boolean; displayOrder: number }, password = '',
+) {
+  if (!input || !/^[0-9a-f-]{36}$/i.test(tournamentId) || !/^[0-9a-f-]{36}$/i.test(collectionId) ||
+      !Number.isSafeInteger(input.displayOrder) || input.displayOrder < 0 || input.displayOrder > 10000 ||
+      typeof input.isMember !== 'boolean' || typeof input.isFeatured !== 'boolean') throw new Error('Invalid collection settings.');
+  const { supabase, canManageOperations } = await viewer(tournamentId, password);
+  if (!canManageOperations) throw new Error('Tournament management required.');
+  const { data: collection, error: collectionError } = await supabase.from('tournament_collections')
+    .select('id').eq('id', collectionId).maybeSingle();
+  if (collectionError || !collection) throw new Error('Collection unavailable.');
+  const result = input.isMember
+    ? await supabase.from('tournament_collection_memberships').upsert({
+        collection_id: collectionId, tournament_id: tournamentId,
+        is_featured: input.isFeatured, display_order: input.displayOrder,
+      }, { onConflict: 'collection_id,tournament_id' })
+    : await supabase.from('tournament_collection_memberships').delete()
+        .eq('collection_id', collectionId).eq('tournament_id', tournamentId);
+  if (result.error) throw new Error('Could not save collection membership.');
+}

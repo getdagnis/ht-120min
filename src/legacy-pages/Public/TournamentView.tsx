@@ -18,6 +18,7 @@ import {
 } from '../../app/_data/tournament-actions';
 import { useLocale } from '../../i18n/LocaleProvider';
 import { toLocalePath } from '../../next/locale-path';
+import { CollectionMembershipPanel } from '../../components/CollectionMembershipPanel/CollectionMembershipPanel';
 
 import adminStyles from './TournamentAdmin.module.sass';
 import styles from './TournamentView.module.sass';
@@ -632,7 +633,10 @@ function reviveInitialRounds(initialData?: TournamentInitialData) {
   })) as RoundWithMatches[];
 }
 
-export const TournamentView: React.FC<{ initialData?: TournamentInitialData }> = ({ initialData }) => {
+export const TournamentView: React.FC<{
+  initialData?: TournamentInitialData;
+  collectionLinks?: { slug: string; title: string }[];
+}> = ({ initialData, collectionLinks = [] }) => {
   const { notice, showNotice: alert, closeNotice } = useNoticeDialog();
   const { locale } = useLocale();
   const { slug: rawSlug } = useParams<{ slug: string }>();
@@ -5479,6 +5483,12 @@ export const TournamentView: React.FC<{ initialData?: TournamentInitialData }> =
               Season {tournament.season}
               {tournament.status === 'finished' && <span> • Finished</span>}
             </p>
+            {collectionLinks.length > 0 && <nav className={styles.collectionLinks} aria-label="Tournament collections">
+              {collectionLinks.map((collection) => <Link key={collection.slug}
+                href={toLocalePath(locale, `/collection/${collection.slug}`)}>
+                {collection.title} →
+              </Link>)}
+            </nav>}
             {(isAddingDescription || (tournament.description && tournament.show_description)) && (
               <div className={styles.tournamentDescription}>
                 {isAddingDescription ? (
@@ -6655,6 +6665,10 @@ export const TournamentView: React.FC<{ initialData?: TournamentInitialData }> =
                             </Button>
                           </div>
                           {renderUnsavedSettingsNote(settingsHasUnsavedChanges)}
+                          {canManageOperationalAdmin && tournament && <CollectionMembershipPanel
+                            tournamentId={tournament.id}
+                            password={adminAuthSource === 'legacy_password' ? password : ''}
+                          />}
                           {showAdvancedSettings && (
                             <div className={adminStyles.settingsGroup}>
                               <div className={adminStyles.field}>

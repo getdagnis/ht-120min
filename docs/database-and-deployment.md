@@ -7,6 +7,7 @@ Supabase stores app-owned tournament, team, match, profile, chat/news, announcem
 Important tables used by current code:
 
 - `tournaments`
+- `tournament_collections` and `tournament_collection_memberships` (097 prepared; public collection identity and persistent tournament membership)
 - `teams`
 - `rounds`
 - `matches`
@@ -69,6 +70,7 @@ Recent important migrations:
 - `092_add_global_chat_flag.sql` (prepared locally; live application unverified)
 - `093_add_profile_national_team_roles.sql` (prepared locally; live application unverified)
 - `094_tournament_team_auto_arrange_preferences.sql` (prepared locally: default-on preference keyed by tournament, season, team, and Hattrick manager; live application unverified)
+- `097_tournament_collections.sql` (prepared locally: collection tables, explicit Exotic HFI backfill and Home publication dirty hooks; not applied)
 
 Public publication rollout state, preflight and test boundaries are in
 [`public-data-implementation.md`](public-data-implementation.md). Publication artifacts are server-only; the prepared

@@ -35,16 +35,12 @@ import { buildNewsArticlePreview } from '../../utils/news-preview';
 import { useAuth } from '../../hooks/useAuth';
 import { isCurrentParticipantTeam } from '../../utils/team-state';
 import { formatTournamentName } from '../../utils/tournament-names';
-import {
-  EXOTIC_HFI_CAMPAIGN_SLUG_SET,
-  EXOTIC_HFI_GROUP_TITLE,
-  orderExoticHfiTournaments,
-} from '../../constants/exotic-hfi-campaign';
+import { selectCollectionHomepageMembers } from '../../utils/tournament-collections';
+import type { PublicCollection } from '../../utils/tournament-collections';
 
 const FORUM_LINK = 'https://www.hattrick.org/goto.ashx?path=/Forum/Read.aspx?n=1&nm=32&t=17685273&v=0';
 const SHOW_FAQ = true;
 const EXOTIC_HFI_ANCHOR_ID = 'exotic-small-hfi-leagues';
-const INITIAL_EXOTIC_HFI_TOURNAMENTS = 8;
 
 interface DBTeamMatch {
   id: string;
@@ -73,6 +69,7 @@ interface DBTournament {
   slug: string;
   created_at: string;
   schedule_start_slot?: string | null;
+  registration_closed_at?: string | null;
   is_featured?: boolean | null;
   is_private: boolean;
   is_test?: boolean | null;
@@ -251,10 +248,12 @@ export const Home: React.FC<{ initialData?: HomeInitialData }> = ({ initialData 
   const [openTournaments, setOpenTournaments] = useState<Tournament[]>(() =>
     (initialData?.openTournaments || []).map(reviveInitialTournament),
   );
-  const [exoticHfiTournaments, setExoticHfiTournaments] = useState<Tournament[]>(() =>
-    (initialData?.exoticHfiTournaments || []).map(reviveInitialTournament),
+  const [collections, setCollections] = useState<PublicCollection<Tournament>[]>(() =>
+    (initialData?.collections || []).map((collection) => ({
+      ...collection,
+      members: collection.members.map((member) => ({ ...member, tournament: reviveInitialTournament(member.tournament) })),
+    })),
   );
-  const [showAllExoticHfi, setShowAllExoticHfi] = useState(false);
   const [topTeams, setTopTeams] = useState<TopTeam[]>(() => initialData?.topTeams || []);
   const [topActiveTournaments, setTopActiveTournaments] = useState<TopTournament[]>(
     () => initialData?.topActiveTournaments || [],
@@ -264,9 +263,7 @@ export const Home: React.FC<{ initialData?: HomeInitialData }> = ({ initialData 
   const faqContent = useMemo(() => getPublishedFaqSections(), []);
 
   const showFaq = faqContent.length > 0 && SHOW_FAQ;
-  const visibleExoticHfiTournaments = showAllExoticHfi
-    ? exoticHfiTournaments
-    : exoticHfiTournaments.slice(0, INITIAL_EXOTIC_HFI_TOURNAMENTS);
+  const exoticHfiTournaments = collections.find((collection) => collection.slug === 'exotic-hfi')?.members || [];
 
   const fetchLatestWeeklyPosts = useCallback(async () => {
     const twoMonthsAgo = new Date();
@@ -413,6 +410,7 @@ export const Home: React.FC<{ initialData?: HomeInitialData }> = ({ initialData 
           slug, 
           created_at,
           schedule_start_slot,
+          registration_closed_at,
           is_featured,
           is_private,
           is_test,
@@ -458,6 +456,16 @@ export const Home: React.FC<{ initialData?: HomeInitialData }> = ({ initialData 
       if (tError) throw tError;
 
       if (tournaments) {
+        const [collectionResult, membershipResult] = await Promise.all([
+          supabase.from('tournament_collections').select('id,slug,title,description,banner_url,display_order').eq('is_published', true),
+          supabase.from('tournament_collection_memberships').select('collection_id,tournament_id,is_featured,display_order'),
+        ]);
+        if (collectionResult.error || membershipResult.error) throw new Error('Could not load collections.');
+        const publishedCollectionIds = new Set((collectionResult.data || []).map((collection) => collection.id));
+        const memberIds = new Set((membershipResult.data || [])
+          .filter((member) => publishedCollectionIds.has(member.collection_id))
+          .map((member) => member.tournament_id));
+        const publicCards = new Map<string, Tournament>();
         const { data: warningsRaw } = await supabase
           .from('fixture_warnings')
           .select('round_id, team_id')
@@ -467,7 +475,6 @@ export const Home: React.FC<{ initialData?: HomeInitialData }> = ({ initialData 
         const featured: Tournament[] = [];
         const active: Tournament[] = [];
         const open: Tournament[] = [];
-        const exoticHfi: Tournament[] = [];
         const team120Stats: Record<number, { name: string; count: number }> = {};
         const tournamentsData = tournaments as unknown as DBTournament[];
 
@@ -540,13 +547,8 @@ export const Home: React.FC<{ initialData?: HomeInitialData }> = ({ initialData 
               is_featured: Boolean(t.is_featured),
             };
 
-            if (EXOTIC_HFI_CAMPAIGN_SLUG_SET.has(t.slug)) {
-              exoticHfi.push(tournamentObj as Tournament);
-              if (tournamentObj.is_featured) {
-                featured.push(tournamentObj as Tournament);
-              }
-              return;
-            }
+            publicCards.set(t.id, tournamentObj as Tournament);
+            if (memberIds.has(t.id)) return;
 
             if (tournamentObj.is_featured) {
               featured.push(tournamentObj as Tournament);
@@ -585,7 +587,16 @@ export const Home: React.FC<{ initialData?: HomeInitialData }> = ({ initialData 
 
         // Sort by fill % when capped, otherwise by registered team count
         setOpenTournaments(sortOpenTournaments(open));
-        setExoticHfiTournaments(orderExoticHfiTournaments(exoticHfi));
+        setCollections((collectionResult.data || []).map((collection) => ({
+          id: collection.id, slug: collection.slug, title: collection.title,
+          description: collection.description, bannerUrl: collection.banner_url,
+          displayOrder: collection.display_order,
+          members: (membershipResult.data || []).filter((member) => member.collection_id === collection.id)
+            .flatMap((member) => {
+              const tournament = publicCards.get(member.tournament_id);
+              return tournament ? [{ tournament, isFeatured: member.is_featured, displayOrder: member.display_order }] : [];
+            }),
+        })).sort((a, b) => a.displayOrder - b.displayOrder || a.slug.localeCompare(b.slug)));
 
         const topTeamsList = Object.entries(team120Stats)
           .map(([id, data]) => ({ ht_team_id: parseInt(id), name: data.name, achievements120min: data.count }))
@@ -846,31 +857,27 @@ export const Home: React.FC<{ initialData?: HomeInitialData }> = ({ initialData 
               </section>
             )}
 
-            {exoticHfiTournaments.length > 0 && (
-              <section className={styles.activeSection}>
-                <div className={styles.sectionHeader}>
+            {collections.map((collection) => (
+              <section key={collection.id}
+                id={collection.slug === 'exotic-hfi' ? EXOTIC_HFI_ANCHOR_ID : undefined}
+                className={`${styles.activeSection} ${styles.anchorTarget}`}>
+                {collection.bannerUrl && <Link href={toLocalePath(locale, `/collection/${collection.slug}`)}>
+                  <img className={styles.collectionBanner} src={collection.bannerUrl} alt={collection.title} />
+                </Link>}
+                <div className={collection.bannerUrl ? styles.collectionHeading : styles.sectionHeader}>
                   <Trophy size={24} weight="regular" className={styles.sectionIcon} />
-                  <h2 id={EXOTIC_HFI_ANCHOR_ID} className={styles.anchorTarget}>
-                    {EXOTIC_HFI_GROUP_TITLE}
+                  <h2>
+                    {collection.title}
                   </h2>
                 </div>
-                <div id={`${EXOTIC_HFI_ANCHOR_ID}-list`} className={styles.tournamentGrid}>
-                  {visibleExoticHfiTournaments.map((t) => renderTournamentCard(t))}
+                <div className={styles.tournamentGrid}>
+                  {selectCollectionHomepageMembers(collection.members).map((member) => renderTournamentCard(member.tournament))}
                 </div>
-                {exoticHfiTournaments.length > INITIAL_EXOTIC_HFI_TOURNAMENTS && (
-                  <Button
-                    type="button"
-                    variant="showMore"
-                    size="sm"
-                    onClick={() => setShowAllExoticHfi((current) => !current)}
-                    aria-expanded={showAllExoticHfi}
-                    aria-controls={`${EXOTIC_HFI_ANCHOR_ID}-list`}
-                  >
-                    {showAllExoticHfi ? 'Show less' : 'Show more'}
-                  </Button>
-                )}
+                <Link className={styles.collectionLink} href={toLocalePath(locale, `/collection/${collection.slug}`)}>
+                  {collection.slug === 'exotic-hfi' ? 'View all Exotic HFI leagues' : `View all ${collection.title} tournaments`} →
+                </Link>
               </section>
-            )}
+            ))}
 
             {activeTournaments.length > 0 && (
               <section className={styles.activeSection}>

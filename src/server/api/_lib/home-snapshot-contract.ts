@@ -1,4 +1,5 @@
-import type { HomeInitialData } from './home-snapshot-builder.js';
+import type { HomeInitialData, HomeTournament } from './home-snapshot-builder.js';
+import { EXOTIC_HFI_CAMPAIGN_SLUGS } from '../../../constants/exotic-hfi-campaign.js';
 
 export const HOME_SNAPSHOT_TARGET = 'home:directory';
 export const HOME_SNAPSHOT_VERSION = 1;
@@ -17,7 +18,7 @@ const team: Shape = {
 };
 const tournament: Shape = {
   id: 'string', name: 'string', slug: 'string', created_at: 'string', season: 'number',
-  schedule_start_slot: 'string?', schedule_generated_at: 'string?', is_featured: 'boolean',
+  schedule_start_slot: 'string?', schedule_generated_at: 'string?', registration_closed_at: 'string?', is_featured: 'boolean',
   is_private: 'boolean', is_test: 'boolean?', status: 'string?', is_archived: 'boolean?',
   thumbnail_index: 'number?', image_url: 'string?', country_limit: 'string?', country_limit_format: 'string?',
   scoring_mode: 'string?', league_category: 'string?', max_teams: 'number?',
@@ -41,10 +42,50 @@ const shape: Shape = {
     is_admin: 'boolean', created_at: 'string',
   }],
   featuredTournaments: [tournament], activeTournaments: [tournament], openTournaments: [tournament],
-  exoticHfiTournaments: [tournament],
+  collections: [{
+    id: 'string', slug: 'string', title: 'string', description: 'string',
+    bannerUrl: 'string?', displayOrder: 'number',
+    members: [{ tournament, isFeatured: 'boolean', displayOrder: 'number' }],
+  }],
   topTeams: [{ name: 'string', ht_team_id: 'number', achievements120min: 'number' }],
   topActiveTournaments: [{ name: 'string', slug: 'string', completedMatches: 'number' }], activity: [activity],
 };
+const legacyShape: Shape = { ...shape, exoticHfiTournaments: [tournament] };
+delete legacyShape.collections;
+
+// Existing contract-1 cache entries may predate collections. Keep their
+// explicit public Exotic list usable until 097 and the new Home build publish.
+export function normalizeHomeSnapshot(input: HomeInitialData): HomeInitialData {
+  if (Array.isArray(input.collections)) return input;
+  const legacy = input as HomeInitialData & { exoticHfiTournaments?: HomeTournament[] };
+  if (!Array.isArray(legacy.exoticHfiTournaments)) throw new Error('Invalid Home publication.');
+  if (legacy.exoticHfiTournaments.some((row) =>
+    row.is_private || row.is_test || row.is_archived || ['stopped', 'archived'].includes(row.status || ''))) {
+    throw new Error('Invalid Home publication visibility.');
+  }
+  const order = new Map<string, number>(EXOTIC_HFI_CAMPAIGN_SLUGS.map((slug, index) => [slug, index]));
+  const members = legacy.exoticHfiTournaments
+    .filter((row) => order.has(row.slug))
+    .sort((a, b) => (order.get(a.slug) ?? 0) - (order.get(b.slug) ?? 0))
+    .map((row) => ({
+      tournament: row, isFeatured: (order.get(row.slug) ?? 999) < 8,
+      displayOrder: (order.get(row.slug) ?? 0) + 1,
+    }));
+  const memberIds = new Set(members.map((member) => member.tournament.id));
+  const normalized = { ...legacy };
+  delete normalized.exoticHfiTournaments;
+  return {
+    ...normalized,
+    collections: members.length ? [{
+      id: 'legacy-exotic-hfi', slug: 'exotic-hfi', title: 'Exotic Small HFI Series',
+      description: 'Small Hattrick International friendly leagues from across the world. Find a country, join a league, and follow each season.',
+      bannerUrl: '/series/exotic-tiny-hfi-banner.jpg', displayOrder: 1, members,
+    }] : [],
+    featuredTournaments: input.featuredTournaments.filter((row) => !memberIds.has(row.id)),
+    activeTournaments: input.activeTournaments.filter((row) => !memberIds.has(row.id)),
+    openTournaments: input.openTournaments.filter((row) => !memberIds.has(row.id)),
+  };
+}
 
 function decode(input: unknown, schema: Shape | string | [Shape | string]): unknown {
   if (typeof schema === 'string') {
@@ -65,12 +106,18 @@ function decode(input: unknown, schema: Shape | string | [Shape | string]): unkn
 
 /** Reconstruct every level. Source-only join stories and all credential/admin fields are omitted. */
 export function parseHomeSnapshot(input: unknown): HomeInitialData {
-  const result = decode(input, shape) as HomeInitialData;
+  const raw = input && typeof input === 'object' && !Array.isArray(input) ? input as Record<string, unknown> : null;
+  const isLegacy = raw?.collections === undefined && Array.isArray(raw?.exoticHfiTournaments);
+  const result = normalizeHomeSnapshot(decode(input, isLegacy ? legacyShape : shape) as HomeInitialData);
   if (result.nextRefreshAt != null && !Number.isFinite(Date.parse(result.nextRefreshAt))) throw new Error('Invalid Home boundary.');
-  for (const key of ['featuredTournaments', 'activeTournaments', 'openTournaments', 'exoticHfiTournaments'] as const) {
+  for (const key of ['featuredTournaments', 'activeTournaments', 'openTournaments'] as const) {
     if (result[key].some((row) => row.is_private || row.is_test || row.is_archived || ['stopped', 'archived'].includes(row.status || ''))) {
       throw new Error('Invalid Home publication visibility.');
     }
+  }
+  for (const collection of result.collections) {
+    if (collection.members.some(({ tournament: row }) => row.is_private || row.is_test || row.is_archived ||
+      ['stopped', 'archived'].includes(row.status || ''))) throw new Error('Invalid collection publication visibility.');
   }
   return result;
 }

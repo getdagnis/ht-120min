@@ -9,6 +9,7 @@ matchmaker, tournament, telemetry, and deferred Forge operations.
 | --- | --- | --- |
 | `/en`, `/lv` | `src/app/(public)/[locale]/page.tsx` | Server-loaded Home snapshot plus client interactions |
 | `/[locale]/t/[slug]` | `src/app/(public)/[locale]/t/[slug]/page.tsx` | Server-loaded Tournament snapshot plus client tabs/forms |
+| `/[locale]/collection/[slug]` | `src/app/(public)/[locale]/collection/[slug]/page.tsx` | Published Home directory collection projection plus existing tournament cards |
 | `/[locale]/create` | `src/app/(public)/[locale]/create/page.tsx` | Client-only parity screen |
 | `/[locale]/matchmaker` | `src/app/(public)/[locale]/matchmaker/page.tsx` | Client-only parity screen |
 | `/[locale]/supporters` | `src/app/(public)/[locale]/supporters/page.tsx` | Client-only parity screen |
@@ -23,6 +24,7 @@ and shared `Layout`. Unprefixed public URLs are redirected by `src/proxy.ts` to 
 ## Frontend shape
 
 - `src/legacy-pages/Home` owns Home content and public tournament entry points.
+- `src/utils/tournament-collections.ts` owns shared collection grouping and public homepage selection. Collection storage, backfill and publication are described in [tournament collections](tournament-collections.md).
 - `src/legacy-pages/Create` owns tournament creation and organizer linking.
 - `src/legacy-pages/Public/TournamentView.tsx` owns tournament tabs, admin controls, schedule operations, results,
   chat, news, and join flows.

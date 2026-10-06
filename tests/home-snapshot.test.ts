@@ -2,9 +2,10 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 import { createClient } from '@supabase/supabase-js';
 import { buildHomeSnapshot, getHomeWeeklyCutoff, getHomeWeeklyExpiry } from '../src/server/api/_lib/home-snapshot-builder.js';
-import { parseHomeSnapshot } from '../src/server/api/_lib/home-snapshot-contract.js';
+import { normalizeHomeSnapshot, parseHomeSnapshot } from '../src/server/api/_lib/home-snapshot-contract.js';
 import { runHomeSnapshotWorker } from '../src/server/api/_lib/home-snapshot-worker.js';
 import { isHomeWorkerAuthorized } from '../src/server/api/home-snapshot.js';
+import { selectCollectionHomepageMembers } from '../src/utils/tournament-collections.js';
 
 const now = Date.parse('2026-10-03T12:00:00Z');
 test('Weekly calendar cutoff and exact expiry handle unequal month lengths without overflow', () => {
@@ -42,6 +43,8 @@ function client(reply: (url: URL, body: Record<string, unknown> | null) => unkno
 
 function sources(url: URL) {
   if (url.pathname.endsWith('/tournaments')) return [tournament];
+  if (url.pathname.endsWith('/tournament_collections')) return [];
+  if (url.pathname.endsWith('/tournament_collection_memberships')) return [];
   if (url.pathname.endsWith('/fixture_warnings')) return [];
   if (url.pathname.endsWith('/news_posts')) return [];
   throw new Error(`Unexpected request ${url.pathname}`);
@@ -56,7 +59,7 @@ test('Home builder preserves cards, participant counts and schedules explicit ac
   assert.equal(data.activity[0].type, 'join');
   assert.equal(data.nextRefreshAt, '2026-10-09T12:00:00.001Z');
   assert.deepEqual(data.weeklyPosts, []);
-  assert.equal(requests.length, 4);
+  assert.equal(requests.length, 6);
   assert.ok(requests.every((url) => !url.searchParams.get('select')?.includes('*')));
   assert.ok(!JSON.stringify(data).includes('secret'));
   assert.ok(!JSON.stringify(data).includes('join_story'));
@@ -88,6 +91,26 @@ test('Home contract rejects malformed payloads and nonpublic directory rows', as
   }
 });
 
+test('older cached Home payload restores the exact Exotic section and removes duplicate featured cards', async () => {
+  const { supabase } = client(sources);
+  const candidate = await buildHomeSnapshot(supabase, now);
+  const queens = { ...candidate.openTournaments[0], id: 'queens', slug: 'queens-of-the-pacific-cup' };
+  const bhutan = { ...candidate.openTournaments[0], id: 'bhutan', slug: 'exotic-hfi-bhutan' };
+  const oldPayload = {
+    ...candidate, collections: undefined,
+    featuredTournaments: [queens, bhutan],
+    openTournaments: [queens, bhutan],
+    exoticHfiTournaments: [bhutan, queens],
+  } as unknown as typeof candidate;
+  for (const restored of [parseHomeSnapshot(oldPayload), normalizeHomeSnapshot(oldPayload)]) {
+    assert.deepEqual(restored.collections[0].members.map((member) => member.tournament.slug),
+      ['queens-of-the-pacific-cup', 'exotic-hfi-bhutan']);
+    assert.equal(restored.collections[0].bannerUrl, '/series/exotic-tiny-hfi-banner.jpg');
+    assert.deepEqual(restored.featuredTournaments, []);
+    assert.deepEqual(restored.openTournaments, []);
+  }
+});
+
 test('builder excludes unlisted/stopped/test/archived tournaments, including their activity', async () => {
   const { supabase } = client((url) => url.pathname.endsWith('/tournaments')
     ? [{ ...tournament, is_private: true }, { ...tournament, is_test: true }, { ...tournament, status: 'stopped' }]
@@ -95,6 +118,56 @@ test('builder excludes unlisted/stopped/test/archived tournaments, including the
   const data = parseHomeSnapshot(await buildHomeSnapshot(supabase, now));
   assert.deepEqual(data.openTournaments, []);
   assert.deepEqual(data.activity, []);
+});
+
+test('published collections are many-to-many, exclude nonpublic cards and do not duplicate catalogue cards', async () => {
+  const collections = [
+    { id: 'one', slug: 'exotic-hfi', title: 'Exotic Small HFI Series', description: '', banner_url: null, display_order: 1 },
+    { id: 'two', slug: 'german-world', title: 'German World', description: '', banner_url: null, display_order: 2 },
+  ];
+  const memberships = [
+    { collection_id: 'one', tournament_id: 'cup', is_featured: true, display_order: 2 },
+    { collection_id: 'two', tournament_id: 'cup', is_featured: false, display_order: 1 },
+    { collection_id: 'one', tournament_id: 'hidden', is_featured: false, display_order: 3 },
+  ];
+  const { supabase } = client((url) => {
+    if (url.pathname.endsWith('/tournament_collections')) return collections;
+    if (url.pathname.endsWith('/tournament_collection_memberships')) return memberships;
+    if (url.pathname.endsWith('/tournaments')) return [tournament, { ...tournament, id: 'hidden', slug: 'hidden', is_test: true }];
+    return sources(url);
+  });
+  const data = parseHomeSnapshot(await buildHomeSnapshot(supabase, now));
+  assert.deepEqual(data.collections.map((collection) => collection.members.map((member) => member.tournament.id)), [['cup'], ['cup']]);
+  assert.deepEqual(data.openTournaments, []);
+  assert.equal(data.collections[0].members[0].isFeatured, true);
+});
+
+test('unpublished collection memberships do not remove tournaments from the public catalogue', async () => {
+  const { supabase } = client((url) => {
+    if (url.pathname.endsWith('/tournament_collection_memberships')) {
+      return [{ collection_id: 'draft', tournament_id: 'cup', is_featured: true, display_order: 1 }];
+    }
+    return sources(url);
+  });
+  const data = parseHomeSnapshot(await buildHomeSnapshot(supabase, now));
+  assert.deepEqual(data.collections, []);
+  assert.equal(data.openTournaments[0].id, 'cup');
+});
+
+test('collection homepage picks eight featured then deterministic open and active fallback', () => {
+  const members = Array.from({ length: 12 }, (_, index) => ({
+    tournament: {
+      id: String(index), slug: `cup-${index}`, status: index % 2 ? 'open' : 'active',
+      rounds: index % 2 ? [] : [{}], totalMatches: 0, completedMatches: 0,
+    },
+    isFeatured: index === 10 || index === 11,
+    displayOrder: 11 - index,
+  }));
+  const first = selectCollectionHomepageMembers(members);
+  assert.equal(first.length, 8);
+  assert.deepEqual(first.slice(0, 2).map((member) => member.tournament.id), ['11', '10']);
+  assert.deepEqual(first.slice(2).map((member) => member.tournament.id), ['9', '7', '5', '3', '1', '8']);
+  assert.deepEqual(selectCollectionHomepageMembers([...members].reverse()), first);
 });
 
 test('worker publishes only its lease generation and acknowledges only after invalidation', async () => {

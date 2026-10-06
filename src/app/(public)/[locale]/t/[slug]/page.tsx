@@ -1,7 +1,7 @@
 import { notFound } from 'next/navigation';
 import { isLocale } from '../../../../../i18n/config';
 import { TournamentView } from '../../../../../legacy-pages/Public/TournamentView';
-import { loadTournamentInitialData } from '../../../../_data/public-data';
+import { loadHomeInitialData, loadTournamentInitialData } from '../../../../_data/public-data';
 
 // The locale shell reads cookies, so HTML remains request-specific. Allow the
 // explicit public Data Cache instead of forcing every read to bypass it.
@@ -23,6 +23,15 @@ export default async function TournamentPage({
     initialData = undefined;
   }
   if (initialData === null) notFound();
-
-  return <TournamentView key={slug} initialData={initialData} />;
+  let collectionLinks: { slug: string; title: string }[] = [];
+  if (initialData) {
+    try {
+      collectionLinks = (await loadHomeInitialData()).collections
+        .filter((collection) => collection.members.some((member) => member.tournament.id === initialData.tournament.id))
+        .map((collection) => ({ slug: collection.slug, title: collection.title }));
+    } catch (error) {
+      console.error('Could not load tournament collection links:', error instanceof Error ? error.message : 'Unknown error');
+    }
+  }
+  return <TournamentView key={slug} initialData={initialData} collectionLinks={collectionLinks} />;
 }

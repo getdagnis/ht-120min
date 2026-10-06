@@ -53,7 +53,7 @@ function getPublicSupabase() {
 export const loadHomeInitialData = cache(async (): Promise<HomeInitialData> => {
   if (process.env.PUBLIC_HOME_SNAPSHOT_ENABLED === 'true') return readCachedHomeSnapshot();
   const supabase = getPublicSupabase();
-  if (!supabase) return { featuredTournaments: [], activeTournaments: [], openTournaments: [], exoticHfiTournaments: [], topTeams: [], topActiveTournaments: [], activity: [] };
+  if (!supabase) return { featuredTournaments: [], activeTournaments: [], openTournaments: [], collections: [], topTeams: [], topActiveTournaments: [], activity: [] };
   return buildHomeSnapshot(supabase);
 });
 
