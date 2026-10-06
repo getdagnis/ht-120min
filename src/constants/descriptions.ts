@@ -556,6 +556,7 @@ export const TOURNAMENT_DEFAULT: string[] = [
   'Welcome to the 2 hour party of pressing, 5-5-0 and all defensive',
   '"It is fun to think in reverse, as in "how to score the least goals." — CCalm',
   '"It is fun to think in reverse, as in "how to score the least goals." — CCalm',
+  "Where terrible set pieces takers finally have a job",
 ];
 
 // CreateFlow: entire tournament names pool.

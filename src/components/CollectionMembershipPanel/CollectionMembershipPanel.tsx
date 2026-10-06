@@ -36,7 +36,7 @@ export function CollectionMembershipPanel({ tournamentId, password }: { tourname
     setError('');
     try {
       await saveTournamentCollectionMembership(tournamentId, row.id, {
-        isMember: row.isMember, isFeatured: row.isMember && row.isFeatured, displayOrder: row.displayOrder,
+        isMember: row.isMember, displayOrder: row.displayOrder,
       }, password);
       setSavedId(row.id);
     } catch (cause) {
@@ -48,7 +48,7 @@ export function CollectionMembershipPanel({ tournamentId, password }: { tourname
 
   return <div className={styles.panel}>
     <h3>Collections</h3>
-    <p>Membership follows this tournament across seasons. Homepage featuring is managed separately.</p>
+    <p>Membership follows this tournament across seasons.</p>
     {loading && <p>Loading collections…</p>}
     {error && <p role="alert">{error}</p>}
     {!loading && !error && rows.length === 0 && <p>No collections are available yet.</p>}
@@ -56,8 +56,6 @@ export function CollectionMembershipPanel({ tournamentId, password }: { tourname
       <label><input type="checkbox" checked={row.isMember}
         onChange={(event) => update(row.id, { isMember: event.target.checked })} /> {row.title}{!row.isPublished && ' (draft)'}</label>
       {row.isMember && <>
-        <label><input type="checkbox" checked={row.isFeatured}
-          onChange={(event) => update(row.id, { isFeatured: event.target.checked })} /> Featured in collection</label>
         <label>Order <input type="number" min="0" max="10000" value={row.displayOrder}
           onChange={(event) => update(row.id, { displayOrder: Number(event.target.value) })} /></label>
       </>}

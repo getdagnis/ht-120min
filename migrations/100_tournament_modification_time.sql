@@ -35,3 +35,5 @@ FOR EACH ROW EXECUTE FUNCTION public.touch_tournament_updated_at();
 
 SELECT public.mark_public_snapshot_dirty('home:directory', 1);
 COMMIT;
+
+-- applied!
