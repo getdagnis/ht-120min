@@ -1352,7 +1352,12 @@ export const FixturesView: React.FC<FixturesViewProps> = ({
                   </div>
                 </div>
               </div>
-              {challengeError && <p className={styles.fixtureChallengeError}>{challengeError}</p>}
+              {challengeError && (
+                <div className={styles.fixtureChallengeErrorBlock}>
+                  <h3>Response from Hattrick:</h3>
+                  <p className={styles.fixtureChallengeError}>{challengeError}</p>
+                </div>
+              )}
               <div className={styles.fixtureChallengeActions}>
                 <Button variant="outlineWhite" fullWidth onClick={submitChallenge} disabled={isSendingChallenge}>
                   {isSendingChallenge ? 'Challenging…' : 'Challenge!'}

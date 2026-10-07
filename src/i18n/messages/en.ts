@@ -6,8 +6,8 @@ const messages = {
     latvian: 'Latvian',
   },
   fixtures: {
-    autoArrangeMyFixtures: 'Auto-arrange my fixtures is {state}',
-    autoArrangeTeamFixtures: 'Auto-arrange {team} fixtures is {state}',
+    autoArrangeMyFixtures: 'Auto-arrange my fixtures',
+    autoArrangeTeamFixtures: 'Auto-arrange {team} fixtures',
     autoArrangeOn: 'on',
     autoArrangeOff: 'off',
     autoArrangeTooltip: 'Your matches will be auto-arranged if the other team has this feature on as well. If not, an automatic challenge will be sent to them.',
