@@ -6285,20 +6285,20 @@ export const TournamentView: React.FC<{
       {activeTab === 'admin' && (
         <div className={styles.adminTabContent}>
           {!isAdminAuthenticated ? (
-            <div className={`${adminStyles.admin} ${styles.adminLoginPanel}`}>
+            <div className={`${adminStyles.admin} ${adminStyles.adminLoginPanel}`}>
               <SectionCard
                 title="Admin Access"
                 subtitle={
                   publicOrganizerName && (
-                    <div className={styles.organizerInfo}>
-                      <span className={styles.organizerLabel}>Organiser: </span>
-                      <span className={styles.organizerName}>
+                    <div className={adminStyles.organizerInfo}>
+                      <span className={adminStyles.organizerLabel}>Organiser: </span>
+                      <span className={adminStyles.organizerName}>
                         {tournament.organizer_id ? (
                           <a
                             href={`https://www.hattrick.org/goto.ashx?path=/Club/Manager/?userId=${tournament.organizer_id}`}
                             target="_blank"
                             rel="noopener noreferrer"
-                            className={`${styles.htLink} ${styles.headerBadge}`}
+                            className={`${styles.htLink} ${adminStyles.headerBadge}`}
                           >
                             {publicOrganizerName}{' '}
                             <ArrowUpRight size={16} weight="bold" style={{ marginLeft: '0.25rem' }} />
@@ -6311,7 +6311,7 @@ export const TournamentView: React.FC<{
                   )
                 }
               >
-                <div className={styles.adminAuthForm}>
+                <div className={adminStyles.adminAuthForm}>
                   {roleAccessLoading ? (
                     <p className={adminStyles.smallNote}>Checking your tournament access…</p>
                   ) : (
@@ -6324,7 +6324,7 @@ export const TournamentView: React.FC<{
                             : handleAdminLogin
                       }
                     >
-                      <div className={styles.authField}>
+                      <div className={adminStyles.authField}>
                         <label>
                           {verifiedRoleAccess || canLoginAsOrganizer
                             ? 'Sign in with your Hattrick account:'
@@ -6355,7 +6355,7 @@ export const TournamentView: React.FC<{
                         )}
                       </div>
                       {!verifiedRoleAccess && adminAuthError && (
-                        <p className={styles.authError}>Invalid password. Please try again.</p>
+                        <p className={adminStyles.authError}>Invalid password. Please try again.</p>
                       )}
                       <Button type="submit" variant="primaryDanger" size="md">
                         {verifiedRoleAccess
@@ -6368,11 +6368,11 @@ export const TournamentView: React.FC<{
                     </form>
                   )}
 
-                  <div className={styles.adminAuthFooter}>
+                  <div className={adminStyles.adminAuthFooter}>
                     {failedLoginAttempt ? (
-                      <p className={styles.adminAuthNote}>Forgot password? Recover with a registered email.</p>
+                      <p className={adminStyles.adminAuthNote}>Forgot password? Recover with a registered email.</p>
                     ) : (
-                      <a href="/create" className={styles.adminAuthLink}>
+                      <a href="/create" className={adminStyles.adminAuthLink}>
                         Want to be an admin? <u>Start your own tournament</u>.
                       </a>
                     )}
