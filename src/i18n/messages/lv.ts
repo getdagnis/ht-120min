@@ -10,8 +10,8 @@ const messages = {
   },
   fixtures: {
     ...en.fixtures,
-    autoArrangeMyFixtures: 'Automātiski organizēt mačus: {state}',
-    autoArrangeTeamFixtures: 'Automātiski organizēt {team} mačus: {state}',
+    autoArrangeMyFixtures: 'Automātiski organizēt manus mačus',
+    autoArrangeTeamFixtures: 'Automātiski organizēt {team} mačus',
     autoArrangeOn: 'ieslēgts',
     autoArrangeOff: 'izslēgts',
     autoArrangeTooltip: 'Tavus mačus sistēma centīsies noorganizēt automātiski. Ja otra komanda nebūs devusi šādu atļauju, tai tiks nosūtīts izaicinājums.',
