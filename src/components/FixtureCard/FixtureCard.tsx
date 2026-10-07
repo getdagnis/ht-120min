@@ -114,9 +114,10 @@ function specialtyMarkersForSector(groups: SpecialtyPositionGroup[], sector: Rat
   return [...counts].map(([specialtyId, count]) => ({ specialtyId, count }));
 }
 
-function RatingsPitch({ ratings, specialtyPositions = [] }: {
+function RatingsPitch({ ratings, specialtyPositions = [], midfieldLabel = 'Midfield (excluding TS effect):' }: {
   ratings: RatingsPreviewTeam['ratings'];
   specialtyPositions?: SpecialtyPositionGroup[];
+  midfieldLabel?: string;
 }) {
   const sectorRows: Array<Array<[string, string, RatedSector?]>> = [
     [
@@ -124,7 +125,7 @@ function RatingsPitch({ ratings, specialtyPositions = [] }: {
       ['Center attack:', ratings.centreAttack, 'centreAttack'],
       ['Right attack:', ratings.rightAttack, 'rightAttack'],
     ],
-    [['Midfield (excluding TS effect): ', ratings.midfield, 'midfield']],
+    [[midfieldLabel, ratings.midfield, 'midfield']],
     [
       ['Left defence:', ratings.leftDefence, 'leftDefence'],
       ['Center defence:', ratings.centreDefence, 'centreDefence'],
@@ -577,6 +578,7 @@ export const FixtureCard: React.FC<FixtureCardProps> = ({
                 <RatingsPitch
                   ratings={actualRatingsDisplay(performance)}
                   specialtyPositions={performance?.specialtyPositions ?? []}
+                  midfieldLabel="Midfield:"
                 />
                 <div className={styles.ratingsMetadata}>
                   <span>
