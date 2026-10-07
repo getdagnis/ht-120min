@@ -12,6 +12,8 @@ HT-120min is an early MVP for recurring Hattrick friendly tournaments. Tournamen
 
 The application shell has migrated from Vite/React Router to Next.js App Router. Public routes are locale-prefixed (`/en` and `/lv`) and owned by App Router, with English-only Forge isolated at `/forge`. Home and public Tournament View load initial public Supabase snapshots in App Router server components before hydration; the existing interactive screens, tabs, and forms remain client components. React Router remains only inside the deferred Forge subsystem. Forge is disabled unless `FORGE_ENABLED=true`, and privileged API guards remain server-side. The current checkout is locally validated, but production deployment and live OAuth/CHPP behavior remain separate verification steps.
 
+The first `next-intl` localization slice is implemented locally for Home in the existing TypeScript dictionaries. English messages live under a `Home` namespace; the Latvian `Home` namespace is explicitly empty and falls back to English. Locale-prefixed routes remain authoritative. Unprefixed routes default to English and honor only the explicit `ht120_locale_choice` cookie written by the locale switcher, ignoring legacy locale cookies and browser language. Manual UI and deployment behavior remain unverified until owner testing.
+
 ## Current checkout snapshot
 
 - `main` is clean and aligned with `origin/main` at `2acef5e` (`update/welcome modal`).

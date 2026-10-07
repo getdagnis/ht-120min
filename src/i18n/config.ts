@@ -2,6 +2,12 @@ export const locales = ['en', 'lv'] as const;
 
 export type Locale = (typeof locales)[number];
 
+export const localeNames = {
+  en: 'English',
+  it: 'Italiano',
+  lv: 'Letiņu',
+} as const;
+
 export const defaultLocale: Locale = 'en';
 
 export function isLocale(value: string): value is Locale {

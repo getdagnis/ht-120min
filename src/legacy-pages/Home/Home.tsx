@@ -31,6 +31,7 @@ import { toLocalePath } from '../../next/locale-path';
 import { NewsArticle, type NewsPost } from '../../components/TournamentTabs/NewsTab';
 import { buildNewsArticlePreview } from '../../utils/news-preview';
 import { useAuth } from '../../hooks/useAuth';
+import { useTranslations } from 'next-intl';
 import { isCurrentParticipantTeam } from '../../utils/team-state';
 import { formatTournamentName } from '../../utils/tournament-names';
 import {
@@ -210,26 +211,28 @@ function reviveInitialTournament(tournament: HomeInitialData['featuredTournament
   } as Tournament;
 }
 
-const ForumWidget = () => (
-  <ReusableWidget
-    title="Official HT-120min Hattrick forum"
-    icon={<ChatText size={20} weight="bold" />}
-    footer={
-      <a href="https://www.hattrick.org/goto.ashx?path=/Forum/Overview.aspx?v=0&f=1558036" target="_blank">
-        HT-120min forum <ArrowRight size={12} weight="bold" />
-      </a>
-    }
-  >
-    <p>
-      Have a question, an idea, found a bug or just want to say hi? Come and do so on our Hattrick forum! They somehow
-      gave us one of our own! 😍
-    </p>
-  </ReusableWidget>
-);
+const ForumWidget = () => {
+  const t = useTranslations('Home');
+
+  return (
+    <ReusableWidget
+      title={t('forumTitle')}
+      icon={<ChatText size={20} weight="bold" />}
+      footer={
+        <a href="https://www.hattrick.org/goto.ashx?path=/Forum/Overview.aspx?v=0&f=1558036" target="_blank">
+          {t('forumLink')} <ArrowRight size={12} weight="bold" />
+        </a>
+      }
+    >
+      <p>{t('forumDescription')}</p>
+    </ReusableWidget>
+  );
+};
 
 export const Home: React.FC<{ initialData?: HomeInitialData }> = ({ initialData }) => {
   const router = useRouter();
   const { locale } = useLocale();
+  const t = useTranslations('Home');
   const [showWelcome, setShowWelcome] = useState(false);
   const [featuredTournaments, setFeaturedTournaments] = useState<Tournament[]>(() =>
     (initialData?.featuredTournaments || []).map(reviveInitialTournament),
@@ -326,8 +329,8 @@ export const Home: React.FC<{ initialData?: HomeInitialData }> = ({ initialData 
         id: post.id,
         tournament_id: post.tournament_id,
         tournament_slug: tournament?.slug || '',
-        tournament_name: tournament?.name || 'Tournament',
-        tournament_display_name: formatTournamentName(tournament?.name || 'Tournament', {
+        tournament_name: tournament?.name || t('fallbackTournamentName'),
+        tournament_display_name: formatTournamentName(tournament?.name || t('fallbackTournamentName'), {
           countryLimit: tournament?.country_limit,
           includeCountryFlag: true,
         }),
@@ -347,7 +350,7 @@ export const Home: React.FC<{ initialData?: HomeInitialData }> = ({ initialData 
       }));
 
     setLatestWeeklyPosts(rows);
-  }, []);
+  }, [t]);
 
   useEffect(() => {
     if (initialData?.weeklyPosts) return;
@@ -677,29 +680,33 @@ export const Home: React.FC<{ initialData?: HomeInitialData }> = ({ initialData 
         onClose={closeWelcome}
         onPrimaryAction={acceptWelcome}
         imageSrc="/w16-planning-4.jpg"
-        imageAlt="Hattrick managers preparing for a new tournament season"
-        title="Welcome to HT-120min!"
-        buttonLabel="Proceed"
+        imageAlt={t('welcomeImageAlt')}
+        title={t('welcomeTitle')}
+        buttonLabel={t('welcomeProceed')}
       >
         <strong>
-          When cups are finishing, it's time to launch one for auto-arranged friendlies!
-          <span className="nowrap"> Here is how to</span> you can do:
+          {t('welcomeIntro')} <span className="nowrap">{t('welcomeHowTo')}</span>
         </strong>
         <ul>
           <li>
-            👉 If new here, create your first <Link href={toLocalePath(locale, '/create')}>dummy test tournament</Link>
+            👉{' '}
+            {t.rich('welcomeCreateTournament', {
+              link: (chunks) => <Link href={toLocalePath(locale, '/create')}>{chunks}</Link>,
+            })}
           </li>
-          <li>👉 Explore tournament management using dummy Hattrick teams</li>
-          <li>👉 Once ready — create a real cup and invite others to join!</li>
+          <li>👉 {t('welcomeExploreManagement')}</li>
+          <li>👉 {t('welcomeCreateRealCup')}</li>
           {/* <li>👉 If not into cups — post an ad in HT-Tinder!</li> */}
         </ul>
 
         <p>
-          Visit HT-120min{' '}
-          <a href={FORUM_LINK} target="_blank" rel="noreferrer">
-            Hattrick forum
-          </a>{' '}
-          for more!
+          {t.rich('welcomeForumMore', {
+            link: (chunks) => (
+              <a href={FORUM_LINK} target="_blank" rel="noreferrer">
+                {chunks}
+              </a>
+            ),
+          })}
         </p>
       </WelcomeModal>
 
@@ -707,11 +714,10 @@ export const Home: React.FC<{ initialData?: HomeInitialData }> = ({ initialData 
         <div className={styles.heroBand}>
           <HeroCard className={styles.heroCard}>
             <section className={styles.hero}>
-              <h1 className={styles.hiddenH1}>HT-120min</h1>
-              <img src="/hero-logo-2.png" alt="HT-120min" className={styles.heroImg} />
+              <h1 className={styles.hiddenH1}>{t('appName')}</h1>
+              <img src="/hero-logo-2.png" alt={t('appName')} className={styles.heroImg} />
               <p className={styles.subtitle}>
-                Organise 120 min tournaments and recurring friendlies with ease by getting together with other
-                like-minded Hattrick managers.
+                {t('heroSubtitle')}
               </p>
               <div className={styles.ctaBtns}>
                 <Button
@@ -719,11 +725,11 @@ export const Home: React.FC<{ initialData?: HomeInitialData }> = ({ initialData 
                   onClick={() => router.push(toLocalePath(locale, '/create'))}
                   variant="secondaryYellow"
                 >
-                  <Trophy size={22} weight="regular" /> Create Tournament
+                  <Trophy size={22} weight="regular" /> {t('createTournament')}
                 </Button>
                 <ScrollTo to="opentours" smooth={true} duration={600} offset={-30}>
                   <Button size="lg" variant="secondaryHero">
-                    <ArrowRight size={22} weight="regular" /> Join Tournament
+                    <ArrowRight size={22} weight="regular" /> {t('joinTournament')}
                   </Button>
                 </ScrollTo>
               </div>
@@ -738,7 +744,7 @@ export const Home: React.FC<{ initialData?: HomeInitialData }> = ({ initialData 
               <section className={styles.activeSection}>
                 <div className={styles.sectionHeader}>
                   <Star size={24} weight="regular" className={styles.sectionIcon} />
-                  <h2>Featured Tournaments</h2>
+                  <h2>{t('featuredTournaments')}</h2>
                 </div>
                 <div className={styles.tournamentGrid}>
                   {[...featuredTournaments].sort(compareTournamentListing).map((t) => renderTournamentCard(t))}
@@ -781,8 +787,8 @@ export const Home: React.FC<{ initialData?: HomeInitialData }> = ({ initialData 
                     >
                       <ArrowRight size={22} weight="regular" />
                       {collection.slug === 'exotic-hfi'
-                        ? 'All Exotic HFI Leagues'
-                        : `All ${collection.title} tournaments`}
+                        ? t('allExoticHfiLeagues')
+                        : t('allCollectionTournaments', { title: collection.title })}
                     </Button>
                   </div>
                 ))}
@@ -793,7 +799,7 @@ export const Home: React.FC<{ initialData?: HomeInitialData }> = ({ initialData 
               <section className={styles.activeSection}>
                 <div className={styles.sectionHeader}>
                   <Heartbeat size={24} weight="regular" className={styles.sectionIcon} />
-                  <h2>Ongoing Tournaments</h2>
+                  <h2>{t('ongoingTournaments')}</h2>
                 </div>
                 <div className={styles.tournamentGrid}>
                   {[...activeTournaments].sort(compareTournamentListing).map((t) => renderTournamentCard(t))}
@@ -805,7 +811,7 @@ export const Home: React.FC<{ initialData?: HomeInitialData }> = ({ initialData 
               <section className={styles.activeSection}>
                 <div className={styles.sectionHeader}>
                   <FolderOpen size={24} className={styles.sectionIcon} />
-                  <h2>Waiting Participants</h2>
+                  <h2>{t('waitingParticipants')}</h2>
                 </div>
 
                 <div className={styles.tournamentGrid}>
@@ -852,7 +858,7 @@ export const Home: React.FC<{ initialData?: HomeInitialData }> = ({ initialData 
                             locale,
                             preview.truncated ? `/t/${post.tournament_slug}?tab=news` : `/t/${post.tournament_slug}`,
                           )}
-                          visitLabel={preview.truncated ? 'Read full' : 'Visit cup'}
+                          visitLabel={preview.truncated ? t('weeklyReadFull') : t('weeklyVisitCup')}
                         />
                       </SectionCard>
                     );
@@ -875,10 +881,10 @@ export const Home: React.FC<{ initialData?: HomeInitialData }> = ({ initialData 
               <SupportersWall />
               <div className={styles.sectionHeader}>
                 <Star size={24} weight="regular" className={styles.sectionIcon} />
-                <h2>Monthly Best</h2>
+                <h2>{t('monthlyBest')}</h2>
               </div>
               {topTeams.length > 0 && (
-                <SectionCard title="Top 10 Teams (120m)" className={styles.statsCard}>
+                <SectionCard title={t('topTenTeams')} className={styles.statsCard}>
                   <ol className={styles.statsList}>
                     {topTeams.map((team, idx) => (
                       <li key={team.ht_team_id}>
@@ -894,7 +900,7 @@ export const Home: React.FC<{ initialData?: HomeInitialData }> = ({ initialData 
               )}
 
               {topActiveTournaments.length > 0 && (
-                <SectionCard title="Most Active" className={styles.statsCard}>
+                <SectionCard title={t('mostActive')} className={styles.statsCard}>
                   <ul className={styles.statsList}>
                     {topActiveTournaments.map((t) => (
                       <li key={t.slug}>
@@ -912,40 +918,37 @@ export const Home: React.FC<{ initialData?: HomeInitialData }> = ({ initialData 
             </div>
           </aside>
         </div>
-        <h2 className={styles.featuresH2}>The perfect tool for friendly tournaments</h2>
+        <h2 className={styles.featuresH2}>{t('perfectToolHeading')}</h2>
         <div className={styles.features}>
           <Card className={styles.feature}>
             <div className={styles.featureImg1} />
-            <h3>Run tournaments, not spreadsheets</h3>
+            <h3>{t('featureRunHeading')}</h3>
             <p>
-              Create or join leagues, cups and recurring competitions in minutes. HT-120min handles schedules, fixtures
-              and administration so you can focus on your community.
+              {t('featureRunDescription')}
             </p>
           </Card>
           <Card className={styles.feature}>
             <div className={styles.featureImg2} />
-            <h3>Never chase managers again</h3>
+            <h3>{t('featureManagersHeading')}</h3>
             <p>
-              Automatic scheduling, challenge tracking, live standings and match updates eliminate most of the
-              repetitive work that makes tournament administration painful.
+              {t('featureManagersDescription')}
             </p>
           </Card>
           <Card className={styles.feature}>
             <div className={styles.featureImg3} />
-            <h3>Build rivalries, not just fixtures</h3>
+            <h3>{t('featureRivalriesHeading')}</h3>
             <p>
-              Achievements, club profiles, records and community leaderboards turn friendly matches into long-term
-              stories managers actually care about.
+              {t('featureRivalriesDescription')}
             </p>
           </Card>
         </div>{' '}
         <div className={styles.ctaBtns}>
           <Button size="lg" onClick={() => router.push(toLocalePath(locale, '/create'))} variant="secondaryYellow">
-            <Trophy size={22} weight="regular" /> Create Tournament
+            <Trophy size={22} weight="regular" /> {t('createTournament')}
           </Button>
           <ScrollTo to="opentours" smooth={true} duration={600} offset={-20}>
             <Button size="lg" variant="secondaryHero">
-              <ArrowRight size={22} weight="regular" /> Join Tournament
+              <ArrowRight size={22} weight="regular" /> {t('joinTournament')}
             </Button>
           </ScrollTo>
         </div>

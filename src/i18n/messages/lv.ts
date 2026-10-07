@@ -5,8 +5,6 @@ const messages = {
   common: {
     ...en.common,
     language: 'Valoda',
-    english: 'Angļu',
-    latvian: 'Letiņu',
   },
   fixtures: {
     ...en.fixtures,
@@ -17,6 +15,7 @@ const messages = {
     autoArrangeTooltip: 'Tavus mačus sistēma centīsies noorganizēt automātiski. Ja otra komanda nebūs devusi šādu atļauju, tai tiks nosūtīts izaicinājums.',
     autoArrangeLoadError: 'Neizdevās ielādēt automātiskas organizēšanas statusu.',
   },
+  Home: {},
 } as const;
 
 export default messages;

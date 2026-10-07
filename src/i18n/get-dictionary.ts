@@ -2,7 +2,10 @@ import en from './messages/en';
 import lv from './messages/lv';
 import type { Locale } from './config';
 
-export const dictionaries = { en, lv } as const;
+export const dictionaries = {
+  en,
+  lv: { ...lv, Home: { ...en.Home, ...lv.Home } },
+} as const;
 
 export type Dictionary = typeof en;
 
