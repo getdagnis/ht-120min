@@ -8,6 +8,7 @@ import { Tooltip } from '../Tooltip/Tooltip';
 import { Switch } from '../Switch/Switch';
 import { useLocale } from '../../i18n/LocaleProvider';
 import { calculateMatchDate } from '../../utils/ht-data';
+import { skillDisplay } from '../../utils/hattrick-skill';
 import { getHattrickWeekDetails } from '../../utils/hattrick-calendar';
 import { getImportedFixtureRoundPeriod } from '../../utils/manual-rounds';
 import { getMatchDateForRound } from '../../utils/match-schedule';
@@ -157,16 +158,6 @@ const fixtureChallengePreviewMode =
     process.env.NEXT_PUBLIC_FIXTURE_CHALLENGE_PREVIEW === '2')
     ? process.env.NEXT_PUBLIC_FIXTURE_CHALLENGE_PREVIEW
     : null;
-
-const SKILL_NAMES = ['non-existent', 'disastrous', 'wretched', 'poor', 'weak', 'inadequate', 'passable',
-  'solid', 'excellent', 'formidable', 'outstanding', 'brilliant', 'magnificent', 'world class',
-  'supernatural', 'titanic', 'extra-terrestrial', 'mythical', 'magical', 'utopian', 'divine'];
-
-function skillDisplay(value: number | null) {
-  if (value === null) return '—';
-  const name = SKILL_NAMES[value];
-  return name ? `${name[0].toUpperCase()}${name.slice(1)} (${value})` : String(value);
-}
 
 function ratingsDisplay(row: SharedFixtureRatings | undefined) {
   if (!row) return null;

@@ -2,7 +2,8 @@ import assert from 'node:assert/strict';
 import { afterEach, test } from 'node:test';
 import {
   assertEligibleFixtureRatings, assertExactClubOwnership, convertSectorRating, isLocalRatingsAdmin,
-  loadVisibleFixtureRatings, parsePredictedRatings, parseSetPiecesSkill, parseSubmittedOrders, prediction, saveFixtureRatings,
+  fetchMatchLineupSetPiecesTaker, fetchSetPiecesSkillForPlayer, loadVisibleFixtureRatings,
+  parseMatchLineupSetPiecesTaker, parsePredictedRatings, parseSetPiecesSkill, parseSubmittedOrders, prediction, saveFixtureRatings,
   updateExistingRatingShare,
 } from '../src/server/api/_lib/fixture-ratings.ts';
 import { attachFixtureRatingStatus, PUBLIC_FIXTURE_RATING_STATUS_FIELDS } from '../src/types/fixture-ratings.ts';
@@ -50,8 +51,59 @@ test('formation counts occupied roles after extra-position behaviours', () => {
 test('optional set-pieces skill is parsed only for the selected player', () => {
   const xml = '<HattrickData><Player><PlayerID>777</PlayerID><PlayerSkills><SetPiecesSkill>9</SetPiecesSkill></PlayerSkills></Player></HattrickData>';
   assert.equal(parseSetPiecesSkill(xml, 777), 9);
+  assert.equal(parseSetPiecesSkill(xml.replace('<SetPiecesSkill>9</SetPiecesSkill>', '<SetPiecesSkill>0</SetPiecesSkill>'), 777), 0);
   assert.equal(parseSetPiecesSkill(xml, 778), null);
   assert.equal(parseSetPiecesSkill('<HattrickData><PlayerID>777</PlayerID></HattrickData>', 777), null);
+});
+
+test('refresh helper reads the current Set Pieces skill for the identified match taker', async () => {
+  process.env.CHPP_CONSUMER_KEY = 'test-key';
+  process.env.CHPP_CONSUMER_SECRET = 'test-secret';
+  let requestedPlayerId = '';
+  globalThis.fetch = async (input) => {
+    const url = new URL(String(input));
+    requestedPlayerId = url.searchParams.get('playerID') || '';
+    return new Response('<HattrickData><Player><PlayerID>777</PlayerID><PlayerSkills><SetPiecesSkill>12</SetPiecesSkill></PlayerSkills></Player></HattrickData>');
+  };
+
+  const result = await fetchSetPiecesSkillForPlayer({ oauth_token: 'token', oauth_token_secret: 'secret' }, 777);
+  assert.equal(requestedPlayerId, '777');
+  assert.equal(result?.skill, 12);
+  assert.ok(result?.checkedAt);
+  assert.equal(await fetchSetPiecesSkillForPlayer({ oauth_token: 'token', oauth_token_secret: 'secret' }, 0), null);
+});
+
+test('finished match lineup resolves the coach-selected set-pieces taker by role 17', async () => {
+  const xml = `<HattrickData><MatchID>771759602</MatchID>
+    <HomeTeam><HomeTeamID>3220514</HomeTeamID></HomeTeam><AwayTeam><AwayTeamID>3220516</AwayTeamID></AwayTeam>
+    <Team><TeamID>3220514</TeamID><StartingLineup>
+      <Player><PlayerID>511613256</PlayerID><RoleID>17</RoleID><FirstName>Sandra</FirstName><LastName>Primo</LastName></Player>
+    </StartingLineup><Lineup /></Team>
+    <Team><TeamID>3220516</TeamID><StartingLineup>
+      <Player><PlayerID>500000001</PlayerID><RoleID>17</RoleID><FirstName>Away</FirstName><LastName>Taker</LastName></Player>
+    </StartingLineup></Team></HattrickData>`;
+
+  assert.deepEqual(parseMatchLineupSetPiecesTaker(xml, 771759602, 3220514), {
+    playerId: 511613256,
+    playerName: 'Sandra Primo',
+  });
+  assert.equal(parseMatchLineupSetPiecesTaker(xml, 771759603, 3220514), null);
+  assert.equal(parseMatchLineupSetPiecesTaker(xml, 771759602, 999), null);
+
+  process.env.CHPP_CONSUMER_KEY = 'test-key';
+  process.env.CHPP_CONSUMER_SECRET = 'test-secret';
+  let request: URL | null = null;
+  globalThis.fetch = async (input) => {
+    request = new URL(String(input));
+    return new Response(xml);
+  };
+  assert.deepEqual(await fetchMatchLineupSetPiecesTaker(
+    { oauth_token: 'token', oauth_token_secret: 'secret' }, 771759602, 3220514,
+  ), { playerId: 511613256, playerName: 'Sandra Primo' });
+  assert.deepEqual(
+    [request?.searchParams.get('file'), request?.searchParams.get('version'), request?.searchParams.get('matchID'), request?.searchParams.get('teamID')],
+    ['matchlineup', '2.1', '771759602', '3220514'],
+  );
 });
 
 const originalFetch = globalThis.fetch;
@@ -82,7 +134,7 @@ test('failed match-order authorization stops before prediction and cannot yield 
   process.env.CHPP_CONSUMER_SECRET = 'test-secret';
   let calls = 0;
   globalThis.fetch = async () => { calls++; return new Response('Denied', { status: 403 }); };
-  await assert.rejects(prediction({ oauth_token: 'token', oauth_token_secret: 'secret' }, 123, 11, 22), /denied match-order access/);
+  await assert.rejects(prediction({ oauth_token: 'token', oauth_token_secret: 'secret' }, 123, 11, 22), /denied CHPP access/);
   assert.equal(calls, 1);
 });
 
@@ -299,7 +351,7 @@ test('home and away shares remain independent through update, failed refresh, an
   assert.equal(rows.fixture_predicted_rating_shares.find((row) => row.team_id === 'away')?.midfield, 10);
   denyPrediction = true;
   const oldAway = { ...rows.fixture_predicted_rating_shares.find((row) => row.team_id === 'away') };
-  await assert.rejects(saveFixtureRatings(db as never, 'fixture', 'away', 8, 'update', invalidate), /denied match-order access/);
+  await assert.rejects(saveFixtureRatings(db as never, 'fixture', 'away', 8, 'update', invalidate), /denied CHPP access/);
   assert.deepEqual(rows.fixture_predicted_rating_shares.find((row) => row.team_id === 'away'), oldAway);
   denyPrediction = false;
   pausePrediction = true;

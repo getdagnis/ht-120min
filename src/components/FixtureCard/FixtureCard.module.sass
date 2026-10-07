@@ -10,7 +10,7 @@
   &:last-child
     border-bottom: none
 
-  @media (max-width: 980px)
+  @media (max-width: 920px)
     flex-direction: column
     gap: 2rem
     padding: 2rem 0
@@ -18,6 +18,19 @@
 
 .fixtureCard.withRatingsPreview
   flex-wrap: wrap
+
+.fixtureCard.withFinishedDetails
+  flex-wrap: wrap
+
+.detailsToggle
+  padding: 0
+  border: 0
+  background: transparent
+  color: var(--text-h)
+  cursor: pointer
+  font: inherit
+  font-size: 0.78rem
+  text-decoration: underline
 
 .ratingsPreview
   flex: 0 0 100%
@@ -224,7 +237,7 @@
 .teamContainer.right
   justify-content: flex-end
 
-  @media (max-width: 980px)
+  @media (max-width: 920px)
     justify-content: center
     align-items: center
     text-align: center
@@ -281,7 +294,7 @@
   align-items: center
   margin-top: 0rem
 
-  @media (max-width: 980px)
+  @media (max-width: 920px)
     justify-content: center
 
 .warnIcon
@@ -312,13 +325,13 @@
   overflow: hidden
   text-overflow: ellipsis
 
-  @media (max-width: 980px)
+  @media (max-width: 920px)
     align-self: center
 
 .teamDetails.right .reserveRow
   align-self: flex-end
 
-  @media (max-width: 980px)
+  @media (max-width: 920px)
     align-self: center
 
 .teamName
@@ -351,7 +364,7 @@
   letter-spacing: 0.05em
   font-weight: 500
 
-  @media (max-width: 980px)
+  @media (max-width: 920px)
     justify-content: center
 
 .linkIcon
@@ -373,11 +386,11 @@
   text-align: center
   flex: 1 1 0%
 
-  @media (max-width: 980px)
+  @media (max-width: 920px)
     flex: 1 1 auto
     width: 100%
 
-@media (max-width: 980px)
+@media (max-width: 920px)
   .ratingsPreview
     grid-template-columns: 1fr
     gap: 0.55rem

@@ -3,7 +3,8 @@ import { ArrowLeft, ArrowRight, ArrowUpRight, Info } from 'phosphor-react';
 import { Tooltip } from '../Tooltip/Tooltip';
 import { TeamByline } from '../TeamByline/TeamByline';
 import { appgOutcomeLabel, type AppgOutcome } from '../../utils/appg';
-import type { MatchSideEventDetails } from '../../../shared/match-events';
+import { skillDisplay } from '../../utils/hattrick-skill';
+import type { MatchSideEventDetails, MatchSidePerformance } from '../../../shared/match-events';
 import { getLiveClockDisplay, type LiveMatchClock } from '../../../shared/live-match';
 import styles from './FixtureCard.module.sass';
 
@@ -85,6 +86,54 @@ const MATCH_TYPES: Record<number, { initials: string; description: string }> = {
   9: { initials: 'ICR', description: 'International Cup Rules Friendly' },
 };
 
+function RatingsPitch({ ratings }: { ratings: RatingsPreviewTeam['ratings'] }) {
+  const sectorRows: Array<Array<[string, string]>> = [
+    [
+      ['Left attack:', ratings.leftAttack],
+      ['Center attack:', ratings.centreAttack],
+      ['Right attack:', ratings.rightAttack],
+    ],
+    [['Midfield (excluding TS effect): ', ratings.midfield]],
+    [
+      ['Left defence:', ratings.leftDefence],
+      ['Center defence:', ratings.centreDefence],
+      ['Right defence:', ratings.rightDefence],
+    ],
+  ];
+
+  return (
+    <div className={styles.ratingsPitch}>
+      {sectorRows.map((row, rowIndex) => (
+        <div
+          key={rowIndex}
+          className={`${styles.ratingsSectorRow} ${row.length === 1 ? styles.ratingsMidfieldRow : ''}`}
+        >
+          {row.map(([label, value]) => (
+            <div className={styles.ratingsSector} key={label}>
+              <span>{label}</span>
+              <strong>{value}</strong>
+            </div>
+          ))}
+        </div>
+      ))}
+    </div>
+  );
+}
+
+function actualRatingsDisplay(performance?: MatchSidePerformance): RatingsPreviewTeam['ratings'] {
+  const format = (value: number | null | undefined) =>
+    value === null || value === undefined ? '—' : ((value + 3) / 4).toFixed(2);
+  return {
+    leftAttack: format(performance?.ratings.leftAttack),
+    centreAttack: format(performance?.ratings.centralAttack),
+    rightAttack: format(performance?.ratings.rightAttack),
+    midfield: format(performance?.ratings.midfield),
+    leftDefence: format(performance?.ratings.leftDefence),
+    centreDefence: format(performance?.ratings.centralDefence),
+    rightDefence: format(performance?.ratings.rightDefence),
+  };
+}
+
 const DEFAULT_TEAM_LOGO = '/matchKitLarge.png';
 
 export const FixtureCard: React.FC<FixtureCardProps> = ({
@@ -114,6 +163,7 @@ export const FixtureCard: React.FC<FixtureCardProps> = ({
   const [refreshedSide, setRefreshedSide] = React.useState<'home' | 'away' | null>(null);
   const refreshedTimer = React.useRef<number | null>(null);
   const [ratingsError, setRatingsError] = React.useState<string | null>(null);
+  const [actualDetailsExpanded, setActualDetailsExpanded] = React.useState(false);
   const act = async (side: 'home' | 'away', action: 'share' | 'update' | 'remove') => {
     if (!ratingsActions || busySide) return;
     setBusySide(side);
@@ -223,7 +273,7 @@ export const FixtureCard: React.FC<FixtureCardProps> = ({
   );
 
   return (
-    <div className={`${styles.fixtureCard} ${ratingsPreview || ratingsSharedStatus ? styles.withRatingsPreview : ''}`}>
+    <div className={`${styles.fixtureCard} ${ratingsPreview || ratingsSharedStatus ? styles.withRatingsPreview : ''} ${status === 'finished' ? styles.withFinishedDetails : ''}`}>
       <div className={styles.teamContainer}>
         <div className={styles.logoWrapper}>
           {!homeTeam.isBye && (
@@ -303,6 +353,16 @@ export const FixtureCard: React.FC<FixtureCardProps> = ({
           badgeContent
         )}
         {appgOutcomeText && <div className={styles.appgOutcome}>{appgOutcomeText}</div>}
+        {status === 'finished' && (
+          <button
+            type="button"
+            className={styles.detailsToggle}
+            aria-expanded={actualDetailsExpanded}
+            onClick={() => setActualDetailsExpanded((expanded) => !expanded)}
+          >
+            {actualDetailsExpanded ? 'Hide details' : 'Show details'}
+          </button>
+        )}
       </div>
 
       <div className={`${styles.teamContainer} ${styles.right}`}>
@@ -331,21 +391,6 @@ export const FixtureCard: React.FC<FixtureCardProps> = ({
             const preview = ratingsPreview[side];
             const canManage = ratingsActions?.[side] || false;
             if (!preview && !canManage) return null;
-            const sectorRows: Array<Array<[string, string]>> = preview
-              ? [
-                  [
-                    ['Left attack:', preview.ratings.leftAttack],
-                    ['Center attack:', preview.ratings.centreAttack],
-                    ['Right attack:', preview.ratings.rightAttack],
-                  ],
-                  [['Midfield (excluding TS effect): ', preview.ratings.midfield]],
-                  [
-                    ['Left defence:', preview.ratings.leftDefence],
-                    ['Center defence:', preview.ratings.centreDefence],
-                    ['Right defence:', preview.ratings.rightDefence],
-                  ],
-                ]
-              : [];
             return (
               <div key={side} className={`${styles.ratingsSide} ${side === 'away' ? styles.ratingsSideAway : ''}`}>
                 {preview && (
@@ -357,21 +402,7 @@ export const FixtureCard: React.FC<FixtureCardProps> = ({
                 )}
                 {preview ? (
                   <>
-                    <div className={styles.ratingsPitch}>
-                      {sectorRows.map((row, rowIndex) => (
-                        <div
-                          key={rowIndex}
-                          className={`${styles.ratingsSectorRow} ${row.length === 1 ? styles.ratingsMidfieldRow : ''}`}
-                        >
-                          {row.map(([label, value]) => (
-                            <div className={styles.ratingsSector} key={label}>
-                              <span>{label}</span>
-                              <strong>{value}</strong>
-                            </div>
-                          ))}
-                        </div>
-                      ))}
-                    </div>
+                    <RatingsPitch ratings={preview.ratings} />
                     <div className={styles.ratingsMetadata}>
                       <span>
                         Formation <strong>{preview.formation}</strong>
@@ -447,6 +478,32 @@ export const FixtureCard: React.FC<FixtureCardProps> = ({
               {ratingsError}
             </p>
           )}
+        </section>
+      )}
+      {status === 'finished' && actualDetailsExpanded && (
+        <section className={styles.ratingsPreview} aria-label="Actual match details">
+          <div className={styles.ratingsPreviewTitle}>Actual match performance</div>
+          {(['home', 'away'] as const).map((side) => {
+            const team = side === 'home' ? homeTeam : awayTeam;
+            const performance = team.matchSummary?.eventDetails?.performance;
+            const taker = performance?.setPiecesTaker;
+            return (
+              <div key={side} className={`${styles.ratingsSide} ${side === 'away' ? styles.ratingsSideAway : ''}`}>
+                <div className={styles.ratingsTeamHeading}>
+                  {side === 'home' && <strong>{team.name}</strong>}
+                  <span>match performance</span>
+                  {side === 'away' && <strong>{team.name}</strong>}
+                </div>
+                <RatingsPitch ratings={actualRatingsDisplay(performance)} />
+                <div className={styles.ratingsMetadata}>
+                  <span>Formation <strong>{performance?.formation || '—'}</strong></span>
+                  <span>Tactic <strong>{performance?.tacticName || '—'}</strong></span>
+                  <span>Tactic skill <strong>{performance?.tacticSkill ?? '—'}</strong></span>
+                  <span>Set Pieces skill <strong>{skillDisplay(taker?.skill)}</strong></span>
+                </div>
+              </div>
+            );
+          })}
         </section>
       )}
       {ratingsSharedStatus && (

@@ -6,6 +6,7 @@ import type {
   MatchInjuryEvent,
   MatchNotableEvent,
   MatchResultDetails,
+  MatchSetPiecesTaker,
   MatchScore,
   MatchSideEventDetails,
   MatchSidePerformance,
@@ -211,7 +212,11 @@ function getTeamBlock(xml: string, side: 'Home' | 'Away') {
   return xml.match(new RegExp(`<${side}Team>[\\s\\S]*?<\\/${side}Team>`, 'i'))?.[0] || '';
 }
 
-function sidePerformance(xml: string, side: 'Home' | 'Away'): MatchSidePerformance {
+function sidePerformance(
+  xml: string,
+  side: 'Home' | 'Away',
+  setPiecesTaker: MatchSetPiecesTaker | null,
+): MatchSidePerformance {
   const team = getTeamBlock(xml, side);
   const possessionSide = side === 'Home' ? 'Home' : 'Away';
   const tacticType = readNumber(team, 'TacticType');
@@ -220,6 +225,7 @@ function sidePerformance(xml: string, side: 'Home' | 'Away'): MatchSidePerforman
     tacticType,
     tacticName: tacticType === null ? null : TACTIC_NAMES[tacticType] || null,
     tacticSkill: readNumber(team, 'TacticSkill'),
+    setPiecesTaker,
     possessionFirstHalf: readNumber(xml, `PossessionFirstHalf${possessionSide}`),
     possessionSecondHalf: readNumber(xml, `PossessionSecondHalf${possessionSide}`),
     ratings: {
@@ -529,11 +535,23 @@ export function parseMatchEventDetails(xml: string): MatchEventDetails {
     ? { home: home.penaltyShootoutGoals || 0, away: away.penaltyShootoutGoals || 0 }
     : null;
 
-  home.performance = sidePerformance(xml, 'Home');
-  away.performance = sidePerformance(xml, 'Away');
+  const latestSetPiecesTaker = (teamId: number | null): MatchSetPiecesTaker | null => {
+    // For event 81, SubjectPlayerID is the outgoing taker and ObjectPlayerID is
+    // the player taking set pieces after the change.
+    const event = [...events].reverse().find((item) => item.typeId === 81 && item.subjectTeamId === teamId && item.objectPlayerId);
+    if (!event?.objectPlayerId) return null;
+    return {
+      playerId: event.objectPlayerId,
+      playerName: eventPlayerNames.get(event.objectPlayerId) || null,
+      skill: null,
+      skillCheckedAt: null,
+    };
+  };
+  home.performance = sidePerformance(xml, 'Home', latestSetPiecesTaker(actualHomeTeamId));
+  away.performance = sidePerformance(xml, 'Away', latestSetPiecesTaker(actualAwayTeamId));
 
   return {
-    version: 2,
+    version: 3,
     source: 'matchdetails-3.1',
     actualHomeTeamId,
     actualAwayTeamId,

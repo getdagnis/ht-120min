@@ -133,6 +133,48 @@ export function parseSetPiecesSkill(xml: string, playerId: number): number | nul
   return raw && Number.isSafeInteger(value) && value >= 0 && value <= 30 ? value : null;
 }
 
+export async function fetchSetPiecesSkillForPlayer(credentials: Credentials, playerId: number) {
+  if (!Number.isSafeInteger(playerId) || playerId <= 0) return null;
+  const xml = await chpp('playerdetails', '3.2', credentials, { playerID: String(playerId) });
+  const skill = parseSetPiecesSkill(xml, playerId);
+  return skill === null ? null : { skill, checkedAt: new Date().toISOString() };
+}
+
+export function parseMatchLineupSetPiecesTaker(xml: string, matchId: number, teamId: number) {
+  if (Number(readChppTag(xml, 'MatchID')) !== matchId) return null;
+  const team = [...xml.matchAll(/<Team(?:\s[^>]*)?>([\s\S]*?)<\/Team>/gi)]
+    .map((match) => match[1])
+    .find((candidate) => Number(readChppTag(candidate, 'TeamID')) === teamId);
+  if (!team) return null;
+
+  // MatchLineup records the resolved set-pieces taker in role 17. Prefer the
+  // kickoff lineup; the final lineup is a fallback for payloads that omit it.
+  const lineup = (name: 'StartingLineup' | 'Lineup') => {
+    const content = block(team, name);
+    for (const match of content.matchAll(/<Player(?:\s[^>]*)?>([\s\S]*?)<\/Player>/gi)) {
+      const player = match[1];
+      if (Number(readChppTag(player, 'RoleID')) !== 17) continue;
+      const playerId = Number(readChppTag(player, 'PlayerID'));
+      if (!Number.isSafeInteger(playerId) || playerId <= 0) continue;
+      const name = [readChppTag(player, 'FirstName'), readChppTag(player, 'NickName'), readChppTag(player, 'LastName')]
+        .filter(Boolean).join(' ');
+      return { playerId, playerName: name || null };
+    }
+    return null;
+  };
+
+  return lineup('StartingLineup') || lineup('Lineup');
+}
+
+export async function fetchMatchLineupSetPiecesTaker(credentials: Credentials, matchId: number, teamId: number) {
+  const xml = await chpp('matchlineup', '2.1', credentials, {
+    matchID: String(matchId),
+    teamID: String(teamId),
+    actionType: 'view',
+  });
+  return parseMatchLineupSetPiecesTaker(xml, matchId, teamId);
+}
+
 async function chpp(file: string, version: string, credentials: Credentials, extra: Record<string, string>) {
   const consumerKey = process.env.CHPP_CONSUMER_KEY;
   const consumerSecret = process.env.CHPP_CONSUMER_SECRET;
@@ -146,7 +188,7 @@ async function chpp(file: string, version: string, credentials: Credentials, ext
   if (response.status === 401 || response.status === 403 ||
     /<ErrorCode>\s*(?:401|403)\s*<\/ErrorCode>/i.test(xml) ||
     /authoriz|permission|scope|access denied|not allowed/i.test(errorMessage)) {
-    throw new FixtureRatingsError(403, 'Hattrick denied match-order access. Reauthorize your Hattrick account.');
+    throw new FixtureRatingsError(403, 'Hattrick denied CHPP access. Reauthorize your Hattrick account.');
   }
   if (!response.ok || /<ErrorCode>\s*[1-9]\d*\s*<\/ErrorCode>/i.test(xml)) {
     throw new FixtureRatingsError(502, `Hattrick could not return ${file}.`);

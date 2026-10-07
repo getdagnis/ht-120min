@@ -2456,7 +2456,8 @@ export const TournamentView: React.FC<{
 
   const isNewsTab = activeTab === 'guestbook' || activeTab === 'news';
 
-  // The timer passes false; only a clicked fixture refresh opts into match-order reads.
+  // Match-order prediction sharing remains click-triggered; finished-match facts
+  // are refreshed automatically from the participating teams' stored credentials.
   const handleRefreshFixtures = useCallback(
     async (manualRatings = false) => {
       if (!tournament || isRefreshingFixtures) return;

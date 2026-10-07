@@ -20,6 +20,7 @@ const EVENT_DESCRIPTIONS: Record<number, string> = {
   59: 'penalty shootout miss despite no nerves',
   61: 'organisation break', 64: 'team reorganised', 65: 'nerves in an important match',
   68: 'successful pressing', 69: 'underestimation removed', 70: 'extra time started',
+  81: 'new set pieces taker',
   71: 'penalty shootout after extra time', 72: 'extra time decided', 73: 'penalty shootout decided by coin toss',
   75: 'added time announced', 76: 'no added time announced',
   90: 'injured but continued playing', 91: 'injured and left the field', 92: 'badly injured and left the field',
@@ -189,10 +190,19 @@ export interface MatchSidePerformance {
   tacticType: number | null;
   tacticName: string | null;
   tacticSkill: number | null;
+  setPiecesTaker?: MatchSetPiecesTaker | null;
   possessionFirstHalf: number | null;
   possessionSecondHalf: number | null;
   ratings: MatchRatings;
   chances: MatchChanceCounts;
+}
+
+export interface MatchSetPiecesTaker {
+  /** Used transiently for the targeted playerdetails lookup; removed before public persistence. */
+  playerId?: number;
+  playerName: string | null;
+  skill: number | null;
+  skillCheckedAt: string | null;
 }
 
 export interface MatchSideEventDetails {
@@ -205,7 +215,7 @@ export interface MatchSideEventDetails {
 }
 
 export interface MatchEventDetails {
-  version: 1 | 2;
+  version: 1 | 2 | 3;
   source: 'matchdetails-3.1' | 'live-2.3';
   actualHomeTeamId: number | null;
   actualAwayTeamId: number | null;

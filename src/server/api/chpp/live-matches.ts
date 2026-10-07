@@ -1,6 +1,7 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { getServiceSupabase } from '../_lib/supabase.js';
 import { getAuthHeader } from '../_lib/chpp-auth.js';
+import { fetchMatchLineupSetPiecesTaker, fetchSetPiecesSkillForPlayer } from '../_lib/fixture-ratings.js';
 import { readChppTag, type ParsedTeamDetails } from '../_lib/chpp-xml.js';
 import { fetchFixtureHomeAwayKits } from '../_lib/chpp-fixture-kits.js';
 import {
@@ -17,7 +18,7 @@ import {
   summarizeMatchEventDetails,
 } from '../_lib/chpp-match-events.js';
 import { buildChppAppgUpdate } from '../_lib/appg-chpp-classifier.js';
-import type { MatchEventDetails } from '../../../../shared/match-events.js';
+import type { MatchEventDetails, MatchSetPiecesTaker } from '../../../../shared/match-events.js';
 import type { LiveMatchClock } from '../../../../shared/live-match.js';
 import { parseChppStockholmDate } from '../../../../shared/chpp-dates.js';
 import { progressLengthSchedule } from '../_lib/length-schedule-service.js';
@@ -48,6 +49,113 @@ function firstRelation<T>(value: T | T[] | null | undefined): T | null {
   return Array.isArray(value) ? value[0] ?? null : value ?? null;
 }
 
+type TeamCredentials = { htTeamId: number | null; oauthToken: string | null; oauthTokenSecret: string | null };
+
+function previousTakerForTeam(details: MatchEventDetails | null, teamId: number | null): MatchSetPiecesTaker | null {
+  if (!details || teamId === null) return null;
+  return [details.home, details.away].find((side) => side.teamId === teamId)?.performance?.setPiecesTaker || null;
+}
+
+function removeTransientTakerIds(details: MatchEventDetails) {
+  for (const side of [details.home, details.away]) {
+    const taker = side.performance?.setPiecesTaker;
+    if (taker) delete taker.playerId;
+  }
+}
+
+export async function attachRefreshedTakerSkills(
+  actualDetails: MatchEventDetails,
+  fixtureDetails: MatchEventDetails,
+  previous: MatchEventDetails | null,
+  fixture: {
+    scheduledHomeHtId: number | null;
+    scheduledAwayHtId: number | null;
+    reserveHtTeamId: number | null;
+    reserveReplacesSide: 'home' | 'away' | null;
+    teams: TeamCredentials[];
+  },
+  matchId: number,
+) {
+  const sideAliases = {
+    home: new Set([fixture.scheduledHomeHtId, fixture.reserveReplacesSide === 'home' ? fixture.reserveHtTeamId : null]
+      .filter((id): id is number => id !== null)),
+    away: new Set([fixture.scheduledAwayHtId, fixture.reserveReplacesSide === 'away' ? fixture.reserveHtTeamId : null]
+      .filter((id): id is number => id !== null)),
+  };
+
+  for (const actualSide of [actualDetails.home, actualDetails.away]) {
+    const sideName = actualSide.teamId !== null && sideAliases.home.has(actualSide.teamId)
+      ? 'home'
+      : actualSide.teamId !== null && sideAliases.away.has(actualSide.teamId) ? 'away' : null;
+    if (!sideName) continue;
+    const targetSide = fixtureDetails[sideName];
+    const previousTaker = previousTakerForTeam(previous, targetSide.teamId);
+    let taker = targetSide.performance?.setPiecesTaker || previousTaker;
+
+    // Event 81 reports an in-match change. For other finished matches,
+    // lineup role 17 provides the resolved starting taker, including when the
+    // order was left to the coach. Use only that team's stored owner token.
+    const teamCredentials = actualSide.teamId === null
+      ? null
+      : fixture.teams.find((team) => team.htTeamId === actualSide.teamId);
+    const hasCachedSkill = Boolean(taker?.skill !== null && taker?.skillCheckedAt);
+    if ((!taker || !taker.playerId) && !hasCachedSkill && teamCredentials?.oauthToken && teamCredentials.oauthTokenSecret) {
+      try {
+        const matchTaker = await fetchMatchLineupSetPiecesTaker(
+          { oauth_token: teamCredentials.oauthToken, oauth_token_secret: teamCredentials.oauthTokenSecret },
+          matchId,
+          actualSide.teamId,
+        );
+        if (matchTaker) {
+          taker = {
+            ...matchTaker,
+            skill: null,
+            skillCheckedAt: null,
+          };
+        }
+      } catch (error) {
+        const message = error instanceof Error ? error.message : 'Unknown CHPP error';
+        console.warn(`[live-matches] set-pieces lineup unavailable for match ${matchId}, team ${actualSide.teamId}: ${message}`);
+      }
+    }
+    if (!taker) continue;
+
+    const samePreviousTaker = previousTaker && (
+      (previousTaker.playerId && taker.playerId && previousTaker.playerId === taker.playerId) ||
+      (previousTaker.playerName && taker.playerName && previousTaker.playerName === taker.playerName)
+    ) ? previousTaker : null;
+    if (!targetSide.performance) continue;
+    targetSide.performance.setPiecesTaker = {
+      ...taker,
+      skill: taker.skill ?? samePreviousTaker?.skill ?? null,
+      skillCheckedAt: taker.skillCheckedAt ?? samePreviousTaker?.skillCheckedAt ?? null,
+    };
+    if (!taker.playerId) continue;
+    if (!teamCredentials?.oauthToken || !teamCredentials.oauthTokenSecret) continue;
+    if (targetSide.performance.setPiecesTaker.skill !== null && targetSide.performance.setPiecesTaker.skillCheckedAt) continue;
+
+    let skillSnapshot: Awaited<ReturnType<typeof fetchSetPiecesSkillForPlayer>> = null;
+    try {
+      skillSnapshot = await fetchSetPiecesSkillForPlayer(
+        { oauth_token: teamCredentials.oauthToken, oauth_token_secret: teamCredentials.oauthTokenSecret },
+        taker.playerId,
+      );
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Unknown CHPP error';
+      console.warn(`[live-matches] set-pieces skill unavailable for match ${matchId}, team ${actualSide.teamId}: ${message}`);
+    }
+
+    targetSide.performance.setPiecesTaker = {
+      ...targetSide.performance.setPiecesTaker!,
+      ...(skillSnapshot
+        ? { skill: skillSnapshot.skill, skillCheckedAt: skillSnapshot.checkedAt }
+        : samePreviousTaker
+          ? { skill: samePreviousTaker.skill, skillCheckedAt: samePreviousTaker.skillCheckedAt }
+          : {}),
+    };
+  }
+}
+
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   const { tournament_id, match_ids } = req.query;
   const ids = Array.isArray(match_ids) ? match_ids : (match_ids as string)?.split(',') || [];
@@ -73,12 +181,12 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     const { data: tournamentMatches, error: matchesError } = await supabase
       .from('matches')
       .select(`
-        id, ht_match_id, status, completed, home_goals, away_goals, appg_outcome_source,
+        id, ht_match_id, status, completed, home_goals, away_goals, appg_outcome_source, match_event_details,
         home_team_id, away_team_id,
         home_team:home_team_id ( ht_team_id, oauth_token, oauth_token_secret ),
         away_team:away_team_id ( ht_team_id, oauth_token, oauth_token_secret ),
         reserve_team_id, reserve_replaces_team_id,
-        reserve_team:teams!matches_reserve_team_id_fkey ( ht_team_id )
+        reserve_team:teams!matches_reserve_team_id_fkey ( ht_team_id, oauth_token, oauth_token_secret )
       `)
       .in('round_id', rounds.map((round) => round.id))
       .in('ht_match_id', ids.map((id) => parseInt(id, 10)));
@@ -98,6 +206,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         awayGoals: number | null;
         oauthToken: string | null;
         oauthTokenSecret: string | null;
+        previousEventDetails: MatchEventDetails | null;
+        teams: TeamCredentials[];
         reserveHtTeamId: number | null;
         reserveReplacesSide: 'home' | 'away' | null;
       }
@@ -105,9 +215,17 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     if (tournamentMatches) {
       for (const m of tournamentMatches) {
         if (m.ht_match_id) {
-          const homeTeam = firstRelation(m.home_team as { ht_team_id: number | null; oauth_token: string | null; oauth_token_secret: string | null } | { ht_team_id: number | null; oauth_token: string | null; oauth_token_secret: string | null }[] | null);
-          const awayTeam = firstRelation(m.away_team as { ht_team_id: number | null; oauth_token: string | null; oauth_token_secret: string | null } | { ht_team_id: number | null; oauth_token: string | null; oauth_token_secret: string | null }[] | null);
-          const reserveTeam = firstRelation(m.reserve_team as { ht_team_id: number | null } | { ht_team_id: number | null }[] | null);
+          type TeamAuthRow = {
+            ht_team_id: number | null;
+            oauth_token?: string | null;
+            oauth_token_secret?: string | null;
+          };
+          const homeTeam = firstRelation(m.home_team as TeamAuthRow | TeamAuthRow[] | null);
+          const awayTeam = firstRelation(m.away_team as TeamAuthRow | TeamAuthRow[] | null);
+          const reserveTeam = firstRelation(m.reserve_team as TeamAuthRow | TeamAuthRow[] | null);
+          const credentialsFor = (team: TeamAuthRow | null): TeamCredentials | null => team?.ht_team_id
+            ? { htTeamId: team.ht_team_id, oauthToken: team.oauth_token || null, oauthTokenSecret: team.oauth_token_secret || null }
+            : null;
           matchFixtureMap.set(m.ht_match_id, {
             id: m.id,
             status: m.status === 'finished' || m.completed ? 'finished' : m.status === 'ongoing' ? 'ongoing' : 'arranged',
@@ -116,6 +234,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             awayGoals: m.away_goals,
             oauthToken: homeTeam?.oauth_token || awayTeam?.oauth_token || null,
             oauthTokenSecret: homeTeam?.oauth_token_secret || awayTeam?.oauth_token_secret || null,
+            previousEventDetails: (m.match_event_details as MatchEventDetails | null) || null,
+            teams: [credentialsFor(homeTeam), credentialsFor(awayTeam), credentialsFor(reserveTeam)]
+              .filter((team): team is TeamCredentials => team !== null),
             scheduledHomeHtId: homeTeam?.ht_team_id ?? null,
             scheduledAwayHtId: awayTeam?.ht_team_id ?? null,
             appgOutcomeSource: m.appg_outcome_source ?? null,
@@ -255,7 +376,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         );
       }
 
-      const eventDetails = fixture
+      let eventDetails = fixture
         ? mapMatchEventDetailsToFixture(
             actualEventDetails,
             fixture.scheduledHomeHtId,
@@ -264,6 +385,16 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             fixture.reserveReplacesSide === 'away' && fixture.reserveHtTeamId ? [fixture.reserveHtTeamId] : [],
           )
         : actualEventDetails;
+      if (finished && fixture) {
+        await attachRefreshedTakerSkills(
+          actualEventDetails,
+          eventDetails,
+          fixture.previousEventDetails,
+          fixture,
+          htMatchIdNum,
+        );
+      }
+      removeTransientTakerIds(eventDetails);
       const eventSummary = summarizeMatchEventDetails(eventDetails);
       const penaltyShootout = getPenaltyShootoutScore(eventDetails);
       const appgUpdate = finished ? buildChppAppgUpdate({

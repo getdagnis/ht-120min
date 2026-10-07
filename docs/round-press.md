@@ -17,4 +17,6 @@ For sandbox UI testing, create the sandbox with a linked Hattrick organizer prof
 
 `match_event_details` version 2 adds stable MatchDetails facts while retaining compatibility with version 1 snapshots: score after regulation, score after extra time, penalty score, decision type, winner, formation, tactic/type skill, first/second-half possession, sector ratings, chance counts, and scorer names. MatchDetails does not provide reliable structured prose causes; `EventText` remains excluded. Older v1 archives still generate, but lack these richer facts until explicitly re-fetched.
 
+Version 3 also carries the set-pieces taker and a Set Pieces skill captured during an authorized, explicit fixture refresh. For an already-shared side, the refresh reads submitted match orders when MatchDetails has no taker-change event. Season fixture snapshots copy the nested match-event details, so the captured skill remains fixed in archived seasons. Older snapshots without a taker or skill remain valid.
+
 Forge testing includes a protected `round-press-matchdetails-backfill` tool for a specific tournament season/round. It re-fetches linked Hattrick MatchDetails, stores only parsed v2 facts when `apply=1`, and corrects the stored football score independently from a penalty-shootout score. Round-press generation itself never performs a CHPP fetch.

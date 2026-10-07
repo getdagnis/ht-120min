@@ -28,7 +28,11 @@ function event(
   minute: number,
   objectPlayerId = 0,
   matchPart = 2,
+  objectPlayerName?: string,
 ) {
+  const objectPlayerLink = objectPlayerName
+    ? `<EventText>&lt;a href="/Club/Players/Player.aspx?playerId=${objectPlayerId}" title="${objectPlayerName}"&gt;${objectPlayerName}&lt;/a&gt;</EventText>`
+    : '';
   return `
     <Event>
       <Minute>${minute}</Minute>
@@ -37,6 +41,7 @@ function event(
       <ObjectPlayerID>${objectPlayerId}</ObjectPlayerID>
       <MatchPart>${matchPart}</MatchPart>
       <EventTypeID>${typeId}</EventTypeID>
+      ${objectPlayerLink}
     </Event>
   `;
 }
@@ -137,6 +142,24 @@ test('captures second-yellow and straight-red distinctions without removing firs
   assert.equal(summary.away_red_cards, 1);
 });
 
+test('captures and maps the latest actual set-pieces taker per scheduled fixture side', () => {
+  const parsed = parseMatchEventDetails(matchDetailsXml({ events: `
+    ${event(81, 100, 30, 0, 31)}
+    ${event(81, 100, 31, 63, 32, 2, 'Actual Taker')}
+    ${event(81, 200, 40, 0, 41)}
+  ` }));
+
+  assert.equal(parsed.version, 3);
+  assert.equal(parsed.home.performance?.setPiecesTaker?.playerId, 32);
+  assert.equal(parsed.home.performance?.setPiecesTaker?.playerName, 'Actual Taker');
+  assert.equal(parsed.away.performance?.setPiecesTaker?.playerId, 41);
+  assert.equal(parsed.notableEvents?.filter((item) => item.eventTypeId === 81).length, 0);
+
+  const reversed = mapMatchEventDetailsToFixture(parsed, 200, 100);
+  assert.equal(reversed.home.performance?.setPiecesTaker?.playerId, 41);
+  assert.equal(reversed.away.performance?.setPiecesTaker?.playerId, 32);
+});
+
 test('maps event details to scheduled fixture sides and leaves an unmatched BYE side empty', () => {
   const xml = matchDetailsXml({ events: event(510, 100, 1, 42) });
   const parsed = parseMatchEventDetails(xml);
@@ -215,7 +238,7 @@ test('persists stable MatchDetails performance and named scorer facts without Ev
     </Match></HattrickData>`;
   const parsed = parseMatchEventDetails(xml);
 
-  assert.equal(parsed.version, 2);
+  assert.equal(parsed.version, 3);
   assert.equal(parsed.home.performance?.formation, '5-5-0');
   assert.equal(parsed.home.performance?.tacticName, 'Pressing');
   assert.equal(parsed.home.performance?.possessionFirstHalf, 61);
