@@ -9,6 +9,8 @@ import { supabase } from '../../lib/supabase';
 import { useAuth } from '../../hooks/useAuth';
 import { Avatar } from '../../components/Avatar/Avatar';
 import { Button } from '../../components/Button/Button';
+import { NoticeDialog } from '../../components/Modal/NoticeDialog';
+import { useNoticeDialog } from '../../components/Modal/useNoticeDialog';
 import { ModalTeamCard } from '../../components/ModalTeamCard/ModalTeamCard';
 import { SectionCard } from '../../components/Card/SectionCard';
 import { getCanonicalCountryName, getCountryFlagUrl, getLeagueFlagUrl } from '../../utils/ht-data';
@@ -87,6 +89,7 @@ export const ProfilePage: React.FC = () => {
   const [teams, setTeams] = useState<ProfileTeam[]>([]);
   const [teamsLoaded, setTeamsLoaded] = useState(false);
   const [deletingTestTournaments, setDeletingTestTournaments] = useState(false);
+  const { notice, showNotice, closeNotice } = useNoticeDialog();
 
   useEffect(() => {
     if (!profile?.hattrick_user_id) return;
@@ -303,7 +306,7 @@ export const ProfilePage: React.FC = () => {
                       if (!response.ok) throw new Error(payload.error || 'Could not delete test tournaments.');
                       refreshProfile();
                     } catch (error) {
-                      window.alert(error instanceof Error ? error.message : 'Could not delete test tournaments.');
+                      showNotice(error instanceof Error ? error.message : 'Could not delete test tournaments.');
                     } finally {
                       setDeletingTestTournaments(false);
                     }
@@ -345,6 +348,7 @@ export const ProfilePage: React.FC = () => {
           )}
         </div>
       </div>
+      <NoticeDialog message={notice} onClose={closeNotice} />
     </main>
   );
 };

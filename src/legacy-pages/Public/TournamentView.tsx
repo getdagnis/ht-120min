@@ -2095,14 +2095,10 @@ export const TournamentView: React.FC<{
   }, [tournament, teams]);
 
   const upcomingRoundIndex = rounds.findIndex((r) => r.matches.some((m) => !m.completed && m.status !== 'misarranged'));
-  const [fixtureFocusNow, setFixtureFocusNow] = useState<number | null>(null);
-  useEffect(() => {
-    setFixtureFocusNow(Date.now());
-  }, []);
   const focusedRoundIndex =
-    fixtureFocusNow === null
+    renderTimestamp === 0
       ? upcomingRoundIndex
-      : getFocusedFixtureRoundIndex(rounds, upcomingRoundIndex, new Date(fixtureFocusNow));
+      : getFocusedFixtureRoundIndex(rounds, upcomingRoundIndex, new Date(renderTimestamp));
   const currentRoundId = focusedRoundIndex >= 0 ? (rounds[focusedRoundIndex]?.id ?? null) : null;
   const defaultVisibleRoundsCount = rounds.length;
 

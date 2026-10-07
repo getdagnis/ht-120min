@@ -109,11 +109,10 @@ export async function attachRefreshedTakerSkills(
     // Empty summaries from the earlier compendium-based lookup were not proof
     // that a roster was fetched. Retry them against the CHPP players endpoint.
     const needsSpecialties = !targetSide.performance?.specialtyPositions?.length;
-    let lineupDetails: Awaited<ReturnType<typeof fetchMatchLineupDetails>> | null = null;
     if (((!taker || !taker.playerId) && !hasCachedSkill || needsSpecialties) && teamCredentials?.oauthToken && teamCredentials.oauthTokenSecret) {
       try {
         const credentials = { oauth_token: teamCredentials.oauthToken, oauth_token_secret: teamCredentials.oauthTokenSecret };
-        lineupDetails = await fetchMatchLineupDetails(credentials, matchId, actualSide.teamId!);
+        const lineupDetails = await fetchMatchLineupDetails(credentials, matchId, actualSide.teamId!);
         if (needsSpecialties && lineupDetails.lineup.length && targetSide.performance) {
           const consumerKey = process.env.CHPP_CONSUMER_KEY;
           const consumerSecret = process.env.CHPP_CONSUMER_SECRET;
@@ -400,7 +399,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         );
       }
 
-      let eventDetails = fixture
+      const eventDetails = fixture
         ? mapMatchEventDetailsToFixture(
             actualEventDetails,
             fixture.scheduledHomeHtId,
