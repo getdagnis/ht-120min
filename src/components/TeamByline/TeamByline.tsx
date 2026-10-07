@@ -6,6 +6,7 @@ import {
   getCardEventLabel,
   getInjuryEventLabel,
   getCanonicalEventDescription,
+  isSpecialEventGoalType,
   type MatchSideEventDetails,
 } from '../../../shared/match-events';
 import styles from './TeamByline.module.sass';
@@ -109,18 +110,27 @@ export const TeamByline: React.FC<TeamBylineProps> = ({
     return goal.minute === null ? description : `${goal.minute}' - ${description}`;
   };
   const groupedGoals = detailedGoals.reduce<
-    Array<{ key: string; playerName: string | null; minutes: number[]; descriptions: string[] }>
+    Array<{
+      key: string;
+      playerName: string | null;
+      minutes: Array<{ minute: number; isSpecialEvent: boolean }>;
+      descriptions: string[];
+    }>
   >((groups, goal) => {
     const key = String(goal.playerId ?? goal.playerName ?? 'unknown');
     const group = groups.find((item) => item.key === key);
+    const minute =
+      goal.minute === null
+        ? null
+        : { minute: goal.minute, isSpecialEvent: isSpecialEventGoalType(goal.eventTypeId) };
     if (group) {
-      if (goal.minute !== null) group.minutes.push(goal.minute);
+      if (minute) group.minutes.push(minute);
       group.descriptions.push(goalDescription(goal));
     } else {
       groups.push({
         key,
         playerName: goal.playerName ?? null,
-        minutes: goal.minute === null ? [] : [goal.minute],
+        minutes: minute ? [minute] : [],
         descriptions: [goalDescription(goal)],
       });
     }
@@ -307,7 +317,10 @@ export const TeamByline: React.FC<TeamBylineProps> = ({
                       data-tooltip-content={Array.from(new Set(goal.descriptions)).join(', ')}
                     >
                       <span aria-hidden="true">⚽️</span> {shortPlayerLabel(goal.playerName)}
-                      {goal.minutes.length > 0 && ` (${goal.minutes.map((minute) => `${minute}'`).join(', ')})`}
+                      {goal.minutes.length > 0 &&
+                        ` (${goal.minutes
+                          .map(({ minute, isSpecialEvent }) => `${isSpecialEvent ? 'SE ' : ''}${minute}'`)
+                          .join(', ')})`}
                     </span>
                     <Tooltip
                       id={`${tooltipIdBase}-goal-${goal.key}`}

@@ -9,6 +9,7 @@ interface SectionCardProps {
   subtitle?: React.ReactNode;
   headerRight?: React.ReactNode;
   variant?: 'grass';
+  highlighted?: boolean;
   className?: string;
   collapsible?: boolean;
   isCollapsed?: boolean;
@@ -24,6 +25,7 @@ export const SectionCard: React.FC<SectionCardProps> = ({
   subtitle,
   headerRight,
   variant,
+  highlighted = false,
   className,
   collapsible = false,
   isCollapsed = false,
@@ -36,7 +38,7 @@ export const SectionCard: React.FC<SectionCardProps> = ({
 
   return (
     <div
-      className={`${styles.card} ${className} ${variant === 'grass' ? styles.grass : ''} ${collapsible ? styles.collapsible : ''}`}
+      className={`${styles.card} ${highlighted ? styles.highlighted : ''} ${className} ${variant === 'grass' ? styles.grass : ''} ${collapsible ? styles.collapsible : ''}`}
     >
       {title && (
         <div

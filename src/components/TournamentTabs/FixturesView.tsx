@@ -95,6 +95,7 @@ interface FixturesViewProps {
   }[];
   season: number;
   upcomingRoundIndex: number;
+  focusedRoundIndex: number;
   defaultVisibleRoundsCount: number;
   expandedRounds: Record<string, boolean>;
   toggleRound: (roundId: string) => void;
@@ -168,6 +169,7 @@ function ratingsDisplay(row: SharedFixtureRatings | undefined) {
     tactic: row.tactic,
     tacticSkill: skillDisplay(row.tactic_skill),
     setPieces: skillDisplay(row.set_pieces_skill),
+    specialtyPositions: row.specialty_positions ?? [],
     ratings: {
       leftAttack: format(row.left_attack), centreAttack: format(row.centre_attack), rightAttack: format(row.right_attack),
       midfield: format(row.midfield), leftDefence: format(row.left_defence),
@@ -186,6 +188,7 @@ export const FixturesView: React.FC<FixturesViewProps> = ({
   rounds,
   season,
   upcomingRoundIndex,
+  focusedRoundIndex,
   defaultVisibleRoundsCount,
   expandedRounds,
   toggleRound,
@@ -340,6 +343,7 @@ export const FixturesView: React.FC<FixturesViewProps> = ({
     };
   }, [currentHtUserId, isHistorical, season, tournament?.id]);
   const currentRound = !isHistorical && upcomingRoundIndex >= 0 ? (rounds[upcomingRoundIndex] ?? null) : null;
+  const focusedRound = !isHistorical && focusedRoundIndex >= 0 ? (rounds[focusedRoundIndex] ?? null) : null;
   const tournamentId = tournament?.id;
   const currentRoundScrollTargetRef = React.useRef<HTMLDivElement | null>(null);
   const hasAutoScrolledToCurrentRoundRef = React.useRef(false);
@@ -527,12 +531,12 @@ export const FixturesView: React.FC<FixturesViewProps> = ({
     [availableSeasonNumbers, season],
   );
 
-  const scrollToCurrentRound = React.useCallback(() => {
-    if (!currentRound || currentRound.round_number < 3) return false;
+  const scrollToFocusedRound = React.useCallback(() => {
+    if (!focusedRound || focusedRound.round_number < 3) return false;
 
     const target =
       currentRoundScrollTargetRef.current ??
-      document.querySelector<HTMLElement>(`[data-round-id="${currentRound.id}"]`);
+      document.querySelector<HTMLElement>(`[data-round-id="${focusedRound.id}"]`);
 
     if (!target) return false;
 
@@ -541,10 +545,10 @@ export const FixturesView: React.FC<FixturesViewProps> = ({
 
     window.scrollTo({ top, behavior: 'smooth' });
     return true;
-  }, [currentRound]);
+  }, [focusedRound]);
 
   React.useEffect(() => {
-    if (!currentRound || currentRound.round_number < 3) return;
+    if (!focusedRound || focusedRound.round_number < 3) return;
     if (hasAutoScrolledToCurrentRoundRef.current) return;
 
     let cancelled = false;
@@ -554,7 +558,7 @@ export const FixturesView: React.FC<FixturesViewProps> = ({
     const attemptScroll = () => {
       if (cancelled || hasAutoScrolledToCurrentRoundRef.current) return;
 
-      if (scrollToCurrentRound()) {
+      if (scrollToFocusedRound()) {
         hasAutoScrolledToCurrentRoundRef.current = true;
         return;
       }
@@ -571,7 +575,7 @@ export const FixturesView: React.FC<FixturesViewProps> = ({
       cancelled = true;
       if (timerId !== undefined) window.clearTimeout(timerId);
     };
-  }, [currentRound, currentRound?.id, currentRound?.round_number, scrollToCurrentRound]);
+  }, [focusedRound, focusedRound?.id, focusedRound?.round_number, scrollToFocusedRound]);
 
   const resolveMatchDate = React.useCallback(
     (round: { created_at: string; round_number: number }, match: FixtureMatch) =>
@@ -838,6 +842,7 @@ export const FixturesView: React.FC<FixturesViewProps> = ({
 
       {filteredRounds.slice(0, visibleRoundsCount).map((round) => {
         const isNextRound = round.id === currentRound?.id;
+        const isFocusedRound = round.id === focusedRound?.id;
         const isPendingRound = round.phase_status === 'pending';
 
         const isExpanded =
@@ -900,9 +905,9 @@ export const FixturesView: React.FC<FixturesViewProps> = ({
         };
 
         return (
-          <div key={round.id} ref={isNextRound ? currentRoundScrollTargetRef : null} data-round-id={round.id}>
+          <div key={round.id} ref={isFocusedRound ? currentRoundScrollTargetRef : null} data-round-id={round.id}>
             <SectionCard
-              className={isNextRound ? styles.upcomingRound : ''}
+              highlighted={isFocusedRound}
               collapsible
               isCollapsed={!isExpanded}
               onToggleCollapse={() => toggleRound(round.id)}

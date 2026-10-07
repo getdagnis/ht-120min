@@ -1,6 +1,7 @@
 import { getAuthHeader } from './chpp-auth.js';
 import {
   parseManagerCompendiumXml,
+  parseTeamPlayerSpecialtiesXml,
   parseManagerNationalTeamRolesXml,
   parseManagerTeamDetailsXml,
   type ChppTeamOption,
@@ -102,6 +103,41 @@ export async function fetchManagerTeamsFromChpp(
   credentials: ManagerCompendiumCredentials,
   managerId?: number | string,
 ): Promise<ParsedManagerCompendium> {
+  const xml = await fetchManagerCompendiumXml(consumerKey, consumerSecret, credentials, managerId);
+  const parsed = parseManagerCompendiumXml(xml);
+  return {
+    ...parsed,
+    teams: parsed.teams ?? [],
+  };
+}
+
+export async function fetchOwnedTeamPlayerSpecialtiesFromChpp(
+  consumerKey: string,
+  consumerSecret: string,
+  credentials: ManagerCompendiumCredentials,
+  teamId: number,
+): Promise<Map<number, number>> {
+  const url = 'https://chpp.hattrick.org/chppxml.ashx';
+  const params = { file: 'players', version: '2.8', actionType: 'view', teamID: String(teamId) };
+  const authHeader = getAuthHeader(
+    'GET', url, params, consumerKey, consumerSecret,
+    credentials.oauth_token, credentials.oauth_token_secret,
+  );
+  const response = await fetch(`${url}?${new URLSearchParams(params)}`, { headers: { Authorization: authHeader } });
+  const xml = await response.text();
+  const errorCode = Number(xml.match(/<ErrorCode>\s*(\d+)\s*<\/ErrorCode>/i)?.[1] ?? 0);
+  if (!response.ok || errorCode > 0) throw new Error(`CHPP players failed (${response.status}, ${errorCode}).`);
+  const specialties = parseTeamPlayerSpecialtiesXml(xml, teamId);
+  if (specialties.size === 0) throw new Error('CHPP players returned no roster for the requested team.');
+  return specialties;
+}
+
+async function fetchManagerCompendiumXml(
+  consumerKey: string,
+  consumerSecret: string,
+  credentials: ManagerCompendiumCredentials,
+  managerId?: number | string,
+): Promise<string> {
   const url = 'https://chpp.hattrick.org/chppxml.ashx';
   const params: Record<string, string> = {
     file: 'managercompendium',
@@ -130,12 +166,7 @@ export async function fetchManagerTeamsFromChpp(
   if (!response.ok) {
     throw new ManagerCompendiumRequestError(response.status, xml);
   }
-
-  const parsed = parseManagerCompendiumXml(xml);
-  return {
-    ...parsed,
-    teams: parsed.teams ?? [],
-  };
+  return xml;
 }
 
 export async function fetchManagerTeamDetailsFromChpp(

@@ -1,16 +1,18 @@
 import { getAuthHeader } from './chpp-auth.js';
 import { readChppTag } from './chpp-xml.js';
-import { fetchManagerTeamsFromChpp, ManagerCompendiumRequestError } from './manager-compendium.js';
+import { fetchManagerTeamsFromChpp, fetchOwnedTeamPlayerSpecialtiesFromChpp, ManagerCompendiumRequestError } from './manager-compendium.js';
 import { getManagerChppCredentials } from './matchmaker.js';
 import { invalidatePublicTournament } from './tournament-cache.js';
 import type { getServiceSupabase } from './supabase.js';
 import { PRIVATE_FIXTURE_RATINGS_FIELDS, type SharedFixtureRatings } from '../../../types/fixture-ratings.js';
+import { summarizeSpecialtyPositions, type PlayerLineupRole } from '../../../../shared/player-specialties.js';
 
 type Db = ReturnType<typeof getServiceSupabase>;
 type Side = 'home' | 'away';
 type Credentials = { oauth_token: string; oauth_token_secret: string };
 type RatingValues = Pick<SharedFixtureRatings, 'left_attack' | 'centre_attack' | 'right_attack' | 'midfield' |
   'left_defence' | 'centre_defence' | 'right_defence' | 'formation' | 'tactic' | 'tactic_skill' | 'set_pieces_skill'>;
+type SharedRatingValues = RatingValues & { specialty_positions: SharedFixtureRatings['specialty_positions'] };
 
 export class FixtureRatingsError extends Error {
   constructor(public status: number, message: string) { super(message); }
@@ -29,13 +31,14 @@ export function assertExactClubOwnership(
   }
 }
 
-async function verifiedManagerClubs(db: Db, userId: number) {
+async function verifiedManagerClubs(db: Db, userId: number, specialtyTeamId?: number) {
   const credentials = await getManagerChppCredentials(db, userId);
   if (!credentials) throw new FixtureRatingsError(401, 'Your Hattrick authorization is missing. Sign in with Hattrick again.');
   const consumerKey = process.env.CHPP_CONSUMER_KEY;
   const consumerSecret = process.env.CHPP_CONSUMER_SECRET;
   if (!consumerKey || !consumerSecret) throw new FixtureRatingsError(500, 'CHPP is not configured.');
   let ownership;
+  let specialties: Map<number, number> | undefined;
   try {
     // Omitting userID asks CHPP for the token holder's clubs, not a public manager profile.
     ownership = await fetchManagerTeamsFromChpp(consumerKey, consumerSecret, credentials);
@@ -48,7 +51,15 @@ async function verifiedManagerClubs(db: Db, userId: number) {
   if (ownership.hattrickUserId !== userId) {
     throw new FixtureRatingsError(403, 'Your Hattrick account does not match this session. Sign in again.');
   }
-  return { credentials, teamIds: new Set(ownership.teams.map((team) => team.teamId)) };
+  if (specialtyTeamId !== undefined) {
+    try {
+      specialties = await fetchOwnedTeamPlayerSpecialtiesFromChpp(consumerKey, consumerSecret, credentials, specialtyTeamId);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Unknown CHPP error';
+      console.warn(`[fixture-ratings] player specialties unavailable for team ${specialtyTeamId}: ${message}`);
+    }
+  }
+  return { credentials, teamIds: new Set(ownership.teams.map((team) => team.teamId)), specialties };
 }
 
 function block(xml: string, name: string): string {
@@ -88,6 +99,7 @@ export function parseSubmittedOrders(xml: string, matchId: number, teamId: numbe
   const positions = block(block(data, 'Lineup'), 'Positions');
   const roleGroups = { defender: 0, midfielder: 0, forward: 0 };
   const roles = new Set<number>();
+  const lineup: PlayerLineupRole[] = [];
   for (const match of positions.matchAll(/<Player>([\s\S]*?)<\/Player>/gi)) {
     const player = match[1];
     const playerId = Number(readChppTag(player, 'PlayerID'));
@@ -95,6 +107,7 @@ export function parseSubmittedOrders(xml: string, matchId: number, teamId: numbe
     const role = requiredInteger(player, 'RoleID', 100, 113);
     if (roles.has(role)) throw new FixtureRatingsError(502, 'Hattrick returned duplicate starting roles.');
     roles.add(role);
+    lineup.push({ playerId, roleId: role });
     if (role === 100) continue;
     const behaviour = Number(readChppTag(player, 'Behaviour') || 0);
     const group = behaviour === 5 ? 'forward' : behaviour === 6 ? 'midfielder' : behaviour === 7 ? 'defender'
@@ -106,7 +119,7 @@ export function parseSubmittedOrders(xml: string, matchId: number, teamId: numbe
   const tactic = TACTICS[tacticId];
   if (!tactic) throw new FixtureRatingsError(502, 'Hattrick returned an unknown tactic.');
   const takerId = Number(readChppTag(block(block(data, 'Lineup'), 'SetPieces'), 'PlayerID')) || null;
-  return { formation: `${roleGroups.defender}-${roleGroups.midfielder}-${roleGroups.forward}`, tactic, takerId };
+  return { formation: `${roleGroups.defender}-${roleGroups.midfielder}-${roleGroups.forward}`, tactic, takerId, lineup };
 }
 
 export function parsePredictedRatings(xml: string, matchId: number): Omit<RatingValues, 'formation' | 'tactic' | 'set_pieces_skill'> {
@@ -166,6 +179,35 @@ export function parseMatchLineupSetPiecesTaker(xml: string, matchId: number, tea
   return lineup('StartingLineup') || lineup('Lineup');
 }
 
+export function parseMatchLineupStartingPlayers(xml: string, matchId: number, teamId: number): PlayerLineupRole[] {
+  if (Number(readChppTag(xml, 'MatchID')) !== matchId) return [];
+  const team = [...xml.matchAll(/<Team(?:\s[^>]*)?>([\s\S]*?)<\/Team>/gi)]
+    .map((match) => match[1])
+    .find((candidate) => Number(readChppTag(candidate, 'TeamID')) === teamId);
+  const lineup = team ? block(team, 'StartingLineup') : '';
+  const players: PlayerLineupRole[] = [];
+  for (const match of lineup.matchAll(/<Player(?:\s[^>]*)?>([\s\S]*?)<\/Player>/gi)) {
+    const playerId = Number(readChppTag(match[1], 'PlayerID'));
+    const roleId = Number(readChppTag(match[1], 'RoleID'));
+    if (Number.isSafeInteger(playerId) && playerId > 0 && Number.isInteger(roleId) && roleId >= 100 && roleId <= 113) {
+      players.push({ playerId, roleId });
+    }
+  }
+  return players;
+}
+
+export async function fetchMatchLineupDetails(credentials: Credentials, matchId: number, teamId: number) {
+  const xml = await chpp('matchlineup', '2.1', credentials, {
+    matchID: String(matchId),
+    teamID: String(teamId),
+    actionType: 'view',
+  });
+  return {
+    taker: parseMatchLineupSetPiecesTaker(xml, matchId, teamId),
+    lineup: parseMatchLineupStartingPlayers(xml, matchId, teamId),
+  };
+}
+
 export async function fetchMatchLineupSetPiecesTaker(credentials: Credentials, matchId: number, teamId: number) {
   const xml = await chpp('matchlineup', '2.1', credentials, {
     matchID: String(matchId),
@@ -196,7 +238,7 @@ async function chpp(file: string, version: string, credentials: Credentials, ext
   return xml;
 }
 
-export async function prediction(credentials: Credentials, matchId: number, teamId: number, opponentId: number): Promise<RatingValues> {
+export async function prediction(credentials: Credentials, matchId: number, teamId: number, opponentId: number, specialties?: ReadonlyMap<number, number>): Promise<SharedRatingValues> {
   const params = { matchID: String(matchId), teamID: String(teamId) };
   const orders = parseSubmittedOrders(await chpp('matchorders', '3.1', credentials, { ...params, actionType: 'view' }), matchId, teamId, opponentId);
   const ratings = parsePredictedRatings(await chpp('matchorders', '3.1', credentials, { ...params, actionType: 'predictratings' }), matchId);
@@ -206,7 +248,13 @@ export async function prediction(credentials: Credentials, matchId: number, team
       setPiecesSkill = parseSetPiecesSkill(await chpp('playerdetails', '3.2', credentials, { playerID: String(orders.takerId) }), orders.takerId);
     } catch { /* Optional enrichment cannot prevent a valid share. */ }
   }
-  return { ...ratings, formation: orders.formation, tactic: orders.tactic, set_pieces_skill: setPiecesSkill };
+  return {
+    ...ratings,
+    formation: orders.formation,
+    tactic: orders.tactic,
+    set_pieces_skill: setPiecesSkill,
+    specialty_positions: specialties ? summarizeSpecialtyPositions(orders.lineup, specialties) : null,
+  };
 }
 
 export async function loadFixtureForRatings(db: Db, fixtureId: string) {
@@ -297,7 +345,7 @@ export function assertEligibleFixtureRatings(input: Awaited<ReturnType<typeof lo
   }
 }
 
-export async function updateExistingRatingShare(db: Db, rowId: string, payload: RatingValues & { ht_match_id: number; fetched_at: string }) {
+export async function updateExistingRatingShare(db: Db, rowId: string, payload: SharedRatingValues & { ht_match_id: number; fetched_at: string }) {
   // The row ID is never reused. If Remove deleted it during CHPP fetch, this
   // update affects zero rows and cannot recreate sharing.
   const { data, error } = await db.from('fixture_predicted_rating_shares')
@@ -328,7 +376,9 @@ export async function saveFixtureRatings(
   if (existingError) throw existingError;
   if (action !== 'remove') assertEligibleFixtureRatings(context);
   if (!team.oauth_token || !team.oauth_token_secret) throw new FixtureRatingsError(401, 'Your Hattrick authorization is missing. Sign in with Hattrick again.');
-  const { credentials, teamIds } = await verifiedManagerClubs(db, userId);
+  const { credentials, teamIds, specialties } = await verifiedManagerClubs(
+    db, userId, action === 'remove' ? undefined : Number(team.ht_team_id),
+  );
   if (!teamIds.has(Number(team.ht_team_id))) throw new FixtureRatingsError(403, 'Your Hattrick account no longer owns this fixture club.');
   if (action === 'remove') {
     if (existing) {
@@ -341,7 +391,7 @@ export async function saveFixtureRatings(
   if (action === 'share' && existing && Number(existing.ht_match_id) === Number(fixture.ht_match_id)) throw new FixtureRatingsError(409, 'This club has already shared ratings.');
   if (action === 'update' && !existing) throw new FixtureRatingsError(409, 'This club has not shared ratings.');
   const opponent = side === 'home' ? fixture.away_team : fixture.home_team;
-  const values = await prediction(credentials, Number(fixture.ht_match_id), Number(team.ht_team_id), Number(opponent?.ht_team_id));
+  const values = await prediction(credentials, Number(fixture.ht_match_id), Number(team.ht_team_id), Number(opponent?.ht_team_id), specialties);
   const latest = await loadFixtureForRatings(db, fixtureId);
   assertEligibleFixtureRatings(latest);
   const latestTeam = side === 'home' ? latest.fixture.home_team : latest.fixture.away_team;

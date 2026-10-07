@@ -71,6 +71,7 @@ import {
 import { buildManualRoundNormalizationPlan } from '../../utils/manual-rounds';
 import { buildClearSeasonResultsPayload, buildResetUnlinkedResultPayload } from '../../utils/season-results';
 import { getMatchDateForRound as resolveMatchDateForRound } from '../../utils/match-schedule';
+import { getFocusedFixtureRoundIndex } from '../../utils/fixture-round-focus';
 import { compareFixtures } from '../../utils/fixture-sorting';
 import {
   canViewerJoinAnotherTeam,
@@ -2094,7 +2095,15 @@ export const TournamentView: React.FC<{
   }, [tournament, teams]);
 
   const upcomingRoundIndex = rounds.findIndex((r) => r.matches.some((m) => !m.completed && m.status !== 'misarranged'));
-  const currentRoundId = upcomingRoundIndex >= 0 ? (rounds[upcomingRoundIndex]?.id ?? null) : null;
+  const [fixtureFocusNow, setFixtureFocusNow] = useState<number | null>(null);
+  useEffect(() => {
+    setFixtureFocusNow(Date.now());
+  }, []);
+  const focusedRoundIndex =
+    fixtureFocusNow === null
+      ? upcomingRoundIndex
+      : getFocusedFixtureRoundIndex(rounds, upcomingRoundIndex, new Date(fixtureFocusNow));
+  const currentRoundId = focusedRoundIndex >= 0 ? (rounds[focusedRoundIndex]?.id ?? null) : null;
   const defaultVisibleRoundsCount = rounds.length;
 
   const expandAllRounds = useCallback(() => {
@@ -6064,6 +6073,7 @@ export const TournamentView: React.FC<{
             key={`${tournament?.id}-${fixtureSeasonNumber}`}
             rounds={fixtureRounds}
             upcomingRoundIndex={isViewingHistoricalFixtures ? -1 : upcomingRoundIndex}
+            focusedRoundIndex={isViewingHistoricalFixtures ? -1 : focusedRoundIndex}
             season={fixtureSeasonNumber}
             defaultVisibleRoundsCount={isViewingHistoricalFixtures ? fixtureRounds.length : defaultVisibleRoundsCount}
             expandedRounds={expandedRounds}

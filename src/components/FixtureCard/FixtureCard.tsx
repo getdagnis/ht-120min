@@ -5,6 +5,7 @@ import { TeamByline } from '../TeamByline/TeamByline';
 import { appgOutcomeLabel, type AppgOutcome } from '../../utils/appg';
 import { skillDisplay } from '../../utils/hattrick-skill';
 import type { MatchSideEventDetails, MatchSidePerformance } from '../../../shared/match-events';
+import type { SpecialtyPositionGroup } from '../../../shared/player-specialties';
 import { getLiveClockDisplay, type LiveMatchClock } from '../../../shared/live-match';
 import styles from './FixtureCard.module.sass';
 
@@ -68,6 +69,7 @@ interface RatingsPreviewTeam {
   tactic: string;
   tacticSkill: string;
   setPieces: string;
+  specialtyPositions: SpecialtyPositionGroup[];
   ratings: {
     leftAttack: string;
     centreAttack: string;
@@ -86,18 +88,47 @@ const MATCH_TYPES: Record<number, { initials: string; description: string }> = {
   9: { initials: 'ICR', description: 'International Cup Rules Friendly' },
 };
 
-function RatingsPitch({ ratings }: { ratings: RatingsPreviewTeam['ratings'] }) {
-  const sectorRows: Array<Array<[string, string]>> = [
+type RatedSector = 'leftAttack' | 'centreAttack' | 'rightAttack' | 'midfield' | 'leftDefence' | 'centreDefence' | 'rightDefence';
+
+const RATED_SECTOR_ROLES: Record<RatedSector, number[]> = {
+  leftAttack: [110],
+  centreAttack: [111, 112, 113],
+  rightAttack: [106],
+  midfield: [107, 108, 109],
+  leftDefence: [105],
+  centreDefence: [102, 103, 104],
+  rightDefence: [101],
+};
+const SPECIALTY_NAMES: Record<number, string> = {
+  1: 'Technical', 2: 'Quick', 3: 'Powerful', 4: 'Unpredict.', 5: 'Head', 6: 'Resilient', 8: 'Support',
+};
+
+function specialtyMarkersForSector(groups: SpecialtyPositionGroup[], sector: RatedSector) {
+  const roles = new Set(RATED_SECTOR_ROLES[sector]);
+  const counts = new Map<number, number>();
+  for (const group of groups) {
+    if (!SPECIALTY_NAMES[group.specialtyId]) continue;
+    const count = group.roleIds.filter((roleId) => roles.has(roleId)).length;
+    if (count) counts.set(group.specialtyId, count);
+  }
+  return [...counts].map(([specialtyId, count]) => ({ specialtyId, count }));
+}
+
+function RatingsPitch({ ratings, specialtyPositions = [] }: {
+  ratings: RatingsPreviewTeam['ratings'];
+  specialtyPositions?: SpecialtyPositionGroup[];
+}) {
+  const sectorRows: Array<Array<[string, string, RatedSector?]>> = [
     [
-      ['Left attack:', ratings.leftAttack],
-      ['Center attack:', ratings.centreAttack],
-      ['Right attack:', ratings.rightAttack],
+      ['Left attack:', ratings.leftAttack, 'leftAttack'],
+      ['Center attack:', ratings.centreAttack, 'centreAttack'],
+      ['Right attack:', ratings.rightAttack, 'rightAttack'],
     ],
-    [['Midfield (excluding TS effect): ', ratings.midfield]],
+    [['Midfield (excluding TS effect): ', ratings.midfield, 'midfield']],
     [
-      ['Left defence:', ratings.leftDefence],
-      ['Center defence:', ratings.centreDefence],
-      ['Right defence:', ratings.rightDefence],
+      ['Left defence:', ratings.leftDefence, 'leftDefence'],
+      ['Center defence:', ratings.centreDefence, 'centreDefence'],
+      ['Right defence:', ratings.rightDefence, 'rightDefence'],
     ],
   ];
 
@@ -108,12 +139,32 @@ function RatingsPitch({ ratings }: { ratings: RatingsPreviewTeam['ratings'] }) {
           key={rowIndex}
           className={`${styles.ratingsSectorRow} ${row.length === 1 ? styles.ratingsMidfieldRow : ''}`}
         >
-          {row.map(([label, value]) => (
-            <div className={styles.ratingsSector} key={label}>
-              <span>{label}</span>
-              <strong>{value}</strong>
-            </div>
-          ))}
+          {row.map(([label, value, sector]) => {
+            const markers = sector ? specialtyMarkersForSector(specialtyPositions, sector) : [];
+            return (
+              <div className={styles.ratingsSector} key={label}>
+                <span>{label}</span>
+                <div className={styles.ratingsValue}>
+                  <strong>{value}</strong>
+                  {markers.length > 0 && (
+                    <small className={styles.ratingsSpecialtyIcons} aria-label="Specialties contributing to this rating">
+                      {markers.map(({ specialtyId, count }) => (
+                        <span key={specialtyId} title={`${count > 1 ? `${count} ` : ''}${SPECIALTY_NAMES[specialtyId]}`}>
+                          {count > 1 && `${count}×`}
+                          <i
+                            className={styles.ratingsSpecialtyIcon}
+                            data-specialty-id={specialtyId}
+                            aria-label={SPECIALTY_NAMES[specialtyId]}
+                            role="img"
+                          />
+                        </span>
+                      ))}
+                    </small>
+                  )}
+                </div>
+              </div>
+            );
+          })}
         </div>
       ))}
     </div>
@@ -135,6 +186,21 @@ function actualRatingsDisplay(performance?: MatchSidePerformance): RatingsPrevie
 }
 
 const DEFAULT_TEAM_LOGO = '/matchKitLarge.png';
+
+const ROLE_NAMES: Record<number, string> = {
+  100: 'GK', 101: 'RD', 102: 'CD', 103: 'CD', 104: 'CD', 105: 'LD',
+  106: 'RW', 107: 'IM', 108: 'IM', 109: 'IM', 110: 'LW', 111: 'FW', 112: 'FW', 113: 'FW',
+};
+
+function specialtyPositionText(group: SpecialtyPositionGroup) {
+  const roleCounts = new Map<string, number>();
+  for (const roleId of group.roleIds) {
+    const role = ROLE_NAMES[roleId];
+    if (role) roleCounts.set(role, (roleCounts.get(role) ?? 0) + 1);
+  }
+  const positions = [...roleCounts].map(([role, count]) => count > 1 ? `${count}x ${role}` : role);
+  return `${SPECIALTY_NAMES[group.specialtyId] ?? 'Specialty'}: ${positions.join(', ')}`;
+}
 
 export const FixtureCard: React.FC<FixtureCardProps> = ({
   homeTeam,
@@ -273,7 +339,9 @@ export const FixtureCard: React.FC<FixtureCardProps> = ({
   );
 
   return (
-    <div className={`${styles.fixtureCard} ${ratingsPreview || ratingsSharedStatus ? styles.withRatingsPreview : ''} ${status === 'finished' ? styles.withFinishedDetails : ''}`}>
+    <div
+      className={`${styles.fixtureCard} ${ratingsPreview || ratingsSharedStatus ? styles.withRatingsPreview : ''} ${status === 'finished' ? styles.withFinishedDetails : ''}`}
+    >
       <div className={styles.teamContainer}>
         <div className={styles.logoWrapper}>
           {!homeTeam.isBye && (
@@ -295,7 +363,11 @@ export const FixtureCard: React.FC<FixtureCardProps> = ({
         {date && (
           <div className={styles.dateRow}>
             <div className={styles.date}>{date}</div>
-            {dateIsEstimated && <span className={styles.estimatedDate} title="Estimated from the planned schedule">Estimated</span>}
+            {dateIsEstimated && (
+              <span className={styles.estimatedDate} title="Estimated from the planned schedule">
+                Estimated
+              </span>
+            )}
             {matchTypeInfo && (
               <>
                 <span
@@ -402,7 +474,7 @@ export const FixtureCard: React.FC<FixtureCardProps> = ({
                 )}
                 {preview ? (
                   <>
-                    <RatingsPitch ratings={preview.ratings} />
+                    <RatingsPitch ratings={preview.ratings} specialtyPositions={preview.specialtyPositions} />
                     <div className={styles.ratingsMetadata}>
                       <span>
                         Formation <strong>{preview.formation}</strong>
@@ -417,6 +489,14 @@ export const FixtureCard: React.FC<FixtureCardProps> = ({
                         Set Pieces taker <strong>{preview.setPieces}</strong>
                       </span>
                     </div>
+                    {preview.specialtyPositions.length > 0 && (
+                      <div className={styles.specialtySummary} aria-label="Player specialties by position">
+                        <span className={styles.specialtySummaryLabel}>Specialties:</span>
+                        {preview.specialtyPositions.map((group) => (
+                          <span key={group.specialtyId}><strong>{specialtyPositionText(group)}</strong></span>
+                        ))}
+                      </div>
+                    )}
                     <div
                       className={`${styles.ratingsPreviewActions} ${styles.ratingsPreviewActionsEdgeAligned} ${
                         side === 'away' ? styles.ratingsPreviewActionsAway : ''
@@ -494,13 +574,32 @@ export const FixtureCard: React.FC<FixtureCardProps> = ({
                   <span>match performance</span>
                   {side === 'away' && <strong>{team.name}</strong>}
                 </div>
-                <RatingsPitch ratings={actualRatingsDisplay(performance)} />
+                <RatingsPitch
+                  ratings={actualRatingsDisplay(performance)}
+                  specialtyPositions={performance?.specialtyPositions ?? []}
+                />
                 <div className={styles.ratingsMetadata}>
-                  <span>Formation <strong>{performance?.formation || '—'}</strong></span>
-                  <span>Tactic <strong>{performance?.tacticName || '—'}</strong></span>
-                  <span>Tactic skill <strong>{performance?.tacticSkill ?? '—'}</strong></span>
-                  <span>Set Pieces skill <strong>{skillDisplay(taker?.skill)}</strong></span>
+                  <span>
+                    Formation <strong>{performance?.formation || '—'}</strong>
+                  </span>
+                  <span>
+                    Tactic <strong>{performance?.tacticName || '—'}</strong>
+                  </span>
+                  <span>
+                    Tactic skill <strong>{performance?.tacticSkill ?? '—'}</strong>
+                  </span>
+                  <span>
+                    Set Pieces skill <strong>{skillDisplay(taker?.skill)}</strong>
+                  </span>
                 </div>
+                {!!performance?.specialtyPositions?.length && (
+                  <div className={styles.specialtySummary} aria-label="Player specialties by position">
+                    <span className={styles.specialtySummaryLabel}>Specialties:</span>
+                    {performance.specialtyPositions.map((group) => (
+                      <span key={group.specialtyId}><strong>{specialtyPositionText(group)}</strong></span>
+                    ))}
+                  </div>
+                )}
               </div>
             );
           })}

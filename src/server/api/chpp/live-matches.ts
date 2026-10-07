@@ -1,7 +1,9 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { getServiceSupabase } from '../_lib/supabase.js';
 import { getAuthHeader } from '../_lib/chpp-auth.js';
-import { fetchMatchLineupSetPiecesTaker, fetchSetPiecesSkillForPlayer } from '../_lib/fixture-ratings.js';
+import { fetchMatchLineupDetails, fetchSetPiecesSkillForPlayer } from '../_lib/fixture-ratings.js';
+import { fetchOwnedTeamPlayerSpecialtiesFromChpp } from '../_lib/manager-compendium.js';
+import { summarizeSpecialtyPositions } from '../../../../shared/player-specialties.js';
 import { readChppTag, type ParsedTeamDetails } from '../_lib/chpp-xml.js';
 import { fetchFixtureHomeAwayKits } from '../_lib/chpp-fixture-kits.js';
 import {
@@ -90,6 +92,11 @@ export async function attachRefreshedTakerSkills(
     if (!sideName) continue;
     const targetSide = fixtureDetails[sideName];
     const previousTaker = previousTakerForTeam(previous, targetSide.teamId);
+    const previousPerformance = previous && [previous.home, previous.away]
+      .find((side) => side.teamId === targetSide.teamId)?.performance;
+    if (targetSide.performance && !targetSide.performance.specialtyPositions?.length && previousPerformance?.specialtyPositions?.length) {
+      targetSide.performance.specialtyPositions = previousPerformance.specialtyPositions;
+    }
     let taker = targetSide.performance?.setPiecesTaker || previousTaker;
 
     // Event 81 reports an in-match change. For other finished matches,
@@ -99,14 +106,31 @@ export async function attachRefreshedTakerSkills(
       ? null
       : fixture.teams.find((team) => team.htTeamId === actualSide.teamId);
     const hasCachedSkill = Boolean(taker?.skill !== null && taker?.skillCheckedAt);
-    if ((!taker || !taker.playerId) && !hasCachedSkill && teamCredentials?.oauthToken && teamCredentials.oauthTokenSecret) {
+    // Empty summaries from the earlier compendium-based lookup were not proof
+    // that a roster was fetched. Retry them against the CHPP players endpoint.
+    const needsSpecialties = !targetSide.performance?.specialtyPositions?.length;
+    let lineupDetails: Awaited<ReturnType<typeof fetchMatchLineupDetails>> | null = null;
+    if (((!taker || !taker.playerId) && !hasCachedSkill || needsSpecialties) && teamCredentials?.oauthToken && teamCredentials.oauthTokenSecret) {
       try {
-        const matchTaker = await fetchMatchLineupSetPiecesTaker(
-          { oauth_token: teamCredentials.oauthToken, oauth_token_secret: teamCredentials.oauthTokenSecret },
-          matchId,
-          actualSide.teamId,
-        );
-        if (matchTaker) {
+        const credentials = { oauth_token: teamCredentials.oauthToken, oauth_token_secret: teamCredentials.oauthTokenSecret };
+        lineupDetails = await fetchMatchLineupDetails(credentials, matchId, actualSide.teamId!);
+        if (needsSpecialties && lineupDetails.lineup.length && targetSide.performance) {
+          const consumerKey = process.env.CHPP_CONSUMER_KEY;
+          const consumerSecret = process.env.CHPP_CONSUMER_SECRET;
+          if (consumerKey && consumerSecret) {
+            try {
+              const specialties = await fetchOwnedTeamPlayerSpecialtiesFromChpp(
+                consumerKey, consumerSecret, credentials, actualSide.teamId!,
+              );
+              targetSide.performance.specialtyPositions = summarizeSpecialtyPositions(lineupDetails.lineup, specialties);
+            } catch (error) {
+              const message = error instanceof Error ? error.message : 'Unknown CHPP error';
+              console.warn(`[live-matches] player specialties unavailable for match ${matchId}, team ${actualSide.teamId}: ${message}`);
+            }
+          }
+        }
+        const matchTaker = lineupDetails.taker;
+        if (matchTaker && (!taker || !taker.playerId) && !hasCachedSkill) {
           taker = {
             ...matchTaker,
             skill: null,

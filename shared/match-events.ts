@@ -1,3 +1,5 @@
+import type { SpecialtyPositionGroup } from './player-specialties.js';
+
 export type MatchCardReason = 'nasty_play' | 'cheating' | null;
 
 // Pure event labels shared by the parser and browser tooltip fallback.
@@ -108,6 +110,14 @@ export type MatchInjurySeverity = 'plaster' | 'injury';
 export type MatchGoalCategory = 'regular' | 'other' | 'penalty_shootout';
 export type MatchDecisionType = 'regulation' | 'extra_time' | 'penalty_shootout';
 
+const SPECIAL_EVENT_GOAL_TYPES = new Set([
+  105, 106, 108, 109, 115, 116, 117, 118, 119, 125, 135, 136, 137, 138, 139, 190,
+]);
+
+export function isSpecialEventGoalType(eventTypeId: number): boolean {
+  return SPECIAL_EVENT_GOAL_TYPES.has(eventTypeId);
+}
+
 export interface MatchGoalEvent {
   eventTypeId: number;
   playerId: number | null;
@@ -191,6 +201,7 @@ export interface MatchSidePerformance {
   tacticName: string | null;
   tacticSkill: number | null;
   setPiecesTaker?: MatchSetPiecesTaker | null;
+  specialtyPositions?: SpecialtyPositionGroup[];
   possessionFirstHalf: number | null;
   possessionSecondHalf: number | null;
   ratings: MatchRatings;

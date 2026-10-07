@@ -1,3 +1,5 @@
+import type { SpecialtyPositionGroup } from '../../shared/player-specialties.js';
+
 export interface SharedFixtureRatings {
   id: string;
   fixture_id: string;
@@ -14,6 +16,7 @@ export interface SharedFixtureRatings {
   tactic: string;
   tactic_skill: number | null;
   set_pieces_skill: number | null;
+  specialty_positions: SpecialtyPositionGroup[] | null;
   fetched_at: string;
 }
 
@@ -26,7 +29,7 @@ export interface FixtureRatingShareStatus {
 // Only these existence fields may enter the shared public tournament cache.
 export const PUBLIC_FIXTURE_RATING_STATUS_FIELDS = 'fixture_id,team_id,ht_match_id';
 export const PRIVATE_FIXTURE_RATINGS_FIELDS =
-  'id,fixture_id,team_id,ht_match_id,left_attack,centre_attack,right_attack,midfield,left_defence,centre_defence,right_defence,formation,tactic,tactic_skill,set_pieces_skill,fetched_at';
+  'id,fixture_id,team_id,ht_match_id,left_attack,centre_attack,right_attack,midfield,left_defence,centre_defence,right_defence,formation,tactic,tactic_skill,set_pieces_skill,specialty_positions,fetched_at';
 
 export function attachFixtureRatingStatus<T extends { id: unknown; ht_match_id?: unknown; home_team_id?: unknown; away_team_id?: unknown }>(
   matches: T[], rows: FixtureRatingShareStatus[],

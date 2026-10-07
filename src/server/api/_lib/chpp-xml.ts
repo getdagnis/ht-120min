@@ -497,6 +497,28 @@ export function parseManagerCompendiumXml(xml: string): ParsedManagerCompendium 
   };
 }
 
+/** Returns player specialty IDs keyed by player ID; never serialize this map to clients. */
+export function parseTeamPlayerSpecialtiesXml(xml: string, teamId: number): Map<number, number> {
+  const result = new Map<number, number>();
+  for (const teamMatch of xml.matchAll(/<Team>([\s\S]*?)<\/Team>/gi)) {
+    const team = teamMatch[1];
+    const id = Number(readChppTag(team, 'TeamId') ?? readChppTag(team, 'TeamID'));
+    if (id !== teamId) continue;
+    const playerList = team.match(/<PlayerList>([\s\S]*?)<\/PlayerList>/i)?.[1] ?? '';
+    for (const playerMatch of playerList.matchAll(/<Player>([\s\S]*?)<\/Player>/gi)) {
+      const player = playerMatch[1];
+      const playerId = Number(readChppTag(player, 'PlayerID'));
+      const specialty = Number(readChppTag(player, 'Specialty'));
+      if (Number.isSafeInteger(playerId) && playerId > 0 && Number.isInteger(specialty) &&
+        (specialty === 0 || (specialty >= 1 && specialty <= 6) || specialty === 8)) {
+        result.set(playerId, specialty);
+      }
+    }
+    break;
+  }
+  return result;
+}
+
 export interface ParsedMatch {
   matchId: number;
   matchDate: string;
