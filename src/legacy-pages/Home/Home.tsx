@@ -845,7 +845,7 @@ export const Home: React.FC<{ initialData?: HomeInitialData }> = ({ initialData 
                     return (
                       <SectionCard
                         key={post.id}
-                        title="🗞 120min Weekly: In the tournaments"
+                        title={t('weeklySectionTitle')}
                         className={styles.homeWeeklyCard}
                       >
                         <NewsArticle
