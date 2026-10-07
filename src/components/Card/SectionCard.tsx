@@ -8,6 +8,7 @@ interface SectionCardProps {
   title?: React.ReactNode;
   subtitle?: React.ReactNode;
   headerRight?: React.ReactNode;
+  variant?: 'grass';
   className?: string;
   collapsible?: boolean;
   isCollapsed?: boolean;
@@ -22,7 +23,8 @@ export const SectionCard: React.FC<SectionCardProps> = ({
   title,
   subtitle,
   headerRight,
-  className = '',
+  variant,
+  className,
   collapsible = false,
   isCollapsed = false,
   onToggleCollapse,
@@ -33,13 +35,16 @@ export const SectionCard: React.FC<SectionCardProps> = ({
   const thumbStyle = thumbnailSeed ? getHeaderThumbnailStyle(thumbnailSeed, thumbnailImageUrl) : null;
 
   return (
-    <div className={`${styles.card} ${className} ${collapsible ? styles.collapsible : ''}`}>
+    <div
+      className={`${styles.card} ${className} ${variant === 'grass' ? styles.grass : ''} ${collapsible ? styles.collapsible : ''}`}
+    >
       {title && (
-        <div className={styles.header} onClick={collapsible ? onToggleCollapse : undefined}>
+        <div
+          className={`${styles.header}  ${variant === 'grass' ? styles.grass : ''}`}
+          onClick={collapsible ? onToggleCollapse : undefined}
+        >
           <div className={styles.headerLeft}>
-            {thumbnailSeed && (
-              <div className={styles.headerThumbnail} style={thumbStyle || undefined} />
-            )}
+            {thumbnailSeed && <div className={styles.headerThumbnail} style={thumbStyle || undefined} />}
             {!thumbnailSeed && headerThumbnailIndex && (
               <div className={styles.headerThumbnail}>
                 <img src={`/thumbs/thumb-${headerThumbnailIndex}.png`} alt="" />

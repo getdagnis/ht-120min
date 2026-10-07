@@ -106,6 +106,7 @@ export interface TestTournament {
   id: string;
   name: string;
   slug: string;
+  organizer_id: number | null;
   is_featured: boolean;
   status: string | null;
   created_at: string;
@@ -148,6 +149,7 @@ interface DBTeamJoin {
 
 interface DBOrganizerTournament {
   id: string;
+  organizer_id?: number | null;
   name: string;
   slug: string;
   is_featured?: boolean | null;
@@ -303,6 +305,7 @@ export const useAuth = () => {
         .from('tournaments')
         .select(`
           id,
+          organizer_id,
           name,
           slug,
           status,
@@ -338,6 +341,7 @@ export const useAuth = () => {
 
       const mapMenuTournament = (tournament: DBOrganizerTournament) => ({
         id: tournament.id,
+        organizer_id: tournament.organizer_id ?? null,
         name: tournament.name,
         slug: tournament.slug,
         is_featured: Boolean(tournament.is_featured),
@@ -347,10 +351,7 @@ export const useAuth = () => {
       });
 
       const testTours = managedRows
-        .filter(
-          (tournament) =>
-            tournament.status !== 'stopped' && (tournament.registration_type === 'sandbox' || tournament.is_test),
-        )
+        .filter((tournament) => tournament.registration_type === 'sandbox' || tournament.is_test)
         .map(mapMenuTournament);
 
       const organizerTours = managedRows
@@ -368,7 +369,14 @@ export const useAuth = () => {
           rounds: tournament.rounds ?? [],
         }));
 
-      const stoppedTours = managedRows.filter((tournament) => tournament.status === 'stopped').map(mapMenuTournament);
+      const stoppedTours = managedRows
+        .filter(
+          (tournament) =>
+            tournament.status === 'stopped' &&
+            tournament.registration_type !== 'sandbox' &&
+            !tournament.is_test,
+        )
+        .map(mapMenuTournament);
 
       setOrganizerTournaments(
         orderExoticHfiTournaments(organizerTours),

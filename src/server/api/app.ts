@@ -519,6 +519,7 @@ async function handleManagedTournaments(req: VercelRequest, res: VercelResponse)
     .from('tournaments')
     .select(`
       id,
+      organizer_id,
       name,
       slug,
       is_featured,
@@ -533,6 +534,20 @@ async function handleManagedTournaments(req: VercelRequest, res: VercelResponse)
     .neq('status', 'archived');
   if (tournamentsError) throw tournamentsError;
   return res.status(200).json({ tournaments: tournaments || [] });
+}
+
+async function handleDeleteOwnedTestTournaments(req: VercelRequest, res: VercelResponse) {
+  if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed.' });
+  const secret = getAppSessionSecret();
+  const session = secret ? verifyAppSessionCookie(req.headers.cookie, secret) : null;
+  if (!session?.userId) return res.status(401).json({ error: 'Please sign in with Hattrick first.' });
+
+  const { data, error } = await getServiceSupabase().rpc('delete_owned_test_tournaments', {
+    p_organizer_id: session.userId,
+  });
+  if (error?.code === '23514') return res.status(409).json({ error: error.message });
+  if (error) throw error;
+  return res.status(200).json({ deletedCount: Number(data) || 0 });
 }
 
 async function handleTournamentParticipation(req: VercelRequest, res: VercelResponse) {
@@ -3186,6 +3201,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         return await handleSaveLengthResults(req, res);
       case 'managed-tournaments':
         return await handleManagedTournaments(req, res);
+      case 'delete-owned-test-tournaments':
+        return await handleDeleteOwnedTestTournaments(req, res);
       case 'tournament-participation':
         return await handleTournamentParticipation(req, res);
       case 'season-slot-replacement':

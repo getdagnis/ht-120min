@@ -62,11 +62,7 @@ const ProfileTournamentList = ({
   return (
     <div className={styles.tournamentList}>
       {tournaments.map((tournament) => (
-        <Link
-          key={tournament.id}
-          href={toLocalePath(locale, `/t/${tournament.slug}`)}
-          className={styles.tournamentRow}
-        >
+        <Link key={tournament.id} href={toLocalePath(locale, `/t/${tournament.slug}`)} className={styles.tournamentRow}>
           <span className={styles.tournamentName}>{tournament.name}</span>
           {tournament.status && <span className={styles.tournamentStatus}>{tournament.status}</span>}
         </Link>
@@ -77,9 +73,20 @@ const ProfileTournamentList = ({
 
 export const ProfilePage: React.FC = () => {
   const { locale } = useLocale();
-  const { profile, activeTournaments, finishedTournaments, organizerTournaments, stoppedTournaments, authReady, loading } = useAuth();
+  const {
+    profile,
+    activeTournaments,
+    finishedTournaments,
+    organizerTournaments,
+    testTournaments,
+    stoppedTournaments,
+    refreshProfile,
+    authReady,
+    loading,
+  } = useAuth();
   const [teams, setTeams] = useState<ProfileTeam[]>([]);
   const [teamsLoaded, setTeamsLoaded] = useState(false);
+  const [deletingTestTournaments, setDeletingTestTournaments] = useState(false);
 
   useEffect(() => {
     if (!profile?.hattrick_user_id) return;
@@ -149,10 +156,17 @@ export const ProfilePage: React.FC = () => {
   const countryFlagUrl = getCountryFlagUrl(profile.country_id, countryName);
   const league = getLeagueWorldDetails(profile.league_id);
   const leagueFlagUrl = getLeagueFlagUrl(profile.league_id);
+  const createdTestTournaments = testTournaments.filter(
+    (tournament) => Number(tournament.organizer_id) === profile.hattrick_user_id,
+  );
   const summaryItems = [
     { label: 'Teams', value: teams.length, icon: <UsersThree size={18} weight="bold" /> },
     { label: 'Playing', value: activeTournaments.length, icon: <Trophy size={18} weight="bold" /> },
-    { label: 'Organizing', value: organizerTournaments.length, icon: <Medal size={18} weight="bold" /> },
+    {
+      label: 'Organizing',
+      value: organizerTournaments.length + testTournaments.length,
+      icon: <Medal size={18} weight="bold" />,
+    },
   ];
 
   return (
@@ -211,7 +225,7 @@ export const ProfilePage: React.FC = () => {
         </aside>
 
         <div className={styles.mainColumn}>
-          <SectionCard title="Registered teams">
+          <SectionCard title="Registered teams" variant="grass">
             {!teamsLoaded ? (
               <p className={styles.emptyMessage}>Loading teams...</p>
             ) : teams.length > 0 ? (
@@ -257,11 +271,49 @@ export const ProfilePage: React.FC = () => {
 
           <SectionCard title="Organized / managed tournaments">
             <div id="organized-tournaments" className={styles.anchorTarget} />
-            <ProfileTournamentList
-              tournaments={organizerTournaments}
-              emptyMessage="No organized tournaments yet."
-            />
+            <ProfileTournamentList tournaments={organizerTournaments} emptyMessage="No organized tournaments yet." />
           </SectionCard>
+
+          {testTournaments.length > 0 && (
+            <SectionCard title="Test tournaments">
+              <ProfileTournamentList tournaments={testTournaments} emptyMessage="No test tournaments." />
+              <div className={styles.testTournamentActions}>
+                {createdTestTournaments.length === 0 && (
+                  <p className={styles.emptyMessage}>Delegated test tournaments cannot be deleted here.</p>
+                )}
+                <Button
+                  type="button"
+                  variant="secondaryDanger"
+                  size="sm"
+                  disabled={createdTestTournaments.length === 0 || deletingTestTournaments}
+                  onClick={async () => {
+                    if (createdTestTournaments.length === 0 || deletingTestTournaments) return;
+                    const confirmed = window.confirm(
+                      'Permanently delete all test tournaments you created, including archived ones? This also deletes their teams, fixtures, and tournament data.',
+                    );
+                    if (!confirmed) return;
+
+                    setDeletingTestTournaments(true);
+                    try {
+                      const response = await fetch('/api/app?route=delete-owned-test-tournaments', {
+                        method: 'POST',
+                        credentials: 'include',
+                      });
+                      const payload = (await response.json()) as { error?: string; deletedCount?: number };
+                      if (!response.ok) throw new Error(payload.error || 'Could not delete test tournaments.');
+                      refreshProfile();
+                    } catch (error) {
+                      window.alert(error instanceof Error ? error.message : 'Could not delete test tournaments.');
+                    } finally {
+                      setDeletingTestTournaments(false);
+                    }
+                  }}
+                >
+                  {deletingTestTournaments ? 'Deleting…' : 'Delete all created test tournaments'}
+                </Button>
+              </div>
+            </SectionCard>
+          )}
 
           <SectionCard title="Achievements">
             <div className={styles.achievementList}>
@@ -277,7 +329,9 @@ export const ProfilePage: React.FC = () => {
                   <span className={styles.achievementIcon}>🏆</span>
                   <div>
                     <strong>Tournament participant</strong>
-                    <span>{teams.length} active registered team{teams.length === 1 ? '' : 's'}</span>
+                    <span>
+                      {teams.length} active registered team{teams.length === 1 ? '' : 's'}
+                    </span>
                   </div>
                 </div>
               )}
