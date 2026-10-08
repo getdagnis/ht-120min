@@ -5,7 +5,7 @@ export type Locale = (typeof locales)[number];
 export const localeNames = {
   en: 'English',
   it: 'Italiano',
-  lv: 'Letiņu',
+  lv: 'Letiņvalodā',
 } as const;
 
 export const defaultLocale: Locale = 'en';

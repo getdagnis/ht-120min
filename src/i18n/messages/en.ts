@@ -46,10 +46,10 @@ const messages = {
     language: 'Language',
   },
   fixtures: {
-    autoArrangeMyFixtures: 'Auto-arrange my fixtures',
+    autoArrangeMyFixtures: 'Auto-arrange my matches', // Do not auto-arrange my matches
+    autoArrangeMyFixturesDisabled: 'Do not auto-arrange my matches',
     autoArrangeTeamFixtures: 'Auto-arrange {team} fixtures',
-    autoArrangeOn: 'on',
-    autoArrangeOff: 'off',
+    autoArrangeTeamFixturesDisabled: 'Do not auto-arrange {team} fixtures',
     autoArrangeTooltip: 'Your matches will be auto-arranged if the other team has this feature on as well. If not, an automatic challenge will be sent to them.',
     autoArrangeLoadError: 'Auto-arrange status could not be loaded.',
   },
