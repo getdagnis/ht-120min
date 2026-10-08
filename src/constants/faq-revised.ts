@@ -401,15 +401,15 @@ Administrators can inspect the linked match and correct the tournament record wh
         question: 'What are teams competing for in 120-minute mode?',
         answer: `In **120-minute mode**, the main objective is to take friendly matches to extra time.
 
-The current standings order is:
+The standings rank teams by:
 
 1. number of completed matches that reached 120 minutes;
-2. regular victory points (3p for a win, 2p for a shootout win, 1pt for a regular-time tie);
+2. points;
 3. goal difference;
 4. goals scored;
 5. fewer matches played, when the earlier values are still equal.
 
-Both teams receive a 120-minute achievement when a completed match reaches extra time.`,
+Normal Rules matches earn both teams 0 points. In Cup Rules matches, a regular-time win earns 0 points; a regular-time loss earns 2 if the team scored no goals, or 1 if it scored at least one. Reaching extra time earns both teams 2 points, with 1 additional point for the match winner, including a penalty-shootout winner. Goals count only for completed matches that reached 120 minutes. Both teams receive a 120-minute achievement when a completed match reaches extra time.`,
         status: 'current',
       },
       {

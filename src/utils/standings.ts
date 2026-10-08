@@ -6,6 +6,7 @@ export interface Match {
   away_team_id: string | null;
   home_goals: number | null;
   away_goals: number | null;
+  match_type?: number | null;
   went_120: boolean;
   completed: boolean;
   total_minutes?: number;
@@ -69,6 +70,32 @@ function hasDecisivePenaltyShootout(match: Match) {
     typeof awayShootoutGoals === 'number' &&
     homeShootoutGoals !== awayShootoutGoals
   );
+}
+
+function get120MinMatchPoints(match: Match): { home: number; away: number } {
+  // Normal Rules friendlies do not offer an extra-time path, so their result
+  // never earns 120-minute-mode points.
+  if (match.match_type === 4 || match.match_type === 8) return { home: 0, away: 0 };
+
+  if (match.went_120) {
+    let home = 2;
+    let away = 2;
+    if (match.home_goals! > match.away_goals!) home = 3;
+    else if (match.away_goals! > match.home_goals!) away = 3;
+    else if (hasDecisivePenaltyShootout(match)) {
+      if (match.penalty_shootout_home_goals! > match.penalty_shootout_away_goals!) home = 3;
+      else away = 3;
+    }
+    return { home, away };
+  }
+
+  // Hattrick match types 5 and 9 are domestic and international Cup Rules friendlies.
+  if (match.match_type !== 5 && match.match_type !== 9) return { home: 0, away: 0 };
+  if (match.home_goals! === match.away_goals!) return { home: 0, away: 0 };
+
+  return match.home_goals! < match.away_goals!
+    ? { home: match.home_goals! === 0 ? 2 : 1, away: 0 }
+    : { home: 0, away: match.away_goals! === 0 ? 2 : 1 };
 }
 
 export interface Team {
@@ -184,18 +211,20 @@ export function calculateStandings(
       const opponentGoals = m.home_team_id ? m.away_goals : m.home_goals;
 
       team.played++;
-      team.gf += teamGoals;
-      team.ga += opponentGoals;
+      if (!((scoringMode === '120m' || scoringMode === '120min') && !m.went_120)) {
+        team.gf += teamGoals;
+        team.ga += opponentGoals;
+      }
       team.gd = team.gf - team.ga;
 
       if (teamGoals > opponentGoals) {
         team.won++;
-        team.pts += 3;
+        if (scoringMode !== '120m' && scoringMode !== '120min') team.pts += 3;
       } else if (teamGoals < opponentGoals) {
         team.lost++;
       } else {
         team.drawn++;
-        team.pts += 1;
+        if (scoringMode !== '120m' && scoringMode !== '120min') team.pts += 1;
       }
 
       const appgPoints = getAppgPoints(m);
@@ -220,25 +249,29 @@ export function calculateStandings(
 
     home.played++;
     away.played++;
-    home.gf += m.home_goals;
-    home.ga += m.away_goals;
-    away.gf += m.away_goals;
-    away.ga += m.home_goals;
+    const is120MinMode = scoringMode === '120m' || scoringMode === '120min';
+    if (!is120MinMode || m.went_120) {
+      home.gf += m.home_goals;
+      home.ga += m.away_goals;
+      away.gf += m.away_goals;
+      away.ga += m.home_goals;
+    }
     home.gd = home.gf - home.ga;
     away.gd = away.gf - away.ga;
 
     if (m.home_goals > m.away_goals) {
       home.won++;
-      home.pts += 3;
       away.lost++;
     } else if (m.home_goals < m.away_goals) {
       away.won++;
-      away.pts += 3;
       home.lost++;
     } else {
       home.drawn++;
       away.drawn++;
-      if (hasDecisivePenaltyShootout(m)) {
+      if (is120MinMode) {
+        // 120-minute scoring awards no points for a 90-minute draw. Reaching ET
+        // is handled below using the actual match result and shootout result.
+      } else if (hasDecisivePenaltyShootout(m)) {
         if (m.penalty_shootout_home_goals! > m.penalty_shootout_away_goals!) {
           home.pts += 2;
           away.pts += 1;
@@ -250,6 +283,16 @@ export function calculateStandings(
         home.pts += 1;
         away.pts += 1;
       }
+    }
+
+    if (is120MinMode) {
+      const points = get120MinMatchPoints(m);
+      home.pts += points.home;
+      away.pts += points.away;
+    } else if (m.home_goals > m.away_goals) {
+      home.pts += 3;
+    } else if (m.home_goals < m.away_goals) {
+      away.pts += 3;
     }
 
     const appgPoints = getAppgPoints(m);

@@ -70,7 +70,7 @@ const HAS_CREATED_TOURNAMENT_KEY = 'ht120_has_created_tournament';
 
 const SCORING_MODE_HELP: Record<string, string> = {
   '120min':
-    '120-minute achievements rank first. Ties use regular victory points (3p for a win, 2p for a shootout win, 1pt for a regular-time tie), then goal difference, goals scored and fewer matches played.',
+    '120-minute achievements rank first, followed by points, goal difference, goals scored and fewer matches played. Normal Rules matches earn 0 points. In Cup Rules, a regular-time win earns 0; a loss earns 2 if the team scored no goals or 1 if it scored at least one. Reaching extra time earns both teams 2, with 1 extra point for the match winner. Goals count only in matches that reached 120 minutes.',
   points:
     "For those who don't like 120min friendlies. Regular 90-minute points: 3 points for a win, 2 for a shootout win, 1 for a regular-time tie and 0 for a loss.",
   appg: "Made on special request from England. Average Points Per Game for 120-minute tournaments that do not follow a strict schedule (teams play different amount of games). Points are awarded based on 120 min matches, then team's total is divided by its completed matches.",

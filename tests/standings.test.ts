@@ -59,6 +59,7 @@ test('penalty shootouts award 2 points to the winner and 1 point to the loser', 
     away_goals: 0,
     penalty_shootout_home_goals: 3,
     penalty_shootout_away_goals: 2,
+    match_type: 5,
     went_120: true,
     completed: true,
   };
@@ -71,7 +72,62 @@ test('penalty shootouts award 2 points to the winner and 1 point to the loser', 
   const standings120min = calculateStandings(teams, [shootout], '120min');
   assert.equal(standings120min[0].teamId, 'home');
   assert.equal(standings120min[0].achievements120min, 1);
-  assert.equal(standings120min[0].pts, 2);
+  assert.equal(standings120min[0].pts, 3);
+  assert.equal(standings120min[1].pts, 2);
+});
+
+test('120-minute scoring gives no points for Normal Rules regardless of result', () => {
+  const teams = [
+    { id: 'home', name: 'Home', ht_team_id: 1, hattrick_user_id: 1, active: true, replacement_for_team_id: null },
+    { id: 'away', name: 'Away', ht_team_id: 2, hattrick_user_id: 2, active: true, replacement_for_team_id: null },
+  ];
+  const matches = [
+    { home_team_id: 'home', away_team_id: 'away', home_goals: 3, away_goals: 0, match_type: 4, went_120: false, completed: true },
+    { home_team_id: 'home', away_team_id: 'away', home_goals: 0, away_goals: 2, match_type: 8, went_120: true, completed: true },
+  ];
+  const standings = calculateStandings(teams, matches, '120min');
+
+  assert.equal(standings.find((team) => team.teamId === 'home')?.pts, 0);
+  assert.equal(standings.find((team) => team.teamId === 'away')?.pts, 0);
+});
+
+test('120-minute Cup Rules points reward a scoreless loss more than a scoring loss', () => {
+  const teams = [
+    { id: 'home', name: 'Home', ht_team_id: 1, hattrick_user_id: 1, active: true, replacement_for_team_id: null },
+    { id: 'away', name: 'Away', ht_team_id: 2, hattrick_user_id: 2, active: true, replacement_for_team_id: null },
+    { id: 'other', name: 'Other', ht_team_id: 3, hattrick_user_id: 3, active: true, replacement_for_team_id: null },
+  ];
+  const matches = [
+    { home_team_id: 'home', away_team_id: 'away', home_goals: 2, away_goals: 0, match_type: 5, went_120: false, completed: true },
+    { home_team_id: 'home', away_team_id: 'other', home_goals: 2, away_goals: 1, match_type: 9, went_120: false, completed: true },
+  ];
+  const standings = calculateStandings(teams, matches, '120min');
+
+  assert.equal(standings.find((team) => team.teamId === 'home')?.pts, 0);
+  assert.equal(standings.find((team) => team.teamId === 'away')?.pts, 2);
+  assert.equal(standings.find((team) => team.teamId === 'other')?.pts, 1);
+});
+
+test('120-minute goals and goal difference include only matches that reached extra time', () => {
+  const teams = [
+    { id: 'home', name: 'Home', ht_team_id: 1, hattrick_user_id: 1, active: true, replacement_for_team_id: null },
+    { id: 'away', name: 'Away', ht_team_id: 2, hattrick_user_id: 2, active: true, replacement_for_team_id: null },
+  ];
+  const standings = calculateStandings(teams, [
+    { home_team_id: 'home', away_team_id: 'away', home_goals: 3, away_goals: 0, match_type: 5, went_120: false, completed: true },
+    { home_team_id: 'home', away_team_id: 'away', home_goals: 1, away_goals: 2, match_type: 5, went_120: true, completed: true },
+  ], '120min');
+  const home = standings.find((team) => team.teamId === 'home');
+  const away = standings.find((team) => team.teamId === 'away');
+
+  assert.equal(home?.gf, 1);
+  assert.equal(home?.ga, 2);
+  assert.equal(home?.gd, -1);
+  assert.equal(away?.gf, 2);
+  assert.equal(away?.ga, 1);
+  assert.equal(away?.gd, 1);
+  assert.equal(home?.pts, 2);
+  assert.equal(away?.pts, 5);
 });
 
 test('inactive current-season teams keep their stats as an open spot', () => {

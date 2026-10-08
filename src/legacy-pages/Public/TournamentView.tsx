@@ -5638,12 +5638,12 @@ export const TournamentView: React.FC<{
                 </p>
                 {showScoringHelp && (
                   <p className={styles.helpContent}>
-                    Teams in this tournament compete to collect as many completed 120-minute training matches as
-                    possible. Standings are ranked first by <strong>120min achievements</strong>. If teams are tied, the
-                    current tie-breakers are <strong>regular victory points</strong> (3p for a win, 2p for a shootout
-                    win, 1pt for a regular-time tie), then <strong>goal difference</strong>, then{' '}
-                    <strong>goals scored</strong>, then fewer matches played. In other words: get the match to 120
-                    minutes first; after that, football still settles the close calls.
+                    Teams are ranked first by <strong>120min achievements</strong>, then points, goal difference, goals
+                    scored and fewer matches played. Normal Rules matches award no points. In Cup Rules matches, a
+                    regular-time win earns 0 points; a regular-time loss earns 2 if the team scored no goals, or 1 if
+                    it scored at least one. Reaching extra time earns both teams 2 points, with 1 additional point for
+                    the match winner, including a penalty-shootout winner. Goals count only in matches that reached
+                    120 minutes.
                   </p>
                 )}
               </div>

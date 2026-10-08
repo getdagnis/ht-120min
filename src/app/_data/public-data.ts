@@ -303,6 +303,7 @@ export async function buildTournamentInitialData(tournament: Record<string, unkn
       away_slot_id: (match.away_slot_id as string | null) || null,
       home_goals: Number(match.home_goals || 0),
       away_goals: Number(match.away_goals || 0),
+      match_type: Number(match.match_type || 0) || null,
       completed: Boolean(match.completed),
       went_120: Boolean(match.went_120),
       total_minutes: Number(match.total_minutes || 90),
