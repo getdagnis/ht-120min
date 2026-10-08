@@ -10,6 +10,16 @@
   p
     margin: 0 0 1.5rem
 
-  a
-    color: inherit
-    text-decoration: underline
+.actions
+  display: flex
+  align-items: center
+  justify-content: center
+  gap: 1.5rem
+
+  @media (max-width: 620px)
+    flex-wrap: wrap
+
+.reportLink
+  color: var(--danger)
+  font-weight: 600
+  text-decoration: underline
