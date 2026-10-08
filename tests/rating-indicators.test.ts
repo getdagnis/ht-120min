@@ -8,10 +8,10 @@ import {
 } from '../src/utils/rating-indicators.ts';
 
 test('mindset indicators recognize only full defensive and offensive settings', () => {
-  assert.deepEqual(getMatchMindsetIndicator(-10), { label: 'Defensive 100%', score: 1 });
-  assert.deepEqual(getMatchMindsetIndicator(-1000), { label: 'Defensive 100%', score: 1 });
-  assert.deepEqual(getMatchMindsetIndicator(10), { label: 'Offensive 100%', score: 3 });
-  assert.deepEqual(getMatchMindsetIndicator(1000), { label: 'Offensive 100%', score: 3 });
+  assert.deepEqual(getMatchMindsetIndicator(-10), { label: '100% Defensive', score: 1 });
+  assert.deepEqual(getMatchMindsetIndicator(-1000), { label: '100% Defensive', score: 1 });
+  assert.deepEqual(getMatchMindsetIndicator(10), { label: '100% Offensive', score: 3 });
+  assert.deepEqual(getMatchMindsetIndicator(1000), { label: '100% Offensive', score: 3 });
   assert.equal(getMatchMindsetIndicator(-8), null);
   assert.equal(getMatchMindsetIndicator(0), null);
   assert.equal(getMatchMindsetIndicator(800), null);

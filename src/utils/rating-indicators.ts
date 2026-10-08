@@ -1,11 +1,11 @@
 export type RatingIndicatorScore = 1 | 2 | 3 | 4;
 
 export function getMatchMindsetIndicator(styleOfPlay: number | null | undefined): {
-  label: 'Defensive 100%' | 'Offensive 100%';
+  label: '100% Defensive' | '100% Offensive';
   score: 1 | 3;
 } | null {
-  if (styleOfPlay === -10 || styleOfPlay === -1000) return { label: 'Defensive 100%', score: 1 };
-  if (styleOfPlay === 10 || styleOfPlay === 1000) return { label: 'Offensive 100%', score: 3 };
+  if (styleOfPlay === -10 || styleOfPlay === -1000) return { label: '100% Defensive', score: 1 };
+  if (styleOfPlay === 10 || styleOfPlay === 1000) return { label: '100% Offensive', score: 3 };
   return null;
 }
 

@@ -138,19 +138,19 @@ function ratingIndicatorClass(score: 1 | 2 | 3 | 4 | null) {
   return score ? styles[`ratingIndicator${score}`] : undefined;
 }
 
-function TacticIndicator({ tactic, styleOfPlay }: { tactic: string | null | undefined; styleOfPlay: number | null | undefined }) {
+function TacticValue({ tactic }: { tactic: string | null | undefined }) {
+  return <span className={ratingIndicatorClass(getTacticIndicatorScore(tactic))}>{tactic || '—'}</span>;
+}
+
+function GameStyle({ styleOfPlay }: { styleOfPlay: number | null | undefined }) {
   const mindset = getMatchMindsetIndicator(styleOfPlay);
+  if (!mindset) return null;
+
   return (
-    <>
-      <span className={ratingIndicatorClass(getTacticIndicatorScore(tactic))}>{tactic || '—'}</span>
-      {mindset && (
-        <>
-          {' ('}
-          <span className={ratingIndicatorClass(mindset.score)}>{mindset.label}</span>
-          {')'}
-        </>
-      )}
-    </>
+    <span>
+      Game style{' '}
+      <strong className={ratingIndicatorClass(mindset.score)}>{mindset.label}</strong>
+    </span>
   );
 }
 
@@ -548,9 +548,10 @@ export const FixtureCard: React.FC<FixtureCardProps> = ({
                       <span>
                         Tactic{' '}
                         <strong>
-                          <TacticIndicator tactic={preview.tactic} styleOfPlay={preview.coachModifier} />
+                          <TacticValue tactic={preview.tactic} />
                         </strong>
                       </span>
+                      <GameStyle styleOfPlay={preview.coachModifier} />
                       <span>
                         Set Pieces taker{' '}
                         <strong className={ratingIndicatorClass(getSetPieceIndicatorScore(preview.setPiecesSkill))}>
@@ -660,9 +661,10 @@ export const FixtureCard: React.FC<FixtureCardProps> = ({
                   <span>
                     Tactic{' '}
                     <strong>
-                      <TacticIndicator tactic={performance?.tacticName} styleOfPlay={performance?.styleOfPlay} />
+                      <TacticValue tactic={performance?.tacticName} />
                     </strong>
                   </span>
+                  <GameStyle styleOfPlay={performance?.styleOfPlay} />
                   <span>
                     Set Pieces skill{' '}
                     <strong className={ratingIndicatorClass(getSetPieceIndicatorScore(taker?.skill))}>
