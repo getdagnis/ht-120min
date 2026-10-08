@@ -5,7 +5,7 @@ import { usePathname, useSearchParams } from 'next/navigation';
 import { useEffect, useRef, useState } from 'react';
 import { Globe } from 'phosphor-react';
 import { useLocale } from './LocaleProvider';
-import { locales } from './config';
+import { localeNames, locales } from './config';
 import styles from './LocaleSwitcher.module.sass';
 
 const localeFlags = {
@@ -62,12 +62,15 @@ export function LocaleSwitcher() {
               className={styles.item}
               aria-current={targetLocale === locale ? 'page' : undefined}
               role="menuitem"
-              onClick={() => setIsOpen(false)}
+              onClick={() => {
+                document.cookie = `ht120_locale_choice=${targetLocale}; path=/; max-age=31536000; samesite=lax`;
+                setIsOpen(false);
+              }}
             >
               <span className={styles.flag} aria-hidden="true">
                 {localeFlags[targetLocale]}
               </span>
-              <span>{targetLocale === 'en' ? messages.common.english : messages.common.latvian}</span>
+              <span>{localeNames[targetLocale]}</span>
             </Link>
           ))}
         </div>

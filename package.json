@@ -24,6 +24,7 @@
     "@vercel/node": "^5.8.12",
     "nanoid": "^5.1.11",
     "next": "^16.0.0",
+    "next-intl": "4.14.9",
     "phosphor-react": "^1.4.1",
     "react": "^19.2.6",
     "react-dom": "^19.2.6",

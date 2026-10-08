@@ -279,7 +279,7 @@ export const SupportersWall: React.FC<SupportersWallProps> = ({ variant = 'compa
           >
             <div className={styles.badge}>
               {s.type === 'pioneer' ? <Trophy size={14} weight="bold" /> : <BeerBottle size={14} weight="bold" />}
-              {s.type === 'pioneer' ? 'Early Supporter' : 'Pioneer User'}
+              {s.type === 'pioneer' ? 'Pioneer User' : 'Pioneer User'}
             </div>
             <div className={styles.cardFrame}>
               <div className={styles.name}>{s.name}</div>

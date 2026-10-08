@@ -26,8 +26,11 @@ and shared `Layout`. Unprefixed public URLs are redirected by `src/proxy.ts` to 
 - `src/legacy-pages/Home` owns Home content and public tournament entry points.
 - `src/utils/tournament-collections.ts` owns shared collection grouping and public homepage selection. Collection storage, backfill and publication are described in [tournament collections](tournament-collections.md).
 - `src/legacy-pages/Create` owns tournament creation and organizer linking.
-- `src/legacy-pages/Public/TournamentView.tsx` owns tournament tabs, admin controls, schedule operations, results,
-  chat, news, and join flows.
+- `src/legacy-pages/Public/TournamentView.tsx` owns tournament tabs, public/shared tournament data, authorization
+  checks, and mutations that update tournament, team, fixture, or season data used by multiple tabs.
+- `src/components/TournamentTabs/Admin/TournamentAdmin.tsx` owns the Admin tab UI and its panel-local interaction
+  state. `useTournamentAdminState.ts` owns admin-only form, schedule, result, team, and announcement draft state.
+  The typed controller groups shared data and page-owned mutation callbacks by admin domain.
 - `src/legacy-pages/Public/Matchmaker.tsx` owns friendly-ad browsing and Matchmaker interactions.
 - `src/legacy-pages/Forge` contains the deferred site-admin UI and remains the only React Router consumer.
 - `src/components/` contains reusable UI and tab-level client components.
@@ -35,8 +38,9 @@ and shared `Layout`. Unprefixed public URLs are redirected by `src/proxy.ts` to 
 - `src/global.sass` contains global Sass variables and theme styles; component styles use Sass modules.
 - `src/next/ClientOnlyPublicRoutes.tsx` contains temporary client-only parity boundaries for non-SSR public routes.
 
-`TournamentView.tsx` is large and stateful. Extract reusable pieces when making substantial changes, but do not
-refactor it casually during unrelated fixes.
+`TournamentView.tsx` remains large and stateful because it coordinates the public tabs and shared mutations. Keep
+admin presentation and admin-only draft state in the Admin component and hook; avoid moving shared tournament data,
+authorization decisions, or cross-tab mutations there.
 
 ## Server and data flow
 

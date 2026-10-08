@@ -1,7 +1,8 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import { Tooltip } from '../Tooltip/Tooltip';
-import styles from '../../legacy-pages/Public/TournamentView.module.sass';
+import chatStyles from './ChatView.module.sass';
+import sharedStyles from '../../legacy-pages/Public/TournamentView.module.sass';
 import { Button } from '../Button/Button';
 import { Avatar } from '../Avatar/Avatar';
 import { ArrowRight, PaperPlaneTilt, User } from 'phosphor-react';
@@ -74,20 +75,20 @@ export const AuthorTooltip = ({
   const managerFlagUrl = getCountryFlagUrl(managerCountryId, managerCountryName);
 
   return (
-    <Tooltip id={id} className={styles.chatAuthorTooltip}>
+    <Tooltip id={id} className={chatStyles.chatAuthorTooltip}>
       {avatar && (
-        <div className={styles.tooltipAvatar}>
-          <Avatar className={styles.tooltipAvatarImg} avatar={avatar} variant="rect" size={50} />
+        <div className={chatStyles.tooltipAvatar}>
+          <Avatar className={chatStyles.tooltipAvatarImg} avatar={avatar} variant="rect" size={50} />
         </div>
       )}
-      <div className={styles.tooltipDetails}>
-        <strong className={styles.tooltipManagerName}>
+      <div className={chatStyles.tooltipDetails}>
+        <strong className={chatStyles.tooltipManagerName}>
           {authorName}
-          {managerFlagUrl && <img src={managerFlagUrl} alt="" className={styles.tooltipManagerFlag} />}
+          {managerFlagUrl && <img src={managerFlagUrl} alt="" className={chatStyles.tooltipManagerFlag} />}
         </strong>
-        {teamName && <span className={styles.tooltipTeamName}>{teamName}</span>}
+        {teamName && <span className={chatStyles.tooltipTeamName}>{teamName}</span>}
         {countryName && (
-          <span className={styles.tooltipCountry}>
+          <span className={chatStyles.tooltipCountry}>
             {flagUrl && <img src={flagUrl} alt="" />}
             {countryName}
           </span>
@@ -217,10 +218,10 @@ export const ChatView: React.FC<ChatViewProps> = ({
 
   return (
     <>
-      <div className={styles.chatSection}>
-        <div className={styles.chatMessages} ref={chatContainerRef}>
+      <div className={chatStyles.chatSection}>
+        <div className={chatStyles.chatMessages} ref={chatContainerRef}>
           {displayMessages.length > visibleMessageCount && (
-            <button className={styles.loadMoreBtn} onClick={() => setVisibleMessageCount((prev) => prev + 20)}>
+            <button className={chatStyles.loadMoreBtn} onClick={() => setVisibleMessageCount((prev) => prev + 20)}>
               Load More
             </button>
           )}
@@ -243,9 +244,9 @@ export const ChatView: React.FC<ChatViewProps> = ({
 
             if (isSystem) {
               return (
-                <div key={msg.id} className={styles.systemMessage}>
-                  <div className={styles.systemMessageContent}>
-                    <span className={styles.chatContent}>{msg.content}</span>
+                <div key={msg.id} className={chatStyles.systemMessage}>
+                  <div className={chatStyles.systemMessageContent}>
+                    <span className={chatStyles.chatContent}>{msg.content}</span>
                   </div>
                 </div>
               );
@@ -254,15 +255,15 @@ export const ChatView: React.FC<ChatViewProps> = ({
             return (
               <div
                 key={msg.id}
-                className={`${styles.chatMessage} ${isOwnMessage ? styles.ownMessage : styles.otherMessage} ${isExternalManager ? styles.externalManager : ''} ${continuesPrevious ? styles.groupedMessage : ''}`}
+                className={`${chatStyles.chatMessage} ${isOwnMessage ? chatStyles.ownMessage : chatStyles.otherMessage} ${isExternalManager ? chatStyles.externalManager : ''} ${continuesPrevious ? chatStyles.groupedMessage : ''}`}
               >
-                <div className={styles.chatMessageContent}>
-                  {!continuesPrevious && <span className={styles.chatTime}>{timestamp}</span>}
+                <div className={chatStyles.chatMessageContent}>
+                  {!continuesPrevious && <span className={chatStyles.chatTime}>{timestamp}</span>}
                   {!isOwnMessage && !continuesPrevious && (
                     <>
                       <button
                         onClick={() => handleOpenProfile(msg.author_ht_id)}
-                        className={styles.chatAuthor}
+                        className={chatStyles.chatAuthor}
                         data-tooltip-id={`author-tooltip-${msg.id}`}
                       >
                         {msg.profiles?.avatar_json && (
@@ -273,7 +274,7 @@ export const ChatView: React.FC<ChatViewProps> = ({
                           <img
                             src={authorFlagUrl}
                             alt={authorCountryName || 'Country flag'}
-                            className={styles.chatAuthorFlag}
+                            className={chatStyles.chatAuthorFlag}
                           />
                         )}
                       </button>
@@ -296,9 +297,9 @@ export const ChatView: React.FC<ChatViewProps> = ({
                     </>
                   )}
                   <div
-                    className={`${styles.chatBubble} ${isBigEmoji ? styles.bigEmojiBubble : ''} ${msg.global_message ? styles.globalMessage : ''}`}
+                    className={`${chatStyles.chatBubble} ${isBigEmoji ? chatStyles.bigEmojiBubble : ''} ${msg.global_message ? chatStyles.globalMessage : ''}`}
                   >
-                    <span className={`${styles.chatContent} ${isBigEmoji ? styles.bigEmoji : ''}`}>{msg.content}</span>
+                    <span className={`${chatStyles.chatContent} ${isBigEmoji ? chatStyles.bigEmoji : ''}`}>{msg.content}</span>
                   </div>
                 </div>
               </div>
@@ -307,8 +308,8 @@ export const ChatView: React.FC<ChatViewProps> = ({
         </div>
 
         {myHtUserId ? (
-          <form onSubmit={handleSubmit} className={styles.chatInputArea}>
-            <div className={styles.chatInputRow}>
+          <form onSubmit={handleSubmit} className={chatStyles.chatInputArea}>
+            <div className={chatStyles.chatInputRow}>
               <input
                 ref={chatInputRef}
                 type="text"
@@ -316,18 +317,18 @@ export const ChatView: React.FC<ChatViewProps> = ({
                 onChange={(e) => setNewChatContent(e.target.value)}
                 placeholder="Say something..."
                 maxLength={maxMessageLength}
-                className={styles.postTextarea}
+                className={sharedStyles.postTextarea}
               />
-              <button type="submit" className={styles.sendBtn}>
+              <button type="submit" className={chatStyles.sendBtn}>
                 <PaperPlaneTilt size={22} weight="bold" />
               </button>
             </div>
-            <div className={styles.chatEmojiBar} aria-label="Quick emoji picker">
+            <div className={chatStyles.chatEmojiBar} aria-label="Quick emoji picker">
               {emojiOptions.map((emoji) => (
                 <button
                   key={emoji}
                   type="button"
-                  className={styles.chatEmojiBtn}
+                  className={chatStyles.chatEmojiBtn}
                   onClick={() => handleEmojiClick(emoji)}
                   aria-label={`Add ${emoji}`}
                 >
@@ -336,7 +337,7 @@ export const ChatView: React.FC<ChatViewProps> = ({
               ))}
             </div>
             {allowGlobalMessageControl && isLocalhost && myHtUserId === 8777402 && (
-              <label className={styles.globalMessageToggle}>
+              <label className={chatStyles.globalMessageToggle}>
                 <input
                   type="checkbox"
                   checked={globalMessage}
@@ -347,8 +348,8 @@ export const ChatView: React.FC<ChatViewProps> = ({
             )}
           </form>
         ) : (
-          <div className={styles.loginToPost}>
-            <Button size="sm" onClick={handleLogin} variant="primary" className={styles.chatLoginBtn} type="button">
+          <div className={chatStyles.loginToPost}>
+            <Button size="sm" onClick={handleLogin} variant="primary" className={chatStyles.chatLoginBtn} type="button">
               <User size={18} weight="bold" />
               <span>Login to chat</span>
               <ArrowRight size={18} className="hideOnTable" />

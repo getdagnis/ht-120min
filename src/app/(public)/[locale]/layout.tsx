@@ -3,6 +3,8 @@ import { notFound } from 'next/navigation';
 import Script from 'next/script';
 import type { Metadata } from 'next';
 import type { ReactNode } from 'react';
+import { NextIntlClientProvider } from 'next-intl';
+import { getMessages, setRequestLocale } from 'next-intl/server';
 import { Layout } from '../../../components/Layout/Layout';
 import { ScrollToTop } from '../../../components/ScrollToTop';
 import { barlow, barlowCondensed, ibmPlexMono, notoColorEmoji } from '../../../fonts';
@@ -60,6 +62,8 @@ export default async function PublicLocaleLayout({
   const { locale: rawLocale } = await params;
   if (!isLocale(rawLocale)) notFound();
   const locale = rawLocale as Locale;
+  setRequestLocale(locale);
+  const messages = await getMessages();
   const sessionToken = (await cookies()).get('ht_session')?.value;
   const sessionSecret = getAppSessionSecret();
   const session =
@@ -82,8 +86,10 @@ export default async function PublicLocaleLayout({
         />
         <div id="root">
           <LocaleProvider locale={locale}>
-            <ScrollToTop />
-            <Layout excludeAnalytics={excludeAnalytics}>{children}</Layout>
+            <NextIntlClientProvider locale={locale} messages={messages}>
+              <ScrollToTop />
+              <Layout excludeAnalytics={excludeAnalytics}>{children}</Layout>
+            </NextIntlClientProvider>
           </LocaleProvider>
         </div>
       </body>

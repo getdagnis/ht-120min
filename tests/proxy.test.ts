@@ -9,20 +9,34 @@ function locationPath(response: Response) {
   return new URL(location, 'https://ht-120min.test').pathname;
 }
 
-test('redirects the root request to the default locale', () => {
-  const response = proxy(new NextRequest('https://ht-120min.test/'));
-
-  assert.equal(response.status, 308);
-  assert.equal(locationPath(response), '/en');
-});
-
-test('uses the browser language for the initial locale redirect', () => {
+test('defaults to English regardless of browser language or a legacy locale cookie', () => {
   const response = proxy(
-    new NextRequest('https://ht-120min.test/create', { headers: { 'accept-language': 'lv-LV,lv;q=0.9,en;q=0.8' } }),
+    new NextRequest('https://ht-120min.test/', {
+      headers: {
+        'accept-language': 'lv-LV,lv;q=0.9,en;q=0.8',
+        cookie: 'ht120_locale=lv',
+      },
+    }),
   );
 
-  assert.equal(response.status, 308);
+  assert.equal(response.status, 307);
+  assert.equal(locationPath(response), '/en');
+  assert.equal(response.headers.get('cache-control'), 'private, no-store');
+});
+
+test('uses the explicitly selected locale for unprefixed paths', () => {
+  const response = proxy(
+    new NextRequest('https://ht-120min.test/create?step=teams', {
+      headers: {
+        'accept-language': 'en-US,en;q=0.9',
+        cookie: 'ht120_locale=lv; ht120_locale_choice=lv',
+      },
+    }),
+  );
+
+  assert.equal(response.status, 307);
   assert.equal(locationPath(response), '/lv/create');
+  assert.equal(new URL(response.headers.get('location')!).search, '?step=teams');
 });
 
 test('disables the Forge testing shortcut unless Forge is explicitly enabled', () => {

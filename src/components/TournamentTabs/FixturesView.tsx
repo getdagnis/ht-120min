@@ -719,12 +719,15 @@ export const FixturesView: React.FC<FixturesViewProps> = ({
           {!isHistorical && autoArrangePreferences.length > 0 && (
             <div className={styles.autoArrangePreferences}>
               {autoArrangePreferences.map((preference) => {
-                const state = preference.enabled ? messages.fixtures.autoArrangeOn : messages.fixtures.autoArrangeOff;
-                const label = autoArrangePreferences.length === 1
-                  ? messages.fixtures.autoArrangeMyFixtures.replace('{state}', state)
-                  : messages.fixtures.autoArrangeTeamFixtures
-                      .replace('{team}', preference.teamName)
-                      .replace('{state}', state);
+                const isPersonalPreference = autoArrangePreferences.length === 1;
+                const label = isPersonalPreference
+                  ? preference.enabled
+                    ? messages.fixtures.autoArrangeMyFixtures
+                    : messages.fixtures.autoArrangeMyFixturesDisabled
+                  : (preference.enabled
+                    ? messages.fixtures.autoArrangeTeamFixtures
+                    : messages.fixtures.autoArrangeTeamFixturesDisabled)
+                      .replace('{team}', preference.teamName);
                 const tooltipId = `auto-arrange-${tournament?.id}-${season}-${preference.teamId}`;
                 return (
                   <div className={styles.autoArrangeControl} key={preference.teamId}>
