@@ -10,6 +10,7 @@ import {
   getSetPieceIndicatorScore,
   getTacticIndicatorScore,
 } from '../../utils/rating-indicators';
+import type { RatingIndicatorScore } from '../../utils/rating-indicators';
 import type { MatchSideEventDetails, MatchSidePerformance } from '../../../shared/match-events';
 import type { SpecialtyPositionGroup } from '../../../shared/player-specialties';
 import { getLiveClockDisplay, type LiveMatchClock } from '../../../shared/live-match';
@@ -134,8 +135,9 @@ function specialtyMarkersForSector(groups: SpecialtyPositionGroup[], sector: Rat
   return [...counts].map(([specialtyId, count]) => ({ specialtyId, count }));
 }
 
-function ratingIndicatorClass(score: 1 | 2 | 3 | 4 | null) {
-  return score ? styles[`ratingIndicator${score}`] : undefined;
+function ratingIndicatorClass(score: RatingIndicatorScore | null | undefined) {
+  if (score === null || score === undefined || score === 0) return undefined;
+  return styles[`ratingIndicator${score}`];
 }
 
 function TacticValue({ tactic }: { tactic: string | null | undefined }) {
@@ -148,8 +150,7 @@ function GameStyle({ styleOfPlay }: { styleOfPlay: number | null | undefined }) 
 
   return (
     <span>
-      Game style{' '}
-      <strong className={ratingIndicatorClass(mindset.score)}>{mindset.label}</strong>
+      Style <strong className={ratingIndicatorClass(mindset.score)}>{mindset.label}</strong>
     </span>
   );
 }
@@ -666,7 +667,7 @@ export const FixtureCard: React.FC<FixtureCardProps> = ({
                   </span>
                   <GameStyle styleOfPlay={performance?.styleOfPlay} />
                   <span>
-                    Set Pieces skill{' '}
+                    SP taker{' '}
                     <strong className={ratingIndicatorClass(getSetPieceIndicatorScore(taker?.skill))}>
                       {skillDisplay(taker?.skill)}
                     </strong>

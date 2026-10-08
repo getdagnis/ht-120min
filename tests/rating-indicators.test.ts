@@ -7,13 +7,13 @@ import {
   getTacticIndicatorScore,
 } from '../src/utils/rating-indicators.ts';
 
-test('mindset indicators recognize only full defensive and offensive settings', () => {
+test('mindset indicators show only full defensive settings', () => {
   assert.deepEqual(getMatchMindsetIndicator(-10), { label: '100% Defensive', score: 1 });
   assert.deepEqual(getMatchMindsetIndicator(-1000), { label: '100% Defensive', score: 1 });
-  assert.deepEqual(getMatchMindsetIndicator(10), { label: '100% Offensive', score: 3 });
-  assert.deepEqual(getMatchMindsetIndicator(1000), { label: '100% Offensive', score: 3 });
-  assert.equal(getMatchMindsetIndicator(-8), null);
   assert.equal(getMatchMindsetIndicator(0), null);
+  assert.equal(getMatchMindsetIndicator(10), null);
+  assert.equal(getMatchMindsetIndicator(1000), null);
+  assert.equal(getMatchMindsetIndicator(-8), null);
   assert.equal(getMatchMindsetIndicator(800), null);
   assert.equal(getMatchMindsetIndicator(null), null);
 });
@@ -23,9 +23,9 @@ test('formation indicators use the canonical complete-formation scores', () => {
     '5-5-0': 1,
     '5-4-1': 1,
     '5-3-2': 1,
-    '5-2-3': 2,
-    '4-5-1': 2,
-    '4-4-2': 2,
+    '5-2-3': 1,
+    '4-5-1': 1,
+    '4-4-2': 0,
     '4-3-3': 3,
     '3-5-2': 3,
     '3-4-3': 4,
@@ -42,7 +42,7 @@ test('formation indicators use the canonical complete-formation scores', () => {
 test('tactic indicators recognize displayed labels and leave unknown values uncolored', () => {
   const expected: Record<string, number> = {
     Pressing: 1,
-    Normal: 3,
+    Normal: 0,
     'Attack in wings': 4,
     'Attack on wings': 4,
     'Attack in the middle': 4,
