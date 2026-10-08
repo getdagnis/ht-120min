@@ -20,6 +20,7 @@ import {
 import { buildHomeSnapshot, type HomeInitialData } from '../../server/api/_lib/home-snapshot-builder.js';
 import { readCachedHomeSnapshot } from './home-snapshot.js';
 import { getPublicDataReadTimeoutMs, PUBLIC_DATA_READ_TIMEOUT_MS } from '../../utils/public-data-config.js';
+import { confirmPublicTournamentMiss } from '../../utils/public-tournament-load.js';
 export type { HomeInitialData, HomeActivityEntry } from '../../server/api/_lib/home-snapshot-builder.js';
 
 export interface TournamentInitialData {
@@ -74,9 +75,13 @@ const readTournament = async (slug: string) => {
 };
 
 export const loadTournamentInitialData = cache(async (slug: string): Promise<TournamentInitialData | null> => {
-  const tournament = await unstable_cache(() => readTournament(slug), ['tournament-header-v1', slug], {
+  const cachedTournament = await unstable_cache(() => readTournament(slug), ['tournament-header-v2', slug], {
     revalidate: TOURNAMENT_CACHE_SECONDS, tags: [tournamentSlugCacheTag(slug)],
   })();
+  // A background revalidation can leave a stale cached miss in place. Confirm
+  // misses against Supabase before the route turns them into a 404; query
+  // errors/timeouts still throw and reach the recoverable unavailable state.
+  const tournament = await confirmPublicTournamentMiss(cachedTournament, () => readTournament(slug));
   if (!tournament) return null;
   // All archived seasons are included and selected locally. Current season and
   // UTC spotlight day are explicit inputs; a season rollover cannot reuse S1.
