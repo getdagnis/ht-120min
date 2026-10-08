@@ -1820,10 +1820,7 @@ export const TournamentView: React.FC<{
       }
       try {
         if (options.invalidate !== false && !(await invalidateAfterEdit())) return;
-        const result = await readPublicTournament(
-          () => readTournamentPublicData(slug),
-          initialData || null,
-        );
+        const result = await readPublicTournament(() => readTournamentPublicData(slug), initialData || null);
         if (result.status === 'not-found') {
           setLoadError(null);
           setTournament(null);
@@ -1831,9 +1828,11 @@ export const TournamentView: React.FC<{
         }
         if (result.status === 'failed') {
           console.error('Could not refresh tournament data:', result.error);
-          setLoadError(hasLoadedTournamentRef.current
-            ? 'Tournament data could not be refreshed. Your current page data is still available. Please try again.'
-            : 'Tournament data could not be loaded. Please try again.');
+          setLoadError(
+            hasLoadedTournamentRef.current
+              ? 'Tournament data could not be refreshed. Your current page data is still available. Please try again.'
+              : 'Tournament data could not be loaded. Please try again.',
+          );
           return;
         }
         const data = result.data;
@@ -1881,9 +1880,11 @@ export const TournamentView: React.FC<{
         await hydratePrivateData(readLocalStorage(`admin_pw_${slug}`) || '');
       } catch (error) {
         console.error('Could not refresh tournament data:', error);
-        setLoadError(hasLoadedTournamentRef.current
-          ? 'Tournament data could not be refreshed. Your current page data is still available. Please try again.'
-          : 'Tournament data could not be loaded. Please try again.');
+        setLoadError(
+          hasLoadedTournamentRef.current
+            ? 'Tournament data could not be refreshed. Your current page data is still available. Please try again.'
+            : 'Tournament data could not be loaded. Please try again.',
+        );
       } finally {
         if (showLoader) setLoading(false);
       }
@@ -5362,21 +5363,10 @@ export const TournamentView: React.FC<{
       return new Set<string>();
     }
 
-    const roundStartTimes = rounds.map((round) => {
-      const matchStarts = round.matches
-        .filter((match) => match.home_team && match.away_team)
-        .map((match) => getMatchDateForRound(round, match).getTime())
-        .filter(Number.isFinite);
-      if (matchStarts.length > 0) return Math.min(...matchStarts);
-      return round.reserved_slot_date ? new Date(round.reserved_slot_date).getTime() : null;
-    });
-
     const warningTeamIds = warnings
       .filter(
         (warning) =>
-          warning.active !== false &&
-          warning.round_id === currentRoundId &&
-          typeof warning.team_id === 'string',
+          warning.active !== false && warning.round_id === currentRoundId && typeof warning.team_id === 'string',
       )
       .map((warning) => warning.team_id as string);
 
@@ -5515,12 +5505,15 @@ export const TournamentView: React.FC<{
               Season {tournament.season}
               {tournament.status === 'finished' && <span> • Finished</span>}
             </p>
-            {collectionLinks.length > 0 && <nav className={styles.collectionLinks} aria-label="Tournament collections">
-              {collectionLinks.map((collection) => <Link key={collection.slug}
-                href={toLocalePath(locale, `/collection/${collection.slug}`)}>
-                {collection.title} →
-              </Link>)}
-            </nav>}
+            {collectionLinks.length > 0 && (
+              <nav className={styles.collectionLinks} aria-label="Tournament collections">
+                {collectionLinks.map((collection) => (
+                  <Link key={collection.slug} href={toLocalePath(locale, `/collection/${collection.slug}`)}>
+                    {collection.title} →
+                  </Link>
+                ))}
+              </nav>
+            )}
             {(isAddingDescription || (tournament.description && tournament.show_description)) && (
               <div className={styles.tournamentDescription}>
                 {isAddingDescription ? (
@@ -5638,10 +5631,10 @@ export const TournamentView: React.FC<{
                   <p className={styles.helpContent}>
                     Teams are ranked first by <strong>120min achievements</strong>, then points, goal difference, goals
                     scored and fewer matches played. Normal Rules matches award no points. In Cup Rules matches, a
-                    regular-time win earns 0 points; a regular-time loss earns 2 if the team scored no goals, or 1 if
-                    it scored at least one. Reaching extra time earns both teams 2 points, with 1 additional point for
-                    the match winner, including a penalty-shootout winner. Goals count only in matches that reached
-                    120 minutes.
+                    regular-time win earns 0 points; a regular-time loss earns 2 if the team scored no goals, or 1 if it
+                    scored at least one. Reaching extra time earns both teams 2 points, with 1 additional point for the
+                    match winner, including a penalty-shootout winner. Goals count only in matches that reached 120
+                    minutes.
                   </p>
                 )}
               </div>
@@ -6699,10 +6692,12 @@ export const TournamentView: React.FC<{
                             </Button>
                           </div>
                           {renderUnsavedSettingsNote(settingsHasUnsavedChanges)}
-                          {canManageOperationalAdmin && tournament && <CollectionMembershipPanel
-                            tournamentId={tournament.id}
-                            password={adminAuthSource === 'legacy_password' ? password : ''}
-                          />}
+                          {canManageOperationalAdmin && tournament && (
+                            <CollectionMembershipPanel
+                              tournamentId={tournament.id}
+                              password={adminAuthSource === 'legacy_password' ? password : ''}
+                            />
+                          )}
                           {showAdvancedSettings && (
                             <div className={adminStyles.settingsGroup}>
                               <div className={adminStyles.field}>
