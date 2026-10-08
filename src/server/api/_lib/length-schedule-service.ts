@@ -256,8 +256,17 @@ export async function progressLengthSchedule(
   const state = await loadLengthSeason(supabase, tournamentId, seasonNumber);
   if (!state) return { advanced: false, reason: 'not_length_schedule' };
   const current = state.rounds.find((round) => round.phase_status === 'materialized');
-  if (!current || current.matches.some((match) => !isResolvedMatch(match))) {
-    return { advanced: false, reason: current ? 'round_unresolved' : 'no_materialized_round' };
+  if (!current) return { advanced: false, reason: 'no_materialized_round' };
+  const hasExpiredUnlinkedFixture = current.matches.some((match) =>
+    !match.completed &&
+    match.ht_match_id === null &&
+    (match.status === null || match.status === 'not_arranged' || match.status === 'misarranged') &&
+    match.scheduled_for !== null &&
+    new Date(match.scheduled_for).getTime() <= Date.now() &&
+    (match.schedule_resolution === 'finalized_unplayed' || !isResolvedMatch(match))
+  );
+  if (current.matches.some((match) => !isResolvedMatch(match)) && !hasExpiredUnlinkedFixture) {
+    return { advanced: false, reason: 'round_unresolved' };
   }
   const next = state.rounds.find((round) => round.round_number === current.round_number + 1) || null;
   const ranks = rankingMap(state.season.ranking_snapshot_json);
@@ -328,6 +337,13 @@ export async function progressLengthSchedule(
     if (!championTeamId) throw new Error('The Championship Final does not yet have a decisive winner.');
   }
 
+  const finalizedWarningRoundIds = state.rounds
+    .filter((round) =>
+      round.phase_status === 'completed' &&
+      round.matches.some((match) => match.schedule_resolution === 'finalized_unplayed'),
+    )
+    .map((round) => round.id);
+
   const { data, error } = await supabase.rpc('apply_length_round_transition', {
     p_tournament_id: tournamentId,
     p_season_number: seasonNumber,
@@ -337,6 +353,22 @@ export async function progressLengthSchedule(
     p_champion_team_id: championTeamId,
   });
   if (error) throw error;
+
+  // The transition may finalize an expired fixture and progress the round.
+  // Keep its warning record as history while clearing its active state.
+  const warningRoundIds = [...new Set([
+    ...finalizedWarningRoundIds,
+    ...(hasExpiredUnlinkedFixture ? [current.id] : []),
+  ])];
+  if (warningRoundIds.length > 0) {
+    const { error: warningError } = await supabase
+      .from('fixture_warnings')
+      .update({ active: false })
+      .in('round_id', warningRoundIds)
+      .eq('active', true);
+    if (warningError) throw warningError;
+  }
+
   return data;
 }
 
