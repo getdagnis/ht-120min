@@ -1,6 +1,7 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
+import { useTranslations } from 'next-intl';
 import { Trophy, BeerBottle, ArrowClockwise, ArrowsOut } from 'phosphor-react';
 import { supabase } from '../../lib/supabase';
 import { getFlagUrl } from '../../utils/ht-data';
@@ -168,6 +169,7 @@ function shuffleWithSeed<T>(items: T[], seed: number) {
 
 export const SupportersWall: React.FC<SupportersWallProps> = ({ variant = 'compact' }) => {
   const router = useRouter();
+  const t = useTranslations('Home');
   const { locale } = useLocale();
   const [shuffleSeed, setShuffleSeed] = useState(0);
   const [lookupById, setLookupById] = useState<Record<string, SupporterLookup>>({});
@@ -265,9 +267,9 @@ export const SupportersWall: React.FC<SupportersWallProps> = ({ variant = 'compa
     <div className={`${styles.wallWrapper} ${variant === 'full' ? styles.fullPage : ''}`}>
       <div className={styles.header}>
         <div className={styles.titleGroup}>
-          <h2>Wall of Honorary Mentions</h2>
+          <h2>{t('supportersTitle')}</h2>
         </div>
-        <p className={styles.intro}>Thank you for helping build the project by being an early part of it!</p>
+        <p className={styles.intro}>{t('supportersIntro')}</p>
       </div>
 
       <div className={styles.grid}>
@@ -279,7 +281,7 @@ export const SupportersWall: React.FC<SupportersWallProps> = ({ variant = 'compa
           >
             <div className={styles.badge}>
               {s.type === 'pioneer' ? <Trophy size={14} weight="bold" /> : <BeerBottle size={14} weight="bold" />}
-              {s.type === 'pioneer' ? 'Pioneer User' : 'Pioneer User'}
+              {t('supportersBadge')}
             </div>
             <div className={styles.cardFrame}>
               <div className={styles.name}>{s.name}</div>
@@ -300,7 +302,7 @@ export const SupportersWall: React.FC<SupportersWallProps> = ({ variant = 'compa
             onClick={() => setShuffleSeed((s) => s + 1)}
             className={styles.actionBtn}
           >
-            <ArrowClockwise size={18} /> Shuffle
+            <ArrowClockwise size={18} /> {t('supportersShuffle')}
           </Button>
           <Button
             variant="outlineWhite"
@@ -308,7 +310,7 @@ export const SupportersWall: React.FC<SupportersWallProps> = ({ variant = 'compa
             onClick={() => router.push(toLocalePath(locale, '/supporters'))}
             className={styles.actionBtn}
           >
-            <ArrowsOut size={18} /> Show All
+            <ArrowsOut size={18} /> {t('supportersShowAll')}
           </Button>
         </div>
       )}

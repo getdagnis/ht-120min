@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useEffect, useState } from 'react';
+import { useTranslations } from 'next-intl';
 import { Activity } from 'phosphor-react';
 import { supabase } from '../../lib/supabase';
 import { toLocalePath } from '../../next/locale-path';
@@ -32,9 +33,9 @@ interface PublicTournamentRow {
 
 const WINDOW_MS = 7 * 24 * 60 * 60 * 1000;
 
-function formatActivityDay(value: string) {
+function formatActivityDay(value: string, locale: string) {
   const date = new Date(value);
-  return date.toLocaleDateString('lv-LV', { day: '2-digit', month: '2-digit', year: 'numeric' });
+  return date.toLocaleDateString(locale === 'lv' ? 'lv-LV' : 'en-GB', { day: '2-digit', month: '2-digit', year: 'numeric' });
 }
 
 function activityDayKey(value: string) {
@@ -50,7 +51,7 @@ function openManagerProfile(event: React.MouseEvent<HTMLAnchorElement>, managerH
   window.dispatchEvent(new Event('popstate'));
 }
 
-function activityCopy(entry: HomeActivityEntry, locale: string) {
+function activityCopy(entry: HomeActivityEntry, locale: string, t: ReturnType<typeof useTranslations<'Home'>>) {
   const tournamentHref = toLocalePath(locale, `/t/${entry.tournament_slug}`);
   const newsHref = toLocalePath(locale, `/t/${entry.tournament_slug}?tab=news`);
   const tournament = <a href={tournamentHref}>{entry.tournament_display_name}</a>;
@@ -68,7 +69,7 @@ function activityCopy(entry: HomeActivityEntry, locale: string) {
         entry.manager_name
       )
     ) : (
-      'A new team'
+      t('activityNewTeam')
     );
     const team = entry.team_name ? (
       entry.team_ht_id ? (
@@ -84,43 +85,48 @@ function activityCopy(entry: HomeActivityEntry, locale: string) {
       )
     ) : null;
 
-    return (
-      <>
-        {team || manager}
-        {/* {entry.team_flag ? ` ${entry.team_flag}` : ''} */}
-        {team && manager ? ' led by ' : ''}
-        {team ? manager : null}
-        {entry.manager_flag ? ` ${entry.manager_flag}` : ''} {team ? 'have' : 'joined'} {team ? 'joined ' : ''}
-        {tournament}
-      </>
-    );
+    if (team && entry.manager_name) {
+      return t.rich('activityJoinWithTeam', {
+        team: () => team,
+        manager: () => manager,
+        flag: entry.manager_flag ? ` ${entry.manager_flag}` : '',
+        tournament: () => tournament,
+      });
+    }
+    if (team) {
+      return t.rich('activityJoinTeam', {
+        team: () => team,
+        flag: entry.manager_flag ? ` ${entry.manager_flag}` : '',
+        tournament: () => tournament,
+      });
+    }
+    if (entry.manager_name) {
+      return t.rich('activityJoinManager', {
+        manager: () => manager,
+        flag: entry.manager_flag ? ` ${entry.manager_flag}` : '',
+        tournament: () => tournament,
+      });
+    }
+    return t.rich('activityJoinUnknown', { tournament: () => tournament });
   }
   if (entry.type === 'season-start')
-    return (
-      <>
-        {tournament} has just started Season {entry.season_number || 1}.
-      </>
-    );
+    return t.rich('activitySeasonStarted', {
+      tournament: () => tournament,
+      season: entry.season_number || 1,
+    });
   if (entry.type === 'round-start')
-    return (
-      <>
-        {tournament} Round {entry.round_number} matches are being played.
-      </>
-    );
+    return t.rich('activityRoundPlaying', { tournament: () => tournament, round: entry.round_number ?? '' });
   if (entry.type === 'round-finish')
-    return (
-      <>
-        {tournament} Round {entry.round_number} matches have finished.
-      </>
-    );
-  return (
-    <>
-      {tournament} Round {entry.round_number} <a href={newsHref}>press report has been published.</a>
-    </>
-  );
+    return t.rich('activityRoundFinished', { tournament: () => tournament, round: entry.round_number ?? '' });
+  return t.rich('activityRoundReport', {
+    tournament: () => tournament,
+    round: entry.round_number ?? '',
+    report: (chunks) => <a href={newsHref}>{chunks}</a>,
+  });
 }
 
 export const GlobalActivityWidget: React.FC<GlobalActivityWidgetProps> = ({ initialEntries, locale }) => {
+  const t = useTranslations('Home');
   const [entries, setEntries] = useState(initialEntries);
 
   useEffect(() => {
@@ -217,17 +223,17 @@ export const GlobalActivityWidget: React.FC<GlobalActivityWidgetProps> = ({ init
     <section className={styles.widget} aria-labelledby="global-activity-title">
       <h2 id="global-activity-title" className={styles.header}>
         <Activity size={20} weight="bold" aria-hidden="true" />
-        <span>HT-120min latest activity</span>
+        <span>{t('activityTitle')}</span>
       </h2>
       <ul className={styles.entries}>
         {groupedEntries.map((group) => (
           <React.Fragment key={group.key}>
             <li className={styles.dateGroup}>
-              <time dateTime={group.date}>{formatActivityDay(group.date)}</time>
+              <time dateTime={group.date}>{formatActivityDay(group.date, locale)}</time>
             </li>
             {group.entries.map((entry) => (
               <li key={entry.id} className={styles.entry}>
-                <p>{activityCopy(entry, locale)}</p>
+                <p>{activityCopy(entry, locale, t)}</p>
               </li>
             ))}
           </React.Fragment>

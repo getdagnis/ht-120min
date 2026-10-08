@@ -1,5 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { usePathname, useRouter, useSearchParams } from 'next/navigation';
+import { useTranslations } from 'next-intl';
 import { Tooltip } from '../Tooltip/Tooltip';
 import chatStyles from './ChatView.module.sass';
 import sharedStyles from '../../legacy-pages/Public/TournamentView.module.sass';
@@ -156,6 +157,7 @@ export const ChatView: React.FC<ChatViewProps> = ({
   welcomeMessage = DEFAULT_TOURNAMENT_CHAT_WELCOME,
   allowGlobalMessageControl = false,
 }) => {
+  const t = useTranslations('Home');
   const [newChatContent, setNewChatContent] = useState('');
   const [globalMessage, setGlobalMessage] = useState(false);
   const isHydrationReady = useHydrationReady();
@@ -222,7 +224,7 @@ export const ChatView: React.FC<ChatViewProps> = ({
         <div className={chatStyles.chatMessages} ref={chatContainerRef}>
           {displayMessages.length > visibleMessageCount && (
             <button className={chatStyles.loadMoreBtn} onClick={() => setVisibleMessageCount((prev) => prev + 20)}>
-              Load More
+              {t('chatLoadMore')}
             </button>
           )}
           {visibleMessages.map((msg, index) => {
@@ -273,7 +275,7 @@ export const ChatView: React.FC<ChatViewProps> = ({
                         {authorFlagUrl && (
                           <img
                             src={authorFlagUrl}
-                            alt={authorCountryName || 'Country flag'}
+                            alt={authorCountryName || t('chatCountryFlag')}
                             className={chatStyles.chatAuthorFlag}
                           />
                         )}
@@ -283,10 +285,10 @@ export const ChatView: React.FC<ChatViewProps> = ({
                         authorName={msg.author_name}
                         teamName={
                           msg.author_ht_id === OFFICIAL_HT_USER_ID
-                            ? 'ht-120min creator'
+                            ? t('chatCreator')
                             : teamDetails[msg.author_ht_id]?.name ||
                               teamNames[msg.author_ht_id] ||
-                              (showGuestTeam ? 'guest' : undefined)
+                              (showGuestTeam ? t('chatGuest') : undefined)
                         }
                         countryName={teamDetails[msg.author_ht_id]?.countryName}
                         countryId={teamDetails[msg.author_ht_id]?.countryId}
@@ -315,22 +317,22 @@ export const ChatView: React.FC<ChatViewProps> = ({
                 type="text"
                 value={newChatContent}
                 onChange={(e) => setNewChatContent(e.target.value)}
-                placeholder="Say something..."
+                placeholder={t('chatPlaceholder')}
                 maxLength={maxMessageLength}
                 className={sharedStyles.postTextarea}
               />
-              <button type="submit" className={chatStyles.sendBtn}>
+              <button type="submit" className={chatStyles.sendBtn} aria-label={t('chatSend')}>
                 <PaperPlaneTilt size={22} weight="bold" />
               </button>
             </div>
-            <div className={chatStyles.chatEmojiBar} aria-label="Quick emoji picker">
+            <div className={chatStyles.chatEmojiBar} aria-label={t('chatEmojiPicker')}>
               {emojiOptions.map((emoji) => (
                 <button
                   key={emoji}
                   type="button"
                   className={chatStyles.chatEmojiBtn}
                   onClick={() => handleEmojiClick(emoji)}
-                  aria-label={`Add ${emoji}`}
+                  aria-label={t('chatAddEmoji', { emoji })}
                 >
                   {emoji}
                 </button>
@@ -343,7 +345,7 @@ export const ChatView: React.FC<ChatViewProps> = ({
                   checked={globalMessage}
                   onChange={(event) => setGlobalMessage(event.target.checked)}
                 />
-                Global message forall chats
+                {t('chatGlobalMessageToggle')}
               </label>
             )}
           </form>
@@ -351,7 +353,7 @@ export const ChatView: React.FC<ChatViewProps> = ({
           <div className={chatStyles.loginToPost}>
             <Button size="sm" onClick={handleLogin} variant="primary" className={chatStyles.chatLoginBtn} type="button">
               <User size={18} weight="bold" />
-              <span>Login to chat</span>
+              <span>{t('chatLogin')}</span>
               <ArrowRight size={18} className="hideOnTable" />
             </Button>
           </div>

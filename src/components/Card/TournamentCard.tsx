@@ -1,5 +1,6 @@
 import React from 'react';
 import Link from 'next/link';
+import { useTranslations } from 'next-intl';
 import { ArrowRight } from 'phosphor-react';
 import styles from './TournamentCard.module.sass';
 import { getTournamentBackgroundStyle } from '../../utils/visuals';
@@ -35,12 +36,13 @@ export const TournamentCard: React.FC<TournamentCardProps> = ({
   leagueCategory,
   joinHref,
 }) => {
+  const t = useTranslations('Home');
   const bgStyle = getTournamentBackgroundStyle(id, imageUrl);
 
   return (
     <div className={`${styles.card} ${className}`}>
       <div className={styles.thumbnailWrapper} style={bgStyle}>
-        {isActiveInviting && <div className={styles.invitingBadge}>Actively Inviting</div>}
+        {isActiveInviting && <div className={styles.invitingBadge}>{t('tournamentCardActivelyInviting')}</div>}
       </div>
       <div className={styles.mainContent}>
         {children}
@@ -52,7 +54,7 @@ export const TournamentCard: React.FC<TournamentCardProps> = ({
         >
           {joinHref && (
             <Link href={joinHref} className={styles.joinLink}>
-              Join <ArrowRight size={12} weight="bold" />
+              {t('tournamentCardJoin')} <ArrowRight size={12} weight="bold" />
             </Link>
           )}
         </TournamentBadgeChips>

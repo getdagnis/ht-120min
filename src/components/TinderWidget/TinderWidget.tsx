@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
+import { useTranslations } from 'next-intl';
 import { supabase } from '../../lib/supabase';
 import { Button } from '../Button/Button';
 import { Card } from '../Card/Card';
@@ -29,6 +30,7 @@ interface RecentRequest {
 
 export const TinderWidget: React.FC<MatchmakerTeaserProps> = ({ className = '' }) => {
   const router = useRouter();
+  const t = useTranslations('Home');
   const { locale } = useLocale();
   const mockDataEnabled = isMatchmakerMockDataEnabled();
   const [activeCount, setActiveCount] = useState(0);
@@ -92,30 +94,30 @@ export const TinderWidget: React.FC<MatchmakerTeaserProps> = ({ className = '' }
     <div className={`${styles.wrapper} ${className}`}>
       <div className={styles.sectionHeader}>
         <HeartBreak size={24} weight="regular" className={styles.sectionIcon} />
-        <h2>120 min Tinder</h2>
+        <h2>{t('tinderTitle')}</h2>
       </div>
 
       <Card className={styles.teaserCard}>
         <div className={styles.cardTop}>
           <img src={`/tinder3.svg`} width={32} height={32} alt="" className={styles.tinderImage} />
-          <h2>HT-120min Tinder</h2>
+          <h2>{t('tinderProductTitle')}</h2>
         </div>
         <div className={styles.pulse}>
           <div className={styles.pulseDot}></div>
           <span>
-            <span className="emoji">🔥</span> <strong>{activeCount} teams</strong> looking for a matchup
+            <span className="emoji">🔥</span> <strong>{t('tinderActiveCount', { count: activeCount })}</strong>
           </span>
         </div>
 
-        <p className={styles.description}>Find your next 120 minute training partner the modern way.</p>
+        <p className={styles.description}>{t('tinderDescription')}</p>
 
         <Button variant="primary" fullWidth onClick={() => router.push(toLocalePath(locale, '/tinder'))} className={styles.cta}>
-          Find My Match <ArrowRight size={18} weight="bold" />
+          {t('tinderCta')} <ArrowRight size={18} weight="bold" />
         </Button>
 
         {recentRequests.length > 0 && (
           <div className={styles.recentList}>
-            <span className={styles.recentLabel}>Latest searches:</span>
+            <span className={styles.recentLabel}>{t('tinderLatestSearches')}</span>
             {recentRequests.map((req) => (
               <div key={req.id} className={styles.recentItem}>
                 <div className={styles.teamLine}>
@@ -127,7 +129,7 @@ export const TinderWidget: React.FC<MatchmakerTeaserProps> = ({ className = '' }
                     />
                   )}
                   <strong>{getDisplayTeamName(req.team?.name || '', req.team?.gender_id)}</strong>
-                  {req.is_mock && <span className={styles.mockTag}>Mock</span>}
+                  {req.is_mock && <span className={styles.mockTag}>{t('tinderMock')}</span>}
                 </div>
                 <div className={styles.meta}>
                   {req.match_type === '120min' ? '120m' : '90m'} • {req.opponent_location}

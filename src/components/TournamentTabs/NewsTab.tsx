@@ -2,6 +2,7 @@
 
 import React, { useEffect, useRef, useState } from 'react';
 import { usePathname, useRouter, useSearchParams } from 'next/navigation';
+import { useTranslations } from 'next-intl';
 import { Question } from 'phosphor-react';
 import { AuthorTooltip } from './ChatView';
 import { Button } from '../Button/Button';
@@ -210,6 +211,7 @@ export const NewsArticle: React.FC<NewsArticleProps> = ({
   onCommentSubmit,
   commentSubmitting = false,
 }) => {
+  const t = useTranslations('Home');
   const { locale } = useLocale();
   const customImageUrl = post.image_url?.trim() || null;
   const fallbackImageUrl = post.is_admin ? tournamentImageUrl?.trim() || null : null;
@@ -269,7 +271,7 @@ export const NewsArticle: React.FC<NewsArticleProps> = ({
         </span>
         {authorName && (
           <span className={styles.postAuthor}>
-            {' by '}
+            {t('newsBy')}{' '}
             {authorProfileId ? (
               <button type="button" className={styles.postAuthorLink} onClick={handleOpenProfile}>
                 {authorName}
@@ -292,12 +294,12 @@ export const NewsArticle: React.FC<NewsArticleProps> = ({
           <span className={styles.postManagementActions}>
             {onEdit && (
               <button type="button" onClick={onEdit}>
-                Edit
+                {t('newsEdit')}
               </button>
             )}
             {onDelete && (
               <button type="button" onClick={onDelete}>
-                Delete
+                {t('newsDelete')}
               </button>
             )}
           </span>
@@ -312,7 +314,7 @@ export const NewsArticle: React.FC<NewsArticleProps> = ({
             type="button"
             className={styles.tournamentPressImageButton}
             onClick={() => setIsImageOpen(true)}
-            aria-label="Open tournament image"
+            aria-label={t('newsOpenTournamentImage')}
           >
             <img src={articleImageUrl} className={styles.tournamentPressImage} alt="" onError={handleImageError} />
           </button>
@@ -324,12 +326,15 @@ export const NewsArticle: React.FC<NewsArticleProps> = ({
             : post.content}
       </div>
       {!preview && reactions.length > 0 && (
-        <div className={styles.usedReactions} aria-label="Used reactions">
+        <div className={styles.usedReactions} aria-label={t('newsUsedReactions')}>
           {reactions.map((item, index) => (
             <span key={`${item.user_id}-${index}`} className={styles.usedReaction}>
               <span
                 data-tooltip-id={`reaction-author-${post.id}-${index}`}
-                aria-label={`${reactionAuthorNames[item.user_id] || `CHPP user ${item.user_id}`} reacted ${item.reaction}`}
+                aria-label={t('newsReactionBy', {
+                  author: reactionAuthorNames[item.user_id] || t('newsChppUser', { id: item.user_id }),
+                  reaction: item.reaction,
+                })}
               >
                 {item.reaction}
               </span>
@@ -349,7 +354,7 @@ export const NewsArticle: React.FC<NewsArticleProps> = ({
               onClick={() => onReaction(post.id, emoji)}
               className={`${styles.reactionBtn} ${reactions.some((item) => item.user_id === currentUserId && item.reaction === emoji) ? styles.reactionSelected : ''}`}
               disabled={!currentUserId}
-              aria-label={`React with ${emoji}`}
+              aria-label={t('newsReactWith', { emoji })}
             >
               {emoji}
             </button>
@@ -384,14 +389,14 @@ export const NewsArticle: React.FC<NewsArticleProps> = ({
           className={styles.imageModalOverlay}
           role="dialog"
           aria-modal="true"
-          aria-label="Tournament image"
+          aria-label={t('newsTournamentImage')}
           tabIndex={-1}
           onClick={() => setIsImageOpen(false)}
           onKeyDown={(event) => {
             if (event.key === 'Escape') setIsImageOpen(false);
           }}
         >
-          <img src={articleImageUrl} alt="Tournament" className={styles.imageModalContent} onError={handleImageError} />
+          <img src={articleImageUrl} alt={t('newsTournamentImageAlt')} className={styles.imageModalContent} onError={handleImageError} />
         </div>
       )}
     </article>

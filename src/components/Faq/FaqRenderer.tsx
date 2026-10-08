@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { CaretDown, ChatCircleDots } from 'phosphor-react';
+import { useTranslations } from 'next-intl';
 import type { FaqSection } from '../../constants/faq-essential';
 import styles from './FaqRenderer.module.sass';
 
@@ -75,6 +76,7 @@ function renderAnswer(answer: string) {
 }
 
 export const FaqRenderer: React.FC<FaqRendererProps> = ({ sections, className = '' }) => {
+  const t = useTranslations('Home');
   const firstItemId = sections[0]?.items[0]?.id ?? '';
   const [openItemId, setOpenItemId] = useState(firstItemId);
 
@@ -89,7 +91,7 @@ export const FaqRenderer: React.FC<FaqRendererProps> = ({ sections, className = 
       <div className={styles.faqTop}>
         <div className={styles.faqTitleWrap}>
           <ChatCircleDots size={56} weight="regular" className={styles.faqTitleIcon} />
-          <h2 className={styles.faqTitle}>FAQ</h2>
+          <h2 className={styles.faqTitle}>{t('faqTitle')}</h2>
         </div>
       </div>
 

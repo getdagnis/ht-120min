@@ -1,4 +1,5 @@
 import React from 'react';
+import { useTranslations } from 'next-intl';
 import { resolveCountryRestriction, type CountryRestrictionFormat } from '../../../shared/worlddetails';
 import styles from './TournamentBadgeChips.module.sass';
 
@@ -17,6 +18,7 @@ export const TournamentBadgeChips: React.FC<TournamentBadgeChipsProps> = ({
   scoringMode,
   children,
 }) => {
+  const t = useTranslations('Home');
   const countryRestriction = resolveCountryRestriction(countryLimit, countryLimitFormat);
   const is120min = scoringMode === '120min' || scoringMode === '120m';
 
@@ -31,7 +33,7 @@ export const TournamentBadgeChips: React.FC<TournamentBadgeChipsProps> = ({
             alt=""
             className={styles.flag}
           />
-          {countryRestriction.leagueName} Only
+          {t('tournamentCardCountryOnly', { country: countryRestriction.leagueName })}
         </div>
       )}
       {leagueCategory === 'hfi' && (

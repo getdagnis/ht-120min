@@ -1,3 +1,4 @@
+import { useTranslations } from 'next-intl';
 import { Card } from '../Card/Card';
 import { Button } from '../Button/Button';
 import styles from './BeerBanner.module.sass';
@@ -6,9 +7,8 @@ interface BeerBannerProps {
   variant?: 'default' | 'tinder';
 }
 
-const getalus_labels: string[] = ['Tip Dev a beer!'];
-
 export const BeerBanner: React.FC<BeerBannerProps> = ({ variant = 'default' }) => {
+  const t = useTranslations('common');
   const handleTip = () => {
     window.open('https://buymeacoffee.com/dagnis', '_blank');
   };
@@ -18,24 +18,21 @@ export const BeerBanner: React.FC<BeerBannerProps> = ({ variant = 'default' }) =
       <div className={styles.bannerImageWrapper} />
       <div className={styles.content}>
         <div className={styles.left}>
-          <h2 className={styles.title}>Keep the dev fueled!</h2>
-          <p className={styles.subtitle}>
-            Programming boring stuff requires coffee, programming fun stuff demands after-work beer. Fuel more of the
-            cool stuff!
-          </p>
+          <h2 className={styles.title}>{t('beerBannerTitle')}</h2>
+          <p className={styles.subtitle}>{t('beerBannerDescription')}</p>
           <Button
             variant={variant === 'tinder' ? 'tinder' : 'secondaryYellow'}
             size="md"
             className={styles.tipBtn}
             onClick={handleTip}
           >
-            {getalus_labels[0]}
+            {t('tipDevBeer')}
             <span className={styles.btnBeer}>🍺</span>
           </Button>
         </div>
         <div className={styles.right}>
           <a href="https://buymeacoffee.com/dagnis" target="_blank">
-            <img src="/bmc_qr.png" alt="Buy me a beer QR" className={styles.qrCode} />
+            <img src="/bmc_qr.png" alt={t('buyMeBeerQrAlt')} className={styles.qrCode} />
           </a>
         </div>
       </div>

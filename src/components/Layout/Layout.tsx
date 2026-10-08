@@ -4,6 +4,7 @@ import React, { useState, useEffect, useMemo, useRef, useSyncExternalStore } fro
 import { Analytics, type BeforeSendEvent } from '@vercel/analytics/next';
 import Link from 'next/link';
 import { usePathname, useRouter, useSearchParams } from 'next/navigation';
+import { useTranslations } from 'next-intl';
 import {
   Trophy,
   Sun,
@@ -96,6 +97,7 @@ function excludeLocalAnalytics(event: BeforeSendEvent) {
 }
 
 export const Layout: React.FC<LayoutProps> = ({ children, excludeAnalytics = false }) => {
+  const t = useTranslations('common');
   const router = useRouter();
   const pathname = usePathname() || '/';
   const isTinderPage = pathname.endsWith('/matchmaker') || pathname.endsWith('/tinder');
@@ -210,7 +212,7 @@ export const Layout: React.FC<LayoutProps> = ({ children, excludeAnalytics = fal
                   size="sm"
                   onClick={toggleTheme}
                   className={styles.themeToggle}
-                  aria-label="Toggle theme"
+                  aria-label={t('toggleTheme')}
                   variant="zero"
                 >
                   {theme === 'dark' ? <Sun size={20} weight="bold" /> : <Moon size={20} weight="bold" />}
@@ -221,11 +223,11 @@ export const Layout: React.FC<LayoutProps> = ({ children, excludeAnalytics = fal
                     {isCreatePage ? (
                       <>
                         <ArrowRight size={18} weight="bold" />{' '}
-                        <span className={styles.hideMobile}>JOIN A TOURNAMENT</span>
+                        <span className={styles.hideMobile}>{t('joinTournament')}</span>
                       </>
                     ) : (
                       <>
-                        <Plus size={18} weight="bold" /> <span className={styles.hideMobile}>CREATE TOURNAMENT</span>
+                        <Plus size={18} weight="bold" /> <span className={styles.hideMobile}>{t('createTournament')}</span>
                       </>
                     )}
                   </Button>
@@ -251,21 +253,21 @@ export const Layout: React.FC<LayoutProps> = ({ children, excludeAnalytics = fal
                         <div className={styles.dropdown}>
                           {activeTournaments.length > 0 && (
                             <div className={styles.dropdownInfo}>
-                              <span>ACTIVE:</span>
+                              <span>{t('active')}</span>
                               <div className={styles.activeTournamentsList}>
-                                {activeTournaments.map((t) => (
-                                  <div key={t.id} className={styles.tourItem}>
+                                {activeTournaments.map((tournament) => (
+                                  <div key={tournament.id} className={styles.tourItem}>
                                     <Link
-                                      href={toLocalePath(locale, `/t/${t.slug}`)}
+                                      href={toLocalePath(locale, `/t/${tournament.slug}`)}
                                       className={styles.dropdownLink}
                                       onClick={() => setIsUserDropdownOpen(false)}
                                     >
-                                      {t.name}
+                                      {tournament.name}
                                     </Link>
-                                    {t.nextMatchDate && (
-                                      <div className={styles.tourNextMatch} title="Next Match">
+                                    {tournament.nextMatchDate && (
+                                      <div className={styles.tourNextMatch} title={t('nextMatch')}>
                                         <Clock size={12} weight="bold" />
-                                        {t.nextMatchDate.toLocaleDateString('lv-LV', {
+                                        {tournament.nextMatchDate.toLocaleDateString('lv-LV', {
                                           day: '2-digit',
                                           month: '2-digit',
                                           hour: '2-digit',
@@ -299,7 +301,7 @@ export const Layout: React.FC<LayoutProps> = ({ children, excludeAnalytics = fal
                           )} */}
                           {visibleOrganizerTournaments.length > 0 && (
                             <div className={styles.dropdownInfo}>
-                              <span>Organizer:</span>
+                              <span>{t('organizer')}</span>
                               <div className={styles.activeTournamentsList}>
                                 {organizerPreview.map((t) => (
                                   <div key={t.id} className={styles.tourItem}>
@@ -320,13 +322,13 @@ export const Layout: React.FC<LayoutProps> = ({ children, excludeAnalytics = fal
                                 onClick={() => setIsUserDropdownOpen(false)}
                               >
                                 <ArrowRight size={18} weight="bold" />
-                                Show all tournaments
+                                {t('showAllTournaments')}
                               </Link>
                             </div>
                           )}
                           {testTournaments.length > 0 && (
                             <div className={styles.dropdownInfo}>
-                              <span>Test tournaments:</span>
+                              <span>{t('testTournaments')}</span>
                               <div className={styles.activeTournamentsList}>
                                 {testTournaments.map((t) => (
                                   <div key={t.id} className={styles.tourItem}>
@@ -351,7 +353,7 @@ export const Layout: React.FC<LayoutProps> = ({ children, excludeAnalytics = fal
                             }}
                           >
                             <Handshake size={18} />
-                            120 min Tinder
+                            {t('tinder')}
                           </button>
                           <button
                             className={styles.dropdownItem}
@@ -361,7 +363,7 @@ export const Layout: React.FC<LayoutProps> = ({ children, excludeAnalytics = fal
                             }}
                           >
                             <IdentificationCard size={18} />
-                            My Profile
+                            {t('myProfile')}
                           </button>
                           <button
                             className={styles.dropdownItem}
@@ -372,7 +374,7 @@ export const Layout: React.FC<LayoutProps> = ({ children, excludeAnalytics = fal
                             }}
                           >
                             <SignOut size={18} />
-                            Logout
+                            {t('logout')}
                           </button>
                         </div>
                       )}
@@ -380,7 +382,7 @@ export const Layout: React.FC<LayoutProps> = ({ children, excludeAnalytics = fal
                   ) : (
                     <Button size="sm" onClick={handleLogin} variant="zero" className={styles.loginBtn}>
                       <User size={18} weight="bold" />
-                      <span className={styles.hideMobile}>Login (CHPP)</span> <ArrowRight size={18} />
+                      <span className={styles.hideMobile}>{t('loginChpp')}</span> <ArrowRight size={18} />
                     </Button>
                   )}
                 </div>
@@ -394,21 +396,20 @@ export const Layout: React.FC<LayoutProps> = ({ children, excludeAnalytics = fal
           {authError && (
             <section className={styles.authFailure} role="alert">
               <div>
-                <h2>Hattrick login is temporarily unavailable</h2>
+                <h2>{t('authUnavailableTitle')}</h2>
                 <p>
-                  The site is still available, but the login connection could not be completed. Please try again
-                  shortly.
+                  {t('authUnavailableDescription')}
                   {authErrorReference && (
                     <>
                       {' '}
-                      Reference: <code>{authErrorReference}</code>
+                      {t('reference')} <code>{authErrorReference}</code>
                     </>
                   )}
                 </p>
               </div>
               <div className={styles.authFailureActions}>
                 <Button size="sm" variant="primary" onClick={handleLogin}>
-                  <User size={18} weight="bold" /> Try login again
+                  <User size={18} weight="bold" /> {t('tryLoginAgain')}
                 </Button>
                 <a
                   className={styles.authFailureLink}
@@ -416,10 +417,10 @@ export const Layout: React.FC<LayoutProps> = ({ children, excludeAnalytics = fal
                   target="_blank"
                   rel="noreferrer"
                 >
-                  Report this problem
+                  {t('reportProblem')}
                 </a>
                 <button type="button" className={styles.authFailureDismiss} onClick={dismissAuthError}>
-                  Dismiss
+                  {t('dismiss')}
                 </button>
               </div>
             </section>
@@ -437,7 +438,7 @@ export const Layout: React.FC<LayoutProps> = ({ children, excludeAnalytics = fal
                 mr_bots a.k.a. getdagnis
               </a>
               <span style={{ marginRight: '0.25rem' }}>🇱🇻</span>
-              manager of{' '}
+              {t('managerOf')}{' '}
               <a href="https://www.hattrick.org/goto.ashx?path=/Club/?TeamID=681813" target="_blank">
                 This bot team is a bot
               </a>
@@ -451,18 +452,18 @@ export const Layout: React.FC<LayoutProps> = ({ children, excludeAnalytics = fal
               href="https://www.hattrick.org/goto.ashx?path=/MyHattrick/Inbox/?actionType=newMail&userId=8777402"
               target="_blank"
             >
-              Send author a HT message!
+              {t('sendAuthorMessage')}
             </a>{' '}
             💌
-            <p className={styles.affiliated}>Not affiliated with Hattrick Ltd.</p>
+            <p className={styles.affiliated}>{t('notAffiliated')}</p>
           </div>
-          <h3>Click the CHPP logo to rate this app on Hattrick!</h3>
+          <h3>{t('rateOnHattrick')}</h3>
           <a
             href="https://www.hattrick.org/goto.ashx?path=/Community/CHPP/ChppProgramDetails.aspx?ApplicationId=5363"
             target="_blank"
           >
             <div className={styles.chpp}>
-              <img src="/svg/chpp.svg" alt="CHPP product page" width={80} />
+              <img src="/svg/chpp.svg" alt={t('chppProductPageAlt')} width={80} />
             </div>
           </a>
         </footer>

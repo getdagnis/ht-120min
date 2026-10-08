@@ -2,12 +2,12 @@
 
 import React, { useCallback, useEffect, useState } from 'react';
 import { ChatText } from 'phosphor-react';
+import { useTranslations } from 'next-intl';
 import { supabase } from '../../lib/supabase';
 import { GLOBAL_CHAT_MAX_LENGTH } from '../../utils/global-chat';
 import { NoticeDialog } from '../Modal/NoticeDialog';
 import { useNoticeDialog } from '../Modal/useNoticeDialog';
 import { ChatView, type ChatMessage } from '../TournamentTabs/ChatView';
-import { DEFAULT_GLOBAL_CHAT_WELCOME } from '../../utils/chat-welcome';
 import styles from './GlobalChatWidget.module.sass';
 
 interface GlobalChatWidgetProps {
@@ -20,6 +20,8 @@ const sortMessages = (messages: ChatMessage[]) =>
   [...messages].sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime());
 
 export const GlobalChatWidget: React.FC<GlobalChatWidgetProps> = ({ myHtUserId }) => {
+  const t = useTranslations('Home');
+  const welcomeMessage = t('chatWelcome');
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const { notice, showNotice, closeNotice } = useNoticeDialog();
 
@@ -100,12 +102,12 @@ export const GlobalChatWidget: React.FC<GlobalChatWidgetProps> = ({ myHtUserId }
       });
       const result = (await response.json().catch(() => null)) as (ChatMessage & { error?: string }) | null;
       if (!response.ok || !result || result.error) {
-        throw new Error(result?.error || 'Could not send your message.');
+        throw new Error(result?.error || t('chatSendError'));
       }
 
       addMessages(await loadProfiles([result]));
     } catch (error) {
-      showNotice(error instanceof Error ? error.message : 'Could not send your message.');
+      showNotice(error instanceof Error ? error.message : t('chatSendError'));
     }
   };
 
@@ -114,7 +116,7 @@ export const GlobalChatWidget: React.FC<GlobalChatWidgetProps> = ({ myHtUserId }
       <section className={styles.widget} aria-labelledby="global-chat-title">
         <h2 id="global-chat-title" className={styles.header}>
           <ChatText size={20} weight="bold" aria-hidden="true" />
-          <span>HT-120min chat</span>
+          <span>{t('chatTitle')}</span>
         </h2>
         <ChatView
           messages={messages}
@@ -123,7 +125,7 @@ export const GlobalChatWidget: React.FC<GlobalChatWidgetProps> = ({ myHtUserId }
           showGuestTeam={false}
           markUnknownAuthorsExternal={false}
           maxMessageLength={GLOBAL_CHAT_MAX_LENGTH}
-          welcomeMessage={DEFAULT_GLOBAL_CHAT_WELCOME}
+          welcomeMessage={welcomeMessage}
         />
       </section>
       <NoticeDialog message={notice} onClose={closeNotice} />

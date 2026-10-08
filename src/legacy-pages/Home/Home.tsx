@@ -259,6 +259,19 @@ export const Home: React.FC<{ initialData?: HomeInitialData }> = ({ initialData 
   const [latestWeeklyPosts, setLatestWeeklyPosts] = useState<HomeWeeklyPost[]>(() => initialData?.weeklyPosts || []);
   const { profile } = useAuth();
   const faqContent = useMemo(() => getPublishedFaqSections(), []);
+  const faqMessages = t.raw('faq') as {
+    sections: Record<string, { title: string }>;
+    items: Record<string, { question: string; answer: string }>;
+  };
+  const localizedFaqContent = faqContent.map((section) => ({
+    ...section,
+    title: faqMessages.sections[section.id]?.title ?? section.title,
+    items: section.items.map((item) => ({
+      ...item,
+      question: faqMessages.items[item.id]?.question ?? item.question,
+      answer: faqMessages.items[item.id]?.answer ?? item.answer,
+    })),
+  }));
 
   const showFaq = faqContent.length > 0 && SHOW_FAQ;
   const exoticHfiTournaments = collections.find((collection) => collection.slug === 'exotic-hfi')?.members || [];
@@ -867,7 +880,7 @@ export const Home: React.FC<{ initialData?: HomeInitialData }> = ({ initialData 
               </section>
             )}
 
-            {showFaq && <FaqRenderer sections={faqContent} className={`${styles.faqRenderer} ${styles.faqDesktop}`} />}
+            {showFaq && <FaqRenderer sections={localizedFaqContent} className={`${styles.faqRenderer} ${styles.faqDesktop}`} />}
           </div>
 
           <aside className={styles.rightColumn}>
@@ -952,7 +965,7 @@ export const Home: React.FC<{ initialData?: HomeInitialData }> = ({ initialData 
             </Button>
           </ScrollTo>
         </div>
-        {showFaq && <FaqRenderer sections={faqContent} className={`${styles.faqRenderer} ${styles.faqMobile}`} />}
+        {showFaq && <FaqRenderer sections={localizedFaqContent} className={`${styles.faqRenderer} ${styles.faqMobile}`} />}
       </div>
     </div>
   );

@@ -57,16 +57,17 @@ export function getCurrentRoundNumber(tournament: TournamentCardSummary) {
     : null);
 }
 
-export function getTournamentStateLabel(tournament: TournamentCardSummary) {
-  const season = `season ${tournament.season}`;
+export type TournamentCardState = 'finished' | 'paused' | 'ongoing' | 'waiting';
+
+export function getTournamentState(tournament: TournamentCardSummary): TournamentCardState {
   if (tournament.status === 'finished' ||
-      (tournament.totalMatches > 0 && tournament.totalMatches === tournament.completedMatches)) return `${season} finished`;
-  if (tournament.status === 'paused') return `${season} paused`;
-  if ((tournament.rounds || []).length > 0) return `${season} ongoing`;
-  return `waiting participants for ${season}`;
+      (tournament.totalMatches > 0 && tournament.totalMatches === tournament.completedMatches)) return 'finished';
+  if (tournament.status === 'paused') return 'paused';
+  if ((tournament.rounds || []).length > 0) return 'ongoing';
+  return 'waiting';
 }
 
-export function getTournamentCardDateLabel(tournament: TournamentCardSummary) {
+export function getTournamentCardDate(tournament: TournamentCardSummary) {
   const hasRounds = (tournament.rounds || []).length > 0;
   const finished = tournament.status === 'finished' ||
     (tournament.totalMatches > 0 && tournament.totalMatches === tournament.completedMatches);
@@ -75,10 +76,10 @@ export function getTournamentCardDateLabel(tournament: TournamentCardSummary) {
     : hasRounds || tournament.status === 'active' || tournament.status === 'paused'
       ? tournament.startedAt || tournament.plannedStartDate || tournament.created_at
       : tournament.plannedStartDate || tournament.created_at;
-  const date = new Intl.DateTimeFormat('en-GB', {
-    day: '2-digit', month: '2-digit', year: 'numeric', timeZone: 'Europe/Riga',
-  }).format(new Date(value));
-  return `${finished ? 'Finished' : hasRounds || tournament.status === 'active' || tournament.status === 'paused' ? 'Started' : 'Planned'}: ${date}`;
+  return {
+    kind: finished ? 'finished' as const : hasRounds || tournament.status === 'active' || tournament.status === 'paused' ? 'started' as const : 'planned' as const,
+    value,
+  };
 }
 
 // More mature, more played and larger tournaments lead; recent starts/plans
