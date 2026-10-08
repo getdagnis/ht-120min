@@ -20,6 +20,6 @@ test('locale names are centrally defined as language endonyms', () => {
   assert.deepEqual(localeNames, {
     en: 'English',
     it: 'Italiano',
-    lv: 'Letiņu',
+    lv: 'Letiņvalodā',
   });
 });

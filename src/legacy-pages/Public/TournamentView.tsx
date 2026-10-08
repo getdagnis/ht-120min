@@ -1852,7 +1852,11 @@ export const TournamentView: React.FC<{
         setIncludeWeek15WeekendFriendly(false);
         setIncludeWeek15WeekendFriendlyForReschedule(Boolean(tournamentData.include_week15_weekend_friendly));
         setEditIsFeatured(Boolean(tournamentData.is_featured));
-        await hydratePrivateData(readLocalStorage(`admin_pw_${slug}`) || '');
+        try {
+          await hydratePrivateData(readLocalStorage(`admin_pw_${slug}`) || '');
+        } catch (privateDataError) {
+          console.error('Could not load private tournament data:', privateDataError);
+        }
       } catch (error) {
         console.error('Could not refresh tournament data:', error);
         setLoadError(
