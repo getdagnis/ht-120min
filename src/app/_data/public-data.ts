@@ -19,7 +19,7 @@ import {
 
 import { buildHomeSnapshot, type HomeInitialData } from '../../server/api/_lib/home-snapshot-builder.js';
 import { readCachedHomeSnapshot } from './home-snapshot.js';
-import { PUBLIC_DATA_READ_TIMEOUT_MS } from '../../utils/public-data-config.js';
+import { getPublicDataReadTimeoutMs, PUBLIC_DATA_READ_TIMEOUT_MS } from '../../utils/public-data-config.js';
 export type { HomeInitialData, HomeActivityEntry } from '../../server/api/_lib/home-snapshot-builder.js';
 
 export interface TournamentInitialData {
@@ -37,7 +37,7 @@ export interface TournamentInitialData {
   seasonSlotAssignments: SeasonSlotAssignment[];
 }
 
-function getPublicSupabase() {
+function getPublicSupabase(timeoutMs = PUBLIC_DATA_READ_TIMEOUT_MS) {
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
   const key = process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY;
 
@@ -50,16 +50,17 @@ function getPublicSupabase() {
         ...init,
         cache: 'no-store',
         signal: init?.signal
-          ? AbortSignal.any([init.signal, AbortSignal.timeout(PUBLIC_DATA_READ_TIMEOUT_MS)])
-          : AbortSignal.timeout(PUBLIC_DATA_READ_TIMEOUT_MS),
+          ? AbortSignal.any([init.signal, AbortSignal.timeout(timeoutMs)])
+          : AbortSignal.timeout(timeoutMs),
       }),
     },
   });
 }
 
-export const loadHomeInitialData = cache(async (): Promise<HomeInitialData> => {
-  if (process.env.PUBLIC_HOME_SNAPSHOT_ENABLED === 'true') return readCachedHomeSnapshot();
-  const supabase = getPublicSupabase();
+export const loadHomeInitialData = cache(async (attempt = 1): Promise<HomeInitialData> => {
+  const timeoutMs = getPublicDataReadTimeoutMs(attempt);
+  if (process.env.PUBLIC_HOME_SNAPSHOT_ENABLED === 'true') return readCachedHomeSnapshot(timeoutMs);
+  const supabase = getPublicSupabase(timeoutMs);
   if (!supabase) throw new Error('Public Supabase configuration missing.');
   return buildHomeSnapshot(supabase);
 });

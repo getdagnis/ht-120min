@@ -1,6 +1,8 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { PUBLIC_DATA_READ_TIMEOUT_MS } from '../src/utils/public-data-config.js';
+import {
+  getPublicDataReadTimeoutMs, getPublicDataRetryHref, parsePublicDataAttempt, PUBLIC_DATA_READ_TIMEOUT_MS,
+} from '../src/utils/public-data-config.js';
 import { readCollectionPageData, readHomePageData } from '../src/utils/public-page-data.js';
 
 const homeData = {
@@ -13,6 +15,16 @@ const homeData = {
 
 test('shared public reads use the requested six-second timeout', () => {
   assert.equal(PUBLIC_DATA_READ_TIMEOUT_MS, 6_000);
+  assert.deepEqual([1, 2, 3].map(getPublicDataReadTimeoutMs), [6_000, 8_000, 10_000]);
+  assert.equal(getPublicDataReadTimeoutMs(4), 10_000);
+});
+
+test('public read retry attempts are bounded and advance up to the final timeout', () => {
+  assert.equal(parsePublicDataAttempt(undefined), 1);
+  assert.equal(parsePublicDataAttempt('2'), 2);
+  assert.equal(parsePublicDataAttempt('99'), 1);
+  assert.equal(getPublicDataRetryHref('/en/collection/tahiti', 1), '/en/collection/tahiti?publicDataAttempt=2');
+  assert.equal(getPublicDataRetryHref('/en?from=home', 3), '/en?from=home&publicDataAttempt=3');
 });
 
 test('Home consumer exposes a recoverable unavailable result after a cold read failure', async () => {
