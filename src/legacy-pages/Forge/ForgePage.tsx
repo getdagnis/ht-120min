@@ -436,10 +436,9 @@ function ForgeStatsSection() {
       setLoading(true);
       setError('');
       try {
-        const params = new URLSearchParams({
-          route: 'forge-stats',
-          since: new Date(Date.now() - Number(days) * 86400000).toISOString(),
-        });
+        const params = new URLSearchParams({ route: 'forge-stats' });
+        if (days === 'all') params.set('all', '1');
+        else params.set('since', new Date(Date.now() - Number(days) * 86400000).toISOString());
         if (selectedUserId) params.set('userId', String(selectedUserId));
         if (selectedVisitorId) params.set('visitorId', selectedVisitorId);
         const response = await fetch(`/api/app?${params.toString()}`, { credentials: 'include' });
@@ -461,7 +460,7 @@ function ForgeStatsSection() {
   const dailyTotals = useMemo(() => {
     const totals = new Map<string, number>();
     for (const row of data?.daily || []) totals.set(row.activity_date, (totals.get(row.activity_date) || 0) + row.event_count);
-    return Array.from(totals.entries()).slice(-30);
+    return Array.from(totals.entries());
   }, [data?.daily]);
   const maxDaily = Math.max(1, ...dailyTotals.map(([, count]) => count));
   const selectedVisitor = data?.visitors.find((visitor) => visitor.visitorId === selectedVisitorId) || null;
@@ -494,6 +493,7 @@ function ForgeStatsSection() {
               <option value="7">Last 7 days</option>
               <option value="30">Last 30 days</option>
               <option value="90">Last 90 days</option>
+              <option value="all">All data</option>
             </select>
           </label>
           <span className={styles.smallNote}>Your own identified activity is excluded from these totals by default.</span>

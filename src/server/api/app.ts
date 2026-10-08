@@ -2950,7 +2950,8 @@ async function handleForgeStats(req: VercelRequest, res: VercelResponse) {
   }
 
   const now = new Date();
-  const since = toDate(req.query.since, new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000));
+  const allData = String(req.query.all || '') === '1';
+  const since = allData ? null : toDate(req.query.since, new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000));
   const selectedUserId = Number(req.query.userId || 0) || null;
   const selectedVisitorId = readString(req.query.visitorId) || null;
   const includeAdmin = String(req.query.includeAdmin || '') === '1';
@@ -2960,10 +2961,11 @@ async function handleForgeStats(req: VercelRequest, res: VercelResponse) {
 
   await cleanupActivityEvents().catch((error) => console.warn('Activity cleanup failed:', error));
 
-  const { data: rawEvents, error: eventError } = await supabase
+  let eventQuery = supabase
     .from('activity_events')
-    .select('id, occurred_at, visitor_id, visit_id, hattrick_user_id, manager_name, event_type, route, tournament_id, team_id, referrer, country_code, language, platform, browser, user_agent, ip_address, metadata')
-    .gte('occurred_at', since.toISOString())
+    .select('id, occurred_at, visitor_id, visit_id, hattrick_user_id, manager_name, event_type, route, tournament_id, team_id, referrer, country_code, language, platform, browser, user_agent, ip_address, metadata');
+  if (since) eventQuery = eventQuery.gte('occurred_at', since.toISOString());
+  const { data: rawEvents, error: eventError } = await eventQuery
     .order('occurred_at', { ascending: false })
     .limit(10000);
   if (eventError) throw eventError;
@@ -3126,17 +3128,17 @@ async function handleForgeStats(req: VercelRequest, res: VercelResponse) {
       (left, right) => left.activity_date.localeCompare(right.activity_date) || left.event_type.localeCompare(right.event_type) || left.route.localeCompare(right.route),
     );
   } else {
-    const { data, error: dailyError } = await supabase
+    let dailyQuery = supabase
       .from('activity_daily')
-      .select('activity_date, event_type, route, event_count')
-      .gte('activity_date', since.toISOString().slice(0, 10))
-      .order('activity_date', { ascending: true });
+      .select('activity_date, event_type, route, event_count');
+    if (since) dailyQuery = dailyQuery.gte('activity_date', since.toISOString().slice(0, 10));
+    const { data, error: dailyError } = await dailyQuery.order('activity_date', { ascending: true });
     if (dailyError) throw dailyError;
     daily = data || [];
   }
 
   return res.status(200).json({
-    since: since.toISOString(),
+    since: since?.toISOString() || null,
     summary: {
       events: events.length,
       visits: visitEvents,
