@@ -26,12 +26,8 @@ import {
   FolderOpen,
   Question,
 } from 'phosphor-react';
-import {
-  DESCRIPTIONS,
-  TOURNAMENT_DEFAULT_120MIN_DEFAULTS,
-  TOURNAMENT_NAMES,
-  UNIVERSAL_TOURNAMENT_NAMES,
-} from '../../constants/descriptions';
+import { TOURNAMENT_NAMES, UNIVERSAL_TOURNAMENT_NAMES } from '../../constants/descriptions';
+import { getDescriptionPools } from '../../constants/description-pools';
 import { CREATION_TIPS } from '../../constants/creation-tips';
 import { isAppg120ScoringMode } from '../../../shared/scoring-profile';
 import {
@@ -131,9 +127,7 @@ interface LinkedOrganizer {
   hattrickUserId: number | null;
 }
 
-const getRandomDescription = () => DESCRIPTIONS[Math.floor(Math.random() * DESCRIPTIONS.length)];
-const getRandom120MinDefaultDescription = () =>
-  TOURNAMENT_DEFAULT_120MIN_DEFAULTS[Math.floor(Math.random() * TOURNAMENT_DEFAULT_120MIN_DEFAULTS.length)];
+const getRandomDescription = (descriptions: string[]) => descriptions[Math.floor(Math.random() * descriptions.length)];
 const getRandomName = (mode: string) => {
   const pool = mode === 'points' ? UNIVERSAL_TOURNAMENT_NAMES : TOURNAMENT_NAMES;
   return pool[Math.floor(Math.random() * pool.length)];
@@ -157,7 +151,7 @@ const formatEditableTournamentName = (
   return formatTournamentName(name, options);
 };
 
-const getInitialFormData = () => ({
+const getInitialFormData = (locale: string) => ({
   name: '',
   slug: '',
   scoring_mode: '120min',
@@ -166,7 +160,7 @@ const getInitialFormData = () => ({
   is_private: false,
   country_limit: '',
   include_country_flag: true,
-  description: getRandom120MinDefaultDescription(),
+  description: getRandomDescription(getDescriptionPools(locale).tournament120MinuteDefaults),
   admin_email: '',
   max_teams: '' as string | number,
 });
@@ -203,7 +197,7 @@ export const CreateTournament: React.FC = () => {
       const { formData: savedForm } = JSON.parse(saved);
       if (savedForm) return savedForm;
     }
-    return getInitialFormData();
+    return getInitialFormData(locale);
   });
 
   const [teams, setTeams] = useState<LocalTeam[]>(() => {
@@ -385,7 +379,7 @@ export const CreateTournament: React.FC = () => {
 
   const clearAll = () => {
     localStorage.removeItem('create_tournament_progress');
-    setFormData(getInitialFormData());
+    setFormData(getInitialFormData(locale));
     setTeams([]);
     setOrganizerProfile(null);
     setShowDescription(false);
@@ -706,7 +700,7 @@ export const CreateTournament: React.FC = () => {
   };
 
   const regenerateDescription = () => {
-    const newDesc = getRandomDescription();
+    const newDesc = getRandomDescription(getDescriptionPools(locale).general);
     const updatedForm = { ...formData, description: newDesc };
     setFormData(updatedForm);
     saveProgress(updatedForm);

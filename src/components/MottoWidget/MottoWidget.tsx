@@ -1,8 +1,9 @@
 import React from 'react';
 import { Card } from '../Card/Card';
 import { Quotes } from 'phosphor-react';
+import { useLocale } from 'next-intl';
 import { useRandomCycle } from '../../hooks/useRandomCycle';
-import { DESCRIPTIONS } from '../../constants/descriptions';
+import { getDescriptionPools } from '../../constants/description-pools';
 import styles from './MottoWidget.module.sass';
 
 interface MottoWidgetProps {
@@ -14,13 +15,14 @@ interface MottoWidgetProps {
 }
 
 export const MottoWidget: React.FC<MottoWidgetProps> = ({
-  items = DESCRIPTIONS,
+  items,
   intervalMs = 8000,
   className = '',
   theme = 'light',
   variant = 'default',
 }) => {
-  const currentMotto = useRandomCycle(items, intervalMs);
+  const locale = useLocale();
+  const currentMotto = useRandomCycle(items ?? getDescriptionPools(locale).general, intervalMs);
 
   return (
     <Card

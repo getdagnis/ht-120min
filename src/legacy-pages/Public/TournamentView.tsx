@@ -112,7 +112,7 @@ import { StandingsView } from '../../components/TournamentTabs/StandingsView';
 import { TournamentHistory, type TournamentSeasonComment } from '../../components/TournamentHistory/TournamentHistory';
 import { WelcomeModal } from '../../components/WelcomeModal/WelcomeModal';
 import { TournamentBadgeChips } from '../../components/TournamentBadgeChips/TournamentBadgeChips';
-import { TOURNAMENT_DEFAULT } from '../../constants/descriptions';
+import { getDescriptionPools } from '../../constants/description-pools';
 import { getTournamentFaqSections } from '../../constants/faq-essential';
 import { TOURNAMENT_ROLE_LABELS, type TournamentRole } from '../../../shared/tournament-roles';
 import { getRandomSandboxTeamId, SANDBOX_RANDOM_ATTEMPTS } from '../../constants/sandbox';
@@ -134,7 +134,8 @@ import type {
 } from '../../components/TournamentTabs/Admin/TournamentRolesPanel';
 
 const FORUM_LINK = 'https://www.hattrick.org/goto.ashx?path=/Forum/Read.aspx?n=1&nm=32&t=17685273&v=0';
-const randomTournamentDescription = () => TOURNAMENT_DEFAULT[Math.floor(Math.random() * TOURNAMENT_DEFAULT.length)];
+const randomDescriptionFromPool = (descriptions: string[]) =>
+  descriptions[Math.floor(Math.random() * descriptions.length)];
 const startHattrickLoginRedirect = () => {
   document.cookie = `auth_return_url=${encodeURIComponent(window.location.pathname + window.location.search)}; path=/; max-age=300`;
   window.location.href = '/api/auth/init';
@@ -661,6 +662,7 @@ export const TournamentView: React.FC<{
 }> = ({ initialData, collectionLinks = [] }) => {
   const { notice, showNotice: alert, closeNotice } = useNoticeDialog();
   const { locale } = useLocale();
+  const descriptionPools = getDescriptionPools(locale);
   const { slug: rawSlug } = useParams<{ slug: string }>();
   const slug = typeof rawSlug === 'string' ? rawSlug : '';
   const pathname = usePathname() || '/';
@@ -1465,7 +1467,7 @@ export const TournamentView: React.FC<{
   const storedJoinedNoticeDismissed = useHydratedLocalStorage(slug ? `joined_notice_dismissed_${slug}` : '');
 
   const regenerateDescription = (isQuick: boolean) => {
-    const randomDesc = randomTournamentDescription();
+    const randomDesc = randomDescriptionFromPool(descriptionPools.tournament);
     if (isQuick) setQuickDescription(randomDesc);
     else setEditDescription(randomDesc);
   };
@@ -6579,7 +6581,7 @@ export const TournamentView: React.FC<{
               </div>
             )}
 
-            <MottoWidget items={TOURNAMENT_DEFAULT} theme="dark" variant="sidebar" />
+            <MottoWidget items={descriptionPools.tournament} theme="dark" variant="sidebar" />
 
             {!isMobile && tournamentChat}
             {(tournament.allow_reserve_registration !== false || reserveTeams.length > 0) && (
