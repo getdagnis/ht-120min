@@ -667,7 +667,7 @@ export const FixtureCard: React.FC<FixtureCardProps> = ({
                   </span>
                   <GameStyle styleOfPlay={performance?.styleOfPlay} />
                   <span>
-                    SP taker{' '}
+                    Set Pieces taker{' '}
                     <strong className={ratingIndicatorClass(getSetPieceIndicatorScore(taker?.skill))}>
                       {skillDisplay(taker?.skill)}
                     </strong>
