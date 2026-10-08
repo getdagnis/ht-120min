@@ -169,6 +169,7 @@ function ratingsDisplay(row: SharedFixtureRatings | undefined) {
     tactic: row.tactic,
     tacticSkill: skillDisplay(row.tactic_skill),
     setPieces: skillDisplay(row.set_pieces_skill),
+    setPiecesSkill: row.set_pieces_skill,
     specialtyPositions: row.specialty_positions ?? [],
     ratings: {
       leftAttack: format(row.left_attack), centreAttack: format(row.centre_attack), rightAttack: format(row.right_attack),

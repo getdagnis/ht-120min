@@ -4,6 +4,11 @@ import { Tooltip } from '../Tooltip/Tooltip';
 import { TeamByline } from '../TeamByline/TeamByline';
 import { appgOutcomeLabel, type AppgOutcome } from '../../utils/appg';
 import { skillDisplay } from '../../utils/hattrick-skill';
+import {
+  getFormationIndicatorScore,
+  getSetPieceIndicatorScore,
+  getTacticIndicatorScore,
+} from '../../utils/rating-indicators';
 import type { MatchSideEventDetails, MatchSidePerformance } from '../../../shared/match-events';
 import type { SpecialtyPositionGroup } from '../../../shared/player-specialties';
 import { getLiveClockDisplay, type LiveMatchClock } from '../../../shared/live-match';
@@ -69,6 +74,7 @@ interface RatingsPreviewTeam {
   tactic: string;
   tacticSkill: string;
   setPieces: string;
+  setPiecesSkill: number | null;
   specialtyPositions: SpecialtyPositionGroup[];
   ratings: {
     leftAttack: string;
@@ -125,6 +131,10 @@ function specialtyMarkersForSector(groups: SpecialtyPositionGroup[], sector: Rat
     if (count) counts.set(group.specialtyId, count);
   }
   return [...counts].map(([specialtyId, count]) => ({ specialtyId, count }));
+}
+
+function ratingIndicatorClass(score: 1 | 2 | 3 | 4 | null) {
+  return score ? styles[`ratingIndicator${score}`] : undefined;
 }
 
 function RatingsPitch({
@@ -513,16 +523,25 @@ export const FixtureCard: React.FC<FixtureCardProps> = ({
                     <RatingsPitch ratings={preview.ratings} specialtyPositions={preview.specialtyPositions} />
                     <div className={styles.ratingsMetadata}>
                       <span>
-                        Formation <strong>{preview.formation}</strong>
+                        Formation{' '}
+                        <strong className={ratingIndicatorClass(getFormationIndicatorScore(preview.formation))}>
+                          {preview.formation}
+                        </strong>
                       </span>
                       <span>
-                        Tactic <strong>{preview.tactic}</strong>
+                        Tactic{' '}
+                        <strong className={ratingIndicatorClass(getTacticIndicatorScore(preview.tactic))}>
+                          {preview.tactic}
+                        </strong>
                       </span>
                       <span>
                         Tactic skill <strong>{preview.tacticSkill}</strong>
                       </span>
                       <span>
-                        Set Pieces taker <strong>{preview.setPieces}</strong>
+                        Set Pieces taker{' '}
+                        <strong className={ratingIndicatorClass(getSetPieceIndicatorScore(preview.setPiecesSkill))}>
+                          {preview.setPieces}
+                        </strong>
                       </span>
                     </div>
                     {preview.specialtyPositions.length > 0 && (
@@ -583,8 +602,8 @@ export const FixtureCard: React.FC<FixtureCardProps> = ({
                       </button>
                     </div>
                     <p className={styles.ratingsShareHelper}>
-                      Share predicted ratings with your opponent. Your shared ratings will update automatically if you
-                      change match orders.
+                      Share your lineup predicted ratings with your opponent. Your shared ratings will update
+                      automatically if you change match orders.
                     </p>
                   </div>
                 )}
@@ -619,16 +638,25 @@ export const FixtureCard: React.FC<FixtureCardProps> = ({
                 />
                 <div className={styles.ratingsMetadata}>
                   <span>
-                    Formation <strong>{performance?.formation || '—'}</strong>
+                    Formation{' '}
+                    <strong className={ratingIndicatorClass(getFormationIndicatorScore(performance?.formation))}>
+                      {performance?.formation || '—'}
+                    </strong>
                   </span>
                   <span>
-                    Tactic <strong>{performance?.tacticName || '—'}</strong>
+                    Tactic{' '}
+                    <strong className={ratingIndicatorClass(getTacticIndicatorScore(performance?.tacticName))}>
+                      {performance?.tacticName || '—'}
+                    </strong>
                   </span>
                   <span>
                     Tactic skill <strong>{performance?.tacticSkill ?? '—'}</strong>
                   </span>
                   <span>
-                    Set Pieces skill <strong>{skillDisplay(taker?.skill)}</strong>
+                    Set Pieces skill{' '}
+                    <strong className={ratingIndicatorClass(getSetPieceIndicatorScore(taker?.skill))}>
+                      {skillDisplay(taker?.skill)}
+                    </strong>
                   </span>
                 </div>
                 {!!performance?.specialtyPositions?.length && (
