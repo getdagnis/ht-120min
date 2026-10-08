@@ -19,6 +19,7 @@ import {
 
 import { buildHomeSnapshot, type HomeInitialData } from '../../server/api/_lib/home-snapshot-builder.js';
 import { readCachedHomeSnapshot } from './home-snapshot.js';
+import { PUBLIC_DATA_READ_TIMEOUT_MS } from '../../utils/public-data-config.js';
 export type { HomeInitialData, HomeActivityEntry } from '../../server/api/_lib/home-snapshot-builder.js';
 
 export interface TournamentInitialData {
@@ -45,7 +46,13 @@ function getPublicSupabase() {
   return createClient(url, key, {
     auth: { autoRefreshToken: false, persistSession: false },
     global: {
-      fetch: (input, init) => fetch(input, { ...init, cache: 'no-store', signal: init?.signal || AbortSignal.timeout(3_500) }),
+      fetch: (input, init) => fetch(input, {
+        ...init,
+        cache: 'no-store',
+        signal: init?.signal
+          ? AbortSignal.any([init.signal, AbortSignal.timeout(PUBLIC_DATA_READ_TIMEOUT_MS)])
+          : AbortSignal.timeout(PUBLIC_DATA_READ_TIMEOUT_MS),
+      }),
     },
   });
 }
@@ -53,7 +60,7 @@ function getPublicSupabase() {
 export const loadHomeInitialData = cache(async (): Promise<HomeInitialData> => {
   if (process.env.PUBLIC_HOME_SNAPSHOT_ENABLED === 'true') return readCachedHomeSnapshot();
   const supabase = getPublicSupabase();
-  if (!supabase) return { featuredTournaments: [], activeTournaments: [], openTournaments: [], collections: [], topTeams: [], topActiveTournaments: [], activity: [] };
+  if (!supabase) throw new Error('Public Supabase configuration missing.');
   return buildHomeSnapshot(supabase);
 });
 
@@ -103,12 +110,13 @@ export async function buildTournamentInitialData(tournament: Record<string, unkn
       supabase.from('tournament_announcements').select('id,tournament_id,content,template_key,visibility,source,is_active,created_at,hidden_at').eq('visibility', 'public').eq('is_active', true).eq('tournament_id', tournamentId).order('created_at', { ascending: false }),
       organizerId
         ? supabase.from('profiles').select('manager_name').eq('hattrick_user_id', organizerId).maybeSingle()
-        : Promise.resolve({ data: null }),
+        : Promise.resolve({ data: null, error: null }),
     ]);
 
   for (const result of [teamsResult, roundsResult, seasonsResult, warningsResult, announcementsResult]) {
     if (result.error) throw result.error;
   }
+  if (organizerResult.error) throw organizerResult.error;
   const teamsRaw = teamsResult.data;
   const roundsRaw = roundsResult.data;
   const seasonsRaw = seasonsResult.data;
@@ -121,7 +129,7 @@ export async function buildTournamentInitialData(tournament: Record<string, unkn
   const roundIds = rounds.map((round) => String(round.id));
   const userIds = [...new Set(teams.map((team) => Number(team.hattrick_user_id || 0)).filter(Boolean))];
   // These reads are independent: do not put fixtures/profiles behind the slot chain.
-  const [matchesResult, profilesResult, { data: slotsRaw }] = await Promise.all([
+  const [matchesResult, profilesResult, slotsResult] = await Promise.all([
     roundIds.length
       ? supabase
           .from('matches')
@@ -147,6 +155,7 @@ export async function buildTournamentInitialData(tournament: Record<string, unkn
   ]);
 
   if ('error' in matchesResult && matchesResult.error) throw matchesResult.error;
+  if ('error' in slotsResult && slotsResult.error) throw slotsResult.error;
   const matchIds = ((matchesResult.data || []) as { id: string }[]).map((match) => match.id);
   const ratingStatusResult = matchIds.length
     ? await supabase.from('fixture_predicted_rating_share_status').select(PUBLIC_FIXTURE_RATING_STATUS_FIELDS).in('fixture_id', matchIds)
@@ -154,6 +163,7 @@ export async function buildTournamentInitialData(tournament: Record<string, unkn
   if (ratingStatusResult.error) throw ratingStatusResult.error;
   let profileRows = profilesResult.data;
   if ('error' in profilesResult && profilesResult.error && userIds.length) {
+    if (!/language_(id|name)/i.test(profilesResult.error.message)) throw profilesResult.error;
     let fallbackProfiles = await supabase
       .from('profiles')
       .select('hattrick_user_id, manager_name, avatar_json, country_id, country_name, language_name, teams_json')
@@ -164,6 +174,7 @@ export async function buildTournamentInitialData(tournament: Record<string, unkn
         .select('hattrick_user_id, manager_name, avatar_json, country_id, country_name, teams_json')
         .in('hattrick_user_id', userIds);
     }
+    if (fallbackProfiles.error) throw fallbackProfiles.error;
     profileRows = fallbackProfiles.data;
   }
   const profiles = (profileRows || []) as ManagerSpotlightProfile[];
@@ -198,16 +209,18 @@ export async function buildTournamentInitialData(tournament: Record<string, unkn
       : match,
   );
   const assignmentIds = Array.from(new Set(rawMatches.flatMap((match) => [match.home_slot_assignment_id, match.away_slot_assignment_id]).filter((id): id is string => typeof id === 'string')));
-  const slotIds = (slotsRaw || []).map((slot) => String((slot as Record<string, unknown>).id));
+  const slotIds = (slotsResult.data || []).map((slot) => String((slot as Record<string, unknown>).id));
   const assignmentFilters = [
     ...(slotIds.length ? [`tournament_season_slot_id.in.(${slotIds.join(',')})`] : []),
     ...(assignmentIds.length ? [`id.in.(${assignmentIds.join(',')})`] : []),
   ];
-  const { data: assignmentRows } = assignmentFilters.length
+  const assignmentResult = assignmentFilters.length
     ? await supabase.from('tournament_season_slot_assignments')
         .select('id,tournament_season_slot_id,team_id,assigned_at,released_at,team_name,ht_team_id,manager_name,hattrick_user_id,logo_url')
         .or(assignmentFilters.join(','))
-    : { data: [] };
+    : { data: [], error: null };
+  if (assignmentResult.error) throw assignmentResult.error;
+  const assignmentRows = assignmentResult.data;
   const slotAssignmentsRaw = (assignmentRows || []).filter((row) => slotIds.includes(String(row.tournament_season_slot_id)));
   const assignments = new Map((assignmentRows || []).map((row) => [String((row as Record<string, unknown>).id), row as Record<string, unknown>]));
   const matches = rawMatches.map((match) => {
@@ -249,9 +262,9 @@ export async function buildTournamentInitialData(tournament: Record<string, unkn
       .sort(compareFixtures),
   }));
 
-  // The slot table is optional until the peak-season migration is applied. Its
-  // query intentionally degrades to the legacy team-based view on old projects.
-  const slots = (slotsRaw || []) as { id: string; current_team_id: string | null }[];
+  // A successful slot read is required before publishing this view. Query
+  // failures must not silently cache standings without slot assignments.
+  const slots = (slotsResult.data || []) as { id: string; current_team_id: string | null }[];
   const slotAssignments = (slotAssignmentsRaw || []) as SeasonSlotAssignment[];
   const regularRoundIds = new Set(
     rounds
