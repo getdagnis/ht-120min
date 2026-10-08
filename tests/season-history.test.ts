@@ -66,6 +66,7 @@ test('season snapshot freezes participants, shares tied awards, and excludes inc
         away_team_id: 'b',
         home_goals: 2,
         away_goals: 1,
+        match_type: 5,
         completed: true,
         went_120: true,
         total_minutes: 120,
@@ -89,6 +90,7 @@ test('season snapshot freezes participants, shares tied awards, and excludes inc
         away_team_id: 'c',
         home_goals: 1,
         away_goals: 1,
+        match_type: 5,
         completed: true,
         went_120: false,
         total_minutes: 90,
@@ -106,7 +108,7 @@ test('season snapshot freezes participants, shares tied awards, and excludes inc
   assert.equal(snapshot.participants.find((participant) => participant.teamId === 'a')?.logoUrl, '/a.png');
   assert.deepEqual(
     snapshot.awards.find((award) => award.key === 'top-scorers')?.recipientTeamIds.sort(),
-    ['a', 'b'],
+    ['a'],
   );
   assert.deepEqual(snapshot.awards.find((award) => award.key === 'most-120-matches')?.recipientTeamIds, ['a', 'b']);
   assert.deepEqual(
@@ -123,7 +125,7 @@ test('season snapshot freezes participants, shares tied awards, and excludes inc
   );
   assert.deepEqual(
     snapshot.awards.find((award) => award.key === 'least-goals-allowed')?.recipientTeamIds.sort(),
-    ['a', 'c'],
+    ['c'],
   );
   assert.deepEqual(snapshot.awards.find((award) => award.key === 'most-cards')?.recipientTeamIds, ['a']);
   assert.equal(snapshot.awards.find((award) => award.key === 'most-cards')?.value, 2);

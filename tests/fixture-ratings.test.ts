@@ -3,7 +3,7 @@ import { afterEach, test } from 'node:test';
 import {
   assertEligibleFixtureRatings, assertExactClubOwnership, convertSectorRating, isLocalRatingsAdmin,
   fetchMatchLineupSetPiecesTaker, fetchSetPiecesSkillForPlayer, loadVisibleFixtureRatings,
-  parseMatchLineupSetPiecesTaker, parsePredictedRatings, parseSetPiecesSkill, parseSubmittedOrders, prediction, saveFixtureRatings,
+  parseMatchLineupSetPiecesTaker, parseMatchLineupStyleOfPlay, parsePredictedRatings, parseSetPiecesSkill, parseSubmittedOrders, prediction, saveFixtureRatings,
   updateExistingRatingShare,
 } from '../src/server/api/_lib/fixture-ratings.ts';
 import { attachFixtureRatingStatus, PUBLIC_FIXTURE_RATING_STATUS_FIELDS } from '../src/types/fixture-ratings.ts';
@@ -16,7 +16,7 @@ const positions = [
 function ordersXml(entries = positions, taker = 777) {
   return `<HattrickData><MatchID>123</MatchID><MatchData Available="True">
     <HomeTeam><HomeTeamID>11</HomeTeamID></HomeTeam><AwayTeam><AwayTeamID>22</AwayTeamID></AwayTeam>
-    <TacticType>1</TacticType><Lineup><Positions>${entries.map(([role, behaviour], index) =>
+    <TacticType>1</TacticType><CoachModifier Available="True">-10</CoachModifier><Lineup><Positions>${entries.map(([role, behaviour], index) =>
       `<Player><PlayerID>${index + 1}</PlayerID><RoleID>${role}</RoleID><Behaviour>${behaviour}</Behaviour></Player>`).join('')}
     </Positions><SetPieces><PlayerID>${taker}</PlayerID></SetPieces></Lineup>
   </MatchData></HattrickData>`;
@@ -41,11 +41,17 @@ test('converts CHPP sublevels and rejects invalid sector values', () => {
 
 test('formation counts occupied roles after extra-position behaviours', () => {
   const result = parseSubmittedOrders(ordersXml(), 123, 11, 22);
-  assert.deepEqual(result, { formation: '4-5-1', tactic: 'Pressing', takerId: 777 });
+  assert.equal(result.formation, '4-5-1');
+  assert.equal(result.tactic, 'Pressing');
+  assert.equal(result.coachModifier, -10);
+  assert.equal(result.takerId, 777);
+  assert.equal(result.lineup.length, 11);
   const extra = positions.map(([role, behaviour]) => role === 105 ? [role, 5] : [role, behaviour]);
   assert.equal(parseSubmittedOrders(ordersXml(extra, 0), 123, 11, 22).formation, '3-5-2');
   assert.throws(() => parseSubmittedOrders(ordersXml(), 123, 11, 33), /different clubs/);
   assert.throws(() => parseSubmittedOrders(ordersXml().replace('Available="True"', 'Available="False"'), 123, 11, 22), /denied access/);
+  assert.equal(parseSubmittedOrders(ordersXml().replace('<CoachModifier Available="True">-10</CoachModifier>', '<CoachModifier Available="False">0</CoachModifier>'), 123, 11, 22).coachModifier, null);
+  assert.equal(parseSubmittedOrders(ordersXml().replace('<CoachModifier Available="True">-10</CoachModifier>', '<CoachModifier>0</CoachModifier>'), 123, 11, 22).coachModifier, 0);
 });
 
 test('optional set-pieces skill is parsed only for the selected player', () => {
@@ -76,7 +82,7 @@ test('refresh helper reads the current Set Pieces skill for the identified match
 test('finished match lineup resolves the coach-selected set-pieces taker by role 17', async () => {
   const xml = `<HattrickData><MatchID>771759602</MatchID>
     <HomeTeam><HomeTeamID>3220514</HomeTeamID></HomeTeam><AwayTeam><AwayTeamID>3220516</AwayTeamID></AwayTeam>
-    <Team><TeamID>3220514</TeamID><StartingLineup>
+    <Team><TeamID>3220514</TeamID><StyleOfPlay>-1000</StyleOfPlay><StartingLineup>
       <Player><PlayerID>511613256</PlayerID><RoleID>17</RoleID><FirstName>Sandra</FirstName><LastName>Primo</LastName></Player>
     </StartingLineup><Lineup /></Team>
     <Team><TeamID>3220516</TeamID><StartingLineup>
@@ -89,6 +95,9 @@ test('finished match lineup resolves the coach-selected set-pieces taker by role
   });
   assert.equal(parseMatchLineupSetPiecesTaker(xml, 771759603, 3220514), null);
   assert.equal(parseMatchLineupSetPiecesTaker(xml, 771759602, 999), null);
+  assert.equal(parseMatchLineupStyleOfPlay(xml, 771759602, 3220514), -1000);
+  assert.equal(parseMatchLineupStyleOfPlay(xml.replace('<StyleOfPlay>-1000</StyleOfPlay>', '<StyleOfPlay>800</StyleOfPlay>'), 771759602, 3220514), 800);
+  assert.equal(parseMatchLineupStyleOfPlay(xml, 771759602, 999), null);
 
   process.env.CHPP_CONSUMER_KEY = 'test-key';
   process.env.CHPP_CONSUMER_SECRET = 'test-secret';

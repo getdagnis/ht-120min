@@ -78,6 +78,7 @@ import {
 } from '../../utils/tournament-joinability';
 import { markAuthRefreshCurrent, needsAuthRefresh } from '../../utils/auth-refresh';
 import { formatTournamentName } from '../../utils/tournament-names';
+import { readPublicTournament } from '../../utils/public-tournament-load';
 import { isSandboxTournament, normalizeTournamentRegistrationType } from '../../utils/tournament-types';
 import type { TournamentEmojiContext } from '../../utils/tournament-emoji-options';
 import {
@@ -123,19 +124,14 @@ import {
   hasDismissedWelcome,
   TOURNAMENT_CREATED_WELCOME,
 } from '../../utils/welcome-modals';
-import {
-  ArrowClockwise,
-  ArrowRight,
-  CaretDown,
-  Chat,
-  Info,
-  Question,
-  X,
-} from 'phosphor-react';
+import { ArrowClockwise, ArrowRight, CaretDown, Chat, Info, Question, X } from 'phosphor-react';
 import type { TournamentInitialData } from '../../app/_data/public-data';
 import type { TournamentMatchArrangeStorySnapshot } from '../../types/tournament-activity';
 import type { BulkMatchUpdate } from '../../utils/sandbox-results';
-import type { TournamentOwnerRecord, TournamentRoleRecord } from '../../components/TournamentTabs/Admin/TournamentRolesPanel';
+import type {
+  TournamentOwnerRecord,
+  TournamentRoleRecord,
+} from '../../components/TournamentTabs/Admin/TournamentRolesPanel';
 
 const FORUM_LINK = 'https://www.hattrick.org/goto.ashx?path=/Forum/Read.aspx?n=1&nm=32&t=17685273&v=0';
 const randomTournamentDescription = () => TOURNAMENT_DEFAULT[Math.floor(Math.random() * TOURNAMENT_DEFAULT.length)];
@@ -157,7 +153,6 @@ function readSessionStorage(key: string) {
   if (typeof window === 'undefined') return null;
   return sessionStorage.getItem(key);
 }
-
 
 const TOURNAMENT_VIEW_MODALS_OPEN_BY_DEFAULT = {
   historyReportNotice: false,
@@ -304,6 +299,8 @@ export interface MatchWithTeams {
   reserve_team_id?: string | null;
   reserve_replaces_team_id?: string | null;
   reserve_story?: TournamentMatchArrangeStorySnapshot | null;
+  home_slot_id?: string | null;
+  away_slot_id?: string | null;
   reserve_team?: {
     name: string;
     ht_team_id: number;
@@ -533,6 +530,30 @@ function applyReserveDisplay(match: MatchWithTeams): MatchWithTeams {
   };
 }
 
+function normalizeMatchTeamRelation(value: unknown): MatchWithTeams['home_team'] {
+  const relation = Array.isArray(value) ? value[0] : value;
+  if (!relation || typeof relation !== 'object') return null;
+
+  const team = relation as Record<string, unknown>;
+  if (typeof team.name !== 'string' || typeof team.ht_team_id !== 'number' || typeof team.active !== 'boolean') {
+    return null;
+  }
+
+  return {
+    name: team.name,
+    ht_team_id: team.ht_team_id,
+    active: team.active,
+    ...(typeof team.reserve_active === 'boolean' ? { reserve_active: team.reserve_active } : {}),
+    ...(typeof team.logo_url === 'string' ? { logo_url: team.logo_url } : {}),
+    ...(typeof team.country_name === 'string' ? { country_name: team.country_name } : {}),
+    ...(typeof team.country_id === 'number' ? { country_id: team.country_id } : {}),
+    ...(typeof team.league_id === 'number' ? { league_id: team.league_id } : {}),
+    ...(typeof team.league_level === 'number' || team.league_level === null ? { league_level: team.league_level } : {}),
+    ...(typeof team.manager_name === 'string' ? { manager_name: team.manager_name } : {}),
+    ...(typeof team.hattrick_user_id === 'number' ? { hattrick_user_id: team.hattrick_user_id } : {}),
+  };
+}
+
 function toSeasonHistoryMatch(match: MatchWithTeams, roundNumber?: number): SeasonHistoryMatch {
   return {
     id: match.id,
@@ -615,7 +636,16 @@ function isBlockingTeamTournament(
 function reviveInitialRounds(initialData?: TournamentInitialData) {
   return ((initialData?.rounds || []) as Record<string, unknown>[]).map((round) => ({
     ...round,
-    matches: ((round.matches || []) as Record<string, unknown>[])
+    matches: (
+      (round.matches || []) as Array<
+        Record<string, unknown> & {
+          id: string;
+          ht_match_id?: number | null;
+          status?: string | null;
+          match_date?: string | Date | null;
+        }
+      >
+    )
       .map((match) => ({
         ...match,
         match_date: typeof match.match_date === 'string' ? new Date(match.match_date) : undefined,
@@ -797,40 +827,144 @@ export const TournamentView: React.FC<{
   const [roleAccess, setRoleAccess] = useState<TournamentRoleAccess | null>(null);
   const adminState = useTournamentAdminState();
   const {
-    tournamentRoles, setTournamentRoles, originalOrganizer, setOriginalOrganizer,
-    roleAccessLoading, setRoleAccessLoading, adminAuthSource, setAdminAuthSource,
-    adminAuthError, setAdminAuthError, failedLoginAttempt, setFailedLoginAttempt,
-    isDuplicatingSandbox, setIsDuplicatingSandbox, isRefreshingSpotlight, setIsRefreshingSpotlight,
-    isArchivingTournament, setIsArchivingTournament,
-    newTeamId, setNewTeamId, newTeamName, setNewTeamName, newTeamData, setNewTeamData,
-    isReserveTeamFormOpen, setIsReserveTeamFormOpen, reserveTeamId, setReserveTeamId,
-    reserveTeamName, setReserveTeamName, sandboxCandidate, setSandboxCandidate,
-    sandboxFetchError, setSandboxFetchError, isFetchingSandboxTeam, setIsFetchingSandboxTeam,
-    isSavingTeam, setIsSavingTeam, isGenerating, setIsGenerating, scheduleNotice, setScheduleNotice,
-    schedulePreflightWarning, setSchedulePreflightWarning, isScheduleConfirmationOpen,
-    setIsScheduleConfirmationOpen, isRescheduling, setIsRescheduling, editingMatch, setEditingMatch,
-    matchData, setMatchData, replacingTeamId, setReplacingTeamId, reserveReplacingTeamId,
-    setReserveReplacingTeamId, selectedReserveTeamId, setSelectedReserveTeamId,
-    replacementHtId, setReplacementHtId, replacementName, setReplacementName,
-    isFetchingTeamData, setIsFetchingTeamData,
-    teamPlanningStatuses, setTeamPlanningStatuses, isRefreshingTeamStatuses, setIsRefreshingTeamStatuses,
-    teamStatusNotice, setTeamStatusNotice, isUpdatingHfiRanks, setIsUpdatingHfiRanks,
-    hfiRankNotice, setHfiRankNotice, hfiRankNoticeIsError, setHfiRankNoticeIsError,
-    scheduleMode, setScheduleMode, scheduleSetup, setScheduleSetup, scheduleStartSlotId,
-    setScheduleStartSlotId, scheduleTeamOrder, setScheduleTeamOrder, lengthFormatId, setLengthFormatId,
-    customLengthRoundCount, setCustomLengthRoundCount, isRepairingRound, setIsRepairingRound,
-    isRecoveringRoundOne, setIsRecoveringRoundOne, includeWeek15WeekendFriendly,
-    setIncludeWeek15WeekendFriendly, rescheduleFromRoundNumber, setRescheduleFromRoundNumber,
-    rescheduleStartSlotId, setRescheduleStartSlotId, includeWeek15WeekendFriendlyForReschedule,
-    setIncludeWeek15WeekendFriendlyForReschedule, editName, setEditName, editIsPrivate, setEditIsPrivate,
-    editChppOnlyJoin, setEditChppOnlyJoin, editLeagueCategory, setEditLeagueCategory,
-    editRegistrationType, setEditRegistrationType, editCountryLimit, setEditCountryLimit,
-    editMaxTeams, setEditMaxTeams, editRegistrationOpen, setEditRegistrationOpen,
-    editAllowReserveRegistration, setEditAllowReserveRegistration, showEditDescription,
-    setShowEditDescription, editDescription, setEditDescription, showEditEmail, setShowEditEmail,
-    editAdminEmail, setEditAdminEmail, editForumId, setEditForumId, isUpdatingSettings,
-    setIsUpdatingSettings, isResettingAdminPassword, setIsResettingAdminPassword, isTest, setIsTest,
-    editIsFeatured, setEditIsFeatured, isInviteExpanded, setIsInviteExpanded,
+    tournamentRoles,
+    setTournamentRoles,
+    originalOrganizer,
+    setOriginalOrganizer,
+    roleAccessLoading,
+    setRoleAccessLoading,
+    adminAuthSource,
+    setAdminAuthSource,
+    adminAuthError,
+    setAdminAuthError,
+    failedLoginAttempt,
+    setFailedLoginAttempt,
+    isDuplicatingSandbox,
+    setIsDuplicatingSandbox,
+    isRefreshingSpotlight,
+    setIsRefreshingSpotlight,
+    isArchivingTournament,
+    setIsArchivingTournament,
+    newTeamId,
+    setNewTeamId,
+    newTeamName,
+    setNewTeamName,
+    newTeamData,
+    setNewTeamData,
+    isReserveTeamFormOpen,
+    setIsReserveTeamFormOpen,
+    reserveTeamId,
+    setReserveTeamId,
+    reserveTeamName,
+    setReserveTeamName,
+    sandboxCandidate,
+    setSandboxCandidate,
+    sandboxFetchError,
+    setSandboxFetchError,
+    isFetchingSandboxTeam,
+    setIsFetchingSandboxTeam,
+    isSavingTeam,
+    setIsSavingTeam,
+    isGenerating,
+    setIsGenerating,
+    scheduleNotice,
+    setScheduleNotice,
+    schedulePreflightWarning,
+    setSchedulePreflightWarning,
+    isScheduleConfirmationOpen,
+    setIsScheduleConfirmationOpen,
+    isRescheduling,
+    setIsRescheduling,
+    editingMatch,
+    setEditingMatch,
+    matchData,
+    setMatchData,
+    replacingTeamId,
+    setReplacingTeamId,
+    reserveReplacingTeamId,
+    setReserveReplacingTeamId,
+    selectedReserveTeamId,
+    setSelectedReserveTeamId,
+    replacementHtId,
+    setReplacementHtId,
+    replacementName,
+    setReplacementName,
+    isFetchingTeamData,
+    setIsFetchingTeamData,
+    teamPlanningStatuses,
+    setTeamPlanningStatuses,
+    isRefreshingTeamStatuses,
+    setIsRefreshingTeamStatuses,
+    teamStatusNotice,
+    setTeamStatusNotice,
+    isUpdatingHfiRanks,
+    setIsUpdatingHfiRanks,
+    hfiRankNotice,
+    setHfiRankNotice,
+    hfiRankNoticeIsError,
+    setHfiRankNoticeIsError,
+    scheduleMode,
+    setScheduleMode,
+    scheduleSetup,
+    setScheduleSetup,
+    scheduleStartSlotId,
+    setScheduleStartSlotId,
+    scheduleTeamOrder,
+    setScheduleTeamOrder,
+    lengthFormatId,
+    setLengthFormatId,
+    customLengthRoundCount,
+    setCustomLengthRoundCount,
+    isRepairingRound,
+    setIsRepairingRound,
+    isRecoveringRoundOne,
+    setIsRecoveringRoundOne,
+    includeWeek15WeekendFriendly,
+    setIncludeWeek15WeekendFriendly,
+    rescheduleFromRoundNumber,
+    setRescheduleFromRoundNumber,
+    rescheduleStartSlotId,
+    setRescheduleStartSlotId,
+    includeWeek15WeekendFriendlyForReschedule,
+    setIncludeWeek15WeekendFriendlyForReschedule,
+    editName,
+    setEditName,
+    editIsPrivate,
+    setEditIsPrivate,
+    editChppOnlyJoin,
+    setEditChppOnlyJoin,
+    editLeagueCategory,
+    setEditLeagueCategory,
+    editRegistrationType,
+    setEditRegistrationType,
+    editCountryLimit,
+    setEditCountryLimit,
+    editMaxTeams,
+    setEditMaxTeams,
+    editRegistrationOpen,
+    setEditRegistrationOpen,
+    editAllowReserveRegistration,
+    setEditAllowReserveRegistration,
+    showEditDescription,
+    setShowEditDescription,
+    editDescription,
+    setEditDescription,
+    showEditEmail,
+    setShowEditEmail,
+    editAdminEmail,
+    setEditAdminEmail,
+    editForumId,
+    setEditForumId,
+    isUpdatingSettings,
+    setIsUpdatingSettings,
+    isResettingAdminPassword,
+    setIsResettingAdminPassword,
+    isTest,
+    setIsTest,
+    editIsFeatured,
+    setEditIsFeatured,
+    isInviteExpanded,
+    setIsInviteExpanded,
   } = adminState;
   const paramsHandledRef = useRef(false);
   const [isEditingImage, setIsEditingImage] = useState(false);
@@ -1340,6 +1474,7 @@ export const TournamentView: React.FC<{
   const [loadError, setLoadError] = useState<string | null>(null);
   const [copied, setCopied] = useState<Record<string, boolean>>({});
   const hasLoadedTournamentRef = useRef(Boolean(initialData));
+  const initialLoadAttemptedRef = useRef(false);
 
   const allMatches = rounds.flatMap((r) => r.matches);
   const isGenerated = rounds.length > 0;
@@ -1567,10 +1702,13 @@ export const TournamentView: React.FC<{
     ],
   );
 
-  const handleRescheduleFromRoundChange = useCallback((nextRoundNumber: number) => {
-    setRescheduleFromRoundNumber(nextRoundNumber || null);
-    setRescheduleStartSlotId('');
-  }, [setRescheduleFromRoundNumber, setRescheduleStartSlotId]);
+  const handleRescheduleFromRoundChange = useCallback(
+    (nextRoundNumber: number) => {
+      setRescheduleFromRoundNumber(nextRoundNumber || null);
+      setRescheduleStartSlotId('');
+    },
+    [setRescheduleFromRoundNumber, setRescheduleStartSlotId],
+  );
 
   const handleRescheduleStartSlotIdChange = useCallback(
     (nextStartSlotId: string) => {
@@ -1650,15 +1788,29 @@ export const TournamentView: React.FC<{
 
   const fetchData = useCallback(
     async (options: { showLoader?: boolean; invalidate?: boolean } = {}) => {
-      const showLoader = options.showLoader ?? !hasLoadedTournamentRef.current;
+      const showLoader = (options.showLoader ?? !hasLoadedTournamentRef.current) && !hasLoadedTournamentRef.current;
       if (showLoader) {
         setLoading(true);
         setLoadError(null);
       }
       try {
         if (options.invalidate !== false && !(await invalidateAfterEdit())) return;
-        const data = await readTournamentPublicData(slug);
-        if (!data) return;
+        const result = await readPublicTournament(() => readTournamentPublicData(slug), initialData || null);
+        if (result.status === 'not-found') {
+          setLoadError(null);
+          setTournament(null);
+          return;
+        }
+        if (result.status === 'failed') {
+          console.error('Could not refresh tournament data:', result.error);
+          setLoadError(
+            hasLoadedTournamentRef.current
+              ? 'Tournament data could not be refreshed. Your current page data is still available. Please try again.'
+              : 'Tournament data could not be loaded. Please try again.',
+          );
+          return;
+        }
+        const data = result.data;
         setLoadError(null);
         hasLoadedTournamentRef.current = true;
         const tournamentData = data.tournament as unknown as Tournament;
@@ -1703,20 +1855,20 @@ export const TournamentView: React.FC<{
         await hydratePrivateData(readLocalStorage(`admin_pw_${slug}`) || '');
       } catch (error) {
         console.error('Could not refresh tournament data:', error);
-        if (!hasLoadedTournamentRef.current) {
-          setLoadError('Tournament data could not be loaded. Please try again.');
-        } else {
-          alert('Could not refresh tournament data. Reload the page to try again.');
-        }
+        setLoadError(
+          hasLoadedTournamentRef.current
+            ? 'Tournament data could not be refreshed. Your current page data is still available. Please try again.'
+            : 'Tournament data could not be loaded. Please try again.',
+        );
       } finally {
         if (showLoader) setLoading(false);
       }
     },
     [
       slug,
+      initialData,
       invalidateAfterEdit,
       hydratePrivateData,
-      alert,
       setEditName,
       setEditIsPrivate,
       setEditChppOnlyJoin,
@@ -1795,9 +1947,15 @@ export const TournamentView: React.FC<{
         matchesData,
         (ratingRows || []) as FixtureRatingShareStatus[],
       );
+      const normalizedMatches = matchesWithRatings.map((match) => ({
+        ...match,
+        home_team: normalizeMatchTeamRelation(match.home_team),
+        away_team: normalizeMatchTeamRelation(match.away_team),
+        reserve_team: normalizeMatchTeamRelation(match.reserve_team),
+      }));
       const newRounds = roundsData.map((r: { created_at: string; id: string; round_number: number }) => ({
         ...r,
-        matches: (matchesWithRatings as MatchWithTeams[])
+        matches: (normalizedMatches as MatchWithTeams[])
           .filter((m) => m.round_id === r.id)
           .map((m) => ({
             ...applyReserveDisplay(m),
@@ -2271,8 +2429,8 @@ export const TournamentView: React.FC<{
       }, 0);
       return () => window.clearTimeout(timer);
     }
-    if (hasLoadedTournamentRef.current) return;
-    hasLoadedTournamentRef.current = true;
+    if (hasLoadedTournamentRef.current || initialLoadAttemptedRef.current) return;
+    initialLoadAttemptedRef.current = true;
     void fetchData({ showLoader: true, invalidate: false }).catch((error) => {
       console.error('Could not load tournament:', error);
       setLoading(false);
@@ -3393,7 +3551,9 @@ export const TournamentView: React.FC<{
       }
       setRounds([]);
       setStandings([]);
-      setFixtureViewSeasonNumber(null);
+      const nextParams = new URLSearchParams(searchParams.toString());
+      nextParams.delete('season');
+      setSearchParams(nextParams, { replace: true });
       setScheduleTeamOrder(null);
       setTournament((prev) =>
         prev
@@ -4362,6 +4522,7 @@ export const TournamentView: React.FC<{
   };
 
   const generateSchedule = async () => {
+    if (!tournament) return;
     if (!isHealthQuotaMet()) {
       setScheduleNotice({
         title: 'Cannot generate schedule',
@@ -4427,9 +4588,10 @@ export const TournamentView: React.FC<{
   const confirmGenerateSchedule = async () => {
     setIsScheduleConfirmationOpen(false);
     if (!tournament) return;
+    const scheduleStartDate = scheduleDraft.selectedStartSlot?.nominalDate.toISOString();
     if (usesLengthSchedulePlanner) {
       if (!serializedLengthScheduleDraft || !lengthScheduleDraft.selectedStartSlot) return;
-    } else if (!serializedScheduleDraft || !scheduleDraft.selectedStartSlot) return;
+    } else if (!serializedScheduleDraft || !scheduleStartDate) return;
     const scheduleAdminPassword = password.trim() || tournament.admin_password || '';
     if (!usesLengthSchedulePlanner && !scheduleAdminPassword) return;
     setIsGenerating(true);
@@ -4453,7 +4615,7 @@ export const TournamentView: React.FC<{
           p_schedule_payload: serializedScheduleDraft,
           p_admin_password: scheduleAdminPassword,
           p_schedule_mode: scheduleDraft.mode,
-          p_schedule_start_slot: scheduleDraft.selectedStartSlot.nominalDate.toISOString(),
+          p_schedule_start_slot: scheduleStartDate,
           p_include_week15_weekend_friendly: scheduleDraft.consumesWeek15WeekendFriendly,
         });
         if (error) throw error;
@@ -4462,7 +4624,7 @@ export const TournamentView: React.FC<{
             tournament_id: tournament.id,
             season_number: tournament.season || 1,
             status: 'ongoing',
-            planned_start_slot: scheduleDraft.selectedStartSlot.nominalDate.toISOString(),
+            planned_start_slot: scheduleStartDate,
             started_at: new Date().toISOString(),
             updated_at: new Date().toISOString(),
           },
@@ -5244,24 +5406,11 @@ export const TournamentView: React.FC<{
       return new Set<string>();
     }
 
-    const roundStartTimes = rounds.map((round) => {
-      const matchStarts = round.matches
-        .filter((match) => match.home_team && match.away_team)
-        .map((match) => getMatchDateForRound(round, match).getTime())
-        .filter(Number.isFinite);
-      if (matchStarts.length > 0) return Math.min(...matchStarts);
-      return round.reserved_slot_date ? new Date(round.reserved_slot_date).getTime() : null;
-    });
-
     const warningTeamIds = warnings
-      .filter((warning) => warning.active !== false && typeof warning.team_id === 'string')
-      .filter((warning) => {
-        const warningRoundIndex = rounds.findIndex((round) => round.id === warning.round_id);
-        if (warningRoundIndex < 0 || renderTimestamp <= 0) return true;
-        return !roundStartTimes
-          .slice(warningRoundIndex + 1)
-          .some((roundStart) => roundStart !== null && roundStart <= renderTimestamp);
-      })
+      .filter(
+        (warning) =>
+          warning.active !== false && warning.round_id === currentRoundId && typeof warning.team_id === 'string',
+      )
       .map((warning) => warning.team_id as string);
 
     return mapWarningTeamIdsToStandingsIds(warningTeamIds, seasonSlots);
@@ -5648,6 +5797,14 @@ export const TournamentView: React.FC<{
 
   return (
     <div className={styles.view}>
+      {loadError && (
+        <div className={styles.refreshError} role="alert">
+          <p>{loadError}</p>
+          <Button variant="primary" onClick={() => void fetchData({ showLoader: true, invalidate: false })}>
+            Try again
+          </Button>
+        </div>
+      )}
       <div className={styles.tHeader}>
         <div className={styles.headerTop}>
           <div className={styles.titleArea}>
@@ -5658,12 +5815,15 @@ export const TournamentView: React.FC<{
               Season {tournament.season}
               {tournament.status === 'finished' && <span> • Finished</span>}
             </p>
-            {collectionLinks.length > 0 && <nav className={styles.collectionLinks} aria-label="Tournament collections">
-              {collectionLinks.map((collection) => <Link key={collection.slug}
-                href={toLocalePath(locale, `/collection/${collection.slug}`)}>
-                {collection.title} →
-              </Link>)}
-            </nav>}
+            {collectionLinks.length > 0 && (
+              <nav className={styles.collectionLinks} aria-label="Tournament collections">
+                {collectionLinks.map((collection) => (
+                  <Link key={collection.slug} href={toLocalePath(locale, `/collection/${collection.slug}`)}>
+                    {collection.title} →
+                  </Link>
+                ))}
+              </nav>
+            )}
             {(isAddingDescription || (tournament.description && tournament.show_description)) && (
               <div className={styles.tournamentDescription}>
                 {isAddingDescription ? (
@@ -5779,12 +5939,12 @@ export const TournamentView: React.FC<{
                 </p>
                 {showScoringHelp && (
                   <p className={styles.helpContent}>
-                    Teams in this tournament compete to collect as many completed 120-minute training matches as
-                    possible. Standings are ranked first by <strong>120min achievements</strong>. If teams are tied, the
-                    current tie-breakers are <strong>regular victory points</strong> (3p for a win, 2p for a shootout
-                    win, 1pt for a regular-time tie), then <strong>goal difference</strong>, then{' '}
-                    <strong>goals scored</strong>, then fewer matches played. In other words: get the match to 120
-                    minutes first; after that, football still settles the close calls.
+                    Teams are ranked first by <strong>120min achievements</strong>, then points, goal difference, goals
+                    scored and fewer matches played. Normal Rules matches award no points. In Cup Rules matches, a
+                    regular-time win earns 0 points; a regular-time loss earns 2 if the team scored no goals, or 1 if it
+                    scored at least one. Reaching extra time earns both teams 2 points, with 1 additional point for the
+                    match winner, including a penalty-shootout winner. Goals count only in matches that reached 120
+                    minutes.
                   </p>
                 )}
               </div>

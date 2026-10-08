@@ -14,6 +14,7 @@ function emptyDetails(homeTeamId: number, awayTeamId: number): MatchEventDetails
     performance: {
       formation: '5-5-0', tacticType: 1, tacticName: 'Pressing', tacticSkill: 5,
       setPiecesTaker: null,
+      specialtyPositions: [{ specialtyId: 1, roleIds: [101] }],
       possessionFirstHalf: null, possessionSecondHalf: null,
       ratings: { midfield: null, rightDefence: null, centralDefence: null, leftDefence: null, rightAttack: null, centralAttack: null, leftAttack: null },
       chances: { left: null, centre: null, right: null, specialEvents: null, other: null },
@@ -43,7 +44,7 @@ test('automatically reads each finished side with its own stored owner credentia
       const takerId = teamId === '3220514' ? 511613256 : 510206216;
       const firstName = teamId === '3220514' ? 'Sandra' : 'Dorothy';
       const lastName = teamId === '3220514' ? 'Primo' : 'Lobaton';
-      return new Response(`<HattrickData><MatchID>771759602</MatchID><Team><TeamID>${teamId}</TeamID><Lineup><Player><PlayerID>${takerId}</PlayerID><RoleID>17</RoleID><FirstName>${firstName}</FirstName><LastName>${lastName}</LastName></Player></Lineup></Team></HattrickData>`);
+      return new Response(`<HattrickData><MatchID>771759602</MatchID><Team><TeamID>${teamId}</TeamID><StyleOfPlay>-1000</StyleOfPlay><Lineup><Player><PlayerID>${takerId}</PlayerID><RoleID>17</RoleID><FirstName>${firstName}</FirstName><LastName>${lastName}</LastName></Player></Lineup></Team></HattrickData>`);
     }
     const skill = playerId === '511613256' ? 10 : 6;
     return new Response(`<HattrickData><Player><PlayerID>${playerId}</PlayerID><PlayerSkills><SetPiecesSkill>${skill}</SetPiecesSkill></PlayerSkills></Player></HattrickData>`);
@@ -67,6 +68,7 @@ test('automatically reads each finished side with its own stored owner credentia
   assert.equal(refreshed.home.performance?.setPiecesTaker?.playerId, 511613256);
   assert.equal(refreshed.home.performance?.setPiecesTaker?.playerName, 'Sandra Primo');
   assert.equal(refreshed.home.performance?.setPiecesTaker?.skill, 10);
+  assert.equal(refreshed.home.performance?.styleOfPlay, -1000);
   assert.ok(refreshed.home.performance?.setPiecesTaker?.skillCheckedAt);
   assert.equal(refreshed.away.performance?.setPiecesTaker?.playerName, 'Dorothy Lobaton');
   assert.equal(refreshed.away.performance?.setPiecesTaker?.skill, 6);
@@ -81,5 +83,6 @@ test('automatically reads each finished side with its own stored owner credentia
   await attachRefreshedTakerSkills(actual, nextRefresh, persisted, fixture, 771759602);
   assert.equal(calls.length, 4);
   assert.equal(nextRefresh.home.performance?.setPiecesTaker?.skill, 10);
+  assert.equal(nextRefresh.home.performance?.styleOfPlay, -1000);
   assert.equal(nextRefresh.away.performance?.setPiecesTaker?.skill, 6);
 });

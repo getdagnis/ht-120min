@@ -45,6 +45,11 @@ const messages = {
     appName: 'HT-120min',
     language: 'Language',
   },
+  notFound: {
+    title: 'Page not found',
+    description: 'This page doesn’t exist or may have moved.',
+    homeLink: 'Back to home',
+  },
   fixtures: {
     autoArrangeMyFixtures: 'Auto-arrange my matches', // Do not auto-arrange my matches
     autoArrangeMyFixturesDisabled: 'Do not auto-arrange my matches',

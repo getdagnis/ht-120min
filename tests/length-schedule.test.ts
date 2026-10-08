@@ -15,11 +15,11 @@ import {
 } from '../src/utils/length-schedule';
 
 const repairMigration = readFileSync(
-  new URL('../migrations/20261001090135_repair_length_schedule_affected_fixtures.sql', import.meta.url),
+  new URL('../migrations/history/20261001090135_repair_length_schedule_affected_fixtures.sql', import.meta.url),
   'utf8',
 );
 const roundOneRecoveryMigration = readFileSync(
-  new URL('../migrations/20261001090921_recover_length_round_one.sql', import.meta.url),
+  new URL('../migrations/history/20261001090921_recover_length_round_one.sql', import.meta.url),
   'utf8',
 );
 

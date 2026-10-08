@@ -200,6 +200,8 @@ export interface MatchSidePerformance {
   tacticType: number | null;
   tacticName: string | null;
   tacticSkill: number | null;
+  /** Hattrick matchlineup StyleOfPlay, from -1000 (defensive) to 1000 (offensive). */
+  styleOfPlay?: number | null;
   setPiecesTaker?: MatchSetPiecesTaker | null;
   specialtyPositions?: SpecialtyPositionGroup[];
   possessionFirstHalf: number | null;

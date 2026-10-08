@@ -180,9 +180,9 @@ export const StandingsView: React.FC<StandingsViewProps> = ({
     myManagerName,
   );
   const managerTeamNames = Object.fromEntries(
-    standings.flatMap((standing) => standing.hattrickUserId
-      ? [[standing.hattrickUserId, standing.teamName] as const]
-      : []),
+    standings.flatMap((standing) =>
+      standing.hattrickUserId ? [[standing.hattrickUserId, standing.teamName] as const] : [],
+    ),
   );
   const [commentDrafts, setCommentDrafts] = useState<Record<string, string>>({});
   const [pendingCommentStanding, setPendingCommentStanding] = useState<TeamStanding | null>(null);
@@ -636,37 +636,53 @@ export const StandingsView: React.FC<StandingsViewProps> = ({
             <thead>
               <tr>
                 <th>#</th>
-                {sortableHeader('Team', 'team')}
+                {sortableHeader('Team', 'team', '', 'Tournament team')}
                 {showHfiRank && sortableHeader('HFI', 'teamRank', styles.rankColumn, 'HFI league rank')}
                 {show120minScoring ? (
                   <>
+                    {sortableHeader('120m', 'achievements120min', styles.center120, 'Completed 120 min matches')}
                     {sortableHeader(
-                      '120m',
-                      'achievements120min',
-                      styles.center120,
-                      '1 point per 120 min game achieved',
+                      'Pts',
+                      'pts',
+                      `${styles.center} ${styles.pointsHeader}`,
+                      '120 min mode tie-break points',
                     )}
-                    {sortableHeader('120m%', 'achievements120minPercent', styles.center, '% of 120m matches')}
-                    {sortableHeader('Mins', 'totalMinutes', styles.center)}
-                    {sortableHeader('Dif', 'gd', styles.center)}
-                    {sortableHeader('Goals', 'gf', styles.center)}
+                    {sortableHeader(
+                      '120m%',
+                      'achievements120minPercent',
+                      styles.center,
+                      'Percentage of matches that reached 120 minutes',
+                    )}
+                    {sortableHeader('Mins', 'totalMinutes', styles.center, 'Total minutes played')}
+                    {sortableHeader('Dif', 'gd', styles.center, 'Goal difference in 120 min matches')}
+                    {sortableHeader('Goals', 'gf', styles.center, 'Goals scored in 120 min matches')}
                   </>
                 ) : showAppgScoring ? (
                   <>
-                    {sortableHeader('APPG', 'appg', `${styles.center} ${styles.pointsHeader}`)}
-                    {sortableHeader('120m%', 'achievements120minPercent', styles.center, '% of 120m matches')}
-                    {sortableHeader('Pld', 'played', styles.center)}
-                    {sortableHeader('Dif', 'gd', styles.center)}
-                    {sortableHeader('Goals', 'gf', styles.center)}
+                    {sortableHeader(
+                      'APPG',
+                      'appg',
+                      `${styles.center} ${styles.pointsHeader}`,
+                      'Average points per game',
+                    )}
+                    {sortableHeader(
+                      '120m%',
+                      'achievements120minPercent',
+                      styles.center,
+                      'Percentage of completed matches that reached 120 minutes',
+                    )}
+                    {sortableHeader('Pld', 'played', styles.center, 'Completed matches played')}
+                    {sortableHeader('Dif', 'gd', styles.center, 'Goal difference')}
+                    {sortableHeader('Goals', 'gf', styles.center, 'Goals scored')}
                   </>
                 ) : (
                   <>
-                    {sortableHeader('Pld', 'played', styles.center)}
-                    {sortableHeader('W', 'won', styles.center)}
-                    {sortableHeader('D', 'drawn', styles.center)}
-                    {sortableHeader('L', 'lost', styles.center)}
-                    {sortableHeader('GD', 'gd', styles.center)}
-                    {sortableHeader('Pts', 'pts', `${styles.center} ${styles.pointsHeader}`)}
+                    {sortableHeader('Pld', 'played', styles.center, 'Completed matches played')}
+                    {sortableHeader('W', 'won', styles.center, 'Matches won')}
+                    {sortableHeader('D', 'drawn', styles.center, 'Matches drawn')}
+                    {sortableHeader('L', 'lost', styles.center, 'Matches lost')}
+                    {sortableHeader('GD', 'gd', styles.center, 'Goal difference')}
+                    {sortableHeader('Pts', 'pts', `${styles.center} ${styles.pointsHeader}`, 'League points')}
                   </>
                 )}
               </tr>
@@ -825,6 +841,7 @@ export const StandingsView: React.FC<StandingsViewProps> = ({
                       {show120minScoring ? (
                         <>
                           <td className={`${styles.highlight} ${styles.center}`}>{s.achievements120min}</td>
+                          <td className={styles.center}>{s.pts}</td>
                           <td className={styles.center}>{percentage120min(s).toFixed(0)}%</td>
                           <td className={styles.center}>{s.totalMinutes}</td>
                           <td className={styles.center}>{s.gd > 0 ? `+${s.gd}` : s.gd}</td>

@@ -4,6 +4,13 @@ import { Tooltip } from '../Tooltip/Tooltip';
 import { TeamByline } from '../TeamByline/TeamByline';
 import { appgOutcomeLabel, type AppgOutcome } from '../../utils/appg';
 import { skillDisplay } from '../../utils/hattrick-skill';
+import {
+  getFormationIndicatorScore,
+  getMatchMindsetIndicator,
+  getSetPieceIndicatorScore,
+  getTacticIndicatorScore,
+} from '../../utils/rating-indicators';
+import type { RatingIndicatorScore } from '../../utils/rating-indicators';
 import type { MatchSideEventDetails, MatchSidePerformance } from '../../../shared/match-events';
 import type { SpecialtyPositionGroup } from '../../../shared/player-specialties';
 import { getLiveClockDisplay, type LiveMatchClock } from '../../../shared/live-match';
@@ -67,8 +74,9 @@ interface RatingsPreviewTeam {
   fetchedAt: string;
   formation: string;
   tactic: string;
-  tacticSkill: string;
+  coachModifier: number | null;
   setPieces: string;
+  setPiecesSkill: number | null;
   specialtyPositions: SpecialtyPositionGroup[];
   ratings: {
     leftAttack: string;
@@ -88,7 +96,14 @@ const MATCH_TYPES: Record<number, { initials: string; description: string }> = {
   9: { initials: 'ICR', description: 'International Cup Rules Friendly' },
 };
 
-type RatedSector = 'leftAttack' | 'centreAttack' | 'rightAttack' | 'midfield' | 'leftDefence' | 'centreDefence' | 'rightDefence';
+type RatedSector =
+  | 'leftAttack'
+  | 'centreAttack'
+  | 'rightAttack'
+  | 'midfield'
+  | 'leftDefence'
+  | 'centreDefence'
+  | 'rightDefence';
 
 const RATED_SECTOR_ROLES: Record<RatedSector, number[]> = {
   leftAttack: [110],
@@ -100,7 +115,13 @@ const RATED_SECTOR_ROLES: Record<RatedSector, number[]> = {
   rightDefence: [101],
 };
 const SPECIALTY_NAMES: Record<number, string> = {
-  1: 'Technical', 2: 'Quick', 3: 'Powerful', 4: 'Unpredict.', 5: 'Head', 6: 'Resilient', 8: 'Support',
+  1: 'Technical',
+  2: 'Quick',
+  3: 'Powerful',
+  4: 'Unpredict.',
+  5: 'Head',
+  6: 'Resilient',
+  8: 'Support',
 };
 
 function specialtyMarkersForSector(groups: SpecialtyPositionGroup[], sector: RatedSector) {
@@ -114,7 +135,31 @@ function specialtyMarkersForSector(groups: SpecialtyPositionGroup[], sector: Rat
   return [...counts].map(([specialtyId, count]) => ({ specialtyId, count }));
 }
 
-function RatingsPitch({ ratings, specialtyPositions = [], midfieldLabel = 'Midfield (excluding TS effect):' }: {
+function ratingIndicatorClass(score: RatingIndicatorScore | null | undefined) {
+  if (score === null || score === undefined || score === 0) return undefined;
+  return styles[`ratingIndicator${score}`];
+}
+
+function TacticValue({ tactic }: { tactic: string | null | undefined }) {
+  return <span className={ratingIndicatorClass(getTacticIndicatorScore(tactic))}>{tactic || '—'}</span>;
+}
+
+function GameStyle({ styleOfPlay }: { styleOfPlay: number | null | undefined }) {
+  const mindset = getMatchMindsetIndicator(styleOfPlay);
+  if (!mindset) return null;
+
+  return (
+    <span>
+      Style <strong className={ratingIndicatorClass(mindset.score)}>{mindset.label}</strong>
+    </span>
+  );
+}
+
+function RatingsPitch({
+  ratings,
+  specialtyPositions = [],
+  midfieldLabel = 'Midfield (excluding TS effect):',
+}: {
   ratings: RatingsPreviewTeam['ratings'];
   specialtyPositions?: SpecialtyPositionGroup[];
   midfieldLabel?: string;
@@ -148,9 +193,15 @@ function RatingsPitch({ ratings, specialtyPositions = [], midfieldLabel = 'Midfi
                 <div className={styles.ratingsValue}>
                   <strong>{value}</strong>
                   {markers.length > 0 && (
-                    <small className={styles.ratingsSpecialtyIcons} aria-label="Specialties contributing to this rating">
+                    <small
+                      className={styles.ratingsSpecialtyIcons}
+                      aria-label="Specialties contributing to this rating"
+                    >
                       {markers.map(({ specialtyId, count }) => (
-                        <span key={specialtyId} title={`${count > 1 ? `${count} ` : ''}${SPECIALTY_NAMES[specialtyId]}`}>
+                        <span
+                          key={specialtyId}
+                          title={`${count > 1 ? `${count} ` : ''}${SPECIALTY_NAMES[specialtyId]}`}
+                        >
                           {count > 1 && `${count}×`}
                           <i
                             className={styles.ratingsSpecialtyIcon}
@@ -189,8 +240,20 @@ function actualRatingsDisplay(performance?: MatchSidePerformance): RatingsPrevie
 const DEFAULT_TEAM_LOGO = '/matchKitLarge.png';
 
 const ROLE_NAMES: Record<number, string> = {
-  100: 'GK', 101: 'RD', 102: 'CD', 103: 'CD', 104: 'CD', 105: 'LD',
-  106: 'RW', 107: 'IM', 108: 'IM', 109: 'IM', 110: 'LW', 111: 'FW', 112: 'FW', 113: 'FW',
+  100: 'GK',
+  101: 'RD',
+  102: 'CD',
+  103: 'CD',
+  104: 'CD',
+  105: 'LD',
+  106: 'RW',
+  107: 'IM',
+  108: 'IM',
+  109: 'IM',
+  110: 'LW',
+  111: 'FW',
+  112: 'FW',
+  113: 'FW',
 };
 
 function specialtyPositionText(group: SpecialtyPositionGroup) {
@@ -199,7 +262,7 @@ function specialtyPositionText(group: SpecialtyPositionGroup) {
     const role = ROLE_NAMES[roleId];
     if (role) roleCounts.set(role, (roleCounts.get(role) ?? 0) + 1);
   }
-  const positions = [...roleCounts].map(([role, count]) => count > 1 ? `${count}x ${role}` : role);
+  const positions = [...roleCounts].map(([role, count]) => (count > 1 ? `${count}x ${role}` : role));
   return `${SPECIALTY_NAMES[group.specialtyId] ?? 'Specialty'}: ${positions.join(', ')}`;
 }
 
@@ -478,23 +541,32 @@ export const FixtureCard: React.FC<FixtureCardProps> = ({
                     <RatingsPitch ratings={preview.ratings} specialtyPositions={preview.specialtyPositions} />
                     <div className={styles.ratingsMetadata}>
                       <span>
-                        Formation <strong>{preview.formation}</strong>
+                        Formation{' '}
+                        <strong className={ratingIndicatorClass(getFormationIndicatorScore(preview.formation))}>
+                          {preview.formation}
+                        </strong>
                       </span>
                       <span>
-                        Tactic <strong>{preview.tactic}</strong>
+                        Tactic{' '}
+                        <strong>
+                          <TacticValue tactic={preview.tactic} />
+                        </strong>
                       </span>
+                      <GameStyle styleOfPlay={preview.coachModifier} />
                       <span>
-                        Tactic skill <strong>{preview.tacticSkill}</strong>
-                      </span>
-                      <span>
-                        Set Pieces taker <strong>{preview.setPieces}</strong>
+                        Set Pieces taker{' '}
+                        <strong className={ratingIndicatorClass(getSetPieceIndicatorScore(preview.setPiecesSkill))}>
+                          {preview.setPieces}
+                        </strong>
                       </span>
                     </div>
                     {preview.specialtyPositions.length > 0 && (
                       <div className={styles.specialtySummary} aria-label="Player specialties by position">
                         <span className={styles.specialtySummaryLabel}>Specialties:</span>
                         {preview.specialtyPositions.map((group) => (
-                          <span key={group.specialtyId}><strong>{specialtyPositionText(group)}</strong></span>
+                          <span key={group.specialtyId}>
+                            <strong>{specialtyPositionText(group)}</strong>
+                          </span>
                         ))}
                       </div>
                     )}
@@ -546,8 +618,8 @@ export const FixtureCard: React.FC<FixtureCardProps> = ({
                       </button>
                     </div>
                     <p className={styles.ratingsShareHelper}>
-                      Share predicted ratings with your opponent. Your shared snapshot will update automatically while
-                      shared (on fixture updates).
+                      Share your lineup predicted ratings with your opponent. Your shared ratings will update
+                      automatically if you change match orders.
                     </p>
                   </div>
                 )}
@@ -582,23 +654,32 @@ export const FixtureCard: React.FC<FixtureCardProps> = ({
                 />
                 <div className={styles.ratingsMetadata}>
                   <span>
-                    Formation <strong>{performance?.formation || '—'}</strong>
+                    Formation{' '}
+                    <strong className={ratingIndicatorClass(getFormationIndicatorScore(performance?.formation))}>
+                      {performance?.formation || '—'}
+                    </strong>
                   </span>
                   <span>
-                    Tactic <strong>{performance?.tacticName || '—'}</strong>
+                    Tactic{' '}
+                    <strong>
+                      <TacticValue tactic={performance?.tacticName} />
+                    </strong>
                   </span>
+                  <GameStyle styleOfPlay={performance?.styleOfPlay} />
                   <span>
-                    Tactic skill <strong>{performance?.tacticSkill ?? '—'}</strong>
-                  </span>
-                  <span>
-                    Set Pieces skill <strong>{skillDisplay(taker?.skill)}</strong>
+                    Set Pieces taker{' '}
+                    <strong className={ratingIndicatorClass(getSetPieceIndicatorScore(taker?.skill))}>
+                      {skillDisplay(taker?.skill)}
+                    </strong>
                   </span>
                 </div>
                 {!!performance?.specialtyPositions?.length && (
                   <div className={styles.specialtySummary} aria-label="Player specialties by position">
                     <span className={styles.specialtySummaryLabel}>Specialties:</span>
                     {performance.specialtyPositions.map((group) => (
-                      <span key={group.specialtyId}><strong>{specialtyPositionText(group)}</strong></span>
+                      <span key={group.specialtyId}>
+                        <strong>{specialtyPositionText(group)}</strong>
+                      </span>
                     ))}
                   </div>
                 )}

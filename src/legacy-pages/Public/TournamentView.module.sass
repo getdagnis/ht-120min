@@ -37,6 +37,24 @@
   font-weight: 500
   font-size: 1.25rem
 
+.refreshError
+  display: flex
+  align-items: center
+  justify-content: space-between
+  gap: 1rem
+  margin: 0 0 1rem
+  padding: 0.75rem 1rem
+  border: 1px solid var(--border)
+  border-radius: var(--radius-sm)
+  background: var(--bg-transp)
+
+  p
+    margin: 0
+
+  @media (max-width: 620px)
+    align-items: stretch
+    flex-direction: column
+
 .headerTop
   display: grid
   grid-template-columns: minmax(0, 1fr) 22rem

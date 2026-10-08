@@ -6,6 +6,11 @@ const messages = {
     ...en.common,
     language: 'Valoda',
   },
+  notFound: {
+    title: 'Lapa nav atrasta',
+    description: 'Šī lapa neeksistē vai ir pārvietota.',
+    homeLink: 'Atgriezties sākumlapā',
+  },
   fixtures: {
     ...en.fixtures,
     autoArrangeMyFixtures: 'Gribu, lai mači organizējas paši',

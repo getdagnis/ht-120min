@@ -4,7 +4,7 @@ import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 
 const migration = readFileSync(
-  fileURLToPath(new URL('../migrations/20261001134036_atomic_reserve_slot_swap.sql', import.meta.url)),
+  fileURLToPath(new URL('../migrations/history/20261001134036_atomic_reserve_slot_swap.sql', import.meta.url)),
   'utf8',
 );
 

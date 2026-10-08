@@ -94,6 +94,9 @@ export async function attachRefreshedTakerSkills(
     const previousTaker = previousTakerForTeam(previous, targetSide.teamId);
     const previousPerformance = previous && [previous.home, previous.away]
       .find((side) => side.teamId === targetSide.teamId)?.performance;
+    if (targetSide.performance && previousPerformance?.styleOfPlay !== undefined) {
+      targetSide.performance.styleOfPlay = previousPerformance.styleOfPlay;
+    }
     if (targetSide.performance && !targetSide.performance.specialtyPositions?.length && previousPerformance?.specialtyPositions?.length) {
       targetSide.performance.specialtyPositions = previousPerformance.specialtyPositions;
     }
@@ -109,10 +112,14 @@ export async function attachRefreshedTakerSkills(
     // Empty summaries from the earlier compendium-based lookup were not proof
     // that a roster was fetched. Retry them against the CHPP players endpoint.
     const needsSpecialties = !targetSide.performance?.specialtyPositions?.length;
-    if (((!taker || !taker.playerId) && !hasCachedSkill || needsSpecialties) && teamCredentials?.oauthToken && teamCredentials.oauthTokenSecret) {
+    const needsStyleOfPlay = Boolean(targetSide.performance && targetSide.performance.styleOfPlay === undefined);
+    if (((!taker || !taker.playerId) && !hasCachedSkill || needsSpecialties || needsStyleOfPlay) && teamCredentials?.oauthToken && teamCredentials.oauthTokenSecret) {
       try {
         const credentials = { oauth_token: teamCredentials.oauthToken, oauth_token_secret: teamCredentials.oauthTokenSecret };
         const lineupDetails = await fetchMatchLineupDetails(credentials, matchId, actualSide.teamId!);
+        if (needsStyleOfPlay && targetSide.performance) {
+          targetSide.performance.styleOfPlay = lineupDetails.styleOfPlay;
+        }
         if (needsSpecialties && lineupDetails.lineup.length && targetSide.performance) {
           const consumerKey = process.env.CHPP_CONSUMER_KEY;
           const consumerSecret = process.env.CHPP_CONSUMER_SECRET;
