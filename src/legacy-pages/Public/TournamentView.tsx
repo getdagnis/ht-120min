@@ -318,6 +318,8 @@ interface MatchWithTeams {
   reserve_team_id?: string | null;
   reserve_replaces_team_id?: string | null;
   reserve_story?: TournamentMatchArrangeStorySnapshot | null;
+  home_slot_id?: string | null;
+  away_slot_id?: string | null;
   reserve_team?: {
     name: string;
     ht_team_id: number;
@@ -547,6 +549,32 @@ function applyReserveDisplay(match: MatchWithTeams): MatchWithTeams {
   };
 }
 
+function normalizeMatchTeamRelation(value: unknown): MatchWithTeams['home_team'] {
+  const relation = Array.isArray(value) ? value[0] : value;
+  if (!relation || typeof relation !== 'object') return null;
+
+  const team = relation as Record<string, unknown>;
+  if (typeof team.name !== 'string' || typeof team.ht_team_id !== 'number' || typeof team.active !== 'boolean') {
+    return null;
+  }
+
+  return {
+    name: team.name,
+    ht_team_id: team.ht_team_id,
+    active: team.active,
+    ...(typeof team.reserve_active === 'boolean' ? { reserve_active: team.reserve_active } : {}),
+    ...(typeof team.logo_url === 'string' ? { logo_url: team.logo_url } : {}),
+    ...(typeof team.country_name === 'string' ? { country_name: team.country_name } : {}),
+    ...(typeof team.country_id === 'number' ? { country_id: team.country_id } : {}),
+    ...(typeof team.league_id === 'number' ? { league_id: team.league_id } : {}),
+    ...(typeof team.league_level === 'number' || team.league_level === null
+      ? { league_level: team.league_level }
+      : {}),
+    ...(typeof team.manager_name === 'string' ? { manager_name: team.manager_name } : {}),
+    ...(typeof team.hattrick_user_id === 'number' ? { hattrick_user_id: team.hattrick_user_id } : {}),
+  };
+}
+
 function toSeasonHistoryMatch(match: MatchWithTeams, roundNumber?: number): SeasonHistoryMatch {
   return {
     id: match.id,
@@ -629,7 +657,12 @@ function isBlockingTeamTournament(
 function reviveInitialRounds(initialData?: TournamentInitialData) {
   return ((initialData?.rounds || []) as Record<string, unknown>[]).map((round) => ({
     ...round,
-    matches: ((round.matches || []) as Record<string, unknown>[])
+    matches: ((round.matches || []) as Array<Record<string, unknown> & {
+      id: string;
+      ht_match_id?: number | null;
+      status?: string | null;
+      match_date?: string | Date | null;
+    }>)
       .map((match) => ({
         ...match,
         match_date: typeof match.match_date === 'string' ? new Date(match.match_date) : undefined,
@@ -1948,9 +1981,15 @@ export const TournamentView: React.FC<{
         matchesData,
         (ratingRows || []) as FixtureRatingShareStatus[],
       );
+      const normalizedMatches = matchesWithRatings.map((match) => ({
+        ...match,
+        home_team: normalizeMatchTeamRelation(match.home_team),
+        away_team: normalizeMatchTeamRelation(match.away_team),
+        reserve_team: normalizeMatchTeamRelation(match.reserve_team),
+      }));
       const newRounds = roundsData.map((r: { created_at: string; id: string; round_number: number }) => ({
         ...r,
-        matches: (matchesWithRatings as MatchWithTeams[])
+        matches: (normalizedMatches as MatchWithTeams[])
           .filter((m) => m.round_id === r.id)
           .map((m) => ({
             ...applyReserveDisplay(m),
@@ -3508,7 +3547,9 @@ export const TournamentView: React.FC<{
       }
       setRounds([]);
       setStandings([]);
-      setFixtureViewSeasonNumber(null);
+      const nextParams = new URLSearchParams(searchParams.toString());
+      nextParams.delete('season');
+      setSearchParams(nextParams, { replace: true });
       setScheduleTeamOrder(null);
       setTournament((prev) =>
         prev
@@ -4482,6 +4523,7 @@ export const TournamentView: React.FC<{
   };
 
   const generateSchedule = async () => {
+    if (!tournament) return;
     if (!isHealthQuotaMet()) {
       setScheduleNotice({
         title: 'Cannot generate schedule',
@@ -4547,9 +4589,10 @@ export const TournamentView: React.FC<{
   const confirmGenerateSchedule = async () => {
     setIsScheduleConfirmationOpen(false);
     if (!tournament) return;
+    const scheduleStartDate = scheduleDraft.selectedStartSlot?.nominalDate.toISOString();
     if (usesLengthSchedulePlanner) {
       if (!serializedLengthScheduleDraft || !lengthScheduleDraft.selectedStartSlot) return;
-    } else if (!serializedScheduleDraft || !scheduleDraft.selectedStartSlot) return;
+    } else if (!serializedScheduleDraft || !scheduleStartDate) return;
     const scheduleAdminPassword = password.trim() || tournament.admin_password || '';
     if (!usesLengthSchedulePlanner && !scheduleAdminPassword) return;
     setIsGenerating(true);
@@ -4573,7 +4616,7 @@ export const TournamentView: React.FC<{
           p_schedule_payload: serializedScheduleDraft,
           p_admin_password: scheduleAdminPassword,
           p_schedule_mode: scheduleDraft.mode,
-          p_schedule_start_slot: scheduleDraft.selectedStartSlot.nominalDate.toISOString(),
+          p_schedule_start_slot: scheduleStartDate,
           p_include_week15_weekend_friendly: scheduleDraft.consumesWeek15WeekendFriendly,
         });
         if (error) throw error;
@@ -4582,7 +4625,7 @@ export const TournamentView: React.FC<{
             tournament_id: tournament.id,
             season_number: tournament.season || 1,
             status: 'ongoing',
-            planned_start_slot: scheduleDraft.selectedStartSlot.nominalDate.toISOString(),
+            planned_start_slot: scheduleStartDate,
             started_at: new Date().toISOString(),
             updated_at: new Date().toISOString(),
           },
