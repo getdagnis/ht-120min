@@ -5372,14 +5372,12 @@ export const TournamentView: React.FC<{
     });
 
     const warningTeamIds = warnings
-      .filter((warning) => warning.active !== false && typeof warning.team_id === 'string')
-      .filter((warning) => {
-        const warningRoundIndex = rounds.findIndex((round) => round.id === warning.round_id);
-        if (warningRoundIndex < 0 || renderTimestamp <= 0) return true;
-        return !roundStartTimes
-          .slice(warningRoundIndex + 1)
-          .some((roundStart) => roundStart !== null && roundStart <= renderTimestamp);
-      })
+      .filter(
+        (warning) =>
+          warning.active !== false &&
+          warning.round_id === currentRoundId &&
+          typeof warning.team_id === 'string',
+      )
       .map((warning) => warning.team_id as string);
 
     return mapWarningTeamIdsToStandingsIds(warningTeamIds, seasonSlots);
