@@ -167,7 +167,7 @@ function ratingsDisplay(row: SharedFixtureRatings | undefined) {
     fetchedAt: row.fetched_at,
     formation: row.formation,
     tactic: row.tactic,
-    tacticSkill: skillDisplay(row.tactic_skill),
+    tacticSkill: row.tactic_skill,
     setPieces: skillDisplay(row.set_pieces_skill),
     setPiecesSkill: row.set_pieces_skill,
     specialtyPositions: row.specialty_positions ?? [],
