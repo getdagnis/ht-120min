@@ -270,28 +270,31 @@ export function formatPresence(lastSeenAt: string | null | undefined): {
   if (mins < 80) return { label: '1h', tooltip: 'Seen about 1 hour ago', color: 'green', online: false };
 
   if (mins < 150) return { label: '2h', tooltip: 'Seen about 2 hours ago', color: 'semi_green', online: false };
-  if (mins < 300) return { label: '4h', tooltip: 'Seen about 4h hours ago', color: 'semi_green', online: false };
+  if (mins < 300) return { label: '4h', tooltip: 'Visited about 4 hours ago', color: 'semi_green', online: false };
   if (mins < 420) return { label: '6h', tooltip: 'Seen about 6 hours ago', color: 'semi_green', online: false };
   if (mins < 60 * 11) return { label: '10h', tooltip: 'Seen about 10 hours ago', color: 'yellow', online: false };
   if (mins < 60 * 18) return { label: '16h', tooltip: 'Seen less than 18 hours ago', color: 'yellow', online: false };
-  if (mins < 60 * 24) return { label: '20h', tooltip: 'Seen less than a day ago', color: 'yellow', online: false };
+  if (mins < 60 * 23) return { label: '20h', tooltip: 'Seen less than a day ago', color: 'yellow', online: false };
+  if (mins < 60 * 28) return { label: '1d', tooltip: 'Seen about a day ago', color: 'yellow', online: false };
 
-  if (mins < 60 * 24 * 2) return { label: '1d', tooltip: 'Seen more than a day ago', color: 'yellow', online: false };
+  if (mins < 60 * 24 * 2) return { label: '1d', tooltip: 'Seen over a day ago', color: 'yellow', online: false };
   if (mins < 60 * 24 * 3) return { label: '2d', tooltip: 'Seen more than 2 days ago', color: 'yellow', online: false };
   if (mins < 60 * 24 * 4) return { label: '3d', tooltip: 'Seen about 3 days ago', color: 'yellow', online: false };
   if (mins < 60 * 24 * 5) return { label: '4d', tooltip: 'Seen about 4 days ago', color: 'yellow', online: false };
-  if (mins < 60 * 24 * 6) return { label: '5d', tooltip: 'Seen about 5 days ago', color: 'yellow', online: false };
-  if (mins < 60 * 24 * 7) return { label: '6d', tooltip: 'Seen about 6 days ago', color: 'yellow', online: false };
-  if (mins < 60 * 24 * 14) return { label: '1w', tooltip: 'Seen about a week ago', color: 'yellow', online: false };
+  if (mins < 60 * 24 * 6) return { label: '5d', tooltip: 'Last logged in 5 days ago', color: 'yellow', online: false };
+  if (mins < 60 * 24 * 7) return { label: '6d', tooltip: 'Last logged in 6 days ago', color: 'yellow', online: false };
+  if (mins < 60 * 24 * 8) return { label: '1w', tooltip: 'Last logged in about a week ago', color: 'yellow', online: false };
+  
+  if (mins < 60 * 24 * 12) return { label: '1w+', tooltip: 'Last logged in more than a week ago', color: 'red', online: false };
+  if (mins < 60 * 24 * 21) return { label: '2w', tooltip: 'Last logged in about 2 weeks ago', color: 'red', online: false };
+  if (mins < 60 * 24 * 26) return { label: '3w', tooltip: 'Three weeks have passed since we saw this manager', color: 'red', online: false };
+  if (mins < 60 * 24 * 45) return { label: '1mo', tooltip: 'This manager was here about a month ago', color: 'red', online: false };
+  if (mins < 60 * 24 * 80) return { label: '2mo', tooltip: 'Last we saw them about 2 months ago', color: 'red', online: false };
+  if (mins < 60 * 24 * 120) return { label: '4mo', tooltip: 'Last logged in about a season ago', color: 'red', online: false };
+  if (mins < 60 * 24 * 220) return { label: '4mo', tooltip: 'Last seen over a season ago ago', color: 'red', online: false };
+  if (mins < 60 * 24 * 365) return { label: '1y', tooltip: 'There are rumours such a manager existed a few seasons ago', color: 'red', online: false };
 
-  if (mins < 60 * 24 * 21) return { label: '2w', tooltip: 'Seen about 2 weeks ago', color: 'red', online: false };
-  if (mins < 60 * 24 * 30) return { label: '3w', tooltip: 'Seen about 3 weeks ago', color: 'red', online: false };
-  if (mins < 60 * 24 * 45) return { label: '1mo', tooltip: 'Seen about 1 month ago', color: 'red', online: false };
-  if (mins < 60 * 24 * 80) return { label: '2mo', tooltip: 'Seen about 2 months ago', color: 'red', online: false };
-  if (mins < 60 * 24 * 140) return { label: '4mo', tooltip: 'Seen about 6 months ago', color: 'red', online: false };
-  if (mins < 60 * 24 * 365) return { label: '1y', tooltip: 'Seen about 1 year ago', color: 'red', online: false };
-
-  return { label: '1y+', tooltip: 'Seen more than a year ago', color: 'red', online: false };
+  return { label: '1y+', tooltip: 'Our grand grand parents tell long forgotten stories of this manager', color: 'red', online: false };
 }
 
 export function calculateMatchDate(tournamentCreatedAt: string, roundNumber: number, countryName?: string): Date {
