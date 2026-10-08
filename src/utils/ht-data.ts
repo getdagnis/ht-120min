@@ -283,7 +283,7 @@ export function formatPresence(lastSeenAt: string | null | undefined): {
   if (mins < 60 * 24 * 5) return { label: '4d', tooltip: 'Seen about 4 days ago', color: 'yellow', online: false };
   if (mins < 60 * 24 * 6) return { label: '5d', tooltip: 'Last logged in 5 days ago', color: 'yellow', online: false };
   if (mins < 60 * 24 * 7) return { label: '6d', tooltip: 'Last logged in 6 days ago', color: 'yellow', online: false };
-  if (mins < 60 * 24 * 8) return { label: '1w', tooltip: 'Last logged in about a week ago', color: 'yellow', online: false };
+  if (mins < 60 * 24 * 9) return { label: '1w', tooltip: 'Last logged in about a week ago', color: 'yellow', online: false };
   
   if (mins < 60 * 24 * 12) return { label: '1w+', tooltip: 'Last logged in more than a week ago', color: 'red', online: false };
   if (mins < 60 * 24 * 21) return { label: '2w', tooltip: 'Last logged in about 2 weeks ago', color: 'red', online: false };
