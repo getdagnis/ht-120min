@@ -8,6 +8,11 @@ const messages = {
     english: 'Angļu',
     latvian: 'Letiņu',
   },
+  notFound: {
+    title: 'Lapa nav atrasta',
+    description: 'Šī lapa neeksistē vai ir pārvietota.',
+    homeLink: 'Atgriezties sākumlapā',
+  },
   fixtures: {
     ...en.fixtures,
     autoArrangeMyFixtures: 'Automātiski organizēt manus mačus',

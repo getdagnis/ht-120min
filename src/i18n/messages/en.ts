@@ -5,6 +5,11 @@ const messages = {
     english: 'English',
     latvian: 'Latvian',
   },
+  notFound: {
+    title: 'Page not found',
+    description: 'This page doesn’t exist or may have moved.',
+    homeLink: 'Back to home',
+  },
   fixtures: {
     autoArrangeMyFixtures: 'Auto-arrange my fixtures',
     autoArrangeTeamFixtures: 'Auto-arrange {team} fixtures',
