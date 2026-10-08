@@ -2,9 +2,21 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 import {
   getFormationIndicatorScore,
+  getMatchMindsetIndicator,
   getSetPieceIndicatorScore,
   getTacticIndicatorScore,
 } from '../src/utils/rating-indicators.ts';
+
+test('mindset indicators recognize only full defensive and offensive settings', () => {
+  assert.deepEqual(getMatchMindsetIndicator(-10), { label: 'Defensive 100%', score: 1 });
+  assert.deepEqual(getMatchMindsetIndicator(-1000), { label: 'Defensive 100%', score: 1 });
+  assert.deepEqual(getMatchMindsetIndicator(10), { label: 'Offensive 100%', score: 3 });
+  assert.deepEqual(getMatchMindsetIndicator(1000), { label: 'Offensive 100%', score: 3 });
+  assert.equal(getMatchMindsetIndicator(-8), null);
+  assert.equal(getMatchMindsetIndicator(0), null);
+  assert.equal(getMatchMindsetIndicator(800), null);
+  assert.equal(getMatchMindsetIndicator(null), null);
+});
 
 test('formation indicators use the canonical complete-formation scores', () => {
   const expected: Record<string, number> = {

@@ -2,6 +2,7 @@ import { notFound } from 'next/navigation';
 import { isLocale } from '../../../../../i18n/config';
 import { TournamentView } from '../../../../../legacy-pages/Public/TournamentView';
 import { loadHomeInitialData, loadTournamentInitialData } from '../../../../_data/public-data';
+import { readPublicTournament } from '../../../../../utils/public-tournament-load';
 
 // The locale shell reads cookies, so HTML remains request-specific. Allow the
 // explicit public Data Cache instead of forcing every read to bypass it.
@@ -15,14 +16,12 @@ export default async function TournamentPage({
   const { locale, slug } = await params;
   if (!isLocale(locale)) notFound();
 
-  let initialData;
-  try {
-    initialData = await loadTournamentInitialData(slug);
-  } catch (error) {
-    console.error('Could not load tournament data on the server:', error instanceof Error ? error.message : 'Unknown error');
-    initialData = undefined;
+  const tournamentResult = await readPublicTournament(() => loadTournamentInitialData(slug));
+  if (tournamentResult.status === 'not-found') notFound();
+  const initialData = tournamentResult.status === 'loaded' ? tournamentResult.data : undefined;
+  if (tournamentResult.status === 'failed') {
+    console.error('Could not load tournament data on the server:', tournamentResult.error instanceof Error ? tournamentResult.error.message : 'Unknown error');
   }
-  if (initialData === null) notFound();
   let collectionLinks: { slug: string; title: string }[] = [];
   if (initialData) {
     try {

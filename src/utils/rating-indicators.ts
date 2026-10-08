@@ -1,5 +1,14 @@
 export type RatingIndicatorScore = 1 | 2 | 3 | 4;
 
+export function getMatchMindsetIndicator(styleOfPlay: number | null | undefined): {
+  label: 'Defensive 100%' | 'Offensive 100%';
+  score: 1 | 3;
+} | null {
+  if (styleOfPlay === -10 || styleOfPlay === -1000) return { label: 'Defensive 100%', score: 1 };
+  if (styleOfPlay === 10 || styleOfPlay === 1000) return { label: 'Offensive 100%', score: 3 };
+  return null;
+}
+
 const canonicalFormationScores: Record<string, RatingIndicatorScore> = {
   '5-5-0': 1,
   '5-4-1': 1,

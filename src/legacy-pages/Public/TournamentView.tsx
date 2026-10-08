@@ -80,6 +80,7 @@ import {
 } from '../../utils/tournament-joinability';
 import { markAuthRefreshCurrent, needsAuthRefresh } from '../../utils/auth-refresh';
 import { formatTournamentName } from '../../utils/tournament-names';
+import { readPublicTournament } from '../../utils/public-tournament-load';
 import { isSandboxTournament, normalizeTournamentRegistrationType } from '../../utils/tournament-types';
 import type { TournamentEmojiContext } from '../../utils/tournament-emoji-options';
 import {
@@ -1518,6 +1519,7 @@ export const TournamentView: React.FC<{
   const [loadError, setLoadError] = useState<string | null>(null);
   const [copied, setCopied] = useState<Record<string, boolean>>({});
   const hasLoadedTournamentRef = useRef(Boolean(initialData));
+  const initialLoadAttemptedRef = useRef(false);
 
   const allMatches = rounds.flatMap((r) => r.matches);
   const isGenerated = rounds.length > 0;
@@ -1811,15 +1813,30 @@ export const TournamentView: React.FC<{
 
   const fetchData = useCallback(
     async (options: { showLoader?: boolean; invalidate?: boolean } = {}) => {
-      const showLoader = options.showLoader ?? !hasLoadedTournamentRef.current;
+      const showLoader = (options.showLoader ?? !hasLoadedTournamentRef.current) && !hasLoadedTournamentRef.current;
       if (showLoader) {
         setLoading(true);
         setLoadError(null);
       }
       try {
         if (options.invalidate !== false && !(await invalidateAfterEdit())) return;
-        const data = await readTournamentPublicData(slug);
-        if (!data) return;
+        const result = await readPublicTournament(
+          () => readTournamentPublicData(slug),
+          initialData || null,
+        );
+        if (result.status === 'not-found') {
+          setLoadError(null);
+          setTournament(null);
+          return;
+        }
+        if (result.status === 'failed') {
+          console.error('Could not refresh tournament data:', result.error);
+          setLoadError(hasLoadedTournamentRef.current
+            ? 'Tournament data could not be refreshed. Your current page data is still available. Please try again.'
+            : 'Tournament data could not be loaded. Please try again.');
+          return;
+        }
+        const data = result.data;
         setLoadError(null);
         hasLoadedTournamentRef.current = true;
         const tournamentData = data.tournament as unknown as Tournament;
@@ -1864,16 +1881,14 @@ export const TournamentView: React.FC<{
         await hydratePrivateData(readLocalStorage(`admin_pw_${slug}`) || '');
       } catch (error) {
         console.error('Could not refresh tournament data:', error);
-        if (!hasLoadedTournamentRef.current) {
-          setLoadError('Tournament data could not be loaded. Please try again.');
-        } else {
-          alert('Could not refresh tournament data. Reload the page to try again.');
-        }
+        setLoadError(hasLoadedTournamentRef.current
+          ? 'Tournament data could not be refreshed. Your current page data is still available. Please try again.'
+          : 'Tournament data could not be loaded. Please try again.');
       } finally {
         if (showLoader) setLoading(false);
       }
     },
-    [slug, invalidateAfterEdit, hydratePrivateData, alert],
+    [slug, initialData, invalidateAfterEdit, hydratePrivateData],
   );
 
   // Lightweight update: only refresh rounds, matches, warnings and last_fixtures_refresh timestamp.
@@ -2398,8 +2413,8 @@ export const TournamentView: React.FC<{
       }, 0);
       return () => window.clearTimeout(timer);
     }
-    if (hasLoadedTournamentRef.current) return;
-    hasLoadedTournamentRef.current = true;
+    if (hasLoadedTournamentRef.current || initialLoadAttemptedRef.current) return;
+    initialLoadAttemptedRef.current = true;
     void fetchData({ showLoader: true, invalidate: false }).catch((error) => {
       console.error('Could not load tournament:', error);
       setLoading(false);
@@ -5484,6 +5499,14 @@ export const TournamentView: React.FC<{
 
   return (
     <div className={styles.view}>
+      {loadError && (
+        <div className={styles.refreshError} role="alert">
+          <p>{loadError}</p>
+          <Button variant="primary" onClick={() => void fetchData({ showLoader: true, invalidate: false })}>
+            Try again
+          </Button>
+        </div>
+      )}
       <div className={styles.tHeader}>
         <div className={styles.headerTop}>
           <div className={styles.titleArea}>

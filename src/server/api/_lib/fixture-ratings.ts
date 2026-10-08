@@ -11,7 +11,8 @@ type Db = ReturnType<typeof getServiceSupabase>;
 type Side = 'home' | 'away';
 type Credentials = { oauth_token: string; oauth_token_secret: string };
 type RatingValues = Pick<SharedFixtureRatings, 'left_attack' | 'centre_attack' | 'right_attack' | 'midfield' |
-  'left_defence' | 'centre_defence' | 'right_defence' | 'formation' | 'tactic' | 'tactic_skill' | 'set_pieces_skill'>;
+  'left_defence' | 'centre_defence' | 'right_defence' | 'formation' | 'tactic' | 'tactic_skill' |
+  'coach_modifier' | 'set_pieces_skill'>;
 type SharedRatingValues = RatingValues & { specialty_positions: SharedFixtureRatings['specialty_positions'] };
 
 export class FixtureRatingsError extends Error {
@@ -75,6 +76,14 @@ function requiredInteger(xml: string, tag: string, min: number, max: number): nu
   return value;
 }
 
+function optionalIntegerTag(xml: string, tag: string, min: number, max: number): number | null {
+  const match = xml.match(new RegExp(`<${tag}(\\s[^>]*)?>([\\s\\S]*?)<\\/${tag}>`, 'i'));
+  if (!match || /\bAvailable\s*=\s*["']false["']/i.test(match[1] || '')) return null;
+  const raw = match[2].trim();
+  const value = Number(raw);
+  return raw && Number.isSafeInteger(value) && value >= min && value <= max ? value : null;
+}
+
 export function convertSectorRating(raw: number): number {
   if (!Number.isSafeInteger(raw) || raw < 1 || raw > 80) throw new FixtureRatingsError(502, 'Hattrick returned an invalid sector rating.');
   return (raw + 3) / 4;
@@ -118,11 +127,12 @@ export function parseSubmittedOrders(xml: string, matchId: number, teamId: numbe
   const tacticId = requiredInteger(data, 'TacticType', 0, 8);
   const tactic = TACTICS[tacticId];
   if (!tactic) throw new FixtureRatingsError(502, 'Hattrick returned an unknown tactic.');
+  const coachModifier = optionalIntegerTag(data, 'CoachModifier', -10, 10);
   const takerId = Number(readChppTag(block(block(data, 'Lineup'), 'SetPieces'), 'PlayerID')) || null;
-  return { formation: `${roleGroups.defender}-${roleGroups.midfielder}-${roleGroups.forward}`, tactic, takerId, lineup };
+  return { formation: `${roleGroups.defender}-${roleGroups.midfielder}-${roleGroups.forward}`, tactic, coachModifier, takerId, lineup };
 }
 
-export function parsePredictedRatings(xml: string, matchId: number): Omit<RatingValues, 'formation' | 'tactic' | 'set_pieces_skill'> {
+export function parsePredictedRatings(xml: string, matchId: number): Omit<RatingValues, 'formation' | 'tactic' | 'coach_modifier' | 'set_pieces_skill'> {
   if (Number(readChppTag(xml, 'MatchID')) !== matchId) throw new FixtureRatingsError(409, 'Hattrick returned a different match prediction.');
   if (/<MatchData\b[^>]*Available=["']false["']/i.test(xml)) {
     throw new FixtureRatingsError(403, 'Hattrick denied match-order prediction. Reauthorize your Hattrick account.');
@@ -196,6 +206,14 @@ export function parseMatchLineupStartingPlayers(xml: string, matchId: number, te
   return players;
 }
 
+export function parseMatchLineupStyleOfPlay(xml: string, matchId: number, teamId: number): number | null {
+  if (Number(readChppTag(xml, 'MatchID')) !== matchId) return null;
+  const team = [...xml.matchAll(/<Team(?:\s[^>]*)?>([\s\S]*?)<\/Team>/gi)]
+    .map((match) => match[1])
+    .find((candidate) => Number(readChppTag(candidate, 'TeamID')) === teamId);
+  return team ? optionalIntegerTag(team, 'StyleOfPlay', -1000, 1000) : null;
+}
+
 export async function fetchMatchLineupDetails(credentials: Credentials, matchId: number, teamId: number) {
   const xml = await chpp('matchlineup', '2.1', credentials, {
     matchID: String(matchId),
@@ -205,6 +223,7 @@ export async function fetchMatchLineupDetails(credentials: Credentials, matchId:
   return {
     taker: parseMatchLineupSetPiecesTaker(xml, matchId, teamId),
     lineup: parseMatchLineupStartingPlayers(xml, matchId, teamId),
+    styleOfPlay: parseMatchLineupStyleOfPlay(xml, matchId, teamId),
   };
 }
 
@@ -252,6 +271,7 @@ export async function prediction(credentials: Credentials, matchId: number, team
     ...ratings,
     formation: orders.formation,
     tactic: orders.tactic,
+    coach_modifier: orders.coachModifier,
     set_pieces_skill: setPiecesSkill,
     specialty_positions: specialties ? summarizeSpecialtyPositions(orders.lineup, specialties) : null,
   };

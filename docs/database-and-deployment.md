@@ -38,7 +38,7 @@ The app treats tournaments, rounds, matches, standings, chat, and admin decision
 - `migrations/history/` is an archived legacy area.
 - Active migrations must use the root `migrations/` directory.
 - Continue the numeric sequence from the latest active migration.
-- The current active sequence includes owner-marked-applied `095_fixture_predicted_rating_shares.sql`, prepared `096_limit_fixture_rating_visibility.sql`, owner-marked-applied `097_tournament_collections.sql`, prepared `098_publish_home_tournament_descriptions.sql`, prepared `099_collection_homepage_groups.sql`, and prepared `100_tournament_modification_time.sql`; the next migration must continue at `101_...sql`. Recheck files before numbering.
+- The latest active migration file is `104_add_fixture_rating_coach_modifier.sql` (prepared locally, not applied); continue at `105_...sql`. The repository's migration files and owner-added applied markers are bookkeeping, not independent live schema verification.
 - Do not create timestamp-prefixed migration names such as `20261001050614_...`.
 - Keep migrations compatible with existing rows when possible.
 - Record migration state in `PROJECT_STATE.md` only when a schema/RPC/RLS change has architectural, security, product-direction, or substantial behavioral impact. Do not add status entries for routine fixes or small implementation details.

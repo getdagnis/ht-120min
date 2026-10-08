@@ -6,6 +6,7 @@ import { appgOutcomeLabel, type AppgOutcome } from '../../utils/appg';
 import { skillDisplay } from '../../utils/hattrick-skill';
 import {
   getFormationIndicatorScore,
+  getMatchMindsetIndicator,
   getSetPieceIndicatorScore,
   getTacticIndicatorScore,
 } from '../../utils/rating-indicators';
@@ -72,7 +73,7 @@ interface RatingsPreviewTeam {
   fetchedAt: string;
   formation: string;
   tactic: string;
-  tacticSkill: number | null;
+  coachModifier: number | null;
   setPieces: string;
   setPiecesSkill: number | null;
   specialtyPositions: SpecialtyPositionGroup[];
@@ -137,9 +138,20 @@ function ratingIndicatorClass(score: 1 | 2 | 3 | 4 | null) {
   return score ? styles[`ratingIndicator${score}`] : undefined;
 }
 
-function tacticWithSkill(tactic: string | null | undefined, skill: number | null | undefined) {
-  if (!tactic) return '—';
-  return typeof skill === 'number' && Number.isFinite(skill) && skill > 0 ? `${tactic} (${skill})` : tactic;
+function TacticIndicator({ tactic, styleOfPlay }: { tactic: string | null | undefined; styleOfPlay: number | null | undefined }) {
+  const mindset = getMatchMindsetIndicator(styleOfPlay);
+  return (
+    <>
+      <span className={ratingIndicatorClass(getTacticIndicatorScore(tactic))}>{tactic || '—'}</span>
+      {mindset && (
+        <>
+          {' ('}
+          <span className={ratingIndicatorClass(mindset.score)}>{mindset.label}</span>
+          {')'}
+        </>
+      )}
+    </>
+  );
 }
 
 function RatingsPitch({
@@ -535,8 +547,8 @@ export const FixtureCard: React.FC<FixtureCardProps> = ({
                       </span>
                       <span>
                         Tactic{' '}
-                        <strong className={ratingIndicatorClass(getTacticIndicatorScore(preview.tactic))}>
-                          {tacticWithSkill(preview.tactic, preview.tacticSkill)}
+                        <strong>
+                          <TacticIndicator tactic={preview.tactic} styleOfPlay={preview.coachModifier} />
                         </strong>
                       </span>
                       <span>
@@ -647,8 +659,8 @@ export const FixtureCard: React.FC<FixtureCardProps> = ({
                   </span>
                   <span>
                     Tactic{' '}
-                    <strong className={ratingIndicatorClass(getTacticIndicatorScore(performance?.tacticName))}>
-                      {tacticWithSkill(performance?.tacticName, performance?.tacticSkill)}
+                    <strong>
+                      <TacticIndicator tactic={performance?.tacticName} styleOfPlay={performance?.styleOfPlay} />
                     </strong>
                   </span>
                   <span>
