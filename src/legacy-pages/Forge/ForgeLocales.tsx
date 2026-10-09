@@ -33,6 +33,17 @@ interface CatalogResponse {
 }
 
 const recentKey = 'forge-locale-recent';
+const localeFlags: Record<Locale, string> = { en: '🇬🇧', lv: '🇱🇻' };
+
+interface UnsavedDraft {
+  values: CatalogValues;
+  savedValues: CatalogValues;
+  revision: number;
+}
+
+function draftKey(locale: Locale, section: CatalogSection) {
+  return `${locale}:${section}`;
+}
 
 function subgroup(key: string, section: CatalogSection) {
   if (section === 'System') {
@@ -61,12 +72,14 @@ export function ForgeLocales({ isAdmin }: { isAdmin: boolean }) {
   const [locale, setLocale] = useState<Locale>('en');
   const [selectedSection, setSelectedSection] = useState<CatalogSection>('System');
   const [selectedGroup, setSelectedGroup] = useState<string | null>(null);
-  const [recent, setRecent] = useState<Locale[]>(() => {
+  const [tabOrder, setTabOrder] = useState<Locale[]>(() => {
     try {
       const saved = JSON.parse(localStorage.getItem(recentKey) || '[]') as string[];
-      return saved.filter((item): item is Locale => item === 'en' || item === 'lv');
-    } catch { return []; }
+      return ['en', ...saved.filter((item): item is Locale => item === 'lv')];
+    } catch { return ['en']; }
   });
+  const [showSettings, setShowSettings] = useState(false);
+  const [activeKey, setActiveKey] = useState<string | null>(null);
   const [catalog, setCatalog] = useState<CatalogResponse | null>(null);
   const [draft, setDraft] = useState<CatalogValues>({});
   const [savedDraft, setSavedDraft] = useState<CatalogValues>({});
@@ -78,6 +91,7 @@ export function ForgeLocales({ isAdmin }: { isAdmin: boolean }) {
   const [error, setError] = useState('');
   const editorRef = useRef<HTMLDivElement>(null);
   const requestIdRef = useRef(0);
+  const unsavedDraftsRef = useRef<Record<string, UnsavedDraft>>({});
   const focusRef = useRef<{ key: string; position: number; scroll: number } | null>(null);
   const fieldsRef = useRef<Record<string, HTMLTextAreaElement | null>>({});
 
@@ -88,10 +102,15 @@ export function ForgeLocales({ isAdmin }: { isAdmin: boolean }) {
     const payload = await response.json() as CatalogResponse & { error?: string };
     if (!response.ok) throw new Error(payload.error || 'Could not load locale catalog.');
     if (requestId !== requestIdRef.current) return;
+    const key = draftKey(targetLocale, targetSection);
+    const unsaved = unsavedDraftsRef.current[key];
     setSettings(payload.settings);
-    setCatalog(payload);
-    setDraft(payload.draftValues);
-    setSavedDraft(payload.draftValues);
+    setCatalog(unsaved ? { ...payload, draftRevision: unsaved.revision } : payload);
+    setDraft(unsaved?.values || payload.draftValues);
+    setSavedDraft(unsaved?.savedValues || payload.draftValues);
+    if (unsaved && unsaved.revision !== payload.draftRevision) {
+      setError('This draft changed on the server. Copy your unsaved text before reloading.');
+    }
     setEditedSettings(payload.settings.find((item) => item.locale === targetLocale) || null);
     setEditorIdsText((payload.settings.find((item) => item.locale === targetLocale)?.editor_ht_ids || []).join(', '));
     setSelectedHistoryVersion(null);
@@ -148,12 +167,25 @@ export function ForgeLocales({ isAdmin }: { isAdmin: boolean }) {
   const groups = useMemo(() => [...new Set((catalog?.registeredKeys || []).map((key) => subgroup(key, selectedSection)))],
     [catalog, selectedSection]);
   const visibleKeys = (catalog?.registeredKeys || []).filter((key) => !selectedGroup || subgroup(key, selectedSection) === selectedGroup);
-  const tabs = [locale, 'en', ...recent].filter((item, index, list) =>
-    settings.some((setting) => setting.locale === item) && list.indexOf(item) === index).slice(0, 5) as Locale[];
+  const tabs = [...tabOrder, ...(settings.length <= 5 ? settings.map((item) => item.locale) : [])]
+    .filter((item, index, list) => settings.some((setting) => setting.locale === item) && list.indexOf(item) === index)
+    .slice(0, 5) as Locale[];
+
+  function rememberDraft() {
+    const key = draftKey(locale, selectedSection);
+    if (dirty && catalog) {
+      unsavedDraftsRef.current[key] = {
+        values: draft, savedValues: savedDraft, revision: catalog.draftRevision,
+      };
+    } else {
+      delete unsavedDraftsRef.current[key];
+    }
+  }
 
   function switchLanguage(next: Locale) {
     if (next === locale) return;
-    if ((dirty || settingsDirty) && !window.confirm('Discard unsaved locale edits?')) return;
+    if (settingsDirty && !window.confirm('Discard unsaved language settings?')) return;
+    rememberDraft();
     if (focusRef.current) focusRef.current.scroll = editorRef.current?.scrollTop || 0;
     setCatalog(null);
     setDraft({});
@@ -164,25 +196,33 @@ export function ForgeLocales({ isAdmin }: { isAdmin: boolean }) {
     setLocale(next);
     setNotice('');
     setError('');
-    const nextRecent = [next, ...recent.filter((item) => item !== next)].slice(0, 4);
-    setRecent(nextRecent);
-    localStorage.setItem(recentKey, JSON.stringify(nextRecent));
+    if (!tabOrder.includes(next)) {
+      const nextOrder = ['en', ...tabOrder.filter((item) => item !== 'en').slice(-3), next];
+      setTabOrder(nextOrder);
+      localStorage.setItem(recentKey, JSON.stringify(nextOrder.filter((item) => item !== 'en')));
+    }
   }
 
   function switchSection(next: CatalogSection) {
-    if (next === selectedSection) return;
-    if ((dirty || settingsDirty) && !window.confirm('Discard unsaved locale edits?')) return;
+    if (next === selectedSection) {
+      setShowSettings(false);
+      return;
+    }
+    if (settingsDirty && !window.confirm('Discard unsaved language settings?')) return;
+    rememberDraft();
     focusRef.current = null;
     setCatalog(null);
     setDraft({});
     setSavedDraft({});
     setSelectedSection(next);
+    setShowSettings(false);
     setSelectedGroup(null);
     setNotice('');
     setError('');
   }
 
   async function send(action: 'save' | 'publish' | 'restore' | 'settings', extra: Record<string, unknown> = {}) {
+    if (action === 'settings') rememberDraft();
     if (action === 'save') {
       const invalidKey = Object.entries(draft).find(([key, value]) => !isValidCatalogMessage(key, value))?.[0];
       if (invalidKey) {
@@ -202,6 +242,7 @@ export function ForgeLocales({ isAdmin }: { isAdmin: boolean }) {
       });
       const payload = await response.json() as { error?: string };
       if (!response.ok) throw new Error(payload.error || 'Locale action failed.');
+      if (action === 'save' || action === 'restore') delete unsavedDraftsRef.current[draftKey(locale, selectedSection)];
       await load(locale, selectedSection);
       setNotice(action === 'publish' ? 'Published this section.' : action === 'restore' ? 'Version restored to draft.' : 'Saved.');
     } catch (cause) {
@@ -215,43 +256,56 @@ export function ForgeLocales({ isAdmin }: { isAdmin: boolean }) {
     void send('settings', { nativeName: editedSettings.native_name, status: editedSettings.status, editorIds });
   }
 
+  function openSettings() {
+    rememberDraft();
+    setShowSettings(true);
+    setNotice('');
+    setError('');
+  }
+
   return (
     <section className={styles.page}>
       <header className={styles.heading}>
-        <div><h1>Locales</h1><p>Edit interface copy by language and component.</p></div>
+        <h1>Locales</h1>
         <select aria-label="Language" value={locale} onChange={(event) => switchLanguage(event.target.value as Locale)}>
-          {settings.map((item) => <option key={item.locale} value={item.locale}>{item.native_name} ({item.locale}) · {item.status}</option>)}
+          {settings.map((item) => <option key={item.locale} value={item.locale}>{localeFlags[item.locale]} {item.native_name} ({item.locale}) · {item.status}</option>)}
         </select>
       </header>
 
-      {currentSettings && <div className={styles.settings}>
-        <label>Native name<input value={currentSettings.native_name} disabled={!isAdmin} onChange={(event) =>
-          setEditedSettings({ ...currentSettings, native_name: event.target.value })} /></label>
-        <label>State<select value={currentSettings.status} disabled={!isAdmin} onChange={(event) =>
-          setEditedSettings({ ...currentSettings, status: event.target.value as LocaleStatus })}>
-          <option value="implemented">Implemented</option><option value="beta" disabled={locale === 'en'}>Beta</option>
-          <option value="draft" disabled={locale === 'en'}>Draft</option>
-        </select></label>
-        <label>Editor Hattrick IDs<input value={editorIdsText} disabled={!isAdmin} placeholder="Comma-separated IDs"
-          onChange={(event) => setEditorIdsText(event.target.value)} /></label>
-        {isAdmin && <Button variant="outline" disabled={busy || dirty || !settingsDirty} onClick={saveSettings}>Save settings</Button>}
-      </div>}
-
       <div className={styles.tabs} role="tablist" aria-label="Recent languages">
         {tabs.map((item) => <button key={item} type="button" role="tab" aria-selected={item === locale}
-          className={item === locale ? styles.activeTab : ''} onClick={() => switchLanguage(item)}>{settings.find((setting) => setting.locale === item)?.native_name || localeNames[item]}</button>)}
+          className={item === locale ? styles.activeTab : ''} onClick={() => switchLanguage(item)}>
+          <span aria-hidden="true">{localeFlags[item]}</span> {settings.find((setting) => setting.locale === item)?.native_name || localeNames[item]}
+        </button>)}
       </div>
 
       <div className={styles.workspace}>
         <nav className={styles.tree} aria-label="Catalog sections">
+          <button type="button" className={showSettings ? styles.activeTree : ''}
+            onClick={openSettings}>Language settings</button>
           {catalogSections.map((item) => <div key={item}>
-            <button type="button" className={item === selectedSection ? styles.activeTree : ''}
+            <button type="button" className={item === selectedSection && !showSettings ? styles.activeTree : ''}
               onClick={() => switchSection(item)}>{item}</button>
-            {item === selectedSection && groups.map((group) => <button type="button" key={group}
+            {item === selectedSection && !showSettings && groups.map((group) => <button type="button" key={group}
               className={`${styles.child} ${group === selectedGroup ? styles.activeTree : ''}`}
               onClick={() => setSelectedGroup(group === selectedGroup ? null : group)}>{group}</button>)}
           </div>)}
         </nav>
+        {showSettings ? <div className={styles.settingsPanel}>
+          <div className={styles.editorHeading}><strong>Language settings</strong><span>{locale.toUpperCase()}</span></div>
+          {currentSettings && <div className={styles.settings}>
+            <label>Native name<input value={currentSettings.native_name} disabled={!isAdmin} onChange={(event) =>
+              setEditedSettings({ ...currentSettings, native_name: event.target.value })} /></label>
+            <label>State<select value={currentSettings.status} disabled={!isAdmin} onChange={(event) =>
+              setEditedSettings({ ...currentSettings, status: event.target.value as LocaleStatus })}>
+              <option value="implemented">Implemented</option><option value="beta" disabled={locale === 'en'}>Beta</option>
+              <option value="draft" disabled={locale === 'en'}>Draft</option>
+            </select></label>
+            <label>Editor Hattrick IDs<input value={editorIdsText} disabled={!isAdmin} placeholder="Comma-separated IDs"
+              onChange={(event) => setEditorIdsText(event.target.value)} /></label>
+            {isAdmin && <Button variant="outline" disabled={busy || !settingsDirty} onClick={saveSettings}>Save settings</Button>}
+          </div>}
+        </div> :
         <div className={styles.editorWrap}>
           <div className={styles.editorHeading}><strong>{selectedSection}{selectedGroup ? ` / ${selectedGroup}` : ''}</strong>
             <span>{catalog?.registeredKeys.length || 0} keys · published v{catalog?.publishedVersion || 0}</span></div>
@@ -259,15 +313,20 @@ export function ForgeLocales({ isAdmin }: { isAdmin: boolean }) {
             {!visibleKeys.length && <p className={styles.empty}>No registered UI messages in this section yet.</p>}
             {visibleKeys.map((key) => <label className={styles.line} key={key}>
               <span className={styles.key}>{key}</span><span className={styles.equals}>=</span>
-              <textarea ref={(node) => { fieldsRef.current[key] = node; }} data-catalog-key={key}
-                aria-label={key} rows={Math.min(10, Math.max(1, (draft[key] || '').split('\n').length,
-                  Math.ceil((draft[key] || '').length / 90)))}
-                readOnly={!catalog?.canEdit}
-                onSelect={(event) => { focusRef.current = {
-                  key, position: event.currentTarget.selectionStart, scroll: editorRef.current?.scrollTop || 0,
-                }; }}
-                value={draft[key] ?? ''} placeholder={catalog?.englishValues[key] || ''}
-                onChange={(event) => setDraft((old) => ({ ...old, [key]: event.target.value }))} />
+              <span className={styles.valueCell}>
+                <textarea ref={(node) => { fieldsRef.current[key] = node; }} data-catalog-key={key}
+                  aria-label={key} rows={Math.min(10, Math.max(1, (draft[key] || '').split('\n').length,
+                    Math.ceil((draft[key] || '').length / 90)))}
+                  readOnly={!catalog?.canEdit}
+                  onFocus={() => setActiveKey(key)}
+                  onSelect={(event) => { focusRef.current = {
+                    key, position: event.currentTarget.selectionStart, scroll: editorRef.current?.scrollTop || 0,
+                  }; }}
+                  value={draft[key] ?? ''} placeholder={catalog?.englishValues[key] || ''}
+                  onChange={(event) => setDraft((old) => ({ ...old, [key]: event.target.value }))} />
+                {activeKey === key && locale !== 'en' && catalog?.englishValues[key] &&
+                  <span className={styles.englishReference}>English: {catalog.englishValues[key]}</span>}
+              </span>
             </label>)}
           </div>
           <footer className={styles.footer}>
@@ -293,7 +352,7 @@ export function ForgeLocales({ isAdmin }: { isAdmin: boolean }) {
                 onClick={() => void send('publish')}>Publish</Button>}
             </div>
           </footer>
-        </div>
+        </div>}
       </div>
       {error && <p role="alert" className={styles.error}>{error}</p>}
       {notice && <p role="status" className={styles.notice}>{notice}</p>}

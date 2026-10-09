@@ -37,3 +37,5 @@ $$;
 
 REVOKE ALL ON FUNCTION public.increment_activity_daily_clean(date, text, text) FROM PUBLIC, anon, authenticated;
 GRANT EXECUTE ON FUNCTION public.increment_activity_daily_clean(date, text, text) TO service_role;
+
+-- applied!

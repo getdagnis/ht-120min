@@ -71,3 +71,5 @@ $$;
 
 REVOKE ALL ON FUNCTION public.publish_locale_catalog_section(text, text, integer, bigint) FROM PUBLIC, anon, authenticated;
 GRANT EXECUTE ON FUNCTION public.publish_locale_catalog_section(text, text, integer, bigint) TO service_role;
+
+-- applied!
