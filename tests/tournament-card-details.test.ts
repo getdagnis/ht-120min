@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import {
-  compareTournamentActivity, getCurrentRoundNumber, getTournamentCardDateLabel, getTournamentCardDescription,
+  compareTournamentActivity, getCurrentRoundNumber, getTournamentCardDate, getTournamentCardDescription,
   type TournamentCardSummary,
 } from '../src/utils/tournament-card-details.js';
 
@@ -28,7 +28,7 @@ test('activity order uses season, completed rounds, teams, then start date with 
   assert.deepEqual([...rows].reverse().sort(compareTournamentActivity).map((row) => row.id), expected);
 });
 
-test('card details show current round and a fixed-zone start date', () => {
+test('card details show current round and select the start date', () => {
   const row = { ...base, season: 2, status: 'active', totalMatches: 5, completedMatches: 2,
     startedAt: '2026-09-23T11:00:00Z', rounds: [
       { round_number: 1, matches: [{ completed: true }] },
@@ -36,7 +36,7 @@ test('card details show current round and a fixed-zone start date', () => {
       { round_number: 3, matches: [{ completed: false }] },
     ] };
   assert.equal(getCurrentRoundNumber(row), 3);
-  assert.equal(getTournamentCardDateLabel(row), 'Started: 23/09/2026');
+  assert.deepEqual(getTournamentCardDate(row), { kind: 'started', value: '2026-09-23T11:00:00Z' });
 });
 
 test('card descriptions show up to 20 normalized words with an ellipsis only when truncated', () => {

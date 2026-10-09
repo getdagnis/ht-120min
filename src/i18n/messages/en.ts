@@ -89,6 +89,7 @@ const messages = {
     tournamentCardJoin: 'Join',
     tournamentCardActivelyInviting: 'Actively Inviting',
     tournamentCardCountryOnly: '{country} Only',
+    tournamentCardAnyCountry: 'Any country',
     newsBy: 'by',
     newsChppUser: 'CHPP user {id}',
     newsEdit: 'Edit',

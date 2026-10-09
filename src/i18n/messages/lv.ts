@@ -146,6 +146,7 @@ const messages = {
     tournamentCardJoin: 'Pieteikties',
     tournamentCardActivelyInviting: 'Aktīvi aicina pievienoties',
     tournamentCardCountryOnly: 'Tikai {country}',
+    tournamentCardAnyCountry: 'Jebkura valsts',
     newsBy: 'autors:',
     newsChppUser: 'CHPP lietotājs {id}',
     newsEdit: 'Rediģēt',

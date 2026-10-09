@@ -20,9 +20,10 @@ export const TournamentBadgeChips: React.FC<TournamentBadgeChipsProps> = ({
 }) => {
   const t = useTranslations('Home');
   const countryRestriction = resolveCountryRestriction(countryLimit, countryLimitFormat);
+  const hasNoCountryLimit = !countryLimit?.trim();
   const is120min = scoringMode === '120min' || scoringMode === '120m';
 
-  if (!countryRestriction && leagueCategory !== 'hfi' && !is120min && !children) return null;
+  if (!countryRestriction && !hasNoCountryLimit && leagueCategory !== 'hfi' && !is120min && !children) return null;
 
   return (
     <div className={styles.badges}>
@@ -36,6 +37,7 @@ export const TournamentBadgeChips: React.FC<TournamentBadgeChipsProps> = ({
           {t('tournamentCardCountryOnly', { country: countryRestriction.leagueName })}
         </div>
       )}
+      {hasNoCountryLimit && <div className={styles.badge}>🇺🇳 {t('tournamentCardAnyCountry')}</div>}
       {leagueCategory === 'hfi' && (
         <div className={styles.badge}>
           <img src="https://www.hattrick.org/Img/flags/3000.png" alt="" className={styles.flag} /> HFI 💃🏽
