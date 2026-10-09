@@ -12,6 +12,7 @@ import { validateNewsComment } from './_lib/news-comments.js';
 import { findSeasonParticipant, validateSeasonComment } from './_lib/season-comments.js';
 import { validateTournamentLeave } from './_lib/tournament-participation.js';
 import { getServiceSupabase, getSupabase } from './_lib/supabase.js';
+import { handleForgeLocales } from './_lib/forge-locales.js';
 import { hasSuperAdminBypassCookie } from './_lib/superadmin-bypass.js';
 import {
   loadTournamentAccess,
@@ -1277,15 +1278,19 @@ async function resolveAutoArrangePreferenceContext(req: VercelRequest, res: Verc
   const scheduledTeamIds = [...new Set((rounds || []).flatMap((round) =>
     (round.matches || []).flatMap((match) => [match.home_team_id, match.away_team_id]),
   ).filter((teamId): teamId is string => typeof teamId === 'string'))];
-  if (scheduledTeamIds.length === 0) {
+  if (rounds?.length && scheduledTeamIds.length === 0) {
     return { supabase, tournamentId, seasonNumber, userId: session.userId, teams: [] as Array<{ id: string; name: string }> };
   }
 
-  const { data: teams, error: teamsError } = await supabase
+  let teamsQuery = supabase
     .from('teams')
     .select('id, name')
-    .in('id', scheduledTeamIds)
+    .eq('tournament_id', tournamentId)
     .eq('hattrick_user_id', session.userId);
+  teamsQuery = rounds?.length
+    ? teamsQuery.in('id', scheduledTeamIds)
+    : teamsQuery.eq('active', true).eq('reserve_active', false).not('is_placeholder', 'is', true);
+  const { data: teams, error: teamsError } = await teamsQuery;
   if (teamsError) throw teamsError;
   return {
     supabase,
@@ -2692,13 +2697,29 @@ async function handleForgeSession(req: VercelRequest, res: VercelResponse) {
   if (!isForgeEnabled()) return res.status(404).json({ error: 'Not found.' });
   if (req.method === 'GET') {
     const session = verifyForgeSessionCookie(req.headers.cookie);
-    if (!session) return res.status(200).json({ authorized: false });
+    if (!session) {
+      const secret = getAppSessionSecret();
+      const appSession = secret ? verifyAppSessionCookie(req.headers.cookie, secret) : null;
+      if (!appSession) return res.status(200).json({ authorized: false });
+      const { data: assignments, error: assignmentError } = await getServiceSupabase(6000)
+        .from('locale_catalog_settings').select('locale, editor_ht_ids');
+      if (assignmentError) return res.status(200).json({ authorized: false });
+      const editorLocales = (assignments || []).filter((row) => row.editor_ht_ids?.includes(appSession.userId))
+        .map((row) => row.locale);
+      if (!editorLocales.length) return res.status(200).json({ authorized: false });
+      const { data: editorProfile } = await getServiceSupabase(6000).from('profiles')
+        .select('manager_name').eq('hattrick_user_id', appSession.userId).maybeSingle();
+      return res.status(200).json({
+        authorized: true, role: 'locale-editor', editorLocales,
+        userId: appSession.userId, managerName: editorProfile?.manager_name || null,
+      });
+    }
     const { data: profile } = await getServiceSupabase()
       .from('profiles')
       .select('manager_name')
       .eq('hattrick_user_id', session.userId)
       .maybeSingle();
-    return res.status(200).json({ authorized: true, userId: session.userId, managerName: profile?.manager_name || null });
+    return res.status(200).json({ authorized: true, role: 'admin', userId: session.userId, managerName: profile?.manager_name || null });
   }
 
   if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
@@ -3060,8 +3081,14 @@ function isMissingCleanActivityTable(error: { code?: string; message?: string })
     || /activity_daily_clean.*(not found|does not exist)/i.test(error.message || '');
 }
 
-function addDailyEventCount(counts: Map<string, number>, activityDate: string, eventType: string, amount: number) {
-  const key = `${activityDate}\u0000${eventType}`;
+function addDailyEventCount(
+  counts: Map<string, number>,
+  activityDate: string,
+  eventType: string,
+  amount: number,
+  route = '',
+) {
+  const key = `${activityDate}\u0000${eventType}\u0000${route}`;
   counts.set(key, (counts.get(key) || 0) + amount);
 }
 
@@ -3069,16 +3096,41 @@ function serializeDailyEventCounts(counts: Map<string, number>) {
   return Array.from(counts.entries())
     .sort(([left], [right]) => left.localeCompare(right))
     .map(([key, event_count]) => {
-      const [activity_date, event_type] = key.split('\u0000');
-      return { activity_date, event_type, route: '', event_count };
+      const [activity_date, event_type, route] = key.split('\u0000');
+      return { activity_date, event_type, route, event_count };
     });
+}
+
+function activityBucketKey(activityDate: string, unit: 'day' | 'week' | 'month') {
+  const date = new Date(`${activityDate}T00:00:00.000Z`);
+  if (unit === 'month') return activityDate.slice(0, 7);
+  if (unit === 'week') {
+    date.setUTCDate(date.getUTCDate() - ((date.getUTCDay() + 6) % 7));
+    return date.toISOString().slice(0, 10);
+  }
+  return activityDate;
+}
+
+function summarizeForgeUniqueVisitors(events: ForgeActivityRow[], unit: 'day' | 'week' | 'month') {
+  const visitorsByBucket = new Map<string, Set<string>>();
+  for (const event of events) {
+    const bucket = activityBucketKey(event.occurred_at.slice(0, 10), unit);
+    const key = `${bucket}\u0000${event.event_type}`;
+    const visitors = visitorsByBucket.get(key) || new Set<string>();
+    visitors.add(event.visitor_id);
+    visitorsByBucket.set(key, visitors);
+  }
+  return Array.from(visitorsByBucket.entries()).map(([key, visitors]) => {
+    const [activity_date, event_type] = key.split('\u0000');
+    return { activity_date, event_type, visitor_count: visitors.size };
+  });
 }
 
 function summarizeForgeActivityTrend(events: ForgeActivityRow[]) {
   const dailyCounts = new Map<string, number>();
   for (const event of events) {
     const activityDate = event.occurred_at.slice(0, 10);
-    addDailyEventCount(dailyCounts, activityDate, event.event_type, 1);
+    addDailyEventCount(dailyCounts, activityDate, event.event_type, 1, event.route || '');
   }
   return serializeDailyEventCounts(dailyCounts);
 }
@@ -3088,18 +3140,24 @@ async function loadRawForgeActivityTrend(
   req: VercelRequest,
   requestedDay: string,
   rawStartDay: string,
+  unit: 'day' | 'week' | 'month',
 ) {
   const coverageStart = requestedDay > rawStartDay ? requestedDay : rawStartDay;
   const rawEvents = await loadForgeActivityRows(supabase, new Date(`${coverageStart}T00:00:00.000Z`));
+  const events = filterForgeActivityRows(rawEvents, req);
   return {
-    daily: summarizeForgeActivityTrend(filterForgeActivityRows(rawEvents, req)),
+    daily: summarizeForgeActivityTrend(events),
+    uniqueVisitors: summarizeForgeUniqueVisitors(events, unit),
     coverageStart,
+    rawUniqueStart: coverageStart,
   };
 }
 
 async function handleForgeActivityTrend(req: VercelRequest, res: VercelResponse) {
   const supabase = getServiceSupabase();
   const requestedSince = toDate(req.query.since, new Date(Date.now() - 7 * 24 * 60 * 60 * 1000));
+  const requestedUnit = readString(req.query.unit);
+  const unit = requestedUnit === 'week' || requestedUnit === 'month' ? requestedUnit : 'day';
   const requestedDay = requestedSince.toISOString().slice(0, 10);
   const rawCutoff = new Date(Date.now() - 90 * 24 * 60 * 60 * 1000);
   const rawStartDay = new Date(Date.UTC(
@@ -3114,7 +3172,7 @@ async function handleForgeActivityTrend(req: VercelRequest, res: VercelResponse)
     .maybeSingle();
   if (coverageError) {
     if (!isMissingCleanActivityTable(coverageError)) throw coverageError;
-    return res.status(200).json(await loadRawForgeActivityTrend(supabase, req, requestedDay, rawStartDay));
+    return res.status(200).json(await loadRawForgeActivityTrend(supabase, req, requestedDay, rawStartDay, unit));
   }
 
   const cleanRows: Array<{ activity_date: string; event_type: string; route: string; event_count: number | string }> = [];
@@ -3132,7 +3190,7 @@ async function handleForgeActivityTrend(req: VercelRequest, res: VercelResponse)
       .range(cleanOffset, cleanOffset + cleanBatchSize - 1);
     if (error) {
       if (!isMissingCleanActivityTable(error)) throw error;
-      return res.status(200).json(await loadRawForgeActivityTrend(supabase, req, requestedDay, rawStartDay));
+      return res.status(200).json(await loadRawForgeActivityTrend(supabase, req, requestedDay, rawStartDay, unit));
     }
     const batch = (data || []) as typeof cleanRows;
     cleanRows.push(...batch);
@@ -3142,14 +3200,15 @@ async function handleForgeActivityTrend(req: VercelRequest, res: VercelResponse)
 
   const dailyCounts = new Map<string, number>();
   for (const row of cleanRows || []) {
-    addDailyEventCount(dailyCounts, row.activity_date, row.event_type, Number(row.event_count || 0));
+    addDailyEventCount(dailyCounts, row.activity_date, row.event_type, Number(row.event_count || 0), row.route || '');
   }
 
   const rawSinceDay = requestedDay > rawStartDay ? requestedDay : rawStartDay;
   const rawEvents = await loadForgeActivityRows(supabase, new Date(`${rawSinceDay}T00:00:00.000Z`));
-  for (const event of filterForgeActivityRows(rawEvents, req)) {
+  const visibleRawEvents = filterForgeActivityRows(rawEvents, req);
+  for (const event of visibleRawEvents) {
     const activityDate = event.occurred_at.slice(0, 10);
-    addDailyEventCount(dailyCounts, activityDate, event.event_type, 1);
+    addDailyEventCount(dailyCounts, activityDate, event.event_type, 1, event.route || '');
   }
 
   const cleanStartDay = typeof coverageRow?.activity_date === 'string' ? coverageRow.activity_date : rawStartDay;
@@ -3157,7 +3216,12 @@ async function handleForgeActivityTrend(req: VercelRequest, res: VercelResponse)
   const coverageStart = requestedDay > firstAvailableDay ? requestedDay : firstAvailableDay;
   const daily = serializeDailyEventCounts(dailyCounts);
 
-  return res.status(200).json({ daily, coverageStart });
+  return res.status(200).json({
+    daily,
+    uniqueVisitors: summarizeForgeUniqueVisitors(visibleRawEvents, unit),
+    coverageStart,
+    rawUniqueStart: rawSinceDay,
+  });
 }
 
 async function handleForgeStats(req: VercelRequest, res: VercelResponse) {
@@ -3171,8 +3235,16 @@ async function handleForgeStats(req: VercelRequest, res: VercelResponse) {
   const now = new Date();
   const allData = String(req.query.all || '') === '1';
   const since = allData ? null : toDate(req.query.since, new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000));
+  const rawRetentionCutoff = new Date(now.getTime() - 90 * 24 * 60 * 60 * 1000);
+  const rawUniqueStart = new Date(Date.UTC(
+    rawRetentionCutoff.getUTCFullYear(),
+    rawRetentionCutoff.getUTCMonth(),
+    rawRetentionCutoff.getUTCDate() + 1,
+  )).toISOString().slice(0, 10);
   const selectedUserId = Number(req.query.userId || 0) || null;
   const selectedVisitorId = readString(req.query.visitorId) || null;
+  const requestedTrendUnit = readString(req.query.trendUnit);
+  const trendUnit = requestedTrendUnit === 'week' || requestedTrendUnit === 'month' ? requestedTrendUnit : 'day';
   const supabase = getServiceSupabase();
 
   await cleanupActivityEvents().catch((error) => console.warn('Activity cleanup failed:', error));
@@ -3384,7 +3456,7 @@ async function handleForgeStats(req: VercelRequest, res: VercelResponse) {
   const dailyByDate = new Map<string, number>();
   for (const event of events) {
     const activityDate = event.occurred_at.slice(0, 10);
-    addDailyEventCount(dailyByDate, activityDate, event.event_type, 1);
+    addDailyEventCount(dailyByDate, activityDate, event.event_type, 1, event.route || '');
   }
   const daily = serializeDailyEventCounts(dailyByDate);
   const sortedActivity = events
@@ -3438,6 +3510,8 @@ async function handleForgeStats(req: VercelRequest, res: VercelResponse) {
     },
     selectedVisitorId,
     daily: daily || [],
+    uniqueVisitors: summarizeForgeUniqueVisitors(events, trendUnit),
+    rawUniqueStart,
   });
 }
 
@@ -3454,6 +3528,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         return await handleForgeSession(req, res);
       case 'forge-stats':
         return await handleForgeStats(req, res);
+      case 'forge-locales':
+        return await handleForgeLocales(req, res);
       case 'tournament-roles':
         return await handleTournamentRoles(req, res);
       case 'tournament-access':
