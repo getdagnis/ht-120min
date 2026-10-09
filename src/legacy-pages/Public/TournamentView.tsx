@@ -5946,11 +5946,11 @@ export const TournamentView: React.FC<{
                 {showScoringHelp && (
                   <p className={styles.helpContent}>
                     Teams are ranked first by <strong>120min achievements</strong>, then points, goal difference, goals
-                    scored and fewer matches played. Points are tie-breakers for teams that have the same number of
-                    120min achievements. Reaching extra time earns the losing team 2 points, winner gets 3 points.
-                    Regular-time winner earns 0 points. Loser earns 2 points in regular-time loss if they didn't score.
-                    Scoring at least one drops that to 1 point. Normal Rules matches award no points. Goals count only
-                    in matches that reached 120 minutes.
+                    scored and finally fewer matches played (misarranged count as played). Points are tie-breakers for
+                    teams that have the same number of 120min achievements. Reaching extra time earns the losing team 2
+                    points, winner gets 3 points. Regular-time winner earns 0 points. Regular-time loser still earns 2
+                    points if they didn't score; scoring at least one reduces that to 1 point. Normal Rules matches
+                    award no points. Goals count only in matches that reached 120 minutes.
                   </p>
                 )}
               </div>
@@ -5961,9 +5961,10 @@ export const TournamentView: React.FC<{
                 </p>
                 {showScoringHelp && (
                   <p className={styles.helpContent}>
-                    Standard competitive tournament. Teams earn 3 points for a win, 2 points for a shootout win, and 1
-                    point for a regular-time tie. Standings are ranked by <strong>Total Points</strong>, then goal
-                    difference and goals scored. 120min games mean nothing here.
+                    Standard competitive tournament. Teams earn 3 points for a win and 1 point for a regular-time tie..
+                    When cup rules are on – 2 points for an extra time or shootout win. Standings are ranked by{' '}
+                    <strong>Total Points</strong>, then goal difference and goals scored. 120min games mean nothing
+                    here.
                   </p>
                 )}
               </div>
