@@ -1,7 +1,12 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { randomUUID } from 'crypto';
 import { getAppSessionSecret, verifyAppSessionCookie } from './app-session.js';
-import { getAnalyticsExcludedHtUserId, isLocalAnalyticsHost } from './analytics.js';
+import {
+  getAnalyticsExcludedHtUserId,
+  isExcludedAnalyticsReferrer,
+  isLocalAnalyticsHost,
+  isVercelPreviewAnalyticsHost,
+} from './analytics.js';
 import { getForgeSuperadminId, isForgeAdminRequest } from './forge-session.js';
 import { getServiceSupabase } from './supabase.js';
 import { createVisitorId } from './forge-session.js';
@@ -104,6 +109,8 @@ export async function recordActivity(request: VercelRequest, response: VercelRes
   const excludedUserIds = [getAnalyticsExcludedHtUserId(), forgeAdminId].filter((id): id is number => Boolean(id));
   if (
     isLocalAnalyticsHost(request.headers.host)
+    || isVercelPreviewAnalyticsHost(request.headers.host)
+    || isExcludedAnalyticsReferrer(context.referrer)
     || isForgeAdminRequest(request.headers.cookie)
     || (context.session && excludedUserIds.includes(context.session.userId))
   ) {

@@ -834,7 +834,7 @@ export const CreateTournament: React.FC = () => {
         powerGlobalRank: sandboxCandidate.powerGlobalRank,
         powerLeagueRank: sandboxCandidate.powerLeagueRank,
         powerRegionRank: sandboxCandidate.powerRegionRank,
-        managerName: 'Bot team',
+        managerName: 'Admin added',
       },
     ];
     setTeams(updatedTeams);

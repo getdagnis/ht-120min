@@ -4099,7 +4099,7 @@ export const TournamentView: React.FC<{
         ht_team_id: sandboxCandidate.teamId,
         active: true,
         joined_via_oauth: false,
-        manager_name: 'Bot team',
+        manager_name: 'Admin added',
         logo_url: sandboxCandidate.logoUrl ?? null,
         country_id: sandboxCandidate.countryId ?? null,
         country_name: sandboxCandidate.countryName ?? null,

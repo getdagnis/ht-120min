@@ -6,7 +6,7 @@ import {
   isForgeAdminRequest,
   verifyForgeSessionCookie,
 } from './_lib/forge-session.js';
-import { getAnalyticsExcludedHtUserId, isLocalAnalyticsHost } from './_lib/analytics.js';
+import { getAnalyticsExcludedHtUserId, isExcludedAnalyticsReferrer } from './_lib/analytics.js';
 import { cleanupActivityEvents, recordActivity } from './_lib/activity.js';
 import { validateNewsComment } from './_lib/news-comments.js';
 import { findSeasonParticipant, validateSeasonComment } from './_lib/season-comments.js';
@@ -23,6 +23,7 @@ import { normalizeLeagueLimit } from '../../../shared/worlddetails.js';
 import { isForgeEnabled } from '../forge-availability.js';
 import { isTournamentRegistrationOpen } from '../../utils/tournament-joinability.js';
 import { normalizeGlobalChatContent } from '../../utils/global-chat.js';
+import { summarizeUniqueTournamentViews } from '../../utils/forge-activity-routes.js';
 import {
   sendChppChallengeDirect,
 } from './_lib/chpp-challenges.js';
@@ -2990,15 +2991,6 @@ function cookieValue(cookieHeader: string | undefined, name: string) {
   return entry ? entry.slice(name.length + 1) : null;
 }
 
-function isLocalReferrer(value: string | null) {
-  if (!value) return false;
-  try {
-    return isLocalAnalyticsHost(new URL(value).host);
-  } catch {
-    return false;
-  }
-}
-
 function encodeVisitCursor(visit: { lastSeen: string; visitId: string }) {
   return Buffer.from(JSON.stringify(visit)).toString('base64url');
 }
@@ -3066,7 +3058,7 @@ function filterForgeActivityRows(rawEvents: ForgeActivityRow[], req: VercelReque
       .map((event) => event.visitor_id),
   );
   return rawEvents.filter((event) => {
-    if (isLocalReferrer(event.referrer)) return false;
+    if (isExcludedAnalyticsReferrer(event.referrer)) return false;
     if (currentVisitorId && event.visitor_id === currentVisitorId) return false;
     if (analyticsExcludedUserId && (
       event.hattrick_user_id === analyticsExcludedUserId || analyticsExcludedVisitorIds.has(event.visitor_id)
@@ -3148,6 +3140,7 @@ async function loadRawForgeActivityTrend(
   return {
     daily: summarizeForgeActivityTrend(events),
     uniqueVisitors: summarizeForgeUniqueVisitors(events, unit),
+    uniqueTournamentViews: summarizeUniqueTournamentViews(events, (day) => activityBucketKey(day, unit)),
     coverageStart,
     rawUniqueStart: coverageStart,
   };
@@ -3219,6 +3212,7 @@ async function handleForgeActivityTrend(req: VercelRequest, res: VercelResponse)
   return res.status(200).json({
     daily,
     uniqueVisitors: summarizeForgeUniqueVisitors(visibleRawEvents, unit),
+    uniqueTournamentViews: summarizeUniqueTournamentViews(visibleRawEvents, (day) => activityBucketKey(day, unit)),
     coverageStart,
     rawUniqueStart: rawSinceDay,
   });
@@ -3438,6 +3432,15 @@ async function handleForgeStats(req: VercelRequest, res: VercelResponse) {
   const sortedVisits = Array.from(visitGroups.values()).sort(
     (left, right) => right.lastSeen.localeCompare(left.lastSeen) || right.visitId.localeCompare(left.visitId),
   );
+  const themeVisitors = new Map<string, Set<string>>();
+  for (const visit of sortedVisits) {
+    for (const page of visit.pages) {
+      if (!page.theme) continue;
+      const visitors = themeVisitors.get(page.theme) || new Set<string>();
+      visitors.add(visit.visitorId);
+      themeVisitors.set(page.theme, visitors);
+    }
+  }
   const selectedVisits = selectedUserId
     ? sortedVisits.filter((visit) => visit.userId === selectedUserId)
     : selectedVisitorId
@@ -3499,7 +3502,8 @@ async function handleForgeStats(req: VercelRequest, res: VercelResponse) {
       languages: breakdown(sortedVisits.map((visit) => visit.language)),
       routes: breakdown(events.map((event) => event.route)),
       referrers: breakdown(sortedVisits.map((visit) => visit.referrer)),
-      themes: breakdown(sortedVisits.flatMap((visit) => visit.pages.map((page) => page.theme))),
+      themes: breakdown(sortedVisits.flatMap((visit) => visit.pages.map((page) => page.theme)))
+        .map((row) => ({ ...row, uniqueCount: themeVisitors.get(row.value)?.size || 0 })),
       screens: breakdown(metadataValues('screen')),
       times: breakdown(
         events.filter((event) => event.event_type === 'page_view').map((event) => {
@@ -3511,6 +3515,7 @@ async function handleForgeStats(req: VercelRequest, res: VercelResponse) {
     selectedVisitorId,
     daily: daily || [],
     uniqueVisitors: summarizeForgeUniqueVisitors(events, trendUnit),
+    uniqueTournamentViews: summarizeUniqueTournamentViews(events, (day) => activityBucketKey(day, trendUnit)),
     rawUniqueStart,
   });
 }

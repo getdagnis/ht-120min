@@ -22,3 +22,24 @@ export function isLocalAnalyticsHost(value: string | string[] | undefined) {
     || /^127\./.test(hostname)
     || hostname === '::1';
 }
+
+export function isVercelPreviewAnalyticsHost(value: string | string[] | undefined) {
+  const raw = Array.isArray(value) ? value[0] : value;
+  if (!raw) return false;
+  try {
+    const hostname = new URL(`http://${raw.trim()}`).hostname.toLowerCase();
+    return /^ht-120min-(?:[a-z0-9-]+-)?getdagnis-projects\.vercel\.app$/.test(hostname);
+  } catch {
+    return false;
+  }
+}
+
+export function isExcludedAnalyticsReferrer(value: string | null) {
+  if (!value) return false;
+  try {
+    const host = new URL(value).host;
+    return isLocalAnalyticsHost(host) || isVercelPreviewAnalyticsHost(host);
+  } catch {
+    return false;
+  }
+}

@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { Link, Navigate, NavLink, Route, Routes } from 'react-router-dom';
 import {
+  ArrowClockwise,
   ArrowSquareOut,
   CaretDown,
   ChartLineUp,
@@ -28,6 +29,7 @@ import { HATTRICK_WORLD_DETAILS } from '../../../shared/worlddetails';
 import styles from './Forge.module.sass';
 import { ForgeMatchesSection } from './ForgeMatches';
 import { ForgeLocales } from './ForgeLocales';
+import { mostViewedTournament, tournamentActivityRoute } from '../../utils/forge-activity-routes';
 
 interface DashboardUser {
   hattrick_user_id: number;
@@ -135,6 +137,7 @@ interface ForgeStatsVisitor {
 interface ForgeStatsBreakdown {
   value: string;
   count: number;
+  uniqueCount?: number;
 }
 
 interface ForgeStatsDaily {
@@ -147,6 +150,12 @@ interface ForgeStatsDaily {
 interface ForgeStatsUniqueVisitors {
   activity_date: string;
   event_type: string;
+  visitor_count: number;
+}
+
+interface ForgeUniqueTournamentViews {
+  activity_date: string;
+  route: string;
   visitor_count: number;
 }
 
@@ -170,6 +179,7 @@ interface ForgeStatsResponse {
   breakdowns: Record<string, ForgeStatsBreakdown[]>;
   daily: ForgeStatsDaily[];
   uniqueVisitors: ForgeStatsUniqueVisitors[];
+  uniqueTournamentViews: ForgeUniqueTournamentViews[];
   rawUniqueStart: string;
 }
 
@@ -225,6 +235,7 @@ const FORGE_TREND_INTERVALS: Array<{
 interface ForgeTrendResponse {
   daily: ForgeStatsDaily[];
   uniqueVisitors: ForgeStatsUniqueVisitors[];
+  uniqueTournamentViews: ForgeUniqueTournamentViews[];
   coverageStart: string;
   rawUniqueStart: string;
 }
@@ -326,7 +337,7 @@ function ActivityBarTooltip({
   label: string;
   eventCounts: Record<string, number>;
   uniqueVisitorCounts: Record<string, number>;
-  popularRoute: { route: string; count: number } | null;
+  popularRoute: { route: string; count: number; uniqueCount?: number } | null;
   rawUniqueAvailable?: boolean;
   available?: boolean;
 }) {
@@ -365,7 +376,10 @@ function ActivityBarTooltip({
                 <small>Unique visitor counts are available for the last 90 days of raw events.</small>
               )}
               {popularRoute && (
-                <p>Most viewed: {popularRoute.route} · {popularRoute.count} views</p>
+                <p>
+                  Most viewed: {popularRoute.route} · {popularRoute.count}
+                  {popularRoute.uniqueCount !== undefined ? `(${popularRoute.uniqueCount})` : ''} views
+                </p>
               )}
               <p>Each event is a page view, page exit, or tracked action. Localhost and admin activity are excluded.</p>
             </>
@@ -802,7 +816,10 @@ function ForgeStatsSidebar({
                       {card.flags && <span className={styles.countryFlag}>{countryFlag(row.value)}</span>}
                       {row.value}
                     </span>
-                    <span className={styles.breakdownCount}>{row.count}</span>
+                    <span className={styles.breakdownCount}>
+                      {row.count}
+                      {card.key === 'themes' && row.uniqueCount !== undefined ? ` (${row.uniqueCount} unique)` : ''}
+                    </span>
                   </div>
                 ))}
               </div>
@@ -952,17 +969,19 @@ function ForgeShell({
       />
       <div className={styles.shell}>
         <aside className={styles.sidebar}>
-          {sidebarItems.filter((item) => !localeEditorOnly || item.to === '/locales').map((item) => (
-            <NavLink
-              key={item.to}
-              to={item.to}
-              end={item.to === '/'}
-              className={({ isActive }) => `${styles.navItem} ${isActive ? styles.navItemActive : ''}`}
-            >
-              <span className={styles.navIcon}>{item.icon}</span>
-              <span>{item.label}</span>
-            </NavLink>
-          ))}
+          {sidebarItems
+            .filter((item) => !localeEditorOnly || item.to === '/locales')
+            .map((item) => (
+              <NavLink
+                key={item.to}
+                to={item.to}
+                end={item.to === '/'}
+                className={({ isActive }) => `${styles.navItem} ${isActive ? styles.navItemActive : ''}`}
+              >
+                <span className={styles.navIcon}>{item.icon}</span>
+                <span>{item.label}</span>
+              </NavLink>
+            ))}
         </aside>
         <main className={styles.content}>{children}</main>
       </div>
@@ -1043,17 +1062,17 @@ function ForgeDashboard({
     const load = async () => {
       setLoading(true);
       setError('');
-      const [usersRes, chatPage, statsRes] = await Promise.all([
-        supabase
-          .from('profiles')
-          .select('hattrick_user_id, manager_name, created_at, last_seen_at, country_name')
-          .gte('created_at', since)
-          .order('created_at', { ascending: false })
-          .limit(30),
-        loadDashboardChatPage(since, 0, adminUserId, adminManagerName),
-        fetch(`/api/app?route=forge-stats&since=${encodeURIComponent(since)}`, { credentials: 'include' }),
-      ]);
       try {
+        const [usersRes, chatPage, statsRes] = await Promise.all([
+          supabase
+            .from('profiles')
+            .select('hattrick_user_id, manager_name, created_at, last_seen_at, country_name')
+            .gte('created_at', since)
+            .order('created_at', { ascending: false })
+            .limit(30),
+          loadDashboardChatPage(since, 0, adminUserId, adminManagerName),
+          fetch(`/api/app?route=forge-stats&since=${encodeURIComponent(since)}`, { credentials: 'include' }),
+        ]);
         const payload = (await statsRes.json()) as ForgeStatsResponse & { error?: string };
         if (!statsRes.ok) throw new Error(payload.error || 'Could not load recent visits.');
         if (cancelled) return;
@@ -1134,15 +1153,16 @@ function ForgeDashboard({
     const eventBreakdowns = new Map<string, Map<string, number>>();
     const uniqueBreakdowns = new Map<string, Map<string, number>>();
     const popularRoutes = new Map<string, Map<string, number>>();
+    const uniqueTournamentRoutes = new Map<string, Map<string, number>>();
     for (const row of trendData?.daily || []) {
       const key = trendBucketKey(row.activity_date, trendConfig.unit);
       counts.set(key, (counts.get(key) || 0) + row.event_count);
       const eventCounts = eventBreakdowns.get(key) || new Map<string, number>();
       eventCounts.set(row.event_type, (eventCounts.get(row.event_type) || 0) + row.event_count);
       eventBreakdowns.set(key, eventCounts);
-      if (row.event_type === 'page_view' && row.route) {
+      const route = row.event_type === 'page_view' ? tournamentActivityRoute(row.route) : null;
+      if (route) {
         const routes = popularRoutes.get(key) || new Map<string, number>();
-        const route = row.route.split('?')[0];
         routes.set(route, (routes.get(route) || 0) + row.event_count);
         popularRoutes.set(key, routes);
       }
@@ -1153,6 +1173,11 @@ function ForgeDashboard({
       eventCounts.set(row.event_type, row.visitor_count);
       uniqueBreakdowns.set(key, eventCounts);
     }
+    for (const row of trendData?.uniqueTournamentViews || []) {
+      const routes = uniqueTournamentRoutes.get(row.activity_date) || new Map<string, number>();
+      routes.set(row.route, row.visitor_count);
+      uniqueTournamentRoutes.set(row.activity_date, routes);
+    }
     const coverageKey = trendData ? trendBucketKey(trendData.coverageStart, trendConfig.unit) : '';
     return keys.map((key) => ({
       key,
@@ -1160,8 +1185,15 @@ function ForgeDashboard({
       count: counts.get(key) || 0,
       eventCounts: Object.fromEntries(eventBreakdowns.get(key) || []),
       uniqueVisitorCounts: Object.fromEntries(uniqueBreakdowns.get(key) || []),
-      popularRoute: Array.from(popularRoutes.get(key) || []).sort((a, b) => b[1] - a[1])[0] || null,
-      rawUniqueAvailable: Boolean(trendData && hasFullRawVisitorCoverage(key, trendData.rawUniqueStart, trendConfig.unit)),
+      popularRoute: mostViewedTournament(
+        popularRoutes.get(key),
+        trendData && hasFullRawVisitorCoverage(key, trendData.rawUniqueStart, trendConfig.unit)
+          ? uniqueTournamentRoutes.get(key)
+          : undefined,
+      ),
+      rawUniqueAvailable: Boolean(
+        trendData && hasFullRawVisitorCoverage(key, trendData.rawUniqueStart, trendConfig.unit),
+      ),
       available: Boolean(trendData && key >= coverageKey),
     }));
   }, [clock, trendConfig.unit, trendSince, trendData]);
@@ -1224,6 +1256,15 @@ function ForgeDashboard({
             Visitor journeys and community activity, with your own admin traffic excluded.
           </p>
         </div>
+        <Button
+          variant="outline"
+          size="sm"
+          disabled={loading || trendLoading}
+          onClick={() => setClock(Date.now())}
+        >
+          <ArrowClockwise size={16} />
+          {loading || trendLoading ? 'Refreshing...' : 'Refresh data'}
+        </Button>
       </div>
       <div className={styles.analyticsLayout}>
         <div className={styles.analyticsMain}>
@@ -1518,6 +1559,7 @@ function ForgeStatsSection() {
     const totals = new Map<string, number>();
     const eventBreakdowns = new Map<string, Map<string, number>>();
     const popularRoutes = new Map<string, Map<string, number>>();
+    const uniqueTournamentRoutes = new Map<string, Map<string, number>>();
     for (const row of data?.daily || []) {
       let key = row.activity_date;
       if (grouping === 'week') {
@@ -1529,9 +1571,9 @@ function ForgeStatsSection() {
       const eventCounts = eventBreakdowns.get(key) || new Map<string, number>();
       eventCounts.set(row.event_type, (eventCounts.get(row.event_type) || 0) + row.event_count);
       eventBreakdowns.set(key, eventCounts);
-      if (row.event_type === 'page_view' && row.route) {
+      const route = row.event_type === 'page_view' ? tournamentActivityRoute(row.route) : null;
+      if (route) {
         const routes = popularRoutes.get(key) || new Map<string, number>();
-        const route = row.route.split('?')[0];
         routes.set(route, (routes.get(route) || 0) + row.event_count);
         popularRoutes.set(key, routes);
       }
@@ -1542,6 +1584,11 @@ function ForgeStatsSection() {
       eventCounts.set(row.event_type, row.visitor_count);
       uniqueBreakdowns.set(row.activity_date, eventCounts);
     }
+    for (const row of data?.uniqueTournamentViews || []) {
+      const routes = uniqueTournamentRoutes.get(row.activity_date) || new Map<string, number>();
+      routes.set(row.route, row.visitor_count);
+      uniqueTournamentRoutes.set(row.activity_date, routes);
+    }
     return Array.from(totals.entries())
       .sort(([left], [right]) => left.localeCompare(right))
       .map(([key, count]) => ({
@@ -1549,10 +1596,15 @@ function ForgeStatsSection() {
         count,
         eventCounts: Object.fromEntries(eventBreakdowns.get(key) || []),
         uniqueVisitorCounts: Object.fromEntries(uniqueBreakdowns.get(key) || []),
-        popularRoute: Array.from(popularRoutes.get(key) || []).sort((a, b) => b[1] - a[1])[0] || null,
+        popularRoute: mostViewedTournament(
+          popularRoutes.get(key),
+          rawUniqueStart && hasFullRawVisitorCoverage(key, rawUniqueStart, grouping)
+            ? uniqueTournamentRoutes.get(key)
+            : undefined,
+        ),
         rawUniqueAvailable: Boolean(rawUniqueStart && hasFullRawVisitorCoverage(key, rawUniqueStart, grouping)),
       }));
-  }, [data?.daily, data?.uniqueVisitors, grouping, rawUniqueStart]);
+  }, [data?.daily, data?.uniqueVisitors, data?.uniqueTournamentViews, grouping, rawUniqueStart]);
   const maxDaily = Math.max(1, ...dailyTotals.map((bucket) => bucket.count));
   const selectedVisitor = data?.visitors.find((visitor) => visitor.visitorId === selectedVisitorId) || null;
   const selectedLabel =
@@ -2201,9 +2253,18 @@ function readChallengeableDirectoryState(): ChallengeableDirectoryState {
     return { users: [], issues: [], cursor: 0, hasMore: false, started: false, progress: EMPTY_CHALLENGEABLE_PROGRESS };
   }
   try {
-    const parsed = JSON.parse(window.sessionStorage.getItem(CHALLENGEABLE_DIRECTORY_STORAGE_KEY) || 'null') as Partial<ChallengeableDirectoryState> | null;
+    const parsed = JSON.parse(
+      window.sessionStorage.getItem(CHALLENGEABLE_DIRECTORY_STORAGE_KEY) || 'null',
+    ) as Partial<ChallengeableDirectoryState> | null;
     if (!parsed || !Array.isArray(parsed.users) || !Number.isSafeInteger(parsed.cursor)) {
-      return { users: [], issues: [], cursor: 0, hasMore: false, started: false, progress: EMPTY_CHALLENGEABLE_PROGRESS };
+      return {
+        users: [],
+        issues: [],
+        cursor: 0,
+        hasMore: false,
+        started: false,
+        progress: EMPTY_CHALLENGEABLE_PROGRESS,
+      };
     }
     return {
       users: parsed.users,
@@ -2268,7 +2329,7 @@ function ForgeTestingSection() {
       while (!directoryPauseRequested.current) {
         const params = new URLSearchParams({ tool: 'challengeable-directory', cursor: String(cursor) });
         const response = await fetch(`/api/testing?${params.toString()}`, { credentials: 'include' });
-        const payload = await response.json() as {
+        const payload = (await response.json()) as {
           error?: string;
           users?: ChallengeableDirectoryUser[];
           issues?: ChallengeableDirectoryIssue[];
@@ -2389,26 +2450,36 @@ function ForgeTestingSection() {
                   : 'Rescan from start (keep results)'}
           </Button>
           {directoryLoading && (
-            <Button variant="outline" onClick={() => { directoryPauseRequested.current = true; }}>
+            <Button
+              variant="outline"
+              onClick={() => {
+                directoryPauseRequested.current = true;
+              }}
+            >
               Pause scan
             </Button>
           )}
           {directory.started && (
             <span className={styles.smallNote}>
-              Scanned {directory.progress.scanned} users · {directory.progress.checkedManagers} had CHPP access ·
-              {' '}{directory.progress.checkedTeams} teams checked · {directory.progress.unavailableTeams} unavailable
+              Scanned {directory.progress.scanned} users · {directory.progress.checkedManagers} had CHPP access ·{' '}
+              {directory.progress.checkedTeams} teams checked · {directory.progress.unavailableTeams} unavailable
             </span>
           )}
         </div>
         {directoryError && <p className={styles.errorText}>{directoryError}</p>}
-        {directoryLoading && <p className={styles.smallNote}>The next batch starts three seconds after each completed batch. Completed results are saved in this tab’s session storage.</p>}
+        {directoryLoading && (
+          <p className={styles.smallNote}>
+            The next batch starts three seconds after each completed batch. Completed results are saved in this tab’s
+            session storage.
+          </p>
+        )}
         {directory.started && (
           <details className={styles.challengeableScanDetails}>
             <summary>Scan diagnostics</summary>
             <p className={styles.smallNote}>
-              {directory.progress.skipped} users lacked stored CHPP credentials · {directory.progress.failed} CHPP or team checks failed ·
-              {' '}{directory.progress.managersWithNoTeams} users had no current teams ·
-              {' '}{directory.progress.managersWithoutAvailableTeams} users had no team available to challenge
+              {directory.progress.skipped} users lacked stored CHPP credentials · {directory.progress.failed} CHPP or
+              team checks failed · {directory.progress.managersWithNoTeams} users had no current teams ·{' '}
+              {directory.progress.managersWithoutAvailableTeams} users had no team available to challenge
             </p>
             {directory.issues.length > 0 && (
               <ul>
@@ -2500,7 +2571,9 @@ export const ForgePage: React.FC = () => {
       localeEditorOnly={auth.role === 'locale-editor'}
     >
       <Routes>
-        {auth.role === 'admin' && <Route index element={<ForgeDashboard adminUserId={auth.userId} adminManagerName={auth.managerName} />} />}
+        {auth.role === 'admin' && (
+          <Route index element={<ForgeDashboard adminUserId={auth.userId} adminManagerName={auth.managerName} />} />
+        )}
         {auth.role === 'admin' && <Route path="stats" element={<ForgeStatsSection />} />}
         {auth.role === 'admin' && <Route path="matches" element={<ForgeMatchesSection />} />}
         {auth.role === 'admin' && <Route path="faq" element={<ForgeFaqEditor />} />}
