@@ -2,6 +2,7 @@
 'use client';
 
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useTranslations } from 'next-intl';
 import Link from 'next/link';
 import { usePathname, useParams, useRouter, useSearchParams as useNextSearchParams } from 'next/navigation';
 import { supabase } from '../../lib/supabase';
@@ -660,6 +661,7 @@ export const TournamentView: React.FC<{
   initialData?: TournamentInitialData;
   collectionLinks?: { slug: string; title: string }[];
 }> = ({ initialData, collectionLinks = [] }) => {
+  const t = useTranslations('TournamentView');
   const { notice, showNotice: alert, closeNotice } = useNoticeDialog();
   const { locale } = useLocale();
   const descriptionPools = getDescriptionPools(locale);
@@ -5372,7 +5374,7 @@ export const TournamentView: React.FC<{
   if (loading) {
     return (
       <div className={styles.view}>
-        <div className={styles.loading}>Loading tournament...</div>
+        <div className={styles.loading}>{t('loading')}</div>
       </div>
     );
   }
@@ -5391,7 +5393,7 @@ export const TournamentView: React.FC<{
   if (!tournament) {
     return (
       <div className={styles.view}>
-        <div className={styles.loading}>Tournament not found</div>
+        <div className={styles.loading}>{t('notFound')}</div>
       </div>
     );
   }
@@ -5509,7 +5511,7 @@ export const TournamentView: React.FC<{
       <h3 id="tournament-chat-title" className={styles.tournamentChatTitle}>
         <Chat size={16} weight="bold" aria-hidden="true" />
         {/* <span>{tournament.name} Chat</span> */}
-        <span>Chat with other participants</span>
+        <span>{t('chatWithParticipants')}</span>
       </h3>
       <ChatView
         messages={chatMessages}
@@ -6129,7 +6131,7 @@ export const TournamentView: React.FC<{
                 <img src="/register.png" alt="Join Tournament" className={styles.joinHeroImage} />
                 {isConnecting && (
                   <div className={styles.imageLoaderOverlay}>
-                    <p>Connecting to Hattrick...</p>
+                    <p>{t('connectingHattrick')}</p>
                   </div>
                 )}
               </div>
@@ -6178,7 +6180,7 @@ export const TournamentView: React.FC<{
       {selectedTournamentMessage?.type === 'reserve' && (
         <div className={styles.registrationStatus}>
           <div className={styles.helpContent}>
-            <p>Tournament is full. Please join Reserve list! You will be first in line if a spot opens!</p>
+            <p>{t('tournamentFull')}</p>
             <Button
               onClick={() => {
                 const reserveWidget = document.getElementById('reserve-teams-widget');
@@ -6198,9 +6200,7 @@ export const TournamentView: React.FC<{
       {selectedTournamentMessage?.type === 'participant_open' && (
         <div className={styles.registrationStatus}>
           <div className={styles.helpContent}>
-            <p>
-              ✅ You have joined this cup! Before it starts — turn of ALL your existing friendly auto-arrange triggers!
-            </p>
+            <p>✅ You have joined this cup! Remember to turn off auto-arranged friendlies option on Hattrick!</p>
             {canJoinAnotherTeamBeforeFixtures && (
               <Button
                 onClick={connectToHattrick}
@@ -6220,7 +6220,7 @@ export const TournamentView: React.FC<{
       {selectedTournamentMessage?.type === 'joined_notice' && (
         <div className={styles.joinedNotice}>
           <div className={styles.joinedNoticeContent}>
-            <span>You are participating in this tournament! Good luck!</span>
+            <span>{t('participating')}</span>
           </div>
           <button className={styles.dismissBtn} onClick={handleDismissJoinedNotice}>
             <X size={18} weight="bold" />
@@ -6800,7 +6800,7 @@ export const TournamentView: React.FC<{
 
               {joinError && <p className={styles.joiningStatus}>{joinError}</p>}
 
-              {submittingJoin && <p className={styles.joiningStatus}>Joining tournament...</p>}
+              {submittingJoin && <p className={styles.joiningStatus}>{t('joining')}</p>}
 
               <div className={styles.modalFooter}>
                 <Button
