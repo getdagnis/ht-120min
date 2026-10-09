@@ -6,7 +6,7 @@ import {
   isForgeAdminRequest,
   verifyForgeSessionCookie,
 } from './_lib/forge-session.js';
-import { getAnalyticsExcludedHtUserId } from './_lib/analytics.js';
+import { getAnalyticsExcludedHtUserId, isLocalAnalyticsHost } from './_lib/analytics.js';
 import { cleanupActivityEvents, recordActivity } from './_lib/activity.js';
 import { validateNewsComment } from './_lib/news-comments.js';
 import { findSeasonParticipant, validateSeasonComment } from './_lib/season-comments.js';
@@ -2942,52 +2942,233 @@ function toDate(value: unknown, fallback: Date) {
   return Number.isFinite(parsed.getTime()) ? parsed : fallback;
 }
 
+type ForgeActivityRow = {
+  id: string;
+  occurred_at: string;
+  visitor_id: string;
+  visit_id: string | null;
+  hattrick_user_id: number | null;
+  manager_name: string | null;
+  event_type: string;
+  route: string | null;
+  tournament_id: string | null;
+  team_id: string | null;
+  referrer: string | null;
+  country_code: string | null;
+  language: string | null;
+  platform: string | null;
+  browser: string | null;
+  metadata: Record<string, unknown> | null;
+  resolved_user_id?: number | null;
+  resolved_manager_name?: string | null;
+};
+
+function cookieValue(cookieHeader: string | undefined, name: string) {
+  if (!cookieHeader) return null;
+  const entry = cookieHeader.split(';').map((part) => part.trim()).find((part) => part.startsWith(`${name}=`));
+  return entry ? entry.slice(name.length + 1) : null;
+}
+
+function isLocalReferrer(value: string | null) {
+  if (!value) return false;
+  try {
+    return isLocalAnalyticsHost(new URL(value).host);
+  } catch {
+    return false;
+  }
+}
+
+function encodeVisitCursor(visit: { lastSeen: string; visitId: string }) {
+  return Buffer.from(JSON.stringify(visit)).toString('base64url');
+}
+
+function decodeVisitCursor(value: string) {
+  try {
+    const parsed = JSON.parse(Buffer.from(value, 'base64url').toString('utf8')) as { lastSeen?: unknown; visitId?: unknown };
+    if (typeof parsed.lastSeen === 'string' && typeof parsed.visitId === 'string') return parsed as { lastSeen: string; visitId: string };
+  } catch {
+    // Invalid cursors restart from the newest visit.
+  }
+  return null;
+}
+
+function encodeActivityCursor(event: { occurred_at: string; id: string }) {
+  return Buffer.from(JSON.stringify(event)).toString('base64url');
+}
+
+function decodeActivityCursor(value: string) {
+  try {
+    const parsed = JSON.parse(Buffer.from(value, 'base64url').toString('utf8')) as { occurred_at?: unknown; id?: unknown };
+    if (typeof parsed.occurred_at === 'string' && typeof parsed.id === 'string') {
+      return parsed as { occurred_at: string; id: string };
+    }
+  } catch {
+    // Invalid cursors restart from the newest activity.
+  }
+  return null;
+}
+
+async function loadForgeActivityRows(
+  supabase: ReturnType<typeof getServiceSupabase>,
+  since: Date | null,
+) {
+  const rows: ForgeActivityRow[] = [];
+  const batchSize = 1000;
+  let offset = 0;
+  while (true) {
+    let query = supabase
+      .from('activity_events')
+      .select('id, occurred_at, visitor_id, visit_id, hattrick_user_id, manager_name, event_type, route, tournament_id, team_id, referrer, country_code, language, platform, browser, metadata');
+    if (since) query = query.gte('occurred_at', since.toISOString());
+    const { data, error } = await query
+      .order('occurred_at', { ascending: false })
+      .order('id', { ascending: false })
+      .range(offset, offset + batchSize - 1);
+    if (error) throw error;
+    const batch = (data || []) as ForgeActivityRow[];
+    rows.push(...batch);
+    if (batch.length < batchSize) break;
+    offset += batchSize;
+  }
+  return rows;
+}
+
+function filterForgeActivityRows(rawEvents: ForgeActivityRow[], req: VercelRequest) {
+  const adminId = getForgeSuperadminId();
+  const analyticsExcludedUserId = getAnalyticsExcludedHtUserId();
+  const currentVisitorId = cookieValue(req.headers.cookie, 'ht_visitor');
+  const adminVisitorIds = new Set(
+    rawEvents.filter((event) => adminId && event.hattrick_user_id === adminId).map((event) => event.visitor_id),
+  );
+  const analyticsExcludedVisitorIds = new Set(
+    rawEvents.filter((event) => analyticsExcludedUserId && event.hattrick_user_id === analyticsExcludedUserId)
+      .map((event) => event.visitor_id),
+  );
+  return rawEvents.filter((event) => {
+    if (isLocalReferrer(event.referrer)) return false;
+    if (currentVisitorId && event.visitor_id === currentVisitorId) return false;
+    if (analyticsExcludedUserId && (
+      event.hattrick_user_id === analyticsExcludedUserId || analyticsExcludedVisitorIds.has(event.visitor_id)
+    )) return false;
+    return event.hattrick_user_id !== adminId && !adminVisitorIds.has(event.visitor_id);
+  });
+}
+
+function isMissingCleanActivityTable(error: { code?: string; message?: string }) {
+  return error.code === '42P01'
+    || error.code === 'PGRST205'
+    || /activity_daily_clean.*(not found|does not exist)/i.test(error.message || '');
+}
+
+function summarizeForgeActivityTrend(events: ForgeActivityRow[]) {
+  const dailyCounts = new Map<string, number>();
+  for (const event of events) {
+    const activityDate = event.occurred_at.slice(0, 10);
+    dailyCounts.set(activityDate, (dailyCounts.get(activityDate) || 0) + 1);
+  }
+  return Array.from(dailyCounts.entries())
+    .sort(([left], [right]) => left.localeCompare(right))
+    .map(([activity_date, event_count]) => ({ activity_date, event_type: 'all', route: '', event_count }));
+}
+
+async function loadRawForgeActivityTrend(
+  supabase: ReturnType<typeof getServiceSupabase>,
+  req: VercelRequest,
+  requestedDay: string,
+  rawStartDay: string,
+) {
+  const coverageStart = requestedDay > rawStartDay ? requestedDay : rawStartDay;
+  const rawEvents = await loadForgeActivityRows(supabase, new Date(`${coverageStart}T00:00:00.000Z`));
+  return {
+    daily: summarizeForgeActivityTrend(filterForgeActivityRows(rawEvents, req)),
+    coverageStart,
+  };
+}
+
+async function handleForgeActivityTrend(req: VercelRequest, res: VercelResponse) {
+  const supabase = getServiceSupabase();
+  const requestedSince = toDate(req.query.since, new Date(Date.now() - 7 * 24 * 60 * 60 * 1000));
+  const requestedDay = requestedSince.toISOString().slice(0, 10);
+  const rawCutoff = new Date(Date.now() - 90 * 24 * 60 * 60 * 1000);
+  const rawStartDay = new Date(Date.UTC(
+    rawCutoff.getUTCFullYear(), rawCutoff.getUTCMonth(), rawCutoff.getUTCDate() + 1,
+  )).toISOString().slice(0, 10);
+
+  await cleanupActivityEvents().catch((error) => console.warn('Activity cleanup failed:', error));
+
+  const { data: coverageRow, error: coverageError } = await supabase.from('activity_daily_clean')
+    .select('activity_date')
+    .eq('event_type', '__clean_tracking_start__')
+    .maybeSingle();
+  if (coverageError) {
+    if (!isMissingCleanActivityTable(coverageError)) throw coverageError;
+    return res.status(200).json(await loadRawForgeActivityTrend(supabase, req, requestedDay, rawStartDay));
+  }
+
+  const cleanRows: Array<{ activity_date: string; event_type: string; route: string; event_count: number | string }> = [];
+  const cleanBatchSize = 1000;
+  let cleanOffset = 0;
+  while (true) {
+    const { data, error } = await supabase.from('activity_daily_clean')
+      .select('activity_date, event_type, route, event_count')
+      .gte('activity_date', requestedDay)
+      .lt('activity_date', rawStartDay)
+      .neq('event_type', '__clean_tracking_start__')
+      .order('activity_date', { ascending: true })
+      .order('event_type', { ascending: true })
+      .order('route', { ascending: true })
+      .range(cleanOffset, cleanOffset + cleanBatchSize - 1);
+    if (error) {
+      if (!isMissingCleanActivityTable(error)) throw error;
+      return res.status(200).json(await loadRawForgeActivityTrend(supabase, req, requestedDay, rawStartDay));
+    }
+    const batch = (data || []) as typeof cleanRows;
+    cleanRows.push(...batch);
+    if (batch.length < cleanBatchSize) break;
+    cleanOffset += cleanBatchSize;
+  }
+
+  const dailyCounts = new Map<string, number>();
+  for (const row of cleanRows || []) {
+    dailyCounts.set(row.activity_date, (dailyCounts.get(row.activity_date) || 0) + Number(row.event_count || 0));
+  }
+
+  const rawSinceDay = requestedDay > rawStartDay ? requestedDay : rawStartDay;
+  const rawEvents = await loadForgeActivityRows(supabase, new Date(`${rawSinceDay}T00:00:00.000Z`));
+  for (const event of filterForgeActivityRows(rawEvents, req)) {
+    const activityDate = event.occurred_at.slice(0, 10);
+    dailyCounts.set(activityDate, (dailyCounts.get(activityDate) || 0) + 1);
+  }
+
+  const cleanStartDay = typeof coverageRow?.activity_date === 'string' ? coverageRow.activity_date : rawStartDay;
+  const firstAvailableDay = cleanStartDay < rawStartDay ? cleanStartDay : rawStartDay;
+  const coverageStart = requestedDay > firstAvailableDay ? requestedDay : firstAvailableDay;
+  const daily = Array.from(dailyCounts.entries())
+    .sort(([left], [right]) => left.localeCompare(right))
+    .map(([activity_date, event_count]) => ({ activity_date, event_type: 'all', route: '', event_count }));
+
+  return res.status(200).json({ daily, coverageStart });
+}
+
 async function handleForgeStats(req: VercelRequest, res: VercelResponse) {
   if (!isForgeEnabled()) return res.status(404).json({ error: 'Not found.' });
   if (req.method !== 'GET') return res.status(405).json({ error: 'Method not allowed' });
   if (!isForgeAdminRequest(req.headers.cookie) && !hasSuperAdminBypassCookie(req.headers.cookie)) {
     return res.status(401).json({ error: 'Forge authorization required.' });
   }
+  if (String(req.query.trend || '') === '1') return handleForgeActivityTrend(req, res);
 
   const now = new Date();
   const allData = String(req.query.all || '') === '1';
   const since = allData ? null : toDate(req.query.since, new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000));
   const selectedUserId = Number(req.query.userId || 0) || null;
   const selectedVisitorId = readString(req.query.visitorId) || null;
-  const includeAdmin = String(req.query.includeAdmin || '') === '1';
-  const adminId = getForgeSuperadminId();
-  const analyticsExcludedUserId = getAnalyticsExcludedHtUserId();
   const supabase = getServiceSupabase();
 
   await cleanupActivityEvents().catch((error) => console.warn('Activity cleanup failed:', error));
 
-  let eventQuery = supabase
-    .from('activity_events')
-    .select('id, occurred_at, visitor_id, visit_id, hattrick_user_id, manager_name, event_type, route, tournament_id, team_id, referrer, country_code, language, platform, browser, user_agent, ip_address, metadata');
-  if (since) eventQuery = eventQuery.gte('occurred_at', since.toISOString());
-  const { data: rawEvents, error: eventError } = await eventQuery
-    .order('occurred_at', { ascending: false })
-    .limit(10000);
-  if (eventError) throw eventError;
-
-  const adminVisitorIds = new Set(
-    (rawEvents || [])
-      .filter((event) => adminId && event.hattrick_user_id === adminId)
-      .map((event) => event.visitor_id),
-  );
-  const analyticsExcludedVisitorIds = new Set(
-    (rawEvents || [])
-      .filter((event) => analyticsExcludedUserId && event.hattrick_user_id === analyticsExcludedUserId)
-      .map((event) => event.visitor_id),
-  );
-  const visibleEvents = (rawEvents || []).filter(
-    (event) => {
-      if (analyticsExcludedUserId && (event.hattrick_user_id === analyticsExcludedUserId || analyticsExcludedVisitorIds.has(event.visitor_id))) {
-        return false;
-      }
-      return includeAdmin || (event.hattrick_user_id !== adminId && !adminVisitorIds.has(event.visitor_id));
-    },
-  );
+  const rawEvents = await loadForgeActivityRows(supabase, since);
+  const visibleEvents = filterForgeActivityRows(rawEvents, req);
   const identityByVisitor = new Map<string, { userId: number; managerName: string | null }>();
   for (const event of visibleEvents) {
     if (event.hattrick_user_id) {
@@ -2997,7 +3178,7 @@ async function handleForgeStats(req: VercelRequest, res: VercelResponse) {
       });
     }
   }
-  const events = visibleEvents.map((event) => {
+  const events: ForgeActivityRow[] = visibleEvents.map((event) => {
     const identity = identityByVisitor.get(event.visitor_id);
     return {
       ...event,
@@ -3034,7 +3215,7 @@ async function handleForgeStats(req: VercelRequest, res: VercelResponse) {
   for (const event of events) {
     visitors.add(event.visitor_id);
     if (event.event_type === 'page_view') visitEvents += 1;
-    else actionEvents += 1;
+    else if (event.event_type !== 'page_exit') actionEvents += 1;
     const visitor = visitorsById.get(event.visitor_id) || {
       visitorId: event.visitor_id,
       userId: event.resolved_user_id,
@@ -3093,12 +3274,6 @@ async function handleForgeStats(req: VercelRequest, res: VercelResponse) {
     browsers: Array.from(visitor.browsers),
     routes: Array.from(visitor.routes),
   })).sort((a, b) => b.lastSeen.localeCompare(a.lastSeen));
-  const selectedEvents = selectedVisitorId
-    ? events.filter((event) => event.visitor_id === selectedVisitorId).slice(0, 500)
-    : selectedUserId
-      ? events.filter((event) => event.resolved_user_id === selectedUserId).slice(0, 500)
-      : events.slice(0, 100);
-
   const breakdown = (values: Array<string | null | undefined>) => {
     const counts = new Map<string, number>();
     for (const value of values) {
@@ -3111,55 +3286,143 @@ async function handleForgeStats(req: VercelRequest, res: VercelResponse) {
       .slice(0, 12);
   };
   const metadataValues = (key: string) =>
-    events.map((event) => (typeof event.metadata?.[key] === 'string' ? String(event.metadata[key]) : null));
+    events.filter((event) => event.event_type === 'page_view')
+      .map((event) => (typeof event.metadata?.[key] === 'string' ? String(event.metadata[key]) : null));
 
-  let daily: Array<{ activity_date: string; event_type: string; route: string; event_count: number }>;
-  if (analyticsExcludedUserId) {
-    const dailyByKey = new Map<string, { activity_date: string; event_type: string; route: string; event_count: number }>();
-    for (const event of events) {
-      const activityDate = event.occurred_at.slice(0, 10);
-      const route = event.route || '';
-      const key = `${activityDate}\u0000${event.event_type}\u0000${route}`;
-      const existing = dailyByKey.get(key);
-      if (existing) existing.event_count += 1;
-      else dailyByKey.set(key, { activity_date: activityDate, event_type: event.event_type, route, event_count: 1 });
+  const visitGroups = new Map<string, {
+    visitId: string;
+    visitorId: string;
+    userId: number | null;
+    managerName: string | null;
+    firstSeen: string;
+    lastSeen: string;
+    countryCode: string | null;
+    language: string | null;
+    platform: string | null;
+    browser: string | null;
+    referrer: string | null;
+    pages: Array<{ route: string; visitedAt: string; theme: string | null; durationSeconds: number | null; maxScrollPercent: number | null }>;
+    actions: string[];
+  }>();
+  const chronologicalEvents = [...events].sort((left, right) => left.occurred_at.localeCompare(right.occurred_at));
+  for (const event of chronologicalEvents) {
+    const visitId = event.visit_id || `legacy:${event.visitor_id}:${Math.floor(Date.parse(event.occurred_at) / (30 * 60 * 1000))}`;
+    const existing = visitGroups.get(visitId);
+    const visit = existing || {
+      visitId,
+      visitorId: event.visitor_id,
+      userId: event.resolved_user_id || null,
+      managerName: event.resolved_manager_name || null,
+      firstSeen: event.occurred_at,
+      lastSeen: event.occurred_at,
+      countryCode: event.country_code,
+      language: event.language,
+      platform: event.platform,
+      browser: event.browser,
+      referrer: event.referrer,
+      pages: [],
+      actions: [],
+    };
+    visit.userId = event.resolved_user_id || visit.userId;
+    visit.managerName = event.resolved_manager_name || visit.managerName;
+    visit.firstSeen = event.occurred_at < visit.firstSeen ? event.occurred_at : visit.firstSeen;
+    visit.lastSeen = event.occurred_at > visit.lastSeen ? event.occurred_at : visit.lastSeen;
+    visit.countryCode ||= event.country_code;
+    visit.language ||= event.language;
+    visit.platform ||= event.platform;
+    visit.browser ||= event.browser;
+    visit.referrer ||= event.referrer;
+    if (event.event_type === 'page_view' && event.route) {
+      visit.pages.push({
+        route: event.route,
+        visitedAt: event.occurred_at,
+        theme: typeof event.metadata?.theme === 'string' ? event.metadata.theme : null,
+        durationSeconds: null,
+        maxScrollPercent: null,
+      });
+    } else if (event.event_type === 'page_exit') {
+      const page = [...visit.pages].reverse().find((item) => item.route === event.route && item.durationSeconds === null);
+      if (page) {
+        page.durationSeconds = typeof event.metadata?.durationSeconds === 'number' ? event.metadata.durationSeconds : null;
+        page.maxScrollPercent = typeof event.metadata?.maxScrollPercent === 'number' ? event.metadata.maxScrollPercent : null;
+        if (!page.theme && typeof event.metadata?.theme === 'string') page.theme = event.metadata.theme;
+      }
+    } else if (event.event_type !== 'page_view' && event.event_type !== 'page_exit') {
+      visit.actions.push(event.event_type);
     }
-    daily = Array.from(dailyByKey.values()).sort(
-      (left, right) => left.activity_date.localeCompare(right.activity_date) || left.event_type.localeCompare(right.event_type) || left.route.localeCompare(right.route),
-    );
-  } else {
-    let dailyQuery = supabase
-      .from('activity_daily')
-      .select('activity_date, event_type, route, event_count');
-    if (since) dailyQuery = dailyQuery.gte('activity_date', since.toISOString().slice(0, 10));
-    const { data, error: dailyError } = await dailyQuery.order('activity_date', { ascending: true });
-    if (dailyError) throw dailyError;
-    daily = data || [];
+    visitGroups.set(visitId, visit);
   }
+
+  const sortedVisits = Array.from(visitGroups.values()).sort(
+    (left, right) => right.lastSeen.localeCompare(left.lastSeen) || right.visitId.localeCompare(left.visitId),
+  );
+  const selectedVisits = selectedUserId
+    ? sortedVisits.filter((visit) => visit.userId === selectedUserId)
+    : selectedVisitorId
+      ? sortedVisits.filter((visit) => visit.visitorId === selectedVisitorId)
+      : sortedVisits;
+  const cursor = decodeVisitCursor(readString(req.query.cursor));
+  const pageSize = 30;
+  const pageStart = cursor
+    ? selectedVisits.findIndex((visit) => visit.lastSeen < cursor.lastSeen
+      || (visit.lastSeen === cursor.lastSeen && visit.visitId < cursor.visitId))
+    : 0;
+  const safePageStart = cursor && pageStart < 0 ? selectedVisits.length : pageStart;
+  const visitsPage = selectedVisits.slice(safePageStart, safePageStart + pageSize);
+  const hasMore = safePageStart + visitsPage.length < selectedVisits.length;
+  const lastVisit = visitsPage[visitsPage.length - 1];
+  const dailyByDate = new Map<string, number>();
+  for (const event of events) {
+    const activityDate = event.occurred_at.slice(0, 10);
+    dailyByDate.set(activityDate, (dailyByDate.get(activityDate) || 0) + 1);
+  }
+  const daily = Array.from(dailyByDate.entries())
+    .sort(([left], [right]) => left.localeCompare(right))
+    .map(([activity_date, event_count]) => ({ activity_date, event_type: 'all', route: '', event_count }));
+  const sortedActivity = events
+    .filter((event) => event.event_type !== 'page_view' && event.event_type !== 'page_exit')
+    .sort((left, right) => right.occurred_at.localeCompare(left.occurred_at) || right.id.localeCompare(left.id));
+  const activityCursor = decodeActivityCursor(readString(req.query.activityCursor));
+  const activityStart = activityCursor
+    ? sortedActivity.findIndex((event) => event.occurred_at < activityCursor.occurred_at
+      || (event.occurred_at === activityCursor.occurred_at && event.id < activityCursor.id))
+    : 0;
+  const safeActivityStart = activityCursor && activityStart < 0 ? sortedActivity.length : activityStart;
+  const recentActivity = sortedActivity.slice(safeActivityStart, safeActivityStart + 30);
+  const hasMoreActivity = safeActivityStart + recentActivity.length < sortedActivity.length;
+  const lastActivity = recentActivity[recentActivity.length - 1];
 
   return res.status(200).json({
     since: since?.toISOString() || null,
     summary: {
       events: events.length,
-      visits: visitEvents,
+      visits: sortedVisits.length,
+      pageViews: visitEvents,
       actions: actionEvents,
       uniqueVisitors: visitors.size,
       identifiedUsers: userRows.length,
     },
     users: userRows,
     visitors: visitorRows,
-    events: selectedEvents,
+    visits: visitsPage,
+    recentActivity,
+    hasMoreActivity,
+    nextActivityCursor: hasMoreActivity && lastActivity
+      ? encodeActivityCursor({ occurred_at: lastActivity.occurred_at, id: lastActivity.id })
+      : null,
+    hasMore,
+    nextCursor: hasMore && lastVisit ? encodeVisitCursor({ lastSeen: lastVisit.lastSeen, visitId: lastVisit.visitId }) : null,
     breakdowns: {
-      countries: breakdown(events.map((event) => event.country_code)),
-      platforms: breakdown(events.map((event) => event.platform)),
-      browsers: breakdown(events.map((event) => event.browser)),
-      languages: breakdown(events.map((event) => event.language)),
+      countries: breakdown(sortedVisits.map((visit) => visit.countryCode)),
+      platforms: breakdown(sortedVisits.map((visit) => visit.platform)),
+      browsers: breakdown(sortedVisits.map((visit) => visit.browser)),
+      languages: breakdown(sortedVisits.map((visit) => visit.language)),
       routes: breakdown(events.map((event) => event.route)),
-      referrers: breakdown(events.map((event) => event.referrer)),
-      themes: breakdown(metadataValues('theme')),
+      referrers: breakdown(sortedVisits.map((visit) => visit.referrer)),
+      themes: breakdown(sortedVisits.flatMap((visit) => visit.pages.map((page) => page.theme))),
       screens: breakdown(metadataValues('screen')),
       times: breakdown(
-        events.map((event) => {
+        events.filter((event) => event.event_type === 'page_view').map((event) => {
           const hour = new Date(event.occurred_at).getHours();
           return `${String(hour).padStart(2, '0')}:00`;
         }),

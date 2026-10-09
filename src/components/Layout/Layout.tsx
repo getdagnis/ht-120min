@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect, useMemo, useRef, useSyncExternalStore } from 'react';
 import { Analytics, type BeforeSendEvent } from '@vercel/analytics/next';
+import Script from 'next/script';
 import Link from 'next/link';
 import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import { useTranslations } from 'next-intl';
@@ -90,8 +91,8 @@ function getServerThemeSnapshot(): ThemePreference {
 }
 
 function excludeLocalAnalytics(event: BeforeSendEvent) {
-  const hostname = window.location.hostname;
-  return hostname === 'localhost' || hostname === '127.0.0.1' || hostname === '[::1]' || hostname === '::1'
+  const hostname = window.location.hostname.toLowerCase();
+  return hostname === 'localhost' || hostname.endsWith('.localhost') || hostname.startsWith('127.') || hostname === '[::1]' || hostname === '::1'
     ? null
     : event;
 }
@@ -104,6 +105,7 @@ export const Layout: React.FC<LayoutProps> = ({ children, excludeAnalytics = fal
   const isMockMatchmakerRoute = isTinderPage && process.env.NEXT_PUBLIC_MATCHMAKER_MOCK_DATA === 'true';
   const searchParams = useSearchParams();
   const { locale } = useLocale();
+  const isAuthCallback = pathname.endsWith('/auth/callback');
   const currentUrl = `${pathname}${searchParams.toString() ? `?${searchParams.toString()}` : ''}`;
   const {
     managerName,
@@ -115,8 +117,8 @@ export const Layout: React.FC<LayoutProps> = ({ children, excludeAnalytics = fal
     refreshProfile,
     authReady,
   } = useAuth();
-  usePresenceHeartbeat(!!managerName, currentUrl, !isMockMatchmakerRoute);
-  useActivityTracking(currentUrl, !isMockMatchmakerRoute);
+  usePresenceHeartbeat(!!managerName, currentUrl, !isMockMatchmakerRoute && !excludeAnalytics && !isAuthCallback);
+  useActivityTracking(currentUrl, !isMockMatchmakerRoute && !excludeAnalytics && !isAuthCallback);
   const visibleOrganizerTournaments = useMemo(() => {
     const activeTournamentIds = new Set(activeTournaments.map((tournament) => tournament.id));
     return organizerTournaments.filter((tournament) => !activeTournamentIds.has(tournament.id));
@@ -479,7 +481,17 @@ export const Layout: React.FC<LayoutProps> = ({ children, excludeAnalytics = fal
 
         <TeamOwnershipReclaim profile={profile} onClaimed={refreshProfile} />
 
-        {!excludeAnalytics && <Analytics beforeSend={excludeLocalAnalytics} />}
+        {!excludeAnalytics && !isAuthCallback && (
+          <>
+            <Script
+              src="https://cdn.counter.dev/script.js"
+              data-id="b00ddeff-7e76-4ab9-864b-fb21b6a22fa3"
+              data-utcoffset="2"
+              strategy="afterInteractive"
+            />
+            <Analytics beforeSend={excludeLocalAnalytics} />
+          </>
+        )}
       </div>
     </ToastProvider>
   );

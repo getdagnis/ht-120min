@@ -52,7 +52,8 @@ export const SectionCard: React.FC<SectionCardProps> = ({
                 <img src={`/thumbs/thumb-${headerThumbnailIndex}.png`} alt="" />
               </div>
             )}
-            <h3 className={styles.title}>{title}</h3> {subtitle}
+            <h3 className={styles.title}>{title}</h3>
+            {subtitle && <span className={styles.subtitle}>{subtitle}</span>}
           </div>
           {headerRight}
 

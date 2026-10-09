@@ -28,7 +28,8 @@ Important tables used by current code:
 - `matchmaker_requests`
 - `matchmaker_activity`
 - `activity_events` (private raw Forge telemetry, 90-day retention)
-- `activity_daily` (private aggregate activity counters)
+- `activity_daily` (private legacy aggregate activity counters; historical source attribution is unavailable)
+- `activity_daily_clean` (private, source-clean daily totals used for long-range Forge trends; starts at migration 105 and is not backfilled)
 
 The app treats tournaments, rounds, matches, standings, chat, and admin decisions as app-owned state. CHPP data is synced into snapshots or used to reconcile fixtures/results.
 
@@ -38,7 +39,7 @@ The app treats tournaments, rounds, matches, standings, chat, and admin decision
 - `migrations/history/` is an archived legacy area.
 - Active migrations must use the root `migrations/` directory.
 - Continue the numeric sequence from the latest active migration.
-- The latest active migration file is `104_add_fixture_rating_coach_modifier.sql` (prepared locally, not applied); continue at `105_...sql`. The repository's migration files and owner-added applied markers are bookkeeping, not independent live schema verification.
+- The latest active migration file is `105_add_clean_activity_trend_rollup.sql` (prepared locally, not applied). The repository's migration files and owner-added applied markers are bookkeeping, not independent live schema verification.
 - Do not create timestamp-prefixed migration names such as `20261001050614_...`.
 - Keep migrations compatible with existing rows when possible.
 - Record migration state in `PROJECT_STATE.md` only when a schema/RPC/RLS change has architectural, security, product-direction, or substantial behavioral impact. Do not add status entries for routine fixes or small implementation details.
@@ -113,7 +114,7 @@ budget is explicitly rechecked.
 - `SUPABASE_SECRET_KEY` is required for server-authorized writes such as immutable season yearbook comments. Never expose it to browser code.
 - `APP_SESSION_SECRET` must be present in production. Do not fall back to `CHPP_CONSUMER_SECRET` for session signing.
 - `FORGE_SUPERADMIN_HT_ID` is server-only configuration for the Forge superadmin.
-- `ANALYTICS_EXCLUDED_HT_USER_ID` is optional server-only configuration. When its Hattrick ID matches a verified app session, Vercel Web Analytics and internal Forge activity tracking are excluded for that visitor.
+- `ANALYTICS_EXCLUDED_HT_USER_ID` is optional server-only configuration. When its Hattrick ID matches a verified app session, Vercel Web Analytics, Counter.dev, and internal Forge activity tracking are excluded for that visitor. The verified Forge superadmin identity and localhost/loopback hosts are also excluded.
 - Activity events contain operational metadata, including raw user-agent and IP fields. They are service-role-only tables with no anon/authenticated grants; the Forge stats route is the only application read path and raw events are intended to be removed after 90 days. Authenticated events store the Hattrick manager nickname from `profiles`, and the stats service may associate earlier events from the same visitor cookie with that nickname. Keep raw IP/user-agent values out of Forge UI responses.
 - The superadmin bypass cookie is dev-only. Keep its token out of production and do not surface it in the UI.
 

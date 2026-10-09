@@ -14,6 +14,10 @@ export interface ActivityEventPayload {
 
 export async function trackActivity(eventType: string, payload: ActivityEventPayload = {}) {
   if (ACTIVITY_TRACKING_PAUSED) return;
+  if (typeof window !== 'undefined') {
+    const hostname = window.location.hostname.toLowerCase();
+    if (hostname === 'localhost' || hostname.endsWith('.localhost') || hostname.startsWith('127.') || hostname === '::1' || hostname === '[::1]') return;
+  }
 
   try {
     await fetch('/api/app?route=activity', {

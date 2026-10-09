@@ -1,6 +1,5 @@
-import { cookies } from 'next/headers';
+import { cookies, headers } from 'next/headers';
 import { notFound } from 'next/navigation';
-import Script from 'next/script';
 import type { Metadata } from 'next';
 import type { ReactNode } from 'react';
 import { NextIntlClientProvider } from 'next-intl';
@@ -11,7 +10,8 @@ import { barlow, barlowCondensed, ibmPlexMono, notoColorEmoji } from '../../../f
 import { LocaleProvider } from '../../../i18n/LocaleProvider';
 import { locales, isLocale, type Locale } from '../../../i18n/config';
 import { getAppSessionSecret, verifyAppSessionCookie } from '../../../server/api/_lib/app-session';
-import { getAnalyticsExcludedHtUserId } from '../../../server/api/_lib/analytics';
+import { getAnalyticsExcludedHtUserId, isLocalAnalyticsHost } from '../../../server/api/_lib/analytics';
+import { getForgeSuperadminId, verifyForgeSessionCookie } from '../../../server/api/_lib/forge-session';
 import '../../../global.sass';
 
 const themeBootstrapScript = `
@@ -64,11 +64,17 @@ export default async function PublicLocaleLayout({
   const locale = rawLocale as Locale;
   setRequestLocale(locale);
   const messages = await getMessages();
-  const sessionToken = (await cookies()).get('ht_session')?.value;
+  const cookieStore = await cookies();
+  const requestHeaders = await headers();
+  const cookieHeader = requestHeaders.get('cookie') || '';
+  const sessionToken = cookieStore.get('ht_session')?.value;
   const sessionSecret = getAppSessionSecret();
   const session =
     sessionToken && sessionSecret ? verifyAppSessionCookie(`ht_session=${sessionToken}`, sessionSecret) : null;
-  const excludeAnalytics = session?.userId === getAnalyticsExcludedHtUserId();
+  const excludedUserIds = [getAnalyticsExcludedHtUserId(), getForgeSuperadminId()].filter((id): id is number => Boolean(id));
+  const excludeAnalytics = isLocalAnalyticsHost(requestHeaders.get('host') || undefined)
+    || Boolean(verifyForgeSessionCookie(cookieHeader))
+    || Boolean(session && excludedUserIds.includes(session.userId));
 
   return (
     <html
@@ -78,12 +84,6 @@ export default async function PublicLocaleLayout({
     >
       <body>
         <script dangerouslySetInnerHTML={{ __html: themeBootstrapScript }} />
-        <Script
-          src="https://cdn.counter.dev/script.js"
-          data-id="b00ddeff-7e76-4ab9-864b-fb21b6a22fa3"
-          data-utcoffset="2"
-          strategy="afterInteractive"
-        />
         <div id="root">
           <LocaleProvider locale={locale}>
             <NextIntlClientProvider locale={locale} messages={messages}>

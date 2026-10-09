@@ -1,7 +1,8 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { randomUUID } from 'crypto';
 import { getAppSessionSecret, verifyAppSessionCookie } from './app-session.js';
-import { getAnalyticsExcludedHtUserId } from './analytics.js';
+import { getAnalyticsExcludedHtUserId, isLocalAnalyticsHost } from './analytics.js';
+import { getForgeSuperadminId, isForgeAdminRequest } from './forge-session.js';
 import { getServiceSupabase } from './supabase.js';
 import { createVisitorId } from './forge-session.js';
 
@@ -99,9 +100,15 @@ function setTrackingCookies(response: VercelResponse, visitorId: string, visitId
 
 export async function recordActivity(request: VercelRequest, response: VercelResponse, input: ActivityInput) {
   const context = requestContext(request);
-  if (context.session?.userId === getAnalyticsExcludedHtUserId()) {
+  const forgeAdminId = getForgeSuperadminId();
+  const excludedUserIds = [getAnalyticsExcludedHtUserId(), forgeAdminId].filter((id): id is number => Boolean(id));
+  if (
+    isLocalAnalyticsHost(request.headers.host)
+    || isForgeAdminRequest(request.headers.cookie)
+    || (context.session && excludedUserIds.includes(context.session.userId))
+  ) {
     setTrackingCookies(response, context.visitorId, context.visitId);
-    return { userId: context.session.userId, visitorId: context.visitorId };
+    return { userId: context.session?.userId || forgeAdminId, visitorId: context.visitorId };
   }
 
   const supabase = getServiceSupabase();
@@ -137,11 +144,18 @@ export async function recordActivity(request: VercelRequest, response: VercelRes
 
   if (error) throw error;
 
+  const activityDate = new Date().toISOString().slice(0, 10);
   await supabase.rpc('increment_activity_daily', {
-    p_activity_date: new Date().toISOString().slice(0, 10),
+    p_activity_date: activityDate,
     p_event_type: input.eventType,
     p_route: input.route || '',
   });
+  const { error: cleanTrendError } = await supabase.rpc('increment_activity_daily_clean', {
+    p_activity_date: activityDate,
+    p_event_type: input.eventType,
+    p_route: input.route || '',
+  });
+  if (cleanTrendError) console.warn('Clean activity trend update failed:', cleanTrendError.message);
 
   setTrackingCookies(response, context.visitorId, context.visitId);
   return { userId: input.userId || context.session?.userId || null, visitorId: context.visitorId };

@@ -32,7 +32,7 @@ and shared `Layout`. Unprefixed public URLs are redirected by `src/proxy.ts` to 
   state. `useTournamentAdminState.ts` owns admin-only form, schedule, result, team, and announcement draft state.
   The typed controller groups shared data and page-owned mutation callbacks by admin domain.
 - `src/legacy-pages/Public/Matchmaker.tsx` owns friendly-ad browsing and Matchmaker interactions.
-- `src/legacy-pages/Forge` contains the deferred site-admin UI and remains the only React Router consumer.
+- `src/legacy-pages/Forge` contains the internal site-admin UI for match booking, recent activity, and usage analytics; it remains the only React Router consumer.
 - `src/components/` contains reusable UI and tab-level client components.
 - `src/i18n/` contains locale validation, dictionaries, and language switching.
 - `src/global.sass` contains global Sass variables and theme styles; component styles use Sass modules.
@@ -76,11 +76,12 @@ random selection, or implicit browser timezone formatting. Use the shared hydrat
 `src/hooks/useHydratedBrowserState.ts` and keep CHPP Stockholm wall-clock parsing separate from generated schedule
 instants and ordinary Riga display timestamps.
 
-## Deferred Forge boundary
+## Forge boundary
 
-Forge is a frozen, deferred subsystem for possible future site-admin workflows. It is not part of public migration
-completion criteria. Its UI may retain React Router, but `/forge`, Forge session/statistics endpoints, and Forge testing
-handlers must remain protected server-side and disabled unless `FORGE_ENABLED=true`.
+Forge is an internal site-admin system, separate from public product workflows. Its UI may retain React Router, but
+`/forge`, Forge session/statistics endpoints, match-booking actions, and Forge testing handlers must remain protected
+server-side and disabled unless `FORGE_ENABLED=true`. Forge analytics exclude localhost traffic and the verified Forge
+admin identity; raw IP and user-agent values must remain out of UI responses.
 
 ## Reusable UI
 
