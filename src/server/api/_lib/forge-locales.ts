@@ -121,14 +121,22 @@ export async function handleForgeLocales(req: VercelRequest, res: VercelResponse
     return res.status(400).json({ error: 'Unknown locale action.' });
   }
 
-  const [rowResult, historyResult] = await Promise.all([
-    db.from('locale_catalog_sections').select('draft_values, draft_revision, published_values, published_version')
-      .eq('locale', locale).eq('section', selectedSection).maybeSingle(),
+  const [sectionsResult, historyResult] = await Promise.all([
+    db.from('locale_catalog_sections').select('section, draft_values, draft_revision, published_values, published_version')
+      .eq('locale', locale),
     db.from('locale_catalog_history').select('version, author_ht_id, published_at')
       .eq('locale', locale).eq('section', selectedSection).order('version', { ascending: false }).limit(20),
   ]);
-  if (rowResult.error) throw rowResult.error;
+  if (sectionsResult.error) throw sectionsResult.error;
   if (historyResult.error) throw historyResult.error;
+  const sectionRows = sectionsResult.data || [];
+  const selectedRow = sectionRows.find((row) => row.section === selectedSection);
+  const missingCounts = Object.fromEntries(catalogSections.map((item) => {
+    const savedValues = sectionRows.find((row) => row.section === item)?.draft_values as CatalogValues | undefined;
+    const missing = keysForSection(item).filter((key) =>
+      !(savedValues?.[key] ?? sourceCatalogs[locale][key] ?? '').trim()).length;
+    return [item, missing];
+  }));
   const authorIds = [...new Set((historyResult.data || []).map((item) => item.author_ht_id))];
   const authors = authorIds.length ? await db.from('profiles').select('hattrick_user_id, manager_name')
     .in('hattrick_user_id', authorIds) : { data: [], error: null };
@@ -139,10 +147,11 @@ export async function handleForgeLocales(req: VercelRequest, res: VercelResponse
     settings: visibleSettings, role: actor.admin ? 'admin' : 'editor', locale, section: selectedSection,
     canEdit,
     sourceValues,
-    draftValues: { ...sourceValues, ...(rowResult.data?.draft_values || {}) },
-    draftRevision: rowResult.data?.draft_revision || 0,
-    publishedValues: rowResult.data?.published_values || {},
-    publishedVersion: rowResult.data?.published_version || 0,
+    draftValues: { ...sourceValues, ...(selectedRow?.draft_values || {}) },
+    draftRevision: selectedRow?.draft_revision || 0,
+    publishedValues: selectedRow?.published_values || {},
+    publishedVersion: selectedRow?.published_version || 0,
+    missingCounts,
     history: (historyResult.data || []).map((item) => ({ ...item, author_name: authorNames[item.author_ht_id] || null })),
     registeredKeys: keysForSection(selectedSection),
     groups: Object.fromEntries(keysForSection(selectedSection).map((key) => [key, sectionForKey(key)])),
