@@ -5595,7 +5595,6 @@ export const TournamentView: React.FC<{
       canToggleArchiveTournament,
       adminAccessMode,
       adminAccessName,
-      adminAuthSource,
       password,
       setPassword,
       adminAuthError,

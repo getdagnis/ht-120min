@@ -114,7 +114,6 @@ export interface TournamentAdminController {
     canToggleArchiveTournament: boolean;
     adminAccessMode: string;
     adminAccessName: string;
-    adminAuthSource: 'oauth_role' | 'legacy_password' | null;
     password: string;
     setPassword: Setter<string>;
     adminAuthError: boolean;
@@ -397,7 +396,6 @@ export const TournamentAdmin: React.FC<{ controller: TournamentAdminController }
     canToggleArchiveTournament,
     adminAccessMode,
     adminAccessName,
-    adminAuthSource,
     password,
     setPassword,
     adminAuthError,
@@ -1097,9 +1095,8 @@ export const TournamentAdmin: React.FC<{ controller: TournamentAdminController }
                             </Button>
                           </div>
                           {renderUnsavedSettingsNote(settingsHasUnsavedChanges)}
-                          {canManageOperationalAdmin && tournament && <CollectionMembershipPanel
+                          {isSiteAdmin && tournament && <CollectionMembershipPanel
                             tournamentId={tournament.id}
-                            password={adminAuthSource === 'legacy_password' ? password : ''}
                           />}
                           {showAdvancedSettings && (
                             <div className={adminStyles.settingsGroup}>

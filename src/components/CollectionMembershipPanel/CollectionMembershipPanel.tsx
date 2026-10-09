@@ -7,7 +7,7 @@ import styles from './CollectionMembershipPanel.module.sass';
 
 type Row = Awaited<ReturnType<typeof loadManageableCollections>>[number];
 
-export function CollectionMembershipPanel({ tournamentId, password }: { tournamentId: string; password: string }) {
+export function CollectionMembershipPanel({ tournamentId }: { tournamentId: string }) {
   const [rows, setRows] = useState<Row[]>([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState<string | null>(null);
@@ -16,7 +16,7 @@ export function CollectionMembershipPanel({ tournamentId, password }: { tourname
 
   useEffect(() => {
     let mounted = true;
-    loadManageableCollections(tournamentId, password).then((result) => {
+    loadManageableCollections(tournamentId).then((result) => {
       if (mounted) setRows(result);
     }).catch((cause: unknown) => {
       if (mounted) setError(cause instanceof Error ? cause.message : 'Could not load collections.');
@@ -24,7 +24,7 @@ export function CollectionMembershipPanel({ tournamentId, password }: { tourname
       if (mounted) setLoading(false);
     });
     return () => { mounted = false; };
-  }, [tournamentId, password]);
+  }, [tournamentId]);
 
   const update = (id: string, patch: Partial<Row>) => {
     setSavedId(null);
@@ -37,7 +37,7 @@ export function CollectionMembershipPanel({ tournamentId, password }: { tourname
     try {
       await saveTournamentCollectionMembership(tournamentId, row.id, {
         isMember: row.isMember, displayOrder: row.displayOrder,
-      }, password);
+      });
       setSavedId(row.id);
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : 'Could not save membership.');

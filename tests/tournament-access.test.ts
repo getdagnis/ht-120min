@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 
-import { resolveTournamentAccess } from '../src/server/api/_lib/tournament-access.js';
+import { canManageTournamentCollections, resolveTournamentAccess } from '../src/server/api/_lib/tournament-access.js';
 
 const base = {
   viewerUserId: 10,
@@ -62,4 +62,17 @@ test('unassigned viewers have no tournament access', () => {
   const access = resolveTournamentAccess(base);
   assert.equal(access.canViewAdmin, false);
   assert.equal(access.effectiveRole, null);
+});
+
+test('collection management requires site admin identity, even for tournament operators', () => {
+  assert.equal(canManageTournamentCollections(null), false);
+  for (const access of [
+    resolveTournamentAccess({ ...base, viewerUserId: 20 }),
+    resolveTournamentAccess({ ...base, explicitRole: 'co_organizer' }),
+    resolveTournamentAccess({ ...base, explicitRole: 'admin' }),
+  ]) {
+    assert.equal(access.canManageOperations, true);
+    assert.equal(canManageTournamentCollections(access), false);
+  }
+  assert.equal(canManageTournamentCollections(resolveTournamentAccess({ ...base, isImplicitSuperadmin: true })), true);
 });

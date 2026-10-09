@@ -454,7 +454,7 @@ export const StandingsView: React.FC<StandingsViewProps> = ({
       }
 
       if (show120minScoring) {
-        return `[table]\n${forumHeader(['#', 'Team', '120m', 'Pts', '120m%', 'Mins', 'Dif', 'Goals'])}\n${rows
+        return `[table]\n${forumHeader(['#', 'Team', '120m', 'Pts*', '120m%', 'Mins', 'Dif', 'Goals*'])}\n${rows
           .map((standing, index) =>
             forumRow([
               index + 1,

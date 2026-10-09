@@ -84,6 +84,10 @@ export function resolveTournamentAccess(input: ResolveAccessInput): TournamentAc
   };
 }
 
+export function canManageTournamentCollections(access: TournamentAccess | null) {
+  return access?.isImplicitSuperadmin === true;
+}
+
 export async function loadTournamentAccess(
   supabase: ReturnType<typeof import('./supabase.js').getServiceSupabase>,
   tournamentId: string,

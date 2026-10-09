@@ -2,7 +2,7 @@
 
 import { headers } from 'next/headers';
 import { getAppSessionSecret, verifyAppSessionCookie } from '../../server/api/_lib/app-session.js';
-import { loadTournamentAccess } from '../../server/api/_lib/tournament-access.js';
+import { canManageTournamentCollections, loadTournamentAccess } from '../../server/api/_lib/tournament-access.js';
 import { getServiceSupabase } from '../../server/api/_lib/supabase.js';
 import { invalidatePublicTournament } from '../../server/api/_lib/tournament-cache.js';
 import { hasSuperAdminBypassCookie } from '../../server/api/_lib/superadmin-bypass.js';
@@ -35,6 +35,7 @@ async function viewer(tournamentId: string, password: string) {
   return {
     supabase, userId, legacyAdmin, admin: legacyAdmin || Boolean(access?.canViewAdmin),
     canManageOperations: legacyAdmin || Boolean(access?.canManageOperations),
+    canManageCollections: canManageTournamentCollections(access),
   };
 }
 
@@ -68,9 +69,9 @@ export async function invalidateTournamentData(tournamentId: string, password = 
   await invalidatePublicTournament(tournamentId);
 }
 
-export async function loadManageableCollections(tournamentId: string, password = '') {
-  const { supabase, canManageOperations } = await viewer(tournamentId, password);
-  if (!canManageOperations) throw new Error('Tournament management required.');
+export async function loadManageableCollections(tournamentId: string) {
+  const { supabase, canManageCollections } = await viewer(tournamentId, '');
+  if (!canManageCollections) throw new Error('Site admin access required.');
   const [collections, memberships] = await Promise.all([
     supabase.from('tournament_collections').select('id,title,is_published,display_order').order('display_order'),
     supabase.from('tournament_collection_memberships').select('collection_id,display_order').eq('tournament_id', tournamentId),
@@ -85,13 +86,13 @@ export async function loadManageableCollections(tournamentId: string, password =
 
 export async function saveTournamentCollectionMembership(
   tournamentId: string, collectionId: string,
-  input: { isMember: boolean; displayOrder: number }, password = '',
+  input: { isMember: boolean; displayOrder: number },
 ) {
   if (!input || !/^[0-9a-f-]{36}$/i.test(tournamentId) || !/^[0-9a-f-]{36}$/i.test(collectionId) ||
       !Number.isSafeInteger(input.displayOrder) || input.displayOrder < 0 || input.displayOrder > 10000 ||
       typeof input.isMember !== 'boolean') throw new Error('Invalid collection settings.');
-  const { supabase, canManageOperations } = await viewer(tournamentId, password);
-  if (!canManageOperations) throw new Error('Tournament management required.');
+  const { supabase, canManageCollections } = await viewer(tournamentId, '');
+  if (!canManageCollections) throw new Error('Site admin access required.');
   const { data: collection, error: collectionError } = await supabase.from('tournament_collections')
     .select('id').eq('id', collectionId).maybeSingle();
   if (collectionError || !collection) throw new Error('Collection unavailable.');
