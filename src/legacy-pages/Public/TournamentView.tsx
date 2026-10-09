@@ -2864,8 +2864,9 @@ export const TournamentView: React.FC<{
 
       const { data: globalData } = await supabase
         .from('global_chat')
-        .select('id, author_name, author_ht_id, content, created_at, global_message')
+        .select('id, author_name, author_ht_id, content, created_at, global_message, is_published')
         .eq('global_message', true)
+        .eq('is_published', true)
         .order('created_at', { ascending: true });
       const allChatData = [...chatData, ...(globalData || [])].sort(
         (a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime(),
@@ -2940,9 +2941,23 @@ export const TournamentView: React.FC<{
       .channel(`global-chat:${tournament.id}`)
       .on(
         'postgres_changes',
-        { event: 'INSERT', schema: 'public', table: 'global_chat', filter: 'global_message=eq.true' },
+        { event: '*', schema: 'public', table: 'global_chat', filter: 'global_message=eq.true' },
         async (payload) => {
+          if (payload.eventType === 'DELETE') {
+            const deletedMessage = payload.old as { id?: string };
+            if (deletedMessage.id) {
+              setChatMessages((previous) => previous.filter((message) => message.id !== deletedMessage.id));
+            }
+            return;
+          }
+
           const newMessage = payload.new as any;
+          if (!newMessage?.id) return;
+          if (newMessage.is_published !== true) {
+            setChatMessages((previous) => previous.filter((message) => message.id !== newMessage.id));
+            return;
+          }
+
           const { data: profile } = await supabase
             .from('profiles')
             .select('avatar_json, country_name, country_id')

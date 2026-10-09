@@ -2360,7 +2360,7 @@ async function handleGlobalChat(req: VercelRequest, res: VercelResponse) {
       content,
       global_message: isGlobalMessage,
     })
-    .select('id, author_name, author_ht_id, content, created_at, global_message')
+    .select('id, author_name, author_ht_id, content, created_at, global_message, is_published')
     .single();
   if (insertError) throw insertError;
 
@@ -3060,15 +3060,27 @@ function isMissingCleanActivityTable(error: { code?: string; message?: string })
     || /activity_daily_clean.*(not found|does not exist)/i.test(error.message || '');
 }
 
+function addDailyEventCount(counts: Map<string, number>, activityDate: string, eventType: string, amount: number) {
+  const key = `${activityDate}\u0000${eventType}`;
+  counts.set(key, (counts.get(key) || 0) + amount);
+}
+
+function serializeDailyEventCounts(counts: Map<string, number>) {
+  return Array.from(counts.entries())
+    .sort(([left], [right]) => left.localeCompare(right))
+    .map(([key, event_count]) => {
+      const [activity_date, event_type] = key.split('\u0000');
+      return { activity_date, event_type, route: '', event_count };
+    });
+}
+
 function summarizeForgeActivityTrend(events: ForgeActivityRow[]) {
   const dailyCounts = new Map<string, number>();
   for (const event of events) {
     const activityDate = event.occurred_at.slice(0, 10);
-    dailyCounts.set(activityDate, (dailyCounts.get(activityDate) || 0) + 1);
+    addDailyEventCount(dailyCounts, activityDate, event.event_type, 1);
   }
-  return Array.from(dailyCounts.entries())
-    .sort(([left], [right]) => left.localeCompare(right))
-    .map(([activity_date, event_count]) => ({ activity_date, event_type: 'all', route: '', event_count }));
+  return serializeDailyEventCounts(dailyCounts);
 }
 
 async function loadRawForgeActivityTrend(
@@ -3130,22 +3142,20 @@ async function handleForgeActivityTrend(req: VercelRequest, res: VercelResponse)
 
   const dailyCounts = new Map<string, number>();
   for (const row of cleanRows || []) {
-    dailyCounts.set(row.activity_date, (dailyCounts.get(row.activity_date) || 0) + Number(row.event_count || 0));
+    addDailyEventCount(dailyCounts, row.activity_date, row.event_type, Number(row.event_count || 0));
   }
 
   const rawSinceDay = requestedDay > rawStartDay ? requestedDay : rawStartDay;
   const rawEvents = await loadForgeActivityRows(supabase, new Date(`${rawSinceDay}T00:00:00.000Z`));
   for (const event of filterForgeActivityRows(rawEvents, req)) {
     const activityDate = event.occurred_at.slice(0, 10);
-    dailyCounts.set(activityDate, (dailyCounts.get(activityDate) || 0) + 1);
+    addDailyEventCount(dailyCounts, activityDate, event.event_type, 1);
   }
 
   const cleanStartDay = typeof coverageRow?.activity_date === 'string' ? coverageRow.activity_date : rawStartDay;
   const firstAvailableDay = cleanStartDay < rawStartDay ? cleanStartDay : rawStartDay;
   const coverageStart = requestedDay > firstAvailableDay ? requestedDay : firstAvailableDay;
-  const daily = Array.from(dailyCounts.entries())
-    .sort(([left], [right]) => left.localeCompare(right))
-    .map(([activity_date, event_count]) => ({ activity_date, event_type: 'all', route: '', event_count }));
+  const daily = serializeDailyEventCounts(dailyCounts);
 
   return res.status(200).json({ daily, coverageStart });
 }
@@ -3374,11 +3384,9 @@ async function handleForgeStats(req: VercelRequest, res: VercelResponse) {
   const dailyByDate = new Map<string, number>();
   for (const event of events) {
     const activityDate = event.occurred_at.slice(0, 10);
-    dailyByDate.set(activityDate, (dailyByDate.get(activityDate) || 0) + 1);
+    addDailyEventCount(dailyByDate, activityDate, event.event_type, 1);
   }
-  const daily = Array.from(dailyByDate.entries())
-    .sort(([left], [right]) => left.localeCompare(right))
-    .map(([activity_date, event_count]) => ({ activity_date, event_type: 'all', route: '', event_count }));
+  const daily = serializeDailyEventCounts(dailyByDate);
   const sortedActivity = events
     .filter((event) => event.event_type !== 'page_view' && event.event_type !== 'page_exit')
     .sort((left, right) => right.occurred_at.localeCompare(left.occurred_at) || right.id.localeCompare(left.id));

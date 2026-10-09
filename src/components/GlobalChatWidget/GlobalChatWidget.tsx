@@ -61,7 +61,8 @@ export const GlobalChatWidget: React.FC<GlobalChatWidgetProps> = ({ myHtUserId }
   const loadMessages = useCallback(async () => {
     const { data, error } = await supabase
       .from('global_chat')
-      .select('id, author_name, author_ht_id, content, created_at, global_message')
+      .select('id, author_name, author_ht_id, content, created_at, global_message, is_published')
+      .eq('is_published', true)
       .order('created_at', { ascending: true });
     if (error || !data) return;
 
@@ -77,11 +78,24 @@ export const GlobalChatWidget: React.FC<GlobalChatWidgetProps> = ({ myHtUserId }
       .channel('global-chat')
       .on(
         'postgres_changes',
-        { event: 'INSERT', schema: 'public', table: 'global_chat' },
+        { event: '*', schema: 'public', table: 'global_chat' },
         async (payload) => {
-          const newMessage = payload.new as ChatMessage;
-          if (!newMessage?.id) return;
-          addMessages(await loadProfiles([newMessage]));
+          if (payload.eventType === 'DELETE') {
+            const deletedMessage = payload.old as Partial<ChatMessage>;
+            if (deletedMessage.id) {
+              setMessages((current) => current.filter((message) => message.id !== deletedMessage.id));
+            }
+            return;
+          }
+
+          const changedMessage = payload.new as ChatMessage;
+          if (!changedMessage?.id) return;
+          if (changedMessage.is_published !== true) {
+            setMessages((current) => current.filter((message) => message.id !== changedMessage.id));
+            return;
+          }
+
+          addMessages(await loadProfiles([changedMessage]));
         },
       )
       .subscribe();
@@ -105,7 +119,7 @@ export const GlobalChatWidget: React.FC<GlobalChatWidgetProps> = ({ myHtUserId }
         throw new Error(result?.error || t('chatSendError'));
       }
 
-      addMessages(await loadProfiles([result]));
+      if (result.is_published === true) addMessages(await loadProfiles([result]));
     } catch (error) {
       showNotice(error instanceof Error ? error.message : t('chatSendError'));
     }

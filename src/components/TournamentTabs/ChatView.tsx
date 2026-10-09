@@ -23,6 +23,7 @@ export interface ChatMessage {
   created_at: string;
   author_ht_id: number;
   global_message?: boolean;
+  is_published?: boolean;
   profiles?: ChatAuthorProfile | null;
 }
 

@@ -384,6 +384,57 @@
   text-decoration: none
   overflow-wrap: anywhere
 
+.chatAuthor
+  display: inline-flex
+  align-items: center
+  gap: 0.3rem
+  font-weight: 700
+  color: var(--accent-3)
+  font-size: 0.85rem
+  margin-bottom: 0.5rem
+  text-decoration: none
+  background: none
+  border: none
+  padding: 0
+  cursor: pointer
+
+.chatAuthorLink,
+.visitorProfileLink
+  color: inherit
+  text-decoration: none
+
+  &:hover,
+  &:focus-visible
+    text-decoration: underline
+
+.chatAuthorLink
+  color: var(--accent-3)
+
+.visitorProfileLink
+  color: var(--text-h)
+
+.visitorTournaments
+  display: flex
+  flex-wrap: wrap
+  gap: 0.2rem 0.6rem
+  min-width: 0
+  font-size: 0.75rem
+  line-height: 1.35
+
+  a
+    color: var(--text60)
+    text-decoration: none
+    overflow-wrap: anywhere
+
+    &:hover,
+    &:focus-visible
+      color: var(--accent-2)
+      text-decoration: underline
+
+.chatMessage
+  font-size: 0.95rem
+  line-height: 1.2
+
 .chatTournamentLink
   display: block
   margin-top: 0.25rem
@@ -611,6 +662,46 @@
   gap: 0.3rem
   color: var(--text60)
   font-size: 0.68rem
+
+  &:focus-visible
+    outline: 2px solid var(--accent-2)
+    outline-offset: 3px
+
+.activityTooltip
+  display: flex
+  flex-direction: column
+  gap: 0.35rem
+  color: white !important
+
+  ul
+    display: grid
+    grid-template-columns: 1fr auto
+    gap: 0.1rem 0.75rem
+    margin: 0
+    padding: 0
+    list-style: none
+
+  li
+    display: contents
+
+  h3
+    color: white
+    opacity: 0.7
+
+  strong
+    font-size: 1.2rem
+
+  small
+    max-width: 18rem
+    color: white
+    line-height: 1.35
+    opacity: 0.7
+
+.statsVisitorIdentity
+  display: flex
+  flex-direction: column
+  align-items: flex-start
+  gap: 0.2rem
 
 .activityBar
   width: 100%

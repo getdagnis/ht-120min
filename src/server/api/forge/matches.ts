@@ -3,6 +3,8 @@ import { hasSuperAdminBypassCookie } from '../_lib/superadmin-bypass.js';
 import { isForgeAdminRequest } from '../_lib/forge-session.js';
 import { getServiceSupabase } from '../_lib/supabase.js';
 import { isForgeEnabled } from '../../forge-availability.js';
+import { compareTournamentListing } from '../../../utils/tournament-collections.js';
+import { getMatchDateForRound } from '../../../utils/match-schedule.js';
 import {
   acceptChppChallengeDirect,
   parseChppChallengeOffers,
@@ -40,6 +42,9 @@ type ForgeTournamentRow = {
   is_archived: boolean | null;
   is_test: boolean | null;
   scoring_mode: string | null;
+  created_at?: string;
+  schedule_start_slot?: string | null;
+  registration_closed_at?: string | null;
 };
 
 type ForgeTeamRow = {
@@ -68,11 +73,12 @@ type ForgeMatchRow = {
 type ForgeRoundRow = {
   id: string;
   tournament_id: string;
+  created_at: string;
   season_number: number;
   round_number: number;
   phase: 'regular' | 'postseason';
   phase_status: 'pending' | 'materialized' | 'completed';
-  matches?: Array<{ completed: boolean | null }> | null;
+  matches?: Array<{ completed: boolean | null; status?: string | null }> | null;
 };
 
 type ForgeProfileRow = {
@@ -84,10 +90,12 @@ type ForgeTournamentOverviewTeamRow = {
   id: string;
   tournament_id: string;
   name: string;
+  ht_team_id: number | null;
   manager_name: string | null;
   hattrick_user_id: number | null;
   country_name: string | null;
   active: boolean | null;
+  reserve_active: boolean | null;
   is_placeholder: boolean | null;
 };
 
@@ -105,8 +113,11 @@ type ForgeOverviewMatchRow = {
   completed: boolean | null;
   ht_match_id: number | null;
   scheduled_for: string | null;
+  chpp_match_date: string | null;
+  schedule_slot_type: string | null;
   home_team_id: string | null;
   away_team_id: string | null;
+  home_team: { country_name: string | null } | Array<{ country_name: string | null }> | null;
 };
 
 type ForgeAutoArrangePreferenceRow = {
@@ -120,6 +131,7 @@ type ForgeAutoArrangePreferenceRow = {
 type ForgeTournamentOverviewTeam = {
   id: string;
   name: string;
+  htTeamId: number | null;
   managerName: string | null;
   managerCountryName: string | null;
   managerLastSeenAt: string | null;
@@ -181,11 +193,11 @@ async function loadMaterializedRounds(
 ) {
   const { data, error } = await supabase
     .from('rounds')
-    .select('id, tournament_id, season_number, round_number, phase, phase_status, matches(id, completed)')
+    .select('id, tournament_id, created_at, season_number, round_number, phase, phase_status, matches(id, completed, status)')
     .eq('tournament_id', tournament.id)
     .eq('season_number', tournament.season || 1)
     .eq('phase', 'regular')
-    .eq('phase_status', 'materialized')
+    .in('phase_status', ['materialized', 'completed'])
     .order('round_number', { ascending: true });
   if (error) throw error;
   return (data || []) as ForgeRoundRow[];
@@ -209,7 +221,7 @@ async function loadCurrentRound(
 async function loadTournamentOptions(supabase: ReturnType<typeof getServiceSupabase>) {
   const { data: tournamentRows, error: tournamentError } = await supabase
     .from('tournaments')
-    .select('id, name, slug, season, status, is_archived, is_test, scoring_mode')
+    .select('id, name, slug, season, status, is_archived, is_test, scoring_mode, created_at, schedule_start_slot, registration_closed_at')
     .order('name', { ascending: true });
   if (tournamentError) throw tournamentError;
 
@@ -220,24 +232,22 @@ async function loadTournamentOptions(supabase: ReturnType<typeof getServiceSupab
   const seasonByTournament = new Map(tournaments.map((tournament) => [tournament.id, tournament.season || 1]));
   const { data: rounds, error: roundsError } = await supabase
     .from('rounds')
-    .select('id, tournament_id, season_number, round_number, phase, phase_status')
+    .select('id, tournament_id, created_at, season_number, round_number, phase, phase_status')
     .in('tournament_id', tournamentIds)
-    .eq('phase', 'regular')
-    .eq('phase_status', 'materialized')
     .order('round_number', { ascending: true });
   if (roundsError) throw roundsError;
 
-  const currentRounds = ((rounds || []) as ForgeRoundRow[])
+  const currentSeasonRounds = ((rounds || []) as ForgeRoundRow[])
     .filter((round) => seasonByTournament.get(round.tournament_id) === round.season_number);
-  const roundIds = currentRounds.map((round) => round.id);
+  const roundIds = currentSeasonRounds.map((round) => round.id);
   const [matchesResult, teamsResult] = await Promise.all([
     roundIds.length > 0
       ? supabase.from('matches')
-          .select('id, round_id, status, completed, ht_match_id, scheduled_for, home_team_id, away_team_id')
+          .select('id, round_id, status, completed, ht_match_id, scheduled_for, chpp_match_date, schedule_slot_type, home_team_id, away_team_id, home_team:teams!matches_home_team_id_fkey(country_name)')
           .in('round_id', roundIds)
       : Promise.resolve({ data: [], error: null }),
     supabase.from('teams')
-      .select('id, tournament_id, name, manager_name, hattrick_user_id, country_name, active, is_placeholder')
+      .select('id, tournament_id, name, ht_team_id, manager_name, hattrick_user_id, country_name, active, reserve_active, is_placeholder')
       .in('tournament_id', tournamentIds)
       .eq('active', true),
   ]);
@@ -246,7 +256,7 @@ async function loadTournamentOptions(supabase: ReturnType<typeof getServiceSupab
 
   const matchRows = (matchesResult.data || []) as ForgeOverviewMatchRow[];
   const teamRows = ((teamsResult.data || []) as ForgeTournamentOverviewTeamRow[])
-    .filter((team) => team.active !== false && !team.is_placeholder);
+    .filter((team) => team.active === true && team.reserve_active !== true && !team.is_placeholder);
   const teamIds = teamRows.map((team) => team.id);
   const managerIds = [...new Set(teamRows
     .map((team) => team.hattrick_user_id)
@@ -295,6 +305,7 @@ async function loadTournamentOptions(supabase: ReturnType<typeof getServiceSupab
     tournamentTeams.push({
       id: team.id,
       name: team.name,
+      htTeamId: team.ht_team_id,
       managerName: profile?.manager_name || team.manager_name,
       managerCountryName: profile?.country_name || team.country_name,
       managerLastSeenAt: profile?.last_seen_at || null,
@@ -310,18 +321,24 @@ async function loadTournamentOptions(supabase: ReturnType<typeof getServiceSupab
     matchesByRound.set(match.round_id, roundMatches);
   }
 
-  return tournaments.map((tournament) => {
+  const sortableOptions = tournaments.flatMap((tournament) => {
     const season = tournament.season || 1;
-    const roundsWithMatches = currentRounds
+    const tournamentRounds = currentSeasonRounds
       .filter((candidate) => candidate.tournament_id === tournament.id && candidate.season_number === season)
       .map((candidate) => ({
         ...candidate,
-        matches: (matchesByRound.get(candidate.id) || []).map((match) => ({ completed: match.completed })),
+        matches: (matchesByRound.get(candidate.id) || []).map((match) => ({
+          completed: match.completed,
+          status: match.status,
+        })),
       }));
-    const round = selectCurrentForgeRound(roundsWithMatches)
-      || roundsWithMatches.find((candidate) => candidate.matches?.length);
+    const bookingRounds = tournamentRounds.filter(
+      (candidate) => candidate.phase === 'regular' && candidate.phase_status === 'materialized',
+    );
+    const round = selectCurrentForgeRound(bookingRounds)
+      || bookingRounds.find((candidate) => candidate.matches?.length);
     const roundMatches = round ? matchesByRound.get(round.id) || [] : [];
-    if (!round || roundMatches.length === 0) return null;
+    if (!round || roundMatches.length === 0) return [];
     const fixtures = roundMatches.filter((match) => match.home_team_id && match.away_team_id);
     const isBooked = (match: ForgeOverviewMatchRow) => Boolean(match.ht_match_id)
       || match.completed === true
@@ -344,7 +361,44 @@ async function loadTournamentOptions(supabase: ReturnType<typeof getServiceSupab
       .filter((value): value is string => Boolean(value))
       .sort((left, right) => left.localeCompare(right))[0] || null;
 
-    return {
+    const tournamentMatches = tournamentRounds.flatMap((candidate) => matchesByRound.get(candidate.id) || []);
+    const completedRounds = tournamentRounds.filter((candidate) => {
+      const matches = matchesByRound.get(candidate.id) || [];
+      return matches.length > 0 && matches.every((match) => match.completed || match.status === 'misarranged');
+    }).length;
+    const sortedStartDate = tournamentRounds
+      .flatMap((candidate) => (matchesByRound.get(candidate.id) || []).map((match) => getMatchDateForRound(
+        candidate,
+        {
+          scheduled_for: match.scheduled_for,
+          chpp_match_date: match.chpp_match_date,
+          ht_match_id: match.ht_match_id,
+          schedule_slot_type: match.schedule_slot_type,
+        },
+        relationOne(match.home_team)?.country_name,
+      )))
+      .sort((left, right) => left.getTime() - right.getTime())[0];
+    const listingSummary = {
+      id: tournament.id,
+      slug: tournament.slug || '',
+      name: tournament.name,
+      created_at: tournament.created_at || '',
+      season,
+      status: tournament.status,
+      registration_closed_at: tournament.registration_closed_at,
+      rounds: tournamentRounds.map((candidate) => ({
+        round_number: candidate.round_number,
+        matches: matchesByRound.get(candidate.id) || [],
+      })),
+      totalRounds: tournamentRounds.length,
+      completedRounds,
+      totalMatches: tournamentMatches.length,
+      completedMatches: tournamentMatches.filter((match) => match.completed || match.status === 'misarranged').length,
+      teamCount: teamRows.filter((team) => team.tournament_id === tournament.id).length,
+      startedAt: sortedStartDate || tournament.schedule_start_slot || tournament.created_at || null,
+      plannedStartDate: tournament.schedule_start_slot,
+    };
+    const option = {
       id: tournament.id,
       name: tournament.name,
       slug: tournament.slug,
@@ -359,7 +413,12 @@ async function loadTournamentOptions(supabase: ReturnType<typeof getServiceSupab
       readyToBookCount,
       teams: teamsByTournament.get(tournament.id) || [],
     };
-  }).filter((tournament): tournament is NonNullable<typeof tournament> => Boolean(tournament));
+    return [{ option, listingSummary }];
+  });
+
+  return sortableOptions
+    .sort((left, right) => compareTournamentListing(left.listingSummary, right.listingSummary))
+    .map(({ option }) => option);
 }
 
 function toFixtureTeam(team: ForgeTeamRow | null): ForgeFixtureTeam | null {
@@ -556,7 +615,8 @@ async function buildMatchesResponse(
     .map((candidate) => ({
       roundNumber: candidate.round_number,
       fixtureCount: candidate.matches?.length || 0,
-      hasUnfinishedFixtures: Boolean(candidate.matches?.some((match) => match.completed !== true)),
+      hasUnfinishedFixtures: candidate.phase_status === 'materialized'
+        && Boolean(candidate.matches?.some((match) => match.completed !== true && match.status !== 'misarranged')),
     }))
     .filter((candidate) => candidate.fixtureCount > 0);
   if (!round) {
@@ -715,6 +775,7 @@ async function resolveActionContext(
   if (!tournament) return { error: 'Tournament not found or not active.' } as const;
   const round = await loadCurrentRound(supabase, tournament, roundNumber);
   if (!round) return { error: 'There is no current materialized round.' } as const;
+  if (round.phase_status !== 'materialized') return { error: 'This round is already complete and cannot be booked.' } as const;
   const rows = await loadFixtureRows(supabase, round.id);
   const row = rows.find((candidate) => candidate.id === matchId);
   if (!row) return { error: 'Fixture not found in the current materialized round.' } as const;

@@ -25,14 +25,14 @@ export interface ForgeFixtureRecord {
 export interface ForgeRoundSelectionRow {
   round_number: number;
   phase_status: string;
-  matches?: Array<{ completed: boolean | null }> | null;
+  matches?: Array<{ completed: boolean | null; status?: string | null }> | null;
 }
 
 export function selectCurrentForgeRound<T extends ForgeRoundSelectionRow>(rounds: T[]) {
   return [...rounds]
     .filter((round) => round.phase_status === 'materialized')
     .sort((left, right) => left.round_number - right.round_number)
-    .find((round) => round.matches?.some((match) => match.completed !== true)) || null;
+    .find((round) => round.matches?.some((match) => match.completed !== true && match.status !== 'misarranged')) || null;
 }
 
 export interface ForgeTeamChallengeInspection {

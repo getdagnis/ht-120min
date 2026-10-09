@@ -16,6 +16,8 @@ import {
 } from 'phosphor-react';
 import { Button } from '../../components/Button/Button';
 import { SectionCard } from '../../components/Card/SectionCard';
+import { Tooltip } from '../../components/Tooltip/Tooltip';
+import { AuthorTooltip, type ChatAuthorProfile } from '../../components/TournamentTabs/ChatView';
 import { Switch } from '../../components/Switch/Switch';
 import { faqPublished, faqSections, type FaqSection } from '../../constants/faq-essential';
 import { supabase } from '../../lib/supabase';
@@ -41,7 +43,17 @@ interface DashboardChat {
   created_at: string;
   tournament_id: string;
   country_name: string | null;
+  profiles?: ChatAuthorProfile | null;
+  teamName?: string | null;
+  teamCountryName?: string | null;
+  teamCountryId?: number | null;
   tournaments?: { id: string; name: string; slug: string } | null;
+}
+
+interface VisitorTournament {
+  id: string;
+  name: string;
+  slug: string;
 }
 
 interface DashboardChatPage {
@@ -131,7 +143,14 @@ interface ForgeStatsDaily {
 }
 
 interface ForgeStatsResponse {
-  summary: { events: number; visits: number; pageViews: number; actions: number; uniqueVisitors: number; identifiedUsers: number };
+  summary: {
+    events: number;
+    visits: number;
+    pageViews: number;
+    actions: number;
+    uniqueVisitors: number;
+    identifiedUsers: number;
+  };
   users: ForgeStatsUser[];
   visitors: ForgeStatsVisitor[];
   visits: ForgeStatsVisit[];
@@ -180,7 +199,13 @@ function getPeriodSince(clock: number | null, period: ForgePeriod) {
 type ForgeTrendInterval = '7d' | '30d' | '3m' | '1y';
 type ForgeTrendUnit = 'day' | 'week' | 'month';
 
-const FORGE_TREND_INTERVALS: Array<{ value: ForgeTrendInterval; label: string; shortLabel: string; durationMs: number; unit: ForgeTrendUnit }> = [
+const FORGE_TREND_INTERVALS: Array<{
+  value: ForgeTrendInterval;
+  label: string;
+  shortLabel: string;
+  durationMs: number;
+  unit: ForgeTrendUnit;
+}> = [
   { value: '7d', label: '7 days · daily', shortLabel: '7d', durationMs: 7 * 24 * 60 * 60 * 1000, unit: 'day' },
   { value: '30d', label: '30 days · daily', shortLabel: '30d', durationMs: 30 * 24 * 60 * 60 * 1000, unit: 'day' },
   { value: '3m', label: '3 months · weekly', shortLabel: '3m', durationMs: 90 * 24 * 60 * 60 * 1000, unit: 'week' },
@@ -193,7 +218,8 @@ interface ForgeTrendResponse {
 }
 
 function trendBucketKey(dateValue: string | Date, unit: ForgeTrendUnit) {
-  const date = typeof dateValue === 'string' ? new Date(`${dateValue.slice(0, 10)}T00:00:00.000Z`) : new Date(dateValue);
+  const date =
+    typeof dateValue === 'string' ? new Date(`${dateValue.slice(0, 10)}T00:00:00.000Z`) : new Date(dateValue);
   if (unit === 'month') return date.toISOString().slice(0, 7);
   if (unit === 'week') date.setUTCDate(date.getUTCDate() - ((date.getUTCDay() + 6) % 7));
   return date.toISOString().slice(0, 10);
@@ -248,11 +274,182 @@ function formatTime(value: string) {
 
 function countryFlag(countryCode: string) {
   const normalized = countryCode.toUpperCase();
-  return Object.values(HATTRICK_WORLD_DETAILS).find((entry) =>
-    entry.isoCode === normalized
-    || entry.countryName?.toUpperCase() === normalized
-    || entry.countryNameEn?.toUpperCase() === normalized,
-  )?.emoji || '🌐';
+  return (
+    Object.values(HATTRICK_WORLD_DETAILS).find(
+      (entry) =>
+        entry.isoCode === normalized ||
+        entry.countryName?.toUpperCase() === normalized ||
+        entry.countryNameEn?.toUpperCase() === normalized,
+    )?.emoji || '🌐'
+  );
+}
+
+function activityEventLabel(eventType: string) {
+  if (eventType === 'page_view') return 'Page views';
+  if (eventType === 'page_exit') return 'Page exits';
+  return eventType.replace(/[_-]+/g, ' ').replace(/^\w/, (letter) => letter.toUpperCase());
+}
+
+function ActivityBarTooltip({
+  id,
+  label,
+  eventCounts,
+  available = true,
+}: {
+  id: string;
+  label: string;
+  eventCounts: Record<string, number>;
+  available?: boolean;
+}) {
+  const entries = Object.entries(eventCounts)
+    .filter(([, count]) => count > 0)
+    .sort(([a], [b]) => a.localeCompare(b));
+  const total = entries.reduce((sum, [, count]) => sum + count, 0);
+  return (
+    <Tooltip
+      id={id}
+      className="tooltip"
+      content={
+        <div className={styles.activityTooltip}>
+          <h3>{label}</h3>
+          {available ? (
+            <>
+              <strong>{total} events</strong>
+              {entries.length > 0 ? (
+                <ul>
+                  {entries.map(([eventType, count]) => (
+                    <li key={eventType}>
+                      <span>{activityEventLabel(eventType)}</span>
+                      <span>{count}</span>
+                    </li>
+                  ))}
+                </ul>
+              ) : (
+                <span>No tracked events.</span>
+              )}
+              <p>Each event is a page view, page exit, or tracked action. Localhost and admin activity are excluded.</p>
+            </>
+          ) : (
+            <small>History unavailable for this period.</small>
+          )}
+        </div>
+      }
+    />
+  );
+}
+
+async function loadAuthorProfiles(userIds: number[]) {
+  const ids = Array.from(new Set(userIds.filter((id) => Number.isSafeInteger(id) && id > 0)));
+  if (ids.length === 0) return {} as Record<number, ChatAuthorProfile>;
+
+  const { data, error } = await supabase
+    .from('profiles')
+    .select('hattrick_user_id, avatar_json, country_name, country_id')
+    .in('hattrick_user_id', ids);
+  if (error || !data) return {} as Record<number, ChatAuthorProfile>;
+
+  return Object.fromEntries(
+    data.map((profile) => [
+      profile.hattrick_user_id,
+      {
+        avatar_json: profile.avatar_json,
+        country_name: profile.country_name,
+        country_id: profile.country_id,
+      },
+    ]),
+  ) as Record<number, ChatAuthorProfile>;
+}
+
+async function loadVisitorTournaments(userIds: number[]) {
+  const ids = Array.from(new Set(userIds.filter((id) => Number.isSafeInteger(id) && id > 0)));
+  if (ids.length === 0) return {} as Record<number, VisitorTournament[]>;
+
+  const { data, error } = await supabase
+    .from('teams')
+    .select('hattrick_user_id, tournaments!inner(id, name, slug, status, is_archived)')
+    .in('hattrick_user_id', ids)
+    .eq('active', true)
+    .eq('reserve_active', false);
+  if (error || !data) return {} as Record<number, VisitorTournament[]>;
+
+  const result: Record<number, VisitorTournament[]> = {};
+  for (const row of data as Array<{
+    hattrick_user_id: number;
+    tournaments:
+      | (VisitorTournament & { status: string | null; is_archived: boolean | null })
+      | Array<VisitorTournament & { status: string | null; is_archived: boolean | null }>
+      | null;
+  }>) {
+    const tournament = Array.isArray(row.tournaments) ? row.tournaments[0] : row.tournaments;
+    if (!tournament?.slug || tournament.is_archived || !['active', 'open', 'paused'].includes(tournament.status || ''))
+      continue;
+    const userTournaments = result[row.hattrick_user_id] || [];
+    if (!userTournaments.some((item) => item.id === tournament.id)) {
+      userTournaments.push({ id: tournament.id, name: tournament.name, slug: tournament.slug });
+    }
+    result[row.hattrick_user_id] = userTournaments;
+  }
+  return result;
+}
+
+function ForgeAuthorLink({
+  id,
+  authorName,
+  userId,
+  profile,
+  teamName,
+  teamCountryName,
+  teamCountryId,
+  className,
+}: {
+  id: string;
+  authorName: string;
+  userId: number | null;
+  profile?: ChatAuthorProfile | null;
+  teamName?: string | null;
+  teamCountryName?: string | null;
+  teamCountryId?: number | null;
+  className?: string;
+}) {
+  if (!userId) return <span className={className}>{authorName}</span>;
+
+  const tooltipId = `forge-author-${id}`;
+  return (
+    <>
+      <a
+        href={`/en?profileId=${userId}`}
+        target="_blank"
+        rel="noopener noreferrer"
+        className={className}
+        data-tooltip-id={tooltipId}
+      >
+        {authorName}
+      </a>
+      <AuthorTooltip
+        id={tooltipId}
+        authorName={authorName}
+        teamName={teamName}
+        countryName={teamCountryName}
+        countryId={teamCountryId}
+        managerCountryName={profile?.country_name}
+        managerCountryId={profile?.country_id}
+        avatar={profile?.avatar_json || null}
+      />
+    </>
+  );
+}
+
+function VisitorTournamentLinks({ tournaments }: { tournaments: VisitorTournament[] }) {
+  if (tournaments.length === 0) return null;
+  return (
+    <div className={styles.visitorTournaments}>
+      {tournaments.map((tournament) => (
+        <a key={tournament.id} href={`/en/t/${tournament.slug}`} target="_blank" rel="noopener noreferrer">
+          /t/{tournament.slug}
+        </a>
+      ))}
+    </div>
+  );
 }
 
 async function loadDashboardChatPage(
@@ -276,25 +473,51 @@ async function loadDashboardChatPage(
 
     const rows = (data as Omit<DashboardChat, 'country_name'>[] | null) || [];
     hasMore = rows.length > pageSize;
-    messages.push(...rows.slice(0, pageSize).filter((message) =>
-      message.author_ht_id !== adminUserId && (!adminManagerName || message.author_name !== adminManagerName),
-    ));
+    messages.push(
+      ...rows
+        .slice(0, pageSize)
+        .filter(
+          (message) =>
+            message.author_ht_id !== adminUserId && (!adminManagerName || message.author_name !== adminManagerName),
+        ),
+    );
     nextOffset += pageSize;
     if (!hasMore) break;
   }
   const authorIds = Array.from(new Set(messages.map((message) => message.author_ht_id).filter((id) => id > 0)));
-  const { data: profiles } = authorIds.length > 0
-    ? await supabase.from('profiles').select('hattrick_user_id, country_name').in('hattrick_user_id', authorIds)
-    : { data: [] };
-  const countryByUserId = new Map(
-    ((profiles || []) as Array<{ hattrick_user_id: number; country_name: string | null }>)
-      .map((profile) => [profile.hattrick_user_id, profile.country_name]),
+  const tournamentIds = Array.from(new Set(messages.map((message) => message.tournament_id)));
+  const [profilesByUserId, teamsResult] = await Promise.all([
+    loadAuthorProfiles(authorIds),
+    authorIds.length > 0 && tournamentIds.length > 0
+      ? supabase
+          .from('teams')
+          .select('hattrick_user_id, tournament_id, name, country_name, country_id')
+          .in('hattrick_user_id', authorIds)
+          .in('tournament_id', tournamentIds)
+          .eq('active', true)
+          .eq('reserve_active', false)
+      : Promise.resolve({ data: [] }),
+  ]);
+  const teamByChatAuthor = new Map(
+    (
+      (teamsResult.data || []) as Array<{
+        hattrick_user_id: number;
+        tournament_id: string;
+        name: string;
+        country_name: string | null;
+        country_id: number | null;
+      }>
+    ).map((team) => [`${team.tournament_id}:${team.hattrick_user_id}`, team]),
   );
 
   return {
     messages: messages.slice(0, pageSize).map((message) => ({
       ...message,
-      country_name: countryByUserId.get(message.author_ht_id) || null,
+      country_name: profilesByUserId[message.author_ht_id]?.country_name || null,
+      profiles: profilesByUserId[message.author_ht_id] || null,
+      teamName: teamByChatAuthor.get(`${message.tournament_id}:${message.author_ht_id}`)?.name || null,
+      teamCountryName: teamByChatAuthor.get(`${message.tournament_id}:${message.author_ht_id}`)?.country_name || null,
+      teamCountryId: teamByChatAuthor.get(`${message.tournament_id}:${message.author_ht_id}`)?.country_id || null,
     })),
     hasMore,
     nextOffset,
@@ -356,7 +579,9 @@ function ActivityVisitCard({ visit }: { visit: ForgeStatsVisit }) {
             page.theme ? `Theme ${page.theme}` : null,
             page.durationSeconds !== null ? `${page.durationSeconds}s` : 'Time not recorded',
             page.maxScrollPercent !== null ? `Scroll ${page.maxScrollPercent}%` : null,
-          ].filter(Boolean).join(' · ');
+          ]
+            .filter(Boolean)
+            .join(' · ');
           return (
             <div key={`${visit.visitId}:${index}:${page.visitedAt}`} className={styles.visitPage}>
               <div>
@@ -364,7 +589,13 @@ function ActivityVisitCard({ visit }: { visit: ForgeStatsVisit }) {
                 <div className={styles.listMeta}>{details || 'Page details unavailable'}</div>
               </div>
               {href && (
-                <a className={styles.openVisitLink} href={href} target="_blank" rel="noopener noreferrer" aria-label={`Open ${page.route}`}>
+                <a
+                  className={styles.openVisitLink}
+                  href={href}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  aria-label={`Open ${page.route}`}
+                >
                   <ArrowSquareOut size={17} weight="bold" />
                 </a>
               )}
@@ -374,8 +605,12 @@ function ActivityVisitCard({ visit }: { visit: ForgeStatsVisit }) {
         {visit.pages.length === 0 && <div className={styles.listMeta}>No page views were recorded for this visit.</div>}
       </div>
       <div className={styles.visitFooter}>
-        <span>{visit.pages.length} page {visit.pages.length === 1 ? 'view' : 'views'}</span>
-        <span>{visit.actions.length} {visit.actions.length === 1 ? 'action' : 'actions'}</span>
+        <span>
+          {visit.pages.length} page {visit.pages.length === 1 ? 'view' : 'views'}
+        </span>
+        <span>
+          {visit.actions.length} {visit.actions.length === 1 ? 'action' : 'actions'}
+        </span>
         {visit.actions.length > 0 && <span>{visit.actions.join(', ')}</span>}
         {visit.language && <span>{visit.language}</span>}
       </div>
@@ -412,7 +647,20 @@ function ForgeStatsSidebar({
   period: ForgePeriod;
   onPeriodChange: (period: ForgePeriod) => void;
   loading: boolean;
-  chatActivity?: Array<{ id: string; at: string; title: string; who: string; details: string; href?: string; countryName?: string | null }>;
+  chatActivity?: Array<{
+    id: string;
+    at: string;
+    title: string;
+    who: string;
+    authorHtId: number;
+    profile?: ChatAuthorProfile | null;
+    teamName?: string | null;
+    teamCountryName?: string | null;
+    teamCountryId?: number | null;
+    details: string;
+    href?: string;
+    countryName?: string | null;
+  }>;
   chatActivityLoading?: boolean;
   hasMoreChat?: boolean;
   loadingMoreChat?: boolean;
@@ -426,7 +674,11 @@ function ForgeStatsSidebar({
         value={period}
         onChange={(event) => onPeriodChange(event.target.value as ForgePeriod)}
       >
-        {FORGE_PERIODS.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}
+        {FORGE_PERIODS.map((option) => (
+          <option key={option.value} value={option.value}>
+            {option.label}
+          </option>
+        ))}
       </select>
 
       <div className={styles.statsMetricGrid}>
@@ -438,19 +690,23 @@ function ForgeStatsSidebar({
         ].map((metric) => (
           <div key={metric.label} className={styles.metricCard}>
             <span className={styles.metricLabel}>{metric.label}</span>
-            <span className={styles.metricValue}>{loading && metric.value === undefined ? '—' : metric.value ?? 0}</span>
+            <span className={styles.metricValue}>
+              {loading && metric.value === undefined ? '—' : (metric.value ?? 0)}
+            </span>
           </div>
         ))}
       </div>
 
       {chatActivity && (
         <SectionCard
-          title={`Chat · ${FORGE_PERIODS.find((option) => option.value === period)?.label.toLowerCase()}`}
-          subtitle="Recent tournament chat messages."
+          title={`Chat`}
+          subtitle={`${FORGE_PERIODS.find((option) => option.value === period)?.label.toLowerCase()}`}
           className={`${styles.surfaceCard} ${styles.dashboardActivity}`}
         >
           {chatActivityLoading && <p className={styles.smallNote}>Loading chat...</p>}
-          {!chatActivityLoading && chatActivity.length === 0 && <p className={styles.smallNote}>No chat in this period.</p>}
+          {!chatActivityLoading && chatActivity.length === 0 && (
+            <p className={styles.smallNote}>No chat in this period.</p>
+          )}
           <div className={styles.activityFeed}>
             {chatActivity.map((item) => (
               <article key={item.id} className={styles.activityFeedItem}>
@@ -458,11 +714,23 @@ function ForgeStatsSidebar({
                   <strong>{item.title}</strong>
                   <time>{formatDateTime(item.at)}</time>
                 </div>
-                <div className={styles.listTitle}>{item.who}</div>
-                <p className={styles.activityFeedDetails}>{item.details}</p>
+                <div className={styles.chatAuthor}>
+                  {item.countryName && <span>{countryFlag(item.countryName)}</span>}
+                  <ForgeAuthorLink
+                    id={`chat-${item.id}`}
+                    authorName={item.who}
+                    userId={item.authorHtId}
+                    profile={item.profile}
+                    teamName={item.teamName}
+                    teamCountryName={item.teamCountryName}
+                    teamCountryId={item.teamCountryId}
+                    className={styles.chatAuthorLink}
+                  />
+                </div>
+                <p className={styles.chatMessage}>{item.details}</p>
                 {item.href && (
                   <a href={item.href} target="_blank" rel="noopener noreferrer" className={styles.chatTournamentLink}>
-                    {item.countryName ? `${countryFlag(item.countryName)} · ` : ''}{item.href}
+                    {item.href}
                   </a>
                 )}
               </article>
@@ -479,8 +747,14 @@ function ForgeStatsSidebar({
       {statsBreakdownCards.map((card) => {
         const rows = breakdowns?.[card.key] || [];
         return (
-          <SectionCard key={card.key} title={card.title} className={`${styles.surfaceCard} ${styles.statsSidebarBreakdown}`}>
-            {rows.length === 0 ? <p className={styles.smallNote}>{loading ? 'Loading…' : 'No data yet.'}</p> : (
+          <SectionCard
+            key={card.key}
+            title={card.title}
+            className={`${styles.surfaceCard} ${styles.statsSidebarBreakdown}`}
+          >
+            {rows.length === 0 ? (
+              <p className={styles.smallNote}>{loading ? 'Loading…' : 'No data yet.'}</p>
+            ) : (
               <div className={styles.breakdownList}>
                 {rows.map((row) => (
                   <div key={row.value} className={styles.breakdownRow}>
@@ -654,7 +928,13 @@ function ForgeShell({
   );
 }
 
-function ForgeDashboard({ adminUserId, adminManagerName }: { adminUserId: number | null; adminManagerName: string | null }) {
+function ForgeDashboard({
+  adminUserId,
+  adminManagerName,
+}: {
+  adminUserId: number | null;
+  adminManagerName: string | null;
+}) {
   const [period, setPeriod] = useForgePeriod();
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -664,6 +944,8 @@ function ForgeDashboard({ adminUserId, adminManagerName }: { adminUserId: number
   const [hasMoreChat, setHasMoreChat] = useState(false);
   const [loadingMoreChat, setLoadingMoreChat] = useState(false);
   const [stats, setStats] = useState<ForgeStatsResponse | null>(null);
+  const [visitorProfiles, setVisitorProfiles] = useState<Record<number, ChatAuthorProfile>>({});
+  const [visitorTournaments, setVisitorTournaments] = useState<Record<number, VisitorTournament[]>>({});
   const [visitCursor, setVisitCursor] = useState<string | null>(null);
   const [hasMoreVisits, setHasMoreVisits] = useState(false);
   const [loadingMore, setLoadingMore] = useState(false);
@@ -679,7 +961,8 @@ function ForgeDashboard({ adminUserId, adminManagerName }: { adminUserId: number
     return () => window.clearTimeout(timer);
   }, []);
   const since = getPeriodSince(clock, period);
-  const trendConfig = FORGE_TREND_INTERVALS.find((option) => option.value === trendInterval) || FORGE_TREND_INTERVALS[0];
+  const trendConfig =
+    FORGE_TREND_INTERVALS.find((option) => option.value === trendInterval) || FORGE_TREND_INTERVALS[0];
   const trendSince = getTrendSince(clock, trendInterval);
 
   useEffect(() => {
@@ -695,13 +978,16 @@ function ForgeDashboard({ adminUserId, adminManagerName }: { adminUserId: number
         if (!response.ok) throw new Error(payload.error || 'Could not load activity trend.');
         if (!cancelled) setTrendData(payload);
       } catch (loadError) {
-        if (!cancelled) setTrendError(loadError instanceof Error ? loadError.message : 'Could not load activity trend.');
+        if (!cancelled)
+          setTrendError(loadError instanceof Error ? loadError.message : 'Could not load activity trend.');
       } finally {
         if (!cancelled) setTrendLoading(false);
       }
     };
     void load();
-    return () => { cancelled = true; };
+    return () => {
+      cancelled = true;
+    };
   }, [trendSince]);
 
   useEffect(() => {
@@ -724,7 +1010,15 @@ function ForgeDashboard({ adminUserId, adminManagerName }: { adminUserId: number
         const payload = (await statsRes.json()) as ForgeStatsResponse & { error?: string };
         if (!statsRes.ok) throw new Error(payload.error || 'Could not load recent visits.');
         if (cancelled) return;
+        const visitorIds = payload.visitors.map((visitor) => visitor.userId).filter((id): id is number => id !== null);
+        const [visitorProfileMap, tournaments] = await Promise.all([
+          loadAuthorProfiles(visitorIds),
+          loadVisitorTournaments(visitorIds),
+        ]);
+        if (cancelled) return;
         setStats(payload);
+        setVisitorProfiles(visitorProfileMap);
+        setVisitorTournaments(tournaments);
         setVisitCursor(payload.nextCursor);
         setHasMoreVisits(payload.hasMore);
         setLatestChat(chatPage.messages);
@@ -739,7 +1033,9 @@ function ForgeDashboard({ adminUserId, adminManagerName }: { adminUserId: number
       }
     };
     void load();
-    return () => { cancelled = true; };
+    return () => {
+      cancelled = true;
+    };
   }, [adminManagerName, adminUserId, since]);
 
   const loadMoreVisits = async () => {
@@ -750,7 +1046,7 @@ function ForgeDashboard({ adminUserId, adminManagerName }: { adminUserId: number
       const response = await fetch(`/api/app?${params.toString()}`, { credentials: 'include' });
       const payload = (await response.json()) as ForgeStatsResponse & { error?: string };
       if (!response.ok) throw new Error(payload.error || 'Could not load more visits.');
-      setStats((current) => current ? { ...current, visits: [...current.visits, ...payload.visits] } : payload);
+      setStats((current) => (current ? { ...current, visits: [...current.visits, ...payload.visits] } : payload));
       setVisitCursor(payload.nextCursor);
       setHasMoreVisits(payload.hasMore);
     } catch (loadError) {
@@ -788,15 +1084,20 @@ function ForgeDashboard({ adminUserId, adminManagerName }: { adminUserId: number
       else cursor.setUTCDate(cursor.getUTCDate() + 1);
     }
     const counts = new Map<string, number>();
+    const eventBreakdowns = new Map<string, Map<string, number>>();
     for (const row of trendData?.daily || []) {
       const key = trendBucketKey(row.activity_date, trendConfig.unit);
       counts.set(key, (counts.get(key) || 0) + row.event_count);
+      const eventCounts = eventBreakdowns.get(key) || new Map<string, number>();
+      eventCounts.set(row.event_type, (eventCounts.get(row.event_type) || 0) + row.event_count);
+      eventBreakdowns.set(key, eventCounts);
     }
     const coverageKey = trendData ? trendBucketKey(trendData.coverageStart, trendConfig.unit) : '';
     return keys.map((key) => ({
       key,
       label: trendBucketLabel(key, trendConfig.unit),
       count: counts.get(key) || 0,
+      eventCounts: Object.fromEntries(eventBreakdowns.get(key) || []),
       available: Boolean(trendData && key >= coverageKey),
     }));
   }, [clock, trendConfig.unit, trendSince, trendData]);
@@ -811,7 +1112,9 @@ function ForgeDashboard({ adminUserId, adminManagerName }: { adminUserId: number
         at: user.created_at,
         title: 'Registered',
         who: user.manager_name,
-        details: [user.country_name, arrival?.referrer ? `From ${arrival.referrer}` : 'Arrival source unavailable'].filter(Boolean).join(' · '),
+        details: [user.country_name, arrival?.referrer ? `From ${arrival.referrer}` : 'Arrival source unavailable']
+          .filter(Boolean)
+          .join(' · '),
       });
     }
     for (const event of stats?.recentActivity || []) {
@@ -826,25 +1129,36 @@ function ForgeDashboard({ adminUserId, adminManagerName }: { adminUserId: number
     return items.sort((left, right) => right.at.localeCompare(left.at)).slice(0, 30);
   }, [latestUsers, stats?.recentActivity]);
 
-  const chatFeed = useMemo(() => latestChat.map((message) => {
-    const tournament = message.tournaments;
-    return {
-      id: message.id,
-      at: message.created_at,
-      title: `Chat – ${tournament?.name || 'Tournament'}`,
-      who: message.author_name,
-      details: message.content,
-      href: tournament ? `/en/t/${tournament.slug}?tab=news` : undefined,
-      countryName: message.country_name,
-    };
-  }), [latestChat]);
+  const chatFeed = useMemo(
+    () =>
+      latestChat.map((message) => {
+        const tournament = message.tournaments;
+        return {
+          id: message.id,
+          at: message.created_at,
+          title: `In: ${tournament?.name || 'Tournament'}`,
+          who: message.author_name,
+          authorHtId: message.author_ht_id,
+          profile: message.profiles,
+          teamName: message.teamName,
+          teamCountryName: message.teamCountryName,
+          teamCountryId: message.teamCountryId,
+          details: message.content,
+          href: tournament ? `/en/t/${tournament.slug}` : undefined,
+          countryName: message.country_name,
+        };
+      }),
+    [latestChat],
+  );
 
   return (
     <section className={styles.sectionStack}>
       <div className={styles.dashboardHeading}>
         <div>
           <h1 className={styles.pageTitle}>Dashboard</h1>
-          <p className={styles.smallNote}>Visitor journeys and community activity, with your own admin traffic excluded.</p>
+          <p className={styles.smallNote}>
+            Visitor journeys and community activity, with your own admin traffic excluded.
+          </p>
         </div>
       </div>
       <div className={styles.analyticsLayout}>
@@ -871,12 +1185,25 @@ function ForgeDashboard({ adminUserId, adminManagerName }: { adminUserId: number
               <>
                 {trendData && trendData.coverageStart > trendSince.slice(0, 10) && (
                   <p className={styles.smallNote}>
-                    Available filtered history starts {trendData.coverageStart}. Earlier intervals are unavailable, not zero.
+                    Available filtered history starts {trendData.coverageStart}. Earlier intervals are unavailable, not
+                    zero.
                   </p>
                 )}
                 <div className={styles.activityBars}>
                   {trendBuckets.map((bucket) => (
-                    <div key={bucket.key} className={styles.activityBarItem} title={bucket.available ? `${bucket.label}: ${bucket.count} events` : `${bucket.label}: history unavailable`}>
+                    <div
+                      key={bucket.key}
+                      className={styles.activityBarItem}
+                      data-tooltip-id={`forge-dashboard-trend-${bucket.key}`}
+                      aria-label={`${bucket.label}: ${bucket.count} tracked events`}
+                      tabIndex={0}
+                    >
+                      <ActivityBarTooltip
+                        id={`forge-dashboard-trend-${bucket.key}`}
+                        label={bucket.label}
+                        eventCounts={bucket.eventCounts}
+                        available={bucket.available}
+                      />
                       <span
                         className={`${styles.activityBar} ${bucket.available ? '' : styles.activityBarUnavailable}`}
                         style={{ height: bucket.available ? `${Math.max(4, (bucket.count / maxTrend) * 100)}%` : '0%' }}
@@ -889,47 +1216,81 @@ function ForgeDashboard({ adminUserId, adminManagerName }: { adminUserId: number
             )}
           </SectionCard>
 
-          <SectionCard title="Recent visitors" subtitle="Most recently active in the selected period." className={`${styles.surfaceCard} ${styles.dashboardRecentVisitors}`}>
+          <SectionCard
+            title="Recent visitors"
+            subtitle="Most recently active in the selected period."
+            className={`${styles.surfaceCard} ${styles.dashboardRecentVisitors}`}
+          >
             {loading && <p className={styles.smallNote}>Loading visitors...</p>}
-            {!loading && stats?.visitors.length === 0 && <p className={styles.smallNote}>No visitors in this period.</p>}
+            {!loading && stats?.visitors.length === 0 && (
+              <p className={styles.smallNote}>No visitors in this period.</p>
+            )}
             <div className={styles.dashboardVisitorList}>
               {stats?.visitors.slice(0, recentVisitorLimit).map((visitor) => (
                 <div key={visitor.visitorId} className={styles.dashboardVisitorRow}>
                   <div>
                     <strong>
-                      {visitor.countries[0] && <span className={styles.countryFlag}>{countryFlag(visitor.countries[0])}</span>}
-                      {visitor.managerName || 'Anonymous visitor'}
+                      {visitor.countries[0] && (
+                        <span className={styles.countryFlag}>{countryFlag(visitor.countries[0])}</span>
+                      )}
+                      <ForgeAuthorLink
+                        id={`dashboard-visitor-${visitor.visitorId}`}
+                        authorName={visitor.managerName || 'Anonymous visitor'}
+                        userId={visitor.userId}
+                        profile={visitor.userId ? visitorProfiles[visitor.userId] : undefined}
+                        className={styles.visitorProfileLink}
+                      />
                     </strong>
+                    {visitor.userId && (
+                      <VisitorTournamentLinks tournaments={visitorTournaments[visitor.userId] || []} />
+                    )}
                     <small>
-                      {visitor.managerName ? `Hattrick ID ${visitor.userId}` : `Visitor ${visitor.visitorId.slice(0, 8)}`}
-                      {' · '}{[visitor.platforms.join(', '), visitor.browsers.join(', ')].filter(Boolean).join(' · ') || 'System unknown'}
+                      {visitor.managerName
+                        ? `Hattrick ID ${visitor.userId}`
+                        : `Visitor ${visitor.visitorId.slice(0, 8)}`}
+                      {' · '}
+                      {[visitor.platforms.join(', '), visitor.browsers.join(', ')].filter(Boolean).join(' · ') ||
+                        'System unknown'}
                     </small>
                   </div>
-                  <span>{visitor.visits} {visitor.visits === 1 ? 'page view' : 'page views'}</span>
+                  <span>
+                    {visitor.visits} {visitor.visits === 1 ? 'page view' : 'page views'}
+                  </span>
                   <time>{formatDateTime(visitor.lastSeen)}</time>
                 </div>
               ))}
             </div>
             {(stats?.visitors.length || 0) > recentVisitorLimit && (
-              <Button variant="outline" onClick={() => setRecentVisitorLimit((limit) => limit + 12)}>Load 12 more visitors</Button>
+              <Button variant="showMore" onClick={() => setRecentVisitorLimit((limit) => limit + 12)}>
+                Load 12 more visitors
+              </Button>
             )}
           </SectionCard>
 
-          <SectionCard title={`Visits · ${FORGE_PERIODS.find((option) => option.value === period)?.label.toLowerCase()}`} subtitle="Open a page in a new tab to inspect it. Your admin browsing is excluded." className={`${styles.surfaceCard} ${styles.dashboardVisits}`}>
+          <SectionCard
+            title={`Visits · ${FORGE_PERIODS.find((option) => option.value === period)?.label.toLowerCase()}`}
+            subtitle="Open a page in a new tab to inspect it. Your admin browsing is excluded."
+            className={`${styles.surfaceCard} ${styles.dashboardVisits}`}
+          >
             {loading && <p className={styles.smallNote}>Loading visits...</p>}
             {error && <p className={styles.errorText}>{error}</p>}
             {!loading && stats?.visits.length === 0 && <p className={styles.smallNote}>No visits in this period.</p>}
             <div className={styles.visitList}>
-              {stats?.visits.map((visit) => <ActivityVisitCard key={visit.visitId} visit={visit} />)}
+              {stats?.visits.map((visit) => (
+                <ActivityVisitCard key={visit.visitId} visit={visit} />
+              ))}
             </div>
             {hasMoreVisits && (
-              <Button variant="outline" disabled={loadingMore} onClick={() => void loadMoreVisits()}>
+              <Button variant="showMore" disabled={loadingMore} onClick={() => void loadMoreVisits()}>
                 {loadingMore ? 'Loading...' : 'Load 30 more visits'}
               </Button>
             )}
           </SectionCard>
 
-          <SectionCard title={`Community activity · ${FORGE_PERIODS.find((option) => option.value === period)?.label.toLowerCase()}`} className={`${styles.surfaceCard} ${styles.dashboardActivity}`}>
+          <SectionCard
+            title={`Community activity · ${FORGE_PERIODS.find((option) => option.value === period)?.label.toLowerCase()}`}
+            className={`${styles.surfaceCard} ${styles.dashboardActivity}`}
+          >
             {loading && <p className={styles.smallNote}>Loading activity...</p>}
             {!loading && feed.length === 0 && <p className={styles.smallNote}>No community activity in this period.</p>}
             <div className={styles.activityFeed}>
@@ -974,6 +1335,8 @@ function ForgeStatsSection() {
   const [visitorLimit, setVisitorLimit] = useState(30);
   const [userLimit, setUserLimit] = useState(30);
   const [data, setData] = useState<ForgeStatsResponse | null>(null);
+  const [visitorProfiles, setVisitorProfiles] = useState<Record<number, ChatAuthorProfile>>({});
+  const [visitorTournaments, setVisitorTournaments] = useState<Record<number, VisitorTournament[]>>({});
   const [loading, setLoading] = useState(true);
   const [loadingMore, setLoadingMore] = useState(false);
   const [loadingMoreActivity, setLoadingMoreActivity] = useState(false);
@@ -1001,8 +1364,15 @@ function ForgeStatsSection() {
         const response = await fetch(`/api/app?${params.toString()}`, { credentials: 'include' });
         const next = (await response.json()) as ForgeStatsResponse & { error?: string };
         if (!response.ok) throw new Error(next.error || 'Could not load Forge statistics.');
+        const visitorIds = next.visitors.map((visitor) => visitor.userId).filter((id): id is number => id !== null);
+        const [profiles, tournaments] = await Promise.all([
+          loadAuthorProfiles(visitorIds),
+          loadVisitorTournaments(visitorIds),
+        ]);
         if (!cancelled) {
           setData(next);
+          setVisitorProfiles(profiles);
+          setVisitorTournaments(tournaments);
           setCursor(next.nextCursor);
           setActivityCursor(next.nextActivityCursor);
         }
@@ -1030,12 +1400,16 @@ function ForgeStatsSection() {
       const response = await fetch(`/api/app?${params.toString()}`, { credentials: 'include' });
       const next = (await response.json()) as ForgeStatsResponse & { error?: string };
       if (!response.ok) throw new Error(next.error || 'Could not load more visits.');
-      setData((current) => current ? {
-        ...current,
-        visits: [...current.visits, ...next.visits],
-        hasMore: next.hasMore,
-        nextCursor: next.nextCursor,
-      } : next);
+      setData((current) =>
+        current
+          ? {
+              ...current,
+              visits: [...current.visits, ...next.visits],
+              hasMore: next.hasMore,
+              nextCursor: next.nextCursor,
+            }
+          : next,
+      );
       setCursor(next.nextCursor);
     } catch (loadError) {
       setError(loadError instanceof Error ? loadError.message : 'Could not load more visits.');
@@ -1053,12 +1427,16 @@ function ForgeStatsSection() {
       const response = await fetch(`/api/app?${params.toString()}`, { credentials: 'include' });
       const next = (await response.json()) as ForgeStatsResponse & { error?: string };
       if (!response.ok) throw new Error(next.error || 'Could not load more activity.');
-      setData((current) => current ? {
-        ...current,
-        recentActivity: [...current.recentActivity, ...next.recentActivity],
-        hasMoreActivity: next.hasMoreActivity,
-        nextActivityCursor: next.nextActivityCursor,
-      } : next);
+      setData((current) =>
+        current
+          ? {
+              ...current,
+              recentActivity: [...current.recentActivity, ...next.recentActivity],
+              hasMoreActivity: next.hasMoreActivity,
+              nextActivityCursor: next.nextActivityCursor,
+            }
+          : next,
+      );
       setActivityCursor(next.nextActivityCursor);
     } catch (loadError) {
       setError(loadError instanceof Error ? loadError.message : 'Could not load more activity.');
@@ -1069,6 +1447,7 @@ function ForgeStatsSection() {
 
   const dailyTotals = useMemo(() => {
     const totals = new Map<string, number>();
+    const eventBreakdowns = new Map<string, Map<string, number>>();
     for (const row of data?.daily || []) {
       let key = row.activity_date;
       if (grouping === 'week') {
@@ -1077,14 +1456,20 @@ function ForgeStatsSection() {
         key = monday.toISOString().slice(0, 10);
       }
       totals.set(key, (totals.get(key) || 0) + row.event_count);
+      const eventCounts = eventBreakdowns.get(key) || new Map<string, number>();
+      eventCounts.set(row.event_type, (eventCounts.get(row.event_type) || 0) + row.event_count);
+      eventBreakdowns.set(key, eventCounts);
     }
-    return Array.from(totals.entries()).sort(([left], [right]) => left.localeCompare(right));
+    return Array.from(totals.entries())
+      .sort(([left], [right]) => left.localeCompare(right))
+      .map(([key, count]) => ({ key, count, eventCounts: Object.fromEntries(eventBreakdowns.get(key) || []) }));
   }, [data?.daily, grouping]);
-  const maxDaily = Math.max(1, ...dailyTotals.map(([, count]) => count));
+  const maxDaily = Math.max(1, ...dailyTotals.map((bucket) => bucket.count));
   const selectedVisitor = data?.visitors.find((visitor) => visitor.visitorId === selectedVisitorId) || null;
-  const selectedLabel = selectedVisitor?.managerName
-    || (selectedUserId ? data?.users.find((user) => user.userId === selectedUserId)?.managerName : null)
-    || 'everyone';
+  const selectedLabel =
+    selectedVisitor?.managerName ||
+    (selectedUserId ? data?.users.find((user) => user.userId === selectedUserId)?.managerName : null) ||
+    'everyone';
   return (
     <section className={styles.sectionStack}>
       <div className={styles.dashboardHeading}>
@@ -1112,10 +1497,24 @@ function ForgeStatsSection() {
                 </div>
                 <div className={styles.activityBars}>
                   {dailyTotals.length === 0 && <span className={styles.smallNote}>No activity in this period.</span>}
-                  {dailyTotals.map(([date, count]) => (
-                    <div key={date} className={styles.activityBarItem} title={`${date}: ${count} events`}>
-                      <span className={styles.activityBar} style={{ height: `${Math.max(4, (count / maxDaily) * 100)}%` }} />
-                      <span>{date.slice(5)}</span>
+                  {dailyTotals.map((bucket) => (
+                    <div
+                      key={bucket.key}
+                      className={styles.activityBarItem}
+                      data-tooltip-id={`forge-stats-trend-${bucket.key}`}
+                      aria-label={`${bucket.key}: ${bucket.count} tracked events`}
+                      tabIndex={0}
+                    >
+                      <ActivityBarTooltip
+                        id={`forge-stats-trend-${bucket.key}`}
+                        label={bucket.key}
+                        eventCounts={bucket.eventCounts}
+                      />
+                      <span
+                        className={styles.activityBar}
+                        style={{ height: `${Math.max(4, (bucket.count / maxDaily) * 100)}%` }}
+                      />
+                      <span>{bucket.key.slice(5)}</span>
                     </div>
                   ))}
                 </div>
@@ -1125,34 +1524,78 @@ function ForgeStatsSection() {
                 <div className={styles.statsHeadingRow}>
                   <p className={styles.smallNote}>Select a visitor to filter their journeys.</p>
                   {(selectedVisitorId || selectedUserId) && (
-                    <button type="button" className={styles.clearSelection} onClick={() => {
-                      setSelectedVisitorId(null);
-                      setSelectedUserId(null);
-                    }}>Show everyone</button>
+                    <button
+                      type="button"
+                      className={styles.clearSelection}
+                      onClick={() => {
+                        setSelectedVisitorId(null);
+                        setSelectedUserId(null);
+                      }}
+                    >
+                      Show everyone
+                    </button>
                   )}
                 </div>
-                {data.visitors.length === 0 ? <p className={styles.smallNote}>No visitors in this period.</p> : (
+                {data.visitors.length === 0 ? (
+                  <p className={styles.smallNote}>No visitors in this period.</p>
+                ) : (
                   <div className={styles.statsTableWrap}>
                     <table className={styles.statsTable}>
-                      <thead><tr><th>Visitor</th><th>Page views</th><th>Country</th><th>Device</th><th>Last seen</th></tr></thead>
+                      <thead>
+                        <tr>
+                          <th>Visitor</th>
+                          <th>Page views</th>
+                          <th>Country</th>
+                          <th>Device</th>
+                          <th>Last seen</th>
+                        </tr>
+                      </thead>
                       <tbody>
                         {data.visitors.slice(0, visitorLimit).map((visitor) => (
-                          <tr key={visitor.visitorId} className={selectedVisitorId === visitor.visitorId ? styles.selectedRow : ''}>
+                          <tr
+                            key={visitor.visitorId}
+                            className={selectedVisitorId === visitor.visitorId ? styles.selectedRow : ''}
+                          >
                             <td>
-                              <button type="button" className={styles.tableButton} onClick={() => {
-                                setSelectedUserId(null);
-                                setSelectedVisitorId(selectedVisitorId === visitor.visitorId ? null : visitor.visitorId);
-                              }}>
+                              <div className={styles.statsVisitorIdentity}>
                                 <span className={styles.visitorName}>
-                                  {visitor.countries[0] && <span className={styles.countryFlag}>{countryFlag(visitor.countries[0])}</span>}
-                                  {visitor.managerName || 'Anonymous visitor'}
+                                  {visitor.countries[0] && (
+                                    <span className={styles.countryFlag}>{countryFlag(visitor.countries[0])}</span>
+                                  )}
+                                  <ForgeAuthorLink
+                                    id={`stats-visitor-${visitor.visitorId}`}
+                                    authorName={visitor.managerName || 'Anonymous visitor'}
+                                    userId={visitor.userId}
+                                    profile={visitor.userId ? visitorProfiles[visitor.userId] : undefined}
+                                    className={styles.visitorProfileLink}
+                                  />
                                 </span>
-                                <small>{visitor.managerName ? `Hattrick ID ${visitor.userId}` : `Visitor ${visitor.visitorId.slice(0, 8)}`}</small>
-                              </button>
+                                {visitor.userId && (
+                                  <VisitorTournamentLinks tournaments={visitorTournaments[visitor.userId] || []} />
+                                )}
+                                <button
+                                  type="button"
+                                  className={styles.tableButton}
+                                  onClick={() => {
+                                    setSelectedUserId(null);
+                                    setSelectedVisitorId(
+                                      selectedVisitorId === visitor.visitorId ? null : visitor.visitorId,
+                                    );
+                                  }}
+                                >
+                                  <small>
+                                    {visitor.managerName
+                                      ? `Hattrick ID ${visitor.userId} · Filter journeys`
+                                      : `Visitor ${visitor.visitorId.slice(0, 8)} · Filter journeys`}
+                                  </small>
+                                </button>
+                              </div>
                             </td>
                             <td>{visitor.visits}</td>
                             <td>{visitor.countries.join(', ') || 'Unknown'}</td>
-                            <td>{visitor.platforms.join(', ') || 'Unknown'} · {visitor.browsers.join(', ') || 'Unknown'}</td>
+                            <td>
+                              {visitor.platforms.join(', ') || 'Unknown'} · {visitor.browsers.join(', ') || 'Unknown'}
+                            </td>
                             <td>{formatDateTime(visitor.lastSeen)}</td>
                           </tr>
                         ))}
@@ -1161,24 +1604,48 @@ function ForgeStatsSection() {
                   </div>
                 )}
                 {data.visitors.length > visitorLimit && (
-                  <Button variant="outline" onClick={() => setVisitorLimit((limit) => limit + 30)}>Load 30 more visitors</Button>
+                  <Button variant="outline" onClick={() => setVisitorLimit((limit) => limit + 30)}>
+                    Load 30 more visitors
+                  </Button>
                 )}
               </SectionCard>
 
               <SectionCard title="Identified users" className={`${styles.surfaceCard} ${styles.statsUsers}`}>
                 <p className={styles.smallNote}>Select a user to filter their journeys.</p>
-                {data.users.length === 0 ? <p className={styles.smallNote}>No identified users in this period.</p> : (
+                {data.users.length === 0 ? (
+                  <p className={styles.smallNote}>No identified users in this period.</p>
+                ) : (
                   <div className={styles.statsTableWrap}>
                     <table className={styles.statsTable}>
-                      <thead><tr><th>Manager</th><th>Page views</th><th>Events</th><th>Tournaments</th><th>Last seen</th></tr></thead>
+                      <thead>
+                        <tr>
+                          <th>Manager</th>
+                          <th>Page views</th>
+                          <th>Events</th>
+                          <th>Tournaments</th>
+                          <th>Last seen</th>
+                        </tr>
+                      </thead>
                       <tbody>
                         {data.users.slice(0, userLimit).map((user) => (
                           <tr key={user.userId} className={selectedUserId === user.userId ? styles.selectedRow : ''}>
-                            <td><button type="button" className={styles.tableButton} onClick={() => {
-                              setSelectedVisitorId(null);
-                              setSelectedUserId(selectedUserId === user.userId ? null : user.userId);
-                            }}>{user.managerName}<small>ID {user.userId}</small></button></td>
-                            <td>{user.visits}</td><td>{user.events}</td><td>{user.tournaments}</td><td>{formatDateTime(user.lastSeen)}</td>
+                            <td>
+                              <button
+                                type="button"
+                                className={styles.tableButton}
+                                onClick={() => {
+                                  setSelectedVisitorId(null);
+                                  setSelectedUserId(selectedUserId === user.userId ? null : user.userId);
+                                }}
+                              >
+                                {user.managerName}
+                                <small>ID {user.userId}</small>
+                              </button>
+                            </td>
+                            <td>{user.visits}</td>
+                            <td>{user.events}</td>
+                            <td>{user.tournaments}</td>
+                            <td>{formatDateTime(user.lastSeen)}</td>
                           </tr>
                         ))}
                       </tbody>
@@ -1186,23 +1653,42 @@ function ForgeStatsSection() {
                   </div>
                 )}
                 {data.users.length > userLimit && (
-                  <Button variant="outline" onClick={() => setUserLimit((limit) => limit + 30)}>Load 30 more users</Button>
+                  <Button variant="outline" onClick={() => setUserLimit((limit) => limit + 30)}>
+                    Load 30 more users
+                  </Button>
                 )}
               </SectionCard>
 
-              <SectionCard title={selectedVisitorId || selectedUserId ? `Journey: ${selectedLabel}` : 'Visits and journeys'} className={`${styles.surfaceCard} ${styles.statsEvents}`}>
+              <SectionCard
+                title={selectedVisitorId || selectedUserId ? `Journey: ${selectedLabel}` : 'Visits and journeys'}
+                className={`${styles.surfaceCard} ${styles.statsEvents}`}
+              >
                 <div className={styles.statsHeadingRow}>
-                  {(selectedVisitor || selectedUserId) && <p className={styles.smallNote}>Nickname is captured from the authenticated Hattrick profile when available.</p>}
+                  {(selectedVisitor || selectedUserId) && (
+                    <p className={styles.smallNote}>
+                      Nickname is captured from the authenticated Hattrick profile when available.
+                    </p>
+                  )}
                   {(selectedVisitorId || selectedUserId) && (
-                    <button type="button" className={styles.clearSelection} onClick={() => {
-                      setSelectedVisitorId(null);
-                      setSelectedUserId(null);
-                    }}>Show everyone</button>
+                    <button
+                      type="button"
+                      className={styles.clearSelection}
+                      onClick={() => {
+                        setSelectedVisitorId(null);
+                        setSelectedUserId(null);
+                      }}
+                    >
+                      Show everyone
+                    </button>
                   )}
                 </div>
-                {data.visits.length === 0 ? <p className={styles.smallNote}>No visits in this period.</p> : (
+                {data.visits.length === 0 ? (
+                  <p className={styles.smallNote}>No visits in this period.</p>
+                ) : (
                   <div className={styles.visitList}>
-                    {data.visits.map((visit) => <ActivityVisitCard key={visit.visitId} visit={visit} />)}
+                    {data.visits.map((visit) => (
+                      <ActivityVisitCard key={visit.visitId} visit={visit} />
+                    ))}
                   </div>
                 )}
                 {data.hasMore && (
@@ -1213,7 +1699,9 @@ function ForgeStatsSection() {
               </SectionCard>
 
               <SectionCard title="Recent activity" className={`${styles.surfaceCard} ${styles.statsUsers}`}>
-                {data.recentActivity.length === 0 ? <p className={styles.smallNote}>No activity in this period.</p> : (
+                {data.recentActivity.length === 0 ? (
+                  <p className={styles.smallNote}>No activity in this period.</p>
+                ) : (
                   <div className={styles.activityFeed}>
                     {data.recentActivity.map((event) => (
                       <article key={event.id} className={styles.activityFeedItem}>
@@ -1221,7 +1709,9 @@ function ForgeStatsSection() {
                           <strong>{activityEventTitle(event)}</strong>
                           <time>{formatDateTime(event.occurred_at)}</time>
                         </div>
-                        <div className={styles.listTitle}>{event.resolved_manager_name || event.manager_name || 'Anonymous visitor'}</div>
+                        <div className={styles.listTitle}>
+                          {event.resolved_manager_name || event.manager_name || 'Anonymous visitor'}
+                        </div>
                         <p className={styles.activityFeedDetails}>{activityEventDetails(event)}</p>
                       </article>
                     ))}
@@ -1571,7 +2061,9 @@ function ForgeFaqEditor() {
 }
 
 function ForgeTestingSection() {
-  const [managerId, setManagerId] = useState(() => (typeof window !== 'undefined' ? window.localStorage.getItem('forge_ht_user_id') || '' : ''));
+  const [managerId, setManagerId] = useState(() =>
+    typeof window !== 'undefined' ? window.localStorage.getItem('forge_ht_user_id') || '' : '',
+  );
   const [teamId, setTeamId] = useState('');
   const [opponentTeamId, setOpponentTeamId] = useState('');
   const [weekend, setWeekend] = useState(false);
@@ -1603,20 +2095,46 @@ function ForgeTestingSection() {
         className={styles.surfaceCard}
       >
         <div className={styles.testingGrid}>
-          <label className={styles.testingField}><span>Manager ID</span><input value={managerId} onChange={(event) => setManagerId(event.target.value)} /></label>
-          <label className={styles.testingField}><span>My team ID</span><input value={teamId} onChange={(event) => setTeamId(event.target.value)} /></label>
-          <label className={styles.testingField}><span>Opponent team ID</span><input value={opponentTeamId} onChange={(event) => setOpponentTeamId(event.target.value)} /></label>
+          <label className={styles.testingField}>
+            <span>Manager ID</span>
+            <input value={managerId} onChange={(event) => setManagerId(event.target.value)} />
+          </label>
+          <label className={styles.testingField}>
+            <span>My team ID</span>
+            <input value={teamId} onChange={(event) => setTeamId(event.target.value)} />
+          </label>
+          <label className={styles.testingField}>
+            <span>Opponent team ID</span>
+            <input value={opponentTeamId} onChange={(event) => setOpponentTeamId(event.target.value)} />
+          </label>
         </div>
-        <label className={styles.testingCheckbox}><input type="checkbox" checked={weekend} onChange={(event) => setWeekend(event.target.checked)} /> Weekend friendly</label>
+        <label className={styles.testingCheckbox}>
+          <input type="checkbox" checked={weekend} onChange={(event) => setWeekend(event.target.checked)} /> Weekend
+          friendly
+        </label>
         <div className={styles.editorActions}>
-          <Button variant="outline" disabled={loading} onClick={() => void runTool('credentials-check')}>Credentials check</Button>
-          <Button variant="outline" disabled={loading} onClick={() => void runTool('challenges-view')}>Challenges view</Button>
-          <Button variant="outline" disabled={loading} onClick={() => void runTool('challengeable')}>Challengeable</Button>
-          <Button variant="outline" disabled={loading} onClick={() => void runTool('challenges-compare')}>Compare variants</Button>
-          <Button variant="outline" disabled={loading} onClick={() => void runTool('booking-status')}>Booking status</Button>
-          <Button variant="secondaryYellow" disabled={loading} onClick={() => void runTool('challenge-send', true)}>Send challenge</Button>
+          <Button variant="outline" disabled={loading} onClick={() => void runTool('credentials-check')}>
+            Credentials check
+          </Button>
+          <Button variant="outline" disabled={loading} onClick={() => void runTool('challenges-view')}>
+            Challenges view
+          </Button>
+          <Button variant="outline" disabled={loading} onClick={() => void runTool('challengeable')}>
+            Challengeable
+          </Button>
+          <Button variant="outline" disabled={loading} onClick={() => void runTool('challenges-compare')}>
+            Compare variants
+          </Button>
+          <Button variant="outline" disabled={loading} onClick={() => void runTool('booking-status')}>
+            Booking status
+          </Button>
+          <Button variant="secondaryYellow" disabled={loading} onClick={() => void runTool('challenge-send', true)}>
+            Send challenge
+          </Button>
         </div>
-        <p className={styles.smallNote}>Challenge send has a real Hattrick side effect and is never run without confirmation.</p>
+        <p className={styles.smallNote}>
+          Challenge send has a real Hattrick side effect and is never run without confirmation.
+        </p>
         {output && <pre className={styles.testingOutput}>{output}</pre>}
       </SectionCard>
     </section>
