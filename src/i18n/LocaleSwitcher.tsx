@@ -5,7 +5,7 @@ import { usePathname, useSearchParams } from 'next/navigation';
 import { useEffect, useRef, useState } from 'react';
 import { Globe } from 'phosphor-react';
 import { useLocale } from './LocaleProvider';
-import { localeNames, locales } from './config';
+import { localeNames } from './config';
 import styles from './LocaleSwitcher.module.sass';
 
 const localeFlags = {
@@ -14,7 +14,7 @@ const localeFlags = {
 } as const;
 
 export function LocaleSwitcher() {
-  const { locale, messages } = useLocale();
+  const { locale, messages, availableLocales } = useLocale();
   const pathname = usePathname();
   const searchParams = useSearchParams();
   const [isOpen, setIsOpen] = useState(false);
@@ -55,7 +55,7 @@ export function LocaleSwitcher() {
 
       {isOpen && (
         <div className={styles.menu} role="menu">
-          {locales.map((targetLocale) => (
+          {availableLocales.map(({ locale: targetLocale, status, nativeName }) => (
             <Link
               key={targetLocale}
               href={`/${targetLocale}${pathWithoutLocale}${query ? `?${query}` : ''}`}
@@ -70,7 +70,7 @@ export function LocaleSwitcher() {
               <span className={styles.flag} aria-hidden="true">
                 {localeFlags[targetLocale]}
               </span>
-              <span>{localeNames[targetLocale]}</span>
+              <span>{nativeName || localeNames[targetLocale]}{status === 'beta' ? ' [beta]' : ''}</span>
             </Link>
           ))}
         </div>

@@ -14,6 +14,8 @@ The application shell has migrated from Vite/React Router to Next.js App Router.
 
 The first `next-intl` localization slice is implemented locally for Home in the existing TypeScript dictionaries. English messages live under a `Home` namespace; the Latvian `Home` namespace is explicitly empty and falls back to English. Locale-prefixed routes remain authoritative. Unprefixed routes default to English and honor only the explicit `ht120_locale_choice` cookie written by the locale switcher, ignoring legacy locale cookies and browser language. Manual UI and deployment behavior remain unverified until owner testing.
 
+Forge locale catalog code and migration 106 are prepared locally. The source dictionaries remain fallback; saved drafts and component-scoped publications require migration 106 and server-only Supabase access. The catalog currently includes the existing Home/shared-shell messages and initial extracted keys on Tournament View, Create Tournament, Tinder, and manager profiles; broader direct-copy extraction remains open. Assigned editors can save drafts for their locales, while the Forge admin controls publication and language settings. See `docs/locales.md`. No migration application or live UI check is claimed.
+
 ## Current checkout snapshot
 
 - `main` is clean and aligned with `origin/main` at `2acef5e` (`update/welcome modal`).

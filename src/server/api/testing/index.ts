@@ -5,9 +5,14 @@ import {
   sendChppChallengeDirect,
   viewChppChallenges,
 } from '../_lib/chpp-challenges.js';
-import { fetchManagerTeamsFromChpp, fetchTeamBookingStatus, getManagerChppCredentials } from '../_lib/matchmaker.js';
-import { getSupabase } from '../_lib/supabase.js';
-import { getServiceSupabase } from '../_lib/supabase.js';
+import {
+  classifyTeamAvailability,
+  fetchManagerTeamsFromChpp,
+  fetchTeamBookingStatus,
+  fetchTeamDetailsFromChpp,
+  getManagerChppCredentials,
+} from '../_lib/matchmaker.js';
+import { getServiceSupabase, getSupabase } from '../_lib/supabase.js';
 import { isForgeAdminRequest } from '../_lib/forge-session.js';
 import { rejectIfForgeTestingUnauthorized } from './_lib/guard.js';
 import { beautifyXml } from './_lib/xml-format.js';
@@ -18,6 +23,7 @@ import {
   mapMatchEventDetailsToFixture,
   parseMatchEventDetails,
 } from '../_lib/chpp-match-events.js';
+import type { ChppTeamOption } from '../_lib/chpp-xml.js';
 
 function value(req: VercelRequest, key: string) {
   const raw = req.query[key];
@@ -77,6 +83,7 @@ function manifest() {
       { id: 'credentials-check', label: 'Credentials check' },
       { id: 'challenges-view', label: 'Challenges view' },
       { id: 'challengeable', label: 'Challengeable check' },
+      { id: 'challengeable-directory', label: 'Challengeable teams directory' },
       { id: 'challenges-compare', label: 'Challenges comparison' },
       { id: 'booking-status', label: 'Booking status' },
       { id: 'challenge-send', label: 'Challenge send', sideEffect: true },
@@ -315,6 +322,157 @@ async function handleSend(req: VercelRequest, res: VercelResponse) {
   });
 }
 
+const CHALLENGEABLE_DIRECTORY_PAGE_SIZE = 2;
+
+function challengeableDirectoryFailure(error: unknown, fallback: string) {
+  const message = error instanceof Error ? error.message : '';
+  const statusCode = message.match(/\b(401|403)\b/)?.[1];
+  return statusCode
+    ? `CHPP rejected the stored access (${statusCode}); it may need to be renewed.`
+    : fallback;
+}
+
+async function handleChallengeableDirectory(req: VercelRequest, res: VercelResponse) {
+  const cursor = Number(value(req, 'cursor') || '0');
+  if (!Number.isSafeInteger(cursor) || cursor < 0) {
+    return res.status(400).json({ error: 'Invalid directory cursor.' });
+  }
+
+  const consumerKey = process.env.CHPP_CONSUMER_KEY;
+  const consumerSecret = process.env.CHPP_CONSUMER_SECRET;
+  if (!consumerKey || !consumerSecret) return res.status(500).json({ error: 'CHPP server configuration is missing.' });
+
+  const db = getServiceSupabase();
+  const { data: profiles, error } = await db.from('profiles')
+    .select('hattrick_user_id, manager_name')
+    .gt('hattrick_user_id', cursor)
+    .order('hattrick_user_id', { ascending: true })
+    .limit(CHALLENGEABLE_DIRECTORY_PAGE_SIZE);
+  if (error) throw error;
+
+  const directoryUsers: Array<{
+    managerId: number;
+    managerName: string;
+    teams: Array<{ teamId: number; teamName: string; availabilityReason?: string }>;
+  }> = [];
+  const issues: Array<{ managerId: number; managerName: string; reason: string }> = [];
+  let checkedManagers = 0;
+  let checkedTeams = 0;
+  let unavailableCredentials = 0;
+  let failedChecks = 0;
+  let unavailableTeams = 0;
+  let managersWithNoTeams = 0;
+  let managersWithoutAvailableTeams = 0;
+
+  for (const profile of profiles || []) {
+    const managerId = Number(profile.hattrick_user_id);
+    if (!Number.isSafeInteger(managerId) || managerId <= 0) continue;
+    const credentials = await getManagerChppCredentials(db, managerId);
+    if (!credentials) {
+      unavailableCredentials += 1;
+      issues.push({
+        managerId,
+        managerName: profile.manager_name || 'Unknown manager',
+        reason: 'No stored CHPP credentials.',
+      });
+      continue;
+    }
+    checkedManagers += 1;
+
+    let teams: ChppTeamOption[];
+    try {
+      const compendium = await fetchManagerTeamsFromChpp(consumerKey, consumerSecret, credentials, managerId);
+      teams = compendium.teams;
+    } catch (teamListError) {
+      failedChecks += 1;
+      issues.push({
+        managerId,
+        managerName: profile.manager_name || credentials.manager_name || 'Unknown manager',
+        reason: challengeableDirectoryFailure(teamListError, 'Could not load the current team list from CHPP.'),
+      });
+      console.warn(`Could not load team list for Forge challengeable directory manager ${managerId}:`, teamListError);
+      continue;
+    }
+
+    if (teams.length === 0) managersWithNoTeams += 1;
+    const availableTeams: Array<{ teamId: number; teamName: string; availabilityReason?: string }> = [];
+    for (const team of teams) {
+      const teamId = Number(team.teamId);
+      if (!Number.isSafeInteger(teamId) || teamId <= 0) continue;
+      try {
+        const details = await fetchTeamDetailsFromChpp(consumerKey, consumerSecret, credentials, teamId);
+        checkedTeams += 1;
+        const initialAvailability = classifyTeamAvailability(details);
+        if (initialAvailability.availabilityStatus !== 'available') {
+          unavailableTeams += 1;
+          continue;
+        }
+
+        let bookingResult = null;
+        try {
+          bookingResult = await fetchTeamBookingStatus(consumerKey, consumerSecret, credentials, teamId);
+        } catch (bookingError) {
+          failedChecks += 1;
+          issues.push({
+            managerId,
+            managerName: profile.manager_name || credentials.manager_name || 'Unknown manager',
+            reason: `Team ${teamId}: ${challengeableDirectoryFailure(bookingError, 'Could not verify booking status.')}`,
+          });
+          console.warn(`Could not verify booking status for Forge directory team ${teamId}:`, bookingError);
+        }
+        const availability = classifyTeamAvailability(details, bookingResult);
+        if (availability.availabilityStatus === 'available') {
+          availableTeams.push({
+            teamId,
+            teamName: details.teamName || team.teamName,
+            availabilityReason: availability.availabilityReason,
+          });
+        } else {
+          unavailableTeams += 1;
+        }
+      } catch (teamError) {
+        failedChecks += 1;
+        issues.push({
+          managerId,
+          managerName: profile.manager_name || credentials.manager_name || 'Unknown manager',
+          reason: `Team ${teamId}: ${challengeableDirectoryFailure(teamError, 'Could not load team availability from CHPP.')}`,
+        });
+        console.warn(`Could not check Forge challengeable directory team ${teamId}:`, teamError);
+      }
+    }
+
+    if (teams.length > 0 && availableTeams.length === 0) {
+      managersWithoutAvailableTeams += 1;
+    }
+
+    if (availableTeams.length > 0) {
+      directoryUsers.push({
+        managerId,
+        managerName: profile.manager_name || credentials.manager_name || 'Unknown manager',
+        teams: availableTeams,
+      });
+    }
+  }
+
+  const hasMore = (profiles || []).length === CHALLENGEABLE_DIRECTORY_PAGE_SIZE;
+  const lastProfile = profiles?.[profiles.length - 1];
+  return res.status(200).json({
+    tool: 'challengeable-directory',
+    users: directoryUsers,
+    scannedProfiles: (profiles || []).length,
+    checkedManagers,
+    checkedTeams,
+    unavailableCredentials,
+    failedChecks,
+    unavailableTeams,
+    managersWithNoTeams,
+    managersWithoutAvailableTeams,
+    issues,
+    nextCursor: hasMore && lastProfile ? Number(lastProfile.hattrick_user_id) : null,
+    hasMore,
+  });
+}
+
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   if (req.method !== 'GET' && req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
   if (!isForgeAdminRequest(req.headers.cookie)) {
@@ -327,6 +485,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       case 'credentials-check': return await handleCredentials(req, res);
       case 'challenges-view': return await handleView(req, res);
       case 'challengeable': return await handleChallengeable(req, res);
+      case 'challengeable-directory': return await handleChallengeableDirectory(req, res);
       case 'challenges-compare': return await handleCompare(req, res);
       case 'booking-status': return await handleBooking(req, res);
       case 'challenge-send': return await handleSend(req, res);

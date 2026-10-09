@@ -7,6 +7,7 @@ import {
   ChatCircleDots,
   Flask,
   House,
+  Globe,
   ListBullets,
   SoccerBall,
   Shield,
@@ -26,6 +27,7 @@ import faqStyles from '../../components/Faq/FaqRenderer.module.sass';
 import { HATTRICK_WORLD_DETAILS } from '../../../shared/worlddetails';
 import styles from './Forge.module.sass';
 import { ForgeMatchesSection } from './ForgeMatches';
+import { ForgeLocales } from './ForgeLocales';
 
 interface DashboardUser {
   hattrick_user_id: number;
@@ -142,6 +144,12 @@ interface ForgeStatsDaily {
   event_count: number;
 }
 
+interface ForgeStatsUniqueVisitors {
+  activity_date: string;
+  event_type: string;
+  visitor_count: number;
+}
+
 interface ForgeStatsResponse {
   summary: {
     events: number;
@@ -161,6 +169,8 @@ interface ForgeStatsResponse {
   nextCursor: string | null;
   breakdowns: Record<string, ForgeStatsBreakdown[]>;
   daily: ForgeStatsDaily[];
+  uniqueVisitors: ForgeStatsUniqueVisitors[];
+  rawUniqueStart: string;
 }
 
 type ForgePeriod = '12h' | '24h' | '7d' | '1m' | '3m';
@@ -214,7 +224,9 @@ const FORGE_TREND_INTERVALS: Array<{
 
 interface ForgeTrendResponse {
   daily: ForgeStatsDaily[];
+  uniqueVisitors: ForgeStatsUniqueVisitors[];
   coverageStart: string;
+  rawUniqueStart: string;
 }
 
 function trendBucketKey(dateValue: string | Date, unit: ForgeTrendUnit) {
@@ -223,6 +235,16 @@ function trendBucketKey(dateValue: string | Date, unit: ForgeTrendUnit) {
   if (unit === 'month') return date.toISOString().slice(0, 7);
   if (unit === 'week') date.setUTCDate(date.getUTCDate() - ((date.getUTCDay() + 6) % 7));
   return date.toISOString().slice(0, 10);
+}
+
+function hasFullRawVisitorCoverage(bucketKey: string, rawStart: string, unit: ForgeTrendUnit) {
+  if (unit === 'day') return bucketKey >= rawStart;
+  if (unit === 'month') {
+    const startMonth = rawStart.slice(0, 7);
+    return bucketKey > startMonth || (bucketKey === startMonth && rawStart.slice(8, 10) === '01');
+  }
+  const rawWeek = trendBucketKey(rawStart, 'week');
+  return bucketKey > rawWeek || (bucketKey === rawWeek && rawStart === rawWeek);
 }
 
 function trendBucketLabel(key: string, unit: ForgeTrendUnit) {
@@ -255,6 +277,7 @@ const sidebarItems = [
   { to: '/matches', label: 'Match booking', icon: <SoccerBall size={18} weight="bold" /> },
   { to: '/stats', label: 'Statistics', icon: <ChartLineUp size={18} weight="bold" /> },
   { to: '/faq', label: 'FAQ', icon: <ListBullets size={18} weight="bold" /> },
+  { to: '/locales', label: 'Locales', icon: <Globe size={18} weight="bold" /> },
   { to: '/testing', label: 'Testing', icon: <Flask size={18} weight="bold" /> },
   { to: '/admins', label: 'Admins', icon: <Users size={18} weight="bold" /> },
 ];
@@ -294,11 +317,17 @@ function ActivityBarTooltip({
   id,
   label,
   eventCounts,
+  uniqueVisitorCounts,
+  popularRoute,
+  rawUniqueAvailable = true,
   available = true,
 }: {
   id: string;
   label: string;
   eventCounts: Record<string, number>;
+  uniqueVisitorCounts: Record<string, number>;
+  popularRoute: { route: string; count: number } | null;
+  rawUniqueAvailable?: boolean;
   available?: boolean;
 }) {
   const entries = Object.entries(eventCounts)
@@ -320,12 +349,23 @@ function ActivityBarTooltip({
                   {entries.map(([eventType, count]) => (
                     <li key={eventType}>
                       <span>{activityEventLabel(eventType)}</span>
-                      <span>{count}</span>
+                      <span>
+                        {count}
+                        {rawUniqueAvailable && uniqueVisitorCounts[eventType] !== undefined
+                          ? ` · ${uniqueVisitorCounts[eventType]} unique`
+                          : ''}
+                      </span>
                     </li>
                   ))}
                 </ul>
               ) : (
                 <span>No tracked events.</span>
+              )}
+              {entries.length > 0 && !rawUniqueAvailable && (
+                <small>Unique visitor counts are available for the last 90 days of raw events.</small>
+              )}
+              {popularRoute && (
+                <p>Most viewed: {popularRoute.route} · {popularRoute.count} views</p>
               )}
               <p>Each event is a page view, page exit, or tracked action. Localhost and admin activity are excluded.</p>
             </>
@@ -893,12 +933,14 @@ function ForgeShell({
   onLogoutMain,
   onLogoutForge,
   onLogin,
+  localeEditorOnly = false,
 }: {
   children: React.ReactNode;
   managerName: string | null;
   onLogoutMain: () => void;
   onLogoutForge: () => void;
   onLogin: () => void;
+  localeEditorOnly?: boolean;
 }) {
   return (
     <div className={styles.page}>
@@ -910,7 +952,7 @@ function ForgeShell({
       />
       <div className={styles.shell}>
         <aside className={styles.sidebar}>
-          {sidebarItems.map((item) => (
+          {sidebarItems.filter((item) => !localeEditorOnly || item.to === '/locales').map((item) => (
             <NavLink
               key={item.to}
               to={item.to}
@@ -972,7 +1014,12 @@ function ForgeDashboard({
       setTrendLoading(true);
       setTrendError('');
       try {
-        const params = new URLSearchParams({ route: 'forge-stats', trend: '1', since: trendSince });
+        const params = new URLSearchParams({
+          route: 'forge-stats',
+          trend: '1',
+          since: trendSince,
+          unit: trendConfig.unit,
+        });
         const response = await fetch(`/api/app?${params.toString()}`, { credentials: 'include' });
         const payload = (await response.json()) as ForgeTrendResponse & { error?: string };
         if (!response.ok) throw new Error(payload.error || 'Could not load activity trend.');
@@ -988,7 +1035,7 @@ function ForgeDashboard({
     return () => {
       cancelled = true;
     };
-  }, [trendSince]);
+  }, [trendSince, trendConfig.unit]);
 
   useEffect(() => {
     if (!since) return;
@@ -1085,12 +1132,26 @@ function ForgeDashboard({
     }
     const counts = new Map<string, number>();
     const eventBreakdowns = new Map<string, Map<string, number>>();
+    const uniqueBreakdowns = new Map<string, Map<string, number>>();
+    const popularRoutes = new Map<string, Map<string, number>>();
     for (const row of trendData?.daily || []) {
       const key = trendBucketKey(row.activity_date, trendConfig.unit);
       counts.set(key, (counts.get(key) || 0) + row.event_count);
       const eventCounts = eventBreakdowns.get(key) || new Map<string, number>();
       eventCounts.set(row.event_type, (eventCounts.get(row.event_type) || 0) + row.event_count);
       eventBreakdowns.set(key, eventCounts);
+      if (row.event_type === 'page_view' && row.route) {
+        const routes = popularRoutes.get(key) || new Map<string, number>();
+        const route = row.route.split('?')[0];
+        routes.set(route, (routes.get(route) || 0) + row.event_count);
+        popularRoutes.set(key, routes);
+      }
+    }
+    for (const row of trendData?.uniqueVisitors || []) {
+      const key = row.activity_date;
+      const eventCounts = uniqueBreakdowns.get(key) || new Map<string, number>();
+      eventCounts.set(row.event_type, row.visitor_count);
+      uniqueBreakdowns.set(key, eventCounts);
     }
     const coverageKey = trendData ? trendBucketKey(trendData.coverageStart, trendConfig.unit) : '';
     return keys.map((key) => ({
@@ -1098,6 +1159,9 @@ function ForgeDashboard({
       label: trendBucketLabel(key, trendConfig.unit),
       count: counts.get(key) || 0,
       eventCounts: Object.fromEntries(eventBreakdowns.get(key) || []),
+      uniqueVisitorCounts: Object.fromEntries(uniqueBreakdowns.get(key) || []),
+      popularRoute: Array.from(popularRoutes.get(key) || []).sort((a, b) => b[1] - a[1])[0] || null,
+      rawUniqueAvailable: Boolean(trendData && hasFullRawVisitorCoverage(key, trendData.rawUniqueStart, trendConfig.unit)),
       available: Boolean(trendData && key >= coverageKey),
     }));
   }, [clock, trendConfig.unit, trendSince, trendData]);
@@ -1202,6 +1266,9 @@ function ForgeDashboard({
                         id={`forge-dashboard-trend-${bucket.key}`}
                         label={bucket.label}
                         eventCounts={bucket.eventCounts}
+                        uniqueVisitorCounts={bucket.uniqueVisitorCounts}
+                        popularRoute={bucket.popularRoute}
+                        rawUniqueAvailable={bucket.rawUniqueAvailable}
                         available={bucket.available}
                       />
                       <span
@@ -1359,6 +1426,7 @@ function ForgeStatsSection() {
       try {
         const params = new URLSearchParams({ route: 'forge-stats' });
         params.set('since', since);
+        params.set('trendUnit', grouping);
         if (selectedUserId) params.set('userId', String(selectedUserId));
         if (selectedVisitorId) params.set('visitorId', selectedVisitorId);
         const response = await fetch(`/api/app?${params.toString()}`, { credentials: 'include' });
@@ -1386,7 +1454,7 @@ function ForgeStatsSection() {
     return () => {
       cancelled = true;
     };
-  }, [selectedUserId, selectedVisitorId, since]);
+  }, [grouping, selectedUserId, selectedVisitorId, since]);
 
   const loadMore = async () => {
     if (!cursor || loadingMore) return;
@@ -1445,9 +1513,11 @@ function ForgeStatsSection() {
     }
   };
 
+  const rawUniqueStart = data?.rawUniqueStart || '';
   const dailyTotals = useMemo(() => {
     const totals = new Map<string, number>();
     const eventBreakdowns = new Map<string, Map<string, number>>();
+    const popularRoutes = new Map<string, Map<string, number>>();
     for (const row of data?.daily || []) {
       let key = row.activity_date;
       if (grouping === 'week') {
@@ -1459,11 +1529,30 @@ function ForgeStatsSection() {
       const eventCounts = eventBreakdowns.get(key) || new Map<string, number>();
       eventCounts.set(row.event_type, (eventCounts.get(row.event_type) || 0) + row.event_count);
       eventBreakdowns.set(key, eventCounts);
+      if (row.event_type === 'page_view' && row.route) {
+        const routes = popularRoutes.get(key) || new Map<string, number>();
+        const route = row.route.split('?')[0];
+        routes.set(route, (routes.get(route) || 0) + row.event_count);
+        popularRoutes.set(key, routes);
+      }
+    }
+    const uniqueBreakdowns = new Map<string, Map<string, number>>();
+    for (const row of data?.uniqueVisitors || []) {
+      const eventCounts = uniqueBreakdowns.get(row.activity_date) || new Map<string, number>();
+      eventCounts.set(row.event_type, row.visitor_count);
+      uniqueBreakdowns.set(row.activity_date, eventCounts);
     }
     return Array.from(totals.entries())
       .sort(([left], [right]) => left.localeCompare(right))
-      .map(([key, count]) => ({ key, count, eventCounts: Object.fromEntries(eventBreakdowns.get(key) || []) }));
-  }, [data?.daily, grouping]);
+      .map(([key, count]) => ({
+        key,
+        count,
+        eventCounts: Object.fromEntries(eventBreakdowns.get(key) || []),
+        uniqueVisitorCounts: Object.fromEntries(uniqueBreakdowns.get(key) || []),
+        popularRoute: Array.from(popularRoutes.get(key) || []).sort((a, b) => b[1] - a[1])[0] || null,
+        rawUniqueAvailable: Boolean(rawUniqueStart && hasFullRawVisitorCoverage(key, rawUniqueStart, grouping)),
+      }));
+  }, [data?.daily, data?.uniqueVisitors, grouping, rawUniqueStart]);
   const maxDaily = Math.max(1, ...dailyTotals.map((bucket) => bucket.count));
   const selectedVisitor = data?.visitors.find((visitor) => visitor.visitorId === selectedVisitorId) || null;
   const selectedLabel =
@@ -1509,6 +1598,9 @@ function ForgeStatsSection() {
                         id={`forge-stats-trend-${bucket.key}`}
                         label={bucket.key}
                         eventCounts={bucket.eventCounts}
+                        uniqueVisitorCounts={bucket.uniqueVisitorCounts}
+                        popularRoute={bucket.popularRoute}
+                        rawUniqueAvailable={bucket.rawUniqueAvailable}
                       />
                       <span
                         className={styles.activityBar}
@@ -2060,6 +2152,72 @@ function ForgeFaqEditor() {
   );
 }
 
+interface ChallengeableDirectoryUser {
+  managerId: number;
+  managerName: string;
+  teams: Array<{ teamId: number; teamName: string; availabilityReason?: string }>;
+}
+
+interface ChallengeableDirectoryIssue {
+  managerId: number;
+  managerName: string;
+  reason: string;
+}
+
+interface ChallengeableDirectoryProgress {
+  scanned: number;
+  checkedManagers: number;
+  checkedTeams: number;
+  skipped: number;
+  failed: number;
+  unavailableTeams: number;
+  managersWithNoTeams: number;
+  managersWithoutAvailableTeams: number;
+}
+
+interface ChallengeableDirectoryState {
+  users: ChallengeableDirectoryUser[];
+  issues: ChallengeableDirectoryIssue[];
+  cursor: number;
+  hasMore: boolean;
+  started: boolean;
+  progress: ChallengeableDirectoryProgress;
+}
+
+const CHALLENGEABLE_DIRECTORY_STORAGE_KEY = 'forge-challengeable-directory';
+const EMPTY_CHALLENGEABLE_PROGRESS: ChallengeableDirectoryProgress = {
+  scanned: 0,
+  checkedManagers: 0,
+  checkedTeams: 0,
+  skipped: 0,
+  failed: 0,
+  unavailableTeams: 0,
+  managersWithNoTeams: 0,
+  managersWithoutAvailableTeams: 0,
+};
+
+function readChallengeableDirectoryState(): ChallengeableDirectoryState {
+  if (typeof window === 'undefined') {
+    return { users: [], issues: [], cursor: 0, hasMore: false, started: false, progress: EMPTY_CHALLENGEABLE_PROGRESS };
+  }
+  try {
+    const parsed = JSON.parse(window.sessionStorage.getItem(CHALLENGEABLE_DIRECTORY_STORAGE_KEY) || 'null') as Partial<ChallengeableDirectoryState> | null;
+    if (!parsed || !Array.isArray(parsed.users) || !Number.isSafeInteger(parsed.cursor)) {
+      return { users: [], issues: [], cursor: 0, hasMore: false, started: false, progress: EMPTY_CHALLENGEABLE_PROGRESS };
+    }
+    return {
+      users: parsed.users,
+      issues: Array.isArray(parsed.issues) ? parsed.issues : [],
+      cursor: parsed.cursor || 0,
+      hasMore: Boolean(parsed.hasMore),
+      started: Boolean(parsed.started),
+      progress: { ...EMPTY_CHALLENGEABLE_PROGRESS, ...parsed.progress },
+    };
+  } catch {
+    return { users: [], issues: [], cursor: 0, hasMore: false, started: false, progress: EMPTY_CHALLENGEABLE_PROGRESS };
+  }
+}
+
 function ForgeTestingSection() {
   const [managerId, setManagerId] = useState(() =>
     typeof window !== 'undefined' ? window.localStorage.getItem('forge_ht_user_id') || '' : '',
@@ -2069,6 +2227,19 @@ function ForgeTestingSection() {
   const [weekend, setWeekend] = useState(false);
   const [output, setOutput] = useState('');
   const [loading, setLoading] = useState(false);
+  const [directory, setDirectory] = useState(readChallengeableDirectoryState);
+  const [directoryLoading, setDirectoryLoading] = useState(false);
+  const [directoryError, setDirectoryError] = useState('');
+  const directoryPauseRequested = useRef(false);
+
+  useEffect(() => {
+    if (!directory.started) return;
+    try {
+      window.sessionStorage.setItem(CHALLENGEABLE_DIRECTORY_STORAGE_KEY, JSON.stringify(directory));
+    } catch {
+      // Keep the current scan results usable if session storage is unavailable.
+    }
+  }, [directory]);
 
   const runTool = async (tool: string, sideEffect = false) => {
     if (sideEffect && !window.confirm('This can send a real Hattrick challenge. Continue?')) return;
@@ -2084,6 +2255,67 @@ function ForgeTestingSection() {
       setOutput(error instanceof Error ? error.message : 'Testing request failed.');
     } finally {
       setLoading(false);
+    }
+  };
+
+  const scanChallengeableDirectory = async (restart = false) => {
+    if (directoryLoading || (directory.started && !directory.hasMore && !restart)) return;
+    let cursor = restart ? 0 : directory.cursor;
+    directoryPauseRequested.current = false;
+    setDirectoryLoading(true);
+    setDirectoryError('');
+    try {
+      while (!directoryPauseRequested.current) {
+        const params = new URLSearchParams({ tool: 'challengeable-directory', cursor: String(cursor) });
+        const response = await fetch(`/api/testing?${params.toString()}`, { credentials: 'include' });
+        const payload = await response.json() as {
+          error?: string;
+          users?: ChallengeableDirectoryUser[];
+          issues?: ChallengeableDirectoryIssue[];
+          scannedProfiles?: number;
+          checkedManagers?: number;
+          checkedTeams?: number;
+          unavailableCredentials?: number;
+          failedChecks?: number;
+          unavailableTeams?: number;
+          managersWithNoTeams?: number;
+          managersWithoutAvailableTeams?: number;
+          nextCursor?: number | null;
+          hasMore?: boolean;
+        };
+        if (!response.ok) throw new Error(payload.error || 'Could not scan challengeable teams.');
+        setDirectory((current) => {
+          const usersById = new Map(current.users.map((user) => [user.managerId, user]));
+          for (const user of payload.users || []) usersById.set(user.managerId, user);
+          const issuesByKey = new Map(current.issues.map((issue) => [`${issue.managerId}:${issue.reason}`, issue]));
+          for (const issue of payload.issues || []) issuesByKey.set(`${issue.managerId}:${issue.reason}`, issue);
+          return {
+            users: Array.from(usersById.values()),
+            issues: Array.from(issuesByKey.values()),
+            cursor: payload.nextCursor ?? cursor,
+            hasMore: Boolean(payload.hasMore),
+            started: true,
+            progress: {
+              scanned: current.progress.scanned + (payload.scannedProfiles || 0),
+              checkedManagers: current.progress.checkedManagers + (payload.checkedManagers || 0),
+              checkedTeams: current.progress.checkedTeams + (payload.checkedTeams || 0),
+              skipped: current.progress.skipped + (payload.unavailableCredentials || 0),
+              failed: current.progress.failed + (payload.failedChecks || 0),
+              unavailableTeams: current.progress.unavailableTeams + (payload.unavailableTeams || 0),
+              managersWithNoTeams: current.progress.managersWithNoTeams + (payload.managersWithNoTeams || 0),
+              managersWithoutAvailableTeams:
+                current.progress.managersWithoutAvailableTeams + (payload.managersWithoutAvailableTeams || 0),
+            },
+          };
+        });
+        if (!payload.hasMore || payload.nextCursor === null || payload.nextCursor === undefined) break;
+        cursor = payload.nextCursor;
+        await new Promise((resolve) => window.setTimeout(resolve, 3000));
+      }
+    } catch (error) {
+      setDirectoryError(error instanceof Error ? error.message : 'Could not scan challengeable teams.');
+    } finally {
+      setDirectoryLoading(false);
     }
   };
 
@@ -2137,6 +2369,101 @@ function ForgeTestingSection() {
         </p>
         {output && <pre className={styles.testingOutput}>{output}</pre>}
       </SectionCard>
+      <SectionCard
+        title="Challengeable teams"
+        subtitle="Current matchmaker availability, checked through each manager’s stored CHPP access."
+        className={styles.surfaceCard}
+      >
+        <div className={styles.editorActions}>
+          <Button
+            variant="outline"
+            disabled={directoryLoading}
+            onClick={() => void scanChallengeableDirectory(directory.started && !directory.hasMore)}
+          >
+            {directoryLoading
+              ? 'Scanning users…'
+              : !directory.started
+                ? 'Scan all users'
+                : directory.hasMore
+                  ? 'Continue scan'
+                  : 'Rescan from start (keep results)'}
+          </Button>
+          {directoryLoading && (
+            <Button variant="outline" onClick={() => { directoryPauseRequested.current = true; }}>
+              Pause scan
+            </Button>
+          )}
+          {directory.started && (
+            <span className={styles.smallNote}>
+              Scanned {directory.progress.scanned} users · {directory.progress.checkedManagers} had CHPP access ·
+              {' '}{directory.progress.checkedTeams} teams checked · {directory.progress.unavailableTeams} unavailable
+            </span>
+          )}
+        </div>
+        {directoryError && <p className={styles.errorText}>{directoryError}</p>}
+        {directoryLoading && <p className={styles.smallNote}>The next batch starts three seconds after each completed batch. Completed results are saved in this tab’s session storage.</p>}
+        {directory.started && (
+          <details className={styles.challengeableScanDetails}>
+            <summary>Scan diagnostics</summary>
+            <p className={styles.smallNote}>
+              {directory.progress.skipped} users lacked stored CHPP credentials · {directory.progress.failed} CHPP or team checks failed ·
+              {' '}{directory.progress.managersWithNoTeams} users had no current teams ·
+              {' '}{directory.progress.managersWithoutAvailableTeams} users had no team available to challenge
+            </p>
+            {directory.issues.length > 0 && (
+              <ul>
+                {directory.issues.slice(0, 30).map((issue) => (
+                  <li key={`${issue.managerId}:${issue.reason}`}>
+                    {issue.managerName} ·{' '}
+                    <a
+                      href={`https://www.hattrick.org/goto.ashx?path=/Club/Manager/?userId=${issue.managerId}`}
+                      target="_blank"
+                      rel="noreferrer"
+                    >
+                      {issue.managerId}
+                    </a>
+                    : {issue.reason}
+                  </li>
+                ))}
+              </ul>
+            )}
+            {directory.issues.length > 30 && <span>Showing first 30 diagnostic entries.</span>}
+          </details>
+        )}
+        {directory.started && directory.users.length === 0 && !directoryLoading && !directory.hasMore && (
+          <p className={styles.smallNote}>No currently challengeable teams found in the scanned users.</p>
+        )}
+        {directory.users.length > 0 && (
+          <div className={styles.challengeableDirectory}>
+            {directory.users.map((manager) => (
+              <article key={manager.managerId}>
+                <h3>{manager.managerName}</h3>
+                <a
+                  href={`https://www.hattrick.org/goto.ashx?path=/Club/Manager/?userId=${manager.managerId}`}
+                  target="_blank"
+                  rel="noreferrer"
+                >
+                  {manager.managerId}
+                </a>
+                <ul>
+                  {manager.teams.map((team) => (
+                    <li key={team.teamId}>
+                      <strong>{team.teamName}</strong>
+                      <a
+                        href={`https://www.hattrick.org/goto.ashx?path=/Club/?TeamID=${team.teamId}`}
+                        target="_blank"
+                        rel="noreferrer"
+                      >
+                        {team.teamId}
+                      </a>
+                    </li>
+                  ))}
+                </ul>
+              </article>
+            ))}
+          </div>
+        )}
+      </SectionCard>
     </section>
   );
 }
@@ -2169,16 +2496,18 @@ export const ForgePage: React.FC = () => {
       managerName={auth.managerName || (auth.isDevBypass ? 'Superadmin' : null)}
       onLogin={auth.login}
       onLogoutMain={auth.logoutMain}
-      onLogoutForge={auth.logoutForge}
+      onLogoutForge={auth.role === 'locale-editor' ? auth.logoutLocaleEditor : auth.logoutForge}
+      localeEditorOnly={auth.role === 'locale-editor'}
     >
       <Routes>
-        <Route index element={<ForgeDashboard adminUserId={auth.userId} adminManagerName={auth.managerName} />} />
-        <Route path="stats" element={<ForgeStatsSection />} />
-        <Route path="matches" element={<ForgeMatchesSection />} />
-        <Route path="faq" element={<ForgeFaqEditor />} />
-        <Route path="testing" element={<ForgeTestingSection />} />
-        <Route path="admins" element={<ForgeAdminsSection />} />
-        <Route path="*" element={<Navigate to="/" replace />} />
+        {auth.role === 'admin' && <Route index element={<ForgeDashboard adminUserId={auth.userId} adminManagerName={auth.managerName} />} />}
+        {auth.role === 'admin' && <Route path="stats" element={<ForgeStatsSection />} />}
+        {auth.role === 'admin' && <Route path="matches" element={<ForgeMatchesSection />} />}
+        {auth.role === 'admin' && <Route path="faq" element={<ForgeFaqEditor />} />}
+        <Route path="locales" element={<ForgeLocales isAdmin={auth.role === 'admin'} />} />
+        {auth.role === 'admin' && <Route path="testing" element={<ForgeTestingSection />} />}
+        {auth.role === 'admin' && <Route path="admins" element={<ForgeAdminsSection />} />}
+        <Route path="*" element={<Navigate to={auth.role === 'locale-editor' ? '/locales' : '/'} replace />} />
       </Routes>
     </ForgeShell>
   );

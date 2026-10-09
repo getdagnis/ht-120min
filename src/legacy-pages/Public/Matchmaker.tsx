@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
+import { useTranslations } from 'next-intl';
 import { supabase } from '../../lib/supabase';
 import { useAuth } from '../../hooks/useAuth';
 import {
@@ -304,6 +305,7 @@ const getTeamFitScore = (selectedTeam: ChppTeamOption | undefined, target: Match
 };
 
 export const Matchmaker: React.FC = () => {
+  const t = useTranslations('Tinder');
   const { profile } = useAuth();
   const [nowMs] = useState(() => Date.now());
   const mockDataEnabled = isMatchmakerMockDataEnabled();
@@ -1234,7 +1236,7 @@ export const Matchmaker: React.FC = () => {
       {/* Browsing As Overlay */}
       {myTeams.length > 1 && (profile || mockDataEnabled) && (
         <div className={styles.browsingAsOverlay}>
-          <span>Selected team for challenge:</span>
+          <span>{t('selectedTeam')}</span>
           <select value={selectedHtTeamId} onChange={(e) => setSelectedHtTeamId(Number(e.target.value))}>
             {myTeams.map((team) => (
               <option key={team.teamId} value={team.teamId}>
@@ -1352,8 +1354,8 @@ export const Matchmaker: React.FC = () => {
         ) : (
           <div className={styles.myRequests}>
             <div className={styles.myAdsHeader}>
-              <h3>Your published ads</h3>
-              <p>Here you can view, modify and see activity on your own ads.</p>
+              <h3>{t('publishedAds')}</h3>
+              <p>{t('publishedAdsDescription')}</p>
             </div>
             {myRequests.length > 0 ? (
               <div className={styles.requestGrid}>
@@ -1445,7 +1447,7 @@ export const Matchmaker: React.FC = () => {
                             {req.message ? `"${req.message}"` : <strong>{getMessagePlaceholder(req)}</strong>}
                           </div>
                           <div className={styles.adProfileSummary}>
-                            <span className={styles.summaryLabel}>Looking for</span>
+                            <span className={styles.summaryLabel}>{t('lookingFor')}</span>
                             <div className={styles.badges}>
                               <span className={styles.badge}>
                                 {req.match_type === '120min' ? '120 min training' : '90 min acceptable'}
@@ -1490,7 +1492,7 @@ export const Matchmaker: React.FC = () => {
                         </div>
                       )}
                       <div className={styles.activitySection}>
-                        <div className={styles.activityHeader}>Activity</div>
+                        <div className={styles.activityHeader}>{t('activity')}</div>
                         {(adActivity[req.id] ?? []).length > 0 ? (
                           <div className={styles.activityList}>
                             {adActivity[req.id].map((item) => (
@@ -1511,7 +1513,7 @@ export const Matchmaker: React.FC = () => {
                           </div>
                         ) : (
                           <div className={styles.activityEmpty}>
-                            <p>No activity yet.</p>
+                            <p>{t('noActivity')}</p>
                           </div>
                         )}
                       </div>
@@ -1521,7 +1523,7 @@ export const Matchmaker: React.FC = () => {
               </div>
             ) : (
               <div className={styles.emptyState}>
-                <p>You haven't posted any teams this week.</p>
+                <p>{t('noAds')}</p>
                 <Button size="md" variant="tinder" onClick={handleStartPosting}>
                   Post an Ad
                 </Button>
@@ -1565,7 +1567,7 @@ export const Matchmaker: React.FC = () => {
       >
         <form onSubmit={handleCreateRequest} className={styles.postModal}>
           <div className={styles.formGroup}>
-            <label>Team</label>
+            <label>{t('team')}</label>
             {teamsLoading ? (
               <div className={styles.noTeamsMessage}>
                 <p>Let's check on your teams first...</p>
@@ -1647,7 +1649,7 @@ export const Matchmaker: React.FC = () => {
           </div>
 
           <div className={styles.formGroup}>
-            <label>Match Type</label>
+            <label>{t('matchType')}</label>
             <div className={styles.checkboxGroup}>
               <label className={styles.checkboxLabel}>
                 <input
@@ -1683,7 +1685,7 @@ export const Matchmaker: React.FC = () => {
           </div>
 
           <div className={styles.formGroup}>
-            <label>Venue Preference</label>
+            <label>{t('venuePreference')}</label>
             <select value={homeAway} onChange={(e) => setHomeAway(e.target.value as 'home' | 'away' | 'any')}>
               <option value="any">your place or my place</option>
               <option value="away">your place</option>

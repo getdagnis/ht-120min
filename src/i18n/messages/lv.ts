@@ -1,4 +1,4 @@
-import en from './en';
+import en from './en.js';
 
 const messages = {
   ...en,
@@ -202,6 +202,23 @@ const messages = {
       },
     },
 },
+  TournamentView: {
+    loading: '', notFound: '', chatWithParticipants: '', connectingHattrick: '',
+    tournamentFull: '', participating: '', joining: '',
+  },
+  CreateTournament: {
+    title: '', tournamentName: '', uniqueSlug: '', leagueCategory: '', tournamentType: '',
+    scoringMode: '', maxTeams: '', ready: '', loadingTeams: '', noTeams: '',
+  },
+  Tinder: {
+    selectedTeam: '', publishedAds: '', publishedAdsDescription: '', lookingFor: '',
+    activity: '', noActivity: '', noAds: '', team: '', matchType: '', venuePreference: '',
+  },
+  ManagerProfiles: {
+    loadingProfile: '', signIn: '', memberArea: '', myProfile: '', pageHint: '',
+    loadingTeams: '', noActiveTeams: '', active: '', history: '', member: '', participant: '', joined: '',
+    registeredTeams: '', activeIn: '', achievements: '', registeredOn: '', tookPart: '',
+  },
 } as const;
 
 export default messages;

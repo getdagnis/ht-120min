@@ -39,7 +39,7 @@ The app treats tournaments, rounds, matches, standings, chat, and admin decision
 - `migrations/history/` is an archived legacy area.
 - Active migrations must use the root `migrations/` directory.
 - Continue the numeric sequence from the latest active migration.
-- The latest active migration file is `105_add_clean_activity_trend_rollup.sql` (prepared locally, not applied). The repository's migration files and owner-added applied markers are bookkeeping, not independent live schema verification.
+- The latest active migration file is `106_forge_locale_catalog.sql` (prepared locally, not applied). The repository's migration files and owner-added applied markers are bookkeeping, not independent live schema verification.
 - Do not create timestamp-prefixed migration names such as `20261001050614_...`.
 - Keep migrations compatible with existing rows when possible.
 - Record migration state in `PROJECT_STATE.md` only when a schema/RPC/RLS change has architectural, security, product-direction, or substantial behavioral impact. Do not add status entries for routine fixes or small implementation details.
@@ -75,6 +75,7 @@ Recent important migrations:
 - `098_publish_home_tournament_descriptions.sql` (Home description publication dirty hook and initial rebuild request; owner reported a syntax error while applying it on 2026-10-06. The missing SQL comment marker is corrected locally. Its existing owner-added `-- applied!` marker was left untouched and is not evidence of live application.)
 - `099_collection_homepage_groups.sql` (prepared locally: nullable collection homepage group, Exotic backfill and Home publication dirtying; not applied)
 - `100_tournament_modification_time.sql` (prepared locally: public tournament edit timestamp with creation-time backfill and Home publication dirtying; not applied)
+- `106_forge_locale_catalog.sql` (prepared locally: service-only locale settings, drafts, published sections, and immutable history; not applied)
 
 Public publication rollout state, preflight and test boundaries are in
 [`public-data-implementation.md`](public-data-implementation.md). Publication artifacts are server-only; the prepared

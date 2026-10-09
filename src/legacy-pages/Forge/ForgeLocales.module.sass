@@ -1,0 +1,204 @@
+.page
+  display: grid
+  gap: 1rem
+  min-width: 0
+
+.heading
+  display: flex
+  align-items: end
+  justify-content: space-between
+  gap: 1rem
+
+  h1
+    margin: 0
+    font-family: var(--heading)
+
+  p
+    margin: 0.25rem 0 0
+    color: var(--text60)
+
+.heading select,
+.settings input,
+.settings select,
+.history select
+  background: var(--table-bg-main)
+  color: var(--text-h)
+  border: 1px solid var(--border)
+  border-radius: var(--radius-xs)
+  padding: 0.45rem 0.6rem
+
+.settings
+  display: flex
+  align-items: end
+  gap: 0.75rem
+  flex-wrap: wrap
+  padding: 0.85rem
+  background: var(--table-bg-main)
+  border: 1px solid var(--border)
+  border-radius: var(--radius-xs)
+
+  label
+    display: grid
+    gap: 0.25rem
+    color: var(--text60)
+    font-size: 0.8rem
+
+  input
+    min-width: 10rem
+
+.tabs
+  display: flex
+  gap: 0.35rem
+  overflow-x: auto
+
+  button
+    border: 1px solid var(--border)
+    border-radius: var(--radius-xs) var(--radius-xs) 0 0
+    background: var(--table-bg-main)
+    color: var(--text60)
+    padding: 0.55rem 0.85rem
+    cursor: pointer
+    white-space: nowrap
+
+  .activeTab
+    color: var(--accent-3)
+    border-bottom-color: var(--table-bg-main)
+
+.workspace
+  display: grid
+  grid-template-columns: 13rem minmax(0, 1fr)
+  gap: 0.7rem
+  min-height: 34rem
+
+.tree
+  display: grid
+  align-content: start
+  gap: 0.15rem
+
+  button
+    display: block
+    width: 100%
+    border: 0
+    background: transparent
+    color: var(--text60)
+    text-align: left
+    padding: 0.5rem 0.65rem
+    cursor: pointer
+
+  button:hover,
+  .activeTree
+    background: var(--lighter-less)
+    color: var(--text-h)
+
+  .child
+    padding-left: 1.55rem
+    font-size: 0.85rem
+
+.editorWrap
+  min-width: 0
+  background: var(--table-bg-main)
+  border: 1px solid var(--border)
+  border-radius: var(--radius-xs)
+  display: flex
+  flex-direction: column
+
+.editorHeading
+  display: flex
+  justify-content: space-between
+  gap: 1rem
+  padding: 0.8rem 1rem
+  border-bottom: 1px solid var(--border)
+
+  span
+    color: var(--text60)
+    font-size: 0.8rem
+
+.editor
+  height: 32rem
+  overflow: auto
+  padding: 0.6rem 0
+  font-family: var(--font-mono), monospace
+  font-size: 0.85rem
+
+.line
+  display: grid
+  grid-template-columns: minmax(9rem, 0.42fr) 1rem minmax(12rem, 1fr)
+  align-items: start
+  gap: 0.5rem
+  padding: 0.2rem 0.85rem
+
+  &:focus-within
+    background: var(--lighter-less)
+
+  .key
+    overflow-wrap: anywhere
+    color: var(--text60)
+
+  .equals
+    color: var(--text60)
+
+  textarea
+    width: 100%
+    min-height: 1.8rem
+    resize: vertical
+    border: 0
+    border-bottom: 1px solid var(--border-transp)
+    border-radius: 0
+    background: transparent
+    color: var(--text-h)
+    font: inherit
+    line-height: 1.45
+    padding: 0
+
+  textarea:focus
+    outline: 2px solid var(--accent-3)
+    outline-offset: 2px
+
+.empty
+  padding: 1rem
+  color: var(--text60)
+
+.footer
+  display: flex
+  justify-content: space-between
+  align-items: end
+  flex-wrap: wrap
+  gap: 0.75rem
+  border-top: 1px solid var(--border)
+  padding: 0.8rem
+
+.history
+  display: grid
+  gap: 0.2rem
+  color: var(--text60)
+  font-size: 0.75rem
+
+.actions
+  display: flex
+  align-items: center
+  gap: 0.5rem
+
+  a
+    color: var(--accent-3)
+    font-size: 0.85rem
+
+.error
+  color: #f66
+
+.notice
+  color: var(--accent-3)
+
+@media (max-width: 800px)
+  .heading
+    align-items: start
+    flex-direction: column
+
+  .workspace
+    grid-template-columns: 1fr
+
+  .tree
+    display: flex
+    flex-wrap: wrap
+
+  .line
+    grid-template-columns: 1fr 1rem minmax(10rem, 1.5fr)

@@ -33,7 +33,14 @@ export function proxy(request: NextRequest) {
     return NextResponse.redirect(target, 308);
   }
 
-  if (hasLocale(pathname)) return NextResponse.next();
+  if (hasLocale(pathname)) {
+    if (request.nextUrl.searchParams.get('localePreview') === '1') {
+      const headers = new Headers(request.headers);
+      headers.set('x-locale-preview', '1');
+      return NextResponse.next({ request: { headers } });
+    }
+    return NextResponse.next();
+  }
 
   return localeRedirect(request);
 }

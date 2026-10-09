@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { useTranslations } from 'next-intl';
 import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import { Modal } from '../Modal/Modal';
 import { Avatar } from '../Avatar/Avatar';
@@ -45,6 +46,7 @@ interface TeamInfo {
 }
 
 export const ProfileModal: React.FC<ProfileModalProps> = ({ isOpen, maxWidth, onClose, profileId, ownProfile }) => {
+  const t = useTranslations('ManagerProfiles');
   const [teams, setTeams] = useState<TeamInfo[]>([]);
   const [loading, setLoading] = useState(false);
   const pathname = usePathname() || '/';
@@ -140,7 +142,7 @@ export const ProfileModal: React.FC<ProfileModalProps> = ({ isOpen, maxWidth, on
             <div className={styles.meta}>
               <div className={styles.metaItem}>
                 <CalendarBlank size={18} />
-                <span>Joined {joinDate}</span>
+                <span>{t('joined', { date: joinDate })}</span>
               </div>
               {displayCountryName && (
                 <div className={styles.metaItem}>
@@ -161,11 +163,11 @@ export const ProfileModal: React.FC<ProfileModalProps> = ({ isOpen, maxWidth, on
         <div className={styles.body}>
           <section className={styles.section}>
             <h3>
-              <Trophy size={20} /> Registered Teams
+              <Trophy size={20} /> {t('registeredTeams')}
             </h3>
             <div className={styles.teamList}>
               {loading ? (
-                <p>Loading teams...</p>
+                <p>{t('loadingTeams')}</p>
               ) : teams.length > 0 ? (
                 teams.map((team) => (
                   <ModalTeamCard
@@ -179,25 +181,25 @@ export const ProfileModal: React.FC<ProfileModalProps> = ({ isOpen, maxWidth, on
                       leagueId: team.league_id,
                     }}
                     status={
-                      <>Active in: <a href={`/t/${team.tournament_slug}`}>{team.tournament_name}</a></>
+                      <>{t('activeIn')} <a href={`/t/${team.tournament_slug}`}>{team.tournament_name}</a></>
                     }
                   />
                 ))
               ) : (
-                <p>No active teams registered yet.</p>
+                <p>{t('noActiveTeams')}</p>
               )}
             </div>
           </section>
 
           <section className={styles.section}>
             <h3>
-              <Medal size={20} /> Achievements
+              <Medal size={20} /> {t('achievements')}
             </h3>
             <div className={styles.achievements}>
               <div className={styles.achievementItem}>
                 <div className={styles.medalIcon}>🥇</div>
                 <div className={styles.achievementInfo}>
-                  <strong>Registered on HT-120min</strong>
+                  <strong>{t('registeredOn')}</strong>
                   <span>on {joinDate}</span>
                 </div>
               </div>
@@ -205,7 +207,7 @@ export const ProfileModal: React.FC<ProfileModalProps> = ({ isOpen, maxWidth, on
                 <div className={styles.achievementItem}>
                   <div className={styles.medalIcon}>🏆</div>
                   <div className={styles.achievementInfo}>
-                    <strong>Took part in first tournament</strong>
+                    <strong>{t('tookPart')}</strong>
                     <span>{teams[teams.length - 1].tournament_name}</span>
                   </div>
                 </div>

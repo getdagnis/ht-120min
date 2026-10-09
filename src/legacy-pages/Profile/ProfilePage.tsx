@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useEffect, useState } from 'react';
+import { useTranslations } from 'next-intl';
 import Link from 'next/link';
 import { ArrowUpRight, CalendarBlank, Medal, Trophy, UsersThree } from 'phosphor-react';
 import { useLocale } from '../../i18n/LocaleProvider';
@@ -74,6 +75,7 @@ const ProfileTournamentList = ({
 };
 
 export const ProfilePage: React.FC = () => {
+  const t = useTranslations('ManagerProfiles');
   const { locale } = useLocale();
   const {
     profile,
@@ -127,8 +129,8 @@ export const ProfilePage: React.FC = () => {
   if (!authReady || loading) {
     return (
       <main className={styles.page}>
-        <SectionCard title="My Profile">
-          <p>Loading profile...</p>
+        <SectionCard title={t('myProfile')}>
+          <p>{t('loadingProfile')}</p>
         </SectionCard>
       </main>
     );
@@ -137,9 +139,9 @@ export const ProfilePage: React.FC = () => {
   if (!profile) {
     return (
       <main className={styles.page}>
-        <SectionCard title="My Profile">
+        <SectionCard title={t('myProfile')}>
           <div className={styles.loginState}>
-            <p>Sign in with Hattrick to view your profile and tournament history.</p>
+            <p>{t('signIn')}</p>
             <Button
               size="sm"
               onClick={() => {
@@ -176,10 +178,10 @@ export const ProfilePage: React.FC = () => {
     <main className={styles.page}>
       <header className={styles.pageHeader}>
         <div>
-          <p className={styles.eyebrow}>HT-120min member area</p>
-          <h1>My Profile</h1>
+          <p className={styles.eyebrow}>{t('memberArea')}</p>
+          <h1>{t('myProfile')}</h1>
         </div>
-        <span className={styles.pageHint}>Your teams, tournaments, and history</span>
+        <span className={styles.pageHint}>{t('pageHint')}</span>
       </header>
 
       <div className={styles.profileGrid}>
@@ -230,7 +232,7 @@ export const ProfilePage: React.FC = () => {
         <div className={styles.mainColumn}>
           <SectionCard title="Registered teams" variant="grass">
             {!teamsLoaded ? (
-              <p className={styles.emptyMessage}>Loading teams...</p>
+              <p className={styles.emptyMessage}>{t('loadingTeams')}</p>
             ) : teams.length > 0 ? (
               <div className={styles.teamList}>
                 {teams.map((team) => (
@@ -247,7 +249,7 @@ export const ProfilePage: React.FC = () => {
                     status={
                       team.tournament_slug ? (
                         <Link href={toLocalePath(locale, `/t/${team.tournament_slug}`)}>
-                          Active in: {team.tournament_name}
+                          {t('activeIn')} {team.tournament_name}
                         </Link>
                       ) : (
                         team.tournament_name
@@ -257,17 +259,17 @@ export const ProfilePage: React.FC = () => {
                 ))}
               </div>
             ) : (
-              <p className={styles.emptyMessage}>No active teams registered yet.</p>
+              <p className={styles.emptyMessage}>{t('noActiveTeams')}</p>
             )}
           </SectionCard>
 
           <SectionCard title="Participating tournaments">
             <div className={styles.tournamentGroup}>
-              <h3>Active</h3>
+              <h3>{t('active')}</h3>
               <ProfileTournamentList tournaments={activeTournaments} emptyMessage="No active tournaments." />
             </div>
             <div className={styles.tournamentGroup}>
-              <h3>Finished / history</h3>
+              <h3>{t('history')}</h3>
               <ProfileTournamentList tournaments={finishedTournaments} emptyMessage="No finished tournaments yet." />
             </div>
           </SectionCard>
@@ -323,15 +325,15 @@ export const ProfilePage: React.FC = () => {
               <div className={styles.achievementItem}>
                 <span className={styles.achievementIcon}>🥇</span>
                 <div>
-                  <strong>HT-120min member</strong>
-                  <span>Joined {formatJoinDate(profile.created_at)}</span>
+                  <strong>{t('member')}</strong>
+                  <span>{t('joined', { date: formatJoinDate(profile.created_at) })}</span>
                 </div>
               </div>
               {teams.length > 0 && (
                 <div className={styles.achievementItem}>
                   <span className={styles.achievementIcon}>🏆</span>
                   <div>
-                    <strong>Tournament participant</strong>
+                    <strong>{t('participant')}</strong>
                     <span>
                       {teams.length} active registered team{teams.length === 1 ? '' : 's'}
                     </span>

@@ -34,7 +34,7 @@ and shared `Layout`. Unprefixed public URLs are redirected by `src/proxy.ts` to 
 - `src/legacy-pages/Public/Matchmaker.tsx` owns friendly-ad browsing and Matchmaker interactions.
 - `src/legacy-pages/Forge` contains the internal site-admin UI for match booking, recent activity, and usage analytics; it remains the only React Router consumer.
 - `src/components/` contains reusable UI and tab-level client components.
-- `src/i18n/` contains locale validation, dictionaries, and language switching.
+- `src/i18n/` contains locale validation, source dictionaries, published catalog loading, and language switching. Forge catalog ownership and rollout are in [UI locales](locales.md).
 - `src/global.sass` contains global Sass variables and theme styles; component styles use Sass modules.
 - `src/next/ClientOnlyPublicRoutes.tsx` contains temporary client-only parity boundaries for non-SSR public routes.
 

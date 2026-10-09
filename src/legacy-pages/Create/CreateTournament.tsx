@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
+import { useTranslations } from 'next-intl';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { supabase } from '../../lib/supabase';
@@ -179,6 +180,7 @@ interface FetchedTeamData {
 }
 
 export const CreateTournament: React.FC = () => {
+  const t = useTranslations('CreateTournament');
   const { notice, showNotice: alert, closeNotice } = useNoticeDialog();
   const router = useRouter();
   const { locale } = useLocale();
@@ -1112,12 +1114,12 @@ export const CreateTournament: React.FC = () => {
               </button>
             </div>
             <HeroCard>
-              <h1>Create Tournament</h1>
+              <h1>{t('title')}</h1>
               <img src="/create.png" alt="HT-120min" />
               <form onSubmit={handleContinue} className={styles.form}>
                 <div className={styles.field}>
                   <div className={styles.labelRow}>
-                    <label htmlFor="tournament_name">Tournament Name</label>
+                    <label htmlFor="tournament_name">{t('tournamentName')}</label>
                     <button
                       type="button"
                       onClick={regenerateName}
@@ -1163,7 +1165,7 @@ export const CreateTournament: React.FC = () => {
                   )}
                 </div>
                 <div className={styles.field}>
-                  <label htmlFor="tournament_slug">Unique URL Slug</label>
+                  <label htmlFor="tournament_slug">{t('uniqueSlug')}</label>
                   <input
                     id="tournament_slug"
                     name="tournament_slug"
@@ -1176,7 +1178,7 @@ export const CreateTournament: React.FC = () => {
                   />
                 </div>
                 <div className={styles.field}>
-                  <label htmlFor="league_category">Regular or Femme</label>
+                  <label htmlFor="league_category">{t('leagueCategory')}</label>
                   <select
                     id="league_category"
                     value={formData.league_category}
@@ -1219,7 +1221,7 @@ export const CreateTournament: React.FC = () => {
                   </select>
                 </div>
                 <div className={styles.field}>
-                  <label htmlFor="registration_type">Tournament Type</label>
+                  <label htmlFor="registration_type">{t('tournamentType')}</label>
                   <select
                     id="registration_type"
                     value={formData.registration_type}
@@ -1272,7 +1274,7 @@ export const CreateTournament: React.FC = () => {
                   </p>
                 </div>
                 <div className={styles.field}>
-                  <label htmlFor="scoring_mode">Scoring Mode</label>
+                  <label htmlFor="scoring_mode">{t('scoringMode')}</label>
                   <select
                     id="scoring_mode"
                     name="scoring_mode"
@@ -1288,7 +1290,7 @@ export const CreateTournament: React.FC = () => {
                   <p className={styles.small}>{SCORING_MODE_HELP[formData.scoring_mode]}</p>
                 </div>
                 <div className={styles.field}>
-                  <label htmlFor="max_teams">Max Teams</label>
+                  <label htmlFor="max_teams">{t('maxTeams')}</label>
                   <select
                     id="max_teams"
                     value={formData.max_teams}
@@ -1463,7 +1465,7 @@ export const CreateTournament: React.FC = () => {
             >
               <div className={styles.modalContent}>
                 {modalLoading ? (
-                  <p>Loading your teams…</p>
+                  <p>{t('loadingTeams')}</p>
                 ) : (
                   <>
                     {isSandbox ? (
@@ -1568,7 +1570,7 @@ export const CreateTournament: React.FC = () => {
             {isValidated && isLinked && creator && (
               <div className={styles.creatorWelcome}>
                 <div className={styles.welcomeHeader}>
-                  <h2>Ready to create</h2>
+                  <h2>{t('ready')}</h2>
                 </div>
                 <div className={styles.creatorTeamCard}>
                   {creator.logoUrl && <img src={creator.logoUrl} alt="" className={styles.creatorTeamLogo} />}
@@ -1825,7 +1827,7 @@ export const CreateTournament: React.FC = () => {
                     </li>
                   );
                 })}
-                {teams.length === 0 && <p className={styles.empty}>No teams added yet.</p>}
+                {teams.length === 0 && <p className={styles.empty}>{t('noTeams')}</p>}
               </ul>
             )}
 
