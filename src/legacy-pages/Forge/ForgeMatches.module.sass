@@ -3,6 +3,54 @@
   flex-direction: column
   gap: 1rem
 
+.bookingLayout
+  display: grid
+  grid-template-columns: minmax(0, 1.8fr) minmax(18rem, 0.8fr)
+  align-items: start
+  gap: 1rem
+
+.bookingMain,
+.bookingSidebar
+  min-width: 0
+
+.bookingSidebar
+  position: sticky
+  top: 5.5rem
+
+.bookingTournamentLink
+  width: 100%
+  display: flex
+  flex-direction: column
+  align-items: flex-start
+  gap: 0.35rem
+  padding: 0.8rem 0
+  border: 0
+  border-bottom: 1px solid var(--border)
+  background: transparent
+  color: var(--text)
+  text-align: left
+  cursor: pointer
+
+  &:last-child
+    border-bottom: 0
+
+  &:hover strong,
+  &:focus-visible strong
+    color: var(--accent-2)
+
+  strong
+    color: var(--text-h)
+    font-size: 0.95rem
+
+.bookingTournamentLinkActive strong
+  color: var(--accent-2)
+
+.bookingTournamentMeta,
+.bookingTournamentSummary
+  color: var(--text60)
+  font-size: 0.8rem
+  line-height: 1.4
+
 .toolbar
   display: grid
   grid-template-columns: minmax(0, 1fr)
@@ -163,13 +211,125 @@
   margin: 0
   color: var(--accent-2)
 
-@media (max-width: 720px)
+.overviewList
+  display: flex
+  flex-direction: column
+  gap: 1rem
+  margin-top: 1rem
+
+.overviewTournament
+  padding-top: 1rem
+  border-top: 1px solid var(--border)
+
+  &:first-child
+    padding-top: 0
+    border-top: 0
+
+.overviewHeading
+  display: flex
+  flex-direction: column
+  gap: 0.3rem
+  margin-bottom: 0.8rem
+
+.overviewTitleRow,
+.overviewMeta,
+.overviewManager
+  display: flex
+  align-items: center
+  flex-wrap: wrap
+  gap: 0.55rem
+
+.overviewTournamentLink,
+.overviewTournamentTitle
+  margin: 0
+  color: var(--text-h)
+  font-family: var(--heading)
+  font-size: 1.1rem
+  font-weight: 700
+  text-decoration: none
+
+.overviewTournamentLink:hover,
+.overviewTournamentLink:focus-visible
+  color: var(--accent-2)
+  text-decoration: underline
+
+.tournamentStatus
+  padding: 0.12rem 0.45rem
+  border: 1px solid var(--border)
+  border-radius: var(--radius-xs)
+  color: var(--text60)
+  font-size: 0.68rem
+  font-weight: 700
+  text-transform: capitalize
+
+.overviewMeta
+  color: var(--text60)
+  font-size: 0.78rem
+
+  > span + span::before
+    content: '·'
+    margin-right: 0.55rem
+
+.overviewTeams
+  display: grid
+  grid-template-columns: repeat(2, minmax(0, 1fr))
+  gap: 0.5rem
+
+.overviewTeam
+  min-width: 0
+  display: flex
+  flex-direction: column
+  align-items: flex-start
+  gap: 0.2rem
+  padding: 0.65rem 0.75rem
+  border: 1px solid var(--border)
+  border-radius: var(--radius-xs)
+  background: var(--table-bg-main)
+
+.overviewTeamName
+  max-width: 100%
+  overflow: hidden
+  color: var(--text-h)
+  font-size: 0.88rem
+  font-weight: 700
+  text-overflow: ellipsis
+  white-space: nowrap
+
+.overviewManager
+  color: var(--text)
+  font-size: 0.82rem
+
+.overviewPresence
+  color: var(--text60)
+  font-size: 0.72rem
+
+.autoArrangeOff
+  display: inline-flex
+  margin-top: 0.15rem
+  padding: 0.13rem 0.4rem
+  border: 1px solid var(--danger)
+  border-radius: var(--radius-xs)
+  background: var(--bg-danger)
+  color: var(--danger)
+  font-size: 0.65rem
+  font-weight: 700
+
+@media (max-width: 900px)
+  .bookingLayout
+    grid-template-columns: 1fr
+
+  .bookingSidebar
+    position: static
+
   .roundHeading,
   .fixtureHeader
     align-items: flex-start
     flex-direction: column
 
   .fixtureTeams
+    grid-template-columns: 1fr
+
+  .overviewTeams
     grid-template-columns: 1fr
 
   .teamRow:first-child

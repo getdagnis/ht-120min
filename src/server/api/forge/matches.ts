@@ -80,6 +80,52 @@ type ForgeProfileRow = {
   oauth_scope: string | null;
 };
 
+type ForgeTournamentOverviewTeamRow = {
+  id: string;
+  tournament_id: string;
+  name: string;
+  manager_name: string | null;
+  hattrick_user_id: number | null;
+  country_name: string | null;
+  active: boolean | null;
+  is_placeholder: boolean | null;
+};
+
+type ForgeOverviewProfileRow = {
+  hattrick_user_id: number;
+  manager_name: string | null;
+  country_name: string | null;
+  last_seen_at: string | null;
+};
+
+type ForgeOverviewMatchRow = {
+  id: string;
+  round_id: string;
+  status: string | null;
+  completed: boolean | null;
+  ht_match_id: number | null;
+  scheduled_for: string | null;
+  home_team_id: string | null;
+  away_team_id: string | null;
+};
+
+type ForgeAutoArrangePreferenceRow = {
+  tournament_id: string;
+  season_number: number;
+  team_id: string;
+  hattrick_user_id: number;
+  enabled: boolean;
+};
+
+type ForgeTournamentOverviewTeam = {
+  id: string;
+  name: string;
+  managerName: string | null;
+  managerCountryName: string | null;
+  managerLastSeenAt: string | null;
+  autoArrangeEnabled: boolean;
+};
+
 type ChallengeSnapshot = {
   inspection: ForgeTeamChallengeInspection;
   challengeManagement: 'enabled' | 'reauthorization_required' | 'unknown';
@@ -171,6 +217,7 @@ async function loadTournamentOptions(supabase: ReturnType<typeof getServiceSupab
   if (tournaments.length === 0) return [];
 
   const tournamentIds = tournaments.map((tournament) => tournament.id);
+  const seasonByTournament = new Map(tournaments.map((tournament) => [tournament.id, tournament.season || 1]));
   const { data: rounds, error: roundsError } = await supabase
     .from('rounds')
     .select('id, tournament_id, season_number, round_number, phase, phase_status')
@@ -180,46 +227,139 @@ async function loadTournamentOptions(supabase: ReturnType<typeof getServiceSupab
     .order('round_number', { ascending: true });
   if (roundsError) throw roundsError;
 
-  const currentRounds = (rounds || []) as ForgeRoundRow[];
+  const currentRounds = ((rounds || []) as ForgeRoundRow[])
+    .filter((round) => seasonByTournament.get(round.tournament_id) === round.season_number);
   const roundIds = currentRounds.map((round) => round.id);
-  if (roundIds.length === 0) return [];
+  const [matchesResult, teamsResult] = await Promise.all([
+    roundIds.length > 0
+      ? supabase.from('matches')
+          .select('id, round_id, status, completed, ht_match_id, scheduled_for, home_team_id, away_team_id')
+          .in('round_id', roundIds)
+      : Promise.resolve({ data: [], error: null }),
+    supabase.from('teams')
+      .select('id, tournament_id, name, manager_name, hattrick_user_id, country_name, active, is_placeholder')
+      .in('tournament_id', tournamentIds)
+      .eq('active', true),
+  ]);
+  if (matchesResult.error) throw matchesResult.error;
+  if (teamsResult.error) throw teamsResult.error;
 
-  const { data: matches, error: matchesError } = await supabase
-    .from('matches')
-    .select('id, round_id, completed')
-    .in('round_id', roundIds);
-  if (matchesError) throw matchesError;
+  const matchRows = (matchesResult.data || []) as ForgeOverviewMatchRow[];
+  const teamRows = ((teamsResult.data || []) as ForgeTournamentOverviewTeamRow[])
+    .filter((team) => team.active !== false && !team.is_placeholder);
+  const teamIds = teamRows.map((team) => team.id);
+  const managerIds = [...new Set(teamRows
+    .map((team) => team.hattrick_user_id)
+    .filter((managerId): managerId is number => managerId !== null)
+    .map(Number))];
+  const seasonNumbers = [...new Set(tournaments.map((tournament) => tournament.season || 1))];
+  const [profilesResult, preferencesResult] = await Promise.all([
+    managerIds.length > 0
+      ? supabase.from('profiles')
+          .select('hattrick_user_id, manager_name, country_name, last_seen_at')
+          .in('hattrick_user_id', managerIds)
+      : Promise.resolve({ data: [], error: null }),
+    teamIds.length > 0 && managerIds.length > 0
+      ? supabase.from('tournament_team_auto_arrange_preferences')
+          .select('tournament_id, season_number, team_id, hattrick_user_id, enabled')
+          .in('tournament_id', tournamentIds)
+          .in('season_number', seasonNumbers)
+          .in('team_id', teamIds)
+          .in('hattrick_user_id', managerIds)
+      : Promise.resolve({ data: [], error: null }),
+  ]);
+  if (profilesResult.error) throw profilesResult.error;
+  if (preferencesResult.error) throw preferencesResult.error;
 
-  const matchCountByRound = new Map<string, number>();
-  for (const match of matches || []) {
-    matchCountByRound.set(match.round_id, (matchCountByRound.get(match.round_id) || 0) + 1);
+  const profileByManager = new Map(
+    ((profilesResult.data || []) as ForgeOverviewProfileRow[])
+      .map((profile) => [Number(profile.hattrick_user_id), profile]),
+  );
+  const autoArrangeByTeamManager = new Map(
+    ((preferencesResult.data || []) as ForgeAutoArrangePreferenceRow[]).map((preference) => [
+      `${preference.tournament_id}:${preference.season_number}:${preference.team_id}:${Number(preference.hattrick_user_id)}`,
+      preference.enabled,
+    ]),
+  );
+  const teamsByTournament = new Map<string, ForgeTournamentOverviewTeam[]>();
+  const tournamentById = new Map(tournaments.map((tournament) => [tournament.id, tournament]));
+  const teamById = new Map(teamRows.map((team) => [team.id, team]));
+  for (const team of teamRows) {
+    const managerId = team.hattrick_user_id === null ? null : Number(team.hattrick_user_id);
+    const profile = managerId === null ? null : profileByManager.get(managerId);
+    const season = tournamentById.get(team.tournament_id)?.season || 1;
+    const autoArrangeEnabled = managerId === null
+      ? true
+      : autoArrangeByTeamManager.get(`${team.tournament_id}:${season}:${team.id}:${managerId}`) ?? true;
+    const tournamentTeams = teamsByTournament.get(team.tournament_id) || [];
+    tournamentTeams.push({
+      id: team.id,
+      name: team.name,
+      managerName: profile?.manager_name || team.manager_name,
+      managerCountryName: profile?.country_name || team.country_name,
+      managerLastSeenAt: profile?.last_seen_at || null,
+      autoArrangeEnabled,
+    });
+    teamsByTournament.set(team.tournament_id, tournamentTeams);
   }
 
-  return tournaments
-    .map((tournament) => {
-      const roundsWithMatches = currentRounds.filter(
-        (candidate) => candidate.tournament_id === tournament.id && candidate.season_number === (tournament.season || 1),
-      ).map((candidate) => ({
+  const matchesByRound = new Map<string, ForgeOverviewMatchRow[]>();
+  for (const match of matchRows) {
+    const roundMatches = matchesByRound.get(match.round_id) || [];
+    roundMatches.push(match);
+    matchesByRound.set(match.round_id, roundMatches);
+  }
+
+  return tournaments.map((tournament) => {
+    const season = tournament.season || 1;
+    const roundsWithMatches = currentRounds
+      .filter((candidate) => candidate.tournament_id === tournament.id && candidate.season_number === season)
+      .map((candidate) => ({
         ...candidate,
-        matches: (matches || [])
-          .filter((match) => match.round_id === candidate.id)
-          .map((match) => ({ completed: match.completed })),
+        matches: (matchesByRound.get(candidate.id) || []).map((match) => ({ completed: match.completed })),
       }));
-      const round = selectCurrentForgeRound(roundsWithMatches) || roundsWithMatches.find((candidate) => candidate.matches?.length);
-      const matchCount = round ? matchCountByRound.get(round.id) || 0 : 0;
-      if (!round || matchCount === 0) return null;
-      return {
-        id: tournament.id,
-        name: tournament.name,
-        slug: tournament.slug,
-        season: tournament.season || 1,
-        status: tournament.status,
-        currentRoundId: round.id,
-        currentRoundNumber: round.round_number,
-        matchCount,
-      };
-    })
-    .filter((tournament): tournament is NonNullable<typeof tournament> => Boolean(tournament));
+    const round = selectCurrentForgeRound(roundsWithMatches)
+      || roundsWithMatches.find((candidate) => candidate.matches?.length);
+    const roundMatches = round ? matchesByRound.get(round.id) || [] : [];
+    if (!round || roundMatches.length === 0) return null;
+    const fixtures = roundMatches.filter((match) => match.home_team_id && match.away_team_id);
+    const isBooked = (match: ForgeOverviewMatchRow) => Boolean(match.ht_match_id)
+      || match.completed === true
+      || ['arranged', 'finished', 'ongoing'].includes(match.status || '');
+    const isMisarranged = (match: ForgeOverviewMatchRow) => match.status === 'misarranged';
+    const isAutoArrangeOff = (match: ForgeOverviewMatchRow) => [match.home_team_id, match.away_team_id]
+      .some((teamId) => {
+        if (!teamId) return false;
+        const team = teamById.get(teamId);
+        if (team?.hattrick_user_id == null) return false;
+        return autoArrangeByTeamManager.get(`${tournament.id}:${season}:${teamId}:${Number(team.hattrick_user_id)}`) === false;
+      });
+    const bookedCount = fixtures.filter((match) => !isMisarranged(match) && isBooked(match)).length;
+    const misarrangedCount = fixtures.filter(isMisarranged).length;
+    const openFixtures = fixtures.filter((match) => !isBooked(match) && !isMisarranged(match));
+    const pendingAutoArrangeOffCount = openFixtures.filter(isAutoArrangeOff).length;
+    const readyToBookCount = openFixtures.length - pendingAutoArrangeOffCount;
+    const roundDate = roundMatches
+      .map((match) => match.scheduled_for)
+      .filter((value): value is string => Boolean(value))
+      .sort((left, right) => left.localeCompare(right))[0] || null;
+
+    return {
+      id: tournament.id,
+      name: tournament.name,
+      slug: tournament.slug,
+      season,
+      status: tournament.status,
+      currentRoundNumber: round?.round_number ?? null,
+      roundDate,
+      matchCount: fixtures.length,
+      bookedCount,
+      misarrangedCount,
+      pendingAutoArrangeOffCount,
+      readyToBookCount,
+      teams: teamsByTournament.get(tournament.id) || [],
+    };
+  }).filter((tournament): tournament is NonNullable<typeof tournament> => Boolean(tournament));
 }
 
 function toFixtureTeam(team: ForgeTeamRow | null): ForgeFixtureTeam | null {

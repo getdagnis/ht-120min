@@ -190,10 +190,10 @@ export const TOURNAMENT_DEFAULT: string[] = [
   'Kas vienam menedžerim ir neizšķirts, otram — treniņš.',
   'Īstais treniņš sākas pēc 90. minūtes.',
   'Atbilde ir papildu minūtes. Kāds bija jautājums?',
-  'Sponsori dejo ielās. Fani ir asinskāri.',
-  'Perfektu attaisnojumu biedrība 💎',
-  'Spēlē vāji. Nekad nepabeidz.',
-  'Nāc pēc punktiem. Paliec papildu minūšu dēļ.',
+  'Kamēr sponsori dejo ielās, fani ir asinskāri.',
+  'Perfekti Noslīpētu Atrunu biedrība 💎',
+  'Spēlē vāji. Nebeidz nekad.',
+  'Nāc pēc punktiem. Paliec dēļ minūtēm.',
 ];
 
 // CreateFlow: entire localized tournament names pool.

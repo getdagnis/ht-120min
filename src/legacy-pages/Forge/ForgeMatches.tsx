@@ -2,13 +2,32 @@ import { useCallback, useEffect, useState } from 'react';
 import { ArrowClockwise } from 'phosphor-react';
 import { Button } from '../../components/Button/Button';
 import { SectionCard } from '../../components/Card/SectionCard';
+import { HATTRICK_WORLD_DETAILS } from '../../../shared/worlddetails';
 import styles from './ForgeMatches.module.sass';
+
+interface TournamentTeamOption {
+  id: string;
+  name: string;
+  managerName: string | null;
+  managerCountryName: string | null;
+  managerLastSeenAt: string | null;
+  autoArrangeEnabled: boolean;
+}
 
 interface TournamentOption {
   id: string;
   name: string;
-  currentRoundNumber: number;
+  slug: string | null;
+  season: number;
+  status: string | null;
+  currentRoundNumber: number | null;
+  roundDate: string | null;
   matchCount: number;
+  bookedCount: number;
+  misarrangedCount: number;
+  pendingAutoArrangeOffCount: number;
+  readyToBookCount: number;
+  teams: TournamentTeamOption[];
 }
 
 interface RoundOption {
@@ -53,6 +72,30 @@ interface MatchesResponse {
 }
 
 const SELECTION_STORAGE_KEY = 'forge.matches.selection';
+
+function countryFlagFromName(countryName: string | null) {
+  if (!countryName) return null;
+  const normalized = countryName.trim().toLocaleLowerCase();
+  return Object.values(HATTRICK_WORLD_DETAILS).find((country) =>
+    country.countryName?.toLocaleLowerCase() === normalized
+    || country.countryNameEn?.toLocaleLowerCase() === normalized,
+  )?.emoji || null;
+}
+
+function formatPresence(value: string | null) {
+  if (!value) return 'Last presence unavailable';
+  return `Last presence ${new Date(value).toLocaleString('lv-LV', {
+    day: '2-digit',
+    month: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+  })}`;
+}
+
+function formatRoundDate(value: string | null) {
+  if (!value) return null;
+  return new Date(value).toLocaleDateString('lv-LV', { day: '2-digit', month: '2-digit' });
+}
 
 function stateIsDangerous(state: string) {
   return ['MISARRANGED', 'CHPP CREDENTIALS MISSING', 'CHPP PERMISSION MISSING', 'CHPP OWNERSHIP MISMATCH', 'CHPP ERROR'].includes(state);
@@ -191,6 +234,14 @@ export function ForgeMatchesSection() {
     }
   };
 
+  const chooseTournament = (tournamentId: string) => {
+    setSelectedTournamentId(tournamentId);
+    setSelectedRoundNumber(null);
+    setData(null);
+    setMessage('');
+    setError('');
+  };
+
   const runAction = async (fixture: ForgeFixtureView, team: ForgeTeamView, action: 'challenge' | 'accept') => {
     const opponent = team.side === 'home' ? fixture.away : fixture.home;
     const verb = action === 'challenge' ? 'Send' : 'Accept';
@@ -240,6 +291,8 @@ export function ForgeMatchesSection() {
 
   return (
     <section className={styles.page}>
+      <div className={styles.bookingLayout}>
+      <div className={styles.bookingMain}>
       <SectionCard title="Match booking" subtitle="Coordinate any materialized tournament round directly from its fixtures." className={styles.surfaceCard}>
         <div className={styles.toolbar}>
           <label className={styles.label} htmlFor="forge-matches-tournament">Tournament</label>
@@ -247,18 +300,12 @@ export function ForgeMatchesSection() {
             id="forge-matches-tournament"
             className={styles.select}
             value={selectedTournamentId}
-            onChange={(event) => {
-              setSelectedTournamentId(event.target.value);
-              setSelectedRoundNumber(null);
-              setData(null);
-              setMessage('');
-              setError('');
-            }}
+            onChange={(event) => chooseTournament(event.target.value)}
           >
             <option value="">Choose a tournament</option>
             {tournaments.map((tournament) => (
               <option key={tournament.id} value={tournament.id}>
-                {tournament.name}
+                {tournament.name} · {tournament.status || 'listed'}
               </option>
             ))}
           </select>
@@ -288,7 +335,46 @@ export function ForgeMatchesSection() {
         )}
         {loading && <p className={styles.empty}>Loading matches...</p>}
         {!loading && error && <p className={styles.error}>{error}</p>}
-        {!loading && !error && !selectedTournamentId && <p className={styles.empty}>Choose a tournament to view its materialized rounds.</p>}
+        {!loading && !error && !selectedTournamentId && (
+          <div className={styles.overviewList}>
+            {tournaments.length === 0 ? <p className={styles.empty}>No currently listed tournaments.</p> : tournaments.map((tournament) => (
+              <article key={tournament.id} className={styles.overviewTournament}>
+                <div className={styles.overviewHeading}>
+                  <div className={styles.overviewTitleRow}>
+                    {tournament.slug
+                      ? <a className={styles.overviewTournamentLink} href={`/en/t/${encodeURIComponent(tournament.slug)}`} target="_blank" rel="noopener noreferrer">{tournament.name}</a>
+                      : <h2 className={styles.overviewTournamentTitle}>{tournament.name}</h2>}
+                    <span className={styles.tournamentStatus}>{tournament.status || 'unknown'}</span>
+                  </div>
+                  <div className={styles.overviewMeta}>
+                    <span>Season {tournament.season}</span>
+                    {tournament.currentRoundNumber && <span>Round {tournament.currentRoundNumber}</span>}
+                    <span>{tournament.teams.length} teams</span>
+                    {tournament.roundDate && <span>Next round {formatRoundDate(tournament.roundDate)}</span>}
+                  </div>
+                </div>
+                {tournament.teams.length > 0 ? (
+                  <div className={styles.overviewTeams}>
+                    {tournament.teams.map((team) => {
+                      const flag = countryFlagFromName(team.managerCountryName);
+                      return (
+                        <div key={team.id} className={styles.overviewTeam}>
+                          <div className={styles.overviewTeamName}>{team.name}</div>
+                          <div className={styles.overviewManager}>
+                            {flag && <span title={team.managerCountryName || undefined}>{flag}</span>}
+                            <span>{team.managerName || 'Manager unavailable'}</span>
+                          </div>
+                          <div className={styles.overviewPresence}>{formatPresence(team.managerLastSeenAt)}</div>
+                          {!team.autoArrangeEnabled && <span className={styles.autoArrangeOff}>Auto-arrange matches off</span>}
+                        </div>
+                      );
+                    })}
+                  </div>
+                ) : <p className={styles.empty}>No active teams listed.</p>}
+              </article>
+            ))}
+          </div>
+        )}
         {!loading && !error && selectedTournamentId && data?.currentRound && (
           <div>
             <div className={styles.roundHeading}>
@@ -373,6 +459,38 @@ export function ForgeMatchesSection() {
           <p className={styles.empty}>This tournament has no current materialized round with fixtures.</p>
         )}
       </SectionCard>
+      </div>
+
+      <aside className={styles.bookingSidebar}>
+        <SectionCard title="Bookable matches" subtitle="Current materialized rounds." className={styles.surfaceCard}>
+          {tournaments.length === 0
+            ? <p className={styles.empty}>No tournaments have a current materialized round.</p>
+            : tournaments.map((tournament) => (
+              <button
+                key={tournament.id}
+                type="button"
+                className={`${styles.bookingTournamentLink} ${selectedTournamentId === tournament.id ? styles.bookingTournamentLinkActive : ''}`}
+                onClick={() => chooseTournament(tournament.id)}
+                aria-label={`Show matches for ${tournament.name}`}
+              >
+                <strong>{tournament.name}</strong>
+                <span className={styles.bookingTournamentMeta}>
+                  {tournament.currentRoundNumber ? `Round ${tournament.currentRoundNumber}` : 'No materialized round'}
+                  {tournament.roundDate && ` · Next round: ${formatRoundDate(tournament.roundDate)}.`}
+                </span>
+                {tournament.matchCount > 0 && (
+                  <span className={styles.bookingTournamentSummary}>
+                    {tournament.bookedCount}/{tournament.matchCount} booked
+                    {tournament.misarrangedCount > 0 && ` · ${tournament.misarrangedCount} misarranged`}
+                    {tournament.pendingAutoArrangeOffCount > 0 && ` · ${tournament.pendingAutoArrangeOffCount} pending (auto-off)`}
+                    {tournament.readyToBookCount > 0 && ` · ${tournament.readyToBookCount} open`}
+                  </span>
+                )}
+              </button>
+            ))}
+        </SectionCard>
+      </aside>
+      </div>
     </section>
   );
 }
