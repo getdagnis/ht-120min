@@ -421,9 +421,6 @@
   margin-bottom: 2rem
   border-bottom: 2px solid var(--border)
 
-  @media (max-width: 400px)
-    gap: 1rem
-
   button, a
     background: transparent
     border: none
@@ -449,6 +446,26 @@
         right: 0
         height: 2px
         background-color: var(--accent-2)
+
+  @media (max-width: 620px)
+    display: grid
+    grid-template-columns: repeat(6, minmax(0, 1fr))
+    gap: 0
+    border-bottom: 0
+
+    a
+      grid-column: span 2
+      border-bottom: 2px solid var(--border)
+      text-align: center
+
+      &:nth-child(-n + 2)
+        grid-column: span 3
+
+      &.active
+        border-bottom-color: var(--accent-2)
+
+        &::after
+          display: none
 
 .historyTabBadge
   display: inline-flex
