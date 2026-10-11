@@ -1,5 +1,6 @@
 'use client';
 
+import { useTranslations } from 'next-intl';
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import styles from './Toast.module.sass';
 import { ToastContext, type ToastInput } from './useToast';
@@ -32,8 +33,9 @@ export function ToastProvider({ children }: { children: React.ReactNode }) {
 }
 
 function ToastRegion({ toasts, onClose }: { toasts: ToastItem[]; onClose: (id: string) => void }) {
+  const uiText = useTranslations('PublicUI.ToastRegion');
   return (
-    <div className={styles.region} aria-live="polite" aria-label="Notifications">
+    <div className={styles.region} aria-live="polite" aria-label={uiText('notifications')}>
       {toasts.map((toast) => (
         <ToastItemView key={toast.id} toast={toast} onClose={onClose} />
       ))}
@@ -42,6 +44,7 @@ function ToastRegion({ toasts, onClose }: { toasts: ToastItem[]; onClose: (id: s
 }
 
 function ToastItemView({ toast, onClose }: { toast: ToastItem; onClose: (id: string) => void }) {
+  const uiText = useTranslations('PublicUI.ToastItemView');
   useEffect(() => {
     const timer = window.setTimeout(() => onClose(toast.id), Math.max(toast.timeout ?? 5000, 5000));
     return () => window.clearTimeout(timer);
@@ -50,7 +53,7 @@ function ToastItemView({ toast, onClose }: { toast: ToastItem; onClose: (id: str
   return (
     <div className={styles.toast} role="status" tabIndex={0}>
       <div className={styles.title}>{toast.title}</div>
-      <button type="button" className={styles.close} onClick={() => onClose(toast.id)} aria-label="Dismiss notification">
+      <button type="button" className={styles.close} onClick={() => onClose(toast.id)} aria-label={uiText('dismissNotification')}>
         ×
       </button>
       {toast.description && <div className={styles.description}>{toast.description}</div>}

@@ -1,3 +1,4 @@
+import { useTranslations } from 'next-intl';
 import React, { useRef, useState } from 'react';
 import { CaretLeft, CaretRight, Handshake, Heart, X } from 'phosphor-react';
 import { Button } from '../../components/Button/Button';
@@ -20,7 +21,7 @@ const DEFAULT_ARENA_IMAGE = 'https://res.hattrick.org/arenas/default/12000/custo
 export interface MatchmakerBrowseEntry {
   request: MatchmakerRequest;
   freshness: {
-    label: string;
+    key: 'booked' | 'postedToday' | 'postedThisWeek' | 'postedRecently';
     tone: 'good' | 'warn' | 'bad';
   };
 }
@@ -46,31 +47,6 @@ const isInteractiveTarget = (target: EventTarget | null) =>
   target instanceof Element && !!target.closest('button, a, input, select, textarea, label, [role="button"]');
 
 const getCountryName = (request: MatchmakerRequest) => request.team?.country_name || undefined;
-
-const getLocationLabel = (request: MatchmakerRequest) => {
-  if (request.opponent_location === 'domestic') {
-    return `Domestic (${getCountryName(request) || 'same country'})`;
-  }
-  if (request.opponent_location === 'international_only' || request.opponent_location === 'international') {
-    return 'International only';
-  }
-  return 'Anywhere';
-};
-
-const getVenueLabel = (request: MatchmakerRequest) => {
-  if (request.home_away === 'home') return 'My place';
-  if (request.home_away === 'away') return 'Your place';
-  return 'Either venue';
-};
-
-const getAvailabilityLabel = (request: MatchmakerRequest) => {
-  if (request.team?.availabilityStatusRaw === null) return '404';
-  if (request.team?.availabilityStatus === 'available') return 'Available';
-  if (request.team?.availabilityStatus === 'booked' || request.team?.availabilityStatus === 'unavailable') {
-    return 'Booked This Week';
-  }
-  return 'Unknown';
-};
 
 const TeamLogo = ({ request, className }: { request: MatchmakerRequest; className: string }) => (
   <img
@@ -101,10 +77,33 @@ export const MatchmakerBrowseDeck: React.FC<MatchmakerBrowseDeckProps> = ({
   onShowBooked,
   onShowAll,
 }) => {
+  const uiText = useTranslations('PublicUI.MatchmakerBrowseDeck');
   const swipeStartRef = useRef<{ pointerId: number; x: number; y: number } | null>(null);
   const [swipeOffset, setSwipeOffset] = useState(0);
   const [isSwiping, setIsSwiping] = useState(false);
   const deckView = getMatchmakerDeckView(entries, cursor);
+  const getLocationLabel = (request: MatchmakerRequest) => {
+    if (request.opponent_location === 'domestic') {
+      return uiText('domesticWithCountry', { country: getCountryName(request) || uiText('sameCountry') });
+    }
+    if (request.opponent_location === 'international_only' || request.opponent_location === 'international') {
+      return uiText('internationalOnly');
+    }
+    return uiText('anywhere');
+  };
+  const getVenueLabel = (request: MatchmakerRequest) => {
+    if (request.home_away === 'home') return uiText('myPlace');
+    if (request.home_away === 'away') return uiText('yourPlace');
+    return uiText('eitherVenue');
+  };
+  const getAvailabilityLabel = (request: MatchmakerRequest) => {
+    if (request.team?.availabilityStatusRaw === null) return uiText('notAvailable');
+    if (request.team?.availabilityStatus === 'available') return uiText('available');
+    if (request.team?.availabilityStatus === 'booked' || request.team?.availabilityStatus === 'unavailable') {
+      return uiText('bookedThisWeek');
+    }
+    return uiText('unknown');
+  };
 
   const resetSwipe = () => {
     swipeStartRef.current = null;
@@ -154,8 +153,8 @@ export const MatchmakerBrowseDeck: React.FC<MatchmakerBrowseDeckProps> = ({
         <Handshake size={48} className={styles.spin} />
         <p>
           {mockDataEnabled
-            ? 'Synchronising friendly availability...'
-            : 'Checking team availability and loading listings...'}
+            ? uiText('synchronisingFriendlyAvailability')
+            : uiText('checkingTeamAvailabilityAndLoadingListings')}
         </p>
       </div>
     );
@@ -167,7 +166,7 @@ export const MatchmakerBrowseDeck: React.FC<MatchmakerBrowseDeckProps> = ({
         <Handshake size={64} opacity={0.2} />
         <p>{emptyMessage}</p>
         <Button variant="tinder" onClick={onPostAd}>
-          Post an Ad
+          {uiText('postAnAd')}
         </Button>
       </div>
     );
@@ -180,15 +179,15 @@ export const MatchmakerBrowseDeck: React.FC<MatchmakerBrowseDeckProps> = ({
         <p>{endMessage}</p>
         <div className={styles.endActions}>
           <Button variant="tinder" onClick={onRestart}>
-            Start Again
+            {uiText('startAgain')}
           </Button>
           {mockDataEnabled && (
             <>
               <Button variant="outline" onClick={onShowBooked}>
-                Show Booked Teams
+                {uiText('showBookedTeams')}
               </Button>
               <Button variant="outline" onClick={onShowAll}>
-                Show All Listings
+                {uiText('showAllListings')}
               </Button>
             </>
           )}
@@ -200,7 +199,7 @@ export const MatchmakerBrowseDeck: React.FC<MatchmakerBrowseDeckProps> = ({
   const entry = deckView.item;
   const request = entry.request;
   const action = getMatchmakerBrowseAction(activeTab, request);
-  const primaryLabel = 'Send Challenge';
+  const primaryLabel = uiText('sendChallenge');
   const handlePrimaryAction = () => onPrimaryAction(request);
   const swipeStyle = { '--swipe-offset': `${swipeOffset}px` } as React.CSSProperties;
   const pointerHandlers = {
@@ -219,7 +218,7 @@ export const MatchmakerBrowseDeck: React.FC<MatchmakerBrowseDeckProps> = ({
         className={`${styles.navArrow} ${styles.navArrowLeft}`}
         onClick={onPrevious}
         disabled={cursor === 0}
-        aria-label="Previous ad"
+        aria-label={uiText('previousAd')}
       >
         <CaretLeft />
       </button>
@@ -272,35 +271,35 @@ export const MatchmakerBrowseDeck: React.FC<MatchmakerBrowseDeckProps> = ({
                 {request.message ? `"${request.message}"` : <strong>{getMatchmakerMessagePlaceholder(request)}</strong>}
               </div>
               <div className={styles.adProfileSummary}>
-                <span className={styles.summaryLabel}>Looking for</span>
+                <span className={styles.summaryLabel}>{uiText('lookingFor')}</span>
                 <div className={styles.badges}>
                   <span className={styles.badge}>
-                    {request.match_type === '120min' ? '120 min training' : '90 min acceptable'}
+                    {request.match_type === '120min' ? uiText('120MinTraining') : uiText('90MinAcceptable')}
                   </span>
                   <span className={styles.badge}>{getVenueLabel(request)}</span>
                   <span className={styles.badge}>{getLocationLabel(request)}</span>
-                  <span className={styles.badge}>{request.is_long_term ? 'Long-term partner' : 'One-off match'}</span>
-                  {request.is_back_and_forth && <span className={styles.badge}>Home/away exchange</span>}
+                  <span className={styles.badge}>{request.is_long_term ? uiText('longTermPartner') : uiText('oneOffMatch')}</span>
+                  {request.is_back_and_forth && <span className={styles.badge}>{uiText('homeAwayExchange')}</span>}
                 </div>
               </div>
               <div className={styles.adMetaRow}>
                 <span className={`${styles.availabilityBadge} ${styles[entry.freshness.tone]}`}>
-                  {entry.freshness.label}
+                  {uiText(entry.freshness.key)}
                 </span>
                 <span
                   className={`${styles.stateBadge} ${styles[request.team?.availabilityStatus || 'unknown']}`}
-                  title={request.team?.availabilityReason || 'Availability from CHPP team details.'}
+                  title={request.team?.availabilityReason || uiText('availabilityFromChppTeamDetails')}
                 >
                   {getAvailabilityLabel(request)}
                 </span>
-                {request.is_mock && <span className={styles.mockBadge}>Mock</span>}
+                {request.is_mock && <span className={styles.mockBadge}>{uiText('mock')}</span>}
               </div>
             </div>
           </div>
         </div>
-        <div className={styles.cardActions} aria-label="Ad actions">
+        <div className={styles.cardActions} aria-label={uiText('adActions')}>
           <Button variant="outline" onClick={onPass}>
-            Pass <X size={20} />
+            {uiText('pass')} <X size={20} />
           </Button>
           <Button variant="tinder" onClick={handlePrimaryAction}>
             {action === 'challenge' ? <Handshake size={20} /> : <Heart size={20} weight="fill" />}
@@ -332,23 +331,23 @@ export const MatchmakerBrowseDeck: React.FC<MatchmakerBrowseDeckProps> = ({
             {request.message ? `"${request.message}"` : getMatchmakerMessagePlaceholder(request)}
           </p>
           <div className={deckStyles.mobileProfile}>
-            <span className={deckStyles.mobileSummaryLabel}>Looking for</span>
+            <span className={deckStyles.mobileSummaryLabel}>{uiText('lookingFor')}</span>
             <div className={deckStyles.mobileBadges}>
-              <span>{request.match_type === '120min' ? '120 min training' : '90 min acceptable'}</span>
+              <span>{request.match_type === '120min' ? uiText('120MinTraining') : uiText('90MinAcceptable')}</span>
               <span>{getVenueLabel(request)}</span>
               <span>{getLocationLabel(request)}</span>
-              <span>{request.is_long_term ? 'Long-term partner' : 'One-off match'}</span>
-              {request.is_back_and_forth && <span>Home/away exchange</span>}
+              <span>{request.is_long_term ? uiText('longTermPartner') : uiText('oneOffMatch')}</span>
+              {request.is_back_and_forth && <span>{uiText('homeAwayExchange')}</span>}
             </div>
           </div>
           <div className={deckStyles.mobileStatus}>
-            <span>{entry.freshness.label}</span>
+            <span>{uiText(entry.freshness.key)}</span>
             <span>{getAvailabilityLabel(request)}</span>
           </div>
         </div>
-        <div className={deckStyles.mobileActions} aria-label="Ad actions">
+        <div className={deckStyles.mobileActions} aria-label={uiText('adActions')}>
           <Button variant="outline" onClick={onPass}>
-            Pass <X size={20} />
+            {uiText('pass')} <X size={20} />
           </Button>
           <Button variant="tinder" onClick={handlePrimaryAction}>
             {primaryLabel}
@@ -361,7 +360,7 @@ export const MatchmakerBrowseDeck: React.FC<MatchmakerBrowseDeckProps> = ({
         type="button"
         className={`${styles.navArrow} ${styles.navArrowRight}`}
         onClick={onPass}
-        aria-label="Next ad"
+        aria-label={uiText('nextAd')}
       >
         <CaretRight />
       </button>

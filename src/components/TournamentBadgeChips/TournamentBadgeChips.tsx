@@ -18,6 +18,7 @@ export const TournamentBadgeChips: React.FC<TournamentBadgeChipsProps> = ({
   scoringMode,
   children,
 }) => {
+  const uiText = useTranslations('PublicUI.TournamentBadgeChips');
   const t = useTranslations('Home');
   const countryRestriction = resolveCountryRestriction(countryLimit, countryLimitFormat);
   const hasNoCountryLimit = !countryLimit?.trim();
@@ -40,10 +41,10 @@ export const TournamentBadgeChips: React.FC<TournamentBadgeChipsProps> = ({
       {hasNoCountryLimit && <div className={styles.badge}>🇺🇳 {t('tournamentCardAnyCountry')}</div>}
       {leagueCategory === 'hfi' && (
         <div className={styles.badge}>
-          <img src="https://www.hattrick.org/Img/flags/3000.png" alt="" className={styles.flag} /> HFI 💃🏽
+          <img src="https://www.hattrick.org/Img/flags/3000.png" alt="" className={styles.flag} /> {uiText('hFI')}
         </div>
       )}
-      {is120min && <div className={styles.badge}>⏱ 120min</div>}
+      {is120min && <div className={styles.badge}>{uiText('120min')}</div>}
       {children}
     </div>
   );

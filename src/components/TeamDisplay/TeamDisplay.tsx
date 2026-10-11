@@ -1,3 +1,4 @@
+import { useTranslations } from 'next-intl';
 import React from 'react';
 import { getCountryFlagUrl, getLeagueFlagUrl } from '../../utils/ht-data';
 import styles from './TeamDisplay.module.scss';
@@ -17,6 +18,7 @@ interface TeamDisplayProps {
 }
 
 export const TeamDisplay: React.FC<TeamDisplayProps> = ({ team, side }) => {
+  const uiText = useTranslations('PublicUI.TeamDisplay');
   const isFree = !team?.name;
   const countryName = team?.country_name;
   const countryFlagUrl = getCountryFlagUrl(team?.country_id, countryName);
@@ -36,7 +38,7 @@ export const TeamDisplay: React.FC<TeamDisplayProps> = ({ team, side }) => {
             }}
           />
         )}
-        {leagueFlagUrl && <img src={leagueFlagUrl} alt="League" className={styles.flag} />}
+        {leagueFlagUrl && <img src={leagueFlagUrl} alt={uiText('league')} className={styles.flag} />}
         {countryFlagUrl && (
           <img src={countryFlagUrl} alt={countryName || 'Country'} className={styles.flag} title={countryName} />
         )}
@@ -44,13 +46,13 @@ export const TeamDisplay: React.FC<TeamDisplayProps> = ({ team, side }) => {
       {team?.name ? (
         <span className={styles.teamName}>{team.name}</span>
       ) : (
-        <span className={styles.teamNameFree}>Free to choose</span>
+        <span className={styles.teamNameFree}>{uiText('freeToChoose')}</span>
       )}
 
       {team?.ht_team_id ? (
         <span className={styles.teamId}>({team.ht_team_id})</span>
       ) : (
-        <span className={styles.teamId}>{isFree ? '(no tournament opponent)' : ''}</span>
+        <span className={styles.teamId}>{isFree ? uiText('noTournamentOpponent') : ''}</span>
       )}
     </div>
   );

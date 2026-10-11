@@ -75,6 +75,7 @@ const ProfileTournamentList = ({
 };
 
 export const ProfilePage: React.FC = () => {
+  const uiText = useTranslations('PublicUI.ProfilePage');
   const t = useTranslations('ManagerProfiles');
   const { locale } = useLocale();
   const {
@@ -149,7 +150,7 @@ export const ProfilePage: React.FC = () => {
                 window.location.href = '/api/auth/init';
               }}
             >
-              Sign in with Hattrick
+              {uiText('signInWithHattrick')}
             </Button>
           </div>
         </SectionCard>
@@ -165,10 +166,10 @@ export const ProfilePage: React.FC = () => {
     (tournament) => Number(tournament.organizer_id) === profile.hattrick_user_id,
   );
   const summaryItems = [
-    { label: 'Teams', value: teams.length, icon: <UsersThree size={18} weight="bold" /> },
-    { label: 'Playing', value: activeTournaments.length, icon: <Trophy size={18} weight="bold" /> },
+    { label: uiText('teams'), value: teams.length, icon: <UsersThree size={18} weight="bold" /> },
+    { label: uiText('playing'), value: activeTournaments.length, icon: <Trophy size={18} weight="bold" /> },
     {
-      label: 'Organizing',
+      label: uiText('organizing'),
       value: organizerTournaments.length + testTournaments.length,
       icon: <Medal size={18} weight="bold" />,
     },
@@ -195,13 +196,13 @@ export const ProfilePage: React.FC = () => {
               target="_blank"
               rel="noopener noreferrer"
             >
-              Hattrick manager profile <ArrowUpRight size={14} />
+              {uiText('hattrickManagerProfile')} <ArrowUpRight size={14} />
             </a>
 
             <div className={styles.profileMeta}>
               <div>
                 <CalendarBlank size={17} weight="bold" />
-                <span>Joined {formatJoinDate(profile.created_at)}</span>
+                <span>{uiText('joined')} {formatJoinDate(profile.created_at)}</span>
               </div>
               {countryName && (
                 <div>
@@ -230,7 +231,7 @@ export const ProfilePage: React.FC = () => {
         </aside>
 
         <div className={styles.mainColumn}>
-          <SectionCard title="Registered teams" variant="grass">
+          <SectionCard title={uiText('registeredTeams')} variant="grass">
             {!teamsLoaded ? (
               <p className={styles.emptyMessage}>{t('loadingTeams')}</p>
             ) : teams.length > 0 ? (
@@ -263,28 +264,28 @@ export const ProfilePage: React.FC = () => {
             )}
           </SectionCard>
 
-          <SectionCard title="Participating tournaments">
+          <SectionCard title={uiText('participatingTournaments')}>
             <div className={styles.tournamentGroup}>
               <h3>{t('active')}</h3>
-              <ProfileTournamentList tournaments={activeTournaments} emptyMessage="No active tournaments." />
+              <ProfileTournamentList tournaments={activeTournaments} emptyMessage={uiText('noActiveTournaments')} />
             </div>
             <div className={styles.tournamentGroup}>
               <h3>{t('history')}</h3>
-              <ProfileTournamentList tournaments={finishedTournaments} emptyMessage="No finished tournaments yet." />
+              <ProfileTournamentList tournaments={finishedTournaments} emptyMessage={uiText('noFinishedTournamentsYet')} />
             </div>
           </SectionCard>
 
-          <SectionCard title="Organized / managed tournaments">
+          <SectionCard title={uiText('organizedManagedTournaments')}>
             <div id="organized-tournaments" className={styles.anchorTarget} />
-            <ProfileTournamentList tournaments={organizerTournaments} emptyMessage="No organized tournaments yet." />
+            <ProfileTournamentList tournaments={organizerTournaments} emptyMessage={uiText('noOrganizedTournamentsYet')} />
           </SectionCard>
 
           {testTournaments.length > 0 && (
-            <SectionCard title="Test tournaments">
-              <ProfileTournamentList tournaments={testTournaments} emptyMessage="No test tournaments." />
+            <SectionCard title={uiText('testTournaments')}>
+              <ProfileTournamentList tournaments={testTournaments} emptyMessage={uiText('noTestTournaments')} />
               <div className={styles.testTournamentActions}>
                 {createdTestTournaments.length === 0 && (
-                  <p className={styles.emptyMessage}>Delegated test tournaments cannot be deleted here.</p>
+                  <p className={styles.emptyMessage}>{uiText('delegatedTestTournamentsCannotBeDeletedHere')}</p>
                 )}
                 <Button
                   type="button"
@@ -314,13 +315,13 @@ export const ProfilePage: React.FC = () => {
                     }
                   }}
                 >
-                  {deletingTestTournaments ? 'Deleting…' : 'Delete all created test tournaments'}
+                  {deletingTestTournaments ? uiText('deleting') : uiText('deleteAllCreatedTestTournaments')}
                 </Button>
               </div>
             </SectionCard>
           )}
 
-          <SectionCard title="Achievements">
+          <SectionCard title={uiText('achievements')}>
             <div className={styles.achievementList}>
               <div className={styles.achievementItem}>
                 <span className={styles.achievementIcon}>🥇</span>
@@ -335,7 +336,7 @@ export const ProfilePage: React.FC = () => {
                   <div>
                     <strong>{t('participant')}</strong>
                     <span>
-                      {teams.length} active registered team{teams.length === 1 ? '' : 's'}
+                      {teams.length} {uiText('activeRegisteredTeam')}{teams.length === 1 ? '' : uiText('s')}
                     </span>
                   </div>
                 </div>
@@ -344,8 +345,8 @@ export const ProfilePage: React.FC = () => {
           </SectionCard>
 
           {stoppedTournaments.length > 0 && (
-            <SectionCard title="Stopped tournaments">
-              <ProfileTournamentList tournaments={stoppedTournaments} emptyMessage="No stopped tournaments." />
+            <SectionCard title={uiText('stoppedTournaments')}>
+              <ProfileTournamentList tournaments={stoppedTournaments} emptyMessage={uiText('noStoppedTournaments')} />
             </SectionCard>
           )}
         </div>

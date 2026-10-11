@@ -1,3 +1,4 @@
+import { useTranslations } from 'next-intl';
 import React from 'react';
 import { SectionCard } from '../../components/Card/SectionCard';
 import { Button } from '../../components/Button/Button';
@@ -6,7 +7,6 @@ import { Modal } from '../../components/Modal/Modal';
 import { ArrowClockwise, ArrowRight, CaretDown, CopySimple, Check, Question } from 'phosphor-react';
 import { Tooltip } from '../Tooltip/Tooltip';
 import { Switch } from '../Switch/Switch';
-import { useLocale } from '../../i18n/LocaleProvider';
 import { calculateMatchDate } from '../../utils/ht-data';
 import { skillDisplay } from '../../utils/hattrick-skill';
 import { getHattrickWeekDetails } from '../../utils/hattrick-calendar';
@@ -215,6 +215,7 @@ export const FixturesView: React.FC<FixturesViewProps> = ({
   onSeasonChange,
   emptyStateMessage,
 }) => {
+  const uiText = useTranslations('PublicUI.FixturesView');
   type FixtureChallengeAvailability = {
     available: boolean;
     side?: 'home' | 'away';
@@ -251,7 +252,7 @@ export const FixturesView: React.FC<FixturesViewProps> = ({
     privateRatingsState.tournamentId === ratingsTournamentId &&
     privateRatingsState.userId === currentHtUserId ? privateRatingsState.fixtures : {};
   const privateRatingsRequest = React.useRef(0);
-  const { messages } = useLocale();
+  const fixtureText = useTranslations('fixtures');
   const [manualVisibleRoundsCount, setManualVisibleRoundsCount] = React.useState<number | null>(null);
   const [selectedTeamId, setSelectedTeamId] = React.useState<string | null>(null);
   const [isTeamFilterOpen, setIsTeamFilterOpen] = React.useState(false);
@@ -691,14 +692,14 @@ export const FixturesView: React.FC<FixturesViewProps> = ({
                 aria-expanded={isSeasonMenuOpen}
                 aria-haspopup="listbox"
               >
-                Season {season} Fixtures
+                {uiText('seasonFixtures', { season })}
                 <CaretDown size={16} weight="bold" aria-hidden="true" />
               </Button>
             ) : (
-              <h3 className={styles.fixturesTitle}>Season {season} Fixtures</h3>
+              <h3 className={styles.fixturesTitle}>{uiText('seasonFixtures', { season })}</h3>
             )}
             {isSeasonMenuOpen && seasonOptions.length > 1 && (
-              <div className={styles.fixturesSeasonDropdown} role="listbox" aria-label="Select season">
+              <div className={styles.fixturesSeasonDropdown} role="listbox" aria-label={uiText('selectSeason')}>
                 {seasonOptions.map((seasonNumber) => (
                   <button
                     key={seasonNumber}
@@ -710,7 +711,7 @@ export const FixturesView: React.FC<FixturesViewProps> = ({
                       onSeasonChange?.(seasonNumber);
                     }}
                   >
-                    Season {seasonNumber}
+                    {uiText('seasonNumber', { season: seasonNumber })}
                   </button>
                 ))}
               </div>
@@ -721,13 +722,11 @@ export const FixturesView: React.FC<FixturesViewProps> = ({
               {autoArrangePreferences.map((preference) => {
                 const isPersonalPreference = autoArrangePreferences.length === 1;
                 const label = isPersonalPreference
-                  ? preference.enabled
-                    ? messages.fixtures.autoArrangeMyFixtures
-                    : messages.fixtures.autoArrangeMyFixturesDisabled
-                  : (preference.enabled
-                    ? messages.fixtures.autoArrangeTeamFixtures
-                    : messages.fixtures.autoArrangeTeamFixturesDisabled)
-                      .replace('{team}', preference.teamName);
+                  ? fixtureText(preference.enabled ? 'autoArrangeMyFixtures' : 'autoArrangeMyFixturesDisabled')
+                  : fixtureText(
+                      preference.enabled ? 'autoArrangeTeamFixtures' : 'autoArrangeTeamFixturesDisabled',
+                      { team: preference.teamName },
+                    );
                 const tooltipId = `auto-arrange-${tournament?.id}-${season}-${preference.teamId}`;
                 return (
                   <div className={styles.autoArrangeControl} key={preference.teamId}>
@@ -738,8 +737,8 @@ export const FixturesView: React.FC<FixturesViewProps> = ({
                       size="sm"
                       label={label}
                     />
-                    <Tooltip id={tooltipId} content={messages.fixtures.autoArrangeTooltip}>
-                      <span className={styles.autoArrangeInfo} tabIndex={0} aria-label={messages.fixtures.autoArrangeTooltip}>
+                    <Tooltip id={tooltipId} content={fixtureText('autoArrangeTooltip')}>
+                      <span className={styles.autoArrangeInfo} tabIndex={0} aria-label={fixtureText('autoArrangeTooltip')}>
                         <Question size={16} weight="bold" aria-hidden="true" />
                       </span>
                     </Tooltip>
@@ -763,10 +762,10 @@ export const FixturesView: React.FC<FixturesViewProps> = ({
                   aria-expanded={isTeamFilterOpen}
                   aria-haspopup="listbox"
                 >
-                  <span>FILTER: {selectedTeamName || 'ALL TEAMS'}</span>
+                  <span>{uiText('fILTER')} {selectedTeamName || uiText('aLLTEAMS')}</span>
                 </button>
                 {isTeamFilterOpen && (
-                  <div className={styles.fixturesFilterDropdown} role="listbox" aria-label="Filter fixtures by team">
+                  <div className={styles.fixturesFilterDropdown} role="listbox" aria-label={uiText('filterFixturesByTeam')}>
                     <button
                       type="button"
                       className={styles.fixturesFilterOption}
@@ -775,7 +774,7 @@ export const FixturesView: React.FC<FixturesViewProps> = ({
                         setIsTeamFilterOpen(false);
                       }}
                     >
-                      ALL TEAMS
+                      {uiText('aLLTEAMS')}
                     </button>
                     {fixtureTeams.map((team) => (
                       <button
@@ -796,13 +795,13 @@ export const FixturesView: React.FC<FixturesViewProps> = ({
             )}
             {rounds.length > 0 && (
               <button type="button" className={styles.fixturesHeaderAction} onClick={onExpandAllRounds}>
-                <span>EXPAND ALL</span>
+                <span>{uiText('eXPANDALL')}</span>
               </button>
             )}
             {rounds.length > 0 && (
               <Tooltip id="collapse-tooltip" content="Collapse all except active" className="tooltip">
                 <button type="button" className={styles.fixturesHeaderAction} onClick={onCollapseAllRounds}>
-                  <span>COLLAPSE ALL</span>
+                  <span>{uiText('cOLLAPSEALL')}</span>
                 </button>
               </Tooltip>
             )}
@@ -813,22 +812,22 @@ export const FixturesView: React.FC<FixturesViewProps> = ({
       {showRatingsAuthPrompt && (
         <div className={styles.ratingsAuthPrompt} role="status">
           <p>{ratingsAuth === 'session-expired'
-            ? 'Your HT-120min session expired. Sign in with Hattrick to share ratings for your fixtures.'
-            : 'Hattrick authorization is missing or was denied. Reconnect Hattrick to share ratings for your fixtures.'}</p>
+            ? uiText('yourHT120minSessionExpiredSignInWithHattrick')
+            : uiText('hattrickAuthorizationIsMissingOrWasDeniedReconnectHattrick')}</p>
           <div>
             <Button size="sm" variant="secondary" onClick={onRatingsSignIn}>
-              {ratingsAuth === 'session-expired' ? 'Sign in with Hattrick' : 'Reconnect Hattrick'}
+              {ratingsAuth === 'session-expired' ? uiText('signInWithHattrick') : uiText('reconnectHattrick')}
             </Button>
-            <Button size="sm" variant="zero" onClick={() => setRatingsPromptDismissed(true)}>Continue browsing</Button>
+            <Button size="sm" variant="zero" onClick={() => setRatingsPromptDismissed(true)}>{uiText('continueBrowsing')}</Button>
           </div>
         </div>
       )}
 
       {rounds.length === 0 && (
-        <SectionCard title="Fixtures & Results">
+        <SectionCard title={uiText('fixturesResults')}>
           <div className={`${styles.emptyFixtures} ${styles.registrationStatus}`}>
-            <p>{emptyStateMessage || 'Fixtures have not yet been generated. Tournament is open for registration.'}</p>
-            {canJoinAnotherTeam && <span>You can join with another team.</span>}
+            <p>{emptyStateMessage || uiText('fixturesHaveNotYetBeenGeneratedTournamentIsOpen')}</p>
+            {canJoinAnotherTeam && <span>{uiText('youCanJoinWithAnotherTeam')}</span>}
             {(canJoinTournament || canJoinAnotherTeam) && (
               <Button
                 variant="primary"
@@ -837,7 +836,7 @@ export const FixturesView: React.FC<FixturesViewProps> = ({
                 onClick={onJoinWithHattrick}
                 disabled={isConnecting}
               >
-                <ArrowRight size={18} weight="bold" /> {isConnecting ? 'Connecting to Hattrick…' : 'Join with Hattrick'}
+                <ArrowRight size={18} weight="bold" /> {isConnecting ? uiText('connectingToHattrick') : uiText('joinWithHattrick')}
               </Button>
             )}
           </div>
@@ -918,10 +917,10 @@ export const FixturesView: React.FC<FixturesViewProps> = ({
               title={
                 <div className={styles.roundHeader}>
                   <>
-                    <span>Round {round.round_number}{round.phase === 'postseason' ? ' — Championship Final' : ''}</span>
+                    <span>{uiText('roundNumber', { round: round.round_number })}{round.phase === 'postseason' ? uiText('championshipFinal') : ''}</span>
                     {roundDate && roundWeek && (
                       <span className={styles.roundDate}>
-                        HT Week {roundWeek.htWeek}
+                        {uiText('htWeekNumber', { week: roundWeek.htWeek })}
                         {roundPeriod !== 'full_week'
                           ? ` • ${roundPeriod === 'weekend' ? 'Weekend' : 'Midweek'}`
                           : ''} •{' '}
@@ -942,7 +941,7 @@ export const FixturesView: React.FC<FixturesViewProps> = ({
                     {allFinished || tournament?.status === 'finished' ? (
                       <>
                         <span className={styles.lastRefresh}>
-                          <div className="hideOnMobile">Copy for HT forums:</div>
+                          <div className="hideOnMobile">{uiText('copyForHTForums')}</div>
                         </span>
                         <button
                           className={styles.refreshBtn}
@@ -962,7 +961,7 @@ export const FixturesView: React.FC<FixturesViewProps> = ({
                         {isNextRound && tournament?.last_fixtures_refresh && (
                           <span className={styles.lastRefresh}>
                             <span className="hideOnMobile">
-                              {isRefreshingFixtures ? 'Checking...' : 'Last checked: '}
+                              {isRefreshingFixtures ? uiText('checking') : uiText('lastChecked')}
                               {!isRefreshingFixtures &&
                                 new Date(tournament.last_fixtures_refresh).toLocaleTimeString('en-GB', {
                                   hour: '2-digit',
@@ -1001,7 +1000,7 @@ export const FixturesView: React.FC<FixturesViewProps> = ({
                     <div className={`${styles.emptyFixtures} ${styles.registrationStatus}`}>
                       <p>
                         {round.phase === 'postseason'
-                          ? 'The top two teams are paired after the regular season is resolved.'
+                          ? uiText('theTopTwoTeamsArePairedAfterTheRegular')
                           : `Pairings are generated after Round ${round.round_number - 1} is resolved.`}
                       </p>
                     </div>
@@ -1211,14 +1210,14 @@ export const FixturesView: React.FC<FixturesViewProps> = ({
               })
             }
           >
-            Show More
+            {uiText('showMore')}
           </Button>
         </div>
       )}
       {fixtureChallengePreviewMode && (
-        <SectionCard title="Fixture challenge preview">
+        <SectionCard title={uiText('fixtureChallengePreview')}>
           <p className={styles.fixtureChallengePreviewNote}>
-            Local preview only. It does not read tournament data or contact Hattrick.
+            {uiText('localPreviewOnlyItDoesNotReadTournamentData')}
           </p>
           <FixtureCard
             date="WED / 30.09. / 05:15"
@@ -1249,7 +1248,7 @@ export const FixturesView: React.FC<FixturesViewProps> = ({
         <div className={styles.fixturesUpdateAction}>
           <Button variant="action" size="sm" onClick={refreshFixturesAndRatings} disabled={isRefreshingFixtures}>
             <ArrowClockwise size={18} className={isRefreshingFixtures ? styles.spinning : undefined} />
-            {isRefreshingFixtures ? 'Updating fixtures...' : 'Update fixtures'}
+            {isRefreshingFixtures ? uiText('updatingFixtures') : uiText('updateFixtures')}
           </Button>
         </div>
       )}
@@ -1268,19 +1267,19 @@ export const FixturesView: React.FC<FixturesViewProps> = ({
                 fullWidth
                 onClick={() => window.open(HATTRICK_CHALLENGES_URL, '_blank', 'noopener,noreferrer')}
               >
-                View on Hattrick <span style={{ fontFamily: 'var(--sans)' }}>*</span>
+                {uiText('viewOnHattrick')} <span style={{ fontFamily: 'var(--sans)' }}>*</span>
               </Button>
-              <p className={styles.fixtureChallengeHattrickHint}>* might need switching to the correct team</p>
+              <p className={styles.fixtureChallengeHattrickHint}>{uiText('mightNeedSwitchingToTheCorrectTeam')}</p>
             </>
           ) : (
             <>
               <p>
-                Send a challenge to <strong>{selectedChallenge?.opponent?.name || 'this team'}</strong>:
+                {uiText('sendAChallengeTo')} <strong>{selectedChallenge?.opponent?.name || uiText('thisTeam')}</strong>:
               </p>
               <div className={styles.fixtureChallengeOptions}>
                 <div>
-                  <h3>Type</h3>
-                  <div className={styles.fixtureChallengeRadioGroup} role="radiogroup" aria-label="Challenge type">
+                  <h3>{uiText('type')}</h3>
+                  <div className={styles.fixtureChallengeRadioGroup} role="radiogroup" aria-label={uiText('challengeType')}>
                     <label
                       className={`${styles.fixtureChallengeRadio} ${
                         selectedChallengeSelection.matchType === 'cup_rules' ? styles.selected : ''
@@ -1297,7 +1296,7 @@ export const FixturesView: React.FC<FixturesViewProps> = ({
                           }))
                         }
                       />
-                      <span className={styles.fixtureChallengeRadioMark} aria-hidden="true" /> Cup rules (120 min)
+                      <span className={styles.fixtureChallengeRadioMark} aria-hidden="true" /> {uiText('cupRules120Min')}
                     </label>
                     <label
                       className={`${styles.fixtureChallengeRadio} ${
@@ -1315,13 +1314,13 @@ export const FixturesView: React.FC<FixturesViewProps> = ({
                           }))
                         }
                       />
-                      <span className={styles.fixtureChallengeRadioMark} aria-hidden="true" /> Normal rules
+                      <span className={styles.fixtureChallengeRadioMark} aria-hidden="true" /> {uiText('normalRules')}
                     </label>
                   </div>
                 </div>
                 <div>
-                  <h3>Venue</h3>
-                  <div className={styles.fixtureChallengeRadioGroup} role="radiogroup" aria-label="Scheduled venue">
+                  <h3>{uiText('venue')}</h3>
+                  <div className={styles.fixtureChallengeRadioGroup} role="radiogroup" aria-label={uiText('scheduledVenue')}>
                     <label
                       className={`${styles.fixtureChallengeRadio} ${
                         selectedChallengeSelection.venue === 'home' ? styles.selected : ''
@@ -1338,7 +1337,7 @@ export const FixturesView: React.FC<FixturesViewProps> = ({
                           }))
                         }
                       />
-                      <span className={styles.fixtureChallengeRadioMark} aria-hidden="true" /> Home
+                      <span className={styles.fixtureChallengeRadioMark} aria-hidden="true" /> {uiText('home')}
                     </label>
                     <label
                       className={`${styles.fixtureChallengeRadio} ${
@@ -1356,20 +1355,20 @@ export const FixturesView: React.FC<FixturesViewProps> = ({
                           }))
                         }
                       />
-                      <span className={styles.fixtureChallengeRadioMark} aria-hidden="true" /> Away (per schedule)
+                      <span className={styles.fixtureChallengeRadioMark} aria-hidden="true" /> {uiText('awayPerSchedule')}
                     </label>
                   </div>
                 </div>
               </div>
               {challengeError && (
                 <div className={styles.fixtureChallengeErrorBlock}>
-                  <h3>Response from Hattrick:</h3>
+                  <h3>{uiText('responseFromHattrick')}</h3>
                   <p className={styles.fixtureChallengeError}>{challengeError}</p>
                 </div>
               )}
               <div className={styles.fixtureChallengeActions}>
                 <Button variant="outlineWhite" fullWidth onClick={submitChallenge} disabled={isSendingChallenge}>
-                  {isSendingChallenge ? 'Challenging…' : 'Challenge!'}
+                  {isSendingChallenge ? uiText('challenging') : uiText('challenge')}
                 </Button>
               </div>
             </>

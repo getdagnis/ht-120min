@@ -1,3 +1,4 @@
+import { useTranslations } from 'next-intl';
 import React from 'react';
 import { ArrowLeft, ArrowRight, ArrowUpRight, Info } from 'phosphor-react';
 import { Tooltip } from '../Tooltip/Tooltip';
@@ -145,12 +146,13 @@ function TacticValue({ tactic }: { tactic: string | null | undefined }) {
 }
 
 function GameStyle({ styleOfPlay }: { styleOfPlay: number | null | undefined }) {
+  const uiText = useTranslations('PublicUI.GameStyle');
   const mindset = getMatchMindsetIndicator(styleOfPlay);
   if (!mindset) return null;
 
   return (
     <span>
-      Style <strong className={ratingIndicatorClass(mindset.score)}>{mindset.label}</strong>
+      {uiText('style')} <strong className={ratingIndicatorClass(mindset.score)}>{mindset.label}</strong>
     </span>
   );
 }
@@ -164,6 +166,7 @@ function RatingsPitch({
   specialtyPositions?: SpecialtyPositionGroup[];
   midfieldLabel?: string;
 }) {
+  const uiText = useTranslations('PublicUI.RatingsPitch');
   const sectorRows: Array<Array<[string, string, RatedSector?]>> = [
     [
       ['Left attack:', ratings.leftAttack, 'leftAttack'],
@@ -195,7 +198,7 @@ function RatingsPitch({
                   {markers.length > 0 && (
                     <small
                       className={styles.ratingsSpecialtyIcons}
-                      aria-label="Specialties contributing to this rating"
+                      aria-label={uiText('specialtiesContributingToThisRating')}
                     >
                       {markers.map(({ specialtyId, count }) => (
                         <span
@@ -288,6 +291,7 @@ export const FixtureCard: React.FC<FixtureCardProps> = ({
   ratingsSharedStatus,
   ratingsActions,
 }) => {
+  const uiText = useTranslations('PublicUI.FixtureCard');
   const [nowMs, setNowMs] = React.useState(() => Date.now());
   const [busySide, setBusySide] = React.useState<'home' | 'away' | null>(null);
   const [refreshedSide, setRefreshedSide] = React.useState<'home' | 'away' | null>(null);
@@ -340,7 +344,7 @@ export const FixtureCard: React.FC<FixtureCardProps> = ({
     >
       {completed && (
         <div className={`${styles.minutesBadge} ${went_120 ? styles.achievedMinutes : ''}`}>
-          {hasPenaltyShootout ? '120+PS!' : `${totalMinutes ?? (went_120 ? 120 : 90)}'${went_120 ? '!' : ''}`}
+          {hasPenaltyShootout ? uiText('120PS') : `${totalMinutes ?? (went_120 ? 120 : 90)}'${went_120 ? '!' : ''}`}
         </div>
       )}
       <div className={styles.badgeRight}>
@@ -375,7 +379,7 @@ export const FixtureCard: React.FC<FixtureCardProps> = ({
     <>
       {team.reserveReplacingName && (
         <div className={styles.reserveRow}>
-          <span>REPLACING {team.reserveReplacingName}!</span>
+          <span>{uiText('rEPLACING')} {team.reserveReplacingName}!</span>
         </div>
       )}
       <div className={styles.teamName}>{team.name.toUpperCase()}</div>
@@ -395,8 +399,8 @@ export const FixtureCard: React.FC<FixtureCardProps> = ({
       )}
       {team.warning && (
         <div className={styles.warningRow}>
-          <img src="/warn-red.png" alt="Warning" className={styles.warnIcon} />
-          <span className={styles.warn}>Misarranged fixture!</span>
+          <img src="/warn-red.png" alt={uiText('warning')} className={styles.warnIcon} />
+          <span className={styles.warn}>{uiText('misarrangedFixture')}</span>
         </div>
       )}
     </>
@@ -428,8 +432,8 @@ export const FixtureCard: React.FC<FixtureCardProps> = ({
           <div className={styles.dateRow}>
             <div className={styles.date}>{date}</div>
             {dateIsEstimated && (
-              <span className={styles.estimatedDate} title="Estimated from the planned schedule">
-                Estimated
+              <span className={styles.estimatedDate} title={uiText('estimatedFromThePlannedSchedule')}>
+                {uiText('estimated')}
               </span>
             )}
             {matchTypeInfo && (
@@ -452,7 +456,7 @@ export const FixtureCard: React.FC<FixtureCardProps> = ({
                 {score?.home ?? 0}
                 {hasPenaltyShootout && penaltyShootout ? <sup>({penaltyShootout.home})</sup> : null}
               </span>
-              <span className={styles.vs}>VS</span>
+              <span className={styles.vs}>{uiText('vS')}</span>
               <span className={styles.score}>
                 {score?.away ?? 0}
                 {hasPenaltyShootout && penaltyShootout ? <sup>({penaltyShootout.away})</sup> : null}
@@ -461,7 +465,7 @@ export const FixtureCard: React.FC<FixtureCardProps> = ({
           ) : (
             <>
               <span className={styles.scorePlaceholder}>-</span>
-              <span className={styles.vs}>VS</span>
+              <span className={styles.vs}>{uiText('vS')}</span>
               <span className={styles.scorePlaceholder}>-</span>
             </>
           )}
@@ -473,7 +477,7 @@ export const FixtureCard: React.FC<FixtureCardProps> = ({
             onClick={challengeAction.onClick}
           >
             {challengeAction.direction === 'left' ? <ArrowLeft size={18} weight="bold" /> : null}
-            Send Challenge!
+            {uiText('sendChallenge')}
             {challengeAction.direction === 'right' ? <ArrowRight size={18} weight="bold" /> : null}
           </button>
         ) : ['arranged', 'ongoing', 'finished'].includes(status) && htMatchId ? (
@@ -496,7 +500,7 @@ export const FixtureCard: React.FC<FixtureCardProps> = ({
             aria-expanded={actualDetailsExpanded}
             onClick={() => setActualDetailsExpanded((expanded) => !expanded)}
           >
-            {actualDetailsExpanded ? 'Hide details' : 'Show details'}
+            {actualDetailsExpanded ? uiText('hideDetails') : uiText('showDetails')}
           </button>
         )}
       </div>
@@ -518,9 +522,9 @@ export const FixtureCard: React.FC<FixtureCardProps> = ({
         </div>
       </div>
       {ratingsPreview && (
-        <section className={styles.ratingsPreview} aria-label="Shared match ratings">
+        <section className={styles.ratingsPreview} aria-label={uiText('sharedMatchRatings')}>
           {(ratingsPreview.home || ratingsPreview.away) && (
-            <div className={styles.ratingsPreviewTitle}>Shared match ratings</div>
+            <div className={styles.ratingsPreviewTitle}>{uiText('sharedMatchRatings')}</div>
           )}
           {(['home', 'away'] as const).map((side) => {
             const team = side === 'home' ? homeTeam : awayTeam;
@@ -532,7 +536,7 @@ export const FixtureCard: React.FC<FixtureCardProps> = ({
                 {preview && (
                   <div className={styles.ratingsTeamHeading}>
                     {side === 'home' && <strong>{team.name}</strong>}
-                    <span>{side === 'home' ? 'shared their ratings' : 'Shared with opponent by'}</span>
+                    <span>{side === 'home' ? uiText('sharedTheirRatings') : uiText('sharedWithOpponentBy')}</span>
                     {side === 'away' && <strong>{team.name}</strong>}
                   </div>
                 )}
@@ -541,28 +545,28 @@ export const FixtureCard: React.FC<FixtureCardProps> = ({
                     <RatingsPitch ratings={preview.ratings} specialtyPositions={preview.specialtyPositions} />
                     <div className={styles.ratingsMetadata}>
                       <span>
-                        Formation{' '}
+                        {uiText('formation')}{' '}
                         <strong className={ratingIndicatorClass(getFormationIndicatorScore(preview.formation))}>
                           {preview.formation}
                         </strong>
                       </span>
                       <span>
-                        Tactic{' '}
+                        {uiText('tactic')}{' '}
                         <strong>
                           <TacticValue tactic={preview.tactic} />
                         </strong>
                       </span>
                       <GameStyle styleOfPlay={preview.coachModifier} />
                       <span>
-                        Set Pieces taker{' '}
+                        {uiText('setPiecesTaker')}{' '}
                         <strong className={ratingIndicatorClass(getSetPieceIndicatorScore(preview.setPiecesSkill))}>
                           {preview.setPieces}
                         </strong>
                       </span>
                     </div>
                     {preview.specialtyPositions.length > 0 && (
-                      <div className={styles.specialtySummary} aria-label="Player specialties by position">
-                        <span className={styles.specialtySummaryLabel}>Specialties:</span>
+                      <div className={styles.specialtySummary} aria-label={uiText('playerSpecialtiesByPosition')}>
+                        <span className={styles.specialtySummaryLabel}>{uiText('specialties')}</span>
                         {preview.specialtyPositions.map((group) => (
                           <span key={group.specialtyId}>
                             <strong>{specialtyPositionText(group)}</strong>
@@ -578,7 +582,7 @@ export const FixtureCard: React.FC<FixtureCardProps> = ({
                       {canManage && (
                         <button type="button" disabled={busySide !== null} onClick={() => void act(side, 'update')}>
                           {busySide === side
-                            ? 'Updating...'
+                            ? uiText('updating')
                             : refreshedSide === side
                               ? 'Ratings refreshed'
                               : 'Refresh ratings'}
@@ -591,11 +595,11 @@ export const FixtureCard: React.FC<FixtureCardProps> = ({
                           disabled={busySide !== null}
                           onClick={() => void act(side, 'remove')}
                         >
-                          Stop sharing
+                          {uiText('stopSharing')}
                         </button>
                       )}
                       <span>
-                        Last updated:{' '}
+                        {uiText('lastUpdated')}{' '}
                         {new Intl.DateTimeFormat('en-GB', {
                           day: '2-digit',
                           month: 'short',
@@ -614,12 +618,11 @@ export const FixtureCard: React.FC<FixtureCardProps> = ({
                       }`}
                     >
                       <button type="button" disabled={busySide !== null} onClick={() => void act(side, 'share')}>
-                        Share predicted ratings
+                        {uiText('sharePredictedRatings')}
                       </button>
                     </div>
                     <p className={styles.ratingsShareHelper}>
-                      Share your lineup predicted ratings with your opponent. Your shared ratings will update
-                      automatically if you change match orders.
+                      {uiText('shareYourLineupPredictedRatingsWithYourOpponentYour')}
                     </p>
                   </div>
                 )}
@@ -634,8 +637,8 @@ export const FixtureCard: React.FC<FixtureCardProps> = ({
         </section>
       )}
       {status === 'finished' && actualDetailsExpanded && (
-        <section className={styles.ratingsPreview} aria-label="Actual match details">
-          <div className={styles.ratingsPreviewTitle}>Actual match performance</div>
+        <section className={styles.ratingsPreview} aria-label={uiText('actualMatchDetails')}>
+          <div className={styles.ratingsPreviewTitle}>{uiText('actualMatchPerformance')}</div>
           {(['home', 'away'] as const).map((side) => {
             const team = side === 'home' ? homeTeam : awayTeam;
             const performance = team.matchSummary?.eventDetails?.performance;
@@ -644,7 +647,7 @@ export const FixtureCard: React.FC<FixtureCardProps> = ({
               <div key={side} className={`${styles.ratingsSide} ${side === 'away' ? styles.ratingsSideAway : ''}`}>
                 <div className={styles.ratingsTeamHeading}>
                   {side === 'home' && <strong>{team.name}</strong>}
-                  <span>match performance</span>
+                  <span>{uiText('matchPerformance')}</span>
                   {side === 'away' && <strong>{team.name}</strong>}
                 </div>
                 <RatingsPitch
@@ -654,28 +657,28 @@ export const FixtureCard: React.FC<FixtureCardProps> = ({
                 />
                 <div className={styles.ratingsMetadata}>
                   <span>
-                    Formation{' '}
+                    {uiText('formation')}{' '}
                     <strong className={ratingIndicatorClass(getFormationIndicatorScore(performance?.formation))}>
                       {performance?.formation || '—'}
                     </strong>
                   </span>
                   <span>
-                    Tactic{' '}
+                    {uiText('tactic')}{' '}
                     <strong>
                       <TacticValue tactic={performance?.tacticName} />
                     </strong>
                   </span>
                   <GameStyle styleOfPlay={performance?.styleOfPlay} />
                   <span>
-                    Set Pieces taker{' '}
+                    {uiText('setPiecesTaker')}{' '}
                     <strong className={ratingIndicatorClass(getSetPieceIndicatorScore(taker?.skill))}>
                       {skillDisplay(taker?.skill)}
                     </strong>
                   </span>
                 </div>
                 {!!performance?.specialtyPositions?.length && (
-                  <div className={styles.specialtySummary} aria-label="Player specialties by position">
-                    <span className={styles.specialtySummaryLabel}>Specialties:</span>
+                  <div className={styles.specialtySummary} aria-label={uiText('playerSpecialtiesByPosition')}>
+                    <span className={styles.specialtySummaryLabel}>{uiText('specialties')}</span>
                     {performance.specialtyPositions.map((group) => (
                       <span key={group.specialtyId}>
                         <strong>{specialtyPositionText(group)}</strong>
@@ -689,12 +692,12 @@ export const FixtureCard: React.FC<FixtureCardProps> = ({
         </section>
       )}
       {ratingsSharedStatus && (
-        <section className={styles.ratingsSharedStatus} aria-label="Shared rating prediction status">
+        <section className={styles.ratingsSharedStatus} aria-label={uiText('sharedRatingPredictionStatus')}>
           {ratingsSharedStatus.home && (
-            <p className={styles.ratingsSharedStatusHome}>{homeTeam.name} have shared their predicted ratings! ✅</p>
+            <p className={styles.ratingsSharedStatusHome}>{homeTeam.name} {uiText('haveSharedTheirPredictedRatings')}</p>
           )}
           {ratingsSharedStatus.away && (
-            <p className={styles.ratingsSharedStatusAway}>{awayTeam.name} have shared their predicted ratings! ✅</p>
+            <p className={styles.ratingsSharedStatusAway}>{awayTeam.name} {uiText('haveSharedTheirPredictedRatings')}</p>
           )}
         </section>
       )}

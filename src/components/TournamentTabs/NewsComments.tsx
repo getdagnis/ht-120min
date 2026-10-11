@@ -1,5 +1,6 @@
 'use client';
 
+import { useTranslations } from 'next-intl';
 import React, { useState } from 'react';
 import { Avatar } from '../Avatar/Avatar';
 import { Button } from '../Button/Button';
@@ -31,6 +32,7 @@ export const NewsComments: React.FC<NewsCommentsProps> = ({
   onSubmit,
   isSubmitting,
 }) => {
+  const uiText = useTranslations('PublicUI.NewsComments');
   const [draft, setDraft] = useState('');
   const [error, setError] = useState<string | null>(null);
 
@@ -49,7 +51,7 @@ export const NewsComments: React.FC<NewsCommentsProps> = ({
   };
 
   return (
-    <section className={styles.newsComments} aria-label="Article comments">
+    <section className={styles.newsComments} aria-label={uiText('articleComments')}>
       {currentAuthor && (
         <form className={styles.commentComposer} onSubmit={handleSubmit}>
           <div className={styles.commentAuthor}>
@@ -65,13 +67,13 @@ export const NewsComments: React.FC<NewsCommentsProps> = ({
             value={draft}
             maxLength={480}
             rows={3}
-            placeholder="Write a comment..."
-            aria-label="Write a comment"
+            placeholder={uiText('writeAComment')}
+            aria-label={uiText('writeAComment2')}
             onChange={(event) => setDraft(event.target.value)}
           />
           <div className={styles.commentComposerActions}>
             <Button type="submit" size="sm" disabled={!draft.trim() || isSubmitting}>
-              {isSubmitting ? 'Sending...' : 'Send'}
+              {isSubmitting ? uiText('sending') : uiText('send')}
             </Button>
           </div>
           {error && <p className={styles.commentError} role="alert">{error}</p>}

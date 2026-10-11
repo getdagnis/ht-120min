@@ -168,6 +168,7 @@ function shuffleWithSeed<T>(items: T[], seed: number) {
 }
 
 export const SupportersWall: React.FC<SupportersWallProps> = ({ variant = 'compact' }) => {
+  const uiText = useTranslations('PublicUI.SupportersWall');
   const router = useRouter();
   const t = useTranslations('Home');
   const { locale } = useLocale();
@@ -222,15 +223,15 @@ export const SupportersWall: React.FC<SupportersWallProps> = ({ variant = 'compa
 
       return (
         <>
-          An honorary pioneer member of HT-120min and participant of{' '}
+          {uiText('anHonoraryPioneerMemberOfHT120minAndParticipant')}{' '}
           <Link href={toLocalePath(locale, cup.href)} className={styles.cupLink}>
             {cup.label}
           </Link>{' '}
-          in Season 1.
+          {uiText('inSeason1')}
         </>
       );
     },
-    [locale],
+    [locale, uiText],
   );
 
   const displayedSupporters = useMemo(() => {

@@ -85,27 +85,27 @@ const getFreshnessLabel = (request: MatchmakerRequest, nowMs: number) => {
 
   if (request.status !== 'open') {
     return {
-      label: 'Booked',
+      key: 'booked' as const,
       tone: 'bad' as const,
     };
   }
 
   if (ageHours < 12) {
     return {
-      label: 'Posted today',
+      key: 'postedToday' as const,
       tone: 'good' as const,
     };
   }
 
   if (ageHours < 72) {
     return {
-      label: 'Posted this week',
+      key: 'postedThisWeek' as const,
       tone: 'warn' as const,
     };
   }
 
   return {
-    label: 'Posted recently',
+    key: 'postedRecently' as const,
     tone: 'bad' as const,
   };
 };
@@ -305,6 +305,7 @@ const getTeamFitScore = (selectedTeam: ChppTeamOption | undefined, target: Match
 };
 
 export const Matchmaker: React.FC = () => {
+  const uiText = useTranslations('PublicUI.Matchmaker');
   const t = useTranslations('Tinder');
   const { profile } = useAuth();
   const [nowMs] = useState(() => Date.now());
@@ -649,7 +650,7 @@ export const Matchmaker: React.FC = () => {
         teamName: current.request.team.name,
         genderId: current.request.team.gender_id,
         availabilityStatus: current.request.status,
-        availabilityReason: current.freshness.label,
+        availabilityReason: current.freshness.key,
       },
     ]);
   }, [mockDataEnabled, currentIndex, scoredRequests]);
@@ -1221,15 +1222,15 @@ export const Matchmaker: React.FC = () => {
       {mockDataEnabled && (
         <div className={styles.mockBanner}>
           <div className={styles.mockBannerCopy}>
-            <span className={styles.mockBannerKicker}>TEST ENVIRONMENT</span>
-            <strong>Using mock teams and mock friendlies.</strong>
-            <span>Local demo mode is isolated from production data.</span>
+            <span className={styles.mockBannerKicker}>{uiText('tESTENVIRONMENT')}</span>
+            <strong>{uiText('usingMockTeamsAndMockFriendlies')}</strong>
+            <span>{uiText('localDemoModeIsIsolatedFromProductionData')}</span>
           </div>
           <div className={styles.mockStats}>
-            <span>{mockStats.availableTeams} Available Teams</span>
-            <span>{mockStats.bookedTeams} Booked Teams</span>
-            <span>{mockStats.femaleTeams} Female Teams</span>
-            <span>{mockStats.internationalListings} International Listings</span>
+            <span>{mockStats.availableTeams} {uiText('availableTeams')}</span>
+            <span>{mockStats.bookedTeams} {uiText('bookedTeams')}</span>
+            <span>{mockStats.femaleTeams} {uiText('femaleTeams')}</span>
+            <span>{mockStats.internationalListings} {uiText('internationalListings')}</span>
           </div>
         </div>
       )}
@@ -1241,7 +1242,7 @@ export const Matchmaker: React.FC = () => {
             {myTeams.map((team) => (
               <option key={team.teamId} value={team.teamId}>
                 {getDisplayTeamName(team.teamName, team.genderId)}
-                {team.is_mock ? ' (Mock)' : ''}
+                {team.is_mock ? uiText('mock') : ''}
               </option>
             ))}
           </select>
@@ -1252,21 +1253,20 @@ export const Matchmaker: React.FC = () => {
           className={`${styles.tinderHeroCard} ${mobileExperience === 'app' ? deckStyles.mobileHiddenWhenActive : ''}`}
         >
           <div className={styles.heroImageContainer}>
-            <img src="/tinder-date-long-transp.png" alt="Tinder Date" className={styles.heroImage} />
+            <img src="/tinder-date-long-transp.png" alt={uiText('tinderDate')} className={styles.heroImage} />
             <div className={styles.heroBranding}>
               <h1>
-                <span>HT-120min Tinder</span>
+                <span>{uiText('hT120minTinder')}</span>
               </h1>
             </div>
           </div>
 
           <div className={styles.heroActions}>
             <p className={styles.heroSubtitle}>
-              Find your next 120 min training partner. No awkard concept explanations — we all know what we're here for.
-              Pick and challenge.
+              {uiText('findYourNext120MinTrainingPartnerNoAwkard')}
             </p>
             <Button size="lg" variant="tinder" onClick={handleStartPosting}>
-              Post an Ad
+              {uiText('postAnAd')}
             </Button>
           </div>
         </div>
@@ -1289,7 +1289,7 @@ export const Matchmaker: React.FC = () => {
 
         <div
           className={`${deckStyles.mobileCategoryButtons} ${mobileExperience === 'app' ? deckStyles.mobileHiddenWhenActive : ''}`}
-          aria-label="Tinder categories"
+          aria-label={uiText('tinderCategories')}
         >
           {tabItems.map((tab) => (
             <Button
@@ -1311,10 +1311,10 @@ export const Matchmaker: React.FC = () => {
       {mobileExperience === 'app' && (
         <div className={deckStyles.mobileAppHeader}>
           <button type="button" className={deckStyles.mobileBack} onClick={() => setMobileExperience('welcome')}>
-            <CaretLeft /> Back
+            <CaretLeft /> {uiText('back')}
           </button>
           <h2 className={deckStyles.mobileSectionTitle}>
-            {tabItems.find((tab) => tab.key === activeTab)?.label || 'Browse'}
+            {tabItems.find((tab) => tab.key === activeTab)?.label || uiText('browse')}
           </h2>
         </div>
       )}
@@ -1368,7 +1368,7 @@ export const Matchmaker: React.FC = () => {
                             <div className={styles.arenaFrame}>
                               <img
                                 src={req.team.arena_image_url || DEFAULT_ARENA_IMAGE}
-                                alt="Arena"
+                                alt={uiText('arena')}
                                 onError={(event) => {
                                   event.currentTarget.onerror = null;
                                   event.currentTarget.src = DEFAULT_ARENA_IMAGE;
@@ -1382,7 +1382,7 @@ export const Matchmaker: React.FC = () => {
                             <button
                               type="button"
                               className={styles.iconBtn}
-                              title="Edit Ad"
+                              title={uiText('editAd')}
                               onClick={() => startEditingRequest(req)}
                             >
                               <PencilSimple size={18} />
@@ -1390,7 +1390,7 @@ export const Matchmaker: React.FC = () => {
                             <button
                               type="button"
                               className={styles.iconBtn}
-                              title="Delete Ad"
+                              title={uiText('deleteAd')}
                               onClick={async () => {
                                 if (mockDataEnabled) {
                                   setMyRequests((prev) => prev.filter((item) => item.id !== req.id));
@@ -1450,11 +1450,11 @@ export const Matchmaker: React.FC = () => {
                             <span className={styles.summaryLabel}>{t('lookingFor')}</span>
                             <div className={styles.badges}>
                               <span className={styles.badge}>
-                                {req.match_type === '120min' ? '120 min training' : '90 min acceptable'}
+                                {req.match_type === '120min' ? uiText('120MinTraining') : uiText('90MinAcceptable')}
                               </span>
                               <span className={styles.badge}>
                                 {req.home_away === 'home'
-                                  ? 'My place'
+                                  ? uiText('myPlace')
                                   : req.home_away === 'away'
                                     ? 'Your place'
                                     : 'Either venue'}
@@ -1467,17 +1467,17 @@ export const Matchmaker: React.FC = () => {
                                     : 'Anywhere'}
                               </span>
                               <span className={styles.badge}>
-                                {req.is_long_term ? 'Long-term partner' : 'One-off match'}
+                                {req.is_long_term ? uiText('longTermPartner') : uiText('oneOffMatch')}
                               </span>
-                              {req.is_back_and_forth && <span className={styles.badge}>Home/away exchange</span>}
+                              {req.is_back_and_forth && <span className={styles.badge}>{uiText('homeAwayExchange')}</span>}
                             </div>
                           </div>
                           <div className={styles.adMetaRow}>
                             <span
                               className={`${styles.availabilityBadge} ${req.status === 'open' ? styles.good : styles.bad}`}
-                              title="Based on how recently the ad was posted."
+                              title={uiText('basedOnHowRecentlyTheAdWasPosted')}
                             >
-                              {req.status === 'open' ? getFreshnessLabel(req, nowMs).label : 'Matched'}
+                              {req.status === 'open' ? getFreshnessLabel(req, nowMs).label : uiText('matched')}
                             </span>
                           </div>
                         </div>
@@ -1487,7 +1487,7 @@ export const Matchmaker: React.FC = () => {
                         <div className={styles.matchNotice} style={{ marginTop: '1rem' }}>
                           <Heart size={16} weight="fill" color="#ff4b2b" />
                           <span>
-                            Matched with <strong>{req.matched_team?.name}</strong>
+                            {uiText('matchedWith')} <strong>{req.matched_team?.name}</strong>
                           </span>
                         </div>
                       )}
@@ -1499,12 +1499,12 @@ export const Matchmaker: React.FC = () => {
                               <div key={item.id} className={styles.activityItem}>
                                 <div className={styles.activityMeta}>
                                   <span className={styles.activityDate}>{formatActivityDate(item.created_at)}</span>
-                                  <span className={styles.activitySource}>HT-120min</span>
+                                  <span className={styles.activitySource}>{uiText('hT120min')}</span>
                                 </div>
                                 <p className={styles.activityHeadline}>{getActivityHeadline(item)}</p>
                                 {item.comment && (
                                   <div className={styles.activityComment}>
-                                    <span className={styles.activityCommentLabel}>Comment:</span>
+                                    <span className={styles.activityCommentLabel}>{uiText('comment')}</span>
                                     <p>"{item.comment}"</p>
                                   </div>
                                 )}
@@ -1525,7 +1525,7 @@ export const Matchmaker: React.FC = () => {
               <div className={styles.emptyState}>
                 <p>{t('noAds')}</p>
                 <Button size="md" variant="tinder" onClick={handleStartPosting}>
-                  Post an Ad
+                  {uiText('postAnAd')}
                 </Button>
               </div>
             )}
@@ -1539,19 +1539,19 @@ export const Matchmaker: React.FC = () => {
         onPrimaryAction={acceptWelcome}
         imageSrc="/tinder-date-long-firefly.jpg"
         imageAlt="Hattrick managers looking for friendly partners"
-        title="Welcome to HT-Tinder!"
+        title={uiText('welcomeToHTTinder')}
         buttonLabel="See who's around!"
         variant="tinder"
       >
-        <strong>Leave a friendly ad and let the right opponent find you.</strong>
+        <strong>{uiText('leaveAFriendlyAdAndLetTheRightOpponent')}</strong>
 
         <ul>
-          <li>👉 Register your team</li>
-          <li>👉 Say what kind of friendly partner you want</li>
-          <li>👉 Keep the ad there until someone suitable comes along</li>
+          <li>{uiText('registerYourTeam')}</li>
+          <li>{uiText('sayWhatKindOfFriendlyPartnerYouWant')}</li>
+          <li>{uiText('keepTheAdThereUntilSomeoneSuitableComesAlong')}</li>
         </ul>
 
-        <p>It is still early alpha — expectations low, hopes strangely high.</p>
+        <p>{uiText('itIsStillEarlyAlphaExpectationsLowHopesStrangely')}</p>
       </WelcomeModal>
 
       {/* Posting Modal */}
@@ -1570,7 +1570,7 @@ export const Matchmaker: React.FC = () => {
             <label>{t('team')}</label>
             {teamsLoading ? (
               <div className={styles.noTeamsMessage}>
-                <p>Let's check on your teams first...</p>
+                <p>{uiText('letSCheckOnYourTeamsFirst')}</p>
               </div>
             ) : myTeams.length > 0 ? (
               <select
@@ -1580,7 +1580,7 @@ export const Matchmaker: React.FC = () => {
                 disabled={!!editingRequestId}
                 aria-describedby={editingRequestId ? 'editing-team-note' : undefined}
               >
-                <option value={0}>Select a team</option>
+                <option value={0}>{uiText('selectATeam')}</option>
                 {postingTeamGroupsForModal.map((group) => (
                   <optgroup
                     key={group.status}
@@ -1618,13 +1618,13 @@ export const Matchmaker: React.FC = () => {
             ) : (
               <div className={styles.noTeamsMessage}>
                 <Warning size={20} />
-                <p>Hattrick doesn't seem to be telling us about your clubs. Please try again in a moment.</p>
+                <p>{uiText('hattrickDoesnTSeemToBeTellingUsAbout')}</p>
                 <Button variant="zero" onClick={() => refreshMyTeams()} disabled={teamsLoading}>
-                  Retry
+                  {uiText('retry')}
                 </Button>
               </div>
             )}
-            {editingRequestId && <p id="editing-team-note">The team cannot be changed while editing this ad.</p>}
+            {editingRequestId && <p id="editing-team-note">{uiText('theTeamCannotBeChangedWhileEditingThisAd')}</p>}
             {selectedTeam && (
               <p className={styles.teamAvailabilityNote}>
                 {getAvailabilityStatusLabel(selectedTeam)}
@@ -1658,7 +1658,7 @@ export const Matchmaker: React.FC = () => {
                   checked={matchType === '120min'}
                   onChange={() => setMatchType('120min')}
                 />
-                120 min Cup Rules
+                {uiText('120MinCupRules')}
               </label>
               <label className={styles.checkboxLabel}>
                 <input
@@ -1667,36 +1667,36 @@ export const Matchmaker: React.FC = () => {
                   checked={matchType === '90min_acceptable'}
                   onChange={() => setMatchType('90min_acceptable')}
                 />
-                90 min OK too
+                {uiText('90MinOKToo')}
               </label>
             </div>
           </div>
 
           <div className={styles.formGroup}>
-            <label>Opponent Location</label>
+            <label>{uiText('opponentLocation')}</label>
             <select
               value={location}
               onChange={(e) => setLocation(e.target.value as 'domestic' | 'international_only' | 'any')}
             >
-              <option value="any">Anywhere</option>
-              <option value="domestic">my country only ({selectedTeam?.countryName})</option>
-              <option value="international_only">will travel</option>
+              <option value="any">{uiText('anywhere')}</option>
+              <option value="domestic">{uiText('myCountryOnly')}{selectedTeam?.countryName})</option>
+              <option value="international_only">{uiText('willTravel')}</option>
             </select>
           </div>
 
           <div className={styles.formGroup}>
             <label>{t('venuePreference')}</label>
             <select value={homeAway} onChange={(e) => setHomeAway(e.target.value as 'home' | 'away' | 'any')}>
-              <option value="any">your place or my place</option>
-              <option value="away">your place</option>
-              <option value="home">my place</option>
+              <option value="any">{uiText('yourPlaceOrMyPlace')}</option>
+              <option value="away">{uiText('yourPlace')}</option>
+              <option value="home">{uiText('myPlace')}</option>
             </select>
           </div>
 
           <div className={styles.checkboxGroup}>
             <label className={styles.checkboxLabel}>
               <input type="checkbox" checked={isBackAndForth} onChange={(e) => setIsBackAndForth(e.target.checked)} />
-              <span>🔄 Ok for back-and-forth</span>
+              <span>{uiText('okForBackAndForth')}</span>
             </label>
             <label className={styles.checkboxLabel}>
               <input
@@ -1705,23 +1705,23 @@ export const Matchmaker: React.FC = () => {
                 onChange={(e) => setIsLongTerm(e.target.checked)}
                 disabled={isLongTermLocked}
               />
-              <span>🗓 Looking for long term partner</span>
+              <span>{uiText('lookingForLongTermPartner')}</span>
             </label>
           </div>
 
           <div className={styles.formGroup}>
-            <label>Message (Optional)</label>
+            <label>{uiText('messageOptional')}</label>
             <textarea
               value={message}
               onChange={(e) => setMessage(e.target.value)}
-              placeholder="e.g. Training young defenders..."
+              placeholder={uiText('eGTrainingYoungDefenders')}
               rows={3}
             />
           </div>
 
           <div className={styles.postActions}>
             <Button type="submit" variant="tinder" fullWidth disabled={!canPublish}>
-              {isSaving ? 'Publishing...' : editingRequestId ? 'Update Ad' : 'Publish Request'}
+              {isSaving ? uiText('publishing') : editingRequestId ? 'Update Ad' : 'Publish Request'}
             </Button>
           </div>
         </form>
@@ -1735,19 +1735,19 @@ export const Matchmaker: React.FC = () => {
             setActionDraft(null);
             setActionComment('');
           }}
-          title={actionDraft.type === 'challenge' ? 'Send Challenge' : 'Show Interest'}
+          title={actionDraft.type === 'challenge' ? uiText('sendChallenge') : uiText('showInterest')}
           modalClassName={styles.tinderModal}
         >
           <div className={styles.actionModal}>
             <p className={styles.actionIntro}>
               {actionDraft.type === 'challenge'
-                ? 'Send a real Hattrick challenge. The ad owner will see it originated from HT-120min. A challenge is not the same as a booked match.'
-                : 'Leave a short note for the ad owner. No Hattrick challenge will be sent.'}
+                ? uiText('sendARealHattrickChallengeTheAdOwnerWill')
+                : uiText('leaveAShortNoteForTheAdOwnerNo')}
             </p>
 
             {actionDraft.type === 'interest' && myTeams.length > 0 && (
               <div className={styles.formGroup}>
-                <label>Your team (optional)</label>
+                <label>{uiText('yourTeamOptional')}</label>
                 <select
                   value={actionDraft.actorTeamId ?? 0}
                   onChange={(e) =>
@@ -1757,7 +1757,7 @@ export const Matchmaker: React.FC = () => {
                   }
                   className={styles.teamDropdown}
                 >
-                  <option value={0}>Use manager name only</option>
+                  <option value={0}>{uiText('useManagerNameOnly')}</option>
                   {myTeams.map((team) => (
                     <option key={team.teamId} value={team.teamId}>
                       {getDisplayTeamName(team.teamName, team.genderId)}
@@ -1769,7 +1769,7 @@ export const Matchmaker: React.FC = () => {
 
             {actionDraft.type === 'challenge' && actionDraft.actorTeamId && (
               <p className={styles.actionTeamLine}>
-                Challenging as{' '}
+                {uiText('challengingAs')}{' '}
                 <strong>
                   {getDisplayTeamName(
                     myTeams.find((team) => team.teamId === actionDraft.actorTeamId)?.teamName || 'your team',
@@ -1780,7 +1780,7 @@ export const Matchmaker: React.FC = () => {
             )}
 
             <div className={styles.formGroup}>
-              <label>{actionDraft.type === 'challenge' ? 'Comment (optional)' : 'Comment'}</label>
+              <label>{actionDraft.type === 'challenge' ? uiText('commentOptional') : uiText('comment')}</label>
               <textarea
                 value={actionComment}
                 onChange={(e) => setActionComment(e.target.value)}
@@ -1800,10 +1800,10 @@ export const Matchmaker: React.FC = () => {
                 disabled={actionSubmitting || (actionDraft.type === 'interest' && !actionComment.trim())}
               >
                 {actionSubmitting
-                  ? 'Sending...'
+                  ? uiText('sending')
                   : actionDraft.type === 'challenge'
-                    ? 'Send Challenge'
-                    : 'Show Interest'}
+                    ? uiText('sendChallenge')
+                    : uiText('showInterest')}
               </Button>
               <Button
                 variant="outline"
@@ -1813,7 +1813,7 @@ export const Matchmaker: React.FC = () => {
                 }}
                 disabled={actionSubmitting}
               >
-                Cancel
+                {uiText('cancel')}
               </Button>
             </div>
           </div>
@@ -1824,7 +1824,7 @@ export const Matchmaker: React.FC = () => {
         isOpen={isSelectingTeam}
         onClose={() => setIsSelectingTeam(false)}
         teams={challengeTeams}
-        title={selectingTeamPurpose === 'post' ? 'Which team is posting?' : 'Select Challenging Team'}
+        title={selectingTeamPurpose === 'post' ? uiText('whichTeamIsPosting') : uiText('selectChallengingTeam')}
         modalClassName={styles.tinderModal}
         onSelect={(teamId) => {
           if (selectingTeamPurpose === 'challenge') {
@@ -1844,22 +1844,22 @@ export const Matchmaker: React.FC = () => {
       >
         <p>{notification?.message}</p>
         <Button variant="tinder" onClick={() => setNotification(null)} style={{ marginTop: '1rem' }}>
-          OK
+          {uiText('oK')}
         </Button>
       </Modal>
       <Modal
         isOpen={showLoginModal}
         onClose={() => setShowLoginModal(false)}
-        title="Sign in required"
+        title={uiText('signInRequired')}
         modalClassName={styles.tinderModal}
       >
-        <p style={{ marginBottom: '1rem' }}>To book or publish friendlies you need a connected Hattrick account.</p>
+        <p style={{ marginBottom: '1rem' }}>{uiText('toBookOrPublishFriendliesYouNeedAConnected')}</p>
         <div style={{ display: 'flex', gap: '10px' }}>
           <Button variant="tinder" onClick={handleLogin}>
-            Login with Hattrick
+            {uiText('loginWithHattrick')}
           </Button>
           <Button variant="outline" onClick={() => setShowLoginModal(false)}>
-            Close
+            {uiText('close')}
           </Button>
         </div>
       </Modal>

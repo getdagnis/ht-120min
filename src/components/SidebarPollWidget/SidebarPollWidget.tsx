@@ -1,5 +1,6 @@
 'use client';
 
+import { useTranslations } from 'next-intl';
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { ChartBar, ArrowRight, User } from 'phosphor-react';
 
@@ -47,6 +48,7 @@ export const SidebarPollWidget: React.FC<SidebarPollWidgetProps> = ({
   is120minMode,
   myHtUserId,
 }) => {
+  const uiText = useTranslations('PublicUI.SidebarPollWidget');
   const closeDate = useMemo(() => getSeasonPollCloseDate(rounds), [rounds]);
   const [votes, setVotes] = useState<SeasonPollVoteRow[]>([]);
   const [selectedTeamId, setSelectedTeamId] = useState('');
@@ -128,11 +130,11 @@ export const SidebarPollWidget: React.FC<SidebarPollWidgetProps> = ({
   };
 
   return (
-    <ReusableWidget title="Season poll" icon={<ChartBar size={20} weight="bold" />} className={styles.widget}>
+    <ReusableWidget title={uiText('seasonPoll')} icon={<ChartBar size={20} weight="bold" />} className={styles.widget}>
       <p className={styles.question}>{question}</p>
       {showResults ? (
         <div className={styles.results} aria-live="polite">
-          <strong>Current results ({totalVotes} votes)</strong>
+          <strong>{uiText('currentResults')}{totalVotes} {uiText('votes')}</strong>
           <ol className={styles.resultList}>
             {results.map((team) => (
               <li key={team.id} className={styles.resultItem}>
@@ -144,12 +146,12 @@ export const SidebarPollWidget: React.FC<SidebarPollWidgetProps> = ({
               </li>
             ))}
           </ol>
-          {isClosed && <span className={styles.closedNotice}>Voting is closed.</span>}
+          {isClosed && <span className={styles.closedNotice}>{uiText('votingIsClosed')}</span>}
         </div>
       ) : myHtUserId ? (
         <form onSubmit={handleSubmit} className={styles.form}>
           <fieldset disabled={isSubmitting} className={styles.options}>
-            <legend className={styles.legend}>Choose one team</legend>
+            <legend className={styles.legend}>{uiText('chooseOneTeam')}</legend>
             {teams.map((team) => (
               <label key={team.id} className={styles.option}>
                 <input
@@ -164,20 +166,20 @@ export const SidebarPollWidget: React.FC<SidebarPollWidgetProps> = ({
             ))}
           </fieldset>
           <Button type="submit" size="sm" disabled={!selectedTeamId || isSubmitting} fullWidth>
-            {isSubmitting ? 'Submitting…' : 'Vote'}
+            {isSubmitting ? uiText('submitting') : uiText('vote')}
           </Button>
         </form>
       ) : (
         <div className={styles.login}>
-          <span>Log in to vote.</span>
+          <span>{uiText('logInToVote')}</span>
           <Button size="sm" onClick={handleLogin} variant="primary" type="button">
             <User size={18} weight="bold" />
-            <span>Login to vote</span>
+            <span>{uiText('loginToVote')}</span>
             <ArrowRight size={18} className="hideOnTable" />
           </Button>
         </div>
       )}
-      <span className={styles.closeDateNotice}>Ends: {closeDateLabel}</span>
+      <span className={styles.closeDateNotice}>{uiText('ends')} {closeDateLabel}</span>
       {error && (
         <p className={styles.error} role="alert">
           {error}

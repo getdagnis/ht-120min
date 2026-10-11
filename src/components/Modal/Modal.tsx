@@ -1,3 +1,4 @@
+import { useTranslations } from 'next-intl';
 import React, { useEffect, useId } from 'react';
 import styles from './Modal.module.sass';
 import { X } from 'phosphor-react';
@@ -31,6 +32,7 @@ export const Modal: React.FC<ModalProps> = ({
   useContentPanel = true,
   appearance = 'grass',
 }) => {
+  const uiText = useTranslations('PublicUI.Modal');
   const titleId = useId();
   useEffect(() => {
     if (isOpen) {
@@ -74,7 +76,7 @@ export const Modal: React.FC<ModalProps> = ({
             <button
               className={[styles.closeBtn, closeButtonClassName].filter(Boolean).join(' ')}
               onClick={onClose}
-              aria-label="Close"
+              aria-label={uiText('close')}
             >
               <X size={24} weight="bold" />
             </button>

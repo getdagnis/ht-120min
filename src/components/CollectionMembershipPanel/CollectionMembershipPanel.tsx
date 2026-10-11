@@ -1,5 +1,6 @@
 'use client';
 
+import { useTranslations } from 'next-intl';
 import { useEffect, useState } from 'react';
 import { Button } from '../Button/Button';
 import { loadManageableCollections, saveTournamentCollectionMembership } from '../../app/_data/tournament-actions';
@@ -8,6 +9,7 @@ import styles from './CollectionMembershipPanel.module.sass';
 type Row = Awaited<ReturnType<typeof loadManageableCollections>>[number];
 
 export function CollectionMembershipPanel({ tournamentId }: { tournamentId: string }) {
+  const uiText = useTranslations('PublicUI.CollectionMembershipPanel');
   const [rows, setRows] = useState<Row[]>([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState<string | null>(null);
@@ -47,21 +49,21 @@ export function CollectionMembershipPanel({ tournamentId }: { tournamentId: stri
   };
 
   return <div className={styles.panel}>
-    <h3>Collections</h3>
-    <p>Membership follows this tournament across seasons.</p>
-    {loading && <p>Loading collections…</p>}
+    <h3>{uiText('collections')}</h3>
+    <p>{uiText('membershipFollowsThisTournamentAcrossSeasons')}</p>
+    {loading && <p>{uiText('loadingCollections')}</p>}
     {error && <p role="alert">{error}</p>}
-    {!loading && !error && rows.length === 0 && <p>No collections are available yet.</p>}
+    {!loading && !error && rows.length === 0 && <p>{uiText('noCollectionsAreAvailableYet')}</p>}
     {rows.map((row) => <div className={styles.row} key={row.id}>
       <label><input type="checkbox" checked={row.isMember}
         onChange={(event) => update(row.id, { isMember: event.target.checked })} /> {row.title}{!row.isPublished && ' (draft)'}</label>
       {row.isMember && <>
-        <label>Order <input type="number" min="0" max="10000" value={row.displayOrder}
+        <label>{uiText('order')} <input type="number" min="0" max="10000" value={row.displayOrder}
           onChange={(event) => update(row.id, { displayOrder: Number(event.target.value) })} /></label>
       </>}
       <Button type="button" size="sm" variant="secondaryAction" disabled={saving === row.id}
-        onClick={() => void save(row)}>{saving === row.id ? 'Saving…' : 'Save'}</Button>
-      {savedId === row.id && <span role="status">Saved</span>}
+        onClick={() => void save(row)}>{saving === row.id ? uiText('saving') : uiText('save')}</Button>
+      {savedId === row.id && <span role="status">{uiText('saved')}</span>}
     </div>)}
   </div>;
 }

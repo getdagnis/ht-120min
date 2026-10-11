@@ -1,3 +1,4 @@
+import { useTranslations } from 'next-intl';
 import { useEffect } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import styles from './AuthCallback.module.sass';
@@ -12,6 +13,7 @@ import {
 } from '../utils/auth-storage';
 
 export const AuthCallback = () => {
+  const uiText = useTranslations('PublicUI.AuthCallback');
   const searchParams = useSearchParams();
   const router = useRouter();
 
@@ -65,8 +67,8 @@ export const AuthCallback = () => {
   return (
     <div className={styles.container}>
       <div className={styles.loading}>
-        <h3>Logging you in...</h3>
-        <p>Connecting with Hattrick and returning you to where you left off.</p>
+        <h3>{uiText('loggingYouIn')}</h3>
+        <p>{uiText('connectingWithHattrickAndReturningYouToWhereYou')}</p>
       </div>
     </div>
   );

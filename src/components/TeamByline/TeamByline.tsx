@@ -1,3 +1,4 @@
+import { useTranslations } from 'next-intl';
 import React from 'react';
 import { Tooltip } from '../Tooltip/Tooltip';
 import { AuthorTooltip, type ChatAuthorProfile } from '../TournamentTabs/ChatView';
@@ -47,6 +48,7 @@ export const TeamByline: React.FC<TeamBylineProps> = ({
   matchSummary,
   matchKitUrl,
 }) => {
+  const uiText = useTranslations('PublicUI.TeamByline');
   // Use a unique ID for tooltips to avoid collisions
   const tooltipIdBase = `byline-${teamId}-${managerHtId}-${mode}-${isRight ? 'r' : 'l'}`;
   const visibleMatchKitUrl = matchKitUrl ? matchKitUrl : null;
@@ -76,9 +78,9 @@ export const TeamByline: React.FC<TeamBylineProps> = ({
   const hasDetailedEvents = detailedCards.length > 0 || detailedInjuries.length > 0;
   const summaryTooltipParts = summary
     ? [
-        summary.yellowCards ? `${summary.yellowCards} yellow card${summary.yellowCards === 1 ? '' : 's'}` : '',
-        summary.redCards ? `${summary.redCards} red card${summary.redCards === 1 ? '' : 's'}` : '',
-        summary.injuries ? `${summary.injuries} injur${summary.injuries === 1 ? 'y' : 'ies'}` : '',
+        summary.yellowCards ? uiText('yellowCards', { count: summary.yellowCards }) : '',
+        summary.redCards ? uiText('redCards', { count: summary.redCards }) : '',
+        summary.injuries ? uiText('injuries', { count: summary.injuries }) : '',
       ].filter(Boolean)
     : [];
   const summaryTooltip = summaryTooltipParts.join(', ');
@@ -98,10 +100,10 @@ export const TeamByline: React.FC<TeamBylineProps> = ({
   const formatEventTooltip = (minute: number | null, label: string) =>
     minute === null ? label : `${minute}' - ${label}`;
   const eventMinute = (minute: number | null) => (minute === null ? '' : ` (${minute}')`);
-  const playerLabel = (playerName: string | null | undefined) => playerName || 'Player';
+  const playerLabel = (playerName: string | null | undefined) => playerName || uiText('player');
   const shortPlayerLabel = (playerName: string | null | undefined) => {
     const name = playerLabel(playerName);
-    if (name === 'Player') return name;
+    if (name === uiText('player')) return name;
     const parts = name.trim().split(/\s+/);
     return parts.length > 1 ? `${parts[0]?.[0]}. ${parts[parts.length - 1]}` : name;
   };
@@ -224,9 +226,9 @@ export const TeamByline: React.FC<TeamBylineProps> = ({
       <div className={styles.metaRow}>
         {(countryFlagUrl || leagueFlagUrl) && (
           <>
-            {leagueFlagUrl && <img src={leagueFlagUrl} alt="League" className={styles.flagIcon} />}
+            {leagueFlagUrl && <img src={leagueFlagUrl} alt={uiText('league')} className={styles.flagIcon} />}
             {countryFlagUrl && (
-              <img src={countryFlagUrl} alt={displayCountryName || 'Country'} className={styles.flagIcon} />
+            <img src={countryFlagUrl} alt={displayCountryName || uiText('country')} className={styles.flagIcon} />
             )}
             <span className={styles.separator}>|</span>
           </>
@@ -239,9 +241,9 @@ export const TeamByline: React.FC<TeamBylineProps> = ({
           className={styles.idLink}
           data-tooltip-id={`${tooltipIdBase}-id`}
         >
-          ID: {teamId}
+          {uiText('iD')} {teamId}
         </a>
-        <Tooltip id={`${tooltipIdBase}-id`} content="View team on Hattrick" className="tooltip" />
+        <Tooltip id={`${tooltipIdBase}-id`} content={uiText('viewTeamOnHattrick')} className="tooltip" />
 
         <span className={styles.separator}>|</span>
 
@@ -274,9 +276,9 @@ export const TeamByline: React.FC<TeamBylineProps> = ({
               className={styles.managerLink}
               data-tooltip-id={`${tooltipIdBase}-manager`}
             >
-              {managerName || 'UNKNOWN'}
+              {managerName || uiText('uNKNOWN')}
             </a>
-            <Tooltip id={`${tooltipIdBase}-manager`} content="Visit on Hattrick" className="tooltip" />
+            <Tooltip id={`${tooltipIdBase}-manager`} content={uiText('visitOnHattrick')} className="tooltip" />
           </>
         )}
         {presence && (
@@ -298,7 +300,7 @@ export const TeamByline: React.FC<TeamBylineProps> = ({
           {visibleMatchKitUrl && (
             <img
               src={visibleMatchKitUrl}
-              alt={`${teamName || 'Team'} match kit`}
+              alt={uiText('teamMatchKit', { team: teamName || uiText('team') })}
               className={styles.matchKit}
               loading="lazy"
               onError={(event) => {
@@ -308,7 +310,7 @@ export const TeamByline: React.FC<TeamBylineProps> = ({
           )}
           <div className={styles.matchEvents}>
             {groupedGoals.length > 0 && (
-              <div className={styles.goalsRow} aria-label="Goals">
+              <div className={styles.goalsRow} aria-label={uiText('goals')}>
                 {groupedGoals.map((goal) => (
                   <React.Fragment key={goal.key}>
                     <span
@@ -335,9 +337,9 @@ export const TeamByline: React.FC<TeamBylineProps> = ({
               <div className={styles.summaryRow} data-tooltip-id={`${tooltipIdBase}-summary`} aria-label={summaryTooltip}>
                 {detailedEventIcons || (
                   <>
-                    {repeatIcons('/svg/match-yellow.svg', 'Yellow card', summary.yellowCards, 'Yellow card')}
-                    {repeatIcons('/svg/match-card.svg', 'Red card', summary.redCards, 'Red card')}
-                    {repeatIcons('/svg/match-cross.svg', 'Injury', summary.injuries, 'Injury')}
+                    {repeatIcons('/svg/match-yellow.svg', uiText('yellowCard'), summary.yellowCards, uiText('yellowCard'))}
+                    {repeatIcons('/svg/match-card.svg', uiText('redCard'), summary.redCards, uiText('redCard'))}
+                    {repeatIcons('/svg/match-cross.svg', uiText('injury'), summary.injuries, uiText('injury'))}
                   </>
                 )}
                 {hasDetailedEvents ? (

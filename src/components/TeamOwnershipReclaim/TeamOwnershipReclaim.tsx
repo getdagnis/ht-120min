@@ -1,3 +1,4 @@
+import { useTranslations } from 'next-intl';
 import { useEffect, useMemo, useState } from 'react';
 import { Check, ClockCounterClockwise } from 'phosphor-react';
 import { Button } from '../Button/Button';
@@ -48,6 +49,7 @@ function getDismissKey(userId: number) {
 }
 
 export function TeamOwnershipReclaim({ profile, onClaimed }: TeamOwnershipReclaimProps) {
+  const uiText = useTranslations('PublicUI.TeamOwnershipReclaim');
   const { notice, showNotice: alert, closeNotice } = useNoticeDialog();
   const [teamRows, setTeamRows] = useState<ClaimableTeamRow[]>([]);
   const [isFetching, setIsFetching] = useState(false);
@@ -190,14 +192,13 @@ export function TeamOwnershipReclaim({ profile, onClaimed }: TeamOwnershipReclai
     <Modal
       isOpen={isOpen}
       onClose={askNextTime}
-      title="Some of your teams are already registered"
+      title={uiText('someOfYourTeamsAreAlreadyRegistered')}
       maxWidth="720px"
       useContentPanel={false}
     >
       <div className={styles.content}>
         <p className={styles.intro}>
-          Some of your teams are already registered with HT-120min. Do you want to reclaim full ownership over these
-          teams on Hattrick?
+          {uiText('someOfYourTeamsAreAlreadyRegisteredWithHT')}
         </p>
 
         <ul className={styles.teamList}>
@@ -207,7 +208,7 @@ export function TeamOwnershipReclaim({ profile, onClaimed }: TeamOwnershipReclai
               <li key={team.id} className={styles.teamItem}>
                 <div>
                   <strong>{team.name}</strong>
-                  <span>ID: {team.ht_team_id}</span>
+                  <span>{uiText('iD')} {team.ht_team_id}</span>
                 </div>
                 {tournament && (
                   <a href={`/t/${tournament.slug}`} target="_blank" rel="noreferrer">
@@ -222,11 +223,11 @@ export function TeamOwnershipReclaim({ profile, onClaimed }: TeamOwnershipReclai
         <div className={styles.actions}>
           <Button variant="primary" size="md" onClick={claimTeams} disabled={isClaiming}>
             <Check size={18} weight="bold" />
-            Yes
+            {uiText('yes')}
           </Button>
           <Button variant="outlineWhite" size="md" onClick={askNextTime} disabled={isClaiming}>
             <ClockCounterClockwise size={18} weight="bold" />
-            Ask next time
+            {uiText('askNextTime')}
           </Button>
         </div>
       </div>

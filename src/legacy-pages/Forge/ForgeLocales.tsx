@@ -47,6 +47,9 @@ function draftKey(locale: Locale, section: CatalogSection) {
 }
 
 function subgroup(key: string, section: CatalogSection) {
+  if (key.startsWith('PublicUI.')) {
+    return key.split('.')[1].replace(/([a-z])([A-Z])/g, '$1 $2');
+  }
   if (section === 'System') {
     if (key.startsWith('notFound.')) return '404';
     if (key.startsWith('common.loading') || key.startsWith('common.getting')) return 'Loading';
@@ -248,7 +251,7 @@ export function ForgeLocales({ isAdmin }: { isAdmin: boolean }) {
     setNotice('');
     setError('');
     if (!tabOrder.includes(next)) {
-      const nextOrder = ['en', ...tabOrder.filter((item) => item !== 'en').slice(-3), next];
+      const nextOrder: Locale[] = ['en', ...tabOrder.filter((item) => item !== 'en').slice(-3), next];
       setTabOrder(nextOrder);
       localStorage.setItem(recentKey, JSON.stringify(nextOrder.filter((item) => item !== 'en')));
     }

@@ -46,6 +46,7 @@ interface TeamInfo {
 }
 
 export const ProfileModal: React.FC<ProfileModalProps> = ({ isOpen, maxWidth, onClose, profileId, ownProfile }) => {
+  const uiText = useTranslations('PublicUI.ProfileModal');
   const t = useTranslations('ManagerProfiles');
   const [teams, setTeams] = useState<TeamInfo[]>([]);
   const [loading, setLoading] = useState(false);
@@ -125,7 +126,7 @@ export const ProfileModal: React.FC<ProfileModalProps> = ({ isOpen, maxWidth, on
   console.log('Profile Avatar Data:', profile?.avatar_json);
 
   return (
-    <Modal isOpen={isOpen} onClose={handleClose} title="Manager Profile" maxWidth={maxWidth}>
+    <Modal isOpen={isOpen} onClose={handleClose} title={uiText('managerProfile')} maxWidth={maxWidth}>
       <div className={styles.profileContent}>
         <div className={styles.header}>
           <Avatar avatar={profile.avatar_json || null} variant="rect" className={styles.avatar} />
@@ -146,7 +147,7 @@ export const ProfileModal: React.FC<ProfileModalProps> = ({ isOpen, maxWidth, on
               </div>
               {displayCountryName && (
                 <div className={styles.metaItem}>
-                  {leagueFlagUrl && <img src={leagueFlagUrl} alt="League" className={styles.flag} />}
+                  {leagueFlagUrl && <img src={leagueFlagUrl} alt={uiText('league')} className={styles.flag} />}
                   {countryFlagUrl && <img src={countryFlagUrl} alt={displayCountryName} className={styles.flag} />}
                   <a
                     href={`https://www.hattrick.org/goto.ashx?path=/World/Leagues/League.aspx?LeagueID=${displayLeagueId ?? profile.country_id}`}
@@ -200,7 +201,7 @@ export const ProfileModal: React.FC<ProfileModalProps> = ({ isOpen, maxWidth, on
                 <div className={styles.medalIcon}>🥇</div>
                 <div className={styles.achievementInfo}>
                   <strong>{t('registeredOn')}</strong>
-                  <span>on {joinDate}</span>
+                  <span>{uiText('on')} {joinDate}</span>
                 </div>
               </div>
               {teams.length > 0 && (

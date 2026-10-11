@@ -421,7 +421,7 @@
   margin-bottom: 2rem
   border-bottom: 2px solid var(--border)
 
-  button, a
+  > a, .shareTab
     background: transparent
     border: none
     padding: 12px 0
@@ -466,6 +466,12 @@
 
         &::after
           display: none
+
+.tabs .shareTab
+  display: inline-flex
+  align-items: center
+  gap: 0.4rem
+  white-space: nowrap
 
 .historyTabBadge
   display: inline-flex

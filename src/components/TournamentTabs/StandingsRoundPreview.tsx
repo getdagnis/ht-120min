@@ -1,3 +1,4 @@
+import { useTranslations } from 'next-intl';
 import React from 'react';
 import { ArrowRight } from 'phosphor-react';
 import styles from './StandingsRoundPreview.module.sass';
@@ -30,8 +31,8 @@ const HATTRICK_TEAM_URL = 'https://www.hattrick.org/goto.ashx?path=/Club/?TeamID
 
 const isFinishedMatch = (match: StandingsPreviewMatch) => match.completed || match.status === 'misarranged';
 
-const renderTeam = (team: StandingsPreviewMatch['home_team'], isRight: boolean, isOwnTeam: boolean) => {
-  if (!team) return <span className={styles.bye}>BYE</span>;
+const renderTeam = (team: StandingsPreviewMatch['home_team'], isRight: boolean, isOwnTeam: boolean, byeLabel: string) => {
+  if (!team) return <span className={styles.bye}>{byeLabel}</span>;
 
   const teamClassName = [isRight ? styles.teamRight : null, isOwnTeam ? styles.teamOwn : null]
     .filter(Boolean)
@@ -50,20 +51,22 @@ const renderTeam = (team: StandingsPreviewMatch['home_team'], isRight: boolean, 
 };
 
 const RoundPanel: React.FC<{
-  label: 'Last round' | 'Next round';
+  label: string;
   round: StandingsPreviewRound;
   isLastRound: boolean;
   onVisitFixtures?: () => void;
   myHtTeamIds: ReadonlySet<number>;
-}> = ({ label, round, isLastRound, onVisitFixtures, myHtTeamIds }) => (
-  <section className={styles.panel} aria-labelledby={`standings-${label.toLowerCase().replace(' ', '-')}`}>
+}> = ({ label, round, isLastRound, onVisitFixtures, myHtTeamIds }) => {
+  const uiText = useTranslations('PublicUI.StandingsRoundPreview');
+  const headingId = isLastRound ? 'standings-last-round' : 'standings-next-round';
+  return <section className={styles.panel} aria-labelledby={headingId}>
     <div className={styles.panelHeader}>
-      <h3 id={`standings-${label.toLowerCase().replace(' ', '-')}`}>
-        {label} <span>Round {round.round_number}</span>
+      <h3 id={headingId}>
+        {label} <span>{uiText('roundNumber', { round: round.round_number })}</span>
       </h3>
       {!isLastRound && onVisitFixtures && (
         <button type="button" className={styles.fullFixturesLink} onClick={onVisitFixtures}>
-          Full fixtures <ArrowRight size={15} weight="bold" aria-hidden="true" />
+          {uiText('fullFixtures')} <ArrowRight size={15} weight="bold" aria-hidden="true" />
         </button>
       )}
     </div>
@@ -82,13 +85,14 @@ const RoundPanel: React.FC<{
                 match.home_team,
                 false,
                 Boolean(match.home_team && myHtTeamIds.has(match.home_team.ht_team_id)),
+                uiText('bye'),
               )}
             </div>
             <span className={styles.resultStack}>
               <span className={styles.result}>{isLastRound ? matchResult : '–'}</span>
               {isLastRound && match.went_120 === true && (
-                <span className={styles.minutesChip} title="120 minutes achieved">
-                  120m
+                <span className={styles.minutesChip} title={uiText('minutesAchieved')}>
+                  {uiText('minutesShort')}
                 </span>
               )}
             </span>
@@ -97,14 +101,15 @@ const RoundPanel: React.FC<{
                 match.away_team,
                 true,
                 Boolean(match.away_team && myHtTeamIds.has(match.away_team.ht_team_id)),
+                uiText('bye'),
               )}
             </div>
           </div>
         );
       })}
     </div>
-  </section>
-);
+  </section>;
+};
 
 export const StandingsRoundPreview: React.FC<StandingsRoundPreviewProps> = ({
   rounds,
@@ -112,6 +117,7 @@ export const StandingsRoundPreview: React.FC<StandingsRoundPreviewProps> = ({
   onVisitFixtures,
   myHtTeamIds = new Set<number>(),
 }) => {
+  const uiText = useTranslations('PublicUI.StandingsRoundPreview');
   if ((seasonStatus !== 'ongoing' && seasonStatus !== 'finished') || rounds.length === 0) return null;
 
   const lastRound = [...rounds]
@@ -125,7 +131,7 @@ export const StandingsRoundPreview: React.FC<StandingsRoundPreviewProps> = ({
     <div className={styles.preview}>
       {lastRound && (
         <RoundPanel
-          label="Last round"
+          label={uiText('lastRound')}
           round={lastRound}
           isLastRound
           onVisitFixtures={onVisitFixtures}
@@ -134,7 +140,7 @@ export const StandingsRoundPreview: React.FC<StandingsRoundPreviewProps> = ({
       )}
       {nextRound && (
         <RoundPanel
-          label="Next round"
+          label={uiText('nextRound')}
           round={nextRound}
           isLastRound={false}
           onVisitFixtures={onVisitFixtures}

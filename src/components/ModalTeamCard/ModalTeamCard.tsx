@@ -1,3 +1,4 @@
+import { useTranslations } from 'next-intl';
 import React from 'react';
 import { CaretRight } from 'phosphor-react';
 import { getCanonicalCountryName } from '../../utils/ht-data';
@@ -34,6 +35,7 @@ export const ModalTeamCard: React.FC<ModalTeamCardProps> = ({
   disabled = false,
   className = '',
 }) => {
+  const uiText = useTranslations('PublicUI.ModalTeamCard');
   const league = getLeagueWorldDetails(team.leagueId);
   const country = getCountryWorldDetails(team.countryId);
   const leagueName = league?.leagueName ?? team.leagueName ?? 'Unknown league';
@@ -65,7 +67,7 @@ export const ModalTeamCard: React.FC<ModalTeamCardProps> = ({
               <span className={styles.separator}>|</span> {countryEmoji} {countryName}
             </>
           )}
-          <span className={styles.separator}>|</span> ID: {team.teamId}
+          <span className={styles.separator}>|</span> {uiText('iD')} {team.teamId}
         </span>
         <div className={`${styles.status} ${statusDanger ? styles.statusDanger : ''}`}>{status}</div>
       </div>

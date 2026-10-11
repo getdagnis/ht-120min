@@ -1,15 +1,17 @@
+import { useTranslations } from 'next-intl';
 import styles from './PublicDataUnavailable.module.sass';
 import { getPublicDataRetryHref } from '../../utils/public-data-config';
 
 export function PublicDataUnavailable({ retryHref = '.', attempt = 1 }: { retryHref?: string; attempt?: number }) {
+  const uiText = useTranslations('PublicUI.PublicDataUnavailable');
   const exhaustedRetries = attempt >= 3;
 
   return (
     <main className={styles.unavailable} role="alert">
-      <h1>Temporarily unavailable</h1>
-      <p>{exhaustedRetries ? '3 attempts timed out. Please try again later' : 'We couldn’t load this page right now. Please try again.'}</p>
+      <h1>{uiText('temporarilyUnavailable')}</h1>
+      <p>{exhaustedRetries ? uiText('3AttemptsTimedOutPleaseTryAgainLater') : uiText('weCouldnTLoadThisPageRightNowPlease')}</p>
       <div className={styles.actions}>
-        <a href={getPublicDataRetryHref(retryHref, attempt)}>{exhaustedRetries ? 'Try now' : 'Try again'}</a>
+        <a href={getPublicDataRetryHref(retryHref, attempt)}>{exhaustedRetries ? uiText('tryNow') : uiText('tryAgain')}</a>
         {attempt >= 2 && (
           <a
             className={styles.reportLink}
@@ -17,7 +19,7 @@ export function PublicDataUnavailable({ retryHref = '.', attempt = 1 }: { retryH
             target="_blank"
             rel="noreferrer"
           >
-            Please report this problem
+            {uiText('pleaseReportThisProblem')}
           </a>
         )}
       </div>

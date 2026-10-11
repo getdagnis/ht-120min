@@ -2,7 +2,7 @@ import en from './messages/en.js';
 import lv from './messages/lv.js';
 import { localeNames, locales, type Locale } from './config.js';
 
-export type CatalogSection = 'System' | 'Home' | 'TournamentView' | 'CreateTournament' | 'Tinder' | 'ManagerProfiles';
+export type CatalogSection = 'System' | 'Home' | 'TournamentView' | 'CreateTournament' | 'Tinder' | 'ManagerProfiles' | 'Collections' | 'Supporters' | 'Auth';
 export type LocaleStatus = 'implemented' | 'beta' | 'draft';
 export type CatalogValues = Record<string, string>;
 export interface PublicLocaleOption {
@@ -20,11 +20,56 @@ export function publicLocaleOptions(settings: Array<{ locale: string; status: st
 }
 
 export const catalogSections: readonly CatalogSection[] = [
-  'System', 'Home', 'TournamentView', 'CreateTournament', 'Tinder', 'ManagerProfiles',
+  'System', 'Home', 'TournamentView', 'CreateTournament', 'Tinder', 'ManagerProfiles', 'Collections', 'Supporters', 'Auth',
 ];
+
+const publicUiSections: Record<string, CatalogSection> = {
+  AuthCallback: 'Auth',
+  CreateTournament: 'CreateTournament',
+  ProfilePage: 'ManagerProfiles',
+  MatchmakerBrowseDeck: 'Tinder',
+  TournamentView: 'TournamentView',
+  Matchmaker: 'Tinder',
+  TeamByline: 'ManagerProfiles',
+  WelcomeModal: 'Home',
+  PublicDataUnavailable: 'System',
+  ToastRegion: 'System',
+  ToastItemView: 'System',
+  CollectionMembershipPanel: 'Collections',
+  CollectionView: 'Collections',
+  ReserveTeamsWidget: 'TournamentView',
+  ProfileModal: 'ManagerProfiles',
+  TeamDisplay: 'ManagerProfiles',
+  MatchRecord: 'TournamentView',
+  SeasonYearbook: 'TournamentView',
+  TournamentHistory: 'TournamentView',
+  NewsComments: 'TournamentView',
+  StandingsView: 'TournamentView',
+  TournamentActivity: 'TournamentView',
+  TeamOwnershipReclaim: 'CreateTournament',
+  Modal: 'System',
+  NoticeDialog: 'System',
+  DeleteConfirmationFlow: 'System',
+  Layout: 'System',
+  SidebarPollWidget: 'TournamentView',
+  ModalTeamCard: 'CreateTournament',
+  TournamentBadgeChips: 'TournamentView',
+  GameStyle: 'TournamentView',
+  RatingsPitch: 'TournamentView',
+  FixtureCard: 'TournamentView',
+  NewsTab: 'TournamentView',
+  StandingsRoundPreview: 'TournamentView',
+  FixturesView: 'TournamentView',
+  NavigationFeedback: 'System',
+  SupportersWall: 'Supporters',
+  TinderWidget: 'Tinder',
+  TeamSelectorModal: 'CreateTournament',
+  ManagerSpotlight: 'ManagerProfiles',
+};
 
 // Keys are assigned by their owning screen, even where a legacy dictionary namespace is shared.
 export function sectionForKey(key: string): CatalogSection {
+  if (key.startsWith('PublicUI.')) return publicUiSections[key.split('.')[1]] || 'System';
   for (const section of catalogSections.slice(2)) {
     if (key.startsWith(`${section}.`)) return section;
   }

@@ -29,6 +29,7 @@ interface RecentRequest {
 }
 
 export const TinderWidget: React.FC<MatchmakerTeaserProps> = ({ className = '' }) => {
+  const uiText = useTranslations('PublicUI.TinderWidget');
   const router = useRouter();
   const t = useTranslations('Home');
   const { locale } = useLocale();
@@ -132,7 +133,7 @@ export const TinderWidget: React.FC<MatchmakerTeaserProps> = ({ className = '' }
                   {req.is_mock && <span className={styles.mockTag}>{t('tinderMock')}</span>}
                 </div>
                 <div className={styles.meta}>
-                  {req.match_type === '120min' ? '120m' : '90m'} • {req.opponent_location}
+                  {req.match_type === '120min' ? uiText('120m') : uiText('90m')} • {req.opponent_location}
                 </div>
               </div>
             ))}

@@ -1,3 +1,4 @@
+import { useTranslations } from 'next-intl';
 import React, { useEffect, useMemo, useState } from 'react';
 import { getCountryWorldDetails } from '../../../shared/worlddetails';
 import type {
@@ -106,7 +107,8 @@ function activityDayKey(createdAt: number) {
   return `${date.getFullYear()}-${date.getMonth()}-${date.getDate()}`;
 }
 
-function buildJoinStory(team: TournamentActivityTeam): React.ReactNode {
+function JoinActivityStory({ team }: { team: TournamentActivityTeam }) {
+  const uiText = useTranslations('PublicUI.TournamentActivity');
   const managerName = team.manager_name?.trim();
   const countryName = getCanonicalCountryName(team.country_name, team.country_id);
   const countryDetails = getCountryWorldDetails(team.country_id);
@@ -150,21 +152,26 @@ function buildJoinStory(team: TournamentActivityTeam): React.ReactNode {
     team.name
   );
 
-  if (managerLabel) {
-    return (
-      <>
-        {managerLabel} joined the tournament with {teamLabel}.
-        {countryLabel && <> The team is based in {countryLabel}.</>}
-      </>
-    );
+  if (managerLabel && countryLabel) {
+    return uiText.rich('joinWithManagerAndCountry', {
+      manager: () => managerLabel,
+      team: () => teamLabel,
+      country: () => countryLabel,
+    });
   }
-
-  return (
-    <>
-      {teamLabel} joined the tournament.
-      {countryLabel && <> The team is based in {countryLabel}.</>}
-    </>
-  );
+  if (managerLabel) {
+    return uiText.rich('joinWithManager', {
+      manager: () => managerLabel,
+      team: () => teamLabel,
+    });
+  }
+  if (countryLabel) {
+    return uiText.rich('joinWithCountry', {
+      team: () => teamLabel,
+      country: () => countryLabel,
+    });
+  }
+  return uiText.rich('joinWithoutCountry', { team: () => teamLabel });
 }
 
 function isTournamentStory(value: unknown): value is TournamentActivityStory {
@@ -210,7 +217,7 @@ function isTerminalMatch(match: TournamentActivityMatch) {
 }
 
 function renderJoinStory(team: TournamentActivityTeam): React.ReactNode {
-  if (!isTournamentStory(team.join_story)) return buildJoinStory(team);
+  if (!isTournamentStory(team.join_story)) return <JoinActivityStory team={team} />;
 
   return renderStory(team.join_story);
 }
@@ -236,6 +243,7 @@ export const TournamentActivity: React.FC<TournamentActivityProps> = ({
   newsHref,
   canPublishAnnouncements = false,
 }) => {
+  const uiText = useTranslations('PublicUI.TournamentActivity');
   const now = useClientNow(60_000);
   const [roundReports, setRoundReports] = useState<RoundReportActivity[]>([]);
   const [roundReportsLoaded, setRoundReportsLoaded] = useState(!tournamentId);
@@ -344,7 +352,7 @@ export const TournamentActivity: React.FC<TournamentActivityProps> = ({
           createdAt: earliestScheduledAt,
           story: (
             <>
-              ⚽️ <strong>Round {roundNumber} matches are now being played!</strong> Follow them live from{' '}
+              ⚽️ <strong>{uiText('round')} {roundNumber} {uiText('matchesAreNowBeingPlayed')}</strong> {uiText('followThemLiveFrom')}{' '}
               {renderActionLink('the Fixtures page', fixturesHref)}.
             </>
           ),
@@ -357,12 +365,12 @@ export const TournamentActivity: React.FC<TournamentActivityProps> = ({
           createdAt: finishedAt,
           story: (
             <>
-              🏁 <strong>Round {roundNumber} matches are now finished!</strong> Check the results on{' '}
+              🏁 <strong>{uiText('round')} {roundNumber} {uiText('matchesAreNowFinished')}</strong> {uiText('checkTheResultsOn')}{' '}
               {renderActionLink('the Fixtures page', fixturesHref)}.
               {canPublishAnnouncements && roundReportsLoaded && !reportExists && newsHref && (
                 <>
                   <br />
-                  <a href={newsHref}>You can now publish a Round {roundNumber} press report.</a>
+                  <a href={newsHref}>{uiText('youCanNowPublishARound')} {roundNumber} {uiText('pressReport')}</a>
                 </>
               )}
             </>
@@ -382,8 +390,7 @@ export const TournamentActivity: React.FC<TournamentActivityProps> = ({
               createdAt: seasonStartAt,
               story: (
                 <>
-                  Season {seasonNumber} has started! The <strong>tournament schedule has been published</strong> and the
-                  first fixtures are ready. Check them on {renderActionLink('the Fixtures page', fixturesHref)}.
+                  {uiText('season')} {seasonNumber} {uiText('hasStartedThe')} <strong>{uiText('tournamentScheduleHasBeenPublished')}</strong> {uiText('andTheFirstFixturesAreReadyCheckThemOn')} {renderActionLink('the Fixtures page', fixturesHref)}.
                 </>
               ),
             },
@@ -401,10 +408,10 @@ export const TournamentActivity: React.FC<TournamentActivityProps> = ({
           createdAt,
           story: (
             <>
-              📰 <strong>Round {report.round_number} Press Report has been published</strong>
+              📰 <strong>{uiText('round')} {report.round_number} {uiText('pressReportHasBeenPublished')}</strong>
               {newsHref ? (
                 <>
-                  ! Read it below or on <a href={newsHref}>the News page</a>.
+                  {uiText('readItBelowOrOn')} <a href={newsHref}>{uiText('theNewsPage')}</a>.
                 </>
               ) : (
                 '!'
@@ -435,6 +442,7 @@ export const TournamentActivity: React.FC<TournamentActivityProps> = ({
     seasonNumber,
     seasonStartedAt,
     teams,
+    uiText,
   ]);
 
   if (entries.length === 0) return null;
@@ -457,7 +465,7 @@ export const TournamentActivity: React.FC<TournamentActivityProps> = ({
 
   return (
     <section className={styles.activity} aria-labelledby="tournament-activity-title">
-      <h2 id="tournament-activity-title">Tournament activity</h2>
+      <h2 id="tournament-activity-title">{uiText('tournamentActivity')}</h2>
       <ul className={styles.entries}>
         {groupedEntries.map((group) => (
           <React.Fragment key={group.key}>
@@ -497,7 +505,7 @@ export const TournamentActivity: React.FC<TournamentActivityProps> = ({
           onClick={() => setShowAllEntries((current) => !current)}
           aria-expanded={showAllEntries}
         >
-          {showAllEntries ? 'Show less' : 'Show more'}
+          {showAllEntries ? uiText('showLess') : uiText('showMore')}
         </button>
       )}
     </section>

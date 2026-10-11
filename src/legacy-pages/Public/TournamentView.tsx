@@ -110,6 +110,7 @@ import { SidebarPollWidget } from '../../components/SidebarPollWidget/SidebarPol
 import { ReserveTeamsWidget } from '../../components/ReserveTeams/ReserveTeamsWidget';
 import { ManagerSpotlight } from '../../components/ManagerSpotlight/ManagerSpotlight';
 import { StandingsView } from '../../components/TournamentTabs/StandingsView';
+import { TournamentShareMenu } from '../../components/TournamentShareMenu/TournamentShareMenu';
 import { TournamentHistory, type TournamentSeasonComment } from '../../components/TournamentHistory/TournamentHistory';
 import { WelcomeModal } from '../../components/WelcomeModal/WelcomeModal';
 import { TournamentBadgeChips } from '../../components/TournamentBadgeChips/TournamentBadgeChips';
@@ -661,6 +662,7 @@ export const TournamentView: React.FC<{
   initialData?: TournamentInitialData;
   collectionLinks?: { slug: string; title: string }[];
 }> = ({ initialData, collectionLinks = [] }) => {
+  const uiText = useTranslations('PublicUI.TournamentView');
   const t = useTranslations('TournamentView');
   const { notice, showNotice: alert, closeNotice } = useNoticeDialog();
   const { locale } = useLocale();
@@ -2318,7 +2320,7 @@ export const TournamentView: React.FC<{
         statusDanger: true,
         status: (
           <>
-            Already active in:{' '}
+            {uiText('alreadyActiveIn')}{' '}
             <a href={toLocalePath(locale, `/t/${team.activeTournament.slug}`)}>{team.activeTournament.name}</a>
           </>
         ),
@@ -5384,7 +5386,7 @@ export const TournamentView: React.FC<{
         <div className={styles.loading} role="alert">
           <p>{loadError}</p>
           <Button variant="primary" onClick={() => void fetchData({ showLoader: true, invalidate: false })}>
-            Try again
+            {uiText('tryAgain')}
           </Button>
         </div>
       </div>
@@ -5823,7 +5825,7 @@ export const TournamentView: React.FC<{
         <div className={styles.refreshError} role="alert">
           <p>{loadError}</p>
           <Button variant="primary" onClick={() => void fetchData({ showLoader: true, invalidate: false })}>
-            Try again
+            {uiText('tryAgain')}
           </Button>
         </div>
       )}
@@ -5834,11 +5836,11 @@ export const TournamentView: React.FC<{
               <h1>{tournament.name}</h1>
             </div>
             <p className={styles.subtitle}>
-              Season {tournament.season}
-              {tournament.status === 'finished' && <span> • Finished</span>}
+              {uiText('seasonNumber', { season: tournament.season })}
+              {tournament.status === 'finished' && <span> {uiText('finished')}</span>}
             </p>
             {collectionLinks.length > 0 && (
-              <nav className={styles.collectionLinks} aria-label="Tournament collections">
+              <nav className={styles.collectionLinks} aria-label={uiText('tournamentCollections')}>
                 {collectionLinks.map((collection) => (
                   <Link key={collection.slug} href={toLocalePath(locale, `/collection/${collection.slug}`)}>
                     {collection.title} →
@@ -5851,12 +5853,12 @@ export const TournamentView: React.FC<{
                 {isAddingDescription ? (
                   <div className={styles.quickAddDesc}>
                     <div className={adminStyles.labelRow}>
-                      <label>Add Description</label>
+                      <label>{uiText('addDescription')}</label>
                       <button
                         type="button"
                         onClick={() => regenerateDescription(true)}
                         className={adminStyles.iconBtn}
-                        title="Regenerate description"
+                        title={uiText('regenerateDescription')}
                       >
                         <ArrowClockwise size={20} weight="bold" />
                       </button>
@@ -5864,7 +5866,7 @@ export const TournamentView: React.FC<{
                     <textarea
                       value={quickDescription}
                       onChange={(e) => setQuickDescription(e.target.value)}
-                      placeholder="Tournament description..."
+                      placeholder={uiText('tournamentDescription')}
                       rows={6}
                     />
                     <div className={styles.quickAddActions}>
@@ -5874,7 +5876,7 @@ export const TournamentView: React.FC<{
                         onClick={handleQuickDescriptionAdd}
                         disabled={isUpdatingSettings || !quickDescription.trim()}
                       >
-                        {isUpdatingSettings ? 'Adding...' : 'Add'}
+                        {isUpdatingSettings ? uiText('adding') : uiText('add')}
                       </Button>
                       <Button
                         size="sm"
@@ -5884,7 +5886,7 @@ export const TournamentView: React.FC<{
                           setQuickDescription('');
                         }}
                       >
-                        Cancel
+                        {uiText('cancel')}
                       </Button>
                     </div>
                   </div>
@@ -5901,12 +5903,12 @@ export const TournamentView: React.FC<{
                   setIsAddingDescription(true);
                 }}
               >
-                + Add description
+                {uiText('addDescription2')}
               </button>
             )}
             {tournament.max_teams && (
               <p className={styles.joinLimit}>
-                Join limit: {activeRealTeamsCount} / {tournament.max_teams}
+                {uiText('joinLimit', { current: activeRealTeamsCount, max: tournament.max_teams })}
                 {activeRealTeamsCount >= tournament.max_teams && ' — Filled!'}
               </p>
             )}
@@ -5919,37 +5921,33 @@ export const TournamentView: React.FC<{
             {isAppgMode ? (
               <div className={styles.scoringHelp}>
                 <p onClick={() => setShowScoringHelp(!showScoringHelp)} className={styles.helpToggle}>
-                  <strong>APPG-120 scoring mode</strong> {showScoringHelp ? <X size={18} /> : <Info size={18} />}
+                  <strong>{uiText('aPPG120ScoringMode')}</strong> {showScoringHelp ? <X size={18} /> : <Info size={18} />}
                 </p>
                 {showScoringHelp && (
                   <div className={styles.helpContent}>
                     <p>
-                      <strong>APPG-120</strong> uses Average Points Per Game with the English tournament's 120-minute
-                      result classifications. Standings use completed, classified matches only.
+                      <strong>{uiText('aPPG120')}</strong> {uiText('usesAveragePointsPerGameWithTheEnglishTournament')}
                     </p>
                     <ul>
                       <li>
-                        <strong>ET3</strong> - 3 points for finishing the match in extra time, when at least one of the
-                        winning goals came from open play.
+                        <strong>{uiText('eT3')}</strong> {uiText('3PointsForFinishingTheMatchInExtraTime')}
                       </li>
                       <li>
-                        <strong>ET2</strong> - 2 points for finishing the match in extra time, when the winning goal or
-                        goals came from special events or other non-open-play events.
+                        <strong>{uiText('eT2')}</strong> {uiText('2PointsForFinishingTheMatchInExtraTime')}
                       </li>
                       <li>
-                        <strong>PS1</strong> - 1 point if the match goes to penalties.
+                        <strong>{uiText('pS1')}</strong> {uiText('1PointIfTheMatchGoesToPenalties')}
                       </li>
                       <li>
-                        <strong>RT0</strong> - 0 points if the match is decided before extra time.
+                        <strong>{uiText('rT0')}</strong> {uiText('0PointsIfTheMatchIsDecidedBeforeExtra')}
                       </li>
                       <li>
-                        <strong>OPW</strong> - minus 1 point for the winning team after a regulation-time open-play win.
+                        <strong>{uiText('oPW')}</strong> {uiText('minus1PointForTheWinningTeamAfterA')}
                       </li>
                     </ul>
                     <p>
-                      Clear regulation-time event evidence is classified automatically as RT0 or OPW. Matches with
-                      missing, mismatched, or ambiguous evidence (such as same-minute goals) remain{' '}
-                      <strong>needs review</strong> until an organizer classifies them.
+                      {uiText('clearRegulationTimeEventEvidenceIsClassifiedAutomaticallyAs')}{' '}
+                      <strong>{uiText('needsReview')}</strong> {uiText('untilAnOrganizerClassifiesThem')}
                     </p>
                   </div>
                 )}
@@ -5957,30 +5955,23 @@ export const TournamentView: React.FC<{
             ) : is120minMode ? (
               <div className={styles.scoringHelp}>
                 <p onClick={() => setShowScoringHelp(!showScoringHelp)} className={styles.helpToggle}>
-                  <strong>120min scoring mode</strong> {showScoringHelp ? <X size={18} /> : <Info size={18} />}
+                  <strong>{uiText('120minScoringMode')}</strong> {showScoringHelp ? <X size={18} /> : <Info size={18} />}
                 </p>
                 {showScoringHelp && (
                   <p className={styles.helpContent}>
-                    Teams are ranked first by <strong>120min achievements</strong>, then points, goal difference, goals
-                    scored and finally fewer matches played (misarranged count as played). Points are tie-breakers for
-                    teams that have the same number of 120min achievements. Reaching extra time earns the losing team 2
-                    points, winner gets 3 points. Regular-time winner earns 0 points. Regular-time loser still earns 2
-                    points if they didn't score; scoring at least one reduces that to 1 point. Normal Rules matches
-                    award no points. Goals count only in matches that reached 120 minutes.
+                    {uiText('teamsAreRankedFirstBy')} <strong>{uiText('120minAchievements')}</strong>{uiText('thenPointsGoalDifferenceGoalsScoredAndFinallyFewer')}
                   </p>
                 )}
               </div>
             ) : (
               <div className={styles.scoringHelp}>
                 <p onClick={() => setShowScoringHelp(!showScoringHelp)} className={styles.helpToggle}>
-                  <strong>Victory points mode</strong> {showScoringHelp ? <X size={18} /> : <Info size={18} />}
+                  <strong>{uiText('victoryPointsMode')}</strong> {showScoringHelp ? <X size={18} /> : <Info size={18} />}
                 </p>
                 {showScoringHelp && (
                   <p className={styles.helpContent}>
-                    Standard competitive tournament. Teams earn 3 points for a win and 1 point for a regular-time tie..
-                    When cup rules are on – 2 points for an extra time or shootout win. Standings are ranked by{' '}
-                    <strong>Total Points</strong>, then goal difference and goals scored. 120min games mean nothing
-                    here.
+                    {uiText('standardCompetitiveTournamentTeamsEarn3PointsForA')}{' '}
+                    <strong>{uiText('totalPoints')}</strong>{uiText('thenGoalDifferenceAndGoalsScored120minGamesMean')}
                   </p>
                 )}
               </div>
@@ -5999,7 +5990,7 @@ export const TournamentView: React.FC<{
               style={getTournamentBackgroundStyle(tournament?.id || '', tournament?.image_url)}
             />
             {!tournament?.image_url && isAdminAuthenticated && (
-              <div className={styles.placeholderMessage}>Click to add image URL</div>
+              <div className={styles.placeholderMessage}>{uiText('clickToAddImageURL')}</div>
             )}
             {isAdminAuthenticated && (
               <div
@@ -6010,7 +6001,7 @@ export const TournamentView: React.FC<{
                   setIsEditingImage(true);
                 }}
               >
-                <span>{tournament?.image_url ? 'Edit Image' : 'Add Image'}</span>
+                <span>{tournament?.image_url ? uiText('editImage') : uiText('addImage')}</span>
               </div>
             )}
           </div>
@@ -6019,10 +6010,9 @@ export const TournamentView: React.FC<{
         {tournament.status === 'paused' && (
           <div className={styles.testNotice}>
             <div>
-              <h3>Tournament paused</h3>
+              <h3>{uiText('tournamentPaused')}</h3>
               <p>
-                This tournament is postponed. Teams can still join and admins can edit participants, but schedule
-                management is hidden until the tournament is set active again.
+                {uiText('thisTournamentIsPostponedTeamsCanStillJoinAnd')}
               </p>
             </div>
           </div>
@@ -6031,10 +6021,9 @@ export const TournamentView: React.FC<{
         {tournament.status === 'stopped' && (
           <div className={styles.testNotice}>
             <div>
-              <h3>Tournament fully stopped ⛔️</h3>
+              <h3>{uiText('tournamentFullyStopped')}</h3>
               <p>
-                This tournament is halted and unpublished. Teams listed here are allowed to join other tournaments.
-                Admins can move it back to paused when they are ready to rebuild the participant list.
+                {uiText('thisTournamentIsHaltedAndUnpublishedTeamsListedHere')}
               </p>
             </div>
           </div>
@@ -6043,10 +6032,9 @@ export const TournamentView: React.FC<{
         {isGenerated && !isHealthQuotaMet() && tournament.status !== 'stopped' && (
           <div className={styles.pauseNotice}>
             <div>
-              <h3>Tournament Paused</h3>
+              <h3>{uiText('tournamentPaused2')}</h3>
               <p>
-                More than 25% of teams have become inactive. The tournament is paused until teams are revived or
-                replaced.
+                {uiText('moreThan25OfTeamsHaveBecomeInactiveThe')}
               </p>
             </div>
           </div>
@@ -6055,11 +6043,11 @@ export const TournamentView: React.FC<{
         {isSandbox && (
           <div className={styles.testNotice}>
             <div>
-              <h3>TEST tournament.</h3>
+              <h3>{uiText('tESTTournament')}</h3>
               <p>
                 {canAddSandboxTeam
-                  ? 'This is a dummy tournament for test purposes. Teams represented are not actually participating. Current limit allows adding more test teams.'
-                  : 'This is a dummy tournament for test purposes. Teams represented are not actually participating.'}
+                  ? uiText('thisIsADummyTournamentForTestPurposesTeams')
+                  : uiText('thisIsADummyTournamentForTestPurposesTeams2')}
               </p>
             </div>
             {canManageSandboxTeams && (
@@ -6073,7 +6061,7 @@ export const TournamentView: React.FC<{
                     disabled={isFetchingSandboxTeam || !canAddSandboxTeam}
                   >
                     {isFetchingSandboxTeam
-                      ? 'Finding...'
+                      ? uiText('finding')
                       : tournament.max_teams
                         ? `Get random (${Math.min(activeRealTeamsCount, tournament.max_teams)} of ${tournament.max_teams})`
                         : 'Get random team'}
@@ -6089,7 +6077,7 @@ export const TournamentView: React.FC<{
                         setSandboxFetchError('');
                       }}
                       disabled={isSavingTeam || isFetchingSandboxTeam}
-                      aria-label="Close random team selector"
+                      aria-label={uiText('closeRandomTeamSelector')}
                     >
                       <X size={16} weight="bold" />
                     </button>
@@ -6104,7 +6092,7 @@ export const TournamentView: React.FC<{
                       onClick={addSandboxTeam}
                       disabled={isSavingTeam}
                     >
-                      Add it
+                      {uiText('addIt')}
                     </Button>
                     <Button
                       type="button"
@@ -6113,7 +6101,7 @@ export const TournamentView: React.FC<{
                       onClick={fetchRandomSandboxTeam}
                       disabled={isSavingTeam || isFetchingSandboxTeam}
                     >
-                      Retry
+                      {uiText('retry')}
                     </Button>
                   </div>
                 )}
@@ -6125,9 +6113,9 @@ export const TournamentView: React.FC<{
 
         {isJoining && !isSandbox && (
           <div className={styles.registrationFormWrapper}>
-            <HeroCard title="Join This Tournament">
+            <HeroCard title={uiText('joinThisTournament')}>
               <div className={styles.joinHeroImageWrapper}>
-                <img src="/register.png" alt="Join Tournament" className={styles.joinHeroImage} />
+                <img src="/register.png" alt={uiText('joinTournament')} className={styles.joinHeroImage} />
                 {isConnecting && (
                   <div className={styles.imageLoaderOverlay}>
                     <p>{t('connectingHattrick')}</p>
@@ -6136,17 +6124,17 @@ export const TournamentView: React.FC<{
               </div>
               {isGenerated && (
                 <p className={styles.registrationIntro}>
-                  You are joining an ongoing tournament. You will fill an available spot.
+                  {uiText('youAreJoiningAnOngoingTournamentYouWillFill')}
                 </p>
               )}
 
               <div className={styles.registrationLinkArea}>
                 <Button size="lg" variant="primary" disabled={isConnecting} onClick={connectToHattrick}>
                   <ArrowRight size={20} weight="bold" />{' '}
-                  {isConnecting ? 'Connecting to Hattrick…' : 'Join with Hattrick'}
+                  {isConnecting ? uiText('connectingToHattrick') : uiText('joinWithHattrick')}
                 </Button>
                 <p className={styles.registrationLinkNote}>
-                  Authorize HT-120min to fetch your team data and update results automatically.
+                  {uiText('authorizeHT120minToFetchYourTeamDataAnd')}
                 </p>
               </div>
             </HeroCard>
@@ -6158,8 +6146,8 @@ export const TournamentView: React.FC<{
           <div className={styles.helpContent}>
             <p>
               {isGenerated
-                ? 'This cup is ongoing but has available spots for new teams! Join! ⚽️👍'
-                : "New team registration for this cup is now open! Join and let's have a great season! ⚽️🏆"}
+                ? uiText('thisCupIsOngoingButHasAvailableSpotsFor')
+                : uiText('newTeamRegistrationForThisCupIsNowOpen')}
             </p>
             {!isJoining && (
               <Button
@@ -6169,7 +6157,7 @@ export const TournamentView: React.FC<{
                 className={styles.joinButton}
                 disabled={isConnecting}
               >
-                <ArrowRight size={18} weight="bold" /> {isConnecting ? 'Connecting to Hattrick…' : 'Join with Hattrick'}
+                <ArrowRight size={18} weight="bold" /> {isConnecting ? uiText('connectingToHattrick') : uiText('joinWithHattrick')}
               </Button>
             )}
           </div>
@@ -6190,7 +6178,7 @@ export const TournamentView: React.FC<{
               size="sm"
               className={styles.joinButton}
             >
-              <ArrowRight size={18} weight="bold" /> Join reserve list
+              <ArrowRight size={18} weight="bold" /> {uiText('joinReserveList')}
             </Button>
           </div>
         </div>
@@ -6199,7 +6187,7 @@ export const TournamentView: React.FC<{
       {selectedTournamentMessage?.type === 'participant_open' && (
         <div className={styles.registrationStatus}>
           <div className={styles.helpContent}>
-            <p>✅ You have joined this cup! Remember to turn off auto-arranged friendlies option on Hattrick!</p>
+            <p>{uiText('youHaveJoinedThisCupRememberToTurnOff')}</p>
             {canJoinAnotherTeamBeforeFixtures && (
               <Button
                 onClick={connectToHattrick}
@@ -6209,7 +6197,7 @@ export const TournamentView: React.FC<{
                 disabled={isConnecting}
               >
                 <ArrowRight size={18} weight="bold" />{' '}
-                {isConnecting ? 'Connecting to Hattrick…' : 'Join with another team'}
+                {isConnecting ? uiText('connectingToHattrick') : uiText('joinWithAnotherTeam')}
               </Button>
             )}
           </div>
@@ -6231,12 +6219,12 @@ export const TournamentView: React.FC<{
         <div className={styles.joinedNotice}>
           <div className={styles.joinedNoticeContent}>
             <span>
-              Please login with Hattrick CHPP to refresh your credentials and to get access to new feature updates
+              {uiText('pleaseLoginWithHattrickCHPPToRefreshYourCredentials')}
             </span>
           </div>
           <div className={styles.reauthActions}>
             <Button size="sm" variant="primary" onClick={handleRefreshHattrickLogin}>
-              Login with CHPP
+              {uiText('loginWithCHPP')}
             </Button>
           </div>
         </div>
@@ -6267,7 +6255,7 @@ export const TournamentView: React.FC<{
           className={activeTab === 'standings' ? styles.active : ''}
           onClick={() => handleTabChange('standings')}
         >
-          Standings
+          {uiText('standings')}
         </Link>
         <Link
           href={getTabHref('fixtures')}
@@ -6279,7 +6267,7 @@ export const TournamentView: React.FC<{
           className={activeTab === 'fixtures' ? styles.active : ''}
           onClick={() => handleTabChange('fixtures')}
         >
-          Fixtures <span className="hideOnMobile">& Results</span>
+          {uiText('fixturesAndResults')}
         </Link>
         <Link
           href={getTabHref('news')}
@@ -6291,7 +6279,7 @@ export const TournamentView: React.FC<{
           className={isNewsTab ? styles.active : ''}
           onClick={() => handleTabChange('news')}
         >
-          News
+          {uiText('news')}
         </Link>
         <Link
           href={getTabHref('history')}
@@ -6303,9 +6291,9 @@ export const TournamentView: React.FC<{
           className={activeTab === 'history' ? styles.active : ''}
           onClick={() => handleTabChange('history')}
         >
-          History
+          {uiText('history')}
           {historyTabBadgeCount > 0 && (
-            <span className={styles.historyTabBadge} aria-label="New season history activity">
+            <span className={styles.historyTabBadge} aria-label={uiText('newSeasonHistoryActivity')}>
               {historyTabBadgeCount}
             </span>
           )}
@@ -6320,8 +6308,9 @@ export const TournamentView: React.FC<{
           className={activeTab === 'admin' ? styles.active : ''}
           onClick={() => handleTabChange('admin')}
         >
-          Admin
+          {uiText('admin')}
         </Link>
+        <TournamentShareMenu name={tournament.name} slug={tournament.slug} variant="desktop" />
       </div>
 
       <Modal
@@ -6341,8 +6330,7 @@ export const TournamentView: React.FC<{
         closeButtonClassName={styles.historyReportClose}
       >
         <p className={styles.historyReportText}>
-          <strong>🏆 Season {latestPublishedHistorySeason?.season_number} history report is published!</strong> You can
-          now view it and leave your one time only final season's comment!
+          <strong>{uiText('season2')} {latestPublishedHistorySeason?.season_number} {uiText('historyReportIsPublished')}</strong> {uiText('youCanNowViewItAndLeaveYourOne')}
         </p>
         <div className={styles.historyReportActions}>
           <Button
@@ -6362,7 +6350,7 @@ export const TournamentView: React.FC<{
               setSearchParams(nextParams);
             }}
           >
-            View Season Report
+            {uiText('viewSeasonReport')}
           </Button>
           <Button
             variant="zero"
@@ -6371,7 +6359,7 @@ export const TournamentView: React.FC<{
               dismissHistoryReportNotice();
             }}
           >
-            Later
+            {uiText('later')}
           </Button>
         </div>
       </Modal>
@@ -6476,9 +6464,9 @@ export const TournamentView: React.FC<{
       {activeTab === 'standings' && (
         <div className={styles.standingsContainer}>
           {selectedSeasonChampion && (
-            <SectionCard title="Champion">
+            <SectionCard title={uiText('champion')}>
               <strong>{selectedSeasonChampion.name}</strong>
-              <p>Championship Final winner</p>
+              <p>{uiText('championshipFinalWinner')}</p>
             </SectionCard>
           )}
           <StandingsView
@@ -6559,7 +6547,7 @@ export const TournamentView: React.FC<{
                 rel="noopener noreferrer"
                 className={`${buttonStyles.button} ${buttonStyles.zero} ${buttonStyles.sm} ${styles.standingsSeasonsButton} ${styles.standingsForumButton}`}
               >
-                Tournament HT Forum <ArrowRight size={16} weight="bold" aria-hidden="true" />
+                {uiText('tournamentHTForum')} <ArrowRight size={16} weight="bold" aria-hidden="true" />
               </a>
             )}
             {availableSeasonNumbers.length > 1 && (
@@ -6572,11 +6560,11 @@ export const TournamentView: React.FC<{
                   aria-haspopup="listbox"
                   className={styles.standingsSeasonsButton}
                 >
-                  Historic standings
+                  {uiText('historicStandings')}
                   <CaretDown size={16} weight="bold" aria-hidden="true" />
                 </Button>
                 {isStandingsSeasonMenuOpen && (
-                  <div className={styles.standingsSeasonDropdown} role="listbox" aria-label="Select season">
+                  <div className={styles.standingsSeasonDropdown} role="listbox" aria-label={uiText('selectSeason')}>
                     {availableSeasonNumbers.map((seasonNumber) => (
                       <button
                         key={seasonNumber}
@@ -6588,7 +6576,7 @@ export const TournamentView: React.FC<{
                           handleSeasonChange(seasonNumber);
                         }}
                       >
-                        Season {seasonNumber}
+                        {uiText('season')} {seasonNumber}
                       </button>
                     ))}
                   </div>
@@ -6619,7 +6607,7 @@ export const TournamentView: React.FC<{
               myHtUserId={myHtUserId ? Number(myHtUserId) : null}
             />
             <CompactAccordionWidget
-              title="Tournament FAQ"
+              title={uiText('tournamentFAQ')}
               icon={<Question size={20} weight="bold" />}
               items={tournamentFaqItems}
             />
@@ -6648,51 +6636,50 @@ export const TournamentView: React.FC<{
       >
         {isSandbox ? (
           <>
-            <strong>Try the important parts while nothing serious is on the line:</strong>
+            <strong>{uiText('tryTheImportantPartsWhileNothingSeriousIsOn')}</strong>
 
             <ul>
-              <li>👉 Add, remove and replace dummy teams, generate and inspect the schedule</li>
-              <li>👉 Link matches to real ones via admin or add dummy scores</li>
-              <li>👉 Test switching team limits and country rules</li>
+              <li>{uiText('addRemoveAndReplaceDummyTeamsGenerateAndInspect')}</li>
+              <li>{uiText('linkMatchesToRealOnesViaAdminOrAdd')}</li>
+              <li>{uiText('testSwitchingTeamLimitsAndCountryRules')}</li>
             </ul>
 
-            <p>When you feel like a pro, create the real tournament and invite people in.</p>
+            <p>{uiText('whenYouFeelLikeAProCreateTheReal')}</p>
           </>
         ) : isOrganizerManagedTournament ? (
           <>
-            <strong>Your organizer-managed {tournament.name} page is ready.</strong>
+            <strong>{uiText('yourOrganizerManaged')} {tournament.name} {uiText('pageIsReady')}</strong>
 
             <ul>
-              <li>👉 Invited more teams to join or add them yourself from the admin tab</li>
-              <li>👉 Share the public page for fixtures, standings and announcements</li>
-              <li>👉 Generate the schedule when the lineup is ready</li>
-              <li>👉 Results will be updated automatically but can be manually edited or linked</li>
+              <li>{uiText('invitedMoreTeamsToJoinOrAddThemYourself')}</li>
+              <li>{uiText('shareThePublicPageForFixturesStandingsAndAnnouncements')}</li>
+              <li>{uiText('generateTheScheduleWhenTheLineupIsReady')}</li>
+              <li>{uiText('resultsWillBeUpdatedAutomaticallyButCanBeManually')}</li>
             </ul>
 
             <p>
-              This format gives the organizer more control. Participants do not need to join through CHPP unless you
-              want them to interact with HT-120min directly.
+              {uiText('thisFormatGivesTheOrganizerMoreControlParticipantsDo')}
             </p>
-            <p>If you're happy or want a new feature — ip dev a pint 🍻💪</p>
+            <p>{uiText('ifYouReHappyOrWantANewFeature')}</p>
           </>
         ) : (
           <>
-            <strong>Your tournament page is ready.</strong>
+            <strong>{uiText('yourTournamentPageIsReady')}</strong>
 
             <ul>
-              <li>👉 Share the public link with the managers you want to invite</li>
-              <li>👉 Wait for teams to join (minimum is 2)</li>
-              <li>👉 Generate the schedule when you are ready to start</li>
-              <li>👉 Let participants know when it's time to book their first match</li>
-              <li>👉 Manage settings, teams, schedule and announcements from the admin tab</li>
+              <li>{uiText('shareThePublicLinkWithTheManagersYouWant')}</li>
+              <li>{uiText('waitForTeamsToJoinMinimumIs2')}</li>
+              <li>{uiText('generateTheScheduleWhenYouAreReadyToStart')}</li>
+              <li>{uiText('letParticipantsKnowWhenItSTimeToBook')}</li>
+              <li>{uiText('manageSettingsTeamsScheduleAndAnnouncementsFromTheAdmin')}</li>
             </ul>
 
             <p>
-              Ask in{' '}
+              {uiText('askIn')}{' '}
               <a href={FORUM_LINK} target="_blank" rel="noreferrer">
-                HT-120min Hattrick forum
+                {uiText('hT120minHattrickForum')}
               </a>{' '}
-              to get help quickly!
+              {uiText('toGetHelpQuickly')}
             </p>
           </>
         )}
@@ -6704,41 +6691,40 @@ export const TournamentView: React.FC<{
         onPrimaryAction={acceptOpenTournamentWelcome}
         imageSrc="/register2.png"
         imageAlt="Open tournament welcome"
-        title="This tournament is open!"
+        title={uiText('thisTournamentIsOpen')}
         buttonLabel="Go to tournament"
       >
         <ul>
-          <li>👉 add your team to the tournament</li>
-          <li>👉 invite other managers to join if there are free spots</li>
-          <li>👉 wait for Hattrick week 4 or until cup frees every team</li>
-          <li>👉 wait for the admin to generate the schedule</li>
-          <li>👉 start booking matches from the schedule and enjoy</li>
+          <li>{uiText('addYourTeamToTheTournament')}</li>
+          <li>{uiText('inviteOtherManagersToJoinIfThereAreFree')}</li>
+          <li>{uiText('waitForHattrickWeek4OrUntilCupFrees')}</li>
+          <li>{uiText('waitForTheAdminToGenerateTheSchedule')}</li>
+          <li>{uiText('startBookingMatchesFromTheScheduleAndEnjoy')}</li>
         </ul>
       </WelcomeModal>
 
       <Modal
         isOpen={isEditingImage || TOURNAMENT_VIEW_MODALS_OPEN_BY_DEFAULT.editTournamentImage}
         onClose={() => setIsEditingImage(false)}
-        title="Update Tournament Image"
+        title={uiText('updateTournamentImage')}
       >
         <div className={styles.modalContent}>
           <p>
-            Link to an external image URL (e.g., Imgur, Hattrick logo, etc.). Make sure it's the address of image itself
-            (right click + copy image address)
+            {uiText('linkToAnExternalImageURLEGImgur')}
           </p>
           <div className={adminStyles.field}>
-            <label>Image URL</label>
+            <label>{uiText('imageURL')}</label>
             <input
               type="text"
               value={newImageUrl}
               onChange={(e) => setNewImageUrl(e.target.value)}
-              placeholder="https://..."
+              placeholder={uiText('https')}
               className={adminStyles.selectField}
             />
           </div>
           <div className={styles.modalFooter}>
             <Button variant="primary" fullWidth onClick={handleUpdateImage} disabled={isUpdatingImage}>
-              {isUpdatingImage ? 'Updating...' : 'Save Image'}
+              {isUpdatingImage ? uiText('updating') : uiText('saveImage')}
             </Button>
             <Button
               variant="outlineWhite"
@@ -6746,7 +6732,7 @@ export const TournamentView: React.FC<{
               onClick={() => setIsEditingImage(false)}
               style={{ marginTop: '0.5rem' }}
             >
-              Cancel
+              {uiText('cancel')}
             </Button>
           </div>
         </div>
@@ -6763,11 +6749,11 @@ export const TournamentView: React.FC<{
       >
         <div className={styles.modalContent}>
           {modalLoading ? (
-            <p className="center">Loading your teams…</p>
+            <p className="center">{uiText('loadingYourTeams')}</p>
           ) : (
             <>
               <p style={{ marginBottom: '1.5rem', opacity: 0.9 }}>
-                Which team should join <strong>{tournament.name}</strong>?
+                {uiText('whichTeamShouldJoin')} <strong>{tournament.name}</strong>?
               </p>
 
               <div className={styles.teamOptionsList}>
@@ -6793,7 +6779,7 @@ export const TournamentView: React.FC<{
                   );
                 })}
                 {pendingJoinData?.teams_json.length === 0 && (
-                  <p className="center">No teams were returned by Hattrick for this account.</p>
+                  <p className="center">{uiText('noTeamsWereReturnedByHattrickForThisAccount')}</p>
                 )}
               </div>
 
@@ -6812,7 +6798,7 @@ export const TournamentView: React.FC<{
                   }}
                   disabled={submittingJoin}
                 >
-                  Cancel
+                  {uiText('cancel')}
                 </Button>
               </div>
             </>
@@ -6826,13 +6812,13 @@ export const TournamentView: React.FC<{
           setShowJoinErrorModal(false);
           setJoinError(null);
         }}
-        title="Unable to join tournament"
+        title={uiText('unableToJoinTournament')}
       >
         <div className={styles.modalContent}>
           <p>{joinError}</p>
           <div className={styles.modalFooter}>
             <Button variant="primary" fullWidth onClick={() => setShowJoinErrorModal(false)}>
-              OK
+              {uiText('oK')}
             </Button>
           </div>
         </div>
@@ -6840,7 +6826,7 @@ export const TournamentView: React.FC<{
 
       {showFullImage && tournament?.image_url && (
         <div className={styles.imageModalOverlay} onClick={() => setShowFullImage(false)}>
-          <img src={tournament.image_url} alt="Tournament" className={styles.imageModalContent} />
+          <img src={tournament.image_url} alt={uiText('tournament')} className={styles.imageModalContent} />
         </div>
       )}
     </div>

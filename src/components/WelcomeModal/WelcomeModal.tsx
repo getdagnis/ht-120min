@@ -1,3 +1,4 @@
+import { useTranslations } from 'next-intl';
 import React from 'react';
 import { X } from 'phosphor-react';
 import { Button } from '../Button/Button';
@@ -30,6 +31,7 @@ export const WelcomeModal: React.FC<WelcomeModalProps> = ({
   children,
   variant = 'default',
 }) => {
+  const uiText = useTranslations('PublicUI.WelcomeModal');
   if (!WELCOME_MODALS_ENABLED) return null;
 
   return (
@@ -43,7 +45,7 @@ export const WelcomeModal: React.FC<WelcomeModalProps> = ({
       useContentPanel={false}
     >
       <div className={styles.panel}>
-        <button type="button" className={styles.closeBtn} onClick={onClose} aria-label="Close welcome message">
+        <button type="button" className={styles.closeBtn} onClick={onClose} aria-label={uiText('closeWelcomeMessage')}>
           <X size={22} weight="bold" />
         </button>
 

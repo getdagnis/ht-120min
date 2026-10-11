@@ -98,6 +98,7 @@ function excludeLocalAnalytics(event: BeforeSendEvent) {
 }
 
 export const Layout: React.FC<LayoutProps> = ({ children, excludeAnalytics = false }) => {
+  const uiText = useTranslations('PublicUI.Layout');
   const t = useTranslations('common');
   const router = useRouter();
   const pathname = usePathname() || '/';
@@ -205,7 +206,7 @@ export const Layout: React.FC<LayoutProps> = ({ children, excludeAnalytics = fal
             <div className={styles.headerContent}>
               <Link href={toLocalePath(locale, '/')} className={styles.logo}>
                 <Trophy size={28} weight="bold" className={styles.icon} />
-                <span>HT-120min</span>
+                <span>{uiText('hT120min')}</span>
               </Link>
 
               <div className={styles.actions}>
@@ -437,16 +438,16 @@ export const Layout: React.FC<LayoutProps> = ({ children, excludeAnalytics = fal
               © {new Date().getFullYear()}
               <span className="mr-sm" />
               <a href="http://getdagnis.vercel.app" target="_blank">
-                mr_bots a.k.a. getdagnis
+                {uiText('mrBotsAKAGetdagnis')}
               </a>
               <span style={{ marginRight: '0.25rem' }}>🇱🇻</span>
               {t('managerOf')}{' '}
               <a href="https://www.hattrick.org/goto.ashx?path=/Club/?TeamID=681813" target="_blank">
-                This bot team is a bot
+                {uiText('thisBotTeamIsABot')}
               </a>
-              <span style={{ marginRight: '0.25rem' }}>🇱🇻</span> and{' '}
+              <span style={{ marginRight: '0.25rem' }}>🇱🇻</span> {uiText('and')}{' '}
               <a href="https://www.hattrick.org/goto.ashx?path=/Club/?TeamID=3220518" target="_blank">
-                Guåhan Goddesses 🇬🇺
+                {uiText('guåhanGoddesses')}
               </a>
               <b />
             </p>

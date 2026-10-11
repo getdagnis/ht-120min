@@ -1,3 +1,4 @@
+import { useTranslations } from 'next-intl';
 import React from 'react';
 import { UsersThree } from 'phosphor-react';
 
@@ -73,6 +74,7 @@ interface ManagerSpotlightProps {
 }
 
 export const ManagerSpotlight: React.FC<ManagerSpotlightProps> = ({ spotlight }) => {
+  const uiText = useTranslations('PublicUI.ManagerSpotlight');
   if (!spotlight) return null;
   const location = normalizeLocation(spotlight.location);
   const story = normalizeStory(spotlight.story);
@@ -80,7 +82,7 @@ export const ManagerSpotlight: React.FC<ManagerSpotlightProps> = ({ spotlight })
   const visibleTeams = getVisibleClubTeams(spotlight);
 
   return (
-    <ReusableWidget title="Meet the manager" icon={<UsersThree size={20} weight="bold" />} className={styles.widget}>
+    <ReusableWidget title={uiText('meetTheManager')} icon={<UsersThree size={20} weight="bold" />} className={styles.widget}>
       <div className={styles.identity}>
         <Avatar avatar={spotlight.avatar} variant="full" size={52} className={styles.avatar} />
         <div className={styles.identityDetails}>
@@ -95,7 +97,7 @@ export const ManagerSpotlight: React.FC<ManagerSpotlightProps> = ({ spotlight })
           <div className={styles.managerMeta}>
             <span>{location.map(renderSegment)}</span>
           </div>
-          {spotlight.language && <span className={styles.language}>HT language: {spotlight.language}</span>}
+          {spotlight.language && <span className={styles.language}>{uiText('hTLanguage')} {spotlight.language}</span>}
         </div>
       </div>
 
@@ -136,12 +138,12 @@ export const ManagerSpotlight: React.FC<ManagerSpotlightProps> = ({ spotlight })
 
           return (
             <section key={team.teamId} className={styles.clubSection}>
-              {team.isTournamentTeam && <h3 className={styles.clubHeading}>Participating in this tournament with:</h3>}
-              {team.isPrimary && !team.isTournamentTeam && <h3 className={styles.clubHeading}>Main club:</h3>}
+              {team.isTournamentTeam && <h3 className={styles.clubHeading}>{uiText('participatingInThisTournamentWith')}</h3>}
+              {team.isPrimary && !team.isTournamentTeam && <h3 className={styles.clubHeading}>{uiText('mainClub')}</h3>}
               {!team.isTournamentTeam &&
                 !team.isPrimary &&
                 !visibleTeams.slice(0, index).some((previous) => !previous.isTournamentTeam && !previous.isPrimary) && (
-                  <h3 className={styles.clubHeading}>Other clubs:</h3>
+                  <h3 className={styles.clubHeading}>{uiText('otherClubs')}</h3>
                 )}
               <div className={`${styles.team} ${team.isTournamentTeam ? styles.tournamentTeam : ''}`}>
                 <img src={team.logoUrl || '/matchKitLarge.png'} alt="" className={styles.teamLogo} />
@@ -157,11 +159,11 @@ export const ManagerSpotlight: React.FC<ManagerSpotlightProps> = ({ spotlight })
                             {detail}
                           </React.Fragment>
                         ))
-                      : 'Hattrick club'}
+                      : uiText('hattrickClub')}
                   </span>
                   {special && hasRank && (
                     <span className={styles.teamMeta}>
-                      Ranked #{team.leagueRank} in{' '}
+                      {uiText('ranked')}{team.leagueRank} {uiText('in')}{' '}
                       {leagueFlag && <img src={leagueFlag} alt="" className={styles.leagueFlag} />} {special}
                     </span>
                   )}

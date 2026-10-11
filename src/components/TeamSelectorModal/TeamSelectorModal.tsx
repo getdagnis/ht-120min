@@ -1,3 +1,4 @@
+import { useTranslations } from 'next-intl';
 import React from 'react';
 import { Modal } from '../Modal/Modal';
 import { Button } from '../Button/Button';
@@ -22,6 +23,7 @@ export const TeamSelectorModal: React.FC<TeamSelectorModalProps> = ({
   title = 'Select Team',
   modalClassName = '',
 }) => {
+  const uiText = useTranslations('PublicUI.TeamSelectorModal');
   const isSelectable = (status?: MatchmakerTeamOption['availabilityStatus']) => status === 'available';
 
   const groupedTeams = [
@@ -95,11 +97,11 @@ export const TeamSelectorModal: React.FC<TeamSelectorModalProps> = ({
           </div>
         ) : (
           <div className={styles.emptyState}>
-            <p>No matching teams found for this ad.</p>
+            <p>{uiText('noMatchingTeamsFoundForThisAd')}</p>
           </div>
         )}
         <div className={styles.footer}>
-          <Button variant="outline" onClick={onClose} fullWidth>Cancel</Button>
+          <Button variant="outline" onClick={onClose} fullWidth>{uiText('cancel')}</Button>
         </div>
       </div>
     </Modal>

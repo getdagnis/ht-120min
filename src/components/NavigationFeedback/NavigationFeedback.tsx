@@ -1,11 +1,13 @@
 'use client';
 
+import { useTranslations } from 'next-intl';
 import { useEffect, useState } from 'react';
 import { usePathname } from 'next/navigation';
 import styles from './NavigationFeedback.module.sass';
 
 /** Feedback before even a cold/unprefetched route has returned its loading shell. */
 export function NavigationFeedback() {
+  const uiText = useTranslations('PublicUI.NavigationFeedback');
   const pathname = usePathname();
   const [navigation, setNavigation] = useState({ pathname, pending: false });
   // Reset on every committed route, including Back; no stale pending state on return.
@@ -42,7 +44,7 @@ export function NavigationFeedback() {
 
   return navigation.pending ? (
     <p className={styles.pending} role="status" aria-live="polite">
-      ⏱ Loading data…
+      {uiText('loadingData')}
     </p>
   ) : null;
 }

@@ -1,3 +1,4 @@
+import { useTranslations } from 'next-intl';
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import {
   Cards,
@@ -106,15 +107,16 @@ export const SeasonYearbook: React.FC<SeasonYearbookProps> = ({
   emptyMessage,
   scrollTargetRef,
   children,
-}) => (
-  <section className={`${styles.standingsCard} ${styles.yearbookCard}`} ref={scrollTargetRef}>
-    <h2>{title || `📔 Season ${seasonNumber} Yearbook`}</h2>
+}) => {
+  const uiText = useTranslations('PublicUI.SeasonYearbook');
+  return <section className={`${styles.standingsCard} ${styles.yearbookCard}`} ref={scrollTargetRef}>
+    <h2>{title || uiText('yearbookTitle', { season: seasonNumber })}</h2>
     {subtitle && <p className={styles.yearbookIntro}>{subtitle}</p>}
-    {commentsLoading && <p className={styles.mutedText}>Season yearbook comments loading...</p>}
+    {commentsLoading && <p className={styles.mutedText}>{uiText('commentsLoading')}</p>}
     {!commentsLoadError && showComments && (
       <div className={styles.commentsList}>
         {!commentsLoading && comments.length === 0 && emptyMessage !== null && (
-          <p className={styles.mutedText}>{emptyMessage || 'Be the first to add a final thought to this Yearbook!'}</p>
+          <p className={styles.mutedText}>{emptyMessage || uiText('beTheFirstToAddAFinalThoughtTo')}</p>
         )}
         {comments.map((comment) => (
           <blockquote key={comment.id}>
@@ -140,7 +142,7 @@ export const SeasonYearbook: React.FC<SeasonYearbookProps> = ({
         ))}
         {showProgress && !commentsLoading && !commentsLoadError && typeof totalTeams === 'number' && (
           <p className={styles.yearbookProgress}>
-            {comments.length} of {totalTeams} teams have written their season comments
+            {uiText('commentsProgress', { count: comments.length, total: totalTeams })}
           </p>
         )}
       </div>
@@ -148,11 +150,11 @@ export const SeasonYearbook: React.FC<SeasonYearbookProps> = ({
     {!showComments && !commentsLoading && !commentsLoadError && emptyMessage && (
       <p className={styles.yearbookIntro}>{emptyMessage}</p>
     )}
-    {commentsLoadError && <p className={styles.mutedText}>Season comments are unavailable right now.</p>}
+    {commentsLoadError && <p className={styles.mutedText}>{uiText('commentsUnavailable')}</p>}
     {commentsSubmitError && <p className={styles.commentError}>{commentsSubmitError}</p>}
     {children}
-  </section>
-);
+  </section>;
+};
 
 const HISTORY_SCORING_MODES = {
   '120min': { label: '120min', tooltip: '120-minute scoring' },
@@ -338,6 +340,7 @@ function getParticipantHighlight(participant: SeasonParticipant, snapshot: Seaso
 }
 
 function MatchRecord({ match, snapshot }: { match: SeasonMatchSnapshot; snapshot: SeasonHistorySnapshotV2 }) {
+  const uiText = useTranslations('PublicUI.MatchRecord');
   const home = findParticipant(snapshot, match.homeTeamId);
   const away = findParticipant(snapshot, match.awayTeamId);
   return (
@@ -350,8 +353,8 @@ function MatchRecord({ match, snapshot }: { match: SeasonMatchSnapshot; snapshot
         <strong>
           {match.homeGoals} - {match.awayGoals}
         </strong>
-        {match.went120 && <span>{match.totalMinutes}m</span>}
-        {match.roundNumber && <small>Round {match.roundNumber}</small>}
+        {match.went120 && <span>{match.totalMinutes}{uiText('m')}</span>}
+        {match.roundNumber && <small>{uiText('round')} {match.roundNumber}</small>}
       </div>
       <div className={styles.memorableTeam}>
         <img src={away?.logoUrl || DEFAULT_TEAM_LOGO} alt="" />
@@ -379,6 +382,7 @@ export const TournamentHistory: React.FC<TournamentHistoryProps> = ({
   forceCommentConfirmOpen = false,
   tournamentSlug,
 }) => {
+  const uiText = useTranslations('PublicUI.TournamentHistory');
   const yearbookRef = useRef<HTMLElement | null>(null);
   const finishedSeasons = useMemo(
     () => seasons.filter((season) => season.status === 'finished' && season.snapshot),
@@ -474,19 +478,18 @@ export const TournamentHistory: React.FC<TournamentHistoryProps> = ({
       return (
         <div className={styles.emptyHistoryReport}>
           <p>
-            Season {finishedSeasonWithoutReport.seasonNumber} is finished. The admin can now generate a full season
-            history report.
+            {uiText('season')} {finishedSeasonWithoutReport.seasonNumber} {uiText('isFinishedTheAdminCanNowGenerateAFull')}
           </p>
           {canGenerateReport && onGenerateReport && (
             <Button size="sm" onClick={onGenerateReport} disabled={isGeneratingReport}>
-              {isGeneratingReport ? 'Generating...' : 'Generate season report'}
+              {isGeneratingReport ? uiText('generating') : uiText('generateSeasonReport')}
             </Button>
           )}
         </div>
       );
     }
 
-    return <p className={styles.emptyHistory}>No finished seasons yet.</p>;
+    return <p className={styles.emptyHistory}>{uiText('noFinishedSeasonsYet')}</p>;
   }
 
   const isAppgHistory = isAppg120ScoringMode(scoringMode);
@@ -751,14 +754,14 @@ export const TournamentHistory: React.FC<TournamentHistoryProps> = ({
         eligibleTeams.map((participant) => (
           <div key={participant.teamId} className={styles.commentForm}>
             <label htmlFor={`season-comment-${participant.teamId}`}>
-              Post your final comment as {participant.teamName}
+              {uiText('postYourFinalCommentAs')} {participant.teamName}
             </label>
             <textarea
               id={`season-comment-${participant.teamId}`}
               value={commentDrafts[participant.teamId] || ''}
               maxLength={MAX_COMMENT_LENGTH}
               rows={4}
-              placeholder="Your season's comment..."
+              placeholder={uiText('yourSeasonSComment')}
               onChange={(event) =>
                 setCommentDrafts((current) => ({ ...current, [participant.teamId]: event.target.value }))
               }
@@ -773,10 +776,10 @@ export const TournamentHistory: React.FC<TournamentHistoryProps> = ({
                 onClick={() => setPendingCommentParticipant(participant)}
                 disabled={!commentDrafts[participant.teamId]?.trim() || submittingTeamId === participant.teamId}
               >
-                Post final comment
+                {uiText('postFinalComment')}
               </Button>
             </div>
-            <p>This can be posted once and cannot be changed.</p>
+            <p>{uiText('thisCanBePostedOnceAndCannotBeChanged')}</p>
           </div>
         ))}
     </SeasonYearbook>
@@ -784,7 +787,7 @@ export const TournamentHistory: React.FC<TournamentHistoryProps> = ({
 
   return (
     <div className={styles.history}>
-      <div className={styles.seasonSelector} aria-label="Tournament seasons">
+      <div className={styles.seasonSelector} aria-label={uiText('tournamentSeasons')}>
         {seasons.map((season) => {
           const selectable = season.status === 'finished' && !!season.snapshot;
           return (
@@ -795,9 +798,9 @@ export const TournamentHistory: React.FC<TournamentHistoryProps> = ({
                 className={season.id === selectedSeason.id ? styles.selectedSeason : ''}
                 onClick={() => selectable && onSelectSeason?.(season.seasonNumber)}
               >
-                <strong>Season {season.seasonNumber} Report</strong>
+                <strong>{uiText('season')} {season.seasonNumber} {uiText('report')}</strong>
                 <span>
-                  {season.status === 'finished' ? `Finished ${formatDate(season.finishedAt) || ''}` : 'Upcoming'}
+                  {season.status === 'finished' ? `Finished ${formatDate(season.finishedAt) || ''}` : uiText('upcoming')}
                 </span>
               </button>
               {season.id === selectedSeason.id && snapshot && (
@@ -806,7 +809,7 @@ export const TournamentHistory: React.FC<TournamentHistoryProps> = ({
                   className={styles.seasonCopyButton}
                   onClick={copyHistoryReport}
                   data-tooltip-id="history-report-copy-tooltip"
-                  aria-label="Copy season report for HT forums"
+                  aria-label={uiText('copySeasonReportForHTForums')}
                 >
                   {historyReportCopied ? <Check size={18} color="green" /> : <CopySimple size={18} />}
                 </button>
@@ -827,7 +830,7 @@ export const TournamentHistory: React.FC<TournamentHistoryProps> = ({
             <div className={styles.championWinners}>
               <div className={`${styles.championContainer} ${styles.championFirst}`}>
                 <div className={styles.championHeadline}>
-                  <h2>🏆 Season {selectedSeason.seasonNumber} champions</h2>
+                  <h2>{uiText('season2')} {selectedSeason.seasonNumber} {uiText('champions')}</h2>
                 </div>
                 <div className={styles.winner}>
                   {winner && (
@@ -854,12 +857,12 @@ export const TournamentHistory: React.FC<TournamentHistoryProps> = ({
                           />
                           {isAppg120ScoringMode(scoringMode) && winnerStanding && (
                             <div className={styles.winnerStats}>
-                              APPG{' '}
+                              {uiText('aPPG')}{' '}
                               {winnerStanding.appgPlayed > 0
                                 ? (winnerStanding.appgPoints / winnerStanding.appgPlayed).toFixed(2)
                                 : '0.00'}
-                              {' · '}Pld {winnerStanding.played}
-                              {' · '}120m: {winnerStanding.achievements120min}
+                              {' · '}{uiText('pld')} {winnerStanding.played}
+                              {' · '}{uiText('120m')} {winnerStanding.achievements120min}
                               {' · '}
                               {winnerStanding.played > 0
                                 ? `${Math.round((winnerStanding.achievements120min / winnerStanding.played) * 100)}%`
@@ -875,7 +878,7 @@ export const TournamentHistory: React.FC<TournamentHistoryProps> = ({
               <div className={styles.championPlacings}>
                 {runnerUp && (
                   <div className={`${styles.placementCard} ${styles.championSecond}`}>
-                    <div className={styles.placementHeader}>🥈 Runner-up</div>
+                    <div className={styles.placementHeader}>{uiText('runnerUp')}</div>
                     <div className={styles.placementBody}>
                       <div className={styles.winnerSecondIdentity}>
                         <img
@@ -906,7 +909,7 @@ export const TournamentHistory: React.FC<TournamentHistoryProps> = ({
                 )}
                 {thirdPlace && (
                   <div className={`${styles.placementCard} ${styles.championThird}`}>
-                    <div className={styles.placementHeaderThird}>🥉 Third place</div>
+                    <div className={styles.placementHeaderThird}>{uiText('thirdPlace')}</div>
                     <div className={styles.placementBody}>
                       <div className={styles.winnerThirdIdentity}>
                         <img
@@ -939,21 +942,21 @@ export const TournamentHistory: React.FC<TournamentHistoryProps> = ({
             </div>
             <dl className={styles.seasonNumbers}>
               <div>
-                <dt>Season dates</dt>
+                <dt>{uiText('seasonDates')}</dt>
                 <dd>
                   {formatDate(seasonStartedAt) || '-'} - {formatDate(selectedSeason.finishedAt) || '-'}
                 </dd>
               </div>
               <div>
-                <dt>Tournament Teams</dt>
+                <dt>{uiText('tournamentTeams')}</dt>
                 <dd>{snapshot.summary.teams}</dd>
               </div>
               <div>
-                <dt>Total Rounds</dt>
+                <dt>{uiText('totalRounds')}</dt>
                 <dd>{roundsPlayed}</dd>
               </div>
               <div>
-                <dt>120m Matches</dt>
+                <dt>{uiText('120mMatches')}</dt>
                 <dd>
                   {snapshot.summary.achievements120min} (
                   {snapshot.summary.completedMatches > 0
@@ -963,18 +966,18 @@ export const TournamentHistory: React.FC<TournamentHistoryProps> = ({
                 </dd>
               </div>
               <div>
-                <dt>Total Goals</dt>
+                <dt>{uiText('totalGoals')}</dt>
                 <dd>{snapshot.summary.goals}</dd>
               </div>
               <div>
-                <dt>Matches Completed</dt>
+                <dt>{uiText('matchesCompleted')}</dt>
                 <dd>{snapshot.summary.completedMatches}</dd>
               </div>
             </dl>
           </section>
 
           <section className={styles.contentSection}>
-            <h2 className={styles.awards}>Awards & Distinctions</h2>
+            <h2 className={styles.awards}>{uiText('awardsAndDistinctions')}</h2>
             <div className={styles.awardsGrid} data-testid="history-awards">
               {displayAwards.map((award) => {
                 const recipients = award.recipientTeamIds
@@ -1015,7 +1018,7 @@ export const TournamentHistory: React.FC<TournamentHistoryProps> = ({
           </section>
 
           <section className={styles.contentSection}>
-            <h2>Season {selectedSeason.seasonNumber} achievements per team</h2>
+            <h2>{uiText('season')} {selectedSeason.seasonNumber} {uiText('achievementsPerTeam')}</h2>
             <div className={styles.participantsGrid}>
               {[...snapshot.participants]
                 .sort((a, b) => (a.finalPosition || 999) - (b.finalPosition || 999))
@@ -1035,9 +1038,9 @@ export const TournamentHistory: React.FC<TournamentHistoryProps> = ({
 
           <section className={styles.standingsCard}>
             <div className={styles.standingsHeading}>
-              <h2>Final standings - Season {selectedSeason.seasonNumber}</h2>
+              <h2>{uiText('finalStandingsSeason')} {selectedSeason.seasonNumber}</h2>
               <div className={styles.scoringControl}>
-                <span>Scoring:</span>
+                <span>{uiText('scoring')}</span>
                 <button
                   type="button"
                   className={styles.scoringToggle}
@@ -1055,31 +1058,31 @@ export const TournamentHistory: React.FC<TournamentHistoryProps> = ({
                 <thead>
                   <tr>
                     <th>#</th>
-                    <th>Team</th>
+                    <th>{uiText('team')}</th>
                     {historyScoringMode === 'appg' ? (
                       <>
-                        <th>APPG</th>
-                        <th>Pld</th>
-                        <th>Dif</th>
-                        <th>Goals</th>
+                        <th>{uiText('aPPG')}</th>
+                        <th>{uiText('pld')}</th>
+                        <th>{uiText('dif')}</th>
+                        <th>{uiText('goals')}</th>
                       </>
                     ) : historyScoringMode === '120min' ? (
                       <>
-                        <th>120m</th>
-                        <th>Pts</th>
-                        <th>Mins</th>
-                        <th>Pld</th>
-                        <th>Dif</th>
-                        <th>Goals</th>
+                        <th>{uiText('120m2')}</th>
+                        <th>{uiText('pts')}</th>
+                        <th>{uiText('mins')}</th>
+                        <th>{uiText('pld')}</th>
+                        <th>{uiText('dif')}</th>
+                        <th>{uiText('goals')}</th>
                       </>
                     ) : (
                       <>
-                        <th>Pld</th>
-                        <th>W</th>
-                        <th>D</th>
-                        <th>L</th>
-                        <th>GD</th>
-                        <th>Pts</th>
+                        <th>{uiText('pld')}</th>
+                        <th>{uiText('w')}</th>
+                        <th>{uiText('d')}</th>
+                        <th>{uiText('l')}</th>
+                        <th>{uiText('gD')}</th>
+                        <th>{uiText('pts')}</th>
                       </>
                     )}
                   </tr>
@@ -1126,7 +1129,7 @@ export const TournamentHistory: React.FC<TournamentHistoryProps> = ({
                     <>
                       <tr>
                         <th colSpan={6} className={styles.appgQuotaLabel}>
-                          Did not reach quota ({historyAppgQuota} matches)
+                          {uiText('didNotReachQuota')}{historyAppgQuota} {uiText('matches')}
                         </th>
                       </tr>
                       {belowQuotaHistoryStandings.map((standing) => {
@@ -1156,22 +1159,22 @@ export const TournamentHistory: React.FC<TournamentHistoryProps> = ({
 
         <aside className={styles.sideColumn}>
           <section className={styles.sideCard}>
-            <h2>Season story</h2>
+            <h2>{uiText('seasonStory')}</h2>
             <p>{snapshot.story}</p>
           </section>
 
           <section className={styles.sideCard}>
-            <h2>Season records</h2>
+            <h2>{uiText('seasonRecords')}</h2>
             <dl className={styles.recordsList}>
               <div>
                 <dt>
-                  <Medal size={18} /> Most 120-minute matches
+                  <Medal size={18} /> {uiText('most120MinuteMatches')}
                 </dt>
                 <dd>{most120RecordDetails || '-'}</dd>
               </div>
               <div>
                 <dt>
-                  <SoccerBall size={18} /> Highest-scoring match
+                  <SoccerBall size={18} /> {uiText('highestScoringMatch')}
                 </dt>
                 <dd>
                   {highestScoringMatch
@@ -1181,7 +1184,7 @@ export const TournamentHistory: React.FC<TournamentHistoryProps> = ({
               </div>
               <div>
                 <dt>
-                  <ChartLineUp size={18} /> Closest finish
+                  <ChartLineUp size={18} /> {uiText('closestFinish')}
                 </dt>
                 <dd>
                   {snapshot.records.closestFinish
@@ -1191,19 +1194,19 @@ export const TournamentHistory: React.FC<TournamentHistoryProps> = ({
               </div>
               <div>
                 <dt>
-                  <Cards size={18} /> Total cards
+                  <Cards size={18} /> {uiText('totalCards')}
                 </dt>
                 <dd>{snapshot.summary.yellowCards + snapshot.summary.redCards}</dd>
               </div>
               <div>
                 <dt>
-                  <FirstAid size={18} /> Total injuries
+                  <FirstAid size={18} /> {uiText('totalInjuries')}
                 </dt>
                 <dd>{snapshot.summary.injuries}</dd>
               </div>
               <div>
                 <dt>
-                  <Clock size={18} /> Longest match
+                  <Clock size={18} /> {uiText('longestMatch')}
                 </dt>
                 <dd>
                   {longestMatch
@@ -1216,10 +1219,10 @@ export const TournamentHistory: React.FC<TournamentHistoryProps> = ({
 
           {memorableMatch && (
             <section className={styles.sideCard}>
-              <h2>Memorable match</h2>
+              <h2>{uiText('memorableMatch')}</h2>
               <p className={styles.recordReason}>
-                Chosen for reaching {memorableMatch.totalMinutes} minutes with{' '}
-                {memorableMatch.homeGoals + memorableMatch.awayGoals} goals.
+                {uiText('chosenForReaching')} {memorableMatch.totalMinutes} {uiText('minutesWith')}{' '}
+                {memorableMatch.homeGoals + memorableMatch.awayGoals} {uiText('goals2')}
               </p>
               <MatchRecord match={memorableMatch} snapshot={snapshot} />
             </section>
@@ -1229,15 +1232,14 @@ export const TournamentHistory: React.FC<TournamentHistoryProps> = ({
       <Modal
         isOpen={pendingCommentParticipant !== null || forceCommentConfirmOpen}
         onClose={() => setPendingCommentParticipant(null)}
-        title="Post final comment?"
+        title={uiText('postFinalComment2')}
         maxWidth="520px"
         modalClassName={styles.commentConfirmModal}
         headerClassName={styles.commentConfirmHeader}
         closeButtonClassName={styles.commentConfirmClose}
       >
         <p className={styles.commentConfirmText}>
-          This will publish your final season comment as <strong>{pendingCommentParticipant?.teamName}</strong>. It
-          cannot be changed afterwards.
+          {uiText('thisWillPublishYourFinalSeasonCommentAs')} <strong>{pendingCommentParticipant?.teamName}</strong>{uiText('itCannotBeChangedAfterwards')}
         </p>
         <div className={styles.commentConfirmActions}>
           <Button
@@ -1246,10 +1248,10 @@ export const TournamentHistory: React.FC<TournamentHistoryProps> = ({
             onClick={() => pendingCommentParticipant && handleSubmit(pendingCommentParticipant)}
             disabled={pendingCommentParticipant ? !commentDrafts[pendingCommentParticipant.teamId]?.trim() : true}
           >
-            Post comment
+            {uiText('postComment')}
           </Button>
           <Button variant="action" size="md" onClick={() => setPendingCommentParticipant(null)}>
-            Cancel
+            {uiText('cancel')}
           </Button>
         </div>
       </Modal>

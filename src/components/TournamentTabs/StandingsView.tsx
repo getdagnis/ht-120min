@@ -1,3 +1,4 @@
+import { useTranslations } from 'next-intl';
 import React, { useEffect, useMemo, useState } from 'react';
 import { SectionCard } from '../../components/Card/SectionCard';
 import { Button } from '../../components/Button/Button';
@@ -17,6 +18,7 @@ import type { TournamentEmojiContext } from '../../utils/tournament-emoji-option
 import { getAppgStandingsQuota, meetsAppgStandingsQuota, type TeamStanding } from '../../utils/standings';
 import { isAppg120ScoringMode } from '../../../shared/scoring-profile';
 import { StandingsRoundPreview, type StandingsPreviewRound } from './StandingsRoundPreview';
+import { TournamentShareMenu } from '../TournamentShareMenu/TournamentShareMenu';
 import {
   TournamentActivity,
   type TournamentActivityMatch,
@@ -159,6 +161,7 @@ export const StandingsView: React.FC<StandingsViewProps> = ({
   onRemoveReapplySuggestion,
   onLeaveTournament,
 }) => {
+  const uiText = useTranslations('PublicUI.StandingsView');
   const [presencePulse, setPresencePulse] = useState(0);
   const isAppgSupported = isAppg120ScoringMode(tournament?.scoring_mode);
   const [scoringMode, setScoringMode] = useState<StandingsScoringMode>(
@@ -603,7 +606,7 @@ export const StandingsView: React.FC<StandingsViewProps> = ({
         thumbnailImageUrl={tournament?.image_url}
         headerRight={
           <div className={styles.scoringControl}>
-            <span>Scoring:</span>
+            <span>{uiText('scoring')}</span>
             <button
               type="button"
               className={styles.scoringToggle}
@@ -619,10 +622,11 @@ export const StandingsView: React.FC<StandingsViewProps> = ({
               className={styles.refreshBtn}
               onClick={copyStandingsForForum}
               data-tooltip-id="standings-copy-tooltip"
-              aria-label="Copy standings for HT forums"
+              aria-label={uiText('copyStandingsForHTForums')}
             >
               {standingsCopied ? <Check size={18} color="green" /> : <CopySimple size={18} />}
             </button>
+            <TournamentShareMenu name={tournament?.name ?? ''} slug={tournament?.slug ?? ''} variant="mobile" />
             <Tooltip
               id="standings-copy-tooltip"
               content={standingsCopied ? 'HT forum table copied!' : 'Copy standings for HT forums'}
@@ -702,11 +706,11 @@ export const StandingsView: React.FC<StandingsViewProps> = ({
                           disabled={!canJoinTournament || isConnecting}
                         >
                           <div className={styles.nameRowFirst}>
-                            <span className={styles.teamName}>Be the FIRST team to join!</span>
+                            <span className={styles.teamName}>{uiText('beTheFIRSTTeamToJoin')}</span>
                             <ArrowRight size={15} weight="bold" className={styles.placeholderArrow} />
                           </div>
                         </button>
-                        <span className={styles.placeholderByline}>Invite others to get this tournament started!</span>
+                        <span className={styles.placeholderByline}>{uiText('inviteOthersToGetThisTournamentStarted')}</span>
                       </div>
                     </div>
                   </td>
@@ -750,7 +754,7 @@ export const StandingsView: React.FC<StandingsViewProps> = ({
                     {showAppgScoring && idx === qualifiedAppgCount && qualifiedAppgCount < sortedStandings.length && (
                       <tr>
                         <th colSpan={showHfiRank ? 8 : 7} className={styles.appgQuotaLabel}>
-                          Does not reach quota
+                          {uiText('doesNotReachQuota')}
                         </th>
                       </tr>
                     )}
@@ -779,7 +783,7 @@ export const StandingsView: React.FC<StandingsViewProps> = ({
                                     onClick={onJoinWithHattrick}
                                     disabled={!canJoinTournament || isConnecting}
                                   >
-                                    Join with CHPP <ArrowRight size={15} weight="bold" />
+                                    {uiText('joinWithCHPP')} <ArrowRight size={15} weight="bold" />
                                   </Button>
                                 </div>
                               ) : (
@@ -793,15 +797,15 @@ export const StandingsView: React.FC<StandingsViewProps> = ({
                                     <div className={styles.nameRow}>
                                       <span className={styles.teamName}>{s.teamName}</span>
                                       {s.joinedViaOauth && (
-                                        <span title="Hattrick Validated Team">
+                                        <span title={uiText('hattrickValidatedTeam')}>
                                           <ShieldCheck size={14} weight="bold" className={styles.validatedIcon} />
                                         </span>
                                       )}
                                       {warningTeamIds.has(s.teamId) && (
-                                        <span title="Misarranged match this round">
+                                        <span title={uiText('misarrangedMatchThisRound')}>
                                           <img
                                             src="/warn-red.png"
-                                            alt="Warning issued"
+                                            alt={uiText('warningIssued')}
                                             className={styles.standingWarningIcon}
                                           />
                                         </span>
@@ -831,7 +835,7 @@ export const StandingsView: React.FC<StandingsViewProps> = ({
                           {isMyTeam && canLeaveTournament && (
                             <div className={styles.reapplyActions}>
                               <Button variant="grey" size="xxs" onClick={() => onLeaveTournament?.(s.teamId)}>
-                                Leave
+                                {uiText('leave')}
                               </Button>
                             </div>
                           )}
@@ -897,10 +901,10 @@ export const StandingsView: React.FC<StandingsViewProps> = ({
                         {isOwner && (
                           <div className={styles.reapplyActions}>
                             <Button variant="primaryAction" size="xs" onClick={() => onReapplySuggestion?.(team.id)}>
-                              Re-join
+                              {uiText('reJoin')}
                             </Button>
                             <Button variant="danger" size="xs" onClick={() => onRemoveReapplySuggestion?.(team.id)}>
-                              Leave
+                              {uiText('leave')}
                             </Button>
                           </div>
                         )}
@@ -925,7 +929,7 @@ export const StandingsView: React.FC<StandingsViewProps> = ({
               onClick={onJoinWithHattrick}
               disabled={isConnecting}
             >
-              <ArrowRight size={18} weight="bold" /> {isConnecting ? 'Connecting to Hattrick…' : 'Join with Hattrick'}
+              <ArrowRight size={18} weight="bold" /> {isConnecting ? uiText('connectingToHattrick') : uiText('joinWithHattrick')}
             </Button>
           </div>
         )}
@@ -967,14 +971,14 @@ export const StandingsView: React.FC<StandingsViewProps> = ({
             eligibleCommentStandings.map((standing) => (
               <div key={standing.teamId} className={historyStyles.commentForm}>
                 <label htmlFor={`standings-season-comment-${standing.teamId}`}>
-                  Post your final comment as {standing.teamName}
+                  {uiText('postYourFinalCommentAs')} {standing.teamName}
                 </label>
                 <textarea
                   id={`standings-season-comment-${standing.teamId}`}
                   value={commentDrafts[standing.teamId] || ''}
                   maxLength={480}
                   rows={4}
-                  placeholder="Your season's comment..."
+                  placeholder={uiText('yourSeasonSComment')}
                   onChange={(event) =>
                     setCommentDrafts((current) => ({ ...current, [standing.teamId]: event.target.value }))
                   }
@@ -987,23 +991,22 @@ export const StandingsView: React.FC<StandingsViewProps> = ({
                     onClick={() => setPendingCommentStanding(standing)}
                     disabled={!commentDrafts[standing.teamId]?.trim() || submittingTeamId === standing.teamId}
                   >
-                    Post final comment
+                    {uiText('postFinalComment')}
                   </Button>
                 </div>
-                <p>This can be posted once and cannot be changed.</p>
+                <p>{uiText('thisCanBePostedOnceAndCannotBeChanged')}</p>
               </div>
             ))}
         </SeasonYearbook>
       )}
       {pendingCommentStanding && (
-        <Modal isOpen onClose={() => setPendingCommentStanding(null)} title="Post final comment?" maxWidth="500px">
+        <Modal isOpen onClose={() => setPendingCommentStanding(null)} title={uiText('postFinalComment2')} maxWidth="500px">
           <p>
-            This will publish your final season comment as <strong>{pendingCommentStanding.teamName}</strong>. It cannot
-            be changed later.
+            {uiText('thisWillPublishYourFinalSeasonCommentAs')} <strong>{pendingCommentStanding.teamName}</strong>{uiText('itCannotBeChangedLater')}
           </p>
           <div className={styles.historyReportActions}>
             <Button variant="secondaryYellow" size="sm" onClick={() => setPendingCommentStanding(null)}>
-              Cancel
+              {uiText('cancel')}
             </Button>
             <Button
               variant="primaryDanger"
@@ -1011,7 +1014,7 @@ export const StandingsView: React.FC<StandingsViewProps> = ({
               onClick={() => void handleSubmitSeasonComment(pendingCommentStanding)}
               disabled={!commentDrafts[pendingCommentStanding.teamId]?.trim() || submittingTeamId !== null}
             >
-              {submittingTeamId ? 'Posting...' : 'Post comment'}
+              {submittingTeamId ? uiText('posting') : uiText('postComment')}
             </Button>
           </div>
         </Modal>
@@ -1032,7 +1035,7 @@ export const StandingsView: React.FC<StandingsViewProps> = ({
               : null;
 
             return (
-              <SectionCard key={post.id} title="🗞 120min Weekly" className={newsStyles.weeklyPanel}>
+              <SectionCard key={post.id} title={uiText('120minWeekly')} className={newsStyles.weeklyPanel}>
                 <NewsArticle
                   post={post}
                   authorTeam={authorTeam}
@@ -1059,7 +1062,7 @@ export const StandingsView: React.FC<StandingsViewProps> = ({
           })}
           {onVisitNews && (
             <Button variant="zero" onClick={onVisitNews}>
-              All press releases
+              {uiText('allPressReleases')}
             </Button>
           )}
         </div>
@@ -1074,12 +1077,12 @@ export const StandingsView: React.FC<StandingsViewProps> = ({
           showProgress={false}
           emptyMessage={
             <>
-              The season yearbook will open once the season concludes and its final report is published.
+              {uiText('theSeasonYearbookWillOpenOnceTheSeasonConcludes')}
               {canAddSeasonComment && onVisitHistory && (
                 <>
                   {' '}
                   <button type="button" className={styles.yearbookHistoryLink} onClick={onVisitHistory}>
-                    Visit history to add yours
+                    {uiText('visitHistoryToAddYours')}
                   </button>
                 </>
               )}

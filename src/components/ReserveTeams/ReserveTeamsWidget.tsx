@@ -1,5 +1,6 @@
 'use client';
 
+import { useTranslations } from 'next-intl';
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { ShieldCheck } from 'phosphor-react';
 import { getCountryWorldDetails } from '../../../shared/worlddetails';
@@ -61,6 +62,7 @@ const previewTeam: MyReserveTeam = {
 };
 
 export const ReserveTeamsWidget: React.FC<ReserveTeamsWidgetProps> = ({ tournamentId }) => {
+  const uiText = useTranslations('PublicUI.ReserveTeamsWidget');
   const [data, setData] = useState<ReserveTeamsResponse | null>(null);
   const [selectedTeamId, setSelectedTeamId] = useState('');
   const [busy, setBusy] = useState(false);
@@ -173,17 +175,16 @@ export const ReserveTeamsWidget: React.FC<ReserveTeamsWidgetProps> = ({ tourname
   return (
     <section id="reserve-teams-widget" className={styles.widget} aria-labelledby="reserve-teams-title" tabIndex={-1}>
       <h2 id="reserve-teams-title">
-        <ShieldCheck size={18} weight="bold" /> Reserve teams
+        <ShieldCheck size={18} weight="bold" /> {uiText('reserveTeams')}
       </h2>
       <p className={styles.intro}>
-        Teams in the reserve list will be contacted first if a position opens in the tournament. They are also valid
-        opponents that can replace your planned fixture partner when necessary.
+        {uiText('teamsInTheReserveListWillBeContactedFirst')}
       </p>
       {data && !data.allowReserveRegistration && (
-        <p className={styles.previewNote}>Reserve team registration is currently closed.</p>
+        <p className={styles.previewNote}>{uiText('reserveTeamRegistrationIsCurrentlyClosed')}</p>
       )}
       {reserveTeamsPreviewMode && (
-        <p className={styles.previewNote}>Local preview only. Join and Leave do not contact Supabase or Hattrick.</p>
+        <p className={styles.previewNote}>{uiText('localPreviewOnlyJoinAndLeaveDoNotContact')}</p>
       )}
       <div className={styles.list}>
         {(data?.reserveTeams || []).map((team) => {
@@ -223,7 +224,7 @@ export const ReserveTeamsWidget: React.FC<ReserveTeamsWidgetProps> = ({ tourname
             </div>
           );
         })}
-        {data && data.reserveTeams.length === 0 && <p className={styles.empty}>No reserve teams yet.</p>}
+        {data && data.reserveTeams.length === 0 && <p className={styles.empty}>{uiText('noReserveTeamsYet')}</p>}
       </div>
       {data?.authenticated ? (
         <div className={styles.actions}>
@@ -234,7 +235,7 @@ export const ReserveTeamsWidget: React.FC<ReserveTeamsWidgetProps> = ({ tourname
               onClick={() => post('leave', team.existing_team_id || '')}
               disabled={busy}
             >
-              Remove {team.name}
+              {uiText('remove')} {team.name}
             </button>
           ))}
           {data.allowReserveRegistration && availableTeams.length > 0 && (
@@ -253,14 +254,14 @@ export const ReserveTeamsWidget: React.FC<ReserveTeamsWidgetProps> = ({ tourname
                 </select>
               )}
               <button type="button" onClick={() => post('join', selectedTeamId)} disabled={busy || !selectedTeamId}>
-                Join reserve list
+                {uiText('joinReserveList')}
               </button>
             </div>
           )}
         </div>
       ) : data?.allowReserveRegistration ? (
         <button type="button" className={styles.login} onClick={login}>
-          Login to join reserve list
+          {uiText('loginToJoinReserveList')}
         </button>
       ) : null}
       {(error || availableTeams.some((team) => team.reason)) && (

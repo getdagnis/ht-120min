@@ -419,6 +419,7 @@ export const NewsTab: React.FC<NewsTabProps> = ({
   faqItems,
   tournamentEmojiContext,
 }) => {
+  const uiText = useTranslations('PublicUI.NewsTab');
   const { notice, showNotice: alert, closeNotice } = useNoticeDialog();
   const searchParams = useSearchParams();
   const composeParam = searchParams.get('compose');
@@ -934,12 +935,12 @@ export const NewsTab: React.FC<NewsTabProps> = ({
       <div className={styles.guestbook}>
         <div className={styles.weeklyPanels}>
           {newsPosts.length === 0 && (
-            <SectionCard title="🗞 120min Weekly" className={styles.weeklyPanel}>
-              <p className={styles.noPosts}>No news loaded</p>
+            <SectionCard title={uiText('120minWeekly')} className={styles.weeklyPanel}>
+              <p className={styles.noPosts}>{uiText('noNewsLoaded')}</p>
             </SectionCard>
           )}
           {latestPost && (
-            <SectionCard title="🗞 120min Weekly" className={styles.weeklyPanel}>
+            <SectionCard title={uiText('120minWeekly')} className={styles.weeklyPanel}>
               <NewsArticle
                 post={latestPost}
                 authorTeam={
@@ -966,7 +967,7 @@ export const NewsTab: React.FC<NewsTabProps> = ({
             const authorTeam = post.author_team_id ? teams.find((team) => team.id === post.author_team_id) : null;
 
             return (
-              <SectionCard key={post.id} title="🗞 120min Weekly" className={styles.weeklyPanel}>
+              <SectionCard key={post.id} title={uiText('120minWeekly')} className={styles.weeklyPanel}>
                 <NewsArticle
                   post={post}
                   authorTeam={authorTeam}
@@ -996,14 +997,14 @@ export const NewsTab: React.FC<NewsTabProps> = ({
                     className={newsMode === 'team' ? styles.active : ''}
                     onClick={() => handleNewsModeChange('team')}
                   >
-                    Team News
+                    {uiText('teamNews')}
                   </button>
                   {isAdminAuthenticated && canPublishAnnouncements && (
                     <button
                       className={newsMode === 'admin' ? styles.active : ''}
                       onClick={() => handleNewsModeChange('admin')}
                     >
-                      Official Tournament Update
+                      {uiText('officialTournamentUpdate')}
                     </button>
                   )}
                 </div>
@@ -1014,7 +1015,7 @@ export const NewsTab: React.FC<NewsTabProps> = ({
                       return (
                         <div className={styles.branding}>
                           <span>
-                            📰 Posting as: <strong>{cupPressByline}</strong>
+                            {uiText('postingAs')} <strong>{cupPressByline}</strong>
                           </span>
                         </div>
                       );
@@ -1023,11 +1024,11 @@ export const NewsTab: React.FC<NewsTabProps> = ({
                     return myTeam ? (
                       <div className={styles.branding}>
                         <span>
-                          📰 Posting as: <strong>{myTeam.name}</strong>
+                          {uiText('postingAs')} <strong>{myTeam.name}</strong>
                         </span>
                       </div>
                     ) : (
-                      <p>You don't have a team in this tournament.</p>
+                      <p>{uiText('youDonTHaveATeamInThisTournament')}</p>
                     );
                   })()}
                 </div>
@@ -1038,19 +1039,19 @@ export const NewsTab: React.FC<NewsTabProps> = ({
                       type="text"
                       value={newNewsTitle}
                       onChange={(event) => handleNewsTitleChange(event.target.value)}
-                      placeholder="Title, e.g., Round 3 Objectives"
+                      placeholder={uiText('titleEGRound3Objectives')}
                       className={styles.postTitleInput}
                     />
                     {newsMode === 'admin' && (
                       <label className={styles.imageUrlField}>
                         <span>
-                          Custom image URL <em>(optional)</em>
+                          {uiText('customImageURL')} <em>{uiText('optional')}</em>
                         </span>
                         <input
                           type="text"
                           value={newNewsImageUrl}
                           onChange={(event) => handleNewsImageUrlChange(event.target.value)}
-                          placeholder="https://example.com/image.jpg or /s/image.jpg"
+                          placeholder={uiText('httpsExampleComImageJpgOrSImageJpg')}
                           className={styles.postTitleInput}
                         />
                       </label>
@@ -1073,14 +1074,14 @@ export const NewsTab: React.FC<NewsTabProps> = ({
                   {isCreatingRoundSummary && newsMode === 'admin' && (
                     <p className={styles.roundSummaryStatus} role="status">
                       {roundSummaryElapsedSeconds > 65
-                        ? 'Generating. Takes about a minute. Or more...'
-                        : 'Generating. Takes about a minute...'}{' '}
+                        ? uiText('generatingTakesAboutAMinuteOrMore')
+                        : uiText('generatingTakesAboutAMinute')}{' '}
                       {String(Math.floor(roundSummaryElapsedSeconds / 60)).padStart(2, '0')}:
                       {String(roundSummaryElapsedSeconds % 60).padStart(2, '0')}
                     </p>
                   )}
                   {roundSummaryPromptRevision && newsMode === 'admin' && (
-                    <p className={styles.roundSummaryStatus}>Debug: prompt revision {roundSummaryPromptRevision}</p>
+                    <p className={styles.roundSummaryStatus}>{uiText('debugPromptRevision')} {roundSummaryPromptRevision}</p>
                   )}
                   {roundSummaryEligibilityError && newsMode === 'admin' && (
                     <p className={styles.roundSummaryError} role="alert">
@@ -1093,7 +1094,7 @@ export const NewsTab: React.FC<NewsTabProps> = ({
                       roundSummaryEligibility?.seasonNumber === seasonNumber &&
                       (hasGeneratedRoundSummary ? (
                         <Button type="button" variant="secondaryAction" onClick={handleClearRoundSummary}>
-                          Clear report
+                          {uiText('clearReport')}
                         </Button>
                       ) : (
                         <Button
@@ -1103,16 +1104,16 @@ export const NewsTab: React.FC<NewsTabProps> = ({
                           onClick={() => void handleCreateRoundSummary()}
                         >
                           {isCreatingRoundSummary
-                            ? 'Creating summary…'
+                            ? uiText('creatingSummary')
                             : `Generate round ${roundSummaryEligibility.roundNumber} report`}
                         </Button>
                       ))}
                     <Button type="submit" variant="primary" disabled={isPostingNews || !newNewsContent.trim()}>
-                      {isPostingNews ? 'Saving...' : editingPostId ? 'Save changes' : 'Post Announcement'}
+                      {isPostingNews ? uiText('saving') : editingPostId ? 'Save changes' : 'Post Announcement'}
                     </Button>
                     {editingPostId && (
                       <Button type="button" variant="secondaryAction" onClick={() => setEditingPostId(null)}>
-                        Cancel
+                        {uiText('cancel')}
                       </Button>
                     )}
                   </div>
@@ -1124,7 +1125,7 @@ export const NewsTab: React.FC<NewsTabProps> = ({
       </div>
 
       <aside className={styles.newsSidebar}>
-        <CompactAccordionWidget title="Tournament FAQ" icon={<Question size={20} weight="bold" />} items={faqItems} />
+        <CompactAccordionWidget title={uiText('tournamentFAQ')} icon={<Question size={20} weight="bold" />} items={faqItems} />
       </aside>
     </div>
   );

@@ -1,3 +1,4 @@
+import { useTranslations } from 'next-intl';
 import React, { useState } from 'react';
 import { Button } from '../Button/Button';
 import { Modal } from './Modal';
@@ -12,6 +13,7 @@ interface DeleteConfirmationFlowProps {
 type ConfirmationStep = 'initial' | 'final' | 'ultimate';
 
 export const DeleteConfirmationFlow: React.FC<DeleteConfirmationFlowProps> = ({ isOpen, onClose, onConfirm }) => {
+  const uiText = useTranslations('PublicUI.DeleteConfirmationFlow');
   const [step, setStep] = useState<ConfirmationStep>('initial');
 
   const cancel = () => {
@@ -21,25 +23,25 @@ export const DeleteConfirmationFlow: React.FC<DeleteConfirmationFlowProps> = ({ 
 
   return (
     <>
-      <Modal isOpen={isOpen && step === 'initial'} onClose={cancel} title="Delete news post?" maxWidth="420px">
-        <p>Think twice. This cannot be undone. Not even with access to database.</p>
+      <Modal isOpen={isOpen && step === 'initial'} onClose={cancel} title={uiText('deleteNewsPost')} maxWidth="420px">
+        <p>{uiText('thinkTwiceThisCannotBeUndoneNotEvenWith')}</p>
         <div className={styles.actions}>
-          <Button type="button" variant="secondaryAction" onClick={cancel}>Cancel</Button>
-          <Button type="button" variant="primaryDanger" onClick={() => setStep('final')}>Delete</Button>
+          <Button type="button" variant="secondaryAction" onClick={cancel}>{uiText('cancel')}</Button>
+          <Button type="button" variant="primaryDanger" onClick={() => setStep('final')}>{uiText('delete')}</Button>
         </div>
       </Modal>
-      <Modal isOpen={isOpen && step === 'final'} onClose={cancel} title="Are you sure?" maxWidth="420px">
-        <p>This is your last chance to take it back.</p>
+      <Modal isOpen={isOpen && step === 'final'} onClose={cancel} title={uiText('areYouSure')} maxWidth="420px">
+        <p>{uiText('thisIsYourLastChanceToTakeItBack')}</p>
         <div className={styles.actions}>
-          <Button type="button" variant="secondaryAction" onClick={cancel}>Cancel</Button>
-          <Button type="button" variant="primaryDanger" onClick={() => setStep('ultimate')}>Delete</Button>
+          <Button type="button" variant="secondaryAction" onClick={cancel}>{uiText('cancel')}</Button>
+          <Button type="button" variant="primaryDanger" onClick={() => setStep('ultimate')}>{uiText('delete')}</Button>
         </div>
       </Modal>
-      <Modal isOpen={isOpen && step === 'ultimate'} onClose={cancel} title="Final" maxWidth="420px">
-        <p>I am still not convinced. Are you absolutely sure?</p>
+      <Modal isOpen={isOpen && step === 'ultimate'} onClose={cancel} title={uiText('final')} maxWidth="420px">
+        <p>{uiText('iAmStillNotConvincedAreYouAbsolutelySure')}</p>
         <div className={styles.actions}>
-          <Button type="button" variant="secondaryAction" onClick={cancel}>Cancel</Button>
-          <Button type="button" variant="primaryDanger" onClick={() => { setStep('initial'); onConfirm(); onClose(); }}>Delete!</Button>
+          <Button type="button" variant="secondaryAction" onClick={cancel}>{uiText('cancel')}</Button>
+          <Button type="button" variant="primaryDanger" onClick={() => { setStep('initial'); onConfirm(); onClose(); }}>{uiText('delete2')}</Button>
         </div>
       </Modal>
     </>
