@@ -160,7 +160,7 @@ function GameStyle({ styleOfPlay }: { styleOfPlay: number | null | undefined }) 
 function RatingsPitch({
   ratings,
   specialtyPositions = [],
-  midfieldLabel = 'Midfield (excluding TS effect):',
+  midfieldLabel = 'Midfield, predicted:',
 }: {
   ratings: RatingsPreviewTeam['ratings'];
   specialtyPositions?: SpecialtyPositionGroup[];
@@ -169,9 +169,9 @@ function RatingsPitch({
   const uiText = useTranslations('PublicUI.RatingsPitch');
   const sectorRows: Array<Array<[string, string, RatedSector?]>> = [
     [
-      ['Left attack:', ratings.leftAttack, 'leftAttack'],
+      ['Left attack (LW):', ratings.leftAttack, 'leftAttack'],
       ['Center attack:', ratings.centreAttack, 'centreAttack'],
-      ['Right attack:', ratings.rightAttack, 'rightAttack'],
+      ['Right attack (RW):', ratings.rightAttack, 'rightAttack'],
     ],
     [[midfieldLabel, ratings.midfield, 'midfield']],
     [
@@ -379,7 +379,9 @@ export const FixtureCard: React.FC<FixtureCardProps> = ({
     <>
       {team.reserveReplacingName && (
         <div className={styles.reserveRow}>
-          <span>{uiText('rEPLACING')} {team.reserveReplacingName}!</span>
+          <span>
+            {uiText('rEPLACING')} {team.reserveReplacingName}!
+          </span>
         </div>
       )}
       <div className={styles.teamName}>{team.name.toUpperCase()}</div>
@@ -694,10 +696,14 @@ export const FixtureCard: React.FC<FixtureCardProps> = ({
       {ratingsSharedStatus && (
         <section className={styles.ratingsSharedStatus} aria-label={uiText('sharedRatingPredictionStatus')}>
           {ratingsSharedStatus.home && (
-            <p className={styles.ratingsSharedStatusHome}>{homeTeam.name} {uiText('haveSharedTheirPredictedRatings')}</p>
+            <p className={styles.ratingsSharedStatusHome}>
+              {homeTeam.name} {uiText('haveSharedTheirPredictedRatings')}
+            </p>
           )}
           {ratingsSharedStatus.away && (
-            <p className={styles.ratingsSharedStatusAway}>{awayTeam.name} {uiText('haveSharedTheirPredictedRatings')}</p>
+            <p className={styles.ratingsSharedStatusAway}>
+              {awayTeam.name} {uiText('haveSharedTheirPredictedRatings')}
+            </p>
           )}
         </section>
       )}
