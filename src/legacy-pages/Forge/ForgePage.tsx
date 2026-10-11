@@ -2230,6 +2230,8 @@ interface ChallengeableDirectoryState {
   hasMore: boolean;
   started: boolean;
   scanStartedAt?: string;
+  challengeManagerId?: string;
+  challengeTeamId?: string;
   progress: ChallengeableDirectoryProgress;
 }
 
@@ -2270,6 +2272,8 @@ function readChallengeableDirectoryState(): ChallengeableDirectoryState {
       hasMore: Boolean(parsed.hasMore),
       started: Boolean(parsed.started),
       scanStartedAt: typeof parsed.scanStartedAt === 'string' ? parsed.scanStartedAt : undefined,
+      challengeManagerId: typeof parsed.challengeManagerId === 'string' ? parsed.challengeManagerId : undefined,
+      challengeTeamId: typeof parsed.challengeTeamId === 'string' ? parsed.challengeTeamId : undefined,
       progress: { ...EMPTY_CHALLENGEABLE_PROGRESS, ...parsed.progress },
     };
   } catch {
@@ -2283,12 +2287,15 @@ function ForgeTestingSection() {
   );
   const [teamId, setTeamId] = useState('');
   const [opponentTeamId, setOpponentTeamId] = useState('');
+  const [acceptFromTeamId, setAcceptFromTeamId] = useState('');
   const [weekend, setWeekend] = useState(false);
   const [output, setOutput] = useState('');
   const [loading, setLoading] = useState(false);
   const [directory, setDirectory] = useState(readChallengeableDirectoryState);
   const [directoryLoading, setDirectoryLoading] = useState(false);
+  const [directoryRefreshing, setDirectoryRefreshing] = useState(false);
   const [directoryError, setDirectoryError] = useState('');
+  const [directoryRefreshSummary, setDirectoryRefreshSummary] = useState('');
   const directoryPauseRequested = useRef(false);
   const directoryCancelRequested = useRef(false);
 
@@ -2301,16 +2308,38 @@ function ForgeTestingSection() {
     }
   }, [directory]);
 
+  const clearDirectoryChallengeability = (nextManagerId: string, nextTeamId: string) => {
+    setDirectory(current => current.started ? ({
+      ...current,
+      challengeManagerId: nextManagerId,
+      challengeTeamId: nextTeamId,
+      users: current.users.map(manager => ({
+        ...manager,
+        teams: manager.teams.map(candidate => ({
+          ...candidate,
+          challengeableMidweek: null,
+          challengeableWeekend: null,
+        })),
+      })),
+    }) : current);
+  };
+
   const runTool = async (tool: string, sideEffect = false) => {
-    if (sideEffect && !window.confirm('This can send a real Hattrick challenge. Continue?')) return;
+    if (sideEffect) {
+      const message = tool === 'challenge-accept'
+        ? `This will accept a real Hattrick challenge from team ${acceptFromTeamId} for team ${teamId}. Continue?`
+        : 'This can send a real Hattrick challenge. Continue?';
+      if (!window.confirm(message)) return;
+    }
     setLoading(true);
     try {
-      const params = new URLSearchParams({ tool, managerId, teamId, opponentTeamId, format: 'json' });
+      const params = new URLSearchParams({ tool, managerId, teamId, opponentTeamId, acceptFromTeamId, format: 'json' });
       if (weekend) params.set('isWeekendFriendly', '1');
       if (sideEffect) params.set('confirm', '1');
       const response = await fetch(`/api/testing?${params.toString()}`, { credentials: 'include' });
       const json = await response.json();
       setOutput(JSON.stringify(json, null, 2));
+      if (tool === 'challenge-send' && json.success === true) setAcceptFromTeamId(teamId);
     } catch (error) {
       setOutput(error instanceof Error ? error.message : 'Testing request failed.');
     } finally {
@@ -2319,13 +2348,15 @@ function ForgeTestingSection() {
   };
 
   const scanChallengeableDirectory = async (restart = false) => {
-    if (directoryLoading || (directory.started && !directory.hasMore && !restart)) return;
-    let cursor = restart ? 0 : directory.cursor;
-    const scanStartedAt = restart || !directory.started ? new Date().toISOString() : directory.scanStartedAt || new Date().toISOString();
+    if (directoryLoading || directoryRefreshing || (directory.started && !directory.hasMore && !restart)) return;
+    const shouldRestart = restart || !directory.started;
+    let cursor = shouldRestart ? 0 : directory.cursor;
+    const scanStartedAt = shouldRestart ? new Date().toISOString() : directory.scanStartedAt || new Date().toISOString();
     let firstBatch = true;
-    if (restart) {
+    if (shouldRestart) {
       setDirectory({
         users: [], issues: [], cursor: 0, hasMore: true, started: true, scanStartedAt,
+        challengeManagerId: managerId, challengeTeamId: teamId,
         progress: EMPTY_CHALLENGEABLE_PROGRESS,
       });
     }
@@ -2335,7 +2366,12 @@ function ForgeTestingSection() {
     setDirectoryError('');
     try {
       while (!directoryPauseRequested.current) {
-        const params = new URLSearchParams({ tool: 'challengeable-directory', cursor: String(cursor) });
+        const params = new URLSearchParams({
+          tool: 'challengeable-directory',
+          cursor: String(cursor),
+          managerId,
+          teamId,
+        });
         const response = await fetch(`/api/testing?${params.toString()}`, { credentials: 'include', cache: 'no-store' });
         const payload = (await response.json()) as {
           error?: string;
@@ -2355,7 +2391,7 @@ function ForgeTestingSection() {
           hasMore?: boolean;
         };
         if (!response.ok) throw new Error(payload.error || 'Could not scan challengeable teams.');
-        const resetProgress = firstBatch && (restart || !directory.started);
+        const resetProgress = firstBatch && shouldRestart;
         firstBatch = false;
         setDirectory((current) => {
           const scanned = new Set(payload.scannedManagerIds || []);
@@ -2369,6 +2405,8 @@ function ForgeTestingSection() {
             hasMore: directoryCancelRequested.current ? false : Boolean(payload.hasMore),
             started: true,
             scanStartedAt,
+            challengeManagerId: managerId,
+            challengeTeamId: teamId,
             progress: {
               scanned: progress.scanned + (payload.scannedProfiles || 0),
               checkedManagers: progress.checkedManagers + (payload.checkedManagers || 0),
@@ -2393,6 +2431,69 @@ function ForgeTestingSection() {
     }
   };
 
+  const refreshListedDirectoryTeams = async () => {
+    if (directoryLoading || directoryRefreshing) return;
+    const teams = directory.users.flatMap(manager => manager.teams.map(candidate => ({
+      managerId: manager.managerId,
+      teamId: candidate.teamId,
+    })));
+    if (teams.length === 0) return;
+    setDirectoryRefreshing(true);
+    setDirectoryError('');
+    setDirectoryRefreshSummary('');
+    try {
+      let checkedTeams = 0;
+      let unavailableTeams = 0;
+      let failedChecks = 0;
+      for (let start = 0; start < teams.length; start += 50) {
+        const response = await fetch(`/api/testing?tool=challengeable-directory-refresh`, {
+          method: 'POST',
+          credentials: 'include',
+          cache: 'no-store',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ teams: teams.slice(start, start + 50), managerId, teamId }),
+        });
+        const payload = await response.json() as {
+          error?: string;
+          users?: ChallengeableDirectoryUser[];
+          refreshedTeamIds?: string[];
+          checkedTeams?: number;
+          unavailableTeams?: number;
+          failedChecks?: number;
+          issues?: ChallengeableDirectoryIssue[];
+        };
+        if (!response.ok) throw new Error(payload.error || 'Could not refresh listed teams.');
+        checkedTeams += payload.checkedTeams || 0;
+        unavailableTeams += payload.unavailableTeams || 0;
+        failedChecks += payload.failedChecks || 0;
+        const refreshed = new Set(payload.refreshedTeamIds || []);
+        const currentAvailable = new Map((payload.users || []).flatMap(manager =>
+          manager.teams.map(candidate => [`${manager.managerId}:${candidate.teamId}`, candidate] as const),
+        ));
+        setDirectory(current => ({
+          ...current,
+          users: current.users.map(manager => {
+            const teamsById = new Map(manager.teams.map(candidate => [candidate.teamId, candidate]));
+            for (const key of refreshed) {
+              const [ownerId, checkedTeamId] = key.split(':').map(Number);
+              if (ownerId !== manager.managerId) continue;
+              teamsById.delete(checkedTeamId);
+              const updated = currentAvailable.get(key);
+              if (updated) teamsById.set(checkedTeamId, updated);
+            }
+            return { ...manager, teams: [...teamsById.values()] };
+          }),
+          issues: [...current.issues, ...(payload.issues || [])],
+        }));
+      }
+      setDirectoryRefreshSummary(`Rechecked ${checkedTeams} listed teams · ${unavailableTeams} no longer available · ${failedChecks} checks need review`);
+    } catch (error) {
+      setDirectoryError(error instanceof Error ? error.message : 'Could not refresh listed teams.');
+    } finally {
+      setDirectoryRefreshing(false);
+    }
+  };
+
   const visibleDirectoryUsers = directory.users.filter(manager => manager.teams.length > 0);
 
   return (
@@ -2405,16 +2506,35 @@ function ForgeTestingSection() {
         <div className={styles.testingGrid}>
           <label className={styles.testingField}>
             <span>Manager ID</span>
-            <input value={managerId} onChange={(event) => setManagerId(event.target.value)} />
+            <input value={managerId} disabled={directoryLoading || directoryRefreshing} onChange={(event) => {
+              const nextValue = event.target.value;
+              setManagerId(nextValue);
+              setOutput('');
+              clearDirectoryChallengeability(nextValue, teamId);
+            }} />
           </label>
           <label className={styles.testingField}>
             <span>My team ID</span>
-            <input value={teamId} onChange={(event) => setTeamId(event.target.value)} />
+            <input value={teamId} disabled={directoryLoading || directoryRefreshing} onChange={(event) => {
+              const nextValue = event.target.value;
+              setTeamId(nextValue);
+              setOutput('');
+              clearDirectoryChallengeability(managerId, nextValue);
+            }} />
           </label>
           <label className={styles.testingField}>
             <span>Opponent team ID</span>
-            <input value={opponentTeamId} onChange={(event) => setOpponentTeamId(event.target.value)} />
+            <input value={opponentTeamId} onChange={(event) => {
+              setOpponentTeamId(event.target.value);
+              setOutput('');
+            }} />
           </label>
+          {acceptFromTeamId.trim() && (
+            <label className={styles.testingField}>
+              <span>Accept from team ID</span>
+              <input value={acceptFromTeamId} onChange={(event) => setAcceptFromTeamId(event.target.value)} />
+            </label>
+          )}
         </div>
         <label className={styles.testingCheckbox}>
           <input type="checkbox" checked={weekend} onChange={(event) => setWeekend(event.target.checked)} /> Weekend
@@ -2430,40 +2550,50 @@ function ForgeTestingSection() {
           <Button variant="outline" disabled={loading} onClick={() => void runTool('challengeable')}>
             Challengeable
           </Button>
-          <Button variant="outline" disabled={loading} onClick={() => void runTool('challenges-compare')}>
-            Compare variants
-          </Button>
           <Button variant="outline" disabled={loading} onClick={() => void runTool('booking-status')}>
             Booking status
           </Button>
           <Button variant="secondaryYellow" disabled={loading} onClick={() => void runTool('challenge-send', true)}>
             Send challenge
           </Button>
+          {acceptFromTeamId.trim() && (
+            <Button variant="secondaryYellow" disabled={loading} onClick={() => void runTool('challenge-accept', true)}>
+              Accept from {acceptFromTeamId.trim()}
+            </Button>
+          )}
         </div>
         <p className={styles.smallNote}>
-          Challenge send has a real Hattrick side effect and is never run without confirmation.
+          Send and accept have real Hattrick side effects and require confirmation. For acceptance, set Manager ID and My team ID to the receiving manager and team. After sending, Accept from is filled with the challenger team ID.
         </p>
         {output && <pre className={styles.testingOutput}>{output}</pre>}
       </SectionCard>
       <SectionCard
         title="Friendly availability"
-        subtitle="Bookings, cup status and Hattrick challengeability flags, checked through each manager’s stored CHPP access. No challenge is sent."
+        subtitle="Teams without a booked friendly or cup tie. Challengeability is checked against the selected team above; no challenge is sent."
         className={styles.surfaceCard}
       >
+        <p className={styles.smallNote}>
+          Enter Manager ID and My team ID above for pair-specific challengeability. Unknown means CHPP did not confirm either friendly window.
+        </p>
         <div className={styles.editorActions}>
           <Button
             variant="outline"
-            disabled={directoryLoading}
+            disabled={directoryLoading || directoryRefreshing}
             onClick={() => void scanChallengeableDirectory(directory.started && !directory.hasMore)}
           >
             {directoryLoading
               ? 'Scanning users…'
               : !directory.started
-                ? 'Scan all users'
+                ? 'Start full scan'
                 : directory.hasMore
                   ? 'Continue scan'
-                  : 'Rescan from start (refresh results)'}
+                  : 'Restart full scan'}
           </Button>
+          {directory.started && (
+            <Button variant="outline" disabled={directoryLoading || directoryRefreshing || directory.users.every(manager => manager.teams.length === 0)} onClick={() => void refreshListedDirectoryTeams()}>
+              {directoryRefreshing ? 'Refreshing listed teams…' : 'Refresh listed teams'}
+            </Button>
+          )}
           {(directoryLoading || (directory.started && directory.hasMore)) && (
             <Button
               variant="outline"
@@ -2482,6 +2612,7 @@ function ForgeTestingSection() {
               {directory.progress.checkedTeams} teams checked · {directory.progress.unavailableTeams} booked, in cup or unverified
             </span>
           )}
+          {directoryRefreshSummary && <span className={styles.smallNote}>{directoryRefreshSummary}</span>}
         </div>
         {directoryError && <p className={styles.errorText}>{directoryError}</p>}
         {directoryLoading && (
@@ -2503,14 +2634,19 @@ function ForgeTestingSection() {
                 {directory.issues.slice(0, 30).map((issue) => (
                   <li key={`${issue.managerId}:${issue.reason}`}>
                     {issue.managerName} ·{' '}
-                    <a
-                      href={`https://www.hattrick.org/goto.ashx?path=/Club/Manager/?userId=${issue.managerId}`}
-                      target="_blank"
-                      rel="noreferrer"
-                    >
-                      {issue.managerId}
-                    </a>
-                    : {issue.reason}
+                    {issue.managerId > 0 && (
+                      <>
+                        <a
+                          href={`https://www.hattrick.org/goto.ashx?path=/Club/Manager/?userId=${issue.managerId}`}
+                          target="_blank"
+                          rel="noreferrer"
+                        >
+                          {issue.managerId}
+                        </a>
+                        :{' '}
+                      </>
+                    )}
+                    {issue.reason}
                   </li>
                 ))}
               </ul>
@@ -2537,6 +2673,20 @@ function ForgeTestingSection() {
                   {manager.teams.map((team) => {
                     const leagueFlagUrl = getLeagueFlagUrl(team.leagueId);
                     const countryFlagUrl = getCountryFlagUrl(team.countryId, team.countryName);
+                    const challengeabilityIsCurrent = Boolean(directory.scanStartedAt && team.checkedAt >= directory.scanStartedAt) &&
+                      directory.challengeManagerId === managerId && directory.challengeTeamId === teamId;
+                    const challengeable = challengeabilityIsCurrent
+                      ? team.challengeableMidweek === true || team.challengeableWeekend === true
+                        ? true
+                        : team.challengeableMidweek === false && team.challengeableWeekend === false
+                          ? false
+                          : null
+                      : null;
+                    const challengeabilityClass = challengeable === true
+                      ? styles.challengeableTrue
+                      : challengeable === false
+                        ? styles.challengeableFalse
+                        : styles.challengeableUnknown;
 
                     return (
                       <li key={team.teamId}>
@@ -2554,11 +2704,9 @@ function ForgeTestingSection() {
                         >
                           {team.teamId}
                         </a>
-                        <span>
-                          Friendly: {team.booked === true ? 'Booked' : team.booked === false ? 'Not booked' : 'Unknown'} · Cup: {team.inCup === true ? 'In cup' : team.inCup === false ? 'Out of cup' : 'Unknown'}
-                        </span>
-                        <span>
-                          Challengeable — midweek: {team.challengeableMidweek === true ? 'Yes' : team.challengeableMidweek === false ? 'No' : 'Unknown'} · weekend: {team.challengeableWeekend === true ? 'Yes' : team.challengeableWeekend === false ? 'No' : 'Unknown'}
+                        <span className={styles.availableTeamStatus}>Not booked / Not in cup</span>
+                        <span className={challengeabilityClass}>
+                          Challengeable: {challengeable === null ? 'unknown' : String(challengeable)}
                         </span>
                         <span>
                           {team.checkedAt ? `Checked ${new Date(team.checkedAt).toLocaleString()}` : 'Saved result — not yet rechecked'}

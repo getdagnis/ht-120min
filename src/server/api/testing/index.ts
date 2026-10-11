@@ -1,7 +1,11 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import {
+  acceptChppChallengeDirect,
   checkChppChallengeable,
+  parseChppBaseResponse,
+  parseChppChallengeOffers,
   parseChppRequestOptionsFromQuery,
+  selectPendingChallengeFromTeam,
   sendChppChallengeDirect,
   viewChppChallenges,
 } from '../_lib/chpp-challenges.js';
@@ -84,9 +88,11 @@ function manifest() {
       { id: 'challenges-view', label: 'Challenges view' },
       { id: 'challengeable', label: 'Challengeable check' },
       { id: 'challengeable-directory', label: 'Challengeable teams directory' },
+      { id: 'challengeable-directory-refresh', label: 'Refresh listed directory teams' },
       { id: 'challenges-compare', label: 'Challenges comparison' },
       { id: 'booking-status', label: 'Booking status' },
       { id: 'challenge-send', label: 'Challenge send', sideEffect: true },
+      { id: 'challenge-accept', label: 'Challenge accept', sideEffect: true },
       { id: 'round-press-matchdetails-backfill', label: 'Round press MatchDetails backfill', sideEffect: true },
     ],
   };
@@ -322,6 +328,72 @@ async function handleSend(req: VercelRequest, res: VercelResponse) {
   });
 }
 
+async function handleAccept(req: VercelRequest, res: VercelResponse) {
+  const context = await resolveManager(req);
+  if ('error' in context) return res.status(400).json(context);
+  const teamId = requestNumber(req, 'teamId');
+  const opponentTeamId = requestNumber(req, 'acceptFromTeamId');
+  if (teamId === null || !Number.isSafeInteger(teamId) || teamId <= 0 ||
+      opponentTeamId === null || !Number.isSafeInteger(opponentTeamId) || opponentTeamId <= 0) {
+    return res.status(400).json({ error: 'Missing receiving team or challenger team ID.' });
+  }
+  if (requestString(req, 'confirm') !== '1') {
+    return res.status(400).json({ error: 'Confirm the side effect before accepting a real CHPP challenge.' });
+  }
+
+  const auth = authInput(context)!;
+  const isWeekendFriendly = requestString(req, 'isWeekendFriendly') === '1' ? 1 : 0;
+  const view = await viewChppChallenges({ ...auth, teamId, isWeekendFriendly });
+  if (view.httpStatus < 200 || view.httpStatus >= 300) {
+    return res.status(502).json({ error: `Could not load incoming challenges (${view.httpStatus}).` });
+  }
+  const viewError = parseChppBaseResponse(view.rawXml);
+  if (viewError.errorCode !== undefined && viewError.errorCode !== 0) {
+    return res.status(502).json({ error: viewError.errorMessage || `CHPP returned error ${viewError.errorCode}.` });
+  }
+
+  const selected = selectPendingChallengeFromTeam(parseChppChallengeOffers(view.rawXml), opponentTeamId);
+  if (selected.matchingTrainingMatchIds.length === 0) {
+    return res.status(409).json({
+      tool: 'challenge-accept',
+      success: false,
+      teamId,
+      challengerTeamId: opponentTeamId,
+      error: 'No pending incoming challenge from that team was found.',
+    });
+  }
+  if (selected.matchingTrainingMatchIds.length > 1) {
+    return res.status(409).json({
+      tool: 'challenge-accept',
+      success: false,
+      teamId,
+      challengerTeamId: opponentTeamId,
+      error: 'More than one pending challenge matches that team; inspect Challenges view before accepting.',
+      matchingTrainingMatchIds: selected.matchingTrainingMatchIds,
+    });
+  }
+
+  const offer = selected.offer!;
+  const result = await acceptChppChallengeDirect({
+    ...auth,
+    teamId,
+    trainingMatchId: offer.trainingMatchId!,
+    isWeekendFriendly,
+    requestOptions: parseChppRequestOptionsFromQuery(req.query),
+  });
+  return res.status(result.success ? 200 : 502).json({
+    tool: 'challenge-accept',
+    success: result.success,
+    teamId,
+    challengerTeamId: opponentTeamId,
+    trainingMatchId: offer.trainingMatchId,
+    error: result.errorMessage,
+    rawXml: result.rawXml,
+    rawXmlFormatted: result.rawXml ? beautifyXml(result.rawXml) : undefined,
+    warning: 'This accepted a real Hattrick challenge side effect.',
+  });
+}
+
 const CHALLENGEABLE_DIRECTORY_PAGE_SIZE = 2;
 
 function challengeableDirectoryFailure(error: unknown, fallback: string) {
@@ -335,6 +407,8 @@ function challengeableDirectoryFailure(error: unknown, fallback: string) {
 async function handleChallengeableDirectory(req: VercelRequest, res: VercelResponse) {
   res.setHeader('Cache-Control', 'private, no-store');
   const cursor = Number(value(req, 'cursor') || '0');
+  const challengeManagerId = numberValue(req, 'managerId');
+  const challengeTeamId = numberValue(req, 'teamId');
   if (!Number.isSafeInteger(cursor) || cursor < 0) {
     return res.status(400).json({ error: 'Invalid directory cursor.' });
   }
@@ -402,8 +476,8 @@ async function handleChallengeableDirectory(req: VercelRequest, res: VercelRespo
       const result: ForgeDirectoryTeam = {
         teamId, teamName: team.teamName,
         countryId: team.countryId, countryName: team.countryName, leagueId: team.leagueId,
-        booked: null, inCup: null,
-        challengeableMidweek: null, challengeableWeekend: null, checkedAt: '',
+        booked: null, inCup: null, challengeableMidweek: null, challengeableWeekend: null,
+        checkedAt: '',
       };
       checkedTeams += 1;
       try {
@@ -414,8 +488,6 @@ async function handleChallengeableDirectory(req: VercelRequest, res: VercelRespo
         result.countryName = details.countryName ?? team.countryName;
         result.leagueId = details.leagueId ?? team.leagueId;
         result.inCup = details.stillInCup ?? null;
-        result.challengeableMidweek = details.possibleToChallengeMidweek ?? null;
-        result.challengeableWeekend = details.possibleToChallengeWeekend ?? null;
         if (Number(details.friendlyTeamId) > 0) result.booked = true;
       } catch (teamError) {
         failedChecks += 1;
@@ -448,7 +520,7 @@ async function handleChallengeableDirectory(req: VercelRequest, res: VercelRespo
           reason: `Team ${teamId}: ${challengeableDirectoryFailure(bookingError, 'Could not verify booking status.')}` });
       }
       result.checkedAt = new Date().toISOString();
-      if (result.booked === false && result.inCup === false) scannedTeams.push(result);
+      if (result.teamId !== challengeTeamId && result.booked === false && result.inCup === false) scannedTeams.push(result);
       else unavailableTeams += 1;
     }
 
@@ -460,6 +532,81 @@ async function handleChallengeableDirectory(req: VercelRequest, res: VercelRespo
       managerId,
       managerName: profile.manager_name || credentials.manager_name || 'Unknown manager',
       teams: scannedTeams,
+    });
+  }
+
+  // `challengeable` is directional and opponent-specific. Check only the
+  // available teams from this batch, using the selected manager/team as the
+  // challenger, instead of treating teamdetails' broad flags as exact results.
+  const hasChallengeSource = Number.isSafeInteger(challengeManagerId) && (challengeManagerId ?? 0) > 0 &&
+    Number.isSafeInteger(challengeTeamId) && (challengeTeamId ?? 0) > 0;
+  if (hasChallengeSource && challengeManagerId !== null && challengeTeamId !== null) {
+    const challengerCredentials = await getManagerChppCredentials(db, challengeManagerId);
+    if (!challengerCredentials) {
+      failedChecks += 1;
+      issues.push({
+        managerId: challengeManagerId,
+        managerName: 'Selected team',
+        reason: 'No stored CHPP credentials for the selected team; pair-specific challengeability is unknown.',
+      });
+    } else {
+      const availableTeams = directoryUsers.flatMap(user => user.teams);
+      const opponentTeamIds = [...new Set(availableTeams.map(team => team.teamId).filter(id => id !== challengeTeamId))];
+      const friendlyWindows = [
+        { isWeekendFriendly: 0 as const, key: 'challengeableMidweek' as const },
+        { isWeekendFriendly: 1 as const, key: 'challengeableWeekend' as const },
+      ];
+
+      for (const window of friendlyWindows) {
+        for (let start = 0; start < opponentTeamIds.length; start += 50) {
+          const batchTeamIds = opponentTeamIds.slice(start, start + 50);
+          try {
+            const result = await checkChppChallengeable({
+              consumerKey,
+              consumerSecret,
+              oauthToken: challengerCredentials.oauth_token,
+              oauthTokenSecret: challengerCredentials.oauth_token_secret,
+              teamId: challengeTeamId,
+              suggestedTeamIds: batchTeamIds,
+              isWeekendFriendly: window.isWeekendFriendly,
+            });
+            if (result.parsed.responseTeamId !== challengeTeamId || (result.parsed.errorCode && result.parsed.errorCode !== 0)) {
+              throw new Error(result.parsed.errorMessage || 'CHPP returned a mismatched team or an error.');
+            }
+
+            const resultsByTeamId = new Map(result.parsed.teams.map(team => [team.teamId, team.challengeable]));
+            for (const candidate of availableTeams) {
+              if (!batchTeamIds.includes(candidate.teamId)) continue;
+              candidate[window.key] = resultsByTeamId.get(candidate.teamId) ?? null;
+              if (candidate[window.key] === null) {
+                failedChecks += 1;
+                issues.push({
+                  managerId: challengeManagerId,
+                  managerName: 'Selected team',
+                  reason: `CHPP did not return a ${window.isWeekendFriendly ? 'weekend' : 'midweek'} challengeability value for team ${candidate.teamId}.`,
+                });
+              }
+            }
+          } catch (challengeError) {
+            failedChecks += batchTeamIds.length;
+            issues.push({
+              managerId: challengeManagerId,
+              managerName: 'Selected team',
+              reason: challengeableDirectoryFailure(
+                challengeError,
+                `Could not check ${window.isWeekendFriendly ? 'weekend' : 'midweek'} challengeability for the available teams.`,
+              ),
+            });
+          }
+        }
+      }
+    }
+  } else if ((challengeManagerId ?? 0) > 0 || (challengeTeamId ?? 0) > 0) {
+    failedChecks += 1;
+    issues.push({
+      managerId: challengeManagerId && challengeManagerId > 0 ? challengeManagerId : 0,
+      managerName: 'Selected team',
+      reason: 'Set both Manager ID and My team ID above to check pair-specific challengeability.',
     });
   }
 
@@ -484,6 +631,178 @@ async function handleChallengeableDirectory(req: VercelRequest, res: VercelRespo
   });
 }
 
+async function handleChallengeableDirectoryRefresh(req: VercelRequest, res: VercelResponse) {
+  res.setHeader('Cache-Control', 'private, no-store');
+  const rawTeams = requestValue(req, 'teams');
+  if (!Array.isArray(rawTeams) || rawTeams.length > 100) {
+    return res.status(400).json({ error: 'Provide up to 100 currently listed manager/team pairs.' });
+  }
+  const requested = rawTeams.flatMap((raw) => {
+    if (!raw || typeof raw !== 'object') return [];
+    const pair = raw as Record<string, unknown>;
+    const managerId = Number(pair.managerId);
+    const teamId = Number(pair.teamId);
+    return Number.isSafeInteger(managerId) && managerId > 0 && Number.isSafeInteger(teamId) && teamId > 0
+      ? [{ managerId, teamId }]
+      : [];
+  });
+  if (requested.length !== rawTeams.length) return res.status(400).json({ error: 'Invalid manager/team pair.' });
+
+  const consumerKey = process.env.CHPP_CONSUMER_KEY;
+  const consumerSecret = process.env.CHPP_CONSUMER_SECRET;
+  if (!consumerKey || !consumerSecret) return res.status(500).json({ error: 'CHPP server configuration is missing.' });
+
+  const db = getServiceSupabase();
+  const managerIds = [...new Set(requested.map(pair => pair.managerId))];
+  const { data: profiles, error: profilesError } = await db.from('profiles')
+    .select('hattrick_user_id, manager_name')
+    .in('hattrick_user_id', managerIds);
+  if (profilesError) throw profilesError;
+  const profilesById = new Map((profiles || []).map(profile => [Number(profile.hattrick_user_id), profile]));
+
+  const available: Array<{ managerId: number; managerName: string; team: ForgeDirectoryTeam }> = [];
+  const refreshedTeamIds: string[] = [];
+  const issues: Array<{ managerId: number; managerName: string; reason: string }> = [];
+  let checkedTeams = 0;
+  let unavailableTeams = 0;
+  let failedChecks = 0;
+
+  for (const managerId of managerIds) {
+    const profile = profilesById.get(managerId);
+    const managerName = profile?.manager_name || 'Unknown manager';
+    const requestedTeams = requested.filter(pair => pair.managerId === managerId);
+    const credentials = await getManagerChppCredentials(db, managerId);
+    if (!profile || !credentials) {
+      failedChecks += requestedTeams.length;
+      issues.push({ managerId, managerName, reason: 'No stored CHPP credentials for this manager.' });
+      continue;
+    }
+
+    let currentTeams: ChppTeamOption[];
+    try {
+      const compendium = await fetchManagerTeamsFromChpp(consumerKey, consumerSecret, credentials, managerId);
+      if (Number(compendium.hattrickUserId) !== managerId) throw new Error('CHPP did not identify the requested manager.');
+      currentTeams = compendium.teams;
+    } catch (error) {
+      failedChecks += requestedTeams.length;
+      issues.push({ managerId, managerName, reason: challengeableDirectoryFailure(error, 'Could not verify the manager team list.') });
+      continue;
+    }
+    const currentTeamIds = new Set(currentTeams.map(team => Number(team.teamId)));
+
+    for (const pair of requestedTeams) {
+      if (!currentTeamIds.has(pair.teamId)) {
+        refreshedTeamIds.push(`${managerId}:${pair.teamId}`);
+        unavailableTeams += 1;
+        continue;
+      }
+      const teamSnapshot = currentTeams.find(team => Number(team.teamId) === pair.teamId)!;
+      const result: ForgeDirectoryTeam = {
+        teamId: pair.teamId,
+        teamName: teamSnapshot.teamName,
+        countryId: teamSnapshot.countryId,
+        countryName: teamSnapshot.countryName,
+        leagueId: teamSnapshot.leagueId,
+        booked: null,
+        inCup: null,
+        challengeableMidweek: null,
+        challengeableWeekend: null,
+        checkedAt: new Date().toISOString(),
+      };
+      checkedTeams += 1;
+      let availabilityVerified = true;
+      try {
+        const details = await fetchTeamDetailsFromChpp(consumerKey, consumerSecret, credentials, pair.teamId);
+        if (details.errorCode) throw new Error('CHPP teamdetails returned an error.');
+        result.teamName = details.teamName || result.teamName;
+        result.countryId = details.countryId ?? result.countryId;
+        result.countryName = details.countryName ?? result.countryName;
+        result.leagueId = details.leagueId ?? result.leagueId;
+        result.inCup = details.stillInCup ?? null;
+        if (Number(details.friendlyTeamId) > 0) result.booked = true;
+      } catch (error) {
+        availabilityVerified = false;
+        failedChecks += 1;
+        issues.push({ managerId, managerName, reason: `Team ${pair.teamId}: ${challengeableDirectoryFailure(error, 'Could not load team availability from CHPP.')}` });
+      }
+      try {
+        const booking = await fetchTeamBookingStatus(consumerKey, consumerSecret, credentials, pair.teamId);
+        const ongoingFriendly = booking.scheduledMatches?.some(match =>
+          [4, 5, 8, 9].includes(match.matchType) && [match.homeTeamId, match.awayTeamId].includes(pair.teamId) &&
+          match.status.toUpperCase() === 'ONGOING');
+        result.booked = result.booked === true || booking.isBooked || ongoingFriendly ? true : booking.scheduledMatches ? false : null;
+        if (!booking.isBooked && !booking.scheduledMatches) availabilityVerified = false;
+        if (result.inCup === null && booking.scheduledMatches?.some(match =>
+          match.matchType === 3 && [match.homeTeamId, match.awayTeamId].includes(pair.teamId) &&
+          ['UPCOMING', 'ONGOING'].includes(match.status.toUpperCase()))) result.inCup = true;
+      } catch (error) {
+        availabilityVerified = false;
+        failedChecks += 1;
+        issues.push({ managerId, managerName, reason: `Team ${pair.teamId}: ${challengeableDirectoryFailure(error, 'Could not verify booking status.')}` });
+      }
+      result.checkedAt = new Date().toISOString();
+      if (!availabilityVerified || result.booked === null || result.inCup === null) {
+        failedChecks += 1;
+        issues.push({ managerId, managerName, reason: `Team ${pair.teamId}: availability could not be confirmed.` });
+        continue;
+      }
+      refreshedTeamIds.push(`${managerId}:${pair.teamId}`);
+      if (result.booked === false && result.inCup === false) available.push({ managerId, managerName, team: result });
+      else unavailableTeams += 1;
+    }
+  }
+
+  const challengeManagerId = requestNumber(req, 'managerId');
+  const challengeTeamId = requestNumber(req, 'teamId');
+  if (challengeManagerId && challengeTeamId) {
+    const challengerCredentials = await getManagerChppCredentials(db, challengeManagerId);
+    if (challengerCredentials) {
+      const candidates = available.filter(candidate => candidate.team.teamId !== challengeTeamId);
+      for (const window of [
+        { isWeekendFriendly: 0 as const, key: 'challengeableMidweek' as const },
+        { isWeekendFriendly: 1 as const, key: 'challengeableWeekend' as const },
+      ]) {
+        for (let start = 0; start < candidates.length; start += 50) {
+          const batch = candidates.slice(start, start + 50);
+          try {
+            const response = await checkChppChallengeable({
+              consumerKey,
+              consumerSecret,
+              oauthToken: challengerCredentials.oauth_token,
+              oauthTokenSecret: challengerCredentials.oauth_token_secret,
+              teamId: challengeTeamId,
+              suggestedTeamIds: batch.map(candidate => candidate.team.teamId),
+              isWeekendFriendly: window.isWeekendFriendly,
+            });
+            if (response.parsed.responseTeamId !== challengeTeamId || response.parsed.errorCode) {
+              throw new Error(response.parsed.errorMessage || 'CHPP returned an invalid challengeability response.');
+            }
+            const resultById = new Map(response.parsed.teams.map(team => [team.teamId, team.challengeable ?? null]));
+            for (const candidate of batch) candidate.team[window.key] = resultById.get(candidate.team.teamId) ?? null;
+          } catch (error) {
+            failedChecks += batch.length;
+            issues.push({ managerId: challengeManagerId, managerName: 'Selected team', reason: challengeableDirectoryFailure(error, `Could not refresh ${window.isWeekendFriendly ? 'weekend' : 'midweek'} challengeability.`) });
+          }
+        }
+      }
+    }
+  }
+
+  return res.status(200).json({
+    tool: 'challengeable-directory-refresh',
+    users: [...new Set(available.map(entry => entry.managerId))].map(managerId => ({
+      managerId,
+      managerName: available.find(entry => entry.managerId === managerId)!.managerName,
+      teams: available.filter(entry => entry.managerId === managerId).map(entry => entry.team),
+    })),
+    refreshedTeamIds,
+    checkedTeams,
+    unavailableTeams,
+    failedChecks,
+    issues,
+  });
+}
+
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   if (req.method !== 'GET' && req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
   if (!isForgeAdminRequest(req.headers.cookie)) {
@@ -500,6 +819,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       case 'challenges-compare': return await handleCompare(req, res);
       case 'booking-status': return await handleBooking(req, res);
       case 'challenge-send': return await handleSend(req, res);
+      case 'challenge-accept': return await handleAccept(req, res);
+      case 'challengeable-directory-refresh': return await handleChallengeableDirectoryRefresh(req, res);
       case 'round-press-matchdetails-backfill': return await handleRoundPressMatchDetailsBackfill(req, res);
       case 'manifest': return res.status(200).json(manifest());
       default: return res.status(404).json({ error: 'Unknown testing tool.' });

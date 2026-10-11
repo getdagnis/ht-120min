@@ -128,11 +128,11 @@ export function ForgeMatchesSection() {
   const [message, setMessage] = useState('');
   const [busyAction, setBusyAction] = useState('');
 
-  const loadTournamentOptions = useCallback(async () => {
-    setLoading(true);
+  const loadTournamentOptions = useCallback(async (showLoading = true) => {
+    if (showLoading) setLoading(true);
     setError('');
     try {
-      const response = await fetch('/api/forge/matches', { credentials: 'include' });
+      const response = await fetch('/api/forge/matches', { credentials: 'include', cache: 'no-store' });
       const payload = (await response.json()) as MatchesResponse;
       if (!response.ok) throw new Error(payload.error || 'Could not load Forge tournaments.');
       setTournaments(payload.tournaments || []);
@@ -140,7 +140,7 @@ export function ForgeMatchesSection() {
     } catch (loadError) {
       setError(loadError instanceof Error ? loadError.message : 'Could not load Forge tournaments.');
     } finally {
-      setLoading(false);
+      if (showLoading) setLoading(false);
     }
   }, []);
 
@@ -247,7 +247,10 @@ export function ForgeMatchesSection() {
     setError('');
     setMessage('');
     try {
-      await loadMatches(selectedTournamentId, selectedRoundNumber ?? data?.currentRound?.roundNumber ?? null, false);
+      await Promise.all([
+        loadMatches(selectedTournamentId, selectedRoundNumber ?? data?.currentRound?.roundNumber ?? null, false),
+        loadTournamentOptions(false),
+      ]);
     } finally {
       setRefreshingData(false);
     }
@@ -500,7 +503,7 @@ export function ForgeMatchesSection() {
                               <p className={styles.stateReason}>{team.chppReason}</p>
                               <div className={styles.actions}>
                                 <Button
-                                  variant="action"
+                                  variant="primaryAction"
                                   size="sm"
                                   disabled={!team.canChallenge || Boolean(busyAction)}
                                   title={

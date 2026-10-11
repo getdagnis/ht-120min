@@ -202,6 +202,16 @@ export function parseChppChallengeOffers(xml: string): ChppChallengeOffer[] {
     .filter((offer) => offer.opponentTeamId > 0);
 }
 
+export function selectPendingChallengeFromTeam(offers: ChppChallengeOffer[], opponentTeamId: number) {
+  const matches = offers.filter(offer =>
+    offer.opponentTeamId === opponentTeamId && !offer.isAgreed && Boolean(offer.trainingMatchId),
+  );
+  return {
+    offer: matches.length === 1 ? matches[0] : null,
+    matchingTrainingMatchIds: matches.flatMap(offer => offer.trainingMatchId ? [offer.trainingMatchId] : []),
+  };
+}
+
 export function parseChppOutgoingChallenges(xml: string): ChppOutgoingChallenge[] {
   const section = xml.match(/<ChallengesByMe>([\s\S]*?)<\/ChallengesByMe>/i)?.[1] || '';
   return [...section.matchAll(/<Challenge>([\s\S]*?)<\/Challenge>/gi)]

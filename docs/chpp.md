@@ -40,21 +40,33 @@ Do not use Hattrick website pages or undocumented interfaces. CHPP products must
 
 The private `challengeable-directory` testing tool scans each manager through
 their stored CHPP access. It lists only teams confirmed unbooked and out of cup,
-and reports those conditions separately from `PossibleToChallengeMidweek` /
-`PossibleToChallengeWeekend` from teamdetails.
-These are Hattrick's team-level hints, not an opponent-specific challenge check,
-and this scan never sends a challenge. Unbooked teams with challenges disabled
-remain visible for organizer contact. Missing fields and failed checks remain
-unknown and are excluded from the available list.
+and checks each listed team against the selected team above using the directional,
+opponent-specific `challenges?actionType=challengeable` response for both friendly
+windows. It never sends a challenge. `PossibleToChallengeMidweek` /
+`PossibleToChallengeWeekend` from teamdetails are not used as substitutes for
+that pair-specific result. The displayed challengeability is true if either
+window permits a challenge, false only if both windows deny it, and unknown when
+CHPP does not confirm enough data. Unbooked teams remain visible for organizer
+contact. Missing booking or cup status and failed checks remain unknown and are
+excluded from the available list.
 
 Starting a rescan clears the old results immediately. As managers are checked,
 each successfully rediscovered manager's team snapshot replaces the previous one,
 including empty rosters. Failed manager lookups do not restore old entries. Each
 listed team shows its check time; legacy session-storage entries are unknown until
-rescanned. Progress counters restart per scan, pause/resume retains the cursor,
-directory responses bypass HTTP caching. Cancel stops after the in-flight page and
-keeps the accumulated results; continuing resumes from the saved cursor, while a
-new rescan starts over and clears the previous results.
+rescanned. `Restart full scan` clears the old results and scans all managers again;
+`Refresh listed teams` checks only the currently listed manager/team pairs and
+removes teams confirmed booked, in cup, or no longer owned. A failed refresh keeps
+that listing and reports the failed check. Progress counters restart per full scan,
+pause/resume retains the cursor, directory responses bypass HTTP caching. Cancel
+stops after the in-flight page and keeps the accumulated results; continuing
+resumes from the saved cursor.
+
+The Testing Hub can accept a pending incoming challenge for the selected manager
+and team. It finds the pending offer from the specified challenger team, then uses
+the offer's CHPP `TrainingMatchID`; ambiguous duplicate offers are not accepted.
+Acceptance requires explicit user confirmation and the receiving manager's own
+stored `manage_challenges` credentials.
 
 ## Match Refresh Rules
 
