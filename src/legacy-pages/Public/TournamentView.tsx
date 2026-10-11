@@ -31,6 +31,7 @@ import {
 } from '../../utils/standings';
 import { validateAppgOutcome } from '../../utils/appg';
 import { isCurrentParticipantTeam } from '../../utils/team-state';
+import { isFixtureMisarranged } from '../../utils/fixture-status';
 import { isAppg120ScoringMode } from '../../../shared/scoring-profile';
 import type { SeasonSlotAssignment, TeamStanding, Team as StandingTeam } from '../../utils/standings';
 import {
@@ -5432,11 +5433,19 @@ export const TournamentView: React.FC<{
       return new Set<string>();
     }
 
+    const currentRoundMatches = rounds.find((round) => round.id === currentRoundId)?.matches || [];
     const warningTeamIds = warnings
       .filter(
         (warning) =>
           warning.active !== false && warning.round_id === currentRoundId && typeof warning.team_id === 'string',
       )
+      .filter((warning) => {
+        const fixture = currentRoundMatches.find((match) =>
+          (match.home_team_id === warning.team_id || match.away_team_id === warning.team_id) &&
+          match.reserve_replaces_team_id !== warning.team_id,
+        );
+        return !fixture || isFixtureMisarranged(fixture.status || 'not_arranged', fixture.completed, true);
+      })
       .map((warning) => warning.team_id as string);
 
     return mapWarningTeamIdsToStandingsIds(warningTeamIds, seasonSlots);
