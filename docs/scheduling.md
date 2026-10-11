@@ -233,3 +233,47 @@ synthetic fixtures; it refuses remote connection strings and is skipped unless
 ```sh
 HT120_TEST_POSTGRES_SOCKET=/private/tmp/ht120-calendar-pg.YOUR_TEMP_SUFFIX node --import tsx --test tests/calendar-first-schedule-database.test.ts
 ```
+
+
+## Adding reserve pairs during a staged season
+
+Organizers can select an even group of reserves as **Active reserves**, check their
+booking/cup status, preview ranked newcomer pairs and add them to the current
+materialized regular round. Selection is local to the page and does not itself
+promote a team. Known booking/cup conflicts or unverifiable status block the whole
+group. The final submission repeats the check and rejects a changed preview.
+Dates are informative: other fixtures starting does not impose an admission
+cutoff. Completed rounds and started playoffs remain protected.
+
+Admission is additive. Existing pairings, BYEs and results stay intact; newcomers
+get new physical season slots, assignment snapshots and one fixture each. They
+start at zero and enter ordinary subsequent-round standings and playoff rules.
+The existing configured team limit can be raised by explicit confirmation.
+Admission retries use a request UUID recorded on the assignments, including when
+the entry round has since completed. Existing removal tools retain their result
+and protected-fixture guards.
+
+`admit_length_schedule_reserves` in migration **108** is the sole admission write
+path, called through the authorized consolidated API. Season-slot assignments
+are the source of truth for entry round, frozen admission ranking and request
+identity; this is an extension of slot ownership, not a global identity migration.
+Original schedule snapshots stay unchanged. Later regular rounds switch to
+played-history pairing over the expanded roster, using frozen Power Rating or
+HFI rank values independently of physical slot indices. Large expanded fields
+use bounded circle candidates rather than factorial matching enumeration.
+Original Round 1 recovery is disabled after expansion; regular repair still works.
+
+Migration 108 carries the owner's applied marker; live schema inspection and
+CHPP verification remain separate rollout steps. It adds no API function, automatic CHPP booking,
+ratings consent, legacy-schedule expansion or pending-entry queue.
+
+Organizers can remove an unused reserve registration through the same private
+API (migration 109, prepared locally). Removal locks the tournament and team in
+admission order, refuses participants and all referenced registrations, including
+references with cascading deletes, and removes only the selected unused row.
+Manager profiles and credentials stored elsewhere remain intact. Availability
+checks distinguish missing cup data from ownership validation. When `teamdetails`
+suppresses Cup during live play, an identified complete matches response can
+verify availability: unresolved cup fixtures block; absence of them requires an
+upcoming league fixture beyond the reserved friendly date to establish schedule
+coverage. Empty, wrong-team or incomplete feeds remain unknown and block admission.

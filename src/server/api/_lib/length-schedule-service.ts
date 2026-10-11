@@ -109,7 +109,7 @@ function buildPairingHistory(rounds: StoredRound[]): PairingHistory {
 
 async function loadLengthSeason(supabase: ServiceSupabase, tournamentId: string, seasonNumber: number) {
   const [{ data: tournament, error: tournamentError }, { data: season, error: seasonError }] = await Promise.all([
-    supabase.from('tournaments').select('id, schedule_mode, scoring_mode').eq('id', tournamentId).maybeSingle(),
+    supabase.from('tournaments').select('id, schedule_mode, scoring_mode, league_category').eq('id', tournamentId).maybeSingle(),
     supabase
       .from('tournament_seasons')
       .select('id, schedule_plan_json, ranking_snapshot_json, champion_team_id')
@@ -146,7 +146,7 @@ async function loadLengthSeason(supabase: ServiceSupabase, tournamentId: string,
   if (slotRows.length > 0) {
     const assignmentResult = await supabase
       .from('tournament_season_slot_assignments')
-      .select('id, tournament_season_slot_id, team_id, assigned_at, released_at, team_name, ht_team_id, manager_name, hattrick_user_id, logo_url')
+      .select('id, tournament_season_slot_id, team_id, assigned_at, released_at, team_name, ht_team_id, manager_name, hattrick_user_id, logo_url, admission_request_id, entry_round_id, ranking_source, ranking_value')
       .in('tournament_season_slot_id', slotRows.map((slot) => slot.id));
     if (assignmentResult.error) throw assignmentResult.error;
     assignmentRows = (assignmentResult.data || []) as SeasonSlotAssignment[];
@@ -190,6 +190,19 @@ function readSchedulePlan(value: unknown) {
 
 function seasonRanks(state: NonNullable<Awaited<ReturnType<typeof loadLengthSeason>>>) {
   const ranks = rankingMap(state.season.ranking_snapshot_json);
+  const admissions = state.assignments;
+  if (admissions.some(assignment => assignment.admission_request_id)) {
+    const snapshot = Array.isArray(state.season.ranking_snapshot_json) ? state.season.ranking_snapshot_json : [];
+    const values = state.slots.filter(slot => slot.current_team_id).map(slot => {
+      const original = snapshot.find(row => Number(row.seed) === slot.slot_index || (row.team_id === slot.current_team_id)) || (slot.slot_index ? snapshot[slot.slot_index - 1] : null);
+      const admission = admissions.find(assignment => assignment.tournament_season_slot_id === slot.id && assignment.admission_request_id);
+      const value = original ? original.ranking_value ?? original.team_rank : admission?.ranking_value;
+      return { id: slot.current_team_id!, value: value == null ? null : Number(value) };
+    });
+    values.sort((a, b) => (a.value == null ? b.value == null ? 0 : 1 : b.value == null ? -1 :
+      state.tournament.league_category === 'hfi' ? a.value - b.value : b.value - a.value) || a.id.localeCompare(b.id));
+    return new Map(values.map((team, i) => [team.id, i + 1]));
+  }
   if (readSchedulePlan(state.season.schedule_plan_json)) {
     for (const slot of state.slots) if (slot.current_team_id && slot.slot_index) ranks.set(slot.current_team_id, slot.slot_index);
   }
@@ -199,6 +212,7 @@ function seasonRanks(state: NonNullable<Awaited<ReturnType<typeof loadLengthSeas
 function reservedPairings(state: NonNullable<Awaited<ReturnType<typeof loadLengthSeason>>>, roundNumber: number) {
   const plan = readSchedulePlan(state.season.schedule_plan_json);
   if (!plan) return null;
+  if (state.assignments.some(a => a.admission_request_id)) return null;
   const pairs = plan.regular_pairings![roundNumber - 1];
   if (!pairs) throw new Error('The reserved regular-round pairing plan is missing.');
   const occupants = new Map(state.slots.map(slot => [slot.slot_index, slot.current_team_id]));
@@ -309,6 +323,15 @@ function buildStoredPairings(round: StoredRound, pairings: LengthSchedulePairing
   });
 }
 
+function balanceExpandedHistory(history: PairingHistory) {
+  if (!history.boundedCandidates) return;
+  // Late entrants have fewer appearances. Compare home bias per appearance,
+  // rather than giving every newcomer home games until older totals catch up.
+  const appearances: Record<string, number> = {};
+  for (const pair of history.playedPairs || []) for (const id of pair) appearances[id] = (appearances[id] || 0) + 1;
+  history.homeCounts = Object.fromEntries(Object.entries(appearances).map(([id, count]) => [id, (history.homeCounts?.[id] || 0) - count / 2]));
+}
+
 export async function progressLengthSchedule(
   supabase: ServiceSupabase,
   tournamentId: string,
@@ -340,7 +363,9 @@ export async function progressLengthSchedule(
     const history = buildPairingHistory(state.rounds.filter(round => round.round_number <= current.round_number).map(round =>
       versionTwo && round.id === current.id ? { ...round, phase_status: 'completed' as const } : round,
     ));
-    history.balanceRepeats = versionTwo;
+    history.balanceRepeats = versionTwo || state.assignments.some(a => a.admission_request_id);
+    history.boundedCandidates = state.assignments.some(a => a.admission_request_id);
+    balanceExpandedHistory(history);
     nextMatches = buildStoredPairings(
       next,
       reservedPairings(state, next.round_number) ?? generateBalancedRound(lengthTeams, history, next.round_number - 1),
@@ -465,6 +490,7 @@ export async function recoverLengthRoundOne(
 
   // Reconstruct from the frozen original plan (or the legacy TeamRank snapshot),
   // never from the current Round 1 fixture rows.
+  if (state.assignments.some(a => a.admission_request_id)) throw new Error('Original Round 1 recovery is unavailable after reserve admission.');
   const originalTeams = toOriginalRoundTeams(state.teams, state.slots, state.season.ranking_snapshot_json);
   const originalPairings = reservedPairings(state, 1) ?? generateBalancedRound(originalTeams, {}, 0);
   const replacementMatches = buildStoredPairings(roundOne, originalPairings, originalTeams);
@@ -536,7 +562,9 @@ export async function repairLengthRound(
   const ranks = seasonRanks(state);
   const lengthTeams = toLengthTeams(state.teams, ranks);
   const history = buildPairingHistory(state.rounds.filter((round) => round.round_number < current.round_number));
-  history.balanceRepeats = Boolean(readSchedulePlan(state.season.schedule_plan_json));
+  history.balanceRepeats = Boolean(readSchedulePlan(state.season.schedule_plan_json)) || state.assignments.some(a => a.admission_request_id);
+  history.boundedCandidates = state.assignments.some(a => a.admission_request_id);
+  balanceExpandedHistory(history);
   const repair = buildRoundRepair({
     teams: lengthTeams,
     lockedPairs: untouchedMatches.flatMap((match) =>

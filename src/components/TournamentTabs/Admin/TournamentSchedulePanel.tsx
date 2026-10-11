@@ -137,6 +137,7 @@ interface TournamentSchedulePanelProps {
   }>;
   isRepairingRound?: boolean;
   onRepairRound?: () => void;
+  reserveAdmissionControl?: React.ReactNode;
   isRecoveringRoundOne?: boolean;
   onRecoverRoundOne?: () => void;
 }
@@ -258,6 +259,7 @@ export const TournamentSchedulePanel: React.FC<TournamentSchedulePanelProps> = (
   lengthRounds = [],
   isRepairingRound = false,
   onRepairRound,
+  reserveAdmissionControl,
   isRecoveringRoundOne = false,
   onRecoverRoundOne,
 }) => {
@@ -1124,6 +1126,7 @@ export const TournamentSchedulePanel: React.FC<TournamentSchedulePanelProps> = (
               </p>
             </div>
           )}
+        {currentRound?.phase === 'regular' && reserveAdmissionControl}
         {currentRound?.phase === 'regular' && onRepairRound && (
           <Button variant="secondaryAction" onClick={onRepairRound} disabled={isRepairingRound}>
             {isRepairingRound

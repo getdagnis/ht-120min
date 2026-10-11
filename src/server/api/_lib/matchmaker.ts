@@ -36,6 +36,9 @@ export interface ManagerChppCredentials {
 export interface MatchmakerBookingResult {
   isBooked: boolean;
   match: ParsedMatch | null;
+  // Available only for an identified, complete matches response. Used when
+  // teamdetails temporarily suppresses Cup during a live league match.
+  scheduledMatches?: ParsedMatch[];
 }
 
 const BOOKED_FRIENDLY_MATCH_TYPES = new Set([4, 5, 8, 9]);
@@ -258,5 +261,9 @@ export async function fetchTeamBookingStatus(
   return {
     isBooked: !!bookedFriendly,
     match: bookedFriendly ?? null,
+    ...(Number(xml.match(/<Team>[\s\S]*?<TeamID>(\d+)<\/TeamID>/i)?.[1]) === Number(teamId)
+      && /<MatchList(?:\s*\/\s*>|>[\s\S]*?<\/MatchList>)/i.test(xml)
+      && !/<ErrorCode>\s*[1-9]\d*\s*<\/ErrorCode>/i.test(xml)
+      ? { scheduledMatches: matches } : {}),
   };
 }

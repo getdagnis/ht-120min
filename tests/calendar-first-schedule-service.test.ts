@@ -58,7 +58,7 @@ function harness(count = 12, playoffs = 3) {
     });
     return fixtures;
   };
-  return { teams, slots, rounds, plan, calls, progress, finishRound };
+  return { teams, slots, rounds, plan, calls, progress, finishRound, assignments: tables.tournament_season_slot_assignments as Array<Record<string, unknown>>, tournament: tables.tournaments[0] as Record<string, unknown> };
 }
 
 test('top-eight playoffs progress through quarterfinals, semifinals and final using bracket order', async () => {
@@ -127,4 +127,24 @@ test('missed regular fixtures keep the existing played-history fallback active',
   await state.progress();
   const next = state.rounds[1]!.matches as Array<Record<string, unknown>>;
   assert.ok(next.every(match => [match.home_team_id, match.away_team_id].sort().join(':') !== 'team-1:team-2'));
+});
+
+
+test('admitted reserves participate in later rounds without using the original smaller pairing plan', async () => {
+  const state = harness(4, 1);
+  state.tournament.league_category = 'male';
+  state.rounds[1]!.phase = 'regular';
+  state.plan.regular_pairings = [[{ home_slot_index: 1, away_slot_index: 2 }, { home_slot_index: 3, away_slot_index: 4 }], [{ home_slot_index: 1, away_slot_index: 3 }, { home_slot_index: 2, away_slot_index: 4 }]];
+  for (const number of [5, 6]) {
+    state.teams.push({ ...state.teams[0]!, id: `team-${number}`, name: `Team ${number}`, ht_team_id: number, hattrick_user_id: number });
+    state.slots.push({ id: `slot-${number}`, slot_index: number, current_team_id: `team-${number}` });
+    state.assignments.push({ tournament_season_slot_id: `slot-${number}`, team_id: `team-${number}`, admission_request_id: 'admission', entry_round_id: 'round-1', ranking_source: 'power_rating', ranking_value: 1000 + number });
+  }
+  const current = state.rounds[0]!.matches as Array<Record<string, unknown>>;
+  current.push({ ...current[0]!, id: 'new-match', home_team_id: 'team-5', away_team_id: 'team-6', home_slot_id: 'slot-5', away_slot_id: 'slot-6' });
+  await state.progress();
+  const next = state.rounds[1]!.matches as Array<Record<string, unknown>>;
+  assert.equal(next.length, 3);
+  assert.deepEqual(next.flatMap(match => [match.home_team_id, match.away_team_id]).sort(), state.teams.map(team => team.id).sort());
+  for (const match of next) assert.ok(!current.some(old => [old.home_team_id, old.away_team_id].sort().join(':') === [match.home_team_id, match.away_team_id].sort().join(':')), 'Complete available unique pairings before rematches');
 });

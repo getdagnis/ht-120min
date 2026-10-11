@@ -8,6 +8,7 @@ import { Modal } from '../../Modal/Modal';
 import { SectionCard } from '../../Card/SectionCard';
 import { AdminResults, type BulkMatchUpdate } from './AdminResults';
 import { AdminAnnouncementComposer } from './AdminAnnouncementComposer';
+import { ReserveAdmissionPanel } from './ReserveAdmissionPanel';
 import { TournamentSchedulePanel } from './TournamentSchedulePanel';
 import { TournamentRolesPanel } from './TournamentRolesPanel';
 import { CollectionMembershipPanel } from '../../CollectionMembershipPanel/CollectionMembershipPanel';
@@ -241,6 +242,8 @@ export interface TournamentAdminController {
     reserveTeamId: string;
     setReserveTeamId: Setter<string>;
     reserveTeamName: string;
+    reserveValidation: { teamId: string; validated: boolean; known: boolean; managerName: string | null } | null;
+    onReservesChanged: () => void | Promise<void>;
     setReserveTeamName: Setter<string>;
     teamStatusNotice: string | null;
     isRefreshingTeamStatuses: boolean;
@@ -508,6 +511,8 @@ export const TournamentAdmin: React.FC<{ controller: TournamentAdminController }
     reserveTeamId,
     setReserveTeamId,
     reserveTeamName,
+    reserveValidation,
+    onReservesChanged,
     setReserveTeamName,
     teamStatusNotice,
     isRefreshingTeamStatuses,
@@ -574,6 +579,35 @@ export const TournamentAdmin: React.FC<{ controller: TournamentAdminController }
   } = lifecycle;
 
   const isHydrationReady = useHydrationReady();
+  const [admissionSelection, setAdmissionSelection] = useState<string[]>([]);
+  const selectedAdmissionIds = admissionSelection.filter(id => reserveTeams.some(team => team.id === id));
+  const [removingReserveId, setRemovingReserveId] = useState<string | null>(null);
+  const removeReserve = async (team: Team) => {
+    if (!window.confirm(`Remove ${team.name} from the reserve list? Only this team's unused reserve registration will be removed.`)) return;
+    setRemovingReserveId(team.id);
+    try {
+      const response = await fetch('/api/app?route=reserve-admission', {
+        method: 'POST', credentials: 'same-origin', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ tournamentId: tournament.id, teamId: team.id, action: 'remove' }),
+      });
+      const result = await response.json();
+      if (!response.ok) throw new Error(result.error || 'The reserve could not be removed.');
+      setAdmissionSelection(ids => ids.filter(id => id !== team.id));
+      await onReservesChanged();
+    } catch (error) {
+      alert(error instanceof Error ? error.message : 'The reserve could not be removed.');
+    } finally {
+      setRemovingReserveId(null);
+    }
+  };
+  const validateReserve = async (team: Team) => {
+    try {
+      const response = await fetch('/api/app?route=admin-add-reserve-team', { method: 'POST', credentials: 'same-origin', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ tournamentId: tournament.id, teamId: team.ht_team_id, validated: true }) });
+      const result = await response.json();
+      if (!response.ok) throw new Error(result.error || 'Validation failed.');
+      await onReservesChanged();
+    } catch (error) { alert(error instanceof Error ? error.message : 'Validation failed.'); }
+  };
   const [, setIsSettingsCollapsed] = useState(() =>
     readStoredSessionBoolean(`settings_collapsed_${tournament.slug}`, false),
   );
@@ -1269,6 +1303,7 @@ export const TournamentAdmin: React.FC<{ controller: TournamentAdminController }
                             lengthRounds={tournament.schedule_mode === 'length' ? rounds : []}
                             isRepairingRound={isRepairingRound}
                             onRepairRound={tournament.schedule_mode === 'length' ? repairCurrentLengthRound : undefined}
+                            reserveAdmissionControl={canManageOperationalAdmin && reserveTeams.length > 0 ? <ReserveAdmissionPanel tournamentId={tournament.id} teamIds={selectedAdmissionIds} onChanged={async () => { setAdmissionSelection([]); await onReservesChanged(); }} /> : undefined}
                             isRecoveringRoundOne={isRecoveringRoundOne}
                             onRecoverRoundOne={
                               tournament.schedule_mode === 'length' ? recoverOriginalLengthRoundOne : undefined
@@ -1478,8 +1513,8 @@ export const TournamentAdmin: React.FC<{ controller: TournamentAdminController }
                                               setReserveTeamId(e.target.value.replace(/\D/g, ''));
                                               setReserveTeamName('');
                                             }}
-                                            minLength={6}
-                                            maxLength={9}
+                                            minLength={1}
+                                            maxLength={10}
                                             required
                                           />
                                           <input
@@ -1492,7 +1527,7 @@ export const TournamentAdmin: React.FC<{ controller: TournamentAdminController }
                                             required
                                           />
                                         </div>
-                                        {reserveTeamId.length >= 6 && !reserveTeamName && (
+                                        {/^\d{1,10}$/.test(reserveTeamId.trim()) && !reserveTeamName && (
                                           <Button
                                             type="button"
                                             onClick={() => void fetchTeamData(reserveTeamId, false, true)}
@@ -1503,8 +1538,11 @@ export const TournamentAdmin: React.FC<{ controller: TournamentAdminController }
                                           </Button>
                                         )}
                                         {reserveTeamName && (
-                                          <Button type="submit" disabled={isSavingTeam} variant="primary">
-                                            {isSavingTeam ? 'Saving...' : 'Add reserve team'}
+                                          <p>{isFetchingTeamData ? 'Checking current ownership...' : reserveValidation?.teamId === reserveTeamId && reserveValidation.validated ? `Already Hattrick validated · ${reserveValidation.managerName}` : reserveValidation?.teamId === reserveTeamId && reserveValidation.known ? 'Known team — current ownership could not be verified. Add as an unvalidated reserve.' : 'Add as an unvalidated reserve.'}</p>
+                                        )}
+                                        {reserveTeamName && (
+                                          <Button type="submit" disabled={isSavingTeam || isFetchingTeamData} variant="primary">
+                                            {isSavingTeam ? 'Saving...' : reserveValidation?.teamId === reserveTeamId && reserveValidation.validated ? 'Add validated reserve team' : 'Add reserve team'}
                                           </Button>
                                         )}
                                       </form>
@@ -1891,9 +1929,24 @@ export const TournamentAdmin: React.FC<{ controller: TournamentAdminController }
                                             </>
                                           )}
                                         </div>
-                                        <span className={adminStyles.statusBadge}>Reserve</span>
+                                        <span className={adminStyles.statusBadge}>Reserve{team.joined_via_oauth ? ' · Hattrick validated' : ''}</span>
+                                        {canManageOperationalAdmin && tournament.schedule_mode === 'length' && rounds.some(round => round.phase === 'regular' && round.phase_status === 'materialized') && (
+                                          <label className={adminStyles.checkboxLabel}><input type="checkbox" checked={selectedAdmissionIds.includes(team.id)} onChange={event => {
+                                            const checked = event.currentTarget.checked;
+                                            setAdmissionSelection(ids => checked ? [...new Set([...ids, team.id])] : ids.filter(id => id !== team.id));
+                                          }} /> Active reserve</label>
+                                        )}
+                                        {canManageOperationalAdmin && !team.joined_via_oauth && <Button type="button" size="sm" variant="secondaryAction" onClick={() => void validateReserve(team)}>Validate known team</Button>}
+
                                       </div>
                                     </div>
+                                    {canManageOperationalAdmin && (
+                                      <div className={adminStyles.teamActions}>
+                                        <Button type="button" size="xs" variant="secondaryDanger" disabled={removingReserveId !== null} onClick={() => void removeReserve(team)}>
+                                          {removingReserveId === team.id ? 'Removing...' : 'Remove from reserves'}
+                                        </Button>
+                                      </div>
+                                    )}
                                     {roleAccess?.canManageOperations &&
                                       ((isGenerated && seasonSlots.some((slot) => slot.current_team_id === null)) ||
                                         (!isGenerated && maxTeamsAllowsPromotion)) && (

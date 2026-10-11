@@ -170,14 +170,14 @@ async function invoke(request: NextRequest) {
     'update-hfi-ranks', 'update-power-rankings', 'refresh-spotlight-profiles', 'generate-length-schedule', 'repair-length-round', 'recover-length-round-one',
     'save-length-results', 'tournament-participation', 'season-slot-replacement', 'reserve-team-swap',
     'reserve-team-fill', 'move-inactive-team-to-reserve', 'reset-season-to-planning', 'archive-tournament',
-    'scheduled-team-removal', 'admin-team-reserve-transition', 'admin-add-reserve-team', 'reserve-teams',
+    'scheduled-team-removal', 'admin-team-reserve-transition', 'admin-add-reserve-team', 'reserve-admission', 'reserve-teams',
     'backfill-round-matchdetails',
   ]);
   const path = request.nextUrl.pathname;
   const finishedLiveResult = path === '/api/chpp/live-matches' && result.results &&
     Object.values(result.results).some((value) => value && typeof value === 'object' && 'status' in value && value.status === 'finished');
   const isMutation =
-    (path === '/api/app' && request.method !== 'GET' && mutationRoutes.has(String(query.route))) ||
+    (path === '/api/app' && request.method !== 'GET' && mutationRoutes.has(String(query.route)) && !(query.route === 'reserve-admission' && input.action === 'lookup')) ||
     (path === '/api/teams/refresh-fixtures' && input.dryRun !== true &&
       !['suggest_ht_matches', 'team_planning_statuses'].includes(String(input.action))) || finishedLiveResult ||
     (path === '/api/matchmaker/teams' && Boolean(query.managerId)) ||

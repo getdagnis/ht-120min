@@ -4003,8 +4003,10 @@ export const TournamentView: React.FC<{
     }
   };
 
+  const [reserveValidation, setReserveValidation] = useState<{ teamId: string; validated: boolean; known: boolean; managerName: string | null } | null>(null);
+
   const fetchTeamData = async (htId: string, isReplacement: boolean, isReserve = false) => {
-    if (!htId || htId.length < 6) return;
+    if (!/^\d{1,10}$/.test(htId.trim())) return;
     setIsFetchingTeamData(true);
     try {
       const res = await fetch(`/api/teams/info?team_id=${htId}`);
@@ -4026,6 +4028,11 @@ export const TournamentView: React.FC<{
         setReplacementName(data.teamName);
       } else if (isReserve) {
         setReserveTeamName(data.teamName);
+        setReserveValidation(null);
+        const ownershipResponse = await fetch('/api/app?route=reserve-admission', { method: 'POST', credentials: 'same-origin', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ tournamentId: tournament?.id, teamId: Number(htId), action: 'lookup' }) });
+        const ownership = await ownershipResponse.json();
+        if (!ownershipResponse.ok) throw new Error(ownership.error || 'Ownership lookup failed.');
+        setReserveValidation({ teamId: htId, validated: ownership.validated === true, known: ownership.known === true, managerName: ownership.managerName || null });
       } else {
         setNewTeamName(data.teamName);
         setNewTeamData(data);
@@ -4149,7 +4156,7 @@ export const TournamentView: React.FC<{
     }
 
     const htIdInt = parseInt(htId.trim());
-    if (teams.some((t) => t.ht_team_id === htIdInt && !t.is_placeholder && (addAsReserve || t.active))) {
+    if (teams.some((t) => t.ht_team_id === htIdInt && !t.is_placeholder && t.active)) {
       alert('This team is already in the tournament roster or reserve list.');
       return;
     }
@@ -4171,7 +4178,7 @@ export const TournamentView: React.FC<{
           method: 'POST',
           credentials: 'same-origin',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ tournamentId: tournament?.id, teamId: htIdInt }),
+          body: JSON.stringify({ tournamentId: tournament?.id, teamId: htIdInt, validated: reserveValidation?.teamId === htId && reserveValidation.validated }),
         });
         const result = (await response.json()) as { error?: string };
         if (!response.ok) throw new Error(result.error || 'The reserve team could not be added.');
@@ -5752,6 +5759,8 @@ export const TournamentView: React.FC<{
       reserveTeamId,
       setReserveTeamId,
       reserveTeamName,
+      reserveValidation,
+      onReservesChanged: fetchData,
       setReserveTeamName,
       teamStatusNotice,
       isRefreshingTeamStatuses,

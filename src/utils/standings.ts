@@ -35,6 +35,10 @@ export function mapWarningTeamIdsToStandingsIds(
 }
 
 export interface SeasonSlotAssignment {
+  admission_request_id?: string | null;
+  entry_round_id?: string | null;
+  ranking_source?: 'team_rank' | 'power_rating' | null;
+  ranking_value?: number | null;
   id?: string;
   tournament_season_slot_id: string;
   team_id: string | null;

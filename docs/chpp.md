@@ -126,3 +126,21 @@ When CHPP behavior is unclear:
 - `docs/challenges.params.md`
 - `docs/*.schema.xml`
 - `docs/*.example.xml`
+
+
+## Organizer-added validated reserves
+
+Private admin lookup resolves candidate managers from `profiles.teams_json`
+(including the legacy JSON-string shape) and historical tournament team entries.
+Cached ownership is a hint only. The candidate's saved credentials must fetch
+`managercompendium` without a `userID` override, identify that token owner and
+include the selected HT team before it can be marked validated. The regular
+reserve-registration helper writes the same owner and validation metadata as a
+self-service reserve join. Existing unvalidated reserves can be upgraded in place.
+Credential failure never silently grants validation; an unvalidated add remains
+an explicit option. Credentials and lookup internals are never returned publicly.
+
+Reserve admission reuses public teamdetails/matches booking checks; selected
+reserve rankings are refreshed as part of that explicit check. The final admit
+request repeats availability checks, then invokes the private atomic slot RPC.
+No challenge automation or ratings-sharing consent is enabled by validation.

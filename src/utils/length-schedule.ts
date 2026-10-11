@@ -36,6 +36,7 @@ export interface LengthScheduleFormat {
 }
 
 export interface PairingHistory {
+  boundedCandidates?: boolean;
   balanceRepeats?: boolean;
   playedPairs?: Array<[string, string]>;
   homeCounts?: Record<string, number>;
@@ -256,7 +257,17 @@ export function generateBalancedRound(
     pairCounts.set(key, (pairCounts.get(key) || 0) + 1);
   }
   const usedPairs = new Set(pairCounts.keys());
-  const strictCandidates = enumerateRoundMatchings(teamIds, usedPairs);
+  // Expanded fields must not enumerate factorially many perfect matchings.
+  // Compare complete circle candidates from several ranked rotations.
+  const bounded = history.boundedCandidates && normalized.length > 12
+    ? Array.from({ length: Math.min(8, normalized.length) }, (_, offset) => {
+        const ids = normalized.map(team => team.id);
+        const rotated = [...ids.slice(offset), ...ids.slice(0, offset)];
+        return buildRoundRobinCycles(rotated, teamIds.length - 1).map(round => round.map(pair =>
+          [pair.homeTeamId, pair.awayTeamId] as [string | null, string | null]));
+      }).flat()
+    : null;
+  const strictCandidates = bounded || enumerateRoundMatchings(teamIds, usedPairs);
   // Real-world missed/repaired rounds can exhaust the perfect no-rematch graph
   // before the planned regular season ends. Prefer zero rematches whenever a
   // complete matching exists; otherwise allow the smallest possible number.
