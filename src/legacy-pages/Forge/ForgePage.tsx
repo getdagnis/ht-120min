@@ -31,6 +31,7 @@ import { ForgeMatchesSection } from './ForgeMatches';
 import { ForgeLocales } from './ForgeLocales';
 import { mostViewedTournament, tournamentActivityRoute } from '../../utils/forge-activity-routes';
 import { mergeForgeDirectoryUsers, type ChallengeableDirectoryUser } from '../../utils/forge-team-directory';
+import { getCountryFlagUrl, getLeagueFlagUrl } from '../../utils/ht-data';
 
 interface DashboardUser {
   hattrick_user_id: number;
@@ -2533,28 +2534,39 @@ function ForgeTestingSection() {
                   {manager.managerId}
                 </a>
                 <ul>
-                  {manager.teams.map((team) => (
-                    <li key={team.teamId}>
-                      <strong>{team.teamName}</strong>
-                      <a
-                        href={`https://www.hattrick.org/goto.ashx?path=/Club/?TeamID=${team.teamId}`}
-                        target="_blank"
-                        rel="noreferrer"
-                      >
-                        {team.teamId}
-                      </a>
-                      <span>
-                        Friendly: {team.booked === true ? 'Booked' : team.booked === false ? 'Not booked' : 'Unknown'} · Cup: {team.inCup === true ? 'In cup' : team.inCup === false ? 'Out of cup' : 'Unknown'}
-                      </span>
-                      <span>
-                        Challengeable — midweek: {team.challengeableMidweek === true ? 'Yes' : team.challengeableMidweek === false ? 'No' : 'Unknown'} · weekend: {team.challengeableWeekend === true ? 'Yes' : team.challengeableWeekend === false ? 'No' : 'Unknown'}
-                      </span>
-                      <span>
-                        {team.checkedAt ? `Checked ${new Date(team.checkedAt).toLocaleString()}` : 'Saved result — not yet rechecked'}
-                        {team.checkedAt && directory.scanStartedAt && team.checkedAt < directory.scanStartedAt ? ' · Previous scan; not yet refreshed' : ''}
-                      </span>
-                    </li>
-                  ))}
+                  {manager.teams.map((team) => {
+                    const leagueFlagUrl = getLeagueFlagUrl(team.leagueId);
+                    const countryFlagUrl = getCountryFlagUrl(team.countryId, team.countryName);
+
+                    return (
+                      <li key={team.teamId}>
+                        {(leagueFlagUrl || countryFlagUrl) && (
+                          <span className={styles.challengeableTeamFlags} aria-hidden="true">
+                            {leagueFlagUrl && <img src={leagueFlagUrl} alt="" />}
+                            {countryFlagUrl && <img src={countryFlagUrl} alt="" />}
+                          </span>
+                        )}
+                        <strong>{team.teamName}</strong>
+                        <a
+                          href={`https://www.hattrick.org/goto.ashx?path=/Club/?TeamID=${team.teamId}`}
+                          target="_blank"
+                          rel="noreferrer"
+                        >
+                          {team.teamId}
+                        </a>
+                        <span>
+                          Friendly: {team.booked === true ? 'Booked' : team.booked === false ? 'Not booked' : 'Unknown'} · Cup: {team.inCup === true ? 'In cup' : team.inCup === false ? 'Out of cup' : 'Unknown'}
+                        </span>
+                        <span>
+                          Challengeable — midweek: {team.challengeableMidweek === true ? 'Yes' : team.challengeableMidweek === false ? 'No' : 'Unknown'} · weekend: {team.challengeableWeekend === true ? 'Yes' : team.challengeableWeekend === false ? 'No' : 'Unknown'}
+                        </span>
+                        <span>
+                          {team.checkedAt ? `Checked ${new Date(team.checkedAt).toLocaleString()}` : 'Saved result — not yet rechecked'}
+                          {team.checkedAt && directory.scanStartedAt && team.checkedAt < directory.scanStartedAt ? ' · Previous scan; not yet refreshed' : ''}
+                        </span>
+                      </li>
+                    );
+                  })}
                 </ul>
               </article>
             ))}

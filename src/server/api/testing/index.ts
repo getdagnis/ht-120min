@@ -400,7 +400,9 @@ async function handleChallengeableDirectory(req: VercelRequest, res: VercelRespo
       const teamId = Number(team.teamId);
       if (!Number.isSafeInteger(teamId) || teamId <= 0) continue;
       const result: ForgeDirectoryTeam = {
-        teamId, teamName: team.teamName, booked: null, inCup: null,
+        teamId, teamName: team.teamName,
+        countryId: team.countryId, countryName: team.countryName, leagueId: team.leagueId,
+        booked: null, inCup: null,
         challengeableMidweek: null, challengeableWeekend: null, checkedAt: '',
       };
       checkedTeams += 1;
@@ -408,6 +410,9 @@ async function handleChallengeableDirectory(req: VercelRequest, res: VercelRespo
         const details = await fetchTeamDetailsFromChpp(consumerKey, consumerSecret, credentials, teamId);
         if (details.errorCode) throw new Error('CHPP teamdetails returned an error.');
         result.teamName = details.teamName || team.teamName;
+        result.countryId = details.countryId ?? team.countryId;
+        result.countryName = details.countryName ?? team.countryName;
+        result.leagueId = details.leagueId ?? team.leagueId;
         result.inCup = details.stillInCup ?? null;
         result.challengeableMidweek = details.possibleToChallengeMidweek ?? null;
         result.challengeableWeekend = details.possibleToChallengeWeekend ?? null;

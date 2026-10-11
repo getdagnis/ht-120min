@@ -1,6 +1,9 @@
 export interface ForgeDirectoryTeam {
   teamId: number;
   teamName: string;
+  countryId?: number;
+  countryName?: string;
+  leagueId?: number;
   booked: boolean | null;
   inCup: boolean | null;
   challengeableMidweek: boolean | null;
