@@ -1,8 +1,15 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Button } from '../../components/Button/Button';
 import { localeNames, type Locale } from '../../i18n/config';
-import { catalogSections, keysForSection, type CatalogSection, type CatalogValues, type LocaleStatus } from '../../i18n/catalog';
+import {
+  catalogSections,
+  keysForSection,
+  type CatalogSection,
+  type CatalogValues,
+  type LocaleStatus,
+} from '../../i18n/catalog';
 import { isValidCatalogMessage } from '../../i18n/catalog-validation';
+import { exportCatalogCsv, importCatalogCsv } from '../../i18n/catalog-csv';
 import styles from './ForgeLocales.module.sass';
 
 interface LanguageSettings {
@@ -46,6 +53,21 @@ function draftKey(locale: Locale, section: CatalogSection) {
   return `${locale}:${section}`;
 }
 
+function highlightSearch(text: string, search: string) {
+  const query = search.trim();
+  if (!query) return text;
+  const escaped = query.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  return text.split(new RegExp(`(${escaped})`, 'gi')).map((part, index) =>
+    index % 2 === 1 ? (
+      <mark className={styles.searchHighlight} key={index}>
+        {part}
+      </mark>
+    ) : (
+      part
+    ),
+  );
+}
+
 function subgroup(key: string, section: CatalogSection) {
   if (key.startsWith('PublicUI.')) {
     return key.split('.')[1].replace(/([a-z])([A-Z])/g, '$1 $2');
@@ -81,6 +103,11 @@ export function ForgeLocales({ isAdmin }: { isAdmin: boolean }) {
   const [locale, setLocale] = useState<Locale>('en');
   const [selectedSection, setSelectedSection] = useState<CatalogSection>('System');
   const [selectedGroup, setSelectedGroup] = useState<string | null>(null);
+  const [search, setSearch] = useState('');
+  const [searchCatalogs, setSearchCatalogs] = useState<Partial<Record<CatalogSection, CatalogResponse>>>({});
+  const [searchLoading, setSearchLoading] = useState(false);
+  const [searchError, setSearchError] = useState('');
+  const searchActive = Boolean(search.trim());
   const [tabOrder, setTabOrder] = useState<Locale[]>(() => {
     try {
       const saved = JSON.parse(localStorage.getItem(recentKey) || '[]') as string[];
@@ -105,6 +132,7 @@ export function ForgeLocales({ isAdmin }: { isAdmin: boolean }) {
   const unsavedDraftsRef = useRef<Record<string, UnsavedDraft>>({});
   const focusRef = useRef<{ key: string; position: number; scroll: number } | null>(null);
   const fieldsRef = useRef<Record<string, HTMLTextAreaElement | null>>({});
+  const csvInputRef = useRef<HTMLInputElement | null>(null);
 
   const load = useCallback(async (targetLocale: Locale, targetSection: CatalogSection) => {
     const requestId = ++requestIdRef.current;
@@ -187,6 +215,58 @@ export function ForgeLocales({ isAdmin }: { isAdmin: boolean }) {
   }, [catalog]);
 
   const dirty = JSON.stringify(draft) !== JSON.stringify(savedDraft);
+  useEffect(() => {
+    if (!initialized || !searchActive) return;
+    const controller = new AbortController();
+    void Promise.resolve()
+      .then(async () => {
+        if (controller.signal.aborted) return;
+        setSearchLoading(true);
+        setSearchError('');
+        setSearchCatalogs({});
+        const entries = await Promise.all(
+          catalogSections.map(async (section) => {
+            const query = new URLSearchParams({ route: 'forge-locales', locale, section });
+            const response = await fetch(`/api/app?${query}`, { credentials: 'include', signal: controller.signal });
+            const payload = (await response.json()) as CatalogResponse & { error?: string };
+            if (!response.ok) throw new Error(payload.error || 'Could not search locale catalog.');
+            return [section, payload] as const;
+          }),
+        );
+        if (!controller.signal.aborted) setSearchCatalogs(Object.fromEntries(entries));
+      })
+      .catch((cause) => {
+        if (!controller.signal.aborted)
+          setSearchError(cause instanceof Error ? cause.message : 'Could not search locale catalog.');
+      })
+      .finally(() => {
+        if (!controller.signal.aborted) setSearchLoading(false);
+      });
+    return () => controller.abort();
+  }, [initialized, locale, searchActive]);
+
+  const searchGroups = catalogSections.flatMap((section) => {
+    const sectionCatalog = searchCatalogs[section];
+    const values =
+      section === selectedSection && catalog
+        ? draft
+        : unsavedValues[draftKey(locale, section)] || sectionCatalog?.draftValues || {};
+    const englishValues = sectionCatalog?.englishValues || {};
+    const query = search.trim().toLocaleLowerCase();
+    const matches = (sectionCatalog?.registeredKeys || []).filter(
+      (key) =>
+        key.toLocaleLowerCase().includes(query) ||
+        (values[key] || '').toLocaleLowerCase().includes(query) ||
+        (englishValues[key] || '').toLocaleLowerCase().includes(query),
+    );
+    return [...new Set(matches.map((key) => subgroup(key, section)))].map((group) => ({
+      section,
+      group,
+      values,
+      englishValues,
+      keys: matches.filter((key) => subgroup(key, section) === group),
+    }));
+  });
   const currentSettings = editedSettings || settings.find((item) => item.locale === locale);
   const savedSettings = settings.find((item) => item.locale === locale);
   const settingsDirty = Boolean(
@@ -208,12 +288,11 @@ export function ForgeLocales({ isAdmin }: { isAdmin: boolean }) {
     .slice(0, 5) as Locale[];
 
   function hasUntranslated(section: CatalogSection, group?: string) {
-    const values = section === selectedSection && catalog
-      ? draft
-      : unsavedValues[draftKey(locale, section)];
+    const values = section === selectedSection && catalog ? draft : unsavedValues[draftKey(locale, section)];
     if (values) {
-      return keysForSection(section).some((key) =>
-        (!group || subgroup(key, section) === group) && !(values[key] || '').trim());
+      return keysForSection(section).some(
+        (key) => (!group || subgroup(key, section) === group) && !(values[key] || '').trim(),
+      );
     }
     return !group && Boolean(catalog?.missingCounts[section]);
   }
@@ -241,6 +320,8 @@ export function ForgeLocales({ isAdmin }: { isAdmin: boolean }) {
     if (next === locale) return;
     if (settingsDirty && !window.confirm('Discard unsaved language settings?')) return;
     rememberDraft();
+    setSearchCatalogs({});
+    if (searchActive) setSearchLoading(true);
     setCatalog(null);
     setDraft({});
     setSavedDraft({});
@@ -345,6 +426,44 @@ export function ForgeLocales({ isAdmin }: { isAdmin: boolean }) {
     setError('');
   }
 
+  function exportCsv() {
+    const csv = exportCatalogCsv(visibleKeys, draft, catalog?.englishValues || {});
+    const url = URL.createObjectURL(new Blob([csv], { type: 'text/csv;charset=utf-8' }));
+    const link = document.createElement('a');
+    const group = selectedGroup ? `.${selectedGroup.replace(/\s+/g, '_')}` : '';
+    link.href = url;
+    link.download = `${locale.toUpperCase()}-${selectedSection}${group}.csv`;
+    link.click();
+    window.setTimeout(() => URL.revokeObjectURL(url), 0);
+  }
+
+  async function importCsv(file: File) {
+    if (!catalog?.canEdit) return;
+    const requestId = requestIdRef.current;
+    const allowedKeys = new Set(visibleKeys);
+    setBusy(true);
+    setError('');
+    setNotice('');
+    try {
+      if (file.size > 1_000_000) throw new Error('CSV file is too large (maximum 1 MB).');
+      const values = importCatalogCsv(await file.text());
+      if (requestId !== requestIdRef.current) return;
+      for (const [key, value] of Object.entries(values)) {
+        if (!allowedKeys.has(key)) throw new Error(`Key is outside the selected section or group: ${key}`);
+        if (!isValidCatalogMessage(key, value)) throw new Error(`Check ICU variables and rich-text tags in ${key}.`);
+      }
+      setDraft((current) => ({ ...current, ...values }));
+      setNotice(
+        `Imported ${Object.keys(values).length} local translations into the draft. Review and save to keep them.`,
+      );
+    } catch (cause) {
+      if (requestId === requestIdRef.current)
+        setError(cause instanceof Error ? cause.message : 'Could not import CSV.');
+    } finally {
+      setBusy(false);
+    }
+  }
+
   return (
     <section className={styles.page}>
       <header className={styles.heading}>
@@ -357,6 +476,16 @@ export function ForgeLocales({ isAdmin }: { isAdmin: boolean }) {
           ))}
         </select>
       </header>
+
+      <label className={styles.search}>
+        Search this locale
+        <input
+          type="search"
+          value={search}
+          placeholder="Search keys or text across all sections…"
+          onChange={(event) => setSearch(event.target.value)}
+        />
+      </label>
 
       <div className={styles.tabs} role="tablist" aria-label="Recent languages">
         {tabs.map((item) => (
@@ -388,7 +517,11 @@ export function ForgeLocales({ isAdmin }: { isAdmin: boolean }) {
                 onClick={() => switchSection(item)}
               >
                 {item}
-                {hasUntranslated(item) && <span className={styles.missingDot} aria-hidden="true">•</span>}
+                {hasUntranslated(item) && (
+                  <span className={styles.missingDot} aria-hidden="true">
+                    •
+                  </span>
+                )}
               </button>
               {item === selectedSection &&
                 !showSettings &&
@@ -401,13 +534,77 @@ export function ForgeLocales({ isAdmin }: { isAdmin: boolean }) {
                     onClick={() => setSelectedGroup(group === selectedGroup ? null : group)}
                   >
                     {group}
-                    {hasUntranslated(item, group) && <span className={styles.missingDot} aria-hidden="true">•</span>}
+                    {hasUntranslated(item, group) && (
+                      <span className={styles.missingDot} aria-hidden="true">
+                        •
+                      </span>
+                    )}
                   </button>
                 ))}
             </div>
           ))}
         </nav>
-        {showSettings ? (
+        {searchActive ? (
+          <div className={styles.editorWrap}>
+            <div className={styles.editorHeading}>
+              <strong>Search results · {localeNames[locale]}</strong>
+              <span aria-live="polite">
+                {searchLoading
+                  ? 'Searching…'
+                  : `${searchGroups.reduce((total, group) => total + group.keys.length, 0)} matches`}
+              </span>
+            </div>
+            {searchError && <p className={styles.error}>{searchError}</p>}
+            {!searchLoading && !searchError && !searchGroups.length && (
+              <p className={styles.empty}>No matching keys or text.</p>
+            )}
+            {!searchLoading &&
+              !searchError &&
+              searchGroups.map(({ section, group, values, englishValues, keys }) => (
+                <section key={`${section}:${group}`}>
+                  <div className={styles.editorHeading}>
+                    <strong>
+                      {section} / {group}
+                    </strong>
+                  </div>
+                  <div className={styles.editor}>
+                    {keys.map((key) => (
+                      <button
+                        type="button"
+                        className={`${styles.line} ${styles.searchResult}`}
+                        key={key}
+                        aria-label={`Edit ${key} in ${section} / ${group}`}
+                        onClick={() => {
+                          switchSection(section);
+                          setSelectedGroup(group);
+                          setActiveKey(key);
+                          setSearch('');
+                        }}
+                      >
+                        <span className={styles.key}>{highlightSearch(key, search)}</span>
+                        <span className={styles.equals}>=</span>
+                        <span className={styles.valueCell}>
+                          {values[key]?.trim() && (
+                            <span className={styles.searchValue}>{highlightSearch(values[key], search)}</span>
+                          )}
+                          {locale !== 'en' && englishValues[key] && (
+                            <span className={styles.englishReference}>
+                              {highlightSearch(englishValues[key], search)}
+                            </span>
+                          )}
+                          {locale === 'en' && !values[key]?.trim() && (
+                            <span className={styles.searchValue}>
+                              {highlightSearch(englishValues[key] || '', search)}
+                            </span>
+                          )}
+                        </span>
+                      </button>
+                    ))}
+                  </div>
+                </section>
+              ))}
+          </div>
+        ) : showSettings ? (
           <div className={styles.settingsPanel}>
             <div className={styles.editorHeading}>
               <strong>Language settings</strong>
@@ -560,6 +757,35 @@ export function ForgeLocales({ isAdmin }: { isAdmin: boolean }) {
                 )}
               </div>
             </footer>
+            <div className={styles.csvActions}>
+              <Button
+                size="xs"
+                variant="secondaryAction"
+                disabled={busy || !catalog || !visibleKeys.length}
+                onClick={exportCsv}
+              >
+                Export CSV
+              </Button>
+              <Button
+                size="xs"
+                variant="secondaryAction"
+                disabled={busy || !catalog?.canEdit || !visibleKeys.length}
+                onClick={() => csvInputRef.current?.click()}
+              >
+                Import CSV
+              </Button>
+              <input
+                ref={csvInputRef}
+                type="file"
+                accept=".csv,text/csv"
+                hidden
+                onChange={(event) => {
+                  const file = event.target.files?.[0];
+                  event.target.value = '';
+                  if (file) void importCsv(file);
+                }}
+              />
+            </div>
           </div>
         )}
       </div>
