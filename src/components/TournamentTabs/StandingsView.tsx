@@ -105,6 +105,7 @@ type StandingsSortKey =
   | 'default'
   | 'team'
   | 'teamRank'
+  | 'powerRating'
   | 'achievements120min'
   | 'achievements120minPercent'
   | 'totalMinutes'
@@ -265,9 +266,9 @@ export const StandingsView: React.FC<StandingsViewProps> = ({
         return sortDirection === 'asc' ? result : -result;
       }
 
-      if (sortKey === 'teamRank') {
-        const aMissing = a.teamRank == null;
-        const bMissing = b.teamRank == null;
+      if (sortKey === 'teamRank' || sortKey === 'powerRating') {
+        const aMissing = a[sortKey] == null;
+        const bMissing = b[sortKey] == null;
         if (aMissing !== bMissing) return aMissing ? 1 : -1;
       }
 
@@ -278,7 +279,9 @@ export const StandingsView: React.FC<StandingsViewProps> = ({
             ? percentage120min(a)
             : sortKey === 'teamRank'
               ? (a.teamRank ?? 0)
-              : Number(a[sortKey]);
+              : sortKey === 'powerRating'
+                ? (a.powerRating ?? 0)
+                : Number(a[sortKey]);
       const bValue =
         sortKey === 'appg'
           ? averagePointsPerGame(b)
@@ -286,7 +289,9 @@ export const StandingsView: React.FC<StandingsViewProps> = ({
             ? percentage120min(b)
             : sortKey === 'teamRank'
               ? (b.teamRank ?? 0)
-              : Number(b[sortKey]);
+              : sortKey === 'powerRating'
+                ? (b.powerRating ?? 0)
+                : Number(b[sortKey]);
       const result = bValue - aValue;
       if (result !== 0) return sortDirection === 'asc' ? -result : result;
       return a.teamName.localeCompare(b.teamName, undefined, { sensitivity: 'base' });
@@ -641,7 +646,9 @@ export const StandingsView: React.FC<StandingsViewProps> = ({
               <tr>
                 <th>#</th>
                 {sortableHeader('Team', 'team', '', 'Tournament team')}
-                {showHfiRank && sortableHeader('HFI', 'teamRank', styles.rankColumn, 'HFI league rank')}
+                {showHfiRank
+                  ? sortableHeader('HFI', 'teamRank', styles.rankColumn, 'HFI league rank')
+                  : sortableHeader('PwrR', 'powerRating', styles.rankColumn, 'Hattrick Power Rating')}
                 {show120minScoring ? (
                   <>
                     {sortableHeader('120m', 'achievements120min', styles.center120, 'Completed 120 min matches')}
@@ -710,11 +717,13 @@ export const StandingsView: React.FC<StandingsViewProps> = ({
                             <ArrowRight size={15} weight="bold" className={styles.placeholderArrow} />
                           </div>
                         </button>
-                        <span className={styles.placeholderByline}>{uiText('inviteOthersToGetThisTournamentStarted')}</span>
+                        <span className={styles.placeholderByline}>
+                          {uiText('inviteOthersToGetThisTournamentStarted')}
+                        </span>
                       </div>
                     </div>
                   </td>
-                  {showHfiRank && <td className={styles.rankColumn}>—</td>}
+                  <td className={styles.rankColumn}>—</td>
                   {show120minScoring ? (
                     <>
                       <td className={`${styles.highlight} ${styles.center}`}>0</td>
@@ -753,7 +762,7 @@ export const StandingsView: React.FC<StandingsViewProps> = ({
                   <React.Fragment key={s.teamId}>
                     {showAppgScoring && idx === qualifiedAppgCount && qualifiedAppgCount < sortedStandings.length && (
                       <tr>
-                        <th colSpan={showHfiRank ? 8 : 7} className={styles.appgQuotaLabel}>
+                        <th colSpan={8} className={styles.appgQuotaLabel}>
                           {uiText('doesNotReachQuota')}
                         </th>
                       </tr>
@@ -841,7 +850,7 @@ export const StandingsView: React.FC<StandingsViewProps> = ({
                           )}
                         </div>
                       </td>
-                      {showHfiRank && <td className={styles.rankColumn}>{s.teamRank ?? '—'}</td>}
+                      <td className={styles.rankColumn}>{(showHfiRank ? s.teamRank : s.powerRating) ?? '—'}</td>
                       {show120minScoring ? (
                         <>
                           <td className={`${styles.highlight} ${styles.center}`}>{s.achievements120min}</td>
@@ -910,7 +919,7 @@ export const StandingsView: React.FC<StandingsViewProps> = ({
                         )}
                       </div>
                     </td>
-                    {showHfiRank && <td className={styles.rankColumn}>—</td>}
+                    <td className={styles.rankColumn}>—</td>
                     <td colSpan={show120minScoring ? 5 : showAppgScoring ? 5 : 6} />
                   </tr>
                 );
@@ -929,7 +938,8 @@ export const StandingsView: React.FC<StandingsViewProps> = ({
               onClick={onJoinWithHattrick}
               disabled={isConnecting}
             >
-              <ArrowRight size={18} weight="bold" /> {isConnecting ? uiText('connectingToHattrick') : uiText('joinWithHattrick')}
+              <ArrowRight size={18} weight="bold" />{' '}
+              {isConnecting ? uiText('connectingToHattrick') : uiText('joinWithHattrick')}
             </Button>
           </div>
         )}
@@ -1000,9 +1010,15 @@ export const StandingsView: React.FC<StandingsViewProps> = ({
         </SeasonYearbook>
       )}
       {pendingCommentStanding && (
-        <Modal isOpen onClose={() => setPendingCommentStanding(null)} title={uiText('postFinalComment2')} maxWidth="500px">
+        <Modal
+          isOpen
+          onClose={() => setPendingCommentStanding(null)}
+          title={uiText('postFinalComment2')}
+          maxWidth="500px"
+        >
           <p>
-            {uiText('thisWillPublishYourFinalSeasonCommentAs')} <strong>{pendingCommentStanding.teamName}</strong>{uiText('itCannotBeChangedLater')}
+            {uiText('thisWillPublishYourFinalSeasonCommentAs')} <strong>{pendingCommentStanding.teamName}</strong>
+            {uiText('itCannotBeChangedLater')}
           </p>
           <div className={styles.historyReportActions}>
             <Button variant="secondaryYellow" size="sm" onClick={() => setPendingCommentStanding(null)}>

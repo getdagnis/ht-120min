@@ -88,6 +88,7 @@ import {
 import type { MatchEventDetails } from '../../../shared/match-events.js';
 import type { PersistedScoringMode } from '../../../shared/scoring-profile.js';
 import type { SeasonFixturesSnapshot } from '../../utils/season-fixtures.js';
+import { buildLengthScheduleDraft, serializeLengthScheduleDraft } from '../../utils/length-schedule.js';
 import { progressLengthSchedule, recoverLengthRoundOne, repairLengthRound } from './_lib/length-schedule-service.js';
 import { FixtureRatingsError, isLocalRatingsAdmin, loadVisibleFixtureRatings, saveFixtureRatings } from './_lib/fixture-ratings.js';
 
@@ -179,7 +180,8 @@ async function handleDuplicateTournamentAsSandbox(req: VercelRequest, res: Verce
   }
 }
 
-async function handleUpdateHfiRanks(req: VercelRequest, res: VercelResponse) {
+async function handleUpdateHfiRanks(req: VercelRequest, res: VercelResponse, powerRankings = false) {
+  const rankLabel = powerRankings ? 'Power Rankings' : 'HFI ranks';
   if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed.' });
   const tournamentId = readString(req.body?.tournamentId);
   if (!tournamentId) return res.status(400).json({ error: 'Missing tournamentId.' });
@@ -196,7 +198,9 @@ async function handleUpdateHfiRanks(req: VercelRequest, res: VercelResponse) {
   if (tournamentError) throw tournamentError;
   if (!tournament) return res.status(404).json({ error: 'Tournament not found.' });
 
-  const accessError = validateHfiRankRefreshAccess({
+  const accessError = powerRankings
+    ? actor.access.canManageOperations ? null : 'You do not have permission to update rankings.'
+    : validateHfiRankRefreshAccess({
     canManageOperations: actor.access.canManageOperations,
     leagueCategory: tournament.league_category,
   });
@@ -210,7 +214,7 @@ async function handleUpdateHfiRanks(req: VercelRequest, res: VercelResponse) {
 
   const credentials = await getManagerChppCredentials(supabase, actor.userId);
   if (!credentials) {
-    return res.status(409).json({ error: 'Refresh your Hattrick login before updating HFI ranks.' });
+    return res.status(409).json({ error: `Refresh your Hattrick login before updating ${rankLabel}.` });
   }
 
   const { data: teamRows, error: teamsError } = await supabase
@@ -223,6 +227,7 @@ async function handleUpdateHfiRanks(req: VercelRequest, res: VercelResponse) {
 
   try {
     const result = await refreshCurrentHfiTeamRanks({
+      rankingSource: powerRankings ? 'power_rating' : 'team_rank',
       participants: (teamRows || []) as HfiRankParticipant[],
       fetchTeamDetails: (teamId) =>
         fetchTeamDetailsFromChpp(consumerKey, consumerSecret, credentials, teamId),
@@ -230,7 +235,7 @@ async function handleUpdateHfiRanks(req: VercelRequest, res: VercelResponse) {
         const { data, error } = await supabase
           .from('teams')
           .update({
-            team_rank: update.teamRank,
+            ...(!powerRankings ? { team_rank: update.teamRank } : {}),
             power_rating: update.powerRating,
             power_global_rank: update.powerGlobalRank,
             power_league_rank: update.powerLeagueRank,
@@ -247,7 +252,7 @@ async function handleUpdateHfiRanks(req: VercelRequest, res: VercelResponse) {
 
     return res.status(200).json(result);
   } catch (error) {
-    const message = error instanceof Error ? error.message : 'Could not update HFI ranks.';
+    const message = error instanceof Error ? error.message : `Could not update ${rankLabel}.`;
     return res.status(422).json({ error: message });
   }
 }
@@ -355,14 +360,31 @@ async function handleGenerateLengthSchedule(req: VercelRequest, res: VercelRespo
     .maybeSingle();
   if (tournamentError) throw tournamentError;
   if (!tournament) return res.status(404).json({ error: 'Tournament not found.' });
-  if (tournament.league_category !== 'hfi') {
-    return res.status(422).json({ error: 'Length scheduling is currently available for HFI tournaments.' });
+  const { data: roster, error: rosterError } = await supabase.from('teams')
+    .select('id, name, active, is_placeholder, team_rank, power_rating, country_name, league_level')
+    .eq('tournament_id', tournamentId).eq('active', true).eq('reserve_active', false);
+  if (rosterError) throw rosterError;
+  // Rebuild from persisted metadata. Browser previews never choose seeds, pairings,
+  // safe dates or ranking source for the privileged generation RPC.
+  const draft = buildLengthScheduleDraft({
+    teams: (roster || []).map(team => ({
+      id: team.id, name: team.name, active: team.active, isPlaceholder: team.is_placeholder,
+      teamRank: team.team_rank, powerRating: team.power_rating,
+      countryName: team.country_name, leagueLevel: team.league_level,
+    })),
+    rankingSource: tournament.league_category === 'hfi' ? 'team_rank' : 'power_rating',
+    startSlotId: readString(schedulePayload.start_slot_id),
+    selectedFormatId: readString(schedulePayload.format_id),
+  });
+  if (!draft.valid) return res.status(422).json({ error: draft.reason });
+  if (!draft.formats.some(format => format.id === schedulePayload.format_id)) {
+    return res.status(422).json({ error: 'Choose a supported schedule format.' });
   }
 
   const { data, error } = await supabase.rpc('generate_length_tournament_schedule', {
     p_tournament_id: tournamentId,
     p_season_number: seasonNumber,
-    p_schedule_payload: schedulePayload,
+    p_schedule_payload: serializeLengthScheduleDraft(draft),
   });
   if (error) return res.status(422).json({ error: error.message });
   return res.status(201).json(data);
@@ -3541,6 +3563,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         return await handleTournamentAccess(req, res);
       case 'duplicate-tournament-sandbox':
         return await handleDuplicateTournamentAsSandbox(req, res);
+      case 'update-power-rankings':
+        return await handleUpdateHfiRanks(req, res, true);
       case 'update-hfi-ranks':
         return await handleUpdateHfiRanks(req, res);
       case 'refresh-spotlight-profiles':

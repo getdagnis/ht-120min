@@ -1,6 +1,6 @@
 # PROJECT_STATE.md
 
-Last updated: 2026-10-09
+Last updated: 2026-10-11
 
 This is the current-status ledger. Update it after meaningful implementation work. Be explicit about what is local, migrated, tested, deployed, or still unknown.
 
@@ -112,7 +112,7 @@ Production means live deployed behavior. If it has not been checked against the 
 
 ### Scheduling
 
-- New HFI generated seasons use calendar/length choices, frozen TeamRank, reserved pending rounds, staged materialization, and optional one-round postseason finals; legacy schedule modes remain readable and manageable.
+- New generated seasons across all categories now use calendar-first length choices locally: single round robin or all safe remaining slots, repeated ranked cycles, and optional one/two/three-round postseason finishes at the agreed field/calendar thresholds. Regular tournaments seed from Power Rating; HFI tournaments seed from HFI TeamRank. Only Round 1 materializes at publication; existing version 1 and legacy/manual schedules retain their paths. Admin Teams offers an explicit ranking refresh for either source, and regular standings show Power Rating. Migration `107_calendar_first_generated_schedules.sql` is prepared; disposable PostgreSQL generation/progression, mocked CHPP refresh and local build/tests are verified, while live function definitions, Supabase application and real CHPP behavior remain unverified. See `docs/scheduling.md` for the plan contract, eligibility and rollout order.
 - Regular standings exclude `postseason` rounds. Season champion identity is stored separately from the regular table.
 - Weeks 1-3 are blocked cup weeks.
 - Weeks 4-6 are selectable but flagged with cup-likelihood warnings.

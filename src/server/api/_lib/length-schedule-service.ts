@@ -2,6 +2,8 @@ import {
   buildRoundRepair,
   generateBalancedRound,
   resolveChampionshipTeam,
+  seedPlayoffPairings,
+  type ReservedRegularPairing,
   type LengthSchedulePairing,
   type LengthScheduleTeam,
   type PairingHistory,
@@ -18,6 +20,7 @@ interface StoredRound {
   round_number: number;
   phase: 'regular' | 'postseason';
   phase_status: 'pending' | 'materialized' | 'completed';
+  phase_round_number?: number;
   reserved_slot_id: string | null;
   reserved_slot_kind: 'midweek_friendly' | 'weekend_friendly' | null;
   reserved_slot_date: string | null;
@@ -42,6 +45,7 @@ interface StoredMatch {
   ht_match_id: number | null;
   scheduled_for: string | null;
   finished_at: string | null;
+  playoff_match_number?: number | null;
 }
 
 interface TeamRow {
@@ -63,6 +67,7 @@ interface TeamRow {
 
 interface SlotRow {
   id: string;
+  slot_index?: number;
   current_team_id: string | null;
 }
 
@@ -120,18 +125,18 @@ async function loadLengthSeason(supabase: ServiceSupabase, tournamentId: string,
       supabase
         .from('rounds')
         .select(`
-          id, round_number, phase, phase_status, reserved_slot_id, reserved_slot_kind, reserved_slot_date,
+          id, round_number, phase, phase_round_number, phase_status, reserved_slot_id, reserved_slot_kind, reserved_slot_date,
           matches (
             id, home_team_id, away_team_id, home_slot_id, away_slot_id, status, completed,
             home_goals, away_goals, went_120, total_minutes,
             penalty_shootout_home_goals, penalty_shootout_away_goals, schedule_resolution,
-            ht_match_id, scheduled_for, finished_at
+            ht_match_id, scheduled_for, finished_at, playoff_match_number
           )
         `)
         .eq('tournament_id', tournamentId)
         .eq('season_number', seasonNumber)
         .order('round_number'),
-      supabase.from('tournament_season_slots').select('id, current_team_id').eq('tournament_season_id', season.id),
+      supabase.from('tournament_season_slots').select('id, slot_index, current_team_id').eq('tournament_season_id', season.id),
     ]);
   if (roundsError) throw roundsError;
   if (slotsError) throw slotsError;
@@ -171,10 +176,66 @@ function rankingMap(snapshot: unknown) {
   for (const row of snapshot) {
     if (!row || typeof row !== 'object') continue;
     const teamId = 'team_id' in row ? String(row.team_id) : '';
-    const rank = 'team_rank' in row ? Number(row.team_rank) : NaN;
+    const rank = 'seed' in row ? Number(row.seed) : 'team_rank' in row ? Number(row.team_rank) : NaN;
     if (teamId && Number.isInteger(rank) && rank > 0) map.set(teamId, rank);
   }
   return map;
+}
+
+function readSchedulePlan(value: unknown) {
+  if (!value || typeof value !== 'object') return null;
+  const plan = value as { version?: number; regular_pairings?: ReservedRegularPairing[][]; postseason_rounds?: number };
+  return plan.version === 2 && Array.isArray(plan.regular_pairings) ? plan : null;
+}
+
+function seasonRanks(state: NonNullable<Awaited<ReturnType<typeof loadLengthSeason>>>) {
+  const ranks = rankingMap(state.season.ranking_snapshot_json);
+  if (readSchedulePlan(state.season.schedule_plan_json)) {
+    for (const slot of state.slots) if (slot.current_team_id && slot.slot_index) ranks.set(slot.current_team_id, slot.slot_index);
+  }
+  return ranks;
+}
+
+function reservedPairings(state: NonNullable<Awaited<ReturnType<typeof loadLengthSeason>>>, roundNumber: number) {
+  const plan = readSchedulePlan(state.season.schedule_plan_json);
+  if (!plan) return null;
+  const pairs = plan.regular_pairings![roundNumber - 1];
+  if (!pairs) throw new Error('The reserved regular-round pairing plan is missing.');
+  const occupants = new Map(state.slots.map(slot => [slot.slot_index, slot.current_team_id]));
+  const rosterSize = Array.isArray(state.season.ranking_snapshot_json) ? state.season.ranking_snapshot_json.length : 0;
+  if (state.teams.length !== rosterSize) return null; // Reuse the repair-compatible fallback for vacancies.
+  const slotIds = new Map(state.slots.map(slot => [slot.slot_index, slot.id]));
+  // Preserve the existing repair/played-history behavior if a past round was
+  // missed, repaired or reoriented. The normal cycle plan must not overwrite it.
+  for (const previous of state.rounds.filter(round => round.phase === 'regular' && round.round_number < roundNumber)) {
+    const planned = plan.regular_pairings![previous.round_number - 1];
+    const expected = planned?.map(pair => `${slotIds.get(pair.home_slot_index)}:${pair.away_slot_index ? slotIds.get(pair.away_slot_index) : ''}`).sort();
+    const actual = previous.matches.map(match => `${match.home_slot_id || ''}:${match.away_slot_id || ''}`).sort();
+    if (!expected || JSON.stringify(expected) !== JSON.stringify(actual) || previous.matches.some(match =>
+      Boolean(match.home_team_id && match.away_team_id) &&
+      (match.schedule_resolution === 'finalized_unplayed' || (!match.completed && match.status !== 'finished')),
+    )) return null;
+  }
+  return pairs.map(pair => {
+    const home = occupants.get(pair.home_slot_index) || null;
+    const away = pair.away_slot_index ? occupants.get(pair.away_slot_index) || null : null;
+    if (!home) throw new Error('A reserved season slot has no participant.');
+    return { homeTeamId: home, awayTeamId: away, isBye: !away };
+  });
+}
+
+function playoffWinner(match: StoredMatch) {
+  if (!match.completed || !match.home_team_id || !match.away_team_id || match.home_goals == null || match.away_goals == null) {
+    throw new Error('Every playoff fixture needs a completed, decisive result.');
+  }
+  const winner = resolveChampionshipTeam({
+    homeTeamId: match.home_team_id, awayTeamId: match.away_team_id,
+    homeGoals: match.home_goals, awayGoals: match.away_goals, went120: match.went_120,
+    penaltyShootoutHomeGoals: match.penalty_shootout_home_goals,
+    penaltyShootoutAwayGoals: match.penalty_shootout_away_goals,
+  });
+  if (!winner) throw new Error('A playoff fixture does not yet have a decisive winner.');
+  return winner;
 }
 
 function toLengthTeams(teams: TeamRow[], ranks: Map<string, number>): LengthScheduleTeam[] {
@@ -269,57 +330,73 @@ export async function progressLengthSchedule(
     return { advanced: false, reason: 'round_unresolved' };
   }
   const next = state.rounds.find((round) => round.round_number === current.round_number + 1) || null;
-  const ranks = rankingMap(state.season.ranking_snapshot_json);
+  const ranks = seasonRanks(state);
   const lengthTeams = toLengthTeams(state.teams, ranks);
   let nextMatches: Array<Record<string, unknown>> = [];
   let championTeamId: string | null = null;
 
   if (next?.phase === 'regular') {
-    const history = buildPairingHistory(state.rounds.filter((round) => round.round_number <= current.round_number));
+    const versionTwo = Boolean(readSchedulePlan(state.season.schedule_plan_json));
+    const history = buildPairingHistory(state.rounds.filter(round => round.round_number <= current.round_number).map(round =>
+      versionTwo && round.id === current.id ? { ...round, phase_status: 'completed' as const } : round,
+    ));
+    history.balanceRepeats = versionTwo;
     nextMatches = buildStoredPairings(
       next,
-      generateBalancedRound(lengthTeams, history, next.round_number - 1),
+      reservedPairings(state, next.round_number) ?? generateBalancedRound(lengthTeams, history, next.round_number - 1),
       lengthTeams,
     );
   } else if (next?.phase === 'postseason') {
-    const regularMatches = state.rounds
-      .filter((round) => round.phase === 'regular')
-      .flatMap((round) => round.matches)
-      .filter((match) => match.schedule_resolution !== 'finalized_unplayed');
-    const standings = calculateSeasonSlotStandings(
-      state.teams.map((team): Team => ({
-        id: team.id,
-        name: team.name,
-        ht_team_id: team.ht_team_id,
-        hattrick_user_id: team.hattrick_user_id,
-        active: team.active,
-        replacement_for_team_id: team.replacement_for_team_id,
-        country_name: team.country_name,
-        country_id: team.country_id,
-        league_id: team.league_id,
-        logo_url: team.logo_url,
-        manager_name: team.manager_name,
-        reserve_active: team.reserve_active ?? false,
-        team_rank: team.team_rank,
-      })),
-      regularMatches.map((match) => ({
-        ...match,
-        total_minutes: match.total_minutes ?? undefined,
-      })),
-      state.slots,
-      state.tournament.scoring_mode as PersistedScoringMode,
-      state.assignments,
-    );
-    const occupiedSlots = new Map(
-      state.slots.flatMap((slot) => (slot.current_team_id ? [[slot.id, slot.current_team_id] as const] : [])),
-    );
-    const eligibleStandings = standings.filter((standing) => occupiedSlots.has(standing.teamId));
-    if (eligibleStandings.length < 2) throw new Error('Regular standings do not contain two active finalists.');
-    nextMatches = buildStoredPairings(next, [{
-      homeTeamId: occupiedSlots.get(eligibleStandings[0]!.teamId)!,
-      awayTeamId: occupiedSlots.get(eligibleStandings[1]!.teamId)!,
-      isBye: false,
-    }], lengthTeams);
+    const plan = readSchedulePlan(state.season.schedule_plan_json);
+    if (current.phase === 'postseason') {
+      const matches = [...current.matches].sort((a, b) => (a.playoff_match_number || 1) - (b.playoff_match_number || 1));
+      const currentPhaseRound = current.phase_round_number || state.rounds.filter(round => round.phase === 'postseason' && round.round_number <= current.round_number).length;
+      const expectedMatches = 2 ** ((plan?.postseason_rounds || 1) - currentPhaseRound);
+      if (matches.length !== expectedMatches || matches.length < 2) throw new Error('The preceding playoff round is incomplete.');
+      const winners = matches.map(playoffWinner);
+      const pairs = Array.from({ length: winners.length / 2 }, (_, i) => ({
+        homeTeamId: winners[i * 2]!, awayTeamId: winners[i * 2 + 1]!, isBye: false,
+      }));
+      nextMatches = buildStoredPairings(next, pairs, lengthTeams).map((match, i) => ({ ...match, playoff_match_number: i + 1 }));
+    } else {
+      const regularMatches = state.rounds
+        .filter((round) => round.phase === 'regular')
+        .flatMap((round) => round.matches)
+        .filter((match) => match.schedule_resolution !== 'finalized_unplayed');
+      const standings = calculateSeasonSlotStandings(
+        state.teams.map((team): Team => ({
+          id: team.id,
+          name: team.name,
+          ht_team_id: team.ht_team_id,
+          hattrick_user_id: team.hattrick_user_id,
+          active: team.active,
+          replacement_for_team_id: team.replacement_for_team_id,
+          country_name: team.country_name,
+          country_id: team.country_id,
+          league_id: team.league_id,
+          logo_url: team.logo_url,
+          manager_name: team.manager_name,
+          reserve_active: team.reserve_active ?? false,
+          team_rank: team.team_rank,
+        })),
+        regularMatches.map((match) => ({
+          ...match,
+          total_minutes: match.total_minutes ?? undefined,
+        })),
+        state.slots,
+        state.tournament.scoring_mode as PersistedScoringMode,
+        state.assignments,
+      );
+      const occupiedSlots = new Map(
+        state.slots.flatMap((slot) => (slot.current_team_id ? [[slot.id, slot.current_team_id] as const] : [])),
+      );
+      const eligibleStandings = standings.filter((standing) => occupiedSlots.has(standing.teamId));
+      const qualifierCount = 2 ** (plan?.postseason_rounds || 1);
+      if (eligibleStandings.length < qualifierCount) throw new Error('Regular standings do not contain enough active playoff qualifiers.');
+      const qualifiers = eligibleStandings.slice(0, qualifierCount).map(standing => occupiedSlots.get(standing.teamId)!);
+      nextMatches = buildStoredPairings(next, seedPlayoffPairings(qualifiers), lengthTeams)
+        .map((match, i) => ({ ...match, ...(plan ? { playoff_match_number: i + 1 } : {}) }));
+    }
   } else if (!next && current.phase === 'postseason') {
     const finalMatch = current.matches.find((match) => match.home_team_id && match.away_team_id && match.completed);
     if (!finalMatch?.home_team_id || !finalMatch.away_team_id || finalMatch.home_goals == null || finalMatch.away_goals == null) {
@@ -386,11 +463,10 @@ export async function recoverLengthRoundOne(
     throw new Error('Round 1 recovery requires length scheduling.');
   }
 
-  // This deliberately ignores current Round 1 matches. The frozen TeamRank
-  // snapshot plus current physical season-slot occupants are the only inputs
-  // used to recreate the original deterministic pairing and orientation.
+  // Reconstruct from the frozen original plan (or the legacy TeamRank snapshot),
+  // never from the current Round 1 fixture rows.
   const originalTeams = toOriginalRoundTeams(state.teams, state.slots, state.season.ranking_snapshot_json);
-  const originalPairings = generateBalancedRound(originalTeams, {}, 0);
+  const originalPairings = reservedPairings(state, 1) ?? generateBalancedRound(originalTeams, {}, 0);
   const replacementMatches = buildStoredPairings(roundOne, originalPairings, originalTeams);
   const { data, error } = await supabase.rpc('recover_length_schedule_round_one', {
     p_tournament_id: tournamentId,
@@ -457,9 +533,10 @@ export async function repairLengthRound(
   );
   if (affectedMatches.length === 0) throw new Error('No repairable affected fixtures were detected.');
   const untouchedMatches = current.matches.filter((match) => !affectedMatches.includes(match));
-  const ranks = rankingMap(state.season.ranking_snapshot_json);
+  const ranks = seasonRanks(state);
   const lengthTeams = toLengthTeams(state.teams, ranks);
   const history = buildPairingHistory(state.rounds.filter((round) => round.round_number < current.round_number));
+  history.balanceRepeats = Boolean(readSchedulePlan(state.season.schedule_plan_json));
   const repair = buildRoundRepair({
     teams: lengthTeams,
     lockedPairs: untouchedMatches.flatMap((match) =>

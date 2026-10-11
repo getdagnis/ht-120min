@@ -19,22 +19,12 @@ import { formatCalendarDateWithWeek } from '../../../utils/hattrick-calendar';
 import { isCurrentParticipantTeam } from '../../../utils/team-state';
 import { normalizeTournamentRegistrationType } from '../../../utils/tournament-types';
 import { normalizeLeagueLimit } from '../../../../shared/worlddetails';
-import { getFullRoundRobinRoundCount } from '../../../utils/length-schedule';
 import type { TournamentAnnouncement, TournamentAnnouncementVisibility } from '../../../utils/tournament-announcements';
 import type { ScheduleDraftPreview } from '../../../utils/schedule-draft';
 import type { LengthScheduleDraft } from '../../../utils/length-schedule';
 import type { RescheduleDraftPreview } from '../../../utils/reschedule-draft';
 import type { ResultCsvRow } from '../../../utils/result-csv';
-import {
-  ArrowClockwise,
-  ArrowRight,
-  ArrowUpRight,
-  CopySimple,
-  Info,
-  Question,
-  Star,
-  Trash,
-} from 'phosphor-react';
+import { ArrowClockwise, ArrowRight, ArrowUpRight, CopySimple, Info, Question, Star, Trash } from 'phosphor-react';
 import adminStyles from '../../../legacy-pages/Public/TournamentAdmin.module.sass';
 import styles from '../../../legacy-pages/Public/TournamentView.module.sass';
 import type {
@@ -67,8 +57,12 @@ const ADMIN_PANELS = [
 
 type AdminPanelId = (typeof ADMIN_PANELS)[number]['id'];
 type Setter<T> = React.Dispatch<React.SetStateAction<T>>;
-type ScheduleSuggestionFetcher = NonNullable<React.ComponentProps<typeof TournamentSchedulePanel>['fetchHtMatchSuggestions']>;
-type ManualRoundsNormalizer = NonNullable<React.ComponentProps<typeof TournamentSchedulePanel>['onNormalizeManualRounds']>;
+type ScheduleSuggestionFetcher = NonNullable<
+  React.ComponentProps<typeof TournamentSchedulePanel>['fetchHtMatchSuggestions']
+>;
+type ManualRoundsNormalizer = NonNullable<
+  React.ComponentProps<typeof TournamentSchedulePanel>['onNormalizeManualRounds']
+>;
 
 export interface TournamentAdminController {
   data: {
@@ -96,7 +90,7 @@ export interface TournamentAdminController {
     previousSeasons: TournamentSeason[];
     currentSeason: TournamentSeason | undefined;
     isCurrentSeasonPlanned: boolean;
-  tournamentSettingsFaqItems: Array<{ id: string; title: string; body: string }>;
+    tournamentSettingsFaqItems: Array<{ id: string; title: string; body: string }>;
   };
   access: {
     isAdminAuthenticated: boolean;
@@ -213,9 +207,7 @@ export interface TournamentAdminController {
     onFetchHtMatchSuggestions: ScheduleSuggestionFetcher;
     includeWeek15WeekendFriendly: boolean;
     includeWeek15WeekendFriendlyForReschedule: boolean;
-    customLengthRoundCount: number;
     setLengthFormatId: Setter<string | null>;
-    setCustomLengthRoundCount: Setter<number>;
     normalizeManualRounds: ManualRoundsNormalizer;
     fetchFixturesOnly: () => Promise<void>;
   };
@@ -351,8 +343,7 @@ export const TournamentAdmin: React.FC<{ controller: TournamentAdminController }
     announcements: announcementController,
     roles,
     lifecycle,
-  } =
-    controller;
+  } = controller;
   const {
     activeTab,
     tournament,
@@ -485,9 +476,7 @@ export const TournamentAdmin: React.FC<{ controller: TournamentAdminController }
     onFetchHtMatchSuggestions: fetchHtMatchSuggestions,
     includeWeek15WeekendFriendly,
     includeWeek15WeekendFriendlyForReschedule,
-    customLengthRoundCount,
     setLengthFormatId,
-    setCustomLengthRoundCount,
     normalizeManualRounds,
     fetchFixturesOnly,
   } = schedule;
@@ -695,7 +684,6 @@ export const TournamentAdmin: React.FC<{ controller: TournamentAdminController }
   const handleRegenerateSchedule = async () => {
     if (await regenerateSchedule()) setSchedulePanelCollapsed(true);
   };
-
 
   return (
     <>
@@ -1095,9 +1083,7 @@ export const TournamentAdmin: React.FC<{ controller: TournamentAdminController }
                             </Button>
                           </div>
                           {renderUnsavedSettingsNote(settingsHasUnsavedChanges)}
-                          {isSiteAdmin && tournament && <CollectionMembershipPanel
-                            tournamentId={tournament.id}
-                          />}
+                          {isSiteAdmin && tournament && <CollectionMembershipPanel tournamentId={tournament.id} />}
                           {showAdvancedSettings && (
                             <div className={adminStyles.settingsGroup}>
                               <div className={adminStyles.field}>
@@ -1244,19 +1230,6 @@ export const TournamentAdmin: React.FC<{ controller: TournamentAdminController }
                             fetchHtMatchSuggestions={fetchHtMatchSuggestions}
                             lengthDraft={usesLengthSchedulePlanner ? lengthScheduleDraft : null}
                             onLengthFormatChange={setLengthFormatId}
-                            customLengthRoundCount={customLengthRoundCount}
-                            onCustomLengthRoundCountChange={(roundCount) => {
-                              const next = Math.max(
-                                1,
-                                Math.min(
-                                  lengthScheduleDraft.safeRoundCount || 1,
-                                  getFullRoundRobinRoundCount(activeScheduleTeams.length),
-                                  roundCount || 1,
-                                ),
-                              );
-                              setCustomLengthRoundCount(next);
-                              setLengthFormatId(`custom-${next}`);
-                            }}
                           />
                         </div>
                       )}
@@ -1431,37 +1404,41 @@ export const TournamentAdmin: React.FC<{ controller: TournamentAdminController }
                                   {isRefreshingTeamStatuses ? 'Chatting with Hattrick...' : 'Check booking status'}
                                 </Button>
                               </div>
-                              {tournament.league_category === 'hfi' &&
-                                oauthRoleAccess &&
-                                roleAccess?.canManageOperations && (
-                                  <div className={adminStyles.teamPlanningRow}>
-                                    <div>
-                                      <p className={adminStyles.smallNote}>
-                                        Refresh current HFI ranks before generating a schedule.
+                              {oauthRoleAccess && roleAccess?.canManageOperations && (
+                                <div className={adminStyles.teamPlanningRow}>
+                                  <div>
+                                    <p className={adminStyles.smallNote}>
+                                      Refresh current{' '}
+                                      {tournament.league_category === 'hfi' ? 'HFI ranks' : 'Power Rankings'} before
+                                      generating a schedule.
+                                    </p>
+                                    {hfiRankNotice && (
+                                      <p
+                                        className={`${adminStyles.teamPlanningNotice} ${
+                                          hfiRankNoticeIsError
+                                            ? adminStyles.teamPlanningNoticeError
+                                            : adminStyles.teamPlanningNoticeSuccess
+                                        }`}
+                                      >
+                                        {hfiRankNotice}
                                       </p>
-                                      {hfiRankNotice && (
-                                        <p
-                                          className={`${adminStyles.teamPlanningNotice} ${
-                                            hfiRankNoticeIsError
-                                              ? adminStyles.teamPlanningNoticeError
-                                              : adminStyles.teamPlanningNoticeSuccess
-                                          }`}
-                                        >
-                                          {hfiRankNotice}
-                                        </p>
-                                      )}
-                                    </div>
-                                    <Button
-                                      type="button"
-                                      size="sm"
-                                      variant="secondaryAction"
-                                      onClick={() => void updateHfiRanks()}
-                                      disabled={isUpdatingHfiRanks}
-                                    >
-                                      {isUpdatingHfiRanks ? 'Updating ranks...' : 'Update HFI ranks'}
-                                    </Button>
+                                    )}
                                   </div>
-                                )}
+                                  <Button
+                                    type="button"
+                                    size="sm"
+                                    variant="secondaryAction"
+                                    onClick={() => void updateHfiRanks()}
+                                    disabled={isUpdatingHfiRanks}
+                                  >
+                                    {isUpdatingHfiRanks
+                                      ? 'Updating ranks...'
+                                      : tournament.league_category === 'hfi'
+                                        ? 'Update HFI ranks'
+                                        : 'Update Power Rankings'}
+                                  </Button>
+                                </div>
+                              )}
                               {!isRegistrationOpen &&
                                 canManageOperationalAdmin &&
                                 !['finished', 'stopped', 'archived'].includes(tournament.status) && (
@@ -2444,7 +2421,6 @@ export const TournamentAdmin: React.FC<{ controller: TournamentAdminController }
           </Button>
         </div>
       </Modal>
-
     </>
   );
 };

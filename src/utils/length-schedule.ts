@@ -1,3 +1,4 @@
+import { buildRoundRobinCycles } from './round-robin-cycles.js';
 import {
   buildCalendarSlots,
   formatCalendarDate,
@@ -11,12 +12,16 @@ import {
 
 export type CompetitionPhase = 'regular' | 'postseason';
 export type RoundPhaseStatus = 'pending' | 'materialized' | 'completed';
-export type LengthScheduleFormatKind = 'balanced' | 'round_robin' | 'round_robin_plus_final';
+export type LengthScheduleFormatKind = 'balanced' | 'round_robin' | 'round_robin_plus_final' | 'fill' | 'fill_playoffs';
+export type ScheduleRankingSource = 'team_rank' | 'power_rating';
+export interface ScheduleRankingSnapshot { team_id: string; ranking_value: number | null; seed: number }
+export interface ReservedRegularPairing { home_slot_index: number; away_slot_index: number | null }
 
 export interface LengthScheduleTeam extends TeamSchedulingInfo {
   id: string;
   name: string;
   teamRank: number | null;
+  powerRating?: number | null;
   active?: boolean;
   isPlaceholder?: boolean;
 }
@@ -31,6 +36,7 @@ export interface LengthScheduleFormat {
 }
 
 export interface PairingHistory {
+  balanceRepeats?: boolean;
   playedPairs?: Array<[string, string]>;
   homeCounts?: Record<string, number>;
   byeCounts?: Record<string, number>;
@@ -61,6 +67,9 @@ export interface LengthScheduleRound {
 }
 
 export interface LengthScheduleDraft {
+  rankingSource: ScheduleRankingSource;
+  rankingSnapshot: ScheduleRankingSnapshot[];
+  regularPairings: ReservedRegularPairing[][];
   valid: boolean;
   reason: string | null;
   teams: LengthScheduleTeam[];
@@ -78,15 +87,17 @@ export interface LengthScheduleDraft {
 }
 
 export interface SerializedLengthSchedulePayload {
-  version: 1;
+  version: 2;
+  format_id: string;
+  regular_pairings: ReservedRegularPairing[][];
   mode: 'length';
   team_count: number;
   total_rounds: number;
   regular_rounds: number;
   postseason_rounds: number;
   format: LengthScheduleFormatKind;
-  ranking_source: 'team_rank';
-  ranking_snapshot: Array<{ team_id: string; team_rank: number }>;
+  ranking_source: ScheduleRankingSource;
+  ranking_snapshot: ScheduleRankingSnapshot[];
   start_slot_id: string;
   start_slot_kind: HattrickScheduleSlotKind;
   start_slot_date: string;
@@ -130,50 +141,33 @@ export function deriveTournamentFormats(input: { teamCount: number; safeRoundCou
   const fullRoundRobinRounds = getFullRoundRobinRoundCount(teamCount);
   if (teamCount < 2 || safeRoundCount < 1) return [] as LengthScheduleFormat[];
 
-  const formats: LengthScheduleFormat[] = [];
-  if (fullRoundRobinRounds + 1 <= safeRoundCount) {
-    formats.push({
-      id: `round-robin-plus-final-${fullRoundRobinRounds + 1}`,
-      kind: 'round_robin_plus_final',
-      totalRounds: fullRoundRobinRounds + 1,
-      regularRounds: fullRoundRobinRounds,
-      postseasonRounds: 1,
-      label: 'Single round robin + Championship Final',
-    });
-  }
-  if (fullRoundRobinRounds <= safeRoundCount) {
-    formats.push({
-      id: `round-robin-${fullRoundRobinRounds}`,
-      kind: 'round_robin',
-      totalRounds: fullRoundRobinRounds,
-      regularRounds: fullRoundRobinRounds,
-      postseasonRounds: 0,
-      label: 'Single round robin',
-    });
-  } else {
-    formats.push({
-      id: `balanced-${safeRoundCount}`,
-      kind: 'balanced',
-      totalRounds: safeRoundCount,
-      regularRounds: safeRoundCount,
-      postseasonRounds: 0,
-      label: `${safeRoundCount} rounds of balanced pairings`,
+  const formats: LengthScheduleFormat[] = [{
+    id: `fill-${safeRoundCount}`, kind: 'fill', totalRounds: safeRoundCount,
+    regularRounds: safeRoundCount, postseasonRounds: 0, label: 'All remaining rounds',
+  }];
+  if (fullRoundRobinRounds <= safeRoundCount) formats.push({
+    id: `round-robin-${fullRoundRobinRounds}`, kind: 'round_robin', totalRounds: fullRoundRobinRounds,
+    regularRounds: fullRoundRobinRounds, postseasonRounds: 0, label: 'Single round robin',
+  });
+  for (const [playoffs, minTeams, minSlots] of [[1, 6, 2], [2, 8, 3], [3, 12, 8]]) {
+    if (teamCount >= minTeams! && safeRoundCount >= minSlots!) formats.push({
+      id: `fill-playoffs-${playoffs}-${safeRoundCount}`, kind: 'fill_playoffs', totalRounds: safeRoundCount,
+      regularRounds: safeRoundCount - playoffs!, postseasonRounds: playoffs!,
+      label: `All remaining + ${playoffs} playoff round${playoffs === 1 ? '' : 's'}`,
     });
   }
   return formats;
 }
 
-export function createCustomLengthFormat(teamCount: number, totalRounds: number): LengthScheduleFormat {
-  const safeTotal = Math.max(1, Math.floor(totalRounds));
-  const fullRoundRobinRounds = getFullRoundRobinRoundCount(teamCount);
-  return {
-    id: `custom-${safeTotal}`,
-    kind: safeTotal === fullRoundRobinRounds ? 'round_robin' : 'balanced',
-    totalRounds: safeTotal,
-    regularRounds: safeTotal,
-    postseasonRounds: 0,
-    label: safeTotal === fullRoundRobinRounds ? 'Single round robin' : `${safeTotal} rounds of balanced pairings`,
-  };
+export function getPostseasonRoundLabel(roundNumber: number, postseasonRounds: number) {
+  const roundsLeft = postseasonRounds - roundNumber;
+  return roundsLeft === 0 ? 'Championship Final' : roundsLeft === 1 ? 'Semifinals' : 'Quarterfinals';
+}
+
+export function seedPlayoffPairings(teamIds: string[]): LengthSchedulePairing[] {
+  const order = teamIds.length === 8 ? [[0, 7], [3, 4], [1, 6], [2, 5]]
+    : teamIds.length === 4 ? [[0, 3], [1, 2]] : [[0, 1]];
+  return order.map(([home, away]) => ({ homeTeamId: teamIds[home!]!, awayTeamId: teamIds[away!]!, isBye: false }));
 }
 
 export function getSafeFriendlySlotsFromStart(startSlot: CalendarSlot, slots: CalendarSlot[]) {
@@ -256,7 +250,12 @@ export function generateBalancedRound(
   const normalized = normalizeTeams(teams);
   const teamIds: Array<string | null> = normalized.map((team) => team.id);
   if (teamIds.length % 2 !== 0) teamIds.push(null);
-  const usedPairs = new Set((history.playedPairs || []).map(([a, b]) => pairKey(a, b)));
+  const pairCounts = new Map<string, number>();
+  for (const [a, b] of history.playedPairs || []) {
+    const key = pairKey(a, b);
+    pairCounts.set(key, (pairCounts.get(key) || 0) + 1);
+  }
+  const usedPairs = new Set(pairCounts.keys());
   const strictCandidates = enumerateRoundMatchings(teamIds, usedPairs);
   // Real-world missed/repaired rounds can exhaust the perfect no-rematch graph
   // before the planned regular season ends. Prefer zero rematches whenever a
@@ -266,10 +265,11 @@ export function generateBalancedRound(
     : enumerateRoundMatchings(teamIds, new Set());
   const teamsById = new Map(normalized.map((team) => [team.id, team]));
   const countRematches = (pairs: Array<[string | null, string | null]>) =>
-    pairs.reduce(
-      (count, [a, b]) => count + (a && b && usedPairs.has(pairKey(a, b)) ? 1 : 0),
-      0,
-    );
+    pairs.reduce((count, [a, b]) => {
+      if (!a || !b) return count;
+      const meetings = pairCounts.get(pairKey(a, b)) || 0;
+      return count + (history.balanceRepeats ? meetings : Number(meetings > 0));
+    }, 0);
   candidates.sort((left, right) => {
     const rematchDelta = countRematches(left) - countRematches(right);
     if (rematchDelta !== 0) return rematchDelta;
@@ -290,35 +290,42 @@ export function buildLengthScheduleDraft(input: {
   teams: LengthScheduleTeam[];
   startSlotId: string | null;
   selectedFormatId?: string | null;
-  customRoundCount?: number | null;
+  rankingSource?: ScheduleRankingSource;
   now?: Date;
 }): LengthScheduleDraft {
   const now = input.now ?? new Date();
-  const teams = normalizeTeams(input.teams);
+  const rankingSource = input.rankingSource ?? 'team_rank';
+  const rankingValue = (team: LengthScheduleTeam) => rankingSource === 'team_rank' ? team.teamRank : team.powerRating ?? null;
+  const teams = input.teams.filter(team => team.active !== false && team.isPlaceholder !== true).sort((a, b) => {
+    const av = rankingValue(a), bv = rankingValue(b);
+    if (av == null || bv == null) return av == null && bv == null ? a.id.localeCompare(b.id) : av == null ? 1 : -1;
+    return (rankingSource === 'team_rank' ? av - bv : bv - av) || a.id.localeCompare(b.id);
+  });
+  const rankingSnapshot = teams.map((team, i) => ({ team_id: team.id, ranking_value: rankingValue(team), seed: i + 1 }));
   const allSlots = buildCalendarSlots(now, 24, { includeWeek15WeekendFriendly: false });
   const startSlotOptions = allSlots.filter((slot) => isStartCandidate(slot, now)).slice(0, MAX_START_OPTIONS);
   const selectedStartSlot =
     startSlotOptions.find((slot) => slot.id === input.startSlotId) || (input.startSlotId ? null : startSlotOptions[0]) || null;
   const safeSlots = selectedStartSlot ? getSafeFriendlySlotsFromStart(selectedStartSlot, allSlots) : [];
   const formats = deriveTournamentFormats({ teamCount: teams.length, safeRoundCount: safeSlots.length });
-  let selectedFormat = formats.find((format) => format.id === input.selectedFormatId) || formats[0] || null;
-  if (input.selectedFormatId?.startsWith('custom-') && input.customRoundCount) {
-    selectedFormat = createCustomLengthFormat(teams.length, Math.min(input.customRoundCount, safeSlots.length));
-  }
+  const selectedFormat = formats.find((format) => format.id === input.selectedFormatId) || formats[0] || null;
 
   let reason: string | null = null;
   if (teams.length < 2) reason = 'At least 2 active teams are required.';
-  else if (teams.some((team) => !Number.isInteger(team.teamRank) || Number(team.teamRank) <= 0)) {
+  else if (rankingSource === 'team_rank' && teams.some((team) => !Number.isInteger(team.teamRank) || Number(team.teamRank) <= 0)) {
     reason = 'Update HFI ranks before generating this schedule.';
   } else if (!selectedStartSlot) reason = 'Choose a valid start date.';
   else if (!selectedFormat || selectedFormat.totalRounds > safeSlots.length) reason = 'The selected length does not fit this Hattrick season.';
-  else if (selectedFormat.postseasonRounds === 0 && selectedFormat.regularRounds > getFullRoundRobinRoundCount(teams.length)) {
-    reason = 'A regular season cannot exceed the available no-rematch rounds.';
-  }
 
+  const pairingPlan = selectedFormat ? buildRoundRobinCycles(teams.map(team => team.id), selectedFormat.regularRounds) : [];
+  const slotIndexes = new Map(teams.map((team, i) => [team.id, i + 1]));
+  const regularPairings = pairingPlan.map(round => round.map(pair => ({
+    home_slot_index: slotIndexes.get(pair.homeTeamId!)!,
+    away_slot_index: pair.awayTeamId ? slotIndexes.get(pair.awayTeamId)! : null,
+  })));
   const rounds: LengthScheduleRound[] = [];
   if (!reason && selectedStartSlot && selectedFormat) {
-    const firstPairings = generateBalancedRound(teams, {}, 0);
+    const firstPairings = pairingPlan[0]!;
     const teamLookup = new Map(teams.map((team) => [team.id, team]));
     for (let index = 0; index < selectedFormat.totalRounds; index += 1) {
       const slot = safeSlots[index]!;
@@ -353,6 +360,7 @@ export function buildLengthScheduleDraft(input: {
   }
 
   return {
+    rankingSource, rankingSnapshot, regularPairings,
     valid: !reason,
     reason,
     teams,
@@ -373,15 +381,17 @@ export function buildLengthScheduleDraft(input: {
 export function serializeLengthScheduleDraft(draft: LengthScheduleDraft): SerializedLengthSchedulePayload {
   if (!draft.valid || !draft.selectedStartSlot || !draft.selectedFormat) throw new Error(draft.reason || 'Invalid schedule draft.');
   return {
-    version: 1,
+    version: 2,
+    format_id: draft.selectedFormat.id,
+    regular_pairings: draft.regularPairings,
     mode: 'length',
     team_count: draft.teamCount,
     total_rounds: draft.selectedFormat.totalRounds,
     regular_rounds: draft.selectedFormat.regularRounds,
     postseason_rounds: draft.selectedFormat.postseasonRounds,
     format: draft.selectedFormat.kind,
-    ranking_source: 'team_rank',
-    ranking_snapshot: draft.teams.map((team) => ({ team_id: team.id, team_rank: Number(team.teamRank) })),
+    ranking_source: draft.rankingSource,
+    ranking_snapshot: draft.rankingSnapshot,
     start_slot_id: draft.selectedStartSlot.id,
     start_slot_kind: draft.selectedStartSlot.kind as HattrickScheduleSlotKind,
     start_slot_date: draft.selectedStartSlot.nominalDate.toISOString(),

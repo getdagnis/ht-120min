@@ -32,10 +32,12 @@
   color: white
 
   &:hover:not(:disabled)
-    background-color: var(--accent)
+    background-color: var(--accent-2)
     border: 1px solid transparent
     text-shadow: 0 0 5px #0000003e
     color: white
+  &:active
+    background-color: var(--accent)
 
 .primaryDanger
   background-color: var(--danger)
@@ -54,13 +56,13 @@
     border: 1px solid var(--darker-less)
 
 .secondary
-  background-color: var(--accent-3)
-  border: 1px solid var(--darker-green)
-  color: white
+  background-color: var(--darker)
+  border-color: var(--text60)
+  color: var(--text)
   &:hover:not(:disabled)
-    background-color: var(--yellow)
-    border-color: black
-    color: black
+    background-color: var(--text80)
+    border: 1px solid var(--text)
+    color: white
 
 .secondaryYellow
   background-color: var(--yellow)

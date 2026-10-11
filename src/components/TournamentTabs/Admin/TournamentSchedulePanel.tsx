@@ -10,7 +10,7 @@ import {
 } from '../../../utils/hattrick-calendar';
 import type { ScheduleDraftPreview, ScheduleMode } from '../../../utils/schedule-draft';
 import type { RescheduleDraftPreview } from '../../../utils/reschedule-draft';
-import { getFullRoundRobinRoundCount, type LengthScheduleDraft } from '../../../utils/length-schedule';
+import { getPostseasonRoundLabel, type LengthScheduleDraft } from '../../../utils/length-schedule';
 import { isCurrentParticipantTeam } from '../../../utils/team-state';
 
 const RESTORE_ROUND_1_PANIC_MODE = false;
@@ -127,8 +127,6 @@ interface TournamentSchedulePanelProps {
   }>;
   lengthDraft?: LengthScheduleDraft | null;
   onLengthFormatChange?: (formatId: string) => void;
-  customLengthRoundCount?: number;
-  onCustomLengthRoundCountChange?: (roundCount: number) => void;
   lengthRounds?: Array<{
     id: string;
     round_number: number;
@@ -257,8 +255,6 @@ export const TournamentSchedulePanel: React.FC<TournamentSchedulePanelProps> = (
   fetchHtMatchSuggestions,
   lengthDraft,
   onLengthFormatChange,
-  customLengthRoundCount = 1,
-  onCustomLengthRoundCountChange,
   lengthRounds = [],
   isRepairingRound = false,
   onRepairRound,
@@ -969,7 +965,6 @@ export const TournamentSchedulePanel: React.FC<TournamentSchedulePanelProps> = (
   const renderLengthPlanner = () => {
     if (!lengthDraft) return null;
     const selectedFormatId = lengthDraft.selectedFormat?.id || '';
-    const customSelected = selectedFormatId.startsWith('custom-');
     return (
       <div className={adminStyles.genOptions}>
         <div className={adminStyles.scheduleIntro}>
@@ -1008,37 +1003,15 @@ export const TournamentSchedulePanel: React.FC<TournamentSchedulePanelProps> = (
               <input
                 type="radio"
                 name="lengthScheduleFormat"
-                checked={!customSelected && selectedFormatId === format.id}
+                checked={selectedFormatId === format.id}
                 onChange={() => onLengthFormatChange?.(format.id)}
               />
               <div className={adminStyles.labelRow}>
-                <strong>{format.totalRounds} rounds</strong>
-                <span className={adminStyles.smallNote}>{format.label}</span>
+                <strong>{format.label}</strong>
+                <span className={adminStyles.smallNote}>{format.totalRounds} rounds — {format.regularRounds} regular{format.postseasonRounds ? ` + ${format.postseasonRounds} playoff` : ''}</span>
               </div>
             </label>
           ))}
-          <label className={adminStyles.checkboxLabel}>
-            <input
-              type="radio"
-              name="lengthScheduleFormat"
-              checked={customSelected}
-              onChange={() => onLengthFormatChange?.(`custom-${customLengthRoundCount}`)}
-            />
-            <div className={adminStyles.labelRow}>
-              <input
-                type="number"
-                min={1}
-                max={Math.max(
-                  1,
-                  Math.min(lengthDraft.safeRoundCount, getFullRoundRobinRoundCount(lengthDraft.teamCount)),
-                )}
-                value={customLengthRoundCount}
-                onFocus={() => onLengthFormatChange?.(`custom-${customLengthRoundCount}`)}
-                onChange={(event) => onCustomLengthRoundCountChange?.(Number(event.target.value))}
-              />
-              <span className={adminStyles.smallNote}>Custom number of regular rounds</span>
-            </div>
-          </label>
         </div>
 
         {lengthDraft.rounds.length > 0 && (
@@ -1048,14 +1021,16 @@ export const TournamentSchedulePanel: React.FC<TournamentSchedulePanelProps> = (
               <div key={round.roundNumber} className={adminStyles.previewRow}>
                 <strong>
                   Round {round.roundNumber}
-                  {round.phase === 'postseason' ? ' — Championship Final' : ''}:{' '}
+                  {round.phase === 'postseason' ? ` — ${getPostseasonRoundLabel(round.phaseRoundNumber, lengthDraft.selectedFormat?.postseasonRounds || 1)}` : ''}:{' '}
                 </strong>
                 <span>{round.displayDateLabel}</span>
                 <div className={adminStyles.previewMatches}>
                   {round.phaseStatus === 'pending' ? (
                     <span className={adminStyles.smallNote}>
                       {round.phase === 'postseason'
-                        ? `Top 2 after Round ${lengthDraft.selectedFormat?.regularRounds || round.roundNumber - 1}`
+                        ? round.phaseRoundNumber === 1
+                          ? `Top ${2 ** (lengthDraft.selectedFormat?.postseasonRounds || 1)} after the regular season`
+                          : `Winners from Round ${round.roundNumber - 1}`
                         : `Pairings generated after Round ${round.roundNumber - 1}`}
                     </span>
                   ) : (
@@ -1098,7 +1073,7 @@ export const TournamentSchedulePanel: React.FC<TournamentSchedulePanelProps> = (
             {isGenerating ? 'Generating schedule...' : 'Generate a schedule'}
           </Button>
         </div>
-        <p className="center w-100">Generating a schedule closes registration and freezes the current HFI ranks.</p>
+        <p className="center w-100">Generating a schedule closes registration and freezes the current {lengthDraft.rankingSource === 'team_rank' ? 'HFI ranks' : 'Power Ratings'}.</p>
       </div>
     );
   };
@@ -1116,13 +1091,13 @@ export const TournamentSchedulePanel: React.FC<TournamentSchedulePanelProps> = (
             <div key={round.id} className={adminStyles.previewRow}>
               <strong>
                 Round {round.round_number}
-                {round.phase === 'postseason' ? ' — Championship Final' : ''}
+                {round.phase === 'postseason' ? ` — ${getPostseasonRoundLabel(lengthRounds.filter(item => item.phase === 'postseason' && item.round_number <= round.round_number).length, lengthRounds.filter(item => item.phase === 'postseason').length)}` : ''}
               </strong>
               {round.reserved_slot_date && <span> · {formatLongDate(new Date(round.reserved_slot_date))}</span>}
               {round.phase_status === 'pending' ? (
                 <p className={adminStyles.smallNote}>
                   {round.phase === 'postseason'
-                    ? 'Top 2 after the regular season'
+                    ? 'Qualifiers and winners from the preceding round'
                     : `Pairings generated after Round ${round.round_number - 1}`}
                 </p>
               ) : (

@@ -1369,13 +1369,15 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     > = {};
     const getFriendlies = async (team: TeamWithAuth) => {
       if (Object.prototype.hasOwnProperty.call(teamCache, team.id)) return teamCache[team.id];
-      if (!team.oauth_token) {
+      // Public match lists can use another authenticated participant, just as
+      // booking checks do. Manually added teams need no owner token for this read.
+      const credentials = team.oauth_token && team.oauth_token_secret ? team : authTeam;
+      if (!credentials?.oauth_token || !credentials.oauth_token_secret) {
         teamCache[team.id] = null;
         return null;
       }
       try {
-        const secret = team.oauth_token_secret || '';
-        const data = await fetchTeamFriendlies(team.ht_team_id.toString(), team.oauth_token, secret, {
+        const data = await fetchTeamFriendlies(team.ht_team_id.toString(), credentials.oauth_token, credentials.oauth_token_secret, {
           fetchWindow: 'last50',
           matchTypes: getMatchTypesForCategories(['friendlies']),
         });
@@ -1815,6 +1817,11 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         .update({
           status,
           ht_match_id: htMatchId,
+          // Repair containment is provisional. A confirmed future booking in
+          // the current round must wait for its result rather than count as DNP.
+          ...(confirmedMatch && confirmedMatch.date > now &&
+              upcomingRound.phase_status === 'materialized' && match.schedule_resolution === 'finalized_unplayed'
+            ? { schedule_resolution: 'pending' } : {}),
           ...(confirmedMatch ? { chpp_match_date: confirmedMatch.date.toISOString() } :
             htMatchId !== match.ht_match_id ? { chpp_match_date: null } : {}),
           match_type: matchType,

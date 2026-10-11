@@ -124,3 +124,25 @@ test('refresh access rejects non-operational users and non-HFI tournaments', () 
   );
   assert.equal(validateHfiRankRefreshAccess({ canManageOperations: true, leagueCategory: 'hfi' }), null);
 });
+
+test('regular-team Power Rating refresh reuses the rank refresh without requiring HFI TeamRank', async () => {
+  const updates: Array<{ powerRating: number | null }> = [];
+  const result = await refreshCurrentHfiTeamRanks({
+    rankingSource: 'power_rating', participants: [participant()],
+    fetchTeamDetails: async () => ({ teamName: 'Regular club', powerRating: 800, powerGlobalRank: 100 }),
+    updateTeamMetadata: async (_id, update) => { updates.push(update); },
+  });
+  assert.equal(result.updatedCount, 1);
+  assert.equal(result.ranks[0]?.teamRank, null);
+  assert.equal(updates[0]?.powerRating, 800);
+});
+
+test('missing Power Rating aborts before any metadata is written', async () => {
+  let writes = 0;
+  await assert.rejects(refreshCurrentHfiTeamRanks({
+    rankingSource: 'power_rating', participants: [participant()],
+    fetchTeamDetails: async () => ({ teamName: 'Club', teamRank: 1 }),
+    updateTeamMetadata: async () => { writes++; },
+  }), /valid Power Rating/);
+  assert.equal(writes, 0);
+});

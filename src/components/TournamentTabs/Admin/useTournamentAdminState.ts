@@ -51,7 +51,6 @@ export function useTournamentAdminState() {
   const [scheduleStartSlotId, setScheduleStartSlotId] = useState('');
   const [scheduleTeamOrder, setScheduleTeamOrder] = useState<string[] | null>(null);
   const [lengthFormatId, setLengthFormatId] = useState<string | null>(null);
-  const [customLengthRoundCount, setCustomLengthRoundCount] = useState(1);
   const [isRepairingRound, setIsRepairingRound] = useState(false);
   const [isRecoveringRoundOne, setIsRecoveringRoundOne] = useState(false);
   const [includeWeek15WeekendFriendly, setIncludeWeek15WeekendFriendly] = useState(false);
@@ -100,7 +99,7 @@ export function useTournamentAdminState() {
     hfiRankNoticeIsError, setHfiRankNoticeIsError, scheduleMode, setScheduleMode,
     scheduleSetup, setScheduleSetup, scheduleStartSlotId, setScheduleStartSlotId,
     scheduleTeamOrder, setScheduleTeamOrder, lengthFormatId, setLengthFormatId,
-    customLengthRoundCount, setCustomLengthRoundCount, isRepairingRound, setIsRepairingRound,
+    isRepairingRound, setIsRepairingRound,
     isRecoveringRoundOne, setIsRecoveringRoundOne, includeWeek15WeekendFriendly,
     setIncludeWeek15WeekendFriendly, rescheduleFromRoundNumber, setRescheduleFromRoundNumber,
     rescheduleStartSlotId, setRescheduleStartSlotId, includeWeek15WeekendFriendlyForReschedule,

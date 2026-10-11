@@ -23,24 +23,53 @@ Core implementation:
 
 ## Length-based staged schedules
 
-New HFI generated seasons use `schedule_mode = length`. The organizer chooses a
-round count from safe friendly slots remaining in the selected Hattrick season;
-the planner never spills into the next HT season and excludes the W15 weekend.
-The chosen TeamRank values are frozen on `tournament_seasons` at generation.
+New generated seasons across all tournament categories use `schedule_mode = length`.
+The organizer selects a safe start slot and one of these formats:
 
-The full calendar is reserved atomically, but only the current actionable round
-has match rows. Later `rounds` rows remain `pending` with authoritative reserved
-slot metadata. Once every current-round fixture is either played, a BYE, or
-explicitly finalized unplayed, the shared server progression service materializes
-the next round. Pairings use the frozen rank order, actual played-opponent/BYE
-history, and current season-slot occupants.
+- **All remaining rounds** (default): every remaining safe friendly slot in that HT season.
+- **Single round robin**: one complete cycle, offered only when it fits.
+- **All remaining + 1 playoff round**: 6+ teams, at least one regular round plus the final.
+- **All remaining + 2 playoff rounds**: 8+ teams, at least one regular round plus semifinals/final.
+- **All remaining + 3 playoff rounds**: 12+ teams and 8+ available slots, ending in quarterfinals/semifinals/final.
 
-A complete round robin plus one remaining safe slot may reserve that final slot
-as a Championship Final. It is materialized as regular-season #1 versus #2 only
-after the regular phase resolves. Postseason matches are excluded from regular
-standings, and the champion is stored separately on the season. The 120-minute
-final rule deliberately reverses a regulation-time winner; after extra time is
-reached, the normal extra-time or shootout winner is champion.
+Playoffs consume the last available slots; they never extend the calendar. The
+planner excludes blocked cup weeks and the W15 weekend, includes the safe W16
+weekend, and never spills into the next HT season. The old double/recurring
+choices remain supported for existing schedules but are absent from new generation.
+
+The ranking source is **Power Rating** for regular tournaments and **HFI
+TeamRank** for HFI tournaments. Higher Power Rating and lower HFI rank seed first.
+The explicit Admin Teams refresh action reuses the same CHPP teamdetails flow for
+both sources; page loads do not refresh rankings. Non-HFI teams never require
+HFI rank. Unavailable Power Ratings sort after rated teams using a stable ID tie
+break; existing HFI missing-rank validation remains in place.
+
+Version 2 plans freeze raw ranking values and seeds on `tournament_seasons` and
+reserve a regular pairing plan using persistent season-slot indices. A ranked
+opener pairs neighboring seeds. Complete round-robin cycles finish all unique
+opponents before repeating; even repeat counts split venues equally, and an
+Euler orientation balances each team's aggregate home/away count within one.
+Partial cycles keep pair counts within one; odd fields receive one BYE per team
+in each complete cycle. The circle construction avoids factorial matching searches
+for ordinary generation, including large fields.
+
+The full calendar is reserved atomically, but only Round 1 has match rows at
+publication, accounting for every active participant. Later rounds remain
+`pending` until the existing progression service and atomic transition resolve
+the current round. Replacements inherit physical season slots and their frozen
+seeds. Missed, repaired, reoriented or vacated rounds reuse the existing played
+opponent/BYE history fallback, preferring least-repeated opponents rather than
+forcing the original future plan. Finalized-unplayed fixtures are not played
+opponent history. Existing version 1 schedules retain their original progression.
+
+Playoffs remain `postseason` competition rounds within the same fixture list.
+The regular standings qualify the top two, four or eight teams. Bracket match
+numbers preserve winner routing independently of database row ordering;
+semifinals/finals use the previous round's decisive winners. Postseason fixtures
+are excluded from regular standings, and the final stores the champion separately.
+The existing 120-minute knockout rule reverses a regulation-time winner and uses
+the normal extra-time or shootout winner once extra time is reached. Ties or
+unplayed knockout fixtures cannot choose advancing teams.
 
 `Repair Round` is distinct from date regeneration. It locks linked/arranged
 fixtures, refuses started or past-kickoff rounds, contains booked-elsewhere teams,
@@ -172,3 +201,35 @@ That helper is a disposable SQL smoke test reference, not proof that production 
 - `src/utils/hattrick-calendar.ts`
 - `src/utils/schedule-draft.ts`
 - `src/utils/reschedule-draft.ts`
+
+### Calendar-first generation rollout
+
+`107_calendar_first_generated_schedules.sql` is prepared locally. It extends
+`generate_length_tournament_schedule` and `apply_length_round_transition`, adds
+server-protected `matches.playoff_match_number`, and retains service-only execution.
+It changes no existing season plans or fixture rows. Apply it **before deploying**
+the code that selects the new match column. The consolidated API rebuilds the
+browser preview from persisted team metadata and supported calendar/format choices
+before invoking generation; client-provided seeds and fixture plans are not trusted.
+
+The owner-marked-applied archived 085 is unchanged. Inspect both live function
+definitions using the preflight queries at the top of 107 before applying it;
+local PostgreSQL testing is not verification of the live Supabase schema.
+
+Local regression commands:
+
+```sh
+node --import tsx --test tests/length-schedule.test.ts tests/length-schedule-progression.test.ts tests/calendar-first-schedule-service.test.ts tests/hfi-rank-refresh.test.ts
+```
+
+The optional `tests/calendar-first-schedule-database.test.ts` uses the minimal
+schema in `tests/fixtures/calendar-schedule-schema.sql`. Run it only against a
+**disposable local PostgreSQL cluster** owned by the developer, with user
+`postgres`, port 55442 and a Unix socket directory beginning
+`/private/tmp/ht120-calendar-pg.`. It drops that cluster's public schema and uses
+synthetic fixtures; it refuses remote connection strings and is skipped unless
+`HT120_TEST_POSTGRES_SOCKET` is explicitly set. Example after starting such a cluster:
+
+```sh
+HT120_TEST_POSTGRES_SOCKET=/private/tmp/ht120-calendar-pg.YOUR_TEMP_SUFFIX node --import tsx --test tests/calendar-first-schedule-database.test.ts
+```

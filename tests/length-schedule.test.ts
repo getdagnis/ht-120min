@@ -1,3 +1,4 @@
+import { buildRoundRobinCycles } from '../src/utils/round-robin-cycles';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import test from 'node:test';
@@ -46,12 +47,12 @@ test('meaningful formats derive from team and safe-round counts', () => {
       format.regularRounds,
       format.postseasonRounds,
     ]),
-    [[6, 5, 1], [5, 5, 0]],
+    [[6, 6, 0], [5, 5, 0], [6, 5, 1]],
   );
   for (const teamCount of [8, 10, 12]) {
     const formats = deriveTournamentFormats({ teamCount, safeRoundCount: 6 });
-    assert.equal(formats.length, 1);
-    assert.equal(formats[0]?.kind, 'balanced');
+    assert.equal(formats.length, 3);
+    assert.equal(formats[0]?.kind, 'fill');
     assert.equal(formats[0]?.regularRounds, 6);
   }
 });
@@ -84,9 +85,10 @@ test('initial staged generation reserves all rounds and materializes only round 
   const draft = buildLengthScheduleDraft({
     teams: rankedTeams(6),
     startSlotId: 'S95-W12-midweek',
+    selectedFormatId: 'fill-playoffs-1-6',
     now: new Date('2026-09-30T00:00:00Z'),
   });
-  assert.equal(draft.selectedFormat?.kind, 'round_robin_plus_final');
+  assert.equal(draft.selectedFormat?.kind, 'fill_playoffs');
   assert.equal(draft.rounds.length, 6);
   assert.equal(draft.rounds[0]?.phaseStatus, 'materialized');
   assert.equal(draft.rounds[0]?.matches.length, 3);
@@ -112,16 +114,66 @@ test('missing HFI rank blocks generation', () => {
   assert.match(draft.reason || '', /Update HFI ranks/);
 });
 
-test('custom regular length cannot exceed the no-rematch opponent set', () => {
+test('four non-HFI teams fill five safe slots without requiring HFI ranks', () => {
   const draft = buildLengthScheduleDraft({
-    teams: rankedTeams(6),
-    startSlotId: 'S95-W12-midweek',
-    selectedFormatId: 'custom-6',
-    customRoundCount: 6,
-    now: new Date('2026-09-30T00:00:00Z'),
+    teams: rankedTeams(4).map((team, i) => ({ ...team, teamRank: null, powerRating: 100 + i })),
+    rankingSource: 'power_rating', startSlotId: 'S95-W13-midweek', now: new Date('2026-10-01T00:00:00Z'),
   });
-  assert.equal(draft.valid, false);
-  assert.match(draft.reason || '', /cannot exceed/);
+  assert.equal(draft.valid, true);
+  assert.equal(draft.rounds.length, 5);
+  assert.equal(draft.rounds[0]!.matches.length, 2);
+  assert.equal(draft.teams[0]!.id, 'team-4');
+  assert.equal(draft.formats.some(format => format.postseasonRounds > 0), false);
+  assert.equal(draft.formats.find(format => format.kind === 'round_robin')?.regularRounds, 3);
+  const payload = serializeLengthScheduleDraft(draft);
+  assert.equal(payload.ranking_source, 'power_rating');
+  assert.equal(payload.regular_pairings.length, 5);
+  assert.ok(payload.rounds.slice(1).every(round => round.matches.length === 0));
+});
+
+test('playoff options honor field and calendar thresholds and reserve the final slots', () => {
+  for (const [teams, slots, expected] of [[4, 5, []], [6, 5, [1]], [8, 5, [1, 2]], [12, 7, [1, 2]], [12, 8, [1, 2, 3]]] as const) {
+    const formats = deriveTournamentFormats({ teamCount: teams, safeRoundCount: slots });
+    assert.deepEqual(formats.filter(format => format.postseasonRounds > 0).map(format => format.postseasonRounds), expected);
+    assert.ok(formats.every(format => format.totalRounds <= slots && format.regularRounds > 0));
+  }
+  const draft = buildLengthScheduleDraft({
+    teams: rankedTeams(12), startSlotId: 'S95-W10-midweek', selectedFormatId: 'fill-playoffs-3-8',
+    now: new Date('2026-09-15T00:00:00Z'),
+  });
+  assert.equal(draft.valid, true);
+  assert.equal(draft.rounds.filter(round => round.phase === 'regular').length, 5);
+  assert.deepEqual(draft.rounds.filter(round => round.phase === 'postseason').map(round => round.phaseRoundNumber), [1, 2, 3]);
+});
+
+test('complete and partial repeat cycles balance opponents, venues and byes', () => {
+  for (const count of [2, 4, 5, 6, 7, 8, 12, 24]) {
+    const ids = rankedTeams(count).map(team => team.id);
+    const cycleSize = getFullRoundRobinRoundCount(count);
+    for (const length of [cycleSize, cycleSize * 2, cycleSize * 2 + 2]) {
+      const rounds = buildRoundRobinCycles(ids, length);
+      const pairCounts = new Map<string, number>();
+      const homeAway = new Map(ids.map(id => [id, 0]));
+      const byes = new Map(ids.map(id => [id, 0]));
+      for (let r = 0; r < rounds.length; r++) {
+        const round = rounds[r]!;
+        assert.equal(new Set(round.flatMap(pair => [pair.homeTeamId, pair.awayTeamId]).filter(Boolean)).size, count);
+        for (const pair of round) {
+          if (!pair.awayTeamId) { byes.set(pair.homeTeamId!, byes.get(pair.homeTeamId!)! + 1); continue; }
+          const key = [pair.homeTeamId, pair.awayTeamId].sort().join(':');
+          const previous = pairCounts.get(key) || 0;
+          if (previous > 0) assert.equal(pairCounts.size, count * (count - 1) / 2);
+          pairCounts.set(key, previous + 1);
+          homeAway.set(pair.homeTeamId!, homeAway.get(pair.homeTeamId!)! + 1);
+          homeAway.set(pair.awayTeamId, homeAway.get(pair.awayTeamId)! - 1);
+        }
+      }
+      assert.ok(Math.max(...pairCounts.values()) - Math.min(...pairCounts.values()) <= 1);
+      assert.ok([...homeAway.values()].every(difference => Math.abs(difference) <= 1));
+      assert.ok(Math.max(...byes.values()) - Math.min(...byes.values()) <= 1);
+      if (count === 4 && length === 6) assert.ok([...pairCounts.values()].every(n => n === 2));
+    }
+  }
 });
 
 test('balanced round is deterministic, rank-near and contains each team once', () => {
@@ -175,6 +227,19 @@ test('balanced round falls back to the minimum number of rematches when strict p
       used.has([pairing.homeTeamId, pairing.awayTeamId].sort().join(':')),
   );
   assert.equal(rematches.length, 1);
+});
+
+test('new repair fallbacks favor least-repeated opponents while legacy matching stays unchanged', () => {
+  const teams = rankedTeams(4);
+  const playedPairs: Array<[string, string]> = [
+    ['team-1', 'team-2'], ['team-1', 'team-3'], ['team-1', 'team-4'],
+    ['team-2', 'team-3'], ['team-2', 'team-4'], ['team-3', 'team-4'],
+    ['team-1', 'team-2'], ['team-3', 'team-4'],
+  ];
+  const repeated = new Set(['team-1:team-2', 'team-3:team-4']);
+  const key = (pair: { homeTeamId: string | null; awayTeamId: string | null }) => [pair.homeTeamId, pair.awayTeamId].sort().join(':');
+  assert.ok(generateBalancedRound(teams, { playedPairs }).every(pair => repeated.has(key(pair))));
+  assert.ok(generateBalancedRound(teams, { playedPairs, balanceRepeats: true }).every(pair => !repeated.has(key(pair))));
 });
 
 test('length schedule preserves country-specific kickoff times and only uses the safe W16 weekend', () => {

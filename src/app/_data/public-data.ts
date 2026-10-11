@@ -295,6 +295,7 @@ export async function buildTournamentInitialData(tournament: Record<string, unkn
       is_placeholder: Boolean(team.is_placeholder),
       reserve_active: Boolean(team.reserve_active),
       team_rank: Number(team.team_rank || 0) || null,
+      power_rating: team.power_rating == null ? null : Number(team.power_rating),
     })),
     regularStandingMatches.map((match) => ({
       home_team_id: (match.home_team_id as string | null) || null,

@@ -491,6 +491,7 @@ function toStandingTeam(team: Team): StandingTeam {
     is_placeholder: team.is_placeholder,
     reserve_active: team.reserve_active,
     team_rank: team.team_rank ?? null,
+    power_rating: team.power_rating ?? null,
   };
 }
 
@@ -706,7 +707,7 @@ export const TournamentView: React.FC<{
       {
         id: 'admin-faq-schedule',
         title: 'Schedule setup',
-        body: 'Generated schedule reserves a safe Hattrick calendar and builds tournament pairings. HFI tournaments choose a round length and generate one actionable round at a time. No pre-made schedule lets you add real Hattrick matches manually.',
+        body: 'Generated schedule reserves a safe Hattrick calendar and builds tournament pairings. Choose a single round robin or all remaining safe rounds, with optional playoffs. One actionable round is published at a time. No pre-made schedule lets you add real Hattrick matches manually.',
       },
       {
         id: 'admin-faq-team-limit',
@@ -919,8 +920,6 @@ export const TournamentView: React.FC<{
     setScheduleTeamOrder,
     lengthFormatId,
     setLengthFormatId,
-    customLengthRoundCount,
-    setCustomLengthRoundCount,
     isRepairingRound,
     setIsRepairingRound,
     isRecoveringRoundOne,
@@ -1536,6 +1535,7 @@ export const TournamentView: React.FC<{
         countryName: team.country_name ?? null,
         leagueLevel: team.league_level ?? null,
         teamRank: team.team_rank ?? null,
+        powerRating: team.power_rating ?? null,
       })),
     [teams],
   );
@@ -1569,17 +1569,17 @@ export const TournamentView: React.FC<{
         : null,
     [scheduleDraft, scheduleStartSlotId],
   );
-  const usesLengthSchedulePlanner = tournament?.league_category === 'hfi' && scheduleSetup === 'generated';
+  const usesLengthSchedulePlanner = scheduleSetup === 'generated' && (!isGenerated || tournament?.schedule_mode === 'length');
   const lengthScheduleDraft = useMemo(
     () =>
       buildLengthScheduleDraft({
         teams: activeScheduleTeams,
+        rankingSource: tournament?.league_category === 'hfi' ? 'team_rank' : 'power_rating',
         startSlotId: scheduleStartSlotId || null,
         selectedFormatId: lengthFormatId,
-        customRoundCount: customLengthRoundCount,
         now: new Date(),
       }),
-    [activeScheduleTeams, customLengthRoundCount, lengthFormatId, scheduleStartSlotId],
+    [activeScheduleTeams, lengthFormatId, scheduleStartSlotId, tournament?.league_category],
   );
   const serializedLengthScheduleDraft = useMemo(
     () => (lengthScheduleDraft.valid ? serializeLengthScheduleDraft(lengthScheduleDraft) : null),
@@ -2760,13 +2760,14 @@ export const TournamentView: React.FC<{
   ]);
 
   const updateHfiRanks = useCallback(async () => {
-    if (!tournament || isUpdatingHfiRanks || tournament.league_category !== 'hfi') return;
+    if (!tournament || isUpdatingHfiRanks) return;
+    const rankingLabel = tournament.league_category === 'hfi' ? 'HFI ranks' : 'Power Rankings';
 
     setIsUpdatingHfiRanks(true);
     setHfiRankNotice(null);
     setHfiRankNoticeIsError(false);
     try {
-      const response = await fetch('/api/app?route=update-hfi-ranks', {
+      const response = await fetch(`/api/app?route=${tournament.league_category === 'hfi' ? 'update-hfi-ranks' : 'update-power-rankings'}`, {
         method: 'POST',
         credentials: 'same-origin',
         headers: { 'Content-Type': 'application/json' },
@@ -2777,12 +2778,12 @@ export const TournamentView: React.FC<{
         participantCount?: number;
         updatedCount?: number;
       } | null;
-      if (!response.ok) throw new Error(payload?.error || 'Could not update HFI ranks.');
+      if (!response.ok) throw new Error(payload?.error || `Could not update ${rankingLabel}.`);
 
-      setHfiRankNotice(`${payload?.updatedCount ?? 0}/${payload?.participantCount ?? 0} HFI ranks updated.`);
+      setHfiRankNotice(`${payload?.updatedCount ?? 0}/${payload?.participantCount ?? 0} ${rankingLabel} updated.`);
       await fetchData({ invalidate: response.headers.get('X-Tournament-Cache') === 'invalidation-failed' });
     } catch (error) {
-      const message = error instanceof Error ? error.message : 'Could not update HFI ranks.';
+      const message = error instanceof Error ? error.message : `Could not update ${rankingLabel}.`;
       const retryHint = message.startsWith('CHPP did not return a valid HFI rank')
         ? ' Could the team be playing a match? Try again later.'
         : '';
@@ -5688,9 +5689,7 @@ export const TournamentView: React.FC<{
       onFetchHtMatchSuggestions: fetchHtMatchSuggestions,
       includeWeek15WeekendFriendly,
       includeWeek15WeekendFriendlyForReschedule,
-      customLengthRoundCount,
       setLengthFormatId,
-      setCustomLengthRoundCount,
       normalizeManualRounds,
       fetchFixturesOnly,
     },

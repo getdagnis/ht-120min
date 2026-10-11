@@ -12,6 +12,7 @@ import { skillDisplay } from '../../utils/hattrick-skill';
 import { getHattrickWeekDetails } from '../../utils/hattrick-calendar';
 import { getImportedFixtureRoundPeriod } from '../../utils/manual-rounds';
 import { getMatchDateForRound } from '../../utils/match-schedule';
+import { isFixtureMisarranged } from '../../utils/fixture-status';
 import { useClientNow } from '../../hooks/useHydratedBrowserState';
 import type { AppgOutcome } from '../../utils/appg';
 import type { MatchEventDetails } from '../../../shared/match-events';
@@ -89,6 +90,7 @@ interface FixturesViewProps {
     round_number: number;
     created_at: string;
     phase?: 'regular' | 'postseason';
+    phase_round_number?: number;
     phase_status?: 'pending' | 'materialized' | 'completed';
     reserved_slot_date?: string | null;
     matches: FixtureMatch[];
@@ -917,7 +919,12 @@ export const FixturesView: React.FC<FixturesViewProps> = ({
               title={
                 <div className={styles.roundHeader}>
                   <>
-                    <span>{uiText('roundNumber', { round: round.round_number })}{round.phase === 'postseason' ? uiText('championshipFinal') : ''}</span>
+                    <span>{uiText('roundNumber', { round: round.round_number })}{round.phase === 'postseason' ? uiText(
+                      rounds.filter(item => item.phase === 'postseason' && item.round_number > round.round_number).length === 2
+                        ? 'playoffQuarterfinals'
+                        : rounds.filter(item => item.phase === 'postseason' && item.round_number > round.round_number).length === 1
+                          ? 'playoffSemifinals' : 'championshipFinal'
+                    ) : ''}</span>
                     {roundDate && roundWeek && (
                       <span className={styles.roundDate}>
                         {uiText('htWeekNumber', { week: roundWeek.htWeek })}
@@ -1000,7 +1007,7 @@ export const FixturesView: React.FC<FixturesViewProps> = ({
                     <div className={`${styles.emptyFixtures} ${styles.registrationStatus}`}>
                       <p>
                         {round.phase === 'postseason'
-                          ? uiText('theTopTwoTeamsArePairedAfterTheRegular')
+                          ? uiText('playoffPairingsAreGeneratedAfterThePreviousRound')
                           : `Pairings are generated after Round ${round.round_number - 1} is resolved.`}
                       </p>
                     </div>
@@ -1042,7 +1049,7 @@ export const FixturesView: React.FC<FixturesViewProps> = ({
                     const liveMatch =
                       !isHistorical && match.ht_match_id ? liveData[match.ht_match_id.toString()] : null;
                     let status = match.status || 'not_arranged';
-                    const isMisarranged = status === 'misarranged' || !!homeWarning || !!awayWarning;
+                    const isMisarranged = isFixtureMisarranged(status, match.completed, Boolean(homeWarning || awayWarning));
                     const now = new Date(nowMs);
                     const hasConfirmedKickoff = Boolean(match.kickoff_confirmed || match.chpp_match_date);
                     const isPastStartTime = hasConfirmedKickoff && match.match_date && now >= match.match_date;
@@ -1169,7 +1176,7 @@ export const FixturesView: React.FC<FixturesViewProps> = ({
                           htTeamId: homeIsBye ? 0 : match.home_team?.ht_team_id || 0,
                           logoUrl: homeIsBye ? undefined : match.home_team?.logo_url,
                           matchKitUrl: homeIsBye ? null : liveMatch?.home_match_kit_url ?? match.home_match_kit_url,
-                          warning: homeIsBye ? undefined : homeWarning?.type,
+                          warning: homeIsBye || !isMisarranged ? undefined : homeWarning?.type,
                           countryName: homeIsBye ? undefined : match.home_team?.country_name,
                           countryId: homeIsBye ? undefined : match.home_team?.country_id,
                           matchSummary: homeSummary,
@@ -1183,7 +1190,7 @@ export const FixturesView: React.FC<FixturesViewProps> = ({
                           htTeamId: awayIsBye ? 0 : match.away_team?.ht_team_id || 0,
                           logoUrl: awayIsBye ? undefined : match.away_team?.logo_url,
                           matchKitUrl: awayIsBye ? null : liveMatch?.away_match_kit_url ?? match.away_match_kit_url,
-                          warning: awayIsBye ? undefined : awayWarning?.type,
+                          warning: awayIsBye || !isMisarranged ? undefined : awayWarning?.type,
                           countryName: awayIsBye ? undefined : match.away_team?.country_name,
                           countryId: awayIsBye ? undefined : match.away_team?.country_id,
                           matchSummary: awaySummary,

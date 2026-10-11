@@ -114,6 +114,7 @@ export interface Team {
   is_placeholder?: boolean;
   reserve_active?: boolean;
   team_rank?: number | null;
+  power_rating?: number | null;
 }
 
 export interface TeamStanding {
@@ -143,6 +144,7 @@ export interface TeamStanding {
   logoUrl: string | null;
   managerName: string | null;
   teamRank?: number | null;
+  powerRating?: number | null;
 }
 
 export function getAppgStandingsQuota(standings: Array<Pick<TeamStanding, 'played'>>): number {
@@ -193,6 +195,7 @@ export function calculateStandings(
       logoUrl: team.logo_url || null,
       managerName: team.manager_name || null,
       teamRank: team.team_rank ?? null,
+      powerRating: team.power_rating ?? null,
     };
   });
 

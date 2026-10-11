@@ -39,6 +39,15 @@ Do not use Hattrick website pages or undocumented interfaces. CHPP products must
 ## Match Refresh Rules
 
 - Fixture refresh uses `matches` to detect arranged friendlies.
+- Public friendly lists use the team's complete OAuth credentials when available,
+  otherwise another authenticated team in the same tournament. A manually added
+  team without owner credentials must still be checked for correct and conflicting
+  bookings, so its fixture warning is available to `Repair Round`. This read
+  fallback does not validate ownership or grant challenge-management access.
+- A correct future booking found after round repair reopens its provisional
+  `finalized_unplayed` containment row as `pending` in the materialized round.
+  Saved warning history remains intact, but cannot override an arranged, ongoing
+  or finished fixture's displayed status.
 - Normal friendlies and cup friendlies are valid: match types `4`, `5`, `8`, `9`.
 - `Status` may be absent/null in older local rows; treat missing app status as `not_arranged` when appropriate.
 - Reversed Hattrick home/away still counts as the correct arranged match if both teams match and the date is within the accepted window.

@@ -167,7 +167,7 @@ async function invoke(request: NextRequest) {
   const result = payload && typeof payload === 'object' ? payload as Record<string, unknown> : {};
   const input = body && typeof body === 'object' ? body as Record<string, unknown> : {};
   const mutationRoutes = new Set([
-    'update-hfi-ranks', 'refresh-spotlight-profiles', 'generate-length-schedule', 'repair-length-round', 'recover-length-round-one',
+    'update-hfi-ranks', 'update-power-rankings', 'refresh-spotlight-profiles', 'generate-length-schedule', 'repair-length-round', 'recover-length-round-one',
     'save-length-results', 'tournament-participation', 'season-slot-replacement', 'reserve-team-swap',
     'reserve-team-fill', 'move-inactive-team-to-reserve', 'reset-season-to-planning', 'archive-tournament',
     'scheduled-team-removal', 'admin-team-reserve-transition', 'admin-add-reserve-team', 'reserve-teams',

@@ -13,7 +13,7 @@ export interface HfiRankUpdate {
   teamId: string;
   htTeamId: number;
   teamName: string;
-  teamRank: number;
+  teamRank: number | null;
   powerRating: number | null;
   powerGlobalRank: number | null;
   powerLeagueRank: number | null;
@@ -55,12 +55,14 @@ function getPowerValue(value: number | undefined) {
 }
 
 export async function refreshCurrentHfiTeamRanks(input: {
+  rankingSource?: 'team_rank' | 'power_rating';
   participants: HfiRankParticipant[];
   fetchTeamDetails: (
     teamId: number,
   ) => Promise<Pick<ParsedTeamDetails, 'teamName' | 'teamRank' | 'powerRating' | 'powerGlobalRank' | 'powerLeagueRank' | 'powerRegionRank'>>;
   updateTeamMetadata: (teamId: string, update: Omit<HfiRankUpdate, 'teamId' | 'htTeamId' | 'teamName'>) => Promise<void>;
 }): Promise<HfiRankRefreshResult> {
+  const rankLabel = input.rankingSource === 'power_rating' ? 'Power Rating' : 'HFI rank';
   const participants = selectCurrentHfiParticipants(input.participants);
   const teamIds = participants.map((team) => ({ team, htTeamId: getValidHtTeamId(team) }));
   const invalidTeam = teamIds.find(({ htTeamId }) => htTeamId === null)?.team;
@@ -74,11 +76,14 @@ export async function refreshCurrentHfiTeamRanks(input: {
     teamIds.map(async ({ team, htTeamId }) => {
       const details = await input.fetchTeamDetails(htTeamId as number).catch((error) => {
         const reason = error instanceof Error ? error.message : 'CHPP teamdetails could not be fetched.';
-        throw new Error(`Could not refresh HFI rank for ${team.name || `team ${htTeamId}`}: ${reason}`);
+        throw new Error(`Could not refresh ${rankLabel} for ${team.name || `team ${htTeamId}`}: ${reason}`);
       });
       const teamRank = getValidTeamRank(details);
-      if (teamRank === null) {
+      if (input.rankingSource !== 'power_rating' && teamRank === null) {
         throw new Error(`CHPP did not return a valid HFI rank for ${details.teamName || team.name || `team ${htTeamId}`}.`);
+      }
+      if (input.rankingSource === 'power_rating' && getPowerValue(details.powerRating) === null) {
+        throw new Error(`CHPP did not return a valid Power Rating for ${details.teamName || team.name || `team ${htTeamId}`}.`);
       }
       return {
         teamId: team.id,
