@@ -30,6 +30,7 @@ import styles from './Forge.module.sass';
 import { ForgeMatchesSection } from './ForgeMatches';
 import { ForgeLocales } from './ForgeLocales';
 import { mostViewedTournament, tournamentActivityRoute } from '../../utils/forge-activity-routes';
+import { mergeForgeDirectoryUsers, type ChallengeableDirectoryUser } from '../../utils/forge-team-directory';
 
 interface DashboardUser {
   hattrick_user_id: number;
@@ -2204,12 +2205,6 @@ function ForgeFaqEditor() {
   );
 }
 
-interface ChallengeableDirectoryUser {
-  managerId: number;
-  managerName: string;
-  teams: Array<{ teamId: number; teamName: string; availabilityReason?: string }>;
-}
-
 interface ChallengeableDirectoryIssue {
   managerId: number;
   managerName: string;
@@ -2233,6 +2228,7 @@ interface ChallengeableDirectoryState {
   cursor: number;
   hasMore: boolean;
   started: boolean;
+  scanStartedAt?: string;
   progress: ChallengeableDirectoryProgress;
 }
 
@@ -2272,6 +2268,7 @@ function readChallengeableDirectoryState(): ChallengeableDirectoryState {
       cursor: parsed.cursor || 0,
       hasMore: Boolean(parsed.hasMore),
       started: Boolean(parsed.started),
+      scanStartedAt: typeof parsed.scanStartedAt === 'string' ? parsed.scanStartedAt : undefined,
       progress: { ...EMPTY_CHALLENGEABLE_PROGRESS, ...parsed.progress },
     };
   } catch {
@@ -2292,6 +2289,7 @@ function ForgeTestingSection() {
   const [directoryLoading, setDirectoryLoading] = useState(false);
   const [directoryError, setDirectoryError] = useState('');
   const directoryPauseRequested = useRef(false);
+  const directoryCancelRequested = useRef(false);
 
   useEffect(() => {
     if (!directory.started) return;
@@ -2322,16 +2320,27 @@ function ForgeTestingSection() {
   const scanChallengeableDirectory = async (restart = false) => {
     if (directoryLoading || (directory.started && !directory.hasMore && !restart)) return;
     let cursor = restart ? 0 : directory.cursor;
+    const scanStartedAt = restart || !directory.started ? new Date().toISOString() : directory.scanStartedAt || new Date().toISOString();
+    let firstBatch = true;
+    if (restart) {
+      setDirectory({
+        users: [], issues: [], cursor: 0, hasMore: true, started: true, scanStartedAt,
+        progress: EMPTY_CHALLENGEABLE_PROGRESS,
+      });
+    }
     directoryPauseRequested.current = false;
+    directoryCancelRequested.current = false;
     setDirectoryLoading(true);
     setDirectoryError('');
     try {
       while (!directoryPauseRequested.current) {
         const params = new URLSearchParams({ tool: 'challengeable-directory', cursor: String(cursor) });
-        const response = await fetch(`/api/testing?${params.toString()}`, { credentials: 'include' });
+        const response = await fetch(`/api/testing?${params.toString()}`, { credentials: 'include', cache: 'no-store' });
         const payload = (await response.json()) as {
           error?: string;
           users?: ChallengeableDirectoryUser[];
+          refreshedManagerIds?: number[];
+          scannedManagerIds?: number[];
           issues?: ChallengeableDirectoryIssue[];
           scannedProfiles?: number;
           checkedManagers?: number;
@@ -2345,31 +2354,34 @@ function ForgeTestingSection() {
           hasMore?: boolean;
         };
         if (!response.ok) throw new Error(payload.error || 'Could not scan challengeable teams.');
+        const resetProgress = firstBatch && (restart || !directory.started);
+        firstBatch = false;
         setDirectory((current) => {
-          const usersById = new Map(current.users.map((user) => [user.managerId, user]));
-          for (const user of payload.users || []) usersById.set(user.managerId, user);
-          const issuesByKey = new Map(current.issues.map((issue) => [`${issue.managerId}:${issue.reason}`, issue]));
+          const scanned = new Set(payload.scannedManagerIds || []);
+          const issuesByKey = new Map(current.issues.filter(issue => !scanned.has(issue.managerId)).map((issue) => [`${issue.managerId}:${issue.reason}`, issue]));
           for (const issue of payload.issues || []) issuesByKey.set(`${issue.managerId}:${issue.reason}`, issue);
+          const progress = resetProgress ? EMPTY_CHALLENGEABLE_PROGRESS : current.progress;
           return {
-            users: Array.from(usersById.values()),
+            users: mergeForgeDirectoryUsers(current.users, payload.users || [], payload.refreshedManagerIds || []),
             issues: Array.from(issuesByKey.values()),
             cursor: payload.nextCursor ?? cursor,
-            hasMore: Boolean(payload.hasMore),
+            hasMore: directoryCancelRequested.current ? false : Boolean(payload.hasMore),
             started: true,
+            scanStartedAt,
             progress: {
-              scanned: current.progress.scanned + (payload.scannedProfiles || 0),
-              checkedManagers: current.progress.checkedManagers + (payload.checkedManagers || 0),
-              checkedTeams: current.progress.checkedTeams + (payload.checkedTeams || 0),
-              skipped: current.progress.skipped + (payload.unavailableCredentials || 0),
-              failed: current.progress.failed + (payload.failedChecks || 0),
-              unavailableTeams: current.progress.unavailableTeams + (payload.unavailableTeams || 0),
-              managersWithNoTeams: current.progress.managersWithNoTeams + (payload.managersWithNoTeams || 0),
+              scanned: progress.scanned + (payload.scannedProfiles || 0),
+              checkedManagers: progress.checkedManagers + (payload.checkedManagers || 0),
+              checkedTeams: progress.checkedTeams + (payload.checkedTeams || 0),
+              skipped: progress.skipped + (payload.unavailableCredentials || 0),
+              failed: progress.failed + (payload.failedChecks || 0),
+              unavailableTeams: progress.unavailableTeams + (payload.unavailableTeams || 0),
+              managersWithNoTeams: progress.managersWithNoTeams + (payload.managersWithNoTeams || 0),
               managersWithoutAvailableTeams:
-                current.progress.managersWithoutAvailableTeams + (payload.managersWithoutAvailableTeams || 0),
+                progress.managersWithoutAvailableTeams + (payload.managersWithoutAvailableTeams || 0),
             },
           };
         });
-        if (!payload.hasMore || payload.nextCursor === null || payload.nextCursor === undefined) break;
+        if (directoryCancelRequested.current || !payload.hasMore || payload.nextCursor === null || payload.nextCursor === undefined) break;
         cursor = payload.nextCursor;
         await new Promise((resolve) => window.setTimeout(resolve, 3000));
       }
@@ -2379,6 +2391,8 @@ function ForgeTestingSection() {
       setDirectoryLoading(false);
     }
   };
+
+  const visibleDirectoryUsers = directory.users.filter(manager => manager.teams.length > 0);
 
   return (
     <section className={styles.sectionStack}>
@@ -2431,8 +2445,8 @@ function ForgeTestingSection() {
         {output && <pre className={styles.testingOutput}>{output}</pre>}
       </SectionCard>
       <SectionCard
-        title="Challengeable teams"
-        subtitle="Current matchmaker availability, checked through each manager’s stored CHPP access."
+        title="Friendly availability"
+        subtitle="Bookings, cup status and Hattrick challengeability flags, checked through each manager’s stored CHPP access. No challenge is sent."
         className={styles.surfaceCard}
       >
         <div className={styles.editorActions}>
@@ -2447,22 +2461,24 @@ function ForgeTestingSection() {
                 ? 'Scan all users'
                 : directory.hasMore
                   ? 'Continue scan'
-                  : 'Rescan from start (keep results)'}
+                  : 'Rescan from start (refresh results)'}
           </Button>
-          {directoryLoading && (
+          {(directoryLoading || (directory.started && directory.hasMore)) && (
             <Button
               variant="outline"
               onClick={() => {
                 directoryPauseRequested.current = true;
+                directoryCancelRequested.current = true;
+                setDirectory(current => ({ ...current, hasMore: false }));
               }}
             >
-              Pause scan
+              Cancel scan
             </Button>
           )}
           {directory.started && (
             <span className={styles.smallNote}>
               Scanned {directory.progress.scanned} users · {directory.progress.checkedManagers} had CHPP access ·{' '}
-              {directory.progress.checkedTeams} teams checked · {directory.progress.unavailableTeams} unavailable
+              {directory.progress.checkedTeams} teams checked · {directory.progress.unavailableTeams} booked, in cup or unverified
             </span>
           )}
         </div>
@@ -2479,7 +2495,7 @@ function ForgeTestingSection() {
             <p className={styles.smallNote}>
               {directory.progress.skipped} users lacked stored CHPP credentials · {directory.progress.failed} CHPP or
               team checks failed · {directory.progress.managersWithNoTeams} users had no current teams ·{' '}
-              {directory.progress.managersWithoutAvailableTeams} users had no team available to challenge
+              {directory.progress.managersWithoutAvailableTeams} users had no team confirmed unbooked and out of cup
             </p>
             {directory.issues.length > 0 && (
               <ul>
@@ -2501,12 +2517,12 @@ function ForgeTestingSection() {
             {directory.issues.length > 30 && <span>Showing first 30 diagnostic entries.</span>}
           </details>
         )}
-        {directory.started && directory.users.length === 0 && !directoryLoading && !directory.hasMore && (
-          <p className={styles.smallNote}>No currently challengeable teams found in the scanned users.</p>
+        {directory.started && visibleDirectoryUsers.length === 0 && !directoryLoading && !directory.hasMore && (
+          <p className={styles.smallNote}>No teams confirmed unbooked and out of cup were found.</p>
         )}
         {directory.users.length > 0 && (
           <div className={styles.challengeableDirectory}>
-            {directory.users.map((manager) => (
+            {visibleDirectoryUsers.map((manager) => (
               <article key={manager.managerId}>
                 <h3>{manager.managerName}</h3>
                 <a
@@ -2527,6 +2543,16 @@ function ForgeTestingSection() {
                       >
                         {team.teamId}
                       </a>
+                      <span>
+                        Friendly: {team.booked === true ? 'Booked' : team.booked === false ? 'Not booked' : 'Unknown'} · Cup: {team.inCup === true ? 'In cup' : team.inCup === false ? 'Out of cup' : 'Unknown'}
+                      </span>
+                      <span>
+                        Challengeable — midweek: {team.challengeableMidweek === true ? 'Yes' : team.challengeableMidweek === false ? 'No' : 'Unknown'} · weekend: {team.challengeableWeekend === true ? 'Yes' : team.challengeableWeekend === false ? 'No' : 'Unknown'}
+                      </span>
+                      <span>
+                        {team.checkedAt ? `Checked ${new Date(team.checkedAt).toLocaleString()}` : 'Saved result — not yet rechecked'}
+                        {team.checkedAt && directory.scanStartedAt && team.checkedAt < directory.scanStartedAt ? ' · Previous scan; not yet refreshed' : ''}
+                      </span>
                     </li>
                   ))}
                 </ul>

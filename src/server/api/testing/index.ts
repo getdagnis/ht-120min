@@ -6,7 +6,6 @@ import {
   viewChppChallenges,
 } from '../_lib/chpp-challenges.js';
 import {
-  classifyTeamAvailability,
   fetchManagerTeamsFromChpp,
   fetchTeamBookingStatus,
   fetchTeamDetailsFromChpp,
@@ -24,6 +23,7 @@ import {
   parseMatchEventDetails,
 } from '../_lib/chpp-match-events.js';
 import type { ChppTeamOption } from '../_lib/chpp-xml.js';
+import type { ChallengeableDirectoryUser, ForgeDirectoryTeam } from '../../../utils/forge-team-directory.js';
 
 function value(req: VercelRequest, key: string) {
   const raw = req.query[key];
@@ -333,6 +333,7 @@ function challengeableDirectoryFailure(error: unknown, fallback: string) {
 }
 
 async function handleChallengeableDirectory(req: VercelRequest, res: VercelResponse) {
+  res.setHeader('Cache-Control', 'private, no-store');
   const cursor = Number(value(req, 'cursor') || '0');
   if (!Number.isSafeInteger(cursor) || cursor < 0) {
     return res.status(400).json({ error: 'Invalid directory cursor.' });
@@ -350,11 +351,8 @@ async function handleChallengeableDirectory(req: VercelRequest, res: VercelRespo
     .limit(CHALLENGEABLE_DIRECTORY_PAGE_SIZE);
   if (error) throw error;
 
-  const directoryUsers: Array<{
-    managerId: number;
-    managerName: string;
-    teams: Array<{ teamId: number; teamName: string; availabilityReason?: string }>;
-  }> = [];
+  const directoryUsers: ChallengeableDirectoryUser[] = [];
+  const refreshedManagerIds: number[] = [];
   const issues: Array<{ managerId: number; managerName: string; reason: string }> = [];
   let checkedManagers = 0;
   let checkedTeams = 0;
@@ -382,6 +380,7 @@ async function handleChallengeableDirectory(req: VercelRequest, res: VercelRespo
     let teams: ChppTeamOption[];
     try {
       const compendium = await fetchManagerTeamsFromChpp(consumerKey, consumerSecret, credentials, managerId);
+      if (Number(compendium.hattrickUserId) !== managerId) throw new Error('CHPP did not identify the requested manager.');
       teams = compendium.teams;
     } catch (teamListError) {
       failedChecks += 1;
@@ -395,41 +394,24 @@ async function handleChallengeableDirectory(req: VercelRequest, res: VercelRespo
     }
 
     if (teams.length === 0) managersWithNoTeams += 1;
-    const availableTeams: Array<{ teamId: number; teamName: string; availabilityReason?: string }> = [];
+    refreshedManagerIds.push(managerId);
+    const scannedTeams: ForgeDirectoryTeam[] = [];
     for (const team of teams) {
       const teamId = Number(team.teamId);
       if (!Number.isSafeInteger(teamId) || teamId <= 0) continue;
+      const result: ForgeDirectoryTeam = {
+        teamId, teamName: team.teamName, booked: null, inCup: null,
+        challengeableMidweek: null, challengeableWeekend: null, checkedAt: '',
+      };
+      checkedTeams += 1;
       try {
         const details = await fetchTeamDetailsFromChpp(consumerKey, consumerSecret, credentials, teamId);
-        checkedTeams += 1;
-        const initialAvailability = classifyTeamAvailability(details);
-        if (initialAvailability.availabilityStatus !== 'available') {
-          unavailableTeams += 1;
-          continue;
-        }
-
-        let bookingResult = null;
-        try {
-          bookingResult = await fetchTeamBookingStatus(consumerKey, consumerSecret, credentials, teamId);
-        } catch (bookingError) {
-          failedChecks += 1;
-          issues.push({
-            managerId,
-            managerName: profile.manager_name || credentials.manager_name || 'Unknown manager',
-            reason: `Team ${teamId}: ${challengeableDirectoryFailure(bookingError, 'Could not verify booking status.')}`,
-          });
-          console.warn(`Could not verify booking status for Forge directory team ${teamId}:`, bookingError);
-        }
-        const availability = classifyTeamAvailability(details, bookingResult);
-        if (availability.availabilityStatus === 'available') {
-          availableTeams.push({
-            teamId,
-            teamName: details.teamName || team.teamName,
-            availabilityReason: availability.availabilityReason,
-          });
-        } else {
-          unavailableTeams += 1;
-        }
+        if (details.errorCode) throw new Error('CHPP teamdetails returned an error.');
+        result.teamName = details.teamName || team.teamName;
+        result.inCup = details.stillInCup ?? null;
+        result.challengeableMidweek = details.possibleToChallengeMidweek ?? null;
+        result.challengeableWeekend = details.possibleToChallengeWeekend ?? null;
+        if (Number(details.friendlyTeamId) > 0) result.booked = true;
       } catch (teamError) {
         failedChecks += 1;
         issues.push({
@@ -439,19 +421,41 @@ async function handleChallengeableDirectory(req: VercelRequest, res: VercelRespo
         });
         console.warn(`Could not check Forge challengeable directory team ${teamId}:`, teamError);
       }
+      // Always check fixtures, even when challenges are disabled or teamdetails
+      // is temporarily missing fields during live play.
+      try {
+        const booking = await fetchTeamBookingStatus(consumerKey, consumerSecret, credentials, teamId);
+        const ongoingFriendly = booking.scheduledMatches?.some(match =>
+          [4, 5, 8, 9].includes(match.matchType) && [match.homeTeamId, match.awayTeamId].includes(teamId) &&
+          match.status.toUpperCase() === 'ONGOING');
+        result.booked = result.booked === true || booking.isBooked || ongoingFriendly ? true : booking.scheduledMatches ? false : null;
+        if (!booking.isBooked && !booking.scheduledMatches) {
+          failedChecks += 1;
+          issues.push({ managerId, managerName: profile.manager_name || credentials.manager_name || 'Unknown manager',
+            reason: `Team ${teamId}: Hattrick did not return an identified, complete fixture list.` });
+        }
+        if (result.inCup === null && booking.scheduledMatches?.some(match =>
+          match.matchType === 3 && [match.homeTeamId, match.awayTeamId].includes(teamId) &&
+          ['UPCOMING', 'ONGOING'].includes(match.status.toUpperCase()))) result.inCup = true;
+      } catch (bookingError) {
+        failedChecks += 1;
+        issues.push({ managerId, managerName: profile.manager_name || credentials.manager_name || 'Unknown manager',
+          reason: `Team ${teamId}: ${challengeableDirectoryFailure(bookingError, 'Could not verify booking status.')}` });
+      }
+      result.checkedAt = new Date().toISOString();
+      if (result.booked === false && result.inCup === false) scannedTeams.push(result);
+      else unavailableTeams += 1;
     }
 
-    if (teams.length > 0 && availableTeams.length === 0) {
+    if (teams.length > 0 && !scannedTeams.some(team => team.booked === false && team.inCup === false)) {
       managersWithoutAvailableTeams += 1;
     }
 
-    if (availableTeams.length > 0) {
-      directoryUsers.push({
-        managerId,
-        managerName: profile.manager_name || credentials.manager_name || 'Unknown manager',
-        teams: availableTeams,
-      });
-    }
+    directoryUsers.push({
+      managerId,
+      managerName: profile.manager_name || credentials.manager_name || 'Unknown manager',
+      teams: scannedTeams,
+    });
   }
 
   const hasMore = (profiles || []).length === CHALLENGEABLE_DIRECTORY_PAGE_SIZE;
@@ -459,6 +463,8 @@ async function handleChallengeableDirectory(req: VercelRequest, res: VercelRespo
   return res.status(200).json({
     tool: 'challengeable-directory',
     users: directoryUsers,
+    refreshedManagerIds,
+    scannedManagerIds: (profiles || []).map(profile => Number(profile.hattrick_user_id)),
     scannedProfiles: (profiles || []).length,
     checkedManagers,
     checkedTeams,

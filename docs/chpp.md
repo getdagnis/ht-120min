@@ -36,6 +36,26 @@ Detailed flow reference: `docs/auth-flow.md`.
 
 Do not use Hattrick website pages or undocumented interfaces. CHPP products must use documented CHPP files only.
 
+## Forge friendly-availability directory
+
+The private `challengeable-directory` testing tool scans each manager through
+their stored CHPP access. It lists only teams confirmed unbooked and out of cup,
+and reports those conditions separately from `PossibleToChallengeMidweek` /
+`PossibleToChallengeWeekend` from teamdetails.
+These are Hattrick's team-level hints, not an opponent-specific challenge check,
+and this scan never sends a challenge. Unbooked teams with challenges disabled
+remain visible for organizer contact. Missing fields and failed checks remain
+unknown and are excluded from the available list.
+
+Starting a rescan clears the old results immediately. As managers are checked,
+each successfully rediscovered manager's team snapshot replaces the previous one,
+including empty rosters. Failed manager lookups do not restore old entries. Each
+listed team shows its check time; legacy session-storage entries are unknown until
+rescanned. Progress counters restart per scan, pause/resume retains the cursor,
+directory responses bypass HTTP caching. Cancel stops after the in-flight page and
+keeps the accumulated results; continuing resumes from the saved cursor, while a
+new rescan starts over and clears the previous results.
+
 ## Match Refresh Rules
 
 - Fixture refresh uses `matches` to detect arranged friendlies.
