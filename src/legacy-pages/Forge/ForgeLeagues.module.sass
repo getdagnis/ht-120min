@@ -7,11 +7,14 @@
   display: grid
   grid-template-columns: minmax(8rem, 1fr) minmax(12rem, 2fr)
   gap: 1rem
+  max-width: 60rem
 
   label
     display: flex
     flex-direction: column
     gap: .4rem
+    margin-bottom: 0.25rem
+    font-size: 0.85rem
 
 .messageTemplate
   display: flex
@@ -20,8 +23,10 @@
   margin-bottom: 1rem
 
   textarea
+    min-height: 8rem
+    height: 16rem
     width: 100%
-    min-height: 16rem
+    max-width: 60rem
     padding: .7rem
     resize: vertical
     background: var(--bg)
@@ -29,6 +34,10 @@
     border: 1px solid var(--border)
     border-radius: 4px
     font: inherit
+    font-family: Roboto, Verdana, Helvetica, Sans-Serif
+    font-size: 0.85rem
+    letter-spacing: .2px
+    line-height: 1.4em
 
 .messaged:disabled
   color: var(--accent-2)
@@ -36,13 +45,25 @@
   border-color: var(--accent-2)
   opacity: 1
 
-.controls select, .country select
+.messagedField
+  display: flex
+  justify-content: flex-end
+  align-items: center
+  width: 20rem
+  max-width: 24rem
+  flex-wrap: wrap
+
+.controls select, .country select, .messageTemplate select
   width: 100%
+  max-width: 60rem
   padding: .6rem
   margin-bottom: 1rem
-  background: var(--bg)
+  font-size: 1rem
+  background: var(--darker)
   color: var(--text)
-  border: 1px solid var(--border)
+  border: 1px solid var(--border-transp)
+  border: none
+  outline: none !important
   border-radius: 4px
 
 .buttons
@@ -82,6 +103,7 @@
   color: var(--text60)
   font-size: .85rem
   margin-top: .25rem
+  margin-right: 0.75rem
 
 .available
   color: var(--accent-2)

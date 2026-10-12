@@ -47,7 +47,8 @@ function formatLastSeen(value?: string | null): string | null {
   const date = new Date(value.replace(' ', 'T'));
   if (Number.isNaN(date.getTime())) return null;
   const dayMonth = new Intl.DateTimeFormat('en-GB', { day: '2-digit', month: '2-digit' })
-    .format(date).replaceAll('/', '.');
+    .format(date)
+    .replaceAll('/', '.');
   const time = new Intl.DateTimeFormat('en-GB', { hour: '2-digit', minute: '2-digit', hourCycle: 'h23' }).format(date);
   return `${dayMonth} ${time}`;
 }
@@ -240,7 +241,7 @@ export function ForgeLeagues() {
     if (!outreachStorageKey || loadedOutreachStorageKey !== outreachStorageKey) return;
     try {
       const raw = window.localStorage.getItem(outreachStorageKey);
-      const data = raw ? JSON.parse(raw) as Record<string, unknown> : {};
+      const data = raw ? (JSON.parse(raw) as Record<string, unknown>) : {};
       // Preserve the existing local manager IDs unchanged until the import count is verified.
       window.localStorage.setItem(outreachStorageKey, JSON.stringify({ ...data, messageTemplate }));
     } catch {
@@ -250,7 +251,12 @@ export function ForgeLeagues() {
 
   useEffect(() => {
     const abort = new AbortController();
-    request<{ campaigns: ForgeOutreachCampaign[]; contacts: ForgeOutreachContact[] }>('outreach', undefined, undefined, abort.signal)
+    request<{ campaigns: ForgeOutreachCampaign[]; contacts: ForgeOutreachContact[] }>(
+      'outreach',
+      undefined,
+      undefined,
+      abort.signal,
+    )
       .then((data) => {
         if (abort.signal.aborted) return;
         setOutreachCampaigns(data.campaigns);
@@ -507,7 +513,7 @@ export function ForgeLeagues() {
     if (!selectedCampaign || outreachBusy || !outreachLoaded) return;
     const teamFlag = teamFlagFor(team.countryId);
     const message = formatForgeLeagueOutreachMessage(messageTemplate, team, teamFlag);
-    setMessagingManagerIds((ids) => ids.includes(team.managerId) ? ids : [...ids, team.managerId]);
+    setMessagingManagerIds((ids) => (ids.includes(team.managerId) ? ids : [...ids, team.managerId]));
     let copied = false;
     try {
       await navigator.clipboard.writeText(message);
@@ -516,15 +522,19 @@ export function ForgeLeagues() {
         campaignId: selectedCampaign.id,
         managerId: team.managerId,
       });
-      setOutreachContacts((contacts) => contacts.some((contact) => contact.campaignId === selectedCampaign.id && contact.managerId === team.managerId)
-        ? contacts
-        : [...contacts, { campaignId: selectedCampaign.id, managerId: team.managerId }]);
+      setOutreachContacts((contacts) =>
+        contacts.some((contact) => contact.campaignId === selectedCampaign.id && contact.managerId === team.managerId)
+          ? contacts
+          : [...contacts, { campaignId: selectedCampaign.id, managerId: team.managerId }],
+      );
       setNotice(`Message copied and recorded for ${team.managerName || team.teamName}.`);
       setError('');
     } catch (err) {
-      setOutreachError(copied
-        ? 'Message copied, but it was not recorded. Retry the contact action to save it.'
-        : 'Could not copy the message. Check clipboard permissions and try again.');
+      setOutreachError(
+        copied
+          ? 'Message copied, but it was not recorded. Retry the contact action to save it.'
+          : 'Could not copy the message. Check clipboard permissions and try again.',
+      );
     } finally {
       setMessagingManagerIds((ids) => ids.filter((id) => id !== team.managerId));
     }
@@ -536,7 +546,12 @@ export function ForgeLeagues() {
   const teamRow = (team: ForgeLeagueTeam, showManager: boolean) => {
     const status = leagueTeamStatus(team);
     const flag = teamFlagFor(team.countryId);
-    const outreachStatus = getForgeOutreachStatus(selectedCampaignId, team.managerId, outreachCampaigns, outreachContacts);
+    const outreachStatus = getForgeOutreachStatus(
+      selectedCampaignId,
+      team.managerId,
+      outreachCampaigns,
+      outreachContacts,
+    );
     const messaged = outreachStatus.contacted;
     const sending = messagingManagerIds.includes(team.managerId);
     const lastSeen = formatLastSeen(team.lastLoginDate);
@@ -549,7 +564,9 @@ export function ForgeLeagues() {
           </a>
           {showManager && (
             <a className={styles.meta} href={link('manager', team.managerId)} target="_blank" rel="noreferrer">
-              {team.managerName}{managerFlag}{supporterIcons[team.supporterTier?.toLowerCase() || ''] || ''} · {team.managerId}
+              {team.managerName}
+              {managerFlag}
+              {supporterIcons[team.supporterTier?.toLowerCase() || ''] || ''} · {team.managerId}
               {lastSeen && <> · Seen: {lastSeen}</>}
             </a>
           )}
@@ -567,23 +584,25 @@ export function ForgeLeagues() {
           </span>
           {team.error && <span className={styles.meta}>{team.error}</span>}
         </div>
-        <Button
-          variant="secondary"
-          size="sm"
-          className={messaged ? styles.messaged : ''}
-          disabled={messaged || sending || !outreachLoaded || !selectedCampaign}
-          onClick={() => messageManager(team)}
-          aria-label={
-            messaged
-              ? `Messaged ${team.managerName || team.managerId}`
-              : `Copy message for ${team.managerName || team.managerId}`
-          }
-        >
-          {messaged ? '✓ Messaged' : sending ? 'Copying…' : 'Message'}
-        </Button>
-        {!messaged && outreachStatus.previousCampaignNames.length > 0 && (
-          <span className={styles.meta}>Contacted about: {outreachStatus.previousCampaignNames.join(', ')}</span>
-        )}
+        <div className={styles.messagedField}>
+          {!messaged && outreachStatus.previousCampaignNames.length > 0 && (
+            <span className={styles.meta}>Contacted: {outreachStatus.previousCampaignNames.join(', ')}</span>
+          )}
+          <Button
+            variant="secondary"
+            size="sm"
+            className={messaged ? styles.messaged : ''}
+            disabled={messaged || sending || !outreachLoaded || !selectedCampaign}
+            onClick={() => messageManager(team)}
+            aria-label={
+              messaged
+                ? `Messaged ${team.managerName || team.managerId}`
+                : `Copy message for ${team.managerName || team.managerId}`
+            }
+          >
+            {messaged ? '✓ Messaged' : sending ? 'Copying…' : 'Message'}
+          </Button>
+        </div>
       </li>
     );
   };
@@ -596,23 +615,33 @@ export function ForgeLeagues() {
       >
         <div className={styles.messageTemplate}>
           <label>
-            Campaign
-            <select value={selectedCampaignId} disabled={!outreachLoaded || outreachBusy} onChange={(event) => {
-              const id = event.target.value;
-              setSelectedCampaignId(id);
-            }}>
-              {outreachCampaigns.map((item) => <option key={item.id} value={item.id}>{item.name} · {item.campaignDate}</option>)}
+            <select
+              value={selectedCampaignId}
+              disabled={!outreachLoaded || outreachBusy}
+              onChange={(event) => {
+                const id = event.target.value;
+                setSelectedCampaignId(id);
+              }}
+            >
+              {outreachCampaigns.map((item) => (
+                <option key={item.id} value={item.id}>
+                  {item.name} · {item.campaignDate}
+                </option>
+              ))}
             </select>
           </label>
           <label>
-          Outreach message
-          <span className={styles.meta}>
-            Use {'{teamName}'}, {'{managerName}'}, and {'{teamFlag}'} as substitutions. Clicking Message copies the filled text.
-          </span>
+            <span className={styles.meta}>
+              Use {'{teamName}'}, {'{managerName}'}, and {'{teamFlag}'} as substitutions. Clicking Message copies the
+              filled text.
+            </span>
             <textarea value={messageTemplate} onChange={(event) => setMessageTemplate(event.target.value)} rows={18} />
           </label>
-          {selectedCampaign && <span className={styles.meta}>Campaign date: {selectedCampaign.campaignDate}</span>}
-          {outreachError && <span className={styles.unavailable} role="alert">{outreachError}</span>}
+          {outreachError && (
+            <span className={styles.unavailable} role="alert">
+              {outreachError}
+            </span>
+          )}
         </div>
         <div className={styles.controls}>
           <label>
