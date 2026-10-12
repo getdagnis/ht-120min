@@ -68,9 +68,20 @@
 
 .buttons
   display: flex
+  align-items: center
   flex-wrap: wrap
   gap: .5rem
   margin: 1rem 0
+
+.filter
+  display: flex
+  align-items: center
+  gap: .35rem
+  white-space: nowrap
+  font-size: .9rem
+
+  input
+    margin: 0
 
 .country
   display: block
@@ -110,9 +121,6 @@
 
 .unavailable
   color: var(--danger)
-
-.manager
-  margin-top: 1rem
 
 @media (max-width: 600px)
   .controls

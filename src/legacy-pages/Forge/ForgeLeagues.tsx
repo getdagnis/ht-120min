@@ -42,10 +42,15 @@ const supporterIcons: Record<string, string> = {
   diamond: '💎',
 };
 
-function formatLastSeen(value?: string | null): string | null {
+function parseLastSeen(value?: string | null): Date | null {
   if (!value) return null;
   const date = new Date(value.replace(' ', 'T'));
-  if (Number.isNaN(date.getTime())) return null;
+  return Number.isNaN(date.getTime()) ? null : date;
+}
+
+function formatLastSeen(value?: string | null): string | null {
+  const date = parseLastSeen(value);
+  if (!date) return null;
   const dayMonth = new Intl.DateTimeFormat('en-GB', { day: '2-digit', month: '2-digit' })
     .format(date)
     .replaceAll('/', '.');
@@ -138,7 +143,9 @@ export function ForgeLeagues() {
   const [error, setError] = useState('');
   const [notice, setNotice] = useState('');
   const [storageWarning, setStorageWarning] = useState('');
-  const [view, setView] = useState<'all' | 'available' | 'users'>('all');
+  const [view, setView] = useState<'all' | 'available'>('all');
+  const [supportersOnly, setSupportersOnly] = useState(false);
+  const [activeRecently, setActiveRecently] = useState(false);
   const [country, setCountry] = useState('');
   const [messageTemplate, setMessageTemplate] = useState(defaultOutreachMessage);
   const [outreachCampaigns, setOutreachCampaigns] = useState<ForgeOutreachCampaign[]>([]);
@@ -500,13 +507,18 @@ export function ForgeLeagues() {
     ...new Set(snapshot?.teams.map((team) => team.countryId).filter((id): id is number => id !== null) || []),
   ];
   const special = league && HATTRICK_WORLD_DETAILS[league.leagueId]?.countryId === null;
+  const activeSince = Date.now() - 8 * 24 * 60 * 60 * 1000;
   const teams = (snapshot?.teams || [])
     .filter((team) => !country || String(team.countryId) === country)
     .filter((team) => view !== 'available' || leagueTeamStatus(team) === 'Available')
+    .filter((team) => !supportersOnly || Boolean(supporterIcons[team.supporterTier?.toLowerCase() || '']))
+    .filter((team) => {
+      if (!activeRecently) return true;
+      const lastSeen = parseLastSeen(team.lastLoginDate);
+      return Boolean(lastSeen && lastSeen.getTime() <= Date.now() && lastSeen.getTime() >= activeSince);
+    })
     .slice()
     .sort((a, b) => a.teamName.localeCompare(b.teamName));
-  const managers = new Map<number, ForgeLeagueTeam[]>();
-  for (const team of teams) managers.set(team.managerId, [...(managers.get(team.managerId) || []), team]);
   const teamFlagFor = getCountryFlagEmoji;
   const selectedCampaign = outreachCampaigns.find((campaign) => campaign.id === selectedCampaignId);
   const copyManagerMessage = async (team: ForgeLeagueTeam) => {
@@ -543,7 +555,7 @@ export function ForgeLeagues() {
     void copyManagerMessage(team);
     window.open(managerMessageHref(team.managerId), '_blank', 'noopener,noreferrer');
   };
-  const teamRow = (team: ForgeLeagueTeam, showManager: boolean) => {
+  const teamRow = (team: ForgeLeagueTeam) => {
     const status = leagueTeamStatus(team);
     const flag = teamFlagFor(team.countryId);
     const outreachStatus = getForgeOutreachStatus(
@@ -562,14 +574,12 @@ export function ForgeLeagues() {
           <a href={link('team', team.teamId)} target="_blank" rel="noreferrer">
             {flag} {team.teamName} · {team.teamId}
           </a>
-          {showManager && (
-            <a className={styles.meta} href={link('manager', team.managerId)} target="_blank" rel="noreferrer">
-              {team.managerName}
-              {managerFlag}
-              {supporterIcons[team.supporterTier?.toLowerCase() || ''] || ''} · {team.managerId}
-              {lastSeen && <> · Seen: {lastSeen}</>}
-            </a>
-          )}
+          <a className={styles.meta} href={link('manager', team.managerId)} target="_blank" rel="noreferrer">
+            {team.managerName}
+            {managerFlag}
+            {supporterIcons[team.supporterTier?.toLowerCase() || ''] || ''} · {team.managerId}
+            {lastSeen && <> · Seen: {lastSeen}</>}
+          </a>
         </div>
         <div className={styles.status}>
           <span
@@ -792,7 +802,7 @@ export function ForgeLeagues() {
           }
         >
           <div className={styles.buttons}>
-            {(['all', 'available', 'users'] as const).map((item) => (
+            {(['all', 'available'] as const).map((item) => (
               <Button
                 key={item}
                 size="sm"
@@ -800,9 +810,17 @@ export function ForgeLeagues() {
                 aria-pressed={view === item}
                 onClick={() => setView(item)}
               >
-                {item === 'all' ? 'All teams' : item === 'available' ? 'Available' : 'Users'}
+                {item === 'all' ? 'All teams' : 'Available'}
               </Button>
             ))}
+            <label className={styles.filter}>
+              <input type="checkbox" checked={supportersOnly} onChange={(event) => setSupportersOnly(event.target.checked)} />
+              Supporters only
+            </label>
+            <label className={styles.filter}>
+              <input type="checkbox" checked={activeRecently} onChange={(event) => setActiveRecently(event.target.checked)} />
+              Active in past 8 days
+            </label>
           </div>
           {special && countries.length > 1 && (
             <label className={styles.country}>
@@ -827,23 +845,12 @@ export function ForgeLeagues() {
           )}
           {!teams.length && (
             <p className={styles.meta}>
-              {view === 'available' ? 'No confirmed available teams in this list.' : 'No teams listed yet.'}
+              {view === 'available'
+                ? 'No confirmed available teams match these filters.'
+                : snapshot.teams.length ? 'No teams match these filters.' : 'No teams listed yet.'}
             </p>
           )}
-          {view === 'users' ? (
-            [...managers.entries()].map(([id, clubs]) => (
-              <article key={id} className={styles.manager}>
-                <a href={link('manager', id)} target="_blank" rel="noreferrer">
-                  <strong>
-                    {clubs[0].managerName} · {id}
-                  </strong>
-                </a>
-                <ul className={styles.list}>{clubs.map((team) => teamRow(team, false))}</ul>
-              </article>
-            ))
-          ) : (
-            <ul className={styles.list}>{teams.map((team) => teamRow(team, true))}</ul>
-          )}
+          <ul className={styles.list}>{teams.map((team) => teamRow(team))}</ul>
         </SectionCard>
       )}
     </section>
