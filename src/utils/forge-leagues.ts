@@ -26,6 +26,10 @@ export interface ForgeLeagueTeam {
   error: string | null;
 }
 
+function capitalizeFirst(value: string): string {
+  return value ? value[0].toUpperCase() + value.slice(1) : '';
+}
+
 export function formatForgeLeagueOutreachMessage(
   template: string,
   team: ForgeLeagueTeam,
@@ -33,7 +37,7 @@ export function formatForgeLeagueOutreachMessage(
 ): string {
   return template
     .replaceAll('{teamName}', team.teamName)
-    .replaceAll('{managerName}', team.managerName || '')
+    .replaceAll('{managerName}', capitalizeFirst(team.managerName || ''))
     .replaceAll('{teamFlag}', teamFlag);
 }
 

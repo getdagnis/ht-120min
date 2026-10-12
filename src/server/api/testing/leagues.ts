@@ -86,20 +86,21 @@ export function snapshotInput(value: unknown): ForgeLeagueSnapshot | null {
       !Number.isSafeInteger(team.managerId) || Number(team.managerId) <= 0 ||
       typeof team.teamName !== 'string' || !team.teamName.trim() || team.teamName.length > 200 ||
       typeof team.managerName !== 'string' || !team.managerName.trim() || team.managerName.length > 200 ||
-      !(team.managerCountryId === undefined || team.managerCountryId === null ||
-        (Number.isSafeInteger(team.managerCountryId) && Number(team.managerCountryId) > 0)) ||
-      !(team.supporterTier === undefined || team.supporterTier === null ||
-        ['silver', 'gold', 'platinum', 'diamond'].includes(String(team.supporterTier).toLowerCase())) ||
-      !(team.lastLoginDate === undefined || team.lastLoginDate === null || validDate(team.lastLoginDate)) ||
       !(team.countryId === null || (Number.isSafeInteger(team.countryId) && Number(team.countryId) > 0)) ||
       ![null, true, false].includes(team.booked as boolean | null) || ![null, true, false].includes(team.inCup as boolean | null) ||
       !(team.checkedAt === null || validDate(team.checkedAt)) ||
       !(team.error === null || (typeof team.error === 'string' && team.error.length <= 500))) return null;
     unique.add(Number(team.teamId));
+    const rawSupporterTier = typeof team.supporterTier === 'string' ? team.supporterTier.toLowerCase() : null;
+    const supporterTier = ['silver', 'gold', 'platinum', 'diamond'].includes(rawSupporterTier || '') ? rawSupporterTier : null;
+    const managerCountryId = Number.isSafeInteger(team.managerCountryId) && Number(team.managerCountryId) > 0
+      ? Number(team.managerCountryId)
+      : null;
+    const lastLoginDate = validDate(team.lastLoginDate) ? team.lastLoginDate : null;
     teams.push({ teamId: Number(team.teamId), teamName: team.teamName, managerId: Number(team.managerId), managerName: team.managerName,
-      managerCountryId: team.managerCountryId == null ? null : Number(team.managerCountryId),
-      supporterTier: team.supporterTier == null ? null : String(team.supporterTier).toLowerCase(),
-      lastLoginDate: team.lastLoginDate == null ? null : team.lastLoginDate as string,
+      managerCountryId,
+      supporterTier,
+      lastLoginDate,
       countryId: team.countryId as number | null, booked: team.booked as boolean | null, inCup: team.inCup as boolean | null,
       checkedAt: team.checkedAt as string | null, error: team.error as string | null });
   }

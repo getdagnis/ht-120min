@@ -147,7 +147,6 @@ export function ForgeLeagues() {
   const [outreachError, setOutreachError] = useState('');
   const [outreachBusy, setOutreachBusy] = useState(false);
   const [messagingManagerIds, setMessagingManagerIds] = useState<number[]>([]);
-  const [importReport, setImportReport] = useState('');
   const [outreachOwnerId, setOutreachOwnerId] = useState<string | null>(null);
   const [loadedOutreachStorageKey, setLoadedOutreachStorageKey] = useState('');
   const stop = useRef(false);
@@ -504,36 +503,6 @@ export function ForgeLeagues() {
   for (const team of teams) managers.set(team.managerId, [...(managers.get(team.managerId) || []), team]);
   const teamFlagFor = getCountryFlagEmoji;
   const selectedCampaign = outreachCampaigns.find((campaign) => campaign.id === selectedCampaignId);
-  const importLocalOutreach = async () => {
-    if (!selectedCampaign || selectedCampaign.id !== currentCampaignId || !outreachStorageKey || outreachBusy) return;
-    setOutreachBusy(true);
-    setOutreachError('');
-    setImportReport('');
-    try {
-      const raw = window.localStorage.getItem(outreachStorageKey);
-      if (!raw) throw new Error('No saved local outreach data was found for this manager.');
-      const local = JSON.parse(raw) as { messagedManagerIds?: unknown };
-      const ids = Array.isArray(local.messagedManagerIds) ? local.messagedManagerIds : [];
-      const report = await request<{
-        submittedRows: number; uniqueValidIds: number; imported: number; alreadyPresent: number;
-        duplicateInputCount: number; invalidRows: Array<{ index: number; value: unknown }>; unmatchedRows: unknown[];
-      }>('outreach-import-local', undefined, {
-        campaignId: currentCampaignId,
-        managerIds: ids,
-      });
-      const invalid = report.invalidRows.length
-        ? `; invalid rows: ${report.invalidRows.map((row) => `${row.index + 1} (${JSON.stringify(row.value)})`).join(', ')}`
-        : '';
-      setImportReport(`Local import verified: ${report.imported} imported, ${report.alreadyPresent} already present, ${report.duplicateInputCount} duplicate IDs in storage, ${report.invalidRows.length} invalid, ${report.unmatchedRows.length} unmatched, ${report.uniqueValidIds} unique valid IDs${invalid}. Local storage was retained.`);
-      const refreshed = await request<{ campaigns: ForgeOutreachCampaign[]; contacts: ForgeOutreachContact[] }>('outreach');
-      setOutreachCampaigns(refreshed.campaigns);
-      setOutreachContacts(refreshed.contacts);
-    } catch (err) {
-      setOutreachError(err instanceof Error ? err.message : 'Could not import saved local outreach.');
-    } finally {
-      setOutreachBusy(false);
-    }
-  };
   const copyManagerMessage = async (team: ForgeLeagueTeam) => {
     if (!selectedCampaign || outreachBusy || !outreachLoaded) return;
     const teamFlag = teamFlagFor(team.countryId);
@@ -642,15 +611,7 @@ export function ForgeLeagues() {
           </span>
             <textarea value={messageTemplate} onChange={(event) => setMessageTemplate(event.target.value)} rows={18} />
           </label>
-          <div className={styles.buttons}>
-            {selectedCampaignId === currentCampaignId && (
-              <Button variant="secondary" size="sm" disabled={!outreachOwnerId || outreachBusy || !outreachLoaded} onClick={() => void importLocalOutreach()}>
-                Import saved browser contacts
-              </Button>
-            )}
-          </div>
           {selectedCampaign && <span className={styles.meta}>Campaign date: {selectedCampaign.campaignDate}</span>}
-          {importReport && <span className={styles.meta} role="status">{importReport}</span>}
           {outreachError && <span className={styles.unavailable} role="alert">{outreachError}</span>}
         </div>
         <div className={styles.controls}>

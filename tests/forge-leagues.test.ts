@@ -40,7 +40,7 @@ test('outreach template substitutes team name, manager name, and country flag', 
       { ...team, managerName: 'mANAGER NAME' },
       '🇱🇻',
     ),
-    "Hello mANAGER NAME, we'd love to see [b]Team name 🇱🇻[/b]!",
+    "Hello MANAGER NAME, we'd love to see [b]Team name 🇱🇻[/b]!",
   );
 });
 
@@ -77,6 +77,24 @@ test('saved league snapshots retain manager details and accept older snapshots',
   assert.equal(legacy?.teams[0].managerCountryId, null);
   assert.equal(legacy?.teams[0].supporterTier, null);
   assert.equal(legacy?.teams[0].lastLoginDate, null);
+});
+
+test('unrecognized optional manager profile fields do not invalidate a completed league snapshot', () => {
+  const snapshot = snapshotInput({
+    teams: [{
+      ...team,
+      managerCountryId: 'unknown',
+      supporterTier: 'none',
+      lastLoginDate: 'not-a-date',
+    }],
+    populatedAt: '2026-10-12T20:00:00.000Z',
+    availabilityAt: '2026-10-12T20:01:00.000Z',
+    populationComplete: true,
+    job: null,
+  });
+  assert.equal(snapshot?.teams[0].managerCountryId, null);
+  assert.equal(snapshot?.teams[0].supporterTier, null);
+  assert.equal(snapshot?.teams[0].lastLoginDate, null);
 });
 
 test('country tooltip resolves CountryID separately from the world-details LeagueID', () => {
