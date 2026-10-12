@@ -3,6 +3,7 @@ import type { ChppTeamOption, ParsedManagerCompendium, ParsedTeamDetails } from 
 import { getServiceSupabase } from '../_lib/supabase.js';
 import { registerOAuthTeam } from '../_lib/chpp-register.js';
 import { validateTeamEligibility } from '../_lib/eligibility.js';
+import { validateTournamentCountrySizeEligibility } from '../_lib/country-size-eligibility.js';
 import { buildAppSessionCookie, clearAppSessionCookie, getAppSessionSecret, verifyAppSessionCookie } from '../_lib/app-session.js';
 import { hasSuperAdminBypassCookie } from '../_lib/superadmin-bypass.js';
 import { normalizeLeagueLimit } from '../../../../shared/worlddetails.js';
@@ -235,8 +236,6 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   }
 
   try {
-    const isSuperAdmin = hasSuperAdminBypassCookie(req.headers.cookie);
-
     // 1. Get pending join data
     const { data: pending, error: pError } = await supabase
       .from('oauth_temp_sessions')
@@ -247,6 +246,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     if (pError || !pending) {
       return res.status(404).json({ error: 'Selection session not found or expired' });
     }
+    const isSuperAdmin = hasSuperAdminBypassCookie(req.headers.cookie) ||
+      Number(pending.hattrick_user_id) === getForgeSuperadminId();
 
     if (pending.is_creation && team_id && team_name) {
       // Return data for creation flow to finalize
@@ -316,9 +317,15 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     let redirectUrl = `/`;
 
     if (pending.tournament_id && team_id && team_name) {
+      if (isSuperAdmin && !Array.isArray(pending.teams_json)) {
+        throw new Error('Selected team is not in the verified manager team list.');
+      }
+      if (isSuperAdmin && !(pending.teams_json as ChppTeamOption[]).some((team) => team.teamId === Number(team_id))) {
+        throw new Error('Selected team is not in the verified manager team list.');
+      }
       const { data: tournament, error: tErr } = await supabase
         .from('tournaments')
-        .select('slug, status, country_limit, country_limit_format, league_category')
+        .select('id, slug, status, country_limit, country_limit_format, league_category, max_country_active_teams, allow_manager_country_size_exception')
         .eq('id', pending.tournament_id)
         .single();
 
@@ -343,6 +350,14 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       if (!eligibility.eligible && !isSuperAdmin) {
         throw new Error(`This team is not from the required league (${tournament.country_limit}).`);
       }
+      const countrySizeEligibility = await validateTournamentCountrySizeEligibility(supabase, {
+        tournamentId: pending.tournament_id,
+        managerId: pending.hattrick_user_id,
+        countryId,
+        maximumActiveTeams: tournament.max_country_active_teams,
+        allowManagerException: tournament.allow_manager_country_size_exception,
+      });
+      if (!countrySizeEligibility.eligible && !isSuperAdmin) throw new Error(countrySizeEligibility.reason);
 
       const selectedManagerTeam =
         managerCompendium?.teams.find((team) => team.teamId === Number(team_id)) ?? {

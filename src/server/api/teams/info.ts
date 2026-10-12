@@ -3,6 +3,7 @@ import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { getSupabase } from '../_lib/supabase.js';
 import { getAuthHeader } from '../_lib/chpp-auth.js';
 import { validateTeamEligibility } from '../_lib/eligibility.js';
+import { validateTournamentCountrySizeEligibility } from '../_lib/country-size-eligibility.js';
 import { parseTeamDetailsXml } from '../_lib/chpp-xml.js';
 import { hasSuperAdminBypassCookie } from '../_lib/superadmin-bypass.js';
 import { getAppSessionSecret, verifyAppSessionCookie } from '../_lib/app-session.js';
@@ -19,7 +20,7 @@ interface TeamDetails {
 }
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
-  const { team_id, tournament_id, sandbox, league_category, creation } = req.query;
+  const { team_id, tournament_id, sandbox, league_category } = req.query;
   const isSandboxLookup = sandbox === '1' || sandbox === 'true';
 
   if (!team_id) {
@@ -49,15 +50,13 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     }
 
     // 2. Check if team is in another active tournament
-    const isSuperAdmin = hasSuperAdminBypassCookie(req.headers.cookie);
     const sessionSecret = getAppSessionSecret();
     const session = sessionSecret ? verifyAppSessionCookie(req.headers.cookie, sessionSecret) : null;
     const siteAdminId = getForgeSuperadminId();
-    // Creation may reuse teams only for the server-verified site administrator.
-    // This does not extend the exception to joins or category eligibility.
-    const isAdminCreationLookup = creation === '1' && !tournament_id && siteAdminId !== null && session?.userId === siteAdminId;
+    const isSuperAdmin = hasSuperAdminBypassCookie(req.headers.cookie) ||
+      (siteAdminId !== null && session?.userId === siteAdminId);
 
-    if (!isSuperAdmin && !isSandboxLookup && !isAdminCreationLookup) {
+    if (!isSuperAdmin && !isSandboxLookup) {
       const { data: existing } = await supabase
         .from('teams')
         .select('name, tournament_id, tournaments(name, status, is_test, registration_type)')
@@ -127,7 +126,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     if (tournament_id && !isSuperAdmin) {
       const { data: tournament } = await supabase
         .from('tournaments')
-        .select('scoring_mode, league_category, country_limit')
+        .select('id, scoring_mode, league_category, country_limit, max_country_active_teams, allow_manager_country_size_exception')
         .eq('id', tournament_id)
         .single();
 
@@ -147,6 +146,14 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         if (!validation.eligible) {
           return res.status(400).json({ error: validation.reason });
         }
+        const countrySizeValidation = await validateTournamentCountrySizeEligibility(supabase, {
+          tournamentId: String(tournament_id),
+          managerId: session?.userId,
+          countryId,
+          maximumActiveTeams: tournament.max_country_active_teams,
+          allowManagerException: tournament.allow_manager_country_size_exception,
+        });
+        if (!countrySizeValidation.eligible) return res.status(400).json({ error: countrySizeValidation.reason });
       }
     }
 

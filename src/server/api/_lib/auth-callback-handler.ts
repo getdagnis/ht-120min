@@ -10,6 +10,7 @@ import { fetchTeamDetailsFromChpp } from './matchmaker.js';
 import type { ChppTeamOption } from './chpp-xml.js';
 import { normalizeLeagueLimit } from '../../../../shared/worlddetails.js';
 import { buildAppSessionCookie, getAppSessionSecret } from './app-session.js';
+import { getForgeSuperadminId } from './forge-session.js';
 import {
   fetchManagerTeamsFromChpp,
   ManagerCompendiumRequestError,
@@ -174,7 +175,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       tournament = tData;
     }
 
-    const isSuperAdmin = hasSuperAdminBypassCookie(req.headers.cookie);
+    const isSuperAdmin = hasSuperAdminBypassCookie(req.headers.cookie) || hattrickUserId === getForgeSuperadminId();
 
     const leagueCategory: LeagueCategory = session.is_creation
       ? session.league_category === 'hfi'

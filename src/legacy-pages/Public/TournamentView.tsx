@@ -53,6 +53,7 @@ import {
   teamMatchesCategory,
   validateTeamEligibility,
 } from '../../utils/team-eligibility';
+import { validateCountrySizeEligibility } from '../../../shared/country-size-eligibility';
 import { normalizeLeagueLimit, resolveCountryRestriction } from '../../../shared/worlddetails';
 import type { MatchEventDetails } from '../../../shared/match-events';
 import type { TournamentJoinStory } from '../../types/tournament-activity';
@@ -426,6 +427,8 @@ export interface Tournament {
   country_limit: string | null;
   default_theme?: EffectiveTheme | null;
   country_limit_format?: 'country_id' | 'league_id' | null;
+  max_country_active_teams?: number | null;
+  allow_manager_country_size_exception?: boolean;
   league_category: 'male' | 'hfi';
   registration_type: string;
   include_week15_weekend_friendly: boolean;
@@ -955,6 +958,10 @@ export const TournamentView: React.FC<{
     setEditRegistrationType,
     editCountryLimit,
     setEditCountryLimit,
+    editMaxCountryActiveTeams,
+    setEditMaxCountryActiveTeams,
+    editAllowManagerCountrySizeException,
+    setEditAllowManagerCountrySizeException,
     editDefaultTheme,
     setEditDefaultTheme,
     editScoringMode,
@@ -1381,6 +1388,8 @@ export const TournamentView: React.FC<{
       leagueCategory: editLeagueCategory !== (tournament.league_category || 'male'),
       registrationType: editRegistrationType !== normalizeTournamentRegistrationType(tournament.registration_type),
       countryLimit: editCountryLimit !== savedCountryLimit,
+      maxCountryActiveTeams: editMaxCountryActiveTeams !== (tournament.max_country_active_teams ?? null),
+      managerCountrySizeException: editAllowManagerCountrySizeException !== Boolean(tournament.allow_manager_country_size_exception),
       defaultTheme: editDefaultTheme !== (tournament.default_theme ?? null),
       scoringMode: editScoringMode !== tournament.scoring_mode,
       maxTeams: editMaxTeams !== (tournament.max_teams || null),
@@ -1401,6 +1410,8 @@ export const TournamentView: React.FC<{
     editForumId,
     editChppOnlyJoin,
     editCountryLimit,
+    editMaxCountryActiveTeams,
+    editAllowManagerCountrySizeException,
     editDefaultTheme,
     editScoringMode,
     editDescription,
@@ -1863,6 +1874,8 @@ export const TournamentView: React.FC<{
         setEditCountryLimit(
           normalizeLeagueLimit(tournamentData.country_limit, tournamentData.country_limit_format ?? 'league_id'),
         );
+        setEditMaxCountryActiveTeams(tournamentData.max_country_active_teams ?? null);
+        setEditAllowManagerCountrySizeException(Boolean(tournamentData.allow_manager_country_size_exception));
         setScheduleSetup(tournamentData.schedule_mode === 'manual' ? 'manual' : 'generated');
         setScheduleMode(normalizeGeneratedScheduleMode(tournamentData.schedule_mode));
         const storedStartSlot = tournamentData.schedule_start_slot
@@ -2314,7 +2327,7 @@ export const TournamentView: React.FC<{
     team: ChppTeamOption,
   ): { disabled: boolean; status: React.ReactNode; statusDanger: boolean } => {
     if (!tournament) return { disabled: true, status: 'Tournament details are unavailable.', statusDanger: true };
-    if (!teamMatchesCategory(team, tournament.league_category)) {
+    if (!isSiteAdmin && !teamMatchesCategory(team, tournament.league_category)) {
       return {
         disabled: true,
         statusDanger: true,
@@ -2331,7 +2344,7 @@ export const TournamentView: React.FC<{
       countryLimit,
     });
 
-    if (!eligibility.eligible) {
+    if (!isSiteAdmin && !eligibility.eligible) {
       const restrictedCountry = resolveCountryRestriction(
         tournament.country_limit,
         tournament.country_limit_format ?? 'league_id',
@@ -2345,7 +2358,31 @@ export const TournamentView: React.FC<{
       };
     }
 
-    if (team.activeTournament) {
+    if (!isSiteAdmin && tournament.max_country_active_teams != null) {
+      const hasQualifyingParticipant = Boolean(
+        tournament.allow_manager_country_size_exception && currentHtUserId && teams.some((participant) => {
+          if (!participant.active || participant.reserve_active || participant.is_placeholder ||
+            Number(participant.hattrick_user_id) !== currentHtUserId) return false;
+          return validateCountrySizeEligibility({
+            countryId: participant.country_id,
+            maximumActiveTeams: tournament.max_country_active_teams,
+            allowManagerException: false,
+            hasQualifyingParticipant: false,
+          }).eligible;
+        }),
+      );
+      const countrySizeEligibility = validateCountrySizeEligibility({
+        countryId: team.countryId,
+        maximumActiveTeams: tournament.max_country_active_teams,
+        allowManagerException: tournament.allow_manager_country_size_exception === true,
+        hasQualifyingParticipant,
+      });
+      if (!countrySizeEligibility.eligible) {
+        return { disabled: true, statusDanger: true, status: `Not eligible! ${countrySizeEligibility.reason}` };
+      }
+    }
+
+    if (!isSiteAdmin && team.activeTournament) {
       return {
         disabled: true,
         statusDanger: true,
@@ -2451,6 +2488,8 @@ export const TournamentView: React.FC<{
         setEditCountryLimit(
           normalizeLeagueLimit(initialTournament.country_limit, initialTournament.country_limit_format ?? 'league_id'),
         );
+        setEditMaxCountryActiveTeams(initialTournament.max_country_active_teams ?? null);
+        setEditAllowManagerCountrySizeException(Boolean(initialTournament.allow_manager_country_size_exception));
         setScheduleSetup(initialTournament.schedule_mode === 'manual' ? 'manual' : 'generated');
         setScheduleMode(normalizeGeneratedScheduleMode(initialTournament.schedule_mode));
         const storedStartSlot = initialTournament.schedule_start_slot
@@ -3940,6 +3979,8 @@ export const TournamentView: React.FC<{
           league_category: editLeagueCategory,
           registration_type: editRegistrationType,
           country_limit: editCountryLimit,
+          max_country_active_teams: editMaxCountryActiveTeams,
+          allow_manager_country_size_exception: editAllowManagerCountrySizeException,
           default_theme: editDefaultTheme,
           scoring_mode: editScoringMode,
           country_limit_format: editCountryLimit ? 'country_id' : null,
@@ -5728,6 +5769,10 @@ export const TournamentView: React.FC<{
       setEditRegistrationType,
       editCountryLimit,
       setEditCountryLimit,
+      editMaxCountryActiveTeams,
+      setEditMaxCountryActiveTeams,
+      editAllowManagerCountrySizeException,
+      setEditAllowManagerCountrySizeException,
       editDefaultTheme,
       setEditDefaultTheme,
       editScoringMode,
@@ -6025,6 +6070,13 @@ export const TournamentView: React.FC<{
               <p className={styles.joinLimit}>
                 {uiText('joinLimit', { current: activeRealTeamsCount, max: tournament.max_teams })}
                 {activeRealTeamsCount >= tournament.max_teams && ' — Filled!'}
+              </p>
+            )}
+            {tournament.max_country_active_teams != null && (
+              <p className={styles.joinLimit}>
+                Teams from countries with up to {tournament.max_country_active_teams} active teams.
+                {tournament.allow_manager_country_size_exception &&
+                  ' Managers already participating with a qualifying team may also enter their other eligible teams.'}
               </p>
             )}
             <TournamentBadgeChips
