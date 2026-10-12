@@ -32,6 +32,7 @@ import { NavigationFeedback } from '../NavigationFeedback/NavigationFeedback';
 import { LocaleSwitcher } from '../../i18n/LocaleSwitcher';
 import { useLocale } from '../../i18n/LocaleProvider';
 import { toLocalePath } from '../../next/locale-path';
+import { applyCurrentTheme, getThemeSnapshot, getServerThemeSnapshot, subscribeToTheme, toggleCurrentTheme } from '../../utils/browser-theme';
 import styles from './Layout.module.sass';
 
 interface LayoutProps {
@@ -41,8 +42,6 @@ interface LayoutProps {
 
 const VISIT_COUNT_KEY = 'visitCount';
 const LAST_VISIT_DAY_KEY = 'visitCountLastDay';
-const THEME_CHANGED_EVENT = 'ht-120min:theme-changed';
-type ThemePreference = 'light' | 'dark' | 'system';
 
 function getTodayKey(date = new Date()) {
   return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
@@ -70,24 +69,6 @@ function subscribeToVisitCount() {
 
 function getServerVisitCount() {
   return 0;
-}
-
-function subscribeToTheme(callback: () => void) {
-  window.addEventListener('storage', callback);
-  window.addEventListener(THEME_CHANGED_EVENT, callback);
-  return () => {
-    window.removeEventListener('storage', callback);
-    window.removeEventListener(THEME_CHANGED_EVENT, callback);
-  };
-}
-
-function getThemeSnapshot(): ThemePreference {
-  const storedTheme = localStorage.getItem('theme');
-  return storedTheme === 'light' || storedTheme === 'dark' ? storedTheme : 'system';
-}
-
-function getServerThemeSnapshot(): ThemePreference {
-  return 'system';
 }
 
 function excludeLocalAnalytics(event: BeforeSendEvent) {
@@ -136,11 +117,7 @@ export const Layout: React.FC<LayoutProps> = ({ children, excludeAnalytics = fal
   const authErrorReference = searchParams.get('auth_error_ref');
 
   useEffect(() => {
-    if (theme === 'system') {
-      document.documentElement.removeAttribute('data-theme');
-    } else {
-      document.documentElement.setAttribute('data-theme', theme);
-    }
+    applyCurrentTheme();
   }, [theme]);
 
   useEffect(() => {
@@ -153,11 +130,7 @@ export const Layout: React.FC<LayoutProps> = ({ children, excludeAnalytics = fal
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
 
-  const toggleTheme = () => {
-    const nextTheme = theme === 'light' ? 'dark' : 'light';
-    localStorage.setItem('theme', nextTheme);
-    window.dispatchEvent(new Event(THEME_CHANGED_EVENT));
-  };
+  const toggleTheme = toggleCurrentTheme;
 
   const isCreatePage = pathname === `/${locale}/create` || pathname.startsWith(`/${locale}/create/`);
 

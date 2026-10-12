@@ -98,3 +98,18 @@ Use existing `Button`, `Card`, `HeroCard`, `SectionCard`, `SidebarWidget`, `Moda
 - `docs/chpp.md` - CHPP endpoint and parser rules.
 - `docs/database-and-deployment.md` - Supabase, RLS, migrations, and Vercel constraints.
 - `docs/scheduling.md` - calendar and schedule-generation rules.
+
+## Tournament entry theme
+
+Optional `tournaments.default_theme` (`light` / `dark`, NULL follows the visitor) is
+part of the existing public tournament projection and settings save. Migration
+[112](../migrations/112_tournament_default_theme.sql) is prepared, not applied by
+the agent. Apply it before deploying code that selects this column.
+
+The tournament server page bootstraps the entry theme from its existing payload;
+Tournament View registers and clears the theme scope on entry/exit. The shared
+Layout toggle changes that scope for the current visit, without overwriting the
+visitor's saved global preference. Leaving restores the global preference. A
+saved default change applies immediately; ordinary data refreshes with the same
+default preserve the visitor's override. No extra database reads or writes are
+introduced for theme application. See `src/utils/browser-theme.ts`.

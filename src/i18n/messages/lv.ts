@@ -204,6 +204,11 @@ const messages = {
     },
 },
   TournamentView: {
+    defaultColorTheme: 'Noklusējuma krāsu tēma',
+    visitorThemePreference: 'Apmeklētāja izvēle',
+    lightTheme: 'Gaiša',
+    darkTheme: 'Tumša',
+
     loading: '', notFound: '', chatWithParticipants: '', connectingHattrick: '',
     tournamentFull: '', participating: '', joining: '',
   },

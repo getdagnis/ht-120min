@@ -32,5 +32,13 @@ export default async function TournamentPage({
       console.error('Could not load tournament collection links:', error instanceof Error ? error.message : 'Unknown error');
     }
   }
-  return <TournamentView key={slug} initialData={initialData} collectionLinks={collectionLinks} />;
+  const defaultTheme = initialData?.tournament.default_theme;
+  // Fixed enum values only; apply the default before the tournament HTML paints.
+  const themeScript = defaultTheme === 'light' || defaultTheme === 'dark'
+    ? `document.documentElement.dataset.tournamentTheme='${defaultTheme}';document.documentElement.dataset.theme='${defaultTheme}';`
+    : null;
+  return <>
+    {themeScript && <script dangerouslySetInnerHTML={{ __html: themeScript }} />}
+    <TournamentView key={slug} initialData={initialData} collectionLinks={collectionLinks} />
+  </>;
 }

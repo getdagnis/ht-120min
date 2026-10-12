@@ -42,7 +42,7 @@ function currentPageContext() {
 
   return {
     theme: resolveEffectiveTheme({
-      storedPreference,
+      storedPreference: document.documentElement.dataset.tournamentTheme ? null : storedPreference,
       dataTheme: document.documentElement.getAttribute('data-theme'),
       prefersDark: typeof window.matchMedia === 'function' && window.matchMedia('(prefers-color-scheme: dark)').matches,
     }),

@@ -18,6 +18,8 @@ Forge locale catalog code and migration 106 are prepared locally. The source dic
 
 Forge Leagues is implemented locally as an admin-only small-league listing helper (1–1200 active teams), with separate population, teamdetails-only availability and opt-in matches checks. Browser/sessionStorage holds working progress; scan batches make no snapshot queries/writes, and completion saves one validated snapshot with revision conflict protection and idempotent retries. The earlier per-team lease/progress writes and three-second waits were removed. Migration `110_forge_league_snapshots.sql` and `111_expand_forge_league_snapshot_limit.sql` have owner-added applied markers (not independently verified); existing lease columns remain unused and no follow-up migration is required. Only explicitly scanned leagues are stored, without tournament/profile registrations or challenge actions. Live resource counts, CHPP and browser verification remain separate from local source/build evidence. See `docs/forge-leagues.md`.
 
+Tournament entry themes are implemented locally: optional Light/Dark defaults in advanced settings, a public projection column, and a visit-scoped theme override that preserves the visitor's global preference. Migration `112_tournament_default_theme.sql` is prepared and must be applied before deployment; no migration application or browser/live Supabase verification is claimed. See [architecture](docs/architecture.md#tournament-entry-theme).
+
 ## Current checkout snapshot
 
 - `main` is clean and aligned with `origin/main` at `2acef5e` (`update/welcome modal`).

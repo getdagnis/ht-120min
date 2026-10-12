@@ -1,5 +1,8 @@
 'use client';
 
+import { useTranslations } from 'next-intl';
+import { normalizeTournamentTheme } from '../../../utils/browser-theme';
+import type { EffectiveTheme } from '../../../utils/theme';
 import React, { useState } from 'react';
 import { Tooltip } from '../../Tooltip/Tooltip';
 import { Button } from '../../Button/Button';
@@ -129,6 +132,8 @@ export interface TournamentAdminController {
     setEditLeagueCategory: Setter<'male' | 'hfi'>;
     editRegistrationType: string;
     setEditRegistrationType: Setter<string>;
+    editDefaultTheme: EffectiveTheme | null;
+    setEditDefaultTheme: Setter<EffectiveTheme | null>;
     editCountryLimit: string | null;
     setEditCountryLimit: Setter<string | null>;
     editMaxTeams: number | null;
@@ -410,6 +415,8 @@ export const TournamentAdmin: React.FC<{ controller: TournamentAdminController }
     setEditLeagueCategory,
     editRegistrationType,
     setEditRegistrationType,
+    editDefaultTheme,
+    setEditDefaultTheme,
     editCountryLimit,
     setEditCountryLimit,
     editMaxTeams,
@@ -578,6 +585,7 @@ export const TournamentAdmin: React.FC<{ controller: TournamentAdminController }
     onStopTournament: handleStopTournament,
   } = lifecycle;
 
+  const themeText = useTranslations('TournamentView');
   const isHydrationReady = useHydrationReady();
   const [admissionSelection, setAdmissionSelection] = useState<string[]>([]);
   const selectedAdmissionIds = admissionSelection.filter(id => reserveTeams.some(team => team.id === id));
@@ -1205,6 +1213,21 @@ export const TournamentAdmin: React.FC<{ controller: TournamentAdminController }
                                   return null;
                                 })()}
                                 {renderUnsavedSettingsNote(unsavedSettingsFields.countryLimit)}
+                              </div>
+
+                              <div className={adminStyles.field}>
+                                <label htmlFor="tournament-default-theme">{themeText('defaultColorTheme')}</label>
+                                <select
+                                  id="tournament-default-theme"
+                                  className={adminStyles.selectField}
+                                  value={editDefaultTheme ?? ''}
+                                  onChange={(event) => setEditDefaultTheme(normalizeTournamentTheme(event.target.value))}
+                                >
+                                  <option value="">{themeText('visitorThemePreference')}</option>
+                                  <option value="light">{themeText('lightTheme')}</option>
+                                  <option value="dark">{themeText('darkTheme')}</option>
+                                </select>
+                                {renderUnsavedSettingsNote(unsavedSettingsFields.defaultTheme)}
                               </div>
 
                               <div className={styles.mt1}>

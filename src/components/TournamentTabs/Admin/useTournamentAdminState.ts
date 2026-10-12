@@ -1,5 +1,7 @@
 'use client';
 
+import type { EffectiveTheme } from '../../../utils/theme';
+
 import { useState } from 'react';
 import type { FetchedTeamData, MatchWithTeams, ScheduleSetup, TeamPlanningStatus } from '../../../legacy-pages/Public/TournamentView';
 import type { TournamentOwnerRecord, TournamentRoleRecord } from './TournamentRolesPanel';
@@ -62,6 +64,7 @@ export function useTournamentAdminState() {
   const [editChppOnlyJoin, setEditChppOnlyJoin] = useState(true);
   const [editLeagueCategory, setEditLeagueCategory] = useState<'male' | 'hfi'>('male');
   const [editRegistrationType, setEditRegistrationType] = useState('validated');
+  const [editDefaultTheme, setEditDefaultTheme] = useState<EffectiveTheme | null>(null);
   const [editCountryLimit, setEditCountryLimit] = useState<string | null>(null);
   const [editMaxTeams, setEditMaxTeams] = useState<number | null>(null);
   const [editRegistrationOpen, setEditRegistrationOpen] = useState(true);
@@ -105,7 +108,7 @@ export function useTournamentAdminState() {
     rescheduleStartSlotId, setRescheduleStartSlotId, includeWeek15WeekendFriendlyForReschedule,
     setIncludeWeek15WeekendFriendlyForReschedule, editName, setEditName, editIsPrivate, setEditIsPrivate,
     editChppOnlyJoin, setEditChppOnlyJoin, editLeagueCategory, setEditLeagueCategory,
-    editRegistrationType, setEditRegistrationType, editCountryLimit, setEditCountryLimit,
+    editRegistrationType, setEditRegistrationType, editCountryLimit, setEditCountryLimit, editDefaultTheme, setEditDefaultTheme,
     editMaxTeams, setEditMaxTeams, editRegistrationOpen, setEditRegistrationOpen,
     editAllowReserveRegistration, setEditAllowReserveRegistration, showEditDescription,
     setShowEditDescription, editDescription, setEditDescription, showEditEmail, setShowEditEmail,

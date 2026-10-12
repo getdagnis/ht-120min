@@ -1,10 +1,12 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 'use client';
 
-import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { useTranslations } from 'next-intl';
 import Link from 'next/link';
 import { usePathname, useParams, useRouter, useSearchParams as useNextSearchParams } from 'next/navigation';
+import { normalizeTournamentTheme, setTournamentTheme } from '../../utils/browser-theme';
+import type { EffectiveTheme } from '../../utils/theme';
 import { supabase } from '../../lib/supabase';
 import { PUBLIC_ROUND_FIELDS, PUBLIC_MATCH_FIELDS } from '../../lib/tournament-public-fields';
 import {
@@ -419,6 +421,7 @@ export interface Tournament {
   thumbnail_index?: number;
   chpp_only_join: boolean;
   country_limit: string | null;
+  default_theme?: EffectiveTheme | null;
   country_limit_format?: 'country_id' | 'league_id' | null;
   league_category: 'male' | 'hfi';
   registration_type: string;
@@ -741,6 +744,11 @@ export const TournamentView: React.FC<{
   const [tournament, setTournament] = useState<Tournament | null>(
     () => (initialData?.tournament as unknown as Tournament | undefined) || null,
   );
+  useLayoutEffect(() => {
+    setTournamentTheme(normalizeTournamentTheme(tournament?.default_theme));
+    return () => setTournamentTheme(null);
+  }, [tournament?.id, tournament?.default_theme]);
+
   useEffect(() => {
     if (!tournament?.name) return;
 
@@ -945,6 +953,8 @@ export const TournamentView: React.FC<{
     setEditRegistrationType,
     editCountryLimit,
     setEditCountryLimit,
+    editDefaultTheme,
+    setEditDefaultTheme,
     editMaxTeams,
     setEditMaxTeams,
     editRegistrationOpen,
@@ -1328,6 +1338,7 @@ export const TournamentView: React.FC<{
         leagueCategory: false,
         registrationType: false,
         countryLimit: false,
+        defaultTheme: false,
         maxTeams: false,
         registrationOpen: false,
         allowReserveRegistration: false,
@@ -1365,6 +1376,7 @@ export const TournamentView: React.FC<{
       leagueCategory: editLeagueCategory !== (tournament.league_category || 'male'),
       registrationType: editRegistrationType !== normalizeTournamentRegistrationType(tournament.registration_type),
       countryLimit: editCountryLimit !== savedCountryLimit,
+      defaultTheme: editDefaultTheme !== (tournament.default_theme ?? null),
       maxTeams: editMaxTeams !== (tournament.max_teams || null),
       registrationOpen: editRegistrationOpen !== !tournament.registration_closed_at,
       allowReserveRegistration: editAllowReserveRegistration !== (tournament.allow_reserve_registration !== false),
@@ -1383,6 +1395,7 @@ export const TournamentView: React.FC<{
     editForumId,
     editChppOnlyJoin,
     editCountryLimit,
+    editDefaultTheme,
     editDescription,
     editIsPrivate,
     editLeagueCategory,
@@ -1838,6 +1851,7 @@ export const TournamentView: React.FC<{
         setEditChppOnlyJoin(tournamentData.chpp_only_join);
         setEditLeagueCategory(tournamentData.league_category || 'male');
         setEditRegistrationType(normalizeTournamentRegistrationType(tournamentData.registration_type));
+        setEditDefaultTheme(normalizeTournamentTheme(tournamentData.default_theme));
         setEditCountryLimit(
           normalizeLeagueLimit(tournamentData.country_limit, tournamentData.country_limit_format ?? 'league_id'),
         );
@@ -1886,6 +1900,7 @@ export const TournamentView: React.FC<{
       setEditLeagueCategory,
       setEditRegistrationType,
       setEditCountryLimit,
+      setEditDefaultTheme,
       setScheduleSetup,
       setScheduleMode,
       setScheduleStartSlotId,
@@ -2416,6 +2431,7 @@ export const TournamentView: React.FC<{
         setEditChppOnlyJoin(initialTournament.chpp_only_join);
         setEditLeagueCategory(initialTournament.league_category || 'male');
         setEditRegistrationType(normalizeTournamentRegistrationType(initialTournament.registration_type));
+        setEditDefaultTheme(normalizeTournamentTheme(initialTournament.default_theme));
         setEditCountryLimit(
           normalizeLeagueLimit(initialTournament.country_limit, initialTournament.country_limit_format ?? 'league_id'),
         );
@@ -2455,6 +2471,7 @@ export const TournamentView: React.FC<{
     setEditLeagueCategory,
     setEditRegistrationType,
     setEditCountryLimit,
+    setEditDefaultTheme,
     setScheduleSetup,
     setScheduleMode,
     setScheduleStartSlotId,
@@ -3848,6 +3865,7 @@ export const TournamentView: React.FC<{
           league_category: editLeagueCategory,
           registration_type: editRegistrationType,
           country_limit: editCountryLimit,
+          default_theme: editDefaultTheme,
           country_limit_format: editCountryLimit ? 'country_id' : null,
           is_test: isTest,
           show_description: showEditDescription,
@@ -5636,6 +5654,8 @@ export const TournamentView: React.FC<{
       setEditRegistrationType,
       editCountryLimit,
       setEditCountryLimit,
+      editDefaultTheme,
+      setEditDefaultTheme,
       editMaxTeams,
       setEditMaxTeams,
       editRegistrationOpen,

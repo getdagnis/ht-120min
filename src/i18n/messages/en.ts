@@ -193,6 +193,11 @@ const messages = {
     autoArrangeLoadError: 'Auto-arrange status could not be loaded.',
   },
   TournamentView: {
+    defaultColorTheme: 'Default color theme',
+    visitorThemePreference: 'Visitor’s preference',
+    lightTheme: 'Light',
+    darkTheme: 'Dark',
+
     loading: 'Loading tournament...',
     notFound: 'Tournament not found',
     chatWithParticipants: 'Chat with other participants',
