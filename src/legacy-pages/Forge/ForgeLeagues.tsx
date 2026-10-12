@@ -5,6 +5,7 @@ import { HATTRICK_WORLD_DETAILS } from '../../../shared/worlddetails';
 import {
   FORGE_LEAGUE_TEAM_LIMIT,
   leagueTeamStatus,
+  managerMessageHref,
   type ForgeLeagueOption,
   type ForgeLeagueSnapshot,
   type ForgeLeagueTeam,
@@ -43,6 +44,26 @@ interface TeamBatch {
 }
 const BATCH_SIZE = 3;
 const draftKey = (id: number) => `forge-league-working-v2:${id}`;
+const outreachStoragePrefix = 'forge-league-outreach-v1';
+const defaultOutreachMessage = `Ia ora na, Bula and Håfa adai! 🌍
+
+HT-120min (a CHPP product I’m part of) is launching [b]Around the World in One Twenty 🧳🌏[/b] — an international friendly cup exclusively only for [b]flag chasers with teams in smaller Hattrick countries[/b]. Bring one along, and your other teams are automatically welcome too!
+
+The idea is to bring those teams together and look for opponents who can add [b]missing home or away flags[/b] to your collection. Matches can be automatically arranged, saving you the weekly search for a partner. Teams will be automatically paired with their missing home and away flags in mind, aiming to add something new to both collections whenever possible.
+
+Extra time and its training benefits are welcome, but [b]120 minutes is not forced[/b]. Standings use averages, so you can join later or skip a round without having to catch up on missed rounds.
+
+[b]Friendly still free this week?[/b] There may be room in the first round. Already booked? Join the waiting list for next week.
+
+I’d love to see [b]{teamName}[/b] on board!
+
+[link=https://ht-120min.vercel.app/en/t/around-the-world-in-one-twenty]
+
+Comments and suggestions are welcome — this is the first trip, and the app is still in [i]beta[/i].
+
+Best,
+mr_bots
+🏆 ⚽️`;
 const emptyWorking = (): WorkingList => ({ snapshot: null, revision: 0, dirty: false, saveId: '' });
 
 function browserDraft(id: number): WorkingList | null {
@@ -50,17 +71,32 @@ function browserDraft(id: number): WorkingList | null {
     const raw = window.sessionStorage.getItem(draftKey(id));
     if (!raw) return null;
     const data = JSON.parse(raw) as WorkingList;
-    return data.dirty && Number.isSafeInteger(data.revision) && data.snapshot &&
-      Array.isArray(data.snapshot.teams) && data.snapshot.teams.length <= FORGE_LEAGUE_TEAM_LIMIT &&
-      typeof data.saveId === 'string' ? data : null;
-  } catch { return null; }
+    return data.dirty &&
+      Number.isSafeInteger(data.revision) &&
+      data.snapshot &&
+      Array.isArray(data.snapshot.teams) &&
+      data.snapshot.teams.length <= FORGE_LEAGUE_TEAM_LIMIT &&
+      typeof data.saveId === 'string'
+      ? data
+      : null;
+  } catch {
+    return null;
+  }
 }
 
-async function request<T>(action: string, leagueId?: number, body?: Record<string, unknown>, signal?: AbortSignal): Promise<T> {
+async function request<T>(
+  action: string,
+  leagueId?: number,
+  body?: Record<string, unknown>,
+  signal?: AbortSignal,
+): Promise<T> {
   const params = new URLSearchParams({ tool: 'leagues', action });
   if (leagueId) params.set('leagueId', String(leagueId));
   const response = await fetch(`/api/testing?${params}`, {
-    method: body === undefined ? 'GET' : 'POST', credentials: 'include', cache: 'no-store', signal,
+    method: body === undefined ? 'GET' : 'POST',
+    credentials: 'include',
+    cache: 'no-store',
+    signal,
     ...(body === undefined ? {} : { headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) }),
   });
   const data = await response.json();
@@ -81,16 +117,27 @@ export function ForgeLeagues() {
   const [storageWarning, setStorageWarning] = useState('');
   const [view, setView] = useState<'all' | 'available' | 'users'>('all');
   const [country, setCountry] = useState('');
+  const [messageTemplate, setMessageTemplate] = useState(defaultOutreachMessage);
+  const [messagedManagerIds, setMessagedManagerIds] = useState<number[]>([]);
+  const [outreachOwnerId, setOutreachOwnerId] = useState<string | null>(null);
+  const [loadedOutreachStorageKey, setLoadedOutreachStorageKey] = useState('');
   const stop = useRef(false);
   const busy = useRef(false);
   const alive = useRef(true);
   const current = useRef(saved);
   const selection = useRef(0);
+  const outreachStorageKey = outreachOwnerId ? `${outreachStoragePrefix}:${outreachOwnerId}` : '';
   const chooseLeague = useCallback((id: number) => {
     if (selection.current === id && id !== 0) return;
     selection.current = id;
     current.current = emptyWorking();
-    setSaved(current.current); setLoading(id > 0); setError(''); setNotice(''); setStorageWarning(''); setCountry(''); setLeagueId(id);
+    setSaved(current.current);
+    setLoading(id > 0);
+    setError('');
+    setNotice('');
+    setStorageWarning('');
+    setCountry('');
+    setLeagueId(id);
   }, []);
   const accept = (data: WorkingList, id = leagueId) => {
     current.current = data;
@@ -98,7 +145,8 @@ export function ForgeLeagues() {
       if (data.dirty) window.sessionStorage.setItem(draftKey(id), JSON.stringify(data));
       else window.sessionStorage.removeItem(draftKey(id));
     } catch {
-      if (alive.current) setStorageWarning('Browser storage is unavailable. Keep this page open until the scan finishes.');
+      if (alive.current)
+        setStorageWarning('Browser storage is unavailable. Keep this page open until the scan finishes.');
     }
     if (alive.current) setSaved(data);
   };
@@ -107,91 +155,214 @@ export function ForgeLeagues() {
     alive.current = true;
     const abort = new AbortController();
     request<{ leagues: ForgeLeagueOption[] }>('catalogue', undefined, undefined, abort.signal)
-      .then(data => {
+      .then((data) => {
         if (abort.signal.aborted) return;
-        const sorted = data.leagues.slice().sort((a, b) => a.activeTeams - b.activeTeams || a.name.localeCompare(b.name));
+        const sorted = data.leagues
+          .slice()
+          .sort((a, b) => a.activeTeams - b.activeTeams || a.name.localeCompare(b.name));
         setLeagues(sorted);
-        chooseLeague(sorted.find(item => item.activeTeams <= ranges[0].max)?.leagueId || sorted[0]?.leagueId || 0);
-        if (!sorted.some(item => item.activeTeams <= ranges[0].max)) setRange(ranges.length - 1);
+        chooseLeague(sorted.find((item) => item.activeTeams <= ranges[0].max)?.leagueId || sorted[0]?.leagueId || 0);
+        if (!sorted.some((item) => item.activeTeams <= ranges[0].max)) setRange(ranges.length - 1);
       })
-      .catch(err => { if (!abort.signal.aborted) { setError(err instanceof Error ? err.message : 'Could not load leagues.'); setLoading(false); } });
-    return () => { alive.current = false; abort.abort(); stop.current = true; };
+      .catch((err) => {
+        if (!abort.signal.aborted) {
+          setError(err instanceof Error ? err.message : 'Could not load leagues.');
+          setLoading(false);
+        }
+      });
+    return () => {
+      alive.current = false;
+      abort.abort();
+      stop.current = true;
+    };
   }, [chooseLeague]);
+
+  useEffect(() => {
+    let timer = 0;
+    try {
+      const ownerId = window.localStorage.getItem('my_ht_user_id') || 'unknown-manager';
+      timer = window.setTimeout(() => setOutreachOwnerId(ownerId), 0);
+    } catch {
+      timer = window.setTimeout(() => setOutreachOwnerId('unknown-manager'), 0);
+    }
+    return () => window.clearTimeout(timer);
+  }, []);
+
+  useEffect(() => {
+    if (!outreachStorageKey) return;
+    let timer = 0;
+    try {
+      const stored = window.localStorage.getItem(outreachStorageKey);
+      if (stored) {
+        const data = JSON.parse(stored) as { messageTemplate?: unknown; messagedManagerIds?: unknown };
+        const storedTemplate = typeof data.messageTemplate === 'string' ? data.messageTemplate : null;
+        const storedManagerIds = Array.isArray(data.messagedManagerIds)
+          ? data.messagedManagerIds.filter((id): id is number => typeof id === 'number' && Number.isSafeInteger(id))
+          : null;
+        timer = window.setTimeout(() => {
+          if (storedTemplate !== null) setMessageTemplate(storedTemplate);
+          if (storedManagerIds !== null) setMessagedManagerIds(storedManagerIds);
+          setLoadedOutreachStorageKey(outreachStorageKey);
+        }, 0);
+      } else {
+        timer = window.setTimeout(() => setLoadedOutreachStorageKey(outreachStorageKey), 0);
+      }
+    } catch {
+      // Outreach state is a convenience; keep the editable default if storage is unavailable.
+      timer = window.setTimeout(() => setLoadedOutreachStorageKey(outreachStorageKey), 0);
+    }
+    return () => window.clearTimeout(timer);
+  }, [outreachStorageKey]);
+
+  useEffect(() => {
+    if (!outreachStorageKey || loadedOutreachStorageKey !== outreachStorageKey) return;
+    try {
+      window.localStorage.setItem(outreachStorageKey, JSON.stringify({ messageTemplate, messagedManagerIds }));
+    } catch {
+      // Copying still works when browser storage is unavailable.
+    }
+  }, [messageTemplate, messagedManagerIds, loadedOutreachStorageKey, outreachStorageKey]);
 
   useEffect(() => {
     if (!leagueId) return;
     const abort = new AbortController();
     Promise.resolve(browserDraft(leagueId))
-      .then(async draft => {
+      .then(async (draft) => {
         if (draft) return draft;
         const data = await request<SnapshotResponse>('snapshot', leagueId, undefined, abort.signal);
         // Older persisted scan jobs can be resumed locally without more DB checkpoints.
         return { ...data, dirty: Boolean(data.snapshot?.job), saveId: data.snapshot?.job ? crypto.randomUUID() : '' };
       })
-      .then(data => { if (!abort.signal.aborted) { current.current = data; setSaved(data); } })
-      .catch(err => { if (!abort.signal.aborted) setError(err instanceof Error ? err.message : 'Could not load the saved list.'); })
-      .finally(() => { if (!abort.signal.aborted) setLoading(false); });
+      .then((data) => {
+        if (!abort.signal.aborted) {
+          current.current = data;
+          setSaved(data);
+        }
+      })
+      .catch((err) => {
+        if (!abort.signal.aborted) setError(err instanceof Error ? err.message : 'Could not load the saved list.');
+      })
+      .finally(() => {
+        if (!abort.signal.aborted) setLoading(false);
+      });
     return () => abort.abort();
   }, [leagueId]);
 
   const pause = (cancel: boolean) => {
     stop.current = true;
-    setNotice(cancel ? 'Cancelled. Progress remains in this browser tab; no snapshot was saved.' : 'Paused. Progress remains in this browser tab; no snapshot was saved.');
+    setNotice(
+      cancel
+        ? 'Cancelled. Progress remains in this browser tab; no snapshot was saved.'
+        : 'Paused. Progress remains in this browser tab; no snapshot was saved.',
+    );
   };
 
   const saveCompleted = async (data: WorkingList) => {
     if (!data.snapshot || data.snapshot.job || !data.dirty) return;
-    if (alive.current) { setSaving(true); setNotice('Saving completed snapshot…'); }
+    if (alive.current) {
+      setSaving(true);
+      setNotice('Saving completed snapshot…');
+    }
     try {
-      const response = await request<SnapshotResponse>('save', leagueId, { snapshot: data.snapshot, revision: data.revision, saveId: data.saveId });
+      const response = await request<SnapshotResponse>('save', leagueId, {
+        snapshot: data.snapshot,
+        revision: data.revision,
+        saveId: data.saveId,
+      });
       accept({ ...response, dirty: false, saveId: data.saveId });
       if (alive.current) {
-        setLeagues(list => list.map(item => item.leagueId === leagueId ? { ...item, fetched: true } : item));
+        setLeagues((list) => list.map((item) => (item.leagueId === leagueId ? { ...item, fetched: true } : item)));
         setNotice('Finished. One snapshot saved.');
       }
     } catch (err) {
       if (alive.current) setNotice('Save failed. Completed results remain in this browser tab.');
       throw err;
-    } finally { if (alive.current) setSaving(false); }
+    } finally {
+      if (alive.current) setSaving(false);
+    }
   };
 
   const retrySave = async () => {
     if (busy.current) return;
-    busy.current = true; setRunning(true); setError('');
-    try { await saveCompleted(current.current); }
-    catch (err) { if (alive.current) setError(err instanceof Error ? err.message : 'Could not save results.'); }
-    finally { busy.current = false; if (alive.current) setRunning(false); }
+    busy.current = true;
+    setRunning(true);
+    setError('');
+    try {
+      await saveCompleted(current.current);
+    } catch (err) {
+      if (alive.current) setError(err instanceof Error ? err.message : 'Could not save results.');
+    } finally {
+      busy.current = false;
+      if (alive.current) setRunning(false);
+    }
   };
 
   const reloadSaved = async () => {
     if (busy.current || !window.confirm('Discard this tab’s unsaved results and load the saved database list?')) return;
-    busy.current = true; setRunning(true);
+    busy.current = true;
+    setRunning(true);
     try {
       const data = await request<SnapshotResponse>('snapshot', leagueId);
       accept({ ...data, dirty: Boolean(data.snapshot?.job), saveId: data.snapshot?.job ? crypto.randomUUID() : '' });
-      if (alive.current) { setError(''); setNotice('Loaded the saved list.'); }
-    } catch (err) { if (alive.current) setError(err instanceof Error ? err.message : 'Could not reload the list.'); }
-    finally { busy.current = false; if (alive.current) setRunning(false); }
+      if (alive.current) {
+        setError('');
+        setNotice('Loaded the saved list.');
+      }
+    } catch (err) {
+      if (alive.current) setError(err instanceof Error ? err.message : 'Could not reload the list.');
+    } finally {
+      busy.current = false;
+      if (alive.current) setRunning(false);
+    }
   };
 
   const scan = async (action: 'populate' | 'availability' | 'precise' | 'step') => {
     if (busy.current || loading || !leagueId) return;
-    if (action === 'populate' && saved.snapshot?.teams.length && !window.confirm('Rebuild this league’s team list? The saved list will be replaced only when the new scan finishes.')) return;
-    busy.current = true; stop.current = false; setRunning(true); setError(''); setNotice('');
+    if (
+      action === 'populate' &&
+      saved.snapshot?.teams.length &&
+      !window.confirm(
+        'Rebuild this league’s team list? The saved list will be replaced only when the new scan finishes.',
+      )
+    )
+      return;
+    busy.current = true;
+    stop.current = false;
+    setRunning(true);
+    setError('');
+    setNotice('');
     try {
       let data = current.current;
       if (action === 'populate') {
         const { seriesIds } = await request<{ seriesIds: number[] }>('populate', leagueId, {});
-        data = { snapshot: { teams: [], populatedAt: null, availabilityAt: null, populationComplete: false,
-          job: { mode: 'populate', cursor: 0, total: 0, seriesIds, seriesCursor: 0, candidates: [] } },
-          revision: data.revision, dirty: true, saveId: crypto.randomUUID() };
+        data = {
+          snapshot: {
+            teams: [],
+            populatedAt: null,
+            availabilityAt: null,
+            populationComplete: false,
+            job: { mode: 'populate', cursor: 0, total: 0, seriesIds, seriesCursor: 0, candidates: [] },
+          },
+          revision: data.revision,
+          dirty: true,
+          saveId: crypto.randomUUID(),
+        };
         accept(data);
       } else if (action !== 'step') {
         if (!data.snapshot?.populationComplete) throw new Error('Finish populating the team list first.');
         const snapshot = structuredClone(data.snapshot);
-        for (const team of snapshot.teams) Object.assign(team, { booked: null, inCup: null, checkedAt: null, error: null });
-        snapshot.availabilityAt = null; delete snapshot.availabilityMethod;
-        snapshot.job = { mode: action, cursor: 0, total: snapshot.teams.length, seriesIds: [], seriesCursor: 0, candidates: [] };
+        for (const team of snapshot.teams)
+          Object.assign(team, { booked: null, inCup: null, checkedAt: null, error: null });
+        snapshot.availabilityAt = null;
+        delete snapshot.availabilityMethod;
+        snapshot.job = {
+          mode: action,
+          cursor: 0,
+          total: snapshot.teams.length,
+          seriesIds: [],
+          seriesCursor: 0,
+          candidates: [],
+        };
         data = { snapshot, revision: data.revision, dirty: true, saveId: crypto.randomUUID() };
         accept(data);
       }
@@ -202,45 +373,68 @@ export function ForgeLeagues() {
           if (job.candidates.length) {
             const teamIds = job.candidates.slice(0, BATCH_SIZE);
             const batch = await request<TeamBatch>('teams', leagueId, { teamIds });
-            for (const result of batch.results) if (result.team && !snapshot.teams.some(team => team.teamId === result.teamId)) {
-              if (snapshot.teams.length >= FORGE_LEAGUE_TEAM_LIMIT) throw new Error('This league exceeds the team limit.');
-              snapshot.teams.push(result.team);
-            }
-            job.candidates.splice(0, teamIds.length); job.cursor += teamIds.length;
+            for (const result of batch.results)
+              if (result.team && !snapshot.teams.some((team) => team.teamId === result.teamId)) {
+                if (snapshot.teams.length >= FORGE_LEAGUE_TEAM_LIMIT)
+                  throw new Error('This league exceeds the team limit.');
+                snapshot.teams.push(result.team);
+              }
+            job.candidates.splice(0, teamIds.length);
+            job.cursor += teamIds.length;
           } else if (job.seriesCursor < job.seriesIds.length) {
             const seriesIds = job.seriesIds.slice(job.seriesCursor, job.seriesCursor + BATCH_SIZE);
             const batch = await request<{ candidateIds: number[] }>('series', leagueId, { seriesIds });
-            job.candidates = batch.candidateIds.filter(id => !snapshot.teams.some(team => team.teamId === id));
-            job.total += job.candidates.length; job.seriesCursor += seriesIds.length;
+            job.candidates = batch.candidateIds.filter((id) => !snapshot.teams.some((team) => team.teamId === id));
+            job.total += job.candidates.length;
+            job.seriesCursor += seriesIds.length;
           }
           if (!job.candidates.length && job.seriesCursor >= job.seriesIds.length) {
-            snapshot.populationComplete = true; snapshot.populatedAt = new Date().toISOString(); snapshot.job = null;
+            snapshot.populationComplete = true;
+            snapshot.populatedAt = new Date().toISOString();
+            snapshot.job = null;
           }
         } else {
-          const teamIds = snapshot.teams.slice(job.cursor, job.cursor + BATCH_SIZE).map(team => team.teamId);
+          const teamIds = snapshot.teams.slice(job.cursor, job.cursor + BATCH_SIZE).map((team) => team.teamId);
           if (teamIds.length) {
             const batch = await request<TeamBatch>(job.mode, leagueId, { teamIds });
             let removed = 0;
             for (const result of batch.results) {
-              const index = snapshot.teams.findIndex(team => team.teamId === result.teamId);
+              const index = snapshot.teams.findIndex((team) => team.teamId === result.teamId);
               if (index < 0) continue;
-              if (result.error) Object.assign(snapshot.teams[index], { booked: null, inCup: null, checkedAt: new Date().toISOString(), error: result.error });
+              if (result.error)
+                Object.assign(snapshot.teams[index], {
+                  booked: null,
+                  inCup: null,
+                  checkedAt: new Date().toISOString(),
+                  error: result.error,
+                });
               else if (result.team) snapshot.teams[index] = result.team;
-              else { snapshot.teams.splice(index, 1); removed += 1; }
+              else {
+                snapshot.teams.splice(index, 1);
+                removed += 1;
+              }
             }
-            job.cursor += teamIds.length - removed; job.total -= removed;
+            job.cursor += teamIds.length - removed;
+            job.total -= removed;
           }
           if (job.cursor >= snapshot.teams.length) {
-            snapshot.availabilityAt = new Date().toISOString(); snapshot.availabilityMethod = job.mode === 'precise' ? 'matches' : 'teamdetails'; snapshot.job = null;
+            snapshot.availabilityAt = new Date().toISOString();
+            snapshot.availabilityMethod = job.mode === 'precise' ? 'matches' : 'teamdetails';
+            snapshot.job = null;
           }
         }
-        data = { ...data, snapshot, dirty: true }; accept(data);
+        data = { ...data, snapshot, dirty: true };
+        accept(data);
         if (!alive.current) break;
       }
       if (alive.current && !stop.current && data.snapshot && !data.snapshot.job) await saveCompleted(data);
     } catch (err) {
-      if (alive.current) setError(err instanceof Error ? err.message : 'Scan failed. Progress remains in this browser tab.');
-    } finally { busy.current = false; if (alive.current) setRunning(false); }
+      if (alive.current)
+        setError(err instanceof Error ? err.message : 'Scan failed. Progress remains in this browser tab.');
+    } finally {
+      busy.current = false;
+      if (alive.current) setRunning(false);
+    }
   };
 
   const league = leagues.find((item) => item.leagueId === leagueId);
@@ -260,9 +454,27 @@ export function ForgeLeagues() {
     .sort((a, b) => a.teamName.localeCompare(b.teamName));
   const managers = new Map<number, ForgeLeagueTeam[]>();
   for (const team of teams) managers.set(team.managerId, [...(managers.get(team.managerId) || []), team]);
+  const copyManagerMessage = async (team: ForgeLeagueTeam) => {
+    const message = messageTemplate
+      .replaceAll('{teamName}', team.teamName)
+      .replaceAll('{managerName}', team.managerName || '');
+    try {
+      await navigator.clipboard.writeText(message);
+      setMessagedManagerIds((ids) => (ids.includes(team.managerId) ? ids : [...ids, team.managerId]));
+      setNotice(`Message copied for ${team.managerName || team.teamName}.`);
+      setError('');
+    } catch {
+      setError('Could not copy the message. Check clipboard permissions and try again.');
+    }
+  };
+  const messageManager = (team: ForgeLeagueTeam) => {
+    window.open(managerMessageHref(team.managerId), '_blank', 'noopener,noreferrer');
+    void copyManagerMessage(team);
+  };
   const teamRow = (team: ForgeLeagueTeam, showManager: boolean) => {
     const status = leagueTeamStatus(team);
     const flag = Object.values(HATTRICK_WORLD_DETAILS).find((item) => item.countryId === team.countryId)?.emoji || '';
+    const messaged = messagedManagerIds.includes(team.managerId);
     return (
       <li key={team.teamId} className={styles.row}>
         <div>
@@ -288,6 +500,20 @@ export function ForgeLeagues() {
           </span>
           {team.error && <span className={styles.meta}>{team.error}</span>}
         </div>
+        <Button
+          variant="secondary"
+          size="sm"
+          className={messaged ? styles.messaged : ''}
+          disabled={messaged}
+          onClick={() => messageManager(team)}
+          aria-label={
+            messaged
+              ? `Messaged ${team.managerName || team.managerId}`
+              : `Copy message for ${team.managerName || team.managerId}`
+          }
+        >
+          {messaged ? '✓ Messaged' : 'Message'}
+        </Button>
       </li>
     );
   };
@@ -298,6 +524,13 @@ export function ForgeLeagues() {
         title="Leagues"
         subtitle={`Find friendly opportunities in leagues with up to ${FORGE_LEAGUE_TEAM_LIMIT} active teams.`}
       >
+        <label className={styles.messageTemplate}>
+          Outreach message
+          <span className={styles.meta}>
+            Use {'{teamName}'} and {'{managerName}'} as substitutions. Clicking Message copies the filled text.
+          </span>
+          <textarea value={messageTemplate} onChange={(event) => setMessageTemplate(event.target.value)} rows={18} />
+        </label>
         <div className={styles.controls}>
           <label>
             Active teams
@@ -330,7 +563,8 @@ export function ForgeLeagues() {
               {!options.length && <option value={0}>No leagues in this range</option>}
               {options.map((item) => (
                 <option key={item.leagueId} value={item.leagueId}>
-                  {item.name} {HATTRICK_WORLD_DETAILS[item.leagueId]?.emoji} ({item.activeTeams}){item.fetched ? ' · Fetched' : ''}
+                  {item.name} {HATTRICK_WORLD_DETAILS[item.leagueId]?.emoji} ({item.activeTeams})
+                  {item.fetched ? ' · Fetched' : ''}
                 </option>
               ))}
             </select>
@@ -402,10 +636,24 @@ export function ForgeLeagues() {
             </p>
           )}
           {snapshot?.populatedAt && <p>List populated {new Date(snapshot.populatedAt).toLocaleString()}</p>}
-          {snapshot?.availabilityAt && <p>Availability checked {new Date(snapshot.availabilityAt).toLocaleString()} · {snapshot.availabilityMethod === 'matches' ? 'Matches check' : snapshot.availabilityMethod === 'teamdetails' ? 'Teamdetails check' : 'Previous check'}</p>}
+          {snapshot?.availabilityAt && (
+            <p>
+              Availability checked {new Date(snapshot.availabilityAt).toLocaleString()} ·{' '}
+              {snapshot.availabilityMethod === 'matches'
+                ? 'Matches check'
+                : snapshot.availabilityMethod === 'teamdetails'
+                  ? 'Teamdetails check'
+                  : 'Previous check'}
+            </p>
+          )}
           {notice && <p>{notice}</p>}
         </div>
-        {saved.dirty && <p className={styles.meta}>Working results are kept in this browser tab. The database snapshot is saved once when the operation finishes.</p>}
+        {saved.dirty && (
+          <p className={styles.meta}>
+            Working results are kept in this browser tab. The database snapshot is saved once when the operation
+            finishes.
+          </p>
+        )}
         {storageWarning && <p className={styles.unavailable}>{storageWarning}</p>}
         {error && (
           <p role="alert" className={styles.unavailable}>
@@ -413,7 +661,9 @@ export function ForgeLeagues() {
           </p>
         )}
         {!running && saved.dirty && error.includes('changed in another tab') && (
-          <Button variant="secondary" size="sm" onClick={() => void reloadSaved()}>Reload saved list</Button>
+          <Button variant="secondary" size="sm" onClick={() => void reloadSaved()}>
+            Reload saved list
+          </Button>
         )}
         {!loading && !leagues.length && (
           <Button variant="secondary" size="sm" onClick={() => window.location.reload()}>
@@ -423,9 +673,11 @@ export function ForgeLeagues() {
       </SectionCard>
       {snapshot && (
         <SectionCard
-          title={view === 'available'
-            ? `Available in ${league?.name || 'this league'} • ${teams.length} teams`
-            : `${saved.dirty ? 'Working list' : 'Saved list'} · ${snapshot.teams.length} teams`}
+          title={
+            view === 'available'
+              ? `Available in ${league?.name || 'this league'} • ${teams.length} teams`
+              : `${saved.dirty ? 'Working list' : 'Saved list'} · ${snapshot.teams.length} teams`
+          }
         >
           <div className={styles.buttons}>
             {(['all', 'available', 'users'] as const).map((item) => (

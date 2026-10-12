@@ -1,5 +1,8 @@
 export const FORGE_LEAGUE_TEAM_LIMIT = 1200;
 
+export const managerMessageHref = (managerId: number) =>
+  `https://www.hattrick.org/goto.ashx?path=/MyHattrick/Inbox/?actionType=newMail&userId=${managerId}`;
+
 /** Private Forge list snapshots, never tournament registrations or authenticated profiles. */
 export interface ForgeLeagueOption {
   leagueId: number;

@@ -13,6 +13,29 @@
     flex-direction: column
     gap: .4rem
 
+.messageTemplate
+  display: flex
+  flex-direction: column
+  gap: .4rem
+  margin-bottom: 1rem
+
+  textarea
+    width: 100%
+    min-height: 16rem
+    padding: .7rem
+    resize: vertical
+    background: var(--bg)
+    color: var(--text)
+    border: 1px solid var(--border)
+    border-radius: 4px
+    font: inherit
+
+.messaged:disabled
+  color: var(--accent-2)
+  background: var(--bg)
+  border-color: var(--accent-2)
+  opacity: 1
+
 .controls select, .country select
   width: 100%
   padding: .6rem
@@ -76,3 +99,5 @@
     gap: .4rem
   .status
     text-align: left
+  .row > button
+    align-self: flex-start
