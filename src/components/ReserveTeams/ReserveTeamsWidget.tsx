@@ -113,6 +113,7 @@ export const ReserveTeamsWidget: React.FC<ReserveTeamsWidgetProps> = ({ tourname
   }, [applyData, readData]);
 
   const availableTeams = useMemo(() => data?.myTeams.filter((team) => team.state === 'available') || [], [data]);
+  const selectedAvailableTeam = availableTeams.find((team) => String(team.team_id) === selectedTeamId);
   const ownReserve = data?.myTeams.filter((team) => team.state === 'reserve') || [];
 
   if (data && !data.allowReserveRegistration && data.reserveTeams.length === 0) return null;
@@ -248,12 +249,13 @@ export const ReserveTeamsWidget: React.FC<ReserveTeamsWidgetProps> = ({ tourname
                 >
                   {availableTeams.map((team) => (
                     <option key={team.team_id} value={team.team_id}>
-                      {team.name}
+                      {team.name}{team.eligible ? '' : ' — Not eligible'}
                     </option>
                   ))}
                 </select>
               )}
-              <button type="button" onClick={() => post('join', selectedTeamId)} disabled={busy || !selectedTeamId}>
+              {selectedAvailableTeam?.reason && <p className={styles.error}>{selectedAvailableTeam.reason}</p>}
+              <button type="button" onClick={() => post('join', selectedTeamId)} disabled={busy || !selectedTeamId || selectedAvailableTeam?.eligible === false}>
                 {uiText('joinReserveList')}
               </button>
             </div>

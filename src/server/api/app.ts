@@ -49,6 +49,8 @@ import {
   mergeManagerTeamSnapshot,
 } from './_lib/manager-compendium.js';
 import { validateTeamEligibility } from './_lib/eligibility.js';
+import { validateTournamentCountrySizeEligibility } from './_lib/country-size-eligibility.js';
+import { managerHasQualifyingCountryParticipant, validateCountrySizeEligibility } from '../../../shared/country-size-eligibility.js';
 import { getActiveTournamentConflicts, registerReserveTeam } from './_lib/chpp-register.js';
 import {
   validateTeamReserveTransition,
@@ -1066,7 +1068,7 @@ async function handleAdminAddReserveTeam(req: VercelRequest, res: VercelResponse
   const supabase = getServiceSupabase();
   const { data: tournament, error: tournamentError } = await supabase
     .from('tournaments')
-    .select('id, league_category, country_limit, country_limit_format, status, is_archived')
+    .select('id, league_category, country_limit, country_limit_format, max_country_active_teams, allow_manager_country_size_exception, status, is_archived')
     .eq('id', tournamentId)
     .maybeSingle();
   if (tournamentError) throw tournamentError;
@@ -1134,6 +1136,14 @@ async function handleAdminAddReserveTeam(req: VercelRequest, res: VercelResponse
     },
   );
   if (!eligibility.eligible) return res.status(400).json({ error: eligibility.reason || 'This team is not eligible.' });
+  const countrySizeEligibility = await validateTournamentCountrySizeEligibility(supabase, {
+    tournamentId,
+    managerId: owner.credentials?.hattrick_user_id,
+    countryId: details.countryId,
+    maximumActiveTeams: tournament.max_country_active_teams,
+    allowManagerException: tournament.allow_manager_country_size_exception,
+  });
+  if (!countrySizeEligibility.eligible) return res.status(400).json({ error: countrySizeEligibility.reason });
 
   if (owner.credentials && owner.team && req.body?.validated !== false) {
     const id = await registerReserveTeam(supabase, {
@@ -2656,7 +2666,7 @@ async function handleReserveTeams(req: VercelRequest, res: VercelResponse) {
   const [{ data: tournament, error: tournamentError }, { data: teamRows, error: teamsError }] = await Promise.all([
     supabase
       .from('tournaments')
-      .select('id, league_category, country_limit, country_limit_format, allow_reserve_registration')
+      .select('id, league_category, country_limit, country_limit_format, max_country_active_teams, allow_manager_country_size_exception, allow_reserve_registration')
       .eq('id', tournamentId)
       .maybeSingle(),
     supabase
@@ -2695,9 +2705,25 @@ async function handleReserveTeams(req: VercelRequest, res: VercelResponse) {
       tournament.country_limit,
       tournament.country_limit_format ?? 'league_id',
     );
+    const hasQualifyingParticipant = Boolean(tournament.allow_manager_country_size_exception &&
+      tournament.max_country_active_teams != null &&
+      managerHasQualifyingCountryParticipant(rows.map((row) => ({
+        active: row.active === true,
+        reserve_active: row.reserve_active === true,
+        is_placeholder: row.is_placeholder === true,
+        hattrick_user_id: Number(row.hattrick_user_id),
+        country_id: Number(row.country_id),
+      })), session.userId, tournament.max_country_active_teams));
     const myTeams = profileTeams
       .map((team) => {
-        const eligibility = validateTeamEligibility(team, { category, countryLimit });
+        const baseEligibility = validateTeamEligibility(team, { category, countryLimit });
+        const sizeEligibility = validateCountrySizeEligibility({
+          countryId: team.countryId,
+          maximumActiveTeams: tournament.max_country_active_teams,
+          allowManagerException: tournament.allow_manager_country_size_exception,
+          hasQualifyingParticipant,
+        });
+        const eligibility = baseEligibility.eligible ? sizeEligibility : baseEligibility;
         const existing = rows.find((row) => Number(row.ht_team_id) === team.teamId);
         return {
           team_id: team.teamId,
@@ -2707,11 +2733,12 @@ async function handleReserveTeams(req: VercelRequest, res: VercelResponse) {
           country_id: team.countryId,
           eligible: eligibility.eligible,
           reason: eligibility.reason,
+          base_eligible: baseEligibility.eligible,
           state: existing?.active ? 'participant' : existing?.reserve_active ? 'reserve' : 'available',
           existing_team_id: existing?.id || null,
         };
       })
-      .filter((team) => team.eligible || team.state === 'reserve');
+      .filter((team) => team.base_eligible || team.state === 'reserve');
     return res.status(200).json({ authenticated: true, allowReserveRegistration, reserveTeams, myTeams });
   }
 
@@ -2788,6 +2815,14 @@ async function handleReserveTeams(req: VercelRequest, res: VercelResponse) {
     countryLimit: normalizeLeagueLimit(tournament.country_limit, tournament.country_limit_format ?? 'league_id'),
   });
   if (!eligibility.eligible) return res.status(400).json({ error: eligibility.reason || 'This team is not eligible.' });
+  const countrySizeEligibility = await validateTournamentCountrySizeEligibility(supabase, {
+    tournamentId,
+    managerId: session.userId,
+    countryId: team.countryId,
+    maximumActiveTeams: tournament.max_country_active_teams,
+    allowManagerException: tournament.allow_manager_country_size_exception,
+  });
+  if (!countrySizeEligibility.eligible) return res.status(400).json({ error: countrySizeEligibility.reason });
 
   const teamRowId = await registerReserveTeam(supabase, {
     tournamentId,

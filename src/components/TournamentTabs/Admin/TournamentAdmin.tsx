@@ -140,6 +140,10 @@ export interface TournamentAdminController {
     setEditDefaultTheme: Setter<EffectiveTheme | null>;
     editCountryLimit: string | null;
     setEditCountryLimit: Setter<string | null>;
+    editMaxCountryActiveTeams: number | null;
+    setEditMaxCountryActiveTeams: Setter<number | null>;
+    editAllowManagerCountrySizeException: boolean;
+    setEditAllowManagerCountrySizeException: Setter<boolean>;
     editMaxTeams: number | null;
     setEditMaxTeams: Setter<number | null>;
     editRegistrationOpen: boolean;
@@ -425,6 +429,10 @@ export const TournamentAdmin: React.FC<{ controller: TournamentAdminController }
     setEditScoringMode,
     editCountryLimit,
     setEditCountryLimit,
+    editMaxCountryActiveTeams,
+    setEditMaxCountryActiveTeams,
+    editAllowManagerCountrySizeException,
+    setEditAllowManagerCountrySizeException,
     editMaxTeams,
     setEditMaxTeams,
     editRegistrationOpen,
@@ -1222,6 +1230,27 @@ export const TournamentAdmin: React.FC<{ controller: TournamentAdminController }
                                 })()}
                                 {renderUnsavedSettingsNote(unsavedSettingsFields.countryLimit)}
                               </div>
+
+                              <div className={adminStyles.field}>
+                                {renderSettingsLabel('Maximum active teams in country')}
+                                <input
+                                  type="number"
+                                  min={1}
+                                  max={1200}
+                                  value={editMaxCountryActiveTeams ?? ''}
+                                  onChange={(event) => setEditMaxCountryActiveTeams(event.target.value ? Number(event.target.value) : null)}
+                                  className={adminStyles.selectField}
+                                  placeholder="No restriction"
+                                />
+                              </div>
+                              <label className={adminStyles.checkboxLabel}>
+                                <input
+                                  type="checkbox"
+                                  checked={editAllowManagerCountrySizeException}
+                                  onChange={(event) => setEditAllowManagerCountrySizeException(event.target.checked)}
+                                />
+                                Allow other teams from managers already participating with a qualifying team
+                              </label>
 
                               <div className={adminStyles.field}>
                                 <label htmlFor="tournament-scoring-mode">{themeText('scoringModeLabel')}</label>

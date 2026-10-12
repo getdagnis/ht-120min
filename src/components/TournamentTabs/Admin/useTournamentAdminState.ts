@@ -67,6 +67,8 @@ export function useTournamentAdminState() {
   const [editScoringMode, setEditScoringMode] = useState<'120min' | 'average120' | 'points' | 'appg'>('120min');
   const [editDefaultTheme, setEditDefaultTheme] = useState<EffectiveTheme | null>(null);
   const [editCountryLimit, setEditCountryLimit] = useState<string | null>(null);
+  const [editMaxCountryActiveTeams, setEditMaxCountryActiveTeams] = useState<number | null>(null);
+  const [editAllowManagerCountrySizeException, setEditAllowManagerCountrySizeException] = useState(false);
   const [editMaxTeams, setEditMaxTeams] = useState<number | null>(null);
   const [editRegistrationOpen, setEditRegistrationOpen] = useState(true);
   const [editAllowReserveRegistration, setEditAllowReserveRegistration] = useState(true);
@@ -109,7 +111,10 @@ export function useTournamentAdminState() {
     rescheduleStartSlotId, setRescheduleStartSlotId, includeWeek15WeekendFriendlyForReschedule,
     setIncludeWeek15WeekendFriendlyForReschedule, editName, setEditName, editIsPrivate, setEditIsPrivate,
     editChppOnlyJoin, setEditChppOnlyJoin, editLeagueCategory, setEditLeagueCategory,
-    editRegistrationType, setEditRegistrationType, editCountryLimit, setEditCountryLimit, editScoringMode, setEditScoringMode, editDefaultTheme, setEditDefaultTheme,
+    editRegistrationType, setEditRegistrationType, editCountryLimit, setEditCountryLimit,
+    editMaxCountryActiveTeams, setEditMaxCountryActiveTeams,
+    editAllowManagerCountrySizeException, setEditAllowManagerCountrySizeException,
+    editScoringMode, setEditScoringMode, editDefaultTheme, setEditDefaultTheme,
     editMaxTeams, setEditMaxTeams, editRegistrationOpen, setEditRegistrationOpen,
     editAllowReserveRegistration, setEditAllowReserveRegistration, showEditDescription,
     setShowEditDescription, editDescription, setEditDescription, showEditEmail, setShowEditEmail,

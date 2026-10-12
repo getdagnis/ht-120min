@@ -22,6 +22,8 @@ Tournament entry themes are implemented locally: optional Light/Dark defaults in
 
 Planning/Recruiting lifecycle integration is prepared locally. Real creation starts in Planning, publication commits rosters atomically and withdraws other planning entries, Recruiting leads discovery, and guarded return-to-planning resets only the current unplayed schedule. Test/sandbox status behavior and existing administrator creation exceptions remain distinct. Migration `113_tournament_planning_and_recruiting.sql` is prepared, not agent-applied; the read-only roster/RPC preflight must be reviewed before conversion/deployment. Live DB concurrency, OAuth and UI behavior are unverified. See [tournament lifecycle](docs/tournament-lifecycle.md).
 
+Country-size eligibility is implemented locally using the supplied Forge Leagues active-team counts checked on 2026-10-12, with static coverage for the supplied catalogue through 1200 active teams. The optional tournament maximum is inclusive; countries outside the saved catalogue fail closed. Around the World in One Twenty is configured by migration `114_tournament_country_size_eligibility.sql` for a 420-team limit and the active-participant manager exception. The exception is rechecked at authenticated registration and reserve admission; existing admitted teams are not revalidated when a qualifying participant leaves. Migration 114 is prepared, not applied; live Supabase and Hattrick admission behavior remain unverified.
+
 ## Current checkout snapshot
 
 - `main` is clean and aligned with `origin/main` at `2acef5e` (`update/welcome modal`).

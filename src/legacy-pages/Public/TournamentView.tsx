@@ -53,7 +53,7 @@ import {
   teamMatchesCategory,
   validateTeamEligibility,
 } from '../../utils/team-eligibility';
-import { validateCountrySizeEligibility } from '../../../shared/country-size-eligibility';
+import { managerHasQualifyingCountryParticipant, validateCountrySizeEligibility } from '../../../shared/country-size-eligibility';
 import { normalizeLeagueLimit, resolveCountryRestriction } from '../../../shared/worlddetails';
 import type { MatchEventDetails } from '../../../shared/match-events';
 import type { TournamentJoinStory } from '../../types/tournament-activity';
@@ -2360,16 +2360,8 @@ export const TournamentView: React.FC<{
 
     if (!isSiteAdmin && tournament.max_country_active_teams != null) {
       const hasQualifyingParticipant = Boolean(
-        tournament.allow_manager_country_size_exception && currentHtUserId && teams.some((participant) => {
-          if (!participant.active || participant.reserve_active || participant.is_placeholder ||
-            Number(participant.hattrick_user_id) !== currentHtUserId) return false;
-          return validateCountrySizeEligibility({
-            countryId: participant.country_id,
-            maximumActiveTeams: tournament.max_country_active_teams,
-            allowManagerException: false,
-            hasQualifyingParticipant: false,
-          }).eligible;
-        }),
+        tournament.allow_manager_country_size_exception && currentHtUserId &&
+          managerHasQualifyingCountryParticipant(teams, currentHtUserId, tournament.max_country_active_teams),
       );
       const countrySizeEligibility = validateCountrySizeEligibility({
         countryId: team.countryId,

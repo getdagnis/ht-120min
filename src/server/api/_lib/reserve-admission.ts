@@ -1,6 +1,8 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { fetchManagerTeamsFromChpp, fetchTeamDetailsFromChpp, fetchTeamBookingStatus, getManagerChppCredentials, type MatchmakerBookingResult } from './matchmaker.js';
 import { validateTeamEligibility } from './eligibility.js';
+import { validateTournamentCountrySizeEligibility } from './country-size-eligibility.js';
+import { managerHasQualifyingCountryParticipant } from '../../../../shared/country-size-eligibility.js';
 import { getActiveTournamentConflicts } from './chpp-register.js';
 import { buildRoundRobinCycles } from '../../../utils/round-robin-cycles.js';
 import { getScheduledDateForSlot, type CalendarSlot } from '../../../utils/hattrick-calendar.js';
@@ -45,7 +47,7 @@ export async function findVerifiedReserveOwner(supabase: SupabaseClient, teamId:
 
 export async function checkReserveAdmission(supabase: SupabaseClient, tournamentId: string, teamIds: string[]) {
   if (teamIds.length < 2 || teamIds.length % 2 || new Set(teamIds).size !== teamIds.length) throw new Error('Select an even number of at least two reserves.');
-  const { data: tournament, error: tournamentError } = await supabase.from('tournaments').select('id, season, schedule_mode, status, is_archived, max_teams, league_category, country_limit, country_limit_format').eq('id', tournamentId).single();
+  const { data: tournament, error: tournamentError } = await supabase.from('tournaments').select('id, season, schedule_mode, status, is_archived, max_teams, league_category, country_limit, country_limit_format, max_country_active_teams, allow_manager_country_size_exception').eq('id', tournamentId).single();
   if (tournamentError) throw tournamentError;
   if (tournament.is_archived || tournament.schedule_mode !== 'length' || ['finished', 'stopped', 'archived'].includes(tournament.status)) throw new Error('Reserve admission is available for running staged schedules.');
   const { data: rounds, error: roundError } = await supabase.from('rounds').select('id, round_number, phase, phase_status, reserved_slot_id, reserved_slot_kind, reserved_slot_date').eq('tournament_id', tournamentId).eq('season_number', tournament.season).order('round_number');
@@ -55,6 +57,25 @@ export async function checkReserveAdmission(supabase: SupabaseClient, tournament
   const { data: teams, error: teamError } = await supabase.from('teams').select('*').eq('tournament_id', tournamentId).in('id', teamIds);
   if (teamError) throw teamError;
   if (!teams || teams.length !== teamIds.length || teams.some(team => team.active || !team.reserve_active || team.is_placeholder)) throw new Error('The selected reserve list changed. Refresh and try again.');
+  const qualifyingManagers = new Set<number>();
+  if (tournament.max_country_active_teams != null && tournament.allow_manager_country_size_exception) {
+    const managerIds = [...new Set(teams.map(team => Number(team.hattrick_user_id)).filter(id => Number.isSafeInteger(id) && id > 0))];
+    if (managerIds.length) {
+      const { data: participants, error: participantError } = await supabase
+        .from('teams')
+        .select('hattrick_user_id, country_id, is_placeholder')
+        .eq('tournament_id', tournamentId)
+        .eq('active', true)
+        .eq('reserve_active', false)
+        .in('hattrick_user_id', managerIds);
+      if (participantError) throw participantError;
+      for (const managerId of managerIds) {
+        if (managerHasQualifyingCountryParticipant(participants || [], managerId, tournament.max_country_active_teams)) {
+          qualifyingManagers.add(managerId);
+        }
+      }
+    }
+  }
   const { data: fixtures, error: fixtureError } = await supabase.from('matches').select('home_team_id, away_team_id, reserve_team_id').eq('round_id', round.id);
   if (fixtureError) throw fixtureError;
   const conflicts = await getActiveTournamentConflicts(supabase, teams.map(team => Number(team.ht_team_id)), tournamentId);
@@ -75,6 +96,17 @@ export async function checkReserveAdmission(supabase: SupabaseClient, tournament
       const details = await fetchTeamDetailsFromChpp(process.env.CHPP_CONSUMER_KEY!, process.env.CHPP_CONSUMER_SECRET!, credentials, Number(team.ht_team_id));
       const eligibility = validateTeamEligibility(details, { category: tournament.league_category === 'hfi' ? 'hfi' : 'male', countryLimit: normalizeLeagueLimit(tournament.country_limit, tournament.country_limit_format ?? 'league_id') });
       if (!eligibility.eligible) error = eligibility.reason || 'This team is not eligible.';
+      const countrySizeEligibility = await validateTournamentCountrySizeEligibility(supabase, {
+        tournamentId,
+        managerId: team.hattrick_user_id,
+        countryId: details.countryId,
+        maximumActiveTeams: tournament.max_country_active_teams,
+        allowManagerException: tournament.allow_manager_country_size_exception,
+        ...(tournament.allow_manager_country_size_exception
+          ? { hasQualifyingParticipant: qualifyingManagers.has(Number(team.hattrick_user_id)) }
+          : {}),
+      });
+      if (!countrySizeEligibility.eligible) error = countrySizeEligibility.reason;
       const rankingUpdates = {
         ...(details.teamRank !== undefined ? { team_rank: details.teamRank } : {}),
         ...(details.powerRating !== undefined ? { power_rating: details.powerRating } : {}),
