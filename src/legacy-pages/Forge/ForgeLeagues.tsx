@@ -4,6 +4,7 @@ import { SectionCard } from '../../components/Card/SectionCard';
 import { HATTRICK_WORLD_DETAILS } from '../../../shared/worlddetails';
 import {
   FORGE_LEAGUE_TEAM_LIMIT,
+  formatForgeLeagueOutreachMessage,
   leagueTeamStatus,
   managerMessageHref,
   type ForgeLeagueOption,
@@ -55,7 +56,7 @@ Extra time and its training benefits are welcome, but [b]120 minutes is not forc
 
 [b]Friendly still free this week?[/b] There may be room in the first round. Already booked? Join the waiting list for next week.
 
-I’d love to see [b]{teamName}[/b] on board!
+We'd love to see [b]{teamName} {teamFlag}[/b] among the first participants!
 
 [link=https://ht-120min.vercel.app/en/t/around-the-world-in-one-twenty]
 
@@ -454,10 +455,11 @@ export function ForgeLeagues() {
     .sort((a, b) => a.teamName.localeCompare(b.teamName));
   const managers = new Map<number, ForgeLeagueTeam[]>();
   for (const team of teams) managers.set(team.managerId, [...(managers.get(team.managerId) || []), team]);
+  const teamFlagFor = (countryId: number | null) =>
+    Object.values(HATTRICK_WORLD_DETAILS).find((item) => item.countryId === countryId)?.emoji || '';
   const copyManagerMessage = async (team: ForgeLeagueTeam) => {
-    const message = messageTemplate
-      .replaceAll('{teamName}', team.teamName)
-      .replaceAll('{managerName}', team.managerName || '');
+    const teamFlag = teamFlagFor(team.countryId);
+    const message = formatForgeLeagueOutreachMessage(messageTemplate, team, teamFlag);
     try {
       await navigator.clipboard.writeText(message);
       setMessagedManagerIds((ids) => (ids.includes(team.managerId) ? ids : [...ids, team.managerId]));
@@ -468,12 +470,12 @@ export function ForgeLeagues() {
     }
   };
   const messageManager = (team: ForgeLeagueTeam) => {
-    window.open(managerMessageHref(team.managerId), '_blank', 'noopener,noreferrer');
     void copyManagerMessage(team);
+    window.open(managerMessageHref(team.managerId), '_blank', 'noopener,noreferrer');
   };
   const teamRow = (team: ForgeLeagueTeam, showManager: boolean) => {
     const status = leagueTeamStatus(team);
-    const flag = Object.values(HATTRICK_WORLD_DETAILS).find((item) => item.countryId === team.countryId)?.emoji || '';
+    const flag = teamFlagFor(team.countryId);
     const messaged = messagedManagerIds.includes(team.managerId);
     return (
       <li key={team.teamId} className={styles.row}>
@@ -527,7 +529,7 @@ export function ForgeLeagues() {
         <label className={styles.messageTemplate}>
           Outreach message
           <span className={styles.meta}>
-            Use {'{teamName}'} and {'{managerName}'} as substitutions. Clicking Message copies the filled text.
+            Use {'{teamName}'}, {'{managerName}'}, and {'{teamFlag}'} as substitutions. Clicking Message copies the filled text.
           </span>
           <textarea value={messageTemplate} onChange={(event) => setMessageTemplate(event.target.value)} rows={18} />
         </label>

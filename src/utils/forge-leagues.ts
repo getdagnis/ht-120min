@@ -23,6 +23,22 @@ export interface ForgeLeagueTeam {
   error: string | null;
 }
 
+function sentenceCase(value: string): string {
+  const [firstCharacter, ...remainingCharacters] = value;
+  return firstCharacter ? firstCharacter.toUpperCase() + remainingCharacters.join('') : '';
+}
+
+export function formatForgeLeagueOutreachMessage(
+  template: string,
+  team: ForgeLeagueTeam,
+  teamFlag: string,
+): string {
+  return template
+    .replaceAll('{teamName}', team.teamName)
+    .replaceAll('{managerName}', sentenceCase(team.managerName || ''))
+    .replaceAll('{teamFlag}', teamFlag);
+}
+
 export interface ForgeLeagueJob {
   mode: 'populate' | 'availability' | 'precise';
   cursor: number;
