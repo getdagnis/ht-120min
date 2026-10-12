@@ -549,3 +549,5 @@ BEGIN
 END $$;
 SELECT public.mark_public_snapshot_dirty('home:directory',1);
 COMMIT;
+
+-- applied!

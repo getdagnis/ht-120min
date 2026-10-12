@@ -837,17 +837,6 @@ export const TournamentAdmin: React.FC<{ controller: TournamentAdminController }
             </div>
           ) : (
             <div className={adminStyles.admin}>
-              {!isPressOfficer && !tournament.is_test && !isSandbox && !tournament.is_archived &&
-                !['finished', 'stopped', 'archived'].includes(tournament.status) && (
-                <SectionCard title={themeText(tournament.status === 'planning' ? 'planningState' : tournament.status === 'recruiting' ? 'recruitingState' : 'publishedState')}>
-                  <p>{themeText(tournament.status === 'planning' ? 'planningDescription' : 'recruitingDescription')}</p>
-                  <Button type="button" variant={tournament.status === 'planning' ? 'primary' : 'secondaryAction'}
-                    disabled={isChangingPublication}
-                    onClick={() => void onPublicationChange(tournament.status === 'planning' ? 'recruiting' : 'planning')}>
-                    {themeText(isChangingPublication ? 'changingPublication' : tournament.status === 'planning' ? 'publishTournament' : 'returnToPlanning')}
-                  </Button>
-                </SectionCard>
-              )}
               <div className={adminStyles.mainGrid}>
                 <section className={`${adminStyles.teamsSection} ${isPressOfficer ? adminStyles.pressOnlyAdmin : ''}`}>
                   {!isPressOfficer && (
@@ -1235,14 +1224,14 @@ export const TournamentAdmin: React.FC<{ controller: TournamentAdminController }
                               </div>
 
                               <div className={adminStyles.field}>
-                                <label htmlFor="tournament-scoring-mode">Scoring mode</label>
+                                <label htmlFor="tournament-scoring-mode">{themeText('scoringModeLabel')}</label>
                                 <select id="tournament-scoring-mode" className={adminStyles.selectField}
                                   value={editScoringMode}
                                   onChange={(event) => setEditScoringMode(event.target.value as typeof editScoringMode)}>
-                                  <option value="120min">120-minute achievements</option>
+                                  <option value="120min">{themeText('standard120ScoringMode')}</option>
                                   <option value="average120">{themeText('average120ScoringMode')}</option>
-                                  <option value="points">Regular 90-minute points</option>
-                                  {editRegistrationType !== 'validated' && <option value="appg">APPG-120</option>}
+                                  <option value="points">{themeText('regular90ScoringMode')}</option>
+                                  {editRegistrationType !== 'validated' && <option value="appg">{themeText('appg120ScoringMode')}</option>}
                                 </select>
                                 {renderUnsavedSettingsNote(unsavedSettingsFields.scoringMode)}
                               </div>
@@ -2213,6 +2202,17 @@ export const TournamentAdmin: React.FC<{ controller: TournamentAdminController }
                           </div>
                         </SectionCard>
                       </div>
+                      {!tournament.is_test && !isSandbox && !tournament.is_archived &&
+                        !['finished', 'stopped', 'archived'].includes(tournament.status) && (
+                        <SectionCard title={themeText(tournament.status === 'planning' ? 'planningState' : tournament.status === 'recruiting' ? 'recruitingState' : 'publishedState')}>
+                          <p>{themeText(tournament.status === 'planning' ? 'planningDescription' : 'recruitingDescription')}</p>
+                          <Button type="button" variant={tournament.status === 'planning' ? 'primary' : 'secondaryAction'}
+                            disabled={isChangingPublication}
+                            onClick={() => void onPublicationChange(tournament.status === 'planning' ? 'recruiting' : 'planning')}>
+                            {themeText(isChangingPublication ? 'changingPublication' : tournament.status === 'planning' ? 'publishTournament' : 'returnToPlanning')}
+                          </Button>
+                        </SectionCard>
+                      )}
                     </>
                   )}
 

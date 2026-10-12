@@ -439,7 +439,7 @@ export const StandingsView: React.FC<StandingsViewProps> = ({
     : sortedStandings.length;
 
   const forumTeamName = (standing: TeamStanding) => standing.teamName.replace(/\[/g, '(').replace(/\]/g, ')');
-  const formatAverage = (value: number | null) => value === null ? '—' : Number(value.toFixed(2)).toString();
+  const formatAverage = (value: number | null) => value === null ? '0' : Number(value.toFixed(2)).toString();
   const signedGoalDifference = (value: number) => (value > 0 ? `+${value}` : String(value));
   const appgClassificationTooltip = (standing: TeamStanding) =>
     `Pts ${standing.appgPoints} · ET3 ${standing.appgClassifications.ET3} · ET2 ${standing.appgClassifications.ET2} · PS1 ${standing.appgClassifications.PS1} · RT0 ${standing.appgClassifications.RT0} · OPW ${standing.appgClassifications.OPW}`;
@@ -477,12 +477,12 @@ export const StandingsView: React.FC<StandingsViewProps> = ({
       }
 
       if (showAverage120Scoring) {
-        const header = ['Team', 'PwrR', 'Avg120', 'AvgPts', '120m%', 'AvgMins', 'AvgDif', 'AvgGoals'];
+        const header = ['Team', 'PwrR', 'Avg120', 'GP', 'AvPts', 'AvMin', 'Dif', 'AvGls'];
         return `[table]\n${forumHeader(includePlacement ? ['#', ...header] : header)}\n${rows.map((standing, index) => forumRow([
           ...(includePlacement ? [index + 1] : []), forumTeamName(standing), standing.powerRating ?? '—',
-          ...(['achievements120min', 'pts'] as const).map((key) => formatAverage(average120Stat(standing, key))),
-          standing.played ? `${percentage120min(standing).toFixed(0)}%` : '—',
-          ...(['totalMinutes', 'gd', 'gf'] as const).map((key) => formatAverage(average120Stat(standing, key))),
+          formatAverage(average120Stat(standing, 'achievements120min')),
+          standing.played,
+          ...(['pts', 'totalMinutes', 'gd', 'gf'] as const).map((key) => formatAverage(average120Stat(standing, key))),
         ])).join('\n')}\n[/table]`;
       }
       if (show120minScoring) {
@@ -665,7 +665,7 @@ export const StandingsView: React.FC<StandingsViewProps> = ({
         }
       >
         <div className={styles.tableWrapper}>
-          <table>
+          <table className={showAverage120Scoring ? styles.averageStandingsTable : undefined}>
             <thead>
               <tr>
                 <th>#</th>
@@ -676,8 +676,8 @@ export const StandingsView: React.FC<StandingsViewProps> = ({
                 {showAverage120Scoring ? (
                   <>
                     {sortableHeader(uiText('avg120Column'), 'averageAchievements', styles.center120, uiText('avg120Tooltip'))}
-                    {sortableHeader(uiText('avgPointsColumn'), 'averagePoints', `${styles.center} ${styles.pointsHeader}`, uiText('avgPointsTooltip'))}
-                    {sortableHeader(uiText('percentage120Column'), 'achievements120minPercent', styles.center, uiText('percentage120Tooltip'))}
+                    {sortableHeader(uiText('gamesColumn'), 'played', styles.center, uiText('gamesTooltip'))}
+                    {sortableHeader(uiText('avgPointsColumn'), 'averagePoints', styles.center, uiText('avgPointsTooltip'))}
                     {sortableHeader(uiText('avgMinutesColumn'), 'averageMinutes', styles.center, uiText('avgMinutesTooltip'))}
                     {sortableHeader(uiText('avgDifferenceColumn'), 'averageDifference', styles.center, uiText('avgDifferenceTooltip'))}
                     {sortableHeader(uiText('avgGoalsColumn'), 'averageGoals', styles.center, uiText('avgGoalsTooltip'))}
@@ -758,7 +758,7 @@ export const StandingsView: React.FC<StandingsViewProps> = ({
                   </td>
                   <td className={styles.rankColumn}>—</td>
                   {showAverage120Scoring ? (
-                    <>{Array.from({ length: 6 }, (_, index) => <td key={index} className={styles.center}>—</td>)}</>
+                    <>{Array.from({ length: 6 }, (_, index) => <td key={index} className={styles.center}>0</td>)}</>
                   ) : show120minScoring ? (
                     <>
                       <td className={`${styles.highlight} ${styles.center}`}>0</td>
@@ -872,7 +872,6 @@ export const StandingsView: React.FC<StandingsViewProps> = ({
                                       s.hattrickUserId != null ? (lastSeenMap[s.hattrickUserId] ?? null) : null
                                     }
                                   />
-                                  {showAverage120Scoring && <span className={styles.muted}>{uiText('countedMatches', { count: s.played })}</span>}
                                 </>
                               )}
                             </div>
@@ -890,8 +889,8 @@ export const StandingsView: React.FC<StandingsViewProps> = ({
                       {showAverage120Scoring ? (
                         <>
                           <td className={`${styles.highlight} ${styles.center}`}>{formatAverage(average120Stat(s, 'achievements120min'))}</td>
+                          <td className={styles.center}>{s.played}</td>
                           <td className={styles.center}>{formatAverage(average120Stat(s, 'pts'))}</td>
-                          <td className={styles.center}>{s.played ? `${percentage120min(s).toFixed(0)}%` : '—'}</td>
                           <td className={styles.center}>{formatAverage(average120Stat(s, 'totalMinutes'))}</td>
                           <td className={styles.center}>{formatAverage(average120Stat(s, 'gd'))}</td>
                           <td className={styles.center}>{formatAverage(average120Stat(s, 'gf'))}</td>
@@ -965,7 +964,7 @@ export const StandingsView: React.FC<StandingsViewProps> = ({
                       </div>
                     </td>
                     <td className={styles.rankColumn}>—</td>
-                    <td colSpan={showAverage120Scoring || show120minScoring || showAppgScoring ? 5 : 6} />
+                    <td colSpan={showAppgScoring ? 5 : 6} />
                   </tr>
                 );
               })}

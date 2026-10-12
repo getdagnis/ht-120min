@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { useTranslations } from 'next-intl';
 import { Button } from '../../Button/Button';
 import { SectionCard } from '../../Card/SectionCard';
 import adminStyles from '../../../legacy-pages/Public/TournamentAdmin.module.sass';
@@ -133,7 +134,7 @@ interface TournamentSchedulePanelProps {
     phase?: 'regular' | 'postseason';
     phase_status?: 'pending' | 'materialized' | 'completed';
     reserved_slot_date?: string | null;
-    matches: Array<{ id: string; home_team?: { name?: string } | null; away_team?: { name?: string } | null }>;
+    matches: Array<{ id: string; status?: string; home_team?: { name?: string } | null; away_team?: { name?: string } | null }>;
   }>;
   isRepairingRound?: boolean;
   onRepairRound?: () => void;
@@ -263,6 +264,7 @@ export const TournamentSchedulePanel: React.FC<TournamentSchedulePanelProps> = (
   isRecoveringRoundOne = false,
   onRecoverRoundOne,
 }) => {
+  const scheduleText = useTranslations('TournamentView');
   const [expandedRounds, setExpandedRounds] = useState<Record<number, boolean>>({});
   const [manualAddOpen, setManualAddOpen] = useState(false);
   const [addMatchInput, setAddMatchInput] = useState('');
@@ -1018,7 +1020,7 @@ export const TournamentSchedulePanel: React.FC<TournamentSchedulePanelProps> = (
 
         {lengthDraft.rounds.length > 0 && (
           <div className={adminStyles.schedulePreview}>
-            <h3>Reserved season</h3>
+            <h3>{scheduleText('roundByRoundSchedule')}</h3>
             {lengthDraft.rounds.map((round) => (
               <div key={round.roundNumber} className={adminStyles.previewRow}>
                 <strong>
@@ -1082,11 +1084,13 @@ export const TournamentSchedulePanel: React.FC<TournamentSchedulePanelProps> = (
 
   const renderLengthGenerated = () => {
     const currentRound = lengthRounds.find((round) => round.phase_status === 'materialized');
+    const hasMisarrangedMatches = currentRound?.phase === 'regular' &&
+      currentRound.matches.some((match) => match.status === 'misarranged');
     return (
       <div className={adminStyles.genOptions}>
         <div className={adminStyles.scheduleIntro}>
-          <h2>Reserved season</h2>
-          <p className={adminStyles.scheduleSubtitle}>Pairings are generated one actionable round at a time.</p>
+          <h2>{scheduleText('roundByRoundSchedule')}</h2>
+          <p className={adminStyles.scheduleSubtitle}>{scheduleText('roundByRoundScheduleDescription')}</p>
         </div>
         <div className={adminStyles.schedulePreview}>
           {lengthRounds.map((round) => (
@@ -1127,18 +1131,20 @@ export const TournamentSchedulePanel: React.FC<TournamentSchedulePanelProps> = (
             </div>
           )}
         {currentRound?.phase === 'regular' && reserveAdmissionControl}
-        {currentRound?.phase === 'regular' && onRepairRound && (
-          <Button variant="secondaryAction" onClick={onRepairRound} disabled={isRepairingRound}>
-            {isRepairingRound
-              ? `Repairing Round ${currentRound.round_number}...`
-              : `Repair Round ${currentRound.round_number}`}
-          </Button>
+        {currentRound && hasMisarrangedMatches && onRepairRound && (
+          <>
+            <Button variant="secondaryAction" onClick={onRepairRound} disabled={isRepairingRound}>
+              {isRepairingRound
+                ? `Repairing Round ${currentRound.round_number}...`
+                : `Repair Round ${currentRound.round_number}`}
+            </Button>
+            <p className={adminStyles.smallNote}>
+              "Repair Round" option pairs multiple teams with misarranged matches against each other, so their scheduled
+              partners can play each other instead. Refresh fixture status before repairing. Correctly arranged fixtures
+              stay locked.
+            </p>
+          </>
         )}
-        <p className={adminStyles.smallNote}>
-          "Repair Round" option pairs multiple teams with misarranged matches against each other, so their scheduled
-          partners can play each other instead. Refresh fixture status before repairing. Correctly arranged fixtures
-          stay locked.
-        </p>
       </div>
     );
   };

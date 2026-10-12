@@ -156,7 +156,7 @@ export const SeasonYearbook: React.FC<SeasonYearbookProps> = ({
   </section>;
 };
 
-const formatAverage120 = (value: number | null) => value === null ? '—' : Number(value.toFixed(2)).toString();
+const formatAverage120 = (value: number | null) => value === null ? '0' : Number(value.toFixed(2)).toString();
 
 const HISTORY_SCORING_MODES = {
   '120min': { label: '120min', tooltip: '120-minute scoring' },
@@ -1075,8 +1075,8 @@ export const TournamentHistory: React.FC<TournamentHistoryProps> = ({
                       <>
                         <th title="Hattrick Power Rating">PwrR</th>
                         <th title={standingsText('avg120Tooltip')}>{standingsText('avg120Column')}</th>
+                        <th title={standingsText('gamesTooltip')}>{standingsText('gamesColumn')}</th>
                         <th title={standingsText('avgPointsTooltip')}>{standingsText('avgPointsColumn')}</th>
-                        <th title={standingsText('percentage120Tooltip')}>{standingsText('percentage120Column')}</th>
                         <th title={standingsText('avgMinutesTooltip')}>{standingsText('avgMinutesColumn')}</th>
                         <th title={standingsText('avgDifferenceTooltip')}>{standingsText('avgDifferenceColumn')}</th>
                         <th title={standingsText('avgGoalsTooltip')}>{standingsText('avgGoalsColumn')}</th>
@@ -1115,13 +1115,13 @@ export const TournamentHistory: React.FC<TournamentHistoryProps> = ({
                     return (
                       <tr key={standing.teamId}>
                         <td>{index + 1}</td>
-                        <td>{participant ? <TeamIdentity participant={participant} compact /> : standing.teamName}{historyScoringMode === 'average120' && <small>{uiText('countedMatches', { count: standing.played })}</small>}</td>
+                        <td>{participant ? <TeamIdentity participant={participant} compact /> : standing.teamName}</td>
                         {historyScoringMode === 'average120' ? (
                           <>
                             <td>{standing.powerRating ?? '—'}</td>
                             <td className={styles.accentStat}>{formatAverage120(average120Stat(standing, 'achievements120min'))}</td>
+                            <td>{standing.played}</td>
                             <td>{formatAverage120(average120Stat(standing, 'pts'))}</td>
-                            <td>{standing.played ? `${Math.round(standing.achievements120min / standing.played * 100)}%` : '—'}</td>
                             <td>{formatAverage120(average120Stat(standing, 'totalMinutes'))}</td>
                             <td>{formatAverage120(average120Stat(standing, 'gd'))}</td>
                             <td>{formatAverage120(average120Stat(standing, 'gf'))}</td>
