@@ -2275,6 +2275,9 @@ export const TournamentView: React.FC<{
 
   const handleTeamSelect = async (team: ChppTeamOption) => {
     if (!pendingJoinData || submittingJoinRef.current) return;
+    // Close the picker as soon as a team is chosen so the lifecycle confirmation
+    // is presented on its own instead of being stacked over the team list.
+    setShowTeamModal(false);
     if (tournament && !tournament.is_test && !isSandbox && !(await confirm({
       title: lifecycleText(tournament.status === 'planning' ? 'joinPlanningTitle' : 'joinRecruitingTitle'),
       message: lifecycleText(tournament.status === 'planning' ? 'joinPlanningWarning' : 'joinRecruitingWarning'),
