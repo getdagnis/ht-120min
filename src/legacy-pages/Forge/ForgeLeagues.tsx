@@ -6,8 +6,11 @@ import { getCountryFlagEmoji } from '../../utils/ht-data';
 import {
   FORGE_LEAGUE_TEAM_LIMIT,
   formatForgeLeagueOutreachMessage,
+  getForgeOutreachStatus,
   leagueTeamStatus,
   managerMessageHref,
+  type ForgeOutreachCampaign,
+  type ForgeOutreachContact,
   type ForgeLeagueOption,
   type ForgeLeagueSnapshot,
   type ForgeLeagueTeam,
@@ -63,6 +66,7 @@ interface TeamBatch {
 const BATCH_SIZE = 3;
 const draftKey = (id: number) => `forge-league-working-v2:${id}`;
 const outreachStoragePrefix = 'forge-league-outreach-v1';
+const currentCampaignId = 'around-the-world-in-one-twenty';
 const defaultOutreachMessage = `Ia ora na, Bula and Håfa adai! 🌍
 
 HT-120min (a CHPP product I’m part of) is launching [b]Around the World in One Twenty 🧳🌏[/b] — an international friendly cup exclusively only for [b]flag chasers with teams in smaller Hattrick countries[/b]. Bring one along, and your other teams are automatically welcome too!
@@ -136,7 +140,14 @@ export function ForgeLeagues() {
   const [view, setView] = useState<'all' | 'available' | 'users'>('all');
   const [country, setCountry] = useState('');
   const [messageTemplate, setMessageTemplate] = useState(defaultOutreachMessage);
-  const [messagedManagerIds, setMessagedManagerIds] = useState<number[]>([]);
+  const [outreachCampaigns, setOutreachCampaigns] = useState<ForgeOutreachCampaign[]>([]);
+  const [outreachContacts, setOutreachContacts] = useState<ForgeOutreachContact[]>([]);
+  const [selectedCampaignId, setSelectedCampaignId] = useState(currentCampaignId);
+  const [outreachLoaded, setOutreachLoaded] = useState(false);
+  const [outreachError, setOutreachError] = useState('');
+  const [outreachBusy, setOutreachBusy] = useState(false);
+  const [messagingManagerIds, setMessagingManagerIds] = useState<number[]>([]);
+  const [importReport, setImportReport] = useState('');
   const [outreachOwnerId, setOutreachOwnerId] = useState<string | null>(null);
   const [loadedOutreachStorageKey, setLoadedOutreachStorageKey] = useState('');
   const stop = useRef(false);
@@ -212,21 +223,15 @@ export function ForgeLeagues() {
     try {
       const stored = window.localStorage.getItem(outreachStorageKey);
       if (stored) {
-        const data = JSON.parse(stored) as { messageTemplate?: unknown; messagedManagerIds?: unknown };
-        const storedTemplate = typeof data.messageTemplate === 'string' ? data.messageTemplate : null;
-        const storedManagerIds = Array.isArray(data.messagedManagerIds)
-          ? data.messagedManagerIds.filter((id): id is number => typeof id === 'number' && Number.isSafeInteger(id))
-          : null;
-        timer = window.setTimeout(() => {
-          if (storedTemplate !== null) setMessageTemplate(storedTemplate);
-          if (storedManagerIds !== null) setMessagedManagerIds(storedManagerIds);
-          setLoadedOutreachStorageKey(outreachStorageKey);
-        }, 0);
-      } else {
-        timer = window.setTimeout(() => setLoadedOutreachStorageKey(outreachStorageKey), 0);
-      }
+        const data = JSON.parse(stored) as { messageTemplate?: unknown };
+        if (typeof data.messageTemplate === 'string') {
+          timer = window.setTimeout(() => {
+            setMessageTemplate(data.messageTemplate as string);
+            setLoadedOutreachStorageKey(outreachStorageKey);
+          }, 0);
+        } else timer = window.setTimeout(() => setLoadedOutreachStorageKey(outreachStorageKey), 0);
+      } else timer = window.setTimeout(() => setLoadedOutreachStorageKey(outreachStorageKey), 0);
     } catch {
-      // Outreach state is a convenience; keep the editable default if storage is unavailable.
       timer = window.setTimeout(() => setLoadedOutreachStorageKey(outreachStorageKey), 0);
     }
     return () => window.clearTimeout(timer);
@@ -235,11 +240,36 @@ export function ForgeLeagues() {
   useEffect(() => {
     if (!outreachStorageKey || loadedOutreachStorageKey !== outreachStorageKey) return;
     try {
-      window.localStorage.setItem(outreachStorageKey, JSON.stringify({ messageTemplate, messagedManagerIds }));
+      const raw = window.localStorage.getItem(outreachStorageKey);
+      const data = raw ? JSON.parse(raw) as Record<string, unknown> : {};
+      // Preserve the existing local manager IDs unchanged until the import count is verified.
+      window.localStorage.setItem(outreachStorageKey, JSON.stringify({ ...data, messageTemplate }));
     } catch {
-      // Copying still works when browser storage is unavailable.
+      // The database-backed contact record is independent of browser storage.
     }
-  }, [messageTemplate, messagedManagerIds, loadedOutreachStorageKey, outreachStorageKey]);
+  }, [messageTemplate, loadedOutreachStorageKey, outreachStorageKey]);
+
+  useEffect(() => {
+    const abort = new AbortController();
+    request<{ campaigns: ForgeOutreachCampaign[]; contacts: ForgeOutreachContact[] }>('outreach', undefined, undefined, abort.signal)
+      .then((data) => {
+        if (abort.signal.aborted) return;
+        setOutreachCampaigns(data.campaigns);
+        setOutreachContacts(data.contacts);
+        const initial = data.campaigns.find((item) => item.id === currentCampaignId) || data.campaigns[0];
+        if (initial) {
+          setSelectedCampaignId(initial.id);
+        }
+        setOutreachLoaded(true);
+      })
+      .catch((err) => {
+        if (!abort.signal.aborted) {
+          setOutreachError(err instanceof Error ? err.message : 'Could not load outreach history.');
+          setOutreachLoaded(true);
+        }
+      });
+    return () => abort.abort();
+  }, []);
 
   useEffect(() => {
     if (!leagueId) return;
@@ -473,16 +503,61 @@ export function ForgeLeagues() {
   const managers = new Map<number, ForgeLeagueTeam[]>();
   for (const team of teams) managers.set(team.managerId, [...(managers.get(team.managerId) || []), team]);
   const teamFlagFor = getCountryFlagEmoji;
+  const selectedCampaign = outreachCampaigns.find((campaign) => campaign.id === selectedCampaignId);
+  const importLocalOutreach = async () => {
+    if (!selectedCampaign || selectedCampaign.id !== currentCampaignId || !outreachStorageKey || outreachBusy) return;
+    setOutreachBusy(true);
+    setOutreachError('');
+    setImportReport('');
+    try {
+      const raw = window.localStorage.getItem(outreachStorageKey);
+      if (!raw) throw new Error('No saved local outreach data was found for this manager.');
+      const local = JSON.parse(raw) as { messagedManagerIds?: unknown };
+      const ids = Array.isArray(local.messagedManagerIds) ? local.messagedManagerIds : [];
+      const report = await request<{
+        submittedRows: number; uniqueValidIds: number; imported: number; alreadyPresent: number;
+        duplicateInputCount: number; invalidRows: Array<{ index: number; value: unknown }>; unmatchedRows: unknown[];
+      }>('outreach-import-local', undefined, {
+        campaignId: currentCampaignId,
+        managerIds: ids,
+      });
+      const invalid = report.invalidRows.length
+        ? `; invalid rows: ${report.invalidRows.map((row) => `${row.index + 1} (${JSON.stringify(row.value)})`).join(', ')}`
+        : '';
+      setImportReport(`Local import verified: ${report.imported} imported, ${report.alreadyPresent} already present, ${report.duplicateInputCount} duplicate IDs in storage, ${report.invalidRows.length} invalid, ${report.unmatchedRows.length} unmatched, ${report.uniqueValidIds} unique valid IDs${invalid}. Local storage was retained.`);
+      const refreshed = await request<{ campaigns: ForgeOutreachCampaign[]; contacts: ForgeOutreachContact[] }>('outreach');
+      setOutreachCampaigns(refreshed.campaigns);
+      setOutreachContacts(refreshed.contacts);
+    } catch (err) {
+      setOutreachError(err instanceof Error ? err.message : 'Could not import saved local outreach.');
+    } finally {
+      setOutreachBusy(false);
+    }
+  };
   const copyManagerMessage = async (team: ForgeLeagueTeam) => {
+    if (!selectedCampaign || outreachBusy || !outreachLoaded) return;
     const teamFlag = teamFlagFor(team.countryId);
     const message = formatForgeLeagueOutreachMessage(messageTemplate, team, teamFlag);
+    setMessagingManagerIds((ids) => ids.includes(team.managerId) ? ids : [...ids, team.managerId]);
+    let copied = false;
     try {
       await navigator.clipboard.writeText(message);
-      setMessagedManagerIds((ids) => (ids.includes(team.managerId) ? ids : [...ids, team.managerId]));
-      setNotice(`Message copied for ${team.managerName || team.teamName}.`);
+      copied = true;
+      await request('outreach-contact', undefined, {
+        campaignId: selectedCampaign.id,
+        managerId: team.managerId,
+      });
+      setOutreachContacts((contacts) => contacts.some((contact) => contact.campaignId === selectedCampaign.id && contact.managerId === team.managerId)
+        ? contacts
+        : [...contacts, { campaignId: selectedCampaign.id, managerId: team.managerId }]);
+      setNotice(`Message copied and recorded for ${team.managerName || team.teamName}.`);
       setError('');
-    } catch {
-      setError('Could not copy the message. Check clipboard permissions and try again.');
+    } catch (err) {
+      setOutreachError(copied
+        ? 'Message copied, but it was not recorded. Retry the contact action to save it.'
+        : 'Could not copy the message. Check clipboard permissions and try again.');
+    } finally {
+      setMessagingManagerIds((ids) => ids.filter((id) => id !== team.managerId));
     }
   };
   const messageManager = (team: ForgeLeagueTeam) => {
@@ -492,7 +567,9 @@ export function ForgeLeagues() {
   const teamRow = (team: ForgeLeagueTeam, showManager: boolean) => {
     const status = leagueTeamStatus(team);
     const flag = teamFlagFor(team.countryId);
-    const messaged = messagedManagerIds.includes(team.managerId);
+    const outreachStatus = getForgeOutreachStatus(selectedCampaignId, team.managerId, outreachCampaigns, outreachContacts);
+    const messaged = outreachStatus.contacted;
+    const sending = messagingManagerIds.includes(team.managerId);
     const lastSeen = formatLastSeen(team.lastLoginDate);
     const managerFlag = teamFlagFor(team.managerCountryId ?? null);
     return (
@@ -525,7 +602,7 @@ export function ForgeLeagues() {
           variant="secondary"
           size="sm"
           className={messaged ? styles.messaged : ''}
-          disabled={messaged}
+          disabled={messaged || sending || !outreachLoaded || !selectedCampaign}
           onClick={() => messageManager(team)}
           aria-label={
             messaged
@@ -533,8 +610,11 @@ export function ForgeLeagues() {
               : `Copy message for ${team.managerName || team.managerId}`
           }
         >
-          {messaged ? '✓ Messaged' : 'Message'}
+          {messaged ? '✓ Messaged' : sending ? 'Copying…' : 'Message'}
         </Button>
+        {!messaged && outreachStatus.previousCampaignNames.length > 0 && (
+          <span className={styles.meta}>Contacted about: {outreachStatus.previousCampaignNames.join(', ')}</span>
+        )}
       </li>
     );
   };
@@ -545,13 +625,34 @@ export function ForgeLeagues() {
         title="Leagues"
         subtitle={`Find friendly opportunities in leagues with up to ${FORGE_LEAGUE_TEAM_LIMIT} active teams.`}
       >
-        <label className={styles.messageTemplate}>
+        <div className={styles.messageTemplate}>
+          <label>
+            Campaign
+            <select value={selectedCampaignId} disabled={!outreachLoaded || outreachBusy} onChange={(event) => {
+              const id = event.target.value;
+              setSelectedCampaignId(id);
+            }}>
+              {outreachCampaigns.map((item) => <option key={item.id} value={item.id}>{item.name} · {item.campaignDate}</option>)}
+            </select>
+          </label>
+          <label>
           Outreach message
           <span className={styles.meta}>
             Use {'{teamName}'}, {'{managerName}'}, and {'{teamFlag}'} as substitutions. Clicking Message copies the filled text.
           </span>
-          <textarea value={messageTemplate} onChange={(event) => setMessageTemplate(event.target.value)} rows={18} />
-        </label>
+            <textarea value={messageTemplate} onChange={(event) => setMessageTemplate(event.target.value)} rows={18} />
+          </label>
+          <div className={styles.buttons}>
+            {selectedCampaignId === currentCampaignId && (
+              <Button variant="secondary" size="sm" disabled={!outreachOwnerId || outreachBusy || !outreachLoaded} onClick={() => void importLocalOutreach()}>
+                Import saved browser contacts
+              </Button>
+            )}
+          </div>
+          {selectedCampaign && <span className={styles.meta}>Campaign date: {selectedCampaign.campaignDate}</span>}
+          {importReport && <span className={styles.meta} role="status">{importReport}</span>}
+          {outreachError && <span className={styles.unavailable} role="alert">{outreachError}</span>}
+        </div>
         <div className={styles.controls}>
           <label>
             Active teams

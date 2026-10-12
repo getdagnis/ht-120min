@@ -11,6 +11,8 @@ import { FORGE_LEAGUE_TEAM_LIMIT } from '../../../utils/forge-leagues.js';
 import type { ForgeLeagueOption, ForgeLeagueSnapshot, ForgeLeagueTeam } from '../../../utils/forge-leagues.js';
 
 const TABLE = 'forge_league_snapshots';
+const OUTREACH_CAMPAIGNS = 'forge_league_outreach_campaigns';
+const OUTREACH_CONTACTS = 'forge_league_outreach_contacts';
 const BATCH_SIZE = 3;
 type Credentials = NonNullable<Awaited<ReturnType<typeof getManagerChppCredentials>>>;
 let credentialCache: { managerId: number; credentials: Credentials; expires: number } | null = null;
@@ -142,8 +144,65 @@ export default async function handleForgeLeagues(req: VercelRequest, res: Vercel
   res.setHeader('Cache-Control', 'private, no-store');
   if (rejectIfForgeTestingUnauthorized(req, res)) return;
   const action = String(req.query.action || 'catalogue');
-  if (!['catalogue', 'snapshot', 'populate', 'series', 'teams', 'availability', 'precise', 'save'].includes(action)) return res.status(400).json({ error: 'Unknown league action.' });
-  if (req.method !== (['catalogue', 'snapshot'].includes(action) ? 'GET' : 'POST')) return res.status(405).json({ error: 'Method not allowed.' });
+  const outreachActions = ['outreach', 'outreach-contact', 'outreach-import-local'];
+  const allActions = ['catalogue', 'snapshot', 'populate', 'series', 'teams', 'availability', 'precise', 'save', ...outreachActions];
+  if (!allActions.includes(action)) return res.status(400).json({ error: 'Unknown league action.' });
+  if (req.method !== (['catalogue', 'snapshot', 'outreach'].includes(action) ? 'GET' : 'POST')) return res.status(405).json({ error: 'Method not allowed.' });
+  if (action === 'outreach') {
+    const db = getServiceSupabase();
+    const [{ data: campaigns, error: campaignsError }, { data: contacts, error: contactsError }] = await Promise.all([
+      db.from(OUTREACH_CAMPAIGNS).select('id, name, campaign_date').order('campaign_date', { ascending: false }),
+      db.from(OUTREACH_CONTACTS).select('campaign_id, manager_id'),
+    ]);
+    if (campaignsError || contactsError) throw new Error('Outreach history is unavailable.');
+    return res.status(200).json({
+      campaigns: (campaigns || []).map((row) => ({
+        id: row.id, name: row.name, campaignDate: row.campaign_date,
+      })),
+      contacts: (contacts || []).map((row) => ({
+        campaignId: row.campaign_id, managerId: Number(row.manager_id),
+      })),
+    });
+  }
+  if (outreachActions.includes(action)) {
+    const body = req.body && typeof req.body === 'object' && !Array.isArray(req.body) ? req.body as Record<string, unknown> : {};
+    const campaignId = typeof body.campaignId === 'string' ? body.campaignId : '';
+    if (!/^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(campaignId)) return res.status(400).json({ error: 'Invalid campaign.' });
+    const db = getServiceSupabase();
+    if (action === 'outreach-contact') {
+      const managerId = body.managerId;
+      if (!Number.isSafeInteger(managerId) || Number(managerId) <= 0)
+        return res.status(400).json({ error: 'Invalid manager contact.' });
+      const { data, error } = await db.from(OUTREACH_CONTACTS).upsert({
+        campaign_id: campaignId, manager_id: Number(managerId),
+      }, { onConflict: 'campaign_id,manager_id', ignoreDuplicates: true }).select('manager_id');
+      if (error) throw new Error('Message copied, but the contact could not be recorded.');
+      return res.status(200).json({ recorded: Boolean(data?.length) });
+    }
+    if (body.campaignId !== 'around-the-world-in-one-twenty' || !Array.isArray(body.managerIds) || body.managerIds.length > 10000)
+      return res.status(400).json({ error: 'Invalid local outreach import.' });
+    const rawIds = body.managerIds;
+    const validIds = rawIds.filter((id): id is number => Number.isSafeInteger(id) && Number(id) > 0) as number[];
+    const uniqueIds = [...new Set(validIds)];
+    const duplicateInputCount = validIds.length - uniqueIds.length;
+    const invalidRows = rawIds.flatMap((id, index) => Number.isSafeInteger(id) && Number(id) > 0 ? [] : [{ index, value: id }]);
+    const { data: inserted, error } = uniqueIds.length
+      ? await db.from(OUTREACH_CONTACTS).upsert(uniqueIds.map((managerId) => ({
+        campaign_id: campaignId, manager_id: managerId,
+      })), { onConflict: 'campaign_id,manager_id', ignoreDuplicates: true }).select('manager_id')
+      : { data: [], error: null };
+    if (error) throw new Error('Could not import all saved contacts. Retry is safe; existing contacts are retained.');
+    return res.status(200).json({
+      submittedRows: rawIds.length,
+      uniqueValidIds: uniqueIds.length,
+      imported: inserted?.length || 0,
+      alreadyPresent: uniqueIds.length - (inserted?.length || 0),
+      duplicateInputCount,
+      invalidRows,
+      // Manager IDs are stored directly, without requiring team/profile rows.
+      unmatchedRows: [],
+    });
+  }
   if (action === 'catalogue') {
     const data = await catalogue();
     const { data: rows, error } = await getServiceSupabase().from(TABLE).select('league_id').contains('snapshot', { populationComplete: true });

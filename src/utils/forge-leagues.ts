@@ -57,6 +57,33 @@ export interface ForgeLeagueSnapshot {
   saveId?: string;
 }
 
+export interface ForgeOutreachCampaign {
+  id: string;
+  name: string;
+  campaignDate: string;
+}
+
+export interface ForgeOutreachContact {
+  campaignId: string;
+  managerId: number;
+}
+
+export function getForgeOutreachStatus(
+  campaignId: string,
+  managerId: number,
+  campaigns: ForgeOutreachCampaign[],
+  contacts: ForgeOutreachContact[],
+) {
+  const managerContacts = contacts.filter((contact) => contact.managerId === managerId);
+  return {
+    contacted: managerContacts.some((contact) => contact.campaignId === campaignId),
+    previousCampaignNames: [...new Set(managerContacts
+      .filter((contact) => contact.campaignId !== campaignId)
+      .map((contact) => campaigns.find((campaign) => campaign.id === contact.campaignId)?.name)
+      .filter((name): name is string => Boolean(name)))],
+  };
+}
+
 export function leagueTeamStatus(team: ForgeLeagueTeam): 'Available' | 'Booked' | 'In cup' | 'Unknown' {
   if (team.inCup === true) return 'In cup';
   if (team.booked === true) return 'Booked';

@@ -4,8 +4,11 @@ import test from 'node:test';
 
 import {
   formatForgeLeagueOutreachMessage,
+  getForgeOutreachStatus,
   managerMessageHref,
   type ForgeLeagueTeam,
+  type ForgeOutreachCampaign,
+  type ForgeOutreachContact,
 } from '../src/utils/forge-leagues';
 import { parseLeagueTeam } from '../src/server/api/testing/_lib/league-xml';
 import { snapshotInput } from '../src/server/api/testing/leagues';
@@ -82,4 +85,23 @@ test('country tooltip resolves CountryID separately from the world-details Leagu
   assert.equal(getCountryTooltip(null, null, 'Latvija'), '🇱🇻 Latvija / Latvia');
   assert.equal(getCountryFlagEmoji(null), '');
   assert.equal(getCountryFlagEmoji(135), '🇮🇶');
+});
+
+test('outreach status disables a same-campaign manager across multiple listed teams and names prior campaigns', () => {
+  const campaigns: ForgeOutreachCampaign[] = [
+    { id: 'current', name: 'Around the World in One Twenty', campaignDate: '2026-10-12' },
+    { id: 'previous', name: 'exotic hfi tahiti', campaignDate: '2026-09-28' },
+  ];
+  const contacts: ForgeOutreachContact[] = [
+    { campaignId: 'current', managerId: 123456 },
+    { campaignId: 'previous', managerId: 987654 },
+    { campaignId: 'previous', managerId: 123456 },
+  ];
+
+  // Both team rows for one manager resolve through manager ID, not team ID.
+  const sameManagerTeams = [{ teamId: 1, managerId: 123456 }, { teamId: 2, managerId: 123456 }];
+  assert.deepEqual(sameManagerTeams.map(({ managerId }) => getForgeOutreachStatus('current', managerId, campaigns, contacts).contacted), [true, true]);
+  assert.deepEqual(getForgeOutreachStatus('current', 123456, campaigns, contacts).previousCampaignNames, ['exotic hfi tahiti']);
+  assert.deepEqual(getForgeOutreachStatus('current', 987654, campaigns, contacts).previousCampaignNames, ['exotic hfi tahiti']);
+  assert.equal(getForgeOutreachStatus('current', 456789, campaigns, contacts).contacted, false);
 });
