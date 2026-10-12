@@ -574,6 +574,8 @@ function toSeasonHistoryMatch(match: MatchWithTeams, roundNumber?: number): Seas
     awayTeamName: match.away_team?.name || null,
     home_team_id: match.home_team_id,
     away_team_id: match.away_team_id,
+    home_slot_id: match.home_slot_id,
+    away_slot_id: match.away_slot_id,
     home_goals: match.home_goals,
     away_goals: match.away_goals,
     completed: match.completed,
@@ -667,11 +669,11 @@ export const TournamentView: React.FC<{
   const uiText = useTranslations('PublicUI.TournamentView');
   const t = useTranslations('TournamentView');
   const { notice, showNotice: alert, closeNotice } = useNoticeDialog();
-  const { locale } = useLocale();
-  const descriptionPools = getDescriptionPools(locale);
   const { confirmation, confirm, resolveConfirmation } = useConfirmationDialog();
   const lifecycleText = useTranslations('TournamentView');
   const [isChangingPublication, setIsChangingPublication] = useState(false);
+  const { locale } = useLocale();
+  const descriptionPools = getDescriptionPools(locale);
   const { slug: rawSlug } = useParams<{ slug: string }>();
   const slug = typeof rawSlug === 'string' ? rawSlug : '';
   const pathname = usePathname() || '/';
@@ -955,6 +957,8 @@ export const TournamentView: React.FC<{
     setEditCountryLimit,
     editDefaultTheme,
     setEditDefaultTheme,
+    editScoringMode,
+    setEditScoringMode,
     editMaxTeams,
     setEditMaxTeams,
     editRegistrationOpen,
@@ -1339,6 +1343,7 @@ export const TournamentView: React.FC<{
         registrationType: false,
         countryLimit: false,
         defaultTheme: false,
+        scoringMode: false,
         maxTeams: false,
         registrationOpen: false,
         allowReserveRegistration: false,
@@ -1377,6 +1382,7 @@ export const TournamentView: React.FC<{
       registrationType: editRegistrationType !== normalizeTournamentRegistrationType(tournament.registration_type),
       countryLimit: editCountryLimit !== savedCountryLimit,
       defaultTheme: editDefaultTheme !== (tournament.default_theme ?? null),
+      scoringMode: editScoringMode !== tournament.scoring_mode,
       maxTeams: editMaxTeams !== (tournament.max_teams || null),
       registrationOpen: editRegistrationOpen !== !tournament.registration_closed_at,
       allowReserveRegistration: editAllowReserveRegistration !== (tournament.allow_reserve_registration !== false),
@@ -1396,6 +1402,7 @@ export const TournamentView: React.FC<{
     editChppOnlyJoin,
     editCountryLimit,
     editDefaultTheme,
+    editScoringMode,
     editDescription,
     editIsPrivate,
     editLeagueCategory,
@@ -1852,6 +1859,7 @@ export const TournamentView: React.FC<{
         setEditLeagueCategory(tournamentData.league_category || 'male');
         setEditRegistrationType(normalizeTournamentRegistrationType(tournamentData.registration_type));
         setEditDefaultTheme(normalizeTournamentTheme(tournamentData.default_theme));
+        setEditScoringMode(tournamentData.scoring_mode as typeof editScoringMode);
         setEditCountryLimit(
           normalizeLeagueLimit(tournamentData.country_limit, tournamentData.country_limit_format ?? 'league_id'),
         );
@@ -1901,6 +1909,7 @@ export const TournamentView: React.FC<{
       setEditRegistrationType,
       setEditCountryLimit,
       setEditDefaultTheme,
+      setEditScoringMode,
       setScheduleSetup,
       setScheduleMode,
       setScheduleStartSlotId,
@@ -1996,7 +2005,7 @@ export const TournamentView: React.FC<{
           teams.map((team) => toStandingTeam(team)),
           getRegularStandingMatches(newRounds as RoundWithMatches[]),
           seasonSlots,
-          tournament.scoring_mode as '120m' | '120min' | 'points' | 'appg',
+          tournament.scoring_mode as '120m' | '120min' | 'average120' | 'points' | 'appg',
           seasonSlotAssignments,
         ),
       );
@@ -2180,6 +2189,7 @@ export const TournamentView: React.FC<{
         .from('teams')
         .select('ht_team_id,tournament_id,tournaments(name,status,is_test,registration_type)')
         .in('ht_team_id', htTeamIds)
+        .eq('reserve_active', false)
         .eq('active', true)
         .neq('tournament_id', tournament.id);
       if (error || cancelled) return;
@@ -2189,7 +2199,6 @@ export const TournamentView: React.FC<{
         if (row.ht_team_id && isBlockingTeamTournament(other)) elsewhereIds.add(Number(row.ht_team_id));
       }
       setPlayingElsewhereTeamIds(elsewhereIds);
-        .eq('reserve_active', false)
     })();
     return () => {
       cancelled = true;
@@ -2253,6 +2262,11 @@ export const TournamentView: React.FC<{
 
   const handleTeamSelect = async (team: ChppTeamOption) => {
     if (!pendingJoinData || submittingJoinRef.current) return;
+    if (tournament && !tournament.is_test && !isSandbox && !(await confirm({
+      title: lifecycleText(tournament.status === 'planning' ? 'joinPlanningTitle' : 'joinRecruitingTitle'),
+      message: lifecycleText(tournament.status === 'planning' ? 'joinPlanningWarning' : 'joinRecruitingWarning'),
+      confirmLabel: uiText('joinTournament'), cancelLabel: uiText('cancel'),
+    }))) return;
     submittingJoinRef.current = true;
     setJoinError(null);
     setSubmittingJoin(true);
@@ -2262,11 +2276,6 @@ export const TournamentView: React.FC<{
         credentials: 'include',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-    if (tournament && !tournament.is_test && !isSandbox && !(await confirm({
-      title: lifecycleText(tournament.status === 'planning' ? 'joinPlanningTitle' : 'joinRecruitingTitle'),
-      message: lifecycleText(tournament.status === 'planning' ? 'joinPlanningWarning' : 'joinRecruitingWarning'),
-      confirmLabel: uiText('joinTournament'), cancelLabel: uiText('cancel'),
-    }))) return;
           selection_token: pendingJoinData.selection_token,
           team_id: team.teamId,
           team_name: team.teamName,
@@ -2438,6 +2447,7 @@ export const TournamentView: React.FC<{
         setEditLeagueCategory(initialTournament.league_category || 'male');
         setEditRegistrationType(normalizeTournamentRegistrationType(initialTournament.registration_type));
         setEditDefaultTheme(normalizeTournamentTheme(initialTournament.default_theme));
+        setEditScoringMode(initialTournament.scoring_mode as typeof editScoringMode);
         setEditCountryLimit(
           normalizeLeagueLimit(initialTournament.country_limit, initialTournament.country_limit_format ?? 'league_id'),
         );
@@ -2478,6 +2488,7 @@ export const TournamentView: React.FC<{
     setEditRegistrationType,
     setEditCountryLimit,
     setEditDefaultTheme,
+    setEditScoringMode,
     setScheduleSetup,
     setScheduleMode,
     setScheduleStartSlotId,
@@ -3130,17 +3141,6 @@ export const TournamentView: React.FC<{
     setTournament((prev) => (prev ? { ...prev, ...updatePayload } : prev));
   };
 
-  const handlePauseTournament = async () => {
-    if (!tournament) return;
-    const confirmed = window.confirm(
-      'Pause this tournament?\n\nPaused tournaments stay joinable and editable, but schedule management is hidden until you set it active again.',
-    );
-    if (!confirmed) return;
-
-    await updateTournamentLifecycleStatus('paused');
-  };
-
-  const handleStopTournament = async () => {
   const handlePublicationChange = async (target: 'planning' | 'recruiting') => {
     if (!tournament || isChangingPublication) return;
     const accepted = await confirm({
@@ -3180,6 +3180,17 @@ export const TournamentView: React.FC<{
     } finally { setIsChangingPublication(false); }
   };
 
+  const handlePauseTournament = async () => {
+    if (!tournament) return;
+    const confirmed = window.confirm(
+      'Pause this tournament?\n\nPaused tournaments stay joinable and editable, but schedule management is hidden until you set it active again.',
+    );
+    if (!confirmed) return;
+
+    await updateTournamentLifecycleStatus('paused');
+  };
+
+  const handleStopTournament = async () => {
     if (!tournament) return;
     const confirmed = window.confirm(
       'Fully stop this tournament?\n\nStopping halts the tournament, unpublishes it from public lists and allows teams to join other tournaments.',
@@ -3260,8 +3271,10 @@ export const TournamentView: React.FC<{
         .filter((round) => round.phase !== 'postseason')
         .flatMap((round) => round.matches.map((match) => toSeasonHistoryMatch(match, round.round_number))),
       tournament.scoring_mode as any,
+      seasonSlots,
+      seasonSlotAssignments,
     );
-  }, [rounds, teams, tournament]);
+  }, [rounds, seasonSlots, seasonSlotAssignments, teams, tournament]);
 
   const buildCurrentSeasonFixturesArchive = useCallback(() => {
     if (!tournament) return null;
@@ -3433,6 +3446,7 @@ export const TournamentView: React.FC<{
 
   const handleStartSeason = async () => {
     if (!tournament || isFinalizingSeason) return;
+    if (tournament.status === 'planning') { alert(lifecycleText('publishBeforeScheduling')); return; }
     const currentSeasonNumber = tournament.season || 1;
     const confirmed = window.confirm(
       `Set Season ${currentSeasonNumber} as started?\n\nThis closes registration for the season. You can then add fixtures manually or generate a schedule.`,
@@ -3446,7 +3460,6 @@ export const TournamentView: React.FC<{
         .from('tournament_seasons')
         .update({ status: 'ongoing', started_at: startedAt, updated_at: startedAt })
         .eq('tournament_id', tournament.id)
-    if (tournament.status === 'planning') { alert(lifecycleText('publishBeforeScheduling')); return; }
         .eq('season_number', currentSeasonNumber)
         .select('*')
         .single();
@@ -3480,6 +3493,7 @@ export const TournamentView: React.FC<{
 
   const handleResetSeasonToPlanning = async () => {
     if (!tournament || !currentSeason || isFinalizingSeason || currentSeason.status !== 'ongoing') return;
+    if (!tournament.is_test && !isSandbox) { await handlePublicationChange('planning'); return; }
     const hasSchedule = rounds.length > 0;
     const hasLinkedHattrickFixture = allMatches.some((match) => Boolean(match.ht_match_id));
     const externalFriendlyNote = hasLinkedHattrickFixture
@@ -3493,7 +3507,6 @@ export const TournamentView: React.FC<{
     if (!confirmed) return;
 
     setIsFinalizingSeason(true);
-    if (!tournament.is_test && !isSandbox) { await handlePublicationChange('planning'); return; }
     try {
       const response = await fetch('/api/app?route=reset-season-to-planning', {
         method: 'POST',
@@ -3573,6 +3586,18 @@ export const TournamentView: React.FC<{
           ...(season.snapshot_json?.standings || []).map((standing) => standing.teamId),
         ].filter((teamId): teamId is string => !!teamId),
       );
+      const historicalSlots = tournament.scoring_mode === 'average120'
+        ? await supabase.from('tournament_season_slots').select('id,current_team_id').eq('tournament_season_id', season.id)
+        : null;
+      if (historicalSlots?.error) throw historicalSlots.error;
+      const historicalSlotIds = (historicalSlots?.data || []).map((slot) => slot.id);
+      const historicalAssignments = historicalSlotIds.length
+        ? await supabase.from('tournament_season_slot_assignments').select('*').in('tournament_season_slot_id', historicalSlotIds)
+        : null;
+      if (historicalAssignments?.error) throw historicalAssignments.error;
+      for (const slot of historicalSlots?.data || []) {
+        if (slot.current_team_id) historicalTeamIds.add(slot.current_team_id);
+      }
       const historicalTeams = teams
         .filter((team) => historicalTeamIds.has(team.id))
         .map((team) => toStandingTeam({ ...team, active: true }));
@@ -3580,6 +3605,8 @@ export const TournamentView: React.FC<{
         historicalTeams,
         matches.map((match) => toSeasonHistoryMatch(match, roundNumberById.get(match.round_id))),
         tournament.scoring_mode as any,
+        historicalSlots?.data || [],
+        (historicalAssignments?.data || []) as SeasonSlotAssignment[],
       );
       const updatedAt = new Date().toISOString();
       const { data: updatedSeason, error: updateError } = await supabase
@@ -3914,6 +3941,7 @@ export const TournamentView: React.FC<{
           registration_type: editRegistrationType,
           country_limit: editCountryLimit,
           default_theme: editDefaultTheme,
+          scoring_mode: editScoringMode,
           country_limit_format: editCountryLimit ? 'country_id' : null,
           is_test: isTest,
           show_description: showEditDescription,
@@ -4964,7 +4992,7 @@ export const TournamentView: React.FC<{
         calculateStandings(
           teams.map((team) => toStandingTeam(team)),
           getRegularStandingMatches(nextRounds),
-          (tournament?.scoring_mode || '120min') as '120m' | '120min' | 'points' | 'appg',
+          (tournament?.scoring_mode || '120min') as '120m' | '120min' | 'average120' | 'points' | 'appg',
         ),
       );
       setMatchData((current) => {
@@ -5059,7 +5087,7 @@ export const TournamentView: React.FC<{
       calculateStandings(
         teams.map((team) => toStandingTeam(team)),
         getRegularStandingMatches(nextRounds),
-        (tournament?.scoring_mode || '120min') as '120m' | '120min' | 'points' | 'appg',
+        (tournament?.scoring_mode || '120min') as '120m' | '120min' | 'average120' | 'points' | 'appg',
       ),
     );
   };
@@ -5153,7 +5181,7 @@ export const TournamentView: React.FC<{
       calculateStandings(
         teams.map((team) => toStandingTeam(team)),
         getRegularStandingMatches(nextRounds),
-        (tournament?.scoring_mode || '120min') as '120m' | '120min' | 'points' | 'appg',
+        (tournament?.scoring_mode || '120min') as '120m' | '120min' | 'average120' | 'points' | 'appg',
       ),
     );
   };
@@ -5181,7 +5209,7 @@ export const TournamentView: React.FC<{
       calculateStandings(
         teams.map((team) => toStandingTeam(team)),
         getRegularStandingMatches(nextRounds),
-        (tournament?.scoring_mode || '120min') as '120m' | '120min' | 'points' | 'appg',
+        (tournament?.scoring_mode || '120min') as '120m' | '120min' | 'average120' | 'points' | 'appg',
       ),
     );
   };
@@ -5213,7 +5241,7 @@ export const TournamentView: React.FC<{
       calculateStandings(
         teams.map((team) => toStandingTeam(team)),
         [],
-        (tournament.scoring_mode || '120min') as '120m' | '120min' | 'points' | 'appg',
+        (tournament.scoring_mode || '120min') as '120m' | '120min' | 'average120' | 'points' | 'appg',
       ),
     );
   };
@@ -5473,6 +5501,7 @@ export const TournamentView: React.FC<{
   }
 
   const is120minMode = tournament.scoring_mode === '120m' || tournament.scoring_mode === '120min';
+  const isAverage120Mode = tournament.scoring_mode === 'average120';
   const isAppgMode = isAppg120ScoringMode(tournament.scoring_mode);
 
   const isMobile = isHydrationReady && window.innerWidth <= 620;
@@ -5701,6 +5730,8 @@ export const TournamentView: React.FC<{
       setEditCountryLimit,
       editDefaultTheme,
       setEditDefaultTheme,
+      editScoringMode,
+      setEditScoringMode,
       editMaxTeams,
       setEditMaxTeams,
       editRegistrationOpen,
@@ -5893,6 +5924,8 @@ export const TournamentView: React.FC<{
     lifecycle: {
       canToggleArchiveTournament,
       isArchivingTournament,
+      isChangingPublication,
+      onPublicationChange: handlePublicationChange,
       onArchiveTournament: handleArchiveTournament,
       onMoveStoppedToPaused: handleMoveStoppedToPaused,
       onSetPausedTournamentActive: handleSetPausedTournamentActive,
@@ -5924,8 +5957,6 @@ export const TournamentView: React.FC<{
             {collectionLinks.length > 0 && (
               <nav className={styles.collectionLinks} aria-label={uiText('tournamentCollections')}>
                 {collectionLinks.map((collection) => (
-      isChangingPublication,
-      onPublicationChange: handlePublicationChange,
                   <Link key={collection.slug} href={toLocalePath(locale, `/collection/${collection.slug}`)}>
                     {collection.title} →
                   </Link>
@@ -6035,6 +6066,13 @@ export const TournamentView: React.FC<{
                     </p>
                   </div>
                 )}
+              </div>
+            ) : isAverage120Mode ? (
+              <div className={styles.scoringHelp}>
+                <p onClick={() => setShowScoringHelp(!showScoringHelp)} className={styles.helpToggle}>
+                  <strong>{uiText('average120ScoringMode')}</strong> {showScoringHelp ? <X size={18} /> : <Info size={18} />}
+                </p>
+                {showScoringHelp && <p className={styles.helpContent}>{uiText('average120ScoringExplanation')}</p>}
               </div>
             ) : is120minMode ? (
               <div className={styles.scoringHelp}>
@@ -6470,7 +6508,7 @@ export const TournamentView: React.FC<{
             canGenerateReport={canManageOperationalAdmin && tournament.status === 'finished'}
             isGeneratingReport={isFinalizingSeason}
             onGenerateReport={handleGenerateHistoryReport}
-            scoringMode={tournament.scoring_mode as '120m' | '120min' | 'points' | 'appg'}
+            scoringMode={tournament.scoring_mode as '120m' | '120min' | 'average120' | 'points' | 'appg'}
             autoScrollToYearbook={latestHistoryUnreadCount > 0}
             loadComments={loadHistoryComments}
             onCommentsLoaded={handleHistoryCommentsLoaded}
@@ -6701,6 +6739,8 @@ export const TournamentView: React.FC<{
 
       <TournamentAdmin controller={adminController} />
 
+      <ConfirmationDialog confirmation={confirmation} onResolve={resolveConfirmation} />
+
       <NoticeDialog message={notice} onClose={closeNotice} />
 
       <WelcomeModal
@@ -6739,8 +6779,6 @@ export const TournamentView: React.FC<{
               <li>{uiText('shareThePublicPageForFixturesStandingsAndAnnouncements')}</li>
               <li>{uiText('generateTheScheduleWhenTheLineupIsReady')}</li>
               <li>{uiText('resultsWillBeUpdatedAutomaticallyButCanBeManually')}</li>
-      <ConfirmationDialog confirmation={confirmation} onResolve={resolveConfirmation} />
-
             </ul>
 
             <p>

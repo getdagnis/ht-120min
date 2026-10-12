@@ -1281,7 +1281,7 @@ export const FixturesView: React.FC<FixturesViewProps> = ({
                         score={currentScore}
                         penaltyShootout={penaltyShootout}
                         matchType={match.match_type || undefined}
-                        is120minMode={tournament?.scoring_mode === '120min'}
+                        is120minMode={tournament?.scoring_mode === '120min' || tournament?.scoring_mode === 'average120'}
                         went_120={match.went_120}
                         completed={match.completed}
                         totalMinutes={match.total_minutes}

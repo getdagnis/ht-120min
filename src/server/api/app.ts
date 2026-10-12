@@ -2198,7 +2198,7 @@ async function handleGenerateRoundSummary(req: VercelRequest, res: VercelRespons
       return res.status(409).json({ error: 'This round is not currently eligible for a public summary.' });
     }
   }
-  const scoringMode: PersistedScoringMode = tournament.scoring_mode === 'points' || tournament.scoring_mode === 'appg' || tournament.scoring_mode === '120m'
+  const scoringMode: PersistedScoringMode = tournament.scoring_mode === 'points' || tournament.scoring_mode === 'appg' || tournament.scoring_mode === 'average120' || tournament.scoring_mode === '120m'
     ? tournament.scoring_mode
     : '120min';
   let rounds: RoundPressRoundSource[];

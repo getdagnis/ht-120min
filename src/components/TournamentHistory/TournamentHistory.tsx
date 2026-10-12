@@ -29,7 +29,7 @@ import {
   type SeasonParticipant,
 } from '../../utils/season-history';
 import { getHattrickCalendarContext } from '../../utils/hattrick-calendar';
-import { getAppgStandingsQuota, meetsAppgStandingsQuota } from '../../utils/standings';
+import { average120Stat, compareAverage120Standings, getAppgStandingsQuota, meetsAppgStandingsQuota } from '../../utils/standings';
 import { isAppg120ScoringMode } from '../../../shared/scoring-profile';
 import styles from './TournamentHistory.module.sass';
 
@@ -156,8 +156,11 @@ export const SeasonYearbook: React.FC<SeasonYearbookProps> = ({
   </section>;
 };
 
+const formatAverage120 = (value: number | null) => value === null ? '—' : Number(value.toFixed(2)).toString();
+
 const HISTORY_SCORING_MODES = {
   '120min': { label: '120min', tooltip: '120-minute scoring' },
+  average120: { label: 'Avg120', tooltip: 'Average 120 min scoring' },
   '90min': { label: '90min', tooltip: 'Regular 90-minute scoring' },
   appg: { label: 'APPG', tooltip: 'Average Points Per Game' },
 } as const;
@@ -175,7 +178,7 @@ interface TournamentHistoryProps {
   canGenerateReport?: boolean;
   isGeneratingReport?: boolean;
   onGenerateReport?: () => void;
-  scoringMode?: '120m' | '120min' | 'points' | 'appg';
+  scoringMode?: '120m' | '120min' | 'average120' | 'points' | 'appg';
   autoScrollToYearbook?: boolean;
   onCommentsLoaded?: (seasonId: string, commentCount: number) => void;
   onCommentSubmitted?: (seasonId: string, comment: TournamentSeasonComment) => void;
@@ -290,7 +293,7 @@ function TeamIdentity({
 function getAwardStat(
   award: SeasonAward,
   snapshot: SeasonHistorySnapshotV2,
-  scoringMode: '120m' | '120min' | 'points' | 'appg',
+  scoringMode: '120m' | '120min' | 'average120' | 'points' | 'appg',
   teamId?: string,
 ) {
   const standing = teamId ? snapshot.standings.find((item) => item.teamId === teamId) : null;
@@ -383,6 +386,7 @@ export const TournamentHistory: React.FC<TournamentHistoryProps> = ({
   tournamentSlug,
 }) => {
   const uiText = useTranslations('PublicUI.TournamentHistory');
+  const standingsText = useTranslations('PublicUI.StandingsView');
   const yearbookRef = useRef<HTMLElement | null>(null);
   const finishedSeasons = useMemo(
     () => seasons.filter((season) => season.status === 'finished' && season.snapshot),
@@ -401,12 +405,19 @@ export const TournamentHistory: React.FC<TournamentHistoryProps> = ({
   const [submittingTeamId, setSubmittingTeamId] = useState<string | null>(null);
   const [pendingCommentParticipant, setPendingCommentParticipant] = useState<SeasonParticipant | null>(null);
   const [historyReportCopied, setHistoryReportCopied] = useState(false);
-  const defaultHistoryScoringMode: HistoryScoringMode = isAppg120ScoringMode(scoringMode)
+  const historyMode = snapshot?.scoringMode || (scoringMode === 'average120' ? '120min' : scoringMode);
+  const defaultHistoryScoringMode: HistoryScoringMode = historyMode === 'average120' ? 'average120' : isAppg120ScoringMode(historyMode)
     ? 'appg'
-    : scoringMode === 'points'
+    : historyMode === 'points'
       ? '90min'
       : '120min';
-  const [historyScoringMode, setHistoryScoringMode] = useState<HistoryScoringMode>(defaultHistoryScoringMode);
+  const [historyScoringSelection, setHistoryScoringSelection] = useState<{
+    seasonId: string | null;
+    mode: HistoryScoringMode;
+  } | null>(null);
+  const historyScoringMode = historyScoringSelection?.seasonId === selectedSeasonId &&
+    (historyMode === 'average120' || historyScoringSelection.mode !== 'average120')
+    ? historyScoringSelection.mode : defaultHistoryScoringMode;
 
   useEffect(() => {
     if (!selectedSeasonId) return;
@@ -492,9 +503,10 @@ export const TournamentHistory: React.FC<TournamentHistoryProps> = ({
     return <p className={styles.emptyHistory}>{uiText('noFinishedSeasonsYet')}</p>;
   }
 
-  const isAppgHistory = isAppg120ScoringMode(scoringMode);
+  const isAppgHistory = isAppg120ScoringMode(historyMode);
   const historyAppgQuota = isAppgHistory ? getAppgStandingsQuota(snapshot.standings) : 0;
   const sortedHistoryStandings = [...snapshot.standings].sort((a, b) => {
+    if (historyScoringMode === 'average120') return compareAverage120Standings(a, b);
     if (historyScoringMode === 'appg') {
       const aQualified = meetsAppgStandingsQuota(a, historyAppgQuota);
       const bQualified = meetsAppgStandingsQuota(b, historyAppgQuota);
@@ -526,13 +538,13 @@ export const TournamentHistory: React.FC<TournamentHistoryProps> = ({
     historyScoringMode === 'appg'
       ? sortedHistoryStandings.filter((standing) => !meetsAppgStandingsQuota(standing, historyAppgQuota))
       : [];
-  const enabledHistoryScoringModes: HistoryScoringMode[] = isAppgHistory
+  const enabledHistoryScoringModes: HistoryScoringMode[] = historyMode === 'average120' ? ['average120', '120min', '90min'] : isAppgHistory
     ? ['appg', '120min', '90min']
     : ['120min', '90min'];
   const activeHistoryScoringConfig = HISTORY_SCORING_MODES[historyScoringMode];
   const toggleHistoryScoringMode = () => {
     const currentIndex = enabledHistoryScoringModes.indexOf(historyScoringMode);
-    setHistoryScoringMode(enabledHistoryScoringModes[(currentIndex + 1) % enabledHistoryScoringModes.length]);
+    setHistoryScoringSelection({ seasonId: selectedSeasonId, mode: enabledHistoryScoringModes[(currentIndex + 1) % enabledHistoryScoringModes.length] });
   };
   const historyEligibleTeamIds = new Set(
     snapshot.standings
@@ -1059,7 +1071,17 @@ export const TournamentHistory: React.FC<TournamentHistoryProps> = ({
                   <tr>
                     <th>#</th>
                     <th>{uiText('team')}</th>
-                    {historyScoringMode === 'appg' ? (
+                    {historyScoringMode === 'average120' ? (
+                      <>
+                        <th title="Hattrick Power Rating">PwrR</th>
+                        <th title={standingsText('avg120Tooltip')}>{standingsText('avg120Column')}</th>
+                        <th title={standingsText('avgPointsTooltip')}>{standingsText('avgPointsColumn')}</th>
+                        <th title={standingsText('percentage120Tooltip')}>{standingsText('percentage120Column')}</th>
+                        <th title={standingsText('avgMinutesTooltip')}>{standingsText('avgMinutesColumn')}</th>
+                        <th title={standingsText('avgDifferenceTooltip')}>{standingsText('avgDifferenceColumn')}</th>
+                        <th title={standingsText('avgGoalsTooltip')}>{standingsText('avgGoalsColumn')}</th>
+                      </>
+                    ) : historyScoringMode === 'appg' ? (
                       <>
                         <th>{uiText('aPPG')}</th>
                         <th>{uiText('pld')}</th>
@@ -1093,8 +1115,18 @@ export const TournamentHistory: React.FC<TournamentHistoryProps> = ({
                     return (
                       <tr key={standing.teamId}>
                         <td>{index + 1}</td>
-                        <td>{participant ? <TeamIdentity participant={participant} compact /> : standing.teamName}</td>
-                        {historyScoringMode === 'appg' ? (
+                        <td>{participant ? <TeamIdentity participant={participant} compact /> : standing.teamName}{historyScoringMode === 'average120' && <small>{uiText('countedMatches', { count: standing.played })}</small>}</td>
+                        {historyScoringMode === 'average120' ? (
+                          <>
+                            <td>{standing.powerRating ?? '—'}</td>
+                            <td className={styles.accentStat}>{formatAverage120(average120Stat(standing, 'achievements120min'))}</td>
+                            <td>{formatAverage120(average120Stat(standing, 'pts'))}</td>
+                            <td>{standing.played ? `${Math.round(standing.achievements120min / standing.played * 100)}%` : '—'}</td>
+                            <td>{formatAverage120(average120Stat(standing, 'totalMinutes'))}</td>
+                            <td>{formatAverage120(average120Stat(standing, 'gd'))}</td>
+                            <td>{formatAverage120(average120Stat(standing, 'gf'))}</td>
+                          </>
+                        ) : historyScoringMode === 'appg' ? (
                           <>
                             <td className={styles.accentStat}>
                               {standing.appgPlayed ? (standing.appgPoints / standing.appgPlayed).toFixed(2) : '0.00'}
@@ -1188,7 +1220,7 @@ export const TournamentHistory: React.FC<TournamentHistoryProps> = ({
                 </dt>
                 <dd>
                   {snapshot.records.closestFinish
-                    ? `${findParticipant(snapshot, snapshot.records.closestFinish.leaderTeamId)?.teamName || 'Champions'} finished ${snapshot.records.closestFinish.margin} ${snapshot.records.closestFinish.metric === 'points' ? `point${snapshot.records.closestFinish.margin === 1 ? '' : 's'}` : '120-minute result'} ahead of ${findParticipant(snapshot, snapshot.records.closestFinish.runnerUpTeamId)?.teamName || 'the runner-up'}`
+                    ? `${findParticipant(snapshot, snapshot.records.closestFinish.leaderTeamId)?.teamName || 'Champions'} finished ${snapshot.records.closestFinish.margin} ${snapshot.records.closestFinish.metric === 'points' ? `point${snapshot.records.closestFinish.margin === 1 ? '' : 's'}` : snapshot.records.closestFinish.metric === 'average120' ? 'Avg120 per match' : '120-minute result'} ahead of ${findParticipant(snapshot, snapshot.records.closestFinish.runnerUpTeamId)?.teamName || 'the runner-up'}`
                     : '-'}
                 </dd>
               </div>

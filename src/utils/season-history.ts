@@ -1,5 +1,7 @@
 import {
   calculateStandings,
+  type SeasonSlot,
+  type SeasonSlotAssignment,
   getAppgStandingsQuota,
   meetsAppgStandingsQuota,
   type Match,
@@ -93,7 +95,7 @@ export interface SeasonHistoryRecords {
     leaderTeamId: string;
     runnerUpTeamId: string;
     margin: number;
-    metric: '120m' | 'points';
+    metric: '120m' | 'average120' | 'points';
   } | null;
   longestMatchId: string | null;
   memorableMatchId: string | null;
@@ -120,6 +122,7 @@ export interface SeasonHistorySnapshotV1 {
 
 export interface SeasonHistorySnapshotV2 extends SeasonHistorySnapshotV1 {
   version: 2;
+  scoringMode?: 'average120';
   participants: SeasonParticipant[];
   awards: SeasonAward[];
   matches: SeasonMatchSnapshot[];
@@ -164,7 +167,7 @@ const getWinningTeamIds = (items: Array<{ teamId: string; value: number }>, mode
 const getInjuryWeeks = (side?: MatchSideEventDetails | null) =>
   (side?.injuries || []).reduce((total, injury) => total + (injury.weeks || 0), 0);
 
-function getHistoryEligibleStandings(standings: TeamStanding[], scoringMode: '120m' | '120min' | 'points' | 'appg') {
+function getHistoryEligibleStandings(standings: TeamStanding[], scoringMode: '120m' | '120min' | 'average120' | 'points' | 'appg') {
   if (!isAppg120ScoringMode(scoringMode)) return standings;
   const quota = getAppgStandingsQuota(standings);
   return standings.filter((standing) => meetsAppgStandingsQuota(standing, quota));
@@ -174,7 +177,7 @@ function buildAwards(
   standings: TeamStanding[],
   teamStats: SeasonTeamStat[],
   sourceMatches: SeasonHistoryMatch[] | null,
-  scoringMode: '120m' | '120min' | 'points' | 'appg',
+  scoringMode: '120m' | '120min' | 'average120' | 'points' | 'appg',
 ) {
   if (standings.length === 0) return [];
 
@@ -341,7 +344,7 @@ function buildStory(standings: TeamStanding[], summary: SeasonHistorySummary) {
 function buildRecords(
   standings: TeamStanding[],
   matches: SeasonMatchSnapshot[],
-  scoringMode: '120m' | '120min' | 'points' | 'appg',
+  scoringMode: '120m' | '120min' | 'average120' | 'points' | 'appg',
 ): SeasonHistoryRecords {
   const most120 = getWinningTeamIds(
     standings.map((standing) => ({ teamId: standing.teamId, value: standing.achievements120min })),
@@ -362,9 +365,9 @@ function buildRecords(
   });
   const leader = standings[0];
   const runnerUp = standings[1];
-  const metric = scoringMode === 'points' || usesAveragePoints(scoringMode) ? 'points' : '120m';
-  const leaderValue = metric === 'points' ? leader?.pts : leader?.achievements120min;
-  const runnerUpValue = metric === 'points' ? runnerUp?.pts : runnerUp?.achievements120min;
+  const metric = scoringMode === 'average120' ? 'average120' : scoringMode === 'points' || usesAveragePoints(scoringMode) ? 'points' : '120m';
+  const leaderValue = metric === 'points' ? leader?.pts : metric === 'average120' ? (leader?.played ? leader.achievements120min / leader.played : undefined) : leader?.achievements120min;
+  const runnerUpValue = metric === 'points' ? runnerUp?.pts : metric === 'average120' ? (runnerUp?.played ? runnerUp.achievements120min / runnerUp.played : undefined) : runnerUp?.achievements120min;
 
   return {
     most120TeamIds: most120.teamIds,
@@ -387,8 +390,39 @@ function buildRecords(
 export function buildSeasonHistorySnapshot(
   teams: Team[],
   matches: SeasonHistoryMatch[],
-  scoringMode: '120m' | '120min' | 'points' | 'appg',
+  scoringMode: '120m' | '120min' | 'average120' | 'points' | 'appg',
+  slots: SeasonSlot[] = [],
+  slotAssignments: SeasonSlotAssignment[] = [],
 ): SeasonHistorySnapshotV2 {
+  if (scoringMode === 'average120') {
+    matches = matches.filter((match) => match.home_team_id && match.away_team_id);
+  }
+  if (scoringMode === 'average120' && slots.length > 0) {
+    // A physical slot owns all of its occupants' results. Use its current team
+    // for the frozen season identity while keeping source fixtures untouched.
+    const teamsById = new Map(teams.map((team) => [team.id, team]));
+    const mappedTeams = slots.flatMap((slot) => {
+      const current = slot.current_team_id ? teamsById.get(slot.current_team_id) : null;
+      const lastAssignment = !current ? slotAssignments
+        .filter((assignment) => assignment.tournament_season_slot_id === slot.id)
+        .sort((a, b) => new Date(b.released_at || b.assigned_at).getTime() - new Date(a.released_at || a.assigned_at).getTime())[0] : null;
+      const former = lastAssignment?.team_id ? teamsById.get(lastAssignment.team_id) : null;
+      const source = current || former;
+      if (!source && !lastAssignment) return [];
+      return [{
+        ...(source || { id: slot.id, name: lastAssignment!.team_name, ht_team_id: lastAssignment!.ht_team_id,
+          hattrick_user_id: lastAssignment!.hattrick_user_id, replacement_for_team_id: null }),
+        id: slot.id, active: true, reserve_active: false,
+        name: current?.name || lastAssignment?.team_name || source!.name,
+      } as Team];
+    });
+    teams = mappedTeams;
+    matches = matches.map((match) => ({
+      ...match,
+      home_team_id: match.home_slot_id || match.home_team_id,
+      away_team_id: match.away_slot_id || match.away_team_id,
+    }));
+  }
   const participatingTeamIds = new Set(
     matches.flatMap((match) => [match.home_team_id, match.away_team_id]).filter((teamId): teamId is string => !!teamId),
   );
@@ -482,6 +516,7 @@ export function buildSeasonHistorySnapshot(
 
   return {
     version: 2,
+    ...(scoringMode === 'average120' ? { scoringMode } : {}),
     standings,
     winner: historyEligibleStandings[0] || null,
     participants,

@@ -134,6 +134,8 @@ export interface TournamentAdminController {
     setEditLeagueCategory: Setter<'male' | 'hfi'>;
     editRegistrationType: string;
     setEditRegistrationType: Setter<string>;
+    editScoringMode: '120min' | 'average120' | 'points' | 'appg';
+    setEditScoringMode: Setter<'120min' | 'average120' | 'points' | 'appg'>;
     editDefaultTheme: EffectiveTheme | null;
     setEditDefaultTheme: Setter<EffectiveTheme | null>;
     editCountryLimit: string | null;
@@ -419,6 +421,8 @@ export const TournamentAdmin: React.FC<{ controller: TournamentAdminController }
     setEditRegistrationType,
     editDefaultTheme,
     setEditDefaultTheme,
+    editScoringMode,
+    setEditScoringMode,
     editCountryLimit,
     setEditCountryLimit,
     editMaxTeams,
@@ -579,12 +583,12 @@ export const TournamentAdmin: React.FC<{ controller: TournamentAdminController }
   } = announcementController;
   const { tournamentRoles, setTournamentRoles, originalOrganizer } = roles;
   const {
+    isChangingPublication,
+    onPublicationChange,
     onArchiveTournament: handleArchiveTournament,
     isArchivingTournament,
     onMoveStoppedToPaused: handleMoveStoppedToPaused,
     onSetPausedTournamentActive: handleSetPausedTournamentActive,
-    isChangingPublication,
-    onPublicationChange,
     onPauseTournament: handlePauseTournament,
     onStopTournament: handleStopTournament,
   } = lifecycle;
@@ -833,10 +837,6 @@ export const TournamentAdmin: React.FC<{ controller: TournamentAdminController }
             </div>
           ) : (
             <div className={adminStyles.admin}>
-              <div className={adminStyles.mainGrid}>
-                <section className={`${adminStyles.teamsSection} ${isPressOfficer ? adminStyles.pressOnlyAdmin : ''}`}>
-                  {!isPressOfficer && (
-                    <>
               {!isPressOfficer && !tournament.is_test && !isSandbox && !tournament.is_archived &&
                 !['finished', 'stopped', 'archived'].includes(tournament.status) && (
                 <SectionCard title={themeText(tournament.status === 'planning' ? 'planningState' : tournament.status === 'recruiting' ? 'recruitingState' : 'publishedState')}>
@@ -848,6 +848,10 @@ export const TournamentAdmin: React.FC<{ controller: TournamentAdminController }
                   </Button>
                 </SectionCard>
               )}
+              <div className={adminStyles.mainGrid}>
+                <section className={`${adminStyles.teamsSection} ${isPressOfficer ? adminStyles.pressOnlyAdmin : ''}`}>
+                  {!isPressOfficer && (
+                    <>
                       <div id="admin-panel-settings">
                         <SectionCard
                           title="Tournament Settings"
@@ -1228,6 +1232,19 @@ export const TournamentAdmin: React.FC<{ controller: TournamentAdminController }
                                   return null;
                                 })()}
                                 {renderUnsavedSettingsNote(unsavedSettingsFields.countryLimit)}
+                              </div>
+
+                              <div className={adminStyles.field}>
+                                <label htmlFor="tournament-scoring-mode">Scoring mode</label>
+                                <select id="tournament-scoring-mode" className={adminStyles.selectField}
+                                  value={editScoringMode}
+                                  onChange={(event) => setEditScoringMode(event.target.value as typeof editScoringMode)}>
+                                  <option value="120min">120-minute achievements</option>
+                                  <option value="average120">{themeText('average120ScoringMode')}</option>
+                                  <option value="points">Regular 90-minute points</option>
+                                  {editRegistrationType !== 'validated' && <option value="appg">APPG-120</option>}
+                                </select>
+                                {renderUnsavedSettingsNote(unsavedSettingsFields.scoringMode)}
                               </div>
 
                               <div className={adminStyles.field}>

@@ -393,3 +393,40 @@ test('season finish date uses the latest completed fixture and ignores unfinishe
     '2026-06-01T20:00:00.000Z',
   );
 });
+
+test('Average 120 min finalizes by average and records its scoring mode without changing old snapshots', () => {
+  const matches = [
+    { id: 'a-b', roundNumber: 1, home_team_id: 'a', away_team_id: 'b', home_goals: 1, away_goals: 0, match_type: 5, completed: true, went_120: true, total_minutes: 120 },
+    { id: 'a-b-2', roundNumber: 2, home_team_id: 'a', away_team_id: 'b', home_goals: 0, away_goals: 1, match_type: 5, completed: true, went_120: false, total_minutes: 90 },
+    { id: 'b-d', roundNumber: 3, home_team_id: 'b', away_team_id: 'd', home_goals: 1, away_goals: 0, match_type: 5, completed: true, went_120: true, total_minutes: 120 },
+  ];
+  const averaged = buildSeasonHistorySnapshot([...teams, teamD], matches, 'average120');
+  const standard = buildSeasonHistorySnapshot([...teams, teamD], matches, '120min');
+  assert.equal(averaged.scoringMode, 'average120');
+  assert.equal(averaged.winner?.teamId, 'd'); // One achievement from one game beats two from three.
+  assert.deepEqual(averaged.awards.find((award) => award.key === 'champions')?.recipientTeamIds, ['d']);
+  assert.equal(averaged.records.closestFinish?.metric, 'average120');
+  assert.equal(standard.scoringMode, undefined);
+  assert.equal(standard.winner?.teamId, 'b');
+});
+
+test('Average 120 min history gives substitute results to the season slot champion', () => {
+  const source = [
+    { ...teams[0], active: false },
+    teamD,
+    { ...teams[1], active: true },
+  ];
+  const matches = [
+    { id: 'before', home_team_id: 'a', away_team_id: 'b', home_slot_id: 'slot', away_slot_id: 'opponent-slot', home_goals: 1, away_goals: 0, match_type: 5, completed: true, went_120: true, total_minutes: 120 },
+    { id: 'after', home_team_id: 'd', away_team_id: 'b', home_slot_id: 'slot', away_slot_id: 'opponent-slot', home_goals: 2, away_goals: 0, match_type: 5, completed: true, went_120: true, total_minutes: 120 },
+  ];
+  const snapshot = buildSeasonHistorySnapshot(source, matches, 'average120', [
+    { id: 'slot', current_team_id: 'd' },
+    { id: 'opponent-slot', current_team_id: 'b' },
+  ]);
+  assert.equal(snapshot.winner?.teamId, 'slot');
+  assert.equal(snapshot.winner?.teamName, 'Team D');
+  assert.equal(snapshot.winner?.played, 2);
+  assert.deepEqual(snapshot.awards.find((award) => award.key === 'champions')?.recipientTeamIds, ['slot']);
+  assert.equal(snapshot.participants.find((team) => team.teamId === 'slot')?.teamName, 'Team D');
+});

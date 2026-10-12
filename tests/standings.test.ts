@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { calculateSeasonSlotStandings, calculateStandings } from '../src/utils/standings';
+import { calculateSeasonSlotStandings, calculateStandings, compareAverage120Standings } from '../src/utils/standings';
 
 test('completed BYE result counts for the one tournament team', () => {
   const standings = calculateStandings(
@@ -179,4 +179,56 @@ test('a current slot renders its incoming team while completed statistics stay o
   assert.equal(zermatt.played, 1);
   assert.equal(zermatt.pts, 3);
   assert.equal(zermatt.teamId, 'slot-ffc');
+});
+
+test('Average 120 min reuses standard totals, excludes BYEs, and ranks by unrounded averages', () => {
+  const teams = ['a', 'b', 'c'].map((id) => ({
+    id, name: id, ht_team_id: 1, hattrick_user_id: 1, active: true, replacement_for_team_id: null,
+  }));
+  const matches = [
+    { home_team_id: 'a', away_team_id: 'b', home_goals: 1, away_goals: 0, match_type: 5, went_120: true, completed: true, total_minutes: 120 },
+    { home_team_id: 'a', away_team_id: 'b', home_goals: 0, away_goals: 1, match_type: 5, went_120: false, completed: true, total_minutes: 90 },
+    { home_team_id: 'a', away_team_id: null, home_goals: 9, away_goals: 0, match_type: 5, went_120: true, completed: true, total_minutes: 120 },
+    { home_team_id: 'b', away_team_id: 'c', home_goals: 5, away_goals: 5, match_type: 5, went_120: true, completed: false, total_minutes: 120 },
+  ];
+  const average = calculateStandings(teams, matches, 'average120');
+  const standard = calculateStandings(teams, matches.slice(0, 2), '120min');
+  const a = average.find((team) => team.teamId === 'a')!;
+  const standardA = standard.find((team) => team.teamId === 'a')!;
+  assert.equal(a.played, 2);
+  assert.equal(a.achievements120min, standardA.achievements120min);
+  assert.equal(a.pts, standardA.pts);
+  assert.equal(a.totalMinutes, standardA.totalMinutes);
+  assert.equal(a.gf, standardA.gf);
+  assert.equal(a.gd, standardA.gd);
+  assert.equal(average.at(-1)?.teamId, 'c');
+  assert.equal(average.at(-1)?.played, 0);
+});
+
+test('Average 120 min rolls substitute matches into the current season slot', () => {
+  const teams = ['former', 'reserve', 'opponent'].map((id) => ({
+    id, name: id, ht_team_id: 1, hattrick_user_id: 1, active: id !== 'former',
+    reserve_active: false, replacement_for_team_id: null,
+  }));
+  const standings = calculateSeasonSlotStandings(teams, [
+    { home_team_id: 'former', away_team_id: 'opponent', home_slot_id: 'slot-a', away_slot_id: 'slot-b', home_goals: 1, away_goals: 0, went_120: true, completed: true },
+    { home_team_id: 'reserve', away_team_id: 'opponent', home_slot_id: 'slot-a', away_slot_id: 'slot-b', home_goals: 0, away_goals: 2, went_120: false, completed: true },
+  ], [{ id: 'slot-a', current_team_id: 'reserve' }, { id: 'slot-b', current_team_id: 'opponent' }], 'average120');
+  const substitute = standings.find((team) => team.teamId === 'slot-a')!;
+  assert.equal(substitute.teamName, 'reserve');
+  assert.equal(substitute.played, 2);
+  assert.equal(substitute.achievements120min, 1);
+});
+
+
+test('Average 120 min compares unrounded values even when display rounds equally', () => {
+  const template = calculateStandings([
+    { id: 'a', name: 'A', ht_team_id: 1, hattrick_user_id: 1, active: true, replacement_for_team_id: null },
+    { id: 'b', name: 'B', ht_team_id: 2, hattrick_user_id: 2, active: true, replacement_for_team_id: null },
+  ], [], 'average120');
+  const a = { ...template[0], played: 3, achievements120min: 1 };
+  const b = { ...template[1], played: 100, achievements120min: 33 };
+  assert.equal(Number((a.achievements120min / a.played).toFixed(2)), Number((b.achievements120min / b.played).toFixed(2)));
+  assert.ok(compareAverage120Standings(a, b) < 0);
+  assert.ok(compareAverage120Standings({ ...a, played: 0 }, b) > 0);
 });

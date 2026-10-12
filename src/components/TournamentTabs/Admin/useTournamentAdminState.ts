@@ -64,6 +64,7 @@ export function useTournamentAdminState() {
   const [editChppOnlyJoin, setEditChppOnlyJoin] = useState(true);
   const [editLeagueCategory, setEditLeagueCategory] = useState<'male' | 'hfi'>('male');
   const [editRegistrationType, setEditRegistrationType] = useState('validated');
+  const [editScoringMode, setEditScoringMode] = useState<'120min' | 'average120' | 'points' | 'appg'>('120min');
   const [editDefaultTheme, setEditDefaultTheme] = useState<EffectiveTheme | null>(null);
   const [editCountryLimit, setEditCountryLimit] = useState<string | null>(null);
   const [editMaxTeams, setEditMaxTeams] = useState<number | null>(null);
@@ -108,7 +109,7 @@ export function useTournamentAdminState() {
     rescheduleStartSlotId, setRescheduleStartSlotId, includeWeek15WeekendFriendlyForReschedule,
     setIncludeWeek15WeekendFriendlyForReschedule, editName, setEditName, editIsPrivate, setEditIsPrivate,
     editChppOnlyJoin, setEditChppOnlyJoin, editLeagueCategory, setEditLeagueCategory,
-    editRegistrationType, setEditRegistrationType, editCountryLimit, setEditCountryLimit, editDefaultTheme, setEditDefaultTheme,
+    editRegistrationType, setEditRegistrationType, editCountryLimit, setEditCountryLimit, editScoringMode, setEditScoringMode, editDefaultTheme, setEditDefaultTheme,
     editMaxTeams, setEditMaxTeams, editRegistrationOpen, setEditRegistrationOpen,
     editAllowReserveRegistration, setEditAllowReserveRegistration, showEditDescription,
     setShowEditDescription, editDescription, setEditDescription, showEditEmail, setShowEditEmail,

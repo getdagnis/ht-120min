@@ -37,3 +37,14 @@ test('other current modes do not inherit APPG-120 classification', () => {
 test('internal APPG-120 keeps the legacy database value', () => {
   assert.equal(persistedScoringMode('appg-120'), 'appg');
 });
+
+test('Average 120 min is a separate persisted standard-rules profile', () => {
+  const profile = resolveScoringProfile('average120');
+  assert.equal(profile.id, 'average-120min');
+  assert.equal(profile.matchRuleset, 'standard');
+  assert.equal(profile.aggregation, 'average-120m');
+  assert.equal(profile.supportsChppAutoClassification, false);
+  assert.equal(persistedScoringMode('average-120min'), 'average120');
+  assert.equal(resolveScoringProfile('120min').aggregation, 'total-120m');
+  assert.equal(resolveScoringProfile('appg').matchRuleset, 'appg-120');
+});

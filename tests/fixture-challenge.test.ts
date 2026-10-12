@@ -13,6 +13,7 @@ import { mapAdHomeAwayToChppMatchPlace } from '../src/server/api/_lib/chpp-chall
 test('fixture challenges use cup rules for both supported 120-minute scoring values', () => {
   assert.equal(getFixtureChallengeMatchType('120m'), 1);
   assert.equal(getFixtureChallengeMatchType('120min'), 1);
+  assert.equal(getFixtureChallengeMatchType('average120'), 1);
   assert.equal(getFixtureChallengeMatchType('points'), 0);
   assert.equal(getFixtureChallengeMatchType(null), 0);
 });

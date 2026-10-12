@@ -22,7 +22,7 @@ export const TournamentBadgeChips: React.FC<TournamentBadgeChipsProps> = ({
   const t = useTranslations('Home');
   const countryRestriction = resolveCountryRestriction(countryLimit, countryLimitFormat);
   const hasNoCountryLimit = !countryLimit?.trim();
-  const is120min = scoringMode === '120min' || scoringMode === '120m';
+  const is120min = scoringMode === '120min' || scoringMode === '120m' || scoringMode === 'average120';
 
   if (!countryRestriction && !hasNoCountryLimit && leagueCategory !== 'hfi' && !is120min && !children) return null;
 

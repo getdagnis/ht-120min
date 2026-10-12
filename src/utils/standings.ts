@@ -1,5 +1,5 @@
 import { getAppgPoints, type AppgOutcome } from './appg.js';
-import { usesAveragePoints, type PersistedScoringMode } from '../../shared/scoring-profile.js';
+import { isAverage120ScoringMode, usesAveragePoints, type PersistedScoringMode } from '../../shared/scoring-profile.js';
 
 export interface Match {
   home_team_id: string | null;
@@ -160,6 +160,19 @@ export function meetsAppgStandingsQuota(standing: Pick<TeamStanding, 'played'>, 
   return quota === 0 || standing.played >= quota;
 }
 
+export function compareAverage120Standings(a: TeamStanding, b: TeamStanding): number {
+  if (a.played === 0 || b.played === 0) return Number(b.played > 0) - Number(a.played > 0);
+  for (const key of ['achievements120min', 'pts', 'gd', 'gf', 'totalMinutes'] as const) {
+    const difference = b[key] / b.played - a[key] / a.played;
+    if (difference !== 0) return difference;
+  }
+  return 0; // Stable sort retains join order.
+}
+
+export function average120Stat(standing: TeamStanding, key: 'achievements120min' | 'pts' | 'gd' | 'gf' | 'totalMinutes') {
+  return standing.played > 0 ? standing[key] / standing.played : null;
+}
+
 export function calculateStandings(
   teams: Team[],
   matches: Match[],
@@ -208,6 +221,7 @@ export function calculateStandings(
     if (!m.completed || m.home_goals === null || m.away_goals === null) return;
 
     if (!m.home_team_id || !m.away_team_id) {
+      if (isAverage120ScoringMode(scoringMode)) return; // BYEs never enter average totals.
       const teamId = m.home_team_id || m.away_team_id;
       if (!teamId) return;
 
@@ -218,7 +232,7 @@ export function calculateStandings(
       const opponentGoals = m.home_team_id ? m.away_goals : m.home_goals;
 
       team.played++;
-      if (!((scoringMode === '120m' || scoringMode === '120min') && !m.went_120)) {
+      if (!((scoringMode === '120m' || scoringMode === '120min' || isAverage120ScoringMode(scoringMode)) && !m.went_120)) {
         team.gf += teamGoals;
         team.ga += opponentGoals;
       }
@@ -226,12 +240,12 @@ export function calculateStandings(
 
       if (teamGoals > opponentGoals) {
         team.won++;
-        if (scoringMode !== '120m' && scoringMode !== '120min') team.pts += 3;
+        if (scoringMode !== '120m' && scoringMode !== '120min' && !isAverage120ScoringMode(scoringMode)) team.pts += 3;
       } else if (teamGoals < opponentGoals) {
         team.lost++;
       } else {
         team.drawn++;
-        if (scoringMode !== '120m' && scoringMode !== '120min') team.pts += 1;
+        if (scoringMode !== '120m' && scoringMode !== '120min' && !isAverage120ScoringMode(scoringMode)) team.pts += 1;
       }
 
       const appgPoints = getAppgPoints(m);
@@ -256,7 +270,7 @@ export function calculateStandings(
 
     home.played++;
     away.played++;
-    const is120MinMode = scoringMode === '120m' || scoringMode === '120min';
+    const is120MinMode = scoringMode === '120m' || scoringMode === '120min' || isAverage120ScoringMode(scoringMode);
     if (!is120MinMode || m.went_120) {
       home.gf += m.home_goals;
       home.ga += m.away_goals;
@@ -330,7 +344,8 @@ export function calculateStandings(
   );
 
   // Sorting logic based on mode
-  if (scoringMode === '120m' || scoringMode === '120min') {
+  if (isAverage120ScoringMode(scoringMode)) return standings.sort(compareAverage120Standings);
+  if (scoringMode === '120m' || scoringMode === '120min' || isAverage120ScoringMode(scoringMode)) {
     return standings.sort((a, b) => {
       // 1. Primary: 120-minute matches achieved (descending)
       if (b.achievements120min !== a.achievements120min) return b.achievements120min - a.achievements120min;

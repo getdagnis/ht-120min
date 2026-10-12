@@ -15,8 +15,8 @@ import historyStyles from '../TournamentHistory/TournamentHistory.module.sass';
 import newsStyles from './NewsTab.module.sass';
 import type { TournamentEmojiContext } from '../../utils/tournament-emoji-options';
 
-import { getAppgStandingsQuota, meetsAppgStandingsQuota, type TeamStanding } from '../../utils/standings';
-import { isAppg120ScoringMode } from '../../../shared/scoring-profile';
+import { average120Stat, compareAverage120Standings, getAppgStandingsQuota, meetsAppgStandingsQuota, type TeamStanding } from '../../utils/standings';
+import { isAppg120ScoringMode, isAverage120ScoringMode } from '../../../shared/scoring-profile';
 import { StandingsRoundPreview, type StandingsPreviewRound } from './StandingsRoundPreview';
 import { TournamentShareMenu } from '../TournamentShareMenu/TournamentShareMenu';
 import {
@@ -96,6 +96,7 @@ const defaultLoadComments = async (seasonId: string) => {
 };
 const STANDINGS_SCORING_MODES = {
   '120min': { enabled: true, label: '120min', tooltip: '120-minute scoring' },
+  average120: { enabled: true, label: 'Avg120', tooltip: 'Average 120 min scoring' },
   '90min': { enabled: true, label: '90min', tooltip: 'Regular 90-minute scoring' },
   appg: { enabled: true, label: 'APPG', tooltip: 'Average Points Per Game' },
 } as const;
@@ -117,7 +118,8 @@ type StandingsSortKey =
   | 'gd'
   | 'gf'
   | 'pts'
-  | 'appg';
+  | 'appg'
+  | 'averageAchievements' | 'averagePoints' | 'averageMinutes' | 'averageDifference' | 'averageGoals';
 type SortDirection = 'asc' | 'desc';
 
 export const StandingsView: React.FC<StandingsViewProps> = ({
@@ -165,8 +167,9 @@ export const StandingsView: React.FC<StandingsViewProps> = ({
   const uiText = useTranslations('PublicUI.StandingsView');
   const [presencePulse, setPresencePulse] = useState(0);
   const isAppgSupported = isAppg120ScoringMode(tournament?.scoring_mode);
+  const isAverage120Supported = isAverage120ScoringMode(tournament?.scoring_mode);
   const [scoringMode, setScoringMode] = useState<StandingsScoringMode>(
-    isAppgSupported ? 'appg' : is120minMode ? '120min' : '90min',
+    isAppgSupported ? 'appg' : isAverage120Supported ? 'average120' : is120minMode ? '120min' : '90min',
   );
   const [sortKey, setSortKey] = useState<StandingsSortKey>('default');
   const [sortDirection, setSortDirection] = useState<SortDirection>('desc');
@@ -217,9 +220,10 @@ export const StandingsView: React.FC<StandingsViewProps> = ({
     );
   }, [myHtUserId, seasonComments, seasonParticipantIds, seasonStatus, standings]);
   const show120minScoring = scoringMode === '120min';
+  const showAverage120Scoring = scoringMode === 'average120';
   const showAppgScoring = isAppg120ScoringMode(scoringMode);
   const enabledScoringModes = (Object.keys(STANDINGS_SCORING_MODES) as StandingsScoringMode[]).filter(
-    (mode) => STANDINGS_SCORING_MODES[mode].enabled && (mode !== 'appg' || isAppgSupported),
+    (mode) => STANDINGS_SCORING_MODES[mode].enabled && (mode !== 'appg' || isAppgSupported) && (mode !== 'average120' || isAverage120Supported),
   );
   const activeScoringConfig = STANDINGS_SCORING_MODES[scoringMode];
 
@@ -235,6 +239,7 @@ export const StandingsView: React.FC<StandingsViewProps> = ({
   const sortedStandings = useMemo(() => {
     const rows = [...standings];
     const compareDefault = (a: TeamStanding, b: TeamStanding) => {
+      if (scoringMode === 'average120') return compareAverage120Standings(a, b);
       if (scoringMode === '120min') {
         if (b.achievements120min !== a.achievements120min) return b.achievements120min - a.achievements120min;
         if (b.pts !== a.pts) return b.pts - a.pts;
@@ -272,8 +277,15 @@ export const StandingsView: React.FC<StandingsViewProps> = ({
         if (aMissing !== bMissing) return aMissing ? 1 : -1;
       }
 
+      const averageKey = { averageAchievements: 'achievements120min', averagePoints: 'pts', averageMinutes: 'totalMinutes', averageDifference: 'gd', averageGoals: 'gf' } as const;
+      if (showAverage120Scoring && sortKey in averageKey && (a.played === 0 || b.played === 0)) {
+        const missingDifference = Number(b.played > 0) - Number(a.played > 0);
+        if (missingDifference) return missingDifference;
+      }
       const aValue =
-        sortKey === 'appg'
+        showAverage120Scoring && sortKey in averageKey
+          ? (average120Stat(a, averageKey[sortKey as keyof typeof averageKey]) ?? 0)
+        : sortKey === 'appg'
           ? averagePointsPerGame(a)
           : sortKey === 'achievements120minPercent'
             ? percentage120min(a)
@@ -283,7 +295,9 @@ export const StandingsView: React.FC<StandingsViewProps> = ({
                 ? (a.powerRating ?? 0)
                 : Number(a[sortKey]);
       const bValue =
-        sortKey === 'appg'
+        showAverage120Scoring && sortKey in averageKey
+          ? (average120Stat(b, averageKey[sortKey as keyof typeof averageKey]) ?? 0)
+        : sortKey === 'appg'
           ? averagePointsPerGame(b)
           : sortKey === 'achievements120minPercent'
             ? percentage120min(b)
@@ -298,18 +312,18 @@ export const StandingsView: React.FC<StandingsViewProps> = ({
     });
 
     return rows;
-  }, [appgMatchQuota, scoringMode, sortDirection, sortKey, standings]);
-  const showHfiRank = tournament?.league_category === 'hfi';
+  }, [appgMatchQuota, scoringMode, showAverage120Scoring, sortDirection, sortKey, standings]);
+  const showHfiRank = tournament?.league_category === 'hfi' && !showAverage120Scoring;
 
   useEffect(() => {
-    const defaultMode: StandingsScoringMode = isAppgSupported ? 'appg' : is120minMode ? '120min' : '90min';
+    const defaultMode: StandingsScoringMode = isAppgSupported ? 'appg' : isAverage120Supported ? 'average120' : is120minMode ? '120min' : '90min';
     const resetTimer = window.setTimeout(() => {
       setScoringMode(defaultMode);
       setSortKey('default');
       setSortDirection('desc');
     }, 0);
     return () => window.clearTimeout(resetTimer);
-  }, [is120minMode, isAppgSupported]);
+  }, [is120minMode, isAppgSupported, isAverage120Supported]);
 
   useEffect(() => {
     if (!tournament?.id || !seasonNumber) return;
@@ -425,6 +439,7 @@ export const StandingsView: React.FC<StandingsViewProps> = ({
     : sortedStandings.length;
 
   const forumTeamName = (standing: TeamStanding) => standing.teamName.replace(/\[/g, '(').replace(/\]/g, ')');
+  const formatAverage = (value: number | null) => value === null ? '—' : Number(value.toFixed(2)).toString();
   const signedGoalDifference = (value: number) => (value > 0 ? `+${value}` : String(value));
   const appgClassificationTooltip = (standing: TeamStanding) =>
     `Pts ${standing.appgPoints} · ET3 ${standing.appgClassifications.ET3} · ET2 ${standing.appgClassifications.ET2} · PS1 ${standing.appgClassifications.PS1} · RT0 ${standing.appgClassifications.RT0} · OPW ${standing.appgClassifications.OPW}`;
@@ -461,6 +476,15 @@ export const StandingsView: React.FC<StandingsViewProps> = ({
           .join('\n')}\n[/table]`;
       }
 
+      if (showAverage120Scoring) {
+        const header = ['Team', 'PwrR', 'Avg120', 'AvgPts', '120m%', 'AvgMins', 'AvgDif', 'AvgGoals'];
+        return `[table]\n${forumHeader(includePlacement ? ['#', ...header] : header)}\n${rows.map((standing, index) => forumRow([
+          ...(includePlacement ? [index + 1] : []), forumTeamName(standing), standing.powerRating ?? '—',
+          ...(['achievements120min', 'pts'] as const).map((key) => formatAverage(average120Stat(standing, key))),
+          standing.played ? `${percentage120min(standing).toFixed(0)}%` : '—',
+          ...(['totalMinutes', 'gd', 'gf'] as const).map((key) => formatAverage(average120Stat(standing, key))),
+        ])).join('\n')}\n[/table]`;
+      }
       if (show120minScoring) {
         return `[table]\n${forumHeader(['#', 'Team', '120m', 'Pts*', '120m%', 'Mins', 'Dif', 'Goals*'])}\n${rows
           .map((standing, index) =>
@@ -649,7 +673,16 @@ export const StandingsView: React.FC<StandingsViewProps> = ({
                 {showHfiRank
                   ? sortableHeader('HFI', 'teamRank', styles.rankColumn, 'HFI league rank')
                   : sortableHeader(uiText('powerRatingColumn'), 'powerRating', styles.rankColumn, 'Hattrick Power Rating')}
-                {show120minScoring ? (
+                {showAverage120Scoring ? (
+                  <>
+                    {sortableHeader(uiText('avg120Column'), 'averageAchievements', styles.center120, uiText('avg120Tooltip'))}
+                    {sortableHeader(uiText('avgPointsColumn'), 'averagePoints', `${styles.center} ${styles.pointsHeader}`, uiText('avgPointsTooltip'))}
+                    {sortableHeader(uiText('percentage120Column'), 'achievements120minPercent', styles.center, uiText('percentage120Tooltip'))}
+                    {sortableHeader(uiText('avgMinutesColumn'), 'averageMinutes', styles.center, uiText('avgMinutesTooltip'))}
+                    {sortableHeader(uiText('avgDifferenceColumn'), 'averageDifference', styles.center, uiText('avgDifferenceTooltip'))}
+                    {sortableHeader(uiText('avgGoalsColumn'), 'averageGoals', styles.center, uiText('avgGoalsTooltip'))}
+                  </>
+                ) : show120minScoring ? (
                   <>
                     {sortableHeader(uiText('matches120Column'), 'achievements120min', styles.center120, 'Completed 120 min matches')}
                     {sortableHeader(
@@ -724,7 +757,9 @@ export const StandingsView: React.FC<StandingsViewProps> = ({
                     </div>
                   </td>
                   <td className={styles.rankColumn}>—</td>
-                  {show120minScoring ? (
+                  {showAverage120Scoring ? (
+                    <>{Array.from({ length: 6 }, (_, index) => <td key={index} className={styles.center}>—</td>)}</>
+                  ) : show120minScoring ? (
                     <>
                       <td className={`${styles.highlight} ${styles.center}`}>0</td>
                       <td className={styles.center}>0</td>
@@ -837,6 +872,7 @@ export const StandingsView: React.FC<StandingsViewProps> = ({
                                       s.hattrickUserId != null ? (lastSeenMap[s.hattrickUserId] ?? null) : null
                                     }
                                   />
+                                  {showAverage120Scoring && <span className={styles.muted}>{uiText('countedMatches', { count: s.played })}</span>}
                                 </>
                               )}
                             </div>
@@ -851,7 +887,16 @@ export const StandingsView: React.FC<StandingsViewProps> = ({
                         </div>
                       </td>
                       <td className={styles.rankColumn}>{(showHfiRank ? s.teamRank : s.powerRating) ?? '—'}</td>
-                      {show120minScoring ? (
+                      {showAverage120Scoring ? (
+                        <>
+                          <td className={`${styles.highlight} ${styles.center}`}>{formatAverage(average120Stat(s, 'achievements120min'))}</td>
+                          <td className={styles.center}>{formatAverage(average120Stat(s, 'pts'))}</td>
+                          <td className={styles.center}>{s.played ? `${percentage120min(s).toFixed(0)}%` : '—'}</td>
+                          <td className={styles.center}>{formatAverage(average120Stat(s, 'totalMinutes'))}</td>
+                          <td className={styles.center}>{formatAverage(average120Stat(s, 'gd'))}</td>
+                          <td className={styles.center}>{formatAverage(average120Stat(s, 'gf'))}</td>
+                        </>
+                      ) : show120minScoring ? (
                         <>
                           <td className={`${styles.highlight} ${styles.center}`}>{s.achievements120min}</td>
                           <td className={styles.center}>{s.pts}</td>
@@ -920,7 +965,7 @@ export const StandingsView: React.FC<StandingsViewProps> = ({
                       </div>
                     </td>
                     <td className={styles.rankColumn}>—</td>
-                    <td colSpan={show120minScoring ? 5 : showAppgScoring ? 5 : 6} />
+                    <td colSpan={showAverage120Scoring || show120minScoring || showAppgScoring ? 5 : 6} />
                   </tr>
                 );
               })}

@@ -1,10 +1,10 @@
 /** Values currently persisted in tournaments.scoring_mode. */
-export type PersistedScoringMode = '120m' | '120min' | 'points' | 'appg';
+export type PersistedScoringMode = '120m' | '120min' | 'average120' | 'points' | 'appg';
 
 /** Explicit internal identities. These are not database values yet. */
-export type ScoringProfileId = '120min' | 'victory-points' | 'appg-120';
+export type ScoringProfileId = '120min' | 'average-120min' | 'victory-points' | 'appg-120';
 export type ScoringReference = PersistedScoringMode | ScoringProfileId;
-export type StandingsAggregation = 'total-120m' | 'total-points' | 'average-points';
+export type StandingsAggregation = 'total-120m' | 'average-120m' | 'total-points' | 'average-points';
 export type MatchRulesetId = 'standard' | 'appg-120';
 
 export interface ScoringProfile {
@@ -23,6 +23,15 @@ const SCORING_PROFILES: Record<ScoringProfileId, ScoringProfile> = {
     label: '120-minute achievements',
     persistedMode: '120min',
     aggregation: 'total-120m',
+    matchRuleset: 'standard',
+    targetMinutes: 120,
+    supportsChppAutoClassification: false,
+  },
+  'average-120min': {
+    id: 'average-120min',
+    label: 'Average 120 min',
+    persistedMode: 'average120',
+    aggregation: 'average-120m',
     matchRuleset: 'standard',
     targetMinutes: 120,
     supportsChppAutoClassification: false,
@@ -48,9 +57,14 @@ const SCORING_PROFILES: Record<ScoringProfileId, ScoringProfile> = {
 };
 
 export function resolveScoringProfile(reference?: ScoringReference | string | null): ScoringProfile {
+  if (reference === 'average120' || reference === 'average-120min') return SCORING_PROFILES['average-120min'];
   if (reference === 'appg' || reference === 'appg-120') return SCORING_PROFILES['appg-120'];
   if (reference === 'points' || reference === 'victory-points') return SCORING_PROFILES['victory-points'];
   return SCORING_PROFILES['120min'];
+}
+
+export function isAverage120ScoringMode(reference?: ScoringReference | string | null) {
+  return resolveScoringProfile(reference).id === 'average-120min';
 }
 
 export function isAppg120ScoringMode(reference?: ScoringReference | string | null) {

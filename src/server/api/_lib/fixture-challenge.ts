@@ -26,7 +26,7 @@ export function resolveChallengeManagementStatus(
 }
 
 export function getFixtureChallengeMatchType(scoringMode?: string | null): ChppChallengeMatchType {
-  return scoringMode === '120m' || scoringMode === '120min' ? 1 : 0;
+  return scoringMode === '120m' || scoringMode === '120min' || scoringMode === 'average120' ? 1 : 0;
 }
 
 export function getFixtureChallengeMatchPlace(side: FixtureChallengeSide): ChppChallengeMatchPlace {

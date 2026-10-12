@@ -1315,6 +1315,7 @@ export const CreateTournament: React.FC = () => {
                     onChange={(e) => setFormData({ ...formData, scoring_mode: e.target.value })}
                   >
                     <option value="120min">{uiText('rankBy120MinuteAchievements')}</option>
+                    <option value="average120">{uiText('average120ScoringMode')}</option>
                     <option value="points">{uiText('regular90MinFriendlies3p1p0')}</option>
                     {registrationType !== 'validated' && (
                       <option value="appg">{uiText('aPPG120120MinEventBasedAveragePoints')}</option>
@@ -1324,6 +1325,7 @@ export const CreateTournament: React.FC = () => {
                     {t(
                       `scoringHelp.${formData.scoring_mode}` as
                         | 'scoringHelp.120min'
+                        | 'scoringHelp.average120'
                         | 'scoringHelp.points'
                         | 'scoringHelp.appg',
                     )}
@@ -1578,9 +1580,9 @@ export const CreateTournament: React.FC = () => {
 
   return (
     <div className={styles.wrapper}>
+      <ConfirmationDialog confirmation={confirmation} onResolve={resolveConfirmation} />
       <NoticeDialog message={notice} onClose={closeNotice} />
       <div className={styles.main}>
-      <ConfirmationDialog confirmation={confirmation} onResolve={resolveConfirmation} />
         <div className={styles.container}>
           <div className={styles.headerRow}>
             <button className={styles.closeBtn} onClick={() => router.push(toLocalePath(locale, '/'))}>
