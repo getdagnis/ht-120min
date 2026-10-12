@@ -39,7 +39,7 @@ The app treats tournaments, rounds, matches, standings, chat, and admin decision
 - `migrations/history/` is an archived legacy area.
 - Active migrations must use the root `migrations/` directory.
 - Continue the numeric sequence from the latest active migration.
-- The latest active migration file is `109_remove_unused_tournament_reserve.sql` (prepared locally, not applied). Migrations 107 and 108 carry owner-added applied markers; those markers are not independent live verification. The repository's migration files and owner-added applied markers are bookkeeping, not independent live schema verification.
+- The latest active migration file is `113_tournament_planning_and_recruiting.sql` (prepared locally, not agent-applied). Migrations 107–112 carry owner-added applied markers; those markers are not independent live verification. Review the [lifecycle preflight](tournament-lifecycle-preflight.sql) before converting existing real Open/Waiting rosters. The repository's migration files and owner-added applied markers remain bookkeeping, not independent live schema verification.
 - Do not create timestamp-prefixed migration names such as `20261001050614_...`.
 - Keep migrations compatible with existing rows when possible.
 - Record migration state in `PROJECT_STATE.md` only when a schema/RPC/RLS change has architectural, security, product-direction, or substantial behavioral impact. Do not add status entries for routine fixes or small implementation details.
@@ -77,6 +77,8 @@ Recent important migrations:
 - `100_tournament_modification_time.sql` (prepared locally: public tournament edit timestamp with creation-time backfill and Home publication dirtying; not applied)
 - `106_forge_locale_catalog.sql` (prepared locally: service-only locale settings, drafts, published sections, and immutable history; not applied)
 - `107_calendar_first_generated_schedules.sql` (prepared locally: all-category calendar-first generation, frozen Power Rating/HFI seeds, repeated cycles and up to three playoff rounds; disposable PostgreSQL RPC tests passed, live application unverified)
+
+- `113_tournament_planning_and_recruiting.sql` (prepared locally: real Planning/Recruiting lifecycle, transactional exclusivity and withdrawal, guarded reset and server-authorized enrollment/season paths; not applied by the agent)
 
 Public publication rollout state, preflight and test boundaries are in
 [`public-data-implementation.md`](public-data-implementation.md). Publication artifacts are server-only; the prepared

@@ -36,7 +36,7 @@ export function isTournamentRegistrationOpen({
   return (
     !isGenerated &&
     !registrationClosedAt &&
-    (status === 'open' || status === 'waiting')
+    (['planning', 'recruiting', 'open', 'waiting'].includes(status ?? ''))
   );
 }
 

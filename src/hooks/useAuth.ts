@@ -415,6 +415,15 @@ export const useAuth = () => {
     };
   }, [authReady, fetchProfile]);
 
+  useEffect(() => {
+    const refreshMembership = () => {
+      const uid = localStorage.getItem('my_ht_user_id');
+      if (uid) void fetchProfile(Number(uid));
+    };
+    window.addEventListener('ht120:tournament-membership-changed', refreshMembership);
+    return () => window.removeEventListener('ht120:tournament-membership-changed', refreshMembership);
+  }, [fetchProfile]);
+
   const logout = () => {
     clearMainAuthSession();
     setManagerName(null);

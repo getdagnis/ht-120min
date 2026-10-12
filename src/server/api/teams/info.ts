@@ -1,3 +1,4 @@
+import { isExclusiveTournament } from '../../../utils/tournament-lifecycle.js';
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { getSupabase } from '../_lib/supabase.js';
 import { getAuthHeader } from '../_lib/chpp-auth.js';
@@ -61,7 +62,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         .from('teams')
         .select('name, tournament_id, tournaments(name, status, is_test, registration_type)')
         .eq('ht_team_id', team_id)
-        .eq('active', true);
+        .eq('active', true)
+        .eq('reserve_active', false);
 
       if (existing && existing.length > 0) {
         const activeTournament = existing.find((e) => {
@@ -70,7 +72,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             is_test?: boolean | null;
             registration_type?: string | null;
           } | null;
-          return t && t.status !== 'finished' && t.status !== 'stopped' && !t.is_test && t.registration_type !== 'sandbox';
+          return t && isExclusiveTournament(t);
         });
         if (activeTournament) {
           const t = activeTournament.tournaments as unknown as { name: string };

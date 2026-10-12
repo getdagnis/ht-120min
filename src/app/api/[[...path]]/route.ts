@@ -169,7 +169,7 @@ async function invoke(request: NextRequest) {
   const mutationRoutes = new Set([
     'update-hfi-ranks', 'update-power-rankings', 'refresh-spotlight-profiles', 'generate-length-schedule', 'repair-length-round', 'recover-length-round-one',
     'save-length-results', 'tournament-participation', 'season-slot-replacement', 'reserve-team-swap',
-    'reserve-team-fill', 'move-inactive-team-to-reserve', 'reset-season-to-planning', 'archive-tournament',
+    'reserve-team-fill', 'move-inactive-team-to-reserve', 'reset-season-to-planning', 'archive-tournament', 'tournament-publication', 'creation-roster', 'start-tournament-season',
     'scheduled-team-removal', 'admin-team-reserve-transition', 'admin-add-reserve-team', 'reserve-admission', 'reserve-teams',
     'backfill-round-matchdetails',
   ]);

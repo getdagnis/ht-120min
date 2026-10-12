@@ -10,7 +10,7 @@ import type { HomeTournament } from '../../../../../server/api/_lib/home-snapsho
 import { toLocalePath } from '../../../../../next/locale-path';
 import styles from './CollectionPage.module.sass';
 
-const groups = ['featured', 'in-progress', 'registration-open', 'upcoming', 'inactive', 'completed'] as const;
+const groups = ['featured', 'registration-open', 'in-progress', 'planning', 'upcoming', 'inactive', 'completed'] as const;
 
 export function CollectionView({ collection, locale }: { collection: PublicCollection<HomeTournament>; locale: string }) {
   const uiText = useTranslations('PublicUI.CollectionView');

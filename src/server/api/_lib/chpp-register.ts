@@ -1,3 +1,5 @@
+import { isExclusiveTournament } from '../../../utils/tournament-lifecycle.js';
+import { getServiceSupabase } from './supabase.js';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import type { ChppTeamOption } from './chpp-xml.js';
 import type { TournamentJoinStory } from '../../../types/tournament-activity.js';
@@ -21,13 +23,7 @@ function getTournamentCheck(row: TeamTournamentCheck) {
 }
 
 function isBlockingTournament(tournament: ReturnType<typeof getTournamentCheck>) {
-  return Boolean(
-    tournament &&
-      tournament.status !== 'finished' &&
-      tournament.status !== 'stopped' &&
-      !tournament.is_test &&
-      tournament.registration_type !== 'sandbox',
-  );
+  return Boolean(tournament && isExclusiveTournament(tournament));
 }
 
 /**
@@ -38,6 +34,7 @@ export async function getActiveTournamentConflicts(
   supabase: SupabaseClient,
   teamIds: number[],
   targetTournamentId: string,
+  affectedPlanningIds?: Set<string>,
 ): Promise<Map<number, ActiveTournamentConflict>> {
   if (teamIds.length === 0) return new Map();
 
@@ -54,6 +51,7 @@ export async function getActiveTournamentConflicts(
   const conflicts = new Map<number, ActiveTournamentConflict>();
   for (const row of (data ?? []) as unknown as Array<TeamTournamentCheck & { ht_team_id: number | null }>) {
     const tournament = getTournamentCheck(row);
+    if (tournament?.status === 'planning') affectedPlanningIds?.add(row.tournament_id);
     if (!row.ht_team_id || !isBlockingTournament(tournament) || !tournament) continue;
     conflicts.set(row.ht_team_id, {
       tournamentId: row.tournament_id,
@@ -83,15 +81,16 @@ export async function registerOAuthTeam(
     powerRegionRank?: number | null;
     joinStory?: TournamentJoinStory | null;
     skipMembershipCheck?: boolean;
+    affectedPlanningIds?: Set<string>;
   },
 ) {
   // 1. Check if team is in another active tournament
-  if (!input.skipMembershipCheck) {
-    const conflict = (await getActiveTournamentConflicts(supabase, [input.team.teamId], input.tournamentId)).get(
+  if (!input.skipMembershipCheck || input.affectedPlanningIds) {
+    const conflict = (await getActiveTournamentConflicts(supabase, [input.team.teamId], input.tournamentId, input.affectedPlanningIds)).get(
       input.team.teamId,
     );
 
-    if (conflict) {
+    if (conflict && !input.skipMembershipCheck) {
       throw new Error(
         `Team ${input.team.teamName} (${input.team.teamId}) is already active in another tournament: "${conflict.name}". It must leave that tournament first.`,
       );
@@ -110,9 +109,8 @@ export async function registerOAuthTeam(
     // Reactivate the existing season participant and verify that the write
     // actually matched a row. PostgREST can otherwise report no error when
     // RLS filters an update down to zero rows.
-    const { data: reactivatedTeam, error } = await supabase
-      .from('teams')
-      .update({
+    const { data: reactivatedId, error } = await getServiceSupabase().rpc('save_verified_tournament_registration', {
+      p_values: {
         active: true,
         reserve_active: false,
         reserve_joined_at: null,
@@ -136,21 +134,13 @@ export async function registerOAuthTeam(
         hattrick_user_id: input.hattrickUserId,
         joined_via_oauth: true,
         ht_team_name: input.team.teamName,
-      })
-      .eq('id', existingInThis.id)
-      .select('id, active, reapply_season_number')
-      .maybeSingle();
-
+      },
+      p_existing_id: existingInThis.id,
+      p_skip_membership: Boolean(input.skipMembershipCheck),
+    });
     if (error) throw new Error(error.message);
-    if (
-      !reactivatedTeam ||
-      reactivatedTeam.id !== existingInThis.id ||
-      reactivatedTeam.active !== true ||
-      reactivatedTeam.reapply_season_number !== null
-    ) {
-      throw new Error(`Could not reactivate ${input.team.teamName}. Please try joining again.`);
-    }
-    return reactivatedTeam.id;
+    if (!reactivatedId) throw new Error(`Could not reactivate ${input.team.teamName}. Please try joining again.`);
+    return String(reactivatedId);
   }
 
   // 3. Capacity check — enforce max_teams if set
@@ -234,24 +224,13 @@ export async function registerOAuthTeam(
     replacement_for_team_id: replacementForId,
     join_story: input.joinStory ?? null,
   };
-  const { data: newTeam, error } = existingInThis
-    ? await supabase
-        .from('teams')
-        .update(registrationValues)
-        .eq('id', existingInThis.id)
-        .select()
-        .single()
-    : await supabase
-        .from('teams')
-        .insert({
-          tournament_id: input.tournamentId,
-          ht_team_id: input.team.teamId,
-          ...registrationValues,
-        })
-        .select()
-        .single();
-
+  const { data: newTeamId, error } = await getServiceSupabase().rpc('save_verified_tournament_registration', {
+    p_values: { tournament_id: input.tournamentId, ht_team_id: input.team.teamId, ...registrationValues },
+    p_existing_id: existingInThis?.id ?? null,
+    p_skip_membership: Boolean(input.skipMembershipCheck),
+  });
   if (error) throw new Error(error.message);
+  const newTeam = newTeamId ? { id: String(newTeamId) } : null;
 
   // 6. Post-registration logic for ongoing tournaments
   if (isGenerated && newTeam) {

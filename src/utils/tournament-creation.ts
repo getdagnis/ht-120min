@@ -45,7 +45,7 @@ export function buildRealTournamentInsert(options: RealTournamentInsertOptions) 
     thumbnail_index: options.thumbnailIndex ?? getRandomTournamentThumbnailIndex(),
     max_teams: options.maxTeams,
     season: 1,
-    status: 'open' as const,
+    status: 'planning' as const,
     is_test: false,
     chpp_only_join: true,
     organizer_id: options.organizerId,

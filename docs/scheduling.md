@@ -89,6 +89,11 @@ generation and management paths.
 
 ## Generation
 
+Real tournaments must be published as Recruiting before generating a schedule.
+Planning is a non-exclusive waiting list and cannot create rounds. Explicit
+Auto-start retains the already-committed Active path. See
+[tournament lifecycle](tournament-lifecycle.md) for publication and reset rules.
+
 The admin schedule panel builds a frontend draft, then calls `generate_tournament_schedule`.
 
 The serialized payload includes:

@@ -22,6 +22,7 @@ type OpenTournamentRow = {
   is_featured?: boolean | null;
   is_test?: boolean | null;
   status?: string | null;
+  registration_closed_at?: string | null;
   is_archived?: boolean | null;
   max_teams?: number | null;
   season: number | null;
@@ -50,6 +51,7 @@ export const fetchOpenTournaments = async (): Promise<OpenTournamentSummary[]> =
       is_featured,
       is_test,
       status,
+      registration_closed_at,
       is_archived,
       season,
       rounds ( id, season_number ),
@@ -66,6 +68,8 @@ export const fetchOpenTournaments = async (): Promise<OpenTournamentSummary[]> =
     .filter(
       (tournament) =>
         !tournament.is_test &&
+        ['recruiting', 'open', 'waiting'].includes(tournament.status ?? '') &&
+        !tournament.registration_closed_at &&
         tournament.status !== 'stopped' &&
         tournament.status !== 'finished' &&
         tournament.status !== 'archived' &&

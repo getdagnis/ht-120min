@@ -97,6 +97,9 @@ import { nanoid } from 'nanoid';
 import { Button } from '../../components/Button/Button';
 import buttonStyles from '../../components/Button/Button.module.sass';
 import { Modal } from '../../components/Modal/Modal';
+import { ConfirmationDialog } from '../../components/Modal/ConfirmationDialog';
+import { useConfirmationDialog } from '../../components/Modal/useConfirmationDialog';
+import { isExclusiveTournament, type TournamentStatus } from '../../utils/tournament-lifecycle';
 import { NoticeDialog } from '../../components/Modal/NoticeDialog';
 import { useNoticeDialog } from '../../components/Modal/useNoticeDialog';
 import { ModalTeamCard } from '../../components/ModalTeamCard/ModalTeamCard';
@@ -433,7 +436,7 @@ export interface Tournament {
   is_test: boolean;
   is_archived?: boolean | null;
   allow_reserve_registration?: boolean;
-  status: 'open' | 'active' | 'paused' | 'stopped' | 'finished' | 'waiting' | 'archived';
+  status: TournamentStatus;
   last_fixtures_refresh: string | null;
   admin_email: string | null;
   forum_id?: number | null;
@@ -459,7 +462,7 @@ export interface RoundWithMatches {
   matches: MatchWithTeams[];
 }
 
-export type TournamentStatus = Tournament['status'];
+export type { TournamentStatus } from '../../utils/tournament-lifecycle';
 export type ScheduleSetup = 'generated' | 'manual';
 
 export interface TournamentSeason {
@@ -632,13 +635,7 @@ function isBlockingTeamTournament(
     registration_type?: string | null;
   } | null,
 ) {
-  return Boolean(
-    tournament &&
-    tournament.status !== 'finished' &&
-    tournament.status !== 'stopped' &&
-    !tournament.is_test &&
-    tournament.registration_type !== 'sandbox',
-  );
+  return Boolean(tournament && isExclusiveTournament(tournament));
 }
 
 function reviveInitialRounds(initialData?: TournamentInitialData) {
@@ -672,6 +669,9 @@ export const TournamentView: React.FC<{
   const { notice, showNotice: alert, closeNotice } = useNoticeDialog();
   const { locale } = useLocale();
   const descriptionPools = getDescriptionPools(locale);
+  const { confirmation, confirm, resolveConfirmation } = useConfirmationDialog();
+  const lifecycleText = useTranslations('TournamentView');
+  const [isChangingPublication, setIsChangingPublication] = useState(false);
   const { slug: rawSlug } = useParams<{ slug: string }>();
   const slug = typeof rawSlug === 'string' ? rawSlug : '';
   const pathname = usePathname() || '/';
@@ -1313,7 +1313,7 @@ export const TournamentView: React.FC<{
         !showCreatedTournamentWelcomeVisible &&
         !isSandbox &&
         isValidatedTournament &&
-        tournament.status === 'open' &&
+        ['recruiting', 'open'].includes(tournament.status) &&
         !hasJoined &&
         !canLoginAsOrganizer &&
         !hasClosedOpenTournamentWelcome &&
@@ -2189,6 +2189,7 @@ export const TournamentView: React.FC<{
         if (row.ht_team_id && isBlockingTeamTournament(other)) elsewhereIds.add(Number(row.ht_team_id));
       }
       setPlayingElsewhereTeamIds(elsewhereIds);
+        .eq('reserve_active', false)
     })();
     return () => {
       cancelled = true;
@@ -2261,6 +2262,11 @@ export const TournamentView: React.FC<{
         credentials: 'include',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
+    if (tournament && !tournament.is_test && !isSandbox && !(await confirm({
+      title: lifecycleText(tournament.status === 'planning' ? 'joinPlanningTitle' : 'joinRecruitingTitle'),
+      message: lifecycleText(tournament.status === 'planning' ? 'joinPlanningWarning' : 'joinRecruitingWarning'),
+      confirmLabel: uiText('joinTournament'), cancelLabel: uiText('cancel'),
+    }))) return;
           selection_token: pendingJoinData.selection_token,
           team_id: team.teamId,
           team_name: team.teamName,
@@ -3135,6 +3141,45 @@ export const TournamentView: React.FC<{
   };
 
   const handleStopTournament = async () => {
+  const handlePublicationChange = async (target: 'planning' | 'recruiting') => {
+    if (!tournament || isChangingPublication) return;
+    const accepted = await confirm({
+      title: lifecycleText(target === 'recruiting' ? 'publishTournament' : 'returnToPlanning'),
+      message: lifecycleText(target === 'recruiting' ? 'publishWarning' : 'resetPlanningWarning'),
+      confirmLabel: lifecycleText(target === 'recruiting' ? 'publishTournament' : 'returnToPlanning'),
+      cancelLabel: uiText('cancel'), destructive: target === 'planning' && rounds.length > 0,
+    });
+    if (!accepted) return;
+    setIsChangingPublication(true);
+    try {
+      const response = await fetch('/api/app?route=tournament-publication', {
+        method: 'POST', credentials: 'same-origin', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ tournamentId: tournament.id, seasonNumber: Number(tournament.season || 1), target,
+          adminPassword: adminAuthSource === 'legacy_password' ? password : undefined }),
+      });
+      const result = await response.json() as { error?: string; errorCode?: string; transition?: { status: TournamentStatus; dropped_teams?: Array<{ name: string }> } };
+      if (!response.ok || !result.transition) throw new Error(result.errorCode === 'season_started'
+        ? lifecycleText('cannotResetPlayedSeason') : result.error || lifecycleText('publicationFailed'));
+      setTournament((current) => current ? { ...current, status: result.transition!.status,
+        registration_closed_at: null,
+        ...(target === 'planning' ? { schedule_start_slot: null, schedule_locked_at: null, schedule_generated_at: null } : {}),
+      } : current);
+      if (target === 'planning') {
+        setRounds([]); setStandings([]); setSeasonSlots([]); setSeasonSlotAssignments([]);
+        setSeasons((current) => current.map((season) => season.season_number === Number(tournament.season || 1)
+          ? { ...season, status: 'planned', started_at: null, finished_at: null, planned_start_slot: null,
+              snapshot_json: null, fixtures_snapshot_json: null, schedule_plan_json: null, ranking_snapshot_json: null }
+          : season));
+      }
+      const dropped = result.transition.dropped_teams ?? [];
+      if (dropped.length) alert(lifecycleText('conflictingTeamsDropped', { teams: dropped.map((team) => team.name).join(', ') }));
+      await fetchData({ showLoader: false, invalidate: response.headers.get('X-Tournament-Cache') === 'invalidation-failed' });
+      window.dispatchEvent(new Event('ht120:tournament-membership-changed'));
+    } catch (error) {
+      alert(error instanceof Error ? error.message : lifecycleText('publicationFailed'));
+    } finally { setIsChangingPublication(false); }
+  };
+
     if (!tournament) return;
     const confirmed = window.confirm(
       'Fully stop this tournament?\n\nStopping halts the tournament, unpublishes it from public lists and allows teams to join other tournaments.',
@@ -3203,7 +3248,7 @@ export const TournamentView: React.FC<{
   };
 
   const handleSetPausedTournamentActive = async () => {
-    const nextStatus = isGenerated ? 'active' : 'open';
+    const nextStatus = isGenerated ? 'active' : tournament?.is_test || isSandbox ? 'open' : 'recruiting';
     await updateTournamentLifecycleStatus(nextStatus);
   };
 
@@ -3401,6 +3446,7 @@ export const TournamentView: React.FC<{
         .from('tournament_seasons')
         .update({ status: 'ongoing', started_at: startedAt, updated_at: startedAt })
         .eq('tournament_id', tournament.id)
+    if (tournament.status === 'planning') { alert(lifecycleText('publishBeforeScheduling')); return; }
         .eq('season_number', currentSeasonNumber)
         .select('*')
         .single();
@@ -3447,6 +3493,7 @@ export const TournamentView: React.FC<{
     if (!confirmed) return;
 
     setIsFinalizingSeason(true);
+    if (!tournament.is_test && !isSandbox) { await handlePublicationChange('planning'); return; }
     try {
       const response = await fetch('/api/app?route=reset-season-to-planning', {
         method: 'POST',
@@ -3561,11 +3608,12 @@ export const TournamentView: React.FC<{
       return;
     }
     const nextSeasonNumber = (tournament.season || 1) + 1;
-    const confirmed = window.confirm(
-      mode === 'auto'
-        ? `Auto-start Season ${nextSeasonNumber}?\n\nThe existing roster stays locked. The previous fixtures are archived, the live table is reset, and you can generate the new schedule when ready.`
-        : `Open Season ${nextSeasonNumber} for re-application?\n\nThe previous fixtures are archived. Existing teams become quiet roster suggestions that their owners can re-apply for, remove, or replace with a new roster.`,
-    );
+    const confirmed = await confirm({
+      title: lifecycleText(mode === 'auto' ? 'autoStartSeason' : 'planNextSeason', { season: nextSeasonNumber }),
+      message: lifecycleText(mode === 'auto' ? 'autoStartNextSeasonWarning' : 'planNextSeasonWarning'),
+      confirmLabel: lifecycleText(mode === 'auto' ? 'autoStartSeason' : 'planNextSeason', { season: nextSeasonNumber }),
+      cancelLabel: uiText('cancel'),
+    });
     if (!confirmed) return;
 
     setIsAddingSeason(true);
@@ -3578,16 +3626,16 @@ export const TournamentView: React.FC<{
           ? tournament.schedule_start_slot
           : null;
 
-      const { data: nextSeasonRows, error: transitionError } = await supabase.rpc('start_tournament_season', {
-        p_tournament_id: tournament.id,
-        p_next_season_number: nextSeasonNumber,
-        p_mode: mode,
-        p_fixtures_snapshot: fixturesSnapshot,
-        p_planned_start_slot: plannedStart,
+      const response = await fetch('/api/app?route=start-tournament-season', {
+        method: 'POST', credentials: 'same-origin', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ tournamentId: tournament.id, nextSeasonNumber, mode, fixturesSnapshot,
+          plannedStartSlot: plannedStart, adminPassword: adminAuthSource === 'legacy_password' ? password : undefined }),
       });
-      if (transitionError) throw transitionError;
+      const result = await response.json() as { error?: string; season?: TournamentSeason; droppedTeams?: Array<{ name: string }> };
+      if (!response.ok) throw new Error(result.error || lifecycleText('publicationFailed'));
+      const nextSeason = result.season;
+      if (result.droppedTeams?.length) alert(lifecycleText('conflictingTeamsDropped', { teams: result.droppedTeams.map((team) => team.name).join(', ') }));
 
-      const nextSeason = Array.isArray(nextSeasonRows) ? nextSeasonRows[0] : nextSeasonRows;
       if (nextSeason) {
         setSeasons((current) =>
           [...current, nextSeason as TournamentSeason].sort((a, b) => a.season_number - b.season_number),
@@ -3604,7 +3652,7 @@ export const TournamentView: React.FC<{
           ? {
               ...prev,
               season: nextSeasonNumber,
-              status: mode === 'auto' ? 'active' : 'waiting',
+              status: mode === 'auto' ? 'active' : tournament.is_test || isSandbox ? 'waiting' : 'planning',
               schedule_start_slot: plannedStart,
               schedule_locked_at: null,
               registration_closed_at: mode === 'auto' ? new Date().toISOString() : null,
@@ -4179,15 +4227,12 @@ export const TournamentView: React.FC<{
       return;
     }
 
-    if (
-      !window.confirm(
-        addAsReserve
-          ? `Add ${name} (ID: ${htId}) to the reserve list? This will not change the schedule or registration status.`
-          : `Are you sure you want to add ${name} (ID: ${htId})?`,
-      )
-    ) {
-      return;
-    }
+    if (!(await confirm({
+      title: addAsReserve ? lifecycleText('addReserveTitle') : uiText('joinTournament'),
+      message: addAsReserve ? `Add ${name} (ID: ${htId}) to the reserve list?` :
+        `${name} (ID: ${htId})\n\n${lifecycleText(tournament?.status === 'planning' ? 'joinPlanningWarning' : 'joinRecruitingWarning')}`,
+      confirmLabel: uiText('add'), cancelLabel: uiText('cancel'),
+    }))) return;
 
     setIsSavingTeam(true);
     try {
@@ -5274,7 +5319,7 @@ export const TournamentView: React.FC<{
   };
 
   const canManageSchedule = Boolean(
-    canManageOperationalAdmin && tournament && !isPausedTournament && !isStoppedTournament,
+    canManageOperationalAdmin && tournament && !isPausedTournament && !isStoppedTournament && tournament.status !== 'planning',
   );
   const tournamentId = tournament?.id ?? null;
   const activeRealTeamsCount = teams.filter(isCurrentParticipantTeam).length;
@@ -5879,6 +5924,8 @@ export const TournamentView: React.FC<{
             {collectionLinks.length > 0 && (
               <nav className={styles.collectionLinks} aria-label={uiText('tournamentCollections')}>
                 {collectionLinks.map((collection) => (
+      isChangingPublication,
+      onPublicationChange: handlePublicationChange,
                   <Link key={collection.slug} href={toLocalePath(locale, `/collection/${collection.slug}`)}>
                     {collection.title} →
                   </Link>
@@ -6692,6 +6739,8 @@ export const TournamentView: React.FC<{
               <li>{uiText('shareThePublicPageForFixturesStandingsAndAnnouncements')}</li>
               <li>{uiText('generateTheScheduleWhenTheLineupIsReady')}</li>
               <li>{uiText('resultsWillBeUpdatedAutomaticallyButCanBeManually')}</li>
+      <ConfirmationDialog confirmation={confirmation} onResolve={resolveConfirmation} />
+
             </ul>
 
             <p>

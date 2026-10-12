@@ -201,12 +201,12 @@ export async function buildHomeSnapshot(supabase: SupabaseClient, now = Date.now
     .eq('is_admin', true).eq('tournament.is_private', false)
     .or('is_test.is.null,is_test.eq.false', { referencedTable: 'tournament' })
     .or('is_archived.is.null,is_archived.eq.false', { referencedTable: 'tournament' })
-    .or('status.is.null,status.not.in.(stopped,archived)', { referencedTable: 'tournament' })
+    .or('status.is.null,status.not.in.(planning,stopped,archived)', { referencedTable: 'tournament' })
     .gte('created_at', twoMonthsAgo.toISOString()).order('created_at', { ascending: false }).limit(3);
   if (weeklyError) throw new Error('Home Weekly read failed.');
   const weeklyPosts: HomeWeeklyPost[] = (weeklyRows || []).map((post) => {
     const tournament = (Array.isArray(post.tournament) ? post.tournament[0] : post.tournament) as unknown as HomeTournamentRow;
-    if (!tournament || tournament.is_private || tournament.is_test || tournament.is_archived || ['stopped', 'archived'].includes(tournament.status || '')) {
+    if (!tournament || tournament.is_private || tournament.is_test || tournament.is_archived || ['planning', 'stopped', 'archived'].includes(tournament.status || '')) {
       throw new Error('Home Weekly visibility failed.');
     }
     return {
@@ -221,7 +221,7 @@ export async function buildHomeSnapshot(supabase: SupabaseClient, now = Date.now
     };
   });
   const publicTournamentIds = ((tournamentsRaw || []) as HomeTournamentRow[])
-    .filter((tournament) => !tournament.is_test && !tournament.is_archived && tournament.status !== 'stopped' && tournament.status !== 'archived')
+    .filter((tournament) => !tournament.is_test && !tournament.is_archived && tournament.status !== 'planning' && tournament.status !== 'stopped' && tournament.status !== 'archived')
     .map((tournament) => tournament.id);
   const listingSignals = await loadTournamentListingSignals(supabase, publicTournamentIds);
   if (publicTournamentIds.length > 0) {
@@ -270,6 +270,7 @@ export async function buildHomeSnapshot(supabase: SupabaseClient, now = Date.now
       return Number.isFinite(timestamp) && timestamp >= Date.parse(activityCutoff) && timestamp <= now;
     };
     const addActivity = (entry: Omit<HomeActivityEntry, 'tournament_id' | 'tournament_slug' | 'tournament_name' | 'tournament_display_name'>) => {
+      if (tournament.status === 'planning') return;
       activity.push({
         ...entry,
         tournament_id: tournament.id,
@@ -406,6 +407,8 @@ export async function buildHomeSnapshot(supabase: SupabaseClient, now = Date.now
 
     // Global homepage promotion remains independent of collection membership.
     if (item.is_featured) featured.push(item);
+    if (item.status === 'planning') continue;
+    if (item.status === 'recruiting') { open.push(item); continue; }
     if (memberIds.has(item.id)) continue;
 
     if (isGenerated && !isClosed && item.status !== 'finished') active.push(item);
@@ -458,7 +461,7 @@ export async function buildHomeSnapshot(supabase: SupabaseClient, now = Date.now
 function getHomeNextRefreshAt(activity: HomeActivityEntry[], tournaments: HomeTournamentRow[], weekly: HomeWeeklyPost[], now: number): string | null {
   const boundaries = activity.flatMap((entry) => [Date.parse(entry.occurred_at), Date.parse(entry.occurred_at) + 7 * 86_400_000 + 1]);
   for (const tournament of tournaments) {
-    if (tournament.is_private || tournament.is_test || tournament.is_archived || ['stopped', 'archived'].includes(tournament.status || '')) continue;
+    if (tournament.is_private || tournament.is_test || tournament.is_archived || ['planning', 'stopped', 'archived'].includes(tournament.status || '')) continue;
     for (const round of tournament.rounds || []) {
       for (const match of round.matches || []) if (match.scheduled_for) boundaries.push(Date.parse(match.scheduled_for));
     }

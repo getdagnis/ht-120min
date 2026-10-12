@@ -109,6 +109,8 @@ export interface TournamentAdminController {
     canManageOperationalAdmin: boolean;
     canManageSchedule: boolean;
     canManageFeaturedTournaments: boolean;
+    isChangingPublication: boolean;
+    onPublicationChange: (target: 'planning' | 'recruiting') => Promise<void>;
     canToggleArchiveTournament: boolean;
     adminAccessMode: string;
     adminAccessName: string;
@@ -581,6 +583,8 @@ export const TournamentAdmin: React.FC<{ controller: TournamentAdminController }
     isArchivingTournament,
     onMoveStoppedToPaused: handleMoveStoppedToPaused,
     onSetPausedTournamentActive: handleSetPausedTournamentActive,
+    isChangingPublication,
+    onPublicationChange,
     onPauseTournament: handlePauseTournament,
     onStopTournament: handleStopTournament,
   } = lifecycle;
@@ -833,6 +837,17 @@ export const TournamentAdmin: React.FC<{ controller: TournamentAdminController }
                 <section className={`${adminStyles.teamsSection} ${isPressOfficer ? adminStyles.pressOnlyAdmin : ''}`}>
                   {!isPressOfficer && (
                     <>
+              {!isPressOfficer && !tournament.is_test && !isSandbox && !tournament.is_archived &&
+                !['finished', 'stopped', 'archived'].includes(tournament.status) && (
+                <SectionCard title={themeText(tournament.status === 'planning' ? 'planningState' : tournament.status === 'recruiting' ? 'recruitingState' : 'publishedState')}>
+                  <p>{themeText(tournament.status === 'planning' ? 'planningDescription' : 'recruitingDescription')}</p>
+                  <Button type="button" variant={tournament.status === 'planning' ? 'primary' : 'secondaryAction'}
+                    disabled={isChangingPublication}
+                    onClick={() => void onPublicationChange(tournament.status === 'planning' ? 'recruiting' : 'planning')}>
+                    {themeText(isChangingPublication ? 'changingPublication' : tournament.status === 'planning' ? 'publishTournament' : 'returnToPlanning')}
+                  </Button>
+                </SectionCard>
+              )}
                       <div id="admin-panel-settings">
                         <SectionCard
                           title="Tournament Settings"
@@ -2092,7 +2107,7 @@ export const TournamentAdmin: React.FC<{ controller: TournamentAdminController }
                                       : "Mark the season finished when it's complete. That lets you generate History report and start a new one.\nReset to planning to start from scratch (only available when no matches played, otherwise reschedule rounds)."}
                               </p>
                               <div className={adminStyles.seasonActions}>
-                                {isCurrentSeasonPlanned && (
+                                {isCurrentSeasonPlanned && tournament.status !== 'planning' && (
                                   <Button
                                     variant="primaryAction"
                                     size="sm"
@@ -2294,7 +2309,9 @@ export const TournamentAdmin: React.FC<{ controller: TournamentAdminController }
                   )}
 
                   <div id="admin-panel-lifecycle" className={adminStyles.footerActions}>
-                    {tournament.status === 'finished' ? (
+                    {tournament.status === 'planning' ? (
+                      <p className={adminStyles.lifecycleHelp}>{themeText('planningDescription')}</p>
+                    ) : tournament.status === 'finished' ? (
                       <>
                         <p className={adminStyles.lifecycleHelp}>
                           Until a new season is started, this tournament is considered finished. Its history stays

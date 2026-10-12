@@ -85,7 +85,7 @@ export function TeamOwnershipReclaim({ profile, onClaimed }: TeamOwnershipReclai
       const tournament = getTournament(team);
       const isActiveParticipation =
         Boolean(tournament) &&
-        (!tournament?.status || ['open', 'active', 'ongoing', 'paused'].includes(tournament.status));
+        (!tournament?.status || ['planning', 'recruiting', 'open', 'waiting', 'active', 'ongoing', 'paused'].includes(tournament.status));
       return (
         team.ht_team_id &&
         !team.is_placeholder &&

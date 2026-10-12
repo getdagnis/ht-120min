@@ -1,6 +1,6 @@
 # PROJECT_STATE.md
 
-Last updated: 2026-10-11
+Last updated: 2026-10-12
 
 This is the current-status ledger. Update it after meaningful implementation work. Be explicit about what is local, migrated, tested, deployed, or still unknown.
 
@@ -19,6 +19,8 @@ Forge locale catalog code and migration 106 are prepared locally. The source dic
 Forge Leagues is implemented locally as an admin-only small-league listing helper (1–1200 active teams), with separate population, teamdetails-only availability and opt-in matches checks. Browser/sessionStorage holds working progress; scan batches make no snapshot queries/writes, and completion saves one validated snapshot with revision conflict protection and idempotent retries. The earlier per-team lease/progress writes and three-second waits were removed. Migration `110_forge_league_snapshots.sql` and `111_expand_forge_league_snapshot_limit.sql` have owner-added applied markers (not independently verified); existing lease columns remain unused and no follow-up migration is required. Only explicitly scanned leagues are stored, without tournament/profile registrations or challenge actions. Live resource counts, CHPP and browser verification remain separate from local source/build evidence. See `docs/forge-leagues.md`.
 
 Tournament entry themes are implemented locally: optional Light/Dark defaults in advanced settings, a public projection column, and a visit-scoped theme override that preserves the visitor's global preference. Migration `112_tournament_default_theme.sql` is prepared and must be applied before deployment; no migration application or browser/live Supabase verification is claimed. See [architecture](docs/architecture.md#tournament-entry-theme).
+
+Planning/Recruiting lifecycle integration is prepared locally. Real creation starts in Planning, publication commits rosters atomically and withdraws other planning entries, Recruiting leads discovery, and guarded return-to-planning resets only the current unplayed schedule. Test/sandbox status behavior and existing administrator creation exceptions remain distinct. Migration `113_tournament_planning_and_recruiting.sql` is prepared, not agent-applied; the read-only roster/RPC preflight must be reviewed before conversion/deployment. Live DB concurrency, OAuth and UI behavior are unverified. See [tournament lifecycle](docs/tournament-lifecycle.md).
 
 ## Current checkout snapshot
 

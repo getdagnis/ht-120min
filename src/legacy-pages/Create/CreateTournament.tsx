@@ -11,6 +11,8 @@ import { nanoid } from 'nanoid';
 import { Button } from '../../components/Button/Button';
 import { HeroCard } from '../../components/Card/HeroCard';
 import { Modal } from '../../components/Modal/Modal';
+import { ConfirmationDialog } from '../../components/Modal/ConfirmationDialog';
+import { useConfirmationDialog } from '../../components/Modal/useConfirmationDialog';
 import { NoticeDialog } from '../../components/Modal/NoticeDialog';
 import { useNoticeDialog } from '../../components/Modal/useNoticeDialog';
 import { ReusableWidget } from '../../components/ReusableWidget/ReusableWidget';
@@ -93,7 +95,7 @@ const SidebarContent = ({ openTournaments, locale }: { openTournaments: OpenTour
   const t = useTranslations('CreateTournament');
   return (
     <aside className={styles.sidebar}>
-      <ReusableWidget title={t('openTournaments')} icon={<FolderOpen size={20} weight="bold" />}>
+      <ReusableWidget title={t('recruitingTournaments')} icon={<FolderOpen size={20} weight="bold" />}>
         <ul className={styles.widgetList}>
           {openTournaments.map((tournament) => (
             <li key={tournament.id} className={styles.widgetItem}>
@@ -196,6 +198,8 @@ interface FetchedTeamData {
 
 export const CreateTournament: React.FC = () => {
   const uiText = useTranslations('PublicUI.CreateTournament');
+  const lifecycleText = useTranslations('TournamentView');
+  const { confirmation, confirm, resolveConfirmation } = useConfirmationDialog();
   const t = useTranslations('CreateTournament');
   const { notice, showNotice: alert, closeNotice } = useNoticeDialog();
   const router = useRouter();
@@ -913,6 +917,10 @@ export const CreateTournament: React.FC = () => {
       return;
     }
 
+    if (!isSandbox && !(await confirm({
+      title: lifecycleText('planningState'), message: lifecycleText('creationPlanningWarning'),
+      confirmLabel: lifecycleText('createPlanningTournament'), cancelLabel: lifecycleText('cancelAction'),
+    }))) return;
     setLoading(true);
     const tournamentName =
       registrationType === 'sandbox' ? formatTournamentName(formData.name, { registrationType }) : formData.name.trim();
@@ -1038,8 +1046,17 @@ export const CreateTournament: React.FC = () => {
         power_region_rank: t.powerRegionRank ?? null,
       }));
 
-      const { error: teamsError } = await supabase.from('teams').insert(teamsToInsert);
-      if (teamsError) throw teamsError;
+      if (isSandbox) {
+        const { error: teamsError } = await supabase.from('teams').insert(teamsToInsert);
+        if (teamsError) throw teamsError;
+      } else {
+        const response = await fetch('/api/app?route=creation-roster', {
+          method: 'POST', credentials: 'same-origin', headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ tournamentId: tournament.id, teams: teamsToInsert }),
+        });
+        const result = await response.json() as { error?: string };
+        if (!response.ok) throw new Error(result.error || 'Could not register the creation roster.');
+      }
 
       const { error: chatSeedError } = await supabase.from('tournament_chat').insert({
         tournament_id: tournament.id,
@@ -1563,6 +1580,7 @@ export const CreateTournament: React.FC = () => {
     <div className={styles.wrapper}>
       <NoticeDialog message={notice} onClose={closeNotice} />
       <div className={styles.main}>
+      <ConfirmationDialog confirmation={confirmation} onResolve={resolveConfirmation} />
         <div className={styles.container}>
           <div className={styles.headerRow}>
             <button className={styles.closeBtn} onClick={() => router.push(toLocalePath(locale, '/'))}>

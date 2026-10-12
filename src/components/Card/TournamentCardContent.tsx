@@ -28,7 +28,9 @@ export function TournamentCardContent({
   const date = new Intl.DateTimeFormat(locale === 'lv' ? 'lv-LV' : 'en-GB', {
     day: '2-digit', month: '2-digit', year: 'numeric', timeZone: 'Europe/Riga',
   }).format(new Date(cardDate.value));
-  const stateLabel = state === 'finished'
+  const stateLabel = state === 'planning' ? t('tournamentCardPlanning', { season: tournament.season })
+    : state === 'recruiting' ? t('tournamentCardRecruiting', { season: tournament.season })
+    : state === 'finished'
     ? t('tournamentCardFinished', { season: tournament.season })
     : state === 'paused'
       ? t('tournamentCardPaused', { season: tournament.season })

@@ -334,7 +334,7 @@ export const Home: React.FC<{ initialData?: HomeInitialData }> = ({ initialData 
           !tournament.is_private &&
           !tournament.is_test &&
           !tournament.is_archived &&
-          tournament.status !== 'stopped' &&
+          tournament.status !== 'planning' && tournament.status !== 'stopped' &&
           tournament.status !== 'archived'
         );
       })
@@ -579,6 +579,8 @@ export const Home: React.FC<{ initialData?: HomeInitialData }> = ({ initialData 
 
             publicCards.set(t.id, tournamentObj as Tournament);
             if (tournamentObj.is_featured) featured.push(tournamentObj as Tournament);
+            if (t.status === 'planning') return;
+            if (t.status === 'recruiting') { open.push(tournamentObj as Tournament); return; }
             if (memberIds.has(t.id)) return;
 
             if (isGenerated && !isClosed && t.status !== 'finished') {
@@ -824,7 +826,7 @@ export const Home: React.FC<{ initialData?: HomeInitialData }> = ({ initialData 
               <section className={styles.activeSection}>
                 <div className={styles.sectionHeader}>
                   <FolderOpen size={24} className={styles.sectionIcon} />
-                  <h2>{t('waitingParticipants')}</h2>
+                  <h2>{t('recruitingTournaments')}</h2>
                 </div>
 
                 <div className={styles.tournamentGrid}>

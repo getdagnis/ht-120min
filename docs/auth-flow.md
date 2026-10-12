@@ -78,6 +78,12 @@ membership check; this exception does not alter join/reserve registration or cat
 eligibility. It requires the ordinary application login, not a Forge login or a
 production development-bypass cookie.
 
+Planning registrations are non-exclusive; Recruiting/Active/Paused commitments
+are exclusive. Final team selection explains withdrawal from other Planning lists.
+OAuth enrollment writes through the service-only registration RPC, while creation
+uses a verified creation-roster endpoint to preserve the narrowly scoped administrator
+exception. See [tournament lifecycle](tournament-lifecycle.md).
+
 ## 4. Troubleshooting Overlaps
 
 The system distinguishes flows using the `oauth_temp_sessions` table.

@@ -56,9 +56,10 @@ export type CollectionTournament = {
 export function collectionGroup(tournament: CollectionTournament) {
   if (['finished', 'stopped', 'archived'].includes(tournament.status || '') ||
       (tournament.totalMatches > 0 && tournament.totalMatches === tournament.completedMatches)) return 'completed';
+  if (tournament.status === 'planning') return 'planning';
   if (tournament.status === 'paused') return 'inactive';
   if (tournament.rounds.length > 0) return 'in-progress';
-  if (!tournament.registration_closed_at && (tournament.status === 'open' || tournament.status === 'waiting')) return 'registration-open';
+  if (!tournament.registration_closed_at && (['recruiting', 'open', 'waiting'].includes(tournament.status || ''))) return 'registration-open';
   return 'upcoming';
 }
 
@@ -85,6 +86,8 @@ function listingGroup(tournament: TournamentCardSummary) {
 function compareTournamentListingScore<T extends TournamentCardSummary>(a: T, b: T) {
   const aGroup = listingGroup(a);
   const bGroup = listingGroup(b);
+  if (a.status === 'recruiting' && b.status !== 'recruiting') return -1;
+  if (b.status === 'recruiting' && a.status !== 'recruiting') return 1;
   if (aGroup === 'in-progress' && bGroup !== 'in-progress') return -1;
   if (bGroup === 'in-progress' && aGroup !== 'in-progress') return 1;
   if (aGroup === 'in-progress') return compareTournamentActivityScore(a, b);
@@ -100,7 +103,7 @@ export function compareTournamentListing<T extends TournamentCardSummary>(a: T, 
 export function selectCollectionHomepageMembers<T extends CollectionTournament & TournamentCardSummary>(
   members: readonly CollectionMember<T>[], limit = 8,
 ): CollectionMember<T>[] {
-  return [...members]
+  return members.filter((member) => member.isFeatured || member.tournament.status !== 'planning')
     .sort((a, b) => compareCollectionMemberActivity(a, b))
     .slice(0, limit);
 }

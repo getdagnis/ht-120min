@@ -1,5 +1,9 @@
 const messages = {
   Home: {
+    tournamentCardPlanning: 'Planning • Season {season}',
+    tournamentCardRecruiting: 'Recruiting • Season {season}',
+    recruitingTournaments: 'Recruiting now',
+
     appName: 'HT-120min',
     forumTitle: 'Official HT-120min Hattrick forum',
     forumLink: 'HT-120min forum',
@@ -193,6 +197,35 @@ const messages = {
     autoArrangeLoadError: 'Auto-arrange status could not be loaded.',
   },
   TournamentView: {
+    autoStartSeason: 'Auto-start Season {season}',
+    planNextSeason: 'Plan Season {season}',
+    autoStartNextSeasonWarning: 'Archive the previous season and start the next one with the existing roster committed exclusively. These teams will be withdrawn from other planning tournaments. Any team already committed elsewhere will be removed from this roster. You can generate the new schedule when ready.',
+    planNextSeasonWarning: 'Archive the previous season and open the next one in Planning. Existing teams become re-application suggestions. Owners can re-apply without committing exclusively until you publish the tournament.',
+
+    publishBeforeScheduling: 'Publish the tournament for recruiting before starting the season or generating fixtures.',
+    createPlanningTournament: 'Create tournament',
+    cancelAction: 'Cancel',
+
+    planningState: 'Planning',
+    recruitingState: 'Recruiting',
+    publishedState: 'Published',
+    planningDescription: 'A shareable waiting list. Teams can join several planning tournaments. Publish when you are ready to recruit exclusively.',
+    recruitingDescription: 'Registered teams are committed to this tournament. Return to planning to release them and reset the current schedule.',
+    publishTournament: 'Publish tournament',
+    returnToPlanning: 'Return to planning',
+    changingPublication: 'Updating…',
+    publishWarning: 'Publish this tournament for recruiting? Registered teams will be committed here and withdrawn from their other planning tournaments. Teams already committed elsewhere will be removed from this roster.',
+    resetPlanningWarning: 'Return this tournament to planning? Registered teams and tournament settings will remain. All current-season rounds, fixtures, results and generated schedule data will be cleared, and registration will reopen. Older seasons will remain intact. This is only allowed before a match starts or finishes. Friendlies already booked in Hattrick will not be cancelled.',
+    joinPlanningTitle: 'Join the planning list',
+    joinRecruitingTitle: 'Commit to this tournament',
+    joinPlanningWarning: 'You can join several planning tournaments. When any of them is published for recruiting, your team will be committed there and withdrawn from the other planning lists. Joining another recruiting tournament also withdraws your team from these lists.',
+    joinRecruitingWarning: 'Joining commits your team exclusively to this tournament and withdraws it from every other planning list. Your team cannot join another tournament while committed here.',
+    cannotResetPlayedSeason: 'This season cannot return to planning because a match has already started or finished.',
+    publicationFailed: 'Could not change the tournament publication state. Please refresh and try again.',
+    conflictingTeamsDropped: 'These teams were removed because they are already committed elsewhere: {teams}',
+    creationPlanningWarning: 'Your tournament will start in Planning: shareable and joinable, but absent from homepage and featured lists. Teams can join several planning lists. Publishing commits the registered teams exclusively and withdraws them from other planning lists.',
+    addReserveTitle: 'Add reserve team',
+
     defaultColorTheme: 'Default color theme',
     visitorThemePreference: 'Visitor’s preference',
     lightTheme: 'Light',
@@ -207,6 +240,7 @@ const messages = {
     joining: 'Joining tournament...',
   },
   CreateTournament: {
+    recruitingTournaments: 'Recruiting now',
     creationTipsTitle: "Creation Tips",
     openTournaments: "Open Tournaments",
     join: "Join",
@@ -663,8 +697,9 @@ const messages = {
     CollectionView: {
       featured: "Featured tournaments",
       'in-progress': "In progress",
-      'registration-open': "Registration open",
+      'registration-open': "Recruiting now",
       upcoming: "Upcoming",
+      planning: 'Planning',
       inactive: "Inactive",
       completed: "Completed",
       noPublicTournamentsAreAvailableInThisCollectionYet: "No public tournaments are available in this collection yet.",

@@ -57,9 +57,10 @@ export function getCurrentRoundNumber(tournament: TournamentCardSummary) {
     : null);
 }
 
-export type TournamentCardState = 'finished' | 'paused' | 'ongoing' | 'waiting';
+export type TournamentCardState = 'planning' | 'recruiting' | 'finished' | 'paused' | 'ongoing' | 'waiting';
 
 export function getTournamentState(tournament: TournamentCardSummary): TournamentCardState {
+  if (tournament.status === 'planning' || tournament.status === 'recruiting') return tournament.status;
   if (tournament.status === 'finished' ||
       (tournament.totalMatches > 0 && tournament.totalMatches === tournament.completedMatches)) return 'finished';
   if (tournament.status === 'paused') return 'paused';

@@ -66,7 +66,10 @@ export async function invalidateTournamentData(tournamentId: string, password = 
     if (error) throw error;
     if (!data?.length) throw new Error('Tournament access required.');
   }
-  await invalidatePublicTournament(tournamentId);
+  const { data: planningIds, error } = await supabase.rpc('planning_membership_tournament_ids', { p_tournament_id: tournamentId });
+  if (error) throw error;
+  const affectedIds = new Set<string>([tournamentId, ...((planningIds ?? []) as string[])]);
+  await Promise.all([...affectedIds].map(invalidatePublicTournament));
 }
 
 export async function loadManageableCollections(tournamentId: string) {

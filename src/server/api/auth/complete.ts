@@ -177,7 +177,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       const tournament = getClaimTournament(team);
       const isActiveParticipation =
         Boolean(tournament) &&
-        (!tournament?.status || ['open', 'active', 'ongoing', 'paused'].includes(tournament.status));
+        (!tournament?.status || ['planning', 'recruiting', 'open', 'waiting', 'active', 'ongoing', 'paused'].includes(tournament.status));
 
       return (
         team.ht_team_id &&
@@ -267,6 +267,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     let nationalTeamRoles: Array<{ staffType: number; nationalTeamId: number; nationalTeamName: string; isU21: boolean }> = [];
     let teamDetailsRefreshed = false;
     let publicTournamentIds: string[] = [];
+    const affectedPlanningIds = new Set<string>();
 
     try {
       managerCompendium = await fetchManagerTeamsFromChpp(consumerKey, consumerSecret, {
@@ -317,7 +318,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     if (pending.tournament_id && team_id && team_name) {
       const { data: tournament, error: tErr } = await supabase
         .from('tournaments')
-        .select('slug, country_limit, country_limit_format, league_category')
+        .select('slug, status, country_limit, country_limit_format, league_category')
         .eq('id', pending.tournament_id)
         .single();
 
@@ -392,6 +393,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         powerRegionRank: teamDetails?.powerRegionRank ?? null,
         joinStory,
         skipMembershipCheck: isSuperAdmin,
+        affectedPlanningIds: tournament.status === 'planning' ? undefined : affectedPlanningIds,
       });
 
       redirectUrl = `/t/${tournament.slug}?joined=true`;
@@ -487,7 +489,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       manager_name: pending.manager_name,
       redirect: redirectUrl,
       tournamentId: pending.tournament_id || null,
-      tournamentIds: publicTournamentIds,
+      tournamentIds: [...new Set([...publicTournamentIds, ...affectedPlanningIds])],
     });
   } catch (error: unknown) {
     console.error('Auth Complete Handler Error:', error);
