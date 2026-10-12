@@ -422,7 +422,11 @@ export function ForgeLeagues() {
         )}
       </SectionCard>
       {snapshot && (
-        <SectionCard title={`${saved.dirty ? 'Working list' : 'Saved list'} · ${snapshot.teams.length} teams`}>
+        <SectionCard
+          title={view === 'available'
+            ? `Available in ${league?.name || 'this league'} • ${teams.length} teams`
+            : `${saved.dirty ? 'Working list' : 'Saved list'} · ${snapshot.teams.length} teams`}
+        >
           <div className={styles.buttons}>
             {(['all', 'available', 'users'] as const).map((item) => (
               <Button

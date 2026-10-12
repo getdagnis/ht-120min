@@ -65,8 +65,16 @@ import {
 const HAS_CREATED_TOURNAMENT_KEY = 'ht120_has_created_tournament';
 
 const CREATION_TIP_IDS = [
-  'name', 'slug', 'gender', 'registration_type', 'scoring_mode', 'private',
-  'league_restriction', 'description', 'teams-and-schedule', 'sandbox',
+  'name',
+  'slug',
+  'gender',
+  'registration_type',
+  'scoring_mode',
+  'private',
+  'league_restriction',
+  'description',
+  'teams-and-schedule',
+  'sandbox',
 ] as const;
 
 const CreationTipsWidget = () => {
@@ -76,32 +84,36 @@ const CreationTipsWidget = () => {
     title: t(`creationTips.${id}.title`),
     body: t(`creationTips.${id}.body`),
   }));
-  return <CompactAccordionWidget title={t('creationTipsTitle')} icon={<Question size={20} weight="bold" />} items={tips} />;
+  return (
+    <CompactAccordionWidget title={t('creationTipsTitle')} icon={<Question size={20} weight="bold" />} items={tips} />
+  );
 };
 
 const SidebarContent = ({ openTournaments, locale }: { openTournaments: OpenTournamentSummary[]; locale: string }) => {
   const t = useTranslations('CreateTournament');
-  return <aside className={styles.sidebar}>
-    <ReusableWidget title={t('openTournaments')} icon={<FolderOpen size={20} weight="bold" />}>
-      <ul className={styles.widgetList}>
-        {openTournaments.map((tournament) => (
-          <li key={tournament.id} className={styles.widgetItem}>
-            <strong>
-              <Link href={toLocalePath(locale, `/t/${tournament.slug}`)}>{tournament.name}</Link>
-            </strong>
-            <span className={styles.widgetMeta}>
-              <span>{formatOpenTournamentMeta(tournament)}</span>
-              <Link href={toLocalePath(locale, `/t/${tournament.slug}`)} className={styles.joinLink}>
-                {t('join')} <ArrowRight size={12} weight="bold" />
-              </Link>
-            </span>
-          </li>
-        ))}
-      </ul>
-    </ReusableWidget>
+  return (
+    <aside className={styles.sidebar}>
+      <ReusableWidget title={t('openTournaments')} icon={<FolderOpen size={20} weight="bold" />}>
+        <ul className={styles.widgetList}>
+          {openTournaments.map((tournament) => (
+            <li key={tournament.id} className={styles.widgetItem}>
+              <strong>
+                <Link href={toLocalePath(locale, `/t/${tournament.slug}`)}>{tournament.name}</Link>
+              </strong>
+              <span className={styles.widgetMeta}>
+                <span>{formatOpenTournamentMeta(tournament)}</span>
+                <Link href={toLocalePath(locale, `/t/${tournament.slug}`)} className={styles.joinLink}>
+                  {t('join')} <ArrowRight size={12} weight="bold" />
+                </Link>
+              </span>
+            </li>
+          ))}
+        </ul>
+      </ReusableWidget>
 
-    <CreationTipsWidget />
-  </aside>;
+      <CreationTipsWidget />
+    </aside>
+  );
 };
 
 interface LocalTeam {
@@ -414,7 +426,7 @@ export const CreateTournament: React.FC = () => {
     powerRegionRank?: number;
   }> => {
     try {
-      const res = await fetch(`/api/teams/info?team_id=${teamId}`);
+      const res = await fetch(`/api/teams/info?team_id=${teamId}&creation=1`);
       if (!res.ok) return {};
       const data = await res.json();
       return {
@@ -445,8 +457,11 @@ export const CreateTournament: React.FC = () => {
 
     setModalLoading(true);
     try {
+      // Establish the verified organizer identity before checking creation eligibility.
+      await establishCreationSession(linkedManager.selection_token);
+
       // 1. Check safeguard (already in another tournament?)
-      const res = await fetch(`/api/teams/info?team_id=${team.teamId}`);
+      const res = await fetch(`/api/teams/info?team_id=${team.teamId}&creation=1`);
       const data = await res.json();
 
       if (!res.ok) {
@@ -506,7 +521,6 @@ export const CreateTournament: React.FC = () => {
       setShowModal(false);
       setLinkedManager(null);
 
-      await establishCreationSession(linkedManager.selection_token);
       await clearPendingJoin(linkedManager.selection_token);
       router.replace(toLocalePath(locale, '/create?step=teams'));
     } catch (err: unknown) {
@@ -551,7 +565,7 @@ export const CreateTournament: React.FC = () => {
     if (!htId || htId.length < 6) return;
     setIsFetchingTeamData(true);
     try {
-      const res = await fetch(`/api/teams/info?team_id=${htId}`);
+      const res = await fetch(`/api/teams/info?team_id=${htId}&creation=1`);
       const data = (await res.json()) as FetchedTeamData & { error?: string };
       if (!res.ok) throw new Error(data.error || 'Failed to fetch team data');
 
@@ -607,9 +621,7 @@ export const CreateTournament: React.FC = () => {
       },
     );
 
-    return validation.eligible
-      ? null
-      : validation.reason || uiText('teamDoesNotMatchSelectedRestrictions');
+    return validation.eligible ? null : validation.reason || uiText('teamDoesNotMatchSelectedRestrictions');
   };
 
   const getFirstTeamSettingsMismatch = (
@@ -1291,7 +1303,14 @@ export const CreateTournament: React.FC = () => {
                       <option value="appg">{uiText('aPPG120120MinEventBasedAveragePoints')}</option>
                     )}
                   </select>
-                  <p className={styles.small}>{t(`scoringHelp.${formData.scoring_mode}` as 'scoringHelp.120min' | 'scoringHelp.points' | 'scoringHelp.appg')}</p>
+                  <p className={styles.small}>
+                    {t(
+                      `scoringHelp.${formData.scoring_mode}` as
+                        | 'scoringHelp.120min'
+                        | 'scoringHelp.points'
+                        | 'scoringHelp.appg',
+                    )}
+                  </p>
                 </div>
                 <div className={styles.field}>
                   <label htmlFor="max_teams">{t('maxTeams')}</label>
@@ -1437,7 +1456,7 @@ export const CreateTournament: React.FC = () => {
                 </div>
 
                 <div className={styles.actions}>
-                  <Button type="submit" fullWidth disabled={loading} variant="secondary">
+                  <Button type="submit" fullWidth disabled={loading} variant="secondaryYellow">
                     {uiText('continue')} <ArrowRight size={18} weight="bold" />
                   </Button>
                   <Button type="button" variant="outlineModal" size="sm" onClick={clearAll} disabled={loading}>
@@ -1473,26 +1492,25 @@ export const CreateTournament: React.FC = () => {
                 ) : (
                   <>
                     {isSandbox ? (
-                      <p>
-                        {uiText('linkYourOrganizerProfileYourTestTeamsCanStay')}
-                      </p>
+                      <p>{uiText('linkYourOrganizerProfileYourTestTeamsCanStay')}</p>
                     ) : !isValidated ? (
-                      <p>
-                        {uiText('aSelfOrganizedCupYouCanJoinWithOne')}
-                      </p>
+                      <p>{uiText('aSelfOrganizedCupYouCanJoinWithOne')}</p>
                     ) : eligibleTeams.length === 1 ? (
                       <p>
-                        {uiText('youHaveOneTeamEligibleForA')} <strong>{categoryLabel}</strong> {uiText('tournamentSelectItToContinue')}
+                        {uiText('youHaveOneTeamEligibleForA')} <strong>{categoryLabel}</strong>{' '}
+                        {uiText('tournamentSelectItToContinue')}
                       </p>
                     ) : (
                       <p>
-                        {uiText('chooseWhichTeamWillJoinThis')} <strong>{categoryLabel}</strong> {uiText('tournamentOtherManagersJoinThemselvesViaThePublicLink')}
+                        {uiText('chooseWhichTeamWillJoinThis')} <strong>{categoryLabel}</strong>{' '}
+                        {uiText('tournamentOtherManagersJoinThemselvesViaThePublicLink')}
                       </p>
                     )}
 
                     {!isSandbox && eligibleTeams.length === 0 && !modalLoading && (
                       <p className={styles.empty}>
-                        {uiText('noneOfYourTeamsMatchThisTournamentCategory')}{categoryLabel}).
+                        {uiText('noneOfYourTeamsMatchThisTournamentCategory')}
+                        {categoryLabel}).
                       </p>
                     )}
 
@@ -1559,12 +1577,11 @@ export const CreateTournament: React.FC = () => {
 
             {!isLinked && (
               <div className={styles.linkSection}>
-                <Button size="lg" variant="primary" onClick={handleHattrickLink} disabled={loading}>
-                  <ArrowRight size={20} weight="bold" /> {isValidated ? uiText('linkWithHattrick') : uiText('linkOrganizerProfile')}
+                <Button size="lg" variant="secondaryYellow" onClick={handleHattrickLink} disabled={loading}>
+                  <ArrowRight size={20} weight="bold" />{' '}
+                  {isValidated ? uiText('linkWithHattrick') : uiText('linkOrganizerProfile')}
                 </Button>
-                {isSandbox && (
-                  <p>{uiText('requiredToManageTheTestTournamentAsItsOrganizer')}</p>
-                )}
+                {isSandbox && <p>{uiText('requiredToManageTheTestTournamentAsItsOrganizer')}</p>}
               </div>
             )}
 
@@ -1580,13 +1597,15 @@ export const CreateTournament: React.FC = () => {
                     <strong>{creator.name}</strong>
                     <span>{[creator.managerName, `ID ${creator.htId}`].filter(Boolean).join(' · ')}</span>
                   </div>
-                  <button className={styles.removeCreatorBtnInline} onClick={goBackToSettings} title={uiText('removeTeam')}>
+                  <button
+                    className={styles.removeCreatorBtnInline}
+                    onClick={goBackToSettings}
+                    title={uiText('removeTeam')}
+                  >
                     <X size={20} weight="bold" />
                   </button>
                 </div>
-                <p className={styles.finalizeNote}>
-                  {uiText('otherManagersJoinViaThePublicLinkAfterThe')}
-                </p>
+                <p className={styles.finalizeNote}>{uiText('otherManagersJoinViaThePublicLinkAfterThe')}</p>
               </div>
             )}
 
@@ -1621,7 +1640,7 @@ export const CreateTournament: React.FC = () => {
                   {newTeamId.length >= 6 && !newTeamName && (
                     <Button
                       type="button"
-                      variant="secondary"
+                      variant="primary"
                       onClick={() => fetchTeamData(newTeamId)}
                       disabled={isFetchingTeamData}
                       title={uiText('getTeamData')}
@@ -1630,7 +1649,7 @@ export const CreateTournament: React.FC = () => {
                     </Button>
                   )}
                   {newTeamName && (
-                    <Button type="submit" variant="secondary" size="md">
+                    <Button type="submit" variant="secondaryYellow" size="md">
                       {uiText('addIt')}
                     </Button>
                   )}
@@ -1646,7 +1665,7 @@ export const CreateTournament: React.FC = () => {
                       <>
                         <Button
                           type="button"
-                          variant="secondary"
+                          variant="primary"
                           size="lg"
                           onClick={fetchRandomSandboxTeam}
                           disabled={isFetchingTeamData || sandboxTeamLimitReached}
@@ -1684,7 +1703,7 @@ export const CreateTournament: React.FC = () => {
                           </span>
                         </div>
                         <div className={styles.sandboxCandidateActions}>
-                          <Button type="button" variant="secondary" size="sm" onClick={addSandboxTeam}>
+                          <Button type="button" variant="primary" size="sm" onClick={addSandboxTeam}>
                             {uiText('addIt')}
                           </Button>
                           <Button
@@ -1744,7 +1763,7 @@ export const CreateTournament: React.FC = () => {
                       {newTeamId.length >= 5 && !newTeamName && (
                         <Button
                           type="button"
-                          variant="secondary"
+                          variant="primary"
                           onClick={() => fetchSandboxManualTeamData(newTeamId)}
                           disabled={isFetchingTeamData || sandboxTeamLimitReached}
                           title={uiText('getTeamData')}
@@ -1753,7 +1772,7 @@ export const CreateTournament: React.FC = () => {
                         </Button>
                       )}
                       {newTeamName && (
-                        <Button type="submit" variant="secondary" size="md" disabled={sandboxTeamLimitReached}>
+                        <Button type="submit" variant="primary" size="md" disabled={sandboxTeamLimitReached}>
                           {uiText('addIt')}
                         </Button>
                       )}
@@ -1803,7 +1822,12 @@ export const CreateTournament: React.FC = () => {
                           </span>
                           <span className={styles.teamMeta}>
                             {leagueFlagUrl && (
-                              <img src={leagueFlagUrl} alt={uiText('league')} className={styles.teamFlag} loading="lazy" />
+                              <img
+                                src={leagueFlagUrl}
+                                alt={uiText('league')}
+                                className={styles.teamFlag}
+                                loading="lazy"
+                              />
                             )}
                             {countryFlagUrl && (
                               <img
@@ -1813,7 +1837,9 @@ export const CreateTournament: React.FC = () => {
                                 loading="lazy"
                               />
                             )}
-                            <span>{uiText('iD')} {team.htId}</span>
+                            <span>
+                              {uiText('iD')} {team.htId}
+                            </span>
                           </span>
                         </div>
                       </div>

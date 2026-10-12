@@ -4,6 +4,8 @@ import { getAuthHeader } from '../_lib/chpp-auth.js';
 import { validateTeamEligibility } from '../_lib/eligibility.js';
 import { parseTeamDetailsXml } from '../_lib/chpp-xml.js';
 import { hasSuperAdminBypassCookie } from '../_lib/superadmin-bypass.js';
+import { getAppSessionSecret, verifyAppSessionCookie } from '../_lib/app-session.js';
+import { getForgeSuperadminId } from '../_lib/forge-session.js';
 
 interface TeamDetails {
   leagueName?: string;
@@ -16,7 +18,7 @@ interface TeamDetails {
 }
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
-  const { team_id, tournament_id, sandbox, league_category } = req.query;
+  const { team_id, tournament_id, sandbox, league_category, creation } = req.query;
   const isSandboxLookup = sandbox === '1' || sandbox === 'true';
 
   if (!team_id) {
@@ -47,8 +49,14 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
     // 2. Check if team is in another active tournament
     const isSuperAdmin = hasSuperAdminBypassCookie(req.headers.cookie);
+    const sessionSecret = getAppSessionSecret();
+    const session = sessionSecret ? verifyAppSessionCookie(req.headers.cookie, sessionSecret) : null;
+    const siteAdminId = getForgeSuperadminId();
+    // Creation may reuse teams only for the server-verified site administrator.
+    // This does not extend the exception to joins or category eligibility.
+    const isAdminCreationLookup = creation === '1' && !tournament_id && siteAdminId !== null && session?.userId === siteAdminId;
 
-    if (!isSuperAdmin && !isSandboxLookup) {
+    if (!isSuperAdmin && !isSandboxLookup && !isAdminCreationLookup) {
       const { data: existing } = await supabase
         .from('teams')
         .select('name, tournament_id, tournaments(name, status, is_test, registration_type)')

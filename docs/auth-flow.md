@@ -69,6 +69,15 @@ This document outlines the three primary Hattrick OAuth-based flows in the appli
 - **Logic**: `is_creation=true` is set. The user is redirected to the localized `/[locale]/create` flow.
 - **UI**: The creation form's "Step 2" (Team Selection) is automatically populated with the user's data.
 
+Creator selection establishes the signed application session from the server-validated
+creation selection token before checking the team. Creation team lookups pass `creation=1` to `/api/teams/info`. The server exempts
+only a verified signed application session matching the configured site administrator
+from the active-other-tournament restriction, and only when no existing tournament ID
+is supplied. The query flag alone grants no exception. Regular organizers retain the
+membership check; this exception does not alter join/reserve registration or category
+eligibility. It requires the ordinary application login, not a Forge login or a
+production development-bypass cookie.
+
 ## 4. Troubleshooting Overlaps
 
 The system distinguishes flows using the `oauth_temp_sessions` table.
