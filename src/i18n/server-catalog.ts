@@ -4,7 +4,7 @@ import { getServiceSupabase } from '../server/api/_lib/supabase.js';
 import { getAppSessionSecret, verifyAppSessionCookie } from '../server/api/_lib/app-session.js';
 import { verifyForgeSessionCookie } from '../server/api/_lib/forge-session.js';
 import { defaultLocale, localeNames, locales, type Locale } from './config';
-import { applyCatalogValues, publicLocaleOptions, type CatalogValues, type PublicLocaleOption } from './catalog';
+import { applyCatalogValues, publicLocaleOptions, authorizedLocaleMenuOptions, type CatalogValues, type PublicLocaleOption, type LocaleMenuOption } from './catalog';
 import { getDictionary, type Dictionary } from './get-dictionary';
 
 export type { PublicLocaleOption } from './catalog';
@@ -50,6 +50,21 @@ export async function loadRuntimeDictionary(locale: Locale, preview = false): Pr
     console.warn('Published locale catalog unavailable; using source dictionary.', { locale, error });
   }
   return result;
+}
+
+export async function loadLocaleMenuOptions(cookieHeader: string, publicOptions: PublicLocaleOption[]): Promise<LocaleMenuOption[]> {
+  const admin = Boolean(verifyForgeSessionCookie(cookieHeader));
+  const secret = getAppSessionSecret();
+  const session = secret ? verifyAppSessionCookie(cookieHeader, secret) : null;
+  if (!admin && !session) return publicOptions;
+  try {
+    const { data, error } = await getServiceSupabase(6000).from('locale_catalog_settings')
+      .select('locale, status, native_name, editor_ht_ids').in('locale', [...locales]);
+    if (error) throw error;
+    return authorizedLocaleMenuOptions(data || [], session?.userId ?? null, admin);
+  } catch {
+    return publicOptions;
+  }
 }
 
 export function availableLocaleOrDefault(options: PublicLocaleOption[], locale: Locale) {

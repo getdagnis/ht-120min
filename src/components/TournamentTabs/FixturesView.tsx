@@ -174,9 +174,13 @@ function ratingsDisplay(row: SharedFixtureRatings | undefined) {
     setPiecesSkill: row.set_pieces_skill,
     specialtyPositions: row.specialty_positions ?? [],
     ratings: {
-      leftAttack: format(row.left_attack), centreAttack: format(row.centre_attack), rightAttack: format(row.right_attack),
-      midfield: format(row.midfield), leftDefence: format(row.left_defence),
-      centreDefence: format(row.centre_defence), rightDefence: format(row.right_defence),
+      leftAttack: format(row.left_attack),
+      centreAttack: format(row.centre_attack),
+      rightAttack: format(row.right_attack),
+      midfield: format(row.midfield),
+      leftDefence: format(row.left_defence),
+      centreDefence: format(row.centre_defence),
+      rightDefence: format(row.right_defence),
     },
   };
 }
@@ -236,23 +240,37 @@ export const FixturesView: React.FC<FixturesViewProps> = ({
   const [ratingsBoundaryNow, setRatingsBoundaryNow] = React.useState(0);
   React.useEffect(() => {
     const current = Date.now();
-    const nextKickoff = Math.min(...rounds.flatMap((round) => round.matches
-      .map((match) => match.scheduled_for ? new Date(match.scheduled_for).getTime() : NaN)
-      .filter((time) => Number.isFinite(time) && time > current)));
+    const nextKickoff = Math.min(
+      ...rounds.flatMap((round) =>
+        round.matches
+          .map((match) => (match.scheduled_for ? new Date(match.scheduled_for).getTime() : NaN))
+          .filter((time) => Number.isFinite(time) && time > current),
+      ),
+    );
     if (!Number.isFinite(nextKickoff)) return;
-    const timer = window.setTimeout(() => setRatingsBoundaryNow(Date.now()),
-      Math.min(nextKickoff - current + 1, 2_147_483_647));
+    const timer = window.setTimeout(
+      () => setRatingsBoundaryNow(Date.now()),
+      Math.min(nextKickoff - current + 1, 2_147_483_647),
+    );
     return () => window.clearTimeout(timer);
   }, [rounds, ratingsBoundaryNow]);
   const [privateRatingsState, setPrivateRatingsState] = React.useState<{
-    tournamentId: string; userId: number; fixtures: Record<string, PrivateFixtureRatings>;
+    tournamentId: string;
+    userId: number;
+    fixtures: Record<string, PrivateFixtureRatings>;
   } | null>(null);
-  const [ratingsAuth, setRatingsAuth] = React.useState<'checking' | 'ready' | 'session-expired' | 'reconnect' | 'unavailable'>('checking');
+  const [ratingsAuth, setRatingsAuth] = React.useState<
+    'checking' | 'ready' | 'session-expired' | 'reconnect' | 'unavailable'
+  >('checking');
   const [ratingsPromptDismissed, setRatingsPromptDismissed] = React.useState(false);
   const ratingsTournamentId = tournament?.id;
-  const privateRatings = privateRatingsState && !isHistorical &&
+  const privateRatings =
+    privateRatingsState &&
+    !isHistorical &&
     privateRatingsState.tournamentId === ratingsTournamentId &&
-    privateRatingsState.userId === currentHtUserId ? privateRatingsState.fixtures : {};
+    privateRatingsState.userId === currentHtUserId
+      ? privateRatingsState.fixtures
+      : {};
   const privateRatingsRequest = React.useRef(0);
   const fixtureText = useTranslations('fixtures');
   const [manualVisibleRoundsCount, setManualVisibleRoundsCount] = React.useState<number | null>(null);
@@ -277,11 +295,13 @@ export const FixturesView: React.FC<FixturesViewProps> = ({
   const [isSendingChallenge, setIsSendingChallenge] = React.useState(false);
   const [challengeSuccess, setChallengeSuccess] = React.useState<string | null>(null);
   const [challengeSelection, setChallengeSelection] = React.useState<FixtureChallengeSelection | null>(null);
-  const [autoArrangePreferences, setAutoArrangePreferences] = React.useState<Array<{
-    teamId: string;
-    teamName: string;
-    enabled: boolean;
-  }>>([]);
+  const [autoArrangePreferences, setAutoArrangePreferences] = React.useState<
+    Array<{
+      teamId: string;
+      teamName: string;
+      enabled: boolean;
+    }>
+  >([]);
   const [autoArrangeLoading, setAutoArrangeLoading] = React.useState(false);
   const [autoArrangeSavingTeamId, setAutoArrangeSavingTeamId] = React.useState<string | null>(null);
   const [autoArrangeError, setAutoArrangeError] = React.useState<string | null>(null);
@@ -455,30 +475,35 @@ export const FixturesView: React.FC<FixturesViewProps> = ({
     setChallengeSelection(null);
   }, [isSendingChallenge]);
 
-  const saveAutoArrangePreference = React.useCallback(async (teamId: string, enabled: boolean) => {
-    if (!tournamentId || !teamId || autoArrangeSavingTeamId) return;
-    setAutoArrangeSavingTeamId(teamId);
-    setAutoArrangeError(null);
-    try {
-      const response = await fetch('/api/app?route=auto-arrange-preferences', {
-        method: 'POST',
-        credentials: 'include',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ tournamentId, seasonNumber: season, teamId, enabled }),
-      });
-      const payload = (await response.json()) as { teamId?: string; enabled?: boolean; error?: string };
-      if (!response.ok || payload.teamId !== teamId || typeof payload.enabled !== 'boolean') {
-        throw new Error(payload.error || 'Could not save auto-arrange preference.');
+  const saveAutoArrangePreference = React.useCallback(
+    async (teamId: string, enabled: boolean) => {
+      if (!tournamentId || !teamId || autoArrangeSavingTeamId) return;
+      setAutoArrangeSavingTeamId(teamId);
+      setAutoArrangeError(null);
+      try {
+        const response = await fetch('/api/app?route=auto-arrange-preferences', {
+          method: 'POST',
+          credentials: 'include',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ tournamentId, seasonNumber: season, teamId, enabled }),
+        });
+        const payload = (await response.json()) as { teamId?: string; enabled?: boolean; error?: string };
+        if (!response.ok || payload.teamId !== teamId || typeof payload.enabled !== 'boolean') {
+          throw new Error(payload.error || 'Could not save auto-arrange preference.');
+        }
+        setAutoArrangePreferences((previous) =>
+          previous.map((preference) =>
+            preference.teamId === teamId ? { ...preference, enabled: payload.enabled as boolean } : preference,
+          ),
+        );
+      } catch (error) {
+        setAutoArrangeError(error instanceof Error ? error.message : 'Could not save auto-arrange preference.');
+      } finally {
+        setAutoArrangeSavingTeamId(null);
       }
-      setAutoArrangePreferences((previous) => previous.map((preference) =>
-        preference.teamId === teamId ? { ...preference, enabled: payload.enabled as boolean } : preference,
-      ));
-    } catch (error) {
-      setAutoArrangeError(error instanceof Error ? error.message : 'Could not save auto-arrange preference.');
-    } finally {
-      setAutoArrangeSavingTeamId(null);
-    }
-  }, [autoArrangeSavingTeamId, season, tournamentId]);
+    },
+    [autoArrangeSavingTeamId, season, tournamentId],
+  );
 
   const submitChallenge = React.useCallback(async () => {
     if (!tournamentId || !challengeMatchId || isSendingChallenge) return;
@@ -593,23 +618,34 @@ export const FixturesView: React.FC<FixturesViewProps> = ({
     const request = ++privateRatingsRequest.current;
     if (!ratingsTournamentId || !currentHtUserId || isHistorical) return;
     try {
-      const response = await fetch(`/api/app?route=fixture-ratings&tournamentId=${encodeURIComponent(ratingsTournamentId)}`, {
-        cache: 'no-store', credentials: 'include',
-      });
-      const body = await response.json().catch(() => null) as { fixtures?: PrivateFixtureRatings[]; error?: string } | null;
+      const response = await fetch(
+        `/api/app?route=fixture-ratings&tournamentId=${encodeURIComponent(ratingsTournamentId)}`,
+        {
+          cache: 'no-store',
+          credentials: 'include',
+        },
+      );
+      const body = (await response.json().catch(() => null)) as {
+        fixtures?: PrivateFixtureRatings[];
+        error?: string;
+      } | null;
       if (!response.ok) {
         if (request === privateRatingsRequest.current) {
           setPrivateRatingsState(null);
-          setRatingsAuth(response.status === 401 && body?.error === 'Please sign in with Hattrick first.'
-            ? 'session-expired'
-            : body?.error && /authorization|reauthorize|sign in again/i.test(body.error)
-              ? 'reconnect' : 'unavailable');
+          setRatingsAuth(
+            response.status === 401 && body?.error === 'Please sign in with Hattrick first.'
+              ? 'session-expired'
+              : body?.error && /authorization|reauthorize|sign in again/i.test(body.error)
+                ? 'reconnect'
+                : 'unavailable',
+          );
         }
         return;
       }
       if (request === privateRatingsRequest.current) {
         setPrivateRatingsState({
-          tournamentId: ratingsTournamentId, userId: currentHtUserId,
+          tournamentId: ratingsTournamentId,
+          userId: currentHtUserId,
           fixtures: Object.fromEntries((body?.fixtures || []).map((entry) => [entry.fixtureId, entry])),
         });
         setRatingsAuth('ready');
@@ -623,7 +659,9 @@ export const FixturesView: React.FC<FixturesViewProps> = ({
   }, [ratingsTournamentId, currentHtUserId, isHistorical]);
 
   React.useEffect(() => {
-    const timer = window.setTimeout(() => { void reloadPrivateRatings(); }, 0);
+    const timer = window.setTimeout(() => {
+      void reloadPrivateRatings();
+    }, 0);
     return () => {
       window.clearTimeout(timer);
       privateRatingsRequest.current += 1;
@@ -632,10 +670,12 @@ export const FixturesView: React.FC<FixturesViewProps> = ({
 
   const updateRatings = async (fixtureId: string, side: 'home' | 'away', action: 'share' | 'update' | 'remove') => {
     const response = await fetch('/api/app?route=fixture-ratings', {
-      method: 'POST', credentials: 'include', headers: { 'Content-Type': 'application/json' },
+      method: 'POST',
+      credentials: 'include',
+      headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ fixtureId, side, action }),
     });
-    const body = await response.json().catch(() => null) as { error?: string } | null;
+    const body = (await response.json().catch(() => null)) as { error?: string } | null;
     if (!response.ok) {
       if (response.status === 401 && body?.error === 'Please sign in with Hattrick first.') {
         setPrivateRatingsState(null);
@@ -673,12 +713,21 @@ export const FixturesView: React.FC<FixturesViewProps> = ({
         .some((roundStart) => roundStart !== null && roundStart <= nowMs);
     });
   }, [nowMs, resolveMatchDate, rounds, warnings]);
-  const showRatingsAuthPrompt = !isHistorical && Boolean(currentHtUserId) && !ratingsPromptDismissed &&
+  const showRatingsAuthPrompt =
+    !isHistorical &&
+    Boolean(currentHtUserId) &&
+    !ratingsPromptDismissed &&
     (ratingsAuth === 'session-expired' || ratingsAuth === 'reconnect') &&
-    rounds.some((round) => round.matches.some((match) =>
-      match.status === 'arranged' && !match.completed && Boolean(match.ht_match_id) &&
-      Boolean(match.scheduled_for && new Date(match.scheduled_for).getTime() > nowMs) &&
-      [match.home_team, match.away_team].some((team) => Number(team?.hattrick_user_id) === currentHtUserId)));
+    rounds.some((round) =>
+      round.matches.some(
+        (match) =>
+          match.status === 'arranged' &&
+          !match.completed &&
+          Boolean(match.ht_match_id) &&
+          Boolean(match.scheduled_for && new Date(match.scheduled_for).getTime() > nowMs) &&
+          [match.home_team, match.away_team].some((team) => Number(team?.hattrick_user_id) === currentHtUserId),
+      ),
+    );
 
   return (
     <div className={styles.rounds}>
@@ -725,10 +774,9 @@ export const FixturesView: React.FC<FixturesViewProps> = ({
                 const isPersonalPreference = autoArrangePreferences.length === 1;
                 const label = isPersonalPreference
                   ? fixtureText(preference.enabled ? 'autoArrangeMyFixtures' : 'autoArrangeMyFixturesDisabled')
-                  : fixtureText(
-                      preference.enabled ? 'autoArrangeTeamFixtures' : 'autoArrangeTeamFixturesDisabled',
-                      { team: preference.teamName },
-                    );
+                  : fixtureText(preference.enabled ? 'autoArrangeTeamFixtures' : 'autoArrangeTeamFixturesDisabled', {
+                      team: preference.teamName,
+                    });
                 const tooltipId = `auto-arrange-${tournament?.id}-${season}-${preference.teamId}`;
                 return (
                   <div className={styles.autoArrangeControl} key={preference.teamId}>
@@ -740,7 +788,11 @@ export const FixturesView: React.FC<FixturesViewProps> = ({
                       label={label}
                     />
                     <Tooltip id={tooltipId} content={fixtureText('autoArrangeTooltip')}>
-                      <span className={styles.autoArrangeInfo} tabIndex={0} aria-label={fixtureText('autoArrangeTooltip')}>
+                      <span
+                        className={styles.autoArrangeInfo}
+                        tabIndex={0}
+                        aria-label={fixtureText('autoArrangeTooltip')}
+                      >
                         <Question size={16} weight="bold" aria-hidden="true" />
                       </span>
                     </Tooltip>
@@ -750,7 +802,9 @@ export const FixturesView: React.FC<FixturesViewProps> = ({
             </div>
           )}
           {autoArrangeError && !isHistorical && (
-            <p className={styles.autoArrangeError} role="status">{autoArrangeError}</p>
+            <p className={styles.autoArrangeError} role="status">
+              {autoArrangeError}
+            </p>
           )}
         </div>
         {(seasonOptions.length > 1 || rounds.length > 0) && (
@@ -764,10 +818,16 @@ export const FixturesView: React.FC<FixturesViewProps> = ({
                   aria-expanded={isTeamFilterOpen}
                   aria-haspopup="listbox"
                 >
-                  <span>{uiText('fILTER')} {selectedTeamName || uiText('aLLTEAMS')}</span>
+                  <span>
+                    {uiText('fILTER')} {selectedTeamName || uiText('aLLTEAMS')}
+                  </span>
                 </button>
                 {isTeamFilterOpen && (
-                  <div className={styles.fixturesFilterDropdown} role="listbox" aria-label={uiText('filterFixturesByTeam')}>
+                  <div
+                    className={styles.fixturesFilterDropdown}
+                    role="listbox"
+                    aria-label={uiText('filterFixturesByTeam')}
+                  >
                     <button
                       type="button"
                       className={styles.fixturesFilterOption}
@@ -813,14 +873,18 @@ export const FixturesView: React.FC<FixturesViewProps> = ({
 
       {showRatingsAuthPrompt && (
         <div className={styles.ratingsAuthPrompt} role="status">
-          <p>{ratingsAuth === 'session-expired'
-            ? uiText('yourHT120minSessionExpiredSignInWithHattrick')
-            : uiText('hattrickAuthorizationIsMissingOrWasDeniedReconnectHattrick')}</p>
+          <p>
+            {ratingsAuth === 'session-expired'
+              ? uiText('yourHT120minSessionExpiredSignInWithHattrick')
+              : uiText('hattrickAuthorizationIsMissingOrWasDeniedReconnectHattrick')}
+          </p>
           <div>
             <Button size="sm" variant="secondary" onClick={onRatingsSignIn}>
               {ratingsAuth === 'session-expired' ? uiText('signInWithHattrick') : uiText('reconnectHattrick')}
             </Button>
-            <Button size="sm" variant="zero" onClick={() => setRatingsPromptDismissed(true)}>{uiText('continueBrowsing')}</Button>
+            <Button size="sm" variant="zero" onClick={() => setRatingsPromptDismissed(true)}>
+              {uiText('continueBrowsing')}
+            </Button>
           </div>
         </div>
       )}
@@ -838,7 +902,8 @@ export const FixturesView: React.FC<FixturesViewProps> = ({
                 onClick={onJoinWithHattrick}
                 disabled={isConnecting}
               >
-                <ArrowRight size={18} weight="bold" /> {isConnecting ? uiText('connectingToHattrick') : uiText('joinWithHattrick')}
+                <ArrowRight size={18} weight="bold" />{' '}
+                {isConnecting ? uiText('connectingToHattrick') : uiText('joinWithHattrick')}
               </Button>
             )}
           </div>
@@ -856,7 +921,10 @@ export const FixturesView: React.FC<FixturesViewProps> = ({
             ? true
             : round.round_number >= lastFinishedRoundNumber);
 
-        const allFinished = !isPendingRound && round.matches.length > 0 && round.matches.every((m) => m.completed || m.status === 'misarranged');
+        const allFinished =
+          !isPendingRound &&
+          round.matches.length > 0 &&
+          round.matches.every((m) => m.completed || m.status === 'misarranged');
 
         const nextRound = filteredRounds[filteredRounds.findIndex((r) => r.id === round.id) + 1];
 
@@ -919,18 +987,29 @@ export const FixturesView: React.FC<FixturesViewProps> = ({
               title={
                 <div className={styles.roundHeader}>
                   <>
-                    <span>{uiText('roundNumber', { round: round.round_number })}{round.phase === 'postseason' ? uiText(
-                      rounds.filter(item => item.phase === 'postseason' && item.round_number > round.round_number).length === 2
-                        ? 'playoffQuarterfinals'
-                        : rounds.filter(item => item.phase === 'postseason' && item.round_number > round.round_number).length === 1
-                          ? 'playoffSemifinals' : 'championshipFinal'
-                    ) : ''}</span>
+                    <span>
+                      {uiText('roundNumber', { round: round.round_number })}
+                      {round.phase === 'postseason'
+                        ? uiText(
+                            rounds.filter(
+                              (item) => item.phase === 'postseason' && item.round_number > round.round_number,
+                            ).length === 2
+                              ? 'playoffQuarterfinals'
+                              : rounds.filter(
+                                    (item) => item.phase === 'postseason' && item.round_number > round.round_number,
+                                  ).length === 1
+                                ? 'playoffSemifinals'
+                                : 'championshipFinal',
+                          )
+                        : ''}
+                    </span>
                     {roundDate && roundWeek && (
                       <span className={styles.roundDate}>
                         {uiText('htWeekNumber', { week: roundWeek.htWeek })}
                         {roundPeriod !== 'full_week'
-                          ? ` • ${roundPeriod === 'weekend' ? 'Weekend' : 'Midweek'}`
-                          : ''} •{' '}
+                          ? ` ${roundPeriod === 'weekend' ? uiText('midweekOrWeekendWeekend') : ''}`
+                          : ''}{' '}
+                        •{' '}
                         {roundDate.toLocaleDateString('lv-LV', {
                           timeZone: roundTimeZone,
                           day: '2-digit',
@@ -1008,7 +1087,9 @@ export const FixturesView: React.FC<FixturesViewProps> = ({
                       <p>
                         {round.phase === 'postseason'
                           ? uiText('playoffPairingsAreGeneratedAfterThePreviousRound')
-                          : `Pairings are generated after Round ${round.round_number - 1} is resolved.`}
+                          : uiText('pairingsAreGeneratedAfterRound', {
+                              round: round.round_number - 1,
+                            })}
                       </p>
                     </div>
                   )}
@@ -1034,27 +1115,33 @@ export const FixturesView: React.FC<FixturesViewProps> = ({
                     });
                     const formattedDate = `${day} / ${datePart} / ${timePart}`;
 
-                    const homeDisplaysReserve = match.reserve_replaces_team_id === match.home_team_id &&
-                      match.home_team?.reserve_active === true;
-                    const awayDisplaysReserve = match.reserve_replaces_team_id === match.away_team_id &&
-                      match.away_team?.reserve_active === true;
-                    const homeWarning = homeDisplaysReserve ? undefined : visibleWarnings.find(
-                      (w) => w.team_id === match.home_team_id && w.round_id === round.id,
-                    );
-                    const awayWarning = awayDisplaysReserve ? undefined : visibleWarnings.find(
-                      (w) => w.team_id === match.away_team_id && w.round_id === round.id,
-                    );
+                    const homeDisplaysReserve =
+                      match.reserve_replaces_team_id === match.home_team_id && match.home_team?.reserve_active === true;
+                    const awayDisplaysReserve =
+                      match.reserve_replaces_team_id === match.away_team_id && match.away_team?.reserve_active === true;
+                    const homeWarning = homeDisplaysReserve
+                      ? undefined
+                      : visibleWarnings.find((w) => w.team_id === match.home_team_id && w.round_id === round.id);
+                    const awayWarning = awayDisplaysReserve
+                      ? undefined
+                      : visibleWarnings.find((w) => w.team_id === match.away_team_id && w.round_id === round.id);
 
                     // Use status from DB, fallback to simple detection
                     const liveMatch =
                       !isHistorical && match.ht_match_id ? liveData[match.ht_match_id.toString()] : null;
                     let status = match.status || 'not_arranged';
-                    const isMisarranged = isFixtureMisarranged(status, match.completed, Boolean(homeWarning || awayWarning));
+                    const isMisarranged = isFixtureMisarranged(
+                      status,
+                      match.completed,
+                      Boolean(homeWarning || awayWarning),
+                    );
                     const now = new Date(nowMs);
                     const hasConfirmedKickoff = Boolean(match.kickoff_confirmed || match.chpp_match_date);
                     const isPastStartTime = hasConfirmedKickoff && match.match_date && now >= match.match_date;
                     const isWithinLiveWindow =
-                      hasConfirmedKickoff && match.match_date && now.getTime() < match.match_date.getTime() + 4 * 60 * 60 * 1000;
+                      hasConfirmedKickoff &&
+                      match.match_date &&
+                      now.getTime() < match.match_date.getTime() + 4 * 60 * 60 * 1000;
 
                     if (isMisarranged) {
                       status = 'misarranged';
@@ -1127,33 +1214,64 @@ export const FixturesView: React.FC<FixturesViewProps> = ({
                             onClick: () => openChallengeConfirmation(match.id),
                           }
                         : undefined;
-                    const ratingsEligible = !isHistorical && status === 'arranged' && !match.completed &&
-                      Boolean(match.ht_match_id && match.scheduled_for) && !homeIsBye && !awayIsBye &&
+                    const ratingsEligible =
+                      !isHistorical &&
+                      status === 'arranged' &&
+                      !match.completed &&
+                      Boolean(match.ht_match_id && match.scheduled_for) &&
+                      !homeIsBye &&
+                      !awayIsBye &&
                       new Date(match.scheduled_for || '').getTime() > Math.max(nowMs, ratingsBoundaryNow);
                     const privateFixture = privateRatings[match.id];
-                    const homeRatings = privateFixture?.ratings.find((row) => row.team_id === match.home_team_id &&
-                      Number(row.ht_match_id) === Number(match.ht_match_id));
-                    const awayRatings = privateFixture?.ratings.find((row) => row.team_id === match.away_team_id &&
-                      Number(row.ht_match_id) === Number(match.ht_match_id));
-                    const homeShared = Boolean(match.rating_share_statuses?.some((row) => row.team_id === match.home_team_id));
-                    const awayShared = Boolean(match.rating_share_statuses?.some((row) => row.team_id === match.away_team_id));
-                    const ownHome = ratingsEligible && ratingsAuth === 'ready' &&
+                    const homeRatings = privateFixture?.ratings.find(
+                      (row) =>
+                        row.team_id === match.home_team_id && Number(row.ht_match_id) === Number(match.ht_match_id),
+                    );
+                    const awayRatings = privateFixture?.ratings.find(
+                      (row) =>
+                        row.team_id === match.away_team_id && Number(row.ht_match_id) === Number(match.ht_match_id),
+                    );
+                    const homeShared = Boolean(
+                      match.rating_share_statuses?.some((row) => row.team_id === match.home_team_id),
+                    );
+                    const awayShared = Boolean(
+                      match.rating_share_statuses?.some((row) => row.team_id === match.away_team_id),
+                    );
+                    const ownHome =
+                      ratingsEligible &&
+                      ratingsAuth === 'ready' &&
                       Boolean(privateFixture?.ownedSides.includes('home'));
-                    const ownAway = ratingsEligible && ratingsAuth === 'ready' &&
+                    const ownAway =
+                      ratingsEligible &&
+                      ratingsAuth === 'ready' &&
                       Boolean(privateFixture?.ownedSides.includes('away'));
                     const canManageHome = ownHome && (!homeShared || Boolean(homeRatings));
                     const canManageAway = ownAway && (!awayShared || Boolean(awayRatings));
-                    const showRatings = Boolean(ratingsEligible && (homeRatings || awayRatings || canManageHome || canManageAway));
+                    const showRatings = Boolean(
+                      ratingsEligible && (homeRatings || awayRatings || canManageHome || canManageAway),
+                    );
                     return (
                       <FixtureCard
                         key={match.id}
-                        ratingsPreview={showRatings ? { home: ratingsDisplay(homeRatings), away: ratingsDisplay(awayRatings) } : undefined}
-                        ratingsSharedStatus={ratingsEligible && ((homeShared && !homeRatings) || (awayShared && !awayRatings))
-                          ? { home: homeShared && !homeRatings, away: awayShared && !awayRatings } : undefined}
-                        ratingsActions={showRatings ? {
-                          home: canManageHome, away: canManageAway,
-                          onAction: (side, action) => updateRatings(match.id, side, action),
-                        } : undefined}
+                        ratingsPreview={
+                          showRatings
+                            ? { home: ratingsDisplay(homeRatings), away: ratingsDisplay(awayRatings) }
+                            : undefined
+                        }
+                        ratingsSharedStatus={
+                          ratingsEligible && ((homeShared && !homeRatings) || (awayShared && !awayRatings))
+                            ? { home: homeShared && !homeRatings, away: awayShared && !awayRatings }
+                            : undefined
+                        }
+                        ratingsActions={
+                          showRatings
+                            ? {
+                                home: canManageHome,
+                                away: canManageAway,
+                                onAction: (side, action) => updateRatings(match.id, side, action),
+                              }
+                            : undefined
+                        }
                         date={status === 'misarranged' ? '' : isPostponed ? 'POSTPONED' : formattedDate}
                         dateIsEstimated={!hasConfirmedKickoff && !match.completed && !isHistorical}
                         status={status}
@@ -1175,7 +1293,7 @@ export const FixturesView: React.FC<FixturesViewProps> = ({
                           managerHtId: homeIsBye ? undefined : match.home_team?.hattrick_user_id,
                           htTeamId: homeIsBye ? 0 : match.home_team?.ht_team_id || 0,
                           logoUrl: homeIsBye ? undefined : match.home_team?.logo_url,
-                          matchKitUrl: homeIsBye ? null : liveMatch?.home_match_kit_url ?? match.home_match_kit_url,
+                          matchKitUrl: homeIsBye ? null : (liveMatch?.home_match_kit_url ?? match.home_match_kit_url),
                           warning: homeIsBye || !isMisarranged ? undefined : homeWarning?.type,
                           countryName: homeIsBye ? undefined : match.home_team?.country_name,
                           countryId: homeIsBye ? undefined : match.home_team?.country_id,
@@ -1189,7 +1307,7 @@ export const FixturesView: React.FC<FixturesViewProps> = ({
                           managerHtId: awayIsBye ? undefined : match.away_team?.hattrick_user_id,
                           htTeamId: awayIsBye ? 0 : match.away_team?.ht_team_id || 0,
                           logoUrl: awayIsBye ? undefined : match.away_team?.logo_url,
-                          matchKitUrl: awayIsBye ? null : liveMatch?.away_match_kit_url ?? match.away_match_kit_url,
+                          matchKitUrl: awayIsBye ? null : (liveMatch?.away_match_kit_url ?? match.away_match_kit_url),
                           warning: awayIsBye || !isMisarranged ? undefined : awayWarning?.type,
                           countryName: awayIsBye ? undefined : match.away_team?.country_name,
                           countryId: awayIsBye ? undefined : match.away_team?.country_id,
@@ -1223,9 +1341,7 @@ export const FixturesView: React.FC<FixturesViewProps> = ({
       )}
       {fixtureChallengePreviewMode && (
         <SectionCard title={uiText('fixtureChallengePreview')}>
-          <p className={styles.fixtureChallengePreviewNote}>
-            {uiText('localPreviewOnlyItDoesNotReadTournamentData')}
-          </p>
+          <p className={styles.fixtureChallengePreviewNote}>{uiText('localPreviewOnlyItDoesNotReadTournamentData')}</p>
           <FixtureCard
             date="WED / 30.09. / 05:15"
             status="not_arranged"
@@ -1286,7 +1402,11 @@ export const FixturesView: React.FC<FixturesViewProps> = ({
               <div className={styles.fixtureChallengeOptions}>
                 <div>
                   <h3>{uiText('type')}</h3>
-                  <div className={styles.fixtureChallengeRadioGroup} role="radiogroup" aria-label={uiText('challengeType')}>
+                  <div
+                    className={styles.fixtureChallengeRadioGroup}
+                    role="radiogroup"
+                    aria-label={uiText('challengeType')}
+                  >
                     <label
                       className={`${styles.fixtureChallengeRadio} ${
                         selectedChallengeSelection.matchType === 'cup_rules' ? styles.selected : ''
@@ -1303,7 +1423,8 @@ export const FixturesView: React.FC<FixturesViewProps> = ({
                           }))
                         }
                       />
-                      <span className={styles.fixtureChallengeRadioMark} aria-hidden="true" /> {uiText('cupRules120Min')}
+                      <span className={styles.fixtureChallengeRadioMark} aria-hidden="true" />{' '}
+                      {uiText('cupRules120Min')}
                     </label>
                     <label
                       className={`${styles.fixtureChallengeRadio} ${
@@ -1327,7 +1448,11 @@ export const FixturesView: React.FC<FixturesViewProps> = ({
                 </div>
                 <div>
                   <h3>{uiText('venue')}</h3>
-                  <div className={styles.fixtureChallengeRadioGroup} role="radiogroup" aria-label={uiText('scheduledVenue')}>
+                  <div
+                    className={styles.fixtureChallengeRadioGroup}
+                    role="radiogroup"
+                    aria-label={uiText('scheduledVenue')}
+                  >
                     <label
                       className={`${styles.fixtureChallengeRadio} ${
                         selectedChallengeSelection.venue === 'home' ? styles.selected : ''
@@ -1362,7 +1487,8 @@ export const FixturesView: React.FC<FixturesViewProps> = ({
                           }))
                         }
                       />
-                      <span className={styles.fixtureChallengeRadioMark} aria-hidden="true" /> {uiText('awayPerSchedule')}
+                      <span className={styles.fixtureChallengeRadioMark} aria-hidden="true" />{' '}
+                      {uiText('awayPerSchedule')}
                     </label>
                   </div>
                 </div>

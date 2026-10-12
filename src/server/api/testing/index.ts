@@ -19,6 +19,7 @@ import { getServiceSupabase, getSupabase } from '../_lib/supabase.js';
 import { isForgeAdminRequest } from '../_lib/forge-session.js';
 import { rejectIfForgeTestingUnauthorized } from './_lib/guard.js';
 import { beautifyXml } from './_lib/xml-format.js';
+import handleForgeLeagues from './leagues.js';
 import { getAuthHeader } from '../_lib/chpp-auth.js';
 import {
   getFootballScore,
@@ -812,6 +813,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   const tool = value(req, 'tool').replace(/^\//, '') || 'manifest';
   try {
     switch (tool) {
+      case 'leagues': return await handleForgeLeagues(req, res);
       case 'credentials-check': return await handleCredentials(req, res);
       case 'challenges-view': return await handleView(req, res);
       case 'challengeable': return await handleChallengeable(req, res);

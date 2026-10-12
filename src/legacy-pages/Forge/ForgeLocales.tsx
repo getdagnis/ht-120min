@@ -41,6 +41,7 @@ interface CatalogResponse {
 }
 
 const recentKey = 'forge-locale-recent';
+const selectedLocaleKey = 'forge-locale-selected';
 const localeFlags: Record<Locale, string> = { en: '🇬🇧', lv: '🇱🇻' };
 
 interface UnsavedDraft {
@@ -167,10 +168,12 @@ export function ForgeLocales({ isAdmin }: { isAdmin: boolean }) {
         if (!response.ok) throw new Error(payload.error || 'Could not load languages.');
         if (cancelled) return;
         setSettings(payload.settings || []);
-        const preferred =
+        let savedLocale: string | null = null;
+        try { savedLocale = localStorage.getItem(selectedLocaleKey); } catch { /* Storage may be unavailable. */ }
+        const preferred = payload.settings?.find((item) => item.locale === savedLocale) || (
           payload.role === 'editor'
             ? payload.settings?.find((item) => item.locale !== 'en')
-            : payload.settings?.find((item) => item.locale === locale);
+            : payload.settings?.find((item) => item.locale === locale));
         if (preferred && preferred.locale !== locale) setLocale(preferred.locale);
         else if (payload.settings?.length && !payload.settings.some((item) => item.locale === locale))
           setLocale(payload.settings[0].locale);
@@ -185,6 +188,11 @@ export function ForgeLocales({ isAdmin }: { isAdmin: boolean }) {
     // The first permitted language is selected once, when Forge opens.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  useEffect(() => {
+    if (!initialized) return;
+    try { localStorage.setItem(selectedLocaleKey, locale); } catch { /* Storage may be unavailable. */ }
+  }, [initialized, locale]);
 
   useEffect(() => {
     if (!initialized) return;
@@ -581,7 +589,7 @@ export function ForgeLocales({ isAdmin }: { isAdmin: boolean }) {
                           setSearch('');
                         }}
                       >
-                        <span className={styles.key}>{highlightSearch(key, search)}</span>
+                        <span className={`${styles.key} ${!values[key]?.trim() ? styles.missingKey : ''}`}>{highlightSearch(key, search)}</span>
                         <span className={styles.equals}>=</span>
                         <span className={styles.valueCell}>
                           {values[key]?.trim() && (
@@ -670,7 +678,7 @@ export function ForgeLocales({ isAdmin }: { isAdmin: boolean }) {
               {!visibleKeys.length && <p className={styles.empty}>No registered UI messages in this section yet.</p>}
               {visibleKeys.map((key) => (
                 <label className={styles.line} key={key}>
-                  <span className={styles.key}>{key}</span>
+                  <span className={`${styles.key} ${!draft[key]?.trim() ? styles.missingKey : ''}`}>{key}</span>
                   <span className={styles.equals}>=</span>
                   <span className={styles.valueCell}>
                     <textarea

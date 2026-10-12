@@ -20,7 +20,13 @@ export function LocaleSwitcher() {
   const [isOpen, setIsOpen] = useState(false);
   const switcherRef = useRef<HTMLElement>(null);
   const pathWithoutLocale = pathname.replace(new RegExp(`^/${locale}(?=/|$)`), '') || '/';
-  const query = searchParams.toString();
+  const queryForLocale = (status: string) => {
+    const params = new URLSearchParams(searchParams.toString());
+    if (status === 'draft') params.set('localePreview', '1');
+    else params.delete('localePreview');
+    const query = params.toString();
+    return query ? `?${query}` : '';
+  };
 
   useEffect(() => {
     if (!isOpen) return;
@@ -58,7 +64,7 @@ export function LocaleSwitcher() {
           {availableLocales.map(({ locale: targetLocale, status, nativeName }) => (
             <Link
               key={targetLocale}
-              href={`/${targetLocale}${pathWithoutLocale}${query ? `?${query}` : ''}`}
+              href={`/${targetLocale}${pathWithoutLocale}${queryForLocale(status)}`}
               className={styles.item}
               aria-current={targetLocale === locale ? 'page' : undefined}
               role="menuitem"
@@ -70,7 +76,7 @@ export function LocaleSwitcher() {
               <span className={styles.flag} aria-hidden="true">
                 {localeFlags[targetLocale]}
               </span>
-              <span>{nativeName || localeNames[targetLocale]}{status === 'beta' ? ' [beta]' : ''}</span>
+              <span>{nativeName || localeNames[targetLocale]}{status === 'beta' ? ' [beta]' : status === 'draft' ? ' [draft]' : ''}</span>
             </Link>
           ))}
         </div>

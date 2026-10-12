@@ -6,18 +6,18 @@ import { createContext, useContext, useEffect, useMemo } from 'react';
 import type { ReactNode } from 'react';
 import type { Locale } from './config';
 import { type Dictionary } from './get-dictionary';
-import type { PublicLocaleOption } from './catalog';
+import type { LocaleMenuOption } from './catalog';
 
 interface LocaleContextValue {
   locale: Locale;
   messages: Dictionary;
-  availableLocales: PublicLocaleOption[];
+  availableLocales: LocaleMenuOption[];
 }
 
 const LocaleContext = createContext<LocaleContextValue | null>(null);
 
 export function LocaleProvider({ locale, messages, availableLocales, children }: {
-  locale: Locale; messages: Dictionary; availableLocales: PublicLocaleOption[]; children: ReactNode;
+  locale: Locale; messages: Dictionary; availableLocales: LocaleMenuOption[]; children: ReactNode;
 }) {
   const value = useMemo(() => ({ locale, messages, availableLocales }), [locale, messages, availableLocales]);
 

@@ -28,6 +28,7 @@ import faqStyles from '../../components/Faq/FaqRenderer.module.sass';
 import { HATTRICK_WORLD_DETAILS } from '../../../shared/worlddetails';
 import styles from './Forge.module.sass';
 import { ForgeMatchesSection } from './ForgeMatches';
+import { ForgeLeagues } from './ForgeLeagues';
 import { ForgeLocales } from './ForgeLocales';
 import { mostViewedTournament, tournamentActivityRoute } from '../../utils/forge-activity-routes';
 import { mergeForgeDirectoryUsers, type ChallengeableDirectoryUser } from '../../utils/forge-team-directory';
@@ -291,6 +292,7 @@ const sidebarItems = [
   { to: '/stats', label: 'Statistics', icon: <ChartLineUp size={18} weight="bold" /> },
   { to: '/faq', label: 'FAQ', icon: <ListBullets size={18} weight="bold" /> },
   { to: '/locales', label: 'Locales', icon: <Globe size={18} weight="bold" /> },
+  { to: '/leagues', label: 'Leagues', icon: <Globe size={18} weight="bold" /> },
   { to: '/testing', label: 'Testing', icon: <Flask size={18} weight="bold" /> },
   { to: '/admins', label: 'Admins', icon: <Users size={18} weight="bold" /> },
 ];
@@ -2764,6 +2766,7 @@ export const ForgePage: React.FC = () => {
         {auth.role === 'admin' && <Route path="matches" element={<ForgeMatchesSection />} />}
         {auth.role === 'admin' && <Route path="faq" element={<ForgeFaqEditor />} />}
         <Route path="locales" element={<ForgeLocales isAdmin={auth.role === 'admin'} />} />
+        {auth.role === 'admin' && <Route path="leagues" element={<ForgeLeagues />} />}
         {auth.role === 'admin' && <Route path="testing" element={<ForgeTestingSection />} />}
         {auth.role === 'admin' && <Route path="admins" element={<ForgeAdminsSection />} />}
         <Route path="*" element={<Navigate to={auth.role === 'locale-editor' ? '/locales' : '/'} replace />} />

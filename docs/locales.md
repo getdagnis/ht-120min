@@ -1,5 +1,9 @@
 # UI locale catalog
 
+Forge remembers the last permitted editing language in localStorage (`forge-locale-selected`), independently of the public site's language preference. Empty local translation keys use the danger color in the editor and search results.
+
+The public language menu includes `[draft]` languages for signed-in Forge administrators and the editors assigned to that language. Those links enable the existing authorized draft preview; ordinary visitors see only implemented and beta languages. Menu data excludes editor IDs, and public metadata remains limited to public languages. The Editor Hattrick IDs setting grants verified managers draft editing, saving, history restore, and preview access for that language; publishing and language settings remain admin-only.
+
 The TypeScript dictionaries in `src/i18n/messages/` remain the source fallback and key registry. English is the default; empty Latvian values resolve to English. `src/i18n/catalog.ts` assigns each registered key to a Forge section. A key appears in Forge only when the running UI reads that dictionary key. News stories, tournament descriptions stored as data, manager names, and other user content are outside this catalog.
 
 Forge `/forge/locales` offers component-scoped drafts and publications. `migrations/106_forge_locale_catalog.sql` prepares the settings, section, and immutable history tables. The migration is a file only until applied separately to Supabase. The consolidated `/api/app?route=forge-locales` handler checks a signed Forge session for administration, or a verified app session and an assigned locale editor ID for draft editing. Assigned editors can compare English but can write only assigned locales. Publishing and language settings require Forge admin authorization. Database tables have RLS and service-role-only grants; no browser Supabase writes are used.

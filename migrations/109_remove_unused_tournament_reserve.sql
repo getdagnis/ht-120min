@@ -48,3 +48,5 @@ $$;
 REVOKE ALL ON FUNCTION public.remove_unused_tournament_reserve(uuid,uuid) FROM PUBLIC,anon,authenticated;
 GRANT EXECUTE ON FUNCTION public.remove_unused_tournament_reserve(uuid,uuid) TO service_role;
 COMMIT;
+
+-- applied!

@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { applyCatalogValues, englishCatalog, keysForSection, publicLocaleOptions, sectionForKey } from '../src/i18n/catalog.ts';
+import { applyCatalogValues, authorizedLocaleMenuOptions, englishCatalog, keysForSection, publicLocaleOptions, sectionForKey } from '../src/i18n/catalog.ts';
 import { isValidCatalogMessage, validateCatalogValues } from '../src/i18n/catalog-validation.ts';
 import { getDictionary } from '../src/i18n/get-dictionary.ts';
 
@@ -24,6 +24,21 @@ test('draft languages stay out of public navigation while beta keeps its visible
     { locale: 'en', status: 'implemented', native_name: 'English' },
     { locale: 'lv', status: 'beta', native_name: 'Latviešu' },
   ])[1].status, 'beta');
+});
+
+test('draft menu options are available only to admins and that language’s assigned editors', () => {
+  const settings = [
+    { locale: 'en', status: 'implemented', native_name: 'English', editor_ht_ids: [] },
+    { locale: 'lv', status: 'draft', native_name: 'Latviešu', editor_ht_ids: [123] },
+  ];
+  assert.deepEqual(authorizedLocaleMenuOptions(settings, null, false).map((item) => item.locale), ['en']);
+  assert.deepEqual(authorizedLocaleMenuOptions(settings, 456, false).map((item) => item.locale), ['en']);
+  for (const [userId, admin] of [[123, false], [null, true]] as const) {
+    const options = authorizedLocaleMenuOptions(settings, userId, admin);
+    assert.deepEqual(options.map((item) => item.locale), ['en', 'lv']);
+    assert.equal(options[1].status, 'draft');
+    assert.ok(options.every((item) => !('editor_ht_ids' in item)));
+  }
 });
 
 test('draft validation preserves ICU variables and registered rich text tags', () => {

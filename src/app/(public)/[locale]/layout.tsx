@@ -10,7 +10,7 @@ import { ScrollToTop } from '../../../components/ScrollToTop';
 import { barlow, barlowCondensed, ibmPlexMono, notoColorEmoji } from '../../../fonts';
 import { LocaleProvider } from '../../../i18n/LocaleProvider';
 import { locales, isLocale, type Locale } from '../../../i18n/config';
-import { canPreviewLocale, loadPublicLocaleSettings } from '../../../i18n/server-catalog';
+import { canPreviewLocale, loadPublicLocaleSettings, loadLocaleMenuOptions } from '../../../i18n/server-catalog';
 import type { Dictionary } from '../../../i18n/get-dictionary';
 import { getAppSessionSecret, verifyAppSessionCookie } from '../../../server/api/_lib/app-session';
 import { getAnalyticsExcludedHtUserId, isLocalAnalyticsHost } from '../../../server/api/_lib/analytics';
@@ -75,6 +75,7 @@ export default async function PublicLocaleLayout({
     && !(await canPreviewLocale(locale, requestHeaders.get('x-locale-preview'), requestHeaders.get('cookie')))) notFound();
   const cookieStore = await cookies();
   const cookieHeader = requestHeaders.get('cookie') || '';
+  const localeMenuOptions = await loadLocaleMenuOptions(cookieHeader, availableLocales);
   const sessionToken = cookieStore.get('ht_session')?.value;
   const sessionSecret = getAppSessionSecret();
   const session =
@@ -93,7 +94,7 @@ export default async function PublicLocaleLayout({
       <body>
         <script dangerouslySetInnerHTML={{ __html: themeBootstrapScript }} />
         <div id="root">
-          <LocaleProvider locale={locale} messages={messages as Dictionary} availableLocales={availableLocales}>
+          <LocaleProvider locale={locale} messages={messages as Dictionary} availableLocales={localeMenuOptions}>
             <NextIntlClientProvider locale={locale} messages={messages}>
               <ScrollToTop />
               <Layout excludeAnalytics={excludeAnalytics}>

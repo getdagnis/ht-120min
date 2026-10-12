@@ -1,4 +1,5 @@
 :root
+  --default-team-logo: url('https://res.hattrick.org/kits/1/1/1/2/matchKitSmall.png')
   --yellow: rgb(242, 255, 0)
   --orange: rgb(255, 200, 0)
 
@@ -56,7 +57,7 @@
   --bg-color: #cdc8c3ee
   --bg-color-transp: #cdc8c399
   --bg-transp: #e1dfdddd
-  --bg-transp2: #e6e4e270
+  --bg-transp2: #ebebeb70
   --bg-transp3: #0d172c50
   --bg-dark: #efedea9f
   --theme: #faf9f8
@@ -68,8 +69,8 @@
   --accent-5: #0620109f
   --heroBg: #006514
   --bg-helpText: rgba(16, 134, 59, 0.1)
-  --table-bg: var(--brown-transp)
-  --table-bg-main: #f0ede9
+  --table-bg: #e3dfda9f
+  --table-bg-main: #eceae8
   --header: #b4b4b41a
   --tournament-thumb: url('/thumb-full-light.jpg')
 
@@ -100,6 +101,7 @@
 
 // DARK THEME variables
 @mixin dark-theme
+  --default-team-logo: url('https://res.hattrick.org/kits/1/1/1/1/matchKitSmall.png')
   --text: #cad1de
   --text-h: #f3f4f6
   --text60: #798496bb
@@ -161,6 +163,11 @@
   margin: 0
   padding: 0
   box-sizing: border-box
+
+// Theme-aware rendering of Hattrick's default small kit used as a team logo.
+img[src='https://res.hattrick.org/kits/1/1/1/1/matchKitSmall.png'],
+img[src='//res.hattrick.org/kits/1/1/1/1/matchKitSmall.png']
+  content: var(--default-team-logo)
 
 body
   margin: 0

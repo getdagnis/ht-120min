@@ -11,6 +11,24 @@ export interface PublicLocaleOption {
   nativeName: string;
 }
 
+export interface LocaleMenuOption extends Omit<PublicLocaleOption, 'status'> {
+  status: LocaleStatus;
+}
+
+export function authorizedLocaleMenuOptions(
+  settings: Array<{ locale: string; status: string; native_name: string; editor_ht_ids?: number[] }>,
+  userId: number | null,
+  admin: boolean,
+): LocaleMenuOption[] {
+  return locales.flatMap((locale) => {
+    const setting = settings.find((item) => item.locale === locale);
+    if (!setting) return [];
+    if (setting.status !== 'implemented' && setting.status !== 'beta' &&
+      !(setting.status === 'draft' && (admin || (userId !== null && setting.editor_ht_ids?.includes(userId))))) return [];
+    return [{ locale, status: setting.status as LocaleStatus, nativeName: setting.native_name || localeNames[locale] }];
+  });
+}
+
 export function publicLocaleOptions(settings: Array<{ locale: string; status: string; native_name: string }>): PublicLocaleOption[] {
   return locales.flatMap((locale) => {
     const setting = settings.find((item) => item.locale === locale);
