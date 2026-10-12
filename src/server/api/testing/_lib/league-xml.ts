@@ -59,11 +59,17 @@ export function parseLeagueTeam(xml: string, leagueId: number, teamId: number): 
   if (bot !== 'false' || deactivated !== 'false') throw new Error('CHPP did not confirm an active human team.');
   if (Number(readChppTag(team, 'LeagueID')) !== leagueId) return null;
   const user = xmlBlocks(xml, 'User')[0] || '';
+  const primaryTeam = xmlBlocks(xml, 'Team').find(block => readChppTag(block, 'IsPrimaryClub')?.toLowerCase() === 'true');
   const managerId = positive(readChppTag(user, 'UserID'));
   const managerName = readChppTag(user, 'Loginname');
+  const supporterTier = readChppTag(user, 'SupporterTier')?.toLowerCase() || null;
+  const lastLoginDate = readChppTag(user, 'LastLoginDate') || null;
   const teamName = readChppTag(team, 'TeamName');
   if (!managerId || !managerName || !teamName) throw new Error('CHPP did not identify the team manager.');
-  return { teamId, teamName, managerId, managerName, countryId: positive(readChppTag(team, 'CountryID')),
+  return { teamId, teamName, managerId, managerName,
+    managerCountryId: primaryTeam ? positive(readChppTag(primaryTeam, 'CountryID')) : null,
+    supporterTier, lastLoginDate,
+    countryId: positive(readChppTag(team, 'CountryID')),
     booked: null, inCup: null, checkedAt: null, error: null };
 }
 

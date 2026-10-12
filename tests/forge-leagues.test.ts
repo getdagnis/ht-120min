@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
 import test from 'node:test';
 
 import {
@@ -6,6 +7,7 @@ import {
   managerMessageHref,
   type ForgeLeagueTeam,
 } from '../src/utils/forge-leagues';
+import { parseLeagueTeam } from '../src/server/api/testing/_lib/league-xml';
 
 const team: ForgeLeagueTeam = {
   teamId: 1,
@@ -35,4 +37,12 @@ test('outreach template substitutes team name, manager name, and country flag', 
     ),
     "Hello Manager name, we'd love to see [b]Team name 🇱🇻[/b]!",
   );
+});
+
+test('team details include manager supporter tier and last login', () => {
+  const xml = readFileSync('docs/teamdetails.example.xml', 'utf8');
+  const parsed = parseLeagueTeam(xml, 3000, 3220518);
+  assert.equal(parsed?.supporterTier, 'gold');
+  assert.equal(parsed?.managerCountryId, 48);
+  assert.equal(parsed?.lastLoginDate, '2026-06-01 13:11:21');
 });

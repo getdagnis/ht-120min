@@ -2278,9 +2278,9 @@ export const TournamentView: React.FC<{
     // Close the picker as soon as a team is chosen so the lifecycle confirmation
     // is presented on its own instead of being stacked over the team list.
     setShowTeamModal(false);
-    if (tournament && !tournament.is_test && !isSandbox && !(await confirm({
-      title: lifecycleText(tournament.status === 'planning' ? 'joinPlanningTitle' : 'joinRecruitingTitle'),
-      message: lifecycleText(tournament.status === 'planning' ? 'joinPlanningWarning' : 'joinRecruitingWarning'),
+    if (tournament?.status === 'planning' && !tournament.is_test && !isSandbox && !(await confirm({
+      title: lifecycleText('joinPlanningTitle'),
+      message: lifecycleText('joinPlanningWarning'),
       confirmLabel: uiText('joinTournament'), cancelLabel: uiText('cancel'),
     }))) return;
     submittingJoinRef.current = true;
@@ -4291,10 +4291,14 @@ export const TournamentView: React.FC<{
       return;
     }
 
+    const planningJoin = !addAsReserve && tournament?.status === 'planning';
     if (!(await confirm({
-      title: addAsReserve ? lifecycleText('addReserveTitle') : uiText('joinTournament'),
-      message: addAsReserve ? `Add ${name} (ID: ${htId}) to the reserve list?` :
-        `${name} (ID: ${htId})\n\n${lifecycleText(tournament?.status === 'planning' ? 'joinPlanningWarning' : 'joinRecruitingWarning')}`,
+      title: addAsReserve ? lifecycleText('addReserveTitle') : planningJoin ? lifecycleText('joinPlanningTitle') : uiText('joinTournament'),
+      message: addAsReserve
+        ? `Add ${name} (ID: ${htId}) to the reserve list?`
+        : planningJoin
+          ? `${name} (ID: ${htId})\n\n${lifecycleText('joinPlanningWarning')}`
+          : `Add ${name} (ID: ${htId}) to the tournament?`,
       confirmLabel: uiText('add'), cancelLabel: uiText('cancel'),
     }))) return;
 

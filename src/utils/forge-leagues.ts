@@ -16,6 +16,9 @@ export interface ForgeLeagueTeam {
   teamName: string;
   managerId: number;
   managerName: string;
+  managerCountryId?: number | null;
+  supporterTier?: string | null;
+  lastLoginDate?: string | null;
   countryId: number | null;
   booked: boolean | null;
   inCup: boolean | null;

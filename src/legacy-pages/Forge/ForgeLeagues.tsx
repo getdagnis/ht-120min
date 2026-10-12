@@ -31,6 +31,22 @@ const link = (kind: 'team' | 'manager' | 'league', id: number) =>
         ? `/Club/Manager/?userId=${id}`
         : `/World/Leagues/?LeagueID=${id}`
   }`;
+const supporterIcons: Record<string, string> = {
+  silver: '📎',
+  gold: '⭐️',
+  platinum: '💍',
+  diamond: '💎',
+};
+
+function formatLastSeen(value?: string | null): string | null {
+  if (!value) return null;
+  const date = new Date(value.replace(' ', 'T'));
+  if (Number.isNaN(date.getTime())) return null;
+  const dayMonth = new Intl.DateTimeFormat('en-GB', { day: '2-digit', month: '2-digit' })
+    .format(date).replaceAll('/', '.');
+  const time = new Intl.DateTimeFormat('en-GB', { hour: '2-digit', minute: '2-digit', hourCycle: 'h23' }).format(date);
+  return `${dayMonth} ${time}`;
+}
 
 interface SnapshotResponse {
   snapshot: ForgeLeagueSnapshot | null;
@@ -477,6 +493,8 @@ export function ForgeLeagues() {
     const status = leagueTeamStatus(team);
     const flag = teamFlagFor(team.countryId);
     const messaged = messagedManagerIds.includes(team.managerId);
+    const lastSeen = formatLastSeen(team.lastLoginDate);
+    const managerFlag = teamFlagFor(team.managerCountryId ?? null);
     return (
       <li key={team.teamId} className={styles.row}>
         <div>
@@ -485,7 +503,8 @@ export function ForgeLeagues() {
           </a>
           {showManager && (
             <a className={styles.meta} href={link('manager', team.managerId)} target="_blank" rel="noreferrer">
-              {team.managerName} · {team.managerId}
+              {team.managerName}{managerFlag}{supporterIcons[team.supporterTier?.toLowerCase() || ''] || ''} · {team.managerId}
+              {lastSeen && <> · Seen: {lastSeen}</>}
             </a>
           )}
         </div>
