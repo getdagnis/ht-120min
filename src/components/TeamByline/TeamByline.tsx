@@ -2,7 +2,7 @@ import { useTranslations } from 'next-intl';
 import React from 'react';
 import { Tooltip } from '../Tooltip/Tooltip';
 import { AuthorTooltip, type ChatAuthorProfile } from '../TournamentTabs/ChatView';
-import { getCanonicalCountryName, getCountryFlagUrl, getLeagueFlagUrl, formatPresence } from '../../utils/ht-data';
+import { getCanonicalCountryName, getCountryFlagUrl, getCountryTooltip, getLeagueFlagUrl, formatPresence } from '../../utils/ht-data';
 import {
   getCardEventLabel,
   getInjuryEventLabel,
@@ -65,6 +65,7 @@ export const TeamByline: React.FC<TeamBylineProps> = ({
 
   const displayCountryName = getCanonicalCountryName(countryName, countryId);
   const countryFlagUrl = getCountryFlagUrl(countryId, displayCountryName);
+  const countryTooltip = getCountryTooltip(countryId, null, displayCountryName);
   const leagueFlagUrl = getLeagueFlagUrl(leagueId);
   const presence = lastSeenAt !== undefined ? formatPresence(lastSeenAt) : null;
   const summary =
@@ -228,7 +229,20 @@ export const TeamByline: React.FC<TeamBylineProps> = ({
           <>
             {leagueFlagUrl && <img src={leagueFlagUrl} alt={uiText('league')} className={styles.flagIcon} />}
             {countryFlagUrl && (
-            <img src={countryFlagUrl} alt={displayCountryName || uiText('country')} className={styles.flagIcon} />
+              <>
+                <img
+                  src={countryFlagUrl}
+                  alt={displayCountryName || uiText('country')}
+                  title={countryTooltip || undefined}
+                  className={styles.flagIcon}
+                  {...(mode === 'standings' && countryTooltip
+                    ? { 'data-tooltip-id': `${tooltipIdBase}-country` }
+                    : {})}
+                />
+                {mode === 'standings' && countryTooltip && (
+                  <Tooltip id={`${tooltipIdBase}-country`} content={countryTooltip} className="tooltip" />
+                )}
+              </>
             )}
             <span className={styles.separator}>|</span>
           </>

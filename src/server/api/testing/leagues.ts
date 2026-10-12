@@ -68,7 +68,7 @@ function validDate(value: unknown): value is string {
 }
 
 /** Only the helper's bounded, complete list can be saved; scan queues never reach DB. */
-function snapshotInput(value: unknown): ForgeLeagueSnapshot | null {
+export function snapshotInput(value: unknown): ForgeLeagueSnapshot | null {
   if (!value || typeof value !== 'object') return null;
   const input = value as Record<string, unknown>;
   if (input.populationComplete !== true || input.job !== null || !validDate(input.populatedAt) ||
@@ -84,12 +84,20 @@ function snapshotInput(value: unknown): ForgeLeagueSnapshot | null {
       !Number.isSafeInteger(team.managerId) || Number(team.managerId) <= 0 ||
       typeof team.teamName !== 'string' || !team.teamName.trim() || team.teamName.length > 200 ||
       typeof team.managerName !== 'string' || !team.managerName.trim() || team.managerName.length > 200 ||
+      !(team.managerCountryId === undefined || team.managerCountryId === null ||
+        (Number.isSafeInteger(team.managerCountryId) && Number(team.managerCountryId) > 0)) ||
+      !(team.supporterTier === undefined || team.supporterTier === null ||
+        ['silver', 'gold', 'platinum', 'diamond'].includes(String(team.supporterTier).toLowerCase())) ||
+      !(team.lastLoginDate === undefined || team.lastLoginDate === null || validDate(team.lastLoginDate)) ||
       !(team.countryId === null || (Number.isSafeInteger(team.countryId) && Number(team.countryId) > 0)) ||
       ![null, true, false].includes(team.booked as boolean | null) || ![null, true, false].includes(team.inCup as boolean | null) ||
       !(team.checkedAt === null || validDate(team.checkedAt)) ||
       !(team.error === null || (typeof team.error === 'string' && team.error.length <= 500))) return null;
     unique.add(Number(team.teamId));
     teams.push({ teamId: Number(team.teamId), teamName: team.teamName, managerId: Number(team.managerId), managerName: team.managerName,
+      managerCountryId: team.managerCountryId == null ? null : Number(team.managerCountryId),
+      supporterTier: team.supporterTier == null ? null : String(team.supporterTier).toLowerCase(),
+      lastLoginDate: team.lastLoginDate == null ? null : team.lastLoginDate as string,
       countryId: team.countryId as number | null, booked: team.booked as boolean | null, inCup: team.inCup as boolean | null,
       checkedAt: team.checkedAt as string | null, error: team.error as string | null });
   }

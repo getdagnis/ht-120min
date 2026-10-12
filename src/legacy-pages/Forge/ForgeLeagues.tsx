@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { Button } from '../../components/Button/Button';
 import { SectionCard } from '../../components/Card/SectionCard';
 import { HATTRICK_WORLD_DETAILS } from '../../../shared/worlddetails';
+import { getCountryFlagEmoji } from '../../utils/ht-data';
 import {
   FORGE_LEAGUE_TEAM_LIMIT,
   formatForgeLeagueOutreachMessage,
@@ -471,8 +472,7 @@ export function ForgeLeagues() {
     .sort((a, b) => a.teamName.localeCompare(b.teamName));
   const managers = new Map<number, ForgeLeagueTeam[]>();
   for (const team of teams) managers.set(team.managerId, [...(managers.get(team.managerId) || []), team]);
-  const teamFlagFor = (countryId: number | null) =>
-    Object.values(HATTRICK_WORLD_DETAILS).find((item) => item.countryId === countryId)?.emoji || '';
+  const teamFlagFor = getCountryFlagEmoji;
   const copyManagerMessage = async (team: ForgeLeagueTeam) => {
     const teamFlag = teamFlagFor(team.countryId);
     const message = formatForgeLeagueOutreachMessage(messageTemplate, team, teamFlag);

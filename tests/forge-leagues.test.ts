@@ -8,6 +8,8 @@ import {
   type ForgeLeagueTeam,
 } from '../src/utils/forge-leagues';
 import { parseLeagueTeam } from '../src/server/api/testing/_lib/league-xml';
+import { snapshotInput } from '../src/server/api/testing/leagues';
+import { getCountryFlagEmoji, getCountryTooltip } from '../src/utils/ht-data';
 
 const team: ForgeLeagueTeam = {
   teamId: 1,
@@ -45,4 +47,39 @@ test('team details include manager supporter tier and last login', () => {
   assert.equal(parsed?.supporterTier, 'gold');
   assert.equal(parsed?.managerCountryId, 48);
   assert.equal(parsed?.lastLoginDate, '2026-06-01 13:11:21');
+});
+
+test('saved league snapshots retain manager details and accept older snapshots', () => {
+  const snapshot = {
+    teams: [{
+      ...team,
+      managerCountryId: 48,
+      supporterTier: 'platinum',
+      lastLoginDate: '2026-10-11 16:12:20',
+    }],
+    populatedAt: '2026-10-12T20:00:00.000Z',
+    availabilityAt: '2026-10-12T20:01:00.000Z',
+    populationComplete: true,
+    job: null,
+  };
+  const saved = snapshotInput(snapshot);
+  assert.equal(saved?.teams[0].managerCountryId, 48);
+  assert.equal(saved?.teams[0].supporterTier, 'platinum');
+  assert.equal(saved?.teams[0].lastLoginDate, '2026-10-11 16:12:20');
+
+  const legacy = snapshotInput({
+    ...snapshot,
+    teams: [{ ...team }],
+  });
+  assert.equal(legacy?.teams[0].managerCountryId, null);
+  assert.equal(legacy?.teams[0].supporterTier, null);
+  assert.equal(legacy?.teams[0].lastLoginDate, null);
+});
+
+test('country tooltip resolves CountryID separately from the world-details LeagueID', () => {
+  assert.equal(getCountryTooltip(48), '🇱🇻 Latvija / Latvia');
+  assert.equal(getCountryTooltip(48, 1147), '🇱🇻 Latvija / Latvia (1147 active teams)');
+  assert.equal(getCountryTooltip(null, null, 'Latvija'), '🇱🇻 Latvija / Latvia');
+  assert.equal(getCountryFlagEmoji(null), '');
+  assert.equal(getCountryFlagEmoji(135), '🇮🇶');
 });

@@ -188,6 +188,27 @@ export function getFlagUrl(countryName?: string | null, countryId?: number | nul
   return getCountryFlagUrl(countryId, countryName);
 }
 
+export function getCountryTooltip(
+  countryId?: number | null,
+  activeTeamCount?: number | null,
+  countryName?: string | null,
+) {
+  const canonicalName = getCanonicalCountryName(countryName, countryId);
+  const country = getCountryWorldDetails(countryId) ??
+    Object.values(HATTRICK_WORLD_DETAILS).find((entry) => entry.fullName === canonicalName);
+  if (!country) return null;
+  const names = [country.countryName, country.countryNameEn].filter((name): name is string => Boolean(name));
+  const countryLabel = names.length > 1 ? `${names[0]} / ${names[1]}` : names[0] || country.fullName;
+  const countLabel = activeTeamCount != null && Number.isSafeInteger(activeTeamCount) && activeTeamCount >= 0
+    ? ` (${activeTeamCount} active teams)`
+    : '';
+  return `${country.emoji} ${countryLabel}${countLabel}`;
+}
+
+export function getCountryFlagEmoji(countryId?: number | null) {
+  return getCountryWorldDetails(countryId)?.emoji || '';
+}
+
 export function getCountryFlagUrl(countryId?: number | null, countryName?: string | null) {
   const canonicalCountryName = getCanonicalCountryName(countryName, countryId);
   const country =
