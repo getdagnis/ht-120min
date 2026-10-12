@@ -9,27 +9,18 @@ interface QueryResult {
   error: { message: string } | null;
 }
 
-function createQuery(result: QueryResult, onUpdate?: (payload: Record<string, unknown>) => void) {
+function createQuery(result: QueryResult) {
   const query = {
     select: () => query,
-    update: (payload: Record<string, unknown>) => {
-      onUpdate?.(payload);
-      return query;
-    },
+    update: () => query,
     eq: () => query,
     maybeSingle: async () => result,
   };
   return query;
 }
 
-function createReactivationClient(updatedTeam: unknown) {
-  let updatePayload: Record<string, unknown> | null = null;
-  const queries = [
-    createQuery({ data: { id: 'existing-team', active: false }, error: null }),
-    createQuery({ data: updatedTeam, error: null }, (payload) => {
-      updatePayload = payload;
-    }),
-  ];
+function createReactivationClient() {
+  const queries = [createQuery({ data: { id: 'existing-team', active: false }, error: null })];
   const client = {
     from: (table: string) => {
       assert.equal(table, 'teams');
@@ -39,7 +30,38 @@ function createReactivationClient(updatedTeam: unknown) {
     },
   } as unknown as SupabaseClient;
 
-  return { client, getUpdatePayload: () => updatePayload };
+  return { client };
+}
+
+async function withServiceRpcMock<T>(result: unknown, run: (getPayload: () => unknown) => Promise<T>) {
+  const originalUrl = process.env.SUPABASE_URL;
+  const originalSecret = process.env.SUPABASE_SECRET_KEY;
+  const originalServiceRole = process.env.SUPABASE_SERVICE_ROLE_KEY;
+  const originalFetch = globalThis.fetch;
+  let payload: unknown;
+
+  process.env.SUPABASE_URL = 'http://127.0.0.1:54321';
+  process.env.SUPABASE_SECRET_KEY = 'test-secret';
+  delete process.env.SUPABASE_SERVICE_ROLE_KEY;
+  globalThis.fetch = async (_input, init) => {
+    payload = JSON.parse(String(init?.body ?? 'null'));
+    return new Response(JSON.stringify(result), {
+      status: 200,
+      headers: { 'content-type': 'application/json' },
+    });
+  };
+
+  try {
+    return await run(() => payload);
+  } finally {
+    globalThis.fetch = originalFetch;
+    if (originalUrl === undefined) delete process.env.SUPABASE_URL;
+    else process.env.SUPABASE_URL = originalUrl;
+    if (originalSecret === undefined) delete process.env.SUPABASE_SECRET_KEY;
+    else process.env.SUPABASE_SECRET_KEY = originalSecret;
+    if (originalServiceRole === undefined) delete process.env.SUPABASE_SERVICE_ROLE_KEY;
+    else process.env.SUPABASE_SERVICE_ROLE_KEY = originalServiceRole;
+  }
 }
 
 const registrationInput = {
@@ -59,27 +81,51 @@ const registrationInput = {
 };
 
 test('rejoining an existing Season 2 team activates the row and clears its suggestion marker', async () => {
-  const mock = createReactivationClient({
-    id: 'existing-team',
-    active: true,
-    reapply_season_number: null,
+  const mock = createReactivationClient();
+
+  await withServiceRpcMock('existing-team', async (getPayload) => {
+    const teamId = await registerOAuthTeam(mock.client, registrationInput);
+    assert.equal(teamId, 'existing-team');
+    assert.deepEqual(getPayload(), {
+      p_values: {
+        active: true,
+        reserve_active: false,
+        reserve_joined_at: null,
+        reapply_season_number: null,
+        name: 'Guåhan Goddesses',
+        manager_name: 'Dagnis',
+        logo_url: null,
+        country_id: null,
+        country_name: null,
+        league_id: 9,
+        gender_id: 2,
+        league_level: null,
+        team_rank: 1278,
+        power_rating: null,
+        power_global_rank: null,
+        power_league_rank: null,
+        power_region_rank: null,
+        join_story: null,
+        oauth_token: 'oauth-token',
+        oauth_token_secret: 'oauth-secret',
+        hattrick_user_id: 8777402,
+        joined_via_oauth: true,
+        ht_team_name: 'Guåhan Goddesses',
+      },
+      p_existing_id: 'existing-team',
+      p_skip_membership: true,
+    });
   });
-
-  const teamId = await registerOAuthTeam(mock.client, registrationInput);
-
-  assert.equal(teamId, 'existing-team');
-  assert.equal(mock.getUpdatePayload()?.active, true);
-  assert.equal(mock.getUpdatePayload()?.reapply_season_number, null);
-  assert.equal(mock.getUpdatePayload()?.team_rank, 1278);
 });
 
 test('rejoining fails instead of reporting success when the activation update matches no row', async () => {
-  const mock = createReactivationClient(null);
-
-  await assert.rejects(
-    registerOAuthTeam(mock.client, registrationInput),
-    /Could not reactivate Guåhan Goddesses/,
-  );
+  const mock = createReactivationClient();
+  await withServiceRpcMock(null, async () => {
+    await assert.rejects(
+      registerOAuthTeam(mock.client, registrationInput),
+      /Could not reactivate Guåhan Goddesses/,
+    );
+  });
 });
 
 test('picker conflict lookup exposes only another real active tournament with its public slug', async () => {

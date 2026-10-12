@@ -37,7 +37,7 @@ test('outreach template substitutes team name, manager name, and country flag', 
       { ...team, managerName: 'mANAGER NAME' },
       '🇱🇻',
     ),
-    "Hello Manager name, we'd love to see [b]Team name 🇱🇻[/b]!",
+    "Hello mANAGER NAME, we'd love to see [b]Team name 🇱🇻[/b]!",
   );
 });
 

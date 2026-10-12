@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 import { buildRealTournamentInsert } from '../src/utils/tournament-creation';
 
-test('real tournament insert defaults remain public, open, CHPP-only, and non-test', () => {
+test('real tournament insert defaults remain public, planning, CHPP-only, and non-test', () => {
   const row = buildRealTournamentInsert({
     name: 'Exotic HFI — Saint Kitts and Nevis 🇰🇳',
     slug: 'exotic-hfi-saint-kitts-and-nevis',
@@ -37,7 +37,7 @@ test('real tournament insert defaults remain public, open, CHPP-only, and non-te
     thumbnail_index: 7,
     max_teams: null,
     season: 1,
-    status: 'open',
+    status: 'planning',
     is_test: false,
     chpp_only_join: true,
     organizer_id: 123,
