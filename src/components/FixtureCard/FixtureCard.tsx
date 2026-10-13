@@ -76,10 +76,12 @@ interface RatingsPreviewTeam {
   fetchedAt: string;
   formation: string;
   tactic: string;
+  tacticSkill: number | null;
   coachModifier: number | null;
   setPieces: string;
   setPiecesSkill: number | null;
   specialtyPositions: SpecialtyPositionGroup[];
+  specialtyPositionsKnown?: boolean;
   ratings: {
     leftAttack: string;
     centreAttack: string;
@@ -122,9 +124,9 @@ const OPPOSING_SECTORS: Record<RatedSector, RatedSector> = {
 const EXTRA_TIME_COMPARISON = {
   defenceGreenRatio: 1.5,
   attackRedRatio: 1.5,
-  midfieldGreenBelowPercent: 15,
-  midfieldYellowAbovePercent: 25,
-  midfieldRedAtPercent: 35,
+  midfieldGreenBelowPercent: 20,
+  midfieldYellowAbovePercent: 30,
+  midfieldRedAtPercent: 55,
 } as const;
 
 function sectorComparisonClass(sector: RatedSector, value: string, opposingValue: string | undefined) {
@@ -138,9 +140,9 @@ function sectorComparisonClass(sector: RatedSector, value: string, opposingValue
     const lower = Math.min(own, opponent),
       higher = Math.max(own, opponent);
     const difference = lower === 0 ? (higher === 0 ? 0 : Infinity) : (higher / lower - 1) * 100;
-    if (difference < EXTRA_TIME_COMPARISON.midfieldGreenBelowPercent - epsilon) return styles.ratingsFavorable;
-    if (difference >= EXTRA_TIME_COMPARISON.midfieldRedAtPercent - epsilon) return styles.ratingsUnfavorable;
-    if (difference > EXTRA_TIME_COMPARISON.midfieldYellowAbovePercent + epsilon) return styles.ratingsCaution;
+    if (difference < EXTRA_TIME_COMPARISON.midfieldGreenBelowPercent - epsilon) return ratingIndicatorClass(1);
+    if (difference >= EXTRA_TIME_COMPARISON.midfieldRedAtPercent - epsilon) return ratingIndicatorClass(4);
+    if (difference > EXTRA_TIME_COMPARISON.midfieldYellowAbovePercent + epsilon) return ratingIndicatorClass(3);
     return undefined;
   }
 
@@ -148,8 +150,8 @@ function sectorComparisonClass(sector: RatedSector, value: string, opposingValue
   const defence = sector.endsWith('Defence') ? own : opponent;
   if (attack === 0 && defence === 0) return undefined;
   // Both matched numbers get the same color: a defensive advantage favors a draw.
-  if (defence >= attack * EXTRA_TIME_COMPARISON.defenceGreenRatio - epsilon) return styles.ratingsFavorable;
-  if (attack >= defence * EXTRA_TIME_COMPARISON.attackRedRatio - epsilon) return styles.ratingsUnfavorable;
+  if (defence >= attack * EXTRA_TIME_COMPARISON.defenceGreenRatio - epsilon) return ratingIndicatorClass(1);
+  if (attack >= defence * EXTRA_TIME_COMPARISON.attackRedRatio - epsilon) return ratingIndicatorClass(4);
   return undefined;
 }
 
@@ -172,15 +174,79 @@ const SPECIALTY_NAMES: Record<number, string> = {
   8: 'Support',
 };
 
-function specialtyMarkersForSector(groups: SpecialtyPositionGroup[], sector: RatedSector) {
+// CHPP slot pairs are mirrored for opposing lineups. Midfielders can be both
+// event initiators and cover; coverage elsewhere is only a possible mitigation.
+const QUICK_OPPOSING_ROLES: Record<number, number> = {
+  101: 110,
+  102: 113,
+  103: 112,
+  104: 111,
+  105: 106,
+  106: 105,
+  107: 109,
+  108: 108,
+  109: 107,
+  110: 101,
+  111: 104,
+  112: 103,
+  113: 102,
+};
+const SPECIALTY_MATCHUP_COLORS = {
+  technicalThreat: 'ratingIndicator4',
+  headVulnerable: 'ratingIndicator4',
+  quickUncovered: 'ratingIndicator4',
+  quickPartial: 'ratingIndicator3',
+  quickDirectCover: 'ratingIndicator1',
+  quickPossibleCover: 'ratingIndicator1',
+} as const;
+type SpecialtyMatchup = keyof typeof SPECIALTY_MATCHUP_COLORS;
+const eventInitiator = (role: number) => role >= 106 && role <= 113;
+const defensiveEventRole = (role: number) => (role >= 101 && role <= 105) || (role >= 107 && role <= 109);
+
+function specialtyMatchup(
+  specialtyId: number,
+  role: number,
+  opposing: SpecialtyPositionGroup[] | undefined,
+): SpecialtyMatchup | null {
+  if (!opposing) return null; // Unavailable specialty data is not an empty lineup.
+  const opposingRoles = (id: number) =>
+    opposing.filter((group) => group.specialtyId === id).flatMap((group) => group.roleIds);
+  if (specialtyId === 1 && eventInitiator(role) && opposingRoles(5).some(defensiveEventRole)) return 'technicalThreat';
+  if (specialtyId === 5 && defensiveEventRole(role) && opposingRoles(1).some(eventInitiator)) return 'headVulnerable';
+  if (specialtyId !== 2) return null; // Head players do not cancel opposing Head threats.
+  const quick = opposingRoles(2);
+  if (eventInitiator(role)) {
+    const cover = quick.filter(defensiveEventRole);
+    if (!cover.includes(QUICK_OPPOSING_ROLES[role])) {
+      return cover.length ? 'quickPartial' : 'quickUncovered';
+    }
+  }
+  if (defensiveEventRole(role)) {
+    const threats = quick.filter(eventInitiator);
+    if (threats.includes(QUICK_OPPOSING_ROLES[role])) return 'quickDirectCover';
+    if (threats.length) return 'quickPossibleCover';
+  }
+  return null;
+}
+
+function specialtyMarkersForSector(
+  groups: SpecialtyPositionGroup[],
+  sector: RatedSector,
+  opposing?: SpecialtyPositionGroup[],
+) {
   const roles = new Set(RATED_SECTOR_ROLES[sector]);
-  const counts = new Map<number, number>();
+  const markers = new Map<string, { specialtyId: number; count: number; matchup: SpecialtyMatchup | null }>();
   for (const group of groups) {
     if (!SPECIALTY_NAMES[group.specialtyId]) continue;
-    const count = group.roleIds.filter((roleId) => roles.has(roleId)).length;
-    if (count) counts.set(group.specialtyId, count);
+    for (const role of group.roleIds.filter((id) => roles.has(id))) {
+      const matchup = specialtyMatchup(group.specialtyId, role, opposing);
+      const key = `${group.specialtyId}:${matchup}`;
+      const marker = markers.get(key);
+      if (marker) marker.count++;
+      else markers.set(key, { specialtyId: group.specialtyId, count: 1, matchup });
+    }
   }
-  return [...counts].map(([specialtyId, count]) => ({ specialtyId, count }));
+  return [...markers.values()];
 }
 
 function ratingIndicatorClass(score: RatingIndicatorScore | null | undefined) {
@@ -188,8 +254,15 @@ function ratingIndicatorClass(score: RatingIndicatorScore | null | undefined) {
   return styles[`ratingIndicator${score}`];
 }
 
-function TacticValue({ tactic }: { tactic: string | null | undefined }) {
-  return <span className={ratingIndicatorClass(getTacticIndicatorScore(tactic))}>{tactic || '—'}</span>;
+function TacticValue({ tactic, skill }: { tactic: string | null | undefined; skill?: number | null }) {
+  const showSkill =
+    tactic && tactic.trim().toLowerCase() !== 'normal' && typeof skill === 'number' && Number.isFinite(skill);
+  return (
+    <span className={ratingIndicatorClass(getTacticIndicatorScore(tactic))}>
+      {tactic || '—'}
+      {showSkill ? ` (${skill})` : ''}
+    </span>
+  );
 }
 
 function GameStyle({ styleOfPlay }: { styleOfPlay: number | null | undefined }) {
@@ -208,11 +281,13 @@ function RatingsPitch({
   ratings,
   opposingRatings,
   specialtyPositions = [],
+  opposingSpecialtyPositions,
   midfieldLabel = 'Midfield, predicted:',
 }: {
   ratings: RatingsPreviewTeam['ratings'];
   opposingRatings?: RatingsPreviewTeam['ratings'];
   specialtyPositions?: SpecialtyPositionGroup[];
+  opposingSpecialtyPositions?: SpecialtyPositionGroup[];
   midfieldLabel?: string;
 }) {
   const uiText = useTranslations('PublicUI.RatingsPitch');
@@ -238,7 +313,9 @@ function RatingsPitch({
           className={`${styles.ratingsSectorRow} ${row.length === 1 ? styles.ratingsMidfieldRow : ''}`}
         >
           {row.map(([label, value, sector]) => {
-            const markers = sector ? specialtyMarkersForSector(specialtyPositions, sector) : [];
+            const markers = sector
+              ? specialtyMarkersForSector(specialtyPositions, sector, opposingSpecialtyPositions)
+              : [];
             return (
               <div className={styles.ratingsSector} key={label}>
                 <span>{label}</span>
@@ -257,16 +334,17 @@ function RatingsPitch({
                       className={styles.ratingsSpecialtyIcons}
                       aria-label={uiText('specialtiesContributingToThisRating')}
                     >
-                      {markers.map(({ specialtyId, count }) => (
+                      {markers.map(({ specialtyId, count, matchup }) => (
                         <span
-                          key={specialtyId}
-                          title={`${count > 1 ? `${count} ` : ''}${SPECIALTY_NAMES[specialtyId]}`}
+                          key={`${specialtyId}:${matchup}`}
+                          className={matchup ? styles[SPECIALTY_MATCHUP_COLORS[matchup]] : undefined}
+                          title={`${count > 1 ? `${count} ` : ''}${SPECIALTY_NAMES[specialtyId]}${matchup ? ` — ${uiText(matchup)}` : ''}`}
                         >
                           {count > 1 && `${count}×`}
                           <i
                             className={styles.ratingsSpecialtyIcon}
                             data-specialty-id={specialtyId}
-                            aria-label={SPECIALTY_NAMES[specialtyId]}
+                            aria-label={`${SPECIALTY_NAMES[specialtyId]}${matchup ? ` — ${uiText(matchup)}` : ''}`}
                             role="img"
                           />
                         </span>
@@ -588,6 +666,7 @@ export const FixtureCard: React.FC<FixtureCardProps> = ({
           {(['home', 'away'] as const).map((side) => {
             const team = side === 'home' ? homeTeam : awayTeam;
             const preview = ratingsPreview?.[side];
+            const opposingPreview = ratingsPreview?.[side === 'home' ? 'away' : 'home'];
             const notice = ratingsSharedStatus?.[side];
             const canManage = ratingsActions?.[side] || false;
             if (!preview && !canManage && !notice) return null;
@@ -624,6 +703,11 @@ export const FixtureCard: React.FC<FixtureCardProps> = ({
                           : undefined
                       }
                       specialtyPositions={preview.specialtyPositions}
+                      opposingSpecialtyPositions={
+                        preview.specialtyPositionsKnown && opposingPreview?.specialtyPositionsKnown
+                          ? opposingPreview.specialtyPositions
+                          : undefined
+                      }
                     />
                     <div className={styles.ratingsMetadata}>
                       <span>
@@ -635,7 +719,7 @@ export const FixtureCard: React.FC<FixtureCardProps> = ({
                       <span>
                         {uiText('tactic')}{' '}
                         <strong>
-                          <TacticValue tactic={preview.tactic} />
+                          <TacticValue tactic={preview.tactic} skill={preview.tacticSkill} />
                         </strong>
                       </span>
                       <GameStyle styleOfPlay={preview.coachModifier} />
@@ -747,7 +831,7 @@ export const FixtureCard: React.FC<FixtureCardProps> = ({
                   <span>
                     {uiText('tactic')}{' '}
                     <strong>
-                      <TacticValue tactic={performance?.tacticName} />
+                      <TacticValue tactic={performance?.tacticName} skill={performance?.tacticSkill} />
                     </strong>
                   </span>
                   <GameStyle styleOfPlay={performance?.styleOfPlay} />

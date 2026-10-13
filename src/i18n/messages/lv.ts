@@ -954,6 +954,12 @@ const messages = {
     },
     RatingsPitch: {
       specialtiesContributingToThisRating: "",
+      technicalThreat: "Tehniska spēlētāja notikuma risks pret pretinieka aizsargiem vai pussargiem ar galvas spēles specialitāti.",
+      headVulnerable: "Ievainojams pret pretinieka tehniskajiem malējiem spēlētājiem, uzbrucējiem vai pussargiem.",
+      quickUncovered: "Ātra spēlētāja notikuma risks: nav redzams pretinieka ātrs aizsardzības spēlētājs.",
+      quickPartial: "Ātrs aizsardzības spēlētājs ir citā pozīcijā; tieša bloķēšana nav apstiprināta.",
+      quickDirectCover: "Tieši pretī pretinieka ātram apdraudējuma spēlētājam.",
+      quickPossibleCover: "Var palīdzēt pret pretinieka ātra spēlētāja apdraudējumu; tieša bloķēšana nav apstiprināta.",
     },
     FixtureCard: {
       rEPLACING: "",

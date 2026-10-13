@@ -978,6 +978,12 @@ const messages = {
     },
     RatingsPitch: {
       specialtiesContributingToThisRating: "Specialties contributing to this rating",
+      technicalThreat: "Technical event risk against opposing Head defenders or midfielders.",
+      headVulnerable: "Vulnerable to opposing Technical wingers, forwards or midfielders.",
+      quickUncovered: "Quick event risk: no opposing Quick defensive cover shown.",
+      quickPartial: "Quick cover exists elsewhere; direct blocking is not confirmed.",
+      quickDirectCover: "Directly opposite an opposing Quick threat.",
+      quickPossibleCover: "May help against an opposing Quick threat; direct blocking is not confirmed.",
     },
     FixtureCard: {
       rEPLACING: "REPLACING",

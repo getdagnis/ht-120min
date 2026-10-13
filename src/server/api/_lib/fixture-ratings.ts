@@ -9,7 +9,7 @@ import { summarizeSpecialtyPositions, type PlayerLineupRole } from '../../../../
 
 // Local development only: set false to test normal participant visibility.
 // Save this file, then reload the tournament page; no dev-server restart needed.
-const LOCAL_ADMIN_VIEW_ALL_SHARED_RATINGS = true;
+const LOCAL_ADMIN_VIEW_ALL_SHARED_RATINGS = false;
 
 type Db = ReturnType<typeof getServiceSupabase>;
 type Side = 'home' | 'away';
