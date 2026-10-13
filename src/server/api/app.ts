@@ -1068,6 +1068,10 @@ async function handleAdminAddReserveTeam(req: VercelRequest, res: VercelResponse
     return res.status(403).json({ error: 'This role cannot manage tournament teams.' });
   }
 
+  const addPlaceholder = req.body?.action === 'add-placeholder';
+  if (addPlaceholder && !actor.access.isImplicitSuperadmin) {
+    return res.status(403).json({ error: 'This action is unavailable.' });
+  }
   const supabase = getServiceSupabase();
   const { data: tournament, error: tournamentError } = await supabase
     .from('tournaments')
@@ -1110,17 +1114,26 @@ async function handleAdminAddReserveTeam(req: VercelRequest, res: VercelResponse
     if (!updated) return res.status(409).json({ error: 'The participant changed. Refresh and try again.' });
     return res.status(200).json({ team: updated, validated: true });
   }
+  if (addPlaceholder) {
+    if (existingTeam) return res.status(409).json({ error: 'This team is already in the tournament roster.' });
+    const { data: round, error: roundError } = await supabase.from('rounds')
+      .select('id').eq('tournament_id', tournamentId).limit(1).maybeSingle();
+    if (roundError) throw roundError;
+    if (round) return res.status(409).json({ error: 'Use the reserve or replacement flow after a schedule has been generated.' });
+  }
   if (existingTeam?.active) return res.status(409).json({ error: 'This team is already a tournament participant.' });
   if (existingTeam && !existingTeam.reserve_active) return res.status(409).json({ error: 'An inactive row already exists. Resolve it before adding a reserve.' });
 
   const conflict = (await getActiveTournamentConflicts(supabase, [teamId], tournamentId)).get(teamId);
-  if (conflict) {
+  if (conflict && !addPlaceholder) {
     return res.status(409).json({
       error: `This team is already active in another tournament: "${conflict.name}". It must leave that tournament first.`,
     });
   }
 
-  const owner = await findVerifiedReserveOwner(supabase, teamId);
+  const owner = addPlaceholder
+    ? { credentials: null, team: null, managerName: null }
+    : await findVerifiedReserveOwner(supabase, teamId);
   const { data: gateway, error: gatewayError } = await supabase
     .from('teams')
     .select('oauth_token, oauth_token_secret')
@@ -1170,6 +1183,26 @@ async function handleAdminAddReserveTeam(req: VercelRequest, res: VercelResponse
     allowManagerException: tournament.allow_manager_country_size_exception,
   });
   if (!countrySizeEligibility.eligible) return res.status(400).json({ error: countrySizeEligibility.reason });
+
+  if (addPlaceholder) {
+    const { data: id, error: registrationError } = await supabase.rpc('save_verified_tournament_registration', {
+      p_existing_id: null,
+      p_skip_membership: true,
+      p_values: {
+        tournament_id: tournamentId, ht_team_id: teamId, name: teamName,
+        active: true, reserve_active: false, joined_via_oauth: false,
+        manager_name: 'Bot team', logo_url: details.logoUrl ?? null,
+        country_id: details.countryId ?? null, country_name: details.countryName ?? null,
+        league_id: details.leagueId ?? null, gender_id: details.genderId ?? null,
+        league_level: details.leagueLevel ?? null, team_rank: details.teamRank ?? null,
+        power_rating: details.powerRating ?? null, power_global_rank: details.powerGlobalRank ?? null,
+        power_league_rank: details.powerLeagueRank ?? null, power_region_rank: details.powerRegionRank ?? null,
+      },
+    });
+    if (registrationError) throw registrationError;
+    if (!id) throw new Error('The placeholder could not be added.');
+    return res.status(200).json({ team: { id }, validated: false });
+  }
 
   if (owner.credentials && owner.team && req.body?.validated !== false) {
     const id = await registerReserveTeam(supabase, {

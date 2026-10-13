@@ -604,19 +604,26 @@ export const TournamentAdmin: React.FC<{ controller: TournamentAdminController }
   const themeText = useTranslations('TournamentView');
   const isHydrationReady = useHydrationReady();
   const [admissionSelection, setAdmissionSelection] = useState<string[]>([]);
-  const selectedAdmissionIds = admissionSelection.filter(id => reserveTeams.some(team => team.id === id));
+  const selectedAdmissionIds = admissionSelection.filter((id) => reserveTeams.some((team) => team.id === id));
   const [removingReserveId, setRemovingReserveId] = useState<string | null>(null);
   const removeReserve = async (team: Team) => {
-    if (!window.confirm(`Remove ${team.name} from the reserve list? Only this team's unused reserve registration will be removed.`)) return;
+    if (
+      !window.confirm(
+        `Remove ${team.name} from the reserve list? Only this team's unused reserve registration will be removed.`,
+      )
+    )
+      return;
     setRemovingReserveId(team.id);
     try {
       const response = await fetch('/api/app?route=reserve-admission', {
-        method: 'POST', credentials: 'same-origin', headers: { 'Content-Type': 'application/json' },
+        method: 'POST',
+        credentials: 'same-origin',
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ tournamentId: tournament.id, teamId: team.id, action: 'remove' }),
       });
       const result = await response.json();
       if (!response.ok) throw new Error(result.error || 'The reserve could not be removed.');
-      setAdmissionSelection(ids => ids.filter(id => id !== team.id));
+      setAdmissionSelection((ids) => ids.filter((id) => id !== team.id));
       await onReservesChanged();
     } catch (error) {
       alert(error instanceof Error ? error.message : 'The reserve could not be removed.');
@@ -626,11 +633,23 @@ export const TournamentAdmin: React.FC<{ controller: TournamentAdminController }
   };
   const validateReserve = async (team: Team) => {
     try {
-      const response = await fetch('/api/app?route=admin-add-reserve-team', { method: 'POST', credentials: 'same-origin', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ tournamentId: tournament.id, teamId: team.ht_team_id, validated: true, ...(team.active ? { action: 'validate-participant' } : {}) }) });
+      const response = await fetch('/api/app?route=admin-add-reserve-team', {
+        method: 'POST',
+        credentials: 'same-origin',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          tournamentId: tournament.id,
+          teamId: team.ht_team_id,
+          validated: true,
+          ...(team.active ? { action: 'validate-participant' } : {}),
+        }),
+      });
       const result = await response.json();
       if (!response.ok) throw new Error(result.error || 'Validation failed.');
       await onReservesChanged();
-    } catch (error) { alert(error instanceof Error ? error.message : 'Validation failed.'); }
+    } catch (error) {
+      alert(error instanceof Error ? error.message : 'Validation failed.');
+    }
   };
   const [, setIsSettingsCollapsed] = useState(() =>
     readStoredSessionBoolean(`settings_collapsed_${tournament.slug}`, false),
@@ -1238,7 +1257,9 @@ export const TournamentAdmin: React.FC<{ controller: TournamentAdminController }
                                   min={1}
                                   max={1200}
                                   value={editMaxCountryActiveTeams ?? ''}
-                                  onChange={(event) => setEditMaxCountryActiveTeams(event.target.value ? Number(event.target.value) : null)}
+                                  onChange={(event) =>
+                                    setEditMaxCountryActiveTeams(event.target.value ? Number(event.target.value) : null)
+                                  }
                                   className={adminStyles.selectField}
                                   placeholder="No restriction"
                                 />
@@ -1254,13 +1275,18 @@ export const TournamentAdmin: React.FC<{ controller: TournamentAdminController }
 
                               <div className={adminStyles.field}>
                                 <label htmlFor="tournament-scoring-mode">{themeText('scoringModeLabel')}</label>
-                                <select id="tournament-scoring-mode" className={adminStyles.selectField}
+                                <select
+                                  id="tournament-scoring-mode"
+                                  className={adminStyles.selectField}
                                   value={editScoringMode}
-                                  onChange={(event) => setEditScoringMode(event.target.value as typeof editScoringMode)}>
+                                  onChange={(event) => setEditScoringMode(event.target.value as typeof editScoringMode)}
+                                >
                                   <option value="120min">{themeText('standard120ScoringMode')}</option>
                                   <option value="average120">{themeText('average120ScoringMode')}</option>
                                   <option value="points">{themeText('regular90ScoringMode')}</option>
-                                  {editRegistrationType !== 'validated' && <option value="appg">{themeText('appg120ScoringMode')}</option>}
+                                  {editRegistrationType !== 'validated' && (
+                                    <option value="appg">{themeText('appg120ScoringMode')}</option>
+                                  )}
                                 </select>
                                 {renderUnsavedSettingsNote(unsavedSettingsFields.scoringMode)}
                               </div>
@@ -1271,7 +1297,9 @@ export const TournamentAdmin: React.FC<{ controller: TournamentAdminController }
                                   id="tournament-default-theme"
                                   className={adminStyles.selectField}
                                   value={editDefaultTheme ?? ''}
-                                  onChange={(event) => setEditDefaultTheme(normalizeTournamentTheme(event.target.value))}
+                                  onChange={(event) =>
+                                    setEditDefaultTheme(normalizeTournamentTheme(event.target.value))
+                                  }
                                 >
                                   <option value="">{themeText('visitorThemePreference')}</option>
                                   <option value="light">{themeText('lightTheme')}</option>
@@ -1376,7 +1404,18 @@ export const TournamentAdmin: React.FC<{ controller: TournamentAdminController }
                             lengthRounds={tournament.schedule_mode === 'length' ? rounds : []}
                             isRepairingRound={isRepairingRound}
                             onRepairRound={tournament.schedule_mode === 'length' ? repairCurrentLengthRound : undefined}
-                            reserveAdmissionControl={canManageOperationalAdmin && reserveTeams.length > 0 ? <ReserveAdmissionPanel tournamentId={tournament.id} teamIds={selectedAdmissionIds} onChanged={async () => { setAdmissionSelection([]); await onReservesChanged(); }} /> : undefined}
+                            reserveAdmissionControl={
+                              canManageOperationalAdmin && reserveTeams.length > 0 ? (
+                                <ReserveAdmissionPanel
+                                  tournamentId={tournament.id}
+                                  teamIds={selectedAdmissionIds}
+                                  onChanged={async () => {
+                                    setAdmissionSelection([]);
+                                    await onReservesChanged();
+                                  }}
+                                />
+                              ) : undefined
+                            }
                             isRecoveringRoundOne={isRecoveringRoundOne}
                             onRecoverRoundOne={
                               tournament.schedule_mode === 'length' ? recoverOriginalLengthRoundOne : undefined
@@ -1611,11 +1650,29 @@ export const TournamentAdmin: React.FC<{ controller: TournamentAdminController }
                                           </Button>
                                         )}
                                         {reserveTeamName && (
-                                          <p>{isFetchingTeamData ? 'Checking current ownership...' : reserveValidation?.teamId === reserveTeamId && reserveValidation.validated ? `Already Hattrick validated · ${reserveValidation.managerName}` : reserveValidation?.teamId === reserveTeamId && reserveValidation.known ? 'Known team — current ownership could not be verified. Add as an unvalidated reserve.' : 'Add as an unvalidated reserve.'}</p>
+                                          <p>
+                                            {isFetchingTeamData
+                                              ? 'Checking current ownership...'
+                                              : reserveValidation?.teamId === reserveTeamId &&
+                                                  reserveValidation.validated
+                                                ? `Already Hattrick validated · ${reserveValidation.managerName}`
+                                                : reserveValidation?.teamId === reserveTeamId && reserveValidation.known
+                                                  ? 'Known team — current ownership could not be verified. Add as an unvalidated reserve.'
+                                                  : 'Add as an unvalidated reserve.'}
+                                          </p>
                                         )}
                                         {reserveTeamName && (
-                                          <Button type="submit" disabled={isSavingTeam || isFetchingTeamData} variant="primary">
-                                            {isSavingTeam ? 'Saving...' : reserveValidation?.teamId === reserveTeamId && reserveValidation.validated ? 'Add validated reserve team' : 'Add reserve team'}
+                                          <Button
+                                            type="submit"
+                                            disabled={isSavingTeam || isFetchingTeamData}
+                                            variant="primary"
+                                          >
+                                            {isSavingTeam
+                                              ? 'Saving...'
+                                              : reserveValidation?.teamId === reserveTeamId &&
+                                                  reserveValidation.validated
+                                                ? 'Add validated reserve team'
+                                                : 'Add reserve team'}
                                           </Button>
                                         )}
                                       </form>
@@ -1714,7 +1771,14 @@ export const TournamentAdmin: React.FC<{ controller: TournamentAdminController }
                                     {team.active ? (
                                       <>
                                         {canManageOperationalAdmin && !team.joined_via_oauth && team.ht_team_id && (
-                                          <Button type="button" size="sm" variant="secondaryAction" onClick={() => void validateReserve(team)}>Validate known team</Button>
+                                          <Button
+                                            type="button"
+                                            size="xs"
+                                            variant="secondaryAction"
+                                            onClick={() => void validateReserve(team)}
+                                          >
+                                            Validate team
+                                          </Button>
                                         )}
                                         {isGenerated &&
                                           roleAccess?.canManageOperations &&
@@ -2005,20 +2069,52 @@ export const TournamentAdmin: React.FC<{ controller: TournamentAdminController }
                                             </>
                                           )}
                                         </div>
-                                        <span className={adminStyles.statusBadge}>Reserve{team.joined_via_oauth ? ' · Hattrick validated' : ''}</span>
-                                        {canManageOperationalAdmin && tournament.schedule_mode === 'length' && rounds.some(round => round.phase === 'regular' && round.phase_status === 'materialized') && (
-                                          <label className={adminStyles.checkboxLabel}><input type="checkbox" checked={selectedAdmissionIds.includes(team.id)} onChange={event => {
-                                            const checked = event.currentTarget.checked;
-                                            setAdmissionSelection(ids => checked ? [...new Set([...ids, team.id])] : ids.filter(id => id !== team.id));
-                                          }} /> Active reserve</label>
+                                        <span className={adminStyles.statusBadge}>
+                                          Reserve{team.joined_via_oauth ? ' · Hattrick validated' : ''}
+                                        </span>
+                                        {canManageOperationalAdmin &&
+                                          tournament.schedule_mode === 'length' &&
+                                          rounds.some(
+                                            (round) =>
+                                              round.phase === 'regular' && round.phase_status === 'materialized',
+                                          ) && (
+                                            <label className={adminStyles.checkboxLabel}>
+                                              <input
+                                                type="checkbox"
+                                                checked={selectedAdmissionIds.includes(team.id)}
+                                                onChange={(event) => {
+                                                  const checked = event.currentTarget.checked;
+                                                  setAdmissionSelection((ids) =>
+                                                    checked
+                                                      ? [...new Set([...ids, team.id])]
+                                                      : ids.filter((id) => id !== team.id),
+                                                  );
+                                                }}
+                                              />{' '}
+                                              Active reserve
+                                            </label>
+                                          )}
+                                        {canManageOperationalAdmin && !team.joined_via_oauth && (
+                                          <Button
+                                            type="button"
+                                            size="sm"
+                                            variant="secondaryAction"
+                                            onClick={() => void validateReserve(team)}
+                                          >
+                                            Validate known team
+                                          </Button>
                                         )}
-                                        {canManageOperationalAdmin && !team.joined_via_oauth && <Button type="button" size="sm" variant="secondaryAction" onClick={() => void validateReserve(team)}>Validate known team</Button>}
-
                                       </div>
                                     </div>
                                     {canManageOperationalAdmin && (
                                       <div className={adminStyles.teamActions}>
-                                        <Button type="button" size="xs" variant="secondaryDanger" disabled={removingReserveId !== null} onClick={() => void removeReserve(team)}>
+                                        <Button
+                                          type="button"
+                                          size="xs"
+                                          variant="secondaryDanger"
+                                          disabled={removingReserveId !== null}
+                                          onClick={() => void removeReserve(team)}
+                                        >
                                           {removingReserveId === team.id ? 'Removing...' : 'Remove from reserves'}
                                         </Button>
                                       </div>
@@ -2234,17 +2330,44 @@ export const TournamentAdmin: React.FC<{ controller: TournamentAdminController }
                           </div>
                         </SectionCard>
                       </div>
-                      {!tournament.is_test && !isSandbox && !tournament.is_archived &&
+                      {!tournament.is_test &&
+                        !isSandbox &&
+                        !tournament.is_archived &&
                         !['finished', 'stopped', 'archived'].includes(tournament.status) && (
-                        <SectionCard title={themeText(tournament.status === 'planning' ? 'planningState' : tournament.status === 'recruiting' ? 'recruitingState' : 'publishedState')}>
-                          <p>{themeText(tournament.status === 'planning' ? 'planningDescription' : 'recruitingDescription')}</p>
-                          <Button type="button" variant={tournament.status === 'planning' ? 'primary' : 'secondaryAction'}
-                            disabled={isChangingPublication}
-                            onClick={() => void onPublicationChange(tournament.status === 'planning' ? 'recruiting' : 'planning')}>
-                            {themeText(isChangingPublication ? 'changingPublication' : tournament.status === 'planning' ? 'publishTournament' : 'returnToPlanning')}
-                          </Button>
-                        </SectionCard>
-                      )}
+                          <SectionCard
+                            title={themeText(
+                              tournament.status === 'planning'
+                                ? 'planningState'
+                                : tournament.status === 'recruiting'
+                                  ? 'recruitingState'
+                                  : 'publishedState',
+                            )}
+                          >
+                            <p>
+                              {themeText(
+                                tournament.status === 'planning' ? 'planningDescription' : 'recruitingDescription',
+                              )}
+                            </p>
+                            <Button
+                              type="button"
+                              variant={tournament.status === 'planning' ? 'primary' : 'secondaryAction'}
+                              disabled={isChangingPublication}
+                              size="sm"
+                              className="mt-1 mb-1"
+                              onClick={() =>
+                                void onPublicationChange(tournament.status === 'planning' ? 'recruiting' : 'planning')
+                              }
+                            >
+                              {themeText(
+                                isChangingPublication
+                                  ? 'changingPublication'
+                                  : tournament.status === 'planning'
+                                    ? 'publishTournament'
+                                    : 'returnToPlanning',
+                              )}
+                            </Button>
+                          </SectionCard>
+                        )}
                     </>
                   )}
 

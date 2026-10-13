@@ -93,3 +93,16 @@ Manual acceptance with real authorized managers:
 
 Automated tests were not added or run for this task. Migration application, concurrency,
 real OAuth/CHPP behavior and browser interaction remain owner verification steps.
+
+## Site-admin placeholder admission
+
+For an unscheduled roster, the existing Add placeholder action routes site-admin
+requests through `admin-add-reserve-team` with action `add-placeholder`. The
+server checks its existing site-admin identity, fetches CHPP team metadata, keeps
+country/category eligibility and duplicate-roster checks, and uses the existing
+service-only `save_verified_tournament_registration` RPC with its membership
+exception. It stores an unverified team without manager credentials, leaves the
+other tournament registration intact, and does not merge tournaments. Closed
+registration and publication guards remain enforced by the RPC. Generated
+rosters must use reserve/slot replacement instead. This exception is not available
+to ordinary tournament admins. Live CHPP/database admission remains unverified.

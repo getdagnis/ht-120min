@@ -198,7 +198,28 @@ export default async function handleForgeLeagues(req: VercelRequest, res: Vercel
       db.from(OUTREACH_CONTACTS).select('campaign_id, manager_id'),
     ]);
     if (campaignsError || contactsError) throw new Error('Outreach history is unavailable.');
+    const registeredManagerIds = new Set<number>();
+    let registeredManagersError: string | undefined;
+    try {
+      for (let offset = 0; ; offset += 1000) {
+        const { data: profiles, error: profilesError } = await db.from('profiles')
+          .select('hattrick_user_id').not('hattrick_user_id', 'is', null)
+          .order('hattrick_user_id').range(offset, offset + 999);
+        if (profilesError) throw profilesError;
+        for (const profile of profiles || []) {
+          const id = Number(profile.hattrick_user_id);
+          if (Number.isSafeInteger(id) && id > 0) registeredManagerIds.add(id);
+        }
+        if (!profiles || profiles.length < 1000) break;
+      }
+    } catch (error) {
+      console.error('Could not load Forge registered manager labels:', error);
+      registeredManagerIds.clear();
+      registeredManagersError = 'Registered user labels are unavailable. Campaigns and contacts are still loaded.';
+    }
     return res.status(200).json({
+      registeredManagerIds: [...registeredManagerIds],
+      registeredManagersError,
       campaigns: (campaigns || []).map((row) => ({
         id: row.id, name: row.name, campaignDate: row.campaign_date,
       })),

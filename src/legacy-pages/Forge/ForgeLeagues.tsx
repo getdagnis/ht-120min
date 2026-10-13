@@ -75,23 +75,24 @@ const BATCH_SIZE = 3;
 const draftKey = (id: number) => `forge-league-working-v2:${id}`;
 const outreachStoragePrefix = 'forge-league-outreach-v1';
 const currentCampaignId = 'around-the-world-in-one-twenty';
-const defaultOutreachMessage = `Ia ora na, Bula and Håfa adai! 🌍
+const defaultOutreachMessage = `Hello and hola {managerName},
 
-HT-120min (a CHPP product I’m part of) is launching [b]Around the World in One Twenty 🧳🌏[/b] — an international friendly cup exclusively only for [b]flag chasers with teams in smaller Hattrick countries[/b]. Bring one along, and your other teams are automatically welcome too!
+HT-120min, a CHPP app I run, is launching [b]Around the World in One Twenty[/b] next week: a friendly cup for teams from Hattrick’s smallest countries, from Yemen (96 active teams) to the Dominican Republic (407).
 
-The idea is to bring those teams together and look for opponents who can add [b]missing home or away flags[/b] to your collection. Matches can be automatically arranged, saving you the weekly search for a partner. Teams will be automatically paired with their missing home and away flags in mind, aiming to add something new to both collections whenever possible.
+The cup will run for four rounds this season, then continue next season.
 
-Extra time and its training benefits are welcome, but [b]120 minutes is not forced[/b]. Standings use averages, so you can join later or skip a round without having to catch up on missed rounds.
+[q]We'd love to see [b]{teamName} {teamFlag}[/b]{otherTeams} among the first participants!
+Join: [link=https://ht-120min.vercel.app/t/around-the-world]Around the World in One Twenty[/link][/q]
 
-[b]Friendly still free this week?[/b] There may be room in the first round. Already booked? Join the waiting list for next week.
+Matches, scheduling, stats and standings are handled automatically. Just join with a team and follow along. Each round, pairings take teams’ missing home and away flags into account. Standings use averages, so you can join later or skip a round without having to catch up.
 
-We'd love to see [b]{teamName} {teamFlag}[/b]{otherTeams} among the first participants!
+Taking friendlies to 120 minutes is encouraged, but the final call is up to you and your opponent each round. Automatically arranged friendlies use Cup Rules, but you can opt out in advance. Fixtures detect matches automatically and show predicted ratings, which you can share with your opponent each round.
 
-[link=https://ht-120min.vercel.app/en/t/around-the-world-in-one-twenty]
+Bring one eligible team and your main team is welcome too!
 
-Comments and suggestions are welcome — this is the first trip, and the app is still in [i]beta[/i].
+Comments, suggestions and bug reports are welcome. The app is in its second season, but still in beta. If this one isn’t for you, keep an eye out for other friendly tournaments or suggest something you'd like to see. You can also create real or test tournaments of your own.
 
-Best,
+Kind regards,
 mr_bots
 🏆 ⚽️`;
 const emptyWorking = (): WorkingList => ({ snapshot: null, revision: 0, dirty: false, saveId: '' });
@@ -152,6 +153,7 @@ export function ForgeLeagues() {
   const [storageWarning, setStorageWarning] = useState('');
   const [view, setView] = useState<'all' | 'available'>('all');
   const [supportersOnly, setSupportersOnly] = useState(false);
+  const [notMessagedOnly, setNotMessagedOnly] = useState(false);
   const [activeRecently, setActiveRecently] = useState(false);
   const [now, setNow] = useState(() => Date.now());
 
@@ -160,6 +162,7 @@ export function ForgeLeagues() {
   const [messageTemplate, setMessageTemplate] = useState(defaultOutreachMessage);
   const [outreachCampaigns, setOutreachCampaigns] = useState<ForgeOutreachCampaign[]>([]);
   const [outreachContacts, setOutreachContacts] = useState<ForgeOutreachContact[]>([]);
+  const [knownHt120minManagerIds, setKnownHt120minManagerIds] = useState<Set<number>>(() => new Set());
   const [selectedCampaignId, setSelectedCampaignId] = useState(currentCampaignId);
   const [outreachNoteName, setOutreachNoteName] = useState('');
   const [outreachNoteDate, setOutreachNoteDate] = useState('');
@@ -198,7 +201,6 @@ export function ForgeLeagues() {
     }
     if (alive.current) setSaved(data);
   };
-
 
   useEffect(() => {
     const timer = window.setInterval(() => setNow(Date.now()), 60_000);
@@ -280,7 +282,7 @@ export function ForgeLeagues() {
 
   useEffect(() => {
     const abort = new AbortController();
-    request<{ campaigns: ForgeOutreachCampaign[]; contacts: ForgeOutreachContact[] }>(
+    request<{ campaigns: ForgeOutreachCampaign[]; contacts: ForgeOutreachContact[]; registeredManagerIds: number[]; registeredManagersError?: string }>(
       'outreach',
       undefined,
       undefined,
@@ -290,6 +292,8 @@ export function ForgeLeagues() {
         if (abort.signal.aborted) return;
         setOutreachCampaigns(data.campaigns);
         setOutreachContacts(data.contacts);
+        setKnownHt120minManagerIds(new Set(data.registeredManagerIds));
+        if (data.registeredManagersError) setOutreachError(data.registeredManagersError);
         const initial = data.campaigns[0] || data.campaigns.find((item) => item.id === currentCampaignId);
         if (initial) {
           setSelectedCampaignId(initial.id);
@@ -537,6 +541,9 @@ export function ForgeLeagues() {
     .filter((team) => !country || String(team.countryId) === country)
     .filter((team) => view !== 'available' || leagueTeamStatus(team) === 'Available')
     .filter((team) => !supportersOnly || Boolean(supporterIcons[team.supporterTier?.toLowerCase() || '']))
+    .filter((team) => !notMessagedOnly || !outreachContacts.some(
+      (contact) => contact.campaignId === selectedCampaignId && contact.managerId === team.managerId,
+    ))
     .filter((team) => {
       if (!activeRecently) return true;
       const lastSeen = parseLastSeen(team.lastLoginDate);
@@ -553,7 +560,7 @@ export function ForgeLeagues() {
     });
   const teamFlagFor = getCountryFlagEmoji;
   const namedTeamWithFlag = (name: string, countryId: number | null) =>
-    [teamFlagFor(countryId), name].filter(Boolean).join(' ');
+    [name, teamFlagFor(countryId)].filter(Boolean).join(' ');
   const smallLeagueIds = new Set(leagues.filter((item) => item.activeTeams <= 420).map((item) => item.leagueId));
   const selectedCampaign = outreachCampaigns.find((campaign) => campaign.id === selectedCampaignId);
   const outreachNoteDirty = Boolean(
@@ -675,6 +682,9 @@ export function ForgeLeagues() {
           {team.error && <span className={styles.meta}>{team.error}</span>}
         </div>
         <div className={styles.messagedField}>
+          {knownHt120minManagerIds.has(team.managerId) && (
+            <span className={styles.meta}>User of HT-120min!</span>
+          )}
           {!messaged && outreachStatus.previousCampaignNames.length > 0 && (
             <span className={styles.meta}>Contacted: {outreachStatus.previousCampaignNames.join(', ')}</span>
           )}
@@ -926,6 +936,14 @@ export function ForgeLeagues() {
                 onChange={(event) => setSortByRecentActivity(event.target.checked)}
               />
               Online recently
+            </label>
+            <label className={styles.filter}>
+              <input
+                type="checkbox"
+                checked={notMessagedOnly}
+                onChange={(event) => setNotMessagedOnly(event.currentTarget.checked)}
+              />
+              Not messaged
             </label>
           </div>
           {special && countries.length > 1 && (
