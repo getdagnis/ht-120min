@@ -153,6 +153,8 @@ export function ForgeLeagues() {
   const [view, setView] = useState<'all' | 'available'>('all');
   const [supportersOnly, setSupportersOnly] = useState(false);
   const [activeRecently, setActiveRecently] = useState(false);
+  const [now, setNow] = useState(() => Date.now());
+
   const [sortByRecentActivity, setSortByRecentActivity] = useState(false);
   const [country, setCountry] = useState('');
   const [messageTemplate, setMessageTemplate] = useState(defaultOutreachMessage);
@@ -196,6 +198,12 @@ export function ForgeLeagues() {
     }
     if (alive.current) setSaved(data);
   };
+
+
+  useEffect(() => {
+    const timer = window.setInterval(() => setNow(Date.now()), 60_000);
+    return () => window.clearInterval(timer);
+  }, []);
 
   useEffect(() => {
     alive.current = true;
@@ -524,7 +532,7 @@ export function ForgeLeagues() {
     ...new Set(snapshot?.teams.map((team) => team.countryId).filter((id): id is number => id !== null) || []),
   ];
   const special = league && HATTRICK_WORLD_DETAILS[league.leagueId]?.countryId === null;
-  const activeSince = Date.now() - 8 * 24 * 60 * 60 * 1000;
+  const activeSince = now - 8 * 24 * 60 * 60 * 1000;
   const teams = (snapshot?.teams || [])
     .filter((team) => !country || String(team.countryId) === country)
     .filter((team) => view !== 'available' || leagueTeamStatus(team) === 'Available')
@@ -532,7 +540,7 @@ export function ForgeLeagues() {
     .filter((team) => {
       if (!activeRecently) return true;
       const lastSeen = parseLastSeen(team.lastLoginDate);
-      return Boolean(lastSeen && lastSeen.getTime() <= Date.now() && lastSeen.getTime() >= activeSince);
+      return Boolean(lastSeen && lastSeen.getTime() <= now && lastSeen.getTime() >= activeSince);
     })
     .slice()
     .sort((a, b) => {
@@ -609,7 +617,7 @@ export function ForgeLeagues() {
       );
       setNotice(`Message copied and recorded for ${team.managerName || team.teamName}.`);
       setError('');
-    } catch (err) {
+    } catch {
       setOutreachError(
         copied
           ? 'Message copied, but it was not recorded. Retry the contact action to save it.'

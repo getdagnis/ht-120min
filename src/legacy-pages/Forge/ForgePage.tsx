@@ -9,7 +9,6 @@ import {
   Flask,
   House,
   Globe,
-  ListBullets,
   SoccerBall,
   GearSix,
   SignOut,
