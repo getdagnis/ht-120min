@@ -156,13 +156,14 @@ test('public attachment drops rows for changed MatchIDs', () => {
 });
 
 test('localhost admin exception requires the exact configured and signed-in identity', () => {
-  assert.equal(isLocalRatingsAdmin('localhost:3000', 'development', '8777402', 8777402), true);
-  assert.equal(isLocalRatingsAdmin('127.0.0.1:3000', 'development', '8777402', 8777402), true);
-  assert.equal(isLocalRatingsAdmin('localhost:3000', 'test', '8777402', 8777402), false);
-  assert.equal(isLocalRatingsAdmin('localhost:3000', 'production', '8777402', 8777402), false);
-  assert.equal(isLocalRatingsAdmin('localhost:3000', 'development', '8777402', 7), false);
-  assert.equal(isLocalRatingsAdmin('localhost:3000', 'development', ' 8777402', 8777402), false);
-  assert.equal(isLocalRatingsAdmin('example.com', 'development', '8777402', 8777402), false);
+  assert.equal(isLocalRatingsAdmin('localhost:3000', 'development', '8777402', 8777402, false), false);
+  assert.equal(isLocalRatingsAdmin('localhost:3000', 'development', '8777402', 8777402, true), true);
+  assert.equal(isLocalRatingsAdmin('127.0.0.1:3000', 'development', '8777402', 8777402, true), true);
+  assert.equal(isLocalRatingsAdmin('localhost:3000', 'test', '8777402', 8777402, true), false);
+  assert.equal(isLocalRatingsAdmin('localhost:3000', 'production', '8777402', 8777402, true), false);
+  assert.equal(isLocalRatingsAdmin('localhost:3000', 'development', '8777402', 7, true), false);
+  assert.equal(isLocalRatingsAdmin('localhost:3000', 'development', ' 8777402', 8777402, true), false);
+  assert.equal(isLocalRatingsAdmin('example.com', 'development', '8777402', 8777402, true), false);
 });
 
 test('private read gives both shares only to exact fixture managers before kickoff, or the local admin', async () => {

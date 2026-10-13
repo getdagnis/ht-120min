@@ -42,12 +42,13 @@ test('tactic indicators recognize displayed labels without pinning color scores'
   assert.equal(getTacticIndicatorScore(null), null);
 });
 
-test('set-piece indicators classify skill bands and ignore invalid values', () => {
+test('set-piece indicators classify skill bands, flag unset takers and ignore invalid values', () => {
   for (const skill of [1, 3, 4, 5, 6, 7, 8, 20]) {
     const score = getSetPieceIndicatorScore(skill);
     assert.ok(typeof score === 'number' && score >= 0 && score <= 4, String(skill));
   }
   assert.equal(getSetPieceIndicatorScore(0), null);
   assert.equal(getSetPieceIndicatorScore(Number.NaN), null);
-  assert.equal(getSetPieceIndicatorScore(null), null);
+  assert.equal(getSetPieceIndicatorScore(null), 4);
+  assert.equal(getSetPieceIndicatorScore(undefined), null);
 });

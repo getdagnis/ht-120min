@@ -32,8 +32,8 @@ export class FixtureRatingsError extends Error {
   constructor(public status: number, message: string) { super(message); }
 }
 
-export function isLocalRatingsAdmin(host: string, environment: string | undefined, configuredId: string | undefined, sessionId: number) {
-  return LOCAL_ADMIN_VIEW_ALL_SHARED_RATINGS && environment === 'development' && configuredId === '8777402' && sessionId === 8777402 &&
+export function isLocalRatingsAdmin(host: string, environment: string | undefined, configuredId: string | undefined, sessionId: number, enabled = LOCAL_ADMIN_VIEW_ALL_SHARED_RATINGS) {
+  return enabled && environment === 'development' && configuredId === '8777402' && sessionId === 8777402 &&
     /^(localhost|127(?:\.\d{1,3}){3}|\[?::1\]?)(:\d+)?$/i.test(host);
 }
 
