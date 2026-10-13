@@ -6,7 +6,7 @@ import {
   parseMatchLineupSetPiecesTaker, parseMatchLineupStyleOfPlay, parsePredictedRatings, parseSetPiecesSkill, parseSubmittedOrders, prediction, saveFixtureRatings,
   ratingSharingAction,
 } from '../src/server/api/_lib/fixture-ratings.ts';
-import { attachFixtureRatingStatus, PUBLIC_FIXTURE_RATING_STATUS_FIELDS } from '../src/types/fixture-ratings.ts';
+import { attachFixtureRatingStatus, PUBLIC_FIXTURE_RATING_STATUS_FIELDS, readFixtureRatingStatuses } from '../src/types/fixture-ratings.ts';
 
 const positions = [
   [100, 0], [101, 0], [102, 0], [104, 0], [105, 0],
@@ -149,7 +149,7 @@ test('failed match-order authorization stops before prediction and cannot yield 
 
 test('public attachment drops rows for changed MatchIDs', () => {
   const row = { fixture_id: 'fixture', team_id: 'team', ht_match_id: 123 };
-  assert.equal(PUBLIC_FIXTURE_RATING_STATUS_FIELDS, 'fixture_id,team_id,ht_match_id');
+  assert.equal(PUBLIC_FIXTURE_RATING_STATUS_FIELDS, 'fixture_id,team_id,ht_match_id,shared,auto_sharing_enabled,orders_given,orders_checked_at');
   assert.deepEqual(attachFixtureRatingStatus([{ id: 'fixture', ht_match_id: 124, home_team_id: 'team' }], [row])[0].rating_share_statuses, []);
   assert.deepEqual(attachFixtureRatingStatus([{ id: 'fixture', ht_match_id: 123, home_team_id: 'other' }], [row])[0].rating_share_statuses, []);
   assert.deepEqual(attachFixtureRatingStatus([{ id: 'fixture', ht_match_id: 123, home_team_id: 'team' }], [row])[0].rating_share_statuses, [row]);
@@ -389,4 +389,30 @@ test('home and away shares remain independent through update, failed refresh, an
   rows.matches[0].status = 'finished';
   await assert.rejects(saveFixtureRatings(db as never, 'fixture', 'away', 8, 'share', invalidate), /upcoming arranged fixture/);
   assert.equal(rows.fixture_predicted_rating_shares.length, 1);
+});
+
+test('missing expanded public rating columns retry only the legacy status projection', async () => {
+  for (const code of ['42703', 'PGRST204']) {
+    const projections: string[] = [];
+    const rows = [{ fixture_id: 'fixture', team_id: 'team', ht_match_id: 123 }];
+    const result = await readFixtureRatingStatuses(async (fields) => {
+      projections.push(fields);
+      return fields === PUBLIC_FIXTURE_RATING_STATUS_FIELDS
+        ? { data: null, error: { code, message: 'column shared does not exist' } }
+        : { data: rows, error: null };
+    });
+    assert.deepEqual(projections, [PUBLIC_FIXTURE_RATING_STATUS_FIELDS, 'fixture_id,team_id,ht_match_id']);
+    assert.deepEqual(result, { data: rows, error: null });
+  }
+});
+
+test('public rating status reads preserve real errors and do not retry successful expanded reads', async () => {
+  for (const error of [null, { code: '42501', message: 'permission denied' }]) {
+    let calls = 0;
+    const result = await readFixtureRatingStatuses(async () => { calls++; return { data: [], error }; });
+    assert.equal(calls, 1);
+    assert.equal(result.error, error);
+  }
+  const result = await readFixtureRatingStatuses(async () => ({ data: null, error: { code: '42703', message: 'legacy column missing' } }));
+  assert.equal(result.error?.message, 'legacy column missing');
 });

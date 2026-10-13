@@ -3,6 +3,7 @@ import { afterEach, test } from 'node:test';
 import {
   autoShareFixtureRatings, loadRatingSharingPreferences, setRatingSharingPreference,
 } from '../src/server/api/_lib/fixture-ratings.js';
+import { fixtureRatingNotice } from '../src/types/fixture-ratings.js';
 import app from '../src/server/api/app.js';
 import { buildAppSessionCookie } from '../src/server/api/_lib/app-session.js';
 
@@ -33,6 +34,7 @@ function fixtureDb() {
   };
   const disabled = new Set<string>(), suppressed = new Set<string>(), claimed = new Set<string>();
   const calls: string[] = [];
+  const orderStatuses: Array<Record<string, unknown>> = [];
   const db = {
     from(table: string) {
       const filters: Array<(row: Record<string, unknown>) => boolean> = [];
@@ -50,6 +52,7 @@ function fixtureDb() {
     async rpc(name: string, args: Record<string, unknown>) {
       calls.push(String(args.p_action || name));
       const teamId = String(args.p_team_id);
+      if (name === 'record_fixture_order_status') { orderStatuses.push(args); return { data: true, error: null }; }
       if (name === 'set_team_rating_sharing') {
         if (args.p_enabled === false) disabled.add(teamId); else disabled.delete(teamId);
         return { data: null, error: null };
@@ -68,7 +71,7 @@ function fixtureDb() {
       return { data: null, error: null };
     },
   };
-  return { db, rows, disabled, suppressed, calls };
+  return { db, rows, disabled, suppressed, calls, orderStatuses };
 }
 
 function fakeChpp(owned = [11, 33], onPrediction?: () => void) {
@@ -106,7 +109,7 @@ test('false/missing orders and unavailable ownership never publish, and opt-out 
   for (const value of [false, null]) {
     assert.equal(await autoShareFixtureRatings(db as never, 'cup', 'round', new Map([['home', new Map([[123, value]])]]), async () => {}), 0);
   }
-  assert.equal(requests.length, 0);
+  assert.equal(requests.filter((request) => request.startsWith('matchorders:')).length, 0);
   fakeChpp([]);
   const orders = new Map([['home', new Map([[123, true]])]]);
   assert.equal(await autoShareFixtureRatings(db as never, 'cup', 'round', orders, async () => {}), 0);
@@ -156,4 +159,27 @@ test('preference API requires a signed-in manager and validates writes before da
   const cookie = buildAppSessionCookie(7, 'ratings-test-secret', false);
   assert.equal(await invoke(cookie, { tournamentId: 'invalid', enabled: false }), 400);
   assert.equal(await invoke(cookie, { tournamentId: '20000000-0000-0000-0000-000000000001', teamId: '20000000-0000-0000-0000-000000000002', enabled: 'false' }), 400);
+});
+
+test('rating notices distinguish shared, disabled, confirmed unset and unclear or stale orders', () => {
+  const now = Date.now();
+  const base = { fixture_id: 'fixture', team_id: 'home', ht_match_id: 123, shared: false };
+  assert.equal(fixtureRatingNotice(undefined, now), 'unclear');
+  assert.equal(fixtureRatingNotice({ ...base, shared: true, auto_sharing_enabled: false }, now), 'shared');
+  assert.equal(fixtureRatingNotice({ ...base, auto_sharing_enabled: false, orders_given: false }, now), 'not-shared');
+  assert.equal(fixtureRatingNotice({ ...base, orders_given: false, orders_checked_at: new Date(now).toISOString() }, now), 'orders-unset');
+  for (const orders_given of [true, null, undefined]) {
+    assert.equal(fixtureRatingNotice({ ...base, orders_given, orders_checked_at: new Date(now).toISOString() }, now), 'unclear');
+  }
+  assert.equal(fixtureRatingNotice({ ...base, orders_given: false, orders_checked_at: new Date(now - 900_000).toISOString() }, now), 'unclear');
+});
+
+test('only owner-verified orders may store a confirmed unset status', async () => {
+  const { db, orderStatuses } = fixtureDb(); fakeChpp();
+  await autoShareFixtureRatings(db as never, 'cup', 'round', new Map([['home', new Map([[123, false]])]]), async () => {});
+  assert.equal(orderStatuses[0].p_orders_given, false);
+  orderStatuses.length = 0;
+  fakeChpp([]);
+  await autoShareFixtureRatings(db as never, 'cup', 'round', new Map([['home', new Map([[123, false]])]]), async () => {});
+  assert.equal(orderStatuses[0].p_orders_given, null);
 });

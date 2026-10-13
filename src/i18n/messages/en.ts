@@ -1002,6 +1002,9 @@ const messages = {
       matchPerformance: "match performance",
       sharedRatingPredictionStatus: "Shared rating prediction status",
       haveSharedTheirPredictedRatings: "have shared their predicted ratings! ✅",
+      hasNotSetMatchOrders: "has not yet set match orders for this match.",
+      hasNotSharedPredictedRatings: "has not shared their predicted ratings yet.",
+      matchOrderRatingsStatusUnclear: "— match order and ratings status is not clear.",
 
       '120PS': "120+PS!",
       hideDetails: "Hide details",

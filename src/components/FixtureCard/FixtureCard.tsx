@@ -1,3 +1,4 @@
+import type { FixtureRatingNotice } from '../../types/fixture-ratings';
 import { useTranslations } from 'next-intl';
 import React from 'react';
 import { ArrowLeft, ArrowRight, ArrowUpRight, Info } from 'phosphor-react';
@@ -63,7 +64,7 @@ interface FixtureCardProps {
     home: RatingsPreviewTeam | null;
     away: RatingsPreviewTeam | null;
   };
-  ratingsSharedStatus?: { home: boolean; away: boolean };
+  ratingsSharedStatus?: { home: FixtureRatingNotice | null; away: FixtureRatingNotice | null };
   ratingsActions?: {
     home: boolean;
     away: boolean;
@@ -523,18 +524,26 @@ export const FixtureCard: React.FC<FixtureCardProps> = ({
           )}
         </div>
       </div>
-      {ratingsPreview && (
+      {(ratingsPreview || ratingsSharedStatus) && (
         <section className={styles.ratingsPreview} aria-label={uiText('sharedMatchRatings')}>
-          {(ratingsPreview.home || ratingsPreview.away) && (
+          {(ratingsPreview?.home || ratingsPreview?.away) && (
             <div className={styles.ratingsPreviewTitle}>{uiText('sharedMatchRatings')}</div>
           )}
           {(['home', 'away'] as const).map((side) => {
             const team = side === 'home' ? homeTeam : awayTeam;
-            const preview = ratingsPreview[side];
+            const preview = ratingsPreview?.[side];
+            const notice = ratingsSharedStatus?.[side];
             const canManage = ratingsActions?.[side] || false;
-            if (!preview && !canManage) return null;
+            if (!preview && !canManage && !notice) return null;
             return (
               <div key={side} className={`${styles.ratingsSide} ${side === 'away' ? styles.ratingsSideAway : ''}`}>
+                {!preview && notice && (
+                  <p className={styles.ratingsNotice}>
+                    {team.name} {uiText(notice === 'shared' ? 'haveSharedTheirPredictedRatings'
+                      : notice === 'orders-unset' ? 'hasNotSetMatchOrders'
+                      : notice === 'not-shared' ? 'hasNotSharedPredictedRatings' : 'matchOrderRatingsStatusUnclear')}
+                  </p>
+                )}
                 {preview && (
                   <div className={styles.ratingsTeamHeading}>
                     {side === 'home' && <strong>{team.name}</strong>}
@@ -612,7 +621,7 @@ export const FixtureCard: React.FC<FixtureCardProps> = ({
                       </span>
                     </div>
                   </>
-                ) : (
+                ) : canManage ? (
                   <div className={styles.ratingsShareState}>
                     <div
                       className={`${styles.ratingsPreviewActions} ${styles.ratingsPreviewActionsEdgeAligned} ${
@@ -627,7 +636,7 @@ export const FixtureCard: React.FC<FixtureCardProps> = ({
                       {uiText('shareYourLineupPredictedRatingsWithYourOpponentYour')}
                     </p>
                   </div>
-                )}
+                ) : null}
               </div>
             );
           })}
@@ -693,20 +702,7 @@ export const FixtureCard: React.FC<FixtureCardProps> = ({
           })}
         </section>
       )}
-      {ratingsSharedStatus && (
-        <section className={styles.ratingsSharedStatus} aria-label={uiText('sharedRatingPredictionStatus')}>
-          {ratingsSharedStatus.home && (
-            <p className={styles.ratingsSharedStatusHome}>
-              {homeTeam.name} {uiText('haveSharedTheirPredictedRatings')}
-            </p>
-          )}
-          {ratingsSharedStatus.away && (
-            <p className={styles.ratingsSharedStatusAway}>
-              {awayTeam.name} {uiText('haveSharedTheirPredictedRatings')}
-            </p>
-          )}
-        </section>
-      )}
+
     </div>
   );
 };

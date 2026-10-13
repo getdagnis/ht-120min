@@ -9,7 +9,7 @@ import { getMatchDateForRound } from '../../utils/match-schedule.js';
 import { compareFixtures } from '../../utils/fixture-sorting';
 import { calculateSeasonSlotStandings, type SeasonSlotAssignment } from '../../utils/standings';
 import { isCurrentParticipantTeam } from '../../utils/team-state.js';
-import { attachFixtureRatingStatus, PUBLIC_FIXTURE_RATING_STATUS_FIELDS, type FixtureRatingShareStatus } from '../../types/fixture-ratings.js';
+import { attachFixtureRatingStatus, readFixtureRatingStatuses, type FixtureRatingShareStatus } from '../../types/fixture-ratings.js';
 import {
   buildManagerSpotlight,
   getUtcDateKey,
@@ -164,7 +164,7 @@ export async function buildTournamentInitialData(tournament: Record<string, unkn
   if ('error' in slotsResult && slotsResult.error) throw slotsResult.error;
   const matchIds = ((matchesResult.data || []) as { id: string }[]).map((match) => match.id);
   const ratingStatusResult = matchIds.length
-    ? await supabase.from('fixture_predicted_rating_share_status').select(PUBLIC_FIXTURE_RATING_STATUS_FIELDS).in('fixture_id', matchIds)
+    ? await readFixtureRatingStatuses((fields) => supabase.from('fixture_predicted_rating_share_status').select(fields).in('fixture_id', matchIds))
     : { data: [], error: null };
   if (ratingStatusResult.error) throw ratingStatusResult.error;
   let profileRows = profilesResult.data;

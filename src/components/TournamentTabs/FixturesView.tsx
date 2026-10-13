@@ -17,7 +17,7 @@ import { useClientNow } from '../../hooks/useHydratedBrowserState';
 import type { AppgOutcome } from '../../utils/appg';
 import type { MatchEventDetails } from '../../../shared/match-events';
 import type { LiveMatchClock } from '../../../shared/live-match';
-import type { FixtureRatingShareStatus, SharedFixtureRatings } from '../../types/fixture-ratings';
+import { fixtureRatingNotice, type FixtureRatingShareStatus, type SharedFixtureRatings } from '../../types/fixture-ratings';
 import styles from '../../legacy-pages/Public/TournamentView.module.sass';
 
 export interface FixtureMatch {
@@ -690,7 +690,7 @@ export const FixturesView: React.FC<FixturesViewProps> = ({
   // Background refresh may publish the first prediction or withdraw a notice.
   // Reload private values only when the narrow public sharing status changes.
   const ratingsShareKey = rounds.flatMap((round) => round.matches.flatMap((match) =>
-    (match.rating_share_statuses || []).map((share) => `${share.fixture_id}:${share.team_id}:${share.ht_match_id}`),
+    (match.rating_share_statuses || []).map((share) => `${share.fixture_id}:${share.team_id}:${share.ht_match_id}:${share.shared}`),
   )).sort().join(',');
 
   React.useEffect(() => {
@@ -1318,10 +1318,10 @@ export const FixturesView: React.FC<FixturesViewProps> = ({
                         row.team_id === match.away_team_id && Number(row.ht_match_id) === Number(match.ht_match_id),
                     );
                     const homeShared = Boolean(
-                      match.rating_share_statuses?.some((row) => row.team_id === match.home_team_id),
+                      match.rating_share_statuses?.some((row) => row.team_id === match.home_team_id && row.shared !== false),
                     );
                     const awayShared = Boolean(
-                      match.rating_share_statuses?.some((row) => row.team_id === match.away_team_id),
+                      match.rating_share_statuses?.some((row) => row.team_id === match.away_team_id && row.shared !== false),
                     );
                     const ownHome =
                       ratingsEligible &&
@@ -1345,8 +1345,11 @@ export const FixturesView: React.FC<FixturesViewProps> = ({
                             : undefined
                         }
                         ratingsSharedStatus={
-                          ratingsEligible && ((homeShared && !homeRatings) || (awayShared && !awayRatings))
-                            ? { home: homeShared && !homeRatings, away: awayShared && !awayRatings }
+                          ratingsEligible && (!homeRatings || !awayRatings)
+                            ? {
+                                home: homeRatings ? null : fixtureRatingNotice(match.rating_share_statuses?.find((row) => row.team_id === match.home_team_id), nowMs),
+                                away: awayRatings ? null : fixtureRatingNotice(match.rating_share_statuses?.find((row) => row.team_id === match.away_team_id), nowMs),
+                              }
                             : undefined
                         }
                         ratingsActions={

@@ -41,6 +41,7 @@ test('rating sharing SQL preserves manual rows, serializes claims, and protects 
       left_defence,centre_defence,right_defence,formation,tactic,fetched_at)
       VALUES('${fixture}','${away}',123,1,1,1,1,1,1,1,'4-5-1','Normal',now());`);
   sql(readFileSync(new URL('../migrations/118_automatic_fixture_rating_sharing.sql', import.meta.url), 'utf8'));
+  sql(readFileSync(new URL('../migrations/119_fixture_order_status.sql', import.meta.url), 'utf8'));
   assert.equal(sql(`SELECT share_source FROM fixture_predicted_rating_shares WHERE team_id='${away}';`), 'manual');
   const claims = await Promise.all([concurrentSql(action('claim')), concurrentSql(action('claim'))]);
   assert.equal(claims.filter(Boolean).length, 1, 'only one refresh may fetch predictions');
@@ -102,4 +103,24 @@ test('rating sharing SQL preserves manual rows, serializes claims, and protects 
   assert.ok(claimId());
   sql(`UPDATE fixture_rating_automation SET claim_expires_at=now()-interval '1 second' WHERE team_id='${home}';`);
   assert.ok(claimId(), 'expired claims can be retried after a worker stops');
+  const statusToken = sql(`SELECT claim_id FROM fixture_rating_automation WHERE team_id='${home}' AND ht_match_id=123;`);
+  const recordStatus = (given: string, token = statusToken) => `SELECT record_fixture_order_status('${fixture}','${home}',7,123,'${token}',${given},'${JSON.stringify(JSON.parse(values).fixture_context)}'::jsonb);`;
+  assert.equal(sql(recordStatus('false')), 't');
+  assert.equal(sql(`SET ROLE anon; SELECT shared||':'||auto_sharing_enabled||':'||orders_given FROM fixture_predicted_rating_share_status WHERE team_id='${home}';`), 'false:true:false');
+  sql('RESET ROLE;');
+  assert.equal(sql(recordStatus('NULL')), 't');
+  assert.equal(sql(`SELECT orders_given IS NULL FROM fixture_predicted_rating_share_status WHERE team_id='${home}';`), 't');
+  sql(recordStatus('false'));
+  sql(`UPDATE fixture_rating_automation SET orders_checked_at=now()-interval '16 minutes';`);
+  assert.equal(sql(`SELECT orders_given IS NULL FROM fixture_predicted_rating_share_status WHERE team_id='${home}';`), 't');
+  sql(recordStatus('false'));
+  sql(`UPDATE teams SET ht_team_id=44 WHERE id='${home}';`);
+  assert.equal(sql(`SELECT orders_given IS NULL FROM fixture_predicted_rating_share_status WHERE team_id='${home}';`), 't');
+  assert.equal(sql(recordStatus('false')), 'f', 'changed identities cannot record an old response');
+  sql(`UPDATE teams SET ht_team_id=11 WHERE id='${home}';`);
+  sql(toggle(false));
+  assert.equal(sql(recordStatus('false')), 'f', 'opt-out invalidates pending status writes');
+  assert.equal(sql(`SELECT auto_sharing_enabled FROM fixture_predicted_rating_share_status WHERE team_id='${home}';`), 'f');
+  assert.throws(() => sql(`SET ROLE authenticated; ${recordStatus('false')}`), /permission denied/);
+
 });

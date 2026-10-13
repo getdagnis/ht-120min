@@ -20,7 +20,7 @@ export default async function TournamentPage({
   if (tournamentResult.status === 'not-found') notFound();
   const initialData = tournamentResult.status === 'loaded' ? tournamentResult.data : undefined;
   if (tournamentResult.status === 'failed') {
-    console.error('Could not load tournament data on the server:', tournamentResult.error instanceof Error ? tournamentResult.error.message : 'Unknown error');
+    console.error('Could not load tournament data on the server:', tournamentResult.error);
   }
   let collectionLinks: { slug: string; title: string }[] = [];
   if (initialData) {

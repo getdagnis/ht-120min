@@ -11,7 +11,7 @@ import { supabase } from '../../lib/supabase';
 import { PUBLIC_ROUND_FIELDS, PUBLIC_MATCH_FIELDS } from '../../lib/tournament-public-fields';
 import {
   attachFixtureRatingStatus,
-  PUBLIC_FIXTURE_RATING_STATUS_FIELDS,
+  readFixtureRatingStatuses,
   type FixtureRatingShareStatus,
 } from '../../types/fixture-ratings';
 import {
@@ -1987,10 +1987,10 @@ export const TournamentView: React.FC<{
     if (matchesData) {
       const fixtureIds = (matchesData as { id: string }[]).map((match) => match.id);
       const { data: ratingRows, error: ratingsError } = fixtureIds.length
-        ? await supabase
+        ? await readFixtureRatingStatuses((fields) => supabase
             .from('fixture_predicted_rating_share_status')
-            .select(PUBLIC_FIXTURE_RATING_STATUS_FIELDS)
-            .in('fixture_id', fixtureIds)
+            .select(fields)
+            .in('fixture_id', fixtureIds))
         : { data: [], error: null };
       if (ratingsError) {
         console.error('Could not refresh shared fixture ratings:', ratingsError);

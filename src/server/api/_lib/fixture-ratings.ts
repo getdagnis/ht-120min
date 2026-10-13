@@ -530,13 +530,14 @@ export async function autoShareFixtureRatings(
     .eq('status', 'arranged').eq('completed', false).gt('scheduled_for', new Date().toISOString());
   if (error) throw error;
   let shared = 0;
+  let statusChanged = false;
   for (const match of matches || []) {
     const context = await loadFixtureForRatings(db, match.id);
     try { assertEligibleFixtureRatings(context); } catch { continue; }
     if (context.tournament.id !== tournamentId) continue;
     for (const team of [context.fixture.home_team, context.fixture.away_team]) {
       if (!team?.hattrick_user_id) continue;
-      if (!loadOrders && ordersByTeam.get(team.id)?.get(Number(context.fixture.ht_match_id)) !== true) continue;
+      if (!loadOrders && !ordersByTeam.has(team.id)) continue;
       const matchId = Number(context.fixture.ht_match_id);
       const managerId = Number(team.hattrick_user_id);
       let claimId: string | undefined;
@@ -545,12 +546,23 @@ export async function autoShareFixtureRatings(
         claimId = claim?.claim_id;
         if (!claimId) continue;
         const orders = ordersByTeam.get(team.id) || await loadOrders?.(team.id);
-        if (orders?.get(matchId) !== true) {
+        const ordersGiven = orders?.get(matchId) ?? null;
+        // Confirm live ownership before storing a definite status, including false.
+        const owner = ordersGiven !== null
+          ? await verifiedManagerClubs(db, managerId, ordersGiven ? Number(team.ht_team_id) : undefined)
+          : null;
+        if (owner && !owner.teamIds.has(Number(team.ht_team_id))) throw new FixtureRatingsError(403, 'Your Hattrick account no longer owns this fixture club.');
+        const { data: recorded, error: statusError } = await db.rpc('record_fixture_order_status', {
+          p_fixture_id: match.id, p_team_id: team.id, p_manager_id: managerId, p_ht_match_id: matchId,
+          p_claim_id: claimId, p_orders_given: ordersGiven, p_fixture_context: ratingFixtureContext(context.fixture),
+        });
+        if (statusError) throw statusError;
+        statusChanged ||= recorded === true;
+        if (ordersGiven !== true) {
           await ratingSharingAction(db, match.id, team.id, managerId, matchId, 'release', { p_claim_id: claimId });
           continue;
         }
-        const { credentials, teamIds, specialties } = await verifiedManagerClubs(db, managerId, Number(team.ht_team_id));
-        if (!teamIds.has(Number(team.ht_team_id))) throw new FixtureRatingsError(403, 'Your Hattrick account no longer owns this fixture club.');
+        const { credentials, specialties } = owner!;
         const opponent = team.id === context.fixture.home_team_id ? context.fixture.away_team : context.fixture.home_team;
         const values = await prediction(credentials, matchId, Number(team.ht_team_id), Number(opponent?.ht_team_id), specialties);
         const result = await ratingSharingAction(db, match.id, team.id, managerId, matchId, 'automatic', {
@@ -559,6 +571,11 @@ export async function autoShareFixtureRatings(
         if (result?.saved) shared++;
       } catch (error) {
         if (claimId) {
+          // A failed check must not leave a previous confirmed-false notice.
+          await db.rpc('record_fixture_order_status', {
+            p_fixture_id: match.id, p_team_id: team.id, p_manager_id: managerId, p_ht_match_id: matchId,
+            p_claim_id: claimId, p_orders_given: null, p_fixture_context: ratingFixtureContext(context.fixture),
+          }).then(({ data }) => { statusChanged ||= data === true; }, () => {});
           await ratingSharingAction(db, match.id, team.id, managerId, matchId, 'release', { p_claim_id: claimId })
             .catch(() => {}); // The lease still expires if the retry write fails.
         }
@@ -568,6 +585,6 @@ export async function autoShareFixtureRatings(
       }
     }
   }
-  if (shared) await invalidateAfterRatingWrite(invalidate, tournamentId);
+  if (shared || statusChanged) await invalidateAfterRatingWrite(invalidate, tournamentId);
   return shared;
 }

@@ -978,6 +978,9 @@ const messages = {
       matchPerformance: "",
       sharedRatingPredictionStatus: "",
       haveSharedTheirPredictedRatings: "",
+      hasNotSetMatchOrders: "vēl nav iesniegusi šīs spēles norādījumus.",
+      hasNotSharedPredictedRatings: "vēl nav kopīgojusi prognozētos reitingus.",
+      matchOrderRatingsStatusUnclear: "— spēles norādījumu un reitingu statuss nav skaidrs.",
 
       '120PS': "",
       hideDetails: "",
