@@ -7,6 +7,10 @@ import type { getServiceSupabase } from './supabase.js';
 import { PRIVATE_FIXTURE_RATINGS_FIELDS, type SharedFixtureRatings } from '../../../types/fixture-ratings.js';
 import { summarizeSpecialtyPositions, type PlayerLineupRole } from '../../../../shared/player-specialties.js';
 
+// Local development only: set false to test normal participant visibility.
+// Save this file, then reload the tournament page; no dev-server restart needed.
+const LOCAL_ADMIN_VIEW_ALL_SHARED_RATINGS = true;
+
 type Db = ReturnType<typeof getServiceSupabase>;
 type Side = 'home' | 'away';
 type Credentials = { oauth_token: string; oauth_token_secret: string };
@@ -29,7 +33,7 @@ export class FixtureRatingsError extends Error {
 }
 
 export function isLocalRatingsAdmin(host: string, environment: string | undefined, configuredId: string | undefined, sessionId: number) {
-  return environment === 'development' && configuredId === '8777402' && sessionId === 8777402 &&
+  return LOCAL_ADMIN_VIEW_ALL_SHARED_RATINGS && environment === 'development' && configuredId === '8777402' && sessionId === 8777402 &&
     /^(localhost|127(?:\.\d{1,3}){3}|\[?::1\]?)(:\d+)?$/i.test(host);
 }
 

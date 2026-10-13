@@ -117,14 +117,40 @@ const OPPOSING_SECTORS: Record<RatedSector, RatedSector> = {
   rightDefence: 'leftAttack',
 };
 
-function sectorComparisonClass(value: string, opposingValue: string | undefined) {
+// Tune these values against real matchups. Midfield values are percentages;
+// attack/defence values are multipliers (1.5 means 50% higher).
+const EXTRA_TIME_COMPARISON = {
+  defenceGreenRatio: 1.5,
+  attackRedRatio: 1.5,
+  midfieldGreenBelowPercent: 15,
+  midfieldYellowAbovePercent: 25,
+  midfieldRedAtPercent: 35,
+} as const;
+
+function sectorComparisonClass(sector: RatedSector, value: string, opposingValue: string | undefined) {
   if (!value.trim() || !opposingValue?.trim()) return undefined;
-  const own = Number(value), opponent = Number(opposingValue);
+  const own = Number(value),
+    opponent = Number(opposingValue);
   if (!Number.isFinite(own) || !Number.isFinite(opponent) || own < 0 || opponent < 0) return undefined;
-  // Use the same band in both directions: the higher value must exceed the
-  // lower by more than 10%, so a matched pair cannot receive conflicting colors.
-  if (Math.max(own, opponent) <= Math.min(own, opponent) * 1.1 + 1e-9) return undefined;
-  return own > opponent ? styles.ratingsStronger : styles.ratingsWeaker;
+  const epsilon = 1e-9; // Keep exact boundaries stable after floating-point division.
+
+  if (sector === 'midfield') {
+    const lower = Math.min(own, opponent),
+      higher = Math.max(own, opponent);
+    const difference = lower === 0 ? (higher === 0 ? 0 : Infinity) : (higher / lower - 1) * 100;
+    if (difference < EXTRA_TIME_COMPARISON.midfieldGreenBelowPercent - epsilon) return styles.ratingsFavorable;
+    if (difference >= EXTRA_TIME_COMPARISON.midfieldRedAtPercent - epsilon) return styles.ratingsUnfavorable;
+    if (difference > EXTRA_TIME_COMPARISON.midfieldYellowAbovePercent + epsilon) return styles.ratingsCaution;
+    return undefined;
+  }
+
+  const attack = sector.endsWith('Attack') ? own : opponent;
+  const defence = sector.endsWith('Defence') ? own : opponent;
+  if (attack === 0 && defence === 0) return undefined;
+  // Both matched numbers get the same color: a defensive advantage favors a draw.
+  if (defence >= attack * EXTRA_TIME_COMPARISON.defenceGreenRatio - epsilon) return styles.ratingsFavorable;
+  if (attack >= defence * EXTRA_TIME_COMPARISON.attackRedRatio - epsilon) return styles.ratingsUnfavorable;
+  return undefined;
 }
 
 const RATED_SECTOR_ROLES: Record<RatedSector, number[]> = {
@@ -217,7 +243,15 @@ function RatingsPitch({
               <div className={styles.ratingsSector} key={label}>
                 <span>{label}</span>
                 <div className={styles.ratingsValue}>
-                  <strong className={sector && opposingRatings ? sectorComparisonClass(value, opposingRatings[OPPOSING_SECTORS[sector]]) : undefined}>{value}</strong>
+                  <strong
+                    className={
+                      sector && opposingRatings
+                        ? sectorComparisonClass(sector, value, opposingRatings[OPPOSING_SECTORS[sector]])
+                        : undefined
+                    }
+                  >
+                    {value}
+                  </strong>
                   {markers.length > 0 && (
                     <small
                       className={styles.ratingsSpecialtyIcons}
@@ -561,9 +595,16 @@ export const FixtureCard: React.FC<FixtureCardProps> = ({
               <div key={side} className={`${styles.ratingsSide} ${side === 'away' ? styles.ratingsSideAway : ''}`}>
                 {!preview && notice && (
                   <p className={styles.ratingsNotice}>
-                    {team.name} {uiText(notice === 'shared' ? 'haveSharedTheirPredictedRatings'
-                      : notice === 'orders-unset' ? 'hasNotSetMatchOrders'
-                      : notice === 'not-shared' ? 'hasNotSharedPredictedRatings' : 'matchOrderRatingsStatusUnclear')}
+                    {team.name}{' '}
+                    {uiText(
+                      notice === 'shared'
+                        ? 'haveSharedTheirPredictedRatings'
+                        : notice === 'orders-unset'
+                          ? 'hasNotSetMatchOrders'
+                          : notice === 'not-shared'
+                            ? 'hasNotSharedPredictedRatings'
+                            : 'matchOrderRatingsStatusUnclear',
+                    )}
                   </p>
                 )}
                 {preview && (
@@ -577,8 +618,11 @@ export const FixtureCard: React.FC<FixtureCardProps> = ({
                   <>
                     <RatingsPitch
                       ratings={preview.ratings}
-                      opposingRatings={ratingsPreview?.home && ratingsPreview.away
-                        ? ratingsPreview[side === 'home' ? 'away' : 'home']?.ratings : undefined}
+                      opposingRatings={
+                        ratingsPreview?.home && ratingsPreview.away
+                          ? ratingsPreview[side === 'home' ? 'away' : 'home']?.ratings
+                          : undefined
+                      }
                       specialtyPositions={preview.specialtyPositions}
                     />
                     <div className={styles.ratingsMetadata}>
@@ -729,7 +773,6 @@ export const FixtureCard: React.FC<FixtureCardProps> = ({
           })}
         </section>
       )}
-
     </div>
   );
 };

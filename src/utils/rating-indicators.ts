@@ -49,7 +49,8 @@ export function getTacticIndicatorScore(tactic: string | null | undefined): Rati
 }
 
 export function getSetPieceIndicatorScore(skill: number | null | undefined): RatingIndicatorScore | null {
-  if (!Number.isFinite(skill) || skill === null || skill === undefined || skill < 1) return null;
+  if (skill === null) return 4;
+  if (!Number.isFinite(skill) || skill === undefined || skill < 1) return null;
   if (skill <= 3) return 1;
   if (skill <= 5) return 2;
   if (skill <= 7) return 3;

@@ -64,12 +64,6 @@
   color: var(--red, #b44)
   font-size: 0.75rem
 
-.ratingsStronger
-  color: var(--accent)
-
-.ratingsWeaker
-  color: var(--danger)
-
 .ratingsNotice
   margin: 0 0 0.45rem
   color: var(--text60)
@@ -145,6 +139,15 @@
     font-family: var(--heading)
     font-size: 0.98rem
     font-variant-numeric: tabular-nums
+
+    &.ratingsFavorable
+      color: var(--accent)
+
+    &.ratingsUnfavorable
+      color: var(--danger)
+
+    &.ratingsCaution
+      color: var(--warning)
 
 .ratingsValue
   display: flex

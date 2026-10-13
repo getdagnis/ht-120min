@@ -8,6 +8,8 @@ Share and Update fetch `matchorders` v3.1 with `actionType=view` for submitted p
 
 ## Automatic sharing
 
+For local visibility testing, toggle `LOCAL_ADMIN_VIEW_ALL_SHARED_RATINGS` near the top of `src/server/api/_lib/fixture-ratings.ts`. It defaults to `true`; `false` uses normal participant visibility while retaining admin access elsewhere. Save the source file and reload the tournament page to fetch fresh private ratings; Next dev reloads the server module without a restart. The development, localhost and signed-in identity checks remain mandatory when enabled. This has no effect in production.
+
 The Fixtures switch defaults to on for each team and manager in a tournament. `tournament_team_rating_preferences` stores only explicit preferences, without a season key, so opt-outs persist across seasons. GET/POST `/api/app?route=rating-sharing-preferences` uses signed-in sessions and live CHPP ownership verification. Tables and mutation RPCs are service-role-only; preferences do not affect who may read predictions.
 
 Background fixture refresh creates an initial automatic share only for a current-season upcoming arranged fixture whose exact team's own `matches` response confirms `OrdersGiven=True`. Absent/false values do not trigger prediction reads, and another participant's fallback token cannot supply a positive orders check. Already-fetched match lists are reused. Fully reconciled fixtures normally skip the match-list read; automatic sharing reads the team's list only while it lacks an eligible share. A live token-holder club check still precedes prediction fetching. Initial creation is permitted by the stored default-on preference even when the refresh requester is not the owner; the response contains counts, never private values.
