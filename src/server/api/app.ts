@@ -3678,7 +3678,7 @@ async function handleForgeStats(req: VercelRequest, res: VercelResponse) {
   }
   const daily = serializeDailyEventCounts(dailyByDate);
   const sortedActivity = events
-    .filter((event) => event.event_type !== 'page_view' && event.event_type !== 'page_exit')
+    .filter((event) => event.event_type !== 'page_view')
     .sort((left, right) => right.occurred_at.localeCompare(left.occurred_at) || right.id.localeCompare(left.id));
   const activityCursor = decodeActivityCursor(readString(req.query.activityCursor));
   const activityStart = activityCursor

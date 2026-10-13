@@ -42,6 +42,13 @@ interface DashboardUser {
   country_name: string | null;
 }
 
+interface DashboardTournament {
+  id: string;
+  name: string;
+  slug: string;
+  created_at: string;
+}
+
 interface DashboardChat {
   id: string;
   content: string;
@@ -186,12 +193,13 @@ interface ForgeStatsResponse {
   rawUniqueStart: string;
 }
 
-type ForgePeriod = '12h' | '24h' | '7d' | '1m' | '3m';
+type ForgePeriod = '12h' | '24h' | '3d' | '7d' | '1m' | '3m';
 
 const FORGE_PERIOD_STORAGE_KEY = 'forge-analytics-period';
 const FORGE_PERIODS: Array<{ value: ForgePeriod; label: string; durationMs: number }> = [
   { value: '12h', label: 'Last 12 hours', durationMs: 12 * 60 * 60 * 1000 },
   { value: '24h', label: 'Last 24 hours', durationMs: 24 * 60 * 60 * 1000 },
+  { value: '3d', label: 'Last 3 days', durationMs: 3 * 24 * 60 * 60 * 1000 },
   { value: '7d', label: 'Last 7 days', durationMs: 7 * 24 * 60 * 60 * 1000 },
   { value: '1m', label: 'Last month', durationMs: 30 * 24 * 60 * 60 * 1000 },
   { value: '3m', label: 'Last 3 months', durationMs: 90 * 24 * 60 * 60 * 1000 },
@@ -385,7 +393,7 @@ function ActivityBarTooltip({
                   {popularRoute.uniqueCount !== undefined ? `(${popularRoute.uniqueCount})` : ''} views
                 </p>
               )}
-              <p>Each event is a page view, page exit, or tracked action. Localhost and admin activity are excluded.</p>
+              <p>Trend counts include page views and tracked actions. Page exits remain in recent activity.</p>
             </>
           ) : (
             <small>History unavailable for this period.</small>
@@ -699,6 +707,8 @@ function ForgeStatsSidebar({
   hasMoreChat = false,
   loadingMoreChat = false,
   onLoadMoreChat,
+  latestUsers,
+  latestTournament,
 }: {
   summary: ForgeStatsResponse['summary'] | null;
   breakdowns: ForgeStatsResponse['breakdowns'] | null;
@@ -723,6 +733,8 @@ function ForgeStatsSidebar({
   hasMoreChat?: boolean;
   loadingMoreChat?: boolean;
   onLoadMoreChat?: () => void;
+  latestUsers?: DashboardUser[];
+  latestTournament?: DashboardTournament | null;
 }) {
   return (
     <aside className={styles.statsSidebar}>
@@ -798,6 +810,49 @@ function ForgeStatsSidebar({
             <Button variant="showMore" disabled={loadingMoreChat} onClick={onLoadMoreChat}>
               {loadingMoreChat ? 'Loading...' : 'View more'}
             </Button>
+          )}
+        </SectionCard>
+      )}
+
+      {latestUsers && (
+        <SectionCard
+          title="Most recent registered users"
+          subtitle={`${FORGE_PERIODS.find((option) => option.value === period)?.label.toLowerCase()}`}
+          className={`${styles.surfaceCard} ${styles.dashboardActivity}`}
+        >
+          {loading && latestUsers.length === 0 && <p className={styles.smallNote}>Loading registered users...</p>}
+          {!loading && latestUsers.length === 0 && <p className={styles.smallNote}>No registrations in this period.</p>}
+          <div className={styles.activityFeed}>
+            {latestUsers.slice(0, 10).map((user) => (
+              <article key={user.hattrick_user_id} className={styles.activityFeedItem}>
+                <div className={styles.activityFeedHeading}>
+                  <strong>{user.manager_name}</strong>
+                  <time>{formatDateTime(user.created_at)}</time>
+                </div>
+                <p className={styles.activityFeedDetails}>
+                  {[user.country_name, `Hattrick ID ${user.hattrick_user_id}`].filter(Boolean).join(' · ')}
+                </p>
+              </article>
+            ))}
+          </div>
+        </SectionCard>
+      )}
+
+      {latestUsers && (
+        <SectionCard
+          title="Most recent tournament created"
+          subtitle={`${FORGE_PERIODS.find((option) => option.value === period)?.label.toLowerCase()}`}
+          className={`${styles.surfaceCard} ${styles.dashboardActivity}`}
+        >
+          {loading && !latestTournament && <p className={styles.smallNote}>Loading tournaments...</p>}
+          {!loading && !latestTournament && <p className={styles.smallNote}>No tournaments created in this period.</p>}
+          {latestTournament && (
+            <article className={styles.activityFeedItem}>
+              <div className={styles.activityFeedHeading}>
+                <a href={`/en/t/${latestTournament.slug}`}>{latestTournament.name}</a>
+                <time>{formatDateTime(latestTournament.created_at)}</time>
+              </div>
+            </article>
           )}
         </SectionCard>
       )}
@@ -1004,6 +1059,7 @@ function ForgeDashboard({
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [latestUsers, setLatestUsers] = useState<DashboardUser[]>([]);
+  const [latestTournament, setLatestTournament] = useState<DashboardTournament | null>(null);
   const [latestChat, setLatestChat] = useState<DashboardChat[]>([]);
   const [chatOffset, setChatOffset] = useState(0);
   const [hasMoreChat, setHasMoreChat] = useState(false);
@@ -1067,13 +1123,20 @@ function ForgeDashboard({
       setLoading(true);
       setError('');
       try {
-        const [usersRes, chatPage, statsRes] = await Promise.all([
+        const [usersRes, tournamentRes, chatPage, statsRes] = await Promise.all([
           supabase
             .from('profiles')
             .select('hattrick_user_id, manager_name, created_at, last_seen_at, country_name')
             .gte('created_at', since)
             .order('created_at', { ascending: false })
             .limit(30),
+          supabase
+            .from('tournaments')
+            .select('id, name, slug, created_at')
+            .gte('created_at', since)
+            .order('created_at', { ascending: false })
+            .limit(1)
+            .maybeSingle(),
           loadDashboardChatPage(since, 0, adminUserId, adminManagerName),
           fetch(`/api/app?route=forge-stats&since=${encodeURIComponent(since)}`, { credentials: 'include' }),
         ]);
@@ -1096,6 +1159,7 @@ function ForgeDashboard({
         setHasMoreChat(chatPage.hasMore);
         const profiles = (usersRes.data as DashboardUser[] | null) || [];
         setLatestUsers(profiles.filter((user) => user.hattrick_user_id !== adminUserId));
+        setLatestTournament((tournamentRes.data as DashboardTournament | null) || null);
       } catch (loadError) {
         if (!cancelled) setError(loadError instanceof Error ? loadError.message : 'Could not load dashboard activity.');
       } finally {
@@ -1159,6 +1223,7 @@ function ForgeDashboard({
     const popularRoutes = new Map<string, Map<string, number>>();
     const uniqueTournamentRoutes = new Map<string, Map<string, number>>();
     for (const row of trendData?.daily || []) {
+      if (row.event_type === 'page_exit') continue;
       const key = trendBucketKey(row.activity_date, trendConfig.unit);
       counts.set(key, (counts.get(key) || 0) + row.event_count);
       const eventCounts = eventBreakdowns.get(key) || new Map<string, number>();
@@ -1428,6 +1493,8 @@ function ForgeDashboard({
           hasMoreChat={hasMoreChat}
           loadingMoreChat={loadingMoreChat}
           onLoadMoreChat={() => void loadMoreChat()}
+          latestUsers={latestUsers}
+          latestTournament={latestTournament}
         />
       </div>
     </section>
@@ -1560,6 +1627,7 @@ function ForgeStatsSection() {
     const popularRoutes = new Map<string, Map<string, number>>();
     const uniqueTournamentRoutes = new Map<string, Map<string, number>>();
     for (const row of data?.daily || []) {
+      if (row.event_type === 'page_exit') continue;
       let key = row.activity_date;
       if (grouping === 'week') {
         const monday = new Date(`${key}T00:00:00Z`);
