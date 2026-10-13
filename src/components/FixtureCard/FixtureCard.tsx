@@ -107,6 +107,26 @@ type RatedSector =
   | 'centreDefence'
   | 'rightDefence';
 
+const OPPOSING_SECTORS: Record<RatedSector, RatedSector> = {
+  leftAttack: 'rightDefence',
+  centreAttack: 'centreDefence',
+  rightAttack: 'leftDefence',
+  midfield: 'midfield',
+  leftDefence: 'rightAttack',
+  centreDefence: 'centreAttack',
+  rightDefence: 'leftAttack',
+};
+
+function sectorComparisonClass(value: string, opposingValue: string | undefined) {
+  if (!value.trim() || !opposingValue?.trim()) return undefined;
+  const own = Number(value), opponent = Number(opposingValue);
+  if (!Number.isFinite(own) || !Number.isFinite(opponent) || own < 0 || opponent < 0) return undefined;
+  // Use the same band in both directions: the higher value must exceed the
+  // lower by more than 10%, so a matched pair cannot receive conflicting colors.
+  if (Math.max(own, opponent) <= Math.min(own, opponent) * 1.1 + 1e-9) return undefined;
+  return own > opponent ? styles.ratingsStronger : styles.ratingsWeaker;
+}
+
 const RATED_SECTOR_ROLES: Record<RatedSector, number[]> = {
   leftAttack: [110],
   centreAttack: [111, 112, 113],
@@ -160,10 +180,12 @@ function GameStyle({ styleOfPlay }: { styleOfPlay: number | null | undefined }) 
 
 function RatingsPitch({
   ratings,
+  opposingRatings,
   specialtyPositions = [],
   midfieldLabel = 'Midfield, predicted:',
 }: {
   ratings: RatingsPreviewTeam['ratings'];
+  opposingRatings?: RatingsPreviewTeam['ratings'];
   specialtyPositions?: SpecialtyPositionGroup[];
   midfieldLabel?: string;
 }) {
@@ -195,7 +217,7 @@ function RatingsPitch({
               <div className={styles.ratingsSector} key={label}>
                 <span>{label}</span>
                 <div className={styles.ratingsValue}>
-                  <strong>{value}</strong>
+                  <strong className={sector && opposingRatings ? sectorComparisonClass(value, opposingRatings[OPPOSING_SECTORS[sector]]) : undefined}>{value}</strong>
                   {markers.length > 0 && (
                     <small
                       className={styles.ratingsSpecialtyIcons}
@@ -553,7 +575,12 @@ export const FixtureCard: React.FC<FixtureCardProps> = ({
                 )}
                 {preview ? (
                   <>
-                    <RatingsPitch ratings={preview.ratings} specialtyPositions={preview.specialtyPositions} />
+                    <RatingsPitch
+                      ratings={preview.ratings}
+                      opposingRatings={ratingsPreview?.home && ratingsPreview.away
+                        ? ratingsPreview[side === 'home' ? 'away' : 'home']?.ratings : undefined}
+                      specialtyPositions={preview.specialtyPositions}
+                    />
                     <div className={styles.ratingsMetadata}>
                       <span>
                         {uiText('formation')}{' '}
