@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { Button } from '../../components/Button/Button';
 import { SectionCard } from '../../components/Card/SectionCard';
 import { HATTRICK_WORLD_DETAILS } from '../../../shared/worlddetails';
+import { parseChppStockholmDate } from '../../../shared/chpp-dates';
 import { getCountryFlagEmoji } from '../../utils/ht-data';
 import {
   FORGE_LEAGUE_TEAM_LIMIT,
@@ -46,7 +47,9 @@ const supporterIcons: Record<string, string> = {
 
 function parseLastSeen(value?: string | null): Date | null {
   if (!value) return null;
-  const date = new Date(value.replace(' ', 'T'));
+  // CHPP sends Stockholm wall-clock dates; Intl below displays the local timezone.
+  if (!/(?:Z|[+-]\d{2}:?\d{2})$/i.test(value)) return parseChppStockholmDate(value);
+  const date = new Date(value);
   return Number.isNaN(date.getTime()) ? null : date;
 }
 
@@ -75,14 +78,14 @@ const BATCH_SIZE = 3;
 const draftKey = (id: number) => `forge-league-working-v2:${id}`;
 const outreachStoragePrefix = 'forge-league-outreach-v1';
 const currentCampaignId = 'around-the-world-in-one-twenty';
-const defaultOutreachMessage = `Hello and hola {managerName},
+const defaultOutreachMessage = `Ciao, hallo and hola  {managerName},
 
 HT-120min, a CHPP app I run, is launching [b]Around the World in One Twenty[/b] next week: a friendly cup for teams from Hattrick’s smallest countries, from Yemen (96 active teams) to the Dominican Republic (407).
 
 The cup will run for four rounds this season, then continue next season.
 
-[q]We'd love to see [b]{teamName} {teamFlag}[/b]{otherTeams} among the first participants!
-Join: [link=https://ht-120min.vercel.app/t/around-the-world]Around the World in One Twenty[/link][/q]
+[q]We'd love to see [b]{teamName} {teamFlag}[/b]{otherTeams} among the participants!
+You can join here: [link=https://ht-120min.vercel.app/t/around-the-world][/q]
 
 Matches, scheduling, stats and standings are handled automatically. Just join with a team and follow along. Each round, pairings take teams’ missing home and away flags into account. Standings use averages, so you can join later or skip a round without having to catch up.
 
@@ -282,12 +285,12 @@ export function ForgeLeagues() {
 
   useEffect(() => {
     const abort = new AbortController();
-    request<{ campaigns: ForgeOutreachCampaign[]; contacts: ForgeOutreachContact[]; registeredManagerIds: number[]; registeredManagersError?: string }>(
-      'outreach',
-      undefined,
-      undefined,
-      abort.signal,
-    )
+    request<{
+      campaigns: ForgeOutreachCampaign[];
+      contacts: ForgeOutreachContact[];
+      registeredManagerIds: number[];
+      registeredManagersError?: string;
+    }>('outreach', undefined, undefined, abort.signal)
       .then((data) => {
         if (abort.signal.aborted) return;
         setOutreachCampaigns(data.campaigns);
@@ -352,14 +355,18 @@ export function ForgeLeagues() {
       const data = await request<{ leagues: ForgeLeagueOption[] }>('catalogue');
       if (!alive.current || version !== countRefreshVersion.current) return;
       const refreshed = new Map(data.leagues.map((item) => [item.leagueId, item]));
-      setLeagues((list) => list.map((item) => ({
-        ...item,
-        fetched: refreshed.get(item.leagueId)?.fetched ?? item.fetched,
-        messagedManagerCounts: refreshed.get(item.leagueId)?.messagedManagerCounts ?? item.messagedManagerCounts,
-      })));
+      setLeagues((list) =>
+        list.map((item) => ({
+          ...item,
+          fetched: refreshed.get(item.leagueId)?.fetched ?? item.fetched,
+          messagedManagerCounts: refreshed.get(item.leagueId)?.messagedManagerCounts ?? item.messagedManagerCounts,
+        })),
+      );
     } catch {
       if (alive.current && version === countRefreshVersion.current) {
-        setOutreachError('Dropdown message counts could not be refreshed. Saved contacts and team lists are unaffected.');
+        setOutreachError(
+          'Dropdown message counts could not be refreshed. Saved contacts and team lists are unaffected.',
+        );
       }
     }
   };
@@ -561,9 +568,13 @@ export function ForgeLeagues() {
     .filter((team) => !country || String(team.countryId) === country)
     .filter((team) => view !== 'available' || leagueTeamStatus(team) === 'Available')
     .filter((team) => !supportersOnly || Boolean(supporterIcons[team.supporterTier?.toLowerCase() || '']))
-    .filter((team) => !notMessagedOnly || !outreachContacts.some(
-      (contact) => contact.campaignId === selectedCampaignId && contact.managerId === team.managerId,
-    ))
+    .filter(
+      (team) =>
+        !notMessagedOnly ||
+        !outreachContacts.some(
+          (contact) => contact.campaignId === selectedCampaignId && contact.managerId === team.managerId,
+        ),
+    )
     .filter((team) => {
       if (!activeRecently) return true;
       const lastSeen = parseLastSeen(team.lastLoginDate);
@@ -703,9 +714,7 @@ export function ForgeLeagues() {
           {team.error && <span className={styles.meta}>{team.error}</span>}
         </div>
         <div className={styles.messagedField}>
-          {knownHt120minManagerIds.has(team.managerId) && (
-            <span className={styles.meta}>User of HT-120min!</span>
-          )}
+          {knownHt120minManagerIds.has(team.managerId) && <span className={styles.meta}>User of HT-120min!</span>}
           {!messaged && outreachStatus.previousCampaignNames.length > 0 && (
             <span className={styles.meta}>Contacted: {outreachStatus.previousCampaignNames.join(', ')}</span>
           )}
