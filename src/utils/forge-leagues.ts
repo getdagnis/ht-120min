@@ -9,6 +9,7 @@ export interface ForgeLeagueOption {
   name: string;
   activeTeams: number;
   fetched?: boolean;
+  messagedManagerCounts?: Record<string, number>;
 }
 
 export interface ForgeLeagueTeam {
@@ -24,6 +25,15 @@ export interface ForgeLeagueTeam {
   inCup: boolean | null;
   checkedAt: string | null;
   error: string | null;
+  /** Other active clubs returned by the latest teamdetails refresh. */
+  otherTeams?: ForgeLeagueOtherTeam[];
+}
+
+export interface ForgeLeagueOtherTeam {
+  teamId: number;
+  teamName: string;
+  leagueId: number;
+  countryId: number | null;
 }
 
 function capitalizeFirst(value: string): string {
@@ -34,11 +44,13 @@ export function formatForgeLeagueOutreachMessage(
   template: string,
   team: ForgeLeagueTeam,
   teamFlag: string,
+  otherTeams = '',
 ): string {
   return template
     .replaceAll('{teamName}', team.teamName)
     .replaceAll('{managerName}', capitalizeFirst(team.managerName || ''))
-    .replaceAll('{teamFlag}', teamFlag);
+    .replaceAll('{teamFlag}', teamFlag)
+    .replaceAll('{otherTeams}', otherTeams);
 }
 
 export interface ForgeLeagueJob {

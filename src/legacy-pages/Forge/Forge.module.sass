@@ -31,11 +31,12 @@
 .brand
   display: inline-flex
   align-items: center
-  gap: 0.75rem
-  color: var(--accent-3)
+  gap: 0.25rem
+  color: var(--text-h)
   text-decoration: none
-  font-size: 1.4rem
+  font-size: 1.75rem
   font-family: var(--heading)
+  text-transform: uppercase
   font-weight: 700
 
 .headerActions
@@ -89,6 +90,7 @@
   gap: 0.35rem
   align-self: start
   position: sticky
+  background: var(--lighter-less)
   top: 5.5rem
 
 .navItem
@@ -98,7 +100,6 @@
   text-decoration: none
   color: var(--text60)
   border: 1px solid transparent
-  border-radius: var(--radius-xs)
   background: transparent
   padding: 0.72rem 0.85rem
   font-weight: 600
@@ -111,7 +112,7 @@
 .navItemActive
   border-color: transparent
   color: var(--accent-3)
-  background: var(--bg-helpText)
+  background: var(--bg-color-transp)
 
 .navIcon
   display: inline-flex
@@ -610,16 +611,16 @@
       object-fit: cover
 
   li .availableTeamStatus
-    color: var(--accent)
+      color: var(--accent)
 
   li .challengeableTrue
-    color: var(--accent)
+      color: var(--accent)
 
   li .challengeableUnknown
-    color: var(--text60)
+      color: var(--text60)
 
   li .challengeableFalse
-    color: var(--danger)
+      color: var(--danger)
 
 .statsToolbar
   display: flex
@@ -851,7 +852,7 @@
 .roleBadge
   flex-shrink: 0
   border: 1px solid var(--border)
-  border-radius: var(--radius-md)
+  border-radius: var(--radius-sm)
   color: var(--accent-2)
   padding: 0.2rem 0.55rem
   font-size: 0.72rem

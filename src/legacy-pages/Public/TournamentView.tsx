@@ -53,7 +53,10 @@ import {
   teamMatchesCategory,
   validateTeamEligibility,
 } from '../../utils/team-eligibility';
-import { managerHasQualifyingCountryParticipant, validateCountrySizeEligibility } from '../../../shared/country-size-eligibility';
+import {
+  managerHasQualifyingCountryParticipant,
+  validateCountrySizeEligibility,
+} from '../../../shared/country-size-eligibility';
 import { normalizeLeagueLimit, resolveCountryRestriction } from '../../../shared/worlddetails';
 import type { MatchEventDetails } from '../../../shared/match-events';
 import type { TournamentJoinStory } from '../../types/tournament-activity';
@@ -1389,7 +1392,8 @@ export const TournamentView: React.FC<{
       registrationType: editRegistrationType !== normalizeTournamentRegistrationType(tournament.registration_type),
       countryLimit: editCountryLimit !== savedCountryLimit,
       maxCountryActiveTeams: editMaxCountryActiveTeams !== (tournament.max_country_active_teams ?? null),
-      managerCountrySizeException: editAllowManagerCountrySizeException !== Boolean(tournament.allow_manager_country_size_exception),
+      managerCountrySizeException:
+        editAllowManagerCountrySizeException !== Boolean(tournament.allow_manager_country_size_exception),
       defaultTheme: editDefaultTheme !== (tournament.default_theme ?? null),
       scoringMode: editScoringMode !== tournament.scoring_mode,
       maxTeams: editMaxTeams !== (tournament.max_teams || null),
@@ -1601,7 +1605,8 @@ export const TournamentView: React.FC<{
         : null,
     [scheduleDraft, scheduleStartSlotId],
   );
-  const usesLengthSchedulePlanner = scheduleSetup === 'generated' && (!isGenerated || tournament?.schedule_mode === 'length');
+  const usesLengthSchedulePlanner =
+    scheduleSetup === 'generated' && (!isGenerated || tournament?.schedule_mode === 'length');
   const lengthScheduleDraft = useMemo(
     () =>
       buildLengthScheduleDraft({
@@ -1843,8 +1848,8 @@ export const TournamentView: React.FC<{
           console.error('Could not refresh tournament data:', result.error);
           setLoadError(
             hasLoadedTournamentRef.current
-              ? 'Tournament data could not be refreshed. Your current page data is still available. Please try again.'
-              : 'Tournament data could not be loaded. Please try again.',
+              ? 'Tournament data could not be refreshed. Your current page data is still available. Please try again.\n'
+              : 'Tournament data could not be loaded. Please try again.\n',
           );
           return;
         }
@@ -1904,7 +1909,7 @@ export const TournamentView: React.FC<{
         setLoadError(
           hasLoadedTournamentRef.current
             ? 'Tournament data could not be refreshed. Your current page data is still available. Please try again.'
-            : 'Tournament data could not be loaded. Please try again.',
+            : 'Tournament data could not be loaded. Please try again.\n',
         );
       } finally {
         if (showLoader) setLoading(false);
@@ -2278,11 +2283,18 @@ export const TournamentView: React.FC<{
     // Close the picker as soon as a team is chosen so the lifecycle confirmation
     // is presented on its own instead of being stacked over the team list.
     setShowTeamModal(false);
-    if (tournament?.status === 'planning' && !tournament.is_test && !isSandbox && !(await confirm({
-      title: lifecycleText('joinPlanningTitle'),
-      message: lifecycleText('joinPlanningWarning'),
-      confirmLabel: uiText('joinTournament'), cancelLabel: uiText('cancel'),
-    }))) return;
+    if (
+      tournament?.status === 'planning' &&
+      !tournament.is_test &&
+      !isSandbox &&
+      !(await confirm({
+        title: lifecycleText('joinPlanningTitle'),
+        message: lifecycleText('joinPlanningWarning'),
+        confirmLabel: uiText('joinTournament'),
+        cancelLabel: uiText('cancel'),
+      }))
+    )
+      return;
     submittingJoinRef.current = true;
     setJoinError(null);
     setSubmittingJoin(true);
@@ -2363,8 +2375,9 @@ export const TournamentView: React.FC<{
 
     if (!isSiteAdmin && tournament.max_country_active_teams != null) {
       const hasQualifyingParticipant = Boolean(
-        tournament.allow_manager_country_size_exception && currentHtUserId &&
-          managerHasQualifyingCountryParticipant(teams, currentHtUserId, tournament.max_country_active_teams),
+        tournament.allow_manager_country_size_exception &&
+        currentHtUserId &&
+        managerHasQualifyingCountryParticipant(teams, currentHtUserId, tournament.max_country_active_teams),
       );
       const countrySizeEligibility = validateCountrySizeEligibility({
         countryId: team.countryId,
@@ -2836,12 +2849,15 @@ export const TournamentView: React.FC<{
     setHfiRankNotice(null);
     setHfiRankNoticeIsError(false);
     try {
-      const response = await fetch(`/api/app?route=${tournament.league_category === 'hfi' ? 'update-hfi-ranks' : 'update-power-rankings'}`, {
-        method: 'POST',
-        credentials: 'same-origin',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ tournamentId: tournament.id }),
-      });
+      const response = await fetch(
+        `/api/app?route=${tournament.league_category === 'hfi' ? 'update-hfi-ranks' : 'update-power-rankings'}`,
+        {
+          method: 'POST',
+          credentials: 'same-origin',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ tournamentId: tournament.id }),
+        },
+      );
       const payload = (await response.json().catch(() => null)) as {
         error?: string;
         participantCount?: number;
@@ -3181,37 +3197,82 @@ export const TournamentView: React.FC<{
       title: lifecycleText(target === 'recruiting' ? 'publishTournament' : 'returnToPlanning'),
       message: lifecycleText(target === 'recruiting' ? 'publishWarning' : 'resetPlanningWarning'),
       confirmLabel: lifecycleText(target === 'recruiting' ? 'publishTournament' : 'returnToPlanning'),
-      cancelLabel: uiText('cancel'), destructive: target === 'planning' && rounds.length > 0,
+      cancelLabel: uiText('cancel'),
+      destructive: target === 'planning' && rounds.length > 0,
     });
     if (!accepted) return;
     setIsChangingPublication(true);
     try {
       const response = await fetch('/api/app?route=tournament-publication', {
-        method: 'POST', credentials: 'same-origin', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ tournamentId: tournament.id, seasonNumber: Number(tournament.season || 1), target,
-          adminPassword: adminAuthSource === 'legacy_password' ? password : undefined }),
+        method: 'POST',
+        credentials: 'same-origin',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          tournamentId: tournament.id,
+          seasonNumber: Number(tournament.season || 1),
+          target,
+          adminPassword: adminAuthSource === 'legacy_password' ? password : undefined,
+        }),
       });
-      const result = await response.json() as { error?: string; errorCode?: string; transition?: { status: TournamentStatus; dropped_teams?: Array<{ name: string }> } };
-      if (!response.ok || !result.transition) throw new Error(result.errorCode === 'season_started'
-        ? lifecycleText('cannotResetPlayedSeason') : result.error || lifecycleText('publicationFailed'));
-      setTournament((current) => current ? { ...current, status: result.transition!.status,
-        registration_closed_at: null,
-        ...(target === 'planning' ? { schedule_start_slot: null, schedule_locked_at: null, schedule_generated_at: null } : {}),
-      } : current);
+      const result = (await response.json()) as {
+        error?: string;
+        errorCode?: string;
+        transition?: { status: TournamentStatus; dropped_teams?: Array<{ name: string }> };
+      };
+      if (!response.ok || !result.transition)
+        throw new Error(
+          result.errorCode === 'season_started'
+            ? lifecycleText('cannotResetPlayedSeason')
+            : result.error || lifecycleText('publicationFailed'),
+        );
+      setTournament((current) =>
+        current
+          ? {
+              ...current,
+              status: result.transition!.status,
+              registration_closed_at: null,
+              ...(target === 'planning'
+                ? { schedule_start_slot: null, schedule_locked_at: null, schedule_generated_at: null }
+                : {}),
+            }
+          : current,
+      );
       if (target === 'planning') {
-        setRounds([]); setStandings([]); setSeasonSlots([]); setSeasonSlotAssignments([]);
-        setSeasons((current) => current.map((season) => season.season_number === Number(tournament.season || 1)
-          ? { ...season, status: 'planned', started_at: null, finished_at: null, planned_start_slot: null,
-              snapshot_json: null, fixtures_snapshot_json: null, schedule_plan_json: null, ranking_snapshot_json: null }
-          : season));
+        setRounds([]);
+        setStandings([]);
+        setSeasonSlots([]);
+        setSeasonSlotAssignments([]);
+        setSeasons((current) =>
+          current.map((season) =>
+            season.season_number === Number(tournament.season || 1)
+              ? {
+                  ...season,
+                  status: 'planned',
+                  started_at: null,
+                  finished_at: null,
+                  planned_start_slot: null,
+                  snapshot_json: null,
+                  fixtures_snapshot_json: null,
+                  schedule_plan_json: null,
+                  ranking_snapshot_json: null,
+                }
+              : season,
+          ),
+        );
       }
       const dropped = result.transition.dropped_teams ?? [];
-      if (dropped.length) alert(lifecycleText('conflictingTeamsDropped', { teams: dropped.map((team) => team.name).join(', ') }));
-      await fetchData({ showLoader: false, invalidate: response.headers.get('X-Tournament-Cache') === 'invalidation-failed' });
+      if (dropped.length)
+        alert(lifecycleText('conflictingTeamsDropped', { teams: dropped.map((team) => team.name).join(', ') }));
+      await fetchData({
+        showLoader: false,
+        invalidate: response.headers.get('X-Tournament-Cache') === 'invalidation-failed',
+      });
       window.dispatchEvent(new Event('ht120:tournament-membership-changed'));
     } catch (error) {
       alert(error instanceof Error ? error.message : lifecycleText('publicationFailed'));
-    } finally { setIsChangingPublication(false); }
+    } finally {
+      setIsChangingPublication(false);
+    }
   };
 
   const handlePauseTournament = async () => {
@@ -3480,7 +3541,10 @@ export const TournamentView: React.FC<{
 
   const handleStartSeason = async () => {
     if (!tournament || isFinalizingSeason) return;
-    if (tournament.status === 'planning') { alert(lifecycleText('publishBeforeScheduling')); return; }
+    if (tournament.status === 'planning') {
+      alert(lifecycleText('publishBeforeScheduling'));
+      return;
+    }
     const currentSeasonNumber = tournament.season || 1;
     const confirmed = window.confirm(
       `Set Season ${currentSeasonNumber} as started?\n\nThis closes registration for the season. You can then add fixtures manually or generate a schedule.`,
@@ -3527,7 +3591,10 @@ export const TournamentView: React.FC<{
 
   const handleResetSeasonToPlanning = async () => {
     if (!tournament || !currentSeason || isFinalizingSeason || currentSeason.status !== 'ongoing') return;
-    if (!tournament.is_test && !isSandbox) { await handlePublicationChange('planning'); return; }
+    if (!tournament.is_test && !isSandbox) {
+      await handlePublicationChange('planning');
+      return;
+    }
     const hasSchedule = rounds.length > 0;
     const hasLinkedHattrickFixture = allMatches.some((match) => Boolean(match.ht_match_id));
     const externalFriendlyNote = hasLinkedHattrickFixture
@@ -3620,13 +3687,20 @@ export const TournamentView: React.FC<{
           ...(season.snapshot_json?.standings || []).map((standing) => standing.teamId),
         ].filter((teamId): teamId is string => !!teamId),
       );
-      const historicalSlots = tournament.scoring_mode === 'average120'
-        ? await supabase.from('tournament_season_slots').select('id,current_team_id').eq('tournament_season_id', season.id)
-        : null;
+      const historicalSlots =
+        tournament.scoring_mode === 'average120'
+          ? await supabase
+              .from('tournament_season_slots')
+              .select('id,current_team_id')
+              .eq('tournament_season_id', season.id)
+          : null;
       if (historicalSlots?.error) throw historicalSlots.error;
       const historicalSlotIds = (historicalSlots?.data || []).map((slot) => slot.id);
       const historicalAssignments = historicalSlotIds.length
-        ? await supabase.from('tournament_season_slot_assignments').select('*').in('tournament_season_slot_id', historicalSlotIds)
+        ? await supabase
+            .from('tournament_season_slot_assignments')
+            .select('*')
+            .in('tournament_season_slot_id', historicalSlotIds)
         : null;
       if (historicalAssignments?.error) throw historicalAssignments.error;
       for (const slot of historicalSlots?.data || []) {
@@ -3688,14 +3762,29 @@ export const TournamentView: React.FC<{
           : null;
 
       const response = await fetch('/api/app?route=start-tournament-season', {
-        method: 'POST', credentials: 'same-origin', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ tournamentId: tournament.id, nextSeasonNumber, mode, fixturesSnapshot,
-          plannedStartSlot: plannedStart, adminPassword: adminAuthSource === 'legacy_password' ? password : undefined }),
+        method: 'POST',
+        credentials: 'same-origin',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          tournamentId: tournament.id,
+          nextSeasonNumber,
+          mode,
+          fixturesSnapshot,
+          plannedStartSlot: plannedStart,
+          adminPassword: adminAuthSource === 'legacy_password' ? password : undefined,
+        }),
       });
-      const result = await response.json() as { error?: string; season?: TournamentSeason; droppedTeams?: Array<{ name: string }> };
+      const result = (await response.json()) as {
+        error?: string;
+        season?: TournamentSeason;
+        droppedTeams?: Array<{ name: string }>;
+      };
       if (!response.ok) throw new Error(result.error || lifecycleText('publicationFailed'));
       const nextSeason = result.season;
-      if (result.droppedTeams?.length) alert(lifecycleText('conflictingTeamsDropped', { teams: result.droppedTeams.map((team) => team.name).join(', ') }));
+      if (result.droppedTeams?.length)
+        alert(
+          lifecycleText('conflictingTeamsDropped', { teams: result.droppedTeams.map((team) => team.name).join(', ') }),
+        );
 
       if (nextSeason) {
         setSeasons((current) =>
@@ -4133,7 +4222,12 @@ export const TournamentView: React.FC<{
     }
   };
 
-  const [reserveValidation, setReserveValidation] = useState<{ teamId: string; validated: boolean; known: boolean; managerName: string | null } | null>(null);
+  const [reserveValidation, setReserveValidation] = useState<{
+    teamId: string;
+    validated: boolean;
+    known: boolean;
+    managerName: string | null;
+  } | null>(null);
 
   const fetchTeamData = async (htId: string, isReplacement: boolean, isReserve = false) => {
     if (!/^\d{1,10}$/.test(htId.trim())) return;
@@ -4159,10 +4253,20 @@ export const TournamentView: React.FC<{
       } else if (isReserve) {
         setReserveTeamName(data.teamName);
         setReserveValidation(null);
-        const ownershipResponse = await fetch('/api/app?route=reserve-admission', { method: 'POST', credentials: 'same-origin', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ tournamentId: tournament?.id, teamId: Number(htId), action: 'lookup' }) });
+        const ownershipResponse = await fetch('/api/app?route=reserve-admission', {
+          method: 'POST',
+          credentials: 'same-origin',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ tournamentId: tournament?.id, teamId: Number(htId), action: 'lookup' }),
+        });
         const ownership = await ownershipResponse.json();
         if (!ownershipResponse.ok) throw new Error(ownership.error || 'Ownership lookup failed.');
-        setReserveValidation({ teamId: htId, validated: ownership.validated === true, known: ownership.known === true, managerName: ownership.managerName || null });
+        setReserveValidation({
+          teamId: htId,
+          validated: ownership.validated === true,
+          known: ownership.known === true,
+          managerName: ownership.managerName || null,
+        });
       } else {
         setNewTeamName(data.teamName);
         setNewTeamData(data);
@@ -4292,15 +4396,23 @@ export const TournamentView: React.FC<{
     }
 
     const planningJoin = !addAsReserve && tournament?.status === 'planning';
-    if (!(await confirm({
-      title: addAsReserve ? lifecycleText('addReserveTitle') : planningJoin ? lifecycleText('joinPlanningTitle') : uiText('joinTournament'),
-      message: addAsReserve
-        ? `Add ${name} (ID: ${htId}) to the reserve list?`
-        : planningJoin
-          ? `${name} (ID: ${htId})\n\n${lifecycleText('joinPlanningWarning')}`
-          : `Add ${name} (ID: ${htId}) to the tournament?`,
-      confirmLabel: uiText('add'), cancelLabel: uiText('cancel'),
-    }))) return;
+    if (
+      !(await confirm({
+        title: addAsReserve
+          ? lifecycleText('addReserveTitle')
+          : planningJoin
+            ? lifecycleText('joinPlanningTitle')
+            : uiText('joinTournament'),
+        message: addAsReserve
+          ? `Add ${name} (ID: ${htId}) to the reserve list?`
+          : planningJoin
+            ? `${name} (ID: ${htId})\n\n${lifecycleText('joinPlanningWarning')}`
+            : `Add ${name} (ID: ${htId}) to the tournament?`,
+        confirmLabel: uiText('add'),
+        cancelLabel: uiText('cancel'),
+      }))
+    )
+      return;
 
     setIsSavingTeam(true);
     try {
@@ -4309,7 +4421,11 @@ export const TournamentView: React.FC<{
           method: 'POST',
           credentials: 'same-origin',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ tournamentId: tournament?.id, teamId: htIdInt, validated: reserveValidation?.teamId === htId && reserveValidation.validated }),
+          body: JSON.stringify({
+            tournamentId: tournament?.id,
+            teamId: htIdInt,
+            validated: reserveValidation?.teamId === htId && reserveValidation.validated,
+          }),
         });
         const result = (await response.json()) as { error?: string };
         if (!response.ok) throw new Error(result.error || 'The reserve team could not be added.');
@@ -5387,7 +5503,11 @@ export const TournamentView: React.FC<{
   };
 
   const canManageSchedule = Boolean(
-    canManageOperationalAdmin && tournament && !isPausedTournament && !isStoppedTournament && tournament.status !== 'planning',
+    canManageOperationalAdmin &&
+    tournament &&
+    !isPausedTournament &&
+    !isStoppedTournament &&
+    tournament.status !== 'planning',
   );
   const tournamentId = tournament?.id ?? null;
   const activeRealTeamsCount = teams.filter(isCurrentParticipantTeam).length;
@@ -5525,6 +5645,7 @@ export const TournamentView: React.FC<{
       <div className={styles.view}>
         <div className={styles.loading} role="alert">
           <p>{loadError}</p>
+          <br />
           <Button variant="primary" onClick={() => void fetchData({ showLoader: true, invalidate: false })}>
             {uiText('tryAgain')}
           </Button>
@@ -5579,9 +5700,10 @@ export const TournamentView: React.FC<{
           warning.active !== false && warning.round_id === currentRoundId && typeof warning.team_id === 'string',
       )
       .filter((warning) => {
-        const fixture = currentRoundMatches.find((match) =>
-          (match.home_team_id === warning.team_id || match.away_team_id === warning.team_id) &&
-          match.reserve_replaces_team_id !== warning.team_id,
+        const fixture = currentRoundMatches.find(
+          (match) =>
+            (match.home_team_id === warning.team_id || match.away_team_id === warning.team_id) &&
+            match.reserve_replaces_team_id !== warning.team_id,
         );
         return !fixture || isFixtureMisarranged(fixture.status || 'not_arranged', fixture.completed, true);
       })
@@ -5983,6 +6105,7 @@ export const TournamentView: React.FC<{
       {loadError && (
         <div className={styles.refreshError} role="alert">
           <p>{loadError}</p>
+          <br />
           <Button variant="primary" onClick={() => void fetchData({ showLoader: true, invalidate: false })}>
             {uiText('tryAgain')}
           </Button>
@@ -6087,7 +6210,8 @@ export const TournamentView: React.FC<{
             {isAppgMode ? (
               <div className={styles.scoringHelp}>
                 <p onClick={() => setShowScoringHelp(!showScoringHelp)} className={styles.helpToggle}>
-                  <strong>{uiText('aPPG120ScoringMode')}</strong> {showScoringHelp ? <X size={18} /> : <Info size={18} />}
+                  <strong>{uiText('aPPG120ScoringMode')}</strong>{' '}
+                  {showScoringHelp ? <X size={18} /> : <Info size={18} />}
                 </p>
                 {showScoringHelp && (
                   <div className={styles.helpContent}>
@@ -6121,30 +6245,35 @@ export const TournamentView: React.FC<{
             ) : isAverage120Mode ? (
               <div className={styles.scoringHelp}>
                 <p onClick={() => setShowScoringHelp(!showScoringHelp)} className={styles.helpToggle}>
-                  <strong>{uiText('average120ScoringMode')}</strong> {showScoringHelp ? <X size={18} /> : <Info size={18} />}
+                  <strong>{uiText('average120ScoringMode')}</strong>{' '}
+                  {showScoringHelp ? <X size={18} /> : <Info size={18} />}
                 </p>
                 {showScoringHelp && <p className={styles.helpContent}>{uiText('average120ScoringExplanation')}</p>}
               </div>
             ) : is120minMode ? (
               <div className={styles.scoringHelp}>
                 <p onClick={() => setShowScoringHelp(!showScoringHelp)} className={styles.helpToggle}>
-                  <strong>{uiText('120minScoringMode')}</strong> {showScoringHelp ? <X size={18} /> : <Info size={18} />}
+                  <strong>{uiText('120minScoringMode')}</strong>{' '}
+                  {showScoringHelp ? <X size={18} /> : <Info size={18} />}
                 </p>
                 {showScoringHelp && (
                   <p className={styles.helpContent}>
-                    {uiText('teamsAreRankedFirstBy')} <strong>{uiText('120minAchievements')}</strong>{uiText('thenPointsGoalDifferenceGoalsScoredAndFinallyFewer')}
+                    {uiText('teamsAreRankedFirstBy')} <strong>{uiText('120minAchievements')}</strong>
+                    {uiText('thenPointsGoalDifferenceGoalsScoredAndFinallyFewer')}
                   </p>
                 )}
               </div>
             ) : (
               <div className={styles.scoringHelp}>
                 <p onClick={() => setShowScoringHelp(!showScoringHelp)} className={styles.helpToggle}>
-                  <strong>{uiText('victoryPointsMode')}</strong> {showScoringHelp ? <X size={18} /> : <Info size={18} />}
+                  <strong>{uiText('victoryPointsMode')}</strong>{' '}
+                  {showScoringHelp ? <X size={18} /> : <Info size={18} />}
                 </p>
                 {showScoringHelp && (
                   <p className={styles.helpContent}>
                     {uiText('standardCompetitiveTournamentTeamsEarn3PointsForA')}{' '}
-                    <strong>{uiText('totalPoints')}</strong>{uiText('thenGoalDifferenceAndGoalsScored120minGamesMean')}
+                    <strong>{uiText('totalPoints')}</strong>
+                    {uiText('thenGoalDifferenceAndGoalsScored120minGamesMean')}
                   </p>
                 )}
               </div>
@@ -6184,9 +6313,7 @@ export const TournamentView: React.FC<{
           <div className={styles.testNotice}>
             <div>
               <h3>{uiText('tournamentPaused')}</h3>
-              <p>
-                {uiText('thisTournamentIsPostponedTeamsCanStillJoinAnd')}
-              </p>
+              <p>{uiText('thisTournamentIsPostponedTeamsCanStillJoinAnd')}</p>
             </div>
           </div>
         )}
@@ -6195,9 +6322,7 @@ export const TournamentView: React.FC<{
           <div className={styles.testNotice}>
             <div>
               <h3>{uiText('tournamentFullyStopped')}</h3>
-              <p>
-                {uiText('thisTournamentIsHaltedAndUnpublishedTeamsListedHere')}
-              </p>
+              <p>{uiText('thisTournamentIsHaltedAndUnpublishedTeamsListedHere')}</p>
             </div>
           </div>
         )}
@@ -6206,9 +6331,7 @@ export const TournamentView: React.FC<{
           <div className={styles.pauseNotice}>
             <div>
               <h3>{uiText('tournamentPaused2')}</h3>
-              <p>
-                {uiText('moreThan25OfTeamsHaveBecomeInactiveThe')}
-              </p>
+              <p>{uiText('moreThan25OfTeamsHaveBecomeInactiveThe')}</p>
             </div>
           </div>
         )}
@@ -6296,9 +6419,7 @@ export const TournamentView: React.FC<{
                 )}
               </div>
               {isGenerated && (
-                <p className={styles.registrationIntro}>
-                  {uiText('youAreJoiningAnOngoingTournamentYouWillFill')}
-                </p>
+                <p className={styles.registrationIntro}>{uiText('youAreJoiningAnOngoingTournamentYouWillFill')}</p>
               )}
 
               <div className={styles.registrationLinkArea}>
@@ -6306,9 +6427,7 @@ export const TournamentView: React.FC<{
                   <ArrowRight size={20} weight="bold" />{' '}
                   {isConnecting ? uiText('connectingToHattrick') : uiText('joinWithHattrick')}
                 </Button>
-                <p className={styles.registrationLinkNote}>
-                  {uiText('authorizeHT120minToFetchYourTeamDataAnd')}
-                </p>
+                <p className={styles.registrationLinkNote}>{uiText('authorizeHT120minToFetchYourTeamDataAnd')}</p>
               </div>
             </HeroCard>
           </div>
@@ -6330,7 +6449,8 @@ export const TournamentView: React.FC<{
                 className={styles.joinButton}
                 disabled={isConnecting}
               >
-                <ArrowRight size={18} weight="bold" /> {isConnecting ? uiText('connectingToHattrick') : uiText('joinWithHattrick')}
+                <ArrowRight size={18} weight="bold" />{' '}
+                {isConnecting ? uiText('connectingToHattrick') : uiText('joinWithHattrick')}
               </Button>
             )}
           </div>
@@ -6391,9 +6511,7 @@ export const TournamentView: React.FC<{
       {selectedTournamentMessage?.type === 'reauth' && (
         <div className={styles.joinedNotice}>
           <div className={styles.joinedNoticeContent}>
-            <span>
-              {uiText('pleaseLoginWithHattrickCHPPToRefreshYourCredentials')}
-            </span>
+            <span>{uiText('pleaseLoginWithHattrickCHPPToRefreshYourCredentials')}</span>
           </div>
           <div className={styles.reauthActions}>
             <Button size="sm" variant="primary" onClick={handleRefreshHattrickLogin}>
@@ -6503,7 +6621,10 @@ export const TournamentView: React.FC<{
         closeButtonClassName={styles.historyReportClose}
       >
         <p className={styles.historyReportText}>
-          <strong>{uiText('season2')} {latestPublishedHistorySeason?.season_number} {uiText('historyReportIsPublished')}</strong> {uiText('youCanNowViewItAndLeaveYourOne')}
+          <strong>
+            {uiText('season2')} {latestPublishedHistorySeason?.season_number} {uiText('historyReportIsPublished')}
+          </strong>{' '}
+          {uiText('youCanNowViewItAndLeaveYourOne')}
         </p>
         <div className={styles.historyReportActions}>
           <Button
@@ -6823,7 +6944,9 @@ export const TournamentView: React.FC<{
           </>
         ) : isOrganizerManagedTournament ? (
           <>
-            <strong>{uiText('yourOrganizerManaged')} {tournament.name} {uiText('pageIsReady')}</strong>
+            <strong>
+              {uiText('yourOrganizerManaged')} {tournament.name} {uiText('pageIsReady')}
+            </strong>
 
             <ul>
               <li>{uiText('invitedMoreTeamsToJoinOrAddThemYourself')}</li>
@@ -6832,9 +6955,7 @@ export const TournamentView: React.FC<{
               <li>{uiText('resultsWillBeUpdatedAutomaticallyButCanBeManually')}</li>
             </ul>
 
-            <p>
-              {uiText('thisFormatGivesTheOrganizerMoreControlParticipantsDo')}
-            </p>
+            <p>{uiText('thisFormatGivesTheOrganizerMoreControlParticipantsDo')}</p>
             <p>{uiText('ifYouReHappyOrWantANewFeature')}</p>
           </>
         ) : (
@@ -6884,9 +7005,7 @@ export const TournamentView: React.FC<{
         title={uiText('updateTournamentImage')}
       >
         <div className={styles.modalContent}>
-          <p>
-            {uiText('linkToAnExternalImageURLEGImgur')}
-          </p>
+          <p>{uiText('linkToAnExternalImageURLEGImgur')}</p>
           <div className={adminStyles.field}>
             <label>{uiText('imageURL')}</label>
             <input

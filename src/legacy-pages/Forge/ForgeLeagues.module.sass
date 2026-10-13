@@ -39,6 +39,35 @@
     letter-spacing: .2px
     line-height: 1.4em
 
+.outreachNote
+  display: grid
+  grid-template-columns: minmax(12rem, 2fr) minmax(9rem, 1fr) auto
+  align-items: end
+  gap: .75rem
+  max-width: 60rem
+
+  label
+    display: flex
+    flex-direction: column
+    gap: .35rem
+    font-size: .85rem
+
+  input
+    min-width: 0
+    width: 100%
+    padding: .6rem
+    background: var(--darker)
+    color: var(--text)
+    border-radius: 4px
+    font-size: 0.9rem
+
+@media (max-width: 40rem)
+  .outreachNote
+    grid-template-columns: 1fr 1fr
+
+    button
+      grid-column: 1 / -1
+
 .messaged:disabled
   color: var(--accent-2)
   background: var(--bg)

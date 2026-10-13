@@ -8,7 +8,7 @@ import { parseMatchesXml, readChppTag } from '../_lib/chpp-xml.js';
 import { rejectIfForgeTestingUnauthorized } from './_lib/guard.js';
 import { parseLeagueAvailability, parseLeagueSeries, parseLeagueTeam, parseSeriesHumanTeams, parseSmallLeagues, xmlBlocks } from './_lib/league-xml.js';
 import { FORGE_LEAGUE_TEAM_LIMIT } from '../../../utils/forge-leagues.js';
-import type { ForgeLeagueOption, ForgeLeagueSnapshot, ForgeLeagueTeam } from '../../../utils/forge-leagues.js';
+import type { ForgeLeagueOption, ForgeLeagueOtherTeam, ForgeLeagueSnapshot, ForgeLeagueTeam } from '../../../utils/forge-leagues.js';
 
 const TABLE = 'forge_league_snapshots';
 const OUTREACH_CAMPAIGNS = 'forge_league_outreach_campaigns';
@@ -97,22 +97,64 @@ export function snapshotInput(value: unknown): ForgeLeagueSnapshot | null {
       ? Number(team.managerCountryId)
       : null;
     const lastLoginDate = validDate(team.lastLoginDate) ? team.lastLoginDate : null;
+    let otherTeams: ForgeLeagueOtherTeam[] | undefined;
+    if (team.otherTeams !== undefined) {
+      if (!Array.isArray(team.otherTeams) || team.otherTeams.length > 100) return null;
+      const seenOtherIds = new Set<number>();
+      otherTeams = [];
+      for (const rawOther of team.otherTeams) {
+        if (!rawOther || typeof rawOther !== 'object') return null;
+        const other = rawOther as Record<string, unknown>;
+        if (!Number.isSafeInteger(other.teamId) || Number(other.teamId) <= 0 || Number(other.teamId) === Number(team.teamId) ||
+          seenOtherIds.has(Number(other.teamId)) || typeof other.teamName !== 'string' || !other.teamName.trim() ||
+          other.teamName.length > 200 || !Number.isSafeInteger(other.leagueId) || Number(other.leagueId) <= 0 ||
+          !(other.countryId === null || (Number.isSafeInteger(other.countryId) && Number(other.countryId) > 0))) return null;
+        seenOtherIds.add(Number(other.teamId));
+        otherTeams.push({ teamId: Number(other.teamId), teamName: other.teamName, leagueId: Number(other.leagueId), countryId: other.countryId as number | null });
+      }
+    }
     teams.push({ teamId: Number(team.teamId), teamName: team.teamName, managerId: Number(team.managerId), managerName: team.managerName,
       managerCountryId,
       supporterTier,
       lastLoginDate,
       countryId: team.countryId as number | null, booked: team.booked as boolean | null, inCup: team.inCup as boolean | null,
-      checkedAt: team.checkedAt as string | null, error: team.error as string | null });
+      checkedAt: team.checkedAt as string | null, error: team.error as string | null,
+      ...(otherTeams ? { otherTeams } : {}) });
   }
   return { teams, populatedAt: input.populatedAt, availabilityAt: input.availabilityAt as string | null,
     populationComplete: true, job: null,
     ...(input.availabilityMethod ? { availabilityMethod: input.availabilityMethod as 'teamdetails' | 'matches' } : {}) };
 }
 
-async function checkTeam(source: Awaited<ReturnType<typeof scanner>>, leagueId: number, teamId: number, precise: boolean) {
+function getOtherTeams(xml: string, currentTeamId: number): ForgeLeagueOtherTeam[] {
+  const seen = new Set<number>();
+  return xmlBlocks(xml, 'Team').flatMap((block) => {
+    const teamId = Number(readChppTag(block, 'TeamID'));
+    const leagueId = Number(readChppTag(block, 'LeagueID'));
+    const rawCountryId = readChppTag(block, 'CountryID');
+    const countryId = rawCountryId ? Number(rawCountryId) : null;
+    const teamName = readChppTag(block, 'TeamName');
+    const isBot = readChppTag(block, 'IsBot')?.toLowerCase();
+    const isDeactivated = readChppTag(block, 'IsDeactivated')?.toLowerCase();
+    if (!Number.isSafeInteger(teamId) || teamId <= 0 || teamId === currentTeamId || seen.has(teamId) ||
+      !Number.isSafeInteger(leagueId) || leagueId <= 0 ||
+      (countryId !== null && (!Number.isSafeInteger(countryId) || countryId <= 0)) ||
+      !teamName?.trim() || isBot !== 'false' || isDeactivated !== 'false') return [];
+    seen.add(teamId);
+    return [{ teamId, teamName, leagueId, countryId }];
+  });
+}
+
+async function checkTeam(
+  source: Awaited<ReturnType<typeof scanner>>,
+  leagueId: number,
+  teamId: number,
+  precise: boolean,
+) {
   const xml = await source.xml('teamdetails', '3.9', { teamID: String(teamId) });
   const team = parseLeagueTeam(xml, leagueId, teamId);
   if (!team) return null;
+  team.otherTeams = getOtherTeams(xml, teamId);
   Object.assign(team, parseLeagueAvailability(xml, teamId));
   if (precise && team.inCup !== true) {
     try {
@@ -145,14 +187,14 @@ export default async function handleForgeLeagues(req: VercelRequest, res: Vercel
   res.setHeader('Cache-Control', 'private, no-store');
   if (rejectIfForgeTestingUnauthorized(req, res)) return;
   const action = String(req.query.action || 'catalogue');
-  const outreachActions = ['outreach', 'outreach-contact', 'outreach-import-local'];
+  const outreachActions = ['outreach', 'outreach-contact', 'outreach-import-local', 'outreach-note'];
   const allActions = ['catalogue', 'snapshot', 'populate', 'series', 'teams', 'availability', 'precise', 'save', ...outreachActions];
   if (!allActions.includes(action)) return res.status(400).json({ error: 'Unknown league action.' });
   if (req.method !== (['catalogue', 'snapshot', 'outreach'].includes(action) ? 'GET' : 'POST')) return res.status(405).json({ error: 'Method not allowed.' });
   if (action === 'outreach') {
     const db = getServiceSupabase();
     const [{ data: campaigns, error: campaignsError }, { data: contacts, error: contactsError }] = await Promise.all([
-      db.from(OUTREACH_CAMPAIGNS).select('id, name, campaign_date').order('campaign_date', { ascending: false }),
+      db.from(OUTREACH_CAMPAIGNS).select('id, name, campaign_date').order('created_at', { ascending: false }).order('id'),
       db.from(OUTREACH_CONTACTS).select('campaign_id, manager_id'),
     ]);
     if (campaignsError || contactsError) throw new Error('Outreach history is unavailable.');
@@ -180,6 +222,19 @@ export default async function handleForgeLeagues(req: VercelRequest, res: Vercel
       if (error) throw new Error('Message copied, but the contact could not be recorded.');
       return res.status(200).json({ recorded: Boolean(data?.length) });
     }
+    if (action === 'outreach-note') {
+      const name = typeof body.name === 'string' ? body.name.trim() : '';
+      const campaignDate = typeof body.campaignDate === 'string' ? body.campaignDate : '';
+      const parsedDate = /^\d{4}-\d{2}-\d{2}$/.test(campaignDate) ? new Date(`${campaignDate}T00:00:00.000Z`) : null;
+      if (!name || name.length > 120 || !parsedDate || Number.isNaN(parsedDate.getTime())
+        || parsedDate.toISOString().slice(0, 10) !== campaignDate)
+        return res.status(400).json({ error: 'Enter a valid note name and date.' });
+      const { error } = await db.from(OUTREACH_CAMPAIGNS).upsert({
+        id: campaignId, name, campaign_date: campaignDate,
+      }, { onConflict: 'id' });
+      if (error) throw new Error('Could not save the contact note.');
+      return res.status(200).json({ saved: true });
+    }
     if (body.campaignId !== 'around-the-world-in-one-twenty' || !Array.isArray(body.managerIds) || body.managerIds.length > 10000)
       return res.status(400).json({ error: 'Invalid local outreach import.' });
     const rawIds = body.managerIds;
@@ -206,10 +261,32 @@ export default async function handleForgeLeagues(req: VercelRequest, res: Vercel
   }
   if (action === 'catalogue') {
     const data = await catalogue();
-    const { data: rows, error } = await getServiceSupabase().from(TABLE).select('league_id').contains('snapshot', { populationComplete: true });
-    if (error) throw new Error('League snapshot storage is unavailable.');
-    const fetched = new Set((rows || []).map(row => Number(row.league_id)));
-    return res.status(200).json({ leagues: data.leagues.map(league => ({ ...league, fetched: fetched.has(league.leagueId) })), checkedAt: data.checkedAt });
+    const db = getServiceSupabase();
+    const [{ data: rows, error: snapshotsError }, { data: contacts, error: contactsError }] = await Promise.all([
+      db.from(TABLE).select('league_id, snapshot').contains('snapshot', { populationComplete: true }),
+      db.from(OUTREACH_CONTACTS).select('campaign_id, manager_id'),
+    ]);
+    if (snapshotsError) throw new Error('League snapshot storage is unavailable.');
+    if (contactsError) throw new Error('Outreach history is unavailable.');
+    const contactedManagers = new Map<string, Set<number>>();
+    for (const contact of contacts || []) {
+      const managers = contactedManagers.get(contact.campaign_id) || new Set<number>();
+      managers.add(Number(contact.manager_id));
+      contactedManagers.set(contact.campaign_id, managers);
+    }
+    const snapshotsByLeague = new Map((rows || []).map(row => [Number(row.league_id), row.snapshot]));
+    return res.status(200).json({
+      leagues: data.leagues.map(league => {
+        const snapshot = snapshotsByLeague.get(league.leagueId);
+        const managerIds = new Set<number>((snapshot?.teams || []).map((team: { managerId: number }) => Number(team.managerId)));
+        const messagedManagerCounts = Object.fromEntries([...contactedManagers].map(([campaignId, managers]) => [
+          campaignId,
+          [...managerIds].filter(managerId => managers.has(managerId)).length,
+        ]));
+        return { ...league, fetched: Boolean(snapshot), messagedManagerCounts };
+      }),
+      checkedAt: data.checkedAt,
+    });
   }
   const leagueId = Number(req.query.leagueId);
   if (!Number.isSafeInteger(leagueId) || leagueId <= 0) return res.status(400).json({ error: 'Invalid league ID.' });
@@ -218,7 +295,8 @@ export default async function handleForgeLeagues(req: VercelRequest, res: Vercel
     if (error) throw new Error('League snapshot storage is unavailable.');
     return res.status(200).json({ snapshot: data?.snapshot ?? null, revision: data?.revision ?? 0 });
   }
-  if (!(await catalogue()).leagues.some(league => league.leagueId === leagueId)) return res.status(400).json({ error: `Only leagues with 1–${FORGE_LEAGUE_TEAM_LIMIT} active teams can be scanned.` });
+  const leagueCatalogue = await catalogue();
+  if (!leagueCatalogue.leagues.some(league => league.leagueId === leagueId)) return res.status(400).json({ error: `Only leagues with 1–${FORGE_LEAGUE_TEAM_LIMIT} active teams can be scanned.` });
   const body = req.body && typeof req.body === 'object' && !Array.isArray(req.body) ? req.body as Record<string, unknown> : {};
   if (action === 'save') {
     const snapshot = snapshotInput(body.snapshot);
@@ -252,7 +330,9 @@ export default async function handleForgeLeagues(req: VercelRequest, res: Vercel
   }
   const results = await Promise.all(requestedIds.map(async teamId => {
     if (action === 'teams') return { teamId, team: parseLeagueTeam(await source.xml('teamdetails', '3.9', { teamID: String(teamId) }), leagueId, teamId) };
-    try { return { teamId, team: await checkTeam(source, leagueId, teamId, action === 'precise') }; }
+    try {
+      return { teamId, team: await checkTeam(source, leagueId, teamId, action === 'precise') };
+    }
     catch { return { teamId, error: 'Availability could not be confirmed. Refresh to retry.' }; }
   }));
   return res.status(200).json({ results });

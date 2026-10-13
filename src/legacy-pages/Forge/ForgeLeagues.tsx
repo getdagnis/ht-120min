@@ -35,10 +35,12 @@ const link = (kind: 'team' | 'manager' | 'league', id: number) =>
         ? `/Club/Manager/?userId=${id}`
         : `/World/Leagues/?LeagueID=${id}`
   }`;
+const leagueDisplayName = (leagueId: number, fallback: string) =>
+  HATTRICK_WORLD_DETAILS[leagueId]?.leagueName || fallback;
 const supporterIcons: Record<string, string> = {
-  silver: '📎',
+  silver: '💍',
   gold: '⭐️',
-  platinum: '💍',
+  platinum: '🪩',
   diamond: '💎',
 };
 
@@ -83,7 +85,7 @@ Extra time and its training benefits are welcome, but [b]120 minutes is not forc
 
 [b]Friendly still free this week?[/b] There may be room in the first round. Already booked? Join the waiting list for next week.
 
-We'd love to see [b]{teamName} {teamFlag}[/b] among the first participants!
+We'd love to see [b]{teamName} {teamFlag}[/b]{otherTeams} among the first participants!
 
 [link=https://ht-120min.vercel.app/en/t/around-the-world-in-one-twenty]
 
@@ -93,6 +95,11 @@ Best,
 mr_bots
 🏆 ⚽️`;
 const emptyWorking = (): WorkingList => ({ snapshot: null, revision: 0, dirty: false, saveId: '' });
+const upgradeOutreachTemplate = (template: string) =>
+  template.replace(
+    "We'd love to see [b]{teamName} {teamFlag}[/b] among the first participants!",
+    "We'd love to see [b]{teamName} {teamFlag}[/b]{otherTeams} among the first participants!",
+  );
 
 function browserDraft(id: number): WorkingList | null {
   try {
@@ -146,11 +153,14 @@ export function ForgeLeagues() {
   const [view, setView] = useState<'all' | 'available'>('all');
   const [supportersOnly, setSupportersOnly] = useState(false);
   const [activeRecently, setActiveRecently] = useState(false);
+  const [sortByRecentActivity, setSortByRecentActivity] = useState(false);
   const [country, setCountry] = useState('');
   const [messageTemplate, setMessageTemplate] = useState(defaultOutreachMessage);
   const [outreachCampaigns, setOutreachCampaigns] = useState<ForgeOutreachCampaign[]>([]);
   const [outreachContacts, setOutreachContacts] = useState<ForgeOutreachContact[]>([]);
   const [selectedCampaignId, setSelectedCampaignId] = useState(currentCampaignId);
+  const [outreachNoteName, setOutreachNoteName] = useState('');
+  const [outreachNoteDate, setOutreachNoteDate] = useState('');
   const [outreachLoaded, setOutreachLoaded] = useState(false);
   const [outreachError, setOutreachError] = useState('');
   const [outreachBusy, setOutreachBusy] = useState(false);
@@ -195,7 +205,11 @@ export function ForgeLeagues() {
         if (abort.signal.aborted) return;
         const sorted = data.leagues
           .slice()
-          .sort((a, b) => a.activeTeams - b.activeTeams || a.name.localeCompare(b.name));
+          .sort(
+            (a, b) =>
+              a.activeTeams - b.activeTeams ||
+              leagueDisplayName(a.leagueId, a.name).localeCompare(leagueDisplayName(b.leagueId, b.name)),
+          );
         setLeagues(sorted);
         chooseLeague(sorted.find((item) => item.activeTeams <= ranges[0].max)?.leagueId || sorted[0]?.leagueId || 0);
         if (!sorted.some((item) => item.activeTeams <= ranges[0].max)) setRange(ranges.length - 1);
@@ -233,7 +247,7 @@ export function ForgeLeagues() {
         const data = JSON.parse(stored) as { messageTemplate?: unknown };
         if (typeof data.messageTemplate === 'string') {
           timer = window.setTimeout(() => {
-            setMessageTemplate(data.messageTemplate as string);
+            setMessageTemplate(upgradeOutreachTemplate(data.messageTemplate as string));
             setLoadedOutreachStorageKey(outreachStorageKey);
           }, 0);
         } else timer = window.setTimeout(() => setLoadedOutreachStorageKey(outreachStorageKey), 0);
@@ -268,9 +282,11 @@ export function ForgeLeagues() {
         if (abort.signal.aborted) return;
         setOutreachCampaigns(data.campaigns);
         setOutreachContacts(data.contacts);
-        const initial = data.campaigns.find((item) => item.id === currentCampaignId) || data.campaigns[0];
+        const initial = data.campaigns[0] || data.campaigns.find((item) => item.id === currentCampaignId);
         if (initial) {
           setSelectedCampaignId(initial.id);
+          setOutreachNoteName(initial.name);
+          setOutreachNoteDate(initial.campaignDate);
         }
         setOutreachLoaded(true);
       })
@@ -467,6 +483,7 @@ export function ForgeLeagues() {
                   inCup: null,
                   checkedAt: new Date().toISOString(),
                   error: result.error,
+                  otherTeams: [],
                 });
               else if (result.team) snapshot.teams[index] = result.team;
               else {
@@ -518,13 +535,64 @@ export function ForgeLeagues() {
       return Boolean(lastSeen && lastSeen.getTime() <= Date.now() && lastSeen.getTime() >= activeSince);
     })
     .slice()
-    .sort((a, b) => a.teamName.localeCompare(b.teamName));
+    .sort((a, b) => {
+      if (sortByRecentActivity) {
+        const aLastSeen = parseLastSeen(a.lastLoginDate)?.getTime() ?? -Infinity;
+        const bLastSeen = parseLastSeen(b.lastLoginDate)?.getTime() ?? -Infinity;
+        if (aLastSeen !== bLastSeen) return bLastSeen - aLastSeen;
+      }
+      return a.teamName.localeCompare(b.teamName);
+    });
   const teamFlagFor = getCountryFlagEmoji;
+  const namedTeamWithFlag = (name: string, countryId: number | null) =>
+    [teamFlagFor(countryId), name].filter(Boolean).join(' ');
+  const smallLeagueIds = new Set(leagues.filter((item) => item.activeTeams <= 420).map((item) => item.leagueId));
   const selectedCampaign = outreachCampaigns.find((campaign) => campaign.id === selectedCampaignId);
+  const outreachNoteDirty = Boolean(
+    selectedCampaign &&
+    (outreachNoteName.trim() !== selectedCampaign.name || outreachNoteDate !== selectedCampaign.campaignDate),
+  );
+  const saveOutreachNote = async () => {
+    const name = outreachNoteName.trim();
+    if (!name || !/^\d{4}-\d{2}-\d{2}$/.test(outreachNoteDate) || outreachBusy) return;
+    const changedName = Boolean(selectedCampaign && name !== selectedCampaign.name);
+    const slug =
+      name
+        .toLowerCase()
+        .normalize('NFKD')
+        .replace(/[\u0300-\u036f]/g, '')
+        .replace(/[^a-z0-9]+/g, '-')
+        .replace(/^-|-$/g, '')
+        .slice(0, 72) || 'outreach-note';
+    const campaignId = changedName ? `${slug}-${crypto.randomUUID().slice(0, 8)}` : selectedCampaignId;
+    setOutreachBusy(true);
+    setOutreachError('');
+    try {
+      await request('outreach-note', undefined, { campaignId, name, campaignDate: outreachNoteDate });
+      const campaign = { id: campaignId, name, campaignDate: outreachNoteDate };
+      setOutreachCampaigns((campaigns) => [campaign, ...campaigns.filter((item) => item.id !== campaignId)]);
+      setSelectedCampaignId(campaignId);
+      setOutreachNoteName(name);
+      setNotice('Contact note saved.');
+    } catch (err) {
+      setOutreachError(err instanceof Error ? err.message : 'Could not save the contact note.');
+    } finally {
+      setOutreachBusy(false);
+    }
+  };
   const copyManagerMessage = async (team: ForgeLeagueTeam) => {
-    if (!selectedCampaign || outreachBusy || !outreachLoaded) return;
+    if (!selectedCampaign || outreachBusy || !outreachLoaded || outreachNoteDirty) return;
     const teamFlag = teamFlagFor(team.countryId);
-    const message = formatForgeLeagueOutreachMessage(messageTemplate, team, teamFlag);
+    const otherSmallTeams = (team.otherTeams || []).filter((other) => smallLeagueIds.has(other.leagueId));
+    const otherTeams =
+      otherSmallTeams.length > 2
+        ? ' or any of your other small league teams'
+        : otherSmallTeams.length === 2
+          ? `, ${otherSmallTeams.map((other) => `[b]${namedTeamWithFlag(other.teamName, other.countryId)}[/b]`).join(' or ')}`
+          : otherSmallTeams.length === 1
+            ? ` or [b]${namedTeamWithFlag(otherSmallTeams[0].teamName, otherSmallTeams[0].countryId)}[/b]`
+            : '';
+    const message = formatForgeLeagueOutreachMessage(messageTemplate, team, teamFlag, otherTeams);
     setMessagingManagerIds((ids) => (ids.includes(team.managerId) ? ids : [...ids, team.managerId]));
     let copied = false;
     try {
@@ -568,6 +636,9 @@ export function ForgeLeagues() {
     const sending = messagingManagerIds.includes(team.managerId);
     const lastSeen = formatLastSeen(team.lastLoginDate);
     const managerFlag = teamFlagFor(team.managerCountryId ?? null);
+    const otherTeamsLabel = (team.otherTeams || [])
+      .map((other) => namedTeamWithFlag(other.teamName, other.countryId))
+      .join(' · ');
     return (
       <li key={team.teamId} className={styles.row}>
         <div>
@@ -580,6 +651,7 @@ export function ForgeLeagues() {
             {supporterIcons[team.supporterTier?.toLowerCase() || ''] || ''} · {team.managerId}
             {lastSeen && <> · Seen: {lastSeen}</>}
           </a>
+          {otherTeamsLabel && <span className={styles.meta}>{otherTeamsLabel}</span>}
         </div>
         <div className={styles.status}>
           <span
@@ -602,7 +674,7 @@ export function ForgeLeagues() {
             variant="secondary"
             size="sm"
             className={messaged ? styles.messaged : ''}
-            disabled={messaged || sending || !outreachLoaded || !selectedCampaign}
+            disabled={messaged || sending || !outreachLoaded || !selectedCampaign || outreachNoteDirty || outreachBusy}
             onClick={() => messageManager(team)}
             aria-label={
               messaged
@@ -624,26 +696,38 @@ export function ForgeLeagues() {
         subtitle={`Find friendly opportunities in leagues with up to ${FORGE_LEAGUE_TEAM_LIMIT} active teams.`}
       >
         <div className={styles.messageTemplate}>
-          <label>
-            <select
-              value={selectedCampaignId}
-              disabled={!outreachLoaded || outreachBusy}
-              onChange={(event) => {
-                const id = event.target.value;
-                setSelectedCampaignId(id);
-              }}
+          <div className={styles.outreachNote}>
+            <label>
+              Campaign name
+              <input
+                value={outreachNoteName}
+                disabled={!outreachLoaded || outreachBusy}
+                onChange={(event) => setOutreachNoteName(event.target.value)}
+                maxLength={120}
+              />
+            </label>
+            <label>
+              Date
+              <input
+                type="date"
+                value={outreachNoteDate}
+                disabled={!outreachLoaded || outreachBusy}
+                onChange={(event) => setOutreachNoteDate(event.target.value)}
+              />
+            </label>
+            <Button
+              variant="secondary"
+              size="sm"
+              disabled={!outreachLoaded || outreachBusy || !outreachNoteName.trim() || !outreachNoteDirty}
+              onClick={() => void saveOutreachNote()}
             >
-              {outreachCampaigns.map((item) => (
-                <option key={item.id} value={item.id}>
-                  {item.name} · {item.campaignDate}
-                </option>
-              ))}
-            </select>
-          </label>
+              {outreachBusy ? 'Saving…' : 'Save note'}
+            </Button>
+          </div>
           <label>
             <span className={styles.meta}>
-              Use {'{teamName}'}, {'{managerName}'}, and {'{teamFlag}'} as substitutions. Clicking Message copies the
-              filled text.
+              Use {'{teamName}'}, {'{managerName}'}, {'{teamFlag}'}, and {'{otherTeams}'} as substitutions. Clicking
+              Message copies the filled text.
             </span>
             <textarea value={messageTemplate} onChange={(event) => setMessageTemplate(event.target.value)} rows={18} />
           </label>
@@ -685,8 +769,10 @@ export function ForgeLeagues() {
               {!options.length && <option value={0}>No leagues in this range</option>}
               {options.map((item) => (
                 <option key={item.leagueId} value={item.leagueId}>
-                  {item.name} {HATTRICK_WORLD_DETAILS[item.leagueId]?.emoji} ({item.activeTeams})
-                  {item.fetched ? ' · Fetched' : ''}
+                  {leagueDisplayName(item.leagueId, item.name)} {HATTRICK_WORLD_DETAILS[item.leagueId]?.emoji} (
+                  {item.activeTeams}){item.fetched ? ' · Fetched' : ''}
+                  {' · Msg: '}
+                  {item.messagedManagerCounts?.[selectedCampaignId] || 0}
                 </option>
               ))}
             </select>
@@ -695,7 +781,7 @@ export function ForgeLeagues() {
         {league && (
           <p>
             <a href={link('league', league.leagueId)} target="_blank" rel="noreferrer">
-              {league.name} {HATTRICK_WORLD_DETAILS[league.leagueId]?.emoji} ↗
+              {leagueDisplayName(league.leagueId, league.name)} {HATTRICK_WORLD_DETAILS[league.leagueId]?.emoji} ↗
             </a>
             <br />
             LeagueID: {league.leagueId} · Active teams: {league.activeTeams}
@@ -795,11 +881,7 @@ export function ForgeLeagues() {
       </SectionCard>
       {snapshot && (
         <SectionCard
-          title={
-            view === 'available'
-              ? `Available in ${league?.name || 'this league'} • ${teams.length} teams`
-              : `${saved.dirty ? 'Working list' : 'Saved list'} · ${snapshot.teams.length} teams`
-          }
+          title={`Teams in ${league ? leagueDisplayName(league.leagueId, league.name) : 'this league'} · ${teams.length}/${snapshot.teams.length}`}
         >
           <div className={styles.buttons}>
             {(['all', 'available'] as const).map((item) => (
@@ -814,12 +896,28 @@ export function ForgeLeagues() {
               </Button>
             ))}
             <label className={styles.filter}>
-              <input type="checkbox" checked={supportersOnly} onChange={(event) => setSupportersOnly(event.target.checked)} />
+              <input
+                type="checkbox"
+                checked={supportersOnly}
+                onChange={(event) => setSupportersOnly(event.target.checked)}
+              />
               Supporters only
             </label>
             <label className={styles.filter}>
-              <input type="checkbox" checked={activeRecently} onChange={(event) => setActiveRecently(event.target.checked)} />
+              <input
+                type="checkbox"
+                checked={activeRecently}
+                onChange={(event) => setActiveRecently(event.target.checked)}
+              />
               Active in past 8 days
+            </label>
+            <label className={styles.filter}>
+              <input
+                type="checkbox"
+                checked={sortByRecentActivity}
+                onChange={(event) => setSortByRecentActivity(event.target.checked)}
+              />
+              Online recently
             </label>
           </div>
           {special && countries.length > 1 && (
@@ -829,7 +927,7 @@ export function ForgeLeagues() {
                 <option value="">All countries</option>
                 {countries.map((id) => (
                   <option key={id} value={id}>
-                    {Object.values(HATTRICK_WORLD_DETAILS).find((item) => item.countryId === id)?.countryNameEn || id}
+                    {Object.values(HATTRICK_WORLD_DETAILS).find((item) => item.countryId === id)?.leagueName || id}
                   </option>
                 ))}
               </select>
@@ -847,7 +945,9 @@ export function ForgeLeagues() {
             <p className={styles.meta}>
               {view === 'available'
                 ? 'No confirmed available teams match these filters.'
-                : snapshot.teams.length ? 'No teams match these filters.' : 'No teams listed yet.'}
+                : snapshot.teams.length
+                  ? 'No teams match these filters.'
+                  : 'No teams listed yet.'}
             </p>
           )}
           <ul className={styles.list}>{teams.map((team) => teamRow(team))}</ul>
