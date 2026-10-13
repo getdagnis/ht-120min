@@ -7,13 +7,13 @@ import { getServiceSupabase } from '../../server/api/_lib/supabase.js';
 import { invalidatePublicTournament } from '../../server/api/_lib/tournament-cache.js';
 import { hasSuperAdminBypassCookie } from '../../server/api/_lib/superadmin-bypass.js';
 import { getForgeSuperadminId } from '../../server/api/_lib/forge-session.js';
-import { loadTournamentInitialData } from './public-data.js';
+import { loadFreshTournamentPublicData, loadTournamentInitialData } from './public-data.js';
 
 // Explicit refreshes and cold client fallbacks share the same anonymous payload
 // as SSR. This callback never receives cookies, credentials or viewer state.
-export async function readTournamentPublicData(slug: string) {
+export async function readTournamentPublicData(slug: string, fresh = false) {
   if (typeof slug !== 'string' || !slug || slug.length > 200) throw new Error('Invalid tournament.');
-  return loadTournamentInitialData(slug);
+  return fresh === true ? loadFreshTournamentPublicData(slug) : loadTournamentInitialData(slug);
 }
 
 async function viewer(tournamentId: string, password: string) {

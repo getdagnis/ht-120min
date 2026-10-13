@@ -833,6 +833,8 @@ const messages = {
       send: "Send",
     },
     StandingsView: {
+      refreshRoster: "Refresh participants and standings",
+      refreshingRoster: "Refreshing participants and standings…",
       standingsSeason: "Standings • Season {season}",
       teamColumn: "Team",
       powerRatingColumn: "PwrR",

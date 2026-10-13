@@ -92,6 +92,12 @@ export const loadTournamentInitialData = cache(async (slug: string): Promise<Tou
   )();
 });
 
+// Explicit user refresh: same public projection, without shared cache reads or writes.
+export async function loadFreshTournamentPublicData(slug: string): Promise<TournamentInitialData | null> {
+  const tournament = await readTournament(slug);
+  return tournament ? buildTournamentInitialData(tournament) : null;
+}
+
 export async function buildTournamentInitialData(tournament: Record<string, unknown>): Promise<TournamentInitialData> {
   const supabase = getPublicSupabase();
   if (!supabase) throw new Error('Public Supabase configuration missing.');

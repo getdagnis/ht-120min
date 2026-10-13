@@ -809,6 +809,8 @@ const messages = {
       send: "",
     },
     StandingsView: {
+      refreshRoster: "Atjaunot dalībniekus un kopvērtējumu",
+      refreshingRoster: "Atjauno dalībniekus un kopvērtējumu…",
       standingsSeason: "Turnīra tabula • Sezona {season}",
       teamColumn: "Komanda",
       powerRatingColumn: "Spēks",

@@ -109,3 +109,17 @@ For concurrency, prepare an approved dirty synthetic target in that same disposa
 **UI inspection:** compare Home cards/order/counts/activity/Weekly in English/Latvian with the flag off and on after authorized integration setup. Inspect mobile and authenticated states, and confirm Weekly/main directory hydration queries are absent. No browser/visual inspection was performed; the loopback production-mode HTTP check is not UI proof. Current/historical tournament tabs and automatic refresh remain unchanged.
 
 **Real integration:** before enabling Home, verify real Supabase/PostgREST projections/grants, committed mutation coupling, worker scheduling/overlap/latency, and regional purge with an authorized disposable tournament. Warm query reduction is proven only against local fake PostgREST. Withdrawal UI/regional probes and CHPP scheduling/deployment remain unverified. The fenced shared producer is required for the later match cutover, not for this Home-only path that preserves its producer.
+
+### Explicit participant refresh
+
+In planning/recruiting tournaments, the Standings header has a manual
+**Refresh participants and standings** action; other states hide it.
+It invokes `readTournamentPublicData(slug, true)`, which reads the current public
+tournament header and reuses `buildTournamentInitialData` without shared cache
+reads or invalidation. The page updates its existing tournament, teams, standings
+and other public state through `fetchData`; failed reads preserve the displayed
+state and show the existing refresh error. No polling, new API route, CHPP call
+or database write is added. Normal SSR and other reads keep their existing cache.
+This avoids relying on navigation or server-cache expiry to see new registrations.
+Source/syntax review is complete; live registration and browser behavior are
+unverified.

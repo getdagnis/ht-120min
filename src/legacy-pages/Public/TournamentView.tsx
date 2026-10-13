@@ -793,6 +793,7 @@ export const TournamentView: React.FC<{
     : 'standings';
 
   const [isRefreshingFixtures, setIsRefreshingFixtures] = useState(false);
+  const [isRefreshingRoster, setIsRefreshingRoster] = useState(false);
 
   const [announcements, setAnnouncements] = useState<TournamentAnnouncement[]>(
     () => (initialData?.announcements as unknown as TournamentAnnouncement[] | undefined) || [],
@@ -1830,7 +1831,7 @@ export const TournamentView: React.FC<{
   );
 
   const fetchData = useCallback(
-    async (options: { showLoader?: boolean; invalidate?: boolean } = {}) => {
+    async (options: { showLoader?: boolean; invalidate?: boolean; fresh?: boolean } = {}) => {
       const showLoader = (options.showLoader ?? !hasLoadedTournamentRef.current) && !hasLoadedTournamentRef.current;
       if (showLoader) {
         setLoading(true);
@@ -1838,7 +1839,7 @@ export const TournamentView: React.FC<{
       }
       try {
         if (options.invalidate !== false && !(await invalidateAfterEdit())) return;
-        const result = await readPublicTournament(() => readTournamentPublicData(slug), initialData || null);
+        const result = await readPublicTournament(() => readTournamentPublicData(slug, options.fresh), initialData || null);
         if (result.status === 'not-found') {
           setLoadError(null);
           setTournament(null);
@@ -6795,6 +6796,16 @@ export const TournamentView: React.FC<{
             tournament={tournament}
             lastSeenMap={lastSeenMap}
             onRefreshPresence={fetchPresenceOnly}
+            isRefreshingRoster={isRefreshingRoster}
+            onRefreshRoster={['planning', 'recruiting'].includes(tournament.status) ? async () => {
+              if (isRefreshingRoster) return;
+              setIsRefreshingRoster(true);
+              try {
+                await fetchData({ showLoader: false, invalidate: false, fresh: true });
+              } finally {
+                setIsRefreshingRoster(false);
+              }
+            } : undefined}
             canJoinTournament={canJoinTournament}
             isConnecting={isConnecting}
             onJoinWithHattrick={connectToHattrick}

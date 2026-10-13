@@ -3,7 +3,7 @@ import React, { useEffect, useMemo, useState } from 'react';
 import { SectionCard } from '../../components/Card/SectionCard';
 import { Button } from '../../components/Button/Button';
 import { Modal } from '../../components/Modal/Modal';
-import { ArrowRight, Check, CopySimple, Recycle, ShieldCheck } from 'phosphor-react';
+import { ArrowClockwise, ArrowRight, Check, CopySimple, Recycle, ShieldCheck } from 'phosphor-react';
 import { Tooltip } from '../Tooltip/Tooltip';
 import { TeamByline } from '../TeamByline/TeamByline';
 import type { ChatAuthorProfile } from './ChatView';
@@ -48,6 +48,8 @@ interface StandingsViewProps {
   seasonStatus?: 'planned' | 'ongoing' | 'finished';
   lastSeenMap?: Record<number, string | null>;
   onRefreshPresence?: () => void;
+  onRefreshRoster?: () => Promise<void>;
+  isRefreshingRoster?: boolean;
   canJoinTournament?: boolean;
   isConnecting?: boolean;
   onJoinWithHattrick?: () => void;
@@ -132,6 +134,8 @@ export const StandingsView: React.FC<StandingsViewProps> = ({
   seasonStatus,
   lastSeenMap = {},
   onRefreshPresence,
+  onRefreshRoster,
+  isRefreshingRoster = false,
   canJoinTournament = false,
   isConnecting = false,
   onJoinWithHattrick,
@@ -635,6 +639,19 @@ export const StandingsView: React.FC<StandingsViewProps> = ({
         thumbnailImageUrl={tournament?.image_url}
         headerRight={
           <div className={styles.scoringControl}>
+            {onRefreshRoster && (
+              <button
+                type="button"
+                className={styles.refreshBtn}
+                disabled={isRefreshingRoster}
+                onClick={() => void onRefreshRoster()}
+                aria-label={uiText(isRefreshingRoster ? 'refreshingRoster' : 'refreshRoster')}
+                data-tooltip-id="standings-roster-refresh-tooltip"
+              >
+                <ArrowClockwise size={18} aria-hidden="true" />
+              </button>
+            )}
+            {onRefreshRoster && <Tooltip id="standings-roster-refresh-tooltip" content={uiText(isRefreshingRoster ? 'refreshingRoster' : 'refreshRoster')} />}
             <span>{uiText('scoring')}</span>
             <button
               type="button"
