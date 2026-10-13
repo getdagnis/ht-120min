@@ -4,7 +4,7 @@ import {
   assertEligibleFixtureRatings, assertExactClubOwnership, convertSectorRating, isLocalRatingsAdmin,
   fetchMatchLineupSetPiecesTaker, fetchSetPiecesSkillForPlayer, loadVisibleFixtureRatings,
   parseMatchLineupSetPiecesTaker, parseMatchLineupStyleOfPlay, parsePredictedRatings, parseSetPiecesSkill, parseSubmittedOrders, prediction, saveFixtureRatings,
-  updateExistingRatingShare,
+  ratingSharingAction,
 } from '../src/server/api/_lib/fixture-ratings.ts';
 import { attachFixtureRatingStatus, PUBLIC_FIXTURE_RATING_STATUS_FIELDS } from '../src/types/fixture-ratings.ts';
 
@@ -259,27 +259,18 @@ test('only current, arranged, upcoming fixtures with two active clubs can publis
 });
 
 test('a removed share cannot be restored by an in-flight prediction update', async () => {
-  const attempted: Array<[string, unknown]> = [];
+  let attempted: Record<string, unknown> | undefined;
   const db = {
-    from(table: string) {
-      assert.equal(table, 'fixture_predicted_rating_shares');
-      return { update(payload: unknown) {
-        attempted.push(['update', payload]);
-        return { eq(key: string, id: string) {
-          attempted.push([key, id]);
-          return { select() { return { maybeSingle: async () => ({ data: null, error: null }) }; } };
-        } };
-      } };
+    async rpc(name: string, args: Record<string, unknown>) {
+      assert.equal(name, 'fixture_rating_sharing_action');
+      attempted = args;
+      return { data: null, error: { code: '40001', message: 'Sharing was removed while ratings were loading.' } };
     },
   };
-  await assert.rejects(updateExistingRatingShare(db as never, 'deleted-row-id', {
-    left_attack: 1, centre_attack: 1, right_attack: 1, midfield: 1,
-    left_defence: 1, centre_defence: 1, right_defence: 1,
-    formation: '4-5-1', tactic: 'Normal', tactic_skill: 1, set_pieces_skill: null,
-    ht_match_id: 123, fetched_at: '2026-10-05T00:00:00.000Z',
+  await assert.rejects(ratingSharingAction(db as never, 'fixture', 'home', 7, 123, 'update', {
+    p_existing_id: 'deleted-row-id', p_payload: { fetched_at: '2026-10-05T00:00:00.000Z' },
   }), /removed while ratings were loading/);
-  assert.equal(attempted[1][0], 'id');
-  assert.equal(attempted[1][1], 'deleted-row-id');
+  assert.equal(attempted?.p_existing_id, 'deleted-row-id');
 });
 
 test('home and away shares remain independent through update, failed refresh, and Remove racing an update', async () => {
@@ -300,6 +291,22 @@ test('home and away shares remain independent through update, failed refresh, an
     fixture_predicted_rating_shares: [],
   };
   const db = {
+    async rpc(name: string, args: Record<string, unknown>) {
+      assert.equal(name, 'fixture_rating_sharing_action');
+      const shares = rows.fixture_predicted_rating_shares;
+      const existing = shares.find((row) => row.fixture_id === args.p_fixture_id && row.team_id === args.p_team_id);
+      if (args.p_action === 'remove') {
+        rows.fixture_predicted_rating_shares = shares.filter((row) => row !== existing);
+      } else if (args.p_existing_id && existing?.id !== args.p_existing_id) {
+        return { data: null, error: { code: '40001', message: 'Sharing was removed while ratings were loading.' } };
+      } else if (existing) {
+        Object.assign(existing, args.p_payload);
+      } else {
+        shares.push({ id: `share-${shares.length + 1}`, fixture_id: args.p_fixture_id, team_id: args.p_team_id,
+          ht_match_id: args.p_ht_match_id, ...args.p_payload as Record<string, unknown> });
+      }
+      return { data: { saved: true }, error: null };
+    },
     from(table: string) {
       let mode = 'select';
       let payload: Record<string, unknown> = {};
@@ -354,6 +361,10 @@ test('home and away shares remain independent through update, failed refresh, an
   await saveFixtureRatings(db as never, 'fixture', 'home', 7, 'share', invalidate);
   await saveFixtureRatings(db as never, 'fixture', 'away', 8, 'share', invalidate);
   assert.equal(rows.fixture_predicted_rating_shares.length, 2);
+  // Exact live ownership plus the manager's saved profile remains sufficient
+  // when a validated team row no longer carries its own token copy.
+  const homeClub = rows.matches[0].home_team as Record<string, unknown>;
+  homeClub.oauth_token = null; homeClub.oauth_token_secret = null;
   predictionValue = 41;
   await saveFixtureRatings(db as never, 'fixture', 'home', 7, 'update', invalidate);
   assert.equal(rows.fixture_predicted_rating_shares.find((row) => row.team_id === 'home')?.midfield, 11);

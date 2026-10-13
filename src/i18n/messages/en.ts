@@ -195,6 +195,11 @@ const messages = {
     autoArrangeTeamFixturesDisabled: 'Do not auto-arrange {team} fixtures',
     autoArrangeTooltip: 'Your matches will be auto-arranged if the other team has this feature on as well. If not, an automatic challenge will be sent to them.',
     autoArrangeLoadError: 'Auto-arrange status could not be loaded.',
+    autoShareMyRatings: 'Auto-share my predicted ratings',
+    autoShareTeamRatings: 'Auto-share {team} predicted ratings',
+    autoShareRatingsTooltip: 'Once your match orders are set, your predicted ratings are shared automatically with your opponent. Later changes are shared when Refresh fixtures is clicked. Switching off removes automatically shared ratings; manually shared ratings remain.',
+    autoShareRatingsLoadError: 'Automatic rating sharing preferences could not be loaded. Try again or sign in with Hattrick again.',
+    autoShareRatingsSaveError: 'Your automatic rating sharing preference could not be saved. Please try again.',
   },
   TournamentView: {
     scoringModeLabel: 'Scoring mode',

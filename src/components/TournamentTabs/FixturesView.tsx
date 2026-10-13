@@ -305,6 +305,10 @@ export const FixturesView: React.FC<FixturesViewProps> = ({
   const [autoArrangeLoading, setAutoArrangeLoading] = React.useState(false);
   const [autoArrangeSavingTeamId, setAutoArrangeSavingTeamId] = React.useState<string | null>(null);
   const [autoArrangeError, setAutoArrangeError] = React.useState<string | null>(null);
+  const [ratingPreferences, setRatingPreferences] = React.useState<Array<{ teamId: string; teamName: string; enabled: boolean }>>([]);
+  const [ratingPreferencesLoading, setRatingPreferencesLoading] = React.useState(false);
+  const [ratingPreferenceSaving, setRatingPreferenceSaving] = React.useState<string | null>(null);
+  const [ratingPreferenceError, setRatingPreferenceError] = React.useState<'load' | 'save' | null>(null);
   const [isSeasonMenuOpen, setIsSeasonMenuOpen] = React.useState(false);
   const seasonMenuRef = React.useRef<HTMLDivElement | null>(null);
 
@@ -365,6 +369,31 @@ export const FixturesView: React.FC<FixturesViewProps> = ({
     return () => {
       cancelled = true;
     };
+  }, [currentHtUserId, isHistorical, season, tournament?.id]);
+
+  React.useEffect(() => {
+    let cancelled = false;
+    const timer = window.setTimeout(async () => {
+      setRatingPreferences([]);
+      setRatingPreferenceError(null);
+      if (isHistorical || !tournament?.id || !currentHtUserId) {
+        setRatingPreferencesLoading(false);
+        return;
+      }
+      setRatingPreferencesLoading(true);
+      try {
+        const params = new URLSearchParams({ route: 'rating-sharing-preferences', tournamentId: tournament.id });
+        const response = await fetch(`/api/app?${params}`, { credentials: 'include', cache: 'no-store' });
+        const payload = await response.json() as { preferences?: typeof ratingPreferences };
+        if (!response.ok || !Array.isArray(payload.preferences)) throw new Error('Preference load failed');
+        if (!cancelled) setRatingPreferences(payload.preferences);
+      } catch {
+        if (!cancelled) setRatingPreferenceError('load');
+      } finally {
+        if (!cancelled) setRatingPreferencesLoading(false);
+      }
+    }, 0);
+    return () => { cancelled = true; window.clearTimeout(timer); };
   }, [currentHtUserId, isHistorical, season, tournament?.id]);
   const currentRound = !isHistorical && upcomingRoundIndex >= 0 ? (rounds[upcomingRoundIndex] ?? null) : null;
   const focusedRound = !isHistorical && focusedRoundIndex >= 0 ? (rounds[focusedRoundIndex] ?? null) : null;
@@ -658,6 +687,12 @@ export const FixturesView: React.FC<FixturesViewProps> = ({
     }
   }, [ratingsTournamentId, currentHtUserId, isHistorical]);
 
+  // Background refresh may publish the first prediction or withdraw a notice.
+  // Reload private values only when the narrow public sharing status changes.
+  const ratingsShareKey = rounds.flatMap((round) => round.matches.flatMap((match) =>
+    (match.rating_share_statuses || []).map((share) => `${share.fixture_id}:${share.team_id}:${share.ht_match_id}`),
+  )).sort().join(',');
+
   React.useEffect(() => {
     const timer = window.setTimeout(() => {
       void reloadPrivateRatings();
@@ -666,7 +701,36 @@ export const FixturesView: React.FC<FixturesViewProps> = ({
       window.clearTimeout(timer);
       privateRatingsRequest.current += 1;
     };
-  }, [reloadPrivateRatings]);
+  }, [reloadPrivateRatings, ratingsShareKey]);
+
+  const saveRatingPreference = async (teamId: string, enabled: boolean) => {
+    if (!tournamentId || ratingPreferenceSaving) return;
+    setRatingPreferenceSaving(teamId);
+    setRatingPreferenceError(null);
+    try {
+      const response = await fetch('/api/app?route=rating-sharing-preferences', {
+        method: 'POST', credentials: 'include', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ tournamentId, teamId, enabled }),
+      });
+      const payload = await response.json() as { teamId?: string; enabled?: boolean };
+      if (!response.ok || payload.teamId !== teamId || typeof payload.enabled !== 'boolean') throw new Error('Preference save failed');
+      setRatingPreferences((current) => current.map((preference) =>
+        preference.teamId === teamId ? { ...preference, enabled: payload.enabled as boolean } : preference));
+      // Discard withdrawn values immediately, even if the subsequent reload fails.
+      if (!enabled) {
+        privateRatingsRequest.current += 1;
+        setPrivateRatingsState(null);
+      }
+      // The preference is already saved. A failed public reload must not report
+      // a failed opt-out or restore the withdrawn values.
+      await onRatingsChanged().catch(() => {});
+      await reloadPrivateRatings();
+    } catch {
+      setRatingPreferenceError('save');
+    } finally {
+      setRatingPreferenceSaving(null);
+    }
+  };
 
   const updateRatings = async (fixtureId: string, side: 'home' | 'away', action: 'share' | 'update' | 'remove') => {
     const response = await fetch('/api/app?route=fixture-ratings', {
@@ -768,7 +832,7 @@ export const FixturesView: React.FC<FixturesViewProps> = ({
               </div>
             )}
           </div>
-          {!isHistorical && autoArrangePreferences.length > 0 && (
+          {!isHistorical && (autoArrangePreferences.length > 0 || ratingPreferences.length > 0) && (
             <div className={styles.autoArrangePreferences}>
               {autoArrangePreferences.map((preference) => {
                 const isPersonalPreference = autoArrangePreferences.length === 1;
@@ -799,11 +863,33 @@ export const FixturesView: React.FC<FixturesViewProps> = ({
                   </div>
                 );
               })}
+              {ratingPreferences.map((preference) => (
+                <div className={styles.autoArrangeControl} key={`ratings-${preference.teamId}`}>
+                  <Switch
+                    checked={preference.enabled}
+                    onChange={(enabled) => void saveRatingPreference(preference.teamId, enabled)}
+                    disabled={ratingPreferencesLoading || ratingPreferenceSaving !== null}
+                    size="sm"
+                    label={ratingPreferences.length === 1 ? fixtureText('autoShareMyRatings')
+                      : fixtureText('autoShareTeamRatings', { team: preference.teamName })}
+                  />
+                  <Tooltip id={`auto-share-${preference.teamId}`} content={fixtureText('autoShareRatingsTooltip')}>
+                    <span className={styles.autoArrangeInfo} tabIndex={0} aria-label={fixtureText('autoShareRatingsTooltip')}>
+                      <Question size={16} weight="bold" aria-hidden="true" />
+                    </span>
+                  </Tooltip>
+                </div>
+              ))}
             </div>
           )}
           {autoArrangeError && !isHistorical && (
             <p className={styles.autoArrangeError} role="status">
               {autoArrangeError}
+            </p>
+          )}
+          {ratingPreferenceError && !isHistorical && (
+            <p className={styles.autoArrangeError} role="status">
+              {fixtureText(ratingPreferenceError === 'load' ? 'autoShareRatingsLoadError' : 'autoShareRatingsSaveError')}
             </p>
           )}
         </div>

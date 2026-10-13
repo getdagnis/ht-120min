@@ -14,6 +14,15 @@ type RatingValues = Pick<SharedFixtureRatings, 'left_attack' | 'centre_attack' |
   'left_defence' | 'centre_defence' | 'right_defence' | 'formation' | 'tactic' | 'tactic_skill' |
   'coach_modifier' | 'set_pieces_skill'>;
 type SharedRatingValues = RatingValues & { specialty_positions: SharedFixtureRatings['specialty_positions'] };
+type FixtureClub = {
+  id: string;
+  ht_team_id: number | null;
+  hattrick_user_id: number | null;
+  oauth_token: string | null;
+  oauth_token_secret: string | null;
+  active: boolean | null;
+  is_placeholder: boolean | null;
+};
 
 export class FixtureRatingsError extends Error {
   constructor(public status: number, message: string) { super(message); }
@@ -53,6 +62,7 @@ async function verifiedManagerClubs(db: Db, userId: number, specialtyTeamId?: nu
     throw new FixtureRatingsError(403, 'Your Hattrick account does not match this session. Sign in again.');
   }
   if (specialtyTeamId !== undefined) {
+    assertExactClubOwnership(ownership, userId, specialtyTeamId);
     try {
       specialties = await fetchOwnedTeamPlayerSpecialtiesFromChpp(consumerKey, consumerSecret, credentials, specialtyTeamId);
     } catch (error) {
@@ -243,7 +253,9 @@ async function chpp(file: string, version: string, credentials: Credentials, ext
   const url = 'https://chpp.hattrick.org/chppxml.ashx';
   const params = { file, version, ...extra };
   const auth = getAuthHeader('GET', url, params, consumerKey, consumerSecret, credentials.oauth_token, credentials.oauth_token_secret);
-  const response = await fetch(`${url}?${new URLSearchParams(params)}`, { headers: { Authorization: auth } });
+  const response = await fetch(`${url}?${new URLSearchParams(params)}`, {
+    headers: { Authorization: auth }, signal: AbortSignal.timeout(15_000),
+  });
   const xml = await response.text();
   const errorMessage = readChppTag(xml, 'ErrorMessage') || '';
   if (response.status === 401 || response.status === 403 ||
@@ -289,7 +301,12 @@ export async function loadFixtureForRatings(db: Db, fixtureId: string) {
   const { data: tournament, error: tournamentError } = await db.from('tournaments').select('id,season,status,is_archived').eq('id', round.tournament_id).maybeSingle();
   if (tournamentError) throw tournamentError;
   if (!tournament) throw new FixtureRatingsError(404, 'Tournament not found.');
-  return { fixture, round, tournament };
+  // These two FK aliases are singular clubs. Without a generated database
+  // schema Supabase infers them as arrays, so state the actual query contract.
+  const typedFixture = fixture as unknown as Omit<typeof fixture, 'home_team' | 'away_team'> & {
+    home_team: FixtureClub | null; away_team: FixtureClub | null;
+  };
+  return { fixture: typedFixture, round, tournament };
 }
 
 /** Private, uncached read for the exact managers of upcoming arranged fixtures. */
@@ -313,7 +330,7 @@ export async function loadVisibleFixtureRatings(db: Db, tournamentId: string, us
   const candidates = (matches || []).filter((fixture) => {
     const round = roundById.get(fixture.round_id);
     if (!round || (!localAdmin && ![fixture.home_team, fixture.away_team].some((team) => Number(team?.hattrick_user_id) === userId))) return false;
-    try { assertEligibleFixtureRatings({ fixture, round, tournament } as Awaited<ReturnType<typeof loadFixtureForRatings>>); return true; }
+    try { assertEligibleFixtureRatings({ fixture, round, tournament } as unknown as Awaited<ReturnType<typeof loadFixtureForRatings>>); return true; }
     catch { return false; }
   });
   if (!candidates.length) return [];
@@ -353,7 +370,7 @@ export function assertEligibleFixtureRatings(input: Awaited<ReturnType<typeof lo
   const home = fixture.home_team;
   const away = fixture.away_team;
   const kickoff = fixture.scheduled_for ? new Date(fixture.scheduled_for).getTime() : NaN;
-  if (tournament.is_archived || ['finished', 'archived', 'cancelled'].includes(tournament.status || '') ||
+  if (tournament.is_archived || ['finished', 'archived', 'cancelled', 'stopped'].includes(tournament.status || '') ||
     Number(round.season_number) !== Number(tournament.season) || fixture.status !== 'arranged' || fixture.completed ||
     !Number.isSafeInteger(Number(fixture.ht_match_id)) || Number(fixture.ht_match_id) <= 0 ||
     !Number.isFinite(kickoff) || kickoff <= Date.now() ||
@@ -365,13 +382,11 @@ export function assertEligibleFixtureRatings(input: Awaited<ReturnType<typeof lo
   }
 }
 
-export async function updateExistingRatingShare(db: Db, rowId: string, payload: SharedRatingValues & { ht_match_id: number; fetched_at: string }) {
-  // The row ID is never reused. If Remove deleted it during CHPP fetch, this
-  // update affects zero rows and cannot recreate sharing.
-  const { data, error } = await db.from('fixture_predicted_rating_shares')
-    .update(payload).eq('id', rowId).select('id').maybeSingle();
-  if (error) throw error;
-  if (!data) throw new FixtureRatingsError(409, 'Sharing was removed while ratings were loading.');
+function ratingFixtureContext(fixture: Awaited<ReturnType<typeof loadFixtureForRatings>>['fixture']) {
+  return {
+    home_team_id: fixture.home_team_id, away_team_id: fixture.away_team_id,
+    home_ht_team_id: Number(fixture.home_team?.ht_team_id), away_ht_team_id: Number(fixture.away_team?.ht_team_id),
+  };
 }
 
 async function invalidateAfterRatingWrite(invalidate: typeof invalidatePublicTournament, tournamentId: string) {
@@ -395,17 +410,13 @@ export async function saveFixtureRatings(
   const { data: existing, error: existingError } = await db.from('fixture_predicted_rating_shares').select('id,ht_match_id').eq('fixture_id', fixtureId).eq('team_id', team.id).maybeSingle();
   if (existingError) throw existingError;
   if (action !== 'remove') assertEligibleFixtureRatings(context);
-  if (!team.oauth_token || !team.oauth_token_secret) throw new FixtureRatingsError(401, 'Your Hattrick authorization is missing. Sign in with Hattrick again.');
   const { credentials, teamIds, specialties } = await verifiedManagerClubs(
     db, userId, action === 'remove' ? undefined : Number(team.ht_team_id),
   );
   if (!teamIds.has(Number(team.ht_team_id))) throw new FixtureRatingsError(403, 'Your Hattrick account no longer owns this fixture club.');
   if (action === 'remove') {
-    if (existing) {
-      const { error } = await db.from('fixture_predicted_rating_shares').delete().eq('id', existing.id);
-      if (error) throw error;
-      await invalidateAfterRatingWrite(invalidate, tournament.id);
-    }
+    await ratingSharingAction(db, fixtureId, team.id, userId, Number(fixture.ht_match_id), 'remove');
+    await invalidateAfterRatingWrite(invalidate, tournament.id);
     return null;
   }
   if (action === 'share' && existing && Number(existing.ht_match_id) === Number(fixture.ht_match_id)) throw new FixtureRatingsError(409, 'This club has already shared ratings.');
@@ -421,12 +432,9 @@ export async function saveFixtureRatings(
     throw new FixtureRatingsError(409, 'The fixture changed while Hattrick was loading. Try again.');
   }
   const payload = { ...values, ht_match_id: Number(fixture.ht_match_id), fetched_at: new Date().toISOString() };
-  if (existing) {
-    await updateExistingRatingShare(db, existing.id, payload);
-  } else {
-    const { error } = await db.from('fixture_predicted_rating_shares').insert({ fixture_id: fixtureId, team_id: team.id, ...payload });
-    if (error) throw error;
-  }
+  await ratingSharingAction(db, fixtureId, team.id, userId, Number(fixture.ht_match_id), action, {
+    p_payload: { ...payload, fixture_context: ratingFixtureContext(fixture) }, p_existing_id: existing?.id || null,
+  });
   await invalidateAfterRatingWrite(invalidate, tournament.id);
   return { ...payload, fixture_id: fixtureId, team_id: team.id };
 }
@@ -454,4 +462,112 @@ export async function refreshSharedFixtureRatings(db: Db, tournamentId: string, 
     }
   }
   return refreshed;
+}
+
+type RatingSharingAction = 'claim' | 'automatic' | 'release' | 'share' | 'update' | 'remove';
+
+export async function ratingSharingAction(
+  db: Db, fixtureId: string, teamId: string, managerId: number, htMatchId: number,
+  action: RatingSharingAction,
+  extra: { p_claim_id?: string; p_payload?: Record<string, unknown>; p_existing_id?: string | null } = {},
+) {
+  const { data, error } = await db.rpc('fixture_rating_sharing_action', {
+    p_fixture_id: fixtureId, p_team_id: teamId, p_manager_id: managerId,
+    p_ht_match_id: htMatchId > 0 ? htMatchId : null, p_action: action, ...extra,
+  });
+  if (error) {
+    if (['40001', '23505', '42501', 'P0002'].includes(error.code || '')) {
+      throw new FixtureRatingsError(error.code === '42501' ? 403 : 409, error.message);
+    }
+    throw error;
+  }
+  return data as { claim_id?: string; saved?: boolean } | null;
+}
+
+export async function loadRatingSharingPreferences(db: Db, tournamentId: string, managerId: number) {
+  const { data: tournament, error: tournamentError } = await db.from('tournaments')
+    .select('id,status,is_archived').eq('id', tournamentId).maybeSingle();
+  if (tournamentError) throw tournamentError;
+  if (!tournament || tournament.is_archived || ['finished', 'archived', 'cancelled', 'stopped'].includes(tournament.status || '')) {
+    throw new FixtureRatingsError(404, 'Tournament not found or no longer active.');
+  }
+  const { data: teams, error: teamError } = await db.from('teams')
+    .select('id,name,ht_team_id').eq('tournament_id', tournamentId).eq('hattrick_user_id', managerId)
+    .eq('active', true).eq('reserve_active', false).not('is_placeholder', 'is', true);
+  if (teamError) throw teamError;
+  if (!teams?.length) return [];
+  const { teamIds } = await verifiedManagerClubs(db, managerId);
+  const { data: preferences, error: preferenceError } = await db.from('tournament_team_rating_preferences')
+    .select('team_id,enabled').eq('tournament_id', tournamentId).eq('hattrick_user_id', managerId);
+  if (preferenceError) throw preferenceError;
+  const enabledByTeam = new Map((preferences || []).map((row) => [row.team_id, row.enabled]));
+  return teams.filter((team) => teamIds.has(Number(team.ht_team_id))).map((team) => ({
+    teamId: team.id, teamName: team.name, enabled: enabledByTeam.get(team.id) ?? true,
+  }));
+}
+
+export async function setRatingSharingPreference(
+  db: Db, tournamentId: string, teamId: string, managerId: number, enabled: boolean,
+  invalidate = invalidatePublicTournament,
+) {
+  const teams = await loadRatingSharingPreferences(db, tournamentId, managerId);
+  if (!teams.some((team) => team.teamId === teamId)) throw new FixtureRatingsError(403, 'You do not manage this tournament club.');
+  const { error } = await db.rpc('set_team_rating_sharing', {
+    p_tournament_id: tournamentId, p_team_id: teamId, p_manager_id: managerId, p_enabled: enabled,
+  });
+  if (error?.code === '42501') throw new FixtureRatingsError(403, error.message);
+  if (error) throw error;
+  await invalidateAfterRatingWrite(invalidate, tournamentId);
+}
+
+/** Orders map contains only responses fetched using that team's own credentials. */
+export async function autoShareFixtureRatings(
+  db: Db, tournamentId: string, roundId: string, ordersByTeam: ReadonlyMap<string, ReadonlyMap<number, boolean | null>>,
+  invalidate = invalidatePublicTournament,
+  loadOrders?: (teamId: string) => Promise<ReadonlyMap<number, boolean | null> | undefined>,
+) {
+  const { data: matches, error } = await db.from('matches').select('id').eq('round_id', roundId)
+    .eq('status', 'arranged').eq('completed', false).gt('scheduled_for', new Date().toISOString());
+  if (error) throw error;
+  let shared = 0;
+  for (const match of matches || []) {
+    const context = await loadFixtureForRatings(db, match.id);
+    try { assertEligibleFixtureRatings(context); } catch { continue; }
+    if (context.tournament.id !== tournamentId) continue;
+    for (const team of [context.fixture.home_team, context.fixture.away_team]) {
+      if (!team?.hattrick_user_id) continue;
+      if (!loadOrders && ordersByTeam.get(team.id)?.get(Number(context.fixture.ht_match_id)) !== true) continue;
+      const matchId = Number(context.fixture.ht_match_id);
+      const managerId = Number(team.hattrick_user_id);
+      let claimId: string | undefined;
+      try {
+        const claim = await ratingSharingAction(db, match.id, team.id, managerId, matchId, 'claim');
+        claimId = claim?.claim_id;
+        if (!claimId) continue;
+        const orders = ordersByTeam.get(team.id) || await loadOrders?.(team.id);
+        if (orders?.get(matchId) !== true) {
+          await ratingSharingAction(db, match.id, team.id, managerId, matchId, 'release', { p_claim_id: claimId });
+          continue;
+        }
+        const { credentials, teamIds, specialties } = await verifiedManagerClubs(db, managerId, Number(team.ht_team_id));
+        if (!teamIds.has(Number(team.ht_team_id))) throw new FixtureRatingsError(403, 'Your Hattrick account no longer owns this fixture club.');
+        const opponent = team.id === context.fixture.home_team_id ? context.fixture.away_team : context.fixture.home_team;
+        const values = await prediction(credentials, matchId, Number(team.ht_team_id), Number(opponent?.ht_team_id), specialties);
+        const result = await ratingSharingAction(db, match.id, team.id, managerId, matchId, 'automatic', {
+          p_claim_id: claimId, p_payload: { ...values, fetched_at: new Date().toISOString(), fixture_context: ratingFixtureContext(context.fixture) },
+        });
+        if (result?.saved) shared++;
+      } catch (error) {
+        if (claimId) {
+          await ratingSharingAction(db, match.id, team.id, managerId, matchId, 'release', { p_claim_id: claimId })
+            .catch(() => {}); // The lease still expires if the retry write fails.
+        }
+        console.warn('[fixture-ratings] automatic sharing failed', {
+          fixtureId: match.id, reason: error instanceof Error ? error.message : 'unknown',
+        });
+      }
+    }
+  }
+  if (shared) await invalidateAfterRatingWrite(invalidate, tournamentId);
+  return shared;
 }

@@ -92,7 +92,10 @@ import type { PersistedScoringMode } from '../../../shared/scoring-profile.js';
 import type { SeasonFixturesSnapshot } from '../../utils/season-fixtures.js';
 import { buildLengthScheduleDraft, serializeLengthScheduleDraft } from '../../utils/length-schedule.js';
 import { progressLengthSchedule, recoverLengthRoundOne, repairLengthRound } from './_lib/length-schedule-service.js';
-import { FixtureRatingsError, isLocalRatingsAdmin, loadVisibleFixtureRatings, saveFixtureRatings } from './_lib/fixture-ratings.js';
+import {
+  FixtureRatingsError, isLocalRatingsAdmin, loadVisibleFixtureRatings, saveFixtureRatings,
+  loadRatingSharingPreferences, setRatingSharingPreference,
+} from './_lib/fixture-ratings.js';
 
 import { findVerifiedReserveOwner, checkReserveAdmission } from './_lib/reserve-admission.js';
 
@@ -1775,6 +1778,33 @@ async function handleFixtureChallenge(req: VercelRequest, res: VercelResponse) {
     trainingMatchId: sent.trainingMatchId,
     message: 'Challenge sent. Waiting for the opponent to accept.',
   });
+}
+
+async function handleRatingSharingPreferences(req: VercelRequest, res: VercelResponse) {
+  if (!['GET', 'POST'].includes(req.method || '')) return res.status(405).json({ error: 'Method not allowed.' });
+  res.setHeader('Cache-Control', 'private, no-store');
+  res.setHeader('Vary', 'Cookie');
+  const secret = getAppSessionSecret();
+  const session = secret ? verifyAppSessionCookie(req.headers.cookie, secret) : null;
+  if (!session) return res.status(401).json({ error: 'Please sign in with Hattrick first.' });
+  const values = req.method === 'GET' ? req.query : req.body;
+  const tournamentId = readString(values?.tournamentId);
+  const teamId = readString(values?.teamId);
+  const uuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+  if (!uuid.test(tournamentId) || (req.method === 'POST' && (!uuid.test(teamId) || typeof values?.enabled !== 'boolean'))) {
+    return res.status(400).json({ error: 'Invalid rating sharing preference.' });
+  }
+  try {
+    const db = getServiceSupabase();
+    if (req.method === 'GET') {
+      return res.status(200).json({ preferences: await loadRatingSharingPreferences(db, tournamentId, session.userId) });
+    }
+    await setRatingSharingPreference(db, tournamentId, teamId, session.userId, values.enabled);
+    return res.status(200).json({ teamId, enabled: values.enabled });
+  } catch (error) {
+    if (error instanceof FixtureRatingsError) return res.status(error.status).json({ error: error.message });
+    throw error;
+  }
 }
 
 async function handleFixtureRatings(req: VercelRequest, res: VercelResponse) {
@@ -3808,6 +3838,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         return await handleFixtureRatings(req, res);
       case 'auto-arrange-preferences':
         return await handleAutoArrangePreferences(req, res);
+      case 'rating-sharing-preferences':
+        return await handleRatingSharingPreferences(req, res);
       case 'backfill-round-matchdetails':
         return await handleRoundPressMatchDetailsBackfill(req, res);
       case 'generate-round-summary':

@@ -11,6 +11,7 @@ export interface ParsedChppMatch {
   homeGoals: number | null;
   awayGoals: number | null;
   status: string | null;
+  ordersGiven?: boolean | null;
 }
 
 export interface ParsedChppMatchesResult {
@@ -46,6 +47,7 @@ export function parseChppMatchesXml(
     const homeId = Number.parseInt(readTag(block, 'HomeTeamID') || '0', 10);
     const awayId = Number.parseInt(readTag(block, 'AwayTeamID') || '0', 10);
     const status = readTag(block, 'Status') || (options.archive ? 'FINISHED' : null);
+    const ordersGiven = !options.archive && status === 'UPCOMING' ? readTag(block, 'OrdersGiven').toLowerCase() : '';
     const categorySelected = options.matchTypes.has(matchType);
 
     if (!categorySelected || !date || !matchId || !homeId || !awayId) continue;
@@ -64,6 +66,7 @@ export function parseChppMatchesXml(
       homeGoals: readTag(block, 'HomeGoals') === '' ? null : Number(readTag(block, 'HomeGoals')),
       awayGoals: readTag(block, 'AwayGoals') === '' ? null : Number(readTag(block, 'AwayGoals')),
       status,
+      ordersGiven: ordersGiven === 'true' ? true : ordersGiven === 'false' ? false : null,
     });
   }
 

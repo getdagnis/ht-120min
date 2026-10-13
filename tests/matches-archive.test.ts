@@ -11,6 +11,16 @@ function matchXml(matchId: number, date: string, matchType = 4, homeId = 10, awa
   return `<Match><MatchID>${matchId}</MatchID><HomeTeam><HomeTeamID>${homeId}</HomeTeamID><HomeTeamName>Home</HomeTeamName></HomeTeam><AwayTeam><AwayTeamID>${awayId}</AwayTeamID><AwayTeamName>Away</AwayTeamName></AwayTeam><MatchDate>${date} 12:00:00</MatchDate><MatchType>${matchType}</MatchType><HomeGoals>1</HomeGoals><AwayGoals>0</AwayGoals></Match>`;
 }
 
+test('upcoming OrdersGiven distinguishes true, false and unavailable; archive values are ignored', () => {
+  const xml = (orders: string) => matchXml(1, '2030-01-01').replace('</Match>', `<Status>UPCOMING</Status>${orders}</Match>`);
+  const parse = (orders: string, archive = false) => parseChppMatchesXml(xml(orders), { matchTypes: new Set([4]), archive }).matches[0];
+  assert.equal(parse('<OrdersGiven>True</OrdersGiven>')?.ordersGiven, true);
+  assert.equal(parse('<OrdersGiven>False</OrdersGiven>')?.ordersGiven, false);
+  assert.equal(parse('')?.ordersGiven, null);
+  assert.equal(parse('<OrdersGiven>unknown</OrdersGiven>')?.ordersGiven, null);
+  assert.equal(parse('<OrdersGiven>True</OrdersGiven>', true)?.ordersGiven, null);
+});
+
 test('archive chunks and merges more than 50 source matches without losing matches', () => {
   const start = new Date('2026-01-01T00:00:00Z');
   const end = new Date('2026-04-01T00:00:00Z');

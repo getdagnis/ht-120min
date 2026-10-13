@@ -3,13 +3,14 @@ import { getServiceSupabase, getSupabase } from '../_lib/supabase.js';
 import { getAuthHeader } from '../_lib/chpp-auth.js';
 import { getAppSessionSecret, verifyAppSessionCookie } from '../_lib/app-session.js';
 import { loadTournamentAccess } from '../_lib/tournament-access.js';
-import { refreshSharedFixtureRatings } from '../_lib/fixture-ratings.js';
+import { autoShareFixtureRatings, refreshSharedFixtureRatings } from '../_lib/fixture-ratings.js';
 import { readChppTag, teamDetailsKitForMatchSide } from '../_lib/chpp-xml.js';
 import { fetchFixtureHomeAwayKits } from '../_lib/chpp-fixture-kits.js';
 import {
   fetchArenaDetailsFromChpp,
   fetchTeamBookingStatus,
   fetchTeamDetailsFromChpp,
+  getManagerChppCredentials,
 } from '../_lib/matchmaker.js';
 import { buildArrangedFixtureStory, buildReserveFixtureStory, type FixtureStoryTeam } from '../../../utils/fixture-story.js';
 import {
@@ -324,6 +325,7 @@ interface TeamFriendlyMatch {
   homeGoals: number | null;
   awayGoals: number | null;
   status: string | null;
+  ordersGiven?: boolean | null;
 }
 
 type MatchFetchWindow = 'current' | 'previous' | 'last50';
@@ -414,6 +416,7 @@ function toTeamFriendlyMatch(match: ParsedChppMatch): TeamFriendlyMatch {
     homeGoals: match.homeGoals,
     awayGoals: match.awayGoals,
     status: match.status,
+    ordersGiven: match.ordersGiven ?? null,
   };
 }
 
@@ -426,7 +429,7 @@ async function fetchTeamFriendlies(
   const fetchWindow = options.fetchWindow || 'current';
   const allowedMatchTypes = options.matchTypes || getMatchTypesForCategories(['friendlies']);
   if (fetchWindow === 'last50') {
-    const xml = await fetchChppMatchesXml(teamId, oauthToken, oauthTokenSecret, { file: 'matches', teamID: teamId });
+    const xml = await fetchChppMatchesXml(teamId, oauthToken, oauthTokenSecret, { file: 'matches', version: '2.9', teamID: teamId });
     const parsed = parseChppMatchesXml(xml, { matchTypes: allowedMatchTypes });
     return {
       matches: parsed.matches.map(toTeamFriendlyMatch),
@@ -464,7 +467,7 @@ async function fetchTeamFriendlies(
 
   let matches = mergeChppMatchesById(archiveResults).map(toTeamFriendlyMatch);
   if (fetchWindow === 'current' && archiveEnd < range.end) {
-    const xml = await fetchChppMatchesXml(teamId, oauthToken, oauthTokenSecret, { file: 'matches', teamID: teamId });
+    const xml = await fetchChppMatchesXml(teamId, oauthToken, oauthTokenSecret, { file: 'matches', version: '2.9', teamID: teamId });
     const parsed = parseChppMatchesXml(xml, { matchTypes: allowedMatchTypes });
     rawMatchesReturned += parsed.rawMatchesReturned;
     const upcomingMatches = parsed.matches.filter(
@@ -484,6 +487,7 @@ interface TeamWithAuth {
   id: string;
   name: string;
   ht_team_id: number;
+  hattrick_user_id?: number | null;
   oauth_token: string | null;
   oauth_token_secret: string | null;
   active?: boolean | null;
@@ -1363,10 +1367,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       if (expiredWarningError) throw expiredWarningError;
     }
 
-    const teamCache: Record<
-      string,
-      { homeId: number; awayId: number; date: Date; matchId: number; matchType: number }[] | null
-    > = {};
+    const teamCache: Record<string, TeamFriendlyMatch[] | null> = {};
+    const ordersByTeam = new Map<string, Map<number, boolean | null>>();
     const getFriendlies = async (team: TeamWithAuth) => {
       if (Object.prototype.hasOwnProperty.call(teamCache, team.id)) return teamCache[team.id];
       // Public match lists can use another authenticated participant, just as
@@ -1382,6 +1384,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
           matchTypes: getMatchTypesForCategories(['friendlies']),
         });
         teamCache[team.id] = data.matches;
+        if (credentials === team) {
+          ordersByTeam.set(team.id, new Map(data.matches.map((match) => [match.matchId, match.ordersGiven ?? null])));
+        }
         return data.matches;
       } catch (e) {
         console.error(`Error fetching friendlies for team ${team.id}:`, e);
@@ -1950,7 +1955,35 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       }
     }
 
-    return res.status(200).json({ status: 'Refresh successful', hattrick_context: hattrickContext, linked_match_ids: linkedMatchIds, ratings_refreshed: ratingsRefreshed });
+    let ratingsShared = 0;
+    const managerCredentials = new Map<number, ReturnType<typeof getManagerChppCredentials>>();
+    try {
+      // Create initial shares only. Existing predictions are updated exclusively
+      // through the authenticated clicked-refresh branch above.
+      ratingsShared = await autoShareFixtureRatings(supabase, String(tournament_id), upcomingRound.id, ordersByTeam, undefined,
+        async (teamId) => {
+          const team = teams.find((candidate) => candidate.id === teamId);
+          if (!team) return undefined;
+          if (team.oauth_token && team.oauth_token_secret) {
+            await getFriendlies(team);
+          } else if (team.hattrick_user_id) {
+            // A validated organizer addition may have no team-row token even
+            // though its manager has authenticated in their saved profile.
+            const managerId = Number(team.hattrick_user_id);
+            if (!managerCredentials.has(managerId)) managerCredentials.set(managerId, getManagerChppCredentials(supabase, managerId));
+            const credentials = await managerCredentials.get(managerId);
+            if (!credentials) return undefined;
+            const data = await fetchTeamFriendlies(String(team.ht_team_id), credentials.oauth_token, credentials.oauth_token_secret, {
+              fetchWindow: 'last50', matchTypes: getMatchTypesForCategories(['friendlies']),
+            });
+            ordersByTeam.set(teamId, new Map(data.matches.map((match) => [match.matchId, match.ordersGiven ?? null])));
+          }
+          return ordersByTeam.get(teamId);
+        });
+    } catch (error) {
+      console.warn('[fixture-ratings] automatic sharing unavailable', { reason: error instanceof Error ? error.message : 'unknown' });
+    }
+    return res.status(200).json({ status: 'Refresh successful', hattrick_context: hattrickContext, linked_match_ids: linkedMatchIds, ratings_refreshed: ratingsRefreshed, ratings_shared: ratingsShared });
   } catch (error) {
     console.error(error);
     return res.status(500).json({ error: error instanceof Error ? error.message : 'An unknown error occurred' });

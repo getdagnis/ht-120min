@@ -1,12 +1,14 @@
 # PROJECT_STATE.md
 
-Last updated: 2026-10-12
+Last updated: 2026-10-13
 
 This is the current-status ledger. Update it after meaningful implementation work. Be explicit about what is local, migrated, tested, deployed, or still unknown.
 
 The local MVP includes a deterministic Meet the Manager spotlight built from persisted manager/team snapshots and the actual tournament participant relation. Its current implementation now models national-team staff roles separately, enriches the canonical `profiles.teams_json` array during authenticated/admin refresh, and selects ranked story facts without public CHPP calls. Migration `093_add_profile_national_team_roles.sql` is prepared locally; live schema, CHPP, admin backfill, snapshot invalidation, and deployment behavior remain unverified.
 
 ## Current Product State
+
+Automatic fixture rating sharing is implemented locally. Default-on tournament/team/manager preferences persist across seasons. Background fixture refresh creates the first private prediction only after the owner's upcoming `matches` response confirms orders; existing predictions update only on an authorized clicked refresh. Opt-out withdraws automatic shares, while fixture Remove suppresses automatic recreation for that exact Hattrick match. Manual shares and the current two-manager/local-admin read boundary remain distinct. Migration `118_automatic_fixture_rating_sharing.sql` is prepared and required before deployment; its RPCs serialize sharing mutations and preferences, lease concurrent initial fetches, and recheck eligibility before publication. Local mock and disposable PostgreSQL verification do not establish application Supabase, real CHPP, browser or deployment behavior. See [fixture ratings](docs/fixture-predicted-ratings.md#automatic-sharing).
 
 HT-120min is an early MVP for recurring Hattrick friendly tournaments. Tournaments are the core product; Matchmaker is an entry layer for finding friendly opportunities.
 

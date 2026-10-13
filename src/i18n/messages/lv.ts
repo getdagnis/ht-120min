@@ -50,6 +50,11 @@ const messages = {
     autoArrangeTeamFixturesDisabled: 'Nesarunāt {team} mačus automātiski',
     autoArrangeTooltip: 'Tavus mačus sistēma centīsies noorganizēt automātiski. Ja otra komanda nebūs devusi šādu atļauju, tad tai tiks nosūtīts izaicinājums.',
     autoArrangeLoadError: 'Neizdevās ielādēt automātiskas organizēšanas statusu.',
+    autoShareMyRatings: 'Automātiski kopīgot manus paredzamos reitingus',
+    autoShareTeamRatings: 'Automātiski kopīgot {team} paredzamos reitingus',
+    autoShareRatingsTooltip: 'Kad mača norādījumi ir iestatīti, paredzamie reitingi tiek automātiski kopīgoti ar pretinieku. Vēlākās izmaiņas tiek kopīgotas, nospiežot maču atjaunošanas pogu. Izslēdzot šo iespēju, automātiski kopīgotie reitingi tiek noņemti; manuāli kopīgotie paliek.',
+    autoShareRatingsLoadError: 'Neizdevās ielādēt automātiskas reitingu kopīgošanas iestatījumus. Mēģini vēlreiz vai atkārtoti pieraksties ar Hattrick.',
+    autoShareRatingsSaveError: 'Neizdevās saglabāt automātiskas reitingu kopīgošanas iestatījumu. Lūdzu, mēģini vēlreiz.',
   },
   Home: {
     tournamentCardPlanning: '',
