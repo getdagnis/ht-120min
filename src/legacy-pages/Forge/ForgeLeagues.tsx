@@ -345,6 +345,25 @@ export function ForgeLeagues() {
     );
   };
 
+  const countRefreshVersion = useRef(0);
+  const refreshMessageCounts = async () => {
+    const version = ++countRefreshVersion.current;
+    try {
+      const data = await request<{ leagues: ForgeLeagueOption[] }>('catalogue');
+      if (!alive.current || version !== countRefreshVersion.current) return;
+      const refreshed = new Map(data.leagues.map((item) => [item.leagueId, item]));
+      setLeagues((list) => list.map((item) => ({
+        ...item,
+        fetched: refreshed.get(item.leagueId)?.fetched ?? item.fetched,
+        messagedManagerCounts: refreshed.get(item.leagueId)?.messagedManagerCounts ?? item.messagedManagerCounts,
+      })));
+    } catch {
+      if (alive.current && version === countRefreshVersion.current) {
+        setOutreachError('Dropdown message counts could not be refreshed. Saved contacts and team lists are unaffected.');
+      }
+    }
+  };
+
   const saveCompleted = async (data: WorkingList) => {
     if (!data.snapshot || data.snapshot.job || !data.dirty) return;
     if (alive.current) {
@@ -361,6 +380,7 @@ export function ForgeLeagues() {
       if (alive.current) {
         setLeagues((list) => list.map((item) => (item.leagueId === leagueId ? { ...item, fetched: true } : item)));
         setNotice('Finished. One snapshot saved.');
+        void refreshMessageCounts();
       }
     } catch (err) {
       if (alive.current) setNotice('Save failed. Completed results remain in this browser tab.');
@@ -623,6 +643,7 @@ export function ForgeLeagues() {
           : [...contacts, { campaignId: selectedCampaign.id, managerId: team.managerId }],
       );
       setNotice(`Message copied and recorded for ${team.managerName || team.teamName}.`);
+      void refreshMessageCounts();
       setError('');
     } catch {
       setOutreachError(
