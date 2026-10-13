@@ -14,6 +14,9 @@
   font-family: var(--heading)
   width: 100%
 
+  .ratingIndicator0
+    color: var(--text-h)
+
   .ratingIndicator1
     color: var(--accent)
 
@@ -25,7 +28,6 @@
 
   .ratingIndicator4
     color: var(--danger)
-
 
   &:last-child
     border-bottom: none
@@ -237,7 +239,8 @@
   color: var(--text60)
   font-size: 0.68rem
 
-  button
+  button, a
+    text-decoration: none
     padding: 0.2rem 0.45rem
     border: 1px solid var(--border)
     border-radius: var(--radius-sm)

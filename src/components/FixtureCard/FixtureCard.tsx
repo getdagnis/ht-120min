@@ -122,8 +122,8 @@ const OPPOSING_SECTORS: Record<RatedSector, RatedSector> = {
 // Tune these values against real matchups. Midfield values are percentages;
 // attack/defence values are multipliers (1.5 means 50% higher).
 const EXTRA_TIME_COMPARISON = {
-  defenceGreenRatio: 1.5,
-  attackRedRatio: 1.5,
+  defenceGreenRatio: 1.25,
+  attackRedRatio: 1.35,
   midfieldGreenBelowPercent: 20,
   midfieldYellowAbovePercent: 30,
   midfieldRedAtPercent: 55,
@@ -291,6 +291,7 @@ function RatingsPitch({
   midfieldLabel?: string;
 }) {
   const uiText = useTranslations('PublicUI.RatingsPitch');
+  const tooltipId = React.useId();
   const sectorRows: Array<Array<[string, string, RatedSector?]>> = [
     [
       ['Left attack (LW):', ratings.leftAttack, 'leftAttack'],
@@ -316,16 +317,38 @@ function RatingsPitch({
             const markers = sector
               ? specialtyMarkersForSector(specialtyPositions, sector, opposingSpecialtyPositions)
               : [];
+            const comparisonClass =
+              sector && opposingRatings
+                ? sectorComparisonClass(sector, value, opposingRatings[OPPOSING_SECTORS[sector]])
+                : undefined;
+            let comparisonTitle: string | undefined;
+            if (sector && comparisonClass) {
+              const favorable = comparisonClass === styles.ratingIndicator1;
+              if (sector === 'midfield') {
+                comparisonTitle = uiText(
+                  favorable ? 'midfieldBalanced'
+                    : comparisonClass === styles.ratingIndicator4 ? 'midfieldVeryDifferent' : 'midfieldDifferent',
+                );
+              } else {
+                const message = sector.endsWith('Defence')
+                  ? favorable ? 'defenceStronger' : 'defenceWeaker'
+                  : favorable ? 'attackContained' : 'attackStronger';
+                comparisonTitle = uiText(message, {
+                  own: uiText(sector),
+                  opponent: uiText(OPPOSING_SECTORS[sector]).toLocaleLowerCase(),
+                });
+              }
+            }
             return (
               <div className={styles.ratingsSector} key={label}>
                 <span>{label}</span>
                 <div className={styles.ratingsValue}>
                   <strong
-                    className={
-                      sector && opposingRatings
-                        ? sectorComparisonClass(sector, value, opposingRatings[OPPOSING_SECTORS[sector]])
-                        : undefined
-                    }
+                    className={comparisonClass}
+                    data-tooltip-id={comparisonTitle ? tooltipId : undefined}
+                    data-tooltip-content={comparisonTitle}
+                    tabIndex={comparisonTitle ? 0 : undefined}
+                    onPointerDown={comparisonTitle ? (event) => event.currentTarget.focus() : undefined}
                   >
                     {value}
                   </strong>
@@ -338,7 +361,10 @@ function RatingsPitch({
                         <span
                           key={`${specialtyId}:${matchup}`}
                           className={matchup ? styles[SPECIALTY_MATCHUP_COLORS[matchup]] : undefined}
-                          title={`${count > 1 ? `${count} ` : ''}${SPECIALTY_NAMES[specialtyId]}${matchup ? ` — ${uiText(matchup)}` : ''}`}
+                          data-tooltip-id={tooltipId}
+                          data-tooltip-content={`${count > 1 ? `${count} ` : ''}${SPECIALTY_NAMES[specialtyId]}${matchup ? ` — ${uiText(matchup)}` : ''}`}
+                          tabIndex={0}
+                          onPointerDown={(event) => event.currentTarget.focus()}
                         >
                           {count > 1 && `${count}×`}
                           <i
@@ -357,6 +383,7 @@ function RatingsPitch({
           })}
         </div>
       ))}
+      <Tooltip id={tooltipId} content="" />
     </div>
   );
 }
@@ -666,6 +693,7 @@ export const FixtureCard: React.FC<FixtureCardProps> = ({
           {(['home', 'away'] as const).map((side) => {
             const team = side === 'home' ? homeTeam : awayTeam;
             const preview = ratingsPreview?.[side];
+            const opponent = side === 'home' ? awayTeam : homeTeam;
             const opposingPreview = ratingsPreview?.[side === 'home' ? 'away' : 'home'];
             const notice = ratingsSharedStatus?.[side];
             const canManage = ratingsActions?.[side] || false;
@@ -775,6 +803,17 @@ export const FixtureCard: React.FC<FixtureCardProps> = ({
                         }).format(new Date(preview.fetchedAt))}
                       </span>
                     </div>
+                    {canManage && opponent.managerHtId && (
+                      <div className={`${styles.ratingsPreviewActions} ${side === 'away' ? '' : styles.ratingsPreviewActionsEdgeAligned}`}>
+                        <a
+                          href={`https://www.hattrick.org/goto.ashx?path=/MyHattrick/Inbox/?actionType=newMail&userId=${opponent.managerHtId}`}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                        >
+                          {uiText('messageOpponent')}
+                        </a>
+                      </div>
+                    )}
                   </>
                 ) : canManage ? (
                   <div className={styles.ratingsShareState}>
