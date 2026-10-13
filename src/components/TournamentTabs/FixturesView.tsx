@@ -505,33 +505,35 @@ export const FixturesView: React.FC<FixturesViewProps> = ({
   }, [isSendingChallenge]);
 
   const saveAutoArrangePreference = React.useCallback(
-    async (teamId: string, enabled: boolean) => {
-      if (!tournamentId || !teamId || autoArrangeSavingTeamId) return;
-      setAutoArrangeSavingTeamId(teamId);
+    async (enabled: boolean) => {
+      if (!tournamentId || !autoArrangePreferences.length || autoArrangeSavingTeamId) return;
+      setAutoArrangeSavingTeamId('all');
       setAutoArrangeError(null);
       try {
-        const response = await fetch('/api/app?route=auto-arrange-preferences', {
-          method: 'POST',
-          credentials: 'include',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ tournamentId, seasonNumber: season, teamId, enabled }),
-        });
-        const payload = (await response.json()) as { teamId?: string; enabled?: boolean; error?: string };
-        if (!response.ok || payload.teamId !== teamId || typeof payload.enabled !== 'boolean') {
-          throw new Error(payload.error || 'Could not save auto-arrange preference.');
+        for (const { teamId } of autoArrangePreferences) {
+          const response = await fetch('/api/app?route=auto-arrange-preferences', {
+            method: 'POST',
+            credentials: 'include',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ tournamentId, seasonNumber: season, teamId, enabled }),
+          });
+          const payload = (await response.json()) as { teamId?: string; enabled?: boolean; error?: string };
+          if (!response.ok || payload.teamId !== teamId || typeof payload.enabled !== 'boolean') {
+            throw new Error(payload.error || 'Could not save auto-arrange preference.');
+          }
+          setAutoArrangePreferences((previous) =>
+            previous.map((preference) =>
+              preference.teamId === teamId ? { ...preference, enabled: payload.enabled as boolean } : preference,
+            ),
+          );
         }
-        setAutoArrangePreferences((previous) =>
-          previous.map((preference) =>
-            preference.teamId === teamId ? { ...preference, enabled: payload.enabled as boolean } : preference,
-          ),
-        );
       } catch (error) {
         setAutoArrangeError(error instanceof Error ? error.message : 'Could not save auto-arrange preference.');
       } finally {
         setAutoArrangeSavingTeamId(null);
       }
     },
-    [autoArrangeSavingTeamId, season, tournamentId],
+    [autoArrangePreferences, autoArrangeSavingTeamId, season, tournamentId],
   );
 
   const submitChallenge = React.useCallback(async () => {
@@ -703,31 +705,36 @@ export const FixturesView: React.FC<FixturesViewProps> = ({
     };
   }, [reloadPrivateRatings, ratingsShareKey]);
 
-  const saveRatingPreference = async (teamId: string, enabled: boolean) => {
+  const saveRatingPreference = async (enabled: boolean) => {
     if (!tournamentId || ratingPreferenceSaving) return;
-    setRatingPreferenceSaving(teamId);
+    setRatingPreferenceSaving('all');
     setRatingPreferenceError(null);
+    let saved = false;
     try {
-      const response = await fetch('/api/app?route=rating-sharing-preferences', {
-        method: 'POST', credentials: 'include', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ tournamentId, teamId, enabled }),
-      });
-      const payload = await response.json() as { teamId?: string; enabled?: boolean };
-      if (!response.ok || payload.teamId !== teamId || typeof payload.enabled !== 'boolean') throw new Error('Preference save failed');
-      setRatingPreferences((current) => current.map((preference) =>
-        preference.teamId === teamId ? { ...preference, enabled: payload.enabled as boolean } : preference));
-      // Discard withdrawn values immediately, even if the subsequent reload fails.
-      if (!enabled) {
-        privateRatingsRequest.current += 1;
-        setPrivateRatingsState(null);
+      for (const { teamId } of ratingPreferences) {
+        const response = await fetch('/api/app?route=rating-sharing-preferences', {
+          method: 'POST', credentials: 'include', headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ tournamentId, teamId, enabled }),
+        });
+        const payload = await response.json() as { teamId?: string; enabled?: boolean };
+        if (!response.ok || payload.teamId !== teamId || typeof payload.enabled !== 'boolean') throw new Error('Preference save failed');
+        setRatingPreferences((current) => current.map((preference) =>
+          preference.teamId === teamId ? { ...preference, enabled: payload.enabled as boolean } : preference));
+        saved = true;
+        // Discard withdrawn values immediately, even if the subsequent reload fails.
+        if (!enabled) {
+          privateRatingsRequest.current += 1;
+          setPrivateRatingsState(null);
+        }
       }
-      // The preference is already saved. A failed public reload must not report
-      // a failed opt-out or restore the withdrawn values.
-      await onRatingsChanged().catch(() => {});
-      await reloadPrivateRatings();
     } catch {
       setRatingPreferenceError('save');
     } finally {
+      // Reload after any successful write, including a partially failed batch.
+      if (saved) {
+        await onRatingsChanged().catch(() => {});
+        await reloadPrivateRatings();
+      }
       setRatingPreferenceSaving(null);
     }
   };
@@ -834,52 +841,39 @@ export const FixturesView: React.FC<FixturesViewProps> = ({
           </div>
           {!isHistorical && (autoArrangePreferences.length > 0 || ratingPreferences.length > 0) && (
             <div className={styles.autoArrangePreferences}>
-              {autoArrangePreferences.map((preference) => {
-                const isPersonalPreference = autoArrangePreferences.length === 1;
-                const label = isPersonalPreference
-                  ? fixtureText(preference.enabled ? 'autoArrangeMyFixtures' : 'autoArrangeMyFixturesDisabled')
-                  : fixtureText(preference.enabled ? 'autoArrangeTeamFixtures' : 'autoArrangeTeamFixturesDisabled', {
-                      team: preference.teamName,
-                    });
-                const tooltipId = `auto-arrange-${tournament?.id}-${season}-${preference.teamId}`;
-                return (
-                  <div className={styles.autoArrangeControl} key={preference.teamId}>
-                    <Switch
-                      checked={preference.enabled}
-                      onChange={(enabled) => void saveAutoArrangePreference(preference.teamId, enabled)}
-                      disabled={autoArrangeLoading || autoArrangeSavingTeamId !== null}
-                      size="sm"
-                      label={label}
-                    />
-                    <Tooltip id={tooltipId} content={fixtureText('autoArrangeTooltip')}>
-                      <span
-                        className={styles.autoArrangeInfo}
-                        tabIndex={0}
-                        aria-label={fixtureText('autoArrangeTooltip')}
-                      >
-                        <Question size={16} weight="bold" aria-hidden="true" />
-                      </span>
-                    </Tooltip>
-                  </div>
-                );
-              })}
-              {ratingPreferences.map((preference) => (
-                <div className={styles.autoArrangeControl} key={`ratings-${preference.teamId}`}>
+              {autoArrangePreferences.length > 0 && (
+                <div className={styles.autoArrangeControl}>
                   <Switch
-                    checked={preference.enabled}
-                    onChange={(enabled) => void saveRatingPreference(preference.teamId, enabled)}
+                    checked={autoArrangePreferences.some((preference) => preference.enabled)}
+                    onChange={(enabled) => void saveAutoArrangePreference(enabled)}
+                    disabled={autoArrangeLoading || autoArrangeSavingTeamId !== null}
+                    size="sm"
+                    label={fixtureText(autoArrangePreferences.some((preference) => preference.enabled)
+                      ? 'autoArrangeMyFixtures' : 'autoArrangeMyFixturesDisabled')}
+                  />
+                  <Tooltip id="auto-arrange-my-teams" content={fixtureText('autoArrangeTooltip')}>
+                    <span className={styles.autoArrangeInfo} tabIndex={0} aria-label={fixtureText('autoArrangeTooltip')}>
+                      <Question size={16} weight="bold" aria-hidden="true" />
+                    </span>
+                  </Tooltip>
+                </div>
+              )}
+              {ratingPreferences.length > 0 && (
+                <div className={styles.autoArrangeControl}>
+                  <Switch
+                    checked={ratingPreferences.some((preference) => preference.enabled)}
+                    onChange={(enabled) => void saveRatingPreference(enabled)}
                     disabled={ratingPreferencesLoading || ratingPreferenceSaving !== null}
                     size="sm"
-                    label={ratingPreferences.length === 1 ? fixtureText('autoShareMyRatings')
-                      : fixtureText('autoShareTeamRatings', { team: preference.teamName })}
+                    label={fixtureText('autoShareMyRatings')}
                   />
-                  <Tooltip id={`auto-share-${preference.teamId}`} content={fixtureText('autoShareRatingsTooltip')}>
+                  <Tooltip id="auto-share-my-teams" content={fixtureText('autoShareRatingsTooltip')}>
                     <span className={styles.autoArrangeInfo} tabIndex={0} aria-label={fixtureText('autoShareRatingsTooltip')}>
                       <Question size={16} weight="bold" aria-hidden="true" />
                     </span>
                   </Tooltip>
                 </div>
-              ))}
+              )}
             </div>
           )}
           {autoArrangeError && !isHistorical && (
