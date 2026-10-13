@@ -1087,6 +1087,29 @@ async function handleAdminAddReserveTeam(req: VercelRequest, res: VercelResponse
     .eq('ht_team_id', teamId)
     .maybeSingle();
   if (existingTeamError) throw existingTeamError;
+  if (req.body?.action === 'validate-participant') {
+    if (!existingTeam?.active || existingTeam.reserve_active) {
+      return res.status(409).json({ error: 'This team is no longer an active participant. Refresh and try again.' });
+    }
+    const owner = await findVerifiedReserveOwner(supabase, teamId);
+    if (!owner.credentials || !owner.team) {
+      return res.status(409).json({ error: 'Current ownership could not be verified. The manager may need to reauthorize.' });
+    }
+    // Ownership repair only: keep registration, season slots and fixture identities.
+    const { data: updated, error: updateError } = await supabase.from('teams').update({
+      manager_name: owner.managerName || owner.credentials.manager_name,
+      hattrick_user_id: owner.credentials.hattrick_user_id,
+      oauth_token: owner.credentials.oauth_token,
+      oauth_token_secret: owner.credentials.oauth_token_secret,
+      joined_via_oauth: true,
+      ht_team_name: owner.team.teamName,
+    }).eq('id', existingTeam.id).eq('tournament_id', tournamentId)
+      .eq('ht_team_id', teamId).eq('active', true).eq('reserve_active', false)
+      .select('id').maybeSingle();
+    if (updateError) throw updateError;
+    if (!updated) return res.status(409).json({ error: 'The participant changed. Refresh and try again.' });
+    return res.status(200).json({ team: updated, validated: true });
+  }
   if (existingTeam?.active) return res.status(409).json({ error: 'This team is already a tournament participant.' });
   if (existingTeam && !existingTeam.reserve_active) return res.status(409).json({ error: 'An inactive row already exists. Resolve it before adding a reserve.' });
 

@@ -85,3 +85,20 @@ After the season, replace the inconsistent legacy `teams` ownership model with
 canonical manager/team identities, manager-scoped credentials, normalized
 tournament registrations, and a deliberate historical migration. This document
 does not authorize any part of that refactor.
+
+## Same-club validation and restoration
+
+Operational admins can use **Validate known team** on an active participant as
+well as on a reserve. The participant action verifies current token-owner team
+membership and updates only ownership metadata on the existing tournament row.
+It does not re-register the team, change eligibility, move the source credential row, or change slots and fixtures. Existing credential resolution is reused.
+
+Prepared migration `120_restore_same_team_to_vacant_slot.sql` lets **Fill vacant
+slot** restore the same Hattrick club recorded by the slot's latest released
+assignment. It prefers that club's former slot, preserves arranged status and
+Hattrick match links, and still rejects started, completed-status, scored or
+otherwise protected incomplete fixtures. Different-club fills keep the original
+unlinked/unarranged guard. Completed fixtures remain untouched. The patch aborts
+on unexpected installed function source and retains the lifecycle lock from 113.
+Migration 120 is unapplied by the agent; real Supabase/CHPP and UI restoration
+remain unverified.

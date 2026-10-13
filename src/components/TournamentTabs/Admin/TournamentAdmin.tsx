@@ -626,7 +626,7 @@ export const TournamentAdmin: React.FC<{ controller: TournamentAdminController }
   };
   const validateReserve = async (team: Team) => {
     try {
-      const response = await fetch('/api/app?route=admin-add-reserve-team', { method: 'POST', credentials: 'same-origin', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ tournamentId: tournament.id, teamId: team.ht_team_id, validated: true }) });
+      const response = await fetch('/api/app?route=admin-add-reserve-team', { method: 'POST', credentials: 'same-origin', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ tournamentId: tournament.id, teamId: team.ht_team_id, validated: true, ...(team.active ? { action: 'validate-participant' } : {}) }) });
       const result = await response.json();
       if (!response.ok) throw new Error(result.error || 'Validation failed.');
       await onReservesChanged();
@@ -1713,6 +1713,9 @@ export const TournamentAdmin: React.FC<{ controller: TournamentAdminController }
                                   <div className={adminStyles.teamActions}>
                                     {team.active ? (
                                       <>
+                                        {canManageOperationalAdmin && !team.joined_via_oauth && team.ht_team_id && (
+                                          <Button type="button" size="sm" variant="secondaryAction" onClick={() => void validateReserve(team)}>Validate known team</Button>
+                                        )}
                                         {isGenerated &&
                                           roleAccess?.canManageOperations &&
                                           reserveTeams.length > 0 &&
