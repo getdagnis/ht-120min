@@ -158,7 +158,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     const { data: teamRowsRaw, error: teamsError } = await supabase
       .from('teams')
       .select(
-        'id, tournament_id, ht_team_id, active, is_placeholder, joined_via_oauth, hattrick_user_id, tournaments(status, registration_type, is_test, is_archived)',
+        'id, tournament_id, ht_team_id, active, is_placeholder, joined_via_oauth, hattrick_user_id, tournaments!teams_tournament_id_fkey(status, registration_type, is_test, is_archived)',
       )
       .in('ht_team_id', verifiedRequestedIds)
       .eq('active', true);

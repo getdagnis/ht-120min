@@ -56,7 +56,7 @@ export const fetchOpenTournaments = async (): Promise<OpenTournamentSummary[]> =
       season,
       rounds ( id, season_number ),
       max_teams,
-      teams ( id, joined_via_oauth, active, reserve_active, is_placeholder )
+      teams!teams_tournament_id_fkey ( id, joined_via_oauth, active, reserve_active, is_placeholder )
     `,
     )
     .eq('is_private', false);

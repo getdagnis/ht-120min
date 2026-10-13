@@ -171,7 +171,7 @@ export async function buildHomeSnapshot(supabase: SupabaseClient, now = Date.now
               home_team:teams!matches_home_team_id_fkey(country_name)
             )
           ),
-          teams (id, name, ht_team_id, joined_via_oauth, created_at, active, reserve_active, is_placeholder, manager_name, hattrick_user_id, country_id, country_name, join_story)
+          teams!teams_tournament_id_fkey (id, name, ht_team_id, joined_via_oauth, created_at, active, reserve_active, is_placeholder, manager_name, hattrick_user_id, country_id, country_name, join_story)
         `,
         )
         .eq('is_private', false),
@@ -180,7 +180,7 @@ export async function buildHomeSnapshot(supabase: SupabaseClient, now = Date.now
       supabase.from('tournament_collection_memberships').select('collection_id,tournament_id,is_featured,display_order'),
     ]);
     if (tournamentsResult.error) {
-      throw new Error('Home source read failed.');
+      throw new Error('Home source read failed.', { cause: tournamentsResult.error });
     }
     if (warningsResult.error) throw new Error('Home warning read failed.');
     if (collectionsResult.error || membershipsResult.error) throw new Error('Home collection read failed.');

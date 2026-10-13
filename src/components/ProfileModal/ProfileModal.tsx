@@ -85,7 +85,7 @@ export const ProfileModal: React.FC<ProfileModalProps> = ({ isOpen, maxWidth, on
         setLoading(true);
         const { data } = await supabase
           .from('teams')
-          .select('id, name, ht_team_id, logo_url, country_id, country_name, league_id, tournaments(name, slug)')
+          .select('id, name, ht_team_id, logo_url, country_id, country_name, league_id, tournaments!teams_tournament_id_fkey(name, slug)')
           .eq('hattrick_user_id', profile.hattrick_user_id)
           .eq('active', true);
 

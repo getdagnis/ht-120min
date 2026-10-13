@@ -454,7 +454,7 @@ export const Home: React.FC<{ initialData?: HomeInitialData }> = ({ initialData 
               away_team:teams!matches_away_team_id_fkey(country_name)
             )
           ),
-          teams (
+          teams!teams_tournament_id_fkey (
             id,
             name,
             ht_team_id,

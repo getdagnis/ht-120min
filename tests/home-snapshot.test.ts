@@ -385,3 +385,14 @@ test('stale worker publication rejection never rebases or approves the target', 
   assert.equal(requests.filter((url) => url.pathname.endsWith('/publish_public_snapshot')).length, 1);
   assert.equal(requests.filter((url) => url.pathname.includes('approve_public_snapshot')).length, 0);
 });
+
+test('Home roster embedding names its foreign key when a preferences junction also links tournaments and teams', async () => {
+  const { supabase, requests } = client((url) => {
+    if (url.pathname.endsWith('/tournaments') && (url.searchParams.get('select') || '').includes('teams')) {
+      assert.match(url.searchParams.get('select') || '', /teams!teams_tournament_id_fkey\s*\(/);
+    }
+    return sources(url);
+  });
+  await buildHomeSnapshot(supabase, now);
+  assert.ok(requests.some((url) => url.pathname.endsWith('/tournaments')));
+});

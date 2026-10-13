@@ -59,7 +59,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     if (!isSuperAdmin && !isSandboxLookup) {
       const { data: existing } = await supabase
         .from('teams')
-        .select('name, tournament_id, tournaments(name, status, is_test, registration_type)')
+        .select('name, tournament_id, tournaments!teams_tournament_id_fkey(name, status, is_test, registration_type)')
         .eq('ht_team_id', team_id)
         .eq('active', true)
         .eq('reserve_active', false);

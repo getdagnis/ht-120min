@@ -40,7 +40,7 @@ export async function getActiveTournamentConflicts(
 
   const { data, error } = await supabase
     .from('teams')
-    .select('ht_team_id, tournament_id, tournaments(name, slug, status, is_test, registration_type)')
+    .select('ht_team_id, tournament_id, tournaments!teams_tournament_id_fkey(name, slug, status, is_test, registration_type)')
     .in('ht_team_id', teamIds)
     .eq('active', true)
     .eq('reserve_active', false)

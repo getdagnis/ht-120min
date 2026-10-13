@@ -198,11 +198,11 @@ export const useAuth = () => {
       }
 
       // 2. Fetch Active Tournaments for the user
-      const { data: teamsDataRaw } = await supabase
+      const { data: teamsDataRaw, error: teamsError } = await supabase
         .from('teams')
         .select(`
           tournament_id, 
-          tournaments (
+          tournaments!teams_tournament_id_fkey(
             id, 
             name, 
             slug, 
@@ -233,6 +233,7 @@ export const useAuth = () => {
         .eq('hattrick_user_id', uid)
         .eq('active', true);
 
+      if (teamsError) throw teamsError;
       const teamsData = teamsDataRaw as unknown as DBTeamJoin[] | null;
 
       const tournamentIds = Array.from(new Set((teamsData ?? []).map((t) => t.tournament_id).filter(Boolean)));

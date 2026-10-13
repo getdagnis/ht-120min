@@ -121,7 +121,7 @@ export function TeamOwnershipReclaim({ profile, onClaimed }: TeamOwnershipReclai
             is_placeholder,
             joined_via_oauth,
             hattrick_user_id,
-            tournaments (
+            tournaments!teams_tournament_id_fkey(
               name,
               slug,
               status,
