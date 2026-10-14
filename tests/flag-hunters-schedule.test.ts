@@ -1,80 +1,57 @@
 import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
 import test from 'node:test';
-import { resolveFlagCountryId, pairBenefits, type FlagHunterTeam } from '../shared/flag-hunters.js';
-import { createScarcityDraft } from '../shared/flag-pairing.js';
-import { HATTRICK_WORLD_DETAILS } from '../shared/worlddetails.js';
+import approved from '../src/server/api/_lib/approved-around-the-world-opening.json' with { type: 'json' };
 import { buildFlagHuntersLengthScheduleDraft } from '../src/server/api/_lib/flag-hunters-schedule.js';
 import { buildLengthScheduleDraft, serializeLengthScheduleDraft } from '../src/utils/length-schedule.js';
 import { buildRoundRobinCycles } from '../src/utils/round-robin-cycles.js';
 
-const countries = Object.values(HATTRICK_WORLD_DETAILS).filter(item => item.countryId !== null).slice(0, 6);
-const roster: FlagHunterTeam[] = countries.map((country, i) => ({
-  id: `team-${i + 1}`, htTeamId: 100 + i, name: `Team ${i + 1}`,
-  managerId: i + 1, managerName: `Manager ${i + 1}`, managerCountryId: null,
-  countryId: country.countryId, countryName: country.leagueName,
-  leagueId: country.leagueId, flagCountryId: resolveFlagCountryId(country.countryId), genderId: 1,
-}));
-const participants = roster.map(team => ({ id: team.id, name: team.name,
-  ht_team_id: team.htTeamId, hattrick_user_id: team.managerId, country_id: team.countryId,
-  country_name: team.countryName, league_id: team.leagueId, gender_id: team.genderId ?? null,
-}));
-const cached = Object.fromEntries(roster.map(team => [String(team.htTeamId), {
-  htTeamId: team.htTeamId, managerId: team.managerId, leagueId: team.leagueId,
-  home: [], away: [], homeUnknown: false, awayUnknown: false, fetchedAt: '2026-10-14T12:00:00Z',
-}]));
-const profiles = roster.map(team => ({ hattrick_user_id: team.managerId!, teams_json: [{
-  teamId: team.htTeamId, countryId: team.countryId, leagueId: team.leagueId,
-  homeFlagLeagueIds: [], awayFlagLeagueIds: [], flagsFetchedAt: '2026-10-14T12:00:00Z',
-}] }));
-const input = { teams: roster.map(team => ({ id: team.id, name: team.name, countryName: team.countryName,
+// Read the approved source independently of the bundled JSON conversion.
+const csv = readFileSync(new URL('../plans/round-one-manager-priority.csv', import.meta.url), 'utf8').trim().split(/\r?\n/);
+const csvRows = csv.slice(1).map(line => [...line.matchAll(/"((?:[^"]|"")*)"(?:,|$)/g)].map(match => match[1]!.replaceAll('""', '"')));
+const source = csvRows.map(row => ({ homeTeam: row[0], awayTeam: row[1], homeTeamId: Number(row[2]), awayTeamId: Number(row[3]) }));
+const participants = approved.flatMap((pair, index) => [
+  { id: `db-home-${index}`, name: pair.homeTeam, ht_team_id: pair.homeTeamId, hattrick_user_id: index * 2 + 1,
+    country_id: 1, country_name: 'Sweden', league_id: 1, gender_id: 1 },
+  { id: `db-away-${index}`, name: pair.awayTeam, ht_team_id: pair.awayTeamId, hattrick_user_id: index * 2 + 2,
+    country_id: 2, country_name: 'England', league_id: 2, gender_id: 1 },
+]);
+const input = { teams: participants.map(team => ({ id: team.id, name: team.name, countryName: team.country_name,
   teamRank: null, powerRating: null, leagueLevel: 1 })), rankingSource: 'power_rating' as const,
   startSlotId: 'S95-W14-midweek', now: new Date('2026-10-14T12:00:00Z') };
 
-test('Generate reads current persisted flag fields and changes only the opener', () => {
+test('all 73 approved CSV opponents and venues survive the actual generator serialization', () => {
+  assert.equal(source.length, 73);
+  assert.deepEqual(approved, source);
   const standard = buildLengthScheduleDraft(input);
-  const flagged = buildFlagHuntersLengthScheduleDraft(input, participants, profiles);
-  assert.equal(standard.valid, true);
-  assert.equal(flagged.valid, true);
-  const expected = createScarcityDraft(roster, cached, 'round-one');
-  const htIds = new Map(roster.map(team => [team.id, team.htTeamId]));
-  const first = flagged.rounds[0]!.matches.map(match => ({ homeId: htIds.get(match.homeTeamId!)!, awayId: htIds.get(match.awayTeamId!)! }));
-  assert.deepEqual(first.sort((a, b) => a.homeId - b.homeId), expected.pairs);
-  assert.equal(first.reduce((gains, pair) => {
-    const benefits = pairBenefits(pair, roster, cached);
-    return gains + Number(benefits.home === 'gain') + Number(benefits.away === 'gain');
-  }, 0), 6);
-  assert.deepEqual(flagged.rankingSnapshot, standard.rankingSnapshot);
-  assert.deepEqual(flagged.formats, standard.formats);
-  assert.deepEqual(flagged.rounds.map(round => [round.roundNumber, round.slot, round.phase, round.phaseStatus]),
+  const draft = buildFlagHuntersLengthScheduleDraft(input, [...participants].reverse());
+  assert.equal(draft.valid, true);
+  const payload = serializeLengthScheduleDraft(draft);
+  const htIds = new Map(participants.map(team => [team.id, team.ht_team_id]));
+  const expected = source.map(pair => `${pair.homeTeamId}:${pair.awayTeamId}`).sort();
+  assert.equal(payload.rounds[0]!.matches.length, 73);
+  assert.deepEqual(payload.rounds[0]!.matches.map(match => `${htIds.get(match.home_team_id!)}:${htIds.get(match.away_team_id!)}`).sort(), expected);
+  assert.ok(payload.rounds[0]!.matches.every(match => !match.is_bye && match.venue_type === 'home_away'));
+  const seeds = new Map(draft.rankingSnapshot.map(team => [team.seed, htIds.get(team.team_id)]));
+  assert.deepEqual(payload.regular_pairings[0]!.map(pair => `${seeds.get(pair.home_slot_index)}:${seeds.get(pair.away_slot_index!)}`).sort(), expected);
+  assert.deepEqual(draft.rankingSnapshot, standard.rankingSnapshot);
+  assert.deepEqual(draft.formats, standard.formats);
+  assert.deepEqual(draft.rounds.map(round => [round.roundNumber, round.slot, round.phase, round.phaseStatus]),
     standard.rounds.map(round => [round.roundNumber, round.slot, round.phase, round.phaseStatus]));
-  const payload = serializeLengthScheduleDraft(flagged);
-  assert.equal(payload.rounds[0]!.matches.length, 3);
   assert.ok(payload.rounds.slice(1).every(round => round.matches.length === 0));
-  const indexIds = new Map(flagged.rankingSnapshot.map(team => [team.seed, team.team_id]));
-  assert.deepEqual(payload.regular_pairings[0]!.map(pair => [indexIds.get(pair.home_slot_index), indexIds.get(pair.away_slot_index!)]),
-    flagged.rounds[0]!.matches.map(match => [match.homeTeamId, match.awayTeamId]));
 });
 
-test('unknown collections remain unknown while live arrivals and departures change the roster', () => {
-  const newcomer = { ...participants[0]!, id: 'new-team', name: 'New arrival', ht_team_id: 99999999, hattrick_user_id: 99999999 };
-  const oddInput = { ...input, teams: [...input.teams, { ...input.teams[0]!, id: newcomer.id, name: newcomer.name }] };
-  const odd = buildFlagHuntersLengthScheduleDraft(oddInput, [...participants, newcomer], profiles);
-  assert.equal(odd.teamCount, 7);
-  assert.equal(odd.rounds[0]!.matches.filter(pair => pair.isBye).length, 1);
-  assert.ok(odd.rounds[0]!.matches.some(pair => pair.homeTeamId === newcomer.id || pair.awayTeamId === newcomer.id));
-  const withdrawnInput = { ...input, teams: input.teams.slice(1) };
-  const withdrawn = buildFlagHuntersLengthScheduleDraft(withdrawnInput, participants, profiles);
-  assert.ok(withdrawn.rounds[0]!.matches.every(pair => pair.homeTeamId !== participants[0]!.id && pair.awayTeamId !== participants[0]!.id));
-  const changed = participants.map(team => ({ ...team, hattrick_user_id: 123 }));
-  assert.throws(() => buildFlagHuntersLengthScheduleDraft(input, changed, profiles), /cannot be fully paired/);
+test('roster changes stop generation and list added and removed identities', () => {
+  const changed = participants.map((team, i) => i === 0 ? { ...team, name: 'New arrival', ht_team_id: 99999999 } : team);
+  assert.throws(() => buildFlagHuntersLengthScheduleDraft(input, changed), /Added: New arrival \(99999999\).*Removed: The Mosi Mambas \(2260624\)/);
 });
 
-test('unverified or changed country records never become assumed missing flags', () => {
-  const stale = profiles.map((profile, i) => i === 0 ? { ...profile, teams_json: [{ ...profile.teams_json[0]!, countryId: 999 }] } : profile);
-  const flagged = buildFlagHuntersLengthScheduleDraft(input, participants, stale);
-  const unknown = createScarcityDraft(roster, { ...cached, [String(roster[0]!.htTeamId)]: undefined! }, 'round-one');
-  assert.equal(flagged.rounds[0]!.matches.length, 3);
-  assert.equal(unknown.analysis.priorities.find(row => row.teamId === roster[0]!.htTeamId)?.status, 'unknown');
+test('invalid identities, duplicate appearances and current same-manager opponents stop generation', () => {
+  for (const field of ['ht_team_id', 'hattrick_user_id'] as const) {
+    assert.throws(() => buildFlagHuntersLengthScheduleDraft(input, participants.map((team, i) => i === 0 ? { ...team, [field]: 0 } : team)), /valid Hattrick/);
+  }
+  assert.throws(() => buildFlagHuntersLengthScheduleDraft(input, participants.map((team, i) => i === 1 ? { ...team, ht_team_id: participants[0]!.ht_team_id } : team)), /Duplicate Hattrick/);
+  assert.throws(() => buildFlagHuntersLengthScheduleDraft(input, participants.map((team, i) => i === 1 ? { ...team, hattrick_user_id: participants[0]!.hattrick_user_id } : team)), /same-manager/);
 });
 
 test('opening relabeling preserves complete cycles, repeated venues, BYEs and home balance', () => {

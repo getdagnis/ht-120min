@@ -387,11 +387,7 @@ async function handleGenerateLengthSchedule(req: VercelRequest, res: VercelRespo
   let draft;
   try {
     if (tournament.slug === 'around-the-world') {
-      const managerIds = [...new Set((roster || []).map(team => team.hattrick_user_id).filter((id): id is number => Number.isSafeInteger(id)))];
-      const { data: profiles, error: profilesError } = await supabase.from('profiles')
-        .select('hattrick_user_id, teams_json').in('hattrick_user_id', managerIds);
-      if (profilesError) throw profilesError;
-      draft = buildFlagHuntersLengthScheduleDraft(scheduleInput, roster || [], profiles || []);
+      draft = buildFlagHuntersLengthScheduleDraft(scheduleInput, roster || []);
     } else draft = buildLengthScheduleDraft(scheduleInput);
   } catch (error) {
     return res.status(422).json({ error: error instanceof Error ? error.message : 'Could not pair the admitted teams.' });

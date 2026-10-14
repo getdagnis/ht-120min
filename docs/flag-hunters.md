@@ -10,21 +10,27 @@ remains deferred.
 
 The authorized `generate-length-schedule` handler uses the ordinary calendar-first
 planner, settings, validation, frozen ranking metadata and transactional generation
-RPC. For Around the World, only its opening pairings and venues come from the
-scarcity algorithm, with seed `round-one`. The handler reads the current admitted
-teams and their manager records from Supabase at Generate time. Successful
-explicit Forge flag fetches store verified collections with a fetch timestamp in
-the existing `profiles.teams_json` team entries; ordinary manager refreshes
-preserve them. Unfetched or failed collections remain unknown. This local code
-does not load a saved roster or collection file. Other tournaments retain the
-ordinary generator.
+RPC. For `around-the-world`, the temporary organizer-approved Round 1 input is
+[`plans/round-one-manager-priority.csv`](../plans/round-one-manager-priority.csv):
+73 exact matches for 146 unique Hattrick team IDs. Labels are informational;
+Hattrick IDs map to current participant database IDs. A checked-in JSON conversion,
+[`approved-around-the-world-opening.json`](../src/server/api/_lib/approved-around-the-world-opening.json),
+is imported with the server bundle so runtime filesystem access is unnecessary.
+The integration test independently reads the CSV and checks that conversion and
+all 73 serialized opponents and orientations. When intentionally revising the
+approved CSV, regenerate the JSON's home/away IDs and labels and rerun that test.
+Other CSV columns do not affect scheduling.
 
-Every Generate submission reads the active roster as before. Withdrawn and
-placeholder teams are excluded, new participants remain eligible with unknown
-collections, and country/league mismatches make old collections unknown. Missing
-collections do not block generation. Unresolved matching or missing
-Hattrick identities fail before the existing RPC runs, rather than creating a
-partial round. No CHPP fetch or booking is triggered by this pairing integration.
+Every Generate submission reads the current active non-reserve roster; the planner
+excludes placeholders. Exact agreement with the approved IDs is required. Added
+and removed teams are listed in an error before the save RPC; invalid or duplicate
+team identities, missing manager identities and same-manager opponents also stop
+generation. No automatic substitutions or BYEs replace the approved matches.
+The experimental scarcity algorithm and saved flag collections are bypassed;
+Generate does not load manager flag profiles or fetch CHPP. The fixed override is
+intentionally scoped by tournament slug, with no reusable Flag Hunters marker.
+Other tournaments retain the ordinary generator. Booking availability was not
+checked by this CSV override.
 
 The selected opener relabels the existing regular-round plan through a bijection.
 This preserves complete round-robin cycles, repeat counts, alternating venues on
@@ -42,10 +48,10 @@ circle pairing plan.
 No admin settings, start-date choices, format/round controls, Cup Rules defaults,
 W15/W16 handling, manual scheduling or regeneration controls were changed. The
 browser's pre-generation preview remains the standard planner; the flag opener
-is selected by the server on Generate. The integration is locally build/test
-verified, **not deployed or exercised through a live generation RPC**. Existing
-browser-only flag collections must be fetched again after deployment before
-the server can use them; no snapshot file is imported into production.
+is selected by the server on Generate. The CSV override has passed focused local
+serialization and validation tests; it is **not deployed or exercised through a
+live generation RPC**. No live roster agreement is claimed. Existing dates,
+settings, authorization and overwrite protections are retained.
 
 Sources: [server adapter](../src/server/api/_lib/flag-hunters-schedule.ts),
 [existing Generate handler](../src/server/api/app.ts),

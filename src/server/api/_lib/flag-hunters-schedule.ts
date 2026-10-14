@@ -1,5 +1,4 @@
-import { normalizeFlagCountries, resolveFlagCountryId, type FlagCollection, type FlagHunterTeam } from '../../../../shared/flag-hunters.js';
-import { createScarcityDraft } from '../../../../shared/flag-pairing.js';
+import approvedOpening from './approved-around-the-world-opening.json' with { type: 'json' };
 import { buildLengthScheduleDraft, type LengthSchedulePairing } from '../../../utils/length-schedule.js';
 
 export interface FlagScheduleParticipant {
@@ -12,51 +11,49 @@ export interface FlagScheduleParticipant {
   league_id: number | null;
   gender_id: number | null;
 }
-export interface FlagScheduleProfile {
-  hattrick_user_id: number;
-  teams_json: unknown;
-}
-
-/** The existing planner owns every setting and validation; only its opener is supplied. */
+/** Temporary organizer-approved CSV opener; the existing planner owns settings and dates. */
 export function buildFlagHuntersLengthScheduleDraft(
   input: Parameters<typeof buildLengthScheduleDraft>[0],
   participants: FlagScheduleParticipant[],
-  profiles: FlagScheduleProfile[],
 ) {
   const standard = buildLengthScheduleDraft(input);
   if (!standard.valid) return standard;
   const activeIds = new Set(standard.teams.map(team => team.id));
-  const roster: FlagHunterTeam[] = participants.filter(team => activeIds.has(team.id)).map(team => ({
-    id: team.id, name: team.name, htTeamId: Number(team.ht_team_id),
-    managerId: team.hattrick_user_id, managerName: null, managerCountryId: null,
-    countryId: team.country_id, countryName: team.country_name,
-    leagueId: team.league_id, genderId: team.gender_id,
-    flagCountryId: resolveFlagCountryId(team.country_id),
-  }));
-  if (roster.length !== standard.teamCount || roster.some(team => !Number.isSafeInteger(team.htTeamId) || team.htTeamId <= 0)) {
-    throw new Error('Flag Hunters requires a Hattrick identity for every active participant.');
-  }
-  const byManager = new Map(profiles.map(profile => [profile.hattrick_user_id, profile.teams_json]));
-  const flags: Record<string, FlagCollection> = {};
+  const roster = participants.filter(team => activeIds.has(team.id));
+  const ids = new Map<number, FlagScheduleParticipant>();
   for (const team of roster) {
-    const records = byManager.get(team.managerId!);
-    const record = Array.isArray(records) ? records.find(value => Number(value?.teamId) === team.htTeamId) : null;
-    if (!record || record.leagueId !== team.leagueId || record.countryId !== team.countryId
-      || !Number.isFinite(Date.parse(record.flagsFetchedAt))
-      || !Array.isArray(record.homeFlagLeagueIds) || !Array.isArray(record.awayFlagLeagueIds)
-      || !record.homeFlagLeagueIds.every(Number.isSafeInteger) || !record.awayFlagLeagueIds.every(Number.isSafeInteger)) continue;
-    const home = normalizeFlagCountries(record.homeFlagLeagueIds);
-    const away = normalizeFlagCountries(record.awayFlagLeagueIds);
-    flags[String(team.htTeamId)] = { htTeamId: team.htTeamId, managerId: team.managerId,
-      leagueId: team.leagueId, home: home.ids, away: away.ids,
-      homeUnknown: home.unknown, awayUnknown: away.unknown, fetchedAt: record.flagsFetchedAt };
+    if (!Number.isSafeInteger(team.ht_team_id) || Number(team.ht_team_id) <= 0
+      || !Number.isSafeInteger(team.hattrick_user_id) || Number(team.hattrick_user_id) <= 0) {
+      throw new Error(`Approved opener requires valid Hattrick team and manager IDs: ${team.name} (${team.id}).`);
+    }
+    if (ids.has(team.ht_team_id!)) throw new Error(`Duplicate Hattrick team ID in current roster: ${team.ht_team_id}.`);
+    ids.set(team.ht_team_id!, team);
   }
-  const selected = createScarcityDraft(roster, flags, 'round-one');
-  if (selected.unresolvedIds.length) throw new Error('The active roster cannot be fully paired without same-manager or eligibility conflicts.');
-  const ids = new Map(roster.map(team => [team.htTeamId, team.id]));
-  const openingPairings: LengthSchedulePairing[] = selected.pairs.map(pair => ({
-    homeTeamId: ids.get(pair.homeId)!, awayTeamId: ids.get(pair.awayId)!, isBye: false,
-  }));
-  if (selected.byeId !== null) openingPairings.push({ homeTeamId: ids.get(selected.byeId)!, awayTeamId: null, isBye: true });
+  if (roster.length !== standard.teamCount || new Set(roster.map(team => team.id)).size !== roster.length) {
+    throw new Error('Approved opener requires exactly one current participant record per scheduled team.');
+  }
+  const approvedIds = new Set<number>();
+  if (approvedOpening.length !== 73) throw new Error('Approved opener must contain exactly 73 matches.');
+  for (const pair of approvedOpening) for (const id of [pair.homeTeamId, pair.awayTeamId]) {
+    if (!Number.isSafeInteger(id) || id <= 0 || approvedIds.has(id)) {
+      throw new Error(`Invalid or repeated Hattrick team ID in approved opener: ${id}.`);
+    }
+    approvedIds.add(id);
+  }
+  const added = roster.filter(team => !approvedIds.has(team.ht_team_id!)).map(team => `${team.name} (${team.ht_team_id})`);
+  const removed = approvedOpening.flatMap(pair => [
+    { id: pair.homeTeamId, name: pair.homeTeam }, { id: pair.awayTeamId, name: pair.awayTeam },
+  ]).filter(team => !ids.has(team.id)).map(team => `${team.name} (${team.id})`);
+  if (added.length || removed.length) {
+    throw new Error(`Roster differs from approved opener. Added: ${added.join(', ') || 'none'}. Removed: ${removed.join(', ') || 'none'}.`);
+  }
+  const openingPairings: LengthSchedulePairing[] = approvedOpening.map(pair => {
+    const home = ids.get(pair.homeTeamId)!;
+    const away = ids.get(pair.awayTeamId)!;
+    if (home.hattrick_user_id === away.hattrick_user_id) {
+      throw new Error(`Approved opener has a same-manager match: ${home.name} (${pair.homeTeamId}) vs ${away.name} (${pair.awayTeamId}).`);
+    }
+    return { homeTeamId: home.id, awayTeamId: away.id, isBye: false };
+  });
   return buildLengthScheduleDraft({ ...input, openingPairings });
 }
