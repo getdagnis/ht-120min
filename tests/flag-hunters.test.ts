@@ -83,8 +83,8 @@ test('reconcile names new, departed and changed teams and removes incompatible f
 
 const xml = (flags: string, id = 1) => `<HattrickData><Teams><Team><TeamID>${id}</TeamID><League><LeagueID>101</LeagueID></League>${flags}</Team></Teams></HattrickData>`;
 test('CHPP response accepts explicitly empty lists and extracts directional LeagueIDs, not country IDs', () => {
-  assert.deepEqual(parseFlagHunterDetails(xml('<Flags><HomeFlags/><AwayFlags></AwayFlags></Flags>'), 1), { leagueId: 101, countryId: null, flagCountryId: null, home: [], away: [], homeUnknown: false, awayUnknown: false });
-  assert.deepEqual(parseFlagHunterDetails(xml('<Flags><HomeFlags><Flag><LeagueID>154</LeagueID><CountryID>999</CountryID></Flag></HomeFlags><AwayFlags><Flag><LeagueID>3</LeagueID></Flag></AwayFlags></Flags>'), 1), { leagueId: 101, countryId: null, flagCountryId: null, home: [154], away: [3], homeUnknown: false, awayUnknown: false });
+  assert.deepEqual(parseFlagHunterDetails(xml('<Flags><HomeFlags/><AwayFlags></AwayFlags></Flags>'), 1), { leagueId: 101, countryId: null, genderId: null, flagCountryId: null, home: [], away: [], homeUnknown: false, awayUnknown: false });
+  assert.deepEqual(parseFlagHunterDetails(xml('<Flags><HomeFlags><Flag><LeagueID>154</LeagueID><CountryID>999</CountryID></Flag></HomeFlags><AwayFlags><Flag><LeagueID>3</LeagueID></Flag></AwayFlags></Flags>'), 1), { leagueId: 101, countryId: null, genderId: null, flagCountryId: null, home: [154], away: [3], homeUnknown: false, awayUnknown: false });
   assert.throws(() => parseFlagHunterDetails(xml(''), 1), /omitted/);
   assert.throws(() => parseFlagHunterDetails(xml('<Flags><HomeFlags/></Flags>'), 1), /omitted/);
   assert.throws(() => parseFlagHunterDetails(xml('<Flags><HomeFlags/><AwayFlags/></Flags>', 2), 1), /requested team/);
@@ -104,8 +104,8 @@ test('live-shaped multi-team response keeps mixed-case flag IDs scoped to the se
       <HomeFlags><Flag><LeagueId>11</LeagueId></Flag><Flag><LeagueId>3</LeagueId></Flag></HomeFlags>
     </Flags></Team>
   </Teams></HattrickData>`;
-  assert.deepEqual(parseFlagHunterDetails(response, 1), { leagueId: 53, countryId: null, flagCountryId: null, home: [34, 62], away: [44, 139], homeUnknown: false, awayUnknown: false });
-  assert.deepEqual(parseFlagHunterDetails(response, 2), { leagueId: 3000, countryId: null, flagCountryId: null, home: [3, 11], away: [143, 154], homeUnknown: false, awayUnknown: false });
+  assert.deepEqual(parseFlagHunterDetails(response, 1), { leagueId: 53, countryId: null, genderId: null, flagCountryId: null, home: [34, 62], away: [44, 139], homeUnknown: false, awayUnknown: false });
+  assert.deepEqual(parseFlagHunterDetails(response, 2), { leagueId: 3000, countryId: null, genderId: null, flagCountryId: null, home: [3, 11], away: [143, 154], homeUnknown: false, awayUnknown: false });
 });
 
 
@@ -136,7 +136,7 @@ test('CHPP special league flags resolve from actual CountryID and unresolved col
   const response = `<HattrickData><Team><TeamID>1</TeamID><League><LeagueID>1003</LeagueID></League>
     <Country><CountryID>130</CountryID></Country><Flags><HomeFlags><Flag><LeagueId>111</LeagueId></Flag></HomeFlags>
     <AwayFlags><Flag><LeagueId>1003</LeagueId></Flag></AwayFlags></Flags></Team></HattrickData>`;
-  assert.deepEqual(parseFlagHunterDetails(response, 1), { leagueId: 1003, countryId: 130, flagCountryId: 124,
+  assert.deepEqual(parseFlagHunterDetails(response, 1), { leagueId: 1003, countryId: 130, genderId: null, flagCountryId: 124,
     home: [111], away: [], homeUnknown: false, awayUnknown: true });
 });
 
@@ -148,7 +148,7 @@ test('legacy snapshot upgrade retains fetched Homegrown collections and reconcil
     flags: { '1': { htTeamId: 1, managerId: a.managerId, leagueId: 1003, home: [111], away: [124], fetchedAt: '2026-10-14T08:00:00Z' } } };
   const upgraded = parseFlagSnapshot(legacy);
   assert.equal(upgraded.version, 2); assert.equal(upgraded.teams[0].flagCountryId, null);
-  const reconciled = reconcileFlagSnapshot(upgraded, 'tournament', [a]);
+  const reconciled = reconcileFlagSnapshot(upgraded, 'tournament', [{ ...a, genderId: 1 }]);
   assert.deepEqual(reconciled.changed, []); assert.deepEqual(reconciled.flags['1'].home, [111]);
   assert.deepEqual(reconciled.flags['1'].away, [124]);
   const saved = parseFlagSnapshot({ ...upgraded, teams: [a] });

@@ -1,0 +1,440 @@
+[
+  {
+    "homeTeamId": 2260624,
+    "awayTeamId": 2020096,
+    "homeTeam": "The Mosi Mambas",
+    "awayTeam": "New Fermí F.C."
+  },
+  {
+    "homeTeamId": 2265960,
+    "awayTeamId": 48618,
+    "homeTeam": "LC Letz",
+    "awayTeam": "Fome Team"
+  },
+  {
+    "homeTeamId": 2199615,
+    "awayTeamId": 1679231,
+    "homeTeam": "FF Midgar",
+    "awayTeam": "As As Angola"
+  },
+  {
+    "homeTeamId": 2788260,
+    "awayTeamId": 2352358,
+    "homeTeam": "Gold Saucer AD",
+    "awayTeam": "M290 Guinea Team"
+  },
+  {
+    "homeTeamId": 251233,
+    "awayTeamId": 3357223,
+    "homeTeam": "Central-FC",
+    "awayTeam": "Royal Fome F.C."
+  },
+  {
+    "homeTeamId": 754011,
+    "awayTeamId": 1903845,
+    "homeTeam": "M290",
+    "awayTeam": "FC Pipil"
+  },
+  {
+    "homeTeamId": 2316951,
+    "awayTeamId": 120263,
+    "homeTeam": "FF Nibelheim",
+    "awayTeam": "Pulpiño F.C."
+  },
+  {
+    "homeTeamId": 2844309,
+    "awayTeamId": 2125537,
+    "homeTeam": "AtlantiQ FC",
+    "awayTeam": "Outra vez BONS Guiana"
+  },
+  {
+    "homeTeamId": 1903449,
+    "awayTeamId": 2060738,
+    "homeTeam": "Mottos Boyz Zwo",
+    "awayTeam": "Mario Tigers Club"
+  },
+  {
+    "homeTeamId": 2064883,
+    "awayTeamId": 2369915,
+    "homeTeam": "Mottos Boyz III",
+    "awayTeam": "Acongojados"
+  },
+  {
+    "homeTeamId": 2151772,
+    "awayTeamId": 2145432,
+    "homeTeam": "Mottos Boyz A",
+    "awayTeam": "Parguelas con Flow in da home"
+  },
+  {
+    "homeTeamId": 1903551,
+    "awayTeamId": 2066179,
+    "homeTeam": "pumas noirs",
+    "awayTeam": "Caribbean Lions FC"
+  },
+  {
+    "homeTeamId": 2317359,
+    "awayTeamId": 793601,
+    "homeTeam": "Bahrain Barbecue United",
+    "awayTeam": "Ometepe Fire"
+  },
+  {
+    "homeTeamId": 2622805,
+    "awayTeamId": 2045473,
+    "homeTeam": "FCPakistan",
+    "awayTeam": "Shoganai"
+  },
+  {
+    "homeTeamId": 106760,
+    "awayTeamId": 2020008,
+    "homeTeam": "Bilzersebc",
+    "awayTeam": "Doha Soccer Club"
+  },
+  {
+    "homeTeamId": 2345495,
+    "awayTeamId": 2064725,
+    "homeTeam": "FCBelait",
+    "awayTeam": "FC Haromaya"
+  },
+  {
+    "homeTeamId": 1903702,
+    "awayTeamId": 2011990,
+    "homeTeam": "Camel Spiders",
+    "awayTeam": "Afrikan Lions"
+  },
+  {
+    "homeTeamId": 2064992,
+    "awayTeamId": 1833016,
+    "homeTeam": "Sacrisgame F.C",
+    "awayTeam": "Volta Eagles"
+  },
+  {
+    "homeTeamId": 2506079,
+    "awayTeamId": 2850048,
+    "homeTeam": "Rēzeknes Lauvas",
+    "awayTeam": "Inselspringer RZ"
+  },
+  {
+    "homeTeamId": 2789745,
+    "awayTeamId": 957815,
+    "homeTeam": "Bhutan Tigers",
+    "awayTeam": "Harrow Titans"
+  },
+  {
+    "homeTeamId": 2330514,
+    "awayTeamId": 463557,
+    "homeTeam": "RCD edps",
+    "awayTeam": "Es Es Caribe"
+  },
+  {
+    "homeTeamId": 1370094,
+    "awayTeamId": 3398727,
+    "homeTeam": "Blai WCF",
+    "awayTeam": "JAVS GHANA FC"
+  },
+  {
+    "homeTeamId": 2151857,
+    "awayTeamId": 2063994,
+    "homeTeam": "Tobago Cocoa Runners",
+    "awayTeam": "Ceylon Lions"
+  },
+  {
+    "homeTeamId": 2131000,
+    "awayTeamId": 2013040,
+    "homeTeam": "Roc&Blai Barbats F.C.",
+    "awayTeam": "Crossing The Rubicon"
+  },
+  {
+    "homeTeamId": 2185861,
+    "awayTeamId": 1679230,
+    "homeTeam": "Port Nelson Conquerors",
+    "awayTeam": "Pachu Football Club"
+  },
+  {
+    "homeTeamId": 2124213,
+    "awayTeamId": 2326509,
+    "homeTeam": "Slightly Overproof",
+    "awayTeam": "FCBahrein"
+  },
+  {
+    "homeTeamId": 793521,
+    "awayTeamId": 2065134,
+    "homeTeam": "LagunaBlu F.C.",
+    "awayTeam": "Tucan Team"
+  },
+  {
+    "homeTeamId": 2064623,
+    "awayTeamId": 2064060,
+    "homeTeam": "Athletic Montecristo",
+    "awayTeam": "Balingsnäs United"
+  },
+  {
+    "homeTeamId": 1630403,
+    "awayTeamId": 2710326,
+    "homeTeam": "F.C. BIANCONERI",
+    "awayTeam": "M290 Bahrein Team"
+  },
+  {
+    "homeTeamId": 3245935,
+    "awayTeamId": 593712,
+    "homeTeam": "FC Lapsus",
+    "awayTeam": "FC Bousignies"
+  },
+  {
+    "homeTeamId": 2125569,
+    "awayTeamId": 2793355,
+    "homeTeam": "Essequibo",
+    "awayTeam": "Swiss Curacao"
+  },
+  {
+    "homeTeamId": 2153118,
+    "awayTeamId": 3322212,
+    "homeTeam": "FC Coco Loco",
+    "awayTeam": "Sporting Fome"
+  },
+  {
+    "homeTeamId": 2842647,
+    "awayTeamId": 2063231,
+    "homeTeam": "FC Maluns",
+    "awayTeam": "Monte Cafè - Clube de Futebol Amador"
+  },
+  {
+    "homeTeamId": 3326545,
+    "awayTeamId": 2066912,
+    "homeTeam": "Maie F.C.",
+    "awayTeam": "Bayamon Bastards"
+  },
+  {
+    "homeTeamId": 2461865,
+    "awayTeamId": 2316933,
+    "homeTeam": "Balkan Lynx FC",
+    "awayTeam": "Leyre1998"
+  },
+  {
+    "homeTeamId": 2353887,
+    "awayTeamId": 2794579,
+    "homeTeam": "FK Cattaro",
+    "awayTeam": "Yasquda"
+  },
+  {
+    "homeTeamId": 2190052,
+    "awayTeamId": 793635,
+    "homeTeam": "Dorbora-F.C.",
+    "awayTeam": "Nicaragua Soccers"
+  },
+  {
+    "homeTeamId": 2351705,
+    "awayTeamId": 2857527,
+    "homeTeam": "pelikany7",
+    "awayTeam": "Inter Ługi"
+  },
+  {
+    "homeTeamId": 987179,
+    "awayTeamId": 2016898,
+    "homeTeam": "FC Muncel",
+    "awayTeam": "KS Ożarowianka Ożarów"
+  },
+  {
+    "homeTeamId": 463584,
+    "awayTeamId": 2905430,
+    "homeTeam": "Bayern Leverculen",
+    "awayTeam": "Black Gold Athletic"
+  },
+  {
+    "homeTeamId": 987471,
+    "awayTeamId": 2122624,
+    "homeTeam": "The Crane's Jolly Roger F.C.",
+    "awayTeam": "Caribbean Tornados FC"
+  },
+  {
+    "homeTeamId": 2347157,
+    "awayTeamId": 2861840,
+    "homeTeam": "Lions 237 FC",
+    "awayTeam": "Pillars Of Hercules"
+  },
+  {
+    "homeTeamId": 2598262,
+    "awayTeamId": 2067204,
+    "homeTeam": "Inselspringer Beli",
+    "awayTeam": "Jupyboys"
+  },
+  {
+    "homeTeamId": 2814705,
+    "awayTeamId": 317617,
+    "homeTeam": "Inselspringer Bangla",
+    "awayTeam": "Partybob"
+  },
+  {
+    "homeTeamId": 2502334,
+    "awayTeamId": 2065147,
+    "homeTeam": "Pakistan Palace",
+    "awayTeam": "Mourmelon"
+  },
+  {
+    "homeTeamId": 2066154,
+    "awayTeamId": 2066123,
+    "homeTeam": "Porcos Bravos",
+    "awayTeam": "Blaití FC"
+  },
+  {
+    "homeTeamId": 2134790,
+    "awayTeamId": 3356741,
+    "homeTeam": "BUEU CITY",
+    "awayTeam": "Esportiva Fomeçao"
+  },
+  {
+    "homeTeamId": 1799160,
+    "awayTeamId": 2152011,
+    "homeTeam": "Muscat Pirates",
+    "awayTeam": "Tuida 3"
+  },
+  {
+    "homeTeamId": 2062005,
+    "awayTeamId": 2374284,
+    "homeTeam": "Rubin Comoros",
+    "awayTeam": "FC Haiti Pineapples"
+  },
+  {
+    "homeTeamId": 710616,
+    "awayTeamId": 2152081,
+    "homeTeam": "FC Sispony",
+    "awayTeam": "Naverey"
+  },
+  {
+    "homeTeamId": 1592319,
+    "awayTeamId": 2793969,
+    "homeTeam": "Pana Futbol Club",
+    "awayTeam": "FC Atlético Imperial"
+  },
+  {
+    "homeTeamId": 2657060,
+    "awayTeamId": 2135114,
+    "homeTeam": "Padova Mongola",
+    "awayTeam": "FC Green Boys"
+  },
+  {
+    "homeTeamId": 2267046,
+    "awayTeamId": 2351640,
+    "homeTeam": "FC Toril",
+    "awayTeam": "M290 Saint Kitts Team"
+  },
+  {
+    "homeTeamId": 2252878,
+    "awayTeamId": 2833014,
+    "homeTeam": "Calcio Loeches SSC",
+    "awayTeam": "Olimpia Ługi"
+  },
+  {
+    "homeTeamId": 1990823,
+    "awayTeamId": 535113,
+    "homeTeam": "THE BELGIAN CHEETAHS",
+    "awayTeam": "FC Atletico Veziri"
+  },
+  {
+    "homeTeamId": 2351760,
+    "awayTeamId": 2799119,
+    "homeTeam": "Litoraneos",
+    "awayTeam": "Lokomotiv Francan"
+  },
+  {
+    "homeTeamId": 986596,
+    "awayTeamId": 2248381,
+    "homeTeam": "Partybob Uls",
+    "awayTeam": "les marsupilamis"
+  },
+  {
+    "homeTeamId": 2131649,
+    "awayTeamId": 2070777,
+    "homeTeam": "Partybob Leon",
+    "awayTeam": "Conkhikhoo"
+  },
+  {
+    "homeTeamId": 2353722,
+    "awayTeamId": 2152822,
+    "homeTeam": "Conkhikho Da Nau",
+    "awayTeam": "Island Boys CF"
+  },
+  {
+    "homeTeamId": 2467990,
+    "awayTeamId": 2126268,
+    "homeTeam": "Conkhikho Da Den",
+    "awayTeam": "Black Panther FC"
+  },
+  {
+    "homeTeamId": 2125405,
+    "awayTeamId": 2255485,
+    "homeTeam": "Partizanaikos",
+    "awayTeam": "Tshopo Eagles"
+  },
+  {
+    "homeTeamId": 2351710,
+    "awayTeamId": 2789224,
+    "homeTeam": "Vier für ein Ave Maria",
+    "awayTeam": "ZK Druk Yurung FC"
+  },
+  {
+    "homeTeamId": 2066075,
+    "awayTeamId": 986749,
+    "homeTeam": "FC Port-au-Prince",
+    "awayTeam": "Khan Dynastie Soccers"
+  },
+  {
+    "homeTeamId": 2065875,
+    "awayTeamId": 2262855,
+    "homeTeam": "PiperFlok FC",
+    "awayTeam": "YOLO FC"
+  },
+  {
+    "homeTeamId": 2012037,
+    "awayTeamId": 1890490,
+    "homeTeam": "Borussia Mortadella",
+    "awayTeam": "FLAMENGO_BRAZIL"
+  },
+  {
+    "homeTeamId": 1629765,
+    "awayTeamId": 2672190,
+    "homeTeam": "Team Nørholt",
+    "awayTeam": "Inselspringer Bruni"
+  },
+  {
+    "homeTeamId": 2732466,
+    "awayTeamId": 2184670,
+    "homeTeam": "Orliki Ługi",
+    "awayTeam": "Nassau Boys"
+  },
+  {
+    "homeTeamId": 1990855,
+    "awayTeamId": 2012167,
+    "homeTeam": "Slow Train",
+    "awayTeam": "FK Dinamo Samarqand"
+  },
+  {
+    "homeTeamId": 2373808,
+    "awayTeamId": 2351989,
+    "homeTeam": "Tash-Rabat Guardians",
+    "awayTeam": "Tuida 4"
+  },
+  {
+    "homeTeamId": 151659,
+    "awayTeamId": 1961141,
+    "homeTeam": "S.C. Sbd Catalunya",
+    "awayTeam": "Adickrach"
+  },
+  {
+    "homeTeamId": 2271175,
+    "awayTeamId": 2012405,
+    "homeTeam": "Tallarets F.C.",
+    "awayTeam": "Palestin Star Team"
+  },
+  {
+    "homeTeamId": 734500,
+    "awayTeamId": 2136085,
+    "homeTeam": "Wizards Galaxy",
+    "awayTeam": "Lobatse FC"
+  },
+  {
+    "homeTeamId": 709937,
+    "awayTeamId": 2134881,
+    "homeTeam": "Parguelas con Flow asiáticos",
+    "awayTeam": "Maferenya SC"
+  }
+]

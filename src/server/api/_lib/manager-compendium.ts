@@ -57,8 +57,10 @@ export function mergeManagerTeamSnapshot(
       powerLeagueRank: detail?.powerLeagueRank ?? previous?.powerLeagueRank,
       teamRank: detail?.teamRank ?? previous?.teamRank,
       numberOfVictories: detail?.numberOfVictories ?? null,
-      homeFlagLeagueIds: detail?.homeFlagLeagueIds ?? [],
-      awayFlagLeagueIds: detail?.awayFlagLeagueIds ?? [],
+      // Ordinary manager-wide teamdetails does not request flags. Preserve a
+      // collection fetched explicitly in Forge instead of erasing it on refresh.
+      homeFlagLeagueIds: previous?.flagsFetchedAt ? previous.homeFlagLeagueIds : detail?.homeFlagLeagueIds ?? [],
+      awayFlagLeagueIds: previous?.flagsFetchedAt ? previous.awayFlagLeagueIds : detail?.awayFlagLeagueIds ?? [],
       powerRating: detail?.powerRating ?? previous?.powerRating,
       powerGlobalRank: detail?.powerGlobalRank ?? previous?.powerGlobalRank,
       powerRegionRank: detail?.powerRegionRank ?? previous?.powerRegionRank,

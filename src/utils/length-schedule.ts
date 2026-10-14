@@ -302,6 +302,7 @@ export function buildLengthScheduleDraft(input: {
   startSlotId: string | null;
   selectedFormatId?: string | null;
   rankingSource?: ScheduleRankingSource;
+  openingPairings?: LengthSchedulePairing[];
   now?: Date;
 }): LengthScheduleDraft {
   const now = input.now ?? new Date();
@@ -328,7 +329,7 @@ export function buildLengthScheduleDraft(input: {
   } else if (!selectedStartSlot) reason = 'Choose a valid start date.';
   else if (!selectedFormat || selectedFormat.totalRounds > safeSlots.length) reason = 'The selected length does not fit this Hattrick season.';
 
-  const pairingPlan = selectedFormat ? buildRoundRobinCycles(teams.map(team => team.id), selectedFormat.regularRounds) : [];
+  const pairingPlan = selectedFormat ? buildRoundRobinCycles(teams.map(team => team.id), selectedFormat.regularRounds, input.openingPairings) : [];
   const slotIndexes = new Map(teams.map((team, i) => [team.id, i + 1]));
   const regularPairings = pairingPlan.map(round => round.map(pair => ({
     home_slot_index: slotIndexes.get(pair.homeTeamId!)!,
