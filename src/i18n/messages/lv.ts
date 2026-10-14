@@ -1111,6 +1111,9 @@ const messages = {
       cancel: "",
     },
     RepresentedCountries: {
+      countryName: 'Valsts',
+      largeCountryTeams: 'Lielo valstu komandas',
+      smallCountryTeams: 'Mazo valstu komandas',
       title: 'Pārstāvētās valstis',
       teams: 'Komandas',
       managers: 'Menedžeri',

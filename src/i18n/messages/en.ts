@@ -1135,6 +1135,9 @@ const messages = {
       cancel: "Cancel",
     },
     RepresentedCountries: {
+      countryName: 'Country',
+      largeCountryTeams: 'Large country teams',
+      smallCountryTeams: 'Small country teams',
       title: 'Represented countries',
       teams: 'Teams',
       managers: 'Managers',
