@@ -54,7 +54,7 @@ import {
   validateTeamEligibility,
 } from '../../utils/team-eligibility';
 import {
-  managerHasQualifyingCountryParticipant,
+  managerCountrySizeAllowance,
   validateCountrySizeEligibility,
 } from '../../../shared/country-size-eligibility';
 import { normalizeLeagueLimit, resolveCountryRestriction } from '../../../shared/worlddetails';
@@ -275,6 +275,7 @@ export interface TournamentRoleAccess {
 
 interface PendingJoinData {
   id: string;
+  hattrick_user_id?: number | null;
   manager_name: string;
   teams_json: ChppTeamOption[];
   tournament_id: string | null;
@@ -2341,6 +2342,21 @@ export const TournamentView: React.FC<{
     }
   };
 
+  const getJoinCountrySizeEligibility = (team: ChppTeamOption) => {
+    const managerId = pendingJoinData?.hattrick_user_id ?? currentHtUserId;
+    const allowance = tournament?.max_country_active_teams != null && managerId
+      ? managerCountrySizeAllowance(teams.filter(row => row.ht_team_id !== team.teamId),
+          Number(managerId), tournament.max_country_active_teams,
+          teams.some(row => row.ht_team_id === team.teamId && row.reserve_active === true)).active
+      : 0;
+    return validateCountrySizeEligibility({
+      countryId: team.countryId,
+      maximumActiveTeams: tournament?.max_country_active_teams,
+      allowManagerException: tournament?.allow_manager_country_size_exception === true,
+      hasQualifyingParticipant: allowance > 0,
+    });
+  };
+
   const getJoinTeamCardState = (
     team: ChppTeamOption,
   ): { disabled: boolean; status: React.ReactNode; statusDanger: boolean } => {
@@ -2377,17 +2393,7 @@ export const TournamentView: React.FC<{
     }
 
     if (!isSiteAdmin && tournament.max_country_active_teams != null) {
-      const hasQualifyingParticipant = Boolean(
-        tournament.allow_manager_country_size_exception &&
-        currentHtUserId &&
-        managerHasQualifyingCountryParticipant(teams, currentHtUserId, tournament.max_country_active_teams),
-      );
-      const countrySizeEligibility = validateCountrySizeEligibility({
-        countryId: team.countryId,
-        maximumActiveTeams: tournament.max_country_active_teams,
-        allowManagerException: tournament.allow_manager_country_size_exception === true,
-        hasQualifyingParticipant,
-      });
+      const countrySizeEligibility = getJoinCountrySizeEligibility(team);
       if (!countrySizeEligibility.eligible) {
         return { disabled: true, statusDanger: true, status: `Not eligible! ${countrySizeEligibility.reason}` };
       }
@@ -2406,7 +2412,13 @@ export const TournamentView: React.FC<{
       };
     }
 
-    return { disabled: false, status: '✅ Eligible to participate!', statusDanger: false };
+    const extraEntry = !isSiteAdmin && tournament.allow_manager_country_size_exception && tournament.max_country_active_teams != null;
+    const small = validateCountrySizeEligibility({ countryId: team.countryId,
+      maximumActiveTeams: tournament.max_country_active_teams, allowManagerException: false, hasQualifyingParticipant: false }).eligible;
+    return { disabled: false, status: extraEntry
+      ? small ? 'Join with this small-league team to unlock one additional larger-league entry.'
+        : 'Your qualifying small-league entry allows this additional larger-league team to join.'
+      : '✅ Eligible to participate!', statusDanger: false };
   };
 
   useEffect(() => {
@@ -6222,7 +6234,7 @@ export const TournamentView: React.FC<{
               <p className={styles.joinLimit}>
                 Teams from countries with up to {tournament.max_country_active_teams} active teams.
                 {tournament.allow_manager_country_size_exception &&
-                  ' Managers already participating with a qualifying team may also enter their other eligible teams.'}
+                  ' Each qualifying small-league entry allows one additional larger-league entry. Waiting-list entries count toward the waiting-list allowance.'}
               </p>
             )}
             <TournamentBadgeChips
@@ -7085,7 +7097,9 @@ export const TournamentView: React.FC<{
               </p>
 
               <div className={styles.teamOptionsList}>
-                {pendingJoinData?.teams_json.map((team) => {
+                {pendingJoinData?.teams_json.filter(team =>
+                  isSiteAdmin || getJoinCountrySizeEligibility(team).eligible,
+                ).map((team) => {
                   const teamState = getJoinTeamCardState(team);
                   return (
                     <ModalTeamCard

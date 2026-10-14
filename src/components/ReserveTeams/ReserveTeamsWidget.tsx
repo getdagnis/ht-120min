@@ -29,6 +29,7 @@ interface MyReserveTeam {
   country_id?: number | null;
   eligible: boolean;
   reason?: string;
+  allowance_message?: string;
   state: 'participant' | 'reserve' | 'available';
   existing_team_id?: string | null;
 }
@@ -254,6 +255,7 @@ export const ReserveTeamsWidget: React.FC<ReserveTeamsWidgetProps> = ({ tourname
                   ))}
                 </select>
               )}
+              {selectedAvailableTeam?.allowance_message && <p>{selectedAvailableTeam.allowance_message}</p>}
               {selectedAvailableTeam?.reason && <p className={styles.error}>{selectedAvailableTeam.reason}</p>}
               <button type="button" onClick={() => post('join', selectedTeamId)} disabled={busy || !selectedTeamId || selectedAvailableTeam?.eligible === false}>
                 {uiText('joinReserveList')}

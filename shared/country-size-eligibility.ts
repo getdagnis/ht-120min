@@ -4,6 +4,7 @@ export type CountrySizeEligibility = { eligible: true } | { eligible: false; rea
 
 export function managerHasQualifyingCountryParticipant(
   teams: Array<{
+    ht_team_id?: number | null;
     active?: boolean | null;
     reserve_active?: boolean | null;
     is_placeholder?: boolean | null;
@@ -13,12 +14,36 @@ export function managerHasQualifyingCountryParticipant(
   managerId: number,
   maximumActiveTeams: number,
 ): boolean {
-  return teams.some((team) => {
-    if (team.active !== true || team.reserve_active === true || team.is_placeholder === true ||
-      Number(team.hattrick_user_id) !== managerId) return false;
+  return teams.some(team => {
+    if (team.ht_team_id === null || team.active !== true || team.reserve_active === true ||
+      team.is_placeholder === true || Number(team.hattrick_user_id) !== managerId) return false;
     const count = getCountryActiveTeamCount(team.country_id);
     return count !== null && count <= maximumActiveTeams;
   });
+}
+
+/** Entries consume one allowance each; waiting teams only unlock waiting entries.
+ * Promotion checks active counts only: it does not add a new total entry.
+ */
+export function managerCountrySizeAllowance(
+  teams: Parameters<typeof managerHasQualifyingCountryParticipant>[0],
+  managerId: number,
+  maximumActiveTeams: number,
+  admissionOnly = false,
+): { active: number; waiting: number } {
+  let smallActive = 0, largeActive = 0, smallWaiting = 0, largeWaiting = 0;
+  for (const team of teams) {
+    if (team.ht_team_id === null || team.is_placeholder === true || Number(team.hattrick_user_id) !== managerId) continue;
+    const active = team.active === true && team.reserve_active !== true;
+    const waiting = team.reserve_active === true;
+    if (!active && !waiting) continue;
+    const count = getCountryActiveTeamCount(team.country_id);
+    const small = count !== null && count <= maximumActiveTeams;
+    if (active) { if (small) smallActive++; else largeActive++; }
+    else { if (small) smallWaiting++; else largeWaiting++; }
+  }
+  const total = smallActive + smallWaiting - largeActive - largeWaiting;
+  return { active: admissionOnly ? smallActive - largeActive : Math.min(smallActive - largeActive, total), waiting: total };
 }
 
 export function validateCountrySizeEligibility(options: {

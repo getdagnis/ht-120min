@@ -68,13 +68,14 @@ async function backfillOpenMatchmakerTeams(
         }
       }
 
+      const countryId = details.countryId ?? team.country_id ?? null;
       await supabase
         .from('teams')
         .update({
           logo_url: details.logoUrl ?? team.logo_url ?? null,
           arena_id: arenaId,
           arena_image_url: arenaImageUrl,
-          country_id: details.countryId ?? team.country_id ?? null,
+          ...(countryId !== team.country_id ? { country_id: countryId } : {}),
           country_name: details.countryName ?? team.country_name ?? null,
           league_level: details.leagueLevel ?? team.league_level ?? null,
           gender_id: details.genderId ?? null,
@@ -148,7 +149,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     // Create a map to track DB state
     const { data: dbTeams } = await supabase
       .from('teams')
-      .select('ht_team_id, logo_url, arena_id, arena_image_url')
+      .select('ht_team_id, logo_url, arena_id, arena_image_url, country_id')
       .in('ht_team_id', canonicalTeams.map((t) => t.teamId))
       .is('tournament_id', null);
 
@@ -207,13 +208,14 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
           availability.availabilityStatus ||
           availability.availabilityReason
         ) {
+          const countryId = teamDetails?.countryId ?? team.countryId ?? null;
           await supabase
             .from('teams')
             .update({
               logo_url: logoUrl || team.logo_url || null,
               arena_image_url: arenaImageUrl || team.arena_image_url || null,
               arena_id: arenaId || null,
-              country_id: teamDetails?.countryId ?? team.countryId ?? null,
+              ...(countryId !== dbEntry?.country_id ? { country_id: countryId } : {}),
               country_name: teamDetails?.countryName ?? team.countryName ?? null,
               league_level: teamDetails?.leagueLevel ?? team.leagueLevel ?? null,
               availability_status: availability.availabilityStatus,

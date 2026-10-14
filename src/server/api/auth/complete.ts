@@ -354,6 +354,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         tournamentId: pending.tournament_id,
         managerId: pending.hattrick_user_id,
         countryId,
+        excludeTeamId: Number(team_id),
         maximumActiveTeams: tournament.max_country_active_teams,
         allowManagerException: tournament.allow_manager_country_size_exception,
       });

@@ -50,7 +50,7 @@ import {
 } from './_lib/manager-compendium.js';
 import { validateTeamEligibility } from './_lib/eligibility.js';
 import { validateTournamentCountrySizeEligibility } from './_lib/country-size-eligibility.js';
-import { managerHasQualifyingCountryParticipant, validateCountrySizeEligibility } from '../../../shared/country-size-eligibility.js';
+import { managerCountrySizeAllowance, validateCountrySizeEligibility } from '../../../shared/country-size-eligibility.js';
 import { getActiveTournamentConflicts, registerReserveTeam } from './_lib/chpp-register.js';
 import {
   validateTeamReserveTransition,
@@ -2793,13 +2793,12 @@ async function handleReserveTeams(req: VercelRequest, res: VercelResponse) {
     );
     const hasQualifyingParticipant = Boolean(tournament.allow_manager_country_size_exception &&
       tournament.max_country_active_teams != null &&
-      managerHasQualifyingCountryParticipant(rows.map((row) => ({
-        active: row.active === true,
-        reserve_active: row.reserve_active === true,
-        is_placeholder: row.is_placeholder === true,
-        hattrick_user_id: Number(row.hattrick_user_id),
+      managerCountrySizeAllowance(rows.map((row) => ({
+        ht_team_id: row.ht_team_id == null ? null : Number(row.ht_team_id),
+        active: row.active === true, reserve_active: row.reserve_active === true,
+        is_placeholder: row.is_placeholder === true, hattrick_user_id: Number(row.hattrick_user_id),
         country_id: Number(row.country_id),
-      })), session.userId, tournament.max_country_active_teams));
+      })), session.userId, tournament.max_country_active_teams).waiting > 0);
     const myTeams = profileTeams
       .map((team) => {
         const baseEligibility = validateTeamEligibility(team, { category, countryLimit });
@@ -2820,11 +2819,18 @@ async function handleReserveTeams(req: VercelRequest, res: VercelResponse) {
           eligible: eligibility.eligible,
           reason: eligibility.reason,
           base_eligible: baseEligibility.eligible,
+          allowance_message: tournament.allow_manager_country_size_exception && tournament.max_country_active_teams != null && eligibility.eligible
+            ? validateCountrySizeEligibility({ countryId: team.countryId, maximumActiveTeams: tournament.max_country_active_teams,
+                allowManagerException: false, hasQualifyingParticipant: false }).eligible
+              ? 'Add this small-league team to the waiting list to unlock one additional larger-league waiting-list entry.'
+              : 'Your qualifying small-league entry allows this additional larger-league team onto the waiting list.'
+            : undefined,
           state: existing?.active ? 'participant' : existing?.reserve_active ? 'reserve' : 'available',
           existing_team_id: existing?.id || null,
         };
       })
-      .filter((team) => team.base_eligible || team.state === 'reserve');
+      .filter((team) => team.state === 'reserve' || (team.base_eligible &&
+        (team.state !== 'available' || tournament.max_country_active_teams == null || team.eligible)));
     return res.status(200).json({ authenticated: true, allowReserveRegistration, reserveTeams, myTeams });
   }
 
@@ -2905,6 +2911,8 @@ async function handleReserveTeams(req: VercelRequest, res: VercelResponse) {
     tournamentId,
     managerId: session.userId,
     countryId: team.countryId,
+    waitingList: true,
+    excludeTeamId: team.teamId,
     maximumActiveTeams: tournament.max_country_active_teams,
     allowManagerException: tournament.allow_manager_country_size_exception,
   });
