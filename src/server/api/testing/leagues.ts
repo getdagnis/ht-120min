@@ -18,6 +18,20 @@ type Credentials = NonNullable<Awaited<ReturnType<typeof getManagerChppCredentia
 let credentialCache: { managerId: number; credentials: Credentials; expires: number } | null = null;
 let catalogueCache: { leagues: ForgeLeagueOption[]; expires: number; checkedAt: string } | null = null;
 
+async function loadOutreachContacts(db: ReturnType<typeof getServiceSupabase>) {
+  const contacts: { campaign_id: string; manager_id: number }[] = [];
+  const pageSize = 1000;
+  for (let offset = 0; ; offset += pageSize) {
+    const { data, error } = await db.from(OUTREACH_CONTACTS)
+      .select('campaign_id, manager_id')
+      .order('campaign_id').order('manager_id')
+      .range(offset, offset + pageSize - 1);
+    if (error) throw new Error('Outreach history is unavailable.');
+    contacts.push(...(data || []));
+    if (!data || data.length < pageSize) return contacts;
+  }
+}
+
 async function scanner() {
   const managerId = getForgeSuperadminId();
   const consumerKey = process.env.CHPP_CONSUMER_KEY;
@@ -193,11 +207,11 @@ export default async function handleForgeLeagues(req: VercelRequest, res: Vercel
   if (req.method !== (['catalogue', 'snapshot', 'outreach'].includes(action) ? 'GET' : 'POST')) return res.status(405).json({ error: 'Method not allowed.' });
   if (action === 'outreach') {
     const db = getServiceSupabase();
-    const [{ data: campaigns, error: campaignsError }, { data: contacts, error: contactsError }] = await Promise.all([
+    const [{ data: campaigns, error: campaignsError }, contacts] = await Promise.all([
       db.from(OUTREACH_CAMPAIGNS).select('id, name, campaign_date').order('created_at', { ascending: false }).order('id'),
-      db.from(OUTREACH_CONTACTS).select('campaign_id, manager_id'),
+      loadOutreachContacts(db),
     ]);
-    if (campaignsError || contactsError) throw new Error('Outreach history is unavailable.');
+    if (campaignsError) throw new Error('Outreach history is unavailable.');
     const registeredManagerIds = new Set<number>();
     let registeredManagersError: string | undefined;
     try {
@@ -283,12 +297,11 @@ export default async function handleForgeLeagues(req: VercelRequest, res: Vercel
   if (action === 'catalogue') {
     const data = await catalogue();
     const db = getServiceSupabase();
-    const [{ data: rows, error: snapshotsError }, { data: contacts, error: contactsError }] = await Promise.all([
+    const [{ data: rows, error: snapshotsError }, contacts] = await Promise.all([
       db.from(TABLE).select('league_id, snapshot').contains('snapshot', { populationComplete: true }),
-      db.from(OUTREACH_CONTACTS).select('campaign_id, manager_id'),
+      loadOutreachContacts(db),
     ]);
     if (snapshotsError) throw new Error('League snapshot storage is unavailable.');
-    if (contactsError) throw new Error('Outreach history is unavailable.');
     const contactedManagers = new Map<string, Set<number>>();
     for (const contact of contacts || []) {
       const managers = contactedManagers.get(contact.campaign_id) || new Set<number>();
