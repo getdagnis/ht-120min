@@ -4,7 +4,7 @@ import { getManagerChppCredentials } from '../_lib/matchmaker.js';
 import { getAuthHeader } from '../_lib/chpp-auth.js';
 import { parseTeamDetailsXml } from '../_lib/chpp-xml.js';
 import { rejectIfForgeTestingUnauthorized } from './_lib/guard.js';
-import type { FlagHunterTeam, FlagCollection } from '../../../../shared/flag-hunters.js';
+import { normalizeFlagCountries, resolveFlagCountryId, type FlagHunterTeam, type FlagCollection } from '../../../../shared/flag-hunters.js';
 
 const positiveId = (value: unknown) => {
   const id = Number(value);
@@ -25,7 +25,10 @@ export function parseFlagHunterDetails(xml: string, htTeamId: number) {
   const parsed = parseTeamDetailsXml(xml, htTeamId);
   const leagueId = positiveId(parsed.leagueId);
   if (!leagueId) throw new Error('Hattrick omitted the team LeagueID.');
-  return { leagueId, home: parsed.homeFlagLeagueIds, away: parsed.awayFlagLeagueIds };
+  const countryId = positiveId(parsed.countryId);
+  const home = normalizeFlagCountries(parsed.homeFlagLeagueIds), away = normalizeFlagCountries(parsed.awayFlagLeagueIds);
+  return { leagueId, countryId, flagCountryId: resolveFlagCountryId(countryId),
+    home: home.ids, away: away.ids, homeUnknown: home.unknown, awayUnknown: away.unknown };
 }
 
 export default async function handleFlagHunters(req: VercelRequest, res: VercelResponse) {
@@ -40,14 +43,20 @@ export default async function handleFlagHunters(req: VercelRequest, res: VercelR
   if (!tournamentResult.data) return res.status(404).json({ error: 'Tournament not found.' });
   const tournament = tournamentResult.data;
   const teamResult = await supabase.from('teams')
-    .select('id, ht_team_id, name, hattrick_user_id, manager_name, country_name, league_id, active, reserve_active, is_placeholder')
+    .select('id, ht_team_id, name, hattrick_user_id, manager_name, country_name, country_id, league_id, active, reserve_active, is_placeholder')
     .eq('tournament_id', tournament.id).eq('active', true).order('created_at', { ascending: true });
   if (teamResult.error) throw teamResult.error;
+  const managerIds = [...new Set((teamResult.data ?? []).map(team => positiveId(team.hattrick_user_id)).filter((id): id is number => id !== null))];
+  const profileResult = managerIds.length ? await supabase.from('profiles').select('hattrick_user_id, country_id').in('hattrick_user_id', managerIds) : { data: [], error: null };
+  if (profileResult.error) throw profileResult.error;
+  const managerCountries = new Map((profileResult.data ?? []).map(profile => [positiveId(profile.hattrick_user_id), positiveId(profile.country_id)]));
   const teams: FlagHunterTeam[] = (teamResult.data ?? [])
     .filter(team => team.active === true && team.reserve_active !== true && team.is_placeholder !== true && positiveId(team.ht_team_id))
     .map(team => ({ id: team.id, htTeamId: positiveId(team.ht_team_id)!, name: team.name || 'Unnamed team',
       managerId: positiveId(team.hattrick_user_id), managerName: team.manager_name,
-      countryName: team.country_name, leagueId: positiveId(team.league_id) }));
+      countryName: team.country_name, countryId: positiveId(team.country_id),
+      flagCountryId: resolveFlagCountryId(positiveId(team.country_id)),
+      managerCountryId: managerCountries.get(positiveId(team.hattrick_user_id)) ?? null, leagueId: positiveId(team.league_id) }));
   if (new Set(teams.map(team => team.htTeamId)).size !== teams.length) {
     return res.status(409).json({ error: 'The admitted roster contains duplicate Hattrick team IDs. Resolve those entries before pairing.' });
   }
@@ -68,7 +77,8 @@ export default async function handleFlagHunters(req: VercelRequest, res: VercelR
   });
   if (!response.ok) return res.status(502).json({ error: 'Hattrick flag retrieval failed. Retry this team.' });
   const details = parseFlagHunterDetails(await response.text(), team.htTeamId);
-  const flags: FlagCollection = { htTeamId: team.htTeamId, managerId: team.managerId, ...details, fetchedAt: new Date().toISOString() };
+  const flags: FlagCollection = { htTeamId: team.htTeamId, managerId: team.managerId, leagueId: details.leagueId,
+    home: details.home, away: details.away, homeUnknown: details.homeUnknown, awayUnknown: details.awayUnknown, fetchedAt: new Date().toISOString() };
   // Snapshot-only response: no tournament, profile or team writes and no challenge action.
-  return res.status(200).json({ team: { ...team, leagueId: details.leagueId }, flags });
+  return res.status(200).json({ team: { ...team, leagueId: details.leagueId, countryId: details.countryId, flagCountryId: details.flagCountryId }, flags });
 }

@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { Button } from '../../components/Button/Button';
 import { SectionCard } from '../../components/Card/SectionCard';
-import { HATTRICK_WORLD_DETAILS } from '../../../shared/worlddetails';
+import { HATTRICK_WORLD_DETAILS, getCountryWorldDetails } from '../../../shared/worlddetails';
 import {
   createFlagDraft, draftMetrics, pairBenefits, parseFlagSnapshot, reconcileFlagSnapshot,
   type FlagCollection, type FlagDraft, type FlagHunterTeam, type FlagSnapshot,
@@ -12,7 +12,7 @@ const STORAGE_KEY = 'forge-flag-hunters-v1';
 const endpoint = (slug: string) => `/api/testing?tool=flag-hunters&slug=${encodeURIComponent(slug)}`;
 const leagueName = (id: number) => HATTRICK_WORLD_DETAILS[id]?.leagueName || `League ${id}`;
 const displayError = (error: unknown) => error instanceof Error ? error.message : 'Request failed.';
-const signature = (teams: FlagHunterTeam[]) => JSON.stringify(teams.map(team => [team.id, team.htTeamId, team.managerId, team.leagueId]).sort());
+const signature = (teams: FlagHunterTeam[]) => JSON.stringify(teams.map(team => [team.id, team.htTeamId, team.managerId, team.leagueId, team.flagCountryId]).sort());
 
 export function FlagHunters() {
   const [slug, setSlug] = useState('around-the-world');
@@ -47,7 +47,7 @@ export function FlagHunters() {
       if (!response.ok) throw new Error(payload.error || 'Could not load participants.');
       if (!mounted.current) return;
       const teams = payload.teams as FlagHunterTeam[];
-      let previous = current.current;
+      let previous = current.current ? parseFlagSnapshot(current.current) : null;
       if (!previous) {
         let stored: string | null = null;
         try { stored = sessionStorage.getItem(STORAGE_KEY); } catch { setNotice('Browser storage is unavailable. Use JSON export to retain progress.'); }
@@ -64,7 +64,7 @@ export function FlagHunters() {
       } else setDraft(null);
       setTitle(payload.tournament.name); setLoadedSlug(requestedSlug);
       setSavedIds(Object.values(flags).map(item => item.htTeamId));
-      commit({ version: 1, tournamentId: payload.tournament.id, savedAt: new Date().toISOString(), teams, flags });
+      commit({ version: 2, tournamentId: payload.tournament.id, savedAt: new Date().toISOString(), teams, flags });
       return true;
     } catch (failure) {
       if (!controller.signal.aborted && mounted.current) setError(displayError(failure));
@@ -167,14 +167,14 @@ export function FlagHunters() {
           <label>Import JSON <input type="file" accept="application/json,.json" disabled={busy} onChange={event => { void importSnapshot(event.target.files?.[0]); event.target.value = ''; }} /></label>
         </div>
         {savedIds.length > 0 && <p>Saved or previously fetched data for {savedIds.length} teams needs a live refresh. Draft benefits using it are provisional.</p>}
-        <div className={styles.scroll}><table><caption>Admitted participants and flag collections</caption><thead><tr><th>Team</th><th>Manager</th><th>League</th><th>Home flags</th><th>Away flags</th><th>Snapshot status</th></tr></thead><tbody>
+        <div className={styles.scroll}><table><caption>Admitted participants and flag collections</caption><thead><tr><th>Team</th><th>Manager</th><th>Country</th><th>Home flags</th><th>Away flags</th><th>Snapshot status</th></tr></thead><tbody>
           {snapshot.teams.map(team => {
             const flags = snapshot.flags[String(team.htTeamId)];
             return <tr key={team.htTeamId}>
-              <td><a href={`https://www.hattrick.org/goto.ashx?path=/Club/?TeamID=${team.htTeamId}`} target="_blank" rel="noreferrer">{team.name}</a><small>{team.htTeamId}</small></td>
-              <td>{team.managerName || 'Unknown'}<small>{team.managerId || 'Missing manager ID — unresolved'}</small></td>
-              <td>{team.leagueId ? leagueName(team.leagueId) : team.countryName || 'Unknown'}<small>LeagueID {team.leagueId || 'unknown'}</small></td>
-              {(['home', 'away'] as const).map(side => <td key={side}>{!flags ? 'Unknown' : <details><summary>{flags[side].length} collected</summary>{flags[side].map(id => leagueName(id)).join(', ') || 'Confirmed empty collection'}</details>}</td>)}
+              <td><a href={`https://www.hattrick.org/goto.ashx?path=/Club/?TeamID=${team.htTeamId}`} target="_blank" rel="noreferrer">{getCountryWorldDetails(team.countryId)?.emoji || '🌐'} {team.name}</a><small>{team.htTeamId}</small></td>
+              <td>{getCountryWorldDetails(team.managerCountryId)?.emoji || '🌐'} {team.managerName || 'Unknown'}<small>{team.managerId || 'Missing manager ID — unresolved'}</small></td>
+              <td>{getCountryWorldDetails(team.countryId)?.emoji || '🌐'} {getCountryWorldDetails(team.countryId)?.leagueName || team.countryName || 'Unknown'}<small>{team.leagueId ? leagueName(team.leagueId) : 'Competition unknown'} · LeagueID {team.leagueId || 'unknown'}</small>{!team.flagCountryId && <small>Flag country unknown</small>}</td>
+              {(['home', 'away'] as const).map(side => <td key={side}>{!flags ? 'Unknown' : <details><summary>{flags[side].length} collected{flags[side === 'home' ? 'homeUnknown' : 'awayUnknown'] ? ' + unknown' : ''}</summary>{flags[side].map(id => `${HATTRICK_WORLD_DETAILS[id]?.emoji || '🌐'} ${leagueName(id)}`).join(', ') || (flags[side === 'home' ? 'homeUnknown' : 'awayUnknown'] ? 'Unresolved flag entries' : 'Confirmed empty collection')}</details>}</td>)}
               <td>{issues[String(team.htTeamId)] && <small>{issues[String(team.htTeamId)]}</small>}{flags ? <><span>{savedIds.includes(team.htTeamId) ? 'Saved — needs refresh' : 'Fetched this session'}</span><small>{flags.fetchedAt}</small></> : 'Not fetched'}
                 <Button variant="outline" disabled={busy} onClick={() => void refreshFlags([team.htTeamId])}>Refresh</Button></td>
             </tr>;
@@ -184,7 +184,7 @@ export function FlagHunters() {
       </>}
     </SectionCard>
     <SectionCard title="Round one simulator">
-      <p>When A hosts B, A can gain B’s LeagueID in A’s home collection; B can gain A’s LeagueID in B’s away collection.</p>
+      <p>When A hosts B, A can gain B’s country flag in A’s home collection; B can gain A’s country flag in B’s away collection.</p>
       <div className={styles.actions}>
         <label>Seed <input value={seed} disabled={busy} onChange={event => setSeed(event.target.value)} /></label>
         <Button disabled={busy || !snapshot?.teams.length} onClick={() => generate(seed)}>Generate baseline</Button>

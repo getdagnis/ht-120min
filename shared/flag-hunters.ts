@@ -1,3 +1,5 @@
+import { getCountryWorldDetails, getLeagueWorldDetails } from './worlddetails.js';
+
 /** Flag Hunters prototype snapshots contain display data only, never credentials. */
 export interface FlagHunterTeam {
   id: string;
@@ -6,6 +8,10 @@ export interface FlagHunterTeam {
   managerId: number | null;
   managerName: string | null;
   countryName: string | null;
+  countryId: number | null;
+  managerCountryId: number | null;
+  /** Country identity encoded as its regular CHPP LeagueID; never the competition LeagueID. */
+  flagCountryId: number | null;
   leagueId: number | null;
 }
 export interface FlagCollection {
@@ -14,10 +20,12 @@ export interface FlagCollection {
   leagueId: number | null;
   home: number[];
   away: number[];
+  homeUnknown: boolean;
+  awayUnknown: boolean;
   fetchedAt: string;
 }
 export interface FlagSnapshot {
-  version: 1;
+  version: 2;
   tournamentId: string;
   savedAt: string;
   teams: FlagHunterTeam[];
@@ -28,35 +36,62 @@ export interface FlagDraft { seed: string; pairs: FlagPair[]; byeId: number | nu
 export type FlagBenefit = 'gain' | 'none' | 'unknown';
 const positive = (value: unknown): value is number => typeof value === 'number' && Number.isSafeInteger(value) && value > 0;
 
+/** Actual CountryID -> regular-league country flag key, without changing competition membership. */
+export function resolveFlagCountryId(countryId: number | null): number | null {
+  return getCountryWorldDetails(countryId)?.leagueId ?? null;
+}
+
+export function normalizeFlagCountries(leagueIds: number[]) {
+  const countries = new Set<number>();
+  let unknown = false;
+  for (const leagueId of leagueIds) {
+    const countryId = getLeagueWorldDetails(leagueId)?.countryId;
+    const flagCountryId = countryId == null ? null : resolveFlagCountryId(countryId);
+    if (flagCountryId === null) unknown = true;
+    else countries.add(flagCountryId);
+  }
+  return { ids: [...countries].sort((a, b) => a - b), unknown };
+}
+
 export function parseFlagSnapshot(raw: unknown): FlagSnapshot {
   if (!raw || typeof raw !== 'object') throw new Error('Invalid Flag Hunters snapshot.');
-  const value = raw as FlagSnapshot;
-  if (value.version !== 1 || typeof value.tournamentId !== 'string' || !Array.isArray(value.teams)
+  const value = raw as Omit<FlagSnapshot, 'version'> & { version: number };
+  if (![1, 2].includes(value.version) || typeof value.tournamentId !== 'string' || !Array.isArray(value.teams)
     || !value.flags || typeof value.flags !== 'object' || Array.isArray(value.flags)
     || !Number.isFinite(Date.parse(value.savedAt))) throw new Error('Invalid Flag Hunters snapshot.');
+  const legacy = value.version === 1;
+  const nullableId = (id: unknown) => id === null || positive(id);
   const ids = new Set<number>();
   for (const team of value.teams) {
     if (!team || typeof team.id !== 'string' || !positive(team.htTeamId) || ids.has(team.htTeamId)
-      || typeof team.name !== 'string' || !(team.managerId === null || positive(team.managerId))
-      || !(team.leagueId === null || positive(team.leagueId))
+      || typeof team.name !== 'string' || !nullableId(team.managerId) || !nullableId(team.leagueId)
+      || (!legacy && (!nullableId(team.countryId) || !nullableId(team.managerCountryId)
+        || team.flagCountryId !== resolveFlagCountryId(team.countryId)))
       || !(team.managerName === null || typeof team.managerName === 'string')
       || !(team.countryName === null || typeof team.countryName === 'string')) throw new Error('Invalid or duplicate snapshot team.');
     ids.add(team.htTeamId);
   }
   for (const [key, flags] of Object.entries(value.flags)) {
     if (!flags || !positive(flags.htTeamId) || key !== String(flags.htTeamId) || !ids.has(flags.htTeamId)
-      || !(flags.managerId === null || positive(flags.managerId)) || !(flags.leagueId === null || positive(flags.leagueId))
+      || !nullableId(flags.managerId) || !nullableId(flags.leagueId)
       || !Array.isArray(flags.home) || !Array.isArray(flags.away) || !flags.home.every(positive) || !flags.away.every(positive)
+      || (!legacy && (typeof flags.homeUnknown !== 'boolean' || typeof flags.awayUnknown !== 'boolean'))
       || typeof flags.fetchedAt !== 'string' || !Number.isFinite(Date.parse(flags.fetchedAt))) throw new Error('Invalid flag collection.');
   }
-  // Reconstruct the allowlisted payload rather than retaining arbitrary imported properties.
-  return { version: 1, tournamentId: value.tournamentId, savedAt: value.savedAt,
-    teams: value.teams.map(({ id, htTeamId, name, managerId, managerName, countryName, leagueId }) =>
-      ({ id, htTeamId, name, managerId, managerName, countryName, leagueId })),
-    flags: Object.fromEntries(Object.entries(value.flags).map(([key, flags]) => [key, {
-      htTeamId: flags.htTeamId, managerId: flags.managerId, leagueId: flags.leagueId,
-      home: [...new Set(flags.home)], away: [...new Set(flags.away)], fetchedAt: flags.fetchedAt,
-    }])) };
+  // Upgrade v1 without throwing away successful reads. Regular-league country metadata
+  // can be inferred; special-league country identity comes from the fresh roster on reconcile.
+  return { version: 2, tournamentId: value.tournamentId, savedAt: value.savedAt,
+    teams: value.teams.map(({ id, htTeamId, name, managerId, managerName, countryName, leagueId, countryId, managerCountryId }) => {
+      const actualCountryId = legacy ? getLeagueWorldDetails(leagueId)?.countryId ?? null : countryId;
+      return { id, htTeamId, name, managerId, managerName, countryName, leagueId, countryId: actualCountryId,
+        managerCountryId: legacy ? null : managerCountryId, flagCountryId: resolveFlagCountryId(actualCountryId) };
+    }),
+    flags: Object.fromEntries(Object.entries(value.flags).map(([key, flags]) => {
+      const home = normalizeFlagCountries(flags.home), away = normalizeFlagCountries(flags.away);
+      return [key, { htTeamId: flags.htTeamId, managerId: flags.managerId, leagueId: flags.leagueId,
+        home: home.ids, away: away.ids, homeUnknown: home.unknown || (!legacy && flags.homeUnknown),
+        awayUnknown: away.unknown || (!legacy && flags.awayUnknown), fetchedAt: flags.fetchedAt }];
+    })) };
 }
 
 export function reconcileFlagSnapshot(snapshot: FlagSnapshot, tournamentId: string, roster: FlagHunterTeam[]) {
@@ -67,7 +102,8 @@ export function reconcileFlagSnapshot(snapshot: FlagSnapshot, tournamentId: stri
   const departed = snapshot.teams.filter(team => !current.has(team.htTeamId)).map(team => team.htTeamId);
   const changed = roster.filter(team => {
     const previous = saved.get(team.htTeamId);
-    return previous && (previous.managerId !== team.managerId || previous.leagueId !== team.leagueId || previous.id !== team.id);
+    return previous && (previous.managerId !== team.managerId || previous.leagueId !== team.leagueId || previous.id !== team.id
+      || (previous.countryId !== null && previous.countryId !== team.countryId));
   }).map(team => team.htTeamId);
   const flags = Object.fromEntries(Object.entries(snapshot.flags).filter(([, item]) => {
     const team = current.get(item.htTeamId);
@@ -78,8 +114,9 @@ export function reconcileFlagSnapshot(snapshot: FlagSnapshot, tournamentId: stri
 
 export function flagBenefit(team: FlagHunterTeam, opponent: FlagHunterTeam, side: 'home' | 'away', flags: Record<string, FlagCollection>): FlagBenefit {
   const collection = flags[String(team.htTeamId)];
-  if (!collection || !opponent.leagueId || collection.managerId !== team.managerId || collection.leagueId !== team.leagueId) return 'unknown';
-  return collection[side].includes(opponent.leagueId) ? 'none' : 'gain';
+  if (!collection || !opponent.flagCountryId || collection.managerId !== team.managerId || collection.leagueId !== team.leagueId) return 'unknown';
+  if (collection[side].includes(opponent.flagCountryId)) return 'none';
+  return collection[side === 'home' ? 'homeUnknown' : 'awayUnknown'] ? 'unknown' : 'gain';
 }
 
 export function pairBenefits(pair: FlagPair, roster: FlagHunterTeam[], flags: Record<string, FlagCollection>) {

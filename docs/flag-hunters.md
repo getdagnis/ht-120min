@@ -21,14 +21,28 @@ fixtures or tournaments. No challenge-management scope is required for this read
 Recorded ownership is used to choose a token, not asserted as freshly verified
 ownership; this endpoint grants no challenge authority.
 
-Flag snapshots contain HT team and manager identifiers, the team's LeagueID,
-home/away LeagueID arrays, and a successful-fetch ISO timestamp. Omitted collections
-remain unknown; explicitly returned empty collections are confirmed empty.
-The prototype reuses the shared CHPP parser without changing normal login refreshes.
-LeagueID is the flag identity; CountryID and translated country names are not used
-for collection matching.
+Flag snapshots contain HT team and manager identifiers, actual team CountryID,
+competition LeagueID, manager-profile CountryID, a canonical `flagCountryId`,
+home/away country flag key arrays, and a successful-fetch ISO timestamp.
+`flagCountryId` is the regular CHPP LeagueID corresponding to the actual CountryID;
+it is a country identity encoded in CHPP's flag-key namespace, not competition
+membership. For example, Homegrown (`leagueId=1003`) Barbados CountryID 130 maps
+to flag key 124; Nicaragua CountryID 121 maps to flag key 111. No global LeagueIDs
+or stored team records are rewritten.
 
-Version-1 snapshots are saved to session storage **after each successful team
+Incoming collected flag LeagueIDs are explicitly normalized through the same
+worlddetails country mapping. Special or unrecognized flag entries set a
+per-direction unknown indicator. A known collected match still proves no new
+flag; otherwise unresolved entries prevent claiming a flag is missing.
+Missing actual CountryID mappings likewise yield unknown opponent benefits.
+Omitted collections remain unknown; explicitly returned empty collections are
+confirmed empty. The shared CHPP parser and normal login refreshes are unchanged.
+
+The list prefixes team and country names with their actual country flags, and
+manager names with their own profile-country flags. Unresolved countries display
+a globe. Competition membership remains visible separately below the country.
+
+Version-2 snapshots are saved to session storage **after each successful team
 fetch**. Scans are sequential, pause after the current request, and retry/resume
 only missing, failed or saved-unverified entries. A failed refresh preserves the
 last successful collection and marks it unverified. Leaving the page aborts its
@@ -37,10 +51,15 @@ closing the tab to retain the data. Storage failure is visible, not a fetch fail
 
 Import first validates a bounded (1 MB) versioned payload, then reloads the current
 roster. It rejects another tournament, identifies new/departed/changed teams, and
-drops collections whose team slot, manager or LeagueID no longer matches. Arbitrary
+drops collections whose team slot, manager, LeagueID or known actual CountryID no longer matches. Arbitrary
 import properties are stripped. Restored/imported data is always labeled saved
 and needing live refresh, with per-team timestamps; there is no assumed freshness
 TTL. Saved data can inform a provisional draft, but is not evidence of current flags.
+Existing version-1 snapshots remain importable and recoverable under the same
+storage key. Collected flag arrays are normalized without repeating successful
+CHPP fetches; missing country metadata for special-league teams is resolved from
+the freshly loaded roster. Existing v1 country metadata can be inferred for regular
+leagues only. Updated snapshots use version 2 and validate country-key consistency.
 Snapshots contain no OAuth credentials or raw XML. Drafts are not persisted.
 
 ## Flag-fetch failure and correction (2026-10-14)
@@ -65,8 +84,8 @@ uniform random draw or flag-optimized opponent recommendation.
 
 For A hosting B, the two independent potential benefits are:
 
-- A adds **B's LeagueID to A's home collection** if absent.
-- B adds **A's LeagueID to B's away collection** if absent.
+- A adds **B's country flag key to A's home collection** if absent.
+- B adds **A's country flag key to B's away collection** if absent.
 
 Compare both orientations, maximize confirmed gains (0–2), and break ties using
 the seed. Unknown data contributes no confirmed gain but is displayed as unknown,
@@ -107,6 +126,7 @@ Sources: [Forge booking API](../src/server/api/forge/matches.ts),
 Automated tests cover flag direction, unknown/empty data, orientation metrics,
 seed reproducibility, exhaustive small manager distributions, duplicate identity,
 BYEs/unresolved teams, snapshot reconciliation/validation, omitted CHPP fields,
+Homegrown country mapping, unresolved mappings, legacy snapshot upgrades,
 and the API with mocked Supabase/CHPP HTTP (including authorization, no writes,
 no credential exposure and `includeFlags=true`). Browser interactions, session storage
 recovery, real Supabase roster reads and live CHPP responses remain separate checks.

@@ -1,35 +1,96 @@
 .layout
   display: grid
-  gap: var(--space-4, 1rem)
+  gap: 1rem
+  min-width: 0
+  font-size: .875rem
+  line-height: 1.4
+
+  p
+    margin-block: .5rem
+
+  h4
+    margin-block: .75rem
+    font-size: 1rem
+
+  button
+    min-height: 0
+    padding: .35rem .7rem
+    font-family: inherit
+    font-size: .85rem
+    line-height: 1.3
+    border-width: 1px
+
+  input
+    box-sizing: border-box
+    min-width: 0
+    padding: .45rem .6rem
+    background: var(--darker)
+    color: var(--text)
+    border: 0
+    border-radius: 4px
+    font: inherit
+    outline: none
+
+  button:focus-visible, input:focus-visible
+    outline: 1px solid var(--text)
+    outline-offset: 2px
 
 .actions
   display: flex
   flex-wrap: wrap
   align-items: end
-  gap: .75rem
-  margin-block: 1rem
+  gap: .5rem .75rem
+  margin-block: .75rem
   label
     display: grid
     gap: .35rem
+    font-size: .8rem
   input
     max-width: 100%
 
+    &::file-selector-button
+      padding: .2rem .5rem
+      margin-right: .5rem
+      border: 0
+      border-radius: 3px
+      background: var(--table-bg)
+      color: var(--text)
+      font: inherit
+      cursor: pointer
+
 .scroll
+  min-width: 0
   overflow-x: auto
   table
     width: 100%
     border-collapse: collapse
     text-align: left
+    font-size: .85rem
+    line-height: 1.35
   caption
     text-align: left
-    padding-block: .75rem
+    padding-block: .5rem
+    font-size: .9rem
+    font-weight: 600
   th, td
-    padding: .65rem
+    padding: .45rem .6rem
     vertical-align: top
     border-bottom: 1px solid var(--border-color, #80808044)
+  th
+    font-size: .75rem
+    font-weight: 600
+    letter-spacing: 0
+    color: var(--text60)
+  td a
+    white-space: normal
+    overflow-wrap: anywhere
+  td:last-child button
+    margin-left: .5rem
   small
     display: block
-    margin-block: .25rem
+    margin-block: .15rem
+    font-size: .75rem
+    color: var(--text60)
   details
     max-width: 18rem
   summary
