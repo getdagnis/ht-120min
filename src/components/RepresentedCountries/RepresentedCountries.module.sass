@@ -1,0 +1,51 @@
+.list
+  margin: 0
+  font-size: 0.875rem
+
+.row
+  display: flex
+  justify-content: space-between
+  align-items: baseline
+  gap: 1rem
+  padding: 0.5rem 0
+  border-bottom: 1px solid var(--border)
+
+  dt
+    min-width: 0
+    overflow-wrap: anywhere
+
+  dd
+    margin: 0
+    flex-shrink: 0
+    font-variant-numeric: tabular-nums
+
+  &:last-child
+    border-bottom: 0
+
+.summary
+  margin: 0 -1.5rem -1.5rem
+  border-top: 1px solid var(--border)
+  padding: 1.5rem
+  background: var(--table-bg)
+
+.country
+  display: flex
+  align-items: baseline
+  gap: 0.5rem
+
+  a
+    color: inherit
+    text-decoration: none
+
+    &:hover
+      text-decoration: underline
+
+.flag
+  width: 20px
+  height: 14px
+  object-fit: contain
+  flex-shrink: 0
+  align-self: center
+.widget
+  overflow: hidden
+

@@ -118,6 +118,7 @@ import { CompactAccordionWidget } from '../../components/CompactAccordionWidget/
 import { MottoWidget } from '../../components/MottoWidget/MottoWidget';
 import { SidebarPollWidget } from '../../components/SidebarPollWidget/SidebarPollWidget';
 import { ReserveTeamsWidget } from '../../components/ReserveTeams/ReserveTeamsWidget';
+import { RepresentedCountries } from '../../components/RepresentedCountries/RepresentedCountries';
 import { ManagerSpotlight } from '../../components/ManagerSpotlight/ManagerSpotlight';
 import { StandingsView } from '../../components/TournamentTabs/StandingsView';
 import { TournamentShareMenu } from '../../components/TournamentShareMenu/TournamentShareMenu';
@@ -6946,6 +6947,7 @@ export const TournamentView: React.FC<{
               is120minMode={is120minMode}
               myHtUserId={myHtUserId ? Number(myHtUserId) : null}
             />
+            <RepresentedCountries teams={teams} />
             <CompactAccordionWidget
               title={uiText('tournamentFAQ')}
               icon={<Question size={20} weight="bold" />}

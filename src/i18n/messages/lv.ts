@@ -1110,6 +1110,14 @@ const messages = {
       noMatchingTeamsFoundForThisAd: "",
       cancel: "",
     },
+    RepresentedCountries: {
+      title: 'Pārstāvētās valstis',
+      teams: 'Komandas',
+      managers: 'Menedžeri',
+      countries: 'Pārstāvētās valstis',
+      singleTeamCountries: 'Valstis, ko pārstāv tikai viena komanda',
+      multiTeamManagers: 'Menedžeri ar vairākām komandām',
+    },
     ManagerSpotlight: {
       meetTheManager: "",
       hTLanguage: "",

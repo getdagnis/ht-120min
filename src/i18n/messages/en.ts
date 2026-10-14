@@ -1134,6 +1134,14 @@ const messages = {
       noMatchingTeamsFoundForThisAd: "No matching teams found for this ad.",
       cancel: "Cancel",
     },
+    RepresentedCountries: {
+      title: 'Represented countries',
+      teams: 'Teams',
+      managers: 'Managers',
+      countries: 'Countries represented',
+      singleTeamCountries: 'Countries represented by just one team',
+      multiTeamManagers: 'Managers entering multiple teams',
+    },
     ManagerSpotlight: {
       meetTheManager: "Meet the manager",
       hTLanguage: "HT language:",
