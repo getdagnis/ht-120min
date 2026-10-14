@@ -182,3 +182,5 @@ AFTER INSERT OR UPDATE OF active,reserve_active,ht_team_id,tournament_id,country
 ON public.teams DEFERRABLE INITIALLY DEFERRED
 FOR EACH ROW WHEN (COALESCE(current_setting('ht120.membership_bypass',true),'false') <> 'true')
 EXECUTE FUNCTION public.enforce_country_size_allowance();
+
+-- APPLIED!

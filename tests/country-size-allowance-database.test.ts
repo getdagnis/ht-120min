@@ -20,7 +20,7 @@ test('country allowance migration: registration, waiting, promotion, grandfather
   sql(`CREATE ROLE anon; CREATE ROLE authenticated;
     CREATE TABLE tournaments(id integer PRIMARY KEY, max_country_active_teams integer, allow_manager_country_size_exception boolean);
     CREATE TABLE teams(id integer PRIMARY KEY, tournament_id integer, ht_team_id integer, hattrick_user_id integer,
-      country_id integer, is_placeholder boolean DEFAULT false, active boolean DEFAULT false,
+      country_id bigint, is_placeholder boolean DEFAULT false, active boolean DEFAULT false,
       reserve_active boolean DEFAULT false, reapply_season_number integer);
     CREATE FUNCTION lock_tournament_membership() RETURNS trigger LANGUAGE plpgsql AS $$
     BEGIN PERFORM pg_advisory_xact_lock(120,113); RETURN NULL; END $$;
@@ -29,9 +29,17 @@ test('country allowance migration: registration, waiting, promotion, grandfather
     INSERT INTO tournaments VALUES(1,420,true),(2,NULL,false),(3,420,false);
     INSERT INTO teams VALUES(90,1,90,900,${HATTRICK_WORLD_DETAILS[54]!.countryId},false,true,false,NULL);`);
   sql(readFileSync(new URL('../migrations/121_limit_country_size_manager_allowance.sql', import.meta.url), 'utf8'));
+  // Reproduce the production failure before repairing the missing BIGINT signature.
+  assert.throws(() => sql(`INSERT INTO teams(id,tournament_id,ht_team_id,hattrick_user_id,country_id,active)
+    VALUES(999,1,999,999,${HATTRICK_WORLD_DETAILS[22]!.countryId},true);`),
+    /function public\.country_size_snapshot_count\(bigint\) does not exist/);
+  assert.equal(sql('SELECT count(*) FROM teams WHERE id=999;'), '0', 'failed registration rolls back');
+  sql(readFileSync(new URL('../migrations/122_fix_country_size_snapshot_bigint.sql', import.meta.url), 'utf8'));
+  assert.equal(sql("SELECT has_function_privilege('anon','public.country_size_snapshot_count(bigint)','EXECUTE');"), 'f');
+  assert.equal(sql('SELECT country_size_snapshot_count(9223372036854775807::bigint);'), '', 'unknown BIGINT fails closed without narrowing overflow');
   for (const league of Object.values(HATTRICK_WORLD_DETAILS)) {
     if (league.countryId == null) continue;
-    assert.equal(sql(`SELECT country_size_snapshot_count(${league.countryId});`), String(getCountryActiveTeamCount(league.countryId) ?? ''));
+    assert.equal(sql(`SELECT country_size_snapshot_count(${league.countryId}::bigint);`), String(getCountryActiveTeamCount(league.countryId) ?? ''));
   }
   const small = HATTRICK_WORLD_DETAILS[22]!.countryId!;
   const large = HATTRICK_WORLD_DETAILS[54]!.countryId!;

@@ -17,8 +17,15 @@ if their original qualifying team has left. Other eligibility and tournament rul
 ## Transaction and rollout
 
 [`121_limit_country_size_manager_allowance.sql`](../migrations/121_limit_country_size_manager_allowance.sql)
-is prepared only; the agent has not applied it to application Supabase. Apply it after
-migration 113 (membership locking) and 114 (country-size settings), before deploying this
+was prepared without application by the agent. Production Vercel logs on 2026-10-14
+confirmed its trigger was executing and failing with
+`function public.country_size_snapshot_count(bigint) does not exist`.
+[`122_fix_country_size_snapshot_bigint.sql`](../migrations/122_fix_country_size_snapshot_bigint.sql)
+is the prepared emergency repair: it adds the missing BIGINT overload while preserving the
+INTEGER snapshot, trigger, locks and existing rows. Apply 122 to recover affected registrations;
+a frontend redeploy alone does not repair this database failure. Live repair application and
+successful post-repair registration are not yet verified. For a fresh rollout, use migrations
+113, 114, 121 and 122 before deploying the allowance
 change. It uses the existing transaction advisory lock `(120,113)` and a deferred constraint
 trigger to check the final roster, so bulk promotion of a small and larger team works in
 either write order. Departures and existing participants are grandfathered, including
@@ -55,3 +62,22 @@ requires an active small team, then promote both together. Submit two larger add
 simultaneously with one remaining allowance and confirm exactly one succeeds. Remove the
 small entrant and confirm existing larger entrants remain and can leave. Browser, live CHPP,
 application Supabase and deployment verification remain separate from disposable SQL checks.
+
+## Incident: registration failure, 2026-10-14
+
+**Confirmed:** production deployment `185d1d8` logged repeated `/api/auth/complete`
+failures on Around the World with the missing BIGINT helper signature. Migration 038
+already defines `teams.country_id BIGINT`, while 121 defined only an INTEGER helper.
+The local fixture incorrectly used INTEGER, so its passing tests did not exercise the
+production call signature. The failed transaction does not insert a new entrant.
+The full duration and number of affected managers have not been established.
+
+**Recovery:** apply prepared migration 122, then retry a qualifying small-team registration
+and verify the new roster row and absence of that error in fresh production logs. No roster
+cleanup, restriction removal or frontend rollback is required for this signature repair.
+Migration 121 is left unchanged because its trigger is already running in production.
+
+**Prevention:** the regression fixture now uses BIGINT, first reproduces the exact missing
+function error and rollback, then applies 122 and reruns registration, waiting-list,
+promotion and concurrency checks. Snapshot parity uses explicitly BIGINT arguments;
+unknown out-of-range IDs fail closed, and anonymous execution privileges stay revoked.
