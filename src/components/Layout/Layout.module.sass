@@ -40,15 +40,19 @@
 .logo
   display: flex
   align-items: center
-  gap: 0.75rem
+  min-width: 0
   text-decoration: none
-  color: var(--primary-color)
-  font-family: var(--heading)
-  font-weight: 700
-  font-size: 1.8rem
 
-  .icon
-    color: var(--primary-color)
+.logoImage
+  display: block
+  width: 10rem
+  margin: 0.6rem 0 0.1rem
+  max-width: 100%
+  height: auto
+  flex-shrink: 0
+
+  @media (max-width: 620px)
+    width: 150px
 
 .actions
   display: flex

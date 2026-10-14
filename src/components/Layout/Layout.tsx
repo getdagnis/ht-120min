@@ -7,7 +7,6 @@ import Link from 'next/link';
 import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import { useTranslations } from 'next-intl';
 import {
-  Trophy,
   Sun,
   Moon,
   Plus,
@@ -32,7 +31,13 @@ import { NavigationFeedback } from '../NavigationFeedback/NavigationFeedback';
 import { LocaleSwitcher } from '../../i18n/LocaleSwitcher';
 import { useLocale } from '../../i18n/LocaleProvider';
 import { toLocalePath } from '../../next/locale-path';
-import { applyCurrentTheme, getThemeSnapshot, getServerThemeSnapshot, subscribeToTheme, toggleCurrentTheme } from '../../utils/browser-theme';
+import {
+  applyCurrentTheme,
+  getThemeSnapshot,
+  getServerThemeSnapshot,
+  subscribeToTheme,
+  toggleCurrentTheme,
+} from '../../utils/browser-theme';
 import styles from './Layout.module.sass';
 
 interface LayoutProps {
@@ -73,7 +78,11 @@ function getServerVisitCount() {
 
 function excludeLocalAnalytics(event: BeforeSendEvent) {
   const hostname = window.location.hostname.toLowerCase();
-  return hostname === 'localhost' || hostname.endsWith('.localhost') || hostname.startsWith('127.') || hostname === '[::1]' || hostname === '::1'
+  return hostname === 'localhost' ||
+    hostname.endsWith('.localhost') ||
+    hostname.startsWith('127.') ||
+    hostname === '[::1]' ||
+    hostname === '::1'
     ? null
     : event;
 }
@@ -178,8 +187,13 @@ export const Layout: React.FC<LayoutProps> = ({ children, excludeAnalytics = fal
           <div className={styles.container}>
             <div className={styles.headerContent}>
               <Link href={toLocalePath(locale, '/')} className={styles.logo}>
-                <Trophy size={28} weight="bold" className={styles.icon} />
-                <span>{uiText('hT120min')}</span>
+                <img
+                  src={theme === 'dark' ? '/logo-white.svg' : '/logo-dark.svg'}
+                  alt={uiText('hT120min')}
+                  width={170}
+                  height={42}
+                  className={styles.logoImage}
+                />
               </Link>
 
               <div className={styles.actions}>
@@ -203,7 +217,8 @@ export const Layout: React.FC<LayoutProps> = ({ children, excludeAnalytics = fal
                       </>
                     ) : (
                       <>
-                        <Plus size={18} weight="bold" /> <span className={styles.hideMobile}>{t('createTournament')}</span>
+                        <Plus size={18} weight="bold" />{' '}
+                        <span className={styles.hideMobile}>{t('createTournament')}</span>
                       </>
                     )}
                   </Button>
