@@ -48,6 +48,7 @@ export async function generateMetadata({
     || !publicLocales.some((item) => item.locale === rawLocale);
   return {
     title: 'HT-120min',
+    icons: { icon: { url: '/favicon.svg', type: 'image/svg+xml' } },
     description: 'The easiest way to organize recurring Hattrick friendlies.',
     robots: preview ? { index: false, follow: false } : undefined,
     alternates: {
