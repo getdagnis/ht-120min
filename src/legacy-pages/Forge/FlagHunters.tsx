@@ -20,6 +20,7 @@ export function FlagHunters() {
   const [title, setTitle] = useState('');
   const [loadedSlug, setLoadedSlug] = useState('around-the-world');
   const [draft, setDraft] = useState<FlagDraft | null>(null);
+  const [excludedIds, setExcludedIds] = useState<number[]>([]);
   const [seed, setSeed] = useState('round-one');
   const [busy, setBusy] = useState(false);
   const [progress, setProgress] = useState('');
@@ -61,7 +62,8 @@ export function FlagHunters() {
           setNotice(`Roster changed: ${comparison.missing.length} new, ${comparison.departed.length} departed, ${comparison.changed.length} changed. Draft cleared.`);
         }
         if (signature(previous.teams) !== signature(teams)) setDraft(null);
-      } else setDraft(null);
+      } else { setDraft(null); setExcludedIds([]); }
+      setExcludedIds(ids => ids.filter(id => teams.some(team => team.htTeamId === id)));
       setTitle(payload.tournament.name); setLoadedSlug(requestedSlug);
       setSavedIds(Object.values(flags).map(item => item.htTeamId));
       commit({ version: 2, tournamentId: payload.tournament.id, savedAt: new Date().toISOString(), teams, flags });
@@ -137,9 +139,18 @@ export function FlagHunters() {
     const anchor = document.createElement('a'); anchor.href = url; anchor.download = `flag-hunters-${loadedSlug}.json`; anchor.click();
     URL.revokeObjectURL(url);
   };
+  const copySnapshot = async () => {
+    if (!snapshot) return;
+    setError('');
+    try {
+      await navigator.clipboard.writeText(JSON.stringify(snapshot, null, 2));
+      setNotice('Snapshot JSON copied.');
+    } catch { setError('Could not copy JSON. Check clipboard permissions or use Export JSON.'); }
+  };
+  const pairingTeams = snapshot?.teams.filter(team => !excludedIds.includes(team.htTeamId)) || [];
   const generate = (nextSeed: string) => {
     if (!snapshot) return;
-    try { setSeed(nextSeed); setDraft(createFlagDraft(snapshot.teams, snapshot.flags, nextSeed)); setError(''); }
+    try { setSeed(nextSeed); setDraft(createFlagDraft(pairingTeams, snapshot.flags, nextSeed)); setError(''); }
     catch (failure) { setError(displayError(failure)); }
   };
   const metrics = draft && snapshot ? draftMetrics(draft, snapshot.teams, snapshot.flags) : null;
@@ -164,10 +175,11 @@ export function FlagHunters() {
             onClick={() => void refreshFlags(snapshot.teams.filter(team => !snapshot.flags[String(team.htTeamId)] || issues[String(team.htTeamId)] || savedIds.includes(team.htTeamId)).map(team => team.htTeamId))}>Fetch missing / retry / resume</Button>
           {busy && <Button variant="outline" onClick={() => { stop.current = true; }}>Pause after current fetch</Button>}
           <Button variant="outline" disabled={busy} onClick={exportSnapshot}>Export JSON</Button>
+          <Button variant="outline" disabled={busy} onClick={() => void copySnapshot()}>Copy JSON</Button>
           <label>Import JSON <input type="file" accept="application/json,.json" disabled={busy} onChange={event => { void importSnapshot(event.target.files?.[0]); event.target.value = ''; }} /></label>
         </div>
         {savedIds.length > 0 && <p>Saved or previously fetched data for {savedIds.length} teams needs a live refresh. Draft benefits using it are provisional.</p>}
-        <div className={styles.scroll}><table><caption>Admitted participants and flag collections</caption><thead><tr><th>Team</th><th>Manager</th><th>Country</th><th>Home flags</th><th>Away flags</th><th>Snapshot status</th></tr></thead><tbody>
+        <div className={styles.scroll}><table><caption>Admitted participants and flag collections</caption><thead><tr><th>Team</th><th>Manager</th><th>Country</th><th>Home flags</th><th>Away flags</th><th>Snapshot status</th><th>Exclude</th></tr></thead><tbody>
           {snapshot.teams.map(team => {
             const flags = snapshot.flags[String(team.htTeamId)];
             return <tr key={team.htTeamId}>
@@ -177,6 +189,11 @@ export function FlagHunters() {
               {(['home', 'away'] as const).map(side => <td key={side}>{!flags ? 'Unknown' : <details><summary>{flags[side].length} collected{flags[side === 'home' ? 'homeUnknown' : 'awayUnknown'] ? ' + unknown' : ''}</summary>{flags[side].map(id => `${HATTRICK_WORLD_DETAILS[id]?.emoji || '🌐'} ${leagueName(id)}`).join(', ') || (flags[side === 'home' ? 'homeUnknown' : 'awayUnknown'] ? 'Unresolved flag entries' : 'Confirmed empty collection')}</details>}</td>)}
               <td>{issues[String(team.htTeamId)] && <small>{issues[String(team.htTeamId)]}</small>}{flags ? <><span>{savedIds.includes(team.htTeamId) ? 'Saved — needs refresh' : 'Fetched this session'}</span><small>{flags.fetchedAt}</small></> : 'Not fetched'}
                 <Button variant="outline" disabled={busy} onClick={() => void refreshFlags([team.htTeamId])}>Refresh</Button></td>
+              <td><input type="checkbox" aria-label={`Exclude ${team.name} from pairings`} checked={excludedIds.includes(team.htTeamId)} disabled={busy}
+                onChange={event => {
+                  setExcludedIds(ids => event.target.checked ? [...ids, team.htTeamId] : ids.filter(id => id !== team.htTeamId));
+                  setDraft(null);
+                }} /></td>
             </tr>;
           })}
         </tbody></table></div>
@@ -185,10 +202,11 @@ export function FlagHunters() {
     </SectionCard>
     <SectionCard title="Round one simulator">
       <p>When A hosts B, A can gain B’s country flag in A’s home collection; B can gain A’s country flag in B’s away collection.</p>
+      <p>{pairingTeams.length} included · {excludedIds.length} excluded. Changing exclusions clears the draft. Exclusions apply only in this open playground; JSON retains the full roster.</p>
       <div className={styles.actions}>
         <label>Seed <input value={seed} disabled={busy} onChange={event => setSeed(event.target.value)} /></label>
-        <Button disabled={busy || !snapshot?.teams.length} onClick={() => generate(seed)}>Generate baseline</Button>
-        <Button variant="outline" disabled={busy || !snapshot?.teams.length} onClick={() => generate(String(Date.now()))}>Reshuffle</Button>
+        <Button disabled={busy || !pairingTeams.length} onClick={() => generate(seed)}>Generate baseline</Button>
+        <Button variant="outline" disabled={busy || !pairingTeams.length} onClick={() => generate(String(Date.now()))}>Reshuffle</Button>
       </div>
       {draft && snapshot && metrics && <>
         <p>Draft seed: {draft.seed}. Teams gaining a flag: {metrics.gaining} · Matches benefiting both: {metrics.both} · No gain: {metrics.nothing} · Unknown: {metrics.unknown}</p>
