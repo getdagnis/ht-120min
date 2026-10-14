@@ -91,6 +91,7 @@ import type { MatchEventDetails } from '../../../shared/match-events.js';
 import type { PersistedScoringMode } from '../../../shared/scoring-profile.js';
 import type { SeasonFixturesSnapshot } from '../../utils/season-fixtures.js';
 import { buildLengthScheduleDraft, serializeLengthScheduleDraft } from '../../utils/length-schedule.js';
+import { buildFlagHuntersLengthScheduleDraft } from './_lib/flag-hunters-schedule.js';
 import { progressLengthSchedule, recoverLengthRoundOne, repairLengthRound } from './_lib/length-schedule-service.js';
 import {
   FixtureRatingsError, isLocalRatingsAdmin, loadVisibleFixtureRatings, saveFixtureRatings,
@@ -362,18 +363,18 @@ async function handleGenerateLengthSchedule(req: VercelRequest, res: VercelRespo
   const supabase = getServiceSupabase();
   const { data: tournament, error: tournamentError } = await supabase
     .from('tournaments')
-    .select('id, league_category')
+    .select('id, slug, league_category')
     .eq('id', tournamentId)
     .maybeSingle();
   if (tournamentError) throw tournamentError;
   if (!tournament) return res.status(404).json({ error: 'Tournament not found.' });
   const { data: roster, error: rosterError } = await supabase.from('teams')
-    .select('id, name, active, is_placeholder, team_rank, power_rating, country_name, league_level')
+    .select('id, name, active, is_placeholder, team_rank, power_rating, country_name, league_level, ht_team_id, hattrick_user_id, country_id, league_id, gender_id')
     .eq('tournament_id', tournamentId).eq('active', true).eq('reserve_active', false);
   if (rosterError) throw rosterError;
   // Rebuild from persisted metadata. Browser previews never choose seeds, pairings,
   // safe dates or ranking source for the privileged generation RPC.
-  const draft = buildLengthScheduleDraft({
+  const scheduleInput: Parameters<typeof buildLengthScheduleDraft>[0] = {
     teams: (roster || []).map(team => ({
       id: team.id, name: team.name, active: team.active, isPlaceholder: team.is_placeholder,
       teamRank: team.team_rank, powerRating: team.power_rating,
@@ -382,7 +383,19 @@ async function handleGenerateLengthSchedule(req: VercelRequest, res: VercelRespo
     rankingSource: tournament.league_category === 'hfi' ? 'team_rank' : 'power_rating',
     startSlotId: readString(schedulePayload.start_slot_id),
     selectedFormatId: readString(schedulePayload.format_id),
-  });
+  };
+  let draft;
+  try {
+    if (tournament.slug === 'around-the-world') {
+      const managerIds = [...new Set((roster || []).map(team => team.hattrick_user_id).filter((id): id is number => Number.isSafeInteger(id)))];
+      const { data: profiles, error: profilesError } = await supabase.from('profiles')
+        .select('hattrick_user_id, teams_json').in('hattrick_user_id', managerIds);
+      if (profilesError) throw profilesError;
+      draft = buildFlagHuntersLengthScheduleDraft(scheduleInput, roster || [], profiles || []);
+    } else draft = buildLengthScheduleDraft(scheduleInput);
+  } catch (error) {
+    return res.status(422).json({ error: error instanceof Error ? error.message : 'Could not pair the admitted teams.' });
+  }
   if (!draft.valid) return res.status(422).json({ error: draft.reason });
   if (!draft.formats.some(format => format.id === schedulePayload.format_id)) {
     return res.status(422).json({ error: 'Choose a supported schedule format.' });

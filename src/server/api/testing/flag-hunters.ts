@@ -27,7 +27,7 @@ export function parseFlagHunterDetails(xml: string, htTeamId: number) {
   if (!leagueId) throw new Error('Hattrick omitted the team LeagueID.');
   const countryId = positiveId(parsed.countryId);
   const home = normalizeFlagCountries(parsed.homeFlagLeagueIds), away = normalizeFlagCountries(parsed.awayFlagLeagueIds);
-  return { leagueId, countryId, flagCountryId: resolveFlagCountryId(countryId),
+  return { leagueId, countryId, genderId: positiveId(parsed.genderId), flagCountryId: resolveFlagCountryId(countryId),
     home: home.ids, away: away.ids, homeUnknown: home.unknown, awayUnknown: away.unknown };
 }
 
@@ -43,7 +43,7 @@ export default async function handleFlagHunters(req: VercelRequest, res: VercelR
   if (!tournamentResult.data) return res.status(404).json({ error: 'Tournament not found.' });
   const tournament = tournamentResult.data;
   const teamResult = await supabase.from('teams')
-    .select('id, ht_team_id, name, hattrick_user_id, manager_name, country_name, country_id, league_id, active, reserve_active, is_placeholder')
+    .select('id, ht_team_id, name, hattrick_user_id, manager_name, country_name, country_id, league_id, gender_id, active, reserve_active, is_placeholder')
     .eq('tournament_id', tournament.id).eq('active', true).order('created_at', { ascending: true });
   if (teamResult.error) throw teamResult.error;
   const managerIds = [...new Set((teamResult.data ?? []).map(team => positiveId(team.hattrick_user_id)).filter((id): id is number => id !== null))];
@@ -56,7 +56,7 @@ export default async function handleFlagHunters(req: VercelRequest, res: VercelR
       managerId: positiveId(team.hattrick_user_id), managerName: team.manager_name,
       countryName: team.country_name, countryId: positiveId(team.country_id),
       flagCountryId: resolveFlagCountryId(positiveId(team.country_id)),
-      managerCountryId: managerCountries.get(positiveId(team.hattrick_user_id)) ?? null, leagueId: positiveId(team.league_id) }));
+      genderId: positiveId(team.gender_id), managerCountryId: managerCountries.get(positiveId(team.hattrick_user_id)) ?? null, leagueId: positiveId(team.league_id) }));
   if (new Set(teams.map(team => team.htTeamId)).size !== teams.length) {
     return res.status(409).json({ error: 'The admitted roster contains duplicate Hattrick team IDs. Resolve those entries before pairing.' });
   }
@@ -79,6 +79,19 @@ export default async function handleFlagHunters(req: VercelRequest, res: VercelR
   const details = parseFlagHunterDetails(await response.text(), team.htTeamId);
   const flags: FlagCollection = { htTeamId: team.htTeamId, managerId: team.managerId, leagueId: details.leagueId,
     home: details.home, away: details.away, homeUnknown: details.homeUnknown, awayUnknown: details.awayUnknown, fetchedAt: new Date().toISOString() };
-  // Snapshot-only response: no tournament, profile or team writes and no challenge action.
-  return res.status(200).json({ team: { ...team, leagueId: details.leagueId, countryId: details.countryId, flagCountryId: details.flagCountryId }, flags });
+  // Keep successful CHPP collections in the existing manager team record so
+  // schedule generation can use them independently of this browser tab.
+  const { data: profile, error: profileError } = await supabase.from('profiles')
+    .select('teams_json').eq('hattrick_user_id', team.managerId).maybeSingle();
+  if (profileError || !profile) return res.status(502).json({ error: 'Flags were retrieved but could not be saved. Retry this team.' });
+  const previous = Array.isArray(profile.teams_json) ? profile.teams_json : [];
+  const matching = previous.find(item => Number(item?.teamId) === team.htTeamId);
+  const updated = { ...(matching || { teamId: team.htTeamId, teamName: team.name }),
+    leagueId: details.leagueId, countryId: details.countryId,
+    homeFlagLeagueIds: flags.home, awayFlagLeagueIds: flags.away, flagsFetchedAt: flags.fetchedAt };
+  const next = matching ? previous.map(item => Number(item?.teamId) === team.htTeamId ? updated : item) : [...previous, updated];
+  const { data: saved, error: saveError } = await supabase.from('profiles').update({ teams_json: next })
+    .eq('hattrick_user_id', team.managerId).select('hattrick_user_id').maybeSingle();
+  if (saveError || !saved) return res.status(502).json({ error: 'Flags were retrieved but could not be saved. Retry this team.' });
+  return res.status(200).json({ team: { ...team, leagueId: details.leagueId, countryId: details.countryId, flagCountryId: details.flagCountryId, genderId: details.genderId }, flags });
 }

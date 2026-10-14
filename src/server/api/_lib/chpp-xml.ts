@@ -23,6 +23,7 @@ export interface ChppTeamOption {
   numberOfVictories?: number | null;
   homeFlagLeagueIds?: number[];
   awayFlagLeagueIds?: number[];
+  flagsFetchedAt?: string;
   powerRating?: number;
   powerGlobalRank?: number;
   powerLeagueRank?: number;

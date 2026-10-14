@@ -5,27 +5,35 @@ import handleFlagHunters from '../src/server/api/testing/flag-hunters.js';
 import { buildForgeSessionCookie } from '../src/server/api/_lib/forge-session.js';
 
 // Exercise real Supabase query construction and the handler, while every HTTP call stays mocked.
-test('Flag Hunters API protects reads, filters admissions and retrieves flags without writes or credential exposure', async () => {
+test('Flag Hunters API protects reads, filters admissions and persists verified flags without exposing credentials', async () => {
   const oldFetch = globalThis.fetch;
   const oldEnv = { ...process.env };
   Object.assign(process.env, { FORGE_ENABLED: 'true', FORGE_SUPERADMIN_HT_ID: '42', APP_SESSION_SECRET: 'mock-session',
     SUPABASE_URL: 'https://flag-hunters-test.invalid', SUPABASE_SECRET_KEY: 'mock-service-key', CHPP_CONSUMER_KEY: 'mock-consumer', CHPP_CONSUMER_SECRET: 'mock-secret' });
   const calls: Array<{ url: URL; method: string }> = [];
   let flagsPresent = true;
-  const base = { id: 'local-1', ht_team_id: 1, name: 'A', hattrick_user_id: 10, manager_name: 'Manager', country_name: 'Display', country_id: 130, league_id: 1003, active: true, reserve_active: false, is_placeholder: false };
+  let profileTeams: Array<Record<string, unknown>> = [{ teamId: 1, teamName: 'A', countryId: 130, leagueId: 1003 }];
+  const base = { id: 'local-1', ht_team_id: 1, name: 'A', hattrick_user_id: 10, manager_name: 'Manager', country_name: 'Display', country_id: 130, league_id: 1003, gender_id: 1, active: true, reserve_active: false, is_placeholder: false };
   globalThis.fetch = async (input, init) => {
     const url = new URL(input instanceof Request ? input.url : String(input));
     const method = init?.method || (input instanceof Request ? input.method : 'GET');
     calls.push({ url, method });
-    assert.equal(method, 'GET', 'handler must never mutate the database or send a challenge');
+    assert.ok(method === 'GET' || (method === 'PATCH' && url.pathname.endsWith('/profiles')),
+      'handler may save only manager profile flag data and must never send a challenge');
     if (url.hostname === 'chpp.hattrick.org') {
       assert.equal(url.searchParams.get('file'), 'teamdetails'); assert.equal(url.searchParams.get('includeFlags'), 'true');
       assert.equal(url.searchParams.has('flags'), false);
       assert.equal(url.searchParams.get('teamID'), '1'); assert.equal(url.searchParams.get('version'), '3.9');
-      return new Response(`<HattrickData><Team><TeamID>1</TeamID><League><LeagueID>1003</LeagueID></League><Country><CountryID>130</CountryID></Country>${flagsPresent ? '<Flags><HomeFlags/><AwayFlags/></Flags>' : ''}</Team></HattrickData>`);
+      return new Response(`<HattrickData><Team><TeamID>1</TeamID><GenderID>1</GenderID><League><LeagueID>1003</LeagueID></League><Country><CountryID>130</CountryID></Country>${flagsPresent ? '<Flags><HomeFlags/><AwayFlags/></Flags>' : ''}</Team></HattrickData>`);
     }
     assert.equal(url.hostname, 'flag-hunters-test.invalid', 'no real Supabase calls');
     if (url.pathname.endsWith('/tournaments')) return Response.json({ id: 'tournament', slug: 'around-the-world', name: 'Around the World' });
+    if (url.pathname.endsWith('/profiles') && method === 'PATCH') {
+      assert.equal(url.searchParams.get('hattrick_user_id'), 'eq.10');
+      profileTeams = JSON.parse(String(init?.body)).teams_json;
+      return Response.json({ hattrick_user_id: 10 });
+    }
+    if (url.pathname.endsWith('/profiles') && url.searchParams.get('select') === 'teams_json') return Response.json({ teams_json: profileTeams });
     if (url.pathname.endsWith('/profiles') && !url.searchParams.get('select')?.includes('oauth_token')) return Response.json([{ hattrick_user_id: 10, country_id: 48 }]);
     if (url.pathname.endsWith('/profiles')) return Response.json({ hattrick_user_id: 10, oauth_token: 'mock-token', oauth_token_secret: 'mock-token-secret' });
     assert.ok(url.pathname.endsWith('/teams'));
@@ -54,12 +62,18 @@ test('Flag Hunters API protects reads, filters admissions and retrieves flags wi
     assert.equal((await invoke('POST', true, { htTeamId: 2 })).status, 409);
     const result = await invoke('POST', true, { htTeamId: 1 });
     assert.equal(result.status, 200);
+    assert.equal((result.payload as { team: { genderId: number } }).team.genderId, 1);
     assert.deepEqual((result.payload as { flags: { home: number[]; away: number[] } }).flags.home, []);
     assert.deepEqual((result.payload as { flags: { home: number[]; away: number[] } }).flags.away, []);
+    assert.equal(profileTeams[0]?.flagsFetchedAt, (result.payload as { flags: { fetchedAt: string } }).flags.fetchedAt);
+    assert.deepEqual(profileTeams[0]?.homeFlagLeagueIds, []);
+    assert.deepEqual(profileTeams[0]?.awayFlagLeagueIds, []);
     const serialized = JSON.stringify(result.payload);
     assert.equal(serialized.includes('mock-token'), false); assert.equal(serialized.includes('oauth'), false);
     flagsPresent = false;
+    const writes = calls.filter(call => call.method === 'PATCH').length;
     await assert.rejects(() => invoke('POST', true, { htTeamId: 1 }), /omitted/);
+    assert.equal(calls.filter(call => call.method === 'PATCH').length, writes);
   } finally {
     globalThis.fetch = oldFetch;
     for (const key of Object.keys(process.env)) if (!(key in oldEnv)) delete process.env[key];

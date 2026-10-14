@@ -1,3 +1,4 @@
+import { maximumFlagMatching } from './flag-matching.js';
 import { getCountryWorldDetails, getLeagueWorldDetails } from './worlddetails.js';
 
 /** Flag Hunters prototype snapshots contain display data only, never credentials. */
@@ -13,6 +14,7 @@ export interface FlagHunterTeam {
   /** Country identity encoded as its regular CHPP LeagueID; never the competition LeagueID. */
   flagCountryId: number | null;
   leagueId: number | null;
+  genderId?: number | null;
 }
 export interface FlagCollection {
   htTeamId: number;
@@ -67,6 +69,7 @@ export function parseFlagSnapshot(raw: unknown): FlagSnapshot {
       || typeof team.name !== 'string' || !nullableId(team.managerId) || !nullableId(team.leagueId)
       || (!legacy && (!nullableId(team.countryId) || !nullableId(team.managerCountryId)
         || team.flagCountryId !== resolveFlagCountryId(team.countryId)))
+      || (team.genderId !== undefined && team.genderId !== null && team.genderId !== 1 && team.genderId !== 2)
       || !(team.managerName === null || typeof team.managerName === 'string')
       || !(team.countryName === null || typeof team.countryName === 'string')) throw new Error('Invalid or duplicate snapshot team.');
     ids.add(team.htTeamId);
@@ -81,10 +84,11 @@ export function parseFlagSnapshot(raw: unknown): FlagSnapshot {
   // Upgrade v1 without throwing away successful reads. Regular-league country metadata
   // can be inferred; special-league country identity comes from the fresh roster on reconcile.
   return { version: 2, tournamentId: value.tournamentId, savedAt: value.savedAt,
-    teams: value.teams.map(({ id, htTeamId, name, managerId, managerName, countryName, leagueId, countryId, managerCountryId }) => {
+    teams: value.teams.map(({ id, htTeamId, name, managerId, managerName, countryName, leagueId, countryId, managerCountryId, genderId }) => {
       const actualCountryId = legacy ? getLeagueWorldDetails(leagueId)?.countryId ?? null : countryId;
       return { id, htTeamId, name, managerId, managerName, countryName, leagueId, countryId: actualCountryId,
-        managerCountryId: legacy ? null : managerCountryId, flagCountryId: resolveFlagCountryId(actualCountryId) };
+        managerCountryId: legacy ? null : managerCountryId, flagCountryId: resolveFlagCountryId(actualCountryId),
+        ...(genderId === undefined ? {} : { genderId }) };
     }),
     flags: Object.fromEntries(Object.entries(value.flags).map(([key, flags]) => {
       const home = normalizeFlagCountries(flags.home), away = normalizeFlagCountries(flags.away);
@@ -102,7 +106,7 @@ export function reconcileFlagSnapshot(snapshot: FlagSnapshot, tournamentId: stri
   const departed = snapshot.teams.filter(team => !current.has(team.htTeamId)).map(team => team.htTeamId);
   const changed = roster.filter(team => {
     const previous = saved.get(team.htTeamId);
-    return previous && (previous.managerId !== team.managerId || previous.leagueId !== team.leagueId || previous.id !== team.id
+    return previous && (previous.managerId !== team.managerId || previous.leagueId !== team.leagueId || previous.id !== team.id || (previous.genderId != null && previous.genderId !== team.genderId)
       || (previous.countryId !== null && previous.countryId !== team.countryId));
   }).map(team => team.htTeamId);
   const flags = Object.fromEntries(Object.entries(snapshot.flags).filter(([, item]) => {
@@ -138,49 +142,13 @@ export function draftMetrics(draft: FlagDraft, roster: FlagHunterTeam[], flags: 
   return { gaining, nothing, unknown, both };
 }
 
-function seededRandom(seed: string) {
-  let state = 2166136261;
-  for (const char of seed) state = Math.imul(state ^ char.charCodeAt(0), 16777619);
-  return () => {
-    state += 0x6D2B79F5;
-    let t = Math.imul(state ^ state >>> 15, 1 | state);
-    t ^= t + Math.imul(t ^ t >>> 7, 61 | t);
-    return ((t ^ t >>> 14) >>> 0) / 4294967296;
-  };
-}
-
-export function createFlagDraft(roster: FlagHunterTeam[], flags: Record<string, FlagCollection>, seed: string): FlagDraft {
-  const random = seededRandom(seed);
-  const groups = new Map<number, FlagHunterTeam[]>();
-  const unresolvedIds: number[] = [];
-  const seen = new Set<number>();
-  for (const team of [...roster].sort((a, b) => a.htTeamId - b.htTeamId)) {
-    if (seen.has(team.htTeamId)) throw new Error('Duplicate Hattrick team in roster.');
-    seen.add(team.htTeamId);
-    if (!team.managerId) { unresolvedIds.push(team.htTeamId); continue; }
-    const group = groups.get(team.managerId) ?? [];
-    group.push(team); groups.set(team.managerId, group);
-  }
-  for (const group of groups.values()) {
-    for (let i = group.length - 1; i > 0; i--) {
-      const j = Math.floor(random() * (i + 1)); [group[i], group[j]] = [group[j], group[i]];
-    }
-  }
-  const pairs: FlagPair[] = [];
-  while (true) {
-    const candidates = [...groups.values()].filter(group => group.length).map(group => ({ group, tie: random() }))
-      .sort((a, b) => b.group.length - a.group.length || a.tie - b.tie);
-    if (candidates.length < 2) break;
-    const a = candidates[0].group.pop()!, b = candidates[1].group.pop()!;
-    const ab: FlagPair = { homeId: a.htTeamId, awayId: b.htTeamId };
-    const ba: FlagPair = { homeId: b.htTeamId, awayId: a.htTeamId };
-    const score = (pair: FlagPair) => Object.values(pairBenefits(pair, roster, flags)).filter(value => value === 'gain').length;
-    const scoreAB = score(ab), scoreBA = score(ba);
-    pairs.push(scoreBA > scoreAB || (scoreBA === scoreAB && random() < 0.5) ? ba : ab);
-  }
-  const leftovers = [...groups.values()].flat().map(team => team.htTeamId);
-  // A single unpaired team is the normal parity BYE; multiple leftovers violate the manager constraint.
-  const byeId = leftovers.length === 1 && unresolvedIds.length === 0 ? leftovers[0] : null;
-  if (byeId === null) unresolvedIds.push(...leftovers);
-  return { seed, pairs, byeId, unresolvedIds };
+/** Random comparison baseline, using exactly the same matching eligibility as the scarcity draft. */
+export function createFlagDraft(roster: FlagHunterTeam[], flags: Record<string, FlagCollection>, seed: string, forcedByeId: number | null = null): FlagDraft {
+  const draft = maximumFlagMatching(roster, seed, forcedByeId);
+  draft.pairs = draft.pairs.map(pair => {
+    const reverse = { homeId: pair.awayId, awayId: pair.homeId };
+    const gains = (candidate: FlagPair) => Object.values(pairBenefits(candidate, roster, flags)).filter(benefit => benefit === 'gain').length;
+    return gains(reverse) > gains(pair) ? reverse : pair;
+  });
+  return draft;
 }

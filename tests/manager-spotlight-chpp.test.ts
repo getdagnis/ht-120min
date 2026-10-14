@@ -115,6 +115,15 @@ test('missing or zero winning streak and missing flags replace stale snapshot va
   }
 });
 
+test('ordinary manager refresh preserves a separately verified flag collection', () => {
+  const detail = parseTeamDetailsXml('<Team><TeamID>12</TeamID><TeamName>Club</TeamName></Team>', 12);
+  const verified = { teamId: 12, teamName: 'Club', homeFlagLeagueIds: [3], awayFlagLeagueIds: [4], flagsFetchedAt: '2026-10-14T12:00:00Z' };
+  const [merged] = mergeManagerTeamSnapshot([{ teamId: 12, teamName: 'Club' }], [detail], [verified]);
+  assert.deepEqual(merged?.homeFlagLeagueIds, [3]);
+  assert.deepEqual(merged?.awayFlagLeagueIds, [4]);
+  assert.equal(merged?.flagsFetchedAt, verified.flagsFetchedAt);
+});
+
 test('manual refresh scope deduplicates eligible managers and budget validator rejects over 25', () => {
   const participants = Array.from({ length: 26 }, (_, index) => ({
     hattrick_user_id: index + 1, active: true, reserve_active: false, is_placeholder: false,

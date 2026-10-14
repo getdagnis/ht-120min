@@ -1,7 +1,7 @@
 import type { LengthSchedulePairing } from './length-schedule.js';
 
 /** Ranked opener, then complete circle-method cycles; no factorial matching search. */
-export function buildRoundRobinCycles(teamIds: string[], roundCount: number): LengthSchedulePairing[][] {
+export function buildRoundRobinCycles(teamIds: string[], roundCount: number, openingRound?: LengthSchedulePairing[]): LengthSchedulePairing[][] {
   if (teamIds.length < 2 || roundCount < 1) return [];
   const ids: Array<string | null> = [...teamIds];
   if (ids.length % 2) ids.push(null);
@@ -75,6 +75,31 @@ export function buildRoundRobinCycles(teamIds: string[], roundCount: number): Le
       pair.homeTeamId = i % 2 ? away : home;
       pair.awayTeamId = i % 2 ? home : away;
     });
+  }
+  if (openingRound) {
+    // Relabel the existing plan, rather than replacing one round and introducing
+    // duplicate opponents. The complete-cycle, repeated-venue and home-balance
+    // guarantees survive this bijection, including the first round's exact venues.
+    const seen = openingRound.flatMap(pair => [pair.homeTeamId, pair.awayTeamId]).filter((id): id is string => id !== null);
+    if (seen.length !== teamIds.length || new Set(seen).size !== teamIds.length
+      || seen.some(id => !teamIds.includes(id)) || openingRound.length !== rounds[0]!.length
+      || openingRound.filter(pair => pair.isBye).length !== teamIds.length % 2
+      || openingRound.some(pair => !pair.homeTeamId || pair.isBye !== (pair.awayTeamId === null))) {
+      throw new Error('Opening pairings must include every active team exactly once, with only the required BYE.');
+    }
+    const regular = openingRound.filter(pair => !pair.isBye);
+    const bye = openingRound.find(pair => pair.isBye);
+    const mapping = new Map<string, string>();
+    let index = 0;
+    for (const original of rounds[0]!) {
+      const selected = original.isBye ? bye! : regular[index++]!;
+      mapping.set(original.homeTeamId!, selected.homeTeamId!);
+      if (original.awayTeamId) mapping.set(original.awayTeamId, selected.awayTeamId!);
+    }
+    return rounds.map(round => round.map(pair => ({ ...pair,
+      homeTeamId: pair.homeTeamId ? mapping.get(pair.homeTeamId)! : null,
+      awayTeamId: pair.awayTeamId ? mapping.get(pair.awayTeamId)! : null,
+    })));
   }
   return rounds;
 }
