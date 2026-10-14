@@ -236,12 +236,16 @@ export const ChatView: React.FC<ChatViewProps> = ({
             const isExternalManager = markUnknownAuthorsExternal && !isLeagueManager && !isOwnMessage;
             const timestamp = formatChatTimestamp(msg.created_at, nowMs);
             const previousMessage = visibleMessages[index - 1];
+            const previousMessageGapMs = previousMessage
+              ? new Date(msg.created_at).getTime() - new Date(previousMessage.created_at).getTime()
+              : NaN;
             const continuesPrevious =
               !isSystem &&
               previousMessage !== undefined &&
               previousMessage.author_ht_id === msg.author_ht_id &&
               previousMessage.author_name === msg.author_name &&
-              formatChatTimestamp(previousMessage.created_at, nowMs) === timestamp;
+              previousMessageGapMs >= 0 &&
+              previousMessageGapMs <= 5 * 60 * 1000;
             const authorCountryName = getCanonicalCountryName(msg.profiles?.country_name, msg.profiles?.country_id);
             const authorFlagUrl = getCountryFlagUrl(msg.profiles?.country_id, authorCountryName);
 
