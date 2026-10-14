@@ -46,13 +46,29 @@
 .logoImage
   display: block
   width: 10rem
-  margin: 0.6rem 0 0.1rem
+  margin: 0.4rem 0 0.2rem
   max-width: 100%
   height: auto
   flex-shrink: 0
 
   @media (max-width: 620px)
     width: 150px
+
+.darkLogo
+  display: none
+
+:global([data-theme='dark'])
+  .lightLogo
+    display: none
+  .darkLogo
+    display: block
+
+@media (prefers-color-scheme: dark)
+  :global(:root:not([data-theme='light']))
+    .lightLogo
+      display: none
+    .darkLogo
+      display: block
 
 .actions
   display: flex

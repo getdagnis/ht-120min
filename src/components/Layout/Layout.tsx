@@ -188,11 +188,18 @@ export const Layout: React.FC<LayoutProps> = ({ children, excludeAnalytics = fal
             <div className={styles.headerContent}>
               <Link href={toLocalePath(locale, '/')} className={styles.logo}>
                 <img
-                  src={theme === 'dark' ? '/logo-white.svg' : '/logo-dark.svg'}
+                  src="/logo-dark.svg"
                   alt={uiText('hT120min')}
                   width={170}
                   height={42}
-                  className={styles.logoImage}
+                  className={`${styles.logoImage} ${styles.lightLogo}`}
+                />
+                <img
+                  src="/logo-white.svg"
+                  alt={uiText('hT120min')}
+                  width={170}
+                  height={42}
+                  className={`${styles.logoImage} ${styles.darkLogo}`}
                 />
               </Link>
 
