@@ -59,6 +59,14 @@ const RoundPanel: React.FC<{
 }> = ({ label, round, isLastRound, onVisitFixtures, myHtTeamIds }) => {
   const uiText = useTranslations('PublicUI.StandingsRoundPreview');
   const headingId = isLastRound ? 'standings-last-round' : 'standings-next-round';
+  const visibleMatches = round.matches.length > 6
+    ? round.matches.filter((match) =>
+        Boolean(
+          (match.home_team && myHtTeamIds.has(match.home_team.ht_team_id)) ||
+          (match.away_team && myHtTeamIds.has(match.away_team.ht_team_id)),
+        ),
+      )
+    : round.matches;
   return <section className={styles.panel} aria-labelledby={headingId}>
     <div className={styles.panelHeader}>
       <h3 id={headingId}>
@@ -71,7 +79,9 @@ const RoundPanel: React.FC<{
       )}
     </div>
     <div className={styles.matches}>
-      {round.matches.map((match) => {
+      {visibleMatches.length === 0 ? (
+        <p className={styles.emptyRound}>{uiText('noTeamMatches')}</p>
+      ) : visibleMatches.map((match) => {
         const matchResult = match.completed
           ? `${match.home_goals ?? 0} - ${match.away_goals ?? 0}`
           : match.status === 'misarranged'

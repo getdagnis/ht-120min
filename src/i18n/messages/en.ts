@@ -1071,6 +1071,7 @@ const messages = {
       bye: 'BYE',
       minutesAchieved: '120 minutes achieved',
       minutesShort: '120m',
+      noTeamMatches: 'No matches for your tournament teams in this round.',
     },
     FixturesView: {
       seasonFixtures: 'Season {season} Fixtures',

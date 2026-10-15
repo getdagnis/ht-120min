@@ -1047,6 +1047,7 @@ const messages = {
       bye: '',
       minutesAchieved: '',
       minutesShort: '',
+      noTeamMatches: 'Šajā kārtā nav spēļu ar tavām turnīra komandām.',
     },
     FixturesView: {
       seasonFixtures: '',
