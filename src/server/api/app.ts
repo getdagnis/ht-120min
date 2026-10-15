@@ -667,6 +667,75 @@ async function handleTournamentParticipation(req: VercelRequest, res: VercelResp
   return res.status(200).json({ removed: true, teamId: removedTeam.id });
 }
 
+async function handleTournamentTeamDeparture(req: VercelRequest, res: VercelResponse) {
+  if (req.method !== 'GET' && req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed.' });
+  const tournamentId = readString(req.method === 'GET' ? req.query.tournamentId : req.body?.tournamentId);
+  if (!tournamentId) return res.status(400).json({ error: 'Missing tournament.' });
+  res.setHeader('Cache-Control', 'no-store');
+  const supabase = getServiceSupabase();
+
+  if (req.method === 'POST' && readString(req.body?.action) === 'admin-list') {
+    if (!(await requireLifecycleAccess(req, res, tournamentId))) return;
+    const { data: tournament, error: tournamentError } = await supabase.from('tournaments')
+      .select('season').eq('id', tournamentId).maybeSingle();
+    if (tournamentError) throw tournamentError;
+    if (!tournament) return res.status(404).json({ error: 'Tournament not found.' });
+    const { data: requests, error: requestsError } = await supabase.from('tournament_team_departures')
+      .select('team_id, after_round_id').eq('tournament_id', tournamentId).eq('season_number', tournament.season || 1);
+    if (requestsError) throw requestsError;
+    if (!requests?.length) return res.status(200).json({ departures: [] });
+    const [{ data: teams, error: teamsError }, { data: rounds, error: roundsError }] = await Promise.all([
+      supabase.from('teams').select('id, name, active, reserve_active').in('id', requests.map((request) => request.team_id)),
+      supabase.from('rounds').select('id, phase_status').in('id', requests.map((request) => request.after_round_id)),
+    ]);
+    if (teamsError) throw teamsError;
+    if (roundsError) throw roundsError;
+    const teamById = new Map((teams || []).map((team) => [team.id, team]));
+    const roundById = new Map((rounds || []).map((round) => [round.id, round]));
+    return res.status(200).json({ departures: requests.flatMap((request) => {
+      const team = teamById.get(request.team_id);
+      if (!team?.active || team.reserve_active) return [];
+      return [{ teamId: team.id, teamName: team.name,
+        needsReview: roundById.get(request.after_round_id)?.phase_status === 'completed' }];
+    }) });
+  }
+
+  const secret = getAppSessionSecret();
+  const session = secret ? verifyAppSessionCookie(req.headers.cookie, secret) : null;
+  if (!session?.userId) return res.status(401).json({ error: 'Please sign in with Hattrick first.' });
+
+  if (req.method === 'GET') {
+    const { data: teams, error: teamsError } = await supabase.from('teams')
+      .select('id, name').eq('tournament_id', tournamentId)
+      .eq('hattrick_user_id', session.userId).eq('active', true)
+      .eq('reserve_active', false).eq('is_placeholder', false);
+    if (teamsError) throw teamsError;
+    if (!teams?.length) return res.status(200).json({ teams: [] });
+    const { data: requests, error: requestsError } = await supabase.from('tournament_team_departures')
+      .select('team_id').in('team_id', teams.map((team) => team.id));
+    if (requestsError) throw requestsError;
+    const requestedIds = new Set((requests || []).map((request) => request.team_id));
+    return res.status(200).json({ teams: teams.map((team) => ({
+      id: team.id, name: team.name, checked: requestedIds.has(team.id),
+    })) });
+  }
+
+  const teamId = readString(req.body?.teamId);
+  const checked = req.body?.checked;
+  if (!teamId || typeof checked !== 'boolean') return res.status(400).json({ error: 'Invalid departure request.' });
+  const { data, error } = await supabase.rpc('set_tournament_team_departure', {
+    p_tournament_id: tournamentId,
+    p_team_id: teamId,
+    p_manager_id: session.userId,
+    p_leave: checked,
+  });
+  if (error) {
+    const status = ['22023', '42501', 'P0002'].includes(error.code || '') ? 409 : 500;
+    return res.status(status).json({ error: error.message });
+  }
+  return res.status(200).json(data);
+}
+
 async function handleSeasonSlotReplacement(req: VercelRequest, res: VercelResponse) {
   if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed.' });
   const tournamentId = readString(req.body?.tournamentId);
@@ -3905,6 +3974,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         return await handleArchiveTournament(req, res);
       case 'scheduled-team-removal':
         return await handleScheduledTeamRemoval(req, res);
+      case 'tournament-team-departure':
+        return await handleTournamentTeamDeparture(req, res);
       case 'admin-team-reserve-transition':
         return await handleAdminTeamReserveTransition(req, res);
       case 'reserve-admission':

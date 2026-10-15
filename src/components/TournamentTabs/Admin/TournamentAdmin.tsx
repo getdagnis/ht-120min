@@ -3,7 +3,7 @@
 import { useTranslations } from 'next-intl';
 import { normalizeTournamentTheme } from '../../../utils/browser-theme';
 import type { EffectiveTheme } from '../../../utils/theme';
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { Tooltip } from '../../Tooltip/Tooltip';
 import { Button } from '../../Button/Button';
 import { Switch } from '../../Switch/Switch';
@@ -603,6 +603,44 @@ export const TournamentAdmin: React.FC<{ controller: TournamentAdminController }
 
   const themeText = useTranslations('TournamentView');
   const isHydrationReady = useHydrationReady();
+  const [departureNotices, setDepartureNotices] = useState<Array<{
+    teamId: string; teamName: string; needsReview: boolean;
+  }>>([]);
+  useEffect(() => {
+    if (!isAdminAuthenticated || !canManageOperationalAdmin) {
+      setDepartureNotices([]);
+      return;
+    }
+    let active = true;
+    const load = async () => {
+      try {
+        const response = await fetch('/api/app?route=tournament-team-departure', {
+          method: 'POST', credentials: 'include', cache: 'no-store',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            action: 'admin-list', tournamentId: tournament.id,
+            adminPassword: window.localStorage.getItem(`admin_pw_${tournament.slug}`) || '',
+          }),
+        });
+        if (!response.ok) return;
+        const result = (await response.json()) as { departures?: typeof departureNotices };
+        if (active) setDepartureNotices(result.departures || []);
+      } catch {
+        // Keep the last confirmed notice visible through a transient read error.
+      }
+    };
+    void load();
+    const refresh = () => { void load(); };
+    window.addEventListener('focus', refresh);
+    window.addEventListener('tournament-departure-updated', refresh);
+    const interval = window.setInterval(refresh, 60_000);
+    return () => {
+      active = false;
+      window.removeEventListener('focus', refresh);
+      window.removeEventListener('tournament-departure-updated', refresh);
+      window.clearInterval(interval);
+    };
+  }, [isAdminAuthenticated, canManageOperationalAdmin, tournament.id]);
   const [admissionSelection, setAdmissionSelection] = useState<string[]>([]);
   const selectedAdmissionIds = admissionSelection.filter((id) => reserveTeams.some((team) => team.id === id));
   const [removingReserveId, setRemovingReserveId] = useState<string | null>(null);
@@ -868,6 +906,13 @@ export const TournamentAdmin: React.FC<{ controller: TournamentAdminController }
                 <section className={`${adminStyles.teamsSection} ${isPressOfficer ? adminStyles.pressOnlyAdmin : ''}`}>
                   {!isPressOfficer && (
                     <>
+                      {departureNotices.map((departure) => (
+                        <div key={departure.teamId} className={adminStyles.departureNotice}>
+                          {departure.needsReview
+                            ? `${departure.teamName} requested to leave after the completed round. Departure needs organizer review.`
+                            : `${departure.teamName} has opted to leave the tournament after this round.`}
+                        </div>
+                      ))}
                       <div id="admin-panel-settings">
                         <SectionCard
                           title="Tournament Settings"

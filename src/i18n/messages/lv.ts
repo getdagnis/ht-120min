@@ -711,6 +711,12 @@ const messages = {
       joinReserveList: "",
       loginToJoinReserveList: "",
     },
+    LeaveTournamentWidget: {
+      title: "Pamest turnīru",
+      afterRound: "Pamest turnīru pēc kārtas beigām",
+      loadFailed: "Neizdevās ielādēt izstāšanās izvēli.",
+      saveFailed: "Neizdevās saglabāt izstāšanās izvēli.",
+    },
     ProfileModal: {
       managerProfile: "",
       league: "",

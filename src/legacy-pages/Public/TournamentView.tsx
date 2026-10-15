@@ -118,6 +118,7 @@ import { CompactAccordionWidget } from '../../components/CompactAccordionWidget/
 import { MottoWidget } from '../../components/MottoWidget/MottoWidget';
 import { SidebarPollWidget } from '../../components/SidebarPollWidget/SidebarPollWidget';
 import { ReserveTeamsWidget } from '../../components/ReserveTeams/ReserveTeamsWidget';
+import { LeaveTournamentWidget } from '../../components/LeaveTournament/LeaveTournamentWidget';
 import { RepresentedCountries } from '../../components/RepresentedCountries/RepresentedCountries';
 import { ManagerSpotlight } from '../../components/ManagerSpotlight/ManagerSpotlight';
 import { StandingsView } from '../../components/TournamentTabs/StandingsView';
@@ -1522,6 +1523,7 @@ export const TournamentView: React.FC<{
 
   const allMatches = rounds.flatMap((r) => r.matches);
   const isGenerated = rounds.length > 0;
+  const departureRound = rounds.find((round) => round.phase_status === 'materialized');
   const participantTeams = teams.filter((team) => !team.is_placeholder && !team.reserve_active);
   const reserveTeams = teams.filter((team) => !team.is_placeholder && team.reserve_active);
   const currentSeasonSlotTeamIds = useMemo(
@@ -6928,6 +6930,15 @@ export const TournamentView: React.FC<{
             <MottoWidget items={descriptionPools.tournament} theme="dark" variant="sidebar" />
 
             {!isMobile && tournamentChat}
+            {!isViewingHistoricalSeason && !isSandbox && myHtUserId &&
+              teams.some((team) => team.active && !team.reserve_active && !team.is_placeholder &&
+                team.hattrick_user_id === Number(myHtUserId)) &&
+              departureRound && (
+                <LeaveTournamentWidget
+                  tournamentId={tournament.id}
+                  roundId={departureRound.id}
+                />
+              )}
             {(tournament.allow_reserve_registration !== false || reserveTeams.length > 0) && (
               <ReserveTeamsWidget tournamentId={tournament.id} />
             )}

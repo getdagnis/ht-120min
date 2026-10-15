@@ -69,6 +69,27 @@ ongoing or finished. The atomic reset clears only that season's rounds, matches,
 and generated slot state, resets the season lifecycle fields, and preserves the
 current registration-closed state. Historical season rows are not changed.
 
+### Manager-requested departure after a round
+
+Migration `125_deferred_team_departures.sql` prepares a private, one-request-per-team
+departure record. An authenticated manager can check or uncheck **Leave tournament
+after round is finished** while their team occupies a current-season slot. The
+request names the current materialized round; it does not alter that round's
+fixture or Hattrick booking. Operational admins see active requests above
+Tournament Settings.
+
+When the staged round transition marks that round completed, a deferred database
+trigger runs after the next round's fixtures are materialized. It reuses the
+guarded `vacate_team_slot_in_current_season` operation, so completed history stays
+and future incomplete sides become vacant. A later booked/started fixture or
+another removal guard leaves the request in place for organizer review rather
+than blocking round completion. Direct admin Remove remains immediate. The
+manager request currently relies on staged rounds reaching `phase_status =
+'completed'`; legacy schedules without that transition need organizer handling.
+
+Migration 125 is prepared locally and must be applied before deploying the API
+and UI. No live database, CHPP or browser behavior is claimed from the local code.
+
 ## Forbidden shortcuts
 
 - Do not write scheduled-team lifecycle fields from the browser.

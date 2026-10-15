@@ -735,6 +735,12 @@ const messages = {
       joinReserveList: "Join reserve list",
       loginToJoinReserveList: "Login to join reserve list",
     },
+    LeaveTournamentWidget: {
+      title: "Leave tournament",
+      afterRound: "Leave tournament after round is finished",
+      loadFailed: "Could not load your departure choice.",
+      saveFailed: "Could not save your departure choice.",
+    },
     ProfileModal: {
       managerProfile: "Manager Profile",
       league: "League",
