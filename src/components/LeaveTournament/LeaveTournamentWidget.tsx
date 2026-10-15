@@ -3,11 +3,17 @@
 import { useTranslations } from 'next-intl';
 import { SignOut } from 'phosphor-react';
 import { useEffect, useState } from 'react';
+import { createPortal } from 'react-dom';
+import { Button } from '../Button/Button';
 import styles from './LeaveTournamentWidget.module.sass';
 
 type OwnTeam = { id: string; name: string; checked: boolean };
 
-export function LeaveTournamentWidget({ tournamentId, roundId }: { tournamentId: string; roundId: string }) {
+export function LeaveTournamentWidget({ tournamentId, roundId, noticeContainer }: {
+  tournamentId: string;
+  roundId: string;
+  noticeContainer: HTMLElement | null;
+}) {
   const text = useTranslations('PublicUI.LeaveTournamentWidget');
   const [teams, setTeams] = useState<OwnTeam[]>([]);
   const [busyTeamId, setBusyTeamId] = useState<string | null>(null);
@@ -51,20 +57,37 @@ export function LeaveTournamentWidget({ tournamentId, roundId }: { tournamentId:
 
   if (teams.length === 0 && !error) return null;
   return (
-    <section className={styles.widget} aria-labelledby="leave-tournament-title">
-      <h2 id="leave-tournament-title"><SignOut size={18} weight="bold" /> {text('title')}</h2>
-      {teams.map((team) => (
-        <div key={team.id} className={styles.team}>
-          {teams.length > 1 && <strong>{team.name}</strong>}
-          <label className={styles.checkbox}>
-            <input type="checkbox" checked={team.checked} disabled={busyTeamId !== null}
-              onChange={(event) => void change(team, event.target.checked)} />
-            {text('afterRound')}
-          </label>
-          {team.checked && <p className={styles.confirmation}>{text('pendingNotice')}</p>}
+    <>
+      {noticeContainer && createPortal(teams.filter((team) => team.checked).map((team) => (
+        <div key={team.id} className={styles.confirmation}>
+          <span role="status">{teams.length > 1 && <strong>{team.name}: </strong>}{text('pendingNotice')}</span>
+          <Button
+            type="button"
+            variant="primaryDanger"
+            size="sm"
+            className={styles.cancelButton}
+            disabled={busyTeamId !== null}
+            onClick={() => void change(team, false)}
+          >
+            {text('cancel')}
+          </Button>
         </div>
-      ))}
-      {error && <p className={styles.error} role="alert">{error}</p>}
-    </section>
+      )), noticeContainer)}
+      <section className={styles.widget} aria-labelledby="leave-tournament-title">
+        <h2 id="leave-tournament-title"><SignOut size={18} weight="bold" /> {text('title')}</h2>
+        {teams.map((team) => (
+          <div key={team.id} className={styles.team}>
+            {teams.length > 1 && <strong>{team.name}</strong>}
+            <label className={styles.checkbox}>
+              <input type="checkbox" checked={team.checked} disabled={busyTeamId !== null}
+                onChange={(event) => void change(team, event.target.checked)} />
+              {text('afterRound')}
+            </label>
+            {team.checked && <p className={styles.sidebarConfirmation}>{text('pendingNotice')}</p>}
+          </div>
+        ))}
+        {error && <p className={styles.error} role="alert">{error}</p>}
+      </section>
+    </>
   );
 }

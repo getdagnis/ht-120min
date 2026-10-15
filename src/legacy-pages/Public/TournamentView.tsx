@@ -1524,6 +1524,7 @@ export const TournamentView: React.FC<{
   const allMatches = rounds.flatMap((r) => r.matches);
   const isGenerated = rounds.length > 0;
   const departureRound = rounds.find((round) => round.phase_status === 'materialized');
+  const [departureNoticeContainer, setDepartureNoticeContainer] = useState<HTMLDivElement | null>(null);
   const participantTeams = teams.filter(isCurrentParticipantTeam);
   const reserveTeams = teams.filter((team) => !team.is_placeholder && team.reserve_active);
   const currentSeasonSlotTeamIds = useMemo(
@@ -6536,6 +6537,8 @@ export const TournamentView: React.FC<{
         </div>
       )}
 
+      <div ref={setDepartureNoticeContainer} />
+
       <div className={styles.tabs}>
         <Link
           href={getTabHref('standings')}
@@ -6899,6 +6902,7 @@ export const TournamentView: React.FC<{
                 <LeaveTournamentWidget
                   tournamentId={tournament.id}
                   roundId={departureRound.id}
+                  noticeContainer={departureNoticeContainer}
                 />
               )}
             {(tournament.allow_reserve_registration !== false || reserveTeams.length > 0) && (
