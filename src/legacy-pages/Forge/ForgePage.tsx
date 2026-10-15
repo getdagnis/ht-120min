@@ -432,7 +432,7 @@ async function loadVisitorTournaments(userIds: number[]) {
 
   const { data, error } = await supabase
     .from('teams')
-    .select('hattrick_user_id, tournaments!inner(id, name, slug, status, is_archived)')
+    .select('hattrick_user_id, tournaments!teams_tournament_id_fkey!inner(id, name, slug, status, is_archived)')
     .in('hattrick_user_id', ids)
     .eq('active', true)
     .eq('reserve_active', false);
@@ -2357,12 +2357,25 @@ function ForgeTestingSection() {
   const [output, setOutput] = useState('');
   const [loading, setLoading] = useState(false);
   const [directory, setDirectory] = useState(readChallengeableDirectoryState);
+  const [directoryTournaments, setDirectoryTournaments] = useState<Record<number, VisitorTournament[]>>({});
   const [directoryLoading, setDirectoryLoading] = useState(false);
   const [directoryRefreshing, setDirectoryRefreshing] = useState(false);
   const [directoryError, setDirectoryError] = useState('');
   const [directoryRefreshSummary, setDirectoryRefreshSummary] = useState('');
   const directoryPauseRequested = useRef(false);
   const directoryCancelRequested = useRef(false);
+  const directoryTournamentLookups = useRef(new Set<number>());
+
+  useEffect(() => {
+    const managerIds = directory.users
+      .map((manager) => manager.managerId)
+      .filter((id) => id > 0 && !directoryTournamentLookups.current.has(id));
+    if (managerIds.length === 0) return;
+    managerIds.forEach((id) => directoryTournamentLookups.current.add(id));
+    void loadVisitorTournaments(managerIds).then((tournaments) => {
+      setDirectoryTournaments((current) => ({ ...current, ...tournaments }));
+    });
+  }, [directory.users]);
 
   useEffect(() => {
     if (!directory.started) return;
@@ -2426,6 +2439,8 @@ function ForgeTestingSection() {
       : directory.scanStartedAt || new Date().toISOString();
     let firstBatch = true;
     if (shouldRestart) {
+      directoryTournamentLookups.current.clear();
+      setDirectoryTournaments({});
       setDirectory({
         users: [],
         issues: [],
@@ -2782,6 +2797,20 @@ function ForgeTestingSection() {
             {visibleDirectoryUsers.map((manager) => (
               <article key={manager.managerId}>
                 <h3>{manager.managerName}</h3>
+                {(directoryTournaments[manager.managerId] || []).length > 0 && (
+                  <div className={styles.challengeableManagerTournaments}>
+                    {(directoryTournaments[manager.managerId] || []).map((tournament) => (
+                      <a
+                        key={tournament.id}
+                        href={`/en/t/${tournament.slug}`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                      >
+                        {tournament.name}
+                      </a>
+                    ))}
+                  </div>
+                )}
                 <a
                   href={`https://www.hattrick.org/goto.ashx?path=/Club/Manager/?userId=${manager.managerId}`}
                   target="_blank"
