@@ -1,12 +1,14 @@
 # PROJECT_STATE.md
 
-Last updated: 2026-10-13
+Last updated: 2026-10-15
 
 This is the current-status ledger. Update it after meaningful implementation work. Be explicit about what is local, migrated, tested, deployed, or still unknown.
 
 The local MVP includes a deterministic Meet the Manager spotlight built from persisted manager/team snapshots and the actual tournament participant relation. Its current implementation now models national-team staff roles separately, enriches the canonical `profiles.teams_json` array during authenticated/admin refresh, and selects ranked story facts without public CHPP calls. Migration `093_add_profile_national_team_roles.sql` is prepared locally; live schema, CHPP, admin backfill, snapshot invalidation, and deployment behavior remain unverified.
 
 ## Current Product State
+
+Round repair now has a local, unapplied vacancy-aware update: unbooked fixtures with vacated season slots can be re-paired while booked rows remain protected, and large fields use bounded pairing candidates. Migration `124_repair_vacant_round_fixtures.sql` is prepared locally to clear fully empty future fixture rows atomically. No lint, tests, build, disposable database run, live Supabase verification, or deployment has been performed for this change. Apply and verify migration `124` with matching server code before using Repair Round for removals. See [scheduling](docs/scheduling.md).
 
 The site-admin-only inactive-team-to-reserve exception is prepared locally in migration `123_site_admin_inactive_team_to_reserve.sql` and the existing consolidated API. It reuses the guarded reserve move while skipping the country-size allowance for a verified site admin; ordinary organizer moves remain unchanged. The migration is not agent-applied and the API change is not deployed.
 

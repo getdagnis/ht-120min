@@ -431,10 +431,11 @@ export function serializeLengthScheduleDraft(draft: LengthScheduleDraft): Serial
 export function buildRoundRepair(input: {
   teams: LengthScheduleTeam[];
   lockedPairs: Array<[string, string]>;
+  lockedTeamIds?: string[];
   unavailableTeamIds: string[];
   history?: PairingHistory;
 }) {
-  const lockedIds = new Set(input.lockedPairs.flat());
+  const lockedIds = new Set([...input.lockedPairs.flat(), ...(input.lockedTeamIds || [])]);
   const unavailable = normalizeTeams(input.teams).filter(
     (team) => !lockedIds.has(team.id) && input.unavailableTeamIds.includes(team.id),
   );

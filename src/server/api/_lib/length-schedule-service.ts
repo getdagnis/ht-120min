@@ -521,13 +521,11 @@ export async function repairLengthRound(
     (match) =>
       match.completed ||
       Boolean(
-        match.home_team_id &&
-          match.away_team_id &&
-          (match.ht_match_id ||
-            match.status === 'arranged' ||
-            match.status === 'ongoing' ||
-            match.status === 'finished' ||
-            (match.scheduled_for && new Date(match.scheduled_for).getTime() <= Date.now())),
+        match.ht_match_id ||
+          match.status === 'arranged' ||
+          match.status === 'ongoing' ||
+          match.status === 'finished' ||
+          (match.scheduled_for && new Date(match.scheduled_for).getTime() <= Date.now()),
       ),
   );
   if (protectedMatches.some(
@@ -548,14 +546,19 @@ export async function repairLengthRound(
     .eq('active', true);
   if (warningsResult.error) throw warningsResult.error;
   const unavailableTeamIds = Array.from(new Set((warningsResult.data || []).map((warning) => warning.team_id)));
-  if (unavailableTeamIds.length === 0) throw new Error('No booked-elsewhere teams were detected in this round.');
+  const hasVacantSlot = (match: StoredMatch) =>
+    (Boolean(match.home_slot_id) && !match.home_team_id) ||
+    (Boolean(match.away_slot_id) && !match.away_team_id);
+  if (unavailableTeamIds.length === 0 && !current.matches.some(match => !protectedMatches.includes(match) && hasVacantSlot(match))) {
+    throw new Error('No booked-elsewhere teams or vacant fixtures were detected in this round.');
+  }
   const affectedMatches = current.matches.filter(
     (match) =>
       !protectedMatches.includes(match) &&
-      Boolean(
+      (hasVacantSlot(match) || Boolean(
         (match.home_team_id && unavailableTeamIds.includes(match.home_team_id)) ||
           (match.away_team_id && unavailableTeamIds.includes(match.away_team_id)),
-      ),
+      )),
   );
   if (affectedMatches.length === 0) throw new Error('No repairable affected fixtures were detected.');
   const untouchedMatches = current.matches.filter((match) => !affectedMatches.includes(match));
@@ -563,13 +566,14 @@ export async function repairLengthRound(
   const lengthTeams = toLengthTeams(state.teams, ranks);
   const history = buildPairingHistory(state.rounds.filter((round) => round.round_number < current.round_number));
   history.balanceRepeats = Boolean(readSchedulePlan(state.season.schedule_plan_json)) || state.assignments.some(a => a.admission_request_id);
-  history.boundedCandidates = state.assignments.some(a => a.admission_request_id);
+  history.boundedCandidates = true;
   balanceExpandedHistory(history);
   const repair = buildRoundRepair({
     teams: lengthTeams,
     lockedPairs: untouchedMatches.flatMap((match) =>
       match.home_team_id && match.away_team_id ? [[match.home_team_id, match.away_team_id] as [string, string]] : [],
     ),
+    lockedTeamIds: protectedMatches.flatMap(match => [match.home_team_id, match.away_team_id].filter((id): id is string => Boolean(id))),
     unavailableTeamIds,
     history,
   });

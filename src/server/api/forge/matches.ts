@@ -50,6 +50,8 @@ type ForgeTournamentRow = {
 type ForgeTeamRow = {
   id: string;
   name: string;
+  country_id: number | null;
+  country_name: string | null;
   manager_name: string | null;
   hattrick_user_id: number | null;
   ht_team_id: number | null;
@@ -582,8 +584,9 @@ async function inspectTeamChallenge(
 async function loadFixtureRows(
   supabase: ReturnType<typeof getServiceSupabase>,
   roundId: string,
+  matchIds?: string[],
 ) {
-  const { data, error } = await supabase
+  let query = supabase
     .from('matches')
     .select(`
       id,
@@ -592,11 +595,12 @@ async function loadFixtureRows(
       completed,
       ht_match_id,
       scheduled_for,
-      home_team:teams!matches_home_team_id_fkey(id, name, manager_name, hattrick_user_id, ht_team_id, active, is_placeholder, oauth_scope, can_manage_challenges),
-      away_team:teams!matches_away_team_id_fkey(id, name, manager_name, hattrick_user_id, ht_team_id, active, is_placeholder, oauth_scope, can_manage_challenges)
+      home_team:teams!matches_home_team_id_fkey(id, name, country_id, country_name, manager_name, hattrick_user_id, ht_team_id, active, is_placeholder, oauth_scope, can_manage_challenges),
+      away_team:teams!matches_away_team_id_fkey(id, name, country_id, country_name, manager_name, hattrick_user_id, ht_team_id, active, is_placeholder, oauth_scope, can_manage_challenges)
     `)
-    .eq('round_id', roundId)
-    .order('id', { ascending: true });
+    .eq('round_id', roundId);
+  if (matchIds) query = query.in('id', matchIds);
+  const { data, error } = await query.order('id', { ascending: true });
   if (error) throw error;
   return (data || []) as ForgeMatchRow[];
 }
@@ -607,6 +611,8 @@ async function buildMatchesResponse(
   options: {
     roundNumber?: number | null;
     action?: { type: 'challenge' | 'accept'; matchId: string; actingSide: ForgeMatchSide; message: string };
+    mode?: 'full' | 'base' | 'states';
+    matchIds?: string[];
   } = {},
 ) {
   const materializedRounds = await loadMaterializedRounds(supabase, tournament);
@@ -625,11 +631,13 @@ async function buildMatchesResponse(
       currentRound: null,
       roundOptions,
       fixtures: [],
+      fixtureErrors: [],
       action: options.action || null,
     };
   }
 
-  const matchRows = await loadFixtureRows(supabase, round.id);
+  const matchRows = await loadFixtureRows(supabase, round.id, options.matchIds);
+  const fixtureErrors: Array<{ matchId: string; error: string }> = [];
   const fixtureTeams = matchRows.flatMap((match) => [relationOne(match.home_team), relationOne(match.away_team)])
     .filter((team): team is ForgeTeamRow => Boolean(team?.hattrick_user_id && !team.is_placeholder));
   const teamIds = [...new Set(fixtureTeams.map((team) => team.id))];
@@ -653,7 +661,7 @@ async function buildMatchesResponse(
       .flatMap((match) => [relationOne(match.home_team)?.hattrick_user_id, relationOne(match.away_team)?.hattrick_user_id])
       .filter((managerId): managerId is number => Number.isSafeInteger(managerId)),
   )];
-  const { data: profiles, error: profilesError } = managerIds.length > 0
+  const { data: profiles, error: profilesError } = options.mode !== 'base' && managerIds.length > 0
     ? await supabase.from('profiles').select('hattrick_user_id, oauth_scope').in('hattrick_user_id', managerIds)
     : { data: [], error: null };
   if (profilesError) throw profilesError;
@@ -664,6 +672,7 @@ async function buildMatchesResponse(
   const fixtures = [];
 
   for (const row of matchRows) {
+    try {
     const fixture = toFixture(row);
     const homeTeamRow = relationOne(row.home_team);
     const awayTeamRow = relationOne(row.away_team);
@@ -673,7 +682,7 @@ async function buildMatchesResponse(
     const awayAutoArrangeEnabled = fixture.away?.managerHtId
       ? autoArrangeByTeamManager.get(`${fixture.away.id}:${fixture.away.managerHtId}`) ?? true
       : null;
-    const [homeSnapshot, awaySnapshot] = await Promise.all([
+    const [homeSnapshot, awaySnapshot] = options.mode === 'base' ? [null, null] : await Promise.all([
       inspectTeamChallenge(
         supabase,
         homeTeamRow,
@@ -693,32 +702,38 @@ async function buildMatchesResponse(
     ]);
     const homeOpponentHtId = fixture.away?.htTeamId || 0;
     const awayOpponentHtId = fixture.home?.htTeamId || 0;
-    const homeOutgoing = homeOpponentHtId ? findExactPendingOutgoingChallenge(homeSnapshot.inspection.outgoing, homeOpponentHtId) : null;
-    const awayOutgoing = awayOpponentHtId ? findExactPendingOutgoingChallenge(awaySnapshot.inspection.outgoing, awayOpponentHtId) : null;
-    const homeIncoming = homeOpponentHtId ? findExactPendingIncomingChallenge(homeSnapshot.inspection.incoming, homeOpponentHtId) : null;
-    const awayIncoming = awayOpponentHtId ? findExactPendingIncomingChallenge(awaySnapshot.inspection.incoming, awayOpponentHtId) : null;
+    const homeOutgoing = homeSnapshot && homeOpponentHtId ? findExactPendingOutgoingChallenge(homeSnapshot.inspection.outgoing, homeOpponentHtId) : null;
+    const awayOutgoing = awaySnapshot && awayOpponentHtId ? findExactPendingOutgoingChallenge(awaySnapshot.inspection.outgoing, awayOpponentHtId) : null;
+    const homeIncoming = homeSnapshot && homeOpponentHtId ? findExactPendingIncomingChallenge(homeSnapshot.inspection.incoming, homeOpponentHtId) : null;
+    const awayIncoming = awaySnapshot && awayOpponentHtId ? findExactPendingIncomingChallenge(awaySnapshot.inspection.incoming, awayOpponentHtId) : null;
     const agreed = (homeOpponentHtId > 0 && awayOpponentHtId > 0
-      && hasExactAgreedChallenge(homeSnapshot.inspection.outgoing, homeSnapshot.inspection.incoming, homeOpponentHtId))
+      && homeSnapshot && hasExactAgreedChallenge(homeSnapshot.inspection.outgoing, homeSnapshot.inspection.incoming, homeOpponentHtId))
       || (homeOpponentHtId > 0 && awayOpponentHtId > 0
-        && hasExactAgreedChallenge(awaySnapshot.inspection.outgoing, awaySnapshot.inspection.incoming, awayOpponentHtId));
+        && awaySnapshot && hasExactAgreedChallenge(awaySnapshot.inspection.outgoing, awaySnapshot.inspection.incoming, awayOpponentHtId));
     if (agreed) fixture.status = 'arranged';
 
-    const homeActions = resolveForgeTeamActions({
+    const checkingActions = {
+      chppState: 'CHECKING', chppReason: 'Checking Hattrick challenge state.',
+      canChallenge: false, canAccept: false,
+      challengeDisabledReason: 'Checking Hattrick challenge state.',
+      acceptDisabledReason: 'Checking Hattrick challenge state.', trainingMatchId: null,
+    };
+    const homeActions = homeSnapshot ? resolveForgeTeamActions({
       fixture,
       side: 'home',
       inspection: homeSnapshot.inspection,
       outgoing: homeOutgoing,
       incoming: homeIncoming,
       opponentOutgoing: awayOutgoing,
-    });
-    const awayActions = resolveForgeTeamActions({
+    }) : checkingActions;
+    const awayActions = awaySnapshot ? resolveForgeTeamActions({
       fixture,
       side: 'away',
       inspection: awaySnapshot.inspection,
       outgoing: awayOutgoing,
       incoming: awayIncoming,
       opponentOutgoing: homeOutgoing,
-    });
+    }) : checkingActions;
     const byeActions = {
       chppState: 'BYE',
       chppReason: 'No opposing team is scheduled for this fixture side.',
@@ -738,16 +753,24 @@ async function buildMatchesResponse(
       home: {
         side: 'home',
         ...(fixture.home || emptyFixtureTeam(fixture.id, 'home')),
+        countryId: homeTeamRow?.country_id ?? null,
+        countryName: homeTeamRow?.country_name ?? null,
         autoArrangeEnabled: homeAutoArrangeEnabled,
         ...(fixture.home ? homeActions : byeActions),
       },
       away: {
         side: 'away',
         ...(fixture.away || emptyFixtureTeam(fixture.id, 'away')),
+        countryId: awayTeamRow?.country_id ?? null,
+        countryName: awayTeamRow?.country_name ?? null,
         autoArrangeEnabled: awayAutoArrangeEnabled,
         ...(fixture.away ? awayActions : byeActions),
       },
     });
+    } catch (error) {
+      console.error('Forge fixture state check failed:', row.id, error);
+      fixtureErrors.push({ matchId: row.id, error: 'Could not check this fixture. Retry its state.' });
+    }
   }
 
   return {
@@ -760,6 +783,7 @@ async function buildMatchesResponse(
     },
     roundOptions,
     fixtures,
+    fixtureErrors,
     action: options.action || null,
   };
 }
@@ -776,7 +800,7 @@ async function resolveActionContext(
   const round = await loadCurrentRound(supabase, tournament, roundNumber);
   if (!round) return { error: 'There is no current materialized round.' } as const;
   if (round.phase_status !== 'materialized') return { error: 'This round is already complete and cannot be booked.' } as const;
-  const rows = await loadFixtureRows(supabase, round.id);
+  const rows = await loadFixtureRows(supabase, round.id, [matchId]);
   const row = rows.find((candidate) => candidate.id === matchId);
   if (!row) return { error: 'Fixture not found in the current materialized round.' } as const;
   const fixture = toFixture(row);
@@ -862,6 +886,9 @@ async function executeAction(req: VercelRequest, res: VercelResponse) {
       isWeekendFriendly: 0,
     });
     if (!sent.success) return res.status(502).json({ error: sent.errorMessage || 'Hattrick could not send this challenge.' });
+    if (req.body?.compactResponse === true) return res.status(200).json({
+      action: { type: 'challenge', matchId, actingSide, message: 'Challenge sent. Refreshing this fixture from Hattrick.' },
+    });
     return res.status(200).json(await buildMatchesResponse(supabase, context.tournament, {
       roundNumber: context.round.round_number,
       action: {
@@ -885,6 +912,9 @@ async function executeAction(req: VercelRequest, res: VercelResponse) {
     isWeekendFriendly: 0,
   });
   if (!accepted.success) return res.status(502).json({ error: accepted.errorMessage || 'Hattrick could not accept this challenge.' });
+  if (req.body?.compactResponse === true) return res.status(200).json({
+    action: { type: 'accept', matchId, actingSide, message: 'Challenge accepted. Refreshing this fixture.' },
+  });
   return res.status(200).json(await buildMatchesResponse(supabase, context.tournament, {
     roundNumber: context.round.round_number,
     action: {
@@ -909,7 +939,27 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     if (!tournament) return res.status(404).json({ error: 'Tournament not found or not active.' });
     const requestedRound = Number(readString(req.query.roundNumber));
     const roundNumber = Number.isSafeInteger(requestedRound) && requestedRound > 0 ? requestedRound : null;
-    return res.status(200).json(await buildMatchesResponse(supabase, tournament, { roundNumber }));
+    const mode = readString(req.query.view);
+    if (mode && mode !== 'base' && mode !== 'states') return res.status(400).json({ error: 'Invalid matches view.' });
+    let matchIds: string[] | undefined;
+    if (mode === 'states') {
+      matchIds = readString(req.query.matchIds).split(',').map(id => id.trim());
+      if (!roundNumber || !matchIds.length || matchIds.length > 4 || matchIds.some(id => !id || id.length > 100)
+        || new Set(matchIds).size !== matchIds.length) {
+        return res.status(400).json({ error: 'Choose one to four fixture IDs from a materialized round.' });
+      }
+    }
+    const payload = await buildMatchesResponse(supabase, tournament, {
+      roundNumber, mode: mode === 'base' || mode === 'states' ? mode : 'full', matchIds,
+    });
+    if (matchIds) {
+      const found = new Set(payload.fixtures.map(fixture => fixture.id));
+      const failed = new Set(payload.fixtureErrors.map(item => item.matchId));
+      for (const matchId of matchIds) if (!found.has(matchId) && !failed.has(matchId)) {
+        payload.fixtureErrors.push({ matchId, error: 'Fixture is no longer in this round.' });
+      }
+    }
+    return res.status(200).json(payload);
   } catch (error) {
     console.error('Forge matches request failed:', error);
     return res.status(500).json({ error: 'Forge Matches data could not be loaded.' });

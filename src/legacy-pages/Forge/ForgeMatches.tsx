@@ -1,9 +1,9 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { ArrowClockwise } from 'phosphor-react';
 import { Button } from '../../components/Button/Button';
 import { SectionCard } from '../../components/Card/SectionCard';
 import { Tooltip } from '../../components/Tooltip/Tooltip';
-import { formatPresence as formatRelativePresence } from '../../utils/ht-data';
+import { formatPresence as formatRelativePresence, getCountryFlagUrl } from '../../utils/ht-data';
 import { HATTRICK_WORLD_DETAILS } from '../../../shared/worlddetails';
 import styles from './ForgeMatches.module.sass';
 
@@ -43,6 +43,8 @@ interface ForgeTeamView {
   side: 'home' | 'away';
   id: string;
   name: string;
+  countryId: number | null;
+  countryName: string | null;
   managerName: string | null;
   managerHtId: number | null;
   htTeamId: number | null;
@@ -70,11 +72,24 @@ interface MatchesResponse {
   currentRound?: { id: string; roundNumber: number; phase: string; phaseStatus: string } | null;
   roundOptions?: RoundOption[];
   fixtures?: ForgeFixtureView[];
-  action?: { type: 'challenge' | 'accept'; message: string } | null;
+  fixtureErrors?: Array<{ matchId: string; error: string }>;
+  action?: { type: 'challenge' | 'accept'; matchId: string; actingSide: 'home' | 'away'; message: string } | null;
   error?: string;
 }
 
 const SELECTION_STORAGE_KEY = 'forge.matches.selection';
+const FIXTURE_STATUS_FILTERS = [
+  { status: 'misarranged', label: 'Misarranged' },
+  { status: 'not_arranged', label: 'Not arranged' },
+  { status: 'arranged', label: 'Arranged' },
+] as const;
+type FixtureStatusFilter = (typeof FIXTURE_STATUS_FILTERS)[number]['status'];
+
+function fixtureStatusFilter(status: string): FixtureStatusFilter {
+  if (status === 'misarranged') return 'misarranged';
+  if (status === 'arranged' || status === 'ongoing' || status === 'finished') return 'arranged';
+  return 'not_arranged';
+}
 
 function countryFlagFromName(countryName: string | null) {
   if (!countryName) return null;
@@ -126,11 +141,20 @@ export function ForgeMatchesSection() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [message, setMessage] = useState('');
-  const [busyAction, setBusyAction] = useState('');
+  const [busyActions, setBusyActions] = useState<Record<string, boolean>>({});
+  const [fixtureErrors, setFixtureErrors] = useState<Record<string, string>>({});
+  const [fixtureMessages, setFixtureMessages] = useState<Record<string, string>>({});
+  const [visibleStatuses, setVisibleStatuses] = useState<Record<FixtureStatusFilter, boolean>>({
+    misarranged: true, not_arranged: true, arranged: true,
+  });
+  const loadEpoch = useRef(0);
+  const loadController = useRef<AbortController | null>(null);
+  const fixtureVersions = useRef(new Map<string, number>());
+  const lockedFixtures = useRef(new Set<string>());
 
   const loadTournamentOptions = useCallback(async (showLoading = true) => {
     if (showLoading) setLoading(true);
-    setError('');
+    if (showLoading) setError('');
     try {
       const response = await fetch('/api/forge/matches', { credentials: 'include', cache: 'no-store' });
       const payload = (await response.json()) as MatchesResponse;
@@ -138,38 +162,127 @@ export function ForgeMatchesSection() {
       setTournaments(payload.tournaments || []);
       setTournamentOptionsLoaded(true);
     } catch (loadError) {
-      setError(loadError instanceof Error ? loadError.message : 'Could not load Forge tournaments.');
+      const reason = loadError instanceof Error ? loadError.message : 'Could not load Forge tournaments.';
+      if (showLoading) setError(reason);
+      else setMessage(reason);
     } finally {
       if (showLoading) setLoading(false);
     }
   }, []);
 
+  const checkFixtures = useCallback(async (
+    tournamentId: string, roundNumber: number, ids: string[], epoch: number, signal?: AbortSignal,
+  ) => {
+    const requested = ids.filter(id => !lockedFixtures.current.has(id));
+    if (!requested.length) return;
+    const versions = new Map(requested.map(id => {
+      const version = (fixtureVersions.current.get(id) || 0) + 1;
+      fixtureVersions.current.set(id, version);
+      return [id, version];
+    }));
+    const isCurrent = (id: string) => loadEpoch.current === epoch
+      && fixtureVersions.current.get(id) === versions.get(id) && !lockedFixtures.current.has(id);
+    try {
+      const params = new URLSearchParams({ tournamentId, roundNumber: String(roundNumber), view: 'states', matchIds: requested.join(',') });
+      const response = await fetch(`/api/forge/matches?${params.toString()}`, {
+        credentials: 'include', cache: 'no-store', signal,
+      });
+      const payload = (await response.json()) as MatchesResponse;
+      if (!response.ok) throw new Error(payload.error || 'Could not check fixture states.');
+      const updates = (payload.fixtures || []).filter(fixture => isCurrent(fixture.id));
+      if (updates.length) {
+        const byId = new Map(updates.map(fixture => [fixture.id, fixture]));
+        setData(current => current && loadEpoch.current === epoch ? {
+          ...current, fixtures: current.fixtures?.map(fixture => byId.get(fixture.id) || fixture),
+        } : current);
+      }
+      const errors = new Map((payload.fixtureErrors || []).map(item => [item.matchId, item.error]));
+      setFixtureErrors(current => {
+        const next = { ...current };
+        for (const id of requested) if (isCurrent(id)) {
+          if (errors.has(id)) next[id] = errors.get(id)!;
+          else delete next[id];
+        }
+        return next;
+      });
+    } catch (checkError) {
+      if (signal?.aborted) return;
+      const reason = checkError instanceof Error ? checkError.message : 'Could not check fixture states.';
+      setFixtureErrors(current => {
+        const next = { ...current };
+        for (const id of requested) if (isCurrent(id)) next[id] = reason;
+        return next;
+      });
+    }
+  }, []);
+
+  const checkAllFixtures = useCallback(async (
+    tournamentId: string, roundNumber: number, ids: string[], epoch: number, signal: AbortSignal,
+  ) => {
+    const batches: string[][] = [];
+    for (let index = 0; index < ids.length; index += 4) batches.push(ids.slice(index, index + 4));
+    let cursor = 0;
+    await Promise.all(Array.from({ length: Math.min(2, batches.length) }, async () => {
+      while (cursor < batches.length && !signal.aborted && loadEpoch.current === epoch) {
+        const batch = batches[cursor++];
+        await checkFixtures(tournamentId, roundNumber, batch, epoch, signal);
+      }
+    }));
+  }, [checkFixtures]);
+
   const loadMatches = useCallback(
     async (tournamentId: string, roundNumber: number | null = null, showLoading = true) => {
+      const epoch = ++loadEpoch.current;
+      loadController.current?.abort();
+      const controller = new AbortController();
+      loadController.current = controller;
       if (!tournamentId) {
         setData(null);
         return;
       }
       if (showLoading) setLoading(true);
-      setError('');
+      if (showLoading) setError('');
       try {
-        const params = new URLSearchParams({ tournamentId });
+        const params = new URLSearchParams({ tournamentId, view: 'base' });
         if (roundNumber) params.set('roundNumber', String(roundNumber));
         const response = await fetch(`/api/forge/matches?${params.toString()}`, {
           credentials: 'include',
           cache: 'no-store',
+          signal: controller.signal,
         });
         const payload = (await response.json()) as MatchesResponse;
         if (!response.ok) throw new Error(payload.error || 'Could not load tournament matches.');
+        if (loadEpoch.current !== epoch) return;
         setData(payload);
+        setFixtureErrors({});
+        setFixtureMessages({});
+        if (payload.currentRound && payload.fixtures?.length) {
+          void checkAllFixtures(tournamentId, payload.currentRound.roundNumber,
+            payload.fixtures.map(fixture => fixture.id), epoch, controller.signal);
+        }
       } catch (loadError) {
-        setError(loadError instanceof Error ? loadError.message : 'Could not load tournament matches.');
+        if (!controller.signal.aborted && loadEpoch.current === epoch) {
+          const reason = loadError instanceof Error ? loadError.message : 'Could not load tournament matches.';
+          if (showLoading) setError(reason);
+          else setMessage(reason);
+        }
       } finally {
-        if (showLoading) setLoading(false);
+        if (showLoading && loadEpoch.current === epoch) setLoading(false);
       }
     },
-    [],
+    [checkAllFixtures],
   );
+
+  const chooseTournament = (tournamentId: string) => {
+    loadEpoch.current++;
+    loadController.current?.abort();
+    setSelectedTournamentId(tournamentId);
+    setSelectedRoundNumber(null);
+    setData(null);
+    setMessage('');
+    setError('');
+    setBusyActions({});
+  };
 
   useEffect(() => {
     let restoreTimeoutId: number | undefined;
@@ -213,20 +326,26 @@ export function ForgeMatchesSection() {
 
   useEffect(() => {
     if (!selectionRestored || !tournamentOptionsLoaded) return;
-    if (selectedTournamentId && !tournaments.some((tournament) => tournament.id === selectedTournamentId)) {
-      const timeoutId = window.setTimeout(() => {
-        setSelectedTournamentId('');
-        setSelectedRoundNumber(null);
-        setData(null);
-        setError('');
-      }, 0);
-      return () => window.clearTimeout(timeoutId);
-    }
     const timeoutId = window.setTimeout(() => {
       void loadMatches(selectedTournamentId, selectedRoundNumber);
     }, 0);
     return () => window.clearTimeout(timeoutId);
-  }, [loadMatches, selectedRoundNumber, selectedTournamentId, selectionRestored, tournamentOptionsLoaded, tournaments]);
+  }, [loadMatches, selectedRoundNumber, selectedTournamentId, selectionRestored, tournamentOptionsLoaded]);
+
+  useEffect(() => {
+    if (tournamentOptionsLoaded && selectedTournamentId
+      && !tournaments.some(tournament => tournament.id === selectedTournamentId)) {
+      const timeoutId = window.setTimeout(() => chooseTournament(''), 0);
+      return () => window.clearTimeout(timeoutId);
+    }
+  // Tournament option refreshes must not restart the round's CHPP checks.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [tournamentOptionsLoaded, tournaments]);
+
+  useEffect(() => () => {
+    loadEpoch.current++;
+    loadController.current?.abort();
+  }, []);
 
   useEffect(() => {
     if (!selectionRestored) return;
@@ -256,13 +375,6 @@ export function ForgeMatchesSection() {
     }
   };
 
-  const chooseTournament = (tournamentId: string) => {
-    setSelectedTournamentId(tournamentId);
-    setSelectedRoundNumber(null);
-    setData(null);
-    setMessage('');
-    setError('');
-  };
 
   const runAction = async (fixture: ForgeFixtureView, team: ForgeTeamView, action: 'challenge' | 'accept') => {
     const opponent = team.side === 'home' ? fixture.away : fixture.home;
@@ -273,48 +385,60 @@ export function ForgeMatchesSection() {
         : `Accept the pending challenge from ${opponent.name} for ${team.name}?`;
     if (!window.confirm(`${prompt}\n\nThis performs a real Hattrick action.`)) return;
 
-    const actionKey = `${fixture.id}:${team.side}:${action}`;
-    setBusyAction(actionKey);
-    setError('');
-    setMessage('');
+    const tournamentId = selectedTournamentId;
+    const roundNumber = data?.currentRound?.roundNumber;
+    const epoch = loadEpoch.current;
+    if (!roundNumber || lockedFixtures.current.has(fixture.id)) return;
+    lockedFixtures.current.add(fixture.id);
+    fixtureVersions.current.set(fixture.id, (fixtureVersions.current.get(fixture.id) || 0) + 1);
+    setBusyActions(current => ({ ...current, [fixture.id]: true }));
+    setFixtureErrors(current => { const next = { ...current }; delete next[fixture.id]; return next; });
+    setFixtureMessages(current => { const next = { ...current }; delete next[fixture.id]; return next; });
+    let actionFailure: string | null = null;
     try {
       const response = await fetch('/api/forge/matches', {
         method: 'POST',
         credentials: 'include',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          tournamentId: selectedTournamentId,
+          tournamentId,
           matchId: fixture.id,
-          roundNumber: data?.currentRound?.roundNumber,
+          roundNumber,
           actingSide: team.side,
           action,
+          compactResponse: true,
         }),
       });
       const payload = (await response.json()) as MatchesResponse;
       if (!response.ok) throw new Error(payload.error || `${verb} action failed.`);
-      setData(payload);
 
       let refreshNote = '';
       if (action === 'accept') {
-        const refreshResponse = await fetch(
-          `/api/teams/refresh-fixtures?tournament_id=${encodeURIComponent(selectedTournamentId)}`,
-          {
-            credentials: 'include',
-          },
-        );
-        if (!refreshResponse.ok)
+        try {
+          const refreshResponse = await fetch(
+            `/api/teams/refresh-fixtures?tournament_id=${encodeURIComponent(tournamentId)}`,
+            { credentials: 'include' },
+          );
+          if (!refreshResponse.ok) refreshNote = ' Local fixture refresh did not complete; use Refresh Fixtures to reconcile it.';
+        } catch {
           refreshNote = ' Local fixture refresh did not complete; reload or use Refresh Fixtures to reconcile it.';
-        await loadMatches(selectedTournamentId, selectedRoundNumber || payload.currentRound?.roundNumber || null);
-      } else {
-        await loadMatches(selectedTournamentId, selectedRoundNumber || payload.currentRound?.roundNumber || null);
+        }
       }
-      setMessage(`${payload.action?.message || `${verb} action completed.`}${refreshNote}`);
+      if (loadEpoch.current !== epoch) return;
+      setFixtureMessages(current => ({ ...current, [fixture.id]: `${payload.action?.message || `${verb} action completed.`}${refreshNote}` }));
     } catch (actionError) {
-      setError(actionError instanceof Error ? actionError.message : `${verb} action failed.`);
+      actionFailure = actionError instanceof Error ? actionError.message : `${verb} action failed.`;
     } finally {
-      setBusyAction('');
+      lockedFixtures.current.delete(fixture.id);
+      if (loadEpoch.current === epoch) {
+        await checkFixtures(tournamentId, roundNumber, [fixture.id], epoch);
+        if (actionFailure) setFixtureErrors(current => ({ ...current, [fixture.id]: actionFailure! }));
+        setBusyActions(current => { const next = { ...current }; delete next[fixture.id]; return next; });
+      }
     }
   };
+
+  const visibleFixtureCount = data?.fixtures?.filter(fixture => visibleStatuses[fixtureStatusFilter(fixture.status)]).length ?? 0;
 
   return (
     <section className={styles.page}>
@@ -355,6 +479,8 @@ export function ForgeMatchesSection() {
                   onChange={(event) => {
                     const nextRoundNumber = Number(event.target.value);
                     setSelectedRoundNumber(Number.isSafeInteger(nextRoundNumber) ? nextRoundNumber : null);
+                    loadEpoch.current++;
+                    loadController.current?.abort();
                     setMessage('');
                     setError('');
                   }}
@@ -463,7 +589,7 @@ export function ForgeMatchesSection() {
                     <Button
                       variant="outline"
                       size="sm"
-                      disabled={loading || refreshingData || Boolean(busyAction)}
+                      disabled={loading || refreshingData || Object.keys(busyActions).length > 0}
                       onClick={() => void refreshData()}
                     >
                       <ArrowClockwise size={16} />
@@ -472,18 +598,54 @@ export function ForgeMatchesSection() {
                   </div>
                 </div>
                 {message && <p className={styles.success}>{message}</p>}
+                <fieldset className={styles.fixtureFilters}>
+                  <legend>Show matches</legend>
+                  {FIXTURE_STATUS_FILTERS.map(({ status, label }) => (
+                    <label key={status} className={styles.fixtureFilter}>
+                      <input
+                        type="checkbox"
+                        checked={visibleStatuses[status]}
+                        onChange={event => setVisibleStatuses(current => ({ ...current, [status]: event.target.checked }))}
+                      />
+                      {label}
+                    </label>
+                  ))}
+                </fieldset>
+                {visibleFixtureCount === 0 && <p className={styles.empty}>No matches match the selected statuses.</p>}
                 <div className={styles.fixtureList}>
                   {(data.fixtures || []).map((fixture, index) => {
+                    if (!visibleStatuses[fixtureStatusFilter(fixture.status)]) return null;
+                    const fixtureBusy = Boolean(busyActions[fixture.id]);
                     return (
                       <article key={fixture.id} className={styles.fixture}>
                         <div className={styles.fixtureHeader}>
                           <span className={styles.fixtureNumber}>Match {index + 1}</span>
+                          {fixtureErrors[fixture.id] && (
+                            <span role="alert" className={styles.error}>
+                              {fixtureErrors[fixture.id]}{' '}
+                              {!fixtureBusy && <button type="button" onClick={() => {
+                                if (data.currentRound) void checkFixtures(selectedTournamentId, data.currentRound.roundNumber,
+                                  [fixture.id], loadEpoch.current);
+                              }}>Retry check</button>}
+                            </span>
+                          )}
+                          {fixtureMessages[fixture.id] && <span role="status" className={styles.success}>{fixtureMessages[fixture.id]}</span>}
                         </div>
                         <div className={styles.fixtureTeams}>
                           {[fixture.home, fixture.away].map((team) => (
                             <div key={team.side} className={styles.teamRow}>
                               <div className={styles.teamIdentity}>
-                                <div className={styles.teamName}>{team.name}</div>
+                                <div className={styles.teamName}>
+                                  {getCountryFlagUrl(team.countryId, team.countryName) && (
+                                    <img
+                                      src={getCountryFlagUrl(team.countryId, team.countryName)!}
+                                      alt=""
+                                      title={team.countryName || undefined}
+                                      className={styles.teamFlag}
+                                    />
+                                  )}
+                                  <span>{team.name}</span>
+                                </div>
                                 <div className={styles.managerName}>{team.managerName || 'Manager unavailable'}</div>
                               </div>
                               <div className={styles.stateRow}>
@@ -505,7 +667,7 @@ export function ForgeMatchesSection() {
                                 <Button
                                   variant="primaryAction"
                                   size="sm"
-                                  disabled={!team.canChallenge || Boolean(busyAction)}
+                                  disabled={!team.canChallenge || fixtureBusy}
                                   title={
                                     team.canChallenge
                                       ? `Send a Cup Rules challenge to ${team.side === 'home' ? fixture.away.name : fixture.home.name}`
@@ -518,7 +680,7 @@ export function ForgeMatchesSection() {
                                 <Button
                                   variant="secondaryDanger"
                                   size="sm"
-                                  disabled={!team.canAccept || Boolean(busyAction)}
+                                  disabled={!team.canAccept || fixtureBusy}
                                   title={
                                     team.canAccept
                                       ? `Accept the challenge from ${team.side === 'home' ? fixture.away.name : fixture.home.name}`

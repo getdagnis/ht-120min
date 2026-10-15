@@ -73,8 +73,12 @@ unplayed knockout fixtures cannot choose advancing teams.
 
 `Repair Round` is distinct from date regeneration. It locks linked/arranged
 fixtures, refuses started or past-kickoff rounds, contains booked-elsewhere teams,
-and re-pairs only the unresolved current-round remainder. Finalized unplayed
-containment rows do not become opponent history.
+and re-pairs unbooked fixtures affected by warnings or vacant season slots.
+The remaining active teams can receive a BYE when no opponent is available.
+Large repair fields use bounded pairing candidates. Fully vacant fixture rows
+are removed inside the repair RPC; this requires migration `124` before using
+the new repair flow. Finalized unplayed containment rows do not become opponent
+history.
 
 The admin-only Round 1 recovery action is separate from `Repair Round`. It is a
 one-off recovery for the destructive Round 1 repair failure: it ignores current

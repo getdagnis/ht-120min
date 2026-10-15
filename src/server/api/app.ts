@@ -422,7 +422,10 @@ async function handleRepairLengthRound(req: VercelRequest, res: VercelResponse) 
     const result = await repairLengthRound(getServiceSupabase(), tournamentId, seasonNumber);
     return res.status(200).json(result);
   } catch (error) {
-    const message = error instanceof Error ? error.message : 'The round could not be repaired.';
+    console.error('Round repair failed:', error);
+    const message = error instanceof Error ? error.message
+      : error && typeof error === 'object' && 'message' in error && typeof error.message === 'string'
+        ? error.message : 'The round could not be repaired.';
     return res.status(422).json({ error: message });
   }
 }

@@ -39,7 +39,7 @@ The app treats tournaments, rounds, matches, standings, chat, and admin decision
 - `migrations/history/` is an archived legacy area.
 - Active migrations must use the root `migrations/` directory.
 - Continue the numeric sequence from the latest active migration.
-- The latest active migration file is `115_fix_publication_valid_user_refresh.sql` (prepared locally, not agent-applied). Migrations 107–112 carry owner-added applied markers; those markers are not independent live verification. Review the [lifecycle preflight](tournament-lifecycle-preflight.sql) before converting existing real Open/Waiting rosters. The repository's migration files and owner-added applied markers remain bookkeeping, not independent live schema verification.
+- The latest active migration file is `124_repair_vacant_round_fixtures.sql` (prepared locally, not agent-applied). Owner-added applied markers on earlier migrations are not independent live verification. Review the [lifecycle preflight](tournament-lifecycle-preflight.sql) before converting existing real Open/Waiting rosters. The repository's migration files and owner-added applied markers remain bookkeeping, not independent live schema verification.
 - Do not create timestamp-prefixed migration names such as `20261001050614_...`.
 - Keep migrations compatible with existing rows when possible.
 - Record migration state in `PROJECT_STATE.md` only when a schema/RPC/RLS change has architectural, security, product-direction, or substantial behavioral impact. Do not add status entries for routine fixes or small implementation details.

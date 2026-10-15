@@ -161,3 +161,70 @@ test('non-Forge request is rejected before loading tournament data', async () =>
   assert.equal(statusCode, 401);
   assert.deepEqual(payload, { error: 'Forge authorization required.' });
 });
+
+test('base round loads without CHPP while bounded state reads affect only requested fixtures', async () => {
+  const { buildForgeSessionCookie } = await import('../src/server/api/_lib/forge-session.js');
+  const names = ['FORGE_ENABLED', 'APP_SESSION_SECRET', 'FORGE_SUPERADMIN_HT_ID', 'SUPABASE_URL', 'SUPABASE_SECRET_KEY', 'CHPP_CONSUMER_KEY', 'CHPP_CONSUMER_SECRET'];
+  const previous = Object.fromEntries(names.map(name => [name, process.env[name]]));
+  const originalFetch = globalThis.fetch;
+  process.env.FORGE_ENABLED = 'true';
+  process.env.APP_SESSION_SECRET = 'forge-matches-test-secret';
+  process.env.FORGE_SUPERADMIN_HT_ID = '8777402';
+  process.env.SUPABASE_URL = 'http://127.0.0.1:54321';
+  process.env.SUPABASE_SECRET_KEY = 'test-secret-key';
+  delete process.env.CHPP_CONSUMER_KEY;
+  delete process.env.CHPP_CONSUMER_SECRET;
+  const requestedMatchFilters: string[] = [];
+  let profileReads = 0;
+  const team = (id: number) => ({ id: `db-team-${id}`, name: `Team ${id}`, manager_name: `Manager ${id}`,
+    hattrick_user_id: id, ht_team_id: id + 1000, active: true, is_placeholder: false,
+    oauth_scope: 'manage_challenges', can_manage_challenges: true });
+  const rows = [1, 2].map(id => ({ id: `match-${id}`, round_id: 'round-1', status: 'not_arranged',
+    completed: false, ht_match_id: null, scheduled_for: null, home_team: team(id * 2), away_team: team(id * 2 + 1) }));
+  globalThis.fetch = async input => {
+    const url = new URL(String(input));
+    const table = url.pathname.split('/').at(-1);
+    let data: unknown = [];
+    if (table === 'tournaments') data = [{ id: 'tournament-1', name: 'Cup', slug: 'cup', season: 1,
+      status: 'ongoing', is_archived: false, is_test: false, scoring_mode: null }];
+    if (table === 'rounds') data = [{ id: 'round-1', tournament_id: 'tournament-1', created_at: '2026-10-15',
+      season_number: 1, round_number: 1, phase: 'regular', phase_status: 'materialized',
+      matches: rows.map(row => ({ completed: row.completed, status: row.status })) }];
+    if (table === 'matches') {
+      const filter = url.searchParams.get('id') || '';
+      requestedMatchFilters.push(filter);
+      data = filter ? rows.filter(row => filter.includes(row.id)) : rows;
+    }
+    if (table === 'profiles') profileReads++;
+    return new Response(JSON.stringify(data), { headers: { 'content-type': 'application/json' } });
+  };
+  try {
+    const cookie = buildForgeSessionCookie(8777402, false).split(';')[0];
+    const invoke = async (query: Record<string, string>) => {
+      let status = 200;
+      let body: Record<string, unknown> = {};
+      const res = { status(code: number) { status = code; return res; }, json(value: Record<string, unknown>) { body = value; return res; } };
+      await forgeMatchesHandler({ method: 'GET', headers: { cookie }, query } as never, res as never);
+      return { status, body };
+    };
+    const base = await invoke({ tournamentId: 'tournament-1', roundNumber: '1', view: 'base' });
+    assert.equal(base.status, 200);
+    const baseFixtures = base.body.fixtures as Array<{ id: string; home: { chppState: string; canChallenge: boolean } }>;
+    assert.deepEqual(baseFixtures.map(fixture => fixture.id), ['match-1', 'match-2']);
+    assert.ok(baseFixtures.every(fixture => fixture.home.chppState === 'CHECKING' && !fixture.home.canChallenge));
+    assert.equal(profileReads, 0);
+    const states = await invoke({ tournamentId: 'tournament-1', roundNumber: '1', view: 'states', matchIds: 'match-2' });
+    assert.equal(states.status, 200);
+    assert.deepEqual((states.body.fixtures as Array<{ id: string }>).map(fixture => fixture.id), ['match-2']);
+    assert.deepEqual(requestedMatchFilters, ['', 'in.(match-2)']);
+    const missing = await invoke({ tournamentId: 'tournament-1', roundNumber: '1', view: 'states', matchIds: 'missing-match' });
+    assert.deepEqual(missing.body.fixtureErrors, [{ matchId: 'missing-match', error: 'Fixture is no longer in this round.' }]);
+    assert.equal((await invoke({ tournamentId: 'tournament-1', roundNumber: '1', view: 'states', matchIds: '1,2,3,4,5' })).status, 400);
+  } finally {
+    globalThis.fetch = originalFetch;
+    for (const name of names) {
+      if (previous[name] === undefined) delete process.env[name];
+      else process.env[name] = previous[name];
+    }
+  }
+});
