@@ -813,6 +813,7 @@ async function handleReserveTeamFill(req: VercelRequest, res: VercelResponse) {
   if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed.' });
   const tournamentId = readString(req.body?.tournamentId);
   const incomingReserveTeamId = readString(req.body?.incomingReserveTeamId);
+  const formerTeamId = readString(req.body?.formerTeamId);
   const seasonNumber = Number(req.body?.seasonNumber);
   if (!tournamentId || !incomingReserveTeamId || !Number.isSafeInteger(seasonNumber) || seasonNumber < 1) {
     return res.status(400).json({ error: 'Invalid reserve fill request.' });
@@ -825,16 +826,38 @@ async function handleReserveTeamFill(req: VercelRequest, res: VercelResponse) {
   }
 
   const affectedPlanningIds = await planningMembershipIds(tournamentId);
-  const { data, error } = await getServiceSupabase().rpc('fill_vacant_current_season_slot_with_reserve', {
+  const { data, error } = await getServiceSupabase().rpc(formerTeamId
+    ? 'fill_past_team_slot_with_reserve'
+    : 'fill_vacant_current_season_slot_with_reserve', {
     p_tournament_id: tournamentId,
     p_season_number: seasonNumber,
     p_incoming_reserve_team_id: incomingReserveTeamId,
+    ...(formerTeamId ? { p_former_team_id: formerTeamId } : {}),
   });
   if (error) {
     const status = ['22023', '23505', '55000', 'P0002'].includes(error.code || '') ? 409 : 500;
     return res.status(status).json({ error: error.message });
   }
   return res.status(200).json({ promotion: Array.isArray(data) ? data[0] : data, tournamentIds: [tournamentId, ...affectedPlanningIds] });
+}
+
+async function handleRemoveUnusedPastTeam(req: VercelRequest, res: VercelResponse) {
+  if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed.' });
+  const tournamentId = readString(req.body?.tournamentId);
+  const teamId = readString(req.body?.teamId);
+  if (!tournamentId || !teamId) return res.status(400).json({ error: 'Missing tournament or team.' });
+
+  const actor = await requireTournamentRoleSession(req, res, tournamentId);
+  if (!actor) return;
+  if (!actor.access.canManageOperations) {
+    return res.status(403).json({ error: 'This role cannot manage tournament teams.' });
+  }
+  const { data, error } = await getServiceSupabase().rpc('remove_unused_past_tournament_team', {
+    p_tournament_id: tournamentId,
+    p_team_id: teamId,
+  });
+  if (error) return res.status(409).json({ error: error.message });
+  return res.status(200).json(data);
 }
 
 async function handleMoveInactiveTeamToReserve(req: VercelRequest, res: VercelResponse) {
@@ -3962,6 +3985,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         return await handleReserveTeamFill(req, res);
       case 'move-inactive-team-to-reserve':
         return await handleMoveInactiveTeamToReserve(req, res);
+      case 'remove-unused-past-team':
+        return await handleRemoveUnusedPastTeam(req, res);
       case 'tournament-publication':
         return await handleTournamentPublication(req, res);
       case 'creation-roster':

@@ -64,6 +64,16 @@ remain immutable; future incomplete sides become empty/BYE sides. The existing
 replacement flow can fill a released slot by using the former team's released
 assignment as the slot lineage.
 
+Admin Manage Teams displays active participants, Past teams, and reserves as
+separate groups. A manager's open-registration leave sets the existing Past
+representation (`active = false`, `reserve_active = false`). For a generated
+season, **Replace** on a Past row selects an existing reserve and targets that
+row's released slot. Migration `126_past_team_admin_actions.sql` prepares the
+service-role-only transactional fill and a separate removal RPC that refuses
+teams with relational or season-snapshot history. Protected bookings and
+completed fixtures cannot be changed by this fill. The migration is not
+agent-applied; its API/UI must be deployed only with the matching database RPCs.
+
 An ongoing current season can also be reset to planning before any match is
 ongoing or finished. The atomic reset clears only that season's rounds, matches,
 and generated slot state, resets the season lifecycle fields, and preserves the

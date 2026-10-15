@@ -1524,14 +1524,14 @@ export const TournamentView: React.FC<{
   const allMatches = rounds.flatMap((r) => r.matches);
   const isGenerated = rounds.length > 0;
   const departureRound = rounds.find((round) => round.phase_status === 'materialized');
-  const participantTeams = teams.filter((team) => !team.is_placeholder && !team.reserve_active);
+  const participantTeams = teams.filter(isCurrentParticipantTeam);
   const reserveTeams = teams.filter((team) => !team.is_placeholder && team.reserve_active);
   const currentSeasonSlotTeamIds = useMemo(
     () =>
       new Set(seasonSlots.map((slot) => slot.current_team_id).filter((teamId): teamId is string => Boolean(teamId))),
     [seasonSlots],
   );
-  const activeParticipantCount = participantTeams.filter((team) => team.active).length;
+  const activeParticipantCount = participantTeams.length;
   const maxTeamsAllowsPromotion =
     !tournament?.max_teams || tournament.max_teams <= 0 || activeParticipantCount < tournament.max_teams;
 
@@ -4396,6 +4396,10 @@ export const TournamentView: React.FC<{
 
   const addTeam = async (e: React.FormEvent, isJoin: boolean = false, addAsReserve: boolean = false) => {
     if (e) e.preventDefault();
+    if (isGenerated && !addAsReserve) {
+      alert('Use a Past team’s Replace action or reserve admission after scheduling.');
+      return;
+    }
     const name = isJoin ? joinTeamName : addAsReserve ? reserveTeamName : newTeamName;
     const htId = isJoin ? joinTeamId : addAsReserve ? reserveTeamId : newTeamId;
 
@@ -4476,15 +4480,6 @@ export const TournamentView: React.FC<{
       }
 
       let finalTeamId: string | null = null;
-      let oldTeamToReplaceId: string | null = null;
-
-      // If scheduled and there are inactive teams, replace the first one
-      if (isGenerated) {
-        const inactiveTeam = teams.find((t) => !t.active && !t.reserve_active && !t.is_placeholder);
-        if (inactiveTeam) {
-          oldTeamToReplaceId = inactiveTeam.id;
-        }
-      }
 
       // 1. Insert new team
       const fetchedTeamData = isJoin ? null : newTeamData;
@@ -4496,7 +4491,6 @@ export const TournamentView: React.FC<{
             name: name.trim(),
             ht_team_id: parseInt(htId.trim()),
             active: true,
-            replacement_for_team_id: oldTeamToReplaceId,
             logo_url: fetchedTeamData?.logoUrl ?? null,
             country_id: fetchedTeamData?.countryId ?? null,
             country_name: fetchedTeamData?.countryName ?? null,
@@ -4517,40 +4511,6 @@ export const TournamentView: React.FC<{
       if (error) throw error;
       finalTeamId = newTeam?.id;
 
-      // 2. If replacement, update matches
-      if (oldTeamToReplaceId && finalTeamId) {
-        await supabase
-          .from('matches')
-          .update({ home_team_id: finalTeamId })
-          .eq('home_team_id', oldTeamToReplaceId)
-          .eq('completed', false);
-
-        await supabase
-          .from('matches')
-          .update({ away_team_id: finalTeamId })
-          .eq('away_team_id', oldTeamToReplaceId)
-          .eq('completed', false);
-      } else if (isGenerated && finalTeamId) {
-        // 3. If no inactive team, check for BYE matches
-        const roundIds = rounds.map((r) => r.id);
-        const { data: byeMatches } = await supabase
-          .from('matches')
-          .select('id, home_team_id, away_team_id')
-          .in('round_id', roundIds)
-          .or('home_team_id.is.null,away_team_id.is.null')
-          .eq('completed', false);
-
-        if (byeMatches && byeMatches.length > 0) {
-          for (const match of byeMatches) {
-            if (match.home_team_id === null) {
-              await supabase.from('matches').update({ home_team_id: finalTeamId }).eq('id', match.id);
-            } else if (match.away_team_id === null) {
-              await supabase.from('matches').update({ away_team_id: finalTeamId }).eq('id', match.id);
-            }
-          }
-        }
-      }
-
       if (isJoin) {
         setJoinTeamId('');
         setJoinTeamName('');
@@ -4566,29 +4526,6 @@ export const TournamentView: React.FC<{
         teamId: finalTeamId || undefined,
         metadata: { isJoin },
       });
-      fetchData();
-    } catch (error: any) {
-      alert(error.message);
-    } finally {
-      setIsSavingTeam(false);
-    }
-  };
-
-  const reviveTeam = async (teamId: string) => {
-    const team = teams.find((t) => t.id === teamId);
-    if (isGenerated) {
-      alert(
-        'Scheduled-season revival is unavailable during peak-season slot compatibility. Use the reviewed replacement flow instead.',
-      );
-      return;
-    }
-    if (!window.confirm(`This team was previously removed from tournament. Do you want to revive ${team?.name}?`))
-      return;
-
-    setIsSavingTeam(true);
-    try {
-      const { error } = await supabase.from('teams').update({ active: true }).eq('id', teamId);
-      if (error) throw error;
       fetchData();
     } catch (error: any) {
       alert(error.message);
@@ -4631,7 +4568,9 @@ export const TournamentView: React.FC<{
 
     setIsSavingTeam(true);
     try {
-      const response = await fetch('/api/app?route=reserve-team-swap', {
+      const response = await fetch(formerTeam.active
+        ? '/api/app?route=reserve-team-swap'
+        : '/api/app?route=reserve-team-fill', {
         method: 'POST',
         credentials: 'same-origin',
         headers: { 'Content-Type': 'application/json' },
@@ -4715,6 +4654,29 @@ export const TournamentView: React.FC<{
     }
   };
 
+  const removePastTeam = async (team: Team) => {
+    if (!tournament || !window.confirm(`Remove unused Past team ${team.name} from this tournament?`)) return;
+    setIsSavingTeam(true);
+    try {
+      const response = await fetch('/api/app?route=remove-unused-past-team', {
+        method: 'POST',
+        credentials: 'same-origin',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ tournamentId: tournament.id, teamId: team.id }),
+      });
+      const result = (await response.json()) as { error?: string };
+      if (!response.ok) throw new Error(result.error || 'The Past team could not be removed.');
+      await fetchData({
+        showLoader: false,
+        invalidate: response.headers.get('X-Tournament-Cache') === 'invalidation-failed',
+      });
+    } catch (error) {
+      alert(error instanceof Error ? error.message : 'The Past team could not be removed.');
+    } finally {
+      setIsSavingTeam(false);
+    }
+  };
+
   const replaceTeam = async (oldTeamId: string) => {
     if (!replacementHtId.trim() || !tournament) {
       alert('A checked existing Hattrick team ID is required.');
@@ -4722,7 +4684,7 @@ export const TournamentView: React.FC<{
     }
 
     const oldTeam = teams.find((t) => t.id === oldTeamId);
-    if (!window.confirm(`Replace ${oldTeam?.name || 'Inactive Team'} with ${replacementName}?`)) {
+    if (!window.confirm(`Replace ${oldTeam?.name || 'Past team'} with ${replacementName}?`)) {
       return;
     }
 
@@ -4846,7 +4808,7 @@ export const TournamentView: React.FC<{
     if (!isHealthQuotaMet()) {
       setScheduleNotice({
         title: 'Cannot generate schedule',
-        message: 'Too many inactive teams. Please replace or revive teams to meet the minimum quota.',
+        message: 'Too many teams have withdrawn. Replace Past teams to meet the minimum quota.',
       });
       return;
     }
@@ -6089,8 +6051,8 @@ export const TournamentView: React.FC<{
       onReplaceTeam: replaceTeam,
       onTransitionTeamReserveStatus: transitionTeamReserveStatus,
       onDeleteTeam: deleteTeam,
-      onReviveTeam: reviveTeam,
       onMoveInactiveTeamToReserve: moveInactiveTeamToReserve,
+      onRemovePastTeam: removePastTeam,
       onFillVacantSlotWithReserve: fillVacantSlotWithReserve,
       onInviteExpandedChange: setIsInviteExpanded,
       inviteExpanded: isInviteExpanded,
