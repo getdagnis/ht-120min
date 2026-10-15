@@ -738,6 +738,7 @@ const messages = {
     LeaveTournamentWidget: {
       title: "Leave tournament",
       afterRound: "Leave tournament after round is finished",
+      pendingNotice: "You have opted to leave the tournament after this round.",
       loadFailed: "Could not load your departure choice.",
       saveFailed: "Could not save your departure choice.",
     },

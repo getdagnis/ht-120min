@@ -61,6 +61,7 @@ export function LeaveTournamentWidget({ tournamentId, roundId }: { tournamentId:
               onChange={(event) => void change(team, event.target.checked)} />
             {text('afterRound')}
           </label>
+          {team.checked && <p className={styles.confirmation}>{text('pendingNotice')}</p>}
         </div>
       ))}
       {error && <p className={styles.error} role="alert">{error}</p>}

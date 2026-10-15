@@ -714,6 +714,7 @@ const messages = {
     LeaveTournamentWidget: {
       title: "Pamest turnīru",
       afterRound: "Pamest turnīru pēc kārtas beigām",
+      pendingNotice: "Pēc šīs kārtas jūs pametīsiet turnīru.",
       loadFailed: "Neizdevās ielādēt izstāšanās izvēli.",
       saveFailed: "Neizdevās saglabāt izstāšanās izvēli.",
     },
