@@ -541,6 +541,32 @@ export async function acceptChppChallengeDirect(input: AcceptChppChallengeInput)
   };
 }
 
+export async function withdrawChppChallengeDirect(input: AcceptChppChallengeInput): Promise<ChppChallengeActionResult> {
+  const raw = await fetchChppChallengesRaw({
+    consumerKey: input.consumerKey,
+    consumerSecret: input.consumerSecret,
+    oauthToken: input.oauthToken,
+    oauthTokenSecret: input.oauthTokenSecret,
+    actionType: 'withdraw',
+    teamId: input.teamId,
+    extraParams: {
+      trainingMatchId: input.trainingMatchId,
+      isWeekendFriendly: input.isWeekendFriendly ?? 0,
+    },
+    requestOptions: input.requestOptions,
+  });
+  const parsed = parseChppBaseResponse(raw.rawXml);
+  const success = raw.httpStatus >= 200 && raw.httpStatus < 300 && (parsed.errorCode === undefined || parsed.errorCode === 0);
+  return {
+    success,
+    errorCode: parsed.errorCode,
+    errorMessage: success ? undefined : parsed.errorMessage || `CHPP challenges request failed (${raw.httpStatus})`,
+    rawXml: raw.rawXml,
+    requestUrl: raw.requestUrl,
+    requestQuery: raw.requestQuery,
+  };
+}
+
 export async function sendChppChallenge(input: SendChppChallengeInput): Promise<SendChppChallengeResult> {
   if (!shouldRequireChallengeableCheck()) {
     return sendChppChallengeDirect(input);

@@ -47,6 +47,7 @@ export interface ForgeTeamActionView {
   chppReason: string;
   canChallenge: boolean;
   canAccept: boolean;
+  canWithdraw: boolean;
   challengeDisabledReason: string;
   acceptDisabledReason?: string;
   trainingMatchId: number | null;
@@ -146,6 +147,7 @@ export function resolveForgeTeamActions(input: {
         : blockedReason,
     canChallenge: canAct && !input.outgoing && !derivedIncoming,
     canAccept: canAct && Boolean(derivedIncoming),
+    canWithdraw: canAct && Boolean(input.outgoing?.trainingMatchId),
     challengeDisabledReason: input.outgoing
       ? 'A challenge to this opponent is already outgoing.'
       : derivedIncoming

@@ -11,6 +11,7 @@ import {
   parseChppOutgoingChallenges,
   sendChppChallengeDirect,
   viewChppChallenges,
+  withdrawChppChallengeDirect,
 } from '../_lib/chpp-challenges.js';
 import {
   fetchManagerTeamsFromChpp,
@@ -64,6 +65,12 @@ type ForgeTeamRow = {
 type ForgeMatchRow = {
   id: string;
   round_id: string;
+  home_team_id: string | null;
+  away_team_id: string | null;
+  home_slot_id: string | null;
+  away_slot_id: string | null;
+  home_slot_assignment_id: string | null;
+  away_slot_assignment_id: string | null;
   status: string | null;
   completed: boolean | null;
   ht_match_id: number | null;
@@ -591,6 +598,12 @@ async function loadFixtureRows(
     .select(`
       id,
       round_id,
+      home_team_id,
+      away_team_id,
+      home_slot_id,
+      away_slot_id,
+      home_slot_assignment_id,
+      away_slot_assignment_id,
       status,
       completed,
       ht_match_id,
@@ -714,7 +727,7 @@ async function buildMatchesResponse(
 
     const checkingActions = {
       chppState: 'CHECKING', chppReason: 'Checking Hattrick challenge state.',
-      canChallenge: false, canAccept: false,
+      canChallenge: false, canAccept: false, canWithdraw: false,
       challengeDisabledReason: 'Checking Hattrick challenge state.',
       acceptDisabledReason: 'Checking Hattrick challenge state.', trainingMatchId: null,
     };
@@ -739,6 +752,7 @@ async function buildMatchesResponse(
       chppReason: 'No opposing team is scheduled for this fixture side.',
       canChallenge: false,
       canAccept: false,
+      canWithdraw: false,
       challengeDisabledReason: 'A BYE has no Hattrick challenge action.',
       acceptDisabledReason: 'A BYE has no incoming challenge.',
       trainingMatchId: null,
@@ -822,14 +836,73 @@ async function executeAction(req: VercelRequest, res: VercelResponse) {
   const roundNumberValue = Number(readString(req.body?.roundNumber));
   const roundNumber = Number.isSafeInteger(roundNumberValue) && roundNumberValue > 0 ? roundNumberValue : null;
   const actingSide = readString(req.body?.actingSide) as ForgeMatchSide;
-  const action = readString(req.body?.action) as 'challenge' | 'accept';
-  if (!tournamentId || !matchId || !roundNumber || !['home', 'away'].includes(actingSide) || !['challenge', 'accept'].includes(action)) {
+  const action = readString(req.body?.action) as 'challenge' | 'accept' | 'withdraw' | 'reverse';
+  if (!tournamentId || !matchId || !roundNumber || !['home', 'away'].includes(actingSide) || !['challenge', 'accept', 'withdraw', 'reverse'].includes(action)) {
     return res.status(400).json({ error: 'tournamentId, matchId, roundNumber, actingSide, and action are required.' });
   }
 
   const supabase = getServiceSupabase();
   const context = await resolveActionContext(supabase, tournamentId, matchId, actingSide, roundNumber);
   if ('error' in context) return res.status(409).json({ error: context.error });
+
+  if (action === 'reverse') {
+    const { row, fixture } = context;
+    if (!row.home_team_id || !row.away_team_id || !fixture.home || !fixture.away || row.status !== 'not_arranged' || row.completed || row.ht_match_id) {
+      return res.status(409).json({ error: 'Only an unbooked two-team fixture can be reversed.' });
+    }
+    const consumerKey = process.env.CHPP_CONSUMER_KEY;
+    const consumerSecret = process.env.CHPP_CONSUMER_SECRET;
+    if (!consumerKey || !consumerSecret) return res.status(500).json({ error: 'CHPP configuration is missing.' });
+    for (const side of [fixture.home, fixture.away]) {
+      if (!side.managerHtId || !side.htTeamId) return res.status(409).json({ error: 'Both fixture teams need Hattrick identities.' });
+      const credentials = await getManagerChppCredentials(supabase, side.managerHtId);
+      if (!credentials) return res.status(409).json({ error: `Cannot verify ${side.name}'s challenge state.` });
+      const view = await viewChppChallenges({
+        consumerKey, consumerSecret,
+        oauthToken: credentials.oauth_token,
+        oauthTokenSecret: credentials.oauth_token_secret,
+        teamId: side.htTeamId,
+        isWeekendFriendly: 0,
+      });
+      if (view.httpStatus < 200 || view.httpStatus >= 300 || (view.parsed.errorCode !== undefined && view.parsed.errorCode !== 0)) {
+        return res.status(502).json({ error: `Cannot verify ${side.name}'s challenge state.` });
+      }
+      const opponentId = side.id === fixture.home.id ? fixture.away.htTeamId : fixture.home.htTeamId;
+      const outgoing = parseChppOutgoingChallenges(view.rawXml);
+      const incoming = parseChppChallengeOffers(view.rawXml);
+      if (opponentId && (findExactPendingOutgoingChallenge(outgoing, opponentId)
+        || findExactPendingIncomingChallenge(incoming, opponentId)
+        || hasExactAgreedChallenge(outgoing, incoming, opponentId))) {
+        return res.status(409).json({ error: 'Withdraw pending challenges before reversing this fixture.' });
+      }
+    }
+    const { data: reversed, error: reverseError } = await supabase.from('matches').update({
+      home_team_id: row.away_team_id,
+      away_team_id: row.home_team_id,
+      home_slot_id: row.away_slot_id,
+      away_slot_id: row.home_slot_id,
+      home_slot_assignment_id: row.away_slot_assignment_id,
+      away_slot_assignment_id: row.home_slot_assignment_id,
+    })
+      .eq('id', matchId)
+      .eq('round_id', context.round.id)
+      .eq('home_team_id', row.home_team_id)
+      .eq('away_team_id', row.away_team_id)
+      .eq('status', 'not_arranged')
+      .eq('completed', false)
+      .is('ht_match_id', null)
+      .select('id, home_team_id, away_team_id')
+      .maybeSingle();
+    if (reverseError) throw reverseError;
+    if (!reversed) return res.status(409).json({ error: 'Fixture changed during reversal; refresh and retry.' });
+    if (req.body?.compactResponse === true) return res.status(200).json({
+      action: { type: 'reverse', matchId, actingSide, message: 'Fixture venue reversed. Refreshing this fixture.' },
+    });
+    return res.status(200).json(await buildMatchesResponse(supabase, context.tournament, {
+      roundNumber: context.round.round_number,
+      action: { type: 'reverse', matchId, actingSide, message: 'Fixture venue reversed.' },
+    }));
+  }
 
   const teamRow = relationOne(actingSide === 'home' ? context.row.home_team : context.row.away_team);
   const profile = await supabase.from('profiles').select('oauth_scope').eq('hattrick_user_id', context.target.team.managerHtId).maybeSingle();
@@ -870,10 +943,36 @@ async function executeAction(req: VercelRequest, res: VercelResponse) {
   const existingAgreed = hasExactAgreedChallenge(outgoing, incoming, opponentHtTeamId);
   const existingIncoming = findExactPendingIncomingChallenge(incoming, opponentHtTeamId);
 
+  if (action === 'withdraw') {
+    if (existingAgreed) return res.status(409).json({ error: 'This fixture challenge is already accepted.' });
+    if (!existingOutgoing?.trainingMatchId) return res.status(409).json({ error: 'No pending outgoing challenge to this opponent was found.' });
+    const withdrawn = await withdrawChppChallengeDirect({
+      consumerKey,
+      consumerSecret,
+      oauthToken: credentials.oauth_token,
+      oauthTokenSecret: credentials.oauth_token_secret,
+      teamId: context.target.team.htTeamId,
+      trainingMatchId: existingOutgoing.trainingMatchId,
+      isWeekendFriendly: 0,
+    });
+    if (!withdrawn.success) return res.status(502).json({ error: withdrawn.errorMessage || 'Hattrick could not withdraw this challenge.' });
+    if (req.body?.compactResponse === true) return res.status(200).json({
+      action: { type: 'withdraw', matchId, actingSide, message: 'Challenge withdrawn. Refreshing this fixture.' },
+    });
+    return res.status(200).json(await buildMatchesResponse(supabase, context.tournament, {
+      roundNumber: context.round.round_number,
+      action: { type: 'withdraw', matchId, actingSide, message: 'Challenge withdrawn.' },
+    }));
+  }
+
   if (action === 'challenge') {
     if (existingAgreed) return res.status(409).json({ error: 'This fixture already has an accepted Hattrick challenge.' });
     if (existingOutgoing) return res.status(409).json({ error: 'A challenge to this exact opponent is already outgoing.' });
     if (existingIncoming) return res.status(409).json({ error: 'A challenge from this exact opponent is waiting for acceptance.' });
+    const requestedMatchPlace = req.body?.matchPlace;
+    if (requestedMatchPlace !== undefined && requestedMatchPlace !== 0 && requestedMatchPlace !== 1) {
+      return res.status(400).json({ error: 'matchPlace must be 0 (home) or 1 (away).' });
+    }
     const sent = await sendChppChallengeDirect({
       consumerKey,
       consumerSecret,
@@ -882,7 +981,7 @@ async function executeAction(req: VercelRequest, res: VercelResponse) {
       teamId: context.target.team.htTeamId,
       opponentTeamId: opponentHtTeamId,
       matchType: 1,
-      matchPlace: context.target.matchPlace,
+      matchPlace: requestedMatchPlace ?? context.target.matchPlace,
       isWeekendFriendly: 0,
     });
     if (!sent.success) return res.status(502).json({ error: sent.errorMessage || 'Hattrick could not send this challenge.' });

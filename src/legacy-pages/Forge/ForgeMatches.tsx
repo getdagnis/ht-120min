@@ -52,6 +52,7 @@ interface ForgeTeamView {
   chppReason: string;
   canChallenge: boolean;
   canAccept: boolean;
+  canWithdraw: boolean;
   autoArrangeEnabled: boolean | null;
   challengeDisabledReason: string;
   acceptDisabledReason?: string;
@@ -73,7 +74,7 @@ interface MatchesResponse {
   roundOptions?: RoundOption[];
   fixtures?: ForgeFixtureView[];
   fixtureErrors?: Array<{ matchId: string; error: string }>;
-  action?: { type: 'challenge' | 'accept'; matchId: string; actingSide: 'home' | 'away'; message: string } | null;
+  action?: { type: 'challenge' | 'accept' | 'withdraw' | 'reverse'; matchId: string; actingSide: 'home' | 'away'; message: string } | null;
   error?: string;
 }
 
@@ -376,13 +377,17 @@ export function ForgeMatchesSection() {
   };
 
 
-  const runAction = async (fixture: ForgeFixtureView, team: ForgeTeamView, action: 'challenge' | 'accept') => {
+  const runAction = async (fixture: ForgeFixtureView, team: ForgeTeamView, action: 'challenge' | 'accept' | 'withdraw' | 'reverse', matchPlace?: 0 | 1) => {
     const opponent = team.side === 'home' ? fixture.away : fixture.home;
-    const verb = action === 'challenge' ? 'Send' : 'Accept';
+    const verb = action === 'challenge' ? 'Send' : action === 'withdraw' ? 'Withdraw' : action === 'reverse' ? 'Reverse' : 'Accept';
     const prompt =
       action === 'challenge'
-        ? `Send a Cup Rules challenge from ${team.name} to ${opponent.name}?`
-        : `Accept the pending challenge from ${opponent.name} for ${team.name}?`;
+        ? `Send a Cup Rules challenge from ${team.name} to ${opponent.name} with ${team.name} ${matchPlace === 0 ? 'HOME' : matchPlace === 1 ? 'AWAY' : team.side.toUpperCase()}?${matchPlace !== undefined && matchPlace !== (team.side === 'home' ? 0 : 1) ? '\n\nThis reverses the planned fixture venue and will be reported as a venue mismatch until the fixture is corrected.' : ''}`
+        : action === 'reverse'
+          ? `Reverse the saved fixture so ${fixture.away.name} becomes home and ${fixture.home.name} becomes away?\n\nThis changes the fixture for everyone, but does not send or accept a Hattrick challenge.`
+        : action === 'withdraw'
+          ? `Withdraw ${team.name}'s pending challenge to ${opponent.name}?`
+          : `Accept the pending challenge from ${opponent.name} for ${team.name}?`;
     if (!window.confirm(`${prompt}\n\nThis performs a real Hattrick action.`)) return;
 
     const tournamentId = selectedTournamentId;
@@ -406,6 +411,7 @@ export function ForgeMatchesSection() {
           roundNumber,
           actingSide: team.side,
           action,
+          ...(matchPlace === undefined ? {} : { matchPlace }),
           compactResponse: true,
         }),
       });
@@ -446,7 +452,6 @@ export function ForgeMatchesSection() {
         <div className={styles.bookingMain}>
           <SectionCard
             title="Match booking"
-            subtitle="Coordinate any materialized tournament round directly from its fixtures."
             className={styles.surfaceCard}
           >
             <div className={styles.toolbar}>
@@ -620,6 +625,16 @@ export function ForgeMatchesSection() {
                       <article key={fixture.id} className={styles.fixture}>
                         <div className={styles.fixtureHeader}>
                           <span className={styles.fixtureNumber}>Match {index + 1}</span>
+                          {fixture.status === 'not_arranged' && !fixture.completed && !fixture.htMatchId && fixture.home.htTeamId && fixture.away.htTeamId && (
+                            <Button
+                              variant="secondaryDanger"
+                              size="sm"
+                              disabled={fixtureBusy}
+                              onClick={() => void runAction(fixture, fixture.home, 'reverse')}
+                            >
+                              Reverse home/away
+                            </Button>
+                          )}
                           {fixtureErrors[fixture.id] && (
                             <span role="alert" className={styles.error}>
                               {fixtureErrors[fixture.id]}{' '}
@@ -677,6 +692,26 @@ export function ForgeMatchesSection() {
                                 >
                                   Challenge {team.side === 'home' ? fixture.away.name : fixture.home.name}
                                 </Button>
+                                {team.side === 'away' && team.canChallenge && (
+                                  <Button
+                                    variant="secondaryDanger"
+                                    size="sm"
+                                    disabled={fixtureBusy}
+                                    onClick={() => void runAction(fixture, team, 'challenge', 0)}
+                                  >
+                                    Challenge as home
+                                  </Button>
+                                )}
+                                {team.canWithdraw && (
+                                  <Button
+                                    variant="secondaryDanger"
+                                    size="sm"
+                                    disabled={fixtureBusy}
+                                    onClick={() => void runAction(fixture, team, 'withdraw')}
+                                  >
+                                    Withdraw challenge
+                                  </Button>
+                                )}
                                 <Button
                                   variant="secondaryDanger"
                                   size="sm"
@@ -707,7 +742,7 @@ export function ForgeMatchesSection() {
         </div>
 
         <aside className={styles.bookingSidebar}>
-          <SectionCard title="Bookable matches" subtitle="Current materialized rounds." className={styles.surfaceCard}>
+          <SectionCard title="Bookable matches" className={styles.surfaceCard}>
             {tournaments.length === 0 ? (
               <p className={styles.empty}>No tournaments have a current materialized round.</p>
             ) : (

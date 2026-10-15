@@ -458,6 +458,25 @@ async function loadVisitorTournaments(userIds: number[]) {
   return result;
 }
 
+async function loadManagerRegistrationDates(userIds: number[]) {
+  const ids = Array.from(new Set(userIds.filter((id) => Number.isSafeInteger(id) && id > 0)));
+  if (ids.length === 0) return {} as Record<number, string>;
+  const { data, error } = await supabase
+    .from('profiles')
+    .select('hattrick_user_id, created_at')
+    .in('hattrick_user_id', ids);
+  if (error || !data) return {} as Record<number, string>;
+  return Object.fromEntries(data.map((profile) => [profile.hattrick_user_id, profile.created_at])) as Record<number, string>;
+}
+
+function formatRegistrationDate(value?: string | null) {
+  if (!value) return null;
+  const date = new Date(value);
+  return Number.isNaN(date.getTime())
+    ? null
+    : new Intl.DateTimeFormat(undefined, { dateStyle: 'medium' }).format(date);
+}
+
 function ForgeAuthorLink({
   id,
   authorName,
@@ -1065,6 +1084,11 @@ function ForgeDashboard({
   const [hasMoreChat, setHasMoreChat] = useState(false);
   const [loadingMoreChat, setLoadingMoreChat] = useState(false);
   const [stats, setStats] = useState<ForgeStatsResponse | null>(null);
+  const [statsSearch, setStatsSearch] = useState('');
+  const [searchedVisits, setSearchedVisits] = useState<ForgeStatsVisit[]>([]);
+  const [searchedVisitCursor, setSearchedVisitCursor] = useState<string | null>(null);
+  const [searchedVisitsHaveMore, setSearchedVisitsHaveMore] = useState(false);
+  const [searchingVisits, setSearchingVisits] = useState(false);
   const [visitorProfiles, setVisitorProfiles] = useState<Record<number, ChatAuthorProfile>>({});
   const [visitorTournaments, setVisitorTournaments] = useState<Record<number, VisitorTournament[]>>({});
   const [visitCursor, setVisitCursor] = useState<string | null>(null);
@@ -1172,17 +1196,70 @@ function ForgeDashboard({
     };
   }, [adminManagerName, adminUserId, since]);
 
+  const searchTerm = statsSearch.trim().toLocaleLowerCase();
+  const searchUserId = searchTerm
+    ? (stats?.visitors || []).find((visitor) => visitor.userId !== null && (
+      visitor.managerName?.toLocaleLowerCase().includes(searchTerm)
+      || String(visitor.userId).includes(searchTerm)
+    ))?.userId ?? null
+    : null;
+
+  useEffect(() => {
+    if (!since || !searchUserId) {
+      setSearchedVisits([]);
+      setSearchedVisitCursor(null);
+      setSearchedVisitsHaveMore(false);
+      setSearchingVisits(false);
+      return;
+    }
+    let cancelled = false;
+    const load = async () => {
+      setSearchingVisits(true);
+      setSearchedVisits([]);
+      setSearchedVisitCursor(null);
+      try {
+        const params = new URLSearchParams({
+          route: 'forge-stats',
+          since,
+          userId: String(searchUserId),
+        });
+        const response = await fetch(`/api/app?${params.toString()}`, { credentials: 'include' });
+        const payload = (await response.json()) as ForgeStatsResponse & { error?: string };
+        if (!response.ok) throw new Error(payload.error || 'Could not search visits.');
+        if (!cancelled) {
+          setSearchedVisits(payload.visits);
+          setSearchedVisitCursor(payload.nextCursor);
+          setSearchedVisitsHaveMore(payload.hasMore);
+        }
+      } catch (loadError) {
+        if (!cancelled) setError(loadError instanceof Error ? loadError.message : 'Could not search visits.');
+      } finally {
+        if (!cancelled) setSearchingVisits(false);
+      }
+    };
+    void load();
+    return () => { cancelled = true; };
+  }, [searchUserId, since]);
+
   const loadMoreVisits = async () => {
-    if (!visitCursor || loadingMore) return;
+    const cursor = searchUserId ? searchedVisitCursor : visitCursor;
+    if (!cursor || loadingMore) return;
     setLoadingMore(true);
     try {
-      const params = new URLSearchParams({ route: 'forge-stats', since, cursor: visitCursor });
+      const params = new URLSearchParams({ route: 'forge-stats', since, cursor });
+      if (searchUserId) params.set('userId', String(searchUserId));
       const response = await fetch(`/api/app?${params.toString()}`, { credentials: 'include' });
       const payload = (await response.json()) as ForgeStatsResponse & { error?: string };
       if (!response.ok) throw new Error(payload.error || 'Could not load more visits.');
-      setStats((current) => (current ? { ...current, visits: [...current.visits, ...payload.visits] } : payload));
-      setVisitCursor(payload.nextCursor);
-      setHasMoreVisits(payload.hasMore);
+      if (searchUserId) {
+        setSearchedVisits((current) => [...current, ...payload.visits]);
+        setSearchedVisitCursor(payload.nextCursor);
+        setSearchedVisitsHaveMore(payload.hasMore);
+      } else {
+        setStats((current) => (current ? { ...current, visits: [...current.visits, ...payload.visits] } : payload));
+        setVisitCursor(payload.nextCursor);
+        setHasMoreVisits(payload.hasMore);
+      }
     } catch (loadError) {
       setError(loadError instanceof Error ? loadError.message : 'Could not load more visits.');
     } finally {
@@ -1291,8 +1368,49 @@ function ForgeDashboard({
         details: activityEventDetails(event),
       });
     }
-    return items.sort((left, right) => right.at.localeCompare(left.at)).slice(0, 30);
+    return items.sort((left, right) => right.at.localeCompare(left.at));
   }, [latestUsers, stats?.recentActivity]);
+
+  const visibleVisitors = (stats?.visitors || []).filter((visitor) =>
+    !searchTerm || [
+      visitor.managerName,
+      visitor.userId,
+      visitor.visitorId,
+      visitor.firstSeen,
+      visitor.lastSeen,
+      ...visitor.countries,
+      ...visitor.platforms,
+      ...visitor.browsers,
+      ...visitor.routes,
+      ...(visitor.userId ? (visitorTournaments[visitor.userId] || []).map((tournament) => tournament.name) : []),
+    ].some((value) => String(value ?? '').toLocaleLowerCase().includes(searchTerm)),
+  );
+  const managerNameById = new Map(
+    (stats?.visitors || [])
+      .filter((visitor) => visitor.userId !== null && visitor.managerName)
+      .map((visitor) => [visitor.userId as number, visitor.managerName as string]),
+  );
+  const visitsForSearch = searchUserId ? searchedVisits : (stats?.visits || []);
+  const visibleVisits = visitsForSearch.filter((visit) =>
+    !searchTerm || (searchUserId !== null && visit.userId === searchUserId) || [
+      visit.managerName,
+      visit.userId,
+      visit.visitorId,
+      visit.countryCode,
+      visit.language,
+      visit.platform,
+      visit.browser,
+      visit.referrer,
+      visit.firstSeen,
+      visit.lastSeen,
+      ...visit.pages.map((page) => page.route),
+      ...visit.pages.map((page) => page.visitedAt),
+      ...visit.actions,
+    ].some((value) => String(value ?? '').toLocaleLowerCase().includes(searchTerm)),
+  );
+  const visibleFeed = searchTerm
+    ? feed.filter((item) => [item.title, item.who, item.details, item.at].some((value) => value.toLocaleLowerCase().includes(searchTerm)))
+    : feed.slice(0, 30);
 
   const chatFeed = useMemo(
     () =>
@@ -1319,16 +1437,7 @@ function ForgeDashboard({
   return (
     <section className={styles.sectionStack}>
       <div className={styles.dashboardHeading}>
-        <div>
-          <h1 className={styles.pageTitle}>Dashboard</h1>
-          <p className={styles.smallNote}>
-            Visitor journeys and community activity, with your own admin traffic excluded.
-          </p>
-        </div>
-        <Button variant="outline" size="sm" disabled={loading || trendLoading} onClick={() => setClock(Date.now())}>
-          <ArrowClockwise size={16} />
-          {loading || trendLoading ? 'Refreshing...' : 'Refresh data'}
-        </Button>
+        <h1 className={styles.pageTitle}>Dashboard</h1>
       </div>
       <div className={styles.analyticsLayout}>
         <div className={styles.analyticsMain}>
@@ -1388,17 +1497,31 @@ function ForgeDashboard({
             )}
           </SectionCard>
 
+          <div className={styles.dashboardListToolbar}>
+            <input
+              type="search"
+              className={styles.dashboardSearch}
+              aria-label="Search dashboard lists"
+              placeholder="Search..."
+              value={statsSearch}
+              onChange={(event) => setStatsSearch(event.target.value)}
+            />
+            <Button variant="outline" size="sm" disabled={loading || trendLoading} onClick={() => setClock(Date.now())}>
+              <ArrowClockwise size={16} />
+              {loading || trendLoading ? 'Refreshing...' : 'Refresh data'}
+            </Button>
+          </div>
+
           <SectionCard
             title="Recent visitors"
-            subtitle="Most recently active in the selected period."
             className={`${styles.surfaceCard} ${styles.dashboardRecentVisitors}`}
           >
             {loading && <p className={styles.smallNote}>Loading visitors...</p>}
-            {!loading && stats?.visitors.length === 0 && (
-              <p className={styles.smallNote}>No visitors in this period.</p>
+            {!loading && visibleVisitors.length === 0 && (
+              <p className={styles.smallNote}>{searchTerm ? 'No visitors match this search.' : 'No visitors in this period.'}</p>
             )}
             <div className={styles.dashboardVisitorList}>
-              {stats?.visitors.slice(0, recentVisitorLimit).map((visitor) => (
+              {visibleVisitors.slice(0, recentVisitorLimit).map((visitor) => (
                 <div key={visitor.visitorId} className={styles.dashboardVisitorRow}>
                   <div>
                     <strong>
@@ -1432,7 +1555,7 @@ function ForgeDashboard({
                 </div>
               ))}
             </div>
-            {(stats?.visitors.length || 0) > recentVisitorLimit && (
+            {visibleVisitors.length > recentVisitorLimit && (
               <Button variant="showMore" onClick={() => setRecentVisitorLimit((limit) => limit + 12)}>
                 Load 12 more visitors
               </Button>
@@ -1441,18 +1564,26 @@ function ForgeDashboard({
 
           <SectionCard
             title={`Visits · ${FORGE_PERIODS.find((option) => option.value === period)?.label.toLowerCase()}`}
-            subtitle="Open a page in a new tab to inspect it. Your admin browsing is excluded."
             className={`${styles.surfaceCard} ${styles.dashboardVisits}`}
           >
-            {loading && <p className={styles.smallNote}>Loading visits...</p>}
+            {(loading || searchingVisits) && <p className={styles.smallNote}>Loading visits...</p>}
             {error && <p className={styles.errorText}>{error}</p>}
-            {!loading && stats?.visits.length === 0 && <p className={styles.smallNote}>No visits in this period.</p>}
+            {!loading && !searchingVisits && visibleVisits.length === 0 && (
+              <p className={styles.smallNote}>
+                {searchTerm
+                  ? 'No visits match this search.'
+                  : 'No visits in this period.'}
+              </p>
+            )}
             <div className={styles.visitList}>
-              {stats?.visits.map((visit) => (
-                <ActivityVisitCard key={visit.visitId} visit={visit} />
+              {visibleVisits.map((visit) => (
+                <ActivityVisitCard
+                  key={visit.visitId}
+                  visit={{ ...visit, managerName: visit.managerName || (visit.userId ? managerNameById.get(visit.userId) || null : null) }}
+                />
               ))}
             </div>
-            {hasMoreVisits && (
+            {(searchUserId ? searchedVisitsHaveMore : hasMoreVisits) && (
               <Button variant="showMore" disabled={loadingMore} onClick={() => void loadMoreVisits()}>
                 {loadingMore ? 'Loading...' : 'Load 30 more visits'}
               </Button>
@@ -1464,9 +1595,13 @@ function ForgeDashboard({
             className={`${styles.surfaceCard} ${styles.dashboardActivity}`}
           >
             {loading && <p className={styles.smallNote}>Loading activity...</p>}
-            {!loading && feed.length === 0 && <p className={styles.smallNote}>No community activity in this period.</p>}
+            {!loading && visibleFeed.length === 0 && (
+              <p className={styles.smallNote}>
+                {searchTerm ? 'No community activity matches this search.' : 'No community activity in this period.'}
+              </p>
+            )}
             <div className={styles.activityFeed}>
-              {feed.map((item) => (
+              {visibleFeed.map((item) => (
                 <article key={item.id} className={styles.activityFeedItem}>
                   <div className={styles.activityFeedHeading}>
                     <strong>{item.title}</strong>
@@ -2358,6 +2493,7 @@ function ForgeTestingSection() {
   const [loading, setLoading] = useState(false);
   const [directory, setDirectory] = useState(readChallengeableDirectoryState);
   const [directoryTournaments, setDirectoryTournaments] = useState<Record<number, VisitorTournament[]>>({});
+  const [directoryRegistrationDates, setDirectoryRegistrationDates] = useState<Record<number, string>>({});
   const [directoryLoading, setDirectoryLoading] = useState(false);
   const [directoryRefreshing, setDirectoryRefreshing] = useState(false);
   const [directoryError, setDirectoryError] = useState('');
@@ -2372,9 +2508,12 @@ function ForgeTestingSection() {
       .filter((id) => id > 0 && !directoryTournamentLookups.current.has(id));
     if (managerIds.length === 0) return;
     managerIds.forEach((id) => directoryTournamentLookups.current.add(id));
-    void loadVisitorTournaments(managerIds).then((tournaments) => {
-      setDirectoryTournaments((current) => ({ ...current, ...tournaments }));
-    });
+    void Promise.all([loadVisitorTournaments(managerIds), loadManagerRegistrationDates(managerIds)]).then(
+      ([tournaments, registrationDates]) => {
+        setDirectoryTournaments((current) => ({ ...current, ...tournaments }));
+        setDirectoryRegistrationDates((current) => ({ ...current, ...registrationDates }));
+      },
+    );
   }, [directory.users]);
 
   useEffect(() => {
@@ -2441,6 +2580,7 @@ function ForgeTestingSection() {
     if (shouldRestart) {
       directoryTournamentLookups.current.clear();
       setDirectoryTournaments({});
+      setDirectoryRegistrationDates({});
       setDirectory({
         users: [],
         issues: [],
@@ -2797,6 +2937,18 @@ function ForgeTestingSection() {
             {visibleDirectoryUsers.map((manager) => (
               <article key={manager.managerId}>
                 <h3>{manager.managerName}</h3>
+                <a
+                  href={`https://www.hattrick.org/goto.ashx?path=/Club/Manager/?userId=${manager.managerId}`}
+                  target="_blank"
+                  rel="noreferrer"
+                >
+                  {manager.managerId}
+                </a>
+                {formatRegistrationDate(directoryRegistrationDates[manager.managerId]) && (
+                  <span className={styles.challengeableManagerRegistrationDate}>
+                    Registered {formatRegistrationDate(directoryRegistrationDates[manager.managerId])}
+                  </span>
+                )}
                 {(directoryTournaments[manager.managerId] || []).length > 0 && (
                   <div className={styles.challengeableManagerTournaments}>
                     {(directoryTournaments[manager.managerId] || []).map((tournament) => (
@@ -2811,13 +2963,6 @@ function ForgeTestingSection() {
                     ))}
                   </div>
                 )}
-                <a
-                  href={`https://www.hattrick.org/goto.ashx?path=/Club/Manager/?userId=${manager.managerId}`}
-                  target="_blank"
-                  rel="noreferrer"
-                >
-                  {manager.managerId}
-                </a>
                 <ul>
                   {manager.teams.map((team) => {
                     const leagueFlagUrl = getLeagueFlagUrl(team.leagueId);

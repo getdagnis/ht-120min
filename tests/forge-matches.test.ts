@@ -72,6 +72,7 @@ test('duplicate outgoing challenge is found for the exact opponent and disables 
   });
   assert.equal(actions.chppState, 'OUTGOING CHALLENGE');
   assert.equal(actions.canChallenge, false);
+  assert.equal(actions.canWithdraw, true);
 });
 
 test('incoming exact-opponent challenge enables accept and a wrong opponent does not', () => {
@@ -105,6 +106,7 @@ test('arranged fixture disables challenge actions', () => {
   assert.equal(actions.chppState, 'ARRANGED');
   assert.equal(actions.canChallenge, false);
   assert.equal(actions.canAccept, false);
+  assert.equal(actions.canWithdraw, false);
 });
 
 test('missing credentials produce a safe disabled state without crashing', () => {

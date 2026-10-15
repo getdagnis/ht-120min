@@ -142,6 +142,7 @@ Next evolution:
 - discovery + onboarding funnels
 - richer competition formats
 - automated participation cycles
+- Move site-operator diagnostics, CHPP interventions, and exceptional fixture repairs into Forge as those controls mature. Keep tournament admin focused on routine organizer decisions and actions; preserve the existing flows until their Forge replacements are proven.
 
 ---
 
