@@ -235,11 +235,11 @@ export const TeamByline: React.FC<TeamBylineProps> = ({
                   alt={displayCountryName || uiText('country')}
                   title={countryTooltip || undefined}
                   className={styles.flagIcon}
-                  {...(mode === 'standings' && countryTooltip
+                  {...(countryTooltip
                     ? { 'data-tooltip-id': `${tooltipIdBase}-country` }
                     : {})}
                 />
-                {mode === 'standings' && countryTooltip && (
+                {countryTooltip && (
                   <Tooltip id={`${tooltipIdBase}-country`} content={countryTooltip} className="tooltip" />
                 )}
               </>

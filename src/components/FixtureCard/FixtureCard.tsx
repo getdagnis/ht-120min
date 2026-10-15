@@ -39,6 +39,8 @@ interface TeamProps {
 }
 
 interface FixtureCardProps {
+  matchId?: string;
+  isOwned?: boolean;
   homeTeam: TeamProps;
   awayTeam: TeamProps;
   status: 'arranged' | 'not_arranged' | 'ongoing' | 'misarranged' | 'finished';
@@ -432,6 +434,8 @@ function specialtyPositionText(group: SpecialtyPositionGroup) {
 }
 
 export const FixtureCard: React.FC<FixtureCardProps> = ({
+  matchId,
+  isOwned = false,
   homeTeam,
   awayTeam,
   status,
@@ -572,7 +576,8 @@ export const FixtureCard: React.FC<FixtureCardProps> = ({
 
   return (
     <div
-      className={`${styles.fixtureCard} ${ratingsPreview || ratingsSharedStatus ? styles.withRatingsPreview : ''} ${status === 'finished' ? styles.withFinishedDetails : ''}`}
+      data-fixture-id={matchId}
+      className={`${styles.fixtureCard} ${isOwned ? styles.ownedFixture : ''} ${ratingsPreview || ratingsSharedStatus ? styles.withRatingsPreview : ''} ${status === 'finished' ? styles.withFinishedDetails : ''}`}
     >
       <div className={styles.teamContainer}>
         <div className={styles.logoWrapper}>

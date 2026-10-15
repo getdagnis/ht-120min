@@ -402,6 +402,14 @@ export const FixturesView: React.FC<FixturesViewProps> = ({
   const tournamentId = tournament?.id;
   const currentRoundScrollTargetRef = React.useRef<HTMLDivElement | null>(null);
   const hasAutoScrolledToCurrentRoundRef = React.useRef(false);
+  const hasAutoScrolledToOwnedMatchRef = React.useRef<string | null>(null);
+  const isOwnedMatch = React.useCallback((match: FixtureMatch) => Boolean(currentHtUserId) && (
+    Number(match.home_team?.hattrick_user_id) === currentHtUserId ||
+    Number(match.away_team?.hattrick_user_id) === currentHtUserId
+  ), [currentHtUserId]);
+  const ownedMatchId = !selectedTeamId && focusedRound && focusedRound.matches.length >= 6
+    ? focusedRound.matches.find(isOwnedMatch)?.id ?? null
+    : null;
   const visibleRoundsCount = manualVisibleRoundsCount ?? defaultVisibleRoundsCount;
   const fixtureTeams = React.useMemo(() => {
     const byId = new Map<string, { id: string; name: string }>();
@@ -594,11 +602,14 @@ export const FixturesView: React.FC<FixturesViewProps> = ({
   );
 
   const scrollToFocusedRound = React.useCallback(() => {
-    if (!focusedRound || focusedRound.round_number < 3) return false;
+    if (!focusedRound || (focusedRound.round_number < 3 && !ownedMatchId)) return false;
 
-    const target =
+    const roundTarget =
       currentRoundScrollTargetRef.current ??
       document.querySelector<HTMLElement>(`[data-round-id="${focusedRound.id}"]`);
+    const target = ownedMatchId
+      ? roundTarget?.querySelector<HTMLElement>(`[data-fixture-id="${ownedMatchId}"]`)
+      : roundTarget;
 
     if (!target) return false;
 
@@ -607,21 +618,26 @@ export const FixturesView: React.FC<FixturesViewProps> = ({
 
     window.scrollTo({ top, behavior: 'smooth' });
     return true;
-  }, [focusedRound]);
+  }, [focusedRound, ownedMatchId]);
 
   React.useEffect(() => {
-    if (!focusedRound || focusedRound.round_number < 3) return;
-    if (hasAutoScrolledToCurrentRoundRef.current) return;
+    if (!focusedRound || (focusedRound.round_number < 3 && !ownedMatchId)) return;
+    if (ownedMatchId
+      ? hasAutoScrolledToOwnedMatchRef.current === ownedMatchId
+      : hasAutoScrolledToCurrentRoundRef.current) return;
 
     let cancelled = false;
     let attempts = 0;
     let timerId: number | undefined;
 
     const attemptScroll = () => {
-      if (cancelled || hasAutoScrolledToCurrentRoundRef.current) return;
+      if (cancelled || (ownedMatchId
+        ? hasAutoScrolledToOwnedMatchRef.current === ownedMatchId
+        : hasAutoScrolledToCurrentRoundRef.current)) return;
 
       if (scrollToFocusedRound()) {
         hasAutoScrolledToCurrentRoundRef.current = true;
+        if (ownedMatchId) hasAutoScrolledToOwnedMatchRef.current = ownedMatchId;
         return;
       }
 
@@ -637,7 +653,7 @@ export const FixturesView: React.FC<FixturesViewProps> = ({
       cancelled = true;
       if (timerId !== undefined) window.clearTimeout(timerId);
     };
-  }, [focusedRound, focusedRound?.id, focusedRound?.round_number, scrollToFocusedRound]);
+  }, [focusedRound, focusedRound?.id, focusedRound?.round_number, ownedMatchId, scrollToFocusedRound]);
 
   const resolveMatchDate = React.useCallback(
     (round: { created_at: string; round_number: number }, match: FixtureMatch) =>
@@ -1335,6 +1351,8 @@ export const FixturesView: React.FC<FixturesViewProps> = ({
                     return (
                       <FixtureCard
                         key={match.id}
+                        matchId={match.id}
+                        isOwned={isOwnedMatch(match)}
                         ratingsPreview={
                           showRatings
                             ? { home: ratingsDisplay(homeRatings), away: ratingsDisplay(awayRatings) }
