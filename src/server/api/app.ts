@@ -780,7 +780,10 @@ async function handleMoveInactiveTeamToReserve(req: VercelRequest, res: VercelRe
     return res.status(403).json({ error: 'This role cannot manage tournament teams.' });
   }
 
-  const { data, error } = await getServiceSupabase().rpc('move_inactive_team_to_reserve', {
+  const rpc = actor.access.isImplicitSuperadmin
+    ? 'move_inactive_team_to_reserve_as_site_admin'
+    : 'move_inactive_team_to_reserve';
+  const { data, error } = await getServiceSupabase().rpc(rpc, {
     p_tournament_id: tournamentId,
     p_season_number: seasonNumber,
     p_team_id: teamId,

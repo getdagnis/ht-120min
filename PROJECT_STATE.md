@@ -8,6 +8,8 @@ The local MVP includes a deterministic Meet the Manager spotlight built from per
 
 ## Current Product State
 
+The site-admin-only inactive-team-to-reserve exception is prepared locally in migration `123_site_admin_inactive_team_to_reserve.sql` and the existing consolidated API. It reuses the guarded reserve move while skipping the country-size allowance for a verified site admin; ordinary organizer moves remain unchanged. The migration is not agent-applied and the API change is not deployed.
+
 Site-admin Add placeholder now uses the existing server-only membership exception for unscheduled rosters, allowing preparation of a roster while the Hattrick team remains in another tournament. Eligibility, closed-registration and duplicate-roster guards remain; no credentials, schedule sides or other tournament registrations are moved. No new migration or route handler is added. Live admission is unverified. See [placeholder admission](docs/tournament-lifecycle.md#site-admin-placeholder-admission).
 
 Participant ownership repair is implemented locally through the existing operational-admin reserve endpoint: **Validate known team** can enrich an active tournament row after verifying current CHPP ownership without changing its schedule identity. Prepared, agent-unapplied migration `120_restore_same_team_to_vacant_slot.sql` permits the latest removed Hattrick club to refill its former slot while retaining future arranged match links; different-club and started-fixture protections remain. Real CHPP, Supabase application and browser restoration are unverified. See [same-club restoration](docs/season-slot-compatibility.md#same-club-validation-and-restoration).
