@@ -82,16 +82,27 @@ lineage and protected-fixture checks still apply. The owner reports applying
 the migration to production Supabase on 2026-10-16; this was not independently
 verified.
 
-A verified site admin can also promote a reserve past `max_teams` after
-confirming a warning that names the configured limit and current participant
-count. Migration `128_site_admin_team_limit_override.sql` lets the service-only
-site-admin wrapper bypass the database capacity guard. Direct promotion is also
-available after rounds have been generated while registration remains open; it
-does not assign a current-season slot or alter existing fixtures. The current
-scheduled-team Remove action requires a slot, so removal of such an unslotted
-participant remains unresolved. Ordinary organizers remain subject to
-`max_teams`. Migration 128 has an owner-added applied marker; live application
-was not independently verified.
+A verified site admin can promote a reserve past `max_teams` after confirming a
+warning. Migration `131_site_admin_team_move_overrides.sql` prepares the direct
+promotion wrapper to bypass membership, country-size, and capacity guards
+without deactivating the same team in another planning tournament. Promotion
+adds the team to the roster only: it creates no season slot and changes no
+fixture. The site admin can choose **Fill next vacant slot** separately; that
+action may assign the reserve to eligible unplayed fixtures and still rejects
+protected fixtures. Ordinary organizers retain their existing guards.
+
+Migration `132_site_admin_scheduled_roster_actions.sql` prepares a service-only
+action to remove or demote a direct post-generation promotion when it has no
+current-season slot, assignment, or fixture reference. A slotted removal still
+uses the existing guarded vacate RPC; to demote a slotted team, remove it first
+and then move its Past row to reserves. The migration also prepares site-admin
+swaps, vacancy fills, pre-schedule capacity override, and staged admission
+without an HFI rank, while preserving protected-fixture and slot checks. A Past
+row's released-slot fill retains its cross-tournament guard because migration
+`126_past_team_admin_actions.sql` is still prepared locally. Direct roster
+promotion is the available alternative when that guard blocks a site admin,
+but it does not assign fixtures. Migrations 131 and 132 are local files; neither
+was applied or run against live Supabase by the agent.
 
 An ongoing current season can also be reset to planning before any match is
 ongoing or finished. The atomic reset clears only that season's rounds, matches,

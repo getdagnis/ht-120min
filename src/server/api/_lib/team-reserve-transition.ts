@@ -28,8 +28,12 @@ export function validateTeamReserveTransition(input: {
   maxTeams: number | null;
   allowTeamLimitOverride?: boolean;
   allowGeneratedPromotion?: boolean;
+  allowGeneratedDemotion?: boolean;
 }): TeamReserveTransitionResult {
-  if (input.hasGeneratedRounds && !(input.action === 'to_participant' && input.allowGeneratedPromotion)) {
+  if (input.hasGeneratedRounds && !(
+    (input.action === 'to_participant' && input.allowGeneratedPromotion) ||
+    (input.action === 'to_reserve' && input.allowGeneratedDemotion)
+  )) {
     return {
       ok: false,
       status: 409,

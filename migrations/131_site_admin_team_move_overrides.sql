@@ -6,13 +6,21 @@ DO $$
 DECLARE
   promotion_rpc regprocedure := to_regprocedure('public.promote_tournament_reserve_as_site_admin(uuid,uuid)');
   membership_guard regprocedure := to_regprocedure('public.enforce_tournament_membership()');
+  definition text;
 BEGIN
   IF promotion_rpc IS NULL OR membership_guard IS NULL
     OR strpos(pg_get_functiondef(promotion_rpc), 'ht120.site_admin_team_limit_bypass') = 0
     OR strpos(pg_get_functiondef(membership_guard), 'ht120.membership_bypass') = 0
-    OR strpos(pg_get_functiondef(membership_guard), 'ht120.site_admin_team_limit_bypass') = 0 THEN
+    OR strpos(pg_get_functiondef(membership_guard), 'ht120.site_admin_team_limit_bypass') = 0
+    OR strpos(pg_get_functiondef(membership_guard),
+      'IF public.tournament_is_exclusive(target.status,target.is_test,target.registration_type) THEN') = 0 THEN
     RAISE EXCEPTION 'Site-admin promotion prerequisites differ from the expected schema; inspect the installed functions';
   END IF;
+  -- Keep all installed trigger logic, changing only its planning-row side effect.
+  definition := pg_get_functiondef(membership_guard);
+  EXECUTE replace(definition,
+    'IF public.tournament_is_exclusive(target.status,target.is_test,target.registration_type) THEN',
+    'IF public.tournament_is_exclusive(target.status,target.is_test,target.registration_type) AND current_setting(''ht120.membership_bypass'',true) IS DISTINCT FROM ''true'' THEN');
 END $$;
 
 -- The site-admin wrapper already bypasses the configured team limit. Also

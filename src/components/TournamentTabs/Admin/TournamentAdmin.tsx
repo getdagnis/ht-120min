@@ -390,6 +390,7 @@ export const TournamentAdmin: React.FC<{ controller: TournamentAdminController }
   const adminRegistrationOpen = Boolean(
     !tournament.registration_closed_at && !['finished', 'stopped', 'archived'].includes(tournament.status),
   );
+  const tournamentAllowsTeamActions = !['finished', 'stopped', 'archived'].includes(tournament.status);
   const {
     isAdminAuthenticated,
     roleAccessLoading,
@@ -1824,6 +1825,7 @@ export const TournamentAdmin: React.FC<{ controller: TournamentAdminController }
                                         )}
                                         {isGenerated &&
                                           roleAccess?.canManageOperations &&
+                                          seasonSlots.some((slot) => slot.current_team_id === team.id) &&
                                           reserveTeams.length > 0 &&
                                           (reserveReplacingTeamId === team.id ? (
                                             <div className={adminStyles.inlineReplace}>
@@ -1939,7 +1941,8 @@ export const TournamentAdmin: React.FC<{ controller: TournamentAdminController }
                                             <ArrowClockwise size={16} /> Replace
                                           </Button>
                                         ) : null}
-                                        {!isGenerated && roleAccess?.canManageOperations && (
+                                        {roleAccess?.canManageOperations && tournamentAllowsTeamActions &&
+                                          (!isGenerated || (isSiteAdmin && !seasonSlots.some((slot) => slot.current_team_id === team.id))) && (
                                           <Button
                                             size="xs"
                                             variant="action"
@@ -2241,16 +2244,16 @@ export const TournamentAdmin: React.FC<{ controller: TournamentAdminController }
                                         </Button>
                                       </div>
                                     )}
-                                    {roleAccess?.canManageOperations &&
-                                      ((isGenerated && (seasonSlots.some((slot) => slot.current_team_id === null) ||
-                                        (adminRegistrationOpen && (isSiteAdmin || maxTeamsAllowsPromotion)))) ||
+                                    {roleAccess?.canManageOperations && tournamentAllowsTeamActions &&
+                                      ((isGenerated && (isSiteAdmin || seasonSlots.some((slot) => slot.current_team_id === null) ||
+                                        (adminRegistrationOpen && maxTeamsAllowsPromotion))) ||
                                         (!isGenerated && (isSiteAdmin || maxTeamsAllowsPromotion))) && (
                                         <div className={adminStyles.teamActions}>
                                           <Button
                                             size="xs"
                                             variant="primary"
                                             onClick={() =>
-                                              void (isGenerated && seasonSlots.some((slot) => slot.current_team_id === null)
+                                              void (isGenerated && !isSiteAdmin && seasonSlots.some((slot) => slot.current_team_id === null)
                                                 ? fillVacantSlotWithReserve(team)
                                                 : transitionTeamReserveStatus(team, 'to_participant'))
                                             }
@@ -2258,6 +2261,16 @@ export const TournamentAdmin: React.FC<{ controller: TournamentAdminController }
                                           >
                                             Promote to tournament
                                           </Button>
+                                          {isGenerated && isSiteAdmin && seasonSlots.some((slot) => slot.current_team_id === null) && (
+                                            <Button
+                                              size="xs"
+                                              variant="secondaryAction"
+                                              onClick={() => void fillVacantSlotWithReserve(team)}
+                                              disabled={isSavingTeam}
+                                            >
+                                              Fill next vacant slot
+                                            </Button>
+                                          )}
                                         </div>
                                       )}
                                   </li>
