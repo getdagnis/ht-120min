@@ -148,3 +148,24 @@ test('admitted reserves participate in later rounds without using the original s
   assert.deepEqual(next.flatMap(match => [match.home_team_id, match.away_team_id]).sort(), state.teams.map(team => team.id).sort());
   for (const match of next) assert.ok(!current.some(old => [old.home_team_id, old.away_team_id].sort().join(':') === [match.home_team_id, match.away_team_id].sort().join(':')), 'Complete available unique pairings before rematches');
 });
+
+test('a single site-admin season entrant is included when the next regular round materializes', async () => {
+  const state = harness(4, 1);
+  state.tournament.league_category = 'male';
+  state.rounds[1]!.phase = 'regular';
+  state.plan.regular_pairings = [
+    [{ home_slot_index: 1, away_slot_index: 2 }, { home_slot_index: 3, away_slot_index: 4 }],
+    [{ home_slot_index: 1, away_slot_index: 3 }, { home_slot_index: 2, away_slot_index: 4 }],
+  ];
+  state.teams.push({ ...state.teams[0]!, id: 'team-5', name: 'New participant', ht_team_id: 5, hattrick_user_id: 5 });
+  state.slots.push({ id: 'slot-5', slot_index: 5, current_team_id: 'team-5' });
+  state.slots.push({ id: 'slot-6', slot_index: 6, current_team_id: null });
+  state.assignments.push({ tournament_season_slot_id: 'slot-5', team_id: 'team-5', admission_request_id: 'single-entry', entry_round_id: 'round-2', ranking_source: 'power_rating', ranking_value: 750 });
+
+  await state.progress();
+  const next = state.rounds[1]!.matches as Array<Record<string, unknown>>;
+  assert.equal(next.length, 3);
+  assert.deepEqual(next.flatMap(match => [match.home_team_id, match.away_team_id])
+    .filter(Boolean).sort(), state.teams.map(team => team.id).sort());
+  assert.equal(next.filter(match => !match.home_team_id || !match.away_team_id).length, 1);
+});

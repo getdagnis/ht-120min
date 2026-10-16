@@ -83,26 +83,28 @@ the migration to production Supabase on 2026-10-16; this was not independently
 verified.
 
 A verified site admin can promote a reserve past `max_teams` after confirming a
-warning. Migration `131_site_admin_team_move_overrides.sql` prepares the direct
-promotion wrapper to bypass membership, country-size, and capacity guards
-without deactivating the same team in another planning tournament. Promotion
-adds the team to the roster only: it creates no season slot and changes no
-fixture. The site admin can choose **Fill next vacant slot** separately; that
-action may assign the reserve to eligible unplayed fixtures and still rejects
-protected fixtures. Ordinary organizers retain their existing guards.
+warning. The owner reports applying migrations `131` and `132`; their applied
+markers are preserved, but this agent did not inspect live schema state.
+Migration `133_site_admin_season_participation.sql` is prepared locally to
+correct the roster-only promotion from 131. For a generated season it atomically
+restores that club's own released slot through the guarded fill RPC, including
+eligible unplayed fixture sides, or assigns a new slot and frozen team identity
+for the next regular round of a staged length schedule. Filling another club's
+vacant slot remains a separate explicit action because the incoming club then
+inherits that slot's historical standings line. New slots appear in standings
+immediately; the current round is not changed by a single-team addition. The
+existing paired reserve admission is the way to add new fixtures to the current
+regular round. A generated legacy schedule with no vacancy, or a staged season
+without a future regular round, has no safe single-team scheduling path and
+rejects that promotion. Ordinary organizers retain their existing guards.
 
-Migration `132_site_admin_scheduled_roster_actions.sql` prepares a service-only
-action to remove or demote a direct post-generation promotion when it has no
-current-season slot, assignment, or fixture reference. A slotted removal still
-uses the existing guarded vacate RPC; to demote a slotted team, remove it first
-and then move its Past row to reserves. The migration also prepares site-admin
-swaps, vacancy fills, pre-schedule capacity override, and staged admission
-without an HFI rank, while preserving protected-fixture and slot checks. A Past
-row's released-slot fill retains its cross-tournament guard because migration
-`126_past_team_admin_actions.sql` is still prepared locally. Direct roster
-promotion is the available alternative when that guard blocks a site admin,
-but it does not assign fixtures. Migrations 131 and 132 are local files; neither
-was applied or run against live Supabase by the agent.
+Migration 133 also replaces the site-admin removal/demotion RPC from applied
+132: a released assignment or completed fixture remains history, while an
+unresolved fixture still blocks slotless reclassification. A slotted removal
+continues to use the guarded vacate RPC; demoting a slotted team still requires
+removal first. The owner must apply 133 before deploying its matching API/UI.
+No migration or production data change was performed by the agent; live
+promotion, reversal, standings and scheduling remain unverified.
 
 An ongoing current season can also be reset to planning before any match is
 ongoing or finished. The atomic reset clears only that season's rounds, matches,

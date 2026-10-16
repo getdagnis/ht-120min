@@ -1,3 +1,4 @@
+-- 124_repair_vacant_round_fixtures
 -- Let the existing atomic round repair clear future fixtures whose last
 -- participant was removed from a vacant season slot. Booked rows stay guarded.
 BEGIN;
@@ -117,3 +118,5 @@ END;
 $$;
 
 COMMIT;
+
+-- applied!

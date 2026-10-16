@@ -199,3 +199,5 @@ GRANT EXECUTE ON FUNCTION public.move_current_season_team_as_site_admin(uuid, in
 
 NOTIFY pgrst, 'reload schema';
 COMMIT;
+
+-- applied!

@@ -387,9 +387,6 @@ export const TournamentAdmin: React.FC<{ controller: TournamentAdminController }
     isCurrentSeasonPlanned,
     tournamentSettingsFaqItems,
   } = data;
-  const adminRegistrationOpen = Boolean(
-    !tournament.registration_closed_at && !['finished', 'stopped', 'archived'].includes(tournament.status),
-  );
   const tournamentAllowsTeamActions = !['finished', 'stopped', 'archived'].includes(tournament.status);
   const {
     isAdminAuthenticated,
@@ -1943,14 +1940,26 @@ export const TournamentAdmin: React.FC<{ controller: TournamentAdminController }
                                         ) : null}
                                         {roleAccess?.canManageOperations && tournamentAllowsTeamActions &&
                                           (!isGenerated || (isSiteAdmin && !seasonSlots.some((slot) => slot.current_team_id === team.id))) && (
-                                          <Button
-                                            size="xs"
-                                            variant="action"
-                                            onClick={() => void transitionTeamReserveStatus(team, 'to_reserve')}
-                                            disabled={isSavingTeam}
-                                          >
-                                            Reserve
-                                          </Button>
+                                          <>
+                                            {isGenerated && isSiteAdmin && (
+                                              <Button
+                                                size="xs"
+                                                variant="primary"
+                                                onClick={() => void transitionTeamReserveStatus(team, 'to_participant')}
+                                                disabled={isSavingTeam}
+                                              >
+                                                Integrate into season
+                                              </Button>
+                                            )}
+                                            <Button
+                                              size="xs"
+                                              variant="action"
+                                              onClick={() => void transitionTeamReserveStatus(team, 'to_reserve')}
+                                              disabled={isSavingTeam}
+                                            >
+                                              Reserve
+                                            </Button>
+                                          </>
                                         )}
                                         <Button
                                           size="xs"
@@ -2245,21 +2254,20 @@ export const TournamentAdmin: React.FC<{ controller: TournamentAdminController }
                                       </div>
                                     )}
                                     {roleAccess?.canManageOperations && tournamentAllowsTeamActions &&
-                                      ((isGenerated && (isSiteAdmin || seasonSlots.some((slot) => slot.current_team_id === null) ||
-                                        (adminRegistrationOpen && maxTeamsAllowsPromotion))) ||
+                                      ((isGenerated && (isSiteAdmin || seasonSlots.some((slot) => slot.current_team_id === null))) ||
                                         (!isGenerated && (isSiteAdmin || maxTeamsAllowsPromotion))) && (
                                         <div className={adminStyles.teamActions}>
                                           <Button
                                             size="xs"
                                             variant="primary"
                                             onClick={() =>
-                                              void (isGenerated && !isSiteAdmin && seasonSlots.some((slot) => slot.current_team_id === null)
+                                              void (isGenerated && !isSiteAdmin
                                                 ? fillVacantSlotWithReserve(team)
                                                 : transitionTeamReserveStatus(team, 'to_participant'))
                                             }
                                             disabled={isSavingTeam}
                                           >
-                                            Promote to tournament
+                                            {isGenerated ? 'Promote into season' : 'Promote to tournament'}
                                           </Button>
                                           {isGenerated && isSiteAdmin && seasonSlots.some((slot) => slot.current_team_id === null) && (
                                             <Button

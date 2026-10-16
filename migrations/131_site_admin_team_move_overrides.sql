@@ -64,3 +64,5 @@ GRANT EXECUTE ON FUNCTION public.promote_tournament_reserve_as_site_admin(uuid, 
 
 NOTIFY pgrst, 'reload schema';
 COMMIT;
+
+-- applied!

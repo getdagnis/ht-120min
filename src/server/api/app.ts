@@ -1151,10 +1151,25 @@ async function handleAdminTeamReserveTransition(req: VercelRequest, res: VercelR
   if (roundCountError) throw roundCountError;
   if (participantCountError) throw participantCountError;
 
-  const allowGeneratedPromotion = Boolean(
-    action === 'to_participant' && (roundCount ?? 0) > 0 && (siteAdmin || tournament.registration_closed_at == null) &&
-    !['finished', 'stopped', 'archived'].includes(String(tournament.status)),
-  );
+  if (action === 'to_participant' && (roundCount ?? 0) > 0) {
+    if (!siteAdmin) {
+      return res.status(409).json({ error: 'Use a vacant season slot or staged reserve admission after scheduling.' });
+    }
+    const { data, error } = await supabase.rpc('promote_team_into_current_season_as_site_admin', {
+      p_tournament_id: tournamentId,
+      p_season_number: Number(tournament.season || 1),
+      p_team_id: teamId,
+    });
+    if (error) {
+      const status = ['22023', '23505', '40001', '55000', 'P0002'].includes(error.code || '') ? 409 : 500;
+      return res.status(status).json({ error: error.message });
+    }
+    return res.status(200).json({
+      team: { id: teamId, active: true, reserve_active: false },
+      promotion: data,
+    });
+  }
+
   const allowGeneratedDemotion = Boolean(action === 'to_reserve' && siteAdmin && (roundCount ?? 0) > 0);
 
   const validation = validateTeamReserveTransition({
@@ -1163,7 +1178,7 @@ async function handleAdminTeamReserveTransition(req: VercelRequest, res: VercelR
     hasGeneratedRounds: (roundCount ?? 0) > 0,
     activeParticipantCount: activeParticipantCount ?? 0,
     allowTeamLimitOverride: actor.access.isImplicitSuperadmin,
-    allowGeneratedPromotion,
+    allowGeneratedPromotion: false,
     allowGeneratedDemotion,
     maxTeams:
       tournament.max_teams === null || tournament.max_teams === undefined
