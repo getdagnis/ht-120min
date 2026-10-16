@@ -4,13 +4,13 @@ import { Button } from '../../Button/Button';
 
 type Check = {
   roundId: string; roundNumber: number; canAdmit: boolean; newFieldSize: number; maxTeams: number | null;
-  statuses: Array<{ teamId: string; name: string; inCup: boolean | null; booked: boolean | null; error: string | null }>;
+  statuses: Array<{ teamId: string; name: string; inCup: boolean | null; booked: boolean | null; error: string | null; warnings?: string[] }>;
   matches: Array<{ home_team_id: string; away_team_id: string; scheduled_for: string }>;
   pairs: Array<{ home: string; away: string; scheduledFor: string }>;
 };
 
-export function ReserveAdmissionPanel({ tournamentId, teamIds, onChanged }: {
-  tournamentId: string; teamIds: string[]; onChanged: () => void | Promise<void>;
+export function ReserveAdmissionPanel({ tournamentId, teamIds, isSiteAdmin, onChanged }: {
+  tournamentId: string; teamIds: string[]; isSiteAdmin: boolean; onChanged: () => void | Promise<void>;
 }) {
   const [checked, setChecked] = useState<{ selection: string; result: Check; requestId: string } | null>(null);
   const [busy, setBusy] = useState(false);
@@ -19,8 +19,17 @@ export function ReserveAdmissionPanel({ tournamentId, teamIds, onChanged }: {
   const preview = checked?.selection === selection ? checked : null;
   async function submit(admit: boolean) {
     if (admit && !preview) return;
-    const raiseLimit = Boolean(preview && preview.result.maxTeams !== null && preview.result.newFieldSize > preview.result.maxTeams);
-    if (admit && !window.confirm(`Add ${teamIds.length} reserves to Round ${preview!.result.roundNumber}? Existing fixtures stay unchanged.${raiseLimit ? ` Increase the team limit to ${preview!.result.newFieldSize}.` : ''}`)) return;
+    const raiseLimit = Boolean(preview && preview.result.maxTeams !== null && preview.result.maxTeams > 0 && preview.result.newFieldSize > preview.result.maxTeams);
+    const eligibilityWarnings = [...new Set(preview?.result.statuses.flatMap(status => status.warnings ?? []) ?? [])];
+    const warningText = isSiteAdmin && eligibilityWarnings.length
+      ? `\n\nSite-admin warnings: ${eligibilityWarnings.join(' ')}`
+      : '';
+    const capacityText = raiseLimit
+      ? isSiteAdmin
+        ? `\n\nWarning: this will exceed the configured team limit of ${preview!.result.maxTeams}. The limit setting will stay unchanged.`
+        : ` Increase the team limit to ${preview!.result.newFieldSize}.`
+      : '';
+    if (admit && !window.confirm(`Add ${teamIds.length} reserves to Round ${preview!.result.roundNumber}? Existing fixtures stay unchanged.${capacityText}${warningText}`)) return;
     setBusy(true); setError('');
     try {
       const response = await fetch('/api/app?route=reserve-admission', { method: 'POST', credentials: 'same-origin', headers: { 'Content-Type': 'application/json' },
@@ -42,7 +51,7 @@ export function ReserveAdmissionPanel({ tournamentId, teamIds, onChanged }: {
     {error && <p role="alert">{error}</p>}
     {preview && <>
       <p>Entry: Round {preview.result.roundNumber}. Existing fixtures stay unchanged.</p>
-      <ul>{preview.result.statuses.map(status => <li key={status.teamId}>{status.name}: {status.error || (status.inCup ? 'In cup' : status.booked ? 'Booked' : status.inCup === null ? 'Cup status unavailable' : status.booked === null ? 'Booking status unavailable' : 'Available')}</li>)}</ul>
+      <ul>{preview.result.statuses.map(status => <li key={status.teamId}>{status.name}: {status.error || (status.inCup ? 'In cup' : status.booked ? 'Booked' : status.inCup === null ? 'Cup status unavailable' : status.booked === null ? 'Booking status unavailable' : 'Available')}{status.warnings?.length ? ` · Eligibility warning: ${status.warnings.join(' ')}` : ''}</li>)}</ul>
       {preview.result.pairs.map(pair => <p key={`${pair.home}:${pair.away}`}>{pair.home} vs {pair.away} · {new Date(pair.scheduledFor).toLocaleString('en-GB', { timeZone: 'Europe/Stockholm' })} HT time</p>)}
       <Button type="button" disabled={busy || !preview.result.canAdmit} onClick={() => void submit(true)}>Add {teamIds.length} reserves to Round {preview.result.roundNumber}</Button>
     </>}

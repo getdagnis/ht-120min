@@ -192,3 +192,5 @@ REVOKE ALL ON FUNCTION public.remove_unused_past_tournament_team(uuid,uuid) FROM
 GRANT EXECUTE ON FUNCTION public.fill_past_team_slot_with_reserve(uuid,integer,uuid,uuid) TO service_role;
 GRANT EXECUTE ON FUNCTION public.remove_unused_past_tournament_team(uuid,uuid) TO service_role;
 COMMIT;
+
+-- applied!

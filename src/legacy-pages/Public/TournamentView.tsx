@@ -4430,7 +4430,11 @@ export const TournamentView: React.FC<{
   const addTeam = async (e: React.FormEvent, isJoin: boolean = false, addAsReserve: boolean = false) => {
     if (e) e.preventDefault();
     if (isGenerated && !addAsReserve) {
-      alert('Use a Past team’s Replace action or reserve admission after scheduling.');
+      alert('Add the team to reserves, then promote it into the season or use paired reserve admission for the current round.');
+      return;
+    }
+    if (!isJoin && !addAsReserve && isSiteAdmin && tournament?.registration_closed_at) {
+      alert('Participant registration is closed. Add this team to reserves, then promote it into the season.');
       return;
     }
     const name = isJoin ? joinTeamName : addAsReserve ? reserveTeamName : newTeamName;
@@ -4456,6 +4460,10 @@ export const TournamentView: React.FC<{
     const eligibilityWarning = reserveEligibility?.eligibilityWarnings.length
       ? `\n\nEligibility warning:\n${reserveEligibility.eligibilityWarnings.join('\n')}\nProceed anyway?`
       : '';
+    const siteAdminAddWarning = !isJoin && !addAsReserve && isSiteAdmin
+      ? `\n\nSite-admin warning: eligibility and other tournament membership may conflict.${tournament?.max_teams && activeParticipantCount >= tournament.max_teams
+        ? ` This exceeds the configured limit of ${tournament.max_teams} teams.` : ''}`
+      : '';
     const planningJoin = !addAsReserve && tournament?.status === 'planning';
     if (
       !(await confirm({
@@ -4467,8 +4475,8 @@ export const TournamentView: React.FC<{
         message: addAsReserve
           ? `Add ${name} (ID: ${htId}) to the reserve list?${eligibilityWarning}`
           : planningJoin
-            ? `${name} (ID: ${htId})\n\n${lifecycleText('joinPlanningWarning')}`
-            : `Add ${name} (ID: ${htId}) to the tournament?`,
+            ? `${name} (ID: ${htId})\n\n${lifecycleText('joinPlanningWarning')}${siteAdminAddWarning}`
+            : `Add ${name} (ID: ${htId}) to the tournament?${siteAdminAddWarning}`,
         confirmLabel: uiText('add'),
         cancelLabel: uiText('cancel'),
       }))
@@ -4573,18 +4581,56 @@ export const TournamentView: React.FC<{
   };
 
   const transitionTeamReserveStatus = async (team: Team, action: 'to_reserve' | 'to_participant') => {
-    if (!tournament || isGenerated || !roleAccess?.canManageOperations) return;
+    const allowGeneratedPromotion = Boolean(
+      action === 'to_participant' && tournament && isSiteAdmin &&
+      !['finished', 'stopped', 'archived'].includes(tournament.status),
+    );
+    const allowGeneratedDemotion = action === 'to_reserve' && isSiteAdmin &&
+      !seasonSlots.some((slot) => slot.current_team_id === team.id);
+    if (!tournament || (isGenerated && !allowGeneratedPromotion && !allowGeneratedDemotion) || !roleAccess?.canManageOperations) return;
 
     const isPromoting = action === 'to_participant';
     const nextState = isPromoting ? 'tournament participant' : 'reserve list';
     const overTeamLimit = Boolean(
-      isPromoting && isSiteAdmin && tournament.max_teams && tournament.max_teams > 0 &&
+      isPromoting && !team.active && isSiteAdmin && tournament.max_teams && tournament.max_teams > 0 &&
       activeParticipantCount >= tournament.max_teams
     );
     const limitWarning = overTeamLimit
       ? `\n\nWarning: this will exceed the tournament limit of ${tournament.max_teams} teams (${activeParticipantCount} currently active).`
       : '';
-    if (!window.confirm(`${isPromoting ? 'Promote' : 'Move'} ${team.name} to the ${nextState}?${limitWarning}`)) return;
+    const promotionEligibilityTeam = {
+      leagueName: null,
+      leagueId: team.league_id ?? null,
+      leagueSystemId: team.league_id === 3000 ? 2 : null,
+      genderId: team.gender_id ?? null,
+      countryId: team.country_id ?? null,
+      countryName: team.country_name ?? null,
+    };
+    const promotionWarnings = isSiteAdmin && isPromoting
+      ? [
+          !teamMatchesCategory(promotionEligibilityTeam, tournament.league_category)
+            ? `Team is not eligible for ${tournament.league_category === 'hfi' ? 'HFI' : 'Regular male'} category.`
+            : null,
+          !teamMatchesCountryLimit(
+            promotionEligibilityTeam,
+            normalizeLeagueLimit(tournament.country_limit, tournament.country_limit_format ?? 'league_id'),
+          )
+            ? 'Team does not match the tournament country restriction.'
+            : null,
+        ].filter((warning): warning is string => Boolean(warning))
+      : [];
+    const eligibilityWarning = promotionWarnings.length
+      ? `\n\nEligibility warning: ${promotionWarnings.join(' ')}`
+      : '';
+    const siteAdminOverrideWarning = isSiteAdmin && isPromoting
+      ? '\n\nSite-admin override: category, country, active tournament membership, and team-limit restrictions will not block this promotion. Hattrick booking is not checked here.'
+      : '';
+    const scheduleWarning = isGenerated && allowGeneratedPromotion
+      ? '\n\nThis assigns a season slot and adds the team to standings. The team’s own released slot is restored when available; otherwise it enters future regular-round scheduling and current fixtures stay intact. To fill another team’s vacant slot, choose Fill next vacant slot. For a new fixture in the current round, use paired reserve admission instead.'
+      : isGenerated && allowGeneratedDemotion
+        ? '\n\nThis team has no season slot. Existing fixtures will stay unchanged.'
+      : '';
+    if (!window.confirm(`${isPromoting ? 'Promote' : 'Move'} ${team.name} to the ${nextState}?${eligibilityWarning}${limitWarning}${siteAdminOverrideWarning}${scheduleWarning}`)) return;
 
     setIsSavingTeam(true);
     try {
@@ -4594,9 +4640,15 @@ export const TournamentView: React.FC<{
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ tournamentId: tournament.id, teamId: team.id, action }),
       });
-      const result = (await response.json()) as { error?: string };
+      const result = (await response.json()) as {
+        error?: string;
+        promotion?: { entry?: string; next_round_number?: number; updated_match_count?: number };
+      };
       if (!response.ok) throw new Error(result.error || 'The team status could not be changed.');
       await fetchData({ invalidate: response.headers.get('X-Tournament-Cache') === 'invalidation-failed' });
+      if (result.promotion?.entry === 'future_round') {
+        alert(`${team.name} now has a season slot and appears in standings. The current round is unchanged; eligible fixtures can be generated when Round ${result.promotion.next_round_number} begins.`);
+      }
     } catch (error: any) {
       alert(error.message);
     } finally {
@@ -4609,7 +4661,10 @@ export const TournamentView: React.FC<{
     const formerTeam = teams.find((team) => team.id === formerTeamId);
     const reserveTeam = reserveTeams.find((team) => team.id === selectedReserveTeamId);
     if (!formerTeam || !reserveTeam) return;
-    if (!window.confirm(`Replace ${formerTeam.name} with reserve ${reserveTeam.name}?`)) return;
+    const siteAdminOverrideWarning = isSiteAdmin
+      ? '\n\nSite-admin warning: eligibility, membership, capacity, and Hattrick booking may conflict. Protected fixtures will still block this move.'
+      : '';
+    if (!window.confirm(`Replace ${formerTeam.name} with reserve ${reserveTeam.name}?${siteAdminOverrideWarning}`)) return;
 
     setIsSavingTeam(true);
     try {
@@ -4643,7 +4698,10 @@ export const TournamentView: React.FC<{
 
   const fillVacantSlotWithReserve = async (team: Team) => {
     if (!tournament) return;
-    if (!window.confirm(`Promote ${team.name} into the vacant tournament slot?`)) return;
+    const siteAdminOverrideWarning = isSiteAdmin
+      ? '\n\nSite-admin warning: eligibility, membership, capacity, and Hattrick booking may conflict. Protected fixtures will still block this move.'
+      : '';
+    if (!window.confirm(`Fill the next vacant season slot with ${team.name}? This assigns the team to eligible unplayed fixtures. Completed results stay on that slot's standings line, and protected fixtures stay unchanged.${siteAdminOverrideWarning}`)) return;
 
     setIsSavingTeam(true);
     try {
@@ -4800,9 +4858,10 @@ export const TournamentView: React.FC<{
     const team = teams.find((t) => t.id === id);
     if (!team || !tournament) return;
     if (isGenerated) {
-      const confirmed = window.confirm(
-        `Remove ${team.name} from the scheduled season?\n\nCompleted matches stay in history. Future fixtures for this team become BYEs until the vacant slot is filled by a replacement.`,
-      );
+      const hasSeasonSlot = seasonSlots.some((slot) => slot.current_team_id === team.id);
+      const confirmed = window.confirm(hasSeasonSlot
+        ? `Remove ${team.name} from the scheduled season?\n\nCompleted matches stay in history. Future fixtures for this team become BYEs until the vacant slot is filled by a replacement.`
+        : `Remove ${team.name} from the tournament roster? This team has no current-season slot; existing fixtures will stay unchanged.`);
       if (!confirmed) return;
 
       setIsSavingTeam(true);

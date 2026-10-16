@@ -99,6 +99,18 @@ test('bookings and failed checks block the entire selected group', async t => {
   }
 });
 
+test('site-admin admission shows booking and cup conflicts as warnings but keeps fixture conflicts blocking', async t => {
+  for (const options of [{ blocked: true }, { cup: true }]) {
+    const state = harness(t, options);
+    const result = await checkReserveAdmission(state.supabase, 'cup', state.teams.map(team => team.id), { isSiteAdmin: true });
+    assert.equal(result.canAdmit, true);
+    assert.ok(result.statuses.some(status => status.warnings.length > 0));
+  }
+  const assigned = harness(t, { assigned: true });
+  const result = await checkReserveAdmission(assigned.supabase, 'cup', assigned.teams.map(team => team.id), { isSiteAdmin: true });
+  assert.equal(result.canAdmit, false);
+});
+
 test('odd selections and postseason entry are rejected', async t => {
   const state = harness(t, { finished: true });
   await assert.rejects(checkReserveAdmission(state.supabase, 'cup', ['one']), /even number/);

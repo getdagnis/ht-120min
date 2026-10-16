@@ -1,6 +1,6 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { fetchManagerTeamsFromChpp, fetchTeamDetailsFromChpp, fetchTeamBookingStatus, getManagerChppCredentials, type MatchmakerBookingResult } from './matchmaker.js';
-import { validateTeamEligibility } from './eligibility.js';
+import { teamMatchesCategory, teamMatchesCountryLimit, validateTeamEligibility } from './eligibility.js';
 import { validateTournamentCountrySizeEligibility } from './country-size-eligibility.js';
 import { managerCountrySizeAllowance } from '../../../../shared/country-size-eligibility.js';
 import { getActiveTournamentConflicts } from './chpp-register.js';
@@ -45,7 +45,12 @@ export async function findVerifiedReserveOwner(supabase: SupabaseClient, teamId:
   return { known, credentials: null, team: null, managerName: null };
 }
 
-export async function checkReserveAdmission(supabase: SupabaseClient, tournamentId: string, teamIds: string[]) {
+export async function checkReserveAdmission(
+  supabase: SupabaseClient,
+  tournamentId: string,
+  teamIds: string[],
+  options: { isSiteAdmin?: boolean } = {},
+) {
   if (teamIds.length < 2 || teamIds.length % 2 || new Set(teamIds).size !== teamIds.length) throw new Error('Select an even number of at least two reserves.');
   const { data: tournament, error: tournamentError } = await supabase.from('tournaments').select('id, season, schedule_mode, status, is_archived, max_teams, league_category, country_limit, country_limit_format, max_country_active_teams, allow_manager_country_size_exception').eq('id', tournamentId).single();
   if (tournamentError) throw tournamentError;
@@ -65,15 +70,31 @@ export async function checkReserveAdmission(supabase: SupabaseClient, tournament
     ? { ...row, active: true, reserve_active: false } : row);
   const { data: fixtures, error: fixtureError } = await supabase.from('matches').select('home_team_id, away_team_id, reserve_team_id').eq('round_id', round.id);
   if (fixtureError) throw fixtureError;
-  const conflicts = await getActiveTournamentConflicts(supabase, teams.map(team => Number(team.ht_team_id)), tournamentId);
+  const conflicts = await getActiveTournamentConflicts(
+    supabase,
+    teams.map(team => Number(team.ht_team_id)),
+    tournamentId,
+  );
   const { data: gateway } = await supabase.from('teams').select('oauth_token, oauth_token_secret').eq('tournament_id', tournamentId).not('oauth_token', 'is', null).not('oauth_token_secret', 'is', null).limit(1).maybeSingle();
   const rankingSource = tournament.league_category === 'hfi' ? 'team_rank' : 'power_rating';
   const match = String(round.reserved_slot_id).match(/S(\d+)-W(\d+)-/);
   if (!match || !round.reserved_slot_date || !round.reserved_slot_kind) throw new Error('The round has no reserved calendar slot.');
   const slot: CalendarSlot = { id: round.reserved_slot_id, htSeason: Number(match[1]), htWeek: Number(match[2]), ht120minSeason: Number(match[1]) - 93, kind: round.reserved_slot_kind, nominalDate: new Date(round.reserved_slot_date), selectable: true, blockedReason: null, warning: null };
-  const statuses: Array<{ teamId: string; name: string; inCup: boolean | null; booked: boolean | null; error: string | null }> = [];
+  const statuses: Array<{
+    teamId: string;
+    name: string;
+    inCup: boolean | null;
+    booked: boolean | null;
+    error: string | null;
+    warnings: string[];
+  }> = [];
   for (const team of teams) {
-    let error: string | null = conflicts.has(Number(team.ht_team_id)) ? 'Already participating in another active tournament.' : null;
+    const warnings: string[] = [];
+    const conflict = conflicts.get(Number(team.ht_team_id));
+    let error: string | null = conflict && !options.isSiteAdmin
+      ? `Already participating in another active tournament: "${conflict.name}".`
+      : null;
+    if (conflict && options.isSiteAdmin) warnings.push(`Already participating in another active tournament: "${conflict.name}".`);
     if ((fixtures || []).some(fixture => [fixture.home_team_id, fixture.away_team_id, fixture.reserve_team_id].includes(team.id))) error = 'Already assigned a fixture in this round.';
     let inCup: boolean | null = null;
     let booked: boolean | null = null;
@@ -81,8 +102,19 @@ export async function checkReserveAdmission(supabase: SupabaseClient, tournament
     try {
       if (!credentials) throw new Error('No CHPP authorization available.');
       const details = await fetchTeamDetailsFromChpp(process.env.CHPP_CONSUMER_KEY!, process.env.CHPP_CONSUMER_SECRET!, credentials, Number(team.ht_team_id));
-      const eligibility = validateTeamEligibility(details, { category: tournament.league_category === 'hfi' ? 'hfi' : 'male', countryLimit: normalizeLeagueLimit(tournament.country_limit, tournament.country_limit_format ?? 'league_id') });
-      if (!eligibility.eligible) error = eligibility.reason || 'This team is not eligible.';
+      const category = tournament.league_category === 'hfi' ? 'hfi' : 'male';
+      const countryLimit = normalizeLeagueLimit(tournament.country_limit, tournament.country_limit_format ?? 'league_id');
+      const eligibility = validateTeamEligibility(details, { category, countryLimit });
+      if (options.isSiteAdmin) {
+        if (!teamMatchesCategory(details, category)) {
+          warnings.push(`Team is not eligible for ${category === 'hfi' ? 'HFI' : 'Regular male'} category.`);
+        }
+        if (!teamMatchesCountryLimit(details, countryLimit)) {
+          warnings.push(`Team is not from the required league (${countryLimit}).`);
+        }
+      } else if (!eligibility.eligible) {
+        error = eligibility.reason || 'This team is not eligible.';
+      }
       const countrySizeEligibility = await validateTournamentCountrySizeEligibility(supabase, {
         tournamentId,
         managerId: team.hattrick_user_id,
@@ -95,7 +127,10 @@ export async function checkReserveAdmission(supabase: SupabaseClient, tournament
                 Number(team.hattrick_user_id), tournament.max_country_active_teams, true).active > 0 }
           : {}),
       });
-      if (!countrySizeEligibility.eligible) error = countrySizeEligibility.reason;
+      if (!countrySizeEligibility.eligible) {
+        if (options.isSiteAdmin) warnings.push(countrySizeEligibility.reason);
+        else error = countrySizeEligibility.reason;
+      }
       const rankingUpdates = {
         ...(details.teamRank !== undefined ? { team_rank: details.teamRank } : {}),
         ...(details.powerRating !== undefined ? { power_rating: details.powerRating } : {}),
@@ -111,10 +146,21 @@ export async function checkReserveAdmission(supabase: SupabaseClient, tournament
       const bookingDate = booking.match ? parseChppStockholmDate(booking.match.matchDate) : null;
       if (booking.isBooked && !bookingDate) throw new Error('Booking date unavailable.');
       booked = booking.isBooked && Boolean(bookingDate && isFriendlyInsideAcceptedWindow(bookingDate, new Date(round.reserved_slot_date), round.reserved_slot_kind));
-      if (inCup === null) error = error || 'Cup status unavailable from Hattrick. Check again before admission.';
-    } catch { error = error || 'Booking/cup status could not be verified.'; }
-    if (rankingSource === 'team_rank' && !(Number(team.team_rank) > 0)) error = error || 'Update HFI ranks before admission.';
-    statuses.push({ teamId: team.id, name: team.name, inCup, booked, error });
+      if (inCup === null) {
+        if (options.isSiteAdmin) warnings.push('Cup status could not be confirmed from Hattrick.');
+        else error = error || 'Cup status unavailable from Hattrick. Check again before admission.';
+      }
+      if (options.isSiteAdmin && inCup) warnings.push('Team is still in the Hattrick cup.');
+      if (options.isSiteAdmin && booked) warnings.push('Team has a conflicting Hattrick booking.');
+    } catch {
+      if (options.isSiteAdmin) warnings.push('Booking/cup status could not be verified from Hattrick.');
+      else error = error || 'Booking/cup status could not be verified.';
+    }
+    if (rankingSource === 'team_rank' && !(Number(team.team_rank) > 0)) {
+      if (options.isSiteAdmin) warnings.push('Update HFI ranks before admission; the current reserve order may be incomplete.');
+      else error = error || 'Update HFI ranks before admission.';
+    }
+    statuses.push({ teamId: team.id, name: team.name, inCup, booked, error, warnings });
   }
   teams.sort((a, b) => {
     const av = Number(a[rankingSource]); const bv = Number(b[rankingSource]);
@@ -131,6 +177,6 @@ export async function checkReserveAdmission(supabase: SupabaseClient, tournament
   if (seasonError) throw seasonError;
   const { count, error: countError } = await supabase.from('tournament_season_slots').select('id', { count: 'exact', head: true }).eq('tournament_season_id', season.id).not('current_team_id', 'is', null);
   if (countError) throw countError;
-  return { tournament, round, teamIds: teams.map(team => String(team.id)), matches, statuses, canAdmit: statuses.every(status => !status.error && status.inCup === false && status.booked === false), newFieldSize: (count || 0) + teams.length,
+  return { tournament, round, teamIds: teams.map(team => String(team.id)), matches, statuses, canAdmit: statuses.every(status => !status.error && (options.isSiteAdmin || (status.inCup === false && status.booked === false))), newFieldSize: (count || 0) + teams.length,
     pairs: matches.map(pair => ({ home: teams.find(team => team.id === pair.home_team_id)!.name, away: teams.find(team => team.id === pair.away_team_id)!.name, scheduledFor: pair.scheduled_for })) };
 }

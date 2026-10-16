@@ -43,6 +43,33 @@ test('rejects reserve transitions after schedule generation', () => {
   if (!result.ok) assert.match(result.error, /schedule has been generated/);
 });
 
+test('allows a site-admin generated-roster demotion while ordinary demotion stays blocked', () => {
+  const input = {
+    action: 'to_reserve' as const,
+    team: participant,
+    hasGeneratedRounds: true,
+    activeParticipantCount: 8,
+    maxTeams: 8,
+  };
+  assert.equal(validateTeamReserveTransition(input).ok, false);
+  assert.deepEqual(validateTeamReserveTransition({ ...input, allowGeneratedDemotion: true }), {
+    ok: true,
+    values: { active: false, reserve_active: true },
+  });
+});
+
+test('site-admin capacity override permits a roster promotion', () => {
+  assert.deepEqual(validateTeamReserveTransition({
+    action: 'to_participant',
+    team: reserve,
+    hasGeneratedRounds: true,
+    allowGeneratedPromotion: true,
+    allowTeamLimitOverride: true,
+    activeParticipantCount: 8,
+    maxTeams: 8,
+  }), { ok: true, values: { active: true, reserve_active: false } });
+});
+
 test('rejects promotion when the participant limit is full', () => {
   const result = validateTeamReserveTransition({
     action: 'to_participant',

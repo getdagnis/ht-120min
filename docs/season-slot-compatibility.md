@@ -79,16 +79,32 @@ season slot even when that Hattrick team is active in another exclusive
 tournament. Migration `127_site_admin_reserve_promotion_membership_bypass.sql`
 adds a service-role-only wrapper around the existing guarded fill RPC; slot
 lineage and protected-fixture checks still apply. The owner reports applying
-the migration to the Supabase instance used for localhost on 2026-10-16; this
-state was not independently verified.
+the migration to production Supabase on 2026-10-16; this was not independently
+verified.
 
-Before schedule generation, a verified site admin can also promote a reserve
-past `max_teams` after confirming a warning that names the configured limit and
-current participant count. Migration `128_site_admin_team_limit_override.sql`
-lets the service-only site-admin wrapper bypass the database capacity guard;
-the API still requires a valid reserve and rejects this transition after rounds
-have been generated. Ordinary organizers remain subject to `max_teams`. The
-migration is prepared locally and is not applied or live-verified.
+A verified site admin can promote a reserve past `max_teams` after confirming a
+warning. The owner reports applying migrations `131` and `132`; their applied
+markers are preserved, but this agent did not inspect live schema state.
+Migration `133_site_admin_season_participation.sql` is prepared locally to
+correct the roster-only promotion from 131. For a generated season it atomically
+restores that club's own released slot through the guarded fill RPC, including
+eligible unplayed fixture sides, or assigns a new slot and frozen team identity
+for the next regular round of a staged length schedule. Filling another club's
+vacant slot remains a separate explicit action because the incoming club then
+inherits that slot's historical standings line. New slots appear in standings
+immediately; the current round is not changed by a single-team addition. The
+existing paired reserve admission is the way to add new fixtures to the current
+regular round. A generated legacy schedule with no vacancy, or a staged season
+without a future regular round, has no safe single-team scheduling path and
+rejects that promotion. Ordinary organizers retain their existing guards.
+
+Migration 133 also replaces the site-admin removal/demotion RPC from applied
+132: a released assignment or completed fixture remains history, while an
+unresolved fixture still blocks slotless reclassification. A slotted removal
+continues to use the guarded vacate RPC; demoting a slotted team still requires
+removal first. The owner must apply 133 before deploying its matching API/UI.
+No migration or production data change was performed by the agent; live
+promotion, reversal, standings and scheduling remain unverified.
 
 An ongoing current season can also be reset to planning before any match is
 ongoing or finished. The atomic reset clears only that season's rounds, matches,
