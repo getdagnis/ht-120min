@@ -4573,7 +4573,11 @@ export const TournamentView: React.FC<{
   };
 
   const transitionTeamReserveStatus = async (team: Team, action: 'to_reserve' | 'to_participant') => {
-    if (!tournament || isGenerated || !roleAccess?.canManageOperations) return;
+    const allowGeneratedPromotion = Boolean(
+      action === 'to_participant' && tournament && !tournament.registration_closed_at &&
+      !['finished', 'stopped', 'archived'].includes(tournament.status),
+    );
+    if (!tournament || (isGenerated && !allowGeneratedPromotion) || !roleAccess?.canManageOperations) return;
 
     const isPromoting = action === 'to_participant';
     const nextState = isPromoting ? 'tournament participant' : 'reserve list';
@@ -4584,7 +4588,37 @@ export const TournamentView: React.FC<{
     const limitWarning = overTeamLimit
       ? `\n\nWarning: this will exceed the tournament limit of ${tournament.max_teams} teams (${activeParticipantCount} currently active).`
       : '';
-    if (!window.confirm(`${isPromoting ? 'Promote' : 'Move'} ${team.name} to the ${nextState}?${limitWarning}`)) return;
+    const promotionEligibilityTeam = {
+      leagueName: null,
+      leagueId: team.league_id ?? null,
+      leagueSystemId: team.league_id === 3000 ? 2 : null,
+      genderId: team.gender_id ?? null,
+      countryId: team.country_id ?? null,
+      countryName: team.country_name ?? null,
+    };
+    const promotionWarnings = isSiteAdmin && isPromoting
+      ? [
+          !teamMatchesCategory(promotionEligibilityTeam, tournament.league_category)
+            ? `Team is not eligible for ${tournament.league_category === 'hfi' ? 'HFI' : 'Regular male'} category.`
+            : null,
+          !teamMatchesCountryLimit(
+            promotionEligibilityTeam,
+            normalizeLeagueLimit(tournament.country_limit, tournament.country_limit_format ?? 'league_id'),
+          )
+            ? 'Team does not match the tournament country restriction.'
+            : null,
+        ].filter((warning): warning is string => Boolean(warning))
+      : [];
+    const eligibilityWarning = promotionWarnings.length
+      ? `\n\nEligibility warning: ${promotionWarnings.join(' ')}`
+      : '';
+    const siteAdminOverrideWarning = isSiteAdmin && isPromoting
+      ? '\n\nSite-admin override: category, country, active tournament membership, and team-limit restrictions will not block this promotion.'
+      : '';
+    const scheduleWarning = allowGeneratedPromotion
+      ? '\n\nThe current generated fixtures will stay unchanged; this team will not be added to a fixture that is already generated.'
+      : '';
+    if (!window.confirm(`${isPromoting ? 'Promote' : 'Move'} ${team.name} to the ${nextState}?${eligibilityWarning}${limitWarning}${siteAdminOverrideWarning}${scheduleWarning}`)) return;
 
     setIsSavingTeam(true);
     try {
@@ -4609,7 +4643,10 @@ export const TournamentView: React.FC<{
     const formerTeam = teams.find((team) => team.id === formerTeamId);
     const reserveTeam = reserveTeams.find((team) => team.id === selectedReserveTeamId);
     if (!formerTeam || !reserveTeam) return;
-    if (!window.confirm(`Replace ${formerTeam.name} with reserve ${reserveTeam.name}?`)) return;
+    const siteAdminOverrideWarning = isSiteAdmin
+      ? '\n\nSite-admin override: category, country, active tournament membership, and team-limit restrictions will not block this move.'
+      : '';
+    if (!window.confirm(`Replace ${formerTeam.name} with reserve ${reserveTeam.name}?${siteAdminOverrideWarning}`)) return;
 
     setIsSavingTeam(true);
     try {
@@ -4643,7 +4680,10 @@ export const TournamentView: React.FC<{
 
   const fillVacantSlotWithReserve = async (team: Team) => {
     if (!tournament) return;
-    if (!window.confirm(`Promote ${team.name} into the vacant tournament slot?`)) return;
+    const siteAdminOverrideWarning = isSiteAdmin
+      ? '\n\nSite-admin override: category, country, active tournament membership, and team-limit restrictions will not block this move.'
+      : '';
+    if (!window.confirm(`Promote ${team.name} into the vacant tournament slot?${siteAdminOverrideWarning}`)) return;
 
     setIsSavingTeam(true);
     try {

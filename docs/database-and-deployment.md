@@ -2,6 +2,8 @@
 
 Supabase stores app-owned tournament, team, match, profile, chat/news, announcement, and matchmaker data. Vercel hosts the frontend and serverless API routes.
 
+The owner confirms that the localhost app connects to the production Supabase database; there is no separate localhost database. Treat migration application and data writes made from localhost as production changes.
+
 ## Supabase Model
 
 Important tables used by current code:
@@ -39,7 +41,7 @@ The app treats tournaments, rounds, matches, standings, chat, and admin decision
 - `migrations/history/` is an archived legacy area.
 - Active migrations must use the root `migrations/` directory.
 - Continue the numeric sequence from the latest active migration.
-- The latest active migration file is `129_allow_reserves_when_participant_registration_closed.sql` (prepared locally; not applied). The owner reports `127_site_admin_reserve_promotion_membership_bypass.sql` applied to the Supabase instance used for localhost on 2026-10-16; not independently verified. Migrations `125_deferred_team_departures.sql` and `126_past_team_admin_actions.sql` remain prepared locally. Owner-added applied markers on earlier migrations are not independent live verification. Review the [lifecycle preflight](tournament-lifecycle-preflight.sql) before converting existing real Open/Waiting rosters. The repository's migration files and owner-added applied markers remain bookkeeping, not independent live schema verification.
+- The latest active migration file is `131_site_admin_team_move_overrides.sql` (prepared locally; no direct evidence of production application). It checks the installed promotion and membership functions before updating the service-role-only direct reserve-promotion wrapper to bypass cross-tournament membership, country-size, and configured team-limit guards after API-side site-admin verification. Migration `130_site_admin_reserve_admission_override.sql` has an owner-added applied marker; live application is not independently verified. Migration `129_allow_reserves_when_participant_registration_closed.sql` is prepared locally. The owner reports `127_site_admin_reserve_promotion_membership_bypass.sql` applied to production Supabase on 2026-10-16; not independently verified. Migrations `125_deferred_team_departures.sql` and `126_past_team_admin_actions.sql` remain prepared locally. Owner-added applied markers on earlier migrations are not independent live verification. Review the [lifecycle preflight](tournament-lifecycle-preflight.sql) before converting existing real Open/Waiting rosters. The repository's migration files and owner-added applied markers remain bookkeeping, not independent live schema verification.
 - Do not create timestamp-prefixed migration names such as `20261001050614_...`.
 - Keep migrations compatible with existing rows when possible.
 - Record migration state in `PROJECT_STATE.md` only when a schema/RPC/RLS change has architectural, security, product-direction, or substantial behavioral impact. Do not add status entries for routine fixes or small implementation details.

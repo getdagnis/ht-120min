@@ -387,6 +387,9 @@ export const TournamentAdmin: React.FC<{ controller: TournamentAdminController }
     isCurrentSeasonPlanned,
     tournamentSettingsFaqItems,
   } = data;
+  const adminRegistrationOpen = Boolean(
+    !tournament.registration_closed_at && !['finished', 'stopped', 'archived'].includes(tournament.status),
+  );
   const {
     isAdminAuthenticated,
     roleAccessLoading,
@@ -1455,6 +1458,7 @@ export const TournamentAdmin: React.FC<{ controller: TournamentAdminController }
                                 <ReserveAdmissionPanel
                                   tournamentId={tournament.id}
                                   teamIds={selectedAdmissionIds}
+                                  isSiteAdmin={isSiteAdmin}
                                   onChanged={async () => {
                                     setAdmissionSelection([]);
                                     await onReservesChanged();
@@ -2238,14 +2242,15 @@ export const TournamentAdmin: React.FC<{ controller: TournamentAdminController }
                                       </div>
                                     )}
                                     {roleAccess?.canManageOperations &&
-                                      ((isGenerated && seasonSlots.some((slot) => slot.current_team_id === null)) ||
+                                      ((isGenerated && (seasonSlots.some((slot) => slot.current_team_id === null) ||
+                                        (adminRegistrationOpen && (isSiteAdmin || maxTeamsAllowsPromotion)))) ||
                                         (!isGenerated && (isSiteAdmin || maxTeamsAllowsPromotion))) && (
                                         <div className={adminStyles.teamActions}>
                                           <Button
                                             size="xs"
                                             variant="primary"
                                             onClick={() =>
-                                              void (isGenerated
+                                              void (isGenerated && seasonSlots.some((slot) => slot.current_team_id === null)
                                                 ? fillVacantSlotWithReserve(team)
                                                 : transitionTeamReserveStatus(team, 'to_participant'))
                                             }
