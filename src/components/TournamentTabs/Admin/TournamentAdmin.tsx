@@ -2239,7 +2239,7 @@ export const TournamentAdmin: React.FC<{ controller: TournamentAdminController }
                                     )}
                                     {roleAccess?.canManageOperations &&
                                       ((isGenerated && seasonSlots.some((slot) => slot.current_team_id === null)) ||
-                                        (!isGenerated && maxTeamsAllowsPromotion)) && (
+                                        (!isGenerated && (isSiteAdmin || maxTeamsAllowsPromotion))) && (
                                         <div className={adminStyles.teamActions}>
                                           <Button
                                             size="xs"
@@ -2251,7 +2251,7 @@ export const TournamentAdmin: React.FC<{ controller: TournamentAdminController }
                                             }
                                             disabled={isSavingTeam}
                                           >
-                                            {isGenerated ? 'Fill vacant slot' : 'Promote to tournament'}
+                                            Promote to tournament
                                           </Button>
                                         </div>
                                       )}

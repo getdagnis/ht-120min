@@ -50,6 +50,7 @@ import {
 } from '../../utils/season-fixtures';
 import {
   getCompatibleLeagueRestrictionOptions,
+  teamMatchesCountryLimit,
   teamMatchesCategory,
   validateTeamEligibility,
 } from '../../utils/team-eligibility';
@@ -4248,6 +4249,9 @@ export const TournamentView: React.FC<{
     validated: boolean;
     known: boolean;
     managerName: string | null;
+    categoryEligible: boolean;
+    countryEligible: boolean;
+    eligibilityWarnings: string[];
   } | null>(null);
 
   const fetchTeamData = async (htId: string, isReplacement: boolean, isReserve = false) => {
@@ -4260,12 +4264,22 @@ export const TournamentView: React.FC<{
 
       // Validation check
       const category = (tournament?.league_category || 'male') as 'male' | 'hfi';
+      const countryLimit = normalizeLeagueLimit(
+        tournament?.country_limit,
+        tournament?.country_limit_format ?? 'league_id',
+      );
+      const categoryEligible = teamMatchesCategory(data, category);
+      const countryEligible = teamMatchesCountryLimit(data, countryLimit);
+      const categoryEligibility = validateTeamEligibility(data, { category, countryLimit: null });
 
       const validation = validateTeamEligibility(data, {
         category,
-        countryLimit: tournament?.country_limit || null,
+        countryLimit,
       });
-      if (!validation.eligible) {
+      if (isReserve && !categoryEligible && !isSiteAdmin) {
+        throw new Error(categoryEligibility.reason || `Team ID ${htId} "${data.teamName}" is not eligible.`);
+      }
+      if (!isReserve && !validation.eligible) {
         throw new Error(validation.reason || `Team ID ${htId} "${data.teamName}" is not eligible.`);
       }
 
@@ -4273,7 +4287,25 @@ export const TournamentView: React.FC<{
         setReplacementName(data.teamName);
       } else if (isReserve) {
         setReserveTeamName(data.teamName);
-        setReserveValidation(null);
+        const requiredCountry = resolveCountryRestriction(
+          tournament?.country_limit,
+          tournament?.country_limit_format,
+        )?.leagueName || tournament?.country_limit || 'the required country';
+        const eligibilityWarnings = [
+          !categoryEligible ? categoryEligibility.reason || 'This team does not match the tournament category.' : null,
+          !countryEligible
+            ? `This team is from ${data.countryName || 'a different country'}, while this tournament is restricted to ${requiredCountry}.`
+            : null,
+        ].filter((warning): warning is string => Boolean(warning));
+        setReserveValidation({
+          teamId: htId,
+          validated: false,
+          known: false,
+          managerName: null,
+          categoryEligible,
+          countryEligible,
+          eligibilityWarnings,
+        });
         const ownershipResponse = await fetch('/api/app?route=reserve-admission', {
           method: 'POST',
           credentials: 'same-origin',
@@ -4282,12 +4314,12 @@ export const TournamentView: React.FC<{
         });
         const ownership = await ownershipResponse.json();
         if (!ownershipResponse.ok) throw new Error(ownership.error || 'Ownership lookup failed.');
-        setReserveValidation({
-          teamId: htId,
+        setReserveValidation((current) => current?.teamId === htId ? {
+          ...current,
           validated: ownership.validated === true,
           known: ownership.known === true,
           managerName: ownership.managerName || null,
-        });
+        } : current);
       } else {
         setNewTeamName(data.teamName);
         setNewTeamData(data);
@@ -4420,6 +4452,10 @@ export const TournamentView: React.FC<{
       return;
     }
 
+    const reserveEligibility = addAsReserve && reserveValidation?.teamId === htId ? reserveValidation : null;
+    const eligibilityWarning = reserveEligibility?.eligibilityWarnings.length
+      ? `\n\nEligibility warning:\n${reserveEligibility.eligibilityWarnings.join('\n')}\nProceed anyway?`
+      : '';
     const planningJoin = !addAsReserve && tournament?.status === 'planning';
     if (
       !(await confirm({
@@ -4429,7 +4465,7 @@ export const TournamentView: React.FC<{
             ? lifecycleText('joinPlanningTitle')
             : uiText('joinTournament'),
         message: addAsReserve
-          ? `Add ${name} (ID: ${htId}) to the reserve list?`
+          ? `Add ${name} (ID: ${htId}) to the reserve list?${eligibilityWarning}`
           : planningJoin
             ? `${name} (ID: ${htId})\n\n${lifecycleText('joinPlanningWarning')}`
             : `Add ${name} (ID: ${htId}) to the tournament?`,
@@ -4450,6 +4486,7 @@ export const TournamentView: React.FC<{
             tournamentId: tournament?.id,
             teamId: htIdInt,
             validated: reserveValidation?.teamId === htId && reserveValidation.validated,
+            countryMismatchConfirmed: reserveEligibility?.countryEligible === false,
           }),
         });
         const result = (await response.json()) as { error?: string };
@@ -4540,7 +4577,14 @@ export const TournamentView: React.FC<{
 
     const isPromoting = action === 'to_participant';
     const nextState = isPromoting ? 'tournament participant' : 'reserve list';
-    if (!window.confirm(`${isPromoting ? 'Promote' : 'Move'} ${team.name} to the ${nextState}?`)) return;
+    const overTeamLimit = Boolean(
+      isPromoting && isSiteAdmin && tournament.max_teams && tournament.max_teams > 0 &&
+      activeParticipantCount >= tournament.max_teams
+    );
+    const limitWarning = overTeamLimit
+      ? `\n\nWarning: this will exceed the tournament limit of ${tournament.max_teams} teams (${activeParticipantCount} currently active).`
+      : '';
+    if (!window.confirm(`${isPromoting ? 'Promote' : 'Move'} ${team.name} to the ${nextState}?${limitWarning}`)) return;
 
     setIsSavingTeam(true);
     try {

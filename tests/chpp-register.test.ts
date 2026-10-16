@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 import type { SupabaseClient } from '@supabase/supabase-js';
 
-import { getActiveTournamentConflicts, registerOAuthTeam } from '../src/server/api/_lib/chpp-register.js';
+import { getActiveTournamentConflicts, registerOAuthTeam, registerReserveTeam } from '../src/server/api/_lib/chpp-register.js';
 
 interface QueryResult {
   data: unknown;
@@ -125,6 +125,60 @@ test('rejoining fails instead of reporting success when the activation update ma
       registerOAuthTeam(mock.client, registrationInput),
       /Could not reactivate Guåhan Goddesses/,
     );
+  });
+});
+
+test('site-admin reserve registration uses the guarded membership-bypass RPC', async () => {
+  const query = {
+    select: () => query,
+    eq: () => query,
+    maybeSingle: async () => ({ data: null, error: null }),
+  };
+  const client = {
+    from(table: string) {
+      assert.equal(table, 'teams');
+      return query;
+    },
+  } as unknown as SupabaseClient;
+
+  await withServiceRpcMock('reserve-team', async (getPayload) => {
+    const id = await registerReserveTeam(client, {
+      ...registrationInput,
+      skipMembershipCheck: true,
+    });
+    assert.equal(id, 'reserve-team');
+    const payload = getPayload() as { p_values: Record<string, unknown>; p_existing_id: unknown; p_skip_membership: unknown };
+    assert.equal(typeof payload.p_values.reserve_joined_at, 'string');
+    assert.deepEqual({ ...payload, p_values: { ...payload.p_values, reserve_joined_at: null } }, {
+      p_values: {
+        tournament_id: 'tournament-2',
+        ht_team_id: 3220518,
+        name: 'Guåhan Goddesses',
+        ht_team_name: 'Guåhan Goddesses',
+        manager_name: 'Dagnis',
+        hattrick_user_id: 8777402,
+        country_id: null,
+        country_name: null,
+        league_id: 9,
+        gender_id: 2,
+        league_level: null,
+        team_rank: 1278,
+        power_rating: null,
+        power_global_rank: null,
+        power_league_rank: null,
+        power_region_rank: null,
+        logo_url: null,
+        oauth_token: 'oauth-token',
+        oauth_token_secret: 'oauth-secret',
+        joined_via_oauth: true,
+        active: false,
+        reapply_season_number: null,
+        reserve_active: true,
+        reserve_joined_at: null,
+      },
+      p_existing_id: null,
+      p_skip_membership: true,
+    });
   });
 });
 

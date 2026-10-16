@@ -7,6 +7,14 @@ const migration = readFileSync(
   fileURLToPath(new URL('../migrations/history/20261001134036_atomic_reserve_slot_swap.sql', import.meta.url)),
   'utf8',
 );
+const siteAdminMigration = readFileSync(
+  fileURLToPath(new URL('../migrations/127_site_admin_reserve_promotion_membership_bypass.sql', import.meta.url)),
+  'utf8',
+);
+const appSource = readFileSync(
+  fileURLToPath(new URL('../src/server/api/app.ts', import.meta.url)),
+  'utf8',
+);
 
 interface FixtureState {
   completed: boolean | null;
@@ -83,4 +91,14 @@ test('reserve slot swap normalizes lifecycle flags and retires warnings without 
   assert.match(migration, /active = true,\s+reserve_active = false,\s+reserve_joined_at = NULL/);
   assert.match(migration, /UPDATE public\.fixture_warnings fw[\s\S]*SET active = false/);
   assert.doesNotMatch(migration, /\breserve_team_id\b|\breserve_replaces_team_id\b/);
+});
+
+test('site-admin reserve promotion bypasses membership only through the service-only guarded RPC', () => {
+  assert.match(siteAdminMigration, /set_config\('ht120\.membership_bypass', 'true', true\)/);
+  assert.match(siteAdminMigration, /fill_vacant_current_season_slot_with_reserve\([\s\S]*p_tournament_id, p_season_number, p_incoming_reserve_team_id/);
+  assert.match(siteAdminMigration, /set_config\('ht120\.membership_bypass', COALESCE\(previous_bypass, 'false'\), true\)/);
+  assert.match(siteAdminMigration, /REVOKE ALL ON FUNCTION[\s\S]*FROM PUBLIC, anon, authenticated/);
+  assert.match(siteAdminMigration, /GRANT EXECUTE ON FUNCTION[\s\S]*TO service_role/);
+  assert.match(appSource, /actor\.access\.isImplicitSuperadmin[\s\S]*fill_vacant_current_season_slot_with_reserve_as_site_admin/);
+  assert.match(migration, /The reserve fill is blocked by a protected fixture/);
 });

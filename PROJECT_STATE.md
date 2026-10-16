@@ -1,6 +1,6 @@
 # PROJECT_STATE.md
 
-Last updated: 2026-10-15
+Last updated: 2026-10-16
 
 This is the current-status ledger. Update it after meaningful implementation work. Be explicit about what is local, migrated, tested, deployed, or still unknown.
 
@@ -9,6 +9,12 @@ The local MVP includes a deterministic Meet the Manager spotlight built from per
 ## Current Product State
 
 Admin Manage Teams now groups current participants, Past teams, and reserves separately in local code. Past teams have direct Replace, Move to reserves, and history-safe Remove actions; scheduled Past replacement targets the specific released slot and uses an existing reserve. The old generated Add Team shortcut that could change fixture sides in the browser has been removed. Migration `126_past_team_admin_actions.sql` prepares the service-role-only fill and removal RPCs; it is not agent-applied. Live Supabase, browser, CHPP, and deployment behavior remain unverified. See [season-slot compatibility](docs/season-slot-compatibility.md#current-season-removal-and-reset).
+
+Site-admin reserve promotion now uses a new service-role-only wrapper to bypass cross-tournament membership exclusivity while filling an existing current-season vacancy. The existing season-slot and protected-fixture checks still run. The owner reports migration `127_site_admin_reserve_promotion_membership_bypass.sql` was applied to the Supabase instance used for localhost on 2026-10-16; this was not independently verified, and production deployment remains unverified. See [season-slot compatibility](docs/season-slot-compatibility.md#current-season-removal-and-reset).
+
+Site admins may also promote a reserve in a not-yet-scheduled tournament beyond its configured team limit, after an explicit UI warning. Migration `128_site_admin_team_limit_override.sql` updates the database capacity trigger and adds a service-role-only promotion wrapper; category, country, and capacity exceptions remain scoped to the verified site-admin path, while ordinary organizer limits and generated-schedule protections remain. The migration is prepared locally and must be applied before using the API change; no live verification or deployment has occurred.
+
+Migration `129_allow_reserves_when_participant_registration_closed.sql` is prepared locally to let the existing service-authorized reserve registration RPC add inactive reserves while ordinary participant registration is closed. Terminal tournaments remain blocked. The matching API now returns a specific 409 error instead of a generic 500 if an older database still rejects that operation. The migration has not been applied or live-verified by the agent.
 
 Manager-requested departure after the current round is prepared locally. A private request, set from a manager checkbox and shown as a persistent operational-admin notice, waits for a staged round-completion transition before using the existing guarded slot-removal flow. A later booked/started fixture keeps the request pending for organizer review. Migration `125_deferred_team_departures.sql` is prepared and unapplied; the API/UI must not be deployed before it. No live database, CHPP, browser or round-transition verification has been done. Legacy schedules without staged round completion still need organizer handling. See [season-slot compatibility](docs/season-slot-compatibility.md#manager-requested-departure-after-a-round).
 

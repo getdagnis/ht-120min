@@ -74,6 +74,22 @@ teams with relational or season-snapshot history. Protected bookings and
 completed fixtures cannot be changed by this fill. The migration is not
 agent-applied; its API/UI must be deployed only with the matching database RPCs.
 
+A verified site admin may promote a reserve into an existing vacant current-
+season slot even when that Hattrick team is active in another exclusive
+tournament. Migration `127_site_admin_reserve_promotion_membership_bypass.sql`
+adds a service-role-only wrapper around the existing guarded fill RPC; slot
+lineage and protected-fixture checks still apply. The owner reports applying
+the migration to the Supabase instance used for localhost on 2026-10-16; this
+state was not independently verified.
+
+Before schedule generation, a verified site admin can also promote a reserve
+past `max_teams` after confirming a warning that names the configured limit and
+current participant count. Migration `128_site_admin_team_limit_override.sql`
+lets the service-only site-admin wrapper bypass the database capacity guard;
+the API still requires a valid reserve and rejects this transition after rounds
+have been generated. Ordinary organizers remain subject to `max_teams`. The
+migration is prepared locally and is not applied or live-verified.
+
 An ongoing current season can also be reset to planning before any match is
 ongoing or finished. The atomic reset clears only that season's rounds, matches,
 and generated slot state, resets the season lifecycle fields, and preserves the

@@ -26,6 +26,7 @@ export function validateTeamReserveTransition(input: {
   hasGeneratedRounds: boolean;
   activeParticipantCount: number;
   maxTeams: number | null;
+  allowTeamLimitOverride?: boolean;
 }): TeamReserveTransitionResult {
   if (input.hasGeneratedRounds) {
     return {
@@ -50,7 +51,7 @@ export function validateTeamReserveTransition(input: {
     return { ok: false, status: 409, error: 'Only a reserve team can be promoted to the tournament.' };
   }
 
-  if (input.maxTeams !== null && input.activeParticipantCount >= input.maxTeams) {
+  if (!input.allowTeamLimitOverride && input.maxTeams !== null && input.activeParticipantCount >= input.maxTeams) {
     return { ok: false, status: 409, error: 'The tournament has reached its maximum number of teams.' };
   }
 

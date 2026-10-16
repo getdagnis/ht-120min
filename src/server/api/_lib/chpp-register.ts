@@ -294,15 +294,18 @@ export async function registerReserveTeam(
     powerGlobalRank?: number | null;
     powerLeagueRank?: number | null;
     powerRegionRank?: number | null;
+    skipMembershipCheck?: boolean;
   },
 ) {
-  const conflict = (await getActiveTournamentConflicts(supabase, [input.team.teamId], input.tournamentId)).get(
-    input.team.teamId,
-  );
-  if (conflict) {
-    throw new Error(
-      `Team ${input.team.teamName} (${input.team.teamId}) is already active in another tournament: "${conflict.name}". It must leave that tournament first.`,
+  if (!input.skipMembershipCheck) {
+    const conflict = (await getActiveTournamentConflicts(supabase, [input.team.teamId], input.tournamentId)).get(
+      input.team.teamId,
     );
+    if (conflict) {
+      throw new Error(
+        `Team ${input.team.teamName} (${input.team.teamId}) is already active in another tournament: "${conflict.name}". It must leave that tournament first.`,
+      );
+    }
   }
 
   const { data: existing, error: existingError } = await supabase
@@ -362,6 +365,17 @@ export async function registerReserveTeam(
     reserve_active: true,
     reserve_joined_at: new Date().toISOString(),
   };
+
+  if (input.skipMembershipCheck) {
+    const { data: id, error } = await getServiceSupabase().rpc('save_verified_tournament_registration', {
+      p_values: existing ? values : { tournament_id: input.tournamentId, ht_team_id: input.team.teamId, ...values },
+      p_existing_id: existing?.id ?? null,
+      p_skip_membership: true,
+    });
+    if (error) throw new Error(error.message);
+    if (!id) throw new Error(`Could not add ${input.team.teamName} to the reserve list.`);
+    return String(id);
+  }
 
   const query = existing
     ? supabase.from('teams').update(values).eq('id', existing.id).select('id, active, reserve_active').maybeSingle()

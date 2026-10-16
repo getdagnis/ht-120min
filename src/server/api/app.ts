@@ -48,7 +48,7 @@ import {
   getSpotlightRefreshLimitError,
   mergeManagerTeamSnapshot,
 } from './_lib/manager-compendium.js';
-import { validateTeamEligibility } from './_lib/eligibility.js';
+import { teamMatchesCountryLimit, validateTeamEligibility } from './_lib/eligibility.js';
 import { validateTournamentCountrySizeEligibility } from './_lib/country-size-eligibility.js';
 import { managerCountrySizeAllowance, validateCountrySizeEligibility } from '../../../shared/country-size-eligibility.js';
 import { getActiveTournamentConflicts, registerReserveTeam } from './_lib/chpp-register.js';
@@ -826,9 +826,12 @@ async function handleReserveTeamFill(req: VercelRequest, res: VercelResponse) {
   }
 
   const affectedPlanningIds = await planningMembershipIds(tournamentId);
-  const { data, error } = await getServiceSupabase().rpc(formerTeamId
+  const fillRpc = formerTeamId
     ? 'fill_past_team_slot_with_reserve'
-    : 'fill_vacant_current_season_slot_with_reserve', {
+    : actor.access.isImplicitSuperadmin
+      ? 'fill_vacant_current_season_slot_with_reserve_as_site_admin'
+      : 'fill_vacant_current_season_slot_with_reserve';
+  const { data, error } = await getServiceSupabase().rpc(fillRpc, {
     p_tournament_id: tournamentId,
     p_season_number: seasonNumber,
     p_incoming_reserve_team_id: incomingReserveTeamId,
@@ -1127,6 +1130,7 @@ async function handleAdminTeamReserveTransition(req: VercelRequest, res: VercelR
     team,
     hasGeneratedRounds: (roundCount ?? 0) > 0,
     activeParticipantCount: activeParticipantCount ?? 0,
+    allowTeamLimitOverride: actor.access.isImplicitSuperadmin,
     maxTeams:
       tournament.max_teams === null || tournament.max_teams === undefined
         ? null
@@ -1142,17 +1146,28 @@ async function handleAdminTeamReserveTransition(req: VercelRequest, res: VercelR
   const update = action === 'to_reserve'
     ? { ...validation.values, reserve_joined_at: new Date().toISOString() }
     : { ...validation.values, reserve_joined_at: null };
-  const { data: updatedTeam, error: updateError } = await supabase
-    .from('teams')
-    .update(update)
-    .eq('id', teamId)
-    .eq('tournament_id', tournamentId)
-    .eq('active', expectedState.active)
-    .eq('reserve_active', expectedState.reserve_active)
-    .eq('is_placeholder', false)
-    .select('id, active, reserve_active, reserve_joined_at')
-    .maybeSingle();
-  if (updateError) throw updateError;
+  let updatedTeam: { id: string; active: boolean; reserve_active: boolean; reserve_joined_at: string | null } | null;
+  if (action === 'to_participant' && actor.access.isImplicitSuperadmin) {
+    const { data, error } = await supabase.rpc('promote_tournament_reserve_as_site_admin', {
+      p_tournament_id: tournamentId,
+      p_team_id: teamId,
+    });
+    if (error) throw error;
+    updatedTeam = (Array.isArray(data) ? data[0] : data) as typeof updatedTeam;
+  } else {
+    const { data, error } = await supabase
+      .from('teams')
+      .update(update)
+      .eq('id', teamId)
+      .eq('tournament_id', tournamentId)
+      .eq('active', expectedState.active)
+      .eq('reserve_active', expectedState.reserve_active)
+      .eq('is_placeholder', false)
+      .select('id, active, reserve_active, reserve_joined_at')
+      .maybeSingle();
+    if (error) throw error;
+    updatedTeam = data;
+  }
   if (!updatedTeam) {
     return res.status(409).json({ error: 'The team state changed. Refresh and try again.' });
   }
@@ -1231,11 +1246,13 @@ async function handleAdminAddReserveTeam(req: VercelRequest, res: VercelResponse
   if (existingTeam?.active) return res.status(409).json({ error: 'This team is already a tournament participant.' });
   if (existingTeam && !existingTeam.reserve_active) return res.status(409).json({ error: 'An inactive row already exists. Resolve it before adding a reserve.' });
 
-  const conflict = (await getActiveTournamentConflicts(supabase, [teamId], tournamentId)).get(teamId);
-  if (conflict && !addPlaceholder) {
-    return res.status(409).json({
-      error: `This team is already active in another tournament: "${conflict.name}". It must leave that tournament first.`,
-    });
+  if (!addPlaceholder && !actor.access.isImplicitSuperadmin) {
+    const conflict = (await getActiveTournamentConflicts(supabase, [teamId], tournamentId)).get(teamId);
+    if (conflict) {
+      return res.status(409).json({
+        error: `This team is already active in another tournament: "${conflict.name}". It must leave that tournament first.`,
+      });
+    }
   }
 
   const owner = addPlaceholder
@@ -1266,30 +1283,36 @@ async function handleAdminAddReserveTeam(req: VercelRequest, res: VercelResponse
   const teamName = details.teamName?.trim();
   if (!teamName) return res.status(404).json({ error: `Team ID ${teamId} was not found.` });
 
-  const eligibility = validateTeamEligibility(
-    {
-      leagueName: details.leagueName,
-      leagueId: details.leagueId,
-      leagueSystemId: details.leagueSystemId,
-      leagueLevel: details.leagueLevel,
-      countryId: details.countryId,
-      countryName: details.countryName,
-      genderId: details.genderId,
-    },
-    {
-      category: tournament.league_category === 'hfi' ? 'hfi' : 'male',
-      countryLimit: normalizeLeagueLimit(tournament.country_limit, tournament.country_limit_format ?? 'league_id'),
-    },
-  );
-  if (!eligibility.eligible) return res.status(400).json({ error: eligibility.reason || 'This team is not eligible.' });
-  const countrySizeEligibility = await validateTournamentCountrySizeEligibility(supabase, {
-    tournamentId,
-    managerId: owner.credentials?.hattrick_user_id,
+  const teamDetails = {
+    leagueName: details.leagueName,
+    leagueId: details.leagueId,
+    leagueSystemId: details.leagueSystemId,
+    leagueLevel: details.leagueLevel,
     countryId: details.countryId,
-    maximumActiveTeams: tournament.max_country_active_teams,
-    allowManagerException: tournament.allow_manager_country_size_exception,
-  });
-  if (!countrySizeEligibility.eligible) return res.status(400).json({ error: countrySizeEligibility.reason });
+    countryName: details.countryName,
+    genderId: details.genderId,
+  };
+  const category = tournament.league_category === 'hfi' ? 'hfi' : 'male';
+  const countryLimit = normalizeLeagueLimit(tournament.country_limit, tournament.country_limit_format ?? 'league_id');
+  const categoryEligibility = validateTeamEligibility(teamDetails, { category, countryLimit: null });
+  const countryEligible = teamMatchesCountryLimit(teamDetails, countryLimit);
+  if (!actor.access.isImplicitSuperadmin) {
+    if (!categoryEligibility.eligible) {
+      return res.status(400).json({ error: categoryEligibility.reason || 'This team is not eligible for this tournament category.' });
+    }
+    if (!countryEligible && req.body?.countryMismatchConfirmed !== true) {
+      const countryEligibility = validateTeamEligibility(teamDetails, { category, countryLimit });
+      return res.status(400).json({ error: countryEligibility.reason || 'This team is outside the tournament country restriction.' });
+    }
+    const countrySizeEligibility = await validateTournamentCountrySizeEligibility(supabase, {
+      tournamentId,
+      managerId: owner.credentials?.hattrick_user_id,
+      countryId: details.countryId,
+      maximumActiveTeams: tournament.max_country_active_teams,
+      allowManagerException: tournament.allow_manager_country_size_exception,
+    });
+    if (!countrySizeEligibility.eligible) return res.status(400).json({ error: countrySizeEligibility.reason });
+  }
 
   if (addPlaceholder) {
     const { data: id, error: registrationError } = await supabase.rpc('save_verified_tournament_registration', {
@@ -1319,37 +1342,50 @@ async function handleAdminAddReserveTeam(req: VercelRequest, res: VercelResponse
       logoUrl: details.logoUrl, countryId: details.countryId, countryName: details.countryName,
       teamRank: details.teamRank, powerRating: details.powerRating, powerGlobalRank: details.powerGlobalRank,
       powerLeagueRank: details.powerLeagueRank, powerRegionRank: details.powerRegionRank,
+      skipMembershipCheck: actor.access.isImplicitSuperadmin,
     });
     return res.status(200).json({ team: { id }, validated: true });
   }
   if (req.body?.validated === true) return res.status(409).json({ error: 'Current ownership could not be verified. Reauthorize or explicitly add an unvalidated reserve.' });
   if (existingTeam) return res.status(409).json({ error: 'This reserve is already listed; it could not be validated.' });
 
+  const reserveValues = {
+    tournament_id: tournamentId,
+    ht_team_id: teamId,
+    ht_team_name: teamName,
+    name: teamName,
+    manager_name: null,
+    hattrick_user_id: null,
+    country_id: details.countryId ?? null,
+    country_name: details.countryName ?? null,
+    league_id: details.leagueId ?? null,
+    gender_id: details.genderId ?? null,
+    league_level: details.leagueLevel ?? null,
+    team_rank: details.teamRank ?? null,
+    power_rating: details.powerRating ?? null,
+    power_global_rank: details.powerGlobalRank ?? null,
+    power_league_rank: details.powerLeagueRank ?? null,
+    power_region_rank: details.powerRegionRank ?? null,
+    logo_url: details.logoUrl ?? null,
+    joined_via_oauth: false,
+    active: false,
+    reserve_active: true,
+    reserve_joined_at: new Date().toISOString(),
+  };
+  if (actor.access.isImplicitSuperadmin) {
+    const { data: id, error } = await supabase.rpc('save_verified_tournament_registration', {
+      p_values: reserveValues,
+      p_existing_id: null,
+      p_skip_membership: true,
+    });
+    if (error) throw error;
+    if (!id) throw new Error('The reserve team could not be added.');
+    return res.status(200).json({ team: { id, name: teamName, ht_team_id: teamId, active: false, reserve_active: true } });
+  }
+
   const { data: reserveTeam, error: insertError } = await supabase
     .from('teams')
-    .insert({
-      tournament_id: tournamentId,
-      ht_team_id: teamId,
-      ht_team_name: teamName,
-      name: teamName,
-      manager_name: null,
-      hattrick_user_id: null,
-      country_id: details.countryId ?? null,
-      country_name: details.countryName ?? null,
-      league_id: details.leagueId ?? null,
-      gender_id: details.genderId ?? null,
-      league_level: details.leagueLevel ?? null,
-      team_rank: details.teamRank ?? null,
-      power_rating: details.powerRating ?? null,
-      power_global_rank: details.powerGlobalRank ?? null,
-      power_league_rank: details.powerLeagueRank ?? null,
-      power_region_rank: details.powerRegionRank ?? null,
-      logo_url: details.logoUrl ?? null,
-      joined_via_oauth: false,
-      active: false,
-      reserve_active: true,
-      reserve_joined_at: new Date().toISOString(),
-    })
+    .insert(reserveValues)
     .select('id, name, ht_team_id, active, reserve_active')
     .single();
   if (insertError) throw insertError;
@@ -4038,6 +4074,11 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         return await handleActivity(req, res);
     }
   } catch (error) {
+    const errorMessage = error && typeof error === 'object' && 'message' in error
+      ? String(error.message) : '';
+    if (routeFor(req) === 'admin-add-reserve-team' && errorMessage.includes('Tournament registration is closed')) {
+      return res.status(409).json({ error: 'Tournament registration is closed.' });
+    }
     console.error('Application API error:', error);
     return res.status(500).json({ error: 'Application request failed.' });
   }
