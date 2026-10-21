@@ -106,6 +106,15 @@ removal first. The owner must apply 133 before deploying its matching API/UI.
 No migration or production data change was performed by the agent; live
 promotion, reversal, standings and scheduling remain unverified.
 
+Migration `135_allow_unused_past_team_removal_with_released_assignment.sql`
+narrows Past-team deletion: an unreferenced released assignment can keep its
+frozen identity snapshot after its unused team row is deleted. Live assignments,
+fixture references, other relational history and season snapshots still block
+deletion. A vacant slot with no completed result no longer appears in standings
+merely because it has a released assignment. The owner must apply 135 before
+testing deletion; the agent has not applied it or verified live behavior. This
+does not change fixed-size slot inheritance or the fixture generator.
+
 An ongoing current season can also be reset to planning before any match is
 ongoing or finished. The atomic reset clears only that season's rounds, matches,
 and generated slot state, resets the season lifecycle fields, and preserves the

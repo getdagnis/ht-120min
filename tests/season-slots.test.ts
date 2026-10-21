@@ -117,6 +117,31 @@ test('vacant slots without completed results do not create a standings row', () 
   assert.deepEqual(standings.map((standing) => standing.teamName), ['Team A']);
 });
 
+test('a released assignment with only an unplayed fixture does not remain in standings', () => {
+  const standings = calculateSeasonSlotStandings(
+    [
+      { id: 'active', name: 'Active', ht_team_id: 1, hattrick_user_id: null, active: true, replacement_for_team_id: null },
+      { id: 'past', name: 'Past', ht_team_id: 2, hattrick_user_id: null, active: false, replacement_for_team_id: null },
+    ],
+    [{
+      home_team_id: null, away_team_id: 'active', home_goals: null, away_goals: null,
+      completed: false, went_120: false, home_slot_id: 'vacant-slot', away_slot_id: 'active-slot',
+    }],
+    [
+      { id: 'active-slot', current_team_id: 'active' },
+      { id: 'vacant-slot', current_team_id: null },
+    ],
+    '120min',
+    [{
+      id: 'released', tournament_season_slot_id: 'vacant-slot', team_id: 'past',
+      assigned_at: '2026-10-16T00:00:00Z', released_at: '2026-10-21T00:00:00Z',
+      team_name: 'Past', ht_team_id: 2, manager_name: null, hattrick_user_id: null, logo_url: null,
+    }],
+  );
+
+  assert.deepEqual(standings.map((standing) => standing.teamName), ['Active']);
+});
+
 test('current slot occupants remain standings members even if a stale reserve flag exists', () => {
   const standings = calculateSeasonSlotStandings(
     [

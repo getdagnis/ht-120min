@@ -409,6 +409,11 @@ export function calculateSeasonSlotStandings(
       return currentTeam ? [{ ...currentTeam, id: slot.id, active: true, reserve_active: false }] : [];
     }
 
+    // A released assignment alone is not a played standings line. Keep a
+    // vacant slot visible only when its completed result must remain visible.
+    if (!matches.some((match) => match.completed &&
+      (match.home_slot_id === slot.id || match.away_slot_id === slot.id))) return [];
+
     // A vacant slot can have several historical occupants. Assignment
     // chronology, rather than arbitrary fixture order, identifies the last
     // team whose results belong to this physical standings position.
