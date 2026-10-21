@@ -604,9 +604,13 @@ export const TournamentAdmin: React.FC<{ controller: TournamentAdminController }
 
   const themeText = useTranslations('TournamentView');
   const isHydrationReady = useHydrationReady();
-  const [departureNotices, setDepartureNotices] = useState<Array<{
-    teamId: string; teamName: string; needsReview: boolean;
-  }>>([]);
+  const [departureNotices, setDepartureNotices] = useState<
+    Array<{
+      teamId: string;
+      teamName: string;
+      needsReview: boolean;
+    }>
+  >([]);
   useEffect(() => {
     if (!isAdminAuthenticated || !canManageOperationalAdmin) {
       setDepartureNotices([]);
@@ -616,10 +620,13 @@ export const TournamentAdmin: React.FC<{ controller: TournamentAdminController }
     const load = async () => {
       try {
         const response = await fetch('/api/app?route=tournament-team-departure', {
-          method: 'POST', credentials: 'include', cache: 'no-store',
+          method: 'POST',
+          credentials: 'include',
+          cache: 'no-store',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
-            action: 'admin-list', tournamentId: tournament.id,
+            action: 'admin-list',
+            tournamentId: tournament.id,
             adminPassword: window.localStorage.getItem(`admin_pw_${tournament.slug}`) || '',
           }),
         });
@@ -631,7 +638,9 @@ export const TournamentAdmin: React.FC<{ controller: TournamentAdminController }
       }
     };
     void load();
-    const refresh = () => { void load(); };
+    const refresh = () => {
+      void load();
+    };
     window.addEventListener('focus', refresh);
     window.addEventListener('tournament-departure-updated', refresh);
     const interval = window.setInterval(refresh, 60_000);
@@ -1701,7 +1710,7 @@ export const TournamentAdmin: React.FC<{ controller: TournamentAdminController }
                                               ? 'Checking current ownership...'
                                               : reserveValidation?.teamId === reserveTeamId &&
                                                   reserveValidation.validated
-                                                ? `Already Hattrick validated · ${reserveValidation.managerName}`
+                                                ? `Already CHPP validated · ${reserveValidation.managerName}`
                                                 : reserveValidation?.teamId === reserveTeamId && reserveValidation.known
                                                   ? 'Known team — current ownership could not be verified. Add as an unvalidated reserve.'
                                                   : 'Add as an unvalidated reserve.'}
@@ -1754,9 +1763,7 @@ export const TournamentAdmin: React.FC<{ controller: TournamentAdminController }
                                             {team.name}
                                           </a>
                                         ) : (
-                                          <span className={adminStyles.name}>
-                                            {team.name || 'Open slot'}
-                                          </span>
+                                          <span className={adminStyles.name}>{team.name || 'Open slot'}</span>
                                         )}
                                         {teamPlanningStatuses[team.id]?.inCup === true && (
                                           <span className={adminStyles.planningStatus}>[in cup]</span>
@@ -1810,210 +1817,21 @@ export const TournamentAdmin: React.FC<{ controller: TournamentAdminController }
 
                                   <div className={adminStyles.teamActions}>
                                     <>
-                                        {canManageOperationalAdmin && !team.joined_via_oauth && team.ht_team_id && (
-                                          <Button
-                                            type="button"
-                                            size="xs"
-                                            variant="secondaryAction"
-                                            onClick={() => void validateReserve(team)}
-                                          >
-                                            Validate team
-                                          </Button>
-                                        )}
-                                        {isGenerated &&
-                                          roleAccess?.canManageOperations &&
-                                          seasonSlots.some((slot) => slot.current_team_id === team.id) &&
-                                          reserveTeams.length > 0 &&
-                                          (reserveReplacingTeamId === team.id ? (
-                                            <div className={adminStyles.inlineReplace}>
-                                              <select
-                                                className={adminStyles.selectField}
-                                                value={selectedReserveTeamId}
-                                                onChange={(event) => setSelectedReserveTeamId(event.target.value)}
-                                                disabled={isSavingTeam}
-                                              >
-                                                <option value="">Choose reserve team</option>
-                                                {reserveTeams.map((reserveTeam) => (
-                                                  <option key={reserveTeam.id} value={reserveTeam.id}>
-                                                    {reserveTeam.name}
-                                                  </option>
-                                                ))}
-                                              </select>
-                                              <div className={adminStyles.replaceActions}>
-                                                <Button
-                                                  size="xs"
-                                                  variant="action"
-                                                  onClick={() => void replaceTeamWithReserve(team.id)}
-                                                  disabled={isSavingTeam || !selectedReserveTeamId}
-                                                >
-                                                  Replace with reserve
-                                                </Button>
-                                                <Button
-                                                  size="sm"
-                                                  variant="secondary"
-                                                  onClick={() => {
-                                                    setReserveReplacingTeamId(null);
-                                                    setSelectedReserveTeamId('');
-                                                  }}
-                                                >
-                                                  Cancel
-                                                </Button>
-                                              </div>
-                                            </div>
-                                          ) : (
-                                            <Button
-                                              size="xs"
-                                              variant="action"
-                                              onClick={() => {
-                                                setReserveReplacingTeamId(team.id);
-                                                setSelectedReserveTeamId('');
-                                              }}
-                                              disabled={isSavingTeam}
-                                            >
-                                              Replace with reserve
-                                            </Button>
-                                          ))}
-                                        {!isGenerated && replacingTeamId === team.id ? (
-                                          <div className={adminStyles.inlineReplace}>
-                                            <input
-                                              name={`replace_id_${team.id}`}
-                                              type="text"
-                                              placeholder="New HT ID"
-                                              value={replacementHtId}
-                                              onChange={(e) => {
-                                                setReplacementHtId(e.target.value.replace(/\D/g, ''));
-                                                setReplacementName('');
-                                              }}
-                                              required
-                                            />
-                                            <input
-                                              name={`replace_name_${team.id}`}
-                                              type="text"
-                                              placeholder="New Name"
-                                              value={replacementName}
-                                              readOnly
-                                              className={!replacementName ? styles.opacity06 : ''}
-                                              required
-                                            />
-                                            <div className={adminStyles.replaceActions}>
-                                              {replacementHtId.length >= 6 && !replacementName && (
-                                                <Button
-                                                  size="xs"
-                                                  onClick={() => fetchTeamData(replacementHtId, true)}
-                                                  disabled={isFetchingTeamData}
-                                                  variant="action"
-                                                >
-                                                  Check
-                                                </Button>
-                                              )}
-                                              {replacementName && (
-                                                <Button
-                                                  size="xs"
-                                                  onClick={() => replaceTeam(team.id)}
-                                                  disabled={isSavingTeam}
-                                                  variant="action"
-                                                >
-                                                  Save
-                                                </Button>
-                                              )}
-                                              <Button
-                                                size="sm"
-                                                variant="secondary"
-                                                onClick={() => {
-                                                  setReplacingTeamId(null);
-                                                  setReplacementHtId('');
-                                                  setReplacementName('');
-                                                }}
-                                              >
-                                                Cancel
-                                              </Button>
-                                            </div>
-                                          </div>
-                                        ) : !isGenerated ? (
-                                          <Button
-                                            size="xs"
-                                            variant="action"
-                                            onClick={() => setReplacingTeamId(team.id)}
-                                          >
-                                            <ArrowClockwise size={16} /> Replace
-                                          </Button>
-                                        ) : null}
-                                        {roleAccess?.canManageOperations && tournamentAllowsTeamActions &&
-                                          (!isGenerated || (isSiteAdmin && !seasonSlots.some((slot) => slot.current_team_id === team.id))) && (
-                                          <>
-                                            {isGenerated && isSiteAdmin && (
-                                              <Button
-                                                size="xs"
-                                                variant="primary"
-                                                onClick={() => void transitionTeamReserveStatus(team, 'to_participant')}
-                                                disabled={isSavingTeam}
-                                              >
-                                                Integrate into season
-                                              </Button>
-                                            )}
-                                            <Button
-                                              size="xs"
-                                              variant="action"
-                                              onClick={() => void transitionTeamReserveStatus(team, 'to_reserve')}
-                                              disabled={isSavingTeam}
-                                            >
-                                              Reserve
-                                            </Button>
-                                          </>
-                                        )}
+                                      {canManageOperationalAdmin && !team.joined_via_oauth && team.ht_team_id && (
                                         <Button
+                                          type="button"
                                           size="xs"
-                                          variant="danger"
-                                          onClick={() => void deleteTeam(team.id)}
-                                          title="Remove team"
+                                          variant="secondaryAction"
+                                          onClick={() => void validateReserve(team)}
                                         >
-                                          <Trash size={16} /> Remove
+                                          Validate team
                                         </Button>
-                                    </>
-                                  </div>
-                                </li>
-                              ))}
-                          </ul>
-
-                          {pastTeams.length > 0 && (
-                            <>
-                              <h3 className={adminStyles.sectionTitle}>Past teams ({pastTeams.length})</h3>
-                              <ul className={adminStyles.teamList}>
-                                {pastTeams.map((team) => (
-                                  <li key={team.id} className={adminStyles.pastTeam}>
-                                    <div className={adminStyles.teamCard}>
-                                      <img
-                                        src={team.logo_url || DEFAULT_TEAM_LOGO}
-                                        alt=""
-                                        className={adminStyles.teamLogo}
-                                        onError={(event) => {
-                                          event.currentTarget.onerror = null;
-                                          event.currentTarget.src = DEFAULT_TEAM_LOGO;
-                                        }}
-                                      />
-                                      <div className={adminStyles.teamInfo}>
-                                        <div className={adminStyles.teamNameRow}>
-                                          {team.ht_team_id ? (
-                                            <a
-                                              href={`https://www.hattrick.org/goto.ashx?path=/Club/?TeamID=${team.ht_team_id}`}
-                                              target="_blank"
-                                              rel="noopener noreferrer"
-                                              className={adminStyles.teamLink}
-                                            >
-                                              {team.name}
-                                            </a>
-                                          ) : (
-                                            <span className={adminStyles.name}>{team.name}</span>
-                                          )}
-                                        </div>
-                                        {team.ht_team_id && (
-                                          <div className={adminStyles.teamMeta}>ID: {team.ht_team_id}</div>
-                                        )}
-                                      </div>
-                                    </div>
-                                    {canManageOperationalAdmin && <div className={adminStyles.teamActions}>
-                                      {isGenerated ? (
-                                        reserveReplacingTeamId === team.id ? (
+                                      )}
+                                      {isGenerated &&
+                                        roleAccess?.canManageOperations &&
+                                        seasonSlots.some((slot) => slot.current_team_id === team.id) &&
+                                        reserveTeams.length > 0 &&
+                                        (reserveReplacingTeamId === team.id ? (
                                           <div className={adminStyles.inlineReplace}>
                                             <select
                                               className={adminStyles.selectField}
@@ -2035,10 +1853,10 @@ export const TournamentAdmin: React.FC<{ controller: TournamentAdminController }
                                                 onClick={() => void replaceTeamWithReserve(team.id)}
                                                 disabled={isSavingTeam || !selectedReserveTeamId}
                                               >
-                                                Replace
+                                                Replace with reserve
                                               </Button>
                                               <Button
-                                                size="xs"
+                                                size="sm"
                                                 variant="secondary"
                                                 onClick={() => {
                                                   setReserveReplacingTeamId(null);
@@ -2053,47 +1871,60 @@ export const TournamentAdmin: React.FC<{ controller: TournamentAdminController }
                                           <Button
                                             size="xs"
                                             variant="action"
-                                            disabled={isSavingTeam || reserveTeams.length === 0}
-                                            title={reserveTeams.length === 0 ? 'Add a reserve team first' : undefined}
                                             onClick={() => {
                                               setReserveReplacingTeamId(team.id);
                                               setSelectedReserveTeamId('');
                                             }}
+                                            disabled={isSavingTeam}
                                           >
-                                            Replace
+                                            Replace with reserve
                                           </Button>
-                                        )
-                                      ) : replacingTeamId === team.id ? (
+                                        ))}
+                                      {!isGenerated && replacingTeamId === team.id ? (
                                         <div className={adminStyles.inlineReplace}>
                                           <input
+                                            name={`replace_id_${team.id}`}
                                             type="text"
                                             placeholder="New HT ID"
                                             value={replacementHtId}
-                                            onChange={(event) => {
-                                              setReplacementHtId(event.target.value.replace(/\D/g, ''));
+                                            onChange={(e) => {
+                                              setReplacementHtId(e.target.value.replace(/\D/g, ''));
                                               setReplacementName('');
                                             }}
+                                            required
                                           />
                                           <input
+                                            name={`replace_name_${team.id}`}
                                             type="text"
                                             placeholder="New Name"
                                             value={replacementName}
                                             readOnly
                                             className={!replacementName ? styles.opacity06 : ''}
+                                            required
                                           />
                                           <div className={adminStyles.replaceActions}>
                                             {replacementHtId.length >= 6 && !replacementName && (
-                                              <Button size="xs" variant="action" onClick={() => fetchTeamData(replacementHtId, true)} disabled={isFetchingTeamData}>
+                                              <Button
+                                                size="xs"
+                                                onClick={() => fetchTeamData(replacementHtId, true)}
+                                                disabled={isFetchingTeamData}
+                                                variant="action"
+                                              >
                                                 Check
                                               </Button>
                                             )}
                                             {replacementName && (
-                                              <Button size="xs" variant="action" onClick={() => replaceTeam(team.id)} disabled={isSavingTeam}>
-                                                Replace
+                                              <Button
+                                                size="xs"
+                                                onClick={() => replaceTeam(team.id)}
+                                                disabled={isSavingTeam}
+                                                variant="action"
+                                              >
+                                                Save
                                               </Button>
                                             )}
                                             <Button
-                                              size="xs"
+                                              size="sm"
                                               variant="secondary"
                                               onClick={() => {
                                                 setReplacingTeamId(null);
@@ -2105,33 +1936,50 @@ export const TournamentAdmin: React.FC<{ controller: TournamentAdminController }
                                             </Button>
                                           </div>
                                         </div>
-                                      ) : (
-                                        <Button size="xs" variant="action" onClick={() => setReplacingTeamId(team.id)} disabled={isSavingTeam}>
-                                          Replace
+                                      ) : !isGenerated ? (
+                                        <Button size="xs" variant="action" onClick={() => setReplacingTeamId(team.id)}>
+                                          <ArrowClockwise size={16} /> Replace
                                         </Button>
-                                      )}
-                                      <Button
-                                        size="xs"
-                                        variant="action"
-                                        onClick={() => void moveInactiveTeamToReserve(team)}
-                                        disabled={isSavingTeam}
-                                      >
-                                        Move to reserves
-                                      </Button>
+                                      ) : null}
+                                      {roleAccess?.canManageOperations &&
+                                        tournamentAllowsTeamActions &&
+                                        (!isGenerated ||
+                                          (isSiteAdmin &&
+                                            !seasonSlots.some((slot) => slot.current_team_id === team.id))) && (
+                                          <>
+                                            {isGenerated && isSiteAdmin && (
+                                              <Button
+                                                size="xs"
+                                                variant="primary"
+                                                onClick={() => void transitionTeamReserveStatus(team, 'to_participant')}
+                                                disabled={isSavingTeam}
+                                              >
+                                                Integrate into season
+                                              </Button>
+                                            )}
+                                            <Button
+                                              size="xs"
+                                              variant="action"
+                                              onClick={() => void transitionTeamReserveStatus(team, 'to_reserve')}
+                                              disabled={isSavingTeam}
+                                            >
+                                              Reserve
+                                            </Button>
+                                          </>
+                                        )}
                                       <Button
                                         size="xs"
                                         variant="danger"
-                                        onClick={() => void removePastTeam(team)}
-                                        disabled={isSavingTeam}
+                                        onClick={() => void deleteTeam(team.id)}
+                                        title="Remove team"
                                       >
                                         <Trash size={16} /> Remove
                                       </Button>
-                                    </div>}
-                                  </li>
-                                ))}
-                              </ul>
-                            </>
-                          )}
+                                    </>
+                                  </div>
+                                </li>
+                              ))}
+                          </ul>
 
                           {reserveTeams.length > 0 && (
                             <>
@@ -2204,7 +2052,7 @@ export const TournamentAdmin: React.FC<{ controller: TournamentAdminController }
                                           )}
                                         </div>
                                         <span className={adminStyles.statusBadge}>
-                                          Reserve{team.joined_via_oauth ? ' · Hattrick validated' : ''}
+                                          Reserve{team.joined_via_oauth ? ' · CHPP validated' : ''}
                                         </span>
                                         {canManageOperationalAdmin &&
                                           tournament.schedule_mode === 'length' &&
@@ -2249,12 +2097,14 @@ export const TournamentAdmin: React.FC<{ controller: TournamentAdminController }
                                           disabled={removingReserveId !== null}
                                           onClick={() => void removeReserve(team)}
                                         >
-                                          {removingReserveId === team.id ? 'Removing...' : 'Remove from reserves'}
+                                          {removingReserveId === team.id ? 'Removing...' : 'Remove reserve'}
                                         </Button>
                                       </div>
                                     )}
-                                    {roleAccess?.canManageOperations && tournamentAllowsTeamActions &&
-                                      ((isGenerated && (isSiteAdmin || seasonSlots.some((slot) => slot.current_team_id === null))) ||
+                                    {roleAccess?.canManageOperations &&
+                                      tournamentAllowsTeamActions &&
+                                      ((isGenerated &&
+                                        (isSiteAdmin || seasonSlots.some((slot) => slot.current_team_id === null))) ||
                                         (!isGenerated && (isSiteAdmin || maxTeamsAllowsPromotion))) && (
                                         <div className={adminStyles.teamActions}>
                                           <Button
@@ -2267,20 +2117,199 @@ export const TournamentAdmin: React.FC<{ controller: TournamentAdminController }
                                             }
                                             disabled={isSavingTeam}
                                           >
-                                            {isGenerated ? 'Promote into season' : 'Promote to tournament'}
+                                            {isGenerated ? 'Add to season' : 'Promote'}
                                           </Button>
-                                          {isGenerated && isSiteAdmin && seasonSlots.some((slot) => slot.current_team_id === null) && (
-                                            <Button
-                                              size="xs"
-                                              variant="secondaryAction"
-                                              onClick={() => void fillVacantSlotWithReserve(team)}
-                                              disabled={isSavingTeam}
-                                            >
-                                              Fill next vacant slot
-                                            </Button>
-                                          )}
+                                          {isGenerated &&
+                                            isSiteAdmin &&
+                                            seasonSlots.some((slot) => slot.current_team_id === null) && (
+                                              <Button
+                                                size="xs"
+                                                variant="secondaryAction"
+                                                onClick={() => void fillVacantSlotWithReserve(team)}
+                                                disabled={isSavingTeam}
+                                                title="Assign this reserve team to the next vacant season slot"
+                                              >
+                                                Fill slot
+                                              </Button>
+                                            )}
                                         </div>
                                       )}
+                                  </li>
+                                ))}
+                              </ul>
+                            </>
+                          )}
+
+                          {pastTeams.length > 0 && (
+                            <>
+                              <h3 className={adminStyles.sectionTitle}>Past teams ({pastTeams.length})</h3>
+                              <ul className={adminStyles.teamList}>
+                                {pastTeams.map((team) => (
+                                  <li key={team.id} className={adminStyles.pastTeam}>
+                                    <div className={adminStyles.teamCard}>
+                                      <img
+                                        src={team.logo_url || DEFAULT_TEAM_LOGO}
+                                        alt=""
+                                        className={adminStyles.teamLogo}
+                                        onError={(event) => {
+                                          event.currentTarget.onerror = null;
+                                          event.currentTarget.src = DEFAULT_TEAM_LOGO;
+                                        }}
+                                      />
+                                      <div className={adminStyles.teamInfo}>
+                                        <div className={adminStyles.teamNameRow}>
+                                          {team.ht_team_id ? (
+                                            <a
+                                              href={`https://www.hattrick.org/goto.ashx?path=/Club/?TeamID=${team.ht_team_id}`}
+                                              target="_blank"
+                                              rel="noopener noreferrer"
+                                              className={adminStyles.teamLink}
+                                            >
+                                              {team.name}
+                                            </a>
+                                          ) : (
+                                            <span className={adminStyles.name}>{team.name}</span>
+                                          )}
+                                        </div>
+                                        {team.ht_team_id && (
+                                          <div className={adminStyles.teamMeta}>ID: {team.ht_team_id}</div>
+                                        )}
+                                      </div>
+                                    </div>
+                                    {canManageOperationalAdmin && (
+                                      <div className={adminStyles.teamActions}>
+                                        {isGenerated ? (
+                                          reserveReplacingTeamId === team.id ? (
+                                            <div className={adminStyles.inlineReplace}>
+                                              <select
+                                                className={adminStyles.selectField}
+                                                value={selectedReserveTeamId}
+                                                onChange={(event) => setSelectedReserveTeamId(event.target.value)}
+                                                disabled={isSavingTeam}
+                                              >
+                                                <option value="">Choose reserve team</option>
+                                                {reserveTeams.map((reserveTeam) => (
+                                                  <option key={reserveTeam.id} value={reserveTeam.id}>
+                                                    {reserveTeam.name}
+                                                  </option>
+                                                ))}
+                                              </select>
+                                              <div className={adminStyles.replaceActions}>
+                                                <Button
+                                                  size="xs"
+                                                  variant="action"
+                                                  onClick={() => void replaceTeamWithReserve(team.id)}
+                                                  disabled={isSavingTeam || !selectedReserveTeamId}
+                                                >
+                                                  Replace
+                                                </Button>
+                                                <Button
+                                                  size="xs"
+                                                  variant="secondary"
+                                                  onClick={() => {
+                                                    setReserveReplacingTeamId(null);
+                                                    setSelectedReserveTeamId('');
+                                                  }}
+                                                >
+                                                  Cancel
+                                                </Button>
+                                              </div>
+                                            </div>
+                                          ) : (
+                                            <Button
+                                              size="xs"
+                                              variant="action"
+                                              disabled={isSavingTeam || reserveTeams.length === 0}
+                                              title={reserveTeams.length === 0 ? 'Add a reserve team first' : undefined}
+                                              onClick={() => {
+                                                setReserveReplacingTeamId(team.id);
+                                                setSelectedReserveTeamId('');
+                                              }}
+                                            >
+                                              Replace
+                                            </Button>
+                                          )
+                                        ) : replacingTeamId === team.id ? (
+                                          <div className={adminStyles.inlineReplace}>
+                                            <input
+                                              type="text"
+                                              placeholder="New HT ID"
+                                              value={replacementHtId}
+                                              onChange={(event) => {
+                                                setReplacementHtId(event.target.value.replace(/\D/g, ''));
+                                                setReplacementName('');
+                                              }}
+                                            />
+                                            <input
+                                              type="text"
+                                              placeholder="New Name"
+                                              value={replacementName}
+                                              readOnly
+                                              className={!replacementName ? styles.opacity06 : ''}
+                                            />
+                                            <div className={adminStyles.replaceActions}>
+                                              {replacementHtId.length >= 6 && !replacementName && (
+                                                <Button
+                                                  size="xs"
+                                                  variant="action"
+                                                  onClick={() => fetchTeamData(replacementHtId, true)}
+                                                  disabled={isFetchingTeamData}
+                                                >
+                                                  Check
+                                                </Button>
+                                              )}
+                                              {replacementName && (
+                                                <Button
+                                                  size="xs"
+                                                  variant="action"
+                                                  onClick={() => replaceTeam(team.id)}
+                                                  disabled={isSavingTeam}
+                                                >
+                                                  Replace
+                                                </Button>
+                                              )}
+                                              <Button
+                                                size="xs"
+                                                variant="secondary"
+                                                onClick={() => {
+                                                  setReplacingTeamId(null);
+                                                  setReplacementHtId('');
+                                                  setReplacementName('');
+                                                }}
+                                              >
+                                                Cancel
+                                              </Button>
+                                            </div>
+                                          </div>
+                                        ) : (
+                                          <Button
+                                            size="xs"
+                                            variant="action"
+                                            onClick={() => setReplacingTeamId(team.id)}
+                                            disabled={isSavingTeam}
+                                          >
+                                            Replace
+                                          </Button>
+                                        )}
+                                        <Button
+                                          size="xs"
+                                          variant="action"
+                                          onClick={() => void moveInactiveTeamToReserve(team)}
+                                          disabled={isSavingTeam}
+                                          title="Move this past team to reserves"
+                                        >
+                                          To reserves
+                                        </Button>
+                                        <Button
+                                          size="xs"
+                                          variant="danger"
+                                          onClick={() => void removePastTeam(team)}
+                                          disabled={isSavingTeam}
+                                        >
+                                          <Trash size={16} /> Remove
+                                        </Button>
+                                      </div>
+                                    )}
                                   </li>
                                 ))}
                               </ul>
