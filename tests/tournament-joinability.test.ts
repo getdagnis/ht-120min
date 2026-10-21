@@ -204,14 +204,14 @@ test('ongoing length tournament accepts next-round joins with no team limit', ()
   }), true);
 });
 
-test('next-round join closes at materialization, closure, and capacity including pending teams', () => {
+test('Waiting registration closes with registration or the last regular round, not field capacity', () => {
   const base = {
     hasJoined: false, isGenerated: true, scheduleMode: 'length', status: 'active',
     nextRegularRoundAvailable: true, registrationClosedAt: null,
     maxTeams: 4, teams: [{ active: true }, { active: true }], pendingTeamsCount: 1,
   };
   assert.equal(canViewerJoinTournament(base), true);
-  assert.equal(canViewerJoinTournament({ ...base, pendingTeamsCount: 2 }), false);
+  assert.equal(canViewerJoinTournament({ ...base, pendingTeamsCount: 2 }), true);
   assert.equal(canViewerJoinTournament({ ...base, nextRegularRoundAvailable: false }), false);
   assert.equal(canViewerJoinTournament({ ...base, registrationClosedAt: '2026-10-21T00:00:00Z' }), false);
 });

@@ -56,7 +56,7 @@ test('expired or changed ownership never produces a validated reserve', async t 
   assert.equal((await findVerifiedReserveOwner(changed.supabase, 999999)).team, null);
 });
 
-test('registering one owned team inserts only that selected reserve', async () => {
+test('registering one owned team saves only that Waiting team through the authorized service RPC', async t => {
   const inserted: Array<Record<string, unknown>> = [];
   const supabase = {
     from() {
@@ -70,14 +70,35 @@ test('registering one owned team inserts only that selected reserve', async () =
       return query;
     },
   } as unknown as SupabaseClient;
+  const oldUrl = process.env.SUPABASE_URL, oldSecret = process.env.SUPABASE_SECRET_KEY;
+  const oldServiceRole = process.env.SUPABASE_SERVICE_ROLE_KEY, oldFetch = globalThis.fetch;
+  process.env.SUPABASE_URL = 'https://waiting-registration-test.invalid';
+  process.env.SUPABASE_SECRET_KEY = 'synthetic-key'; delete process.env.SUPABASE_SERVICE_ROLE_KEY;
+  t.after(() => {
+    globalThis.fetch = oldFetch;
+    for (const [key, value] of Object.entries({ SUPABASE_URL: oldUrl, SUPABASE_SECRET_KEY: oldSecret, SUPABASE_SERVICE_ROLE_KEY: oldServiceRole })) {
+      if (value === undefined) delete process.env[key]; else process.env[key] = value;
+    }
+  });
+  globalThis.fetch = async (input, init) => {
+    const url = new URL(input instanceof Request ? input.url : String(input));
+    assert.equal(url.hostname, 'waiting-registration-test.invalid');
+    assert.ok(url.pathname.endsWith('/rpc/save_verified_tournament_registration'));
+    const payload = JSON.parse(String(init?.body));
+    assert.equal(payload.p_skip_membership, false);
+    inserted.push(payload.p_values);
+    return Response.json('selected');
+  };
   await registerReserveTeam(supabase, {
-    tournamentId: 'cup', team: { teamId: 2062034, teamName: 'FC Comoren' },
+    reserveOrigin: 'manager_joined', tournamentId: 'cup', team: { teamId: 2062034, teamName: 'FC Comoren' },
     managerName: 'Fixture manager', hattrickUserId: 1,
     accessToken: 'synthetic-token', accessTokenSecret: 'synthetic-secret',
   });
   assert.equal(inserted.length, 1);
   assert.equal(inserted[0]!.ht_team_id, 2062034);
   assert.equal(inserted[0]!.active, false);
+  assert.equal(inserted[0]!.reserve_active, true);
+  assert.equal(inserted[0]!.actively_waiting, true);
 });
 
 test('regular reserves rank by Power Rating and HFI reserves by lowest rank', async t => {

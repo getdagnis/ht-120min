@@ -28,7 +28,7 @@ function fixture(status: FixtureStatus, overrides: Record<string, unknown> = {})
   };
 }
 
-function createHarness(currentFixture: ReturnType<typeof fixture>, withPendingJoin = false) {
+function createHarness(currentFixture: ReturnType<typeof fixture>, withPendingJoin = false, failFirstCommit = false) {
   const teams = [1, 2].map((index) => ({
     id: `team-${index}`,
     name: `Team ${index}`,
@@ -68,7 +68,7 @@ function createHarness(currentFixture: ReturnType<typeof fixture>, withPendingJo
   const warnings = [{ id: 'warning-1', round_id: 'round-1', team_id: 'team-1', active: true }];
   const pendingTeam = {
     ...teams[0], id: 'team-3', name: 'New Team', ht_team_id: 103,
-    hattrick_user_id: 203, active: false, pending_entry_round_id: 'round-2',
+    hattrick_user_id: 203, active: false, reserve_active: true, actively_waiting: true, pending_entry_round_id: null,
   };
   const tables: Record<string, Array<Record<string, unknown>>> = {
     tournaments: [{ id: 'tournament-1', schedule_mode: 'length', scoring_mode: 'standard' }],
@@ -124,8 +124,10 @@ function createHarness(currentFixture: ReturnType<typeof fixture>, withPendingJo
       return query;
     },
     async rpc(name: string, args: Record<string, unknown>) {
+      if (name === 'get_waiting_admission_plan') return { data: { activeTeamIds: ['team-1', 'team-2'], teamIds: withPendingJoin ? ['team-3'] : [], rosterVersion: 'test-version' }, error: null };
       rpcCalls.push({ name, args });
-      if (name !== 'apply_length_round_transition_with_joins') throw new Error(`Unexpected RPC ${name}`);
+      if (failFirstCommit) { failFirstCommit = false; return { data: null, error: { code: '40001', message: 'Roster changed' } }; }
+      if (name !== 'apply_length_round_transition_with_membership') throw new Error(`Unexpected RPC ${name}`);
 
       // Model the relevant atomic SQL transition contract for service-boundary tests.
       const completedRound = (tables.rounds as typeof currentRound[]).find((round) => round.id === args.p_completed_round_id);
@@ -258,4 +260,14 @@ test('next regular round pairs the pending entrant and sends its exact ID for at
   assert.equal(harness.nextRound.matches.length, 2);
   assert.equal(harness.nextRound.matches.some((match) =>
     match.home_team_id === 'team-3' || match.away_team_id === 'team-3'), true);
+});
+
+test('a membership race replans and commits one complete round without duplicate fixtures', async () => {
+  const harness = createHarness(fixture('finished', { completed: true, home_goals: 1, away_goals: 0, schedule_resolution: 'played' }), true, true);
+  assert.equal((await progress(harness)).advanced, true);
+  assert.equal(harness.rpcCalls.length, 2);
+  assert.equal(harness.nextRound.matches.length, 2);
+  assert.deepEqual(harness.rpcCalls[1]!.args.p_active_team_ids, ['team-1', 'team-2']);
+  assert.deepEqual(harness.rpcCalls[1]!.args.p_pending_team_ids, ['team-3']);
+  assert.equal(harness.rpcCalls[1]!.args.p_roster_version, 'test-version');
 });

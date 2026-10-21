@@ -41,7 +41,9 @@ function harness(count = 12, playoffs = 3) {
       };
       return query;
     },
-    async rpc(_name: string, args: Record<string, unknown>) {
+    async rpc(name: string, args: Record<string, unknown>) {
+      if (name === 'get_waiting_admission_plan') return { data: { activeTeamIds: teams.map(team => team.id), teamIds: [], rosterVersion: 'test-version' }, error: null };
+      assert.equal(name, 'apply_length_round_transition_with_membership');
       calls.push(args);
       const current = rounds.find(round => round.id === args.p_completed_round_id)!;
       current.phase_status = 'completed';

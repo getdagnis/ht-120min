@@ -727,6 +727,9 @@ function ForgeStatsSidebar({
   loadingMoreChat = false,
   onLoadMoreChat,
   latestUsers,
+  hasMoreUsers = false,
+  loadingMoreUsers = false,
+  onLoadMoreUsers,
   latestTournament,
 }: {
   summary: ForgeStatsResponse['summary'] | null;
@@ -753,6 +756,9 @@ function ForgeStatsSidebar({
   loadingMoreChat?: boolean;
   onLoadMoreChat?: () => void;
   latestUsers?: DashboardUser[];
+  hasMoreUsers?: boolean;
+  loadingMoreUsers?: boolean;
+  onLoadMoreUsers?: () => void;
   latestTournament?: DashboardTournament | null;
 }) {
   return (
@@ -842,7 +848,7 @@ function ForgeStatsSidebar({
           {loading && latestUsers.length === 0 && <p className={styles.smallNote}>Loading registered users...</p>}
           {!loading && latestUsers.length === 0 && <p className={styles.smallNote}>No registrations in this period.</p>}
           <div className={styles.activityFeed}>
-            {latestUsers.slice(0, 10).map((user) => (
+            {latestUsers.map((user) => (
               <article key={user.hattrick_user_id} className={styles.activityFeedItem}>
                 <div className={styles.activityFeedHeading}>
                   <strong>{user.manager_name}</strong>
@@ -854,6 +860,11 @@ function ForgeStatsSidebar({
               </article>
             ))}
           </div>
+          {hasMoreUsers && onLoadMoreUsers && (
+            <Button variant="showMore" disabled={loadingMoreUsers} onClick={onLoadMoreUsers}>
+              {loadingMoreUsers ? 'Loading...' : 'Show 10 more'}
+            </Button>
+          )}
         </SectionCard>
       )}
 
@@ -1078,6 +1089,8 @@ function ForgeDashboard({
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [latestUsers, setLatestUsers] = useState<DashboardUser[]>([]);
+  const [hasMoreUsers, setHasMoreUsers] = useState(false);
+  const [loadingMoreUsers, setLoadingMoreUsers] = useState(false);
   const [latestTournament, setLatestTournament] = useState<DashboardTournament | null>(null);
   const [latestChat, setLatestChat] = useState<DashboardChat[]>([]);
   const [chatOffset, setChatOffset] = useState(0);
@@ -1106,6 +1119,8 @@ function ForgeDashboard({
     return () => window.clearTimeout(timer);
   }, []);
   const since = getPeriodSince(clock, period);
+  const latestUsersSinceRef = useRef(since);
+  latestUsersSinceRef.current = since;
   const trendConfig =
     FORGE_TREND_INTERVALS.find((option) => option.value === trendInterval) || FORGE_TREND_INTERVALS[0];
   const trendSince = getTrendSince(clock, trendInterval);
@@ -1146,14 +1161,20 @@ function ForgeDashboard({
     const load = async () => {
       setLoading(true);
       setError('');
+      setLatestUsers([]);
+      setHasMoreUsers(false);
+      setLoadingMoreUsers(false);
       try {
+        let usersQuery = supabase
+          .from('profiles')
+          .select('hattrick_user_id, manager_name, created_at, last_seen_at, country_name')
+          .gte('created_at', since)
+          .not('hattrick_user_id', 'is', null)
+          .order('created_at', { ascending: false })
+          .order('hattrick_user_id', { ascending: true });
+        if (adminUserId !== null) usersQuery = usersQuery.neq('hattrick_user_id', adminUserId);
         const [usersRes, tournamentRes, chatPage, statsRes] = await Promise.all([
-          supabase
-            .from('profiles')
-            .select('hattrick_user_id, manager_name, created_at, last_seen_at, country_name')
-            .gte('created_at', since)
-            .order('created_at', { ascending: false })
-            .limit(30),
+          usersQuery.range(0, 9),
           supabase
             .from('tournaments')
             .select('id, name, slug, created_at')
@@ -1182,7 +1203,8 @@ function ForgeDashboard({
         setChatOffset(chatPage.nextOffset);
         setHasMoreChat(chatPage.hasMore);
         const profiles = (usersRes.data as DashboardUser[] | null) || [];
-        setLatestUsers(profiles.filter((user) => user.hattrick_user_id !== adminUserId));
+        setLatestUsers(profiles);
+        setHasMoreUsers(profiles.length === 10);
         setLatestTournament((tournamentRes.data as DashboardTournament | null) || null);
       } catch (loadError) {
         if (!cancelled) setError(loadError instanceof Error ? loadError.message : 'Could not load dashboard activity.');
@@ -1195,6 +1217,35 @@ function ForgeDashboard({
       cancelled = true;
     };
   }, [adminManagerName, adminUserId, since]);
+
+  const loadMoreUsers = async () => {
+    if (!since || loadingMoreUsers || !hasMoreUsers) return;
+    const requestedSince = since;
+    const from = latestUsers.length;
+    setLoadingMoreUsers(true);
+    try {
+      let usersQuery = supabase
+        .from('profiles')
+        .select('hattrick_user_id, manager_name, created_at, last_seen_at, country_name')
+        .gte('created_at', requestedSince)
+        .not('hattrick_user_id', 'is', null)
+        .order('created_at', { ascending: false })
+        .order('hattrick_user_id', { ascending: true });
+      if (adminUserId !== null) usersQuery = usersQuery.neq('hattrick_user_id', adminUserId);
+      const { data, error: usersError } = await usersQuery.range(from, from + 9);
+      if (usersError) throw usersError;
+      if (latestUsersSinceRef.current !== requestedSince) return;
+      const nextUsers = (data as DashboardUser[] | null) || [];
+      setLatestUsers((current) => [...current, ...nextUsers]);
+      setHasMoreUsers(nextUsers.length === 10);
+    } catch (loadError) {
+      if (latestUsersSinceRef.current === requestedSince) {
+        setError(loadError instanceof Error ? loadError.message : 'Could not load more registered users.');
+      }
+    } finally {
+      setLoadingMoreUsers(false);
+    }
+  };
 
   const searchTerm = statsSearch.trim().toLocaleLowerCase();
   const searchUserId = searchTerm
@@ -1629,6 +1680,9 @@ function ForgeDashboard({
           loadingMoreChat={loadingMoreChat}
           onLoadMoreChat={() => void loadMoreChat()}
           latestUsers={latestUsers}
+          hasMoreUsers={hasMoreUsers}
+          loadingMoreUsers={loadingMoreUsers}
+          onLoadMoreUsers={() => void loadMoreUsers()}
           latestTournament={latestTournament}
         />
       </div>

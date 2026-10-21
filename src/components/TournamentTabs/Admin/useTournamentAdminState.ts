@@ -71,7 +71,6 @@ export function useTournamentAdminState() {
   const [editAllowManagerCountrySizeException, setEditAllowManagerCountrySizeException] = useState(false);
   const [editMaxTeams, setEditMaxTeams] = useState<number | null>(null);
   const [editRegistrationOpen, setEditRegistrationOpen] = useState(true);
-  const [editAllowReserveRegistration, setEditAllowReserveRegistration] = useState(true);
   const [showEditDescription, setShowEditDescription] = useState(false);
   const [editDescription, setEditDescription] = useState('');
   const [showEditEmail, setShowEditEmail] = useState(false);
@@ -116,7 +115,7 @@ export function useTournamentAdminState() {
     editAllowManagerCountrySizeException, setEditAllowManagerCountrySizeException,
     editScoringMode, setEditScoringMode, editDefaultTheme, setEditDefaultTheme,
     editMaxTeams, setEditMaxTeams, editRegistrationOpen, setEditRegistrationOpen,
-    editAllowReserveRegistration, setEditAllowReserveRegistration, showEditDescription,
+    showEditDescription,
     setShowEditDescription, editDescription, setEditDescription, showEditEmail, setShowEditEmail,
     editAdminEmail, setEditAdminEmail, editForumId, setEditForumId, isUpdatingSettings,
     setIsUpdatingSettings, isResettingAdminPassword, setIsResettingAdminPassword, isTest, setIsTest,

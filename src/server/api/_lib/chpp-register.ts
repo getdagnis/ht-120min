@@ -114,6 +114,7 @@ export async function registerOAuthTeam(
         active: true,
         reserve_active: false,
         reserve_joined_at: null,
+        actively_waiting: false,
         reapply_season_number: null,
         name: input.team.teamName,
         manager_name: input.managerName,
@@ -366,34 +367,15 @@ export async function registerReserveTeam(
     reapply_season_number: null,
     reserve_active: true,
     reserve_joined_at: new Date().toISOString(),
-    reserve_origin: existing?.reserve_active
-      ? existing.reserve_origin || 'legacy_unknown'
-      : input.reserveOrigin,
+    actively_waiting: input.reserveOrigin === 'manager_joined',
   };
 
-  if (input.skipMembershipCheck) {
-    const { data: id, error } = await getServiceSupabase().rpc('save_verified_tournament_registration', {
-      p_values: existing ? values : { tournament_id: input.tournamentId, ht_team_id: input.team.teamId, ...values },
-      p_existing_id: existing?.id ?? null,
-      p_skip_membership: true,
-    });
-    if (error) throw new Error(error.message);
-    if (!id) throw new Error(`Could not add ${input.team.teamName} to the reserve list.`);
-    return String(id);
-  }
-
-  const query = existing
-    ? supabase.from('teams').update(values).eq('id', existing.id).select('id, active, reserve_active').maybeSingle()
-    : supabase
-        .from('teams')
-        .insert({ tournament_id: input.tournamentId, ht_team_id: input.team.teamId, ...values })
-        .select('id, active, reserve_active')
-        .single();
-  const { data: reserveTeam, error } = await query;
+  const { data: id, error } = await getServiceSupabase().rpc('save_verified_tournament_registration', {
+    p_values: existing ? values : { tournament_id: input.tournamentId, ht_team_id: input.team.teamId, ...values },
+    p_existing_id: existing?.id ?? null,
+    p_skip_membership: input.skipMembershipCheck === true,
+  });
   if (error) throw new Error(error.message);
-  if (!reserveTeam || reserveTeam.active !== false || reserveTeam.reserve_active !== true) {
-    throw new Error(`Could not add ${input.team.teamName} to the reserve list.`);
-  }
-
-  return reserveTeam.id as string;
+  if (!id) throw new Error(`Could not add ${input.team.teamName} to Waiting.`);
+  return String(id);
 }

@@ -244,62 +244,53 @@ HT120_TEST_POSTGRES_SOCKET=/private/tmp/ht120-calendar-pg.YOUR_TEMP_SUFFIX node 
 ```
 
 
-## Manager joins from the next regular round
+## Waiting admission and the next regular round
 
-When a length-scheduled tournament has a materialized regular round followed by
-a pending regular round, the organizer can reopen participant registration
-without changing reserve registration. A verified manager may register an owned,
-eligible team, even if a different owned team already participates. The new team
-is inactive and identified by `teams.pending_entry_round_id`; it appears below
-standings as “Participating from next round” and has no current-round fixture or
-season slot yet. It may be withdrawn before admission. The current round must
-finish or be resolved before the next round can materialize; the materialization
-transaction is the join cutoff. A closed participant setting, a full configured
-limit, or no next regular round prevents direct entry. An unset limit does not
-close entry. Reserve registration is a separate setting and path.
+Phase 1 uses Active, Waiting and Past. See [membership and rollout rules](database-and-deployment.md#team-membership-phase-1).
+An eligible verified manager joins checked Waiting while registration is open,
+even with another owned participant. The team appears below standings without
+current fixtures, a ranked standings row or a season assignment. Waiting may
+remain open when the playing field is full; capacity is rechecked on admission.
+There is one registration setting, including tournaments with no team limit.
+Closing it blocks new requests, not accepted Waiting.
 
-Migration 134 adds service-only request, withdrawal and round-transition RPCs.
-The transition locks the tournament, requires the exact pending set used for
-pairing, rechecks registration, capacity, eligibility and cross-tournament team
-membership, then adds two physical season slots per entrant (one occupied and
-one spare), a slot assignment, and its next-round fixture or BYE in one
-transaction. Existing rounds, fixtures and results remain intact. A failed
-admission rolls back the whole transition; the team stays pending for review.
-An operational admin can cancel that pending registration in Manage Teams; the
-manager can also withdraw it. Cancellation takes the same tournament lock as
-admission, clears only inactive pending state, and does not alter fixtures or
-historical assignments. Saving results or refreshing fixtures then retries
-progression with fresh pairings. Keep this fail-closed behavior: silently
-skipping an invalid entrant after pairings were generated would commit a
-roster/fixture mismatch. The historical schedule plan is left unchanged and subsequent
-regular rounds use played-history pairing for the expanded field. This manager
-flow does not use site-admin promotion or its eligibility bypasses.
+A checked Waiting team is admitted at the next eligible regular-round
+materialization, or when an immediate departure opens a place. Unchecked Waiting
+stays for admin review. A manual Promote creates ordinary Active membership and
+season integration; it does not rewrite the current round. Existing booking and
+paired-add/Repair Round operations remain the way to add safe current-round
+fixtures. Past → To waiting is checked; Active → To waiting is unchecked. Remove
+and manager Leave move to Past while preserving match history.
 
-Before applying 134, inspect the deployed base transition with this read-only
-query and compare its body to
-`migrations/107_calendar_first_generated_schedules.sql`:
+The scheduler reads `get_waiting_admission_plan` before creating pairings.
+That function determines a valid ordered subset using eligibility, actual Active
+capacity and current commitments. Invalid entrants stay Waiting with a reason;
+existing participants can advance. Accepted Leave-after-round requests are
+accounted for before the next regular field, subject to protected later fixtures.
+The service then calls `apply_length_round_transition_with_membership` with exact
+accepted IDs, Active IDs, roster version and pairings. Its transaction recomputes
+the plan, releases those leaving, adds accepted entrants with slots/assignments,
+and invokes the existing six-argument transition from migration 107. A roster
+race rolls back and retries planning; an admission cannot appear as Active
+without the corresponding committed transition. Old 134 join wrappers cannot
+silently bypass the new guards.
 
-```sql
-SELECT pg_get_functiondef(
-  'public.apply_length_round_transition(uuid,integer,uuid,uuid,jsonb,uuid)'::regprocedure
-);
-```
+Released historical assignments do not prevent returning. New length admissions
+append their own slot/assignment instead of inheriting a departed team's place.
+Two physical rows per admission remain for compatibility in Phase 1. Existing
+fixtures and results remain intact; future regular pairing uses the expanded
+field/history fallback. Length standings count a team's own matches and show
+only Active; opponents' results against Past/Waiting teams still count. Fixed
+full-season slot inheritance is preserved.
 
-Confirm the six arguments and JSONB return, the unresolved-round return,
-current-season slot/assignment validation for every pairing, and the
-`next_round_materialized` result after fixture insertion. The migration's
-signature guard alone cannot verify deployed function behavior. The app calls
-the seven-argument wrapper with `p_pending_team_ids` containing the exact
-queued roster. Participant registration is `registration_closed_at`; reserve
-signup is independently controlled by `allow_reserve_registration`.
-
-Apply migration 134 before deploying the matching API/UI. No live Supabase or
-CHPP transaction was run during preparation. Booking, cup and match arrangement
-for the new next-round fixture remain the normal manager/organizer workflow.
+Site-admin manual promotion retains its verified eligibility/membership/capacity
+override; normal automatic admission has no such bypass. Booking and CHPP match
+arrangement remain the normal manager/organizer workflow. No migration or live
+integration was executed against Supabase during implementation.
 
 ## Adding reserve pairs during a staged season
 
-Organizers can select an even group of reserves as **Active reserves**, check their
+Organizers can select an even group of Waiting teams in the scheduling operation, check their
 booking/cup status, preview ranked newcomer pairs and add them to the current
 materialized regular round. Selection is local to the page and does not itself
 promote a team. Known booking/cup conflicts or unverifiable status block the whole
@@ -315,7 +306,7 @@ Admission retries use a request UUID recorded on the assignments, including when
 the entry round has since completed. Existing removal tools retain their result
 and protected-fixture guards.
 
-`admit_length_schedule_reserves` in migration **108** is the sole admission write
+`admit_length_schedule_reserves` in migration **108** remains the explicit paired-admission write
 path, called through the authorized consolidated API. Season-slot assignments
 are the source of truth for entry round, frozen admission ranking and request
 identity; this is an extension of slot ownership, not a global identity migration.
@@ -329,11 +320,9 @@ Migration 108 carries the owner's applied marker; live schema inspection and
 CHPP verification remain separate rollout steps. It adds no API function, automatic CHPP booking,
 ratings consent, legacy-schedule expansion or pending-entry queue.
 
-Organizers can remove an unused reserve registration through the same private
-API (migration 109, prepared locally). Removal locks the tournament and team in
-admission order, refuses participants and all referenced registrations, including
-references with cascading deletes, and removes only the selected unused row.
-Manager profiles and credentials stored elsewhere remain intact. Availability
+Normal Remove now moves Waiting to Past through 137's membership operation.
+The older hard-delete RPC is retained separately for compatibility and is not a
+membership control. Availability
 checks distinguish missing cup data from ownership validation. When `teamdetails`
 suppresses Cup during live play, an identified complete matches response can
 verify availability: unresolved cup fixtures block; absence of them requires an

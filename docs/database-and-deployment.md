@@ -41,7 +41,7 @@ The app treats tournaments, rounds, matches, standings, chat, and admin decision
 - `migrations/history/` is an archived legacy area.
 - Active migrations must use the root `migrations/` directory.
 - Continue the numeric sequence from the latest active migration.
-- The latest active migration file is `136_track_reserve_origin.sql`, prepared locally and unapplied by the agent. The owner marked 134 fully applied; that has not been independently verified. Migration 135 allows safe Past-team removal when only an unused released assignment remains; migration 136 adds reserve-origin labels, marks existing reserves `legacy_unknown`, and updates the service-only registration RPC allowlist. Apply 135, then 136, before deploying the matching API/UI. Migration markers and owner reports are separate from independent live verification. Earlier migration states and preflights remain in `PROJECT_STATE.md`; review the [lifecycle preflight](tournament-lifecycle-preflight.sql) before converting existing real Open/Waiting rosters.
+- The latest active migration is `137_reserve_waiting_and_past_actions.sql`, prepared locally and not agent-applied to Supabase. It requires 134–136 (owner-marked applied, not independently live-verified). Apply 137 before deploying its API/UI. See [reserve membership actions](#team-membership-phase-1). Earlier migration states and preflights remain in `PROJECT_STATE.md`; review the [lifecycle preflight](tournament-lifecycle-preflight.sql) before converting existing real Open/Waiting rosters.
 - Do not create timestamp-prefixed migration names such as `20261001050614_...`.
 - Keep migrations compatible with existing rows when possible.
 - Record migration state in `PROJECT_STATE.md` only when a schema/RPC/RLS change has architectural, security, product-direction, or substantial behavioral impact. Do not add status entries for routine fixes or small implementation details.
@@ -157,3 +157,85 @@ Database changes should also include a clear manual or automated verification pa
 - `src/server/api/_lib/supabase.ts`
 - `src/lib/supabase.ts`
 - `docs/schedule-rpc-smoke-test.sql`
+
+## Team membership (Phase 1)
+
+The existing tournament-owned `teams` row is the source of truth. No extra
+membership table, reserve-origin status, or newcomer state is introduced.
+
+| List | Stored membership | Controls |
+| --- | --- | --- |
+| Active | `active=true`, `reserve_active=false`, `actively_waiting=false` | To waiting (unchecked), Remove (Past) |
+| Waiting | `active=false`, `reserve_active=true` | Promote (ordinary Active), Actively waiting checkbox, Remove (Past) |
+| Past | `active=false`, `reserve_active=false`, `actively_waiting=false` | To waiting (checked) |
+
+The legacy `reserve_active` name now means **Waiting membership**, while the new
+`actively_waiting` flag records permission for automatic admission. Unchecking
+never removes a Waiting row. Normal Remove/Leave is a soft membership change,
+never migration 135's separately guarded hard delete. Historical assignments,
+fixtures and team identity remain available. Protected/booked fixtures can block
+an immediate departure: resolve the booking or use Leave after this round.
+
+### Revised, unapplied 137 over applied 134–136
+
+- Before applying, run [the read-only membership preflight](team-membership-preflight.sql).
+  Compare its IDs/counts to the current admin lists and review any contradictory
+  active/reserve/pending rows; migration 137 refuses those contradictions. Review
+  the slot-occupancy mismatch query too: existing malformed occupancy must be
+  repaired before round progression. A slotless Active team without a fixture
+  commitment can use To waiting then Promote to obtain normal season integration.
+- The actual old Reserve list uses `reserve_active=true`. Its former “Active
+  reserve” checkbox was local pairing selection, not that database flag.
+  137 normalizes **every existing reserve and old pending join** to Waiting,
+  **unchecked**, for explicit review. Origin metadata is never used to infer intent.
+- `pending_entry_round_id` is cleared and retired from membership decisions.
+  Accepted Waiting rows do not depend on a particular round ID. Applied 136's
+  origin trigger is removed; its column remains for compatibility.
+- Registration has one switch: `registration_closed_at`. The old reserve setting
+  is no longer an independent admission path. New verified manager joins enter
+  checked Waiting, including another owned team. Closing registration does not
+  cancel accepted Waiting or prevent its later admission. Site-admin overrides
+  remain explicit, service-authorized operations.
+- `team-membership` uses the consolidated API and a service-only
+  `change_tournament_team_membership` RPC. The API derives any override from its
+  verified role session, never request-supplied identity or flags. Immediate
+  generated-roster promotion/demotion stays restricted as before; ordinary
+  organizers use checked Waiting or the existing paired scheduling operation. Existing manager
+  registration still verifies ownership and metadata through CHPP on the server.
+- Admission planning rechecks stored verified credentials, category/country and
+  country-size allowance, cross-tournament team membership, capacity and live
+  commitments. Released history is allowed. Invalid/full entries stay Waiting
+  with a visible admin reason and do not block valid entrants or the round.
+- The scheduler obtains the eligible set **before pairing**, then the commit RPC
+  rechecks that set, Active IDs and a roster version under the membership lock.
+  A race requests fresh planning (up to two retries); it cannot commit stale
+  pairings or a partial admission. Registration closure is deliberately not an
+  admission blocker for already accepted Waiting.
+- Accepted Leave-after-round requests free capacity before next regular-round
+  pairings when they have no protected later commitment. Completed results stay
+  intact. Fixed-format replacement, reset and season-start operations retain
+  their original rules inside the new authorized write context.
+- Length-tournament standings use each Active team's own match results, retaining
+  results against departed opponents. Waiting is listed below standings; Past is
+  absent. Fixed full-season slot inheritance stays unchanged. Two slot rows per
+  admission (occupied plus spare) remain scheduler compatibility plumbing in
+  Phase 1; no slot-system rewrite is included.
+
+### Rollout and checks
+
+137 is prepared locally, **not applied to Supabase by the agent**. The owner
+reports 134–136 applied; files and markers remain unchanged. Live definitions
+are not independently verified. The preflight includes the deployed transition
+signature/body: compare it with migration 107, especially its six parameters,
+slot/assignment validation and `next_round_materialized` return contract.
+
+Apply revised **137 first**, then immediately deploy the matching app/API and
+invalidate the affected tournament publication/cache. Coordinate that short
+rollout window: old clients cannot progress rounds through the retired 134
+wrapper, and the new app requires the new column/RPCs. Do not deploy app-first.
+A rejected preflight or migration must be resolved before deploying.
+
+Local verification uses a disposable UNIX-socket PostgreSQL cluster with
+synthetic fixtures and actual migration/RPC definitions plus mocked API/CHPP
+responses. It does not verify live ownership, live Supabase schema, deployment,
+production data normalization, browser presentation or real match booking.

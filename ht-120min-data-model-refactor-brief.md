@@ -1,5 +1,13 @@
 # HT-120min Data Model Refactor — Architecture Brief
 
+## UPDATE OCT 21, 2026
+
+### Context from recent participation work
+
+Recent work has been focused on simplifying tournament participation to Active, Waiting and Past, with automatic admissions at normal round transitions and tournament-admin handling of mid-round exceptions. It has also raised questions about whether slot and assignment concepts apply to every tournament format.
+
+Please review that work alongside this brief and consider whether it changes any of the assumptions here. This may not be the only relevant context to bring into the review. Pay particular attention to the slot system: where slots and assignments currently determine participation, standings or replacement inheritance, and whether those assumptions fit each tournament format. This context may affect the refactor’s scope or sequencing. Original plan below.
+
 ## 1. Purpose
 
 This document captures the conclusions of the recent investigation into HT-120min's manager, team, tournament, season, slot, standings and sandbox data model.

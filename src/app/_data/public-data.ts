@@ -321,6 +321,7 @@ export async function buildTournamentInitialData(tournament: Record<string, unkn
     slots,
     String(tournament.scoring_mode || '120min'),
     slotAssignments,
+    tournament.schedule_mode === 'length',
   ) as Record<string, unknown>[];
 
   return {

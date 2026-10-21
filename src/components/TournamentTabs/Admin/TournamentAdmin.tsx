@@ -20,7 +20,7 @@ import { ReusableWidget } from '../../ReusableWidget/ReusableWidget';
 import { useHydrationReady } from '../../../hooks/useHydratedBrowserState';
 import { getCompatibleLeagueRestrictionOptions } from '../../../utils/team-eligibility';
 import { formatCalendarDateWithWeek } from '../../../utils/hattrick-calendar';
-import { isCurrentParticipantTeam } from '../../../utils/team-state';
+import { isCurrentParticipantTeam, isPastTeam } from '../../../utils/team-state';
 import { normalizeTournamentRegistrationType } from '../../../utils/tournament-types';
 import { normalizeLeagueLimit } from '../../../../shared/worlddetails';
 import type { TournamentAnnouncement, TournamentAnnouncementVisibility } from '../../../utils/tournament-announcements';
@@ -75,11 +75,9 @@ export interface TournamentAdminController {
     teams: Team[];
     rounds: RoundWithMatches[];
     seasonSlots: Array<{ id: string; current_team_id: string | null }>;
-    currentSeasonSlotTeamIds: Set<string>;
     participantTeams: Team[];
     reserveTeams: Team[];
     activeParticipantCount: number;
-    maxTeamsAllowsPromotion: boolean;
     isGenerated: boolean;
     isRegistrationOpen: boolean;
     isSandbox: boolean;
@@ -109,8 +107,6 @@ export interface TournamentAdminController {
     canManageOperationalAdmin: boolean;
     canManageSchedule: boolean;
     canManageFeaturedTournaments: boolean;
-    isChangingPublication: boolean;
-    onPublicationChange: (target: 'planning' | 'recruiting') => Promise<void>;
     canToggleArchiveTournament: boolean;
     adminAccessMode: string;
     adminAccessName: string;
@@ -148,8 +144,6 @@ export interface TournamentAdminController {
     setEditMaxTeams: Setter<number | null>;
     editRegistrationOpen: boolean;
     setEditRegistrationOpen: Setter<boolean>;
-    editAllowReserveRegistration: boolean;
-    setEditAllowReserveRegistration: Setter<boolean>;
     showEditDescription: boolean;
     setShowEditDescription: Setter<boolean>;
     editDescription: string;
@@ -282,11 +276,7 @@ export interface TournamentAdminController {
     setReplacementName: Setter<string>;
     onReplaceTeamWithReserve: (formerTeamId: string) => void | Promise<void>;
     onReplaceTeam: (oldTeamId: string) => void | Promise<void>;
-    onTransitionTeamReserveStatus: (team: Team, action: 'to_reserve' | 'to_participant') => void | Promise<void>;
     onDeleteTeam: (id: string) => void | Promise<void>;
-    onMoveInactiveTeamToReserve: (team: Team) => void | Promise<void>;
-    onRemovePastTeam: (team: Team) => void | Promise<void>;
-    onFillVacantSlotWithReserve: (team: Team) => void | Promise<void>;
     onInviteExpandedChange: Setter<boolean>;
     inviteExpanded: boolean;
     onDuplicateAsSandbox: () => void | Promise<void>;
@@ -326,6 +316,8 @@ export interface TournamentAdminController {
     originalOrganizer: TournamentOwnerRecord;
   };
   lifecycle: {
+    isChangingPublication: boolean;
+    onPublicationChange: (target: 'planning' | 'recruiting') => Promise<void>;
     canToggleArchiveTournament: boolean;
     isArchivingTournament: boolean;
     onArchiveTournament: () => void | Promise<void>;
@@ -366,11 +358,9 @@ export const TournamentAdmin: React.FC<{ controller: TournamentAdminController }
     teams,
     rounds,
     seasonSlots,
-    currentSeasonSlotTeamIds,
     participantTeams,
     reserveTeams,
     activeParticipantCount,
-    maxTeamsAllowsPromotion,
     isGenerated,
     isRegistrationOpen,
     isSandbox,
@@ -438,8 +428,6 @@ export const TournamentAdmin: React.FC<{ controller: TournamentAdminController }
     setEditMaxTeams,
     editRegistrationOpen,
     setEditRegistrationOpen,
-    editAllowReserveRegistration,
-    setEditAllowReserveRegistration,
     showEditDescription,
     setShowEditDescription,
     editDescription,
@@ -559,11 +547,7 @@ export const TournamentAdmin: React.FC<{ controller: TournamentAdminController }
     setReplacementName,
     onReplaceTeamWithReserve: replaceTeamWithReserve,
     onReplaceTeam: replaceTeam,
-    onTransitionTeamReserveStatus: transitionTeamReserveStatus,
     onDeleteTeam: deleteTeam,
-    onMoveInactiveTeamToReserve: moveInactiveTeamToReserve,
-    onRemovePastTeam: removePastTeam,
-    onFillVacantSlotWithReserve: fillVacantSlotWithReserve,
     onInviteExpandedChange: setIsInviteExpanded,
     inviteExpanded: isInviteExpanded,
     onDuplicateAsSandbox: duplicateAsSandbox,
@@ -653,57 +637,42 @@ export const TournamentAdmin: React.FC<{ controller: TournamentAdminController }
   }, [isAdminAuthenticated, canManageOperationalAdmin, tournament.id]);
   const [admissionSelection, setAdmissionSelection] = useState<string[]>([]);
   const selectedAdmissionIds = admissionSelection.filter((id) => reserveTeams.some((team) => team.id === id));
-  const pendingNextRoundTeams = teams.filter(
-    (team) => !team.active && !team.reserve_active && !team.is_placeholder && Boolean(team.pending_entry_round_id),
-  );
-  const pastTeams = teams.filter(
-    (team) => !team.active && !team.reserve_active && !team.is_placeholder && !team.pending_entry_round_id,
-  );
-  const [cancellingPendingId, setCancellingPendingId] = useState<string | null>(null);
-  const cancelPendingJoin = async (team: Team) => {
-    if (!window.confirm(`Cancel ${team.name}'s next-round registration? The team will not be included when the round begins.`)) return;
-    setCancellingPendingId(team.id);
+  const pastTeams = teams.filter(isPastTeam);
+  const [changingReserveId, setChangingReserveId] = useState<string | null>(null);
+  const [waitingReasons, setWaitingReasons] = useState<Record<string, string>>({});
+  useEffect(() => {
+    if (!canManageOperationalAdmin) return;
+    let cancelled = false;
+    void fetch(`/api/app?route=team-membership&tournamentId=${encodeURIComponent(tournament.id)}`, { credentials: 'same-origin' })
+      .then(async (response) => {
+        const data = await response.json();
+        if (!response.ok) throw new Error(data.error || 'Could not check Waiting teams.');
+        if (!cancelled) setWaitingReasons(Object.fromEntries((data.rejected || []).map((row: { teamId: string; reason: string }) => [row.teamId, row.reason])));
+      }).catch(() => { if (!cancelled) setWaitingReasons({}); });
+    return () => { cancelled = true; };
+  }, [canManageOperationalAdmin, tournament.id, teams]);
+  const changeMembership = async (team: Team, action: 'promote' | 'to_waiting' | 'remove' | 'return' | 'ready', ready?: boolean) => {
+    const description = action === 'promote'
+      ? `Promote ${team.name} to Active? It will be included in normal schedule planning.`
+      : action === 'to_waiting' ? `Move ${team.name} to Waiting, unchecked?`
+      : action === 'return' ? `Return ${team.name} to Waiting, checked to join when possible?`
+      : `Remove ${team.name} to Past? Its match history will be kept.`;
+    const overrideWarning = isSiteAdmin && action === 'promote'
+      ? `\n\n${waitingReasons[team.id] || 'Eligibility, membership and capacity checks may be overridden.'} Existing fixtures and history stay protected.` : '';
+    if (action !== 'ready' && !window.confirm(description + overrideWarning)) return;
+    setChangingReserveId(team.id);
     try {
-      const response = await fetch('/api/app?route=next-round-join', {
-        method: 'POST',
-        credentials: 'same-origin',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ action: 'cancel', tournamentId: tournament.id, teamId: team.id }),
+      const response = await fetch('/api/app?route=team-membership', {
+        method: 'POST', credentials: 'same-origin', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ tournamentId: tournament.id, teamId: team.id, action, ready }),
       });
       const result = await response.json();
-      if (!response.ok) throw new Error(result.error || 'The pending registration could not be cancelled.');
-      await onReservesChanged();
-    } catch (error) {
-      alert(error instanceof Error ? error.message : 'The pending registration could not be cancelled.');
-    } finally {
-      setCancellingPendingId(null);
-    }
-  };
-  const [removingReserveId, setRemovingReserveId] = useState<string | null>(null);
-  const removeReserve = async (team: Team) => {
-    if (
-      !window.confirm(
-        `Remove ${team.name} from the reserve list? Only this team's unused reserve registration will be removed.`,
-      )
-    )
-      return;
-    setRemovingReserveId(team.id);
-    try {
-      const response = await fetch('/api/app?route=reserve-admission', {
-        method: 'POST',
-        credentials: 'same-origin',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ tournamentId: tournament.id, teamId: team.id, action: 'remove' }),
-      });
-      const result = await response.json();
-      if (!response.ok) throw new Error(result.error || 'The reserve could not be removed.');
+      if (!response.ok) throw new Error(result.error || 'Membership could not be changed.');
       setAdmissionSelection((ids) => ids.filter((id) => id !== team.id));
       await onReservesChanged();
     } catch (error) {
-      alert(error instanceof Error ? error.message : 'The reserve could not be removed.');
-    } finally {
-      setRemovingReserveId(null);
-    }
+      alert(error instanceof Error ? error.message : 'Membership could not be changed.');
+    } finally { setChangingReserveId(null); }
   };
   const validateReserve = async (team: Team) => {
     try {
@@ -1114,19 +1083,7 @@ export const TournamentAdmin: React.FC<{ controller: TournamentAdminController }
                               {renderUnsavedSettingsNote(unsavedSettingsFields.registrationOpen)}
                             </div>
 
-                            <div className={adminStyles.field}>
-                              {renderSettingsLabel('Reserve team registration')}
-                              <Switch
-                                checked={editAllowReserveRegistration}
-                                onChange={setEditAllowReserveRegistration}
-                                size="sm"
-                                label="Allow reserve team registration"
-                              />
-                              <p className={adminStyles.smallNote}>
-                                Controls new reserve sign-ups independently of tournament registration.
-                              </p>
-                              {renderUnsavedSettingsNote(unsavedSettingsFields.allowReserveRegistration)}
-                            </div>
+
 
                             <div className={adminStyles.checkboxField}>
                               <label className={adminStyles.checkboxLabel}>
@@ -1487,15 +1444,35 @@ export const TournamentAdmin: React.FC<{ controller: TournamentAdminController }
                             onRepairRound={tournament.schedule_mode === 'length' ? repairCurrentLengthRound : undefined}
                             reserveAdmissionControl={
                               canManageOperationalAdmin && reserveTeams.length > 0 ? (
-                                <ReserveAdmissionPanel
-                                  tournamentId={tournament.id}
-                                  teamIds={selectedAdmissionIds}
-                                  isSiteAdmin={isSiteAdmin}
-                                  onChanged={async () => {
-                                    setAdmissionSelection([]);
-                                    await onReservesChanged();
-                                  }}
-                                />
+                                <>
+                                  <div className={adminStyles.reservePairingSelection}>
+                                    <p>Choose Waiting teams to pair in the current round:</p>
+                                    {reserveTeams.map((team) => (
+                                      <label key={team.id} className={adminStyles.checkboxLabel}>
+                                        <input
+                                          type="checkbox"
+                                          checked={selectedAdmissionIds.includes(team.id)}
+                                          onChange={(event) => {
+                                            const checked = event.currentTarget.checked;
+                                            setAdmissionSelection((ids) => checked
+                                              ? [...new Set([...ids, team.id])]
+                                              : ids.filter((id) => id !== team.id));
+                                          }}
+                                        />
+                                        {team.name}
+                                      </label>
+                                    ))}
+                                  </div>
+                                  <ReserveAdmissionPanel
+                                    tournamentId={tournament.id}
+                                    teamIds={selectedAdmissionIds}
+                                    isSiteAdmin={isSiteAdmin}
+                                    onChanged={async () => {
+                                      setAdmissionSelection([]);
+                                      await onReservesChanged();
+                                    }}
+                                  />
+                                </>
                               ) : undefined
                             }
                             isRecoveringRoundOne={isRecoveringRoundOne}
@@ -1673,8 +1650,7 @@ export const TournamentAdmin: React.FC<{ controller: TournamentAdminController }
                                     <div className={adminStyles.teamPlanningRow}>
                                       <div>
                                         <p className={adminStyles.smallNote}>
-                                          Add a manually selected Hattrick team to the reserve list without reopening
-                                          registration.
+                                          Add a manually selected Hattrick team to Waiting for review.
                                         </p>
                                       </div>
                                       <Button
@@ -1683,7 +1659,7 @@ export const TournamentAdmin: React.FC<{ controller: TournamentAdminController }
                                         variant="secondaryAction"
                                         onClick={() => setIsReserveTeamFormOpen((open) => !open)}
                                       >
-                                        {isReserveTeamFormOpen ? 'Cancel reserve team' : 'Add reserve team'}
+                                        {isReserveTeamFormOpen ? 'Cancel' : 'Add to Waiting'}
                                       </Button>
                                     </div>
                                     {isReserveTeamFormOpen && (
@@ -1737,8 +1713,8 @@ export const TournamentAdmin: React.FC<{ controller: TournamentAdminController }
                                                   reserveValidation.validated
                                                 ? `Already CHPP validated · ${reserveValidation.managerName}`
                                                 : reserveValidation?.teamId === reserveTeamId && reserveValidation.known
-                                                  ? 'Known team — current ownership could not be verified. Add as an unvalidated reserve.'
-                                                  : 'Add as an unvalidated reserve.'}
+                                                  ? 'Known team — current ownership could not be verified. Add as an unverified Waiting team.'
+                                                  : 'Add as an unverified Waiting team.'}
                                           </p>
                                         )}
                                         {reserveTeamName && (
@@ -1751,8 +1727,8 @@ export const TournamentAdmin: React.FC<{ controller: TournamentAdminController }
                                               ? 'Saving...'
                                               : reserveValidation?.teamId === reserveTeamId &&
                                                   reserveValidation.validated
-                                                ? 'Add validated reserve team'
-                                                : 'Add reserve team'}
+                                                ? 'Add verified team to Waiting'
+                                                : 'Add to Waiting'}
                                           </Button>
                                         )}
                                       </form>
@@ -1761,6 +1737,7 @@ export const TournamentAdmin: React.FC<{ controller: TournamentAdminController }
                                 )}
                             </div>
                           )}
+                          <h3 className={adminStyles.sectionTitle}>Active ({activeParticipantCount})</h3>
                           <ul className={adminStyles.teamList}>
                             {teams
                               .filter((team) => team.active && !team.reserve_active)
@@ -1852,7 +1829,7 @@ export const TournamentAdmin: React.FC<{ controller: TournamentAdminController }
                                           Validate team
                                         </Button>
                                       )}
-                                      {isGenerated &&
+                                      {tournament.schedule_mode !== 'length' && isGenerated &&
                                         roleAccess?.canManageOperations &&
                                         seasonSlots.some((slot) => slot.current_team_id === team.id) &&
                                         reserveTeams.length > 0 &&
@@ -1864,7 +1841,7 @@ export const TournamentAdmin: React.FC<{ controller: TournamentAdminController }
                                               onChange={(event) => setSelectedReserveTeamId(event.target.value)}
                                               disabled={isSavingTeam}
                                             >
-                                              <option value="">Choose reserve team</option>
+                                              <option value="">Choose Waiting team</option>
                                               {reserveTeams.map((reserveTeam) => (
                                                 <option key={reserveTeam.id} value={reserveTeam.id}>
                                                   {reserveTeam.name}
@@ -1878,7 +1855,7 @@ export const TournamentAdmin: React.FC<{ controller: TournamentAdminController }
                                                 onClick={() => void replaceTeamWithReserve(team.id)}
                                                 disabled={isSavingTeam || !selectedReserveTeamId}
                                               >
-                                                Replace with reserve
+                                                Replace with Waiting team
                                               </Button>
                                               <Button
                                                 size="sm"
@@ -1902,7 +1879,7 @@ export const TournamentAdmin: React.FC<{ controller: TournamentAdminController }
                                             }}
                                             disabled={isSavingTeam}
                                           >
-                                            Replace with reserve
+                                            Replace with Waiting team
                                           </Button>
                                         ))}
                                       {!isGenerated && replacingTeamId === team.id ? (
@@ -1968,34 +1945,22 @@ export const TournamentAdmin: React.FC<{ controller: TournamentAdminController }
                                       ) : null}
                                       {roleAccess?.canManageOperations &&
                                         tournamentAllowsTeamActions &&
-                                        (!isGenerated ||
-                                          (isSiteAdmin &&
-                                            !seasonSlots.some((slot) => slot.current_team_id === team.id))) && (
+                                        (!isGenerated || isSiteAdmin) && (
                                           <>
-                                            {isGenerated && isSiteAdmin && (
-                                              <Button
-                                                size="xs"
-                                                variant="primary"
-                                                onClick={() => void transitionTeamReserveStatus(team, 'to_participant')}
-                                                disabled={isSavingTeam}
-                                              >
-                                                Integrate into season
-                                              </Button>
-                                            )}
                                             <Button
                                               size="xs"
                                               variant="action"
-                                              onClick={() => void transitionTeamReserveStatus(team, 'to_reserve')}
+                                              onClick={() => void changeMembership(team, 'to_waiting')}
                                               disabled={isSavingTeam}
                                             >
-                                              Reserve
+                                              To waiting
                                             </Button>
                                           </>
                                         )}
                                       <Button
                                         size="xs"
                                         variant="danger"
-                                        onClick={() => void deleteTeam(team.id)}
+                                        onClick={() => team.is_placeholder || isSandbox ? void deleteTeam(team.id) : void changeMembership(team, 'remove')}
                                         title="Remove team"
                                       >
                                         <Trash size={16} /> Remove
@@ -2008,10 +1973,11 @@ export const TournamentAdmin: React.FC<{ controller: TournamentAdminController }
 
                           {reserveTeams.length > 0 && (
                             <>
-                              <h3 className={adminStyles.sectionTitle}>Reserve teams</h3>
+                              <h3 className={adminStyles.sectionTitle}>Waiting ({reserveTeams.length})</h3>
+                              <p className={adminStyles.smallNote}>Checked teams join automatically when possible. Unchecked teams stay here for review.</p>
                               <ul className={adminStyles.teamList}>
                                 {reserveTeams.map((team) => (
-                                  <li key={team.id}>
+                                  <li key={team.id} className={adminStyles.reserveTeam}>
                                     <div className={adminStyles.teamCard}>
                                       <img
                                         src={team.logo_url || DEFAULT_TEAM_LOGO}
@@ -2034,7 +2000,7 @@ export const TournamentAdmin: React.FC<{ controller: TournamentAdminController }
                                               {team.name}
                                             </a>
                                           ) : (
-                                            <span className={adminStyles.name}>{team.name || 'Reserve team'}</span>
+                                            <span className={adminStyles.name}>{team.name || 'Waiting team'}</span>
                                           )}
                                           {teamPlanningStatuses[team.id]?.inCup === true && (
                                             <span className={adminStyles.planningStatus}>[in cup]</span>
@@ -2076,138 +2042,23 @@ export const TournamentAdmin: React.FC<{ controller: TournamentAdminController }
                                             </>
                                           )}
                                         </div>
-                                        <span className={adminStyles.statusBadge}>
-                                          Reserve{team.joined_via_oauth ? ' · CHPP validated' : ''}
-                                          {' · '}{team.reserve_origin === 'organizer_added'
-                                            ? themeText('reserveOriginOrganizerAdded')
-                                            : team.reserve_origin === 'manager_joined'
-                                              ? themeText('reserveOriginManagerJoined')
-                                              : team.reserve_origin === 'participant_departure'
-                                                ? themeText('reserveOriginParticipantDeparture')
-                                                : themeText('reserveOriginUnknown')}
-                                        </span>
-                                        {canManageOperationalAdmin &&
-                                          tournament.schedule_mode === 'length' &&
-                                          rounds.some(
-                                            (round) =>
-                                              round.phase === 'regular' && round.phase_status === 'materialized',
-                                          ) && (
-                                            <label className={adminStyles.checkboxLabel}>
-                                              <input
-                                                type="checkbox"
-                                                checked={selectedAdmissionIds.includes(team.id)}
-                                                onChange={(event) => {
-                                                  const checked = event.currentTarget.checked;
-                                                  setAdmissionSelection((ids) =>
-                                                    checked
-                                                      ? [...new Set([...ids, team.id])]
-                                                      : ids.filter((id) => id !== team.id),
-                                                  );
-                                                }}
-                                              />{' '}
-                                              Active reserve
-                                            </label>
-                                          )}
-                                        {canManageOperationalAdmin && !team.joined_via_oauth && (
-                                          <Button
-                                            type="button"
-                                            size="sm"
-                                            variant="secondaryAction"
-                                            onClick={() => void validateReserve(team)}
-                                          >
-                                            Validate known team
-                                          </Button>
-                                        )}
                                       </div>
                                     </div>
                                     {canManageOperationalAdmin && (
                                       <div className={adminStyles.teamActions}>
-                                        <Button
-                                          type="button"
-                                          size="xs"
-                                          variant="secondaryDanger"
-                                          disabled={removingReserveId !== null}
-                                          onClick={() => void removeReserve(team)}
-                                        >
-                                          {removingReserveId === team.id ? 'Removing...' : 'Remove reserve'}
-                                        </Button>
-                                      </div>
-                                    )}
-                                    {roleAccess?.canManageOperations &&
-                                      tournamentAllowsTeamActions &&
-                                      ((isGenerated &&
-                                        (isSiteAdmin || seasonSlots.some((slot) => slot.current_team_id === null))) ||
-                                        (!isGenerated && (isSiteAdmin || maxTeamsAllowsPromotion))) && (
-                                        <div className={adminStyles.teamActions}>
-                                          <Button
-                                            size="xs"
-                                            variant="primary"
-                                            onClick={() =>
-                                              void (isGenerated && !isSiteAdmin
-                                                ? fillVacantSlotWithReserve(team)
-                                                : transitionTeamReserveStatus(team, 'to_participant'))
-                                            }
-                                            disabled={isSavingTeam}
-                                          >
-                                            {isGenerated ? 'Add to season' : 'Promote'}
-                                          </Button>
-                                          {isGenerated &&
-                                            isSiteAdmin &&
-                                            seasonSlots.some((slot) => slot.current_team_id === null) && (
-                                              <Button
-                                                size="xs"
-                                                variant="secondaryAction"
-                                                onClick={() => void fillVacantSlotWithReserve(team)}
-                                                disabled={isSavingTeam}
-                                                title="Assign this reserve team to the next vacant season slot"
-                                              >
-                                                Fill slot
-                                              </Button>
-                                            )}
-                                        </div>
-                                      )}
-                                  </li>
-                                ))}
-                              </ul>
-                            </>
-                          )}
-
-                          {pendingNextRoundTeams.length > 0 && (
-                            <>
-                              <h3 className={adminStyles.sectionTitle}>Joining next round ({pendingNextRoundTeams.length})</h3>
-                              <p className={adminStyles.smallNote}>
-                                These teams join when the next regular round begins. If a registration becomes ineligible,
-                                cancel it here. Saving results or refreshing fixtures then retries round progression.
-                              </p>
-                              <ul className={adminStyles.teamList}>
-                                {pendingNextRoundTeams.map((team) => (
-                                  <li key={team.id}>
-                                    <div className={adminStyles.teamCard}>
-                                      <img
-                                        src={team.logo_url || DEFAULT_TEAM_LOGO}
-                                        alt=""
-                                        className={adminStyles.teamLogo}
-                                        onError={(event) => {
-                                          event.currentTarget.onerror = null;
-                                          event.currentTarget.src = DEFAULT_TEAM_LOGO;
-                                        }}
-                                      />
-                                      <div className={adminStyles.teamInfo}>
-                                        <span className={adminStyles.name}>{team.name}</span>
-                                        {team.ht_team_id && <div className={adminStyles.teamMeta}>ID: {team.ht_team_id}</div>}
-                                      </div>
-                                    </div>
-                                    {canManageOperationalAdmin && (
-                                      <div className={adminStyles.teamActions}>
-                                        <Button
-                                          type="button"
-                                          size="xs"
-                                          variant="secondaryDanger"
-                                          disabled={cancellingPendingId !== null}
-                                          onClick={() => void cancelPendingJoin(team)}
-                                        >
-                                          {cancellingPendingId === team.id ? 'Cancelling...' : 'Cancel registration'}
-                                        </Button>
+                                        <label className={adminStyles.checkboxLabel}>
+                                          <input type="checkbox" checked={team.actively_waiting === true}
+                                            disabled={changingReserveId !== null}
+                                            onChange={(event) => void changeMembership(team, 'ready', event.currentTarget.checked)} />
+                                          Actively waiting
+                                        </label>
+                                        <Button type="button" size="xs" variant="primary"
+                                          disabled={isSavingTeam || changingReserveId !== null || !tournamentAllowsTeamActions || (isGenerated && !isSiteAdmin)}
+                                          onClick={() => void changeMembership(team, 'promote')}>Promote</Button>
+                                        <Button type="button" size="xs" variant="secondaryDanger"
+                                          disabled={changingReserveId !== null}
+                                          onClick={() => void changeMembership(team, 'remove')}>Remove</Button>
+                                        {waitingReasons[team.id] && <p className={adminStyles.waitingReason}>{waitingReasons[team.id]}</p>}
                                       </div>
                                     )}
                                   </li>
@@ -2254,7 +2105,7 @@ export const TournamentAdmin: React.FC<{ controller: TournamentAdminController }
                                     </div>
                                     {canManageOperationalAdmin && (
                                       <div className={adminStyles.teamActions}>
-                                        {isGenerated ? (
+                                        {tournament.schedule_mode === 'length' ? null : isGenerated ? (
                                           reserveReplacingTeamId === team.id ? (
                                             <div className={adminStyles.inlineReplace}>
                                               <select
@@ -2263,7 +2114,7 @@ export const TournamentAdmin: React.FC<{ controller: TournamentAdminController }
                                                 onChange={(event) => setSelectedReserveTeamId(event.target.value)}
                                                 disabled={isSavingTeam}
                                               >
-                                                <option value="">Choose reserve team</option>
+                                                <option value="">Choose Waiting team</option>
                                                 {reserveTeams.map((reserveTeam) => (
                                                   <option key={reserveTeam.id} value={reserveTeam.id}>
                                                     {reserveTeam.name}
@@ -2296,7 +2147,7 @@ export const TournamentAdmin: React.FC<{ controller: TournamentAdminController }
                                               size="xs"
                                               variant="action"
                                               disabled={isSavingTeam || reserveTeams.length === 0}
-                                              title={reserveTeams.length === 0 ? 'Add a reserve team first' : undefined}
+                                              title={reserveTeams.length === 0 ? 'Add a Waiting team first' : undefined}
                                               onClick={() => {
                                                 setReserveReplacingTeamId(team.id);
                                                 setSelectedReserveTeamId('');
@@ -2370,19 +2221,11 @@ export const TournamentAdmin: React.FC<{ controller: TournamentAdminController }
                                         <Button
                                           size="xs"
                                           variant="action"
-                                          onClick={() => void moveInactiveTeamToReserve(team)}
+                                          onClick={() => void changeMembership(team, 'return')}
                                           disabled={isSavingTeam}
-                                          title="Move this past team to reserves"
+                                          title="Return this team to Waiting, checked to join when possible"
                                         >
-                                          To reserves
-                                        </Button>
-                                        <Button
-                                          size="xs"
-                                          variant="danger"
-                                          onClick={() => void removePastTeam(team)}
-                                          disabled={isSavingTeam}
-                                        >
-                                          <Trash size={16} /> Remove
+                                          To waiting
                                         </Button>
                                       </div>
                                     )}

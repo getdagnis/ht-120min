@@ -232,3 +232,20 @@ test('Average 120 min compares unrounded values even when display rounds equally
   assert.ok(compareAverage120Standings(a, b) < 0);
   assert.ok(compareAverage120Standings({ ...a, played: 0 }, b) > 0);
 });
+
+test('length membership standings show Active only and do not inherit another slot occupant results', () => {
+  const teams = ['past', 'waiting', 'active', 'opponent'].map((id, index) => ({
+    id, name: id, ht_team_id: index + 1, hattrick_user_id: 1,
+    active: ['active', 'opponent'].includes(id), reserve_active: id === 'waiting', replacement_for_team_id: null,
+  }));
+  const matches = [
+    { home_team_id: 'past', away_team_id: 'opponent', home_slot_id: 'slot-a', away_slot_id: 'slot-b', home_goals: 2, away_goals: 0, completed: true },
+    { home_team_id: 'active', away_team_id: 'opponent', home_slot_id: 'slot-c', away_slot_id: 'slot-b', home_goals: 1, away_goals: 0, completed: true },
+  ];
+  const standings = calculateSeasonSlotStandings(teams, matches,
+    [{ id: 'slot-a', current_team_id: 'active' }, { id: 'slot-b', current_team_id: 'opponent' }], 'points', [], true);
+  assert.deepEqual(standings.map(row => row.teamId), ['active', 'opponent']);
+  assert.equal(standings[0]!.played, 1);
+  assert.equal(standings[0]!.pts, 3);
+  assert.equal(standings[1]!.played, 2); // The departed opponent's result remains real history.
+});

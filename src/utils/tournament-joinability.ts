@@ -55,7 +55,6 @@ export function canViewerJoinTournament({
   status,
   registrationClosedAt,
   nextRegularRoundAvailable = false,
-  pendingTeamsCount = 0,
   scheduleMode,
 }: TournamentJoinabilityInput) {
   if (hasJoined) return false;
@@ -69,8 +68,8 @@ export function canViewerJoinTournament({
 
   const activeRealTeams = teams.filter(isCurrentParticipantTeam);
   if (isGenerated && scheduleMode === 'length') {
-    return nextRegularRoundAvailable && status === 'active' &&
-      (!maxTeams || activeRealTeams.length + pendingTeamsCount < maxTeams);
+    // Registration is to Waiting; a full playing field does not close the queue.
+    return nextRegularRoundAvailable && status === 'active';
   }
   const hasInactiveRealSpot = teams.some(
     (team) => !team.active && !team.reserve_active && !team.is_placeholder,
