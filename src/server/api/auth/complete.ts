@@ -325,13 +325,14 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       }
       const { data: tournament, error: tErr } = await supabase
         .from('tournaments')
-        .select('id, slug, status, country_limit, country_limit_format, league_category, max_country_active_teams, allow_manager_country_size_exception')
+        .select('id, slug, status, schedule_mode, schedule_generated_at, registration_closed_at, country_limit, country_limit_format, league_category, max_country_active_teams, allow_manager_country_size_exception')
         .eq('id', pending.tournament_id)
         .single();
 
       if (tErr || !tournament) {
         throw new Error('Tournament not found');
       }
+      const joinsNextRound = tournament.schedule_mode === 'length' && Boolean(tournament.schedule_generated_at);
 
       const eligibility = validateTeamEligibility(
         {
@@ -347,18 +348,20 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
           countryLimit: normalizeLeagueLimit(tournament.country_limit, tournament.country_limit_format ?? 'league_id'),
         },
       );
-      if (!eligibility.eligible && !isSuperAdmin) {
+      if (!eligibility.eligible && (joinsNextRound || !isSuperAdmin)) {
         throw new Error(`This team is not from the required league (${tournament.country_limit}).`);
       }
-      const countrySizeEligibility = await validateTournamentCountrySizeEligibility(supabase, {
-        tournamentId: pending.tournament_id,
-        managerId: pending.hattrick_user_id,
-        countryId,
-        excludeTeamId: Number(team_id),
-        maximumActiveTeams: tournament.max_country_active_teams,
-        allowManagerException: tournament.allow_manager_country_size_exception,
-      });
-      if (!countrySizeEligibility.eligible && !isSuperAdmin) throw new Error(countrySizeEligibility.reason);
+      if (!joinsNextRound) {
+        const countrySizeEligibility = await validateTournamentCountrySizeEligibility(supabase, {
+          tournamentId: pending.tournament_id,
+          managerId: pending.hattrick_user_id,
+          countryId,
+          excludeTeamId: Number(team_id),
+          maximumActiveTeams: tournament.max_country_active_teams,
+          allowManagerException: tournament.allow_manager_country_size_exception,
+        });
+        if (!countrySizeEligibility.eligible && !isSuperAdmin) throw new Error(countrySizeEligibility.reason);
+      }
 
       const selectedManagerTeam =
         managerCompendium?.teams.find((team) => team.teamId === Number(team_id)) ?? {
@@ -381,38 +384,63 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         teamDetails,
       });
 
-      await registerOAuthTeam(supabase, {
-        tournamentId: pending.tournament_id!,
-        team: {
-          teamId: parseInt(team_id),
-          teamName: team_name,
-          leagueId: teamDetails?.leagueId,
-          leagueSystemId: teamDetails?.leagueSystemId,
-          leagueName: teamDetails?.leagueName,
-          leagueLevel: teamDetails?.leagueLevel,
-          genderId: teamDetails?.genderId,
+      if (joinsNextRound) {
+        if (!managerCompendium?.teams.some((team) => team.teamId === Number(team_id)) || !teamDetails) {
+          throw new Error('Your ownership and current team details could not be verified. Please reconnect to Hattrick.');
+        }
+        const { error } = await supabase.rpc('request_next_round_tournament_join', {
+          p_tournament_id: tournament.id,
+          p_values: {
+            ht_team_id: Number(team_id), name: teamDetails.teamName || team_name,
+            ht_team_name: teamDetails.teamName || team_name,
+            hattrick_user_id: pending.hattrick_user_id, manager_name: pending.manager_name,
+            country_id: countryId ?? null, country_name: countryName ?? null,
+            league_id: teamDetails.leagueId ?? null, gender_id: teamDetails.genderId ?? null,
+            league_level: teamDetails.leagueLevel ?? null, team_rank: teamDetails.teamRank ?? null,
+            power_rating: teamDetails.powerRating ?? null,
+            power_global_rank: teamDetails.powerGlobalRank ?? null,
+            power_league_rank: teamDetails.powerLeagueRank ?? null,
+            power_region_rank: teamDetails.powerRegionRank ?? null,
+            logo_url: logoUrl ?? null, join_story: joinStory,
+            oauth_token: pending.access_token, oauth_token_secret: pending.access_token_secret,
+          },
+        });
+        if (error) throw new Error(error.message);
+        redirectUrl = `/t/${tournament.slug}?pending=true`;
+      } else {
+        await registerOAuthTeam(supabase, {
+          tournamentId: pending.tournament_id!,
+          team: {
+            teamId: parseInt(team_id),
+            teamName: team_name,
+            leagueId: teamDetails?.leagueId,
+            leagueSystemId: teamDetails?.leagueSystemId,
+            leagueName: teamDetails?.leagueName,
+            leagueLevel: teamDetails?.leagueLevel,
+            genderId: teamDetails?.genderId,
+            countryId,
+            countryName,
+            leagueLevelUnitName: teamDetails?.leagueLevelUnitName,
+          },
+          managerName: pending.manager_name,
+          hattrickUserId: pending.hattrick_user_id,
+          accessToken: pending.access_token,
+          accessTokenSecret: pending.access_token_secret,
+          logoUrl,
           countryId,
           countryName,
-          leagueLevelUnitName: teamDetails?.leagueLevelUnitName,
-        },
-        managerName: pending.manager_name,
-        hattrickUserId: pending.hattrick_user_id,
-        accessToken: pending.access_token,
-        accessTokenSecret: pending.access_token_secret,
-        logoUrl,
-        countryId,
-        countryName,
-        teamRank: teamDetails?.teamRank ?? null,
-        powerRating: teamDetails?.powerRating ?? null,
-        powerGlobalRank: teamDetails?.powerGlobalRank ?? null,
-        powerLeagueRank: teamDetails?.powerLeagueRank ?? null,
-        powerRegionRank: teamDetails?.powerRegionRank ?? null,
-        joinStory,
-        skipMembershipCheck: isSuperAdmin,
-        affectedPlanningIds: tournament.status === 'planning' ? undefined : affectedPlanningIds,
-      });
+          teamRank: teamDetails?.teamRank ?? null,
+          powerRating: teamDetails?.powerRating ?? null,
+          powerGlobalRank: teamDetails?.powerGlobalRank ?? null,
+          powerLeagueRank: teamDetails?.powerLeagueRank ?? null,
+          powerRegionRank: teamDetails?.powerRegionRank ?? null,
+          joinStory,
+          skipMembershipCheck: isSuperAdmin,
+          affectedPlanningIds: tournament.status === 'planning' ? undefined : affectedPlanningIds,
+        });
 
-      redirectUrl = `/t/${tournament.slug}?joined=true`;
+        redirectUrl = `/t/${tournament.slug}?joined=true`;
+      }
     }
 
     // 4. Update/Create Profile

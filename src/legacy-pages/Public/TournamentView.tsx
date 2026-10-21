@@ -82,6 +82,7 @@ import { getFocusedFixtureRoundIndex } from '../../utils/fixture-round-focus';
 import { compareFixtures } from '../../utils/fixture-sorting';
 import {
   canViewerJoinAnotherTeam,
+  canViewerJoinReserve,
   canViewerJoinTournament,
   isTournamentRegistrationOpen,
 } from '../../utils/tournament-joinability';
@@ -390,6 +391,7 @@ export interface Team {
   reapply_season_number?: number | null;
   reserve_active?: boolean;
   reserve_joined_at?: string | null;
+  pending_entry_round_id?: string | null;
   team_rank?: number | null;
   power_rating?: number | null;
   power_global_rank?: number | null;
@@ -1508,6 +1510,7 @@ export const TournamentView: React.FC<{
   }, []);
   const [quickDescription, setQuickDescription] = useState('');
   const [isJoinedNoticeDismissed, setIsJoinedNoticeDismissed] = useState(false);
+  const [withdrawingPendingTeamId, setWithdrawingPendingTeamId] = useState<string | null>(null);
   const storedJoinedNoticeDismissed = useHydratedLocalStorage(slug ? `joined_notice_dismissed_${slug}` : '');
 
   const regenerateDescription = (isQuick: boolean) => {
@@ -1528,6 +1531,10 @@ export const TournamentView: React.FC<{
   const [departureNoticeContainer, setDepartureNoticeContainer] = useState<HTMLDivElement | null>(null);
   const participantTeams = teams.filter(isCurrentParticipantTeam);
   const reserveTeams = teams.filter((team) => !team.is_placeholder && team.reserve_active);
+  const pendingNextRoundTeams = teams.filter((team) =>
+    !team.active && !team.reserve_active && !team.is_placeholder &&
+    rounds.some((round) => round.id === team.pending_entry_round_id && round.phase_status === 'pending' && round.phase === 'regular'),
+  );
   const currentSeasonSlotTeamIds = useMemo(
     () =>
       new Set(seasonSlots.map((slot) => slot.current_team_id).filter((teamId): teamId is string => Boolean(teamId))),
@@ -2349,10 +2356,14 @@ export const TournamentView: React.FC<{
 
   const getJoinCountrySizeEligibility = (team: ChppTeamOption) => {
     const managerId = pendingJoinData?.hattrick_user_id ?? currentHtUserId;
+    const allowanceTeams = tournament?.schedule_mode === 'length' && isGenerated
+      ? teams.map((row) => row.pending_entry_round_id
+        ? { ...row, active: true, reserve_active: false } : row)
+      : teams;
     const allowance = tournament?.max_country_active_teams != null && managerId
-      ? managerCountrySizeAllowance(teams.filter(row => row.ht_team_id !== team.teamId),
+      ? managerCountrySizeAllowance(allowanceTeams.filter(row => row.ht_team_id !== team.teamId),
           Number(managerId), tournament.max_country_active_teams,
-          teams.some(row => row.ht_team_id === team.teamId && row.reserve_active === true)).active
+          tournament.schedule_mode !== 'length' && teams.some(row => row.ht_team_id === team.teamId && row.reserve_active === true)).active
       : 0;
     return validateCountrySizeEligibility({
       countryId: team.countryId,
@@ -2366,7 +2377,15 @@ export const TournamentView: React.FC<{
     team: ChppTeamOption,
   ): { disabled: boolean; status: React.ReactNode; statusDanger: boolean } => {
     if (!tournament) return { disabled: true, status: 'Tournament details are unavailable.', statusDanger: true };
-    if (!isSiteAdmin && !teamMatchesCategory(team, tournament.league_category)) {
+    const allowAdminBypass = isSiteAdmin && !(tournament.schedule_mode === 'length' && isGenerated);
+    const existingTeam = teams.find((row) => row.ht_team_id === team.teamId);
+    if (existingTeam?.pending_entry_round_id) {
+      return { disabled: true, statusDanger: false, status: uiText('pendingNextRoundNotice') };
+    }
+    if (tournament.schedule_mode === 'length' && isGenerated && existingTeam?.reserve_active) {
+      return { disabled: true, statusDanger: false, status: uiText('withdrawReserveBeforeJoining') };
+    }
+    if (!allowAdminBypass && !teamMatchesCategory(team, tournament.league_category)) {
       return {
         disabled: true,
         statusDanger: true,
@@ -2383,7 +2402,7 @@ export const TournamentView: React.FC<{
       countryLimit,
     });
 
-    if (!isSiteAdmin && !eligibility.eligible) {
+    if (!allowAdminBypass && !eligibility.eligible) {
       const restrictedCountry = resolveCountryRestriction(
         tournament.country_limit,
         tournament.country_limit_format ?? 'league_id',
@@ -2397,14 +2416,14 @@ export const TournamentView: React.FC<{
       };
     }
 
-    if (!isSiteAdmin && tournament.max_country_active_teams != null) {
+    if (!allowAdminBypass && tournament.max_country_active_teams != null) {
       const countrySizeEligibility = getJoinCountrySizeEligibility(team);
       if (!countrySizeEligibility.eligible) {
         return { disabled: true, statusDanger: true, status: `Not eligible! ${countrySizeEligibility.reason}` };
       }
     }
 
-    if (!isSiteAdmin && team.activeTournament) {
+    if (!allowAdminBypass && team.activeTournament) {
       return {
         disabled: true,
         statusDanger: true,
@@ -2417,7 +2436,7 @@ export const TournamentView: React.FC<{
       };
     }
 
-    const extraEntry = !isSiteAdmin && tournament.allow_manager_country_size_exception && tournament.max_country_active_teams != null;
+    const extraEntry = !allowAdminBypass && tournament.allow_manager_country_size_exception && tournament.max_country_active_teams != null;
     const small = validateCountrySizeEligibility({ countryId: team.countryId,
       maximumActiveTeams: tournament.max_country_active_teams, allowManagerException: false, hasQualifyingParticipant: false }).eligible;
     return { disabled: false, status: extraEntry
@@ -5616,6 +5635,10 @@ export const TournamentView: React.FC<{
   );
   const tournamentId = tournament?.id ?? null;
   const activeRealTeamsCount = teams.filter(isCurrentParticipantTeam).length;
+  const nextRegularRoundAvailable = rounds.some((round) =>
+    round.phase === 'regular' && round.phase_status === 'pending' &&
+    round.round_number === (rounds.find((current) => current.phase_status === 'materialized')?.round_number ?? -1) + 1,
+  );
   const sandboxTeamLimitReached = Boolean(tournament?.max_teams && activeRealTeamsCount >= tournament.max_teams);
   const canManageSandboxTeams = Boolean(tournament && isSandbox && canManageOperationalAdmin && !isGenerated);
   const canAddSandboxTeam = Boolean(canManageSandboxTeams && !sandboxTeamLimitReached);
@@ -5629,18 +5652,18 @@ export const TournamentView: React.FC<{
       teams,
       status: tournament.status,
       registrationClosedAt: tournament.registration_closed_at,
+      nextRegularRoundAvailable: tournament.schedule_mode === 'length' && nextRegularRoundAvailable,
+      pendingTeamsCount: pendingNextRoundTeams.length,
+      scheduleMode: tournament.schedule_mode,
     }),
   );
-  const canJoinReserve = Boolean(
-    tournament &&
-    !isSandbox &&
-    !tournament.is_test &&
-    tournament.allow_reserve_registration !== false &&
-    !['stopped', 'finished', 'archived'].includes(tournament.status) &&
-    tournament.max_teams != null &&
-    tournament.max_teams > 0 &&
-    activeRealTeamsCount >= tournament.max_teams,
-  );
+  const canJoinReserve = Boolean(tournament && canViewerJoinReserve({
+    allowReserveRegistration: tournament.allow_reserve_registration !== false,
+    canJoinDirectly: canJoinTournament,
+    status: tournament.status,
+    isTest: Boolean(tournament.is_test),
+    isSandbox,
+  }));
   const isRegistrationOpen = Boolean(
     tournament &&
     !isSandbox &&
@@ -5648,6 +5671,7 @@ export const TournamentView: React.FC<{
       isGenerated,
       status: tournament.status,
       registrationClosedAt: tournament.registration_closed_at,
+      nextRegularRoundAvailable: tournament.schedule_mode === 'length' && nextRegularRoundAvailable,
     }),
   );
   const canJoinAnotherTeamBeforeFixtures = Boolean(
@@ -5657,6 +5681,7 @@ export const TournamentView: React.FC<{
       isRegistrationOpen,
       maxTeams: tournament.max_teams,
       activeTeamsCount: activeRealTeamsCount,
+      pendingTeamsCount: pendingNextRoundTeams.length,
     }),
   );
   const shouldPromptReturningParticipantLogin = Boolean(
@@ -5689,8 +5714,9 @@ export const TournamentView: React.FC<{
   const selectedTournamentMessage = selectTournamentMessage({
     canJoin: canJoinTournament,
     canJoinReserve,
-    isOpenParticipant: hasJoined && isRegistrationOpen,
+    isOpenParticipant: hasJoined && canJoinAnotherTeamBeforeFixtures,
     hasJoined,
+    hasPendingJoin: pendingNextRoundTeams.some((team) => team.hattrick_user_id === Number(myHtUserId)),
     currentHtUserId,
     joinedNoticeDismissed,
     reauthPromptReason,
@@ -6524,7 +6550,8 @@ export const TournamentView: React.FC<{
                 )}
               </div>
               {isGenerated && (
-                <p className={styles.registrationIntro}>{uiText('youAreJoiningAnOngoingTournamentYouWillFill')}</p>
+                <p className={styles.registrationIntro}>{uiText(tournament.schedule_mode === 'length'
+                  ? 'joiningFromNextRoundExplainer' : 'youAreJoiningAnOngoingTournamentYouWillFill')}</p>
               )}
 
               <div className={styles.registrationLinkArea}>
@@ -6543,7 +6570,7 @@ export const TournamentView: React.FC<{
           <div className={styles.helpContent}>
             <p>
               {isGenerated
-                ? uiText('thisCupIsOngoingButHasAvailableSpotsFor')
+                ? uiText(tournament.schedule_mode === 'length' ? 'joinOngoingFromNextRound' : 'thisCupIsOngoingButHasAvailableSpotsFor')
                 : uiText('newTeamRegistrationForThisCupIsNowOpen')}
             </p>
             {!isJoining && (
@@ -6562,10 +6589,32 @@ export const TournamentView: React.FC<{
         </div>
       )}
 
+      {selectedTournamentMessage?.type === 'pending' && (
+        <div className={styles.registrationStatus}>
+          <div className={styles.helpContent}>
+            <p>{uiText('pendingNextRoundNotice')}</p>
+            {canJoinAnotherTeamBeforeFixtures && (
+              <Button onClick={connectToHattrick} variant="primary" size="sm"
+                className={styles.joinButton} disabled={isConnecting}>
+                <ArrowRight size={18} weight="bold" />{' '}
+                {isConnecting ? uiText('connectingToHattrick') : uiText('joinWithAnotherTeam')}
+              </Button>
+            )}
+            {!canJoinAnotherTeamBeforeFixtures && canJoinReserve && (
+              <Button onClick={() => document.getElementById('reserve-teams-widget')?.scrollIntoView({ behavior: 'smooth', block: 'center' })}
+                variant="primary" size="sm" className={styles.joinButton}>
+                <ArrowRight size={18} weight="bold" /> {uiText('joinReserveList')}
+              </Button>
+            )}
+          </div>
+        </div>
+      )}
+
       {selectedTournamentMessage?.type === 'reserve' && (
         <div className={styles.registrationStatus}>
           <div className={styles.helpContent}>
-            <p>{t('tournamentFull')}</p>
+            <p>{tournament.max_teams && activeRealTeamsCount + pendingNextRoundTeams.length >= tournament.max_teams
+              ? t('tournamentFull') : uiText('participantClosedReserveOpen')}</p>
             <Button
               onClick={() => {
                 const reserveWidget = document.getElementById('reserve-teams-widget');
@@ -6585,7 +6634,7 @@ export const TournamentView: React.FC<{
       {selectedTournamentMessage?.type === 'participant_open' && (
         <div className={styles.registrationStatus}>
           <div className={styles.helpContent}>
-            <p>{uiText('youHaveJoinedThisCupRememberToTurnOff')}</p>
+            <p>{isGenerated ? uiText('joinAnotherFromNextRound') : uiText('youHaveJoinedThisCupRememberToTurnOff')}</p>
             {canJoinAnotherTeamBeforeFixtures && (
               <Button
                 onClick={connectToHattrick}
@@ -6864,92 +6913,128 @@ export const TournamentView: React.FC<{
 
       {activeTab === 'standings' && (
         <div className={styles.standingsContainer}>
-          {selectedSeasonChampion && (
-            <SectionCard title={uiText('champion')}>
-              <strong>{selectedSeasonChampion.name}</strong>
-              <p>{uiText('championshipFinalWinner')}</p>
-            </SectionCard>
-          )}
-          <StandingsView
-            standings={isViewingHistoricalSeason ? selectedSeason?.snapshot_json?.standings || [] : standings}
-            is120minMode={is120minMode}
-            myHtUserId={myHtUserId}
-            myManagerName={storedHtManagerName}
-            managerProfiles={managerProfiles}
-            tournament={tournament}
-            lastSeenMap={lastSeenMap}
-            onRefreshPresence={fetchPresenceOnly}
-            isRefreshingRoster={isRefreshingRoster}
-            onRefreshRoster={['planning', 'recruiting'].includes(tournament.status) ? async () => {
-              if (isRefreshingRoster) return;
-              setIsRefreshingRoster(true);
-              try {
-                await fetchData({ showLoader: false, invalidate: false, fresh: true });
-              } finally {
-                setIsRefreshingRoster(false);
-              }
-            } : undefined}
-            canJoinTournament={canJoinTournament}
-            isConnecting={isConnecting}
-            onJoinWithHattrick={connectToHattrick}
-            seasonId={selectedSeason?.id}
-            seasonNumber={selectedSeason?.season_number ?? selectedSeasonNumber}
-            seasonStatus={selectedSeason?.status}
-            rounds={fixtureRounds}
-            warningTeamIds={standingsWarningTeamIds}
-            activityTeams={isViewingHistoricalSeason || isSandbox || tournament.is_test ? [] : teams}
-            activityMatches={
-              isViewingHistoricalSeason || isSandbox || tournament.is_test
-                ? []
-                : fixtureRounds.flatMap((round) =>
-                    round.matches.map((match) => ({ ...match, round_number: round.round_number })),
-                  )
-            }
-            activityWarnings={isViewingHistoricalSeason || isSandbox || tournament.is_test ? [] : activityWarnings}
-            activityTournamentId={isViewingHistoricalSeason ? null : tournament.id}
-            activitySeasonId={isViewingHistoricalSeason ? null : selectedSeason?.id || null}
-            activitySeasonStartedAt={
-              isViewingHistoricalSeason ? null : tournament.schedule_generated_at || selectedSeason?.started_at || null
-            }
-            activityFixturesHref={toLocalePath(locale, `/t/${tournament.slug}?tab=fixtures`)}
-            activityNewsHref={toLocalePath(locale, `/t/${tournament.slug}?tab=news`)}
-            canPublishAnnouncements={Boolean(roleAccess?.canPublishAnnouncements)}
-            mobileChat={isMobile ? tournamentChat : null}
-            onVisitFixtures={() => handleTabChange('fixtures')}
-            onCommentsLoaded={handleHistoryCommentsLoaded}
-            onCommentSubmitted={handleHistoryCommentSubmitted}
-            loadComments={loadHistoryComments}
-            seasonParticipantIds={
-              selectedSeason?.snapshot_json && 'participants' in selectedSeason.snapshot_json
-                ? selectedSeason.snapshot_json.participants.map((participant) => participant.teamId)
-                : []
-            }
-            onVisitHistory={() => handleTabChange('history')}
-            onVisitNews={() => handleTabChange('news')}
-            reactionAuthorNames={Object.fromEntries(
-              teams
-                .filter((team) => team.hattrick_user_id)
-                .map((team) => [String(team.hattrick_user_id), team.manager_name || team.name]),
+          <div className={styles.mainColumn}>
+            {selectedSeasonChampion && (
+              <SectionCard title={uiText('champion')}>
+                <strong>{selectedSeasonChampion.name}</strong>
+                <p>{uiText('championshipFinalWinner')}</p>
+              </SectionCard>
             )}
-            canAddSeasonComment={false}
-            reapplySuggestions={reapplySuggestions}
-            canLeaveTournament={!isViewingHistoricalSeason && isRegistrationOpen}
-            onReapplySuggestion={(teamId) => {
-              const team = teams.find((item) => item.id === teamId);
-              if (!team || team.hattrick_user_id !== Number(myHtUserId)) return;
-              connectToHattrick();
-            }}
-            onRemoveReapplySuggestion={(teamId) => {
-              const team = teams.find((item) => item.id === teamId);
-              if (!team || team.hattrick_user_id !== Number(myHtUserId)) return;
-              void handleLeaveTournament(team);
-            }}
-            onLeaveTournament={(teamId) => {
-              const team = teams.find((item) => item.id === teamId);
-              if (!team || !team.active || team.hattrick_user_id !== Number(myHtUserId)) return;
-              void handleLeaveTournament(team);
-            }}
-          />
+            <StandingsView
+              standings={isViewingHistoricalSeason ? selectedSeason?.snapshot_json?.standings || [] : standings}
+              is120minMode={is120minMode}
+              myHtUserId={myHtUserId}
+              myManagerName={storedHtManagerName}
+              managerProfiles={managerProfiles}
+              tournament={tournament}
+              lastSeenMap={lastSeenMap}
+              onRefreshPresence={fetchPresenceOnly}
+              isRefreshingRoster={isRefreshingRoster}
+              onRefreshRoster={['planning', 'recruiting'].includes(tournament.status) ? async () => {
+                if (isRefreshingRoster) return;
+                setIsRefreshingRoster(true);
+                try {
+                  await fetchData({ showLoader: false, invalidate: false, fresh: true });
+                } finally {
+                  setIsRefreshingRoster(false);
+                }
+              } : undefined}
+              canJoinTournament={canJoinTournament}
+              isConnecting={isConnecting}
+              onJoinWithHattrick={connectToHattrick}
+              seasonId={selectedSeason?.id}
+              seasonNumber={selectedSeason?.season_number ?? selectedSeasonNumber}
+              seasonStatus={selectedSeason?.status}
+              rounds={fixtureRounds}
+              warningTeamIds={standingsWarningTeamIds}
+              activityTeams={isViewingHistoricalSeason || isSandbox || tournament.is_test ? [] : teams.filter((team) => !team.pending_entry_round_id)}
+              activityMatches={
+                isViewingHistoricalSeason || isSandbox || tournament.is_test
+                  ? []
+                  : fixtureRounds.flatMap((round) =>
+                      round.matches.map((match) => ({ ...match, round_number: round.round_number })),
+                    )
+              }
+              activityWarnings={isViewingHistoricalSeason || isSandbox || tournament.is_test ? [] : activityWarnings}
+              activityTournamentId={isViewingHistoricalSeason ? null : tournament.id}
+              activitySeasonId={isViewingHistoricalSeason ? null : selectedSeason?.id || null}
+              activitySeasonStartedAt={
+                isViewingHistoricalSeason ? null : tournament.schedule_generated_at || selectedSeason?.started_at || null
+              }
+              activityFixturesHref={toLocalePath(locale, `/t/${tournament.slug}?tab=fixtures`)}
+              activityNewsHref={toLocalePath(locale, `/t/${tournament.slug}?tab=news`)}
+              canPublishAnnouncements={Boolean(roleAccess?.canPublishAnnouncements)}
+              mobileChat={isMobile ? tournamentChat : null}
+              onVisitFixtures={() => handleTabChange('fixtures')}
+              onCommentsLoaded={handleHistoryCommentsLoaded}
+              onCommentSubmitted={handleHistoryCommentSubmitted}
+              loadComments={loadHistoryComments}
+              seasonParticipantIds={
+                selectedSeason?.snapshot_json && 'participants' in selectedSeason.snapshot_json
+                  ? selectedSeason.snapshot_json.participants.map((participant) => participant.teamId)
+                  : []
+              }
+              onVisitHistory={() => handleTabChange('history')}
+              onVisitNews={() => handleTabChange('news')}
+              reactionAuthorNames={Object.fromEntries(
+                teams
+                  .filter((team) => team.hattrick_user_id)
+                  .map((team) => [String(team.hattrick_user_id), team.manager_name || team.name]),
+              )}
+              canAddSeasonComment={false}
+              reapplySuggestions={reapplySuggestions}
+              canLeaveTournament={!isViewingHistoricalSeason && !isGenerated && isRegistrationOpen}
+              onReapplySuggestion={(teamId) => {
+                const team = teams.find((item) => item.id === teamId);
+                if (!team || team.hattrick_user_id !== Number(myHtUserId)) return;
+                connectToHattrick();
+              }}
+              onRemoveReapplySuggestion={(teamId) => {
+                const team = teams.find((item) => item.id === teamId);
+                if (!team || team.hattrick_user_id !== Number(myHtUserId)) return;
+                void handleLeaveTournament(team);
+              }}
+              onLeaveTournament={(teamId) => {
+                const team = teams.find((item) => item.id === teamId);
+                if (!team || !team.active || team.hattrick_user_id !== Number(myHtUserId)) return;
+                void handleLeaveTournament(team);
+              }}
+            />
+            {!isViewingHistoricalSeason && pendingNextRoundTeams.length > 0 && (
+              <SectionCard title={uiText('participatingFromNextRound')}>
+                <ul className={styles.pendingNextRoundTeams}>
+                  {pendingNextRoundTeams.map((team) => (
+                    <li key={team.id}>
+                      {team.logo_url && <img src={team.logo_url} alt="" />}
+                      <span>{team.name}</span>
+                      {team.hattrick_user_id === Number(myHtUserId) && (
+                        <Button size="xs" variant="secondaryAction" disabled={withdrawingPendingTeamId !== null} onClick={async () => {
+                          if (!window.confirm(uiText('withdrawNextRoundConfirm'))) return;
+                          setWithdrawingPendingTeamId(team.id);
+                          try {
+                            const response = await fetch('/api/app?route=next-round-join', {
+                              method: 'POST', credentials: 'same-origin',
+                              headers: { 'Content-Type': 'application/json' },
+                              body: JSON.stringify({ tournamentId: tournament.id, teamId: team.id }),
+                            });
+                            const result = (await response.json()) as { error?: string };
+                            if (!response.ok) throw new Error(result.error || 'Could not withdraw this registration.');
+                            await fetchData({ showLoader: false, invalidate: false, fresh: true });
+                          } catch (error) {
+                            alert(error instanceof Error ? error.message : 'Could not withdraw this registration.');
+                          } finally {
+                            setWithdrawingPendingTeamId(null);
+                          }
+                        }}>
+                          {uiText('withdrawNextRound')}
+                        </Button>
+                      )}
+                    </li>
+                  ))}
+                </ul>
+              </SectionCard>
+            )}
+          </div>
           <aside className={styles.statsSidebar}>
             {tournament.forum_id && tournament.forum_id > 0 && (
               <a
@@ -7180,7 +7265,8 @@ export const TournamentView: React.FC<{
 
               <div className={styles.teamOptionsList}>
                 {pendingJoinData?.teams_json.filter(team =>
-                  isSiteAdmin || getJoinCountrySizeEligibility(team).eligible,
+                  (isSiteAdmin && !(tournament.schedule_mode === 'length' && isGenerated)) || teams.some((row) => row.ht_team_id === team.teamId &&
+                    (row.pending_entry_round_id || row.reserve_active)) || getJoinCountrySizeEligibility(team).eligible,
                 ).map((team) => {
                   const teamState = getJoinTeamCardState(team);
                   return (

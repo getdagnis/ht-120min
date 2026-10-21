@@ -30,7 +30,7 @@ interface MyReserveTeam {
   eligible: boolean;
   reason?: string;
   allowance_message?: string;
-  state: 'participant' | 'reserve' | 'available';
+  state: 'participant' | 'reserve' | 'pending' | 'available';
   existing_team_id?: string | null;
 }
 

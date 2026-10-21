@@ -28,7 +28,7 @@ function fixture(status: FixtureStatus, overrides: Record<string, unknown> = {})
   };
 }
 
-function createHarness(currentFixture: ReturnType<typeof fixture>) {
+function createHarness(currentFixture: ReturnType<typeof fixture>, withPendingJoin = false) {
   const teams = [1, 2].map((index) => ({
     id: `team-${index}`,
     name: `Team ${index}`,
@@ -66,6 +66,10 @@ function createHarness(currentFixture: ReturnType<typeof fixture>) {
     matches: [] as Array<Record<string, unknown>>,
   };
   const warnings = [{ id: 'warning-1', round_id: 'round-1', team_id: 'team-1', active: true }];
+  const pendingTeam = {
+    ...teams[0], id: 'team-3', name: 'New Team', ht_team_id: 103,
+    hattrick_user_id: 203, active: false, pending_entry_round_id: 'round-2',
+  };
   const tables: Record<string, Array<Record<string, unknown>>> = {
     tournaments: [{ id: 'tournament-1', schedule_mode: 'length', scoring_mode: 'standard' }],
     tournament_seasons: [{
@@ -83,7 +87,7 @@ function createHarness(currentFixture: ReturnType<typeof fixture>) {
       { id: 'slot-2', current_team_id: 'team-2' },
     ],
     tournament_season_slot_assignments: [],
-    teams,
+    teams: withPendingJoin ? [...teams, pendingTeam] : teams,
     fixture_warnings: warnings,
   };
   const rpcCalls: Array<{ name: string; args: Record<string, unknown> }> = [];
@@ -91,10 +95,17 @@ function createHarness(currentFixture: ReturnType<typeof fixture>) {
   const supabase = {
     from(table: string) {
       let updateValues: Record<string, unknown> | null = null;
+      let teamFilter: ((row: Record<string, unknown>) => boolean) | null = null;
       const query = {
         select() { return this; },
-        eq() { return this; },
-        in() { return this; },
+        eq(column: string, value: unknown) {
+          if (table === 'teams') teamFilter = (row) => row[column] === value;
+          return this;
+        },
+        in(column: string, values: unknown[]) {
+          if (table === 'teams') teamFilter = (row) => values.includes(row[column]);
+          return this;
+        },
         order() { return this; },
         update(values: Record<string, unknown>) {
           updateValues = values;
@@ -107,14 +118,14 @@ function createHarness(currentFixture: ReturnType<typeof fixture>) {
           if (updateValues) {
             for (const row of tables[table] || []) Object.assign(row, updateValues);
           }
-          return Promise.resolve({ data: tables[table] || [], error: null }).then(resolve, reject);
+          return Promise.resolve({ data: (tables[table] || []).filter((row) => !teamFilter || teamFilter(row)), error: null }).then(resolve, reject);
         },
       };
       return query;
     },
     async rpc(name: string, args: Record<string, unknown>) {
       rpcCalls.push({ name, args });
-      if (name !== 'apply_length_round_transition') throw new Error(`Unexpected RPC ${name}`);
+      if (name !== 'apply_length_round_transition_with_joins') throw new Error(`Unexpected RPC ${name}`);
 
       // Model the relevant atomic SQL transition contract for service-boundary tests.
       const completedRound = (tables.rounds as typeof currentRound[]).find((round) => round.id === args.p_completed_round_id);
@@ -231,4 +242,20 @@ test('repeated progression does not materialize duplicate next-round fixtures', 
   assert.equal(harness.nextRound.matches.length, firstFixtures.length);
   assert.deepEqual(harness.nextRound.matches, firstFixtures);
   assert.equal(harness.rpcCalls.length, 1);
+});
+
+test('next regular round pairs the pending entrant and sends its exact ID for atomic admission', async () => {
+  const harness = createHarness(fixture('finished', {
+    completed: true, home_goals: 1, away_goals: 0, schedule_resolution: 'played',
+  }), true);
+  const originalFixture = { ...harness.currentRound.matches[0] };
+
+  const result = await progress(harness);
+
+  assert.equal(result.advanced, true);
+  assert.deepEqual(harness.currentRound.matches[0], originalFixture);
+  assert.deepEqual(harness.rpcCalls[0]?.args.p_pending_team_ids, ['team-3']);
+  assert.equal(harness.nextRound.matches.length, 2);
+  assert.equal(harness.nextRound.matches.some((match) =>
+    match.home_team_id === 'team-3' || match.away_team_id === 'team-3'), true);
 });

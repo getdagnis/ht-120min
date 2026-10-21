@@ -244,6 +244,35 @@ HT120_TEST_POSTGRES_SOCKET=/private/tmp/ht120-calendar-pg.YOUR_TEMP_SUFFIX node 
 ```
 
 
+## Manager joins from the next regular round
+
+When a length-scheduled tournament has a materialized regular round followed by
+a pending regular round, the organizer can reopen participant registration
+without changing reserve registration. A verified manager may register an owned,
+eligible team, even if a different owned team already participates. The new team
+is inactive and identified by `teams.pending_entry_round_id`; it appears below
+standings as “Participating from next round” and has no current-round fixture or
+season slot yet. It may be withdrawn before admission. The current round must
+finish or be resolved before the next round can materialize; the materialization
+transaction is the join cutoff. A closed participant setting, a full configured
+limit, or no next regular round prevents direct entry. An unset limit does not
+close entry. Reserve registration is a separate setting and path.
+
+Migration 134 adds service-only request, withdrawal and round-transition RPCs.
+The transition locks the tournament, requires the exact pending set used for
+pairing, rechecks registration, capacity, eligibility and cross-tournament team
+membership, then adds two physical season slots per entrant (one occupied and
+one spare), a slot assignment, and its next-round fixture or BYE in one
+transaction. Existing rounds, fixtures and results remain intact. A failed
+admission rolls back the whole transition; the team stays pending for review or
+withdrawal. The historical schedule plan is left unchanged and subsequent
+regular rounds use played-history pairing for the expanded field. This manager
+flow does not use site-admin promotion or its eligibility bypasses.
+
+Apply migration 134 before deploying the matching API/UI. No live Supabase or
+CHPP transaction was run during preparation. Booking, cup and match arrangement
+for the new next-round fixture remain the normal manager/organizer workflow.
+
 ## Adding reserve pairs during a staged season
 
 Organizers can select an even group of reserves as **Active reserves**, check their

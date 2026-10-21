@@ -644,7 +644,7 @@ export const TournamentAdmin: React.FC<{ controller: TournamentAdminController }
   }, [isAdminAuthenticated, canManageOperationalAdmin, tournament.id]);
   const [admissionSelection, setAdmissionSelection] = useState<string[]>([]);
   const selectedAdmissionIds = admissionSelection.filter((id) => reserveTeams.some((team) => team.id === id));
-  const pastTeams = teams.filter((team) => !team.active && !team.reserve_active && !team.is_placeholder);
+  const pastTeams = teams.filter((team) => !team.active && !team.reserve_active && !team.is_placeholder && !team.pending_entry_round_id);
   const [removingReserveId, setRemovingReserveId] = useState<string | null>(null);
   const removeReserve = async (team: Team) => {
     if (

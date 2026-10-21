@@ -63,6 +63,7 @@ interface TeamRow {
   manager_name: string | null;
   team_rank: number | null;
   reserve_active: boolean | null;
+  pending_entry_round_id?: string | null;
 }
 
 interface SlotRow {
@@ -160,6 +161,12 @@ async function loadLengthSeason(supabase: ServiceSupabase, tournamentId: string,
         .in('id', teamIds)
     : { data: [], error: null };
   if (teamsError) throw teamsError;
+  const { data: pendingTeams, error: pendingError } = await supabase
+    .from('teams')
+    .select('id, name, ht_team_id, hattrick_user_id, active, replacement_for_team_id, country_name, country_id, league_id, league_level, logo_url, manager_name, team_rank, reserve_active, pending_entry_round_id')
+    .eq('tournament_id', tournamentId)
+    .eq('active', false);
+  if (pendingError) throw pendingError;
   return {
     tournament,
     season,
@@ -167,6 +174,7 @@ async function loadLengthSeason(supabase: ServiceSupabase, tournamentId: string,
     slots: slotRows,
     assignments: assignmentRows,
     teams: (teams || []) as TeamRow[],
+    pendingTeams: ((pendingTeams || []) as TeamRow[]).filter((team) => Boolean(team.pending_entry_round_id)),
   };
 }
 
@@ -212,7 +220,7 @@ function seasonRanks(state: NonNullable<Awaited<ReturnType<typeof loadLengthSeas
 function reservedPairings(state: NonNullable<Awaited<ReturnType<typeof loadLengthSeason>>>, roundNumber: number) {
   const plan = readSchedulePlan(state.season.schedule_plan_json);
   if (!plan) return null;
-  if (state.assignments.some(a => a.admission_request_id)) return null;
+  if (state.assignments.some(a => a.admission_request_id) || state.pendingTeams.length > 0) return null;
   const pairs = plan.regular_pairings![roundNumber - 1];
   if (!pairs) throw new Error('The reserved regular-round pairing plan is missing.');
   const occupants = new Map(state.slots.map(slot => [slot.slot_index, slot.current_team_id]));
@@ -359,17 +367,19 @@ export async function progressLengthSchedule(
   let championTeamId: string | null = null;
 
   if (next?.phase === 'regular') {
+    const enteringTeams = state.pendingTeams.filter((team) => team.pending_entry_round_id === next.id);
+    const roundTeams = toLengthTeams([...state.teams, ...enteringTeams], ranks);
     const versionTwo = Boolean(readSchedulePlan(state.season.schedule_plan_json));
     const history = buildPairingHistory(state.rounds.filter(round => round.round_number <= current.round_number).map(round =>
       versionTwo && round.id === current.id ? { ...round, phase_status: 'completed' as const } : round,
     ));
-    history.balanceRepeats = versionTwo || state.assignments.some(a => a.admission_request_id);
-    history.boundedCandidates = state.assignments.some(a => a.admission_request_id);
+    history.balanceRepeats = versionTwo || state.assignments.some(a => a.admission_request_id) || enteringTeams.length > 0;
+    history.boundedCandidates = state.assignments.some(a => a.admission_request_id) || enteringTeams.length > 0;
     balanceExpandedHistory(history);
     nextMatches = buildStoredPairings(
       next,
-      reservedPairings(state, next.round_number) ?? generateBalancedRound(lengthTeams, history, next.round_number - 1),
-      lengthTeams,
+      reservedPairings(state, next.round_number) ?? generateBalancedRound(roundTeams, history, next.round_number - 1),
+      roundTeams,
     );
   } else if (next?.phase === 'postseason') {
     const plan = readSchedulePlan(state.season.schedule_plan_json);
@@ -446,13 +456,16 @@ export async function progressLengthSchedule(
     )
     .map((round) => round.id);
 
-  const { data, error } = await supabase.rpc('apply_length_round_transition', {
+  const { data, error } = await supabase.rpc('apply_length_round_transition_with_joins', {
     p_tournament_id: tournamentId,
     p_season_number: seasonNumber,
     p_completed_round_id: current.id,
     p_next_round_id: next?.id || null,
     p_matches: nextMatches,
     p_champion_team_id: championTeamId,
+    p_pending_team_ids: next?.phase === 'regular'
+      ? state.pendingTeams.filter((team) => team.pending_entry_round_id === next.id).map((team) => team.id)
+      : [],
   });
   if (error) throw error;
 

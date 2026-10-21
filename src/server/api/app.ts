@@ -2950,6 +2950,23 @@ async function loadPublicReservePlanningStatuses(
   return statuses;
 }
 
+async function handleNextRoundJoin(req: VercelRequest, res: VercelResponse) {
+  if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed.' });
+  const secret = getAppSessionSecret();
+  const session = secret ? verifyAppSessionCookie(req.headers.cookie, secret) : null;
+  if (!session) return res.status(401).json({ error: 'Please sign in with Hattrick first.' });
+  const tournamentId = readString(req.body?.tournamentId);
+  const teamId = readString(req.body?.teamId);
+  if (!tournamentId || !teamId || !/^[0-9a-f-]{36}$/i.test(tournamentId) || !/^[0-9a-f-]{36}$/i.test(teamId)) {
+    return res.status(400).json({ error: 'Invalid pending registration.' });
+  }
+  const { error } = await getServiceSupabase().rpc('withdraw_next_round_tournament_join', {
+    p_tournament_id: tournamentId, p_team_id: teamId, p_manager_id: session.userId,
+  });
+  if (error) return res.status(409).json({ error: error.message });
+  return res.status(200).json({ ok: true });
+}
+
 async function handleReserveTeams(req: VercelRequest, res: VercelResponse) {
   if (!['GET', 'POST'].includes(req.method || '')) return res.status(405).json({ error: 'Method not allowed.' });
 
@@ -2966,7 +2983,7 @@ async function handleReserveTeams(req: VercelRequest, res: VercelResponse) {
     supabase
       .from('teams')
       .select(
-        'id, name, ht_team_id, active, is_placeholder, reserve_active, reserve_joined_at, logo_url, country_name, country_id, manager_name, hattrick_user_id, oauth_token, oauth_token_secret',
+        'id, name, ht_team_id, active, is_placeholder, reserve_active, reserve_joined_at, pending_entry_round_id, logo_url, country_name, country_id, manager_name, hattrick_user_id, oauth_token, oauth_token_secret',
       )
       .eq('tournament_id', tournamentId)
       .order('reserve_joined_at', { ascending: false, nullsFirst: false }),
@@ -3033,7 +3050,7 @@ async function handleReserveTeams(req: VercelRequest, res: VercelResponse) {
               ? 'Add this small-league team to the waiting list to unlock one additional larger-league waiting-list entry.'
               : 'Your qualifying small-league entry allows this additional larger-league team onto the waiting list.'
             : undefined,
-          state: existing?.active ? 'participant' : existing?.reserve_active ? 'reserve' : 'available',
+          state: existing?.active ? 'participant' : existing?.reserve_active ? 'reserve' : existing?.pending_entry_round_id ? 'pending' : 'available',
           existing_team_id: existing?.id || null,
         };
       })
@@ -4134,6 +4151,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         return await handleGlobalChat(req, res);
       case 'reserve-teams':
         return await handleReserveTeams(req, res);
+      case 'next-round-join':
+        return await handleNextRoundJoin(req, res);
       case 'activity':
       default:
         return await handleActivity(req, res);

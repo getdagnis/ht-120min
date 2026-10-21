@@ -1,12 +1,14 @@
 # PROJECT_STATE.md
 
-Last updated: 2026-10-16
+Last updated: 2026-10-21
 
 This is the current-status ledger. Update it after meaningful implementation work. Be explicit about what is local, migrated, tested, deployed, or still unknown.
 
 The local MVP includes a deterministic Meet the Manager spotlight built from persisted manager/team snapshots and the actual tournament participant relation. Its current implementation now models national-team staff roles separately, enriches the canonical `profiles.teams_json` array during authenticated/admin refresh, and selects ranked story facts without public CHPP calls. Migration `093_add_profile_national_team_roles.sql` is prepared locally; live schema, CHPP, admin backfill, snapshot invalidation, and deployment behavior remain unverified.
 
 ## Current Product State
+
+Manager “Join from next round” for ongoing length-scheduled tournaments is prepared locally in migration `134_next_round_manager_join.sql` and the matching API/UI. A verified manager can queue another owned team while participant registration is open, including when one of their teams already participates. The inactive pending row appears below standings and stays out of current fixtures/results. On the next regular-round transition, a service-only transaction rechecks the queued roster, settings, eligibility, membership and capacity, creates physical season slots and assignments, and generates the next pairings. Reserve registration remains independent. Apply 134 before deploying code that reads `teams.pending_entry_round_id` or calls the new RPCs. Neither migration application nor live Supabase, CHPP, browser or deployment behavior has been verified by the agent. See [scheduling](docs/scheduling.md#manager-joins-from-the-next-regular-round).
 
 Admin Manage Teams now groups current participants, Past teams, and reserves separately in local code. Past teams have direct Replace, Move to reserves, and history-safe Remove actions; scheduled Past replacement targets the specific released slot and uses an existing reserve. The old generated Add Team shortcut that could change fixture sides in the browser has been removed. Migration `126_past_team_admin_actions.sql` prepares the service-role-only fill and removal RPCs; it is not agent-applied. Live Supabase, browser, CHPP, and deployment behavior remain unverified. See [season-slot compatibility](docs/season-slot-compatibility.md#current-season-removal-and-reset).
 

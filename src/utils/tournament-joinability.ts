@@ -13,12 +13,16 @@ interface TournamentJoinabilityInput {
   teams: TournamentJoinabilityTeam[];
   status?: string | null;
   registrationClosedAt?: string | null;
+  nextRegularRoundAvailable?: boolean;
+  pendingTeamsCount?: number;
+  scheduleMode?: string | null;
 }
 
 interface TournamentRegistrationStateInput {
   isGenerated: boolean;
   status?: string | null;
   registrationClosedAt?: string | null;
+  nextRegularRoundAvailable?: boolean;
 }
 
 interface AdditionalTeamJoinInput {
@@ -26,17 +30,20 @@ interface AdditionalTeamJoinInput {
   isRegistrationOpen: boolean;
   maxTeams: number | null | undefined;
   activeTeamsCount: number;
+  pendingTeamsCount?: number;
 }
 
 export function isTournamentRegistrationOpen({
   isGenerated,
   status,
   registrationClosedAt,
+  nextRegularRoundAvailable = false,
 }: TournamentRegistrationStateInput) {
   return (
-    !isGenerated &&
     !registrationClosedAt &&
-    (['planning', 'recruiting', 'open', 'waiting'].includes(status ?? ''))
+    (isGenerated
+      ? status === 'active' && nextRegularRoundAvailable
+      : ['planning', 'recruiting', 'open', 'waiting'].includes(status ?? ''))
   );
 }
 
@@ -47,6 +54,9 @@ export function canViewerJoinTournament({
   teams,
   status,
   registrationClosedAt,
+  nextRegularRoundAvailable = false,
+  pendingTeamsCount = 0,
+  scheduleMode,
 }: TournamentJoinabilityInput) {
   if (hasJoined) return false;
   if (status === 'stopped' || status === 'finished' || status === 'archived') return false;
@@ -58,6 +68,10 @@ export function canViewerJoinTournament({
   if (status === 'active' && !isGenerated) return false;
 
   const activeRealTeams = teams.filter(isCurrentParticipantTeam);
+  if (isGenerated && scheduleMode === 'length') {
+    return nextRegularRoundAvailable && status === 'active' &&
+      (!maxTeams || activeRealTeams.length + pendingTeamsCount < maxTeams);
+  }
   const hasInactiveRealSpot = teams.some(
     (team) => !team.active && !team.reserve_active && !team.is_placeholder,
   );
@@ -75,6 +89,24 @@ export function canViewerJoinAnotherTeam({
   isRegistrationOpen,
   maxTeams,
   activeTeamsCount,
+  pendingTeamsCount = 0,
 }: AdditionalTeamJoinInput) {
-  return isLoggedIn && isRegistrationOpen && (!maxTeams || activeTeamsCount < maxTeams);
+  return isLoggedIn && isRegistrationOpen && (!maxTeams || activeTeamsCount + pendingTeamsCount < maxTeams);
+}
+
+export function canViewerJoinReserve({
+  allowReserveRegistration,
+  canJoinDirectly,
+  status,
+  isTest,
+  isSandbox,
+}: {
+  allowReserveRegistration: boolean;
+  canJoinDirectly: boolean;
+  status?: string | null;
+  isTest: boolean;
+  isSandbox: boolean;
+}) {
+  return allowReserveRegistration && !canJoinDirectly && !isTest && !isSandbox &&
+    !['stopped', 'finished', 'archived'].includes(status ?? '');
 }

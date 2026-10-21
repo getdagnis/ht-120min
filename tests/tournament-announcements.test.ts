@@ -70,6 +70,26 @@ test('full tournament offers reserve registration before reauthentication prompt
   assert.equal(selected?.type, 'reserve');
 });
 
+test('a current participant can see the reserve route when direct joining is closed', () => {
+  const selected = selectTournamentMessage({
+    canJoin: false, canJoinReserve: true, hasJoined: true,
+    currentHtUserId: 1001, joinedNoticeDismissed: true,
+    reauthPromptReason: null, announcements: [],
+    dismissedAnnouncementIds: new Set(), publicDismissedAnnouncementIds: new Set(),
+  });
+  assert.equal(selected?.type, 'reserve');
+});
+
+test('pending next-round registration has its own message', () => {
+  const selected = selectTournamentMessage({
+    canJoin: true, hasJoined: false, hasPendingJoin: true,
+    currentHtUserId: 1001, joinedNoticeDismissed: true,
+    reauthPromptReason: null, announcements: [],
+    dismissedAnnouncementIds: new Set(), publicDismissedAnnouncementIds: new Set(),
+  });
+  assert.equal(selected?.type, 'pending');
+});
+
 test('open registration keeps the participant message visible after an older joined notice was dismissed', () => {
   const selected = selectTournamentMessage({
     canJoin: false,

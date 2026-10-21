@@ -310,12 +310,13 @@ export async function registerReserveTeam(
 
   const { data: existing, error: existingError } = await supabase
     .from('teams')
-    .select('id, active, reserve_active')
+    .select('id, active, reserve_active, pending_entry_round_id')
     .eq('tournament_id', input.tournamentId)
     .eq('ht_team_id', input.team.teamId)
     .maybeSingle();
   if (existingError) throw new Error(existingError.message);
   if (existing?.active) throw new Error('This team is already a tournament participant.');
+  if (existing?.pending_entry_round_id) throw new Error('This team is already registered to join from the next round.');
   if (existing && existing.reserve_active !== true) {
     const [{ data: openMatch, error: matchError }, { data: currentSlot, error: slotError }] = await Promise.all([
       supabase

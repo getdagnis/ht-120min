@@ -3,6 +3,7 @@ import test from 'node:test';
 
 import {
   canViewerJoinAnotherTeam,
+  canViewerJoinReserve,
   canViewerJoinTournament,
   isTournamentRegistrationOpen,
 } from '../src/utils/tournament-joinability';
@@ -185,4 +186,41 @@ test('locks an auto-started season until its current-season schedule exists', ()
     }),
     false,
   );
+});
+
+test('ongoing length tournament accepts next-round joins with no team limit', () => {
+  assert.equal(canViewerJoinTournament({
+    hasJoined: false, isGenerated: true, scheduleMode: 'length', status: 'active',
+    nextRegularRoundAvailable: true, registrationClosedAt: null,
+    maxTeams: null, teams: [{ active: true }, { active: true }],
+  }), true);
+  assert.equal(isTournamentRegistrationOpen({
+    isGenerated: true, status: 'active', registrationClosedAt: null,
+    nextRegularRoundAvailable: true,
+  }), true);
+  assert.equal(canViewerJoinAnotherTeam({
+    isLoggedIn: true, isRegistrationOpen: true, maxTeams: null,
+    activeTeamsCount: 2, pendingTeamsCount: 1,
+  }), true);
+});
+
+test('next-round join closes at materialization, closure, and capacity including pending teams', () => {
+  const base = {
+    hasJoined: false, isGenerated: true, scheduleMode: 'length', status: 'active',
+    nextRegularRoundAvailable: true, registrationClosedAt: null,
+    maxTeams: 4, teams: [{ active: true }, { active: true }], pendingTeamsCount: 1,
+  };
+  assert.equal(canViewerJoinTournament(base), true);
+  assert.equal(canViewerJoinTournament({ ...base, pendingTeamsCount: 2 }), false);
+  assert.equal(canViewerJoinTournament({ ...base, nextRegularRoundAvailable: false }), false);
+  assert.equal(canViewerJoinTournament({ ...base, registrationClosedAt: '2026-10-21T00:00:00Z' }), false);
+});
+
+test('reserve registration is independent of participant registration and a team limit', () => {
+  const reserve = { allowReserveRegistration: true, canJoinDirectly: false,
+    status: 'active', isTest: false, isSandbox: false };
+  assert.equal(canViewerJoinReserve(reserve), true);
+  assert.equal(canViewerJoinReserve({ ...reserve, canJoinDirectly: true }), false);
+  assert.equal(canViewerJoinReserve({ ...reserve, allowReserveRegistration: false }), false);
+  assert.equal(canViewerJoinReserve({ ...reserve, status: 'finished' }), false);
 });
