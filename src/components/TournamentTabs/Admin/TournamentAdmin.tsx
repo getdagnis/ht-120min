@@ -643,27 +643,50 @@ export const TournamentAdmin: React.FC<{ controller: TournamentAdminController }
   useEffect(() => {
     if (!canManageOperationalAdmin) return;
     let cancelled = false;
-    void fetch(`/api/app?route=team-membership&tournamentId=${encodeURIComponent(tournament.id)}`, { credentials: 'same-origin' })
+    void fetch(`/api/app?route=team-membership&tournamentId=${encodeURIComponent(tournament.id)}`, {
+      credentials: 'same-origin',
+    })
       .then(async (response) => {
         const data = await response.json();
         if (!response.ok) throw new Error(data.error || 'Could not check Waiting teams.');
-        if (!cancelled) setWaitingReasons(Object.fromEntries((data.rejected || []).map((row: { teamId: string; reason: string }) => [row.teamId, row.reason])));
-      }).catch(() => { if (!cancelled) setWaitingReasons({}); });
-    return () => { cancelled = true; };
+        if (!cancelled)
+          setWaitingReasons(
+            Object.fromEntries(
+              (data.rejected || []).map((row: { teamId: string; reason: string }) => [row.teamId, row.reason]),
+            ),
+          );
+      })
+      .catch(() => {
+        if (!cancelled) setWaitingReasons({});
+      });
+    return () => {
+      cancelled = true;
+    };
   }, [canManageOperationalAdmin, tournament.id, teams]);
-  const changeMembership = async (team: Team, action: 'promote' | 'to_waiting' | 'remove' | 'return' | 'ready', ready?: boolean) => {
-    const description = action === 'promote'
-      ? `Promote ${team.name} to Active? It will be included in normal schedule planning.`
-      : action === 'to_waiting' ? `Move ${team.name} to Waiting, unchecked?`
-      : action === 'return' ? `Return ${team.name} to Waiting, checked to join when possible?`
-      : `Remove ${team.name} to Past? Its match history will be kept.`;
-    const overrideWarning = isSiteAdmin && action === 'promote'
-      ? `\n\n${waitingReasons[team.id] || 'Eligibility, membership and capacity checks may be overridden.'} Existing fixtures and history stay protected.` : '';
+  const changeMembership = async (
+    team: Team,
+    action: 'promote' | 'to_waiting' | 'remove' | 'return' | 'ready',
+    ready?: boolean,
+  ) => {
+    const description =
+      action === 'promote'
+        ? `Promote ${team.name} to Active? It will be included in normal schedule planning.`
+        : action === 'to_waiting'
+          ? `Move ${team.name} to Waiting, unchecked?`
+          : action === 'return'
+            ? `Return ${team.name} to Waiting, checked to join when possible?`
+            : `Remove ${team.name} to Past? Its match history will be kept.`;
+    const overrideWarning =
+      isSiteAdmin && action === 'promote'
+        ? `\n\n${waitingReasons[team.id] || 'Eligibility, membership and capacity checks may be overridden.'} Existing fixtures and history stay protected.`
+        : '';
     if (action !== 'ready' && !window.confirm(description + overrideWarning)) return;
     setChangingReserveId(team.id);
     try {
       const response = await fetch('/api/app?route=team-membership', {
-        method: 'POST', credentials: 'same-origin', headers: { 'Content-Type': 'application/json' },
+        method: 'POST',
+        credentials: 'same-origin',
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ tournamentId: tournament.id, teamId: team.id, action, ready }),
       });
       const result = await response.json();
@@ -672,7 +695,9 @@ export const TournamentAdmin: React.FC<{ controller: TournamentAdminController }
       await onReservesChanged();
     } catch (error) {
       alert(error instanceof Error ? error.message : 'Membership could not be changed.');
-    } finally { setChangingReserveId(null); }
+    } finally {
+      setChangingReserveId(null);
+    }
   };
   const validateReserve = async (team: Team) => {
     try {
@@ -1083,8 +1108,6 @@ export const TournamentAdmin: React.FC<{ controller: TournamentAdminController }
                               {renderUnsavedSettingsNote(unsavedSettingsFields.registrationOpen)}
                             </div>
 
-
-
                             <div className={adminStyles.checkboxField}>
                               <label className={adminStyles.checkboxLabel}>
                                 <input
@@ -1454,9 +1477,11 @@ export const TournamentAdmin: React.FC<{ controller: TournamentAdminController }
                                           checked={selectedAdmissionIds.includes(team.id)}
                                           onChange={(event) => {
                                             const checked = event.currentTarget.checked;
-                                            setAdmissionSelection((ids) => checked
-                                              ? [...new Set([...ids, team.id])]
-                                              : ids.filter((id) => id !== team.id));
+                                            setAdmissionSelection((ids) =>
+                                              checked
+                                                ? [...new Set([...ids, team.id])]
+                                                : ids.filter((id) => id !== team.id),
+                                            );
                                           }}
                                         />
                                         {team.name}
@@ -1829,7 +1854,8 @@ export const TournamentAdmin: React.FC<{ controller: TournamentAdminController }
                                           Validate team
                                         </Button>
                                       )}
-                                      {tournament.schedule_mode !== 'length' && isGenerated &&
+                                      {tournament.schedule_mode !== 'length' &&
+                                        isGenerated &&
                                         roleAccess?.canManageOperations &&
                                         seasonSlots.some((slot) => slot.current_team_id === team.id) &&
                                         reserveTeams.length > 0 &&
@@ -1953,14 +1979,18 @@ export const TournamentAdmin: React.FC<{ controller: TournamentAdminController }
                                               onClick={() => void changeMembership(team, 'to_waiting')}
                                               disabled={isSavingTeam}
                                             >
-                                              To waiting
+                                              Waiting List
                                             </Button>
                                           </>
                                         )}
                                       <Button
                                         size="xs"
                                         variant="danger"
-                                        onClick={() => team.is_placeholder || isSandbox ? void deleteTeam(team.id) : void changeMembership(team, 'remove')}
+                                        onClick={() =>
+                                          team.is_placeholder || isSandbox
+                                            ? void deleteTeam(team.id)
+                                            : void changeMembership(team, 'remove')
+                                        }
                                         title="Remove team"
                                       >
                                         <Trash size={16} /> Remove
@@ -1974,7 +2004,9 @@ export const TournamentAdmin: React.FC<{ controller: TournamentAdminController }
                           {reserveTeams.length > 0 && (
                             <>
                               <h3 className={adminStyles.sectionTitle}>Waiting ({reserveTeams.length})</h3>
-                              <p className={adminStyles.smallNote}>Checked teams join automatically when possible. Unchecked teams stay here for review.</p>
+                              <p className={adminStyles.smallNote}>
+                                Checked teams join automatically when possible. Unchecked teams stay here for review.
+                              </p>
                               <ul className={adminStyles.teamList}>
                                 {reserveTeams.map((team) => (
                                   <li key={team.id} className={adminStyles.reserveTeam}>
@@ -2047,18 +2079,42 @@ export const TournamentAdmin: React.FC<{ controller: TournamentAdminController }
                                     {canManageOperationalAdmin && (
                                       <div className={adminStyles.teamActions}>
                                         <label className={adminStyles.checkboxLabel}>
-                                          <input type="checkbox" checked={team.actively_waiting === true}
+                                          <input
+                                            type="checkbox"
+                                            checked={team.actively_waiting === true}
                                             disabled={changingReserveId !== null}
-                                            onChange={(event) => void changeMembership(team, 'ready', event.currentTarget.checked)} />
-                                          Actively waiting
+                                            onChange={(event) =>
+                                              void changeMembership(team, 'ready', event.currentTarget.checked)
+                                            }
+                                          />
+                                          Auto promote
                                         </label>
-                                        <Button type="button" size="xs" variant="primary"
-                                          disabled={isSavingTeam || changingReserveId !== null || !tournamentAllowsTeamActions || (isGenerated && !isSiteAdmin)}
-                                          onClick={() => void changeMembership(team, 'promote')}>Promote</Button>
-                                        <Button type="button" size="xs" variant="secondaryDanger"
+                                        <Button
+                                          type="button"
+                                          size="xs"
+                                          variant="primary"
+                                          disabled={
+                                            isSavingTeam ||
+                                            changingReserveId !== null ||
+                                            !tournamentAllowsTeamActions ||
+                                            (isGenerated && !isSiteAdmin)
+                                          }
+                                          onClick={() => void changeMembership(team, 'promote')}
+                                        >
+                                          Promote
+                                        </Button>
+                                        <Button
+                                          type="button"
+                                          size="xs"
+                                          variant="secondaryDanger"
                                           disabled={changingReserveId !== null}
-                                          onClick={() => void changeMembership(team, 'remove')}>Remove</Button>
-                                        {waitingReasons[team.id] && <p className={adminStyles.waitingReason}>{waitingReasons[team.id]}</p>}
+                                          onClick={() => void changeMembership(team, 'remove')}
+                                        >
+                                          Remove
+                                        </Button>
+                                        {waitingReasons[team.id] && (
+                                          <p className={adminStyles.waitingReason}>{waitingReasons[team.id]}</p>
+                                        )}
                                       </div>
                                     )}
                                   </li>

@@ -28,7 +28,8 @@ function fixtureDb() {
     teams: [home, away, second],
     matches: [{ id: 'fixture', round_id: 'round', status: 'arranged', completed: false, ht_match_id: 123,
       home_team_id: home.id, away_team_id: away.id, home_team: home, away_team: away,
-      scheduled_for: new Date(Date.now() + 86_400_000).toISOString() }],
+      scheduled_for: new Date(Date.now() - 86_400_000).toISOString(),
+      chpp_match_date: new Date(Date.now() + 86_400_000).toISOString() }],
     profiles: [7, 8].map((owner) => ({ hattrick_user_id: owner, oauth_token: `${owner}-token`, oauth_token_secret: 'secret' })),
     fixture_predicted_rating_shares: [], tournament_team_rating_preferences: [],
   };
@@ -102,6 +103,16 @@ test('background publishes each side once, then performs no prediction or orders
     ordersReads++; return new Map([[123, true]]);
   }), 0);
   assert.equal(requests.length, before); assert.equal(ordersReads, 0);
+});
+
+test('arranged fixture without a confirmed kickoff cannot auto-share from its estimate', async () => {
+  const { db, rows } = fixtureDb();
+  rows.matches[0].scheduled_for = new Date(Date.now() + 86_400_000).toISOString();
+  rows.matches[0].chpp_match_date = null;
+  const requests = fakeChpp();
+  const orders = new Map([['home', new Map([[123, true]])]]);
+  assert.equal(await autoShareFixtureRatings(db as never, 'cup', 'round', orders, async () => {}), 0);
+  assert.equal(requests.length, 0);
 });
 
 test('false/missing orders and unavailable ownership never publish, and opt-out racing prediction prevents publication', async () => {

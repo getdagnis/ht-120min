@@ -137,6 +137,7 @@ Regeneration also supports the optional W15 weekend flag when applicable and kee
 - Generated `scheduled_for` values are planned estimates, not proof of the eventual Hattrick kickoff.
 - Exact CHPP kickoff instants are stored separately in `matches.chpp_match_date`.
 - Public fixture dates prefer `chpp_match_date`; a generated schedule time is labeled estimated and does not drive inferred live status or polling.
+- Arranged-fixture rating sharing and visibility use only the future confirmed `chpp_match_date`; a planned estimate cannot authorize access or close it early.
 
 ### CHPP fixture timestamps
 

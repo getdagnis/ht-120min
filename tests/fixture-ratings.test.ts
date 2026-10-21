@@ -172,7 +172,7 @@ test('private read gives both shares only to exact fixture managers before kicko
   const future = new Date(Date.now() + 86_400_000).toISOString();
   const fixture = {
     id: 'fixture', round_id: 'round', home_team_id: 'home', away_team_id: 'away', ht_match_id: 123,
-    status: 'arranged', completed: false, scheduled_for: future,
+    status: 'arranged', completed: false, scheduled_for: new Date(Date.now() - 86_400_000).toISOString(), chpp_match_date: future,
     home_team: { id: 'home', ht_team_id: 11, hattrick_user_id: 7, active: true, is_placeholder: false },
     away_team: { id: 'away', ht_team_id: 22, hattrick_user_id: 8, active: true, is_placeholder: false },
   };
@@ -233,7 +233,7 @@ test('private read gives both shares only to exact fixture managers before kicko
   assert.deepEqual(chppCalls, ['managercompendium', 'managercompendium', 'managercompendium']);
   shares[1].ht_match_id = 124;
   assert.deepEqual((await loadVisibleFixtureRatings(db as never, 'tournament', 8777402, true))[0].ratings.map((row) => row.team_id), ['home']);
-  fixture.scheduled_for = new Date(Date.now() - 1000).toISOString();
+  fixture.chpp_match_date = new Date(Date.now() - 1000).toISOString();
   assert.deepEqual(await loadVisibleFixtureRatings(db as never, 'tournament', 7), []);
   assert.deepEqual(await loadVisibleFixtureRatings(db as never, 'tournament', 8777402, true), []);
 });
@@ -248,14 +248,16 @@ test('a multi-club manager can act for either exact club, but another manager or
 test('only current, arranged, upcoming fixtures with two active clubs can publish', () => {
   const context = {
     fixture: { status: 'arranged', completed: false, ht_match_id: 123,
-      scheduled_for: new Date(Date.now() + 86_400_000).toISOString(),
+      scheduled_for: new Date(Date.now() - 86_400_000).toISOString(),
+      chpp_match_date: new Date(Date.now() + 86_400_000).toISOString(),
       home_team: { id: 'home', ht_team_id: 11, active: true, is_placeholder: false },
       away_team: { id: 'away', ht_team_id: 22, active: true, is_placeholder: false } },
     round: { season_number: 2 }, tournament: { season: 2, status: 'active', is_archived: false },
   };
   assert.doesNotThrow(() => assertEligibleFixtureRatings(context as never));
   assert.throws(() => assertEligibleFixtureRatings({ ...context, fixture: { ...context.fixture, ht_match_id: null } } as never));
-  assert.throws(() => assertEligibleFixtureRatings({ ...context, fixture: { ...context.fixture, scheduled_for: new Date(Date.now() - 1000).toISOString() } } as never));
+  assert.throws(() => assertEligibleFixtureRatings({ ...context, fixture: { ...context.fixture, chpp_match_date: new Date(Date.now() - 1000).toISOString(), scheduled_for: new Date(Date.now() + 86_400_000).toISOString() } } as never));
+  assert.throws(() => assertEligibleFixtureRatings({ ...context, fixture: { ...context.fixture, chpp_match_date: null, scheduled_for: new Date(Date.now() + 86_400_000).toISOString() } } as never));
   assert.throws(() => assertEligibleFixtureRatings({ ...context, fixture: { ...context.fixture, status: 'finished' } } as never));
 });
 
@@ -280,7 +282,8 @@ test('home and away shares remain independent through update, failed refresh, an
   const rows: Record<string, Array<Record<string, unknown>>> = {
     matches: [{ id: 'fixture', round_id: 'round', home_team_id: 'home', away_team_id: 'away',
       ht_match_id: 123, status: 'arranged', completed: false,
-      scheduled_for: new Date(Date.now() + 86_400_000).toISOString(),
+      scheduled_for: new Date(Date.now() - 86_400_000).toISOString(),
+      chpp_match_date: new Date(Date.now() + 86_400_000).toISOString(),
       home_team: { id: 'home', ht_team_id: 11, hattrick_user_id: 7, oauth_token: 'home-token', oauth_token_secret: 'secret', active: true, is_placeholder: false },
       away_team: { id: 'away', ht_team_id: 22, hattrick_user_id: 8, oauth_token: 'away-token', oauth_token_secret: 'secret', active: true, is_placeholder: false } }],
     rounds: [{ id: 'round', tournament_id: 'tournament', season_number: 1 }],

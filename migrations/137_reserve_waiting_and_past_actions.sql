@@ -706,3 +706,5 @@ END $$;
 
 NOTIFY pgrst, 'reload schema';
 COMMIT;
+
+-- applied! (with response -- "set_config": "false")

@@ -30,6 +30,7 @@ test('rating sharing SQL preserves manual rows, serializes claims, and protects 
   sql('ALTER TABLE tournaments ADD is_archived boolean DEFAULT false;');
   sql(readFileSync(new URL('../migrations/095_fixture_predicted_rating_shares.sql', import.meta.url), 'utf8'));
   sql(readFileSync(new URL('../migrations/096_limit_fixture_rating_visibility.sql', import.meta.url), 'utf8'));
+  sql(readFileSync(new URL('../migrations/101_add_confirmed_chpp_match_dates.sql', import.meta.url), 'utf8'));
   sql(readFileSync(new URL('../migrations/103_fixture_player_specialty_positions.sql', import.meta.url), 'utf8'));
   sql(readFileSync(new URL('../migrations/104_add_fixture_rating_coach_modifier.sql', import.meta.url), 'utf8'));
   sql(`INSERT INTO tournaments(id,season,status) VALUES('${cup}',1,'active');
@@ -123,4 +124,22 @@ test('rating sharing SQL preserves manual rows, serializes claims, and protects 
   assert.equal(sql(`SELECT auto_sharing_enabled FROM fixture_predicted_rating_share_status WHERE team_id='${home}';`), 'f');
   assert.throws(() => sql(`SET ROLE authenticated; ${recordStatus('false')}`), /permission denied/);
 
+  sql('RESET ROLE;');
+  sql(readFileSync(new URL('../migrations/138_use_confirmed_kickoff_for_fixture_ratings.sql', import.meta.url), 'utf8'));
+  sql(`DELETE FROM fixture_predicted_rating_shares; DELETE FROM fixture_rating_automation;
+    UPDATE matches SET scheduled_for=now()-interval '1 day', chpp_match_date=now()+interval '1 day';`);
+  sql(toggle(true));
+  assert.equal(sql(`SET ROLE anon; SELECT count(*) FROM fixture_predicted_rating_share_status WHERE fixture_id='${fixture}';`), '2',
+    'confirmed upcoming fixtures stay visible despite an expired estimate');
+  sql('RESET ROLE;');
+  const confirmedClaim = claimId();
+  assert.ok(confirmedClaim, 'automatic sharing claims use the confirmed date');
+  assert.match(sql(action('automatic', home, 7, 123, confirmedClaim)), /saved.*true/);
+  sql(`DELETE FROM fixture_predicted_rating_shares; DELETE FROM fixture_rating_automation;
+    UPDATE matches SET scheduled_for=now()+interval '1 day', chpp_match_date=now()-interval '1 second';`);
+  assert.equal(sql(`SELECT count(*) FROM fixture_predicted_rating_share_status WHERE fixture_id='${fixture}';`), '0');
+  assert.equal(sql(action('claim')), '', 'a past confirmed kickoff closes sharing despite a future estimate');
+  sql(`UPDATE matches SET chpp_match_date=NULL;`);
+  assert.equal(sql(action('claim')), '', 'an unconfirmed arranged fixture cannot use its estimate');
+  assert.equal(sql(`SELECT count(*) FROM fixture_predicted_rating_share_status WHERE fixture_id='${fixture}';`), '0');
 });

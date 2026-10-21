@@ -295,7 +295,7 @@ export async function prediction(credentials: Credentials, matchId: number, team
 
 export async function loadFixtureForRatings(db: Db, fixtureId: string) {
   const { data: fixture, error } = await db.from('matches')
-    .select('id,round_id,home_team_id,away_team_id,ht_match_id,status,completed,scheduled_for,home_team:teams!matches_home_team_id_fkey(id,ht_team_id,hattrick_user_id,oauth_token,oauth_token_secret,active,is_placeholder),away_team:teams!matches_away_team_id_fkey(id,ht_team_id,hattrick_user_id,oauth_token,oauth_token_secret,active,is_placeholder)')
+    .select('id,round_id,home_team_id,away_team_id,ht_match_id,status,completed,chpp_match_date,home_team:teams!matches_home_team_id_fkey(id,ht_team_id,hattrick_user_id,oauth_token,oauth_token_secret,active,is_placeholder),away_team:teams!matches_away_team_id_fkey(id,ht_team_id,hattrick_user_id,oauth_token,oauth_token_secret,active,is_placeholder)')
     .eq('id', fixtureId).maybeSingle();
   if (error) throw error;
   if (!fixture) throw new FixtureRatingsError(404, 'Fixture not found.');
@@ -327,7 +327,7 @@ export async function loadVisibleFixtureRatings(db: Db, tournamentId: string, us
   const roundIds = (rounds || []).map((round) => round.id);
   if (!roundIds.length) return [];
   const { data: matches, error: matchesError } = await db.from('matches')
-    .select('id,round_id,home_team_id,away_team_id,ht_match_id,status,completed,scheduled_for,home_team:teams!matches_home_team_id_fkey(id,ht_team_id,hattrick_user_id,active,is_placeholder),away_team:teams!matches_away_team_id_fkey(id,ht_team_id,hattrick_user_id,active,is_placeholder)')
+    .select('id,round_id,home_team_id,away_team_id,ht_match_id,status,completed,chpp_match_date,home_team:teams!matches_home_team_id_fkey(id,ht_team_id,hattrick_user_id,active,is_placeholder),away_team:teams!matches_away_team_id_fkey(id,ht_team_id,hattrick_user_id,active,is_placeholder)')
     .in('round_id', roundIds).eq('status', 'arranged').eq('completed', false);
   if (matchesError) throw matchesError;
   const roundById = new Map((rounds || []).map((round) => [round.id, round]));
@@ -349,7 +349,7 @@ export async function loadVisibleFixtureRatings(db: Db, tournamentId: string, us
   const fixtureIds = authorized.map(({ fixture }) => fixture.id);
   const [{ data: shares, error: sharesError }, { data: latestMatches, error: latestError }] = await Promise.all([
     db.from('fixture_predicted_rating_shares').select(PRIVATE_FIXTURE_RATINGS_FIELDS).in('fixture_id', fixtureIds),
-    db.from('matches').select('id,home_team_id,away_team_id,ht_match_id,status,completed,scheduled_for').in('id', fixtureIds),
+    db.from('matches').select('id,home_team_id,away_team_id,ht_match_id,status,completed,chpp_match_date').in('id', fixtureIds),
   ]);
   if (sharesError) throw sharesError;
   if (latestError) throw latestError;
@@ -358,7 +358,7 @@ export async function loadVisibleFixtureRatings(db: Db, tournamentId: string, us
     const latest = latestById.get(fixture.id);
     if (!latest || latest.home_team_id !== fixture.home_team_id || latest.away_team_id !== fixture.away_team_id ||
       Number(latest.ht_match_id) !== Number(fixture.ht_match_id) || latest.status !== 'arranged' || latest.completed ||
-      !latest.scheduled_for || new Date(latest.scheduled_for).getTime() <= Date.now()) return [];
+      !latest.chpp_match_date || new Date(latest.chpp_match_date).getTime() <= Date.now()) return [];
     return [{
       fixtureId: fixture.id,
       ownedSides,
@@ -373,7 +373,7 @@ export function assertEligibleFixtureRatings(input: Awaited<ReturnType<typeof lo
   const { fixture, round, tournament } = input;
   const home = fixture.home_team;
   const away = fixture.away_team;
-  const kickoff = fixture.scheduled_for ? new Date(fixture.scheduled_for).getTime() : NaN;
+  const kickoff = fixture.chpp_match_date ? new Date(fixture.chpp_match_date).getTime() : NaN;
   if (tournament.is_archived || ['finished', 'archived', 'cancelled', 'stopped'].includes(tournament.status || '') ||
     Number(round.season_number) !== Number(tournament.season) || fixture.status !== 'arranged' || fixture.completed ||
     !Number.isSafeInteger(Number(fixture.ht_match_id)) || Number(fixture.ht_match_id) <= 0 ||
@@ -531,7 +531,7 @@ export async function autoShareFixtureRatings(
   loadOrders?: (teamId: string) => Promise<ReadonlyMap<number, boolean | null> | undefined>,
 ) {
   const { data: matches, error } = await db.from('matches').select('id').eq('round_id', roundId)
-    .eq('status', 'arranged').eq('completed', false).gt('scheduled_for', new Date().toISOString());
+    .eq('status', 'arranged').eq('completed', false).gt('chpp_match_date', new Date().toISOString());
   if (error) throw error;
   let shared = 0;
   let statusChanged = false;
