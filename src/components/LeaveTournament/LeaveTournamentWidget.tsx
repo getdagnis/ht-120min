@@ -14,6 +14,19 @@ export function LeaveTournamentWidget({ tournamentId, roundId, noticeContainer }
   roundId: string;
   noticeContainer: HTMLElement | null;
 }) {
+  return (
+    <LeaveTournamentWidgetContent
+      key={`${tournamentId}:${roundId}`}
+      tournamentId={tournamentId}
+      noticeContainer={noticeContainer}
+    />
+  );
+}
+
+function LeaveTournamentWidgetContent({ tournamentId, noticeContainer }: {
+  tournamentId: string;
+  noticeContainer: HTMLElement | null;
+}) {
   const text = useTranslations('PublicUI.LeaveTournamentWidget');
   const [teams, setTeams] = useState<OwnTeam[]>([]);
   const [busyTeamId, setBusyTeamId] = useState<string | null>(null);
@@ -21,8 +34,6 @@ export function LeaveTournamentWidget({ tournamentId, roundId, noticeContainer }
 
   useEffect(() => {
     let cancelled = false;
-    setTeams([]);
-    setError('');
     void fetch(`/api/app?route=tournament-team-departure&tournamentId=${encodeURIComponent(tournamentId)}`, {
       credentials: 'include', cache: 'no-store',
     }).then(async (response) => {
@@ -33,7 +44,7 @@ export function LeaveTournamentWidget({ tournamentId, roundId, noticeContainer }
       if (!cancelled) setError(reason instanceof Error ? reason.message : text('loadFailed'));
     });
     return () => { cancelled = true; };
-  }, [tournamentId, roundId, text]);
+  }, [tournamentId, text]);
 
   const change = async (team: OwnTeam, checked: boolean) => {
     setBusyTeamId(team.id);

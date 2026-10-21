@@ -204,3 +204,5 @@ GRANT SELECT ON public.fixture_predicted_rating_share_status TO anon,authenticat
 
 NOTIFY pgrst, 'reload schema';
 COMMIT;
+
+-- applied!

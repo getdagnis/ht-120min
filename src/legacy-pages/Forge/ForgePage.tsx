@@ -1120,7 +1120,9 @@ function ForgeDashboard({
   }, []);
   const since = getPeriodSince(clock, period);
   const latestUsersSinceRef = useRef(since);
-  latestUsersSinceRef.current = since;
+  useEffect(() => {
+    latestUsersSinceRef.current = since;
+  }, [since]);
   const trendConfig =
     FORGE_TREND_INTERVALS.find((option) => option.value === trendInterval) || FORGE_TREND_INTERVALS[0];
   const trendSince = getTrendSince(clock, trendInterval);
@@ -1256,13 +1258,7 @@ function ForgeDashboard({
     : null;
 
   useEffect(() => {
-    if (!since || !searchUserId) {
-      setSearchedVisits([]);
-      setSearchedVisitCursor(null);
-      setSearchedVisitsHaveMore(false);
-      setSearchingVisits(false);
-      return;
-    }
+    if (!since || !searchUserId) return;
     let cancelled = false;
     const load = async () => {
       setSearchingVisits(true);
@@ -1617,9 +1613,9 @@ function ForgeDashboard({
             title={`Visits · ${FORGE_PERIODS.find((option) => option.value === period)?.label.toLowerCase()}`}
             className={`${styles.surfaceCard} ${styles.dashboardVisits}`}
           >
-            {(loading || searchingVisits) && <p className={styles.smallNote}>Loading visits...</p>}
+            {(loading || (searchUserId && searchingVisits)) && <p className={styles.smallNote}>Loading visits...</p>}
             {error && <p className={styles.errorText}>{error}</p>}
-            {!loading && !searchingVisits && visibleVisits.length === 0 && (
+            {!loading && !(searchUserId && searchingVisits) && visibleVisits.length === 0 && (
               <p className={styles.smallNote}>
                 {searchTerm
                   ? 'No visits match this search.'
