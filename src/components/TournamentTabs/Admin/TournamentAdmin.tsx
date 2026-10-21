@@ -2078,6 +2078,13 @@ export const TournamentAdmin: React.FC<{ controller: TournamentAdminController }
                                         </div>
                                         <span className={adminStyles.statusBadge}>
                                           Reserve{team.joined_via_oauth ? ' · CHPP validated' : ''}
+                                          {' · '}{team.reserve_origin === 'organizer_added'
+                                            ? themeText('reserveOriginOrganizerAdded')
+                                            : team.reserve_origin === 'manager_joined'
+                                              ? themeText('reserveOriginManagerJoined')
+                                              : team.reserve_origin === 'participant_departure'
+                                                ? themeText('reserveOriginParticipantDeparture')
+                                                : themeText('reserveOriginUnknown')}
                                         </span>
                                         {canManageOperationalAdmin &&
                                           tournament.schedule_mode === 'length' &&

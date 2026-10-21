@@ -237,6 +237,10 @@ const messages = {
     conflictingTeamsDropped: 'These teams were removed because they are already committed elsewhere: {teams}',
     creationPlanningWarning: 'Your tournament will start in Planning: shareable and joinable, but absent from homepage and featured lists. Teams can join several planning lists. Publishing commits the registered teams exclusively and withdraws them from other planning lists.',
     addReserveTitle: 'Add reserve team',
+    reserveOriginOrganizerAdded: 'Added by organizer',
+    reserveOriginManagerJoined: 'Manager joined',
+    reserveOriginParticipantDeparture: 'Moved from participants',
+    reserveOriginUnknown: 'Origin not recorded',
 
     defaultColorTheme: 'Default color theme',
     visitorThemePreference: 'Visitor’s preference',

@@ -294,6 +294,7 @@ export async function registerReserveTeam(
     powerGlobalRank?: number | null;
     powerLeagueRank?: number | null;
     powerRegionRank?: number | null;
+    reserveOrigin: 'manager_joined' | 'organizer_added';
     skipMembershipCheck?: boolean;
   },
 ) {
@@ -310,7 +311,7 @@ export async function registerReserveTeam(
 
   const { data: existing, error: existingError } = await supabase
     .from('teams')
-    .select('id, active, reserve_active, pending_entry_round_id')
+    .select('id, active, reserve_active, reserve_origin, pending_entry_round_id')
     .eq('tournament_id', input.tournamentId)
     .eq('ht_team_id', input.team.teamId)
     .maybeSingle();
@@ -365,6 +366,9 @@ export async function registerReserveTeam(
     reapply_season_number: null,
     reserve_active: true,
     reserve_joined_at: new Date().toISOString(),
+    reserve_origin: existing?.reserve_active
+      ? existing.reserve_origin || 'legacy_unknown'
+      : input.reserveOrigin,
   };
 
   if (input.skipMembershipCheck) {

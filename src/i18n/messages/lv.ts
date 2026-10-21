@@ -248,6 +248,10 @@ const messages = {
     conflictingTeamsDropped: '',
     creationPlanningWarning: '',
     addReserveTitle: '',
+    reserveOriginOrganizerAdded: 'Pievienoja organizators',
+    reserveOriginManagerJoined: 'Pieteicās menedžeris',
+    reserveOriginParticipantDeparture: 'Pārvietota no dalībkomandām',
+    reserveOriginUnknown: 'Izcelsme nav reģistrēta',
 
     defaultColorTheme: 'Noklusējuma krāsu tēma',
     visitorThemePreference: 'Apmeklētāja izvēle',

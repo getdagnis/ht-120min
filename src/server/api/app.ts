@@ -1193,9 +1193,9 @@ async function handleAdminTeamReserveTransition(req: VercelRequest, res: VercelR
     ? { active: true, reserve_active: false }
     : { active: false, reserve_active: true };
   const update = action === 'to_reserve'
-    ? { ...validation.values, reserve_joined_at: new Date().toISOString() }
-    : { ...validation.values, reserve_joined_at: null };
-  let updatedTeam: { id: string; active: boolean; reserve_active: boolean; reserve_joined_at: string | null } | null;
+    ? { ...validation.values, reserve_joined_at: new Date().toISOString(), reserve_origin: 'participant_departure' }
+    : { ...validation.values, reserve_joined_at: null, reserve_origin: null };
+  let updatedTeam: { id: string; active: boolean; reserve_active: boolean; reserve_joined_at: string | null; reserve_origin: string | null } | null;
   if (allowGeneratedDemotion) {
     const { data, error } = await supabase.rpc('move_current_season_team_as_site_admin', {
       p_tournament_id: tournamentId,
@@ -1224,7 +1224,7 @@ async function handleAdminTeamReserveTransition(req: VercelRequest, res: VercelR
       .eq('active', expectedState.active)
       .eq('reserve_active', expectedState.reserve_active)
       .eq('is_placeholder', false)
-      .select('id, active, reserve_active, reserve_joined_at')
+      .select('id, active, reserve_active, reserve_joined_at, reserve_origin')
       .maybeSingle();
     if (error) throw error;
     updatedTeam = data;
@@ -1401,6 +1401,7 @@ async function handleAdminAddReserveTeam(req: VercelRequest, res: VercelResponse
       logoUrl: details.logoUrl, countryId: details.countryId, countryName: details.countryName,
       teamRank: details.teamRank, powerRating: details.powerRating, powerGlobalRank: details.powerGlobalRank,
       powerLeagueRank: details.powerLeagueRank, powerRegionRank: details.powerRegionRank,
+      reserveOrigin: 'organizer_added',
       skipMembershipCheck: actor.access.isImplicitSuperadmin,
     });
     return res.status(200).json({ team: { id }, validated: true });
@@ -1430,6 +1431,7 @@ async function handleAdminAddReserveTeam(req: VercelRequest, res: VercelResponse
     active: false,
     reserve_active: true,
     reserve_joined_at: new Date().toISOString(),
+    reserve_origin: 'organizer_added',
   };
   if (actor.access.isImplicitSuperadmin) {
     const { data: id, error } = await supabase.rpc('save_verified_tournament_registration', {
@@ -2873,6 +2875,7 @@ function publicReserveTeam(row: Record<string, unknown>, planningStatus: PublicR
     manager_name: row.manager_name,
     hattrick_user_id: row.hattrick_user_id,
     reserve_joined_at: row.reserve_joined_at,
+    reserve_origin: row.reserve_origin,
     planning_status: planningStatus,
   };
 }
@@ -2998,7 +3001,7 @@ async function handleReserveTeams(req: VercelRequest, res: VercelResponse) {
     supabase
       .from('teams')
       .select(
-        'id, name, ht_team_id, active, is_placeholder, reserve_active, reserve_joined_at, pending_entry_round_id, logo_url, country_name, country_id, manager_name, hattrick_user_id, oauth_token, oauth_token_secret',
+        'id, name, ht_team_id, active, is_placeholder, reserve_active, reserve_joined_at, reserve_origin, pending_entry_round_id, logo_url, country_name, country_id, manager_name, hattrick_user_id, oauth_token, oauth_token_secret',
       )
       .eq('tournament_id', tournamentId)
       .order('reserve_joined_at', { ascending: false, nullsFirst: false }),
@@ -3091,7 +3094,7 @@ async function handleReserveTeams(req: VercelRequest, res: VercelResponse) {
   if (action === 'leave') {
     const { data: leftTeam, error } = await supabase
       .from('teams')
-      .update({ reserve_active: false, reserve_joined_at: null })
+      .update({ reserve_active: false, reserve_joined_at: null, reserve_origin: null })
       .eq('id', requestedTeamId)
       .eq('tournament_id', tournamentId)
       .eq('hattrick_user_id', session.userId)
@@ -3173,6 +3176,7 @@ async function handleReserveTeams(req: VercelRequest, res: VercelResponse) {
     powerGlobalRank: details?.powerGlobalRank ?? null,
     powerLeagueRank: details?.powerLeagueRank ?? null,
     powerRegionRank: details?.powerRegionRank ?? null,
+    reserveOrigin: 'manager_joined',
   });
   return res.status(200).json({ ok: true, teamId: teamRowId });
 }

@@ -391,6 +391,7 @@ export interface Team {
   reapply_season_number?: number | null;
   reserve_active?: boolean;
   reserve_joined_at?: string | null;
+  reserve_origin?: 'organizer_added' | 'manager_joined' | 'participant_departure' | 'legacy_unknown' | null;
   pending_entry_round_id?: string | null;
   team_rank?: number | null;
   power_rating?: number | null;
