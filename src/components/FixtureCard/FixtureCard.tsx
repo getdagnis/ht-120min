@@ -3,7 +3,7 @@ import { useTranslations } from 'next-intl';
 import React from 'react';
 import { ArrowLeft, ArrowRight, ArrowUpRight, Info } from 'phosphor-react';
 import { Tooltip } from '../Tooltip/Tooltip';
-import { TeamByline } from '../TeamByline/TeamByline';
+import { TeamByline, type FixtureRatingGrade } from '../TeamByline/TeamByline';
 import { appgOutcomeLabel, type AppgOutcome } from '../../utils/appg';
 import { skillDisplay } from '../../utils/hattrick-skill';
 import {
@@ -26,6 +26,7 @@ interface TeamProps {
   htTeamId: number;
   logoUrl?: string;
   matchKitUrl?: string | null;
+  ratingGrade?: FixtureRatingGrade;
   warning?: 'yellow' | 'red';
   reserveReplacingName?: string;
   countryName?: string;
@@ -563,6 +564,7 @@ export const FixtureCard: React.FC<FixtureCardProps> = ({
           isRight={isRight}
           matchSummary={team.matchSummary}
           matchKitUrl={team.warning ? null : team.matchKitUrl}
+          ratingGrade={team.ratingGrade}
         />
       )}
       {team.warning && (

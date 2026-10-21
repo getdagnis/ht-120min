@@ -12,6 +12,8 @@ import {
 } from '../../../shared/match-events';
 import styles from './TeamByline.module.sass';
 
+export type FixtureRatingGrade = `${'A' | 'B' | 'C' | 'D' | 'E' | 'F'}${'+' | '' | '-'}`;
+
 interface TeamBylineProps {
   countryName?: string | null;
   countryId?: number | null;
@@ -31,6 +33,7 @@ interface TeamBylineProps {
     eventDetails?: MatchSideEventDetails | null;
   } | null;
   matchKitUrl?: string | null;
+  ratingGrade?: FixtureRatingGrade;
 }
 
 export const TeamByline: React.FC<TeamBylineProps> = ({
@@ -47,6 +50,7 @@ export const TeamByline: React.FC<TeamBylineProps> = ({
   lastSeenAt,
   matchSummary,
   matchKitUrl,
+  ratingGrade,
 }) => {
   const uiText = useTranslations('PublicUI.TeamByline');
   // Use a unique ID for tooltips to avoid collisions
@@ -309,18 +313,27 @@ export const TeamByline: React.FC<TeamBylineProps> = ({
           </>
         )}
       </div>
-      {mode === 'fixtures' && (visibleMatchKitUrl || groupedGoals.length > 0 || summary) && (
+      {mode === 'fixtures' && (visibleMatchKitUrl || ratingGrade || groupedGoals.length > 0 || summary) && (
         <div className={`${styles.matchDetails} ${isRight ? styles.right : ''}`}>
-          {visibleMatchKitUrl && (
-            <img
-              src={visibleMatchKitUrl}
-              alt={uiText('teamMatchKit', { team: teamName || uiText('team') })}
-              className={styles.matchKit}
-              loading="lazy"
-              onError={(event) => {
-                event.currentTarget.style.display = 'none';
-              }}
-            />
+          {(visibleMatchKitUrl || ratingGrade) && (
+            <div className={styles.matchKitColumn}>
+              {visibleMatchKitUrl && (
+                <img
+                  src={visibleMatchKitUrl}
+                  alt={uiText('teamMatchKit', { team: teamName || uiText('team') })}
+                  className={styles.matchKit}
+                  loading="lazy"
+                  onError={(event) => {
+                    event.currentTarget.style.display = 'none';
+                  }}
+                />
+              )}
+              {ratingGrade && (
+                <span className={`${styles.ratingBadge} ${styles[`ratingGrade${ratingGrade[0]}`]}`}>
+                  120mRt {ratingGrade}
+                </span>
+              )}
+            </div>
           )}
           <div className={styles.matchEvents}>
             {groupedGoals.length > 0 && (

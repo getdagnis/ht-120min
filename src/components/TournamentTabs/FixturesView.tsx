@@ -1478,6 +1478,8 @@ export const FixturesView: React.FC<FixturesViewProps> = ({
               countryName: 'Latvia',
               countryId: 54,
               managerName: 'Preview manager',
+              matchKitUrl: '/matchKitLarge.png',
+              ratingGrade: 'A+',
             }}
             awayTeam={{
               name: 'Preview Opponent FC',
@@ -1485,6 +1487,8 @@ export const FixturesView: React.FC<FixturesViewProps> = ({
               countryName: 'Guam',
               countryId: 117,
               managerName: 'Preview opponent',
+              matchKitUrl: '/matchKitLarge.png',
+              ratingGrade: 'F-',
             }}
           />
         </SectionCard>
