@@ -264,10 +264,34 @@ pairing, rechecks registration, capacity, eligibility and cross-tournament team
 membership, then adds two physical season slots per entrant (one occupied and
 one spare), a slot assignment, and its next-round fixture or BYE in one
 transaction. Existing rounds, fixtures and results remain intact. A failed
-admission rolls back the whole transition; the team stays pending for review or
-withdrawal. The historical schedule plan is left unchanged and subsequent
+admission rolls back the whole transition; the team stays pending for review.
+An operational admin can cancel that pending registration in Manage Teams; the
+manager can also withdraw it. Cancellation takes the same tournament lock as
+admission, clears only inactive pending state, and does not alter fixtures or
+historical assignments. Saving results or refreshing fixtures then retries
+progression with fresh pairings. Keep this fail-closed behavior: silently
+skipping an invalid entrant after pairings were generated would commit a
+roster/fixture mismatch. The historical schedule plan is left unchanged and subsequent
 regular rounds use played-history pairing for the expanded field. This manager
 flow does not use site-admin promotion or its eligibility bypasses.
+
+Before applying 134, inspect the deployed base transition with this read-only
+query and compare its body to
+`migrations/107_calendar_first_generated_schedules.sql`:
+
+```sql
+SELECT pg_get_functiondef(
+  'public.apply_length_round_transition(uuid,integer,uuid,uuid,jsonb,uuid)'::regprocedure
+);
+```
+
+Confirm the six arguments and JSONB return, the unresolved-round return,
+current-season slot/assignment validation for every pairing, and the
+`next_round_materialized` result after fixture insertion. The migration's
+signature guard alone cannot verify deployed function behavior. The app calls
+the seven-argument wrapper with `p_pending_team_ids` containing the exact
+queued roster. Participant registration is `registration_closed_at`; reserve
+signup is independently controlled by `allow_reserve_registration`.
 
 Apply migration 134 before deploying the matching API/UI. No live Supabase or
 CHPP transaction was run during preparation. Booking, cup and match arrangement

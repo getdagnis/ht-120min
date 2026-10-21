@@ -2952,14 +2952,29 @@ async function loadPublicReservePlanningStatuses(
 
 async function handleNextRoundJoin(req: VercelRequest, res: VercelResponse) {
   if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed.' });
-  const secret = getAppSessionSecret();
-  const session = secret ? verifyAppSessionCookie(req.headers.cookie, secret) : null;
-  if (!session) return res.status(401).json({ error: 'Please sign in with Hattrick first.' });
   const tournamentId = readString(req.body?.tournamentId);
   const teamId = readString(req.body?.teamId);
   if (!tournamentId || !teamId || !/^[0-9a-f-]{36}$/i.test(tournamentId) || !/^[0-9a-f-]{36}$/i.test(teamId)) {
     return res.status(400).json({ error: 'Invalid pending registration.' });
   }
+  if (req.body?.action === 'cancel') {
+    const actor = await requireTournamentRoleSession(req, res, tournamentId);
+    if (!actor) return;
+    if (!actor.access.canManageOperations) {
+      return res.status(403).json({ error: 'You do not have permission to manage this registration.' });
+    }
+    const { error } = await getServiceSupabase().rpc('cancel_next_round_tournament_join', {
+      p_tournament_id: tournamentId, p_team_id: teamId,
+    });
+    if (error) return res.status(409).json({ error: error.message });
+    return res.status(200).json({ ok: true });
+  }
+  if (req.body?.action !== undefined && req.body.action !== 'withdraw') {
+    return res.status(400).json({ error: 'Invalid pending registration action.' });
+  }
+  const secret = getAppSessionSecret();
+  const session = secret ? verifyAppSessionCookie(req.headers.cookie, secret) : null;
+  if (!session) return res.status(401).json({ error: 'Please sign in with Hattrick first.' });
   const { error } = await getServiceSupabase().rpc('withdraw_next_round_tournament_join', {
     p_tournament_id: tournamentId, p_team_id: teamId, p_manager_id: session.userId,
   });

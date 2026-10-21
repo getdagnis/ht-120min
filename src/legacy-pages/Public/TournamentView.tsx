@@ -5780,6 +5780,14 @@ export const TournamentView: React.FC<{
           <Button variant="primary" onClick={() => void fetchData({ showLoader: true, invalidate: false })}>
             {uiText('tryAgain')}
           </Button>
+          <a
+            className={styles.loadErrorReportLink}
+            href="https://www.hattrick.org/goto.ashx?path=/MyHattrick/Inbox/?actionType=newMail&userId=8777402"
+            target="_blank"
+            rel="noopener noreferrer"
+          >
+            {uiText('pleaseReportIssueToSiteAuthor')}
+          </a>
         </div>
       </div>
     );

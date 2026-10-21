@@ -463,6 +463,7 @@ const messages = {
       fixturesAndResults: "Fixtures & Results",
       alreadyActiveIn: "Already active in:",
       tryAgain: "Try again",
+      pleaseReportIssueToSiteAuthor: "Report issue to site author",
       season: "Season",
       finished: "• Finished",
       tournamentCollections: "Tournament collections",

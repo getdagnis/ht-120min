@@ -439,6 +439,7 @@ const messages = {
       fixturesAndResults: "",
       alreadyActiveIn: "",
       tryAgain: "",
+      pleaseReportIssueToSiteAuthor: "Padod ziņu vietnes autoram",
       season: "",
       finished: "",
       tournamentCollections: "",

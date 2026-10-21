@@ -644,7 +644,29 @@ export const TournamentAdmin: React.FC<{ controller: TournamentAdminController }
   }, [isAdminAuthenticated, canManageOperationalAdmin, tournament.id]);
   const [admissionSelection, setAdmissionSelection] = useState<string[]>([]);
   const selectedAdmissionIds = admissionSelection.filter((id) => reserveTeams.some((team) => team.id === id));
+  const pendingNextRoundTeams = teams.filter((team) =>
+    !team.active && !team.reserve_active && !team.is_placeholder && Boolean(team.pending_entry_round_id),
+  );
   const pastTeams = teams.filter((team) => !team.active && !team.reserve_active && !team.is_placeholder && !team.pending_entry_round_id);
+  const [cancellingPendingId, setCancellingPendingId] = useState<string | null>(null);
+  const cancelPendingJoin = async (team: Team) => {
+    if (!window.confirm(`Cancel ${team.name}'s next-round registration? The team will not be included when the round begins.`)) return;
+    setCancellingPendingId(team.id);
+    try {
+      const response = await fetch('/api/app?route=next-round-join', {
+        method: 'POST', credentials: 'same-origin',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'cancel', tournamentId: tournament.id, teamId: team.id }),
+      });
+      const result = await response.json();
+      if (!response.ok) throw new Error(result.error || 'The pending registration could not be cancelled.');
+      await onReservesChanged();
+    } catch (error) {
+      alert(error instanceof Error ? error.message : 'The pending registration could not be cancelled.');
+    } finally {
+      setCancellingPendingId(null);
+    }
+  };
   const [removingReserveId, setRemovingReserveId] = useState<string | null>(null);
   const removeReserve = async (team: Team) => {
     if (
@@ -1974,6 +1996,39 @@ export const TournamentAdmin: React.FC<{ controller: TournamentAdminController }
                                 </li>
                               ))}
                           </ul>
+
+                          {pendingNextRoundTeams.length > 0 && (
+                            <>
+                              <h3 className={adminStyles.sectionTitle}>Joining next round ({pendingNextRoundTeams.length})</h3>
+                              <p className={adminStyles.smallNote}>
+                                These teams join when the next regular round begins. If a registration becomes ineligible,
+                                cancel it here. Saving results or refreshing fixtures then retries round progression.
+                              </p>
+                              <ul className={adminStyles.teamList}>
+                                {pendingNextRoundTeams.map((team) => (
+                                  <li key={team.id}>
+                                    <div className={adminStyles.teamCard}>
+                                      <img src={team.logo_url || DEFAULT_TEAM_LOGO} alt="" className={adminStyles.teamLogo}
+                                        onError={(event) => { event.currentTarget.onerror = null; event.currentTarget.src = DEFAULT_TEAM_LOGO; }} />
+                                      <div className={adminStyles.teamInfo}>
+                                        <span className={adminStyles.name}>{team.name}</span>
+                                        {team.ht_team_id && <div className={adminStyles.teamMeta}>ID: {team.ht_team_id}</div>}
+                                      </div>
+                                    </div>
+                                    {canManageOperationalAdmin && (
+                                      <div className={adminStyles.teamActions}>
+                                        <Button type="button" size="xs" variant="secondaryDanger"
+                                          disabled={cancellingPendingId !== null}
+                                          onClick={() => void cancelPendingJoin(team)}>
+                                          {cancellingPendingId === team.id ? 'Cancelling...' : 'Cancel registration'}
+                                        </Button>
+                                      </div>
+                                    )}
+                                  </li>
+                                ))}
+                              </ul>
+                            </>
+                          )}
 
                           {pastTeams.length > 0 && (
                             <>

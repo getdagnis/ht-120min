@@ -8,6 +8,13 @@ DO $$ BEGIN
     OR to_regprocedure('public.tournament_is_exclusive(text,boolean,text)') IS NULL THEN
     RAISE EXCEPTION 'Apply the existing length-schedule and membership migrations before 134';
   END IF;
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_proc
+    WHERE oid = 'public.apply_length_round_transition(uuid,integer,uuid,uuid,jsonb,uuid)'::regprocedure
+      AND prorettype = 'jsonb'::regtype AND prosecdef
+  ) THEN
+    RAISE EXCEPTION 'The deployed length-round transition return type or security mode differs from migration 107';
+  END IF;
 END $$;
 
 ALTER TABLE public.teams
@@ -221,6 +228,31 @@ REVOKE ALL ON FUNCTION public.withdraw_next_round_tournament_join(uuid,uuid,bigi
   FROM PUBLIC,anon,authenticated;
 GRANT EXECUTE ON FUNCTION public.withdraw_next_round_tournament_join(uuid,uuid,bigint) TO service_role;
 
+-- An operational admin may clear a stale request before retrying round
+-- progression. The API checks tournament access; this RPC only accepts a
+-- pending, inactive row and shares the progression lock order.
+CREATE FUNCTION public.cancel_next_round_tournament_join(
+  p_tournament_id uuid, p_team_id uuid
+) RETURNS uuid LANGUAGE plpgsql SECURITY DEFINER SET search_path = public, pg_temp AS $$
+DECLARE saved_id uuid;
+BEGIN
+  PERFORM pg_advisory_xact_lock(120,113);
+  PERFORM 1 FROM public.tournaments WHERE id=p_tournament_id FOR UPDATE;
+  IF NOT FOUND THEN RAISE EXCEPTION 'Tournament not found' USING ERRCODE='P0002'; END IF;
+  PERFORM set_config('ht120.pending_join_write','true',true);
+  UPDATE public.teams SET pending_entry_round_id=NULL
+    WHERE id=p_team_id AND tournament_id=p_tournament_id
+      AND pending_entry_round_id IS NOT NULL
+      AND active=false AND reserve_active=false
+    RETURNING id INTO saved_id;
+  PERFORM set_config('ht120.pending_join_write','false',true);
+  IF saved_id IS NULL THEN RAISE EXCEPTION 'Pending registration not found' USING ERRCODE='P0002'; END IF;
+  RETURN saved_id;
+END $$;
+REVOKE ALL ON FUNCTION public.cancel_next_round_tournament_join(uuid,uuid)
+  FROM PUBLIC,anon,authenticated;
+GRANT EXECUTE ON FUNCTION public.cancel_next_round_tournament_join(uuid,uuid) TO service_role;
+
 CREATE FUNCTION public.apply_length_round_transition_with_joins(
   p_tournament_id uuid,
   p_season_number integer,
@@ -366,3 +398,6 @@ GRANT EXECUTE ON FUNCTION public.apply_length_round_transition_with_joins(uuid,i
 
 NOTIFY pgrst, 'reload schema';
 COMMIT;
+
+
+-- MIGRATION FULLY APPLIED BY USER!
