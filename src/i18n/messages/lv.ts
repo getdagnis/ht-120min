@@ -1077,6 +1077,7 @@ const messages = {
       fILTER: "",
       filterFixturesByTeam: "",
       aLLTEAMS: "",
+      mYTEAM: "",
       eXPANDALL: "",
       cOLLAPSEALL: "",
       continueBrowsing: "",

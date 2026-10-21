@@ -1101,6 +1101,7 @@ const messages = {
       fILTER: "FILTER:",
       filterFixturesByTeam: "Filter fixtures by team",
       aLLTEAMS: "ALL TEAMS",
+      mYTEAM: "MY TEAM",
       eXPANDALL: "EXPAND ALL",
       cOLLAPSEALL: "COLLAPSE ALL",
       continueBrowsing: "Continue browsing",

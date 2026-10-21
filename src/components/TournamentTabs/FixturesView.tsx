@@ -407,6 +407,7 @@ export const FixturesView: React.FC<FixturesViewProps> = ({
     Number(match.home_team?.hattrick_user_id) === currentHtUserId ||
     Number(match.away_team?.hattrick_user_id) === currentHtUserId
   ), [currentHtUserId]);
+  const hasMyTeam = rounds.some((round) => round.matches.some(isOwnedMatch));
   const ownedMatchId = !selectedTeamId && focusedRound && focusedRound.matches.length >= 6
     ? focusedRound.matches.find(isOwnedMatch)?.id ?? null
     : null;
@@ -430,14 +431,18 @@ export const FixturesView: React.FC<FixturesViewProps> = ({
             .map((round) => ({
               ...round,
               matches: round.matches.filter(
-                (match) => match.home_team_id === selectedTeamId || match.away_team_id === selectedTeamId,
+                (match) => selectedTeamId === 'my-team'
+                  ? isOwnedMatch(match)
+                  : match.home_team_id === selectedTeamId || match.away_team_id === selectedTeamId,
               ),
             }))
             .filter((round) => round.matches.length > 0)
         : rounds,
-    [rounds, selectedTeamId],
+    [rounds, selectedTeamId, isOwnedMatch],
   );
-  const selectedTeamName = fixtureTeams.find((team) => team.id === selectedTeamId)?.name;
+  const selectedTeamName = selectedTeamId === 'my-team'
+    ? uiText('mYTEAM')
+    : fixtureTeams.find((team) => team.id === selectedTeamId)?.name;
   const lastFinishedRoundNumber = React.useMemo(() => {
     let latestFinishedRoundNumber: number | null = null;
 
@@ -911,7 +916,7 @@ export const FixturesView: React.FC<FixturesViewProps> = ({
               <div className={styles.fixturesFilterMenu}>
                 <button
                   type="button"
-                  className={styles.fixturesHeaderAction}
+                  className={`${styles.fixturesHeaderAction} ${styles.fixturesFilterButton}`}
                   onClick={() => setIsTeamFilterOpen((open) => !open)}
                   aria-expanded={isTeamFilterOpen}
                   aria-haspopup="listbox"
@@ -929,6 +934,7 @@ export const FixturesView: React.FC<FixturesViewProps> = ({
                     <button
                       type="button"
                       className={styles.fixturesFilterOption}
+                      aria-selected={selectedTeamId === null}
                       onClick={() => {
                         setSelectedTeamId(null);
                         setIsTeamFilterOpen(false);
@@ -936,11 +942,24 @@ export const FixturesView: React.FC<FixturesViewProps> = ({
                     >
                       {uiText('aLLTEAMS')}
                     </button>
+                    <button
+                      type="button"
+                      className={styles.fixturesFilterOption}
+                      aria-selected={selectedTeamId === 'my-team'}
+                      disabled={!hasMyTeam}
+                      onClick={() => {
+                        setSelectedTeamId('my-team');
+                        setIsTeamFilterOpen(false);
+                      }}
+                    >
+                      {uiText('mYTEAM')}
+                    </button>
                     {fixtureTeams.map((team) => (
                       <button
                         key={team.id}
                         type="button"
                         className={styles.fixturesFilterOption}
+                        aria-selected={selectedTeamId === team.id}
                         onClick={() => {
                           setSelectedTeamId(team.id);
                           setIsTeamFilterOpen(false);

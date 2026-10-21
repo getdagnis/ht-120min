@@ -1595,10 +1595,18 @@
   align-items: center
   gap: 0.85rem
   margin-top: 0
+  margin-left: auto
   flex-wrap: wrap
 
+  @media (max-width: 1100px)
+    display: grid
+    grid-template-columns: repeat(2, max-content)
+    justify-items: end
+    column-gap: 0.85rem
+    row-gap: 0.4rem
+
   @media (max-width: 780px)
-    align-self: flex-start
+    align-self: flex-end
 
 .fixturesHeaderAction
   display: inline-flex
@@ -1635,6 +1643,17 @@
   align-items: center
   position: relative
 
+  @media (max-width: 1100px)
+    grid-column: 1 / -1
+
+.fixturesFilterButton
+  color: var(--text-h)
+  font-size: 1.1rem
+  font-weight: 800
+  line-height: 1.1
+  letter-spacing: 0.02em
+  opacity: 1
+
 .fixturesFilterDropdown
   position: absolute
   z-index: 20
@@ -1665,6 +1684,10 @@
   &:hover
     background: var(--bg-transp)
     color: var(--text-h)
+
+  &:disabled
+    opacity: 0.45
+    cursor: not-allowed
 
 .imageOverlayIcon
   color: #0fb54c
