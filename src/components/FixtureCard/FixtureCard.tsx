@@ -864,7 +864,7 @@ export const FixtureCard: React.FC<FixtureCardProps> = ({
                 </div>
                 {team.ratingGrade && (
                   <span className={`${styles.ratingBadge} ${styles[`ratingGrade${team.ratingGrade[0]}`]}`}>
-                    120m rating: {team.ratingGrade}
+                    120m rating: {team.ratingGrade[0]}
                   </span>
                 )}
                 <RatingsPitch
