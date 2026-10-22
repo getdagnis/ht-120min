@@ -17,3 +17,5 @@ REVOKE ALL ON public.tournament_team_planning_statuses FROM anon, authenticated;
 GRANT ALL ON public.tournament_team_planning_statuses TO service_role;
 
 COMMIT;
+
+-- applied!
