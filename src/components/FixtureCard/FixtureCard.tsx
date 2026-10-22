@@ -14,6 +14,7 @@ import {
 } from '../../utils/rating-indicators';
 import type { RatingIndicatorScore } from '../../utils/rating-indicators';
 import type { MatchSideEventDetails, MatchSidePerformance } from '../../../shared/match-events';
+import { calculateMatch120mRating } from '../../../shared/match-120m-rating';
 import type { SpecialtyPositionGroup } from '../../../shared/player-specialties';
 import { getLiveClockDisplay, type LiveMatchClock } from '../../../shared/live-match';
 import styles from './FixtureCard.module.sass';
@@ -94,6 +95,36 @@ interface RatingsPreviewTeam {
     centreDefence: string;
     rightDefence: string;
   };
+}
+
+function predicted120mRatingGrade(preview: RatingsPreviewTeam) {
+  const toRawRating = (value: string) => Number(value) * 4 - 3;
+  const rating = calculateMatch120mRating({
+    formation: preview.formation,
+    tacticType: null,
+    tacticName: preview.tactic,
+    tacticSkill: preview.tacticSkill,
+    styleOfPlay: preview.coachModifier,
+    setPiecesTaker: {
+      playerName: null,
+      skill: preview.setPiecesSkill,
+      skillCheckedAt: null,
+    },
+    specialtyPositions: preview.specialtyPositionsKnown ? preview.specialtyPositions : undefined,
+    possessionFirstHalf: null,
+    possessionSecondHalf: null,
+    ratings: {
+      midfield: toRawRating(preview.ratings.midfield),
+      rightDefence: toRawRating(preview.ratings.rightDefence),
+      centralDefence: toRawRating(preview.ratings.centreDefence),
+      leftDefence: toRawRating(preview.ratings.leftDefence),
+      rightAttack: toRawRating(preview.ratings.rightAttack),
+      centralAttack: toRawRating(preview.ratings.centreAttack),
+      leftAttack: toRawRating(preview.ratings.leftAttack),
+    },
+    chances: { left: null, centre: null, right: null, specialEvents: null, other: null },
+  } satisfies MatchSidePerformance);
+  return rating?.grade[0] ?? null;
 }
 
 const MATCH_TYPES: Record<number, { initials: string; description: string }> = {
@@ -711,6 +742,7 @@ export const FixtureCard: React.FC<FixtureCardProps> = ({
             const opposingPreview = ratingsPreview?.[side === 'home' ? 'away' : 'home'];
             const notice = ratingsSharedStatus?.[side];
             const canManage = ratingsActions?.[side] || false;
+            const predictedGrade = preview ? predicted120mRatingGrade(preview) : null;
             if (!preview && !canManage && !notice) return null;
             return (
               <div key={side} className={`${styles.ratingsSide} ${side === 'away' ? styles.ratingsSideAway : ''}`}>
@@ -737,6 +769,11 @@ export const FixtureCard: React.FC<FixtureCardProps> = ({
                 )}
                 {preview ? (
                   <>
+                    {predictedGrade && (
+                      <span className={`${styles.ratingBadge} ${styles[`ratingGrade${predictedGrade}`]}`}>
+                        {uiText('predicted120mRating')} {predictedGrade}
+                      </span>
+                    )}
                     <RatingsPitch
                       ratings={preview.ratings}
                       opposingRatings={

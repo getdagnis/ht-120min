@@ -18,16 +18,16 @@
     color: var(--text-h)
 
   .ratingIndicator1
-    color: var(--accent)
+    color: var(--rating-a)
 
   .ratingIndicator2
-    color: var(--semi-green)
+    color: var(--rating-b)
 
   .ratingIndicator3
-    color: var(--warning)
+    color: var(--rating-d)
 
   .ratingIndicator4
-    color: var(--danger)
+    color: var(--rating-f)
 
   &:last-child
     border-bottom: none
@@ -137,22 +137,22 @@
   white-space: nowrap
 
 .ratingGradeA
-  --rating-grade-color: var(--accent-2)
+  --rating-grade-color: var(--rating-a)
 
 .ratingGradeB
-  --rating-grade-color: var(--semi-green)
+  --rating-grade-color: var(--rating-b)
 
 .ratingGradeC
-  --rating-grade-color: var(--warning-high)
+  --rating-grade-color: var(--rating-c)
 
 .ratingGradeD
-  --rating-grade-color: var(--warning-high)
+  --rating-grade-color: var(--rating-d)
 
 .ratingGradeE
-  --rating-grade-color: var(--tinder)
+  --rating-grade-color: var(--rating-e)
 
 .ratingGradeF
-  --rating-grade-color: var(--tinder)
+  --rating-grade-color: var(--rating-f)
 
 .ratingsPitch
   display: grid
@@ -645,7 +645,7 @@
   border-radius: var(--radius-md) 0 0 var(--radius-md)
 
   &.achievedMinutes
-    background: var(--accent)
+    background: var(--rating-a)
     color: white
 
 .badgeRight
@@ -657,7 +657,7 @@
   display: flex
   align-items: center
   padding: 0
-  border-radius: 8px
+  border-radius: var(--radius-md)
   font-size: 0.95rem
   font-weight: 700
   text-transform: uppercase
@@ -666,8 +666,8 @@
   text-align: center
 
   &.arranged
-    background-color: var(--accent-3)
-    border: 1px solid var(--accent-2)
+    background-color: var(--rating-a)
+    border: 1px solid var(--accent)
     color: white
     &:hover
       background-color: var(--accent)

@@ -1029,6 +1029,7 @@ const messages = {
       shareYourLineupPredictedRatingsWithYourOpponentYour: "",
       actualMatchDetails: "",
       match120mRatingExplanation: "",
+      predicted120mRating: "",
       actualMatchPerformance: "",
       matchPerformance: "",
       sharedRatingPredictionStatus: "",
