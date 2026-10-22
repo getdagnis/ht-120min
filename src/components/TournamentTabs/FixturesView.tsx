@@ -281,6 +281,22 @@ export const FixturesView: React.FC<FixturesViewProps> = ({
   const [manualVisibleRoundsCount, setManualVisibleRoundsCount] = React.useState<number | null>(null);
   const [selectedTeamId, setSelectedTeamId] = React.useState<string | null>(null);
   const [isTeamFilterOpen, setIsTeamFilterOpen] = React.useState(false);
+  const teamFilterRef = React.useRef<HTMLDivElement | null>(null);
+  React.useEffect(() => {
+    if (!isTeamFilterOpen) return;
+    const handlePointerDown = (event: PointerEvent) => {
+      if (!teamFilterRef.current?.contains(event.target as Node)) setIsTeamFilterOpen(false);
+    };
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') setIsTeamFilterOpen(false);
+    };
+    document.addEventListener('pointerdown', handlePointerDown);
+    document.addEventListener('keydown', handleKeyDown);
+    return () => {
+      document.removeEventListener('pointerdown', handlePointerDown);
+      document.removeEventListener('keydown', handleKeyDown);
+    };
+  }, [isTeamFilterOpen]);
   const [challengeAvailability, setChallengeAvailability] = React.useState<
     Record<string, FixtureChallengeAvailability>
   >((): Record<string, FixtureChallengeAvailability> => {
@@ -444,7 +460,7 @@ export const FixturesView: React.FC<FixturesViewProps> = ({
     [rounds, selectedTeamId, isOwnedMatch],
   );
   const selectedTeamName = selectedTeamId === 'my-team'
-    ? uiText('mYTEAM')
+    ? uiText('mYTEAMS')
     : fixtureTeams.find((team) => team.id === selectedTeamId)?.name;
   const lastFinishedRoundNumber = React.useMemo(() => {
     let latestFinishedRoundNumber: number | null = null;
@@ -916,7 +932,7 @@ export const FixturesView: React.FC<FixturesViewProps> = ({
         {(seasonOptions.length > 1 || rounds.length > 0) && (
           <div className={styles.fixturesHeaderActions}>
             {rounds.length > 0 && (
-              <div className={styles.fixturesFilterMenu}>
+              <div className={styles.fixturesFilterMenu} ref={teamFilterRef}>
                 <button
                   type="button"
                   className={`${styles.fixturesHeaderAction} ${styles.fixturesFilterButton}`}
@@ -955,7 +971,7 @@ export const FixturesView: React.FC<FixturesViewProps> = ({
                         setIsTeamFilterOpen(false);
                       }}
                     >
-                      {uiText('mYTEAM')}
+                      {uiText('mYTEAMS')}
                     </button>
                     {fixtureTeams.map((team) => (
                       <button

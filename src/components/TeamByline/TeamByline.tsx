@@ -2,7 +2,13 @@ import { useTranslations } from 'next-intl';
 import React from 'react';
 import { Tooltip } from '../Tooltip/Tooltip';
 import { AuthorTooltip, type ChatAuthorProfile } from '../TournamentTabs/ChatView';
-import { getCanonicalCountryName, getCountryFlagUrl, getCountryTooltip, getLeagueFlagUrl, formatPresence } from '../../utils/ht-data';
+import {
+  getCanonicalCountryName,
+  getCountryFlagUrl,
+  getCountryTooltip,
+  getLeagueFlagUrl,
+  formatPresence,
+} from '../../utils/ht-data';
 import {
   getCardEventLabel,
   getInjuryEventLabel,
@@ -127,9 +133,7 @@ export const TeamByline: React.FC<TeamBylineProps> = ({
     const key = String(goal.playerId ?? goal.playerName ?? 'unknown');
     const group = groups.find((item) => item.key === key);
     const minute =
-      goal.minute === null
-        ? null
-        : { minute: goal.minute, isSpecialEvent: isSpecialEventGoalType(goal.eventTypeId) };
+      goal.minute === null ? null : { minute: goal.minute, isSpecialEvent: isSpecialEventGoalType(goal.eventTypeId) };
     if (group) {
       if (minute) group.minutes.push(minute);
       group.descriptions.push(goalDescription(goal));
@@ -239,9 +243,7 @@ export const TeamByline: React.FC<TeamBylineProps> = ({
                   alt={displayCountryName || uiText('country')}
                   title={countryTooltip || undefined}
                   className={styles.flagIcon}
-                  {...(countryTooltip
-                    ? { 'data-tooltip-id': `${tooltipIdBase}-country` }
-                    : {})}
+                  {...(countryTooltip ? { 'data-tooltip-id': `${tooltipIdBase}-country` } : {})}
                 />
                 {countryTooltip && (
                   <Tooltip id={`${tooltipIdBase}-country`} content={countryTooltip} className="tooltip" />
@@ -313,27 +315,18 @@ export const TeamByline: React.FC<TeamBylineProps> = ({
           </>
         )}
       </div>
-      {mode === 'fixtures' && (visibleMatchKitUrl || ratingGrade || groupedGoals.length > 0 || summary) && (
+      {mode === 'fixtures' && (visibleMatchKitUrl || groupedGoals.length > 0 || summary) && (
         <div className={`${styles.matchDetails} ${isRight ? styles.right : ''}`}>
-          {(visibleMatchKitUrl || ratingGrade) && (
-            <div className={styles.matchKitColumn}>
-              {visibleMatchKitUrl && (
-                <img
-                  src={visibleMatchKitUrl}
-                  alt={uiText('teamMatchKit', { team: teamName || uiText('team') })}
-                  className={styles.matchKit}
-                  loading="lazy"
-                  onError={(event) => {
-                    event.currentTarget.style.display = 'none';
-                  }}
-                />
-              )}
-              {ratingGrade && (
-                <span className={`${styles.ratingBadge} ${styles[`ratingGrade${ratingGrade[0]}`]}`}>
-                  120mRt {ratingGrade}
-                </span>
-              )}
-            </div>
+          {visibleMatchKitUrl && (
+            <img
+              src={visibleMatchKitUrl}
+              alt={uiText('teamMatchKit', { team: teamName || uiText('team') })}
+              className={styles.matchKit}
+              loading="lazy"
+              onError={(event) => {
+                event.currentTarget.style.display = 'none';
+              }}
+            />
           )}
           <div className={styles.matchEvents}>
             {groupedGoals.length > 0 && (
@@ -361,10 +354,19 @@ export const TeamByline: React.FC<TeamBylineProps> = ({
               </div>
             )}
             {summary && (
-              <div className={styles.summaryRow} data-tooltip-id={`${tooltipIdBase}-summary`} aria-label={summaryTooltip}>
+              <div
+                className={styles.summaryRow}
+                data-tooltip-id={`${tooltipIdBase}-summary`}
+                aria-label={summaryTooltip}
+              >
                 {detailedEventIcons || (
                   <>
-                    {repeatIcons('/svg/match-yellow.svg', uiText('yellowCard'), summary.yellowCards, uiText('yellowCard'))}
+                    {repeatIcons(
+                      '/svg/match-yellow.svg',
+                      uiText('yellowCard'),
+                      summary.yellowCards,
+                      uiText('yellowCard'),
+                    )}
                     {repeatIcons('/svg/match-card.svg', uiText('redCard'), summary.redCards, uiText('redCard'))}
                     {repeatIcons('/svg/match-cross.svg', uiText('injury'), summary.injuries, uiText('injury'))}
                   </>
@@ -378,6 +380,11 @@ export const TeamByline: React.FC<TeamBylineProps> = ({
             )}
           </div>
         </div>
+      )}
+      {mode === 'fixtures' && ratingGrade && (
+        <span className={`${styles.ratingBadge} ${styles[`ratingGrade${ratingGrade[0]}`]}`}>
+          120m rating: {ratingGrade}
+        </span>
       )}
     </div>
   );
