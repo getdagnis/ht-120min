@@ -1157,6 +1157,7 @@ const messages = {
     },
     ManagerSpotlight: {
       meetTheManager: "",
+      next: "Tālāk",
       hTLanguage: "",
       participatingInThisTournamentWith: "",
       mainClub: "",

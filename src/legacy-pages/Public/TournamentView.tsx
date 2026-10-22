@@ -785,6 +785,7 @@ export const TournamentView: React.FC<{
   const [rounds, setRounds] = useState<RoundWithMatches[]>(() => reviveInitialRounds(initialData));
   const [teams, setTeams] = useState<Team[]>(() => (initialData?.teams as unknown as Team[] | undefined) || []);
   const managerSpotlight = initialData?.managerSpotlight || null;
+  const managerSpotlights = initialData?.managerSpotlights || [];
   const [warnings, setWarnings] = useState<any[]>(() => initialData?.warnings || []);
   const [activityWarnings, setActivityWarnings] = useState<any[]>(
     () => initialData?.activityWarnings || initialData?.warnings || [],
@@ -6837,7 +6838,9 @@ export const TournamentView: React.FC<{
                 />
               )}
             <ManagerSpotlight
+              key={tournament.id}
               spotlight={managerSpotlight}
+              spotlights={managerSpotlights}
               tournament={{
                 name: tournament.name,
                 countryLimit: tournament.country_limit,

@@ -12,6 +12,7 @@ import { isCurrentParticipantTeam } from '../../utils/team-state.js';
 import { attachFixtureRatingStatus, readFixtureRatingStatuses, type FixtureRatingShareStatus } from '../../types/fixture-ratings.js';
 import {
   buildManagerSpotlight,
+  buildManagerSpotlights,
   getUtcDateKey,
   type ManagerSpotlight,
   type ManagerSpotlightProfile,
@@ -34,6 +35,7 @@ export interface TournamentInitialData {
   announcements: Record<string, unknown>[];
   organizerProfileName: string | null;
   managerSpotlight: ManagerSpotlight | null;
+  managerSpotlights: ManagerSpotlight[];
   seasonSlots: { id: string; current_team_id: string | null }[];
   seasonSlotAssignments: SeasonSlotAssignment[];
 }
@@ -206,6 +208,21 @@ export async function buildTournamentInitialData(tournament: Record<string, unkn
     profiles,
     dateKey: getUtcDateKey(),
   });
+  const managerSpotlights = buildManagerSpotlights({
+    tournamentId,
+    participants: teams.filter(isCurrentParticipantTeam) as Array<{
+      id: string;
+      ht_team_id?: number | null;
+      name?: string | null;
+      logo_url?: string | null;
+      country_id?: number | null;
+      country_name?: string | null;
+      manager_name?: string | null;
+      hattrick_user_id?: number | null;
+    }>,
+    profiles,
+    dateKey: getUtcDateKey(),
+  });
   // Never retain a changing live score in the 60-second cache. The live hook
   // supplies current observations separately; completed results remain stable.
   const rawMatches = attachFixtureRatingStatus(
@@ -335,6 +352,7 @@ export async function buildTournamentInitialData(tournament: Record<string, unkn
     announcements: (announcementsRaw || []) as Record<string, unknown>[],
     organizerProfileName: (organizerResult.data as { manager_name?: string } | null)?.manager_name || null,
     managerSpotlight,
+    managerSpotlights,
     seasonSlots: slots,
     seasonSlotAssignments: slotAssignments,
   };

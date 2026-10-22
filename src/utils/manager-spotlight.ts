@@ -668,3 +668,17 @@ export function buildManagerSpotlight(input: {
     story: story.sentences,
   };
 }
+
+export function buildManagerSpotlights(input: {
+  tournamentId: string; participants: ManagerSpotlightParticipant[]; profiles: ManagerSpotlightProfile[]; dateKey: string;
+}): ManagerSpotlight[] {
+  const managerIds = [...new Set(input.participants
+    .filter((participant) => positive(participant.hattrick_user_id))
+    .map((participant) => Number(participant.hattrick_user_id)))].sort((a, b) => a - b);
+
+  return managerIds.flatMap((managerId) => {
+    const participants = input.participants.filter((participant) => Number(participant.hattrick_user_id) === managerId);
+    const spotlight = buildManagerSpotlight({ ...input, participants });
+    return spotlight ? [spotlight] : [];
+  });
+}

@@ -1181,6 +1181,7 @@ const messages = {
     },
     ManagerSpotlight: {
       meetTheManager: "Meet the manager",
+      next: "Next",
       hTLanguage: "HT language:",
       participatingInThisTournamentWith: "Participating in this tournament with:",
       mainClub: "Main club:",

@@ -1,5 +1,5 @@
 import { useTranslations } from 'next-intl';
-import React from 'react';
+import React, { useState } from 'react';
 import { UsersThree } from 'phosphor-react';
 
 import { Avatar } from '../Avatar/Avatar';
@@ -66,6 +66,7 @@ const groupStoryParagraphs = (sentences: StorySentence[]): StorySentence[][] => 
 
 interface ManagerSpotlightProps {
   spotlight: ManagerSpotlightViewModel | null;
+  spotlights?: ManagerSpotlightViewModel[];
   tournament: {
     name: string;
     countryLimit?: string | null;
@@ -73,16 +74,30 @@ interface ManagerSpotlightProps {
   };
 }
 
-export const ManagerSpotlight: React.FC<ManagerSpotlightProps> = ({ spotlight }) => {
+export const ManagerSpotlight: React.FC<ManagerSpotlightProps> = ({ spotlight: initialSpotlight, spotlights = [] }) => {
   const uiText = useTranslations('PublicUI.ManagerSpotlight');
+  const [spotlight, setSpotlight] = useState(initialSpotlight);
+  const [visited, setVisited] = useState(() => new Set(initialSpotlight ? [initialSpotlight.managerId] : []));
   if (!spotlight) return null;
   const location = normalizeLocation(spotlight.location);
   const story = normalizeStory(spotlight.story);
   const paragraphs = groupStoryParagraphs(story);
   const visibleTeams = getVisibleClubTeams(spotlight);
+  const nextManager = () => {
+    const candidates = spotlights.filter((candidate) => !visited.has(candidate.managerId));
+    const nextPool = candidates.length
+      ? candidates
+      : spotlights.filter((candidate) => candidate.managerId !== spotlight.managerId);
+    if (!nextPool.length) return;
+    const next = nextPool[Math.floor(Math.random() * nextPool.length)]!;
+    setSpotlight(next);
+    setVisited(candidates.length ? new Set([...visited, next.managerId]) : new Set([next.managerId]));
+  };
 
   return (
-    <ReusableWidget title={uiText('meetTheManager')} icon={<UsersThree size={20} weight="bold" />} className={styles.widget}>
+    <ReusableWidget title={uiText('meetTheManager')}
+      headerAction={spotlights.length > 1 && <button type="button" className={styles.nextButton} onClick={nextManager}>{uiText('next')}</button>}
+      icon={<UsersThree size={20} weight="bold" />} className={styles.widget}>
       <div className={styles.identity}>
         <Avatar avatar={spotlight.avatar} variant="full" size={52} className={styles.avatar} />
         <div className={styles.identityDetails}>
