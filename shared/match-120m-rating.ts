@@ -1,10 +1,10 @@
 import type { MatchSidePerformance } from './match-events.js';
-import { getFormationIndicatorScore, getMatchMindsetIndicator, getTacticIndicatorScore } from '../src/utils/rating-indicators.js';
+import { getFormationIndicatorScore, getMatchMindsetIndicator, getSetPieceIndicatorScore, getTacticIndicatorScore } from '../src/utils/rating-indicators.js';
 import type { RatingIndicatorScore } from '../src/utils/rating-indicators.js';
 import type { SpecialtyPositionGroup } from './player-specialties.js';
 
 export const MATCH_120M_FORMULA_VERSION = 1;
-export type Match120mGrade = `${'A' | 'B' | 'C' | 'D' | 'E' | 'F'}${'+' | '' | '-'}`;
+export type Match120mGrade = `${'A' | 'B' | 'C' | 'D-' | 'E-' | 'F'}${'+' | '' | '-'}`;
 
 export interface Match120mRating {
   score: number;
@@ -27,6 +27,7 @@ export interface Match120mCoachingAnalysis {
   mindsetScore: RatingIndicatorScore | null;
   quickCount: number | null;
   headCount: number | null;
+  quickDefensiveRoles: number[];
   recommendations: string[];
 }
 
@@ -48,14 +49,21 @@ function interpolate(value: number, stops: readonly (readonly [number, number])[
   return stops[stops.length - 1][1];
 }
 
+const allGrades = [
+  'A+', 'A', 'A-', 'B+', 'B', 'B-', 'C+', 'C', 'C-',
+  'D+', 'D', 'D-', 'E+', 'E', 'E-', 'F+', 'F', 'F-',
+] as const;
+
+export function normalizeMatch120mGrade(grade: string): Match120mGrade {
+  if (grade === 'A+' || grade === 'A-' || grade === 'B+' || grade === 'F-') return grade;
+  return (grade[0] ?? 'F') as Match120mGrade;
+}
+
 function gradeFor(score: number): Match120mGrade {
-  const grades: Match120mGrade[] = [
-    'A+', 'A', 'A-', 'B+', 'B', 'B-', 'C+', 'C', 'C-',
-    'D+', 'D', 'D-', 'E+', 'E', 'E-', 'F+', 'F', 'F-',
-  ];
-  if (score >= 95) return grades[0];
-  if (score < 15) return grades[grades.length - 1];
-  return grades[Math.min(grades.length - 2, Math.floor((95 - score + 4) / 5))];
+  if (score >= 95) return 'A+';
+  if (score < 15) return 'F-';
+  const original = allGrades[Math.min(allGrades.length - 2, Math.floor((95 - score + 4) / 5))];
+  return normalizeMatch120mGrade(original);
 }
 
 function specialtyPenalty(count: number): number {
@@ -150,8 +158,6 @@ export function analyzeMatch120mCoaching(
         if (midfield + averageAttack > 2 * averageDefence) sectorScores[sector] = 4;
       } else if (sector.endsWith('Attack')) {
         if (ownValues[sector] > averageDefence) sectorScores[sector] = 4;
-      } else if (sector === 'leftDefence' && opposingSpecialties) {
-        // Quick coverage is evaluated below for all defensive roles.
       }
     }
     if (midfield + averageAttack > 2 * averageDefence) recommendations.push('balanceMidfield');
@@ -166,14 +172,14 @@ export function analyzeMatch120mCoaching(
 
   const quickOpponents = opposingSpecialties?.find((entry) => entry.specialtyId === 2)?.roleIds ?? [];
   const defensiveRoleToAttackRole: Record<number, number> = {
-    101: 110, 102: 113, 103: 112, 104: 111, 105: 106,
+    101: 110, 102: 113, 103: 112, 104: 111, 105: 106, 107: 109, 108: 108, 109: 107,
   };
+  const quickDefensiveRoles: number[] = [];
   if (Array.isArray(specialties) && opposingSpecialties) {
     for (const role of specialties.find((entry) => entry.specialtyId === 2)?.roleIds ?? []) {
       const opposingAttackRole = defensiveRoleToAttackRole[role];
       if (opposingAttackRole !== undefined && quickOpponents.includes(opposingAttackRole)) {
-        const sector = role === 105 ? 'leftDefence' : role === 101 ? 'rightDefence' : 'centreDefence';
-        sectorScores[sector] = 1;
+        quickDefensiveRoles.push(role);
       }
     }
   }
@@ -183,17 +189,15 @@ export function analyzeMatch120mCoaching(
     : performance?.tacticType === 1 ? 'Pressing' : performance?.tacticName;
   const tacticScore = getTacticIndicatorScore(tacticName);
   const skill = performance?.setPiecesTaker?.skill;
-  const setPiecesScore = skill === null ? 4
-    : typeof skill === 'number' && skill >= 1
-      ? skill <= 3 ? 1 : skill <= 5 ? 2 : skill <= 7 ? 3 : 4
-      : null;
+  const setPiecesScore = getSetPieceIndicatorScore(skill);
   const mindsetScore = getMatchMindsetIndicator(performance?.styleOfPlay)?.score ?? null;
 
-  if (formationScore !== null && formationScore >= 3) recommendations.push('chooseDefensiveFormation');
+  if (formationScore !== null && formationScore !== 1) recommendations.push('chooseDefensiveFormation');
   if (tacticScore !== null && tacticScore !== 1) recommendations.push('choosePressing');
-  if (setPiecesScore === null || setPiecesScore >= 3) recommendations.push('improveSetPieces');
-  if (rating && rating.grade[0] !== 'A' && recommendations.length === 0) recommendations.push('fineTuneLineup');
+  if (setPiecesScore !== 1) recommendations.push('improveSetPieces');
+  if (!getMatchMindsetIndicator(performance?.styleOfPlay)) recommendations.push('setDefensiveStyle');
+  if (rating && rating.grade !== 'A' && rating.grade !== 'A+' && recommendations.length === 0) recommendations.push('fineTuneLineup');
 
   return { rating, sectorScores, formationScore, tacticScore, setPiecesScore, mindsetScore,
-    quickCount, headCount, recommendations: [...new Set(recommendations)] };
+    quickCount, headCount, quickDefensiveRoles, recommendations: [...new Set(recommendations)] };
 }

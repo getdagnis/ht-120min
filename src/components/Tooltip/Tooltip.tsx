@@ -182,6 +182,7 @@ export const Tooltip = ({ id, content, children, className, delayShow = 0, style
           id={id}
           role="tooltip"
           className={`${styles.tooltip} ${position?.placement === 'bottom' ? styles.bottom : styles.top} ${className || ''}`}
+          data-tone={visible.anchor.dataset.tooltipTone}
           style={{ ...style, left: position?.left ?? 0, top: position?.top ?? 0 }}
           data-visible={position ? 'true' : 'false'}
         >

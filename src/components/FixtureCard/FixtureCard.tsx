@@ -6,15 +6,10 @@ import { Tooltip } from '../Tooltip/Tooltip';
 import { TeamByline, type FixtureRatingGrade } from '../TeamByline/TeamByline';
 import { appgOutcomeLabel, type AppgOutcome } from '../../utils/appg';
 import { skillDisplay } from '../../utils/hattrick-skill';
-import {
-  getFormationIndicatorScore,
-  getMatchMindsetIndicator,
-  getSetPieceIndicatorScore,
-  getTacticIndicatorScore,
-} from '../../utils/rating-indicators';
+import { getMatchMindsetIndicator } from '../../utils/rating-indicators';
 import type { RatingIndicatorScore } from '../../utils/rating-indicators';
 import type { MatchSideEventDetails, MatchSidePerformance } from '../../../shared/match-events';
-import { calculateMatch120mRating } from '../../../shared/match-120m-rating';
+import { analyzeMatch120mCoaching, normalizeMatch120mGrade, type Match120mCoachingAnalysis, type Match120mRatedSector } from '../../../shared/match-120m-rating';
 import type { SpecialtyPositionGroup } from '../../../shared/player-specialties';
 import { getLiveClockDisplay, type LiveMatchClock } from '../../../shared/live-match';
 import styles from './FixtureCard.module.sass';
@@ -97,9 +92,9 @@ interface RatingsPreviewTeam {
   };
 }
 
-function predicted120mRatingGrade(preview: RatingsPreviewTeam) {
+function predicted120mPerformance(preview: RatingsPreviewTeam): MatchSidePerformance {
   const toRawRating = (value: string) => Number(value) * 4 - 3;
-  const rating = calculateMatch120mRating({
+  return {
     formation: preview.formation,
     tacticType: null,
     tacticName: preview.tactic,
@@ -123,8 +118,7 @@ function predicted120mRatingGrade(preview: RatingsPreviewTeam) {
       leftAttack: toRawRating(preview.ratings.leftAttack),
     },
     chances: { left: null, centre: null, right: null, specialEvents: null, other: null },
-  } satisfies MatchSidePerformance);
-  return rating?.grade[0] ?? null;
+  } satisfies MatchSidePerformance;
 }
 
 const MATCH_TYPES: Record<number, { initials: string; description: string }> = {
@@ -134,70 +128,6 @@ const MATCH_TYPES: Record<number, { initials: string; description: string }> = {
   9: { initials: 'ICR', description: 'International Cup Rules Friendly' },
 };
 
-type RatedSector =
-  | 'leftAttack'
-  | 'centreAttack'
-  | 'rightAttack'
-  | 'midfield'
-  | 'leftDefence'
-  | 'centreDefence'
-  | 'rightDefence';
-
-const OPPOSING_SECTORS: Record<RatedSector, RatedSector> = {
-  leftAttack: 'rightDefence',
-  centreAttack: 'centreDefence',
-  rightAttack: 'leftDefence',
-  midfield: 'midfield',
-  leftDefence: 'rightAttack',
-  centreDefence: 'centreAttack',
-  rightDefence: 'leftAttack',
-};
-
-// Tune these values against real matchups. Midfield values are percentages;
-// attack/defence values are multipliers (1.5 means 50% higher).
-const EXTRA_TIME_COMPARISON = {
-  defenceGreenRatio: 1.25,
-  attackRedRatio: 1.35,
-  midfieldGreenBelowPercent: 20,
-  midfieldYellowAbovePercent: 30,
-  midfieldRedAtPercent: 55,
-} as const;
-
-function sectorComparisonClass(sector: RatedSector, value: string, opposingValue: string | undefined) {
-  if (!value.trim() || !opposingValue?.trim()) return undefined;
-  const own = Number(value),
-    opponent = Number(opposingValue);
-  if (!Number.isFinite(own) || !Number.isFinite(opponent) || own < 0 || opponent < 0) return undefined;
-  const epsilon = 1e-9; // Keep exact boundaries stable after floating-point division.
-
-  if (sector === 'midfield') {
-    const lower = Math.min(own, opponent),
-      higher = Math.max(own, opponent);
-    const difference = lower === 0 ? (higher === 0 ? 0 : Infinity) : (higher / lower - 1) * 100;
-    if (difference < EXTRA_TIME_COMPARISON.midfieldGreenBelowPercent - epsilon) return ratingIndicatorClass(1);
-    if (difference >= EXTRA_TIME_COMPARISON.midfieldRedAtPercent - epsilon) return ratingIndicatorClass(4);
-    if (difference > EXTRA_TIME_COMPARISON.midfieldYellowAbovePercent + epsilon) return ratingIndicatorClass(3);
-    return undefined;
-  }
-
-  const attack = sector.endsWith('Attack') ? own : opponent;
-  const defence = sector.endsWith('Defence') ? own : opponent;
-  if (attack === 0 && defence === 0) return undefined;
-  // Both matched numbers get the same color: a defensive advantage favors a draw.
-  if (defence >= attack * EXTRA_TIME_COMPARISON.defenceGreenRatio - epsilon) return ratingIndicatorClass(1);
-  if (attack >= defence * EXTRA_TIME_COMPARISON.attackRedRatio - epsilon) return ratingIndicatorClass(4);
-  return undefined;
-}
-
-const RATED_SECTOR_ROLES: Record<RatedSector, number[]> = {
-  leftAttack: [110],
-  centreAttack: [111, 112, 113],
-  rightAttack: [106],
-  midfield: [107, 108, 109],
-  leftDefence: [105],
-  centreDefence: [102, 103, 104],
-  rightDefence: [101],
-};
 const SPECIALTY_NAMES: Record<number, string> = {
   1: 'Technical',
   2: 'Quick',
@@ -208,79 +138,29 @@ const SPECIALTY_NAMES: Record<number, string> = {
   8: 'Support',
 };
 
-// CHPP slot pairs are mirrored for opposing lineups. Midfielders can be both
-// event initiators and cover; coverage elsewhere is only a possible mitigation.
-const QUICK_OPPOSING_ROLES: Record<number, number> = {
-  101: 110,
-  102: 113,
-  103: 112,
-  104: 111,
-  105: 106,
-  106: 105,
-  107: 109,
-  108: 108,
-  109: 107,
-  110: 101,
-  111: 104,
-  112: 103,
-  113: 102,
-};
-const SPECIALTY_MATCHUP_COLORS = {
-  technicalThreat: 'ratingIndicator4',
-  headVulnerable: 'ratingIndicator4',
-  quickUncovered: 'ratingIndicator4',
-  quickPartial: 'ratingIndicator3',
-  quickDirectCover: 'ratingIndicator1',
-  quickPossibleCover: 'ratingIndicator1',
-} as const;
-type SpecialtyMatchup = keyof typeof SPECIALTY_MATCHUP_COLORS;
-const eventInitiator = (role: number) => role >= 106 && role <= 113;
-const defensiveEventRole = (role: number) => (role >= 101 && role <= 105) || (role >= 107 && role <= 109);
-
-function specialtyMatchup(
-  specialtyId: number,
-  role: number,
-  opposing: SpecialtyPositionGroup[] | undefined,
-): SpecialtyMatchup | null {
-  if (!opposing) return null; // Unavailable specialty data is not an empty lineup.
-  const opposingRoles = (id: number) =>
-    opposing.filter((group) => group.specialtyId === id).flatMap((group) => group.roleIds);
-  if (specialtyId === 1 && eventInitiator(role) && opposingRoles(5).some(defensiveEventRole)) return 'technicalThreat';
-  if (specialtyId === 5 && defensiveEventRole(role) && opposingRoles(1).some(eventInitiator)) return 'headVulnerable';
-  if (specialtyId !== 2) return null; // Head players do not cancel opposing Head threats.
-  const quick = opposingRoles(2);
-  if (eventInitiator(role)) {
-    const cover = quick.filter(defensiveEventRole);
-    if (!cover.includes(QUICK_OPPOSING_ROLES[role])) {
-      return cover.length ? 'quickPartial' : 'quickUncovered';
-    }
-  }
-  if (defensiveEventRole(role)) {
-    const threats = quick.filter(eventInitiator);
-    if (threats.includes(QUICK_OPPOSING_ROLES[role])) return 'quickDirectCover';
-    if (threats.length) return 'quickPossibleCover';
-  }
-  return null;
-}
-
-function specialtyMarkersForSector(
-  groups: SpecialtyPositionGroup[],
-  sector: RatedSector,
-  opposing?: SpecialtyPositionGroup[],
-) {
-  const roles = new Set(RATED_SECTOR_ROLES[sector]);
-  const markers = new Map<string, { specialtyId: number; count: number; matchup: SpecialtyMatchup | null }>();
+function specialtyMarkersForSector(groups: SpecialtyPositionGroup[], sector: Match120mRatedSector, analysis: Match120mCoachingAnalysis) {
+  const roleRanges: Record<Match120mRatedSector, number[]> = {
+    leftAttack: [110], centreAttack: [111, 112, 113], rightAttack: [106], midfield: [107, 108, 109],
+    leftDefence: [105], centreDefence: [102, 103, 104], rightDefence: [101],
+  };
+  const roles = new Set(roleRanges[sector]);
+  const markers = new Map<number, { specialtyId: number; count: number; roles: number[] }>();
   for (const group of groups) {
     if (!SPECIALTY_NAMES[group.specialtyId]) continue;
-    for (const role of group.roleIds.filter((id) => roles.has(id))) {
-      const matchup = specialtyMatchup(group.specialtyId, role, opposing);
-      const key = `${group.specialtyId}:${matchup}`;
-      const marker = markers.get(key);
-      if (marker) marker.count++;
-      else markers.set(key, { specialtyId: group.specialtyId, count: 1, matchup });
-    }
+    const specialtyRoles = group.roleIds.filter((id) => roles.has(id));
+    if (!specialtyRoles.length) continue;
+    const marker = markers.get(group.specialtyId);
+    if (marker) {
+      marker.count += specialtyRoles.length;
+      marker.roles.push(...specialtyRoles);
+    } else markers.set(group.specialtyId, { specialtyId: group.specialtyId, count: specialtyRoles.length, roles: specialtyRoles });
   }
-  return [...markers.values()];
+  return [...markers.values()].map((marker) => ({
+    ...marker,
+    excessive: marker.specialtyId === 2 ? (analysis.quickCount ?? 0) >= 3
+      : marker.specialtyId === 5 ? (analysis.headCount ?? 0) >= 3 : false,
+    green: marker.specialtyId === 2 && marker.roles.some((role) => analysis.quickDefensiveRoles.includes(role)),
+  }));
 }
 
 function ratingIndicatorClass(score: RatingIndicatorScore | null | undefined) {
@@ -288,44 +168,81 @@ function ratingIndicatorClass(score: RatingIndicatorScore | null | undefined) {
   return styles[`ratingIndicator${score}`];
 }
 
-function TacticValue({ tactic, skill }: { tactic: string | null | undefined; skill?: number | null }) {
-  const showSkill =
-    tactic && tactic.trim().toLowerCase() !== 'normal' && typeof skill === 'number' && Number.isFinite(skill);
+function IndicatorTip({ score, tone, content, children }: {
+  score?: RatingIndicatorScore | null;
+  tone?: string;
+  content?: string;
+  children: React.ReactNode;
+}) {
+  const id = React.useId();
+  const indicatorClass = ratingIndicatorClass(score);
+  if (!indicatorClass || !content) return <strong className={indicatorClass}>{children}</strong>;
   return (
-    <span className={ratingIndicatorClass(getTacticIndicatorScore(tactic))}>
-      {tactic || '—'}
-      {showSkill ? ` (${skill})` : ''}
-    </span>
+    <>
+      <strong className={indicatorClass} data-tooltip-id={id} data-tooltip-content={content}
+        data-tooltip-tone={tone ?? score} tabIndex={0}>
+        {children}
+      </strong>
+      <Tooltip id={id} content="" />
+    </>
   );
 }
 
-function GameStyle({ styleOfPlay }: { styleOfPlay: number | null | undefined }) {
+function TacticValue({ tactic, skill, score, tip }: { tactic: string | null | undefined; skill?: number | null; score: RatingIndicatorScore | null; tip: string }) {
+  const showSkill =
+    tactic && tactic.trim().toLowerCase() !== 'normal' && typeof skill === 'number' && Number.isFinite(skill);
+  return (
+    <IndicatorTip score={score} content={tip}>
+      {tactic || '—'}
+      {showSkill ? ` (${skill})` : ''}
+    </IndicatorTip>
+  );
+}
+
+function GameStyle({ styleOfPlay, analysis, text }: { styleOfPlay: number | null | undefined; analysis: Match120mCoachingAnalysis; text: (key: string) => string }) {
   const uiText = useTranslations('PublicUI.GameStyle');
   const mindset = getMatchMindsetIndicator(styleOfPlay);
   if (!mindset) return null;
 
   return (
     <span>
-      {uiText('style')} <strong className={ratingIndicatorClass(mindset.score)}>{mindset.label}</strong>
+      {uiText('style')} <IndicatorTip score={analysis.mindsetScore} content={analysis.mindsetScore ? text('defensiveStyle') : ''}>{mindset.label}</IndicatorTip>
     </span>
   );
 }
 
+function gradeAdvice(analysis: Match120mCoachingAnalysis, grade: string, text: (key: string) => string) {
+  if (grade === 'A+') return text('ratingAPlus');
+  const advice = analysis.recommendations.map(text).map((tip) => `• ${tip}`).join('\n');
+  if (grade === 'A') return text('ratingAlreadyA');
+  if (grade === 'A-') return text('ratingAMinus').replace('{advice}', advice);
+  if (grade === 'B+') return text('ratingBPlus').replace('{advice}', advice);
+  if (grade === 'B') return text('ratingB').replace('{advice}', advice);
+  if (grade === 'F-') return text('ratingFMinus').replace('{advice}', advice);
+  return text('ratingAdvice').replace('{grade}', grade).replace('{advice}', advice);
+}
+
+function formationAdvice(formation: string, text: (key: string) => string) {
+  if (formation === '5-5-0') return text('formation550');
+  if (formation === '5-4-1') return text('formation541');
+  if (formation === '5-2-3') return text('formation523');
+  if (formation === '2-5-3') return text('formation253');
+  if (formation === '3-5-2') return text('formation352');
+  return text('aimDefensiveFormation');
+}
+
 function RatingsPitch({
   ratings,
-  opposingRatings,
+  analysis,
   specialtyPositions = [],
-  opposingSpecialtyPositions,
   midfieldLabel = 'Midfield, predicted:',
 }: {
   ratings: RatingsPreviewTeam['ratings'];
-  opposingRatings?: RatingsPreviewTeam['ratings'];
+  analysis: Match120mCoachingAnalysis;
   specialtyPositions?: SpecialtyPositionGroup[];
-  opposingSpecialtyPositions?: SpecialtyPositionGroup[];
   midfieldLabel?: string;
 }) {
   const uiText = useTranslations('PublicUI.RatingsPitch');
-  const tooltipId = React.useId();
   const sectorRows: Array<Array<[string, string, RatedSector?]>> = [
     [
       ['Left attack (LW):', ratings.leftAttack, 'leftAttack'],
@@ -349,71 +266,35 @@ function RatingsPitch({
         >
           {row.map(([label, value, sector]) => {
             const markers = sector
-              ? specialtyMarkersForSector(specialtyPositions, sector, opposingSpecialtyPositions)
+              ? specialtyMarkersForSector(specialtyPositions, sector, analysis)
               : [];
-            const comparisonClass =
-              sector && opposingRatings
-                ? sectorComparisonClass(sector, value, opposingRatings[OPPOSING_SECTORS[sector]])
-                : undefined;
-            let comparisonTitle: string | undefined;
-            if (sector && comparisonClass) {
-              const favorable = comparisonClass === styles.ratingIndicator1;
-              if (sector === 'midfield') {
-                comparisonTitle = uiText(
-                  favorable
-                    ? 'midfieldBalanced'
-                    : comparisonClass === styles.ratingIndicator4
-                      ? 'midfieldVeryDifferent'
-                      : 'midfieldDifferent',
-                );
-              } else {
-                const message = sector.endsWith('Defence')
-                  ? favorable
-                    ? 'defenceStronger'
-                    : 'defenceWeaker'
-                  : favorable
-                    ? 'attackContained'
-                    : 'attackStronger';
-                comparisonTitle = uiText(message, {
-                  own: uiText(sector),
-                  opponent: uiText(OPPOSING_SECTORS[sector]).toLocaleLowerCase(),
-                });
-              }
-            }
+            const score = sector ? analysis.sectorScores[sector] : null;
+            const sectorTip = sector && score === 4
+              ? uiText(sector === 'midfield' ? 'midfieldNeedsBalance' : 'attackExceedsDefence') : '';
             return (
               <div className={styles.ratingsSector} key={label}>
                 <span>{label}</span>
                 <div className={styles.ratingsValue}>
-                  <strong
-                    className={comparisonClass}
-                    data-tooltip-id={comparisonTitle ? tooltipId : undefined}
-                    data-tooltip-content={comparisonTitle}
-                    tabIndex={comparisonTitle ? 0 : undefined}
-                    onPointerDown={comparisonTitle ? (event) => event.currentTarget.focus() : undefined}
-                  >
+                  <IndicatorTip score={score} content={sectorTip}>
                     {value}
-                  </strong>
+                  </IndicatorTip>
                   {markers.length > 0 && (
                     <small
                       className={styles.ratingsSpecialtyIcons}
                       aria-label={uiText('specialtiesContributingToThisRating')}
                     >
-                      {markers.map(({ specialtyId, count, matchup }) => (
-                        <span
-                          key={`${specialtyId}:${matchup}`}
-                          className={matchup ? styles[SPECIALTY_MATCHUP_COLORS[matchup]] : undefined}
-                          data-tooltip-id={tooltipId}
-                          data-tooltip-content={`${count > 1 ? `${count} ` : ''}${SPECIALTY_NAMES[specialtyId]}${matchup ? ` — ${uiText(matchup)}` : ''}`}
-                          tabIndex={0}
-                          onPointerDown={(event) => event.currentTarget.focus()}
-                        >
+                      {markers.map(({ specialtyId, count, excessive, green }) => (
+                        <span key={specialtyId}>
                           {count > 1 && `${count}×`}
-                          <i
-                            className={styles.ratingsSpecialtyIcon}
+                          <IndicatorTip score={excessive ? 4 : green ? 1 : null}
+                            content={excessive ? uiText(specialtyId === 2 ? 'tooManyQuick' : 'tooManyHead')
+                              : green ? uiText('quickDefensiveCover') : ''}>
+                            <i className={styles.ratingsSpecialtyIcon}
                             data-specialty-id={specialtyId}
-                            aria-label={`${SPECIALTY_NAMES[specialtyId]}${matchup ? ` — ${uiText(matchup)}` : ''}`}
+                            aria-label={SPECIALTY_NAMES[specialtyId]}
                             role="img"
                           />
+                          </IndicatorTip>
                         </span>
                       ))}
                     </small>
@@ -424,7 +305,6 @@ function RatingsPitch({
           })}
         </div>
       ))}
-      <Tooltip id={tooltipId} content="" />
     </div>
   );
 }
@@ -497,6 +377,7 @@ export const FixtureCard: React.FC<FixtureCardProps> = ({
   ratingsActions,
 }) => {
   const uiText = useTranslations('PublicUI.FixtureCard');
+  const ratingText = useTranslations('PublicUI.RatingsPitch');
   const [nowMs, setNowMs] = React.useState(() => Date.now());
   const [busySide, setBusySide] = React.useState<'home' | 'away' | null>(null);
   const [refreshedSide, setRefreshedSide] = React.useState<'home' | 'away' | null>(null);
@@ -742,7 +623,13 @@ export const FixtureCard: React.FC<FixtureCardProps> = ({
             const opposingPreview = ratingsPreview?.[side === 'home' ? 'away' : 'home'];
             const notice = ratingsSharedStatus?.[side];
             const canManage = ratingsActions?.[side] || false;
-            const predictedGrade = preview ? predicted120mRatingGrade(preview) : null;
+            const predictedPerformance = preview ? predicted120mPerformance(preview) : null;
+            const predictedAnalysis = predictedPerformance
+              ? analyzeMatch120mCoaching(predictedPerformance,
+                  preview?.specialtyPositionsKnown && opposingPreview?.specialtyPositionsKnown
+                    ? opposingPreview.specialtyPositions : undefined)
+              : null;
+            const predictedGrade = predictedAnalysis?.rating?.grade ?? null;
             if (!preview && !canManage && !notice) return null;
             return (
               <div key={side} className={`${styles.ratingsSide} ${side === 'away' ? styles.ratingsSideAway : ''}`}>
@@ -770,43 +657,35 @@ export const FixtureCard: React.FC<FixtureCardProps> = ({
                 {preview ? (
                   <>
                     {predictedGrade && (
-                      <span className={`${styles.ratingBadge} ${styles[`ratingGrade${predictedGrade}`]}`}>
-                        {uiText('predicted120mRating')} {predictedGrade}
-                      </span>
+                      <IndicatorTip tone={`grade-${predictedGrade[0].toLowerCase()}`} content={gradeAdvice(predictedAnalysis!, predictedGrade, (key) => ratingText(key as never))}>
+                        <span className={`${styles.ratingBadge} ${styles[`ratingGrade${predictedGrade[0]}`]}`}>
+                          {uiText('predicted120mRating')} {predictedGrade}
+                        </span>
+                      </IndicatorTip>
                     )}
-                    <RatingsPitch
-                      ratings={preview.ratings}
-                      opposingRatings={
-                        ratingsPreview?.home && ratingsPreview.away
-                          ? ratingsPreview[side === 'home' ? 'away' : 'home']?.ratings
-                          : undefined
-                      }
-                      specialtyPositions={preview.specialtyPositions}
-                      opposingSpecialtyPositions={
-                        preview.specialtyPositionsKnown && opposingPreview?.specialtyPositionsKnown
-                          ? opposingPreview.specialtyPositions
-                          : undefined
-                      }
-                    />
+                    <RatingsPitch ratings={preview.ratings} analysis={predictedAnalysis!} specialtyPositions={preview.specialtyPositions} />
                     <div className={styles.ratingsMetadata}>
                       <span>
                         {uiText('formation')}{' '}
-                        <strong className={ratingIndicatorClass(getFormationIndicatorScore(preview.formation))}>
+                        <IndicatorTip score={predictedAnalysis?.formationScore}
+                          content={formationAdvice(preview.formation, (key) => ratingText(key as never))}>
                           {preview.formation}
-                        </strong>
+                        </IndicatorTip>
                       </span>
                       <span>
                         {uiText('tactic')}{' '}
-                        <strong>
-                          <TacticValue tactic={preview.tactic} skill={preview.tacticSkill} />
-                        </strong>
+                        <TacticValue tactic={preview.tactic} skill={preview.tacticSkill}
+                          score={predictedAnalysis?.tacticScore ?? null}
+                          tip={ratingText(predictedAnalysis?.tacticScore === 1 ? 'pressingBest' : 'aimPressing')} />
                       </span>
-                      <GameStyle styleOfPlay={preview.coachModifier} />
+                      <GameStyle styleOfPlay={preview.coachModifier}
+                        analysis={predictedAnalysis!} text={(key) => ratingText(key as never)} />
                       <span>
                         {uiText('setPiecesTaker')}{' '}
-                        <strong className={ratingIndicatorClass(getSetPieceIndicatorScore(preview.setPiecesSkill))}>
+                        <IndicatorTip score={predictedAnalysis?.setPiecesScore}
+                          content={ratingText(preview.setPiecesSkill === null ? 'setPiecesNotSet' : preview.setPiecesSkill <= 3 ? 'setPiecesBrilliant' : 'aimSetPieces')}>
                           {preview.setPieces}
-                        </strong>
+                        </IndicatorTip>
                       </span>
                     </div>
                     {preview.specialtyPositions.length > 0 && (
@@ -899,8 +778,12 @@ export const FixtureCard: React.FC<FixtureCardProps> = ({
           <div className={styles.ratingsPreviewTitle}>{uiText('actualMatchPerformance')}</div>
           {(['home', 'away'] as const).map((side) => {
             const team = side === 'home' ? homeTeam : awayTeam;
+            const opposingTeam = side === 'home' ? awayTeam : homeTeam;
             const performance = team.matchSummary?.eventDetails?.performance;
+            const opposingPerformance = opposingTeam.matchSummary?.eventDetails?.performance;
             const taker = performance?.setPiecesTaker;
+            const analysis = analyzeMatch120mCoaching(performance, opposingPerformance?.specialtyPositions);
+            const displayedGrade = team.ratingGrade ? normalizeMatch120mGrade(team.ratingGrade) : null;
             return (
               <div key={side} className={`${styles.ratingsSide} ${side === 'away' ? styles.ratingsSideAway : ''}`}>
                 <div className={styles.ratingsTeamHeading}>
@@ -908,45 +791,41 @@ export const FixtureCard: React.FC<FixtureCardProps> = ({
                   <span>{uiText('matchPerformance')}</span>
                   {side === 'away' && <strong>{team.name}</strong>}
                 </div>
-                {team.ratingGrade && (
-                  <>
-                    <span
-                      className={`${styles.ratingBadge} ${styles[`ratingGrade${team.ratingGrade[0]}`]}`}
-                      data-tooltip-id={`match-120m-rating-${matchId ?? 'fixture'}-${team.htTeamId}-${side}`}
-                    >
-                      120m rating: {team.ratingGrade[0]}
+                {displayedGrade && (
+                  <IndicatorTip tone={`grade-${displayedGrade[0].toLowerCase()}`}
+                    content={gradeAdvice(analysis, displayedGrade, (key) => ratingText(key as never))}>
+                    <span className={`${styles.ratingBadge} ${styles[`ratingGrade${displayedGrade[0]}`]}`}>
+                      120m rating: {displayedGrade}
                     </span>
-                    <Tooltip
-                      id={`match-120m-rating-${matchId ?? 'fixture'}-${team.htTeamId}-${side}`}
-                      content={uiText('match120mRatingExplanation')}
-                      className="tooltip"
-                    />
-                  </>
+                  </IndicatorTip>
                 )}
                 <RatingsPitch
                   ratings={actualRatingsDisplay(performance)}
+                  analysis={analysis}
                   specialtyPositions={performance?.specialtyPositions ?? []}
                   midfieldLabel="Midfield:"
                 />
                 <div className={styles.ratingsMetadata}>
                   <span>
                     {uiText('formation')}{' '}
-                    <strong className={ratingIndicatorClass(getFormationIndicatorScore(performance?.formation))}>
+                    <IndicatorTip score={analysis.formationScore} content={formationAdvice(performance?.formation ?? '', (key) => ratingText(key as never))}>
                       {performance?.formation || '—'}
-                    </strong>
+                    </IndicatorTip>
                   </span>
                   <span>
                     {uiText('tactic')}{' '}
                     <strong>
-                      <TacticValue tactic={performance?.tacticName} skill={performance?.tacticSkill} />
+                      <TacticValue tactic={performance?.tacticName} skill={performance?.tacticSkill}
+                        score={analysis.tacticScore} tip={ratingText(analysis.tacticScore === 1 ? 'pressingBest' : 'aimPressing')} />
                     </strong>
                   </span>
-                  <GameStyle styleOfPlay={performance?.styleOfPlay} />
+                  <GameStyle styleOfPlay={performance?.styleOfPlay} analysis={analysis} text={(key) => ratingText(key as never)} />
                   <span>
                     {uiText('setPiecesTaker')}{' '}
-                    <strong className={ratingIndicatorClass(getSetPieceIndicatorScore(taker?.skill))}>
+                    <IndicatorTip score={analysis.setPiecesScore}
+                      content={ratingText(taker?.skill === null ? 'setPiecesNotSet' : (taker?.skill ?? 99) <= 3 ? 'setPiecesBrilliant' : 'aimSetPieces')}>
                       {skillDisplay(taker?.skill)}
-                    </strong>
+                    </IndicatorTip>
                   </span>
                 </div>
                 {!!performance?.specialtyPositions?.length && (

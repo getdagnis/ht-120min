@@ -20,12 +20,45 @@
   &[data-visible='true']
     opacity: 1
 
+  &[data-tone='1']
+    --tooltip-tone: var(--rating-a)
+
+  &[data-tone='2']
+    --tooltip-tone: var(--warning)
+
+  &[data-tone='3']
+    --tooltip-tone: var(--warning-high)
+
+  &[data-tone='4']
+    --tooltip-tone: var(--rating-f)
+
+  &[data-tone='grade-a']
+    --tooltip-tone: var(--rating-a)
+
+  &[data-tone='grade-b']
+    --tooltip-tone: var(--rating-b)
+
+  &[data-tone='grade-c']
+    --tooltip-tone: var(--rating-c)
+
+  &[data-tone='grade-d']
+    --tooltip-tone: var(--rating-d)
+
+  &[data-tone='grade-e']
+    --tooltip-tone: var(--rating-e)
+
+  &[data-tone='grade-f']
+    --tooltip-tone: var(--rating-f)
+
+  &[data-tone]
+    background: var(--tooltip-tone)
+
   &::after
     position: absolute
     left: 50%
     width: 0.6rem
     height: 0.6rem
-    background: var(--accent-2)
+    background: var(--tooltip-tone, var(--accent-2))
     content: ''
     transform: translateX(-50%) rotate(45deg)
 

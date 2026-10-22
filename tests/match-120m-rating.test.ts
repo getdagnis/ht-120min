@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import type { MatchSidePerformance } from '../shared/match-events.js';
-import { calculateMatch120mRating, usesMatch120mRatings } from '../shared/match-120m-rating.js';
+import { analyzeMatch120mCoaching, calculateMatch120mRating, normalizeMatch120mGrade, usesMatch120mRatings } from '../shared/match-120m-rating.js';
 import { mapMatchEventDetailsToFixture } from '../src/server/api/_lib/chpp-match-events.js';
 import { prepareMatch120mRatings, tryRecalculateMatch120mRatings } from '../src/server/api/_lib/match-120m-ratings.js';
 
@@ -60,7 +60,7 @@ test('four Quick players and one dangerous attack sector reduce an otherwise goo
   assert.equal(calculateMatch120mRating(defensive)?.grade, 'C');
 });
 
-test('the other reference setups calibrate to Pillars E, Lapsus D+, and Bousignies B', () => {
+test('the other reference setups calibrate to Pillars E, Lapsus D, and Bousignies B', () => {
   const pillars = setup({
     formation: '2-5-3', tacticType: 0, tacticName: 'Normal',
     setPiecesTaker: { playerName: null, skill: 8, skillCheckedAt: null },
@@ -90,14 +90,64 @@ test('the other reference setups calibrate to Pillars E, Lapsus D+, and Bousigni
     },
   });
   assert.equal(calculateMatch120mRating(pillars)?.grade, 'E');
-  assert.equal(calculateMatch120mRating(lapsus)?.grade, 'D+');
+  assert.equal(calculateMatch120mRating(lapsus)?.grade, 'D');
   assert.equal(calculateMatch120mRating(bousignies)?.grade, 'B');
+});
+
+test('grade labels keep only meaningful plus/minus distinctions and normalize older stored labels', () => {
+  assert.equal(normalizeMatch120mGrade('A+'), 'A+');
+  assert.equal(normalizeMatch120mGrade('A-'), 'A-');
+  assert.equal(normalizeMatch120mGrade('B+'), 'B+');
+  assert.equal(normalizeMatch120mGrade('F-'), 'F-');
+  assert.equal(normalizeMatch120mGrade('B-'), 'B');
+  assert.equal(normalizeMatch120mGrade('C+'), 'C');
+  assert.equal(normalizeMatch120mGrade('D+'), 'D');
+  assert.equal(normalizeMatch120mGrade('E-'), 'E');
+  assert.equal(normalizeMatch120mGrade('F+'), 'F');
 });
 
 test('unrecognized or incomplete core data remains unscored', () => {
   assert.equal(calculateMatch120mRating(setup({ formation: 'unknown' })), null);
   assert.equal(calculateMatch120mRating(setup({ ratings: { ...setup().ratings, midfield: null } })), null);
   assert.equal(calculateMatch120mRating(setup({ tacticType: null, tacticName: null })), null);
+});
+
+test('120m coaching colors attacks only above average defence and midfield at the combined threshold', () => {
+  const balanced = setup({
+    ratings: {
+      leftDefence: raw(3), centralDefence: raw(3), rightDefence: raw(3),
+      leftAttack: raw(3), centralAttack: raw(3), rightAttack: raw(3), midfield: raw(3),
+    },
+  });
+  assert.deepEqual(analyzeMatch120mCoaching(balanced).sectorScores, {});
+
+  const attackAbove = setup({ ratings: { ...balanced.ratings, leftAttack: raw(3.01) } });
+  assert.equal(analyzeMatch120mCoaching(attackAbove).sectorScores.leftAttack, 4);
+
+  const midfieldAtBoundary = setup({
+    ratings: { ...balanced.ratings, leftAttack: raw(1), centralAttack: raw(1), rightAttack: raw(1), midfield: raw(5) },
+  });
+  assert.equal(analyzeMatch120mCoaching(midfieldAtBoundary).sectorScores.midfield, undefined);
+  const midfieldOver = setup({
+    ratings: { ...midfieldAtBoundary.ratings, midfield: raw(5.01) },
+  });
+  assert.equal(analyzeMatch120mCoaching(midfieldOver).sectorScores.midfield, 4);
+});
+
+test('120m coaching flags three Quick or Head players and only rewards Quick defensive cover', () => {
+  const base = setup({ specialtyPositions: [
+    { specialtyId: 2, roleIds: [101, 102, 103] },
+    { specialtyId: 5, roleIds: [104, 105, 106] },
+  ] });
+  const analysis = analyzeMatch120mCoaching(base, [{ specialtyId: 2, roleIds: [110] }]);
+  assert.ok(analysis.quickDefensiveRoles.includes(101));
+  assert.equal(analysis.sectorScores.rightDefence, undefined);
+  assert.ok(analysis.recommendations.includes('reduceQuick'));
+  assert.ok(analysis.recommendations.includes('reduceHead'));
+
+  const technical = setup({ specialtyPositions: [{ specialtyId: 1, roleIds: [101] }] });
+  const technicalAnalysis = analyzeMatch120mCoaching(technical, [{ specialtyId: 2, roleIds: [110] }]);
+  assert.deepEqual(technicalAnalysis.quickDefensiveRoles, []);
 });
 
 test('only 120-minute scoring modes are eligible', () => {
