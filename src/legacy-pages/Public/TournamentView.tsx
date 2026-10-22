@@ -35,6 +35,7 @@ import { validateAppgOutcome } from '../../utils/appg';
 import { isCurrentParticipantTeam, isWaitingTeam } from '../../utils/team-state';
 import { isFixtureMisarranged } from '../../utils/fixture-status';
 import { isAppg120ScoringMode } from '../../../shared/scoring-profile';
+import { ScoringHelp } from '../../components/TournamentTabs/ScoringHelp';
 import type { SeasonSlotAssignment, TeamStanding, Team as StandingTeam } from '../../utils/standings';
 import {
   buildSeasonHistorySnapshot,
@@ -1473,7 +1474,6 @@ export const TournamentView: React.FC<{
   const [showJoinErrorModal, setShowJoinErrorModal] = useState(false);
 
   // UI state
-  const [showScoringHelp, setShowScoringHelp] = useState(false);
   const [isAddingDescription, setIsAddingDescription] = useState(false);
   const [expandedRounds, setExpandedRounds] = useState<Record<string, boolean>>({});
   const expandedRoundsReadyRef = useRef(false);
@@ -5641,8 +5641,6 @@ export const TournamentView: React.FC<{
   }
 
   const is120minMode = tournament.scoring_mode === '120m' || tournament.scoring_mode === '120min';
-  const isAverage120Mode = tournament.scoring_mode === 'average120';
-  const isAppgMode = isAppg120ScoringMode(tournament.scoring_mode);
 
   const isMobile = isHydrationReady && window.innerWidth <= 620;
   const publicUrl = !isHydrationReady ? pathname : `${window.location.origin}${pathname}`;
@@ -6178,77 +6176,7 @@ export const TournamentView: React.FC<{
               leagueCategory={tournament.league_category}
               scoringMode={tournament.scoring_mode}
             />
-            {isAppgMode ? (
-              <div className={styles.scoringHelp}>
-                <p onClick={() => setShowScoringHelp(!showScoringHelp)} className={styles.helpToggle}>
-                  <strong>{uiText('aPPG120ScoringMode')}</strong>{' '}
-                  {showScoringHelp ? <X size={18} /> : <Info size={18} />}
-                </p>
-                {showScoringHelp && (
-                  <div className={styles.helpContent}>
-                    <p>
-                      <strong>{uiText('aPPG120')}</strong> {uiText('usesAveragePointsPerGameWithTheEnglishTournament')}
-                    </p>
-                    <ul>
-                      <li>
-                        <strong>{uiText('eT3')}</strong> {uiText('3PointsForFinishingTheMatchInExtraTime')}
-                      </li>
-                      <li>
-                        <strong>{uiText('eT2')}</strong> {uiText('2PointsForFinishingTheMatchInExtraTime')}
-                      </li>
-                      <li>
-                        <strong>{uiText('pS1')}</strong> {uiText('1PointIfTheMatchGoesToPenalties')}
-                      </li>
-                      <li>
-                        <strong>{uiText('rT0')}</strong> {uiText('0PointsIfTheMatchIsDecidedBeforeExtra')}
-                      </li>
-                      <li>
-                        <strong>{uiText('oPW')}</strong> {uiText('minus1PointForTheWinningTeamAfterA')}
-                      </li>
-                    </ul>
-                    <p>
-                      {uiText('clearRegulationTimeEventEvidenceIsClassifiedAutomaticallyAs')}{' '}
-                      <strong>{uiText('needsReview')}</strong> {uiText('untilAnOrganizerClassifiesThem')}
-                    </p>
-                  </div>
-                )}
-              </div>
-            ) : isAverage120Mode ? (
-              <div className={styles.scoringHelp}>
-                <p onClick={() => setShowScoringHelp(!showScoringHelp)} className={styles.helpToggle}>
-                  <strong>{uiText('average120ScoringMode')}</strong>{' '}
-                  {showScoringHelp ? <X size={18} /> : <Info size={18} />}
-                </p>
-                {showScoringHelp && <p className={styles.helpContent}>{uiText('average120ScoringExplanation')}</p>}
-              </div>
-            ) : is120minMode ? (
-              <div className={styles.scoringHelp}>
-                <p onClick={() => setShowScoringHelp(!showScoringHelp)} className={styles.helpToggle}>
-                  <strong>{uiText('120minScoringMode')}</strong>{' '}
-                  {showScoringHelp ? <X size={18} /> : <Info size={18} />}
-                </p>
-                {showScoringHelp && (
-                  <p className={styles.helpContent}>
-                    {uiText('teamsAreRankedFirstBy')} <strong>{uiText('120minAchievements')}</strong>
-                    {uiText('thenPointsGoalDifferenceGoalsScoredAndFinallyFewer')}
-                  </p>
-                )}
-              </div>
-            ) : (
-              <div className={styles.scoringHelp}>
-                <p onClick={() => setShowScoringHelp(!showScoringHelp)} className={styles.helpToggle}>
-                  <strong>{uiText('victoryPointsMode')}</strong>{' '}
-                  {showScoringHelp ? <X size={18} /> : <Info size={18} />}
-                </p>
-                {showScoringHelp && (
-                  <p className={styles.helpContent}>
-                    {uiText('standardCompetitiveTournamentTeamsEarn3PointsForA')}{' '}
-                    <strong>{uiText('totalPoints')}</strong>
-                    {uiText('thenGoalDifferenceAndGoalsScored120minGamesMean')}
-                  </p>
-                )}
-              </div>
-            )}
+            <ScoringHelp scoringMode={tournament.scoring_mode} />
           </div>
           <div
             className={styles.imagePlaceholder}

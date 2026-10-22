@@ -25,6 +25,7 @@ import {
 import { isAppg120ScoringMode, isAverage120ScoringMode } from '../../../shared/scoring-profile';
 import { StandingsRoundPreview, type StandingsPreviewRound } from './StandingsRoundPreview';
 import { TournamentShareMenu } from '../TournamentShareMenu/TournamentShareMenu';
+import { ScoringHelp } from './ScoringHelp';
 import {
   TournamentActivity,
   type TournamentActivityMatch,
@@ -468,7 +469,7 @@ export const StandingsView: React.FC<StandingsViewProps> = ({
     : sortedStandings.length;
 
   const forumTeamName = (standing: TeamStanding) => standing.teamName.replace(/\[/g, '(').replace(/\]/g, ')');
-  const displayTeamName = (name: string) => (name.length > 28 ? `${name.slice(0, 26)}...` : name);
+  const displayTeamName = (name: string) => (name.length > 27 ? `${name.slice(0, 25)}...` : name);
   const formatAverage = (value: number | null) => (value === null ? '0' : Number(value.toFixed(2)).toString());
   const signedGoalDifference = (value: number) => (value > 0 ? `+${value}` : String(value));
   const appgClassificationTooltip = (standing: TeamStanding) =>
@@ -1080,6 +1081,7 @@ export const StandingsView: React.FC<StandingsViewProps> = ({
           </table>
           <Tooltip id="appg-breakdown-tooltip" className="tooltip" />
         </div>
+        <ScoringHelp scoringMode={tournament?.scoring_mode} className={styles.standingsScoringHelp} />
         {canJoinTournament && onJoinWithHattrick && (
           <div className={styles.standingsJoinCta}>
             <Button

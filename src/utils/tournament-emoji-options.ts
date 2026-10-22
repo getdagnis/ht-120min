@@ -15,7 +15,7 @@ export interface TournamentEmojiContext {
   countryLimitFormat?: CountryRestrictionFormat | null;
 }
 
-export const TOURNAMENT_EMOJI_OPTIONS = ['😅', '😢', '🥶', '🏆', '💪', '🔥', '❤️', '🍺', '⚽️'] as const;
+export const TOURNAMENT_EMOJI_OPTIONS = ['🙂', '😁', '😢', '🥶', '💪', '🔥', '❤️', '🍺', '⚽️'] as const;
 
 export function getTournamentSpecialEmojis(context?: TournamentEmojiContext): string[] {
   if (!context) return [];

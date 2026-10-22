@@ -1046,6 +1046,7 @@ const messages = {
       actualMatchDetails: "Actual match details",
       actualMatchPerformance: "Actual match performance",
       matchPerformance: "match performance",
+      match120mRatingExplanation: "An A–F grade for your team's setup in this 120-minute match, based on formation, tactics, ratings, set pieces and style. The result and opponent are not included.",
       sharedRatingPredictionStatus: "Shared rating prediction status",
       haveSharedTheirPredictedRatings: "have shared their predicted ratings! ✅",
       hasNotSetMatchOrders: "has not yet set match orders for this match.",

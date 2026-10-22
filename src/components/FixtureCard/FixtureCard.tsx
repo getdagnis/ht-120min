@@ -863,9 +863,19 @@ export const FixtureCard: React.FC<FixtureCardProps> = ({
                   {side === 'away' && <strong>{team.name}</strong>}
                 </div>
                 {team.ratingGrade && (
-                  <span className={`${styles.ratingBadge} ${styles[`ratingGrade${team.ratingGrade[0]}`]}`}>
-                    120m rating: {team.ratingGrade[0]}
-                  </span>
+                  <>
+                    <span
+                      className={`${styles.ratingBadge} ${styles[`ratingGrade${team.ratingGrade[0]}`]}`}
+                      data-tooltip-id={`match-120m-rating-${matchId ?? 'fixture'}-${team.htTeamId}-${side}`}
+                    >
+                      120m rating: {team.ratingGrade[0]}
+                    </span>
+                    <Tooltip
+                      id={`match-120m-rating-${matchId ?? 'fixture'}-${team.htTeamId}-${side}`}
+                      content={uiText('match120mRatingExplanation')}
+                      className="tooltip"
+                    />
+                  </>
                 )}
                 <RatingsPitch
                   ratings={actualRatingsDisplay(performance)}

@@ -150,7 +150,7 @@ export const HATTRICK_WORLD_DETAILS: Record<number, HattrickWorldLeague> = {
     countryName: 'Oceania',
     countryNameEn: 'Oceania',
     isoCode: null,
-    emoji: '🌏',
+    emoji: '🇦🇺',
   },
   16: {
     leagueId: 16,
