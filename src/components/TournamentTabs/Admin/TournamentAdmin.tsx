@@ -75,6 +75,7 @@ export interface TournamentAdminController {
     teams: Team[];
     rounds: RoundWithMatches[];
     seasonSlots: Array<{ id: string; current_team_id: string | null }>;
+    fixtureWarningTeamIds: ReadonlySet<string>;
     participantTeams: Team[];
     reserveTeams: Team[];
     activeParticipantCount: number;
@@ -262,6 +263,7 @@ export interface TournamentAdminController {
     onAddTeam: (event: React.FormEvent, isJoin?: boolean, addAsReserve?: boolean) => void | Promise<void>;
     onFetchTeamData: (htId: string, isReplacement: boolean, isReserve?: boolean) => void | Promise<void>;
     onRefreshTeamPlanningStatuses: () => void | Promise<void>;
+    onLoadTeamPlanningStatuses: () => void | Promise<void>;
     onUpdateHfiRanks: () => void | Promise<void>;
     onSetReserveFormOpen: Setter<boolean>;
     reserveReplacingTeamId: string | null;
@@ -407,6 +409,7 @@ export const TournamentAdmin: React.FC<{ controller: TournamentAdminController }
     teams,
     rounds,
     seasonSlots,
+    fixtureWarningTeamIds,
     participantTeams,
     reserveTeams,
     activeParticipantCount,
@@ -583,6 +586,7 @@ export const TournamentAdmin: React.FC<{ controller: TournamentAdminController }
     onAddTeam: addTeam,
     onFetchTeamData: fetchTeamData,
     onRefreshTeamPlanningStatuses: refreshTeamPlanningStatuses,
+    onLoadTeamPlanningStatuses: loadTeamPlanningStatuses,
     onUpdateHfiRanks: updateHfiRanks,
     reserveReplacingTeamId,
     setReserveReplacingTeamId,
@@ -636,12 +640,21 @@ export const TournamentAdmin: React.FC<{ controller: TournamentAdminController }
   } = lifecycle;
 
   const themeText = useTranslations('TournamentView');
+  const standingsText = useTranslations('PublicUI.StandingsView');
   const isHydrationReady = useHydrationReady();
+  const showLocalSiteAdminSettings =
+    isHydrationReady &&
+    isSiteAdmin &&
+    ['localhost', '127.0.0.1', '::1', '[::1]'].includes(window.location.hostname);
+  const [showSiteAdminSettings, setShowSiteAdminSettings] = useState(false);
   const [admissionSelection, setAdmissionSelection] = useState<string[]>([]);
   const selectedAdmissionIds = admissionSelection.filter((id) => reserveTeams.some((team) => team.id === id));
   const pastTeams = teams.filter(isPastTeam);
   const [changingReserveId, setChangingReserveId] = useState<string | null>(null);
   const [waitingReasons, setWaitingReasons] = useState<Record<string, string>>({});
+  useEffect(() => {
+    if (canManageOperationalAdmin) void loadTeamPlanningStatuses();
+  }, [canManageOperationalAdmin, loadTeamPlanningStatuses, rounds]);
   useEffect(() => {
     if (!canManageOperationalAdmin) return;
     let cancelled = false;
@@ -1174,35 +1187,6 @@ export const TournamentAdmin: React.FC<{ controller: TournamentAdminController }
                               </div>
                             </div>
 
-                            {isSiteAdmin && (
-                              <div className={`${adminStyles.checkboxField} ${styles.formDivider}`}>
-                                <label className={adminStyles.checkboxLabel}>
-                                  <input
-                                    type="checkbox"
-                                    checked={isTest}
-                                    onChange={(e) => setIsTest(e.target.checked)}
-                                  />
-                                  Testing Ground
-                                </label>
-                                {renderUnsavedSettingsNote(unsavedSettingsFields.test)}
-                              </div>
-                            )}
-
-                            {canManageFeaturedTournaments && (
-                              <div className={`${adminStyles.checkboxField} ${styles.formDivider}`}>
-                                <label className={adminStyles.checkboxLabel}>
-                                  <input
-                                    type="checkbox"
-                                    checked={editIsFeatured}
-                                    onChange={(e) => setEditIsFeatured(e.target.checked)}
-                                  />
-                                  <Star size={16} weight="bold" />
-                                  Featured tournament
-                                </label>
-                                <p className={adminStyles.smallNote}>Pinned to the top of its public lists.</p>
-                                {renderUnsavedSettingsNote(unsavedSettingsFields.featured)}
-                              </div>
-                            )}
                           </div>
                           <div className={adminStyles.settingsActions}>
                             <Button
@@ -1221,9 +1205,52 @@ export const TournamentAdmin: React.FC<{ controller: TournamentAdminController }
                             >
                               {showAdvancedSettings ? 'Hide more settings' : 'Show more settings'}
                             </Button>
+                            {showLocalSiteAdminSettings && (
+                              <Button
+                                type="button"
+                                onClick={() => setShowSiteAdminSettings((current) => !current)}
+                                variant="secondaryAction"
+                                size="sm"
+                                aria-expanded={showSiteAdminSettings}
+                              >
+                                {showSiteAdminSettings ? 'Hide site admin settings' : 'Site admin settings'}
+                              </Button>
+                            )}
                           </div>
                           {renderUnsavedSettingsNote(settingsHasUnsavedChanges)}
-                          {isSiteAdmin && tournament && <CollectionMembershipPanel tournamentId={tournament.id} />}
+                          {showLocalSiteAdminSettings && showSiteAdminSettings && (
+                            <div className={adminStyles.settingsGroup}>
+                              <div className={`${adminStyles.checkboxField} ${styles.formDivider}`}>
+                                <label className={adminStyles.checkboxLabel}>
+                                  <input
+                                    type="checkbox"
+                                    checked={isTest}
+                                    onChange={(e) => setIsTest(e.target.checked)}
+                                  />
+                                  Testing Ground
+                                </label>
+                                {renderUnsavedSettingsNote(unsavedSettingsFields.test)}
+                              </div>
+
+                              {canManageFeaturedTournaments && (
+                                <div className={`${adminStyles.checkboxField} ${styles.formDivider}`}>
+                                  <label className={adminStyles.checkboxLabel}>
+                                    <input
+                                      type="checkbox"
+                                      checked={editIsFeatured}
+                                      onChange={(e) => setEditIsFeatured(e.target.checked)}
+                                    />
+                                    <Star size={16} weight="bold" />
+                                    Featured tournament
+                                  </label>
+                                  <p className={adminStyles.smallNote}>Pinned to the top of its public lists.</p>
+                                  {renderUnsavedSettingsNote(unsavedSettingsFields.featured)}
+                                </div>
+                              )}
+
+                              {tournament && <CollectionMembershipPanel tournamentId={tournament.id} />}
+                            </div>
+                          )}
                           {showAdvancedSettings && (
                             <div className={adminStyles.settingsGroup}>
                               <div className={adminStyles.field}>
@@ -1794,6 +1821,15 @@ export const TournamentAdmin: React.FC<{ controller: TournamentAdminController }
                                         ) : (
                                           <span className={adminStyles.name}>{team.name || 'Open slot'}</span>
                                         )}
+                                          {fixtureWarningTeamIds.has(team.id) && (
+                                            <span title={standingsText('warningIssued')}>
+                                              <img
+                                                src="/warn-red.png"
+                                                alt={standingsText('warningIssued')}
+                                                className={styles.standingWarningIcon}
+                                              />
+                                            </span>
+                                          )}
                                         {teamPlanningStatuses[team.id]?.inCup === true && (
                                           <span className={adminStyles.planningStatus}>[in cup]</span>
                                         )}
@@ -2036,6 +2072,15 @@ export const TournamentAdmin: React.FC<{ controller: TournamentAdminController }
                                           ) : (
                                             <span className={adminStyles.name}>{team.name || 'Waiting team'}</span>
                                           )}
+                                          {fixtureWarningTeamIds.has(team.id) && (
+                                            <span title={standingsText('warningIssued')}>
+                                              <img
+                                                src="/warn-red.png"
+                                                alt={standingsText('warningIssued')}
+                                                className={styles.standingWarningIcon}
+                                              />
+                                            </span>
+                                          )}
                                           {teamPlanningStatuses[team.id]?.inCup === true && (
                                             <span className={adminStyles.planningStatus}>[in cup]</span>
                                           )}
@@ -2154,6 +2199,25 @@ export const TournamentAdmin: React.FC<{ controller: TournamentAdminController }
                                             </a>
                                           ) : (
                                             <span className={adminStyles.name}>{team.name}</span>
+                                          )}
+                                          {teamPlanningStatuses[team.id]?.inCup === true && (
+                                            <span className={adminStyles.planningStatus}>[in cup]</span>
+                                          )}
+                                          {teamPlanningStatuses[team.id]?.bookedOutsideTournament && (
+                                            <span
+                                              className={`${adminStyles.planningStatus} ${adminStyles.planningStatusBooked}`}
+                                            >
+                                              [booked]
+                                            </span>
+                                          )}
+                                          {fixtureWarningTeamIds.has(team.id) && (
+                                            <span title={standingsText('warningIssued')}>
+                                              <img
+                                                src="/warn-red.png"
+                                                alt={standingsText('warningIssued')}
+                                                className={styles.standingWarningIcon}
+                                              />
+                                            </span>
                                           )}
                                         </div>
                                         {team.ht_team_id && (

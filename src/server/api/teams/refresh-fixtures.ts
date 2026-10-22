@@ -1210,56 +1210,111 @@ async function handleAddHtMatch(req: VercelRequest, res: VercelResponse) {
 }
 
 async function handleTeamPlanningStatuses(req: VercelRequest, res: VercelResponse) {
+  if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed.' });
+  const action = String(getBodyValue(req, 'action') || '');
+  const loadOnly = action === 'load_team_planning_statuses';
   const tournamentId = String(getBodyValue(req, 'tournamentId') || '');
   const adminPassword = String(getBodyValue(req, 'adminPassword') || '');
-  if (!tournamentId) return res.status(400).json({ error: 'Missing tournament.' });
-
-  const consumerKey = process.env.CHPP_CONSUMER_KEY;
-  const consumerSecret = process.env.CHPP_CONSUMER_SECRET;
-  if (!consumerKey || !consumerSecret) return res.status(500).json({ error: 'CHPP is not configured.' });
+  const uuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+  if (!['team_planning_statuses', 'load_team_planning_statuses'].includes(action) || !uuid.test(tournamentId)) {
+    return res.status(400).json({ error: 'Invalid team planning status request.' });
+  }
 
   const supabase = getServiceSupabase();
-  const { data: tournament } = await supabase
+  const { data: tournament, error: tournamentError } = await supabase
     .from('tournaments')
-    .select('id, admin_password')
+    .select('id, admin_password, season')
     .eq('id', tournamentId)
     .single();
+  if (tournamentError) return res.status(500).json({ error: tournamentError.message });
   if (!tournament) return res.status(404).json({ error: 'Tournament not found.' });
   if (!adminPassword || adminPassword !== tournament.admin_password) {
     return res.status(403).json({ error: 'Organizer password is required.' });
   }
 
+  const seasonNumber = Math.max(1, Number(tournament.season) || 1);
+  const { data: roundRows, error: roundsError } = await supabase
+    .from('rounds')
+    .select('season_number, round_number, matches(ht_match_id, completed, status)')
+    .eq('tournament_id', tournamentId);
+  if (roundsError) return res.status(500).json({ error: roundsError.message });
+
+  type PlanningRoundRow = {
+    season_number: number | null;
+    round_number: number | null;
+    matches: Array<{ ht_match_id?: number | null; completed?: boolean | null; status?: string | null }> | null;
+  };
+  const allRounds = (roundRows || []) as PlanningRoundRow[];
+  const seasonRounds = allRounds
+    .filter((round) => Number(round.season_number) === seasonNumber && Number(round.round_number) > 0)
+    .sort((a, b) => Number(a.round_number) - Number(b.round_number));
+  const currentRound = seasonRounds.find((round) =>
+    (round.matches || []).some((match) =>
+      match.completed !== true && match.status !== 'finished' && match.status !== 'misarranged',
+    ),
+  );
+  const hasSeasonMatches = seasonRounds.some((round) => (round.matches || []).length > 0);
+  const roundNumber = currentRound?.round_number
+    ? Number(currentRound.round_number)
+    : hasSeasonMatches
+      ? Math.max(0, ...seasonRounds.map((round) => Number(round.round_number) || 0)) + 1
+      : seasonRounds.length
+        ? Math.min(...seasonRounds.map((round) => Number(round.round_number) || 1))
+        : 1;
+
+  const { data: savedRows, error: savedError } = await supabase
+    .from('tournament_team_planning_statuses')
+    .select('team_id, in_cup, booked_outside_tournament, checked_at')
+    .eq('tournament_id', tournamentId)
+    .eq('season_number', seasonNumber)
+    .eq('round_number', roundNumber);
+  if (savedError) return res.status(500).json({ error: savedError.message });
+  const storedStatuses = (savedRows || []) as Array<{
+    team_id: string;
+    in_cup: boolean | null;
+    booked_outside_tournament: boolean | null;
+    checked_at: string;
+  }>;
+  const toResponseStatuses = (rows: typeof storedStatuses) => rows.map((row) => ({
+    teamId: row.team_id,
+    inCup: row.in_cup,
+    bookedOutsideTournament: row.booked_outside_tournament,
+    checkedAt: row.checked_at,
+  }));
+  if (loadOnly) return res.status(200).json({ seasonNumber, roundNumber, statuses: toResponseStatuses(storedStatuses) });
+
+  const consumerKey = process.env.CHPP_CONSUMER_KEY;
+  const consumerSecret = process.env.CHPP_CONSUMER_SECRET;
+  if (!consumerKey || !consumerSecret) return res.status(500).json({ error: 'CHPP is not configured.' });
+
   const { data: teamRows, error: teamsError } = await supabase
     .from('teams')
-    .select('id, ht_team_id, oauth_token, oauth_token_secret, active, reserve_active, is_placeholder')
+    .select('id, ht_team_id, oauth_token, oauth_token_secret, is_placeholder')
     .eq('tournament_id', tournamentId);
   if (teamsError) return res.status(500).json({ error: teamsError.message });
 
   const teams = (teamRows || []) as TeamWithAuth[];
   const eligibleTeams = teams.filter(
-    (team) =>
-      (team.active || team.reserve_active) &&
-      !team.is_placeholder &&
-      Number(team.ht_team_id) > 0,
+    (team) => !team.is_placeholder && Number(team.ht_team_id) > 0,
   );
   const authTeam = eligibleTeams.find((team) => team.oauth_token && team.oauth_token_secret);
   if (!authTeam) return res.status(401).json({ error: 'No CHPP-authenticated team available.' });
 
-  const { data: roundRows, error: roundsError } = await supabase
-    .from('rounds')
-    .select('matches(ht_match_id)')
-    .eq('tournament_id', tournamentId);
-  if (roundsError) return res.status(500).json({ error: roundsError.message });
-
   const tournamentMatchIds = new Set<number>();
-  for (const round of roundRows || []) {
-    const roundMatches = Array.isArray(round.matches) ? round.matches : round.matches ? [round.matches] : [];
-    for (const match of roundMatches) {
-      if (match.ht_match_id) tournamentMatchIds.add(Number(match.ht_match_id));
+  for (const round of allRounds) {
+    for (const match of round.matches || []) {
+      if (match.ht_match_id && Number.isSafeInteger(Number(match.ht_match_id))) {
+        tournamentMatchIds.add(Number(match.ht_match_id));
+      }
     }
   }
 
-  const statuses = [];
+  const previousByTeamId = new Map(storedStatuses.map((status) => [status.team_id, status]));
+  const statuses: Array<{
+    teamId: string;
+    inCup: boolean | null;
+    bookedOutsideTournament: boolean | null;
+  }> = [];
   for (const team of eligibleTeams) {
     const credentials = team.oauth_token && team.oauth_token_secret ? team : authTeam;
     let details: Awaited<ReturnType<typeof fetchTeamDetailsFromChpp>> | null = null;
@@ -1277,16 +1332,39 @@ async function handleTeamPlanningStatuses(req: VercelRequest, res: VercelRespons
       // Booking is optional enrichment; do not fail the whole planning refresh.
     }
 
+    const previous = previousByTeamId.get(team.id);
     const bookedMatchId = booking?.match?.matchId ? Number(booking.match.matchId) : null;
     statuses.push({
       teamId: team.id,
-      htTeamId: Number(team.ht_team_id),
-      inCup: typeof details?.stillInCup === 'boolean' ? details.stillInCup : null,
-      bookedOutsideTournament: bookedMatchId !== null && !tournamentMatchIds.has(bookedMatchId),
+      inCup: typeof details?.stillInCup === 'boolean' ? details.stillInCup : previous?.in_cup ?? null,
+      bookedOutsideTournament: booking
+        ? bookedMatchId !== null && !tournamentMatchIds.has(bookedMatchId)
+        : previous?.booked_outside_tournament ?? null,
     });
   }
 
-  return res.status(200).json({ statuses, checkedAt: new Date().toISOString() });
+  const checkedAt = new Date().toISOString();
+  const snapshotRows = statuses.map((status) => ({
+    tournament_id: tournamentId,
+    season_number: seasonNumber,
+    round_number: roundNumber,
+    team_id: status.teamId,
+    in_cup: status.inCup,
+    booked_outside_tournament: status.bookedOutsideTournament,
+    checked_at: checkedAt,
+  }));
+  if (snapshotRows.length) {
+    const { error: saveError } = await supabase
+      .from('tournament_team_planning_statuses')
+      .upsert(snapshotRows, { onConflict: 'tournament_id,season_number,round_number,team_id' });
+    if (saveError) return res.status(500).json({ error: saveError.message });
+  }
+
+  return res.status(200).json({
+    seasonNumber,
+    roundNumber,
+    statuses: statuses.map((status) => ({ ...status, checkedAt })),
+  });
 }
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
@@ -1299,7 +1377,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   if (req.method === 'POST' && getBodyValue(req, 'action') === 'suggest_ht_matches') {
     return handleSuggestHtMatches(req, res);
   }
-  if (req.method === 'POST' && getBodyValue(req, 'action') === 'team_planning_statuses') {
+  if (
+    req.method === 'POST' &&
+    ['team_planning_statuses', 'load_team_planning_statuses'].includes(String(getBodyValue(req, 'action') || ''))
+  ) {
     return handleTeamPlanningStatuses(req, res);
   }
 

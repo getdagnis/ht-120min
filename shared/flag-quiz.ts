@@ -41,10 +41,23 @@ export function flagQuizOptions(correctLeagueId: number, random: () => number): 
   const correct = FLAG_QUIZ_COUNTRIES.find((country) => country.leagueId === correctLeagueId);
   if (!correct) throw new Error('Invalid flag quiz country.');
   const wrong = FLAG_QUIZ_COUNTRIES.filter((country) => country.leagueId !== correctLeagueId);
-  const matching = shuffle(wrong.filter((country) => country.leagueName[0] === correct.leagueName[0]), random).slice(0, 2);
-  const nearby = shuffle(wrong.filter((country) =>
-    Math.abs(country.leagueId - correctLeagueId) <= 20 && !matching.includes(country)), random);
-  const choices = [correct, ...matching, ...nearby.slice(0, 5 - matching.length)];
+  const matching = shuffle(
+    wrong.filter((country) => country.leagueName[0] === correct.leagueName[0]),
+    random,
+  ).slice(0, 2);
+  const nearby = wrong
+    .filter((country) => Math.abs(country.leagueId - correctLeagueId) <= 10 && !matching.includes(country))
+    .sort((left, right) => Math.abs(left.leagueId - correctLeagueId) - Math.abs(right.leagueId - correctLeagueId));
+  const sameContinent = nearby.filter((country) => country.continent === correct.continent);
+  const rankedChoiceCount = 5 - matching.length;
+  const sameContinentChoices = sameContinent.slice(0, Math.min(3, rankedChoiceCount));
+  const rankedChoices = [
+    ...sameContinentChoices,
+    ...nearby
+      .filter((country) => !sameContinentChoices.includes(country))
+      .slice(0, rankedChoiceCount - sameContinentChoices.length),
+  ];
+  const choices = [correct, ...matching, ...rankedChoices];
   if (choices.length !== 6) throw new Error('Not enough flag quiz options.');
   return shuffle(choices, random).map((country) => ({ leagueId: country.leagueId, name: country.leagueName }));
 }

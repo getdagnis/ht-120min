@@ -402,7 +402,7 @@ export interface Team {
 
 export interface TeamPlanningStatus {
   inCup: boolean | null;
-  bookedOutsideTournament: boolean;
+  bookedOutsideTournament: boolean | null;
 }
 
 export interface FetchedTeamData {
@@ -2857,7 +2857,7 @@ export const TournamentView: React.FC<{
         statuses?: Array<{
           teamId: string;
           inCup: boolean | null;
-          bookedOutsideTournament: boolean;
+          bookedOutsideTournament: boolean | null;
         }>;
       } | null;
 
@@ -2890,6 +2890,46 @@ export const TournamentView: React.FC<{
     setTeamPlanningStatuses,
     setTeamStatusNotice,
   ]);
+
+  const loadTeamPlanningStatuses = useCallback(async () => {
+    if (!tournament) return;
+    const adminPassword = password.trim() || tournament.admin_password || '';
+    if (!adminPassword) return;
+
+    try {
+      const response = await fetch('/api/teams/refresh-fixtures', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          action: 'load_team_planning_statuses',
+          tournamentId: tournament.id,
+          adminPassword,
+        }),
+      });
+      const payload = (await response.json().catch(() => null)) as {
+        error?: string;
+        statuses?: Array<{
+          teamId: string;
+          inCup: boolean | null;
+          bookedOutsideTournament: boolean | null;
+        }>;
+      } | null;
+      if (!response.ok || !payload?.statuses) {
+        throw new Error(payload?.error || 'Could not load saved team statuses.');
+      }
+
+      setTeamPlanningStatuses(
+        Object.fromEntries(
+          payload.statuses.map((status) => [
+            status.teamId,
+            { inCup: status.inCup, bookedOutsideTournament: status.bookedOutsideTournament },
+          ]),
+        ),
+      );
+    } catch (error) {
+      setTeamStatusNotice(error instanceof Error ? error.message : 'Could not load saved team statuses.');
+    }
+  }, [password, setTeamPlanningStatuses, setTeamStatusNotice, tournament]);
 
   const updateHfiRanks = useCallback(async () => {
     if (!tournament || isUpdatingHfiRanks) return;
@@ -5809,6 +5849,11 @@ export const TournamentView: React.FC<{
       teams,
       rounds,
       seasonSlots,
+      fixtureWarningTeamIds: new Set(
+        activityWarnings
+          .map((warning) => warning.team_id)
+          .filter((teamId): teamId is string => typeof teamId === 'string'),
+      ),
       participantTeams,
       reserveTeams,
       activeParticipantCount,
@@ -6008,6 +6053,7 @@ export const TournamentView: React.FC<{
       onAddTeam: addTeam,
       onFetchTeamData: fetchTeamData,
       onRefreshTeamPlanningStatuses: refreshTeamPlanningStatuses,
+      onLoadTeamPlanningStatuses: loadTeamPlanningStatuses,
       onUpdateHfiRanks: updateHfiRanks,
       onSetReserveFormOpen: setIsReserveTeamFormOpen,
       reserveReplacingTeamId,

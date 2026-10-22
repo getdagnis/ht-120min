@@ -1,4 +1,5 @@
 // Generated from src/utils/worlddetails.xml (CHPP worldDetails v1.2).
+// continent is a curated classification based on Hattrick's country groupings.
 // leagueName is the short English display name; fullName is the full English name.
 // countryName preserves Hattrick's local/original country name.
 // LeagueID and CountryID are separate namespaces; special leagues have no country
@@ -9,6 +10,8 @@ export interface HattrickWorldLeague {
   leagueId: number;
   /** Short display name used throughout the UI. */
   leagueName: string;
+  /** Continent or Hattrick's world-level grouping. */
+  continent: 'Africa' | 'Asia' | 'Europe' | 'North and Central America' | 'Oceania' | 'South America' | 'World';
   /** Full English name for tooltips and explanatory copy. */
   fullName: string;
   countryId: number | null;
@@ -23,6 +26,7 @@ export type CountryRestrictionFormat = 'country_id' | 'league_id';
 
 export const HATTRICK_WORLD_DETAILS: Record<number, HattrickWorldLeague> = {
   1: {
+    continent: 'Europe',
     leagueId: 1,
     leagueName: 'Sweden',
     fullName: 'Sweden',
@@ -33,6 +37,7 @@ export const HATTRICK_WORLD_DETAILS: Record<number, HattrickWorldLeague> = {
     emoji: '🇸🇪',
   },
   2: {
+    continent: 'Europe',
     leagueId: 2,
     leagueName: 'England',
     fullName: 'England',
@@ -43,6 +48,7 @@ export const HATTRICK_WORLD_DETAILS: Record<number, HattrickWorldLeague> = {
     emoji: '🏴󠁧󠁢󠁥󠁮󠁧󠁿',
   },
   3: {
+    continent: 'Europe',
     leagueId: 3,
     leagueName: 'Germany',
     fullName: 'Germany',
@@ -53,6 +59,7 @@ export const HATTRICK_WORLD_DETAILS: Record<number, HattrickWorldLeague> = {
     emoji: '🇩🇪',
   },
   4: {
+    continent: 'Europe',
     leagueId: 4,
     leagueName: 'Italy',
     fullName: 'Italy',
@@ -63,6 +70,7 @@ export const HATTRICK_WORLD_DETAILS: Record<number, HattrickWorldLeague> = {
     emoji: '🇮🇹',
   },
   5: {
+    continent: 'Europe',
     leagueId: 5,
     leagueName: 'France',
     fullName: 'France',
@@ -73,6 +81,7 @@ export const HATTRICK_WORLD_DETAILS: Record<number, HattrickWorldLeague> = {
     emoji: '🇫🇷',
   },
   6: {
+    continent: 'North and Central America',
     leagueId: 6,
     leagueName: 'Mexico',
     fullName: 'Mexico',
@@ -83,6 +92,7 @@ export const HATTRICK_WORLD_DETAILS: Record<number, HattrickWorldLeague> = {
     emoji: '🇲🇽',
   },
   7: {
+    continent: 'South America',
     leagueId: 7,
     leagueName: 'Argentina',
     fullName: 'Argentina',
@@ -93,6 +103,7 @@ export const HATTRICK_WORLD_DETAILS: Record<number, HattrickWorldLeague> = {
     emoji: '🇦🇷',
   },
   8: {
+    continent: 'North and Central America',
     leagueId: 8,
     leagueName: 'USA',
     fullName: 'United States of America',
@@ -103,6 +114,7 @@ export const HATTRICK_WORLD_DETAILS: Record<number, HattrickWorldLeague> = {
     emoji: '🇺🇸',
   },
   9: {
+    continent: 'Europe',
     leagueId: 9,
     leagueName: 'Norway',
     fullName: 'Norway',
@@ -113,6 +125,7 @@ export const HATTRICK_WORLD_DETAILS: Record<number, HattrickWorldLeague> = {
     emoji: '🇳🇴',
   },
   11: {
+    continent: 'Europe',
     leagueId: 11,
     leagueName: 'Denmark',
     fullName: 'Denmark',
@@ -123,6 +136,7 @@ export const HATTRICK_WORLD_DETAILS: Record<number, HattrickWorldLeague> = {
     emoji: '🇩🇰',
   },
   12: {
+    continent: 'Europe',
     leagueId: 12,
     leagueName: 'Finland',
     fullName: 'Finland',
@@ -133,6 +147,7 @@ export const HATTRICK_WORLD_DETAILS: Record<number, HattrickWorldLeague> = {
     emoji: '🇫🇮',
   },
   14: {
+    continent: 'Europe',
     leagueId: 14,
     leagueName: 'Netherlands',
     fullName: 'Netherlands',
@@ -143,6 +158,7 @@ export const HATTRICK_WORLD_DETAILS: Record<number, HattrickWorldLeague> = {
     emoji: '🇳🇱',
   },
   15: {
+    continent: 'Oceania',
     leagueId: 15,
     leagueName: 'Oceania',
     fullName: 'Oceania',
@@ -153,6 +169,7 @@ export const HATTRICK_WORLD_DETAILS: Record<number, HattrickWorldLeague> = {
     emoji: '🇦🇺',
   },
   16: {
+    continent: 'South America',
     leagueId: 16,
     leagueName: 'Brazil',
     fullName: 'Brazil',
@@ -163,6 +180,7 @@ export const HATTRICK_WORLD_DETAILS: Record<number, HattrickWorldLeague> = {
     emoji: '🇧🇷',
   },
   17: {
+    continent: 'North and Central America',
     leagueId: 17,
     leagueName: 'Canada',
     fullName: 'Canada',
@@ -173,6 +191,7 @@ export const HATTRICK_WORLD_DETAILS: Record<number, HattrickWorldLeague> = {
     emoji: '🇨🇦',
   },
   18: {
+    continent: 'South America',
     leagueId: 18,
     leagueName: 'Chile',
     fullName: 'Chile',
@@ -183,6 +202,7 @@ export const HATTRICK_WORLD_DETAILS: Record<number, HattrickWorldLeague> = {
     emoji: '🇨🇱',
   },
   19: {
+    continent: 'South America',
     leagueId: 19,
     leagueName: 'Colombia',
     fullName: 'Colombia',
@@ -193,6 +213,7 @@ export const HATTRICK_WORLD_DETAILS: Record<number, HattrickWorldLeague> = {
     emoji: '🇨🇴',
   },
   20: {
+    continent: 'Asia',
     leagueId: 20,
     leagueName: 'India',
     fullName: 'India',
@@ -203,6 +224,7 @@ export const HATTRICK_WORLD_DETAILS: Record<number, HattrickWorldLeague> = {
     emoji: '🇮🇳',
   },
   21: {
+    continent: 'Europe',
     leagueId: 21,
     leagueName: 'Ireland',
     fullName: 'Ireland',
@@ -213,6 +235,7 @@ export const HATTRICK_WORLD_DETAILS: Record<number, HattrickWorldLeague> = {
     emoji: '🇮🇪',
   },
   22: {
+    continent: 'Asia',
     leagueId: 22,
     leagueName: 'Japan',
     fullName: 'Japan',
@@ -223,6 +246,7 @@ export const HATTRICK_WORLD_DETAILS: Record<number, HattrickWorldLeague> = {
     emoji: '🇯🇵',
   },
   23: {
+    continent: 'South America',
     leagueId: 23,
     leagueName: 'Peru',
     fullName: 'Peru',
@@ -233,6 +257,7 @@ export const HATTRICK_WORLD_DETAILS: Record<number, HattrickWorldLeague> = {
     emoji: '🇵🇪',
   },
   24: {
+    continent: 'Europe',
     leagueId: 24,
     leagueName: 'Poland',
     fullName: 'Poland',
@@ -243,6 +268,7 @@ export const HATTRICK_WORLD_DETAILS: Record<number, HattrickWorldLeague> = {
     emoji: '🇵🇱',
   },
   25: {
+    continent: 'Europe',
     leagueId: 25,
     leagueName: 'Portugal',
     fullName: 'Portugal',
@@ -253,6 +279,7 @@ export const HATTRICK_WORLD_DETAILS: Record<number, HattrickWorldLeague> = {
     emoji: '🇵🇹',
   },
   26: {
+    continent: 'Europe',
     leagueId: 26,
     leagueName: 'Scotland',
     fullName: 'Scotland',
@@ -263,6 +290,7 @@ export const HATTRICK_WORLD_DETAILS: Record<number, HattrickWorldLeague> = {
     emoji: '🏴󠁧󠁢󠁳󠁣󠁴󠁿',
   },
   27: {
+    continent: 'Africa',
     leagueId: 27,
     leagueName: 'South Africa',
     fullName: 'South Africa',
@@ -273,6 +301,7 @@ export const HATTRICK_WORLD_DETAILS: Record<number, HattrickWorldLeague> = {
     emoji: '🇿🇦',
   },
   28: {
+    continent: 'South America',
     leagueId: 28,
     leagueName: 'Uruguay',
     fullName: 'Uruguay',
@@ -283,6 +312,7 @@ export const HATTRICK_WORLD_DETAILS: Record<number, HattrickWorldLeague> = {
     emoji: '🇺🇾',
   },
   29: {
+    continent: 'South America',
     leagueId: 29,
     leagueName: 'Venezuela',
     fullName: 'Venezuela',
@@ -293,6 +323,7 @@ export const HATTRICK_WORLD_DETAILS: Record<number, HattrickWorldLeague> = {
     emoji: '🇻🇪',
   },
   30: {
+    continent: 'Asia',
     leagueId: 30,
     leagueName: 'South Korea',
     fullName: 'South Korea',
@@ -303,6 +334,7 @@ export const HATTRICK_WORLD_DETAILS: Record<number, HattrickWorldLeague> = {
     emoji: '🇰🇷',
   },
   31: {
+    continent: 'Asia',
     leagueId: 31,
     leagueName: 'Thailand',
     fullName: 'Thailand',
@@ -313,6 +345,7 @@ export const HATTRICK_WORLD_DETAILS: Record<number, HattrickWorldLeague> = {
     emoji: '🇹🇭',
   },
   32: {
+    continent: 'Europe',
     leagueId: 32,
     leagueName: 'Turkey',
     fullName: 'Turkey',
@@ -323,6 +356,7 @@ export const HATTRICK_WORLD_DETAILS: Record<number, HattrickWorldLeague> = {
     emoji: '🇹🇷',
   },
   33: {
+    continent: 'Africa',
     leagueId: 33,
     leagueName: 'Egypt',
     fullName: 'Egypt',
@@ -333,6 +367,7 @@ export const HATTRICK_WORLD_DETAILS: Record<number, HattrickWorldLeague> = {
     emoji: '🇪🇬',
   },
   34: {
+    continent: 'Asia',
     leagueId: 34,
     leagueName: 'China',
     fullName: "People's Republic of China",
@@ -343,6 +378,7 @@ export const HATTRICK_WORLD_DETAILS: Record<number, HattrickWorldLeague> = {
     emoji: '🇨🇳',
   },
   35: {
+    continent: 'Europe',
     leagueId: 35,
     leagueName: 'Russia',
     fullName: 'Russia',
@@ -353,6 +389,7 @@ export const HATTRICK_WORLD_DETAILS: Record<number, HattrickWorldLeague> = {
     emoji: '🇷🇺',
   },
   36: {
+    continent: 'Europe',
     leagueId: 36,
     leagueName: 'Spain',
     fullName: 'Spain',
@@ -363,6 +400,7 @@ export const HATTRICK_WORLD_DETAILS: Record<number, HattrickWorldLeague> = {
     emoji: '🇪🇸',
   },
   37: {
+    continent: 'Europe',
     leagueId: 37,
     leagueName: 'Romania',
     fullName: 'Romania',
@@ -373,6 +411,7 @@ export const HATTRICK_WORLD_DETAILS: Record<number, HattrickWorldLeague> = {
     emoji: '🇷🇴',
   },
   38: {
+    continent: 'Europe',
     leagueId: 38,
     leagueName: 'Iceland',
     fullName: 'Iceland',
@@ -383,6 +422,7 @@ export const HATTRICK_WORLD_DETAILS: Record<number, HattrickWorldLeague> = {
     emoji: '🇮🇸',
   },
   39: {
+    continent: 'Europe',
     leagueId: 39,
     leagueName: 'Austria',
     fullName: 'Austria',
@@ -393,6 +433,7 @@ export const HATTRICK_WORLD_DETAILS: Record<number, HattrickWorldLeague> = {
     emoji: '🇦🇹',
   },
   44: {
+    continent: 'Europe',
     leagueId: 44,
     leagueName: 'Belgium',
     fullName: 'Belgium',
@@ -403,6 +444,7 @@ export const HATTRICK_WORLD_DETAILS: Record<number, HattrickWorldLeague> = {
     emoji: '🇧🇪',
   },
   45: {
+    continent: 'Asia',
     leagueId: 45,
     leagueName: 'Malaysia',
     fullName: 'Malaysia',
@@ -413,6 +455,7 @@ export const HATTRICK_WORLD_DETAILS: Record<number, HattrickWorldLeague> = {
     emoji: '🇲🇾',
   },
   46: {
+    continent: 'Europe',
     leagueId: 46,
     leagueName: 'Switzerland',
     fullName: 'Switzerland',
@@ -423,6 +466,7 @@ export const HATTRICK_WORLD_DETAILS: Record<number, HattrickWorldLeague> = {
     emoji: '🇨🇭',
   },
   47: {
+    continent: 'Asia',
     leagueId: 47,
     leagueName: 'Singapore',
     fullName: 'Singapore',
@@ -433,6 +477,7 @@ export const HATTRICK_WORLD_DETAILS: Record<number, HattrickWorldLeague> = {
     emoji: '🇸🇬',
   },
   50: {
+    continent: 'Europe',
     leagueId: 50,
     leagueName: 'Greece',
     fullName: 'Greece',
@@ -443,6 +488,7 @@ export const HATTRICK_WORLD_DETAILS: Record<number, HattrickWorldLeague> = {
     emoji: '🇬🇷',
   },
   51: {
+    continent: 'Europe',
     leagueId: 51,
     leagueName: 'Hungary',
     fullName: 'Hungary',
@@ -453,6 +499,7 @@ export const HATTRICK_WORLD_DETAILS: Record<number, HattrickWorldLeague> = {
     emoji: '🇭🇺',
   },
   52: {
+    continent: 'Europe',
     leagueId: 52,
     leagueName: 'Czechia',
     fullName: 'Czechia',
@@ -463,6 +510,7 @@ export const HATTRICK_WORLD_DETAILS: Record<number, HattrickWorldLeague> = {
     emoji: '🇨🇿',
   },
   53: {
+    continent: 'Europe',
     leagueId: 53,
     leagueName: 'Latvia',
     fullName: 'Latvia',
@@ -473,6 +521,7 @@ export const HATTRICK_WORLD_DETAILS: Record<number, HattrickWorldLeague> = {
     emoji: '🇱🇻',
   },
   54: {
+    continent: 'Asia',
     leagueId: 54,
     leagueName: 'Indonesia',
     fullName: 'Indonesia',
@@ -483,6 +532,7 @@ export const HATTRICK_WORLD_DETAILS: Record<number, HattrickWorldLeague> = {
     emoji: '🇮🇩',
   },
   55: {
+    continent: 'Asia',
     leagueId: 55,
     leagueName: 'Philippines',
     fullName: 'Philippines',
@@ -493,6 +543,7 @@ export const HATTRICK_WORLD_DETAILS: Record<number, HattrickWorldLeague> = {
     emoji: '🇵🇭',
   },
   56: {
+    continent: 'Europe',
     leagueId: 56,
     leagueName: 'Estonia',
     fullName: 'Estonia',
@@ -503,6 +554,7 @@ export const HATTRICK_WORLD_DETAILS: Record<number, HattrickWorldLeague> = {
     emoji: '🇪🇪',
   },
   57: {
+    continent: 'Europe',
     leagueId: 57,
     leagueName: 'Serbia',
     fullName: 'Serbia',
@@ -513,6 +565,7 @@ export const HATTRICK_WORLD_DETAILS: Record<number, HattrickWorldLeague> = {
     emoji: '🇷🇸',
   },
   58: {
+    continent: 'Europe',
     leagueId: 58,
     leagueName: 'Croatia',
     fullName: 'Croatia',
@@ -523,6 +576,7 @@ export const HATTRICK_WORLD_DETAILS: Record<number, HattrickWorldLeague> = {
     emoji: '🇭🇷',
   },
   59: {
+    continent: 'Asia',
     leagueId: 59,
     leagueName: 'Hong Kong',
     fullName: 'Hong Kong',
@@ -533,6 +587,7 @@ export const HATTRICK_WORLD_DETAILS: Record<number, HattrickWorldLeague> = {
     emoji: '🇭🇰',
   },
   60: {
+    continent: 'Asia',
     leagueId: 60,
     leagueName: 'Chinese Taipei',
     fullName: 'Chinese Taipei',
@@ -543,6 +598,7 @@ export const HATTRICK_WORLD_DETAILS: Record<number, HattrickWorldLeague> = {
     emoji: '🇹🇼',
   },
   61: {
+    continent: 'Europe',
     leagueId: 61,
     leagueName: 'Wales',
     fullName: 'Wales',
@@ -553,6 +609,7 @@ export const HATTRICK_WORLD_DETAILS: Record<number, HattrickWorldLeague> = {
     emoji: '🏴󠁧󠁢󠁷󠁬󠁳󠁿',
   },
   62: {
+    continent: 'Europe',
     leagueId: 62,
     leagueName: 'Bulgaria',
     fullName: 'Bulgaria',
@@ -563,6 +620,7 @@ export const HATTRICK_WORLD_DETAILS: Record<number, HattrickWorldLeague> = {
     emoji: '🇧🇬',
   },
   63: {
+    continent: 'Asia',
     leagueId: 63,
     leagueName: 'Israel',
     fullName: 'Israel',
@@ -573,6 +631,7 @@ export const HATTRICK_WORLD_DETAILS: Record<number, HattrickWorldLeague> = {
     emoji: '🇮🇱',
   },
   64: {
+    continent: 'Europe',
     leagueId: 64,
     leagueName: 'Slovenia',
     fullName: 'Slovenia',
@@ -583,6 +642,7 @@ export const HATTRICK_WORLD_DETAILS: Record<number, HattrickWorldLeague> = {
     emoji: '🇸🇮',
   },
   66: {
+    continent: 'Europe',
     leagueId: 66,
     leagueName: 'Lithuania',
     fullName: 'Lithuania',
@@ -593,6 +653,7 @@ export const HATTRICK_WORLD_DETAILS: Record<number, HattrickWorldLeague> = {
     emoji: '🇱🇹',
   },
   67: {
+    continent: 'Europe',
     leagueId: 67,
     leagueName: 'Slovakia',
     fullName: 'Slovakia',
@@ -603,6 +664,7 @@ export const HATTRICK_WORLD_DETAILS: Record<number, HattrickWorldLeague> = {
     emoji: '🇸🇰',
   },
   68: {
+    continent: 'Europe',
     leagueId: 68,
     leagueName: 'Ukraine',
     fullName: 'Ukraine',
@@ -613,6 +675,7 @@ export const HATTRICK_WORLD_DETAILS: Record<number, HattrickWorldLeague> = {
     emoji: '🇺🇦',
   },
   69: {
+    continent: 'Europe',
     leagueId: 69,
     leagueName: 'Bosnia and Herzegovina',
     fullName: 'Bosnia and Herzegovina',
@@ -623,6 +686,7 @@ export const HATTRICK_WORLD_DETAILS: Record<number, HattrickWorldLeague> = {
     emoji: '🇧🇦',
   },
   70: {
+    continent: 'Asia',
     leagueId: 70,
     leagueName: 'Vietnam',
     fullName: 'Vietnam',
@@ -633,6 +697,7 @@ export const HATTRICK_WORLD_DETAILS: Record<number, HattrickWorldLeague> = {
     emoji: '🇻🇳',
   },
   71: {
+    continent: 'Asia',
     leagueId: 71,
     leagueName: 'Pakistan',
     fullName: 'Pakistan',
@@ -643,6 +708,7 @@ export const HATTRICK_WORLD_DETAILS: Record<number, HattrickWorldLeague> = {
     emoji: '🇵🇰',
   },
   72: {
+    continent: 'South America',
     leagueId: 72,
     leagueName: 'Paraguay',
     fullName: 'Paraguay',
@@ -653,6 +719,7 @@ export const HATTRICK_WORLD_DETAILS: Record<number, HattrickWorldLeague> = {
     emoji: '🇵🇾',
   },
   73: {
+    continent: 'South America',
     leagueId: 73,
     leagueName: 'Ecuador',
     fullName: 'Ecuador',
@@ -663,6 +730,7 @@ export const HATTRICK_WORLD_DETAILS: Record<number, HattrickWorldLeague> = {
     emoji: '🇪🇨',
   },
   74: {
+    continent: 'South America',
     leagueId: 74,
     leagueName: 'Bolivia',
     fullName: 'Bolivia',
@@ -673,6 +741,7 @@ export const HATTRICK_WORLD_DETAILS: Record<number, HattrickWorldLeague> = {
     emoji: '🇧🇴',
   },
   75: {
+    continent: 'Africa',
     leagueId: 75,
     leagueName: 'Nigeria',
     fullName: 'Nigeria',
@@ -683,6 +752,7 @@ export const HATTRICK_WORLD_DETAILS: Record<number, HattrickWorldLeague> = {
     emoji: '🇳🇬',
   },
   76: {
+    continent: 'Europe',
     leagueId: 76,
     leagueName: 'Faroe Islands',
     fullName: 'Faroe Islands',
@@ -693,6 +763,7 @@ export const HATTRICK_WORLD_DETAILS: Record<number, HattrickWorldLeague> = {
     emoji: '🇫🇴',
   },
   77: {
+    continent: 'Africa',
     leagueId: 77,
     leagueName: 'Morocco',
     fullName: 'Morocco',
@@ -703,6 +774,7 @@ export const HATTRICK_WORLD_DETAILS: Record<number, HattrickWorldLeague> = {
     emoji: '🇲🇦',
   },
   79: {
+    continent: 'Asia',
     leagueId: 79,
     leagueName: 'Saudi Arabia',
     fullName: 'Saudi Arabia',
@@ -713,6 +785,7 @@ export const HATTRICK_WORLD_DETAILS: Record<number, HattrickWorldLeague> = {
     emoji: '🇸🇦',
   },
   80: {
+    continent: 'Africa',
     leagueId: 80,
     leagueName: 'Tunisia',
     fullName: 'Tunisia',
@@ -723,6 +796,7 @@ export const HATTRICK_WORLD_DETAILS: Record<number, HattrickWorldLeague> = {
     emoji: '🇹🇳',
   },
   81: {
+    continent: 'North and Central America',
     leagueId: 81,
     leagueName: 'Costa Rica',
     fullName: 'Costa Rica',
@@ -733,6 +807,7 @@ export const HATTRICK_WORLD_DETAILS: Record<number, HattrickWorldLeague> = {
     emoji: '🇨🇷',
   },
   83: {
+    continent: 'Asia',
     leagueId: 83,
     leagueName: 'United Arab Emirates',
     fullName: 'United Arab Emirates',
@@ -743,6 +818,7 @@ export const HATTRICK_WORLD_DETAILS: Record<number, HattrickWorldLeague> = {
     emoji: '🇦🇪',
   },
   84: {
+    continent: 'Europe',
     leagueId: 84,
     leagueName: 'Luxembourg',
     fullName: 'Luxembourg',
@@ -753,6 +829,7 @@ export const HATTRICK_WORLD_DETAILS: Record<number, HattrickWorldLeague> = {
     emoji: '🇱🇺',
   },
   85: {
+    continent: 'Asia',
     leagueId: 85,
     leagueName: 'Iran',
     fullName: 'Iran',
@@ -763,6 +840,7 @@ export const HATTRICK_WORLD_DETAILS: Record<number, HattrickWorldLeague> = {
     emoji: '🇮🇷',
   },
   88: {
+    continent: 'North and Central America',
     leagueId: 88,
     leagueName: 'Dominican Republic',
     fullName: 'Dominican Republic',
@@ -773,6 +851,7 @@ export const HATTRICK_WORLD_DETAILS: Record<number, HattrickWorldLeague> = {
     emoji: '🇩🇴',
   },
   89: {
+    continent: 'Europe',
     leagueId: 89,
     leagueName: 'Cyprus',
     fullName: 'Cyprus',
@@ -783,6 +862,7 @@ export const HATTRICK_WORLD_DETAILS: Record<number, HattrickWorldLeague> = {
     emoji: '🇨🇾',
   },
   91: {
+    continent: 'Europe',
     leagueId: 91,
     leagueName: 'Belarus',
     fullName: 'Belarus',
@@ -793,6 +873,7 @@ export const HATTRICK_WORLD_DETAILS: Record<number, HattrickWorldLeague> = {
     emoji: '🇧🇾',
   },
   93: {
+    continent: 'Europe',
     leagueId: 93,
     leagueName: 'Northern Ireland',
     fullName: 'Northern Ireland',
@@ -803,6 +884,7 @@ export const HATTRICK_WORLD_DETAILS: Record<number, HattrickWorldLeague> = {
     emoji: '🇬🇧',
   },
   94: {
+    continent: 'North and Central America',
     leagueId: 94,
     leagueName: 'Jamaica',
     fullName: 'Jamaica',
@@ -813,6 +895,7 @@ export const HATTRICK_WORLD_DETAILS: Record<number, HattrickWorldLeague> = {
     emoji: '🇯🇲',
   },
   95: {
+    continent: 'Africa',
     leagueId: 95,
     leagueName: 'Kenya',
     fullName: 'Kenya',
@@ -823,6 +906,7 @@ export const HATTRICK_WORLD_DETAILS: Record<number, HattrickWorldLeague> = {
     emoji: '🇰🇪',
   },
   96: {
+    continent: 'North and Central America',
     leagueId: 96,
     leagueName: 'Panama',
     fullName: 'Panama',
@@ -833,6 +917,7 @@ export const HATTRICK_WORLD_DETAILS: Record<number, HattrickWorldLeague> = {
     emoji: '🇵🇦',
   },
   97: {
+    continent: 'Europe',
     leagueId: 97,
     leagueName: 'North Macedonia',
     fullName: 'North Macedonia',
@@ -843,6 +928,7 @@ export const HATTRICK_WORLD_DETAILS: Record<number, HattrickWorldLeague> = {
     emoji: '🇲🇰',
   },
   98: {
+    continent: 'Europe',
     leagueId: 98,
     leagueName: 'Albania',
     fullName: 'Albania',
@@ -853,6 +939,7 @@ export const HATTRICK_WORLD_DETAILS: Record<number, HattrickWorldLeague> = {
     emoji: '🇦🇱',
   },
   99: {
+    continent: 'North and Central America',
     leagueId: 99,
     leagueName: 'Honduras',
     fullName: 'Honduras',
@@ -863,6 +950,7 @@ export const HATTRICK_WORLD_DETAILS: Record<number, HattrickWorldLeague> = {
     emoji: '🇭🇳',
   },
   100: {
+    continent: 'North and Central America',
     leagueId: 100,
     leagueName: 'El Salvador',
     fullName: 'El Salvador',
@@ -873,6 +961,7 @@ export const HATTRICK_WORLD_DETAILS: Record<number, HattrickWorldLeague> = {
     emoji: '🇸🇻',
   },
   101: {
+    continent: 'Europe',
     leagueId: 101,
     leagueName: 'Malta',
     fullName: 'Malta',
@@ -883,6 +972,7 @@ export const HATTRICK_WORLD_DETAILS: Record<number, HattrickWorldLeague> = {
     emoji: '🇲🇹',
   },
   102: {
+    continent: 'Asia',
     leagueId: 102,
     leagueName: 'Kyrgyzstan',
     fullName: 'Kyrgyz Republic',
@@ -893,6 +983,7 @@ export const HATTRICK_WORLD_DETAILS: Record<number, HattrickWorldLeague> = {
     emoji: '🇰🇬',
   },
   103: {
+    continent: 'Europe',
     leagueId: 103,
     leagueName: 'Moldova',
     fullName: 'Moldova',
@@ -903,6 +994,7 @@ export const HATTRICK_WORLD_DETAILS: Record<number, HattrickWorldLeague> = {
     emoji: '🇲🇩',
   },
   104: {
+    continent: 'Asia',
     leagueId: 104,
     leagueName: 'Georgia',
     fullName: 'Georgia',
@@ -913,6 +1005,7 @@ export const HATTRICK_WORLD_DETAILS: Record<number, HattrickWorldLeague> = {
     emoji: '🇬🇪',
   },
   105: {
+    continent: 'Europe',
     leagueId: 105,
     leagueName: 'Andorra',
     fullName: 'Andorra',
@@ -923,6 +1016,7 @@ export const HATTRICK_WORLD_DETAILS: Record<number, HattrickWorldLeague> = {
     emoji: '🇦🇩',
   },
   106: {
+    continent: 'Asia',
     leagueId: 106,
     leagueName: 'Jordan',
     fullName: 'Jordan',
@@ -933,6 +1027,7 @@ export const HATTRICK_WORLD_DETAILS: Record<number, HattrickWorldLeague> = {
     emoji: '🇯🇴',
   },
   107: {
+    continent: 'North and Central America',
     leagueId: 107,
     leagueName: 'Guatemala',
     fullName: 'Guatemala',
@@ -943,6 +1038,7 @@ export const HATTRICK_WORLD_DETAILS: Record<number, HattrickWorldLeague> = {
     emoji: '🇬🇹',
   },
   110: {
+    continent: 'North and Central America',
     leagueId: 110,
     leagueName: 'Trinidad & Tobago',
     fullName: 'Trinidad & Tobago',
@@ -953,6 +1049,7 @@ export const HATTRICK_WORLD_DETAILS: Record<number, HattrickWorldLeague> = {
     emoji: '🇹🇹',
   },
   111: {
+    continent: 'North and Central America',
     leagueId: 111,
     leagueName: 'Nicaragua',
     fullName: 'Nicaragua',
@@ -963,6 +1060,7 @@ export const HATTRICK_WORLD_DETAILS: Record<number, HattrickWorldLeague> = {
     emoji: '🇳🇮',
   },
   112: {
+    continent: 'Asia',
     leagueId: 112,
     leagueName: 'Kazakhstan',
     fullName: 'Kazakhstan',
@@ -973,6 +1071,7 @@ export const HATTRICK_WORLD_DETAILS: Record<number, HattrickWorldLeague> = {
     emoji: '🇰🇿',
   },
   113: {
+    continent: 'South America',
     leagueId: 113,
     leagueName: 'Suriname',
     fullName: 'Suriname',
@@ -983,6 +1082,7 @@ export const HATTRICK_WORLD_DETAILS: Record<number, HattrickWorldLeague> = {
     emoji: '🇸🇷',
   },
   117: {
+    continent: 'Europe',
     leagueId: 117,
     leagueName: 'Liechtenstein',
     fullName: 'Liechtenstein',
@@ -993,6 +1093,7 @@ export const HATTRICK_WORLD_DETAILS: Record<number, HattrickWorldLeague> = {
     emoji: '🇱🇮',
   },
   118: {
+    continent: 'Africa',
     leagueId: 118,
     leagueName: 'Algeria',
     fullName: 'Algeria',
@@ -1003,6 +1104,7 @@ export const HATTRICK_WORLD_DETAILS: Record<number, HattrickWorldLeague> = {
     emoji: '🇩🇿',
   },
   119: {
+    continent: 'Asia',
     leagueId: 119,
     leagueName: 'Mongolia',
     fullName: 'Mongolia',
@@ -1013,6 +1115,7 @@ export const HATTRICK_WORLD_DETAILS: Record<number, HattrickWorldLeague> = {
     emoji: '🇲🇳',
   },
   120: {
+    continent: 'Asia',
     leagueId: 120,
     leagueName: 'Lebanon',
     fullName: 'Lebanon',
@@ -1023,6 +1126,7 @@ export const HATTRICK_WORLD_DETAILS: Record<number, HattrickWorldLeague> = {
     emoji: '🇱🇧',
   },
   121: {
+    continent: 'Africa',
     leagueId: 121,
     leagueName: 'Senegal',
     fullName: 'Senegal',
@@ -1033,6 +1137,7 @@ export const HATTRICK_WORLD_DETAILS: Record<number, HattrickWorldLeague> = {
     emoji: '🇸🇳',
   },
   122: {
+    continent: 'Asia',
     leagueId: 122,
     leagueName: 'Armenia',
     fullName: 'Armenia',
@@ -1043,6 +1148,7 @@ export const HATTRICK_WORLD_DETAILS: Record<number, HattrickWorldLeague> = {
     emoji: '🇦🇲',
   },
   123: {
+    continent: 'Asia',
     leagueId: 123,
     leagueName: 'Bahrain',
     fullName: 'Bahrain',
@@ -1053,6 +1159,7 @@ export const HATTRICK_WORLD_DETAILS: Record<number, HattrickWorldLeague> = {
     emoji: '🇧🇭',
   },
   124: {
+    continent: 'North and Central America',
     leagueId: 124,
     leagueName: 'Barbados',
     fullName: 'Barbados',
@@ -1063,6 +1170,7 @@ export const HATTRICK_WORLD_DETAILS: Record<number, HattrickWorldLeague> = {
     emoji: '🇧🇧',
   },
   125: {
+    continent: 'Africa',
     leagueId: 125,
     leagueName: 'Cape Verde',
     fullName: 'Cape Verde',
@@ -1073,6 +1181,7 @@ export const HATTRICK_WORLD_DETAILS: Record<number, HattrickWorldLeague> = {
     emoji: '🇨🇻',
   },
   126: {
+    continent: 'Africa',
     leagueId: 126,
     leagueName: 'Ivory Coast',
     fullName: 'Côte d’Ivoire',
@@ -1083,6 +1192,7 @@ export const HATTRICK_WORLD_DETAILS: Record<number, HattrickWorldLeague> = {
     emoji: '🇨🇮',
   },
   127: {
+    continent: 'Asia',
     leagueId: 127,
     leagueName: 'Kuwait',
     fullName: 'Kuwait',
@@ -1093,6 +1203,7 @@ export const HATTRICK_WORLD_DETAILS: Record<number, HattrickWorldLeague> = {
     emoji: '🇰🇼',
   },
   128: {
+    continent: 'Asia',
     leagueId: 128,
     leagueName: 'Iraq',
     fullName: 'Iraq',
@@ -1103,6 +1214,7 @@ export const HATTRICK_WORLD_DETAILS: Record<number, HattrickWorldLeague> = {
     emoji: '🇮🇶',
   },
   129: {
+    continent: 'Asia',
     leagueId: 129,
     leagueName: 'Azerbaijan',
     fullName: 'Azerbaijan',
@@ -1113,6 +1225,7 @@ export const HATTRICK_WORLD_DETAILS: Record<number, HattrickWorldLeague> = {
     emoji: '🇦🇿',
   },
   130: {
+    continent: 'Africa',
     leagueId: 130,
     leagueName: 'Angola',
     fullName: 'Angola',
@@ -1123,6 +1236,7 @@ export const HATTRICK_WORLD_DETAILS: Record<number, HattrickWorldLeague> = {
     emoji: '🇦🇴',
   },
   131: {
+    continent: 'Europe',
     leagueId: 131,
     leagueName: 'Montenegro',
     fullName: 'Montenegro',
@@ -1133,6 +1247,7 @@ export const HATTRICK_WORLD_DETAILS: Record<number, HattrickWorldLeague> = {
     emoji: '🇲🇪',
   },
   132: {
+    continent: 'Asia',
     leagueId: 132,
     leagueName: 'Bangladesh',
     fullName: 'Bangladesh',
@@ -1143,6 +1258,7 @@ export const HATTRICK_WORLD_DETAILS: Record<number, HattrickWorldLeague> = {
     emoji: '🇧🇩',
   },
   133: {
+    continent: 'Asia',
     leagueId: 133,
     leagueName: 'Yemen',
     fullName: 'Yemen',
@@ -1153,6 +1269,7 @@ export const HATTRICK_WORLD_DETAILS: Record<number, HattrickWorldLeague> = {
     emoji: '🇾🇪',
   },
   134: {
+    continent: 'Asia',
     leagueId: 134,
     leagueName: 'Oman',
     fullName: 'Oman',
@@ -1163,6 +1280,7 @@ export const HATTRICK_WORLD_DETAILS: Record<number, HattrickWorldLeague> = {
     emoji: '🇴🇲',
   },
   135: {
+    continent: 'Africa',
     leagueId: 135,
     leagueName: 'Mozambique',
     fullName: 'Mozambique',
@@ -1173,6 +1291,7 @@ export const HATTRICK_WORLD_DETAILS: Record<number, HattrickWorldLeague> = {
     emoji: '🇲🇿',
   },
   136: {
+    continent: 'Asia',
     leagueId: 136,
     leagueName: 'Brunei',
     fullName: 'Brunei',
@@ -1183,6 +1302,7 @@ export const HATTRICK_WORLD_DETAILS: Record<number, HattrickWorldLeague> = {
     emoji: '🇧🇳',
   },
   137: {
+    continent: 'Africa',
     leagueId: 137,
     leagueName: 'Ghana',
     fullName: 'Ghana',
@@ -1193,6 +1313,7 @@ export const HATTRICK_WORLD_DETAILS: Record<number, HattrickWorldLeague> = {
     emoji: '🇬🇭',
   },
   138: {
+    continent: 'Asia',
     leagueId: 138,
     leagueName: 'Cambodia',
     fullName: 'Cambodia',
@@ -1203,6 +1324,7 @@ export const HATTRICK_WORLD_DETAILS: Record<number, HattrickWorldLeague> = {
     emoji: '🇰🇭',
   },
   139: {
+    continent: 'Africa',
     leagueId: 139,
     leagueName: 'Benin',
     fullName: 'Benin',
@@ -1213,6 +1335,7 @@ export const HATTRICK_WORLD_DETAILS: Record<number, HattrickWorldLeague> = {
     emoji: '🇧🇯',
   },
   140: {
+    continent: 'Asia',
     leagueId: 140,
     leagueName: 'Syria',
     fullName: 'Syria',
@@ -1223,6 +1346,7 @@ export const HATTRICK_WORLD_DETAILS: Record<number, HattrickWorldLeague> = {
     emoji: '🇸🇾',
   },
   141: {
+    continent: 'Asia',
     leagueId: 141,
     leagueName: 'Qatar',
     fullName: 'Qatar',
@@ -1233,6 +1357,7 @@ export const HATTRICK_WORLD_DETAILS: Record<number, HattrickWorldLeague> = {
     emoji: '🇶🇦',
   },
   142: {
+    continent: 'Africa',
     leagueId: 142,
     leagueName: 'Tanzania',
     fullName: 'Tanzania',
@@ -1243,6 +1368,7 @@ export const HATTRICK_WORLD_DETAILS: Record<number, HattrickWorldLeague> = {
     emoji: '🇹🇿',
   },
   143: {
+    continent: 'Africa',
     leagueId: 143,
     leagueName: 'Uganda',
     fullName: 'Uganda',
@@ -1253,6 +1379,7 @@ export const HATTRICK_WORLD_DETAILS: Record<number, HattrickWorldLeague> = {
     emoji: '🇺🇬',
   },
   144: {
+    continent: 'Asia',
     leagueId: 144,
     leagueName: 'Maldives',
     fullName: 'Maldives',
@@ -1263,6 +1390,7 @@ export const HATTRICK_WORLD_DETAILS: Record<number, HattrickWorldLeague> = {
     emoji: '🇲🇻',
   },
   145: {
+    continent: 'Asia',
     leagueId: 145,
     leagueName: 'Uzbekistan',
     fullName: 'Uzbekistan',
@@ -1273,6 +1401,7 @@ export const HATTRICK_WORLD_DETAILS: Record<number, HattrickWorldLeague> = {
     emoji: '🇺🇿',
   },
   146: {
+    continent: 'Africa',
     leagueId: 146,
     leagueName: 'Cameroon',
     fullName: 'Cameroon',
@@ -1283,6 +1412,7 @@ export const HATTRICK_WORLD_DETAILS: Record<number, HattrickWorldLeague> = {
     emoji: '🇨🇲',
   },
   147: {
+    continent: 'North and Central America',
     leagueId: 147,
     leagueName: 'Cuba',
     fullName: 'Cuba',
@@ -1293,6 +1423,7 @@ export const HATTRICK_WORLD_DETAILS: Record<number, HattrickWorldLeague> = {
     emoji: '🇨🇺',
   },
   148: {
+    continent: 'Asia',
     leagueId: 148,
     leagueName: 'Palestine',
     fullName: 'Palestine',
@@ -1303,6 +1434,7 @@ export const HATTRICK_WORLD_DETAILS: Record<number, HattrickWorldLeague> = {
     emoji: '🇵🇸',
   },
   149: {
+    continent: 'Africa',
     leagueId: 149,
     leagueName: 'São Tomé e Príncipe',
     fullName: 'São Tomé e Príncipe',
@@ -1313,6 +1445,7 @@ export const HATTRICK_WORLD_DETAILS: Record<number, HattrickWorldLeague> = {
     emoji: '🇸🇹',
   },
   151: {
+    continent: 'Africa',
     leagueId: 151,
     leagueName: 'Comoros',
     fullName: 'Comoros',
@@ -1323,6 +1456,7 @@ export const HATTRICK_WORLD_DETAILS: Record<number, HattrickWorldLeague> = {
     emoji: '🇰🇲',
   },
   152: {
+    continent: 'Asia',
     leagueId: 152,
     leagueName: 'Sri Lanka',
     fullName: 'Sri Lanka',
@@ -1333,6 +1467,7 @@ export const HATTRICK_WORLD_DETAILS: Record<number, HattrickWorldLeague> = {
     emoji: '🇱🇰',
   },
   153: {
+    continent: 'North and Central America',
     leagueId: 153,
     leagueName: 'Curaçao',
     fullName: 'Curaçao',
@@ -1343,6 +1478,7 @@ export const HATTRICK_WORLD_DETAILS: Record<number, HattrickWorldLeague> = {
     emoji: '🇨🇼',
   },
   154: {
+    continent: 'Asia',
     leagueId: 154,
     leagueName: 'Guam',
     fullName: 'Guam',
@@ -1353,6 +1489,7 @@ export const HATTRICK_WORLD_DETAILS: Record<number, HattrickWorldLeague> = {
     emoji: '🇬🇺',
   },
   155: {
+    continent: 'Africa',
     leagueId: 155,
     leagueName: 'DRC',
     fullName: 'Democratic Republic of the Congo',
@@ -1363,6 +1500,7 @@ export const HATTRICK_WORLD_DETAILS: Record<number, HattrickWorldLeague> = {
     emoji: '🇨🇩',
   },
   156: {
+    continent: 'Africa',
     leagueId: 156,
     leagueName: 'Ethiopia',
     fullName: 'Federal Democratic Republic of Ethiopia',
@@ -1373,6 +1511,7 @@ export const HATTRICK_WORLD_DETAILS: Record<number, HattrickWorldLeague> = {
     emoji: '🇪🇹',
   },
   157: {
+    continent: 'North and Central America',
     leagueId: 157,
     leagueName: 'Saint Vincent and the Grenadines',
     fullName: 'Saint Vincent and the Grenadines',
@@ -1383,6 +1522,7 @@ export const HATTRICK_WORLD_DETAILS: Record<number, HattrickWorldLeague> = {
     emoji: '🇻🇨',
   },
   158: {
+    continent: 'North and Central America',
     leagueId: 158,
     leagueName: 'Belize',
     fullName: 'Belize',
@@ -1393,6 +1533,7 @@ export const HATTRICK_WORLD_DETAILS: Record<number, HattrickWorldLeague> = {
     emoji: '🇧🇿',
   },
   159: {
+    continent: 'Africa',
     leagueId: 159,
     leagueName: 'Madagascar',
     fullName: 'Madagascar',
@@ -1403,6 +1544,7 @@ export const HATTRICK_WORLD_DETAILS: Record<number, HattrickWorldLeague> = {
     emoji: '🇲🇬',
   },
   160: {
+    continent: 'Africa',
     leagueId: 160,
     leagueName: 'Botswana',
     fullName: 'Botswana',
@@ -1413,6 +1555,7 @@ export const HATTRICK_WORLD_DETAILS: Record<number, HattrickWorldLeague> = {
     emoji: '🇧🇼',
   },
   161: {
+    continent: 'Asia',
     leagueId: 161,
     leagueName: 'Myanmar',
     fullName: 'Myanmar',
@@ -1423,6 +1566,7 @@ export const HATTRICK_WORLD_DETAILS: Record<number, HattrickWorldLeague> = {
     emoji: '🇲🇲',
   },
   162: {
+    continent: 'Africa',
     leagueId: 162,
     leagueName: 'Zambia',
     fullName: 'Zambia',
@@ -1433,6 +1577,7 @@ export const HATTRICK_WORLD_DETAILS: Record<number, HattrickWorldLeague> = {
     emoji: '🇿🇲',
   },
   163: {
+    continent: 'Europe',
     leagueId: 163,
     leagueName: 'San Marino',
     fullName: 'San Marino',
@@ -1443,6 +1588,7 @@ export const HATTRICK_WORLD_DETAILS: Record<number, HattrickWorldLeague> = {
     emoji: '🇸🇲',
   },
   164: {
+    continent: 'North and Central America',
     leagueId: 164,
     leagueName: 'Haiti',
     fullName: 'Haiti',
@@ -1453,6 +1599,7 @@ export const HATTRICK_WORLD_DETAILS: Record<number, HattrickWorldLeague> = {
     emoji: '🇭🇹',
   },
   165: {
+    continent: 'North and Central America',
     leagueId: 165,
     leagueName: 'Puerto Rico',
     fullName: 'Puerto Rico',
@@ -1463,6 +1610,7 @@ export const HATTRICK_WORLD_DETAILS: Record<number, HattrickWorldLeague> = {
     emoji: '🇵🇷',
   },
   166: {
+    continent: 'North and Central America',
     leagueId: 166,
     leagueName: 'Grenada',
     fullName: 'Grenada',
@@ -1473,6 +1621,7 @@ export const HATTRICK_WORLD_DETAILS: Record<number, HattrickWorldLeague> = {
     emoji: '🇬🇩',
   },
   167: {
+    continent: 'Africa',
     leagueId: 167,
     leagueName: 'Burkina Faso',
     fullName: 'Burkina Faso',
@@ -1483,6 +1632,7 @@ export const HATTRICK_WORLD_DETAILS: Record<number, HattrickWorldLeague> = {
     emoji: '🇧🇫',
   },
   168: {
+    continent: 'Asia',
     leagueId: 168,
     leagueName: 'Nepal',
     fullName: 'Nepal',
@@ -1493,6 +1643,7 @@ export const HATTRICK_WORLD_DETAILS: Record<number, HattrickWorldLeague> = {
     emoji: '🇳🇵',
   },
   169: {
+    continent: 'South America',
     leagueId: 169,
     leagueName: 'Guyana',
     fullName: 'Guyana',
@@ -1503,6 +1654,7 @@ export const HATTRICK_WORLD_DETAILS: Record<number, HattrickWorldLeague> = {
     emoji: '🇬🇾',
   },
   170: {
+    continent: 'Oceania',
     leagueId: 170,
     leagueName: 'Tahiti',
     fullName: 'Tahiti',
@@ -1513,6 +1665,7 @@ export const HATTRICK_WORLD_DETAILS: Record<number, HattrickWorldLeague> = {
     emoji: '🇵🇫',
   },
   171: {
+    continent: 'Africa',
     leagueId: 171,
     leagueName: 'Guinea',
     fullName: 'Guinea',
@@ -1523,6 +1676,7 @@ export const HATTRICK_WORLD_DETAILS: Record<number, HattrickWorldLeague> = {
     emoji: '🇬🇳',
   },
   172: {
+    continent: 'North and Central America',
     leagueId: 172,
     leagueName: 'Bahamas',
     fullName: 'Bahamas',
@@ -1533,6 +1687,7 @@ export const HATTRICK_WORLD_DETAILS: Record<number, HattrickWorldLeague> = {
     emoji: '🇧🇸',
   },
   173: {
+    continent: 'Africa',
     leagueId: 173,
     leagueName: 'Rwanda',
     fullName: 'Rwanda',
@@ -1543,6 +1698,7 @@ export const HATTRICK_WORLD_DETAILS: Record<number, HattrickWorldLeague> = {
     emoji: '🇷🇼',
   },
   174: {
+    continent: 'North and Central America',
     leagueId: 174,
     leagueName: 'Saint Kitts',
     fullName: 'Saint Kitts and Nevis',
@@ -1553,6 +1709,7 @@ export const HATTRICK_WORLD_DETAILS: Record<number, HattrickWorldLeague> = {
     emoji: '🇰🇳',
   },
   175: {
+    continent: 'Africa',
     leagueId: 175,
     leagueName: 'Equatorial Guinea',
     fullName: 'Equatorial Guinea',
@@ -1563,6 +1720,7 @@ export const HATTRICK_WORLD_DETAILS: Record<number, HattrickWorldLeague> = {
     emoji: '🇬🇶',
   },
   176: {
+    continent: 'Europe',
     leagueId: 176,
     leagueName: 'Gibraltar',
     fullName: 'Gibraltar',
@@ -1573,6 +1731,7 @@ export const HATTRICK_WORLD_DETAILS: Record<number, HattrickWorldLeague> = {
     emoji: '🇬🇮',
   },
   177: {
+    continent: 'Asia',
     leagueId: 177,
     leagueName: 'Bhutan',
     fullName: 'Bhutan',
@@ -1585,6 +1744,7 @@ export const HATTRICK_WORLD_DETAILS: Record<number, HattrickWorldLeague> = {
   // Hattrick International is omitted by the supplied worldDetails response,
   // but is a known countryless parent league used by the application.
   1000: {
+    continent: 'World',
     leagueId: 1000,
     leagueName: 'HT International',
     suffix: 'HTI',
@@ -1596,6 +1756,7 @@ export const HATTRICK_WORLD_DETAILS: Record<number, HattrickWorldLeague> = {
     emoji: '🇺🇳',
   },
   1001: {
+    continent: 'World',
     leagueId: 1001,
     leagueName: 'Apache League',
     suffix: 'AL',
@@ -1607,6 +1768,7 @@ export const HATTRICK_WORLD_DETAILS: Record<number, HattrickWorldLeague> = {
     emoji: '🇺🇳',
   },
   1002: {
+    continent: 'World',
     leagueId: 1002,
     leagueName: 'Anniversary',
     suffix: 'HAL',
@@ -1618,6 +1780,7 @@ export const HATTRICK_WORLD_DETAILS: Record<number, HattrickWorldLeague> = {
     emoji: '🇺🇳',
   },
   1003: {
+    continent: 'World',
     leagueId: 1003,
     leagueName: 'Homegrown',
     suffix: 'HGL',
@@ -1629,6 +1792,7 @@ export const HATTRICK_WORLD_DETAILS: Record<number, HattrickWorldLeague> = {
     emoji: '❣️',
   },
   3000: {
+    continent: 'World',
     leagueId: 3000,
     leagueName: 'HFI',
     suffix: 'HFI',

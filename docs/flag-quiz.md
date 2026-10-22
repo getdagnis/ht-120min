@@ -9,9 +9,12 @@ question across all tournaments; guesses are immutable.
 
 `shared/worlddetails.ts` is the country source. The quiz excludes entries without
 a country and excludes Oceania (LeagueID 15), regardless of its display emoji.
-Short English league names are the option labels. The generator chooses two
-same-initial distractors where available, then fills the six choices from leagues
-within ±20 LeagueID. Same-initial choices are exempt from the distance limit.
+Short English league names are the option labels. Each world-details entry carries
+its continent or world grouping. Up to two same-initial distractors are chosen
+where available. The remaining three or four distractors use countries within
+±10 LeagueID, prioritizing the closest countries from the same continent. At
+least three same-continent choices are used when that many are available within
+the distance limit; remaining slots use the closest available LeagueIDs.
 
 `flag_quiz_questions` owns frozen question windows, emoji, options/order and the
 correct LeagueID. `flag_quiz_answers` owns each manager's selected LeagueID and
