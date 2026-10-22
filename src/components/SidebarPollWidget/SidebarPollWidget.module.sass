@@ -67,7 +67,7 @@
 .leaders li
   display: flex
   justify-content: space-between
-  align-items: baseline
+  align-items: center
   gap: 0.5rem
   overflow-wrap: anywhere
   font-variant-numeric: tabular-nums
@@ -75,6 +75,56 @@
 .resultHeading > :last-child,
 .leaders li > :last-child
   flex-shrink: 0
+
+.manager
+  display: flex
+  align-items: center
+  gap: 0.35rem
+  flex: 1
+  min-width: 0
+
+.rank
+  flex-shrink: 0
+  color: var(--text60)
+
+.managerDetails
+  display: flex
+  flex-direction: column
+  min-width: 0
+
+.managerName
+  align-self: flex-start
+  max-width: 100%
+  overflow-wrap: anywhere
+  padding: 0
+  border: 0
+  background: none
+  color: var(--accent-3)
+  font: inherit
+  font-weight: 700
+  text-align: left
+  cursor: pointer
+
+  &:hover
+    text-decoration: underline
+
+  &:focus-visible
+    outline: 2px solid var(--accent-2)
+    outline-offset: 2px
+
+.managerCountry
+  display: flex
+  align-items: center
+  gap: 0.25rem
+  color: var(--text60)
+  font-size: 0.72rem
+  line-height: 1.2
+
+  img
+    width: 0.9rem
+    height: 0.65rem
+    flex-shrink: 0
+    object-fit: cover
 
 .bar
   height: 0.4rem

@@ -3,7 +3,10 @@
 import { useTranslations } from 'next-intl';
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { Flag } from 'phosphor-react';
+import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import type { FlagQuizState } from '../../../shared/flag-quiz';
+import { getCanonicalCountryName, getCountryFlagUrl } from '../../utils/ht-data';
+import { Avatar } from '../Avatar/Avatar';
 import { Button } from '../Button/Button';
 import { ReusableWidget } from '../ReusableWidget/ReusableWidget';
 import styles from './SidebarPollWidget.module.sass';
@@ -12,6 +15,9 @@ const QUIZ_URL = '/api/app?route=flag-quiz';
 
 export const SidebarPollWidget: React.FC<{ myHtUserId: number | null }> = ({ myHtUserId }) => {
   const t = useTranslations('PublicUI.SidebarPollWidget');
+  const pathname = usePathname() || '/';
+  const router = useRouter();
+  const searchParams = useSearchParams();
   const [quiz, setQuiz] = useState<FlagQuizState | null>(null);
   const [selected, setSelected] = useState<number | null>(null);
   const [busy, setBusy] = useState(false);
@@ -57,6 +63,12 @@ export const SidebarPollWidget: React.FC<{ myHtUserId: number | null }> = ({ myH
   const login = () => {
     document.cookie = `auth_return_url=${encodeURIComponent(window.location.pathname + window.location.search)}; path=/; max-age=300`;
     window.location.href = '/api/auth/init';
+  };
+
+  const openProfile = (managerId: number) => {
+    const nextParams = new URLSearchParams(searchParams.toString());
+    nextParams.set('profileId', String(managerId));
+    router.push(`${pathname}?${nextParams.toString()}`);
   };
 
   const submit = async (event: React.FormEvent) => {
@@ -113,10 +125,26 @@ export const SidebarPollWidget: React.FC<{ myHtUserId: number | null }> = ({ myH
           </ol>
           {quiz.leaders.length > 0 && <div className={styles.leaderboard}>
             <strong>{t('bestThisMonth')}</strong>
-            <ol className={styles.leaders}>{quiz.leaders.map((leader, index) => <li key={index}>
-              <span>{leader.rank}. {leader.managerName}</span>
-              <span>{t('score', { correct: leader.correct, attempted: leader.attempted })}</span>
-            </li>)}</ol>
+            <ol className={styles.leaders}>{quiz.leaders.map((leader) => {
+              const countryName = getCanonicalCountryName(leader.countryName, leader.countryId);
+              const countryFlag = getCountryFlagUrl(leader.countryId, countryName);
+              return <li key={leader.managerId}>
+                <div className={styles.manager}>
+                  <span className={styles.rank}>{leader.rank}.</span>
+                  <Avatar avatar={leader.avatar} variant="rect" size={22} />
+                  <div className={styles.managerDetails}>
+                    <button type="button" className={styles.managerName} onClick={() => openProfile(leader.managerId)}>
+                      {leader.managerName}
+                    </button>
+                    {countryName && <span className={styles.managerCountry}>
+                      {countryFlag && <img src={countryFlag} alt="" loading="lazy" />}
+                      {countryName}
+                    </span>}
+                  </div>
+                </div>
+                <span>{t('score', { correct: leader.correct, attempted: leader.attempted })}</span>
+              </li>;
+            })}</ol>
           </div>}
         </div> : <form onSubmit={submit} className={styles.form}>
           <fieldset disabled={busy || !quiz.canAnswer} className={styles.options}>

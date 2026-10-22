@@ -979,7 +979,7 @@ const messages = {
       guåhanGoddesses: "Guåhan Goddesses 🇬🇺",
     },
     SidebarPollWidget: {
-      flagQuiz: "Flag quiz",
+      flagQuiz: "Guess the flag daily",
       flagLabel: "Mystery flag",
       question: "Which Hattrick country's flag is this'?",
       chooseCountry: "Choose one country",
@@ -991,7 +991,7 @@ const messages = {
       bestThisMonth: "Best this month",
       score: "{correct}/{attempted} right",
       totalAnswers: "{count, plural, one {# answer} other {# answers}}",
-      rotationNotice: "A new flag at 00:00 and 12:00 UTC. One guess across all tournaments.",
+      rotationNotice: "Guess the flag of a different country every day. The flag changes twice a day.",
       loading: "Loading flag quiz…",
       retry: "Retry",
       loadError: "Could not load the flag quiz. Please retry.",

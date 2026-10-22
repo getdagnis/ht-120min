@@ -42,9 +42,11 @@ The leaderboard is calculated in SQL from answers submitted during the current
 UTC calendar month. It shows up to 20 managers with at least one correct answer,
 ranked by correct total, with correct/attempted counts. Equal totals share a rank;
 nickname then manager ID provide stable display ordering and cutoff. Nicknames
-come from `profiles`, with a neutral fallback for missing profiles. Browser
-responses contain no voter lists or manager IDs. Raw tables and RPCs have RLS and
-service-role-only privileges; browser localStorage identity never authorizes a vote.
+come from `profiles`, with a neutral fallback for missing profiles. The answered
+leaderboard response includes profile ID, avatar, and base-country fields for these
+20 clickable profile rows; it never returns a raw voter list. Raw tables and RPCs
+have RLS and service-role-only privileges; browser localStorage identity never
+authorizes a vote.
 
 ## Presentation
 
@@ -54,6 +56,10 @@ before answering. The widget disables text selection, including Safari. Browser
 or operating-system emoji lookup tools remain outside the page's control. Radio
 options remain keyboard accessible. Results label both the manager's guess and
 the correct option. The monthly ranking appears below answered results only.
+
+Leaderboard rows follow the tournament chat treatment: 22px avatar, clickable
+manager name opening the existing `profileId` view, and smaller canonical country
+name with its flag below the name. The score remains aligned on the right.
 
 The widget reloads at the next window and on tab visibility restoration. Loading,
 retry, expired-question and expired-session states are explicit. English keys use

@@ -10,12 +10,22 @@ export interface FlagQuizQuestion {
   emoji: string;
   options: FlagQuizOption[];
 }
+export interface FlagQuizLeader {
+  rank: number;
+  managerId: number;
+  managerName: string;
+  avatar: { backgroundImage: string; layers?: Array<{ x?: number; y?: number; image: string }> } | null;
+  countryId: number | null;
+  countryName: string | null;
+  correct: number;
+  attempted: number;
+}
 export interface FlagQuizState {
   question: FlagQuizQuestion;
   canAnswer: boolean;
   answer: null | { selectedLeagueId: number; correctLeagueId: number };
   results: null | { total: number; options: Array<{ leagueId: number; count: number }> };
-  leaders: Array<{ rank: number; managerName: string; correct: number; attempted: number }>;
+  leaders: FlagQuizLeader[];
 }
 
 function shuffle<T>(values: T[], random: () => number): T[] {

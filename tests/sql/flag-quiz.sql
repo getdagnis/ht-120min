@@ -5,11 +5,17 @@ DO $$ BEGIN
   IF NOT EXISTS (SELECT FROM pg_roles WHERE rolname='authenticated') THEN CREATE ROLE authenticated; END IF;
   IF NOT EXISTS (SELECT FROM pg_roles WHERE rolname='service_role') THEN CREATE ROLE service_role BYPASSRLS; END IF;
 END $$;
-CREATE TABLE public.profiles (hattrick_user_id bigint PRIMARY KEY, manager_name text);
+CREATE TABLE public.profiles (
+  hattrick_user_id bigint PRIMARY KEY, manager_name text, avatar_json jsonb,
+  country_id integer, country_name text
+);
 GRANT SELECT ON public.profiles TO service_role;
 \ir ../../migrations/142_flag_quiz.sql
+\ir ../../migrations/143_flag_quiz_leader_profiles.sql
 BEGIN;
-INSERT INTO public.profiles VALUES (77, 'mr_bots'), (78, 'another_manager');
+INSERT INTO public.profiles VALUES
+  (77, 'mr_bots', '{"backgroundImage":"avatar.png"}', 1, 'Sverige'),
+  (78, 'another_manager', NULL, 2, 'England');
 INSERT INTO public.flag_quiz_questions VALUES (
   to_timestamp(floor(extract(epoch FROM now()) / 43200) * 43200) - interval '12 hours',
   to_timestamp(floor(extract(epoch FROM now()) / 43200) * 43200), '🇸🇪', 1,
@@ -35,6 +41,10 @@ BEGIN
   ASSERT (s#>>'{answer,correctLeagueId}')::integer = 2;
   ASSERT (s#>>'{results,total}')::integer = 2;
   ASSERT (s#>>'{leaders,0,managerName}') = 'mr_bots';
+  ASSERT (s#>>'{leaders,0,managerId}')::bigint = 77;
+  ASSERT (s#>>'{leaders,0,avatar,backgroundImage}') = 'avatar.png';
+  ASSERT (s#>>'{leaders,0,countryId}')::integer = 1;
+  ASSERT (s#>>'{leaders,0,countryName}') = 'Sverige';
   ASSERT (s#>>'{leaders,0,correct}')::integer = 1 AND (s#>>'{leaders,0,attempted}')::integer = 1;
   ASSERT (SELECT sum((value->>'count')::int) FROM jsonb_array_elements(s#>'{results,options}')) = 2;
   s := public.flag_quiz_state(q.starts_at,999);
