@@ -3,7 +3,8 @@ import test from 'node:test';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import type { MatchSidePerformance } from '../shared/match-events.js';
 import { calculateMatch120mRating, usesMatch120mRatings } from '../shared/match-120m-rating.js';
-import { prepareMatch120mRatings } from '../src/server/api/_lib/match-120m-ratings.js';
+import { mapMatchEventDetailsToFixture } from '../src/server/api/_lib/chpp-match-events.js';
+import { prepareMatch120mRatings, tryRecalculateMatch120mRatings } from '../src/server/api/_lib/match-120m-ratings.js';
 
 const raw = (display: number) => display * 4 - 3;
 
@@ -104,16 +105,22 @@ test('only 120-minute scoring modes are eligible', () => {
   for (const mode of ['points', null, 'unknown']) assert.equal(usesMatch120mRatings(mode), false);
 });
 
-test('a reversed Hattrick venue attributes the home badge to the actual reserve participant', async () => {
-  const details = {
-    actualHomeTeamId: 303, actualAwayTeamId: 202,
-    home: { performance: setup() }, away: { performance: setup() },
+test('reversed venues keep distinct performances with their fixture participants, including a reserve', async () => {
+  const rawDetails = {
+    version: 3 as const, source: 'matchdetails-3.1' as const,
+    actualHomeTeamId: 202, actualAwayTeamId: 303,
+    home: { teamId: 202, cards: [], injuries: [], performance: setup({
+      formation: '2-5-3', tacticType: 4, tacticName: 'Attack on wings',
+      ratings: { ...setup().ratings, leftAttack: raw(8) },
+    }) },
+    away: { teamId: 303, cards: [], injuries: [], performance: setup() },
   };
+  const mappedDetails = mapMatchEventDetailsToFixture(rawDetails, 101, 202, [303]);
   const match = {
-    id: 'fixture', round_id: 'round', tournament_id: 'tournament', completed: true,
-    match_event_details: details, home_team_id: 'old-home', away_team_id: 'away',
+    id: 'fixture', round_id: 'round', completed: true,
+    match_event_details: mappedDetails, home_team_id: 'old-home', away_team_id: 'away',
     reserve_team_id: 'reserve', reserve_replaces_team_id: 'old-home',
-    actual_ht_home_team_id: 303, actual_ht_away_team_id: 202,
+    actual_ht_home_team_id: 202, actual_ht_away_team_id: 303,
     home_team: { id: 'old-home', ht_team_id: 101 },
     away_team: { id: 'away', ht_team_id: 202 },
     reserve_team: { id: 'reserve', ht_team_id: 303 },
@@ -121,17 +128,46 @@ test('a reversed Hattrick venue attributes the home badge to the actual reserve 
   const rows: Record<string, unknown> = {
     matches: match,
     tournaments: { scoring_mode: 'appg', season: 1 },
-    rounds: { season_number: 1 },
+    rounds: { tournament_id: 'tournament', season_number: 1 },
   };
+  const queries: Array<{ table: string; columns: string; filters: Record<string, unknown> }> = [];
   const supabase = { from: (table: string) => ({
-    select() { return this; }, eq() { return this; },
+    select(columns: string) { queries.push({ table, columns, filters: {} }); return this; },
+    eq(column: string, value: unknown) { queries.at(-1)!.filters[column] = value; return this; },
     async maybeSingle() { return { data: rows[table], error: null }; },
     async single() { return { data: rows[table], error: null }; },
   }) } as unknown as SupabaseClient;
   const result = await prepareMatch120mRatings(supabase, 'fixture');
   assert.equal(result?.home?.team_id, 'reserve');
   assert.equal(result?.home?.ht_team_id, 303);
+  assert.equal(result?.home?.grade, 'A+');
   assert.equal(result?.away?.team_id, 'away');
+  assert.equal(result?.away?.grade, 'F-');
+  assert.equal(queries[0].columns.includes('tournament_id'), false);
+  assert.equal(queries[1].columns, 'tournament_id,season_number');
+  assert.equal(queries[2].filters.id, 'tournament');
+  match.match_event_details = rawDetails;
+  const legacy = await prepareMatch120mRatings(supabase, 'fixture');
+  assert.equal(legacy?.home?.grade, 'A+');
+  assert.equal(legacy?.away?.grade, 'F-');
   match.actual_ht_home_team_id = 999;
   assert.equal(await prepareMatch120mRatings(supabase, 'fixture'), null);
+});
+
+test('rating database failures are returned for reporting instead of escaping into progression', async () => {
+  const supabase = { from: () => ({
+    select() { return this; }, eq() { return this; },
+    async maybeSingle() { return { data: null, error: { code: '42703', message: 'bad match projection' } }; },
+  }) } as unknown as SupabaseClient;
+  const originalError = console.error;
+  const logged: unknown[] = [];
+  console.error = (...values: unknown[]) => { logged.push(values); };
+  try {
+    const failure = await tryRecalculateMatch120mRatings(supabase, 'fixture');
+    assert.equal(failure?.matchId, 'fixture');
+    assert.match(failure?.error || '', /120mRt calculation failed/);
+    assert.equal(logged.length, 1);
+  } finally {
+    console.error = originalError;
+  }
 });

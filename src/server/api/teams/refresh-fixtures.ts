@@ -42,7 +42,7 @@ import {
   type ParsedChppMatch,
 } from '../../../../shared/matches-archive.js';
 import { progressLengthSchedule } from '../_lib/length-schedule-service.js';
-import { recalculateMatch120mRatings } from '../_lib/match-120m-ratings.js';
+import { tryRecalculateMatch120mRatings } from '../_lib/match-120m-ratings.js';
 
 // Simplified helper for match date calculation on server
 // Compare with docs/global-match-time.json before actual implementation
@@ -501,7 +501,6 @@ interface TeamWithAuth {
 
 interface ManualLinkMatchRow {
   id: string;
-  tournament_id: string;
   home_team_id: string | null;
   away_team_id: string | null;
   appg_outcome_source: string | null;
@@ -702,7 +701,7 @@ async function handleManualMatchLink(req: VercelRequest, res: VercelResponse) {
     .select(
       `
       id,
-      tournament_id,
+      round_id,
       home_team_id,
       away_team_id,
       appg_outcome_source,
@@ -717,13 +716,17 @@ async function handleManualMatchLink(req: VercelRequest, res: VercelResponse) {
     .single();
 
   if (!match) return res.status(404).json({ error: 'Tournament match not found.' });
+  const { data: round, error: roundError } = await supabase.from('rounds')
+    .select('tournament_id').eq('id', match.round_id).single();
+  if (roundError || !round) return res.status(500).json({ error: 'Could not load the fixture round.' });
+  const tournamentId = round.tournament_id;
   if (resetResult && match.ht_match_id !== Number(htMatchId)) {
     return res.status(400).json({ error: 'This fixture is no longer linked to that Hattrick match.' });
   }
   if (resetResult) {
     const { data: tournament } = await supabase.from('tournaments')
       .select('admin_password')
-      .eq('id', match.tournament_id)
+      .eq('id', tournamentId)
       .single();
     const adminPassword = getBodyValue(req, 'adminPassword');
     if (!tournament || typeof adminPassword !== 'string' ||
@@ -735,7 +738,7 @@ async function handleManualMatchLink(req: VercelRequest, res: VercelResponse) {
   const { data: scoringTournament } = await supabase
     .from('tournaments')
     .select('scoring_mode')
-    .eq('id', match.tournament_id)
+    .eq('id', tournamentId)
     .single();
 
   const details = await fetchMatchDetailsById(htMatchId, authTeam.oauth_token, authTeam.oauth_token_secret || '');
@@ -822,18 +825,21 @@ async function handleManualMatchLink(req: VercelRequest, res: VercelResponse) {
     };
     const { error } = await supabase.from('matches').update(updatePayload).eq('id', matchId);
     if (error) return res.status(500).json({ error: error.message });
-    if (details.completed) await recalculateMatch120mRatings(getServiceSupabase(), matchId);
+    const ratingFailure = details.completed
+      ? await tryRecalculateMatch120mRatings(getServiceSupabase(), matchId)
+      : null;
     if (details.completed) {
       const serviceSupabase = getServiceSupabase();
       const { data: linkedTournament } = await serviceSupabase
         .from('tournaments')
         .select('schedule_mode, season')
-        .eq('id', match.tournament_id)
+        .eq('id', tournamentId)
         .maybeSingle();
       if (linkedTournament?.schedule_mode === 'length') {
-        await progressLengthSchedule(serviceSupabase, match.tournament_id, Number(linkedTournament.season || 1));
+        await progressLengthSchedule(serviceSupabase, tournamentId, Number(linkedTournament.season || 1));
       }
     }
+    return res.status(200).json({ ok: true, preview, ratingFailures: ratingFailure ? [ratingFailure] : [] });
   }
 
   return res.status(200).json({ ok: true, preview });
@@ -1190,7 +1196,10 @@ async function handleAddHtMatch(req: VercelRequest, res: VercelResponse) {
       ...kitUrls,
     }).select('id').single();
     if (matchError) return res.status(500).json({ error: matchError.message });
-    if (details.completed && insertedMatch) await recalculateMatch120mRatings(getServiceSupabase(), insertedMatch.id);
+    const ratingFailure = details.completed && insertedMatch
+      ? await tryRecalculateMatch120mRatings(getServiceSupabase(), insertedMatch.id)
+      : null;
+    return res.status(200).json({ ok: true, preview, inserted: 1, ratingFailures: ratingFailure ? [ratingFailure] : [] });
   }
 
   return res.status(200).json({

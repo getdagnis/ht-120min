@@ -24,7 +24,7 @@ import type { MatchEventDetails, MatchSetPiecesTaker } from '../../../../shared/
 import type { LiveMatchClock } from '../../../../shared/live-match.js';
 import { parseChppStockholmDate } from '../../../../shared/chpp-dates.js';
 import { progressLengthSchedule } from '../_lib/length-schedule-service.js';
-import { recalculateMatch120mRatings } from '../_lib/match-120m-ratings.js';
+import { tryRecalculateMatch120mRatings } from '../_lib/match-120m-ratings.js';
 
 interface LiveMatchResult extends LiveMatchClock {
   status: 'arranged' | 'ongoing' | 'finished';
@@ -281,6 +281,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
     const url = 'https://chpp.hattrick.org/chppxml.ashx';
     const results: Record<string, LiveMatchResult> = {};
+    const ratingFailures: Array<{ matchId: string; error: string }> = [];
     const kitCache = new Map<number, Promise<ParsedTeamDetails | null>>();
     for (const htMatchId of ids) {
       const htMatchIdNum = parseInt(htMatchId, 10);
@@ -503,12 +504,15 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
           throw updateError;
         }
       }
-      if (finished) await recalculateMatch120mRatings(supabase, fixture.id);
+      if (finished) {
+        const failure = await tryRecalculateMatch120mRatings(supabase, fixture.id);
+        if (failure) ratingFailures.push(failure);
+      }
     }
     if (tournament.schedule_mode === 'length') {
       await progressLengthSchedule(supabase, String(tournament_id), Number(tournament.season || 1));
     }
-    return res.status(200).json({ results });
+    return res.status(200).json({ results, ratingFailures });
   } catch (error) {
     const message = error && typeof error === 'object' && 'message' in error
       ? String(error.message)

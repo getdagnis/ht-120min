@@ -92,8 +92,83 @@ type ForgeRoundRow = {
 
 type ForgeProfileRow = {
   hattrick_user_id: number;
-  oauth_scope: string | null;
+  oauth_scope?: string | null;
+  teams_json?: unknown;
 };
+
+type SavedFlags = { home: number[]; away: number[]; fetchedAt: string };
+type LatestRating = { score: number; grade: string; matchId: string; htMatchId: number | null; matchDate: string | null };
+
+function savedFlagsByTeam(profiles: ForgeProfileRow[]) {
+  const flags = new Map<string, SavedFlags>();
+  for (const profile of profiles) {
+    if (!Array.isArray(profile.teams_json)) continue;
+    for (const entry of profile.teams_json) {
+      if (!entry || typeof entry !== 'object') continue;
+      const team = entry as Record<string, unknown>;
+      const teamId = Number(team.teamId);
+      if (!Number.isSafeInteger(teamId) || teamId <= 0 || typeof team.flagsFetchedAt !== 'string') continue;
+      const ids = (value: unknown) => Array.isArray(value)
+        ? value.filter((id): id is number => Number.isSafeInteger(id) && id > 0)
+        : [];
+      flags.set(`${profile.hattrick_user_id}:${teamId}`, {
+        home: ids(team.homeFlagLeagueIds),
+        away: ids(team.awayFlagLeagueIds),
+        fetchedAt: team.flagsFetchedAt,
+      });
+    }
+  }
+  return flags;
+}
+
+async function loadLatestRatings(
+  supabase: ReturnType<typeof getServiceSupabase>,
+  teamIds: string[],
+) {
+  const latest = new Map<string, LatestRating>();
+  if (!teamIds.length) return latest;
+  const ratings: Array<{ team_id: string; score: number; grade: string; match_id: string }> = [];
+  for (let offset = 0; ; offset += 500) {
+    const { data, error } = await supabase.from('match_120m_ratings')
+      .select('team_id, score, grade, match_id')
+      .in('team_id', teamIds)
+      .order('match_id', { ascending: true })
+      .order('team_id', { ascending: true })
+      .range(offset, offset + 499);
+    if (error) throw error;
+    ratings.push(...(data || []));
+    if (!data || data.length < 500) break;
+  }
+  const matchIds = [...new Set(ratings.map((rating) => rating.match_id))];
+  const ratingsByMatch = new Map<string, typeof ratings>();
+  for (const rating of ratings) {
+    const group = ratingsByMatch.get(rating.match_id) || [];
+    group.push(rating);
+    ratingsByMatch.set(rating.match_id, group);
+  }
+  for (let offset = 0; offset < matchIds.length; offset += 200) {
+    const { data, error } = await supabase.from('matches')
+      .select('id, ht_match_id, chpp_match_date, scheduled_for')
+      .in('id', matchIds.slice(offset, offset + 200));
+    if (error) throw error;
+    for (const match of data || []) {
+      const matchDate = match.chpp_match_date || match.scheduled_for || null;
+      for (const rating of ratingsByMatch.get(match.id) || []) {
+        const previous = latest.get(rating.team_id);
+        if (previous && (previous.matchDate || '') > (matchDate || '')) continue;
+        if (previous && previous.matchDate === matchDate && previous.matchId >= match.id) continue;
+        latest.set(rating.team_id, {
+          score: rating.score,
+          grade: rating.grade,
+          matchId: match.id,
+          htMatchId: match.ht_match_id,
+          matchDate,
+        });
+      }
+    }
+  }
+  return latest;
+}
 
 type ForgeTournamentOverviewTeamRow = {
   id: string;
@@ -593,9 +668,11 @@ async function loadFixtureRows(
   roundId: string,
   matchIds?: string[],
 ) {
-  let query = supabase
-    .from('matches')
-    .select(`
+  const rows: ForgeMatchRow[] = [];
+  for (let offset = 0; ; offset += 500) {
+    let query = supabase
+      .from('matches')
+      .select(`
       id,
       round_id,
       home_team_id,
@@ -611,11 +688,14 @@ async function loadFixtureRows(
       home_team:teams!matches_home_team_id_fkey(id, name, country_id, country_name, manager_name, hattrick_user_id, ht_team_id, active, is_placeholder, oauth_scope, can_manage_challenges),
       away_team:teams!matches_away_team_id_fkey(id, name, country_id, country_name, manager_name, hattrick_user_id, ht_team_id, active, is_placeholder, oauth_scope, can_manage_challenges)
     `)
-    .eq('round_id', roundId);
-  if (matchIds) query = query.in('id', matchIds);
-  const { data, error } = await query.order('id', { ascending: true });
-  if (error) throw error;
-  return (data || []) as ForgeMatchRow[];
+      .eq('round_id', roundId);
+    if (matchIds) query = query.in('id', matchIds);
+    const { data, error } = await query.order('id', { ascending: true }).range(offset, offset + 499);
+    if (error) throw error;
+    rows.push(...((data || []) as ForgeMatchRow[]));
+    if (!data || data.length < 500) break;
+  }
+  return rows;
 }
 
 async function buildMatchesResponse(
@@ -654,6 +734,10 @@ async function buildMatchesResponse(
   const fixtureTeams = matchRows.flatMap((match) => [relationOne(match.home_team), relationOne(match.away_team)])
     .filter((team): team is ForgeTeamRow => Boolean(team?.hattrick_user_id && !team.is_placeholder));
   const teamIds = [...new Set(fixtureTeams.map((team) => team.id))];
+  const ratedTeamIds = [...new Set(matchRows
+    .flatMap((match) => [relationOne(match.home_team), relationOne(match.away_team)])
+    .filter((team): team is ForgeTeamRow => Boolean(team && !team.is_placeholder))
+    .map((team) => team.id))];
   const managerIdsForPreferences = [...new Set(fixtureTeams.map((team) => Number(team.hattrick_user_id)))];
   const { data: preferenceRows, error: preferencesError } = teamIds.length > 0
     ? await supabase
@@ -674,11 +758,18 @@ async function buildMatchesResponse(
       .flatMap((match) => [relationOne(match.home_team)?.hattrick_user_id, relationOne(match.away_team)?.hattrick_user_id])
       .filter((managerId): managerId is number => Number.isSafeInteger(managerId)),
   )];
-  const { data: profiles, error: profilesError } = options.mode !== 'base' && managerIds.length > 0
-    ? await supabase.from('profiles').select('hattrick_user_id, oauth_scope').in('hattrick_user_id', managerIds)
+  const { data: profiles, error: profilesError } = managerIds.length > 0
+    ? await supabase.from('profiles')
+        .select(options.mode === 'base' ? 'hattrick_user_id, teams_json' : 'hattrick_user_id, oauth_scope')
+        .in('hattrick_user_id', managerIds)
     : { data: [], error: null };
   if (profilesError) throw profilesError;
-  const scopeByManager = new Map((profiles as ForgeProfileRow[] || []).map((profile) => [Number(profile.hattrick_user_id), profile.oauth_scope]));
+  const profileRows = (profiles || []) as ForgeProfileRow[];
+  const scopeByManager = new Map(profileRows.map((profile) => [Number(profile.hattrick_user_id), profile.oauth_scope]));
+  const flagsByTeam = options.mode === 'base' ? savedFlagsByTeam(profileRows) : new Map<string, SavedFlags>();
+  const latestRatings = options.mode === 'base'
+    ? await loadLatestRatings(supabase, ratedTeamIds)
+    : new Map<string, LatestRating>();
   const cache: ManagerCache = { credentials: new Map(), ownership: new Map() };
   const consumerKey = process.env.CHPP_CONSUMER_KEY;
   const consumerSecret = process.env.CHPP_CONSUMER_SECRET;
@@ -770,6 +861,9 @@ async function buildMatchesResponse(
         countryId: homeTeamRow?.country_id ?? null,
         countryName: homeTeamRow?.country_name ?? null,
         autoArrangeEnabled: homeAutoArrangeEnabled,
+        savedFlags: homeTeamRow?.hattrick_user_id && homeTeamRow.ht_team_id
+          ? flagsByTeam.get(`${homeTeamRow.hattrick_user_id}:${homeTeamRow.ht_team_id}`) ?? null : null,
+        latest120mRating: homeTeamRow ? latestRatings.get(homeTeamRow.id) ?? null : null,
         ...(fixture.home ? homeActions : byeActions),
       },
       away: {
@@ -778,6 +872,9 @@ async function buildMatchesResponse(
         countryId: awayTeamRow?.country_id ?? null,
         countryName: awayTeamRow?.country_name ?? null,
         autoArrangeEnabled: awayAutoArrangeEnabled,
+        savedFlags: awayTeamRow?.hattrick_user_id && awayTeamRow.ht_team_id
+          ? flagsByTeam.get(`${awayTeamRow.hattrick_user_id}:${awayTeamRow.ht_team_id}`) ?? null : null,
+        latest120mRating: awayTeamRow ? latestRatings.get(awayTeamRow.id) ?? null : null,
         ...(fixture.away ? awayActions : byeActions),
       },
     });

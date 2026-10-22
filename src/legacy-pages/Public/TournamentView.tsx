@@ -2676,6 +2676,11 @@ export const TournamentView: React.FC<{
           if (!liveResponse.ok) {
             const liveResult = (await liveResponse.json().catch(() => null)) as { error?: string } | null;
             setFixtureRefreshError(liveResult?.error || 'Failed to update match results');
+          } else {
+            const liveResult = (await liveResponse.json().catch(() => null)) as { ratingFailures?: unknown[] } | null;
+            if (liveResult?.ratingFailures?.length) {
+              setFixtureRefreshError(`Match results were saved, but 120mRt grades failed for ${liveResult.ratingFailures.length} match(es). Retry Refresh later.`);
+            }
           }
         }
 
@@ -5091,6 +5096,9 @@ export const TournamentView: React.FC<{
         return next;
       });
       await fetchData();
+      if (body.ratingFailures?.length) {
+        alert('Result saved, but its 120mRt grade could not be calculated. The round can still advance; retry the match refresh later.');
+      }
       return;
     }
     const { error } = await supabase.from('matches').update(payload).eq('id', matchId);
@@ -5273,6 +5281,9 @@ export const TournamentView: React.FC<{
         throw new Error(body.error || 'Could not save the results.');
       }
       await fetchData();
+      if (body.ratingFailures?.length) {
+        alert(`Results saved, but 120mRt grades failed for ${body.ratingFailures.length} match(es). Round progression was attempted; retry the match refresh later.`);
+      }
       return;
     }
     const results = await Promise.allSettled(

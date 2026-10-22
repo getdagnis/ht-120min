@@ -8,6 +8,8 @@ The score weights defence versus attack (25%), tactic (25%), formation (25%), mi
 
 Live MatchDetails refresh, manual match linking/addition, and the authorized match-facts refresh calculate scores after saving finished facts. The current-season public fixture projection reads stored rows; page visits do no rating calculation or CHPP lookup. `scripts/backfill-match-120m-ratings.ts` scans current-season finished fixtures from stored performance only, paginates reads, and defaults to a read-only dry run. Pass `--apply` to write via the guarded RPC. It never fetches CHPP and leaves historical fixture snapshots unchanged. Future ranking tables can aggregate rows by `team_id` and `formula_version`.
 
+Score preparation resolves tournament ownership through the fixture's round. It uses each saved performance side's Hattrick team ID to keep the score with the correct scheduled fixture participant, including reversed venues and reserve substitutions. An ambiguous identity stays unscored. Automatic scoring failures are logged and reported separately from saved results so they cannot prevent length-round progression.
+
 Rollout order: apply migration 139 after preceding prepared migrations, deploy the code, inspect a dry run, then explicitly run the backfill if the owner chooses. Localhost may use production Supabase, so even the backfill dry run reads live data; its apply mode writes live data. Formula changes need a new version and deliberate recalculation, not silent reinterpretation of old scores.
 
 ```sh

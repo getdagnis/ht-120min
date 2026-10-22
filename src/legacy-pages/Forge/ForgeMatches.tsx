@@ -54,6 +54,8 @@ interface ForgeTeamView {
   canAccept: boolean;
   canWithdraw: boolean;
   autoArrangeEnabled: boolean | null;
+  savedFlags?: { home: number[]; away: number[]; fetchedAt: string } | null;
+  latest120mRating?: { score: number; grade: string; matchId: string; htMatchId: number | null; matchDate: string | null } | null;
   challengeDisabledReason: string;
   acceptDisabledReason?: string;
 }
@@ -63,6 +65,7 @@ interface ForgeFixtureView {
   status: string;
   completed: boolean;
   htMatchId: number | null;
+  scheduledFor?: string | null;
   home: ForgeTeamView;
   away: ForgeTeamView;
 }
@@ -137,6 +140,69 @@ function stateIsDangerous(state: string) {
   ].includes(state);
 }
 
+function mergeFixtureState(fixture: ForgeFixtureView, state: ForgeFixtureView | undefined) {
+  return state ? {
+    ...fixture, ...state,
+    home: { ...fixture.home, ...state.home, savedFlags: fixture.home.savedFlags, latest120mRating: fixture.home.latest120mRating },
+    away: { ...fixture.away, ...state.away, savedFlags: fixture.away.savedFlags, latest120mRating: fixture.away.latest120mRating },
+  } : fixture;
+}
+
+function csvCell(value: string | number | boolean | null | undefined) {
+  if (value === null || value === undefined) return '';
+  const text = String(value);
+  // Names and challenge text originate outside Forge and may be opened in a spreadsheet.
+  const safe = typeof value === 'string' && /^[=+\-@\t\r]/.test(text) ? `'${text}` : text;
+  return `"${safe.replaceAll('"', '""')}"`;
+}
+
+function exportRoundCsv(data: MatchesResponse, fixtureErrors: Record<string, string>) {
+  const columns = [
+    'tournament_id', 'tournament_name', 'season', 'round_id', 'round_number',
+    'fixture_id', 'fixture_status', 'completed', 'fixture_ht_match_id', 'scheduled_for', 'challenge_load_error',
+    ...(['home', 'away'] as const).flatMap(side => [
+      `${side}_team_id`, `${side}_ht_team_id`, `${side}_team_name`, `${side}_country_id`, `${side}_country_name`,
+      `${side}_manager_ht_id`, `${side}_manager_name`, `${side}_auto_arrange_enabled`,
+      `${side}_challenge_state`, `${side}_challenge_reason`,
+      `${side}_saved_home_flag_league_ids`, `${side}_saved_away_flag_league_ids`, `${side}_flags_fetched_at`,
+      `${side}_latest_120mrt_score`, `${side}_latest_120mrt_grade`, `${side}_120mrt_source_fixture_id`,
+      `${side}_120mrt_source_ht_match_id`, `${side}_120mrt_source_match_date`,
+    ]),
+  ];
+  const rows = (data.fixtures || []).map(fixture => {
+    const sideValues = (team: ForgeTeamView) => {
+      const bye = team.name === 'BYE' && team.htTeamId === null;
+      const flags = team.savedFlags;
+      const rating = team.latest120mRating;
+      return [
+        bye ? null : team.id, team.htTeamId, bye ? null : team.name, team.countryId, team.countryName,
+        team.managerHtId, team.managerName, team.autoArrangeEnabled,
+        team.chppState === 'CHECKING' ? null : team.chppState,
+        team.chppState === 'CHECKING' ? null : team.chppReason,
+        flags ? flags.home.join(';') : null, flags ? flags.away.join(';') : null, flags?.fetchedAt,
+        rating?.score, rating?.grade, rating?.matchId, rating?.htMatchId, rating?.matchDate,
+      ];
+    };
+    return [
+      data.tournament?.id, data.tournament?.name, data.tournament?.season,
+      data.currentRound?.id, data.currentRound?.roundNumber,
+      fixture.id, fixture.status, fixture.completed, fixture.htMatchId, fixture.scheduledFor,
+      fixtureErrors[fixture.id],
+      ...sideValues(fixture.home), ...sideValues(fixture.away),
+    ].map(csvCell).join(',');
+  });
+  const csv = `\uFEFF${[columns.map(csvCell).join(','), ...rows].join('\r\n')}\r\n`;
+  const filename = `forge-${data.tournament?.id || 'tournament'}-round-${data.currentRound?.roundNumber || 'unknown'}.csv`;
+  const url = URL.createObjectURL(new Blob([csv], { type: 'text/csv;charset=utf-8' }));
+  const link = document.createElement('a');
+  link.href = url;
+  link.download = filename;
+  document.body.appendChild(link);
+  link.click();
+  link.remove();
+  window.setTimeout(() => URL.revokeObjectURL(url), 0);
+}
+
 export function ForgeMatchesSection() {
   const [tournaments, setTournaments] = useState<TournamentOption[]>([]);
   const [selectedTournamentId, setSelectedTournamentId] = useState('');
@@ -204,7 +270,7 @@ export function ForgeMatchesSection() {
       if (updates.length) {
         const byId = new Map(updates.map(fixture => [fixture.id, fixture]));
         setData(current => current && loadEpoch.current === epoch ? {
-          ...current, fixtures: current.fixtures?.map(fixture => byId.get(fixture.id) || fixture),
+          ...current, fixtures: current.fixtures?.map(fixture => mergeFixtureState(fixture, byId.get(fixture.id))),
         } : current);
       }
       const errors = new Map((payload.fixtureErrors || []).map(item => [item.matchId, item.error]));
@@ -442,10 +508,10 @@ export function ForgeMatchesSection() {
         checkErrors[fixture.id] = 'Hattrick state was not returned.';
       }
       if (loadEpoch.current === epoch) {
-        setData({ ...base, fixtures: fixtures.map(fixture => checked.get(fixture.id) || fixture) });
+        setData({ ...base, fixtures: fixtures.map(fixture => mergeFixtureState(fixture, checked.get(fixture.id))) });
         setFixtureErrors(checkErrors);
       }
-      return { fixtures: fixtures.map(fixture => checked.get(fixture.id) || fixture), checkErrors };
+      return { fixtures: fixtures.map(fixture => mergeFixtureState(fixture, checked.get(fixture.id))), checkErrors };
     };
     const act = async (fixture: ForgeFixtureView, side: 'home' | 'away', action: 'challenge' | 'accept') => {
       return request('/api/forge/matches', {
@@ -767,6 +833,14 @@ export function ForgeMatchesSection() {
                   <h2 className={styles.roundTitle}>{data.tournament?.name}</h2>
                   <div className={styles.roundActions}>
                     <span className={styles.roundMeta}>Round {data.currentRound.roundNumber}</span>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      disabled={loading || refreshingData || bulkRunning || Object.keys(busyActions).length > 0}
+                      onClick={() => exportRoundCsv(data, fixtureErrors)}
+                    >
+                      Export CSV
+                    </Button>
                     <Button
                       variant="primaryAction"
                       size="sm"

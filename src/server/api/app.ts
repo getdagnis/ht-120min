@@ -12,7 +12,7 @@ import { validateNewsComment } from './_lib/news-comments.js';
 import { findSeasonParticipant, validateSeasonComment } from './_lib/season-comments.js';
 import { validateTournamentLeave } from './_lib/tournament-participation.js';
 import { getServiceSupabase, getSupabase } from './_lib/supabase.js';
-import { recalculateMatch120mRatings } from './_lib/match-120m-ratings.js';
+import { tryRecalculateMatch120mRatings } from './_lib/match-120m-ratings.js';
 import { handleForgeLocales } from './_lib/forge-locales.js';
 import { hasSuperAdminBypassCookie } from './_lib/superadmin-bypass.js';
 import {
@@ -526,13 +526,17 @@ async function handleSaveLengthResults(req: VercelRequest, res: VercelResponse) 
     p_updates: payload,
   });
   if (error) return res.status(422).json({ error: error.message });
+  const ratingFailures = [];
+  for (const update of updates) {
+    const failure = await tryRecalculateMatch120mRatings(supabase, update.matchId);
+    if (failure) ratingFailures.push(failure);
+  }
   try {
-    for (const update of updates) await recalculateMatch120mRatings(supabase, update.matchId);
     const progression = await progressLengthSchedule(supabase, tournamentId, seasonNumber);
-    return res.status(200).json({ saved: data, progression });
+    return res.status(200).json({ saved: data, progression, ratingFailures });
   } catch (error) {
     const message = error instanceof Error ? error.message : 'Round progression could not be completed.';
-    return res.status(409).json({ error: `Results were saved, but ${message}`, resultsSaved: true });
+    return res.status(409).json({ error: `Results were saved, but ${message}`, resultsSaved: true, ratingFailures });
   }
 }
 
@@ -2167,6 +2171,7 @@ async function handleRoundPressMatchDetailsBackfill(req: VercelRequest, res: Ver
     );
     const footballScore = getFootballScore(details);
     const shootout = getPenaltyShootoutScore(details);
+    let ratingFailure: { matchId: string; error: string } | null = null;
     if (apply) {
       const { error } = await supabase.from('matches').update({
         match_event_details: details,
@@ -2177,13 +2182,14 @@ async function handleRoundPressMatchDetailsBackfill(req: VercelRequest, res: Ver
         penalty_shootout_away_goals: shootout.away,
       }).eq('id', match.id);
       if (error) throw error;
-      await recalculateMatch120mRatings(supabase, match.id);
+      ratingFailure = await tryRecalculateMatch120mRatings(supabase, match.id);
     }
     refreshed.push({
       matchId: match.id,
       htMatchId,
       refreshed: true,
       persisted: apply,
+      ...(ratingFailure ? { ratingFailure: ratingFailure.error } : {}),
       version: details.version,
       result: details.result,
       // The dry-run is an explicit admin inspection operation. Return parsed,

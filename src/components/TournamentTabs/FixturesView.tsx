@@ -1330,12 +1330,9 @@ export const FixturesView: React.FC<FixturesViewProps> = ({
                             away: match.penalty_shootout_away_goals ?? 0,
                           }
                         : null;
-                    const homeIsBye =
-                      !match.home_team ||
-                      (!isHistorical && match.home_team.active === false && !match.home_team.reserve_active);
-                    const awayIsBye =
-                      !match.away_team ||
-                      (!isHistorical && match.away_team.active === false && !match.away_team.reserve_active);
+                    // Membership can change after a fixture; its saved participants cannot.
+                    const homeIsBye = !match.home_team;
+                    const awayIsBye = !match.away_team;
                     const availableChallenge = challengeAvailability[match.id];
                     const fixtureChallengeAction =
                       !isHistorical &&

@@ -23,6 +23,9 @@ keeps the same slot.
   never inserts a team or moves credentials.
 - Completed `matches.home_team_id` / `away_team_id` and their assignment IDs are
   never rewritten.
+- Fixture display must not treat an inactive participant as a BYE. Membership
+  changes do not erase a saved participant, including in past rounds of the
+  current season. A BYE side has no participant identity.
 - Incomplete sides change team identity and retain their slot.
 - Removing a current-season team releases its live assignment and sets the slot's
   `current_team_id` to `NULL`; only incomplete fixture sides are vacated. A slot
