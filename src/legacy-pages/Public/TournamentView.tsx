@@ -60,6 +60,7 @@ import {
 } from '../../../shared/country-size-eligibility';
 import { normalizeLeagueLimit, resolveCountryRestriction } from '../../../shared/worlddetails';
 import type { MatchEventDetails } from '../../../shared/match-events';
+import type { Match120mGrade } from '../../../shared/match-120m-rating';
 import type { TournamentJoinStory } from '../../types/tournament-activity';
 import { useLiveMatches } from '../../hooks/useLiveMatches';
 import { trackActivity } from '../../hooks/useActivityTracking';
@@ -305,6 +306,7 @@ export interface MatchWithTeams {
   away_red_cards?: number;
   away_injuries?: number;
   match_event_details?: MatchEventDetails | null;
+  match_120m_ratings?: { side: 'home' | 'away'; team_id: string; score: number; grade: Match120mGrade; formula_version: number }[];
   home_match_kit_url?: string | null;
   away_match_kit_url?: string | null;
   status: 'not_arranged' | 'arranged' | 'ongoing' | 'misarranged' | 'finished';

@@ -12,6 +12,7 @@ import { validateNewsComment } from './_lib/news-comments.js';
 import { findSeasonParticipant, validateSeasonComment } from './_lib/season-comments.js';
 import { validateTournamentLeave } from './_lib/tournament-participation.js';
 import { getServiceSupabase, getSupabase } from './_lib/supabase.js';
+import { recalculateMatch120mRatings } from './_lib/match-120m-ratings.js';
 import { handleForgeLocales } from './_lib/forge-locales.js';
 import { hasSuperAdminBypassCookie } from './_lib/superadmin-bypass.js';
 import {
@@ -526,6 +527,7 @@ async function handleSaveLengthResults(req: VercelRequest, res: VercelResponse) 
   });
   if (error) return res.status(422).json({ error: error.message });
   try {
+    for (const update of updates) await recalculateMatch120mRatings(supabase, update.matchId);
     const progression = await progressLengthSchedule(supabase, tournamentId, seasonNumber);
     return res.status(200).json({ saved: data, progression });
   } catch (error) {
@@ -2175,6 +2177,7 @@ async function handleRoundPressMatchDetailsBackfill(req: VercelRequest, res: Ver
         penalty_shootout_away_goals: shootout.away,
       }).eq('id', match.id);
       if (error) throw error;
+      await recalculateMatch120mRatings(supabase, match.id);
     }
     refreshed.push({
       matchId: match.id,

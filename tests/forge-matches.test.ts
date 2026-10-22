@@ -90,6 +90,7 @@ test('incoming exact-opponent challenge enables accept and a wrong opponent does
   });
   assert.equal(actions.chppState, 'INCOMING CHALLENGE');
   assert.equal(actions.canAccept, true);
+  assert.equal(actions.canChallenge, false);
 });
 
 test('arranged fixture disables challenge actions', () => {
@@ -178,6 +179,7 @@ test('base round loads without CHPP while bounded state reads affect only reques
   delete process.env.CHPP_CONSUMER_SECRET;
   const requestedMatchFilters: string[] = [];
   let profileReads = 0;
+  let preferenceOff = false;
   const team = (id: number) => ({ id: `db-team-${id}`, name: `Team ${id}`, manager_name: `Manager ${id}`,
     hattrick_user_id: id, ht_team_id: id + 1000, active: true, is_placeholder: false,
     oauth_scope: 'manage_challenges', can_manage_challenges: true });
@@ -198,6 +200,9 @@ test('base round loads without CHPP while bounded state reads affect only reques
       data = filter ? rows.filter(row => filter.includes(row.id)) : rows;
     }
     if (table === 'profiles') profileReads++;
+    if (table === 'tournament_team_auto_arrange_preferences' && preferenceOff) {
+      data = [{ team_id: 'db-team-2', hattrick_user_id: 2, enabled: false }];
+    }
     return new Response(JSON.stringify(data), { headers: { 'content-type': 'application/json' } });
   };
   try {
@@ -222,6 +227,19 @@ test('base round loads without CHPP while bounded state reads affect only reques
     const missing = await invoke({ tournamentId: 'tournament-1', roundNumber: '1', view: 'states', matchIds: 'missing-match' });
     assert.deepEqual(missing.body.fixtureErrors, [{ matchId: 'missing-match', error: 'Fixture is no longer in this round.' }]);
     assert.equal((await invoke({ tournamentId: 'tournament-1', roundNumber: '1', view: 'states', matchIds: '1,2,3,4,5' })).status, 400);
+    preferenceOff = true;
+    let actionStatus = 200;
+    let actionBody: Record<string, unknown> = {};
+    const actionResponse = {
+      status(code: number) { actionStatus = code; return actionResponse; },
+      json(value: Record<string, unknown>) { actionBody = value; return actionResponse; },
+    };
+    await forgeMatchesHandler({ method: 'POST', headers: { cookie }, body: {
+      tournamentId: 'tournament-1', roundNumber: 1, matchId: 'match-1', actingSide: 'home',
+      action: 'challenge', bulkAutoArrange: true,
+    } } as never, actionResponse as never);
+    assert.equal(actionStatus, 409);
+    assert.deepEqual(actionBody, { error: 'Auto-arrange is off for a fixture team.' });
   } finally {
     globalThis.fetch = originalFetch;
     for (const name of names) {

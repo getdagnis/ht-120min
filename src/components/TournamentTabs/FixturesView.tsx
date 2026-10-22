@@ -16,6 +16,7 @@ import { isFixtureMisarranged } from '../../utils/fixture-status';
 import { useClientNow } from '../../hooks/useHydratedBrowserState';
 import type { AppgOutcome } from '../../utils/appg';
 import type { MatchEventDetails } from '../../../shared/match-events';
+import { usesMatch120mRatings, type Match120mGrade } from '../../../shared/match-120m-rating';
 import type { LiveMatchClock } from '../../../shared/live-match';
 import { fixtureRatingNotice, type FixtureRatingShareStatus, type SharedFixtureRatings } from '../../types/fixture-ratings';
 import styles from '../../legacy-pages/Public/TournamentView.module.sass';
@@ -39,6 +40,7 @@ export interface FixtureMatch {
   away_red_cards?: number;
   away_injuries?: number;
   match_event_details?: MatchEventDetails | null;
+  match_120m_ratings?: { side: 'home' | 'away'; team_id: string; score: number; grade: Match120mGrade; formula_version: number }[];
   home_match_kit_url?: string | null;
   away_match_kit_url?: string | null;
   status: 'not_arranged' | 'arranged' | 'ongoing' | 'misarranged' | 'finished';
@@ -1420,6 +1422,8 @@ export const FixturesView: React.FC<FixturesViewProps> = ({
                           countryName: homeIsBye ? undefined : match.home_team?.country_name,
                           countryId: homeIsBye ? undefined : match.home_team?.country_id,
                           matchSummary: homeSummary,
+                          ratingGrade: !isHistorical && match.completed && usesMatch120mRatings(tournament?.scoring_mode)
+                            ? match.match_120m_ratings?.find((rating) => rating.side === 'home')?.grade : undefined,
                           reserveReplacingName: homeIsBye ? undefined : match.home_team?.reserve_replacing_name,
                           isBye: homeIsBye,
                         }}
@@ -1434,6 +1438,8 @@ export const FixturesView: React.FC<FixturesViewProps> = ({
                           countryName: awayIsBye ? undefined : match.away_team?.country_name,
                           countryId: awayIsBye ? undefined : match.away_team?.country_id,
                           matchSummary: awaySummary,
+                          ratingGrade: !isHistorical && match.completed && usesMatch120mRatings(tournament?.scoring_mode)
+                            ? match.match_120m_ratings?.find((rating) => rating.side === 'away')?.grade : undefined,
                           reserveReplacingName: awayIsBye ? undefined : match.away_team?.reserve_replacing_name,
                           isBye: awayIsBye,
                         }}

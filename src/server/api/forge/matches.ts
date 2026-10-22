@@ -845,6 +845,22 @@ async function executeAction(req: VercelRequest, res: VercelResponse) {
   const context = await resolveActionContext(supabase, tournamentId, matchId, actingSide, roundNumber);
   if ('error' in context) return res.status(409).json({ error: context.error });
 
+  if (req.body?.bulkAutoArrange === true && (action === 'challenge' || action === 'accept')) {
+    const sides = [context.target.team, context.target.opponent];
+    const { data: preferences, error: preferenceError } = await supabase
+      .from('tournament_team_auto_arrange_preferences')
+      .select('team_id, hattrick_user_id, enabled')
+      .eq('tournament_id', tournamentId)
+      .eq('season_number', context.tournament.season || 1)
+      .in('team_id', sides.map((side) => side.id));
+    if (preferenceError) throw preferenceError;
+    if ((preferences || []).some((preference) => preference.enabled === false && sides.some(
+      (side) => side.id === preference.team_id && side.managerHtId === Number(preference.hattrick_user_id),
+    ))) {
+      return res.status(409).json({ error: 'Auto-arrange is off for a fixture team.' });
+    }
+  }
+
   if (action === 'reverse') {
     const { row, fixture } = context;
     if (!row.home_team_id || !row.away_team_id || !fixture.home || !fixture.away || row.status !== 'not_arranged' || row.completed || row.ht_match_id) {

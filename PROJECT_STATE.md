@@ -1,12 +1,14 @@
 # PROJECT_STATE.md
 
-Last updated: 2026-10-21
+Last updated: 2026-10-22
 
 This is the current-status ledger. Update it after meaningful implementation work. Be explicit about what is local, migrated, tested, deployed, or still unknown.
 
 The local MVP includes a deterministic Meet the Manager spotlight built from persisted manager/team snapshots and the actual tournament participant relation. Its current implementation now models national-team staff roles separately, enriches the canonical `profiles.teams_json` array during authenticated/admin refresh, and selects ranked story facts without public CHPP calls. Migration `093_add_profile_national_team_roles.sql` is prepared locally; live schema, CHPP, admin backfill, snapshot invalidation, and deployment behavior remain unverified.
 
 ## Current Product State
+
+Finished-match 120mRt scoring is implemented locally for current-season `120m`, `120min`, `average120`, and `appg` fixtures. Formula version 1 scores each team's own saved setup and stores its score and grade per actual participant and match side for later rankings. The fixture badge reads those rows; historical snapshots and standings are unchanged. Migration `139_match_120m_ratings.sql` and the dry-run-first backfill are prepared but have **not** been applied to Supabase, and the feature is **not** deployed. Apply 139 before deploying its public match projection and finished-match writers. See [120mRt scoring](docs/match-120m-ratings.md).
 
 Phase 1 membership cleanup is prepared in revised, unapplied `137_reserve_waiting_and_past_actions.sql` and the matching app. The three lists are **Active → Waiting → Past**. Active can move to unchecked Waiting or Past; Waiting can be promoted to ordinary Active, checked for automatic admission, or removed to Past; Past returns to checked Waiting. All existing reserves and pending entries normalize to unchecked Waiting for review. `teams.actively_waiting` owns admission intent independently of the retired pending-round pointer. Normal Remove/Leave preserves the team and history; 135's guarded hard delete is separate. Applied 136's origin trigger is retired and its separate closed-registration reserve path is neutralized. Registration closure affects new requests, not already accepted Waiting.
 

@@ -13,6 +13,7 @@ Important tables used by current code:
 - `teams`
 - `rounds`
 - `matches`
+- `match_120m_ratings` (139 prepared: finished-match 120mRt score per actual match participant and side; public read, service-only write)
 - `fixture_predicted_rating_shares` (095 has an owner-added applied marker; 096 prepares private base-table reads and service-role writes)
 - `fixture_predicted_rating_share_status` (096 prepared: public status-only view for upcoming shares)
 - `fixture_warnings`
@@ -41,7 +42,7 @@ The app treats tournaments, rounds, matches, standings, chat, and admin decision
 - `migrations/history/` is an archived legacy area.
 - Active migrations must use the root `migrations/` directory.
 - Continue the numeric sequence from the latest active migration.
-- The latest active migration is `138_use_confirmed_kickoff_for_fixture_ratings.sql`, prepared locally and not applied to Supabase. It requires the confirmed-date and ratings contracts from 101, 118 and 119; inspect those installed definitions before applying it. `137_reserve_waiting_and_past_actions.sql` remains prepared and requires 134–136 (owner-marked applied, not independently live-verified). Apply 137 before deploying its API/UI. See [reserve membership actions](#team-membership-phase-1). Earlier migration states and preflights remain in `PROJECT_STATE.md`; review the [lifecycle preflight](tournament-lifecycle-preflight.sql) before converting existing real Open/Waiting rosters.
+- The latest active migration is `139_match_120m_ratings.sql`, prepared locally and not applied to Supabase. Apply it before deploying the 120mRt public projection or finished-match writers; otherwise the public match query will fail. `138_use_confirmed_kickoff_for_fixture_ratings.sql` is also prepared locally and requires the confirmed-date and ratings contracts from 101, 118 and 119; inspect those installed definitions before applying it. `137_reserve_waiting_and_past_actions.sql` remains prepared and requires 134–136 (owner-marked applied, not independently live-verified). Apply 137 before deploying its API/UI. See [reserve membership actions](#team-membership-phase-1). Earlier migration states and preflights remain in `PROJECT_STATE.md`; review the [lifecycle preflight](tournament-lifecycle-preflight.sql) before converting existing real Open/Waiting rosters.
 - Do not create timestamp-prefixed migration names such as `20261001050614_...`.
 - Keep migrations compatible with existing rows when possible.
 - Record migration state in `PROJECT_STATE.md` only when a schema/RPC/RLS change has architectural, security, product-direction, or substantial behavioral impact. Do not add status entries for routine fixes or small implementation details.

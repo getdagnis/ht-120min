@@ -68,6 +68,17 @@ the offer's CHPP `TrainingMatchID`; ambiguous duplicate offers are not accepted.
 Acceptance requires explicit user confirmation and the receiving manager's own
 stored `manage_challenges` credentials.
 
+Forge Matches has a manual `Book all` run scoped to the selected tournament and
+materialized round. It rereads CHPP fixture states, sends eligible Cup Rules
+challenges through the existing per-fixture action, rereads challenge states,
+then accepts exact-opponent incoming challenges through that same action. Bulk
+actions reread both managers' current auto-arrange preferences server-side and
+skip an opt-out. A specific Hattrick refusal to accept challenges permits one
+retry from the other fixture side; the existing side-based `matchPlace` keeps
+the scheduled home/away venue. The browser runs actions one at a time and Stop
+finishes the current request. Accepted fixtures are reconciled once at the end;
+the run is not a scheduled Thursday worker and has no durable queue or audit log.
+
 ## Match Refresh Rules
 
 - Fixture refresh uses `matches` to detect arranged friendlies.

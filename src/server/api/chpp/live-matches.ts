@@ -24,6 +24,7 @@ import type { MatchEventDetails, MatchSetPiecesTaker } from '../../../../shared/
 import type { LiveMatchClock } from '../../../../shared/live-match.js';
 import { parseChppStockholmDate } from '../../../../shared/chpp-dates.js';
 import { progressLengthSchedule } from '../_lib/length-schedule-service.js';
+import { recalculateMatch120mRatings } from '../_lib/match-120m-ratings.js';
 
 interface LiveMatchResult extends LiveMatchClock {
   status: 'arranged' | 'ongoing' | 'finished';
@@ -502,6 +503,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
           throw updateError;
         }
       }
+      if (finished) await recalculateMatch120mRatings(supabase, fixture.id);
     }
     if (tournament.schedule_mode === 'length') {
       await progressLengthSchedule(supabase, String(tournament_id), Number(tournament.season || 1));

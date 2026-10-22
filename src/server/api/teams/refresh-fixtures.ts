@@ -42,6 +42,7 @@ import {
   type ParsedChppMatch,
 } from '../../../../shared/matches-archive.js';
 import { progressLengthSchedule } from '../_lib/length-schedule-service.js';
+import { recalculateMatch120mRatings } from '../_lib/match-120m-ratings.js';
 
 // Simplified helper for match date calculation on server
 // Compare with docs/global-match-time.json before actual implementation
@@ -821,6 +822,7 @@ async function handleManualMatchLink(req: VercelRequest, res: VercelResponse) {
     };
     const { error } = await supabase.from('matches').update(updatePayload).eq('id', matchId);
     if (error) return res.status(500).json({ error: error.message });
+    if (details.completed) await recalculateMatch120mRatings(getServiceSupabase(), matchId);
     if (details.completed) {
       const serviceSupabase = getServiceSupabase();
       const { data: linkedTournament } = await serviceSupabase
@@ -1164,7 +1166,7 @@ async function handleAddHtMatch(req: VercelRequest, res: VercelResponse) {
       penaltyShootoutAwayGoals: penaltyShootout.away,
       eventDetails,
     });
-    const { error: matchError } = await supabase.from('matches').insert({
+    const { data: insertedMatch, error: matchError } = await supabase.from('matches').insert({
       round_id: roundId,
       home_team_id: homeTeam?.id || null,
       away_team_id: awayTeam?.id || null,
@@ -1186,8 +1188,9 @@ async function handleAddHtMatch(req: VercelRequest, res: VercelResponse) {
       ...summary,
       match_event_details: eventDetails,
       ...kitUrls,
-    });
+    }).select('id').single();
     if (matchError) return res.status(500).json({ error: matchError.message });
+    if (details.completed && insertedMatch) await recalculateMatch120mRatings(getServiceSupabase(), insertedMatch.id);
   }
 
   return res.status(200).json({
