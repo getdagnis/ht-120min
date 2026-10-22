@@ -979,8 +979,8 @@ const messages = {
       guåhanGoddesses: "Guåhan Goddesses 🇬🇺",
     },
     SidebarPollWidget: {
-      flagQuiz: "Guess the flag daily",
-      flagLabel: "Mystery flag",
+      flagQuiz: "Do you know this flag?",
+      flagLabel: "Mysterious flag",
       question: "Which Hattrick country's flag is this'?",
       chooseCountry: "Choose one country",
       submitGuess: "Submit guess",
