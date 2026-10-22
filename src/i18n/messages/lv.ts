@@ -1022,7 +1022,7 @@ const messages = {
       setPiecesTaker: "",
       playerSpecialtiesByPosition: "",
       specialties: "",
-      messageOpponent: "Sūtīt ziņu pretiniekam",
+      messageOpponent: "Uzraksti pretiniekam",
       stopSharing: "",
       lastUpdated: "",
       sharePredictedRatings: "",

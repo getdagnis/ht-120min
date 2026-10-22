@@ -329,13 +329,20 @@ function RatingsPitch({
               const favorable = comparisonClass === styles.ratingIndicator1;
               if (sector === 'midfield') {
                 comparisonTitle = uiText(
-                  favorable ? 'midfieldBalanced'
-                    : comparisonClass === styles.ratingIndicator4 ? 'midfieldVeryDifferent' : 'midfieldDifferent',
+                  favorable
+                    ? 'midfieldBalanced'
+                    : comparisonClass === styles.ratingIndicator4
+                      ? 'midfieldVeryDifferent'
+                      : 'midfieldDifferent',
                 );
               } else {
                 const message = sector.endsWith('Defence')
-                  ? favorable ? 'defenceStronger' : 'defenceWeaker'
-                  : favorable ? 'attackContained' : 'attackStronger';
+                  ? favorable
+                    ? 'defenceStronger'
+                    : 'defenceWeaker'
+                  : favorable
+                    ? 'attackContained'
+                    : 'attackStronger';
                 comparisonTitle = uiText(message, {
                   own: uiText(sector),
                   opponent: uiText(OPPOSING_SECTORS[sector]).toLocaleLowerCase(),
@@ -811,13 +818,15 @@ export const FixtureCard: React.FC<FixtureCardProps> = ({
                       </span>
                     </div>
                     {canManage && opponent.managerHtId && (
-                      <div className={`${styles.ratingsPreviewActions} ${side === 'away' ? '' : styles.ratingsPreviewActionsEdgeAligned}`}>
+                      <div
+                        className={`${styles.ratingsPreviewActions} ${side === 'away' ? styles.ratingsPreviewActionsAway : styles.ratingsPreviewActionsEdgeAligned}`}
+                      >
                         <a
                           href={`https://www.hattrick.org/goto.ashx?path=/MyHattrick/Inbox/?actionType=newMail&userId=${opponent.managerHtId}`}
                           target="_blank"
                           rel="noopener noreferrer"
                         >
-                          {uiText('messageOpponent')}
+                          ✉️ {uiText('messageOpponent')}
                         </a>
                       </div>
                     )}

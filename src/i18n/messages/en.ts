@@ -1046,7 +1046,7 @@ const messages = {
       setPiecesTaker: "Set Pieces taker",
       playerSpecialtiesByPosition: "Player specialties by position",
       specialties: "Specialties:",
-      messageOpponent: "Contact opponent",
+      messageOpponent: "Message opponent",
       stopSharing: "Stop sharing",
       lastUpdated: "Last updated:",
       sharePredictedRatings: "Share predicted ratings",
