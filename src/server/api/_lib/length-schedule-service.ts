@@ -574,13 +574,18 @@ export async function repairLengthRound(
   const hasVacantSlot = (match: StoredMatch) =>
     (Boolean(match.home_slot_id) && !match.home_team_id) ||
     (Boolean(match.away_slot_id) && !match.away_team_id);
-  if (unavailableTeamIds.length === 0 && !current.matches.some(match => !protectedMatches.includes(match) && hasVacantSlot(match))) {
-    throw new Error('No booked-elsewhere teams or vacant fixtures were detected in this round.');
+  const unprotectedByes = current.matches.filter((match) =>
+    !protectedMatches.includes(match) && Boolean(match.home_team_id) !== Boolean(match.away_team_id),
+  );
+  const excessByeMatches = unprotectedByes.length > 1 ? unprotectedByes : [];
+  if (unavailableTeamIds.length === 0 && excessByeMatches.length === 0 &&
+      !current.matches.some(match => !protectedMatches.includes(match) && hasVacantSlot(match))) {
+    throw new Error('No booked-elsewhere teams, vacant fixtures, or excess BYEs were detected in this round.');
   }
   const affectedMatches = current.matches.filter(
     (match) =>
       !protectedMatches.includes(match) &&
-      (hasVacantSlot(match) || Boolean(
+      (excessByeMatches.includes(match) || hasVacantSlot(match) || Boolean(
         (match.home_team_id && unavailableTeamIds.includes(match.home_team_id)) ||
           (match.away_team_id && unavailableTeamIds.includes(match.away_team_id)),
       )),
@@ -598,7 +603,7 @@ export async function repairLengthRound(
     lockedPairs: untouchedMatches.flatMap((match) =>
       match.home_team_id && match.away_team_id ? [[match.home_team_id, match.away_team_id] as [string, string]] : [],
     ),
-    lockedTeamIds: protectedMatches.flatMap(match => [match.home_team_id, match.away_team_id].filter((id): id is string => Boolean(id))),
+    lockedTeamIds: untouchedMatches.flatMap(match => [match.home_team_id, match.away_team_id].filter((id): id is string => Boolean(id))),
     unavailableTeamIds,
     history,
   });

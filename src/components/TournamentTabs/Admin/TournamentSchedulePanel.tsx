@@ -1084,8 +1084,10 @@ export const TournamentSchedulePanel: React.FC<TournamentSchedulePanelProps> = (
 
   const renderLengthGenerated = () => {
     const currentRound = lengthRounds.find((round) => round.phase_status === 'materialized');
-    const hasMisarrangedMatches = currentRound?.phase === 'regular' &&
-      currentRound.matches.some((match) => match.status === 'misarranged');
+    const hasRepairableMatches = currentRound?.phase === 'regular' && (
+      currentRound.matches.some((match) => match.status === 'misarranged') ||
+      currentRound.matches.filter((match) => Boolean(match.home_team) !== Boolean(match.away_team)).length > 1
+    );
     return (
       <div className={adminStyles.genOptions}>
         <div className={adminStyles.scheduleIntro}>
@@ -1131,7 +1133,7 @@ export const TournamentSchedulePanel: React.FC<TournamentSchedulePanelProps> = (
             </div>
           )}
         {currentRound?.phase === 'regular' && reserveAdmissionControl}
-        {currentRound && hasMisarrangedMatches && onRepairRound && (
+        {currentRound && hasRepairableMatches && onRepairRound && (
           <>
             <Button variant="secondaryAction" onClick={onRepairRound} disabled={isRepairingRound}>
               {isRepairingRound
@@ -1139,9 +1141,8 @@ export const TournamentSchedulePanel: React.FC<TournamentSchedulePanelProps> = (
                 : `Repair Round ${currentRound.round_number}`}
             </Button>
             <p className={adminStyles.smallNote}>
-              "Repair Round" option pairs multiple teams with misarranged matches against each other, so their scheduled
-              partners can play each other instead. Refresh fixture status before repairing. Correctly arranged fixtures
-              stay locked.
+              Repair Round can pair teams left in separate BYE fixtures or repair fixtures affected by unavailable teams.
+              Refresh fixture status before repairing. Unaffected fixtures stay locked.
             </p>
           </>
         )}
