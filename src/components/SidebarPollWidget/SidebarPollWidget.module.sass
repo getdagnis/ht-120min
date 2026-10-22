@@ -1,5 +1,14 @@
 .widget
   gap: 0.85rem
+  -webkit-user-select: none
+  user-select: none
+
+.flag
+  display: block
+  text-align: center
+  font-size: 5rem
+  line-height: 1.25
+  cursor: default
 
 .question
   margin: 0
@@ -10,7 +19,7 @@
 .form,
 .options,
 .results,
-.login
+.leaderboard
   display: flex
   flex-direction: column
   gap: 0.65rem
@@ -20,7 +29,9 @@
   padding: 0
   border: 0
 
-.legend
+.legend,
+.notice,
+.markers
   padding: 0
   color: var(--text60)
   font-size: 0.8rem
@@ -36,35 +47,58 @@
   input
     accent-color: var(--accent-2)
 
-.resultList
+.resultList,
+.leaders
   display: flex
   flex-direction: column
-  gap: 0.4rem
+  gap: 0.65rem
   margin: 0
   padding: 0
   list-style: none
 
 .resultItem
   display: flex
-  justify-content: space-between
-  gap: 0.75rem
+  flex-direction: column
+  gap: 0.25rem
   color: var(--text-h)
-  font-size: 0.9rem
+  font-size: 0.85rem
 
-.voteCount
-  color: var(--text60)
+.resultHeading,
+.leaders li
+  display: flex
+  justify-content: space-between
+  align-items: baseline
+  gap: 0.5rem
+  overflow-wrap: anywhere
   font-variant-numeric: tabular-nums
 
-.closedNotice,
-.closeDateNotice,
+.resultHeading > :last-child,
+.leaders li > :last-child
+  flex-shrink: 0
+
+.bar
+  height: 0.4rem
+  border-radius: 0.2rem
+  background: var(--borderWeak)
+  overflow: hidden
+
+.fill,
+.correctBar
+  display: block
+  height: 100%
+  background: var(--text60)
+
+.correctBar
+  background: var(--semi-green)
+
+.leaderboard
+  margin-top: 0.4rem
+  font-size: 0.8rem
+
+.notice,
 .error
   margin: 0
-  color: var(--text60)
-  font-size: 0.82rem
-
-.closeDateNotice
-  align-self: flex-start
-  font-size: 0.75rem
+  font-size: 0.8rem
 
 .error
   color: var(--danger)

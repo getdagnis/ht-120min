@@ -1,190 +1,140 @@
 'use client';
 
 import { useTranslations } from 'next-intl';
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import { ChartBar, ArrowRight, User } from 'phosphor-react';
-
-import { supabase } from '../../lib/supabase';
-import {
-  buildSeasonPollResults,
-  getSeasonPollCloseDate,
-  getSeasonPollVoteTotal,
-  isSeasonPollClosed,
-  type PollRound,
-  type PollTeamOption,
-  type PollVote,
-} from '../../utils/season-poll';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
+import { Flag } from 'phosphor-react';
+import type { FlagQuizState } from '../../../shared/flag-quiz';
 import { Button } from '../Button/Button';
 import { ReusableWidget } from '../ReusableWidget/ReusableWidget';
 import styles from './SidebarPollWidget.module.sass';
 
-interface SidebarPollWidgetProps {
-  seasonId?: string;
-  seasonStatus?: 'planned' | 'ongoing' | 'finished';
-  teams: PollTeamOption[];
-  rounds: PollRound[];
-  is120minMode: boolean;
-  myHtUserId: number | null;
-}
+const QUIZ_URL = '/api/app?route=flag-quiz';
 
-interface SeasonPollVoteRow extends PollVote {
-  id: string;
-  season_id: string;
-  voter_ht_user_id: number;
-}
+export const SidebarPollWidget: React.FC<{ myHtUserId: number | null }> = ({ myHtUserId }) => {
+  const t = useTranslations('PublicUI.SidebarPollWidget');
+  const [quiz, setQuiz] = useState<FlagQuizState | null>(null);
+  const [selected, setSelected] = useState<number | null>(null);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<'loadError' | 'saveError' | 'expired' | 'sessionExpired' | null>(null);
+  const requestVersion = useRef(0);
 
-async function fetchSeasonPollVotes(seasonId: string) {
-  return supabase
-    .from('tournament_season_poll_votes')
-    .select('id, season_id, team_id, voter_ht_user_id')
-    .eq('season_id', seasonId);
-}
-
-export const SidebarPollWidget: React.FC<SidebarPollWidgetProps> = ({
-  seasonId,
-  seasonStatus,
-  teams,
-  rounds,
-  is120minMode,
-  myHtUserId,
-}) => {
-  const uiText = useTranslations('PublicUI.SidebarPollWidget');
-  const closeDate = useMemo(() => getSeasonPollCloseDate(rounds), [rounds]);
-  const [votes, setVotes] = useState<SeasonPollVoteRow[]>([]);
-  const [selectedTeamId, setSelectedTeamId] = useState('');
-  const [isSubmitting, setIsSubmitting] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-
-  const loadVotes = useCallback(async () => {
-    if (!seasonId) return;
-    const { data, error: loadError } = await fetchSeasonPollVotes(seasonId);
-
-    if (loadError) {
-      setError('Could not load poll results.');
-      return;
+  const load = useCallback(async () => {
+    const version = ++requestVersion.current;
+    try {
+      const response = await fetch(QUIZ_URL, { cache: 'no-store' });
+      if (!response.ok) throw new Error('Quiz unavailable');
+      const next: FlagQuizState = await response.json();
+      if (version !== requestVersion.current) return false;
+      setQuiz(next);
+      setSelected(null);
+      setError(null);
+      return true;
+    } catch {
+      if (version === requestVersion.current) setError('loadError');
+      return false;
     }
-
-    setVotes((data || []) as SeasonPollVoteRow[]);
-  }, [seasonId]);
+  }, []);
 
   useEffect(() => {
-    if (!seasonId) return;
-    let isCurrent = true;
+    let cancelled = false;
+    const requests = requestVersion;
+    void Promise.resolve().then(() => { if (!cancelled) void load(); });
+    return () => { cancelled = true; requests.current++; };
+  }, [load, myHtUserId]);
 
-    void fetchSeasonPollVotes(seasonId).then(({ data, error: loadError }) => {
-      if (!isCurrent) return;
-      if (loadError) {
-        setError('Could not load poll results.');
-        return;
-      }
-      setVotes((data || []) as SeasonPollVoteRow[]);
-    });
-
+  useEffect(() => {
+    if (!quiz) return;
+    const delay = Math.max(1000, Date.parse(quiz.question.expiresAt) - Date.now() + 250);
+    const timer = window.setTimeout(() => { void load(); }, delay);
+    const onVisible = () => { if (document.visibilityState === 'visible') void load(); };
+    document.addEventListener('visibilitychange', onVisible);
     return () => {
-      isCurrent = false;
+      window.clearTimeout(timer);
+      document.removeEventListener('visibilitychange', onVisible);
     };
-  }, [seasonId]);
+  }, [quiz, load]);
 
-  if (!seasonId || seasonStatus !== 'ongoing' || !closeDate || !teams.length) return null;
-
-  const isClosed = isSeasonPollClosed(closeDate);
-  const existingVote = myHtUserId ? votes.find((vote) => vote.voter_ht_user_id === myHtUserId) : undefined;
-  const showResults = Boolean(isClosed || existingVote);
-  const results = buildSeasonPollResults(teams, votes);
-  const totalVotes = getSeasonPollVoteTotal(votes);
-  const closeDateLabel = closeDate.toLocaleDateString('en-US', {
-    month: 'short',
-    day: 'numeric',
-    year: 'numeric',
-    timeZone: 'UTC',
-  });
-  const question = is120minMode
-    ? 'Which team is most likely to win this tournament based on 120 min games achieved?'
-    : 'Which team is most likely to win this tournament based on regular 90 min point system?';
-
-  const handleLogin = () => {
+  const login = () => {
     document.cookie = `auth_return_url=${encodeURIComponent(window.location.pathname + window.location.search)}; path=/; max-age=300`;
     window.location.href = '/api/auth/init';
   };
 
-  const handleSubmit = async (event: React.FormEvent) => {
+  const submit = async (event: React.FormEvent) => {
     event.preventDefault();
-    if (!seasonId || !myHtUserId || !selectedTeamId || existingVote || isClosed) return;
-
-    setIsSubmitting(true);
+    if (!quiz || selected === null || busy || quiz.answer) return;
+    const version = ++requestVersion.current;
+    setBusy(true);
     setError(null);
-    const { error: insertError } = await supabase.from('tournament_season_poll_votes').insert({
-      season_id: seasonId,
-      team_id: selectedTeamId,
-      voter_ht_user_id: myHtUserId,
-    });
-    setIsSubmitting(false);
-
-    if (insertError) {
-      setError(insertError.code === '23505' ? 'You have already voted in this poll.' : 'Could not submit your vote.');
-      if (insertError.code === '23505') await loadVotes();
-      return;
+    try {
+      const response = await fetch(QUIZ_URL, {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ questionId: quiz.question.id, selectedLeagueId: selected }),
+      });
+      if (response.status === 409) {
+        if (await load()) setError('expired');
+        return;
+      }
+      if (response.status === 401) {
+        if (version === requestVersion.current) {
+          setQuiz({ ...quiz, canAnswer: false });
+          setError('sessionExpired');
+        }
+        return;
+      }
+      if (!response.ok) throw new Error('Answer unavailable');
+      const next: FlagQuizState = await response.json();
+      if (version === requestVersion.current) { setQuiz(next); setSelected(null); }
+    } catch {
+      if (version === requestVersion.current) setError('saveError');
+    } finally {
+      setBusy(false);
     }
-
-    await loadVotes();
   };
 
   return (
-    <ReusableWidget title={uiText('seasonPoll')} icon={<ChartBar size={20} weight="bold" />} className={styles.widget}>
-      <p className={styles.question}>{question}</p>
-      {showResults ? (
-        <div className={styles.results} aria-live="polite">
-          <strong>{uiText('currentResults')}{totalVotes} {uiText('votes')}</strong>
+    <ReusableWidget title={t('flagQuiz')} icon={<Flag size={20} weight="bold" />} className={styles.widget}>
+      {quiz ? <>
+        <span className={styles.flag} role="img" aria-label={t('flagLabel')}>{quiz.question.emoji}</span>
+        <p className={styles.question}>{t('question')}</p>
+        {quiz.answer && quiz.results ? <div className={styles.results} aria-live="polite">
+          <span>{t('totalAnswers', { count: quiz.results.total })}</span>
           <ol className={styles.resultList}>
-            {results.map((team) => (
-              <li key={team.id} className={styles.resultItem}>
-                <span>{team.name}</span>
-                <span className={styles.voteCount}>
-                  {team.votes}
-                  {team.id === existingVote?.team_id && ' (voted)'}
-                </span>
-              </li>
-            ))}
+            {quiz.question.options.map((option) => {
+              const count = quiz.results!.options.find((result) => result.leagueId === option.leagueId)?.count ?? 0;
+              const percent = quiz.results!.total ? Math.round(count / quiz.results!.total * 100) : 0;
+              const correct = option.leagueId === quiz.answer!.correctLeagueId;
+              const mine = option.leagueId === quiz.answer!.selectedLeagueId;
+              return <li key={option.leagueId} className={styles.resultItem}>
+                <div className={styles.resultHeading}><span>{option.name}</span><span>{percent}% · {count}</span></div>
+                <div className={styles.bar} aria-hidden="true"><span className={correct ? styles.correctBar : styles.fill} style={{ width: `${percent}%` }} /></div>
+                {(mine || correct) && <span className={styles.markers}>{[mine && t('yourGuess'), correct && t('correctAnswer')].filter(Boolean).join(' · ')}</span>}
+              </li>;
+            })}
           </ol>
-          {isClosed && <span className={styles.closedNotice}>{uiText('votingIsClosed')}</span>}
-        </div>
-      ) : myHtUserId ? (
-        <form onSubmit={handleSubmit} className={styles.form}>
-          <fieldset disabled={isSubmitting} className={styles.options}>
-            <legend className={styles.legend}>{uiText('chooseOneTeam')}</legend>
-            {teams.map((team) => (
-              <label key={team.id} className={styles.option}>
-                <input
-                  type="radio"
-                  name={`season-poll-${seasonId}`}
-                  value={team.id}
-                  checked={selectedTeamId === team.id}
-                  onChange={() => setSelectedTeamId(team.id)}
-                />
-                <span>{team.name}</span>
-              </label>
-            ))}
+          {quiz.leaders.length > 0 && <div className={styles.leaderboard}>
+            <strong>{t('bestThisMonth')}</strong>
+            <ol className={styles.leaders}>{quiz.leaders.map((leader, index) => <li key={index}>
+              <span>{leader.rank}. {leader.managerName}</span>
+              <span>{t('score', { correct: leader.correct, attempted: leader.attempted })}</span>
+            </li>)}</ol>
+          </div>}
+        </div> : <form onSubmit={submit} className={styles.form}>
+          <fieldset disabled={busy || !quiz.canAnswer} className={styles.options}>
+            <legend className={styles.legend}>{t('chooseCountry')}</legend>
+            {quiz.question.options.map((option) => <label key={option.leagueId} className={styles.option}>
+              <input type="radio" name={`flag-quiz-${quiz.question.id}`} value={option.leagueId}
+                checked={selected === option.leagueId} onChange={() => setSelected(option.leagueId)} />
+              <span>{option.name}</span>
+            </label>)}
           </fieldset>
-          <Button type="submit" size="sm" disabled={!selectedTeamId || isSubmitting} fullWidth>
-            {isSubmitting ? uiText('submitting') : uiText('vote')}
-          </Button>
-        </form>
-      ) : (
-        <div className={styles.login}>
-          <span>{uiText('logInToVote')}</span>
-          <Button size="sm" onClick={handleLogin} variant="primary" type="button">
-            <User size={18} weight="bold" />
-            <span>{uiText('loginToVote')}</span>
-            <ArrowRight size={18} className="hideOnTable" />
-          </Button>
-        </div>
-      )}
-      <span className={styles.closeDateNotice}>{uiText('ends')} {closeDateLabel}</span>
-      {error && (
-        <p className={styles.error} role="alert">
-          {error}
-        </p>
-      )}
+          {quiz.canAnswer ? <Button type="submit" size="sm" fullWidth disabled={selected === null || busy}>
+            {busy ? t('submitting') : t('submitGuess')}
+          </Button> : <Button type="button" size="sm" fullWidth onClick={login}>{t('loginToGuess')}</Button>}
+        </form>}
+        <span className={styles.notice}>{t('rotationNotice')}</span>
+      </> : !error && <p className={styles.notice} role="status">{t('loading')}</p>}
+      {error && <p className={styles.error} role="alert">{t(error)}</p>}
+      {error === 'loadError' && <Button type="button" size="sm" onClick={() => { void load(); }}>{t('retry')}</Button>}
     </ReusableWidget>
   );
 };

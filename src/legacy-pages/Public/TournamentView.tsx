@@ -140,7 +140,7 @@ import {
   hasDismissedWelcome,
   TOURNAMENT_CREATED_WELCOME,
 } from '../../utils/welcome-modals';
-import { ArrowClockwise, ArrowRight, CaretDown, Chat, Info, Question, X } from 'phosphor-react';
+import { ArrowClockwise, ArrowRight, CaretDown, Chat, Question, X } from 'phosphor-react';
 import type { TournamentInitialData } from '../../app/_data/public-data';
 import type { TournamentMatchArrangeStorySnapshot } from '../../types/tournament-activity';
 import type { BulkMatchUpdate } from '../../utils/sandbox-results';
@@ -6844,14 +6844,7 @@ export const TournamentView: React.FC<{
                 countryLimitFormat: tournament.country_limit_format,
               }}
             />
-            <SidebarPollWidget
-              seasonId={currentSeason?.id}
-              seasonStatus={currentSeason?.status}
-              teams={teams.filter(isCurrentParticipantTeam).map((team) => ({ id: team.id, name: team.name }))}
-              rounds={rounds}
-              is120minMode={is120minMode}
-              myHtUserId={myHtUserId ? Number(myHtUserId) : null}
-            />
+            <SidebarPollWidget key={myHtUserId || 'guest'} myHtUserId={myHtUserId ? Number(myHtUserId) : null} />
             <RepresentedCountries teams={teams} />
             <CompactAccordionWidget
               title={uiText('tournamentFAQ')}
