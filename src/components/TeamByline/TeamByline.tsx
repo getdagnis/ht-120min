@@ -39,7 +39,6 @@ interface TeamBylineProps {
     eventDetails?: MatchSideEventDetails | null;
   } | null;
   matchKitUrl?: string | null;
-  ratingGrade?: FixtureRatingGrade;
 }
 
 export const TeamByline: React.FC<TeamBylineProps> = ({
@@ -56,7 +55,6 @@ export const TeamByline: React.FC<TeamBylineProps> = ({
   lastSeenAt,
   matchSummary,
   matchKitUrl,
-  ratingGrade,
 }) => {
   const uiText = useTranslations('PublicUI.TeamByline');
   // Use a unique ID for tooltips to avoid collisions
@@ -380,11 +378,6 @@ export const TeamByline: React.FC<TeamBylineProps> = ({
             )}
           </div>
         </div>
-      )}
-      {mode === 'fixtures' && ratingGrade && (
-        <span className={`${styles.ratingBadge} ${styles[`ratingGrade${ratingGrade[0]}`]}`}>
-          120m rating: {ratingGrade}
-        </span>
       )}
     </div>
   );

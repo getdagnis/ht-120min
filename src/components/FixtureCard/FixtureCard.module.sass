@@ -121,6 +121,39 @@
 .ratingsSideAway .ratingsTeamHeading
   justify-content: flex-end
 
+.ratingBadge
+  display: inline-block
+  padding: 0.15rem 0.3rem 0.2rem 0.4rem
+  margin-bottom: 0.6rem
+  border-radius: var(--radius-md)
+  background: var(--rating-grade-color)
+  color: white
+  font-family: var(--heading)
+  font-size: 0.85rem
+  font-weight: 600
+  line-height: 1.2
+  letter-spacing: 0.08em
+  text-transform: uppercase
+  white-space: nowrap
+
+.ratingGradeA
+  --rating-grade-color: var(--accent-2)
+
+.ratingGradeB
+  --rating-grade-color: var(--semi-green)
+
+.ratingGradeC
+  --rating-grade-color: var(--warning-high)
+
+.ratingGradeD
+  --rating-grade-color: var(--warning-high)
+
+.ratingGradeE
+  --rating-grade-color: var(--tinder)
+
+.ratingGradeF
+  --rating-grade-color: var(--tinder)
+
 .ratingsPitch
   display: grid
   grid-template-rows: auto auto auto

@@ -464,7 +464,8 @@ export const FixtureCard: React.FC<FixtureCardProps> = ({
   const [refreshedSide, setRefreshedSide] = React.useState<'home' | 'away' | null>(null);
   const refreshedTimer = React.useRef<number | null>(null);
   const [ratingsError, setRatingsError] = React.useState<string | null>(null);
-  const [actualDetailsExpanded, setActualDetailsExpanded] = React.useState(false);
+  const [detailsExpanded, setDetailsExpanded] = React.useState(false);
+  const actualDetailsExpanded = isOwned || detailsExpanded;
   const act = async (side: 'home' | 'away', action: 'share' | 'update' | 'remove') => {
     if (!ratingsActions || busySide) return;
     setBusySide(side);
@@ -564,7 +565,6 @@ export const FixtureCard: React.FC<FixtureCardProps> = ({
           isRight={isRight}
           matchSummary={team.matchSummary}
           matchKitUrl={team.warning ? null : team.matchKitUrl}
-          ratingGrade={team.ratingGrade}
         />
       )}
       {team.warning && (
@@ -664,12 +664,12 @@ export const FixtureCard: React.FC<FixtureCardProps> = ({
           badgeContent
         )}
         {appgOutcomeText && <div className={styles.appgOutcome}>{appgOutcomeText}</div>}
-        {status === 'finished' && (
+        {status === 'finished' && !isOwned && (
           <button
             type="button"
             className={styles.detailsToggle}
             aria-expanded={actualDetailsExpanded}
-            onClick={() => setActualDetailsExpanded((expanded) => !expanded)}
+            onClick={() => setDetailsExpanded((expanded) => !expanded)}
           >
             {actualDetailsExpanded ? uiText('hideDetails') : uiText('showDetails')}
           </button>
@@ -862,6 +862,11 @@ export const FixtureCard: React.FC<FixtureCardProps> = ({
                   <span>{uiText('matchPerformance')}</span>
                   {side === 'away' && <strong>{team.name}</strong>}
                 </div>
+                {team.ratingGrade && (
+                  <span className={`${styles.ratingBadge} ${styles[`ratingGrade${team.ratingGrade[0]}`]}`}>
+                    120m rating: {team.ratingGrade}
+                  </span>
+                )}
                 <RatingsPitch
                   ratings={actualRatingsDisplay(performance)}
                   specialtyPositions={performance?.specialtyPositions ?? []}

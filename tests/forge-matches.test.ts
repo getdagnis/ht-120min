@@ -178,7 +178,8 @@ test('base round loads without CHPP while bounded state reads affect only reques
   delete process.env.CHPP_CONSUMER_KEY;
   delete process.env.CHPP_CONSUMER_SECRET;
   const requestedMatchFilters: string[] = [];
-  let profileReads = 0;
+  const profileSelects: string[] = [];
+  let chppRequests = 0;
   let preferenceOff = false;
   const team = (id: number) => ({ id: `db-team-${id}`, name: `Team ${id}`, manager_name: `Manager ${id}`,
     hattrick_user_id: id, ht_team_id: id + 1000, active: true, is_placeholder: false,
@@ -187,6 +188,7 @@ test('base round loads without CHPP while bounded state reads affect only reques
     completed: false, ht_match_id: null, scheduled_for: null, home_team: team(id * 2), away_team: team(id * 2 + 1) }));
   globalThis.fetch = async input => {
     const url = new URL(String(input));
+    if (url.hostname === 'chpp.hattrick.org') chppRequests++;
     const table = url.pathname.split('/').at(-1);
     let data: unknown = [];
     if (table === 'tournaments') data = [{ id: 'tournament-1', name: 'Cup', slug: 'cup', season: 1,
@@ -199,7 +201,7 @@ test('base round loads without CHPP while bounded state reads affect only reques
       requestedMatchFilters.push(filter);
       data = filter ? rows.filter(row => filter.includes(row.id)) : rows;
     }
-    if (table === 'profiles') profileReads++;
+    if (table === 'profiles') profileSelects.push(url.searchParams.get('select') || '');
     if (table === 'tournament_team_auto_arrange_preferences' && preferenceOff) {
       data = [{ team_id: 'db-team-2', hattrick_user_id: 2, enabled: false }];
     }
@@ -219,7 +221,8 @@ test('base round loads without CHPP while bounded state reads affect only reques
     const baseFixtures = base.body.fixtures as Array<{ id: string; home: { chppState: string; canChallenge: boolean } }>;
     assert.deepEqual(baseFixtures.map(fixture => fixture.id), ['match-1', 'match-2']);
     assert.ok(baseFixtures.every(fixture => fixture.home.chppState === 'CHECKING' && !fixture.home.canChallenge));
-    assert.equal(profileReads, 0);
+    assert.deepEqual(profileSelects, ['hattrick_user_id,teams_json']);
+    assert.equal(chppRequests, 0);
     const states = await invoke({ tournamentId: 'tournament-1', roundNumber: '1', view: 'states', matchIds: 'match-2' });
     assert.equal(states.status, 200);
     assert.deepEqual((states.body.fixtures as Array<{ id: string }>).map(fixture => fixture.id), ['match-2']);
