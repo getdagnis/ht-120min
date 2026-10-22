@@ -15,6 +15,7 @@ import { MottoWidget } from '../../components/MottoWidget/MottoWidget';
 import { ReusableWidget } from '../../components/ReusableWidget/ReusableWidget';
 import { TinderWidget } from '../../components/TinderWidget/TinderWidget';
 import { SupportersWall } from '../../components/SupportersWall/SupportersWall';
+import { SidebarPollWidget } from '../../components/SidebarPollWidget/SidebarPollWidget';
 import { WelcomeModal } from '../../components/WelcomeModal/WelcomeModal';
 import { GlobalChatWidget } from '../../components/GlobalChatWidget/GlobalChatWidget';
 import { GlobalActivityWidget } from '../../components/GlobalActivityWidget/GlobalActivityWidget';
@@ -893,6 +894,7 @@ export const Home: React.FC<{ initialData?: HomeInitialData }> = ({ initialData 
             <GlobalActivityWidget initialEntries={initialData?.activity || []} locale={locale} />
             <ForumWidget />
             <div className={styles.sidebarRest}>
+              <SidebarPollWidget myHtUserId={profile?.hattrick_user_id ? Number(profile.hattrick_user_id) : null} />
               <SupportersWall />
               <div className={styles.sectionHeader}>
                 <Star size={24} weight="regular" className={styles.sectionIcon} />
