@@ -112,6 +112,7 @@ interface FixturesViewProps {
     slug: string;
     created_at: string;
     status?: string | null;
+    schedule_mode?: string | null;
     last_fixtures_refresh: string | null;
   } | null;
   isRefreshingFixtures: boolean;
@@ -1145,6 +1146,19 @@ export const FixturesView: React.FC<FixturesViewProps> = ({
                   <div className={styles.fixturesControls} onClick={(e) => e.stopPropagation()}>
                     {allFinished || tournament?.status === 'finished' ? (
                       <>
+                        {tournament?.status !== 'finished' && tournament?.schedule_mode === 'length' &&
+                          rounds.some((next) => next.round_number === round.round_number + 1 && next.phase_status === 'pending') && (
+                            <button
+                              type="button"
+                              className={`${styles.refreshBtn} ${isRefreshingFixtures ? styles.spinning : ''}`}
+                              onClick={refreshFixturesAndRatings}
+                              disabled={isRefreshingFixtures}
+                              aria-label="Refresh results and advance the next round"
+                              title="Refresh results and advance the next round"
+                            >
+                              <ArrowClockwise size={18} />
+                            </button>
+                          )}
                         <span className={styles.lastRefresh}>
                           <div className="hideOnMobile">{uiText('copyForHTForums')}</div>
                         </span>

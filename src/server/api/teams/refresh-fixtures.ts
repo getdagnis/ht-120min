@@ -1348,10 +1348,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     const now = new Date();
     const upcomingRound = selectUpcomingRefreshRound(rounds, now, teams[0]?.country_name);
     if (!upcomingRound) {
-      if (tournament.schedule_mode === 'length') {
-        await progressLengthSchedule(supabase, String(tournament_id), Number(tournament.season || 1));
-      }
-      return res.status(200).json({ status: 'No upcoming rounds to refresh' });
+      const progression = tournament.schedule_mode === 'length'
+        ? await progressLengthSchedule(supabase, String(tournament_id), Number(tournament.season || 1))
+        : null;
+      return res.status(200).json({ status: 'No upcoming rounds to refresh', progression });
     }
 
     const warningRoundIdsToDeactivate = getFixtureWarningRoundIdsToDeactivate({
@@ -1941,9 +1941,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     // Update tournament refresh timestamp
     await supabase.from('tournaments').update({ last_fixtures_refresh: new Date().toISOString() }).eq('id', tournament_id);
 
-    if (tournament.schedule_mode === 'length') {
-      await progressLengthSchedule(supabase, String(tournament_id), Number(tournament.season || 1));
-    }
+    const progression = tournament.schedule_mode === 'length'
+      ? await progressLengthSchedule(supabase, String(tournament_id), Number(tournament.season || 1))
+      : null;
 
     let ratingsRefreshed = 0;
     if (String(req.query.manual_ratings || '') === '1') {
@@ -1986,9 +1986,12 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     } catch (error) {
       console.warn('[fixture-ratings] automatic sharing unavailable', { reason: error instanceof Error ? error.message : 'unknown' });
     }
-    return res.status(200).json({ status: 'Refresh successful', hattrick_context: hattrickContext, linked_match_ids: linkedMatchIds, ratings_refreshed: ratingsRefreshed, ratings_shared: ratingsShared });
+    return res.status(200).json({ status: 'Refresh successful', hattrick_context: hattrickContext, linked_match_ids: linkedMatchIds, ratings_refreshed: ratingsRefreshed, ratings_shared: ratingsShared, progression });
   } catch (error) {
     console.error(error);
-    return res.status(500).json({ error: error instanceof Error ? error.message : 'An unknown error occurred' });
+    const message = error && typeof error === 'object' && 'message' in error && typeof error.message === 'string'
+      ? error.message
+      : 'An unknown error occurred';
+    return res.status(500).json({ error: message });
   }
 }

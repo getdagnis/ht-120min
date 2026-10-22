@@ -62,6 +62,14 @@ opponent/BYE history fallback, preferring least-repeated opponents rather than
 forcing the original future plan. Finalized-unplayed fixtures are not played
 opponent history. Existing version 1 schedules retain their original progression.
 
+Every Active participant in a length season needs a current season slot before
+the next round can materialize. The transition checks this inside its atomic
+RPC and rejects a pairing that contains an unslotted team. Migration `141` is a
+guarded one-time repair for four already Active teams in two blocked tournaments:
+it adds new paired slots and assignment history without changing fixtures or
+reusing a standings line. It does not make unslotted Active registration safe;
+the paths that created those rows still need a separate prevention fix.
+
 Playoffs remain `postseason` competition rounds within the same fixture list.
 The regular standings qualify the top two, four or eight teams. Bracket match
 numbers preserve winner routing independently of database row ordering;

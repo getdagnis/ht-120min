@@ -799,6 +799,8 @@ export const TournamentView: React.FC<{
     : 'standings';
 
   const [isRefreshingFixtures, setIsRefreshingFixtures] = useState(false);
+  const [fixtureRefreshError, setFixtureRefreshError] = useState<string | null>(null);
+  const lastFixtureRefreshAttemptRef = useRef(0);
   const [isRefreshingRoster, setIsRefreshingRoster] = useState(false);
 
   const [announcements, setAnnouncements] = useState<TournamentAnnouncement[]>(
@@ -2628,19 +2630,32 @@ export const TournamentView: React.FC<{
 
   const isNewsTab = activeTab === 'guestbook' || activeTab === 'news';
 
+  const hasPendingLengthTransition = tournament?.schedule_mode === 'length' && rounds.some((round) =>
+    round.phase_status === 'materialized' &&
+    round.matches.length > 0 &&
+    round.matches.every((match) => match.completed || match.status === 'misarranged') &&
+    rounds.some((next) => next.round_number === round.round_number + 1 && next.phase_status === 'pending'),
+  );
+
   // Match-order prediction sharing remains click-triggered; finished-match facts
   // are refreshed automatically from the participating teams' stored credentials.
   const handleRefreshFixtures = useCallback(
     async (manualRatings = false) => {
       if (!tournament || isRefreshingFixtures) return;
+      lastFixtureRefreshAttemptRef.current = Date.now();
       setIsRefreshingFixtures(true);
+      setFixtureRefreshError(null);
       try {
         // 1. Refresh fixtures (detect arranged matches, warnings etc.)
         const response = await fetch(
           `/api/teams/refresh-fixtures?tournament_id=${tournament.id}${manualRatings ? '&manual_ratings=1' : ''}`,
         );
-        if (!response.ok) throw new Error('Failed to refresh fixtures');
-        const refreshResult = (await response.json().catch(() => null)) as { linked_match_ids?: number[] } | null;
+        const refreshResult = (await response.json().catch(() => null)) as {
+          error?: string;
+          linked_match_ids?: number[];
+          progression?: { advanced: boolean; reason?: string };
+        } | null;
+        if (!response.ok) throw new Error(refreshResult?.error || 'Failed to refresh fixtures');
 
         // 2. Also trigger a live check for HT-linked matches that may have result data.
         //    Finished-but-incomplete rows are included so an accidental manual clear can be recovered from CHPP.
@@ -2657,17 +2672,24 @@ export const TournamentView: React.FC<{
 
         if (matchIdsToSync.size > 0) {
           const ids = Array.from(matchIdsToSync).join(',');
-          await fetch(`/api/chpp/live-matches?tournament_id=${tournament.id}&match_ids=${ids}`);
+          const liveResponse = await fetch(`/api/chpp/live-matches?tournament_id=${tournament.id}&match_ids=${ids}`);
+          if (!liveResponse.ok) {
+            const liveResult = (await liveResponse.json().catch(() => null)) as { error?: string } | null;
+            setFixtureRefreshError(liveResult?.error || 'Failed to update match results');
+          }
         }
 
         await fetchFixturesOnly();
-      } catch (err: any) {
-        console.error(err.message);
+        if (hasPendingLengthTransition && refreshResult?.progression?.advanced === false) {
+          setFixtureRefreshError(`The next round could not advance: ${refreshResult.progression.reason || 'unknown reason'}.`);
+        }
+      } catch (err) {
+        setFixtureRefreshError(err instanceof Error ? err.message : 'Failed to refresh fixtures');
       } finally {
         setIsRefreshingFixtures(false);
       }
     },
-    [tournament, isRefreshingFixtures, fetchFixturesOnly, allMatches],
+    [tournament, isRefreshingFixtures, fetchFixturesOnly, allMatches, hasPendingLengthTransition],
   );
 
   const requestHtMatchLink = useCallback(
@@ -2913,10 +2935,11 @@ export const TournamentView: React.FC<{
     const shouldRefresh = () => {
       if (isRefreshingFixtures) return false;
       if (document.visibilityState !== 'visible') return false;
+      if (Date.now() - lastFixtureRefreshAttemptRef.current < 10 * 60 * 1000) return false;
       const lastRefreshDate = tournament.last_fixtures_refresh ? new Date(tournament.last_fixtures_refresh) : null;
       const ageMins = lastRefreshDate ? (Date.now() - lastRefreshDate.getTime()) / 60000 : 999;
       if (ageMins < 10) return false;
-      return rounds.some((r) => r.matches.some((m) => !m.completed));
+      return rounds.some((r) => r.matches.some((m) => !m.completed)) || hasPendingLengthTransition;
     };
 
     const t = setTimeout(() => {
@@ -2934,8 +2957,7 @@ export const TournamentView: React.FC<{
       clearTimeout(t);
       clearInterval(interval);
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [activeTab, currentSeasonNumberForSelection, selectedSeasonNumber, tournament?.id]);
+  }, [activeTab, currentSeasonNumberForSelection, selectedSeasonNumber, tournament, isRefreshingFixtures, rounds, hasPendingLengthTransition, handleRefreshFixtures]);
 
   const handleTabChange = (tab: 'standings' | 'fixtures' | 'history' | 'guestbook' | 'news' | 'admin') => {
     if (tab !== activeTab) {
@@ -6629,6 +6651,7 @@ export const TournamentView: React.FC<{
 
       {activeTab === 'fixtures' && (
         <div className={styles.fixturesContainer}>
+          {fixtureRefreshError && <div className={styles.refreshError} role="alert">{fixtureRefreshError}</div>}
           <FixturesView
             key={`${tournament?.id}-${fixtureSeasonNumber}`}
             rounds={fixtureRounds}
